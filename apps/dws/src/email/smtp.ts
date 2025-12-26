@@ -9,7 +9,6 @@
  */
 
 import { createHash, createSign } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { createServer, type Server, type Socket } from 'node:net'
 import { createServer as createTLSServer, TLSSocket } from 'node:tls'
 import {
@@ -29,7 +28,9 @@ import type { EmailTier, SMTPSession } from './types'
 interface SMTPServerConfig {
   host: string
   port: number
+  /** TLS certificate content (PEM format) or env var: SMTP_TLS_CERT */
   tlsCert: string
+  /** TLS private key content (PEM format) or env var: SMTP_TLS_KEY */
   tlsKey: string
   oauth3Endpoint: string
   emailDomain: string
@@ -37,6 +38,33 @@ interface SMTPServerConfig {
   dkimPrivateKey: string
   rpcUrl?: string
   emailRegistryAddress?: Address
+}
+
+/**
+ * Get certificate content from config (supports PEM content or base64-encoded env var)
+ * For serverless, set SMTP_TLS_CERT and SMTP_TLS_KEY environment variables
+ * with base64-encoded PEM content
+ */
+function getCertContent(configValue: string, envVar: string): string {
+  // Check env var first
+  const envValue = process.env[envVar]
+  if (envValue) {
+    // If it looks like base64 (no PEM markers), decode it
+    if (!envValue.includes('-----BEGIN')) {
+      return Buffer.from(envValue, 'base64').toString('utf-8')
+    }
+    return envValue
+  }
+
+  // Config value should contain the PEM content directly
+  // (not a file path - we don't use fs in serverless)
+  if (!configValue.includes('-----BEGIN')) {
+    throw new Error(
+      `${envVar} must be set with PEM certificate content (base64-encoded) for serverless deployment`,
+    )
+  }
+
+  return configValue
 }
 
 // ============ Contract ABI ============
@@ -83,8 +111,8 @@ export class SMTPServer {
     if (isImplicitTLS) {
       // Port 465 - Implicit TLS (SMTPS)
       const tlsOptions = {
-        cert: readFileSync(this.config.tlsCert),
-        key: readFileSync(this.config.tlsKey),
+        cert: getCertContent(this.config.tlsCert, 'SMTP_TLS_CERT'),
+        key: getCertContent(this.config.tlsKey, 'SMTP_TLS_KEY'),
       }
 
       this.server = createTLSServer(tlsOptions, (socket) => {

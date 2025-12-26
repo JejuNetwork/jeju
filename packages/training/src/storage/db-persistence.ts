@@ -4,6 +4,7 @@
 
 import { logger } from '@jejunetwork/shared'
 import type { DatasetReference } from './types'
+import { StringArraySchema } from './types'
 import type { TrajectoryBatchReference } from './static-storage'
 
 export interface TrainingDbClient {
@@ -121,22 +122,26 @@ export class TrainingDbPersistence {
       trajectory_ids: string
     }>(sql, [appName, limit])
 
-    return result.rows.map((row) => ({
-      batchId: row.batch_id,
-      appName: row.app_name,
-      archetype: row.archetype,
-      storageCid: row.storage_cid,
-      storageProvider: row.storage_provider,
-      trajectoryCount: row.trajectory_count,
-      totalSteps: row.total_steps,
-      totalReward: row.total_reward,
-      timeWindowStart: new Date(row.time_window_start),
-      timeWindowEnd: new Date(row.time_window_end),
-      createdAt: new Date(row.created_at),
-      compressedSizeBytes: row.compressed_size_bytes,
-      uncompressedSizeBytes: row.uncompressed_size_bytes,
-      trajectoryIds: JSON.parse(row.trajectory_ids) as string[],
-    }))
+    return result.rows.map((row) => {
+      const parsed: unknown = JSON.parse(row.trajectory_ids)
+      const trajectoryIds = StringArraySchema.parse(parsed)
+      return {
+        batchId: row.batch_id,
+        appName: row.app_name,
+        archetype: row.archetype,
+        storageCid: row.storage_cid,
+        storageProvider: row.storage_provider,
+        trajectoryCount: row.trajectory_count,
+        totalSteps: row.total_steps,
+        totalReward: row.total_reward,
+        timeWindowStart: new Date(row.time_window_start),
+        timeWindowEnd: new Date(row.time_window_end),
+        createdAt: new Date(row.created_at),
+        compressedSizeBytes: row.compressed_size_bytes,
+        uncompressedSizeBytes: row.uncompressed_size_bytes,
+        trajectoryIds,
+      }
+    })
   }
 
   async getDatasetsByArchetype(
@@ -171,26 +176,30 @@ export class TrainingDbPersistence {
       ruler_version: string
     }>(sql, [appName, archetype, limit])
 
-    return result.rows.map((row) => ({
-      datasetId: row.dataset_id,
-      appName: row.app_name,
-      archetype: row.archetype,
-      sourceBatchCids: JSON.parse(row.source_batch_cids) as string[],
-      permanentCid: row.permanent_cid,
-      storageProvider: row.storage_provider,
-      trajectoryCount: row.trajectory_count,
-      totalSteps: row.total_steps,
-      averageScore: row.average_score,
-      scoreDistribution: {
-        min: row.score_min,
-        max: row.score_max,
-        median: row.score_median,
-        stdDev: row.score_std_dev,
-      },
-      createdAt: new Date(row.created_at),
-      processedAt: new Date(row.processed_at),
-      rulerModelId: row.ruler_model_id,
-      rulerVersion: row.ruler_version,
-    }))
+    return result.rows.map((row) => {
+      const parsed: unknown = JSON.parse(row.source_batch_cids)
+      const sourceBatchCids = StringArraySchema.parse(parsed)
+      return {
+        datasetId: row.dataset_id,
+        appName: row.app_name,
+        archetype: row.archetype,
+        sourceBatchCids,
+        permanentCid: row.permanent_cid,
+        storageProvider: row.storage_provider,
+        trajectoryCount: row.trajectory_count,
+        totalSteps: row.total_steps,
+        averageScore: row.average_score,
+        scoreDistribution: {
+          min: row.score_min,
+          max: row.score_max,
+          median: row.score_median,
+          stdDev: row.score_std_dev,
+        },
+        createdAt: new Date(row.created_at),
+        processedAt: new Date(row.processed_at),
+        rulerModelId: row.ruler_model_id,
+        rulerVersion: row.ruler_version,
+      }
+    })
   }
 }

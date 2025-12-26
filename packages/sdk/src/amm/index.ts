@@ -1174,7 +1174,8 @@ export function createAMMModule(
           }),
         ])
 
-      const [sqrtPriceX96, tick] = slot0 as unknown as [bigint, number]
+      // slot0 returns: [sqrtPriceX96, tick, observationIndex, observationCardinality, observationCardinalityNext, feeProtocol, unlocked]
+      const slot0Array = slot0 as readonly [bigint, number, number, number, number, number, boolean]
 
       return {
         poolAddress,
@@ -1183,8 +1184,8 @@ export function createAMMModule(
         fee: poolFee as number,
         tickSpacing: tickSpacing as number,
         liquidity: liquidity as bigint,
-        sqrtPriceX96,
-        tick,
+        sqrtPriceX96: slot0Array[0],
+        tick: slot0Array[1],
       }
     },
 

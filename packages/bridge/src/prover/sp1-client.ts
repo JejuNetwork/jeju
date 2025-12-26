@@ -5,21 +5,19 @@
  * SP1 is a high-performance RISC-V zkVM that can prove arbitrary Rust programs.
  *
  * Features:
- * - Local proving with SP1 CLI
- * - Remote proving via Succinct Network
+ * - Remote proving via Succinct Network (serverless-compatible)
+ * - Local proving with SP1 CLI (Node.js/Bun only, requires filesystem)
  * - Groth16 proof generation for on-chain verification
  *
  * @see https://docs.succinct.xyz/
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getSuccinctApiKey,
   isProduction,
   isRequireRealProofs,
 } from '@jejunetwork/config'
-import { spawn } from 'bun'
 import type { Groth16Proof, Hash32, SP1Proof } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import {
@@ -29,6 +27,31 @@ import {
   ProofDataSchema,
   SuccinctProveResponseSchema,
 } from '../utils/index.js'
+
+// Dynamic imports for Node.js-only features (local proving)
+// These are only loaded when local proving is actually used
+type FsModule = typeof import('node:fs')
+type BunSpawnFn = typeof import('bun').spawn
+let fsModule: FsModule | null = null
+let bunSpawn: BunSpawnFn | null = null
+
+async function loadNodeModules(): Promise<{
+  fs: FsModule
+  spawn: BunSpawnFn
+}> {
+  if (!fsModule) {
+    fsModule = await import('node:fs')
+  }
+  if (!bunSpawn) {
+    const bun = await import('bun')
+    bunSpawn = bun.spawn
+  }
+  return { fs: fsModule, spawn: bunSpawn }
+}
+
+function isNodeEnvironment(): boolean {
+  return typeof process !== 'undefined' && process.versions?.node !== undefined
+}
 
 /** Type for proof data parsed from JSON */
 interface ProofDataParsed {
@@ -143,6 +166,7 @@ export class SP1Client {
   private sp1Available: boolean = false
   private initialized: boolean = false
   private tempDir: string
+  private nodeModulesLoaded: boolean = false
 
   constructor(config: SP1Config) {
     this.config = {
@@ -161,22 +185,43 @@ export class SP1Client {
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    // Create temp directory
-    if (!existsSync(this.tempDir)) {
-      mkdirSync(this.tempDir, { recursive: true })
+    // In serverless/browser, prioritize remote proving
+    if (!isNodeEnvironment()) {
+      if (this.config.useSuccinctNetwork && this.config.succinctApiKey) {
+        log.info('Using Succinct Network for remote proving (serverless mode)')
+      } else if (this.config.useMock) {
+        log.info('Using mock proofs (serverless development mode)')
+      } else {
+        log.warn('No remote proving configured in serverless environment')
+      }
+      this.initialized = true
+      return
     }
 
-    // Check if SP1 is available
-    this.sp1Available = await this.checkSP1Available()
+    // Node.js environment - can use local proving
+    try {
+      const { fs } = await loadNodeModules()
+      this.nodeModulesLoaded = true
 
-    if (this.sp1Available) {
-      log.info('SP1 toolchain detected')
-    } else if (this.config.useSuccinctNetwork && this.config.succinctApiKey) {
-      log.info('Using Succinct Network for remote proving')
-    } else if (this.config.useMock) {
-      log.info('Using mock proofs (development mode)')
-    } else {
-      log.warn('SP1 not available, falling back to mock proofs')
+      // Create temp directory
+      if (!fs.existsSync(this.tempDir)) {
+        fs.mkdirSync(this.tempDir, { recursive: true })
+      }
+
+      // Check if SP1 is available
+      this.sp1Available = await this.checkSP1Available()
+
+      if (this.sp1Available) {
+        log.info('SP1 toolchain detected')
+      } else if (this.config.useSuccinctNetwork && this.config.succinctApiKey) {
+        log.info('Using Succinct Network for remote proving')
+      } else if (this.config.useMock) {
+        log.info('Using mock proofs (development mode)')
+      } else {
+        log.warn('SP1 not available, falling back to mock proofs')
+      }
+    } catch {
+      log.info('Node.js modules not available, using remote proving only')
     }
 
     this.initialized = true
@@ -184,6 +229,11 @@ export class SP1Client {
 
   /**
    * Generate a proof
+   *
+   * Priority order:
+   * 1. Remote proving via Succinct Network (preferred, serverless-compatible)
+   * 2. Local proving with SP1 CLI (Node.js only, requires filesystem)
+   * 3. Mock proofs (development only)
    */
   async prove(request: ProofRequest): Promise<ProofResult> {
     if (!this.initialized) {
@@ -195,18 +245,18 @@ export class SP1Client {
 
     log.info('Generating proof', { type: request.type, id })
 
-    // Try real proof generation first
-    if (this.sp1Available && !this.config.useMock) {
-      return await this.generateRealProof(id, request, startTime)
-    }
-
-    // Try Succinct Network
+    // Prefer remote proving (serverless-compatible)
     if (
       this.config.useSuccinctNetwork &&
       this.config.succinctApiKey &&
       !this.config.useMock
     ) {
       return await this.generateRemoteProof(id, request, startTime)
+    }
+
+    // Try local SP1 proving (Node.js only)
+    if (this.sp1Available && !this.config.useMock && this.nodeModulesLoaded) {
+      return await this.generateRealProof(id, request, startTime)
     }
 
     // Fall back to mock
@@ -283,62 +333,77 @@ export class SP1Client {
   }
 
   /**
-   * Check if SP1 is available
+   * Check if SP1 is available (Node.js only)
    */
   async checkSP1Available(): Promise<boolean> {
-    // Check for cargo-prove
-    try {
-      const cargoProve = spawn({
-        cmd: ['cargo', 'prove', '--version'],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      })
-      await cargoProve.exited
-
-      if (cargoProve.exitCode === 0) {
-        return true
-      }
-    } catch {
-      // cargo-prove not found
+    if (!isNodeEnvironment() || !this.nodeModulesLoaded) {
+      return false
     }
 
-    // Check for sp1 CLI in common paths
-    const home = getHomeDir()
-    const sp1Paths = [
-      join(home, '.sp1', 'bin', 'sp1'),
-      join(home, '.cargo', 'bin', 'sp1'),
-    ]
+    try {
+      const { fs, spawn } = await loadNodeModules()
 
-    for (const sp1Path of sp1Paths) {
+      // Check for cargo-prove
       try {
-        if (!existsSync(sp1Path)) continue
-
-        const proc = spawn({
-          cmd: [sp1Path, '--version'],
+        const cargoProve = spawn({
+          cmd: ['cargo', 'prove', '--version'],
           stdout: 'pipe',
           stderr: 'pipe',
         })
-        await proc.exited
+        await cargoProve.exited
 
-        if (proc.exitCode === 0) {
+        if (cargoProve.exitCode === 0) {
           return true
         }
       } catch {
-        // This path not available
+        // cargo-prove not found
       }
+
+      // Check for sp1 CLI in common paths
+      const home = getHomeDir()
+      const sp1Paths = [
+        join(home, '.sp1', 'bin', 'sp1'),
+        join(home, '.cargo', 'bin', 'sp1'),
+      ]
+
+      for (const sp1Path of sp1Paths) {
+        try {
+          if (!fs.existsSync(sp1Path)) continue
+
+          const proc = spawn({
+            cmd: [sp1Path, '--version'],
+            stdout: 'pipe',
+            stderr: 'pipe',
+          })
+          await proc.exited
+
+          if (proc.exitCode === 0) {
+            return true
+          }
+        } catch {
+          // This path not available
+        }
+      }
+    } catch {
+      // Node modules not available
     }
 
     return false
   }
 
+  /**
+   * Generate proof using local SP1 toolchain (Node.js only)
+   */
   private async generateRealProof(
     id: string,
     request: ProofRequest,
     startTime: number,
   ): Promise<ProofResult> {
+    const { fs, spawn } = await loadNodeModules()
+
     const programPath = this.getProgramPath(request.type)
 
-    if (!existsSync(programPath)) {
+    if (!fs.existsSync(programPath)) {
       log.warn('Program not found, falling back to mock', { programPath })
       return await this.generateMockProof(id, request, startTime)
     }
@@ -347,7 +412,7 @@ export class SP1Client {
     const inputPath = join(this.tempDir, `${id}_input.json`)
     const outputPath = join(this.tempDir, `${id}_output.json`)
 
-    writeFileSync(
+    fs.writeFileSync(
       inputPath,
       JSON.stringify(request.inputs, (_, v) =>
         typeof v === 'bigint' ? v.toString() : v,
@@ -355,7 +420,7 @@ export class SP1Client {
     )
 
     // Get cargo-prove path
-    const cargoProvePath = this.getCargoProvePath()
+    const cargoProvePath = await this.getCargoProvePath()
     log.debug('Using SP1 toolchain', { cargoProvePath, programPath })
 
     // Run SP1 prover with cargo-prove
@@ -416,13 +481,13 @@ export class SP1Client {
     }
 
     // Read output
-    if (!existsSync(outputPath)) {
+    if (!fs.existsSync(outputPath)) {
       log.warn('Output file not found, using mock proof', { outputPath })
       return await this.generateMockProof(id, request, startTime)
     }
 
     // Validate output file content before parsing
-    const outputContent = readFileSync(outputPath, 'utf-8')
+    const outputContent = fs.readFileSync(outputPath, 'utf-8')
     if (!outputContent || outputContent.trim().length === 0) {
       log.error('Empty output file from prover')
       return {
@@ -441,7 +506,10 @@ export class SP1Client {
       groth16: Groth16DataParsed
     }
     try {
-      const parsed = JSON.parse(outputContent)
+      const parsed = JSON.parse(outputContent) as {
+        proof: string | ProofDataParsed
+        groth16: Groth16DataParsed
+      }
       // Validate required fields exist
       if (!parsed.proof || !parsed.groth16) {
         throw new Error('Missing required proof or groth16 fields')
@@ -603,9 +671,10 @@ export class SP1Client {
   }
 
   /**
-   * Get the path to cargo-prove binary
+   * Get the path to cargo-prove binary (Node.js only)
    */
-  private getCargoProvePath(): string {
+  private async getCargoProvePath(): Promise<string> {
+    const { fs } = await loadNodeModules()
     const home = getHomeDir()
     const paths = [
       join(home, '.sp1', 'bin', 'cargo-prove'),
@@ -613,7 +682,7 @@ export class SP1Client {
     ]
 
     for (const p of paths) {
-      if (existsSync(p)) {
+      if (fs.existsSync(p)) {
         return p
       }
     }
@@ -677,14 +746,24 @@ export class SP1Client {
   }
 }
 
+/**
+ * Create an SP1 client
+ *
+ * In serverless environments, this will automatically use remote proving.
+ * In Node.js environments, local proving is available if SP1 toolchain is installed.
+ */
 export function createSP1Client(config?: Partial<SP1Config>): SP1Client {
   const programsDir = config?.programsDir ?? join(process.cwd(), 'circuits')
 
-  // These defaults are intentional for local development convenience
-  const useMock = config?.useMock ?? !existsSync(programsDir)
   const succinctApiKey = config?.succinctApiKey ?? getSuccinctApiKey()
+
+  // Prefer remote proving in serverless, fall back to mock if no API key
   const useSuccinctNetwork =
     config?.useSuccinctNetwork ?? Boolean(succinctApiKey)
+
+  // Default to mock only if no remote proving AND explicitly requested
+  // The initialize() method will check for local SP1 availability
+  const useMock = config?.useMock ?? false
 
   return new SP1Client({
     programsDir,

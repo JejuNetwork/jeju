@@ -1,6 +1,7 @@
 /** Datasets Routes */
 
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   type DatasetRow,
   createDataset as dbCreateDataset,
@@ -11,6 +12,9 @@ import {
   DatasetsQuerySchema,
   expectValid,
 } from '../schemas'
+
+// Schema for dataset tags
+const TagsSchema = z.array(z.string())
 import { requireAuth } from '../validation/access-control'
 
 export interface Dataset {
@@ -45,7 +49,7 @@ function transformDataset(row: DatasetRow): Dataset {
     downloads: row.downloads,
     stars: row.stars,
     license: row.license,
-    tags: JSON.parse(row.tags) as string[],
+    tags: TagsSchema.parse(JSON.parse(row.tags)),
     isVerified: row.is_verified === 1,
     status: row.status,
     createdAt: row.created_at,

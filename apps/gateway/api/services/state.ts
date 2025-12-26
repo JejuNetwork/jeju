@@ -8,11 +8,21 @@ import type {
   SupportedChainId,
 } from '@jejunetwork/types'
 import {
+  IntentInputSchema,
+  IntentOutputSchema,
   isSupportedChainId,
   parseOptionalAddress,
   parseOptionalHex,
+  SupportedChainIdSchema,
 } from '@jejunetwork/types'
+import { z } from 'zod'
 import { CachedIntentSchema, CachedSolverSchema } from '../../lib/validation'
+
+// Schemas for DB JSON columns
+const IntentInputsSchema = z.array(IntentInputSchema)
+const IntentOutputsSchema = z.array(IntentOutputSchema)
+const SupportedChainsSchema = z.array(SupportedChainIdSchema)
+const SupportedTokensSchema = z.array(z.string())
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'gateway'
 
@@ -271,8 +281,8 @@ function rowToIntent(row: IntentRow): Intent {
     sourceChainId: parseChainId(row.source_chain_id),
     openDeadline: row.open_deadline,
     fillDeadline: row.fill_deadline,
-    inputs: JSON.parse(row.inputs),
-    outputs: JSON.parse(row.outputs),
+    inputs: IntentInputsSchema.parse(JSON.parse(row.inputs)),
+    outputs: IntentOutputsSchema.parse(JSON.parse(row.outputs)),
     signature: parseOptionalHex(row.signature) ?? '0x',
     status: parseIntentStatus(row.status),
     solver: parseOptionalAddress(row.solver),
@@ -312,8 +322,8 @@ function rowToSolver(row: SolverRow): Solver {
     address,
     name: row.name,
     endpoint: row.endpoint ?? '',
-    supportedChains: JSON.parse(row.supported_chains),
-    supportedTokens: JSON.parse(row.supported_tokens),
+    supportedChains: SupportedChainsSchema.parse(JSON.parse(row.supported_chains)),
+    supportedTokens: SupportedTokensSchema.parse(JSON.parse(row.supported_tokens)),
     liquidity: [],
     reputation: row.reputation,
     totalFills: row.total_fills,

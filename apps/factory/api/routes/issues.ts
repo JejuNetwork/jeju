@@ -12,10 +12,12 @@ import {
   updateIssue,
 } from '../db/client'
 import {
+  AssigneesSchema,
   CreateIssueBodySchema,
   expectValid,
   IssueCommentBodySchema,
   IssuesQuerySchema,
+  LabelsSchema,
   UpdateIssueBodySchema,
 } from '../schemas'
 import { requireAuth } from '../validation/access-control'
@@ -60,7 +62,7 @@ function transformComment(row: IssueCommentRow): IssueComment {
 }
 
 function transformIssue(row: IssueRow): Issue {
-  const assigneesList = JSON.parse(row.assignees) as string[]
+  const assigneesList = AssigneesSchema.parse(JSON.parse(row.assignees))
   return {
     id: row.id,
     number: row.number,
@@ -72,7 +74,7 @@ function transformIssue(row: IssueRow): Issue {
       name: row.author,
       avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${row.author}`,
     },
-    labels: JSON.parse(row.labels) as string[],
+    labels: LabelsSchema.parse(JSON.parse(row.labels)),
     assignees: assigneesList.map((addr) => ({
       name: addr,
       avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}`,

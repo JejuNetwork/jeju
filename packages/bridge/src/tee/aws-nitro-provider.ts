@@ -14,13 +14,22 @@
  * - AWS credentials for KMS integration (optional)
  */
 
-import { existsSync } from 'node:fs'
 import {
   getAwsEnclaveId,
   getAwsRegion,
   isAwsNitroSimulate,
   isTestMode,
 } from '@jejunetwork/config'
+
+// Dynamic import for Node.js-only fs (TEE detection only runs in Node.js)
+async function existsSyncSafe(path: string): Promise<boolean> {
+  try {
+    const fs = await import('node:fs')
+    return fs.existsSync(path)
+  } catch {
+    return false
+  }
+}
 import { keccak256, toBytes } from 'viem'
 import type { TEEAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
@@ -183,8 +192,9 @@ export class AWSNitroProvider implements ITEEProvider {
 
     // Check for Nitro-specific files/devices
     try {
-      // Check for NSM device (static import - always needed for TEE detection)
-      if (existsSync('/dev/nsm')) {
+      // Check for NSM device
+      const hasNsm = await existsSyncSafe('/dev/nsm')
+      if (hasNsm) {
         return true
       }
 

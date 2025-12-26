@@ -18,8 +18,9 @@ import {
 } from '@jejunetwork/config'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
-import type { TrajectoryStep } from '../schemas'
-import { isCIDResponse, isEncryptedPayload } from './type-guards'
+import { z } from 'zod'
+import { TrajectoryStepSchema, type TrajectoryStep } from '../schemas'
+import { validateCIDResponse, validateEncryptedPayload } from './type-guards'
 import type {
   AccessCondition,
   AccessControlPolicy,
@@ -206,26 +207,28 @@ export class EncryptedTrajectoryStorage {
   private async decryptJSON<T>(
     encrypted: EncryptedPayload,
     authSig: AuthSignature,
+    schema: z.ZodType<T>,
   ): Promise<T> {
+    let jsonString: string
     if (
       !this.encryptionProvider ||
       encrypted.encryptedSymmetricKey === 'unencrypted'
     ) {
       // Unencrypted data - just decode
-      return JSON.parse(
-        Buffer.from(encrypted.ciphertext, 'base64').toString(),
-      ) as T
+      jsonString = Buffer.from(encrypted.ciphertext, 'base64').toString()
+    } else {
+      logger.debug('[EncryptedStorage] Decrypting', {
+        keyId: encrypted.encryptedSymmetricKey,
+      })
+
+      jsonString = await this.encryptionProvider.decrypt({
+        payload: encrypted.ciphertext,
+        proof: authSig.sig,
+      })
     }
 
-    logger.debug('[EncryptedStorage] Decrypting', {
-      keyId: encrypted.encryptedSymmetricKey,
-    })
-
-    const decrypted = await this.encryptionProvider.decrypt({
-      payload: encrypted.ciphertext,
-      proof: authSig.sig,
-    })
-    return JSON.parse(decrypted) as T
+    const parsed: unknown = JSON.parse(jsonString)
+    return schema.parse(parsed)
   }
 
   // --------------------------------------------------------------------------
@@ -391,10 +394,11 @@ export class EncryptedTrajectoryStorage {
     // Download from IPFS
     const encrypted = await this.downloadFromIPFS(encryptedCid)
 
-    // Decrypt with auth
-    const decrypted = await this.decryptJSON<TrajectoryStep[]>(
+    // Decrypt with auth and validate
+    const decrypted = await this.decryptJSON(
       encrypted,
       authSig,
+      z.array(TrajectoryStepSchema),
     )
 
     logger.info('[EncryptedStorage] Retrieved trajectory', {
@@ -478,10 +482,8 @@ export class EncryptedTrajectoryStorage {
       throw new Error(`Failed to upload to IPFS: ${response.statusText}`)
     }
 
-    const result: unknown = await response.json()
-    if (!isCIDResponse(result)) {
-      throw new Error('Invalid IPFS upload response')
-    }
+    const responseData: unknown = await response.json()
+    const result = validateCIDResponse(responseData)
     return result.cid
   }
 
@@ -495,10 +497,7 @@ export class EncryptedTrajectoryStorage {
     }
 
     const data: unknown = await response.json()
-    if (!isEncryptedPayload(data)) {
-      throw new Error('Invalid encrypted payload from IPFS')
-    }
-    return data
+    return validateEncryptedPayload(data)
   }
 
   // --------------------------------------------------------------------------

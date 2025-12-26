@@ -11,11 +11,25 @@
 import { getDWSUrl, getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { Cron } from 'croner'
+import { z } from 'zod'
 import {
   createBatchProcessor,
   type DatasetReference,
   type TrajectoryBatchProcessor,
 } from './batch-processor'
+
+// Schema for JSON response from trigger endpoints
+const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+)
+const TriggerResponseSchema = z.record(z.string(), JsonValueSchema)
 
 export interface AppCronTrigger {
   triggerId: string
@@ -228,11 +242,11 @@ export class TrainingCronOrchestrator {
     } else {
       result.success = true
 
-      // Parse JSON response with error handling
+      // Parse JSON response with validation
       try {
         const responseText = await response.text()
         if (responseText.trim()) {
-          result.response = JSON.parse(responseText) as Record<string, unknown>
+          result.response = TriggerResponseSchema.parse(JSON.parse(responseText))
         } else {
           result.response = {}
         }

@@ -14,7 +14,7 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
     async ({ body }) => {
       // Join evidence array into comma-separated string if provided
       const evidenceStr = body.evidence?.join(',')
-      const flag = moderation.submitFlag(
+      const flag = await moderation.submitFlag(
         body.proposalId,
         body.flagger,
         expectFlagType(body.flagType),
@@ -39,7 +39,7 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   .post(
     '/vote',
     async ({ body }) => {
-      moderation.voteOnFlag(body.flagId, body.voter, body.upvote)
+      await moderation.voteOnFlag(body.flagId, body.voter, body.upvote)
       return { success: true }
     },
     {
@@ -54,7 +54,7 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   .post(
     '/resolve',
     async ({ body }) => {
-      moderation.resolveFlag(body.flagId, body.upheld)
+      await moderation.resolveFlag(body.flagId, body.upheld)
       return { success: true }
     },
     {
@@ -67,8 +67,8 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .get(
     '/score/:proposalId',
-    ({ params }) => {
-      const score = moderation.getProposalModerationScore(params.proposalId)
+    async ({ params }) => {
+      const score = await moderation.getProposalModerationScore(params.proposalId)
       return score
     },
     {
@@ -81,8 +81,8 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .get(
     '/flags/:proposalId',
-    ({ params }) => {
-      const flags = moderation.getProposalFlags(params.proposalId)
+    async ({ params }) => {
+      const flags = await moderation.getProposalFlags(params.proposalId)
       return { flags }
     },
     {
@@ -92,8 +92,8 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .get(
     '/active-flags',
-    () => {
-      const flags = moderation.getActiveFlags()
+    async () => {
+      const flags = await moderation.getActiveFlags()
       return { flags }
     },
     {
@@ -102,9 +102,9 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .get(
     '/leaderboard',
-    ({ query }) => {
+    async ({ query }) => {
       const limit = parseInt(query.limit ?? '10', 10)
-      const moderators = moderation.getTopModerators(limit)
+      const moderators = await moderation.getTopModerators(limit)
       return { moderators }
     },
     {
@@ -114,8 +114,8 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .get(
     '/moderator/:address',
-    ({ params }) => {
-      const stats = moderation.getModeratorStats(toAddress(params.address))
+    async ({ params }) => {
+      const stats = await moderation.getModeratorStats(toAddress(params.address))
       return stats
     },
     {
@@ -125,8 +125,8 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .get(
     '/should-reject/:proposalId',
-    ({ params }) => {
-      const result = moderation.shouldAutoReject(params.proposalId)
+    async ({ params }) => {
+      const result = await moderation.shouldAutoReject(params.proposalId)
       return result
     },
     {

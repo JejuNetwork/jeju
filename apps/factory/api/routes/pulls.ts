@@ -1,6 +1,7 @@
 /** Pull Requests Routes */
 
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   createPullRequest as dbCreatePR,
   createPRReview as dbCreateReview,
@@ -13,10 +14,14 @@ import {
 import {
   CreatePullBodySchema,
   expectValid,
+  LabelsSchema,
   PullMergeBodySchema,
   PullReviewBodySchema,
   PullsQuerySchema,
 } from '../schemas'
+
+// Schema for DB column parsing
+const ReviewersSchema = z.array(z.string())
 import { requireAuth } from '../validation/access-control'
 
 export interface PRAuthor {
@@ -79,7 +84,7 @@ function transformReview(row: PRReviewRow): Review {
 }
 
 function transformPR(row: PullRequestRow): PullRequest {
-  const reviewersList = JSON.parse(row.reviewers) as string[]
+  const reviewersList = ReviewersSchema.parse(JSON.parse(row.reviewers))
   return {
     id: row.id,
     number: row.number,
@@ -94,7 +99,7 @@ function transformPR(row: PullRequestRow): PullRequest {
     },
     sourceBranch: row.source_branch,
     targetBranch: row.target_branch,
-    labels: JSON.parse(row.labels) as string[],
+    labels: LabelsSchema.parse(JSON.parse(row.labels)),
     reviewers: reviewersList.map((name) => ({ name, status: 'pending' })),
     commits: row.commits,
     additions: row.additions,

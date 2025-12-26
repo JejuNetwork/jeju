@@ -1,6 +1,5 @@
 /** Factory API Server */
 
-import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
@@ -33,15 +32,8 @@ import { repoSettingsRoutes } from './routes/repo-settings'
 const PORT = Number(process.env.PORT) || CORE_PORTS.FACTORY.get()
 const isDev = process.env.NODE_ENV !== 'production'
 
-function getStaticPath(): string | null {
-  const distClient = 'dist/client'
-  if (existsSync(distClient) && existsSync(join(distClient, 'index.html'))) {
-    return distClient
-  }
-  return null
-}
-
-const staticPath = getStaticPath()
+/** Use env var to control static file serving - set at build time */
+const staticPath = process.env.FACTORY_SERVE_STATIC === 'true' ? 'dist/client' : null
 const hasStaticFiles = staticPath !== null
 
 function createApp() {

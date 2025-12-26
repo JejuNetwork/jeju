@@ -23,7 +23,7 @@
  * ```
  */
 
-import { expectValid, type JsonRecord } from '@jejunetwork/types'
+import { AddressSchema, expectValid, type JsonRecord } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { privateKeyToAccount, signMessage } from 'viem/accounts'
 import { z } from 'zod'
@@ -36,7 +36,7 @@ const ErrorResponseSchema = z.object({
 // API response schemas
 const ProvisionedDatabaseSchema = z.object({
   databaseId: z.string(),
-  owner: z.string().transform((s) => s as Address),
+  owner: AddressSchema,
   appName: z.string(),
   createdAt: z.number(),
   status: z.enum(['active', 'suspended', 'deleted']),

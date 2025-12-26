@@ -626,7 +626,7 @@ const app = new Elysia()
   })
   .post('/api/v1/moderation/flag', async ({ body }) => {
     const parsed = ModerationFlagRequestSchema.parse(body)
-    const flag = moderation.submitFlag(
+    const flag = await moderation.submitFlag(
       parsed.proposalId,
       parsed.flagger,
       expectFlagType(parsed.flagType),
@@ -638,29 +638,29 @@ const app = new Elysia()
   })
   .post('/api/v1/moderation/vote', async ({ body }) => {
     const parsed = ModerationVoteRequestSchema.parse(body)
-    moderation.voteOnFlag(parsed.flagId, parsed.voter, parsed.upvote)
+    await moderation.voteOnFlag(parsed.flagId, parsed.voter, parsed.upvote)
     return { success: true }
   })
   .post('/api/v1/moderation/resolve', async ({ body }) => {
     const parsed = ModerationResolveRequestSchema.parse(body)
-    moderation.resolveFlag(parsed.flagId, parsed.upheld)
+    await moderation.resolveFlag(parsed.flagId, parsed.upheld)
     return { success: true }
   })
-  .get('/api/v1/moderation/score/:proposalId', ({ params }) => {
+  .get('/api/v1/moderation/score/:proposalId', async ({ params }) => {
     const proposalId = ProposalIdSchema.parse(params.proposalId)
-    const score = moderation.getProposalModerationScore(proposalId)
+    const score = await moderation.getProposalModerationScore(proposalId)
     return score
   })
-  .get('/api/v1/moderation/flags/:proposalId', ({ params }) => {
+  .get('/api/v1/moderation/flags/:proposalId', async ({ params }) => {
     const proposalId = ProposalIdSchema.parse(params.proposalId)
-    const flags = moderation.getProposalFlags(proposalId)
+    const flags = await moderation.getProposalFlags(proposalId)
     return { flags }
   })
-  .get('/api/v1/moderation/active-flags', () => {
-    const flags = moderation.getActiveFlags()
+  .get('/api/v1/moderation/active-flags', async () => {
+    const flags = await moderation.getActiveFlags()
     return { flags }
   })
-  .get('/api/v1/moderation/leaderboard', ({ query }) => {
+  .get('/api/v1/moderation/leaderboard', async ({ query }) => {
     const limitSchema = z
       .string()
       .regex(/^\d+$/)
@@ -668,20 +668,20 @@ const app = new Elysia()
       .pipe(z.number().int().min(1).max(100))
       .optional()
     const limit = limitSchema.parse(query.limit) ?? 10
-    const moderators = moderation.getTopModerators(limit)
+    const moderators = await moderation.getTopModerators(limit)
     return { moderators }
   })
-  .get('/api/v1/moderation/moderator/:address', ({ params }) => {
+  .get('/api/v1/moderation/moderator/:address', async ({ params }) => {
     const address = z
       .string()
       .regex(/^0x[a-fA-F0-9]{40}$/)
       .parse(params.address)
-    const stats = moderation.getModeratorStats(toAddress(address))
+    const stats = await moderation.getModeratorStats(toAddress(address))
     return stats
   })
-  .get('/api/v1/moderation/should-reject/:proposalId', ({ params }) => {
+  .get('/api/v1/moderation/should-reject/:proposalId', async ({ params }) => {
     const proposalId = ProposalIdSchema.parse(params.proposalId)
-    const result = moderation.shouldAutoReject(proposalId)
+    const result = await moderation.shouldAutoReject(proposalId)
     return result
   })
   .get('/api/v1/dao/list', async ({ set }) => {
@@ -1087,11 +1087,11 @@ const app = new Elysia()
       registry: '/api/v1/registry',
     },
   }))
-  .get('/metrics', () => {
+  .get('/metrics', async () => {
     const mem = process.memoryUsage()
     const uptime = (Date.now() - metricsData.startTime) / 1000
     const orch = orchestrator?.getStatus()
-    const activeFlags = moderation.getActiveFlags().length
+    const activeFlags = (await moderation.getActiveFlags()).length
     const lines = [
       '# HELP council_requests_total Total HTTP requests',
       '# TYPE council_requests_total counter',

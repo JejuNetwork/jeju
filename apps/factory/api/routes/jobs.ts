@@ -9,7 +9,12 @@ import {
   getJob,
   type JobRow,
 } from '../db/client'
-import { CreateJobBodySchema, expectValid, JobsQuerySchema } from '../schemas'
+import {
+  CreateJobBodySchema,
+  expectValid,
+  JobsQuerySchema,
+  SkillsSchema,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 export type { Job, JobSalary }
@@ -34,7 +39,7 @@ function transformJob(row: JobRow): Job {
             period: row.salary_period as JobSalary['period'],
           }
         : undefined,
-    skills: JSON.parse(row.skills) as string[],
+    skills: SkillsSchema.parse(JSON.parse(row.skills)),
     description: row.description,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

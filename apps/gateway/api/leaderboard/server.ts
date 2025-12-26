@@ -135,7 +135,18 @@ const app = new Elysia()
       if (text.length > MAX_BODY_SIZE) {
         throw new Error('Request body too large')
       }
-      return JSON.parse(text)
+      // Parse and validate as generic JSON value
+      const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
+        z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.null(),
+          z.array(JsonValueSchema),
+          z.record(z.string(), JsonValueSchema),
+        ])
+      )
+      return JsonValueSchema.parse(JSON.parse(text))
     }
   })
   .get('/health', () => ({ status: 'ok', service: 'leaderboard' }))

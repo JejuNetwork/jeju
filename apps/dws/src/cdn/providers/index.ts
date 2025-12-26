@@ -9,6 +9,7 @@
  */
 
 import type { CDNProviderType, CDNRegion } from '@jejunetwork/types'
+import { z } from 'zod'
 import type { CDNProviderAdapter, ProviderMetrics } from '../types'
 
 // ============================================================================
@@ -34,6 +35,18 @@ export interface DeployedCDNProvider {
   /** Whether provider is healthy */
   healthy: boolean
 }
+
+const DeployedCDNProviderSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  endpoint: z.string(),
+  regions: z.array(z.string()),
+  healthy: z.boolean(),
+})
+
+const ProvidersResponseSchema = z.object({
+  providers: z.array(DeployedCDNProviderSchema),
+})
 
 /**
  * HTTP-based provider adapter that works with any deployed CDN gateway
@@ -240,6 +253,11 @@ export async function discoverProviders(
     return []
   }
 
-  const data = (await response.json()) as { providers: DeployedCDNProvider[] }
-  return data.providers ?? []
+  const rawData: unknown = await response.json()
+  const result = ProvidersResponseSchema.safeParse(rawData)
+  if (!result.success) {
+    console.warn('[CDN Providers] Invalid provider response:', result.error.message)
+    return []
+  }
+  return result.data.providers as DeployedCDNProvider[]
 }

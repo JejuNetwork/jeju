@@ -1,6 +1,7 @@
 /** Discussions Routes */
 
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   type DiscussionReplyRow,
   type DiscussionRow,
@@ -17,6 +18,9 @@ import {
   DiscussionsQuerySchema,
   expectValid,
 } from '../schemas'
+
+// Schema for discussion tags
+const TagsSchema = z.array(z.string())
 import { requireAuth } from '../validation/access-control'
 
 export interface DiscussionAuthor {
@@ -76,7 +80,7 @@ function transformDiscussion(row: DiscussionRow): Discussion {
       avatar: row.author_avatar,
     },
     category: row.category,
-    tags: JSON.parse(row.tags) as string[],
+    tags: TagsSchema.parse(JSON.parse(row.tags)),
     replies: row.replies_count,
     views: row.views,
     likes: row.likes,

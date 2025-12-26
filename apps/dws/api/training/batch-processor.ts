@@ -10,7 +10,9 @@ import { getServicesConfig } from '@jejunetwork/config'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
 import type {
   ArchetypeScore,
+  LLMCallJSONLRecord,
   ScoringTrajectoryRecord,
+  TrajectoryJSONLRecord,
 } from '@jejunetwork/training'
 import {
   ArchetypeScoringService,
@@ -45,6 +47,22 @@ const RawTrajectorySchema = z.object({
   ),
 })
 
+// Schema for OpenAI-style chat completion response
+const ChatCompletionResponseSchema = z.object({
+  choices: z.array(
+    z.object({
+      message: z.object({
+        content: z.string(),
+      }),
+    }),
+  ),
+})
+
+// Schema for DWS upload response
+const DWSUploadResponseSchema = z.object({
+  cid: z.string().min(1),
+})
+
 /**
  * Zod schema for LLM call data validation
  */
@@ -60,6 +78,47 @@ const LLMCallSchema = z.object({
 
 type ValidatedTrajectory = z.infer<typeof RawTrajectorySchema>
 type ValidatedLLMCall = z.infer<typeof LLMCallSchema>
+
+/**
+ * Zod schema for scored trajectory validation
+ */
+const ScoredTrajectorySchema = z.object({
+  trajectoryId: z.string(),
+  agentId: z.string(),
+  archetype: z.string(),
+  score: z.number(),
+  reasoning: z.string(),
+  steps: z.array(
+    z.object({
+      stepNumber: z.number(),
+      timestamp: z.number(),
+      action: z
+        .object({
+          actionType: z.string(),
+          parameters: z.record(z.unknown()).optional(),
+          success: z.boolean(),
+        })
+        .nullable(),
+      reward: z.number(),
+      llmCalls: z.array(
+        z.object({
+          model: z.string(),
+          systemPrompt: z.string(),
+          userPrompt: z.string(),
+          response: z.string(),
+          temperature: z.number(),
+          maxTokens: z.number(),
+        }),
+      ),
+    }),
+  ),
+  metrics: z.object({
+    totalReward: z.number(),
+    episodeLength: z.number(),
+    finalPnL: z.number().optional(),
+    actionSuccessRate: z.number(),
+  }),
+})
 
 export interface BatchProcessorConfig {
   storageEndpoint: string
@@ -94,38 +153,9 @@ export interface DatasetReference {
 
 /**
  * Scored trajectory for dataset export
+ * Type is inferred from the Zod schema above
  */
-interface ScoredTrajectory {
-  trajectoryId: string
-  agentId: string
-  archetype: string
-  score: number
-  reasoning: string
-  steps: Array<{
-    stepNumber: number
-    timestamp: number
-    action: {
-      actionType: string
-      parameters?: Record<string, unknown>
-      success: boolean
-    } | null
-    reward: number
-    llmCalls: Array<{
-      model: string
-      systemPrompt: string
-      userPrompt: string
-      response: string
-      temperature: number
-      maxTokens: number
-    }>
-  }>
-  metrics: {
-    totalReward: number
-    episodeLength: number
-    finalPnL?: number
-    actionSuccessRate: number
-  }
-}
+type ScoredTrajectory = z.infer<typeof ScoredTrajectorySchema>
 
 /**
  * LLM caller for DWS inference
@@ -169,16 +199,15 @@ function createDWSInferenceCaller(
         throw new Error(`DWS inference failed: ${response.status} - ${error}`)
       }
 
-      const result = (await response.json()) as {
-        choices: Array<{ message: { content: string } }>
+      const data: unknown = await response.json()
+      const result = ChatCompletionResponseSchema.parse(data)
+
+      const firstChoice = result.choices[0]
+      if (!firstChoice) {
+        throw new Error('No choices in inference response')
       }
 
-      const content = result.choices[0]?.message?.content
-      if (!content) {
-        throw new Error('No content in inference response')
-      }
-
-      return content
+      return firstChoice.message.content
     },
   }
 }
@@ -226,8 +255,8 @@ export class TrajectoryBatchProcessor {
 
     // Download and merge all batches
     const allTrajectories: Array<{
-      raw: Record<string, unknown>
-      llmCalls: Array<Record<string, unknown>>
+      raw: TrajectoryJSONLRecord
+      llmCalls: LLMCallJSONLRecord[]
       sourceCid: string
     }> = []
 
@@ -242,8 +271,8 @@ export class TrajectoryBatchProcessor {
           (c) => c.trajectoryId === traj.trajectoryId,
         )
         allTrajectories.push({
-          raw: traj as unknown as Record<string, unknown>,
-          llmCalls: trajLlmCalls as unknown as Array<Record<string, unknown>>,
+          raw: traj,
+          llmCalls: trajLlmCalls,
           sourceCid: cid,
         })
       }
@@ -261,7 +290,7 @@ export class TrajectoryBatchProcessor {
     // Group by archetype
     const byArchetype = new Map<string, typeof allTrajectories>()
     for (const traj of allTrajectories) {
-      const archetype = (traj.raw.archetype as string) ?? 'default'
+      const archetype = traj.raw.archetype ?? 'default'
       const existing = byArchetype.get(archetype) ?? []
       existing.push(traj)
       byArchetype.set(archetype, existing)
@@ -312,8 +341,8 @@ export class TrajectoryBatchProcessor {
   private async processArchetypeGroup(
     archetype: string,
     trajectories: Array<{
-      raw: Record<string, unknown>
-      llmCalls: Array<Record<string, unknown>>
+      raw: TrajectoryJSONLRecord
+      llmCalls: LLMCallJSONLRecord[]
       sourceCid: string
     }>,
     appName: string,
@@ -572,7 +601,8 @@ export class TrajectoryBatchProcessor {
       throw new Error(`Arweave upload failed: ${response.status} - ${error}`)
     }
 
-    const result = (await response.json()) as { cid: string }
+    const data: unknown = await response.json()
+    const result = DWSUploadResponseSchema.parse(data)
     return result.cid
   }
 }
@@ -618,24 +648,46 @@ export async function downloadScoredDataset(
   } | null = null
   const trajectories: ScoredTrajectory[] = []
 
+  // Schema for parsing JSONL records
+  const BaseRecordSchema = z.object({ _type: z.string() }).passthrough()
+  const HeaderRecordSchema = z.object({
+    _type: z.literal('header'),
+    datasetId: z.string(),
+    appName: z.string(),
+    archetype: z.string(),
+    trajectoryCount: z.number(),
+    rulerModelId: z.string(),
+    timestamp: z.string(),
+  })
+
   for (const line of lines) {
-    const record = JSON.parse(line) as { _type: string } & Record<
-      string,
-      unknown
-    >
+    const baseResult = BaseRecordSchema.safeParse(JSON.parse(line))
+    if (!baseResult.success) continue
+    const record = baseResult.data
 
     if (record._type === 'header') {
-      header = {
-        datasetId: record.datasetId as string,
-        appName: record.appName as string,
-        archetype: record.archetype as string,
-        trajectoryCount: record.trajectoryCount as number,
-        rulerModelId: record.rulerModelId as string,
-        timestamp: record.timestamp as string,
+      const headerResult = HeaderRecordSchema.safeParse(record)
+      if (headerResult.success) {
+        header = {
+          datasetId: headerResult.data.datasetId,
+          appName: headerResult.data.appName,
+          archetype: headerResult.data.archetype,
+          trajectoryCount: headerResult.data.trajectoryCount,
+          rulerModelId: headerResult.data.rulerModelId,
+          timestamp: headerResult.data.timestamp,
+        }
       }
     } else if (record._type === 'scored_trajectory') {
       const { _type: _, ...rest } = record
-      trajectories.push(rest as unknown as ScoredTrajectory)
+      const result = ScoredTrajectorySchema.safeParse(rest)
+      if (result.success) {
+        trajectories.push(result.data)
+      } else {
+        logger.warn('[BatchProcessor] Invalid scored trajectory, skipping', {
+          trajectoryId: (rest as { trajectoryId?: string }).trajectoryId,
+          error: result.error.message,
+        })
+      }
     }
   }
 

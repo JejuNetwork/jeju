@@ -13,6 +13,7 @@ import {
   http,
   type PublicClient,
 } from 'viem'
+import { z } from 'zod'
 import { API_URLS } from '../../../lib/eden'
 import { getChainContracts, getNetworkRpcUrl } from '../../sdk/chains'
 import { isSupportedChainId, rpcService } from '../rpc'
@@ -133,24 +134,26 @@ export interface Listing {
   chainId: number
 }
 
-/** Raw listing data from indexer API */
-interface IndexerListingData {
-  id: string
-  seller: string
-  assetType: number
-  assetContract: string
-  tokenId: string
-  amount: string
-  paymentToken: string
-  pricePerUnit: string
-  expirationTime: string
-  status: number
-}
+/** Zod schema for indexer listing data */
+const IndexerListingDataSchema = z.object({
+  id: z.string(),
+  seller: z.string(),
+  assetType: z.number(),
+  assetContract: z.string(),
+  tokenId: z.string(),
+  amount: z.string(),
+  paymentToken: z.string(),
+  pricePerUnit: z.string(),
+  expirationTime: z.string(),
+  status: z.number(),
+})
 
-/** Response from indexer listings API */
-interface IndexerListingsResponse {
-  listings: IndexerListingData[]
-}
+/** Zod schema for indexer listings response */
+const IndexerListingsResponseSchema = z.object({
+  listings: z.array(IndexerListingDataSchema),
+})
+
+type IndexerListingData = z.infer<typeof IndexerListingDataSchema>
 
 export interface CreateListingParams {
   assetType: AssetType
@@ -327,7 +330,8 @@ export class BazaarService {
         throw new Error(`Indexer returned ${response.status}`)
       }
 
-      const data = (await response.json()) as IndexerListingsResponse
+      const rawData: unknown = await response.json()
+      const data = IndexerListingsResponseSchema.parse(rawData)
 
       return data.listings.map((listing) => ({
         id: BigInt(listing.id),

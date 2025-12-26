@@ -6,6 +6,18 @@
  */
 
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
+
+// Zod schemas for internal data structures
+export const HashEntrySchema = z.record(z.string(), z.string())
+export const SortedSetMemberSchema = z.object({
+  member: z.string(),
+  score: z.number(),
+})
+export const StreamEntrySchema = z.object({
+  id: z.string(),
+  fields: z.record(z.string(), z.string()),
+})
 
 // Cache Tiers
 

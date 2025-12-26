@@ -1,11 +1,9 @@
-import { readFile, realpath, stat } from 'node:fs/promises'
-import path from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { CORE_PORTS, getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
-  DOCS_ROOT,
+  getPageContent,
   listTopics,
   type SearchResult,
   searchDocumentation,
@@ -13,7 +11,6 @@ import {
 } from '../lib/a2a'
 
 const PORT = CORE_PORTS.DOCUMENTATION_A2A.get()
-const MAX_FILE_SIZE_BYTES = 1024 * 1024
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 100
 
@@ -129,37 +126,20 @@ const AGENT_CARD = {
   ],
 } as const
 
-async function validateDocPath(pagePath: string): Promise<string> {
-  const normalizedPath = path.normalize(pagePath)
+/** Validate documentation page path (no traversal allowed) */
+function validateDocPath(pagePath: string): string {
+  // Normalize and check for path traversal
+  const normalized = pagePath.replace(/\\/g, '/').replace(/\/+/g, '/')
 
-  if (normalizedPath.includes('..') || path.isAbsolute(normalizedPath)) {
+  if (normalized.includes('..') || normalized.startsWith('/')) {
     throw new Error('Invalid path: path traversal not allowed')
   }
 
-  if (!normalizedPath.endsWith('.md') && !normalizedPath.endsWith('.mdx')) {
+  if (!normalized.endsWith('.md') && !normalized.endsWith('.mdx')) {
     throw new Error('Invalid path: only .md and .mdx files are allowed')
   }
 
-  const fullPath = path.resolve(DOCS_ROOT, normalizedPath)
-  if (!fullPath.startsWith(path.resolve(DOCS_ROOT))) {
-    throw new Error('Invalid path: access denied')
-  }
-
-  const realPath = await realpath(fullPath)
-  const realDocsRoot = await realpath(DOCS_ROOT)
-
-  if (!realPath.startsWith(realDocsRoot)) {
-    throw new Error('Invalid path: symlink escape not allowed')
-  }
-
-  const fileStat = await stat(realPath)
-  if (fileStat.size > MAX_FILE_SIZE_BYTES) {
-    throw new Error(
-      `File too large: maximum size is ${MAX_FILE_SIZE_BYTES} bytes`,
-    )
-  }
-
-  return realPath
+  return normalized
 }
 
 async function executeSkill(
@@ -183,8 +163,11 @@ async function executeSkill(
       if (!pagePath) {
         throw new Error('Page parameter is required')
       }
-      const safePath = await validateDocPath(pagePath)
-      const content = await readFile(safePath, 'utf-8')
+      const safePath = validateDocPath(pagePath)
+      const content = await getPageContent(safePath)
+      if (!content) {
+        throw new Error(`Page not found: ${pagePath}`)
+      }
       return {
         message: `Retrieved ${pagePath}`,
         data: { page: pagePath, content },

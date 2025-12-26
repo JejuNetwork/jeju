@@ -12,6 +12,7 @@ import {
   randomBytes,
 } from 'node:crypto'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import { PROVIDERS_BY_ID } from './providers'
 import type { VaultDecryptRequest, VaultKey } from './types'
 
@@ -31,9 +32,11 @@ const accessLog: Array<{
 const systemKeys = new Map<string, string>()
 
 /** Response from TEE attestation endpoint */
-interface AttestationResponse {
-  attestation: string
-}
+const AttestationResponseSchema = z.object({
+  attestation: z.string(),
+})
+
+type AttestationResponse = z.infer<typeof AttestationResponseSchema>
 
 // Start cleanup interval for old access log entries (older than 24 hours)
 const ACCESS_LOG_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
@@ -337,7 +340,8 @@ async function generateAttestation(keyId: string): Promise<string> {
       throw new Error(`TEE attestation failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as AttestationResponse
+    const data: unknown = await response.json()
+    const result = AttestationResponseSchema.parse(data)
     return result.attestation
   }
 
@@ -357,6 +361,12 @@ async function generateAttestation(keyId: string): Promise<string> {
   return Buffer.from(JSON.stringify(attestationData)).toString('base64')
 }
 
+// Schema for TEE attestation data
+const AttestationDataSchema = z.object({
+  keyId: z.string().optional(),
+  timestamp: z.number().optional(),
+})
+
 /**
  * Verify a TEE attestation
  */
@@ -366,13 +376,12 @@ export function verifyAttestation(attestation: string): {
   timestamp?: number
 } {
   try {
-    const data = JSON.parse(
-      Buffer.from(attestation, 'base64').toString('utf-8'),
-    )
+    const decoded = Buffer.from(attestation, 'base64').toString('utf-8')
+    const parsed = AttestationDataSchema.parse(JSON.parse(decoded))
     return {
       valid: true,
-      keyId: data.keyId,
-      timestamp: data.timestamp,
+      keyId: parsed.keyId,
+      timestamp: parsed.timestamp,
     }
   } catch {
     return { valid: false }

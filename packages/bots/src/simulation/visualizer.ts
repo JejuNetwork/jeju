@@ -6,9 +6,11 @@
  * - HTML reports with SVG charts
  * - Performance dashboards
  * - Risk metrics visualizations
+ *
+ * Note: This module is serverless-compatible. HTML reports are returned as strings.
+ * Use JejuStorageClient or your storage service to persist reports.
  */
 
-import { writeFileSync } from 'node:fs'
 import type { BacktestResult, PortfolioSnapshot } from '../types'
 import type { CompetitionSimResult } from './mev-competition'
 import type { MonteCarloResult, ValidationResult } from './monte-carlo'
@@ -1095,10 +1097,20 @@ export namespace HTMLReportGenerator {
   }
 
   /**
-   * Save report to file
+   * Get report as a blob for storage upload
+   * @param html - The HTML content to convert
+   * @returns Blob suitable for storage upload
    */
-  export function save(html: string, path: string): void {
-    writeFileSync(path, html)
-    console.log(`Report saved to: ${path}`)
+  export function toBlob(html: string): Blob {
+    return new Blob([html], { type: 'text/html' })
+  }
+
+  /**
+   * Get report as Buffer for storage upload
+   * @param html - The HTML content to convert
+   * @returns Buffer suitable for storage upload
+   */
+  export function toBuffer(html: string): Buffer {
+    return Buffer.from(html, 'utf-8')
   }
 }

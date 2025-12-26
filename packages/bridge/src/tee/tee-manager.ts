@@ -3,12 +3,21 @@
  * Priority: AWS Nitro > GCP Confidential > Phala > Mock
  */
 
-import { existsSync } from 'node:fs'
 import {
   getAwsEnclaveId,
   getPhalaEndpoint,
   isTestMode,
 } from '@jejunetwork/config'
+
+// Dynamic import for Node.js-only fs (TEE detection only runs in Node.js)
+async function existsSyncSafe(path: string): Promise<boolean> {
+  try {
+    const fs = await import('node:fs')
+    return fs.existsSync(path)
+  } catch {
+    return false
+  }
+}
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import type {
@@ -188,9 +197,10 @@ export class TEEManager {
         env.details.instanceId = await response.text()
         env.details.platform = 'aws'
 
-        // Check for NSM device (static import - always needed for TEE detection)
+        // Check for NSM device
         const enclaveId = getAwsEnclaveId()
-        if (existsSync('/dev/nsm') || enclaveId) {
+        const hasNsm = await existsSyncSafe('/dev/nsm')
+        if (hasNsm || enclaveId) {
           env.inTEE = true
           env.capabilities = ['attestation', 'key_gen', 'persistent']
           env.details.enclaveId = enclaveId

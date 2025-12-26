@@ -1,12 +1,15 @@
 /**
- * Network configuration
+ * Network configuration - uses centralized config package (browser-safe)
  */
 
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
-import { type NetworkType, validateOrNull } from '@jejunetwork/types'
-import { z } from 'zod'
+import {
+  getChainId as getConfigChainId,
+  getConstant,
+  getContract,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
+import type { NetworkType } from '@jejunetwork/types'
 
 export type { NetworkType }
 
@@ -71,71 +74,24 @@ export interface ContractAddresses {
   otc: string | null
 }
 
-const CHAIN_IDS: Record<NetworkType, number> = {
-  localnet: 31337,
-  testnet: 420690,
-  mainnet: 420691,
-}
-
 const DEFAULT_RPC: Record<NetworkType, string> = {
   localnet: getRpcUrl('localnet'),
   testnet: getRpcUrl('testnet'),
   mainnet: getRpcUrl('mainnet'),
 }
 
-/** Loose schema for deployment JSON files - ensures it's a valid JSON object */
-const JsonObjectSchema = z.record(z.string(), z.unknown())
-
-function loadJsonFile<T>(path: string): T | null {
-  if (!existsSync(path)) {
-    return null
-  }
-  const content = readFileSync(path, 'utf-8')
-  const validated = validateOrNull(JsonObjectSchema, JSON.parse(content))
-  if (!validated) {
-    return null
-  }
-  return validated as T
-}
-
-function getDeploymentsPath(): string {
-  const possiblePaths = [
-    join(process.cwd(), '..', '..', 'packages', 'contracts', 'deployments'),
-    join(process.cwd(), 'packages', 'contracts', 'deployments'),
-    join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '..',
-      'packages',
-      'contracts',
-      'deployments',
-    ),
-  ]
-
-  for (const p of possiblePaths) {
-    if (existsSync(p)) {
-      return p
-    }
-  }
-
-  return join(process.cwd(), 'packages', 'contracts', 'deployments')
-}
-
-function loadDeploymentFile<T>(
-  deploymentsPath: string,
-  filename: string,
-): T | null {
-  return loadJsonFile<T>(join(deploymentsPath, filename))
-}
-
-function loadNetworkDeployment<T>(
-  deploymentsPath: string,
+/** Safely get a contract address, returning null if not found */
+function safeGetContract(
+  category: string,
+  name: string,
   network: NetworkType,
-  filename: string,
-): T | null {
-  return loadJsonFile<T>(join(deploymentsPath, network, filename))
+): string | null {
+  try {
+    const addr = getContract(category as 'tokens', name, network)
+    return addr || null
+  } catch {
+    return null
+  }
 }
 
 export function getNetworkFromEnv(): NetworkType {
@@ -148,461 +104,87 @@ export function getNetworkFromEnv(): NetworkType {
  */
 export function getChainId(): number {
   const network = getNetworkFromEnv()
-  return CHAIN_IDS[network]
-}
-
-interface NetworkDeployment {
-  tokens?: { weth?: string; usdc?: string; jeju?: string }
-  infrastructure?: {
-    entryPoint?: string
-    priceOracle?: string
-    serviceRegistry?: string
-    creditManager?: string
-  }
-  paymaster?: {
-    tokenRegistry?: string
-    paymasterFactory?: string
-    liquidityPaymaster?: string
-    multiTokenPaymaster?: string
-  }
-  registry?: {
-    identityRegistry?: string
-    reputationRegistry?: string
-    validationRegistry?: string
-    registryGovernance?: string
-  }
-  defi?: {
-    liquidityVault?: string
-    feeDistributor?: string
-    poolManager?: string
-    swapRouter?: string
-  }
-  nodeStaking?: {
-    nodeStakingManager?: string
-    nodePerformanceOracle?: string
-    autoSlasher?: string
-    multiOracleConsensus?: string
-  }
-  moderation?: {
-    banManager?: string
-    reputationLabelManager?: string
-    reportingSystem?: string
-  }
-  compute?: {
-    computeRegistry?: string
-    computeRental?: string
-    ledgerManager?: string
-    inferenceServing?: string
-    computeStaking?: string
-  }
-  oif?: {
-    solverRegistry?: string
-    inputSettler?: string
-    outputSettler?: string
-    oracle?: string
-  }
-  games?: {
-    bazaarMarketplace?: string
-    goldToken?: string
-    itemsNFT?: string
-  }
-  bazaar?: {
-    predictionMarket?: string
-  }
-}
-
-interface IdentitySystemDeployment {
-  identityRegistry?: string
-  reputationRegistry?: string
-  validationRegistry?: string
-  serviceRegistry?: string
-  creditManager?: string
-  cloudReputationProvider?: string
-  usdc?: string
-  jeju?: string
-}
-
-interface PaymasterSystemDeployment {
-  tokenRegistry?: string
-  priceOracle?: string
-  paymasterFactory?: string
-  entryPoint?: string
-}
-
-interface MultiTokenSystemDeployment {
-  oracle?: string
-  entryPoint?: string
-  token?: string
-  vault?: string
-  distributor?: string
-  paymaster?: string
-  jeju?: string
-}
-
-interface PredictionMarketDeployment {
-  jejuToken?: string
-  predictionOracle?: string
-  predictionMarket?: string
-  marketFactory?: string
-}
-
-interface BazaarDeployment {
-  marketplace?: string
-  goldToken?: string
-  usdcToken?: string
-}
-
-interface EILDeployment {
-  l1StakeManager?: string
-  crossChainPaymaster?: string
-  entryPoint?: string
+  return getConfigChainId(network)
 }
 
 export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
   const net = network || getNetworkFromEnv()
-  const deploymentsPath = getDeploymentsPath()
-  const chainId = CHAIN_IDS[net]
+  const chainId = getConfigChainId(net)
 
+  // Build contracts from centralized config
   const contracts: ContractAddresses = {
-    feedRegistry: null,
-    reportVerifier: null,
-    committeeManager: null,
-    oracleFeeRouter: null,
-    disputeGame: null,
-    oracleNetworkConnector: null,
-    entryPoint: null,
-    priceOracle: null,
-    serviceRegistry: null,
-    creditManager: null,
-    tokenRegistry: null,
-    paymasterFactory: null,
-    liquidityPaymaster: null,
-    multiTokenPaymaster: null,
-    identityRegistry: null,
-    reputationRegistry: null,
-    validationRegistry: null,
-    registryGovernance: null,
-    liquidityVault: null,
-    feeDistributor: null,
-    poolManager: null,
-    swapRouter: null,
-    nodeStakingManager: null,
-    nodePerformanceOracle: null,
-    autoSlasher: null,
-    multiOracleConsensus: null,
-    banManager: null,
-    reputationLabelManager: null,
-    reportingSystem: null,
-    computeRegistry: null,
-    computeRental: null,
-    ledgerManager: null,
-    inferenceServing: null,
-    computeStaking: null,
-    solverRegistry: null,
-    inputSettler: null,
-    outputSettler: null,
-    oifOracle: null,
-    l1StakeManager: null,
-    crossChainPaymaster: null,
-    bazaarMarketplace: null,
-    goldToken: null,
-    itemsNFT: null,
-    predictionMarket: null,
-    predictionOracle: null,
-    playerTradeEscrow: null,
-    contest: null,
-    weth: '0x4200000000000000000000000000000000000006',
-    usdc: null,
-    jeju: null,
-    otc: null,
-  }
+    // Oracle contracts
+    feedRegistry: safeGetContract('oracle', 'feedRegistry', net),
+    reportVerifier: safeGetContract('oracle', 'reportVerifier', net),
+    committeeManager: null, // Not in central config yet
+    oracleFeeRouter: null, // Not in central config yet
+    disputeGame: null, // Not in central config yet
+    oracleNetworkConnector: null, // Not in central config yet
 
-  const mainDeployment = loadNetworkDeployment<NetworkDeployment>(
-    deploymentsPath,
-    net,
-    'deployment.json',
-  )
-  if (mainDeployment) {
-    contracts.entryPoint = mainDeployment.infrastructure?.entryPoint || null
-    contracts.priceOracle = mainDeployment.infrastructure?.priceOracle || null
-    contracts.serviceRegistry =
-      mainDeployment.infrastructure?.serviceRegistry || null
-    contracts.creditManager =
-      mainDeployment.infrastructure?.creditManager || null
+    // Infrastructure/constants
+    entryPoint: getConstant('entryPoint'),
+    priceOracle: safeGetContract('payments', 'priceOracle', net),
+    serviceRegistry: safeGetContract('payments', 'serviceRegistry', net),
+    creditManager: safeGetContract('payments', 'creditManager', net),
+    tokenRegistry: safeGetContract('payments', 'tokenRegistry', net),
+    paymasterFactory: safeGetContract('payments', 'paymasterFactory', net),
+    liquidityPaymaster: safeGetContract('eil', 'liquidityPaymaster', net),
+    multiTokenPaymaster: safeGetContract('payments', 'multiTokenPaymaster', net),
 
-    contracts.tokenRegistry = mainDeployment.paymaster?.tokenRegistry || null
-    contracts.paymasterFactory =
-      mainDeployment.paymaster?.paymasterFactory || null
-    contracts.liquidityPaymaster =
-      mainDeployment.paymaster?.liquidityPaymaster || null
-    contracts.multiTokenPaymaster =
-      mainDeployment.paymaster?.multiTokenPaymaster || null
+    // Registry contracts
+    identityRegistry: safeGetContract('registry', 'identity', net),
+    reputationRegistry: safeGetContract('registry', 'reputation', net),
+    validationRegistry: safeGetContract('registry', 'validation', net),
+    registryGovernance: safeGetContract('governance', 'registryGovernance', net),
 
-    contracts.identityRegistry =
-      mainDeployment.registry?.identityRegistry || null
-    contracts.reputationRegistry =
-      mainDeployment.registry?.reputationRegistry || null
-    contracts.validationRegistry =
-      mainDeployment.registry?.validationRegistry || null
-    contracts.registryGovernance =
-      mainDeployment.registry?.registryGovernance || null
+    // Liquidity/DeFi contracts
+    liquidityVault: safeGetContract('liquidity', 'liquidityVault', net),
+    feeDistributor: safeGetContract('fees', 'feeDistributor', net),
+    poolManager: safeGetContract('defi', 'poolManager', net),
+    swapRouter: safeGetContract('defi', 'swapRouter', net),
 
-    contracts.liquidityVault = mainDeployment.defi?.liquidityVault || null
-    contracts.feeDistributor = mainDeployment.defi?.feeDistributor || null
-    contracts.poolManager = mainDeployment.defi?.poolManager || null
-    contracts.swapRouter = mainDeployment.defi?.swapRouter || null
+    // Node staking contracts
+    nodeStakingManager: safeGetContract('nodeStaking', 'manager', net),
+    nodePerformanceOracle: safeGetContract('nodeStaking', 'performanceOracle', net),
+    autoSlasher: null, // Not in central config yet
+    multiOracleConsensus: null, // Not in central config yet
 
-    contracts.nodeStakingManager =
-      mainDeployment.nodeStaking?.nodeStakingManager || null
-    contracts.nodePerformanceOracle =
-      mainDeployment.nodeStaking?.nodePerformanceOracle || null
-    contracts.autoSlasher = mainDeployment.nodeStaking?.autoSlasher || null
-    contracts.multiOracleConsensus =
-      mainDeployment.nodeStaking?.multiOracleConsensus || null
+    // Moderation contracts
+    banManager: safeGetContract('moderation', 'banManager', net),
+    reputationLabelManager: safeGetContract('moderation', 'reputationLabelManager', net),
+    reportingSystem: safeGetContract('moderation', 'reportingSystem', net),
 
-    contracts.banManager = mainDeployment.moderation?.banManager || null
-    contracts.reputationLabelManager =
-      mainDeployment.moderation?.reputationLabelManager || null
-    contracts.reportingSystem =
-      mainDeployment.moderation?.reportingSystem || null
+    // Compute contracts
+    computeRegistry: safeGetContract('compute', 'registry', net),
+    computeRental: null, // Not in central config yet
+    ledgerManager: safeGetContract('compute', 'ledgerManager', net),
+    inferenceServing: safeGetContract('compute', 'inferenceServing', net),
+    computeStaking: safeGetContract('compute', 'staking', net),
 
-    contracts.computeRegistry = mainDeployment.compute?.computeRegistry || null
-    contracts.computeRental = mainDeployment.compute?.computeRental || null
-    contracts.ledgerManager = mainDeployment.compute?.ledgerManager || null
-    contracts.inferenceServing =
-      mainDeployment.compute?.inferenceServing || null
-    contracts.computeStaking = mainDeployment.compute?.computeStaking || null
+    // OIF contracts
+    solverRegistry: safeGetContract('oif', 'solverRegistry', net),
+    inputSettler: safeGetContract('oif', 'inputSettler', net),
+    outputSettler: safeGetContract('oif', 'outputSettler', net),
+    oifOracle: safeGetContract('oif', 'oracleAdapter', net),
 
-    contracts.solverRegistry = mainDeployment.oif?.solverRegistry || null
-    contracts.inputSettler = mainDeployment.oif?.inputSettler || null
-    contracts.outputSettler = mainDeployment.oif?.outputSettler || null
-    contracts.oifOracle = mainDeployment.oif?.oracle || null
+    // EIL contracts
+    l1StakeManager: safeGetContract('eil', 'l1StakeManager', net),
+    crossChainPaymaster: safeGetContract('eil', 'crossChainPaymaster', net),
 
-    contracts.bazaarMarketplace =
-      mainDeployment.games?.bazaarMarketplace || null
-    contracts.goldToken = mainDeployment.games?.goldToken || null
-    contracts.itemsNFT = mainDeployment.games?.itemsNFT || null
-    contracts.predictionMarket = mainDeployment.bazaar?.predictionMarket || null
+    // Bazaar/games contracts
+    bazaarMarketplace: safeGetContract('bazaar', 'marketplace', net),
+    goldToken: null, // Game-specific, not in central config
+    itemsNFT: null, // Game-specific, not in central config
+    predictionMarket: safeGetContract('bazaar', 'predictionMarket', net),
+    predictionOracle: null, // Not in central config yet
+    playerTradeEscrow: null, // Not in central config yet
+    contest: null, // Not in central config yet
 
-    contracts.weth = mainDeployment.tokens?.weth || contracts.weth
-    contracts.usdc = mainDeployment.tokens?.usdc || null
-    contracts.jeju = mainDeployment.tokens?.jeju || null
-  }
-
-  if (net === 'localnet') {
-    const identitySystem = loadDeploymentFile<IdentitySystemDeployment>(
-      deploymentsPath,
-      'identity-system-31337.json',
-    )
-    if (identitySystem) {
-      contracts.identityRegistry =
-        identitySystem.identityRegistry || contracts.identityRegistry
-      contracts.reputationRegistry =
-        identitySystem.reputationRegistry || contracts.reputationRegistry
-      contracts.validationRegistry =
-        identitySystem.validationRegistry || contracts.validationRegistry
-      contracts.serviceRegistry =
-        identitySystem.serviceRegistry || contracts.serviceRegistry
-      contracts.creditManager =
-        identitySystem.creditManager || contracts.creditManager
-      contracts.usdc = identitySystem.usdc || contracts.usdc
-      contracts.jeju = identitySystem.jeju || contracts.jeju
-    }
-
-    const localnetAddresses = loadDeploymentFile<IdentitySystemDeployment>(
-      deploymentsPath,
-      'localnet-addresses.json',
-    )
-    if (localnetAddresses) {
-      contracts.identityRegistry =
-        localnetAddresses.identityRegistry || contracts.identityRegistry
-      contracts.reputationRegistry =
-        localnetAddresses.reputationRegistry || contracts.reputationRegistry
-      contracts.validationRegistry =
-        localnetAddresses.validationRegistry || contracts.validationRegistry
-      contracts.serviceRegistry =
-        localnetAddresses.serviceRegistry || contracts.serviceRegistry
-      contracts.creditManager =
-        localnetAddresses.creditManager || contracts.creditManager
-      contracts.usdc = localnetAddresses.usdc || contracts.usdc
-      contracts.jeju = localnetAddresses.jeju || contracts.jeju
-    }
-
-    interface NetworkTokenDeployment {
-      jejuToken?: string
-      banManager?: string
-    }
-    const jejuTokenDeployment = loadNetworkDeployment<NetworkTokenDeployment>(
-      deploymentsPath,
-      'localnet',
-      'jeju-token.json',
-    )
-    if (jejuTokenDeployment) {
-      contracts.jeju = jejuTokenDeployment.jejuToken || contracts.jeju
-      contracts.banManager =
-        jejuTokenDeployment.banManager || contracts.banManager
-    }
-
-    const paymasterSystem = loadDeploymentFile<PaymasterSystemDeployment>(
-      deploymentsPath,
-      'paymaster-system-localnet.json',
-    )
-    if (paymasterSystem) {
-      contracts.tokenRegistry =
-        paymasterSystem.tokenRegistry || contracts.tokenRegistry
-      contracts.priceOracle =
-        paymasterSystem.priceOracle || contracts.priceOracle
-      contracts.paymasterFactory =
-        paymasterSystem.paymasterFactory || contracts.paymasterFactory
-      contracts.entryPoint = paymasterSystem.entryPoint || contracts.entryPoint
-    }
-
-    interface LiquiditySystemDeployment {
-      jeju?: string
-      entryPoint?: string
-      feeDistributor?: string
-      identityRegistry?: string
-      liquidityVault?: string
-      paymaster?: string
-      priceOracle?: string
-      reputationRegistry?: string
-      validationRegistry?: string
-    }
-    const liquiditySystem = loadNetworkDeployment<LiquiditySystemDeployment>(
-      deploymentsPath,
-      'localnet',
-      'liquidity-system.json',
-    )
-    if (liquiditySystem) {
-      contracts.jeju = liquiditySystem.jeju || contracts.jeju
-      contracts.entryPoint = liquiditySystem.entryPoint || contracts.entryPoint
-      contracts.feeDistributor =
-        liquiditySystem.feeDistributor || contracts.feeDistributor
-      contracts.identityRegistry =
-        liquiditySystem.identityRegistry || contracts.identityRegistry
-      contracts.liquidityVault =
-        liquiditySystem.liquidityVault || contracts.liquidityVault
-      contracts.liquidityPaymaster =
-        liquiditySystem.paymaster || contracts.liquidityPaymaster
-      contracts.priceOracle =
-        liquiditySystem.priceOracle || contracts.priceOracle
-      contracts.reputationRegistry =
-        liquiditySystem.reputationRegistry || contracts.reputationRegistry
-      contracts.validationRegistry =
-        liquiditySystem.validationRegistry || contracts.validationRegistry
-    }
-
-    interface LocalnetMultiTokenDeployment {
-      clanker_distributor?: string
-      jeju_distributor?: string
-      jeju_paymaster?: string
-      jeju_token?: string
-      jeju_vault?: string
-      entryPoint?: string
-      oracle?: string
-    }
-    const localnetMultiToken =
-      loadNetworkDeployment<LocalnetMultiTokenDeployment>(
-        deploymentsPath,
-        'localnet',
-        'multi-token-system.json',
-      )
-    if (localnetMultiToken) {
-      contracts.entryPoint =
-        localnetMultiToken.entryPoint || contracts.entryPoint
-      contracts.priceOracle = localnetMultiToken.oracle || contracts.priceOracle
-      contracts.jeju = localnetMultiToken.jeju_token || contracts.jeju
-    }
-
-    const multiTokenSystem = loadDeploymentFile<MultiTokenSystemDeployment>(
-      deploymentsPath,
-      'multi-token-system-31337.json',
-    )
-    if (multiTokenSystem) {
-      contracts.priceOracle = multiTokenSystem.oracle || contracts.priceOracle
-      contracts.liquidityVault =
-        multiTokenSystem.vault || contracts.liquidityVault
-      contracts.feeDistributor =
-        multiTokenSystem.distributor || contracts.feeDistributor
-      contracts.liquidityPaymaster =
-        multiTokenSystem.paymaster || contracts.liquidityPaymaster
-      contracts.jeju = multiTokenSystem.jeju || contracts.jeju
-    }
-
-    const predictionMarketDeploy =
-      loadDeploymentFile<PredictionMarketDeployment>(
-        deploymentsPath,
-        'prediction-market-31337.json',
-      )
-    if (predictionMarketDeploy) {
-      contracts.predictionMarket =
-        predictionMarketDeploy.predictionMarket || contracts.predictionMarket
-      contracts.predictionOracle =
-        predictionMarketDeploy.predictionOracle || contracts.predictionOracle
-      contracts.jeju = predictionMarketDeploy.jejuToken || contracts.jeju
-    }
-
-    const bazaar = loadDeploymentFile<BazaarDeployment>(
-      deploymentsPath,
-      'bazaar-marketplace-31337.json',
-    )
-    if (bazaar) {
-      contracts.bazaarMarketplace =
-        bazaar.marketplace || contracts.bazaarMarketplace
-      contracts.goldToken = bazaar.goldToken || contracts.goldToken
-    }
-
-    const eil = loadDeploymentFile<EILDeployment>(
-      deploymentsPath,
-      'eil-localnet.json',
-    )
-    if (eil) {
-      contracts.l1StakeManager = eil.l1StakeManager || contracts.l1StakeManager
-      contracts.crossChainPaymaster =
-        eil.crossChainPaymaster || contracts.crossChainPaymaster
-    }
-  }
-
-  if (net === 'testnet') {
-    const eil = loadDeploymentFile<EILDeployment>(
-      deploymentsPath,
-      'eil-testnet.json',
-    )
-    if (eil) {
-      contracts.l1StakeManager = eil.l1StakeManager || contracts.l1StakeManager
-      contracts.crossChainPaymaster =
-        eil.crossChainPaymaster || contracts.crossChainPaymaster
-    }
-  }
-
-  const oracleConfigPath = join(
-    process.cwd(),
-    '..',
-    '..',
-    'packages',
-    'config',
-    'oracle',
-    'networks.json',
-  )
-  interface OracleNetworkConfig {
-    [network: string]: {
-      contracts: {
-        feedRegistry: string | null
-        reportVerifier: string | null
-        committeeManager: string | null
-        feeRouter: string | null
-        networkConnector: string | null
-      }
-    }
-  }
-  const oracleConfig = loadJsonFile<OracleNetworkConfig>(oracleConfigPath)
-  if (oracleConfig?.[net]?.contracts) {
-    const oracleContracts = oracleConfig[net].contracts
-    contracts.feedRegistry = oracleContracts.feedRegistry
-    contracts.reportVerifier = oracleContracts.reportVerifier
-    contracts.committeeManager = oracleContracts.committeeManager
-    contracts.oracleFeeRouter = oracleContracts.feeRouter
-    contracts.oracleNetworkConnector = oracleContracts.networkConnector
+    // Tokens
+    weth: getConstant('weth'),
+    usdc: safeGetContract('tokens', 'usdc', net),
+    jeju: safeGetContract('tokens', 'jeju', net),
+    otc: null, // Not in central config yet
   }
 
   return {

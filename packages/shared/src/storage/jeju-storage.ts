@@ -8,7 +8,6 @@
  */
 
 import {
-  getCurrentNetwork,
   getJejuStorageApiKey,
   getJejuStorageEndpoint,
   getJejuStorageProviderType,
@@ -16,9 +15,51 @@ import {
   isProduction,
   isTestnet,
 } from '@jejunetwork/config'
-import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
+import type { ZodType } from 'zod'
+import { z } from 'zod'
 import { logger } from '../logger'
+
+// ============================================================================
+// Zod Schemas for API Response Validation
+// ============================================================================
+
+export const JejuUploadResultSchema = z.object({
+  cid: z.string().min(1),
+  url: z.string().url(),
+  provider: z.enum(['ipfs', 'arweave']),
+  size: z.number().int().nonnegative(),
+  dealId: z.string().optional(),
+})
+
+export const StorageFileSchema = z.object({
+  cid: z.string().min(1),
+  filename: z.string(),
+  folder: z.string().optional(),
+  size: z.number().int().nonnegative(),
+  permanent: z.boolean().optional(),
+})
+
+export const ListFilesResponseSchema = z.object({
+  files: z.array(StorageFileSchema),
+})
+
+export const ListPinsResponseSchema = z.object({
+  pins: z.array(z.string()),
+})
+
+// Node.js-only modules (for local model uploads)
+type FsPromises = typeof import('node:fs').promises
+type ChildProcess = typeof import('node:child_process')
+
+async function loadNodeFs(): Promise<FsPromises> {
+  const fs = await import('node:fs')
+  return fs.promises
+}
+
+async function loadChildProcess(): Promise<ChildProcess> {
+  return await import('node:child_process')
+}
 
 export interface JejuStorageConfig {
   endpoint: string
@@ -121,16 +162,22 @@ export class JejuStorageClient {
       throw new Error(
         `Upload failed: ${response.status} - ${await response.text()}`,
       )
-    return (await response.json()) as JejuUploadResult
+    const data: unknown = await response.json()
+    return JejuUploadResultSchema.parse(data)
   }
 
+  /**
+   * Upload a model from local filesystem (Node.js only)
+   * @throws Error if called in browser/serverless environment
+   */
   async uploadModel(options: ModelStorageOptions): Promise<StoredModel> {
+    const fs = await loadNodeFs()
     const stat = await fs.stat(options.modelPath)
     let modelBuffer: Buffer
     let filename: string
 
     if (stat.isDirectory()) {
-      const { execSync } = await import('node:child_process')
+      const { execSync } = await loadChildProcess()
       const tempFile = `/tmp/model-${Date.now()}.tar.gz`
       execSync(`tar -czf ${tempFile} -C ${options.modelPath} .`)
       modelBuffer = await fs.readFile(tempFile)
@@ -196,8 +243,16 @@ export class JejuStorageClient {
     return (await this.download(cid)).toString('utf-8')
   }
 
-  async downloadJSON<T = Record<string, unknown>>(cid: string): Promise<T> {
-    return JSON.parse(await this.downloadText(cid)) as T
+  /**
+   * Download and validate JSON from storage
+   * @param cid Content identifier
+   * @param schema Zod schema to validate the parsed JSON
+   * @returns Validated data of type T
+   */
+  async downloadJSON<T>(cid: string, schema: ZodType<T>): Promise<T> {
+    const text = await this.downloadText(cid)
+    const parsed: unknown = JSON.parse(text)
+    return schema.parse(parsed)
   }
 
   async listFiles(folder: string) {
@@ -206,17 +261,8 @@ export class JejuStorageClient {
       { headers: this.getHeaders() },
     )
     if (!response.ok) throw new Error(`List failed: ${response.status}`)
-    return (
-      (await response.json()) as {
-        files: Array<{
-          cid: string
-          filename: string
-          folder?: string
-          size: number
-          permanent?: boolean
-        }>
-      }
-    ).files
+    const data: unknown = await response.json()
+    return ListFilesResponseSchema.parse(data).files
   }
 
   async uploadText(
@@ -287,7 +333,8 @@ export class JejuStorageClient {
       headers: this.getHeaders(),
     })
     if (!response.ok) throw new Error(`List pins failed: ${response.status}`)
-    return ((await response.json()) as { pins: string[] }).pins
+    const data: unknown = await response.json()
+    return ListPinsResponseSchema.parse(data).pins
   }
 
   private getHeaders(): Record<string, string> {

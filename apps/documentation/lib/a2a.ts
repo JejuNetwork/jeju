@@ -1,4 +1,10 @@
-import { readdir, readFile } from 'node:fs/promises'
+/**
+ * Documentation A2A utilities - serverless-compatible
+ *
+ * Uses a pre-built documentation index generated at build time.
+ * Run `bun run build:docs-index` to generate the index.
+ */
+
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -6,9 +12,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const DOCS_ROOT = path.join(__dirname, '..', 'docs', 'pages')
 export const EXCLUDED_DIRS = new Set(['node_modules', 'public', 'components'])
 const MAX_SEARCH_RESULTS = 20
-const MAX_DIRECTORY_DEPTH = 10
-const MAX_FILES_PER_SEARCH = 1000
-const DOC_EXTENSIONS = ['.md', '.mdx']
 
 export interface SearchResult {
   file: string
@@ -20,89 +23,90 @@ export interface Topic {
   path: string
 }
 
+/** Pre-built documentation index structure */
+export interface DocIndex {
+  topics: Topic[]
+  /** Map of file path to content for searching */
+  content: Record<string, string>
+  /** Build timestamp */
+  buildTime: number
+}
+
+/** Try to import pre-built documentation index */
+let docIndex: DocIndex | null = null
+
+async function loadDocIndex(): Promise<DocIndex | null> {
+  if (docIndex) return docIndex
+
+  try {
+    // Try to import the pre-built index (generated at build time)
+    const indexModule = await import('../docs-index.json')
+    docIndex = indexModule.default as DocIndex
+    return docIndex
+  } catch {
+    console.warn(
+      '[Documentation] No pre-built docs-index.json found. Run "bun run build:docs-index" to generate.',
+    )
+    return null
+  }
+}
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/**
+ * Search documentation using pre-built index
+ */
 export async function searchDocumentation(
   query: string,
 ): Promise<SearchResult[]> {
   const results: SearchResult[] = []
   const safeQuery = escapeRegex(query)
   if (!safeQuery) return results
+
+  const index = await loadDocIndex()
+  if (!index) {
+    console.warn('[Documentation] Search unavailable - no index loaded')
+    return results
+  }
+
   const regex = new RegExp(safeQuery, 'gi')
-  let filesProcessed = 0
 
-  async function searchDir(dir: string, depth: number): Promise<void> {
-    if (depth > MAX_DIRECTORY_DEPTH) return
-    if (filesProcessed >= MAX_FILES_PER_SEARCH) return
-
-    const entries = await readdir(dir, { withFileTypes: true })
-
-    for (const entry of entries) {
-      if (filesProcessed >= MAX_FILES_PER_SEARCH) return
-
-      const fullPath = path.join(dir, entry.name)
-
-      if (entry.isDirectory() && !EXCLUDED_DIRS.has(entry.name)) {
-        await searchDir(fullPath, depth + 1)
-      } else if (
-        entry.isFile() &&
-        DOC_EXTENSIONS.some((ext) => entry.name.endsWith(ext))
-      ) {
-        filesProcessed++
-        const content = await readFile(fullPath, 'utf-8')
-        const matches = (content.match(regex) ?? []).length
-        if (matches > 0) {
-          results.push({ file: path.relative(DOCS_ROOT, fullPath), matches })
-        }
-      }
+  for (const [filePath, content] of Object.entries(index.content)) {
+    const matches = (content.match(regex) ?? []).length
+    if (matches > 0) {
+      results.push({ file: filePath, matches })
     }
   }
 
-  await searchDir(DOCS_ROOT, 0)
   return results
     .sort((a, b) => b.matches - a.matches)
     .slice(0, MAX_SEARCH_RESULTS)
 }
 
+/**
+ * List documentation topics using pre-built index
+ */
 export async function listTopics(): Promise<Topic[]> {
-  const topics: Topic[] = []
-  let filesProcessed = 0
-
-  async function scanDir(
-    dir: string,
-    prefix: string,
-    depth: number,
-  ): Promise<void> {
-    if (depth > MAX_DIRECTORY_DEPTH) return
-    if (filesProcessed >= MAX_FILES_PER_SEARCH) return
-
-    const entries = await readdir(dir, { withFileTypes: true })
-
-    for (const entry of entries) {
-      if (filesProcessed >= MAX_FILES_PER_SEARCH) return
-
-      if (entry.isDirectory() && !EXCLUDED_DIRS.has(entry.name)) {
-        await scanDir(
-          path.join(dir, entry.name),
-          `${prefix}${entry.name}/`,
-          depth + 1,
-        )
-      } else if (
-        entry.isFile() &&
-        DOC_EXTENSIONS.some((ext) => entry.name.endsWith(ext))
-      ) {
-        filesProcessed++
-        const ext = DOC_EXTENSIONS.find((e) => entry.name.endsWith(e)) ?? ''
-        topics.push({
-          name: entry.name.replace(ext, ''),
-          path: prefix + entry.name,
-        })
-      }
-    }
+  const index = await loadDocIndex()
+  if (!index) {
+    console.warn('[Documentation] Topics unavailable - no index loaded')
+    return []
   }
 
-  await scanDir(DOCS_ROOT, '', 0)
-  return topics
+  return index.topics
+}
+
+/**
+ * Get documentation page content from pre-built index
+ */
+export async function getPageContent(pagePath: string): Promise<string | null> {
+  const index = await loadDocIndex()
+  if (!index) {
+    console.warn('[Documentation] Page content unavailable - no index loaded')
+    return null
+  }
+
+  return index.content[pagePath] ?? null
 }

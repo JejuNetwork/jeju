@@ -1,6 +1,7 @@
 /** Repository Settings Routes */
 
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   addRepoCollaborator,
   addRepoWebhook,
@@ -23,6 +24,9 @@ import {
   TransferRepoBodySchema,
   UpdateRepoSettingsBodySchema,
 } from '../schemas'
+
+// Schema for webhook events array
+const WebhookEventsSchema = z.array(z.string())
 import { requireAuth } from '../validation/access-control'
 
 export interface RepoBranch {
@@ -77,7 +81,7 @@ function transformSettings(
     webhooks: webhooks.map((w) => ({
       id: w.id,
       url: w.url,
-      events: JSON.parse(w.events) as string[],
+      events: WebhookEventsSchema.parse(JSON.parse(w.events)),
       active: w.active === 1,
       createdAt: w.created_at,
     })),
@@ -281,7 +285,7 @@ export const repoSettingsRoutes = new Elysia({
       return {
         id: row.id,
         url: row.url,
-        events: JSON.parse(row.events) as string[],
+        events: WebhookEventsSchema.parse(JSON.parse(row.events)),
         active: row.active === 1,
         createdAt: row.created_at,
       }

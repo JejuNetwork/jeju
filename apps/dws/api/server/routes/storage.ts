@@ -12,6 +12,19 @@
 
 import { getFormString, getFormStringOr } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
+import { z } from 'zod'
+
+// Generic JSON value schema for user-uploaded content
+const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+)
 import { extractClientRegion } from '../../shared/utils/common'
 import type { BackendManager } from '../../storage/backends'
 import { getMultiBackendManager } from '../../storage/multi-backend'
@@ -232,7 +245,7 @@ export function createStorageRouter(backend?: BackendManager) {
           return { error: 'Not found' }
         }
 
-        return JSON.parse(result.content.toString('utf-8'))
+        return JsonValueSchema.parse(JSON.parse(result.content.toString('utf-8')))
       })
 
       // Get content metadata

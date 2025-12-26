@@ -1,8 +1,7 @@
-/** Web-of-Trust Moderation */
+/** Web-of-Trust Moderation - CQL-backed for workerd compatibility */
 
-import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
 
@@ -76,20 +75,12 @@ export interface ModeratorStats {
   trustScore: number
 }
 
-// Schemas for file parsing
+// Zod schemas for database parsing
 const ProposalFlagSchema = z.object({
   flagId: z.string(),
   proposalId: z.string(),
   flagger: z.string(),
-  flagType: z.enum([
-    FlagType.DUPLICATE,
-    FlagType.SPAM,
-    FlagType.HARMFUL,
-    FlagType.INFEASIBLE,
-    FlagType.MISALIGNED,
-    FlagType.LOW_QUALITY,
-    FlagType.NEEDS_WORK,
-  ]),
+  flagType: FlagTypeSchema,
   reason: z.string(),
   evidence: z.string().optional(),
   stake: z.number(),
@@ -119,26 +110,42 @@ const TrustRelationSchema = z.object({
   updatedAt: z.number(),
 })
 
-const FlagsFileSchema = z.array(z.tuple([z.string(), ProposalFlagSchema]))
-const StatsFileSchema = z.array(z.tuple([z.string(), ModeratorStatsSchema]))
-const TrustFileSchema = z.array(
-  z.tuple([z.string(), z.array(z.tuple([z.string(), TrustRelationSchema]))]),
-)
-
-// Bounded stores with file persistence
-const MAX_FLAGS = 10000,
-  MAX_MODS = 5000
-const evict = <K, V>(m: Map<K, V>, max: number) => {
-  if (m.size >= max) {
-    const f = m.keys().next().value
-    if (f !== undefined) m.delete(f)
-  }
+// Database row types
+interface FlagRow {
+  flag_id: string
+  proposal_id: string
+  flagger: string
+  flag_type: string
+  reason: string
+  evidence: string | null
+  stake: number
+  reputation: number
+  upvotes: number
+  downvotes: number
+  created_at: number
+  resolved: number
+  resolution: string | null
 }
 
-const flags = new Map<string, ProposalFlag>()
-const trust = new Map<string, Map<string, TrustRelation>>()
-const stats = new Map<string, ModeratorStats>()
-const scores = new Map<string, ModerationScore>()
+interface StatsRow {
+  address: string
+  flags_raised: number
+  flags_upheld: number
+  flags_rejected: number
+  accuracy: number
+  reputation: number
+  trust_score: number
+}
+
+interface TrustRow {
+  from_addr: string
+  to_addr: string
+  score: number
+  context: string
+  updated_at: number
+}
+
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
 
 const STAKE: Record<FlagType, number> = {
   DUPLICATE: 10,
@@ -159,120 +166,143 @@ const WEIGHT: Record<FlagType, number> = {
   NEEDS_WORK: 10,
 }
 
-// File persistence
-const storageDir = join(process.cwd(), '.autocrat-storage')
-const FILES = {
-  flags: 'moderation-flags.json',
-  stats: 'moderation-stats.json',
-  trust: 'moderation-trust.json',
-}
-let dirty = false
-let saveLock = false // Mutex for save() to prevent race conditions
+// In-memory caches for computed scores (not persisted)
+const scores = new Map<string, ModerationScore>()
 
-async function ensureDir() {
-  if (!existsSync(storageDir)) await mkdir(storageDir, { recursive: true })
-}
+// CQL/Cache clients
+let cqlClient: CQLClient | null = null
+let cacheClient: CacheClient | null = null
+let tablesInitialized = false
 
-async function save(): Promise<void> {
-  if (!dirty) return
-  // Prevent concurrent saves - if already saving, skip this call
-  if (saveLock) return
-  saveLock = true
-
-  // Capture dirty state before async operations
-  const wasDirty = dirty
-  dirty = false // Reset early to capture new changes during save
-
-  await ensureDir()
-  await Promise.all([
-    writeFile(
-      join(storageDir, FILES.flags),
-      JSON.stringify([...flags.entries()]),
-    ),
-    writeFile(
-      join(storageDir, FILES.stats),
-      JSON.stringify([...stats.entries()]),
-    ),
-    writeFile(
-      join(storageDir, FILES.trust),
-      JSON.stringify(
-        [...trust.entries()].map(([k, v]) => [k, [...v.entries()]]),
-      ),
-    ),
-  ])
-    .catch((err) => {
-      // Restore dirty state on error so we retry next time
-      if (wasDirty) dirty = true
-      throw err
+async function getCQLClient(): Promise<CQLClient> {
+  if (!cqlClient) {
+    cqlClient = getCQL({
+      databaseId: CQL_DATABASE_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
     })
-    .finally(() => {
-      saveLock = false
-    })
+  }
+  return cqlClient
 }
 
-async function load(): Promise<void> {
-  await ensureDir()
-  const flagsPath = join(storageDir, FILES.flags)
-  if (existsSync(flagsPath)) {
-    const rawData = JSON.parse(await readFile(flagsPath, 'utf-8'))
-    const data = FlagsFileSchema.parse(rawData)
-    for (const [k, v] of data) flags.set(k, v)
+function getCache(): CacheClient {
+  if (!cacheClient) {
+    cacheClient = getCacheClient('moderation')
   }
-  const statsPath = join(storageDir, FILES.stats)
-  if (existsSync(statsPath)) {
-    const rawData = JSON.parse(await readFile(statsPath, 'utf-8'))
-    const data = StatsFileSchema.parse(rawData)
-    for (const [k, v] of data) stats.set(k, v)
-  }
-  const trustPath = join(storageDir, FILES.trust)
-  if (existsSync(trustPath)) {
-    const rawData = JSON.parse(await readFile(trustPath, 'utf-8'))
-    const data = TrustFileSchema.parse(rawData)
-    for (const [k, v] of data) trust.set(k, new Map(v))
-  }
+  return cacheClient
 }
 
-// Auto-save every 30s if dirty - store interval ID for cleanup
-let saveIntervalId: ReturnType<typeof setInterval> | null = null
+async function ensureTablesExist(): Promise<void> {
+  if (tablesInitialized) return
 
-function startSaveInterval(): void {
-  if (saveIntervalId === null) {
-    saveIntervalId = setInterval(() => {
-      save().catch(console.error)
-    }, 30000)
+  const client = await getCQLClient()
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS moderation_proposal_flags (
+      flag_id TEXT PRIMARY KEY,
+      proposal_id TEXT NOT NULL,
+      flagger TEXT NOT NULL,
+      flag_type TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      evidence TEXT,
+      stake INTEGER NOT NULL,
+      reputation INTEGER NOT NULL,
+      upvotes INTEGER DEFAULT 0,
+      downvotes INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      resolved INTEGER DEFAULT 0,
+      resolution TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS moderation_stats (
+      address TEXT PRIMARY KEY,
+      flags_raised INTEGER DEFAULT 0,
+      flags_upheld INTEGER DEFAULT 0,
+      flags_rejected INTEGER DEFAULT 0,
+      accuracy REAL DEFAULT 50,
+      reputation REAL DEFAULT 10,
+      trust_score REAL DEFAULT 50
+    )`,
+    `CREATE TABLE IF NOT EXISTS moderation_trust (
+      from_addr TEXT NOT NULL,
+      to_addr TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      context TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (from_addr, to_addr)
+    )`,
+  ]
+
+  const indexes = [
+    `CREATE INDEX IF NOT EXISTS idx_flags_proposal ON moderation_proposal_flags(proposal_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_flags_flagger ON moderation_proposal_flags(flagger)`,
+    `CREATE INDEX IF NOT EXISTS idx_flags_resolved ON moderation_proposal_flags(resolved)`,
+    `CREATE INDEX IF NOT EXISTS idx_trust_to ON moderation_trust(to_addr)`,
+  ]
+
+  for (const ddl of tables) {
+    await client.exec(ddl, [], CQL_DATABASE_ID)
   }
+  for (const idx of indexes) {
+    await client.exec(idx, [], CQL_DATABASE_ID)
+  }
+
+  tablesInitialized = true
 }
 
-export function stopSaveInterval(): void {
-  if (saveIntervalId !== null) {
-    clearInterval(saveIntervalId)
-    saveIntervalId = null
-  }
+// Helper to convert row to ProposalFlag
+function rowToFlag(row: FlagRow): ProposalFlag {
+  return ProposalFlagSchema.parse({
+    flagId: row.flag_id,
+    proposalId: row.proposal_id,
+    flagger: row.flagger,
+    flagType: row.flag_type,
+    reason: row.reason,
+    evidence: row.evidence ?? undefined,
+    stake: row.stake,
+    reputation: row.reputation,
+    upvotes: row.upvotes,
+    downvotes: row.downvotes,
+    createdAt: row.created_at,
+    resolved: row.resolved === 1,
+    resolution: row.resolution ?? undefined,
+  })
 }
 
-// Auto-start on module load
-startSaveInterval()
+// Helper to convert row to ModeratorStats
+function rowToStats(row: StatsRow): ModeratorStats {
+  return ModeratorStatsSchema.parse({
+    address: row.address,
+    flagsRaised: row.flags_raised,
+    flagsUpheld: row.flags_upheld,
+    flagsRejected: row.flags_rejected,
+    accuracy: row.accuracy,
+    reputation: row.reputation,
+    trustScore: row.trust_score,
+  })
+}
+
 
 export class ModerationSystem {
   async init(): Promise<void> {
-    await load()
+    await ensureTablesExist()
   }
 
-  submitFlag(
+  async submitFlag(
     proposalId: string,
     flagger: string,
     flagType: FlagType,
     reason: string,
     stake: number,
     evidence?: string,
-  ): ProposalFlag {
+  ): Promise<ProposalFlag> {
     if (stake < STAKE[flagType])
       throw new Error(`Minimum stake for ${flagType} is ${STAKE[flagType]}`)
 
-    const s = this.getModeratorStats(flagger)
+    const s = await this.getModeratorStats(flagger)
     const flagId = keccak256(
       stringToHex(`${proposalId}-${flagger}-${flagType}-${Date.now()}`),
     ).slice(0, 18)
+
     const flag: ProposalFlag = {
       flagId,
       proposalId,
@@ -288,43 +318,87 @@ export class ModerationSystem {
       resolved: false,
     }
 
-    evict(flags, MAX_FLAGS)
-    flags.set(flagId, flag)
+    const client = await getCQLClient()
+    await client.exec(
+      `INSERT INTO moderation_proposal_flags 
+       (flag_id, proposal_id, flagger, flag_type, reason, evidence, stake, reputation, upvotes, downvotes, created_at, resolved, resolution)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        flag.flagId,
+        flag.proposalId,
+        flag.flagger,
+        flag.flagType,
+        flag.reason,
+        flag.evidence ?? null,
+        flag.stake,
+        flag.reputation,
+        flag.upvotes,
+        flag.downvotes,
+        flag.createdAt,
+        0,
+        null,
+      ],
+      CQL_DATABASE_ID,
+    )
+
+    // Update moderator stats
     s.flagsRaised++
-    stats.set(flagger, s)
-    this.updateScore(proposalId)
-    dirty = true
+    await this.saveModeratorStats(s)
+
+    // Invalidate cache
+    await getCache().delete(`flags:${proposalId}`)
+
+    await this.updateScore(proposalId)
     return flag
   }
 
-  voteOnFlag(flagId: string, voter: string, upvote: boolean): void {
-    const f = flags.get(flagId)
-    if (!f || f.resolved) return
-
-    const weight = Math.max(
-      1,
-      Math.floor(this.getModeratorStats(voter).reputation / 10),
+  async voteOnFlag(flagId: string, voter: string, upvote: boolean): Promise<void> {
+    const client = await getCQLClient()
+    const result = await client.query<FlagRow>(
+      `SELECT * FROM moderation_proposal_flags WHERE flag_id = ?`,
+      [flagId],
+      CQL_DATABASE_ID,
     )
-    if (upvote) {
-      f.upvotes += weight
-    } else {
-      f.downvotes += weight
-    }
-    flags.set(flagId, f)
-    this.updateScore(f.proposalId)
-    dirty = true
+
+    const row = result.rows[0]
+    if (!row || row.resolved === 1) return
+
+    const voterStats = await this.getModeratorStats(voter)
+    const weight = Math.max(1, Math.floor(voterStats.reputation / 10))
+
+    const updateField = upvote ? 'upvotes' : 'downvotes'
+    const newValue = (upvote ? row.upvotes : row.downvotes) + weight
+
+    await client.exec(
+      `UPDATE moderation_proposal_flags SET ${updateField} = ? WHERE flag_id = ?`,
+      [newValue, flagId],
+      CQL_DATABASE_ID,
+    )
+
+    await getCache().delete(`flags:${row.proposal_id}`)
+    await this.updateScore(row.proposal_id)
   }
 
-  resolveFlag(flagId: string, upheld: boolean): void {
-    const f = flags.get(flagId)
-    if (!f || f.resolved) return
+  async resolveFlag(flagId: string, upheld: boolean): Promise<void> {
+    const client = await getCQLClient()
+    const result = await client.query<FlagRow>(
+      `SELECT * FROM moderation_proposal_flags WHERE flag_id = ?`,
+      [flagId],
+      CQL_DATABASE_ID,
+    )
 
-    f.resolved = true
-    f.resolution = upheld ? 'UPHELD' : 'REJECTED'
-    flags.set(flagId, f)
+    const row = result.rows[0]
+    if (!row || row.resolved === 1) return
 
-    const s = this.getModeratorStats(f.flagger)
-    const w = WEIGHT[f.flagType]
+    const resolution = upheld ? 'UPHELD' : 'REJECTED'
+    await client.exec(
+      `UPDATE moderation_proposal_flags SET resolved = 1, resolution = ? WHERE flag_id = ?`,
+      [resolution, flagId],
+      CQL_DATABASE_ID,
+    )
+
+    const s = await this.getModeratorStats(row.flagger)
+    const w = WEIGHT[row.flag_type as FlagType]
 
     if (upheld) {
       s.flagsUpheld++
@@ -338,13 +412,17 @@ export class ModerationSystem {
 
     s.accuracy =
       (s.flagsUpheld / Math.max(1, s.flagsUpheld + s.flagsRejected)) * 100
-    evict(stats, MAX_MODS)
-    stats.set(f.flagger, s)
-    this.updateScore(f.proposalId)
-    dirty = true
+    await this.saveModeratorStats(s)
+
+    await getCache().delete(`flags:${row.proposal_id}`)
+    await this.updateScore(row.proposal_id)
   }
 
-  getProposalModerationScore(proposalId: string): ModerationScore {
+  async getProposalModerationScore(proposalId: string): Promise<ModerationScore> {
+    const cached = scores.get(proposalId)
+    if (cached) return cached
+
+    await this.updateScore(proposalId)
     return (
       scores.get(proposalId) ?? {
         proposalId,
@@ -356,18 +434,18 @@ export class ModerationSystem {
     )
   }
 
-  private updateScore(proposalId: string): void {
-    const active = [...flags.values()].filter(
-      (f) => f.proposalId === proposalId && !f.resolved,
-    )
+  private async updateScore(proposalId: string): Promise<void> {
+    const active = await this.getProposalFlags(proposalId)
+    const unresolvedFlags = active.filter((f) => !f.resolved)
 
-    const weighted = active.reduce((sum, f) => {
-      const s = this.getModeratorStats(f.flagger)
+    let weighted = 0
+    for (const f of unresolvedFlags) {
+      const s = await this.getModeratorStats(f.flagger)
       const tw = s.accuracy / 100
       const vw =
         (f.upvotes - f.downvotes) / Math.max(1, f.upvotes + f.downvotes)
-      return sum + WEIGHT[f.flagType] * tw * (1 + vw)
-    }, 0)
+      weighted += WEIGHT[f.flagType] * tw * (1 + vw)
+    }
 
     const vis = Math.max(0, 100 - weighted)
     const rec: ModerationScore['recommendation'] =
@@ -375,92 +453,182 @@ export class ModerationSystem {
     scores.set(proposalId, {
       proposalId,
       visibilityScore: vis,
-      flags: active,
+      flags: unresolvedFlags,
       trustWeightedFlags: weighted,
       recommendation: rec,
     })
   }
 
-  getModeratorStats(address: string): ModeratorStats {
-    return (
-      stats.get(address) ?? {
-        address,
-        flagsRaised: 0,
-        flagsUpheld: 0,
-        flagsRejected: 0,
-        accuracy: 50,
-        reputation: 10,
-        trustScore: 50,
-      }
+  async getModeratorStats(address: string): Promise<ModeratorStats> {
+    const cache = getCache()
+    const cached = await cache.get(`stats:${address}`)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      return ModeratorStatsSchema.parse(parsed)
+    }
+
+    const client = await getCQLClient()
+    const result = await client.query<StatsRow>(
+      `SELECT * FROM moderation_stats WHERE address = ?`,
+      [address],
+      CQL_DATABASE_ID,
     )
+
+    if (result.rows[0]) {
+      const stats = rowToStats(result.rows[0])
+      await cache.set(`stats:${address}`, JSON.stringify(stats), 300)
+      return stats
+    }
+
+    // Return default stats for new moderator
+    return {
+      address,
+      flagsRaised: 0,
+      flagsUpheld: 0,
+      flagsRejected: 0,
+      accuracy: 50,
+      reputation: 10,
+      trustScore: 50,
+    }
   }
 
-  setTrust(
+  private async saveModeratorStats(s: ModeratorStats): Promise<void> {
+    const client = await getCQLClient()
+    await client.exec(
+      `INSERT INTO moderation_stats (address, flags_raised, flags_upheld, flags_rejected, accuracy, reputation, trust_score)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(address) DO UPDATE SET
+         flags_raised = excluded.flags_raised,
+         flags_upheld = excluded.flags_upheld,
+         flags_rejected = excluded.flags_rejected,
+         accuracy = excluded.accuracy,
+         reputation = excluded.reputation,
+         trust_score = excluded.trust_score`,
+      [
+        s.address,
+        s.flagsRaised,
+        s.flagsUpheld,
+        s.flagsRejected,
+        s.accuracy,
+        s.reputation,
+        s.trustScore,
+      ],
+      CQL_DATABASE_ID,
+    )
+
+    await getCache().delete(`stats:${s.address}`)
+  }
+
+  async setTrust(
     from: string,
     to: string,
     score: number,
     context: TrustRelation['context'],
-  ): void {
-    let g = trust.get(from)
-    if (!g) {
-      g = new Map()
-      trust.set(from, g)
+  ): Promise<void> {
+    const client = await getCQLClient()
+    const clampedScore = Math.max(-100, Math.min(100, score))
+    const now = Date.now()
+
+    await client.exec(
+      `INSERT INTO moderation_trust (from_addr, to_addr, score, context, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(from_addr, to_addr) DO UPDATE SET
+         score = excluded.score,
+         context = excluded.context,
+         updated_at = excluded.updated_at`,
+      [from, to, clampedScore, context, now],
+      CQL_DATABASE_ID,
+    )
+
+    const s = await this.getModeratorStats(to)
+    s.trustScore = await this.calcTrust(to)
+    await this.saveModeratorStats(s)
+  }
+
+  async getTrust(from: string, to: string): Promise<number> {
+    const client = await getCQLClient()
+    const result = await client.query<TrustRow>(
+      `SELECT * FROM moderation_trust WHERE from_addr = ? AND to_addr = ?`,
+      [from, to],
+      CQL_DATABASE_ID,
+    )
+    return result.rows[0]?.score ?? 0
+  }
+
+  private async calcTrust(addr: string): Promise<number> {
+    const client = await getCQLClient()
+    const result = await client.query<{ score: number }>(
+      `SELECT score FROM moderation_trust WHERE to_addr = ?`,
+      [addr],
+      CQL_DATABASE_ID,
+    )
+
+    if (result.rows.length === 0) return 50
+
+    const total = result.rows.reduce((sum, row) => sum + row.score, 0)
+    return Math.round(50 + total / result.rows.length / 2)
+  }
+
+  async getProposalFlags(proposalId: string): Promise<ProposalFlag[]> {
+    const cache = getCache()
+    const cached = await cache.get(`flags:${proposalId}`)
+    if (cached) {
+      const parsed = JSON.parse(cached) as FlagRow[]
+      return parsed.map((row) => rowToFlag(row))
     }
-    g.set(to, {
-      from,
-      to,
-      score: Math.max(-100, Math.min(100, score)),
-      context,
-      updatedAt: Date.now(),
-    })
 
-    const s = this.getModeratorStats(to)
-    s.trustScore = this.calcTrust(to)
-    stats.set(to, s)
-    dirty = true
-  }
+    const client = await getCQLClient()
+    const result = await client.query<FlagRow>(
+      `SELECT * FROM moderation_proposal_flags WHERE proposal_id = ? ORDER BY created_at DESC`,
+      [proposalId],
+      CQL_DATABASE_ID,
+    )
 
-  getTrust(from: string, to: string): number {
-    return trust.get(from)?.get(to)?.score ?? 0
-  }
-
-  private calcTrust(addr: string): number {
-    let total = 0,
-      count = 0
-    for (const [, rels] of trust) {
-      const r = rels.get(addr)
-      if (r) {
-        total += r.score
-        count++
-      }
+    if (result.rows.length > 0) {
+      await cache.set(`flags:${proposalId}`, JSON.stringify(result.rows), 60)
     }
-    return count > 0 ? Math.round(50 + total / count / 2) : 50
+
+    return result.rows.map(rowToFlag)
   }
 
-  getProposalFlags(proposalId: string): ProposalFlag[] {
-    return [...flags.values()].filter((f) => f.proposalId === proposalId)
-  }
-  getActiveFlags(): ProposalFlag[] {
-    return [...flags.values()].filter((f) => !f.resolved)
-  }
-  getTopModerators(limit = 10): ModeratorStats[] {
-    return [...stats.values()]
-      .sort((a, b) => b.reputation - a.reputation)
-      .slice(0, limit)
+  async getActiveFlags(): Promise<ProposalFlag[]> {
+    const client = await getCQLClient()
+    const result = await client.query<FlagRow>(
+      `SELECT * FROM moderation_proposal_flags WHERE resolved = 0 ORDER BY created_at DESC`,
+      [],
+      CQL_DATABASE_ID,
+    )
+    return result.rows.map(rowToFlag)
   }
 
-  filterProposals<T extends { proposalId: string }>(
+  async getTopModerators(limit = 10): Promise<ModeratorStats[]> {
+    const client = await getCQLClient()
+    const result = await client.query<StatsRow>(
+      `SELECT * FROM moderation_stats ORDER BY reputation DESC LIMIT ?`,
+      [limit],
+      CQL_DATABASE_ID,
+    )
+    return result.rows.map(rowToStats)
+  }
+
+  async filterProposals<T extends { proposalId: string }>(
     proposals: T[],
     minVis = 30,
-  ): T[] {
-    return proposals.filter(
-      (p) =>
-        this.getProposalModerationScore(p.proposalId).visibilityScore >= minVis,
-    )
+  ): Promise<T[]> {
+    const filtered: T[] = []
+    for (const p of proposals) {
+      const score = await this.getProposalModerationScore(p.proposalId)
+      if (score.visibilityScore >= minVis) {
+        filtered.push(p)
+      }
+    }
+    return filtered
   }
 
-  shouldAutoReject(proposalId: string): { reject: boolean; reason?: string } {
-    const s = this.getProposalModerationScore(proposalId)
+  async shouldAutoReject(
+    proposalId: string,
+  ): Promise<{ reject: boolean; reason?: string }> {
+    const s = await this.getProposalModerationScore(proposalId)
 
     if (s.visibilityScore < 10) {
       const top = s.flags.sort(
@@ -484,8 +652,7 @@ export class ModerationSystem {
   }
 
   async flush(): Promise<void> {
-    dirty = true
-    await save()
+    // No-op - CQL persists immediately
   }
 }
 
@@ -498,4 +665,9 @@ export const getModerationSystem = () => {
 }
 export const initModeration = async () => {
   await getModerationSystem().init()
+}
+
+// Legacy exports for backwards compatibility (no longer needed but kept for API stability)
+export function stopSaveInterval(): void {
+  // No-op - CQL doesn't use intervals
 }

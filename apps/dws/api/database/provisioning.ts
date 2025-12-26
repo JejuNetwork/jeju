@@ -191,11 +191,11 @@ async function checkDatabaseAccess(
       ? ['INSERT', 'UPDATE', 'DELETE', 'ALL']
       : ['SELECT', 'ALL']
 
+  const PermissionsSchema = z.array(z.string())
   for (const row of aclResult.rows) {
-    const parsed: unknown = JSON.parse(row.permissions)
-    if (!Array.isArray(parsed)) continue
-    const permissions = parsed.filter((p): p is string => typeof p === 'string')
-    if (permissions.some((p) => requiredPermissions.includes(p))) {
+    const parseResult = PermissionsSchema.safeParse(JSON.parse(row.permissions))
+    if (!parseResult.success) continue
+    if (parseResult.data.some((p) => requiredPermissions.includes(p))) {
       return true
     }
   }

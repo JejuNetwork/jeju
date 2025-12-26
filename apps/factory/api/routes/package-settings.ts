@@ -1,6 +1,7 @@
 /** Package Settings Routes */
 
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import {
   addPackageMaintainer,
   createPackageToken,
@@ -22,6 +23,9 @@ import {
   PackageSettingsParamsSchema,
   UpdatePackageSettingsBodySchema,
 } from '../schemas'
+
+// Schema for token permissions
+const PermissionsSchema = z.array(z.string())
 import { requireAuth } from '../validation/access-control'
 
 export interface PackageMaintainer {
@@ -257,7 +261,7 @@ export const packageSettingsRoutes = new Elysia({
         id: row.id,
         name: row.token_name,
         token: plainToken,
-        permissions: JSON.parse(row.permissions) as string[],
+        permissions: PermissionsSchema.parse(JSON.parse(row.permissions)),
         createdAt: row.created_at,
         expiresAt: row.expires_at ?? undefined,
       }
