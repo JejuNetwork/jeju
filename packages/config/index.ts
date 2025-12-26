@@ -1911,6 +1911,28 @@ export function getCouncilElizaOauth3App(): string {
   return process.env.COUNCIL_ELIZA_OAUTH3_APP ?? '0x'
 }
 
+// Hyperlane Configuration
+
+/** Get Jeju Hyperlane mailbox address */
+export function getJejuHyperlaneMailbox(): string {
+  return process.env.JEJU_HYPERLANE_MAILBOX ?? ''
+}
+
+/** Get Jeju Hyperlane IGP address */
+export function getJejuHyperlaneIgp(): string {
+  return process.env.JEJU_HYPERLANE_IGP ?? ''
+}
+
+/** Get Jeju mainnet Hyperlane mailbox address */
+export function getJejuMainnetHyperlaneMailbox(): string {
+  return process.env.JEJU_MAINNET_HYPERLANE_MAILBOX ?? ''
+}
+
+/** Get Jeju mainnet Hyperlane IGP address */
+export function getJejuMainnetHyperlaneIgp(): string {
+  return process.env.JEJU_MAINNET_HYPERLANE_IGP ?? ''
+}
+
 // Branding Config
 
 export {

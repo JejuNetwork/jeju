@@ -31,6 +31,7 @@ import {
   type UUID,
   type World,
 } from '@elizaos/core'
+import { getCqlDatabaseId } from '@jejunetwork/config'
 import {
   type CQLClient,
   getCQL,
@@ -74,8 +75,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   constructor(agentId: UUID, config?: CQLAdapterConfig) {
     super()
     this.agentId = agentId
-    this.databaseId =
-      config?.databaseId ?? process.env.CQL_DATABASE_ID ?? 'eliza'
+    this.databaseId = config?.databaseId ?? getCqlDatabaseId() ?? 'eliza'
     this.autoMigrate = config?.autoMigrate ?? true
     // Set db directly - parent class expects this property
     this.db = getCQL()

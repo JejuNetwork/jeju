@@ -28,7 +28,7 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { getRpcUrl } from '@jejunetwork/config'
+import { getDWSUrl, getRpcUrl, getServiceUrl } from '@jejunetwork/config'
 import type {
   CacheConfig,
   CDNRegion,
@@ -300,7 +300,7 @@ export class CDNClient {
 
     // Upload each file to storage
     const storageUrl =
-      process.env.DWS_STORAGE_URL || 'http://localhost:4030/storage'
+      process.env.DWS_STORAGE_URL || getServiceUrl('storage', 'api') || `${getDWSUrl()}/storage`
 
     for (const file of files) {
       totalBytes += file.size

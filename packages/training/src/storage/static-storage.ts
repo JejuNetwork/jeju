@@ -29,7 +29,7 @@ import type {
  * Configuration for static storage
  */
 export interface StaticStorageConfig {
-  /** Application name (crucible, babylon) */
+  /** Application name (crucible, factory, dws) */
   appName: string
   /** Maximum trajectories before auto-flush */
   maxBufferSize: number

@@ -8,7 +8,7 @@ import {
   type InstanceFactory,
   LocalInstanceFactory,
 } from './auto-scaler'
-import { CircuitBreaker, CircuitOpenError } from './circuit-breaker'
+import { BrokenCircuitError, CircuitBreaker } from './circuit-breaker'
 import type {
   Instance,
   LoadBalancerConfig,
@@ -169,7 +169,7 @@ export class LoadBalancer {
 
       queued.resolve(response)
     } catch (error) {
-      if (error instanceof CircuitOpenError) {
+      if (error instanceof BrokenCircuitError) {
         // Re-queue the request for another instance
         this.requestQueues.get(queued.serviceId)?.unshift(queued)
       } else {
@@ -281,6 +281,6 @@ export {
   type InstanceFactory,
   LocalInstanceFactory,
 } from './auto-scaler'
-export { CircuitBreaker, CircuitOpenError } from './circuit-breaker'
+export { BrokenCircuitError, CircuitBreaker } from './circuit-breaker'
 // Exports
 export * from './types'

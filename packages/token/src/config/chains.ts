@@ -1,4 +1,9 @@
-import { getExternalRpc, getRpcUrl as getJejuRpcUrl } from '@jejunetwork/config'
+import {
+  getExternalRpc,
+  getJejuHyperlaneIgp,
+  getJejuHyperlaneMailbox,
+  getRpcUrl as getJejuRpcUrl,
+} from '@jejunetwork/config'
 import type { ChainConfig, ChainId } from '../types'
 import { chainConfigSchema, ValidationError } from '../validation'
 
@@ -263,8 +268,8 @@ export const jejuTestnet: ChainConfig = {
     decimals: 18,
   },
   // Hyperlane addresses - require env var if custom deployment, otherwise use empty (not yet deployed)
-  hyperlaneMailbox: process.env.JEJU_HYPERLANE_MAILBOX ?? '',
-  hyperlaneIgp: process.env.JEJU_HYPERLANE_IGP ?? '',
+  hyperlaneMailbox: getJejuHyperlaneMailbox(),
+  hyperlaneIgp: getJejuHyperlaneIgp(),
   isHomeChain: false,
   avgBlockTime: 2,
   // Jeju uses Uniswap V4 (addresses from Jeju's config)

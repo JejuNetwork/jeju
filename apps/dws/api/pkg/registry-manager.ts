@@ -4,6 +4,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import { getDWSUrl } from '@jejunetwork/config'
 import { expectJson } from '@jejunetwork/types'
 import {
   type Address,
@@ -766,7 +767,7 @@ export class PkgRegistryManager {
     if (!cidString) {
       throw new Error(`CID not found for bytes32: ${tarballCid}`)
     }
-    const baseUrl = process.env.DWS_BASE_URL || 'http://localhost:4030'
+    const baseUrl = process.env.DWS_BASE_URL || getDWSUrl()
     return `${baseUrl}/storage/download/${cidString}`
   }
 

@@ -1,11 +1,11 @@
 /** Contract Configuration */
 
-import { getContractAddress as getNetworkAddress } from '@jejunetwork/config'
+import { getContractAddress as getNetworkAddress, getDWSUrl as getConfigDWSUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
 export function getDwsUrl(): string {
   if (typeof window === 'undefined') {
-    return 'http://localhost:4030'
+    return getConfigDWSUrl()
   }
   const hostname = window.location.hostname
   if (hostname.includes('local.')) {
@@ -20,7 +20,7 @@ export function getDwsUrl(): string {
   ) {
     return 'https://dws.jejunetwork.org'
   }
-  return 'http://localhost:4030'
+  return getConfigDWSUrl()
 }
 
 function getNetwork(): 'localnet' | 'testnet' | 'mainnet' {

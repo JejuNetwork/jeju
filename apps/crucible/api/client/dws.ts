@@ -5,7 +5,7 @@
  * Uses a typed fetch wrapper with zod schema validation for response types.
  */
 
-import { getDWSComputeUrl } from '@jejunetwork/config'
+import { getDWSUrl, getServiceUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import { expect, expectTrue, StorageUploadResponseSchema } from '../schemas'
 
@@ -37,7 +37,7 @@ const ComputeNodeStatsSchema = z.object({
       activeRuns: z.number().optional(),
     })
     .optional(),
-  // Flat response fields (alternative format from some DWS versions)
+  // Legacy fields for backward compatibility
   totalNodes: z.number().optional(),
   activeNodes: z.number().optional(),
   avgLoad: z.number().optional(),
@@ -75,14 +75,12 @@ const InferenceAvailabilitySchema = z.object({
  * Returns base URL without /compute suffix
  */
 export function getDWSEndpoint(): string {
+  // Allow env override for testing
   if (process.env.DWS_URL) {
     return process.env.DWS_URL.replace(/\/compute\/?$/, '')
   }
-  if (process.env.COMPUTE_MARKETPLACE_URL) {
-    return process.env.COMPUTE_MARKETPLACE_URL.replace(/\/compute\/?$/, '')
-  }
-  // getDWSComputeUrl returns http://127.0.0.1:4030/compute - strip the /compute
-  return getDWSComputeUrl().replace(/\/compute\/?$/, '')
+  // Use centralized config
+  return getDWSUrl()
 }
 
 // DWS Client Class
@@ -317,7 +315,7 @@ export function createDWSClient(config: DWSClientConfig): DWSClient {
  */
 export function getDefaultDWSClient(): DWSClient {
   const baseUrl = getDWSEndpoint()
-  const ipfsGateway = process.env.IPFS_GATEWAY ?? `${baseUrl}/storage`
+  const ipfsGateway = process.env.IPFS_GATEWAY ?? getServiceUrl('storage', 'ipfsGateway') ?? `${baseUrl}/storage`
   return new DWSClient({ baseUrl, ipfsGateway })
 }
 

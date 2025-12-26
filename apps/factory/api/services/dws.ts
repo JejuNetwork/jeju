@@ -1,21 +1,20 @@
 /** DWS Client */
 
-import { getCoreAppUrl, getRpcUrl } from '@jejunetwork/config'
+import { getContract, getDWSUrl, getRpcUrl } from '@jejunetwork/config'
 import { identityRegistryAbi } from '@jejunetwork/contracts'
 import { isValidAddress } from '@jejunetwork/types'
 import { type Address, createPublicClient, http } from 'viem'
 
 const DWS_TAG = 'dws'
-const FALLBACK_DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
+const FALLBACK_DWS_URL = process.env.DWS_URL || getDWSUrl()
 
-const DEFAULT_REGISTRY_ADDRESS: Address =
-  '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9'
+const ZERO_ADDR: Address = '0x0000000000000000000000000000000000000000'
 
 function getRegistryAddress(configAddress?: Address): Address {
   if (configAddress) return configAddress
   const envAddress = process.env.IDENTITY_REGISTRY_ADDRESS
   if (envAddress && isValidAddress(envAddress)) return envAddress
-  return DEFAULT_REGISTRY_ADDRESS
+  return (getContract('registry', 'identity') || ZERO_ADDR) as Address
 }
 
 export interface DWSNode {

@@ -3,6 +3,7 @@
  * Executes workflows triggered by git events
  */
 
+import { getDWSUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -863,7 +864,7 @@ export class WorkflowEngine {
    * Create workflow context
    */
   private createContext(run: WorkflowRun, workflow: Workflow): WorkflowContext {
-    const baseUrl = process.env.DWS_BASE_URL || 'http://localhost:4030'
+    const baseUrl = process.env.DWS_BASE_URL || getDWSUrl()
 
     return {
       github: {
