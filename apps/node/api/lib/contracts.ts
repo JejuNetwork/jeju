@@ -69,6 +69,7 @@ export const networkLocalnet: Chain = getLocalnetChain()
 export interface ContractAddresses {
   identityRegistry: Address
   nodeStakingManager: Address
+  delegatedNodeStaking: Address
   computeRegistry: Address
   computeStaking: Address
   inferenceServing: Address
