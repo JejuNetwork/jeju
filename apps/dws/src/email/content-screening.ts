@@ -78,10 +78,12 @@ const AccountReviewSchema = z.object({
       z.object({
         type: z.string(),
         count: z.number(),
-        severity: z.number(),
+        severity: z.enum(['low', 'medium', 'high', 'critical']),
+        description: z.string(),
       }),
     ),
     overallAssessment: z.string(),
+    llmReasoning: z.string(),
   }),
   recommendation: z.enum(['allow', 'warn', 'suspend', 'ban']),
   confidence: z.number().min(0).max(1),
@@ -728,6 +730,7 @@ Return ONLY valid JSON:
     flags: ContentFlag[],
     action: ScreeningAction,
     reviewRequired: boolean,
+    _processingTimeMs?: number,
   ): ScreeningResult {
     return {
       messageId,

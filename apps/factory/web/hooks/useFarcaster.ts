@@ -4,9 +4,9 @@
  * React hooks for Farcaster feed, user profiles, and cast operations.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
-import { apiFetch, apiPost, apiDelete, getHeaders, API_BASE } from '../lib/api'
+import { API_BASE, apiDelete, apiFetch, apiPost, getHeaders } from '../lib/api'
 
 // ============================================================================
 // TYPES
@@ -59,25 +59,43 @@ export interface FarcasterStatus {
 export interface OnboardingStatus {
   completed: boolean
   steps: {
-    linkFid: { complete: boolean; data: { fid: number; username: string; displayName: string } | null }
+    linkFid: {
+      complete: boolean
+      data: { fid: number; username: string; displayName: string } | null
+    }
     createSigner: { complete: boolean; data: { publicKey: string } | null }
     activateSigner: { complete: boolean }
   }
-  user: { fid: number; username: string; displayName: string; pfpUrl: string } | null
+  user: {
+    fid: number
+    username: string
+    displayName: string
+    pfpUrl: string
+  } | null
 }
 
 export interface LookupFidResult {
   found: boolean
-  fid?: number
-  user?: FarcasterUser
+  fid: number | null
+  user: {
+    fid: number
+    username: string
+    displayName: string
+    pfpUrl: string
+    bio: string
+  } | null
 }
 
 export interface QuickConnectResult {
+  success: boolean
+  user: { fid: number; username: string; displayName: string; pfpUrl: string }
+  signer: { publicKey: string; state: string }
   registrationRequired: boolean
-  registration?: {
+  registration: {
     message: string
+    deadline: number
     signerPublicKey: string
-  }
+  } | null
 }
 
 // ============================================================================
@@ -112,16 +130,18 @@ export function useOnboardingStatus() {
 
   return useQuery({
     queryKey: ['farcaster', 'onboarding', address],
-    queryFn: () => apiFetch<OnboardingStatus>('/api/farcaster/onboarding', { address }),
+    queryFn: () =>
+      apiFetch<OnboardingStatus>('/api/farcaster/onboarding', { address }),
     enabled: !!address,
     staleTime: 30_000,
   })
 }
 
 export function useLookupFid(lookupAddress?: string) {
-  return useQuery({
+  return useQuery<LookupFidResult>({
     queryKey: ['farcaster', 'lookup', lookupAddress],
-    queryFn: () => apiFetch<LookupFidResult>(`/api/farcaster/lookup/${lookupAddress}`),
+    queryFn: () =>
+      apiFetch<LookupFidResult>(`/api/farcaster/lookup/${lookupAddress}`),
     enabled: !!lookupAddress,
     staleTime: 60_000,
   })
@@ -132,7 +152,8 @@ export function useLinkFid() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (fid: number) => apiPost('/api/farcaster/link', { fid }, address),
+    mutationFn: (fid: number) =>
+      apiPost('/api/farcaster/link', { fid }, address),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'status'] })
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'onboarding'] })
@@ -145,7 +166,8 @@ export function useCreateSigner() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (fid: number) => apiPost('/api/farcaster/signer', { fid }, address),
+    mutationFn: (fid: number) =>
+      apiPost('/api/farcaster/signer', { fid }, address),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'status'] })
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'onboarding'] })
@@ -171,8 +193,9 @@ export function useQuickConnect() {
   const { address } = useAccount()
   const queryClient = useQueryClient()
 
-  return useMutation({
-    mutationFn: (fid: number) => apiPost('/api/farcaster/connect', { fid }, address),
+  return useMutation<QuickConnectResult, Error, number>({
+    mutationFn: (fid: number) =>
+      apiPost<QuickConnectResult>('/api/farcaster/connect', { fid }, address),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'status'] })
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'onboarding'] })
@@ -213,7 +236,8 @@ export function useChannelFeed(channelId: string) {
 
   return useQuery({
     queryKey: ['feed', 'channel', channelId],
-    queryFn: () => apiFetch<FeedResponse>(`/api/feed/channel/${channelId}`, { address }),
+    queryFn: () =>
+      apiFetch<FeedResponse>(`/api/feed/channel/${channelId}`, { address }),
     enabled: !!channelId,
     staleTime: 30_000,
   })
@@ -235,7 +259,8 @@ export function useTrendingFeed() {
 
   return useQuery({
     queryKey: ['feed', 'trending'],
-    queryFn: () => apiFetch<FeedResponse>('/api/feed?feedType=trending', { address }),
+    queryFn: () =>
+      apiFetch<FeedResponse>('/api/feed?feedType=trending', { address }),
     staleTime: 30_000,
   })
 }
@@ -264,7 +289,8 @@ export function useDeleteCast() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (castHash: string) => apiDelete(`/api/feed/${castHash}`, undefined, address),
+    mutationFn: (castHash: string) =>
+      apiDelete(`/api/feed/${castHash}`, undefined, address),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
@@ -325,7 +351,8 @@ export function useFollowUser() {
       })
       return response.json()
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['farcaster', 'user'] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['farcaster', 'user'] }),
   })
 }
 
@@ -341,7 +368,8 @@ export function useUnfollowUser() {
       })
       return response.json()
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['farcaster', 'user'] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['farcaster', 'user'] }),
   })
 }
 
@@ -352,9 +380,10 @@ export function useUnfollowUser() {
 export function useFarcasterUser(fid: number) {
   return useQuery({
     queryKey: ['farcaster', 'user', fid],
-    queryFn: () => apiFetch<{ user: FarcasterUser } | { error: { code: string } }>(
-      `/api/feed/user/${fid}/profile`,
-    ),
+    queryFn: () =>
+      apiFetch<{ user: FarcasterUser } | { error: { code: string } }>(
+        `/api/feed/user/${fid}/profile`,
+      ),
     enabled: !!fid,
     staleTime: 60_000,
   })

@@ -31,10 +31,10 @@ import {
   getRpcUrl,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
-import type { CouncilConfig } from '../lib'
+import { expectValid } from '@jejunetwork/types'
 import {
+  type CouncilConfig,
   CasualProposalCategorySchema,
-  expectValid,
   ProposalTypeSchema,
 } from '../lib'
 import { createAutocratA2AServer } from './a2a-server'

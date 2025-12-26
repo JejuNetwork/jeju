@@ -60,13 +60,24 @@ export const DEFAULT_IPFS_API =
 export const DEFAULT_IPFS_GATEWAY =
   getEnv('IPFS_GATEWAY_ENDPOINT') || IPFS_ENDPOINTS.localnet.gateway
 
-// Localnet addresses (from local anvil deployment)
+// Localnet addresses - read from environment or use defaults
+// These are populated by the bootstrap script and passed as env vars
 const LOCALNET_CONTRACTS = {
-  jnsRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
-  jnsResolver: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address,
-  appRegistry: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' as Address,
-  identityRegistry: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707' as Address,
-  teeVerifier: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9' as Address,
+  jnsRegistry: (getEnv('JNS_REGISTRY_ADDRESS') ||
+    getEnv('PUBLIC_JNS_REGISTRY_ADDRESS') ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  jnsResolver: (getEnv('JNS_RESOLVER_ADDRESS') ||
+    getEnv('PUBLIC_JNS_RESOLVER_ADDRESS') ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  appRegistry: (getEnv('APP_REGISTRY_ADDRESS') ||
+    getEnv('PUBLIC_APP_REGISTRY_ADDRESS') ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  identityRegistry: (getEnv('IDENTITY_REGISTRY_ADDRESS') ||
+    getEnv('PUBLIC_IDENTITY_REGISTRY_ADDRESS') ||
+    '0x0000000000000000000000000000000000000000') as Address,
+  teeVerifier: (getEnv('TEE_VERIFIER_ADDRESS') ||
+    getEnv('PUBLIC_TEE_VERIFIER_ADDRESS') ||
+    '0x0000000000000000000000000000000000000000') as Address,
 } as const
 
 // Testnet addresses (Jeju Testnet deployment)
@@ -108,11 +119,19 @@ export function getContracts(chainId: number) {
   const network = getNetworkType(chainId)
   const contracts = CONTRACTS[network]
 
-  // Fail fast if mainnet contracts not deployed
-  if (network === 'mainnet' && contracts.jnsRegistry === ZERO_ADDRESS) {
-    throw new Error(
-      'Mainnet contracts not yet deployed. Use testnet or localnet.',
-    )
+  // Fail fast if contracts not deployed
+  if (contracts.jnsRegistry === ZERO_ADDRESS) {
+    if (network === 'mainnet') {
+      throw new Error(
+        'Mainnet contracts not yet deployed. Use testnet or localnet.',
+      )
+    }
+    if (network === 'localnet') {
+      // Log warning but don't fail - OAuth3 will fall back to centralized mode
+      console.warn(
+        '[OAuth3] JNS contracts not configured for localnet. Set JNS_REGISTRY_ADDRESS env var or run bootstrap.',
+      )
+    }
   }
 
   return contracts

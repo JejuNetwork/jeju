@@ -7,10 +7,9 @@
 //! - Contribution includes: CDN serving + VPN relay (where legal)
 
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Contribution multiplier - max contribution is 3x usage
+#[allow(dead_code)]
 pub const CONTRIBUTION_MULTIPLIER: u64 = 3;
 
 /// Default bandwidth percent to share when idle
@@ -132,7 +131,7 @@ pub struct ContributionManager {
     stats: ContributionStats,
 
     /// Country code of this node (for legal compliance)
-    country_code: String,
+    _country_code: String,
 }
 
 impl ContributionManager {
@@ -169,11 +168,12 @@ impl ContributionManager {
                 cdn_requests_served: 0,
                 uptime_seconds: 0,
             },
-            country_code: "US".to_string(),
+            _country_code: "US".to_string(),
         }
     }
 
     /// Set country code (for legal compliance)
+    #[allow(dead_code)]
     pub fn set_country(&mut self, country_code: String) {
         // Disable VPN relay in countries where it's not legal
         let blocked_countries = ["CN", "RU", "IR", "BY", "KP", "AE", "OM", "TM"];
@@ -181,7 +181,7 @@ impl ContributionManager {
             self.settings.share_vpn_relay = false;
         }
 
-        self.country_code = country_code;
+        self._country_code = country_code;
     }
 
     /// Get current contribution status
@@ -199,7 +199,7 @@ impl ContributionManager {
         // Enforce legal restrictions
         let mut settings = settings;
         let blocked_countries = ["CN", "RU", "IR", "BY", "KP", "AE", "OM", "TM"];
-        if blocked_countries.contains(&self.country_code.as_str()) {
+        if blocked_countries.contains(&self._country_code.as_str()) {
             settings.share_vpn_relay = false;
         }
 
@@ -212,6 +212,7 @@ impl ContributionManager {
     }
 
     /// Record VPN usage
+    #[allow(dead_code)]
     pub fn record_vpn_usage(&mut self, bytes: u64) {
         self.status.vpn_bytes_used += bytes;
         self.status.contribution_cap = self.status.vpn_bytes_used * CONTRIBUTION_MULTIPLIER;
@@ -225,6 +226,7 @@ impl ContributionManager {
     }
 
     /// Record contribution (CDN or relay)
+    #[allow(dead_code)]
     pub fn record_contribution(&mut self, bytes: u64, is_cdn: bool) {
         // Check if we've reached cap
         if self.status.bytes_contributed >= self.status.contribution_cap {
@@ -253,6 +255,7 @@ impl ContributionManager {
     }
 
     /// Check if contribution is allowed (under cap, not paused, etc.)
+    #[allow(dead_code)]
     pub fn can_contribute(&self) -> bool {
         if !self.settings.enabled {
             return false;
@@ -270,16 +273,19 @@ impl ContributionManager {
     }
 
     /// Check if VPN relay is allowed (legal in this country)
+    #[allow(dead_code)]
     pub fn can_relay_vpn(&self) -> bool {
         self.can_contribute() && self.settings.share_vpn_relay
     }
 
     /// Check if CDN serving is allowed
+    #[allow(dead_code)]
     pub fn can_serve_cdn(&self) -> bool {
         self.can_contribute() && self.settings.share_cdn
     }
 
     /// Get current bandwidth allowance (Mbps)
+    #[allow(dead_code)]
     pub fn get_bandwidth_allowance(&self) -> u32 {
         if !self.can_contribute() {
             return 0;
@@ -297,17 +303,20 @@ impl ContributionManager {
     }
 
     /// Pause contribution
+    #[allow(dead_code)]
     pub fn pause(&mut self) {
         self.status.is_paused = true;
         self.status.is_contributing = false;
     }
 
     /// Resume contribution
+    #[allow(dead_code)]
     pub fn resume(&mut self) {
         self.status.is_paused = false;
     }
 
     /// Start contributing
+    #[allow(dead_code)]
     pub fn start_contributing(&mut self) {
         if self.can_contribute() {
             self.status.is_contributing = true;
@@ -315,11 +324,13 @@ impl ContributionManager {
     }
 
     /// Stop contributing
+    #[allow(dead_code)]
     pub fn stop_contributing(&mut self) {
         self.status.is_contributing = false;
     }
 
     /// Reset period (called when period ends)
+    #[allow(dead_code)]
     pub fn reset_period(&mut self) {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

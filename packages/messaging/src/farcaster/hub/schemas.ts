@@ -18,27 +18,30 @@ export const AddressSchema = z.custom<Address>(
 // Hub API response schemas for external data validation
 
 // User Data Types (internal schema for API responses)
-const UserDataTypeRaw = z.enum([
-  'USER_DATA_TYPE_PFP',
-  'USER_DATA_TYPE_DISPLAY',
-  'USER_DATA_TYPE_BIO',
-  'USER_DATA_TYPE_URL',
-  'USER_DATA_TYPE_USERNAME',
-  'USER_DATA_TYPE_LOCATION',
-])
+// Note: Hub may return new types not in this list - accept any string
+const UserDataTypeRaw = z.string()
 
-type UserDataType = 'pfp' | 'display' | 'bio' | 'url' | 'username' | 'location'
+type UserDataType =
+  | 'pfp'
+  | 'display'
+  | 'bio'
+  | 'url'
+  | 'username'
+  | 'location'
+  | 'unknown'
 
-export const USER_DATA_TYPE_MAP: Record<
-  z.infer<typeof UserDataTypeRaw>,
-  UserDataType
-> = {
+export const USER_DATA_TYPE_MAP: Record<string, UserDataType> = {
   USER_DATA_TYPE_PFP: 'pfp',
   USER_DATA_TYPE_DISPLAY: 'display',
   USER_DATA_TYPE_BIO: 'bio',
   USER_DATA_TYPE_URL: 'url',
   USER_DATA_TYPE_USERNAME: 'username',
   USER_DATA_TYPE_LOCATION: 'location',
+}
+
+/** Get user data type with fallback for unknown types */
+export function getUserDataType(rawType: string): UserDataType {
+  return USER_DATA_TYPE_MAP[rawType] ?? 'unknown'
 }
 
 // Hub Info Response
@@ -106,10 +109,11 @@ const EmbedSchema = z.object({
 })
 
 // Cast Add Body (shared between CastMessage and SingleCast)
+// Note: Hub API returns null for absent fields, so we use .nullish() (null | undefined)
 const CastAddBodySchema = z.object({
-  text: z.string().max(320),
-  parentCastId: CastIdSchema.optional(),
-  parentUrl: z.string().url().optional(),
+  text: z.string().max(1024), // Farcaster increased limit from 320 to 1024
+  parentCastId: CastIdSchema.nullish(),
+  parentUrl: z.string().url().nullish(),
   embeds: z.array(EmbedSchema),
   mentions: z.array(z.number().int().positive()),
   mentionsPositions: z.array(z.number().int().nonnegative()),
@@ -168,12 +172,16 @@ export const LinksResponseSchema = z.object({
 })
 
 // Username Proof
+// Note: proofs may be absent from response when no matching proof exists
 export const UsernameProofResponseSchema = z.object({
-  proofs: z.array(
-    z.object({
-      fid: z.number().int().positive(),
-    }),
-  ),
+  proofs: z
+    .array(
+      z.object({
+        fid: z.number().int().positive(),
+      }),
+    )
+    .optional()
+    .default([]),
 })
 
 // Verification Lookup

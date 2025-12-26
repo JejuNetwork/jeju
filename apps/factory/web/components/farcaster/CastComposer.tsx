@@ -4,9 +4,13 @@
  * Form for composing and publishing new Farcaster casts.
  */
 
-import { Send, X, Image, Link2, AtSign, Loader2 } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
-import { usePublishCast, useFarcasterStatus, type Cast } from '../../hooks/useFarcaster'
+import { AtSign, Image, Link2, Loader2, Send, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  type Cast,
+  useFarcasterStatus,
+  usePublishCast,
+} from '../../hooks/useFarcaster'
 
 interface CastComposerProps {
   channelId?: string
@@ -59,9 +63,7 @@ export function CastComposer({
   const handleSubmit = async () => {
     if (!canSubmit) return
 
-    const embeds = embedUrl.trim()
-      ? [{ url: embedUrl.trim() }]
-      : undefined
+    const embeds = embedUrl.trim() ? [{ url: embedUrl.trim() }] : undefined
 
     await publishMutation.mutateAsync({
       text: text.trim(),

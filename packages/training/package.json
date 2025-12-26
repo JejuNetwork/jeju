@@ -20,7 +20,7 @@
     "@jejunetwork/types": "workspace:*",
     "@solana/web3.js": "^1.98.0",
     "borsh": "^2.0.0",
-    "elysia": "^1.2.25",
+    "elysia": "^1.4.19",
     "@elysiajs/cors": "^1.1.1",
     "tweetnacl": "^1.0.3",
     "viem": "2.43.3",

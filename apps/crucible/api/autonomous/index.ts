@@ -303,11 +303,13 @@ export class AutonomousAgentRunner {
       (agent.config.recordTrajectories ?? true)
 
     if (shouldRecord) {
-      agent.currentTrajectoryId = await this.trajectoryRecorder.startTrajectory({
-        agentId,
-        archetype: agent.config.archetype,
-        scenarioId: `autonomous-tick-${agent.tickCount}`,
-      })
+      agent.currentTrajectoryId = await this.trajectoryRecorder.startTrajectory(
+        {
+          agentId,
+          archetype: agent.config.archetype,
+          scenarioId: `autonomous-tick-${agent.tickCount}`,
+        },
+      )
     }
 
     let tickSuccess = false
@@ -475,10 +477,13 @@ export class AutonomousAgentRunner {
 
     // Start trajectory step with environment state
     if (trajectoryId) {
-      const recentSuccesses = agent.recentActivity.filter((a) => a.success).length
-      const successRate = agent.recentActivity.length > 0
-        ? recentSuccesses / agent.recentActivity.length
-        : 0
+      const recentSuccesses = agent.recentActivity.filter(
+        (a) => a.success,
+      ).length
+      const successRate =
+        agent.recentActivity.length > 0
+          ? recentSuccesses / agent.recentActivity.length
+          : 0
 
       // Crucible uses passthrough fields for semantic naming (not trading data)
       const envState: EnvironmentState = {

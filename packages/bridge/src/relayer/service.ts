@@ -2,13 +2,13 @@
  * Cross-Chain Relayer Service - orchestrates bridge flow between Solana and EVM
  */
 
+import { cors } from '@elysiajs/cors'
 import {
   getEvmChainId,
   getHomeDir,
   getRelayerPort,
   isProduction as isProductionMode,
 } from '@jejunetwork/config'
-import { cors } from '@elysiajs/cors'
 import {
   Keypair,
   PublicKey,

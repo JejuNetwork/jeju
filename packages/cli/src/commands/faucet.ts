@@ -151,7 +151,10 @@ function listFaucets(): void {
   logger.info('Usage: jeju faucet [address] --chain <chain>')
 }
 
-async function checkSolanaBalance(address: string, rpcUrl: string): Promise<number> {
+async function checkSolanaBalance(
+  address: string,
+  rpcUrl: string,
+): Promise<number> {
   const response = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -168,7 +171,10 @@ async function checkSolanaBalance(address: string, rpcUrl: string): Promise<numb
     throw new Error(`Solana RPC error: ${response.status}`)
   }
 
-  const data = await response.json() as { result?: { value: number }; error?: { message: string } }
+  const data = (await response.json()) as {
+    result?: { value: number }
+    error?: { message: string }
+  }
   if (data.error) {
     throw new Error(data.error.message)
   }
@@ -222,7 +228,11 @@ async function checkBalance(
   }
 }
 
-async function requestSolanaAirdrop(address: string, lamports: number, rpcUrl: string): Promise<string> {
+async function requestSolanaAirdrop(
+  address: string,
+  lamports: number,
+  rpcUrl: string,
+): Promise<string> {
   const response = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -239,7 +249,10 @@ async function requestSolanaAirdrop(address: string, lamports: number, rpcUrl: s
     throw new Error(`Solana RPC error: ${response.status}`)
   }
 
-  const data = await response.json() as { result?: string; error?: { message: string } }
+  const data = (await response.json()) as {
+    result?: string
+    error?: { message: string }
+  }
   if (data.error) {
     throw new Error(data.error.message)
   }
@@ -255,23 +268,33 @@ async function selfFund(
   if (chainName === 'solana') {
     const chain = CHAINS.solana
     const amountSol = parseFloat(amountEth)
-    
+
     // Solana devnet limits airdrops to 2 SOL
     if (amountSol > 2) {
       logger.warn('Solana devnet limits airdrops to 2 SOL. Requesting 2 SOL.')
     }
-    
+
     const lamports = Math.min(amountSol, 2) * 1e9
-    
-    logger.step(`Requesting ${Math.min(amountSol, 2)} SOL airdrop to ${targetAddress.slice(0, 10)}...`)
-    
-    const signature = await requestSolanaAirdrop(targetAddress, lamports, chain.rpc)
-    
+
+    logger.step(
+      `Requesting ${Math.min(amountSol, 2)} SOL airdrop to ${targetAddress.slice(0, 10)}...`,
+    )
+
+    const signature = await requestSolanaAirdrop(
+      targetAddress,
+      lamports,
+      chain.rpc,
+    )
+
     if (signature) {
-      logger.success(`Airdrop requested. Signature: ${signature.slice(0, 20)}...`)
+      logger.success(
+        `Airdrop requested. Signature: ${signature.slice(0, 20)}...`,
+      )
       logger.info(`Explorer: ${chain.explorer}/tx/${signature}`)
     } else {
-      logger.error('Airdrop request failed. The devnet faucet may be rate-limited.')
+      logger.error(
+        'Airdrop request failed. The devnet faucet may be rate-limited.',
+      )
       logger.info('Try again later or use: https://faucet.solana.com')
     }
     return

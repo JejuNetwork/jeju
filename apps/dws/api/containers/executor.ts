@@ -250,7 +250,9 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
 // Image Pulling
 
 const STORAGE_ENDPOINT =
-  process.env.DWS_STORAGE_URL || getServiceUrl('storage', 'api') || `${getDWSUrl()}/storage`
+  process.env.DWS_STORAGE_URL ||
+  getServiceUrl('storage', 'api') ||
+  `${getDWSUrl()}/storage`
 
 async function pullImage(image: ContainerImage): Promise<number> {
   const startTime = Date.now()

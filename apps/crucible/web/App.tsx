@@ -21,6 +21,7 @@ const CreateAgentPage = lazy(() => import('./pages/CreateAgent'))
 const ChatPage = lazy(() => import('./pages/Chat'))
 const RoomsPage = lazy(() => import('./pages/Rooms'))
 const AutonomousPage = lazy(() => import('./pages/Autonomous'))
+const FeedPage = lazy(() => import('./pages/Feed'))
 const NotFoundPage = lazy(() => import('./pages/NotFound'))
 
 function PageLoader() {
@@ -103,6 +104,7 @@ export function App() {
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/rooms" element={<RoomsPage />} />
               <Route path="/autonomous" element={<AutonomousPage />} />
+              <Route path="/feed" element={<FeedPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

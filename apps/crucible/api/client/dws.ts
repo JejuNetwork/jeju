@@ -315,7 +315,10 @@ export function createDWSClient(config: DWSClientConfig): DWSClient {
  */
 function getDefaultDWSClient(): DWSClient {
   const baseUrl = getDWSEndpoint()
-  const ipfsGateway = process.env.IPFS_GATEWAY ?? getServiceUrl('storage', 'ipfsGateway') ?? `${baseUrl}/storage`
+  const ipfsGateway =
+    process.env.IPFS_GATEWAY ??
+    getServiceUrl('storage', 'ipfsGateway') ??
+    `${baseUrl}/storage`
   return new DWSClient({ baseUrl, ipfsGateway })
 }
 

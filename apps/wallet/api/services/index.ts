@@ -125,3 +125,12 @@ export type {
 } from './updater'
 // Auto-Updater
 export { getUpdateService, resetUpdateService, UpdateService } from './updater'
+// Unified Messaging (Farcaster + XMTP)
+export type {
+  Conversation,
+  FarcasterAccount,
+  FarcasterFeedCast,
+  Message,
+  MessagingPreferences,
+} from './messaging'
+export { messagingService, WalletMessagingService } from './messaging'

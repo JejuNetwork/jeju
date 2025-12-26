@@ -5,6 +5,6 @@
     "types": ["bun", "node"],
     "jsx": "react-jsx"
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "synpress.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -5,7 +5,11 @@
  * using CovenantSQL (CQL) decentralized database.
  */
 
-import { getCqlDatabaseId, getCqlPrivateKey, getCQLUrl } from '@jejunetwork/config'
+import {
+  getCQLUrl,
+  getCqlDatabaseId,
+  getCqlPrivateKey,
+} from '@jejunetwork/config'
 import {
   type CQLClient,
   type CQLConfig,
@@ -129,10 +133,8 @@ export class CQLMessageStorage {
       ? (privateKey as `0x${string}`)
       : undefined
     this.client = getCQL({
-      blockProducerEndpoint:
-        config?.blockProducerEndpoint ?? getCQLUrl(),
-      databaseId:
-        config?.databaseId ?? getCqlDatabaseId() ?? 'messaging',
+      blockProducerEndpoint: config?.blockProducerEndpoint ?? getCQLUrl(),
+      databaseId: config?.databaseId ?? getCqlDatabaseId() ?? 'messaging',
       privateKey: validPrivateKey,
     })
 

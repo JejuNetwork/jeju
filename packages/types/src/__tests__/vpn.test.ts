@@ -15,7 +15,6 @@ import {
   VPNConnectionStatusSchema,
   VPNConnectOptionsSchema,
   DEFAULT_VPN_CONNECT_OPTIONS,
-  VPNConnectionSchema,
   WireGuardPeerSchema,
   WireGuardConfigSchema,
   VPNClientConfigSchema,
@@ -34,14 +33,14 @@ describe('VPN Types', () => {
     it('validates common country codes', () => {
       const codes = ['US', 'CA', 'GB', 'DE', 'FR', 'JP', 'SG', 'AU', 'NL', 'CH']
       for (const code of codes) {
-        expect(CountryCodeSchema.parse(code)).toBe(code)
+        expect(CountryCodeSchema.parse(code)).toEqual(code)
       }
     })
 
     it('validates blocked country codes', () => {
       const blocked = ['CN', 'RU', 'IR', 'AE', 'BY', 'OM', 'TM', 'KP']
       for (const code of blocked) {
-        expect(CountryCodeSchema.parse(code)).toBe(code)
+        expect(CountryCodeSchema.parse(code)).toEqual(code)
       }
     })
   })
@@ -85,7 +84,7 @@ describe('VPN Types', () => {
     it('validates all node types', () => {
       const types = ['residential', 'datacenter', 'mobile']
       for (const type of types) {
-        expect(VPNNodeTypeSchema.parse(type)).toBe(type)
+        expect(VPNNodeTypeSchema.parse(type)).toEqual(type)
       }
     })
   })
@@ -94,7 +93,7 @@ describe('VPN Types', () => {
     it('validates all capabilities', () => {
       const caps = ['wireguard', 'socks5', 'http_connect', 'cdn']
       for (const cap of caps) {
-        expect(VPNCapabilitySchema.parse(cap)).toBe(cap)
+        expect(VPNCapabilitySchema.parse(cap)).toEqual(cap)
       }
     })
   })
@@ -103,7 +102,7 @@ describe('VPN Types', () => {
     it('validates all statuses', () => {
       const statuses = ['online', 'busy', 'offline', 'suspended']
       for (const status of statuses) {
-        expect(VPNNodeStatusSchema.parse(status)).toBe(status)
+        expect(VPNNodeStatusSchema.parse(status)).toEqual(status)
       }
     })
   })
@@ -222,7 +221,7 @@ describe('VPN Types', () => {
     it('validates all protocols', () => {
       const protocols = ['wireguard', 'socks5', 'http']
       for (const protocol of protocols) {
-        expect(VPNProtocolSchema.parse(protocol)).toBe(protocol)
+        expect(VPNProtocolSchema.parse(protocol)).toEqual(protocol)
       }
     })
   })
@@ -231,7 +230,7 @@ describe('VPN Types', () => {
     it('validates all connection statuses', () => {
       const statuses = ['disconnected', 'connecting', 'connected', 'reconnecting', 'error']
       for (const status of statuses) {
-        expect(VPNConnectionStatusSchema.parse(status)).toBe(status)
+        expect(VPNConnectionStatusSchema.parse(status)).toEqual(status)
       }
     })
   })

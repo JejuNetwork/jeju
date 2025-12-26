@@ -32,7 +32,8 @@ export function zodSchemaToMCPSchema(
     throw new Error('Invalid JSON schema output from Zod')
   }
 
-  const properties = jsonSchema.properties as StringRecord<MCPToolInputSchemaProperty>
+  const properties =
+    jsonSchema.properties as StringRecord<MCPToolInputSchemaProperty>
   const required =
     'required' in jsonSchema && Array.isArray(jsonSchema.required)
       ? (jsonSchema.required as string[])

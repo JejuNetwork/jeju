@@ -82,7 +82,7 @@ const result = await Bun.build({
     // Server dependencies
     'ioredis',
     'croner',
-    'opossum',
+    'cockatiel',
     'ws',
     'generic-pool',
     'c-kzg',

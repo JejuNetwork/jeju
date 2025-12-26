@@ -11,8 +11,8 @@
 
 import { cors } from '@elysiajs/cors'
 import {
-  type ContractCategoryName,
   CORE_PORTS,
+  type ContractCategoryName,
   getContract,
   getCQLBlockProducerUrl,
   getCurrentNetwork,
@@ -45,7 +45,8 @@ import {
   type DistributedRateLimiter,
   type P2PCoordinator,
 } from '../decentralized'
-import { createEmailRouter } from '../email/routes'
+import { createEmailRouter } from '../../src/email/routes'
+import { initializeEmailRelayService } from '../../src/email/relay'
 import { GitRepoManager } from '../git/repo-manager'
 import {
   createHelmProviderRouter,
@@ -230,7 +231,10 @@ const NETWORK = getCurrentNetwork()
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address
 
 // Get contract address with fallback to zero address
-function getContractOrZero(category: ContractCategoryName, name: string): Address {
+function getContractOrZero(
+  category: ContractCategoryName,
+  name: string,
+): Address {
   try {
     const addr = getContract(category, name, NETWORK)
     return (addr || ZERO_ADDR) as Address
@@ -281,6 +285,24 @@ const decentralized = createDecentralizedServices(
 )
 let p2pCoordinator: P2PCoordinator | null = null
 let distributedRateLimiter: DistributedRateLimiter | null = null
+
+// Email relay service configuration
+const emailRelayConfig = {
+  rpcUrl: getRpcUrl(NETWORK),
+  chainId: NETWORK === 'mainnet' ? 420691 : NETWORK === 'testnet' ? 420690 : 31337,
+  emailRegistryAddress: getContractOrZero('registry', 'email'),
+  emailStakingAddress: getContractOrZero('staking', 'email'),
+  jnsAddress: getContractOrZero('registry', 'jns'),
+  dwsEndpoint: `http://localhost:${PORT}`,
+  emailDomain: process.env.EMAIL_DOMAIN ?? 'jeju.mail',
+  rateLimits: {
+    free: { emailsPerDay: 50, emailsPerHour: 10, maxRecipients: 5, maxAttachmentSizeMb: 5, maxEmailSizeMb: 10 },
+    staked: { emailsPerDay: 500, emailsPerHour: 100, maxRecipients: 50, maxAttachmentSizeMb: 25, maxEmailSizeMb: 50 },
+    premium: { emailsPerDay: 5000, emailsPerHour: 1000, maxRecipients: 500, maxAttachmentSizeMb: 100, maxEmailSizeMb: 100 },
+  },
+  contentScreeningEnabled: process.env.CONTENT_SCREENING_ENABLED !== 'false',
+}
+initializeEmailRelayService(emailRelayConfig)
 
 // Continue building app with routes
 app

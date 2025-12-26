@@ -3,13 +3,19 @@
  */
 
 import { logger } from '@jejunetwork/shared'
+import type { TrajectoryBatchReference } from './static-storage'
 import type { DatasetReference } from './types'
 import { StringArraySchema } from './types'
-import type { TrajectoryBatchReference } from './static-storage'
 
 export interface TrainingDbClient {
-  exec(sql: string, params?: (string | number | null)[]): Promise<{ rowsAffected: number }>
-  query<T>(sql: string, params?: (string | number | null)[]): Promise<{ rows: T[] }>
+  exec(
+    sql: string,
+    params?: (string | number | null)[],
+  ): Promise<{ rowsAffected: number }>
+  query<T>(
+    sql: string,
+    params?: (string | number | null)[],
+  ): Promise<{ rows: T[] }>
 }
 
 export class TrainingDbPersistence {

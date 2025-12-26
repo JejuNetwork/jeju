@@ -3,7 +3,7 @@
  *
  * Manages delegated staking for node operators with:
  * - Self-stake management
- * - Delegator tracking
+ * - Delegator tracking (via contract events)
  * - Reward distribution
  * - Commission management
  *
@@ -13,15 +13,163 @@
  * - Protocol Fee: 5% (to treasury)
  */
 
-import type { Address, Hex } from 'viem'
+import { type Address, formatEther, type Hex, parseEther } from 'viem'
 import type { NodeClient } from '../contracts'
+
+// Contract ABI for DelegatedNodeStaking
+const DELEGATED_NODE_STAKING_ABI = [
+  {
+    name: 'registerOperator',
+    type: 'function',
+    inputs: [
+      { name: 'endpoint', type: 'string' },
+      { name: 'commissionBps', type: 'uint256' },
+      { name: 'services', type: 'uint8[]' },
+      {
+        name: 'hardware',
+        type: 'tuple',
+        components: [
+          { name: 'cpuCores', type: 'uint256' },
+          { name: 'memoryGb', type: 'uint256' },
+          { name: 'storageGb', type: 'uint256' },
+          { name: 'gpuCount', type: 'uint256' },
+          { name: 'gpuModel', type: 'string' },
+          { name: 'teeCapable', type: 'bool' },
+          { name: 'teeType', type: 'string' },
+          { name: 'region', type: 'string' },
+        ],
+      },
+    ],
+    outputs: [{ name: 'nodeId', type: 'bytes32' }],
+    stateMutability: 'payable',
+  },
+  {
+    name: 'addSelfStake',
+    type: 'function',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    name: 'initiateCommissionChange',
+    type: 'function',
+    inputs: [{ name: 'newBps', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'executeCommissionChange',
+    type: 'function',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'claimRewards',
+    type: 'function',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'getNode',
+    type: 'function',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'operator', type: 'address' },
+          { name: 'nodeId', type: 'bytes32' },
+          { name: 'endpoint', type: 'string' },
+          { name: 'selfStake', type: 'uint256' },
+          { name: 'totalDelegated', type: 'uint256' },
+          { name: 'commissionBps', type: 'uint256' },
+          { name: 'registeredAt', type: 'uint256' },
+          { name: 'lastRewardTime', type: 'uint256' },
+          { name: 'totalRewardsEarned', type: 'uint256' },
+          { name: 'totalRewardsDistributed', type: 'uint256' },
+          { name: 'active', type: 'bool' },
+          { name: 'slashed', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getNodeRewards',
+    type: 'function',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'totalEarned', type: 'uint256' },
+          { name: 'operatorShare', type: 'uint256' },
+          { name: 'delegatorPool', type: 'uint256' },
+          { name: 'protocolFee', type: 'uint256' },
+          { name: 'lastDistribution', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getDelegation',
+    type: 'function',
+    inputs: [
+      { name: 'delegator', type: 'address' },
+      { name: 'nodeId', type: 'bytes32' },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'delegator', type: 'address' },
+          { name: 'nodeId', type: 'bytes32' },
+          { name: 'amount', type: 'uint256' },
+          { name: 'delegatedAt', type: 'uint256' },
+          { name: 'unstakedAt', type: 'uint256' },
+          { name: 'pendingRewards', type: 'uint256' },
+          { name: 'claimedRewards', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    name: 'operatorNode',
+    type: 'function',
+    inputs: [{ name: 'operator', type: 'address' }],
+    outputs: [{ name: 'nodeId', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getOperatorAPY',
+    type: 'function',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getDelegatorAPY',
+    type: 'function',
+    inputs: [{ name: 'nodeId', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+] as const
 
 export interface StakingConfig {
   nodeId: Hex
   operatorAddress: Address
   commissionBps: number // 500-5000 (5%-50%)
   minDelegation: bigint
-  acceptingDelegations: boolean
+  endpoint: string
+  region: string
 }
 
 export interface StakingState {
@@ -33,6 +181,7 @@ export interface StakingState {
   claimedRewards: bigint
   lastRewardTime: number
   apr: number // Annual percentage rate
+  registered: boolean
 }
 
 export interface Delegator {
@@ -48,34 +197,52 @@ export interface StakingManagerService {
   readonly state: StakingState
 
   // Operator functions
+  registerNode(selfStake: bigint): Promise<Hex>
   setCommission(bps: number): Promise<Hex>
   addSelfStake(amount: bigint): Promise<Hex>
-  withdrawSelfStake(amount: bigint): Promise<Hex>
-  setAcceptingDelegations(accepting: boolean): Promise<void>
+  claimRewards(): Promise<Hex>
 
-  // Delegator tracking
-  getDelegators(): Promise<Delegator[]>
-  getDelegator(address: Address): Promise<Delegator | null>
+  // Read functions
+  getNodeInfo(): Promise<NodeInfo | null>
+  getRewardsInfo(): Promise<RewardsInfo | null>
+  getDelegation(delegator: Address): Promise<Delegator | null>
   getTotalDelegated(): Promise<bigint>
-
-  // Rewards
-  distributeRewards(amount: bigint): Promise<Hex>
-  claimOperatorRewards(): Promise<Hex>
-  getPendingRewards(): Promise<bigint>
   getEstimatedAPR(): Promise<number>
 
   // Metrics
   getStakingMetrics(): Promise<StakingMetrics>
+
+  // Sync state from chain
+  syncState(): Promise<void>
+}
+
+export interface NodeInfo {
+  operator: Address
+  nodeId: Hex
+  endpoint: string
+  selfStake: bigint
+  totalDelegated: bigint
+  commissionBps: number
+  registeredAt: number
+  active: boolean
+  slashed: boolean
+}
+
+export interface RewardsInfo {
+  totalEarned: bigint
+  operatorShare: bigint
+  delegatorPool: bigint
+  protocolFee: bigint
+  lastDistribution: number
 }
 
 export interface StakingMetrics {
   totalStake: bigint
   selfStakeRatio: number // Self-stake as % of total
-  delegatorCount: number
-  averageDelegation: bigint
-  apr: number
+  delegatorAPY: number
+  operatorAPY: number
   commission: number
-  rewardsDistributed24h: bigint
+  pendingRewards: bigint
 }
 
 const DEFAULT_CONFIG: StakingConfig = {
@@ -83,7 +250,8 @@ const DEFAULT_CONFIG: StakingConfig = {
   operatorAddress: '0x0000000000000000000000000000000000000000' as Address,
   commissionBps: 2000, // 20% default commission
   minDelegation: 100n * 10n ** 18n, // 100 tokens minimum
-  acceptingDelegations: true,
+  endpoint: '',
+  region: 'us-east-1',
 }
 
 export function createStakingManagerService(
@@ -101,189 +269,306 @@ export function createStakingManagerService(
     claimedRewards: 0n,
     lastRewardTime: 0,
     apr: 0,
+    registered: false,
   }
 
-  // In-memory delegator tracking (production would use contract state)
-  const delegators: Map<Address, Delegator> = new Map()
+  function getContractAddress(): Address {
+    const addr = client.addresses.delegatedNodeStaking
+    if (addr === '0x0000000000000000000000000000000000000000') {
+      throw new Error('DelegatedNodeStaking contract not deployed')
+    }
+    return addr
+  }
 
-  async function setCommission(bps: number): Promise<Hex> {
-    if (bps < 500 || bps > 5000) {
-      throw new Error('Commission must be between 5% and 50%')
+  async function registerNode(selfStake: bigint): Promise<Hex> {
+    if (!client.walletClient?.account) {
+      throw new Error('Wallet client required')
     }
 
-    console.log(`[Staking] Setting commission to ${bps / 100}%`)
+    const contractAddr = getContractAddress()
 
-    // In production, this would call DelegatedNodeStaking.initiateCommissionChange()
-    // with a 7-day delay to protect delegators
+    console.log(`[Staking] Registering node with ${formatEther(selfStake)} ETH stake...`)
 
-    fullConfig.commissionBps = bps
+    const hash = await client.walletClient.writeContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'registerOperator',
+      args: [
+        fullConfig.endpoint,
+        BigInt(fullConfig.commissionBps),
+        [0, 1, 2], // Compute, Storage, CDN
+        {
+          cpuCores: 8n,
+          memoryGb: 32n,
+          storageGb: 1000n,
+          gpuCount: 0n,
+          gpuModel: '',
+          teeCapable: false,
+          teeType: '',
+          region: fullConfig.region,
+        },
+      ],
+      value: selfStake,
+    })
 
-    return `0x${Date.now().toString(16)}${'0'.repeat(48)}` as Hex
+    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    console.log(`[Staking] Node registered in tx: ${receipt.transactionHash}`)
+
+    // Get the node ID from contract
+    const nodeId = await client.publicClient.readContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'operatorNode',
+      args: [client.walletClient.account.address],
+    })
+
+    fullConfig.nodeId = nodeId
+    state.registered = true
+    state.selfStake = selfStake
+    state.totalStake = selfStake
+
+    return receipt.transactionHash
+  }
+
+  async function setCommission(bps: number): Promise<Hex> {
+    if (!client.walletClient) {
+      throw new Error('Wallet client required')
+    }
+
+    if (bps < 500 || bps > 5000) {
+      throw new Error('Commission must be between 5% (500) and 50% (5000) basis points')
+    }
+
+    const contractAddr = getContractAddress()
+
+    console.log(`[Staking] Initiating commission change to ${bps / 100}%...`)
+    console.log(`[Staking] Note: 7-day delay before commission takes effect`)
+
+    const hash = await client.walletClient.writeContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'initiateCommissionChange',
+      args: [BigInt(bps)],
+    })
+
+    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    console.log(`[Staking] Commission change initiated in tx: ${receipt.transactionHash}`)
+
+    return receipt.transactionHash
   }
 
   async function addSelfStake(amount: bigint): Promise<Hex> {
-    console.log(`[Staking] Adding self-stake: ${amount}`)
+    if (!client.walletClient) {
+      throw new Error('Wallet client required')
+    }
+
+    const contractAddr = getContractAddress()
+
+    console.log(`[Staking] Adding ${formatEther(amount)} ETH self-stake...`)
+
+    const hash = await client.walletClient.writeContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'addSelfStake',
+      args: [],
+      value: amount,
+    })
+
+    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    console.log(`[Staking] Self-stake added in tx: ${receipt.transactionHash}`)
 
     state.selfStake += amount
     state.totalStake = state.selfStake + state.totalDelegated
 
-    return `0x${Date.now().toString(16)}${'0'.repeat(48)}` as Hex
+    return receipt.transactionHash
   }
 
-  async function withdrawSelfStake(amount: bigint): Promise<Hex> {
-    if (amount > state.selfStake) {
-      throw new Error('Insufficient self-stake')
+  async function claimRewards(): Promise<Hex> {
+    if (!client.walletClient) {
+      throw new Error('Wallet client required')
     }
 
-    console.log(`[Staking] Withdrawing self-stake: ${amount}`)
-
-    // Check minimum stake requirements
-    const minSelfStake = 1000n * 10n ** 18n // 1000 tokens minimum
-    if (state.selfStake - amount < minSelfStake) {
-      throw new Error('Would drop below minimum self-stake')
+    if (!fullConfig.nodeId || fullConfig.nodeId === '0x') {
+      throw new Error('Node not registered')
     }
 
-    state.selfStake -= amount
-    state.totalStake = state.selfStake + state.totalDelegated
+    const contractAddr = getContractAddress()
 
-    return `0x${Date.now().toString(16)}${'0'.repeat(48)}` as Hex
+    console.log('[Staking] Claiming rewards...')
+
+    const hash = await client.walletClient.writeContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'claimRewards',
+      args: [fullConfig.nodeId],
+    })
+
+    const receipt = await client.publicClient.waitForTransactionReceipt({ hash })
+    console.log(`[Staking] Rewards claimed in tx: ${receipt.transactionHash}`)
+
+    state.claimedRewards += state.pendingRewards
+    state.pendingRewards = 0n
+
+    return receipt.transactionHash
   }
 
-  async function setAcceptingDelegations(accepting: boolean): Promise<void> {
-    fullConfig.acceptingDelegations = accepting
-    console.log(`[Staking] ${accepting ? 'Now accepting' : 'No longer accepting'} delegations`)
+  async function getNodeInfo(): Promise<NodeInfo | null> {
+    if (!fullConfig.nodeId || fullConfig.nodeId === '0x') {
+      return null
+    }
+
+    const contractAddr = getContractAddress()
+
+    const node = await client.publicClient.readContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'getNode',
+      args: [fullConfig.nodeId],
+    })
+
+    return {
+      operator: node.operator,
+      nodeId: node.nodeId,
+      endpoint: node.endpoint,
+      selfStake: node.selfStake,
+      totalDelegated: node.totalDelegated,
+      commissionBps: Number(node.commissionBps),
+      registeredAt: Number(node.registeredAt) * 1000,
+      active: node.active,
+      slashed: node.slashed,
+    }
   }
 
-  async function getDelegators(): Promise<Delegator[]> {
-    return Array.from(delegators.values())
+  async function getRewardsInfo(): Promise<RewardsInfo | null> {
+    if (!fullConfig.nodeId || fullConfig.nodeId === '0x') {
+      return null
+    }
+
+    const contractAddr = getContractAddress()
+
+    const rewards = await client.publicClient.readContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'getNodeRewards',
+      args: [fullConfig.nodeId],
+    })
+
+    return {
+      totalEarned: rewards.totalEarned,
+      operatorShare: rewards.operatorShare,
+      delegatorPool: rewards.delegatorPool,
+      protocolFee: rewards.protocolFee,
+      lastDistribution: Number(rewards.lastDistribution) * 1000,
+    }
   }
 
-  async function getDelegator(address: Address): Promise<Delegator | null> {
-    return delegators.get(address) ?? null
+  async function getDelegation(delegator: Address): Promise<Delegator | null> {
+    if (!fullConfig.nodeId || fullConfig.nodeId === '0x') {
+      return null
+    }
+
+    const contractAddr = getContractAddress()
+
+    const delegation = await client.publicClient.readContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'getDelegation',
+      args: [delegator, fullConfig.nodeId],
+    })
+
+    if (delegation.amount === 0n) {
+      return null
+    }
+
+    return {
+      address: delegation.delegator,
+      amount: delegation.amount,
+      delegatedAt: Number(delegation.delegatedAt) * 1000,
+      pendingRewards: delegation.pendingRewards,
+      claimedRewards: delegation.claimedRewards,
+    }
   }
 
   async function getTotalDelegated(): Promise<bigint> {
-    return state.totalDelegated
-  }
-
-  async function distributeRewards(amount: bigint): Promise<Hex> {
-    console.log(`[Staking] Distributing rewards: ${amount}`)
-
-    if (state.totalStake === 0n) {
-      throw new Error('No stake to distribute rewards to')
-    }
-
-    // Calculate splits
-    const protocolFeeBps = 500n // 5%
-    const protocolFee = (amount * protocolFeeBps) / 10000n
-    const afterProtocol = amount - protocolFee
-
-    const commissionBps = BigInt(fullConfig.commissionBps)
-    const operatorShare = (afterProtocol * commissionBps) / 10000n
-    const delegatorPool = afterProtocol - operatorShare
-
-    // Add operator share to pending rewards
-    state.pendingRewards += operatorShare
-
-    // Distribute to delegators proportionally
-    if (delegatorPool > 0n && state.totalDelegated > 0n) {
-      for (const [, delegator] of delegators) {
-        const share = (delegatorPool * delegator.amount) / state.totalDelegated
-        delegator.pendingRewards += share
-      }
-    }
-
-    state.lastRewardTime = Date.now()
-
-    console.log(`[Staking] Distributed - Operator: ${operatorShare}, Delegators: ${delegatorPool}, Protocol: ${protocolFee}`)
-
-    return `0x${Date.now().toString(16)}${'0'.repeat(48)}` as Hex
-  }
-
-  async function claimOperatorRewards(): Promise<Hex> {
-    const amount = state.pendingRewards
-    if (amount === 0n) {
-      throw new Error('No pending rewards')
-    }
-
-    console.log(`[Staking] Claiming operator rewards: ${amount}`)
-
-    state.claimedRewards += amount
-    state.pendingRewards = 0n
-
-    return `0x${Date.now().toString(16)}${'0'.repeat(48)}` as Hex
-  }
-
-  async function getPendingRewards(): Promise<bigint> {
-    return state.pendingRewards
+    const info = await getNodeInfo()
+    return info?.totalDelegated ?? 0n
   }
 
   async function getEstimatedAPR(): Promise<number> {
-    // Calculate APR based on recent rewards
-    // This is a simplified calculation
-    if (state.totalStake === 0n || state.lastRewardTime === 0) {
+    if (!fullConfig.nodeId || fullConfig.nodeId === '0x') {
       return 0
     }
 
-    const timeSinceStart = Date.now() - state.lastRewardTime
-    if (timeSinceStart === 0) return 0
+    const contractAddr = getContractAddress()
 
-    const totalRewards = state.claimedRewards + state.pendingRewards
-    const annualized = (totalRewards * 365n * 24n * 60n * 60n * 1000n) / BigInt(timeSinceStart)
-    const apr = Number((annualized * 10000n) / state.totalStake)
+    const apyBps = await client.publicClient.readContract({
+      address: contractAddr,
+      abi: DELEGATED_NODE_STAKING_ABI,
+      functionName: 'getDelegatorAPY',
+      args: [fullConfig.nodeId],
+    })
 
-    return apr / 100 // Convert basis points to percentage
+    return Number(apyBps) / 100
+  }
+
+  async function syncState(): Promise<void> {
+    const info = await getNodeInfo()
+    if (!info) {
+      state.registered = false
+      return
+    }
+
+    state.registered = info.active
+    state.selfStake = info.selfStake
+    state.totalDelegated = info.totalDelegated
+    state.totalStake = info.selfStake + info.totalDelegated
+
+    const rewards = await getRewardsInfo()
+    if (rewards) {
+      state.pendingRewards = rewards.operatorShare
+      state.lastRewardTime = rewards.lastDistribution
+    }
+
+    state.apr = await getEstimatedAPR()
   }
 
   async function getStakingMetrics(): Promise<StakingMetrics> {
-    const apr = await getEstimatedAPR()
+    await syncState()
+
+    const contractAddr = getContractAddress()
+
+    let operatorAPY = 0
+    let delegatorAPY = 0
+
+    if (fullConfig.nodeId && fullConfig.nodeId !== '0x') {
+      const [opApy, delApy] = await Promise.all([
+        client.publicClient.readContract({
+          address: contractAddr,
+          abi: DELEGATED_NODE_STAKING_ABI,
+          functionName: 'getOperatorAPY',
+          args: [fullConfig.nodeId],
+        }),
+        client.publicClient.readContract({
+          address: contractAddr,
+          abi: DELEGATED_NODE_STAKING_ABI,
+          functionName: 'getDelegatorAPY',
+          args: [fullConfig.nodeId],
+        }),
+      ])
+      operatorAPY = Number(opApy) / 100
+      delegatorAPY = Number(delApy) / 100
+    }
 
     return {
       totalStake: state.totalStake,
       selfStakeRatio: state.totalStake > 0n
         ? Number((state.selfStake * 10000n) / state.totalStake) / 100
         : 0,
-      delegatorCount: state.delegatorCount,
-      averageDelegation: state.delegatorCount > 0
-        ? state.totalDelegated / BigInt(state.delegatorCount)
-        : 0n,
-      apr,
+      delegatorAPY,
+      operatorAPY,
       commission: fullConfig.commissionBps / 100,
-      rewardsDistributed24h: state.claimedRewards, // Simplified
+      pendingRewards: state.pendingRewards,
     }
-  }
-
-  // Simulate adding a delegator (in production, this would be triggered by contract events)
-  function addDelegator(address: Address, amount: bigint): void {
-    const existing = delegators.get(address)
-    if (existing) {
-      existing.amount += amount
-    } else {
-      delegators.set(address, {
-        address,
-        amount,
-        delegatedAt: Date.now(),
-        pendingRewards: 0n,
-        claimedRewards: 0n,
-      })
-      state.delegatorCount++
-    }
-    state.totalDelegated += amount
-    state.totalStake = state.selfStake + state.totalDelegated
-  }
-
-  // Simulate removing a delegator
-  function removeDelegator(address: Address): bigint {
-    const delegator = delegators.get(address)
-    if (!delegator) return 0n
-
-    const amount = delegator.amount
-    delegators.delete(address)
-    state.delegatorCount--
-    state.totalDelegated -= amount
-    state.totalStake = state.selfStake + state.totalDelegated
-
-    return amount
   }
 
   return {
@@ -293,18 +578,17 @@ export function createStakingManagerService(
     get state() {
       return state
     },
+    registerNode,
     setCommission,
     addSelfStake,
-    withdrawSelfStake,
-    setAcceptingDelegations,
-    getDelegators,
-    getDelegator,
+    claimRewards,
+    getNodeInfo,
+    getRewardsInfo,
+    getDelegation,
     getTotalDelegated,
-    distributeRewards,
-    claimOperatorRewards,
-    getPendingRewards,
     getEstimatedAPR,
     getStakingMetrics,
+    syncState,
   }
 }
 
@@ -312,7 +596,7 @@ export function getDefaultStakingConfig(): Partial<StakingConfig> {
   return {
     commissionBps: 2000, // 20%
     minDelegation: 100n * 10n ** 18n,
-    acceptingDelegations: true,
+    endpoint: '',
+    region: 'us-east-1',
   }
 }
-

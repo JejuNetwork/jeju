@@ -9,7 +9,6 @@ use std::time::Instant;
 use tokio::sync::RwLock;
 
 pub struct ProxyService {
-    rpc_url: String,
     running: Arc<AtomicBool>,
     start_time: Arc<RwLock<Option<Instant>>>,
     requests_proxied: Arc<AtomicU64>,
@@ -20,9 +19,8 @@ pub struct ProxyService {
 }
 
 impl ProxyService {
-    pub fn new(rpc_url: &str) -> Self {
+    pub fn new(_rpc_url: &str) -> Self {
         Self {
-            rpc_url: rpc_url.to_string(),
             running: Arc::new(AtomicBool::new(false)),
             start_time: Arc::new(RwLock::new(None)),
             requests_proxied: Arc::new(AtomicU64::new(0)),

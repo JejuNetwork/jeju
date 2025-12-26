@@ -45,11 +45,11 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "elysia": "^1.0.0",
+    "elysia": "^1.4.19",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
-    "elysia": "^1.0.0"
+    "elysia": "^1.4.0"
   },
   "peerDependenciesMeta": {
     "elysia": {

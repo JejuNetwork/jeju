@@ -2,12 +2,9 @@
  * IPFS Storage Integration for OAuth3
  */
 
-import {
-  getIpfsApiEndpointEnv,
-  getIpfsGatewayEnv,
-} from '@jejunetwork/config'
+import { getIpfsApiEndpointEnv, getIpfsGatewayEnv } from '@jejunetwork/config'
 import type { StorageTier } from '@jejunetwork/shared'
-import { type Address, type Hex, toBytes, toHex } from 'viem'
+import { type Address, type Hex, toBytes } from 'viem'
 import type {
   OAuth3App,
   OAuth3Identity,

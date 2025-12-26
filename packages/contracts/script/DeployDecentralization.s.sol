@@ -46,11 +46,13 @@ contract DeployDecentralization is Script {
     // Genesis MIPS state hash (Optimism official)
     bytes32 constant ABSOLUTE_PRESTATE = 0x03925193e3e89f87835bbdf3a813f60b2aa818a36bbe71cd5d8fd7e79f5e8afe;
     
-    // Default MIPS/PreimageOracle addresses for Base networks (checksummed)
-    address constant BASE_SEPOLIA_MIPS = 0x47B0E34C1054009e696BaBaAc5b2E9DCF3a54ad5;
-    address constant BASE_SEPOLIA_PREIMAGE = 0xd97d3c17D98dcD978B2b9B2A5f5D5c5b4E5e4a5a;
-    address constant BASE_MAINNET_MIPS = 0x16e83cE5Ce29BF90AD9Da06D2fE6a15d5f344ce4;
-    address constant BASE_MAINNET_PREIMAGE = 0x9c065e11870B891D214Bc2Da7EF1f9DDFA1BE277;
+    // Default MIPS/PreimageOracle addresses (from Optimism deployments)
+    // Sepolia (Ethereum testnet) - for Jeju L2 testnet rolling up to Sepolia
+    address constant SEPOLIA_MIPS = 0x32bea447d89e9a9756ed5f6F4e96C3A0f8F2e89e;
+    address constant SEPOLIA_PREIMAGE = 0xde5b2FA0d6B6a4E1a1Ada3D7aCB1d8E29E6F3d04;
+    // Ethereum mainnet - for Jeju L2 mainnet rolling up to Ethereum
+    address constant ETH_MAINNET_MIPS = 0x16e83cE5Ce29BF90AD9Da06D2fE6a15d5f344ce4;
+    address constant ETH_MAINNET_PREIMAGE = 0x9c065e11870B891D214Bc2Da7EF1f9DDFA1BE277;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -115,16 +117,16 @@ contract DeployDecentralization is Script {
         
         // Use network-specific defaults if not provided
         if (mipsAddress == address(0) || preimageOracleAddress == address(0)) {
-            if (chainId == 84532) {
-                // Base Sepolia
-                mipsAddress = BASE_SEPOLIA_MIPS;
-                preimageOracleAddress = BASE_SEPOLIA_PREIMAGE;
-                console.log("Using Base Sepolia MIPS defaults");
-            } else if (chainId == 8453) {
-                // Base Mainnet
-                mipsAddress = BASE_MAINNET_MIPS;
-                preimageOracleAddress = BASE_MAINNET_PREIMAGE;
-                console.log("Using Base Mainnet MIPS defaults");
+            if (chainId == 11155111) {
+                // Sepolia - Jeju L2 testnet rolls up to Sepolia
+                mipsAddress = SEPOLIA_MIPS;
+                preimageOracleAddress = SEPOLIA_PREIMAGE;
+                console.log("Using Sepolia MIPS defaults (L1 for Jeju testnet)");
+            } else if (chainId == 1) {
+                // Ethereum mainnet - Jeju L2 mainnet rolls up to Ethereum
+                mipsAddress = ETH_MAINNET_MIPS;
+                preimageOracleAddress = ETH_MAINNET_PREIMAGE;
+                console.log("Using Ethereum Mainnet MIPS defaults (L1 for Jeju mainnet)");
             } else {
                 // Localnet or unknown - use placeholders
                 console.log("WARNING: MIPS/PreimageOracle not available for this network");

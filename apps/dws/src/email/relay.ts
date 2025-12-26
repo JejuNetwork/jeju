@@ -1,53 +1,30 @@
-import { createCipheriv, createHash, randomBytes } from 'node:crypto'
-import {
-  type Address,
-  createPublicClient,
-  type Hex,
-  http,
-  keccak256,
-  parseAbiItem,
-  toBytes,
-} from 'viem'
+import { createCipheriv, createECDH, createHash, randomBytes } from 'node:crypto'
+import { type Address, createPublicClient, type Hex, http, keccak256, parseAbiItem, toBytes } from 'viem'
 import { getContentScreeningPipeline } from './content-screening'
-import {
-  deliveryDuration,
-  deliveryQueueLength,
-  emailsReceivedTotal,
-  rateLimitHitsTotal,
-} from './metrics'
+import { deliveryDuration, deliveryQueueLength, emailsReceivedTotal, rateLimitHitsTotal } from './metrics'
 import { getMailboxStorage } from './storage'
 import type {
-  DeliveryStatus,
-  EmailContent,
-  EmailEnvelope,
-  EmailIdentity,
-  EmailTier,
-  JejuEmailAddress,
-  RateLimitConfig,
-  RateLimitState,
-  ScreeningResult,
-  SendEmailRequest,
-  SendEmailResponse,
+  DeliveryStatus, EmailContent, EmailEnvelope, EmailIdentity, EmailTier,
+  JejuEmailAddress, RateLimitConfig, RateLimitState, ScreeningResult,
+  SendEmailRequest, SendEmailResponse,
 } from './types'
 
+const ZERO_HEX = '0x0' as Hex
+const ZERO_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+const MS_PER_DAY = 86400000
+const MS_PER_HOUR = 3600000
+
 function generateKeyPair(): { publicKey: Uint8Array; privateKey: Uint8Array } {
-  const privateKey = randomBytes(32)
-  const publicKey = createHash('sha256').update(privateKey).digest()
-  return {
-    publicKey: new Uint8Array(publicKey),
-    privateKey: new Uint8Array(privateKey),
-  }
+  const ecdh = createECDH('secp256k1')
+  ecdh.generateKeys()
+  return { publicKey: new Uint8Array(ecdh.getPublicKey()), privateKey: new Uint8Array(ecdh.getPrivateKey()) }
 }
 
-function deriveSharedSecret(
-  privateKey: Uint8Array,
-  publicKey: Uint8Array,
-): Uint8Array {
-  const combined = Buffer.concat([
-    Buffer.from(privateKey),
-    Buffer.from(publicKey),
-  ])
-  return new Uint8Array(createHash('sha256').update(combined).digest())
+function deriveSharedSecret(privateKey: Uint8Array, publicKey: Uint8Array): Uint8Array {
+  const ecdh = createECDH('secp256k1')
+  ecdh.setPrivateKey(Buffer.from(privateKey))
+  return new Uint8Array(createHash('sha256').update(ecdh.computeSecret(Buffer.from(publicKey))).digest())
 }
 
 function encryptForMultipleRecipients(
@@ -139,9 +116,9 @@ interface RelayConfig {
   contentScreeningEnabled: boolean
 }
 
-const RATE_LIMIT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
-const DELIVERY_STATUS_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
-const MAX_DELIVERY_QUEUE_SIZE = 10000 // Prevent memory exhaustion
+const RATE_LIMIT_CLEANUP_INTERVAL_MS = MS_PER_HOUR
+const DELIVERY_STATUS_TTL_MS = MS_PER_DAY
+const MAX_DELIVERY_QUEUE_SIZE = 10000
 
 interface DeliveryStatusEntry {
   status: Record<string, DeliveryStatus>
@@ -204,12 +181,7 @@ export class EmailRelayService {
       request.to.length,
     )
     if (!rateLimitCheck.allowed) {
-      return {
-        success: false,
-        messageId: '0x0' as Hex,
-        queued: false,
-        error: rateLimitCheck.reason,
-      }
+      return { success: false, messageId: ZERO_HEX, queued: false, error: rateLimitCheck.reason }
     }
 
     const fromAddress = this.parseEmailAddress(request.from)
@@ -219,10 +191,9 @@ export class EmailRelayService {
     if (hasExternal && senderTier === 'free') {
       return {
         success: false,
-        messageId: '0x0' as Hex,
+        messageId: ZERO_HEX,
         queued: false,
-        error:
-          'Free tier accounts cannot send to external email addresses. Stake tokens to enable external sending.',
+        error: 'Free tier accounts cannot send to external email addresses. Stake tokens to enable external sending.',
       }
     }
 
@@ -247,36 +218,14 @@ export class EmailRelayService {
 
       if (!screening.passed) {
         if (screening.action === 'block_and_ban') {
-          await this.triggerAccountBan(
-            senderAddress,
-            'Content policy violation - illegal content detected',
-          )
-
-          return {
-            success: false,
-            messageId: '0x0' as Hex,
-            queued: false,
-            error:
-              'Email blocked due to content policy violation. Your account has been banned.',
-          }
+          await this.triggerAccountBan(senderAddress, 'Content policy violation - illegal content detected')
+          return { success: false, messageId: ZERO_HEX, queued: false, error: 'Email blocked due to content policy violation. Your account has been banned.' }
         }
-
         if (screening.action === 'reject') {
-          return {
-            success: false,
-            messageId: '0x0' as Hex,
-            queued: false,
-            error: 'Email rejected due to content policy violation.',
-          }
+          return { success: false, messageId: ZERO_HEX, queued: false, error: 'Email rejected due to content policy violation.' }
         }
-
         if (screening.action === 'quarantine') {
-          return {
-            success: false,
-            messageId: '0x0' as Hex,
-            queued: false,
-            error: 'Email quarantined due to suspected spam content.',
-          }
+          return { success: false, messageId: ZERO_HEX, queued: false, error: 'Email quarantined due to suspected spam content.' }
         }
       }
     }
@@ -291,7 +240,7 @@ export class EmailRelayService {
       encryptedContent: await this.encryptContent(content, toAddresses),
       isExternal: hasExternal,
       priority: request.priority ?? 'normal',
-      signature: '0x' as Hex,
+      signature: ZERO_HEX,
     }
 
     const storage = getMailboxStorage()
@@ -421,12 +370,7 @@ export class EmailRelayService {
         headers: parsed.headers,
         attachments: [],
       }
-
-      const screening = await this.screenContent(
-        content,
-        '0x0000000000000000000000000000000000000000' as Address,
-      )
-
+      const screening = await this.screenContent(content, ZERO_ADDRESS)
       if (!screening.passed && screening.action !== 'allow') {
         return { success: false, error: 'Email rejected by content filter' }
       }
@@ -438,27 +382,22 @@ export class EmailRelayService {
       return { success: false, error: 'Recipient not found' }
     }
 
-    const messageId = this.generateMessageId(parsed, '0x0' as Address)
-
-    // Create envelope for storage
+    const messageId = this.generateMessageId(parsed, ZERO_ADDRESS)
     const envelope: EmailEnvelope = {
       id: messageId,
       from: this.parseEmailAddress(parsed.from),
       to: [recipient],
       timestamp: Date.now(),
-      encryptedContent: await this.encryptContent(
-        {
-          subject: parsed.subject,
-          bodyText: parsed.bodyText,
-          bodyHtml: parsed.bodyHtml,
-          headers: parsed.headers,
-          attachments: [],
-        },
-        [recipient],
-      ),
+      encryptedContent: await this.encryptContent({
+        subject: parsed.subject,
+        bodyText: parsed.bodyText,
+        bodyHtml: parsed.bodyHtml,
+        headers: parsed.headers,
+        attachments: [],
+      }, [recipient]),
       isExternal: fromExternal,
       priority: 'normal',
-      signature: '0x' as Hex,
+      signature: ZERO_HEX,
     }
 
     const storage = getMailboxStorage()
@@ -500,55 +439,27 @@ export class EmailRelayService {
   private getRateLimitState(address: Address): RateLimitState {
     let state = this.rateLimitState.get(address)
     if (!state) {
-      state = {
-        emailsSent: 0,
-        emailsReceived: 0,
-        bytesUsed: 0,
-        resetAt: Date.now() + 24 * 60 * 60 * 1000,
-      }
+      state = { emailsSent: 0, emailsReceived: 0, bytesUsed: 0, resetAt: Date.now() + MS_PER_DAY }
       this.rateLimitState.set(address, state)
     }
     return state
   }
 
   private incrementRateLimit(address: Address, count: number): void {
-    const state = this.getRateLimitState(address)
-    state.emailsSent += count
+    this.getRateLimitState(address).emailsSent += count
   }
 
   private resetRateLimitState(address: Address): void {
-    this.rateLimitState.set(address, {
-      emailsSent: 0,
-      emailsReceived: 0,
-      bytesUsed: 0,
-      resetAt: Date.now() + 24 * 60 * 60 * 1000,
-    })
+    this.rateLimitState.set(address, { emailsSent: 0, emailsReceived: 0, bytesUsed: 0, resetAt: Date.now() + MS_PER_DAY })
   }
 
-  private async screenContent(
-    content: EmailContent,
-    senderAddress: Address,
-  ): Promise<ScreeningResult> {
-    const pipeline = getContentScreeningPipeline()
-
-    // Create a minimal envelope for screening
+  private async screenContent(content: EmailContent, senderAddress: Address): Promise<ScreeningResult> {
     const envelope: EmailEnvelope = {
-      id: '0x0' as Hex,
-      from: { localPart: '', domain: '', full: '' },
-      to: [],
-      timestamp: Date.now(),
-      encryptedContent: {
-        ciphertext: '0x' as Hex,
-        nonce: '0x' as Hex,
-        ephemeralKey: '0x' as Hex,
-        recipients: [],
-      },
-      isExternal: false,
-      priority: 'normal',
-      signature: '0x' as Hex,
+      id: ZERO_HEX, from: { localPart: '', domain: '', full: '' }, to: [], timestamp: Date.now(),
+      encryptedContent: { ciphertext: ZERO_HEX, nonce: ZERO_HEX, ephemeralKey: ZERO_HEX, recipients: [] },
+      isExternal: false, priority: 'normal', signature: ZERO_HEX,
     }
-
-    return pipeline.screenEmail(envelope, content, senderAddress)
+    return getContentScreeningPipeline().screenEmail(envelope, content, senderAddress)
   }
 
   private parseEmailAddress(email: string): JejuEmailAddress {
@@ -567,114 +478,52 @@ export class EmailRelayService {
     )
   }
 
-  private async resolveEmailIdentity(
-    address: JejuEmailAddress,
-  ): Promise<EmailIdentity | null> {
+  private async resolveEmailIdentity(address: JejuEmailAddress): Promise<EmailIdentity | null> {
     const node = this.buildJnsNode(address)
-    const resolveEmailAbi = parseAbiItem(
-      'function resolveEmail(string calldata emailAddress) external view returns (bytes32 publicKeyHash, address[] memory preferredRelays)',
-    )
 
-    const result = await this.publicClient
-      .readContract({
-        address: this.config.emailRegistryAddress,
-        abi: [resolveEmailAbi],
-        functionName: 'resolveEmail',
-        args: [address.full],
-      })
-      .catch((e: Error) => {
-        console.debug(
-          `[EmailRelay] resolveEmail failed for ${address.full}: ${e.message}`,
-        )
-        return null
-      })
+    const result = await this.publicClient.readContract({
+      address: this.config.emailRegistryAddress,
+      abi: [parseAbiItem('function resolveEmail(string calldata emailAddress) external view returns (bytes32 publicKeyHash, address[] memory preferredRelays)')],
+      functionName: 'resolveEmail',
+      args: [address.full],
+    }).catch((e: Error) => { console.debug(`[EmailRelay] resolveEmail: ${e.message}`); return null })
 
     if (!result) return null
-
     const [publicKeyHash, preferredRelays] = result as [Hex, Address[]]
-    if (
-      publicKeyHash ===
-      '0x0000000000000000000000000000000000000000000000000000000000000000'
-    ) {
-      return null
-    }
+    if (publicKeyHash === ZERO_HASH) return null
 
-    const ownerAbi = parseAbiItem(
-      'function owner(bytes32 node) external view returns (address)',
-    )
-    const owner = await this.publicClient
-      .readContract({
-        address: this.config.jnsAddress,
-        abi: [ownerAbi],
-        functionName: 'owner',
-        args: [node],
-      })
-      .catch((e: Error) => {
-        console.warn(
-          `[EmailRelay] JNS owner lookup failed for ${address.full}: ${e.message}`,
-        )
-        return null
-      })
+    const owner = await this.publicClient.readContract({
+      address: this.config.jnsAddress,
+      abi: [parseAbiItem('function owner(bytes32 node) external view returns (address)')],
+      functionName: 'owner',
+      args: [node],
+    }).catch((e: Error) => { console.warn(`[EmailRelay] JNS lookup failed: ${e.message}`); return null })
 
-    if (!owner) {
-      console.warn(`[EmailRelay] Could not find JNS owner for ${address.full}`)
-      return null
-    }
-
-    const getAccountAbi = parseAbiItem(
-      'function getAccount(address owner) view returns (address owner_, bytes32 publicKeyHash, bytes32 jnsNode, uint8 status, uint8 tier, uint256 stakedAmount, uint256 quotaUsedBytes, uint256 quotaLimitBytes, uint256 emailsSentToday, uint256 lastResetTimestamp, uint256 createdAt, uint256 lastActivityAt)',
-    )
+    if (!owner) return null
 
     let tier: EmailTier = 'free'
-    const accountResult = await this.publicClient
-      .readContract({
-        address: this.config.emailRegistryAddress,
-        abi: [getAccountAbi],
-        functionName: 'getAccount',
-        args: [owner as Address],
-      })
-      .catch((e: Error) => {
-        console.debug(
-          `[EmailRelay] getAccount failed for ${owner}: ${e.message}`,
-        )
-        return null
-      })
+    const accountResult = await this.publicClient.readContract({
+      address: this.config.emailRegistryAddress,
+      abi: [parseAbiItem('function getAccount(address owner) view returns (address owner_, bytes32 publicKeyHash, bytes32 jnsNode, uint8 status, uint8 tier, uint256 stakedAmount, uint256 quotaUsedBytes, uint256 quotaLimitBytes, uint256 emailsSentToday, uint256 lastResetTimestamp, uint256 createdAt, uint256 lastActivityAt)')],
+      functionName: 'getAccount',
+      args: [owner as Address],
+    }).catch(() => null)
 
     if (accountResult) {
-      const tierValue = accountResult[4]
-      tier = tierValue === 2 ? 'premium' : tierValue === 1 ? 'staked' : 'free'
-      const status = accountResult[3]
-      if (status === 2 || status === 3) {
-        console.warn(
-          `[EmailRelay] Account ${owner} is suspended/banned (status: ${status})`,
-        )
-        return null
-      }
+      tier = accountResult[4] === 2 ? 'premium' : accountResult[4] === 1 ? 'staked' : 'free'
+      if (accountResult[3] === 2 || accountResult[3] === 3) return null // suspended/banned
     }
 
-    return {
-      address: {
-        ...address,
-        jnsNode: node,
-        owner: owner as Address,
-      },
-      publicKey: publicKeyHash,
-      preferredRelays,
-      tier,
-      isVerified: true,
-    }
+    return { address: { ...address, jnsNode: node, owner: owner as Address }, publicKey: publicKeyHash, preferredRelays, tier, isVerified: true }
   }
 
   private buildJnsNode(address: JejuEmailAddress): Hex {
     const labels = [address.localPart, ...address.domain.split('.')].reverse()
-    let node =
-      '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
-
+    let node = ZERO_HASH
     for (const label of labels) {
       const labelHash = keccak256(toBytes(label))
       node = keccak256(toBytes(`${node}${labelHash.slice(2)}`))
     }
-
     return node
   }
 
@@ -765,39 +614,62 @@ export class EmailRelayService {
     bodyHtml?: string
     headers: Record<string, string>
   } | null {
-    // Basic email parsing - use proper library in production
-    const lines = raw.split('\n')
+    const lines = raw.split(/\r?\n/)
     const headers: Record<string, string> = {}
-    let bodyStart = 0
+    let bodyStart = 0, currentHeader = '', currentValue = ''
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      if (line.trim() === '') {
+      if (line === '' || line === '\r') {
+        if (currentHeader) headers[currentHeader] = currentValue.trim()
         bodyStart = i + 1
         break
       }
-      const [key, ...values] = line.split(':')
-      if (key && values.length > 0) {
-        headers[key.toLowerCase().trim()] = values.join(':').trim()
+      if (/^[ \t]/.test(line)) { currentValue += ' ' + line.trim(); continue }
+      if (currentHeader) headers[currentHeader] = currentValue.trim()
+      const colonIdx = line.indexOf(':')
+      if (colonIdx > 0) {
+        currentHeader = line.slice(0, colonIdx).toLowerCase().trim()
+        currentValue = line.slice(colonIdx + 1)
       }
     }
 
-    const body = lines.slice(bodyStart).join('\n')
+    if (!headers.from || !headers.to) return null
 
-    return {
-      from: headers.from ?? '',
-      to: (headers.to ?? '').split(',').map((t) => t.trim()),
-      subject: headers.subject ?? '',
-      bodyText: body,
-      headers,
+    const bodyLines = lines.slice(bodyStart)
+    let bodyText = '', bodyHtml: string | undefined
+    const contentType = headers['content-type'] ?? ''
+
+    if (contentType.includes('multipart/')) {
+      const boundaryMatch = contentType.match(/boundary="?([^";\s]+)"?/)
+      if (boundaryMatch) {
+        for (const part of bodyLines.join('\n').split(`--${boundaryMatch[1]}`)) {
+          if (!part.includes('Content-Type:')) continue
+          const partLines = part.split(/\r?\n/)
+          let partBodyStart = 0, partContentType = ''
+          for (let i = 0; i < partLines.length; i++) {
+            if (partLines[i].toLowerCase().startsWith('content-type:')) partContentType = partLines[i].slice(13).trim()
+            if (partLines[i] === '' || partLines[i] === '\r') { partBodyStart = i + 1; break }
+          }
+          const partBody = partLines.slice(partBodyStart).join('\n').trim()
+          if (partContentType.includes('text/plain')) bodyText = partBody
+          else if (partContentType.includes('text/html')) bodyHtml = partBody
+        }
+      }
+    } else {
+      bodyText = bodyLines.join('\n')
+      if (contentType.includes('text/html')) { bodyHtml = bodyText; bodyText = '' }
     }
+
+    const recipients = headers.to.split(',').map((a) => { const m = a.match(/<([^>]+)>/); return m ? m[1].trim() : a.trim() }).filter(Boolean)
+    if (recipients.length === 0) return null
+
+    const fromMatch = headers.from.match(/<([^>]+)>/)
+    return { from: fromMatch ? fromMatch[1].trim() : headers.from.trim(), to: recipients, subject: headers.subject ?? '(no subject)', bodyText, bodyHtml, headers }
   }
 
   private queueDelivery(envelope: EmailEnvelope): void {
-    // Prevent memory exhaustion by limiting queue size
-    if (this.deliveryQueue.length >= MAX_DELIVERY_QUEUE_SIZE) {
-      throw new Error('Email delivery queue is full. Please try again later.')
-    }
+    if (this.deliveryQueue.length >= MAX_DELIVERY_QUEUE_SIZE) throw new Error('Email delivery queue full')
     this.deliveryQueue.push(envelope)
   }
 
@@ -810,67 +682,37 @@ export class EmailRelayService {
     return this.deliveryQueue.length
   }
 
-  private async triggerAccountBan(
-    account: Address,
-    reason: string,
-  ): Promise<void> {
+  private async triggerAccountBan(account: Address, reason: string): Promise<{ success: boolean; queued: boolean }> {
     const operatorKey = process.env.OPERATOR_PRIVATE_KEY
     if (!operatorKey) {
-      console.error(
-        '[EmailRelay] Cannot ban account - no operator key configured',
-      )
-      await this.reportToModerationQueue(account, reason)
-      return
+      console.error('[EmailRelay] No operator key - queuing for manual review')
+      return { success: false, queued: await this.reportToModerationQueue(account, reason) }
     }
 
-    const moderationEndpoint =
-      process.env.MODERATION_ENDPOINT ?? `${this.config.dwsEndpoint}/moderation`
-
-    const response = await fetch(`${moderationEndpoint}/ban`, {
+    const endpoint = process.env.MODERATION_ENDPOINT ?? `${this.config.dwsEndpoint}/moderation`
+    const response = await fetch(`${endpoint}/ban`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${operatorKey}`,
-      },
-      body: JSON.stringify({
-        target: account,
-        reason,
-        service: 'email',
-        severity: 'critical',
-        autoban: true,
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${operatorKey}` },
+      body: JSON.stringify({ target: account, reason, service: 'email', severity: 'critical', autoban: true }),
     })
 
     if (!response.ok) {
-      const error = await response.text()
-      console.error(`[EmailRelay] Ban request failed: ${error}`)
-      await this.reportToModerationQueue(account, reason)
-    } else {
-      console.log(`[EmailRelay] Account ${account} banned: ${reason}`)
+      console.error(`[EmailRelay] Ban failed: ${await response.text()}`)
+      return { success: false, queued: await this.reportToModerationQueue(account, reason) }
     }
+    console.log(`[EmailRelay] Banned ${account}: ${reason}`)
+    return { success: true, queued: false }
   }
 
-  private async reportToModerationQueue(
-    account: Address,
-    reason: string,
-  ): Promise<void> {
-    const moderationEndpoint =
-      process.env.MODERATION_ENDPOINT ?? `${this.config.dwsEndpoint}/moderation`
-
-    await fetch(`${moderationEndpoint}/queue`, {
+  private async reportToModerationQueue(account: Address, reason: string): Promise<boolean> {
+    const endpoint = process.env.MODERATION_ENDPOINT ?? `${this.config.dwsEndpoint}/moderation`
+    const response = await fetch(`${endpoint}/queue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        target: account,
-        reason,
-        service: 'email',
-        priority: 'urgent',
-        evidence: {
-          timestamp: Date.now(),
-          type: 'content_violation',
-        },
-      }),
+      body: JSON.stringify({ target: account, reason, service: 'email', priority: 'urgent', evidence: { timestamp: Date.now(), type: 'content_violation' } }),
     })
+    if (!response.ok) { console.error(`[EmailRelay] Failed to queue moderation: ${await response.text()}`); return false }
+    return true
   }
 }
 

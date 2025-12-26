@@ -24,7 +24,7 @@ export function getHeaders(address?: string): Record<string, string> {
   const headers: Record<string, string> = {}
   if (address) {
     headers['x-wallet-address'] = address
-    headers['authorization'] = `Bearer ${address}`
+    headers.authorization = `Bearer ${address}`
   }
   return headers
 }

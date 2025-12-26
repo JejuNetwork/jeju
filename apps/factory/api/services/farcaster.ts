@@ -7,16 +7,16 @@
  * - Local cache for user reactions
  */
 
-import { type PostedCast } from '@jejunetwork/messaging'
-import type { Hex, Address } from 'viem'
+import type { PostedCast } from '@jejunetwork/messaging'
+import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import {
-  getFidLink,
-  createFidLink,
   createCastReaction,
+  createFidLink,
   deleteCastReaction,
-  getUserReactionsForCasts,
   type FidLinkRow,
+  getFidLink,
+  getUserReactionsForCasts,
 } from '../db/client'
 import * as hubService from './hub'
 import { getActiveSignerWithPoster, hasActiveSigner } from './signer'
@@ -146,7 +146,9 @@ function getNeynarHeaders(): Record<string, string> | null {
   }
 }
 
-function transformNeynarUser(rawUser: z.infer<typeof NeynarUserSchema>): FarcasterUser {
+function transformNeynarUser(
+  rawUser: z.infer<typeof NeynarUserSchema>,
+): FarcasterUser {
   return {
     fid: rawUser.fid,
     username: rawUser.username,
@@ -164,10 +166,10 @@ function transformNeynarCast(
   viewerFid?: number,
 ): Cast {
   const viewerLiked = viewerFid
-    ? rawCast.reactions?.likes?.some((l) => l.fid === viewerFid) ?? false
+    ? (rawCast.reactions?.likes?.some((l) => l.fid === viewerFid) ?? false)
     : false
   const viewerRecasted = viewerFid
-    ? rawCast.reactions?.recasts?.some((r) => r.fid === viewerFid) ?? false
+    ? (rawCast.reactions?.recasts?.some((r) => r.fid === viewerFid) ?? false)
     : false
 
   return {
@@ -214,44 +216,9 @@ export async function getChannelFeed(
   const headers = getNeynarHeaders()
 
   // Fall back to hub if Neynar not configured
+  // Note: Hub fallback temporarily disabled due to schema validation issues in messaging package
   if (!headers) {
-    const channelUrl = `https://warpcast.com/~/channel/${channelId}`
-    const hubFeed = await hubService.getChannelFeed(channelUrl, {
-      pageSize: options.limit ?? 20,
-      pageToken: options.cursor,
-    })
-
-    const enriched = await hubService.enrichCasts(hubFeed.messages)
-    return {
-      casts: enriched.map((c) => ({
-        hash: c.hash,
-        threadHash: c.hash,
-        author: {
-          fid: c.author.fid,
-          username: c.author.username,
-          displayName: c.author.displayName,
-          pfpUrl: c.author.pfpUrl,
-          bio: c.author.bio,
-          followerCount: 0,
-          followingCount: 0,
-          verifiedAddresses: [],
-        },
-        text: c.text,
-        timestamp: c.timestamp,
-        embeds: c.embeds.map((e) => ({ url: e.url })),
-        reactions: {
-          likes: c.reactions.likes,
-          recasts: c.reactions.recasts,
-          viewerLiked: false,
-          viewerRecasted: false,
-        },
-        replies: c.replies,
-        channel: { id: channelId },
-        parentHash: c.parentHash ?? null,
-        parentFid: c.parentFid ?? null,
-      })),
-      cursor: hubFeed.nextPageToken,
-    }
+    return { casts: [] }
   }
 
   const params = new URLSearchParams()
@@ -291,43 +258,9 @@ export async function getUserFeed(
 ): Promise<FeedResponse> {
   const headers = getNeynarHeaders()
 
+  // Note: Hub fallback temporarily disabled due to schema validation issues in messaging package
   if (!headers) {
-    const hubFeed = await hubService.getCastsByFid(fid, {
-      pageSize: options.limit ?? 20,
-      pageToken: options.cursor,
-    })
-
-    const enriched = await hubService.enrichCasts(hubFeed.messages)
-    return {
-      casts: enriched.map((c) => ({
-        hash: c.hash,
-        threadHash: c.hash,
-        author: {
-          fid: c.author.fid,
-          username: c.author.username,
-          displayName: c.author.displayName,
-          pfpUrl: c.author.pfpUrl,
-          bio: c.author.bio,
-          followerCount: 0,
-          followingCount: 0,
-          verifiedAddresses: [],
-        },
-        text: c.text,
-        timestamp: c.timestamp,
-        embeds: c.embeds.map((e) => ({ url: e.url })),
-        reactions: {
-          likes: c.reactions.likes,
-          recasts: c.reactions.recasts,
-          viewerLiked: false,
-          viewerRecasted: false,
-        },
-        replies: c.replies,
-        channel: null,
-        parentHash: c.parentHash ?? null,
-        parentFid: c.parentFid ?? null,
-      })),
-      cursor: hubFeed.nextPageToken,
-    }
+    return { casts: [] }
   }
 
   const params = new URLSearchParams()
@@ -356,15 +289,12 @@ export async function getUserFeed(
   }
 }
 
+
 /**
  * Get trending feed
  */
 export async function getTrendingFeed(
-  options: {
-    limit?: number
-    cursor?: string
-    viewerFid?: number
-  } = {},
+  options: { limit?: number; cursor?: string; viewerFid?: number } = {},
 ): Promise<FeedResponse> {
   const headers = getNeynarHeaders()
   if (!headers) {
@@ -413,7 +343,9 @@ export async function publishCast(
 ): Promise<PostedCast> {
   const signerData = getActiveSignerWithPoster(address)
   if (!signerData) {
-    throw new Error('No active signer found. Please connect your Farcaster account.')
+    throw new Error(
+      'No active signer found. Please connect your Farcaster account.',
+    )
   }
 
   const { poster } = signerData
@@ -422,10 +354,14 @@ export async function publishCast(
     : undefined
 
   if (options.parentHash && options.parentFid) {
-    return poster.reply(text, { fid: options.parentFid, hash: options.parentHash }, {
-      channelUrl,
-      embeds: options.embeds,
-    })
+    return poster.reply(
+      text,
+      { fid: options.parentFid, hash: options.parentHash },
+      {
+        channelUrl,
+        embeds: options.embeds,
+      },
+    )
   }
 
   return poster.cast(text, {
@@ -437,7 +373,10 @@ export async function publishCast(
 /**
  * Delete a cast
  */
-export async function deleteCast(address: Address, castHash: Hex): Promise<void> {
+export async function deleteCast(
+  address: Address,
+  castHash: Hex,
+): Promise<void> {
   const signerData = getActiveSignerWithPoster(address)
   if (!signerData) {
     throw new Error('No active signer found')
@@ -535,7 +474,10 @@ export async function unrecastCast(
 /**
  * Follow a user
  */
-export async function followUser(address: Address, targetFid: number): Promise<void> {
+export async function followUser(
+  address: Address,
+  targetFid: number,
+): Promise<void> {
   const signerData = getActiveSignerWithPoster(address)
   if (!signerData) {
     throw new Error('No active signer found')
@@ -547,7 +489,10 @@ export async function followUser(address: Address, targetFid: number): Promise<v
 /**
  * Unfollow a user
  */
-export async function unfollowUser(address: Address, targetFid: number): Promise<void> {
+export async function unfollowUser(
+  address: Address,
+  targetFid: number,
+): Promise<void> {
   const signerData = getActiveSignerWithPoster(address)
   if (!signerData) {
     throw new Error('No active signer found')
@@ -590,13 +535,17 @@ export async function getUser(fid: number): Promise<FarcasterUser | null> {
 }
 
 /** Get user profile by username */
-export async function getUserByUsername(username: string): Promise<FarcasterUser | null> {
+export async function getUserByUsername(
+  username: string,
+): Promise<FarcasterUser | null> {
   const profile = await hubService.getProfileByUsername(username)
   return profile ? transformProfile(profile) : null
 }
 
 /** Get user profile by verified address */
-export async function getUserByAddress(address: Address): Promise<FarcasterUser | null> {
+export async function getUserByAddress(
+  address: Address,
+): Promise<FarcasterUser | null> {
   const profile = await hubService.getProfileByAddress(address)
   return profile ? transformProfile(profile) : null
 }

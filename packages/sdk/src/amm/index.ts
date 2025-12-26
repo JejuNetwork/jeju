@@ -978,6 +978,10 @@ export function createAMMModule(
       })
       // TokenId is typically in topics[1], liquidity in data
       const firstLog = receipt.logs[0]
+      const tokenId =
+        firstLog && firstLog.topics.length > 1 && firstLog.topics[1]
+          ? BigInt(firstLog.topics[1])
+          : 0n
       const liquidity =
         receipt.logs.length > 0 && receipt.logs[0].data.length >= 66
           ? BigInt(`0x${receipt.logs[0].data.slice(2, 66)}`)

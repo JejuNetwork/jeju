@@ -5,18 +5,18 @@
  * Uses mocked RPC responses since we can't hit real chains in unit tests.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
   getOnChainVerifier,
   OnChainVerifier,
   resetOnChainVerifier,
 } from './on-chain-verifier'
 import type {
-  BalanceCondition,
-  StakeCondition,
-  RoleCondition,
   AgentCondition,
+  BalanceCondition,
   ContractCondition,
+  RoleCondition,
+  StakeCondition,
 } from './types'
 
 describe('OnChainVerifier', () => {
@@ -261,4 +261,3 @@ describe('OnChainVerifier', () => {
     })
   })
 })
-

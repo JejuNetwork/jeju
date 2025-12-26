@@ -20,7 +20,7 @@ import {
   toBytes,
   toHex,
 } from 'viem'
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry, mainnet, sepolia } from 'viem/chains'
 import type { DID } from '../did/index.js'
 import type {
@@ -71,11 +71,6 @@ const TREASURY_ABI = [
     type: 'function',
   },
 ] as const
-
-/**
- * Empty hex value for paymaster data
- */
-const EMPTY_HEX: Hex = '0x'
 
 /**
  * Minimum balance threshold (0.001 ETH)
@@ -225,10 +220,11 @@ export class TreasuryPaymaster {
 
     // Create paymaster hash: keccak256(userOpHash || validUntil || validAfter)
     const paymasterHash = keccak256(
-      encodeAbiParameters(
-        parseAbiParameters('bytes32, uint48, uint48'),
-        [userOpHash, validUntil, validAfter],
-      ),
+      encodeAbiParameters(parseAbiParameters('bytes32, uint48, uint48'), [
+        userOpHash,
+        validUntil,
+        validAfter,
+      ]),
     )
 
     // Sign the paymaster hash
@@ -265,10 +261,11 @@ export class TreasuryPaymaster {
     )
 
     return keccak256(
-      encodeAbiParameters(
-        parseAbiParameters('bytes32, address, uint256'),
-        [keccak256(packed), this.treasuryAddress, BigInt(this.chainId)],
-      ),
+      encodeAbiParameters(parseAbiParameters('bytes32, address, uint256'), [
+        keccak256(packed),
+        this.treasuryAddress,
+        BigInt(this.chainId),
+      ]),
     )
   }
 

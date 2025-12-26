@@ -7,10 +7,9 @@
 
 export {
   DWSClient,
-  getDWSClient,
-  resetDWSClient,
   type DWSClientConfig,
   type DWSRequestOptions,
   type DWSResponse,
+  getDWSClient,
+  resetDWSClient,
 } from './client'
-

@@ -215,6 +215,8 @@ export class KeyBackupManager {
   }
 }
 
-export function createKeyBackupManager(options?: BackupOptions): KeyBackupManager {
+export function createKeyBackupManager(
+  options?: BackupOptions,
+): KeyBackupManager {
   return new KeyBackupManager(options)
 }

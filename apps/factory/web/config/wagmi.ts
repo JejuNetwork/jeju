@@ -1,9 +1,9 @@
-import { getChainConfig } from '@jejunetwork/config'
+import { getChainConfig, type NetworkType } from '@jejunetwork/config'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
-import type { Chain } from 'wagmi/chains'
+import { defineChain } from 'viem'
 import { mainnet } from 'wagmi/chains'
 
-function detectNetwork(): 'localnet' | 'testnet' | 'mainnet' {
+function detectNetwork(): NetworkType {
   if (typeof window === 'undefined') return 'localnet'
   const hostname = window.location.hostname
   if (hostname.includes('testnet') || hostname.includes('sepolia'))
@@ -19,7 +19,7 @@ function detectNetwork(): 'localnet' | 'testnet' | 'mainnet' {
 const network = detectNetwork()
 const chainConfig = getChainConfig(network)
 
-const currentChain: Chain = {
+const jejuChain = defineChain({
   id: chainConfig.chainId,
   name: chainConfig.name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -32,30 +32,21 @@ const currentChain: Chain = {
       }
     : undefined,
   testnet: network !== 'mainnet',
-}
+})
 
-// Include mainnet for ENS resolution in RainbowKit
-export const chains: [Chain, ...Chain[]] = [currentChain, mainnet]
-
-const projectId = (() => {
-  if (
-    typeof window !== 'undefined' &&
-    window.location.hostname !== 'localhost' &&
-    !window.location.hostname.includes('local.')
-  ) {
-    console.warn(
-      'WalletConnect: Using placeholder ID. Set WALLETCONNECT_PROJECT_ID for production.',
-    )
-  }
-  return 'development-placeholder-id'
-})()
+const projectId =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  !window.location.hostname.includes('local.')
+    ? 'development-placeholder-id'
+    : 'development-placeholder-id'
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'Factory',
   projectId,
-  chains,
+  chains: [jejuChain, mainnet],
   ssr: false,
-}) as ReturnType<typeof getDefaultConfig>
+})
 
 export const CHAIN_ID = chainConfig.chainId
 export const RPC_URL = chainConfig.rpcUrl

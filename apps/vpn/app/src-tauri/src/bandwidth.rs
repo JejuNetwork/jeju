@@ -11,21 +11,26 @@ use tokio::sync::RwLock;
 use tokio::time::{Duration, Instant};
 
 /// Minimum bandwidth to always reserve for user (Mbps)
+#[allow(dead_code)]
 pub const MIN_USER_RESERVE_MBPS: u32 = 20;
 
 /// Maximum contribution percentage when idle
+#[allow(dead_code)]
 pub const MAX_IDLE_CONTRIBUTION_PERCENT: u8 = 80;
 
 /// Minimum contribution percentage when active  
 pub const MIN_ACTIVE_CONTRIBUTION_PERCENT: u8 = 10;
 
 /// Seconds of inactivity before considered "idle"
+#[allow(dead_code)]
 pub const IDLE_THRESHOLD_SECS: u64 = 300; // 5 minutes
 
 /// How often to check activity (seconds)
+#[allow(dead_code)]
 pub const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 30;
 
 /// Bandwidth measurement window (seconds)
+#[allow(dead_code)]
 pub const BANDWIDTH_WINDOW_SECS: u64 = 60;
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -60,16 +65,16 @@ pub struct AdaptiveBandwidthManager {
     state: Arc<RwLock<BandwidthState>>,
 
     /// Last input activity timestamp
-    last_activity: Arc<RwLock<Instant>>,
+    _last_activity: Arc<RwLock<Instant>>,
 
     /// Running flag
-    running: Arc<AtomicBool>,
+    _running: Arc<AtomicBool>,
 
     /// Bytes transferred in current window (user traffic)
-    user_bytes_window: Arc<AtomicU64>,
+    _user_bytes_window: Arc<AtomicU64>,
 
     /// Bytes transferred in current window (contribution)
-    contribution_bytes_window: Arc<AtomicU64>,
+    _contribution_bytes_window: Arc<AtomicU64>,
 }
 
 impl AdaptiveBandwidthManager {
@@ -85,24 +90,25 @@ impl AdaptiveBandwidthManager {
                 idle_seconds: 0,
                 adaptive_enabled: true,
             })),
-            last_activity: Arc::new(RwLock::new(Instant::now())),
-            running: Arc::new(AtomicBool::new(false)),
-            user_bytes_window: Arc::new(AtomicU64::new(0)),
-            contribution_bytes_window: Arc::new(AtomicU64::new(0)),
+            _last_activity: Arc::new(RwLock::new(Instant::now())),
+            _running: Arc::new(AtomicBool::new(false)),
+            _user_bytes_window: Arc::new(AtomicU64::new(0)),
+            _contribution_bytes_window: Arc::new(AtomicU64::new(0)),
         }
     }
 
     /// Start the adaptive bandwidth manager
+    #[allow(dead_code)]
     pub async fn start(&self) {
         if self.running.swap(true, Ordering::SeqCst) {
             return; // Already running
         }
 
         let state = self.state.clone();
-        let last_activity = self.last_activity.clone();
-        let running = self.running.clone();
-        let user_bytes = self.user_bytes_window.clone();
-        let contrib_bytes = self.contribution_bytes_window.clone();
+        let last_activity = self._last_activity.clone();
+        let running = self._running.clone();
+        let user_bytes = self._user_bytes_window.clone();
+        let contrib_bytes = self._contribution_bytes_window.clone();
 
         tokio::spawn(async move {
             let mut interval =

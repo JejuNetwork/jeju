@@ -475,8 +475,7 @@ export function getServicesConfig(
             getEnvService('TRAINING_ENDPOINT') ??
             getEnvService('TRAINING_API_URL') ??
             config.training.api,
-          atropos:
-            getEnvService('ATROPOS_URL') ?? config.training.atropos,
+          atropos: getEnvService('ATROPOS_URL') ?? config.training.atropos,
           psyche: getEnvService('PSYCHE_URL') ?? config.training.psyche,
         }
       : undefined,
@@ -1576,9 +1575,7 @@ export function getDwsGatewayUrl(): string {
 
 /** Get DWS cache endpoint */
 export function getDwsCacheEndpoint(): string | undefined {
-  return (
-    process.env.DWS_CACHE_ENDPOINT ?? process.env.COMPUTE_CACHE_ENDPOINT
-  )
+  return process.env.DWS_CACHE_ENDPOINT ?? process.env.COMPUTE_CACHE_ENDPOINT
 }
 
 // Bot/Simulation API Keys

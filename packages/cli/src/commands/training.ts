@@ -299,22 +299,25 @@ function loadTrainingContracts(network: string): TrainingContracts {
     if (existsSync(path)) {
       const content = readFileSync(path, 'utf-8')
       const deployment = JSON.parse(content)
-      
+
       // Check for training-specific deployment
       if (deployment.TrainingCoordinator) {
         return {
           trainingCoordinator: deployment.TrainingCoordinator as `0x${string}`,
           trainingRewards: deployment.TrainingRewards as `0x${string}`,
-          nodePerformanceOracle: deployment.NodePerformanceOracle as `0x${string}`,
+          nodePerformanceOracle:
+            deployment.NodePerformanceOracle as `0x${string}`,
         }
       }
-      
+
       // Check for nested structure
       if (deployment.training?.TrainingCoordinator) {
         return {
-          trainingCoordinator: deployment.training.TrainingCoordinator as `0x${string}`,
+          trainingCoordinator: deployment.training
+            .TrainingCoordinator as `0x${string}`,
           trainingRewards: deployment.training.TrainingRewards as `0x${string}`,
-          nodePerformanceOracle: deployment.training.NodePerformanceOracle as `0x${string}`,
+          nodePerformanceOracle: deployment.training
+            .NodePerformanceOracle as `0x${string}`,
         }
       }
     }
@@ -323,23 +326,32 @@ function loadTrainingContracts(network: string): TrainingContracts {
   // Fall back to environment variables if set
   if (process.env.TRAINING_COORDINATOR_ADDRESS) {
     return {
-      trainingCoordinator: process.env.TRAINING_COORDINATOR_ADDRESS as `0x${string}`,
-      trainingRewards: (process.env.TRAINING_REWARDS_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      nodePerformanceOracle: (process.env.NODE_PERFORMANCE_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      trainingCoordinator: process.env
+        .TRAINING_COORDINATOR_ADDRESS as `0x${string}`,
+      trainingRewards: (process.env.TRAINING_REWARDS_ADDRESS ??
+        '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      nodePerformanceOracle: (process.env.NODE_PERFORMANCE_ADDRESS ??
+        '0x0000000000000000000000000000000000000000') as `0x${string}`,
     }
   }
 
   // Return null addresses to indicate contracts not deployed
   return {
-    trainingCoordinator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    trainingRewards: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    nodePerformanceOracle: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    trainingCoordinator:
+      '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    trainingRewards:
+      '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    nodePerformanceOracle:
+      '0x0000000000000000000000000000000000000000' as `0x${string}`,
   }
 }
 
 function requireTrainingContracts(network: string): TrainingContracts {
   const contracts = loadTrainingContracts(network)
-  if (contracts.trainingCoordinator === '0x0000000000000000000000000000000000000000') {
+  if (
+    contracts.trainingCoordinator ===
+    '0x0000000000000000000000000000000000000000'
+  ) {
     logger.error('Training contracts not deployed on this network')
     logger.info(`Deploy with: jeju deploy training --network ${network}`)
     process.exit(1)
@@ -711,7 +723,10 @@ async function checkStatus(network: string): Promise<void> {
       transport: http(getRpcUrl(network)),
     })
 
-    if (contracts.trainingCoordinator === '0x0000000000000000000000000000000000000000') {
+    if (
+      contracts.trainingCoordinator ===
+      '0x0000000000000000000000000000000000000000'
+    ) {
       logger.newline()
       logger.table([
         {
@@ -1065,7 +1080,7 @@ async function getRunInfo(runId: string, network: string): Promise<void> {
 async function pauseRun(runId: string, network: string): Promise<void> {
   logger.header('PAUSE TRAINING RUN')
 
-  const contracts = getContracts(network)
+  const contracts = requireTrainingContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1107,7 +1122,7 @@ async function pauseRun(runId: string, network: string): Promise<void> {
 async function resumeRun(runId: string, network: string): Promise<void> {
   logger.header('RESUME TRAINING RUN')
 
-  const contracts = getContracts(network)
+  const contracts = requireTrainingContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1149,7 +1164,7 @@ async function resumeRun(runId: string, network: string): Promise<void> {
 async function withdrawFromRun(runId: string, network: string): Promise<void> {
   logger.header('WITHDRAW FROM RUN')
 
-  const contracts = getContracts(network)
+  const contracts = requireTrainingContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1191,7 +1206,7 @@ async function withdrawFromRun(runId: string, network: string): Promise<void> {
 async function claimRewards(runId: string, network: string): Promise<void> {
   logger.header('CLAIM REWARDS')
 
-  const contracts = getContracts(network)
+  const contracts = requireTrainingContracts(network)
   const privateKey = getPrivateKey(network)
   const account = privateKeyToAccount(privateKey)
 
@@ -1254,7 +1269,7 @@ async function listNodes(options: {
 }): Promise<void> {
   logger.header('COMPUTE NODES')
 
-  const contracts = getContracts(options.network)
+  const contracts = requireTrainingContracts(options.network)
   const publicClient = createPublicClient({
     chain: foundry,
     transport: http(getRpcUrl(options.network)),

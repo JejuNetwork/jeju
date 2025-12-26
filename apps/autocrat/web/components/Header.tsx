@@ -49,6 +49,7 @@ export function Header() {
     { href: '/ceo', label: 'CEO' },
     { href: '/moderation', label: 'Moderation' },
     { href: '/bug-bounty', label: 'Bounty' },
+    { href: '/feed', label: 'Feed' },
   ]
 
   return (
