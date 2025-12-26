@@ -71,6 +71,7 @@
     "build:packages": "bun run --cwd packages/types build && bun run --cwd packages/contracts build",
     "link:cli": "bun run --cwd packages/cli build && mkdir -p ~/.bun/bin && ln -sf $PWD/packages/cli/bin/jeju.js ~/.bun/bin/jeju",
     "jeju": "bun packages/cli/src/index.ts",
+    "start": "bun run jeju dev",
     "dev": "bun run jeju dev",
     "build": "bun run jeju build",
     "test": "bun run jeju test",
