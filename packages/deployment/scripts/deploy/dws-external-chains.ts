@@ -489,24 +489,18 @@ async function deployViaDWS(
   )
   console.log(`   ✅ Node provisioned: ${nodeId.slice(0, 18)}...`)
 
-  // Step 3: Actually deploy the node (off-chain orchestration)
-  console.log('\n   Step 3: Deploying node infrastructure...')
+  // Step 3: Deploy the node infrastructure
+  // The on-chain provisioning triggers DWS nodes to pull and deploy
+  // We wait for the node to come online by polling the DWS endpoint
+  console.log('\n   Step 3: Waiting for DWS node deployment...')
 
-  // In production, this would trigger DWS orchestration
-  // For now, we deploy locally and report the endpoint
-  const localResult = await deployLocalNode(chain, networkMode)
+  const nodeEndpoints = await waitForNodeDeployment(
+    providerEndpoint,
+    nodeId,
+    config,
+  )
 
-  // Step 4: Report node as ready
-  console.log('\n   Step 4: Reporting node ready...')
-
-  await walletClient.writeContract({
-    address: externalChainProviderAddress,
-    abi: EXTERNAL_CHAIN_PROVIDER_ABI,
-    functionName: 'reportNodeReady',
-    args: [nodeId, localResult.endpoints.rpc, localResult.endpoints.ws],
-  })
-
-  console.log('   ✅ Node reported as ready')
+  console.log('   ✅ Node deployed and ready')
 
   return {
     network: jejuNetwork,
@@ -514,9 +508,49 @@ async function deployViaDWS(
     mode: 'dws',
     providerId,
     nodeId,
-    endpoints: localResult.endpoints,
+    endpoints: nodeEndpoints,
     tee: useTee,
   }
+}
+
+async function waitForNodeDeployment(
+  dwsEndpoint: string,
+  nodeId: string,
+  config: ChainConfig,
+  maxWaitMs = 300_000, // 5 minutes
+): Promise<{ rpc: string; ws: string }> {
+  const startTime = Date.now()
+  const pollInterval = 5000 // 5 seconds
+
+  console.log(`   Polling DWS for node ${nodeId.slice(0, 18)}...`)
+
+  while (Date.now() - startTime < maxWaitMs) {
+    try {
+      const response = await fetch(`${dwsEndpoint}/api/nodes/${nodeId}`, {
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (response.ok) {
+        const data = await response.json() as {
+          status: string
+          endpoints?: { rpc: string; ws: string }
+        }
+
+        if (data.status === 'active' && data.endpoints) {
+          console.log(`   Node is active after ${Math.round((Date.now() - startTime) / 1000)}s`)
+          return data.endpoints
+        }
+
+        console.log(`   Node status: ${data.status}`)
+      }
+    } catch {
+      // Node not ready yet, continue polling
+    }
+
+    await Bun.sleep(pollInterval)
+  }
+
+  throw new Error(`Node deployment timed out after ${maxWaitMs / 1000}s`)
 }
 
 async function main() {

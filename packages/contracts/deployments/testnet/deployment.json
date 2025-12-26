@@ -16,8 +16,21 @@
     "l2StandardBridge": "0x4200000000000000000000000000000000000010",
     "l2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
     "l2ERC721Bridge": "0x4200000000000000000000000000000000000014",
-    "optimismPortal": null,
-    "l1StandardBridge": null
+    "optimismPortal": "0x0F80836afff3f0b18D767643c6A5f83d027b00e8",
+    "l1StandardBridge": "0x12FA61c9d77AEd9BeDA0FF4bF2E900F31bdBdc45"
+  },
+  
+  "decentralization": {
+    "sequencerRegistry": null,
+    "governanceTimelock": null,
+    "disputeGameFactory": null,
+    "cannonProver": null,
+    "thresholdBatchSubmitter": null,
+    "forcedInclusion": null,
+    "l2OutputOracleAdapter": null,
+    "optimismPortalAdapter": null,
+    "securityCouncil": null,
+    "_note": "Stage 2 decentralization contracts - deploy with: bun run packages/deployment/scripts/deploy/decentralization.ts"
   },
   
   "infrastructure": {
