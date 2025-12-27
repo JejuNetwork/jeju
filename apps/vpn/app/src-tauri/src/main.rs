@@ -62,7 +62,13 @@ fn build_tray_menu(
             &MenuItem::with_id(app, "status", status_text, false, None::<&str>)?,
             &MenuItem::with_id(app, "separator1", "─────────────", false, None::<&str>)?,
             &MenuItem::with_id(app, "toggle", toggle_text, true, None::<&str>)?,
-            &MenuItem::with_id(app, "locations", "🌍 Select Location...", true, None::<&str>)?,
+            &MenuItem::with_id(
+                app,
+                "locations",
+                "🌍 Select Location...",
+                true,
+                None::<&str>,
+            )?,
             &MenuItem::with_id(app, "separator2", "─────────────", false, None::<&str>)?,
             &MenuItem::with_id(app, "contribution", contribution_text, false, None::<&str>)?,
             &MenuItem::with_id(app, "pause_sharing", pause_text, true, None::<&str>)?,
@@ -282,7 +288,7 @@ fn update_tray_state(
     contribution_percent: u8,
 ) {
     update_tray_menu(&app, connected, location.as_deref(), contribution_percent);
-    
+
     // Update tray tooltip
     if let Some(tray) = app.tray_by_id("main") {
         let tooltip = if connected {

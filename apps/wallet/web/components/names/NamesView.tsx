@@ -629,10 +629,10 @@ export function NamesView({ address }: NamesViewProps) {
                 <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
                   <h3 className="font-semibold">Gateway URLs</h3>
 
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">
+                  <label className="block">
+                    <span className="text-sm text-muted-foreground block mb-2">
                       Local DWS URL
-                    </label>
+                    </span>
                     <input
                       type="text"
                       value={settings?.localDwsUrl ?? ''}
@@ -641,12 +641,12 @@ export function NamesView({ address }: NamesViewProps) {
                       }
                       className="w-full px-4 py-2 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-sm"
                     />
-                  </div>
+                  </label>
 
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">
+                  <label className="block">
+                    <span className="text-sm text-muted-foreground block mb-2">
                       Public Gateway URL
-                    </label>
+                    </span>
                     <input
                       type="text"
                       value={settings?.gatewayUrl ?? ''}
@@ -655,12 +655,12 @@ export function NamesView({ address }: NamesViewProps) {
                       }
                       className="w-full px-4 py-2 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-sm"
                     />
-                  </div>
+                  </label>
 
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">
+                  <label className="block">
+                    <span className="text-sm text-muted-foreground block mb-2">
                       IPFS Gateway URL
-                    </label>
+                    </span>
                     <input
                       type="text"
                       value={settings?.ipfsGateway ?? ''}
@@ -669,7 +669,7 @@ export function NamesView({ address }: NamesViewProps) {
                       }
                       className="w-full px-4 py-2 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-sm"
                     />
-                  </div>
+                  </label>
                 </div>
 
                 {/* Cache Management */}

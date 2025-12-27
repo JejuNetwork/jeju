@@ -718,7 +718,7 @@ mod platform {
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating iOS TUN interface placeholder");
         tracing::info!("Note: iOS requires NEPacketTunnelProvider to provide the tunnel fd");
-        
+
         Ok(TunDevice {
             name: "utun".to_string(),
             fd: Arc::new(Mutex::new(None)),
@@ -728,15 +728,19 @@ mod platform {
     pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
         let fd_guard = device.fd.lock().await;
         let fd = fd_guard.ok_or_else(|| {
-            VPNError::TunnelError("iOS TUN fd not set - NEPacketTunnelProvider required".to_string())
+            VPNError::TunnelError(
+                "iOS TUN fd not set - NEPacketTunnelProvider required".to_string(),
+            )
         })?;
-        
+
         // Use libc write for raw fd
         let result = unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, data.len()) };
         if result < 0 {
-            return Err(VPNError::TunnelError("Failed to write to iOS TUN".to_string()));
+            return Err(VPNError::TunnelError(
+                "Failed to write to iOS TUN".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 
@@ -746,14 +750,18 @@ mod platform {
     ) -> Result<&'a [u8], VPNError> {
         let fd_guard = device.fd.lock().await;
         let fd = fd_guard.ok_or_else(|| {
-            VPNError::TunnelError("iOS TUN fd not set - NEPacketTunnelProvider required".to_string())
+            VPNError::TunnelError(
+                "iOS TUN fd not set - NEPacketTunnelProvider required".to_string(),
+            )
         })?;
-        
+
         let result = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
         if result < 0 {
-            return Err(VPNError::TunnelError("Failed to read from iOS TUN".to_string()));
+            return Err(VPNError::TunnelError(
+                "Failed to read from iOS TUN".to_string(),
+            ));
         }
-        
+
         Ok(&buf[..result as usize])
     }
 }
@@ -789,7 +797,7 @@ mod platform {
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating Android TUN interface placeholder");
         tracing::info!("Note: Android requires VpnService to provide the tunnel fd");
-        
+
         Ok(TunDevice {
             name: "tun0".to_string(),
             fd: Arc::new(Mutex::new(None)),
@@ -801,12 +809,14 @@ mod platform {
         let fd = fd_guard.ok_or_else(|| {
             VPNError::TunnelError("Android TUN fd not set - VpnService required".to_string())
         })?;
-        
+
         let result = unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, data.len()) };
         if result < 0 {
-            return Err(VPNError::TunnelError("Failed to write to Android TUN".to_string()));
+            return Err(VPNError::TunnelError(
+                "Failed to write to Android TUN".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 
@@ -818,17 +828,25 @@ mod platform {
         let fd = fd_guard.ok_or_else(|| {
             VPNError::TunnelError("Android TUN fd not set - VpnService required".to_string())
         })?;
-        
+
         let result = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
         if result < 0 {
-            return Err(VPNError::TunnelError("Failed to read from Android TUN".to_string()));
+            return Err(VPNError::TunnelError(
+                "Failed to read from Android TUN".to_string(),
+            ));
         }
-        
+
         Ok(&buf[..result as usize])
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows", target_os = "ios", target_os = "android")))]
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "windows",
+    target_os = "ios",
+    target_os = "android"
+)))]
 mod platform {
     use super::*;
 

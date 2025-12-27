@@ -392,7 +392,7 @@ async function startZKBridge(options: {
   }
 
   // Load and validate config upfront
-  let config
+  let config: Awaited<ReturnType<typeof loadBridgeConfig>>
   try {
     config = await loadBridgeConfig(mode)
   } catch (error) {
