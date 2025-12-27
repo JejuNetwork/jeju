@@ -4,6 +4,7 @@ import { cors } from '@elysiajs/cors'
 import { parseEnvAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { createA2ARouter } from './a2a'
+import { config as vpnConfig } from './config'
 import { createMCPRouter } from './mcp'
 import { createRESTRouter } from './rest'
 import {
@@ -15,11 +16,11 @@ import type { VPNServiceContext } from './types'
 import { checkRateLimit } from './utils/rate-limit'
 import { createX402Middleware } from './x402'
 
-export function createVPNServer(config: VPNServerConfig) {
-  expectValid(VPNServerConfigSchema, config, 'VPN server config')
+export function createVPNServer(serverConfig: VPNServerConfig) {
+  expectValid(VPNServerConfigSchema, serverConfig, 'VPN server config')
 
   const ctx: VPNServiceContext = {
-    config,
+    config: serverConfig,
     nodes: new Map(),
     sessions: new Map(),
     contributions: new Map(),
@@ -30,10 +31,10 @@ export function createVPNServer(config: VPNServerConfig) {
     .use(
       cors({
         origin: [
-          config.publicUrl,
+          serverConfig.publicUrl,
           'https://vpn.jejunetwork.org',
           'https://app.jejunetwork.org',
-          ...(process.env.NODE_ENV === 'development'
+          ...(!vpnConfig.isProduction
             ? ['http://localhost:1421', 'http://127.0.0.1:1421']
             : []),
         ],
@@ -133,7 +134,7 @@ export function createVPNServer(config: VPNServerConfig) {
       protocolVersion: '1.0',
       name: 'Jeju VPN Agent',
       description: 'Decentralized VPN service with fair contribution model',
-      url: config.publicUrl,
+      url: serverConfig.publicUrl,
       provider: {
         organization: 'Jeju Network',
         url: 'https://jejunetwork.org',
@@ -253,30 +254,29 @@ export type { VPNServiceContext } from './types'
 
 import { CORE_PORTS } from '@jejunetwork/config'
 
-const PORT = CORE_PORTS.VPN_API.get()
+const PORT = vpnConfig.port || CORE_PORTS.VPN_API.get()
 
-const devConfig: VPNServerConfig = {
-  publicUrl: `http://localhost:${PORT}`,
+const devServerConfig: VPNServerConfig = {
+  publicUrl: vpnConfig.publicUrl || `http://localhost:${PORT}`,
   port: PORT,
-  chainId: 8453, // Base mainnet
-  rpcUrl: process.env.RPC_URL || 'https://mainnet.base.org',
-  coordinatorUrl:
-    process.env.COORDINATOR_URL || 'https://vpn-coordinator.jejunetwork.org',
+  chainId: vpnConfig.chainId,
+  rpcUrl: vpnConfig.rpcUrl,
+  coordinatorUrl: vpnConfig.coordinatorUrl,
   contracts: {
-    vpnRegistry: parseEnvAddress(process.env.VPN_REGISTRY_ADDRESS),
-    vpnBilling: parseEnvAddress(process.env.VPN_BILLING_ADDRESS),
-    x402Facilitator: parseEnvAddress(process.env.X402_FACILITATOR_ADDRESS),
+    vpnRegistry: parseEnvAddress(vpnConfig.vpnRegistryAddress),
+    vpnBilling: parseEnvAddress(vpnConfig.vpnBillingAddress),
+    x402Facilitator: parseEnvAddress(vpnConfig.x402FacilitatorAddress),
   },
-  paymentRecipient: parseEnvAddress(process.env.PAYMENT_RECIPIENT),
+  paymentRecipient: parseEnvAddress(vpnConfig.paymentRecipientAddress),
   pricing: {
-    pricePerGB: process.env.PRICE_PER_GB || '1000000000000000', // 0.001 ETH
-    pricePerHour: process.env.PRICE_PER_HOUR || '100000000000000', // 0.0001 ETH
-    pricePerRequest: process.env.PRICE_PER_REQUEST || '10000000000000',
-    supportedTokens: [parseEnvAddress(process.env.PAYMENT_TOKEN)],
+    pricePerGB: vpnConfig.pricePerGB,
+    pricePerHour: vpnConfig.pricePerHour,
+    pricePerRequest: vpnConfig.pricePerRequest,
+    supportedTokens: [parseEnvAddress(vpnConfig.paymentTokenAddress)],
   },
 }
 
-const app = createVPNServer(devConfig)
+const app = createVPNServer(devServerConfig)
 
 app.listen(PORT, () => {
   console.log(`VPN Server running on http://localhost:${PORT}`)

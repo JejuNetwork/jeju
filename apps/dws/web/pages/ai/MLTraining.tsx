@@ -44,9 +44,6 @@ export default function MLTrainingPage() {
       >
         <div>
           <h1 className="page-title">ML Training</h1>
-          <p className="page-subtitle">
-            Fine-tune and train models on distributed compute
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -136,8 +133,7 @@ export default function MLTrainingPage() {
           ) : runs.length === 0 ? (
             <div className="empty-state">
               <Sparkles size={48} />
-              <h3>Ready to train</h3>
-              <p>Fine-tune or train custom models using distributed GPU compute</p>
+              <h3>No training jobs</h3>
               <button type="button" className="btn btn-primary">
                 <Plus size={16} /> New Training Job
               </button>

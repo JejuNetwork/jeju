@@ -11,7 +11,7 @@ import { useAccount } from 'wagmi'
 import { z } from 'zod'
 import { AuthButton } from '../components/auth/AuthButton'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import { EmptyState, Grid, StatCard } from '../components/ui'
+import { Grid, StatCard } from '../components/ui'
 
 const ReferralStatsSchema = z.object({
   totalReferrals: z.number(),

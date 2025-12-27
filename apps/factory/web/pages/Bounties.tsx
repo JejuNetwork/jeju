@@ -93,7 +93,6 @@ export function BountiesPage() {
     <div className="page-container">
       <PageHeader
         title="Bounties"
-        description="Funded tasks for open-source contributors"
         icon={DollarSign}
         iconColor="text-success-400"
         action={

@@ -90,7 +90,6 @@ export function AgentsPage() {
     <div className="page-container">
       <PageHeader
         title="Agents"
-        description="Autonomous AI workers on-chain"
         icon={Bot}
         iconColor="text-accent-400"
         action={

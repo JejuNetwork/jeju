@@ -58,9 +58,6 @@ export default function JobsPage() {
       >
         <div>
           <h1 className="page-title">Compute Jobs</h1>
-          <p className="page-subtitle">
-            Submit and monitor shell command execution on compute nodes
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -156,8 +153,7 @@ export default function JobsPage() {
           ) : jobs.length === 0 ? (
             <div className="empty-state">
               <Cpu size={48} />
-              <h3>Ready to compute</h3>
-              <p>Run shell commands on distributed compute nodes with pay-per-use pricing</p>
+              <h3>No jobs yet</h3>
               <button
                 type="button"
                 className="btn btn-primary"

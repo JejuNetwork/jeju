@@ -4,6 +4,7 @@
 
 import type { Store } from '@subsquid/typeorm-store'
 import type { Hex } from 'viem'
+import { config } from './config'
 import {
   CandleInterval,
   DEX,
@@ -199,7 +200,7 @@ export async function processDEXEvents(
   const dailyCandles = new Map<string, PoolDailyCandle>()
 
   const accountFactory = createAccountFactory()
-  const chainId = parseInt(process.env.CHAIN_ID ?? '1', 10)
+  const chainId = config.chainId
 
   for (const block of ctx.blocks) {
     const header = block.header

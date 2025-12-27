@@ -936,19 +936,6 @@ function CreateProposalForm({
           </div>
         )}
 
-        {/* Info Box */}
-        <div className="bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 rounded-xl p-5">
-          <div className="flex items-start gap-3">
-            <Bot className="w-5 h-5 text-[var(--color-primary)] shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <h4 className="font-medium text-[var(--color-primary)]">Review Process</h4>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Board agents will analyze and vote on your proposal based on their
-                expertise. The CEO makes the final decision after board review.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )

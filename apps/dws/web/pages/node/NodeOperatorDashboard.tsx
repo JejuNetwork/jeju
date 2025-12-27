@@ -47,8 +47,7 @@ export default function NodeOperatorDashboard() {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <Server size={64} />
-        <h3>Node Operator Dashboard</h3>
-        <p>Connect your wallet to view your nodes and earnings</p>
+        <h3>Connect wallet</h3>
         <WalletButton />
       </div>
     )
@@ -58,7 +57,7 @@ export default function NodeOperatorDashboard() {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <div className="spinner" style={{ width: 48, height: 48 }} />
-        <p>Loading node data...</p>
+        <p>Loading...</p>
       </div>
     )
   }
@@ -69,9 +68,6 @@ export default function NodeOperatorDashboard() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Node Operator Dashboard</h1>
-        <p className="page-subtitle">
-          Earn rewards by providing compute resources to the network
-        </p>
       </div>
 
       {/* Stats Overview */}
@@ -133,10 +129,7 @@ export default function NodeOperatorDashboard() {
           {nodes.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Server size={48} />
-              <h4>Ready to provide</h4>
-              <p>
-                Register your compute node to join the network and earn rewards
-              </p>
+              <h4>No nodes registered</h4>
               <a
                 href="/settings"
                 className="btn btn-primary"

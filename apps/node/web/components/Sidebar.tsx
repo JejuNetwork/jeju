@@ -10,7 +10,6 @@ import {
   Server,
   Settings,
   Shield,
-  Sparkles,
   TrendingUp,
   Wallet,
   X,
@@ -22,14 +21,14 @@ import { useAppStore } from '../context/AppContext'
 
 const networkName = getNetworkName()
 
-const navItems: { id: ViewType; label: string; icon: React.ReactNode; description: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, description: 'Live activity' },
-  { id: 'services', label: 'Services', icon: <Server size={20} />, description: 'What you offer' },
-  { id: 'bots', label: 'Trading Bots', icon: <Bot size={20} />, description: '50/50 profit share' },
-  { id: 'earnings', label: 'Earnings', icon: <TrendingUp size={20} />, description: 'Your rewards' },
-  { id: 'staking', label: 'Staking', icon: <Coins size={20} />, description: 'ETH at work' },
-  { id: 'wallet', label: 'Wallet', icon: <Wallet size={20} />, description: 'Your funds' },
-  { id: 'settings', label: 'Settings', icon: <Settings size={20} />, description: 'Fine-tune' },
+const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+  { id: 'services', label: 'Services', icon: <Server size={20} /> },
+  { id: 'bots', label: 'Bots', icon: <Bot size={20} /> },
+  { id: 'earnings', label: 'Earnings', icon: <TrendingUp size={20} /> },
+  { id: 'staking', label: 'Staking', icon: <Coins size={20} /> },
+  { id: 'wallet', label: 'Wallet', icon: <Wallet size={20} /> },
+  { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
 ]
 
 export function Sidebar() {
@@ -55,15 +54,9 @@ export function Sidebar() {
             <Zap size={24} className="text-white" />
           </div>
           {!isCollapsed && (
-            <div className="flex-1">
-              <h1 className="font-bold text-lg gradient-text">
-                {networkName} Node
-              </h1>
-              <p className="text-xs text-volcanic-500 flex items-center gap-1">
-                <Sparkles size={10} className="text-jeju-400" />
-                Earn while you sleep
-              </p>
-            </div>
+            <h1 className="font-bold text-lg gradient-text">
+              {networkName} Node
+            </h1>
           )}
         </div>
       </div>
@@ -125,13 +118,7 @@ export function Sidebar() {
               {item.icon}
             </span>
             {!isCollapsed && (
-              <div className="flex-1 text-left">
-                <span className="font-medium block">{item.label}</span>
-                <span className={clsx(
-                  'text-xs',
-                  currentView === item.id ? 'text-jeju-400/70' : 'text-volcanic-500'
-                )}>{item.description}</span>
-              </div>
+              <span className="font-medium">{item.label}</span>
             )}
           </button>
         ))}

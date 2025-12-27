@@ -375,7 +375,6 @@ export default function FaucetTab() {
                 type="button"
                 onClick={refresh}
                 disabled={loading}
-                aria-label="Refresh eligibility status"
                 style={{
                   padding: '0.5rem',
                   background: 'var(--surface-hover)',

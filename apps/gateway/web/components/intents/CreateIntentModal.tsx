@@ -188,7 +188,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close modal backdrop"
+        aria-label="Close"
         style={{
           position: 'absolute',
           inset: 0,

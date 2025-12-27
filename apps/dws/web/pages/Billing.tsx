@@ -63,11 +63,6 @@ export default function BillingPage({ viewMode }: BillingProps) {
           <h1 className="page-title">
             {viewMode === 'provider' ? 'Earnings & Payouts' : 'Billing & Usage'}
           </h1>
-          <p className="page-subtitle">
-            {viewMode === 'provider'
-              ? 'Track your earnings and withdraw to your wallet'
-              : 'Manage credits and track usage across all services'}
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -231,7 +226,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
           {transactions.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Activity size={32} />
-              <p>Transactions will appear here once you use DWS services</p>
+              <p>No transactions</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '0.5rem' }}>

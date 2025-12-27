@@ -70,9 +70,6 @@ export default function AgentsPage() {
       >
         <div>
           <h1 className="page-title">Agents & MCP</h1>
-          <p className="page-subtitle">
-            Connect AI agents and enable them to collaborate on tasks
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -341,7 +338,7 @@ export default function AgentsPage() {
           (!selectedAgent ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Activity size={32} />
-              <p>Choose an agent from the list to view its task history</p>
+              <p>Select an agent</p>
             </div>
           ) : tasksLoading ? (
             <div
@@ -356,7 +353,7 @@ export default function AgentsPage() {
           ) : tasks.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Activity size={32} />
-              <p>This agent has not processed any tasks yet</p>
+              <p>No tasks</p>
             </div>
           ) : (
             <div className="table-container">

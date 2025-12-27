@@ -125,9 +125,7 @@ export default function TokenSelector({
                 setIsOpen(false)
               }
             }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Close dropdown"
+            aria-label="Close"
           />
           <div
             style={{

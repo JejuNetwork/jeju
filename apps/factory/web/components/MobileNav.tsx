@@ -11,7 +11,6 @@ import {
   Box,
   Brain,
   Briefcase,
-  ChevronRight,
   DollarSign,
   GitBranch,
   Home,
@@ -204,15 +203,8 @@ export function MobileNav() {
                         aria-current={isActive(item.href) ? 'page' : undefined}
                         tabIndex={isOpen ? 0 : -1}
                       >
-                        <item.icon
-                          className="w-5 h-5"
-                          aria-hidden="true"
-                        />
-                        <span className="flex-1">{item.name}</span>
-                        <ChevronRight
-                          className="w-4 h-4 opacity-40"
-                          aria-hidden="true"
-                        />
+                        <item.icon className="w-5 h-5" aria-hidden="true" />
+                        {item.name}
                       </Link>
                     </li>
                   ))}
@@ -231,11 +223,7 @@ export function MobileNav() {
                 tabIndex={isOpen ? 0 : -1}
               >
                 <Settings className="w-5 h-5" aria-hidden="true" />
-                <span className="flex-1">Settings</span>
-                <ChevronRight
-                  className="w-4 h-4 opacity-40"
-                  aria-hidden="true"
-                />
+                Settings
               </Link>
             </div>
           </div>

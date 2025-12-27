@@ -2,6 +2,7 @@ import { getSecretVault } from '@jejunetwork/kms'
 import { getServiceName } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { config as gatewayConfig } from '../../config'
 import { getPrimaryChainConfig } from '../lib/chains'
 import { clearClientCache } from '../services/settler'
 
@@ -26,52 +27,44 @@ export interface FacilitatorConfig {
   kmsSecretId: string | null
 }
 
-function getEnvAddress(key: string, defaultValue: Address): Address {
-  const value = process.env[key]
-  if (!value || !value.startsWith('0x') || value.length !== 42)
+function getEnvAddress(configValue: string | undefined, defaultValue: Address): Address {
+  if (!configValue || !configValue.startsWith('0x') || configValue.length !== 42)
     return defaultValue
-  return value as Address // Validated above
+  return configValue as Address
 }
 
 function getEnvPrivateKey(): Hex | null {
-  const key = process.env.FACILITATOR_PRIVATE_KEY
+  const key = gatewayConfig.facilitatorPrivateKey
   if (!key || !key.startsWith('0x') || key.length !== 66) return null
-  return key as Hex // Validated above
+  return key as Hex
 }
 
 export function getConfig(): FacilitatorConfig {
   const chainConfig = getPrimaryChainConfig()
-  const port = parseInt(
-    process.env.FACILITATOR_PORT || process.env.PORT || '3402',
-    10,
-  )
-  const kmsEnabled =
-    process.env.KMS_ENABLED === 'true' ||
-    process.env.VAULT_ENCRYPTION_SECRET !== undefined
+  const port = gatewayConfig.facilitatorPort
 
   return {
     port,
-    host: process.env.HOST || '0.0.0.0',
-    environment:
-      process.env.NODE_ENV === 'production' ? 'production' : 'development',
+    host: gatewayConfig.host,
+    environment: gatewayConfig.isProduction ? 'production' : 'development',
     chainId: chainConfig.chainId,
     network: chainConfig.network,
     rpcUrl: chainConfig.rpcUrl,
     facilitatorAddress: getEnvAddress(
-      'X402_FACILITATOR_ADDRESS',
+      gatewayConfig.facilitatorAddress,
       chainConfig.facilitator,
     ),
-    usdcAddress: getEnvAddress('JEJU_USDC_ADDRESS', chainConfig.usdc),
+    usdcAddress: getEnvAddress(gatewayConfig.usdcAddress, chainConfig.usdc),
     privateKey: getEnvPrivateKey(),
-    protocolFeeBps: parseInt(process.env.PROTOCOL_FEE_BPS || '50', 10),
-    feeRecipient: getEnvAddress('FEE_RECIPIENT_ADDRESS', ZERO_ADDRESS),
-    maxPaymentAge: parseInt(process.env.MAX_PAYMENT_AGE || '300', 10),
-    minAmount: BigInt(process.env.MIN_PAYMENT_AMOUNT || '1'),
+    protocolFeeBps: gatewayConfig.protocolFeeBps,
+    feeRecipient: getEnvAddress(gatewayConfig.feeRecipientAddress, ZERO_ADDRESS),
+    maxPaymentAge: gatewayConfig.maxPaymentAge,
+    minAmount: gatewayConfig.minPaymentAmount,
     serviceName: getServiceName('x402 Facilitator'),
     serviceVersion: '1.0.0',
-    serviceUrl: process.env.FACILITATOR_URL || `http://localhost:${port}`,
-    kmsEnabled,
-    kmsSecretId: process.env.FACILITATOR_KMS_SECRET_ID ?? null,
+    serviceUrl: gatewayConfig.facilitatorUrl,
+    kmsEnabled: gatewayConfig.kmsEnabled,
+    kmsSecretId: gatewayConfig.kmsSecretId ?? null,
   }
 }
 
@@ -131,7 +124,7 @@ export async function getPrivateKeyFromKMS(): Promise<`0x${string}` | null> {
     return null
   }
 
-  const serviceAddress = process.env.FACILITATOR_SERVICE_ADDRESS as
+  const serviceAddress = gatewayConfig.facilitatorServiceAddress as
     | Address
     | undefined
   if (!serviceAddress) {

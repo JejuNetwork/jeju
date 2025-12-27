@@ -36,7 +36,6 @@ export function ContainersPage() {
     <div className="page-container">
       <PageHeader
         title="Containers"
-        description="Push and pull OCI images"
         icon={Box}
         iconColor="text-factory-400"
         action={

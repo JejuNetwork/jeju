@@ -73,9 +73,6 @@ export default function IPFSPage() {
       >
         <div>
           <h1 className="page-title">IPFS Storage</h1>
-          <p className="page-subtitle">
-            Content-addressed storage on the InterPlanetary File System
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button type="button" className="btn btn-secondary">

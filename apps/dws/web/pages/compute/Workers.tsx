@@ -89,9 +89,6 @@ export default function WorkersPage() {
       >
         <div>
           <h1 className="page-title">Workers</h1>
-          <p className="page-subtitle">
-            Deploy and manage serverless functions on the decentralized edge
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -184,8 +181,7 @@ export default function WorkersPage() {
         ) : workers.length === 0 ? (
           <div className="empty-state">
             <Zap size={48} />
-            <h3>Ready to deploy</h3>
-            <p>Create serverless functions that scale automatically across the network</p>
+            <h3>No workers yet</h3>
             <button
               type="button"
               className="btn btn-primary"

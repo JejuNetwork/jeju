@@ -58,7 +58,6 @@ export function FeedPage() {
       <div className="page-container">
         <PageHeader
           title="Feed"
-          description="Developer updates and discussions"
           icon={MessageSquare}
           iconColor="text-accent-400"
           action={
@@ -80,14 +79,11 @@ export function FeedPage() {
     <div className="page-container">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between page-header animate-in">
-        <div className="flex items-start sm:items-center gap-4">
+        <div className="flex items-center gap-4">
           <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-accent-500/15 border border-accent-500/20 flex items-center justify-center">
             <MessageSquare className="w-6 h-6 text-accent-400" aria-hidden="true" />
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-surface-50 font-display">Feed</h1>
-            <p className="text-surface-400 mt-0.5 text-sm sm:text-base">Developer updates and discussions</p>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-surface-50 font-display">Feed</h1>
         </div>
 
         <div className="flex items-center gap-3">

@@ -15,6 +15,7 @@ import {
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import { normalize } from 'viem/ens'
+import { config } from './config'
 import { ResolvedContentSchema } from '../lib/validation'
 import {
   isDevModeEnabled,
@@ -24,9 +25,8 @@ import {
 } from './dev-proxy'
 
 // SECURITY: Restrict CORS in production
-const JNS_CORS_ORIGINS =
-  process.env.JNS_CORS_ORIGINS?.split(',').filter(Boolean)
-const isProduction = process.env.NODE_ENV === 'production'
+const JNS_CORS_ORIGINS = config.corsOrigins
+const isProduction = config.isProduction
 
 const JNS_RESOLVER_ABI = [
   {
@@ -547,7 +547,7 @@ export class JNSGateway {
 }
 
 export async function startJNSGateway(): Promise<JNSGateway> {
-  const ipfsGatewayUrl = process.env.IPFS_GATEWAY_URL
+  const ipfsGatewayUrl = config.ipfsGatewayUrl
 
   if (!ipfsGatewayUrl) {
     throw new Error(
@@ -556,7 +556,7 @@ export async function startJNSGateway(): Promise<JNSGateway> {
     )
   }
 
-  const jnsRegistryAddress = process.env.JNS_REGISTRY_ADDRESS
+  const jnsRegistryAddress = config.jnsRegistryAddress
   if (
     !jnsRegistryAddress ||
     jnsRegistryAddress === '0x0000000000000000000000000000000000000000'
@@ -566,7 +566,7 @@ export async function startJNSGateway(): Promise<JNSGateway> {
     )
   }
 
-  const jnsResolverEnv = process.env.JNS_RESOLVER_ADDRESS
+  const jnsResolverEnv = config.jnsResolverAddress
   const defaultResolver: Address | undefined =
     jnsResolverEnv?.startsWith('0x') && jnsResolverEnv.length === 42
       ? (jnsResolverEnv as Address)
@@ -577,15 +577,15 @@ export async function startJNSGateway(): Promise<JNSGateway> {
       ? (jnsRegistryAddress as Address)
       : '0x0000000000000000000000000000000000000000'
 
-  const config: JNSGatewayConfig = {
-    port: parseInt(process.env.JNS_GATEWAY_PORT ?? '4005', 10),
+  const jnsConfig: JNSGatewayConfig = {
+    port: config.jnsGatewayPort,
     rpcUrl: getRpcUrl(),
     jnsRegistryAddress: registryAddress,
     ipfsGatewayUrl,
     defaultResolver,
   }
 
-  const gateway = new JNSGateway(config)
+  const gateway = new JNSGateway(jnsConfig)
   await gateway.start()
   return gateway
 }

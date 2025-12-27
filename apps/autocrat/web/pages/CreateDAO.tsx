@@ -12,7 +12,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Coins,
   Crown,
   Heart,
   Loader2,
@@ -709,17 +708,12 @@ export default function CreateDAOPage() {
         {/* Step: Basics */}
         {step === 'basics' && (
           <div className="space-y-6 animate-in">
-            <div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Organization basics
-              </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>
-                Define your DAO&apos;s identity and purpose.
-              </p>
-            </div>
+            <h2
+              className="text-2xl font-bold mb-6"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Organization basics
+            </h2>
 
             <div>
               <label
@@ -740,7 +734,7 @@ export default function CreateDAOPage() {
                 className="input"
               />
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                URL path: /dao/{name || 'your-dao'}
+                /dao/{name || 'your-dao'}
               </p>
             </div>
 
@@ -797,9 +791,6 @@ export default function CreateDAOPage() {
                 placeholder="/my-channel"
                 className="input"
               />
-              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                Optional: Link to your Farcaster channel
-              </p>
             </div>
 
             <div>
@@ -860,18 +851,12 @@ export default function CreateDAOPage() {
         {/* Step: CEO */}
         {step === 'ceo' && (
           <div className="space-y-6 animate-in">
-            <div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                CEO configuration
-              </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>
-                The CEO makes final decisions on all proposals. Define their persona,
-                values, and decision-making approach.
-              </p>
-            </div>
+            <h2
+              className="text-2xl font-bold mb-6"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              CEO configuration
+            </h2>
 
             <AgentForm agent={ceo} onChange={setCeo} isCEO />
           </div>
@@ -880,18 +865,12 @@ export default function CreateDAOPage() {
         {/* Step: Board */}
         {step === 'board' && (
           <div className="space-y-6 animate-in">
-            <div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Board members
-              </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>
-                Board members analyze and vote on proposals before CEO review.
-                Minimum 3 members required.
-              </p>
-            </div>
+            <h2
+              className="text-2xl font-bold mb-6"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Board members
+            </h2>
 
             <div className="space-y-4">
               {board.map((agent, index) => (
@@ -922,17 +901,12 @@ export default function CreateDAOPage() {
         {/* Step: Governance */}
         {step === 'governance' && (
           <div className="space-y-6 animate-in">
-            <div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Governance rules
-              </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>
-                Set thresholds and parameters for proposal evaluation.
-              </p>
-            </div>
+            <h2
+              className="text-2xl font-bold mb-6"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Governance rules
+            </h2>
 
             <div
               className="rounded-xl p-5 space-y-4"
@@ -1076,17 +1050,12 @@ export default function CreateDAOPage() {
         {/* Step: Review */}
         {step === 'review' && (
           <div className="space-y-6 animate-in">
-            <div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Review configuration
-              </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>
-                Confirm your DAO settings before deployment.
-              </p>
-            </div>
+            <h2
+              className="text-2xl font-bold mb-6"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Review configuration
+            </h2>
 
             {/* Summary Card */}
             <div
@@ -1241,29 +1210,6 @@ export default function CreateDAOPage() {
               </div>
             </div>
 
-            <div
-              className="p-4 rounded-xl"
-              style={{
-                backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                border: '1px solid rgba(139, 92, 246, 0.3)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <Coins className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--color-secondary)' }} />
-                <div>
-                  <h4 className="font-medium" style={{ color: 'var(--color-secondary)' }}>
-                    Treasury funding
-                  </h4>
-                  <p
-                    className="text-sm mt-1"
-                    style={{ color: 'rgba(139, 92, 246, 0.8)' }}
-                  >
-                    AI inference costs are paid from your treasury. Fund your treasury
-                    after deployment to enable proposal processing.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </main>

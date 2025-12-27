@@ -77,7 +77,7 @@ export default function AppDetailModal({
           cursor: 'default',
         }}
         onClick={onClose}
-        aria-label="Close modal backdrop"
+        aria-label="Close"
       />
       <div
         className="card"

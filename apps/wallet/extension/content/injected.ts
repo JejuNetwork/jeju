@@ -203,6 +203,7 @@ export class NetworkProvider {
     this.request(methodOrPayload)
       .then((result) => callback(null, result))
       .catch((error: Error) => callback(error))
+    return undefined
   }
 
   /**

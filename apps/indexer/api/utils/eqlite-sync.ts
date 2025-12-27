@@ -5,6 +5,7 @@
 import type { QueryParam } from '@jejunetwork/db'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { DataSource, EntityMetadata } from 'typeorm'
+import { config } from '../config'
 
 type SqlPrimitive = string | number | boolean | null | bigint | Date
 type SqlParam = SqlPrimitive | SqlPrimitive[]
@@ -42,24 +43,24 @@ interface QueryResult<T = SqlRow> {
   rowCount: number
 }
 
-const EQLITE_ENABLED = process.env.EQLITE_SYNC_ENABLED === 'true'
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'indexer-sync'
+const EQLITE_ENABLED = config.eqliteSyncEnabled
+const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
 function getSyncIntervalMs(): number {
-  const interval = parseInt(process.env.EQLITE_SYNC_INTERVAL ?? '30000', 10)
-  if (Number.isNaN(interval) || interval <= 0) {
+  const interval = config.eqliteSyncInterval
+  if (interval <= 0) {
     throw new Error(
-      `Invalid EQLITE_SYNC_INTERVAL: ${process.env.EQLITE_SYNC_INTERVAL}. Must be a positive integer.`,
+      `Invalid EQLITE_SYNC_INTERVAL: ${interval}. Must be a positive integer.`,
     )
   }
   return interval
 }
 
 function getBatchSize(): number {
-  const batch = parseInt(process.env.EQLITE_SYNC_BATCH_SIZE ?? '1000', 10)
-  if (Number.isNaN(batch) || batch <= 0) {
+  const batch = config.eqliteSyncBatchSize
+  if (batch <= 0) {
     throw new Error(
-      `Invalid EQLITE_SYNC_BATCH_SIZE: ${process.env.EQLITE_SYNC_BATCH_SIZE}. Must be a positive integer.`,
+      `Invalid EQLITE_SYNC_BATCH_SIZE: ${batch}. Must be a positive integer.`,
     )
   }
   return batch

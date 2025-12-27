@@ -53,9 +53,6 @@ export default function RPCGatewayPage() {
       >
         <div>
           <h1 className="page-title">RPC Gateway</h1>
-          <p className="page-subtitle">
-            Multi-chain RPC access with failover and load balancing
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -191,8 +188,7 @@ export default function RPCGatewayPage() {
         ) : chains.length === 0 ? (
           <div className="empty-state">
             <Radio size={48} />
-            <h3>Chains loading</h3>
-            <p>Network chain configurations are being synchronized</p>
+            <h3>Loading chains...</h3>
           </div>
         ) : (
           <div className="table-container">

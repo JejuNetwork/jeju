@@ -4,6 +4,7 @@
 
 import { cors } from '@elysiajs/cors'
 import { validateOrThrow } from '@jejunetwork/types'
+import { config } from './config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
@@ -531,13 +532,11 @@ setInterval(() => {
 }, 60_000).unref()
 
 export function createIndexerA2AServer() {
-  const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',')
-    .map((o) => o.trim())
-    .filter(Boolean)
+  const CORS_ORIGINS = config.corsOrigins
 
   const app = new Elysia()
     .use(
-      CORS_ORIGINS?.length
+      CORS_ORIGINS.length
         ? cors({ origin: CORS_ORIGINS, credentials: true })
         : cors(),
     )
@@ -669,7 +668,7 @@ export function createIndexerA2AServer() {
   return app
 }
 
-const A2A_PORT = parseInt(process.env.A2A_PORT || '4351', 10)
+const A2A_PORT = config.a2aPort
 
 export async function startA2AServer(): Promise<void> {
   const app = createIndexerA2AServer()

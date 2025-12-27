@@ -187,9 +187,6 @@ function TierCard({
       <button
         type="button"
         onClick={onToggle}
-        aria-expanded={isExpanded}
-        aria-controls={`tier-${config.tier}-panel`}
-        aria-label={`${config.name} tier - ${config.expectedApy} APY`}
         style={{
           display: 'flex',
           width: '100%',

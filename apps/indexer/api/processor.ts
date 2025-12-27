@@ -11,11 +11,18 @@ import {
   EvmBatchProcessor,
   type EvmBatchProcessorFields,
 } from '@subsquid/evm-processor'
-import { assertNotNull } from '@subsquid/util-internal'
+import { config } from './config'
+
+function getRpcUrl(): string {
+  if (!config.rpcEthHttp) {
+    throw new Error('RPC_ETH_HTTP environment variable is required')
+  }
+  return config.rpcEthHttp
+}
 
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
-    url: assertNotNull(process.env.RPC_ETH_HTTP, 'No RPC endpoint supplied'),
+    url: getRpcUrl(),
     rateLimit: 10,
   })
   .setFinalityConfirmation(10)
@@ -76,7 +83,7 @@ export const processor = new EvmBatchProcessor()
     },
   })
   .setBlockRange({
-    from: parseInt(process.env.START_BLOCK || '0', 10),
+    from: config.startBlock,
   })
   .addTransaction({})
   .addLog({})

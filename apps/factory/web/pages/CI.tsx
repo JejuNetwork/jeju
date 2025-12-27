@@ -88,7 +88,6 @@ export function CIPage() {
     <div className="page-container">
       <PageHeader
         title="CI/CD"
-        description="Automated builds, tests, and deployments"
         icon={Play}
         iconColor="text-success-400"
         action={

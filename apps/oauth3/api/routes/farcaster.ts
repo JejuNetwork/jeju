@@ -78,8 +78,7 @@ function generateFarcasterPage(
   const content = `
   <main class="card" role="main">
     <div class="icon-large" aria-hidden="true">🟣</div>
-    <div class="title">Farcaster Sign-In</div>
-    <div class="subtitle">Scan with Warpcast or enter your FID below</div>
+    <div class="title">Farcaster</div>
     
     <div class="qr-container">
       <img src="${qrDataUrl}" alt="Scan with Warpcast app to sign in" role="img">

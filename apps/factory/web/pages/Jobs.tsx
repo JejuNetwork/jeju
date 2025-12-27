@@ -71,7 +71,6 @@ export function JobsPage() {
     <div className="page-container">
       <PageHeader
         title="Jobs"
-        description="Full-time, contract, and bounty positions"
         icon={Briefcase}
         iconColor="text-info-400"
         action={

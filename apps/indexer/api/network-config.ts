@@ -10,6 +10,7 @@ import {
   getRpcUrl,
 } from '@jejunetwork/config'
 import type { NetworkType } from '@jejunetwork/types'
+import { config } from './config'
 
 export type { NetworkType }
 
@@ -206,7 +207,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
   return {
     network: net,
     chainId,
-    rpcUrl: process.env.RPC_ETH_HTTP || DEFAULT_RPC[net],
+    rpcUrl: config.rpcEthHttp || DEFAULT_RPC[net],
     contracts,
   }
 }

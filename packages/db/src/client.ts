@@ -88,8 +88,11 @@ const ExecResponseSchema = z
     txHash: z.string().min(1),
     blockHeight: z.number().int().nonnegative(),
     gasUsed: z.string().min(1),
+    // Additional fields for dev mode compatibility
+    success: z.boolean().optional(),
+    executionTime: z.number().int().nonnegative().optional(),
   })
-  .strict()
+  .passthrough()
 
 const DatabaseStatusSchema = z.enum([
   'creating',

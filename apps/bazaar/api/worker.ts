@@ -445,8 +445,8 @@ if (isMainModule) {
   configureBazaar({
     bazaarApiUrl: getEnvVar('BAZAAR_API_URL'),
     farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
-    eqliteDatabaseId: getEnvVar('COVENANTSQL_DATABASE_ID'),
-    eqlitePrivateKey: getEnvVar('COVENANTSQL_PRIVATE_KEY'),
+    eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID'),
+    eqlitePrivateKey: getEnvVar('EQLITE_PRIVATE_KEY'),
   })
 
   const PORT = CORE_PORTS.BAZAAR_API.get()
