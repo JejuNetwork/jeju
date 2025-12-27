@@ -28,10 +28,11 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
 
     // Message status
     enum MessageStatus {
-        None,      // 0: Not received
-        Pending,   // 1: Received but not executed
-        Executed,  // 2: Successfully executed
-        Failed     // 3: Execution failed
+        None, // 0: Not received
+        Pending, // 1: Received but not executed
+        Executed, // 2: Successfully executed
+        Failed // 3: Execution failed
+
     }
 
     // Cross-chain message
@@ -102,17 +103,9 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
         uint256 value
     );
 
-    event MessageExecuted(
-        bytes32 indexed messageId,
-        bool success,
-        bytes returnData
-    );
+    event MessageExecuted(bytes32 indexed messageId, bool success, bytes returnData);
 
-    event MessageConfirmed(
-        bytes32 indexed messageId,
-        address indexed validator,
-        uint256 confirmations
-    );
+    event MessageConfirmed(bytes32 indexed messageId, address indexed validator, uint256 confirmations);
 
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
@@ -141,11 +134,7 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
      * @param _validators Initial validator addresses
      * @param _threshold Minimum signatures required
      */
-    constructor(
-        uint256 _peerChainId,
-        address[] memory _validators,
-        uint256 _threshold
-    ) {
+    constructor(uint256 _peerChainId, address[] memory _validators, uint256 _threshold) {
         if (_peerChainId == 0 || _peerChainId == block.chainid) revert InvalidChainId();
         if (_threshold == 0 || _threshold > _validators.length) revert InvalidThreshold();
 
@@ -169,26 +158,17 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
      * @param data Call data
      * @return messageId Unique message identifier
      */
-    function sendMessage(
-        uint256 targetChainId,
-        address target,
-        bytes calldata data
-    ) external payable returns (bytes32 messageId) {
+    function sendMessage(uint256 targetChainId, address target, bytes calldata data)
+        external
+        payable
+        returns (bytes32 messageId)
+    {
         if (targetChainId != peerChainId) revert InvalidChainId();
         if (target == address(0)) revert InvalidTarget();
 
         uint256 nonce = messageNonce++;
         messageId = keccak256(
-            abi.encodePacked(
-                selfChainId,
-                targetChainId,
-                msg.sender,
-                target,
-                data,
-                msg.value,
-                nonce,
-                block.timestamp
-            )
+            abi.encodePacked(selfChainId, targetChainId, msg.sender, target, data, msg.value, nonce, block.timestamp)
         );
 
         outboundMessages[messageId] = OutboundMessage({
@@ -201,15 +181,7 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
             relayed: false
         });
 
-        emit MessageSent(
-            messageId,
-            targetChainId,
-            msg.sender,
-            target,
-            data,
-            msg.value,
-            nonce
-        );
+        emit MessageSent(messageId, targetChainId, msg.sender, target, data, msg.value, nonce);
 
         return messageId;
     }
@@ -239,16 +211,7 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
         if (inbound.status == MessageStatus.Executed) revert MessageAlreadyExecuted();
 
         // Verify signatures
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                sourceChainId,
-                selfChainId,
-                messageId,
-                sender,
-                target,
-                data
-            )
-        );
+        bytes32 messageHash = keccak256(abi.encodePacked(sourceChainId, selfChainId, messageId, sender, target, data));
         bytes32 ethSignedHash = messageHash.toEthSignedMessageHash();
 
         uint256 validSignatures = 0;
@@ -281,22 +244,13 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
                 confirmations: validSignatures
             });
 
-            emit MessageReceived(
-                messageId,
-                sourceChainId,
-                sender,
-                target,
-                data,
-                0
-            );
+            emit MessageReceived(messageId, sourceChainId, sender, target, data, 0);
         }
 
         // Execute call
-        (success, ) = target.call(data);
+        (success,) = target.call(data);
 
-        inboundMessages[messageId].status = success
-            ? MessageStatus.Executed
-            : MessageStatus.Failed;
+        inboundMessages[messageId].status = success ? MessageStatus.Executed : MessageStatus.Failed;
 
         emit MessageExecuted(messageId, success, "");
 
@@ -346,7 +300,7 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
 
         // Auto-execute if threshold reached
         if (inbound.confirmations >= threshold && inbound.status == MessageStatus.Pending) {
-            (bool success, ) = target.call(data);
+            (bool success,) = target.call(data);
             inbound.status = success ? MessageStatus.Executed : MessageStatus.Failed;
             emit MessageExecuted(messageId, success, "");
         }
@@ -358,9 +312,7 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
      * @return status Message status
      * @return timestamp Message timestamp
      */
-    function getMessageStatus(
-        bytes32 messageId
-    ) external view returns (uint8 status, uint256 timestamp) {
+    function getMessageStatus(bytes32 messageId) external view returns (uint8 status, uint256 timestamp) {
         InboundMessage storage inbound = inboundMessages[messageId];
         return (uint8(inbound.status), inbound.timestamp);
     }
@@ -463,18 +415,12 @@ contract FederationBridge is AccessControl, ReentrancyGuard {
      * @param to Recipient
      * @param amount Amount to recover
      */
-    function recoverFunds(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyRole(ADMIN_ROLE) {
+    function recoverFunds(address token, address to, uint256 amount) external onlyRole(ADMIN_ROLE) {
         if (token == address(0)) {
-            (bool success, ) = to.call{value: amount}("");
+            (bool success,) = to.call{value: amount}("");
             require(success, "ETH transfer failed");
         } else {
-            (bool success, ) = token.call(
-                abi.encodeWithSignature("transfer(address,uint256)", to, amount)
-            );
+            (bool success,) = token.call(abi.encodeWithSignature("transfer(address,uint256)", to, amount));
             require(success, "Token transfer failed");
         }
     }

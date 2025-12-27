@@ -37,14 +37,15 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     // ============================================================================
 
     enum ResourceType {
-        CPU,         // vCPU hours
-        MEMORY,      // GB-hours
-        GPU_H100,    // H100 GPU hours
-        GPU_A100,    // A100 GPU hours
-        GPU_L4,      // L4 GPU hours
-        STORAGE,     // GB-months
-        BANDWIDTH,   // GB transfer
-        INFERENCE    // Token units
+        CPU, // vCPU hours
+        MEMORY, // GB-hours
+        GPU_H100, // H100 GPU hours
+        GPU_A100, // A100 GPU hours
+        GPU_L4, // L4 GPU hours
+        STORAGE, // GB-months
+        BANDWIDTH, // GB transfer
+        INFERENCE // Token units
+
     }
 
     enum Region {
@@ -58,9 +59,10 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     }
 
     enum OrderType {
-        SPOT,       // Immediate execution at current price
-        LIMIT,      // Execute if price <= maxPrice
-        RESERVED    // Pre-purchased capacity at locked price
+        SPOT, // Immediate execution at current price
+        LIMIT, // Execute if price <= maxPrice
+        RESERVED // Pre-purchased capacity at locked price
+
     }
 
     enum OrderStatus {
@@ -74,11 +76,11 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     struct ResourcePool {
         ResourceType resourceType;
         Region region;
-        uint256 totalCapacity;      // Total available units
-        uint256 usedCapacity;       // Currently allocated units
-        uint256 basePrice;          // Base price per unit in wei
-        uint256 minPrice;           // Floor price
-        uint256 maxPrice;           // Ceiling price
+        uint256 totalCapacity; // Total available units
+        uint256 usedCapacity; // Currently allocated units
+        uint256 basePrice; // Base price per unit in wei
+        uint256 minPrice; // Floor price
+        uint256 maxPrice; // Ceiling price
         bool active;
     }
 
@@ -98,12 +100,12 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
         ResourceType resourceType;
         Region region;
         OrderType orderType;
-        uint256 quantity;           // Units requested
-        uint256 maxPrice;           // Max price per unit (for limit orders)
+        uint256 quantity; // Units requested
+        uint256 maxPrice; // Max price per unit (for limit orders)
         uint256 filledQuantity;
-        uint256 filledPrice;        // Average fill price
+        uint256 filledPrice; // Average fill price
         address paymentToken;
-        uint256 duration;           // Duration in seconds (for reserved)
+        uint256 duration; // Duration in seconds (for reserved)
         uint256 expiresAt;
         OrderStatus status;
     }
@@ -114,7 +116,7 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
         ResourceType resourceType;
         Region region;
         uint256 quantity;
-        uint256 pricePerUnit;       // Locked price
+        uint256 pricePerUnit; // Locked price
         uint256 startTime;
         uint256 endTime;
         bool active;
@@ -162,30 +164,15 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     // Events
     // ============================================================================
 
-    event PoolCreated(
-        bytes32 indexed poolId,
-        ResourceType resourceType,
-        Region region,
-        uint256 basePrice
-    );
+    event PoolCreated(bytes32 indexed poolId, ResourceType resourceType, Region region, uint256 basePrice);
 
-    event PoolUpdated(
-        bytes32 indexed poolId,
-        uint256 totalCapacity,
-        uint256 usedCapacity,
-        uint256 currentPrice
-    );
+    event PoolUpdated(bytes32 indexed poolId, uint256 totalCapacity, uint256 usedCapacity, uint256 currentPrice);
 
-    event ProviderRegistered(
-        address indexed provider,
-        uint256 stake
-    );
+    event ProviderRegistered(address indexed provider, uint256 stake);
 
-    event CapacityAdded(
-        bytes32 indexed poolId,
-        address indexed provider,
-        uint256 capacity
-    );
+    event ProviderDeactivated(address indexed provider);
+
+    event CapacityAdded(bytes32 indexed poolId, address indexed provider, uint256 capacity);
 
     event OrderPlaced(
         bytes32 indexed orderId,
@@ -198,17 +185,10 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     );
 
     event OrderFilled(
-        bytes32 indexed orderId,
-        address indexed user,
-        uint256 quantity,
-        uint256 totalCost,
-        uint256 averagePrice
+        bytes32 indexed orderId, address indexed user, uint256 quantity, uint256 totalCost, uint256 averagePrice
     );
 
-    event OrderCancelled(
-        bytes32 indexed orderId,
-        address indexed user
-    );
+    event OrderCancelled(bytes32 indexed orderId, address indexed user);
 
     event ReservationCreated(
         bytes32 indexed reservationId,
@@ -235,6 +215,9 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     error TokenNotAccepted();
     error InvalidDuration();
     error ProviderNotActive();
+    error ProviderHasActiveCapacity();
+    error NoStakeToWithdraw();
+    error StakeWithdrawFailed();
 
     // ============================================================================
     // Constructor
@@ -259,13 +242,11 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
      * @param minPrice Minimum price floor
      * @param maxPrice Maximum price ceiling
      */
-    function createPool(
-        ResourceType resourceType,
-        Region region,
-        uint256 basePrice,
-        uint256 minPrice,
-        uint256 maxPrice
-    ) external onlyOwner returns (bytes32 poolId) {
+    function createPool(ResourceType resourceType, Region region, uint256 basePrice, uint256 minPrice, uint256 maxPrice)
+        external
+        onlyOwner
+        returns (bytes32 poolId)
+    {
         poolId = keccak256(abi.encodePacked(resourceType, region));
 
         pools[poolId] = ResourcePool({
@@ -287,12 +268,10 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Update pool pricing parameters
      */
-    function updatePoolPricing(
-        bytes32 poolId,
-        uint256 basePrice,
-        uint256 minPrice,
-        uint256 maxPrice
-    ) external onlyOwner {
+    function updatePoolPricing(bytes32 poolId, uint256 basePrice, uint256 minPrice, uint256 maxPrice)
+        external
+        onlyOwner
+    {
         ResourcePool storage pool = pools[poolId];
         if (!pool.active) revert PoolNotFound();
 
@@ -325,16 +304,31 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Withdraw provider stake
+     * @dev Provider must have no active capacity and be deactivated
+     */
+    function withdrawStake() external nonReentrant {
+        Provider storage provider = providers[msg.sender];
+        uint256 stake = provider.stake;
+        if (stake == 0) revert NoStakeToWithdraw();
+
+        // Deactivate and clear stake
+        provider.active = false;
+        provider.stake = 0;
+
+        (bool success,) = payable(msg.sender).call{value: stake}("");
+        if (!success) revert StakeWithdrawFailed();
+
+        emit ProviderDeactivated(msg.sender);
+    }
+
+    /**
      * @notice Add capacity to a resource pool
      * @param resourceType Resource type
      * @param region Region
      * @param capacity Units of capacity to add
      */
-    function addCapacity(
-        ResourceType resourceType,
-        Region region,
-        uint256 capacity
-    ) external nonReentrant {
+    function addCapacity(ResourceType resourceType, Region region, uint256 capacity) external nonReentrant {
         Provider storage provider = providers[msg.sender];
         if (!provider.active) revert ProviderNotActive();
 
@@ -370,10 +364,7 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
      * @param region Region
      * @return price Current price per unit in wei
      */
-    function getSpotPrice(
-        ResourceType resourceType,
-        Region region
-    ) public view returns (uint256 price) {
+    function getSpotPrice(ResourceType resourceType, Region region) public view returns (uint256 price) {
         bytes32 poolId = keccak256(abi.encodePacked(resourceType, region));
         ResourcePool storage pool = pools[poolId];
 
@@ -406,11 +397,11 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
      * @return totalCost Total cost in wei
      * @return averagePrice Average price per unit
      */
-    function getQuote(
-        ResourceType resourceType,
-        Region region,
-        uint256 quantity
-    ) public view returns (uint256 totalCost, uint256 averagePrice) {
+    function getQuote(ResourceType resourceType, Region region, uint256 quantity)
+        public
+        view
+        returns (uint256 totalCost, uint256 averagePrice)
+    {
         bytes32 poolId = keccak256(abi.encodePacked(resourceType, region));
         ResourcePool storage pool = pools[poolId];
 
@@ -442,9 +433,9 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
      * @notice Get default base price for resource type
      */
     function getDefaultBasePrice(ResourceType resourceType) public pure returns (uint256) {
-        if (resourceType == ResourceType.CPU) return 0.0001 ether;      // per vCPU-hour
+        if (resourceType == ResourceType.CPU) return 0.0001 ether; // per vCPU-hour
         if (resourceType == ResourceType.MEMORY) return 0.00005 ether; // per GB-hour
-        if (resourceType == ResourceType.GPU_H100) return 0.01 ether;   // per GPU-hour
+        if (resourceType == ResourceType.GPU_H100) return 0.01 ether; // per GPU-hour
         if (resourceType == ResourceType.GPU_A100) return 0.005 ether;
         if (resourceType == ResourceType.GPU_L4) return 0.002 ether;
         if (resourceType == ResourceType.STORAGE) return 0.00001 ether; // per GB-month
@@ -640,15 +631,7 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
         // Record revenue
         protocolRevenue[paymentToken] += fee;
 
-        emit ReservationCreated(
-            reservationId,
-            msg.sender,
-            resourceType,
-            region,
-            quantity,
-            reservedPrice,
-            duration
-        );
+        emit ReservationCreated(reservationId, msg.sender, resourceType, region, quantity, reservedPrice, duration);
 
         return reservationId;
     }
@@ -741,17 +724,19 @@ contract ComputeAMM is Ownable, Pausable, ReentrancyGuard {
         IERC20(token).safeTransfer(to, amount);
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     // ============================================================================
     // View Functions
     // ============================================================================
 
-    function getPoolInfo(
-        ResourceType resourceType,
-        Region region
-    ) external view returns (ResourcePool memory) {
+    function getPoolInfo(ResourceType resourceType, Region region) external view returns (ResourcePool memory) {
         bytes32 poolId = keccak256(abi.encodePacked(resourceType, region));
         return pools[poolId];
     }

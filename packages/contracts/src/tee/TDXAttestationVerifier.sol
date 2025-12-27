@@ -55,22 +55,22 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
     }
 
     struct TrustedMeasurement {
-        bytes32 mrtd;           // Measurement of TD
-        string description;     // Human-readable description
-        uint256 validFrom;      // Timestamp when this measurement became valid
-        uint256 validUntil;     // 0 = no expiry
-        bool active;            // Whether this measurement is currently trusted
+        bytes32 mrtd; // Measurement of TD
+        string description; // Human-readable description
+        uint256 validFrom; // Timestamp when this measurement became valid
+        uint256 validUntil; // 0 = no expiry
+        bool active; // Whether this measurement is currently trusted
     }
 
     struct AttestationRecord {
-        address provider;       // Node that submitted the attestation
-        bytes32 mrtd;          // TD measurement from quote
-        bytes32 reportData;    // Custom report data binding
-        bytes32 quoteHash;     // Hash of full quote for verification
-        uint256 timestamp;     // When attestation was verified
-        uint256 expiresAt;     // When attestation expires
+        address provider; // Node that submitted the attestation
+        bytes32 mrtd; // TD measurement from quote
+        bytes32 reportData; // Custom report data binding
+        bytes32 quoteHash; // Hash of full quote for verification
+        uint256 timestamp; // When attestation was verified
+        uint256 expiresAt; // When attestation expires
         VerificationStatus status;
-        address verifier;      // Trusted verifier that confirmed (address(0) for on-chain only)
+        address verifier; // Trusted verifier that confirmed (address(0) for on-chain only)
     }
 
     struct ParsedQuote {
@@ -113,27 +113,15 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
     // Events
     // ============================================================================
 
-    event MeasurementAdded(
-        bytes32 indexed mrtd,
-        string description,
-        uint256 validFrom,
-        uint256 validUntil
-    );
+    event MeasurementAdded(bytes32 indexed mrtd, string description, uint256 validFrom, uint256 validUntil);
 
     event MeasurementRevoked(bytes32 indexed mrtd, string reason);
 
     event AttestationSubmitted(
-        address indexed provider,
-        bytes32 indexed mrtd,
-        bytes32 reportData,
-        VerificationStatus status
+        address indexed provider, bytes32 indexed mrtd, bytes32 reportData, VerificationStatus status
     );
 
-    event AttestationVerified(
-        address indexed provider,
-        address indexed verifier,
-        bool valid
-    );
+    event AttestationVerified(address indexed provider, address indexed verifier, bool valid);
 
     event TrustedVerifierAdded(address indexed verifier);
     event TrustedVerifierRemoved(address indexed verifier);
@@ -171,13 +159,12 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
      * @return status Verification status
      * @return record Attestation record
      */
-    function submitAttestation(
-        bytes calldata quote,
-        bytes32 expectedReportData
-    ) external nonReentrant whenNotPaused returns (
-        VerificationStatus status,
-        AttestationRecord memory record
-    ) {
+    function submitAttestation(bytes calldata quote, bytes32 expectedReportData)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (VerificationStatus status, AttestationRecord memory record)
+    {
         totalAttestations++;
 
         // Parse and validate quote
@@ -233,11 +220,7 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
      * @param valid Whether the attestation is valid
      * @param signature Off-chain signature over quote hash (optional)
      */
-    function verifyAttestation(
-        address provider,
-        bool valid,
-        bytes calldata signature
-    ) external nonReentrant {
+    function verifyAttestation(address provider, bool valid, bytes calldata signature) external nonReentrant {
         if (!trustedVerifiers[msg.sender]) revert NotTrustedVerifier();
 
         AttestationRecord storage record = attestations[provider];
@@ -297,11 +280,7 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
      * @param description Human-readable description
      * @param validUntil Expiry timestamp (0 = no expiry)
      */
-    function addTrustedMeasurement(
-        bytes32 mrtd,
-        string calldata description,
-        uint256 validUntil
-    ) external onlyOwner {
+    function addTrustedMeasurement(bytes32 mrtd, string calldata description, uint256 validUntil) external onlyOwner {
         trustedMeasurements[mrtd] = TrustedMeasurement({
             mrtd: mrtd,
             description: description,
@@ -320,10 +299,7 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
      * @param mrtd TD measurement to revoke
      * @param reason Revocation reason
      */
-    function revokeMeasurement(
-        bytes32 mrtd,
-        string calldata reason
-    ) external onlyOwner {
+    function revokeMeasurement(bytes32 mrtd, string calldata reason) external onlyOwner {
         trustedMeasurements[mrtd].active = false;
         emit MeasurementRevoked(mrtd, reason);
     }
@@ -400,10 +376,8 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
         uint16 attestationKeyType = uint16(uint8(quote[2])) | (uint16(uint8(quote[3])) << 8);
 
         // Bytes 4-7: TEE type (0x81 = TDX)
-        uint32 teeType = uint32(uint8(quote[4])) |
-                         (uint32(uint8(quote[5])) << 8) |
-                         (uint32(uint8(quote[6])) << 16) |
-                         (uint32(uint8(quote[7])) << 24);
+        uint32 teeType = uint32(uint8(quote[4])) | (uint32(uint8(quote[5])) << 8) | (uint32(uint8(quote[6])) << 16)
+            | (uint32(uint8(quote[7])) << 24);
 
         // Validate TDX quote format
         if (version != 4 && version != 5) {
@@ -412,7 +386,8 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
             return parsed;
         }
 
-        if (teeType != 0x00000081) { // TDX TEE type
+        if (teeType != 0x00000081) {
+            // TDX TEE type
             parsed.valid = false;
             parsed.error = "Not a TDX quote";
             return parsed;
@@ -499,8 +474,7 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
         uint256 count = 0;
         for (uint256 i = 0; i < attestedProviders.length; i++) {
             AttestationRecord storage record = attestations[attestedProviders[i]];
-            if (record.status == VerificationStatus.VERIFIED &&
-                block.timestamp < record.expiresAt) {
+            if (record.status == VerificationStatus.VERIFIED && block.timestamp < record.expiresAt) {
                 count++;
             }
         }
@@ -509,8 +483,7 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
         uint256 index = 0;
         for (uint256 i = 0; i < attestedProviders.length; i++) {
             AttestationRecord storage record = attestations[attestedProviders[i]];
-            if (record.status == VerificationStatus.VERIFIED &&
-                block.timestamp < record.expiresAt) {
+            if (record.status == VerificationStatus.VERIFIED && block.timestamp < record.expiresAt) {
                 providers[index] = attestedProviders[i];
                 index++;
             }
@@ -522,13 +495,17 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get verification statistics
      */
-    function getStats() external view returns (
-        uint256 total,
-        uint256 successful,
-        uint256 failed,
-        uint256 trustedMeasurementCount,
-        uint256 validProviderCount
-    ) {
+    function getStats()
+        external
+        view
+        returns (
+            uint256 total,
+            uint256 successful,
+            uint256 failed,
+            uint256 trustedMeasurementCount,
+            uint256 validProviderCount
+        )
+    {
         total = totalAttestations;
         successful = successfulAttestations;
         failed = failedAttestations;
@@ -541,8 +518,7 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
 
         for (uint256 i = 0; i < attestedProviders.length; i++) {
             AttestationRecord storage record = attestations[attestedProviders[i]];
-            if (record.status == VerificationStatus.VERIFIED &&
-                block.timestamp < record.expiresAt) {
+            if (record.status == VerificationStatus.VERIFIED && block.timestamp < record.expiresAt) {
                 validProviderCount++;
             }
         }
@@ -559,21 +535,18 @@ contract TDXAttestationVerifier is Ownable, ReentrancyGuard, Pausable {
         return true;
     }
 
-    function _createRecord(
-        address provider,
-        ParsedQuote memory parsed,
-        VerificationStatus status,
-        address verifier
-    ) internal view returns (AttestationRecord memory) {
+    function _createRecord(address provider, ParsedQuote memory parsed, VerificationStatus status, address verifier)
+        internal
+        view
+        returns (AttestationRecord memory)
+    {
         return AttestationRecord({
             provider: provider,
             mrtd: parsed.mrtd,
             reportData: parsed.reportData,
             quoteHash: parsed.quoteHash,
             timestamp: block.timestamp,
-            expiresAt: status == VerificationStatus.VERIFIED
-                ? block.timestamp + ATTESTATION_VALIDITY
-                : 0,
+            expiresAt: status == VerificationStatus.VERIFIED ? block.timestamp + ATTESTATION_VALIDITY : 0,
             status: status,
             verifier: verifier
         });
