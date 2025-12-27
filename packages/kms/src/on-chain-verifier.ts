@@ -15,6 +15,7 @@ import {
   toBytes,
 } from 'viem'
 import { base, baseSepolia, mainnet } from 'viem/chains'
+import { kmsLogger as log } from './logger.js'
 import type {
   AgentCondition,
   BalanceCondition,
@@ -506,11 +507,10 @@ export class OnChainVerifier {
 
       return result.success
     } catch (error) {
-      // Log error but don't expose details
-      console.error(
-        `On-chain verification failed for ${condition.type}:`,
-        error,
-      )
+      log.error('On-chain verification failed', {
+        conditionType: condition.type,
+        error: String(error),
+      })
       return false
     }
   }

@@ -36,7 +36,12 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     using ModerationMixin for ModerationMixin.Data;
     using PerformanceMetrics for PerformanceMetrics.Metrics;
 
-    enum Tier { FREE, BASIC, PRO, UNLIMITED }
+    enum Tier {
+        FREE,
+        BASIC,
+        PRO,
+        UNLIMITED
+    }
 
     struct TierConfig {
         uint256 minUsdValue;
@@ -85,7 +90,9 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     uint256 public totalUsers;
     mapping(Tier => uint256) public tierCounts;
 
-    event RPCProviderRegistered(address indexed provider, string endpoint, string region, uint256 stake, uint256 agentId);
+    event RPCProviderRegistered(
+        address indexed provider, string endpoint, string region, uint256 stake, uint256 agentId
+    );
     event RPCProviderUpdated(address indexed provider, string endpoint);
     event UserStaked(address indexed user, uint256 amount, Tier tier);
     event UserUnbondingStarted(address indexed user, uint256 amount);
@@ -128,7 +135,12 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         tierConfigs[Tier.UNLIMITED] = TierConfig({minUsdValue: 1000e8, rateLimit: 0});
     }
 
-    function registerProvider(string calldata endpoint, string calldata region) external payable nonReentrant whenNotPaused {
+    function registerProvider(string calldata endpoint, string calldata region)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         if (bytes(region).length == 0) revert InvalidRegion();
 
@@ -136,7 +148,12 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         _storeProviderData(msg.sender, endpoint, region, 0);
     }
 
-    function registerProviderWithAgent(string calldata endpoint, string calldata region, uint256 agentId) external payable nonReentrant whenNotPaused {
+    function registerProviderWithAgent(string calldata endpoint, string calldata region, uint256 agentId)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         if (bytes(region).length == 0) revert InvalidRegion();
 
@@ -144,7 +161,9 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         _storeProviderData(msg.sender, endpoint, region, agentId);
     }
 
-    function _storeProviderData(address provider, string calldata endpoint, string calldata region, uint256 agentId) internal {
+    function _storeProviderData(address provider, string calldata endpoint, string calldata region, uint256 agentId)
+        internal
+    {
         _providers[provider] = RPCProvider({
             operator: provider,
             endpoint: endpoint,
@@ -302,9 +321,7 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     function getJejuPrice() public view returns (uint256) {
         if (priceOracle == address(0)) return fallbackPrice;
 
-        (bool success, bytes memory data) = priceOracle.staticcall(
-            abi.encodeWithSignature("latestRoundData()")
-        );
+        (bool success, bytes memory data) = priceOracle.staticcall(abi.encodeWithSignature("latestRoundData()"));
 
         if (success && data.length >= 160) {
             (, int256 price,,,) = abi.decode(data, (uint80, int256, uint256, uint256, uint80));
@@ -317,9 +334,8 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     function getReputationDiscount(address user) public view returns (uint256) {
         if (reputationProvider == address(0)) return 0;
 
-        (bool success, bytes memory data) = reputationProvider.staticcall(
-            abi.encodeWithSignature("getStakeDiscount(address)", user)
-        );
+        (bool success, bytes memory data) =
+            reputationProvider.staticcall(abi.encodeWithSignature("getStakeDiscount(address)", user));
 
         if (success && data.length >= 32) {
             uint256 discount = abi.decode(data, (uint256));
@@ -431,7 +447,7 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         if (treasury == address(0)) revert InvalidTreasury();
         uint256 balance = address(this).balance;
         if (balance == 0) revert InsufficientBalance();
-        (bool success, ) = treasury.call{value: balance}("");
+        (bool success,) = treasury.call{value: balance}("");
         if (!success) revert TransferFailed();
     }
 
@@ -455,9 +471,12 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         emit RPCProviderUpdated(msg.sender, endpoint);
     }
 
-    function reportPerformance(address provider, uint256 uptimeScore, uint256 successRate, uint256 avgLatencyMs) external onlyOwner {
+    function reportPerformance(address provider, uint256 uptimeScore, uint256 successRate, uint256 avgLatencyMs)
+        external
+        onlyOwner
+    {
         if (uptimeScore > 10000 || successRate > 10000) revert InvalidScore();
-        
+
         PerformanceMetrics.Metrics storage m = metrics[provider];
         m.uptimeScore = uptimeScore;
         m.successRate = successRate;
@@ -467,15 +486,26 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         emit PerformanceReported(provider, uptimeScore, successRate, avgLatencyMs);
     }
 
-    function getStats() external view returns (
-        uint256 _totalUserStaked,
-        uint256 _totalUsers,
-        uint256 freeTierCount,
-        uint256 basicTierCount,
-        uint256 proTierCount,
-        uint256 unlimitedTierCount
-    ) {
-        return (totalUserStaked, totalUsers, tierCounts[Tier.FREE], tierCounts[Tier.BASIC], tierCounts[Tier.PRO], tierCounts[Tier.UNLIMITED]);
+    function getStats()
+        external
+        view
+        returns (
+            uint256 _totalUserStaked,
+            uint256 _totalUsers,
+            uint256 freeTierCount,
+            uint256 basicTierCount,
+            uint256 proTierCount,
+            uint256 unlimitedTierCount
+        )
+    {
+        return (
+            totalUserStaked,
+            totalUsers,
+            tierCounts[Tier.FREE],
+            tierCounts[Tier.BASIC],
+            tierCounts[Tier.PRO],
+            tierCounts[Tier.UNLIMITED]
+        );
     }
 
     function getProviderStats(address provider) external view returns (PerformanceMetrics.Metrics memory) {

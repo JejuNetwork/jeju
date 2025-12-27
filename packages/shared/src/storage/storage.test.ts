@@ -6,14 +6,6 @@
 
 import { describe, expect, it } from 'bun:test'
 
-// IPFS CID
-interface CID {
-  version: 0 | 1
-  codec: string
-  hash: string
-  toString(): string
-}
-
 // Storage result
 interface StorageResult {
   cid: string
@@ -49,7 +41,8 @@ describe('CID', () => {
 
   it('validates CIDv1 format', () => {
     // CIDv1 starts with 'b' (base32) or 'z' (base58btc)
-    const cidV1Base32 = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+    const cidV1Base32 =
+      'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
     const cidV1Base58 = 'zdj7WWeQ43G6JJvLWQWZpyHuAMq6uYWRjkBXFad11vE2LHhQ7'
 
     expect(cidV1Base32.startsWith('baf')).toBe(true)
@@ -58,7 +51,8 @@ describe('CID', () => {
 
   it('validates IPNS name format', () => {
     // IPNS names start with 'k' (base36) or use peer IDs
-    const ipnsName = 'k51qzi5uqu5dlvj2baxnqndepeb86cbk3ng7n3i0xgonbd2rpmr9xjcxzqfda8'
+    const ipnsName =
+      'k51qzi5uqu5dlvj2baxnqndepeb86cbk3ng7n3i0xgonbd2rpmr9xjcxzqfda8'
 
     expect(ipnsName.startsWith('k')).toBe(true)
   })
@@ -240,4 +234,3 @@ describe('Storage quotas', () => {
     expect(quota.used).toBeLessThan(quota.limit)
   })
 })
-

@@ -5,7 +5,7 @@
  * Uses baseURL from playwright.config.ts (configured via @jejunetwork/config/ports)
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Network Monitoring - Full Coverage', () => {
   test.beforeEach(async ({ page }) => {
@@ -19,10 +19,12 @@ test.describe('Network Monitoring - Full Coverage', () => {
       if (msg.type() === 'error') {
         const text = msg.text()
         // Filter out common non-critical errors
-        if (!text.includes('favicon') && 
-            !text.includes('net::ERR') && 
-            !text.includes('Failed to load resource') &&
-            !text.includes('404')) {
+        if (
+          !text.includes('favicon') &&
+          !text.includes('net::ERR') &&
+          !text.includes('Failed to load resource') &&
+          !text.includes('404')
+        ) {
           errors.push(text)
         }
       }
@@ -38,7 +40,9 @@ test.describe('Network Monitoring - Full Coverage', () => {
   })
 
   test('should have proper meta tags', async ({ page }) => {
-    const viewport = await page.locator('meta[name="viewport"]').getAttribute('content')
+    const viewport = await page
+      .locator('meta[name="viewport"]')
+      .getAttribute('content')
     expect(viewport).toBeTruthy()
   })
 
@@ -65,12 +69,11 @@ test.describe('Network Monitoring - Full Coverage', () => {
 })
 
 test.describe('Network Monitoring - Navigation', () => {
-
-    test('should navigate to Home', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Home', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
   test('should navigate via links', async ({ page }) => {
     await page.goto('/')
@@ -82,7 +85,7 @@ test.describe('Network Monitoring - Navigation', () => {
     for (const link of linksToTest) {
       try {
         const href = await link.getAttribute('href', { timeout: 5000 })
-        if (href && href.startsWith('/') && !href.startsWith('//')) {
+        if (href?.startsWith('/') && !href.startsWith('//')) {
           await link.click({ timeout: 10000 })
           await page.waitForLoadState('domcontentloaded', { timeout: 10000 })
           await expect(page.locator('body')).toBeVisible()
@@ -126,7 +129,9 @@ test.describe('Network Monitoring - Form Interactions', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    const inputs = await page.locator('input:visible:not([type="hidden"])').all()
+    const inputs = await page
+      .locator('input:visible:not([type="hidden"])')
+      .all()
 
     for (const input of inputs.slice(0, 5)) {
       const type = await input.getAttribute('type')
@@ -150,8 +155,11 @@ test.describe('Network Monitoring - Error States', () => {
   test('should handle 404 pages', async ({ page, baseURL }) => {
     await page.goto('/nonexistent-page-12345')
 
-    const is404 = page.url().includes('nonexistent') || await page.locator('text=/404|not found/i').isVisible()
-    const redirectedHome = page.url() === baseURL || page.url() === `${baseURL}/`
+    const is404 =
+      page.url().includes('nonexistent') ||
+      (await page.locator('text=/404|not found/i').isVisible())
+    const redirectedHome =
+      page.url() === baseURL || page.url() === `${baseURL}/`
 
     expect(is404 || redirectedHome).toBe(true)
   })

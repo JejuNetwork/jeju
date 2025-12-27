@@ -59,7 +59,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
   },
   {
     id: 'claude-opus',
-    displayName: 'Claude 4.5 Opus',
+    displayName: 'Claude Opus 4.5',
     provider: 'anthropic',
     modelId: 'claude-opus-4-5',
     tier: 'pro',
@@ -67,7 +67,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
   },
   {
     id: 'claude-sonnet',
-    displayName: 'Claude 4.5 Sonnet',
+    displayName: 'Claude Sonnet 4.5',
     provider: 'anthropic',
     modelId: 'claude-sonnet-4-5',
     tier: 'pro',

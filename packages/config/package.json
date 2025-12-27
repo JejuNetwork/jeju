@@ -9,7 +9,8 @@
   "exports": {
     ".": "./index.ts",
     "./ports": "./ports.ts",
-    "./json-loader": "./json-loader.ts"
+    "./json-loader": "./json-loader.ts",
+    "./chainlink": "./chainlink/index.ts"
   },
   "files": [
     "*.ts",

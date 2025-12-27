@@ -267,4 +267,3 @@ describe('Scope validation', () => {
     expect(scopes).toContain('wallet')
   })
 })
-

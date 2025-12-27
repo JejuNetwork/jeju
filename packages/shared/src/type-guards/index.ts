@@ -7,15 +7,11 @@
  * @module @jejunetwork/shared/type-guards
  */
 
-// Re-export JSON types from packages/types for convenience
-export type {
-  JsonObject,
-  JsonPrimitive,
-  JsonRecord,
-  JsonValue,
-} from '@jejunetwork/types'
-
+// Import JSON types directly from @jejunetwork/types and re-export
 import type { JsonValue } from '@jejunetwork/types'
+
+// Re-export JsonValue type for convenience
+export type { JsonValue }
 
 // =============================================================================
 // Primitive Type Guards

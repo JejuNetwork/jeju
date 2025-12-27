@@ -36,7 +36,7 @@ function createMockTrajectoryJSONL(
     timestamp: new Date().toISOString(),
   })
 
-  const trajLines = trajectories.map((t, idx) =>
+  const trajLines = trajectories.map((t, _idx) =>
     JSON.stringify({
       _type: 'trajectory',
       id: t.trajectoryId, // Schema expects 'id' field

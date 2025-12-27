@@ -85,18 +85,10 @@ contract CDNBilling is ICDNTypes, Ownable, ReentrancyGuard {
     event BalanceDeposited(address indexed user, uint256 amount);
     event BalanceWithdrawn(address indexed user, uint256 amount);
     event UsageRecorded(
-        address indexed user,
-        address indexed provider,
-        uint256 bytesEgress,
-        uint256 requests,
-        uint256 cost
+        address indexed user, address indexed provider, uint256 bytesEgress, uint256 requests, uint256 cost
     );
     event SettlementProcessed(
-        bytes32 indexed billingId,
-        address indexed user,
-        address indexed provider,
-        uint256 amount,
-        uint256 protocolFee
+        bytes32 indexed billingId, address indexed user, address indexed provider, uint256 amount, uint256 protocolFee
     );
     event ProviderWithdrawal(address indexed provider, uint256 amount);
     event ProtocolFeeUpdated(uint256 oldFee, uint256 newFee);
@@ -350,12 +342,11 @@ contract CDNBilling is ICDNTypes, Ownable, ReentrancyGuard {
         return _lastSettlement[user][provider];
     }
 
-    function estimateCost(
-        uint256 bytesEgress,
-        uint256 requests,
-        uint256 storageBytes,
-        ProviderRates calldata rates
-    ) external pure returns (uint256) {
+    function estimateCost(uint256 bytesEgress, uint256 requests, uint256 storageBytes, ProviderRates calldata rates)
+        external
+        pure
+        returns (uint256)
+    {
         uint256 egressCost = (bytesEgress * rates.pricePerGBEgress) / (1024 * 1024 * 1024);
         uint256 requestsCost = (requests * rates.pricePerMillionRequests) / 1_000_000;
         uint256 storageCost = (storageBytes * rates.pricePerGBStorage) / (1024 * 1024 * 1024);
@@ -411,4 +402,3 @@ contract CDNBilling is ICDNTypes, Ownable, ReentrancyGuard {
         }
     }
 }
-

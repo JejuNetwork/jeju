@@ -406,6 +406,24 @@ export function getTestEnv(): {
 // Export URLs for direct usage
 export { RPC_URL, DWS_URL, INFERENCE_URL }
 
+/**
+ * Make a request to DWS with default configuration
+ */
+export async function dwsRequest(
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const url = `${DWS_URL}${path.startsWith('/') ? path : `/${path}`}`
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+  return response
+}
+
 // Auto-setup when file is imported in test context
 if (process.env.BUN_TEST === 'true') {
   beforeAll(setup)

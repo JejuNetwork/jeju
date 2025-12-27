@@ -313,12 +313,22 @@ export class AttestationVerifierService {
         )
       }
     } else {
-      // If no dstack, assume signature is valid (local dev mode)
-      verificationDetails.signatureValid = true
-      verificationDetails.tcbValid = true
-      console.log(
-        '[AttestationVerifier] Running without dstack - signature verification skipped',
-      )
+      // SECURITY: Without dstack, we cannot verify the attestation
+      const isProduction = process.env.NODE_ENV === 'production'
+      if (isProduction) {
+        console.error(
+          '[AttestationVerifier] CRITICAL: dstack client required in production for attestation verification',
+        )
+        verificationDetails.signatureValid = false
+        verificationDetails.tcbValid = false
+      } else {
+        // Development only - skip verification with warning
+        verificationDetails.signatureValid = true
+        verificationDetails.tcbValid = true
+        console.warn(
+          '[AttestationVerifier] WARNING: Running without dstack - signature verification skipped (dev mode only)',
+        )
+      }
     }
 
     // Step 2: Check measurements against on-chain trusted list
@@ -396,6 +406,7 @@ export class AttestationVerifierService {
         result.isValid,
       ],
       account,
+      chain: null,
     })
 
     console.log(
@@ -434,6 +445,7 @@ export class AttestationVerifierService {
       functionName: 'addTrustedMrEnclave',
       args: [mrEnclaveHash],
       account,
+      chain: null,
     })
   }
 
@@ -451,6 +463,7 @@ export class AttestationVerifierService {
       functionName: 'addTrustedMrSigner',
       args: [mrSignerHash],
       account,
+      chain: null,
     })
   }
 
@@ -468,6 +481,7 @@ export class AttestationVerifierService {
       functionName: 'removeTrustedMrEnclave',
       args: [mrEnclaveHash],
       account,
+      chain: null,
     })
   }
 
@@ -485,6 +499,7 @@ export class AttestationVerifierService {
       functionName: 'removeTrustedMrSigner',
       args: [mrSignerHash],
       account,
+      chain: null,
     })
   }
 

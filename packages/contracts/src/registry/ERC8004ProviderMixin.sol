@@ -100,9 +100,8 @@ library ERC8004ProviderMixin {
             return false;
         }
 
-        (bool success, bytes memory data) = address(self.identityRegistry).staticcall(
-            abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId)
-        );
+        (bool success, bytes memory data) =
+            address(self.identityRegistry).staticcall(abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId));
 
         if (success && data.length >= 224) {
             (,,,,,, bool banned) = abi.decode(data, (string, string, string, string, bool, uint8, bool));

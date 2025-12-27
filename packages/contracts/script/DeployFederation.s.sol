@@ -13,10 +13,10 @@ import {FederatedSolver} from "../src/federation/FederatedSolver.sol";
 /**
  * @title DeployFederation
  * @notice Deploy all federation contracts
- * 
+ *
  * Usage:
  *   forge script script/DeployFederation.s.sol --rpc-url $RPC_URL --broadcast
- * 
+ *
  * Environment:
  *   PRIVATE_KEY - Deployer private key
  *   VERIFICATION_AUTHORITY - Address for network verification (optional)
@@ -34,17 +34,19 @@ contract DeployFederation is Script {
     FederatedSolver public federatedSolver;
 
     function run() external {
-        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
         address deployer = vm.addr(deployerKey);
-        
+
         address verificationAuthority = vm.envOr("VERIFICATION_AUTHORITY", deployer);
         address wormholeRelayer = vm.envOr("WORMHOLE_RELAYER", deployer);
         bytes32 wormholeEmitter = vm.envOr("WORMHOLE_EMITTER", bytes32(0));
-        
+
         console2.log("Deploying Federation contracts...");
         console2.log("Deployer:", deployer);
         console2.log("Verification Authority:", verificationAuthority);
-        
+
         vm.startBroadcast(deployerKey);
 
         // 1. Deploy NetworkRegistry (L1 hub for all networks)
@@ -66,8 +68,8 @@ contract DeployFederation is Script {
         // 5. Deploy FederatedIdentity
         federatedIdentity = new FederatedIdentity(
             block.chainid,
-            deployer,  // oracle
-            deployer,  // governance
+            deployer, // oracle
+            deployer, // governance
             address(networkRegistry),
             address(0) // local identity registry (set later)
         );
@@ -76,8 +78,8 @@ contract DeployFederation is Script {
         // 6. Deploy FederatedLiquidity
         federatedLiquidity = new FederatedLiquidity(
             block.chainid,
-            deployer,  // oracle
-            deployer,  // governance
+            deployer, // oracle
+            deployer, // governance
             address(networkRegistry),
             address(0) // local vault (set later)
         );
@@ -86,8 +88,8 @@ contract DeployFederation is Script {
         // 7. Deploy FederatedSolver
         federatedSolver = new FederatedSolver(
             block.chainid,
-            deployer,  // oracle
-            deployer,  // governance
+            deployer, // oracle
+            deployer, // governance
             address(networkRegistry),
             address(0) // local solver registry (set later)
         );
@@ -114,11 +116,13 @@ contract DeployFederation is Script {
  */
 contract RegisterJejuNetwork is Script {
     function run() external {
-        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
         address networkRegistryAddr = vm.envAddress("NETWORK_REGISTRY");
-        
+
         NetworkRegistry registry = NetworkRegistry(payable(networkRegistryAddr));
-        
+
         vm.startBroadcast(deployerKey);
 
         // Register Jeju Network with VERIFIED stake (10 ETH)
@@ -134,13 +138,13 @@ contract RegisterJejuNetwork is Script {
         });
 
         registry.registerNetwork{value: 10 ether}(
-            420690,  // Jeju testnet chain ID
+            420690, // Jeju testnet chain ID
             "Jeju Network",
             "https://testnet-rpc.jejunetwork.org",
             "https://testnet-explorer.jejunetwork.org",
             "wss://testnet-ws.jejunetwork.org",
             contracts,
-            bytes32(0)  // genesis hash
+            bytes32(0) // genesis hash
         );
 
         console2.log("Jeju Network registered with VERIFIED status!");
@@ -148,4 +152,3 @@ contract RegisterJejuNetwork is Script {
         vm.stopBroadcast();
     }
 }
-

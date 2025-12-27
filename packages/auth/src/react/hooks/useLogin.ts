@@ -132,7 +132,7 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
         OAuth3SessionSchema,
         await response.json(),
         'email verification session',
-      )
+      ) as OAuth3Session
       options.onSuccess?.(session)
       return session
     },
@@ -166,7 +166,7 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
         OAuth3SessionSchema,
         await response.json(),
         'phone verification session',
-      )
+      ) as OAuth3Session
       options.onSuccess?.(session)
       return session
     },

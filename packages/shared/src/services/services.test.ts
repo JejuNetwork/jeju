@@ -255,7 +255,7 @@ describe('Service patterns', () => {
     const maxDelayMs = 10000
     const attempt = 3
 
-    const delay = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs)
+    const delay = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs)
 
     expect(delay).toBe(800) // 100 * 2^3
   })
@@ -277,4 +277,3 @@ describe('Service patterns', () => {
     }
   })
 })
-

@@ -26,8 +26,8 @@ import {
 const KubeMetadataSchema = z.object({
   name: z.string(),
   namespace: z.string().default('default'),
-  labels: z.record(z.string()).optional(),
-  annotations: z.record(z.string()).optional(),
+  labels: z.record(z.string(), z.string()).optional(),
+  annotations: z.record(z.string(), z.string()).optional(),
   uid: z.string().optional(),
   resourceVersion: z.string().optional(),
 })
@@ -118,7 +118,7 @@ const KubeContainerSchema = z.object({
 const KubePodSpecSchema = z.object({
   containers: z.array(KubeContainerSchema),
   initContainers: z.array(KubeContainerSchema).optional(),
-  nodeSelector: z.record(z.string()).optional(),
+  nodeSelector: z.record(z.string(), z.string()).optional(),
   tolerations: z
     .array(
       z.object({
@@ -139,7 +139,7 @@ const KubePodSpecSchema = z.object({
 const KubeDeploymentSpecSchema = z.object({
   replicas: z.number().optional(),
   selector: z.object({
-    matchLabels: z.record(z.string()),
+    matchLabels: z.record(z.string(), z.string()),
   }),
   template: z.object({
     metadata: KubeMetadataSchema.partial().optional(),
@@ -170,7 +170,7 @@ const KubeServiceSpecSchema = z.object({
   type: z
     .enum(['ClusterIP', 'NodePort', 'LoadBalancer', 'ExternalName'])
     .optional(),
-  selector: z.record(z.string()).optional(),
+  selector: z.record(z.string(), z.string()).optional(),
   ports: z.array(KubeServicePortSchema),
   clusterIP: z.string().optional(),
   externalTrafficPolicy: z.enum(['Cluster', 'Local']).optional(),
@@ -416,8 +416,6 @@ export class KubernetesBridge {
     this.namespaceDeployments.set(namespace, nsDeployments)
 
     // Deploy workloads
-    const _provisioner = getContainerProvisioner()
-
     for (const deploymentManifest of deploymentManifests) {
       const containers = await this.deployKubeDeployment(
         deploymentManifest,

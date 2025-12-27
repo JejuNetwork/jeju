@@ -323,11 +323,8 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         if (_treasury == address(0)) revert InvalidTreasury();
         changeId = keccak256(abi.encodePacked(_treasury, block.timestamp));
         uint256 executeAfter = block.timestamp + TREASURY_CHANGE_DELAY;
-        pendingTreasuryChanges[changeId] = PendingTreasuryChange({
-            newTreasury: _treasury,
-            executeAfter: executeAfter,
-            executed: false
-        });
+        pendingTreasuryChanges[changeId] =
+            PendingTreasuryChange({newTreasury: _treasury, executeAfter: executeAfter, executed: false});
         emit TreasuryChangeProposed(changeId, _treasury, executeAfter);
     }
 

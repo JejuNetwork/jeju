@@ -5,7 +5,14 @@
  * Uses LIVE Redis - NO MOCKS
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test'
 import {
   describeWithInfra,
   getLiveRedisClient,
@@ -83,9 +90,11 @@ describeWithInfra(
           'test-service',
         )
 
-        const stored = await redisClient.get(`x402:payment:${request.requestId}`)
+        const stored = await redisClient.get(
+          `x402:payment:${request.requestId}`,
+        )
         expect(stored).not.toBeNull()
-        
+
         const parsed = JSON.parse(stored as string)
         expect(parsed.request.requestId).toBe(request.requestId)
         expect(parsed.verified).toBe(false)

@@ -32,7 +32,7 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
 
     uint256 private constant WEIGHT_PRECISION = 1e18;
     uint256 private constant BPS_PRECISION = 10000;
-    uint256 private constant MIN_BALANCE = 1e6;  // Minimum balance to prevent manipulation
+    uint256 private constant MIN_BALANCE = 1e6; // Minimum balance to prevent manipulation
     uint256 private constant MAX_TOKENS = 8;
 
     // ============ State Variables ============
@@ -108,10 +108,10 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
 
         // Default guard rails
         _guardRails = GuardRails({
-            minWeight: WEIGHT_PRECISION / 20,     // 5% minimum
+            minWeight: WEIGHT_PRECISION / 20, // 5% minimum
             maxWeight: (WEIGHT_PRECISION * 95) / 100, // 95% maximum
-            maxWeightChangeBps: 500,              // 5% max change per update
-            minUpdateInterval: 10                  // 10 blocks minimum
+            maxWeightChangeBps: 500, // 5% max change per update
+            minUpdateInterval: 10 // 10 blocks minimum
         });
 
         // Validate initial weights
@@ -159,15 +159,9 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
     /**
      * @inheritdoc ITFMMPool
      */
-    function updateWeights(
-        uint256[] calldata newWeights,
-        uint256 blocksToTarget
-    ) external override onlyWeightRunner {
+    function updateWeights(uint256[] calldata newWeights, uint256 blocksToTarget) external override onlyWeightRunner {
         require(newWeights.length == _tokens.length, "Length mismatch");
-        require(
-            block.number >= lastUpdateBlock + _guardRails.minUpdateInterval,
-            "Update too soon"
-        );
+        require(block.number >= lastUpdateBlock + _guardRails.minUpdateInterval, "Update too soon");
 
         // Validate new weights
         _validateWeights(newWeights);
@@ -217,12 +211,12 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
     /**
      * @inheritdoc ITFMMPool
      */
-    function swap(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut
-    ) external override nonReentrant returns (uint256 amountOut) {
+    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
+        external
+        override
+        nonReentrant
+        returns (uint256 amountOut)
+    {
         require(amountIn > 0, "Zero amount");
         require(tokenIn != tokenOut, "Same token");
 
@@ -231,13 +225,8 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
 
         // Calculate swap output
         uint256 feeAmount;
-        (amountOut, feeAmount) = _calculateSwapOutput(
-            _balances[tokenIn],
-            _balances[tokenOut],
-            weights[indexIn],
-            weights[indexOut],
-            amountIn
-        );
+        (amountOut, feeAmount) =
+            _calculateSwapOutput(_balances[tokenIn], _balances[tokenOut], weights[indexIn], weights[indexOut], amountIn);
 
         require(amountOut >= minAmountOut, "Slippage exceeded");
         require(amountOut < _balances[tokenOut] - MIN_BALANCE, "Insufficient liquidity");
@@ -249,7 +238,7 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
         // Track protocol fee
         uint256 protocolFee = (feeAmount * protocolFeeBps) / BPS_PRECISION;
         _protocolFees[tokenIn] += protocolFee;
-        
+
         // Emit event before external calls
         emit Swap(msg.sender, tokenIn, tokenOut, amountIn, amountOut, feeAmount);
 
@@ -261,37 +250,29 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
     /**
      * @inheritdoc ITFMMPool
      */
-    function getAmountOut(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view override returns (uint256 amountOut, uint256 feeAmount) {
+    function getAmountOut(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        override
+        returns (uint256 amountOut, uint256 feeAmount)
+    {
         (uint256 indexIn, uint256 indexOut) = _getTokenIndices(tokenIn, tokenOut);
         uint256[] memory weights = getNormalizedWeights();
 
-        return _calculateSwapOutput(
-            _balances[tokenIn],
-            _balances[tokenOut],
-            weights[indexIn],
-            weights[indexOut],
-            amountIn
-        );
+        return
+            _calculateSwapOutput(_balances[tokenIn], _balances[tokenOut], weights[indexIn], weights[indexOut], amountIn);
     }
 
     /**
      * @inheritdoc ITFMMPool
      */
-    function getSpotPrice(
-        address tokenIn,
-        address tokenOut
-    ) external view override returns (uint256 price) {
+    function getSpotPrice(address tokenIn, address tokenOut) external view override returns (uint256 price) {
         (uint256 indexIn, uint256 indexOut) = _getTokenIndices(tokenIn, tokenOut);
         uint256[] memory weights = getNormalizedWeights();
 
         // price = (balanceOut / weightOut) / (balanceIn / weightIn)
         // Scaled by 1e18 for precision
-        price = (_balances[tokenOut] * weights[indexIn] * WEIGHT_PRECISION) /
-                (_balances[tokenIn] * weights[indexOut]);
+        price = (_balances[tokenOut] * weights[indexIn] * WEIGHT_PRECISION) / (_balances[tokenIn] * weights[indexOut]);
     }
 
     // ============ Liquidity ============
@@ -299,10 +280,12 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
     /**
      * @inheritdoc ITFMMPool
      */
-    function addLiquidity(
-        uint256[] calldata amounts,
-        uint256 minLpTokens
-    ) external override nonReentrant returns (uint256 lpTokens) {
+    function addLiquidity(uint256[] calldata amounts, uint256 minLpTokens)
+        external
+        override
+        nonReentrant
+        returns (uint256 lpTokens)
+    {
         require(amounts.length == _tokens.length, "Length mismatch");
 
         uint256 totalSupplyBefore = totalSupply();
@@ -341,10 +324,12 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
     /**
      * @inheritdoc ITFMMPool
      */
-    function removeLiquidity(
-        uint256 lpTokens,
-        uint256[] calldata minAmounts
-    ) external override nonReentrant returns (uint256[] memory amounts) {
+    function removeLiquidity(uint256 lpTokens, uint256[] calldata minAmounts)
+        external
+        override
+        nonReentrant
+        returns (uint256[] memory amounts)
+    {
         require(lpTokens > 0, "Zero LP tokens");
         require(minAmounts.length == _tokens.length, "Length mismatch");
 
@@ -395,11 +380,12 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
     /**
      * @inheritdoc ITFMMPool
      */
-    function getGuardRails() external view override returns (
-        uint256 minWeight,
-        uint256 maxWeight,
-        uint256 maxWeightChangeBps
-    ) {
+    function getGuardRails()
+        external
+        view
+        override
+        returns (uint256 minWeight, uint256 maxWeight, uint256 maxWeightChangeBps)
+    {
         return (_guardRails.minWeight, _guardRails.maxWeight, _guardRails.maxWeightChangeBps);
     }
 
@@ -496,22 +482,23 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
 
         // Calculate output using power function approximation
         // amountOut = balanceOut * (1 - (balanceIn / (balanceIn + amountIn)) ^ (weightIn / weightOut))
-        
+
         uint256 newBalanceIn = balanceIn + amountInAfterFee;
         uint256 ratio = (balanceIn * WEIGHT_PRECISION) / newBalanceIn;
-        
+
         // Power approximation: (1 - ratio) for small changes
         // For larger changes, use log/exp or iterative approach
         uint256 weightRatio = (weightIn * WEIGHT_PRECISION) / weightOut;
         uint256 powerResult = _power(ratio, weightRatio);
-        
+
         amountOut = (balanceOut * (WEIGHT_PRECISION - powerResult)) / WEIGHT_PRECISION;
     }
 
-    function _calculateInitialLpTokens(
-        uint256[] calldata amounts,
-        uint256[] memory weights
-    ) internal pure returns (uint256) {
+    function _calculateInitialLpTokens(uint256[] calldata amounts, uint256[] memory weights)
+        internal
+        pure
+        returns (uint256)
+    {
         // Geometric mean weighted by weights
         uint256 product = WEIGHT_PRECISION;
         for (uint256 i = 0; i < amounts.length; i++) {
@@ -521,13 +508,14 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
         return product;
     }
 
-    function _calculateProportionalLpTokens(
-        uint256[] calldata amounts,
-        uint256 totalSupplyBefore
-    ) internal view returns (uint256) {
+    function _calculateProportionalLpTokens(uint256[] calldata amounts, uint256 totalSupplyBefore)
+        internal
+        view
+        returns (uint256)
+    {
         // Find the token with the smallest contribution ratio
         uint256 minRatio = type(uint256).max;
-        
+
         for (uint256 i = 0; i < _tokens.length; i++) {
             if (amounts[i] > 0 && _balances[_tokens[i]] > 0) {
                 uint256 ratio = (amounts[i] * WEIGHT_PRECISION) / _balances[_tokens[i]];
@@ -550,8 +538,7 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
         }
         // Allow 0.1% tolerance for rounding
         require(
-            sum >= WEIGHT_PRECISION - WEIGHT_PRECISION / 1000 &&
-            sum <= WEIGHT_PRECISION + WEIGHT_PRECISION / 1000,
+            sum >= WEIGHT_PRECISION - WEIGHT_PRECISION / 1000 && sum <= WEIGHT_PRECISION + WEIGHT_PRECISION / 1000,
             "Weights must sum to 1e18"
         );
     }
@@ -577,10 +564,11 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
         return weights;
     }
 
-    function _getTokenIndices(
-        address tokenIn,
-        address tokenOut
-    ) internal view returns (uint256 indexIn, uint256 indexOut) {
+    function _getTokenIndices(address tokenIn, address tokenOut)
+        internal
+        view
+        returns (uint256 indexIn, uint256 indexOut)
+    {
         bool foundIn = false;
         bool foundOut = false;
 
@@ -606,18 +594,17 @@ contract TFMMPool is ITFMMPool, ERC20, ReentrancyGuard, Ownable {
     function _power(uint256 base, uint256 exp) internal pure returns (uint256) {
         // For values close to 1, use Taylor series approximation
         // (1-x)^n ≈ 1 - n*x for small x
-        
+
         if (base >= WEIGHT_PRECISION) {
             return WEIGHT_PRECISION;
         }
 
         uint256 x = WEIGHT_PRECISION - base;
-        
+
         // Simple linear approximation for typical AMM cases
         // More accurate would be iterative or logarithmic
         uint256 result = WEIGHT_PRECISION - (x * exp) / WEIGHT_PRECISION;
-        
+
         return result;
     }
 }
-

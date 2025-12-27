@@ -333,4 +333,3 @@ describe('Cost calculation', () => {
     expect(cost).toBe(20)
   })
 })
-

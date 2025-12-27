@@ -62,10 +62,9 @@ abstract contract AgentGated is Ownable {
     }
 
     function _findAgentForAddress(address account) internal view returns (uint256 agentId) {
-        (bool success, bytes memory data) = address(identityRegistry).staticcall(
-            abi.encodeWithSignature("getAgentByOwner(address)", account)
-        );
-        
+        (bool success, bytes memory data) =
+            address(identityRegistry).staticcall(abi.encodeWithSignature("getAgentByOwner(address)", account));
+
         if (success && data.length >= 32) {
             return abi.decode(data, (uint256));
         }
@@ -80,9 +79,8 @@ abstract contract AgentGated is Ownable {
     }
 
     function _isAgentBanned(uint256 agentId) internal view returns (bool) {
-        (bool success, bytes memory data) = address(identityRegistry).staticcall(
-            abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId)
-        );
+        (bool success, bytes memory data) =
+            address(identityRegistry).staticcall(abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId));
 
         if (success && data.length >= 224) {
             (,,,,,, bool banned) = abi.decode(data, (string, string, string, string, bool, uint8, bool));

@@ -17,12 +17,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  *      - Enumerable for easy listing
  *      - No cap on total supply by default
  */
-contract SimpleCollectible is
-    ERC721Enumerable,
-    ERC721URIStorage,
-    Ownable,
-    ReentrancyGuard
-{
+contract SimpleCollectible is ERC721Enumerable, ERC721URIStorage, Ownable, ReentrancyGuard {
     // =========================================================================
     // State
     // =========================================================================
@@ -111,7 +106,7 @@ contract SimpleCollectible is
 
         // Transfer fee to recipient
         if (msg.value > 0 && feeRecipient != address(0)) {
-            (bool sent, ) = feeRecipient.call{value: msg.value}("");
+            (bool sent,) = feeRecipient.call{value: msg.value}("");
             if (!sent) revert WithdrawFailed();
         }
 
@@ -123,7 +118,12 @@ contract SimpleCollectible is
      * @param _tokenURIs Array of metadata URIs
      * @return tokenIds Array of minted token IDs
      */
-    function mintBatch(string[] calldata _tokenURIs) external payable nonReentrant returns (uint256[] memory tokenIds) {
+    function mintBatch(string[] calldata _tokenURIs)
+        external
+        payable
+        nonReentrant
+        returns (uint256[] memory tokenIds)
+    {
         uint256 count = _tokenURIs.length;
         uint256 totalFee = mintFee * count;
 
@@ -154,7 +154,7 @@ contract SimpleCollectible is
 
         // Transfer fee to recipient
         if (msg.value > 0 && feeRecipient != address(0)) {
-            (bool sent, ) = feeRecipient.call{value: msg.value}("");
+            (bool sent,) = feeRecipient.call{value: msg.value}("");
             if (!sent) revert WithdrawFailed();
         }
     }
@@ -229,7 +229,7 @@ contract SimpleCollectible is
      * @notice Withdraw any stuck ETH
      */
     function withdraw() external onlyOwner {
-        (bool sent, ) = owner().call{value: address(this).balance}("");
+        (bool sent,) = owner().call{value: address(this).balance}("");
         if (!sent) revert WithdrawFailed();
     }
 
@@ -237,12 +237,7 @@ contract SimpleCollectible is
     // Overrides
     // =========================================================================
 
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (string memory)
-    {
+    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return ERC721URIStorage.tokenURI(tokenId);
     }
 
@@ -263,10 +258,7 @@ contract SimpleCollectible is
         return super._update(to, tokenId, auth);
     }
 
-    function _increaseBalance(address account, uint128 value)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
+    function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
         super._increaseBalance(account, value);
     }
 }

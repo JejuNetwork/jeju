@@ -22,9 +22,9 @@ import { type ExecaError, execa } from 'execa'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { discoverApps } from '../lib/testing'
-import { runSmokeTests as runE2ESmokeTests } from '../testing/smoke-test-runner'
 import { EthChainIdResponseSchema, validate } from '../schemas'
 import { createTestOrchestrator } from '../services/test-orchestrator'
+import { runSmokeTests as runE2ESmokeTests } from '../testing/smoke-test-runner'
 import type { CoverageReport, TestMode, TestResult } from '../types'
 
 export type { TestMode }
@@ -601,7 +601,8 @@ testCommand
       const smokeResult = await runE2ESmokeTests({
         rootDir,
         headless: options.headless ?? true,
-        skipAIVerification: !process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY,
+        skipAIVerification:
+          !process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY,
       })
 
       if (!smokeResult.passed) {

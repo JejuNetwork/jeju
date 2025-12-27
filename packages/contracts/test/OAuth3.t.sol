@@ -91,28 +91,18 @@ contract OAuth3Test is Test {
     }
 
     function test_RevertWhen_createDuplicateIdentity() public {
-        IOAuth3IdentityRegistry.IdentityMetadata memory metadata = IOAuth3IdentityRegistry.IdentityMetadata({
-            name: "Test",
-            avatar: "",
-            bio: "",
-            url: "",
-            jnsName: ""
-        });
+        IOAuth3IdentityRegistry.IdentityMetadata memory metadata =
+            IOAuth3IdentityRegistry.IdentityMetadata({name: "Test", avatar: "", bio: "", url: "", jnsName: ""});
 
         identityRegistry.createIdentity(user1, address(0), metadata);
-        
+
         vm.expectRevert("Owner already has identity");
         identityRegistry.createIdentity(user1, address(0), metadata);
     }
 
     function test_transferIdentity() public {
-        IOAuth3IdentityRegistry.IdentityMetadata memory metadata = IOAuth3IdentityRegistry.IdentityMetadata({
-            name: "Test",
-            avatar: "",
-            bio: "",
-            url: "",
-            jnsName: ""
-        });
+        IOAuth3IdentityRegistry.IdentityMetadata memory metadata =
+            IOAuth3IdentityRegistry.IdentityMetadata({name: "Test", avatar: "", bio: "", url: "", jnsName: ""});
 
         bytes32 identityId = identityRegistry.createIdentity(user1, address(0), metadata);
 
@@ -124,13 +114,8 @@ contract OAuth3Test is Test {
     }
 
     function test_updateMetadata() public {
-        IOAuth3IdentityRegistry.IdentityMetadata memory metadata = IOAuth3IdentityRegistry.IdentityMetadata({
-            name: "Original",
-            avatar: "",
-            bio: "",
-            url: "",
-            jnsName: ""
-        });
+        IOAuth3IdentityRegistry.IdentityMetadata memory metadata =
+            IOAuth3IdentityRegistry.IdentityMetadata({name: "Original", avatar: "", bio: "", url: "", jnsName: ""});
 
         bytes32 identityId = identityRegistry.createIdentity(user1, address(0), metadata);
 
@@ -229,7 +214,6 @@ contract OAuth3Test is Test {
         vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
-
         bytes32 newClientId = appRegistry.rotateCredentials(appId);
 
         IOAuth3AppRegistry.AppCredentials memory newCreds = appRegistry.getAppCredentials(appId);
@@ -265,13 +249,8 @@ contract OAuth3Test is Test {
     // ============ Account Factory Tests ============
 
     function test_createAccount() public {
-        IOAuth3IdentityRegistry.IdentityMetadata memory metadata = IOAuth3IdentityRegistry.IdentityMetadata({
-            name: "Account User",
-            avatar: "",
-            bio: "",
-            url: "",
-            jnsName: ""
-        });
+        IOAuth3IdentityRegistry.IdentityMetadata memory metadata =
+            IOAuth3IdentityRegistry.IdentityMetadata({name: "Account User", avatar: "", bio: "", url: "", jnsName: ""});
 
         bytes32 identityId = identityRegistry.createIdentity(user1, address(0), metadata);
 
@@ -392,7 +371,7 @@ contract OAuth3Test is Test {
         bytes memory attestation = _createMockAttestation();
 
         vm.deal(address(this), 0.5 ether);
-        
+
         vm.expectRevert("Insufficient stake");
         teeVerifier.registerNode{value: 0.5 ether}(nodeId, attestation, keccak256("key"));
     }
@@ -459,7 +438,7 @@ contract OAuth3Test is Test {
 
         // Create mock signature (64 bytes minimum)
         bytes memory signature = new bytes(64);
-        for (uint i = 0; i < 64; i++) {
+        for (uint256 i = 0; i < 64; i++) {
             signature[i] = bytes1(uint8(i));
         }
 

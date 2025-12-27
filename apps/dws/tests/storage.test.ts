@@ -21,22 +21,23 @@ import {
   setDefaultTimeout,
   test,
 } from 'bun:test'
-import { dwsRequest } from './setup'
 import {
   type BackendManager,
   createBackendManager,
 } from '../api/storage/backends'
 import { resetMultiBackendManager } from '../api/storage/multi-backend'
 import { SKIP as INFRA_SKIP } from './infra-check'
+import { dwsRequest } from './setup'
 
 setDefaultTimeout(10000)
 
 // Skip integration tests unless explicitly enabled or running via jeju test
-const SKIP_INTEGRATION = process.env.SKIP_INTEGRATION === 'true' || INFRA_SKIP.STORAGE
+const SKIP_INTEGRATION =
+  process.env.SKIP_INTEGRATION === 'true' || INFRA_SKIP.STORAGE
 
 // Check if storage service is available
-let storageAvailable = false
-async function checkStorageHealth(): Promise<boolean> {
+const _storageAvailable = false
+async function _checkStorageHealth(): Promise<boolean> {
   try {
     const res = await dwsRequest('/storage/health')
     return res.status === 200

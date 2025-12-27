@@ -15,13 +15,11 @@ contract MockChainlinkFeed {
         _updatedAt = block.timestamp;
     }
 
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         return (1, _answer, block.timestamp, _updatedAt, 1);
     }
 
@@ -37,7 +35,7 @@ contract MockChainlinkFeed {
     function setStale(uint256 timestamp) external {
         _updatedAt = timestamp > 3600 ? timestamp - 3600 : 0; // 1 hour ago, or 0 if underflow
     }
-    
+
     function refresh() external {
         _updatedAt = block.timestamp; // Reset to current timestamp (fresh)
     }
@@ -54,12 +52,7 @@ contract MockPyth {
     mapping(bytes32 => Price) private _prices;
 
     function setPrice(bytes32 id, int64 price, int32 expo) external {
-        _prices[id] = Price({
-            price: price,
-            conf: 100,
-            expo: expo,
-            publishTime: block.timestamp
-        });
+        _prices[id] = Price({price: price, conf: 100, expo: expo, publishTime: block.timestamp});
     }
 
     function getPriceUnsafe(bytes32 id) external view returns (Price memory) {
@@ -103,19 +96,19 @@ contract OracleRegistryTest is Test {
     MockChainlinkFeed public btcFeed;
     MockPyth public pyth;
     MockTWAPOracle public twapOracleMock;
-    
+
     address public owner = address(1);
     address public governance = address(2);
     address public weth = address(0x1111);
     address public wbtc = address(0x2222);
-    
+
     function setUp() public {
         pyth = new MockPyth();
         twapOracleMock = new MockTWAPOracle();
-        
+
         vm.prank(owner);
         registry = new OracleRegistry(address(pyth), address(twapOracleMock), governance);
-        
+
         // Deploy mock Chainlink feeds
         ethFeed = new MockChainlinkFeed(3000_00000000, 8); // $3000 with 8 decimals
         btcFeed = new MockChainlinkFeed(60000_00000000, 8); // $60000 with 8 decimals
@@ -159,7 +152,7 @@ contract OracleRegistryTest is Test {
     function test_RevertOnStalePrice() public {
         // Set block.timestamp to a reasonable value
         vm.warp(10000);
-        
+
         vm.prank(owner);
         registry.registerChainlinkOracle(weth, address(ethFeed), 60); // 60 second heartbeat
 
@@ -173,10 +166,10 @@ contract OracleRegistryTest is Test {
     function test_IsPriceStale() public {
         // Set block.timestamp to a reasonable value
         vm.warp(10000);
-        
+
         // Refresh the feed so its updatedAt is current
         ethFeed.refresh();
-        
+
         vm.prank(owner);
         registry.registerChainlinkOracle(weth, address(ethFeed), 60);
 
@@ -185,7 +178,7 @@ contract OracleRegistryTest is Test {
 
         // Make stale by setting updatedAt to 1 hour ago
         ethFeed.setStale(block.timestamp);
-        
+
         // Now check staleness - the feed updatedAt is at block.timestamp - 3600
         // And heartbeat is 60 seconds, so it should be stale
         assertTrue(registry.isPriceStale(weth));
@@ -193,7 +186,7 @@ contract OracleRegistryTest is Test {
 
     function test_RegisterPythOracle() public {
         bytes32 pythId = bytes32(uint256(1));
-        
+
         // Set Pyth price
         pyth.setPrice(pythId, 3000_00000000, -8);
 
@@ -223,7 +216,7 @@ contract OracleRegistryTest is Test {
         registry.registerChainlinkOracle(weth, address(ethFeed), 3600);
 
         OracleRegistry.OracleType oracleType = registry.getOracleType(weth);
-        assertEq(uint(oracleType), uint(OracleRegistry.OracleType.CHAINLINK));
+        assertEq(uint256(oracleType), uint256(OracleRegistry.OracleType.CHAINLINK));
     }
 
     function test_SetGovernance() public {
@@ -270,7 +263,7 @@ contract OracleRegistryTest is Test {
         registry.registerTWAPOracle(weth, 900); // 15 min heartbeat
 
         OracleRegistry.OracleType oracleType = registry.getOracleType(weth);
-        assertEq(uint(oracleType), uint(OracleRegistry.OracleType.TWAP));
+        assertEq(uint256(oracleType), uint256(OracleRegistry.OracleType.TWAP));
     }
 
     function test_GetTWAPPrice() public {
@@ -298,21 +291,16 @@ contract OracleRegistryTest is Test {
 
     function test_RegisterFallbackOracle() public {
         vm.startPrank(owner);
-        
+
         // Register Chainlink as primary
         registry.registerChainlinkOracle(weth, address(ethFeed), 3600);
-        
+
         // Register TWAP as fallback
         twapOracleMock.setPrice(weth, 3050_00000000);
         registry.registerFallbackOracle(
-            weth,
-            OracleRegistry.OracleType.TWAP,
-            address(twapOracleMock),
-            bytes32(0),
-            900,
-            8
+            weth, OracleRegistry.OracleType.TWAP, address(twapOracleMock), bytes32(0), 900, 8
         );
-        
+
         vm.stopPrank();
 
         // Primary should work
@@ -322,23 +310,18 @@ contract OracleRegistryTest is Test {
 
     function test_FallbackUsedWhenPrimaryStale() public {
         vm.warp(10000);
-        
+
         vm.startPrank(owner);
-        
+
         // Register Chainlink as primary with short heartbeat
         registry.registerChainlinkOracle(weth, address(ethFeed), 60);
-        
+
         // Register TWAP as fallback
         twapOracleMock.setPrice(weth, 3050_00000000);
         registry.registerFallbackOracle(
-            weth,
-            OracleRegistry.OracleType.TWAP,
-            address(twapOracleMock),
-            bytes32(0),
-            900,
-            8
+            weth, OracleRegistry.OracleType.TWAP, address(twapOracleMock), bytes32(0), 900, 8
         );
-        
+
         vm.stopPrank();
 
         // Make primary stale
@@ -351,27 +334,18 @@ contract OracleRegistryTest is Test {
 
     function test_GetPriceWithValidation() public {
         vm.startPrank(owner);
-        
+
         registry.registerChainlinkOracle(weth, address(ethFeed), 3600);
-        
+
         twapOracleMock.setPrice(weth, 3030_00000000); // 1% different
         registry.registerFallbackOracle(
-            weth,
-            OracleRegistry.OracleType.TWAP,
-            address(twapOracleMock),
-            bytes32(0),
-            900,
-            8
+            weth, OracleRegistry.OracleType.TWAP, address(twapOracleMock), bytes32(0), 900, 8
         );
-        
+
         vm.stopPrank();
 
-        (
-            uint256 primaryPrice,
-            uint256 fallbackPrice,
-            uint256 deviation,
-            bool isValid
-        ) = registry.getPriceWithValidation(weth);
+        (uint256 primaryPrice, uint256 fallbackPrice, uint256 deviation, bool isValid) =
+            registry.getPriceWithValidation(weth);
 
         assertEq(primaryPrice, 3000_00000000);
         assertEq(fallbackPrice, 3030_00000000);
@@ -382,23 +356,23 @@ contract OracleRegistryTest is Test {
     function test_SetUseFallback() public {
         vm.prank(governance);
         registry.setUseFallback(false);
-        
+
         assertFalse(registry.useFallback());
     }
 
     function test_SetMaxPriceDeviation() public {
         vm.prank(governance);
         registry.setMaxPriceDeviation(200); // 2%
-        
+
         assertEq(registry.maxPriceDeviation(), 200);
     }
 
     function test_SetTWAPOracle() public {
         MockTWAPOracle newTwap = new MockTWAPOracle();
-        
+
         vm.prank(governance);
         registry.setTWAPOracle(address(newTwap));
-        
+
         assertEq(address(registry.twapOracle()), address(newTwap));
     }
 
@@ -406,21 +380,16 @@ contract OracleRegistryTest is Test {
 
     function test_OraclePriority_PythFirst() public {
         bytes32 pythId = bytes32(uint256(1));
-        
+
         // Set Pyth price
         pyth.setPrice(pythId, 3100_00000000, -8);
 
         vm.startPrank(owner);
         registry.registerPythOracle(weth, pythId, 60);
-        
+
         // Also register Chainlink fallback
         registry.registerFallbackOracle(
-            weth,
-            OracleRegistry.OracleType.CHAINLINK,
-            address(ethFeed),
-            bytes32(0),
-            3600,
-            8
+            weth, OracleRegistry.OracleType.CHAINLINK, address(ethFeed), bytes32(0), 3600, 8
         );
         vm.stopPrank();
 
@@ -431,23 +400,18 @@ contract OracleRegistryTest is Test {
 
     function test_ChainlinkFallsToTWAP() public {
         vm.warp(10000);
-        
+
         vm.startPrank(owner);
-        
+
         // Register Chainlink as primary
         registry.registerChainlinkOracle(weth, address(ethFeed), 60);
-        
+
         // Register TWAP as fallback
         twapOracleMock.setPrice(weth, 2950_00000000);
         registry.registerFallbackOracle(
-            weth,
-            OracleRegistry.OracleType.TWAP,
-            address(twapOracleMock),
-            bytes32(0),
-            900,
-            8
+            weth, OracleRegistry.OracleType.TWAP, address(twapOracleMock), bytes32(0), 900, 8
         );
-        
+
         vm.stopPrank();
 
         // Make Chainlink stale
@@ -459,24 +423,19 @@ contract OracleRegistryTest is Test {
 
     function test_DeactivateFallbackOracle() public {
         vm.warp(10000);
-        
+
         vm.startPrank(owner);
-        
+
         registry.registerChainlinkOracle(weth, address(ethFeed), 60);
-        
+
         twapOracleMock.setPrice(weth, 3050_00000000);
         registry.registerFallbackOracle(
-            weth,
-            OracleRegistry.OracleType.TWAP,
-            address(twapOracleMock),
-            bytes32(0),
-            900,
-            8
+            weth, OracleRegistry.OracleType.TWAP, address(twapOracleMock), bytes32(0), 900, 8
         );
-        
+
         // Deactivate fallback
         registry.deactivateFallbackOracle(weth);
-        
+
         vm.stopPrank();
 
         // Make primary stale
@@ -487,4 +446,3 @@ contract OracleRegistryTest is Test {
         registry.getPrice(weth);
     }
 }
-

@@ -180,14 +180,16 @@ export class FROSTCoordinator {
       throw new Error('Must call generateKeyGenContribution first')
     }
 
-    // In a real implementation:
-    // 1. Verify all commitments
-    // 2. Exchange encrypted shares with each party
-    // 3. Verify received shares against commitments
-    // 4. Compute aggregate share
-
-    // For this implementation, we simulate the aggregate
-    // In production, each party would receive shares from all others
+    // SECURITY NOTE: This is a single-party DKG implementation.
+    // In a full multi-party deployment, each party would:
+    // 1. Verify all commitments from other parties
+    // 2. Receive encrypted shares from every other party
+    // 3. Verify received shares against published commitments
+    // 4. Sum all received shares to get their aggregate share
+    //
+    // For unit testing and single-worker development, we use the sum of
+    // polynomial coefficients as the secret (which is mathematically
+    // equivalent to receiving shares from a single-party DKG).
     let aggregateSecret = ZERO
     for (let i = 0; i < this.polynomial.length; i++) {
       aggregateSecret = (aggregateSecret + this.polynomial[i]) % CURVE_ORDER

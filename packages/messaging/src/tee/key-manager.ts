@@ -9,6 +9,12 @@
  * - mockMode: false - Keys managed by real TEE provider via @jejunetwork/kms
  */
 
+import type {
+  AccessControlPolicy,
+  GeneratedKey,
+  KeyCurve,
+  KeyType,
+} from '@jejunetwork/kms'
 import {
   bytesToHex,
   createLogger,
@@ -20,6 +26,7 @@ import {
   randomBytes,
   toHex,
 } from '@jejunetwork/shared'
+import type { TEEAttestation } from '@jejunetwork/types'
 
 const log = createLogger('tee-key-manager')
 
@@ -34,7 +41,6 @@ import type {
   GenerateKeyResult,
   SignRequest as LocalSignRequest,
   SignResult,
-  TEEAttestation,
   TEEIdentityKey,
   TEEInstallationKey,
   TEEKeyConfig,
@@ -66,6 +72,7 @@ interface MockKeyStore {
 }
 
 // TEE Provider interface (matches @jejunetwork/kms TEEProvider)
+<<<<<<< HEAD
 // Import actual types from KMS for type safety
 import type {
   AccessControlPolicy,
@@ -77,6 +84,8 @@ import type {
   TEEAttestation as KMSTEEAttestation,
 } from '@jejunetwork/kms'
 
+=======
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
 interface TEEProviderInterface {
   connect(): Promise<void>
   disconnect(): Promise<void>
@@ -87,9 +96,20 @@ interface TEEProviderInterface {
     curve: KeyCurve,
     policy: AccessControlPolicy,
   ): Promise<GeneratedKey>
+<<<<<<< HEAD
   sign(request: SignRequest): Promise<SignedMessage>
   getAttestation(keyId?: string): Promise<KMSTEEAttestation>
   verifyAttestation(attestation: KMSTEEAttestation): Promise<boolean>
+=======
+  sign(request: {
+    keyId: string
+    message: Uint8Array | string
+    hashAlgorithm?: string
+  }): Promise<{ signature: Hex; keyId: string; signedAt: number }>
+  getAttestation(keyId?: string): Promise<TEEAttestation>
+  verifyAttestation(attestation: TEEAttestation): Promise<boolean>
+  getStatus(): { connected: boolean; mode: 'remote' | 'local' }
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
 }
 
 /**
@@ -149,7 +169,7 @@ export class TEEXMTPKeyManager {
 
       this.teeProvider = getTEEProvider({
         endpoint: this.config.kmsEndpoint,
-      }) as TEEProviderInterface
+      }) as unknown as TEEProviderInterface
 
       await this.teeProvider.connect()
 
@@ -640,6 +660,7 @@ export class TEEXMTPKeyManager {
       // Use real TEE provider
       await this.ensureTEEConnected()
 
+<<<<<<< HEAD
       const keyType: KeyType =
         request.type === 'ed25519' ? 'signing' : 'encryption'
       const keyCurve: KeyCurve = request.type === 'ed25519' ? 'ed25519' : 'x25519'
@@ -653,6 +674,27 @@ export class TEEXMTPKeyManager {
         keyType,
         keyCurve,
         accessPolicy,
+=======
+      // Note: KMS doesn't support x25519 directly, but ed25519 keys can be converted
+      // For x25519 requests, we use ed25519 in TEE and convert the public key
+      const curve: KeyCurve = 'ed25519'
+      const owner =
+        (request.policy?.owner as Address) ??
+        ('0x0000000000000000000000000000000000000000' as Address)
+
+      // Convert KeyPolicy to AccessControlPolicy
+      // For now, use empty conditions - the owner is already specified as a parameter
+      const kmsPolicy: AccessControlPolicy = {
+        conditions: [],
+        operator: 'and',
+      }
+
+      const result = await this.teeProvider.generateKey(
+        owner,
+        request.type === 'ed25519' ? 'signing' : 'encryption',
+        curve,
+        kmsPolicy,
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
       )
 
       return {
@@ -837,17 +879,36 @@ export class TEEXMTPKeyManager {
 
     const signature = hmacSha256(hmacKey, attestationData)
 
-    return {
+    // Create mock quote (serialized attestation document)
+    const quoteData = {
       version: 1,
       enclaveId: this.config.enclaveId,
       measurement: toHex(measurement),
       pcrs: {
-        0: toHex(randomBytes(32)),
-        1: toHex(randomBytes(32)),
-        2: toHex(randomBytes(32)),
+        '0': toHex(randomBytes(32)),
+        '1': toHex(randomBytes(32)),
+        '2': toHex(randomBytes(32)),
       },
       nonce: toHex(nonce),
       timestamp,
+      signature: toHex(signature),
+    }
+    const quote = toHex(new TextEncoder().encode(JSON.stringify(quoteData)))
+
+    return {
+      quote,
+      measurement: toHex(measurement),
+      timestamp,
+      verified: true,
+      platform: 'simulated',
+      version: 1,
+      enclaveId: this.config.enclaveId,
+      pcrs: {
+        '0': toHex(randomBytes(32)),
+        '1': toHex(randomBytes(32)),
+        '2': toHex(randomBytes(32)),
+      },
+      nonce: toHex(nonce),
       signature: toHex(signature),
     }
   }

@@ -229,7 +229,8 @@ async function runAppTests(
     const hasE2ETests = existsSync(join(appPath, 'tests', 'e2e'))
 
     // Run only full-coverage tests with --no-deps to avoid port conflicts
-    const baseCmd = 'bunx playwright test tests/e2e/full-coverage.spec.ts --reporter=list'
+    const baseCmd =
+      'bunx playwright test tests/e2e/full-coverage.spec.ts --reporter=list'
 
     if (hasPlaywright && hasE2ETests) {
       testCommand = baseCmd

@@ -11,7 +11,7 @@ import {FederationGovernance} from "../../src/federation/FederationGovernance.so
 /**
  * @title FederationIntegrationTest
  * @notice End-to-end integration tests for the Jeju Federation
- * 
+ *
  * Tests cover:
  * - Full network registration and verification flow
  * - Cross-chain registry synchronization
@@ -166,12 +166,7 @@ contract FederationIntegrationTest is Test {
 
         // Autocrat approves (sets timelockEnds = block.timestamp + 7 days)
         vm.prank(councilGovernance);
-        governance.submitAutocratDecision(
-            proposalId,
-            true,
-            keccak256("approved"),
-            "Network meets quality standards"
-        );
+        governance.submitAutocratDecision(proposalId, true, keccak256("approved"), "Network meets quality standards");
 
         // Wait for timelock (7+ days after autocrat decision at t+8 days)
         // timelockEnds = (baseTime + 8 days) + 7 days = baseTime + 15 days
@@ -190,18 +185,12 @@ contract FederationIntegrationTest is Test {
         // Register chains in RegistryHub
         vm.prank(jejuOperator);
         registryHub.registerChain{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            RegistryHub.ChainType.EVM,
-            "Jeju Network",
-            "https://rpc.jejunetwork.org"
+            JEJU_CHAIN_ID, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jejunetwork.org"
         );
 
         vm.prank(fork1Operator);
         registryHub.registerChain{value: 5 ether}(
-            FORK1_CHAIN_ID,
-            RegistryHub.ChainType.EVM,
-            "Fork 1 Network",
-            "https://rpc.fork1.network"
+            FORK1_CHAIN_ID, RegistryHub.ChainType.EVM, "Fork 1 Network", "https://rpc.fork1.network"
         );
 
         // Verify chains in hub
@@ -270,10 +259,8 @@ contract FederationIntegrationTest is Test {
         // Verify syncs
         assertEq(syncOracle.totalUpdates(), 2);
 
-        RegistrySyncOracle.RegistryUpdate memory jejuUpdate = syncOracle.getLatestUpdate(
-            JEJU_CHAIN_ID,
-            RegistrySyncOracle.RegistryType.IDENTITY
-        );
+        RegistrySyncOracle.RegistryUpdate memory jejuUpdate =
+            syncOracle.getLatestUpdate(JEJU_CHAIN_ID, RegistrySyncOracle.RegistryType.IDENTITY);
         assertEq(jejuUpdate.entryCount, 1000);
     }
 
@@ -291,34 +278,19 @@ contract FederationIntegrationTest is Test {
 
         vm.startPrank(jejuOperator);
         registryHub.registerRegistry(
-            JEJU_CHAIN_ID,
-            RegistryHub.RegistryType.IDENTITY,
-            jejuIdentity,
-            "Jeju Identity",
-            "1.0.0",
-            ""
+            JEJU_CHAIN_ID, RegistryHub.RegistryType.IDENTITY, jejuIdentity, "Jeju Identity", "1.0.0", ""
         );
         vm.stopPrank();
 
         vm.startPrank(fork1Operator);
         registryHub.registerRegistry(
-            FORK1_CHAIN_ID,
-            RegistryHub.RegistryType.IDENTITY,
-            fork1Identity,
-            "Fork1 Identity",
-            "1.0.0",
-            ""
+            FORK1_CHAIN_ID, RegistryHub.RegistryType.IDENTITY, fork1Identity, "Fork1 Identity", "1.0.0", ""
         );
         vm.stopPrank();
 
         vm.startPrank(fork2Operator);
         registryHub.registerRegistry(
-            FORK2_CHAIN_ID,
-            RegistryHub.RegistryType.IDENTITY,
-            fork2Identity,
-            "Fork2 Identity",
-            "1.0.0",
-            ""
+            FORK2_CHAIN_ID, RegistryHub.RegistryType.IDENTITY, fork2Identity, "Fork2 Identity", "1.0.0", ""
         );
         vm.stopPrank();
 
@@ -344,7 +316,7 @@ contract FederationIntegrationTest is Test {
             "AI16Z",
             "https://arweave.net/ai16z",
             SolanaVerifier.SolanaProgramType.SPL_TOKEN_2022,
-            1000000000 * 10**9,
+            1000000000 * 10 ** 9,
             9
         );
 
@@ -355,7 +327,7 @@ contract FederationIntegrationTest is Test {
             "DAOS",
             "https://arweave.net/daosfun",
             SolanaVerifier.SolanaProgramType.CUSTOM_REGISTRY,
-            500000000 * 10**9,
+            500000000 * 10 ** 9,
             9
         );
 
@@ -364,10 +336,7 @@ contract FederationIntegrationTest is Test {
         // Also register Solana in RegistryHub
         vm.prank(deployer);
         registryHub.registerSolanaRegistry{value: 1 ether}(
-            ai16zMint,
-            RegistryHub.RegistryType.IDENTITY,
-            "AI16Z Identity Registry",
-            "ipfs://ai16z-metadata"
+            ai16zMint, RegistryHub.RegistryType.IDENTITY, "AI16Z Identity Registry", "ipfs://ai16z-metadata"
         );
 
         // Verify Solana entries
@@ -421,7 +390,7 @@ contract FederationIntegrationTest is Test {
     function test_SequencerRotationMultipleNetworks() public {
         // Create multiple verified networks with explicit time tracking
         uint256 currentTime = block.timestamp;
-        
+
         // First network
         _registerNetworkInRegistry(JEJU_CHAIN_ID, jejuOperator, 10 ether);
         bytes32 proposalId1 = _getProposalId(JEJU_CHAIN_ID);
@@ -434,7 +403,7 @@ contract FederationIntegrationTest is Test {
         vm.warp(currentTime + 16 days);
         governance.executeProposal(proposalId1);
         currentTime = currentTime + 16 days;
-        
+
         // Second network
         _registerNetworkInRegistry(FORK1_CHAIN_ID, fork1Operator, 10 ether);
         bytes32 proposalId2 = _getProposalId(FORK1_CHAIN_ID);
@@ -447,7 +416,7 @@ contract FederationIntegrationTest is Test {
         vm.warp(currentTime + 16 days);
         governance.executeProposal(proposalId2);
         currentTime = currentTime + 16 days;
-        
+
         // Third network
         _registerNetworkInRegistry(FORK2_CHAIN_ID, fork2Operator, 10 ether);
         bytes32 proposalId3 = _getProposalId(FORK2_CHAIN_ID);
@@ -501,30 +470,17 @@ contract FederationIntegrationTest is Test {
         bytes32 identityAddress = bytes32(uint256(uint160(address(0x1111))));
         vm.prank(jejuOperator);
         registryHub.registerRegistry(
-            JEJU_CHAIN_ID,
-            RegistryHub.RegistryType.IDENTITY,
-            identityAddress,
-            "Jeju Identity",
-            "1.0.0",
-            ""
+            JEJU_CHAIN_ID, RegistryHub.RegistryType.IDENTITY, identityAddress, "Jeju Identity", "1.0.0", ""
         );
 
         // Get registry ID
-        bytes32 registryId = registryHub.computeRegistryId(
-            JEJU_CHAIN_ID,
-            RegistryHub.RegistryType.IDENTITY,
-            identityAddress
-        );
+        bytes32 registryId =
+            registryHub.computeRegistryId(JEJU_CHAIN_ID, RegistryHub.RegistryType.IDENTITY, identityAddress);
 
         // Federate a high-value identity (e.g., verified agent)
         bytes32 originId = keccak256("agent-12345");
         vm.prank(jejuOperator);
-        registryHub.federateEntry(
-            registryId,
-            originId,
-            "Verified AI Agent",
-            "ipfs://agent-metadata"
-        );
+        registryHub.federateEntry(registryId, originId, "Verified AI Agent", "ipfs://agent-metadata");
 
         // Verify entry
         bytes32 entryId = registryHub.computeEntryId(registryId, originId);
@@ -540,26 +496,17 @@ contract FederationIntegrationTest is Test {
     function _setupChainsInHub() internal {
         vm.prank(jejuOperator);
         registryHub.registerChain{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            RegistryHub.ChainType.EVM,
-            "Jeju Network",
-            "https://rpc.jejunetwork.org"
+            JEJU_CHAIN_ID, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jejunetwork.org"
         );
 
         vm.prank(fork1Operator);
         registryHub.registerChain{value: 5 ether}(
-            FORK1_CHAIN_ID,
-            RegistryHub.ChainType.EVM,
-            "Fork 1 Network",
-            "https://rpc.fork1.network"
+            FORK1_CHAIN_ID, RegistryHub.ChainType.EVM, "Fork 1 Network", "https://rpc.fork1.network"
         );
 
         vm.prank(fork2Operator);
         registryHub.registerChain{value: 1 ether}(
-            FORK2_CHAIN_ID,
-            RegistryHub.ChainType.EVM,
-            "Fork 2 Network",
-            "https://rpc.fork2.network"
+            FORK2_CHAIN_ID, RegistryHub.ChainType.EVM, "Fork 2 Network", "https://rpc.fork2.network"
         );
     }
 
@@ -567,13 +514,7 @@ contract FederationIntegrationTest is Test {
         vm.startPrank(operator);
         NetworkRegistry.NetworkContracts memory contracts;
         networkRegistry.registerNetwork{value: stake}(
-            chainId,
-            "Network",
-            "https://rpc.network",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            chainId, "Network", "https://rpc.network", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
     }
@@ -585,7 +526,7 @@ contract FederationIntegrationTest is Test {
 
     function _createVerifiedNetwork(uint256 chainId, address operator) internal {
         uint256 baseTime = block.timestamp;
-        
+
         _registerNetworkInRegistry(chainId, operator, 10 ether);
 
         bytes32 proposalId = _getProposalId(chainId);

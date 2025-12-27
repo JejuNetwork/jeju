@@ -21,11 +21,7 @@ contract MockL2OutputOracle is IL2OutputOracle {
     }
 
     function setOutput(uint256 index, bytes32 outputRoot, uint128 timestamp, uint128 l2BlockNumber) external {
-        outputs[index] = OutputProposal({
-            outputRoot: outputRoot,
-            timestamp: timestamp,
-            l2BlockNumber: l2BlockNumber
-        });
+        outputs[index] = OutputProposal({outputRoot: outputRoot, timestamp: timestamp, l2BlockNumber: l2BlockNumber});
         if (index >= latestIndex) latestIndex = index + 1;
     }
 
@@ -110,9 +106,8 @@ contract WithdrawalPortalTest is Test {
 
         assertEq(messagePasser.messageNonce(), 1);
 
-        bytes32 expectedHash = messagePasser.hashWithdrawalParams(
-            0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA
-        );
+        bytes32 expectedHash =
+            messagePasser.hashWithdrawalParams(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         assertTrue(messagePasser.isMessageSent(expectedHash));
     }
 
@@ -144,9 +139,8 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_MessagePasser_EmitsMessagePassed() public {
-        bytes32 expectedHash = messagePasser.hashWithdrawalParams(
-            0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA
-        );
+        bytes32 expectedHash =
+            messagePasser.hashWithdrawalParams(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
 
         vm.expectEmit(true, true, true, true);
         emit L2ToL1MessagePasser.MessagePassed(
@@ -171,7 +165,8 @@ contract WithdrawalPortalTest is Test {
 
     function test_Portal_ProveWithdrawal() public {
         // Setup withdrawal
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         bytes32 withdrawalHash = portal.hashWithdrawal(wtx);
 
         // Create output root proof
@@ -193,7 +188,8 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_Portal_RevertOnInvalidProof() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         bytes32 withdrawalHash = portal.hashWithdrawal(wtx);
 
         WithdrawalPortal.OutputRootProof memory outputProof = _createOutputRootProof(withdrawalHash);
@@ -210,7 +206,8 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_Portal_RevertOnOutputRootMismatch() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         bytes32 withdrawalHash = portal.hashWithdrawal(wtx);
 
         WithdrawalPortal.OutputRootProof memory outputProof = _createOutputRootProof(withdrawalHash);
@@ -225,7 +222,8 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_Portal_RevertOnReproving() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, recipient, WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         bytes32 withdrawalHash = portal.hashWithdrawal(wtx);
 
         WithdrawalPortal.OutputRootProof memory outputProof = _createOutputRootProof(withdrawalHash);
@@ -246,7 +244,8 @@ contract WithdrawalPortalTest is Test {
 
     function test_Portal_FinalizeWithdrawal() public {
         // Setup and prove withdrawal
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         bytes32 withdrawalHash = _proveWithdrawal(wtx);
 
         // Fast forward past challenge period
@@ -264,7 +263,8 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_Portal_RevertOnEarlyFinalization() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         _proveWithdrawal(wtx);
 
         // Try to finalize before challenge period
@@ -275,7 +275,8 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_Portal_RevertOnDoubleFinalization() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         _proveWithdrawal(wtx);
 
         vm.warp(block.timestamp + 7 days + 1);
@@ -289,14 +290,16 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_Portal_RevertOnUnprovenWithdrawal() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
 
         vm.expectRevert(WithdrawalPortal.WithdrawalNotProven.selector);
         portal.finalizeWithdrawal(wtx);
     }
 
     function test_Portal_RevertOnDeletedOutput() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         _proveWithdrawal(wtx);
 
         // Delete the output (simulating a successful challenge)
@@ -311,9 +314,8 @@ contract WithdrawalPortalTest is Test {
     function test_Portal_FinalizeWithCalldata() public {
         bytes memory callData = abi.encodeWithSelector(MockTarget.execute.selector, uint256(42));
 
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(
-            0, user, address(target), 0.5 ether, GAS_LIMIT, callData
-        );
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), 0.5 ether, GAS_LIMIT, callData);
         _proveWithdrawal(wtx);
 
         vm.warp(block.timestamp + 7 days + 1);
@@ -324,7 +326,8 @@ contract WithdrawalPortalTest is Test {
     }
 
     function test_Portal_FinalizeEmitsEvent() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         bytes32 withdrawalHash = _proveWithdrawal(wtx);
 
         vm.warp(block.timestamp + 7 days + 1);
@@ -340,9 +343,8 @@ contract WithdrawalPortalTest is Test {
         target.setShouldFail(true);
 
         bytes memory callData = abi.encodeWithSelector(MockTarget.execute.selector, uint256(42));
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(
-            0, user, address(target), 0, GAS_LIMIT, callData
-        );
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), 0, GAS_LIMIT, callData);
         bytes32 withdrawalHash = _proveWithdrawal(wtx);
 
         vm.warp(block.timestamp + 7 days + 1);
@@ -360,7 +362,8 @@ contract WithdrawalPortalTest is Test {
     // ============ View Function Tests ============
 
     function test_Portal_GetFinalizationTime() public {
-        WithdrawalPortal.WithdrawalTransaction memory wtx = _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
+        WithdrawalPortal.WithdrawalTransaction memory wtx =
+            _createWithdrawal(0, user, address(target), WITHDRAWAL_VALUE, GAS_LIMIT, WITHDRAWAL_DATA);
         bytes32 withdrawalHash = portal.hashWithdrawal(wtx);
 
         // Before proving
@@ -445,7 +448,11 @@ contract WithdrawalPortalTest is Test {
         });
     }
 
-    function _createOutputRootProof(bytes32 withdrawalHash) internal view returns (WithdrawalPortal.OutputRootProof memory) {
+    function _createOutputRootProof(bytes32 withdrawalHash)
+        internal
+        view
+        returns (WithdrawalPortal.OutputRootProof memory)
+    {
         bytes32 storageKey = portal.computeStorageKey(withdrawalHash);
         bytes32 leaf = keccak256(abi.encodePacked(storageKey, bytes32(uint256(1))));
 

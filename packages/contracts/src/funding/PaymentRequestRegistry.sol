@@ -151,38 +151,17 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
     event PaymentRequestUpdated(bytes32 indexed requestId, string evidenceUri);
 
-    event CouncilVoteCast(
-        bytes32 indexed requestId,
-        address indexed voter,
-        VoteType vote
-    );
+    event CouncilVoteCast(bytes32 indexed requestId, address indexed voter, VoteType vote);
 
-    event CEODecisionMade(
-        bytes32 indexed requestId,
-        bool approved,
-        uint256 modifiedAmount
-    );
+    event CEODecisionMade(bytes32 indexed requestId, bool approved, uint256 modifiedAmount);
 
-    event PaymentRequestApproved(
-        bytes32 indexed requestId,
-        uint256 approvedAmount
-    );
+    event PaymentRequestApproved(bytes32 indexed requestId, uint256 approvedAmount);
 
-    event PaymentRequestRejected(
-        bytes32 indexed requestId,
-        string reason
-    );
+    event PaymentRequestRejected(bytes32 indexed requestId, string reason);
 
-    event PaymentRequestPaid(
-        bytes32 indexed requestId,
-        uint256 amount,
-        address token
-    );
+    event PaymentRequestPaid(bytes32 indexed requestId, uint256 amount, address token);
 
-    event PaymentRequestDisputed(
-        bytes32 indexed requestId,
-        bytes32 indexed caseId
-    );
+    event PaymentRequestDisputed(bytes32 indexed requestId, bytes32 indexed caseId);
 
     event PaymentRequestCancelled(bytes32 indexed requestId);
 
@@ -225,11 +204,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _daoRegistry,
-        address _futarchyContract,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _daoRegistry, address _futarchyContract, address _owner) Ownable(_owner) {
         daoRegistry = IDAORegistry(_daoRegistry);
         futarchyContract = _futarchyContract;
     }
@@ -265,9 +240,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
             }
         }
 
-        requestId = keccak256(
-            abi.encodePacked(daoId, msg.sender, block.timestamp, _nextRequestNonce++)
-        );
+        requestId = keccak256(abi.encodePacked(daoId, msg.sender, block.timestamp, _nextRequestNonce++));
 
         _requests[requestId] = PaymentRequest({
             requestId: requestId,
@@ -308,26 +281,19 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
             _requests[requestId].status = PaymentRequestStatus.COUNCIL_REVIEW;
         }
 
-        emit PaymentRequestSubmitted(
-            requestId,
-            daoId,
-            msg.sender,
-            category,
-            requestedAmount,
-            isRetroactive
-        );
+        emit PaymentRequestSubmitted(requestId, daoId, msg.sender, category, requestedAmount, isRetroactive);
     }
 
     /**
      * @notice Update evidence for a pending request
      */
-    function updateEvidence(
-        bytes32 requestId,
-        string calldata evidenceUri
-    ) external onlyRequester(requestId) requestExists(requestId) {
+    function updateEvidence(bytes32 requestId, string calldata evidenceUri)
+        external
+        onlyRequester(requestId)
+        requestExists(requestId)
+    {
         PaymentRequest storage req = _requests[requestId];
-        if (req.status == PaymentRequestStatus.PAID ||
-            req.status == PaymentRequestStatus.CANCELLED) {
+        if (req.status == PaymentRequestStatus.PAID || req.status == PaymentRequestStatus.CANCELLED) {
             revert RequestNotInReview();
         }
 
@@ -339,12 +305,9 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Cancel a request (only before approval)
      */
-    function cancelRequest(
-        bytes32 requestId
-    ) external onlyRequester(requestId) requestExists(requestId) {
+    function cancelRequest(bytes32 requestId) external onlyRequester(requestId) requestExists(requestId) {
         PaymentRequest storage req = _requests[requestId];
-        if (req.status == PaymentRequestStatus.PAID ||
-            req.status == PaymentRequestStatus.APPROVED) {
+        if (req.status == PaymentRequestStatus.PAID || req.status == PaymentRequestStatus.APPROVED) {
             revert RequestNotInReview();
         }
 
@@ -358,11 +321,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Cast a council vote on a payment request
      */
-    function councilVote(
-        bytes32 requestId,
-        VoteType vote,
-        string calldata reason
-    ) external requestExists(requestId) {
+    function councilVote(bytes32 requestId, VoteType vote, string calldata reason) external requestExists(requestId) {
         PaymentRequest storage req = _requests[requestId];
         if (req.status != PaymentRequestStatus.COUNCIL_REVIEW) {
             revert RequestNotInReview();
@@ -375,12 +334,9 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
         if (_hasVoted[requestId][msg.sender]) revert AlreadyVoted();
 
-        _councilVotes[requestId].push(CouncilVote({
-            voter: msg.sender,
-            vote: vote,
-            reason: reason,
-            votedAt: block.timestamp
-        }));
+        _councilVotes[requestId].push(
+            CouncilVote({voter: msg.sender, vote: vote, reason: reason, votedAt: block.timestamp})
+        );
 
         _hasVoted[requestId][msg.sender] = true;
 
@@ -462,12 +418,10 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice CEO makes decision on payment request
      */
-    function ceoDecision(
-        bytes32 requestId,
-        bool approved,
-        uint256 modifiedAmount,
-        string calldata reason
-    ) external requestExists(requestId) {
+    function ceoDecision(bytes32 requestId, bool approved, uint256 modifiedAmount, string calldata reason)
+        external
+        requestExists(requestId)
+    {
         PaymentRequest storage req = _requests[requestId];
         IDAORegistry.DAO memory dao = daoRegistry.getDAO(req.daoId);
 
@@ -507,10 +461,11 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice File a dispute after rejection
      */
-    function fileDispute(
-        bytes32 requestId,
-        string calldata evidenceUri
-    ) external onlyRequester(requestId) requestExists(requestId) {
+    function fileDispute(bytes32 requestId, string calldata evidenceUri)
+        external
+        onlyRequester(requestId)
+        requestExists(requestId)
+    {
         PaymentRequest storage req = _requests[requestId];
         DAOPaymentConfig memory config = _getConfig(req.daoId);
 
@@ -535,11 +490,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Resolve dispute (called by futarchy contract)
      */
-    function resolveDispute(
-        bytes32 requestId,
-        bool inFavorOfRequester,
-        uint256 awardedAmount
-    ) external {
+    function resolveDispute(bytes32 requestId, bool inFavorOfRequester, uint256 awardedAmount) external {
         // Only futarchy contract can resolve
         if (msg.sender != futarchyContract && msg.sender != owner()) {
             revert NotAuthorized();
@@ -568,9 +519,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Execute payment for approved request
      */
-    function executePayment(
-        bytes32 requestId
-    ) external nonReentrant requestExists(requestId) {
+    function executePayment(bytes32 requestId) external nonReentrant requestExists(requestId) {
         PaymentRequest storage req = _requests[requestId];
 
         if (req.status != PaymentRequestStatus.APPROVED) {
@@ -589,11 +538,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
             if (!success) revert TransferFailed();
         } else {
             // ERC20
-            IERC20(req.paymentToken).safeTransferFrom(
-                dao.treasury,
-                req.requester,
-                req.approvedAmount
-            );
+            IERC20(req.paymentToken).safeTransferFrom(dao.treasury, req.requester, req.approvedAmount);
         }
 
         emit PaymentRequestPaid(requestId, req.approvedAmount, req.paymentToken);
@@ -604,10 +549,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Set payment configuration for a DAO
      */
-    function setDAOConfig(
-        bytes32 daoId,
-        DAOPaymentConfig calldata config
-    ) external {
+    function setDAOConfig(bytes32 daoId, DAOPaymentConfig calldata config) external {
         if (!daoRegistry.isDAOAdmin(daoId, msg.sender)) revert NotAuthorized();
 
         _daoConfigs[daoId] = config;
@@ -674,9 +616,10 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
         for (uint256 i = 0; i < requestIds.length; i++) {
             PaymentRequestStatus status = _requests[requestIds[i]].status;
-            if (status == PaymentRequestStatus.SUBMITTED ||
-                status == PaymentRequestStatus.COUNCIL_REVIEW ||
-                status == PaymentRequestStatus.CEO_REVIEW) {
+            if (
+                status == PaymentRequestStatus.SUBMITTED || status == PaymentRequestStatus.COUNCIL_REVIEW
+                    || status == PaymentRequestStatus.CEO_REVIEW
+            ) {
                 pendingCount++;
             }
         }
@@ -686,9 +629,10 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
         for (uint256 i = 0; i < requestIds.length; i++) {
             PaymentRequestStatus status = _requests[requestIds[i]].status;
-            if (status == PaymentRequestStatus.SUBMITTED ||
-                status == PaymentRequestStatus.COUNCIL_REVIEW ||
-                status == PaymentRequestStatus.CEO_REVIEW) {
+            if (
+                status == PaymentRequestStatus.SUBMITTED || status == PaymentRequestStatus.COUNCIL_REVIEW
+                    || status == PaymentRequestStatus.CEO_REVIEW
+            ) {
                 pending[index] = _requests[requestIds[i]];
                 index++;
             }
@@ -721,4 +665,3 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

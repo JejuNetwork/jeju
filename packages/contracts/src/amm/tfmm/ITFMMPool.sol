@@ -10,10 +10,10 @@ interface ITFMMPool {
     // ============ Structs ============
 
     struct GuardRails {
-        uint256 minWeight;           // Minimum weight per token (18 decimals)
-        uint256 maxWeight;           // Maximum weight per token (18 decimals)
-        uint256 maxWeightChangeBps;  // Max change per update in basis points
-        uint256 minUpdateInterval;   // Minimum blocks between updates
+        uint256 minWeight; // Minimum weight per token (18 decimals)
+        uint256 maxWeight; // Maximum weight per token (18 decimals)
+        uint256 maxWeightChangeBps; // Max change per update in basis points
+        uint256 minUpdateInterval; // Minimum blocks between updates
     }
 
     struct PoolState {
@@ -30,10 +30,7 @@ interface ITFMMPool {
     // ============ Events ============
 
     event WeightsUpdated(
-        uint256[] oldWeights,
-        uint256[] newWeights,
-        uint256 blocksToTarget,
-        uint256 indexed blockNumber
+        uint256[] oldWeights, uint256[] newWeights, uint256 blocksToTarget, uint256 indexed blockNumber
     );
 
     event Swap(
@@ -45,17 +42,9 @@ interface ITFMMPool {
         uint256 feeAmount
     );
 
-    event LiquidityAdded(
-        address indexed provider,
-        uint256[] amounts,
-        uint256 lpTokensMinted
-    );
+    event LiquidityAdded(address indexed provider, uint256[] amounts, uint256 lpTokensMinted);
 
-    event LiquidityRemoved(
-        address indexed provider,
-        uint256[] amounts,
-        uint256 lpTokensBurned
-    );
+    event LiquidityRemoved(address indexed provider, uint256[] amounts, uint256 lpTokensBurned);
 
     event StrategyRuleUpdated(address indexed oldRule, address indexed newRule);
     event GuardRailsUpdated(GuardRails newGuardRails);
@@ -127,21 +116,17 @@ interface ITFMMPool {
      * @param minAmountOut Minimum output amount (slippage protection)
      * @return amountOut Actual output amount
      */
-    function swap(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut
-    ) external returns (uint256 amountOut);
+    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
+        external
+        returns (uint256 amountOut);
 
     /**
      * @notice Get expected output for a swap
      */
-    function getAmountOut(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (uint256 amountOut, uint256 feeAmount);
+    function getAmountOut(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (uint256 amountOut, uint256 feeAmount);
 
     /**
      * @notice Get spot price of tokenIn in terms of tokenOut
@@ -156,10 +141,7 @@ interface ITFMMPool {
      * @param minLpTokens Minimum LP tokens to receive
      * @return lpTokens LP tokens minted
      */
-    function addLiquidity(
-        uint256[] calldata amounts,
-        uint256 minLpTokens
-    ) external returns (uint256 lpTokens);
+    function addLiquidity(uint256[] calldata amounts, uint256 minLpTokens) external returns (uint256 lpTokens);
 
     /**
      * @notice Remove liquidity proportionally
@@ -167,10 +149,9 @@ interface ITFMMPool {
      * @param minAmounts Minimum token amounts to receive
      * @return amounts Token amounts received
      */
-    function removeLiquidity(
-        uint256 lpTokens,
-        uint256[] calldata minAmounts
-    ) external returns (uint256[] memory amounts);
+    function removeLiquidity(uint256 lpTokens, uint256[] calldata minAmounts)
+        external
+        returns (uint256[] memory amounts);
 
     // ============ Fees ============
 
@@ -196,4 +177,3 @@ interface ITFMMPool {
      */
     function setProtocolFee(uint256 newFeeBps) external;
 }
-

@@ -285,7 +285,6 @@ export class DWSLocalProvisioner {
     // Check if already deployed (from cache)
     if (this.state.contracts) {
       // Verify contract still exists on chain
-      const _account = privateKeyToAccount(this.privateKey)
       const publicClient = createPublicClient({
         chain: foundry,
         transport: http(this.rpcUrl),

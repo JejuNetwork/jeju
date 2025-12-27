@@ -12,7 +12,7 @@ import type {
   Hash32,
   ProofBatch,
   SP1Proof,
-  TEEAttestation,
+  TEEBatchAttestation,
   TEEBatchingConfig,
   TEECacheEntry,
 } from '../types/index.js'
@@ -33,7 +33,7 @@ export class TEEBatcher {
   private config: TEEBatchingConfig
   private pendingBatches: Map<string, BatchState> = new Map()
   private currentBatch: BatchState | null = null
-  private attestation: TEEAttestation | null = null
+  private attestation: TEEBatchAttestation | null = null
   private batchTimer: ReturnType<typeof setTimeout> | null = null
 
   // SECURITY: Mutex to prevent race conditions in batch operations
@@ -175,7 +175,7 @@ export class TEEBatcher {
     return proofBatch
   }
 
-  getAttestation(): TEEAttestation | null {
+  getAttestation(): TEEBatchAttestation | null {
     return this.attestation
   }
 
@@ -285,7 +285,7 @@ export class TEEBatcher {
     return encoder.encode(data)
   }
 
-  private async generateAttestation(): Promise<TEEAttestation> {
+  private async generateAttestation(): Promise<TEEBatchAttestation> {
     // Check if Phala is available
     const phalaEndpoint = getPhalaEndpoint()
 

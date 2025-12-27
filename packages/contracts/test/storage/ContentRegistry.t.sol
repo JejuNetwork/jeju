@@ -48,10 +48,7 @@ contract ContentRegistryTest is Test {
 
         vm.prank(uploader);
         IContentRegistry.ContentStatus status = registry.registerContent{value: rewardPool}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         assertEq(uint8(status), uint8(IContentRegistry.ContentStatus.APPROVED));
@@ -66,12 +63,8 @@ contract ContentRegistryTest is Test {
 
     function test_RegisterContent_NetworkFree() public {
         vm.prank(uploader);
-        IContentRegistry.ContentStatus status = registry.registerContent(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.NETWORK_FREE
-        );
+        IContentRegistry.ContentStatus status =
+            registry.registerContent(contentHash, infohash, contentSize, IContentRegistry.ContentTier.NETWORK_FREE);
 
         assertEq(uint8(status), uint8(IContentRegistry.ContentStatus.APPROVED));
 
@@ -84,19 +77,13 @@ contract ContentRegistryTest is Test {
 
         vm.prank(uploader);
         registry.registerContent{value: rewardPool}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         vm.prank(uploader);
         vm.expectRevert("Already registered");
         registry.registerContent{value: rewardPool}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
     }
 
@@ -106,10 +93,7 @@ contract ContentRegistryTest is Test {
         // Register content first
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         // Flag it
@@ -125,10 +109,7 @@ contract ContentRegistryTest is Test {
     function test_FlagContent_CSAM_AutoBan() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         bytes32 evidenceHash = keccak256("evidence");
@@ -143,10 +124,7 @@ contract ContentRegistryTest is Test {
     function test_BanContent() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         // Flag first
@@ -164,10 +142,7 @@ contract ContentRegistryTest is Test {
     function test_ClearContent() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         vm.prank(reporter);
@@ -185,10 +160,7 @@ contract ContentRegistryTest is Test {
     function test_StartSeeding() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         vm.prank(seeder);
@@ -203,10 +175,7 @@ contract ContentRegistryTest is Test {
     function test_StopSeeding() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         vm.prank(seeder);
@@ -224,10 +193,7 @@ contract ContentRegistryTest is Test {
     function test_ReportSeeding() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         vm.prank(seeder);
@@ -235,12 +201,8 @@ contract ContentRegistryTest is Test {
 
         // Create oracle signature
         uint128 bytesServed = 1024 * 1024 * 100; // 100 MB
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(seeder, infohash, bytesServed, block.timestamp / 3600)
-        );
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
+        bytes32 messageHash = keccak256(abi.encodePacked(seeder, infohash, bytesServed, block.timestamp / 3600));
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(oraclePrivateKey, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -255,10 +217,7 @@ contract ContentRegistryTest is Test {
     function test_ClaimRewards() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.1 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         vm.prank(seeder);
@@ -266,12 +225,8 @@ contract ContentRegistryTest is Test {
 
         // Report seeding
         uint128 bytesServed = 1024 * 1024 * 1024; // 1 GB
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(seeder, infohash, bytesServed, block.timestamp / 3600)
-        );
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
+        bytes32 messageHash = keccak256(abi.encodePacked(seeder, infohash, bytesServed, block.timestamp / 3600));
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(oraclePrivateKey, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -296,10 +251,7 @@ contract ContentRegistryTest is Test {
         // Ban some content
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         vm.prank(owner);
@@ -319,10 +271,7 @@ contract ContentRegistryTest is Test {
 
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         assertTrue(registry.canServe(contentHash)); // Approved content can be served
@@ -355,10 +304,7 @@ contract ContentRegistryTest is Test {
     function test_TopUpRewardPool() public {
         vm.prank(uploader);
         registry.registerContent{value: 0.05 ether}(
-            contentHash,
-            infohash,
-            contentSize,
-            IContentRegistry.ContentTier.STANDARD
+            contentHash, infohash, contentSize, IContentRegistry.ContentTier.STANDARD
         );
 
         uint128 topUp = 0.1 ether;

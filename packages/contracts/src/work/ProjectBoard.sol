@@ -19,7 +19,6 @@ import "../registry/IdentityRegistry.sol";
  *      - Linear-style workflow states
  */
 contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
-
     // ============ Enums ============
 
     enum IssueStatus {
@@ -52,7 +51,7 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         bytes32 projectId;
         string name;
         string description;
-        string slug;                // URL-friendly identifier
+        string slug; // URL-friendly identifier
         address owner;
         uint256 ownerAgentId;
         string iconUri;
@@ -66,20 +65,20 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
     struct Issue {
         bytes32 issueId;
         bytes32 projectId;
-        uint256 number;             // Sequential issue number
+        uint256 number; // Sequential issue number
         string title;
         string description;
-        string detailsUri;          // IPFS URI for rich content
+        string detailsUri; // IPFS URI for rich content
         IssueStatus status;
         IssuePriority priority;
         string[] labels;
         address creator;
         address assignee;
         uint256 assigneeAgentId;
-        bytes32 parentIssue;        // For sub-issues
-        bytes32 cycleId;            // Optional cycle/sprint
-        bytes32 bountyId;           // Optional linked bounty
-        uint256 estimate;           // Story points / estimate
+        bytes32 parentIssue; // For sub-issues
+        bytes32 cycleId; // Optional cycle/sprint
+        bytes32 bountyId; // Optional linked bounty
+        uint256 estimate; // Story points / estimate
         uint256 createdAt;
         uint256 updatedAt;
         uint256 completedAt;
@@ -102,8 +101,8 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         address author;
         uint256 authorAgentId;
         string content;
-        string contentUri;          // IPFS for rich content
-        bytes32 parentComment;      // For threaded replies
+        string contentUri; // IPFS for rich content
+        bytes32 parentComment; // For threaded replies
         uint256 createdAt;
         uint256 updatedAt;
         bool isEdited;
@@ -113,7 +112,7 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         bytes32 activityId;
         bytes32 issueId;
         address actor;
-        string activityType;        // "status_change", "assign", "comment", etc.
+        string activityType; // "status_change", "assign", "comment", etc.
         string fromValue;
         string toValue;
         uint256 timestamp;
@@ -138,20 +137,20 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
     mapping(bytes32 => Comment[]) public comments;
     mapping(bytes32 => IssueActivity[]) public activities;
     mapping(bytes32 => ProjectMember[]) public members;
-    
+
     // Project issues
     mapping(bytes32 => bytes32[]) public projectIssues;
     mapping(bytes32 => bytes32[]) public projectCycles;
-    
+
     // Issue counters per project
     mapping(bytes32 => uint256) public projectIssueCount;
-    
+
     // User assignments
     mapping(address => bytes32[]) public userAssignedIssues;
-    
+
     // Project slug uniqueness
     mapping(string => bytes32) public slugToProject;
-    
+
     bytes32[] public allProjects;
     uint256 private _nextProjectId = 1;
     uint256 private _nextIssueId = 1;
@@ -164,16 +163,16 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
     event ProjectCreated(bytes32 indexed projectId, string name, string slug, address indexed owner);
     event ProjectUpdated(bytes32 indexed projectId);
     event ProjectArchived(bytes32 indexed projectId);
-    
+
     event IssueCreated(bytes32 indexed issueId, bytes32 indexed projectId, uint256 number, string title);
     event IssueUpdated(bytes32 indexed issueId, string field, string fromValue, string toValue);
     event IssueStatusChanged(bytes32 indexed issueId, IssueStatus oldStatus, IssueStatus newStatus);
     event IssueAssigned(bytes32 indexed issueId, address indexed assignee);
     event IssueBountyLinked(bytes32 indexed issueId, bytes32 indexed bountyId);
-    
+
     event CycleCreated(bytes32 indexed cycleId, bytes32 indexed projectId, string name);
     event CycleCompleted(bytes32 indexed cycleId);
-    
+
     event CommentAdded(bytes32 indexed issueId, bytes32 indexed commentId, address indexed author);
     event MemberAdded(bytes32 indexed projectId, address indexed member, MemberRole role);
     event MemberRemoved(bytes32 indexed projectId, address indexed member);
@@ -207,10 +206,7 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _identityRegistry, address initialOwner) Ownable(initialOwner) {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
     }
 
@@ -251,13 +247,15 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         allProjects.push(projectId);
 
         // Add creator as owner
-        members[projectId].push(ProjectMember({
-            member: msg.sender,
-            agentId: agentId,
-            role: MemberRole.OWNER,
-            joinedAt: block.timestamp,
-            isActive: true
-        }));
+        members[projectId].push(
+            ProjectMember({
+                member: msg.sender,
+                agentId: agentId,
+                role: MemberRole.OWNER,
+                joinedAt: block.timestamp,
+                isActive: true
+            })
+        );
 
         emit ProjectCreated(projectId, name, slug, msg.sender);
     }
@@ -265,20 +263,16 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Add a member to project
      */
-    function addMember(bytes32 projectId, address member, MemberRole role) 
-        external 
+    function addMember(bytes32 projectId, address member, MemberRole role)
+        external
         projectExists(projectId)
         onlyProjectMember(projectId, MemberRole.ADMIN)
     {
         uint256 agentId = _getAgentIdForAddress(member);
 
-        members[projectId].push(ProjectMember({
-            member: member,
-            agentId: agentId,
-            role: role,
-            joinedAt: block.timestamp,
-            isActive: true
-        }));
+        members[projectId].push(
+            ProjectMember({member: member, agentId: agentId, role: role, joinedAt: block.timestamp, isActive: true})
+        );
 
         emit MemberAdded(projectId, member, role);
     }
@@ -286,8 +280,8 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Remove a member from project
      */
-    function removeMember(bytes32 projectId, address member) 
-        external 
+    function removeMember(bytes32 projectId, address member)
+        external
         projectExists(projectId)
         onlyProjectMember(projectId, MemberRole.ADMIN)
     {
@@ -316,7 +310,13 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         bytes32 parentIssue,
         bytes32 cycleId,
         uint256 estimate
-    ) external nonReentrant projectExists(projectId) onlyProjectMember(projectId, MemberRole.MEMBER) returns (bytes32 issueId) {
+    )
+        external
+        nonReentrant
+        projectExists(projectId)
+        onlyProjectMember(projectId, MemberRole.MEMBER)
+        returns (bytes32 issueId)
+    {
         issueId = keccak256(abi.encodePacked(_nextIssueId++, projectId, msg.sender, block.timestamp));
 
         projectIssueCount[projectId]++;
@@ -350,17 +350,17 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Update issue status
      */
-    function updateIssueStatus(bytes32 issueId, IssueStatus newStatus) 
-        external 
+    function updateIssueStatus(bytes32 issueId, IssueStatus newStatus)
+        external
         issueExists(issueId)
         onlyProjectMember(issues[issueId].projectId, MemberRole.MEMBER)
     {
         Issue storage issue = issues[issueId];
         IssueStatus oldStatus = issue.status;
-        
+
         issue.status = newStatus;
         issue.updatedAt = block.timestamp;
-        
+
         if (newStatus == IssueStatus.DONE) {
             issue.completedAt = block.timestamp;
         }
@@ -379,7 +379,7 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         onlyProjectMember(issues[issueId].projectId, MemberRole.MEMBER)
     {
         Issue storage issue = issues[issueId];
-        
+
         // Remove from old assignee
         if (issue.assignee != address(0)) {
             _removeFromAssignedIssues(issue.assignee, issueId);
@@ -422,18 +422,20 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
     {
         commentId = keccak256(abi.encodePacked(_nextCommentId++, issueId, msg.sender, block.timestamp));
 
-        comments[issueId].push(Comment({
-            commentId: commentId,
-            issueId: issueId,
-            author: msg.sender,
-            authorAgentId: _getAgentIdForAddress(msg.sender),
-            content: content,
-            contentUri: contentUri,
-            parentComment: parentComment,
-            createdAt: block.timestamp,
-            updatedAt: block.timestamp,
-            isEdited: false
-        }));
+        comments[issueId].push(
+            Comment({
+                commentId: commentId,
+                issueId: issueId,
+                author: msg.sender,
+                authorAgentId: _getAgentIdForAddress(msg.sender),
+                content: content,
+                contentUri: contentUri,
+                parentComment: parentComment,
+                createdAt: block.timestamp,
+                updatedAt: block.timestamp,
+                isEdited: false
+            })
+        );
 
         issues[issueId].updatedAt = block.timestamp;
 
@@ -506,18 +508,22 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         return false;
     }
 
-    function _logActivity(bytes32 issueId, string memory activityType, string memory fromValue, string memory toValue) internal {
+    function _logActivity(bytes32 issueId, string memory activityType, string memory fromValue, string memory toValue)
+        internal
+    {
         bytes32 activityId = keccak256(abi.encodePacked(_nextActivityId++, issueId, block.timestamp));
-        
-        activities[issueId].push(IssueActivity({
-            activityId: activityId,
-            issueId: issueId,
-            actor: msg.sender,
-            activityType: activityType,
-            fromValue: fromValue,
-            toValue: toValue,
-            timestamp: block.timestamp
-        }));
+
+        activities[issueId].push(
+            IssueActivity({
+                activityId: activityId,
+                issueId: issueId,
+                actor: msg.sender,
+                activityType: activityType,
+                fromValue: fromValue,
+                toValue: toValue,
+                timestamp: block.timestamp
+            })
+        );
     }
 
     function _removeFromAssignedIssues(address user, bytes32 issueId) internal {
@@ -542,14 +548,14 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
 
     function _addressToString(address addr) internal pure returns (string memory) {
         bytes memory str = new bytes(42);
-        str[0] = '0';
-        str[1] = 'x';
+        str[0] = "0";
+        str[1] = "x";
         for (uint256 i = 0; i < 20; i++) {
-            bytes1 b = bytes1(uint8(uint256(uint160(addr)) / (2**(8*(19 - i)))));
+            bytes1 b = bytes1(uint8(uint256(uint160(addr)) / (2 ** (8 * (19 - i)))));
             bytes1 hi = bytes1(uint8(b) / 16);
             bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
-            str[2+i*2] = _char(hi);
-            str[3+i*2] = _char(lo);
+            str[2 + i * 2] = _char(hi);
+            str[3 + i * 2] = _char(lo);
         }
         return string(str);
     }
@@ -628,4 +634,3 @@ contract ProjectBoard is ReentrancyGuard, Pausable, Ownable {
         return "1.0.0";
     }
 }
-

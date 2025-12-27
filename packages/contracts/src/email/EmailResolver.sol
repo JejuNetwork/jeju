@@ -25,11 +25,11 @@ contract EmailResolver {
     // ============ Structs ============
 
     struct EmailRecord {
-        bytes32 publicKeyHash;        // Hash of encryption public key
-        address[] preferredRelays;    // Preferred relay node addresses
-        string forwardAddress;        // Forward all mail to this address
-        bool encryptionRequired;      // Require E2E encryption
-        bool externalEnabled;         // Allow external email
+        bytes32 publicKeyHash; // Hash of encryption public key
+        address[] preferredRelays; // Preferred relay node addresses
+        string forwardAddress; // Forward all mail to this address
+        bool encryptionRequired; // Require E2E encryption
+        bool externalEnabled; // Allow external email
     }
 
     // ============ State ============
@@ -147,11 +147,7 @@ contract EmailResolver {
      * @param encryptionRequired Require E2E encryption
      * @param externalEnabled Allow external email
      */
-    function setEmailConfig(
-        bytes32 node,
-        bool encryptionRequired,
-        bool externalEnabled
-    ) external authorised(node) {
+    function setEmailConfig(bytes32 node, bool encryptionRequired, bool externalEnabled) external authorised(node) {
         _emailRecords[node].encryptionRequired = encryptionRequired;
         _emailRecords[node].externalEnabled = externalEnabled;
         emit EmailConfigChanged(node, encryptionRequired, externalEnabled);
@@ -226,11 +222,7 @@ contract EmailResolver {
      * @param keys Text keys
      * @param values Text values
      */
-    function setEmailTexts(
-        bytes32 node,
-        string[] calldata keys,
-        string[] calldata values
-    ) external authorised(node) {
+    function setEmailTexts(bytes32 node, string[] calldata keys, string[] calldata values) external authorised(node) {
         require(keys.length == values.length, "Length mismatch");
         for (uint256 i = 0; i < keys.length; i++) {
             _emailTexts[node][keys[i]] = values[i];
@@ -247,11 +239,11 @@ contract EmailResolver {
      * @return relays Preferred relay addresses
      * @return encryptionRequired Whether encryption is required
      */
-    function resolveEmailEncryption(bytes32 node) external view returns (
-        bytes32 publicKeyHash,
-        address[] memory relays,
-        bool encryptionRequired
-    ) {
+    function resolveEmailEncryption(bytes32 node)
+        external
+        view
+        returns (bytes32 publicKeyHash, address[] memory relays, bool encryptionRequired)
+    {
         EmailRecord storage record = _emailRecords[node];
         return (record.publicKeyHash, record.preferredRelays, record.encryptionRequired);
     }

@@ -5,15 +5,11 @@
  * Private keys never leave the secure enclave.
  */
 
+import type { TEEAttestation } from '@jejunetwork/types'
 import { type Address, type Hex, keccak256 } from 'viem'
 import { EncryptedBackupSchema } from '../schemas'
 import type { TEEXMTPKeyManager } from './key-manager'
-import type {
-  EncryptedBackup,
-  TEEAttestation,
-  TEEIdentityKey,
-  TEEPreKey,
-} from './types'
+import type { EncryptedBackup, TEEIdentityKey, TEEPreKey } from './types'
 
 /**
  * Signed public key bundle for XMTP registration

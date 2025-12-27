@@ -11,17 +11,17 @@ library OracleLib {
 
     /// @notice Chainlink aggregator configuration
     struct ChainlinkConfig {
-        address feed;           // Aggregator address
-        uint256 maxStaleness;   // Maximum age of price data in seconds
+        address feed; // Aggregator address
+        uint256 maxStaleness; // Maximum age of price data in seconds
         uint8 expectedDecimals; // Expected decimal precision
     }
 
     /// @notice Price result with metadata
     struct PriceResult {
-        uint256 price;          // Price value
-        uint256 timestamp;      // When price was updated
-        uint8 decimals;         // Price decimals
-        bool isValid;           // Whether price passed validation
+        uint256 price; // Price value
+        uint256 timestamp; // When price was updated
+        uint8 decimals; // Price decimals
+        bool isValid; // Whether price passed validation
     }
 
     // ============ Errors ============
@@ -41,13 +41,8 @@ library OracleLib {
     function readChainlinkPrice(ChainlinkConfig memory config) internal view returns (PriceResult memory result) {
         if (config.feed == address(0)) revert ZeroAddress();
 
-        (
-            uint80 roundId,
-            int256 answer,
-            ,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        ) = IChainlinkAggregator(config.feed).latestRoundData();
+        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) =
+            IChainlinkAggregator(config.feed).latestRoundData();
 
         result.timestamp = updatedAt;
         result.decimals = config.expectedDecimals;
@@ -80,16 +75,15 @@ library OracleLib {
      * @return price Validated price
      * @return timestamp Price update timestamp
      */
-    function readChainlinkPriceStrict(ChainlinkConfig memory config) internal view returns (uint256 price, uint256 timestamp) {
+    function readChainlinkPriceStrict(ChainlinkConfig memory config)
+        internal
+        view
+        returns (uint256 price, uint256 timestamp)
+    {
         if (config.feed == address(0)) revert ZeroAddress();
 
-        (
-            uint80 roundId,
-            int256 answer,
-            ,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        ) = IChainlinkAggregator(config.feed).latestRoundData();
+        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) =
+            IChainlinkAggregator(config.feed).latestRoundData();
 
         if (answer <= 0) revert InvalidPrice();
         if (answeredInRound < roundId) revert StaleRound(answeredInRound, roundId);
@@ -107,7 +101,7 @@ library OracleLib {
      * @return isStale True if price is stale
      */
     function isChainlinkStale(address feed, uint256 maxAge) internal view returns (bool isStale) {
-        (, , , uint256 updatedAt, ) = IChainlinkAggregator(feed).latestRoundData();
+        (,,, uint256 updatedAt,) = IChainlinkAggregator(feed).latestRoundData();
         return updatedAt == 0 || block.timestamp - updatedAt > maxAge;
     }
 
@@ -129,7 +123,11 @@ library OracleLib {
      * @param toDecimals Target decimals
      * @return normalized Normalized price
      */
-    function normalizeDecimals(uint256 value, uint8 fromDecimals, uint8 toDecimals) internal pure returns (uint256 normalized) {
+    function normalizeDecimals(uint256 value, uint8 fromDecimals, uint8 toDecimals)
+        internal
+        pure
+        returns (uint256 normalized)
+    {
         if (fromDecimals == toDecimals) {
             return value;
         } else if (fromDecimals > toDecimals) {
@@ -169,13 +167,16 @@ library OracleLib {
      * @param referencePrice Reference price to compare against
      * @return deviationBps Deviation in basis points (10000 = 100%)
      */
-    function calculateDeviationBps(uint256 currentPrice, uint256 referencePrice) internal pure returns (uint256 deviationBps) {
+    function calculateDeviationBps(uint256 currentPrice, uint256 referencePrice)
+        internal
+        pure
+        returns (uint256 deviationBps)
+    {
         if (referencePrice == 0) return type(uint256).max;
-        
-        uint256 priceDiff = currentPrice > referencePrice 
-            ? currentPrice - referencePrice 
-            : referencePrice - currentPrice;
-        
+
+        uint256 priceDiff =
+            currentPrice > referencePrice ? currentPrice - referencePrice : referencePrice - currentPrice;
+
         deviationBps = (priceDiff * 10000) / referencePrice;
     }
 
@@ -186,11 +187,11 @@ library OracleLib {
      * @param maxDeviationBps Maximum allowed deviation in basis points
      * @return exceeded True if deviation exceeds threshold
      */
-    function isDeviationExceeded(
-        uint256 currentPrice,
-        uint256 referencePrice,
-        uint256 maxDeviationBps
-    ) internal pure returns (bool exceeded) {
+    function isDeviationExceeded(uint256 currentPrice, uint256 referencePrice, uint256 maxDeviationBps)
+        internal
+        pure
+        returns (bool exceeded)
+    {
         return calculateDeviationBps(currentPrice, referencePrice) > maxDeviationBps;
     }
 }
@@ -200,13 +201,10 @@ library OracleLib {
  * @notice Minimal Chainlink AggregatorV3 interface
  */
 interface IChainlinkAggregator {
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    );
-    
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
+
     function decimals() external view returns (uint8);
 }

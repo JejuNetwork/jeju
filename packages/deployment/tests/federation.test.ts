@@ -10,7 +10,13 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import type { Address } from 'viem'
 
@@ -48,17 +54,9 @@ const DEPLOYMENTS_DIR = join(
 function loadConfig(): FederationConfig {
   const configFile = join(DEPLOYMENTS_DIR, 'config.json')
   if (existsSync(configFile)) {
-    return JSON.parse(Bun.file(configFile).text())
+    return JSON.parse(readFileSync(configFile, 'utf-8'))
   }
   return createTestConfig()
-}
-
-function _saveConfig(config: FederationConfig): void {
-  if (!existsSync(DEPLOYMENTS_DIR)) {
-    mkdirSync(DEPLOYMENTS_DIR, { recursive: true })
-  }
-  const configFile = join(DEPLOYMENTS_DIR, 'config.json')
-  writeFileSync(configFile, JSON.stringify(config, null, 2))
 }
 
 const TEST_DIR = join(import.meta.dir, '../temp/federation-test')

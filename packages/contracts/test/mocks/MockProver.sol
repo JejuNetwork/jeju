@@ -8,11 +8,11 @@ import "../../src/dispute/provers/IProver.sol";
 contract MockProver is IProver {
     bool public shouldVerifyFraud = true;
     bool public shouldVerifyDefense = true;
-    
+
     function setVerifyFraud(bool _should) external {
         shouldVerifyFraud = _should;
     }
-    
+
     function setVerifyDefense(bool _should) external {
         shouldVerifyDefense = _should;
     }
@@ -29,4 +29,3 @@ contract MockProver is IProver {
         return "MOCK_PROVER";
     }
 }
-

@@ -3,6 +3,7 @@
  */
 
 import { getRpcUrl } from '@jejunetwork/config'
+import type { TEEAttestation } from '@jejunetwork/types'
 import { toError, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -13,7 +14,7 @@ import {
   type PublicClient,
   toBytes,
 } from 'viem'
-import { AuthProvider, type TEEAttestation, TEEProvider } from '../types.js'
+import { AuthProvider, TEEProvider } from '../types.js'
 import {
   ProvidersListResponseSchema,
   TEEAttestationSchema,
@@ -251,7 +252,7 @@ export class OAuth3DecentralizedDiscovery {
         supportedProviders,
         latency: healthCheck.latency,
         healthy: healthCheck.valid,
-        verifiedOnChain: provider.attestation.verified,
+        verifiedOnChain: provider.attestation.verified ?? false,
       }
 
       if (node.healthy || node.verifiedOnChain) {
@@ -359,7 +360,7 @@ export class OAuth3DecentralizedDiscovery {
       configuredChainId === CHAIN_IDS.localnetAnvil
 
     if (!attestation.verified) {
-      if (attestation.provider === TEEProvider.SIMULATED && isLocalnet) {
+      if (attestation.platform === TEEProvider.SIMULATED && isLocalnet) {
         return { valid: true, attestation, latency }
       }
       return {

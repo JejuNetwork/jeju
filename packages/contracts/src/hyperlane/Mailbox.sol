@@ -207,10 +207,3 @@ interface IPostDispatchHook {
     function postDispatch(bytes calldata _metadata, bytes calldata _message) external payable;
     function quoteDispatch(bytes calldata _metadata, bytes calldata _message) external view returns (uint256);
 }
-
-
-
-
-
-
-

@@ -256,4 +256,3 @@ describe('Transport batch requests', () => {
     expect(batchResponse[2].error?.code).toBe(-32601)
   })
 })
-

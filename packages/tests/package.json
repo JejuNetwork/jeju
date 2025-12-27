@@ -15,7 +15,8 @@
     "./infra-check": "./shared/infra-check.ts",
     "./lock-manager": "./shared/lock-manager.ts",
     "./load/simulator": "./load/simulator.ts",
-    "./e2e/full-app-crawler": "./e2e/full-app-crawler.ts"
+    "./e2e/full-app-crawler": "./e2e/full-app-crawler.ts",
+    "./shared/live-infrastructure": "./shared/live-infrastructure.ts"
   },
   "files": ["shared", "smoke", "load"],
   "scripts": {

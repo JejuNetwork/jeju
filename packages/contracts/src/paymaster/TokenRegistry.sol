@@ -19,7 +19,7 @@ contract TokenRegistry is Ownable {
 
     address public treasury;
     uint256 public registrationFee = 0.1 ether;
-    
+
     mapping(address => TokenInfo) public tokens;
     address[] public supportedTokens;
 
@@ -38,16 +38,11 @@ contract TokenRegistry is Ownable {
         treasury = _treasury;
     }
 
-    function registerToken(
-        address token,
-        address priceFeed,
-        uint256 minMargin,
-        uint256 maxMargin
-    ) external payable {
+    function registerToken(address token, address priceFeed, uint256 minMargin, uint256 maxMargin) external payable {
         if (msg.value < registrationFee) revert InsufficientFee();
         if (tokens[token].supported) revert TokenAlreadySupported();
         if (maxMargin < minMargin) revert InvalidMargin();
-        
+
         tokens[token] = TokenInfo({
             supported: true,
             priceFeed: priceFeed,
@@ -57,10 +52,10 @@ contract TokenRegistry is Ownable {
             registeredAt: block.timestamp
         });
         supportedTokens.push(token);
-        
+
         // Send fee to treasury
         payable(treasury).transfer(msg.value);
-        
+
         emit TokenRegistered(token, msg.sender, priceFeed);
     }
 

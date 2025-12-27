@@ -78,7 +78,12 @@ export default defineConfig({
 `
 }
 
-function generateE2ETests(appName: string, displayName: string, _port: number, tags: string[]): string {
+function generateE2ETests(
+  _appName: string,
+  displayName: string,
+  _port: number,
+  tags: string[],
+): string {
   // Use Playwright's baseURL from config instead of hardcoded values
 
   // Determine app-specific pages based on tags

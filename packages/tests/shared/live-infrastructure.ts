@@ -50,7 +50,8 @@ type InfraConfig = z.infer<typeof InfraConfigSchema>
 
 export function getInfraConfig(): InfraConfig {
   return InfraConfigSchema.parse({
-    cqlEndpoint: process.env.CQL_ENDPOINT ?? process.env.CQL_BLOCK_PRODUCER_ENDPOINT,
+    cqlEndpoint:
+      process.env.CQL_ENDPOINT ?? process.env.CQL_BLOCK_PRODUCER_ENDPOINT,
     redisUrl: process.env.REDIS_URL,
     l1RpcUrl: process.env.L1_RPC_URL,
     l2RpcUrl: process.env.L2_RPC_URL ?? process.env.JEJU_RPC_URL,
@@ -101,7 +102,9 @@ export async function checkCqlAvailable(config: InfraConfig): Promise<boolean> {
   }
 }
 
-export async function checkRedisAvailable(config: InfraConfig): Promise<boolean> {
+export async function checkRedisAvailable(
+  config: InfraConfig,
+): Promise<boolean> {
   try {
     // Use a simple Redis PING via HTTP if available, or just check connectivity
     const url = new URL(config.redisUrl)
@@ -142,7 +145,9 @@ export async function checkChainAvailable(rpcUrl: string): Promise<boolean> {
   }
 }
 
-export async function checkSolanaAvailable(config: InfraConfig): Promise<boolean> {
+export async function checkSolanaAvailable(
+  config: InfraConfig,
+): Promise<boolean> {
   try {
     const response = await fetch(config.solanaRpcUrl, {
       method: 'POST',
@@ -173,7 +178,9 @@ export async function checkHttpServiceAvailable(url: string): Promise<boolean> {
   }
 }
 
-export async function checkIpfsAvailable(config: InfraConfig): Promise<boolean> {
+export async function checkIpfsAvailable(
+  config: InfraConfig,
+): Promise<boolean> {
   try {
     const response = await fetch(`${config.ipfsApiUrl}/api/v0/id`, {
       method: 'POST',
@@ -191,20 +198,31 @@ export async function checkIpfsAvailable(config: InfraConfig): Promise<boolean> 
 export async function getInfraStatus(): Promise<InfraStatus> {
   const config = getInfraConfig()
 
-  const [cql, l1Chain, l2Chain, solana, ipfs, gateway, indexer, oracle, compute, messaging, teeAgent] =
-    await Promise.all([
-      checkCqlAvailable(config),
-      checkChainAvailable(config.l1RpcUrl),
-      checkChainAvailable(config.l2RpcUrl),
-      checkSolanaAvailable(config),
-      checkIpfsAvailable(config),
-      checkHttpServiceAvailable(config.gatewayUrl),
-      checkHttpServiceAvailable(config.indexerUrl),
-      checkHttpServiceAvailable(config.oracleUrl),
-      checkHttpServiceAvailable(config.computeUrl),
-      checkHttpServiceAvailable(config.messagingUrl),
-      checkHttpServiceAvailable(config.teeAgentUrl),
-    ])
+  const [
+    cql,
+    l1Chain,
+    l2Chain,
+    solana,
+    ipfs,
+    gateway,
+    indexer,
+    oracle,
+    compute,
+    messaging,
+    teeAgent,
+  ] = await Promise.all([
+    checkCqlAvailable(config),
+    checkChainAvailable(config.l1RpcUrl),
+    checkChainAvailable(config.l2RpcUrl),
+    checkSolanaAvailable(config),
+    checkIpfsAvailable(config),
+    checkHttpServiceAvailable(config.gatewayUrl),
+    checkHttpServiceAvailable(config.indexerUrl),
+    checkHttpServiceAvailable(config.oracleUrl),
+    checkHttpServiceAvailable(config.computeUrl),
+    checkHttpServiceAvailable(config.messagingUrl),
+    checkHttpServiceAvailable(config.teeAgentUrl),
+  ])
 
   // Redis check is special - we'll assume it's available if we can't determine otherwise
   const redis = await checkRedisAvailable(config)
@@ -257,7 +275,9 @@ export type InfraRequirement =
  * Require specific infrastructure to be available
  * Throws if any required infrastructure is unavailable
  */
-export async function requireInfra(requirements: InfraRequirement[]): Promise<void> {
+export async function requireInfra(
+  requirements: InfraRequirement[],
+): Promise<void> {
   const status = await getInfraStatus()
   const missing: string[] = []
 
@@ -279,7 +299,9 @@ export async function requireInfra(requirements: InfraRequirement[]): Promise<vo
 /**
  * Check if required infrastructure is available (non-throwing)
  */
-export async function hasInfra(requirements: InfraRequirement[]): Promise<boolean> {
+export async function hasInfra(
+  requirements: InfraRequirement[],
+): Promise<boolean> {
   try {
     await requireInfra(requirements)
     return true
@@ -364,38 +386,36 @@ export class CqlTestClient {
  * Get live Redis client for testing
  */
 export async function getLiveRedisClient(): Promise<RedisTestClient> {
-  const config = getInfraConfig()
   await requireInfra(['redis'])
-  return new RedisTestClient(config.redisUrl)
+  return new RedisTestClient()
 }
 
 /**
  * Simple Redis client interface for tests
  */
 export class RedisTestClient {
-  constructor(private url: string) {}
-
-  private parseUrl() {
-    const url = new URL(this.url)
-    return {
-      host: url.hostname,
-      port: parseInt(url.port || '6379', 10),
-      password: url.password || undefined,
-    }
-  }
-
-  async get(key: string): Promise<string | null> {
+  async get(_key: string): Promise<string | null> {
     // Note: For real Redis integration, you would use ioredis or similar
     // This is a placeholder that demonstrates the interface
-    throw new Error('Redis client requires ioredis - use getLiveRedis() from @jejunetwork/db')
+    throw new Error(
+      'Redis client requires ioredis - use getLiveRedis() from @jejunetwork/db',
+    )
   }
 
-  async set(key: string, value: string, options?: { ex?: number }): Promise<void> {
-    throw new Error('Redis client requires ioredis - use getLiveRedis() from @jejunetwork/db')
+  async set(
+    _key: string,
+    _value: string,
+    _options?: { ex?: number },
+  ): Promise<void> {
+    throw new Error(
+      'Redis client requires ioredis - use getLiveRedis() from @jejunetwork/db',
+    )
   }
 
-  async del(key: string): Promise<void> {
-    throw new Error('Redis client requires ioredis - use getLiveRedis() from @jejunetwork/db')
+  async del(_key: string): Promise<void> {
+    throw new Error(
+      'Redis client requires ioredis - use getLiveRedis() from @jejunetwork/db',
+    )
   }
 
   async isHealthy(): Promise<boolean> {
@@ -418,15 +438,18 @@ export function getChainConfig(chain: 'l1' | 'l2' = 'l2') {
     accounts: {
       deployer: {
         address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const,
-        privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const,
+        privateKey:
+          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const,
       },
       user1: {
         address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const,
-        privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const,
+        privateKey:
+          '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const,
       },
       user2: {
         address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as const,
-        privateKey: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as const,
+        privateKey:
+          '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as const,
       },
     },
   }
@@ -483,4 +506,3 @@ export async function describeWithInfra(
   const available = await hasInfra(requirements)
   return { available, skip: !available }
 }
-

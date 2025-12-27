@@ -99,7 +99,7 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => mapping(address => uint256)) public epochBlocksPerSequencer;
     uint256 public totalRewardsDistributed;
     uint256 public totalRevenueCollected;
-    
+
     // Track block hashes per sequencer for double-sign detection
     mapping(address => mapping(uint256 => bytes32)) public sequencerBlockHashes;
 
@@ -248,27 +248,18 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param _blockHash The hash of the proposed block
      * @param _signature Signature from the sequencer proving they produced this block
      */
-    function recordBlockProposed(
-        uint256 _blockNumber,
-        bytes32 _blockHash,
-        bytes calldata _signature
-    ) external {
+    function recordBlockProposed(uint256 _blockNumber, bytes32 _blockHash, bytes calldata _signature) external {
         // Verify signature proves msg.sender produced this block
-        bytes32 message = keccak256(abi.encodePacked(
-            "BLOCK_PROPOSED",
-            block.chainid,
-            _blockNumber,
-            _blockHash
-        ));
+        bytes32 message = keccak256(abi.encodePacked("BLOCK_PROPOSED", block.chainid, _blockNumber, _blockHash));
         bytes32 ethSignedMessage = MessageHashUtils.toEthSignedMessageHash(message);
         address signer = ECDSA.recover(ethSignedMessage, _signature);
-        
+
         if (signer != msg.sender) revert InvalidSignature();
         if (!isActiveSequencer[msg.sender]) revert NotActiveSequencer();
-        
+
         Sequencer storage seq = sequencers[msg.sender];
         if (!seq.isActive) revert NotActive();
-        
+
         // Check if sequencer already proposed a different block at this height
         bytes32 existingHash = sequencerBlockHashes[msg.sender][_blockNumber];
         if (existingHash != bytes32(0)) {
@@ -322,59 +313,46 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         bytes calldata _sig2
     ) external {
         if (_blockHash1 == _blockHash2) revert SameBlockHash();
-        
+
         // Verify first signature
-        bytes32 message1 = keccak256(abi.encodePacked(
-            "BLOCK_PROPOSED",
-            block.chainid,
-            _blockNumber,
-            _blockHash1
-        ));
+        bytes32 message1 = keccak256(abi.encodePacked("BLOCK_PROPOSED", block.chainid, _blockNumber, _blockHash1));
         bytes32 ethSignedMessage1 = MessageHashUtils.toEthSignedMessageHash(message1);
         address signer1 = ECDSA.recover(ethSignedMessage1, _sig1);
-        
+
         // Verify second signature
-        bytes32 message2 = keccak256(abi.encodePacked(
-            "BLOCK_PROPOSED",
-            block.chainid,
-            _blockNumber,
-            _blockHash2
-        ));
+        bytes32 message2 = keccak256(abi.encodePacked("BLOCK_PROPOSED", block.chainid, _blockNumber, _blockHash2));
         bytes32 ethSignedMessage2 = MessageHashUtils.toEthSignedMessageHash(message2);
         address signer2 = ECDSA.recover(ethSignedMessage2, _sig2);
-        
+
         // Both signatures must be from the same sequencer
         if (signer1 != _sequencer || signer2 != _sequencer) revert InvalidDoubleSignProof();
-        
+
         _slash(_sequencer, SlashingReason.DOUBLE_SIGNING);
         emit DoubleSignSlashed(_sequencer, _blockNumber, _blockHash1, _blockHash2);
     }
-    
+
     /**
      * @notice Slash a sequencer for censorship
      * @dev Anyone can call this if a forced tx wasn't included within the window
      * @param _sequencer The sequencer to slash (must have been active during the window)
      * @param _forcedTxId The ID of the forced transaction that wasn't included
      */
-    function slashCensorship(
-        address _sequencer,
-        bytes32 _forcedTxId
-    ) external {
+    function slashCensorship(address _sequencer, bytes32 _forcedTxId) external {
         if (address(forcedInclusion) == address(0)) revert ForcedInclusionNotSet();
-        
+
         // Verify the forced tx can now be force-included (meaning window expired without inclusion)
         if (!forcedInclusion.canForceInclude(_forcedTxId)) revert TxNotOverdue();
-        
+
         Sequencer storage seq = sequencers[_sequencer];
         if (!seq.isActive && !seq.isSlashed) revert NotActive();
-        
+
         _slash(_sequencer, SlashingReason.CENSORSHIP);
         emit CensorshipSlashed(_sequencer, _forcedTxId);
     }
-    
+
     /// @notice Maximum blocks to check in a single downtime slash call (DoS protection)
     uint256 public constant MAX_DOWNTIME_CHECK_RANGE = 500;
-    
+
     /**
      * @notice Slash a sequencer for downtime
      * @dev Anyone can call this if sequencer missed too many blocks
@@ -382,38 +360,34 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param _startBlock Start of the range to check
      * @param _endBlock End of the range to check (max 500 blocks from start)
      */
-    function slashDowntime(
-        address _sequencer,
-        uint256 _startBlock,
-        uint256 _endBlock
-    ) external {
+    function slashDowntime(address _sequencer, uint256 _startBlock, uint256 _endBlock) external {
         Sequencer storage seq = sequencers[_sequencer];
         if (!seq.isActive) revert NotActive();
-        
+
         // SECURITY: Limit range to prevent O(n) DoS attack
         uint256 blocksInRange = _endBlock - _startBlock;
         if (blocksInRange > MAX_DOWNTIME_CHECK_RANGE) {
             _endBlock = _startBlock + MAX_DOWNTIME_CHECK_RANGE;
             blocksInRange = MAX_DOWNTIME_CHECK_RANGE;
         }
-        
+
         // Count blocks in range where sequencer should have produced but didn't
         uint256 missedBlocks = 0;
-        
+
         for (uint256 i = _startBlock; i <= _endBlock; i++) {
             if (!_blockSigners[i][_sequencer]) {
                 missedBlocks++;
             }
         }
-        
+
         // Must have missed more than threshold
         if (missedBlocks <= DOWNTIME_THRESHOLD) revert NoDowntimeViolation();
-        
+
         seq.blocksMissed += missedBlocks;
         _slash(_sequencer, SlashingReason.DOWNTIME);
         emit DowntimeSlashed(_sequencer, _startBlock, _endBlock, missedBlocks);
     }
-    
+
     /**
      * @notice Slash a sequencer via governance ban (owner only)
      * @dev Only for governance-level bans, not operational slashing

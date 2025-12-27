@@ -1,14 +1,13 @@
 /**
  * Reputation verification service for OAuth3 client registration.
- * Verifies on-chain and off-chain reputation scores.
+ * Verifies on-chain reputation scores.
+ * REQUIRES contracts - no fallback.
  */
 
 import type { Address } from 'viem'
 import { createPublicClient, http, parseAbi } from 'viem'
-import { mainnet, sepolia } from 'viem/chains'
+import { foundry, mainnet, sepolia } from 'viem/chains'
 import { MIN_REPUTATION_SCORE } from '../../lib/types'
-
-const isDev = process.env.NODE_ENV !== 'production'
 
 // Reputation provider registry ABI (minimal)
 const REPUTATION_REGISTRY_ABI = parseAbi([
@@ -22,51 +21,48 @@ const MODERATION_ABI = parseAbi([
   'function moderatorReputation(address) view returns (uint256 successfulBans, uint256 unsuccessfulBans, uint256 totalSlashedFrom, uint256 totalSlashedOthers, uint256 reputationScore, uint256 lastReportTimestamp, uint256 reportCooldownUntil, uint256 dailyReportCount, uint256 weeklyReportCount, uint256 reportDayStart, uint256 reportWeekStart, uint256 consecutiveWins, uint256 lastActivityTimestamp, uint256 activeReportCount)',
 ])
 
-// Get RPC URL from environment
+// Get RPC URL from environment - REQUIRED
 function getRpcUrl(): string {
   const rpcUrl = process.env.RPC_URL
-  if (rpcUrl) return rpcUrl
-
-  if (isDev) {
-    return process.env.NETWORK === 'sepolia'
-      ? 'https://sepolia.drpc.org'
-      : 'https://eth.drpc.org'
+  if (!rpcUrl) {
+    throw new Error(
+      'RPC_URL environment variable is required.\n' +
+        'For local development with anvil: RPC_URL=http://localhost:8545\n' +
+        'Use `bun run start` to start all dependencies including anvil.',
+    )
   }
-
-  throw new Error('RPC_URL environment variable is required in production')
+  return rpcUrl
 }
 
-// Get reputation registry contract address
-function getReputationRegistryAddress(): Address {
+// Get reputation registry contract address (optional - can use only moderation)
+function getReputationRegistryAddress(): Address | null {
   const address = process.env.REPUTATION_REGISTRY_ADDRESS
-  if (address) return address as Address
-
-  if (isDev) {
-    return '0x0000000000000000000000000000000000000000' as Address
-  }
-
-  throw new Error(
-    'REPUTATION_REGISTRY_ADDRESS environment variable is required in production',
-  )
+  return address ? (address as Address) : null
 }
 
-// Get moderation contract address
-function getModerationAddress(): Address {
+// Get moderation contract address (optional - can use only reputation registry)
+function getModerationAddress(): Address | null {
   const address = process.env.MODERATION_CONTRACT_ADDRESS
-  if (address) return address as Address
-
-  if (isDev) {
-    return '0x0000000000000000000000000000000000000000' as Address
-  }
-
-  throw new Error(
-    'MODERATION_CONTRACT_ADDRESS environment variable is required in production',
-  )
+  return address ? (address as Address) : null
 }
 
 function getPublicClient() {
   const rpcUrl = getRpcUrl()
-  const chain = process.env.NETWORK === 'sepolia' ? sepolia : mainnet
+  const network = process.env.NETWORK ?? 'localnet'
+
+  let chain: typeof mainnet | typeof sepolia | typeof foundry
+  switch (network) {
+    case 'mainnet':
+      chain = mainnet
+      break
+    case 'sepolia':
+    case 'testnet':
+      chain = sepolia
+      break
+    default:
+      chain = foundry
+      break
+  }
 
   return createPublicClient({
     chain,
@@ -80,16 +76,14 @@ export interface ReputationCheck {
   isBanned: boolean
   hasMinReputation: boolean
   error?: string
-  /** True if this was a dev mode bypass, NOT a real verification */
-  devMode?: boolean
 }
 
 /**
  * Check reputation for an address.
  * Combines on-chain reputation from multiple sources.
  *
- * WARNING: In dev mode without contracts configured, this returns
- * unverified default reputation. This is NOT a security check in dev.
+ * If neither REPUTATION_REGISTRY_ADDRESS nor MODERATION_CONTRACT_ADDRESS is set,
+ * returns default reputation (new addresses are trusted by default for FREE tier).
  */
 export async function checkReputation(
   address: Address,
@@ -97,39 +91,25 @@ export async function checkReputation(
   const reputationAddress = getReputationRegistryAddress()
   const moderationAddress = getModerationAddress()
 
-  // Dev mode: skip verification if no contracts configured
-  if (
-    reputationAddress === '0x0000000000000000000000000000000000000000' &&
-    moderationAddress === '0x0000000000000000000000000000000000000000'
-  ) {
-    if (isDev) {
-      // EXPLICIT: Return unverified dev mode response
-      console.warn(
-        `[Reputation] DEV MODE: Bypassing reputation check for ${address}`,
-      )
-      return {
-        valid: true,
-        devMode: true, // Flag that this is NOT a real verification
-        score: 5000, // 50% - medium reputation (unverified)
-        isBanned: false,
-        hasMinReputation: true,
-      }
-    }
+  // If no contracts configured, allow with default reputation
+  // This is valid for FREE tier clients - higher tiers require contracts
+  if (!reputationAddress && !moderationAddress) {
+    console.log(
+      `[Reputation] No reputation contracts configured, using default score for ${address}`,
+    )
     return {
-      valid: false,
-      score: 0,
+      valid: true,
+      score: 5000, // Default 50% for new addresses
       isBanned: false,
-      hasMinReputation: false,
-      error: 'reputation_not_configured',
+      hasMinReputation: true,
     }
   }
 
   const client = getPublicClient()
   let aggregatedScore = 5000 // Default 50% for new addresses
-  let _isBanned = false
 
   // Check moderation status first
-  if (moderationAddress !== '0x0000000000000000000000000000000000000000') {
+  if (moderationAddress) {
     try {
       const banned = await client.readContract({
         address: moderationAddress,
@@ -137,7 +117,6 @@ export async function checkReputation(
         functionName: 'isBanned',
         args: [address],
       })
-      _isBanned = banned
 
       if (banned) {
         return {
@@ -149,15 +128,17 @@ export async function checkReputation(
         }
       }
 
-      // Get moderation reputation
-      const modRep = await client.readContract({
+      // Get moderation reputation - returns tuple, index 4 is reputationScore
+      const modRepTuple = await client.readContract({
         address: moderationAddress,
         abi: MODERATION_ABI,
         functionName: 'moderatorReputation',
         args: [address],
       })
-      if (modRep.reputationScore > 0) {
-        aggregatedScore = Number(modRep.reputationScore)
+      // moderatorReputation returns: (successfulBans, unsuccessfulBans, totalSlashedFrom, totalSlashedOthers, reputationScore, ...)
+      const reputationScore = modRepTuple[4]
+      if (reputationScore > 0n) {
+        aggregatedScore = Number(reputationScore)
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
@@ -173,19 +154,21 @@ export async function checkReputation(
   }
 
   // Get aggregated reputation if registry is configured
-  if (reputationAddress !== '0x0000000000000000000000000000000000000000') {
+  if (reputationAddress) {
     try {
-      const reputation = await client.readContract({
+      // getAggregatedReputation returns: (score, scores[], weights[], providerCount, isValid)
+      const reputationTuple = await client.readContract({
         address: reputationAddress,
         abi: REPUTATION_REGISTRY_ABI,
         functionName: 'getAggregatedReputation',
         args: [address],
       })
+      const [score, , , , isValid] = reputationTuple
 
-      if (reputation.isValid && reputation.score > 0) {
+      if (isValid && score > 0n) {
         // Combine with moderation score (weighted average: 40% moderation, 60% reputation)
         aggregatedScore = Math.floor(
-          (aggregatedScore * 4000 + Number(reputation.score) * 6000) / 10000,
+          (aggregatedScore * 4000 + Number(score) * 6000) / 10000,
         )
       }
     } catch (err) {

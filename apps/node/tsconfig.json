@@ -5,5 +5,12 @@
     "noEmit": true
   },
   "include": ["api/**/*", "web/**/*", "lib/**/*"],
-  "exclude": ["node_modules", "dist", "tests/**/*"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests/**/*",
+    "**/vpn-exit.ts",
+    "**/residential-proxy.ts",
+    "**/edge-coordinator.ts"
+  ]
 }

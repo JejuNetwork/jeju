@@ -49,16 +49,16 @@ contract RateLimiterTest is Test {
 
         // Advance time past window
         vm.warp(block.timestamp + 61);
-        
+
         assertTrue(fixedWindow.consume(), "Should allow after window reset");
     }
 
     function test_FixedWindow_RemainingCapacity() public {
         assertEq(fixedWindow.remaining(), 10, "Should have full capacity");
-        
+
         fixedWindow.consume();
         fixedWindow.consume();
-        
+
         assertEq(fixedWindow.remaining(), 8, "Should have 8 remaining");
     }
 
@@ -87,7 +87,7 @@ contract RateLimiterTest is Test {
             consumed++;
             if (consumed > 20) break; // Safety
         }
-        
+
         assertTrue(consumed >= 5 && consumed <= 8, "Sliding window should allow partial decay");
     }
 
@@ -223,10 +223,10 @@ contract CircuitBreakerTest is Test {
     function test_CircuitBreaker_OpensAfterFailures() public {
         breaker.recordFailure();
         assertEq(uint256(breaker.getState()), uint256(CircuitBreaker.State.CLOSED));
-        
+
         breaker.recordFailure();
         assertEq(uint256(breaker.getState()), uint256(CircuitBreaker.State.CLOSED));
-        
+
         breaker.recordFailure();
         assertEq(uint256(breaker.getState()), uint256(CircuitBreaker.State.OPEN));
     }
@@ -298,12 +298,12 @@ contract CircuitBreakerTest is Test {
 
         // First call transitions to half-open (free - doesn't count against limit)
         assertTrue(breaker.allowRequest(), "Transition request should be allowed");
-        
+
         // Next 3 requests are allowed (halfOpenMaxRequests = 3)
         assertTrue(breaker.allowRequest(), "First half-open request should be allowed");
         assertTrue(breaker.allowRequest(), "Second half-open request should be allowed");
         assertTrue(breaker.allowRequest(), "Third half-open request should be allowed");
-        
+
         // 5th total (4th counted) should be rejected
         assertFalse(breaker.allowRequest(), "Request after limit should be rejected");
     }
@@ -429,7 +429,7 @@ contract MockDoSProtectedContract {
     function triggerServiceFailure() external {
         serviceBreaker.recordFailure();
     }
-    
+
     function isInCooldown(address user) external view returns (bool, uint256) {
         RateLimiter.AdaptiveCooldown storage cool = userCooldowns[user];
         if (cool.baseCooldown == 0) return (false, 0);
@@ -450,7 +450,7 @@ contract IntegrationDoSTest is Test {
 
     function test_Integration_AllowsNormalUsage() public {
         vm.startPrank(user1);
-        
+
         for (uint256 i = 0; i < 10; i++) {
             protected.protectedAction();
         }
@@ -487,12 +487,12 @@ contract IntegrationDoSTest is Test {
         // Now in cooldown (30 seconds base), should fail even after some refill
         // Wait only 5 seconds - still in 30 second cooldown
         vm.warp(block.timestamp + 5);
-        
+
         // Check cooldown state
         (bool inCooldown, uint256 remaining) = protected.isInCooldown(user1);
         assertTrue(inCooldown, "Should be in cooldown");
         assertEq(remaining, 25, "Should have 25 seconds remaining");
-        
+
         // Should fail due to cooldown
         assertFalse(protected.tryProtectedAction(), "Should fail due to cooldown");
 
@@ -542,4 +542,3 @@ contract IntegrationDoSTest is Test {
         protected.protectedAction();
     }
 }
-

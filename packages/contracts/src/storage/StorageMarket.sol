@@ -16,9 +16,7 @@ interface IFeeConfigStorage {
  * @notice Storage deal marketplace - creates, manages, and settles storage deals
  */
 contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
-
     uint256 public constant BPS_DENOMINATOR = 10000;
-
 
     StorageProviderRegistry public immutable registry;
 
@@ -61,12 +59,10 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
     event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
-
     constructor(address _registry, address _treasury, address initialOwner) Ownable(initialOwner) {
         registry = StorageProviderRegistry(_registry);
         treasury = _treasury;
     }
-
 
     function createDeal(
         address provider,
@@ -272,7 +268,6 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         emit DealFailed(dealId, reason);
     }
 
-
     function rateDeal(bytes32 dealId, uint8 score, string calldata comment) external {
         StorageDeal storage deal = _deals[dealId];
         require(deal.user == msg.sender, "Not deal owner");
@@ -369,7 +364,6 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
     function getProviderRecord(address provider) external view returns (ProviderRecord memory) {
         return _providerRecords[provider];
     }
-
 
     function setFeeConfig(address _feeConfig) external onlyOwner {
         address oldConfig = address(feeConfig);

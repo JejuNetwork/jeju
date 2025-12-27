@@ -29,7 +29,6 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
         Other
     }
 
-
     struct TrainingRunMetadata {
         bytes32 runId;
         address creator;
@@ -98,46 +97,25 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
     mapping(address => bool) public benchmarkVerifiers;
 
     event TrainingRunRegistered(
-        bytes32 indexed runId,
-        address indexed creator,
-        string name,
-        string baseModelHfRepo,
-        bool isPrivate
+        bytes32 indexed runId, address indexed creator, string name, string baseModelHfRepo, bool isPrivate
     );
 
     event ModelCheckpointSubmitted(
-        bytes32 indexed runId,
-        uint32 step,
-        bytes32 modelHash,
-        string hfRepo,
-        address submitter
+        bytes32 indexed runId, uint32 step, bytes32 modelHash, string hfRepo, address submitter
     );
 
-    event CheckpointVerified(
-        bytes32 indexed runId,
-        bytes32 modelHash,
-        uint256 benchmarkScore,
-        address verifier
-    );
+    event CheckpointVerified(bytes32 indexed runId, bytes32 modelHash, uint256 benchmarkScore, address verifier);
 
     event RunStatusUpdated(bytes32 indexed runId, ModelStatus oldStatus, ModelStatus newStatus);
 
     event PrivateRunConfigured(
-        bytes32 indexed runId,
-        bytes32 mpcKeyId,
-        TEEProvider teeProvider,
-        bytes32 requiredEnclaveId
+        bytes32 indexed runId, bytes32 mpcKeyId, TEEProvider teeProvider, bytes32 requiredEnclaveId
     );
 
     event ParticipantAuthorized(bytes32 indexed runId, address participant);
     event ParticipantRevoked(bytes32 indexed runId, address participant);
 
-    event DatasetRegistered(
-        bytes32 indexed datasetId,
-        address indexed owner,
-        string name,
-        bool isPublic
-    );
+    event DatasetRegistered(bytes32 indexed datasetId, address indexed owner, string name, bool isPublic);
 
     event EnclaveApproved(TEEProvider provider, bytes32 enclaveId);
     event EnclaveRevoked(TEEProvider provider, bytes32 enclaveId);
@@ -179,11 +157,7 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _coordinator,
-        address _mpcKeyRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _coordinator, address _mpcKeyRegistry, address initialOwner) Ownable(initialOwner) {
         coordinator = ITrainingCoordinator(_coordinator);
         mpcKeyRegistry = MPCKeyRegistry(_mpcKeyRegistry);
         benchmarkVerifiers[initialOwner] = true;
@@ -257,10 +231,7 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
         // Validate TEE config
         if (privateConfig.teeConfig.provider != TEEProvider.None) {
             if (privateConfig.teeConfig.requiredEnclaveId != bytes32(0)) {
-                if (!_isEnclaveApproved(
-                    privateConfig.teeConfig.provider,
-                    privateConfig.teeConfig.requiredEnclaveId
-                )) {
+                if (!_isEnclaveApproved(privateConfig.teeConfig.provider, privateConfig.teeConfig.requiredEnclaveId)) {
                     revert EnclaveNotApproved();
                 }
             }
@@ -294,10 +265,7 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
 
         emit TrainingRunRegistered(runId, msg.sender, name, baseModelHfRepo, true);
         emit PrivateRunConfigured(
-            runId,
-            privateConfig.mpcKeyId,
-            privateConfig.teeConfig.provider,
-            privateConfig.teeConfig.requiredEnclaveId
+            runId, privateConfig.mpcKeyId, privateConfig.teeConfig.provider, privateConfig.teeConfig.requiredEnclaveId
         );
     }
 
@@ -362,11 +330,11 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
      * @param checkpointIndex Index of checkpoint to verify
      * @param benchmarkScore Benchmark score (0-10000 basis points)
      */
-    function verifyCheckpoint(
-        bytes32 runId,
-        uint256 checkpointIndex,
-        uint256 benchmarkScore
-    ) external onlyVerifier runExists(runId) {
+    function verifyCheckpoint(bytes32 runId, uint256 checkpointIndex, uint256 benchmarkScore)
+        external
+        onlyVerifier
+        runExists(runId)
+    {
         if (checkpointIndex >= runCheckpoints[runId].length) revert InvalidCheckpoint();
 
         ModelCheckpoint storage checkpoint = runCheckpoints[runId][checkpointIndex];
@@ -622,4 +590,3 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

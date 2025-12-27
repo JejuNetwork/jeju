@@ -83,12 +83,7 @@ interface IDAORegistry {
 
     // ============ Events ============
 
-    event DAOCreated(
-        bytes32 indexed daoId,
-        string name,
-        address indexed treasury,
-        address indexed creator
-    );
+    event DAOCreated(bytes32 indexed daoId, string name, address indexed treasury, address indexed creator);
     event DAOUpdated(bytes32 indexed daoId, string field, bytes newValue);
     event DAOStatusChanged(bytes32 indexed daoId, DAOStatus oldStatus, DAOStatus newStatus);
     event CEOPersonaUpdated(bytes32 indexed daoId, string name, string pfpCid);
@@ -139,13 +134,8 @@ interface IDAORegistry {
 
     // ============ Council Management ============
 
-    function addCouncilMember(
-        bytes32 daoId,
-        address member,
-        uint256 agentId,
-        string calldata role,
-        uint256 weight
-    ) external;
+    function addCouncilMember(bytes32 daoId, address member, uint256 agentId, string calldata role, uint256 weight)
+        external;
 
     function removeCouncilMember(bytes32 daoId, address member) external;
 
@@ -199,4 +189,3 @@ interface IDAORegistry {
 
     function getRepoDAO(bytes32 repoId) external view returns (bytes32 daoId);
 }
-

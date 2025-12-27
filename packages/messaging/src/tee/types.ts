@@ -6,6 +6,11 @@
 
 import type { Address, Hex } from 'viem'
 
+// Re-export TEEAttestation from @jejunetwork/types for backwards compatibility
+export type { TEEAttestation } from '@jejunetwork/types'
+
+import type { TEEAttestation } from '@jejunetwork/types'
+
 export interface TEEKeyConfig {
   /** KMS service endpoint (required for real TEE mode) */
   kmsEndpoint: string
@@ -72,24 +77,7 @@ export interface TEEInstallationKey {
   createdAt: number
 }
 
-export interface TEEAttestation {
-  /** Attestation version */
-  version: number
-  /** Enclave ID */
-  enclaveId: string
-  /** Enclave measurement hash */
-  measurement: Hex
-  /** Platform configuration register values */
-  pcrs: Record<number, Hex>
-  /** Nonce used in attestation */
-  nonce: Hex
-  /** Attestation timestamp */
-  timestamp: number
-  /** Attestation signature */
-  signature: Hex
-  /** Certificate chain */
-  certificateChain?: string[]
-}
+// TEEAttestation is imported from @jejunetwork/types at the top of this file
 
 export interface AttestationVerificationResult {
   /** Verification passed */

@@ -171,9 +171,9 @@ describe('Address validation', () => {
     expect(
       isValidEvmAddress('0x1234567890123456789012345678901234567890'),
     ).toBe(true)
-    expect(isValidEvmAddress('So11111111111111111111111111111111111111112')).toBe(
-      false,
-    )
+    expect(
+      isValidEvmAddress('So11111111111111111111111111111111111111112'),
+    ).toBe(false)
   })
 })
 

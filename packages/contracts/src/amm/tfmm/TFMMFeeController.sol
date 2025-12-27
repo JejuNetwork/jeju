@@ -17,23 +17,23 @@ import {ITFMMPool} from "./ITFMMPool.sol";
  * - Integration with governance (Governor, Council, CEO)
  */
 contract TFMMFeeController is Ownable {
-
     // ============ Enums ============
 
     enum PoolTier {
-        STANDARD,      // Normal pools
-        STABLE,        // Stablecoin pools (lower fees)
-        PREMIUM,       // Actively managed pools (higher fees)
-        EXPERIMENTAL   // New strategy pools
+        STANDARD, // Normal pools
+        STABLE, // Stablecoin pools (lower fees)
+        PREMIUM, // Actively managed pools (higher fees)
+        EXPERIMENTAL // New strategy pools
+
     }
 
     // ============ Structs ============
 
     struct FeeConfig {
-        uint256 swapFeeBps;           // Swap fee in bps
-        uint256 protocolFeeBps;       // Protocol share of swap fee
-        uint256 managementFeeBps;     // Annual management fee (for TFMM)
-        uint256 performanceFeeBps;    // Performance fee on profits
+        uint256 swapFeeBps; // Swap fee in bps
+        uint256 protocolFeeBps; // Protocol share of swap fee
+        uint256 managementFeeBps; // Annual management fee (for TFMM)
+        uint256 performanceFeeBps; // Performance fee on profits
     }
 
     struct PendingFeeChange {
@@ -87,10 +87,7 @@ contract TFMMFeeController is Ownable {
     // ============ Events ============
 
     event FeeChangeProposed(
-        address indexed pool,
-        uint256 newSwapFeeBps,
-        uint256 newProtocolFeeBps,
-        uint256 executeAfter
+        address indexed pool, uint256 newSwapFeeBps, uint256 newProtocolFeeBps, uint256 executeAfter
     );
     event FeeChangeExecuted(address indexed pool, uint256 swapFeeBps, uint256 protocolFeeBps);
     event FeeChangeCancelled(address indexed pool);
@@ -108,12 +105,7 @@ contract TFMMFeeController is Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        address governor_,
-        address council_,
-        address ceo_,
-        address treasury_
-    ) Ownable(msg.sender) {
+    constructor(address governor_, address council_, address ceo_, address treasury_) Ownable(msg.sender) {
         governor = governor_;
         council = council_;
         ceo = ceo_;
@@ -122,28 +114,28 @@ contract TFMMFeeController is Ownable {
 
         // Initialize tier fees
         tierFees[PoolTier.STANDARD] = FeeConfig({
-            swapFeeBps: 30,      // 0.3%
+            swapFeeBps: 30, // 0.3%
             protocolFeeBps: 1000, // 10% of fees to protocol
             managementFeeBps: 0,
             performanceFeeBps: 0
         });
 
         tierFees[PoolTier.STABLE] = FeeConfig({
-            swapFeeBps: 5,        // 0.05%
+            swapFeeBps: 5, // 0.05%
             protocolFeeBps: 1000,
             managementFeeBps: 0,
             performanceFeeBps: 0
         });
 
         tierFees[PoolTier.PREMIUM] = FeeConfig({
-            swapFeeBps: 50,       // 0.5%
+            swapFeeBps: 50, // 0.5%
             protocolFeeBps: 1500, // 15%
             managementFeeBps: 200, // 2% annual
             performanceFeeBps: 1000 // 10%
         });
 
         tierFees[PoolTier.EXPERIMENTAL] = FeeConfig({
-            swapFeeBps: 100,      // 1%
+            swapFeeBps: 100, // 1%
             protocolFeeBps: 2000, // 20%
             managementFeeBps: 100,
             performanceFeeBps: 500
@@ -181,11 +173,7 @@ contract TFMMFeeController is Ownable {
      * @param newSwapFeeBps New swap fee in bps
      * @param newProtocolFeeBps New protocol fee in bps
      */
-    function proposeFeeChange(
-        address pool,
-        uint256 newSwapFeeBps,
-        uint256 newProtocolFeeBps
-    ) external onlyGovernance {
+    function proposeFeeChange(address pool, uint256 newSwapFeeBps, uint256 newProtocolFeeBps) external onlyGovernance {
         _validateFees(newSwapFeeBps, newProtocolFeeBps);
 
         uint256 executeAfter = block.timestamp + feeChangeDelay;
@@ -278,10 +266,7 @@ contract TFMMFeeController is Ownable {
      * @param pool Pool address
      * @param newSwapFeeBps New swap fee (must be lower)
      */
-    function emergencyFeeReduction(
-        address pool,
-        uint256 newSwapFeeBps
-    ) external onlyCEO {
+    function emergencyFeeReduction(address pool, uint256 newSwapFeeBps) external onlyCEO {
         FeeConfig storage config = poolFees[pool];
         require(newSwapFeeBps < config.swapFeeBps, "Must be reduction");
 
@@ -328,11 +313,7 @@ contract TFMMFeeController is Ownable {
 
     // ============ Admin Functions ============
 
-    function setGovernance(
-        address governor_,
-        address council_,
-        address ceo_
-    ) external onlyCEO {
+    function setGovernance(address governor_, address council_, address ceo_) external onlyCEO {
         if (governor_ == address(0) || council_ == address(0) || ceo_ == address(0)) {
             revert InvalidAddress();
         }
@@ -365,4 +346,3 @@ contract TFMMFeeController is Ownable {
         }
     }
 }
-

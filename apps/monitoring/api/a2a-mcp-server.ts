@@ -62,6 +62,37 @@ async function safeFetch(url: string): Promise<SafeFetchResponse | null> {
   }
 }
 
+const MAX_QUERY_LENGTH = 2000
+
+const DANGEROUS_PROMQL_PATTERNS = [
+  /count\s*\(\s*count\s*\(/i,
+  /\{[^}]*=~"\.{100,}/i,
+  /\[\d{4,}[smhdwy]\]/i,
+]
+
+function validatePromQLQuery(query: string): {
+  valid: boolean
+  error?: string
+} {
+  if (query.length > MAX_QUERY_LENGTH) {
+    return {
+      valid: false,
+      error: `Query too long (max ${MAX_QUERY_LENGTH} chars)`,
+    }
+  }
+
+  for (const pattern of DANGEROUS_PROMQL_PATTERNS) {
+    if (pattern.test(query)) {
+      return {
+        valid: false,
+        error: 'Query contains potentially expensive patterns',
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
   name: `${getNetworkName()} Monitoring`,
@@ -819,6 +850,16 @@ export function createMonitoringMCPServer() {
             }
           }
 
+          const validation = validatePromQLQuery(args.query)
+          if (!validation.valid) {
+            return {
+              content: [
+                { type: 'text', text: validation.error ?? 'Invalid query' },
+              ],
+              isError: true,
+            }
+          }
+
           const response = await safeFetch(
             `${PROMETHEUS_URL}/api/v1/query?query=${encodeURIComponent(args.query)}`,
           )
@@ -855,6 +896,21 @@ export function createMonitoringMCPServer() {
               content: [
                 { type: 'text', text: 'Missing target or metric parameter' },
               ],
+              isError: true,
+            }
+          }
+
+          // Validate metric and target names to prevent PromQL injection
+          const validName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
+          if (!validName.test(args.metric)) {
+            return {
+              content: [{ type: 'text', text: 'Invalid metric name format' }],
+              isError: true,
+            }
+          }
+          if (!validName.test(args.target)) {
+            return {
+              content: [{ type: 'text', text: 'Invalid target name format' }],
               isError: true,
             }
           }

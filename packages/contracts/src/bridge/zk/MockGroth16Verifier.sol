@@ -7,7 +7,7 @@ import "./interfaces/IZKVerifier.sol";
  * @title MockGroth16Verifier
  * @notice Mock verifier for localnet/testing - accepts all valid-looking proofs
  * @dev DO NOT USE IN PRODUCTION - this accepts any non-zero proof
- * 
+ *
  * For production, replace with the actual Groth16 verifier generated from:
  * - SP1 circuit compilation for Solana consensus verification
  * - Generates proper verification key from trusted setup
@@ -26,10 +26,12 @@ contract MockGroth16Verifier is IZKVerifier {
      * @param publicInputs The public inputs to the circuit
      * @return True if proof looks valid (non-zero), always true in mock
      */
-    function verifyProof(
-        uint256[8] calldata proof,
-        uint256[] calldata publicInputs
-    ) external pure override returns (bool) {
+    function verifyProof(uint256[8] calldata proof, uint256[] calldata publicInputs)
+        external
+        pure
+        override
+        returns (bool)
+    {
         // Basic sanity checks even for mock
         // Proof should have non-zero elements
         bool hasNonZeroProof = false;
@@ -54,4 +56,3 @@ contract MockGroth16Verifier is IZKVerifier {
         return true;
     }
 }
-

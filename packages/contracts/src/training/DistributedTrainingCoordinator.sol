@@ -137,52 +137,23 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
     // Events
     // ============================================================================
 
-    event RunCreated(
-        bytes32 indexed runId,
-        address indexed creator,
-        string environmentId,
-        string modelCid
-    );
+    event RunCreated(bytes32 indexed runId, address indexed creator, string environmentId, string modelCid);
 
     event RunStateChanged(bytes32 indexed runId, RunState oldState, RunState newState);
 
-    event ClientRegistered(
-        uint32 indexed clientId,
-        address indexed evmAddress,
-        bytes32 solanaKey,
-        string gpuType
-    );
+    event ClientRegistered(uint32 indexed clientId, address indexed evmAddress, bytes32 solanaKey, string gpuType);
 
     event ClientJoinedRun(bytes32 indexed runId, uint32 indexed clientId);
 
     event ClientLeftRun(bytes32 indexed runId, uint32 indexed clientId);
 
-    event ProgressReported(
-        bytes32 indexed runId,
-        uint32 epoch,
-        uint64 step,
-        uint32 clientCount
-    );
+    event ProgressReported(bytes32 indexed runId, uint32 epoch, uint64 step, uint32 clientCount);
 
-    event CheckpointSubmitted(
-        bytes32 indexed runId,
-        uint32 epoch,
-        string cid,
-        bytes32 merkleRoot
-    );
+    event CheckpointSubmitted(bytes32 indexed runId, uint32 epoch, string cid, bytes32 merkleRoot);
 
-    event RewardsDistributed(
-        bytes32 indexed runId,
-        uint32 epoch,
-        uint256 totalAmount
-    );
+    event RewardsDistributed(bytes32 indexed runId, uint32 epoch, uint256 totalAmount);
 
-    event RewardClaimed(
-        bytes32 indexed runId,
-        uint32 indexed clientId,
-        uint32 epoch,
-        uint256 amount
-    );
+    event RewardClaimed(bytes32 indexed runId, uint32 indexed clientId, uint32 epoch, uint256 amount);
 
     // ============================================================================
     // Modifiers
@@ -290,10 +261,7 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
 
     function pauseRun(bytes32 runId) external onlyRunCreator(runId) runExists(runId) {
         TrainingRun storage run = runs[runId];
-        require(
-            run.state == RunState.WarmingUp || run.state == RunState.Training,
-            "Cannot pause"
-        );
+        require(run.state == RunState.WarmingUp || run.state == RunState.Training, "Cannot pause");
 
         RunState oldState = run.state;
         run.state = RunState.Paused;
@@ -363,10 +331,7 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
         require(!runParticipants[runId][clientId], "Already joined");
 
         TrainingRun storage run = runs[runId];
-        require(
-            run.state == RunState.Created || run.state == RunState.WarmingUp,
-            "Cannot join now"
-        );
+        require(run.state == RunState.Created || run.state == RunState.WarmingUp, "Cannot join now");
         require(runParticipantCount[runId] < run.maxClients, "Run is full");
 
         runParticipants[runId][clientId] = true;
@@ -420,7 +385,7 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
         // Require non-empty signature to prevent placeholder submissions
         require(solanaSignature.length == 64, "Invalid signature length");
         require(_isNonZeroSignature(solanaSignature), "Empty signature not allowed");
-        
+
         TrainingRun storage run = runs[runId];
 
         // Update run state if transitioning
@@ -434,14 +399,16 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
         run.currentStep = step;
         run.lastUpdatedAt = block.timestamp;
 
-        progressReports[runId].push(ProgressReport({
-            epoch: epoch,
-            step: step,
-            clientCount: clientCount,
-            modelHash: modelHash,
-            solanaSignature: solanaSignature,
-            timestamp: block.timestamp
-        }));
+        progressReports[runId].push(
+            ProgressReport({
+                epoch: epoch,
+                step: step,
+                clientCount: clientCount,
+                modelHash: modelHash,
+                solanaSignature: solanaSignature,
+                timestamp: block.timestamp
+            })
+        );
 
         emit ProgressReported(runId, epoch, step, clientCount);
 
@@ -453,25 +420,26 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
         }
     }
 
-    function submitCheckpoint(
-        bytes32 runId,
-        string calldata checkpointCid,
-        uint32 epoch,
-        bytes32 merkleRoot
-    ) external onlyBridge runExists(runId) {
+    function submitCheckpoint(bytes32 runId, string calldata checkpointCid, uint32 epoch, bytes32 merkleRoot)
+        external
+        onlyBridge
+        runExists(runId)
+    {
         TrainingRun storage run = runs[runId];
 
         run.latestCheckpointCid = checkpointCid;
         run.latestCheckpointMerkle = merkleRoot;
         run.lastUpdatedAt = block.timestamp;
 
-        checkpoints[runId].push(Checkpoint({
-            epoch: epoch,
-            cid: checkpointCid,
-            merkleRoot: merkleRoot,
-            timestamp: block.timestamp,
-            submitter: msg.sender
-        }));
+        checkpoints[runId].push(
+            Checkpoint({
+                epoch: epoch,
+                cid: checkpointCid,
+                merkleRoot: merkleRoot,
+                timestamp: block.timestamp,
+                submitter: msg.sender
+            })
+        );
 
         emit CheckpointSubmitted(runId, epoch, checkpointCid, merkleRoot);
     }
@@ -480,20 +448,19 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
     // Reward Distribution
     // ============================================================================
 
-    function setRewardMerkleRoot(
-        bytes32 runId,
-        uint32 epoch,
-        bytes32 merkleRoot
-    ) external onlyBridge runExists(runId) {
+    function setRewardMerkleRoot(bytes32 runId, uint32 epoch, bytes32 merkleRoot)
+        external
+        onlyBridge
+        runExists(runId)
+    {
         rewardMerkleRoots[runId][epoch] = merkleRoot;
     }
 
-    function claimReward(
-        bytes32 runId,
-        uint32 epoch,
-        uint256 amount,
-        bytes32[] calldata merkleProof
-    ) external nonReentrant runExists(runId) {
+    function claimReward(bytes32 runId, uint32 epoch, uint256 amount, bytes32[] calldata merkleProof)
+        external
+        nonReentrant
+        runExists(runId)
+    {
         uint32 clientId = clientIdByAddress[msg.sender];
         require(clientId > 0, "Not registered");
         require(!rewardsClaimed[runId][epoch][clientId], "Already claimed");
@@ -602,12 +569,7 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
     function getLatestCheckpoint(bytes32 runId)
         external
         view
-        returns (
-            uint32 epoch,
-            string memory cid,
-            bytes32 merkleRoot,
-            uint256 timestamp
-        )
+        returns (uint32 epoch, string memory cid, bytes32 merkleRoot, uint256 timestamp)
     {
         Checkpoint[] storage runCheckpoints = checkpoints[runId];
         require(runCheckpoints.length > 0, "No checkpoints");
@@ -631,4 +593,3 @@ contract DistributedTrainingCoordinator is Ownable, ReentrancyGuard {
         return false;
     }
 }
-

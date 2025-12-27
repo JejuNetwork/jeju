@@ -11,7 +11,7 @@ import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Re
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock", "MCK") {}
-    
+
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
@@ -19,7 +19,7 @@ contract MockERC20 is ERC20 {
 
 contract MockERC721 is ERC721 {
     constructor() ERC721("MockNFT", "MNFT") {}
-    
+
     function mint(address to, uint256 tokenId) external {
         _mint(to, tokenId);
     }
@@ -27,7 +27,7 @@ contract MockERC721 is ERC721 {
 
 contract MockERC1155 is ERC1155 {
     constructor() ERC1155("") {}
-    
+
     function mint(address to, uint256 id, uint256 amount) external {
         _mint(to, id, amount, "");
     }
@@ -48,7 +48,11 @@ contract AssetLibHarness is IERC721Receiver, IERC1155Receiver {
         return AssetLib.validateOwnership(asset, owner);
     }
 
-    function validateApproval(AssetLib.Asset memory asset, address owner, address spender) external view returns (bool) {
+    function validateApproval(AssetLib.Asset memory asset, address owner, address spender)
+        external
+        view
+        returns (bool)
+    {
         return AssetLib.validateApproval(asset, owner, spender);
     }
 
@@ -80,17 +84,26 @@ contract AssetLibHarness is IERC721Receiver, IERC1155Receiver {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns (bytes4) {
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata) external pure override returns (bytes4) {
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return interfaceId == type(IERC721Receiver).interfaceId || 
-               interfaceId == type(IERC1155Receiver).interfaceId;
+        return interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 
     receive() external payable {}
@@ -153,23 +166,23 @@ contract AssetLibTest is Test {
 
     function test_erc20_transferFrom() public {
         erc20Token.mint(alice, 1000);
-        
+
         vm.prank(alice);
         erc20Token.approve(address(harness), 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
         harness.transferFrom(asset, alice, bob);
-        
+
         assertEq(erc20Token.balanceOf(alice), 500);
         assertEq(erc20Token.balanceOf(bob), 500);
     }
 
     function test_erc20_safeTransfer() public {
         erc20Token.mint(address(harness), 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
         harness.safeTransfer(asset, bob);
-        
+
         assertEq(erc20Token.balanceOf(address(harness)), 500);
         assertEq(erc20Token.balanceOf(bob), 500);
     }
@@ -178,22 +191,22 @@ contract AssetLibTest is Test {
 
     function test_erc721_transferFrom() public {
         erc721Token.mint(alice, 1);
-        
+
         vm.prank(alice);
         erc721Token.approve(address(harness), 1);
-        
+
         AssetLib.Asset memory asset = harness.erc721(address(erc721Token), 1);
         harness.transferFrom(asset, alice, bob);
-        
+
         assertEq(erc721Token.ownerOf(1), bob);
     }
 
     function test_erc721_safeTransfer() public {
         erc721Token.mint(address(harness), 1);
-        
+
         AssetLib.Asset memory asset = harness.erc721(address(erc721Token), 1);
         harness.safeTransfer(asset, bob);
-        
+
         assertEq(erc721Token.ownerOf(1), bob);
     }
 
@@ -201,23 +214,23 @@ contract AssetLibTest is Test {
 
     function test_erc1155_transferFrom() public {
         erc1155Token.mint(alice, 1, 100);
-        
+
         vm.prank(alice);
         erc1155Token.setApprovalForAll(address(harness), true);
-        
+
         AssetLib.Asset memory asset = harness.erc1155(address(erc1155Token), 1, 50);
         harness.transferFrom(asset, alice, address(harness));
-        
+
         assertEq(erc1155Token.balanceOf(alice, 1), 50);
         assertEq(erc1155Token.balanceOf(address(harness), 1), 50);
     }
 
     function test_erc1155_safeTransfer() public {
         erc1155Token.mint(address(harness), 1, 100);
-        
+
         AssetLib.Asset memory asset = harness.erc1155(address(erc1155Token), 1, 50);
         harness.safeTransfer(asset, alice);
-        
+
         assertEq(erc1155Token.balanceOf(address(harness), 1), 50);
         assertEq(erc1155Token.balanceOf(alice, 1), 50);
     }
@@ -226,10 +239,10 @@ contract AssetLibTest is Test {
 
     function test_native_safeTransfer() public {
         uint256 bobBalanceBefore = bob.balance;
-        
+
         AssetLib.Asset memory asset = harness.native(1 ether);
         harness.safeTransfer(asset, bob);
-        
+
         assertEq(bob.balance, bobBalanceBefore + 1 ether);
     }
 
@@ -237,7 +250,7 @@ contract AssetLibTest is Test {
 
     function test_validateOwnership_erc20() public {
         erc20Token.mint(alice, 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
         assertTrue(harness.validateOwnership(asset, alice));
         assertFalse(harness.validateOwnership(asset, bob));
@@ -245,7 +258,7 @@ contract AssetLibTest is Test {
 
     function test_validateOwnership_erc721() public {
         erc721Token.mint(alice, 1);
-        
+
         AssetLib.Asset memory asset = harness.erc721(address(erc721Token), 1);
         assertTrue(harness.validateOwnership(asset, alice));
         assertFalse(harness.validateOwnership(asset, bob));
@@ -253,7 +266,7 @@ contract AssetLibTest is Test {
 
     function test_validateOwnership_erc1155() public {
         erc1155Token.mint(alice, 1, 100);
-        
+
         AssetLib.Asset memory asset = harness.erc1155(address(erc1155Token), 1, 50);
         assertTrue(harness.validateOwnership(asset, alice));
         assertFalse(harness.validateOwnership(asset, bob));
@@ -267,10 +280,10 @@ contract AssetLibTest is Test {
 
     function test_validateApproval_erc20() public {
         erc20Token.mint(alice, 1000);
-        
+
         vm.prank(alice);
         erc20Token.approve(address(harness), 500);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
         assertTrue(harness.validateApproval(asset, alice, address(harness)));
         assertFalse(harness.validateApproval(asset, alice, bob));
@@ -278,10 +291,10 @@ contract AssetLibTest is Test {
 
     function test_validateApproval_erc721() public {
         erc721Token.mint(alice, 1);
-        
+
         vm.prank(alice);
         erc721Token.approve(address(harness), 1);
-        
+
         AssetLib.Asset memory asset = harness.erc721(address(erc721Token), 1);
         assertTrue(harness.validateApproval(asset, alice, address(harness)));
         assertFalse(harness.validateApproval(asset, alice, bob));
@@ -294,35 +307,35 @@ contract AssetLibTest is Test {
 
     function test_requireOwnershipAndApproval_success() public {
         erc20Token.mint(alice, 1000);
-        
+
         vm.prank(alice);
         erc20Token.approve(address(harness), 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
         harness.requireOwnershipAndApproval(asset, alice, address(harness));
     }
 
     function test_requireOwnershipAndApproval_revert_no_balance() public {
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
-        
+
         vm.expectRevert(AssetLib.InsufficientBalance.selector);
         harness.requireOwnershipAndApproval(asset, alice, address(harness));
     }
 
     function test_requireOwnershipAndApproval_revert_no_approval() public {
         erc20Token.mint(alice, 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
-        
+
         vm.expectRevert(AssetLib.AssetNotApproved.selector);
         harness.requireOwnershipAndApproval(asset, alice, address(harness));
     }
 
     function test_requireOwnershipAndApproval_erc721_revert_not_owner() public {
         erc721Token.mint(bob, 1);
-        
+
         AssetLib.Asset memory asset = harness.erc721(address(erc721Token), 1);
-        
+
         vm.expectRevert(AssetLib.NotAssetOwner.selector);
         harness.requireOwnershipAndApproval(asset, alice, address(harness));
     }
@@ -331,14 +344,14 @@ contract AssetLibTest is Test {
 
     function test_balanceOf_erc20() public {
         erc20Token.mint(alice, 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 0);
         assertEq(harness.balanceOf(asset, alice), 1000);
     }
 
     function test_balanceOf_erc721() public {
         erc721Token.mint(alice, 1);
-        
+
         AssetLib.Asset memory asset = harness.erc721(address(erc721Token), 1);
         assertEq(harness.balanceOf(asset, alice), 1);
         assertEq(harness.balanceOf(asset, bob), 0);
@@ -353,21 +366,21 @@ contract AssetLibTest is Test {
 
     function test_transferFrom_revert_invalid_recipient() public {
         erc20Token.mint(alice, 1000);
-        
+
         vm.prank(alice);
         erc20Token.approve(address(harness), 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
-        
+
         vm.expectRevert(AssetLib.InvalidRecipient.selector);
         harness.transferFrom(asset, alice, address(0));
     }
 
     function test_safeTransfer_revert_invalid_recipient() public {
         erc20Token.mint(address(harness), 1000);
-        
+
         AssetLib.Asset memory asset = harness.erc20(address(erc20Token), 500);
-        
+
         vm.expectRevert(AssetLib.InvalidRecipient.selector);
         harness.safeTransfer(asset, address(0));
     }

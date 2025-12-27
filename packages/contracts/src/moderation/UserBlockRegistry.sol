@@ -309,11 +309,11 @@ contract UserBlockRegistry is ReentrancyGuard {
      * @param limit Maximum number to return
      * @return blockedAddrs Array of blocked addresses
      */
-    function getBlockedAddressesPaginated(
-        address blocker,
-        uint256 offset,
-        uint256 limit
-    ) external view returns (address[] memory) {
+    function getBlockedAddressesPaginated(address blocker, uint256 offset, uint256 limit)
+        external
+        view
+        returns (address[] memory)
+    {
         uint256 total = _blockedAddresses[blocker].length;
         if (offset >= total) return new address[](0);
 
@@ -339,8 +339,7 @@ contract UserBlockRegistry is ReentrancyGuard {
         // Only allow setting if currently zero (initialization)
         // or by governance mechanism (to be integrated later)
         require(
-            address(identityRegistry) == address(0) || msg.sender == address(identityRegistry),
-            "Only identity registry"
+            address(identityRegistry) == address(0) || msg.sender == address(identityRegistry), "Only identity registry"
         );
         address oldRegistry = address(identityRegistry);
         identityRegistry = IIdentityRegistry(_identityRegistry);
@@ -354,4 +353,3 @@ contract UserBlockRegistry is ReentrancyGuard {
         return "1.0.0";
     }
 }
-

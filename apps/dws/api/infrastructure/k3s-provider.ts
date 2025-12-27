@@ -6,13 +6,32 @@
  * - k3s (single binary, production-like)
  * - k3d (k3s in Docker, faster for dev)
  * - minikube fallback
+ *
+ * All operations via DWS storage/exec APIs - no Node.js fs required.
  */
 
-import { existsSync } from 'node:fs'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
 import { z } from 'zod'
+
+// Config injected at startup from central config
+export interface K3sProviderConfig {
+  k3sDir: string
+  storageUrl: string
+  execUrl: string
+}
+
+let config: K3sProviderConfig = {
+  k3sDir: '/tmp/dws-k3s',
+  storageUrl: 'http://localhost:4020/storage',
+  execUrl: 'http://localhost:4020/exec',
+}
+
+export function configureK3sProvider(c: Partial<K3sProviderConfig>): void {
+  config = { ...config, ...c }
+}
+
+// Types
 
 export type ClusterProvider = 'k3s' | 'k3d' | 'minikube'
 
@@ -39,7 +58,7 @@ export interface K3sCluster {
   status: 'creating' | 'running' | 'stopped' | 'error'
   nodes: K3sNode[]
   createdAt: number
-  process?: ReturnType<typeof Bun.spawn>
+  processId?: string
 }
 
 export interface K3sNode {
@@ -55,28 +74,60 @@ export interface K3sNode {
 }
 
 const clusters = new Map<string, K3sCluster>()
-const DWS_K3S_DIR = process.env.DWS_K3S_DIR || '/tmp/dws-k3s'
+
+// DWS Exec API - runs commands on the DWS node
+
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+async function exec(
+  command: string[],
+  options?: { env?: Record<string, string>; stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(config.execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+async function writeFile(path: string, content: string): Promise<void> {
+  await exec(['sh', '-c', `cat > "${path}"`], { stdin: content })
+}
+
+async function readFile(path: string): Promise<string> {
+  const result = await exec(['cat', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read ${path}: ${result.stderr}`)
+  }
+  return result.stdout
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  const result = await exec(['test', '-e', path])
+  return result.exitCode === 0
+}
+
+async function mkdir(path: string): Promise<void> {
+  await exec(['mkdir', '-p', path])
+}
+
+async function rm(path: string): Promise<void> {
+  await exec(['rm', '-rf', path])
+}
 
 async function findBinary(name: string): Promise<string | null> {
-  const paths = [
-    `/usr/local/bin/${name}`,
-    `/usr/bin/${name}`,
-    join(process.env.HOME || '', '.local', 'bin', name),
-    join(process.env.HOME || '', 'bin', name),
-  ]
-
-  for (const p of paths) {
-    if (existsSync(p)) return p
+  const result = await exec(['which', name])
+  if (result.exitCode === 0) {
+    return result.stdout.trim()
   }
-
-  // Try which
-  const proc = Bun.spawn(['which', name], { stdout: 'pipe', stderr: 'pipe' })
-  const exitCode = await proc.exited
-  if (exitCode === 0) {
-    const path = await new Response(proc.stdout).text()
-    return path.trim()
-  }
-
   return null
 }
 
@@ -84,23 +135,22 @@ async function detectProvider(): Promise<{
   provider: ClusterProvider
   binary: string
 } | null> {
-  // Prefer k3d (faster, Docker-based)
   const k3d = await findBinary('k3d')
   if (k3d) return { provider: 'k3d', binary: k3d }
 
-  // Then k3s (real k8s, needs root or rootless setup)
   const k3s = await findBinary('k3s')
   if (k3s) return { provider: 'k3s', binary: k3s }
 
-  // Fallback to minikube
   const minikube = await findBinary('minikube')
   if (minikube) return { provider: 'minikube', binary: minikube }
 
   return null
 }
 
+// Cluster Management
+
 export async function createCluster(
-  config: K3sClusterConfig,
+  clusterConfig: K3sClusterConfig,
 ): Promise<K3sCluster> {
   const detection = await detectProvider()
   if (!detection) {
@@ -108,13 +158,13 @@ export async function createCluster(
   }
 
   const { provider, binary } = detection
-  const resolvedProvider = config.provider || provider
+  const resolvedProvider = clusterConfig.provider || provider
 
-  await mkdir(DWS_K3S_DIR, { recursive: true })
-  const kubeconfigPath = join(DWS_K3S_DIR, `${config.name}.kubeconfig`)
+  await mkdir(config.k3sDir)
+  const kubeconfigPath = `${config.k3sDir}/${clusterConfig.name}.kubeconfig`
 
   const cluster: K3sCluster = {
-    name: config.name,
+    name: clusterConfig.name,
     provider: resolvedProvider,
     kubeconfig: kubeconfigPath,
     apiEndpoint: '',
@@ -123,82 +173,78 @@ export async function createCluster(
     createdAt: Date.now(),
   }
 
-  clusters.set(config.name, cluster)
+  clusters.set(clusterConfig.name, cluster)
 
   switch (resolvedProvider) {
     case 'k3d':
-      await createK3dCluster(binary, config, cluster)
+      await createK3dCluster(binary, clusterConfig, cluster)
       break
     case 'k3s':
-      await createK3sCluster(binary, config, cluster)
+      await createK3sCluster(binary, clusterConfig, cluster)
       break
     case 'minikube':
-      await createMinikubeCluster(binary, config, cluster)
+      await createMinikubeCluster(binary, clusterConfig, cluster)
       break
   }
 
   cluster.status = 'running'
-
   return cluster
 }
 
 async function createK3dCluster(
   binary: string,
-  config: K3sClusterConfig,
+  clusterConfig: K3sClusterConfig,
   cluster: K3sCluster,
 ): Promise<void> {
   const args = [
     'cluster',
     'create',
-    config.name,
+    clusterConfig.name,
     '--agents',
-    String(Math.max(0, config.nodes - 1)),
+    String(Math.max(0, clusterConfig.nodes - 1)),
     '--kubeconfig-switch-context',
     '--kubeconfig-update-default',
   ]
 
-  if (config.disableTraefik) {
+  if (clusterConfig.disableTraefik) {
     args.push('--k3s-arg', '--disable=traefik@server:*')
   }
-
-  if (config.disableServiceLB) {
+  if (clusterConfig.disableServiceLB) {
     args.push('--k3s-arg', '--disable=servicelb@server:*')
   }
-
-  if (config.apiPort) {
-    args.push('--api-port', String(config.apiPort))
+  if (clusterConfig.apiPort) {
+    args.push('--api-port', String(clusterConfig.apiPort))
+  }
+  if (clusterConfig.clusterCidr) {
+    args.push(
+      '--k3s-arg',
+      `--cluster-cidr=${clusterConfig.clusterCidr}@server:*`,
+    )
   }
 
-  if (config.clusterCidr) {
-    args.push('--k3s-arg', `--cluster-cidr=${config.clusterCidr}@server:*`)
-  }
-
-  const proc = Bun.spawn([binary, ...args], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: { ...process.env, KUBECONFIG: cluster.kubeconfig },
+  const result = await exec([binary, ...args], {
+    env: { KUBECONFIG: cluster.kubeconfig },
   })
-
-  const exitCode = await proc.exited
-  if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text()
-    throw new Error(`Failed to create k3d cluster: ${stderr}`)
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to create k3d cluster: ${result.stderr}`)
   }
 
   // Get kubeconfig
-  const kubeconfigProc = Bun.spawn([binary, 'kubeconfig', 'get', config.name], {
-    stdout: 'pipe',
-  })
-  await kubeconfigProc.exited
-  const kubeconfig = await new Response(kubeconfigProc.stdout).text()
-  await writeFile(cluster.kubeconfig, kubeconfig)
+  const kubeconfigResult = await exec([
+    binary,
+    'kubeconfig',
+    'get',
+    clusterConfig.name,
+  ])
+  await writeFile(cluster.kubeconfig, kubeconfigResult.stdout)
 
-  // Parse API endpoint from kubeconfig
-  const apiMatch = kubeconfig.match(/server:\s*(https?:\/\/[^\s]+)/)
+  // Parse API endpoint
+  const apiMatch = kubeconfigResult.stdout.match(
+    /server:\s*(https?:\/\/[^\s]+)/,
+  )
   cluster.apiEndpoint = apiMatch?.[1] ?? 'https://localhost:6443'
 
-  // List nodes
-  cluster.nodes = await getK3dNodes(binary, config.name)
+  cluster.nodes = await getK3dNodes(binary, clusterConfig.name)
 }
 
 const K3dNodeSchema = z.object({
@@ -208,26 +254,15 @@ const K3dNodeSchema = z.object({
   IP: z.object({ IP: z.string() }).optional(),
 })
 
-const K3dNodeListSchema = z.array(K3dNodeSchema)
-
 async function getK3dNodes(
   binary: string,
   clusterName: string,
 ): Promise<K3sNode[]> {
-  const proc = Bun.spawn([binary, 'node', 'list', '-o', 'json'], {
-    stdout: 'pipe',
-  })
-  await proc.exited
+  const result = await exec([binary, 'node', 'list', '-o', 'json'])
+  const parsed: unknown = JSON.parse(result.stdout)
+  const nodes = z.array(K3dNodeSchema).parse(parsed)
 
-  const output = await new Response(proc.stdout).text()
-  const parsed: unknown = JSON.parse(output)
-  const result = K3dNodeListSchema.safeParse(parsed)
-  if (!result.success) {
-    throw new Error(`Invalid k3d node list response: ${result.error.message}`)
-  }
-  const allNodes = result.data
-
-  return allNodes
+  return nodes
     .filter((n) => n.name.includes(clusterName))
     .map((n) => ({
       name: n.name,
@@ -236,21 +271,18 @@ async function getK3dNodes(
         : ('agent' as const),
       ip: n.IP?.IP ?? 'unknown',
       status: n.state?.running ? ('ready' as const) : ('not-ready' as const),
-      resources: {
-        cpuCores: 2,
-        memoryMb: 2048,
-        storageMb: 10240,
-      },
+      resources: { cpuCores: 2, memoryMb: 2048, storageMb: 10240 },
     }))
 }
 
 async function createK3sCluster(
   binary: string,
-  config: K3sClusterConfig,
+  clusterConfig: K3sClusterConfig,
   cluster: K3sCluster,
 ): Promise<void> {
-  const dataDir = config.dataDir || join(DWS_K3S_DIR, config.name)
-  await mkdir(dataDir, { recursive: true })
+  const dataDir =
+    clusterConfig.dataDir ?? `${config.k3sDir}/${clusterConfig.name}`
+  await mkdir(dataDir)
 
   const args = [
     'server',
@@ -259,46 +291,36 @@ async function createK3sCluster(
     '--write-kubeconfig-mode=644',
   ]
 
-  if (config.disableTraefik) {
-    args.push('--disable=traefik')
+  if (clusterConfig.disableTraefik) args.push('--disable=traefik')
+  if (clusterConfig.clusterCidr)
+    args.push(`--cluster-cidr=${clusterConfig.clusterCidr}`)
+  if (clusterConfig.serviceCidr)
+    args.push(`--service-cidr=${clusterConfig.serviceCidr}`)
+
+  // Start k3s (background via exec API)
+  const result = await exec([binary, ...args])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to start k3s: ${result.stderr}`)
   }
 
-  if (config.clusterCidr) {
-    args.push(`--cluster-cidr=${config.clusterCidr}`)
-  }
-
-  if (config.serviceCidr) {
-    args.push(`--service-cidr=${config.serviceCidr}`)
-  }
-
-  // Start k3s as background process
-  const proc = Bun.spawn([binary, ...args], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  })
-
-  cluster.process = proc
-
-  // Wait for kubeconfig to be written
+  // Wait for kubeconfig
   await waitForFile(cluster.kubeconfig, 30000)
 
-  // Parse API endpoint
-  const kubeconfig = await readFile(cluster.kubeconfig, 'utf-8')
+  const kubeconfig = await readFile(cluster.kubeconfig)
   const apiMatch = kubeconfig.match(/server:\s*(https?:\/\/[^\s]+)/)
   cluster.apiEndpoint = apiMatch?.[1] ?? 'https://127.0.0.1:6443'
 
-  // Wait for API server
   await waitForKubeApi(cluster.kubeconfig)
 
   cluster.nodes = [
     {
-      name: `${config.name}-server`,
+      name: `${clusterConfig.name}-server`,
       role: 'server',
       ip: '127.0.0.1',
       status: 'ready',
       resources: {
-        cpuCores: config.cpuCores ?? 4,
-        memoryMb: config.memoryMb ?? 4096,
+        cpuCores: clusterConfig.cpuCores ?? 4,
+        memoryMb: clusterConfig.memoryMb ?? 4096,
         storageMb: 102400,
       },
     },
@@ -307,59 +329,53 @@ async function createK3sCluster(
 
 async function createMinikubeCluster(
   binary: string,
-  config: K3sClusterConfig,
+  clusterConfig: K3sClusterConfig,
   cluster: K3sCluster,
 ): Promise<void> {
   const args = [
     'start',
     '--profile',
-    config.name,
+    clusterConfig.name,
     '--nodes',
-    String(config.nodes),
+    String(clusterConfig.nodes),
   ]
+  if (clusterConfig.cpuCores)
+    args.push('--cpus', String(clusterConfig.cpuCores))
+  if (clusterConfig.memoryMb)
+    args.push('--memory', String(clusterConfig.memoryMb))
 
-  if (config.cpuCores) {
-    args.push('--cpus', String(config.cpuCores))
-  }
-
-  if (config.memoryMb) {
-    args.push('--memory', String(config.memoryMb))
-  }
-
-  const proc = Bun.spawn([binary, ...args], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  })
-
-  const exitCode = await proc.exited
-  if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text()
-    throw new Error(`Failed to create minikube cluster: ${stderr}`)
+  const result = await exec([binary, ...args])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to create minikube cluster: ${result.stderr}`)
   }
 
   // Get kubeconfig
-  const kubeconfigProc = Bun.spawn(
-    [binary, 'kubectl', '-p', config.name, '--', 'config', 'view', '--raw'],
-    {
-      stdout: 'pipe',
-    },
-  )
-  await kubeconfigProc.exited
-  const kubeconfig = await new Response(kubeconfigProc.stdout).text()
-  await writeFile(cluster.kubeconfig, kubeconfig)
+  const kubeconfigResult = await exec([
+    binary,
+    'kubectl',
+    '-p',
+    clusterConfig.name,
+    '--',
+    'config',
+    'view',
+    '--raw',
+  ])
+  await writeFile(cluster.kubeconfig, kubeconfigResult.stdout)
 
-  const apiMatch = kubeconfig.match(/server:\s*(https?:\/\/[^\s]+)/)
+  const apiMatch = kubeconfigResult.stdout.match(
+    /server:\s*(https?:\/\/[^\s]+)/,
+  )
   cluster.apiEndpoint = apiMatch?.[1] ?? 'https://192.168.49.2:8443'
 
   cluster.nodes = [
     {
-      name: config.name,
+      name: clusterConfig.name,
       role: 'server',
       ip: '192.168.49.2',
       status: 'ready',
       resources: {
-        cpuCores: config.cpuCores ?? 2,
-        memoryMb: config.memoryMb ?? 2048,
+        cpuCores: clusterConfig.cpuCores ?? 2,
+        memoryMb: clusterConfig.memoryMb ?? 2048,
         storageMb: 20480,
       },
     },
@@ -372,44 +388,28 @@ export async function deleteCluster(name: string): Promise<void> {
     throw new Error(`Cluster ${name} not found`)
   }
 
-  // Kill process if k3s
-  if (cluster.process) {
-    cluster.process.kill()
-  }
-
   const detection = await detectProvider()
   if (!detection) return
 
   const { binary } = detection
 
   switch (cluster.provider) {
-    case 'k3d': {
-      const proc = Bun.spawn([binary, 'cluster', 'delete', name])
-      await proc.exited
+    case 'k3d':
+      await exec([binary, 'cluster', 'delete', name])
       break
-    }
     case 'k3s': {
-      // k3s-killall.sh if available
       const killScript = await findBinary('k3s-killall.sh')
-      if (killScript) {
-        const proc = Bun.spawn([killScript])
-        await proc.exited
-      }
-      // Cleanup data dir
-      const dataDir = join(DWS_K3S_DIR, name)
-      await rm(dataDir, { recursive: true, force: true })
+      if (killScript) await exec([killScript])
+      await rm(`${config.k3sDir}/${name}`)
       break
     }
-    case 'minikube': {
-      const proc = Bun.spawn([binary, 'delete', '--profile', name])
-      await proc.exited
+    case 'minikube':
+      await exec([binary, 'delete', '--profile', name])
       break
-    }
   }
 
-  // Remove kubeconfig
-  if (existsSync(cluster.kubeconfig)) {
-    await rm(cluster.kubeconfig, { force: true })
+  if (await fileExists(cluster.kubeconfig)) {
+    await rm(cluster.kubeconfig)
   }
 
   clusters.delete(name)
@@ -422,6 +422,8 @@ export function getCluster(name: string): K3sCluster | undefined {
 export function listClusters(): K3sCluster[] {
   return Array.from(clusters.values())
 }
+
+// Helm & Kubectl
 
 export async function installHelmChart(
   clusterName: string,
@@ -437,14 +439,10 @@ export async function installHelmChart(
   },
 ): Promise<{ success: boolean; output: string }> {
   const cluster = clusters.get(clusterName)
-  if (!cluster) {
-    throw new Error(`Cluster ${clusterName} not found`)
-  }
+  if (!cluster) throw new Error(`Cluster ${clusterName} not found`)
 
   const helm = await findBinary('helm')
-  if (!helm) {
-    throw new Error('helm binary not found')
-  }
+  if (!helm) throw new Error('helm binary not found')
 
   const args = [
     'install',
@@ -454,48 +452,29 @@ export async function installHelmChart(
     cluster.kubeconfig,
   ]
 
-  if (params.namespace) {
+  if (params.namespace)
     args.push('--namespace', params.namespace, '--create-namespace')
-  }
 
   if (params.values) {
-    const valuesPath = join(DWS_K3S_DIR, `${params.release}-values.yaml`)
+    const valuesPath = `${config.k3sDir}/${params.release}-values.yaml`
     await writeFile(valuesPath, JSON.stringify(params.values))
     args.push('-f', valuesPath)
   }
 
-  if (params.valuesFile) {
-    args.push('-f', params.valuesFile)
-  }
-
+  if (params.valuesFile) args.push('-f', params.valuesFile)
   if (params.set) {
     for (const [key, value] of Object.entries(params.set)) {
       args.push('--set', `${key}=${value}`)
     }
   }
+  if (params.wait) args.push('--wait')
+  if (params.timeout) args.push('--timeout', params.timeout)
 
-  if (params.wait) {
-    args.push('--wait')
+  const result = await exec([helm, ...args])
+  return {
+    success: result.exitCode === 0,
+    output: result.exitCode === 0 ? result.stdout : result.stderr,
   }
-
-  if (params.timeout) {
-    args.push('--timeout', params.timeout)
-  }
-
-  const proc = Bun.spawn([helm, ...args], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  })
-
-  const exitCode = await proc.exited
-  const stdout = await new Response(proc.stdout).text()
-  const stderr = await new Response(proc.stderr).text()
-
-  if (exitCode !== 0) {
-    return { success: false, output: stderr || stdout }
-  }
-
-  return { success: true, output: stdout }
 }
 
 export async function applyManifest(
@@ -503,36 +482,24 @@ export async function applyManifest(
   manifest: string | object,
 ): Promise<{ success: boolean; output: string }> {
   const cluster = clusters.get(clusterName)
-  if (!cluster) {
-    throw new Error(`Cluster ${clusterName} not found`)
-  }
+  if (!cluster) throw new Error(`Cluster ${clusterName} not found`)
 
   const kubectl = await findBinary('kubectl')
-  if (!kubectl) {
-    throw new Error('kubectl binary not found')
-  }
+  if (!kubectl) throw new Error('kubectl binary not found')
 
   const manifestStr =
     typeof manifest === 'string' ? manifest : JSON.stringify(manifest)
-
-  const proc = Bun.spawn(
+  const result = await exec(
     [kubectl, 'apply', '-f', '-', '--kubeconfig', cluster.kubeconfig],
     {
-      stdin: new TextEncoder().encode(manifestStr),
-      stdout: 'pipe',
-      stderr: 'pipe',
+      stdin: manifestStr,
     },
   )
 
-  const exitCode = await proc.exited
-  const stdout = await new Response(proc.stdout).text()
-  const stderr = await new Response(proc.stderr).text()
-
-  if (exitCode !== 0) {
-    return { success: false, output: stderr || stdout }
+  return {
+    success: result.exitCode === 0,
+    output: result.exitCode === 0 ? result.stdout : result.stderr,
   }
-
-  return { success: true, output: stdout }
 }
 
 export async function installDWSAgent(
@@ -549,72 +516,9 @@ export async function installDWSAgent(
   },
 ): Promise<void> {
   const cluster = clusters.get(clusterName)
-  if (!cluster) {
-    throw new Error(`Cluster ${clusterName} not found`)
-  }
+  if (!cluster) throw new Error(`Cluster ${clusterName} not found`)
 
-  // Deploy DWS agent as a DaemonSet
-  const manifest = {
-    apiVersion: 'apps/v1',
-    kind: 'DaemonSet',
-    metadata: {
-      name: 'dws-node-agent',
-      namespace: 'dws-system',
-    },
-    spec: {
-      selector: {
-        matchLabels: { app: 'dws-node-agent' },
-      },
-      template: {
-        metadata: {
-          labels: { app: 'dws-node-agent' },
-        },
-        spec: {
-          containers: [
-            {
-              name: 'agent',
-              image: 'jeju/dws-node-agent:latest',
-              env: [
-                { name: 'DWS_NODE_ENDPOINT', value: params.nodeEndpoint },
-                {
-                  name: 'DWS_CAPABILITIES',
-                  value: (params.capabilities ?? ['compute']).join(','),
-                },
-                ...(params.privateKey
-                  ? [{ name: 'DWS_PRIVATE_KEY', value: params.privateKey }]
-                  : []),
-                ...(params.pricing
-                  ? [
-                      {
-                        name: 'DWS_PRICE_PER_HOUR',
-                        value: params.pricing.pricePerHour,
-                      },
-                      {
-                        name: 'DWS_PRICE_PER_GB',
-                        value: params.pricing.pricePerGb,
-                      },
-                      {
-                        name: 'DWS_PRICE_PER_REQUEST',
-                        value: params.pricing.pricePerRequest,
-                      },
-                    ]
-                  : []),
-              ],
-              ports: [{ containerPort: 4030 }],
-              resources: {
-                requests: { cpu: '100m', memory: '128Mi' },
-                limits: { cpu: '500m', memory: '512Mi' },
-              },
-            },
-          ],
-          hostNetwork: true,
-          serviceAccountName: 'dws-node-agent',
-        },
-      },
-    },
-  }
-
-  // Create namespace first
+  // Create namespace
   await applyManifest(clusterName, {
     apiVersion: 'v1',
     kind: 'Namespace',
@@ -628,21 +532,66 @@ export async function installDWSAgent(
     metadata: { name: 'dws-node-agent', namespace: 'dws-system' },
   })
 
-  // Deploy agent
-  const result = await applyManifest(clusterName, manifest)
+  // Deploy DWS agent DaemonSet
+  const env = [
+    { name: 'DWS_NODE_ENDPOINT', value: params.nodeEndpoint },
+    {
+      name: 'DWS_CAPABILITIES',
+      value: (params.capabilities ?? ['compute']).join(','),
+    },
+  ]
+  if (params.privateKey)
+    env.push({ name: 'DWS_PRIVATE_KEY', value: params.privateKey })
+  if (params.pricing) {
+    env.push({ name: 'DWS_PRICE_PER_HOUR', value: params.pricing.pricePerHour })
+    env.push({ name: 'DWS_PRICE_PER_GB', value: params.pricing.pricePerGb })
+    env.push({
+      name: 'DWS_PRICE_PER_REQUEST',
+      value: params.pricing.pricePerRequest,
+    })
+  }
+
+  const result = await applyManifest(clusterName, {
+    apiVersion: 'apps/v1',
+    kind: 'DaemonSet',
+    metadata: { name: 'dws-node-agent', namespace: 'dws-system' },
+    spec: {
+      selector: { matchLabels: { app: 'dws-node-agent' } },
+      template: {
+        metadata: { labels: { app: 'dws-node-agent' } },
+        spec: {
+          containers: [
+            {
+              name: 'agent',
+              image: 'jeju/dws-node-agent:latest',
+              env,
+              ports: [{ containerPort: 4030 }],
+              resources: {
+                requests: { cpu: '100m', memory: '128Mi' },
+                limits: { cpu: '500m', memory: '512Mi' },
+              },
+            },
+          ],
+          hostNetwork: true,
+          serviceAccountName: 'dws-node-agent',
+        },
+      },
+    },
+  })
+
   if (!result.success) {
     throw new Error(`Failed to install DWS agent: ${result.output}`)
   }
 }
 
+// Helpers
+
 async function waitForFile(path: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs
-
   while (Date.now() < deadline) {
-    if (existsSync(path)) return
+    if (await fileExists(path)) return
     await new Promise((r) => setTimeout(r, 500))
   }
-
   throw new Error(`Timeout waiting for ${path}`)
 }
 
@@ -651,31 +600,24 @@ async function waitForKubeApi(
   timeoutMs = 60000,
 ): Promise<void> {
   const kubectl = await findBinary('kubectl')
-  if (!kubectl) {
-    throw new Error('kubectl not found')
-  }
+  if (!kubectl) throw new Error('kubectl not found')
 
   const deadline = Date.now() + timeoutMs
-
   while (Date.now() < deadline) {
-    const proc = Bun.spawn(
-      [kubectl, 'get', 'nodes', '--kubeconfig', kubeconfigPath],
-      {
-        stdout: 'pipe',
-        stderr: 'pipe',
-      },
-    )
-
-    const exitCode = await proc.exited
-    if (exitCode === 0) return
-
+    const result = await exec([
+      kubectl,
+      'get',
+      'nodes',
+      '--kubeconfig',
+      kubeconfigPath,
+    ])
+    if (result.exitCode === 0) return
     await new Promise((r) => setTimeout(r, 1000))
   }
-
   throw new Error('Timeout waiting for Kubernetes API')
 }
 
-import { Elysia, t } from 'elysia'
+// Elysia Router
 
 const CreateClusterBody = t.Object({
   name: t.String({ minLength: 1, maxLength: 63, pattern: '^[a-z0-9-]+$' }),
@@ -715,17 +657,16 @@ export function createK3sRouter() {
       clusters: clusters.size,
       supportedProviders: ['k3d', 'k3s', 'minikube'],
     }))
-    .get('/clusters', () => {
-      const clusterList = listClusters().map((cl) => ({
+    .get('/clusters', () => ({
+      clusters: listClusters().map((cl) => ({
         name: cl.name,
         provider: cl.provider,
         status: cl.status,
         apiEndpoint: cl.apiEndpoint,
         nodes: cl.nodes.length,
         createdAt: cl.createdAt,
-      }))
-      return { clusters: clusterList }
-    })
+      })),
+    }))
     .post(
       '/clusters',
       async ({ body, set }) => {
@@ -739,7 +680,6 @@ export function createK3sRouter() {
           exposeApi: body.exposeApi,
           apiPort: body.apiPort,
         })
-
         set.status = 201
         return {
           name: cluster.name,
@@ -756,12 +696,10 @@ export function createK3sRouter() {
       '/clusters/:name',
       ({ params, set }) => {
         const cluster = getCluster(params.name)
-
         if (!cluster) {
           set.status = 404
           return { error: 'Cluster not found' }
         }
-
         return {
           name: cluster.name,
           provider: cluster.provider,
@@ -786,12 +724,10 @@ export function createK3sRouter() {
       '/clusters/:name/helm',
       async ({ params, body, set }) => {
         const result = await installHelmChart(params.name, body)
-
         if (!result.success) {
           set.status = 500
           return { error: result.output }
         }
-
         return { success: true, output: result.output }
       },
       { params: ClusterNameParams, body: InstallChartBody },
@@ -803,12 +739,10 @@ export function createK3sRouter() {
           params.name,
           body as string | Record<string, unknown>,
         )
-
         if (!result.success) {
           set.status = 500
           return { error: result.output }
         }
-
         return { success: true, output: result.output }
       },
       { params: ClusterNameParams, body: t.Unknown() },
@@ -831,12 +765,10 @@ export function createK3sRouter() {
         available: boolean
         path?: string
       }> = []
-
       for (const name of ['k3d', 'k3s', 'minikube'] as ClusterProvider[]) {
         const path = await findBinary(name)
-        providers.push({ name, available: !!path, path: path || undefined })
+        providers.push({ name, available: !!path, path: path ?? undefined })
       }
-
       return { providers }
     })
 }

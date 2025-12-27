@@ -128,7 +128,7 @@ export class TestOrchestrator {
 
         if (!lockResult.acquired) {
           throw new Error(
-            'FATAL: ' + (lockResult.message || 'Failed to acquire test lock. Another test may be running.'),
+            `FATAL: ${lockResult.message || 'Failed to acquire test lock. Another test may be running.'}`,
           )
         }
         logger.success('Lock acquired')
@@ -246,7 +246,8 @@ export class TestOrchestrator {
       if (!smokeResult.passed) {
         throw new Error(
           'FATAL: Smoke tests failed. E2E testing infrastructure is not working properly. ' +
-            'Errors: ' + smokeResult.errors.join(', '),
+            'Errors: ' +
+            smokeResult.errors.join(', '),
         )
       }
     }

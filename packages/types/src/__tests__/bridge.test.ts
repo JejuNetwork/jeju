@@ -238,8 +238,7 @@ describe('BridgeQuote type', () => {
       route: 'optimistic',
     }
 
-    const totalFees =
-      quote.fees.gas + quote.fees.relay + quote.fees.protocol
+    const totalFees = quote.fees.gas + quote.fees.relay + quote.fees.protocol
     expect(totalFees).toBe(175n)
   })
 })

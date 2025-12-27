@@ -11,6 +11,7 @@
 import { AddressSchema, HashSchema, HexSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
+<<<<<<< HEAD
 // Re-export base schemas from @jejunetwork/types
 export { AddressSchema, HashSchema, HexSchema }
 
@@ -21,6 +22,9 @@ export type {
   JsonRpcResponse,
   JsonRpcSuccessResponse,
 } from '@jejunetwork/types'
+=======
+// Import schemas and types directly from @jejunetwork/types instead of re-exporting
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
 
 // Additional Address & Hash Schemas (extend shared schemas)
 
@@ -321,18 +325,25 @@ export type ChainIdResponse = z.infer<typeof ChainIdResponseSchema>
 export type GetCodeResponse = z.infer<typeof GetCodeResponseSchema>
 
 /**
- * Parse and validate eth_blockNumber response
+ * Parse and validate eth_blockNumber response, returning the block number
  */
+<<<<<<< HEAD
 /**
  * Parse and validate eth_blockNumber response, returns block number as number
  */
+=======
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
 export function parseBlockNumberResponse(data: unknown): number {
   const parsed = BlockNumberResponseSchema.parse(data)
   return parseInt(parsed.result, 16)
 }
 
 /**
+<<<<<<< HEAD
  * Parse and validate eth_chainId response, returns chain ID as number
+=======
+ * Parse and validate eth_chainId response, returning the chain ID
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
  */
 export function parseChainIdResponse(data: unknown): number {
   const parsed = ChainIdResponseSchema.parse(data)
@@ -340,7 +351,11 @@ export function parseChainIdResponse(data: unknown): number {
 }
 
 /**
+<<<<<<< HEAD
  * Parse and validate eth_getCode response, returns bytecode as string
+=======
+ * Parse and validate eth_getCode response, returning the bytecode
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
  */
 export function parseGetCodeResponse(data: unknown): string {
   const parsed = GetCodeResponseSchema.parse(data)

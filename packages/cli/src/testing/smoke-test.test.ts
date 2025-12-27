@@ -3,7 +3,11 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { SMOKE_TEST_HTML, SMOKE_TEST_PORT, startSmokeTestServer } from './smoke-test-page'
+import {
+  SMOKE_TEST_HTML,
+  SMOKE_TEST_PORT,
+  startSmokeTestServer,
+} from './smoke-test-page'
 
 describe('Smoke Test Page', () => {
   test('SMOKE_TEST_HTML contains expected elements', () => {
@@ -40,4 +44,3 @@ describe('Smoke Test Page', () => {
     server.stop()
   })
 })
-

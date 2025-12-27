@@ -112,10 +112,7 @@ describe('Test Orchestrator - List Command', () => {
 
 describe('Test Orchestrator - Error Handling', () => {
   test('should exit 1 when invalid mode provided', async () => {
-    const result = await runCLI([
-      'test',
-      '--mode=invalid-mode-xyz',
-    ])
+    const result = await runCLI(['test', '--mode=invalid-mode-xyz'])
     expect(result.exitCode).toBe(1)
     // Should have error message in output
     const output = result.stdout + result.stderr
@@ -125,58 +122,34 @@ describe('Test Orchestrator - Error Handling', () => {
 
 describe('Test Orchestrator - Skip Flags', () => {
   test('should accept --skip-lock flag with list', async () => {
-    const result = await runCLI([
-      'test',
-      '--skip-lock',
-      'list',
-    ])
+    const result = await runCLI(['test', '--skip-lock', 'list'])
     expect(result.exitCode).toBe(0)
   })
 
   test('should accept --force flag with list', async () => {
-    const result = await runCLI([
-      'test',
-      '--force',
-      'list',
-    ])
+    const result = await runCLI(['test', '--force', 'list'])
     expect(result.exitCode).toBe(0)
   })
 
   test('should accept --verbose flag with list', async () => {
-    const result = await runCLI([
-      'test',
-      '--verbose',
-      'list',
-    ])
+    const result = await runCLI(['test', '--verbose', 'list'])
     expect(result.exitCode).toBe(0)
   })
 })
 
 describe('Test Orchestrator - Mode Flags', () => {
   test('should accept unit mode with list', async () => {
-    const result = await runCLI([
-      'test',
-      '--mode=unit',
-      'list',
-    ])
+    const result = await runCLI(['test', '--mode=unit', 'list'])
     expect(result.exitCode).toBe(0)
   })
 
   test('should accept integration mode with list', async () => {
-    const result = await runCLI([
-      'test',
-      '--mode=integration',
-      'list',
-    ])
+    const result = await runCLI(['test', '--mode=integration', 'list'])
     expect(result.exitCode).toBe(0)
   })
 
   test('should accept e2e mode with list', async () => {
-    const result = await runCLI([
-      'test',
-      '--mode=e2e',
-      'list',
-    ])
+    const result = await runCLI(['test', '--mode=e2e', 'list'])
     expect(result.exitCode).toBe(0)
   })
 })
@@ -185,13 +158,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
   test('should handle concurrent list commands', async () => {
     // Start first process
     const proc1 = spawn({
-      cmd: [
-        'bun',
-        'run',
-        CLI_PATH,
-        'test',
-        'list',
-      ],
+      cmd: ['bun', 'run', CLI_PATH, 'test', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,
@@ -199,13 +166,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
 
     // Start second process
     const proc2 = spawn({
-      cmd: [
-        'bun',
-        'run',
-        CLI_PATH,
-        'test',
-        'list',
-      ],
+      cmd: ['bun', 'run', CLI_PATH, 'test', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,
@@ -222,14 +183,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
   test('should allow concurrent with --force', async () => {
     // Start first process
     const proc1 = spawn({
-      cmd: [
-        'bun',
-        'run',
-        CLI_PATH,
-        'test',
-        '--force',
-        'list',
-      ],
+      cmd: ['bun', 'run', CLI_PATH, 'test', '--force', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,
@@ -237,14 +191,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
 
     // Start second process immediately with force
     const proc2 = spawn({
-      cmd: [
-        'bun',
-        'run',
-        CLI_PATH,
-        'test',
-        '--force',
-        'list',
-      ],
+      cmd: ['bun', 'run', CLI_PATH, 'test', '--force', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,

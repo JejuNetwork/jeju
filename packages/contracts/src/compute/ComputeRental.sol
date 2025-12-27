@@ -18,7 +18,6 @@ interface IFeeConfigCompute {
  * @notice Decentralized compute resource rentals with ERC-8004 reputation integration
  */
 contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
-
     enum RentalStatus {
         PENDING, // Created but not started
         ACTIVE, // Running
@@ -55,7 +54,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         PAYMENT_DISPUTE // Payment/billing dispute
 
     }
-
 
     struct ComputeResources {
         GPUType gpuType;
@@ -173,7 +171,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     ICreditManager public creditManager;
     mapping(address => bool) public acceptedTokens;
 
-
     event RentalCreated(
         bytes32 indexed rentalId,
         address indexed user,
@@ -261,7 +258,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     error TokenNotAccepted();
     error InsufficientCredit();
 
-
     modifier notBannedUser() {
         if (userRecords[msg.sender].banned) revert UserBannedError();
         _;
@@ -277,12 +273,10 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         _;
     }
 
-
     constructor(address initialOwner, address _treasury) Ownable(initialOwner) {
         treasury = _treasury;
         arbitrators[initialOwner] = true;
     }
-
 
     function setProviderResources(
         ComputeResources calldata resources,
@@ -322,7 +316,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
         emit ProviderAgentLinked(msg.sender, agentId);
     }
-
 
     function createRental(
         address provider,
@@ -600,7 +593,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         return treasury;
     }
 
-
     event PlatformFeeCollected(bytes32 indexed rentalId, uint256 amount, uint256 feeBps);
     event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
 
@@ -640,7 +632,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
         emit RentalExtended(rentalId, additionalHours, additionalCost);
     }
-
 
     function rateRental(bytes32 rentalId, uint8 score, string calldata comment) external {
         Rental storage rental = rentals[rentalId];
@@ -774,7 +765,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         // Previous vulnerability: colluding providers could auto-ban users with just 3 reports
         // Now: arbitrators must review and manually ban if warranted
     }
-    
+
     /// @notice Ban user after arbitrator review - requires arbitrator role
     /// @dev SECURITY: Only arbitrators can ban, not automatic from reports
     function banUserAfterReview(address user, string calldata reason) external onlyArbitrator {
@@ -783,7 +774,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         userRecords[user].banReason = reason;
         emit UserBanned(user, reason);
     }
-
 
     function getRental(bytes32 rentalId) external view returns (Rental memory) {
         return rentals[rentalId];
@@ -907,7 +897,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (hourlyRate == 0) return 0;
         return rental.paidAmount / hourlyRate;
     }
-
 
     function setPlatformFee(uint256 newFeeBps) external onlyOwner {
         require(newFeeBps <= 1000, "Fee too high"); // Max 10%

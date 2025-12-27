@@ -32,7 +32,9 @@ interface IUserBlockRegistry {
  */
 interface IHyperlaneMailbox {
     function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
-        external payable returns (bytes32);
+        external
+        payable
+        returns (bytes32);
     function localDomain() external view returns (uint32);
 }
 
@@ -42,7 +44,8 @@ interface IHyperlaneMailbox {
  */
 interface IInterchainGasPaymaster {
     function payForGas(bytes32 messageId, uint32 destinationDomain, uint256 gasAmount, address refundAddress)
-        external payable;
+        external
+        payable;
     function quoteGasPayment(uint32 destinationDomain, uint256 gasAmount) external view returns (uint256);
 }
 
@@ -50,7 +53,7 @@ interface IInterchainGasPaymaster {
  * @title Token
  * @author Jeju Network
  * @notice Universal token with trading fees, cross-chain support, and moderation
- * @dev 
+ * @dev
  * Combines best features:
  * - ERC20 with Permit (EIP-2612) for gasless approvals
  * - EIP-3009 for gasless transfers
@@ -69,21 +72,21 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
     uint256 public constant BRIDGE_GAS_LIMIT = 300_000;
 
     struct TokenConfig {
-        uint256 maxSupply;           // 0 = unlimited
-        uint256 maxWalletBps;        // Max wallet as % of supply (0 = no limit)
-        uint256 maxTxBps;            // Max tx as % of supply (0 = no limit)
-        bool isHomeChain;            // Lock/unlock vs burn/mint
+        uint256 maxSupply; // 0 = unlimited
+        uint256 maxWalletBps; // Max wallet as % of supply (0 = no limit)
+        uint256 maxTxBps; // Max tx as % of supply (0 = no limit)
+        bool isHomeChain; // Lock/unlock vs burn/mint
         bool banEnforcementEnabled;
         bool transfersPaused;
         bool faucetEnabled;
     }
 
     struct FeeConfig {
-        uint16 creatorFeeBps;        // Fee to creator wallet
-        uint16 holderFeeBps;         // Fee to holder reward pool
-        uint16 treasuryFeeBps;       // Fee to treasury
-        uint16 burnFeeBps;           // Burn (deflationary)
-        uint16 lpFeeBps;             // Fee on LP operations
+        uint16 creatorFeeBps; // Fee to creator wallet
+        uint16 holderFeeBps; // Fee to holder reward pool
+        uint16 treasuryFeeBps; // Fee to treasury
+        uint16 burnFeeBps; // Burn (deflationary)
+        uint16 lpFeeBps; // Fee on LP operations
         address creatorWallet;
         address holderRewardPool;
         address treasury;
@@ -250,7 +253,10 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
     // ═══════════════════════════════════════════════════════════════════════════
 
     function bridgeTransfer(uint32 destination, bytes32 recipient, uint256 amount)
-        external payable nonReentrant returns (bytes32 messageId)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 messageId)
     {
         if (remoteRouters[destination] == bytes32(0)) revert UnsupportedDomain(destination);
 
@@ -273,14 +279,14 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
 
     /// @notice Minimum message body length: 32 bytes recipient + 32 bytes amount
     uint256 private constant MIN_MESSAGE_LENGTH = 64;
-    
+
     /// @notice Error for invalid message format
     error InvalidMessageFormat();
-    
+
     function handle(uint32 origin, bytes32 sender, bytes calldata body) external {
         if (msg.sender != address(mailbox)) revert OnlyMailbox();
         if (remoteRouters[origin] != sender) revert UnsupportedDomain(origin);
-        
+
         // Validate message body length to prevent parsing errors
         if (body.length < MIN_MESSAGE_LENGTH) revert InvalidMessageFormat();
 
@@ -292,10 +298,10 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
         bytes32 recipientBytes = bytes32(body[:32]);
         uint256 amount = abi.decode(body[32:64], (uint256));
         address recipient = address(uint160(uint256(recipientBytes)));
-        
+
         // Validate recipient is not zero address
         if (recipient == address(0)) revert InvalidMessageFormat();
-        
+
         // Validate amount is not zero
         if (amount == 0) revert InvalidMessageFormat();
 
@@ -371,15 +377,25 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
             treasury: treasury_
         });
 
-        if (creatorWallet_ != address(0)) { feeExempt[creatorWallet_] = true; limitExempt[creatorWallet_] = true; }
-        if (holderRewardPool_ != address(0)) { feeExempt[holderRewardPool_] = true; limitExempt[holderRewardPool_] = true; }
-        if (treasury_ != address(0)) { feeExempt[treasury_] = true; limitExempt[treasury_] = true; }
+        if (creatorWallet_ != address(0)) {
+            feeExempt[creatorWallet_] = true;
+            limitExempt[creatorWallet_] = true;
+        }
+        if (holderRewardPool_ != address(0)) {
+            feeExempt[holderRewardPool_] = true;
+            limitExempt[holderRewardPool_] = true;
+        }
+        if (treasury_ != address(0)) {
+            feeExempt[treasury_] = true;
+            limitExempt[treasury_] = true;
+        }
 
         emit FeesUpdated();
     }
 
     function setConfig(uint256 maxWalletBps_, uint256 maxTxBps_, bool banEnabled_, bool paused_, bool faucetEnabled_)
-        external onlyOwner
+        external
+        onlyOwner
     {
         config.maxWalletBps = maxWalletBps_;
         config.maxTxBps = maxTxBps_;

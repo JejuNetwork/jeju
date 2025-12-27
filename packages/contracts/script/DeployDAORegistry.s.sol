@@ -133,4 +133,3 @@ contract DeployDAORegistry is Script {
         console.logBytes32(appsId);
     }
 }
-

@@ -338,22 +338,22 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Commit-reveal voting extension (optional, enables hidden votes)
     ICommitRevealVoting public commitRevealVoting;
-    
+
     /// @notice Voter slashing extension (optional, penalizes bad voters)
     IVoterSlashing public voterSlashing;
-    
+
     /// @notice Multi-oracle reputation extension (optional, aggregates reputations)
     IMultiOracleReputation public multiOracleReputation;
-    
+
     /// @notice Cross-chain arbitration extension (optional, enables multi-chain cases)
     ICrossChainArbitration public crossChainArbitration;
-    
+
     /// @notice Whether to use commit-reveal voting for new cases
     bool public useCommitRevealVoting;
-    
+
     /// @notice Whether to apply voter slashing on resolution
     bool public useVoterSlashing;
-    
+
     /// @notice Whether to use multi-oracle reputation
     bool public useMultiOracleReputation;
 
@@ -368,7 +368,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Track cases where evidence resolution failed (can be retried)
     mapping(bytes32 => bool) public evidenceResolutionFailed;
-    
+
     /// @notice Track cases where evidence resolution succeeded
     mapping(bytes32 => bool) public evidenceResolutionComplete;
 
@@ -433,17 +433,17 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     event EvidenceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
 
     event EvidenceResolutionFailed(bytes32 indexed caseId);
-    
+
     event ExtensionUpdated(string indexed name, address indexed extension, bool enabled);
-    
+
     event CaseEscalated(bytes32 indexed caseId);
-    
+
     event VoterSlashed(bytes32 indexed caseId, address indexed voter, uint256 amount);
-    
+
     event CommitRevealInitialized(bytes32 indexed caseId);
-    
+
     event EvidenceRegistrationFailed(bytes32 indexed caseId);
-    
+
     event EvidenceResolutionRetried(bytes32 indexed caseId, bool success);
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -514,7 +514,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         banManager = BanManager(_banManager);
         stakingToken = IERC20(_stakingToken); // address(0) for ETH
         treasury = _treasury;
-        
+
         // SECURITY: Enable commit-reveal voting by default to prevent vote manipulation
         useCommitRevealVoting = true;
         useVoterSlashing = true;
@@ -1037,7 +1037,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         if (banManager.isAddressBanned(msg.sender)) {
             revert BannedUserCannotVote();
         }
-        
+
         // Check voter slashing extension if enabled
         if (useVoterSlashing && address(voterSlashing) != address(0)) {
             if (voterSlashing.isVotingBanned(msg.sender)) {
@@ -1207,10 +1207,8 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         }
 
         // Interface: resolveCase(bytes32 caseId, bool outcomeWasAction)
-        (bool success,) = evidenceRegistry.call(
-            abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld)
-        );
-        
+        (bool success,) = evidenceRegistry.call(abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld));
+
         if (success) {
             evidenceResolutionComplete[caseId] = true;
             evidenceResolutionFailed[caseId] = false;
@@ -1227,7 +1225,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
      */
     function retryEvidenceResolution(bytes32 caseId) external nonReentrant caseExists(caseId) {
         BanCase storage banCase = cases[caseId];
-        
+
         // Must be resolved and evidence resolution must have failed
         require(banCase.resolved, "Case not resolved");
         require(evidenceResolutionFailed[caseId], "Resolution did not fail");
@@ -1236,9 +1234,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
 
         bool banUpheld = banCase.outcome == MarketOutcome.BAN_UPHELD;
 
-        (bool success,) = evidenceRegistry.call(
-            abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld)
-        );
+        (bool success,) = evidenceRegistry.call(abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld));
 
         if (success) {
             evidenceResolutionComplete[caseId] = true;
@@ -1341,11 +1337,11 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
             // Reporter succeeded - update their reputation positively
             _updateReputation(banCase.reporter, true, winnerAmount, 0);
         }
-        
+
         // Apply voter slashing if extension is enabled
         _applyVoterSlashing(caseId, banCase.outcome == MarketOutcome.BAN_UPHELD);
     }
-    
+
     /**
      * @notice Apply voter slashing to all voters in a case
      * @dev Only called if voterSlashing extension is enabled
@@ -1356,29 +1352,21 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         if (!useVoterSlashing || address(voterSlashing) == address(0)) {
             return;
         }
-        
+
         // Track slashing for reporter and target
         BanCase storage banCase = cases[caseId];
-        
+
         // Reporter: won if banUpheld, lost if not
-        uint256 reporterSlash = voterSlashing.recordVoteOutcome(
-            banCase.reporter,
-            caseId,
-            banUpheld,
-            banCase.reporterStake
-        );
+        uint256 reporterSlash =
+            voterSlashing.recordVoteOutcome(banCase.reporter, caseId, banUpheld, banCase.reporterStake);
         if (reporterSlash > 0) {
             emit VoterSlashed(caseId, banCase.reporter, reporterSlash);
         }
-        
+
         // Target: won if !banUpheld, lost if banUpheld
         if (banCase.target != address(0) && banCase.targetStake > 0) {
-            uint256 targetSlash = voterSlashing.recordVoteOutcome(
-                banCase.target,
-                caseId,
-                !banUpheld,
-                banCase.targetStake
-            );
+            uint256 targetSlash =
+                voterSlashing.recordVoteOutcome(banCase.target, caseId, !banUpheld, banCase.targetStake);
             if (targetSlash > 0) {
                 emit VoterSlashed(caseId, banCase.target, targetSlash);
             }
@@ -1521,8 +1509,8 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         require(!v.hasClaimed, "Already claimed");
 
         // Check if voter was on winning side
-        bool voterWon = (banCase.outcome == MarketOutcome.BAN_UPHELD && v.position == VotePosition.YES) ||
-                        (banCase.outcome == MarketOutcome.BAN_REJECTED && v.position == VotePosition.NO);
+        bool voterWon = (banCase.outcome == MarketOutcome.BAN_UPHELD && v.position == VotePosition.YES)
+            || (banCase.outcome == MarketOutcome.BAN_REJECTED && v.position == VotePosition.NO);
 
         require(voterWon, "Not on winning side");
 
@@ -1641,10 +1629,10 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         ) {
             score = INITIAL_REPUTATION;
         }
-        
+
         // If multi-oracle reputation is enabled, use aggregated score
         if (useMultiOracleReputation && address(multiOracleReputation) != address(0)) {
-            (uint256 aggregatedScore, , , , bool isValid) = multiOracleReputation.getAggregatedReputation(user);
+            (uint256 aggregatedScore,,,, bool isValid) = multiOracleReputation.getAggregatedReputation(user);
             if (isValid) {
                 // Combine internal and external reputation (weighted average)
                 // Internal: 60%, External: 40%
@@ -1977,7 +1965,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
      * @notice Apply continuous reputation decay for inactive moderators
      * @dev SECURITY: Uses continuous decay (per-second) instead of discrete weekly decay
      * This prevents "reputation farming" where users avoid decay by periodically calling
-     * 
+     *
      * Decay formula: newRep = currentRep * (1 - decayRate)^seconds
      * Simplified to linear for gas efficiency: newRep = currentRep - (currentRep * decayBps * seconds / (week * 10000))
      */
@@ -1999,15 +1987,15 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         // SECURITY: Continuous decay - calculate based on ACTUAL time since last activity
         // Not just whole weeks. This prevents gaming by calling just before week boundaries.
         uint256 secondsPastGrace = timeSinceActivity - REP_DECAY_GRACE_WEEKS * 7 days;
-        
+
         // Calculate proportional decay: (rep * decayBps * seconds) / (week_seconds * 10000)
         // REP_DECAY_PER_WEEK = 100 bps = 1% per week
         uint256 weekSeconds = 7 days;
-        
+
         // Decay is proportional to current reputation (higher rep = faster decay in absolute terms)
         // This creates a natural equilibrium and prevents high-rep accounts from farming
         uint256 decayAmount = (rep.reputationScore * REP_DECAY_PER_WEEK * secondsPastGrace) / (weekSeconds * 10000);
-        
+
         // Apply minimum decay per period to prevent micro-farming
         uint256 minDecay = secondsPastGrace >= 1 days ? 10 : 0;
         if (decayAmount < minDecay) {
@@ -2032,7 +2020,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
      */
     function getEffectiveReputation(address moderator) external view returns (uint256) {
         ModeratorReputation storage rep = moderatorReputation[moderator];
-        
+
         if (rep.lastActivityTimestamp == 0) {
             return rep.reputationScore;
         }
@@ -2046,7 +2034,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         uint256 secondsPastGrace = timeSinceActivity - REP_DECAY_GRACE_WEEKS * 7 days;
         uint256 weekSeconds = 7 days;
         uint256 decayAmount = (rep.reputationScore * REP_DECAY_PER_WEEK * secondsPastGrace) / (weekSeconds * 10000);
-        
+
         uint256 minDecay = secondsPastGrace >= 1 days ? 10 : 0;
         if (decayAmount < minDecay) {
             decayAmount = minDecay;
@@ -2167,14 +2155,9 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         BanCase storage banCase = cases[caseId];
         if (banCase.resolved) revert CaseAlreadyResolved();
         if (address(crossChainArbitration) == address(0)) revert ExtensionNotEnabled();
-        
-        crossChainArbitration.escalateCase{value: msg.value}(
-            caseId,
-            banCase.target,
-            banCase.reporter,
-            banCase.reason
-        );
-        
+
+        crossChainArbitration.escalateCase{value: msg.value}(caseId, banCase.target, banCase.reporter, banCase.reason);
+
         emit CaseEscalated(caseId);
     }
 

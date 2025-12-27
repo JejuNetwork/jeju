@@ -8,6 +8,7 @@
 import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { type EILNetworkConfig, getEILConfig } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -54,14 +55,6 @@ interface OIFDeployment {
   }
 }
 
-interface EILConfig {
-  hub?: {
-    chainId: number
-    l1StakeManager: string
-  }
-  chains?: Record<string, { chainId: number; crossChainPaymaster: string }>
-}
-
 // Load deployment configs
 function loadOIFDeployments(
   network: 'testnet' | 'mainnet',
@@ -74,10 +67,14 @@ function loadOIFDeployments(
   return JSON.parse(readFileSync(path, 'utf-8')).chains ?? {}
 }
 
-function loadEILConfig(network: 'testnet' | 'mainnet'): EILConfig | null {
-  const path = resolve(process.cwd(), 'packages/config/eil.json')
-  if (!existsSync(path)) return null
-  return JSON.parse(readFileSync(path, 'utf-8'))[network] || null
+function loadEILConfig(
+  network: 'testnet' | 'mainnet',
+): EILNetworkConfig | null {
+  try {
+    return getEILConfig(network)
+  } catch {
+    return null
+  }
 }
 
 describe('RPC Connectivity', () => {

@@ -21,6 +21,10 @@ export interface TrainingJobRequest {
   archetype?: string
   rubricHash?: string
   callbackUrl?: string
+  /** GPU type for training - 'auto' lets DWS select based on availability */
+  gpuType?: string
+  /** Memory requirement in GB */
+  memoryGb?: number
 }
 
 export interface TrainingJobResult {

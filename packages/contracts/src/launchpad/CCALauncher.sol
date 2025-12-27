@@ -13,7 +13,6 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 contract CCALauncher is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-
     error ZeroAddress();
     error ZeroAmount();
     error AuctionNotActive();
@@ -26,7 +25,6 @@ contract CCALauncher is Ownable2Step, ReentrancyGuard {
     error NothingToClaim();
     error AlreadyMigrated();
     error InsufficientTokens();
-
 
     event AuctionConfigured(
         uint256 startTime, uint256 duration, uint256 startPriceUsd, uint256 reservePriceUsd, uint256 totalTokens
@@ -504,8 +502,7 @@ contract CCALauncher is Ownable2Step, ReentrancyGuard {
         view
         returns (bool isActive, bool hasEnded, uint256 raised, uint256 sold, uint256 currentPrice)
     {
-        isActive =
-            block.timestamp >= config.startTime && block.timestamp < config.startTime + config.duration && !ended;
+        isActive = block.timestamp >= config.startTime && block.timestamp < config.startTime + config.duration && !ended;
         hasEnded = ended;
         raised = totalCommitted;
         sold = totalSold;
@@ -563,10 +560,3 @@ contract CCALauncher is Ownable2Step, ReentrancyGuard {
 
     receive() external payable {}
 }
-
-
-
-
-
-
-

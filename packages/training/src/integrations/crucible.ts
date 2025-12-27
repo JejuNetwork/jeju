@@ -96,7 +96,7 @@ export class CrucibleTrainingClient {
 
   async registerTrainingAgents(agents: TrainingAgentConfig[]): Promise<void> {
     for (const agent of agents) {
-      await fetch(`${this.crucibleApiUrl}/api/v1/agents`, {
+      const response = await fetch(`${this.crucibleApiUrl}/api/v1/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,6 +108,13 @@ export class CrucibleTrainingClient {
           },
         }),
       })
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        throw new Error(
+          `Failed to register agent ${agent.agentId}: ${response.status} ${errorText}`,
+        )
+      }
     }
   }
 
@@ -147,10 +154,14 @@ export class CrucibleTrainingClient {
       }),
     })
 
-    if (response.ok) {
-      run.status = 'running'
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(
+        `Failed to start training run: ${response.status} ${errorText}`,
+      )
     }
 
+    run.status = 'running'
     this.activeRuns.set(runId, run)
     return run
   }
@@ -225,10 +236,24 @@ export class CrucibleTrainingClient {
 
   async stopRun(runId: string): Promise<void> {
     const run = this.activeRuns.get(runId)
-    if (run) {
-      run.status = 'completed'
-      run.completedAt = Date.now()
+    if (!run) {
+      throw new Error(`Run ${runId} not found`)
     }
+
+    // Call DWS to stop the training job
+    const response = await fetch(`${this.dwsApiUrl}/training/jobs/${runId}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok && response.status !== 404) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(
+        `Failed to stop run ${runId}: ${response.status} ${errorText}`,
+      )
+    }
+
+    run.status = 'completed'
+    run.completedAt = Date.now()
   }
 
   getActiveRuns(): TrainingRun[] {

@@ -2,7 +2,25 @@
  * @jejunetwork/kms - Key Management Types
  */
 
+import type { TEEAttestation as TEEAttestationType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+
+// Re-export TEE types from shared types package
+export type {
+  TEEAttestation,
+  TEEAttestationVerificationResult,
+  TEEKeyInfo,
+  TEENodeInfo,
+  TEEPlatform,
+} from '@jejunetwork/types'
+export {
+  TEEAttestationSchema,
+  TEEAttestationVerificationResultSchema,
+  TEEKeyInfoSchema,
+  TEENodeInfoSchema,
+  TEEPlatform as TEEPlatformEnum,
+  TEEPlatformSchema,
+} from '@jejunetwork/types'
 
 export const KMSProviderType = {
   ENCRYPTION: 'encryption',
@@ -196,21 +214,6 @@ export interface MPCSigningSession {
   expiresAt: number
 }
 
-export interface TEEAttestation {
-  quote: Hex
-  measurement: Hex
-  timestamp: number
-  verified: boolean
-  verifierSignature?: Hex
-}
-
-export interface TEEKeyInfo {
-  keyId: string
-  publicKey: Hex
-  attestation: TEEAttestation
-  enclaveId: string
-}
-
 export interface EncryptionConfig {
   debug?: boolean
 }
@@ -242,7 +245,7 @@ interface EncryptionProviderStatus {
 interface TEEProviderStatus {
   connected: boolean
   mode: 'remote' | 'local'
-  attestation?: TEEAttestation
+  attestation?: TEEAttestationType
 }
 
 interface MPCProviderStatus {

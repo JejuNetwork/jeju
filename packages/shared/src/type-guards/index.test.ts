@@ -9,7 +9,6 @@ import { describe, expect, test } from 'bun:test'
 import {
   assertDefined,
   assertNotNull,
-  fetchJsonAs,
   getErrorMessage,
   hasArrayProperty,
   hasBooleanProperty,
@@ -835,7 +834,6 @@ describe('responseJson', () => {
     expect(result).toEqual({ test: true })
   })
 })
-
 
 // =============================================================================
 // Special Type Guards

@@ -201,7 +201,7 @@ describe('Vote type', () => {
     }
 
     expect(vote.reason).toBeDefined()
-    expect(vote.reason!.length).toBeGreaterThan(0)
+    expect(vote.reason?.length).toBeGreaterThan(0)
   })
 
   it('validates abstain vote', () => {
@@ -244,7 +244,7 @@ describe('Governance calculations', () => {
     }
 
     const quorum = 4000000000000000000000000n // 4M
-    const totalVotes = proposal.forVotes + proposal.againstVotes
+    const _totalVotes = proposal.forVotes + proposal.againstVotes
     const forRatio = proposal.forVotes > proposal.againstVotes
     const quorumMet = proposal.forVotes + proposal.abstainVotes >= quorum
 

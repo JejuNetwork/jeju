@@ -75,8 +75,14 @@ contract RegistryIntegrationTest is Test {
         );
 
         // 6. Check validation status
-        (address validatorAddr, uint256 validatedAgentId, uint8 response, bytes32 respHash, bytes32 tag, uint256 lastUpdate) =
-            validationRegistry.getValidationStatus(requestHash);
+        (
+            address validatorAddr,
+            uint256 validatedAgentId,
+            uint8 response,
+            bytes32 respHash,
+            bytes32 tag,
+            uint256 lastUpdate
+        ) = validationRegistry.getValidationStatus(requestHash);
 
         assertEq(validatorAddr, validator);
         assertEq(validatedAgentId, agentId);

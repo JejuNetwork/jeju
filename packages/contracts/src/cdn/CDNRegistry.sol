@@ -45,13 +45,9 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
     error InvalidProviderType();
     error InvalidName();
 
-
-    constructor(
-        address _owner,
-        address _identityRegistry,
-        address _banManager,
-        uint256 _minProviderStake
-    ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
+    constructor(address _owner, address _identityRegistry, address _banManager, uint256 _minProviderStake)
+        ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake)
+    {}
 
     function registerProvider(
         string calldata name,
@@ -110,11 +106,12 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         }
     }
 
-    function registerEdgeNode(
-        string calldata endpoint,
-        Region region,
-        ProviderType providerType
-    ) external payable nonReentrant returns (bytes32 nodeId) {
+    function registerEdgeNode(string calldata endpoint, Region region, ProviderType providerType)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 nodeId)
+    {
         return _registerEdgeNodeInternal(endpoint, region, providerType, 0);
     }
 
@@ -215,7 +212,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit EdgeNodeDeactivated(nodeId, node.operator, reason);
     }
 
-
     function deactivateProvider() external {
         Provider storage provider = _providers[msg.sender];
         if (provider.registeredAt == 0) revert ProviderNotRegistered();
@@ -235,10 +231,7 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit ProviderReactivated(msg.sender);
     }
 
-    function createSite(
-        string calldata domain,
-        string calldata origin
-    ) external returns (bytes32 siteId) {
+    function createSite(string calldata domain, string calldata origin) external returns (bytes32 siteId) {
         siteId = keccak256(abi.encodePacked(msg.sender, domain, block.timestamp));
 
         _sites[siteId] = Site({
@@ -270,11 +263,10 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit SiteUpdated(siteId, contentHash);
     }
 
-    function requestInvalidation(
-        bytes32 siteId,
-        string[] calldata paths,
-        Region[] calldata regions
-    ) external returns (bytes32 requestId) {
+    function requestInvalidation(bytes32 siteId, string[] calldata paths, Region[] calldata regions)
+        external
+        returns (bytes32 requestId)
+    {
         Site storage site = _sites[siteId];
         if (site.owner != msg.sender) revert NotSiteOwner();
 
@@ -320,21 +312,23 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
 
         bytes32 recordId = keccak256(abi.encodePacked(nodeId, periodStart, periodEnd));
 
-        _usageRecords[nodeId].push(UsageRecord({
-            recordId: recordId,
-            nodeId: nodeId,
-            provider: msg.sender,
-            region: node.region,
-            timestamp: block.timestamp,
-            periodStart: periodStart,
-            periodEnd: periodEnd,
-            bytesEgress: bytesEgress,
-            bytesIngress: bytesIngress,
-            requests: requests,
-            cacheHits: cacheHits,
-            cacheMisses: cacheMisses,
-            signature: signature
-        }));
+        _usageRecords[nodeId].push(
+            UsageRecord({
+                recordId: recordId,
+                nodeId: nodeId,
+                provider: msg.sender,
+                region: node.region,
+                timestamp: block.timestamp,
+                periodStart: periodStart,
+                periodEnd: periodEnd,
+                bytesEgress: bytesEgress,
+                bytesIngress: bytesIngress,
+                requests: requests,
+                cacheHits: cacheHits,
+                cacheMisses: cacheMisses,
+                signature: signature
+            })
+        );
 
         emit UsageReported(nodeId, msg.sender, bytesEgress, requests, periodEnd - periodStart);
     }
@@ -369,7 +363,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
 
         emit StakeWithdrawn(msg.sender, amount);
     }
-
 
     function getProvider(address provider) external view returns (Provider memory) {
         return _providers[provider];
@@ -455,7 +448,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         return _usageRecords[nodeId];
     }
 
-
     function setMinNodeStake(uint256 _minStake) external onlyOwner {
         minNodeStake = _minStake;
     }
@@ -496,10 +488,7 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit StakeSlashed(provider, amount, reason);
     }
 
-    function updateProviderCapabilities(
-        address provider,
-        ProviderCapabilities calldata capabilities
-    ) external {
+    function updateProviderCapabilities(address provider, ProviderCapabilities calldata capabilities) external {
         if (_providers[msg.sender].registeredAt == 0 && msg.sender != owner()) {
             revert ProviderNotRegistered();
         }
@@ -510,10 +499,7 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit CDNProviderUpdated(provider);
     }
 
-    function updateProviderPricing(
-        address provider,
-        ProviderPricing calldata pricing
-    ) external {
+    function updateProviderPricing(address provider, ProviderPricing calldata pricing) external {
         if (_providers[msg.sender].registeredAt == 0 && msg.sender != owner()) {
             revert ProviderNotRegistered();
         }

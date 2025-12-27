@@ -306,4 +306,3 @@ describe('Registry operations', () => {
     expect(agents).toHaveLength(2)
   })
 })
-

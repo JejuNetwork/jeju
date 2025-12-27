@@ -38,6 +38,72 @@ const NFT_BRIDGE_EVENT = parseAbiItem(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
+//                         TYPE GUARDS & HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+type DepositEventArgs = {
+  from?: Address
+  to?: Address
+}
+
+type ERC20DepositEventArgs = {
+  from?: Address
+  to?: Address
+  l1Token?: Address
+  amount?: bigint
+}
+
+type MessagePassedEventArgs = {
+  withdrawalHash?: Hex
+  nonce?: bigint
+  sender?: Address
+  target?: Address
+  value?: bigint
+  gasLimit?: bigint
+  data?: Hex
+}
+
+function hasDepositArgs(
+  args: DepositEventArgs,
+): args is { from: Address; to: Address } {
+  return args.from !== undefined && args.to !== undefined
+}
+
+function hasERC20DepositArgs(args: ERC20DepositEventArgs): args is {
+  from: Address
+  to: Address
+  l1Token: Address
+  amount: bigint
+} {
+  return (
+    args.from !== undefined &&
+    args.to !== undefined &&
+    args.l1Token !== undefined &&
+    args.amount !== undefined
+  )
+}
+
+function hasMessagePassedArgs(args: MessagePassedEventArgs): args is {
+  withdrawalHash: Hex
+  nonce: bigint
+  sender: Address
+  target: Address
+  value: bigint
+  gasLimit: bigint
+  data: Hex
+} {
+  return (
+    args.withdrawalHash !== undefined &&
+    args.nonce !== undefined &&
+    args.sender !== undefined &&
+    args.target !== undefined &&
+    args.value !== undefined &&
+    args.gasLimit !== undefined &&
+    args.data !== undefined
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -624,23 +690,25 @@ export function createBridgeModule(
 
       // Find matching deposit by transaction hash (depositId is the txHash for ETH deposits)
       for (const log of depositLogs) {
-        if (log.transactionHash === depositId) {
-          const block = await wallet.publicClient.getBlock({
-            blockHash: log.blockHash,
-          })
+        if (log.transactionHash !== depositId) continue
+        if (!hasDepositArgs(log.args)) continue
 
-          return {
-            depositId,
-            sender: log.args.from,
-            recipient: log.args.to,
-            token: '0x0000000000000000000000000000000000000000' as Address, // ETH
-            amount: 0n, // Would need to decode opaqueData
-            sourceChainId: BigInt(await wallet.publicClient.getChainId()),
-            destChainId: 0n, // L2 chain ID
-            timestamp: block.timestamp,
-            status: MessageStatus.FINALIZED, // ETH deposits are instant on L2
-          }
+        const block = await wallet.publicClient.getBlock({
+          blockHash: log.blockHash,
+        })
+
+        const result: BridgeDeposit = {
+          depositId,
+          sender: log.args.from,
+          recipient: log.args.to,
+          token: '0x0000000000000000000000000000000000000000' as Address, // ETH
+          amount: 0n, // Would need to decode opaqueData
+          sourceChainId: BigInt(await wallet.publicClient.getChainId()),
+          destChainId: 0n, // L2 chain ID
+          timestamp: block.timestamp,
+          status: MessageStatus.FINALIZED, // ETH deposits are instant on L2
         }
+        return result
       }
 
       // Also check ERC20 deposits on L1StandardBridge
@@ -652,23 +720,25 @@ export function createBridgeModule(
       })
 
       for (const log of erc20Logs) {
-        if (log.transactionHash === depositId) {
-          const block = await wallet.publicClient.getBlock({
-            blockHash: log.blockHash,
-          })
+        if (log.transactionHash !== depositId) continue
+        if (!hasERC20DepositArgs(log.args)) continue
 
-          return {
-            depositId,
-            sender: log.args.from,
-            recipient: log.args.to,
-            token: log.args.l1Token,
-            amount: log.args.amount,
-            sourceChainId: BigInt(await wallet.publicClient.getChainId()),
-            destChainId: 0n, // L2 chain ID
-            timestamp: block.timestamp,
-            status: MessageStatus.FINALIZED,
-          }
+        const block = await wallet.publicClient.getBlock({
+          blockHash: log.blockHash,
+        })
+
+        const result: BridgeDeposit = {
+          depositId,
+          sender: log.args.from,
+          recipient: log.args.to,
+          token: log.args.l1Token,
+          amount: log.args.amount,
+          sourceChainId: BigInt(await wallet.publicClient.getChainId()),
+          destChainId: 0n, // L2 chain ID
+          timestamp: block.timestamp,
+          status: MessageStatus.FINALIZED,
         }
+        return result
       }
 
       return null
@@ -688,6 +758,8 @@ export function createBridgeModule(
       })
 
       for (const log of ethLogs) {
+        if (!hasDepositArgs(log.args)) continue
+
         const block = await wallet.publicClient.getBlock({
           blockHash: log.blockHash,
         })
@@ -715,6 +787,8 @@ export function createBridgeModule(
       })
 
       for (const log of erc20Logs) {
+        if (!hasERC20DepositArgs(log.args)) continue
+
         const block = await wallet.publicClient.getBlock({
           blockHash: log.blockHash,
         })
@@ -845,36 +919,37 @@ export function createBridgeModule(
       })
 
       for (const log of logs) {
-        if (log.args.withdrawalHash === withdrawalId) {
-          const block = await wallet.publicClient.getBlock({
-            blockHash: log.blockHash,
-          })
+        if (!hasMessagePassedArgs(log.args)) continue
+        if (log.args.withdrawalHash !== withdrawalId) continue
 
-          // Cache the withdrawal data for prove/finalize operations
-          withdrawalDataCache.set(withdrawalId, {
-            nonce: log.args.nonce,
-            sender: log.args.sender,
-            target: log.args.target,
-            value: log.args.value,
-            gasLimit: log.args.gasLimit,
-            data: log.args.data as Hex,
-          })
+        const block = await wallet.publicClient.getBlock({
+          blockHash: log.blockHash,
+        })
 
-          // Get withdrawal status
-          const status = await this.getWithdrawalStatus(withdrawalId)
+        // Cache the withdrawal data for prove/finalize operations
+        withdrawalDataCache.set(withdrawalId, {
+          nonce: log.args.nonce,
+          sender: log.args.sender,
+          target: log.args.target,
+          value: log.args.value,
+          gasLimit: log.args.gasLimit,
+          data: log.args.data,
+        })
 
-          return {
-            withdrawalId,
-            sender: log.args.sender,
-            recipient: log.args.target,
-            token: '0x0000000000000000000000000000000000000000' as Address,
-            amount: log.args.value,
-            sourceChainId: BigInt(await wallet.publicClient.getChainId()),
-            destChainId: 1n, // L1
-            timestamp: block.timestamp,
-            proofSubmitted: status.proven,
-            finalized: status.finalized,
-          }
+        // Get withdrawal status
+        const status = await this.getWithdrawalStatus(withdrawalId)
+
+        return {
+          withdrawalId,
+          sender: log.args.sender,
+          recipient: log.args.target,
+          token: '0x0000000000000000000000000000000000000000' as Address,
+          amount: log.args.value,
+          sourceChainId: BigInt(await wallet.publicClient.getChainId()),
+          destChainId: 1n, // L1
+          timestamp: block.timestamp,
+          proofSubmitted: status.proven,
+          finalized: status.finalized,
         }
       }
 
@@ -899,27 +974,27 @@ export function createBridgeModule(
       })
 
       for (const log of logs) {
-        const withdrawalId = log.args.withdrawalHash
+        if (!hasMessagePassedArgs(log.args)) continue
 
         const block = await wallet.publicClient.getBlock({
           blockHash: log.blockHash,
         })
 
         // Cache the withdrawal data
-        withdrawalDataCache.set(withdrawalId, {
+        withdrawalDataCache.set(log.args.withdrawalHash, {
           nonce: log.args.nonce,
           sender: log.args.sender,
           target: log.args.target,
           value: log.args.value,
           gasLimit: log.args.gasLimit,
-          data: log.args.data as Hex,
+          data: log.args.data,
         })
 
         // Get withdrawal status
-        const status = await this.getWithdrawalStatus(withdrawalId)
+        const status = await this.getWithdrawalStatus(log.args.withdrawalHash)
 
         withdrawals.push({
-          withdrawalId,
+          withdrawalId: log.args.withdrawalHash,
           sender: log.args.sender,
           recipient: log.args.target,
           token: '0x0000000000000000000000000000000000000000' as Address,
@@ -1027,6 +1102,13 @@ export function createBridgeModule(
           computedId === messageId ||
           log.transactionHash === (messageId as Hex)
         ) {
+          const sender = log.args.sender
+          const recipient = log.args.recipient
+          const destination = log.args.destination
+          const message = log.args.message
+          if (!sender || !recipient || destination === undefined || !message)
+            continue
+
           const block = await wallet.publicClient.getBlock({
             blockHash: log.blockHash,
           })
@@ -1040,16 +1122,15 @@ export function createBridgeModule(
           })
 
           // Convert bytes32 recipient back to address
-          const recipientAddress = ('0x' +
-            log.args.recipient.slice(26)) as Address
+          const recipientAddress = `0x${recipient.slice(26)}` as Address
 
           return {
             messageId,
-            sender: log.args.sender,
+            sender,
             recipient: recipientAddress,
             sourceChainId: BigInt(await wallet.publicClient.getChainId()),
-            destChainId: BigInt(log.args.destination),
-            data: log.args.message as Hex,
+            destChainId: BigInt(destination),
+            data: message as Hex,
             gasLimit: 0n, // Hyperlane handles gas
             status: delivered ? MessageStatus.FINALIZED : MessageStatus.PENDING,
             timestamp: block.timestamp,
@@ -1136,8 +1217,12 @@ export function createBridgeModule(
       })
 
       for (const log of logs) {
+        const sender = log.args.sender
+        const transferId = log.args.transferId
+        if (!sender || !transferId) continue
+
         // Filter for transfers where user is sender
-        if (log.args.sender.toLowerCase() !== wallet.address.toLowerCase()) {
+        if (sender.toLowerCase() !== wallet.address.toLowerCase()) {
           continue
         }
 
@@ -1146,7 +1231,7 @@ export function createBridgeModule(
           address: nftBridgeAddress,
           abi: NFT_BRIDGE_ABI,
           functionName: 'getTransfer',
-          args: [log.args.transferId],
+          args: [transferId],
         })
 
         const transfer = result as {

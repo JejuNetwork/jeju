@@ -573,6 +573,24 @@ app.onAfterHandle(({ set }) => {
   else metrics.requests.success++
 })
 
+// Global error handler - prevents stack trace leakage in production
+app.onError(({ error, set }) => {
+  // Log full error for debugging
+  log.error('Unhandled error', {
+    message: error.message,
+    name: error.name,
+    stack: NETWORK === 'localnet' ? error.stack : undefined,
+  })
+
+  // Return sanitized error to client
+  set.status = 500
+  return {
+    error: 'Internal server error',
+    // Only include message in localnet for debugging
+    message: NETWORK === 'localnet' ? error.message : undefined,
+  }
+})
+
 // Root endpoint - API info
 app.get('/', () => ({
   service: 'crucible',

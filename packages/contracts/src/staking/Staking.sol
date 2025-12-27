@@ -7,15 +7,33 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-interface IIdentityRegistry { function ownerOf(uint256 tokenId) external view returns (address); }
-interface IBanManager { function isAddressBanned(address target) external view returns (bool); }
-interface IPriceOracle { function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80); }
+interface IIdentityRegistry {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+
+interface IBanManager {
+    function isAddressBanned(address target) external view returns (bool);
+}
+
+interface IPriceOracle {
+    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80);
+}
 
 contract Staking is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    enum Tier { FREE, BUILDER, PRO, UNLIMITED }
-    enum Service { RPC, STORAGE, COMPUTE, CDN }
+    enum Tier {
+        FREE,
+        BUILDER,
+        PRO,
+        UNLIMITED
+    }
+    enum Service {
+        RPC,
+        STORAGE,
+        COMPUTE,
+        CDN
+    }
 
     struct StakePosition {
         uint256 stakedAmount;
@@ -28,9 +46,27 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         bool isFrozen;
     }
 
-    struct TierConfig { uint256 minUsdValue; uint256 rpcRateLimit; uint256 storageQuotaMB; uint256 computeCredits; uint256 cdnBandwidthGB; }
-    struct ServiceAllocation { uint256 rpcUsed; uint256 storageUsed; uint256 computeUsed; uint256 cdnUsed; uint256 periodStartTimestamp; }
-    struct PriceData { uint256 price; uint256 timestamp; bool isValid; }
+    struct TierConfig {
+        uint256 minUsdValue;
+        uint256 rpcRateLimit;
+        uint256 storageQuotaMB;
+        uint256 computeCredits;
+        uint256 cdnBandwidthGB;
+    }
+
+    struct ServiceAllocation {
+        uint256 rpcUsed;
+        uint256 storageUsed;
+        uint256 computeUsed;
+        uint256 cdnUsed;
+        uint256 periodStartTimestamp;
+    }
+
+    struct PriceData {
+        uint256 price;
+        uint256 timestamp;
+        bool isValid;
+    }
 
     uint256 public constant UNBONDING_PERIOD = 7 days;
     uint256 public constant MAX_REPUTATION_BONUS_BPS = 5000;
@@ -95,7 +131,9 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     error InvalidPriceBounds();
     error InvalidService();
 
-    constructor(address _token, address _registry, address _oracle, address _treasury, address _owner) Ownable(_owner) {
+    constructor(address _token, address _registry, address _oracle, address _treasury, address _owner)
+        Ownable(_owner)
+    {
         if (_token == address(0) || _treasury == address(0)) revert InvalidAddress();
         jejuToken = IERC20(_token);
         treasury = _treasury;
@@ -110,8 +148,13 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         tierConfigs[Tier.UNLIMITED] = TierConfig(1000e8, 0, 0, 0, 0);
     }
 
-    function stake(uint256 amount) external nonReentrant whenNotPaused { _stake(msg.sender, amount, 0); }
-    function stakeWithAgent(uint256 amount, uint256 agentId) external nonReentrant whenNotPaused { _stake(msg.sender, amount, agentId); }
+    function stake(uint256 amount) external nonReentrant whenNotPaused {
+        _stake(msg.sender, amount, 0);
+    }
+
+    function stakeWithAgent(uint256 amount, uint256 agentId) external nonReentrant whenNotPaused {
+        _stake(msg.sender, amount, agentId);
+    }
 
     function _stake(address user, uint256 amount, uint256 agentId) internal {
         if (amount == 0) revert InvalidAmount();
@@ -124,7 +167,11 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
 
         jejuToken.safeTransferFrom(user, address(this), amount);
 
-        if (!pos.isActive) { pos.isActive = true; pos.stakedAt = block.timestamp; totalStakers++; }
+        if (!pos.isActive) {
+            pos.isActive = true;
+            pos.stakedAt = block.timestamp;
+            totalStakers++;
+        }
         pos.stakedAmount += amount;
         totalStaked += amount;
 
@@ -135,12 +182,16 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         _handleTierChange(oldTier, newTier, wasActive);
     }
 
-    function linkAgent(uint256 agentId) external nonReentrant { _linkAgent(msg.sender, agentId); }
+    function linkAgent(uint256 agentId) external nonReentrant {
+        _linkAgent(msg.sender, agentId);
+    }
 
     function _linkAgent(address user, uint256 agentId) internal {
         StakePosition storage pos = positions[user];
         if (pos.linkedAgentId != 0) revert AlreadyLinked();
-        if (address(identityRegistry) != address(0) && identityRegistry.ownerOf(agentId) != user) revert AgentNotOwned();
+        if (address(identityRegistry) != address(0) && identityRegistry.ownerOf(agentId) != user) {
+            revert AgentNotOwned();
+        }
         pos.linkedAgentId = agentId;
         emit AgentLinked(user, agentId);
     }
@@ -212,8 +263,12 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
 
     function getJejuPrice() public view returns (uint256) {
         PriceData memory p1 = _getOraclePrice(primaryOracle);
-        if (_isValidPrice(p1) && (lastKnownGoodPrice == 0 || _deviation(p1.price, lastKnownGoodPrice) <= PRICE_DEVIATION_BPS))
+        if (
+            _isValidPrice(p1)
+                && (lastKnownGoodPrice == 0 || _deviation(p1.price, lastKnownGoodPrice) <= PRICE_DEVIATION_BPS)
+        ) {
             return p1.price;
+        }
 
         if (secondaryOracle != address(0)) {
             PriceData memory p2 = _getOraclePrice(secondaryOracle);
@@ -232,7 +287,9 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         try IPriceOracle(oracle).latestRoundData() returns (uint80, int256 ans, uint256, uint256 at, uint80) {
             if (block.timestamp - at > ORACLE_STALENESS || ans <= 0) return PriceData(0, at, false);
             return PriceData(uint256(ans), at, true);
-        } catch { return PriceData(0, 0, false); }
+        } catch {
+            return PriceData(0, 0, false);
+        }
     }
 
     function _isValidPrice(PriceData memory d) internal view returns (bool) {
@@ -255,7 +312,11 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    function _getServiceData(Service s, TierConfig storage c, ServiceAllocation storage a, bool reset) internal view returns (uint256 lim, uint256 used) {
+    function _getServiceData(Service s, TierConfig storage c, ServiceAllocation storage a, bool reset)
+        internal
+        view
+        returns (uint256 lim, uint256 used)
+    {
         if (s == Service.RPC) return (c.rpcRateLimit, reset ? 0 : a.rpcUsed);
         if (s == Service.STORAGE) return (c.storageQuotaMB, a.storageUsed);
         if (s == Service.COMPUTE) return (c.computeCredits, reset ? 0 : a.computeUsed);
@@ -283,7 +344,10 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         _resetAllocationIfNeeded(a);
 
         (uint256 lim, uint256 used) = _getServiceData(s, tierConfigs[getTier(user)], a, false);
-        if (lim != 0 && used + amt > lim) { emit AllocationExceeded(user, s, amt, lim - used); revert AllocationExceededError(); }
+        if (lim != 0 && used + amt > lim) {
+            emit AllocationExceeded(user, s, amt, lim - used);
+            revert AllocationExceededError();
+        }
 
         _recordUsage(s, a, amt);
         emit ServiceUsageRecorded(user, s, amt);
@@ -306,7 +370,9 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
 
     function hasAllocation(address user, Service s, uint256 amt) external view returns (bool) {
         ServiceAllocation storage a = allocations[user];
-        (uint256 lim, uint256 used) = _getServiceData(s, tierConfigs[getTier(user)], a, block.timestamp > a.periodStartTimestamp + ALLOCATION_RESET_PERIOD);
+        (uint256 lim, uint256 used) = _getServiceData(
+            s, tierConfigs[getTier(user)], a, block.timestamp > a.periodStartTimestamp + ALLOCATION_RESET_PERIOD
+        );
         return lim == 0 || used + amt <= lim;
     }
 
@@ -352,10 +418,21 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         emit Slashed(user, slashAmt, reason);
     }
 
-    function getPosition(address u) external view returns (StakePosition memory) { return positions[u]; }
-    function getTierConfig(Tier t) external view returns (TierConfig memory) { return tierConfigs[t]; }
-    function getRateLimit(address u) external view returns (uint256) { return tierConfigs[getTier(u)].rpcRateLimit; }
-    function getServiceAllocation(address u) external view returns (ServiceAllocation memory) { return allocations[u]; }
+    function getPosition(address u) external view returns (StakePosition memory) {
+        return positions[u];
+    }
+
+    function getTierConfig(Tier t) external view returns (TierConfig memory) {
+        return tierConfigs[t];
+    }
+
+    function getRateLimit(address u) external view returns (uint256) {
+        return tierConfigs[getTier(u)].rpcRateLimit;
+    }
+
+    function getServiceAllocation(address u) external view returns (ServiceAllocation memory) {
+        return allocations[u];
+    }
 
     function getStakeRequirement(Tier t) external view returns (uint256 usd, uint256 jeju) {
         usd = tierConfigs[t].minUsdValue;
@@ -367,19 +444,44 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         return (getJejuPrice(), lastKnownGoodPrice, lastPriceUpdateTime, primaryOracle, secondaryOracle);
     }
 
-    function setTierConfig(Tier t, uint256 usd, uint256 rpc, uint256 storage_, uint256 compute, uint256 cdn) external onlyOwner {
+    function setTierConfig(Tier t, uint256 usd, uint256 rpc, uint256 storage_, uint256 compute, uint256 cdn)
+        external
+        onlyOwner
+    {
         tierConfigs[t] = TierConfig(usd, rpc, storage_, compute, cdn);
         emit TierConfigUpdated(t);
     }
 
-    function setAuthorizedService(address s, bool auth) external onlyOwner { authorizedServices[s] = auth; emit AuthorizedServiceUpdated(s, auth); }
-    function setWhitelisted(address u, bool v) external onlyOwner { whitelisted[u] = v; }
-    function setIdentityRegistry(address r) external onlyOwner { identityRegistry = IIdentityRegistry(r); }
-    function setBanManager(address b) external onlyOwner { banManager = IBanManager(b); }
-    function setReputationProvider(address p) external onlyOwner { reputationProvider = p; }
+    function setAuthorizedService(address s, bool auth) external onlyOwner {
+        authorizedServices[s] = auth;
+        emit AuthorizedServiceUpdated(s, auth);
+    }
 
-    function setPrimaryOracle(address o) external onlyOwner { emit OracleUpdated(primaryOracle, o, true); primaryOracle = o; }
-    function setSecondaryOracle(address o) external onlyOwner { emit OracleUpdated(secondaryOracle, o, false); secondaryOracle = o; }
+    function setWhitelisted(address u, bool v) external onlyOwner {
+        whitelisted[u] = v;
+    }
+
+    function setIdentityRegistry(address r) external onlyOwner {
+        identityRegistry = IIdentityRegistry(r);
+    }
+
+    function setBanManager(address b) external onlyOwner {
+        banManager = IBanManager(b);
+    }
+
+    function setReputationProvider(address p) external onlyOwner {
+        reputationProvider = p;
+    }
+
+    function setPrimaryOracle(address o) external onlyOwner {
+        emit OracleUpdated(primaryOracle, o, true);
+        primaryOracle = o;
+    }
+
+    function setSecondaryOracle(address o) external onlyOwner {
+        emit OracleUpdated(secondaryOracle, o, false);
+        secondaryOracle = o;
+    }
 
     function setFallbackPrice(uint256 p) external onlyOwner {
         if (p < minAllowedPrice || p > maxAllowedPrice) revert InvalidPriceBounds();
@@ -403,8 +505,20 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    function setTreasury(address t) external onlyOwner { if (t == address(0)) revert InvalidAddress(); treasury = t; }
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
-    function version() external pure returns (string memory) { return "2.0.0"; }
+    function setTreasury(address t) external onlyOwner {
+        if (t == address(0)) revert InvalidAddress();
+        treasury = t;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function version() external pure returns (string memory) {
+        return "2.0.0";
+    }
 }

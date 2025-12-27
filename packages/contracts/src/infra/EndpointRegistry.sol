@@ -9,7 +9,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
  * @notice On-chain registry of network endpoints for decentralized DNS fallback
  * @dev Provides a censorship-resistant way to discover network endpoints when
  *      traditional DNS fails. Endpoints are organized by service type and region.
- * 
+ *
  * Services include: RPC, WebSocket, API, Gateway, Storage, CDN, Proxy
  * Each endpoint has priority (0 = highest) and health status
  */
@@ -45,22 +45,22 @@ contract EndpointRegistry is Ownable {
 
     // Service ID => Array of endpoints
     mapping(bytes32 => Endpoint[]) private _endpoints;
-    
+
     // Service ID => URL hash => Index in endpoints array
     mapping(bytes32 => mapping(bytes32 => uint256)) private _endpointIndex;
-    
+
     // Service ID => URL hash => Exists
     mapping(bytes32 => mapping(bytes32 => bool)) private _endpointExists;
-    
+
     // All registered service IDs
     EnumerableSet.Bytes32Set private _serviceIds;
-    
+
     // Service info
     mapping(bytes32 => ServiceInfo) private _serviceInfo;
-    
+
     // Authorized operators who can update health status
     mapping(address => bool) public healthOperators;
-    
+
     // Region list
     string[] private _regions;
     mapping(bytes32 => bool) private _regionExists;
@@ -103,7 +103,7 @@ contract EndpointRegistry is Ownable {
         _registerService(keccak256("proxy"), "Proxy", "Proxy coordinator", false, 1);
         _registerService(keccak256("indexer"), "Indexer", "GraphQL indexer", false, 1);
         _registerService(keccak256("explorer"), "Explorer", "Block explorer", false, 1);
-        
+
         // Register default regions
         _addRegion("aws-us-east-1");
         _addRegion("aws-us-west-2");
@@ -134,33 +134,33 @@ contract EndpointRegistry is Ownable {
     /**
      * @notice Add a new endpoint
      */
-    function addEndpoint(
-        bytes32 serviceId,
-        string calldata url,
-        string calldata region,
-        uint256 priority
-    ) external onlyOwner {
+    function addEndpoint(bytes32 serviceId, string calldata url, string calldata region, uint256 priority)
+        external
+        onlyOwner
+    {
         if (bytes(url).length == 0) revert InvalidUrl();
         if (!_serviceIds.contains(serviceId)) revert ServiceNotFound();
-        
+
         bytes32 urlHash = keccak256(bytes(url));
         if (_endpointExists[serviceId][urlHash]) revert EndpointAlreadyExists();
-        
+
         uint256 index = _endpoints[serviceId].length;
-        _endpoints[serviceId].push(Endpoint({
-            url: url,
-            region: region,
-            priority: priority,
-            active: true,
-            addedAt: block.timestamp,
-            lastHealthCheck: 0,
-            uptimeSeconds: 0,
-            responseTimeMs: 0
-        }));
-        
+        _endpoints[serviceId].push(
+            Endpoint({
+                url: url,
+                region: region,
+                priority: priority,
+                active: true,
+                addedAt: block.timestamp,
+                lastHealthCheck: 0,
+                uptimeSeconds: 0,
+                responseTimeMs: 0
+            })
+        );
+
         _endpointIndex[serviceId][urlHash] = index;
         _endpointExists[serviceId][urlHash] = true;
-        
+
         emit EndpointAdded(serviceId, url, region, priority);
     }
 
@@ -170,39 +170,34 @@ contract EndpointRegistry is Ownable {
     function removeEndpoint(bytes32 serviceId, string calldata url) external onlyOwner {
         bytes32 urlHash = keccak256(bytes(url));
         if (!_endpointExists[serviceId][urlHash]) revert EndpointNotFound();
-        
+
         uint256 index = _endpointIndex[serviceId][urlHash];
         uint256 lastIndex = _endpoints[serviceId].length - 1;
-        
+
         if (index != lastIndex) {
             Endpoint storage lastEndpoint = _endpoints[serviceId][lastIndex];
             _endpoints[serviceId][index] = lastEndpoint;
             _endpointIndex[serviceId][keccak256(bytes(lastEndpoint.url))] = index;
         }
-        
+
         _endpoints[serviceId].pop();
         delete _endpointIndex[serviceId][urlHash];
         delete _endpointExists[serviceId][urlHash];
-        
+
         emit EndpointRemoved(serviceId, url);
     }
 
     /**
      * @notice Update endpoint priority and status
      */
-    function updateEndpoint(
-        bytes32 serviceId,
-        string calldata url,
-        uint256 priority,
-        bool active
-    ) external onlyOwner {
+    function updateEndpoint(bytes32 serviceId, string calldata url, uint256 priority, bool active) external onlyOwner {
         bytes32 urlHash = keccak256(bytes(url));
         if (!_endpointExists[serviceId][urlHash]) revert EndpointNotFound();
-        
+
         uint256 index = _endpointIndex[serviceId][urlHash];
         _endpoints[serviceId][index].priority = priority;
         _endpoints[serviceId][index].active = active;
-        
+
         emit EndpointUpdated(serviceId, url, priority, active);
     }
 
@@ -228,30 +223,25 @@ contract EndpointRegistry is Ownable {
     /**
      * @notice Update endpoint health metrics
      */
-    function updateHealth(
-        bytes32 serviceId,
-        string calldata url,
-        uint256 responseTimeMs,
-        bool healthy
-    ) external {
+    function updateHealth(bytes32 serviceId, string calldata url, uint256 responseTimeMs, bool healthy) external {
         if (!healthOperators[msg.sender] && msg.sender != owner()) {
             revert UnauthorizedOperator();
         }
-        
+
         bytes32 urlHash = keccak256(bytes(url));
         if (!_endpointExists[serviceId][urlHash]) revert EndpointNotFound();
-        
+
         uint256 index = _endpointIndex[serviceId][urlHash];
         Endpoint storage endpoint = _endpoints[serviceId][index];
-        
+
         if (healthy && endpoint.lastHealthCheck > 0) {
             endpoint.uptimeSeconds += block.timestamp - endpoint.lastHealthCheck;
         }
-        
+
         endpoint.lastHealthCheck = block.timestamp;
         endpoint.responseTimeMs = responseTimeMs;
         endpoint.active = healthy;
-        
+
         emit HealthUpdated(serviceId, url, responseTimeMs, healthy);
     }
 
@@ -267,19 +257,19 @@ contract EndpointRegistry is Ownable {
         if (!healthOperators[msg.sender] && msg.sender != owner()) {
             revert UnauthorizedOperator();
         }
-        
+
         uint256 length = serviceIds.length;
         for (uint256 i = 0; i < length; i++) {
             bytes32 urlHash = keccak256(bytes(urls[i]));
             if (!_endpointExists[serviceIds[i]][urlHash]) continue;
-            
+
             uint256 index = _endpointIndex[serviceIds[i]][urlHash];
             Endpoint storage endpoint = _endpoints[serviceIds[i]][index];
-            
+
             if (healthy[i] && endpoint.lastHealthCheck > 0) {
                 endpoint.uptimeSeconds += block.timestamp - endpoint.lastHealthCheck;
             }
-            
+
             endpoint.lastHealthCheck = block.timestamp;
             endpoint.responseTimeMs = responseTimes[i];
             endpoint.active = healthy[i];
@@ -303,11 +293,11 @@ contract EndpointRegistry is Ownable {
     function getActiveEndpoints(bytes32 serviceId) external view returns (Endpoint[] memory) {
         Endpoint[] storage all = _endpoints[serviceId];
         uint256 activeCount = 0;
-        
+
         for (uint256 i = 0; i < all.length; i++) {
             if (all[i].active) activeCount++;
         }
-        
+
         Endpoint[] memory active = new Endpoint[](activeCount);
         uint256 j = 0;
         for (uint256 i = 0; i < all.length; i++) {
@@ -315,7 +305,7 @@ contract EndpointRegistry is Ownable {
                 active[j++] = all[i];
             }
         }
-        
+
         // Sort by priority (bubble sort for simplicity, arrays are small)
         for (uint256 i = 0; i < active.length; i++) {
             for (uint256 k = i + 1; k < active.length; k++) {
@@ -326,25 +316,26 @@ contract EndpointRegistry is Ownable {
                 }
             }
         }
-        
+
         return active;
     }
 
     /**
      * @notice Get endpoints for a specific region
      */
-    function getEndpointsByRegion(
-        bytes32 serviceId,
-        string calldata region
-    ) external view returns (Endpoint[] memory) {
+    function getEndpointsByRegion(bytes32 serviceId, string calldata region)
+        external
+        view
+        returns (Endpoint[] memory)
+    {
         Endpoint[] storage all = _endpoints[serviceId];
         bytes32 regionHash = keccak256(bytes(region));
         uint256 matchCount = 0;
-        
+
         for (uint256 i = 0; i < all.length; i++) {
             if (keccak256(bytes(all[i].region)) == regionHash) matchCount++;
         }
-        
+
         Endpoint[] memory matched = new Endpoint[](matchCount);
         uint256 j = 0;
         for (uint256 i = 0; i < all.length; i++) {
@@ -352,26 +343,26 @@ contract EndpointRegistry is Ownable {
                 matched[j++] = all[i];
             }
         }
-        
+
         return matched;
     }
 
     /**
      * @notice Get best endpoint (active, lowest priority, fastest response)
      */
-    function getBestEndpoint(bytes32 serviceId) external view returns (
-        string memory url,
-        string memory region,
-        uint256 responseTimeMs
-    ) {
+    function getBestEndpoint(bytes32 serviceId)
+        external
+        view
+        returns (string memory url, string memory region, uint256 responseTimeMs)
+    {
         Endpoint[] storage all = _endpoints[serviceId];
-        
+
         uint256 bestIndex = type(uint256).max;
         uint256 bestScore = type(uint256).max;
-        
+
         for (uint256 i = 0; i < all.length; i++) {
             if (!all[i].active) continue;
-            
+
             // Score = priority * 1000 + responseTime
             uint256 score = all[i].priority * 1000 + all[i].responseTimeMs;
             if (score < bestScore) {
@@ -379,16 +370,12 @@ contract EndpointRegistry is Ownable {
                 bestIndex = i;
             }
         }
-        
+
         if (bestIndex == type(uint256).max) {
             return ("", "", 0);
         }
-        
-        return (
-            all[bestIndex].url,
-            all[bestIndex].region,
-            all[bestIndex].responseTimeMs
-        );
+
+        return (all[bestIndex].url, all[bestIndex].region, all[bestIndex].responseTimeMs);
     }
 
     /**
@@ -445,7 +432,7 @@ contract EndpointRegistry is Ownable {
             critical: critical,
             minEndpoints: minEndpoints
         });
-        
+
         emit ServiceRegistered(serviceId, name);
     }
 
@@ -458,4 +445,3 @@ contract EndpointRegistry is Ownable {
         }
     }
 }
-

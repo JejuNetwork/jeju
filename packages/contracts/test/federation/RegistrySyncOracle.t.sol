@@ -7,7 +7,7 @@ import {RegistrySyncOracle} from "../../src/federation/RegistrySyncOracle.sol";
 /**
  * @title RegistrySyncOracleTest
  * @notice Tests for cross-chain registry synchronization oracle
- * 
+ *
  * Tests cover:
  * - Single update submission
  * - Batch update submission
@@ -18,12 +18,12 @@ import {RegistrySyncOracle} from "../../src/federation/RegistrySyncOracle.sol";
  */
 contract RegistrySyncOracleTest is Test {
     RegistrySyncOracle oracle;
-    
+
     address owner;
     address relayer1;
     address relayer2;
     address unauthorized;
-    
+
     uint256 constant CHAIN_ID_JEJU = 420690;
     uint256 constant CHAIN_ID_FORK1 = 420691;
     uint256 constant CHAIN_ID_FORK2 = 420692;
@@ -62,10 +62,8 @@ contract RegistrySyncOracleTest is Test {
         );
 
         // Verify update stored
-        RegistrySyncOracle.RegistryUpdate memory update = oracle.getLatestUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY
-        );
+        RegistrySyncOracle.RegistryUpdate memory update =
+            oracle.getLatestUpdate(CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY);
 
         assertEq(update.sourceChainId, CHAIN_ID_JEJU);
         assertEq(uint8(update.registryType), uint8(RegistrySyncOracle.RegistryType.IDENTITY));
@@ -79,7 +77,7 @@ contract RegistrySyncOracleTest is Test {
         bytes32 registryAddress = bytes32(uint256(uint160(address(0x1234))));
 
         vm.startPrank(relayer1);
-        
+
         // Identity registry
         oracle.submitUpdate(
             CHAIN_ID_JEJU,
@@ -106,14 +104,10 @@ contract RegistrySyncOracleTest is Test {
         vm.stopPrank();
 
         // Verify both stored
-        RegistrySyncOracle.RegistryUpdate memory identityUpdate = oracle.getLatestUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY
-        );
-        RegistrySyncOracle.RegistryUpdate memory computeUpdate = oracle.getLatestUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.COMPUTE
-        );
+        RegistrySyncOracle.RegistryUpdate memory identityUpdate =
+            oracle.getLatestUpdate(CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY);
+        RegistrySyncOracle.RegistryUpdate memory computeUpdate =
+            oracle.getLatestUpdate(CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.COMPUTE);
 
         assertEq(identityUpdate.entryCount, 100);
         assertEq(computeUpdate.entryCount, 200);
@@ -129,32 +123,17 @@ contract RegistrySyncOracleTest is Test {
 
         // Jeju mainnet
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            1000,
-            keccak256("jeju-root"),
-            100
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 1000, keccak256("jeju-root"), 100
         );
 
         // Fork network 1
         oracle.submitUpdate(
-            CHAIN_ID_FORK1,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            500,
-            keccak256("fork1-root"),
-            50
+            CHAIN_ID_FORK1, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 500, keccak256("fork1-root"), 50
         );
 
         // Fork network 2
         oracle.submitUpdate(
-            CHAIN_ID_FORK2,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            250,
-            keccak256("fork2-root"),
-            25
+            CHAIN_ID_FORK2, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 250, keccak256("fork2-root"), 25
         );
 
         // Solana (cross-ecosystem)
@@ -205,14 +184,7 @@ contract RegistrySyncOracleTest is Test {
         roots[3] = keccak256("root4");
 
         vm.prank(relayer1);
-        oracle.submitBatchUpdates(
-            CHAIN_ID_JEJU,
-            types,
-            addresses,
-            counts,
-            roots,
-            1000
-        );
+        oracle.submitBatchUpdates(CHAIN_ID_JEJU, types, addresses, counts, roots, 1000);
 
         // Verify all updates stored
         assertEq(oracle.getLatestUpdate(CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY).entryCount, 100);
@@ -240,14 +212,7 @@ contract RegistrySyncOracleTest is Test {
 
         vm.prank(relayer1);
         vm.expectRevert(RegistrySyncOracle.InvalidUpdate.selector);
-        oracle.submitBatchUpdates(
-            CHAIN_ID_JEJU,
-            types,
-            addresses,
-            counts,
-            roots,
-            1000
-        );
+        oracle.submitBatchUpdates(CHAIN_ID_JEJU, types, addresses, counts, roots, 1000);
     }
 
     // ============ Entry Update Tests ============
@@ -258,17 +223,10 @@ contract RegistrySyncOracleTest is Test {
         bytes32 originId = keccak256("origin-1");
 
         vm.prank(relayer1);
-        oracle.submitEntryUpdate(
-            updateId,
-            entryId,
-            originId,
-            "Test Agent",
-            "ipfs://metadata",
-            true
-        );
+        oracle.submitEntryUpdate(updateId, entryId, originId, "Test Agent", "ipfs://metadata", true);
 
         RegistrySyncOracle.EntryUpdate memory entry = oracle.getEntryUpdate(entryId);
-        
+
         assertEq(entry.updateId, updateId);
         assertEq(entry.entryId, entryId);
         assertEq(entry.originId, originId);
@@ -307,14 +265,7 @@ contract RegistrySyncOracleTest is Test {
         isActives[2] = false;
 
         vm.prank(relayer1);
-        oracle.submitBatchEntryUpdates(
-            updateId,
-            entryIds,
-            originIds,
-            names,
-            uris,
-            isActives
-        );
+        oracle.submitBatchEntryUpdates(updateId, entryIds, originIds, names, uris, isActives);
 
         // Verify all entries stored
         assertEq(oracle.getEntryUpdate(entryIds[0]).name, "Agent 1");
@@ -330,26 +281,16 @@ contract RegistrySyncOracleTest is Test {
         bytes32 registryAddress = bytes32(uint256(uint160(address(0x1234))));
 
         vm.startPrank(relayer1);
-        
+
         // First update succeeds
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            100,
-            keccak256("root1"),
-            1000
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("root1"), 1000
         );
 
         // Immediate second update fails (too soon)
         vm.expectRevert(RegistrySyncOracle.TooSoon.selector);
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            200,
-            keccak256("root2"),
-            1001
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 200, keccak256("root2"), 1001
         );
 
         // Wait for rate limit
@@ -357,12 +298,7 @@ contract RegistrySyncOracleTest is Test {
 
         // Now it succeeds
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            200,
-            keccak256("root2"),
-            1001
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 200, keccak256("root2"), 1001
         );
 
         vm.stopPrank();
@@ -374,25 +310,15 @@ contract RegistrySyncOracleTest is Test {
         bytes32 registryAddress = bytes32(uint256(uint160(address(0x1234))));
 
         vm.startPrank(relayer1);
-        
+
         // Update chain 1
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            100,
-            keccak256("root1"),
-            1000
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("root1"), 1000
         );
 
         // Immediate update to different chain succeeds
         oracle.submitUpdate(
-            CHAIN_ID_FORK1,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            200,
-            keccak256("root2"),
-            1001
+            CHAIN_ID_FORK1, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 200, keccak256("root2"), 1001
         );
 
         vm.stopPrank();
@@ -408,26 +334,16 @@ contract RegistrySyncOracleTest is Test {
         oracle.setSyncInterval(30); // 30 seconds
 
         vm.startPrank(relayer1);
-        
+
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            100,
-            keccak256("root1"),
-            1000
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("root1"), 1000
         );
 
         // 31 seconds later
         vm.warp(block.timestamp + 31);
 
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            200,
-            keccak256("root2"),
-            1001
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 200, keccak256("root2"), 1001
         );
 
         vm.stopPrank();
@@ -443,12 +359,7 @@ contract RegistrySyncOracleTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(RegistrySyncOracle.NotRelayer.selector);
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            100,
-            keccak256("root"),
-            1000
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("root"), 1000
         );
     }
 
@@ -460,12 +371,7 @@ contract RegistrySyncOracleTest is Test {
         vm.prank(newRelayer);
         vm.expectRevert(RegistrySyncOracle.NotRelayer.selector);
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            100,
-            keccak256("root"),
-            1000
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("root"), 1000
         );
 
         // Authorize
@@ -475,12 +381,7 @@ contract RegistrySyncOracleTest is Test {
         // Now succeeds
         vm.prank(newRelayer);
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            100,
-            keccak256("root"),
-            1000
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("root"), 1000
         );
 
         // Revoke
@@ -494,12 +395,7 @@ contract RegistrySyncOracleTest is Test {
         vm.prank(newRelayer);
         vm.expectRevert(RegistrySyncOracle.NotRelayer.selector);
         oracle.submitUpdate(
-            CHAIN_ID_JEJU,
-            RegistrySyncOracle.RegistryType.IDENTITY,
-            registryAddress,
-            200,
-            keccak256("root2"),
-            1001
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 200, keccak256("root2"), 1001
         );
     }
 
@@ -525,9 +421,15 @@ contract RegistrySyncOracleTest is Test {
         vm.startPrank(relayer1);
 
         // Create multiple updates across chains
-        oracle.submitUpdate(CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("1"), 1);
-        oracle.submitUpdate(CHAIN_ID_FORK1, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 200, keccak256("2"), 2);
-        oracle.submitUpdate(CHAIN_ID_FORK2, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 300, keccak256("3"), 3);
+        oracle.submitUpdate(
+            CHAIN_ID_JEJU, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 100, keccak256("1"), 1
+        );
+        oracle.submitUpdate(
+            CHAIN_ID_FORK1, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 200, keccak256("2"), 2
+        );
+        oracle.submitUpdate(
+            CHAIN_ID_FORK2, RegistrySyncOracle.RegistryType.IDENTITY, registryAddress, 300, keccak256("3"), 3
+        );
 
         vm.stopPrank();
 
@@ -544,4 +446,3 @@ contract RegistrySyncOracleTest is Test {
         assertEq(oracle.version(), "1.0.0");
     }
 }
-

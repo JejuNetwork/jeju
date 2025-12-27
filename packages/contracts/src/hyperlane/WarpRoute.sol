@@ -34,9 +34,7 @@ contract WarpRoute is Ownable2Step, ReentrancyGuard {
     address public igp;
 
     // Events
-    event SentTransferRemote(
-        uint32 indexed destination, bytes32 indexed recipient, uint256 amount, bytes32 messageId
-    );
+    event SentTransferRemote(uint32 indexed destination, bytes32 indexed recipient, uint256 amount, bytes32 messageId);
     event ReceivedTransferRemote(uint32 indexed origin, bytes32 indexed sender, address recipient, uint256 amount);
     event RouterEnrolled(uint32 indexed domain, bytes32 router);
     event IsmSet(address indexed ism);
@@ -196,10 +194,3 @@ interface IMintable {
 interface IBurnable {
     function burnFrom(address from, uint256 amount) external;
 }
-
-
-
-
-
-
-

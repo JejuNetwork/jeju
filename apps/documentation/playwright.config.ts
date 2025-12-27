@@ -30,10 +30,12 @@ export default defineConfig({
 
   // Use 'bun run start' for production-like testing against DWS infrastructure
   // Set SKIP_WEBSERVER=1 if app is already running
-  webServer: process.env.SKIP_WEBSERVER ? undefined : {
-    command: 'bun run start',
-    url: `http://localhost:${PORT}/jeju`,
-    reuseExistingServer: true,
-    timeout: 180000,
-  },
+  webServer: process.env.SKIP_WEBSERVER
+    ? undefined
+    : {
+        command: 'bun run start',
+        url: `http://localhost:${PORT}/jeju`,
+        reuseExistingServer: true,
+        timeout: 180000,
+      },
 })

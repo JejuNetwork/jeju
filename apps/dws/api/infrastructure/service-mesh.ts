@@ -8,17 +8,26 @@
  * - Traffic management (retries, circuit breaking)
  * - Observability (metrics, tracing)
  *
- * Architecture:
- * - Each DWS node runs a mesh proxy
- * - Services register with local proxy
- * - Proxy handles routing, auth, and encryption
- * - Policies are stored on-chain or via P2P gossip
+ * Certificate operations performed via DWS exec API.
  */
 
-import { generateKeyPairSync, X509Certificate } from 'node:crypto'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
+
+// Config injected at startup
+export interface ServiceMeshConfig {
+  execUrl: string
+  caProvided?: { cert: string; key: string }
+}
+
+let meshConfig: ServiceMeshConfig = {
+  execUrl: 'http://localhost:4020/exec',
+}
+
+export function configureServiceMesh(c: Partial<ServiceMeshConfig>): void {
+  meshConfig = { ...meshConfig, ...c }
+}
 
 // Types
 
@@ -99,158 +108,95 @@ export interface ServiceMetrics {
   }
 }
 
+// DWS Exec API
+
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+async function exec(
+  command: string[],
+  options?: { stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(meshConfig.execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
 // Certificate Authority
+
 interface CACredentials {
   cert: string
   key: string
-  publicKey: string
 }
 
 let caCredentials: CACredentials | null = null
 
-function getOrCreateCA(): CACredentials {
+async function getOrCreateCA(): Promise<CACredentials> {
   if (caCredentials) return caCredentials
 
-  // Check if CA is provided via environment
-  if (process.env.DWS_MESH_CA_CERT && process.env.DWS_MESH_CA_KEY) {
-    caCredentials = {
-      cert: process.env.DWS_MESH_CA_CERT,
-      key: process.env.DWS_MESH_CA_KEY,
-      publicKey: '',
-    }
-    // Extract public key from cert
-    const caCert = new X509Certificate(caCredentials.cert)
-    caCredentials.publicKey = caCert.publicKey.export({
-      type: 'spki',
-      format: 'pem',
-    }) as string
+  // Check if CA provided in config
+  if (meshConfig.caProvided) {
+    caCredentials = meshConfig.caProvided
     console.log('[ServiceMesh] Using provided CA certificate')
     return caCredentials
   }
 
-  // Generate a new CA for this mesh instance
+  // Generate new CA via openssl
   console.log('[ServiceMesh] Generating new CA certificate')
-  const { privateKey, publicKey } = generateKeyPairSync('ec', {
-    namedCurve: 'prime256v1',
-  })
 
-  // Self-signed CA certificate using node:crypto
-  // Build certificate manually since node:crypto doesn't have a high-level API
-  const caPrivateKeyPem = privateKey.export({
-    type: 'pkcs8',
-    format: 'pem',
-  }) as string
-  const caPublicKeyPem = publicKey.export({
-    type: 'spki',
-    format: 'pem',
-  }) as string
+  // Generate EC private key
+  const keyResult = await exec([
+    'openssl',
+    'ecparam',
+    '-genkey',
+    '-name',
+    'prime256v1',
+    '-noout',
+  ])
+  if (keyResult.exitCode !== 0) {
+    throw new Error(`Failed to generate CA key: ${keyResult.stderr}`)
+  }
+  const caKey = keyResult.stdout
 
-  // Use Bun's native crypto for certificate generation
-  const caCertPem = generateSelfSignedCert({
-    commonName: 'DWS Mesh CA',
-    isCA: true,
-    privateKey: caPrivateKeyPem,
-    publicKey: caPublicKeyPem,
-    validDays: 3650,
-  })
+  // Generate self-signed CA cert
+  const certResult = await exec(
+    [
+      'openssl',
+      'req',
+      '-new',
+      '-x509',
+      '-key',
+      '/dev/stdin',
+      '-days',
+      '3650',
+      '-subj',
+      '/CN=DWS Mesh CA',
+      '-addext',
+      'basicConstraints=critical,CA:TRUE',
+      '-addext',
+      'keyUsage=critical,keyCertSign,cRLSign',
+    ],
+    { stdin: caKey },
+  )
 
-  caCredentials = {
-    cert: caCertPem,
-    key: caPrivateKeyPem,
-    publicKey: caPublicKeyPem,
+  if (certResult.exitCode !== 0) {
+    throw new Error(`Failed to generate CA cert: ${certResult.stderr}`)
   }
 
+  caCredentials = { cert: certResult.stdout, key: caKey }
   return caCredentials
 }
 
-function generateSelfSignedCert(options: {
-  commonName: string
-  isCA: boolean
-  privateKey: string
-  publicKey: string
-  validDays: number
-  issuerCert?: string
-  issuerKey?: string
-}): string {
-  // Use openssl-like certificate generation via Bun subprocess
-  // For production, use the @peculiar/x509 library or similar
-  const { spawnSync } = require('node:child_process')
-
-  const subject = `/CN=${options.commonName}`
-
-  // Create temp files for openssl
-  const tmpDir = require('node:os').tmpdir()
-  const keyPath = `${tmpDir}/mesh-key-${Date.now()}.pem`
-  const certPath = `${tmpDir}/mesh-cert-${Date.now()}.pem`
-  const csrPath = `${tmpDir}/mesh-csr-${Date.now()}.pem`
-
-  require('node:fs').writeFileSync(keyPath, options.privateKey)
-
-  // Generate CSR
-  const csrResult = spawnSync(
-    'openssl',
-    ['req', '-new', '-key', keyPath, '-subj', subject, '-out', csrPath],
-    { encoding: 'utf-8' },
-  )
-
-  if (csrResult.status !== 0) {
-    throw new Error(`Failed to generate CSR: ${csrResult.stderr}`)
-  }
-
-  // Self-sign or sign with CA
-  const signArgs = options.isCA
-    ? [
-        'x509',
-        '-req',
-        '-in',
-        csrPath,
-        '-signkey',
-        keyPath,
-        '-out',
-        certPath,
-        '-days',
-        String(options.validDays),
-        '-extfile',
-        '/dev/stdin',
-      ]
-    : [
-        'x509',
-        '-req',
-        '-in',
-        csrPath,
-        '-CA',
-        `${tmpDir}/ca-cert.pem`,
-        '-CAkey',
-        `${tmpDir}/ca-key.pem`,
-        '-CAcreateserial',
-        '-out',
-        certPath,
-        '-days',
-        String(options.validDays),
-      ]
-
-  const extConfig = options.isCA
-    ? 'basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign'
-    : 'basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth,clientAuth'
-
-  const signResult = spawnSync('openssl', signArgs, {
-    input: extConfig,
-    encoding: 'utf-8',
-  })
-
-  if (signResult.status !== 0) {
-    throw new Error(`Failed to sign certificate: ${signResult.stderr}`)
-  }
-
-  const cert = require('node:fs').readFileSync(certPath, 'utf-8')
-
-  // Cleanup temp files
-  require('node:fs').unlinkSync(keyPath)
-  require('node:fs').unlinkSync(csrPath)
-  require('node:fs').unlinkSync(certPath)
-
-  return cert
-}
+// State
 
 const services = new Map<string, ServiceIdentity>()
 const accessPolicies = new Map<string, AccessPolicy>()
@@ -264,9 +210,6 @@ const serviceCertificates = new Map<
 export class ServiceMesh {
   selfIdentity: ServiceIdentity | null = null
 
-  /**
-   * Register this service with the mesh
-   */
   async registerService(
     identity: Omit<ServiceIdentity, 'id' | 'createdAt'>,
   ): Promise<ServiceIdentity> {
@@ -281,7 +224,6 @@ export class ServiceMesh {
     services.set(id, service)
     this.selfIdentity = service
 
-    // Initialize metrics
     serviceMetrics.set(id, {
       serviceId: id,
       requests: { total: 0, success: 0, failure: 0 },
@@ -295,9 +237,6 @@ export class ServiceMesh {
     return service
   }
 
-  /**
-   * Discover a service by name
-   */
   async discoverService(
     name: string,
     namespace = 'default',
@@ -306,24 +245,16 @@ export class ServiceMesh {
     return services.get(id) ?? null
   }
 
-  /**
-   * List services matching selector
-   */
   async listServices(selector: ServiceSelector): Promise<ServiceIdentity[]> {
     const results: ServiceIdentity[] = []
-
     for (const service of services.values()) {
       if (this.matchesSelector(service, selector)) {
         results.push(service)
       }
     }
-
     return results
   }
 
-  /**
-   * Check if a request is allowed by access policies
-   */
   async checkAccess(
     source: ServiceIdentity,
     destination: ServiceIdentity,
@@ -340,25 +271,17 @@ export class ServiceMesh {
       }
     }
 
-    // Sort by priority (higher priority first)
     applicablePolicies.sort((a, b) => b.priority - a.priority)
 
     for (const policy of applicablePolicies) {
       if (this.evaluateConditions(policy.conditions ?? [], request)) {
-        return {
-          allowed: policy.action === 'allow',
-          policy,
-        }
+        return { allowed: policy.action === 'allow', policy }
       }
     }
 
-    // Default deny if no policies match
     return { allowed: false }
   }
 
-  /**
-   * Create an access policy
-   */
   async createAccessPolicy(
     policy: Omit<AccessPolicy, 'id'>,
   ): Promise<AccessPolicy> {
@@ -368,9 +291,6 @@ export class ServiceMesh {
     return fullPolicy
   }
 
-  /**
-   * Create a traffic policy
-   */
   async createTrafficPolicy(
     policy: Omit<TrafficPolicy, 'id'>,
   ): Promise<TrafficPolicy> {
@@ -380,9 +300,6 @@ export class ServiceMesh {
     return fullPolicy
   }
 
-  /**
-   * Get traffic policy for a service
-   */
   async getTrafficPolicy(
     service: ServiceIdentity,
   ): Promise<TrafficPolicy | null> {
@@ -394,9 +311,6 @@ export class ServiceMesh {
     return null
   }
 
-  /**
-   * Record request metrics
-   */
   recordRequest(serviceId: string, success: boolean, latencyMs: number): void {
     const metrics = serviceMetrics.get(serviceId)
     if (!metrics) return
@@ -408,192 +322,117 @@ export class ServiceMesh {
       metrics.requests.failure++
     }
 
-    // Update latency (simple moving average)
     metrics.latency.p50 = metrics.latency.p50 * 0.9 + latencyMs * 0.1
     metrics.latency.p95 = Math.max(metrics.latency.p95, latencyMs)
   }
 
-  /**
-   * Get service metrics
-   */
   getMetrics(serviceId: string): ServiceMetrics | null {
     return serviceMetrics.get(serviceId) ?? null
   }
 
-  /**
-   * Generate mTLS certificate for service
-   */
   async generateCertificate(
     service: ServiceIdentity,
   ): Promise<{ cert: string; key: string }> {
-    // Check cache for valid certificate
     const cached = serviceCertificates.get(service.id)
     if (cached && cached.expiresAt > Date.now() + 24 * 60 * 60 * 1000) {
       return { cert: cached.cert, key: cached.key }
     }
 
-    // Get or create CA
-    const ca = getOrCreateCA()
-
-    // Generate key pair for service
-    const { privateKey } = generateKeyPairSync('ec', {
-      namedCurve: 'prime256v1',
-    })
-
-    const servicePrivateKeyPem = privateKey.export({
-      type: 'pkcs8',
-      format: 'pem',
-    }) as string
-
-    // Generate certificate signed by CA
+    const ca = await getOrCreateCA()
     const commonName = `${service.name}.${service.namespace}.mesh.dws`
     const validDays = 365
 
-    const { spawnSync } = require('node:child_process')
-    const fs = require('node:fs')
-    const tmpDir = require('node:os').tmpdir()
-    const timestamp = Date.now()
-
-    // Write CA cert and key to temp files
-    const caCertPath = `${tmpDir}/ca-cert-${timestamp}.pem`
-    const caKeyPath = `${tmpDir}/ca-key-${timestamp}.pem`
-    const serviceKeyPath = `${tmpDir}/svc-key-${timestamp}.pem`
-    const csrPath = `${tmpDir}/svc-csr-${timestamp}.pem`
-    const certPath = `${tmpDir}/svc-cert-${timestamp}.pem`
-    const extPath = `${tmpDir}/svc-ext-${timestamp}.cnf`
-
-    fs.writeFileSync(caCertPath, ca.cert)
-    fs.writeFileSync(caKeyPath, ca.key)
-    fs.writeFileSync(serviceKeyPath, servicePrivateKeyPem)
+    // Generate service key
+    const keyResult = await exec([
+      'openssl',
+      'ecparam',
+      '-genkey',
+      '-name',
+      'prime256v1',
+      '-noout',
+    ])
+    if (keyResult.exitCode !== 0) {
+      throw new Error(`Failed to generate service key: ${keyResult.stderr}`)
+    }
+    const serviceKey = keyResult.stdout
 
     // Generate CSR
-    const csrResult = spawnSync(
-      'openssl',
+    const csrResult = await exec(
       [
+        'openssl',
         'req',
         '-new',
         '-key',
-        serviceKeyPath,
+        '/dev/stdin',
         '-subj',
         `/CN=${commonName}`,
-        '-out',
-        csrPath,
       ],
-      { encoding: 'utf-8' },
+      { stdin: serviceKey },
     )
-
-    if (csrResult.status !== 0) {
+    if (csrResult.exitCode !== 0) {
       throw new Error(`Failed to generate CSR: ${csrResult.stderr}`)
     }
+    const csr = csrResult.stdout
 
-    // Create extensions file for SAN
-    const extConfig = `
+    // Sign with CA (using a script that takes stdin for both)
+    const signScript = `
+set -e
+TMPDIR=$(mktemp -d)
+cat > $TMPDIR/csr.pem
+echo '${ca.key}' > $TMPDIR/ca.key
+echo '${ca.cert}' > $TMPDIR/ca.crt
+cat > $TMPDIR/ext.cnf << EOF
 basicConstraints=critical,CA:FALSE
 keyUsage=critical,digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth,clientAuth
 subjectAltName=DNS:${commonName},DNS:${service.name}.${service.namespace},DNS:${service.name}
+EOF
+openssl x509 -req -in $TMPDIR/csr.pem -CA $TMPDIR/ca.crt -CAkey $TMPDIR/ca.key -CAcreateserial -days ${validDays} -extfile $TMPDIR/ext.cnf
+rm -rf $TMPDIR
 `
-    fs.writeFileSync(extPath, extConfig)
 
-    // Sign with CA
-    const signResult = spawnSync(
-      'openssl',
-      [
-        'x509',
-        '-req',
-        '-in',
-        csrPath,
-        '-CA',
-        caCertPath,
-        '-CAkey',
-        caKeyPath,
-        '-CAcreateserial',
-        '-out',
-        certPath,
-        '-days',
-        String(validDays),
-        '-extfile',
-        extPath,
-      ],
-      { encoding: 'utf-8' },
-    )
-
-    if (signResult.status !== 0) {
+    const signResult = await exec(['sh', '-c', signScript], { stdin: csr })
+    if (signResult.exitCode !== 0) {
       throw new Error(`Failed to sign certificate: ${signResult.stderr}`)
     }
 
-    const cert = fs.readFileSync(certPath, 'utf-8')
-
-    // Cleanup temp files
-    fs.unlinkSync(caCertPath)
-    fs.unlinkSync(caKeyPath)
-    fs.unlinkSync(serviceKeyPath)
-    fs.unlinkSync(csrPath)
-    fs.unlinkSync(certPath)
-    fs.unlinkSync(extPath)
-    // CA serial file
-    try {
-      fs.unlinkSync(`${tmpDir}/ca-cert-${timestamp}.srl`)
-    } catch {
-      // Ignore if doesn't exist
-    }
-
-    // Cache the certificate
+    const cert = signResult.stdout
     const expiresAt = Date.now() + validDays * 24 * 60 * 60 * 1000
-    serviceCertificates.set(service.id, {
-      cert,
-      key: servicePrivateKeyPem,
-      expiresAt,
-    })
 
+    serviceCertificates.set(service.id, { cert, key: serviceKey, expiresAt })
     console.log(`[ServiceMesh] Generated certificate for ${commonName}`)
-    return { cert, key: servicePrivateKeyPem }
+
+    return { cert, key: serviceKey }
   }
 
-  /**
-   * Verify a peer certificate
-   */
   async verifyCertificate(
-    cert: string,
+    certPem: string,
     expectedService?: ServiceSelector,
-  ): Promise<{
-    valid: boolean
-    service?: ServiceIdentity
-  }> {
-    const ca = getOrCreateCA()
+  ): Promise<{ valid: boolean; service?: ServiceIdentity }> {
+    const ca = await getOrCreateCA()
 
-    // Parse and verify the certificate
-    let x509: X509Certificate
-    try {
-      x509 = new X509Certificate(cert)
-    } catch {
-      return { valid: false }
-    }
+    // Verify via openssl
+    const verifyScript = `
+set -e
+TMPDIR=$(mktemp -d)
+cat > $TMPDIR/cert.pem
+echo '${ca.cert}' > $TMPDIR/ca.crt
+openssl verify -CAfile $TMPDIR/ca.crt $TMPDIR/cert.pem
+openssl x509 -in $TMPDIR/cert.pem -noout -subject -dates
+rm -rf $TMPDIR
+`
 
-    // Verify against CA
-    const caCert = new X509Certificate(ca.cert)
-    if (!x509.verify(caCert.publicKey)) {
+    const result = await exec(['sh', '-c', verifyScript], { stdin: certPem })
+    if (result.exitCode !== 0) {
       console.warn(
-        '[ServiceMesh] Certificate verification failed: invalid CA signature',
+        '[ServiceMesh] Certificate verification failed:',
+        result.stderr,
       )
       return { valid: false }
     }
 
-    // Check expiration
-    const now = new Date()
-    if (new Date(x509.validTo) < now) {
-      console.warn('[ServiceMesh] Certificate verification failed: expired')
-      return { valid: false }
-    }
-    if (new Date(x509.validFrom) > now) {
-      console.warn(
-        '[ServiceMesh] Certificate verification failed: not yet valid',
-      )
-      return { valid: false }
-    }
-
-    // Extract service identity from CN
-    const cnMatch = x509.subject.match(/CN=([^,]+)/)
+    // Extract CN from output
+    const cnMatch = result.stdout.match(/CN\s*=\s*([^\s,]+)/)
     if (!cnMatch) {
       return { valid: false }
     }
@@ -607,30 +446,23 @@ subjectAltName=DNS:${commonName},DNS:${service.name}.${service.namespace},DNS:${
     const serviceName = parts[0]
     const namespace = parts[1]
 
-    // Find the service
     const service = await this.discoverService(serviceName, namespace)
     if (!service) {
-      return { valid: true } // Certificate is valid but service not registered
+      return { valid: true }
     }
 
-    // Check if matches expected service
-    if (expectedService) {
-      if (!this.matchesSelector(service, expectedService)) {
-        console.warn(
-          '[ServiceMesh] Certificate verification failed: service mismatch',
-        )
-        return { valid: false }
-      }
+    if (expectedService && !this.matchesSelector(service, expectedService)) {
+      console.warn(
+        '[ServiceMesh] Certificate verification failed: service mismatch',
+      )
+      return { valid: false }
     }
 
     return { valid: true, service }
   }
 
-  /**
-   * Get the CA certificate (for trust anchoring)
-   */
-  getCACertificate(): string {
-    const ca = getOrCreateCA()
+  async getCACertificate(): Promise<string> {
+    const ca = await getOrCreateCA()
     return ca.cert
   }
 
@@ -642,19 +474,13 @@ subjectAltName=DNS:${commonName},DNS:${service.name}.${service.namespace},DNS:${
     service: ServiceIdentity,
     selector: ServiceSelector,
   ): boolean {
-    if (selector.namespace && service.namespace !== selector.namespace) {
+    if (selector.namespace && service.namespace !== selector.namespace)
       return false
-    }
-    if (selector.name && service.name !== selector.name) {
-      return false
-    }
-    if (selector.owner && service.owner !== selector.owner) {
-      return false
-    }
+    if (selector.name && service.name !== selector.name) return false
+    if (selector.owner && service.owner !== selector.owner) return false
     if (selector.tags && selector.tags.length > 0) {
-      if (!selector.tags.every((tag) => service.tags.includes(tag))) {
+      if (!selector.tags.every((tag) => service.tags.includes(tag)))
         return false
-      }
     }
     return true
   }
@@ -710,7 +536,7 @@ subjectAltName=DNS:${commonName},DNS:${service.name}.${service.namespace},DNS:${
   }
 }
 
-// Service Mesh Router
+// Elysia Router
 
 const ServiceSelectorSchema = t.Object({
   namespace: t.Optional(t.String()),
@@ -786,7 +612,7 @@ const RegisterServiceBody = t.Object({
 export function createServiceMeshRouter(mesh: ServiceMesh) {
   return new Elysia({ prefix: '/mesh' })
     .get('/health', () => ({ status: 'healthy', services: services.size }))
-    .get('/ca', () => ({ cert: mesh.getCACertificate() }))
+    .get('/ca', async () => ({ cert: await mesh.getCACertificate() }))
     .post(
       '/services',
       async ({ body, headers, set }) => {
@@ -823,13 +649,9 @@ export function createServiceMeshRouter(mesh: ServiceMesh) {
     )
     .get('/services', async ({ query }) => {
       const namespace = query.namespace
-      const tags = query.tags.split(',')
+      const tags = query.tags?.split(',') ?? []
 
-      const serviceList = await mesh.listServices({
-        namespace,
-        tags,
-      })
-
+      const serviceList = await mesh.listServices({ namespace, tags })
       return { services: serviceList }
     })
     .post(

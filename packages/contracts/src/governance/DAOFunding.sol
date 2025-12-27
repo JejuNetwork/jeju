@@ -247,7 +247,11 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         emit ProjectProposed(projectId, daoId, projectType, msg.sender);
     }
 
-    function acceptProject(bytes32 projectId) external projectExists(projectId) onlyDAOAdmin(_projects[projectId].daoId) {
+    function acceptProject(bytes32 projectId)
+        external
+        projectExists(projectId)
+        onlyDAOAdmin(_projects[projectId].daoId)
+    {
         FundingProject storage project = _projects[projectId];
         if (project.status != FundingStatus.PROPOSED) revert InvalidProject();
 
@@ -279,7 +283,11 @@ contract DAOFunding is ReentrancyGuard, Pausable {
      * @param projectId Project to update weight for
      * @param weight New weight in basis points
      */
-    function proposeCEOWeight(bytes32 projectId, uint256 weight) external projectExists(projectId) onlyCEO(_projects[projectId].daoId) {
+    function proposeCEOWeight(bytes32 projectId, uint256 weight)
+        external
+        projectExists(projectId)
+        onlyCEO(_projects[projectId].daoId)
+    {
         FundingProject storage project = _projects[projectId];
         if (project.status != FundingStatus.ACTIVE) revert ProjectNotActive();
 
@@ -292,12 +300,10 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         uint256 weightDelta = weight > oldWeight ? weight - oldWeight : oldWeight - weight;
 
         // Small changes (<25% of cap) can be applied with shorter delay
-        uint256 delay = weightDelta >= CEO_WEIGHT_LARGE_CHANGE_THRESHOLD 
-            ? CEO_WEIGHT_TIMELOCK 
-            : CEO_WEIGHT_TIMELOCK / 4; // 12 hours for small changes
+        uint256 delay = weightDelta >= CEO_WEIGHT_LARGE_CHANGE_THRESHOLD ? CEO_WEIGHT_TIMELOCK : CEO_WEIGHT_TIMELOCK / 4; // 12 hours for small changes
 
         bytes32 proposalId = keccak256(abi.encodePacked(projectId, weight, block.timestamp));
-        
+
         ceoWeightProposals[proposalId] = CEOWeightProposal({
             projectId: projectId,
             newWeight: weight,
@@ -376,7 +382,11 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         return result;
     }
 
-    function pauseProject(bytes32 projectId) external projectExists(projectId) onlyDAOAdmin(_projects[projectId].daoId) {
+    function pauseProject(bytes32 projectId)
+        external
+        projectExists(projectId)
+        onlyDAOAdmin(_projects[projectId].daoId)
+    {
         FundingProject storage project = _projects[projectId];
         FundingStatus oldStatus = project.status;
         project.status = FundingStatus.PAUSED;
@@ -384,7 +394,11 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         emit ProjectStatusChanged(projectId, oldStatus, FundingStatus.PAUSED);
     }
 
-    function unpauseProject(bytes32 projectId) external projectExists(projectId) onlyDAOAdmin(_projects[projectId].daoId) {
+    function unpauseProject(bytes32 projectId)
+        external
+        projectExists(projectId)
+        onlyDAOAdmin(_projects[projectId].daoId)
+    {
         FundingProject storage project = _projects[projectId];
         FundingStatus oldStatus = project.status;
         project.status = FundingStatus.ACTIVE;
@@ -392,7 +406,13 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         emit ProjectStatusChanged(projectId, oldStatus, FundingStatus.ACTIVE);
     }
 
-    function stake(bytes32 projectId, uint256 amount) external payable projectExists(projectId) whenNotPaused nonReentrant {
+    function stake(bytes32 projectId, uint256 amount)
+        external
+        payable
+        projectExists(projectId)
+        whenNotPaused
+        nonReentrant
+    {
         FundingProject storage project = _projects[projectId];
         if (project.status != FundingStatus.ACTIVE) revert ProjectNotActive();
 
@@ -581,7 +601,11 @@ contract DAOFunding is ReentrancyGuard, Pausable {
      * @param projectId Project to check
      * @param epochId Epoch to check
      */
-    function getProjectEpochStake(bytes32 projectId, uint256 epochId) external view returns (uint256 totalStake, uint256 numStakers) {
+    function getProjectEpochStake(bytes32 projectId, uint256 epochId)
+        external
+        view
+        returns (uint256 totalStake, uint256 numStakers)
+    {
         return (_projectEpochStakes[projectId][epochId], _projectEpochStakers[projectId][epochId]);
     }
 
@@ -702,7 +726,11 @@ contract DAOFunding is ReentrancyGuard, Pausable {
     /**
      * @notice Calculate allocation weight for a project
      */
-    function _calculateProjectAllocation(bytes32 daoId, bytes32 projectId, uint256 epochId) internal view returns (uint256) {
+    function _calculateProjectAllocation(bytes32 daoId, bytes32 projectId, uint256 epochId)
+        internal
+        view
+        returns (uint256)
+    {
         FundingProject memory project = _projects[projectId];
         DAOFundingConfig memory config = _getConfig(daoId);
 
@@ -711,7 +739,7 @@ contract DAOFunding is ReentrancyGuard, Pausable {
 
         uint256 communityWeight;
         if (config.quadraticEnabled && stakers > 0) {
-                communityWeight = _sqrt(projectStake) * _sqrt(stakers);
+            communityWeight = _sqrt(projectStake) * _sqrt(stakers);
         } else {
             communityWeight = projectStake;
         }
@@ -771,5 +799,3 @@ contract DAOFunding is ReentrancyGuard, Pausable {
 
     receive() external payable {}
 }
-
-

@@ -22,6 +22,7 @@ import {
   buildTokenStatsQuery,
   buildTransactionQuery,
 } from './utils/graphql-utils'
+import { security } from './utils/security'
 import { BadRequestError } from './utils/types'
 import {
   a2aRequestSchema,
@@ -540,6 +541,7 @@ export function createIndexerA2AServer() {
         ? cors({ origin: CORS_ORIGINS, credentials: true })
         : cors(),
     )
+    .use(security({ service: 'indexer-a2a' }))
     .onError(({ error, set }) => {
       const errorMessage =
         error instanceof Error ? error.message : String(error)

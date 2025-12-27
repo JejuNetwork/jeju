@@ -48,8 +48,14 @@ export const BotIdParamSchema = z.object({
   agentId: z.coerce.number().int().positive().optional(),
 })
 
+// BigInt-compatible string schema (validates numeric strings that can be safely converted)
+const BigIntStringParamSchema = z
+  .string()
+  .min(1)
+  .regex(/^\d+$/, 'Must be a valid numeric string for BigInt conversion')
+
 export const RoomIdParamSchema = z.object({
-  roomId: NonEmptyStringSchema,
+  roomId: BigIntStringParamSchema,
 })
 
 export const RegisterAgentRequestSchema = z.object({

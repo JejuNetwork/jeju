@@ -4,7 +4,7 @@
  * Tests the central orchestrator for autonomous agent behaviors.
  */
 
-import { beforeEach, describe, expect, it } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
   AutonomousCoordinator,
   type CoordinatorConfig,
@@ -42,15 +42,13 @@ describe('AutonomousCoordinator', () => {
   describe('start/stop lifecycle', () => {
     it('throws when starting without agent runtime', async () => {
       const coordinator = new AutonomousCoordinator()
-      
-      await expect(
-        coordinator.start({ id: 'test-agent' }),
-      ).rejects.toThrow()
+
+      await expect(coordinator.start({ id: 'test-agent' })).rejects.toThrow()
     })
 
     it('throws when starting while already running', async () => {
       const coordinator = new AutonomousCoordinator()
-      
+
       // Simulate that coordinator is already running by accessing private state
       // In real tests, we would need to provide a mock runtime
       expect(coordinator).toBeDefined()
@@ -171,4 +169,3 @@ describe('CoordinatorConfig validation', () => {
     }
   })
 })
-

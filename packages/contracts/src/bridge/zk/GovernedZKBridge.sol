@@ -91,12 +91,10 @@ contract GovernedZKBridge is ZKBridge {
 
     // ============ Governed Admin Functions ============
 
-    function registerTokenGoverned(
-        bytes32 proposalId,
-        address token,
-        bytes32 solanaMint,
-        bool _isHomeChain
-    ) external onlyGovernance(proposalId) {
+    function registerTokenGoverned(bytes32 proposalId, address token, bytes32 solanaMint, bool _isHomeChain)
+        external
+        onlyGovernance(proposalId)
+    {
         ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
@@ -106,11 +104,10 @@ contract GovernedZKBridge is ZKBridge {
         emit TokenRegistered(token, solanaMint, _isHomeChain);
     }
 
-    function setFeesGoverned(
-        bytes32 proposalId,
-        uint256 _baseFee,
-        uint256 _feePerByte
-    ) external onlyGovernance(proposalId) {
+    function setFeesGoverned(bytes32 proposalId, uint256 _baseFee, uint256 _feePerByte)
+        external
+        onlyGovernance(proposalId)
+    {
         ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
@@ -119,21 +116,17 @@ contract GovernedZKBridge is ZKBridge {
         emit FeeUpdated(_baseFee, _feePerByte);
     }
 
-    function setFeeCollectorGoverned(
-        bytes32 proposalId,
-        address _feeCollector
-    ) external onlyGovernance(proposalId) {
+    function setFeeCollectorGoverned(bytes32 proposalId, address _feeCollector) external onlyGovernance(proposalId) {
         ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
         feeCollector = _feeCollector;
     }
 
-    function setTransferRequirementsGoverned(
-        bytes32 proposalId,
-        uint256 _threshold,
-        uint8 _tier
-    ) external onlyGovernance(proposalId) {
+    function setTransferRequirementsGoverned(bytes32 proposalId, uint256 _threshold, uint8 _tier)
+        external
+        onlyGovernance(proposalId)
+    {
         ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
@@ -141,10 +134,7 @@ contract GovernedZKBridge is ZKBridge {
         requiredStakeTier = _tier;
     }
 
-    function setGuardianGoverned(
-        bytes32 proposalId,
-        address _guardian
-    ) external onlyGovernance(proposalId) {
+    function setGuardianGoverned(bytes32 proposalId, address _guardian) external onlyGovernance(proposalId) {
         ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
@@ -192,4 +182,3 @@ contract GovernedZKBridge is ZKBridge {
         return address(council);
     }
 }
-

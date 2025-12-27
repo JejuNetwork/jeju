@@ -73,35 +73,18 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
     uint256 public minClaimAmount = 0;
 
     event RewardPoolCreated(
-        bytes32 indexed runId,
-        address indexed depositor,
-        address rewardToken,
-        uint256 amount,
-        uint256 pointsPerEpoch
+        bytes32 indexed runId, address indexed depositor, address rewardToken, uint256 amount, uint256 pointsPerEpoch
     );
 
     event RewardsDeposited(bytes32 indexed runId, address indexed depositor, uint256 amount);
 
     event EpochRewardsRecorded(
-        bytes32 indexed runId,
-        uint16 indexed epoch,
-        uint256 pointsDistributed,
-        uint16 participantCount
+        bytes32 indexed runId, uint16 indexed epoch, uint256 pointsDistributed, uint16 participantCount
     );
 
-    event PointsEarned(
-        bytes32 indexed runId,
-        address indexed participant,
-        uint16 indexed epoch,
-        uint256 points
-    );
+    event PointsEarned(bytes32 indexed runId, address indexed participant, uint16 indexed epoch, uint256 points);
 
-    event RewardsClaimed(
-        bytes32 indexed runId,
-        address indexed participant,
-        uint256 amount,
-        uint256 pointsClaimed
-    );
+    event RewardsClaimed(bytes32 indexed runId, address indexed participant, uint256 amount, uint256 pointsClaimed);
 
     event DistributorUpdated(address indexed distributor, bool authorized);
 
@@ -147,12 +130,10 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
      * @param amount Initial deposit amount
      * @param pointsPerEpoch Points to distribute per epoch (0 = use default)
      */
-    function createRewardPool(
-        bytes32 runId,
-        address rewardToken,
-        uint256 amount,
-        uint256 pointsPerEpoch
-    ) external nonReentrant {
+    function createRewardPool(bytes32 runId, address rewardToken, uint256 amount, uint256 pointsPerEpoch)
+        external
+        nonReentrant
+    {
         if (rewardPools[runId].depositor != address(0)) revert PoolAlreadyExists();
         if (rewardToken == address(0)) revert ZeroAddress();
         if (amount == 0) revert InsufficientDeposit();
@@ -197,11 +178,13 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
      * @param epoch Epoch number
      * @param participants Addresses of participants who completed the epoch
      */
-    function recordEpochRewards(
-        bytes32 runId,
-        uint16 epoch,
-        address[] calldata participants
-    ) external nonReentrant onlyDistributor poolExists(runId) poolActive(runId) {
+    function recordEpochRewards(bytes32 runId, uint16 epoch, address[] calldata participants)
+        external
+        nonReentrant
+        onlyDistributor
+        poolExists(runId)
+        poolActive(runId)
+    {
         if (participants.length == 0) revert InvalidParticipants();
 
         EpochReward storage epochReward = epochRewards[runId][epoch];
@@ -307,8 +290,8 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
 
         // Calculate reward amount
         uint256 availableRewards = pool.totalDeposited - pool.totalClaimed;
-        uint256 rewardAmount = (claimablePoints * availableRewards) / 
-            (pool.totalPointsDistributed - _getTotalClaimedPoints(runId) + claimablePoints);
+        uint256 rewardAmount = (claimablePoints * availableRewards)
+            / (pool.totalPointsDistributed - _getTotalClaimedPoints(runId) + claimablePoints);
 
         if (rewardAmount < minClaimAmount) revert ClaimBelowMinimum();
 
@@ -330,7 +313,7 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
     function claimMultiple(bytes32[] calldata runIds) external nonReentrant {
         for (uint256 i = 0; i < runIds.length; i++) {
             if (rewardPools[runIds[i]].depositor == address(0)) continue;
-            
+
             ParticipantRewards storage rewards = participantRewards[runIds[i]][msg.sender];
             if (rewards.earnedPoints > rewards.claimedPoints) {
                 _claim(runIds[i], msg.sender);
@@ -345,10 +328,11 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
      * @return claimableAmount Claimable token amount
      * @return claimablePoints Claimable points
      */
-    function claimable(bytes32 runId, address participant) external view returns (
-        uint256 claimableAmount,
-        uint256 claimablePoints
-    ) {
+    function claimable(bytes32 runId, address participant)
+        external
+        view
+        returns (uint256 claimableAmount, uint256 claimablePoints)
+    {
         RewardPool storage pool = rewardPools[runId];
         if (pool.depositor == address(0)) return (0, 0);
 
@@ -361,9 +345,9 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
 
         uint256 availableRewards = pool.totalDeposited - pool.totalClaimed;
         uint256 totalClaimedPoints = _getTotalClaimedPoints(runId);
-        
-        claimableAmount = (claimablePoints * availableRewards) / 
-            (pool.totalPointsDistributed - totalClaimedPoints + claimablePoints);
+
+        claimableAmount =
+            (claimablePoints * availableRewards) / (pool.totalPointsDistributed - totalClaimedPoints + claimablePoints);
     }
 
     /**
@@ -371,34 +355,32 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
      * @param runId Training run ID
      * @param participant Participant address
      */
-    function getParticipantRewards(bytes32 runId, address participant) external view returns (
-        uint256 earnedPoints,
-        uint256 claimedPoints,
-        uint16 lastCompletedEpoch,
-        uint64 lastClaimTime
-    ) {
+    function getParticipantRewards(bytes32 runId, address participant)
+        external
+        view
+        returns (uint256 earnedPoints, uint256 claimedPoints, uint16 lastCompletedEpoch, uint64 lastClaimTime)
+    {
         ParticipantRewards storage rewards = participantRewards[runId][participant];
-        return (
-            rewards.earnedPoints,
-            rewards.claimedPoints,
-            rewards.lastCompletedEpoch,
-            rewards.lastClaimTime
-        );
+        return (rewards.earnedPoints, rewards.claimedPoints, rewards.lastCompletedEpoch, rewards.lastClaimTime);
     }
 
     /**
      * @notice Get reward pool info
      * @param runId Training run ID
      */
-    function getRewardPool(bytes32 runId) external view returns (
-        address rewardToken,
-        uint256 totalDeposited,
-        uint256 totalClaimed,
-        uint256 pointsPerEpoch,
-        uint256 totalPointsDistributed,
-        address depositor,
-        bool active
-    ) {
+    function getRewardPool(bytes32 runId)
+        external
+        view
+        returns (
+            address rewardToken,
+            uint256 totalDeposited,
+            uint256 totalClaimed,
+            uint256 pointsPerEpoch,
+            uint256 totalPointsDistributed,
+            address depositor,
+            bool active
+        )
+    {
         RewardPool storage pool = rewardPools[runId];
         return (
             pool.rewardToken,
@@ -416,11 +398,11 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
      * @param runId Training run ID
      * @param epoch Epoch number
      */
-    function getEpochReward(bytes32 runId, uint16 epoch) external view returns (
-        uint256 pointsDistributed,
-        uint16 participantCount,
-        bool finalized
-    ) {
+    function getEpochReward(bytes32 runId, uint16 epoch)
+        external
+        view
+        returns (uint256 pointsDistributed, uint16 participantCount, bool finalized)
+    {
         EpochReward storage reward = epochRewards[runId][epoch];
         return (reward.pointsDistributed, reward.participantCount, reward.finalized);
     }
@@ -429,7 +411,7 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
         // This is an approximation - in production you might want to track this directly
         RewardPool storage pool = rewardPools[runId];
         if (pool.totalDeposited == 0) return 0;
-        
+
         // Calculate based on claimed amount ratio
         return (pool.totalClaimed * pool.totalPointsDistributed) / pool.totalDeposited;
     }
@@ -503,4 +485,3 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

@@ -9,7 +9,8 @@
  * - Audit logging for sensitive operations (persisted to CQL)
  */
 
-import crypto from 'node:crypto'
+// Use Web Crypto API for workerd compatibility
+// Note: timingSafeEqual is implemented using constant-time comparison
 import { getCurrentNetwork } from '@jejunetwork/config'
 import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
@@ -102,25 +103,23 @@ function validateApiKey(apiKey: string): boolean {
   const apiKeyBuf = Buffer.from(apiKey, 'utf8')
   const validKeyBuf = Buffer.from(validKey, 'utf8')
 
-  // Use crypto.timingSafeEqual which is truly constant-time
-  // First check lengths separately to avoid leaking via timingSafeEqual's length requirement
+  // Constant-time comparison using XOR to prevent timing attacks
+  // This is workerd-compatible (no Node.js crypto required)
   if (apiKeyBuf.length !== validKeyBuf.length) {
-    // Still do a constant-time comparison against a dummy to avoid timing leak
-    // This ensures the function takes the same time regardless of length mismatch
+    // Compare against dummy to maintain constant time
     const dummyBuf = Buffer.alloc(apiKeyBuf.length)
-    try {
-      crypto.timingSafeEqual(apiKeyBuf, dummyBuf)
-    } catch {
-      // Ignore - just ensuring constant time
+    let _dummyResult = 0
+    for (let i = 0; i < apiKeyBuf.length; i++) {
+      _dummyResult |= apiKeyBuf[i] ^ dummyBuf[i]
     }
     return false
   }
 
-  try {
-    return crypto.timingSafeEqual(apiKeyBuf, validKeyBuf)
-  } catch {
-    return false
+  let result = 0
+  for (let i = 0; i < apiKeyBuf.length; i++) {
+    result |= apiKeyBuf[i] ^ validKeyBuf[i]
   }
+  return result === 0
 }
 
 /**
@@ -331,6 +330,7 @@ export const securityMiddleware = new Elysia({ name: 'security' })
         retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
       }
     }
+    return
   })
 
   // API key validation for admin endpoints
@@ -374,6 +374,7 @@ export const securityMiddleware = new Elysia({ name: 'security' })
       })
       return { error: 'Invalid API key' }
     }
+    return
   })
 
 /**

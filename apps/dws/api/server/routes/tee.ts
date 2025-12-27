@@ -19,6 +19,8 @@ const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
 const VERIFIER_PRIVATE_KEY = process.env.TEE_VERIFIER_PRIVATE_KEY as
   | `0x${string}`
   | undefined
+const DSTACK_ENDPOINT =
+  process.env.DSTACK_ATTESTATION_ENDPOINT || 'http://localhost:8090'
 
 // DStack client adapter - uses DStack integration from vendor/babylon
 // In production, this connects to the dstack attestation service
@@ -31,9 +33,21 @@ function createDstackClientAdapter() {
       quote: string
       mode: string
     }): Promise<{ valid: boolean; tcbValid?: boolean; reason?: string }> {
-      // If DSTACK_SKIP_VERIFICATION is set, skip external verification (dev mode)
+      // SECURITY: Only skip verification in non-production with explicit flag
+      const isProduction = process.env.NODE_ENV === 'production'
       if (process.env.DSTACK_SKIP_VERIFICATION === 'true') {
-        console.log('[TEE] Skipping dstack verification (dev mode)')
+        if (isProduction) {
+          console.error(
+            '[TEE] CRITICAL: DSTACK_SKIP_VERIFICATION cannot be used in production',
+          )
+          return {
+            valid: false,
+            reason: 'Verification bypass not allowed in production',
+          }
+        }
+        console.warn(
+          '[TEE] WARNING: Skipping dstack verification (dev mode only)',
+        )
         return { valid: true, tcbValid: true }
       }
 
@@ -107,7 +121,7 @@ const activeNonces: Map<
   }
 > = new Map()
 
-export function createTEERouter(): Elysia {
+export function createTEERouter() {
   return (
     new Elysia({ prefix: '/tee' })
       // =========================================================================

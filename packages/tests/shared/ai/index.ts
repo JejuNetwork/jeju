@@ -5,17 +5,16 @@
  */
 
 export {
-  llm,
   chat,
   complete,
   describeImage,
-  verifyImage,
+  type ImageVerification,
   isLLMConfigured,
-  requireLLM,
-  type LLMMessage,
   type LLMContentPart,
+  type LLMMessage,
   type LLMOptions,
   type LLMResponse,
-  type ImageVerification,
+  llm,
+  requireLLM,
+  verifyImage,
 } from './llm'
-

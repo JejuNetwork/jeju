@@ -221,6 +221,12 @@ resource "google_container_node_pool" "pools" {
   }
 }
 
+# Static IP for Ingress Controller
+resource "google_compute_global_address" "ingress" {
+  name    = "${local.name_prefix}-ingress"
+  project = var.project_id
+}
+
 # Outputs
 output "cluster_name" {
   value = google_container_cluster.main.name
@@ -239,3 +245,7 @@ output "workload_identity_pool" {
   value = "${var.project_id}.svc.id.goog"
 }
 
+output "ingress_ip" {
+  description = "Static IP address for ingress controller"
+  value       = google_compute_global_address.ingress.address
+}

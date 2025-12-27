@@ -9,7 +9,7 @@ import {DAAttestationManager} from "../src/da/DAAttestationManager.sol";
 /**
  * @title DeployDA
  * @notice Deploys the Jeju Data Availability Layer contracts
- * 
+ *
  * Usage:
  *   forge script script/DeployDA.s.sol:DeployDA --rpc-url $RPC_URL --broadcast
  */
@@ -26,7 +26,7 @@ contract DeployDA is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         // Get external dependencies from environment
         address identityRegistry = vm.envOr("IDENTITY_REGISTRY", address(0));
         address banManager = vm.envOr("BAN_MANAGER", address(0));
@@ -39,28 +39,15 @@ contract DeployDA is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy Operator Registry
-        operatorRegistry = new DAOperatorRegistry(
-            deployer,
-            identityRegistry,
-            banManager,
-            MIN_OPERATOR_STAKE
-        );
+        operatorRegistry = new DAOperatorRegistry(deployer, identityRegistry, banManager, MIN_OPERATOR_STAKE);
         console.log("DAOperatorRegistry deployed at:", address(operatorRegistry));
 
         // 2. Deploy Blob Registry
-        blobRegistry = new DABlobRegistry(
-            address(operatorRegistry),
-            SUBMISSION_FEE,
-            deployer
-        );
+        blobRegistry = new DABlobRegistry(address(operatorRegistry), SUBMISSION_FEE, deployer);
         console.log("DABlobRegistry deployed at:", address(blobRegistry));
 
         // 3. Deploy Attestation Manager
-        attestationManager = new DAAttestationManager(
-            address(operatorRegistry),
-            address(blobRegistry),
-            deployer
-        );
+        attestationManager = new DAAttestationManager(address(operatorRegistry), address(blobRegistry), deployer);
         console.log("DAAttestationManager deployed at:", address(attestationManager));
 
         vm.stopBroadcast();
@@ -75,4 +62,3 @@ contract DeployDA is Script {
         console.log("- Submission Fee:", SUBMISSION_FEE);
     }
 }
-

@@ -948,6 +948,7 @@ export function createPerpsModule(
       for (const log of placedLogs.slice(-100)) {
         // Limit to last 100
         const orderId = log.args.orderId
+        if (!orderId) continue
         if (cancelledOrderIds.has(orderId) || executedOrderIds.has(orderId)) {
           continue
         }

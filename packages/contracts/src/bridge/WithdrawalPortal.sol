@@ -50,12 +50,7 @@ contract WithdrawalPortal is ReentrancyGuard {
     mapping(bytes32 => bool) public finalizedWithdrawals;
 
     /// @notice Emitted when a withdrawal is proven
-    event WithdrawalProven(
-        bytes32 indexed withdrawalHash,
-        address indexed from,
-        address indexed to,
-        uint256 nonce
-    );
+    event WithdrawalProven(bytes32 indexed withdrawalHash, address indexed from, address indexed to, uint256 nonce);
 
     /// @notice Emitted when a withdrawal is finalized
     event WithdrawalFinalized(bytes32 indexed withdrawalHash, bool success);
@@ -100,7 +95,11 @@ contract WithdrawalPortal is ReentrancyGuard {
         // Verify the withdrawal hash is included in the message passer storage
         // The withdrawal hash should be stored at a slot derived from the sentMessages mapping
         bytes32 storageKey = computeStorageKey(withdrawalHash);
-        if (!verifyMerkleProof(_withdrawalProof, _outputRootProof.messagePasserStorageRoot, storageKey, bytes32(uint256(1)))) {
+        if (
+            !verifyMerkleProof(
+                _withdrawalProof, _outputRootProof.messagePasserStorageRoot, storageKey, bytes32(uint256(1))
+            )
+        ) {
             revert InvalidProof();
         }
 
@@ -163,9 +162,7 @@ contract WithdrawalPortal is ReentrancyGuard {
     /// @param _tx The withdrawal transaction
     /// @return The keccak256 hash
     function hashWithdrawal(WithdrawalTransaction memory _tx) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(_tx.nonce, _tx.sender, _tx.target, _tx.value, _tx.gasLimit, _tx.data)
-        );
+        return keccak256(abi.encode(_tx.nonce, _tx.sender, _tx.target, _tx.value, _tx.gasLimit, _tx.data));
     }
 
     /// @notice Computes the output root from its components
@@ -192,12 +189,11 @@ contract WithdrawalPortal is ReentrancyGuard {
     /// @param _key The storage key being proven
     /// @param _value The expected value at the key
     /// @return True if the proof is valid
-    function verifyMerkleProof(
-        bytes32[] calldata _proof,
-        bytes32 _root,
-        bytes32 _key,
-        bytes32 _value
-    ) public pure returns (bool) {
+    function verifyMerkleProof(bytes32[] calldata _proof, bytes32 _root, bytes32 _key, bytes32 _value)
+        public
+        pure
+        returns (bool)
+    {
         // For simplicity, we use a binary Merkle proof verification
         // In production, this would use RLP-encoded Merkle-Patricia trie proofs
         bytes32 leaf = keccak256(abi.encodePacked(_key, _value));

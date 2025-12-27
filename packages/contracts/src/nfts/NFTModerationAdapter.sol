@@ -120,9 +120,8 @@ contract NFTModerationAdapter is INFTModeration, INFTModerationHooks, Ownable {
         // Check BanManager if configured
         if (banManager != address(0)) {
             // Query BanManager for address-based ban
-            (bool success, bytes memory data) = banManager.staticcall(
-                abi.encodeWithSignature("isAddressBanned(address)", user)
-            );
+            (bool success, bytes memory data) =
+                banManager.staticcall(abi.encodeWithSignature("isAddressBanned(address)", user));
             if (success && data.length >= 32) {
                 return abi.decode(data, (bool));
             }
@@ -146,12 +145,12 @@ contract NFTModerationAdapter is INFTModeration, INFTModerationHooks, Ownable {
     // =========================================================================
 
     /// @inheritdoc INFTModerationHooks
-    function beforeTransfer(
-        address collection,
-        address from,
-        address to,
-        uint256 tokenId
-    ) external view override returns (bool) {
+    function beforeTransfer(address collection, address from, address to, uint256 tokenId)
+        external
+        view
+        override
+        returns (bool)
+    {
         // Skip checks for whitelisted collections
         if (whitelistedCollections[collection]) return true;
 
@@ -171,11 +170,7 @@ contract NFTModerationAdapter is INFTModeration, INFTModerationHooks, Ownable {
     }
 
     /// @inheritdoc INFTModerationHooks
-    function beforeMint(
-        address collection,
-        address to,
-        uint256 tokenId
-    ) external view override returns (bool) {
+    function beforeMint(address collection, address to, uint256 tokenId) external view override returns (bool) {
         // Skip checks for whitelisted collections
         if (whitelistedCollections[collection]) return true;
 
@@ -192,12 +187,12 @@ contract NFTModerationAdapter is INFTModeration, INFTModerationHooks, Ownable {
     }
 
     /// @inheritdoc INFTModerationHooks
-    function beforeBridge(
-        address collection,
-        address owner,
-        uint256 tokenId,
-        uint256 destinationChain
-    ) external view override returns (bool) {
+    function beforeBridge(address collection, address owner, uint256 tokenId, uint256 destinationChain)
+        external
+        view
+        override
+        returns (bool)
+    {
         // Skip checks for whitelisted collections
         if (whitelistedCollections[collection]) return true;
 
@@ -289,11 +284,10 @@ contract NFTModerationAdapter is INFTModeration, INFTModerationHooks, Ownable {
     }
 
     /// @notice Batch ban tokens
-    function banTokens(
-        address collection,
-        uint256[] calldata tokenIds,
-        string calldata reason
-    ) external onlyModerator {
+    function banTokens(address collection, uint256[] calldata tokenIds, string calldata reason)
+        external
+        onlyModerator
+    {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             bannedTokens[collection][tokenIds[i]] = true;
             emit TokenBanned(collection, tokenIds[i], reason);

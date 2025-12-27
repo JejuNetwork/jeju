@@ -3,14 +3,62 @@
  * Handles pack/unpack of git objects for network transfer
  */
 
-import { promisify } from 'node:util'
-import { deflate, inflate } from 'node:zlib'
+// Use Web CompressionStream API instead of node:zlib for workerd compatibility
 import { createHash } from '@jejunetwork/shared'
 import type { GitObjectStore } from './object-store'
 import type { GitObjectType, PackedObject } from './types'
 
-const inflateAsync = promisify(inflate)
-const deflateAsync = promisify(deflate)
+async function inflateAsync(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new DecompressionStream('deflate')
+  const writer = stream.writable.getWriter()
+  const reader = stream.readable.getReader()
+
+  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
+  writer.write(data.slice())
+  writer.close()
+
+  const chunks: Uint8Array[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}
+
+async function deflateAsync(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new CompressionStream('deflate')
+  const writer = stream.writable.getWriter()
+  const reader = stream.readable.getReader()
+
+  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
+  writer.write(data.slice())
+  writer.close()
+
+  const chunks: Uint8Array[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}
 
 const PACK_SIGNATURE = Buffer.from('PACK')
 const PACK_VERSION = 2
@@ -101,7 +149,7 @@ export class PackfileWriter {
     }
 
     // Compress data
-    const compressed = await deflateAsync(data)
+    const compressed = await deflateAsync(new Uint8Array(data))
 
     return Buffer.concat([Buffer.from(sizeBytes), Buffer.from(compressed)])
   }
@@ -214,7 +262,7 @@ export class PackfileReader {
 
     while (endOffset <= this.buffer.length) {
       const compressed = this.buffer.subarray(this.offset, endOffset)
-      const inflated = await inflateAsync(compressed)
+      const inflated = await inflateAsync(new Uint8Array(compressed))
       if (inflated) {
         this.offset = endOffset
         return Buffer.from(inflated)

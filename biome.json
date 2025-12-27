@@ -10,7 +10,8 @@
       "packages/**/*.ts",
       "packages/**/*.tsx",
       "apps/**/*.ts",
-      "apps/**/*.tsx"
+      "apps/**/*.tsx",
+      "!**/model/generated/**"
     ]
   },
   "formatter": {

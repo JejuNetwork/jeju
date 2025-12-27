@@ -16,18 +16,19 @@ library AssetLib {
 
     /// @notice Asset type enumeration
     enum AssetType {
-        NATIVE,   // ETH
-        ERC20,    // Fungible tokens
-        ERC721,   // Non-fungible tokens
-        ERC1155   // Semi-fungible tokens
+        NATIVE, // ETH
+        ERC20, // Fungible tokens
+        ERC721, // Non-fungible tokens
+        ERC1155 // Semi-fungible tokens
+
     }
 
     /// @notice Asset descriptor for transfers
     struct Asset {
         AssetType assetType;
-        address token;      // Token contract address (address(0) for NATIVE)
-        uint256 tokenId;    // Token ID (0 for ERC20/NATIVE, actual ID for NFTs)
-        uint256 amount;     // Amount (1 for ERC721, actual amount for others)
+        address token; // Token contract address (address(0) for NATIVE)
+        uint256 tokenId; // Token ID (0 for ERC20/NATIVE, actual ID for NFTs)
+        uint256 amount; // Amount (1 for ERC721, actual amount for others)
     }
 
     // ============ Errors ============
@@ -117,14 +118,18 @@ library AssetLib {
      * @param spender Address that needs approval
      * @return hasApproval True if spender is approved
      */
-    function validateApproval(Asset memory asset, address owner, address spender) internal view returns (bool hasApproval) {
+    function validateApproval(Asset memory asset, address owner, address spender)
+        internal
+        view
+        returns (bool hasApproval)
+    {
         if (asset.assetType == AssetType.NATIVE) {
             return true; // Native ETH doesn't need approval
         } else if (asset.assetType == AssetType.ERC20) {
             return IERC20(asset.token).allowance(owner, spender) >= asset.amount;
         } else if (asset.assetType == AssetType.ERC721) {
-            return IERC721(asset.token).isApprovedForAll(owner, spender) ||
-                   IERC721(asset.token).getApproved(asset.tokenId) == spender;
+            return IERC721(asset.token).isApprovedForAll(owner, spender)
+                || IERC721(asset.token).getApproved(asset.tokenId) == spender;
         } else if (asset.assetType == AssetType.ERC1155) {
             return IERC1155(asset.token).isApprovedForAll(owner, spender);
         }
@@ -177,12 +182,7 @@ library AssetLib {
      * @param amount Amount
      */
     function erc20(address token, uint256 amount) internal pure returns (Asset memory) {
-        return Asset({
-            assetType: AssetType.ERC20,
-            token: token,
-            tokenId: 0,
-            amount: amount
-        });
+        return Asset({assetType: AssetType.ERC20, token: token, tokenId: 0, amount: amount});
     }
 
     /**
@@ -191,12 +191,7 @@ library AssetLib {
      * @param tokenId Token ID
      */
     function erc721(address token, uint256 tokenId) internal pure returns (Asset memory) {
-        return Asset({
-            assetType: AssetType.ERC721,
-            token: token,
-            tokenId: tokenId,
-            amount: 1
-        });
+        return Asset({assetType: AssetType.ERC721, token: token, tokenId: tokenId, amount: 1});
     }
 
     /**
@@ -206,12 +201,7 @@ library AssetLib {
      * @param amount Amount
      */
     function erc1155(address token, uint256 tokenId, uint256 amount) internal pure returns (Asset memory) {
-        return Asset({
-            assetType: AssetType.ERC1155,
-            token: token,
-            tokenId: tokenId,
-            amount: amount
-        });
+        return Asset({assetType: AssetType.ERC1155, token: token, tokenId: tokenId, amount: amount});
     }
 
     /**
@@ -219,11 +209,6 @@ library AssetLib {
      * @param amount Amount in wei
      */
     function native(uint256 amount) internal pure returns (Asset memory) {
-        return Asset({
-            assetType: AssetType.NATIVE,
-            token: address(0),
-            tokenId: 0,
-            amount: amount
-        });
+        return Asset({assetType: AssetType.NATIVE, token: address(0), tokenId: 0, amount: amount});
     }
 }

@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
+    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",

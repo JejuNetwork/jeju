@@ -7,7 +7,6 @@
  * @module @jejunetwork/shared/storage
  */
 
-import * as path from 'node:path'
 import {
   getJejuStorageApiKey,
   getJejuStorageEndpoint,
@@ -185,7 +184,8 @@ export class JejuStorageClient {
       filename = `model-${options.version}.tar.gz`
     } else {
       modelBuffer = await fs.readFile(options.modelPath)
-      filename = path.basename(options.modelPath)
+      // Extract basename without node:path (for worker compatibility)
+      filename = options.modelPath.split('/').pop() ?? options.modelPath
     }
 
     const uploadResult = await this.uploadImage({

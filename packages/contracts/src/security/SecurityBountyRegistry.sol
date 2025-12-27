@@ -29,45 +29,49 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     // ============ Enums ============
 
     enum Severity {
-        LOW,        // $500-$2.5k - Minor bugs, theoretical issues
-        MEDIUM,     // $2.5k-$10k - DoS, information disclosure
-        HIGH,       // $10k-$25k - 51% attack, MPC exposure, privilege escalation
-        CRITICAL    // $25k-$50k - RCE, wallet drain, TEE bypass
+        LOW, // $500-$2.5k - Minor bugs, theoretical issues
+        MEDIUM, // $2.5k-$10k - DoS, information disclosure
+        HIGH, // $10k-$25k - 51% attack, MPC exposure, privilege escalation
+        CRITICAL // $25k-$50k - RCE, wallet drain, TEE bypass
+
     }
 
     enum VulnerabilityType {
-        FUNDS_AT_RISK,          // Direct loss of user funds
-        WALLET_DRAIN,           // Unauthorized wallet access
-        REMOTE_CODE_EXECUTION,  // RCE on infrastructure
-        TEE_BYPASS,             // TEE/enclave manipulation
-        CONSENSUS_ATTACK,       // 51% or consensus manipulation
-        MPC_KEY_EXPOSURE,       // Key material leakage
-        PRIVILEGE_ESCALATION,   // Unauthorized access elevation
-        DENIAL_OF_SERVICE,      // Service disruption
+        FUNDS_AT_RISK, // Direct loss of user funds
+        WALLET_DRAIN, // Unauthorized wallet access
+        REMOTE_CODE_EXECUTION, // RCE on infrastructure
+        TEE_BYPASS, // TEE/enclave manipulation
+        CONSENSUS_ATTACK, // 51% or consensus manipulation
+        MPC_KEY_EXPOSURE, // Key material leakage
+        PRIVILEGE_ESCALATION, // Unauthorized access elevation
+        DENIAL_OF_SERVICE, // Service disruption
         INFORMATION_DISCLOSURE, // Sensitive data exposure
-        OTHER                   // Other security issues
+        OTHER // Other security issues
+
     }
 
     enum SubmissionStatus {
-        PENDING,            // Awaiting automated validation
-        VALIDATING,         // Sandbox validation in progress
-        GUARDIAN_REVIEW,    // Awaiting guardian votes
-        CEO_REVIEW,         // Awaiting CEO decision
-        APPROVED,           // Accepted and pending payout
-        PAID,               // Reward paid
-        REJECTED,           // Not valid or not severe enough
-        DUPLICATE,          // Already reported
-        DISPUTED,           // Under dispute
-        WITHDRAWN           // Researcher withdrew
+        PENDING, // Awaiting automated validation
+        VALIDATING, // Sandbox validation in progress
+        GUARDIAN_REVIEW, // Awaiting guardian votes
+        CEO_REVIEW, // Awaiting CEO decision
+        APPROVED, // Accepted and pending payout
+        PAID, // Reward paid
+        REJECTED, // Not valid or not severe enough
+        DUPLICATE, // Already reported
+        DISPUTED, // Under dispute
+        WITHDRAWN // Researcher withdrew
+
     }
 
     enum ValidationResult {
         PENDING,
-        VERIFIED,           // Exploit confirmed working
-        LIKELY_VALID,       // Code analysis suggests valid
-        NEEDS_MORE_INFO,    // Researcher should provide more details
-        INVALID,            // Not reproducible or not a vulnerability
-        SANDBOX_ERROR       // Validation infrastructure issue
+        VERIFIED, // Exploit confirmed working
+        LIKELY_VALID, // Code analysis suggests valid
+        NEEDS_MORE_INFO, // Researcher should provide more details
+        INVALID, // Not reproducible or not a vulnerability
+        SANDBOX_ERROR // Validation infrastructure issue
+
     }
 
     // ============ Structs ============
@@ -78,10 +82,10 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         uint256 researcherAgentId;
         Severity severity;
         VulnerabilityType vulnType;
-        bytes32 encryptedReportCid;     // IPFS CID of MPC-encrypted report
-        bytes32 encryptionKeyId;         // MPC key ID for decryption
-        bytes32 proofOfConceptHash;      // Hash of PoC code (stored encrypted)
-        uint256 stake;                   // Researcher's stake (higher = priority)
+        bytes32 encryptedReportCid; // IPFS CID of MPC-encrypted report
+        bytes32 encryptionKeyId; // MPC key ID for decryption
+        bytes32 proofOfConceptHash; // Hash of PoC code (stored encrypted)
+        uint256 stake; // Researcher's stake (higher = priority)
         uint256 submittedAt;
         uint256 validatedAt;
         uint256 resolvedAt;
@@ -91,9 +95,9 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         uint256 rewardAmount;
         uint256 guardianApprovals;
         uint256 guardianRejections;
-        bytes32 fixCommitHash;           // Git commit that fixes the issue
-        uint256 disclosureDate;          // When public disclosure happens
-        bool researcherDisclosed;        // Researcher chose to disclose
+        bytes32 fixCommitHash; // Git commit that fixes the issue
+        uint256 disclosureDate; // When public disclosure happens
+        bool researcherDisclosed; // Researcher chose to disclose
     }
 
     struct GuardianVote {
@@ -126,8 +130,8 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     // ============ Constants ============
 
     uint256 public constant MIN_STAKE = 0.001 ether;
-    uint256 public constant PROTOCOL_FEE_BPS = 500;     // 5% protocol fee
-    uint256 public constant GUARDIAN_FEE_BPS = 500;     // 5% to guardians
+    uint256 public constant PROTOCOL_FEE_BPS = 500; // 5% protocol fee
+    uint256 public constant GUARDIAN_FEE_BPS = 500; // 5% to guardians
     uint256 public constant MAX_GUARDIANS_PER_REVIEW = 10;
     uint256 public constant DISCLOSURE_GRACE_PERIOD = 7 days;
 
@@ -138,24 +142,24 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     address public treasury;
     address public guardianPool;
     address public ceoAgent;
-    address public computeOracle;           // DWS compute for sandbox execution
+    address public computeOracle; // DWS compute for sandbox execution
 
     mapping(bytes32 => VulnerabilitySubmission) public submissions;
     mapping(bytes32 => GuardianVote[]) public guardianVotes;
     mapping(bytes32 => mapping(address => bool)) public hasVoted;
     mapping(bytes32 => ValidationRequest) public validationRequests;
-    
+
     // Guardian registry
     mapping(uint256 => bool) public isGuardian;
     uint256[] public guardianAgentIds;
-    uint256 public minGuardianReputation = 5000;    // Minimum reputation score
-    
+    uint256 public minGuardianReputation = 5000; // Minimum reputation score
+
     // Severity configurations
     mapping(Severity => SeverityConfig) public severityConfigs;
-    
+
     // Duplicate tracking (hash of vulnerability description)
     mapping(bytes32 => bytes32) public vulnerabilityHashes;
-    
+
     // Researcher stats
     mapping(address => uint256) public researcherSubmissions;
     mapping(address => uint256) public researcherApprovedCount;
@@ -242,12 +246,9 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address _treasury,
-        address _ceoAgent,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _identityRegistry, address _treasury, address _ceoAgent, address initialOwner)
+        Ownable(initialOwner)
+    {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         treasury = _treasury;
         guardianPool = _treasury;
@@ -315,17 +316,13 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         bytes32 vulnerabilityHash
     ) external payable nonReentrant whenNotPaused returns (bytes32 submissionId) {
         if (msg.value < MIN_STAKE) revert InsufficientStake();
-        
+
         // Check for duplicates
         if (vulnerabilityHashes[vulnerabilityHash] != bytes32(0)) {
             revert DuplicateVulnerability();
         }
 
-        submissionId = keccak256(abi.encodePacked(
-            _nextSubmissionId++,
-            msg.sender,
-            block.timestamp
-        ));
+        submissionId = keccak256(abi.encodePacked(_nextSubmissionId++, msg.sender, block.timestamp));
 
         uint256 agentId = _getAgentId(msg.sender);
 
@@ -435,12 +432,11 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
      * @param suggestedReward Suggested reward amount
      * @param feedback Detailed feedback
      */
-    function guardianVote(
-        bytes32 submissionId,
-        bool approved,
-        uint256 suggestedReward,
-        string calldata feedback
-    ) external onlyGuardian submissionExists(submissionId) {
+    function guardianVote(bytes32 submissionId, bool approved, uint256 suggestedReward, string calldata feedback)
+        external
+        onlyGuardian
+        submissionExists(submissionId)
+    {
         VulnerabilitySubmission storage sub = submissions[submissionId];
         if (sub.status != SubmissionStatus.GUARDIAN_REVIEW) revert SubmissionNotInReview();
         if (hasVoted[submissionId][msg.sender]) revert AlreadyVoted();
@@ -453,14 +449,16 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
             suggestedReward = approved ? config.minReward : 0;
         }
 
-        guardianVotes[submissionId].push(GuardianVote({
-            guardian: msg.sender,
-            agentId: agentId,
-            approved: approved,
-            suggestedReward: suggestedReward,
-            feedback: feedback,
-            votedAt: block.timestamp
-        }));
+        guardianVotes[submissionId].push(
+            GuardianVote({
+                guardian: msg.sender,
+                agentId: agentId,
+                approved: approved,
+                suggestedReward: suggestedReward,
+                feedback: feedback,
+                votedAt: block.timestamp
+            })
+        );
 
         hasVoted[submissionId][msg.sender] = true;
 
@@ -479,7 +477,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     function _checkGuardianQuorum(bytes32 submissionId) internal {
         VulnerabilitySubmission storage sub = submissions[submissionId];
         SeverityConfig memory config = severityConfigs[sub.severity];
-        
+
         uint256 totalVotes = sub.guardianApprovals + sub.guardianRejections;
 
         // For critical severity, always escalate to CEO
@@ -493,7 +491,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
             uint256 totalSuggested = 0;
             GuardianVote[] storage votes = guardianVotes[submissionId];
             uint256 approvalCount = 0;
-            
+
             for (uint256 i = 0; i < votes.length; i++) {
                 if (votes[i].approved) {
                     totalSuggested += votes[i].suggestedReward;
@@ -502,7 +500,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
             }
 
             sub.rewardAmount = approvalCount > 0 ? totalSuggested / approvalCount : config.minReward;
-            
+
             // High severity also goes to CEO for final approval
             if (sub.severity == Severity.HIGH) {
                 sub.status = SubmissionStatus.CEO_REVIEW;
@@ -511,8 +509,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
             }
         }
         // If majority rejects
-        else if (sub.guardianRejections > MAX_GUARDIANS_PER_REVIEW / 2 && 
-                 totalVotes >= config.minGuardianApprovals) {
+        else if (sub.guardianRejections > MAX_GUARDIANS_PER_REVIEW / 2 && totalVotes >= config.minGuardianApprovals) {
             sub.status = SubmissionStatus.REJECTED;
             sub.resolvedAt = block.timestamp;
             // Return stake for rejected submissions
@@ -530,12 +527,11 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
      * @param rewardAmount Final reward amount
      * @param notes Decision notes
      */
-    function ceoDecision(
-        bytes32 submissionId,
-        bool approved,
-        uint256 rewardAmount,
-        string calldata notes
-    ) external onlyCEO submissionExists(submissionId) {
+    function ceoDecision(bytes32 submissionId, bool approved, uint256 rewardAmount, string calldata notes)
+        external
+        onlyCEO
+        submissionExists(submissionId)
+    {
         VulnerabilitySubmission storage sub = submissions[submissionId];
         if (sub.status != SubmissionStatus.CEO_REVIEW) revert SubmissionNotInReview();
 
@@ -545,7 +541,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
             // Ensure reward is within bounds
             if (rewardAmount < config.minReward) rewardAmount = config.minReward;
             if (rewardAmount > config.maxReward) rewardAmount = config.maxReward;
-            
+
             sub.rewardAmount = rewardAmount;
             sub.validationNotes = notes;
             _approveSubmission(submissionId);
@@ -563,9 +559,9 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         VulnerabilitySubmission storage sub = submissions[submissionId];
         sub.status = SubmissionStatus.APPROVED;
         sub.resolvedAt = block.timestamp;
-        
+
         researcherApprovedCount[sub.researcher]++;
-        
+
         emit SubmissionApproved(submissionId, sub.rewardAmount);
     }
 
@@ -575,11 +571,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
      * @notice Record the fix commit for a vulnerability
      * @dev Called by the team after fix is deployed
      */
-    function recordFix(bytes32 submissionId, bytes32 commitHash)
-        external
-        onlyOwner
-        submissionExists(submissionId)
-    {
+    function recordFix(bytes32 submissionId, bytes32 commitHash) external onlyOwner submissionExists(submissionId) {
         VulnerabilitySubmission storage sub = submissions[submissionId];
         if (sub.status != SubmissionStatus.APPROVED && sub.status != SubmissionStatus.PAID) {
             revert SubmissionNotApproved();
@@ -602,7 +594,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     {
         VulnerabilitySubmission storage sub = submissions[submissionId];
         sub.researcherDisclosed = true;
-        
+
         // If fix is already in, schedule disclosure immediately
         if (sub.fixCommitHash != bytes32(0)) {
             sub.disclosureDate = block.timestamp;
@@ -615,11 +607,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Pay out reward to researcher
      */
-    function payReward(bytes32 submissionId)
-        external
-        nonReentrant
-        submissionExists(submissionId)
-    {
+    function payReward(bytes32 submissionId) external nonReentrant submissionExists(submissionId) {
         VulnerabilitySubmission storage sub = submissions[submissionId];
         if (sub.status != SubmissionStatus.APPROVED) revert SubmissionNotApproved();
         if (sub.rewardAmount == 0) revert InvalidSubmission();
@@ -660,7 +648,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
         IdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(agentId);
         if (agent.isBanned) revert InvalidGuardian();
-        
+
         // Check reputation (would come from reputation provider)
         // For now, just require stake
         if (agent.stakedAmount < MIN_STAKE) revert InsufficientStake();
@@ -739,26 +727,25 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         return guardianAgentIds.length;
     }
 
-    function getResearcherStats(address researcher) external view returns (
-        uint256 totalSubmissions,
-        uint256 approvedCount,
-        uint256 totalEarned
-    ) {
-        return (
-            researcherSubmissions[researcher],
-            researcherApprovedCount[researcher],
-            researcherTotalEarned[researcher]
-        );
+    function getResearcherStats(address researcher)
+        external
+        view
+        returns (uint256 totalSubmissions, uint256 approvedCount, uint256 totalEarned)
+    {
+        return
+            (researcherSubmissions[researcher], researcherApprovedCount[researcher], researcherTotalEarned[researcher]);
     }
 
     function getPendingSubmissions() external view returns (bytes32[] memory) {
         // Count pending submissions first
         uint256 pendingCount = 0;
         for (uint256 i = 0; i < _allSubmissionIds.length; i++) {
-            if (submissions[_allSubmissionIds[i]].status == SubmissionStatus.PENDING ||
-                submissions[_allSubmissionIds[i]].status == SubmissionStatus.VALIDATING ||
-                submissions[_allSubmissionIds[i]].status == SubmissionStatus.GUARDIAN_REVIEW ||
-                submissions[_allSubmissionIds[i]].status == SubmissionStatus.CEO_REVIEW) {
+            if (
+                submissions[_allSubmissionIds[i]].status == SubmissionStatus.PENDING
+                    || submissions[_allSubmissionIds[i]].status == SubmissionStatus.VALIDATING
+                    || submissions[_allSubmissionIds[i]].status == SubmissionStatus.GUARDIAN_REVIEW
+                    || submissions[_allSubmissionIds[i]].status == SubmissionStatus.CEO_REVIEW
+            ) {
                 pendingCount++;
             }
         }
@@ -768,10 +755,10 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         uint256 resultIdx = 0;
         for (uint256 i = 0; i < _allSubmissionIds.length; i++) {
             SubmissionStatus status = submissions[_allSubmissionIds[i]].status;
-            if (status == SubmissionStatus.PENDING ||
-                status == SubmissionStatus.VALIDATING ||
-                status == SubmissionStatus.GUARDIAN_REVIEW ||
-                status == SubmissionStatus.CEO_REVIEW) {
+            if (
+                status == SubmissionStatus.PENDING || status == SubmissionStatus.VALIDATING
+                    || status == SubmissionStatus.GUARDIAN_REVIEW || status == SubmissionStatus.CEO_REVIEW
+            ) {
                 result[resultIdx++] = _allSubmissionIds[i];
             }
         }
@@ -791,17 +778,17 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         if (offset >= _allSubmissionIds.length) {
             return new bytes32[](0);
         }
-        
+
         uint256 actualLimit = limit;
         if (offset + limit > _allSubmissionIds.length) {
             actualLimit = _allSubmissionIds.length - offset;
         }
-        
+
         bytes32[] memory result = new bytes32[](actualLimit);
         for (uint256 i = 0; i < actualLimit; i++) {
             result[i] = _allSubmissionIds[offset + i];
         }
-        
+
         return result;
     }
 
@@ -871,5 +858,3 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         emit BountyPoolFunded(msg.sender, msg.value);
     }
 }
-
-

@@ -30,29 +30,30 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
     // ============ Types ============
 
     enum ServiceType {
-        Compute,        // GPU rentals, inference
-        Storage,        // IPFS, data storage
-        CDN,            // Edge caching
-        Oracle,         // Price feeds
-        Bridge,         // Cross-chain relaying
-        Sequencer,      // L2 sequencing
-        ExternalChain   // Solana, Bitcoin, etc.
+        Compute, // GPU rentals, inference
+        Storage, // IPFS, data storage
+        CDN, // Edge caching
+        Oracle, // Price feeds
+        Bridge, // Cross-chain relaying
+        Sequencer, // L2 sequencing
+        ExternalChain // Solana, Bitcoin, etc.
+
     }
 
     struct NodeOperator {
         address operator;
         bytes32 nodeId;
         string endpoint;
-        uint256 selfStake;              // Operator's own stake
-        uint256 totalDelegated;         // Total stake from delegators
-        uint256 commissionBps;          // Operator's commission (basis points)
+        uint256 selfStake; // Operator's own stake
+        uint256 totalDelegated; // Total stake from delegators
+        uint256 commissionBps; // Operator's commission (basis points)
         uint256 registeredAt;
         uint256 lastRewardTime;
         uint256 totalRewardsEarned;
         uint256 totalRewardsDistributed;
         bool active;
         bool slashed;
-        ServiceType[] services;         // Services this node provides
+        ServiceType[] services; // Services this node provides
         HardwareSpec hardware;
     }
 
@@ -61,10 +62,10 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
         uint256 memoryGb;
         uint256 storageGb;
         uint256 gpuCount;
-        string gpuModel;                // e.g., "NVIDIA_H100"
+        string gpuModel; // e.g., "NVIDIA_H100"
         bool teeCapable;
-        string teeType;                 // e.g., "intel_tdx", "amd_sev"
-        string region;                  // Geographic region
+        string teeType; // e.g., "intel_tdx", "amd_sev"
+        string region; // Geographic region
     }
 
     struct Delegation {
@@ -72,7 +73,7 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
         bytes32 nodeId;
         uint256 amount;
         uint256 delegatedAt;
-        uint256 unstakedAt;             // 0 if still staked
+        uint256 unstakedAt; // 0 if still staked
         uint256 pendingRewards;
         uint256 claimedRewards;
     }
@@ -88,10 +89,10 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
     // ============ Constants ============
 
     uint256 public constant BPS = 10_000;
-    uint256 public constant MIN_OPERATOR_STAKE = 1_000 ether;    // Minimum self-stake
-    uint256 public constant MIN_DELEGATION = 100 ether;          // Minimum delegation
-    uint256 public constant MAX_COMMISSION_BPS = 5_000;          // Max 50% commission
-    uint256 public constant MIN_COMMISSION_BPS = 500;            // Min 5% commission
+    uint256 public constant MIN_OPERATOR_STAKE = 1_000 ether; // Minimum self-stake
+    uint256 public constant MIN_DELEGATION = 100 ether; // Minimum delegation
+    uint256 public constant MAX_COMMISSION_BPS = 5_000; // Max 50% commission
+    uint256 public constant MIN_COMMISSION_BPS = 500; // Min 5% commission
     uint256 public constant UNBONDING_PERIOD = 14 days;
     uint256 public constant COMMISSION_CHANGE_DELAY = 7 days;
 
@@ -99,27 +100,29 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
 
     IERC20 public immutable stakingToken;
     address public treasury;
-    uint256 public protocolFeeBps = 500;                         // 5% protocol fee
+    uint256 public protocolFeeBps = 500; // 5% protocol fee
 
     mapping(bytes32 => NodeOperator) public nodes;
-    mapping(address => bytes32) public operatorNode;             // operator => nodeId
+    mapping(address => bytes32) public operatorNode; // operator => nodeId
     mapping(address => mapping(bytes32 => Delegation)) public delegations;
-    mapping(address => bytes32[]) public delegatorNodes;         // delegator => nodeIds[]
-    mapping(bytes32 => address[]) public nodeDelegators;         // nodeId => delegators[]
+    mapping(address => bytes32[]) public delegatorNodes; // delegator => nodeIds[]
+    mapping(bytes32 => address[]) public nodeDelegators; // nodeId => delegators[]
     mapping(bytes32 => NodeRewards) public nodeRewards;
-    mapping(bytes32 => uint256) public pendingCommissionChange;  // nodeId => timestamp
-    mapping(bytes32 => uint256) public newCommissionBps;         // nodeId => new rate
+    mapping(bytes32 => uint256) public pendingCommissionChange; // nodeId => timestamp
+    mapping(bytes32 => uint256) public newCommissionBps; // nodeId => new rate
 
     bytes32[] public allNodes;
     uint256 public totalStaked;
     uint256 public totalDelegated;
 
     // Service-specific reward multipliers
-    mapping(ServiceType => uint256) public serviceMultiplier;    // Base 10000
+    mapping(ServiceType => uint256) public serviceMultiplier; // Base 10000
 
     // ============ Events ============
 
-    event OperatorRegistered(bytes32 indexed nodeId, address indexed operator, uint256 selfStake, uint256 commissionBps);
+    event OperatorRegistered(
+        bytes32 indexed nodeId, address indexed operator, uint256 selfStake, uint256 commissionBps
+    );
     event OperatorUpdated(bytes32 indexed nodeId, string endpoint, ServiceType[] services);
     event OperatorDeactivated(bytes32 indexed nodeId, address indexed operator);
     event CommissionChangeInitiated(bytes32 indexed nodeId, uint256 oldBps, uint256 newBps, uint256 effectiveAt);
@@ -129,7 +132,9 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
     event Undelegated(address indexed delegator, bytes32 indexed nodeId, uint256 amount);
     event DelegationWithdrawn(address indexed delegator, bytes32 indexed nodeId, uint256 amount);
 
-    event RewardsDistributed(bytes32 indexed nodeId, uint256 total, uint256 operatorShare, uint256 delegatorPool, uint256 protocolFee);
+    event RewardsDistributed(
+        bytes32 indexed nodeId, uint256 total, uint256 operatorShare, uint256 delegatorPool, uint256 protocolFee
+    );
     event RewardsClaimed(address indexed claimant, bytes32 indexed nodeId, uint256 amount);
 
     event OperatorSlashed(bytes32 indexed nodeId, uint256 amount, string reason);
@@ -151,22 +156,18 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _stakingToken,
-        address _treasury,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _stakingToken, address _treasury, address _owner) Ownable(_owner) {
         stakingToken = IERC20(_stakingToken);
         treasury = _treasury;
 
         // Default service multipliers (base 10000 = 1.0x)
-        serviceMultiplier[ServiceType.Compute] = 15000;        // 1.5x for GPU compute
-        serviceMultiplier[ServiceType.Storage] = 10000;        // 1.0x base
-        serviceMultiplier[ServiceType.CDN] = 10000;            // 1.0x base
-        serviceMultiplier[ServiceType.Oracle] = 12000;         // 1.2x for oracles
-        serviceMultiplier[ServiceType.Bridge] = 15000;         // 1.5x for bridges
-        serviceMultiplier[ServiceType.Sequencer] = 20000;      // 2.0x for sequencers
-        serviceMultiplier[ServiceType.ExternalChain] = 18000;  // 1.8x for external chains
+        serviceMultiplier[ServiceType.Compute] = 15000; // 1.5x for GPU compute
+        serviceMultiplier[ServiceType.Storage] = 10000; // 1.0x base
+        serviceMultiplier[ServiceType.CDN] = 10000; // 1.0x base
+        serviceMultiplier[ServiceType.Oracle] = 12000; // 1.2x for oracles
+        serviceMultiplier[ServiceType.Bridge] = 15000; // 1.5x for bridges
+        serviceMultiplier[ServiceType.Sequencer] = 20000; // 2.0x for sequencers
+        serviceMultiplier[ServiceType.ExternalChain] = 18000; // 1.8x for external chains
     }
 
     // ============ Operator Functions ============
@@ -217,10 +218,7 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Update node configuration
      */
-    function updateOperator(
-        string calldata endpoint,
-        ServiceType[] calldata services
-    ) external {
+    function updateOperator(string calldata endpoint, ServiceType[] calldata services) external {
         bytes32 nodeId = operatorNode[msg.sender];
         if (nodeId == bytes32(0)) revert NotRegistered();
 
@@ -350,7 +348,7 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
         uint256 amount = del.amount;
         del.amount = 0;
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 
         emit DelegationWithdrawn(msg.sender, nodeId, amount);
@@ -389,13 +387,13 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
 
         // Transfer protocol fee to treasury
         if (protocolShare > 0) {
-            (bool success, ) = payable(treasury).call{value: protocolShare}("");
+            (bool success,) = payable(treasury).call{value: protocolShare}("");
             require(success, "Treasury transfer failed");
         }
 
         // Operator share goes to operator
         if (operatorShare > 0) {
-            (bool success, ) = payable(node.operator).call{value: operatorShare}("");
+            (bool success,) = payable(node.operator).call{value: operatorShare}("");
             require(success, "Operator transfer failed");
         }
 
@@ -427,7 +425,7 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
 
         nodes[nodeId].totalRewardsDistributed += amount;
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Claim transfer failed");
 
         emit RewardsClaimed(msg.sender, nodeId, amount);
@@ -472,7 +470,7 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
         }
 
         // Transfer slashed amount to treasury
-        (bool success, ) = payable(treasury).call{value: slashAmount}("");
+        (bool success,) = payable(treasury).call{value: slashAmount}("");
         require(success, "Slash transfer failed");
 
         emit OperatorSlashed(nodeId, slashAmount, reason);
@@ -584,4 +582,3 @@ contract DelegatedNodeStaking is Ownable, Pausable, ReentrancyGuard {
         _unpause();
     }
 }
-

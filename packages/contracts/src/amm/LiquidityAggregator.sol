@@ -342,7 +342,8 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
         uint256 amountOut = (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
         uint256 priceImpact = (amountIn * 10000) / reserveIn;
 
-        v2Quote = Quote({poolType: PoolType.V2, pool: pair, amountOut: amountOut, priceImpactBps: priceImpact, fee: 3000});
+        v2Quote =
+            Quote({poolType: PoolType.V2, pool: pair, amountOut: amountOut, priceImpactBps: priceImpact, fee: 3000});
     }
 
     function _getV3Quote(address tokenIn, address tokenOut, uint256 amountIn, uint24 fee)
@@ -509,15 +510,15 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @notice 1inch/Paraswap compatible quote interface
     /// @dev Returns the expected output amount for a swap
     /// @param srcToken Source token address
-    /// @param dstToken Destination token address  
+    /// @param dstToken Destination token address
     /// @param amount Amount of source token
     /// @return returnAmount Expected output amount
     /// @return routeData Encoded route data for execution
-    function getAmountOut(
-        address srcToken,
-        address dstToken,
-        uint256 amount
-    ) external view returns (uint256 returnAmount, bytes memory routeData) {
+    function getAmountOut(address srcToken, address dstToken, uint256 amount)
+        external
+        view
+        returns (uint256 returnAmount, bytes memory routeData)
+    {
         Quote memory bestQuote = this.getBestQuote(srcToken, dstToken, amount);
         return (bestQuote.amountOut, abi.encode(bestQuote.pool, bestQuote.poolType, bestQuote.fee));
     }
@@ -526,12 +527,13 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @param tokens Array of tokens in the path
     /// @param amounts Array of amounts (first is input)
     /// @return finalAmount Expected final output
-    function getAmountsOut(
-        address[] calldata tokens,
-        uint256[] calldata amounts
-    ) external view returns (uint256 finalAmount) {
+    function getAmountsOut(address[] calldata tokens, uint256[] calldata amounts)
+        external
+        view
+        returns (uint256 finalAmount)
+    {
         if (tokens.length < 2 || amounts.length == 0) return 0;
-        
+
         uint256 currentAmount = amounts[0];
         for (uint256 i = 0; i < tokens.length - 1; i++) {
             Quote memory hopQuote = this.getBestQuote(tokens[i], tokens[i + 1], currentAmount);
@@ -548,20 +550,16 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @return makerTokenAmount Expected output
     /// @return sources Array of liquidity sources used
     /// @return gasEstimate Estimated gas for execution
-    function quote(
-        address takerToken,
-        address makerToken,
-        uint256 takerTokenAmount
-    ) external view returns (
-        uint256 makerTokenAmount,
-        string[] memory sources,
-        uint256 gasEstimate
-    ) {
+    function quote(address takerToken, address makerToken, uint256 takerTokenAmount)
+        external
+        view
+        returns (uint256 makerTokenAmount, string[] memory sources, uint256 gasEstimate)
+    {
         Quote[] memory quotes = getAllQuotes(takerToken, makerToken, takerTokenAmount);
-        
+
         uint256 bestAmount = 0;
         uint256 sourceCount = 0;
-        
+
         for (uint256 i = 0; i < quotes.length; i++) {
             if (quotes[i].amountOut > bestAmount) {
                 bestAmount = quotes[i].amountOut;
@@ -570,7 +568,7 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
                 sourceCount++;
             }
         }
-        
+
         sources = new string[](sourceCount);
         uint256 idx = 0;
         for (uint256 i = 0; i < quotes.length && idx < sourceCount; i++) {
@@ -584,10 +582,10 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
                 }
             }
         }
-        
+
         // Gas estimate: ~100k for V2, ~150k for V3, ~200k for Paymaster
         gasEstimate = 150000;
-        
+
         return (bestAmount, sources, gasEstimate);
     }
 
@@ -598,20 +596,17 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @return pools Array of pool addresses
     /// @return poolTypes Array of pool types
     /// @return fees Array of pool fees (in basis points)
-    function getPools(
-        address tokenA,
-        address tokenB
-    ) external view returns (
-        address[] memory pools,
-        uint8[] memory poolTypes,
-        uint24[] memory fees
-    ) {
+    function getPools(address tokenA, address tokenB)
+        external
+        view
+        returns (address[] memory pools, uint8[] memory poolTypes, uint24[] memory fees)
+    {
         LiquidityInfo[] memory infos = this.getLiquidityInfo(tokenA, tokenB);
-        
+
         pools = new address[](infos.length);
         poolTypes = new uint8[](infos.length);
         fees = new uint24[](infos.length);
-        
+
         for (uint256 i = 0; i < infos.length; i++) {
             pools[i] = infos[i].pool;
             poolTypes[i] = uint8(infos[i].poolType);
@@ -624,10 +619,11 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @param tokenOut Output token
     /// @return supported Whether the swap is supported
     /// @return bestPool Best pool for the swap
-    function isSwapSupported(
-        address tokenIn,
-        address tokenOut
-    ) external view returns (bool supported, address bestPool) {
+    function isSwapSupported(address tokenIn, address tokenOut)
+        external
+        view
+        returns (bool supported, address bestPool)
+    {
         Quote memory supportQuote = this.getBestQuote(tokenIn, tokenOut, 1e18);
         return (supportQuote.pool != address(0), supportQuote.pool);
     }
@@ -637,20 +633,17 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @return protocolVersion Version string
     /// @return chainId Current chain ID
     /// @return supportedFeatures Bitmap of supported features
-    function getProtocolInfo() external view returns (
-        string memory name,
-        string memory protocolVersion,
-        uint256 chainId,
-        uint256 supportedFeatures
-    ) {
+    function getProtocolInfo()
+        external
+        view
+        returns (string memory name, string memory protocolVersion, uint256 chainId, uint256 supportedFeatures)
+    {
         return (
             "Jeju XLP Aggregator",
             "2.0.0",
             block.chainid,
             // Features: 1=V2, 2=V3, 4=Paymaster, 8=CrossChain
-            (v2Factory != address(0) ? 1 : 0) |
-            (v3Factory != address(0) ? 2 : 0) |
-            (paymaster != address(0) ? 12 : 0) // 4+8 for paymaster+crosschain
+            (v2Factory != address(0) ? 1 : 0) | (v3Factory != address(0) ? 2 : 0) | (paymaster != address(0) ? 12 : 0) // 4+8 for paymaster+crosschain
         );
     }
 }

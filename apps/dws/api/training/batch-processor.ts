@@ -5,7 +5,59 @@
  * scores with RULER, and uploads to Arweave for permanent storage.
  */
 
-import { gunzipSync, gzipSync } from 'node:zlib'
+// Use Web CompressionStream API instead of node:zlib for workerd compatibility
+async function gunzip(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new DecompressionStream('gzip')
+  const writer = stream.writable.getWriter()
+  const reader = stream.readable.getReader()
+
+  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
+  writer.write(data.slice())
+  writer.close()
+
+  const chunks: Uint8Array[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}
+
+async function gzip(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new CompressionStream('gzip')
+  const writer = stream.writable.getWriter()
+  const reader = stream.readable.getReader()
+
+  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
+  writer.write(data.slice())
+  writer.close()
+
+  const chunks: Uint8Array[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}
+
 import { getServicesConfig } from '@jejunetwork/config'
 import { generateSnowflakeId, logger } from '@jejunetwork/shared'
 import type {
@@ -566,13 +618,15 @@ export class TrajectoryBatchProcessor {
     ]
 
     const jsonlContent = jsonlLines.join('\n')
-    const compressed = gzipSync(Buffer.from(jsonlContent, 'utf8'), { level: 9 })
+    const compressed = await gzip(
+      new Uint8Array(Buffer.from(jsonlContent, 'utf8')),
+    )
 
     // Upload to Arweave via DWS storage
     const formData = new FormData()
     formData.append(
       'file',
-      new Blob([compressed]),
+      new Blob([compressed.slice()]),
       `dataset-${datasetId}.jsonl.gz`,
     )
     formData.append('provider', 'arweave')
@@ -632,9 +686,9 @@ export async function downloadScoredDataset(
     throw new Error(`Failed to download dataset: ${response.status}`)
   }
 
-  const compressed = Buffer.from(await response.arrayBuffer())
-  const decompressed = gunzipSync(compressed)
-  const jsonlContent = decompressed.toString('utf8')
+  const compressed = new Uint8Array(await response.arrayBuffer())
+  const decompressed = await gunzip(compressed)
+  const jsonlContent = new TextDecoder('utf-8').decode(decompressed)
 
   const lines = jsonlContent.split('\n').filter((line) => line.trim())
 

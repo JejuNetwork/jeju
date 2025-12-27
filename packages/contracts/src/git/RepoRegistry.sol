@@ -160,11 +160,11 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Update repository metadata
      */
-    function updateRepository(
-        bytes32 repoId,
-        string calldata description,
-        bytes32 metadataCid
-    ) external repoExists(repoId) onlyRepoOwner(repoId) {
+    function updateRepository(bytes32 repoId, string calldata description, bytes32 metadataCid)
+        external
+        repoExists(repoId)
+        onlyRepoOwner(repoId)
+    {
         Repository storage repo = _repositories[repoId];
         repo.description = description;
         repo.metadataCid = metadataCid;
@@ -176,10 +176,7 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Transfer repository ownership
      */
-    function transferOwnership(
-        bytes32 repoId,
-        address newOwner
-    ) external repoExists(repoId) onlyRepoOwner(repoId) {
+    function transferOwnership(bytes32 repoId, address newOwner) external repoExists(repoId) onlyRepoOwner(repoId) {
         require(newOwner != address(0), "Invalid new owner");
 
         Repository storage repo = _repositories[repoId];
@@ -202,10 +199,7 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Archive or unarchive a repository
      */
-    function archiveRepository(
-        bytes32 repoId,
-        bool archived
-    ) external repoExists(repoId) onlyRepoOwner(repoId) {
+    function archiveRepository(bytes32 repoId, bool archived) external repoExists(repoId) onlyRepoOwner(repoId) {
         Repository storage repo = _repositories[repoId];
         repo.archived = archived;
         repo.updatedAt = block.timestamp;
@@ -340,11 +334,11 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Create a new branch
      */
-    function createBranch(
-        bytes32 repoId,
-        string calldata branch,
-        bytes32 tipCommitCid
-    ) external repoExists(repoId) canWrite(repoId) {
+    function createBranch(bytes32 repoId, string calldata branch, bytes32 tipCommitCid)
+        external
+        repoExists(repoId)
+        canWrite(repoId)
+    {
         _createBranchInternal(repoId, branch, tipCommitCid);
     }
 
@@ -376,10 +370,7 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Delete a branch
      */
-    function deleteBranch(
-        bytes32 repoId,
-        string calldata branch
-    ) external repoExists(repoId) canWrite(repoId) {
+    function deleteBranch(bytes32 repoId, string calldata branch) external repoExists(repoId) canWrite(repoId) {
         bytes32 branchHash = keccak256(bytes(branch));
 
         // Cannot delete default branch
@@ -407,11 +398,11 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Set branch protection
      */
-    function setBranchProtection(
-        bytes32 repoId,
-        string calldata branch,
-        bool protected_
-    ) external repoExists(repoId) canAdmin(repoId) {
+    function setBranchProtection(bytes32 repoId, string calldata branch, bool protected_)
+        external
+        repoExists(repoId)
+        canAdmin(repoId)
+    {
         bytes32 branchHash = keccak256(bytes(branch));
         Branch storage branchData = _branches[repoId][branchHash];
 
@@ -425,16 +416,16 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Add a collaborator to a repository
      */
-    function addCollaborator(
-        bytes32 repoId,
-        address user,
-        CollaboratorRole role
-    ) external repoExists(repoId) canAdmin(repoId) {
+    function addCollaborator(bytes32 repoId, address user, CollaboratorRole role)
+        external
+        repoExists(repoId)
+        canAdmin(repoId)
+    {
         require(user != address(0), "Invalid user");
         require(role != CollaboratorRole.NONE, "Invalid role");
 
         Collaborator storage collab = _collaborators[repoId][user];
-        
+
         if (collab.addedAt == 0) {
             _collaboratorAddresses[repoId].push(user);
             _userRepositories[user].push(repoId);
@@ -450,10 +441,7 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Remove a collaborator
      */
-    function removeCollaborator(
-        bytes32 repoId,
-        address user
-    ) external repoExists(repoId) canAdmin(repoId) {
+    function removeCollaborator(bytes32 repoId, address user) external repoExists(repoId) canAdmin(repoId) {
         if (user == _repositories[repoId].owner) revert CannotRemoveOwner();
 
         Collaborator storage collab = _collaborators[repoId][user];
@@ -477,11 +465,11 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Change collaborator role
      */
-    function changeCollaboratorRole(
-        bytes32 repoId,
-        address user,
-        CollaboratorRole newRole
-    ) external repoExists(repoId) canAdmin(repoId) {
+    function changeCollaboratorRole(bytes32 repoId, address user, CollaboratorRole newRole)
+        external
+        repoExists(repoId)
+        canAdmin(repoId)
+    {
         if (user == _repositories[repoId].owner) revert CannotRemoveOwner();
 
         Collaborator storage collab = _collaborators[repoId][user];
@@ -520,19 +508,13 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         return _repositories[repoId];
     }
 
-    function getRepositoryByName(
-        address owner,
-        string calldata name
-    ) external view returns (Repository memory) {
+    function getRepositoryByName(address owner, string calldata name) external view returns (Repository memory) {
         bytes32 nameHash = keccak256(bytes(name));
         bytes32 repoId = _ownerNameToRepo[owner][nameHash];
         return _repositories[repoId];
     }
 
-    function getBranch(
-        bytes32 repoId,
-        string calldata branch
-    ) external view returns (Branch memory) {
+    function getBranch(bytes32 repoId, string calldata branch) external view returns (Branch memory) {
         bytes32 branchHash = keccak256(bytes(branch));
         return _branches[repoId][branchHash];
     }
@@ -548,10 +530,7 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         return branches;
     }
 
-    function getCollaborator(
-        bytes32 repoId,
-        address user
-    ) external view returns (Collaborator memory) {
+    function getCollaborator(bytes32 repoId, address user) external view returns (Collaborator memory) {
         return _collaborators[repoId][user];
     }
 
@@ -624,13 +603,9 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         return _pushHistory[repoId];
     }
 
-    function _recordPush(
-        bytes32 repoId,
-        string calldata branch,
-        bytes32 oldCid,
-        bytes32 newCid,
-        uint256 commitCount
-    ) internal {
+    function _recordPush(bytes32 repoId, string calldata branch, bytes32 oldCid, bytes32 newCid, uint256 commitCount)
+        internal
+    {
         PushEvent[] storage history = _pushHistory[repoId];
 
         // Remove oldest if at capacity
@@ -641,27 +616,29 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
             history.pop();
         }
 
-        history.push(PushEvent({
-            repoId: repoId,
-            branch: branch,
-            oldCommitCid: oldCid,
-            newCommitCid: newCid,
-            pusher: msg.sender,
-            timestamp: block.timestamp,
-            commitCount: commitCount
-        }));
+        history.push(
+            PushEvent({
+                repoId: repoId,
+                branch: branch,
+                oldCommitCid: oldCid,
+                newCommitCid: newCid,
+                pusher: msg.sender,
+                timestamp: block.timestamp,
+                commitCount: commitCount
+            })
+        );
     }
 
     function _isValidName(string calldata name) internal pure returns (bool) {
         bytes memory nameBytes = bytes(name);
         for (uint256 i = 0; i < nameBytes.length; i++) {
             bytes1 char = nameBytes[i];
-            bool isValid = (char >= 0x30 && char <= 0x39) || // 0-9
-                (char >= 0x41 && char <= 0x5A) || // A-Z
-                (char >= 0x61 && char <= 0x7A) || // a-z
-                char == 0x2D || // -
-                char == 0x5F || // _
-                char == 0x2E; // .
+            bool isValid = (char >= 0x30 && char <= 0x39) // 0-9
+                || (char >= 0x41 && char <= 0x5A) // A-Z
+                || (char >= 0x61 && char <= 0x7A) // a-z
+                || char == 0x2D // -
+                || char == 0x5F // _
+                || char == 0x2E; // .
             if (!isValid) return false;
         }
         // Cannot start with dot or hyphen
@@ -702,4 +679,3 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

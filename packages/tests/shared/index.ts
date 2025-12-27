@@ -89,12 +89,24 @@ export * from './fixtures/wallet'
 // Helpers
 // ============================================================================
 
+// LLM utilities for test verification
+export {
+  chat,
+  complete,
+  describeImage,
+  type ImageVerification,
+  isLLMConfigured,
+  type LLMMessage,
+  type LLMOptions,
+  type LLMResponse,
+  llm,
+  requireLLM,
+  verifyImage,
+} from './ai'
 // Contract interaction helpers
 export * from './helpers/contracts'
-
 // Error detection utilities
 export * from './helpers/error-detection'
-
 // Navigation and page helpers
 export {
   cooldownBetweenTests,
@@ -111,7 +123,6 @@ export {
   waitForRoute,
   waitForServerHealthy,
 } from './helpers/navigation'
-
 // OAuth3 authentication helpers
 export {
   ensureLoggedIn,
@@ -122,38 +133,10 @@ export {
   logout,
   waitForAuth,
 } from './helpers/oauth3-auth'
-
 // On-chain verification helpers
 export * from './helpers/on-chain'
-
 // Screenshot utilities
 export * from './helpers/screenshots'
-
-// AI-powered visual verification
-export {
-  verifyPage,
-  verifyElement,
-  verifyPages,
-  createAppVisualTest,
-  type PageVerificationOptions,
-  type VerificationResult,
-} from './visual-verification'
-
-// LLM utilities for test verification
-export {
-  llm,
-  chat,
-  complete,
-  describeImage,
-  verifyImage,
-  isLLMConfigured,
-  requireLLM,
-  type LLMMessage,
-  type LLMOptions,
-  type LLMResponse,
-  type ImageVerification,
-} from './ai'
-
 // Test data constants
 export {
   BASE_SELECTORS,
@@ -171,6 +154,15 @@ export {
   type Viewport,
   type ViewportName,
 } from './helpers/test-data'
+// AI-powered visual verification
+export {
+  createAppVisualTest,
+  type PageVerificationOptions,
+  type VerificationResult,
+  verifyElement,
+  verifyPage,
+  verifyPages,
+} from './visual-verification'
 
 // ============================================================================
 // Configuration
@@ -230,31 +222,31 @@ export {
 // ============================================================================
 
 export {
+  CqlTestClient,
+  checkChainAvailable,
+  // Individual service checks
+  checkCqlAvailable,
+  checkIpfsAvailable,
+  checkSolanaAvailable,
+  describeWithInfra,
+  getChainConfig,
+  getInfraConfig,
   // Infrastructure status
   getInfraStatus,
-  getInfraConfig,
-  printInfraStatus,
-  // Infrastructure requirements
-  requireInfra,
+  getLiveCqlClient,
+  // Live clients for tests
+  getLiveInfra,
+  getLiveRedisClient,
   hasInfra,
   type InfraRequirement,
   type InfraStatus,
-  // Individual service checks
-  checkCqlAvailable,
-  checkChainAvailable,
-  checkSolanaAvailable,
-  checkIpfsAvailable,
-  // Live clients for tests
-  getLiveInfra,
-  getLiveCqlClient,
-  getLiveRedisClient,
-  getChainConfig,
-  CqlTestClient,
-  RedisTestClient,
   type LiveInfra,
+  printInfraStatus,
+  RedisTestClient,
+  // Infrastructure requirements
+  requireInfra,
   // Test helpers
   skipWithoutInfra,
-  describeWithInfra,
 } from './live-infrastructure'
 
 // ============================================================================

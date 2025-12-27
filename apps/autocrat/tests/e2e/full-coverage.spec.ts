@@ -19,10 +19,12 @@ test.describe('Autocrat - Full Coverage', () => {
       if (msg.type() === 'error') {
         const text = msg.text()
         // Filter out common non-critical errors
-        if (!text.includes('favicon') && 
-            !text.includes('net::ERR') && 
-            !text.includes('Failed to load resource') &&
-            !text.includes('404')) {
+        if (
+          !text.includes('favicon') &&
+          !text.includes('net::ERR') &&
+          !text.includes('Failed to load resource') &&
+          !text.includes('404')
+        ) {
           errors.push(text)
         }
       }
@@ -95,7 +97,7 @@ test.describe('Autocrat - Navigation', () => {
     for (const link of linksToTest) {
       try {
         const href = await link.getAttribute('href', { timeout: 5000 })
-        if (href && href.startsWith('/') && !href.startsWith('//')) {
+        if (href?.startsWith('/') && !href.startsWith('//')) {
           await link.click({ timeout: 10000 })
           await page.waitForLoadState('domcontentloaded', { timeout: 10000 })
           await expect(page.locator('body')).toBeVisible()
@@ -165,8 +167,11 @@ test.describe('Autocrat - Error States', () => {
   test('should handle 404 pages', async ({ page, baseURL }) => {
     await page.goto('/nonexistent-page-12345')
 
-    const is404 = page.url().includes('nonexistent') || await page.locator('text=/404|not found/i').isVisible()
-    const redirectedHome = page.url() === baseURL || page.url() === `${baseURL}/`
+    const is404 =
+      page.url().includes('nonexistent') ||
+      (await page.locator('text=/404|not found/i').isVisible())
+    const redirectedHome =
+      page.url() === baseURL || page.url() === `${baseURL}/`
 
     expect(is404 || redirectedHome).toBe(true)
   })

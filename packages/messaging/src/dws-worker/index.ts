@@ -39,10 +39,13 @@ const InitBodySchema = z.object({
 const SubscribeBodySchema = z.object({
   address: z.string().transform((s) => s as Address),
   signature: z.string().transform((s) => s as Hex),
+  timestamp: z.number().int().positive(),
 })
 
 const UnsubscribeBodySchema = z.object({
   address: z.string().transform((s) => s as Address),
+  signature: z.string().transform((s) => s as Hex),
+  timestamp: z.number().int().positive(),
 })
 
 // ============ Types ============
@@ -363,20 +366,76 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
 
       // ============ Acknowledgements ============
 
-      .post('/message/:id/delivered', ({ params }) => {
+      .post('/message/:id/delivered', async ({ params, request, set }) => {
         const stored = messages.get(params.id)
         if (!stored) {
-          throw new Error('Message not found')
+          set.status = 404
+          return { error: 'Message not found' }
+        }
+
+        // Only recipient can mark as delivered
+        const signature = request.headers.get('x-jeju-signature') as Hex | null
+        const timestamp = request.headers.get('x-jeju-timestamp')
+
+        if (!signature || !timestamp) {
+          set.status = 401
+          return { error: 'Missing authentication headers' }
+        }
+
+        const ts = parseInt(timestamp, 10)
+        const now = Date.now()
+        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+          set.status = 401
+          return { error: 'Invalid or expired timestamp' }
+        }
+
+        const isValid = await verifyMessage({
+          address: stored.envelope.to,
+          message: `Mark delivered:${params.id}:${timestamp}`,
+          signature,
+        })
+
+        if (!isValid) {
+          set.status = 401
+          return { error: 'Invalid signature - only recipient can mark as delivered' }
         }
 
         stored.deliveredAt = Date.now()
         return { success: true }
       })
 
-      .post('/message/:id/read', ({ params }) => {
+      .post('/message/:id/read', async ({ params, request, set }) => {
         const stored = messages.get(params.id)
         if (!stored) {
-          throw new Error('Message not found')
+          set.status = 404
+          return { error: 'Message not found' }
+        }
+
+        // Only recipient can mark as read
+        const signature = request.headers.get('x-jeju-signature') as Hex | null
+        const timestamp = request.headers.get('x-jeju-timestamp')
+
+        if (!signature || !timestamp) {
+          set.status = 401
+          return { error: 'Missing authentication headers' }
+        }
+
+        const ts = parseInt(timestamp, 10)
+        const now = Date.now()
+        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+          set.status = 401
+          return { error: 'Invalid or expired timestamp' }
+        }
+
+        const isValid = await verifyMessage({
+          address: stored.envelope.to,
+          message: `Mark read:${params.id}:${timestamp}`,
+          signature,
+        })
+
+        if (!isValid) {
+          set.status = 401
+          return { error: 'Invalid signature - only recipient can mark as read' }
         }
 
         stored.readAt = Date.now()
@@ -385,18 +444,29 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
 
       // ============ Subscriptions ============
 
-      .post('/subscribe', async ({ body }) => {
+      .post('/subscribe', async ({ body, set }) => {
         const params = SubscribeBodySchema.parse(body)
 
-        // Verify ownership
+        // Validate timestamp to prevent replay attacks (5 minute window)
+        const now = Date.now()
+        if (
+          params.timestamp < now - 5 * 60 * 1000 ||
+          params.timestamp > now + 30 * 1000
+        ) {
+          set.status = 400
+          return { error: 'Invalid or expired timestamp' }
+        }
+
+        // Verify ownership with the timestamp from the request
         const isValid = await verifyMessage({
           address: params.address,
-          message: `Subscribe to messages:${Date.now()}`,
+          message: `Subscribe to messages:${params.timestamp}`,
           signature: params.signature,
         })
 
         if (!isValid) {
-          throw new Error('Invalid signature')
+          set.status = 401
+          return { error: 'Invalid signature' }
         }
 
         subscriptions.set(params.address.toLowerCase(), {
@@ -415,9 +485,32 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
         }
       })
 
-      .post('/unsubscribe', ({ body }) => {
-        const { address } = UnsubscribeBodySchema.parse(body)
-        const deleted = subscriptions.delete(address.toLowerCase())
+      .post('/unsubscribe', async ({ body, set }) => {
+        const params = UnsubscribeBodySchema.parse(body)
+
+        // Validate timestamp to prevent replay attacks (5 minute window)
+        const now = Date.now()
+        if (
+          params.timestamp < now - 5 * 60 * 1000 ||
+          params.timestamp > now + 30 * 1000
+        ) {
+          set.status = 400
+          return { error: 'Invalid or expired timestamp' }
+        }
+
+        // Verify ownership before unsubscribing
+        const isValid = await verifyMessage({
+          address: params.address,
+          message: `Unsubscribe from messages:${params.timestamp}`,
+          signature: params.signature,
+        })
+
+        if (!isValid) {
+          set.status = 401
+          return { error: 'Invalid signature' }
+        }
+
+        const deleted = subscriptions.delete(params.address.toLowerCase())
         return { unsubscribed: deleted }
       })
 

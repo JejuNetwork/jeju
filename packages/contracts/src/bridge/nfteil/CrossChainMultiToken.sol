@@ -15,11 +15,10 @@ import {ICrossChainNFTHandler, ProvenanceEntry} from "./INFTEIL.sol";
  * @title IHyperlaneMailbox
  */
 interface IHyperlaneMailbox {
-    function dispatch(
-        uint32 destinationDomain,
-        bytes32 recipientAddress,
-        bytes calldata messageBody
-    ) external payable returns (bytes32 messageId);
+    function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        payable
+        returns (bytes32 messageId);
 
     function localDomain() external view returns (uint32);
 }
@@ -28,17 +27,11 @@ interface IHyperlaneMailbox {
  * @title IInterchainGasPaymaster
  */
 interface IInterchainGasPaymaster {
-    function payForGas(
-        bytes32 messageId,
-        uint32 destinationDomain,
-        uint256 gasAmount,
-        address refundAddress
-    ) external payable;
+    function payForGas(bytes32 messageId, uint32 destinationDomain, uint256 gasAmount, address refundAddress)
+        external
+        payable;
 
-    function quoteGasPayment(
-        uint32 destinationDomain,
-        uint256 gasAmount
-    ) external view returns (uint256);
+    function quoteGasPayment(uint32 destinationDomain, uint256 gasAmount) external view returns (uint256);
 }
 
 /**
@@ -55,7 +48,7 @@ interface IInterchainGasPaymaster {
  *
  * @custom:security-contact security@jejunetwork.org
  */
-abstract contract CrossChainMultiToken is 
+abstract contract CrossChainMultiToken is
     ERC1155Supply,
     ERC1155URIStorage,
     Ownable,
@@ -162,19 +155,13 @@ abstract contract CrossChainMultiToken is
 
     // ============ Constructor ============
 
-    constructor(
-        string memory uri_,
-        address initialOwner
-    ) ERC1155(uri_) Ownable(initialOwner) {}
+    constructor(string memory uri_, address initialOwner) ERC1155(uri_) Ownable(initialOwner) {}
 
     // ============ Initialization ============
 
-    function _initializeCrossChain(
-        address _mailbox,
-        address _igp,
-        uint32 _homeChainDomain,
-        bool _isHomeChain
-    ) internal {
+    function _initializeCrossChain(address _mailbox, address _igp, uint32 _homeChainDomain, bool _isHomeChain)
+        internal
+    {
         mailbox = IHyperlaneMailbox(_mailbox);
         igp = IInterchainGasPaymaster(_igp);
         homeChainDomain = _homeChainDomain;
@@ -186,23 +173,24 @@ abstract contract CrossChainMultiToken is
     /**
      * @notice Bridge NFT (single token for ERC721 compatibility)
      */
-    function bridgeNFT(
-        uint32 destinationDomain,
-        bytes32 recipient,
-        uint256 tokenId
-    ) external payable nonReentrant returns (bytes32 messageId) {
+    function bridgeNFT(uint32 destinationDomain, bytes32 recipient, uint256 tokenId)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 messageId)
+    {
         return _bridgeTokens(destinationDomain, recipient, tokenId, 1, msg.value);
     }
 
     /**
      * @notice Bridge multiple copies of a token
      */
-    function bridgeMultiToken(
-        uint32 destinationDomain,
-        bytes32 recipient,
-        uint256 tokenId,
-        uint256 amount
-    ) external payable nonReentrant returns (bytes32 messageId) {
+    function bridgeMultiToken(uint32 destinationDomain, bytes32 recipient, uint256 tokenId, uint256 amount)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 messageId)
+    {
         return _bridgeTokens(destinationDomain, recipient, tokenId, amount, msg.value);
     }
 
@@ -223,7 +211,7 @@ abstract contract CrossChainMultiToken is
         // Handle tokens
         for (uint256 i = 0; i < tokenIds.length; i++) {
             if (balanceOf(msg.sender, tokenIds[i]) < amounts[i]) revert InsufficientBalance();
-            
+
             if (isHomeChainInstance) {
                 _lockTokens(tokenIds[i], amounts[i]);
             } else {
@@ -236,37 +224,20 @@ abstract contract CrossChainMultiToken is
         totalBridgedOut += tokenIds.length;
 
         // Construct batch message
-        bytes memory messageBody = abi.encodePacked(
-            MESSAGE_TYPE_BATCH_TRANSFER,
-            recipient,
-            uint256(tokenIds.length)
-        );
-        
+        bytes memory messageBody = abi.encodePacked(MESSAGE_TYPE_BATCH_TRANSFER, recipient, uint256(tokenIds.length));
+
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            messageBody = abi.encodePacked(
-                messageBody,
-                tokenIds[i],
-                amounts[i]
-            );
+            messageBody = abi.encodePacked(messageBody, tokenIds[i], amounts[i]);
         }
 
         // Dispatch
-        messageId = mailbox.dispatch{value: 0}(
-            destinationDomain,
-            remoteRouters[destinationDomain],
-            messageBody
-        );
+        messageId = mailbox.dispatch{value: 0}(destinationDomain, remoteRouters[destinationDomain], messageBody);
 
         // Pay for gas
         uint256 requiredGas = igp.quoteGasPayment(destinationDomain, GAS_LIMIT_BATCH);
         if (msg.value < requiredGas) revert InsufficientGasPayment(requiredGas, msg.value);
 
-        igp.payForGas{value: msg.value}(
-            messageId,
-            destinationDomain,
-            GAS_LIMIT_BATCH,
-            msg.sender
-        );
+        igp.payForGas{value: msg.value}(messageId, destinationDomain, GAS_LIMIT_BATCH, msg.sender);
 
         emit BatchBridgeInitiated(messageId, msg.sender, destinationDomain, tokenIds, amounts);
 
@@ -298,47 +269,21 @@ abstract contract CrossChainMultiToken is
         totalBridgedOut++;
 
         // Construct message
-        bytes memory messageBody = abi.encodePacked(
-            MESSAGE_TYPE_TRANSFER,
-            recipient,
-            tokenId,
-            amount,
-            tokenUri
-        );
+        bytes memory messageBody = abi.encodePacked(MESSAGE_TYPE_TRANSFER, recipient, tokenId, amount, tokenUri);
 
-        messageId = mailbox.dispatch{value: 0}(
-            destinationDomain,
-            remoteRouters[destinationDomain],
-            messageBody
-        );
+        messageId = mailbox.dispatch{value: 0}(destinationDomain, remoteRouters[destinationDomain], messageBody);
 
         uint256 requiredGas = igp.quoteGasPayment(destinationDomain, GAS_LIMIT_BRIDGE);
         if (gasPayment < requiredGas) revert InsufficientGasPayment(requiredGas, gasPayment);
 
-        igp.payForGas{value: gasPayment}(
-            messageId,
-            destinationDomain,
-            GAS_LIMIT_BRIDGE,
-            msg.sender
-        );
+        igp.payForGas{value: gasPayment}(messageId, destinationDomain, GAS_LIMIT_BRIDGE, msg.sender);
 
-        emit NFTBridgeInitiated(
-            messageId,
-            msg.sender,
-            destinationDomain,
-            recipient,
-            tokenId,
-            amount
-        );
+        emit NFTBridgeInitiated(messageId, msg.sender, destinationDomain, recipient, tokenId, amount);
     }
 
     // ============ Message Handling ============
 
-    function handle(
-        uint32 origin,
-        bytes32 sender,
-        bytes calldata body
-    ) external onlyMailbox {
+    function handle(uint32 origin, bytes32 sender, bytes calldata body) external onlyMailbox {
         if (remoteRouters[origin] != sender) revert RouterNotSet(origin);
 
         bytes1 messageType = body[0];
@@ -412,7 +357,7 @@ abstract contract CrossChainMultiToken is
     function _handleMetadataSync(bytes calldata body) internal {
         uint256 tokenId = uint256(bytes32(body[1:33]));
         string memory tokenUri = string(body[33:]);
-        
+
         _setURI(tokenId, tokenUri);
         metadataHashes[tokenId] = keccak256(bytes(tokenUri));
     }
@@ -421,7 +366,7 @@ abstract contract CrossChainMultiToken is
 
     function _lockTokens(uint256 tokenId, uint256 amount) internal {
         _safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
-        
+
         if (lockedBalances[tokenId] == 0) {
             totalTokensLocked++;
         }
@@ -432,7 +377,7 @@ abstract contract CrossChainMultiToken is
 
     function _unlockTokens(uint256 tokenId, uint256 amount, address recipient) internal {
         if (lockedBalances[tokenId] < amount) revert InsufficientLockedBalance();
-        
+
         lockedBalances[tokenId] -= amount;
         if (lockedBalances[tokenId] == 0) {
             totalTokensLocked--;
@@ -446,14 +391,16 @@ abstract contract CrossChainMultiToken is
     // ============ Provenance ============
 
     function _recordProvenance(uint256 tokenId, address owner) internal {
-        tokenProvenance[tokenId].push(ProvenanceEntry({
-            chainId: block.chainid,
-            collection: address(this),
-            tokenId: tokenId,
-            timestamp: block.timestamp,
-            txHash: bytes32(0),
-            owner: owner
-        }));
+        tokenProvenance[tokenId].push(
+            ProvenanceEntry({
+                chainId: block.chainid,
+                collection: address(this),
+                tokenId: tokenId,
+                timestamp: block.timestamp,
+                txHash: bytes32(0),
+                owner: owner
+            })
+        );
     }
 
     function getProvenance(uint256 tokenId) external view returns (ProvenanceEntry[] memory) {
@@ -470,12 +417,9 @@ abstract contract CrossChainMultiToken is
         _tokenRoyalties[tokenId] = RoyaltyInfo(receiver, feeNumerator);
     }
 
-    function royaltyInfo(
-        uint256 tokenId,
-        uint256 salePrice
-    ) external view override returns (address, uint256) {
+    function royaltyInfo(uint256 tokenId, uint256 salePrice) external view override returns (address, uint256) {
         RoyaltyInfo memory royalty = _tokenRoyalties[tokenId];
-        
+
         if (royalty.receiver == address(0)) {
             royalty = _defaultRoyalty;
         }
@@ -486,26 +430,23 @@ abstract contract CrossChainMultiToken is
 
     // ============ View Functions ============
 
-    function getCrossChainStats() external view returns (
-        uint256 totalBridged,
-        uint256 totalReceived,
-        uint32 homeDomain,
-        bool isHome
-    ) {
+    function getCrossChainStats()
+        external
+        view
+        returns (uint256 totalBridged, uint256 totalReceived, uint32 homeDomain, bool isHome)
+    {
         return (totalBridgedOut, totalBridgedIn, homeChainDomain, isHomeChainInstance);
     }
 
-    function quoteBridge(
-        uint32 destinationDomain,
-        uint256 /* tokenId */
-    ) external view returns (uint256 gasPayment) {
+    function quoteBridge(uint32 destinationDomain, uint256 /* tokenId */ ) external view returns (uint256 gasPayment) {
         return igp.quoteGasPayment(destinationDomain, GAS_LIMIT_BRIDGE);
     }
 
-    function quoteBatchBridge(
-        uint32 destinationDomain,
-        uint256 /* tokenCount */
-    ) external view returns (uint256 gasPayment) {
+    function quoteBatchBridge(uint32 destinationDomain, uint256 /* tokenCount */ )
+        external
+        view
+        returns (uint256 gasPayment)
+    {
         return igp.quoteGasPayment(destinationDomain, GAS_LIMIT_BATCH);
     }
 
@@ -521,10 +462,7 @@ abstract contract CrossChainMultiToken is
         emit DomainEnabled(domain, enabled);
     }
 
-    function configureRouters(
-        uint32[] calldata domains,
-        bytes32[] calldata routers
-    ) external onlyOwner {
+    function configureRouters(uint32[] calldata domains, bytes32[] calldata routers) external onlyOwner {
         require(domains.length == routers.length, "Length mismatch");
         for (uint256 i = 0; i < domains.length; i++) {
             remoteRouters[domains[i]] = routers[i];
@@ -540,41 +478,36 @@ abstract contract CrossChainMultiToken is
         return ERC1155URIStorage.uri(tokenId);
     }
 
-    function _update(
-        address from,
-        address to,
-        uint256[] memory ids,
-        uint256[] memory values
-    ) internal virtual override(ERC1155, ERC1155Supply) {
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal
+        virtual
+        override(ERC1155, ERC1155Supply)
+    {
         super._update(from, to, ids, values);
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {
-        return 
-            interfaceId == type(IERC2981).interfaceId ||
-            interfaceId == type(IERC1155Receiver).interfaceId ||
-            ERC1155.supportsInterface(interfaceId);
+        return interfaceId == type(IERC2981).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId
+            || ERC1155.supportsInterface(interfaceId);
     }
 
     // ============ IERC1155Receiver Implementation ============
-    
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 

@@ -140,9 +140,7 @@ contract FederatedSolver is FederationBase {
         bytes32 federatedId = computeFederatedSolverId(solverAddress, homeChainId);
         if (federatedSolvers[federatedId].federatedAt != 0) revert SolverExists();
 
-        bytes32 attestationHash = keccak256(
-            abi.encodePacked(solverAddress, homeChainId, supportedChains, stake)
-        );
+        bytes32 attestationHash = keccak256(abi.encodePacked(solverAddress, homeChainId, supportedChains, stake));
         address attester = attestationHash.toEthSignedMessageHash().recover(attestation);
         if (!authorizedReporters[attester] && attester != oracle) {
             revert UnauthorizedReporter();
@@ -168,12 +166,10 @@ contract FederatedSolver is FederationBase {
         emit SolverFederated(federatedId, solverAddress, homeChainId);
     }
 
-    function updateSolverStats(
-        bytes32 federatedId,
-        uint256 stake,
-        uint256 totalFills,
-        uint256 successfulFills
-    ) external onlyAuthorizedReporter {
+    function updateSolverStats(bytes32 federatedId, uint256 stake, uint256 totalFills, uint256 successfulFills)
+        external
+        onlyAuthorizedReporter
+    {
         FederatedSolverInfo storage solver = federatedSolvers[federatedId];
         if (solver.federatedAt == 0) revert SolverNotFound();
 
@@ -184,12 +180,10 @@ contract FederatedSolver is FederationBase {
         emit SolverUpdated(federatedId, stake, totalFills, successfulFills);
     }
 
-    function reportFill(
-        bytes32 federatedId,
-        bytes32 orderId,
-        bool success,
-        uint256 fillTime
-    ) external onlyAuthorizedReporter {
+    function reportFill(bytes32 federatedId, bytes32 orderId, bool success, uint256 fillTime)
+        external
+        onlyAuthorizedReporter
+    {
         FederatedSolverInfo storage solver = federatedSolvers[federatedId];
         if (solver.federatedAt == 0) revert SolverNotFound();
 
@@ -252,10 +246,11 @@ contract FederatedSolver is FederationBase {
         return routeSolvers[sourceChainId][destChainId];
     }
 
-    function getBestSolverForRoute(
-        uint256 sourceChainId,
-        uint256 destChainId
-    ) external view returns (bytes32 bestSolverId, uint256 stake, uint256 successRate) {
+    function getBestSolverForRoute(uint256 sourceChainId, uint256 destChainId)
+        external
+        view
+        returns (bytes32 bestSolverId, uint256 stake, uint256 successRate)
+    {
         bytes32[] storage solvers = routeSolvers[sourceChainId][destChainId];
         if (solvers.length == 0) return (bytes32(0), 0, 0);
 
@@ -265,9 +260,7 @@ contract FederatedSolver is FederationBase {
             FederatedSolverInfo storage solver = federatedSolvers[solvers[i]];
             if (!solver.isActive) continue;
 
-            uint256 rate = solver.totalFills > 0
-                ? (solver.successfulFills * 10000) / solver.totalFills
-                : 10000;
+            uint256 rate = solver.totalFills > 0 ? (solver.successfulFills * 10000) / solver.totalFills : 10000;
 
             uint256 score = (solver.totalStake * rate) / 1e18;
 

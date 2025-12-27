@@ -19,11 +19,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
-import {
-  type ImageVerification,
-  isLLMConfigured,
-  verifyImage,
-} from './ai/llm'
+import { type ImageVerification, isLLMConfigured, verifyImage } from './ai/llm'
 
 export interface PageVerificationOptions {
   /** Description of what the page should look like */
@@ -46,11 +42,17 @@ export interface VerificationResult extends ImageVerification {
 }
 
 // Quality level ordering for comparison
-const QUALITY_ORDER = ['broken', 'poor', 'acceptable', 'good', 'excellent'] as const
+const QUALITY_ORDER = [
+  'broken',
+  'poor',
+  'acceptable',
+  'good',
+  'excellent',
+] as const
 
 function qualityMeetsMinimum(
-  actual: typeof QUALITY_ORDER[number],
-  minimum: typeof QUALITY_ORDER[number],
+  actual: (typeof QUALITY_ORDER)[number],
+  minimum: (typeof QUALITY_ORDER)[number],
 ): boolean {
   return QUALITY_ORDER.indexOf(actual) >= QUALITY_ORDER.indexOf(minimum)
 }
@@ -62,7 +64,10 @@ function getTestResultsDir(): string {
   // Look for monorepo root
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return join(dir, 'test-results')
     }
     dir = join(dir, '..')
@@ -104,7 +109,8 @@ export async function verifyPage(
   } = options
 
   // Determine screenshot path
-  const resultsDir = screenshotDir ?? join(getTestResultsDir(), 'visual-verification')
+  const resultsDir =
+    screenshotDir ?? join(getTestResultsDir(), 'visual-verification')
   mkdirSync(resultsDir, { recursive: true })
 
   const name = generateScreenshotName(page, screenshotName)
@@ -116,7 +122,9 @@ export async function verifyPage(
   // Check if AI verification is available
   if (!isLLMConfigured()) {
     console.warn('⚠️ AI verification skipped - no LLM API key configured')
-    console.warn('Set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable visual verification')
+    console.warn(
+      'Set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable visual verification',
+    )
 
     return {
       matches: true,
@@ -149,10 +157,14 @@ export async function verifyPage(
   // Log result
   if (passed) {
     console.log(`✅ Visual verification passed: ${screenshotPath}`)
-    console.log(`   Quality: ${verification.quality} (${Math.round(verification.confidence * 100)}% confidence)`)
+    console.log(
+      `   Quality: ${verification.quality} (${Math.round(verification.confidence * 100)}% confidence)`,
+    )
   } else {
     console.log(`❌ Visual verification failed: ${screenshotPath}`)
-    console.log(`   Quality: ${verification.quality} (minimum: ${minimumQuality})`)
+    console.log(
+      `   Quality: ${verification.quality} (minimum: ${minimumQuality})`,
+    )
     console.log(`   Issues: ${verification.issues.join(', ') || 'none'}`)
     console.log(`   Description: ${verification.description}`)
   }
@@ -187,7 +199,8 @@ export async function verifyElement(
   }
 
   // Take element screenshot
-  const resultsDir = options.screenshotDir ?? join(getTestResultsDir(), 'visual-verification')
+  const resultsDir =
+    options.screenshotDir ?? join(getTestResultsDir(), 'visual-verification')
   mkdirSync(resultsDir, { recursive: true })
 
   const name = options.screenshotName ?? `element-${Date.now()}`
@@ -268,9 +281,12 @@ export async function verifyPages(
   if (failures.length > 0) {
     throw new Error(
       `Visual verification failed for ${failures.length} page(s):\n` +
-        failures.map(([url, r]) =>
-          `  - ${url}: ${r.quality} quality, issues: ${r.issues.join(', ')}`
-        ).join('\n'),
+        failures
+          .map(
+            ([url, r]) =>
+              `  - ${url}: ${r.quality} quality, issues: ${r.issues.join(', ')}`,
+          )
+          .join('\n'),
     )
   }
 
@@ -301,4 +317,3 @@ export function createAppVisualTest(manifest: {
     })),
   }
 }
-

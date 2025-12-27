@@ -180,7 +180,10 @@ contract TokenAirdrop is Ownable2Step, ReentrancyGuard {
      * @param bonusMultiplier Bonus multiplier (100 = 1x, 150 = 1.5x for holders, etc.)
      * @param merkleProof Proof of eligibility
      */
-    function register(uint256 allocation, uint8 bonusMultiplier, bytes32[] calldata merkleProof) external nonReentrant {
+    function register(uint256 allocation, uint8 bonusMultiplier, bytes32[] calldata merkleProof)
+        external
+        nonReentrant
+    {
         if (block.timestamp < startTime) revert AirdropNotStarted();
         if (block.timestamp > endTime) revert AirdropEnded();
         if (allocations[msg.sender].registered) revert AlreadyRegistered();
@@ -433,10 +436,3 @@ contract TokenAirdrop is Ownable2Step, ReentrancyGuard {
         endTime = newEndTime;
     }
 }
-
-
-
-
-
-
-

@@ -109,7 +109,10 @@ export class SolverAgent {
     }
 
     await this.liquidity.initialize(this.clients)
-    this.monitor.on('intent', (e: IntentEvent) => this.handleIntent(e))
+    this.monitor.on('intent', (data: unknown) => {
+      const e = data as IntentEvent
+      this.handleIntent(e)
+    })
     await this.monitor.start(this.clients)
     this.startSettlementWatcher()
 
@@ -127,7 +130,8 @@ export class SolverAgent {
         this.clients,
       )
 
-      this.externalAggregator.on('opportunity', (opp: ExternalOpportunity) => {
+      this.externalAggregator.on('opportunity', (data: unknown) => {
+        const opp = data as ExternalOpportunity
         this.handleExternalOpportunity(opp)
       })
 

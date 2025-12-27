@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { isLLMConfigured, requireLLM, llm } from './llm'
+import { isLLMConfigured, llm, requireLLM } from './llm'
 
 describe('LLM Module', () => {
   test('isLLMConfigured returns boolean based on env vars', () => {
@@ -37,4 +37,3 @@ describe('LLM Module', () => {
     if (openaiKey) process.env.OPENAI_API_KEY = openaiKey
   })
 })
-

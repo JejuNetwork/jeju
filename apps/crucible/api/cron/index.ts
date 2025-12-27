@@ -2,6 +2,7 @@
  * Crucible Cron Routes - Agent ticks, trajectory flushing, health checks
  */
 
+import { constantTimeCompare } from '@jejunetwork/api'
 import {
   getStaticTrajectoryStorage,
   TrainingDbPersistence,
@@ -165,7 +166,9 @@ function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
   }
 
   const authHeader = headers.authorization
-  return authHeader === `Bearer ${cronSecret}`
+  if (!authHeader) return false
+  const expected = `Bearer ${cronSecret}`
+  return constantTimeCompare(authHeader, expected)
 }
 
 /**

@@ -37,9 +37,9 @@ contract ReferralRegistry is Ownable, ReentrancyGuard {
 
     struct ReferrerStats {
         uint256 totalReferred;
-        uint256 activeReferred;     // Completed qualifying action
+        uint256 activeReferred; // Completed qualifying action
         uint256 totalEarnings;
-        uint256 tier;               // 0-3 based on performance
+        uint256 tier; // 0-3 based on performance
     }
 
     mapping(address => ReferralInfo) public referrals;
@@ -49,8 +49,8 @@ contract ReferralRegistry is Ownable, ReentrancyGuard {
     mapping(address => bytes32) public referralCodes;
 
     // Reward configuration (bps)
-    uint256 public referrerRewardBps = 500;      // 5% to referrer
-    uint256 public refereeRewardBps = 1000;      // 10% bonus to referee
+    uint256 public referrerRewardBps = 500; // 5% to referrer
+    uint256 public refereeRewardBps = 1000; // 10% bonus to referee
     uint256 public constant BPS = 10000;
 
     // Tier thresholds
@@ -149,11 +149,7 @@ contract ReferralRegistry is Ownable, ReentrancyGuard {
      * @param actionType Type of action
      * @param volume Volume of the action in reward token terms
      */
-    function reportAction(
-        address user,
-        string calldata actionType,
-        uint256 volume
-    ) external nonReentrant {
+    function reportAction(address user, string calldata actionType, uint256 volume) external nonReentrant {
         if (!authorizedCallers[msg.sender]) revert UnauthorizedCaller();
 
         ReferralInfo storage info = referrals[user];
@@ -273,4 +269,3 @@ contract ReferralRegistry is Ownable, ReentrancyGuard {
         rewardToken.safeTransfer(to, amount);
     }
 }
-

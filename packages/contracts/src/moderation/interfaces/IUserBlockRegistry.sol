@@ -136,4 +136,3 @@ interface IUserBlockRegistry {
      */
     function agentBlockCount(uint256 blockerAgentId) external view returns (uint256);
 }
-

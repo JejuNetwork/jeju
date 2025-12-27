@@ -100,7 +100,6 @@ contract JNSRegistry is IJNS {
         return _operators[nodeOwner][operator];
     }
 
-
     function _setOwner(bytes32 node, address nodeOwner) internal {
         _records[node].owner = nodeOwner;
     }

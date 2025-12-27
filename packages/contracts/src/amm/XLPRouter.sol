@@ -61,25 +61,26 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     address public feeRecipient;
     uint256 public routerFeeBps;
     mapping(address => bool) public approvedRouters;
-    
+
     // SECURITY: Critical address timelocks
     uint256 public constant CRITICAL_CHANGE_DELAY = 24 hours;
-    
+
     struct PendingChange {
         address newAddress;
         uint256 executeAfter;
     }
-    
+
     PendingChange public pendingAggregator;
     PendingChange public pendingPermit2;
-    
+
     event CriticalChangeProposed(string indexed changeType, address newAddress, uint256 executeAfter);
     event CriticalChangeExecuted(string indexed changeType, address oldAddress, address newAddress);
     event CriticalChangeCancelled(string indexed changeType);
-    
+
     error ChangeAlreadyPending();
     error NoChangePending();
     error ChangeNotReady();
+
     mapping(address => address) public referrers;
     mapping(address => uint256) public referralVolume;
 
@@ -327,11 +328,19 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         if (amountOut < params.amountOutMinimum) revert InsufficientOutputAmount();
     }
 
-    function getAmountsOutV2(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts) {
+    function getAmountsOutV2(uint256 amountIn, address[] calldata path)
+        external
+        view
+        returns (uint256[] memory amounts)
+    {
         return _getAmountsOutV2(amountIn, path);
     }
 
-    function getAmountsInV2(uint256 amountOut, address[] calldata path) external view returns (uint256[] memory amounts) {
+    function getAmountsInV2(uint256 amountOut, address[] calldata path)
+        external
+        view
+        returns (uint256[] memory amounts)
+    {
         return _getAmountsInV2(amountOut, path);
     }
 
@@ -343,29 +352,26 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     /// @dev SECURITY: Prevents instant Permit2 swap to malicious contract
     function proposePermit2(address _permit2) public onlyOwner {
         if (pendingPermit2.executeAfter > 0) revert ChangeAlreadyPending();
-        
-        pendingPermit2 = PendingChange({
-            newAddress: _permit2,
-            executeAfter: block.timestamp + CRITICAL_CHANGE_DELAY
-        });
-        
+
+        pendingPermit2 = PendingChange({newAddress: _permit2, executeAfter: block.timestamp + CRITICAL_CHANGE_DELAY});
+
         emit CriticalChangeProposed("permit2", _permit2, pendingPermit2.executeAfter);
     }
-    
+
     /// @notice Execute Permit2 change after timelock
     function executePermit2Change() external onlyOwner {
         if (pendingPermit2.executeAfter == 0) revert NoChangePending();
         if (block.timestamp < pendingPermit2.executeAfter) revert ChangeNotReady();
-        
+
         address oldPermit2 = permit2;
         permit2 = pendingPermit2.newAddress;
-        
+
         emit Permit2Updated(oldPermit2, permit2);
         emit CriticalChangeExecuted("permit2", oldPermit2, permit2);
-        
+
         delete pendingPermit2;
     }
-    
+
     /// @notice Legacy setPermit2 - now requires timelock
     function setPermit2(address _permit2) external onlyOwner {
         proposePermit2(_permit2);
@@ -375,29 +381,27 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     /// @dev SECURITY: Prevents instant aggregator swap
     function proposeLiquidityAggregator(address _aggregator) public onlyOwner {
         if (pendingAggregator.executeAfter > 0) revert ChangeAlreadyPending();
-        
-        pendingAggregator = PendingChange({
-            newAddress: _aggregator,
-            executeAfter: block.timestamp + CRITICAL_CHANGE_DELAY
-        });
-        
+
+        pendingAggregator =
+            PendingChange({newAddress: _aggregator, executeAfter: block.timestamp + CRITICAL_CHANGE_DELAY});
+
         emit CriticalChangeProposed("aggregator", _aggregator, pendingAggregator.executeAfter);
     }
-    
+
     /// @notice Execute LiquidityAggregator change after timelock
     function executeAggregatorChange() external onlyOwner {
         if (pendingAggregator.executeAfter == 0) revert NoChangePending();
         if (block.timestamp < pendingAggregator.executeAfter) revert ChangeNotReady();
-        
+
         address oldAggregator = liquidityAggregator;
         liquidityAggregator = pendingAggregator.newAddress;
-        
+
         emit AggregatorUpdated(oldAggregator, liquidityAggregator);
         emit CriticalChangeExecuted("aggregator", oldAggregator, liquidityAggregator);
-        
+
         delete pendingAggregator;
     }
-    
+
     /// @notice Legacy setLiquidityAggregator - now requires timelock
     function setLiquidityAggregator(address _aggregator) external onlyOwner {
         proposeLiquidityAggregator(_aggregator);
@@ -518,9 +522,8 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     ) external override nonReentrant returns (uint256 amountOut) {
         if (!approvedRouters[msg.sender]) revert NotApprovedRouter();
 
-        (uint8 poolType, uint24 fee) = routeData.length >= 4 
-            ? abi.decode(routeData, (uint8, uint24)) 
-            : (uint8(0), uint24(3000));
+        (uint8 poolType, uint24 fee) =
+            routeData.length >= 4 ? abi.decode(routeData, (uint8, uint24)) : (uint8(0), uint24(3000));
 
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
@@ -704,7 +707,10 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         pool = IXLPV3Factory(v3Factory).getPool(token0, token1, fee);
     }
 
-    function _exactInputInternal(uint256 amountIn, address recipient, bytes memory path) internal returns (uint256 amountOut) {
+    function _exactInputInternal(uint256 amountIn, address recipient, bytes memory path)
+        internal
+        returns (uint256 amountOut)
+    {
         address tokenIn;
         uint24 fee;
         address tokenOut;

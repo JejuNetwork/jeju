@@ -68,19 +68,10 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event SolanaRunSynced(
-        bytes32 indexed solanaRunId,
-        bytes32 indexed evmRunId,
-        uint8 state,
-        uint32 step,
-        uint64 slot
-    );
+    event SolanaRunSynced(bytes32 indexed solanaRunId, bytes32 indexed evmRunId, uint8 state, uint32 step, uint64 slot);
 
     event CrossChainWitnessSubmitted(
-        bytes32 indexed evmRunId,
-        bytes32 indexed solanaRunId,
-        address indexed witness,
-        uint32 step
+        bytes32 indexed evmRunId, bytes32 indexed solanaRunId, address indexed witness, uint32 step
     );
 
     event RunLinked(bytes32 indexed evmRunId, bytes32 indexed solanaRunId);
@@ -105,11 +96,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _solanaLightClient,
-        address _evmCoordinator,
-        bytes32 _psycheProgramId
-    ) Ownable(msg.sender) {
+    constructor(address _solanaLightClient, address _evmCoordinator, bytes32 _psycheProgramId) Ownable(msg.sender) {
         solanaLightClient = ISolanaLightClient(_solanaLightClient);
         evmCoordinator = ITrainingCoordinator(_evmCoordinator);
         psycheProgramId = _psycheProgramId;
@@ -202,11 +189,10 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
      * @param witness The witness data from the Solana coordinator
      * @param signature ECDSA signature over the witness data hash
      */
-    function submitCrossChainWitness(
-        bytes32 evmRunId,
-        CrossChainWitness calldata witness,
-        bytes calldata signature
-    ) external nonReentrant {
+    function submitCrossChainWitness(bytes32 evmRunId, CrossChainWitness calldata witness, bytes calldata signature)
+        external
+        nonReentrant
+    {
         bytes32 solanaRunId = evmToSolanaRun[evmRunId];
         if (solanaRunId == bytes32(0)) revert RunNotLinked();
 
@@ -216,22 +202,24 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
         }
 
         // Verify witness signature - compute message hash and recover signer
-        bytes32 messageHash = keccak256(abi.encode(
-            evmRunId,
-            witness.solanaRunId,
-            witness.step,
-            witness.tokensPerSec,
-            witness.bandwidthPerSec,
-            witness.solanaSlot
-        ));
-        
+        bytes32 messageHash = keccak256(
+            abi.encode(
+                evmRunId,
+                witness.solanaRunId,
+                witness.step,
+                witness.tokensPerSec,
+                witness.bandwidthPerSec,
+                witness.solanaSlot
+            )
+        );
+
         // Verify signature is from the caller (self-attestation)
         // For cross-chain attestation, the witness signs their own attestation
         bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         address recovered = _recoverSigner(ethSignedHash, signature);
         require(recovered == msg.sender, "Invalid witness signature");
         require(signature.length == 65, "Invalid signature length");
-        
+
         // Store the witness
         crossChainWitnesses[evmRunId][msg.sender] = witness;
 
@@ -281,7 +269,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
 
         // Update the run's checkpoint
         solanaRuns[solanaRunId].checkpointCid = checkpointCid;
-        
+
         emit CheckpointBridged(solanaRunId, checkpointCid, slot);
     }
 
@@ -303,10 +291,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
         return evmToSolanaRun[evmRunId];
     }
 
-    function getCrossChainWitness(
-        bytes32 evmRunId,
-        address witness
-    ) external view returns (CrossChainWitness memory) {
+    function getCrossChainWitness(bytes32 evmRunId, address witness) external view returns (CrossChainWitness memory) {
         return crossChainWitnesses[evmRunId][witness];
     }
 
@@ -324,17 +309,19 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
         if (publicInputs.length < 5) return false;
 
         // Verify public inputs match claimed state
-        bytes32 stateHash = keccak256(abi.encode(
-            solanaRunId,
-            state.coordinatorPda,
-            state.state,
-            state.currentStep,
-            state.totalSteps,
-            state.clientCount,
-            state.epoch,
-            state.modelHash,
-            slot
-        ));
+        bytes32 stateHash = keccak256(
+            abi.encode(
+                solanaRunId,
+                state.coordinatorPda,
+                state.state,
+                state.currentStep,
+                state.totalSteps,
+                state.clientCount,
+                state.epoch,
+                state.modelHash,
+                slot
+            )
+        );
 
         // Check that the first public input is the state hash
         if (bytes32(publicInputs[0]) != stateHash) return false;
@@ -360,11 +347,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
         if (publicInputs.length < 3) return false;
 
         // Verify checkpoint hash
-        bytes32 checkpointHash = keccak256(abi.encode(
-            solanaRunId,
-            checkpointCid,
-            slot
-        ));
+        bytes32 checkpointHash = keccak256(abi.encode(solanaRunId, checkpointCid, slot));
 
         if (bytes32(publicInputs[0]) != checkpointHash) return false;
 
@@ -378,11 +361,11 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
     /// @notice Verification key for Groth16 proofs (set during deployment)
     /// @dev These are the G1/G2 points for the verification key
     struct VerificationKey {
-        uint256[2] alpha;    // G1 point
-        uint256[4] beta;     // G2 point
-        uint256[4] gamma;    // G2 point
-        uint256[4] delta;    // G2 point
-        uint256[2][] ic;     // G1 points for public inputs
+        uint256[2] alpha; // G1 point
+        uint256[4] beta; // G2 point
+        uint256[4] gamma; // G2 point
+        uint256[4] delta; // G2 point
+        uint256[2][] ic; // G1 points for public inputs
     }
 
     /// @notice Stored verification key for cross-chain training proofs
@@ -416,10 +399,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
     /// @notice Verify a Groth16 proof using the BN254 ecpairing precompile
     /// @param proof 8-element array containing [A.x, A.y, B.x1, B.x2, B.y1, B.y2, C.x, C.y]
     /// @param publicInputs Array of public inputs for the proof
-    function _verifyGroth16(
-        uint256[8] calldata proof,
-        uint256[] calldata publicInputs
-    ) internal view returns (bool) {
+    function _verifyGroth16(uint256[8] calldata proof, uint256[] calldata publicInputs) internal view returns (bool) {
         if (!verificationKeySet) return false;
         if (publicInputs.length + 1 != verificationKey.ic.length) return false;
 
@@ -480,9 +460,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
         uint256[1] memory result;
         assembly {
             let success := staticcall(gas(), 0x08, input, 768, result, 32)
-            if iszero(success) {
-                revert(0, 0)
-            }
+            if iszero(success) { revert(0, 0) }
         }
 
         return result[0] == 1;
@@ -498,9 +476,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
 
         assembly {
             let success := staticcall(gas(), 0x06, input, 128, r, 64)
-            if iszero(success) {
-                revert(0, 0)
-            }
+            if iszero(success) { revert(0, 0) }
         }
     }
 
@@ -513,10 +489,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
 
         assembly {
             let success := staticcall(gas(), 0x07, input, 96, r, 64)
-            if iszero(success) {
-                revert(0, 0)
-            }
+            if iszero(success) { revert(0, 0) }
         }
     }
 }
-

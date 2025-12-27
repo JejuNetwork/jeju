@@ -71,11 +71,7 @@ contract DeployTraining is Script {
         }
 
         // Deploy TrainingCoordinator
-        coordinator = new TrainingCoordinator(
-            address(computeRegistry),
-            address(mpcKeyRegistry),
-            deployer
-        );
+        coordinator = new TrainingCoordinator(address(computeRegistry), address(mpcKeyRegistry), deployer);
         console.log("Deployed TrainingCoordinator:", address(coordinator));
 
         // Deploy TrainingRewards
@@ -83,19 +79,11 @@ contract DeployTraining is Script {
         console.log("Deployed TrainingRewards:", address(rewards));
 
         // Deploy TrainingRegistry
-        registry = new TrainingRegistry(
-            address(coordinator),
-            address(mpcKeyRegistry),
-            deployer
-        );
+        registry = new TrainingRegistry(address(coordinator), address(mpcKeyRegistry), deployer);
         console.log("Deployed TrainingRegistry:", address(registry));
 
         // Deploy NodePerformanceOracle
-        oracle = new NodePerformanceOracle(
-            address(coordinator),
-            address(computeRegistry),
-            deployer
-        );
+        oracle = new NodePerformanceOracle(address(coordinator), address(computeRegistry), deployer);
         console.log("Deployed NodePerformanceOracle:", address(oracle));
 
         vm.stopBroadcast();

@@ -7,6 +7,9 @@ pragma solidity ^0.8.33;
 ///         proven and finalized on L1 even if sequencers are offline.
 /// @dev This is deployed at a predeploy address on L2. Messages are stored in a
 ///      Merkle tree structure for efficient proof generation.
+///      ETH sent to this contract is intentionally "burned" on L2 - it will be
+///      credited to the recipient on L1 via the OptimismPortal after proving.
+// slither-disable-next-line locked-ether
 contract L2ToL1MessagePasser {
     /// @notice Withdrawal message structure
     struct WithdrawalMessage {
@@ -74,7 +77,9 @@ contract L2ToL1MessagePasser {
     /// @return The keccak256 hash of the withdrawal message
     function hashWithdrawal(WithdrawalMessage memory _message) public pure returns (bytes32) {
         return keccak256(
-            abi.encode(_message.nonce, _message.sender, _message.target, _message.value, _message.gasLimit, _message.data)
+            abi.encode(
+                _message.nonce, _message.sender, _message.target, _message.value, _message.gasLimit, _message.data
+            )
         );
     }
 

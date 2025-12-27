@@ -13,33 +13,26 @@ import {DABlobRegistry} from "./DABlobRegistry.sol";
 interface IDACommitmentVerifier {
     struct DACommitment {
         bytes32 blobId;
-        bytes32 commitment;      // KZG or polynomial commitment
-        bytes32 merkleRoot;      // Root of blob chunks
+        bytes32 commitment; // KZG or polynomial commitment
+        bytes32 merkleRoot; // Root of blob chunks
         uint256 submittedAt;
-        bool isCalldata;         // True if fallback to calldata
+        bool isCalldata; // True if fallback to calldata
     }
 
-    function verifyCommitment(
-        bytes32 outputRoot,
-        DACommitment calldata daCommitment,
-        bytes calldata proof
-    ) external view returns (bool);
+    function verifyCommitment(bytes32 outputRoot, DACommitment calldata daCommitment, bytes calldata proof)
+        external
+        view
+        returns (bool);
 
-    function challengeUnavailability(
-        bytes32 outputRoot,
-        bytes32 blobId
-    ) external payable;
+    function challengeUnavailability(bytes32 outputRoot, bytes32 blobId) external payable;
 
-    function resolveChallenge(
-        bytes32 challengeId,
-        bytes calldata availabilityProof
-    ) external;
+    function resolveChallenge(bytes32 challengeId, bytes calldata availabilityProof) external;
 }
 
 /**
  * @title DACommitmentVerifier
  * @notice Verifies DA commitments for L1 state root submissions
- * 
+ *
  * Handles:
  * - Commitment verification against output roots
  * - Unavailability challenges
@@ -58,7 +51,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
 
     // Output root -> DA commitment mapping
     mapping(bytes32 => DACommitment) private _outputCommitments;
-    
+
     // Challenge tracking
     struct Challenge {
         bytes32 outputRoot;
@@ -69,39 +62,24 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
         bool resolved;
         bool successful;
     }
-    
+
     mapping(bytes32 => Challenge) private _challenges;
     mapping(bytes32 => bool) private _challengedOutputs;
-    
+
     // Verified commitments
     mapping(bytes32 => bool) private _verifiedCommitments;
 
     // ============ Events ============
 
-    event CommitmentRegistered(
-        bytes32 indexed outputRoot,
-        bytes32 indexed blobId,
-        bytes32 commitment,
-        bool isCalldata
-    );
+    event CommitmentRegistered(bytes32 indexed outputRoot, bytes32 indexed blobId, bytes32 commitment, bool isCalldata);
 
-    event CommitmentVerified(
-        bytes32 indexed outputRoot,
-        bytes32 indexed blobId
-    );
+    event CommitmentVerified(bytes32 indexed outputRoot, bytes32 indexed blobId);
 
     event UnavailabilityChallenged(
-        bytes32 indexed challengeId,
-        bytes32 indexed outputRoot,
-        bytes32 indexed blobId,
-        address challenger
+        bytes32 indexed challengeId, bytes32 indexed outputRoot, bytes32 indexed blobId, address challenger
     );
 
-    event ChallengeResolved(
-        bytes32 indexed challengeId,
-        bool successful,
-        address winner
-    );
+    event ChallengeResolved(bytes32 indexed challengeId, bool successful, address winner);
 
     event CalldataFallbackSet(address indexed fallbackContract);
 
@@ -120,11 +98,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
 
     // ============ Constructor ============
 
-    constructor(
-        address _blobRegistry,
-        address _calldataFallback,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _blobRegistry, address _calldataFallback, address initialOwner) Ownable(initialOwner) {
         blobRegistry = DABlobRegistry(_blobRegistry);
         calldataFallback = _calldataFallback;
     }
@@ -136,10 +110,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
      * @param outputRoot The L2 output root
      * @param daCommitment The DA commitment data
      */
-    function registerCommitment(
-        bytes32 outputRoot,
-        DACommitment calldata daCommitment
-    ) external {
+    function registerCommitment(bytes32 outputRoot, DACommitment calldata daCommitment) external {
         if (_outputCommitments[outputRoot].submittedAt != 0) {
             revert InvalidCommitment();
         }
@@ -152,12 +123,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
             isCalldata: daCommitment.isCalldata
         });
 
-        emit CommitmentRegistered(
-            outputRoot,
-            daCommitment.blobId,
-            daCommitment.commitment,
-            daCommitment.isCalldata
-        );
+        emit CommitmentRegistered(outputRoot, daCommitment.blobId, daCommitment.commitment, daCommitment.isCalldata);
     }
 
     // ============ Commitment Verification ============
@@ -169,11 +135,11 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
      * @param proof Proof data for verification
      * @return True if commitment is valid
      */
-    function verifyCommitment(
-        bytes32 outputRoot,
-        DACommitment calldata daCommitment,
-        bytes calldata proof
-    ) external view returns (bool) {
+    function verifyCommitment(bytes32 outputRoot, DACommitment calldata daCommitment, bytes calldata proof)
+        external
+        view
+        returns (bool)
+    {
         // For calldata fallback, verify against calldata contract
         if (daCommitment.isCalldata) {
             return _verifyCalldataCommitment(daCommitment, proof);
@@ -186,11 +152,11 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
     /**
      * @notice Internal verification for DA commitment
      */
-    function _verifyDACommitment(
-        bytes32 outputRoot,
-        DACommitment calldata daCommitment,
-        bytes calldata proof
-    ) internal view returns (bool) {
+    function _verifyDACommitment(bytes32 outputRoot, DACommitment calldata daCommitment, bytes calldata proof)
+        internal
+        view
+        returns (bool)
+    {
         // Verify blob exists and matches
         if (!blobRegistry.verifyCommitment(daCommitment.blobId, daCommitment.commitment)) {
             return false;
@@ -217,10 +183,11 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
     /**
      * @notice Internal verification for calldata commitment
      */
-    function _verifyCalldataCommitment(
-        DACommitment calldata daCommitment,
-        bytes calldata proof
-    ) internal view returns (bool) {
+    function _verifyCalldataCommitment(DACommitment calldata daCommitment, bytes calldata proof)
+        internal
+        view
+        returns (bool)
+    {
         if (calldataFallback == address(0)) {
             revert CalldataFallbackNotSet();
         }
@@ -240,10 +207,11 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
     /**
      * @notice Compute output root from DA commitment and proof
      */
-    function _computeOutputRoot(
-        DACommitment calldata daCommitment,
-        bytes calldata proof
-    ) internal pure returns (bytes32) {
+    function _computeOutputRoot(DACommitment calldata daCommitment, bytes calldata proof)
+        internal
+        pure
+        returns (bytes32)
+    {
         // Parse proof for merkle inclusion
         // proof format: [stateRoot(32) | messagePasserRoot(32) | blockHash(32) | merkleProof(...)]
         if (proof.length < 96) {
@@ -253,7 +221,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
         bytes32 stateRoot;
         bytes32 messagePasserRoot;
         bytes32 blockHash;
-        
+
         assembly {
             stateRoot := calldataload(proof.offset)
             messagePasserRoot := calldataload(add(proof.offset, 32))
@@ -269,22 +237,20 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
         }
 
         // Compute OP Stack output root format
-        return keccak256(abi.encodePacked(
-            bytes32(0), // version
-            stateRoot,
-            messagePasserRoot,
-            blockHash
-        ));
+        return keccak256(
+            abi.encodePacked(
+                bytes32(0), // version
+                stateRoot,
+                messagePasserRoot,
+                blockHash
+            )
+        );
     }
 
     /**
      * @notice Verify merkle proof
      */
-    function _verifyMerkleProof(
-        bytes32 leaf,
-        bytes memory proof,
-        bytes32 root
-    ) internal pure returns (bool) {
+    function _verifyMerkleProof(bytes32 leaf, bytes memory proof, bytes32 root) internal pure returns (bool) {
         bytes32 computedHash = leaf;
         uint256 proofLength = proof.length / 32;
 
@@ -312,10 +278,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
      * @param outputRoot The output root to challenge
      * @param blobId The blob ID that should contain the data
      */
-    function challengeUnavailability(
-        bytes32 outputRoot,
-        bytes32 blobId
-    ) external payable nonReentrant {
+    function challengeUnavailability(bytes32 outputRoot, bytes32 blobId) external payable nonReentrant {
         if (msg.value < CHALLENGE_BOND) {
             revert InsufficientBond();
         }
@@ -329,12 +292,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
             revert OutputAlreadyChallenged();
         }
 
-        bytes32 challengeId = keccak256(abi.encodePacked(
-            outputRoot,
-            blobId,
-            msg.sender,
-            block.timestamp
-        ));
+        bytes32 challengeId = keccak256(abi.encodePacked(outputRoot, blobId, msg.sender, block.timestamp));
 
         _challenges[challengeId] = Challenge({
             outputRoot: outputRoot,
@@ -356,12 +314,9 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
      * @param challengeId The challenge to resolve
      * @param availabilityProof Proof of data availability
      */
-    function resolveChallenge(
-        bytes32 challengeId,
-        bytes calldata availabilityProof
-    ) external nonReentrant {
+    function resolveChallenge(bytes32 challengeId, bytes calldata availabilityProof) external nonReentrant {
         Challenge storage challenge = _challenges[challengeId];
-        
+
         if (challenge.createdAt == 0) {
             revert ChallengeNotFound();
         }
@@ -397,7 +352,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
      */
     function finalizeChallenge(bytes32 challengeId) external nonReentrant {
         Challenge storage challenge = _challenges[challengeId];
-        
+
         if (challenge.createdAt == 0) {
             revert ChallengeNotFound();
         }
@@ -425,10 +380,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
     /**
      * @notice Verify availability proof (chunk data + merkle proof)
      */
-    function _verifyAvailabilityProof(
-        bytes32 blobId,
-        bytes calldata proof
-    ) internal view returns (bool) {
+    function _verifyAvailabilityProof(bytes32 blobId, bytes calldata proof) internal view returns (bool) {
         // First check if blob is marked as available in registry
         (bool available,,) = blobRegistry.verifyAvailability(blobId);
         if (!available) {
@@ -439,7 +391,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
         if (proof.length > 0) {
             // proof format: [chunkIndex(32) | chunkData(...) | merkleProof(...)]
             IDATypes.BlobMetadata memory blob = blobRegistry.getBlob(blobId);
-            
+
             uint256 chunkIndex;
             assembly {
                 chunkIndex := calldataload(proof.offset)

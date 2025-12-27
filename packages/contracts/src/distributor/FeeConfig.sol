@@ -124,10 +124,7 @@ contract FeeConfig is Ownable, Pausable {
         uint16 bridgeFeeMaxBps
     );
     event TokenOverrideSet(
-        address indexed token,
-        uint16 xlpRewardShareBps,
-        uint16 protocolShareBps,
-        uint16 burnShareBps
+        address indexed token, uint16 xlpRewardShareBps, uint16 protocolShareBps, uint16 burnShareBps
     );
     event TokenOverrideRemoved(address indexed token);
     event FeeChangeProposed(bytes32 indexed changeId, bytes32 feeType, uint256 effectiveAt, address proposedBy);
@@ -320,7 +317,10 @@ contract FeeConfig is Ownable, Pausable {
     /**
      * @notice Update storage fees directly
      */
-    function setStorageFees(uint16 uploadFeeBps, uint16 retrievalFeeBps, uint16 pinningFeeBps) external onlyGovernance {
+    function setStorageFees(uint16 uploadFeeBps, uint16 retrievalFeeBps, uint16 pinningFeeBps)
+        external
+        onlyGovernance
+    {
         if (uploadFeeBps > MAX_FEE_BPS) revert FeeTooHigh(uploadFeeBps, MAX_FEE_BPS);
         if (retrievalFeeBps > MAX_FEE_BPS) revert FeeTooHigh(retrievalFeeBps, MAX_FEE_BPS);
         if (pinningFeeBps > MAX_FEE_BPS) revert FeeTooHigh(pinningFeeBps, MAX_FEE_BPS);
@@ -779,10 +779,9 @@ contract FeeConfig is Ownable, Pausable {
             return bazaar > marketplaceFees.bazaarPlatformFeeBps || x402 > marketplaceFees.x402ProtocolFeeBps;
         } else if (feeType == keccak256("token")) {
             // Token fee changes - check if bridge fees or transfer fees increase
-            (,,,uint16 transferFee, uint16 bridgeMin, uint16 bridgeMax,,) =
+            (,,, uint16 transferFee, uint16 bridgeMin, uint16 bridgeMax,,) =
                 abi.decode(newValues, (uint16, uint16, uint16, uint16, uint16, uint16, uint16, uint16));
-            return transferFee > tokenFees.transferFeeBps 
-                || bridgeMin > tokenFees.bridgeFeeMinBps 
+            return transferFee > tokenFees.transferFeeBps || bridgeMin > tokenFees.bridgeFeeMinBps
                 || bridgeMax > tokenFees.bridgeFeeMaxBps;
         }
         return true; // Default to timelock for unknown types
@@ -824,9 +823,14 @@ contract FeeConfig is Ownable, Pausable {
             emit NamesFeesUpdated(base, agent, renewal);
         } else if (feeType == keccak256("token")) {
             (
-                uint16 xlpReward, uint16 protocol, uint16 burn,
-                uint16 transfer, uint16 bridgeMin, uint16 bridgeMax,
-                uint16 xlpMinStake, uint16 zkDiscount
+                uint16 xlpReward,
+                uint16 protocol,
+                uint16 burn,
+                uint16 transfer,
+                uint16 bridgeMin,
+                uint16 bridgeMax,
+                uint16 xlpMinStake,
+                uint16 zkDiscount
             ) = abi.decode(data, (uint16, uint16, uint16, uint16, uint16, uint16, uint16, uint16));
             tokenFees = TokenFees(xlpReward, protocol, burn, transfer, bridgeMin, bridgeMax, xlpMinStake, zkDiscount);
             emit TokenFeesUpdated(xlpReward, protocol, burn, bridgeMin, bridgeMax);

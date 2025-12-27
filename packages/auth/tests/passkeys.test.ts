@@ -288,4 +288,3 @@ describe('Credential management', () => {
     expect(isStale).toBe(true)
   })
 })
-

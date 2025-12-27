@@ -10,15 +10,60 @@
  * - Dovecot handles IMAP protocol parsing
  * - This service handles authentication and storage backend
  * - All data stored encrypted in IPFS/Arweave
+ *
+ * Workerd-compatible: All file operations via DWS exec API.
  */
 
-import { type ChildProcess, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
 import type { Address } from 'viem'
 import { activeSessions, authAttemptsTotal } from './metrics'
 import { getMailboxStorage } from './storage'
 import type { IMAPMessageData, IMAPSession } from './types'
+
+// DWS Exec API for spawning processes and file operations
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+  pid?: number
+}
+
+let execUrl = 'http://localhost:4020/exec'
+
+export function configureIMAPServer(config: { execUrl?: string }): void {
+  if (config.execUrl) execUrl = config.execUrl
+}
+
+async function exec(
+  command: string[],
+  options?: {
+    env?: Record<string, string>
+    stdin?: string
+    background?: boolean
+  },
+): Promise<ExecResult> {
+  const response = await fetch(execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+// File operation helpers via exec API
+async function writeFile(path: string, content: string): Promise<void> {
+  await exec(['sh', '-c', `cat > "${path}"`], { stdin: content })
+}
+
+async function mkdir(path: string): Promise<void> {
+  await exec(['mkdir', '-p', path])
+}
+
+function joinPath(...parts: string[]): string {
+  return parts.join('/').replace(/\/+/g, '/')
+}
 
 // ============ Configuration ============
 
@@ -38,7 +83,7 @@ interface IMAPServerConfig {
 export class IMAPServer {
   private config: IMAPServerConfig
   private sessions: Map<string, IMAPSession> = new Map()
-  private dovecotProcess: ChildProcess | null = null
+  private dovecotProcessId: string | null = null
 
   constructor(config: IMAPServerConfig) {
     this.config = config
@@ -55,42 +100,40 @@ export class IMAPServer {
 
     // Generate Dovecot configuration
     const configDir = this.config.configDir ?? '/tmp/jeju-dovecot'
-    this.generateDovecotConfig(configDir)
+    await this.generateDovecotConfig(configDir)
 
-    // Start Dovecot process
+    // Start Dovecot process via DWS exec API (workerd-compatible)
     const dovecotPath = this.config.dovecotPath ?? 'dovecot'
 
-    this.dovecotProcess = spawn(
-      dovecotPath,
-      ['-c', join(configDir, 'dovecot.conf'), '-F'],
-      {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
+    try {
+      const result = await exec(
+        [dovecotPath, '-c', joinPath(configDir, 'dovecot.conf'), '-F'],
+        { background: true },
+      )
 
-    this.dovecotProcess.stdout?.on('data', (data: Buffer) => {
-      console.log(`[IMAP/Dovecot] ${data.toString().trim()}`)
-    })
-
-    this.dovecotProcess.stderr?.on('data', (data: Buffer) => {
-      console.error(`[IMAP/Dovecot] ${data.toString().trim()}`)
-    })
-
-    this.dovecotProcess.on('error', (error: Error) => {
-      console.error('[IMAP] Failed to start Dovecot:', error.message)
+      if (result.exitCode === 0 && result.pid) {
+        this.dovecotProcessId = String(result.pid)
+        console.log(
+          `[IMAP] Dovecot IMAP server started (PID: ${this.dovecotProcessId})`,
+        )
+      } else {
+        console.warn('[IMAP] Failed to start Dovecot:', result.stderr)
+        console.log('[IMAP] Falling back to built-in IMAP handler')
+        this.dovecotProcessId = null
+      }
+    } catch (error) {
+      console.error(
+        '[IMAP] Failed to start Dovecot:',
+        error instanceof Error ? error.message : String(error),
+      )
       console.log('[IMAP] Falling back to built-in IMAP handler')
-      this.dovecotProcess = null
-    })
-
-    this.dovecotProcess.on('exit', (code: number | null) => {
-      console.log(`[IMAP] Dovecot process exited with code ${code}`)
-      this.dovecotProcess = null
-    })
+      this.dovecotProcessId = null
+    }
 
     // Wait for Dovecot to start
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    if (this.dovecotProcess) {
+    if (this.dovecotProcessId) {
       console.log('[IMAP] Dovecot IMAP server started')
     } else {
       console.log('[IMAP] Using built-in IMAP handler (development mode)')
@@ -103,25 +146,31 @@ export class IMAPServer {
   async stop(): Promise<void> {
     console.log('[IMAP] Stopping IMAP server')
 
-    if (this.dovecotProcess) {
-      this.dovecotProcess.kill('SIGTERM')
+    if (this.dovecotProcessId) {
+      // Kill process via DWS exec API
+      try {
+        await exec(['kill', '-TERM', this.dovecotProcessId])
+      } catch (error) {
+        console.warn(
+          '[IMAP] Failed to stop Dovecot:',
+          error instanceof Error ? error.message : String(error),
+        )
+      }
 
       // Wait for graceful shutdown
       await new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          if (this.dovecotProcess) {
-            this.dovecotProcess.kill('SIGKILL')
+        setTimeout(() => {
+          // Force kill if still running
+          if (this.dovecotProcessId) {
+            exec(['kill', '-KILL', this.dovecotProcessId]).catch(() => {
+              // Ignore errors
+            })
           }
           resolve()
         }, 5000)
-
-        this.dovecotProcess?.on('exit', () => {
-          clearTimeout(timeout)
-          resolve()
-        })
       })
 
-      this.dovecotProcess = null
+      this.dovecotProcessId = null
     }
 
     // Clear all sessions
@@ -131,11 +180,10 @@ export class IMAPServer {
 
   /**
    * Generate Dovecot configuration files
+   * Uses DWS exec API for all file operations
    */
-  private generateDovecotConfig(configDir: string): void {
-    if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true })
-    }
+  private async generateDovecotConfig(configDir: string): Promise<void> {
+    await mkdir(configDir)
 
     // Main dovecot.conf
     const mainConfig = `
@@ -163,7 +211,7 @@ auth_mechanisms = xoauth2 oauthbearer plain
 
 passdb {
   driver = oauth2
-  args = ${join(configDir, 'dovecot-oauth2.conf.ext')}
+  args = ${joinPath(configDir, 'dovecot-oauth2.conf.ext')}
 }
 
 userdb {
@@ -189,10 +237,10 @@ plugin {
 }
 
 # Include extra configs
-!include ${join(configDir, 'conf.d')}/*.conf
+!include ${joinPath(configDir, 'conf.d')}/*.conf
 `
 
-    writeFileSync(join(configDir, 'dovecot.conf'), mainConfig)
+    await writeFile(joinPath(configDir, 'dovecot.conf'), mainConfig)
 
     // OAuth2 configuration
     const oauth2Config = `
@@ -210,13 +258,14 @@ active_attribute = valid
 active_value = true
 `
 
-    writeFileSync(join(configDir, 'dovecot-oauth2.conf.ext'), oauth2Config)
+    await writeFile(
+      joinPath(configDir, 'dovecot-oauth2.conf.ext'),
+      oauth2Config,
+    )
 
     // Create conf.d directory
-    const confdDir = join(configDir, 'conf.d')
-    if (!existsSync(confdDir)) {
-      mkdirSync(confdDir, { recursive: true })
-    }
+    const confdDir = joinPath(configDir, 'conf.d')
+    await mkdir(confdDir)
 
     // IMAP specific config
     const imapConfig = `
@@ -227,7 +276,7 @@ protocol imap {
 }
 `
 
-    writeFileSync(join(confdDir, '20-imap.conf'), imapConfig)
+    await writeFile(joinPath(confdDir, '20-imap.conf'), imapConfig)
 
     console.log(`[IMAP] Dovecot configuration generated in ${configDir}`)
   }
@@ -236,7 +285,7 @@ protocol imap {
    * Check if IMAP server is running
    */
   isRunning(): boolean {
-    return this.dovecotProcess !== null && !this.dovecotProcess.killed
+    return this.dovecotProcessId !== null
   }
 
   /**

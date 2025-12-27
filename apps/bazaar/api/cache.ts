@@ -22,11 +22,10 @@ function getCache(): CacheClient {
  */
 export async function cacheGet<T>(key: string): Promise<T | null> {
   const cache = getCache()
-  const value = await cache.get(key).catch(() => null)
+  const value = await cache.get(key)
   if (!value) return null
 
-  const parsed = JSON.parse(value) as T
-  return parsed
+  return JSON.parse(value) as T
 }
 
 /**
@@ -38,9 +37,7 @@ export async function cacheSet<T>(
   ttlSeconds = 3600,
 ): Promise<void> {
   const cache = getCache()
-  await cache.set(key, JSON.stringify(value), ttlSeconds).catch((err) => {
-    console.warn('[Bazaar Cache] Set failed:', err)
-  })
+  await cache.set(key, JSON.stringify(value), ttlSeconds)
 }
 
 /**
@@ -48,9 +45,7 @@ export async function cacheSet<T>(
  */
 export async function cacheDel(key: string): Promise<void> {
   const cache = getCache()
-  await cache.delete(key).catch((err) => {
-    console.warn('[Bazaar Cache] Delete failed:', err)
-  })
+  await cache.delete(key)
 }
 
 /**
@@ -60,7 +55,7 @@ export async function cacheMGet<T>(
   keys: string[],
 ): Promise<Map<string, T | null>> {
   const cache = getCache()
-  const results = await cache.mget(keys).catch(() => new Map())
+  const results = await cache.mget(keys)
   const parsed = new Map<string, T | null>()
 
   for (const [key, value] of results) {

@@ -41,7 +41,13 @@ interface ITreasury {
     // Profit Distribution Events
     event ProfitDistributionEnabled(address protocol, address stakers, address insurance);
     event ProfitDeposited(address indexed depositor, address indexed token, uint256 amount);
-    event ProfitDistributed(address indexed token, uint256 protocolAmount, uint256 stakersAmount, uint256 insuranceAmount, uint256 operatorAmount);
+    event ProfitDistributed(
+        address indexed token,
+        uint256 protocolAmount,
+        uint256 stakersAmount,
+        uint256 insuranceAmount,
+        uint256 operatorAmount
+    );
     event OperatorWithdrawal(address indexed operator, address indexed token, uint256 amount);
 
     // =========================================================================
@@ -58,7 +64,11 @@ interface ITreasury {
     // =========================================================================
 
     function enableTEEMode(uint256 _heartbeatTimeout, uint256 _takeoverCooldown) external;
-    function enableProfitDistribution(address _protocolRecipient, address _stakersRecipient, address _insuranceRecipient) external;
+    function enableProfitDistribution(
+        address _protocolRecipient,
+        address _stakersRecipient,
+        address _insuranceRecipient
+    ) external;
 
     // =========================================================================
     // TEE Functions
@@ -98,15 +108,21 @@ interface ITreasury {
 
     // TEE Views
     function teeOperator() external view returns (address);
-    function getGameState() external view returns (
-        string memory cid,
-        bytes32 stateHash,
-        uint256 _stateVersion,
-        uint256 _keyVersion,
-        uint256 lastBeat,
-        bool operatorActive
-    );
-    function getTEEOperatorInfo() external view returns (address op, bytes memory attestation, uint256 registeredAt, bool active);
+    function getGameState()
+        external
+        view
+        returns (
+            string memory cid,
+            bytes32 stateHash,
+            uint256 _stateVersion,
+            uint256 _keyVersion,
+            uint256 lastBeat,
+            bool operatorActive
+        );
+    function getTEEOperatorInfo()
+        external
+        view
+        returns (address op, bytes memory attestation, uint256 registeredAt, bool active);
 
     // Profit Distribution Views
     function getDistributionConfig() external view returns (DistributionConfig memory);
@@ -138,17 +154,15 @@ interface ITreasuryFactory {
         bool profitDistributionEnabled
     );
 
-    function createTreasury(
-        string calldata treasuryName,
-        address admin,
-        uint256 dailyLimit
-    ) external payable returns (bytes32 treasuryId, address treasury);
+    function createTreasury(string calldata treasuryName, address admin, uint256 dailyLimit)
+        external
+        payable
+        returns (bytes32 treasuryId, address treasury);
 
-    function createTEETreasury(
-        string calldata treasuryName,
-        address admin,
-        uint256 dailyLimit
-    ) external payable returns (bytes32 treasuryId, address treasury);
+    function createTEETreasury(string calldata treasuryName, address admin, uint256 dailyLimit)
+        external
+        payable
+        returns (bytes32 treasuryId, address treasury);
 
     function createProfitTreasury(
         string calldata treasuryName,

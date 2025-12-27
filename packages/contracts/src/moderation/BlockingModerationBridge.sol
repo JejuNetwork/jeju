@@ -27,9 +27,9 @@ contract BlockingModerationBridge is Ownable {
     IModerationMarketplace public moderationMarketplace;
 
     // Thresholds for auto-flagging
-    uint256 public excessiveBlockThreshold = 50;     // 50+ blocks triggers review
-    uint256 public rapidBlockTimeWindow = 1 hours;   // Blocks within this window
-    uint256 public rapidBlockThreshold = 10;         // 10+ blocks in window = suspicious
+    uint256 public excessiveBlockThreshold = 50; // 50+ blocks triggers review
+    uint256 public rapidBlockTimeWindow = 1 hours; // Blocks within this window
+    uint256 public rapidBlockThreshold = 10; // 10+ blocks in window = suspicious
 
     // Tracking rapid blocking
     struct BlockingActivity {
@@ -55,11 +55,7 @@ contract BlockingModerationBridge is Ownable {
     error NotFlagged();
     error ModerationNotConfigured();
 
-    constructor(
-        address _blockRegistry,
-        address _moderationMarketplace,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _blockRegistry, address _moderationMarketplace, address initialOwner) Ownable(initialOwner) {
         blockRegistry = IUserBlockRegistry(_blockRegistry);
         moderationMarketplace = IModerationMarketplace(_moderationMarketplace);
     }
@@ -78,9 +74,7 @@ contract BlockingModerationBridge is Ownable {
             // Auto-open moderation case if configured
             if (address(moderationMarketplace) != address(0)) {
                 bytes32 caseId = moderationMarketplace.openCase(
-                    user,
-                    "Excessive blocking behavior detected",
-                    keccak256(abi.encodePacked("blocks:", count))
+                    user, "Excessive blocking behavior detected", keccak256(abi.encodePacked("blocks:", count))
                 );
                 emit ModerationCaseOpened(user, caseId);
             }
@@ -147,11 +141,10 @@ contract BlockingModerationBridge is Ownable {
     /**
      * @notice Update thresholds
      */
-    function setThresholds(
-        uint256 _excessiveThreshold,
-        uint256 _rapidWindow,
-        uint256 _rapidThreshold
-    ) external onlyOwner {
+    function setThresholds(uint256 _excessiveThreshold, uint256 _rapidWindow, uint256 _rapidThreshold)
+        external
+        onlyOwner
+    {
         excessiveBlockThreshold = _excessiveThreshold;
         rapidBlockTimeWindow = _rapidWindow;
         rapidBlockThreshold = _rapidThreshold;
@@ -166,4 +159,3 @@ contract BlockingModerationBridge is Ownable {
         moderationMarketplace = IModerationMarketplace(_marketplace);
     }
 }
-

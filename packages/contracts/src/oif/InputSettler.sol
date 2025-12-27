@@ -4,12 +4,7 @@ pragma solidity ^0.8.33;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {
-    GaslessCrossChainOrder,
-    ResolvedCrossChainOrder,
-    Output,
-    FillInstruction
-} from "./IOIF.sol";
+import {GaslessCrossChainOrder, ResolvedCrossChainOrder, Output, FillInstruction} from "./IOIF.sol";
 import {BaseInputSettler} from "./BaseInputSettler.sol";
 
 /**
@@ -75,19 +70,18 @@ contract InputSettler is BaseInputSettler {
 
     // ============ Constructor ============
 
-    constructor(
-        uint256 _chainId,
-        address _oracle,
-        address _solverRegistry
-    ) BaseInputSettler(_chainId, _oracle, _solverRegistry) {}
+    constructor(uint256 _chainId, address _oracle, address _solverRegistry)
+        BaseInputSettler(_chainId, _oracle, _solverRegistry)
+    {}
 
     // ============ Asset Handling Implementation ============
 
     /// @inheritdoc BaseInputSettler
-    function _lockAssets(
-        GaslessCrossChainOrder calldata order,
-        address user
-    ) internal override returns (bytes32 orderId) {
+    function _lockAssets(GaslessCrossChainOrder calldata order, address user)
+        internal
+        override
+        returns (bytes32 orderId)
+    {
         // Decode order data
         (
             address inputToken,
@@ -131,15 +125,7 @@ contract InputSettler is BaseInputSettler {
             maxFee: maxFee
         });
 
-        emit OrderCreated(
-            orderId,
-            user,
-            inputToken,
-            inputAmount,
-            destinationChainId,
-            recipient,
-            order.fillDeadline
-        );
+        emit OrderCreated(orderId, user, inputToken, inputAmount, destinationChainId, recipient, order.fillDeadline);
     }
 
     /// @inheritdoc BaseInputSettler
@@ -214,10 +200,12 @@ contract InputSettler is BaseInputSettler {
     // ============ View Functions ============
 
     /// @notice Resolve a gasless order into a full resolved order
-    function resolveFor(
-        GaslessCrossChainOrder calldata order,
-        bytes calldata originFillerData
-    ) external view override returns (ResolvedCrossChainOrder memory resolved) {
+    function resolveFor(GaslessCrossChainOrder calldata order, bytes calldata originFillerData)
+        external
+        view
+        override
+        returns (ResolvedCrossChainOrder memory resolved)
+    {
         // Decode order data
         (
             address inputToken,

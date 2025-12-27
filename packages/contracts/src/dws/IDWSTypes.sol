@@ -12,12 +12,13 @@ interface IDWSTypes {
     // ============================================================================
 
     enum ServiceType {
-        Compute,    // Serverless workers (workerd)
-        Storage,    // IPFS/Arweave storage
-        CDN,        // Content delivery
-        Database,   // CQL databases
-        Inference,  // AI inference
-        Custom      // Future services
+        Compute, // Serverless workers (workerd)
+        Storage, // IPFS/Arweave storage
+        CDN, // Content delivery
+        Database, // CQL databases
+        Inference, // AI inference
+        Custom // Future services
+
     }
 
     enum PaymentStatus {
@@ -32,7 +33,7 @@ interface IDWSTypes {
 
     struct ProviderInfo {
         address provider;
-        ServiceType[] services;      // Which services this provider offers
+        ServiceType[] services; // Which services this provider offers
         string endpoint;
         uint256 stakedAmount;
         uint256 registeredAt;
@@ -40,8 +41,8 @@ interface IDWSTypes {
         bool active;
         uint256 slashedAmount;
         uint256 rewardsClaimed;
-        uint256 agentId;             // ERC-8004 agent ID
-        bytes32 attestationHash;     // TEE attestation
+        uint256 agentId; // ERC-8004 agent ID
+        bytes32 attestationHash; // TEE attestation
     }
 
     // ============================================================================
@@ -51,7 +52,7 @@ interface IDWSTypes {
     struct Subscription {
         bytes32 id;
         ServiceType serviceType;
-        bytes32 resourceId;          // Database ID, Worker ID, Storage bucket, etc.
+        bytes32 resourceId; // Database ID, Worker ID, Storage bucket, etc.
         address subscriber;
         bytes32 planId;
         uint256 startedAt;
@@ -72,7 +73,7 @@ interface IDWSTypes {
         ServiceType serviceType;
         uint256 pricePerMonth;
         bool active;
-        bytes limits;                // ABI-encoded service-specific limits
+        bytes limits; // ABI-encoded service-specific limits
     }
 
     // ============================================================================
@@ -81,7 +82,7 @@ interface IDWSTypes {
 
     struct ComputeLimits {
         uint256 memoryMb;
-        uint256 cpuMs;               // CPU milliseconds per request
+        uint256 cpuMs; // CPU milliseconds per request
         uint256 requestsPerMonth;
         uint256 bandwidthBytes;
     }
@@ -102,8 +103,8 @@ interface IDWSTypes {
         uint8 nodeCount;
         uint256 storageBytes;
         uint256 queriesPerMonth;
-        uint8 consistencyMode;       // 0 = Strong, 1 = Eventual
-        uint8 encryptionMode;        // 0 = None, 1 = AtRest, 2 = InTransit, 3 = Full
+        uint8 consistencyMode; // 0 = Strong, 1 = Eventual
+        uint8 encryptionMode; // 0 = None, 1 = AtRest, 2 = InTransit, 3 = Full
     }
 
     // ============================================================================
@@ -114,7 +115,7 @@ interface IDWSTypes {
         bytes32 resourceId;
         ServiceType serviceType;
         address[] providers;
-        address primary;             // Primary provider (block producer for DB, primary worker, etc.)
+        address primary; // Primary provider (block producer for DB, primary worker, etc.)
         uint256 assignedAt;
         uint256 lastRotation;
     }
@@ -124,18 +125,10 @@ interface IDWSTypes {
     // ============================================================================
 
     event ProviderRegistered(
-        address indexed provider,
-        ServiceType[] services,
-        string endpoint,
-        uint256 stakedAmount,
-        uint256 agentId
+        address indexed provider, ServiceType[] services, string endpoint, uint256 stakedAmount, uint256 agentId
     );
 
-    event ProviderSlashed(
-        address indexed provider,
-        uint256 amount,
-        bytes32 reason
-    );
+    event ProviderSlashed(address indexed provider, uint256 amount, bytes32 reason);
 
     event SubscriptionCreated(
         bytes32 indexed subscriptionId,
@@ -146,23 +139,11 @@ interface IDWSTypes {
         address paymentToken
     );
 
-    event SubscriptionExtended(
-        bytes32 indexed subscriptionId,
-        uint256 newExpiresAt,
-        uint256 paymentAmount
-    );
+    event SubscriptionExtended(bytes32 indexed subscriptionId, uint256 newExpiresAt, uint256 paymentAmount);
 
-    event ResourceCreated(
-        bytes32 indexed resourceId,
-        ServiceType indexed serviceType,
-        address indexed owner
-    );
+    event ResourceCreated(bytes32 indexed resourceId, ServiceType indexed serviceType, address indexed owner);
 
-    event ResourceAssigned(
-        bytes32 indexed resourceId,
-        address[] providers,
-        address primary
-    );
+    event ResourceAssigned(bytes32 indexed resourceId, address[] providers, address primary);
 
     // ============================================================================
     // Errors

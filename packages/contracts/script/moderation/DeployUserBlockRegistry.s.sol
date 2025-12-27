@@ -8,13 +8,13 @@ import "../../src/registry/IdentityRegistry.sol";
 /**
  * @title DeployUserBlockRegistry
  * @notice Deploy the UserBlockRegistry and optionally configure integrations
- * 
+ *
  * Usage:
  *   forge script script/moderation/DeployUserBlockRegistry.s.sol:DeployUserBlockRegistry \
  *     --rpc-url $RPC_URL \
  *     --private-key $PRIVATE_KEY \
  *     --broadcast
- * 
+ *
  * Environment:
  *   IDENTITY_REGISTRY - Address of IdentityRegistry (optional)
  *   OTC_ADDRESS - Address of OTC contract to configure (optional)
@@ -120,7 +120,7 @@ contract DeployUserBlockRegistry is Script {
 /**
  * @title ConfigureBlockRegistry
  * @notice Configure existing contracts to use a deployed UserBlockRegistry
- * 
+ *
  * Usage:
  *   BLOCK_REGISTRY=0x... forge script script/moderation/DeployUserBlockRegistry.s.sol:ConfigureBlockRegistry \
  *     --rpc-url $RPC_URL \
@@ -195,4 +195,3 @@ contract ConfigureBlockRegistry is Script {
         vm.stopBroadcast();
     }
 }
-

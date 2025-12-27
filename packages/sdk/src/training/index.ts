@@ -25,6 +25,44 @@ const CLIENT_LEFT_EVENT = parseAbiItem(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
+//                         TYPE GUARDS & HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+type RunCreatedEventArgs = {
+  runId?: Hex
+  creator?: Address
+}
+
+type ClientJoinedEventArgs = {
+  runId?: Hex
+  client?: Address
+  nodeId?: Hex
+}
+
+type ClientLeftEventArgs = {
+  runId?: Hex
+  client?: Address
+}
+
+function hasRunCreatedArgs(
+  args: RunCreatedEventArgs,
+): args is { runId: Hex; creator: Address } {
+  return args.runId !== undefined && args.creator !== undefined
+}
+
+function hasClientJoinedArgs(
+  args: ClientJoinedEventArgs,
+): args is { runId: Hex; client: Address; nodeId?: Hex } {
+  return args.runId !== undefined && args.client !== undefined
+}
+
+function hasClientLeftArgs(
+  args: ClientLeftEventArgs,
+): args is { runId: Hex; client: Address } {
+  return args.runId !== undefined && args.client !== undefined
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -405,6 +443,7 @@ export function createTrainingModule(
       // Get run details for each and filter to active states
       for (const log of logs.slice(-100)) {
         // Limit to last 100 runs
+        if (!hasRunCreatedArgs(log.args)) continue
         const run = await this.getRun(log.args.runId)
         if (
           run &&
@@ -432,6 +471,7 @@ export function createTrainingModule(
 
       // Get full run details for each
       for (const log of logs) {
+        if (!hasRunCreatedArgs(log.args)) continue
         const run = await this.getRun(log.args.runId)
         if (run) {
           runs.push(run)
@@ -508,14 +548,17 @@ export function createTrainingModule(
         toBlock: 'latest',
       })
 
-      const leftAddresses = new Set(
-        leftLogs.map((log) => log.args.client.toLowerCase()),
-      )
+      const leftAddresses = new Set<string>()
+      for (const log of leftLogs) {
+        if (!hasClientLeftArgs(log.args)) continue
+        leftAddresses.add(log.args.client.toLowerCase())
+      }
 
       // Build client list from join events
       for (const log of joinLogs) {
-        const clientAddress = log.args.client
-        if (leftAddresses.has(clientAddress.toLowerCase())) {
+        if (!hasClientJoinedArgs(log.args)) continue
+        const address = log.args.client.toLowerCase()
+        if (leftAddresses.has(address)) {
           continue // Skip clients who have left
         }
 
@@ -524,19 +567,19 @@ export function createTrainingModule(
           address: coordinatorAddress,
           abi: TRAINING_COORDINATOR_ABI,
           functionName: 'isClient',
-          args: [runId, clientAddress],
+          args: [runId, log.args.client],
         })
 
-        if (isActive && !activeClients.has(clientAddress.toLowerCase())) {
-          activeClients.add(clientAddress.toLowerCase())
+        if (isActive && !activeClients.has(address)) {
+          activeClients.add(address)
 
           const block = await wallet.publicClient.getBlock({
             blockHash: log.blockHash,
           })
 
           clients.push({
-            clientAddress,
-            nodeId: log.args.nodeId,
+            clientAddress: log.args.client,
+            nodeId: log.args.nodeId ?? ('0x' as `0x${string}`),
             joinedAt: block.timestamp,
             lastActive: block.timestamp, // Would need separate tracking
             isActive: true,
@@ -575,13 +618,17 @@ export function createTrainingModule(
       }
 
       const joinLog = joinLogs[joinLogs.length - 1] // Most recent join
+      if (!hasClientJoinedArgs(joinLog.args)) {
+        return null
+      }
+
       const block = await wallet.publicClient.getBlock({
         blockHash: joinLog.blockHash,
       })
 
       return {
         clientAddress: wallet.address,
-        nodeId: joinLog.args.nodeId,
+        nodeId: joinLog.args.nodeId ?? ('0x' as `0x${string}`),
         joinedAt: block.timestamp,
         lastActive: block.timestamp,
         isActive: true,

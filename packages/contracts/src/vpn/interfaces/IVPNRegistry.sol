@@ -103,4 +103,3 @@ interface IVPNRegistry {
     function allowedCountries(bytes2 countryCode) external view returns (bool);
     function blockedCountries(bytes2 countryCode) external view returns (bool);
 }
-

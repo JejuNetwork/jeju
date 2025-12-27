@@ -35,7 +35,7 @@ contract BlockingIntegrationTest is Test {
         // Register agents
         vm.prank(alice);
         aliceAgentId = identityRegistry.register("ipfs://alice");
-        
+
         vm.prank(bob);
         bobAgentId = identityRegistry.register("ipfs://bob");
 
@@ -68,7 +68,7 @@ contract BlockingIntegrationTest is Test {
     function test_TokenTransfer_NotBlockedByDefault() public {
         vm.prank(alice);
         token.transfer(bob, 100e18);
-        
+
         assertEq(token.balanceOf(bob), 10100e18);
     }
 
@@ -117,7 +117,7 @@ contract BlockingIntegrationTest is Test {
         blockRegistry.blockAgent(bobAgentId, aliceAgentId);
 
         assertTrue(blockRegistry.isAgentBlocked(bobAgentId, aliceAgentId));
-        
+
         // Check interaction blocked
         assertTrue(blockRegistry.isAgentInteractionBlocked(aliceAgentId, bobAgentId));
     }
@@ -141,7 +141,7 @@ contract BlockingIntegrationTest is Test {
 
         // Check via isAnyBlockActive
         assertTrue(blockRegistry.isAnyBlockActive(alice, bob, 0, 0));
-        
+
         // Unblock
         vm.prank(bob);
         blockRegistry.unblockAddress(alice);
@@ -177,7 +177,7 @@ contract BlockingIntegrationTest is Test {
     function test_GetBlockedAddresses() public {
         vm.prank(alice);
         blockRegistry.blockAddress(bob);
-        
+
         vm.prank(alice);
         blockRegistry.blockAddress(charlie);
 

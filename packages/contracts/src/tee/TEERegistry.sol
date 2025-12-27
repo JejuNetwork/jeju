@@ -45,9 +45,9 @@ contract TEERegistry is AccessControl {
         address owner;
         string nodeId;
         TEEPlatform platform;
-        bytes32 mrEnclave;      // Measurement of enclave code
-        bytes32 mrSigner;       // Measurement of enclave signer
-        string endpoint;        // DWS API endpoint
+        bytes32 mrEnclave; // Measurement of enclave code
+        bytes32 mrSigner; // Measurement of enclave signer
+        string endpoint; // DWS API endpoint
         uint256 registeredAt;
         uint256 lastAttestation;
         AttestationStatus status;
@@ -78,37 +78,16 @@ contract TEERegistry is AccessControl {
 
     // Events
     event NodeRegistered(
-        bytes32 indexed nodeHash,
-        address indexed owner,
-        string nodeId,
-        TEEPlatform platform,
-        string endpoint
+        bytes32 indexed nodeHash, address indexed owner, string nodeId, TEEPlatform platform, string endpoint
     );
 
-    event AttestationSubmitted(
-        bytes32 indexed nodeHash,
-        TEEPlatform platform,
-        bytes32 reportData,
-        address verifier
-    );
+    event AttestationSubmitted(bytes32 indexed nodeHash, TEEPlatform platform, bytes32 reportData, address verifier);
 
-    event AttestationVerified(
-        bytes32 indexed nodeHash,
-        address indexed verifier,
-        bool valid
-    );
+    event AttestationVerified(bytes32 indexed nodeHash, address indexed verifier, bool valid);
 
-    event NodeStatusUpdated(
-        bytes32 indexed nodeHash,
-        AttestationStatus oldStatus,
-        AttestationStatus newStatus
-    );
+    event NodeStatusUpdated(bytes32 indexed nodeHash, AttestationStatus oldStatus, AttestationStatus newStatus);
 
-    event NodeRevoked(
-        bytes32 indexed nodeHash,
-        address indexed revoker,
-        string reason
-    );
+    event NodeRevoked(bytes32 indexed nodeHash, address indexed revoker, string reason);
 
     // Errors
     error NodeAlreadyRegistered();
@@ -180,11 +159,7 @@ contract TEERegistry is AccessControl {
      * @param quote TEE attestation quote
      * @param reportData Custom report data
      */
-    function submitAttestation(
-        bytes32 nodeHash,
-        bytes calldata quote,
-        bytes32 reportData
-    ) external {
+    function submitAttestation(bytes32 nodeHash, bytes calldata quote, bytes32 reportData) external {
         TEENode storage node = nodes[nodeHash];
         if (node.registeredAt == 0) revert NodeNotFound();
         if (msg.sender != node.owner) revert Unauthorized();
@@ -210,11 +185,10 @@ contract TEERegistry is AccessControl {
      * @param attestationIndex Index of attestation to verify
      * @param valid Whether attestation is valid
      */
-    function verifyAttestation(
-        bytes32 nodeHash,
-        uint256 attestationIndex,
-        bool valid
-    ) external onlyRole(VERIFIER_ROLE) {
+    function verifyAttestation(bytes32 nodeHash, uint256 attestationIndex, bool valid)
+        external
+        onlyRole(VERIFIER_ROLE)
+    {
         TEENode storage node = nodes[nodeHash];
         if (node.registeredAt == 0) revert NodeNotFound();
 
@@ -252,9 +226,7 @@ contract TEERegistry is AccessControl {
      * @return isValid Whether attestation is valid
      * @return expiresAt When attestation expires
      */
-    function isAttestationValid(
-        bytes32 nodeHash
-    ) external view returns (bool isValid, uint256 expiresAt) {
+    function isAttestationValid(bytes32 nodeHash) external view returns (bool isValid, uint256 expiresAt) {
         TEENode storage node = nodes[nodeHash];
         if (node.registeredAt == 0) return (false, 0);
         if (node.status != AttestationStatus.VERIFIED) return (false, 0);
@@ -271,10 +243,7 @@ contract TEERegistry is AccessControl {
      * @param nodeHash Node identifier
      * @param reason Revocation reason
      */
-    function revokeNode(
-        bytes32 nodeHash,
-        string calldata reason
-    ) external onlyRole(ADMIN_ROLE) {
+    function revokeNode(bytes32 nodeHash, string calldata reason) external onlyRole(ADMIN_ROLE) {
         TEENode storage node = nodes[nodeHash];
         if (node.registeredAt == 0) revert NodeNotFound();
 
@@ -290,10 +259,7 @@ contract TEERegistry is AccessControl {
      * @param platform TEE platform
      * @param validitySeconds New validity period in seconds
      */
-    function setAttestationValidity(
-        TEEPlatform platform,
-        uint256 validitySeconds
-    ) external onlyRole(ADMIN_ROLE) {
+    function setAttestationValidity(TEEPlatform platform, uint256 validitySeconds) external onlyRole(ADMIN_ROLE) {
         require(validitySeconds >= MIN_ATTESTATION_VALIDITY, "Validity too short");
         attestationValidity[platform] = validitySeconds;
     }
@@ -320,9 +286,7 @@ contract TEERegistry is AccessControl {
      * @param platform TEE platform to filter by
      * @return hashes Array of matching node hashes
      */
-    function getNodesByPlatform(
-        TEEPlatform platform
-    ) external view returns (bytes32[] memory hashes) {
+    function getNodesByPlatform(TEEPlatform platform) external view returns (bytes32[] memory hashes) {
         uint256 count = 0;
         for (uint256 i = 0; i < nodeList.length; i++) {
             if (nodes[nodeList[i]].platform == platform) {
@@ -389,10 +353,7 @@ contract TEERegistry is AccessControl {
      * @param index Attestation index
      * @return attestation Attestation details
      */
-    function getAttestation(
-        bytes32 nodeHash,
-        uint256 index
-    ) external view returns (Attestation memory attestation) {
+    function getAttestation(bytes32 nodeHash, uint256 index) external view returns (Attestation memory attestation) {
         return attestations[nodeHash][index];
     }
 }

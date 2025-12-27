@@ -29,11 +29,12 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     // ============ Enums ============
 
     enum AgreementType {
-        FULL_TIME,       // Ongoing full-time employment
-        PART_TIME,       // Ongoing part-time work
-        CONTRACT,        // Fixed-term contract
-        BOUNTY_BASED,    // Per-bounty work
-        RETAINER         // Monthly retainer
+        FULL_TIME, // Ongoing full-time employment
+        PART_TIME, // Ongoing part-time work
+        CONTRACT, // Fixed-term contract
+        BOUNTY_BASED, // Per-bounty work
+        RETAINER // Monthly retainer
+
     }
 
     enum AgreementStatus {
@@ -138,10 +139,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     // ============ Events ============
 
     event AgreementCreated(
-        bytes32 indexed agreementId,
-        bytes32 indexed daoId,
-        address indexed contributor,
-        AgreementType agreementType
+        bytes32 indexed agreementId, bytes32 indexed daoId, address indexed contributor, AgreementType agreementType
     );
 
     event AgreementSigned(bytes32 indexed agreementId, uint256 signedAt);
@@ -150,44 +148,19 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     event AgreementCompleted(bytes32 indexed agreementId);
     event AgreementTerminated(bytes32 indexed agreementId, string reason);
 
-    event MilestoneAdded(
-        bytes32 indexed agreementId,
-        bytes32 indexed milestoneId,
-        string title
-    );
+    event MilestoneAdded(bytes32 indexed agreementId, bytes32 indexed milestoneId, string title);
 
-    event MilestoneCompleted(
-        bytes32 indexed agreementId,
-        bytes32 indexed milestoneId
-    );
+    event MilestoneCompleted(bytes32 indexed agreementId, bytes32 indexed milestoneId);
 
-    event PaymentMade(
-        bytes32 indexed agreementId,
-        uint256 amount,
-        address token
-    );
+    event PaymentMade(bytes32 indexed agreementId, uint256 amount, address token);
 
-    event DisputeRaised(
-        bytes32 indexed disputeId,
-        bytes32 indexed agreementId,
-        address indexed initiator
-    );
+    event DisputeRaised(bytes32 indexed disputeId, bytes32 indexed agreementId, address indexed initiator);
 
-    event DisputeCouncilVote(
-        bytes32 indexed disputeId,
-        address indexed voter,
-        bool inFavorOfContributor
-    );
+    event DisputeCouncilVote(bytes32 indexed disputeId, address indexed voter, bool inFavorOfContributor);
 
-    event DisputeEscalated(
-        bytes32 indexed disputeId,
-        bytes32 indexed futarchyCaseId
-    );
+    event DisputeEscalated(bytes32 indexed disputeId, bytes32 indexed futarchyCaseId);
 
-    event DisputeResolved(
-        bytes32 indexed disputeId,
-        bool inFavorOfContributor
-    );
+    event DisputeResolved(bytes32 indexed disputeId, bool inFavorOfContributor);
 
     event BountyLinked(bytes32 indexed agreementId, bytes32 indexed bountyId);
     event PaymentRequestLinked(bytes32 indexed agreementId, bytes32 indexed requestId);
@@ -239,12 +212,9 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _daoRegistry,
-        address _futarchyContract,
-        address _contributorRegistry,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _daoRegistry, address _futarchyContract, address _contributorRegistry, address _owner)
+        Ownable(_owner)
+    {
         daoRegistry = IDAORegistry(_daoRegistry);
         futarchyContract = _futarchyContract;
         contributorRegistry = _contributorRegistry;
@@ -272,9 +242,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
             revert InvalidDuration();
         }
 
-        agreementId = keccak256(
-            abi.encodePacked(daoId, contributor, block.timestamp, _nextNonce++)
-        );
+        agreementId = keccak256(abi.encodePacked(daoId, contributor, block.timestamp, _nextNonce++));
 
         _agreements[agreementId] = Agreement({
             agreementId: agreementId,
@@ -284,10 +252,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
             agreementType: agreementType,
             title: title,
             scopeUri: scopeUri,
-            compensation: TokenAmount({
-                token: paymentToken,
-                amount: compensationAmount
-            }),
+            compensation: TokenAmount({token: paymentToken, amount: compensationAmount}),
             paymentPeriod: paymentPeriod,
             duration: duration,
             startDate: startDate > 0 ? startDate : block.timestamp,
@@ -310,9 +275,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Contributor signs the agreement
      */
-    function signAgreement(
-        bytes32 agreementId
-    ) external agreementExists(agreementId) onlyContributor(agreementId) {
+    function signAgreement(bytes32 agreementId) external agreementExists(agreementId) onlyContributor(agreementId) {
         Agreement storage a = _agreements[agreementId];
         if (a.status != AgreementStatus.PENDING_SIGNATURE) revert InvalidStatus();
 
@@ -335,21 +298,21 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
         Agreement memory a = _agreements[agreementId];
         if (!daoRegistry.isDAOAdmin(a.daoId, msg.sender)) revert NotDAOAdmin();
 
-        milestoneId = keccak256(
-            abi.encodePacked(agreementId, _milestones[agreementId].length, block.timestamp)
-        );
+        milestoneId = keccak256(abi.encodePacked(agreementId, _milestones[agreementId].length, block.timestamp));
 
-        _milestones[agreementId].push(Milestone({
-            milestoneId: milestoneId,
-            agreementId: agreementId,
-            title: title,
-            description: description,
-            dueDate: dueDate,
-            payment: payment,
-            completed: false,
-            completedAt: 0,
-            deliverableUri: ""
-        }));
+        _milestones[agreementId].push(
+            Milestone({
+                milestoneId: milestoneId,
+                agreementId: agreementId,
+                title: title,
+                description: description,
+                dueDate: dueDate,
+                payment: payment,
+                completed: false,
+                completedAt: 0,
+                deliverableUri: ""
+            })
+        );
 
         emit MilestoneAdded(agreementId, milestoneId, title);
     }
@@ -357,11 +320,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Complete a milestone
      */
-    function completeMilestone(
-        bytes32 agreementId,
-        uint256 milestoneIndex,
-        string calldata deliverableUri
-    ) external agreementExists(agreementId) onlyContributor(agreementId) {
+    function completeMilestone(bytes32 agreementId, uint256 milestoneIndex, string calldata deliverableUri)
+        external
+        agreementExists(agreementId)
+        onlyContributor(agreementId)
+    {
         Agreement storage a = _agreements[agreementId];
         if (a.status != AgreementStatus.ACTIVE) revert AgreementNotActive();
 
@@ -379,10 +342,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Approve milestone and release payment
      */
-    function approveMilestone(
-        bytes32 agreementId,
-        uint256 milestoneIndex
-    ) external nonReentrant agreementExists(agreementId) {
+    function approveMilestone(bytes32 agreementId, uint256 milestoneIndex)
+        external
+        nonReentrant
+        agreementExists(agreementId)
+    {
         Agreement storage a = _agreements[agreementId];
         if (!daoRegistry.isDAOAdmin(a.daoId, msg.sender)) revert NotDAOAdmin();
 
@@ -396,11 +360,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
             (bool success,) = a.contributor.call{value: milestone.payment}("");
             if (!success) revert TransferFailed();
         } else {
-            IERC20(a.compensation.token).safeTransferFrom(
-                dao.treasury,
-                a.contributor,
-                milestone.payment
-            );
+            IERC20(a.compensation.token).safeTransferFrom(dao.treasury, a.contributor, milestone.payment);
         }
 
         a.totalPaid += milestone.payment;
@@ -414,9 +374,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Process recurring payment for active agreement
      */
-    function processPayment(
-        bytes32 agreementId
-    ) external nonReentrant agreementExists(agreementId) {
+    function processPayment(bytes32 agreementId) external nonReentrant agreementExists(agreementId) {
         Agreement storage a = _agreements[agreementId];
         if (a.status != AgreementStatus.ACTIVE) revert AgreementNotActive();
         if (a.paymentPeriod == 0) revert PaymentNotDue();
@@ -438,11 +396,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
             (bool success,) = a.contributor.call{value: a.compensation.amount}("");
             if (!success) revert TransferFailed();
         } else {
-            IERC20(a.compensation.token).safeTransferFrom(
-                dao.treasury,
-                a.contributor,
-                a.compensation.amount
-            );
+            IERC20(a.compensation.token).safeTransferFrom(dao.treasury, a.contributor, a.compensation.amount);
         }
 
         a.lastPaymentAt = block.timestamp;
@@ -457,9 +411,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Pause an agreement
      */
-    function pauseAgreement(
-        bytes32 agreementId
-    ) external agreementExists(agreementId) onlyDAOAdmin(_agreements[agreementId].daoId) {
+    function pauseAgreement(bytes32 agreementId)
+        external
+        agreementExists(agreementId)
+        onlyDAOAdmin(_agreements[agreementId].daoId)
+    {
         Agreement storage a = _agreements[agreementId];
         if (a.status != AgreementStatus.ACTIVE) revert InvalidStatus();
 
@@ -470,9 +426,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Resume a paused agreement
      */
-    function resumeAgreement(
-        bytes32 agreementId
-    ) external agreementExists(agreementId) onlyDAOAdmin(_agreements[agreementId].daoId) {
+    function resumeAgreement(bytes32 agreementId)
+        external
+        agreementExists(agreementId)
+        onlyDAOAdmin(_agreements[agreementId].daoId)
+    {
         Agreement storage a = _agreements[agreementId];
         if (a.status != AgreementStatus.PAUSED) revert InvalidStatus();
 
@@ -483,10 +441,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Terminate an agreement
      */
-    function terminateAgreement(
-        bytes32 agreementId,
-        string calldata reason
-    ) external agreementExists(agreementId) onlyDAOAdmin(_agreements[agreementId].daoId) {
+    function terminateAgreement(bytes32 agreementId, string calldata reason)
+        external
+        agreementExists(agreementId)
+        onlyDAOAdmin(_agreements[agreementId].daoId)
+    {
         Agreement storage a = _agreements[agreementId];
         if (a.status == AgreementStatus.COMPLETED || a.status == AgreementStatus.TERMINATED) {
             revert InvalidStatus();
@@ -499,9 +458,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Complete an agreement
      */
-    function completeAgreement(
-        bytes32 agreementId
-    ) external agreementExists(agreementId) onlyDAOAdmin(_agreements[agreementId].daoId) {
+    function completeAgreement(bytes32 agreementId)
+        external
+        agreementExists(agreementId)
+        onlyDAOAdmin(_agreements[agreementId].daoId)
+    {
         Agreement storage a = _agreements[agreementId];
         if (a.status != AgreementStatus.ACTIVE) revert InvalidStatus();
 
@@ -514,10 +475,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Link a bounty to this agreement
      */
-    function linkBounty(
-        bytes32 agreementId,
-        bytes32 bountyId
-    ) external agreementExists(agreementId) onlyDAOAdmin(_agreements[agreementId].daoId) {
+    function linkBounty(bytes32 agreementId, bytes32 bountyId)
+        external
+        agreementExists(agreementId)
+        onlyDAOAdmin(_agreements[agreementId].daoId)
+    {
         _linkedBounties[agreementId].push(bountyId);
         emit BountyLinked(agreementId, bountyId);
     }
@@ -525,10 +487,11 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Link a payment request to this agreement
      */
-    function linkPaymentRequest(
-        bytes32 agreementId,
-        bytes32 requestId
-    ) external agreementExists(agreementId) onlyDAOAdmin(_agreements[agreementId].daoId) {
+    function linkPaymentRequest(bytes32 agreementId, bytes32 requestId)
+        external
+        agreementExists(agreementId)
+        onlyDAOAdmin(_agreements[agreementId].daoId)
+    {
         _linkedPaymentRequests[agreementId].push(requestId);
         emit PaymentRequestLinked(agreementId, requestId);
     }
@@ -538,11 +501,12 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Raise a dispute on an agreement
      */
-    function raiseDispute(
-        bytes32 agreementId,
-        string calldata reason,
-        string calldata evidenceUri
-    ) external agreementExists(agreementId) onlyParty(agreementId) returns (bytes32 disputeId) {
+    function raiseDispute(bytes32 agreementId, string calldata reason, string calldata evidenceUri)
+        external
+        agreementExists(agreementId)
+        onlyParty(agreementId)
+        returns (bytes32 disputeId)
+    {
         Agreement storage a = _agreements[agreementId];
         if (a.status == AgreementStatus.DISPUTED) revert DisputeExists();
 
@@ -572,10 +536,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Council votes on dispute
      */
-    function voteOnDispute(
-        bytes32 disputeId,
-        bool inFavorOfContributor
-    ) external {
+    function voteOnDispute(bytes32 disputeId, bool inFavorOfContributor) external {
         Dispute storage d = _disputes[disputeId];
         if (d.createdAt == 0) revert DisputeNotFound();
         if (d.status != DisputeStatus.COUNCIL_REVIEW) revert InvalidStatus();
@@ -644,10 +605,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Resolve dispute from futarchy (called by futarchy contract)
      */
-    function resolveFutarchyDispute(
-        bytes32 disputeId,
-        bool inFavorOfContributor
-    ) external {
+    function resolveFutarchyDispute(bytes32 disputeId, bool inFavorOfContributor) external {
         if (msg.sender != futarchyContract && msg.sender != owner()) {
             revert NotFutarchyContract();
         }
@@ -749,4 +707,3 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

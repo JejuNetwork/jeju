@@ -85,53 +85,19 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         uint32 targetIterations
     );
 
-    event IterationStarted(
-        bytes32 indexed runId,
-        uint32 iteration,
-        RunState state
-    );
+    event IterationStarted(bytes32 indexed runId, uint32 iteration, RunState state);
 
-    event RolloutsSubmitted(
-        bytes32 indexed runId,
-        uint32 iteration,
-        string manifestCID,
-        uint32 trajectoryCount
-    );
+    event RolloutsSubmitted(bytes32 indexed runId, uint32 iteration, string manifestCID, uint32 trajectoryCount);
 
-    event JudgingCompleted(
-        bytes32 indexed runId,
-        uint32 iteration,
-        string rewardsCID
-    );
+    event JudgingCompleted(bytes32 indexed runId, uint32 iteration, string rewardsCID);
 
-    event TrainingCompleted(
-        bytes32 indexed runId,
-        uint32 iteration,
-        string newPolicyCID,
-        string metricsCID
-    );
+    event TrainingCompleted(bytes32 indexed runId, uint32 iteration, string newPolicyCID, string metricsCID);
 
-    event EvaluationCompleted(
-        bytes32 indexed runId,
-        uint32 iteration,
-        string evalCID,
-        bool passed,
-        uint256 score
-    );
+    event EvaluationCompleted(bytes32 indexed runId, uint32 iteration, string evalCID, bool passed, uint256 score);
 
-    event PolicyPromoted(
-        bytes32 indexed runId,
-        uint32 iteration,
-        string policyCID,
-        uint256 evalScore
-    );
+    event PolicyPromoted(bytes32 indexed runId, uint32 iteration, string policyCID, uint256 evalScore);
 
-    event RunFinished(
-        bytes32 indexed runId,
-        uint32 totalIterations,
-        string bestPolicyCID,
-        uint256 bestEvalScore
-    );
+    event RunFinished(bytes32 indexed runId, uint32 totalIterations, string bestPolicyCID, uint256 bestEvalScore);
 
     error RunAlreadyExists();
     error RunNotFound();
@@ -189,10 +155,7 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         _startIteration(runId);
     }
 
-    function createRunWithConfig(
-        bytes32 runId,
-        RunConfig calldata config
-    ) external {
+    function createRunWithConfig(bytes32 runId, RunConfig calldata config) external {
         if (runs[runId].createdAt != 0) revert RunAlreadyExists();
         if (config.targetIterations == 0) revert InvalidConfig();
 
@@ -213,13 +176,7 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         activeRunIds.push(runId);
         activeRunIndex[runId] = activeRunIds.length;
 
-        emit RunCreated(
-            runId,
-            msg.sender,
-            config.environmentId,
-            config.baseModelCID,
-            config.targetIterations
-        );
+        emit RunCreated(runId, msg.sender, config.environmentId, config.baseModelCID, config.targetIterations);
 
         _startIteration(runId);
     }
@@ -229,11 +186,7 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         authorizedWorkers[runId][worker] = true;
     }
 
-    function submitRollouts(
-        bytes32 runId,
-        string calldata manifestCID,
-        uint32 count
-    )
+    function submitRollouts(bytes32 runId, string calldata manifestCID, uint32 count)
         external
         runExists(runId)
         onlyRunCreatorOrWorker(runId)
@@ -254,10 +207,7 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         emit IterationStarted(runId, iterNum, RunState.Judging);
     }
 
-    function submitJudgingResults(
-        bytes32 runId,
-        string calldata rewardsCID
-    )
+    function submitJudgingResults(bytes32 runId, string calldata rewardsCID)
         external
         runExists(runId)
         onlyRunCreatorOrWorker(runId)
@@ -277,11 +227,7 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         emit IterationStarted(runId, iterNum, RunState.Training);
     }
 
-    function submitTrainingResult(
-        bytes32 runId,
-        string calldata newPolicyCID,
-        string calldata metricsCID
-    )
+    function submitTrainingResult(bytes32 runId, string calldata newPolicyCID, string calldata metricsCID)
         external
         runExists(runId)
         onlyRunCreatorOrWorker(runId)
@@ -301,12 +247,7 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         emit IterationStarted(runId, iterNum, RunState.Evaluating);
     }
 
-    function submitEvaluation(
-        bytes32 runId,
-        string calldata evalCID,
-        bool passed,
-        uint256 score
-    )
+    function submitEvaluation(bytes32 runId, string calldata evalCID, bool passed, uint256 score)
         external
         runExists(runId)
         onlyRunCreatorOrWorker(runId)
@@ -381,19 +322,21 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
         Run storage run = runs[runId];
         run.currentIteration++;
 
-        iterations[runId].push(Iteration({
-            number: run.currentIteration,
-            state: RunState.CollectingRollouts,
-            trajectoryManifestCID: "",
-            trajectoryCount: 0,
-            rewardsManifestCID: "",
-            updatedPolicyCID: "",
-            evalResultsCID: "",
-            evalPassed: false,
-            evalScore: 0,
-            startedAt: uint64(block.timestamp),
-            completedAt: 0
-        }));
+        iterations[runId].push(
+            Iteration({
+                number: run.currentIteration,
+                state: RunState.CollectingRollouts,
+                trajectoryManifestCID: "",
+                trajectoryCount: 0,
+                rewardsManifestCID: "",
+                updatedPolicyCID: "",
+                evalResultsCID: "",
+                evalPassed: false,
+                evalScore: 0,
+                startedAt: uint64(block.timestamp),
+                completedAt: 0
+            })
+        );
 
         emit IterationStarted(runId, run.currentIteration, RunState.CollectingRollouts);
     }
@@ -434,16 +377,10 @@ contract RLAIFCoordinator is Ownable, ReentrancyGuard {
                 delete activeRunIndex[runId];
             }
 
-            emit RunFinished(
-                runId,
-                run.currentIteration,
-                run.bestPolicyCID,
-                run.bestEvalScore
-            );
+            emit RunFinished(runId, run.currentIteration, run.bestPolicyCID, run.bestEvalScore);
         } else {
             run.state = RunState.CollectingRollouts;
             _startIteration(runId);
         }
     }
 }
-

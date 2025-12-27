@@ -8,7 +8,9 @@ import { FarcasterClient } from '../hub/client'
  * Set FARCASTER_HUB_URL environment variable to run these tests.
  */
 
-const HAS_HUB = Boolean(process.env.FARCASTER_HUB_URL || process.env.LIVE_INFRA_AVAILABLE)
+const HAS_HUB = Boolean(
+  process.env.FARCASTER_HUB_URL || process.env.LIVE_INFRA_AVAILABLE,
+)
 
 describe.skipIf(!HAS_HUB)('FarcasterClient (LIVE INTEGRATION)', () => {
   let client: FarcasterClient

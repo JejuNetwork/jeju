@@ -18,7 +18,8 @@ const DWS_ENDPOINT = process.env.DWS_ENDPOINT ?? 'http://localhost:4030'
 const APP_NAME = `test-app-${Date.now()}`
 
 // Skip unless explicitly running E2E tests
-const SKIP_E2E = process.env.RUN_E2E !== 'true' && process.env.DWS_ENDPOINT === undefined
+const SKIP_E2E =
+  process.env.RUN_E2E !== 'true' && process.env.DWS_ENDPOINT === undefined
 
 const account = privateKeyToAccount(TEST_PRIVATE_KEY)
 const otherAccount = privateKeyToAccount(OTHER_PRIVATE_KEY)

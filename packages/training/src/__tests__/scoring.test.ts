@@ -183,7 +183,8 @@ describe('Score aggregation', () => {
 
     let discounted = 0
     for (let i = 0; i < rewards.length; i++) {
-      discounted += rewards[i] * Math.pow(gamma, i)
+      const r = rewards[i]
+      if (r !== undefined) discounted += r * gamma ** i
     }
 
     expect(discounted).toBeGreaterThan(1.8)
@@ -220,7 +221,7 @@ describe('Normalization', () => {
     const scores = [60, 70, 80, 90, 100]
     const mean = scores.reduce((a, b) => a + b, 0) / scores.length
     const variance =
-      scores.reduce((acc, s) => acc + Math.pow(s - mean, 2), 0) / scores.length
+      scores.reduce((acc, s) => acc + (s - mean) ** 2, 0) / scores.length
     const std = Math.sqrt(variance)
 
     const zScores = scores.map((s) => (s - mean) / std)
@@ -270,4 +271,3 @@ describe('Rubric evaluation', () => {
     expect(normalized).toBe(0.8)
   })
 })
-

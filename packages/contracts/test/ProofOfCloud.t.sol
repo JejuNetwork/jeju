@@ -16,7 +16,7 @@ contract ProofOfCloudTest is Test {
     uint256 public signer1Key = 0x1;
     uint256 public signer2Key = 0x2;
     uint256 public signer3Key = 0x3;
-    
+
     address public agentOwner = address(100);
     uint256 public agentId;
 
@@ -63,17 +63,17 @@ contract ProofOfCloudTest is Test {
 
     function test_AddSigner() public {
         address newSigner = address(200);
-        
+
         vm.prank(owner);
         validator.addSigner(newSigner);
-        
+
         assertTrue(validator.isSigner(newSigner));
         assertEq(validator.getSigners().length, 4);
     }
 
     function test_AddSigner_RevertNotOwner() public {
         address newSigner = address(200);
-        
+
         vm.prank(signer1);
         vm.expectRevert();
         validator.addSigner(newSigner);
@@ -88,7 +88,7 @@ contract ProofOfCloudTest is Test {
     function test_RemoveSigner() public {
         vm.prank(owner);
         validator.removeSigner(signer3);
-        
+
         assertFalse(validator.isSigner(signer3));
         assertEq(validator.getSigners().length, 2);
     }
@@ -107,7 +107,7 @@ contract ProofOfCloudTest is Test {
     function test_SetThreshold() public {
         vm.prank(owner);
         validator.setThreshold(3);
-        
+
         assertEq(validator.threshold(), 3);
     }
 
@@ -123,16 +123,16 @@ contract ProofOfCloudTest is Test {
 
     function test_RequestVerification() public {
         string memory requestUri = "ipfs://QmTest";
-        
+
         vm.prank(agentOwner);
         bytes32 requestHash = validator.requestVerification(agentId, hardwareIdHash, requestUri);
-        
+
         assertNotEq(requestHash, bytes32(0));
     }
 
     function test_RequestVerification_RevertNotOwner() public {
         string memory requestUri = "ipfs://QmTest";
-        
+
         vm.prank(address(999)); // Not the agent owner
         vm.expectRevert(ProofOfCloudValidator.InvalidSigner.selector);
         validator.requestVerification(agentId, hardwareIdHash, requestUri);
@@ -167,16 +167,7 @@ contract ProofOfCloudTest is Test {
         );
 
         vm.prank(signer1);
-        validator.submitVerification(
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            sig1
-        );
+        validator.submitVerification(requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, sig1);
 
         // Check pending verification
         (uint256 pendingAgentId, uint256 sigCount, bool executed) = validator.getPendingVerification(requestHash);
@@ -191,61 +182,25 @@ contract ProofOfCloudTest is Test {
         bytes32 requestHash = validator.requestVerification(agentId, hardwareIdHash, "ipfs://QmTest");
 
         // Submit from signer1
-        bytes memory sig1 = _signVerification(
-            signer1Key,
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            0
-        );
+        bytes memory sig1 =
+            _signVerification(signer1Key, requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, 0);
 
         vm.prank(signer1);
-        validator.submitVerification(
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            sig1
-        );
+        validator.submitVerification(requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, sig1);
 
         // Submit from signer2 - should execute
-        bytes memory sig2 = _signVerification(
-            signer2Key,
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            0
-        );
+        bytes memory sig2 =
+            _signVerification(signer2Key, requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, 0);
 
         vm.prank(signer2);
-        validator.submitVerification(
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            sig2
-        );
+        validator.submitVerification(requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, sig2);
 
         // Check execution
-        (, , bool executed) = validator.getPendingVerification(requestHash);
+        (,, bool executed) = validator.getPendingVerification(requestHash);
         assertTrue(executed);
 
         // Check agent status
-        (bool verified, uint8 level, bytes32 hwHash, ) = validator.getAgentStatus(agentId);
+        (bool verified, uint8 level, bytes32 hwHash,) = validator.getAgentStatus(agentId);
         assertTrue(verified);
         assertEq(level, 2);
         assertEq(hwHash, hardwareIdHash);
@@ -255,29 +210,11 @@ contract ProofOfCloudTest is Test {
         vm.prank(agentOwner);
         bytes32 requestHash = validator.requestVerification(agentId, hardwareIdHash, "ipfs://QmTest");
 
-        bytes memory sig1 = _signVerification(
-            signer1Key,
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            0
-        );
+        bytes memory sig1 =
+            _signVerification(signer1Key, requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, 0);
 
         vm.prank(signer1);
-        validator.submitVerification(
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            sig1
-        );
+        validator.submitVerification(requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, sig1);
 
         // Try to submit again with same signer (new nonce)
         bytes memory sig1Again = _signVerification(
@@ -295,14 +232,7 @@ contract ProofOfCloudTest is Test {
         vm.prank(signer1);
         vm.expectRevert(ProofOfCloudValidator.SignatureAlreadySubmitted.selector);
         validator.submitVerification(
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            sig1Again
+            requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, sig1Again
         );
     }
 
@@ -319,7 +249,7 @@ contract ProofOfCloudTest is Test {
         validator.revokeHardware(hardwareIdHash, "Security breach detected");
 
         // Check status
-        (bool verified, , , ) = validator.getAgentStatus(agentId);
+        (bool verified,,,) = validator.getAgentStatus(agentId);
         assertFalse(verified);
 
         ProofOfCloudValidator.HardwareRecord memory record = validator.getHardwareRecord(hardwareIdHash);
@@ -407,53 +337,17 @@ contract ProofOfCloudTest is Test {
         vm.prank(agentOwner);
         bytes32 requestHash = validator.requestVerification(agentId, hardwareIdHash, "ipfs://QmTest");
 
-        bytes memory sig1 = _signVerification(
-            signer1Key,
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            0
-        );
+        bytes memory sig1 =
+            _signVerification(signer1Key, requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, 0);
 
         vm.prank(signer1);
-        validator.submitVerification(
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            sig1
-        );
+        validator.submitVerification(requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, sig1);
 
-        bytes memory sig2 = _signVerification(
-            signer2Key,
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            0
-        );
+        bytes memory sig2 =
+            _signVerification(signer2Key, requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, 0);
 
         vm.prank(signer2);
-        validator.submitVerification(
-            requestHash,
-            agentId,
-            hardwareIdHash,
-            2,
-            "aws",
-            "us-east-1",
-            evidenceHash,
-            sig2
-        );
+        validator.submitVerification(requestHash, agentId, hardwareIdHash, 2, "aws", "us-east-1", evidenceHash, sig2);
     }
 
     function _signVerification(
@@ -482,12 +376,9 @@ contract ProofOfCloudTest is Test {
             )
         );
 
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerKey, ethSignedHash);
         return abi.encodePacked(r, s, v);
     }
 }
-

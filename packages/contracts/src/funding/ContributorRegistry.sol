@@ -127,57 +127,31 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event ContributorRegistered(
-        bytes32 indexed contributorId,
-        address indexed wallet,
-        ContributorType contributorType
-    );
+    event ContributorRegistered(bytes32 indexed contributorId, address indexed wallet, ContributorType contributorType);
 
     event ContributorUpdated(bytes32 indexed contributorId, string profileUri);
     event ContributorDeactivated(bytes32 indexed contributorId);
     event ContributorReactivated(bytes32 indexed contributorId);
 
-    event SocialLinkAdded(
-        bytes32 indexed contributorId,
-        bytes32 indexed platform,
-        string handle
-    );
+    event SocialLinkAdded(bytes32 indexed contributorId, bytes32 indexed platform, string handle);
 
-    event SocialLinkVerified(
-        bytes32 indexed contributorId,
-        bytes32 indexed platform
-    );
+    event SocialLinkVerified(bytes32 indexed contributorId, bytes32 indexed platform);
 
-    event SocialLinkRevoked(
-        bytes32 indexed contributorId,
-        bytes32 indexed platform
-    );
+    event SocialLinkRevoked(bytes32 indexed contributorId, bytes32 indexed platform);
 
-    event RepositoryClaimed(
-        bytes32 indexed claimId,
-        bytes32 indexed contributorId,
-        string owner,
-        string repo
-    );
+    event RepositoryClaimed(bytes32 indexed claimId, bytes32 indexed contributorId, string owner, string repo);
 
     event RepositoryVerified(bytes32 indexed claimId);
     event RepositoryClaimRevoked(bytes32 indexed claimId);
 
     event DependencyClaimed(
-        bytes32 indexed claimId,
-        bytes32 indexed contributorId,
-        string packageName,
-        string registryType
+        bytes32 indexed claimId, bytes32 indexed contributorId, string packageName, string registryType
     );
 
     event DependencyVerified(bytes32 indexed claimId);
     event DependencyClaimRevoked(bytes32 indexed claimId);
 
-    event EarningsRecorded(
-        bytes32 indexed contributorId,
-        bytes32 indexed daoId,
-        uint256 amount
-    );
+    event EarningsRecorded(bytes32 indexed contributorId, bytes32 indexed daoId, uint256 amount);
 
     event AgentLinked(bytes32 indexed contributorId, uint256 indexed agentId);
 
@@ -201,12 +175,13 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     error InvalidPaginationParams();
 
     // ============ DDoS Protection Constants ============
-    
+
     uint256 public constant MAX_SOCIAL_LINKS = 20;
     uint256 public constant MAX_REPO_CLAIMS = 100;
     uint256 public constant MAX_DEP_CLAIMS = 100;
     uint256 public constant MAX_BATCH_SIZE = 50;
     uint256 public constant MAX_PAGE_SIZE = 100;
+
     error AgentAlreadyLinked();
     error NotAuthorizedRecorder();
 
@@ -249,11 +224,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address _verifier,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _identityRegistry, address _verifier, address _owner) Ownable(_owner) {
         identityRegistry = IIdentityRegistry(_identityRegistry);
         verifier = _verifier;
     }
@@ -266,17 +237,17 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param profileUri IPFS URI with profile metadata
      * @return contributorId The new contributor ID
      */
-    function register(
-        ContributorType contributorType,
-        string calldata profileUri
-    ) external whenNotPaused nonReentrant returns (bytes32 contributorId) {
+    function register(ContributorType contributorType, string calldata profileUri)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (bytes32 contributorId)
+    {
         if (msg.sender == address(0)) revert InvalidWallet();
         if (_walletToContributor[msg.sender] != bytes32(0)) revert AlreadyRegistered();
         if (bytes(profileUri).length == 0) revert InvalidProfile();
 
-        contributorId = keccak256(
-            abi.encodePacked(msg.sender, block.timestamp, _nextContributorNonce++)
-        );
+        contributorId = keccak256(abi.encodePacked(msg.sender, block.timestamp, _nextContributorNonce++));
 
         _contributors[contributorId] = Contributor({
             contributorId: contributorId,
@@ -301,10 +272,11 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param contributorId Contributor to link
      * @param agentId ERC-8004 agent ID
      */
-    function linkAgent(
-        bytes32 contributorId,
-        uint256 agentId
-    ) external onlyContributorOwner(contributorId) contributorActive(contributorId) {
+    function linkAgent(bytes32 contributorId, uint256 agentId)
+        external
+        onlyContributorOwner(contributorId)
+        contributorActive(contributorId)
+    {
         if (_agentToContributor[agentId] != bytes32(0)) revert AgentAlreadyLinked();
 
         // Verify caller owns the agent
@@ -320,10 +292,10 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Update contributor profile
      */
-    function updateProfile(
-        bytes32 contributorId,
-        string calldata profileUri
-    ) external onlyContributorOwner(contributorId) {
+    function updateProfile(bytes32 contributorId, string calldata profileUri)
+        external
+        onlyContributorOwner(contributorId)
+    {
         if (bytes(profileUri).length == 0) revert InvalidProfile();
 
         _contributors[contributorId].profileUri = profileUri;
@@ -335,9 +307,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Deactivate contributor
      */
-    function deactivate(
-        bytes32 contributorId
-    ) external onlyContributorOwner(contributorId) {
+    function deactivate(bytes32 contributorId) external onlyContributorOwner(contributorId) {
         _contributors[contributorId].active = false;
         emit ContributorDeactivated(contributorId);
     }
@@ -345,9 +315,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Reactivate contributor
      */
-    function reactivate(
-        bytes32 contributorId
-    ) external onlyContributorOwner(contributorId) {
+    function reactivate(bytes32 contributorId) external onlyContributorOwner(contributorId) {
         _contributors[contributorId].active = true;
         _contributors[contributorId].lastActiveAt = block.timestamp;
         emit ContributorReactivated(contributorId);
@@ -358,11 +326,11 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Add a social link (pending verification)
      */
-    function addSocialLink(
-        bytes32 contributorId,
-        bytes32 platform,
-        string calldata handle
-    ) external onlyContributorOwner(contributorId) contributorActive(contributorId) {
+    function addSocialLink(bytes32 contributorId, bytes32 platform, string calldata handle)
+        external
+        onlyContributorOwner(contributorId)
+        contributorActive(contributorId)
+    {
         SocialLink[] storage links = _socialLinks[contributorId];
         uint256 existingIndex = _socialLinkIndex[contributorId][platform];
 
@@ -370,14 +338,16 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
             revert SocialLinkExists();
         }
 
-        links.push(SocialLink({
-            platform: platform,
-            handle: handle,
-            proofHash: bytes32(0),
-            status: VerificationStatus.PENDING,
-            verifiedAt: 0,
-            expiresAt: 0
-        }));
+        links.push(
+            SocialLink({
+                platform: platform,
+                handle: handle,
+                proofHash: bytes32(0),
+                status: VerificationStatus.PENDING,
+                verifiedAt: 0,
+                expiresAt: 0
+            })
+        );
 
         _socialLinkIndex[contributorId][platform] = links.length;
 
@@ -387,11 +357,11 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Verify a social link (called by OAuth3 verifier)
      */
-    function verifySocialLink(
-        bytes32 contributorId,
-        bytes32 platform,
-        bytes32 proofHash
-    ) external onlyVerifier contributorExists(contributorId) {
+    function verifySocialLink(bytes32 contributorId, bytes32 platform, bytes32 proofHash)
+        external
+        onlyVerifier
+        contributorExists(contributorId)
+    {
         uint256 index = _socialLinkIndex[contributorId][platform];
         if (index == 0) revert SocialLinkNotFound();
 
@@ -409,10 +379,11 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Revoke a social link
      */
-    function revokeSocialLink(
-        bytes32 contributorId,
-        bytes32 platform
-    ) external onlyVerifier contributorExists(contributorId) {
+    function revokeSocialLink(bytes32 contributorId, bytes32 platform)
+        external
+        onlyVerifier
+        contributorExists(contributorId)
+    {
         uint256 index = _socialLinkIndex[contributorId][platform];
         if (index == 0) revert SocialLinkNotFound();
 
@@ -426,11 +397,12 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Claim ownership of a repository
      */
-    function claimRepository(
-        bytes32 contributorId,
-        string calldata repoOwner,
-        string calldata repo
-    ) external onlyContributorOwner(contributorId) contributorActive(contributorId) returns (bytes32 claimId) {
+    function claimRepository(bytes32 contributorId, string calldata repoOwner, string calldata repo)
+        external
+        onlyContributorOwner(contributorId)
+        contributorActive(contributorId)
+        returns (bytes32 claimId)
+    {
         bytes32 repoHash = keccak256(abi.encodePacked(repoOwner, "/", repo));
         if (_repoToContributor[repoHash] != bytes32(0)) revert ClaimAlreadyExists();
 
@@ -455,10 +427,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Verify a repository claim (called by OAuth3 verifier)
      */
-    function verifyRepository(
-        bytes32 claimId,
-        bytes32 proofHash
-    ) external onlyVerifier {
+    function verifyRepository(bytes32 claimId, bytes32 proofHash) external onlyVerifier {
         RepositoryClaim storage claim = _repoClaims[claimId];
         if (claim.claimedAt == 0) revert ClaimNotFound();
         if (claim.status == VerificationStatus.VERIFIED) revert AlreadyVerified();
@@ -494,11 +463,12 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Claim maintainership of a package dependency
      */
-    function claimDependency(
-        bytes32 contributorId,
-        string calldata packageName,
-        string calldata registryType
-    ) external onlyContributorOwner(contributorId) contributorActive(contributorId) returns (bytes32 claimId) {
+    function claimDependency(bytes32 contributorId, string calldata packageName, string calldata registryType)
+        external
+        onlyContributorOwner(contributorId)
+        contributorActive(contributorId)
+        returns (bytes32 claimId)
+    {
         bytes32 depHash = keccak256(abi.encodePacked(registryType, ":", packageName));
         if (_depToContributor[depHash] != bytes32(0)) revert ClaimAlreadyExists();
 
@@ -523,10 +493,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Verify a dependency claim
      */
-    function verifyDependency(
-        bytes32 claimId,
-        bytes32 proofHash
-    ) external onlyVerifier {
+    function verifyDependency(bytes32 claimId, bytes32 proofHash) external onlyVerifier {
         DependencyClaim storage claim = _depClaims[claimId];
         if (claim.claimedAt == 0) revert ClaimNotFound();
         if (claim.status == VerificationStatus.VERIFIED) revert AlreadyVerified();
@@ -566,12 +533,10 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount earned
      * @param isBounty Whether this is from a bounty (vs payment request)
      */
-    function recordEarnings(
-        bytes32 contributorId,
-        bytes32 daoId,
-        uint256 amount,
-        bool isBounty
-    ) external onlyAuthorizedRecorder {
+    function recordEarnings(bytes32 contributorId, bytes32 daoId, uint256 amount, bool isBounty)
+        external
+        onlyAuthorizedRecorder
+    {
         Contributor storage contributor = _contributors[contributorId];
         if (contributor.registeredAt == 0) revert NotRegistered();
 
@@ -620,22 +585,22 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
      * @return claims Array of claims
      * @return total Total number of claims
      */
-    function getRepositoryClaimsPaginated(
-        bytes32 contributorId,
-        uint256 offset,
-        uint256 limit
-    ) external view returns (RepositoryClaim[] memory claims, uint256 total) {
+    function getRepositoryClaimsPaginated(bytes32 contributorId, uint256 offset, uint256 limit)
+        external
+        view
+        returns (RepositoryClaim[] memory claims, uint256 total)
+    {
         bytes32[] storage claimIds = _contributorRepoClaims[contributorId];
         total = claimIds.length;
-        
+
         if (offset >= total) {
             return (new RepositoryClaim[](0), total);
         }
-        
+
         uint256 remaining = total - offset;
         uint256 count = remaining < limit ? remaining : limit;
         if (count > MAX_PAGE_SIZE) count = MAX_PAGE_SIZE;
-        
+
         claims = new RepositoryClaim[](count);
         for (uint256 i = 0; i < count; i++) {
             claims[i] = _repoClaims[claimIds[offset + i]];
@@ -648,7 +613,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     function getRepositoryClaims(bytes32 contributorId) external view returns (RepositoryClaim[] memory) {
         bytes32[] storage claimIds = _contributorRepoClaims[contributorId];
         uint256 count = claimIds.length > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : claimIds.length;
-        
+
         RepositoryClaim[] memory claims = new RepositoryClaim[](count);
         for (uint256 i = 0; i < count; i++) {
             claims[i] = _repoClaims[claimIds[i]];
@@ -664,22 +629,22 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
      * @return claims Array of claims
      * @return total Total number of claims
      */
-    function getDependencyClaimsPaginated(
-        bytes32 contributorId,
-        uint256 offset,
-        uint256 limit
-    ) external view returns (DependencyClaim[] memory claims, uint256 total) {
+    function getDependencyClaimsPaginated(bytes32 contributorId, uint256 offset, uint256 limit)
+        external
+        view
+        returns (DependencyClaim[] memory claims, uint256 total)
+    {
         bytes32[] storage claimIds = _contributorDepClaims[contributorId];
         total = claimIds.length;
-        
+
         if (offset >= total) {
             return (new DependencyClaim[](0), total);
         }
-        
+
         uint256 remaining = total - offset;
         uint256 count = remaining < limit ? remaining : limit;
         if (count > MAX_PAGE_SIZE) count = MAX_PAGE_SIZE;
-        
+
         claims = new DependencyClaim[](count);
         for (uint256 i = 0; i < count; i++) {
             claims[i] = _depClaims[claimIds[offset + i]];
@@ -692,7 +657,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     function getDependencyClaims(bytes32 contributorId) external view returns (DependencyClaim[] memory) {
         bytes32[] storage claimIds = _contributorDepClaims[contributorId];
         uint256 count = claimIds.length > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : claimIds.length;
-        
+
         DependencyClaim[] memory claims = new DependencyClaim[](count);
         for (uint256 i = 0; i < count; i++) {
             claims[i] = _depClaims[claimIds[i]];
@@ -700,25 +665,20 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
         return claims;
     }
 
-    function getDAOContribution(
-        bytes32 contributorId,
-        bytes32 daoId
-    ) external view returns (DAOContribution memory) {
+    function getDAOContribution(bytes32 contributorId, bytes32 daoId) external view returns (DAOContribution memory) {
         return _daoContributions[contributorId][daoId];
     }
 
-    function getContributorForRepo(
-        string calldata repoOwner,
-        string calldata repo
-    ) external view returns (bytes32) {
+    function getContributorForRepo(string calldata repoOwner, string calldata repo) external view returns (bytes32) {
         bytes32 repoHash = keccak256(abi.encodePacked(repoOwner, "/", repo));
         return _repoToContributor[repoHash];
     }
 
-    function getContributorForDependency(
-        string calldata packageName,
-        string calldata registryType
-    ) external view returns (bytes32) {
+    function getContributorForDependency(string calldata packageName, string calldata registryType)
+        external
+        view
+        returns (bytes32)
+    {
         bytes32 depHash = keccak256(abi.encodePacked(registryType, ":", packageName));
         return _depToContributor[depHash];
     }
@@ -730,20 +690,21 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
      * @return ids Array of contributor IDs
      * @return total Total number of contributors
      */
-    function getContributorsPaginated(
-        uint256 offset,
-        uint256 limit
-    ) external view returns (bytes32[] memory ids, uint256 total) {
+    function getContributorsPaginated(uint256 offset, uint256 limit)
+        external
+        view
+        returns (bytes32[] memory ids, uint256 total)
+    {
         total = _allContributorIds.length;
-        
+
         if (offset >= total) {
             return (new bytes32[](0), total);
         }
-        
+
         uint256 remaining = total - offset;
         uint256 count = remaining < limit ? remaining : limit;
         if (count > MAX_PAGE_SIZE) count = MAX_PAGE_SIZE;
-        
+
         ids = new bytes32[](count);
         for (uint256 i = 0; i < count; i++) {
             ids[i] = _allContributorIds[offset + i];
@@ -770,8 +731,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 index = _socialLinkIndex[contributorId][PLATFORM_GITHUB];
         if (index == 0) return false;
         SocialLink memory link = _socialLinks[contributorId][index - 1];
-        return link.status == VerificationStatus.VERIFIED &&
-               (link.expiresAt == 0 || link.expiresAt > block.timestamp);
+        return link.status == VerificationStatus.VERIFIED && (link.expiresAt == 0 || link.expiresAt > block.timestamp);
     }
 
     // ============ Admin Functions ============
@@ -800,4 +760,3 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

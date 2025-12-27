@@ -78,7 +78,6 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event AgentRegistrationRequirementUpdated(bool required);
 
-
     error ServiceNotFound(string serviceName);
     error ServiceAlreadyExists(string serviceName);
     error ServiceNotActive(string serviceName);

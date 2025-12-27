@@ -40,12 +40,7 @@ abstract contract FederationBase is ReentrancyGuard {
     error NotActive();
     error InvalidSignature();
 
-    constructor(
-        uint256 _localChainId,
-        address _oracle,
-        address _governance,
-        address _networkRegistry
-    ) {
+    constructor(uint256 _localChainId, address _oracle, address _governance, address _networkRegistry) {
         LOCAL_CHAIN_ID = _localChainId;
         oracle = _oracle;
         governance = _governance;
@@ -85,38 +80,24 @@ abstract contract FederationBase is ReentrancyGuard {
         networkRegistry = _networkRegistry;
     }
 
-    function _verifySignature(
-        bytes32 messageHash,
-        bytes calldata signature,
-        address expectedSigner
-    ) internal pure returns (bool) {
+    function _verifySignature(bytes32 messageHash, bytes calldata signature, address expectedSigner)
+        internal
+        pure
+        returns (bool)
+    {
         address signer = messageHash.toEthSignedMessageHash().recover(signature);
         return signer == expectedSigner;
     }
 
-    function _computeId(
-        string memory prefix,
-        uint256 chainId,
-        bytes32 identifier
-    ) internal pure returns (bytes32) {
+    function _computeId(string memory prefix, uint256 chainId, bytes32 identifier) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, chainId, identifier));
     }
 
-    function _computeId(
-        string memory prefix,
-        uint256 chainId,
-        address identifier
-    ) internal pure returns (bytes32) {
+    function _computeId(string memory prefix, uint256 chainId, address identifier) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, chainId, identifier));
     }
 
-    function _computeId(
-        string memory prefix,
-        uint256 chainId,
-        uint256 identifier
-    ) internal pure returns (bytes32) {
+    function _computeId(string memory prefix, uint256 chainId, uint256 identifier) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, chainId, identifier));
     }
 }
-
-

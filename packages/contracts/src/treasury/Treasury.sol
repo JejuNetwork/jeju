@@ -47,16 +47,16 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     // =========================================================================
     // Uses circular buffer to track withdrawals in hourly buckets
     // Prevents the "midnight reset attack" where attacker withdraws at 23:59 + 00:01
-    
+
     uint256 public constant WITHDRAWAL_WINDOW = 24 hours;
     uint256 public constant BUCKET_DURATION = 1 hours;
     uint256 public constant NUM_BUCKETS = 24;
-    
+
     struct WithdrawalBucket {
         uint256 amount;
         uint256 timestamp; // Bucket start timestamp
     }
-    
+
     // Circular buffer of hourly withdrawal buckets
     WithdrawalBucket[24] public withdrawalBuckets;
     uint256 public currentBucketIndex;
@@ -94,6 +94,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         uint256 approvals;
         bool executed;
     }
+
     mapping(uint256 => KeyRotationRequest) public keyRotationRequests;
     mapping(uint256 => mapping(address => bool)) public rotationApprovals;
     uint256 public nextRotationRequestId;
@@ -145,7 +146,13 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     // Events - Profit Distribution
     event ProfitDistributionEnabled(address protocol, address stakers, address insurance);
     event ProfitDeposited(address indexed depositor, address indexed token, uint256 amount);
-    event ProfitDistributed(address indexed token, uint256 protocolAmount, uint256 stakersAmount, uint256 insuranceAmount, uint256 operatorAmount);
+    event ProfitDistributed(
+        address indexed token,
+        uint256 protocolAmount,
+        uint256 stakersAmount,
+        uint256 insuranceAmount,
+        uint256 operatorAmount
+    );
     event OperatorWithdrawal(address indexed operator, address indexed token, uint256 amount);
     event DistributionConfigUpdated(uint16 protocolBps, uint16 stakersBps, uint16 insuranceBps, uint16 operatorBps);
     event RecipientUpdated(string recipientType, address newAddress);
@@ -252,12 +259,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         insuranceRecipient = _insuranceRecipient != address(0) ? _insuranceRecipient : _protocolRecipient;
 
         // Default: 50% protocol, 30% stakers, 15% insurance, 5% operators
-        distribution = DistributionConfig({
-            protocolBps: 5000,
-            stakersBps: 3000,
-            insuranceBps: 1500,
-            operatorBps: 500
-        });
+        distribution = DistributionConfig({protocolBps: 5000, stakersBps: 3000, insuranceBps: 1500, operatorBps: 500});
 
         emit ProfitDistributionEnabled(_protocolRecipient, _stakersRecipient, _insuranceRecipient);
     }
@@ -287,12 +289,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         emit FundsDeposited(msg.sender, token, amount);
     }
 
-    function withdrawETH(uint256 amount, address to)
-        external
-        onlyRole(OPERATOR_ROLE)
-        nonReentrant
-        whenNotPaused
-    {
+    function withdrawETH(uint256 amount, address to) external onlyRole(OPERATOR_ROLE) nonReentrant whenNotPaused {
         if (amount == 0) revert ZeroAmount();
         if (to == address(0)) revert ZeroAddress();
         if (address(this).balance < amount) {
@@ -330,30 +327,25 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @notice Enforce rolling 24-hour withdrawal limit
      * @dev SECURITY: Uses rolling window instead of midnight reset to prevent gaming
-     * 
-     * Attack prevented: Without this, attacker could withdraw limit at 23:59 
+     *
+     * Attack prevented: Without this, attacker could withdraw limit at 23:59
      * then again at 00:01 for 2x the limit. Rolling window ensures 24hr delay.
      */
     function _enforceWithdrawalLimit(uint256 amount) internal {
         // Calculate current bucket
         uint256 currentBucketStart = (block.timestamp / BUCKET_DURATION) * BUCKET_DURATION;
         uint256 bucketIndex = (currentBucketStart / BUCKET_DURATION) % NUM_BUCKETS;
-        
+
         // If bucket is stale (>24h old), reset it
         if (withdrawalBuckets[bucketIndex].timestamp != currentBucketStart) {
-            withdrawalBuckets[bucketIndex] = WithdrawalBucket({
-                amount: 0,
-                timestamp: currentBucketStart
-            });
+            withdrawalBuckets[bucketIndex] = WithdrawalBucket({amount: 0, timestamp: currentBucketStart});
         }
-        
+
         // Sum withdrawals from all active buckets (last 24 hours)
         uint256 rollingTotal = 0;
         // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
-        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
-            ? block.timestamp - WITHDRAWAL_WINDOW 
-            : 0;
-        
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW ? block.timestamp - WITHDRAWAL_WINDOW : 0;
+
         for (uint256 i = 0; i < NUM_BUCKETS; i++) {
             WithdrawalBucket storage bucket = withdrawalBuckets[i];
             // Include bucket if it's within the rolling window
@@ -362,11 +354,9 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
                 rollingTotal += bucket.amount;
             }
         }
-        
+
         // Check if withdrawal would exceed limit
-        uint256 remaining = dailyWithdrawalLimit > rollingTotal
-            ? dailyWithdrawalLimit - rollingTotal
-            : 0;
+        uint256 remaining = dailyWithdrawalLimit > rollingTotal ? dailyWithdrawalLimit - rollingTotal : 0;
 
         if (amount > remaining) {
             revert ExceedsDailyLimit(dailyWithdrawalLimit, amount, remaining);
@@ -383,19 +373,15 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     function getRemainingWithdrawalAllowance() external view returns (uint256 remaining) {
         uint256 rollingTotal = 0;
         // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
-        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
-            ? block.timestamp - WITHDRAWAL_WINDOW 
-            : 0;
-        
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW ? block.timestamp - WITHDRAWAL_WINDOW : 0;
+
         for (uint256 i = 0; i < NUM_BUCKETS; i++) {
             if (withdrawalBuckets[i].timestamp >= windowStart && withdrawalBuckets[i].amount > 0) {
                 rollingTotal += withdrawalBuckets[i].amount;
             }
         }
-        
-        remaining = dailyWithdrawalLimit > rollingTotal
-            ? dailyWithdrawalLimit - rollingTotal
-            : 0;
+
+        remaining = dailyWithdrawalLimit > rollingTotal ? dailyWithdrawalLimit - rollingTotal : 0;
     }
 
     /**
@@ -403,10 +389,8 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
      */
     function getWithdrawnInWindow() external view returns (uint256 total) {
         // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
-        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
-            ? block.timestamp - WITHDRAWAL_WINDOW 
-            : 0;
-        
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW ? block.timestamp - WITHDRAWAL_WINDOW : 0;
+
         for (uint256 i = 0; i < NUM_BUCKETS; i++) {
             if (withdrawalBuckets[i].timestamp >= windowStart && withdrawalBuckets[i].amount > 0) {
                 total += withdrawalBuckets[i].amount;
@@ -492,11 +476,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         return block.timestamp >= lastHeartbeat + heartbeatTimeout + takeoverCooldown;
     }
 
-    function updateState(string calldata _cid, bytes32 _hash)
-        external
-        onlyTEEOperator
-        whenNotPaused
-    {
+    function updateState(string calldata _cid, bytes32 _hash) external onlyTEEOperator whenNotPaused {
         currentStateCID = _cid;
         currentStateHash = _hash;
         stateVersion++;
@@ -510,10 +490,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         emit HeartbeatReceived(msg.sender, block.timestamp);
     }
 
-    function recordTraining(string calldata _datasetCID, bytes32 _modelHash)
-        external
-        onlyTEEOperator
-    {
+    function recordTraining(string calldata _datasetCID, bytes32 _modelHash) external onlyTEEOperator {
         trainingEpoch++;
         lastModelHash = _modelHash;
         emit TrainingRecorded(trainingEpoch, _datasetCID, _modelHash);
@@ -522,12 +499,8 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     function requestKeyRotation() external onlyRole(COUNCIL_ROLE) requireTEE returns (uint256) {
         uint256 requestId = nextRotationRequestId++;
 
-        keyRotationRequests[requestId] = KeyRotationRequest({
-            initiator: msg.sender,
-            timestamp: block.timestamp,
-            approvals: 1,
-            executed: false
-        });
+        keyRotationRequests[requestId] =
+            KeyRotationRequest({initiator: msg.sender, timestamp: block.timestamp, approvals: 1, executed: false});
         rotationApprovals[requestId][msg.sender] = true;
 
         emit KeyRotationRequested(requestId, msg.sender);
@@ -604,9 +577,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function distributeProfits(address token) external nonReentrant whenNotPaused requireProfitDistribution {
-        uint256 balance = token == address(0)
-            ? address(this).balance
-            : IERC20(token).balanceOf(address(this));
+        uint256 balance = token == address(0) ? address(this).balance : IERC20(token).balanceOf(address(this));
 
         if (balance == 0) revert NothingToDistribute();
 
@@ -733,19 +704,31 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         emit DistributionConfigUpdated(protocolBps, stakersBps, insuranceBps, operatorBps);
     }
 
-    function setProtocolRecipient(address newRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) requireProfitDistribution {
+    function setProtocolRecipient(address newRecipient)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        requireProfitDistribution
+    {
         if (newRecipient == address(0)) revert ZeroAddress();
         protocolRecipient = newRecipient;
         emit RecipientUpdated("protocol", newRecipient);
     }
 
-    function setStakersRecipient(address newRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) requireProfitDistribution {
+    function setStakersRecipient(address newRecipient)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        requireProfitDistribution
+    {
         if (newRecipient == address(0)) revert ZeroAddress();
         stakersRecipient = newRecipient;
         emit RecipientUpdated("stakers", newRecipient);
     }
 
-    function setInsuranceRecipient(address newRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) requireProfitDistribution {
+    function setInsuranceRecipient(address newRecipient)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        requireProfitDistribution
+    {
         if (newRecipient == address(0)) revert ZeroAddress();
         insuranceRecipient = newRecipient;
         emit RecipientUpdated("insurance", newRecipient);
@@ -771,26 +754,18 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         return IERC20(token).balanceOf(address(this));
     }
 
-    function getWithdrawalInfo()
-        external
-        view
-        returns (uint256 limit, uint256 usedInWindow, uint256 remaining)
-    {
+    function getWithdrawalInfo() external view returns (uint256 limit, uint256 usedInWindow, uint256 remaining) {
         // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
-        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
-            ? block.timestamp - WITHDRAWAL_WINDOW 
-            : 0;
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW ? block.timestamp - WITHDRAWAL_WINDOW : 0;
         uint256 rollingTotal = 0;
-        
+
         for (uint256 i = 0; i < NUM_BUCKETS; i++) {
             if (withdrawalBuckets[i].timestamp >= windowStart && withdrawalBuckets[i].amount > 0) {
                 rollingTotal += withdrawalBuckets[i].amount;
             }
         }
-        
-        uint256 remainingAmount = dailyWithdrawalLimit > rollingTotal
-            ? dailyWithdrawalLimit - rollingTotal
-            : 0;
+
+        uint256 remainingAmount = dailyWithdrawalLimit > rollingTotal ? dailyWithdrawalLimit - rollingTotal : 0;
 
         return (dailyWithdrawalLimit, rollingTotal, remainingAmount);
     }
@@ -815,14 +790,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
             bool operatorActive
         )
     {
-        return (
-            currentStateCID,
-            currentStateHash,
-            stateVersion,
-            keyVersion,
-            lastHeartbeat,
-            isTEEOperatorActive()
-        );
+        return (currentStateCID, currentStateHash, stateVersion, keyVersion, lastHeartbeat, isTEEOperatorActive());
     }
 
     function getTEEOperatorInfo()
@@ -837,11 +805,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         return distribution;
     }
 
-    function getRecipients()
-        external
-        view
-        returns (address protocol, address stakers, address insurance)
-    {
+    function getRecipients() external view returns (address protocol, address stakers, address insurance) {
         return (protocolRecipient, stakersRecipient, insuranceRecipient);
     }
 

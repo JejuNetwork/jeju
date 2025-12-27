@@ -43,7 +43,7 @@ contract FederatedIdentity is FederationBase {
     // ============================================================================
 
     address public localIdentityRegistry;
-    
+
     mapping(bytes32 => FederatedAgent) public federatedAgents;
     mapping(uint256 => mapping(uint256 => bytes32)) public agentToFederatedId;
     mapping(bytes32 => CrossNetworkAttestation[]) public attestations;
@@ -57,10 +57,7 @@ contract FederatedIdentity is FederationBase {
     // ============================================================================
 
     event AgentFederated(
-        bytes32 indexed federatedId,
-        uint256 indexed originChainId,
-        uint256 originAgentId,
-        address indexed originOwner
+        bytes32 indexed federatedId, uint256 indexed originChainId, uint256 originAgentId, address indexed originOwner
     );
     event CrossNetworkAttested(bytes32 indexed federatedId, uint256 indexed targetChainId, address attester);
     event AgentDefederated(bytes32 indexed federatedId);
@@ -145,9 +142,8 @@ contract FederatedIdentity is FederationBase {
         bytes32 federatedId = computeFederatedId(originChainId, originAgentId);
         if (federatedAgents[federatedId].federatedAt != 0) revert AlreadyFederated();
 
-        bytes32 attestationHash = keccak256(
-            abi.encodePacked(originChainId, originAgentId, originOwner, originRegistryHash)
-        );
+        bytes32 attestationHash =
+            keccak256(abi.encodePacked(originChainId, originAgentId, originOwner, originRegistryHash));
         bytes32 signedHash = attestationHash.toEthSignedMessageHash();
         address attester = signedHash.recover(oracleAttestation);
 
@@ -182,11 +178,10 @@ contract FederatedIdentity is FederationBase {
         emit CrossNetworkAttested(federatedId, LOCAL_CHAIN_ID, attester);
     }
 
-    function attestCrossNetwork(
-        bytes32 federatedId,
-        uint256 targetChainId,
-        bytes calldata /* proof */
-    ) external onlyAuthorizedAttester {
+    function attestCrossNetwork(bytes32 federatedId, uint256 targetChainId, bytes calldata /* proof */ )
+        external
+        onlyAuthorizedAttester
+    {
         FederatedAgent storage agent = federatedAgents[federatedId];
         if (agent.federatedAt == 0) revert NotFederated();
         if (!agent.isActive) revert AgentInactive();
@@ -264,10 +259,11 @@ contract FederatedIdentity is FederationBase {
         return false;
     }
 
-    function verifyIdentity(
-        uint256 originChainId, 
-        uint256 originAgentId
-    ) external view returns (bool isValid, bytes32 federatedId, uint256 reputation) {
+    function verifyIdentity(uint256 originChainId, uint256 originAgentId)
+        external
+        view
+        returns (bool isValid, bytes32 federatedId, uint256 reputation)
+    {
         federatedId = agentToFederatedId[originChainId][originAgentId];
         if (federatedId == bytes32(0)) return (false, bytes32(0), 0);
 

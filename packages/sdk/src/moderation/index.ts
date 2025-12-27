@@ -11,23 +11,14 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import {
-  BanType,
+  type BanType,
   ReportStatus,
-  ReportType,
-  SeverityLevel,
+  type ReportType,
+  type SeverityLevel,
 } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
-
-// Re-export moderation types for SDK consumers
-export { BanType, ReportType, SeverityLevel, ReportStatus }
-export type {
-  BanType as BanTypeValue,
-  ReportStatus as ReportStatusValue,
-  ReportType as ReportTypeValue,
-  SeverityLevel as SeverityLevelValue,
-} from '@jejunetwork/types'
 
 export interface BanRecord {
   isBanned: boolean

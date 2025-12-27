@@ -47,7 +47,13 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
     mapping(bytes32 => address[]) private _providersByService; // service type => providers
 
     event ProviderRegistered(
-        address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId, bytes32 serviceType
+        address indexed provider,
+        string name,
+        string endpoint,
+        bytes32 attestationHash,
+        uint256 stake,
+        uint256 agentId,
+        bytes32 serviceType
     );
     event ProviderUpdated(address indexed provider, string endpoint, bytes32 attestationHash);
     event CapabilityAdded(
@@ -65,12 +71,9 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
     error InvalidCapabilityIndex();
     error InvalidServiceType();
 
-    constructor(
-        address _owner,
-        address _identityRegistry,
-        address _banManager,
-        uint256 _minProviderStake
-    ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
+    constructor(address _owner, address _identityRegistry, address _banManager, uint256 _minProviderStake)
+        ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake)
+    {}
 
     /// @notice Register as an inference provider (default service type)
     function register(string calldata name, string calldata endpoint, bytes32 attestationHash)

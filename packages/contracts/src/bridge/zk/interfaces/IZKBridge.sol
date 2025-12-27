@@ -42,17 +42,10 @@ interface IZKBridge {
     );
 
     event TransferCompleted(
-        bytes32 indexed transferId,
-        address indexed token,
-        bytes32 sender,
-        address indexed recipient,
-        uint256 amount
+        bytes32 indexed transferId, address indexed token, bytes32 sender, address indexed recipient, uint256 amount
     );
 
-    event TransferFailed(
-        bytes32 indexed transferId,
-        string reason
-    );
+    event TransferFailed(bytes32 indexed transferId, string reason);
 
     // ============ Functions ============
 
@@ -81,4 +74,3 @@ interface IZKBridge {
 
     function isTokenRegistered(address token) external view returns (bool);
 }
-

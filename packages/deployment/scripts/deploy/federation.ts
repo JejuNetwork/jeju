@@ -228,17 +228,6 @@ async function deployBridge(
   validators: Address[],
   account: ReturnType<typeof privateKeyToAccount>,
 ): Promise<Address> {
-  const _publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(chain.rpcUrl),
-  })
-
-  const _walletClient = createWalletClient({
-    account,
-    chain: baseSepolia,
-    transport: http(chain.rpcUrl),
-  })
-
   // For this implementation, we'll use forge to deploy the contract
   const deployCmd = `cd ${CONTRACTS_DIR} && forge create src/federation/FederationBridge.sol:FederationBridge \
     --rpc-url ${chain.rpcUrl} \

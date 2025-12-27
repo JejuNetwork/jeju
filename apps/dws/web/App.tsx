@@ -23,12 +23,14 @@ import MarketplacePage from './pages/marketplace/Browse'
 import ListingsPage from './pages/marketplace/Listings'
 import RPCGatewayPage from './pages/network/RPCGateway'
 import VPNProxyPage from './pages/network/VPNProxy'
+import NodeOperatorDashboard from './pages/node/NodeOperatorDashboard'
 import SettingsPage from './pages/Settings'
 import KeysPage from './pages/security/Keys'
 import OAuth3Page from './pages/security/OAuth3'
 import SecretsPage from './pages/security/Secrets'
 import EmailPage from './pages/services/Email'
 import ScrapingPage from './pages/services/Scraping'
+import StorageAnalyticsPage from './pages/storage/Analytics'
 import BucketsPage from './pages/storage/Buckets'
 import CDNPage from './pages/storage/CDN'
 import IPFSPage from './pages/storage/IPFS'
@@ -56,6 +58,7 @@ export default function App() {
         <Route path="/storage/buckets" element={<BucketsPage />} />
         <Route path="/storage/cdn" element={<CDNPage />} />
         <Route path="/storage/ipfs" element={<IPFSPage />} />
+        <Route path="/storage/analytics" element={<StorageAnalyticsPage />} />
 
         {/* Developer */}
         <Route path="/developer/repositories" element={<RepositoriesPage />} />
@@ -89,6 +92,9 @@ export default function App() {
 
         {/* Moderation */}
         <Route path="/moderation" element={<ModerationPage />} />
+
+        {/* Node Operator */}
+        <Route path="/node" element={<NodeOperatorDashboard />} />
 
         {/* Marketplace */}
         <Route path="/marketplace/browse" element={<MarketplacePage />} />

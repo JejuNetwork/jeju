@@ -172,7 +172,9 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
 
         _governanceParams[daoId] = GovernanceParams({
             minQualityScore: params.minQualityScore > 0 ? params.minQualityScore : defaultParams.minQualityScore,
-            councilVotingPeriod: params.councilVotingPeriod > 0 ? params.councilVotingPeriod : defaultParams.councilVotingPeriod,
+            councilVotingPeriod: params.councilVotingPeriod > 0
+                ? params.councilVotingPeriod
+                : defaultParams.councilVotingPeriod,
             gracePeriod: params.gracePeriod > 0 ? params.gracePeriod : defaultParams.gracePeriod,
             minProposalStake: params.minProposalStake,
             quorumBps: params.quorumBps > 0 ? params.quorumBps : defaultParams.quorumBps
@@ -230,7 +232,11 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Set DAO council contract address
      */
-    function setDAOCouncilContract(bytes32 daoId, address council) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+    function setDAOCouncilContract(bytes32 daoId, address council)
+        external
+        onlyExistingDAO(daoId)
+        onlyDAOAdmin(daoId)
+    {
         _daos[daoId].council = council;
         _daos[daoId].updatedAt = block.timestamp;
 
@@ -262,7 +268,11 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Update CEO persona
      */
-    function setCEOPersona(bytes32 daoId, CEOPersona calldata persona) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+    function setCEOPersona(bytes32 daoId, CEOPersona calldata persona)
+        external
+        onlyExistingDAO(daoId)
+        onlyDAOAdmin(daoId)
+    {
         _ceoPersonas[daoId] = CEOPersona({
             name: persona.name,
             pfpCid: persona.pfpCid,
@@ -291,13 +301,11 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Add a council member
      */
-    function addCouncilMember(
-        bytes32 daoId,
-        address member,
-        uint256 agentId,
-        string calldata role,
-        uint256 weight
-    ) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+    function addCouncilMember(bytes32 daoId, address member, uint256 agentId, string calldata role, uint256 weight)
+        external
+        onlyExistingDAO(daoId)
+        onlyDAOAdmin(daoId)
+    {
         if (member == address(0)) revert InvalidAddress();
         if (weight == 0 || weight > 10000) revert InvalidWeight();
         if (_councilMembers[daoId][member].addedAt != 0) revert MemberAlreadyExists();
@@ -351,7 +359,12 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Link a package to a DAO
      */
-    function linkPackage(bytes32 daoId, bytes32 packageId) external onlyExistingDAO(daoId) daoActive(daoId) onlyDAOAdmin(daoId) {
+    function linkPackage(bytes32 daoId, bytes32 packageId)
+        external
+        onlyExistingDAO(daoId)
+        daoActive(daoId)
+        onlyDAOAdmin(daoId)
+    {
         if (_packageToDAO[packageId] != bytes32(0)) revert PackageAlreadyLinked();
 
         _linkedPackages[daoId].push(packageId);
@@ -385,7 +398,12 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Link a repo to a DAO
      */
-    function linkRepo(bytes32 daoId, bytes32 repoId) external onlyExistingDAO(daoId) daoActive(daoId) onlyDAOAdmin(daoId) {
+    function linkRepo(bytes32 daoId, bytes32 repoId)
+        external
+        onlyExistingDAO(daoId)
+        daoActive(daoId)
+        onlyDAOAdmin(daoId)
+    {
         if (_repoToDAO[repoId] != bytes32(0)) revert RepoAlreadyLinked();
 
         _linkedRepos[daoId].push(repoId);
@@ -687,9 +705,9 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
 
         for (uint256 i = 0; i < nameBytes.length; i++) {
             bytes1 char = nameBytes[i];
-            bool isValid = (char >= 0x30 && char <= 0x39) || // 0-9
-                (char >= 0x61 && char <= 0x7A) || // a-z
-                char == 0x2D; // -
+            bool isValid = (char >= 0x30 && char <= 0x39) // 0-9
+                || (char >= 0x61 && char <= 0x7A) // a-z
+                || char == 0x2D; // -
             if (!isValid) return false;
         }
 
@@ -699,4 +717,3 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         return true;
     }
 }
-

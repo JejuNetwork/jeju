@@ -124,8 +124,8 @@ export class DWSTrainingClient {
         },
         priority: 'normal',
         nodeCount: 1,
-        gpuType: 'NVIDIA RTX 5090',
-        memoryGb: 16,
+        gpuType: request.gpuType ?? 'auto',
+        memoryGb: request.memoryGb ?? 16,
         callbackUrl: request.callbackUrl,
         metadata: {
           archetype: request.archetype,

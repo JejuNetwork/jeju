@@ -15,11 +15,10 @@ interface IStrategyRule {
      * @return newWeights New target weights
      * @return blocksToTarget Blocks to interpolate over (0 = use default)
      */
-    function calculateWeights(
-        address pool,
-        uint256[] calldata prices,
-        uint256[] calldata currentWeights
-    ) external view returns (uint256[] memory newWeights, uint256 blocksToTarget);
+    function calculateWeights(address pool, uint256[] calldata prices, uint256[] calldata currentWeights)
+        external
+        view
+        returns (uint256[] memory newWeights, uint256 blocksToTarget);
 
     /**
      * @notice Get strategy name
@@ -31,4 +30,3 @@ interface IStrategyRule {
      */
     function getParameters() external view returns (bytes memory);
 }
-

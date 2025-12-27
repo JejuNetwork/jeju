@@ -224,7 +224,7 @@ async function chatAnthropic(
     body.system =
       typeof systemMessage.content === 'string'
         ? systemMessage.content
-        : systemMessage.content.find((p) => p.type === 'text')?.text ?? ''
+        : (systemMessage.content.find((p) => p.type === 'text')?.text ?? '')
   }
 
   if (options.temperature !== undefined) {
@@ -344,7 +344,10 @@ export async function chat(
   options: LLMOptions = {},
 ): Promise<LLMResponse> {
   const { name, apiKey } = options.provider
-    ? { name: options.provider, apiKey: process.env[PROVIDERS[options.provider].envKey] ?? '' }
+    ? {
+        name: options.provider,
+        apiKey: process.env[PROVIDERS[options.provider].envKey] ?? '',
+      }
     : getAvailableProvider()
 
   if (!apiKey) {
@@ -499,7 +502,11 @@ Analyze this screenshot and verify it matches the expected description. Return J
     if (!Array.isArray(parsed.issues)) {
       parsed.issues = []
     }
-    if (!['excellent', 'good', 'acceptable', 'poor', 'broken'].includes(parsed.quality)) {
+    if (
+      !['excellent', 'good', 'acceptable', 'poor', 'broken'].includes(
+        parsed.quality,
+      )
+    ) {
       parsed.quality = 'acceptable'
     }
     if (typeof parsed.confidence !== 'number') {
@@ -507,7 +514,7 @@ Analyze this screenshot and verify it matches the expected description. Return J
     }
 
     return parsed
-  } catch (error) {
+  } catch (_error) {
     // If parsing fails, return a conservative result
     return {
       matches: false,
@@ -530,4 +537,3 @@ export const llm = {
 }
 
 export default llm
-

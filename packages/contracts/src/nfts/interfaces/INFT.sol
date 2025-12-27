@@ -36,12 +36,7 @@ struct WrappedNFTInfo {
  * @notice Track NFT provenance across transfers and chains
  */
 interface IProvenanceTracker {
-    event ProvenanceRecorded(
-        uint256 indexed tokenId,
-        uint256 chainId,
-        address indexed from,
-        address indexed to
-    );
+    event ProvenanceRecorded(uint256 indexed tokenId, uint256 chainId, address indexed from, address indexed to);
 
     /// @notice Get provenance history for a token
     function getProvenance(uint256 tokenId) external view returns (ProvenanceEntry[] memory);
@@ -55,12 +50,7 @@ interface IProvenanceTracker {
  * @notice Enforce ERC-2981 royalties on transfers
  */
 interface IRoyaltyEnforcer {
-    event RoyaltyPaid(
-        address indexed collection,
-        uint256 indexed tokenId,
-        address indexed receiver,
-        uint256 amount
-    );
+    event RoyaltyPaid(address indexed collection, uint256 indexed tokenId, address indexed receiver, uint256 amount);
 
     /// @notice Calculate and distribute royalties
     /// @param collection The NFT collection
@@ -68,11 +58,10 @@ interface IRoyaltyEnforcer {
     /// @param salePrice The sale price
     /// @return receiver The royalty receiver
     /// @return royaltyAmount The royalty amount
-    function calculateRoyalty(
-        address collection,
-        uint256 tokenId,
-        uint256 salePrice
-    ) external view returns (address receiver, uint256 royaltyAmount);
+    function calculateRoyalty(address collection, uint256 tokenId, uint256 salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount);
 }
 
 /**
@@ -81,28 +70,20 @@ interface IRoyaltyEnforcer {
  */
 interface ICrossChainNFT {
     event NFTBridgeInitiated(
-        uint256 indexed tokenId,
-        uint32 indexed destinationDomain,
-        bytes32 recipient,
-        bytes32 messageId
+        uint256 indexed tokenId, uint32 indexed destinationDomain, bytes32 recipient, bytes32 messageId
     );
 
-    event NFTBridgeReceived(
-        uint256 indexed tokenId,
-        uint32 indexed originDomain,
-        address indexed recipient
-    );
+    event NFTBridgeReceived(uint256 indexed tokenId, uint32 indexed originDomain, address indexed recipient);
 
     /// @notice Bridge an NFT to another chain
     /// @param destinationDomain The Hyperlane domain ID
     /// @param recipient The recipient as bytes32
     /// @param tokenId The token to bridge
     /// @return messageId The Hyperlane message ID
-    function bridgeNFT(
-        uint32 destinationDomain,
-        bytes32 recipient,
-        uint256 tokenId
-    ) external payable returns (bytes32 messageId);
+    function bridgeNFT(uint32 destinationDomain, bytes32 recipient, uint256 tokenId)
+        external
+        payable
+        returns (bytes32 messageId);
 
     /// @notice Get quote for bridging
     /// @param destinationDomain The destination domain
@@ -121,26 +102,11 @@ interface ICrossChainNFT {
  * @notice Interface for game items (ERC-1155 with game integration)
  */
 interface IGameItems {
-    event ItemMinted(
-        uint256 indexed itemId,
-        address indexed to,
-        uint256 amount,
-        bytes32 indexed gameId
-    );
+    event ItemMinted(uint256 indexed itemId, address indexed to, uint256 amount, bytes32 indexed gameId);
 
-    event ItemBurned(
-        uint256 indexed itemId,
-        address indexed from,
-        uint256 amount,
-        bytes32 indexed gameId
-    );
+    event ItemBurned(uint256 indexed itemId, address indexed from, uint256 amount, bytes32 indexed gameId);
 
-    event ItemTransferred(
-        uint256 indexed itemId,
-        address indexed from,
-        address indexed to,
-        uint256 amount
-    );
+    event ItemTransferred(uint256 indexed itemId, address indexed from, address indexed to, uint256 amount);
 
     /// @notice Mint items (only authorized game operators)
     /// @param to Recipient

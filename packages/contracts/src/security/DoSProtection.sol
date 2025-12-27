@@ -50,14 +50,14 @@ abstract contract DoSProtection is Ownable {
     // ============ Structs ============
 
     struct DoSConfig {
-        uint256 userRateLimitPerMinute;      // Max actions per user per minute
-        uint256 globalRateLimitPerMinute;    // Max total actions per minute
-        uint256 baseCooldownSeconds;         // Base cooldown for violations
-        uint256 maxCooldownSeconds;          // Max cooldown after repeated violations
-        uint256 cooldownDecayPeriod;         // Time for violation count to decay
-        uint256 maxBatchSize;                // Maximum items in batch operations
-        uint256 circuitBreakerFailureThreshold;  // Failures before circuit opens
-        uint256 circuitBreakerTimeout;       // Circuit breaker recovery timeout
+        uint256 userRateLimitPerMinute; // Max actions per user per minute
+        uint256 globalRateLimitPerMinute; // Max total actions per minute
+        uint256 baseCooldownSeconds; // Base cooldown for violations
+        uint256 maxCooldownSeconds; // Max cooldown after repeated violations
+        uint256 cooldownDecayPeriod; // Time for violation count to decay
+        uint256 maxBatchSize; // Maximum items in batch operations
+        uint256 circuitBreakerFailureThreshold; // Failures before circuit opens
+        uint256 circuitBreakerTimeout; // Circuit breaker recovery timeout
     }
 
     // ============ State ============
@@ -157,16 +157,18 @@ abstract contract DoSProtection is Ownable {
      * @notice Initialize DoS protection with default config
      */
     function _initDoSProtection() internal {
-        _initDoSProtection(DoSConfig({
-            userRateLimitPerMinute: 60,      // 1 per second average, allows bursts
-            globalRateLimitPerMinute: 1000,  // 1000 total actions per minute
-            baseCooldownSeconds: 60,         // 1 minute base cooldown
-            maxCooldownSeconds: 3600,        // 1 hour max cooldown
-            cooldownDecayPeriod: 3600,       // 1 hour decay
-            maxBatchSize: 100,               // Max 100 items per batch
-            circuitBreakerFailureThreshold: 10, // 10 failures to trip
-            circuitBreakerTimeout: 300       // 5 minute recovery
-        }));
+        _initDoSProtection(
+            DoSConfig({
+                userRateLimitPerMinute: 60, // 1 per second average, allows bursts
+                globalRateLimitPerMinute: 1000, // 1000 total actions per minute
+                baseCooldownSeconds: 60, // 1 minute base cooldown
+                maxCooldownSeconds: 3600, // 1 hour max cooldown
+                cooldownDecayPeriod: 3600, // 1 hour decay
+                maxBatchSize: 100, // Max 100 items per batch
+                circuitBreakerFailureThreshold: 10, // 10 failures to trip
+                circuitBreakerTimeout: 300 // 5 minute recovery
+            })
+        );
     }
 
     /**
@@ -182,9 +184,9 @@ abstract contract DoSProtection is Ownable {
         // Initialize circuit breaker
         _circuitBreaker.init(
             config.circuitBreakerFailureThreshold,
-            3,      // 3 successes in half-open to close
+            3, // 3 successes in half-open to close
             config.circuitBreakerTimeout,
-            5       // 5 requests in half-open
+            5 // 5 requests in half-open
         );
     }
 
@@ -198,8 +200,8 @@ abstract contract DoSProtection is Ownable {
         RateLimiter.TokenBucket storage bucket = _userRateLimits[user];
         if (bucket.capacity == 0) {
             bucket.init(
-                dosConfig.userRateLimitPerMinute,  // capacity
-                dosConfig.userRateLimitPerMinute / 60  // refill rate per second
+                dosConfig.userRateLimitPerMinute, // capacity
+                dosConfig.userRateLimitPerMinute / 60 // refill rate per second
             );
         }
     }
@@ -211,11 +213,7 @@ abstract contract DoSProtection is Ownable {
     function _initUserCooldown(address user) internal {
         RateLimiter.AdaptiveCooldown storage cooldown = _userCooldowns[user];
         if (cooldown.baseCooldown == 0) {
-            cooldown.init(
-                dosConfig.baseCooldownSeconds,
-                dosConfig.maxCooldownSeconds,
-                dosConfig.cooldownDecayPeriod
-            );
+            cooldown.init(dosConfig.baseCooldownSeconds, dosConfig.maxCooldownSeconds, dosConfig.cooldownDecayPeriod);
         }
     }
 
@@ -256,9 +254,8 @@ abstract contract DoSProtection is Ownable {
     function _recordFailure() internal {
         CircuitBreaker.State previousState = _circuitBreaker.getState();
         _circuitBreaker.recordFailure();
-        
-        if (previousState != CircuitBreaker.State.OPEN && 
-            _circuitBreaker.getState() == CircuitBreaker.State.OPEN) {
+
+        if (previousState != CircuitBreaker.State.OPEN && _circuitBreaker.getState() == CircuitBreaker.State.OPEN) {
             emit CircuitBreakerTripped("Failure threshold exceeded");
         }
     }
@@ -269,9 +266,10 @@ abstract contract DoSProtection is Ownable {
     function _recordSuccess() internal {
         CircuitBreaker.State previousState = _circuitBreaker.getState();
         _circuitBreaker.recordSuccess();
-        
-        if (previousState == CircuitBreaker.State.HALF_OPEN && 
-            _circuitBreaker.getState() == CircuitBreaker.State.CLOSED) {
+
+        if (
+            previousState == CircuitBreaker.State.HALF_OPEN && _circuitBreaker.getState() == CircuitBreaker.State.CLOSED
+        ) {
             emit CircuitBreakerRecovered();
         }
     }
@@ -302,7 +300,7 @@ abstract contract DoSProtection is Ownable {
         if (cooldown.baseCooldown == 0) {
             return (false, 0);
         }
-        
+
         inCooldown = cooldown.isInCooldown();
         if (inCooldown) {
             remainingTime = cooldown.cooldownUntil - block.timestamp;
@@ -397,5 +395,3 @@ abstract contract DoSProtection is Ownable {
         }
     }
 }
-
-

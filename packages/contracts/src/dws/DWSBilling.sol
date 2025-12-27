@@ -10,8 +10,13 @@ import {IDWSTypes} from "./IDWSTypes.sol";
 
 interface ICreditManager {
     function deductCredit(address user, address token, uint256 amount) external;
-    function tryDeductCredit(address user, address token, uint256 amount) external returns (bool success, uint256 remaining);
-    function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool sufficient, uint256 available);
+    function tryDeductCredit(address user, address token, uint256 amount)
+        external
+        returns (bool success, uint256 remaining);
+    function hasSufficientCredit(address user, address token, uint256 amount)
+        external
+        view
+        returns (bool sufficient, uint256 available);
 }
 
 interface IServiceRegistry {
@@ -49,15 +54,15 @@ contract DWSBilling is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
 
     // Subscriptions (unified for all services)
     mapping(bytes32 => Subscription) public subscriptions;
-    mapping(bytes32 => bytes32) public resourceToSubscription;  // resourceId -> subscriptionId
+    mapping(bytes32 => bytes32) public resourceToSubscription; // resourceId -> subscriptionId
     mapping(address => bytes32[]) public userSubscriptions;
 
     // Revenue tracking
-    mapping(address => mapping(address => uint256)) public providerRevenue;  // provider -> token -> amount
-    mapping(address => uint256) public protocolRevenue;                       // token -> amount
+    mapping(address => mapping(address => uint256)) public providerRevenue; // provider -> token -> amount
+    mapping(address => uint256) public protocolRevenue; // token -> amount
 
     // Configuration
-    uint256 public protocolFeeBps = 500;  // 5%
+    uint256 public protocolFeeBps = 500; // 5%
     address public treasury;
 
     // Service name prefixes for ServiceRegistry
@@ -100,12 +105,11 @@ contract DWSBilling is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Create a new service plan (works for ANY service type)
      */
-    function createPlan(
-        string calldata name,
-        ServiceType serviceType,
-        uint256 pricePerMonth,
-        bytes calldata limits
-    ) external onlyOwner returns (bytes32 planId) {
+    function createPlan(string calldata name, ServiceType serviceType, uint256 pricePerMonth, bytes calldata limits)
+        external
+        onlyOwner
+        returns (bytes32 planId)
+    {
         planId = keccak256(abi.encodePacked(name, serviceType, block.timestamp));
 
         plans[planId] = ServicePlan({
@@ -123,11 +127,11 @@ contract DWSBilling is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Create compute plan with typed limits
      */
-    function createComputePlan(
-        string calldata name,
-        uint256 pricePerMonth,
-        ComputeLimits calldata limits
-    ) external onlyOwner returns (bytes32 planId) {
+    function createComputePlan(string calldata name, uint256 pricePerMonth, ComputeLimits calldata limits)
+        external
+        onlyOwner
+        returns (bytes32 planId)
+    {
         bytes memory encodedLimits = abi.encode(limits);
         planId = keccak256(abi.encodePacked(name, ServiceType.Compute, block.timestamp));
 
@@ -146,11 +150,11 @@ contract DWSBilling is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Create database plan with typed limits
      */
-    function createDatabasePlan(
-        string calldata name,
-        uint256 pricePerMonth,
-        DatabaseLimits calldata limits
-    ) external onlyOwner returns (bytes32 planId) {
+    function createDatabasePlan(string calldata name, uint256 pricePerMonth, DatabaseLimits calldata limits)
+        external
+        onlyOwner
+        returns (bytes32 planId)
+    {
         bytes memory encodedLimits = abi.encode(limits);
         planId = keccak256(abi.encodePacked(name, ServiceType.Database, block.timestamp));
 

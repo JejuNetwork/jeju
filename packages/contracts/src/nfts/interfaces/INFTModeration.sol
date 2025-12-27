@@ -37,23 +37,17 @@ interface INFTModerationHooks {
     /// @param to The recipient
     /// @param tokenId The token ID
     /// @return allowed Whether the transfer should proceed
-    function beforeTransfer(
-        address collection,
-        address from,
-        address to,
-        uint256 tokenId
-    ) external view returns (bool allowed);
+    function beforeTransfer(address collection, address from, address to, uint256 tokenId)
+        external
+        view
+        returns (bool allowed);
 
     /// @notice Called before NFT minting
     /// @param collection The collection address
     /// @param to The recipient
     /// @param tokenId The token ID
     /// @return allowed Whether the mint should proceed
-    function beforeMint(
-        address collection,
-        address to,
-        uint256 tokenId
-    ) external view returns (bool allowed);
+    function beforeMint(address collection, address to, uint256 tokenId) external view returns (bool allowed);
 
     /// @notice Called before NFT bridging
     /// @param collection The collection address
@@ -61,10 +55,8 @@ interface INFTModerationHooks {
     /// @param tokenId The token ID
     /// @param destinationChain The destination chain ID
     /// @return allowed Whether the bridge should proceed
-    function beforeBridge(
-        address collection,
-        address owner,
-        uint256 tokenId,
-        uint256 destinationChain
-    ) external view returns (bool allowed);
+    function beforeBridge(address collection, address owner, uint256 tokenId, uint256 destinationChain)
+        external
+        view
+        returns (bool allowed);
 }

@@ -17,26 +17,26 @@ contract AuthCaptureEscrowTest is Test {
     address public operator = address(0x5);
 
     uint256 public buyerPk = 0xBEEF;
-    
+
     function setUp() public {
         vm.startPrank(owner);
-        
+
         // Deploy mock USDC
         usdc = new MockERC20("USD Coin", "USDC", 6);
-        
+
         // Deploy escrow
         address[] memory tokens = new address[](1);
         tokens[0] = address(usdc);
         escrow = new AuthCaptureEscrow(owner, feeRecipient, tokens);
-        
+
         // Register merchant
         escrow.registerMerchant(merchant, true);
-        
+
         vm.stopPrank();
-        
+
         // Fund buyer
         usdc.mint(buyer, 10000e6);
-        
+
         // Approve escrow to spend buyer's tokens
         vm.prank(buyer);
         usdc.approve(address(escrow), type(uint256).max);
@@ -44,24 +44,10 @@ contract AuthCaptureEscrowTest is Test {
 
     function test_authorize() public {
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            7 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 7 days, bytes32("order-001"));
 
-        (
-            bytes32 pid,
-            address payer,
-            address m,
-            address token,
-            uint256 amount,
-            ,
-            ,
-            PaymentStatus status,
-        ) = escrow.authorizations(paymentId);
+        (bytes32 pid, address payer, address m, address token, uint256 amount,,, PaymentStatus status,) =
+            escrow.authorizations(paymentId);
 
         assertEq(pid, paymentId);
         assertEq(payer, buyer);
@@ -69,7 +55,7 @@ contract AuthCaptureEscrowTest is Test {
         assertEq(token, address(usdc));
         assertEq(amount, 100e6);
         assertEq(uint8(status), uint8(PaymentStatus.Authorized));
-        
+
         // Funds should be in escrow
         assertEq(usdc.balanceOf(address(escrow)), 100e6);
         assertEq(usdc.balanceOf(buyer), 9900e6);
@@ -102,19 +88,13 @@ contract AuthCaptureEscrowTest is Test {
     function test_capture() public {
         // Authorize
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            7 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 7 days, bytes32("order-001"));
 
         // Capture
         vm.prank(merchant);
         escrow.capture(paymentId, 100e6, bytes32("fulfillment-001"));
 
-        (,,,,,,,PaymentStatus status,) = escrow.authorizations(paymentId);
+        (,,,,,,, PaymentStatus status,) = escrow.authorizations(paymentId);
         assertEq(uint8(status), uint8(PaymentStatus.Captured));
 
         // Merchant should receive funds minus protocol fee (1%)
@@ -124,13 +104,7 @@ contract AuthCaptureEscrowTest is Test {
 
     function test_capture_partial() public {
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            7 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 7 days, bytes32("order-001"));
 
         // Partial capture (50%)
         vm.prank(merchant);
@@ -138,34 +112,28 @@ contract AuthCaptureEscrowTest is Test {
 
         // Check captured amount
         assertEq(escrow.capturedAmounts(paymentId), 50e6);
-        
+
         // Still authorized status (partial capture)
-        (,,,,,,,PaymentStatus status,) = escrow.authorizations(paymentId);
+        (,,,,,,, PaymentStatus status,) = escrow.authorizations(paymentId);
         assertEq(uint8(status), uint8(PaymentStatus.Authorized));
 
         // Can capture the rest
         vm.prank(merchant);
         escrow.capture(paymentId, 50e6, bytes32("fulfillment-002"));
 
-        (,,,,,,,PaymentStatus finalStatus,) = escrow.authorizations(paymentId);
+        (,,,,,,, PaymentStatus finalStatus,) = escrow.authorizations(paymentId);
         assertEq(uint8(finalStatus), uint8(PaymentStatus.Captured));
     }
 
     function test_void() public {
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            7 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 7 days, bytes32("order-001"));
 
         // Void (can be done by buyer or merchant before capture)
         vm.prank(buyer);
         escrow.void_(paymentId);
 
-        (,,,,,,,PaymentStatus status,) = escrow.authorizations(paymentId);
+        (,,,,,,, PaymentStatus status,) = escrow.authorizations(paymentId);
         assertEq(uint8(status), uint8(PaymentStatus.Voided));
 
         // Funds returned to buyer
@@ -175,31 +143,19 @@ contract AuthCaptureEscrowTest is Test {
 
     function test_void_merchantCanVoid() public {
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            7 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 7 days, bytes32("order-001"));
 
         // Merchant can also void
         vm.prank(merchant);
         escrow.void_(paymentId);
 
-        (,,,,,,,PaymentStatus status,) = escrow.authorizations(paymentId);
+        (,,,,,,, PaymentStatus status,) = escrow.authorizations(paymentId);
         assertEq(uint8(status), uint8(PaymentStatus.Voided));
     }
 
     function test_void_revertsAfterCapture() public {
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            7 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 7 days, bytes32("order-001"));
 
         vm.prank(merchant);
         escrow.capture(paymentId, 100e6, bytes32("fulfillment-001"));
@@ -212,13 +168,7 @@ contract AuthCaptureEscrowTest is Test {
 
     function test_refund() public {
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            7 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 7 days, bytes32("order-001"));
 
         vm.prank(merchant);
         escrow.capture(paymentId, 100e6, bytes32("fulfillment-001"));
@@ -238,13 +188,7 @@ contract AuthCaptureEscrowTest is Test {
 
     function test_voidExpired() public {
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            100e6,
-            1 days,
-            bytes32("order-001")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), 100e6, 1 days, bytes32("order-001"));
 
         // Fast forward past expiry
         vm.warp(block.timestamp + 2 days);
@@ -252,7 +196,7 @@ contract AuthCaptureEscrowTest is Test {
         // Anyone can void expired payments
         escrow.voidExpired(paymentId);
 
-        (,,,,,,,PaymentStatus status,) = escrow.authorizations(paymentId);
+        (,,,,,,, PaymentStatus status,) = escrow.authorizations(paymentId);
         assertEq(uint8(status), uint8(PaymentStatus.Voided));
 
         // Funds returned to buyer
@@ -261,7 +205,7 @@ contract AuthCaptureEscrowTest is Test {
 
     function test_authorizeWithSignature() public {
         address signer = vm.addr(buyerPk);
-        
+
         // Fund signer
         usdc.mint(signer, 1000e6);
         vm.prank(signer);
@@ -282,15 +226,8 @@ contract AuthCaptureEscrowTest is Test {
             )
         );
 
-        (
-            ,
-            ,
-            ,
-            ,
-            address verifyingContract,
-            ,
-        ) = escrow.eip712Domain();
-        
+        (,,,, address verifyingContract,,) = escrow.eip712Domain();
+
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -301,13 +238,7 @@ contract AuthCaptureEscrowTest is Test {
             )
         );
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                domainSeparator,
-                structHash
-            )
-        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -315,16 +246,10 @@ contract AuthCaptureEscrowTest is Test {
         // Operator submits gasless authorization
         vm.prank(operator);
         bytes32 paymentId = escrow.authorizeWithSignature(
-            signer,
-            merchant,
-            address(usdc),
-            100e6,
-            deadline,
-            bytes32("order-signed"),
-            signature
+            signer, merchant, address(usdc), 100e6, deadline, bytes32("order-signed"), signature
         );
 
-        (,address payer,,,uint256 amount,,,,) = escrow.authorizations(paymentId);
+        (, address payer,,, uint256 amount,,,,) = escrow.authorizations(paymentId);
         assertEq(payer, signer);
         assertEq(amount, 100e6);
     }
@@ -361,16 +286,9 @@ contract AuthCaptureEscrowTest is Test {
         vm.assume(amount > 0 && amount <= 10000e6);
 
         vm.prank(buyer);
-        bytes32 paymentId = escrow.authorize(
-            merchant,
-            address(usdc),
-            amount,
-            7 days,
-            bytes32("fuzz-order")
-        );
+        bytes32 paymentId = escrow.authorize(merchant, address(usdc), amount, 7 days, bytes32("fuzz-order"));
 
-        (,,,,uint256 authAmount,,,,) = escrow.authorizations(paymentId);
+        (,,,, uint256 authAmount,,,,) = escrow.authorizations(paymentId);
         assertEq(authAmount, amount);
     }
 }
-

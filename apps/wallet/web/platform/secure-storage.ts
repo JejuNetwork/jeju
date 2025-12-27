@@ -56,7 +56,7 @@ class WebSecureStorage implements SecureStorageAdapter {
 
     // Create ArrayBuffer copies for TypeScript compatibility with crypto.subtle
     const keyDataBuffer = new Uint8Array(keyData).buffer as ArrayBuffer
-    const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer
+    const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer as ArrayBuffer
 
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
@@ -186,45 +186,45 @@ class ExtensionSecureStorage implements SecureStorageAdapter {
             const keyData = crypto.getRandomValues(new Uint8Array(32))
             const salt = crypto.getRandomValues(new Uint8Array(16))
 
-            keyDataB64 = btoa(String.fromCharCode(...keyData))
-            saltB64 = btoa(String.fromCharCode(...salt))
+            const newKeyDataB64 = btoa(String.fromCharCode(...keyData))
+            const newSaltB64 = btoa(String.fromCharCode(...salt))
+            keyDataB64 = newKeyDataB64
+            saltB64 = newSaltB64
 
             storage.set(
               {
-                [ExtensionSecureStorage.EXT_KEY]: keyDataB64,
-                [ExtensionSecureStorage.EXT_SALT]: saltB64,
+                [ExtensionSecureStorage.EXT_KEY]: newKeyDataB64,
+                [ExtensionSecureStorage.EXT_SALT]: newSaltB64,
               },
               () => {
                 if (chrome.runtime.lastError) {
                   reject(new Error(chrome.runtime.lastError.message))
                   return
                 }
+                if (!newKeyDataB64 || !newSaltB64) {
+                  reject(new Error('Failed to retrieve key data'))
+                  return
+                }
+                const keyDataStr = atob(newKeyDataB64)
+                const saltStr = atob(newSaltB64)
                 resolve({
                   keyData: new Uint8Array(
-                    atob(keyDataB64)
-                      .split('')
-                      .map((c) => c.charCodeAt(0)),
+                    Array.from(keyDataStr, (c) => c.charCodeAt(0)),
                   ),
                   salt: new Uint8Array(
-                    atob(saltB64)
-                      .split('')
-                      .map((c) => c.charCodeAt(0)),
+                    Array.from(saltStr, (c) => c.charCodeAt(0)),
                   ),
                 })
               },
             )
           } else {
+            const keyDataStr = atob(keyDataB64)
+            const saltStr = atob(saltB64)
             resolve({
               keyData: new Uint8Array(
-                atob(keyDataB64)
-                  .split('')
-                  .map((c) => c.charCodeAt(0)),
+                Array.from(keyDataStr, (c) => c.charCodeAt(0)),
               ),
-              salt: new Uint8Array(
-                atob(saltB64)
-                  .split('')
-                  .map((c) => c.charCodeAt(0)),
-              ),
+              salt: new Uint8Array(Array.from(saltStr, (c) => c.charCodeAt(0))),
             })
           }
         },
@@ -237,18 +237,22 @@ class ExtensionSecureStorage implements SecureStorageAdapter {
 
     const { keyData, salt } = await this.getOrCreateKeyMaterial()
 
+    // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+    const keyBuffer = new Uint8Array(keyData).buffer as ArrayBuffer
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
-      keyData,
+      keyBuffer,
       'PBKDF2',
       false,
       ['deriveKey'],
     )
 
+    // Create a new ArrayBuffer for salt to avoid SharedArrayBuffer issues
+    const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer
     this.encryptionKey = await crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt,
+        salt: saltBuffer,
         iterations: 100000,
         hash: 'SHA-256',
       },
@@ -409,13 +413,15 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
 
   private async tryNativeKeychain(): Promise<boolean> {
     if (!this.useNativeKeychain) return false
-    // Check if SecureStoragePlugin is available (from @nicememes/capacitor-secure-storage-plugin)
+    // Check if SecureStoragePlugin is available (from capacitor-secure-storage-plugin)
     // This plugin uses iOS Keychain and Android EncryptedSharedPreferences
-    const hasPlugin =
-      typeof window !== 'undefined' &&
-      'Capacitor' in window &&
-      window.Capacitor?.isPluginAvailable?.('SecureStoragePlugin')
-    return hasPlugin
+    if (typeof window === 'undefined' || !('Capacitor' in window)) {
+      return false
+    }
+    const capacitor = window.Capacitor as {
+      isPluginAvailable?: (name: string) => boolean
+    }
+    return capacitor?.isPluginAvailable?.('SecureStoragePlugin') ?? false
   }
 
   private async getOrCreateKeyMaterial(): Promise<{
@@ -468,18 +474,22 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
 
     const { keyData, salt } = await this.getOrCreateKeyMaterial()
 
+    // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+    const keyBuffer = new Uint8Array(keyData).buffer as ArrayBuffer
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
-      keyData,
+      keyBuffer,
       'PBKDF2',
       false,
       ['deriveKey'],
     )
 
+    // Create a new ArrayBuffer for salt to avoid SharedArrayBuffer issues
+    const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer
     this.encryptionKey = await crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt,
+        salt: saltBuffer,
         iterations: 100000,
         hash: 'SHA-256',
       },
@@ -499,14 +509,16 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first (iOS Keychain / Android Keystore)
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
-      const result = await SecureStoragePlugin.get({ key: this.prefix + key })
-      if (result.value) {
+      // capacitor-secure-storage-plugin throws if key doesn't exist
+      try {
+        const result = await SecureStoragePlugin.get({ key: this.prefix + key })
         // Native keychain handles biometrics natively
         return result.value
+      } catch {
+        return null
       }
-      return null
     }
 
     // Fallback: Use encrypted Preferences
@@ -551,7 +563,7 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
       await SecureStoragePlugin.set({ key: this.prefix + key, value })
       return
@@ -583,7 +595,7 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
       await SecureStoragePlugin.remove({ key: this.prefix + key })
       return
@@ -598,10 +610,14 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
-      const result = await SecureStoragePlugin.get({ key: this.prefix + key })
-      return result.value !== undefined && result.value !== null
+      try {
+        await SecureStoragePlugin.get({ key: this.prefix + key })
+        return true
+      } catch {
+        return false
+      }
     }
 
     // Fallback: Check Preferences

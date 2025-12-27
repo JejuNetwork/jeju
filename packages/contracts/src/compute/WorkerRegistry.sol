@@ -160,7 +160,13 @@ contract WorkerRegistry is Ownable, ReentrancyGuard {
         worker.currentVersion = 1;
 
         workerVersions[workerId].push(
-            WorkerVersion({version: 1, codeHash: codeHash, deployedAt: block.timestamp, deployedBy: msg.sender, active: true})
+            WorkerVersion({
+                version: 1,
+                codeHash: codeHash,
+                deployedAt: block.timestamp,
+                deployedBy: msg.sender,
+                active: true
+            })
         );
 
         ownerWorkers[msg.sender].push(workerId);
@@ -375,7 +381,7 @@ contract WorkerRegistry is Ownable, ReentrancyGuard {
         if (worker.paymentMode == PaymentMode.PREPAID && worker.pricePerInvocation > 0) {
             uint256 price = worker.pricePerInvocation;
             if (prepaidBalances[msg.sender] < price) revert InsufficientPrepaid();
-            
+
             // Deduct from caller and credit to worker owner
             prepaidBalances[msg.sender] -= price;
             prepaidBalances[worker.owner] += price;

@@ -11,19 +11,17 @@ import "../registry/IdentityRegistry.sol";
  * @notice Hyperlane Mailbox interface for cross-chain messaging
  */
 interface IMailbox {
-    function dispatch(
-        uint32 destinationDomain,
-        bytes32 recipientAddress,
-        bytes calldata messageBody
-    ) external payable returns (bytes32);
+    function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        payable
+        returns (bytes32);
 
     function process(bytes calldata metadata, bytes calldata message) external;
 
-    function quoteDispatch(
-        uint32 destinationDomain,
-        bytes32 recipientAddress,
-        bytes calldata messageBody
-    ) external view returns (uint256);
+    function quoteDispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        view
+        returns (uint256);
 }
 
 /**
@@ -73,10 +71,10 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Cross-chain agent record
     struct CrossChainAgent {
-        uint256 agentId;          // Agent ID on origin chain
-        uint32 originDomain;      // Hyperlane domain of origin
-        address owner;            // Owner address on origin chain
-        string tokenUri;          // IPFS/HTTP URI to registration file
+        uint256 agentId; // Agent ID on origin chain
+        uint32 originDomain; // Hyperlane domain of origin
+        address owner; // Owner address on origin chain
+        string tokenUri; // IPFS/HTTP URI to registration file
         IdentityRegistry.StakeTier tier;
         uint256 syncedAt;
         bool isBanned;
@@ -158,28 +156,15 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     // Events
     // ============================================================================
 
-    event AgentSynced(
-        bytes32 indexed crossChainKey,
-        uint32 indexed originDomain,
-        uint256 originAgentId,
-        address owner
-    );
+    event AgentSynced(bytes32 indexed crossChainKey, uint32 indexed originDomain, uint256 originAgentId, address owner);
 
     event AgentBanSynced(bytes32 indexed crossChainKey, uint32 originDomain);
 
     event AgentSlashSynced(bytes32 indexed crossChainKey, uint32 originDomain, uint256 slashAmount);
 
-    event MessageDispatched(
-        uint32 indexed destinationDomain,
-        bytes32 indexed messageId,
-        MessageType messageType
-    );
+    event MessageDispatched(uint32 indexed destinationDomain, bytes32 indexed messageId, MessageType messageType);
 
-    event MessageReceived(
-        uint32 indexed originDomain,
-        bytes32 indexed messageId,
-        MessageType messageType
-    );
+    event MessageReceived(uint32 indexed originDomain, bytes32 indexed messageId, MessageType messageType);
 
     event TrustedRemoteSet(uint32 indexed domain, bytes32 remote);
 
@@ -205,11 +190,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _identityRegistry,
-        address _mailbox,
-        uint32 _localDomain
-    ) Ownable(msg.sender) {
+    constructor(address _identityRegistry, address _mailbox, uint32 _localDomain) Ownable(msg.sender) {
         require(_identityRegistry != address(0), "Invalid identity registry");
         require(_mailbox != address(0), "Invalid mailbox");
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
@@ -238,12 +219,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
         string memory tokenUri = identityRegistry.tokenURI(agentId);
 
         // Build message payload
-        bytes memory payload = _encodeRegistrationMessage(
-            agentId,
-            agentOwner,
-            tokenUri,
-            agent.tier
-        );
+        bytes memory payload = _encodeRegistrationMessage(agentId, agentOwner, tokenUri, agent.tier);
 
         // Dispatch to all connected domains
         uint256 totalFee = 0;
@@ -271,7 +247,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
 
         // Refund excess
         if (msg.value > totalFee) {
-            (bool success, ) = msg.sender.call{value: msg.value - totalFee}("");
+            (bool success,) = msg.sender.call{value: msg.value - totalFee}("");
             require(success, "Refund failed");
         }
     }
@@ -293,11 +269,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
      * @notice Handle incoming Hyperlane message
      * @dev Called by the Mailbox after ISM verification
      */
-    function handle(
-        uint32 _origin,
-        bytes32 _sender,
-        bytes calldata _message
-    ) external whenNotPaused {
+    function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external whenNotPaused {
         // Verify caller is mailbox
         require(msg.sender == address(mailbox), "Only mailbox");
 
@@ -330,12 +302,12 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     function setTrustedRemote(uint32 domain, bytes32 remote) external onlyOwner {
         bool isNew = trustedRemotes[domain] == bytes32(0);
         trustedRemotes[domain] = remote;
-        
+
         if (isNew && remote != bytes32(0)) {
             connectedDomains.push(domain);
             emit DomainConnected(domain);
         }
-        
+
         emit TrustedRemoteSet(domain, remote);
     }
 
@@ -384,10 +356,10 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get cross-chain agent by origin
      */
-    function getCrossChainAgent(uint32 originDomain, uint256 originAgentId) 
-        external 
-        view 
-        returns (CrossChainAgent memory) 
+    function getCrossChainAgent(uint32 originDomain, uint256 originAgentId)
+        external
+        view
+        returns (CrossChainAgent memory)
     {
         bytes32 key = _computeAgentKey(originDomain, originAgentId);
         return crossChainAgents[key];
@@ -459,7 +431,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
         address owner = address(uint160(bytes20(data[32:52])));
         IdentityRegistry.StakeTier tier = IdentityRegistry.StakeTier(uint8(data[52]));
         uint16 uriLen = uint16(bytes2(data[53:55]));
-        string memory tokenUri = string(data[55:55+uriLen]);
+        string memory tokenUri = string(data[55:55 + uriLen]);
 
         bytes32 key = _computeAgentKey(origin, agentId);
 
@@ -483,29 +455,29 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     function _handleUpdate(uint32 origin, bytes calldata data) internal {
         uint256 agentId = uint256(bytes32(data[0:32]));
         bytes32 key = _computeAgentKey(origin, agentId);
-        
+
         CrossChainAgent storage agent = crossChainAgents[key];
         if (!agent.isActive) revert AgentNotFound();
 
         // Update tier
         agent.tier = IdentityRegistry.StakeTier(uint8(data[32]));
-        
+
         // Update URI if provided
         uint16 uriLen = uint16(bytes2(data[33:35]));
         if (uriLen > 0) {
-            agent.tokenUri = string(data[35:35+uriLen]);
+            agent.tokenUri = string(data[35:35 + uriLen]);
         }
-        
+
         agent.syncedAt = block.timestamp;
     }
 
     function _handleBan(uint32 origin, bytes calldata data) internal {
         uint256 agentId = uint256(bytes32(data[0:32]));
         bytes32 key = _computeAgentKey(origin, agentId);
-        
+
         CrossChainAgent storage agent = crossChainAgents[key];
         if (!agent.isActive) revert AgentNotFound();
-        
+
         agent.isBanned = true;
         agent.syncedAt = block.timestamp;
 
@@ -515,10 +487,10 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     function _handleUnban(uint32 origin, bytes calldata data) internal {
         uint256 agentId = uint256(bytes32(data[0:32]));
         bytes32 key = _computeAgentKey(origin, agentId);
-        
+
         CrossChainAgent storage agent = crossChainAgents[key];
         if (!agent.isActive) revert AgentNotFound();
-        
+
         agent.isBanned = false;
         agent.syncedAt = block.timestamp;
     }
@@ -527,10 +499,10 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
         uint256 agentId = uint256(bytes32(data[0:32]));
         uint256 slashAmount = uint256(bytes32(data[32:64]));
         bytes32 key = _computeAgentKey(origin, agentId);
-        
+
         CrossChainAgent storage agent = crossChainAgents[key];
         if (!agent.isActive) revert AgentNotFound();
-        
+
         // Downgrade tier based on slash
         if (slashAmount > 0) {
             // Assume significant slash means tier downgrade
@@ -542,7 +514,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
                 agent.tier = IdentityRegistry.StakeTier.NONE;
             }
         }
-        
+
         agent.syncedAt = block.timestamp;
 
         emit AgentSlashSynced(key, origin, slashAmount);
@@ -556,7 +528,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     ) internal pure returns (bytes memory) {
         bytes memory uri = bytes(tokenUri);
         require(uri.length <= 65535, "URI too long");
-        
+
         return abi.encodePacked(
             MESSAGE_VERSION,
             uint8(MessageType.REGISTER),
@@ -569,17 +541,13 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     }
 
     function _encodeBanMessage(uint256 agentId) internal pure returns (bytes memory) {
-        return abi.encodePacked(
-            MESSAGE_VERSION,
-            uint8(MessageType.BAN),
-            bytes32(agentId)
-        );
+        return abi.encodePacked(MESSAGE_VERSION, uint8(MessageType.BAN), bytes32(agentId));
     }
 
     function _dispatchToAll(bytes memory payload, MessageType msgType) internal {
         uint256 remainingValue = msg.value;
         uint256 totalSpent = 0;
-        
+
         // Single loop: quote and dispatch atomically for each domain
         // This prevents race conditions where gas prices change between quote and dispatch
         for (uint256 i = 0; i < connectedDomains.length; i++) {
@@ -588,10 +556,10 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
             if (recipient != bytes32(0)) {
                 uint256 fee = mailbox.quoteDispatch(domain, recipient, payload);
                 if (remainingValue < fee) revert InsufficientFee();
-                
+
                 bytes32 messageId = mailbox.dispatch{value: fee}(domain, recipient, payload);
                 emit MessageDispatched(domain, messageId, msgType);
-                
+
                 remainingValue -= fee;
                 totalSpent += fee;
             }
@@ -599,7 +567,7 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
 
         // Refund any excess
         if (remainingValue > 0) {
-            (bool success, ) = msg.sender.call{value: remainingValue}("");
+            (bool success,) = msg.sender.call{value: remainingValue}("");
             require(success, "Refund failed");
         }
     }

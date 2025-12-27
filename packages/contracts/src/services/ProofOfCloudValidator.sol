@@ -117,33 +117,16 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
     event SignerRemoved(address indexed signer);
     event ThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
     event VerificationRequested(
-        uint256 indexed agentId,
-        bytes32 indexed requestHash,
-        bytes32 hardwareIdHash,
-        address indexed requester
+        uint256 indexed agentId, bytes32 indexed requestHash, bytes32 hardwareIdHash, address indexed requester
     );
     event VerificationSubmitted(
-        bytes32 indexed requestHash,
-        address indexed signer,
-        uint256 signaturesCount,
-        uint256 threshold
+        bytes32 indexed requestHash, address indexed signer, uint256 signaturesCount, uint256 threshold
     );
     event VerificationCompleted(
-        uint256 indexed agentId,
-        bytes32 indexed hardwareIdHash,
-        uint8 level,
-        string cloudProvider,
-        string region
+        uint256 indexed agentId, bytes32 indexed hardwareIdHash, uint8 level, string cloudProvider, string region
     );
-    event HardwareRevocationEvent(
-        bytes32 indexed hardwareIdHash,
-        uint256 indexed agentId,
-        string reason
-    );
-    event VerificationExpiredEvent(
-        uint256 indexed agentId,
-        bytes32 indexed hardwareIdHash
-    );
+    event HardwareRevocationEvent(bytes32 indexed hardwareIdHash, uint256 indexed agentId, string reason);
+    event VerificationExpiredEvent(uint256 indexed agentId, bytes32 indexed hardwareIdHash);
 
     // ============================================================================
     // Errors
@@ -180,12 +163,9 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address payable _identityRegistry,
-        address[] memory _initialSigners,
-        uint256 _threshold,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address payable _identityRegistry, address[] memory _initialSigners, uint256 _threshold, address _owner)
+        Ownable(_owner)
+    {
         if (_identityRegistry == address(0)) revert InvalidSigner();
         if (_initialSigners.length == 0) revert InvalidThreshold();
         if (_threshold == 0 || _threshold > _initialSigners.length) revert InvalidThreshold();
@@ -267,41 +247,35 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
      * @param requestUri URI containing attestation quote and metadata
      * @return requestHash Hash of the validation request
      */
-    function requestVerification(
-        uint256 agentId,
-        bytes32 hardwareIdHash,
-        string calldata requestUri
-    ) external nonReentrant whenNotPaused returns (bytes32 requestHash) {
+    function requestVerification(uint256 agentId, bytes32 hardwareIdHash, string calldata requestUri)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 requestHash)
+    {
         if (!identityRegistry.agentExists(agentId)) revert AgentNotFound();
 
         address agentOwner = identityRegistry.ownerOf(agentId);
-        if (msg.sender != agentOwner && 
-            !identityRegistry.isApprovedForAll(agentOwner, msg.sender) &&
-            identityRegistry.getApproved(agentId) != msg.sender) {
+        if (
+            msg.sender != agentOwner && !identityRegistry.isApprovedForAll(agentOwner, msg.sender)
+                && identityRegistry.getApproved(agentId) != msg.sender
+        ) {
             revert InvalidSigner();
         }
 
         // Check if hardware is already verified for another agent
         HardwareRecord storage existingRecord = hardwareRecords[hardwareIdHash];
-        if (existingRecord.agentId != 0 && 
-            existingRecord.agentId != agentId && 
-            !existingRecord.revoked &&
-            block.timestamp < existingRecord.expiresAt) {
+        if (
+            existingRecord.agentId != 0 && existingRecord.agentId != agentId && !existingRecord.revoked
+                && block.timestamp < existingRecord.expiresAt
+        ) {
             revert HardwareAlreadyRegistered();
         }
 
         // Create request hash - stored internally, not via ValidationRegistry
         // (ValidationRegistry's self-validation check prevents validators from requesting)
-        requestHash = keccak256(
-            abi.encodePacked(
-                address(this),
-                agentId,
-                hardwareIdHash,
-                requestUri,
-                block.timestamp,
-                msg.sender
-            )
-        );
+        requestHash =
+            keccak256(abi.encodePacked(address(this), agentId, hardwareIdHash, requestUri, block.timestamp, msg.sender));
 
         agentValidationRequest[agentId] = requestHash;
 
@@ -386,12 +360,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
 
         pending.signatories.push(recovered);
 
-        emit VerificationSubmitted(
-            requestHash,
-            recovered,
-            pending.signatories.length,
-            threshold
-        );
+        emit VerificationSubmitted(requestHash, recovered, pending.signatories.length, threshold);
 
         // Execute if threshold reached
         if (pending.signatories.length >= threshold) {
@@ -402,10 +371,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
     /**
      * @dev Execute verification after threshold signatures collected
      */
-    function _executeVerification(
-        bytes32 requestHash,
-        PendingVerification storage pending
-    ) internal {
+    function _executeVerification(bytes32 requestHash, PendingVerification storage pending) internal {
         pending.executed = true;
 
         // Store hardware record
@@ -423,11 +389,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
         agentHardware[pending.agentId] = pending.hardwareIdHash;
 
         emit VerificationCompleted(
-            pending.agentId,
-            pending.hardwareIdHash,
-            pending.level,
-            pending.cloudProvider,
-            pending.region
+            pending.agentId, pending.hardwareIdHash, pending.level, pending.cloudProvider, pending.region
         );
     }
 
@@ -440,10 +402,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
      * @param hardwareIdHash Hardware ID hash to revoke
      * @param reason Reason for revocation
      */
-    function revokeHardware(
-        bytes32 hardwareIdHash,
-        string calldata reason
-    ) external onlySigner nonReentrant {
+    function revokeHardware(bytes32 hardwareIdHash, string calldata reason) external onlySigner nonReentrant {
         HardwareRecord storage record = hardwareRecords[hardwareIdHash];
         if (record.agentId == 0) revert HardwareNotRegistered();
         if (record.revoked) revert HardwareRevoked();
@@ -462,11 +421,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
      * @param hardwareIdHash Hardware ID hash
      * @return record Hardware record
      */
-    function getHardwareRecord(bytes32 hardwareIdHash)
-        external
-        view
-        returns (HardwareRecord memory record)
-    {
+    function getHardwareRecord(bytes32 hardwareIdHash) external view returns (HardwareRecord memory record) {
         return hardwareRecords[hardwareIdHash];
     }
 
@@ -481,12 +436,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
     function getAgentStatus(uint256 agentId)
         external
         view
-        returns (
-            bool verified,
-            uint8 level,
-            bytes32 hardwareIdHash,
-            uint256 expiresAt
-        )
+        returns (bool verified, uint8 level, bytes32 hardwareIdHash, uint256 expiresAt)
     {
         hardwareIdHash = agentHardware[agentId];
         if (hardwareIdHash == bytes32(0)) {
@@ -494,7 +444,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
         }
 
         HardwareRecord storage record = hardwareRecords[hardwareIdHash];
-        
+
         verified = !record.revoked && block.timestamp < record.expiresAt;
         level = verified ? record.level : 0;
         expiresAt = record.expiresAt;
@@ -531,11 +481,7 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
     function getPendingVerification(bytes32 requestHash)
         external
         view
-        returns (
-            uint256 agentId,
-            uint256 signaturesCount,
-            bool executed
-        )
+        returns (uint256 agentId, uint256 signaturesCount, bool executed)
     {
         PendingVerification storage pending = pendingVerifications[requestHash];
         return (pending.agentId, pending.signatories.length, pending.executed);
@@ -569,4 +515,3 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

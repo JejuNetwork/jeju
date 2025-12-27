@@ -77,7 +77,7 @@ describe('KeyPair', () => {
 
   it('validates secp256k1 key pair', () => {
     const keyPair: KeyPair = {
-      publicKey: '04' + 'a'.repeat(128), // Uncompressed
+      publicKey: `04${'a'.repeat(128)}`, // Uncompressed
       privateKey: 'a'.repeat(64),
       type: 'secp256k1',
     }
@@ -104,10 +104,10 @@ describe('KeyPair', () => {
 describe('Signature', () => {
   it('validates ECDSA signature', () => {
     const signature: Signature = {
-      r: '0x' + 'a'.repeat(64),
-      s: '0x' + 'b'.repeat(64),
+      r: `0x${'a'.repeat(64)}`,
+      s: `0x${'b'.repeat(64)}`,
       v: 27,
-      raw: '0x' + 'a'.repeat(64) + 'b'.repeat(64) + '1b',
+      raw: `0x${'a'.repeat(64)}${'b'.repeat(64)}1b`,
     }
 
     expect(signature.r).toHaveLength(66)
@@ -135,7 +135,7 @@ describe('Hash functions', () => {
   })
 
   it('validates Keccak-256 hash length', () => {
-    const hash = '0x' + 'b'.repeat(64)
+    const hash = `0x${'b'.repeat(64)}`
     expect(hash).toHaveLength(66)
   })
 
@@ -238,4 +238,3 @@ describe('Threshold cryptography', () => {
     expect(share.groupId).toBeDefined()
   })
 })
-

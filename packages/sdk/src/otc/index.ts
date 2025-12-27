@@ -16,9 +16,20 @@ import type { JejuWallet } from '../wallet'
 const TOKEN_REGISTERED_EVENT = parseAbiItem(
   'event TokenRegistered(bytes32 indexed tokenId, address tokenAddress, address priceOracle)',
 )
-const _CONSIGNMENT_TOPPED_UP_EVENT = parseAbiItem(
-  'event ConsignmentToppedUp(uint256 indexed consignmentId, uint256 amount)',
-)
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         TYPE GUARDS & HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+type TokenRegisteredEventArgs = {
+  tokenId?: Hex
+}
+
+function hasTokenRegisteredArgs(
+  args: TokenRegisteredEventArgs,
+): args is { tokenId: Hex } {
+  return args.tokenId !== undefined
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -437,8 +448,8 @@ export function createOTCModule(
       })
 
       for (const log of logs) {
-        const tokenId = log.args.tokenId
-        const token = await this.getToken(tokenId)
+        if (!hasTokenRegisteredArgs(log.args)) continue
+        const token = await this.getToken(log.args.tokenId)
         if (token) {
           tokens.push(token)
         }

@@ -21,7 +21,7 @@ contract DAORegistryTest is Test {
 
     function testCreateDAO() public {
         vm.prank(user1);
-        
+
         IDAORegistry.CEOPersona memory ceoPersona = IDAORegistry.CEOPersona({
             name: "Test CEO",
             pfpCid: "ipfs://test",
@@ -31,7 +31,7 @@ contract DAORegistryTest is Test {
         });
         ceoPersona.traits[0] = "strategic";
         ceoPersona.traits[1] = "fair";
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
             councilVotingPeriod: 3 days,
@@ -39,17 +39,11 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
-        
+
         bytes32 daoId = registry.createDAO(
-            "test-dao",
-            "Test DAO",
-            "A test DAO for testing",
-            treasury,
-            "ipfs://manifest",
-            ceoPersona,
-            params
+            "test-dao", "Test DAO", "A test DAO for testing", treasury, "ipfs://manifest", ceoPersona, params
         );
-        
+
         assertTrue(daoId != bytes32(0), "DAO ID should not be zero");
         assertTrue(registry.daoExists(daoId), "DAO should exist");
         assertEq(registry.getDAOCount(), 1, "Should have 1 DAO");
@@ -64,7 +58,7 @@ contract DAORegistryTest is Test {
             traits: new string[](1)
         });
         ceoPersona1.traits[0] = "strategic";
-        
+
         IDAORegistry.CEOPersona memory ceoPersona2 = IDAORegistry.CEOPersona({
             name: "Apps Lead",
             pfpCid: "",
@@ -74,7 +68,7 @@ contract DAORegistryTest is Test {
         });
         ceoPersona2.traits[0] = "innovative";
         ceoPersona2.traits[1] = "user-focused";
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
             councilVotingPeriod: 3 days,
@@ -82,38 +76,24 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
-        
+
         // Create Jeju DAO
         vm.prank(user1);
-        bytes32 jejuId = registry.createDAO(
-            "jeju",
-            "Jeju DAO",
-            "Jeju Network chain governance",
-            treasury,
-            "",
-            ceoPersona1,
-            params
-        );
-        
+        bytes32 jejuId =
+            registry.createDAO("jeju", "Jeju DAO", "Jeju Network chain governance", treasury, "", ceoPersona1, params);
+
         // Create Apps DAO
         vm.prank(user2);
-        bytes32 appsId = registry.createDAO(
-            "apps",
-            "Apps DAO",
-            "Jeju apps governance",
-            address(5),
-            "",
-            ceoPersona2,
-            params
-        );
-        
+        bytes32 appsId =
+            registry.createDAO("apps", "Apps DAO", "Jeju apps governance", address(5), "", ceoPersona2, params);
+
         assertEq(registry.getDAOCount(), 2, "Should have 2 DAOs");
         assertTrue(jejuId != appsId, "DAO IDs should be unique");
-        
+
         // Check personas
         IDAORegistry.CEOPersona memory jejuPersona = registry.getCEOPersona(jejuId);
         assertEq(jejuPersona.name, "Jeju CEO");
-        
+
         IDAORegistry.CEOPersona memory appsPersona = registry.getCEOPersona(appsId);
         assertEq(appsPersona.name, "Apps Lead");
     }
@@ -126,7 +106,7 @@ contract DAORegistryTest is Test {
             personality: "Test",
             traits: new string[](0)
         });
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
             councilVotingPeriod: 3 days,
@@ -134,20 +114,20 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
-        
+
         vm.prank(user1);
         bytes32 dao1 = registry.createDAO("dao1", "DAO 1", "Test", treasury, "", ceoPersona, params);
-        
+
         vm.prank(user2);
         bytes32 dao2 = registry.createDAO("dao2", "DAO 2", "Test", treasury, "", ceoPersona, params);
-        
+
         bytes32[] memory activeDAOs = registry.getActiveDAOs();
         assertEq(activeDAOs.length, 2, "Should have 2 active DAOs");
-        
+
         // Pause one DAO
         vm.prank(user1);
         registry.setDAOStatus(dao1, IDAORegistry.DAOStatus.PAUSED);
-        
+
         activeDAOs = registry.getActiveDAOs();
         assertEq(activeDAOs.length, 1, "Should have 1 active DAO");
         assertEq(activeDAOs[0], dao2, "Active DAO should be dao2");
@@ -161,7 +141,7 @@ contract DAORegistryTest is Test {
             personality: "Test",
             traits: new string[](0)
         });
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
             councilVotingPeriod: 3 days,
@@ -169,10 +149,10 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
-        
+
         vm.prank(user1);
         bytes32 daoId = registry.createDAO("unique-dao", "Unique DAO", "Test", treasury, "", ceoPersona, params);
-        
+
         IDAORegistry.DAO memory dao = registry.getDAOByName("unique-dao");
         assertEq(dao.daoId, daoId, "Should find DAO by name");
         assertEq(dao.displayName, "Unique DAO");
@@ -188,7 +168,7 @@ contract DAORegistryTest is Test {
             personality: "Test",
             traits: new string[](0)
         });
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
             councilVotingPeriod: 3 days,
@@ -196,14 +176,14 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
-        
+
         vm.prank(user1);
         bytes32 daoId = registry.createDAO("test", "Test", "Test", treasury, "", ceoPersona, params);
-        
+
         // Add council member
         vm.prank(user1);
         registry.addCouncilMember(daoId, address(10), 1, "Treasury", 100);
-        
+
         IDAORegistry.CouncilMember[] memory members = registry.getCouncilMembers(daoId);
         assertEq(members.length, 1, "Should have 1 council member");
         assertEq(members[0].member, address(10));
@@ -222,7 +202,7 @@ contract DAORegistryTest is Test {
             personality: "Test",
             traits: new string[](0)
         });
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
             councilVotingPeriod: 3 days,
@@ -230,19 +210,19 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
-        
+
         vm.prank(user1);
         bytes32 daoId = registry.createDAO("test", "Test", "Test", treasury, "", ceoPersona, params);
-        
+
         bytes32 packageId = keccak256("test-package");
-        
+
         vm.prank(user1);
         registry.linkPackage(daoId, packageId);
-        
+
         bytes32[] memory packages = registry.getLinkedPackages(daoId);
         assertEq(packages.length, 1, "Should have 1 linked package");
         assertEq(packages[0], packageId);
-        
+
         assertEq(registry.getPackageDAO(packageId), daoId, "Reverse lookup should work");
     }
 
@@ -256,7 +236,7 @@ contract DAORegistryTest is Test {
             personality: "Test",
             traits: new string[](0)
         });
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
             councilVotingPeriod: 3 days,
@@ -264,19 +244,19 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
-        
+
         vm.prank(user1);
         bytes32 daoId = registry.createDAO("test", "Test", "Test", treasury, "", ceoPersona, params);
-        
+
         // Non-admin should fail
         vm.prank(user2);
         vm.expectRevert(DAORegistry.NotAuthorized.selector);
         registry.updateDAO(daoId, "New Name", "New Desc", "");
-        
+
         // Admin should succeed
         vm.prank(user1);
         registry.updateDAO(daoId, "New Name", "New Desc", "");
-        
+
         IDAORegistry.DAO memory dao = registry.getDAO(daoId);
         assertEq(dao.displayName, "New Name");
     }
@@ -291,7 +271,7 @@ contract DAORegistryTest is Test {
         });
         ceoPersona.traits[0] = "wise";
         ceoPersona.traits[1] = "fair";
-        
+
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 80,
             councilVotingPeriod: 5 days,
@@ -299,21 +279,23 @@ contract DAORegistryTest is Test {
             minProposalStake: 0.1 ether,
             quorumBps: 6000
         });
-        
+
         vm.prank(user1);
-        bytes32 daoId = registry.createDAO("full-test", "Full Test DAO", "Testing getDAOFull", treasury, "ipfs://manifest", ceoPersona, params);
-        
+        bytes32 daoId = registry.createDAO(
+            "full-test", "Full Test DAO", "Testing getDAOFull", treasury, "ipfs://manifest", ceoPersona, params
+        );
+
         // Add council member
         vm.prank(user1);
         registry.addCouncilMember(daoId, address(10), 1, "Treasury", 100);
-        
+
         // Link package
         vm.prank(user1);
         registry.linkPackage(daoId, keccak256("pkg1"));
-        
+
         // Get full DAO
         IDAORegistry.DAOFull memory daoFull = registry.getDAOFull(daoId);
-        
+
         assertEq(daoFull.dao.name, "full-test");
         assertEq(daoFull.dao.displayName, "Full Test DAO");
         assertEq(daoFull.ceoPersona.name, "Test CEO");
@@ -322,4 +304,3 @@ contract DAORegistryTest is Test {
         assertEq(daoFull.linkedPackages.length, 1);
     }
 }
-

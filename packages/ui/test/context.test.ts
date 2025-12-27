@@ -19,10 +19,12 @@ interface WalletState {
   isConnected: boolean
   address: string | undefined
   balance: bigint | undefined
-  chain: {
-    id: number
-    name: string
-  } | undefined
+  chain:
+    | {
+        id: number
+        name: string
+      }
+    | undefined
 }
 
 // Transaction state
@@ -111,7 +113,7 @@ describe('WalletState', () => {
   it('formats balance correctly', () => {
     const balance = 1500000000000000000n // 1.5 ETH
     const decimals = 18
-    const formatted = Number(balance) / Math.pow(10, decimals)
+    const formatted = Number(balance) / 10 ** decimals
 
     expect(formatted).toBe(1.5)
   })
@@ -204,9 +206,19 @@ describe('State transitions', () => {
   it('validates connection flow', () => {
     const states: JejuClientState[] = [
       // Initial state
-      { isConnected: false, chainId: undefined, address: undefined, isLoading: false },
+      {
+        isConnected: false,
+        chainId: undefined,
+        address: undefined,
+        isLoading: false,
+      },
       // Connecting
-      { isConnected: false, chainId: undefined, address: undefined, isLoading: true },
+      {
+        isConnected: false,
+        chainId: undefined,
+        address: undefined,
+        isLoading: true,
+      },
       // Connected
       {
         isConnected: true,
@@ -269,4 +281,3 @@ describe('Error handling', () => {
     }
   })
 })
-

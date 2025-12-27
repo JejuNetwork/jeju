@@ -197,10 +197,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Transfer package ownership
      */
-    function transferOwnership(
-        bytes32 packageId,
-        address newOwner
-    ) external requirePackageExists(packageId) onlyPackageOwner(packageId) {
+    function transferOwnership(bytes32 packageId, address newOwner)
+        external
+        requirePackageExists(packageId)
+        onlyPackageOwner(packageId)
+    {
         require(newOwner != address(0), "Invalid new owner");
 
         Package storage pkg = _packages[packageId];
@@ -218,10 +219,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Deprecate or undeprecate a package
      */
-    function deprecatePackage(
-        bytes32 packageId,
-        bool deprecated
-    ) external requirePackageExists(packageId) canManagePackage(packageId) {
+    function deprecatePackage(bytes32 packageId, bool deprecated)
+        external
+        requirePackageExists(packageId)
+        canManagePackage(packageId)
+    {
         Package storage pkg = _packages[packageId];
         pkg.deprecated = deprecated;
         pkg.updatedAt = block.timestamp;
@@ -290,11 +292,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Deprecate a version
      */
-    function deprecateVersion(
-        bytes32 packageId,
-        string calldata versionStr,
-        string calldata message
-    ) external requirePackageExists(packageId) canManagePackage(packageId) {
+    function deprecateVersion(bytes32 packageId, string calldata versionStr, string calldata message)
+        external
+        requirePackageExists(packageId)
+        canManagePackage(packageId)
+    {
         bytes32 versionHash = keccak256(bytes(versionStr));
         bytes32 versionId = _versionStringToId[packageId][versionHash];
 
@@ -310,10 +312,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Set the latest version tag
      */
-    function setLatestVersion(
-        bytes32 packageId,
-        string calldata versionStr
-    ) external requirePackageExists(packageId) canManagePackage(packageId) {
+    function setLatestVersion(bytes32 packageId, string calldata versionStr)
+        external
+        requirePackageExists(packageId)
+        canManagePackage(packageId)
+    {
         bytes32 versionHash = keccak256(bytes(versionStr));
         bytes32 versionId = _versionStringToId[packageId][versionHash];
 
@@ -329,12 +332,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Add a maintainer
      */
-    function addMaintainer(
-        bytes32 packageId,
-        address user,
-        bool canPublishFlag,
-        bool canManageFlag
-    ) external requirePackageExists(packageId) canManagePackage(packageId) {
+    function addMaintainer(bytes32 packageId, address user, bool canPublishFlag, bool canManageFlag)
+        external
+        requirePackageExists(packageId)
+        canManagePackage(packageId)
+    {
         require(user != address(0), "Invalid user");
 
         Maintainer storage m = _maintainers[packageId][user];
@@ -354,10 +356,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Remove a maintainer
      */
-    function removeMaintainer(
-        bytes32 packageId,
-        address user
-    ) external requirePackageExists(packageId) canManagePackage(packageId) {
+    function removeMaintainer(bytes32 packageId, address user)
+        external
+        requirePackageExists(packageId)
+        canManagePackage(packageId)
+    {
         if (user == _packages[packageId].owner) revert CannotRemoveOwner();
 
         Maintainer storage m = _maintainers[packageId][user];
@@ -381,12 +384,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Update maintainer permissions
      */
-    function updateMaintainer(
-        bytes32 packageId,
-        address user,
-        bool canPublishFlag,
-        bool canManageFlag
-    ) external requirePackageExists(packageId) canManagePackage(packageId) {
+    function updateMaintainer(bytes32 packageId, address user, bool canPublishFlag, bool canManageFlag)
+        external
+        requirePackageExists(packageId)
+        canManagePackage(packageId)
+    {
         Maintainer storage m = _maintainers[packageId][user];
         if (m.addedAt == 0) revert NotAuthorized();
 
@@ -400,19 +402,13 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         return _packages[packageId];
     }
 
-    function getPackageByName(
-        string calldata name,
-        string calldata scope
-    ) external view returns (Package memory) {
+    function getPackageByName(string calldata name, string calldata scope) external view returns (Package memory) {
         bytes32 fullNameHash = keccak256(abi.encodePacked(scope, "/", name));
         bytes32 packageId = _nameToPackage[fullNameHash];
         return _packages[packageId];
     }
 
-    function getVersion(
-        bytes32 packageId,
-        string calldata versionStr
-    ) external view returns (Version memory) {
+    function getVersion(bytes32 packageId, string calldata versionStr) external view returns (Version memory) {
         bytes32 versionHash = keccak256(bytes(versionStr));
         bytes32 versionId = _versionStringToId[packageId][versionHash];
         return _versions[packageId][versionId];
@@ -523,20 +519,23 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
 
         // Must start with a letter or underscore
         bytes1 first = nameBytes[0];
-        if (!(first >= 0x61 && first <= 0x7A) && // a-z
-            !(first >= 0x41 && first <= 0x5A) && // A-Z
-            first != 0x5F) { // _
+        if (
+            !(first >= 0x61 && first <= 0x7A) // a-z
+                && !(first >= 0x41 && first <= 0x5A) // A-Z
+                && first != 0x5F
+        ) {
+            // _
             return false;
         }
 
         for (uint256 i = 0; i < nameBytes.length; i++) {
             bytes1 char = nameBytes[i];
-            bool isValid = (char >= 0x30 && char <= 0x39) || // 0-9
-                (char >= 0x41 && char <= 0x5A) || // A-Z
-                (char >= 0x61 && char <= 0x7A) || // a-z
-                char == 0x2D || // -
-                char == 0x5F || // _
-                char == 0x2E; // .
+            bool isValid = (char >= 0x30 && char <= 0x39) // 0-9
+                || (char >= 0x41 && char <= 0x5A) // A-Z
+                || (char >= 0x61 && char <= 0x7A) // a-z
+                || char == 0x2D // -
+                || char == 0x5F // _
+                || char == 0x2E; // .
             if (!isValid) return false;
         }
 
@@ -550,11 +549,11 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
 
         for (uint256 i = 1; i < scopeBytes.length; i++) {
             bytes1 char = scopeBytes[i];
-            bool isValid = (char >= 0x30 && char <= 0x39) || // 0-9
-                (char >= 0x41 && char <= 0x5A) || // A-Z
-                (char >= 0x61 && char <= 0x7A) || // a-z
-                char == 0x2D || // -
-                char == 0x5F; // _
+            bool isValid = (char >= 0x30 && char <= 0x39) // 0-9
+                || (char >= 0x41 && char <= 0x5A) // A-Z
+                || (char >= 0x61 && char <= 0x7A) // a-z
+                || char == 0x2D // -
+                || char == 0x5F; // _
             if (!isValid) return false;
         }
 
@@ -568,12 +567,12 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         // Basic semver check - allows x.y.z, x.y.z-pre, x.y.z+build, etc.
         for (uint256 i = 0; i < versionBytes.length; i++) {
             bytes1 char = versionBytes[i];
-            bool isValid = (char >= 0x30 && char <= 0x39) || // 0-9
-                (char >= 0x41 && char <= 0x5A) || // A-Z
-                (char >= 0x61 && char <= 0x7A) || // a-z
-                char == 0x2E || // .
-                char == 0x2D || // -
-                char == 0x2B; // +
+            bool isValid = (char >= 0x30 && char <= 0x39) // 0-9
+                || (char >= 0x41 && char <= 0x5A) // A-Z
+                || (char >= 0x61 && char <= 0x7A) // a-z
+                || char == 0x2E // .
+                || char == 0x2D // -
+                || char == 0x2B; // +
             if (!isValid) return false;
         }
 
@@ -606,4 +605,3 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         return "1.0.0";
     }
 }
-

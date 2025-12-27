@@ -97,7 +97,7 @@ describe('AgentIdentity', () => {
 describe('WalletConfig', () => {
   it('validates private key config', () => {
     const config: WalletConfig = {
-      privateKey: '0x' + 'a'.repeat(64),
+      privateKey: `0x${'a'.repeat(64)}`,
       chainId: 1,
     }
 
@@ -177,7 +177,10 @@ describe('TransactionRequest', () => {
       maxPriorityFeePerGas: 2000000000n, // 2 gwei
     }
 
-    expect(tx.maxFeePerGas).toBeGreaterThan(tx.maxPriorityFeePerGas!)
+    if (tx.maxPriorityFeePerGas === undefined) {
+      throw new Error('maxPriorityFeePerGas is required')
+    }
+    expect(tx.maxFeePerGas).toBeGreaterThan(tx.maxPriorityFeePerGas)
   })
 })
 
@@ -193,7 +196,7 @@ describe('Address derivation', () => {
   it('validates address from public key', () => {
     // In reality, this would involve keccak256 hashing
     // Here we just validate the format
-    const publicKey = '0x' + '04' + 'a'.repeat(128) // Uncompressed public key
+    const publicKey = `0x04${'a'.repeat(128)}` // Uncompressed public key
     expect(publicKey).toHaveLength(132)
   })
 })
@@ -201,7 +204,7 @@ describe('Address derivation', () => {
 describe('Signature verification', () => {
   it('validates signature format', () => {
     // EIP-191 signature
-    const signature = '0x' + 'ab'.repeat(65) // r + s + v
+    const signature = `0x${'ab'.repeat(65)}` // r + s + v
 
     expect(signature).toHaveLength(132)
     expect(signature.startsWith('0x')).toBe(true)
@@ -251,4 +254,3 @@ describe('Multi-chain identity', () => {
     expect(uniqueAddresses.size).toBe(1)
   })
 })
-

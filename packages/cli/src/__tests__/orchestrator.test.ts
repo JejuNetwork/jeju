@@ -192,7 +192,10 @@ describe('Dependency resolution', () => {
     ]
 
     // Simple cycle detection
-    const hasCycle = (start: string, visited: Set<string> = new Set()): boolean => {
+    const hasCycle = (
+      start: string,
+      visited: Set<string> = new Set(),
+    ): boolean => {
       if (visited.has(start)) return true
       visited.add(start)
       const service = services.find((s) => s.name === start)
@@ -277,4 +280,3 @@ describe('Environment configuration', () => {
     expect(missing).not.toContain('DATABASE_URL')
   })
 })
-

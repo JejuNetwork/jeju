@@ -154,29 +154,67 @@ export function createSessionRouter(config: AuthConfig) {
       }
     })
 
-    .get('/:sessionId', async ({ params, set }) => {
-      const session = await sessionState.get(params.sessionId)
-      if (!session) {
+    .get('/:sessionId', async ({ params, headers, set, cookie }) => {
+      // Require authentication - user can only view their own sessions
+      const currentSessionId = getSessionId(cookie, headers.authorization)
+      if (!currentSessionId) {
+        set.status = 401
+        return { error: 'unauthorized' }
+      }
+
+      const currentSession = await sessionState.get(currentSessionId)
+      if (!currentSession) {
+        set.status = 401
+        return { error: 'session_expired' }
+      }
+
+      const targetSession = await sessionState.get(params.sessionId)
+      if (!targetSession) {
         set.status = 404
         return { error: 'session_not_found' }
+      }
+
+      // Only allow viewing sessions that belong to the same user
+      if (targetSession.userId !== currentSession.userId) {
+        set.status = 403
+        return { error: 'not_authorized' }
       }
 
       return {
-        sessionId: session.sessionId,
-        userId: session.userId,
-        provider: session.provider,
-        address: session.address,
-        fid: session.fid,
-        createdAt: session.createdAt,
-        expiresAt: session.expiresAt,
+        sessionId: targetSession.sessionId,
+        userId: targetSession.userId,
+        provider: targetSession.provider,
+        address: targetSession.address,
+        fid: targetSession.fid,
+        createdAt: targetSession.createdAt,
+        expiresAt: targetSession.expiresAt,
       }
     })
 
-    .delete('/:sessionId', async ({ params, set }) => {
-      const session = await sessionState.get(params.sessionId)
-      if (!session) {
+    .delete('/:sessionId', async ({ params, headers, set, cookie }) => {
+      // Require authentication - user can only delete their own sessions
+      const currentSessionId = getSessionId(cookie, headers.authorization)
+      if (!currentSessionId) {
+        set.status = 401
+        return { error: 'unauthorized' }
+      }
+
+      const currentSession = await sessionState.get(currentSessionId)
+      if (!currentSession) {
+        set.status = 401
+        return { error: 'session_expired' }
+      }
+
+      const targetSession = await sessionState.get(params.sessionId)
+      if (!targetSession) {
         set.status = 404
         return { error: 'session_not_found' }
+      }
+
+      // Only allow deleting sessions that belong to the same user
+      if (targetSession.userId !== currentSession.userId) {
+        set.status = 403
+        return { error: 'not_authorized' }
       }
 
       await refreshTokenState.revokeAllForSession(params.sessionId)
@@ -184,11 +222,30 @@ export function createSessionRouter(config: AuthConfig) {
       return { success: true }
     })
 
-    .post('/:sessionId/refresh', async ({ params, set }) => {
-      const session = await sessionState.get(params.sessionId)
-      if (!session) {
+    .post('/:sessionId/refresh', async ({ params, headers, set, cookie }) => {
+      // Require authentication - user can only refresh their own sessions
+      const currentSessionId = getSessionId(cookie, headers.authorization)
+      if (!currentSessionId) {
+        set.status = 401
+        return { error: 'unauthorized' }
+      }
+
+      const currentSession = await sessionState.get(currentSessionId)
+      if (!currentSession) {
+        set.status = 401
+        return { error: 'session_expired' }
+      }
+
+      const targetSession = await sessionState.get(params.sessionId)
+      if (!targetSession) {
         set.status = 404
         return { error: 'session_not_found' }
+      }
+
+      // Only allow refreshing sessions that belong to the same user
+      if (targetSession.userId !== currentSession.userId) {
+        set.status = 403
+        return { error: 'not_authorized' }
       }
 
       // Extend session
@@ -196,7 +253,7 @@ export function createSessionRouter(config: AuthConfig) {
       await sessionState.updateExpiry(params.sessionId, newExpiry)
 
       return {
-        sessionId: session.sessionId,
+        sessionId: targetSession.sessionId,
         expiresAt: newExpiry,
       }
     })

@@ -302,6 +302,8 @@ export type ProposalStatus =
   | 'completed'
   | 'rejected'
   | 'vetoed'
+  | 'executed'
+  | 'cancelled'
 
 export interface BoardVote {
   agentId: string

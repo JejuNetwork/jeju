@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Command } from 'commander'
+import type { z } from 'zod'
 import { resolvePrivateKey } from '../lib/keys'
 import { logger } from '../lib/logger'
 import {
@@ -200,7 +201,7 @@ function createTrustedSignersCommand(): Command {
         process.exit(1)
       }
 
-      const config: TrustedSignersSchema = {
+      const config: z.infer<typeof TrustedSignersSchema> = {
         signers: [],
         requireSignature: false,
       }
@@ -324,8 +325,3 @@ function createTrustedSignersCommand(): Command {
 
   return cmd
 }
-
-// Type alias for the schema
-type TrustedSignersSchema = TrustedSigners
-
-import type { TrustedSigners } from '../lib/manifest-signing'

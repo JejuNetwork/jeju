@@ -13,7 +13,7 @@
  * ```
  */
 
-import { z, ZodFirstPartyTypeKind } from 'zod'
+import { z } from 'zod'
 
 // Get the ZodFunction class prototype
 const testFn = z.function()
@@ -21,7 +21,7 @@ const ZodFunctionProto = Object.getPrototypeOf(testFn)
 
 // Add .returns() method for Zod 3 compatibility
 if (!ZodFunctionProto.returns) {
-  ZodFunctionProto.returns = function <T extends z.ZodTypeAny>(returnType: T) {
+  ZodFunctionProto.returns = function <T extends z.ZodTypeAny>(_returnType: T) {
     // In Zod 4, we create a new function schema with the return type
     // For compatibility, we just return self since Zod 4 handles returns differently
     return this
@@ -30,16 +30,18 @@ if (!ZodFunctionProto.returns) {
 
 // Add .args() method for Zod 3 compatibility if not present
 if (!ZodFunctionProto.args) {
-  ZodFunctionProto.args = function <T extends z.ZodTuple<[], z.ZodUnknown>>(...items: T['items']) {
+  ZodFunctionProto.args = function <T extends z.ZodTuple>(
+    ..._items: T extends z.ZodTuple<infer Items> ? Items : never[]
+  ) {
     return this
   }
 }
 
 // Add .implement() method for Zod 3 compatibility
 if (!ZodFunctionProto.implement) {
-  ZodFunctionProto.implement = function <F extends (...args: never[]) => unknown>(fn: F): F {
-    return fn
-  }
+  ZodFunctionProto.implement = <F extends (...args: never[]) => unknown>(
+    fn: F,
+  ): F => fn
 }
 
 // Add .loose() method to ZodObject for @elizaos/core compatibility
@@ -49,6 +51,3 @@ if (!ZodObjectProto.loose) {
     return this.passthrough()
   }
 }
-
-export { }
-

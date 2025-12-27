@@ -10,13 +10,7 @@ interface IAggregatorV3 {
     function latestRoundData()
         external
         view
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        );
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 }
 
 /// @title VRFCoordinatorV2_5
@@ -63,10 +57,10 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
     FeeConfig public feeConfig;
     address public feeRecipient;
     address public governance;
-    
+
     // SECURITY: Timelocks for oracle changes
     uint256 public constant ORACLE_CHANGE_DELAY = 24 hours;
-    
+
     struct PendingOracleChange {
         address oracle;
         bytes32 keyHash;
@@ -74,12 +68,15 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         uint256 executeAfter;
         bool executed;
     }
+
     mapping(bytes32 => PendingOracleChange) public pendingOracleChanges;
-    
-    event OracleChangeProposed(bytes32 indexed changeId, address oracle, bytes32 keyHash, bool isRegister, uint256 executeAfter);
+
+    event OracleChangeProposed(
+        bytes32 indexed changeId, address oracle, bytes32 keyHash, bool isRegister, uint256 executeAfter
+    );
     event OracleChangeExecuted(bytes32 indexed changeId);
     event OracleChangeCancelled(bytes32 indexed changeId);
-    
+
     error OracleChangeNotFound();
     error OracleChangeNotReady();
     error OracleChangeAlreadyExecuted();
@@ -90,7 +87,17 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
     event SubscriptionCanceled(uint64 indexed subId, address to, uint256 amountLink, uint256 amountNative);
     event ConsumerAdded(uint64 indexed subId, address consumer);
     event ConsumerRemoved(uint64 indexed subId, address consumer);
-    event RandomWordsRequested(bytes32 indexed keyHash, uint256 requestId, uint256 preSeed, uint64 indexed subId, uint16 minimumRequestConfirmations, uint32 callbackGasLimit, uint32 numWords, bytes extraArgs, address indexed sender);
+    event RandomWordsRequested(
+        bytes32 indexed keyHash,
+        uint256 requestId,
+        uint256 preSeed,
+        uint64 indexed subId,
+        uint16 minimumRequestConfirmations,
+        uint32 callbackGasLimit,
+        uint32 numWords,
+        bytes extraArgs,
+        address indexed sender
+    );
     event RandomWordsFulfilled(uint256 indexed requestId, uint256[] output, bool success, uint96 payment);
     event ConfigSet(uint16 minimumRequestConfirmations, uint32 maxGasLimit, FeeConfig feeConfig);
     event ProvingKeyRegistered(bytes32 indexed keyHash, address indexed oracle);
@@ -144,13 +151,8 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
 
     function createSubscription() external returns (uint64 subId) {
         subId = ++currentSubId;
-        subscriptions[subId] = Subscription({
-            balance: 0,
-            nativeBalance: 0,
-            reqCount: 0,
-            owner: msg.sender,
-            consumers: new address[](0)
-        });
+        subscriptions[subId] =
+            Subscription({balance: 0, nativeBalance: 0, reqCount: 0, owner: msg.sender, consumers: new address[](0)});
         emit SubscriptionCreated(subId, msg.sender);
     }
 
@@ -235,14 +237,17 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
             sender: msg.sender
         });
         subscriptions[subId].reqCount++;
-        emit RandomWordsRequested(keyHash, requestId, preSeed, subId, requestConfirmations, callbackGasLimit, numWords, extraArgs, msg.sender);
+        emit RandomWordsRequested(
+            keyHash, requestId, preSeed, subId, requestConfirmations, callbackGasLimit, numWords, extraArgs, msg.sender
+        );
     }
 
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] memory randomWords,
-        address consumer
-    ) external onlyOracle nonReentrant returns (uint96 payment) {
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords, address consumer)
+        external
+        onlyOracle
+        nonReentrant
+        returns (uint96 payment)
+    {
         RequestCommitment memory rc = requestCommitments[requestId];
         if (rc.blockNum == 0) revert NoCorrespondingRequest();
         if (rc.sender != consumer) revert MustBeRequestOwner(rc.sender, consumer);
@@ -272,7 +277,10 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         emit RandomWordsFulfilled(requestId, randomWords, success, payment);
     }
 
-    function setConfig(uint16 _minimumRequestConfirmations, uint32 _maxGasLimit, FeeConfig calldata _feeConfig) external onlyGovernance {
+    function setConfig(uint16 _minimumRequestConfirmations, uint32 _maxGasLimit, FeeConfig calldata _feeConfig)
+        external
+        onlyGovernance
+    {
         minimumRequestConfirmations = _minimumRequestConfirmations;
         maxGasLimit = _maxGasLimit;
         feeConfig = _feeConfig;
@@ -292,7 +300,7 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         });
         emit OracleChangeProposed(changeId, oracle, keyHash, true, block.timestamp + ORACLE_CHANGE_DELAY);
     }
-    
+
     /// @notice Execute pending proving key registration
     function executeRegisterProvingKey(bytes32 changeId) external {
         PendingOracleChange storage change = pendingOracleChanges[changeId];
@@ -300,15 +308,15 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         if (change.executed) revert OracleChangeAlreadyExecuted();
         if (block.timestamp < change.executeAfter) revert OracleChangeNotReady();
         if (!change.isRegister) revert OracleChangeNotFound();
-        
+
         change.executed = true;
         provingKeyHashes[change.keyHash] = true;
         oracles[change.oracle] = true;
-        
+
         emit OracleChangeExecuted(changeId);
         emit ProvingKeyRegistered(change.keyHash, change.oracle);
     }
-    
+
     /// @notice Legacy registerProvingKey - now requires timelock
     function registerProvingKey(bytes32 keyHash, address oracle) external onlyOwner {
         proposeRegisterProvingKey(keyHash, oracle);
@@ -326,7 +334,7 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         });
         emit OracleChangeProposed(changeId, oracle, keyHash, false, block.timestamp + ORACLE_CHANGE_DELAY);
     }
-    
+
     /// @notice Execute pending proving key deregistration
     function executeDeregisterProvingKey(bytes32 changeId) external {
         PendingOracleChange storage change = pendingOracleChanges[changeId];
@@ -334,30 +342,30 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         if (change.executed) revert OracleChangeAlreadyExecuted();
         if (block.timestamp < change.executeAfter) revert OracleChangeNotReady();
         if (change.isRegister) revert OracleChangeNotFound();
-        
+
         change.executed = true;
         delete provingKeyHashes[change.keyHash];
-        
+
         emit OracleChangeExecuted(changeId);
         emit ProvingKeyDeregistered(change.keyHash, change.oracle);
     }
-    
+
     /// @notice Cancel pending oracle change
     function cancelOracleChange(bytes32 changeId) external onlyOwner {
         PendingOracleChange storage change = pendingOracleChanges[changeId];
         if (change.executeAfter == 0) revert OracleChangeNotFound();
         if (change.executed) revert OracleChangeAlreadyExecuted();
-        
+
         delete pendingOracleChanges[changeId];
         emit OracleChangeCancelled(changeId);
     }
-    
+
     /// @notice Legacy deregisterProvingKey - now requires timelock
     function deregisterProvingKey(bytes32 keyHash, address oracle) external onlyOwner {
         proposeDeregisterProvingKey(keyHash, oracle);
     }
 
-    /// @notice Propose setting oracle authorization - requires 24-hour delay  
+    /// @notice Propose setting oracle authorization - requires 24-hour delay
     function proposeSetOracle(address oracle, bool authorized) public onlyOwner returns (bytes32 changeId) {
         changeId = keccak256(abi.encodePacked(oracle, authorized, block.timestamp));
         pendingOracleChanges[changeId] = PendingOracleChange({
@@ -369,7 +377,7 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         });
         emit OracleChangeProposed(changeId, oracle, bytes32(0), authorized, block.timestamp + ORACLE_CHANGE_DELAY);
     }
-    
+
     /// @notice Execute pending oracle authorization
     function executeSetOracle(bytes32 changeId) external {
         PendingOracleChange storage change = pendingOracleChanges[changeId];
@@ -377,14 +385,14 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         if (change.executed) revert OracleChangeAlreadyExecuted();
         if (block.timestamp < change.executeAfter) revert OracleChangeNotReady();
         if (change.keyHash != bytes32(0)) revert OracleChangeNotFound();
-        
+
         change.executed = true;
         oracles[change.oracle] = change.isRegister;
-        
+
         emit OracleChangeExecuted(changeId);
         emit OracleSet(change.oracle, change.isRegister);
     }
-    
+
     /// @notice Legacy setOracle - now requires timelock
     function setOracle(address oracle, bool authorized) external onlyOwner {
         proposeSetOracle(oracle, authorized);
@@ -400,7 +408,11 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         emit GovernanceSet(_governance);
     }
 
-    function getSubscription(uint64 subId) external view returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers) {
+    function getSubscription(uint64 subId)
+        external
+        view
+        returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers)
+    {
         Subscription storage sub = subscriptions[subId];
         return (sub.balance, sub.nativeBalance, sub.reqCount, sub.owner, sub.consumers);
     }
@@ -424,7 +436,7 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
 
         // Query the Chainlink LINK/Native price feed
         // The feed returns LINK per Native with 18 decimals
-        (, int256 answer, , uint256 updatedAt, ) = IAggregatorV3(LINK_NATIVE_FEED).latestRoundData();
+        (, int256 answer,, uint256 updatedAt,) = IAggregatorV3(LINK_NATIVE_FEED).latestRoundData();
 
         // Verify the price feed is fresh (within 1 hour)
         if (block.timestamp - updatedAt > 3600) {
@@ -451,6 +463,7 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
 
 abstract contract VRFConsumerBaseV2_5 {
     error OnlyCoordinatorCanFulfill(address have, address want);
+
     address private immutable vrfCoordinator;
 
     constructor(address _vrfCoordinator) {

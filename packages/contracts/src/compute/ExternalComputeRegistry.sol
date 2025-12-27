@@ -130,10 +130,7 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
     // ============ Events ============
 
     event BridgeNodeRegistered(
-        address indexed operator,
-        uint256 indexed agentId,
-        uint256 stake,
-        ProviderType[] supportedProviders
+        address indexed operator, uint256 indexed agentId, uint256 stake, ProviderType[] supportedProviders
     );
     event BridgeNodeDeactivated(address indexed operator);
     event BridgeNodeReactivated(address indexed operator);
@@ -160,15 +157,9 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         string reason
     );
 
-    event GovernanceParamsUpdated(
-        uint256 defaultMarkupBps,
-        uint256 minBridgeNodeStake,
-        uint256 maxMarkupBps
-    );
+    event GovernanceParamsUpdated(uint256 defaultMarkupBps, uint256 minBridgeNodeStake, uint256 maxMarkupBps);
     event SlashingParamsUpdated(
-        uint256 revenueSlashBps,
-        uint256 stakeSlashBps,
-        uint256 minReputationForStakeProtection
+        uint256 revenueSlashBps, uint256 stakeSlashBps, uint256 minReputationForStakeProtection
     );
 
     // ============ Errors ============
@@ -232,10 +223,12 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param supportedProviders Array of supported provider types
      * @param agentId ERC-8004 agent ID
      */
-    function registerBridgeNodeWithAgent(
-        ProviderType[] calldata supportedProviders,
-        uint256 agentId
-    ) external payable nonReentrant whenNotPaused {
+    function registerBridgeNodeWithAgent(ProviderType[] calldata supportedProviders, uint256 agentId)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (address(identityRegistry) == address(0)) revert InvalidAgentId();
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
         if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
@@ -358,9 +351,7 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         if (!providerSupported) revert NotAuthorized();
 
         // Generate deployment ID
-        bytes32 deploymentId = keccak256(
-            abi.encodePacked(msg.sender, bridgeNode, block.timestamp, block.number)
-        );
+        bytes32 deploymentId = keccak256(abi.encodePacked(msg.sender, bridgeNode, block.timestamp, block.number));
 
         // Create deployment record
         deployments[deploymentId] = Deployment({
@@ -394,11 +385,7 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param externalId External provider's deployment ID
      * @param endTime Expected end time
      */
-    function activateDeployment(
-        bytes32 deploymentId,
-        string calldata externalId,
-        uint256 endTime
-    ) external {
+    function activateDeployment(bytes32 deploymentId, string calldata externalId, uint256 endTime) external {
         Deployment storage deployment = deployments[deploymentId];
         if (deployment.createdAt == 0) revert DeploymentNotFound();
         if (deployment.bridgeNode != msg.sender) revert NotAuthorized();
@@ -462,15 +449,12 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         Deployment storage deployment = deployments[deploymentId];
         if (deployment.createdAt == 0) revert DeploymentNotFound();
         // Can be called by user, bridge node, or governance
-        if (msg.sender != deployment.user && 
-            msg.sender != deployment.bridgeNode && 
-            msg.sender != governanceAddress) {
+        if (msg.sender != deployment.user && msg.sender != deployment.bridgeNode && msg.sender != governanceAddress) {
             revert NotAuthorized();
         }
 
         // Don't slash if already failed/cancelled
-        if (deployment.status == DeploymentStatus.FAILED || 
-            deployment.status == DeploymentStatus.CANCELLED) {
+        if (deployment.status == DeploymentStatus.FAILED || deployment.status == DeploymentStatus.CANCELLED) {
             revert InvalidDeploymentStatus();
         }
 
@@ -725,4 +709,3 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

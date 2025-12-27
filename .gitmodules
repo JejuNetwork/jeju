@@ -56,6 +56,7 @@
 	path = vendor/eliza
 	url = git@github.com:elizaos/eliza.git
 	ignore = untracked
+
 [submodule "packages/bridge/contracts/lib/forge-std"]
 	path = packages/bridge/contracts/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std

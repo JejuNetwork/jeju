@@ -7,7 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { CQLClient, getCQL, resetCQL } from './client.js'
+import { type CQLClient, getCQL, resetCQL } from './client.js'
 import {
   createMigrationManager,
   createTable,
@@ -20,7 +20,7 @@ import {
 const CQL_ENDPOINT = process.env.CQL_ENDPOINT ?? 'http://localhost:4661'
 
 // Helper to check if CQL is reachable
-async function isCQLAvailable(): Promise<boolean> {
+async function _isCQLAvailable(): Promise<boolean> {
   try {
     const response = await fetch(`${CQL_ENDPOINT}/health`, {
       signal: AbortSignal.timeout(2000),

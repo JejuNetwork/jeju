@@ -15,16 +15,16 @@ import {NFTAssetType, WrappedNFTInfo, NFTVoucherRequest, ProvenanceEntry} from "
 contract MockMailbox {
     uint32 public localDomain;
     uint256 private _nonce;
-    
+
     // Store pending messages
     struct PendingMessage {
         uint32 origin;
         bytes32 sender;
         bytes message;
     }
-    
+
     mapping(bytes32 => PendingMessage) public pendingMessages;
-    
+
     // Connected routers
     mapping(uint32 => address) public domainRouters;
 
@@ -32,37 +32,29 @@ contract MockMailbox {
         localDomain = _domain;
     }
 
-    function dispatch(
-        uint32 destinationDomain,
-        bytes32 recipientAddress,
-        bytes calldata messageBody
-    ) external payable returns (bytes32 messageId) {
+    function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        payable
+        returns (bytes32 messageId)
+    {
         messageId = keccak256(abi.encodePacked(block.number, _nonce++, msg.sender));
-        
+
         // Store message for delivery
-        pendingMessages[messageId] = PendingMessage({
-            origin: localDomain,
-            sender: bytes32(uint256(uint160(msg.sender))),
-            message: messageBody
-        });
-        
+        pendingMessages[messageId] =
+            PendingMessage({origin: localDomain, sender: bytes32(uint256(uint160(msg.sender))), message: messageBody});
+
         return messageId;
     }
 
     function deliverMessage(bytes32 messageId, address router) external {
         PendingMessage memory pending = pendingMessages[messageId];
         require(pending.message.length > 0, "No pending message");
-        
+
         // Call the router's handle function
         (bool success, bytes memory reason) = router.call(
-            abi.encodeWithSignature(
-                "handle(uint32,bytes32,bytes)",
-                pending.origin,
-                pending.sender,
-                pending.message
-            )
+            abi.encodeWithSignature("handle(uint32,bytes32,bytes)", pending.origin, pending.sender, pending.message)
         );
-        
+
         require(success, string(reason));
         delete pendingMessages[messageId];
     }
@@ -74,7 +66,10 @@ contract MockMailbox {
  */
 contract MockIGP {
     function payForGas(bytes32, uint32, uint256, address) external payable {}
-    function quoteGasPayment(uint32, uint256) external pure returns (uint256) { return 0.001 ether; }
+
+    function quoteGasPayment(uint32, uint256) external pure returns (uint256) {
+        return 0.001 ether;
+    }
 }
 
 /**
@@ -184,13 +179,13 @@ contract CrossChainNFTIntegrationTest is Test {
         // Configure routers
         nftHome.setRouter(DEST_DOMAIN, bytes32(uint256(uint160(address(nftDest)))));
         nftHome.setDomainEnabled(DEST_DOMAIN, true);
-        
+
         nftDest.setRouter(HOME_DOMAIN, bytes32(uint256(uint160(address(nftHome)))));
         nftDest.setDomainEnabled(HOME_DOMAIN, true);
 
         multiTokenHome.setRouter(DEST_DOMAIN, bytes32(uint256(uint160(address(multiTokenDest)))));
         multiTokenHome.setDomainEnabled(DEST_DOMAIN, true);
-        
+
         multiTokenDest.setRouter(HOME_DOMAIN, bytes32(uint256(uint160(address(multiTokenHome)))));
         multiTokenDest.setDomainEnabled(HOME_DOMAIN, true);
 
@@ -209,7 +204,7 @@ contract CrossChainNFTIntegrationTest is Test {
     // =========================================================================
     // E2E TEST: Full Round-Trip Bridge (ERC721)
     // =========================================================================
-    
+
     function test_E2E_ERC721_RoundTrip() public {
         console.log("=== E2E Test: ERC721 Round-Trip Bridge ===");
 
@@ -217,7 +212,7 @@ contract CrossChainNFTIntegrationTest is Test {
         console.log("Step 1: Mint NFT on home chain");
         vm.prank(owner);
         uint256 tokenId = nftHome.mint(user1, "ipfs://original-metadata");
-        
+
         assertEq(nftHome.ownerOf(tokenId), user1);
         assertEq(nftHome.tokenURI(tokenId), "ipfs://original-metadata");
         console.log("  - Minted tokenId:", tokenId);
@@ -226,11 +221,11 @@ contract CrossChainNFTIntegrationTest is Test {
         // Step 2: Bridge to destination chain
         console.log("Step 2: Bridge NFT to destination chain");
         bytes32 recipient = bytes32(uint256(uint160(user1)));
-        
+
         vm.startPrank(user1);
         bytes32 messageId = nftHome.bridgeNFT{value: 0.01 ether}(DEST_DOMAIN, recipient, tokenId);
         vm.stopPrank();
-        
+
         // Verify locked on home chain
         assertEq(nftHome.ownerOf(tokenId), address(nftHome));
         assertTrue(nftHome.lockedTokens(tokenId));
@@ -262,7 +257,7 @@ contract CrossChainNFTIntegrationTest is Test {
         // Step 5: Bridge back to home chain
         console.log("Step 5: Bridge NFT back to home chain");
         bytes32 returnRecipient = bytes32(uint256(uint160(user1)));
-        
+
         vm.startPrank(user1);
         bytes32 returnMessageId = nftDest.bridgeNFT{value: 0.01 ether}(HOME_DOMAIN, returnRecipient, tokenId);
         vm.stopPrank();
@@ -289,7 +284,7 @@ contract CrossChainNFTIntegrationTest is Test {
 
         // Step 7: Verify final stats
         console.log("Step 7: Verify cross-chain statistics");
-        (uint256 bridgedOut, uint256 bridgedIn, , ) = nftHome.getCrossChainStats();
+        (uint256 bridgedOut, uint256 bridgedIn,,) = nftHome.getCrossChainStats();
         assertEq(bridgedOut, 1);
         assertEq(bridgedIn, 1);
         console.log("  - Home chain bridged out:", bridgedOut);
@@ -309,14 +304,14 @@ contract CrossChainNFTIntegrationTest is Test {
         console.log("Step 1: Mint 100 tokens of tokenId 42 on home chain");
         vm.prank(owner);
         multiTokenHome.mint(user1, 42, 100, "ipfs://token-42-metadata");
-        
+
         assertEq(multiTokenHome.balanceOf(user1, 42), 100);
         console.log("  - Minted 100 tokens");
 
         // Step 2: Bridge 50 tokens to destination
         console.log("Step 2: Bridge 50 tokens to destination");
         bytes32 recipient = bytes32(uint256(uint160(user1)));
-        
+
         vm.startPrank(user1);
         multiTokenHome.bridgeMultiToken{value: 0.01 ether}(DEST_DOMAIN, recipient, 42, 50);
         vm.stopPrank();
@@ -342,7 +337,7 @@ contract CrossChainNFTIntegrationTest is Test {
         // Step 4: Bridge back 25
         console.log("Step 4: Bridge back 25 tokens");
         bytes32 returnRecipient = bytes32(uint256(uint160(user1)));
-        
+
         vm.startPrank(user1);
         multiTokenDest.bridgeMultiToken{value: 0.01 ether}(HOME_DOMAIN, returnRecipient, 42, 25);
         vm.stopPrank();
@@ -380,8 +375,8 @@ contract CrossChainNFTIntegrationTest is Test {
         vm.startPrank(owner);
         uint256 wrappedId = wrappedNFT.wrap(
             HOME_DOMAIN,
-            address(0xBEEF),  // Original collection
-            999,               // Original tokenId
+            address(0xBEEF), // Original collection
+            999, // Original tokenId
             "ipfs://original-999",
             user1
         );
@@ -413,7 +408,7 @@ contract CrossChainNFTIntegrationTest is Test {
         console.log("Step 4: Transfer wrapped NFT to user2");
         vm.prank(user1);
         wrappedNFT.transferFrom(user1, user2, 999);
-        
+
         assertEq(wrappedNFT.ownerOf(999), user2);
         console.log("  - New owner:", user2);
 
@@ -460,17 +455,9 @@ contract CrossChainNFTIntegrationTest is Test {
         console.log("Step 3: Create voucher request");
         vm.startPrank(user1);
         nftHome.approve(address(paymasterHome), tokenId);
-        
+
         bytes32 requestId = paymasterHome.createNFTVoucherRequest{value: 0.01 ether}(
-            NFTAssetType.ERC721,
-            address(nftHome),
-            tokenId,
-            1,
-            DEST_DOMAIN,
-            user1,
-            0.001 ether,
-            0.01 ether,
-            0.0001 ether
+            NFTAssetType.ERC721, address(nftHome), tokenId, 1, DEST_DOMAIN, user1, 0.001 ether, 0.01 ether, 0.0001 ether
         );
         vm.stopPrank();
 
@@ -491,7 +478,7 @@ contract CrossChainNFTIntegrationTest is Test {
         // Step 5: Verify request can be fulfilled
         console.log("Step 5: Verify request can be fulfilled");
         assertTrue(paymasterHome.canFulfillRequest(requestId));
-        
+
         NFTVoucherRequest memory request = paymasterHome.getRequest(requestId);
         assertEq(request.requester, user1);
         assertEq(request.collection, address(nftHome));
@@ -501,11 +488,11 @@ contract CrossChainNFTIntegrationTest is Test {
         // Step 6: Test expiry and refund
         console.log("Step 6: Test expiry and refund");
         vm.roll(block.number + 200); // Past deadline
-        
+
         uint256 balBefore = user1.balance;
         paymasterHome.refundExpiredRequest(requestId);
         uint256 balAfter = user1.balance;
-        
+
         // NFT returned
         assertEq(nftHome.ownerOf(tokenId), user1);
         // Fee returned
@@ -580,25 +567,23 @@ contract CrossChainNFTIntegrationTest is Test {
         console.log("Step 2: Batch bridge all tokens");
         uint256[] memory tokenIds = new uint256[](3);
         uint256[] memory amounts = new uint256[](3);
-        tokenIds[0] = 1; amounts[0] = 50;
-        tokenIds[1] = 2; amounts[1] = 25;
-        tokenIds[2] = 3; amounts[2] = 10;
+        tokenIds[0] = 1;
+        amounts[0] = 50;
+        tokenIds[1] = 2;
+        amounts[1] = 25;
+        tokenIds[2] = 3;
+        amounts[2] = 10;
 
         bytes32 recipient = bytes32(uint256(uint160(user1)));
-        
+
         vm.startPrank(user1);
-        bytes32 messageId = multiTokenHome.bridgeBatch{value: 0.02 ether}(
-            DEST_DOMAIN,
-            recipient,
-            tokenIds,
-            amounts
-        );
+        bytes32 messageId = multiTokenHome.bridgeBatch{value: 0.02 ether}(DEST_DOMAIN, recipient, tokenIds, amounts);
         vm.stopPrank();
 
         // Verify balances
-        assertEq(multiTokenHome.balanceOf(user1, 1), 50);  // 100 - 50
-        assertEq(multiTokenHome.balanceOf(user1, 2), 25);  // 50 - 25
-        assertEq(multiTokenHome.balanceOf(user1, 3), 15);  // 25 - 10
+        assertEq(multiTokenHome.balanceOf(user1, 1), 50); // 100 - 50
+        assertEq(multiTokenHome.balanceOf(user1, 2), 25); // 50 - 25
+        assertEq(multiTokenHome.balanceOf(user1, 3), 15); // 25 - 10
         console.log("  - Message ID:", uint256(messageId));
         console.log("  - Batch bridge successful");
 
@@ -618,11 +603,11 @@ contract CrossChainNFTIntegrationTest is Test {
     // Helper Functions
     // =========================================================================
 
-    function _buildTransferMessage(
-        bytes32 recipient,
-        uint256 tokenId,
-        string memory uri
-    ) internal pure returns (bytes memory) {
+    function _buildTransferMessage(bytes32 recipient, uint256 tokenId, string memory uri)
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(
             bytes1(0x01), // MESSAGE_TYPE_TRANSFER
             recipient,
@@ -631,12 +616,11 @@ contract CrossChainNFTIntegrationTest is Test {
         );
     }
 
-    function _buildMultiTokenTransferMessage(
-        bytes32 recipient,
-        uint256 tokenId,
-        uint256 amount,
-        string memory uri
-    ) internal pure returns (bytes memory) {
+    function _buildMultiTokenTransferMessage(bytes32 recipient, uint256 tokenId, uint256 amount, string memory uri)
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(
             bytes1(0x01), // MESSAGE_TYPE_TRANSFER
             recipient,

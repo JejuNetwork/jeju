@@ -79,24 +79,24 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
 
     // ============ SECURITY: Proof Verification System ============
     // Prevents XLPs from claiming fulfillment without actually providing liquidity
-    
+
     struct FulfillmentProof {
-        bytes32 txHash;           // Transaction hash on target chain
-        uint256 blockNumber;      // Block number on target chain
-        bytes32 stateRoot;        // State root at block
-        bytes merkleProof;        // Merkle proof of transfer inclusion
-        bytes signature;          // Oracle signature attesting to validity
+        bytes32 txHash; // Transaction hash on target chain
+        uint256 blockNumber; // Block number on target chain
+        bytes32 stateRoot; // State root at block
+        bytes merkleProof; // Merkle proof of transfer inclusion
+        bytes signature; // Oracle signature attesting to validity
     }
 
     // Trusted proof verifiers (oracles)
     mapping(address => bool) public proofVerifiers;
-    
+
     // Verified fulfillments (prevent double-claims)
     mapping(bytes32 => bool) public verifiedFulfillments;
-    
+
     // Minimum confirmations required for proof
     uint256 public constant MIN_CONFIRMATIONS = 12;
-    
+
     // Challenge window for disputed fulfillments
     uint256 public constant CHALLENGE_WINDOW = 2 hours;
 
@@ -187,16 +187,15 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
         emit LiquidityUpdated(chainId, ethLiquidity, tokenLiquidity);
     }
 
-    function createRequest(
-        address token,
-        uint256 amount,
-        uint256 targetChainId
-    ) external payable nonReentrant returns (bytes32 requestId) {
+    function createRequest(address token, uint256 amount, uint256 targetChainId)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 requestId)
+    {
         if (amount < minRequestAmount) revert InsufficientAmount();
 
-        requestId = keccak256(
-            abi.encodePacked(msg.sender, token, amount, targetChainId, block.number, block.timestamp)
-        );
+        requestId = keccak256(abi.encodePacked(msg.sender, token, amount, targetChainId, block.number, block.timestamp));
 
         if (token == address(0)) {
             require(msg.value >= amount, "Insufficient ETH");
@@ -265,37 +264,37 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
      * @notice Verify a fulfillment proof
      * @dev SECURITY: Validates that liquidity was actually provided on target chain
      */
-    function _verifyFulfillmentProof(
-        bytes32 requestId,
-        LiquidityRequest storage request,
-        bytes calldata proofData
-    ) internal {
+    function _verifyFulfillmentProof(bytes32 requestId, LiquidityRequest storage request, bytes calldata proofData)
+        internal
+    {
         // Decode the proof
         FulfillmentProof memory proof = abi.decode(proofData, (FulfillmentProof));
-        
+
         // Check proof hasn't been used before (prevent double-claims)
         bytes32 proofHash = keccak256(abi.encodePacked(proof.txHash, proof.blockNumber, request.targetChainId));
         if (verifiedFulfillments[proofHash]) revert ProofAlreadyUsed();
-        
+
         // Verify oracle signature
-        bytes32 messageHash = keccak256(abi.encodePacked(
-            requestId,
-            request.requester,
-            request.amount,
-            request.targetChainId,
-            proof.txHash,
-            proof.blockNumber,
-            proof.stateRoot
-        ));
-        
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                requestId,
+                request.requester,
+                request.amount,
+                request.targetChainId,
+                proof.txHash,
+                proof.blockNumber,
+                proof.stateRoot
+            )
+        );
+
         bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         address signer = _recoverSigner(ethSignedHash, proof.signature);
-        
+
         if (!proofVerifiers[signer]) revert InvalidProof();
-        
+
         // Mark proof as used
         verifiedFulfillments[proofHash] = true;
-        
+
         emit ProofVerified(requestId, proof.txHash, signer);
     }
 
@@ -304,20 +303,20 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
      */
     function _recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
         if (signature.length != 65) return address(0);
-        
+
         bytes32 r;
         bytes32 s;
         uint8 v;
-        
+
         assembly {
             r := mload(add(signature, 32))
             s := mload(add(signature, 64))
             v := byte(0, mload(add(signature, 96)))
         }
-        
+
         if (v < 27) v += 27;
         if (v != 27 && v != 28) return address(0);
-        
+
         return ecrecover(hash, v, r, s);
     }
 
@@ -405,7 +404,11 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
         }
     }
 
-    function getBestNetworkForLiquidity(uint256 amount) external view returns (uint256 bestChainId, uint256 available) {
+    function getBestNetworkForLiquidity(uint256 amount)
+        external
+        view
+        returns (uint256 bestChainId, uint256 available)
+    {
         uint256 bestUtilization = type(uint256).max;
 
         for (uint256 i = 0; i < trackedNetworks.length; i++) {
@@ -478,4 +481,3 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
 
     receive() external payable {}
 }
-

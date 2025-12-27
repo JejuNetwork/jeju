@@ -33,11 +33,12 @@ contract OutputSettler is BaseOutputSettler {
     // ============ IOutputSettler Implementation ============
 
     /// @notice Fills an order on the destination chain
-    function fill(
-        bytes32 orderId,
-        bytes calldata originData,
-        bytes calldata fillerData
-    ) external payable override nonReentrant {
+    function fill(bytes32 orderId, bytes calldata originData, bytes calldata fillerData)
+        external
+        payable
+        override
+        nonReentrant
+    {
         if (filledOrders[orderId]) revert OrderAlreadyFilled();
 
         // Decode fill parameters

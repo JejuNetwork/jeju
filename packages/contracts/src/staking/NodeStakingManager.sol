@@ -55,12 +55,11 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant MONTH_DURATION = 30 days;
     uint256 public constant DAY_DURATION = 1 days;
-    
+
     // SECURITY: Timelocks and limits
     uint256 public constant EMERGENCY_WITHDRAWAL_DELAY = 7 days;
     uint256 public constant SLASH_DISPUTE_PERIOD = 3 days;
     uint256 public constant MAX_NETWORK_OWNERSHIP_BPS = 2000; // 20% max per operator
-
 
     error TokenNotRegistered(address token);
     error NoPaymasterForToken(address token);
@@ -89,7 +88,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     error SlashNotFound();
     error SlashAlreadyDisputed();
     error NotSlashDefendant();
-    
+
     // SECURITY: Emergency withdrawal timelock
     struct EmergencyWithdrawal {
         address token;
@@ -97,8 +96,9 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         uint256 executeAfter;
         bool executed;
     }
+
     EmergencyWithdrawal public pendingEmergencyWithdrawal;
-    
+
     // SECURITY: Slash dispute mechanism
     struct PendingSlash {
         bytes32 nodeId;
@@ -109,9 +109,10 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         bool executed;
         bool disputed;
     }
+
     mapping(bytes32 => PendingSlash) public pendingSlashes;
     uint256 private _slashCounter;
-    
+
     event EmergencyWithdrawalProposed(address indexed token, uint256 amount, uint256 executeAfter);
     event EmergencyWithdrawalExecuted(address indexed token, uint256 amount);
     event EmergencyWithdrawalCancelled();
@@ -313,7 +314,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
         // Validate paymaster addresses before transfer
         if (rewardPaymaster == address(0)) revert InvalidAddress();
-        
+
         uint256 rewardFeeETH = _convertUSDToETH(rewardPaymasterFee);
         (bool success1,) = payable(rewardPaymaster).call{value: rewardFeeETH}("");
         if (!success1) revert TransferFailed();
@@ -633,12 +634,16 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
     /// @notice Propose a slash - requires SLASH_DISPUTE_PERIOD before execution
     /// @dev SECURITY: Operators can dispute slashes during the dispute period
-    function proposeSlash(bytes32 nodeId, uint256 slashPercentageBPS, string calldata reason) public onlyOwner returns (bytes32 slashId) {
+    function proposeSlash(bytes32 nodeId, uint256 slashPercentageBPS, string calldata reason)
+        public
+        onlyOwner
+        returns (bytes32 slashId)
+    {
         NodeStake storage node = nodes[nodeId];
         if (node.operator == address(0)) revert NodeNotFound(nodeId);
-        
+
         slashId = keccak256(abi.encodePacked(nodeId, _slashCounter++, block.timestamp));
-        
+
         pendingSlashes[slashId] = PendingSlash({
             nodeId: nodeId,
             slashPercentageBPS: slashPercentageBPS,
@@ -648,24 +653,24 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             executed: false,
             disputed: false
         });
-        
+
         emit SlashProposed(slashId, nodeId, slashPercentageBPS, reason);
     }
-    
+
     /// @notice Dispute a pending slash - only the node operator can dispute
     function disputeSlash(bytes32 slashId) external {
         PendingSlash storage slash = pendingSlashes[slashId];
         if (slash.proposedAt == 0) revert SlashNotFound();
         if (slash.executed) revert SlashNotFound();
         if (slash.disputed) revert SlashAlreadyDisputed();
-        
+
         NodeStake storage node = nodes[slash.nodeId];
         if (node.operator != msg.sender) revert NotSlashDefendant();
-        
+
         slash.disputed = true;
         emit SlashDisputed(slashId, slash.nodeId);
     }
-    
+
     /// @notice Execute a slash after dispute period - cannot execute if disputed
     function executeSlash(bytes32 slashId) external onlyOwner {
         PendingSlash storage slash = pendingSlashes[slashId];
@@ -673,7 +678,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         if (slash.executed) revert SlashNotFound();
         if (slash.disputed) revert SlashDisputePending();
         if (block.timestamp < slash.executeAfter) revert SlashDisputePending();
-        
+
         NodeStake storage node = nodes[slash.nodeId];
         if (node.operator == address(0)) revert NodeNotFound(slash.nodeId);
 
@@ -688,7 +693,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         emit SlashExecuted(slashId, slash.nodeId, slashAmount);
         emit NodeSlashed(slash.nodeId, node.operator, slashAmount, slash.reason);
     }
-    
+
     /// @notice Legacy slashNode kept for backwards compatibility - now requires dispute period
     function slashNode(bytes32 nodeId, uint256 slashPercentageBPS, string calldata reason) external onlyOwner {
         proposeSlash(nodeId, slashPercentageBPS, reason);
@@ -708,39 +713,39 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         if (pendingEmergencyWithdrawal.executeAfter > 0 && !pendingEmergencyWithdrawal.executed) {
             revert EmergencyWithdrawalPending();
         }
-        
+
         pendingEmergencyWithdrawal = EmergencyWithdrawal({
             token: token,
             amount: amount,
             executeAfter: block.timestamp + EMERGENCY_WITHDRAWAL_DELAY,
             executed: false
         });
-        
+
         emit EmergencyWithdrawalProposed(token, amount, pendingEmergencyWithdrawal.executeAfter);
     }
-    
+
     /// @notice Execute emergency withdrawal after timelock expires
     function executeEmergencyWithdrawal() external onlyOwner {
         if (pendingEmergencyWithdrawal.executeAfter == 0) revert NoEmergencyWithdrawalPending();
         if (pendingEmergencyWithdrawal.executed) revert NoEmergencyWithdrawalPending();
         if (block.timestamp < pendingEmergencyWithdrawal.executeAfter) revert EmergencyWithdrawalNotReady();
-        
+
         pendingEmergencyWithdrawal.executed = true;
-        
+
         IERC20(pendingEmergencyWithdrawal.token).safeTransfer(owner(), pendingEmergencyWithdrawal.amount);
-        
+
         emit EmergencyWithdrawalExecuted(pendingEmergencyWithdrawal.token, pendingEmergencyWithdrawal.amount);
     }
-    
+
     /// @notice Cancel a pending emergency withdrawal
     function cancelEmergencyWithdrawal() external onlyOwner {
         if (pendingEmergencyWithdrawal.executeAfter == 0) revert NoEmergencyWithdrawalPending();
         if (pendingEmergencyWithdrawal.executed) revert NoEmergencyWithdrawalPending();
-        
+
         delete pendingEmergencyWithdrawal;
         emit EmergencyWithdrawalCancelled();
     }
-    
+
     /// @notice Legacy withdrawEmergency - now requires timelock
     function withdrawEmergency(address token, uint256 amount) external onlyOwner {
         proposeEmergencyWithdrawal(token, amount);

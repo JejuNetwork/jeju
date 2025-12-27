@@ -763,14 +763,14 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
-        
+
         // Only authorized creators (governance contracts) can enable TWAP
         if (!authorizedCreators[msg.sender]) revert NotAuthorizedCreator();
-        
+
         market.usesTWAP = true;
         market.twapStartTime = block.timestamp;
         market.twapEndTime = block.timestamp + TWAP_OBSERVATION_PERIOD;
-        
+
         // Record initial observation
         _recordTWAPObservation(sessionId);
     }
@@ -784,13 +784,13 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         Market storage market = markets[sessionId];
         if (!market.usesTWAP) revert("TWAP not enabled");
         if (market.resolved) revert MarketAlreadyResolved();
-        
+
         // Minimum 1 hour between observations to prevent spam
         uint256 minInterval = 1 hours;
         if (block.timestamp < lastTwapUpdate[sessionId] + minInterval) {
             revert("Too soon");
         }
-        
+
         _recordTWAPObservation(sessionId);
     }
 
@@ -799,30 +799,32 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
      */
     function _recordTWAPObservation(bytes32 sessionId) internal {
         Market storage market = markets[sessionId];
-        
+
         TWAPObservation[] storage observations = twapObservations[sessionId];
         uint256 len = observations.length;
-        
+
         uint256 cumulativeYes = len > 0 ? observations[len - 1].cumulativeYes : 0;
         uint256 cumulativeNo = len > 0 ? observations[len - 1].cumulativeNo : 0;
-        
+
         // Time-weighted accumulation
         if (len > 0) {
             uint256 elapsed = block.timestamp - observations[len - 1].timestamp;
             cumulativeYes += market.yesShares * elapsed;
             cumulativeNo += market.noShares * elapsed;
         }
-        
-        observations.push(TWAPObservation({
-            timestamp: block.timestamp,
-            yesShares: market.yesShares,
-            noShares: market.noShares,
-            cumulativeYes: cumulativeYes,
-            cumulativeNo: cumulativeNo
-        }));
-        
+
+        observations.push(
+            TWAPObservation({
+                timestamp: block.timestamp,
+                yesShares: market.yesShares,
+                noShares: market.noShares,
+                cumulativeYes: cumulativeYes,
+                cumulativeNo: cumulativeNo
+            })
+        );
+
         lastTwapUpdate[sessionId] = block.timestamp;
-        
+
         emit TWAPObservationRecorded(sessionId, block.timestamp, market.yesShares, market.noShares);
     }
 
@@ -837,35 +839,35 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         if (market.resolved) revert MarketAlreadyResolved();
         if (!market.usesTWAP) revert("Use resolveMarket instead");
         if (block.timestamp < market.twapEndTime) revert("TWAP period not ended");
-        
+
         TWAPObservation[] storage observations = twapObservations[sessionId];
         if (observations.length < MIN_TWAP_OBSERVATIONS) revert("Insufficient observations");
-        
+
         // Record final observation
         _recordTWAPObservation(sessionId);
-        
+
         // Calculate TWAP
         uint256 len = observations.length;
         TWAPObservation storage first = observations[0];
         TWAPObservation storage last = observations[len - 1];
-        
+
         uint256 totalTime = last.timestamp - first.timestamp;
         if (totalTime == 0) revert("Invalid TWAP period");
-        
+
         uint256 avgYes = (last.cumulativeYes - first.cumulativeYes) / totalTime;
         uint256 avgNo = (last.cumulativeNo - first.cumulativeNo) / totalTime;
-        
+
         // Resolve based on which side had higher average weight
         // YES wins if avgYes / (avgYes + avgNo) > 0.5
         bool outcome = avgYes > avgNo;
-        
+
         market.resolved = true;
         market.outcome = outcome;
-        
+
         // Calculate the ratio for logging (scaled to basis points)
         uint256 totalAvg = avgYes + avgNo;
         uint256 yesRatioBps = totalAvg > 0 ? (avgYes * 10000) / totalAvg : 5000;
-        
+
         emit TWAPResolution(sessionId, yesRatioBps, outcome);
         emit MarketResolved(sessionId, outcome);
     }
@@ -873,26 +875,30 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Get current TWAP data for a market
      */
-    function getTWAPData(bytes32 sessionId) external view returns (
-        uint256 observationCount,
-        uint256 currentAvgYes,
-        uint256 currentAvgNo,
-        uint256 twapStartTime,
-        uint256 twapEndTime,
-        bool ready
-    ) {
+    function getTWAPData(bytes32 sessionId)
+        external
+        view
+        returns (
+            uint256 observationCount,
+            uint256 currentAvgYes,
+            uint256 currentAvgNo,
+            uint256 twapStartTime,
+            uint256 twapEndTime,
+            bool ready
+        )
+    {
         Market storage market = markets[sessionId];
         TWAPObservation[] storage observations = twapObservations[sessionId];
-        
+
         observationCount = observations.length;
         twapStartTime = market.twapStartTime;
         twapEndTime = market.twapEndTime;
         ready = observationCount >= MIN_TWAP_OBSERVATIONS && block.timestamp >= market.twapEndTime;
-        
+
         if (observationCount >= 2) {
             TWAPObservation storage first = observations[0];
             TWAPObservation storage last = observations[observationCount - 1];
-            
+
             uint256 totalTime = last.timestamp - first.timestamp;
             if (totalTime > 0) {
                 currentAvgYes = (last.cumulativeYes - first.cumulativeYes) / totalTime;

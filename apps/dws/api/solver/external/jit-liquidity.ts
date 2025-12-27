@@ -7,9 +7,9 @@
  * 3. Providing concentrated liquidity just before settlement
  */
 
-import { EventEmitter } from 'node:events'
 import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient, WalletClient } from 'viem'
+import { WorkerdEventEmitter } from '../../utils/event-emitter'
 
 // Uniswap V3 NonfungiblePositionManager
 export const POSITION_MANAGER: Record<number, Address> = {
@@ -82,7 +82,7 @@ export interface JITConfig {
   slippageBps: number
 }
 
-export class JITLiquidityProvider extends EventEmitter {
+export class JITLiquidityProvider extends WorkerdEventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
   private positions = new Map<string, JITPosition>()
   private config: JITConfig

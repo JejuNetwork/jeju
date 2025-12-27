@@ -100,7 +100,9 @@ async function patchSynpressCache() {
       `Patched ${patchedCount} synpress-cache files for zod 4.x compatibility`,
     )
   } else {
-    console.log('No synpress-cache files needed patching (already patched or not found)')
+    console.log(
+      'No synpress-cache files needed patching (already patched or not found)',
+    )
   }
 }
 

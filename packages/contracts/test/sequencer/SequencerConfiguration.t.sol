@@ -51,7 +51,7 @@ contract SequencerConfigurationTest is Test {
     uint256 public agentId1;
     uint256 public agentId2;
     uint256 public agentId3;
-    
+
     // Timelock delay for batch submitter admin changes
     uint256 constant ADMIN_TIMELOCK_DELAY = 2 days;
 
@@ -71,11 +71,7 @@ contract SequencerConfigurationTest is Test {
 
         // Deploy Decentralization contracts
         registry = new SequencerRegistry(
-            address(token),
-            address(identityRegistry),
-            address(reputationRegistry),
-            treasury,
-            owner
+            address(token), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
 
         batchSubmitter = new ThresholdBatchSubmitter(
@@ -188,7 +184,7 @@ contract SequencerConfigurationTest is Test {
         // Try to submit with only 1 signature (threshold is 2)
         bytes memory batchData = "test batch";
         bytes32 digest = batchSubmitter.getBatchDigest(batchData);
-        
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(sequencer1Key, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
 
@@ -283,7 +279,7 @@ contract SequencerConfigurationTest is Test {
         // Verify configuration
         (address[] memory activeSeqs,) = registry.getActiveSequencers();
         assertEq(activeSeqs.length, 3, "Should have 3 active sequencers");
-        
+
         address[] memory seqs = batchSubmitter.getSequencers();
         assertEq(seqs.length, 3, "Should have 3 threshold signers");
         assertGe(batchSubmitter.threshold(), 2, "Threshold should be at least 2");
@@ -293,7 +289,7 @@ contract SequencerConfigurationTest is Test {
 
     function test_DecentralizationChecklistComplete() public view {
         // Decentralization Decentralization Checklist
-        
+
         // 1. Multiple sequencers can participate
         assertTrue(registry.MIN_STAKE() > 0, "Staking enabled");
         assertTrue(registry.MAX_STAKE() > registry.MIN_STAKE(), "Stake limits set");

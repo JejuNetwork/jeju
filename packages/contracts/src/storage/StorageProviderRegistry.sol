@@ -27,7 +27,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
     event StorageProviderUpdated(address indexed provider);
     event PerformanceReported(address indexed provider, uint256 uptime, uint256 successRate, uint256 latency);
 
-
     error InvalidProviderType();
     error InvalidEndpoint();
     error InvalidName();
@@ -35,12 +34,9 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
 
     // ============ Constructor ============
 
-    constructor(
-        address _owner,
-        address _identityRegistry,
-        address _banManager,
-        uint256 _minProviderStake
-    ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
+    constructor(address _owner, address _identityRegistry, address _banManager, uint256 _minProviderStake)
+        ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake)
+    {}
 
     function register(string calldata name, string calldata endpoint, uint8 providerType, bytes32 attestationHash)
         external
@@ -179,7 +175,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         emit ProviderReactivated(msg.sender);
     }
 
-
     function addStake() external payable nonReentrant {
         Provider storage provider = _providers[msg.sender];
         if (provider.registeredAt == 0) revert ProviderNotRegistered();
@@ -204,12 +199,15 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         emit StakeWithdrawn(msg.sender, amount);
     }
 
-
     function getProvider(address provider) external view returns (Provider memory) {
         return _providers[provider];
     }
 
-    function getStorageProviderInfo(address provider) external view returns (IStorageTypes.StorageProviderInfo memory) {
+    function getStorageProviderInfo(address provider)
+        external
+        view
+        returns (IStorageTypes.StorageProviderInfo memory)
+    {
         PerformanceMetrics.Metrics storage m = metrics[provider];
         return IStorageTypes.StorageProviderInfo({
             provider: _providers[provider],
@@ -262,14 +260,16 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         return _pricing[provider];
     }
 
-
     function verifyProvider(address provider) external onlyOwner {
         _providers[provider].verified = true;
     }
 
-    function reportPerformance(address provider, uint256 uptimeScore, uint256 successRate, uint256 avgLatencyMs) external onlyOwner {
+    function reportPerformance(address provider, uint256 uptimeScore, uint256 successRate, uint256 avgLatencyMs)
+        external
+        onlyOwner
+    {
         if (uptimeScore > 10000 || successRate > 10000) revert InvalidScore();
-        
+
         PerformanceMetrics.Metrics storage m = metrics[provider];
         // Use manual update logic or library update
         m.uptimeScore = uptimeScore;

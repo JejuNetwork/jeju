@@ -469,25 +469,30 @@ export class CrucibleAgentRuntime {
       }
 
       // Execute the Eliza action handler
+      // Cast through unknown as the mock objects don't fully implement Eliza types
       const handlerResult = await action.elizaHandler(
         this as unknown as Parameters<ElizaActionHandler>[0], // IAgentRuntime - we implement enough of the interface
         mockMessage as unknown as Parameters<ElizaActionHandler>[1],
         mockState as unknown as Parameters<ElizaActionHandler>[2],
-        { actionParams: params } as unknown as Parameters<ElizaActionHandler>[3],
+{ actionParams: params } as unknown as Parameters<ElizaActionHandler>[3],
         callback as unknown as Parameters<ElizaActionHandler>[4],
       )
 
       this.log.info('Action executed', {
         actionName,
-        handlerResult: handlerResult as unknown as JsonValue,
-        callbackResult: callbackResult as unknown as JsonValue,
+        handlerResult: String(handlerResult),
+        callbackResult,
       })
 
-      // Handler returns true on success, or void/undefined
-      const success = (handlerResult as unknown) === true
+      // Normalize the handler result for return
+      // Eliza handlers return void or ActionResult (string | object)
+      // Consider success if we got any non-null result
+      const success = handlerResult !== undefined && handlerResult !== null
+      const resultValue = callbackResult ?? { executed: success }
+
       return {
         success,
-        result: callbackResult ?? ({ executed: success } as JsonValue),
+        result: resultValue,
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)

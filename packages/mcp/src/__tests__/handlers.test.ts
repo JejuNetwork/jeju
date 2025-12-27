@@ -115,11 +115,7 @@ describe('RequestHandler', () => {
         handle: async (method, params) => ({ method, params }),
       }
 
-      const result = await handler.handle(
-        'test/echo',
-        { message: 'hello' },
-        {},
-      )
+      const result = await handler.handle('test/echo', { message: 'hello' }, {})
 
       expect(result).toEqual({
         method: 'test/echo',
@@ -222,4 +218,3 @@ describe('Handler chains', () => {
     expect(findHandler('tools/other')?.name).toBe('general')
   })
 })
-

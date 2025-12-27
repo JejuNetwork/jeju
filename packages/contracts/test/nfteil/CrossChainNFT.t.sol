@@ -5,7 +5,9 @@ import {Test} from "forge-std/Test.sol";
 import {CrossChainNFT} from "../../src/bridge/nfteil/CrossChainNFT.sol";
 import {WrappedNFT} from "../../src/bridge/nfteil/WrappedNFT.sol";
 import {NFTPaymaster} from "../../src/bridge/nfteil/NFTPaymaster.sol";
-import {NFTAssetType, WrappedNFTInfo, NFTVoucherRequest, ICrossChainNFTHandler} from "../../src/bridge/nfteil/INFTEIL.sol";
+import {
+    NFTAssetType, WrappedNFTInfo, NFTVoucherRequest, ICrossChainNFTHandler
+} from "../../src/bridge/nfteil/INFTEIL.sol";
 
 /**
  * @title MockMailbox
@@ -16,11 +18,11 @@ contract MockMailbox {
     mapping(uint32 => bytes32) public lastMessage;
     uint256 private _nonce;
 
-    function dispatch(
-        uint32 destinationDomain,
-        bytes32 recipientAddress,
-        bytes calldata messageBody
-    ) external payable returns (bytes32 messageId) {
+    function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        payable
+        returns (bytes32 messageId)
+    {
         lastMessage[destinationDomain] = keccak256(messageBody);
         messageId = keccak256(abi.encodePacked(block.number, _nonce++));
     }
@@ -37,12 +39,7 @@ contract MockMailbox {
  * @notice Mock gas paymaster for testing
  */
 contract MockIGP {
-    function payForGas(
-        bytes32,
-        uint32,
-        uint256,
-        address
-    ) external payable {}
+    function payForGas(bytes32, uint32, uint256, address) external payable {}
 
     function quoteGasPayment(uint32, uint256) external pure returns (uint256) {
         return 0.001 ether;
@@ -56,18 +53,11 @@ contract MockIGP {
 contract TestCrossChainNFT is CrossChainNFT {
     uint256 private _tokenIdCounter;
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        address initialOwner
-    ) CrossChainNFT(name_, symbol_, initialOwner) {}
+    constructor(string memory name_, string memory symbol_, address initialOwner)
+        CrossChainNFT(name_, symbol_, initialOwner)
+    {}
 
-    function initialize(
-        address mailbox,
-        address igp,
-        uint32 homeChainDomain,
-        bool isHomeChain
-    ) external {
+    function initialize(address mailbox, address igp, uint32 homeChainDomain, bool isHomeChain) external {
         _initializeCrossChain(mailbox, igp, homeChainDomain, isHomeChain);
     }
 
@@ -110,7 +100,7 @@ contract CrossChainNFTTest is Test {
         vm.startPrank(owner);
         nft = new TestCrossChainNFT("Test NFT", "TNFT", owner);
         nft.initialize(address(mailbox), address(igp), HOME_DOMAIN, true);
-        
+
         // Configure router for destination
         nft.setRouter(DEST_DOMAIN, bytes32(uint256(uint160(address(0x123)))));
         nft.setDomainEnabled(DEST_DOMAIN, true);
@@ -184,16 +174,16 @@ contract CrossChainNFTTest is Test {
 
         vm.startPrank(user1);
         bytes32 recipient = bytes32(uint256(uint160(user2)));
-        
+
         // Just verify bridge completes and stats update
         bytes32 messageId = nft.bridgeNFT{value: 0.01 ether}(DEST_DOMAIN, recipient, 1);
         vm.stopPrank();
 
         // Verify messageId is returned
         assertTrue(messageId != bytes32(0));
-        
+
         // Verify stats
-        (uint256 totalBridged, , , ) = nft.getCrossChainStats();
+        (uint256 totalBridged,,,) = nft.getCrossChainStats();
         assertEq(totalBridged, 1);
     }
 
@@ -203,7 +193,7 @@ contract CrossChainNFTTest is Test {
 
         vm.startPrank(user1);
         bytes32 recipient = bytes32(uint256(uint160(user2)));
-        
+
         vm.expectRevert(abi.encodeWithSelector(CrossChainNFT.UnsupportedDomain.selector, 999));
         nft.bridgeNFT{value: 0.01 ether}(999, recipient, 1);
         vm.stopPrank();
@@ -215,7 +205,7 @@ contract CrossChainNFTTest is Test {
 
         vm.startPrank(user2);
         bytes32 recipient = bytes32(uint256(uint160(user2)));
-        
+
         vm.expectRevert(CrossChainNFT.NotTokenOwner.selector);
         nft.bridgeNFT{value: 0.01 ether}(DEST_DOMAIN, recipient, 1);
         vm.stopPrank();
@@ -227,12 +217,10 @@ contract CrossChainNFTTest is Test {
 
         vm.startPrank(user1);
         bytes32 recipient = bytes32(uint256(uint160(user2)));
-        
-        vm.expectRevert(abi.encodeWithSelector(
-            CrossChainNFT.InsufficientGasPayment.selector,
-            0.001 ether,
-            0.0001 ether
-        ));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(CrossChainNFT.InsufficientGasPayment.selector, 0.001 ether, 0.0001 ether)
+        );
         nft.bridgeNFT{value: 0.0001 ether}(DEST_DOMAIN, recipient, 1);
         vm.stopPrank();
     }
@@ -263,7 +251,7 @@ contract CrossChainNFTTest is Test {
         vm.stopPrank();
 
         (uint256 totalBridged, uint256 totalReceived, uint32 homeDomain, bool isHome) = nft.getCrossChainStats();
-        
+
         assertEq(totalBridged, 1);
         assertEq(totalReceived, 0);
         assertEq(homeDomain, HOME_DOMAIN);
@@ -295,7 +283,7 @@ contract CrossChainNFTTest is Test {
         vm.stopPrank();
 
         WrappedNFTInfo memory info = wrappedNFT.getOriginalInfo(42);
-        
+
         assertEq(info.homeChainId, 1);
         assertEq(info.originalCollection, address(0x123));
         assertEq(info.originalTokenId, 42);
@@ -311,7 +299,7 @@ contract CrossChainNFTTest is Test {
         wrappedNFT.unwrap(42);
 
         assertFalse(wrappedNFT.isWrapped(42));
-        
+
         // Token should be burned (ownerOf should revert)
         vm.expectRevert();
         wrappedNFT.ownerOf(42);
@@ -320,7 +308,7 @@ contract CrossChainNFTTest is Test {
     function test_WrappedNFT_CantWrapTwice() public {
         vm.startPrank(owner);
         wrappedNFT.wrap(1, address(0x123), 42, "ipfs://test", user1);
-        
+
         vm.expectRevert(WrappedNFT.TokenAlreadyWrapped.selector);
         wrappedNFT.wrap(1, address(0x123), 42, "ipfs://test2", user2);
         vm.stopPrank();
@@ -331,7 +319,7 @@ contract CrossChainNFTTest is Test {
     function test_ConfigureRouters_Batch() public {
         uint32[] memory domains = new uint32[](2);
         bytes32[] memory routers = new bytes32[](2);
-        
+
         domains[0] = 100;
         domains[1] = 200;
         routers[0] = bytes32(uint256(1));
@@ -361,7 +349,7 @@ contract CrossChainNFTTest is Test {
 contract NFTPaymasterTest is Test {
     NFTPaymaster public paymaster;
     TestCrossChainNFT public nft;
-    
+
     address public owner = address(1);
     address public user1 = address(2);
     address public xlp = address(3);
@@ -371,18 +359,18 @@ contract NFTPaymasterTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        
+
         // Deploy paymaster
         paymaster = new NFTPaymaster(CHAIN_ID, address(0x999));
-        
+
         // Deploy test NFT
         nft = new TestCrossChainNFT("Test", "TST", owner);
-        
+
         // Configure
         paymaster.setSupportedCollection(address(nft), true);
         paymaster.updateXLPStake(xlp, 1 ether);
         paymaster.registerWrappedCollection(CHAIN_ID, address(nft), address(0x456));
-        
+
         vm.stopPrank();
 
         vm.deal(user1, 10 ether);
@@ -400,21 +388,13 @@ contract NFTPaymasterTest is Test {
 
         // Create request
         bytes32 requestId = paymaster.createNFTVoucherRequest{value: 0.01 ether}(
-            NFTAssetType.ERC721,
-            address(nft),
-            1,
-            1,
-            DEST_CHAIN,
-            user1,
-            0.001 ether,
-            0.01 ether,
-            0.0001 ether
+            NFTAssetType.ERC721, address(nft), 1, 1, DEST_CHAIN, user1, 0.001 ether, 0.01 ether, 0.0001 ether
         );
         vm.stopPrank();
 
         // NFT should be locked
         assertEq(nft.ownerOf(1), address(paymaster));
-        
+
         // Request should exist
         NFTVoucherRequest memory request = paymaster.getRequest(requestId);
         assertEq(request.requester, user1);
@@ -429,25 +409,17 @@ contract NFTPaymasterTest is Test {
         vm.startPrank(user1);
         nft.approve(address(paymaster), 1);
         bytes32 requestId = paymaster.createNFTVoucherRequest{value: 0.01 ether}(
-            NFTAssetType.ERC721,
-            address(nft),
-            1,
-            1,
-            DEST_CHAIN,
-            user1,
-            0.001 ether,
-            0.01 ether,
-            0.0001 ether
+            NFTAssetType.ERC721, address(nft), 1, 1, DEST_CHAIN, user1, 0.001 ether, 0.01 ether, 0.0001 ether
         );
         vm.stopPrank();
 
         uint256 fee1 = paymaster.getCurrentFee(requestId);
-        
+
         // Advance blocks
         vm.roll(block.number + 10);
-        
+
         uint256 fee2 = paymaster.getCurrentFee(requestId);
-        
+
         assertTrue(fee2 > fee1);
     }
 
@@ -458,15 +430,7 @@ contract NFTPaymasterTest is Test {
         vm.startPrank(user1);
         nft.approve(address(paymaster), 1);
         bytes32 requestId = paymaster.createNFTVoucherRequest{value: 0.01 ether}(
-            NFTAssetType.ERC721,
-            address(nft),
-            1,
-            1,
-            DEST_CHAIN,
-            user1,
-            0.001 ether,
-            0.01 ether,
-            0.0001 ether
+            NFTAssetType.ERC721, address(nft), 1, 1, DEST_CHAIN, user1, 0.001 ether, 0.01 ether, 0.0001 ether
         );
         vm.stopPrank();
 
@@ -480,7 +444,7 @@ contract NFTPaymasterTest is Test {
 
         // NFT returned
         assertEq(nft.ownerOf(1), user1);
-        
+
         // Fee returned
         assertTrue(balAfter > balBefore);
     }

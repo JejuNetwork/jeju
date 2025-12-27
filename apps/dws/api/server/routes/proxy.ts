@@ -9,7 +9,11 @@
  * - Circuit breaker for upstream failures
  */
 
-import { randomUUID } from 'node:crypto'
+// Use Web Crypto API instead of node:crypto for workerd compatibility
+function randomUUID(): string {
+  return crypto.randomUUID()
+}
+
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 
@@ -549,8 +553,9 @@ export function createProxyRouter() {
     if (validated.upstream) {
       logs = logs.filter((l) => l.upstream === validated.upstream)
     }
-    if (validated.minStatus) {
-      logs = logs.filter((l) => l.statusCode >= validated.minStatus)
+    if (validated.minStatus !== undefined) {
+      const minStatus = validated.minStatus
+      logs = logs.filter((l) => l.statusCode >= minStatus)
     }
 
     return {

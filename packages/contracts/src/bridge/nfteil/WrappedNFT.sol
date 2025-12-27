@@ -12,7 +12,7 @@ import {IWrappedNFT, WrappedNFTInfo, ProvenanceEntry, INFTRoyaltyEnforcer} from 
  * @title WrappedNFT
  * @author Jeju Network
  * @notice Protocol-owned contract for wrapped NFTs from other chains
- * @dev 
+ * @dev
  * - Permissionless wrapping: Anyone can wrap NFTs from other chains
  * - Original tokenId preserved: Wrapped token has same tokenId as original
  * - Metadata cached: TokenURI stored on-chain for availability
@@ -24,14 +24,7 @@ import {IWrappedNFT, WrappedNFTInfo, ProvenanceEntry, INFTRoyaltyEnforcer} from 
  *
  * @custom:security-contact security@jejunetwork.org
  */
-contract WrappedNFT is 
-    ERC721URIStorage,
-    ERC721Royalty,
-    Ownable,
-    ReentrancyGuard,
-    IWrappedNFT,
-    INFTRoyaltyEnforcer
-{
+contract WrappedNFT is ERC721URIStorage, ERC721Royalty, Ownable, ReentrancyGuard, IWrappedNFT, INFTRoyaltyEnforcer {
     // ============ State ============
 
     /// @notice Wrapped token info: wrappedTokenId => OriginalInfo
@@ -87,11 +80,10 @@ contract WrappedNFT is
 
     // ============ Constructor ============
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        address initialOwner
-    ) ERC721(name_, symbol_) Ownable(initialOwner) {}
+    constructor(string memory name_, string memory symbol_, address initialOwner)
+        ERC721(name_, symbol_)
+        Ownable(initialOwner)
+    {}
 
     // ============ Wrapping ============
 
@@ -166,16 +158,12 @@ contract WrappedNFT is
         if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
 
         WrappedNFTInfo storage info = wrappedTokens[tokenId];
-        
+
         // Record provenance before unwrap
         _recordProvenance(tokenId, block.chainid, address(this), msg.sender);
 
         // Clear wrapped state
-        bytes32 originalKey = _getOriginalKey(
-            info.homeChainId,
-            info.originalCollection,
-            info.originalTokenId
-        );
+        bytes32 originalKey = _getOriginalKey(info.homeChainId, info.originalCollection, info.originalTokenId);
         delete originalToWrapped[originalKey];
         isTokenWrapped[tokenId] = false;
         totalUnwrapped++;
@@ -183,13 +171,7 @@ contract WrappedNFT is
         // Burn the wrapped token
         _burn(tokenId);
 
-        emit NFTUnwrapped(
-            tokenId,
-            info.homeChainId,
-            info.originalCollection,
-            info.originalTokenId,
-            msg.sender
-        );
+        emit NFTUnwrapped(tokenId, info.homeChainId, info.originalCollection, info.originalTokenId, msg.sender);
     }
 
     /**
@@ -201,24 +183,14 @@ contract WrappedNFT is
 
         WrappedNFTInfo storage info = wrappedTokens[tokenId];
 
-        bytes32 originalKey = _getOriginalKey(
-            info.homeChainId,
-            info.originalCollection,
-            info.originalTokenId
-        );
+        bytes32 originalKey = _getOriginalKey(info.homeChainId, info.originalCollection, info.originalTokenId);
         delete originalToWrapped[originalKey];
         isTokenWrapped[tokenId] = false;
         totalUnwrapped++;
 
         _burn(tokenId);
 
-        emit NFTUnwrapped(
-            tokenId,
-            info.homeChainId,
-            info.originalCollection,
-            info.originalTokenId,
-            owner
-        );
+        emit NFTUnwrapped(tokenId, info.homeChainId, info.originalCollection, info.originalTokenId, owner);
     }
 
     // ============ View Functions ============
@@ -248,11 +220,11 @@ contract WrappedNFT is
     /**
      * @notice Get wrapped tokenId for original NFT
      */
-    function getWrappedTokenId(
-        uint256 homeChainId,
-        address originalCollection,
-        uint256 originalTokenId
-    ) external view returns (uint256) {
+    function getWrappedTokenId(uint256 homeChainId, address originalCollection, uint256 originalTokenId)
+        external
+        view
+        returns (uint256)
+    {
         bytes32 key = _getOriginalKey(homeChainId, originalCollection, originalTokenId);
         return originalToWrapped[key];
     }
@@ -262,18 +234,12 @@ contract WrappedNFT is
     /**
      * @notice Set universal royalty for all wrapped NFTs from a collection
      */
-    function setUniversalRoyalty(
-        uint256 homeChainId,
-        address originalCollection,
-        address receiver,
-        uint96 feeBps
-    ) external onlyOwner {
+    function setUniversalRoyalty(uint256 homeChainId, address originalCollection, address receiver, uint96 feeBps)
+        external
+        onlyOwner
+    {
         bytes32 collectionKey = keccak256(abi.encodePacked(homeChainId, originalCollection));
-        collectionRoyalties[collectionKey] = RoyaltyConfig({
-            receiver: receiver,
-            feeBps: feeBps,
-            isSet: true
-        });
+        collectionRoyalties[collectionKey] = RoyaltyConfig({receiver: receiver, feeBps: feeBps, isSet: true});
 
         emit RoyaltySet(homeChainId, originalCollection, receiver, feeBps);
     }
@@ -289,11 +255,7 @@ contract WrappedNFT is
         bytes calldata /* proof */
     ) external onlyAuthorizedBridge {
         bytes32 collectionKey = keccak256(abi.encodePacked(homeChainId, originalCollection));
-        collectionRoyalties[collectionKey] = RoyaltyConfig({
-            receiver: receiver,
-            feeBps: feeBps,
-            isSet: true
-        });
+        collectionRoyalties[collectionKey] = RoyaltyConfig({receiver: receiver, feeBps: feeBps, isSet: true});
 
         emit RoyaltySet(homeChainId, originalCollection, receiver, feeBps);
         emit RoyaltySynced(homeChainId, originalCollection, keccak256(abi.encodePacked(receiver, feeBps)));
@@ -302,10 +264,11 @@ contract WrappedNFT is
     /**
      * @notice Get royalty info (ERC-2981)
      */
-    function getRoyaltyInfo(
-        uint256 tokenId,
-        uint256 salePrice
-    ) external view returns (address receiver, uint256 royaltyAmount) {
+    function getRoyaltyInfo(uint256 tokenId, uint256 salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount)
+    {
         return royaltyInfo(tokenId, salePrice);
     }
 
@@ -324,7 +287,7 @@ contract WrappedNFT is
      */
     function updateMetadata(uint256 tokenId, string calldata newURI) external onlyAuthorizedBridge {
         if (!isTokenWrapped[tokenId]) revert TokenNotWrapped();
-        
+
         _setTokenURI(tokenId, newURI);
         wrappedTokens[tokenId].tokenURI = newURI;
         wrappedTokens[tokenId].metadataHash = keccak256(bytes(newURI));
@@ -332,28 +295,25 @@ contract WrappedNFT is
 
     // ============ Internal ============
 
-    function _getOriginalKey(
-        uint256 homeChainId,
-        address collection,
-        uint256 tokenId
-    ) internal pure returns (bytes32) {
+    function _getOriginalKey(uint256 homeChainId, address collection, uint256 tokenId)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(homeChainId, collection, tokenId));
     }
 
-    function _recordProvenance(
-        uint256 tokenId,
-        uint256 chainId,
-        address collection,
-        address owner
-    ) internal {
-        _provenance[tokenId].push(ProvenanceEntry({
-            chainId: chainId,
-            collection: collection,
-            tokenId: tokenId,
-            timestamp: block.timestamp,
-            txHash: bytes32(0),
-            owner: owner
-        }));
+    function _recordProvenance(uint256 tokenId, uint256 chainId, address collection, address owner) internal {
+        _provenance[tokenId].push(
+            ProvenanceEntry({
+                chainId: chainId,
+                collection: collection,
+                tokenId: tokenId,
+                timestamp: block.timestamp,
+                txHash: bytes32(0),
+                owner: owner
+            })
+        );
 
         emit ProvenanceRecorded(tokenId, chainId, collection, block.timestamp, owner);
     }
@@ -364,9 +324,13 @@ contract WrappedNFT is
         return ERC721URIStorage.tokenURI(tokenId);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721URIStorage, ERC721Royalty) returns (bool) {
-        return ERC721URIStorage.supportsInterface(interfaceId) || 
-               ERC721Royalty.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721URIStorage, ERC721Royalty)
+        returns (bool)
+    {
+        return ERC721URIStorage.supportsInterface(interfaceId) || ERC721Royalty.supportsInterface(interfaceId);
     }
 
     /**
@@ -374,23 +338,23 @@ contract WrappedNFT is
      */
     function _update(address to, uint256 tokenId, address auth) internal virtual override returns (address) {
         address previousOwner = super._update(to, tokenId, auth);
-        
+
         // If burning, reset royalty
         if (to == address(0)) {
             _resetTokenRoyalty(tokenId);
         }
-        
+
         return previousOwner;
     }
 
     /**
      * @notice Get wrapped NFT stats
      */
-    function getStats() external view returns (
-        uint256 _totalWrapped,
-        uint256 _totalUnwrapped,
-        uint256 activelyWrapped
-    ) {
+    function getStats()
+        external
+        view
+        returns (uint256 _totalWrapped, uint256 _totalUnwrapped, uint256 activelyWrapped)
+    {
         return (totalWrapped, totalUnwrapped, totalWrapped - totalUnwrapped);
     }
 

@@ -284,4 +284,3 @@ describe('Plugin configuration', () => {
     expect(requirements.optionalSecrets).toHaveLength(1)
   })
 })
-

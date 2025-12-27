@@ -1,5 +1,5 @@
-import { EventEmitter } from 'node:events'
 import type { PublicClient } from 'viem'
+import { WorkerdEventEmitter } from '../utils/event-emitter'
 import { bytes32ToAddress, INPUT_SETTLERS } from './contracts'
 
 export interface IntentEvent {
@@ -85,7 +85,7 @@ interface EventArgs {
   }
 }
 
-export class EventMonitor extends EventEmitter {
+export class EventMonitor extends WorkerdEventEmitter {
   private chains: Array<{ chainId: number; name: string }>
   private unwatchers: Array<() => void> = []
   private running = false

@@ -110,11 +110,11 @@ abstract contract BaseInputSettler is IInputSettler, Ownable, ReentrancyGuard {
     }
 
     /// @notice Opens an order on behalf of a user (gasless)
-    function openFor(
-        GaslessCrossChainOrder calldata order,
-        bytes calldata signature,
-        bytes calldata originFillerData
-    ) external override nonReentrant {
+    function openFor(GaslessCrossChainOrder calldata order, bytes calldata signature, bytes calldata originFillerData)
+        external
+        override
+        nonReentrant
+    {
         // Verify signature
         bytes32 orderHash = keccak256(abi.encode(order));
         address signer = orderHash.toEthSignedMessageHash().recover(signature);
@@ -129,11 +129,7 @@ abstract contract BaseInputSettler is IInputSettler, Ownable, ReentrancyGuard {
      * @param user The user (msg.sender or from signature)
      * @param originFillerData Optional filler data
      */
-    function _openOrder(
-        GaslessCrossChainOrder calldata order,
-        address user,
-        bytes memory originFillerData
-    ) internal {
+    function _openOrder(GaslessCrossChainOrder calldata order, address user, bytes memory originFillerData) internal {
         // Validate deadlines
         if (block.number > order.openDeadline) revert OrderExpired();
         if (order.fillDeadline <= order.openDeadline) revert InvalidDeadline();
@@ -156,12 +152,7 @@ abstract contract BaseInputSettler is IInputSettler, Ownable, ReentrancyGuard {
         });
 
         // Build and emit resolved order
-        ResolvedCrossChainOrder memory resolved = _buildResolvedOrder(
-            order,
-            orderId,
-            user,
-            originFillerData
-        );
+        ResolvedCrossChainOrder memory resolved = _buildResolvedOrder(order, orderId, user, originFillerData);
 
         emit Open(orderId, resolved);
     }
@@ -288,10 +279,10 @@ abstract contract BaseInputSettler is IInputSettler, Ownable, ReentrancyGuard {
      * @return orderId The generated order ID
      * @dev Must transfer assets from user to this contract
      */
-    function _lockAssets(
-        GaslessCrossChainOrder calldata order,
-        address user
-    ) internal virtual returns (bytes32 orderId);
+    function _lockAssets(GaslessCrossChainOrder calldata order, address user)
+        internal
+        virtual
+        returns (bytes32 orderId);
 
     /**
      * @notice Release locked assets to solver after attestation
@@ -327,4 +318,3 @@ abstract contract BaseInputSettler is IInputSettler, Ownable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

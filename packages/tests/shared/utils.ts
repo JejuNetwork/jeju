@@ -221,8 +221,8 @@ export async function checkContractsDeployed(
     if (!response.ok) return false
 
     const data = await response.json()
-    const codeResponse = parseGetCodeResponse(data)
-    return codeResponse.result !== '0x' && codeResponse.result.length > 2
+    const code = parseGetCodeResponse(data)
+    return code !== '0x' && code.length > 2
   } catch {
     return false
   } finally {

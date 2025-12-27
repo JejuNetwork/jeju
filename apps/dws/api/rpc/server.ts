@@ -607,7 +607,11 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     const result = await purchaseCredits(address, txHash, BigInt(amount))
     return {
       success: result.success,
+<<<<<<< HEAD
       newBalance: (result.newBalance ?? 0n).toString(),
+=======
+      newBalance: result.newBalance?.toString() ?? '0',
+>>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
       message: 'Credits added to your account',
     }
   })

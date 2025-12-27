@@ -9,16 +9,12 @@ import {
   Cpu,
   Database,
   DollarSign,
-  HardDrive,
   Plus,
   Server,
-  TrendingUp,
-  Users,
   Zap,
 } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import {
-  useComputeNodes,
   useContainers,
   useHealth,
   useJobs,
@@ -27,6 +23,7 @@ import {
 } from '../hooks'
 import { useBanStatus } from '../hooks/useBanStatus'
 import type { ViewMode } from '../types'
+import NodeOperatorDashboard from './node/NodeOperatorDashboard'
 
 interface DashboardProps {
   viewMode: ViewMode
@@ -39,10 +36,9 @@ export default function Dashboard({ viewMode }: DashboardProps) {
   const { data: containersData, isLoading: containersLoading } = useContainers()
   const { data: workersData, isLoading: workersLoading } = useWorkers()
   const { data: jobsData, isLoading: jobsLoading } = useJobs()
-  const { data: nodesData } = useComputeNodes()
   const { data: account, isLoading: accountLoading } = useUserAccount()
 
-  // Show loading state while initial data loads
+  // Show loading state while initial data loads (only for consumer mode)
   const isDataLoading =
     containersLoading || workersLoading || jobsLoading || accountLoading
 
@@ -94,6 +90,12 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     )
   }
 
+  // Provider mode uses the dedicated NodeOperatorDashboard with its own loading state
+  if (viewMode === 'provider') {
+    return <NodeOperatorDashboard />
+  }
+
+  // Consumer mode loading state
   if (isDataLoading) {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
@@ -107,7 +109,6 @@ export default function Dashboard({ viewMode }: DashboardProps) {
   const executions = containersData?.executions ?? []
   const workerFunctions = workersData?.functions ?? []
   const jobsList = jobsData?.jobs ?? []
-  const nodesList = nodesData?.nodes ?? []
 
   const runningContainers = executions.filter(
     (e) => e.status === 'running',
@@ -116,33 +117,24 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     (f) => f.status === 'active',
   ).length
   const runningJobs = jobsList.filter((j) => j.status === 'running').length
-  const onlineNodes = nodesList.filter((n) => n.status === 'online').length
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">
-          {viewMode === 'provider' ? 'Provider Dashboard' : 'Dashboard'}
-        </h1>
+        <h1 className="page-title">Dashboard</h1>
         <p className="page-subtitle">
-          {viewMode === 'provider'
-            ? 'Monitor your nodes, earnings, and resources'
-            : 'Overview of your DWS usage and resources'}
+          Overview of your DWS usage and resources
         </p>
       </div>
 
-      {viewMode === 'consumer' ? (
-        <ConsumerDashboard
-          health={health}
-          healthLoading={healthLoading}
-          runningContainers={runningContainers}
-          activeWorkers={activeWorkers}
-          runningJobs={runningJobs}
-          account={account}
-        />
-      ) : (
-        <ProviderDashboard onlineNodes={onlineNodes} nodesData={nodesData} />
-      )}
+      <ConsumerDashboard
+        health={health}
+        healthLoading={healthLoading}
+        runningContainers={runningContainers}
+        activeWorkers={activeWorkers}
+        runningJobs={runningJobs}
+        account={account}
+      />
     </div>
   )
 }
@@ -565,289 +557,5 @@ function RecentActivity() {
         </div>
       )}
     </div>
-  )
-}
-
-interface ProviderDashboardProps {
-  onlineNodes: number
-  nodesData: ReturnType<typeof useComputeNodes>['data']
-}
-
-function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
-  const nodes = nodesData?.nodes ?? []
-  const totalCpu = nodes.reduce((sum, n) => sum + n.resources.totalCpu, 0)
-  const availableCpu = nodes.reduce(
-    (sum, n) => sum + n.resources.availableCpu,
-    0,
-  )
-  const totalMemory = nodes.reduce(
-    (sum, n) => sum + n.resources.totalMemoryMb,
-    0,
-  )
-  const availableMemory = nodes.reduce(
-    (sum, n) => sum + n.resources.availableMemoryMb,
-    0,
-  )
-
-  return (
-    <>
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon compute">
-            <Server size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">Your Nodes</div>
-            <div className="stat-value">{onlineNodes}</div>
-            <div className="stat-change positive">Online</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon storage">
-            <DollarSign size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">Earnings (24h)</div>
-            <div className="stat-value">0.00 ETH</div>
-            <div className="stat-change positive">
-              <TrendingUp size={14} style={{ marginRight: '0.25rem' }} />
-              +0%
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon network">
-            <Users size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">Requests Served</div>
-            <div className="stat-value">0</div>
-            <div className="stat-change">Today</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon ai">
-            <Activity size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">Uptime</div>
-            <div className="stat-value">100%</div>
-            <div className="stat-change positive">Last 30 days</div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-          gap: '1.5rem',
-        }}
-      >
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              <Cpu size={18} /> Resource Utilization
-            </h3>
-          </div>
-          <div style={{ display: 'grid', gap: '1.5rem' }}>
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  CPU Cores
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>
-                  {totalCpu - availableCpu} / {totalCpu}
-                </span>
-              </div>
-              <div
-                style={{
-                  height: '8px',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '4px',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    height: '100%',
-                    width: `${totalCpu > 0 ? ((totalCpu - availableCpu) / totalCpu) * 100 : 0}%`,
-                    background: 'var(--accent)',
-                    borderRadius: '4px',
-                    transition: 'width 0.3s ease',
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                <span style={{ color: 'var(--text-secondary)' }}>Memory</span>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>
-                  {Math.round((totalMemory - availableMemory) / 1024)} /{' '}
-                  {Math.round(totalMemory / 1024)} GB
-                </span>
-              </div>
-              <div
-                style={{
-                  height: '8px',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '4px',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    height: '100%',
-                    width: `${totalMemory > 0 ? ((totalMemory - availableMemory) / totalMemory) * 100 : 0}%`,
-                    background: 'var(--success)',
-                    borderRadius: '4px',
-                    transition: 'width 0.3s ease',
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              <HardDrive size={18} /> Your Nodes
-            </h3>
-            <a href="/settings" className="btn btn-sm btn-secondary">
-              <Plus size={14} /> Add Node
-            </a>
-          </div>
-          {nodesData?.nodes && nodesData.nodes.length > 0 ? (
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Node ID</th>
-                    <th>Region</th>
-                    <th>Status</th>
-                    <th>Reputation</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {nodesData.nodes.slice(0, 5).map((node) => (
-                    <tr key={node.id}>
-                      <td
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '0.85rem',
-                        }}
-                      >
-                        {node.id.slice(0, 8)}...
-                      </td>
-                      <td>{node.region}</td>
-                      <td>
-                        <span
-                          className={`badge ${node.status === 'online' ? 'badge-success' : node.status === 'maintenance' ? 'badge-warning' : 'badge-error'}`}
-                        >
-                          {node.status}
-                        </span>
-                      </td>
-                      <td>{node.reputation}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="empty-state" style={{ padding: '2rem' }}>
-              <Server size={32} />
-              <p>No nodes registered yet</p>
-              <a
-                href="/settings"
-                className="btn btn-primary btn-sm"
-                style={{ marginTop: '0.5rem' }}
-              >
-                Register a Node
-              </a>
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              <DollarSign size={18} /> Earnings
-            </h3>
-          </div>
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '0.75rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-              }}
-            >
-              <span>Pending Payout</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                0.00 ETH
-              </span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '0.75rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-              }}
-            >
-              <span>Total Earned</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                0.00 ETH
-              </span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '0.75rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-              }}
-            >
-              <span>This Month</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                0.00 ETH
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              <Activity size={18} /> Recent Jobs
-            </h3>
-          </div>
-          <div className="empty-state" style={{ padding: '1.5rem' }}>
-            <Activity size={32} />
-            <p style={{ fontSize: '0.9rem' }}>No jobs processed yet</p>
-          </div>
-        </div>
-      </div>
-    </>
   )
 }

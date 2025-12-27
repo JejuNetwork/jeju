@@ -21,11 +21,7 @@ interface IMIPS {
     /// @param _proof The proof data for memory accesses.
     /// @param _localContext Context hash for preimage oracle lookups.
     /// @return The post-state hash after executing the instruction.
-    function step(
-        bytes calldata _stateData,
-        bytes calldata _proof,
-        bytes32 _localContext
-    ) external returns (bytes32);
+    function step(bytes calldata _stateData, bytes calldata _proof, bytes32 _localContext) external returns (bytes32);
 
     /// @notice Returns the address of the PreimageOracle used by this MIPS VM.
     function oracle() external view returns (address);
@@ -45,10 +41,7 @@ interface IPreimageOracle {
     /// @param _offset The offset within the preimage to read.
     /// @return dat_ The 32-byte word at the given offset.
     /// @return datLen_ The total length of the preimage.
-    function readPreimage(bytes32 _key, uint256 _offset)
-        external
-        view
-        returns (bytes32 dat_, uint256 datLen_);
+    function readPreimage(bytes32 _key, uint256 _offset) external view returns (bytes32 dat_, uint256 datLen_);
 
     /// @notice Loads local data into the oracle for a specific context.
     /// @param _ident The identifier for the local data.
@@ -57,33 +50,27 @@ interface IPreimageOracle {
     /// @param _size The size of the data in bytes (1-32).
     /// @param _partOffset The offset within the preimage being loaded.
     /// @return key_ The key under which the data was stored.
-    function loadLocalData(
-        uint256 _ident,
-        bytes32 _localContext,
-        bytes32 _word,
-        uint256 _size,
-        uint256 _partOffset
-    ) external returns (bytes32 key_);
+    function loadLocalData(uint256 _ident, bytes32 _localContext, bytes32 _word, uint256 _size, uint256 _partOffset)
+        external
+        returns (bytes32 key_);
 
     /// @notice Loads a keccak256 preimage into the oracle.
     /// @param _partOffset The offset of this part within the full preimage.
     /// @param _preimage The preimage bytes to load.
     /// @return key_ The keccak256 hash of the full preimage.
     /// @return partOffset_ The offset used for this load.
-    function loadKeccak256PreimagePart(
-        uint256 _partOffset,
-        bytes calldata _preimage
-    ) external returns (bytes32 key_, uint256 partOffset_);
+    function loadKeccak256PreimagePart(uint256 _partOffset, bytes calldata _preimage)
+        external
+        returns (bytes32 key_, uint256 partOffset_);
 
     /// @notice Loads a sha256 preimage into the oracle.
     /// @param _partOffset The offset of this part within the full preimage.
     /// @param _preimage The preimage bytes to load.
     /// @return key_ The sha256 hash of the full preimage.
     /// @return partOffset_ The offset used for this load.
-    function loadSha256PreimagePart(
-        uint256 _partOffset,
-        bytes calldata _preimage
-    ) external returns (bytes32 key_, uint256 partOffset_);
+    function loadSha256PreimagePart(uint256 _partOffset, bytes calldata _preimage)
+        external
+        returns (bytes32 key_, uint256 partOffset_);
 
     /// @notice Loads a blob preimage into the oracle.
     /// @param _z The point to evaluate.
@@ -138,4 +125,3 @@ library DisputeTypes {
         uint64 timestamp;
     }
 }
-

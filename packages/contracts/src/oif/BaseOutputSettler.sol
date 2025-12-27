@@ -50,11 +50,7 @@ abstract contract BaseOutputSettler is IOutputSettler, Ownable, ReentrancyGuard 
     event LiquidityDeposited(address indexed solver, address indexed token, uint256 amount);
     event LiquidityWithdrawn(address indexed solver, address indexed token, uint256 amount);
     event OrderFilled(
-        bytes32 indexed orderId,
-        address indexed solver,
-        address indexed recipient,
-        address token,
-        uint256 amount
+        bytes32 indexed orderId, address indexed solver, address indexed recipient, address token, uint256 amount
     );
 
     // ============ Errors ============
@@ -135,13 +131,10 @@ abstract contract BaseOutputSettler is IOutputSettler, Ownable, ReentrancyGuard 
      * @param recipient Recipient address
      * @param gasAmount Gas to include (ETH)
      */
-    function fillWithLiquidity(
-        bytes32 orderId,
-        address token,
-        uint256 amount,
-        address recipient,
-        uint256 gasAmount
-    ) external nonReentrant {
+    function fillWithLiquidity(bytes32 orderId, address token, uint256 amount, address recipient, uint256 gasAmount)
+        external
+        nonReentrant
+    {
         if (filledOrders[orderId]) revert OrderAlreadyFilled();
         if (amount == 0) revert InvalidAmount();
         if (recipient == address(0)) revert InvalidRecipient();
@@ -189,12 +182,11 @@ abstract contract BaseOutputSettler is IOutputSettler, Ownable, ReentrancyGuard 
      * @param amount Amount to transfer
      * @param recipient Address to receive tokens
      */
-    function fillDirect(
-        bytes32 orderId,
-        address token,
-        uint256 amount,
-        address recipient
-    ) external payable nonReentrant {
+    function fillDirect(bytes32 orderId, address token, uint256 amount, address recipient)
+        external
+        payable
+        nonReentrant
+    {
         if (filledOrders[orderId]) revert OrderAlreadyFilled();
         if (amount == 0) revert InvalidAmount();
         if (recipient == address(0)) revert InvalidRecipient();
@@ -278,11 +270,11 @@ abstract contract BaseOutputSettler is IOutputSettler, Ownable, ReentrancyGuard 
      * @param originData Data from origin chain
      * @param fillerData Data provided by filler
      */
-    function fill(
-        bytes32 orderId,
-        bytes calldata originData,
-        bytes calldata fillerData
-    ) external payable virtual override;
+    function fill(bytes32 orderId, bytes calldata originData, bytes calldata fillerData)
+        external
+        payable
+        virtual
+        override;
 
     // ============ Receive ============
 

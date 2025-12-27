@@ -3,12 +3,8 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  DOCS_ROOT,
-  EXCLUDED_DIRS,
-  listTopics,
-  searchDocumentation,
-} from '../../lib/a2a'
+import { EXCLUDED_DIRS, listTopics, searchDocumentation } from '../../lib/a2a'
+import { DOCS_ROOT } from '../../lib/build-utils'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SERVER_PATH = join(__dirname, '../../server/a2a-server.ts')

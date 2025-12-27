@@ -48,15 +48,7 @@ contract MockIdentityRegistry is IIdentityRegistry {
     function getMarketplaceInfo(uint256 agentId)
         external
         view
-        returns (
-            string memory,
-            string memory,
-            string memory,
-            string memory,
-            bool,
-            uint8,
-            bool banned
-        )
+        returns (string memory, string memory, string memory, string memory, bool, uint8, bool banned)
     {
         require(_exists[agentId], "Agent does not exist");
         return ("", "", "", "", false, 0, _banned[agentId]);
@@ -216,9 +208,7 @@ contract ComputeRegistryIntegrationTest is Test {
         vm.startPrank(provider1);
 
         vm.expectRevert(abi.encodeWithSignature("InvalidAgentId()"));
-        registry.registerWithAgent{value: 0.01 ether}(
-            "Test Provider", "https://api.test.com", bytes32(uint256(1)), 999
-        );
+        registry.registerWithAgent{value: 0.01 ether}("Test Provider", "https://api.test.com", bytes32(uint256(1)), 999);
 
         vm.stopPrank();
     }

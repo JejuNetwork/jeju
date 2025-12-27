@@ -6,7 +6,16 @@ import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step
 /// @title ChainlinkGovernance
 /// @notice DAO governance for Chainlink contracts
 contract ChainlinkGovernance is Ownable2Step {
-    enum ProposalType { VRF_FEE_UPDATE, AUTOMATION_FEE_UPDATE, ORACLE_FEE_UPDATE, KEEPER_APPROVAL, ORACLE_APPROVAL, STAKING_ALLOCATION, EMERGENCY_PAUSE, CONTRACT_UPGRADE }
+    enum ProposalType {
+        VRF_FEE_UPDATE,
+        AUTOMATION_FEE_UPDATE,
+        ORACLE_FEE_UPDATE,
+        KEEPER_APPROVAL,
+        ORACLE_APPROVAL,
+        STAKING_ALLOCATION,
+        EMERGENCY_PAUSE,
+        CONTRACT_UPGRADE
+    }
 
     struct Proposal {
         uint256 id;
@@ -54,12 +63,14 @@ contract ChainlinkGovernance is Ownable2Step {
 
     // ============ SECURITY: Emergency Pause Auto-Expiry ============
     // Prevents indefinite lockup if guardians become compromised or unavailable
-    
+
     uint256 public constant MAX_PAUSE_DURATION = 7 days;
     uint256 public pausedAt;
     uint256 public pauseExpiresAt;
 
-    event ProposalCreated(uint256 indexed id, ProposalType proposalType, address target, uint256 eta, string description);
+    event ProposalCreated(
+        uint256 indexed id, ProposalType proposalType, address target, uint256 eta, string description
+    );
     event ProposalExecuted(uint256 indexed id);
     event ProposalCancelled(uint256 indexed id);
     event ContractUpdated(string name, address oldAddress, address newAddress);
@@ -95,7 +106,9 @@ contract ChainlinkGovernance is Ownable2Step {
         _;
     }
 
-    constructor(address _autocrat, address _vrfCoordinator, address _automationRegistry, address _oracleRouter) Ownable(msg.sender) {
+    constructor(address _autocrat, address _vrfCoordinator, address _automationRegistry, address _oracleRouter)
+        Ownable(msg.sender)
+    {
         autocrat = _autocrat;
         vrfCoordinator = _vrfCoordinator;
         automationRegistry = _automationRegistry;
@@ -216,7 +229,7 @@ contract ChainlinkGovernance is Ownable2Step {
         paused = true;
         pausedAt = block.timestamp;
         pauseExpiresAt = block.timestamp + MAX_PAUSE_DURATION;
-        
+
         // Best-effort pause of external contracts - failures don't block emergency pause
         if (vrfCoordinator != address(0)) {
             (bool success,) = vrfCoordinator.call(abi.encodeWithSignature("pause()"));
@@ -248,7 +261,7 @@ contract ChainlinkGovernance is Ownable2Step {
             paused = false;
             pausedAt = 0;
             pauseExpiresAt = 0;
-            
+
             // Best-effort unpause of external contracts
             if (vrfCoordinator != address(0)) {
                 (bool success,) = vrfCoordinator.call(abi.encodeWithSignature("unpause()"));
@@ -258,7 +271,7 @@ contract ChainlinkGovernance is Ownable2Step {
                 (bool success,) = automationRegistry.call(abi.encodeWithSignature("unpause()"));
                 success;
             }
-            
+
             emit PauseAutoExpired(block.timestamp);
         }
     }
@@ -288,10 +301,22 @@ contract ChainlinkGovernance is Ownable2Step {
         emit EmergencyUnpause(msg.sender);
     }
 
-    function setContracts(address _vrfCoordinator, address _automationRegistry, address _oracleRouter) external onlyOwner {
-        if (_vrfCoordinator != address(0)) { emit ContractUpdated("VRFCoordinator", vrfCoordinator, _vrfCoordinator); vrfCoordinator = _vrfCoordinator; }
-        if (_automationRegistry != address(0)) { emit ContractUpdated("AutomationRegistry", automationRegistry, _automationRegistry); automationRegistry = _automationRegistry; }
-        if (_oracleRouter != address(0)) { emit ContractUpdated("OracleRouter", oracleRouter, _oracleRouter); oracleRouter = _oracleRouter; }
+    function setContracts(address _vrfCoordinator, address _automationRegistry, address _oracleRouter)
+        external
+        onlyOwner
+    {
+        if (_vrfCoordinator != address(0)) {
+            emit ContractUpdated("VRFCoordinator", vrfCoordinator, _vrfCoordinator);
+            vrfCoordinator = _vrfCoordinator;
+        }
+        if (_automationRegistry != address(0)) {
+            emit ContractUpdated("AutomationRegistry", automationRegistry, _automationRegistry);
+            automationRegistry = _automationRegistry;
+        }
+        if (_oracleRouter != address(0)) {
+            emit ContractUpdated("OracleRouter", oracleRouter, _oracleRouter);
+            oracleRouter = _oracleRouter;
+        }
     }
 
     function setAutocrat(address _autocrat) external onlyOwner {
@@ -300,7 +325,9 @@ contract ChainlinkGovernance is Ownable2Step {
     }
 
     function setConfig(GovernanceConfig calldata _config) external onlyOwner {
-        if (_config.proposalDelay < _config.minimumDelay || _config.proposalDelay > _config.maximumDelay) revert InvalidDelay();
+        if (_config.proposalDelay < _config.minimumDelay || _config.proposalDelay > _config.maximumDelay) {
+            revert InvalidDelay();
+        }
         config = _config;
         emit ConfigUpdated(_config);
     }
@@ -346,6 +373,10 @@ contract ChainlinkGovernance is Ownable2Step {
     }
 
     function getRevenueDistribution(uint256 amount) external view returns (uint256, uint256, uint256) {
-        return (amount * revenueConfig.treasuryBps / 10000, amount * revenueConfig.operationalBps / 10000, amount * revenueConfig.communityBps / 10000);
+        return (
+            amount * revenueConfig.treasuryBps / 10000,
+            amount * revenueConfig.operationalBps / 10000,
+            amount * revenueConfig.communityBps / 10000
+        );
     }
 }

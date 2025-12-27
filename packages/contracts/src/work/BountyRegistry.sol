@@ -30,21 +30,23 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
     // ============ Enums ============
 
     enum BountyStatus {
-        OPEN,           // Accepting applications
-        IN_PROGRESS,    // Work has started
-        REVIEW,         // Awaiting validation
-        DISPUTED,       // Under dispute resolution
-        COMPLETED,      // Successfully completed
-        CANCELLED       // Cancelled by creator
+        OPEN, // Accepting applications
+        IN_PROGRESS, // Work has started
+        REVIEW, // Awaiting validation
+        DISPUTED, // Under dispute resolution
+        COMPLETED, // Successfully completed
+        CANCELLED // Cancelled by creator
+
     }
 
     enum MilestoneStatus {
-        PENDING,        // Not started
-        IN_PROGRESS,    // Work ongoing
-        SUBMITTED,      // Awaiting review
-        APPROVED,       // Completed and paid
-        REJECTED,       // Rejected, needs rework
-        DISPUTED        // Under dispute
+        PENDING, // Not started
+        IN_PROGRESS, // Work ongoing
+        SUBMITTED, // Awaiting review
+        APPROVED, // Completed and paid
+        REJECTED, // Rejected, needs rework
+        DISPUTED // Under dispute
+
     }
 
     enum ApplicationStatus {
@@ -57,16 +59,16 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
     // ============ Structs ============
 
     struct TokenAmount {
-        address token;      // address(0) for ETH
+        address token; // address(0) for ETH
         uint256 amount;
     }
 
     struct Milestone {
         string title;
         string description;
-        uint256 percentage;     // Percentage of total reward (basis points, 10000 = 100%)
+        uint256 percentage; // Percentage of total reward (basis points, 10000 = 100%)
         MilestoneStatus status;
-        string deliverableUri;  // IPFS URI of deliverables
+        string deliverableUri; // IPFS URI of deliverables
         uint256 submittedAt;
         uint256 approvedAt;
     }
@@ -74,12 +76,12 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
     struct Bounty {
         bytes32 bountyId;
         address creator;
-        uint256 creatorAgentId;     // ERC-8004 agent ID (0 if no agent)
+        uint256 creatorAgentId; // ERC-8004 agent ID (0 if no agent)
         string title;
         string description;
-        string specUri;             // IPFS URI for detailed spec
-        TokenAmount[] rewards;      // Multi-token rewards
-        TokenAmount creatorStake;   // 10% stake (single token)
+        string specUri; // IPFS URI for detailed spec
+        TokenAmount[] rewards; // Multi-token rewards
+        TokenAmount creatorStake; // 10% stake (single token)
         uint256 deadline;
         string[] requiredSkills;
         BountyStatus status;
@@ -88,51 +90,51 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
         uint256 createdAt;
         uint256 completedAt;
         uint256 currentMilestone;
-        bytes32 disputeCaseId;      // Moderation case if disputed
+        bytes32 disputeCaseId; // Moderation case if disputed
     }
 
     struct BountyApplication {
         address applicant;
-        uint256 agentId;            // ERC-8004 agent ID
-        string proposalUri;         // IPFS URI for proposal
-        uint256 estimatedDuration;  // In seconds
+        uint256 agentId; // ERC-8004 agent ID
+        string proposalUri; // IPFS URI for proposal
+        uint256 estimatedDuration; // In seconds
         ApplicationStatus status;
         uint256 appliedAt;
     }
 
     struct ValidatorVote {
         bool approved;
-        string reasonUri;           // IPFS URI for validation notes
+        string reasonUri; // IPFS URI for validation notes
         uint256 votedAt;
     }
 
     // ============ Constants ============
 
-    uint256 public constant CREATOR_STAKE_BPS = 1000;       // 10% stake
-    uint256 public constant VALIDATOR_FEE_BPS = 500;        // 5% to validators
-    uint256 public constant PROTOCOL_FEE_BPS = 500;         // 5% to protocol
-    uint256 public constant MIN_VALIDATORS = 3;             // Minimum validators for approval
-    uint256 public constant VALIDATOR_QUORUM_BPS = 6000;    // 60% must approve
+    uint256 public constant CREATOR_STAKE_BPS = 1000; // 10% stake
+    uint256 public constant VALIDATOR_FEE_BPS = 500; // 5% to validators
+    uint256 public constant PROTOCOL_FEE_BPS = 500; // 5% to protocol
+    uint256 public constant MIN_VALIDATORS = 3; // Minimum validators for approval
+    uint256 public constant VALIDATOR_QUORUM_BPS = 6000; // 60% must approve
     uint256 public constant MAX_MILESTONES = 20;
-    uint256 public constant DISPUTE_PERIOD = 3 days;        // Time to dispute after rejection
+    uint256 public constant DISPUTE_PERIOD = 3 days; // Time to dispute after rejection
 
     // ============ State ============
 
     IdentityRegistry public immutable identityRegistry;
     ModerationMarketplace public moderationMarketplace;
     address public treasury;
-    address public validatorPool;                           // Pool for validator rewards
+    address public validatorPool; // Pool for validator rewards
 
     mapping(bytes32 => Bounty) public bounties;
     mapping(bytes32 => Milestone[]) public milestones;
     mapping(bytes32 => BountyApplication[]) public applications;
     mapping(bytes32 => mapping(uint256 => mapping(address => ValidatorVote))) public validatorVotes;
     mapping(bytes32 => mapping(uint256 => address[])) public milestoneValidators;
-    
+
     // Validator registry (agents who can validate)
-    mapping(uint256 => bool) public isValidator;            // agentId => isValidator
+    mapping(uint256 => bool) public isValidator; // agentId => isValidator
     uint256[] public validatorAgentIds;
-    uint256 public minValidatorStake = 0.01 ether;         // Minimum stake to be validator
+    uint256 public minValidatorStake = 0.01 ether; // Minimum stake to be validator
 
     // Token whitelist for rewards
     mapping(address => bool) public whitelistedTokens;
@@ -159,7 +161,9 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
     event MilestoneRejected(bytes32 indexed bountyId, uint256 indexed milestoneIndex, string reason);
     event BountyCompleted(bytes32 indexed bountyId, address indexed assignee, uint256 totalPaid);
     event BountyDisputed(bytes32 indexed bountyId, bytes32 indexed caseId);
-    event ValidatorVoted(bytes32 indexed bountyId, uint256 indexed milestoneIndex, address indexed validator, bool approved);
+    event ValidatorVoted(
+        bytes32 indexed bountyId, uint256 indexed milestoneIndex, address indexed validator, bool approved
+    );
     event ValidatorRegistered(uint256 indexed agentId, address indexed owner);
     event ValidatorRemoved(uint256 indexed agentId);
     event TokenWhitelisted(address indexed token, bool whitelisted);
@@ -212,11 +216,7 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address _treasury,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _identityRegistry, address _treasury, address initialOwner) Ownable(initialOwner) {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         treasury = _treasury;
         validatorPool = _treasury; // Initially same as treasury
@@ -255,7 +255,7 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
     ) external payable nonReentrant whenNotPaused returns (bytes32 bountyId) {
         // Validate milestones
         _validateMilestones(milestoneTitles, milestoneDescriptions, milestonePercentages);
-        
+
         // Validate deadline
         if (params.deadline <= block.timestamp) revert DeadlinePassed();
 
@@ -347,27 +347,24 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
         uint256[] calldata percentages
     ) internal {
         for (uint256 i = 0; i < titles.length; i++) {
-            milestones[bountyId].push(Milestone({
-                title: titles[i],
-                description: descriptions[i],
-                percentage: percentages[i],
-                status: MilestoneStatus.PENDING,
-                deliverableUri: "",
-                submittedAt: 0,
-                approvedAt: 0
-            }));
+            milestones[bountyId].push(
+                Milestone({
+                    title: titles[i],
+                    description: descriptions[i],
+                    percentage: percentages[i],
+                    status: MilestoneStatus.PENDING,
+                    deliverableUri: "",
+                    submittedAt: 0,
+                    approvedAt: 0
+                })
+            );
         }
     }
 
     /**
      * @notice Cancel a bounty and return stake (only if no assignee)
      */
-    function cancelBounty(bytes32 bountyId) 
-        external 
-        nonReentrant 
-        bountyExists(bountyId)
-        onlyBountyCreator(bountyId) 
-    {
+    function cancelBounty(bytes32 bountyId) external nonReentrant bountyExists(bountyId) onlyBountyCreator(bountyId) {
         Bounty storage bounty = bounties[bountyId];
         if (bounty.status != BountyStatus.OPEN) revert BountyNotOpen();
 
@@ -392,11 +389,11 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
      * @param proposalUri IPFS URI of proposal
      * @param estimatedDuration Estimated time to complete in seconds
      */
-    function applyForBounty(
-        bytes32 bountyId,
-        string calldata proposalUri,
-        uint256 estimatedDuration
-    ) external nonReentrant bountyExists(bountyId) {
+    function applyForBounty(bytes32 bountyId, string calldata proposalUri, uint256 estimatedDuration)
+        external
+        nonReentrant
+        bountyExists(bountyId)
+    {
         Bounty storage bounty = bounties[bountyId];
         if (bounty.status != BountyStatus.OPEN) revert BountyNotOpen();
         if (block.timestamp > bounty.deadline) revert DeadlinePassed();
@@ -409,14 +406,16 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
         uint256 agentId = getAgentIdForAddress(msg.sender);
 
-        apps.push(BountyApplication({
-            applicant: msg.sender,
-            agentId: agentId,
-            proposalUri: proposalUri,
-            estimatedDuration: estimatedDuration,
-            status: ApplicationStatus.PENDING,
-            appliedAt: block.timestamp
-        }));
+        apps.push(
+            BountyApplication({
+                applicant: msg.sender,
+                agentId: agentId,
+                proposalUri: proposalUri,
+                estimatedDuration: estimatedDuration,
+                status: ApplicationStatus.PENDING,
+                appliedAt: block.timestamp
+            })
+        );
 
         emit ApplicationSubmitted(bountyId, msg.sender, agentId);
     }
@@ -426,9 +425,9 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
      * @param bountyId Bounty ID
      * @param applicantIndex Index of application to accept
      */
-    function acceptApplication(bytes32 bountyId, uint256 applicantIndex) 
-        external 
-        nonReentrant 
+    function acceptApplication(bytes32 bountyId, uint256 applicantIndex)
+        external
+        nonReentrant
         bountyExists(bountyId)
         onlyBountyCreator(bountyId)
     {
@@ -474,9 +473,8 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
         uint256 currentIdx = bounty.currentMilestone;
         Milestone storage milestone = milestones[bountyId][currentIdx];
-        
-        if (milestone.status != MilestoneStatus.IN_PROGRESS && 
-            milestone.status != MilestoneStatus.REJECTED) {
+
+        if (milestone.status != MilestoneStatus.IN_PROGRESS && milestone.status != MilestoneStatus.REJECTED) {
             revert InvalidMilestone();
         }
 
@@ -513,11 +511,8 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
         }
 
         // Record vote
-        validatorVotes[bountyId][currentIdx][msg.sender] = ValidatorVote({
-            approved: approved,
-            reasonUri: reasonUri,
-            votedAt: block.timestamp
-        });
+        validatorVotes[bountyId][currentIdx][msg.sender] =
+            ValidatorVote({approved: approved, reasonUri: reasonUri, votedAt: block.timestamp});
         milestoneValidators[bountyId][currentIdx].push(msg.sender);
 
         emit ValidatorVoted(bountyId, currentIdx, msg.sender, approved);
@@ -584,7 +579,7 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
         Bounty storage bounty = bounties[bountyId];
         uint256 currentIdx = bounty.currentMilestone;
         Milestone storage milestone = milestones[bountyId][currentIdx];
-        
+
         if (milestone.status != MilestoneStatus.REJECTED) revert InvalidMilestone();
         if (block.timestamp > milestone.submittedAt + DISPUTE_PERIOD) revert DisputePeriodExpired();
 
@@ -654,7 +649,7 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
         }
 
         uint256 quorumNeeded = (validators.length * VALIDATOR_QUORUM_BPS) / 10000;
-        
+
         if (approvals >= quorumNeeded) {
             _approveMilestone(bountyId, milestoneIndex);
         } else if (validators.length - approvals > validators.length - quorumNeeded) {
@@ -669,13 +664,13 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
     function _approveMilestone(bytes32 bountyId, uint256 milestoneIndex) internal {
         Bounty storage bounty = bounties[bountyId];
         Milestone storage milestone = milestones[bountyId][milestoneIndex];
-        
+
         milestone.status = MilestoneStatus.APPROVED;
         milestone.approvedAt = block.timestamp;
 
         // Calculate payout for this milestone
         uint256 payout = _calculateMilestonePayout(bountyId, milestoneIndex);
-        
+
         // Pay assignee (minus fees)
         uint256 validatorFee = (payout * VALIDATOR_FEE_BPS) / 10000;
         uint256 protocolFee = (payout * PROTOCOL_FEE_BPS) / 10000;
@@ -724,14 +719,14 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
     function _calculateMilestonePayout(bytes32 bountyId, uint256 milestoneIndex) internal view returns (uint256) {
         Bounty storage bounty = bounties[bountyId];
         Milestone storage milestone = milestones[bountyId][milestoneIndex];
-        
+
         if (bounty.rewards.length == 0) return 0;
         return (bounty.rewards[0].amount * milestone.percentage) / 10000;
     }
 
     function _transferTokens(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
-        
+
         if (token == address(0)) {
             (bool success,) = to.call{value: amount}("");
             if (!success) revert TransferFailed();
@@ -764,14 +759,14 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
         return validatorAgentIds.length;
     }
 
-    function getMilestoneVotes(bytes32 bountyId, uint256 milestoneIndex) 
-        external 
-        view 
-        returns (address[] memory validators, bool[] memory approvals) 
+    function getMilestoneVotes(bytes32 bountyId, uint256 milestoneIndex)
+        external
+        view
+        returns (address[] memory validators, bool[] memory approvals)
     {
         validators = milestoneValidators[bountyId][milestoneIndex];
         approvals = new bool[](validators.length);
-        
+
         for (uint256 i = 0; i < validators.length; i++) {
             approvals[i] = validatorVotes[bountyId][milestoneIndex][validators[i]].approved;
         }
@@ -817,4 +812,3 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
     receive() external payable {}
 }
-

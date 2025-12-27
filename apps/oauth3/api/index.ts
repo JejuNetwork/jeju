@@ -68,6 +68,7 @@ async function createApp() {
           'Authorization',
           'X-Jeju-Address',
           'X-Jeju-Signature',
+          'X-Jeju-Timestamp',
           'X-Jeju-Nonce',
         ],
       }),

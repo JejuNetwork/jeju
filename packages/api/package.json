@@ -39,11 +39,13 @@
     "elysia"
   ],
   "dependencies": {
+    "@jejunetwork/db": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "viem": "2.43.3",
     "zod": "4.2.1"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@types/bun": "latest",
     "elysia": "^1.4.19",
     "typescript": "5.9.3"

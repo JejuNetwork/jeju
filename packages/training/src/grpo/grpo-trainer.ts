@@ -130,7 +130,9 @@ function padToGoodOffset(
 
     if (item.overrides) {
       for (let i = 0; i < item.overrides.length; i++) {
-        if (item.overrides[i].set_advantage_to_zero) {
+        const override = item.overrides[i]
+        if (!override) continue
+        if (override.set_advantage_to_zero) {
           scores[i] = 0
         }
       }
@@ -296,16 +298,14 @@ export class GRPOTrainer {
     const startTime = Date.now()
 
     while (Date.now() - startTime < timeoutMs) {
-      try {
-        const response = await fetch(
-          `http://localhost:${this.config.vllmPort}/health`,
-        )
-        if (response.ok) {
-          return
-        }
-      } catch {
-        // Server not ready yet
+      const response = await fetch(
+        `http://localhost:${this.config.vllmPort}/health`,
+      ).catch(() => null)
+
+      if (response?.ok) {
+        return
       }
+
       await new Promise((r) => setTimeout(r, 1000))
     }
 

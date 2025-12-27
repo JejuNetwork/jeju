@@ -945,26 +945,32 @@ export default function AgentEditPage() {
           icon={Heart}
         >
           <div className="space-y-2">
-            {values.map((value, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  type="text"
-                  value={value}
-                  onChange={(e) => updateValue(index, e.target.value)}
-                  placeholder="e.g., Security is paramount"
-                  className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
-                />
-                {values.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeValue(index)}
-                    className="p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+            {values.map((value) => {
+              const index = values.indexOf(value)
+              return (
+                <div
+                  key={`value-${index}-${value.substring(0, 10)}`}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => updateValue(index, e.target.value)}
+                    placeholder="e.g., Security is paramount"
+                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                  />
+                  {values.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeValue(index)}
+                      className="p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
             <button
               type="button"
               onClick={addValue}

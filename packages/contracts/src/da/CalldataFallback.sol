@@ -7,7 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title CalldataFallback
  * @notice Fallback storage for when Jeju DA is unavailable
- * 
+ *
  * When the DA layer is down or unresponsive, batch data can be posted
  * directly to L1 calldata through this contract. This ensures liveness
  * at the cost of higher gas fees.
@@ -29,7 +29,7 @@ contract CalldataFallback is ReentrancyGuard, Ownable {
     mapping(bytes32 => CalldataBlob) private _blobs;
     mapping(bytes32 => bytes) private _blobData;
     bytes32[] private _allBlobIds;
-    
+
     uint256 public submissionFee;
     uint256 public maxBlobSize;
     uint256 public totalBlobsStored;
@@ -40,17 +40,9 @@ contract CalldataFallback is ReentrancyGuard, Ownable {
 
     // ============ Events ============
 
-    event CalldataPosted(
-        bytes32 indexed blobId,
-        address indexed submitter,
-        uint256 size,
-        bytes32 dataHash
-    );
+    event CalldataPosted(bytes32 indexed blobId, address indexed submitter, uint256 size, bytes32 dataHash);
 
-    event CalldataRetrieved(
-        bytes32 indexed blobId,
-        address indexed retriever
-    );
+    event CalldataRetrieved(bytes32 indexed blobId, address indexed retriever);
 
     event SubmitterAuthorized(address indexed submitter, bool authorized);
     event SubmissionFeeUpdated(uint256 newFee);
@@ -68,11 +60,7 @@ contract CalldataFallback is ReentrancyGuard, Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        uint256 _submissionFee,
-        uint256 _maxBlobSize,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(uint256 _submissionFee, uint256 _maxBlobSize, address initialOwner) Ownable(initialOwner) {
         submissionFee = _submissionFee;
         maxBlobSize = _maxBlobSize > 0 ? _maxBlobSize : 128 * 1024; // Default 128KB
     }
@@ -99,12 +87,7 @@ contract CalldataFallback is ReentrancyGuard, Ownable {
         }
 
         bytes32 dataHash = keccak256(data);
-        bytes32 blobId = keccak256(abi.encodePacked(
-            dataHash,
-            msg.sender,
-            block.timestamp,
-            block.number
-        ));
+        bytes32 blobId = keccak256(abi.encodePacked(dataHash, msg.sender, block.timestamp, block.number));
 
         if (_blobs[blobId].submittedAt != 0) {
             revert BlobAlreadyExists();

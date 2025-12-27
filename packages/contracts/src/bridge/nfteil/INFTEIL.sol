@@ -114,17 +114,11 @@ interface INFTPaymaster {
     function refundExpiredRequest(bytes32 requestId) external;
 
     /// @notice XLP deposits wrapped NFT collection as liquidity
-    function registerWrappedCollection(
-        uint256 sourceChainId,
-        address sourceCollection,
-        address wrappedCollection
-    ) external;
+    function registerWrappedCollection(uint256 sourceChainId, address sourceCollection, address wrappedCollection)
+        external;
 
     /// @notice XLP issues voucher to fulfill request
-    function issueNFTVoucher(
-        bytes32 requestId,
-        bytes calldata signature
-    ) external returns (bytes32 voucherId);
+    function issueNFTVoucher(bytes32 requestId, bytes calldata signature) external returns (bytes32 voucherId);
 
     /// @notice Fulfill voucher on destination chain
     function fulfillNFTVoucher(
@@ -162,44 +156,24 @@ interface INFTPaymaster {
         uint256 deadline
     );
 
-    event NFTVoucherIssued(
-        bytes32 indexed voucherId,
-        bytes32 indexed requestId,
-        address indexed xlp,
-        uint256 fee
-    );
+    event NFTVoucherIssued(bytes32 indexed voucherId, bytes32 indexed requestId, address indexed xlp, uint256 fee);
 
     event NFTVoucherFulfilled(
-        bytes32 indexed voucherId,
-        address indexed recipient,
-        address collection,
-        uint256 tokenId,
-        uint256 amount
+        bytes32 indexed voucherId, address indexed recipient, address collection, uint256 tokenId, uint256 amount
     );
 
     event NFTVoucherExpired(bytes32 indexed requestId, address indexed requester);
 
     event NFTRefunded(
-        bytes32 indexed requestId,
-        address indexed requester,
-        address collection,
-        uint256 tokenId,
-        uint256 amount
+        bytes32 indexed requestId, address indexed requester, address collection, uint256 tokenId, uint256 amount
     );
 
     event SourceNFTClaimed(
-        bytes32 indexed requestId,
-        address indexed xlp,
-        address collection,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 fee
+        bytes32 indexed requestId, address indexed xlp, address collection, uint256 tokenId, uint256 amount, uint256 fee
     );
 
     event WrappedCollectionRegistered(
-        uint256 indexed sourceChainId,
-        address indexed sourceCollection,
-        address indexed wrappedCollection
+        uint256 indexed sourceChainId, address indexed sourceCollection, address indexed wrappedCollection
     );
 }
 
@@ -207,40 +181,28 @@ interface INFTPaymaster {
 
 interface ICrossChainNFTHandler {
     /// @notice Bridge NFT to another chain
-    function bridgeNFT(
-        uint32 destinationDomain,
-        bytes32 recipient,
-        uint256 tokenId
-    ) external payable returns (bytes32 messageId);
+    function bridgeNFT(uint32 destinationDomain, bytes32 recipient, uint256 tokenId)
+        external
+        payable
+        returns (bytes32 messageId);
 
     /// @notice Bridge ERC1155 tokens to another chain
-    function bridgeMultiToken(
-        uint32 destinationDomain,
-        bytes32 recipient,
-        uint256 tokenId,
-        uint256 amount
-    ) external payable returns (bytes32 messageId);
+    function bridgeMultiToken(uint32 destinationDomain, bytes32 recipient, uint256 tokenId, uint256 amount)
+        external
+        payable
+        returns (bytes32 messageId);
 
     /// @notice Handle incoming cross-chain message
-    function handle(
-        uint32 origin,
-        bytes32 sender,
-        bytes calldata body
-    ) external;
+    function handle(uint32 origin, bytes32 sender, bytes calldata body) external;
 
     /// @notice Get cross-chain stats
-    function getCrossChainStats() external view returns (
-        uint256 totalBridged,
-        uint256 totalReceived,
-        uint32 homeDomain,
-        bool isHome
-    );
+    function getCrossChainStats()
+        external
+        view
+        returns (uint256 totalBridged, uint256 totalReceived, uint32 homeDomain, bool isHome);
 
     /// @notice Quote gas for cross-chain transfer
-    function quoteBridge(
-        uint32 destinationDomain,
-        uint256 tokenId
-    ) external view returns (uint256 gasPayment);
+    function quoteBridge(uint32 destinationDomain, uint256 tokenId) external view returns (uint256 gasPayment);
 
     // Events
     event NFTBridgeInitiated(
@@ -253,11 +215,7 @@ interface ICrossChainNFTHandler {
     );
 
     event NFTBridgeReceived(
-        bytes32 indexed messageId,
-        uint32 originDomain,
-        address indexed recipient,
-        uint256 tokenId,
-        uint256 amount
+        bytes32 indexed messageId, uint32 originDomain, address indexed recipient, uint256 tokenId, uint256 amount
     );
 }
 
@@ -286,11 +244,10 @@ interface IWrappedNFT {
     function isWrapped(uint256 tokenId) external view returns (bool);
 
     /// @notice Get wrapped tokenId for original
-    function getWrappedTokenId(
-        uint256 homeChainId,
-        address originalCollection,
-        uint256 originalTokenId
-    ) external view returns (uint256);
+    function getWrappedTokenId(uint256 homeChainId, address originalCollection, uint256 originalTokenId)
+        external
+        view
+        returns (uint256);
 
     // Events
     event NFTWrapped(
@@ -310,11 +267,7 @@ interface IWrappedNFT {
     );
 
     event ProvenanceRecorded(
-        uint256 indexed tokenId,
-        uint256 chainId,
-        address collection,
-        uint256 timestamp,
-        address owner
+        uint256 indexed tokenId, uint256 chainId, address collection, uint256 timestamp, address owner
     );
 }
 
@@ -364,18 +317,14 @@ interface IWrappedMultiToken {
 
 interface INFTRoyaltyEnforcer {
     /// @notice Set universal royalty for wrapped NFTs
-    function setUniversalRoyalty(
-        uint256 homeChainId,
-        address originalCollection,
-        address receiver,
-        uint96 feeBps
-    ) external;
+    function setUniversalRoyalty(uint256 homeChainId, address originalCollection, address receiver, uint96 feeBps)
+        external;
 
     /// @notice Get royalty info for a token
-    function getRoyaltyInfo(
-        uint256 tokenId,
-        uint256 salePrice
-    ) external view returns (address receiver, uint256 royaltyAmount);
+    function getRoyaltyInfo(uint256 tokenId, uint256 salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount);
 
     /// @notice Sync royalty from home chain
     function syncRoyaltyFromHome(
@@ -386,62 +335,34 @@ interface INFTRoyaltyEnforcer {
         bytes calldata proof
     ) external;
 
-    event RoyaltySet(
-        uint256 indexed homeChainId,
-        address indexed originalCollection,
-        address receiver,
-        uint96 feeBps
-    );
+    event RoyaltySet(uint256 indexed homeChainId, address indexed originalCollection, address receiver, uint96 feeBps);
 
-    event RoyaltySynced(
-        uint256 indexed homeChainId,
-        address indexed originalCollection,
-        bytes32 proofHash
-    );
+    event RoyaltySynced(uint256 indexed homeChainId, address indexed originalCollection, bytes32 proofHash);
 }
 
 // ============ NFT Metadata Storage Interface ============
 
 interface INFTMetadataStorage {
     /// @notice Store metadata for cross-chain NFT
-    function storeMetadata(
-        uint256 tokenId,
-        string calldata tokenURI,
-        bytes32 contentHash
-    ) external;
+    function storeMetadata(uint256 tokenId, string calldata tokenURI, bytes32 contentHash) external;
 
     /// @notice Get metadata
-    function getMetadata(uint256 tokenId) external view returns (
-        string memory tokenURI,
-        bytes32 contentHash,
-        uint256 storedAt
-    );
+    function getMetadata(uint256 tokenId)
+        external
+        view
+        returns (string memory tokenURI, bytes32 contentHash, uint256 storedAt);
 
     /// @notice Verify metadata integrity
-    function verifyMetadata(
-        uint256 tokenId,
-        bytes32 expectedHash
-    ) external view returns (bool);
+    function verifyMetadata(uint256 tokenId, bytes32 expectedHash) external view returns (bool);
 
     /// @notice Fetch and cache metadata from home chain
-    function fetchRemoteMetadata(
-        uint256 homeChainId,
-        address collection,
-        uint256 tokenId
-    ) external returns (string memory tokenURI);
+    function fetchRemoteMetadata(uint256 homeChainId, address collection, uint256 tokenId)
+        external
+        returns (string memory tokenURI);
 
-    event MetadataStored(
-        uint256 indexed tokenId,
-        bytes32 contentHash,
-        uint256 timestamp
-    );
+    event MetadataStored(uint256 indexed tokenId, bytes32 contentHash, uint256 timestamp);
 
-    event MetadataFetched(
-        uint256 indexed tokenId,
-        uint256 homeChainId,
-        address collection,
-        string tokenURI
-    );
+    event MetadataFetched(uint256 indexed tokenId, uint256 homeChainId, address collection, string tokenURI);
 }
 
 // ============ OIF NFT Order Types ============

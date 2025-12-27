@@ -21,7 +21,7 @@ import {
 } from '@jejunetwork/config'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
-import type { TEEAttestation } from '../types/index.js'
+import type { TEEBatchAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import { createLogger } from '../utils/logger.js'
 import type {
@@ -132,7 +132,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
     }
   }
 
-  toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+  toTEEAttestation(attestation: AttestationResponse): TEEBatchAttestation {
     const publicKey = attestation.publicKey ?? this.publicKey
     if (!publicKey) {
       throw new Error('No public key available - initialize provider first')

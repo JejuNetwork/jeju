@@ -21,6 +21,7 @@ const OAuthCallbackSchema = z.object({
   error: z.string().optional(),
 })
 
+import type { TEEAttestation } from '@jejunetwork/types'
 import { CHAIN_IDS, DEFAULT_RPC } from '../infrastructure/config.js'
 import {
   createDecentralizedDiscovery,
@@ -43,7 +44,6 @@ import {
   type LinkedProvider,
   type OAuth3Identity,
   type OAuth3Session,
-  type TEEAttestation,
   type VerifiableCredential,
 } from '../types.js'
 import {

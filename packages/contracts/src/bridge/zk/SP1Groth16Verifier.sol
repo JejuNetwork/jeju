@@ -26,56 +26,37 @@ contract SP1Groth16Verifier is IZKVerifier {
     // Run: cd packages/bridge/circuits/ethereum && cargo prove vk
 
     // G1 Points (each 64 bytes: x, y in Fp)
-    uint256 internal constant ALPHA_X =
-        0x1e60cd6f0621d8f6f4e0d0e07e9a6b12a5f9d0d4e8c7b6a5948372615f4e3d2c;
-    uint256 internal constant ALPHA_Y =
-        0x2a3b4c5d6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f;
+    uint256 internal constant ALPHA_X = 0x1e60cd6f0621d8f6f4e0d0e07e9a6b12a5f9d0d4e8c7b6a5948372615f4e3d2c;
+    uint256 internal constant ALPHA_Y = 0x2a3b4c5d6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f;
 
     // G2 Points (each 128 bytes: x = (x0, x1), y = (y0, y1) in Fp2)
-    uint256 internal constant BETA_X1 =
-        0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2;
-    uint256 internal constant BETA_X2 =
-        0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed;
-    uint256 internal constant BETA_Y1 =
-        0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b;
-    uint256 internal constant BETA_Y2 =
-        0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa;
+    uint256 internal constant BETA_X1 = 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2;
+    uint256 internal constant BETA_X2 = 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed;
+    uint256 internal constant BETA_Y1 = 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b;
+    uint256 internal constant BETA_Y2 = 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa;
 
-    uint256 internal constant GAMMA_X1 =
-        0x1e8e1e13941bb76a4c5b7d9b5f1a3d7e9c6f4a2b8d5c3e1f7a9b6d4c2e8f5a3b;
-    uint256 internal constant GAMMA_X2 =
-        0x2f3a4b5c6d7e8f901a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8;
-    uint256 internal constant GAMMA_Y1 =
-        0x0a1b2c3d4e5f6071829a3b4c5d6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f6;
-    uint256 internal constant GAMMA_Y2 =
-        0x1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d;
+    uint256 internal constant GAMMA_X1 = 0x1e8e1e13941bb76a4c5b7d9b5f1a3d7e9c6f4a2b8d5c3e1f7a9b6d4c2e8f5a3b;
+    uint256 internal constant GAMMA_X2 = 0x2f3a4b5c6d7e8f901a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8;
+    uint256 internal constant GAMMA_Y1 = 0x0a1b2c3d4e5f6071829a3b4c5d6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f6;
+    uint256 internal constant GAMMA_Y2 = 0x1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d;
 
-    uint256 internal constant DELTA_X1 =
-        0x2a3b4c5d6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f;
-    uint256 internal constant DELTA_X2 =
-        0x1e60cd6f0621d8f6f4e0d0e07e9a6b12a5f9d0d4e8c7b6a5948372615f4e3d2c;
-    uint256 internal constant DELTA_Y1 =
-        0x0f1a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5;
-    uint256 internal constant DELTA_Y2 =
-        0x2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e;
+    uint256 internal constant DELTA_X1 = 0x2a3b4c5d6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f;
+    uint256 internal constant DELTA_X2 = 0x1e60cd6f0621d8f6f4e0d0e07e9a6b12a5f9d0d4e8c7b6a5948372615f4e3d2c;
+    uint256 internal constant DELTA_Y1 = 0x0f1a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5;
+    uint256 internal constant DELTA_Y2 = 0x2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e;
 
     // IC (Input Commitments) - G1 points for each public input
     // IC[0] is the base commitment, IC[1..n] are per-input commitments
-    uint256 internal constant IC0_X =
-        0x1a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6;
-    uint256 internal constant IC0_Y =
-        0x2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b7;
-    uint256 internal constant IC1_X =
-        0x0c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d;
-    uint256 internal constant IC1_Y =
-        0x1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e;
+    uint256 internal constant IC0_X = 0x1a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6;
+    uint256 internal constant IC0_Y = 0x2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b7;
+    uint256 internal constant IC1_X = 0x0c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d;
+    uint256 internal constant IC1_Y = 0x1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e;
 
     // Maximum number of public inputs supported
     uint256 internal constant MAX_PUBLIC_INPUTS = 8;
 
     // BN254 curve order
-    uint256 internal constant PRIME_Q =
-        21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 internal constant PRIME_Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     // ============ Errors ============
 
@@ -96,10 +77,12 @@ contract SP1Groth16Verifier is IZKVerifier {
      * @param publicInputs Array of public inputs (field elements in Fp)
      * @return True if the proof is valid
      */
-    function verifyProof(
-        uint256[8] calldata proof,
-        uint256[] calldata publicInputs
-    ) external view override returns (bool) {
+    function verifyProof(uint256[8] calldata proof, uint256[] calldata publicInputs)
+        external
+        view
+        override
+        returns (bool)
+    {
         if (publicInputs.length == 0 || publicInputs.length > MAX_PUBLIC_INPUTS) {
             revert InvalidPublicInputs();
         }
@@ -126,9 +109,7 @@ contract SP1Groth16Verifier is IZKVerifier {
      * @notice Compute vk_x = IC[0] + sum(publicInputs[i] * IC[i+1])
      * @dev Uses ecMul and ecAdd precompiles
      */
-    function computeLinearCombination(
-        uint256[] calldata publicInputs
-    ) internal view returns (uint256[2] memory) {
+    function computeLinearCombination(uint256[] calldata publicInputs) internal view returns (uint256[2] memory) {
         // Start with IC[0]
         uint256[2] memory result = [IC0_X, IC0_Y];
 
@@ -150,10 +131,7 @@ contract SP1Groth16Verifier is IZKVerifier {
      * @param proof The proof points
      * @param vk_x The computed verification key point
      */
-    function verifyPairing(
-        uint256[8] calldata proof,
-        uint256[2] memory vk_x
-    ) internal view returns (bool) {
+    function verifyPairing(uint256[8] calldata proof, uint256[2] memory vk_x) internal view returns (bool) {
         // Prepare pairing input: 4 pairs of (G1, G2) points
         // Each pair: G1 (2 * 32 bytes) + G2 (4 * 32 bytes) = 192 bytes
         // Total: 4 * 192 = 768 bytes
@@ -197,14 +175,15 @@ contract SP1Groth16Verifier is IZKVerifier {
         bool success;
 
         assembly {
-            success := staticcall(
-                gas(),
-                0x08, // ecPairing precompile
-                input,
-                768, // 24 * 32 bytes
-                result,
-                32
-            )
+            success :=
+                staticcall(
+                    gas(),
+                    0x08, // ecPairing precompile
+                    input,
+                    768, // 24 * 32 bytes
+                    result,
+                    32
+                )
         }
 
         if (!success) {
@@ -218,26 +197,21 @@ contract SP1Groth16Verifier is IZKVerifier {
      * @notice Scalar multiplication on BN254 G1
      * @dev Uses ecMul precompile (0x07)
      */
-    function ecMul(
-        uint256 px,
-        uint256 py,
-        uint256 scalar
-    ) internal view returns (uint256[2] memory) {
+    function ecMul(uint256 px, uint256 py, uint256 scalar) internal view returns (uint256[2] memory) {
         uint256[3] memory input = [px, py, scalar];
         uint256[2] memory result;
 
         assembly {
-            let success := staticcall(
-                gas(),
-                0x07, // ecMul precompile
-                input,
-                96, // 3 * 32 bytes
-                result,
-                64 // 2 * 32 bytes
-            )
-            if iszero(success) {
-                revert(0, 0)
-            }
+            let success :=
+                staticcall(
+                    gas(),
+                    0x07, // ecMul precompile
+                    input,
+                    96, // 3 * 32 bytes
+                    result,
+                    64 // 2 * 32 bytes
+                )
+            if iszero(success) { revert(0, 0) }
         }
 
         return result;
@@ -247,27 +221,21 @@ contract SP1Groth16Verifier is IZKVerifier {
      * @notice Point addition on BN254 G1
      * @dev Uses ecAdd precompile (0x06)
      */
-    function ecAdd(
-        uint256 p1x,
-        uint256 p1y,
-        uint256 p2x,
-        uint256 p2y
-    ) internal view returns (uint256[2] memory) {
+    function ecAdd(uint256 p1x, uint256 p1y, uint256 p2x, uint256 p2y) internal view returns (uint256[2] memory) {
         uint256[4] memory input = [p1x, p1y, p2x, p2y];
         uint256[2] memory result;
 
         assembly {
-            let success := staticcall(
-                gas(),
-                0x06, // ecAdd precompile
-                input,
-                128, // 4 * 32 bytes
-                result,
-                64 // 2 * 32 bytes
-            )
-            if iszero(success) {
-                revert(0, 0)
-            }
+            let success :=
+                staticcall(
+                    gas(),
+                    0x06, // ecAdd precompile
+                    input,
+                    128, // 4 * 32 bytes
+                    result,
+                    64 // 2 * 32 bytes
+                )
+            if iszero(success) { revert(0, 0) }
         }
 
         return result;
@@ -281,4 +249,3 @@ contract SP1Groth16Verifier is IZKVerifier {
         return false;
     }
 }
-

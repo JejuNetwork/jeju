@@ -42,11 +42,7 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
      * @param stakingOracleId The staking oracle identifier
      * @param agentId The agent identifier
      */
-    function registerOperator(
-        address workerKey,
-        bytes32 stakingOracleId,
-        uint256 agentId
-    ) external nonReentrant {
+    function registerOperator(address workerKey, bytes32 stakingOracleId, uint256 agentId) external nonReentrant {
         require(!operators[msg.sender].isRegistered, "Already registered");
         require(workerKey != address(0), "Invalid worker key");
 
@@ -76,12 +72,7 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
     function getOperatorMetrics(address operator)
         external
         view
-        returns (
-            uint256 reportsSubmitted,
-            uint256 reportsAccepted,
-            uint256 disputesLost,
-            uint256 lastActiveEpoch
-        )
+        returns (uint256 reportsSubmitted, uint256 reportsAccepted, uint256 disputesLost, uint256 lastActiveEpoch)
     {
         OperatorMetrics memory m = operators[operator];
         return (m.reportsSubmitted, m.reportsAccepted, m.disputesLost, m.lastActiveEpoch);

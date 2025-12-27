@@ -2,14 +2,62 @@
  * Local CDN Server - Serves static frontends for all Jeju apps in devnet mode
  *
  * Provides a unified CDN endpoint for all internal Jeju apps:
- * - Serves files from each app's build directory
+ * - Serves files from each app's build directory via DWS storage
  * - Applies cache rules from jeju-manifest.json
  * - Supports SPA routing
  * - Provides /apps/* routes for each registered app
+ *
+ * Workerd-compatible: Uses DWS exec/storage APIs instead of Node.js fs
  */
 
-import { readFile, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+// DWS Exec API
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+let execUrl = 'http://localhost:4020/exec'
+
+export function configureLocalCDN(config: { execUrl?: string }): void {
+  if (config.execUrl) execUrl = config.execUrl
+}
+
+async function exec(
+  command: string[],
+  options?: { stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+async function readFile(path: string): Promise<Buffer> {
+  const result = await exec(['cat', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read ${path}: ${result.stderr}`)
+  }
+  return Buffer.from(result.stdout, 'utf-8')
+}
+
+async function stat(path: string): Promise<{ isFile: () => boolean } | null> {
+  const result = await exec(['test', '-f', path])
+  if (result.exitCode === 0) {
+    return { isFile: () => true }
+  }
+  return null
+}
+
+function join(...parts: string[]): string {
+  return parts.join('/').replace(/\/+/g, '/')
+}
+
 import {
   type AppFrontendConfig,
   getAppRegistry,
@@ -100,7 +148,7 @@ async function serveFile(
   const contentType = getContentType(requestPath)
   const cacheControl = getCacheControl(app, requestPath)
 
-  return new Response(content, {
+  return new Response(new Uint8Array(content), {
     headers: {
       'Content-Type': contentType,
       'Content-Length': String(content.length),

@@ -96,6 +96,7 @@ interface BootstrapResult {
     oauth3TeeVerifier?: string
     oauth3IdentityRegistry?: string
     oauth3AppRegistry?: string
+    oauth3Staking?: string
     // Bazaar Marketplace
     nftMarketplace?: string
     simpleCollectible?: string
@@ -325,6 +326,7 @@ class CompleteBootstrapper {
     result.contracts.oauth3TeeVerifier = oauth3.teeVerifier
     result.contracts.oauth3IdentityRegistry = oauth3.identityRegistry
     result.contracts.oauth3AppRegistry = oauth3.appRegistry
+    result.contracts.oauth3Staking = oauth3.staking
     console.log('')
 
     // Step 5.12: Deploy NFT Marketplace
@@ -389,7 +391,7 @@ class CompleteBootstrapper {
     console.log('-'.repeat(70))
     try {
       execSync('bun run scripts/sync-localnet-config.ts', { stdio: 'inherit' })
-    } catch {
+    } catch (_error) {
       console.log('  ⚠️  Config sync skipped (script may not exist)')
     }
     console.log('')
@@ -410,7 +412,7 @@ class CompleteBootstrapper {
         { encoding: 'utf-8' },
       ).trim()
       console.log(`✅ Localnet running (block ${blockNumber})`)
-    } catch {
+    } catch (_error) {
       console.error('❌ Localnet not running!')
       console.error('   Start: bun run localnet:start')
       process.exit(1)
@@ -583,7 +585,7 @@ class CompleteBootstrapper {
     try {
       execSync('which cargo-prove', { stdio: 'ignore' })
       return true
-    } catch {
+    } catch (_error) {
       // Check in common SP1 installation paths
       const sp1Paths = [
         `${process.env.HOME}/.sp1/bin/cargo-prove`,
@@ -610,7 +612,7 @@ class CompleteBootstrapper {
         .toString()
         .trim()
       if (result) return result
-    } catch {
+    } catch (_error) {
       // Not in PATH
     }
 
@@ -894,7 +896,7 @@ class CompleteBootstrapper {
           ],
           `${token.symbol} registered (${token.minFee}-${token.maxFee} bps fee range)`,
         )
-      } catch {
+      } catch (_error) {
         console.log(
           `     ⚠️  ${token.symbol} registration skipped (may already exist)`,
         )
@@ -939,7 +941,7 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Node staking system deployed')
       return { manager, performanceOracle }
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log(
         '  ⚠️  Node staking deployment skipped (contracts may not exist)',
@@ -976,7 +978,7 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Moderation system deployed')
       return { banManager, reputationLabelManager }
-    } catch {
+    } catch (_error) {
       console.log(
         '  ⚠️  Moderation deployment skipped (contracts may not exist)',
       )
@@ -1016,7 +1018,7 @@ class CompleteBootstrapper {
       console.log('     ✨ Faucet enabled (10,000 JEJU per claim)')
 
       return jeju
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  JEJU token deployment failed')
       console.log('     Error:', errorMsg)
@@ -1110,7 +1112,7 @@ class CompleteBootstrapper {
         multiServiceStakeManager,
         liquidityVault,
       }
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log(
         '  ⚠️  Liquidity system deployment skipped (contracts may not exist)',
@@ -1159,7 +1161,7 @@ class CompleteBootstrapper {
       console.log('  ✅ Security Bounty Registry deployed')
       console.log('     ✨ Bug bounty program ready for submissions')
       return securityBountyRegistry
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  Security Bounty Registry deployment skipped')
       console.log('     Error:', errorMsg)
@@ -1215,7 +1217,7 @@ class CompleteBootstrapper {
         inferenceServing,
         computeStaking,
       }
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log(
         '  ⚠️  Compute marketplace deployment skipped (contracts may not exist)',
@@ -1386,7 +1388,7 @@ class CompleteBootstrapper {
         workerRegistry,
         cdnRegistry,
       }
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  DWS deployment skipped (contracts may not exist)')
       console.log('     Error:', errorMsg)
@@ -1407,11 +1409,12 @@ class CompleteBootstrapper {
    * - OAuth3AppRegistry: Registers OAuth3 applications
    */
   private async deployOAuth3(
-    _contracts: Partial<BootstrapResult['contracts']>,
+    contracts: Partial<BootstrapResult['contracts']>,
   ): Promise<{
     teeVerifier: string
     identityRegistry: string
     appRegistry: string
+    staking: string
   }> {
     try {
       // Deploy OAuth3TEEVerifier first (with zero address for identityRegistry initially)
@@ -1433,6 +1436,24 @@ class CompleteBootstrapper {
         'src/oauth3/OAuth3AppRegistry.sol:OAuth3AppRegistry',
         [identityRegistry, teeVerifier],
         'OAuth3AppRegistry',
+      )
+
+      // Deploy Staking contract for OAuth3 tier verification
+      // Constructor: (address _token, address _registry, address _oracle, address _treasury, address _owner)
+      const jejuToken =
+        contracts.jeju ?? '0x0000000000000000000000000000000000000000'
+      const priceOracle =
+        contracts.priceOracle ?? '0x0000000000000000000000000000000000000000'
+      const staking = this.deployContractFromPackages(
+        'src/staking/Staking.sol:Staking',
+        [
+          jejuToken,
+          identityRegistry,
+          priceOracle,
+          this.deployerAddress, // treasury (deployer for localnet)
+          this.deployerAddress, // owner (deployer for localnet)
+        ],
+        'OAuth3 Staking',
       )
 
       // Update TEEVerifier to set the identityRegistry
@@ -1465,13 +1486,16 @@ class CompleteBootstrapper {
       }
 
       console.log('  ✅ OAuth3 deployed')
-      console.log('     ✨ TEEVerifier, IdentityRegistry, AppRegistry ready')
+      console.log(
+        '     ✨ TEEVerifier, IdentityRegistry, AppRegistry, Staking ready',
+      )
       return {
         teeVerifier,
         identityRegistry,
         appRegistry,
+        staking,
       }
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  OAuth3 deployment skipped (contracts may not exist)')
       console.log('     Error:', errorMsg)
@@ -1479,6 +1503,7 @@ class CompleteBootstrapper {
         teeVerifier: '0x0000000000000000000000000000000000000000',
         identityRegistry: '0x0000000000000000000000000000000000000000',
         appRegistry: '0x0000000000000000000000000000000000000000',
+        staking: '0x0000000000000000000000000000000000000000',
       }
     }
   }
@@ -1525,7 +1550,7 @@ class CompleteBootstrapper {
       console.log('  ✅ NFT Marketplace deployed')
       console.log('     ✨ List, buy, and sell ERC721/ERC1155/ERC20 tokens')
       return marketplace
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  NFT Marketplace deployment skipped')
       console.log('     Error:', errorMsg)
@@ -1584,7 +1609,7 @@ class CompleteBootstrapper {
       console.log('  ✅ SimpleCollectible deployed')
       console.log('     ✨ Free minting of ERC721 collectibles')
       return collectible
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  SimpleCollectible deployment skipped')
       console.log('     Error:', errorMsg)
@@ -1731,7 +1756,7 @@ class CompleteBootstrapper {
           [tokenURI],
           `  Minted #${i + 1}: ${item.name}`,
         )
-      } catch {
+      } catch (_error) {
         console.log(`  ⚠️  Failed to mint ${item.name}`)
       }
     }
@@ -1781,7 +1806,7 @@ class CompleteBootstrapper {
           )
         }
         console.log('  ✅ Sample listings created')
-      } catch {
+      } catch (_error) {
         console.log('  ⚠️  Failed to create listings')
       }
     }
@@ -2016,7 +2041,7 @@ class CompleteBootstrapper {
       console.log(`  💾 Saved to: ${v4DeploymentPath}`)
 
       return result
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  V4 Periphery deployment failed (continuing anyway)')
       console.log('     Error:', errorMsg)
@@ -2052,7 +2077,7 @@ class CompleteBootstrapper {
         'USDC-JEJU': '0x...',
         'ETH-JEJU': '0x...',
       }
-    } catch {
+    } catch (_error) {
       console.log('  ⚠️  Pool initialization skipped')
       return {}
     }
@@ -2138,7 +2163,7 @@ class CompleteBootstrapper {
                 apps.add(jnsName)
               }
             }
-          } catch {
+          } catch (_error) {
             // Skip invalid manifests
           }
         }
@@ -2170,12 +2195,12 @@ class CompleteBootstrapper {
                   apps.add(jnsName)
                 }
               }
-            } catch {
+            } catch (_error) {
               // Skip invalid manifests
             }
           }
         }
-      } catch {
+      } catch (_error) {
         // Vendor directory may not exist
       }
     }
@@ -2284,6 +2309,12 @@ PUBLIC_JNS_RESOLVER_ADDRESS="${result.contracts.jnsResolver || ''}"
 PUBLIC_STORAGE_MANAGER_ADDRESS="${result.contracts.storageManager || ''}"
 PUBLIC_WORKER_REGISTRY_ADDRESS="${result.contracts.workerRegistry || ''}"
 PUBLIC_CDN_REGISTRY_ADDRESS="${result.contracts.cdnRegistry || ''}"
+
+# OAuth3 (Decentralized Auth)
+PUBLIC_OAUTH3_TEE_VERIFIER_ADDRESS="${result.contracts.oauth3TeeVerifier || ''}"
+PUBLIC_OAUTH3_IDENTITY_REGISTRY_ADDRESS="${result.contracts.oauth3IdentityRegistry || ''}"
+PUBLIC_OAUTH3_APP_REGISTRY_ADDRESS="${result.contracts.oauth3AppRegistry || ''}"
+PUBLIC_OAUTH3_STAKING_ADDRESS="${result.contracts.oauth3Staking || ''}"
 `
     writeFileSync(gatewayEnvPath, gatewayEnvContent)
     console.log(`   ${gatewayEnvPath}`)
@@ -2353,6 +2384,12 @@ JNS_RESOLVER_ADDRESS="${result.contracts.jnsResolver || ''}"
 STORAGE_MANAGER_ADDRESS="${result.contracts.storageManager || ''}"
 WORKER_REGISTRY_ADDRESS="${result.contracts.workerRegistry || ''}"
 CDN_REGISTRY_ADDRESS="${result.contracts.cdnRegistry || ''}"
+
+# OAuth3 (Decentralized Auth)
+OAUTH3_TEE_VERIFIER_ADDRESS="${result.contracts.oauth3TeeVerifier || ''}"
+OAUTH3_IDENTITY_REGISTRY_ADDRESS="${result.contracts.oauth3IdentityRegistry || ''}"
+OAUTH3_APP_REGISTRY_ADDRESS="${result.contracts.oauth3AppRegistry || ''}"
+STAKING_CONTRACT_ADDRESS="${result.contracts.oauth3Staking || ''}"
 
 # x402 Configuration
 X402_NETWORK=jeju-localnet

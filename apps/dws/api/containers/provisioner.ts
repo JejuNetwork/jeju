@@ -18,9 +18,7 @@
  *            Container Running
  */
 
-import { getRpcUrl } from '@jejunetwork/config'
-import type { Address, Hex, PublicClient } from 'viem'
-import { createPublicClient, http } from 'viem'
+import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import * as scheduler from './scheduler'
 import type {
@@ -181,7 +179,7 @@ export const ContainerDeployConfigSchema = z.object({
   registry: z.string().optional(),
   command: z.array(z.string()).optional(),
   args: z.array(z.string()).optional(),
-  env: z.record(z.string()).default({}),
+  env: z.record(z.string(), z.string()).default({}),
   secrets: z.array(z.string()).optional(),
   hardware: HardwareSpecSchema,
   minReplicas: z.number().min(0).default(1),
@@ -210,8 +208,8 @@ export const ContainerDeployConfigSchema = z.object({
   ingressPath: z.string().optional(),
   terminationGracePeriodSeconds: z.number().default(30),
   restartPolicy: z.enum(['always', 'on-failure', 'never']).default('always'),
-  labels: z.record(z.string()).default({}),
-  annotations: z.record(z.string()).default({}),
+  labels: z.record(z.string(), z.string()).default({}),
+  annotations: z.record(z.string(), z.string()).default({}),
 })
 
 // Provisioned Container State
@@ -492,65 +490,6 @@ const MACHINE_TYPES: MachineType[] = [
   },
 ]
 
-// Contract interaction
-
-const RPC_URL = process.env.RPC_URL || getRpcUrl()
-const _COMPUTE_MARKETPLACE_ADDRESS = process.env.COMPUTE_MARKETPLACE_ADDRESS as
-  | Address
-  | undefined
-
-const _COMPUTE_MARKETPLACE_ABI = [
-  {
-    name: 'provisionContainer',
-    type: 'function',
-    inputs: [
-      { name: 'imageHash', type: 'bytes32' },
-      { name: 'hardwareSpec', type: 'bytes' },
-      { name: 'config', type: 'bytes' },
-    ],
-    outputs: [{ name: 'containerId', type: 'bytes32' }],
-    stateMutability: 'payable',
-  },
-  {
-    name: 'allocateNode',
-    type: 'function',
-    inputs: [
-      { name: 'containerId', type: 'bytes32' },
-      { name: 'nodeId', type: 'uint256' },
-    ],
-    outputs: [{ name: 'success', type: 'bool' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'getContainer',
-    type: 'function',
-    inputs: [{ name: 'containerId', type: 'bytes32' }],
-    outputs: [
-      {
-        name: '',
-        type: 'tuple',
-        components: [
-          { name: 'owner', type: 'address' },
-          { name: 'imageHash', type: 'bytes32' },
-          { name: 'status', type: 'uint8' },
-          { name: 'createdAt', type: 'uint256' },
-          { name: 'nodeIds', type: 'uint256[]' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-] as const
-
-let publicClient: PublicClient | null = null
-
-function getPublicClient(): PublicClient {
-  if (!publicClient) {
-    publicClient = createPublicClient({ transport: http(RPC_URL) })
-  }
-  return publicClient
-}
-
 // Provisioner State
 
 const provisionedContainers = new Map<string, ProvisionedContainer>()
@@ -559,10 +498,6 @@ const containersByOwner = new Map<Address, Set<string>>()
 // Main Provisioner Class
 
 export class ContainerProvisioner {
-  constructor() {
-    this.client = getPublicClient()
-  }
-
   getMachineTypes(): MachineType[] {
     return MACHINE_TYPES.filter((mt) => mt.available)
   }

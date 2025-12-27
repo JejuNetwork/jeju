@@ -48,26 +48,26 @@ contract SequencerSpamFilter is Ownable {
     // ============ Structs ============
 
     struct FilterConfig {
-        uint256 maxTxPerBlock;              // Max transactions per sender per block
-        uint256 maxTxPerMinute;             // Max transactions per sender per minute
-        uint256 minGasPrice;                // Minimum gas price (wei)
-        uint256 congestionGasMultiplier;    // Gas price multiplier during congestion (basis points)
-        uint256 maxTxSize;                  // Maximum transaction size (bytes)
-        uint256 maxNonceGap;                // Maximum allowed nonce gap
-        uint256 reputationDecayPeriod;      // Period for reputation decay
-        int256 initialReputation;           // Starting reputation for new senders
-        int256 minReputation;               // Minimum reputation (below = blacklisted)
-        bool enforcePriorityFee;            // Whether to enforce priority fees
+        uint256 maxTxPerBlock; // Max transactions per sender per block
+        uint256 maxTxPerMinute; // Max transactions per sender per minute
+        uint256 minGasPrice; // Minimum gas price (wei)
+        uint256 congestionGasMultiplier; // Gas price multiplier during congestion (basis points)
+        uint256 maxTxSize; // Maximum transaction size (bytes)
+        uint256 maxNonceGap; // Maximum allowed nonce gap
+        uint256 reputationDecayPeriod; // Period for reputation decay
+        int256 initialReputation; // Starting reputation for new senders
+        int256 minReputation; // Minimum reputation (below = blacklisted)
+        bool enforcePriorityFee; // Whether to enforce priority fees
     }
 
     struct SenderInfo {
-        int256 reputation;                  // Reputation score
-        uint256 lastTxBlock;                // Last transaction block
-        uint256 txInCurrentBlock;           // Transactions in current block
-        uint256 totalTxCount;               // Total transactions
-        uint256 spamCount;                  // Detected spam attempts
-        uint256 lastNonce;                  // Last seen nonce
-        uint256 firstSeenBlock;             // First activity block
+        int256 reputation; // Reputation score
+        uint256 lastTxBlock; // Last transaction block
+        uint256 txInCurrentBlock; // Transactions in current block
+        uint256 totalTxCount; // Total transactions
+        uint256 spamCount; // Detected spam attempts
+        uint256 lastNonce; // Last seen nonce
+        uint256 firstSeenBlock; // First activity block
         bool isBlacklisted;
         bool isWhitelisted;
     }
@@ -125,8 +125,8 @@ contract SequencerSpamFilter is Ownable {
             maxTxPerBlock: 10,
             maxTxPerMinute: 100,
             minGasPrice: 1 gwei,
-            congestionGasMultiplier: 15000,  // 1.5x during congestion
-            maxTxSize: 128 * 1024,           // 128 KB
+            congestionGasMultiplier: 15000, // 1.5x during congestion
+            maxTxSize: 128 * 1024, // 128 KB
             maxNonceGap: 10,
             reputationDecayPeriod: 1 days,
             initialReputation: 100,
@@ -169,7 +169,7 @@ contract SequencerSpamFilter is Ownable {
     ) external onlySequencer returns (bool allowed, string memory reason) {
         // Check blacklist/whitelist
         SenderInfo storage info = senders[sender];
-        
+
         if (info.isBlacklisted) {
             emit TransactionFiltered(txHash, sender, "blacklisted");
             return (false, "sender blacklisted");
@@ -240,11 +240,13 @@ contract SequencerSpamFilter is Ownable {
      * @param txData Array of transaction data
      * @return results Array of (allowed, reason) tuples
      */
-    function filterTransactionBatch(
-        TxFilterInput[] calldata txData
-    ) external onlySequencer returns (FilterResult[] memory results) {
+    function filterTransactionBatch(TxFilterInput[] calldata txData)
+        external
+        onlySequencer
+        returns (FilterResult[] memory results)
+    {
         results = new FilterResult[](txData.length);
-        
+
         for (uint256 i = 0; i < txData.length; i++) {
             (bool allowed, string memory reason) = this.filterTransaction(
                 txData[i].sender,
@@ -423,10 +425,7 @@ contract SequencerSpamFilter is Ownable {
     /**
      * @notice Set congestion parameters
      */
-    function setCongestionParams(
-        uint256 threshold,
-        uint256 minPriorityFee
-    ) external onlyOwner {
+    function setCongestionParams(uint256 threshold, uint256 minPriorityFee) external onlyOwner {
         congestion.congestionThreshold = threshold;
         congestion.minPriorityFee = minPriorityFee;
     }
@@ -477,7 +476,7 @@ contract SequencerSpamFilter is Ownable {
     function resetSenderReputation(address sender) external onlyOwner {
         senders[sender].reputation = config.initialReputation;
         senders[sender].spamCount = 0;
-        
+
         RateLimiter.AdaptiveCooldown storage cooldown = _senderCooldowns[sender];
         if (cooldown.baseCooldown > 0) {
             cooldown.resetViolations();
@@ -489,14 +488,18 @@ contract SequencerSpamFilter is Ownable {
     /**
      * @notice Get sender statistics
      */
-    function getSenderStats(address sender) external view returns (
-        int256 reputation,
-        uint256 totalTxCount,
-        uint256 spamCount,
-        bool isBlacklisted,
-        bool isWhitelisted,
-        uint256 txInCurrentBlock
-    ) {
+    function getSenderStats(address sender)
+        external
+        view
+        returns (
+            int256 reputation,
+            uint256 totalTxCount,
+            uint256 spamCount,
+            bool isBlacklisted,
+            bool isWhitelisted,
+            uint256 txInCurrentBlock
+        )
+    {
         SenderInfo storage info = senders[sender];
         return (
             info.reputation,
@@ -513,12 +516,11 @@ contract SequencerSpamFilter is Ownable {
      */
     function canSubmit(address sender) external view returns (bool) {
         SenderInfo storage info = senders[sender];
-        
+
         if (info.isBlacklisted) return false;
         if (info.isWhitelisted) return true;
-        
-        if (info.lastTxBlock == block.number && 
-            info.txInCurrentBlock >= config.maxTxPerBlock) {
+
+        if (info.lastTxBlock == block.number && info.txInCurrentBlock >= config.maxTxPerBlock) {
             return false;
         }
 
@@ -537,4 +539,3 @@ contract SequencerSpamFilter is Ownable {
         return _getRequiredGasPrice();
     }
 }
-

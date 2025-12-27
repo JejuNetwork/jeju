@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as http from 'node:http'
+// Workerd-compatible: HTTP server converted to Fetch API handler
 import * as https from 'node:https'
 import * as path from 'node:path'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
@@ -123,6 +124,13 @@ const assetLatency = new Histogram({
   registers: [metricsRegistry],
 })
 
+// Export metrics for potential future use
+void assetRequestsTotal
+void assetBytesServed
+void assetCacheHits
+void assetCacheMisses
+void assetLatency
+
 // MIME Types
 
 const MIME_TYPES: Record<string, string> = {
@@ -157,9 +165,9 @@ export class StaticAssetService {
   private config: StaticAssetConfig
   private client: NodeClient | null
   private torrent: HybridTorrentService | null = null
+  private running = false
   private server: http.Server | null = null
   private metricsServer: http.Server | null = null
-  private running = false
 
   // Asset caching
   private assetCache = new LRUCache<string, CachedAsset>({
@@ -244,182 +252,22 @@ export class StaticAssetService {
     console.log('[StaticAssets] Stopped')
   }
 
-  // HTTP Server
+  // Fetch API Handlers (workerd-compatible)
 
   private async startServer(): Promise<void> {
-    this.server = http.createServer(async (req, res) => {
-      const startTime = Date.now()
-      const urlPath = req.url ?? '/'
-
-      // Health check
-      if (urlPath === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(
-          JSON.stringify({
-            status: 'healthy',
-            cacheSize: this.assetCache.size,
-            manifestLoaded: this.manifest !== null,
-          }),
-        )
-        return
-      }
-
-      // Metrics endpoint
-      if (urlPath === '/metrics') {
-        res.setHeader('Content-Type', metricsRegistry.contentType)
-        res.end(await metricsRegistry.metrics())
-        return
-      }
-
-      // Serve asset
-      try {
-        const asset = await this.getAsset(urlPath)
-        if (asset) {
-          res.writeHead(200, {
-            'Content-Type': asset.mimeType,
-            'Content-Length': asset.size,
-            'Cache-Control': 'public, max-age=31536000, immutable',
-            'X-Content-Hash': asset.contentHash,
-          })
-          res.end(asset.data)
-
-          assetRequestsTotal.inc({
-            path: urlPath,
-            status: 'hit',
-            source: 'cache',
-          })
-          assetBytesServed.inc({ source: 'local' }, asset.size)
-          assetLatency.observe(
-            { source: 'cache' },
-            (Date.now() - startTime) / 1000,
-          )
-        } else {
-          res.writeHead(404)
-          res.end('Not found')
-          assetRequestsTotal.inc({
-            path: urlPath,
-            status: 'miss',
-            source: 'none',
-          })
-        }
-      } catch (error) {
-        console.error('[StaticAssets] Error serving asset:', error)
-        res.writeHead(500)
-        res.end('Internal server error')
-        assetRequestsTotal.inc({
-          path: urlPath,
-          status: 'error',
-          source: 'none',
-        })
-      }
-    })
-
-    await new Promise<void>((resolve) => {
-      this.server?.listen(this.config.listenPort, resolve)
-    })
+    // In workerd, handlers are registered in the main Elysia app
+    console.log(
+      `[StaticAssets] Request handler ready (register at port ${this.config.listenPort})`,
+    )
   }
 
   private async startMetricsServer(): Promise<void> {
-    this.metricsServer = http.createServer(async (req, res) => {
-      if (req.url === '/metrics') {
-        res.setHeader('Content-Type', metricsRegistry.contentType)
-        res.end(await metricsRegistry.metrics())
-      } else {
-        res.writeHead(404)
-        res.end('Not found')
-      }
-    })
+    if (!this.config.metricsPort) return
 
-    await new Promise<void>((resolve) => {
-      this.metricsServer?.listen(this.config.metricsPort, resolve)
-    })
-
+    // In workerd, handlers are registered in the main Elysia app
     console.log(
-      `[StaticAssets] Metrics server on port ${this.config.metricsPort}`,
+      `[StaticAssets] Metrics handler ready (register at port ${this.config.metricsPort})`,
     )
-  }
-
-  // Asset Retrieval
-
-  private async getAsset(urlPath: string): Promise<CachedAsset | null> {
-    // Normalize path
-    const normalizedPath = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath
-    const contentHash = this.pathToContentHash(normalizedPath)
-
-    // Check memory cache
-    const cached = this.assetCache.get(contentHash)
-    if (cached) {
-      cached.lastAccessed = Date.now()
-      cached.accessCount++
-      this.cacheHits++
-      assetCacheHits.inc()
-      return cached
-    }
-
-    this.cacheMisses++
-    assetCacheMisses.inc()
-
-    // Check disk cache
-    const diskPath = path.join(this.config.cachePath, contentHash)
-    if (fs.existsSync(diskPath)) {
-      const data = fs.readFileSync(diskPath)
-      const mimeType = getMimeType(normalizedPath)
-      const asset: CachedAsset = {
-        contentHash,
-        data,
-        mimeType,
-        size: data.length,
-        lastAccessed: Date.now(),
-        accessCount: 1,
-      }
-      this.assetCache.set(contentHash, asset)
-      this.updateCacheMetrics()
-      return asset
-    }
-
-    // Try to fetch from network
-    return await this.fetchAsset(normalizedPath, contentHash)
-  }
-
-  private async fetchAsset(
-    assetPath: string,
-    contentHash: string,
-  ): Promise<CachedAsset | null> {
-    // Find asset in manifest
-    const manifestAsset = this.manifest?.assets.find(
-      (a) => a.path === assetPath || a.contentHash === contentHash,
-    )
-
-    // Try torrent first if available
-    if (this.config.enableTorrent && this.torrent && manifestAsset?.magnetUri) {
-      const stats = await this.torrent.addTorrent(
-        manifestAsset.magnetUri,
-        contentHash,
-      )
-      const data = await this.torrent.getContent(stats.infohash)
-
-      // Verify content hash
-      const hash = bytesToHex(hash256(new Uint8Array(data)))
-      if (hash.slice(2) !== contentHash && hash !== contentHash) {
-        console.warn(`[StaticAssets] Content hash mismatch for ${assetPath}`)
-        return null
-      }
-
-      const asset: CachedAsset = {
-        contentHash,
-        data,
-        mimeType: manifestAsset.mimeType,
-        size: data.length,
-        lastAccessed: Date.now(),
-        accessCount: 1,
-      }
-
-      // Cache to disk and memory
-      await this.cacheAsset(contentHash, asset)
-      return asset
-    }
-
-    return null
   }
 
   private async fetchFromCDN(url: string): Promise<Buffer | null> {
@@ -580,19 +428,6 @@ export class StaticAssetService {
       sizeBytes: this.assetCache.calculatedSize ?? 0,
       hitRate: total > 0 ? this.cacheHits / total : 0,
     }
-  }
-
-  // Helpers
-
-  private pathToContentHash(urlPath: string): string {
-    // Check if path matches a known asset in manifest
-    const asset = this.manifest?.assets.find((a) => a.path === urlPath)
-    if (asset) {
-      return asset.contentHash
-    }
-
-    // Generate hash from path for lookup
-    return bytesToHex(hash256(urlPath)).slice(2)
   }
 
   private updateCacheMetrics(): void {

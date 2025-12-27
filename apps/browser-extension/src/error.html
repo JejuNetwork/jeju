@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JNS Resolution Failed</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --text: #e8e8ec;
+      --text-secondary: #a0a0ac;
+      --accent: #6366f1;
+      --error: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 500px;
+      padding: 40px;
+    }
+
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, var(--error), #f97316);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .domain {
+      font-family: monospace;
+      font-size: 18px;
+      color: var(--accent);
+      background: rgba(99, 102, 241, 0.1);
+      padding: 8px 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      display: inline-block;
+    }
+
+    p {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .reasons {
+      text-align: left;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+
+    .reasons h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .reasons ul {
+      list-style: none;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .reasons li {
+      padding: 6px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .reasons li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      margin: 0 8px;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">⚠️</div>
+    <h1>JNS Resolution Failed</h1>
+    <div class="domain" id="domain">-</div>
+    <p>
+      The Jeju Name Service could not resolve this domain.
+      This may be because the domain doesn't exist or the JNS gateways are unreachable.
+    </p>
+    <div class="reasons">
+      <h3>Possible reasons:</h3>
+      <ul>
+        <li>The .jeju domain has not been registered</li>
+        <li>The domain's contenthash or worker endpoint is not set</li>
+        <li>No JNS gateways are currently available</li>
+        <li>Your local DWS node is not running</li>
+        <li>Network connectivity issues</li>
+      </ul>
+    </div>
+    <a href="#" class="btn" onclick="retry()">Try Again</a>
+    <a href="#" class="btn btn-secondary" onclick="goHome()">Go Home</a>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const domain = params.get('domain') || 'unknown.jeju';
+    document.getElementById('domain').textContent = domain;
+
+    function retry() {
+      window.location.href = `http://${domain}`;
+    }
+
+    function goHome() {
+      window.location.href = 'about:newtab';
+    }
+  </script>
+</body>
+</html>

@@ -24,6 +24,22 @@
  * ```
  */
 
+// TEE types from shared types package
+export type {
+  TEEAttestation,
+  TEEAttestationVerificationResult,
+  TEEKeyInfo,
+  TEENodeInfo,
+  TEEPlatform,
+} from '@jejunetwork/types'
+export {
+  TEEAttestationSchema,
+  TEEAttestationVerificationResultSchema,
+  TEEKeyInfoSchema,
+  TEENodeInfoSchema,
+  TEEPlatform as TEEPlatformEnum,
+  TEEPlatformSchema,
+} from '@jejunetwork/types'
 // Attestation verification
 export {
   type AttestationVerificationResult,
@@ -199,10 +215,8 @@ export {
   // Signing
   type SignRequest,
   type StakeCondition,
-  // TEE
-  type TEEAttestation,
+  // TEE (config only - other types from @jejunetwork/types)
   type TEEConfig,
-  type TEEKeyInfo,
   type ThresholdSignature,
   type ThresholdSignRequest,
   type TimestampCondition,

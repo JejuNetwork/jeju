@@ -288,9 +288,8 @@ describe('Address validation', () => {
       return addr.length === 42 && addr.startsWith('0x')
     }
 
-    expect(
-      hasValidChecksum('0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed'),
-    ).toBe(true)
+    expect(hasValidChecksum('0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed')).toBe(
+      true,
+    )
   })
 })
-

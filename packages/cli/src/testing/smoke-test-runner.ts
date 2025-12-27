@@ -57,8 +57,12 @@ export async function runSmokeTests(
   logger.newline()
 
   let smokeServer: { stop: () => void; url: string } | undefined
-  let browser: Awaited<ReturnType<typeof import('playwright').chromium.launch>> | undefined
-  let context: Awaited<ReturnType<NonNullable<typeof browser>['newContext']>> | undefined
+  let browser:
+    | Awaited<ReturnType<typeof import('playwright').chromium.launch>>
+    | undefined
+  let context:
+    | Awaited<ReturnType<NonNullable<typeof browser>['newContext']>>
+    | undefined
 
   try {
     // Step 1: Start smoke test server
@@ -139,7 +143,9 @@ export async function runSmokeTests(
 
           if (verification.matches) {
             logger.success('AI verification passed')
-            logger.info(`Quality: ${verification.quality} (${Math.round(verification.confidence * 100)}% confidence)`)
+            logger.info(
+              `Quality: ${verification.quality} (${Math.round(verification.confidence * 100)}% confidence)`,
+            )
           } else {
             logger.warn('AI verification found issues:')
             for (const issue of verification.issues) {
@@ -149,13 +155,11 @@ export async function runSmokeTests(
 
           // Write verification result
           const verificationPath = join(screenshotDir, 'ai-verification.json')
-          writeFileSync(
-            verificationPath,
-            JSON.stringify(verification, null, 2),
-          )
+          writeFileSync(verificationPath, JSON.stringify(verification, null, 2))
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
         logger.warn(`AI verification failed: ${errorMessage}`)
         result.errors.push(`AI verification error: ${errorMessage}`)
       }
@@ -166,7 +170,9 @@ export async function runSmokeTests(
       logger.step('Checking MetaMask integration...')
       // In real E2E with Synpress, we'd use the MetaMask fixture here
       // For smoke test, we just verify the page correctly shows MetaMask status
-      const metamaskStatus = await page.locator('#metamask-status').textContent()
+      const metamaskStatus = await page
+        .locator('#metamask-status')
+        .textContent()
       if (metamaskStatus?.includes('Detected')) {
         result.walletWorks = true
         logger.success('MetaMask detected')
@@ -175,7 +181,9 @@ export async function runSmokeTests(
       }
     } else {
       // In headless mode, wallet testing requires Synpress setup
-      logger.info('Wallet testing skipped in headless mode (use synpress for wallet tests)')
+      logger.info(
+        'Wallet testing skipped in headless mode (use synpress for wallet tests)',
+      )
       result.walletWorks = true // Consider passed for headless
     }
 
@@ -183,8 +191,9 @@ export async function runSmokeTests(
     result.passed =
       result.browserWorks &&
       result.screenshotWorks &&
-      (config.skipAIVerification || result.aiVerificationWorks || result.errors.length === 0)
-
+      (config.skipAIVerification ||
+        result.aiVerificationWorks ||
+        result.errors.length === 0)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     result.errors.push(errorMessage)
@@ -206,7 +215,10 @@ export async function runSmokeTests(
   const checks = [
     { name: 'Browser automation', passed: result.browserWorks },
     { name: 'Screenshot capture', passed: result.screenshotWorks },
-    { name: 'AI verification', passed: result.aiVerificationWorks || config.skipAIVerification },
+    {
+      name: 'AI verification',
+      passed: result.aiVerificationWorks || config.skipAIVerification,
+    },
     { name: 'Wallet integration', passed: result.walletWorks },
   ]
 
@@ -250,4 +262,3 @@ export async function quickSmokeCheck(rootDir: string): Promise<boolean> {
     return false
   }
 }
-

@@ -89,61 +89,25 @@ interface ITrainingCoordinator {
 
     // ============ Events ============
 
-    event RunCreated(
-        bytes32 indexed runId,
-        address indexed creator,
-        string hfRepo,
-        PrivacyMode privacyMode
-    );
+    event RunCreated(bytes32 indexed runId, address indexed creator, string hfRepo, PrivacyMode privacyMode);
 
     event RunConfigured(bytes32 indexed runId, CoordinatorConfig config);
 
-    event ClientJoined(
-        bytes32 indexed runId,
-        address indexed client,
-        bytes32 p2pEndpointId,
-        uint16 clientIndex
-    );
+    event ClientJoined(bytes32 indexed runId, address indexed client, bytes32 p2pEndpointId, uint16 clientIndex);
 
-    event ClientExited(
-        bytes32 indexed runId,
-        address indexed client,
-        ClientState exitState
-    );
+    event ClientExited(bytes32 indexed runId, address indexed client, ClientState exitState);
 
-    event StateTransition(
-        bytes32 indexed runId,
-        RunState oldState,
-        RunState newState,
-        uint64 timestamp
-    );
+    event StateTransition(bytes32 indexed runId, RunState oldState, RunState newState, uint64 timestamp);
 
-    event RoundStarted(
-        bytes32 indexed runId,
-        uint32 roundHeight,
-        uint64 dataIndex,
-        uint64 randomSeed
-    );
+    event RoundStarted(bytes32 indexed runId, uint32 roundHeight, uint64 dataIndex, uint64 randomSeed);
 
     event WitnessSubmitted(
-        bytes32 indexed runId,
-        address indexed witness,
-        uint32 roundHeight,
-        bytes32 participantBloom
+        bytes32 indexed runId, address indexed witness, uint32 roundHeight, bytes32 participantBloom
     );
 
-    event EpochCompleted(
-        bytes32 indexed runId,
-        uint16 epoch,
-        uint32 stepsCompleted
-    );
+    event EpochCompleted(bytes32 indexed runId, uint16 epoch, uint32 stepsCompleted);
 
-    event CheckpointSubmitted(
-        bytes32 indexed runId,
-        bytes32 modelHash,
-        string hfRepo,
-        address submitter
-    );
+    event CheckpointSubmitted(bytes32 indexed runId, bytes32 modelHash, string hfRepo, address submitter);
 
     event RunPaused(bytes32 indexed runId, address pauser);
     event RunResumed(bytes32 indexed runId, address resumer);
@@ -163,28 +127,14 @@ interface ITrainingCoordinator {
 
     function tick(bytes32 runId) external;
 
-    function submitWitness(
-        bytes32 runId,
-        WitnessSubmission calldata submission,
-        bytes calldata proof
-    ) external;
+    function submitWitness(bytes32 runId, WitnessSubmission calldata submission, bytes calldata proof) external;
 
-    function submitWarmupWitness(
-        bytes32 runId,
-        WitnessSubmission calldata submission
-    ) external;
+    function submitWarmupWitness(bytes32 runId, WitnessSubmission calldata submission) external;
 
-    function submitHealthCheck(
-        bytes32 runId,
-        uint16[] calldata unhealthyIndices,
-        bytes32[] calldata committeeProofs
-    ) external;
+    function submitHealthCheck(bytes32 runId, uint16[] calldata unhealthyIndices, bytes32[] calldata committeeProofs)
+        external;
 
-    function submitCheckpoint(
-        bytes32 runId,
-        bytes32 modelHash,
-        string calldata hfRepo
-    ) external;
+    function submitCheckpoint(bytes32 runId, bytes32 modelHash, string calldata hfRepo) external;
 
     function withdrawFromRun(bytes32 runId) external;
 
@@ -214,4 +164,3 @@ interface ITrainingCoordinator {
 
     function getWitnessQuorum(bytes32 runId) external view returns (uint16);
 }
-

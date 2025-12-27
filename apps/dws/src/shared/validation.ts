@@ -1,5 +1,4 @@
 /**
  * Validation utilities for src/email routes
- * Re-exports from api/shared/validation for module path compatibility
+ * This file is deprecated - import directly from ../../api/shared/validation
  */
-export { validateQueryFromObj } from '../../api/shared/validation'

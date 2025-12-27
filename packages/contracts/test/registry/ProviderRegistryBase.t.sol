@@ -29,9 +29,11 @@ contract MockIdentityRegistry {
         return exists[agentId];
     }
 
-    function getMarketplaceInfo(uint256 agentId) external view returns (
-        string memory, string memory, string memory, string memory, bool, uint8, bool
-    ) {
+    function getMarketplaceInfo(uint256 agentId)
+        external
+        view
+        returns (string memory, string memory, string memory, string memory, bool, uint8, bool)
+    {
         return ("", "", "", "", false, 0, banned[agentId]);
     }
 }
@@ -68,18 +70,8 @@ contract ProviderRegistryBaseTest is Test {
         banManager = new MockBanManager();
 
         vm.startPrank(owner);
-        storageRegistry = new StorageProviderRegistry(
-            owner,
-            address(identityRegistry),
-            address(banManager),
-            MIN_STAKE
-        );
-        cdnRegistry = new CDNRegistry(
-            owner,
-            address(identityRegistry),
-            address(banManager),
-            MIN_STAKE
-        );
+        storageRegistry = new StorageProviderRegistry(owner, address(identityRegistry), address(banManager), MIN_STAKE);
+        cdnRegistry = new CDNRegistry(owner, address(identityRegistry), address(banManager), MIN_STAKE);
         vm.stopPrank();
 
         // Setup agent IDs
@@ -96,10 +88,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_StorageRegistry_RegisterWithoutAgent() public {
         vm.prank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         assertEq(storageRegistry.providerCount(), 1);
@@ -128,10 +117,7 @@ contract ProviderRegistryBaseTest is Test {
         vm.prank(provider1);
         vm.expectRevert();
         storageRegistry.register{value: MIN_STAKE - 1}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
     }
 
@@ -141,10 +127,7 @@ contract ProviderRegistryBaseTest is Test {
         vm.prank(provider1);
         vm.expectRevert();
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
     }
 
@@ -178,18 +161,12 @@ contract ProviderRegistryBaseTest is Test {
     function test_StorageRegistry_DoubleRegistrationFails() public {
         vm.startPrank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         vm.expectRevert();
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider 2",
-            "https://storage2.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider 2", "https://storage2.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
         vm.stopPrank();
     }
@@ -197,10 +174,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_StorageRegistry_DeactivateAndReactivate() public {
         vm.startPrank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         storageRegistry.deactivate();
@@ -216,10 +190,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_StorageRegistry_AddAndWithdrawStake() public {
         vm.startPrank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         // Add more stake
@@ -237,10 +208,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_StorageRegistry_WithdrawBelowMinimumFails() public {
         vm.startPrank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         vm.expectRevert();
@@ -253,10 +221,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_CDNRegistry_RegisterProvider() public {
         vm.prank(provider1);
         cdnRegistry.registerProvider{value: MIN_STAKE}(
-            "CDN Provider",
-            "https://cdn.test.com",
-            ICDNTypes.ProviderType.CLOUDFLARE,
-            bytes32(0)
+            "CDN Provider", "https://cdn.test.com", ICDNTypes.ProviderType.CLOUDFLARE, bytes32(0)
         );
 
         assertEq(cdnRegistry.providerCount(), 1);
@@ -265,11 +230,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_CDNRegistry_RegisterProviderWithAgent() public {
         vm.prank(provider1);
         cdnRegistry.registerProviderWithAgent{value: MIN_STAKE}(
-            "CDN Provider",
-            "https://cdn.test.com",
-            ICDNTypes.ProviderType.CLOUDFLARE,
-            bytes32(0),
-            AGENT_ID_1
+            "CDN Provider", "https://cdn.test.com", ICDNTypes.ProviderType.CLOUDFLARE, bytes32(0), AGENT_ID_1
         );
 
         assertEq(cdnRegistry.getAgentByProvider(provider1), AGENT_ID_1);
@@ -278,9 +239,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_CDNRegistry_RegisterEdgeNode() public {
         vm.prank(provider1);
         bytes32 nodeId = cdnRegistry.registerEdgeNode{value: 0.001 ether}(
-            "https://edge1.test.com",
-            ICDNTypes.Region.US_EAST_1,
-            ICDNTypes.ProviderType.DECENTRALIZED
+            "https://edge1.test.com", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         assertTrue(nodeId != bytes32(0));
@@ -290,10 +249,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_CDNRegistry_RegisterEdgeNodeWithAgent() public {
         vm.prank(provider1);
         bytes32 nodeId = cdnRegistry.registerEdgeNodeWithAgent{value: 0.001 ether}(
-            "https://edge1.test.com",
-            ICDNTypes.Region.US_EAST_1,
-            ICDNTypes.ProviderType.DECENTRALIZED,
-            AGENT_ID_1
+            "https://edge1.test.com", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED, AGENT_ID_1
         );
 
         assertTrue(nodeId != bytes32(0));
@@ -348,10 +304,7 @@ contract ProviderRegistryBaseTest is Test {
         vm.prank(provider1);
         vm.expectRevert();
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
     }
 
@@ -363,10 +316,7 @@ contract ProviderRegistryBaseTest is Test {
 
         vm.prank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         assertEq(storageRegistry.providerCount(), 1);
@@ -382,10 +332,7 @@ contract ProviderRegistryBaseTest is Test {
         vm.prank(provider1);
         vm.expectRevert();
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
     }
 
@@ -400,10 +347,7 @@ contract ProviderRegistryBaseTest is Test {
     function test_Register_ExactMinimumStake() public {
         vm.prank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         assertEq(storageRegistry.providerCount(), 1);
@@ -413,10 +357,7 @@ contract ProviderRegistryBaseTest is Test {
         vm.prank(provider1);
         vm.expectRevert();
         storageRegistry.register{value: MIN_STAKE}(
-            "",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
     }
 
@@ -424,10 +365,7 @@ contract ProviderRegistryBaseTest is Test {
         vm.prank(provider1);
         vm.expectRevert();
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
     }
 
@@ -450,10 +388,7 @@ contract ProviderRegistryBaseTest is Test {
 
         vm.prank(provider1);
         storageRegistry.register{value: stake}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         IStorageTypes.Provider memory p = storageRegistry.getProvider(provider1);
@@ -466,10 +401,7 @@ contract ProviderRegistryBaseTest is Test {
 
         vm.startPrank(provider1);
         storageRegistry.register{value: MIN_STAKE}(
-            "Test Provider",
-            "https://storage.test.com",
-            uint8(IStorageTypes.ProviderType.IPFS_NODE),
-            bytes32(0)
+            "Test Provider", "https://storage.test.com", uint8(IStorageTypes.ProviderType.IPFS_NODE), bytes32(0)
         );
 
         storageRegistry.addStake{value: addAmount}();
@@ -485,4 +417,3 @@ contract ProviderRegistryBaseTest is Test {
         vm.stopPrank();
     }
 }
-

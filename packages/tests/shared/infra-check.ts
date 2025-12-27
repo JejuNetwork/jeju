@@ -44,12 +44,20 @@ async function checkCQL(): Promise<boolean> {
 
 async function checkAnvil(): Promise<boolean> {
   try {
-    const response = await fetch(`http://127.0.0.1:${INFRA_PORTS.L2_RPC.get()}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-      signal: AbortSignal.timeout(2000),
-    })
+    const response = await fetch(
+      `http://127.0.0.1:${INFRA_PORTS.L2_RPC.get()}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_blockNumber',
+          params: [],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(2000),
+      },
+    )
     return response.ok
   } catch {
     return false
@@ -61,7 +69,9 @@ async function checkDWS(): Promise<boolean> {
 }
 
 async function checkIPFS(): Promise<boolean> {
-  return checkEndpoint(`http://127.0.0.1:${CORE_PORTS.IPFS_API.get()}/api/v0/id`)
+  return checkEndpoint(
+    `http://127.0.0.1:${CORE_PORTS.IPFS_API.get()}/api/v0/id`,
+  )
 }
 
 async function checkDocker(): Promise<boolean> {
@@ -218,4 +228,3 @@ export function logInfraStatus(): void {
   console.log(`Docker: ${INFRA_STATUS.docker ? '✓' : '✗'}`)
   console.log('=============================\n')
 }
-
