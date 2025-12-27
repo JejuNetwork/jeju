@@ -1,85 +1,89 @@
-
-
 package types
 
 import (
-	pi "eqlite/src/blockproducer/interfaces"
-	"eqlite/src/crypto"
+	"encoding/json"
+
+	"eqlite/src/blockproducer/interfaces"
 	"eqlite/src/crypto/asymmetric"
 	"eqlite/src/crypto/verifier"
 	"eqlite/src/proto"
 )
 
-//go:generate hsp
-
-// Range defines a height range (from, to].
-type Range struct {
-	From, To uint32
-}
-
-// MinerIncome defines the income of miner.
-// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
-type MinerIncome struct {
-	Miner  proto.AccountAddress
-	Income uint64
-}
-
-// UserCost defines the cost of user.
-// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
+// UserCost defines user cost information.
 type UserCost struct {
 	User   proto.AccountAddress
 	Cost   uint64
 	Miners []*MinerIncome
 }
 
-// UpdateBillingHeader defines the UpdateBilling transaction header.
-// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
+// MinerIncome defines miner income information.
+type MinerIncome struct {
+	Miner  proto.AccountAddress
+	Income uint64
+}
+
+// BillingRange defines the block range for billing.
+type BillingRange struct {
+	From uint32
+	To   uint32
+}
+
+// UpdateBillingHeader defines billing update header.
 type UpdateBillingHeader struct {
-	Receiver proto.AccountAddress
-	Nonce    pi.AccountNonce
 	Users    []*UserCost
-	Range    Range
-	Version  int32 `hsp:"v,version"`
-}
-
-// UpdateBilling defines the UpdateBilling transaction.
-// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
-type UpdateBilling struct {
-	UpdateBillingHeader
-	pi.TransactionTypeMixin
-	verifier.DefaultHashSignVerifierImpl
-}
-
-// NewUpdateBilling returns new instance.
-// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
-func NewUpdateBilling(header *UpdateBillingHeader) *UpdateBilling {
-	return &UpdateBilling{
-		UpdateBillingHeader:  *header,
-		TransactionTypeMixin: *pi.NewTransactionTypeMixin(pi.TransactionTypeUpdateBilling),
-	}
-}
-
-// GetAccountAddress implements interfaces/Transaction.GetAccountAddress.
-func (ub *UpdateBilling) GetAccountAddress() proto.AccountAddress {
-	addr, _ := crypto.PubKeyHash(ub.Signee)
-	return addr
+	Nonce    interfaces.AccountNonce
+	Version  int32
+	Receiver proto.AccountAddress
+	Range    BillingRange
 }
 
 // GetAccountNonce implements interfaces/Transaction.GetAccountNonce.
-func (ub *UpdateBilling) GetAccountNonce() pi.AccountNonce {
-	return ub.Nonce
+func (h *UpdateBillingHeader) GetAccountNonce() interfaces.AccountNonce {
+	return h.Nonce
 }
 
-// Sign implements interfaces/Transaction.Sign.
-func (ub *UpdateBilling) Sign(signer *asymmetric.PrivateKey) (err error) {
+// UpdateBilling defines billing update transaction.
+type UpdateBilling struct {
+	UpdateBillingHeader
+	interfaces.TransactionTypeMixin
+	verifier.DefaultHashSignVerifierImpl
+}
+
+// NewUpdateBilling creates a new UpdateBilling instance.
+func NewUpdateBilling(header *UpdateBillingHeader) *UpdateBilling {
+	return &UpdateBilling{
+		UpdateBillingHeader: *header,
+	}
+}
+
+// GetAccountAddress implements interfaces.Transaction.
+func (ub *UpdateBilling) GetAccountAddress() proto.AccountAddress {
+	return ub.Receiver
+}
+
+// MarshalHash marshals for hash computation.
+func (ub *UpdateBilling) MarshalHash() ([]byte, error) {
+	return json.Marshal(ub)
+}
+
+// Msgsize returns size estimate.
+func (ub *UpdateBilling) Msgsize() int {
+	return 1024
+}
+
+// Sign signs the transaction.
+func (ub *UpdateBilling) Sign(signer *asymmetric.PrivateKey) error {
 	return ub.DefaultHashSignVerifierImpl.Sign(&ub.UpdateBillingHeader, signer)
 }
 
-// Verify implements interfaces/Transaction.Verify.
-func (ub *UpdateBilling) Verify() (err error) {
+// Verify verifies the transaction signature.
+func (ub *UpdateBilling) Verify() error {
 	return ub.DefaultHashSignVerifierImpl.Verify(&ub.UpdateBillingHeader)
 }
 
-func init() {
-	pi.RegisterTransaction(pi.TransactionTypeUpdateBilling, (*UpdateBilling)(nil))
-}
+// MarshalHash marshals UpdateBillingHeader for hash computation.
+func (h *UpdateBillingHeader) MarshalHash() ([]byte, error) { return json.Marshal(h) }
+
+// Msgsize returns size estimate for UpdateBillingHeader.
+func (h *UpdateBillingHeader) Msgsize() int { return 512 }
+

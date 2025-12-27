@@ -82,7 +82,6 @@ func (d *eqliteDriver) Open(dsn string) (conn driver.Conn, err error) {
 
 // ResourceMeta defines new database resources requirement descriptions.
 // ResourceMeta describes database resource requirements.
-// Note: Payments and staking are now handled by the EQLiteRegistry smart contract.
 type ResourceMeta struct {
 	TargetMiners           []proto.AccountAddress `json:"target-miners,omitempty"`        // designated miners
 	Node                   uint16                 `json:"node,omitempty"`                 // reserved node count

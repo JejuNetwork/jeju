@@ -100,8 +100,6 @@ func initTaskManager(e *gin.Engine, cfg *config.Config, db *gorp.DbMap) (tm *tas
 	tm = task.NewManager(cfg, db)
 
 	tm.Register(model.TaskCreateDB, api.CreateDatabaseTask)
-	tm.Register(model.TaskApplyToken, api.ApplyTokenTask)
-	tm.Register(model.TaskTopUp, api.TopUpTask)
 	tm.Register(model.TaskCreateProject, api.CreateProjectTask)
 
 	tm.Start()

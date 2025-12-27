@@ -31,7 +31,6 @@ const StartSucceedMessage = "EQLite Started Successfully"
 var RoleTag = UnknownBuildTag
 
 // BaseAccountInfo defines base info to build a BaseAccount.
-// Note: Token balances are now handled by the EQLiteRegistry smart contract.
 type BaseAccountInfo struct {
 	Address hash.Hash `yaml:"Address"`
 }

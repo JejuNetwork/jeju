@@ -12,7 +12,6 @@ import (
 //go:generate hsp
 
 // CreateDatabaseHeader defines the database creation transaction header.
-// Note: Staking and payments are now handled by the EQLiteRegistry smart contract.
 type CreateDatabaseHeader struct {
 	Owner        proto.AccountAddress
 	ResourceMeta ResourceMeta

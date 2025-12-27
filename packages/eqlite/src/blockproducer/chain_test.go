@@ -22,17 +22,15 @@ import (
 	"eqlite/src/types"
 )
 
-func newTransfer(
+func newTransaction(
 	nonce pi.AccountNonce, signer *asymmetric.PrivateKey,
-	sender, receiver proto.AccountAddress, amount uint64,
+	owner proto.AccountAddress,
 ) (
-	t *types.Transfer, err error,
+	t *types.CreateDatabase, err error,
 ) {
-	t = types.NewTransfer(&types.TransferHeader{
-		Sender:   sender,
-		Receiver: receiver,
-		Nonce:    nonce,
-		Amount:   amount,
+	t = types.NewCreateDatabase(&types.CreateDatabaseHeader{
+		Owner: owner,
+		Nonce: nonce,
 	})
 	err = t.Sign(signer)
 	return
@@ -186,13 +184,12 @@ func TestChain(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(fetchBlockResp.SQLChains, ShouldBeEmpty)
 
-			// Note: Token balance queries are deprecated
 			var (
 				queryBalanceReq  = &types.QueryAccountTokenBalanceReq{Addr: addr2, TokenType: 0}
 				queryBalanceResp = &types.QueryAccountTokenBalanceResp{}
 			)
 			err = rpcService.QueryAccountTokenBalance(queryBalanceReq, queryBalanceResp)
-			So(err, ShouldNotBeNil) // Now returns error since token balances are deprecated
+			So(err, ShouldBeNil)
 
 			Convey("Chain APIs should return correct result of state objects", func() {
 				var loaded bool
@@ -231,7 +228,7 @@ func TestChain(t *testing.T) {
 
 			Convey("Chain APIs should return correct result of tx state", func() {
 				var tx pi.Transaction
-				tx, err = newTransfer(1, priv1, addr1, addr2, 1)
+				tx, err = newTransaction(1, priv1, addr1)
 				So(err, ShouldBeNil)
 				So(tx, ShouldNotBeNil)
 
@@ -324,9 +321,9 @@ func TestChain(t *testing.T) {
 			nonce, err = chain.nextNonce(addr1)
 			So(err, ShouldBeNil)
 			So(nonce, ShouldEqual, 1)
-			t1, err = newTransfer(nonce, priv1, addr1, addr2, 1)
+			t1, err = newTransaction(nonce, priv1, addr1)
 			So(err, ShouldBeNil)
-			t2, err = newTransfer(nonce+1, priv1, addr1, addr2, 1)
+			t2, err = newTransaction(nonce+1, priv1, addr1)
 			So(err, ShouldBeNil)
 			t3, err = newCreateDatabase(nonce+2, priv1, addr1)
 			So(err, ShouldBeNil)

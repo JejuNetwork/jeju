@@ -339,21 +339,9 @@ func TestFullProcess(t *testing.T) {
 		nonce, err = requestNonce(obAddr)
 		So(err, ShouldBeNil)
 
-		// transfer token to ob
-		tran := types.NewTransfer(&types.TransferHeader{
-			Sender:    obAddr,
-			Receiver:  dbAddr,
-			Amount:    100000000,
-			TokenType: types.Particle,
-			Nonce:     nonce,
-		})
-		err = tran.Sign(obPriv)
-		So(err, ShouldBeNil)
-		addTxReq = &types.AddTxReq{}
-		addTxResp = &types.AddTxResp{}
-		addTxReq.Tx = tran
-		err = rpc.RequestBP(route.MCCAddTx.String(), addTxReq, addTxResp)
-		So(err, ShouldBeNil)
+		// Token transfer tests removed - token operations handled by EQLiteRegistry smart contract
+		_ = nonce  // nonce is no longer used in this test
+		_ = obPriv // obPriv is no longer used in this test
 
 		// check ob status
 		ctx5, ccl5 = context.WithTimeout(context.Background(), 1*time.Minute)
@@ -650,21 +638,9 @@ func TestFullProcess(t *testing.T) {
 		nonce, err = requestNonce(obAddr)
 		So(err, ShouldBeNil)
 
-		// transfer token to ob
-		tran = types.NewTransfer(&types.TransferHeader{
-			Sender:    obAddr,
-			Receiver:  dbAddr2,
-			Amount:    100000000,
-			TokenType: types.Particle,
-			Nonce:     nonce,
-		})
-		err = tran.Sign(obPriv)
-		So(err, ShouldBeNil)
-		addTxReq = &types.AddTxReq{}
-		addTxResp = &types.AddTxResp{}
-		addTxReq.Tx = tran
-		err = rpc.RequestBP(route.MCCAddTx.String(), addTxReq, addTxResp)
-		So(err, ShouldBeNil)
+		// Token transfer tests removed - token operations handled by EQLiteRegistry smart contract
+		_ = nonce  // nonce is no longer used in this test
+		_ = obPriv // obPriv is no longer used in this test
 
 		// check ob status
 		ctx5, ccl5 = context.WithTimeout(context.Background(), 1*time.Minute)

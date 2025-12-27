@@ -195,39 +195,7 @@ func TestOpen(t *testing.T) {
 	})
 }
 
-func TestGetTokenBalance(t *testing.T) {
-	Convey("test get token balance", t, func() {
-		var stopTestService func()
-		var err error
-		// reset driver not initialized
-		atomic.StoreUint32(&driverInitialized, 0)
-
-		// driver not initialized
-		_, err = GetTokenBalance(types.Particle)
-		So(err, ShouldEqual, ErrNotInitialized)
-
-		// fake driver initialized
-		atomic.StoreUint32(&driverInitialized, 1)
-		_, err = GetTokenBalance(types.Particle)
-		So(err, ShouldNotBeNil)
-		// reset driver not initialized
-		atomic.StoreUint32(&driverInitialized, 0)
-
-		stopTestService, _, err = startTestService()
-		So(err, ShouldBeNil)
-		defer stopTestService()
-
-		var balance uint64
-		balance, err = GetTokenBalance(types.Particle)
-
-		So(err, ShouldBeNil)
-		So(balance, ShouldEqual, 0)
-
-		balance, err = GetTokenBalance(-1)
-
-		So(err, ShouldNotBeNil) // Token balance lookup is deprecated
-	})
-}
+// TestGetTokenBalance removed - token operations are now handled by EQLiteRegistry smart contract
 
 func TestWaitDBCreation(t *testing.T) {
 	Convey("test WaitDBCreation", t, func() {
@@ -260,36 +228,7 @@ func TestWaitDBCreation(t *testing.T) {
 	})
 }
 
-func TestTransferToken(t *testing.T) {
-	Convey("test TransferToken to a address", t, func() {
-		var stopTestService func()
-		var err error
-		var user proto.AccountAddress
-
-		// driver not initialized
-		_, err = TransferToken(user, 100, types.Particle)
-		So(err, ShouldEqual, ErrNotInitialized)
-
-		// fake driver initialized
-		atomic.StoreUint32(&driverInitialized, 1)
-		_, err = TransferToken(user, 100, types.Particle)
-		So(err, ShouldNotBeNil)
-		// reset driver not initialized
-		atomic.StoreUint32(&driverInitialized, 0)
-
-		stopTestService, _, err = startTestService()
-		So(err, ShouldBeNil)
-		defer stopTestService()
-
-		// with mock bp, any params will be success
-		txHash, err := TransferToken(user, 100, types.Particle)
-		So(err, ShouldBeNil)
-
-		ctx := context.Background()
-		_, err = WaitTxConfirmation(ctx, txHash)
-		So(err, ShouldBeNil)
-	})
-}
+// TestTransferToken removed - token operations are now handled by EQLiteRegistry smart contract
 
 func TestUpdatePermission(t *testing.T) {
 	Convey("test UpdatePermission to a address", t, func() {

@@ -187,8 +187,6 @@ func loadGenesis() (genesis *types.BPBlock, err error) {
 		},
 	}
 
-	// Note: Token balances are now managed by the EQLiteRegistry smart contract.
-	// Genesis block only contains account addresses, not balances.
 	for _, ba := range genesisInfo.BaseAccounts {
 		log.WithFields(log.Fields{
 			"address": ba.Address.String(),

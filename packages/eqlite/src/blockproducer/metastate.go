@@ -326,8 +326,6 @@ func (s *metaState) increaseNonce(addr proto.AccountAddress) (err error) {
 }
 
 // updateProviderList registers a provider.
-// Note: Staking is now handled by the EQLiteRegistry smart contract.
-// This only tracks provider metadata in the local state.
 func (s *metaState) updateProviderList(tx *types.ProvideService, height uint32) (err error) {
 	sender, err := crypto.PubKeyHash(tx.Signee)
 	if err != nil {
@@ -354,7 +352,6 @@ func (s *metaState) updateProviderList(tx *types.ProvideService, height uint32) 
 }
 
 // matchProvidersWithUser creates a database with miners.
-// Note: Payments and staking are now handled by the EQLiteRegistry smart contract.
 func (s *metaState) matchProvidersWithUser(tx *types.CreateDatabase) (err error) {
 	log.Infof("create database: %s", tx.Hash())
 	sender, err := crypto.PubKeyHash(tx.Signee)

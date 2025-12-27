@@ -59,42 +59,7 @@ func createDB(c *gin.Context) {
 }
 
 func topUp(c *gin.Context) {
-	r := struct {
-		Database proto.DatabaseID `json:"db" form:"db" uri:"db" binding:"required,len=64"`
-		Amount   uint64           `json:"amount" form:"amount" binding:"gt=0"`
-	}{}
-
-	_ = c.ShouldBindUri(&r)
-
-	if err := c.ShouldBind(&r); err != nil {
-		abortWithError(c, http.StatusBadRequest, err)
-		return
-	}
-
-	developer := getDeveloperID(c)
-
-	p, err := model.GetMainAccount(model.GetDB(c), developer)
-	if err != nil {
-		_ = c.Error(err)
-		abortWithError(c, http.StatusBadRequest, ErrNoMainAccount)
-		return
-	}
-
-	// run task
-	taskID, err := getTaskManager(c).New(model.TaskTopUp, developer, p.ID, gin.H{
-		"db":     r.Database,
-		"amount": r.Amount,
-	})
-	if err != nil {
-		_ = c.Error(err)
-		abortWithError(c, http.StatusInternalServerError, ErrCreateTaskFailed)
-		return
-	}
-
-	responseWithData(c, http.StatusOK, gin.H{
-		"task_id": taskID,
-		"amount":  r.Amount,
-	})
+	abortWithError(c, http.StatusGone, errors.New("top-up removed - use EQLiteRegistry contract for staking"))
 }
 
 func databaseBalance(c *gin.Context) {
@@ -133,11 +98,7 @@ func databaseBalance(c *gin.Context) {
 
 	for _, user := range profile.Users {
 		if user.Address == accountAddr {
-			responseWithData(c, http.StatusOK, gin.H{
-				"deposit":         uint64(0), // Billing fields deprecated
-				"arrears":         uint64(0), // Billing fields deprecated
-				"advance_payment": uint64(0), // Billing fields deprecated
-			})
+			responseWithData(c, http.StatusOK, gin.H{})
 			return
 		}
 	}
@@ -218,10 +179,6 @@ func databaseList(c *gin.Context) {
 		for _, user := range p.Users {
 			if user.Address == accountAddr && user.Permission.HasSuperPermission() {
 				profile["id"] = p.ID
-				profile["deposit"] = uint64(0)         // Billing fields deprecated
-				profile["arrears"] = uint64(0)         // Billing fields deprecated
-				profile["advance_payment"] = uint64(0) // Billing fields deprecated
-
 				profiles = append(profiles, profile)
 			}
 		}
@@ -364,68 +321,5 @@ func CreateDatabaseTask(ctx context.Context, _ *config.Config, db *gorp.DbMap, t
 		"state": lastState.String(),
 	}
 
-	return
-}
-
-// TopUpTask handles the database balance/advance payments top-up process.
-func TopUpTask(ctx context.Context, cfg *config.Config, db *gorp.DbMap, t *model.Task) (r gin.H, err error) {
-	args := struct {
-		Database proto.DatabaseID `json:"db"`
-		Amount   uint64           `json:"amount"`
-	}{}
-
-	err = json.Unmarshal(t.RawArgs, &args)
-	if err != nil {
-		err = errors.Wrapf(err, "unmarshal task args failed")
-		return
-	}
-
-	_, err = args.Database.AccountAddress()
-	if err != nil {
-		err = errors.Wrapf(err, "get database wallet account failed")
-		return
-	}
-
-	p, err := model.GetAccountByID(db, t.Developer, t.Account)
-	if err != nil {
-		err = errors.Wrapf(err, "get account for task failed")
-		return
-	}
-
-	if err = p.LoadPrivateKey(); err != nil {
-		err = errors.Wrapf(err, "decode account private key failed")
-		return
-	}
-
-	accountAddr, err := p.Account.Get()
-	if err != nil {
-		err = errors.Wrapf(err, "decode task account failed")
-		return
-	}
-
-	// check for database account existence
-	var profile *types.SQLChainProfile
-	profile, err = getDatabaseProfile(args.Database)
-	if err != nil {
-		err = errors.Wrapf(err, "send get chain profile rpc failed")
-		return
-	}
-
-	foundUser := false
-	for _, user := range profile.Users {
-		if user.Address == accountAddr {
-			foundUser = true
-			break
-		}
-	}
-
-	if !foundUser {
-		err = errors.New("user does not have access to database")
-		return
-	}
-
-	// Token transfers are now handled by the EQLiteRegistry smart contract
-	// This functionality is deprecated
-	err = errors.New("database top-up is deprecated - use EQLiteRegistry contract on Ethereum for staking")
 	return
 }

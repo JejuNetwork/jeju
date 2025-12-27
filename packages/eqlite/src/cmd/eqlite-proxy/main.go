@@ -87,7 +87,6 @@ func main() {
 
 	<-utils.WaitForExit()
 
-	// stop faucet api
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 

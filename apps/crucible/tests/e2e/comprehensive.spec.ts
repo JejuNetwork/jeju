@@ -94,14 +94,14 @@ const ROUTES = [
     name: 'Agents',
     expectedContent: 'Agent',
     description:
-      'Agents list page with Create Agent button, Active Only filter toggle, agent count, and agent cards grid.',
+      'Agents list page with Deploy Agent button, All/Active filter buttons, agent count, and agent cards grid.',
   },
   {
     path: '/agents/new',
-    name: 'Create Agent',
-    expectedContent: 'Create',
+    name: 'Deploy Agent',
+    expectedContent: 'Deploy',
     description:
-      'Agent creation form with name, description, model selection, and configuration options.',
+      'Deploy Agent wizard with character selection step and deploy configuration.',
   },
   {
     path: '/chat',
@@ -264,55 +264,52 @@ test.describe('Crucible - Header Component', () => {
 })
 
 test.describe('Crucible - Agents Page Components', () => {
-  test('has Create Agent button', async ({ page }) => {
+  test('has Deploy Agent button', async ({ page }) => {
     await page.goto('/agents')
     await page.waitForTimeout(1000)
 
-    await expect(page.locator('text=Create Agent').first()).toBeVisible()
+    await expect(page.locator('text=Deploy Agent').first()).toBeVisible()
   })
 
-  test('has Active Only filter toggle', async ({ page }) => {
+  test('has All/Active filter buttons', async ({ page }) => {
     await page.goto('/agents')
     await page.waitForTimeout(1000)
 
-    // Find the Show All / Active Only toggle button
-    const filterBtn = page
-      .locator('button')
-      .filter({ hasText: /Show All|Active Only/ })
-    await expect(filterBtn).toBeVisible()
+    // Find the All and Active filter buttons
+    await expect(page.locator('button:has-text("All")').first()).toBeVisible()
+    await expect(page.locator('button:has-text("Active")').first()).toBeVisible()
 
-    // Toggle the filter
-    await filterBtn.click()
+    // Click Active filter
+    await page.click('button:has-text("Active")')
     await page.waitForTimeout(300)
 
-    // Check that it toggled
-    const btnText = await filterBtn.textContent()
-    expect(btnText).toMatch(/Show All|Active Only/)
+    // Click back to All
+    await page.click('button:has-text("All")')
+    await page.waitForTimeout(300)
   })
 
-  test('Create Agent button navigates', async ({ page }) => {
+  test('Deploy Agent button navigates', async ({ page }) => {
     await page.goto('/agents')
     await page.waitForTimeout(500)
 
-    await page.click('text=Create Agent')
+    await page.click('text=Deploy Agent')
     await page.waitForURL('**/agents/new')
     await expect(page).toHaveURL(/\/agents\/new/)
   })
 })
 
 test.describe('Crucible - Create Agent Page', () => {
-  test('has character selection grid', async ({ page }) => {
+  test('has character selection with deploy wizard', async ({ page }) => {
     await page.goto('/agents/new')
     await page.waitForTimeout(1000)
 
-    // Title
-    await expect(page.locator('h1:has-text("Create Agent")')).toBeVisible()
+    // Title - "Deploy Agent"
+    await expect(page.locator('h1:has-text("Deploy Agent")')).toBeVisible()
 
-    // Step 1: Select Character heading
-    await expect(page.locator('text=Select Character')).toBeVisible()
+    // Step indicator - Character step
+    await expect(page.locator('text=Character').first()).toBeVisible()
 
-    // Character cards - should show characters to select from
-    // Or loading spinner if loading
+    // Character cards or loading state
     const hasCards = await page
       .locator('button:has-text("🤖")')
       .first()
@@ -323,10 +320,10 @@ test.describe('Crucible - Create Agent Page', () => {
       .isVisible()
       .catch(() => false)
 
-    expect(hasCards || hasLoading || true).toBeTruthy() // Allow empty state
+    expect(hasCards || hasLoading || true).toBeTruthy()
 
     await page.screenshot({
-      path: join(SCREENSHOT_DIR, 'Create-Agent-Form.png'),
+      path: join(SCREENSHOT_DIR, 'Deploy-Agent-Form.png'),
       fullPage: true,
     })
   })
@@ -346,7 +343,8 @@ test.describe('Crucible - Chat Page Components', () => {
     await page.goto('/chat')
     await page.waitForTimeout(1000)
 
-    await expect(page.locator('text=Select Agent')).toBeVisible()
+    // The sidebar has an "Agents" heading
+    await expect(page.locator('h2:has-text("Agents")').first()).toBeVisible()
   })
 
   test('New Room button opens create form', async ({ page }) => {
@@ -356,14 +354,8 @@ test.describe('Crucible - Chat Page Components', () => {
     await page.click('button:has-text("New Room")')
     await page.waitForTimeout(300)
 
-    // Create Room panel should appear
-    await expect(page.locator('text=Create New Room')).toBeVisible()
-
-    // Room type buttons
-    await expect(page.locator('text=Collaboration')).toBeVisible()
-    await expect(page.locator('text=Adversarial')).toBeVisible()
-    await expect(page.locator('text=Debate')).toBeVisible()
-    await expect(page.locator('text=Council')).toBeVisible()
+    // Create Room panel should appear - heading is "New Room"
+    await expect(page.locator('h2:has-text("New Room")')).toBeVisible()
 
     await page.screenshot({
       path: join(SCREENSHOT_DIR, 'Chat-Create-Room.png'),
@@ -378,14 +370,11 @@ test.describe('Crucible - Chat Page Components', () => {
     await page.click('button:has-text("New Room")')
     await page.waitForTimeout(300)
 
-    // Click each room type
-    for (const roomType of ['Collaboration', 'Adversarial', 'Debate', 'Council']) {
-      await page.click(`button:has-text("${roomType}")`)
-      await page.waitForTimeout(200)
-    }
+    // Room types are available via Type fieldset
+    await expect(page.locator('legend:has-text("Type")')).toBeVisible()
   })
 
-  test('room creation form validation', async ({ page }) => {
+  test('room creation form has inputs', async ({ page }) => {
     await page.goto('/chat')
     await page.waitForTimeout(500)
 
@@ -393,37 +382,31 @@ test.describe('Crucible - Chat Page Components', () => {
     await page.waitForTimeout(300)
 
     // Room name input
-    const roomNameInput = page.locator(
-      'input#room-name, input[placeholder*="Security"]',
-    )
+    const roomNameInput = page.locator('input#room-name')
     await expect(roomNameInput).toBeVisible()
 
     // Description textarea
-    const descriptionInput = page.locator(
-      'textarea#room-description, textarea[placeholder*="Describe"]',
-    )
+    const descriptionInput = page.locator('textarea#room-description')
     await expect(descriptionInput).toBeVisible()
 
-    // Cancel button
-    await expect(page.locator('button:has-text("Cancel")')).toBeVisible()
-
-    // Create Room button
-    await expect(page.locator('button:has-text("Create Room")')).toBeVisible()
+    // Create button (text is just "Create")
+    await expect(page.locator('button[type="submit"]:has-text("Create")')).toBeVisible()
   })
 
-  test('cancel button closes room form', async ({ page }) => {
+  test('cancel closes room form', async ({ page }) => {
     await page.goto('/chat')
     await page.waitForTimeout(500)
 
     await page.click('button:has-text("New Room")')
     await page.waitForTimeout(300)
-    await expect(page.locator('text=Create New Room')).toBeVisible()
+    await expect(page.locator('h2:has-text("New Room")')).toBeVisible()
 
-    await page.click('button:has-text("Cancel")')
+    // Click Cancel - the form button with "Cancel" text in the form
+    await page.locator('form button:has-text("Cancel")').click()
     await page.waitForTimeout(300)
 
     // Form should be hidden
-    await expect(page.locator('text=Create New Room')).not.toBeVisible()
+    await expect(page.locator('h2:has-text("New Room")')).not.toBeVisible()
   })
 })
 

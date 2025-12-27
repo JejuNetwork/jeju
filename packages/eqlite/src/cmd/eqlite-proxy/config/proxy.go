@@ -13,14 +13,6 @@ import (
 	"eqlite/src/utils/log"
 )
 
-// FaucetConfig defines the configurable options for public faucet service.
-type FaucetConfig struct {
-	Enabled           bool   `yaml:"Enabled"`
-	Amount            uint64 `yaml:"Amount" validate:"required_with=Enabled,gt=0"`
-	AddressDailyQuota int64  `yaml:"AddressDailyQuota" validate:"required_with=Enabled,gt=0"`
-	AccountDailyQuota int64  `yaml:"AccountDailyQuota" validate:"required_with=Enabled,gt=0"`
-}
-
 // StorageConfig defines the persistence options for proxy service.
 type StorageConfig struct {
 	// use local sqlite3 database for persistence or not.
@@ -62,9 +54,6 @@ type Config struct {
 	// persistence config for proxy service.
 	Storage *StorageConfig `yaml:"Storage" validate:"required"`
 
-	// faucet config for public proxy service only.
-	Faucet *FaucetConfig `yaml:"Faucet"`
-
 	// admin auth config for proxy service.
 	AdminAuth *AdminAuthConfig `yaml:"AdminAuth" validate:"required"`
 
@@ -78,19 +67,12 @@ type confWrapper struct {
 
 // Validate checks config validity.
 func (c *Config) Validate() (err error) {
-	c.Faucet.fixConfig()
-
 	validate := validator.New()
 	if err = validate.Struct(*c); err != nil {
 		return
 	}
 	if c.Storage != nil {
 		if err = validate.Struct(*c.Storage); err != nil {
-			return
-		}
-	}
-	if c.Faucet != nil {
-		if err = validate.Struct(*c.Faucet); err != nil {
 			return
 		}
 	}
@@ -113,24 +95,7 @@ func (c *Config) Validate() (err error) {
 	return
 }
 
-func (fc *FaucetConfig) fixConfig() {
-	if fc == nil {
-		return
-	}
-
-	if fc.AddressDailyQuota == 0 || fc.AccountDailyQuota == 0 {
-		log.Warning("the AddressDailyQuota & AccountDailyQuota should be valid positive number, set to 1 by default")
-
-		if fc.AddressDailyQuota == 0 {
-			fc.AddressDailyQuota = 1
-		}
-		if fc.AccountDailyQuota == 0 {
-			fc.AccountDailyQuota = 1
-		}
-	}
-}
-
-// LoadConfig load the common eqlite client config again for extra faucet config.
+// LoadConfig load the common eqlite client config again for extra config.
 func LoadConfig(listenAddr string, configPath string) (config *Config, err error) {
 	var configBytes []byte
 	if configBytes, err = os.ReadFile(configPath); err != nil {

@@ -1398,6 +1398,251 @@ export function createCacheRoutes() {
         },
       }
     })
+
+    // ========================================
+    // Upstash-compatible REST API
+    // ========================================
+    // Accepts Redis commands in array format: ["SET", "key", "value"]
+    // Compatible with @upstash/redis client
+
+    .post(
+      '/command',
+      async ({ body, query }) => {
+        const namespace = query.namespace ?? 'default'
+        const engine = await getEngineForNamespace(namespace)
+
+        if (!(engine instanceof CacheEngine)) {
+          throw new CacheError(
+            CacheErrorCode.INVALID_OPERATION,
+            'Command endpoint requires direct engine access',
+          )
+        }
+
+        // Body is an array of command args: ["SET", "key", "value"]
+        const args = body as string[]
+        if (!Array.isArray(args) || args.length === 0) {
+          throw new CacheError(
+            CacheErrorCode.INVALID_KEY,
+            'Invalid command format. Expected array.',
+          )
+        }
+
+        const cmd = args[0].toUpperCase()
+        const cmdArgs = args.slice(1)
+
+        const result = executeRedisCommand(engine, namespace, cmd, cmdArgs)
+        return { result }
+      },
+      {
+        body: t.Array(t.String()),
+        query: t.Object({
+          namespace: t.Optional(t.String()),
+        }),
+      },
+    )
+
+    .post(
+      '/pipeline',
+      async ({ body, query }) => {
+        const namespace = query.namespace ?? 'default'
+        const engine = await getEngineForNamespace(namespace)
+
+        if (!(engine instanceof CacheEngine)) {
+          throw new CacheError(
+            CacheErrorCode.INVALID_OPERATION,
+            'Pipeline endpoint requires direct engine access',
+          )
+        }
+
+        // Body is an array of commands: [["SET", "k1", "v1"], ["GET", "k1"]]
+        const commands = body as string[][]
+        if (!Array.isArray(commands)) {
+          throw new CacheError(
+            CacheErrorCode.INVALID_KEY,
+            'Invalid pipeline format. Expected array of commands.',
+          )
+        }
+
+        const results = commands.map((args) => {
+          if (!Array.isArray(args) || args.length === 0) {
+            return { error: 'Invalid command format' }
+          }
+          const cmd = args[0].toUpperCase()
+          const cmdArgs = args.slice(1)
+          try {
+            return { result: executeRedisCommand(engine, namespace, cmd, cmdArgs) }
+          } catch (e) {
+            return { error: e instanceof Error ? e.message : 'Unknown error' }
+          }
+        })
+
+        return results
+      },
+      {
+        body: t.Array(t.Array(t.String())),
+        query: t.Object({
+          namespace: t.Optional(t.String()),
+        }),
+      },
+    )
+}
+
+/**
+ * Execute a Redis command on the engine
+ */
+function executeRedisCommand(
+  engine: CacheEngine,
+  ns: string,
+  cmd: string,
+  args: string[],
+): string | number | null | string[] | Record<string, string> {
+  switch (cmd) {
+    // Connection
+    case 'PING':
+      return 'PONG'
+    case 'ECHO':
+      return args[0] ?? ''
+
+    // String commands
+    case 'GET':
+      return engine.get(ns, args[0])
+    case 'SET': {
+      let ttl: number | undefined
+      let nx = false
+      let xx = false
+
+      for (let i = 2; i < args.length; i++) {
+        const opt = args[i].toUpperCase()
+        if (opt === 'EX' && args[i + 1]) {
+          ttl = parseInt(args[i + 1], 10)
+          i++
+        } else if (opt === 'PX' && args[i + 1]) {
+          ttl = Math.ceil(parseInt(args[i + 1], 10) / 1000)
+          i++
+        } else if (opt === 'NX') {
+          nx = true
+        } else if (opt === 'XX') {
+          xx = true
+        }
+      }
+
+      const result = engine.set(ns, args[0], args[1], { ttl, nx, xx })
+      return result ? 'OK' : null
+    }
+    case 'SETNX':
+      return engine.setnx(ns, args[0], args[1]) ? 1 : 0
+    case 'SETEX':
+      engine.setex(ns, args[0], parseInt(args[1], 10), args[2])
+      return 'OK'
+    case 'MGET':
+      return args.map((key) => engine.get(ns, key) ?? '')
+    case 'MSET':
+      for (let i = 0; i < args.length; i += 2) {
+        engine.set(ns, args[i], args[i + 1])
+      }
+      return 'OK'
+    case 'INCR':
+      return engine.incr(ns, args[0])
+    case 'INCRBY':
+      return engine.incr(ns, args[0], parseInt(args[1], 10))
+    case 'DECR':
+      return engine.decr(ns, args[0])
+    case 'DECRBY':
+      return engine.decr(ns, args[0], parseInt(args[1], 10))
+    case 'APPEND':
+      return engine.append(ns, args[0], args[1])
+
+    // Key commands
+    case 'DEL':
+      return engine.del(ns, ...args)
+    case 'EXISTS':
+      return engine.exists(ns, ...args)
+    case 'EXPIRE':
+      return engine.expire(ns, args[0], parseInt(args[1], 10)) ? 1 : 0
+    case 'TTL':
+      return engine.ttl(ns, args[0])
+    case 'PTTL':
+      return engine.pttl(ns, args[0])
+    case 'PERSIST':
+      return engine.persist(ns, args[0]) ? 1 : 0
+    case 'TYPE':
+      return engine.type(ns, args[0])
+    case 'KEYS':
+      return engine.keys(ns, args[0] ?? '*')
+    case 'FLUSHDB':
+      engine.flushdb(ns)
+      return 'OK'
+
+    // Hash commands
+    case 'HGET':
+      return engine.hget(ns, args[0], args[1])
+    case 'HSET':
+      return engine.hset(ns, args[0], args[1], args[2])
+    case 'HMGET':
+      return engine.hmget(ns, args[0], ...args.slice(1))
+    case 'HGETALL':
+      return engine.hgetall(ns, args[0])
+    case 'HDEL':
+      return engine.hdel(ns, args[0], ...args.slice(1))
+    case 'HEXISTS':
+      return engine.hexists(ns, args[0], args[1]) ? 1 : 0
+    case 'HLEN':
+      return engine.hlen(ns, args[0])
+    case 'HKEYS':
+      return engine.hkeys(ns, args[0])
+    case 'HVALS':
+      return engine.hvals(ns, args[0])
+    case 'HINCRBY':
+      return engine.hincrby(ns, args[0], args[1], parseInt(args[2], 10))
+
+    // List commands
+    case 'LPUSH':
+      return engine.lpush(ns, args[0], ...args.slice(1))
+    case 'RPUSH':
+      return engine.rpush(ns, args[0], ...args.slice(1))
+    case 'LPOP':
+      return engine.lpop(ns, args[0])
+    case 'RPOP':
+      return engine.rpop(ns, args[0])
+    case 'LLEN':
+      return engine.llen(ns, args[0])
+    case 'LRANGE':
+      return engine.lrange(ns, args[0], parseInt(args[1], 10), parseInt(args[2], 10))
+    case 'LINDEX':
+      return engine.lindex(ns, args[0], parseInt(args[1], 10))
+
+    // Set commands
+    case 'SADD':
+      return engine.sadd(ns, args[0], ...args.slice(1))
+    case 'SREM':
+      return engine.srem(ns, args[0], ...args.slice(1))
+    case 'SMEMBERS':
+      return engine.smembers(ns, args[0])
+    case 'SISMEMBER':
+      return engine.sismember(ns, args[0], args[1]) ? 1 : 0
+    case 'SCARD':
+      return engine.scard(ns, args[0])
+
+    // Sorted set commands
+    case 'ZADD': {
+      const members: Array<{ member: string; score: number }> = []
+      for (let i = 1; i < args.length; i += 2) {
+        members.push({ score: parseFloat(args[i]), member: args[i + 1] })
+      }
+      return engine.zadd(ns, args[0], ...members)
+    }
+    case 'ZRANGE':
+      return engine.zrange(ns, args[0], parseInt(args[1], 10), parseInt(args[2], 10)) as string[]
+    case 'ZSCORE':
+      return engine.zscore(ns, args[0], args[1])
+    case 'ZCARD':
+      return engine.zcard(ns, args[0])
+    case 'ZREM':
+      return engine.zrem(ns, args[0], ...args.slice(1))
+
+    default:
+      throw new CacheError(CacheErrorCode.INVALID_OPERATION, `Unknown command: ${cmd}`)
+  }
 }
 
 /**

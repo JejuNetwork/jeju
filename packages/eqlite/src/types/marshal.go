@@ -87,14 +87,6 @@ func (h *ResponseHeader) Msgsize() int                 { return 512 }
 func (h *ResponsePayload) MarshalHash() ([]byte, error) { return json.Marshal(h) }
 func (h *ResponsePayload) Msgsize() int                 { return 1024 }
 
-// MarshalHash marshals UpdateBilling for hash computation
-func (h *UpdateBilling) MarshalHash() ([]byte, error) { return json.Marshal(h) }
-func (h *UpdateBilling) Msgsize() int                 { return 512 }
-
-// MarshalHash marshals UpdateBillingHeader for hash computation
-func (h *UpdateBillingHeader) MarshalHash() ([]byte, error) { return json.Marshal(h) }
-func (h *UpdateBillingHeader) Msgsize() int                 { return 512 }
-
 // MarshalHash marshals UpdatePermission for hash computation
 func (h *UpdatePermission) MarshalHash() ([]byte, error) { return json.Marshal(h) }
 func (h *UpdatePermission) Msgsize() int                 { return 256 }
@@ -106,4 +98,15 @@ func (h *UpdatePermissionHeader) Msgsize() int                 { return 256 }
 // MarshalHash marshals UpdateServiceHeader for hash computation
 func (h *UpdateServiceHeader) MarshalHash() ([]byte, error) { return json.Marshal(h) }
 func (h *UpdateServiceHeader) Msgsize() int                 { return 256 }
+
+// MarshalHash marshals Block for hash computation
+func (b *Block) MarshalHash() ([]byte, error) { return json.Marshal(b) }
+func (b *Block) Msgsize() int                 { return 1024 }
+
+// MarshalHash marshals Blocks for hash computation
+func (b Blocks) MarshalHash() ([]byte, error) { return json.Marshal(b) }
+
+// MarshalHash marshals BPBlock for hash computation
+func (b *BPBlock) MarshalHash() ([]byte, error) { return json.Marshal(b) }
+func (b *BPBlock) Msgsize() int                 { return 1024 }
 

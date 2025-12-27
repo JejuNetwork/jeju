@@ -6,11 +6,13 @@
  * Tested clients:
  * - ioredis (most popular Node.js Redis client)
  * - node-redis (official Redis client)
+ * - Upstash REST API (HTTP-based)
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import Redis from 'ioredis'
 import { createClient } from 'redis'
+import { Elysia } from 'elysia'
 import { CacheEngine } from '../api/cache/engine'
 import { createRedisProtocolServer, type RedisProtocolServer } from '../api/cache/redis-protocol'
 
@@ -647,4 +649,295 @@ describe('Real-world Usage Patterns', () => {
     expect(ttl).toBeLessThanOrEqual(300)
   })
 })
+
+// =========================================================================
+// Upstash REST API Compatibility Tests
+// =========================================================================
+
+describe('Upstash REST API Compatibility', () => {
+  let engine: CacheEngine
+  let app: Elysia
+
+  /**
+   * Simple REST client mimicking @upstash/redis behavior
+   */
+  class UpstashStyleClient {
+    constructor(private baseUrl: string) {}
+
+    async command<T = string | number | null>(args: string[]): Promise<T> {
+      const response = await fetch(`${this.baseUrl}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      })
+      const data = await response.json() as { result: T }
+      return data.result
+    }
+
+    async pipeline<T = Array<string | number | null>>(
+      commands: string[][],
+    ): Promise<T> {
+      const response = await fetch(`${this.baseUrl}/pipeline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(commands),
+      })
+      return response.json() as Promise<T>
+    }
+
+    // Convenience methods
+    async get(key: string): Promise<string | null> {
+      return this.command(['GET', key])
+    }
+
+    async set(key: string, value: string, opts?: { ex?: number }): Promise<string | null> {
+      const args = ['SET', key, value]
+      if (opts?.ex) args.push('EX', opts.ex.toString())
+      return this.command(args)
+    }
+
+    async del(...keys: string[]): Promise<number> {
+      return this.command(['DEL', ...keys])
+    }
+
+    async incr(key: string): Promise<number> {
+      return this.command(['INCR', key])
+    }
+
+    async hset(key: string, field: string, value: string): Promise<number> {
+      return this.command(['HSET', key, field, value])
+    }
+
+    async hget(key: string, field: string): Promise<string | null> {
+      return this.command(['HGET', key, field])
+    }
+
+    async hgetall(key: string): Promise<Record<string, string>> {
+      return this.command(['HGETALL', key])
+    }
+
+    async lpush(key: string, ...values: string[]): Promise<number> {
+      return this.command(['LPUSH', key, ...values])
+    }
+
+    async lrange(key: string, start: number, stop: number): Promise<string[]> {
+      return this.command(['LRANGE', key, start.toString(), stop.toString()])
+    }
+
+    async sadd(key: string, ...members: string[]): Promise<number> {
+      return this.command(['SADD', key, ...members])
+    }
+
+    async smembers(key: string): Promise<string[]> {
+      return this.command(['SMEMBERS', key])
+    }
+
+    async zadd(key: string, ...scoreMemberPairs: (string | number)[]): Promise<number> {
+      return this.command(['ZADD', key, ...scoreMemberPairs.map(String)])
+    }
+
+    async zrange(key: string, start: number, stop: number): Promise<string[]> {
+      return this.command(['ZRANGE', key, start.toString(), stop.toString()])
+    }
+  }
+
+  let client: UpstashStyleClient
+
+  beforeAll(async () => {
+    engine = new CacheEngine({ maxMemoryMb: 64 })
+
+    // Create a minimal Elysia app with the command endpoints
+    app = new Elysia()
+      .post('/command', async ({ body, query }) => {
+        const ns = (query as { namespace?: string }).namespace ?? 'default'
+        const args = body as string[]
+
+        if (!Array.isArray(args) || args.length === 0) {
+          throw new Error('Invalid command format')
+        }
+
+        const cmd = args[0].toUpperCase()
+        const cmdArgs = args.slice(1)
+        const result = executeCommand(engine, ns, cmd, cmdArgs)
+        return { result }
+      })
+      .post('/pipeline', async ({ body, query }) => {
+        const ns = (query as { namespace?: string }).namespace ?? 'default'
+        const commands = body as string[][]
+
+        return commands.map((args) => {
+          const cmd = args[0].toUpperCase()
+          const cmdArgs = args.slice(1)
+          try {
+            return { result: executeCommand(engine, ns, cmd, cmdArgs) }
+          } catch (e) {
+            return { error: e instanceof Error ? e.message : 'Unknown error' }
+          }
+        })
+      })
+      .listen(0) // Use random port
+
+    const port = app.server?.port
+    client = new UpstashStyleClient(`http://localhost:${port}`)
+  })
+
+  afterAll(async () => {
+    await app.stop()
+    engine.stop()
+  })
+
+  afterEach(async () => {
+    await client.command(['FLUSHDB'])
+  })
+
+  describe('Basic Commands', () => {
+    it('should SET and GET', async () => {
+      await client.set('key1', 'value1')
+      const result = await client.get('key1')
+      expect(result).toBe('value1')
+    })
+
+    it('should return null for non-existent key', async () => {
+      const result = await client.get('nonexistent')
+      expect(result).toBeNull()
+    })
+
+    it('should SET with EX option', async () => {
+      await client.set('key1', 'value1', { ex: 60 })
+      const ttl = await client.command<number>(['TTL', 'key1'])
+      expect(ttl).toBeGreaterThan(0)
+      expect(ttl).toBeLessThanOrEqual(60)
+    })
+
+    it('should DEL keys', async () => {
+      await client.set('k1', 'v1')
+      await client.set('k2', 'v2')
+      const deleted = await client.del('k1', 'k2')
+      expect(deleted).toBe(2)
+    })
+
+    it('should INCR', async () => {
+      await client.set('counter', '5')
+      const result = await client.incr('counter')
+      expect(result).toBe(6)
+    })
+  })
+
+  describe('Hash Commands', () => {
+    it('should HSET and HGET', async () => {
+      await client.hset('user:1', 'name', 'Alice')
+      const result = await client.hget('user:1', 'name')
+      expect(result).toBe('Alice')
+    })
+
+    it('should HGETALL', async () => {
+      await client.hset('user:1', 'name', 'Alice')
+      await client.hset('user:1', 'age', '30')
+      const result = await client.hgetall('user:1')
+      expect(result).toEqual({ name: 'Alice', age: '30' })
+    })
+  })
+
+  describe('List Commands', () => {
+    it('should LPUSH and LRANGE', async () => {
+      await client.lpush('list', 'c', 'b', 'a')
+      const result = await client.lrange('list', 0, -1)
+      expect(result).toEqual(['a', 'b', 'c'])
+    })
+  })
+
+  describe('Set Commands', () => {
+    it('should SADD and SMEMBERS', async () => {
+      await client.sadd('set', 'a', 'b', 'c')
+      const result = await client.smembers('set')
+      expect(result.sort()).toEqual(['a', 'b', 'c'])
+    })
+  })
+
+  describe('Sorted Set Commands', () => {
+    it('should ZADD and ZRANGE', async () => {
+      await client.zadd('zset', 1, 'one', 2, 'two', 3, 'three')
+      const result = await client.zrange('zset', 0, -1)
+      expect(result).toEqual(['one', 'two', 'three'])
+    })
+  })
+
+  describe('Pipeline', () => {
+    it('should execute pipeline commands', async () => {
+      const results = await client.pipeline([
+        ['SET', 'p1', 'v1'],
+        ['SET', 'p2', 'v2'],
+        ['GET', 'p1'],
+        ['GET', 'p2'],
+      ])
+
+      expect(results).toHaveLength(4)
+      expect((results as Array<{ result: string }>)[2].result).toBe('v1')
+      expect((results as Array<{ result: string }>)[3].result).toBe('v2')
+    })
+  })
+})
+
+/**
+ * Execute a Redis command on the engine (helper for Upstash tests)
+ */
+function executeCommand(
+  engine: CacheEngine,
+  ns: string,
+  cmd: string,
+  args: string[],
+): string | number | null | string[] | Record<string, string> {
+  switch (cmd) {
+    case 'PING':
+      return 'PONG'
+    case 'GET':
+      return engine.get(ns, args[0])
+    case 'SET': {
+      let ttl: number | undefined
+      for (let i = 2; i < args.length; i++) {
+        const opt = args[i].toUpperCase()
+        if (opt === 'EX' && args[i + 1]) {
+          ttl = parseInt(args[i + 1], 10)
+          i++
+        }
+      }
+      engine.set(ns, args[0], args[1], { ttl })
+      return 'OK'
+    }
+    case 'DEL':
+      return engine.del(ns, ...args)
+    case 'INCR':
+      return engine.incr(ns, args[0])
+    case 'TTL':
+      return engine.ttl(ns, args[0])
+    case 'FLUSHDB':
+      engine.flushdb(ns)
+      return 'OK'
+    case 'HSET':
+      return engine.hset(ns, args[0], args[1], args[2])
+    case 'HGET':
+      return engine.hget(ns, args[0], args[1])
+    case 'HGETALL':
+      return engine.hgetall(ns, args[0])
+    case 'LPUSH':
+      return engine.lpush(ns, args[0], ...args.slice(1))
+    case 'LRANGE':
+      return engine.lrange(ns, args[0], parseInt(args[1], 10), parseInt(args[2], 10))
+    case 'SADD':
+      return engine.sadd(ns, args[0], ...args.slice(1))
+    case 'SMEMBERS':
+      return engine.smembers(ns, args[0])
+    case 'ZADD': {
+      const members: Array<{ member: string; score: number }> = []
+      for (let i = 1; i < args.length; i += 2) {
+        members.push({ score: parseFloat(args[i]), member: args[i + 1] })
+      }
+      return engine.zadd(ns, args[0], ...members)
+    }
+    case 'ZRANGE':
+      return engine.zrange(ns, args[0], parseInt(args[1], 10), parseInt(args[2], 10)) as string[]
+    default:
+      throw new Error(`Unknown command: ${cmd}`)
+  }
+}
 

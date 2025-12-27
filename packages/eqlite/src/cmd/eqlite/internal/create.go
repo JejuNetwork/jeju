@@ -78,7 +78,6 @@ func addCreateFlags(cmd *Command) {
 	cmd.Flag.BoolVar(&meta.UseEventualConsistency, "db-eventual-consistency", false, "Use eventual consistency to sync among miner nodes")
 	cmd.Flag.Float64Var(&meta.ConsistencyLevel, "db-consistency-level", 0, "Consistency level, node*consistency_level is the node count to perform strong consistency")
 	cmd.Flag.IntVar(&meta.IsolationLevel, "db-isolation-level", 0, "Isolation level in a single node")
-	// Gas price and advance payment flags deprecated
 }
 
 func runCreate(cmd *Command, args []string) {
@@ -133,7 +132,6 @@ func runCreate(cmd *Command, args []string) {
 					_ = json.Unmarshal(v, &meta.ConsistencyLevel)
 				case "isolationlevel":
 					_ = json.Unmarshal(v, &meta.IsolationLevel)
-				// gasprice and advancepayment deprecated
 				}
 			}
 		} else {

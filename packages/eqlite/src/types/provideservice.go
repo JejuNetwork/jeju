@@ -12,7 +12,6 @@ import (
 //go:generate hsp
 
 // ProvideServiceHeader defines the miner providing service transaction header.
-// Note: Staking and deposits are now handled by the EQLiteRegistry smart contract.
 type ProvideServiceHeader struct {
 	Space         uint64  // reserved storage space in bytes
 	Memory        uint64  // reserved memory in bytes

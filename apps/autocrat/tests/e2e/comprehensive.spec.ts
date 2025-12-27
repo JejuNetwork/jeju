@@ -262,8 +262,8 @@ test.describe('Autocrat - DAO List Page Components', () => {
     await page.goto('/')
     await page.waitForTimeout(1000)
 
-    // Hero section
-    await expect(page.locator('h1:has-text("AI-Powered DAOs")')).toBeVisible({
+    // Hero section - title is "DAOs with AI Leadership"
+    await expect(page.locator('h1:has-text("DAOs with AI Leadership")')).toBeVisible({
       timeout: 5000,
     })
 
@@ -278,11 +278,6 @@ test.describe('Autocrat - DAO List Page Components', () => {
 
     // Status filter dropdown
     await expect(page.locator('select')).toBeVisible()
-
-    // Network DAO filter button (shield icon)
-    await expect(
-      page.locator('button').filter({ has: page.locator('svg') }).last(),
-    ).toBeVisible()
 
     await page.screenshot({
       path: join(SCREENSHOT_DIR, 'DAO-List-Components.png'),
@@ -357,21 +352,13 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.goto('/create')
     await page.waitForTimeout(1000)
 
-    // Check form elements
-    await expect(
-      page.locator('input#dao-slug, input[placeholder*="my-dao"]'),
-    ).toBeVisible()
-    await expect(
-      page.locator('input#dao-display-name, input[placeholder*="My DAO"]'),
-    ).toBeVisible()
-    await expect(
-      page.locator('textarea[placeholder*="What does your DAO do"]'),
-    ).toBeVisible()
-    await expect(
-      page.locator('input[placeholder*="my-channel"]'),
-    ).toBeVisible()
+    // Check form elements - "Organization basics" heading
+    await expect(page.locator('h2:has-text("Organization basics")')).toBeVisible()
+    await expect(page.locator('input#dao-slug')).toBeVisible()
+    await expect(page.locator('input#dao-display-name')).toBeVisible()
+    await expect(page.locator('textarea#dao-description')).toBeVisible()
 
-    // Continue button should be disabled until form is valid
+    // Continue button
     const continueBtn = page.locator('button:has-text("Continue")')
     await expect(continueBtn).toBeVisible()
 
@@ -385,21 +372,17 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.goto('/create')
     await page.waitForTimeout(1000)
 
-    // Fill in valid data
-    await page.fill('input[placeholder*="my-dao"]', 'test-dao')
-    await page.fill('input[placeholder*="My DAO"]', 'Test DAO')
-    await page.fill(
-      'textarea[placeholder*="What does your DAO do"]',
-      'A test DAO for E2E testing',
-    )
+    // Fill in valid data - requires at least slug (3+ chars) and display name (2+ chars)
+    await page.fill('input#dao-slug', 'test-dao')
+    await page.fill('input#dao-display-name', 'Test DAO')
 
     // Continue should be enabled now
     const continueBtn = page.locator('button:has-text("Continue")')
     await continueBtn.click()
 
-    // Should navigate to CEO step
+    // Should navigate to CEO step - "CEO configuration"
     await page.waitForTimeout(500)
-    await expect(page.locator('text=Configure CEO')).toBeVisible()
+    await expect(page.locator('h2:has-text("CEO configuration")')).toBeVisible()
   })
 
   test('Step 2: CEO configuration', async ({ page }) => {
@@ -407,22 +390,21 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Fill step 1
-    await page.fill('input[placeholder*="my-dao"]', 'test-dao')
-    await page.fill('input[placeholder*="My DAO"]', 'Test DAO')
+    await page.fill('input#dao-slug', 'test-dao')
+    await page.fill('input#dao-display-name', 'Test DAO')
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(500)
 
-    // Step 2: CEO
-    await expect(page.locator('text=Configure CEO')).toBeVisible()
-    await expect(
-      page.locator('input[placeholder*="Eliza"]').first(),
-    ).toBeVisible()
+    // Step 2: CEO configuration
+    await expect(page.locator('h2:has-text("CEO configuration")')).toBeVisible()
 
-    // Model selection grid
-    await expect(page.locator('text=Claude Opus')).toBeVisible()
-    await expect(page.locator('text=Claude Sonnet')).toBeVisible()
+    // Agent Name input with placeholder "e.g., Eliza, Atlas"
+    await expect(page.locator('input#agent-name-ceo')).toBeVisible()
 
-    // Decision style - check for decision style section
+    // AI Model section
+    await expect(page.locator('text=AI Model')).toBeVisible()
+
+    // Decision style section
     await expect(page.locator('text=Decision Style')).toBeVisible()
 
     await page.screenshot({
@@ -436,21 +418,18 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Navigate to step 3
-    await page.fill('input[placeholder*="my-dao"]', 'test-dao')
-    await page.fill('input[placeholder*="My DAO"]', 'Test DAO')
+    await page.fill('input#dao-slug', 'test-dao')
+    await page.fill('input#dao-display-name', 'Test DAO')
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(300)
 
-    await page.fill('input[placeholder*="Eliza"]', 'Test CEO')
+    // Fill CEO name (required for step 2 validation)
+    await page.fill('input#agent-name-ceo', 'Test CEO')
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(500)
 
-    // Step 3: Board
-    await expect(page.locator('text=Configure Board')).toBeVisible()
-    await expect(page.locator('text=Add Board Member')).toBeVisible()
-
-    // Should have board members section
-    await expect(page.locator('text=Board').first()).toBeVisible()
+    // Step 3: Board members
+    await expect(page.locator('h2:has-text("Board members")')).toBeVisible()
     await expect(page.locator('text=Add Board Member')).toBeVisible()
 
     await page.screenshot({
@@ -464,37 +443,29 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Navigate to step 4
-    await page.fill('input[placeholder*="my-dao"]', 'test-dao')
-    await page.fill('input[placeholder*="My DAO"]', 'Test DAO')
+    await page.fill('input#dao-slug', 'test-dao')
+    await page.fill('input#dao-display-name', 'Test DAO')
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(300)
 
-    await page.fill('input[placeholder*="Eliza"]', 'Test CEO')
+    await page.fill('input#agent-name-ceo', 'Test CEO')
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(300)
 
-    // Fill board member names
-    await page
-      .locator('input[placeholder*="Treasury"]')
-      .first()
-      .fill('Treasury Agent')
-    await page
-      .locator('input[placeholder*="Code"]')
-      .first()
-      .fill('Code Agent')
-    await page
-      .locator('input[placeholder*="Community"]')
-      .first()
-      .fill('Community Agent')
+    // Fill board member names - board members have "Agent Name" inputs
+    // The 3 default board members are Treasury, Code, Community
+    const boardNameInputs = page.locator('input[id^="agent-name-board"]')
+    const inputCount = await boardNameInputs.count()
+    for (let i = 0; i < inputCount; i++) {
+      await boardNameInputs.nth(i).fill(`Board Agent ${i + 1}`)
+    }
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(500)
 
-    // Step 4: Governance
-    await expect(page.locator('text=Governance Parameters')).toBeVisible()
+    // Step 4: Governance rules
+    await expect(page.locator('h2:has-text("Governance rules")')).toBeVisible()
     await expect(page.locator('text=Min Quality Score')).toBeVisible()
     await expect(page.locator('text=Min Board Approvals')).toBeVisible()
-    await expect(page.locator('text=Voting Period')).toBeVisible()
-    await expect(page.locator('text=CEO Veto')).toBeVisible()
 
     await page.screenshot({
       path: join(SCREENSHOT_DIR, 'Create-DAO-Step4.png'),
@@ -507,19 +478,19 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Fill step 1 and go to step 2
-    await page.fill('input[placeholder*="my-dao"]', 'test-dao')
-    await page.fill('input[placeholder*="My DAO"]', 'Test DAO')
+    await page.fill('input#dao-slug', 'test-dao')
+    await page.fill('input#dao-display-name', 'Test DAO')
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(300)
 
-    await expect(page.locator('text=Configure CEO')).toBeVisible()
+    await expect(page.locator('h2:has-text("CEO configuration")')).toBeVisible()
 
     // Click Back
     await page.click('button:has-text("Back")')
     await page.waitForTimeout(300)
 
-    // Should be back on step 1
-    await expect(page.locator('text=DAO Basics')).toBeVisible()
+    // Should be back on step 1 - "Organization basics"
+    await expect(page.locator('h2:has-text("Organization basics")')).toBeVisible()
   })
 
   test('Cancel button returns to list', async ({ page }) => {

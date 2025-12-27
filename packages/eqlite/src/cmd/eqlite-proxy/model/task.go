@@ -19,10 +19,6 @@ type TaskState int16
 const (
 	// TaskCreateDB defines the create database task type.
 	TaskCreateDB TaskType = iota
-	// TaskApplyToken defines the apply token task type.
-	TaskApplyToken
-	// TaskTopUp defines the balance top up task type.
-	TaskTopUp
 	// TaskCreateProject defines the project creation task type.
 	TaskCreateProject
 )
@@ -43,10 +39,6 @@ func (t TaskType) String() string {
 	switch t {
 	case TaskCreateDB:
 		return "CreateDB"
-	case TaskApplyToken:
-		return "ApplyToken"
-	case TaskTopUp:
-		return "TopUp"
 	case TaskCreateProject:
 		return "CreateProject"
 	default:

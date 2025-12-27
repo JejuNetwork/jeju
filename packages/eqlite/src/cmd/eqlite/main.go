@@ -21,7 +21,6 @@ func init() {
 		internal.CmdCreate,
 		internal.CmdConsole,
 		internal.CmdDrop,
-		internal.CmdTransfer,
 		internal.CmdGrant,
 		internal.CmdMirror,
 		internal.CmdExplorer,
