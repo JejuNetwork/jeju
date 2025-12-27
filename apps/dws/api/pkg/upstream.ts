@@ -1,11 +1,11 @@
 /**
  * Package Upstream Proxy (JejuPkg)
  * Caches and proxies packages from npmjs.org (for upstream compatibility)
- * Uses CQL for persistent package and tarball records
+ * Uses EQLite for persistent package and tarball records
  */
 
-import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
-import { getCQL, resetCQL } from '@jejunetwork/db'
+import { getEQLiteMinerUrl, getEQLiteUrl } from '@jejunetwork/config'
+import { getEQLite, resetEQLite } from '@jejunetwork/db'
 import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
 import type {
@@ -19,32 +19,32 @@ import type {
   UpstreamSyncResult,
 } from './types'
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
+const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws'
 
-// CQL Client singleton
-let cqlClient: ReturnType<typeof getCQL> | null = null
+// EQLite Client singleton
+let eqliteClient: ReturnType<typeof getEQLite> | null = null
 
-async function getCQLClient() {
-  if (!cqlClient) {
-    resetCQL()
-    const blockProducerEndpoint = getCQLUrl()
-    const minerEndpoint = getCQLMinerUrl()
+async function getEQLiteClient() {
+  if (!eqliteClient) {
+    resetEQLite()
+    const blockProducerEndpoint = getEQLiteUrl()
+    const minerEndpoint = getEQLiteMinerUrl()
 
-    cqlClient = getCQL({
+    eqliteClient = getEQLite({
       blockProducerEndpoint,
       minerEndpoint,
-      databaseId: CQL_DATABASE_ID,
+      databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
 
     await ensureTablesExist()
   }
-  return cqlClient
+  return eqliteClient
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (!cqlClient) return
+  if (!eqliteClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS pkg_packages (
@@ -79,11 +79,11 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await cqlClient.exec(ddl, [], CQL_DATABASE_ID)
+    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
+    await eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
   }
 }
 
@@ -141,7 +141,7 @@ export class UpstreamProxy {
   private upstreamConfig: UpstreamRegistryConfig
   private cacheConfig: CacheConfig
 
-  // In-memory caches (ephemeral TTL caches only - records are persisted in CQL)
+  // In-memory caches (ephemeral TTL caches only - records are persisted in EQLite)
   private metadataCache: Map<string, CacheEntry<PkgPackageMetadata>> = new Map()
   private tarballCache: Map<string, CacheEntry<{ cid: string; size: number }>> =
     new Map()
@@ -361,18 +361,18 @@ export class UpstreamProxy {
     packageRecordsCount: number
     tarballRecordsCount: number
   }> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     const pkgCount = await client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM pkg_packages',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const tarballCount = await client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM pkg_tarballs',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     return {
@@ -421,14 +421,14 @@ export class UpstreamProxy {
     }
   }
 
-  // CQL Operations
+  // EQLite Operations
 
   private async getPackageRecord(name: string): Promise<PackageRecord | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<PackageRow>(
       'SELECT * FROM pkg_packages WHERE name = ?',
       [name],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const row = result.rows[0]
@@ -450,7 +450,7 @@ export class UpstreamProxy {
   }
 
   private async savePackageRecord(record: PackageRecord): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO pkg_packages (name, scope, manifest_cid, latest_version, versions, owner, created_at, updated_at, download_count, storage_backend, verified)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -469,7 +469,7 @@ export class UpstreamProxy {
         record.storageBackend,
         record.verified ? 1 : 0,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   }
 
@@ -477,12 +477,12 @@ export class UpstreamProxy {
     packageName: string,
     version: string,
   ): Promise<TarballRecord | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const key = `${packageName}@${version}`
     const result = await client.query<TarballRow>(
       'SELECT * FROM pkg_tarballs WHERE package_version = ?',
       [key],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const row = result.rows[0]
@@ -501,7 +501,7 @@ export class UpstreamProxy {
   }
 
   private async saveTarballRecord(record: TarballRecord): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const key = `${record.packageName}@${record.version}`
     await client.exec(
       `INSERT INTO pkg_tarballs (package_version, package_name, version, cid, size, shasum, integrity, backend, uploaded_at)
@@ -519,7 +519,7 @@ export class UpstreamProxy {
         record.backend,
         record.uploadedAt,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   }
 
@@ -749,18 +749,18 @@ export class UpstreamProxy {
     packages: PackageRecord[]
     tarballs: TarballRecord[]
   }> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     const pkgResult = await client.query<PackageRow>(
       'SELECT * FROM pkg_packages',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const tarballResult = await client.query<TarballRow>(
       'SELECT * FROM pkg_tarballs',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const packages: PackageRecord[] = pkgResult.rows.map((row) => ({

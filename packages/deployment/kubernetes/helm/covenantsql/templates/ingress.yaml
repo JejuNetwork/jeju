@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "covenantsql.fullname" . }}
+  name: {{ include "eqlite.fullname" . }}
   labels:
-    {{- include "covenantsql.labels" . | nindent 4 }}
+    {{- include "eqlite.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -33,7 +33,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "covenantsql.fullname" $ }}
+                name: {{ include "eqlite.fullname" $ }}
                 port:
                   name: http
           {{- end }}

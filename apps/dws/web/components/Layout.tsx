@@ -34,7 +34,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useAccount } from 'wagmi'
 import type { ViewMode } from '../types'
 
 interface LayoutProps {
@@ -280,14 +279,15 @@ export default function Layout({
   setViewMode,
 }: LayoutProps) {
   const location = useLocation()
-  useAccount() // For wallet connection state
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
+  // Close sidebar when route changes (mobile)
   useEffect(() => {
     setSidebarOpen(false)
   }, [])
 
+  // Close mobile sidebar on resize to desktop
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {

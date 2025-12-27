@@ -15,6 +15,7 @@ import {
   JitoTipFloorResponseSchema,
   JupiterPriceResponseSchema,
 } from '../../../lib/validation'
+import { config as nodeConfig } from '../../config'
 
 // Dynamic import: Lazy load to avoid native module issues with @solana/web3.js
 type ArbitrageExecutorModule = typeof import('./arbitrage-executor')
@@ -308,7 +309,7 @@ class BridgeServiceImpl implements BridgeService {
       }
 
       // Validate Solana key if provided
-      const solanaKey = process.env.SOLANA_PRIVATE_KEY
+      const solanaKey = nodeConfig.solanaPrivateKey
       if (solanaKey) {
         const decoded = Buffer.from(solanaKey, 'base64')
         if (decoded.length !== 64) {
@@ -324,8 +325,8 @@ class BridgeServiceImpl implements BridgeService {
         solanaPrivateKey: solanaKey,
         evmRpcUrls: this.config.evmRpcUrls,
         solanaRpcUrl: this.config.solanaRpcUrl,
-        zkBridgeEndpoint: process.env.ZK_BRIDGE_ENDPOINT,
-        oneInchApiKey: process.env.ONEINCH_API_KEY,
+        zkBridgeEndpoint: nodeConfig.zkBridgeEndpoint,
+        oneInchApiKey: nodeConfig.oneInchApiKey,
         maxSlippageBps: 50,
         jitoTipLamports: this.config.jitoTipLamports ?? BigInt(10000),
       })
@@ -911,7 +912,7 @@ class BridgeServiceImpl implements BridgeService {
       }
 
       // Generate proof via prover service
-      const proverEndpoint = process.env.ZK_PROVER_ENDPOINT
+      const proverEndpoint = nodeConfig.zkProverEndpoint
       if (!proverEndpoint) {
         console.warn(
           '[Bridge] ZK_PROVER_ENDPOINT not configured, skipping proof generation',
@@ -1214,7 +1215,7 @@ class BridgeServiceImpl implements BridgeService {
     if (!rpcUrl) return
 
     // Get quote for the swap to determine profitability
-    const oneInchApiKey = process.env.ONEINCH_API_KEY
+    const oneInchApiKey = nodeConfig.oneInchApiKey
     if (!oneInchApiKey) {
       console.warn(
         '[Bridge] 1inch API key not configured, cannot evaluate intent',

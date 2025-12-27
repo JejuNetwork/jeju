@@ -43,12 +43,7 @@ export function ContributionPanel() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Fair Contribution</h2>
-        <p className="text-sm text-[#606070] mt-1">
-          Help power the network and earn tokens
-        </p>
-      </div>
+      <h2 className="text-xl font-semibold">Contribute</h2>
 
       <div className="card bg-gradient-to-br from-[#00ff88]/5 to-transparent border-[#00ff88]/20">
         <div className="flex items-center justify-between mb-3">

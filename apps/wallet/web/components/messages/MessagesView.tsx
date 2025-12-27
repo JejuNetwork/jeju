@@ -125,10 +125,10 @@ export function MessagesView(_props: MessagesViewProps) {
   if (!isInitialized) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center mb-6 animate-pulse">
-          <Mail className="w-8 h-8 text-emerald-400" />
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-sky-500/20 to-indigo-500/20 flex items-center justify-center mb-6 animate-pulse shadow-xl shadow-sky-500/10">
+          <Mail className="w-10 h-10 text-sky-400" />
         </div>
-        <h3 className="text-xl font-semibold mb-2">Initializing Messaging</h3>
+        <h3 className="text-xl font-bold mb-2">Initializing Messaging</h3>
         <p className="text-muted-foreground text-center max-w-md">
           Setting up your encrypted messaging channels...
         </p>
@@ -155,12 +155,17 @@ export function MessagesView(_props: MessagesViewProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Messages</h2>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-sky-500/20 to-indigo-500/20">
+              <Mail className="w-5 h-5 text-sky-400" />
+            </div>
+            <h2 className="text-lg font-bold">Messages</h2>
+          </div>
           <button
             type="button"
             onClick={() => setShowNewConversation(true)}
-            className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-            title="New conversation"
+            aria-label="New conversation"
+            className="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/50"
           >
             <Plus className="w-5 h-5" />
           </button>

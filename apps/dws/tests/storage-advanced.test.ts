@@ -27,6 +27,8 @@ import {
   handleTusHead,
   handleTusOptions,
   handleTusPost,
+  initializeTusManagerForTesting,
+  resetTusManager,
   TusUploadManager,
 } from '../api/storage/tus-upload'
 
@@ -673,17 +675,30 @@ describe('SignedUrlManager', () => {
 describe('TusUploadManager', () => {
   let tus: TusUploadManager
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Reset singleton first
+    resetTusManager()
+
     tus = new TusUploadManager({
       baseUrl: 'https://upload.example.com',
       maxFileSize: 1024 * 1024 * 100, // 100MB
       defaultExpiryHours: 24,
       chunkSize: 1024 * 1024, // 1MB chunks
     })
+    // Initialize with mock exec (tests run without real exec API)
+    await tus.initializeForTesting()
+
+    // Also initialize singleton for handler tests
+    await initializeTusManagerForTesting({
+      baseUrl: 'https://upload.example.com',
+      maxFileSize: 1024 * 1024 * 100,
+      defaultExpiryHours: 24,
+      chunkSize: 1024 * 1024,
+    })
   })
 
-  test('creates upload session', () => {
-    const upload = tus.createUpload({
+  test('creates upload session', async () => {
+    const upload = await tus.createUpload({
       uploadLength: 1024 * 1024 * 10, // 10MB
       uploadMetadata: `${Buffer.from('filename').toString('base64')} ${Buffer.from('test.txt').toString('base64')}`,
     })
@@ -696,12 +711,12 @@ describe('TusUploadManager', () => {
     expect(upload.expiresAt).toBeGreaterThan(Date.now())
   })
 
-  test('uploads chunks', () => {
-    const upload = tus.createUpload({ uploadLength: 1024 * 3 })
+  test('uploads chunks', async () => {
+    const upload = await tus.createUpload({ uploadLength: 1024 * 3 })
 
     // Upload first chunk
     const chunk1 = Buffer.alloc(1024, 'a')
-    const updated1 = tus.patchUpload(upload.uploadId, {
+    const updated1 = await tus.patchUpload(upload.uploadId, {
       uploadOffset: 0,
       contentLength: 1024,
       contentType: 'application/offset+octet-stream',
@@ -713,7 +728,7 @@ describe('TusUploadManager', () => {
 
     // Upload second chunk
     const chunk2 = Buffer.alloc(1024, 'b')
-    const updated2 = tus.patchUpload(upload.uploadId, {
+    const updated2 = await tus.patchUpload(upload.uploadId, {
       uploadOffset: 1024,
       contentLength: 1024,
       contentType: 'application/offset+octet-stream',
@@ -724,7 +739,7 @@ describe('TusUploadManager', () => {
 
     // Upload final chunk
     const chunk3 = Buffer.alloc(1024, 'c')
-    const updated3 = tus.patchUpload(upload.uploadId, {
+    const updated3 = await tus.patchUpload(upload.uploadId, {
       uploadOffset: 2048,
       contentLength: 1024,
       contentType: 'application/offset+octet-stream',
@@ -736,31 +751,31 @@ describe('TusUploadManager', () => {
     expect(['finalizing', 'completed']).toContain(updated3.status)
   })
 
-  test('rejects offset mismatch', () => {
-    const upload = tus.createUpload({ uploadLength: 2048 })
+  test('rejects offset mismatch', async () => {
+    const upload = await tus.createUpload({ uploadLength: 2048 })
 
-    expect(() => {
+    await expect(
       tus.patchUpload(upload.uploadId, {
         uploadOffset: 1024, // Wrong offset - should be 0
         contentLength: 1024,
         contentType: 'application/offset+octet-stream',
         chunk: Buffer.alloc(1024),
-      })
-    }).toThrow('Offset mismatch')
+      }),
+    ).rejects.toThrow('Offset mismatch')
   })
 
-  test('gets upload progress', () => {
-    const upload = tus.createUpload({ uploadLength: 4096 })
+  test('gets upload progress', async () => {
+    const upload = await tus.createUpload({ uploadLength: 4096 })
 
     // Upload some chunks
-    tus.patchUpload(upload.uploadId, {
+    await tus.patchUpload(upload.uploadId, {
       uploadOffset: 0,
       contentLength: 1024,
       contentType: 'application/offset+octet-stream',
       chunk: Buffer.alloc(1024),
     })
 
-    tus.patchUpload(upload.uploadId, {
+    await tus.patchUpload(upload.uploadId, {
       uploadOffset: 1024,
       contentLength: 1024,
       contentType: 'application/offset+octet-stream',
@@ -775,18 +790,18 @@ describe('TusUploadManager', () => {
     expect(progress.chunksUploaded).toBe(2)
   })
 
-  test('terminates upload', () => {
-    const upload = tus.createUpload({ uploadLength: 1024 })
+  test('terminates upload', async () => {
+    const upload = await tus.createUpload({ uploadLength: 1024 })
 
-    const terminated = tus.terminateUpload(upload.uploadId)
+    const terminated = await tus.terminateUpload(upload.uploadId)
     expect(terminated).toBe(true)
 
     const notFound = tus.getUpload(upload.uploadId)
     expect(notFound).toBeUndefined()
   })
 
-  test('gets chunk upload URLs', () => {
-    const upload = tus.createUpload({ uploadLength: 5 * 1024 * 1024 }) // 5MB
+  test('gets chunk upload URLs', async () => {
+    const upload = await tus.createUpload({ uploadLength: 5 * 1024 * 1024 }) // 5MB
 
     const chunkUrls = tus.getChunkUploadUrls(upload.uploadId)
 
@@ -796,13 +811,13 @@ describe('TusUploadManager', () => {
     expect(chunkUrls[4].offset).toBe(4 * 1024 * 1024)
   })
 
-  test('TUS handlers return correct headers', () => {
+  test('TUS handlers return correct headers', async () => {
     const optionsResult = handleTusOptions()
     expect(optionsResult.status).toBe(204)
     expect(optionsResult.headers['Tus-Resumable']).toBe('1.0.0')
     expect(optionsResult.headers['Tus-Extension']).toContain('creation')
 
-    const postResult = handleTusPost({ uploadLength: 1024 })
+    const postResult = await handleTusPost({ uploadLength: 1024 })
     expect(postResult.status).toBe(201)
     expect(postResult.headers.Location).toBeDefined()
     expect(postResult.upload.uploadId).toBeDefined()
@@ -812,13 +827,13 @@ describe('TusUploadManager', () => {
     expect(headResult.headers['Upload-Offset']).toBe('0')
     expect(headResult.headers['Upload-Length']).toBe('1024')
 
-    const deleteResult = handleTusDelete(postResult.upload.uploadId)
+    const deleteResult = await handleTusDelete(postResult.upload.uploadId)
     expect(deleteResult.status).toBe(204)
   })
 
-  test('gets active uploads', () => {
-    tus.createUpload({ uploadLength: 1024 })
-    tus.createUpload({ uploadLength: 2048 })
+  test('gets active uploads', async () => {
+    await tus.createUpload({ uploadLength: 1024 })
+    await tus.createUpload({ uploadLength: 2048 })
 
     const active = tus.getActiveUploads()
     expect(active.length).toBeGreaterThanOrEqual(2)

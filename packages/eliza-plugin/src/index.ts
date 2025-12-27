@@ -249,12 +249,12 @@ export const jejuPlugin: Plugin = {
 
 export default jejuPlugin
 
-// CQL Database Plugin - decentralized database for ElizaOS agents
+// EQLite Database Plugin - decentralized database for ElizaOS agents
 export {
-  CQL_SCHEMA,
-  CQLDatabaseAdapter,
   checkMigrationStatus,
-  cqlDatabasePlugin,
-  runCQLMigrations,
+  EQLITE_SCHEMA,
+  EQLiteDatabaseAdapter,
+  eqliteDatabasePlugin,
+  runEQLiteMigrations,
 } from './db'
 export { JejuService } from './service'

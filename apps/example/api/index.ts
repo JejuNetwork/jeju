@@ -249,10 +249,10 @@ const app = new Elysia()
 
     const dbHealthy = dbCheck.result === true
     services.push({
-      name: 'database (CQL)',
+      name: 'database (EQLite)',
       status: dbHealthy ? 'healthy' : 'unhealthy',
       latency: dbCheck.latency,
-      details: dbHealthy ? 'Connected' : 'Connection failed - CQL required',
+      details: dbHealthy ? 'Connected' : 'Connection failed - EQLite required',
     })
     if (!dbHealthy) unhealthyCount++
 
@@ -360,7 +360,7 @@ const app = new Elysia()
       agentCard: '/a2a/.well-known/agent-card.json',
     },
     services: {
-      database: 'CQL (CovenantSQL)',
+      database: 'EQLite (EQLite)',
       cache: 'Compute-based Redis',
       storage: 'IPFS via Storage Marketplace',
       secrets: 'KMS with MPC',

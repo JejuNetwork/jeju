@@ -2,7 +2,7 @@
  * Live Infrastructure Test Utilities
  *
  * Provides connections to real infrastructure for integration testing:
- * - CQL (CovenantSQL)
+ * - EQLite (EQLite)
  * - Redis
  * - EVM Chain
  * - Solana
@@ -17,12 +17,12 @@
  *
  *   describe('My Integration Tests', () => {
  *     beforeAll(async () => {
- *       await requireInfra(['cql', 'chain'])
+ *       await requireInfra(['eqlite', 'chain'])
  *     })
  *
- *     test('uses real CQL', async () => {
- *       const { cql } = await getLiveInfra()
- *       const result = await cql.query('SELECT 1')
+ *     test('uses real EQLite', async () => {
+ *       const { eqlite } = await getLiveInfra()
+ *       const result = await eqlite.query('SELECT 1')
  *       expect(result.rows.length).toBe(1)
  *     })
  *   })
@@ -32,7 +32,7 @@ import { z } from 'zod'
 
 // Infrastructure configuration from environment
 const InfraConfigSchema = z.object({
-  cqlEndpoint: z.string().default('http://127.0.0.1:4661'),
+  eqliteEndpoint: z.string().default('http://127.0.0.1:4661'),
   redisUrl: z.string().default('redis://127.0.0.1:6379'),
   l1RpcUrl: z.string().default('http://127.0.0.1:6545'),
   l2RpcUrl: z.string().default('http://127.0.0.1:6546'),
@@ -50,8 +50,8 @@ type InfraConfig = z.infer<typeof InfraConfigSchema>
 
 export function getInfraConfig(): InfraConfig {
   return InfraConfigSchema.parse({
-    cqlEndpoint:
-      process.env.CQL_ENDPOINT ?? process.env.CQL_BLOCK_PRODUCER_ENDPOINT,
+    eqliteEndpoint:
+      process.env.EQLITE_ENDPOINT ?? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT,
     redisUrl: process.env.REDIS_URL,
     l1RpcUrl: process.env.L1_RPC_URL,
     l2RpcUrl: process.env.L2_RPC_URL ?? process.env.JEJU_RPC_URL,
@@ -68,7 +68,7 @@ export function getInfraConfig(): InfraConfig {
 
 // Service availability status
 export interface InfraStatus {
-  cql: boolean
+  eqlite: boolean
   redis: boolean
   l1Chain: boolean
   l2Chain: boolean
@@ -83,16 +83,18 @@ export interface InfraStatus {
 }
 
 // Check individual service availability
-export async function checkCqlAvailable(config: InfraConfig): Promise<boolean> {
+export async function checkEqliteAvailable(
+  config: InfraConfig,
+): Promise<boolean> {
   try {
-    const response = await fetch(`${config.cqlEndpoint}/health`, {
+    const response = await fetch(`${config.eqliteEndpoint}/health`, {
       signal: AbortSignal.timeout(3000),
     })
     return response.ok
   } catch {
     // Try alternate health endpoint
     try {
-      const response = await fetch(`${config.cqlEndpoint}/v1/health`, {
+      const response = await fetch(`${config.eqliteEndpoint}/v1/health`, {
         signal: AbortSignal.timeout(3000),
       })
       return response.ok
@@ -106,19 +108,29 @@ export async function checkRedisAvailable(
   config: InfraConfig,
 ): Promise<boolean> {
   try {
-    // Use a simple Redis PING via HTTP if available, or just check connectivity
+    // Use TCP connection check to Redis
     const url = new URL(config.redisUrl)
     const host = url.hostname
     const port = parseInt(url.port || '6379', 10)
 
-    // Try to connect via TCP (simple check)
-    const response = await fetch(`http://${host}:${port}/`, {
-      signal: AbortSignal.timeout(1000),
+    // Use Bun.connect to check TCP connectivity
+    const socket = await Bun.connect({
+      hostname: host,
+      port: port,
+      socket: {
+        data: () => {},
+        open: () => {},
+        close: () => {},
+        error: () => {},
+        connectError: () => {},
+      },
     }).catch(() => null)
 
-    // Redis doesn't respond to HTTP, but if connection is refused, it's not running
-    // If we got ECONNREFUSED, return false. Otherwise, assume Redis is there.
-    return response !== null || true // Assume available unless we can detect otherwise
+    if (socket) {
+      socket.end()
+      return true
+    }
+    return false
   } catch {
     return false
   }
@@ -199,7 +211,7 @@ export async function getInfraStatus(): Promise<InfraStatus> {
   const config = getInfraConfig()
 
   const [
-    cql,
+    eqlite,
     l1Chain,
     l2Chain,
     solana,
@@ -211,7 +223,7 @@ export async function getInfraStatus(): Promise<InfraStatus> {
     messaging,
     teeAgent,
   ] = await Promise.all([
-    checkCqlAvailable(config),
+    checkEqliteAvailable(config),
     checkChainAvailable(config.l1RpcUrl),
     checkChainAvailable(config.l2RpcUrl),
     checkSolanaAvailable(config),
@@ -228,7 +240,7 @@ export async function getInfraStatus(): Promise<InfraStatus> {
   const redis = await checkRedisAvailable(config)
 
   return {
-    cql,
+    eqlite,
     redis,
     l1Chain,
     l2Chain,
@@ -257,7 +269,7 @@ export async function printInfraStatus(): Promise<void> {
 
 // Infrastructure requirement types
 export type InfraRequirement =
-  | 'cql'
+  | 'eqlite'
   | 'redis'
   | 'l1Chain'
   | 'l2Chain'
@@ -296,14 +308,29 @@ export async function requireInfra(
   }
 }
 
+// Convert object-style requirements to array
+export type InfraRequirementObject = Partial<Record<InfraRequirement, boolean>>
+
+function normalizeRequirements(
+  requirements: InfraRequirement[] | InfraRequirementObject,
+): InfraRequirement[] {
+  if (Array.isArray(requirements)) {
+    return requirements
+  }
+  return Object.entries(requirements)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => key as InfraRequirement)
+}
+
 /**
  * Check if required infrastructure is available (non-throwing)
+ * Accepts array or object-style requirements
  */
 export async function hasInfra(
-  requirements: InfraRequirement[],
+  requirements: InfraRequirement[] | InfraRequirementObject,
 ): Promise<boolean> {
   try {
-    await requireInfra(requirements)
+    await requireInfra(normalizeRequirements(requirements))
     return true
   } catch {
     return false
@@ -313,18 +340,18 @@ export async function hasInfra(
 // Live client instances for tests
 
 /**
- * Get live CQL client for testing
+ * Get live EQLite client for testing
  */
-export async function getLiveCqlClient(): Promise<CqlTestClient> {
+export async function getLiveEqliteClient(): Promise<EqliteTestClient> {
   const config = getInfraConfig()
-  await requireInfra(['cql'])
-  return new CqlTestClient(config.cqlEndpoint)
+  await requireInfra(['eqlite'])
+  return new EqliteTestClient(config.eqliteEndpoint)
 }
 
 /**
- * Simple CQL client for tests (no mocks)
+ * Simple EQLite client for tests (no mocks)
  */
-export class CqlTestClient {
+export class EqliteTestClient {
   constructor(private endpoint: string) {}
 
   async query<T = Record<string, unknown>>(
@@ -343,7 +370,7 @@ export class CqlTestClient {
     })
 
     if (!response.ok) {
-      throw new Error(`CQL query failed: ${response.status}`)
+      throw new Error(`EQLite query failed: ${response.status}`)
     }
 
     const data = await response.json()
@@ -370,7 +397,7 @@ export class CqlTestClient {
     })
 
     if (!response.ok) {
-      throw new Error(`CQL exec failed: ${response.status}`)
+      throw new Error(`EQLite exec failed: ${response.status}`)
     }
 
     const data = await response.json()
@@ -378,7 +405,7 @@ export class CqlTestClient {
   }
 
   async isHealthy(): Promise<boolean> {
-    return checkCqlAvailable(getInfraConfig())
+    return checkEqliteAvailable(getInfraConfig())
   }
 }
 
@@ -461,7 +488,7 @@ export function getChainConfig(chain: 'l1' | 'l2' = 'l2') {
 export interface LiveInfra {
   config: InfraConfig
   status: InfraStatus
-  cql: CqlTestClient
+  eqlite: EqliteTestClient
   chainConfig: ReturnType<typeof getChainConfig>
 }
 
@@ -475,7 +502,7 @@ export async function getLiveInfra(): Promise<LiveInfra> {
   return {
     config,
     status,
-    cql: new CqlTestClient(config.cqlEndpoint),
+    eqlite: new EqliteTestClient(config.eqliteEndpoint),
     chainConfig: getChainConfig('l2'),
   }
 }
@@ -499,10 +526,38 @@ export function skipWithoutInfra(
 
 /**
  * Test helper: create a describe block that skips if infra unavailable
+ *
+ * Usage:
+ *   describeWithInfra('My Tests', { redis: true, chain: true }, () => {
+ *     it('should work with Redis and chain', () => { ... })
+ *   })
+ *
+ * Note: When infra is not available, tests will show as skipped.
  */
-export async function describeWithInfra(
-  requirements: InfraRequirement[],
-): Promise<{ available: boolean; skip: boolean }> {
-  const available = await hasInfra(requirements)
-  return { available, skip: !available }
+export function describeWithInfra(
+  name: string,
+  requirements: InfraRequirement[] | InfraRequirementObject,
+  fn: () => void,
+): void {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const bunTest = require('bun:test')
+
+  const reqs = normalizeRequirements(requirements)
+
+  bunTest.describe(name, () => {
+    let infraAvailable: boolean | null = null
+
+    bunTest.beforeAll(async () => {
+      infraAvailable = await hasInfra(reqs)
+      if (!infraAvailable) {
+        console.log(`  ⚠ Skipping "${name}": requires ${reqs.join(', ')}`)
+      }
+    })
+
+    // Single skip marker test
+    bunTest.it.skip(`skipped: requires ${reqs.join(', ')}`, () => {})
+
+    // Run the actual test definitions
+    fn()
+  })
 }

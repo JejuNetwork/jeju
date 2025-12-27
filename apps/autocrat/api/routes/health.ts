@@ -9,7 +9,12 @@ import { toAddress } from '../../lib'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
 import { type FutarchyConfig, getFutarchyClient } from '../futarchy'
 import { getModerationSystem } from '../moderation'
-import { config, getOrchestrator, metricsData } from '../shared-state'
+import {
+  autocratConfig,
+  config,
+  getOrchestrator,
+  metricsData,
+} from '../shared-state'
 import { getTEEMode } from '../tee'
 
 const ZERO_ADDR = ZERO_ADDRESS
@@ -28,7 +33,7 @@ const erc8004Config: ERC8004Config = {
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
   validationRegistry: getContractAddr('registry', 'validation'),
-  operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+  operatorKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
 }
 const erc8004 = getERC8004Client(erc8004Config)
 
@@ -36,7 +41,7 @@ const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
   councilAddress: toAddress(config.contracts.council),
   predictionMarketAddress: ZERO_ADDR,
-  operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+  operatorKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
 }
 const futarchy = getFutarchyClient(futarchyConfig)
 

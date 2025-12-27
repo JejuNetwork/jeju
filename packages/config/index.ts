@@ -454,12 +454,12 @@ export function getServicesConfig(
     },
     monitoring: config.monitoring,
     crucible: config.crucible,
-    cql: {
+    eqlite: {
       blockProducer:
-        getEnvService('CQL_BLOCK_PRODUCER_ENDPOINT') ??
-        getEnvService('CQL_URL') ??
-        config.cql.blockProducer,
-      miner: getEnvService('CQL_MINER_ENDPOINT') ?? config.cql.miner,
+        getEnvService('EQLITE_BLOCK_PRODUCER_ENDPOINT') ??
+        getEnvService('EQLITE_URL') ??
+        config.eqlite.blockProducer,
+      miner: getEnvService('EQLITE_MINER_ENDPOINT') ?? config.eqlite.miner,
     },
     dws: {
       api:
@@ -591,16 +591,16 @@ export function getExplorerUrl(network?: NetworkType): string {
   return getServicesConfig(network).explorer
 }
 
-// Decentralized Services (CQL, DWS, Autocrat)
+// Decentralized Services (EQLite, DWS, Autocrat)
 
-/** Get CovenantSQL block producer URL - for decentralized database */
-export function getCQLUrl(network?: NetworkType): string {
-  return getServicesConfig(network).cql.blockProducer
+/** Get EQLite block producer URL - for decentralized database */
+export function getEQLiteUrl(network?: NetworkType): string {
+  return getServicesConfig(network).eqlite.blockProducer
 }
 
-/** Get CovenantSQL miner URL */
-export function getCQLMinerUrl(network?: NetworkType): string {
-  return getServicesConfig(network).cql.miner
+/** Get EQLite miner URL */
+export function getEQLiteMinerUrl(network?: NetworkType): string {
+  return getServicesConfig(network).eqlite.miner
 }
 
 /** Get DWS (Decentralized Web Services) API URL */
@@ -1274,6 +1274,291 @@ export function isTestMode(): boolean {
 
 // Bridge Configuration
 
+import {
+  type BridgeConfig,
+  BridgeConfigSchema,
+  type BridgeMode,
+} from './schemas'
+export type { BridgeConfig, BridgeMode }
+
+/** Bridge config cache keyed by mode */
+let bridgeConfigCache: Map<BridgeMode, BridgeConfig> | null = null
+
+/**
+ * Resolve environment variable placeholders in a string.
+ * Replaces ${VAR_NAME} with the value of process.env.VAR_NAME.
+ * Falls back to empty string if env var is not set.
+ */
+function resolveEnvPlaceholders(value: string): string {
+  return value.replace(/\$\{([^}]+)\}/g, (_, envVar: string) => {
+    return process.env[envVar] ?? ''
+  })
+}
+
+/**
+ * Recursively resolve environment variable placeholders in an object.
+ * Handles nested objects and arrays.
+ */
+function resolveEnvInObject<T>(obj: T): T {
+  if (typeof obj === 'string') {
+    return resolveEnvPlaceholders(obj) as T
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((item) => resolveEnvInObject(item)) as T
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const resolved: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj)) {
+      resolved[key] = resolveEnvInObject(value)
+    }
+    return resolved as T
+  }
+  return obj
+}
+
+/**
+ * Load bridge config for a specific mode.
+ * Resolves ${ENV_VAR} placeholders in the config using process.env.
+ *
+ * @param mode - Bridge mode: 'local', 'testnet', or 'mainnet'
+ * @returns Validated and env-resolved bridge configuration
+ *
+ * @example
+ * ```ts
+ * const config = await loadBridgeConfig('testnet');
+ * console.log(config.chains.evm[0].rpcUrl); // Resolved from ${BASE_SEPOLIA_RPC}
+ * ```
+ */
+export async function loadBridgeConfig(
+  mode: BridgeMode,
+): Promise<BridgeConfig> {
+  if (!bridgeConfigCache) {
+    bridgeConfigCache = new Map()
+  }
+
+  const cached = bridgeConfigCache.get(mode)
+  if (cached) {
+    return cached
+  }
+
+  // Import the JSON file dynamically based on mode
+  const configPath = `@jejunetwork/bridge/config/${mode}.json`
+  let rawConfig: unknown
+
+  // Try to load from bridge package config, fall back to inline defaults
+  try {
+    const mod = await import(configPath)
+    rawConfig = mod.default ?? mod
+  } catch {
+    // If bridge package isn't available, use default configs
+    rawConfig = getDefaultBridgeConfig(mode)
+  }
+
+  // Resolve environment variable placeholders
+  const resolvedConfig = resolveEnvInObject(rawConfig)
+
+  // Validate with Zod schema
+  const config = BridgeConfigSchema.parse(resolvedConfig)
+  bridgeConfigCache.set(mode, config)
+
+  return config
+}
+
+/**
+ * Get default bridge config for a mode (used when bridge package config not found).
+ * These match the JSON files in packages/bridge/config/.
+ */
+function getDefaultBridgeConfig(mode: BridgeMode): unknown {
+  const baseConfig = {
+    components: {
+      relayer: true,
+      prover: true,
+      healthMonitor: true,
+    },
+    ports: {
+      relayer: 8081,
+      prover: 8082,
+      health: 8083,
+    },
+  }
+
+  if (mode === 'local') {
+    return {
+      ...baseConfig,
+      mode: 'local',
+      components: { ...baseConfig.components, beaconWatcher: false },
+      chains: {
+        evm: [
+          {
+            chainId: 31337,
+            name: 'Local EVM (Anvil)',
+            rpcUrl: 'http://127.0.0.1:6545',
+            bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+            lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+          },
+        ],
+        solana: {
+          rpcUrl: 'http://127.0.0.1:8899',
+          bridgeProgramId: 'TokenBridge11111111111111111111111111111111',
+          evmLightClientProgramId: 'EVMLightClient1111111111111111111111111111',
+        },
+      },
+      tee: {
+        endpoint: 'http://127.0.0.1:8080',
+        maxBatchSize: 10,
+        batchTimeoutMs: 30000,
+      },
+      prover: {
+        mode: 'self-hosted',
+        workers: 2,
+        maxMemoryMb: 8192,
+        timeoutMs: 300000,
+        useMockProofs: true,
+      },
+    }
+  }
+
+  if (mode === 'testnet') {
+    return {
+      ...baseConfig,
+      mode: 'testnet',
+      components: { ...baseConfig.components, beaconWatcher: true },
+      chains: {
+        evm: [
+          {
+            chainId: 84532,
+            name: 'Base Sepolia',
+            rpcUrl: process.env.BASE_SEPOLIA_RPC ?? 'https://sepolia.base.org',
+            beaconUrl:
+              process.env.BEACON_URL ?? 'https://lodestar-sepolia.chainsafe.io',
+            bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
+            lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
+          },
+        ],
+        solana: {
+          network: 'devnet',
+          rpcUrl:
+            process.env.SOLANA_DEVNET_RPC ?? 'https://api.devnet.solana.com',
+          bridgeProgramId: process.env.BRIDGE_PROGRAM_ID ?? '',
+          evmLightClientProgramId:
+            process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
+        },
+      },
+      tee: {
+        endpoint: process.env.TEE_ENDPOINT ?? '',
+        maxBatchSize: 20,
+        batchTimeoutMs: 60000,
+      },
+      prover: {
+        mode: 'self-hosted',
+        workers: 4,
+        maxMemoryMb: 16384,
+        timeoutMs: 600000,
+        useMockProofs: false,
+      },
+    }
+  }
+
+  // mainnet
+  return {
+    ...baseConfig,
+    mode: 'mainnet',
+    components: { ...baseConfig.components, beaconWatcher: true },
+    chains: {
+      evm: [
+        {
+          chainId: 1,
+          name: 'Ethereum',
+          rpcUrl: process.env.ETH_RPC ?? '',
+          beaconUrl: process.env.BEACON_URL ?? '',
+          bridgeAddress: process.env.ETH_BRIDGE_ADDRESS ?? '',
+          lightClientAddress: process.env.ETH_LIGHT_CLIENT_ADDRESS ?? '',
+        },
+        {
+          chainId: 8453,
+          name: 'Base',
+          rpcUrl: process.env.BASE_RPC ?? 'https://mainnet.base.org',
+          bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
+          lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
+        },
+      ],
+      solana: {
+        network: 'mainnet-beta',
+        rpcUrl: process.env.SOLANA_RPC ?? 'https://api.mainnet-beta.solana.com',
+        bridgeProgramId: process.env.BRIDGE_PROGRAM_ID ?? '',
+        evmLightClientProgramId: process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
+      },
+    },
+    tee: {
+      endpoint: process.env.TEE_ENDPOINT ?? '',
+      maxBatchSize: 50,
+      batchTimeoutMs: 120000,
+      requireRealTEE: true,
+    },
+    prover: {
+      mode: 'self-hosted',
+      workers: 8,
+      maxMemoryMb: 32768,
+      timeoutMs: 900000,
+      useMockProofs: false,
+    },
+    security: {
+      multisigRequired: true,
+      minValidators: 3,
+      validatorThreshold: 2,
+    },
+  }
+}
+
+/**
+ * Get bridge mode from environment or CLI argument.
+ * Checks BRIDGE_MODE env var first, defaults to 'local'.
+ */
+export function getBridgeMode(): BridgeMode {
+  const mode = process.env.BRIDGE_MODE
+  if (mode === 'local' || mode === 'testnet' || mode === 'mainnet') {
+    return mode
+  }
+  // Default to local for development
+  return 'local'
+}
+
+/**
+ * Clear bridge config cache (useful for testing).
+ */
+export function clearBridgeConfigCache(): void {
+  bridgeConfigCache = null
+}
+
+/**
+ * Get bridge private key for relayer transactions.
+ * - Local mode: Uses well-known Anvil test key (safe for local development only)
+ * - Testnet/Mainnet: Requires PRIVATE_KEY environment variable
+ *
+ * @param mode - Bridge mode
+ * @throws Error if PRIVATE_KEY not set for testnet/mainnet
+ */
+export function getBridgePrivateKey(mode: BridgeMode): string {
+  const envKey = process.env.PRIVATE_KEY
+
+  if (envKey) {
+    return envKey
+  }
+
+  // SECURITY: Only allow default test key in local mode
+  if (mode === 'local') {
+    // This is the well-known first Anvil/Hardhat test key
+    // NEVER use this in testnet or mainnet
+    return '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  }
+
+  throw new Error(
+    `PRIVATE_KEY environment variable is required for ${mode} mode. ` +
+      `Set it in your .env file or environment. ` +
+      `NEVER commit private keys to source control.`,
+  )
+}
+
 /** Get XLP private key (secret - env var only) */
 export function getXlpPrivateKey(): string | undefined {
   return process.env.XLP_PRIVATE_KEY
@@ -1774,34 +2059,34 @@ export function getLogLevel(): string {
   return process.env.LOG_LEVEL ?? 'info'
 }
 
-/** Get CQL private key (secret - env var only) */
-export function getCqlPrivateKey(): string | undefined {
-  return process.env.CQL_PRIVATE_KEY
+/** Get EQLite private key (secret - env var only) */
+export function getEqlitePrivateKey(): string | undefined {
+  return process.env.EQLITE_PRIVATE_KEY
 }
 
-/** Get CQL database ID */
-export function getCqlDatabaseId(): string | undefined {
-  return process.env.CQL_DATABASE_ID
+/** Get EQLite database ID */
+export function getEqliteDatabaseId(): string | undefined {
+  return process.env.EQLITE_DATABASE_ID
 }
 
-/** Get CQL timeout */
-export function getCqlTimeout(): string | undefined {
-  return process.env.CQL_TIMEOUT
+/** Get EQLite timeout */
+export function getEqliteTimeout(): string | undefined {
+  return process.env.EQLITE_TIMEOUT
 }
 
-/** Check if CQL debug is enabled */
-export function isCqlDebug(): boolean {
-  return process.env.CQL_DEBUG === 'true'
+/** Check if EQLite debug is enabled */
+export function isEqliteDebug(): boolean {
+  return process.env.EQLITE_DEBUG === 'true'
 }
 
-/** Get CQL port */
-export function getCqlPort(): number {
-  return parseInt(process.env.CQL_PORT ?? process.env.PORT ?? '4400', 10)
+/** Get EQLite port */
+export function getEqlitePort(): number {
+  return parseInt(process.env.EQLITE_PORT ?? process.env.PORT ?? '4400', 10)
 }
 
-/** Get CQL data directory */
-export function getCqlDataDir(): string {
-  return process.env.CQL_DATA_DIR ?? './.data/cql'
+/** Get EQLite data directory */
+export function getEqliteDataDir(): string {
+  return process.env.EQLITE_DATA_DIR ?? './.data/eqlite'
 }
 
 // Auth Configuration

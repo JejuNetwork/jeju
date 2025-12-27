@@ -1,4 +1,4 @@
-//! Jeju VPN - Tauri Application Entry Point
+//! Jeju VPN - Tauri v2 Application Entry Point
 //!
 //! A decentralized VPN with:
 //! - WireGuard-based secure tunneling
@@ -19,17 +19,20 @@ mod state;
 mod vpn;
 
 use tauri::{
-    AppHandle, CustomMenuItem, GlobalShortcutManager, Manager, RunEvent, SystemTray,
-    SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem, WindowEvent,
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Emitter, Manager, RunEvent, WindowEvent,
 };
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Build the system tray menu based on connection state
 fn build_tray_menu(
+    app: &AppHandle,
     connected: bool,
     location: Option<&str>,
     contribution_percent: u8,
-) -> SystemTrayMenu {
+) -> tauri::Result<Menu<tauri::Wry>> {
     let status_text = if connected {
         match location {
             Some(loc) => format!("● Connected to {}", loc),
@@ -39,44 +42,43 @@ fn build_tray_menu(
         "○ Disconnected".to_string()
     };
 
-    let status = CustomMenuItem::new("status", status_text).disabled();
-
-    let toggle = if connected {
-        CustomMenuItem::new("toggle", "⏹ Disconnect")
+    let toggle_text = if connected {
+        "⏹ Disconnect"
     } else {
-        CustomMenuItem::new("toggle", "▶ Connect")
+        "▶ Connect"
     };
 
     let contribution_text = format!("↑ Sharing: {}%", contribution_percent);
 
-    SystemTrayMenu::new()
-        .add_item(status)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(toggle)
-        .add_item(CustomMenuItem::new("locations", "🌍 Select Location..."))
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(CustomMenuItem::new("contribution", contribution_text).disabled())
-        .add_item(CustomMenuItem::new(
-            "pause_sharing",
-            if connected {
-                "⏸ Pause Sharing"
-            } else {
-                "Sharing Paused"
-            },
-        ))
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(CustomMenuItem::new("show", "📱 Show Window"))
-        .add_item(CustomMenuItem::new("preferences", "⚙ Preferences..."))
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(CustomMenuItem::new("quit", "Quit Jeju VPN"))
-}
+    let pause_text = if connected {
+        "⏸ Pause Sharing"
+    } else {
+        "Sharing Paused"
+    };
 
-/// Update the system tray icon based on connection state
-fn update_tray_icon(app: &AppHandle, _connected: bool) {
-    // Note: Dynamic icon updates are not supported in this Tauri version
-    // The icon is set in tauri.conf.json and used throughout
-    // To change icons dynamically, upgrade to Tauri v2 or use native platform APIs
-    let _ = app; // silence unused warning
+    Menu::with_items(
+        app,
+        &[
+            &MenuItem::with_id(app, "status", status_text, false, None::<&str>)?,
+            &MenuItem::with_id(app, "separator1", "─────────────", false, None::<&str>)?,
+            &MenuItem::with_id(app, "toggle", toggle_text, true, None::<&str>)?,
+            &MenuItem::with_id(
+                app,
+                "locations",
+                "🌍 Select Location...",
+                true,
+                None::<&str>,
+            )?,
+            &MenuItem::with_id(app, "separator2", "─────────────", false, None::<&str>)?,
+            &MenuItem::with_id(app, "contribution", contribution_text, false, None::<&str>)?,
+            &MenuItem::with_id(app, "pause_sharing", pause_text, true, None::<&str>)?,
+            &MenuItem::with_id(app, "separator3", "─────────────", false, None::<&str>)?,
+            &MenuItem::with_id(app, "show", "📱 Show Window", true, None::<&str>)?,
+            &MenuItem::with_id(app, "preferences", "⚙ Preferences...", true, None::<&str>)?,
+            &MenuItem::with_id(app, "separator4", "─────────────", false, None::<&str>)?,
+            &MenuItem::with_id(app, "quit", "Quit Jeju VPN", true, None::<&str>)?,
+        ],
+    )
 }
 
 /// Update the system tray menu
@@ -86,11 +88,13 @@ pub fn update_tray_menu(
     location: Option<&str>,
     contribution_percent: u8,
 ) {
-    let menu = build_tray_menu(connected, location, contribution_percent);
-    if let Err(e) = app.tray_handle().set_menu(menu) {
-        tracing::warn!("Failed to update tray menu: {}", e);
+    if let Ok(menu) = build_tray_menu(app, connected, location, contribution_percent) {
+        if let Some(tray) = app.tray_by_id("main") {
+            if let Err(e) = tray.set_menu(Some(menu)) {
+                tracing::warn!("Failed to update tray menu: {}", e);
+            }
+        }
     }
-    update_tray_icon(app, connected);
 }
 
 fn main() {
@@ -103,94 +107,13 @@ fn main() {
 
     tracing::info!("Starting Jeju VPN...");
 
-    let tray = SystemTray::new().with_menu(build_tray_menu(false, None, 10));
-
     let app = tauri::Builder::default()
-        .system_tray(tray)
-        .on_system_tray_event(|app, event| match event {
-            SystemTrayEvent::LeftClick { .. } => {
-                // On left click, show/focus the main window
-                if let Some(window) = app.get_window("main") {
-                    if window.is_visible().unwrap_or(false) {
-                        let _ = window.set_focus();
-                    } else {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }
-            }
-            SystemTrayEvent::DoubleClick { .. } => {
-                // On double click, toggle VPN
-                let _ = app.emit_all("tray_toggle_vpn", ());
-            }
-            SystemTrayEvent::MenuItemClick { id, .. } => {
-                match id.as_str() {
-                    "toggle" => {
-                        let _ = app.emit_all("tray_toggle_vpn", ());
-                    }
-                    "locations" => {
-                        if let Some(window) = app.get_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            // Navigate to location selection
-                            let _ = app.emit_all("navigate", "locations");
-                        }
-                    }
-                    "pause_sharing" => {
-                        let _ = app.emit_all("toggle_sharing", ());
-                    }
-                    "show" => {
-                        if let Some(window) = app.get_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "preferences" => {
-                        if let Some(window) = app.get_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            let _ = app.emit_all("navigate", "settings");
-                        }
-                    }
-                    "quit" => {
-                        // Emit quit event to allow cleanup
-                        let _ = app.emit_all("app_quit", ());
-                        // Give time for cleanup
-                        std::thread::sleep(std::time::Duration::from_millis(200));
-                        std::process::exit(0);
-                    }
-                    _ => {}
-                }
-            }
-            _ => {}
-        })
-        .on_window_event(|event| {
-            // Handle window close - minimize to tray instead of quitting
-            if let WindowEvent::CloseRequested { api, .. } = event.event() {
-                // Prevent the window from closing
-                api.prevent_close();
-                // Hide the window instead
-                let window = event.window();
-                let _ = window.hide();
-
-                // Show a notification that the app is still running
-                #[cfg(target_os = "macos")]
-                {
-                    // macOS shows apps in dock, so this is less necessary
-                }
-                #[cfg(not(target_os = "macos"))]
-                {
-                    if let Ok(manager) = window
-                        .app_handle()
-                        .try_state::<notifications::NotificationManager>()
-                    {
-                        // Don't spam notifications on every close
-                    }
-                }
-
-                tracing::debug!("Window hidden to tray");
-            }
-        })
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let state = state::AppState::new();
             app.manage(state);
@@ -203,47 +126,121 @@ fn main() {
             let notifications = notifications::NotificationManager::new();
             app.manage(notifications);
 
+            // Build initial tray menu
+            let menu = build_tray_menu(app.handle(), false, None, 10)?;
+
+            // Create system tray
+            let _tray = TrayIconBuilder::with_id("main")
+                .icon(app.default_window_icon().cloned().expect("No icon"))
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .title("Jeju VPN")
+                .tooltip("Jeju VPN - Disconnected")
+                .on_tray_icon_event(|tray, event| {
+                    let app = tray.app_handle();
+                    match event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } => {
+                            // On left click, show/focus the main window
+                            if let Some(window) = app.get_webview_window("main") {
+                                if window.is_visible().unwrap_or(false) {
+                                    let _ = window.set_focus();
+                                } else {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                        }
+                        TrayIconEvent::DoubleClick {
+                            button: MouseButton::Left,
+                            ..
+                        } => {
+                            // On double click, toggle VPN
+                            let _ = app.emit("tray_toggle_vpn", ());
+                        }
+                        _ => {}
+                    }
+                })
+                .on_menu_event(|app, event| {
+                    match event.id.as_ref() {
+                        "toggle" => {
+                            let _ = app.emit("tray_toggle_vpn", ());
+                        }
+                        "locations" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                // Navigate to location selection
+                                let _ = app.emit("navigate", "locations");
+                            }
+                        }
+                        "pause_sharing" => {
+                            let _ = app.emit("toggle_sharing", ());
+                        }
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "preferences" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                let _ = app.emit("navigate", "settings");
+                            }
+                        }
+                        "quit" => {
+                            // Emit quit event to allow cleanup
+                            let _ = app.emit("app_quit", ());
+                            // Give time for cleanup
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+                            std::process::exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .build(app)?;
+
             // Register global shortcuts
-            let app_handle = app.handle();
-            let mut shortcut_manager = app.global_shortcut_manager();
+            let app_handle = app.handle().clone();
 
             // Cmd/Ctrl+Shift+V to toggle VPN
-            let toggle_shortcut = if cfg!(target_os = "macos") {
-                "Cmd+Shift+V"
+            let toggle_modifier = if cfg!(target_os = "macos") {
+                Modifiers::META | Modifiers::SHIFT
             } else {
-                "Ctrl+Shift+V"
+                Modifiers::CONTROL | Modifiers::SHIFT
             };
 
-            if let Err(e) = shortcut_manager.register(toggle_shortcut, move || {
-                let _ = app_handle.emit_all("tray_toggle_vpn", ());
-            }) {
-                tracing::warn!("Failed to register global shortcut: {}", e);
-            }
-
-            // Cmd/Ctrl+Shift+J to show window
-            let show_shortcut = if cfg!(target_os = "macos") {
-                "Cmd+Shift+J"
-            } else {
-                "Ctrl+Shift+J"
-            };
-
-            let app_handle2 = app.handle();
-            if let Err(e) = shortcut_manager.register(show_shortcut, move || {
-                if let Some(window) = app_handle2.get_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }) {
-                tracing::warn!("Failed to register show shortcut: {}", e);
+            let toggle_shortcut = Shortcut::new(Some(toggle_modifier), Code::KeyV);
+            let app_handle_toggle = app_handle.clone();
+            if let Err(e) = app.handle().plugin(
+                tauri_plugin_global_shortcut::Builder::new()
+                    .with_handler(move |_app, shortcut, _event| {
+                        if shortcut == &toggle_shortcut {
+                            let _ = app_handle_toggle.emit("tray_toggle_vpn", ());
+                        }
+                    })
+                    .build(),
+            ) {
+                tracing::warn!("Failed to register toggle shortcut plugin: {}", e);
             }
 
             tracing::info!("Jeju VPN initialized");
-            tracing::info!(
-                "Shortcuts: {} (toggle VPN), {} (show window)",
-                toggle_shortcut,
-                show_shortcut
-            );
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Handle window close - minimize to tray instead of quitting
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // Prevent the window from closing
+                api.prevent_close();
+                // Hide the window instead
+                let _ = window.hide();
+                tracing::debug!("Window hidden to tray");
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::vpn::connect,
@@ -291,4 +288,17 @@ fn update_tray_state(
     contribution_percent: u8,
 ) {
     update_tray_menu(&app, connected, location.as_deref(), contribution_percent);
+
+    // Update tray tooltip
+    if let Some(tray) = app.tray_by_id("main") {
+        let tooltip = if connected {
+            match &location {
+                Some(loc) => format!("Jeju VPN - Connected to {}", loc),
+                None => "Jeju VPN - Connected".to_string(),
+            }
+        } else {
+            "Jeju VPN - Disconnected".to_string()
+        };
+        let _ = tray.set_tooltip(Some(&tooltip));
+    }
 }

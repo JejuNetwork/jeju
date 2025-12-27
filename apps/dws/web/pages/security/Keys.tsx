@@ -56,9 +56,6 @@ export default function KeysPage() {
       >
         <div>
           <h1 className="page-title">Key Management (KMS)</h1>
-          <p className="page-subtitle">
-            Decentralized threshold signing with TEE-secured key shares
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -131,8 +128,7 @@ export default function KeysPage() {
         ) : keys.length === 0 ? (
           <div className="empty-state">
             <Key size={48} />
-            <h3>No keys created</h3>
-            <p>Create your first threshold signing key</p>
+            <h3>No keys yet</h3>
             <button
               type="button"
               className="btn btn-primary"

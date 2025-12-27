@@ -1,13 +1,13 @@
 /**
  * Unified API server entry point
  *
- * Modes: postgres (full), cql-only (read), degraded (minimal)
+ * Modes: postgres (full), eqlite-only (read), degraded (minimal)
  */
 
 import { startA2AServer } from './a2a-server'
+import { config } from './config'
 import { startMCPServer } from './mcp-server'
 import { startRestServer } from './rest-server'
-import { getCQLSync } from './utils/cql-sync'
 import {
   closeDataSource,
   getDataSourceWithRetry,
@@ -16,6 +16,7 @@ import {
   setSchemaVerified,
   verifyDatabaseSchema,
 } from './utils/db'
+import { getEQLiteSync } from './utils/eqlite-sync'
 
 async function main(): Promise<void> {
   console.log('🚀 Starting Indexer API servers...')
@@ -25,8 +26,8 @@ async function main(): Promise<void> {
 
   let schemaReady = false
 
-  // Initialize PostgreSQL if not in CQL-only mode
-  if (mode !== 'cql-only') {
+  // Initialize PostgreSQL if not in EQLite-only mode
+  if (mode !== 'eqlite-only') {
     const dataSource = await getDataSourceWithRetry(3, 2000)
 
     if (dataSource) {
@@ -43,11 +44,11 @@ async function main(): Promise<void> {
         )
       }
 
-      if (schemaReady && process.env.CQL_SYNC_ENABLED === 'true') {
-        const cqlSync = getCQLSync()
-        await cqlSync.initialize(dataSource)
-        await cqlSync.start()
-        console.log('[Indexer] CQL sync enabled')
+      if (schemaReady && config.eqliteSyncEnabled) {
+        const eqliteSync = getEQLiteSync()
+        await eqliteSync.initialize(dataSource)
+        await eqliteSync.start()
+        console.log('[Indexer] EQLite sync enabled')
       }
     }
   }
@@ -75,9 +76,9 @@ async function main(): Promise<void> {
 async function shutdown(): Promise<void> {
   console.log('\n[Indexer] Shutting down...')
 
-  // Stop CQL sync
-  const cqlSync = getCQLSync()
-  await cqlSync.stop()
+  // Stop EQLite sync
+  const eqliteSync = getEQLiteSync()
+  await eqliteSync.stop()
 
   // Close PostgreSQL
   await closeDataSource()
@@ -92,7 +93,7 @@ main().catch((error: Error) => {
   console.error('[Indexer] Startup failed:', error.message)
 
   // Log more details in development
-  if (process.env.NODE_ENV !== 'production') {
+  if (!config.isProduction) {
     console.error(error.stack)
   }
 

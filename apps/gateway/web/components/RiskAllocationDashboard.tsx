@@ -258,7 +258,7 @@ function TierCard({
       </button>
 
       {isExpanded && (
-        <div>
+        <div id={`tier-${config.tier}-panel`}>
           <div
             className="grid grid-2"
             style={{ gap: '1rem', marginBottom: '1.5rem' }}
@@ -514,7 +514,7 @@ export default function RiskAllocationDashboard() {
           Risk-Based Liquidity
         </h2>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Connect your wallet to manage liquidity allocations
+          Connect your wallet to allocate liquidity across risk tiers
         </p>
       </div>
     )
@@ -534,7 +534,7 @@ export default function RiskAllocationDashboard() {
           }}
         >
           <p style={{ color: 'var(--warning)', margin: 0 }}>
-            RiskSleeve contract not configured. Please deploy first.
+            Risk allocation contracts need to be deployed first
           </p>
         </div>
       </div>

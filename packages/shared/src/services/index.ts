@@ -2,7 +2,7 @@
  * Decentralized Services
  *
  * Unified service layer for Jeju dApps:
- * - Database (CQL)
+ * - Database (EQLite)
  * - Cache (Compute Redis)
  * - Storage (IPFS)
  * - KMS (Key Management)

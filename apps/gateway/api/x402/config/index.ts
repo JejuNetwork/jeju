@@ -8,7 +8,8 @@
 
 import { getServiceName } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Address } from 'viem'
+import type { Address, Hex } from 'viem'
+import { config as gatewayConfig } from '../../config'
 import { getKMSSigner } from '../../../lib/kms-signer'
 import { getPrimaryChainConfig } from '../lib/chains'
 import { clearClientCache } from '../services/settler'
@@ -35,42 +36,47 @@ export interface FacilitatorConfig {
   kmsServiceId: string
 }
 
-function getEnvAddress(key: string, defaultValue: Address): Address {
-  const value = process.env[key]
-  if (!value || !value.startsWith('0x') || value.length !== 42)
+function getEnvAddress(
+  configValue: string | undefined,
+  defaultValue: Address,
+): Address {
+  if (
+    !configValue ||
+    !configValue.startsWith('0x') ||
+    configValue.length !== 42
+  )
     return defaultValue
-  return value as Address // Validated above
+  return configValue as Address
 }
 
 export function getConfig(): FacilitatorConfig {
   const chainConfig = getPrimaryChainConfig()
-  const port = parseInt(
-    process.env.FACILITATOR_PORT ?? process.env.PORT ?? '3402',
-    10,
-  )
+  const port = gatewayConfig.facilitatorPort
 
   return {
     port,
-    host: process.env.HOST ?? '0.0.0.0',
-    environment:
-      process.env.NODE_ENV === 'production' ? 'production' : 'development',
+    host: gatewayConfig.host,
+    environment: gatewayConfig.isProduction ? 'production' : 'development',
     chainId: chainConfig.chainId,
     network: chainConfig.network,
     rpcUrl: chainConfig.rpcUrl,
     facilitatorAddress: getEnvAddress(
-      'X402_FACILITATOR_ADDRESS',
+      gatewayConfig.facilitatorAddress,
       chainConfig.facilitator,
     ),
-    usdcAddress: getEnvAddress('JEJU_USDC_ADDRESS', chainConfig.usdc),
+    usdcAddress: getEnvAddress(gatewayConfig.usdcAddress, chainConfig.usdc),
     // SECURITY: No private key - use KMS service ID
     privateKey: null,
-    protocolFeeBps: parseInt(process.env.PROTOCOL_FEE_BPS ?? '50', 10),
-    feeRecipient: getEnvAddress('FEE_RECIPIENT_ADDRESS', ZERO_ADDRESS),
-    maxPaymentAge: parseInt(process.env.MAX_PAYMENT_AGE ?? '300', 10),
-    minAmount: BigInt(process.env.MIN_PAYMENT_AMOUNT ?? '1'),
+    protocolFeeBps: gatewayConfig.protocolFeeBps,
+    feeRecipient: getEnvAddress(
+      gatewayConfig.feeRecipientAddress,
+      ZERO_ADDRESS,
+    ),
+    maxPaymentAge: gatewayConfig.maxPaymentAge,
+    minAmount: gatewayConfig.minPaymentAmount,
     serviceName: getServiceName('x402 Facilitator'),
     serviceVersion: '1.0.0',
-    serviceUrl: process.env.FACILITATOR_URL ?? `http://localhost:${port}`,
+    serviceUrl: gatewayConfig.facilitatorUrl,
     // KMS service ID for signing
     kmsServiceId:
       process.env.X402_FACILITATOR_SERVICE_ID ?? 'x402-facilitator',

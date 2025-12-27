@@ -1,7 +1,7 @@
 /**
- * DAO Discovery Page - The new home page
+ * DAO Discovery Page
  *
- * Lists all DAOs on the network with search, filter, and create functionality.
+ * Bright, engaging landing page to discover and explore AI-powered DAOs.
  */
 
 import {
@@ -12,41 +12,79 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Rocket,
   Search,
   Shield,
+  Sparkles,
   Users,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDAOs } from '../hooks/useDAO'
 import type { DAOListItem, DAOStatus } from '../types/dao'
+
+const STATUS_STYLES: Record<
+  DAOStatus,
+  { bg: string; text: string; label: string }
+> = {
+  active: {
+    bg: 'rgba(16, 185, 129, 0.12)',
+    text: 'var(--color-success)',
+    label: 'Active',
+  },
+  pending: {
+    bg: 'rgba(245, 158, 11, 0.12)',
+    text: 'var(--color-warning)',
+    label: 'Pending',
+  },
+  paused: {
+    bg: 'rgba(148, 163, 184, 0.12)',
+    text: 'var(--text-tertiary)',
+    label: 'Paused',
+  },
+  archived: {
+    bg: 'rgba(239, 68, 68, 0.12)',
+    text: 'var(--color-error)',
+    label: 'Archived',
+  },
+}
 
 interface DAOCardProps {
   dao: DAOListItem
 }
 
 function DAOCard({ dao }: DAOCardProps) {
-  const statusColors: Record<DAOStatus, string> = {
-    active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    pending: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    paused: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-    archived: 'bg-red-500/20 text-red-400 border-red-500/30',
-  }
+  const statusStyle = STATUS_STYLES[dao.status]
 
   return (
     <Link
       to={`/dao/${dao.daoId}`}
-      className="group block bg-slate-900/50 border border-slate-700/50 rounded-2xl p-5 hover:border-violet-500/50 hover:bg-slate-800/50 transition-all duration-300"
+      className="group block rounded-2xl p-5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+      style={
+        {
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-card)',
+          '--tw-ring-color': 'var(--color-primary)',
+        } as React.CSSProperties
+      }
     >
       <div className="flex items-start gap-4">
         {/* DAO Avatar */}
         <div className="relative shrink-0">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-2xl font-bold text-white shadow-lg shadow-violet-500/20">
+          <div
+            className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold text-white shadow-lg transition-transform duration-300 group-hover:scale-105"
+            style={{ background: 'var(--gradient-secondary)' }}
+          >
             {dao.displayName.charAt(0).toUpperCase()}
           </div>
           {dao.isNetworkDAO && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center">
-              <Shield className="w-3 h-3 text-amber-950" />
+            <div
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'var(--color-warning)' }}
+              title="Network DAO"
+            >
+              <Shield className="w-3 h-3 text-white" aria-hidden="true" />
             </div>
           )}
         </div>
@@ -54,48 +92,76 @@ function DAOCard({ dao }: DAOCardProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-slate-100 group-hover:text-violet-300 transition-colors truncate">
+            <div className="min-w-0">
+              <h3
+                className="font-semibold truncate transition-colors group-hover:text-[var(--color-primary)]"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {dao.displayName}
               </h3>
-              <p className="text-sm text-slate-500">@{dao.name}</p>
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                @{dao.name}
+              </p>
             </div>
             <span
-              className={`px-2 py-0.5 text-xs font-medium rounded-full border ${statusColors[dao.status]}`}
+              className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full"
+              style={{
+                backgroundColor: statusStyle.bg,
+                color: statusStyle.text,
+              }}
             >
-              {dao.status}
+              {statusStyle.label}
             </span>
           </div>
 
-          <p className="mt-2 text-sm text-slate-400 line-clamp-2">
+          <p
+            className="mt-2 text-sm line-clamp-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             {dao.description}
           </p>
 
           {/* CEO Info */}
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-              <Crown className="w-3 h-3 text-white" />
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center"
+              style={{ background: 'var(--gradient-accent)' }}
+            >
+              <Crown className="w-3 h-3 text-white" aria-hidden="true" />
             </div>
-            <span className="text-slate-300">{dao.ceoName}</span>
-            <span className="text-slate-600">•</span>
-            <span className="text-slate-500">
+            <span style={{ color: 'var(--text-primary)' }}>{dao.ceoName}</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>
               {dao.boardMemberCount} board members
             </span>
           </div>
 
           {/* Stats */}
           <div className="mt-4 flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Building2 className="w-3.5 h-3.5" />
+            <div
+              className="flex items-center gap-1.5"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <Building2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{dao.proposalCount} proposals</span>
             </div>
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Users className="w-3.5 h-3.5" />
+            <div
+              className="flex items-center gap-1.5"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <Users className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{dao.memberCount.toLocaleString()} members</span>
             </div>
             {dao.activeProposalCount > 0 && (
-              <div className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div
+                className="flex items-center gap-1.5"
+                style={{ color: 'var(--color-success)' }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ backgroundColor: 'var(--color-success)' }}
+                  aria-hidden="true"
+                />
                 <span>{dao.activeProposalCount} active</span>
               </div>
             )}
@@ -107,13 +173,20 @@ function DAOCard({ dao }: DAOCardProps) {
               {dao.tags.slice(0, 4).map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 text-xs bg-slate-800 text-slate-400 rounded-md"
+                  className="px-2 py-0.5 text-xs rounded-md"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-tertiary)',
+                  }}
                 >
                   {tag}
                 </span>
               ))}
               {dao.tags.length > 4 && (
-                <span className="px-2 py-0.5 text-xs text-slate-500">
+                <span
+                  className="px-2 py-0.5 text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   +{dao.tags.length - 4}
                 </span>
               )}
@@ -127,22 +200,101 @@ function DAOCard({ dao }: DAOCardProps) {
 
 function EmptyState() {
   return (
-    <div className="text-center py-16">
-      <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-800/50 border border-slate-700 flex items-center justify-center">
-        <Building2 className="w-10 h-10 text-slate-600" />
+    <div className="text-center py-16 animate-in">
+      <div
+        className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <Rocket
+          className="w-10 h-10"
+          style={{ color: 'var(--text-tertiary)' }}
+        />
       </div>
-      <h3 className="text-lg font-medium text-slate-300 mb-2">No DAOs found</h3>
-      <p className="text-slate-500 mb-6 max-w-md mx-auto">
-        No DAOs match your search criteria. Try adjusting your filters or create
-        a new DAO to get started.
+      <h3
+        className="text-lg font-semibold mb-2"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        No results
+      </h3>
+      <p
+        className="mb-6 max-w-md mx-auto"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        No DAOs match your current filters. Adjust your search or start a new
+        organization.
       </p>
       <Link
         to="/create"
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white transition-all hover:shadow-lg"
+        style={{ background: 'var(--gradient-primary)' }}
       >
-        <Plus className="w-4 h-4" />
+        <Plus className="w-4 h-4" aria-hidden="true" />
         Create DAO
       </Link>
+    </div>
+  )
+}
+
+function LoadingState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <Loader2
+        className="w-10 h-10 animate-spin mb-4"
+        style={{ color: 'var(--color-primary)' }}
+      />
+      <p style={{ color: 'var(--text-secondary)' }}>Loading organizations...</p>
+    </div>
+  )
+}
+
+interface ErrorStateProps {
+  error: Error
+  onRetry: () => void
+}
+
+function ErrorState({ error, onRetry }: ErrorStateProps) {
+  return (
+    <div className="text-center py-16">
+      <div
+        className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+        style={{
+          backgroundColor: 'rgba(239, 68, 68, 0.12)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+        }}
+      >
+        <AlertCircle
+          className="w-10 h-10"
+          style={{ color: 'var(--color-error)' }}
+        />
+      </div>
+      <h3
+        className="text-lg font-semibold mb-2"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        Something went wrong
+      </h3>
+      <p
+        className="mb-6 max-w-md mx-auto"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        {error.message}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-colors"
+        style={{
+          backgroundColor: 'var(--surface)',
+          color: 'var(--text-primary)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <RefreshCw className="w-4 h-4" aria-hidden="true" />
+        Try Again
+      </button>
     </div>
   )
 }
@@ -152,7 +304,6 @@ export default function DAOListPage() {
   const [statusFilter, setStatusFilter] = useState<DAOStatus | 'all'>('all')
   const [showNetworkOnly, setShowNetworkOnly] = useState(false)
 
-  // Use the real API hook - filtering is done server-side and in the hook
   const {
     data: daos = [],
     isLoading,
@@ -164,65 +315,110 @@ export default function DAOListPage() {
     networkOnly: showNetworkOnly,
   })
 
+  const handleRetry = useCallback(() => {
+    refetch()
+  }, [refetch])
+
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Hero Section */}
-      <div className="border-b border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950">
-        <div className="container mx-auto px-4 py-12">
+      <section
+        className="relative overflow-hidden border-b"
+        style={{
+          background: 'var(--gradient-hero)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        {/* Decorative elements */}
+        <div className="absolute inset-0 opacity-30">
+          <div
+            className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full blur-3xl"
+            style={{ backgroundColor: 'var(--color-primary)' }}
+          />
+          <div
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full blur-3xl"
+            style={{ backgroundColor: 'var(--color-accent)' }}
+          />
+        </div>
+
+        <div className="container mx-auto py-12 sm:py-16 relative z-10">
           <div className="max-w-3xl">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              AI-Powered DAOs
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium mb-6 bg-white/10 text-white/90 backdrop-blur-sm">
+              <Sparkles className="w-4 h-4" aria-hidden="true" />
+              Autonomous Governance
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+              DAOs with AI Leadership
             </h1>
-            <p className="text-lg text-slate-400 mb-8">
-              Discover and join autonomous organizations governed by AI agents.
-              Each DAO has a CEO and board of directors powered by customizable
-              AI models.
+            <p className="text-lg text-white/80 mb-8 leading-relaxed max-w-2xl">
+              Organizations where AI agents serve as CEO and board members,
+              making governance decisions on-chain with full transparency.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
                 to="/create"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors shadow-lg shadow-violet-500/20"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all hover:shadow-xl"
+                style={{
+                  background: 'var(--gradient-primary)',
+                  color: 'white',
+                }}
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5" aria-hidden="true" />
                 Create DAO
               </Link>
               <Link
                 to="/my-daos"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-medium transition-colors border border-slate-700"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-white/10 text-white border border-white/20 backdrop-blur-sm transition-colors hover:bg-white/20"
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-5 h-5" aria-hidden="true" />
                 My DAOs
               </Link>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Filters */}
-      <div className="sticky top-14 z-40 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
-        <div className="container mx-auto px-4 py-4">
+      <section
+        className="sticky top-16 z-40 backdrop-blur-xl border-b"
+        style={{
+          backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <div className="container mx-auto py-4">
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4"
+                style={{ color: 'var(--text-tertiary)' }}
+                aria-hidden="true"
+              />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search DAOs by name, description, or tags..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                className="input pl-10"
+                aria-label="Search DAOs"
               />
             </div>
 
-            {/* Status Filter */}
+            {/* Filters */}
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-500 sm:hidden" />
+              <Filter
+                className="w-4 h-4 sm:hidden"
+                style={{ color: 'var(--text-tertiary)' }}
+                aria-hidden="true"
+              />
               <select
                 value={statusFilter}
                 onChange={(e) =>
                   setStatusFilter(e.target.value as DAOStatus | 'all')
                 }
-                className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+                className="select min-w-[140px]"
+                aria-label="Filter by status"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -234,62 +430,52 @@ export default function DAOListPage() {
               <button
                 type="button"
                 onClick={() => setShowNetworkOnly(!showNetworkOnly)}
-                className={`px-4 py-2.5 rounded-xl border font-medium transition-colors ${
-                  showNetworkOnly
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
-                }`}
+                className="p-3 rounded-xl transition-all"
+                style={{
+                  backgroundColor: showNetworkOnly
+                    ? 'rgba(245, 158, 11, 0.12)'
+                    : 'var(--surface)',
+                  border: showNetworkOnly
+                    ? '1px solid rgba(245, 158, 11, 0.3)'
+                    : '1px solid var(--border)',
+                  color: showNetworkOnly
+                    ? 'var(--color-warning)'
+                    : 'var(--text-tertiary)',
+                }}
+                aria-label={
+                  showNetworkOnly ? 'Show all DAOs' : 'Show network DAOs only'
+                }
+                aria-pressed={showNetworkOnly}
               >
-                <Shield className="w-4 h-4" />
+                <Shield className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* DAO Grid */}
-      <div className="container mx-auto px-4 py-8">
+      <section className="container mx-auto py-8">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-          </div>
+          <LoadingState />
         ) : error ? (
-          <div className="text-center py-16">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center">
-              <AlertCircle className="w-10 h-10 text-red-400" />
-            </div>
-            <h3 className="text-lg font-medium text-slate-300 mb-2">
-              Failed to load DAOs
-            </h3>
-            <p className="text-slate-500 mb-6 max-w-md mx-auto">
-              {error instanceof Error
-                ? error.message
-                : 'An unknown error occurred'}
-            </p>
-            <button
-              type="button"
-              onClick={() => refetch()}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-medium transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Try Again
-            </button>
-          </div>
+          <ErrorState error={error as Error} onRetry={handleRetry} />
         ) : daos.length === 0 ? (
           <EmptyState />
         ) : (
           <>
             <div className="flex items-center justify-between mb-6">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                 {daos.length} DAO{daos.length !== 1 ? 's' : ''} found
               </p>
               <button
                 type="button"
                 onClick={() => refetch()}
-                className="p-2 text-slate-500 hover:text-slate-300 transition-colors"
-                title="Refresh"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-tertiary)' }}
+                aria-label="Refresh list"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -299,7 +485,7 @@ export default function DAOListPage() {
             </div>
           </>
         )}
-      </div>
+      </section>
     </div>
   )
 }

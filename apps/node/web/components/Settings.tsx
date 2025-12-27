@@ -88,9 +88,7 @@ export function Settings() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-volcanic-400 mt-1">
-          Configure your Network Node preferences
-        </p>
+        <p className="text-volcanic-400 mt-1">Customize how your node runs</p>
       </div>
 
       {/* Network Selection */}
@@ -190,7 +188,7 @@ export function Settings() {
             <div>
               <p className="font-medium">Enable Auto-Claim</p>
               <p className="text-sm text-volcanic-500">
-                Automatically claim rewards when threshold is met
+                Collect earnings automatically
               </p>
             </div>
             <button
@@ -241,7 +239,7 @@ export function Settings() {
                   min="0"
                 />
                 <p className="text-xs text-volcanic-500 mt-1">
-                  Claim when pending rewards exceed this amount
+                  Collect when you've earned this much
                 </p>
               </div>
 
@@ -286,7 +284,7 @@ export function Settings() {
             <div>
               <p className="font-medium">Start Minimized</p>
               <p className="text-sm text-volcanic-500">
-                Start the app minimized to system tray
+                Launch quietly to system tray
               </p>
             </div>
             <button
@@ -315,7 +313,7 @@ export function Settings() {
             <div>
               <p className="font-medium">Start on Boot</p>
               <p className="text-sm text-volcanic-500">
-                Automatically start when your computer boots
+                Run automatically on startup
               </p>
             </div>
             <button
@@ -344,7 +342,7 @@ export function Settings() {
             <div>
               <p className="font-medium">Notifications</p>
               <p className="text-sm text-volcanic-500">
-                Show desktop notifications for important events
+                Get notified when something happens
               </p>
             </div>
             <button

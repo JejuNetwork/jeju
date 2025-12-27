@@ -1,5 +1,5 @@
 /**
- * @jejunetwork/db - Database Integration for Jeju Network (Powered by CovenantSQL)
+ * @jejunetwork/db - Database Integration for Jeju Network (Powered by EQLite)
  *
  * Decentralized SQL database with:
  * - BFT-Raft consensus for strong consistency
@@ -12,14 +12,14 @@
  * import { getDB, createRental } from '@jejunetwork/db';
  *
  * // Create a database rental
- * const cql = getCQL();
- * const rental = await cql.createRental({
+ * const eqlite = getEQLite();
+ * const rental = await eqlite.createRental({
  *   planId: 'basic',
  *   schema: 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)',
  * });
  *
  * // Query the database
- * const users = await cql.query<{ id: number; name: string }>(
+ * const users = await eqlite.query<{ id: number; name: string }>(
  *   'SELECT * FROM users',
  *   [],
  *   rental.databaseId
@@ -27,15 +27,43 @@
  * ```
  */
 
+// Backup Service (DWS storage integration)
 export {
-  CQLClient,
-  CQLClient as CovenantSQLClient,
-  getCQL,
-  getCQL as getCovenantSQLClient,
-  getCQL as createCovenantSQLClient,
-  resetCQL,
-  resetCQL as resetCovenantSQLClient,
+  type BackupMetadata,
+  type BackupOptions,
+  BackupService,
+  type BackupServiceConfig,
+  createBackupService,
+  type RestoreOptions,
+  type StorageBackend,
+} from './backup.js'
+export {
+  EQLiteClient,
+  getEQLite,
+  getEQLite as getEQLiteClient,
+  getEQLite as createEQLiteClient,
+  resetEQLite,
+  resetEQLite as resetEQLiteClient,
 } from './client.js'
+// Encrypted EQLite Client (KMS integration)
+export {
+  createEncryptedEQLiteClient,
+  EncryptedEQLiteClient,
+  type EncryptedEQLiteConfig,
+  type EncryptedExecResult,
+  type EncryptedQueryResult,
+} from './encrypted-client.js'
+// EQLite Node Management (for TEE deployment)
+export {
+  createEQLiteNode,
+  type EQLiteNodeConfig,
+  EQLiteNodeManager,
+  EQLiteNodeRole,
+  type EQLiteNodeState,
+  EQLiteNodeStatus,
+  isEQLiteAvailable,
+  type TEEAttestation,
+} from './eqlite-node.js'
 // Database manager for robust connection handling
 export {
   createDatabaseManager,
@@ -68,10 +96,10 @@ export {
 } from './query-builder.js'
 // Secure client for per-app database provisioning
 export {
-  createSecureCQLClient,
+  createSecureEQLiteClient,
   type ProvisionedDatabase,
-  SecureCQLClient,
-  type SecureCQLConfig,
+  SecureEQLiteClient,
+  type SecureEQLiteConfig,
 } from './secure-client.js'
 export type {
   ACLEventDetails,
@@ -80,18 +108,18 @@ export type {
   BlockProducerInfo,
   ColumnMeta,
   ConsistencyLevel,
-  CQLConfig,
-  CQLConnection,
-  CQLConnectionPool,
-  CQLDataType,
-  CQLEvent,
-  CQLEventDetails,
-  CQLQueryable,
-  CQLTransaction,
   CreateRentalRequest,
   DatabaseConfig,
   DatabaseInfo,
   DatabaseStatus,
+  EQLiteConfig,
+  EQLiteConnection,
+  EQLiteConnectionPool,
+  EQLiteDataType,
+  EQLiteEvent,
+  EQLiteEventDetails,
+  EQLiteQueryable,
+  EQLiteTransaction,
   ExecEventDetails,
   ExecResult,
   GrantRequest,

@@ -1,0 +1,228 @@
+# EQLite (EQLite) Multi-Node Cluster for Local Development
+#
+# This starts a EQLite cluster with:
+# - 1 Block Producer (consensus coordinator)
+# - 3 Miner nodes (data storage & replication)
+# - Load balancer for client connections
+#
+# Usage:
+#   docker compose -f eqlite-cluster.compose.yaml up -d
+#
+# Connect via:
+#   http://localhost:4661 (load balanced to miners)
+#   http://localhost:8546 (HTTP API)
+
+services:
+  # ============================================================================
+  # Block Producer - Coordinates consensus and block production
+  # ============================================================================
+  eqlite-bp:
+    build:
+      context: ./eqlite
+      dockerfile: Dockerfile
+    container_name: eqlite-block-producer
+    hostname: eqlite-bp
+    command:
+      - -config
+      - /config/bp.yaml
+    ports:
+      - "4660:4661"  # Different port to avoid conflict with LB
+      - "8546:8546"  # HTTP API
+      - "9100:9100"  # Metrics
+    volumes:
+      - ./eqlite/config/bp.yaml:/config/bp.yaml:ro
+      - eqlite-bp-data:/data
+      - eqlite-bp-logs:/logs
+    environment:
+      - EQLITE_NODE_ID=bp-001
+      - EQLITE_ROLE=blockproducer
+      - EQLITE_LOG_LEVEL=info
+    networks:
+      eqlite-network:
+        aliases:
+          - eqlite-bp
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner Node 1
+  # ============================================================================
+  eqlite-miner-1:
+    build:
+      context: ./eqlite
+      dockerfile: Dockerfile
+    container_name: eqlite-miner-1
+    hostname: eqlite-miner-1
+    entrypoint: ["eqlite-minerd"]
+    command:
+      - -config
+      - /config/miner.yaml
+    depends_on:
+      eqlite-bp:
+        condition: service_healthy
+    volumes:
+      - ./eqlite/config/miner.yaml:/config/miner.yaml:ro
+      - eqlite-miner-1-data:/data
+      - eqlite-miner-1-logs:/logs
+    environment:
+      - EQLITE_NODE_ID=miner-001
+      - EQLITE_ROLE=miner
+      - EQLITE_BP_ADDR=eqlite-bp:4661
+      - EQLITE_LOG_LEVEL=info
+    networks:
+      - eqlite-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner Node 2
+  # ============================================================================
+  eqlite-miner-2:
+    build:
+      context: ./eqlite
+      dockerfile: Dockerfile
+    container_name: eqlite-miner-2
+    hostname: eqlite-miner-2
+    entrypoint: ["eqlite-minerd"]
+    command:
+      - -config
+      - /config/miner.yaml
+    depends_on:
+      eqlite-bp:
+        condition: service_healthy
+    volumes:
+      - ./eqlite/config/miner.yaml:/config/miner.yaml:ro
+      - eqlite-miner-2-data:/data
+      - eqlite-miner-2-logs:/logs
+    environment:
+      - EQLITE_NODE_ID=miner-002
+      - EQLITE_ROLE=miner
+      - EQLITE_BP_ADDR=eqlite-bp:4661
+      - EQLITE_LOG_LEVEL=info
+    networks:
+      - eqlite-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner Node 3
+  # ============================================================================
+  eqlite-miner-3:
+    build:
+      context: ./eqlite
+      dockerfile: Dockerfile
+    container_name: eqlite-miner-3
+    hostname: eqlite-miner-3
+    entrypoint: ["eqlite-minerd"]
+    command:
+      - -config
+      - /config/miner.yaml
+    depends_on:
+      eqlite-bp:
+        condition: service_healthy
+    volumes:
+      - ./eqlite/config/miner.yaml:/config/miner.yaml:ro
+      - eqlite-miner-3-data:/data
+      - eqlite-miner-3-logs:/logs
+    environment:
+      - EQLITE_NODE_ID=miner-003
+      - EQLITE_ROLE=miner
+      - EQLITE_BP_ADDR=eqlite-bp:4661
+      - EQLITE_LOG_LEVEL=info
+    networks:
+      - eqlite-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ============================================================================
+  # HAProxy Load Balancer - Distributes client connections
+  # ============================================================================
+  eqlite-lb:
+    image: haproxy:2.9-alpine
+    container_name: eqlite-load-balancer
+    hostname: eqlite-lb
+    ports:
+      - "4661:4661"  # Client connections
+      - "8547:8080"  # Stats UI
+    volumes:
+      - ./eqlite/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - eqlite-miner-1
+      - eqlite-miner-2
+      - eqlite-miner-3
+    networks:
+      - eqlite-network
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ============================================================================
+  # Prometheus - Metrics collection
+  # ============================================================================
+  eqlite-prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: eqlite-prometheus
+    hostname: eqlite-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./eqlite/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - eqlite-prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - eqlite-network
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  eqlite-network:
+    driver: bridge
+    name: eqlite-network
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  eqlite-bp-data:
+  eqlite-bp-logs:
+  eqlite-miner-1-data:
+  eqlite-miner-1-logs:
+  eqlite-miner-2-data:
+  eqlite-miner-2-logs:
+  eqlite-miner-3-data:
+  eqlite-miner-3-logs:
+  eqlite-prometheus-data:
+

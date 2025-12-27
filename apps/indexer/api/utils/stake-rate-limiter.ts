@@ -10,6 +10,7 @@ import {
   type PublicClient,
   type Transport,
 } from 'viem'
+import { config as indexerConfig } from '../config'
 import { loadNetworkConfig } from '../network-config'
 import { inferChainFromRpcUrl } from './chain-utils'
 
@@ -97,18 +98,19 @@ let contracts: {
 function getContracts() {
   if (contracts) return contracts
 
-  const config = loadNetworkConfig()
-  const chain = inferChainFromRpcUrl(config.rpcUrl)
+  const netConfig = loadNetworkConfig()
+  const chain = inferChainFromRpcUrl(netConfig.rpcUrl)
   const publicClient = createPublicClient({
     chain,
-    transport: http(config.rpcUrl),
+    transport: http(netConfig.rpcUrl),
   })
-  const { identityRegistry, banManager, nodeStakingManager } = config.contracts
-  const stakingAddr = process.env.INDEXER_STAKING_ADDRESS || nodeStakingManager
+  const { identityRegistry, banManager, nodeStakingManager } =
+    netConfig.contracts
+  const stakingAddr = indexerConfig.stakingAddress ?? nodeStakingManager
 
   contracts = {
     publicClient,
-    chainId: config.chainId,
+    chainId: netConfig.chainId,
     identityAddress:
       identityRegistry && isAddress(identityRegistry) ? identityRegistry : null,
     banAddress: banManager && isAddress(banManager) ? banManager : null,
@@ -129,7 +131,7 @@ async function getEthUsdPrice(): Promise<number> {
   }
 
   const { publicClient, chainId } = getContracts()
-  const fallbackPrice = Number(process.env.ETH_USD_PRICE) || 2000
+  const fallbackPrice = indexerConfig.ethUsdPrice
 
   // Check if Chainlink is supported on this chain
   if (!hasChainlinkSupport(chainId)) {

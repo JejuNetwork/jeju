@@ -1,7 +1,7 @@
 /**
  * Factory Database Client
  *
- * Local SQLite database for development, CQL for production.
+ * Local SQLite database for development, EQLite for production.
  * Provides type-safe query methods for all Factory entities.
  */
 
@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
+import { getFactoryConfig } from '../config'
 import FACTORY_SCHEMA from './schema'
 import {
   clearEncryptionKey,
@@ -270,7 +271,8 @@ export type LeaderboardRow = z.infer<typeof LeaderboardRowSchema>
 
 // Database singleton
 let db: Database | null = null
-const DATA_DIR = process.env.FACTORY_DATA_DIR || join(process.cwd(), 'data')
+const config = getFactoryConfig()
+const DATA_DIR = config.factoryDataDir
 const DB_PATH = join(DATA_DIR, 'factory.sqlite')
 const DB_TEMP_PATH = join(DATA_DIR, 'factory.sqlite.tmp')
 

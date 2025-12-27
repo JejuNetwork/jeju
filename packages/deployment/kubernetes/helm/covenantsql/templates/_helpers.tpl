@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "covenantsql.name" -}}
+{{- define "eqlite.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "covenantsql.fullname" -}}
+{{- define "eqlite.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "covenantsql.chart" -}}
+{{- define "eqlite.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "covenantsql.labels" -}}
-helm.sh/chart: {{ include "covenantsql.chart" . }}
-{{ include "covenantsql.selectorLabels" . }}
+{{- define "eqlite.labels" -}}
+helm.sh/chart: {{ include "eqlite.chart" . }}
+{{ include "eqlite.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,49 +43,49 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "covenantsql.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "covenantsql.name" . }}
+{{- define "eqlite.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "eqlite.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Block Producer labels
 */}}
-{{- define "covenantsql.bpLabels" -}}
-{{ include "covenantsql.labels" . }}
+{{- define "eqlite.bpLabels" -}}
+{{ include "eqlite.labels" . }}
 app.kubernetes.io/component: block-producer
 {{- end }}
 
 {{/*
 Block Producer selector labels
 */}}
-{{- define "covenantsql.bpSelectorLabels" -}}
-{{ include "covenantsql.selectorLabels" . }}
+{{- define "eqlite.bpSelectorLabels" -}}
+{{ include "eqlite.selectorLabels" . }}
 app.kubernetes.io/component: block-producer
 {{- end }}
 
 {{/*
 Miner labels
 */}}
-{{- define "covenantsql.minerLabels" -}}
-{{ include "covenantsql.labels" . }}
+{{- define "eqlite.minerLabels" -}}
+{{ include "eqlite.labels" . }}
 app.kubernetes.io/component: miner
 {{- end }}
 
 {{/*
 Miner selector labels
 */}}
-{{- define "covenantsql.minerSelectorLabels" -}}
-{{ include "covenantsql.selectorLabels" . }}
+{{- define "eqlite.minerSelectorLabels" -}}
+{{ include "eqlite.selectorLabels" . }}
 app.kubernetes.io/component: miner
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "covenantsql.serviceAccountName" -}}
+{{- define "eqlite.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "covenantsql.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "eqlite.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

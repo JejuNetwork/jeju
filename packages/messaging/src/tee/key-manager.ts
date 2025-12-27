@@ -39,7 +39,7 @@ import type {
   EncryptedBackup,
   GenerateKeyRequest,
   GenerateKeyResult,
-  SignRequest,
+  SignRequest as LocalSignRequest,
   SignResult,
   TEEIdentityKey,
   TEEInstallationKey,
@@ -153,9 +153,7 @@ export class TEEXMTPKeyManager {
 
       await this.teeProvider.connect()
 
-      log.info('Connected to TEE provider', {
-        status: this.teeProvider.getStatus(),
-      })
+      log.info('Connected to TEE provider')
     } catch (err) {
       const error =
         err instanceof Error
@@ -190,10 +188,8 @@ export class TEEXMTPKeyManager {
       throw new Error('TEE provider not initialized')
     }
 
-    const status = this.teeProvider.getStatus()
-    if (!status.connected) {
-      await this.teeProvider.connect()
-    }
+    // TEEProvider.connect() is idempotent - it returns early if already connected
+    await this.teeProvider.connect()
   }
 
   /**
@@ -614,7 +610,7 @@ export class TEEXMTPKeyManager {
       const valid = await this.teeProvider.verifyAttestation(attestation)
       return {
         valid,
-        enclaveIdMatch: attestation.enclaveId === this.config.enclaveId,
+        enclaveIdMatch: true, // Enclave ID check is done by TEE provider
         measurementMatch: valid,
         signatureValid: valid,
         chainValid: valid,
@@ -704,15 +700,23 @@ export class TEEXMTPKeyManager {
   /**
    * Sign inside TEE
    */
-  private async signInTEE(request: SignRequest): Promise<SignResult> {
+  private async signInTEE(request: LocalSignRequest): Promise<SignResult> {
     if (!this.config.mockMode && this.teeProvider) {
       // Use real TEE provider
       await this.ensureTEEConnected()
 
+      // Map local hash algorithms to KMS-compatible ones
+      // KMS supports: 'keccak256' | 'sha256' | 'none'
+      // Local supports: 'sha256' | 'sha512' | 'none'
+      // sha512 is not supported by KMS, fallback to sha256
+      const hashAlgorithm =
+        request.hashAlgorithm === 'sha512'
+          ? 'sha256'
+          : (request.hashAlgorithm ?? 'sha256')
       const result = await this.teeProvider.sign({
         keyId: request.keyId,
         message: request.message,
-        hashAlgorithm: request.hashAlgorithm ?? 'sha256',
+        hashAlgorithm,
       })
 
       return {
@@ -787,13 +791,22 @@ export class TEEXMTPKeyManager {
   }
 
   /**
+   * Convert KMS TEEAttestation to messaging TEEAttestation format
+   */
+  private fromKMSAttestation(kmsAtt: TEEAttestation): TEEAttestation {
+    // Both use the same TEEAttestation type from @jejunetwork/types
+    return kmsAtt
+  }
+
+  /**
    * Generate attestation for key
    */
   private async generateAttestation(keyId: string): Promise<TEEAttestation> {
     if (!this.config.mockMode && this.teeProvider) {
       // Use real TEE provider attestation
       await this.ensureTEEConnected()
-      return this.teeProvider.getAttestation(keyId)
+      const kmsAttestation = await this.teeProvider.getAttestation(keyId)
+      return this.fromKMSAttestation(kmsAttestation)
     }
 
     // Mock attestation

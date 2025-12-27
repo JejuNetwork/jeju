@@ -8,6 +8,7 @@ import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { type CouncilConfig, toAddress } from '../lib'
 import { type AutocratBlockchain, getBlockchain } from './blockchain'
+import { type AutocratConfig, config as autocratConfigRaw } from './config'
 import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
 
 // Helper to safely get contract addresses - uses config with env override
@@ -46,7 +47,7 @@ const agent = (id: string, name: string, prompt: string) => ({
 export function getConfig(): CouncilConfig {
   return {
     rpcUrl: getRpcUrl(),
-    daoId: process.env.DEFAULT_DAO ?? 'jeju',
+    daoId: autocratConfigRaw.defaultDao,
     contracts: {
       council: getContractAddr('governance', 'council'),
       ceoAgent: getContractAddr('governance', 'ceoAgent'),
@@ -98,7 +99,7 @@ export function getConfig(): CouncilConfig {
       specialties: ['governance', 'strategy'],
     },
     // Default CEO model - can be overridden by DAO creator or governance vote
-    ceoModelId: process.env.CEO_MODEL_ID ?? 'claude-opus-4-5',
+    ceoModelId: autocratConfigRaw.ceoModelId,
     fundingConfig: {
       minStake: BigInt('1000000000000000'),
       maxStake: BigInt('100000000000000000000'),
@@ -114,7 +115,9 @@ export function getConfig(): CouncilConfig {
   }
 }
 
-export const config = getConfig()
+const councilConfig = getConfig()
+export const config = councilConfig
+export const autocratConfig: AutocratConfig = autocratConfigRaw
 export const blockchain: AutocratBlockchain = getBlockchain(config)
 
 let _orchestrator: AutocratOrchestrator | null = null
@@ -124,6 +127,7 @@ let _orchestrator: AutocratOrchestrator | null = null
  */
 export function getSharedState(): {
   config: CouncilConfig
+  autocratConfig: AutocratConfig
   contracts: {
     feeConfig: Address
     treasury: Address
@@ -137,6 +141,7 @@ export function getSharedState(): {
 } {
   return {
     config,
+    autocratConfig,
     contracts: {
       feeConfig: config.contracts.feeConfig,
       treasury: config.contracts.treasury,

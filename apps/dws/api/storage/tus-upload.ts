@@ -10,21 +10,86 @@
  * - Upload progress tracking
  * - Concatenation for multi-part uploads
  * - Metadata support
+ *
+ * Workerd compatible: Uses exec API for file operations.
  */
 
 import { createHash, randomBytes } from 'node:crypto'
-import {
-  createReadStream,
-  createWriteStream,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import type { Address } from 'viem'
+
+// Config injection for workerd compatibility
+interface TusEnvConfig {
+  execUrl: string
+  uploadDir: string
+}
+
+let envConfig: TusEnvConfig = {
+  execUrl: 'http://localhost:4020/exec',
+  uploadDir: '/tmp/dws-tus-uploads',
+}
+
+export function configureTusUpload(config: Partial<TusEnvConfig>): void {
+  envConfig = { ...envConfig, ...config }
+}
+
+// DWS Exec API
+
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+async function exec(
+  command: string[],
+  options?: { stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(envConfig.execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  const result = await exec(['test', '-e', path])
+  return result.exitCode === 0
+}
+
+async function mkdir(path: string): Promise<void> {
+  await exec(['mkdir', '-p', path])
+}
+
+async function readFileAsync(path: string): Promise<Buffer> {
+  const result = await exec(['base64', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read file: ${result.stderr}`)
+  }
+  return Buffer.from(result.stdout.trim(), 'base64')
+}
+
+async function writeFileAsync(path: string, content: Buffer): Promise<void> {
+  const base64Content = content.toString('base64')
+  // Use base64 decode to write binary safely
+  await exec(['sh', '-c', `echo '${base64Content}' | base64 -d > "${path}"`])
+}
+
+async function appendFileAsync(path: string, content: Buffer): Promise<void> {
+  const base64Content = content.toString('base64')
+  await exec(['sh', '-c', `echo '${base64Content}' | base64 -d >> "${path}"`])
+}
+
+async function rmFile(path: string): Promise<void> {
+  await exec(['rm', '-f', path])
+}
+
+function joinPath(...parts: string[]): string {
+  return parts.join('/').replace(/\/+/g, '/')
+}
 
 // ============ Types ============
 
@@ -110,8 +175,8 @@ export interface TusConfig {
 // ============ Default Configuration ============
 
 const DEFAULT_CONFIG: TusConfig = {
-  baseUrl: process.env.DWS_BASE_URL ?? 'http://localhost:3100',
-  uploadDir: join(tmpdir(), 'dws-tus-uploads'),
+  baseUrl: 'http://localhost:3100',
+  uploadDir: envConfig.uploadDir,
   maxFileSize: 10 * 1024 * 1024 * 1024, // 10GB
   defaultExpiryHours: 24,
   maxConcurrentChunks: 4,
@@ -138,16 +203,34 @@ const TUS_EXTENSIONS = [
 export class TusUploadManager {
   private config: TusConfig
   private uploads: Map<string, TusUpload> = new Map()
+  private initialized = false
+  private testMode = false
+  private testChunks: Map<string, Buffer> = new Map() // In-memory storage for test mode
 
   constructor(config?: Partial<TusConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
-    this.ensureUploadDir()
-    this.startCleanupInterval()
   }
 
-  private ensureUploadDir(): void {
-    if (!existsSync(this.config.uploadDir)) {
-      mkdirSync(this.config.uploadDir, { recursive: true })
+  async initialize(): Promise<void> {
+    if (this.initialized) return
+    await this.ensureUploadDir()
+    this.startCleanupInterval()
+    this.initialized = true
+  }
+
+  /**
+   * Initialize for testing - runs in memory-only mode without exec API calls
+   */
+  async initializeForTesting(): Promise<void> {
+    if (this.initialized) return
+    this.testMode = true
+    this.initialized = true
+  }
+
+  private async ensureUploadDir(): Promise<void> {
+    const exists = await fileExists(this.config.uploadDir)
+    if (!exists) {
+      await mkdir(this.config.uploadDir)
     }
   }
 
@@ -182,7 +265,10 @@ export class TusUploadManager {
 
   // ============ Upload Creation ============
 
-  createUpload(request: TusUploadCreateRequest, owner?: Address): TusUpload {
+  async createUpload(
+    request: TusUploadCreateRequest,
+    owner?: Address,
+  ): Promise<TusUpload> {
     const uploadId = `upload_${Date.now()}_${randomBytes(12).toString('hex')}`
     const now = Date.now()
 
@@ -210,12 +296,17 @@ export class TusUploadManager {
       owner,
     }
 
-    // Create upload file
-    const uploadPath = this.getUploadPath(uploadId)
-    writeFileSync(uploadPath, Buffer.alloc(0))
+    if (!this.testMode) {
+      // Create upload file
+      const uploadPath = this.getUploadPath(uploadId)
+      await writeFileAsync(uploadPath, Buffer.alloc(0))
 
-    // Save upload metadata
-    this.saveUploadMetadata(upload)
+      // Save upload metadata
+      await this.saveUploadMetadata(upload)
+    } else {
+      // In test mode, initialize empty buffer
+      this.testChunks.set(uploadId, Buffer.alloc(0))
+    }
 
     this.uploads.set(uploadId, upload)
     return upload
@@ -271,7 +362,10 @@ export class TusUploadManager {
 
   // ============ Upload Patching (Chunk Upload) ============
 
-  patchUpload(uploadId: string, request: TusUploadPatchRequest): TusUpload {
+  async patchUpload(
+    uploadId: string,
+    request: TusUploadPatchRequest,
+  ): Promise<TusUpload> {
     const upload = this.uploads.get(uploadId)
     if (!upload) {
       throw new Error('Upload not found')
@@ -302,15 +396,15 @@ export class TusUploadManager {
       }
     }
 
-    // Write chunk to file
-    const uploadPath = this.getUploadPath(uploadId)
-    const stream = createWriteStream(uploadPath, {
-      flags: 'r+',
-      start: request.uploadOffset,
-    })
-
-    stream.write(request.chunk)
-    stream.end()
+    if (!this.testMode) {
+      // Write chunk to file (append for sequential uploads)
+      const uploadPath = this.getUploadPath(uploadId)
+      await appendFileAsync(uploadPath, request.chunk)
+    } else {
+      // In test mode, append to in-memory buffer
+      const existing = this.testChunks.get(uploadId) ?? Buffer.alloc(0)
+      this.testChunks.set(uploadId, Buffer.concat([existing, request.chunk]))
+    }
 
     // Update upload state
     const chunkInfo: ChunkInfo = {
@@ -330,10 +424,17 @@ export class TusUploadManager {
     // Check if upload is complete
     if (upload.uploadOffset >= upload.fileSize) {
       upload.status = 'finalizing'
-      this.finalizeUpload(upload)
+      if (!this.testMode) {
+        await this.finalizeUpload(upload)
+      } else {
+        // In test mode, just mark as completed
+        upload.status = 'completed'
+      }
     }
 
-    this.saveUploadMetadata(upload)
+    if (!this.testMode) {
+      await this.saveUploadMetadata(upload)
+    }
     return upload
   }
 
@@ -342,19 +443,19 @@ export class TusUploadManager {
 
     // Verify final checksum if provided
     if (upload.metadata.checksum) {
-      const fileData = readFileSync(uploadPath)
+      const fileData = await readFileAsync(uploadPath)
       const actualChecksum = this.calculateChecksum(fileData, 'sha256')
 
       if (actualChecksum !== upload.metadata.checksum) {
         upload.status = 'failed'
         upload.errorMessage = 'Final checksum verification failed'
-        this.saveUploadMetadata(upload)
+        await this.saveUploadMetadata(upload)
         return
       }
     }
 
     // Calculate content CID
-    const fileData = readFileSync(uploadPath)
+    const fileData = await readFileAsync(uploadPath)
     const cid = this.calculateChecksum(fileData, 'sha256')
 
     upload.finalCid = cid
@@ -362,7 +463,7 @@ export class TusUploadManager {
     upload.status = 'completed'
     upload.updatedAt = Date.now()
 
-    this.saveUploadMetadata(upload)
+    await this.saveUploadMetadata(upload)
 
     // Call completion callback if provided
     if (this.config.onUploadComplete) {
@@ -373,12 +474,30 @@ export class TusUploadManager {
   // ============ Upload Status ============
 
   getUpload(uploadId: string): TusUpload | undefined {
+    // Check in-memory cache only (synchronous)
+    const upload = this.uploads.get(uploadId)
+
+    // Check for expiration
+    if (
+      upload &&
+      Date.now() > upload.expiresAt &&
+      upload.status !== 'completed'
+    ) {
+      upload.status = 'expired'
+      // Note: saveUploadMetadata is async but we don't await here for backwards compat
+      this.saveUploadMetadata(upload).catch(console.error)
+    }
+
+    return upload
+  }
+
+  async getUploadAsync(uploadId: string): Promise<TusUpload | undefined> {
     // First check in-memory cache
     let upload = this.uploads.get(uploadId)
 
     if (!upload) {
       // Try to load from disk
-      upload = this.loadUploadMetadata(uploadId)
+      upload = await this.loadUploadMetadata(uploadId)
       if (upload) {
         this.uploads.set(uploadId, upload)
       }
@@ -391,7 +510,7 @@ export class TusUploadManager {
       upload.status !== 'completed'
     ) {
       upload.status = 'expired'
-      this.saveUploadMetadata(upload)
+      await this.saveUploadMetadata(upload)
     }
 
     return upload
@@ -443,22 +562,29 @@ export class TusUploadManager {
 
   // ============ Upload Termination ============
 
-  terminateUpload(uploadId: string): boolean {
+  async terminateUpload(uploadId: string): Promise<boolean> {
     const upload = this.uploads.get(uploadId)
     if (!upload) {
       return false
     }
 
-    // Delete upload file
-    const uploadPath = this.getUploadPath(uploadId)
-    if (existsSync(uploadPath)) {
-      rmSync(uploadPath, { force: true })
-    }
+    if (!this.testMode) {
+      // Delete upload file
+      const uploadPath = this.getUploadPath(uploadId)
+      const uploadExists = await fileExists(uploadPath)
+      if (uploadExists) {
+        await rmFile(uploadPath)
+      }
 
-    // Delete metadata file
-    const metadataPath = this.getMetadataPath(uploadId)
-    if (existsSync(metadataPath)) {
-      rmSync(metadataPath, { force: true })
+      // Delete metadata file
+      const metadataPath = this.getMetadataPath(uploadId)
+      const metaExists = await fileExists(metadataPath)
+      if (metaExists) {
+        await rmFile(metadataPath)
+      }
+    } else {
+      // In test mode, just remove from memory
+      this.testChunks.delete(uploadId)
     }
 
     this.uploads.delete(uploadId)
@@ -467,11 +593,11 @@ export class TusUploadManager {
 
   // ============ Concatenation Extension ============
 
-  concatenateUploads(
+  async concatenateUploads(
     uploadIds: string[],
     metadata?: TusMetadata,
     owner?: Address,
-  ): TusUpload {
+  ): Promise<TusUpload> {
     const uploads = uploadIds.map((id) => {
       const upload = this.getUpload(id)
       if (!upload) {
@@ -487,7 +613,7 @@ export class TusUploadManager {
     const totalSize = uploads.reduce((sum, u) => sum + u.fileSize, 0)
 
     // Create new upload for concatenated result
-    const concatUpload = this.createUpload(
+    const concatUpload = await this.createUpload(
       {
         uploadLength: totalSize,
         uploadMetadata: this.encodeMetadata(metadata ?? {}),
@@ -495,31 +621,26 @@ export class TusUploadManager {
       owner,
     )
 
-    // Concatenate files
+    // Concatenate files using cat command
     const outputPath = this.getUploadPath(concatUpload.uploadId)
-    const outputStream = createWriteStream(outputPath)
+    const inputPaths = uploads.map((u) => this.getUploadPath(u.uploadId))
 
-    let _offset = 0
-    for (const upload of uploads) {
-      const inputPath = this.getUploadPath(upload.uploadId)
-      const inputStream = createReadStream(inputPath)
-
-      inputStream.pipe(outputStream, { end: false })
-
-      // Wait for the stream to finish
-      inputStream.on('end', () => {
-        _offset += upload.fileSize
-      })
+    // Use cat to concatenate files
+    const result = await exec([
+      'sh',
+      '-c',
+      `cat ${inputPaths.map((p) => `"${p}"`).join(' ')} > "${outputPath}"`,
+    ])
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to concatenate files: ${result.stderr}`)
     }
-
-    outputStream.end()
 
     // Mark as finalizing
     concatUpload.status = 'finalizing'
     concatUpload.uploadOffset = totalSize
 
     // Finalize asynchronously
-    this.finalizeUpload(concatUpload)
+    await this.finalizeUpload(concatUpload)
 
     return concatUpload
   }
@@ -601,13 +722,13 @@ export class TusUploadManager {
 
   // ============ Cleanup ============
 
-  cleanupExpiredUploads(): number {
+  async cleanupExpiredUploads(): Promise<number> {
     const now = Date.now()
     let cleaned = 0
 
     for (const [uploadId, upload] of this.uploads) {
       if (now > upload.expiresAt && upload.status !== 'completed') {
-        this.terminateUpload(uploadId)
+        await this.terminateUpload(uploadId)
         cleaned++
       }
     }
@@ -615,7 +736,7 @@ export class TusUploadManager {
     return cleaned
   }
 
-  cleanupCompletedUpload(uploadId: string): boolean {
+  async cleanupCompletedUpload(uploadId: string): Promise<boolean> {
     const upload = this.getUpload(uploadId)
     if (!upload || upload.status !== 'completed') {
       return false
@@ -623,8 +744,9 @@ export class TusUploadManager {
 
     // Only delete the temp file, keep metadata
     const uploadPath = this.getUploadPath(uploadId)
-    if (existsSync(uploadPath)) {
-      rmSync(uploadPath, { force: true })
+    const exists = await fileExists(uploadPath)
+    if (exists) {
+      await rmFile(uploadPath)
     }
 
     return true
@@ -633,44 +755,49 @@ export class TusUploadManager {
   // ============ File Paths ============
 
   private getUploadPath(uploadId: string): string {
-    return join(this.config.uploadDir, `${uploadId}.data`)
+    return joinPath(this.config.uploadDir, `${uploadId}.data`)
   }
 
   private getMetadataPath(uploadId: string): string {
-    return join(this.config.uploadDir, `${uploadId}.meta.json`)
+    return joinPath(this.config.uploadDir, `${uploadId}.meta.json`)
   }
 
-  getCompletedFilePath(uploadId: string): string | undefined {
+  async getCompletedFilePath(uploadId: string): Promise<string | undefined> {
     const upload = this.getUpload(uploadId)
     if (!upload || upload.status !== 'completed') {
       return undefined
     }
 
     const path = this.getUploadPath(uploadId)
-    return existsSync(path) ? path : undefined
+    const exists = await fileExists(path)
+    return exists ? path : undefined
   }
 
-  getCompletedFileBuffer(uploadId: string): Buffer | undefined {
-    const path = this.getCompletedFilePath(uploadId)
+  async getCompletedFileBuffer(uploadId: string): Promise<Buffer | undefined> {
+    const path = await this.getCompletedFilePath(uploadId)
     if (!path) return undefined
-    return readFileSync(path)
+    return readFileAsync(path)
   }
 
   // ============ Metadata Persistence ============
 
-  private saveUploadMetadata(upload: TusUpload): void {
+  private async saveUploadMetadata(upload: TusUpload): Promise<void> {
     const metadataPath = this.getMetadataPath(upload.uploadId)
-    writeFileSync(metadataPath, JSON.stringify(upload, null, 2))
+    const content = Buffer.from(JSON.stringify(upload, null, 2), 'utf-8')
+    await writeFileAsync(metadataPath, content)
   }
 
-  private loadUploadMetadata(uploadId: string): TusUpload | undefined {
+  private async loadUploadMetadata(
+    uploadId: string,
+  ): Promise<TusUpload | undefined> {
     const metadataPath = this.getMetadataPath(uploadId)
-    if (!existsSync(metadataPath)) {
+    const exists = await fileExists(metadataPath)
+    if (!exists) {
       return undefined
     }
 
-    const data = readFileSync(metadataPath, 'utf-8')
-    return JSON.parse(data) as TusUpload
+    const data = await readFileAsync(metadataPath)
+    return JSON.parse(data.toString('utf-8')) as TusUpload
   }
 
   // ============ Checksum Utilities ============
@@ -681,17 +808,18 @@ export class TusUploadManager {
     return hash.digest('hex')
   }
 
-  validateChecksum(
+  async validateChecksum(
     uploadId: string,
     expectedChecksum: string,
     algorithm = 'sha256',
-  ): boolean {
+  ): Promise<boolean> {
     const filePath = this.getUploadPath(uploadId)
-    if (!existsSync(filePath)) {
+    const exists = await fileExists(filePath)
+    if (!exists) {
       return false
     }
 
-    const data = readFileSync(filePath)
+    const data = await readFileAsync(filePath)
     const actualChecksum = this.calculateChecksum(data, algorithm)
     return actualChecksum === expectedChecksum
   }
@@ -710,6 +838,24 @@ export function getTusUploadManager(
   return tusManager
 }
 
+/**
+ * Initialize the singleton manager for testing (in-memory mode)
+ */
+export async function initializeTusManagerForTesting(
+  config?: Partial<TusConfig>,
+): Promise<TusUploadManager> {
+  tusManager = new TusUploadManager(config)
+  await tusManager.initializeForTesting()
+  return tusManager
+}
+
+/**
+ * Reset the singleton manager (for testing cleanup)
+ */
+export function resetTusManager(): void {
+  tusManager = null
+}
+
 // ============ Express Handler Helpers ============
 
 export function handleTusOptions(): {
@@ -723,16 +869,16 @@ export function handleTusOptions(): {
   }
 }
 
-export function handleTusPost(
+export async function handleTusPost(
   body: { uploadLength: number; uploadMetadata?: string },
   owner?: Address,
-): {
+): Promise<{
   status: number
   headers: Record<string, string>
   upload: TusUpload
-} {
+}> {
   const manager = getTusUploadManager()
-  const upload = manager.createUpload(body, owner)
+  const upload = await manager.createUpload(body, owner)
 
   return {
     status: 201,
@@ -769,20 +915,20 @@ export function handleTusHead(uploadId: string): {
   }
 }
 
-export function handleTusPatch(
+export async function handleTusPatch(
   uploadId: string,
   offset: number,
   chunk: Buffer,
   checksum?: string,
-): {
+): Promise<{
   status: number
   headers: Record<string, string>
   upload?: TusUpload
   error?: string
-} {
+}> {
   const manager = getTusUploadManager()
 
-  const upload = manager.patchUpload(uploadId, {
+  const upload = await manager.patchUpload(uploadId, {
     uploadOffset: offset,
     contentLength: chunk.length,
     contentType: 'application/offset+octet-stream',
@@ -801,12 +947,12 @@ export function handleTusPatch(
   }
 }
 
-export function handleTusDelete(uploadId: string): {
+export async function handleTusDelete(uploadId: string): Promise<{
   status: number
   headers: Record<string, string>
-} {
+}> {
   const manager = getTusUploadManager()
-  const success = manager.terminateUpload(uploadId)
+  const success = await manager.terminateUpload(uploadId)
 
   return {
     status: success ? 204 : 404,

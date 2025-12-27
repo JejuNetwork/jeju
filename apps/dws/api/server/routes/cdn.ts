@@ -7,7 +7,12 @@
  * - Cache management
  */
 
-import { getContract, getRpcUrl, getServiceUrl } from '@jejunetwork/config'
+import {
+  createAppConfig,
+  getContract,
+  getRpcUrl,
+  getServiceUrl,
+} from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { getAppRegistry } from '../../../src/cdn/app-registry'
@@ -21,6 +26,39 @@ import {
   type JNSGatewayConfig,
 } from '../../cdn/gateway/jns-gateway'
 
+interface CDNRouterConfig {
+  jnsRegistryAddress?: string
+  jnsResolverAddress?: string
+  rpcUrl?: string
+  ipfsGatewayUrl?: string
+  arweaveGatewayUrl?: string
+  jnsDomain?: string
+  cacheMb?: number
+  maxEntries?: number
+  defaultTTL?: number
+  isDevnet?: boolean
+  jejuAppsDir?: string
+  nodeEnv?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+const { config: cdnRouterConfig, configure: configureCDNRouter } =
+  createAppConfig<CDNRouterConfig>({
+    cacheMb: 512,
+    maxEntries: 100000,
+    defaultTTL: 3600,
+    ipfsGatewayUrl: 'https://ipfs.io',
+    arweaveGatewayUrl: 'https://arweave.net',
+    jnsDomain: 'jejunetwork.org',
+    jejuAppsDir: '/apps',
+  })
+
+export function configureCDNRouterConfig(
+  config: Partial<CDNRouterConfig>,
+): void {
+  configureCDNRouter(config)
+}
+
 let jnsGateway: JNSGateway | null = null
 let localCDNInitialized = false
 
@@ -28,9 +66,9 @@ function getJNSGateway(): JNSGateway | null {
   if (jnsGateway) return jnsGateway
 
   const jnsRegistry =
-    process.env.JNS_REGISTRY_ADDRESS || getContract('jns', 'jnsRegistry')
+    cdnRouterConfig.jnsRegistryAddress || getContract('jns', 'jnsRegistry')
   const jnsResolver =
-    process.env.JNS_RESOLVER_ADDRESS || getContract('jns', 'jnsResolver')
+    cdnRouterConfig.jnsResolverAddress || getContract('jns', 'jnsResolver')
 
   if (
     !jnsRegistry ||
@@ -41,7 +79,7 @@ function getJNSGateway(): JNSGateway | null {
     return null
   }
 
-  const rpcUrl = process.env.RPC_URL || getRpcUrl()
+  const rpcUrl = cdnRouterConfig.rpcUrl || getRpcUrl()
 
   const config: JNSGatewayConfig = {
     port: 0,
@@ -49,20 +87,20 @@ function getJNSGateway(): JNSGateway | null {
     jnsRegistryAddress: jnsRegistry as Address,
     jnsResolverAddress: jnsResolver as Address,
     ipfsGateway:
-      process.env.IPFS_GATEWAY_URL ??
+      cdnRouterConfig.ipfsGatewayUrl ??
       getServiceUrl('storage', 'ipfsGateway') ??
       'https://ipfs.io',
-    arweaveGateway: process.env.ARWEAVE_GATEWAY_URL ?? 'https://arweave.net',
-    domain: process.env.JNS_DOMAIN ?? 'jejunetwork.org',
+    arweaveGateway: cdnRouterConfig.arweaveGatewayUrl ?? 'https://arweave.net',
+    domain: cdnRouterConfig.jnsDomain ?? 'jejunetwork.org',
   }
 
   jnsGateway = new JNSGateway(config)
   return jnsGateway
 }
 
-const cacheMb = parseInt(process.env.DWS_CDN_CACHE_MB || '512', 10)
-const maxEntries = parseInt(process.env.DWS_CDN_CACHE_ENTRIES || '100000', 10)
-const defaultTTL = parseInt(process.env.DWS_CDN_DEFAULT_TTL || '3600', 10)
+const cacheMb = cdnRouterConfig.cacheMb ?? 512
+const maxEntries = cdnRouterConfig.maxEntries ?? 100000
+const defaultTTL = cdnRouterConfig.defaultTTL ?? 3600
 
 const cache: EdgeCache = getEdgeCache({
   maxSizeBytes: cacheMb * 1024 * 1024,
@@ -75,10 +113,11 @@ async function ensureLocalCDNInitialized(): Promise<void> {
   if (localCDNInitialized) return
 
   const isDevnet =
-    process.env.NODE_ENV !== 'production' || process.env.DEVNET === 'true'
+    cdnRouterConfig.isDevnet ??
+    (cdnRouterConfig.nodeEnv !== 'production' || false)
   if (isDevnet) {
-    // Use env var or default path (workerd-compatible - no process.cwd())
-    const appsDir = process.env.JEJU_APPS_DIR ?? '/apps'
+    // Use config or default path (workerd-compatible - no process.cwd())
+    const appsDir = cdnRouterConfig.jejuAppsDir ?? '/apps'
     await initializeLocalCDN({ appsDir, cacheEnabled: true })
     console.log(`[CDN] Local CDN initialized for devnet (apps: ${appsDir})`)
   }
@@ -267,7 +306,8 @@ export function createCDNRouter() {
         }))
 
         return {
-          mode: process.env.NODE_ENV === 'production' ? 'production' : 'devnet',
+          mode:
+            cdnRouterConfig.nodeEnv === 'production' ? 'production' : 'devnet',
           apps,
           count: apps.length,
         }

@@ -9,10 +9,18 @@
  * - Beacon watcher (for EVM chains)
  * - Health monitoring
  *
+ * Uses @jejunetwork/config for centralized configuration.
  * For Solana consensus, use the Geyser plugin which runs inside the validator.
  */
 
 import { parseArgs } from 'node:util'
+import {
+  type BridgeConfig,
+  type BridgeMode,
+  getBridgeMode,
+  getBridgePrivateKey,
+  loadBridgeConfig,
+} from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import {
   createHealthChecker,
@@ -22,149 +30,15 @@ import {
   createRelayerService,
   type RelayerConfig,
 } from '../src/relayer/service.js'
-import { ChainId } from '../src/types/index.js'
-
-interface OrchestratorConfig {
-  mode: 'local' | 'testnet' | 'mainnet'
-  components: {
-    relayer: boolean
-    prover: boolean
-    beaconWatcher: boolean
-    healthMonitor: boolean
-  }
-  ports: {
-    relayer: number
-    prover: number
-    health: number
-  }
-  chains: {
-    evm: Array<{
-      chainId: ChainId
-      name: string
-      rpcUrl: string
-      beaconUrl?: string
-      bridgeAddress: string
-      lightClientAddress: string
-    }>
-    solana: {
-      rpcUrl: string
-      bridgeProgramId: string
-      evmLightClientProgramId: string
-    }
-  }
-}
-
-// Default configurations
-const CONFIGS: Record<string, OrchestratorConfig> = {
-  local: {
-    mode: 'local',
-    components: {
-      relayer: true,
-      prover: true,
-      beaconWatcher: false, // No beacon node in local
-      healthMonitor: true,
-    },
-    ports: {
-      relayer: 8081,
-      prover: 8082,
-      health: 8083,
-    },
-    chains: {
-      evm: [
-        {
-          chainId: ChainId.LOCAL_EVM,
-          name: 'Local EVM',
-          rpcUrl: 'http://127.0.0.1:6545',
-          bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-          lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-        },
-      ],
-      solana: {
-        rpcUrl: 'http://127.0.0.1:8899',
-        bridgeProgramId: 'TokenBridge11111111111111111111111111111111',
-        evmLightClientProgramId: 'EVMLightClient1111111111111111111111111111',
-      },
-    },
-  },
-  testnet: {
-    mode: 'testnet',
-    components: {
-      relayer: true,
-      prover: true,
-      beaconWatcher: true,
-      healthMonitor: true,
-    },
-    ports: {
-      relayer: 8081,
-      prover: 8082,
-      health: 8083,
-    },
-    chains: {
-      evm: [
-        {
-          chainId: ChainId.BASE_SEPOLIA,
-          name: 'Base Sepolia',
-          rpcUrl: process.env.BASE_SEPOLIA_RPC ?? 'https://sepolia.base.org',
-          beaconUrl:
-            process.env.BEACON_URL ?? 'https://lodestar-sepolia.chainsafe.io',
-          bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
-          lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
-        },
-      ],
-      solana: {
-        rpcUrl: process.env.SOLANA_RPC ?? 'https://api.devnet.solana.com',
-        bridgeProgramId: process.env.BRIDGE_PROGRAM_ID ?? '',
-        evmLightClientProgramId: process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
-      },
-    },
-  },
-  mainnet: {
-    mode: 'mainnet',
-    components: {
-      relayer: true,
-      prover: true,
-      beaconWatcher: true,
-      healthMonitor: true,
-    },
-    ports: {
-      relayer: 8081,
-      prover: 8082,
-      health: 8083,
-    },
-    chains: {
-      evm: [
-        {
-          chainId: ChainId.ETHEREUM_MAINNET,
-          name: 'Ethereum',
-          rpcUrl: process.env.ETH_RPC ?? '',
-          beaconUrl: process.env.BEACON_URL ?? '',
-          bridgeAddress: process.env.ETH_BRIDGE_ADDRESS ?? '',
-          lightClientAddress: process.env.ETH_LIGHT_CLIENT_ADDRESS ?? '',
-        },
-        {
-          chainId: ChainId.BASE_MAINNET,
-          name: 'Base',
-          rpcUrl: process.env.BASE_RPC ?? 'https://mainnet.base.org',
-          bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
-          lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
-        },
-      ],
-      solana: {
-        rpcUrl: process.env.SOLANA_RPC ?? 'https://api.mainnet-beta.solana.com',
-        bridgeProgramId: process.env.BRIDGE_PROGRAM_ID ?? '',
-        evmLightClientProgramId: process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
-      },
-    },
-  },
-}
+import type { ChainId } from '../src/types/index.js'
 
 class Orchestrator {
-  private config: OrchestratorConfig
+  private config: BridgeConfig
   private processes: Map<string, Subprocess> = new Map()
   private relayer: ReturnType<typeof createRelayerService> | null = null
   private healthChecker: ReturnType<typeof createHealthChecker> | null = null
 
-  constructor(config: OrchestratorConfig) {
+  constructor(config: BridgeConfig) {
     this.config = config
   }
 
@@ -223,12 +97,13 @@ class Orchestrator {
   private async startHealthMonitor(): Promise<void> {
     console.log('📊 Starting health monitor...')
 
+    const evmChain = this.config.chains.evm[0]
     const healthConfig: HealthCheckConfig = {
       evmRpcUrls: new Map(
-        this.config.chains.evm.map((c) => [c.chainId, c.rpcUrl]),
+        this.config.chains.evm.map((c) => [c.chainId as ChainId, c.rpcUrl]),
       ),
       solanaRpcUrl: this.config.chains.solana.rpcUrl,
-      beaconRpcUrl: this.config.chains.evm[0].beaconUrl ?? '',
+      beaconRpcUrl: evmChain.beaconUrl ?? '',
       proverEndpoint: `http://127.0.0.1:${this.config.ports.prover}`,
       relayerEndpoint: `http://127.0.0.1:${this.config.ports.relayer}`,
       checkIntervalMs: 30000,
@@ -253,6 +128,7 @@ class Orchestrator {
       env: {
         ...process.env,
         PROVER_PORT: this.config.ports.prover.toString(),
+        USE_MOCK_PROOFS: this.config.prover.useMockProofs.toString(),
       },
       stdout: 'pipe',
       stderr: 'pipe',
@@ -274,14 +150,12 @@ class Orchestrator {
   private async startRelayer(): Promise<void> {
     console.log('🔗 Starting relayer service...')
 
-    // SECURITY: Private key is required - no hardcoded fallbacks allowed
-    // The only exception is local mode which uses well-known Anvil test keys
-    const privateKey = this.getPrivateKey()
+    const privateKey = getBridgePrivateKey(this.config.mode)
 
     const relayerConfig: RelayerConfig = {
       port: this.config.ports.relayer,
       evmChains: this.config.chains.evm.map((c) => ({
-        chainId: c.chainId,
+        chainId: c.chainId as ChainId,
         rpcUrl: c.rpcUrl,
         bridgeAddress: c.bridgeAddress,
         lightClientAddress: c.lightClientAddress,
@@ -295,9 +169,9 @@ class Orchestrator {
         keypairPath: process.env.SOLANA_KEYPAIR ?? '~/.config/solana/id.json',
       },
       proverEndpoint: `http://127.0.0.1:${this.config.ports.prover}`,
-      teeEndpoint: 'http://127.0.0.1:8080',
-      batchSize: 10,
-      batchTimeoutMs: 30000,
+      teeEndpoint: this.config.tee.endpoint,
+      batchSize: this.config.tee.maxBatchSize,
+      batchTimeoutMs: this.config.tee.batchTimeoutMs,
       retryAttempts: 3,
       retryDelayMs: 5000,
     }
@@ -311,7 +185,7 @@ class Orchestrator {
   }
 
   private async startBeaconWatcher(): Promise<void> {
-    const beaconUrl = this.config.chains.evm[0].beaconUrl
+    const beaconUrl = this.config.chains.evm[0]?.beaconUrl
     if (!beaconUrl) {
       console.log('⚠️  No beacon URL configured, skipping beacon watcher')
       return
@@ -373,34 +247,6 @@ class Orchestrator {
     console.log('Press Ctrl+C to stop')
     console.log('')
   }
-
-  /**
-   * Get private key for the current mode.
-   * - Local mode: Uses well-known Anvil test key (safe for local development only)
-   * - Testnet/Mainnet: Requires PRIVATE_KEY environment variable
-   */
-  private getPrivateKey(): string {
-    const envKey = process.env.PRIVATE_KEY
-
-    if (envKey) {
-      return envKey
-    }
-
-    // SECURITY: Only allow default test key in local mode
-    if (this.config.mode === 'local') {
-      console.log('⚠️  Using default Anvil test key (LOCAL MODE ONLY)')
-      // This is the well-known first Anvil/Hardhat test key
-      // NEVER use this in testnet or mainnet
-      return '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-    }
-
-    // For testnet and mainnet, require explicit configuration
-    throw new Error(
-      `PRIVATE_KEY environment variable is required for ${this.config.mode} mode. ` +
-        `Set it in your .env file or environment. ` +
-        `NEVER commit private keys to source control.`,
-    )
-  }
 }
 
 async function main(): Promise<void> {
@@ -410,7 +256,7 @@ async function main(): Promise<void> {
       mode: {
         type: 'string',
         short: 'm',
-        default: 'local',
+        default: undefined,
       },
       help: {
         type: 'boolean',
@@ -430,29 +276,42 @@ Usage: bun run scripts/orchestrator.ts [options]
 
 Options:
   -m, --mode <mode>  Deployment mode (local, testnet, mainnet)
+                     Can also be set via BRIDGE_MODE env var
   -h, --help         Show this help message
 
 Environment Variables:
-  PRIVATE_KEY              EVM wallet private key
-  SOLANA_KEYPAIR          Path to Solana keypair file
-  ETH_RPC                  Ethereum RPC URL (mainnet)
-  BASE_RPC                 Base RPC URL (mainnet)
+  BRIDGE_MODE              Deployment mode (local, testnet, mainnet)
+  PRIVATE_KEY              EVM wallet private key (required for testnet/mainnet)
+  SOLANA_KEYPAIR           Path to Solana keypair file
+  BASE_SEPOLIA_RPC         Base Sepolia RPC URL
   BEACON_URL               Beacon chain RPC URL
   SOLANA_RPC               Solana RPC URL
   BRIDGE_PROGRAM_ID        Solana bridge program ID
   EVM_LIGHT_CLIENT_PROGRAM_ID  Solana EVM light client program ID
+
+Config Files:
+  The bridge uses JSON config files from packages/bridge/config/:
+    - local.json   (local development with Anvil)
+    - testnet.json (testnet deployment)
+    - mainnet.json (production deployment)
+
+  These configs are loaded via @jejunetwork/config and support
+  environment variable placeholders like \${BASE_SEPOLIA_RPC}.
 `)
     process.exit(0)
   }
 
-  const mode = values.mode as keyof typeof CONFIGS
-  const config = CONFIGS[mode]
+  // Get mode from CLI arg or env var
+  const mode: BridgeMode = (values.mode as BridgeMode) ?? getBridgeMode()
 
-  if (!config) {
+  if (mode !== 'local' && mode !== 'testnet' && mode !== 'mainnet') {
     console.error(`Unknown mode: ${mode}`)
     console.error('Available modes: local, testnet, mainnet')
     process.exit(1)
   }
+
+  // Load config from @jejunetwork/config (uses JSON files with env var resolution)
+  const config = await loadBridgeConfig(mode)
 
   const orchestrator = new Orchestrator(config)
 

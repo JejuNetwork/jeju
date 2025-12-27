@@ -1,32 +1,32 @@
 /**
  * Decentralized State Management for DWS
  *
- * Persists compute jobs, storage pins, git repos, and package registrations to CovenantSQL.
- * CQL is required. Run infrastructure before starting DWS.
+ * Persists compute jobs, storage pins, git repos, and package registrations to EQLite.
+ * EQLite is required. Run infrastructure before starting DWS.
  */
 
 import {
-  getCQLMinerUrl,
-  getCQLUrl,
   getCurrentNetwork,
+  getEQLiteMinerUrl,
+  getEQLiteUrl,
 } from '@jejunetwork/config'
 import {
   type ExecResult,
-  getCQL,
+  getEQLite,
   type QueryParam,
   type QueryResult,
-  resetCQL,
+  resetEQLite,
 } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
+const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws'
 
 /**
- * Minimal interface for CQL operations used by DWS state.
+ * Minimal interface for EQLite operations used by DWS state.
  * The test mock implements this interface with in-memory storage.
  */
-interface MinimalCQLClient {
+interface MinimalEQLiteClient {
   isHealthy(): Promise<boolean>
   query<T>(
     sql: string,
@@ -36,47 +36,47 @@ interface MinimalCQLClient {
   exec(sql: string, params: QueryParam[], dbId: string): Promise<ExecResult>
 }
 
-let cqlClient: MinimalCQLClient | null = null
+let eqliteClient: MinimalEQLiteClient | null = null
 let cacheClient: CacheClient | null = null
 let initialized = false
 let initPromise: Promise<void> | null = null
 
-// CQL is always required - no in-memory fallback for serverless compatibility
+// EQLite is always required - no in-memory fallback for serverless compatibility
 
-async function getCQLClient(): Promise<MinimalCQLClient> {
+async function getEQLiteClient(): Promise<MinimalEQLiteClient> {
   // Wait for initialization if in progress
   if (initPromise) {
     await initPromise
   }
 
-  if (!cqlClient) {
+  if (!eqliteClient) {
     // Reset any existing client to ensure fresh config
-    resetCQL()
+    resetEQLite()
 
     // Get URLs from centralized config (respects JEJU_NETWORK)
-    const blockProducerEndpoint = getCQLUrl()
-    const minerEndpoint = getCQLMinerUrl()
+    const blockProducerEndpoint = getEQLiteUrl()
+    const minerEndpoint = getEQLiteMinerUrl()
 
-    cqlClient = getCQL({
+    eqliteClient = getEQLite({
       blockProducerEndpoint,
       minerEndpoint,
-      databaseId: CQL_DATABASE_ID,
+      databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
 
-    const healthy = await cqlClient.isHealthy()
+    const healthy = await eqliteClient.isHealthy()
     if (!healthy) {
-      cqlClient = null
+      eqliteClient = null
       const network = getCurrentNetwork()
-      const message = `DWS requires CovenantSQL for decentralized state (network: ${network}). Ensure CQL is running: docker compose up -d cql`
+      const message = `DWS requires EQLite for decentralized state (network: ${network}). Ensure EQLite is running: docker compose up -d eqlite`
       throw new Error(message)
     }
 
     await ensureTablesExist()
   }
 
-  return cqlClient
+  return eqliteClient
 }
 
 function getCache(): CacheClient {
@@ -87,7 +87,7 @@ function getCache(): CacheClient {
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (!cqlClient) return
+  if (!eqliteClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS compute_jobs (
@@ -234,14 +234,14 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await cqlClient.exec(ddl, [], CQL_DATABASE_ID)
+    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
+    await eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
   }
 
-  console.log('[DWS State] CovenantSQL tables ensured')
+  console.log('[DWS State] EQLite tables ensured')
 }
 
 // Row types
@@ -355,7 +355,7 @@ export const computeJobState = {
       created_at: Date.now(),
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO compute_jobs (job_id, command, shell, env, working_dir, timeout, status, output, exit_code, submitted_by, started_at, completed_at, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -377,18 +377,18 @@ export const computeJobState = {
         row.completed_at,
         row.created_at,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     await getCache().delete(`job:${row.job_id}`)
   },
 
   async get(jobId: string): Promise<ComputeJobRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ComputeJobRow>(
       'SELECT * FROM compute_jobs WHERE job_id = ?',
       [jobId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
@@ -398,7 +398,7 @@ export const computeJobState = {
     status?: string
     limit?: number
   }): Promise<ComputeJobRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const conditions: string[] = []
     const values: Array<string | number> = []
 
@@ -418,7 +418,7 @@ export const computeJobState = {
     const result = await client.query<ComputeJobRow>(
       `SELECT * FROM compute_jobs ${where} ORDER BY created_at DESC LIMIT ?`,
       values,
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
@@ -452,7 +452,7 @@ export const storagePinState = {
       expires_at: pin.expiresAt ?? null,
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO storage_pins (cid, name, size_bytes, backend, tier, owner, permanent, created_at, expires_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -469,36 +469,36 @@ export const storagePinState = {
         row.created_at,
         row.expires_at,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async get(cid: string): Promise<StoragePinRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<StoragePinRow>(
       'SELECT * FROM storage_pins WHERE cid = ?',
       [cid],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async listByOwner(owner: Address): Promise<StoragePinRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<StoragePinRow>(
       'SELECT * FROM storage_pins WHERE owner = ? ORDER BY created_at DESC',
       [owner.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
 
   async delete(cid: string): Promise<boolean> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.exec(
       'DELETE FROM storage_pins WHERE cid = ?',
       [cid],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rowsAffected > 0
   },
@@ -528,7 +528,7 @@ export const gitRepoState = {
       updated_at: now,
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO git_repos (repo_id, owner, name, description, default_branch, head_commit, is_public, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -545,26 +545,26 @@ export const gitRepoState = {
         row.created_at,
         row.updated_at,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async get(repoId: string): Promise<GitRepoRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<GitRepoRow>(
       'SELECT * FROM git_repos WHERE repo_id = ?',
       [repoId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async listByOwner(owner: Address): Promise<GitRepoRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<GitRepoRow>(
       'SELECT * FROM git_repos WHERE owner = ? ORDER BY updated_at DESC',
       [owner.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
@@ -595,7 +595,7 @@ export const packageState = {
       created_at: Date.now(),
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO packages (package_id, name, version, cid, owner, description, keywords, dependencies, downloads, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -613,36 +613,36 @@ export const packageState = {
         row.downloads,
         row.created_at,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async get(name: string, version: string): Promise<PackageRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<PackageRow>(
       'SELECT * FROM packages WHERE name = ? AND version = ?',
       [name, version],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async getLatest(name: string): Promise<PackageRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<PackageRow>(
       'SELECT * FROM packages WHERE name = ? ORDER BY created_at DESC LIMIT 1',
       [name],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async incrementDownloads(name: string, version: string): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       'UPDATE packages SET downloads = downloads + 1 WHERE name = ? AND version = ?',
       [name, version],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 }
@@ -686,7 +686,7 @@ export const apiListingState = {
       updated_at: now,
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO api_listings (listing_id, provider_id, seller, key_vault_id, price_per_request, limits, access_control, status, total_requests, total_revenue, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -706,67 +706,67 @@ export const apiListingState = {
         row.created_at,
         row.updated_at,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async get(listingId: string): Promise<ApiListingRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiListingRow>(
       'SELECT * FROM api_listings WHERE listing_id = ?',
       [listingId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async listBySeller(seller: Address): Promise<ApiListingRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiListingRow>(
       'SELECT * FROM api_listings WHERE seller = ? ORDER BY created_at DESC',
       [seller.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
 
   async incrementUsage(listingId: string, revenue: string): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `UPDATE api_listings SET total_requests = total_requests + 1,
        total_revenue = CAST(CAST(total_revenue AS INTEGER) + ? AS TEXT), updated_at = ?
        WHERE listing_id = ?`,
       [parseInt(revenue, 10), Date.now(), listingId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async listAll(limit = 100): Promise<ApiListingRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiListingRow>(
       'SELECT * FROM api_listings ORDER BY created_at DESC LIMIT ?',
       [limit],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
 
   async listByProvider(providerId: string): Promise<ApiListingRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiListingRow>(
       'SELECT * FROM api_listings WHERE provider_id = ? ORDER BY created_at DESC',
       [providerId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
 
   async listActive(): Promise<ApiListingRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiListingRow>(
       `SELECT * FROM api_listings WHERE status = 'active' ORDER BY created_at DESC`,
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
@@ -776,21 +776,21 @@ export const apiListingState = {
     activeListings: number
     totalRevenue: string
   }> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const total = await client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM api_listings',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     const active = await client.query<{ count: number }>(
       `SELECT COUNT(*) as count FROM api_listings WHERE status = 'active'`,
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     const revenue = await client.query<{ total: string }>(
       'SELECT COALESCE(SUM(CAST(total_revenue AS INTEGER)), 0) as total FROM api_listings',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return {
       totalListings: total.rows[0].count ?? 0,
@@ -805,12 +805,12 @@ export const apiUserAccountState = {
   async getOrCreate(address: Address): Promise<ApiUserAccountRow> {
     const addr = address.toLowerCase()
     const now = Date.now()
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     const result = await client.query<ApiUserAccountRow>(
       'SELECT * FROM api_user_accounts WHERE address = ?',
       [addr],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (result.rows[0]) return result.rows[0]
@@ -829,7 +829,7 @@ export const apiUserAccountState = {
       `INSERT INTO api_user_accounts (address, balance, total_spent, total_requests, active_listings, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [addr, '0', '0', 0, '[]', now, now],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     return newAccount
@@ -854,18 +854,18 @@ export const apiUserAccountState = {
     const deltaValue = BigInt(delta)
     const newBalance = currentBalance + deltaValue
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `UPDATE api_user_accounts SET balance = ?, updated_at = ? WHERE address = ?`,
       [newBalance.toString(), now, addr],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async recordRequest(address: Address, cost: string): Promise<void> {
     const addr = address.toLowerCase()
     const now = Date.now()
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     await client.exec(
       `UPDATE api_user_accounts SET
@@ -875,16 +875,16 @@ export const apiUserAccountState = {
        updated_at = ?
        WHERE address = ?`,
       [parseInt(cost, 10), parseInt(cost, 10), now, addr],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async listAll(limit = 100): Promise<ApiUserAccountRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiUserAccountRow>(
       'SELECT * FROM api_user_accounts ORDER BY created_at DESC LIMIT ?',
       [limit],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
@@ -912,7 +912,7 @@ export const apiKeyState = {
     tier: string
     createdAt: number
   }): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO api_keys (id, key_hash, address, name, tier, created_at, last_used_at, request_count, is_active)
        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 1)`,
@@ -924,55 +924,55 @@ export const apiKeyState = {
         record.tier,
         record.createdAt,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async getByHash(keyHash: string): Promise<ApiKeyRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiKeyRow>(
       'SELECT * FROM api_keys WHERE key_hash = ?',
       [keyHash],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async getById(id: string): Promise<ApiKeyRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiKeyRow>(
       'SELECT * FROM api_keys WHERE id = ?',
       [id],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async listByAddress(address: Address): Promise<ApiKeyRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<ApiKeyRow>(
       'SELECT * FROM api_keys WHERE LOWER(address) = ? ORDER BY created_at DESC',
       [address.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
 
   async recordUsage(keyHash: string): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       'UPDATE api_keys SET last_used_at = ?, request_count = request_count + 1 WHERE key_hash = ?',
       [Date.now(), keyHash],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async revoke(id: string): Promise<boolean> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.exec(
       'UPDATE api_keys SET is_active = 0 WHERE id = ?',
       [id],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rowsAffected > 0
   },
@@ -1013,7 +1013,7 @@ export const trainingState = {
     step: number
     totalSteps: number
   }): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const now = Date.now()
     await client.exec(
       `INSERT INTO training_runs (run_id, model, state, clients, step, total_steps, created_at, updated_at)
@@ -1034,16 +1034,16 @@ export const trainingState = {
         run.step,
         now,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async getRun(runId: string): Promise<TrainingRunRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<TrainingRunRow>(
       'SELECT * FROM training_runs WHERE run_id = ?',
       [runId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
@@ -1051,7 +1051,7 @@ export const trainingState = {
   async listRuns(
     status?: 'active' | 'completed' | 'paused',
   ): Promise<TrainingRunRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     let query = 'SELECT * FROM training_runs'
     const params: QueryParam[] = []
 
@@ -1068,17 +1068,17 @@ export const trainingState = {
     const result = await client.query<TrainingRunRow>(
       query,
       params,
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
 
   async deleteRun(runId: string): Promise<boolean> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.exec(
       'DELETE FROM training_runs WHERE run_id = ?',
       [runId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rowsAffected > 0
   },
@@ -1092,7 +1092,7 @@ export const trainingState = {
     bandwidthMbps?: number
     isActive?: boolean
   }): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const now = Date.now()
     const addr = node.address.toLowerCase()
     await client.exec(
@@ -1116,22 +1116,22 @@ export const trainingState = {
         node.isActive !== false ? 1 : 0,
         now,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
   async getNode(address: string): Promise<TrainingNodeRow | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<TrainingNodeRow>(
       'SELECT * FROM training_nodes WHERE address = ?',
       [address.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async listNodes(activeOnly = true): Promise<TrainingNodeRow[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     let query = 'SELECT * FROM training_nodes'
     if (activeOnly) {
       query += ' WHERE is_active = 1'
@@ -1139,27 +1139,27 @@ export const trainingState = {
     const result = await client.query<TrainingNodeRow>(
       query,
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows
   },
 
   async updateHeartbeat(address: string): Promise<boolean> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.exec(
       'UPDATE training_nodes SET last_heartbeat = ?, is_active = 1 WHERE address = ?',
       [Date.now(), address.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rowsAffected > 0
   },
 
   async deleteNode(address: string): Promise<boolean> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.exec(
       'DELETE FROM training_nodes WHERE address = ?',
       [address.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rowsAffected > 0
   },
@@ -1170,18 +1170,18 @@ export const trainingState = {
     totalRuns: number
     activeRuns: number
   }> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     const nodes = await client.query<{ total: number; active: number }>(
       'SELECT COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active FROM training_nodes',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const runs = await client.query<{ total: number; active: number }>(
       'SELECT COUNT(*) as total, SUM(CASE WHEN state >= 1 AND state <= 5 THEN 1 ELSE 0 END) as active FROM training_runs',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     return {
@@ -1196,11 +1196,11 @@ export const trainingState = {
 // X402 Payment State Operations
 export const x402State = {
   async getCredits(address: string): Promise<bigint> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<{ balance: string }>(
       'SELECT balance FROM x402_credits WHERE LOWER(address) = ?',
       [address.toLowerCase()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0] ? BigInt(result.rows[0].balance) : 0n
   },
@@ -1208,7 +1208,7 @@ export const x402State = {
   async addCredits(address: string, amount: bigint): Promise<void> {
     const addr = address.toLowerCase()
     const now = Date.now()
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     await client.exec(
       `INSERT INTO x402_credits (address, balance, updated_at)
@@ -1216,7 +1216,7 @@ export const x402State = {
        ON CONFLICT(address) DO UPDATE SET
        balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?`,
       [addr, amount.toString(), now, amount.toString(), now],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 
@@ -1226,38 +1226,38 @@ export const x402State = {
 
     const addr = address.toLowerCase()
     const now = Date.now()
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     await client.exec(
       `UPDATE x402_credits SET balance = CAST(CAST(balance AS INTEGER) - ? AS TEXT), updated_at = ?
        WHERE LOWER(address) = ?`,
       [amount.toString(), now, addr],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return true
   },
 
   async isNonceUsed(nonceKey: string): Promise<boolean> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<{ nonce: string }>(
       'SELECT nonce FROM x402_nonces WHERE nonce = ?',
       [nonceKey],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows.length > 0
   },
 
   async markNonceUsed(nonceKey: string): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       'INSERT INTO x402_nonces (nonce, used_at) VALUES (?, ?) ON CONFLICT DO NOTHING',
       [nonceKey, Date.now()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   },
 }
 
-// Track if we're in memory-only mode (no CQL)
+// Track if we're in memory-only mode (no EQLite)
 let memoryOnlyMode = false
 
 // Initialize state - uses promise to prevent race conditions
@@ -1273,19 +1273,19 @@ export async function initializeDWSState(): Promise<void> {
   // Start initialization and store the promise
   initPromise = (async () => {
     try {
-      await getCQLClient()
+      await getEQLiteClient()
       initialized = true
-      console.log('[DWS State] Initialized with CovenantSQL')
+      console.log('[DWS State] Initialized with EQLite')
     } catch (error) {
-      // For local development, allow running without CQL
+      // For local development, allow running without EQLite
       if (process.env.NODE_ENV !== 'production') {
         memoryOnlyMode = true
         initialized = true
         console.warn(
-          '[DWS State] CQL unavailable - running in memory-only mode (local dev)',
+          '[DWS State] EQLite unavailable - running in memory-only mode (local dev)',
         )
         console.warn(
-          '[DWS State] Some features will be limited. Start CQL for full functionality.',
+          '[DWS State] Some features will be limited. Start EQLite for full functionality.',
         )
       } else {
         throw error
@@ -1301,6 +1301,6 @@ export async function initializeDWSState(): Promise<void> {
 }
 
 // Get state mode
-export function getStateMode(): 'cql' | 'memory' {
-  return memoryOnlyMode ? 'memory' : 'cql'
+export function getStateMode(): 'eqlite' | 'memory' {
+  return memoryOnlyMode ? 'memory' : 'eqlite'
 }

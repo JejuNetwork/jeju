@@ -11,6 +11,7 @@ import {
 import { Elysia } from 'elysia'
 import { type AutonomousAgentRunner, createAgentRunner } from '../autonomous'
 import { loadBlueTeamCharacters, loadRedTeamCharacters } from '../characters'
+import { config } from '../config'
 import { createLogger } from '../sdk/logger'
 
 const log = createLogger('CronRoutes')
@@ -22,17 +23,18 @@ async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
   if (dbPersistence) return dbPersistence
 
   // Try to get database client from environment
-  const dbEndpoint = process.env.CQL_ENDPOINT
+  const { config } = await import('../config')
+  const dbEndpoint = config.eqliteEndpoint
   if (!dbEndpoint) {
     log.warn(
-      'CQL_ENDPOINT not set - trajectory batches will not be persisted to database',
+      'EQLITE_ENDPOINT not set - trajectory batches will not be persisted to database',
     )
     return null
   }
 
   // Import dynamically to avoid circular deps
-  const { CQLClient } = await import('@jejunetwork/db')
-  const client = new CQLClient({ blockProducerEndpoint: dbEndpoint })
+  const { EQLiteClient } = await import('@jejunetwork/db')
+  const client = new EQLiteClient({ blockProducerEndpoint: dbEndpoint })
   dbPersistence = new TrainingDbPersistence(client)
   return dbPersistence
 }
@@ -141,8 +143,8 @@ let warnedAboutMissingSecret = false
  * Cron authentication header check
  */
 function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
-  const cronSecret = process.env.CRON_SECRET
-  const network = process.env.NETWORK ?? 'localnet'
+  const cronSecret = config.cronSecret
+  const network = config.network
 
   if (!cronSecret) {
     // SECURITY: Only allow unauthenticated cron access in localnet

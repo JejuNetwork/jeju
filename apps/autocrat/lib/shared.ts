@@ -30,7 +30,7 @@ export function toAddress(value: string): Address {
 }
 
 // ============================================================================
-// CQL Row Accessors - Type-safe database row field extraction
+// EQLite Row Accessors - Type-safe database row field extraction
 // ============================================================================
 
 /**

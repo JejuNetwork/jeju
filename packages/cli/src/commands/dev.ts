@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getCQLBlockProducerUrl,
+  getEQLiteBlockProducerUrl,
   getFarcasterHubUrl,
   getRpcUrl,
 } from '@jejunetwork/config'
@@ -101,7 +101,7 @@ async function startDev(options: {
   const rootDir = process.cwd()
   setupSignalHandlers()
 
-  // Start infrastructure (CQL, Docker services, localnet) - parallelized for speed
+  // Start infrastructure (EQLite, Docker services, localnet) - parallelized for speed
   infrastructureService = createInfrastructureService(rootDir)
   const infraReady = await infrastructureService.ensureRunning()
 
@@ -293,7 +293,7 @@ async function deployAppsOnchain(
         JEJU_DWS_ENDPOINT: 'http://localhost:4030',
         JEJU_NETWORK: 'localnet',
         TEE_PROVIDER: 'local',
-        CQL_BLOCK_PRODUCER_ENDPOINT: getCQLBlockProducerUrl(),
+        EQLITE_BLOCK_PRODUCER_ENDPOINT: getEQLiteBlockProducerUrl(),
         WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
         STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
         CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
@@ -537,8 +537,8 @@ async function printReady(
     logger.subheader('Infrastructure')
     logger.table([
       {
-        label: 'CovenantSQL',
-        value: getCQLBlockProducerUrl(),
+        label: 'EQLite',
+        value: getEQLiteBlockProducerUrl(),
         status: 'ok' as const,
       },
       {

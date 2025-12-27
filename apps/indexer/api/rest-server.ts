@@ -2,6 +2,7 @@ import { cors } from '@elysiajs/cors'
 import { type Context, Elysia } from 'elysia'
 import { z } from 'zod'
 import { RegisteredAgent } from '../src/model'
+import { config } from './config'
 import { getAccountByAddress } from './utils/account-utils'
 import { getAgentsByTag } from './utils/agent-utils'
 import { getBlockByIdentifier } from './utils/block-detail-utils'
@@ -96,7 +97,7 @@ import {
   validateQuery,
 } from './utils/validation'
 
-const REST_PORT = parseInt(process.env.REST_PORT || '4352', 10)
+const REST_PORT = config.restPort
 
 if (!REST_PORT || REST_PORT <= 0 || REST_PORT > 65535) {
   throw new Error(
@@ -104,11 +105,9 @@ if (!REST_PORT || REST_PORT <= 0 || REST_PORT > 65535) {
   )
 }
 
-const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',')
-  .map((o) => o.trim())
-  .filter(Boolean)
+const CORS_ORIGINS = config.corsOrigins
 
-const corsOptions = CORS_ORIGINS?.length
+const corsOptions = CORS_ORIGINS.length
   ? {
       origin: CORS_ORIGINS,
       credentials: true,

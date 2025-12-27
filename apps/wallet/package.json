@@ -11,7 +11,7 @@
     "build": "bun scripts/build-web.ts",
     "build:app": "cd app/src-tauri && tauri build",
     "build:ext": "bun scripts/build-extension.ts",
-    "build:mobile": "bun run build && bunx cap sync",
+    "build:mobile": "bun run build && cd app && bunx cap sync",
     "test": "bun test lib/ api/ web/ && bunx playwright test --project=live && bunx playwright test --config synpress.config.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -39,6 +39,7 @@
     "capacitor-secure-storage-plugin": "^0.10.0"
   },
   "devDependencies": {
+    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/tests": "workspace:*",
     "@capacitor/core": "^6.1.0",
     "@capacitor/preferences": "^6.0.0",

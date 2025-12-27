@@ -91,8 +91,7 @@ impl WireGuardTunnel {
         let private_key = parse_base64_key(&self.config.private_key)?;
         let peer_pubkey = parse_base64_key(&self.config.peer_pubkey)?;
 
-        let static_secret = StaticSecret::try_from(private_key)
-            .map_err(|_| VPNError::TunnelError("Invalid private key".to_string()))?;
+        let static_secret = StaticSecret::from(private_key);
 
         let peer_public = PublicKey::from(peer_pubkey);
 
@@ -255,13 +254,12 @@ async fn run_tunnel_loop(
     // Initiate handshake
     {
         let mut tunn_guard = tunn.lock();
-        match tunn_guard.format_handshake_initiation(&mut send_buf, false) {
-            TunnResult::WriteToNetwork(data) => {
-                if let Err(e) = socket.send(data) {
-                    tracing::warn!("Failed to send handshake initiation: {}", e);
-                }
+        if let TunnResult::WriteToNetwork(data) =
+            tunn_guard.format_handshake_initiation(&mut send_buf, false)
+        {
+            if let Err(e) = socket.send(data) {
+                tracing::warn!("Failed to send handshake initiation: {}", e);
             }
-            _ => {}
         }
     }
 
@@ -416,7 +414,7 @@ pub fn generate_keypair() -> (String, String) {
     let mut private_key_bytes = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut private_key_bytes);
 
-    let static_secret = StaticSecret::try_from(private_key_bytes).expect("Valid key bytes");
+    let static_secret = StaticSecret::from(private_key_bytes);
     let public_key = PublicKey::from(&static_secret);
 
     let private_key = base64::engine::general_purpose::STANDARD.encode(private_key_bytes);
@@ -438,8 +436,7 @@ pub fn derive_public_key(private_key: &str) -> Result<String, VPNError> {
     use base64::Engine;
 
     let private_bytes = parse_base64_key(private_key)?;
-    let static_secret = StaticSecret::try_from(private_bytes)
-        .map_err(|_| VPNError::TunnelError("Invalid private key".to_string()))?;
+    let static_secret = StaticSecret::from(private_bytes);
 
     let public_key = PublicKey::from(&static_secret);
     Ok(base64::engine::general_purpose::STANDARD.encode(public_key.as_bytes()))
@@ -687,7 +684,166 @@ mod platform {
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "ios")]
+mod platform {
+    use super::*;
+    use std::os::fd::RawFd;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    /// TUN device wrapper for iOS using NetworkExtension
+    /// On iOS, the tunnel file descriptor is provided by NEPacketTunnelProvider
+    /// which must be implemented in Swift and passed to Rust via FFI
+    pub struct TunDevice {
+        pub name: String,
+        fd: Arc<Mutex<Option<RawFd>>>,
+    }
+
+    impl TunDevice {
+        /// Create a new TunDevice with a file descriptor from NEPacketTunnelProvider
+        pub fn with_fd(fd: RawFd) -> Self {
+            Self {
+                name: "utun".to_string(),
+                fd: Arc::new(Mutex::new(Some(fd))),
+            }
+        }
+    }
+
+    /// Create a TUN interface on iOS
+    /// Note: On iOS, the actual TUN is created by NEPacketTunnelProvider in Swift
+    /// This function creates a placeholder that expects set_tun_fd to be called
+    pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
+        tracing::info!("Creating iOS TUN interface placeholder");
+        tracing::info!("Note: iOS requires NEPacketTunnelProvider to provide the tunnel fd");
+
+        Ok(TunDevice {
+            name: "utun".to_string(),
+            fd: Arc::new(Mutex::new(None)),
+        })
+    }
+
+    pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
+        let fd_guard = device.fd.lock().await;
+        let fd = fd_guard.ok_or_else(|| {
+            VPNError::TunnelError(
+                "iOS TUN fd not set - NEPacketTunnelProvider required".to_string(),
+            )
+        })?;
+
+        // Use libc write for raw fd
+        let result = unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, data.len()) };
+        if result < 0 {
+            return Err(VPNError::TunnelError(
+                "Failed to write to iOS TUN".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    pub async fn read_from_tun<'a>(
+        device: &TunDevice,
+        buf: &'a mut [u8],
+    ) -> Result<&'a [u8], VPNError> {
+        let fd_guard = device.fd.lock().await;
+        let fd = fd_guard.ok_or_else(|| {
+            VPNError::TunnelError(
+                "iOS TUN fd not set - NEPacketTunnelProvider required".to_string(),
+            )
+        })?;
+
+        let result = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+        if result < 0 {
+            return Err(VPNError::TunnelError(
+                "Failed to read from iOS TUN".to_string(),
+            ));
+        }
+
+        Ok(&buf[..result as usize])
+    }
+}
+
+#[cfg(target_os = "android")]
+mod platform {
+    use super::*;
+    use std::os::fd::RawFd;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    /// TUN device wrapper for Android using VpnService
+    /// On Android, the tunnel file descriptor is provided by VpnService.Builder
+    /// which must be implemented in Kotlin/Java and passed to Rust via JNI
+    pub struct TunDevice {
+        pub name: String,
+        fd: Arc<Mutex<Option<RawFd>>>,
+    }
+
+    impl TunDevice {
+        /// Create a new TunDevice with a file descriptor from VpnService
+        pub fn with_fd(fd: RawFd) -> Self {
+            Self {
+                name: "tun0".to_string(),
+                fd: Arc::new(Mutex::new(Some(fd))),
+            }
+        }
+    }
+
+    /// Create a TUN interface on Android
+    /// Note: On Android, the actual TUN is created by VpnService in Kotlin/Java
+    /// This function creates a placeholder that expects set_tun_fd to be called
+    pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
+        tracing::info!("Creating Android TUN interface placeholder");
+        tracing::info!("Note: Android requires VpnService to provide the tunnel fd");
+
+        Ok(TunDevice {
+            name: "tun0".to_string(),
+            fd: Arc::new(Mutex::new(None)),
+        })
+    }
+
+    pub async fn write_to_tun(device: &TunDevice, data: &[u8]) -> Result<(), VPNError> {
+        let fd_guard = device.fd.lock().await;
+        let fd = fd_guard.ok_or_else(|| {
+            VPNError::TunnelError("Android TUN fd not set - VpnService required".to_string())
+        })?;
+
+        let result = unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, data.len()) };
+        if result < 0 {
+            return Err(VPNError::TunnelError(
+                "Failed to write to Android TUN".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    pub async fn read_from_tun<'a>(
+        device: &TunDevice,
+        buf: &'a mut [u8],
+    ) -> Result<&'a [u8], VPNError> {
+        let fd_guard = device.fd.lock().await;
+        let fd = fd_guard.ok_or_else(|| {
+            VPNError::TunnelError("Android TUN fd not set - VpnService required".to_string())
+        })?;
+
+        let result = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+        if result < 0 {
+            return Err(VPNError::TunnelError(
+                "Failed to read from Android TUN".to_string(),
+            ));
+        }
+
+        Ok(&buf[..result as usize])
+    }
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "windows",
+    target_os = "ios",
+    target_os = "android"
+)))]
 mod platform {
     use super::*;
 
@@ -713,6 +869,9 @@ mod platform {
 use platform::{create_tun_interface, read_from_tun, write_to_tun};
 
 #[cfg(target_os = "windows")]
+use platform::TunDevice;
+
+#[cfg(any(target_os = "ios", target_os = "android"))]
 use platform::TunDevice;
 
 #[cfg(test)]

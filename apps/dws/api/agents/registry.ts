@@ -1,6 +1,6 @@
 /**
  * Agent Registry
- * CQL-backed storage for agent configurations
+ * EQLite-backed storage for agent configurations
  */
 
 import type { JsonRecord } from '@jejunetwork/types'
@@ -13,8 +13,8 @@ import type { Address } from 'viem'
 import { z } from 'zod'
 import { isAgentStatus, isCronAction } from '../shared/utils/type-guards'
 
-// Generic CQL rows response schema
-const CqlRowsResponseSchema = z.object({
+// Generic EQLite rows response schema
+const EqliteRowsResponseSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).optional(),
 })
 
@@ -75,11 +75,11 @@ type SqlParam = string | number | boolean | null
 // Registry Configuration
 
 export interface RegistryConfig {
-  cqlUrl: string
+  eqliteUrl: string
   databaseId: string
 }
 
-// CQL-backed storage - no in-memory caching for serverless compatibility
+// EQLite-backed storage - no in-memory caching for serverless compatibility
 
 let registryConfig: RegistryConfig | null = null
 let initialized = false
@@ -91,16 +91,16 @@ export async function initRegistry(config: RegistryConfig): Promise<void> {
 
   registryConfig = config
 
-  // CQL is required - no fallback to in-memory
+  // EQLite is required - no fallback to in-memory
   await createTables()
-  console.log('[AgentRegistry] Initialized with CovenantSQL')
+  console.log('[AgentRegistry] Initialized with EQLite')
 
   initialized = true
 }
 
 async function createTables(): Promise<void> {
   if (!registryConfig) {
-    throw new Error('[AgentRegistry] CQL config is required')
+    throw new Error('[AgentRegistry] EQLite config is required')
   }
 
   const tables = [
@@ -156,11 +156,11 @@ async function createTables(): Promise<void> {
   ]
 
   for (const sql of tables) {
-    await cqlExec(sql)
+    await eqliteExec(sql)
   }
 }
 
-// Helper to convert CQL row to AgentConfig
+// Helper to convert EQLite row to AgentConfig
 function rowToAgentConfig(row: {
   id: string
   owner: string
@@ -204,7 +204,7 @@ function rowToAgentConfig(row: {
   }
 }
 
-// Helper to convert CQL row to AgentCronTrigger
+// Helper to convert EQLite row to AgentCronTrigger
 function rowToCronTrigger(row: {
   id: string
   agent_id: string
@@ -263,8 +263,8 @@ export async function registerAgent(
     metadata: request.metadata,
   }
 
-  // Store in CQL
-  await cqlExec(
+  // Store in EQLite
+  await eqliteExec(
     `INSERT INTO agents (id, owner, character, models, runtime, status, created_at, updated_at, metadata)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -292,7 +292,7 @@ export async function registerAgent(
 }
 
 export async function getAgent(id: string): Promise<AgentConfig | null> {
-  const rows = await cqlQuery<{
+  const rows = await eqliteQuery<{
     id: string
     owner: string
     character: string
@@ -312,7 +312,7 @@ export async function getAgent(id: string): Promise<AgentConfig | null> {
 }
 
 export async function getAgentsByOwner(owner: Address): Promise<AgentConfig[]> {
-  const rows = await cqlQuery<{
+  const rows = await eqliteQuery<{
     id: string
     owner: string
     character: string
@@ -348,7 +348,7 @@ export async function listAgents(filter?: {
     params.push(filter.owner.toLowerCase())
   }
 
-  const rows = await cqlQuery<{
+  const rows = await eqliteQuery<{
     id: string
     owner: string
     character: string
@@ -392,8 +392,8 @@ export async function updateAgent(
 
   agent.updatedAt = Date.now()
 
-  // Update in CQL
-  await cqlExec(
+  // Update in EQLite
+  await eqliteExec(
     `UPDATE agents SET character = ?, models = ?, runtime = ?, updated_at = ?, metadata = ? WHERE id = ?`,
     [
       JSON.stringify(agent.character),
@@ -413,11 +413,10 @@ export async function updateAgentStatus(
   status: AgentStatus,
 ): Promise<void> {
   const now = Date.now()
-  await cqlExec('UPDATE agents SET status = ?, updated_at = ? WHERE id = ?', [
-    status,
-    now,
-    id,
-  ])
+  await eqliteExec(
+    'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
+    [status, now, id],
+  )
 }
 
 export async function terminateAgent(
@@ -432,14 +431,13 @@ export async function terminateAgent(
 
   const now = Date.now()
 
-  await cqlExec('UPDATE agents SET status = ?, updated_at = ? WHERE id = ?', [
-    'terminated',
-    now,
-    id,
-  ])
+  await eqliteExec(
+    'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
+    ['terminated', now, id],
+  )
 
   // Disable cron triggers
-  await cqlExec(
+  await eqliteExec(
     'UPDATE agent_cron_triggers SET enabled = 0 WHERE agent_id = ?',
     [id],
   )
@@ -466,7 +464,7 @@ export async function addCronTrigger(
     runCount: 0,
   }
 
-  await cqlExec(
+  await eqliteExec(
     `INSERT INTO agent_cron_triggers (id, agent_id, schedule, action, payload, enabled, run_count)
      VALUES (?, ?, ?, ?, ?, 1, 0)`,
     [
@@ -484,7 +482,7 @@ export async function addCronTrigger(
 export async function getCronTriggers(
   agentId: string,
 ): Promise<AgentCronTrigger[]> {
-  const rows = await cqlQuery<{
+  const rows = await eqliteQuery<{
     id: string
     agent_id: string
     schedule: string
@@ -500,7 +498,7 @@ export async function getCronTriggers(
 }
 
 export async function getAllActiveCronTriggers(): Promise<AgentCronTrigger[]> {
-  const rows = await cqlQuery<{
+  const rows = await eqliteQuery<{
     id: string
     agent_id: string
     schedule: string
@@ -517,7 +515,7 @@ export async function getAllActiveCronTriggers(): Promise<AgentCronTrigger[]> {
 
 export async function updateCronTriggerRun(triggerId: string): Promise<void> {
   const now = Date.now()
-  await cqlExec(
+  await eqliteExec(
     'UPDATE agent_cron_triggers SET last_run_at = ?, run_count = run_count + 1 WHERE id = ?',
     [now, triggerId],
   )
@@ -533,7 +531,7 @@ export async function recordInvocation(
   const now = Date.now()
 
   // Use UPSERT pattern to update metrics
-  await cqlExec(
+  await eqliteExec(
     `INSERT INTO agent_metrics (agent_id, invocation_count, error_count, total_latency_ms, latency_samples, updated_at)
      VALUES (?, 1, ?, ?, 1, ?)
      ON CONFLICT(agent_id) DO UPDATE SET
@@ -552,7 +550,7 @@ export async function getAgentStats(
   const agent = await getAgent(agentId)
   if (!agent) return null
 
-  const rows = await cqlQuery<{
+  const rows = await eqliteQuery<{
     agent_id: string
     invocation_count: number
     error_count: number
@@ -575,20 +573,23 @@ export async function getAgentStats(
     avgLatencyMs: Math.round(avgLatency),
     errorRate,
     activeInstances: 0, // Populated by executor.getAgentInstances()
-    memoriesCount: 0, // Populated via CQL query in routes.ts
+    memoriesCount: 0, // Populated via EQLite query in routes.ts
   }
 }
 
-// CQL Helpers
+// EQLite Helpers
 
-async function cqlQuery<T>(sql: string, params: SqlParam[] = []): Promise<T[]> {
+async function eqliteQuery<T>(
+  sql: string,
+  params: SqlParam[] = [],
+): Promise<T[]> {
   if (!registryConfig) {
     throw new Error(
       '[AgentRegistry] Registry not initialized - call initRegistry first',
     )
   }
 
-  const response = await fetch(`${registryConfig.cqlUrl}/api/v1/query`, {
+  const response = await fetch(`${registryConfig.eqliteUrl}/api/v1/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -604,22 +605,22 @@ async function cqlQuery<T>(sql: string, params: SqlParam[] = []): Promise<T[]> {
   if (!response.ok) {
     const text = await response.text()
     throw new Error(
-      `[AgentRegistry] CQL query failed: ${response.status} - ${text}`,
+      `[AgentRegistry] EQLite query failed: ${response.status} - ${text}`,
     )
   }
 
-  const data = validateOrNull(CqlRowsResponseSchema, await response.json())
+  const data = validateOrNull(EqliteRowsResponseSchema, await response.json())
   return (data?.rows as T[]) ?? []
 }
 
-async function cqlExec(sql: string, params: SqlParam[] = []): Promise<void> {
+async function eqliteExec(sql: string, params: SqlParam[] = []): Promise<void> {
   if (!registryConfig) {
     throw new Error(
       '[AgentRegistry] Registry not initialized - call initRegistry first',
     )
   }
 
-  const response = await fetch(`${registryConfig.cqlUrl}/api/v1/query`, {
+  const response = await fetch(`${registryConfig.eqliteUrl}/api/v1/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -635,7 +636,7 @@ async function cqlExec(sql: string, params: SqlParam[] = []): Promise<void> {
   if (!response.ok) {
     const text = await response.text()
     throw new Error(
-      `[AgentRegistry] CQL exec failed: ${response.status} - ${text}`,
+      `[AgentRegistry] EQLite exec failed: ${response.status} - ${text}`,
     )
   }
 }
@@ -654,19 +655,19 @@ export async function getRegistryStats(): Promise<{
 }> {
   const [totalResult, activeResult, pendingResult, triggersResult] =
     await Promise.all([
-      cqlQuery<{ count: number }>(
+      eqliteQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agents WHERE status != ?',
         ['terminated'],
       ),
-      cqlQuery<{ count: number }>(
+      eqliteQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agents WHERE status = ?',
         ['active'],
       ),
-      cqlQuery<{ count: number }>(
+      eqliteQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agents WHERE status = ?',
         ['pending'],
       ),
-      cqlQuery<{ count: number }>(
+      eqliteQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agent_cron_triggers WHERE enabled = 1',
         [],
       ),

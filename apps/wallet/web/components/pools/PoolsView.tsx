@@ -61,9 +61,7 @@ export function PoolsView({ address }: PoolsViewProps) {
               <Droplets className="w-7 h-7 text-blue-400" />
               Liquidity Pools
             </h2>
-            <p className="text-muted-foreground">
-              Provide liquidity, earn trading fees
-            </p>
+            <p className="text-muted-foreground">Earn fees on every trade</p>
           </div>
           <button
             type="button"

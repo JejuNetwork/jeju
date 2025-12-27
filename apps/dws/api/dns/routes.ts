@@ -8,7 +8,7 @@
  * - DNS mirroring management
  */
 
-import { getContract, getRpcUrl } from '@jejunetwork/config'
+import { createAppConfig, getContract, getRpcUrl } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { createDNSMirror } from './dns-mirror'
@@ -17,6 +17,38 @@ import { createENSBridge } from './ens-bridge'
 import { createJNSResolver } from './jns-resolver'
 import { createRecursiveResolver } from './recursive-resolver'
 import { DNSRecordType, type MirrorTarget } from './types'
+
+interface DNSRouterConfig {
+  ethRpcUrl?: string
+  cfApiToken?: string
+  cfZoneId?: string
+  cfDomain?: string
+  awsAccessKeyId?: string
+  awsSecretAccessKey?: string
+  awsHostedZoneId?: string
+  awsDomain?: string
+  dnsMirrorDomain?: string
+  dnsSyncInterval?: number
+  gatewayEndpoint?: string
+  ipfsGateway?: string
+  [key: string]: string | number | undefined
+}
+
+const { config: dnsRouterConfig, configure: configureDNSRouter } =
+  createAppConfig<DNSRouterConfig>({
+    cfDomain: 'jejunetwork.org',
+    awsDomain: 'jejunetwork.org',
+    dnsMirrorDomain: 'jeju.jejunetwork.org',
+    dnsSyncInterval: 300,
+    gatewayEndpoint: 'gateway.jejunetwork.org',
+    ipfsGateway: 'ipfs.jejunetwork.org',
+  })
+
+export function configureDNSRouterConfig(
+  config: Partial<DNSRouterConfig>,
+): void {
+  configureDNSRouter(config)
+}
 
 // Initialize resolvers
 let dohServer: ReturnType<typeof createDoHServer> | null = null
@@ -56,9 +88,9 @@ function getRecursiveResolver(): ReturnType<typeof createRecursiveResolver> {
           registryAddress: jnsRegistry,
         }
       : undefined,
-    ens: process.env.ETH_RPC_URL
+    ens: dnsRouterConfig.ethRpcUrl
       ? {
-          ethRpcUrl: process.env.ETH_RPC_URL,
+          ethRpcUrl: dnsRouterConfig.ethRpcUrl,
         }
       : undefined,
     upstreamServers: [
@@ -81,27 +113,27 @@ function getDNSMirror(): ReturnType<typeof createDNSMirror> | null {
   const targets: MirrorTarget[] = []
 
   // Cloudflare
-  if (process.env.CF_API_TOKEN && process.env.CF_ZONE_ID) {
+  if (dnsRouterConfig.cfApiToken && dnsRouterConfig.cfZoneId) {
     targets.push({
       provider: 'cloudflare',
-      apiKey: process.env.CF_API_TOKEN,
-      zoneId: process.env.CF_ZONE_ID,
-      domain: process.env.CF_DOMAIN ?? 'jejunetwork.org',
+      apiKey: dnsRouterConfig.cfApiToken,
+      zoneId: dnsRouterConfig.cfZoneId,
+      domain: dnsRouterConfig.cfDomain ?? 'jejunetwork.org',
     })
   }
 
   // Route 53
   if (
-    process.env.AWS_ACCESS_KEY_ID &&
-    process.env.AWS_SECRET_ACCESS_KEY &&
-    process.env.AWS_HOSTED_ZONE_ID
+    dnsRouterConfig.awsAccessKeyId &&
+    dnsRouterConfig.awsSecretAccessKey &&
+    dnsRouterConfig.awsHostedZoneId
   ) {
     targets.push({
       provider: 'route53',
-      apiKey: process.env.AWS_ACCESS_KEY_ID,
-      apiSecret: process.env.AWS_SECRET_ACCESS_KEY,
-      zoneId: process.env.AWS_HOSTED_ZONE_ID,
-      domain: process.env.AWS_DOMAIN ?? 'jejunetwork.org',
+      apiKey: dnsRouterConfig.awsAccessKeyId,
+      apiSecret: dnsRouterConfig.awsSecretAccessKey,
+      zoneId: dnsRouterConfig.awsHostedZoneId,
+      domain: dnsRouterConfig.awsDomain ?? 'jejunetwork.org',
     })
   }
 
@@ -113,10 +145,11 @@ function getDNSMirror(): ReturnType<typeof createDNSMirror> | null {
       registryAddress: jnsRegistry,
     },
     targets,
-    mirrorDomain: process.env.DNS_MIRROR_DOMAIN ?? 'jeju.jejunetwork.org',
-    syncInterval: parseInt(process.env.DNS_SYNC_INTERVAL ?? '300', 10),
-    gatewayEndpoint: process.env.GATEWAY_ENDPOINT ?? 'gateway.jejunetwork.org',
-    ipfsGateway: process.env.IPFS_GATEWAY ?? 'ipfs.jejunetwork.org',
+    mirrorDomain: dnsRouterConfig.dnsMirrorDomain ?? 'jeju.jejunetwork.org',
+    syncInterval: dnsRouterConfig.dnsSyncInterval ?? 300,
+    gatewayEndpoint:
+      dnsRouterConfig.gatewayEndpoint ?? 'gateway.jejunetwork.org',
+    ipfsGateway: dnsRouterConfig.ipfsGateway ?? 'ipfs.jejunetwork.org',
   })
 
   return dnsMirror

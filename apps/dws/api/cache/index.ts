@@ -61,6 +61,12 @@ export {
   initializeCacheProvisioning,
   resetCacheProvisioning,
 } from './provisioning'
+// Redis Protocol Server (for ioredis, node-redis compatibility)
+export {
+  createRedisProtocolServer,
+  type RedisProtocolConfig,
+  RedisProtocolServer,
+} from './redis-protocol'
 // Routes
 export {
   createCacheRoutes,

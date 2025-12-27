@@ -1,5 +1,5 @@
 # Jeju Messaging Infrastructure Module
-# Deploys relay nodes, integrates with CovenantSQL and KMS
+# Deploys relay nodes, integrates with EQLite and KMS
 
 variable "environment" {
   description = "Environment name (testnet, mainnet)"
@@ -26,8 +26,8 @@ variable "eks_cluster_name" {
   type        = string
 }
 
-variable "covenantsql_endpoint" {
-  description = "CovenantSQL endpoint URL"
+variable "eqlite_endpoint" {
+  description = "EQLite endpoint URL"
   type        = string
 }
 
@@ -174,13 +174,13 @@ resource "aws_secretsmanager_secret" "kms_master_key" {
   })
 }
 
-resource "aws_secretsmanager_secret" "covenantsql_credentials" {
-  name        = "${local.name_prefix}/covenantsql-credentials"
-  description = "CovenantSQL authentication credentials"
+resource "aws_secretsmanager_secret" "eqlite_credentials" {
+  name        = "${local.name_prefix}/eqlite-credentials"
+  description = "EQLite authentication credentials"
   kms_key_id  = var.kms_key_arn
 
   tags = merge(var.tags, {
-    Name = "${local.name_prefix}-covenantsql-credentials"
+    Name = "${local.name_prefix}-eqlite-credentials"
   })
 }
 
@@ -199,14 +199,14 @@ resource "aws_ssm_parameter" "relay_endpoint" {
   })
 }
 
-resource "aws_ssm_parameter" "covenantsql_endpoint" {
-  name        = "/jeju/${var.environment}/messaging/covenantsql-endpoint"
-  description = "CovenantSQL endpoint for messaging"
+resource "aws_ssm_parameter" "eqlite_endpoint" {
+  name        = "/jeju/${var.environment}/messaging/eqlite-endpoint"
+  description = "EQLite endpoint for messaging"
   type        = "String"
-  value       = var.covenantsql_endpoint
+  value       = var.eqlite_endpoint
 
   tags = merge(var.tags, {
-    Name = "${local.name_prefix}-covenantsql-endpoint"
+    Name = "${local.name_prefix}-eqlite-endpoint"
   })
 }
 
@@ -310,7 +310,7 @@ resource "aws_iam_role_policy" "messaging" {
         Resource = [
           aws_secretsmanager_secret.relay_operator_keys.arn,
           aws_secretsmanager_secret.kms_master_key.arn,
-          aws_secretsmanager_secret.covenantsql_credentials.arn
+          aws_secretsmanager_secret.eqlite_credentials.arn
         ]
       },
       {
@@ -408,9 +408,9 @@ output "kms_master_key_secret_arn" {
   value       = aws_secretsmanager_secret.kms_master_key.arn
 }
 
-output "covenantsql_credentials_secret_arn" {
-  description = "Secrets Manager ARN for CovenantSQL credentials"
-  value       = aws_secretsmanager_secret.covenantsql_credentials.arn
+output "eqlite_credentials_secret_arn" {
+  description = "Secrets Manager ARN for EQLite credentials"
+  value       = aws_secretsmanager_secret.eqlite_credentials.arn
 }
 
 output "relay_endpoint" {
@@ -428,7 +428,7 @@ output "service_discovery" {
   value = {
     relay_endpoint    = "https://relay.${var.environment}.${var.domain_name}"
     kms_endpoint      = "https://kms.${var.environment}.${var.domain_name}"
-    covenantsql       = var.covenantsql_endpoint
+    eqlite       = var.eqlite_endpoint
     farcaster_hub     = var.farcaster_hub_url
     key_registry      = var.key_registry_address
     node_registry     = var.node_registry_address

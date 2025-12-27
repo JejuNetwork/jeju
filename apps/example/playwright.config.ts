@@ -1,10 +1,14 @@
 /**
  * Example Playwright Configuration
+ *
+ * Use DEV_MODE=1 to test against dev server on port 4501
+ * Otherwise tests against production server on port 4500
  */
 import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = CORE_PORTS.EXAMPLE.get()
+const DEV_MODE = process.env.DEV_MODE === '1'
+const PORT = DEV_MODE ? 4501 : CORE_PORTS.EXAMPLE.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -30,10 +34,11 @@ export default defineConfig({
 
   // Use 'bun run start' for production-like testing against DWS infrastructure
   // Set SKIP_WEBSERVER=1 if app is already running
+  // Set DEV_MODE=1 to test against dev server
   webServer: process.env.SKIP_WEBSERVER
     ? undefined
     : {
-        command: 'bun run start',
+        command: DEV_MODE ? 'bun run dev' : 'bun run start',
         url: `http://localhost:${PORT}`,
         reuseExistingServer: true,
         timeout: 180000,

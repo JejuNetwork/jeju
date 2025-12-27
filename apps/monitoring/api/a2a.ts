@@ -17,24 +17,21 @@ import {
   type SafeFetchResponse,
   type SkillResult,
 } from '../lib/types'
+import { config } from './config'
 
 const networkName = getNetworkName()
 
-const isDevelopment = process.env.NODE_ENV !== 'production'
+const isDevelopment = !config.isProduction
 
-const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') ?? [
-  'http://localhost:3000',
-  'http://localhost:4020',
-]
+const CORS_ORIGINS = config.corsOrigins
 
-const prometheusUrl = process.env.PROMETHEUS_URL ?? 'http://localhost:9090'
-const oifAggregatorUrl =
-  process.env.OIF_AGGREGATOR_URL ?? 'http://localhost:4010'
+const prometheusUrl = config.prometheusUrl
+const oifAggregatorUrl = config.oifAggregatorUrl
 
-if (!isDevelopment && !process.env.PROMETHEUS_URL) {
+if (!isDevelopment && !config.prometheusUrl) {
   throw new Error('PROMETHEUS_URL is required in production')
 }
-if (!isDevelopment && !process.env.OIF_AGGREGATOR_URL) {
+if (!isDevelopment && !config.oifAggregatorUrl) {
   throw new Error('OIF_AGGREGATOR_URL is required in production')
 }
 
@@ -522,7 +519,7 @@ const app = new Elysia()
 export type App = typeof app
 
 if (import.meta.main) {
-  const port = Number(process.env.A2A_PORT ?? 9091)
+  const port = config.a2aPort
   app.listen(port)
 }
 

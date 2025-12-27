@@ -1,5 +1,7 @@
 /**
  * Chat Interface Component
+ *
+ * Real-time chat interface with an AI agent
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -28,8 +30,10 @@ export function ChatInterface({
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const chat = useChat()
 
+  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -38,14 +42,22 @@ export function ChatInterface({
     scrollToBottom()
   }, [scrollToBottom])
 
+  // Clear messages when switching characters
+  useEffect(() => {
+    setMessages([])
+    setInput('')
+    inputRef.current?.focus()
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || chat.isPending) return
+    const trimmedInput = input.trim()
+    if (!trimmedInput || chat.isPending) return
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: input.trim(),
+      content: trimmedInput,
       timestamp: Date.now(),
     }
 
@@ -54,7 +66,7 @@ export function ChatInterface({
 
     const response = await chat.mutateAsync({
       characterId,
-      text: userMessage.content,
+      text: trimmedInput,
       userId: 'web-user',
       roomId: roomId ?? 'web-chat',
     })
@@ -71,37 +83,63 @@ export function ChatInterface({
   }
 
   return (
-    <div className="flex flex-col h-[600px] card-static overflow-hidden">
+    <div className="card-static flex flex-col h-[calc(100vh-220px)] min-h-[400px] max-h-[800px] overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3">
-          <div className="text-2xl">🤖</div>
-          <div>
-            <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>
-              {characterName}
-            </h3>
-            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-              Online
-            </p>
-          </div>
+      <div
+        className="flex items-center gap-3 p-4 border-b flex-shrink-0"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <div className="text-2xl" role="img" aria-label="Agent">
+          🤖
         </div>
+        <div className="min-w-0 flex-1">
+          <h3
+            className="font-bold truncate"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {characterName}
+          </h3>
+          <p
+            className="text-sm flex items-center gap-1.5"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            <span className="status-dot-active" aria-hidden="true" />
+            Ready
+          </p>
+        </div>
+        {roomId && <span className="badge-info text-xs">{roomId}</span>}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages Area */}
+      <div
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+        role="log"
+        aria-label="Chat messages"
+        aria-live="polite"
+      >
+        {/* Empty State */}
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="text-4xl mb-4">💬</div>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              Start a conversation with {characterName}
+          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+            <div className="text-4xl mb-4 animate-float" aria-hidden="true">
+              💬
+            </div>
+            <p
+              className="font-medium mb-1"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              No messages yet
+            </p>
+            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              Type below to start
             </p>
           </div>
         )}
 
+        {/* Message List */}
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}
           >
             <div
               className={
@@ -111,21 +149,43 @@ export function ChatInterface({
               }
             >
               <p className="whitespace-pre-wrap">{message.content}</p>
+
+              {/* Action Results */}
               {message.actions && message.actions.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-white/20 space-y-1">
-                  {message.actions.map((action) => (
+                <div
+                  className="mt-3 pt-3 border-t space-y-1.5"
+                  style={{
+                    borderColor:
+                      message.role === 'user'
+                        ? 'rgba(255,255,255,0.2)'
+                        : 'var(--border)',
+                  }}
+                >
+                  <p
+                    className="text-xs font-medium mb-2"
+                    style={{
+                      color:
+                        message.role === 'user'
+                          ? 'rgba(255,255,255,0.7)'
+                          : 'var(--text-tertiary)',
+                    }}
+                  >
+                    Actions:
+                  </p>
+                  {message.actions.map((action, idx) => (
                     <div
-                      key={`${action.type}-${action.success}`}
+                      key={`${action.type}-${idx}`}
                       className="text-xs flex items-center gap-2"
                     >
                       <span
                         className={
-                          action.success ? 'text-green-300' : 'text-red-300'
+                          action.success ? 'text-green-400' : 'text-red-400'
                         }
+                        title={action.success ? 'Success' : 'Failed'}
                       >
                         {action.success ? '✓' : '✗'}
                       </span>
-                      <span className="font-mono">{action.type}</span>
+                      <code className="font-mono">{action.type}</code>
                     </div>
                   ))}
                 </div>
@@ -134,43 +194,77 @@ export function ChatInterface({
           </div>
         ))}
 
+        {/* Typing Indicator */}
         {chat.isPending && (
-          <div className="flex justify-start">
+          <div className="flex justify-start animate-slide-up">
             <div className="chat-bubble-agent flex items-center gap-2">
               <LoadingSpinner size="sm" />
-              <span style={{ color: 'var(--text-tertiary)' }}>Thinking...</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>Thinking</span>
             </div>
           </div>
         )}
 
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} aria-hidden="true" />
       </div>
 
-      {/* Input */}
+      {/* Input Area */}
       <form
         onSubmit={handleSubmit}
-        className="p-4 border-t"
+        className="p-4 border-t flex-shrink-0"
         style={{ borderColor: 'var(--border)' }}
       >
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Message ${characterName}...`}
+            placeholder="Type a message"
             className="input flex-1"
             disabled={chat.isPending}
+            aria-label="Message"
           />
           <button
             type="submit"
             disabled={!input.trim() || chat.isPending}
-            className="btn-primary px-6"
+            className="btn-primary px-5 sm:px-6 flex-shrink-0"
+            aria-label="Send"
           >
-            {chat.isPending ? <LoadingSpinner size="sm" /> : 'Send'}
+            {chat.isPending ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <>
+                <span className="hidden sm:inline">Send</span>
+                <svg
+                  className="w-5 h-5 sm:hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                  />
+                </svg>
+              </>
+            )}
           </button>
         </div>
+
+        {/* Error Message */}
         {chat.isError && (
-          <p className="mt-2 text-sm text-red-500">{chat.error.message}</p>
+          <div
+            className="mt-3 p-3 rounded-lg"
+            style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)' }}
+            role="alert"
+          >
+            <p className="text-sm" style={{ color: 'var(--color-error)' }}>
+              {chat.error.message}
+            </p>
+          </div>
         )}
       </form>
     </div>

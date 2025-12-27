@@ -259,7 +259,7 @@ impl VPNManager {
         self.nodes
             .iter()
             .filter(|n| n.capabilities.is_vpn_exit)
-            .min_by_key(|n| n.latency_ms as u32 + n.load as u32 * 10)
+            .min_by_key(|n| n.latency_ms + u32::from(n.load) * 10)
             .cloned()
             .ok_or(VPNError::NoNodesAvailable)
     }

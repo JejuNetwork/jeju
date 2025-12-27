@@ -47,8 +47,7 @@ export default function NodeOperatorDashboard() {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <Server size={64} />
-        <h3>Node Operator Dashboard</h3>
-        <p>Connect your wallet to view your nodes and earnings</p>
+        <h3>Connect wallet</h3>
         <WalletButton />
       </div>
     )
@@ -58,7 +57,7 @@ export default function NodeOperatorDashboard() {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <div className="spinner" style={{ width: 48, height: 48 }} />
-        <p>Loading node data...</p>
+        <p>Loading...</p>
       </div>
     )
   }
@@ -69,9 +68,6 @@ export default function NodeOperatorDashboard() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Node Operator Dashboard</h1>
-        <p className="page-subtitle">
-          Manage your nodes, monitor earnings, and track performance
-        </p>
       </div>
 
       {/* Stats Overview */}
@@ -111,9 +107,10 @@ export default function NodeOperatorDashboard() {
       </div>
 
       <div
+        className="node-dashboard-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: '2fr 1fr',
+          gridTemplateColumns: 'minmax(0, 2fr) minmax(300px, 1fr)',
           gap: '1.5rem',
           marginTop: '1.5rem',
         }}
@@ -132,8 +129,7 @@ export default function NodeOperatorDashboard() {
           {nodes.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Server size={48} />
-              <h4>No Nodes Registered</h4>
-              <p>Register a node to start earning rewards</p>
+              <h4>No nodes registered</h4>
               <a
                 href="/settings"
                 className="btn btn-primary"

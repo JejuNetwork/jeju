@@ -30,7 +30,7 @@ export function StatsView() {
           color: 'var(--text-secondary)',
         }}
       >
-        Loading statistics...
+        Loading protocol stats...
       </div>
     )
   }
@@ -49,7 +49,7 @@ export function StatsView() {
           OIF Analytics
         </h2>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Real-time statistics for the Open Intents Framework
+          Live stats from the Open Intents Framework
         </p>
       </div>
 

@@ -17,6 +17,9 @@ import {
   type CacheStats,
   type HashEntry,
   HashEntrySchema,
+  type PubSubHandler,
+  type PubSubMessage,
+  type PubSubStats,
   type SortedSetMember,
   SortedSetMemberSchema,
   type StreamEntry,
@@ -1292,5 +1295,196 @@ export class CacheEngine {
       .replace(/\*/g, '.*')
       .replace(/\?/g, '.')
     return new RegExp(`^${escaped}$`)
+  }
+
+  // ========================================
+  // Pub/Sub Implementation
+  // ========================================
+
+  private channelSubscribers: Map<string, Set<PubSubHandler>> = new Map()
+  private patternSubscribers: Map<string, Set<PubSubHandler>> = new Map()
+  private pubsubMessageCount = 0
+
+  /**
+   * Publish a message to a channel
+   */
+  publish(channel: string, message: string, publisherId?: string): number {
+    const now = Date.now()
+    const pubsubMessage: PubSubMessage = {
+      channel,
+      message,
+      timestamp: now,
+      publisherId,
+    }
+
+    let recipientCount = 0
+
+    // Direct channel subscribers
+    const channelSubs = this.channelSubscribers.get(channel)
+    if (channelSubs) {
+      for (const handler of channelSubs) {
+        handler(pubsubMessage)
+        recipientCount++
+      }
+    }
+
+    // Pattern subscribers
+    for (const [pattern, handlers] of this.patternSubscribers) {
+      const regex = this.patternToRegex(pattern)
+      if (regex.test(channel)) {
+        for (const handler of handlers) {
+          handler(pubsubMessage)
+          recipientCount++
+        }
+      }
+    }
+
+    this.pubsubMessageCount++
+    this.emit({
+      type: CacheEventType.PUBSUB_PUBLISH,
+      timestamp: now,
+      metadata: { channel, recipientCount },
+    })
+
+    return recipientCount
+  }
+
+  /**
+   * Subscribe to a channel
+   */
+  subscribe(channel: string, handler: PubSubHandler): () => void {
+    let subs = this.channelSubscribers.get(channel)
+    if (!subs) {
+      subs = new Set()
+      this.channelSubscribers.set(channel, subs)
+    }
+    subs.add(handler)
+
+    this.emit({
+      type: CacheEventType.PUBSUB_SUBSCRIBE,
+      timestamp: Date.now(),
+      metadata: { channel, pattern: false },
+    })
+
+    return () => this.unsubscribe(channel, handler)
+  }
+
+  /**
+   * Unsubscribe from a channel
+   */
+  unsubscribe(channel: string, handler: PubSubHandler): boolean {
+    const subs = this.channelSubscribers.get(channel)
+    if (!subs) return false
+
+    const result = subs.delete(handler)
+    if (subs.size === 0) {
+      this.channelSubscribers.delete(channel)
+    }
+
+    if (result) {
+      this.emit({
+        type: CacheEventType.PUBSUB_UNSUBSCRIBE,
+        timestamp: Date.now(),
+        metadata: { channel, pattern: false },
+      })
+    }
+
+    return result
+  }
+
+  /**
+   * Subscribe to channels matching a pattern
+   */
+  psubscribe(pattern: string, handler: PubSubHandler): () => void {
+    let subs = this.patternSubscribers.get(pattern)
+    if (!subs) {
+      subs = new Set()
+      this.patternSubscribers.set(pattern, subs)
+    }
+    subs.add(handler)
+
+    this.emit({
+      type: CacheEventType.PUBSUB_SUBSCRIBE,
+      timestamp: Date.now(),
+      metadata: { pattern: true, patternValue: pattern },
+    })
+
+    return () => this.punsubscribe(pattern, handler)
+  }
+
+  /**
+   * Unsubscribe from a pattern
+   */
+  punsubscribe(pattern: string, handler: PubSubHandler): boolean {
+    const subs = this.patternSubscribers.get(pattern)
+    if (!subs) return false
+
+    const result = subs.delete(handler)
+    if (subs.size === 0) {
+      this.patternSubscribers.delete(pattern)
+    }
+
+    if (result) {
+      this.emit({
+        type: CacheEventType.PUBSUB_UNSUBSCRIBE,
+        timestamp: Date.now(),
+        metadata: { pattern: true, patternValue: pattern },
+      })
+    }
+
+    return result
+  }
+
+  /**
+   * Get list of active channels
+   */
+  pubsubChannels(pattern?: string): string[] {
+    const channels = Array.from(this.channelSubscribers.keys())
+    if (!pattern) return channels
+
+    const regex = this.patternToRegex(pattern)
+    return channels.filter((ch) => regex.test(ch))
+  }
+
+  /**
+   * Get number of subscribers for a channel
+   */
+  pubsubNumsub(...channels: string[]): Map<string, number> {
+    const result = new Map<string, number>()
+    for (const channel of channels) {
+      result.set(channel, this.channelSubscribers.get(channel)?.size ?? 0)
+    }
+    return result
+  }
+
+  /**
+   * Get number of pattern subscriptions
+   */
+  pubsubNumpat(): number {
+    let count = 0
+    for (const subs of this.patternSubscribers.values()) {
+      count += subs.size
+    }
+    return count
+  }
+
+  /**
+   * Get Pub/Sub statistics
+   */
+  getPubSubStats(): PubSubStats {
+    let totalSubscribers = 0
+    for (const subs of this.channelSubscribers.values()) {
+      totalSubscribers += subs.size
+    }
+    for (const subs of this.patternSubscribers.values()) {
+      totalSubscribers += subs.size
+    }
+
+    return {
+      channels: this.channelSubscribers.size,
+      patterns: this.patternSubscribers.size,
+      subscribers: totalSubscribers,
+      messagesPublished: this.pubsubMessageCount,
+    }
   }
 }

@@ -73,9 +73,6 @@ export default function IPFSPage() {
       >
         <div>
           <h1 className="page-title">IPFS Storage</h1>
-          <p className="page-subtitle">
-            Content-addressed storage on the InterPlanetary File System
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button type="button" className="btn btn-secondary">
@@ -189,10 +186,8 @@ export default function IPFSPage() {
         {files.length === 0 ? (
           <div className="empty-state">
             <Globe size={48} />
-            <h3>No files uploaded</h3>
-            <p>
-              Upload files to IPFS for decentralized, content-addressed storage
-            </p>
+            <h3>Ready for permanent storage</h3>
+            <p>Upload files to IPFS for immutable, content-addressed storage</p>
             <button
               type="button"
               className="btn btn-primary"

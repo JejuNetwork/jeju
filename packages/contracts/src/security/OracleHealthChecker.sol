@@ -509,3 +509,5 @@ abstract contract OracleHealthChecker is Ownable {
         return priceHistory.length;
     }
 }
+
+

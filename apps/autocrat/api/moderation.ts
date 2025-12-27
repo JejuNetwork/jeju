@@ -1,6 +1,6 @@
-/** Web-of-Trust Moderation - CQL-backed for workerd compatibility */
+/** Web-of-Trust Moderation - EQLite-backed for workerd compatibility */
 
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
@@ -137,7 +137,9 @@ interface TrustRow {
   updated_at: number
 }
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
+import { config } from './config'
+
+const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
 const STAKE: Record<FlagType, number> = {
   DUPLICATE: 10,
@@ -158,22 +160,22 @@ const WEIGHT: Record<FlagType, number> = {
   NEEDS_WORK: 10,
 }
 
-// No in-memory state - use CQL cache for computed scores
+// No in-memory state - use EQLite cache for computed scores
 
-// CQL/Cache clients
-let cqlClient: CQLClient | null = null
+// EQLite/Cache clients
+let eqliteClient: EQLiteClient | null = null
 let cacheClient: CacheClient | null = null
 let tablesInitialized = false
 
-async function getCQLClient(): Promise<CQLClient> {
-  if (!cqlClient) {
-    cqlClient = getCQL({
-      databaseId: CQL_DATABASE_ID,
+async function getEQLiteClient(): Promise<EQLiteClient> {
+  if (!eqliteClient) {
+    eqliteClient = getEQLite({
+      databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !config.isProduction,
     })
   }
-  return cqlClient
+  return eqliteClient
 }
 
 function getCache(): CacheClient {
@@ -186,7 +188,7 @@ function getCache(): CacheClient {
 async function ensureTablesExist(): Promise<void> {
   if (tablesInitialized) return
 
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS moderation_proposal_flags (
@@ -231,10 +233,10 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await client.exec(ddl, [], CQL_DATABASE_ID)
+    await client.exec(ddl, [], EQLITE_DATABASE_ID)
   }
   for (const idx of indexes) {
-    await client.exec(idx, [], CQL_DATABASE_ID)
+    await client.exec(idx, [], EQLITE_DATABASE_ID)
   }
 
   tablesInitialized = true
@@ -308,7 +310,7 @@ export class ModerationSystem {
       resolved: false,
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO moderation_proposal_flags 
        (flag_id, proposal_id, flagger, flag_type, reason, evidence, stake, reputation, upvotes, downvotes, created_at, resolved, resolution)
@@ -328,7 +330,7 @@ export class ModerationSystem {
         0,
         null,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     // Update moderator stats
@@ -347,11 +349,11 @@ export class ModerationSystem {
     voter: string,
     upvote: boolean,
   ): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<FlagRow>(
       `SELECT * FROM moderation_proposal_flags WHERE flag_id = ?`,
       [flagId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const row = result.rows[0]
@@ -366,7 +368,7 @@ export class ModerationSystem {
     await client.exec(
       `UPDATE moderation_proposal_flags SET ${updateField} = ? WHERE flag_id = ?`,
       [newValue, flagId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     await getCache().delete(`flags:${row.proposal_id}`)
@@ -374,11 +376,11 @@ export class ModerationSystem {
   }
 
   async resolveFlag(flagId: string, upheld: boolean): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<FlagRow>(
       `SELECT * FROM moderation_proposal_flags WHERE flag_id = ?`,
       [flagId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const row = result.rows[0]
@@ -388,7 +390,7 @@ export class ModerationSystem {
     await client.exec(
       `UPDATE moderation_proposal_flags SET resolved = 1, resolution = ? WHERE flag_id = ?`,
       [resolution, flagId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const s = await this.getModeratorStats(row.flagger)
@@ -464,11 +466,11 @@ export class ModerationSystem {
       return ModeratorStatsSchema.parse(parsed)
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<StatsRow>(
       `SELECT * FROM moderation_stats WHERE address = ?`,
       [address],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (result.rows[0]) {
@@ -490,7 +492,7 @@ export class ModerationSystem {
   }
 
   private async saveModeratorStats(s: ModeratorStats): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     await client.exec(
       `INSERT INTO moderation_stats (address, flags_raised, flags_upheld, flags_rejected, accuracy, reputation, trust_score)
        VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -510,7 +512,7 @@ export class ModerationSystem {
         s.reputation,
         s.trustScore,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     await getCache().delete(`stats:${s.address}`)
@@ -522,7 +524,7 @@ export class ModerationSystem {
     score: number,
     context: TrustRelation['context'],
   ): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const clampedScore = Math.max(-100, Math.min(100, score))
     const now = Date.now()
 
@@ -534,7 +536,7 @@ export class ModerationSystem {
          context = excluded.context,
          updated_at = excluded.updated_at`,
       [from, to, clampedScore, context, now],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     const s = await this.getModeratorStats(to)
@@ -543,21 +545,21 @@ export class ModerationSystem {
   }
 
   async getTrust(from: string, to: string): Promise<number> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<TrustRow>(
       `SELECT * FROM moderation_trust WHERE from_addr = ? AND to_addr = ?`,
       [from, to],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows[0].score ?? 0
   }
 
   private async calcTrust(addr: string): Promise<number> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<{ score: number }>(
       `SELECT score FROM moderation_trust WHERE to_addr = ?`,
       [addr],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (result.rows.length === 0) return 50
@@ -574,11 +576,11 @@ export class ModerationSystem {
       return parsed.map((row) => rowToFlag(row))
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<FlagRow>(
       `SELECT * FROM moderation_proposal_flags WHERE proposal_id = ? ORDER BY created_at DESC`,
       [proposalId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (result.rows.length > 0) {
@@ -589,21 +591,21 @@ export class ModerationSystem {
   }
 
   async getActiveFlags(): Promise<ProposalFlag[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<FlagRow>(
       `SELECT * FROM moderation_proposal_flags WHERE resolved = 0 ORDER BY created_at DESC`,
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows.map(rowToFlag)
   }
 
   async getTopModerators(limit = 10): Promise<ModeratorStats[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const result = await client.query<StatsRow>(
       `SELECT * FROM moderation_stats ORDER BY reputation DESC LIMIT ?`,
       [limit],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
     return result.rows.map(rowToStats)
   }
@@ -649,7 +651,7 @@ export class ModerationSystem {
   }
 
   async flush(): Promise<void> {
-    // No-op - CQL persists immediately
+    // No-op - EQLite persists immediately
   }
 }
 
@@ -666,5 +668,5 @@ export const initModeration = async () => {
 
 // Legacy exports for backwards compatibility (no longer needed but kept for API stability)
 export function stopSaveInterval(): void {
-  // No-op - CQL doesn't use intervals
+  // No-op - EQLite doesn't use intervals
 }

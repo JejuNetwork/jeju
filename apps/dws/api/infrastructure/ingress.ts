@@ -6,13 +6,13 @@
  * - JNS domain routing
  * - TLS termination with auto-certificates
  * - Load balancing across nodes
- * - Distributed rate limiting via CQL
+ * - Distributed rate limiting via EQLite
  * - DDoS protection
  * - Geo-routing for low latency
  */
 
-import { CQLRateLimitStore } from '@jejunetwork/api'
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { EQLiteRateLimitStore } from '@jejunetwork/api'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 
@@ -383,42 +383,42 @@ export class IngressController {
     }
   }
 
-  // Distributed rate limiting via CQL
+  // Distributed rate limiting via EQLite
   private rateWindowMs = 60_000 // 1 minute window
-  private distributedStore: CQLRateLimitStore | null = null
-  private cqlClient: CQLClient | null = null
+  private distributedStore: EQLiteRateLimitStore | null = null
+  private eqliteClient: EQLiteClient | null = null
   private static readonly RATE_LIMIT_DB = 'dws_rate_limits'
 
-  // Fallback in-memory store for when CQL is unavailable
+  // Fallback in-memory store for when EQLite is unavailable
   private localRateLimitRequests = new Map<
     string,
     { count: number; resetAt: number }
   >()
 
-  private async getDistributedStore(): Promise<CQLRateLimitStore | null> {
+  private async getDistributedStore(): Promise<EQLiteRateLimitStore | null> {
     if (this.distributedStore) return this.distributedStore
 
     try {
-      if (!this.cqlClient) {
-        this.cqlClient = getCQL({
+      if (!this.eqliteClient) {
+        this.eqliteClient = getEQLite({
           databaseId: IngressController.RATE_LIMIT_DB,
           timeout: 5000,
           debug: false,
         })
       }
 
-      this.distributedStore = new CQLRateLimitStore({
-        client: this.cqlClient,
+      this.distributedStore = new EQLiteRateLimitStore({
+        client: this.eqliteClient,
         databaseId: IngressController.RATE_LIMIT_DB,
         keyPrefix: 'ingress',
         cleanupIntervalMs: 5 * 60 * 1000, // 5 minutes
       })
 
-      console.log('[Ingress] Distributed rate limiting initialized via CQL')
+      console.log('[Ingress] Distributed rate limiting initialized via EQLite')
       return this.distributedStore
     } catch (err) {
       console.warn(
-        '[Ingress] CQL unavailable, using local rate limiting:',
+        '[Ingress] EQLite unavailable, using local rate limiting:',
         err instanceof Error ? err.message : String(err),
       )
       return null

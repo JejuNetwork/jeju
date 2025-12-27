@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import {
+  useCacheStats,
   useContainers,
   useHealth,
   useJobs,
@@ -37,6 +38,7 @@ export default function Dashboard({ viewMode }: DashboardProps) {
   const { data: workersData, isLoading: workersLoading } = useWorkers()
   const { data: jobsData, isLoading: jobsLoading } = useJobs()
   const { data: account, isLoading: accountLoading } = useUserAccount()
+  const { data: cacheStats } = useCacheStats()
 
   // Show loading state while initial data loads (only for consumer mode)
   const isDataLoading =
@@ -46,8 +48,7 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <Box size={64} />
-        <h3>Welcome to DWS Console</h3>
-        <p>Connect your wallet to access Decentralized Web Services</p>
+        <h3>Connect wallet</h3>
         <WalletButton />
       </div>
     )
@@ -100,7 +101,7 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <div className="spinner" style={{ width: 48, height: 48 }} />
-        <p>Loading dashboard...</p>
+        <p>Loading...</p>
       </div>
     )
   }
@@ -122,9 +123,6 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     <div>
       <div className="page-header">
         <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">
-          Overview of your DWS usage and resources
-        </p>
       </div>
 
       <ConsumerDashboard
@@ -134,6 +132,7 @@ export default function Dashboard({ viewMode }: DashboardProps) {
         activeWorkers={activeWorkers}
         runningJobs={runningJobs}
         account={account}
+        cacheStats={cacheStats}
       />
     </div>
   )
@@ -146,6 +145,7 @@ interface ConsumerDashboardProps {
   activeWorkers: number
   runningJobs: number
   account: ReturnType<typeof useUserAccount>['data']
+  cacheStats: ReturnType<typeof useCacheStats>['data']
 }
 
 function ConsumerDashboard({
@@ -155,6 +155,7 @@ function ConsumerDashboard({
   activeWorkers,
   runningJobs,
   account,
+  cacheStats,
 }: ConsumerDashboardProps) {
   return (
     <>
@@ -370,6 +371,59 @@ function ConsumerDashboard({
           )}
         </div>
 
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Database size={18} /> Cache Stats
+            </h3>
+          </div>
+          {cacheStats ? (
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Total Keys
+                </span>
+                <span
+                  style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+                >
+                  {cacheStats.shared.totalKeys.toLocaleString()}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Memory Used
+                </span>
+                <span
+                  style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+                >
+                  {(cacheStats.shared.usedMemoryBytes / (1024 * 1024)).toFixed(
+                    2,
+                  )}{' '}
+                  MB
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Hit Rate</span>
+                <span
+                  className={`badge ${cacheStats.shared.hitRate > 0.8 ? 'badge-success' : cacheStats.shared.hitRate > 0.5 ? 'badge-warning' : 'badge-neutral'}`}
+                >
+                  {(cacheStats.shared.hitRate * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Cache Nodes
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>
+                  {cacheStats.global.totalNodes}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="skeleton" style={{ height: '120px' }} />
+          )}
+        </div>
+
         <RecentActivity />
       </div>
     </>
@@ -488,7 +542,9 @@ function RecentActivity() {
       {recentActivities.length === 0 ? (
         <div className="empty-state" style={{ padding: '1.5rem' }}>
           <Activity size={32} />
-          <p style={{ fontSize: '0.9rem' }}>No recent activity</p>
+          <p style={{ fontSize: '0.9rem', marginBottom: 0 }}>
+            No recent activity
+          </p>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '0' }}>

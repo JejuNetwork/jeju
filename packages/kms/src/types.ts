@@ -139,7 +139,7 @@ export interface AccessControlPolicy {
 }
 
 export type KeyType = 'encryption' | 'signing' | 'session'
-export type KeyCurve = 'secp256k1' | 'ed25519' | 'bls12-381'
+export type KeyCurve = 'secp256k1' | 'ed25519' | 'bls12-381' | 'x25519'
 
 export interface KeyMetadata {
   id: string

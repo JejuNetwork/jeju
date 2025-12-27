@@ -14,8 +14,8 @@ import {
   CORE_PORTS,
   type ContractCategoryName,
   getContract,
-  getCQLBlockProducerUrl,
   getCurrentNetwork,
+  getEQLiteBlockProducerUrl,
   getRpcUrl,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
@@ -38,7 +38,9 @@ import { initializeContainerSystem } from '../containers'
 import {
   createDatabaseRouter,
   createKeepaliveRouter,
-  createSecureCQLRouter,
+  createSecureEQLiteRouter,
+  ensureEQLiteService,
+  getEQLiteStatus,
   type RegisteredDatabase,
   type ResourceStatus,
   startKeepaliveService,
@@ -609,7 +611,7 @@ app.use(createLoadBalancerRouter())
 
 // Secure database provisioning and access
 app.use(createDatabaseRouter())
-app.use(createSecureCQLRouter())
+app.use(createSecureEQLiteRouter())
 app.use(createKeepaliveRouter())
 
 // Infrastructure services (postgres, redis, etc.)
@@ -868,19 +870,21 @@ initializeCacheProvisioning().catch((err) => {
 })
 
 // Initialize agent system
-const CQL_URL = getCQLBlockProducerUrl()
+const EQLITE_URL = getEQLiteBlockProducerUrl()
 const AGENTS_DB_ID =
   serverConfig.agentsDatabaseId ??
   (typeof process !== 'undefined'
     ? process.env.AGENTS_DATABASE_ID
     : undefined) ??
   'dws-agents'
-initRegistry({ cqlUrl: CQL_URL, databaseId: AGENTS_DB_ID }).catch((err) => {
-  console.warn(
-    '[DWS] Agent registry init failed (CQL may not be running):',
-    err.message,
-  )
-})
+initRegistry({ eqliteUrl: EQLITE_URL, databaseId: AGENTS_DB_ID }).catch(
+  (err) => {
+    console.warn(
+      '[DWS] Agent registry init failed (EQLite may not be running):',
+      err.message,
+    )
+  },
+)
 
 // Initialize agent executor with workerd
 const workerdExecutor = new WorkerdExecutor(backendManager)
@@ -901,7 +905,7 @@ workerdExecutor
           ? process.env.DWS_KMS_URL
           : undefined) ??
         'http://127.0.0.1:4030/kms',
-      cqlUrl: CQL_URL,
+      eqliteUrl: EQLITE_URL,
     })
     console.log('[DWS] Agent executor initialized')
   })
@@ -941,6 +945,123 @@ if (import.meta.main) {
     '../shared/security-validator'
   )
   await enforceSecurityAtStartup('DWS Server')
+
+  // Configure route modules with injected config
+  const { configureCDNRouterConfig } = await import('./routes/cdn')
+  const { configureOAuth3RouterConfig } = await import('./routes/oauth3')
+  const { configureProxyRouterConfig } = await import('./routes/proxy')
+  const { configureDNSRouterConfig } = await import('../dns/routes')
+  const { configureX402PaymentsConfig } = await import(
+    '../rpc/services/x402-payments'
+  )
+
+  // Inject configs from serverConfig and process.env (for backward compatibility)
+  configureCDNRouterConfig({
+    jnsRegistryAddress:
+      typeof process !== 'undefined'
+        ? process.env.JNS_REGISTRY_ADDRESS
+        : undefined,
+    jnsResolverAddress:
+      typeof process !== 'undefined'
+        ? process.env.JNS_RESOLVER_ADDRESS
+        : undefined,
+    rpcUrl: typeof process !== 'undefined' ? process.env.RPC_URL : undefined,
+    ipfsGatewayUrl:
+      typeof process !== 'undefined' ? process.env.IPFS_GATEWAY_URL : undefined,
+    arweaveGatewayUrl:
+      typeof process !== 'undefined'
+        ? process.env.ARWEAVE_GATEWAY_URL
+        : undefined,
+    jnsDomain:
+      typeof process !== 'undefined' ? process.env.JNS_DOMAIN : undefined,
+    cacheMb:
+      typeof process !== 'undefined'
+        ? parseInt(process.env.DWS_CDN_CACHE_MB || '512', 10)
+        : undefined,
+    maxEntries:
+      typeof process !== 'undefined'
+        ? parseInt(process.env.DWS_CDN_CACHE_ENTRIES || '100000', 10)
+        : undefined,
+    defaultTTL:
+      typeof process !== 'undefined'
+        ? parseInt(process.env.DWS_CDN_DEFAULT_TTL || '3600', 10)
+        : undefined,
+    isDevnet:
+      typeof process !== 'undefined'
+        ? process.env.DEVNET === 'true'
+        : undefined,
+    jejuAppsDir:
+      typeof process !== 'undefined' ? process.env.JEJU_APPS_DIR : undefined,
+    nodeEnv: typeof process !== 'undefined' ? process.env.NODE_ENV : undefined,
+  })
+
+  configureOAuth3RouterConfig({
+    agentUrl:
+      typeof process !== 'undefined' ? process.env.OAUTH3_AGENT_URL : undefined,
+  })
+
+  configureProxyRouterConfig({
+    indexerUrl:
+      typeof process !== 'undefined' ? process.env.INDEXER_URL : undefined,
+    indexerGraphqlUrl:
+      typeof process !== 'undefined'
+        ? process.env.INDEXER_GRAPHQL_URL
+        : undefined,
+    monitoringUrl:
+      typeof process !== 'undefined' ? process.env.MONITORING_URL : undefined,
+    prometheusUrl:
+      typeof process !== 'undefined' ? process.env.PROMETHEUS_URL : undefined,
+    gatewayUrl:
+      typeof process !== 'undefined' ? process.env.GATEWAY_URL : undefined,
+  })
+
+  configureDNSRouterConfig({
+    ethRpcUrl:
+      typeof process !== 'undefined' ? process.env.ETH_RPC_URL : undefined,
+    cfApiToken:
+      typeof process !== 'undefined' ? process.env.CF_API_TOKEN : undefined,
+    cfZoneId:
+      typeof process !== 'undefined' ? process.env.CF_ZONE_ID : undefined,
+    cfDomain:
+      typeof process !== 'undefined' ? process.env.CF_DOMAIN : undefined,
+    awsAccessKeyId:
+      typeof process !== 'undefined'
+        ? process.env.AWS_ACCESS_KEY_ID
+        : undefined,
+    awsSecretAccessKey:
+      typeof process !== 'undefined'
+        ? process.env.AWS_SECRET_ACCESS_KEY
+        : undefined,
+    awsHostedZoneId:
+      typeof process !== 'undefined'
+        ? process.env.AWS_HOSTED_ZONE_ID
+        : undefined,
+    awsDomain:
+      typeof process !== 'undefined' ? process.env.AWS_DOMAIN : undefined,
+    dnsMirrorDomain:
+      typeof process !== 'undefined'
+        ? process.env.DNS_MIRROR_DOMAIN
+        : undefined,
+    dnsSyncInterval:
+      typeof process !== 'undefined'
+        ? parseInt(process.env.DNS_SYNC_INTERVAL || '300', 10)
+        : undefined,
+    gatewayEndpoint:
+      typeof process !== 'undefined' ? process.env.GATEWAY_ENDPOINT : undefined,
+    ipfsGateway:
+      typeof process !== 'undefined' ? process.env.IPFS_GATEWAY : undefined,
+  })
+
+  configureX402PaymentsConfig({
+    paymentRecipient:
+      typeof process !== 'undefined'
+        ? (process.env.RPC_PAYMENT_RECIPIENT as Address | undefined)
+        : undefined,
+    x402Enabled:
+      typeof process !== 'undefined'
+        ? process.env.X402_ENABLED !== 'false'
+        : undefined,
+  })
 
   const baseUrl =
     serverConfig.baseUrl ??
@@ -1149,8 +1270,20 @@ if (import.meta.main) {
 
   // Discover existing DWS-managed containers on startup
   discoverExistingServices()
-    .then(() => {
+    .then(async () => {
       console.log('[DWS] Infrastructure services discovery complete')
+
+      // Initialize EQLite as a DWS-managed service (not a separate deployment)
+      try {
+        await ensureEQLiteService()
+        const status = getEQLiteStatus()
+        console.log(`[DWS] EQLite running at ${status.endpoint}`)
+      } catch (err) {
+        console.warn(
+          `[DWS] EQLite auto-start failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        )
+        console.warn('[DWS] EQLite will be started on first database request')
+      }
     })
     .catch(console.error)
 

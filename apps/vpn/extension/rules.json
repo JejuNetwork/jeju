@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/error.html?domain=\\0"
+      }
+    },
+    "condition": {
+      "urlFilter": "*.jeju/*",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

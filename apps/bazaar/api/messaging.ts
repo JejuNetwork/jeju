@@ -17,8 +17,10 @@ import {
 } from '@jejunetwork/messaging'
 import type { Address, Hex } from 'viem'
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
-const MPC_SIGNER_URL = process.env.MPC_SIGNER_URL ?? ''
+import { config } from './config'
+
+const HUB_URL = config.farcasterHubUrl
+const MPC_SIGNER_URL = config.mpcSignerUrl ?? ''
 
 /**
  * Result from posting to Farcaster via KMS

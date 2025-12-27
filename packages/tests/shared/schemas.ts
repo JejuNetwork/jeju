@@ -258,7 +258,39 @@ export function parseIpfsAddResponse(data: unknown): IpfsAddResponse {
   return IpfsAddResponseSchema.parse(data)
 }
 
-// RPC Response schemas
+// RPC Request/Response schemas
+export const JsonRpcRequestSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  method: z.string(),
+  params: z.array(z.unknown()).default([]),
+  id: z.number().or(z.string()),
+})
+
+export const JsonRpcSuccessResponseSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  result: z.unknown(),
+  id: z.number().or(z.string()).or(z.null()),
+})
+
+export const JsonRpcErrorSchema = z.object({
+  code: z.number(),
+  message: z.string(),
+  data: z.unknown().optional(),
+})
+
+export const JsonRpcErrorResponseSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  error: JsonRpcErrorSchema,
+  id: z.number().or(z.string()).or(z.null()),
+})
+
+export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>
+export type JsonRpcSuccessResponse = z.infer<
+  typeof JsonRpcSuccessResponseSchema
+>
+export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>
+export type JsonRpcErrorResponse = z.infer<typeof JsonRpcErrorResponseSchema>
+
 export const BlockNumberResponseSchema = z.object({
   jsonrpc: z.string(),
   id: z.number(),

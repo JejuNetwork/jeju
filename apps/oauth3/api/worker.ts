@@ -26,7 +26,7 @@ interface Env {
   JWT_SIGNING_KEY_ID?: string // MPC key ID for JWT signing
   JWT_SIGNER_ADDRESS?: string // MPC signer address
   ALLOWED_ORIGINS: string
-  CQL_DATABASE_ID: string
+  EQLITE_DATABASE_ID: string
   CHAIN_ID?: string // For KMS access policies
   // Social OAuth - sealed secrets preferred
   GITHUB_CLIENT_ID?: string
@@ -64,7 +64,7 @@ async function createApp(env: Env) {
   process.env.SERVICE_AGENT_ID = env.SERVICE_AGENT_ID
   process.env.JWT_SECRET = env.JWT_SECRET
   process.env.ALLOWED_ORIGINS = env.ALLOWED_ORIGINS
-  process.env.CQL_DATABASE_ID = env.CQL_DATABASE_ID
+  process.env.EQLITE_DATABASE_ID = env.EQLITE_DATABASE_ID
   process.env.BASE_URL = 'https://auth.jejunetwork.org'
 
   // Social OAuth env vars - prefer sealed secrets

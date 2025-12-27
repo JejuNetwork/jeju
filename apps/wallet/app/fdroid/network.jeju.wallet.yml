@@ -1,0 +1,45 @@
+Categories:
+  - Money
+License: MIT
+AuthorName: Jeju Network
+AuthorWebSite: https://jejunetwork.org
+WebSite: https://wallet.jejunetwork.org
+SourceCode: https://github.com/jejunetwork/jeju
+IssueTracker: https://github.com/jejunetwork/jeju/issues
+Changelog: https://github.com/jejunetwork/jeju/releases
+
+AutoName: Network Wallet
+
+RepoType: git
+Repo: https://github.com/jejunetwork/jeju.git
+
+Builds:
+  - versionName: 0.1.0
+    versionCode: 1
+    commit: v0.1.0
+    subdir: apps/wallet/app
+    submodules: true
+    sudo:
+      - apt-get update
+      - apt-get install -y nodejs npm
+    init:
+      - npm install -g bun
+    gradle:
+      - yes
+    srclibs:
+      - AcitivityCompat@1.8.2
+    prebuild:
+      - cd .. && bun install --frozen-lockfile
+      - cd .. && bun run build
+      - bunx cap sync android
+    build:
+      - cd android
+      - ./gradlew assembleRelease
+    ndk: r25c
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 0.1.0
+CurrentVersionCode: 1
+
+

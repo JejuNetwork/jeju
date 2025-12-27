@@ -39,7 +39,7 @@ export interface AppManifest {
 }
 
 export interface DatabaseServiceConfig {
-  type: 'cql'
+  type: 'eqlite'
   databaseId?: string
   tables?: string[]
 }

@@ -57,18 +57,18 @@ spec:
                 configMapKeyRef:
                   name: {{ include "messaging.fullname" . }}-config
                   key: nodeRegistryAddress
-            - name: COVENANTSQL_NODES
+            - name: EQLITE_NODES
               valueFrom:
                 configMapKeyRef:
                   name: {{ include "messaging.fullname" . }}-config
-                  key: covenantsqlNodes
-            - name: COVENANTSQL_DATABASE_ID
-              value: {{ .Values.relay.config.covenantsqlDatabaseId }}
-            - name: COVENANTSQL_PRIVATE_KEY
+                  key: eqliteNodes
+            - name: EQLITE_DATABASE_ID
+              value: {{ .Values.relay.config.eqliteDatabaseId }}
+            - name: EQLITE_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.secrets.covenantsqlCredentials.secretName }}
-                  key: {{ .Values.secrets.covenantsqlCredentials.key }}
+                  name: {{ .Values.secrets.eqliteCredentials.secretName }}
+                  key: {{ .Values.secrets.eqliteCredentials.key }}
             - name: OPERATOR_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:

@@ -15,6 +15,7 @@ import {
 import type { NetworkType, PriceSourceConfig } from '@jejunetwork/types'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress } from 'viem'
+import { config as gatewayConfig } from '../config'
 import type { SecureOracleNodeConfig } from './node'
 
 // Local type aliases for convenience
@@ -71,11 +72,11 @@ export function loadContractAddresses(
   const addresses: Record<string, Address> = {}
 
   const envOverrides: Record<string, string | undefined> = {
-    feedRegistry: process.env.FEED_REGISTRY_ADDRESS,
-    reportVerifier: process.env.REPORT_VERIFIER_ADDRESS,
-    committeeManager: process.env.COMMITTEE_MANAGER_ADDRESS,
-    feeRouter: process.env.FEE_ROUTER_ADDRESS,
-    networkConnector: process.env.NETWORK_CONNECTOR_ADDRESS,
+    feedRegistry: gatewayConfig.feedRegistryAddress,
+    reportVerifier: gatewayConfig.reportVerifierAddress,
+    committeeManager: gatewayConfig.committeeManagerAddress,
+    feeRouter: gatewayConfig.feeRouterAddress,
+    networkConnector: gatewayConfig.networkConnectorAddress,
   }
 
   for (const key of REQUIRED_ADDRESSES) {

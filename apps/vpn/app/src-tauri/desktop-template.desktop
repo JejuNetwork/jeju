@@ -19,3 +19,5 @@ Exec=jeju-vpn --connect
 Name=Disconnect VPN
 Exec=jeju-vpn --disconnect
 
+
+

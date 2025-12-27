@@ -1,10 +1,10 @@
 /**
- * Database Service - CQL Integration
+ * Database Service - EQLite Integration
  *
- * Provides decentralized SQL database access via CovenantSQL.
+ * Provides decentralized SQL database access via EQLite.
  */
 
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Hex } from 'viem'
 import { z } from 'zod'
 
@@ -45,13 +45,13 @@ export interface TransactionClient {
 }
 
 class DatabaseServiceImpl implements DatabaseService {
-  private client: CQLClient
+  private client: EQLiteClient
   private config: DatabaseConfig
 
   constructor(config: DatabaseConfig) {
     const validated = DatabaseConfigSchema.parse(config)
     this.config = validated
-    this.client = getCQL({
+    this.client = getEQLite({
       blockProducerEndpoint: validated.endpoint,
       databaseId: validated.databaseId,
       timeout: validated.timeout,

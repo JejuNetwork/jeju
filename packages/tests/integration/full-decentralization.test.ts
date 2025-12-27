@@ -2,7 +2,7 @@
  * Full Decentralization Integration Tests
  *
  * Tests the complete decentralized stack:
- * - CovenantSQL database
+ * - EQLite database
  * - Container registry
  * - MPC key management
  * - A2A/MCP interfaces
@@ -10,8 +10,8 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import { getCQLBlockProducerUrl } from '@jejunetwork/config'
-import { createCovenantSQLClient, MigrationManager } from '@jejunetwork/db'
+import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { createEQLiteClient, MigrationManager } from '@jejunetwork/db'
 import {
   getHSMClient,
   getMPCCustodyManager,
@@ -28,12 +28,12 @@ const TEST_CONFIG = {
   councilUrl: process.env.COUNCIL_URL ?? 'http://localhost:3200',
 }
 
-// CovenantSQL Tests
+// EQLite Tests
 
-describe('CovenantSQL Integration', () => {
-  it('should connect to CovenantSQL cluster', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+describe('EQLite Integration', () => {
+  it('should connect to EQLite cluster', async () => {
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',
@@ -51,8 +51,8 @@ describe('CovenantSQL Integration', () => {
 
   it('should support strong consistency queries', async () => {
     // Create client with strong consistency
-    createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',
@@ -68,8 +68,8 @@ describe('CovenantSQL Integration', () => {
 
   it('should support eventual consistency queries', async () => {
     // Create client with eventual consistency
-    createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'eventual',
@@ -83,8 +83,8 @@ describe('CovenantSQL Integration', () => {
   })
 
   it('should run migrations', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',

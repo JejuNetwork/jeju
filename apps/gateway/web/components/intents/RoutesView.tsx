@@ -80,7 +80,7 @@ export function RoutesView() {
               color: 'var(--text-secondary)',
             }}
           >
-            No routes configured. Deploy OIF contracts to enable routes.
+            No routes available. Routes will appear once contracts are deployed.
           </div>
         ) : (
           routes?.map((route) => (

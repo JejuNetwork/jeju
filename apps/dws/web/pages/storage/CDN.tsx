@@ -69,9 +69,6 @@ export default function CDNPage() {
       >
         <div>
           <h1 className="page-title">CDN</h1>
-          <p className="page-subtitle">
-            Content delivery network with global edge caching
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -148,9 +145,9 @@ export default function CDNPage() {
         {endpoints.length === 0 ? (
           <div className="empty-state">
             <Cloud size={48} />
-            <h3>No CDN endpoints</h3>
+            <h3>Ready to accelerate</h3>
             <p>
-              Create an endpoint to serve content from the global edge network
+              Set up a CDN endpoint to serve content globally with low latency
             </p>
             <button
               type="button"

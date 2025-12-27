@@ -8,7 +8,7 @@ import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { createDAOService, type DAOService } from '../dao-service'
 import { getProposalAssistant } from '../proposal-assistant'
-import { blockchain, config } from '../shared-state'
+import { autocratConfig, blockchain, config } from '../shared-state'
 
 const ZERO_ADDR = ZERO_ADDRESS
 
@@ -21,7 +21,7 @@ function getService(): DAOService {
       chainId: getChainId(),
       daoRegistryAddress: config.contracts.daoRegistry,
       daoFundingAddress: config.contracts.daoFunding,
-      privateKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+      privateKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
     })
   }
   if (!daoService) {

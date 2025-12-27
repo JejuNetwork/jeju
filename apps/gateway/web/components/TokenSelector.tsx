@@ -110,7 +110,8 @@ export default function TokenSelector({
       {/* Dropdown List */}
       {isOpen && !disabled && (
         <>
-          <div
+          <button
+            type="button"
             style={{
               position: 'fixed',
               top: 0,
@@ -118,6 +119,9 @@ export default function TokenSelector({
               right: 0,
               bottom: 0,
               zIndex: 40,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
             }}
             onClick={() => setIsOpen(false)}
             onKeyDown={(e) => {
@@ -125,9 +129,7 @@ export default function TokenSelector({
                 setIsOpen(false)
               }
             }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Close dropdown"
+            aria-label="Close"
           />
           <div
             style={{

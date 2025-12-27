@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/db",
   "version": "0.1.0",
-  "description": "Database Integration for Jeju Network - Powered by CovenantSQL",
+  "description": "Database Integration for Jeju Network - Powered by EQLite",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -26,6 +26,7 @@
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/eqlite": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "elysia": "^1.4.19",
     "generic-pool": "^3.9.0",

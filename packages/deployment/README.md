@@ -17,7 +17,7 @@ Infrastructure deployment for Jeju Network - supporting local development, AWS, 
 ```
 packages/deployment/
 ├── docker/              # Docker images
-│   ├── covenantsql/    # CovenantSQL multi-arch image
+│   ├── eqlite/    # EQLite multi-arch image
 │   └── ipfs/           # IPFS node configuration
 ├── kubernetes/          # Kubernetes deployment
 │   ├── helm/           # Helm charts for each service
@@ -55,7 +55,7 @@ bun run localnet:reset
 **Services Started:**
 - L1: Geth dev node (auto-mining)
 - L2: op-geth (OP Stack)
-- CQL: CovenantSQL (decentralized database)
+- EQLite: EQLite (decentralized database)
 
 ### 2. Local Development (Docker Compose)
 
@@ -179,9 +179,9 @@ helmfile -e testnet sync
 | `infra:destroy` | Terraform destroy |
 | `images:build` | Build Docker images locally |
 | `images:push` | Build and push to container registry |
-| `images:cql` | Build multi-arch CovenantSQL image |
-| `images:cql:arm` | Build ARM64-only CovenantSQL image |
-| `images:cql:x86` | Build x86_64-only CovenantSQL image |
+| `images:eqlite` | Build multi-arch EQLite image |
+| `images:eqlite:arm` | Build ARM64-only EQLite image |
+| `images:eqlite:x86` | Build x86_64-only EQLite image |
 | `k8s:deploy` | Helmfile sync |
 | `k8s:diff` | Helmfile diff (preview changes) |
 | `k8s:destroy` | Helmfile destroy |
@@ -200,28 +200,28 @@ helmfile -e testnet sync
 | `SKIP_TERRAFORM` | Skip infrastructure step | `false` |
 | `SKIP_IMAGES` | Skip image build step | `false` |
 | `SKIP_KUBERNETES` | Skip k8s deploy step | `false` |
-| `BUILD_CQL_IMAGE` | Build CovenantSQL image | `false` |
-| `USE_ARM64_CQL` | Use ARM64 for CovenantSQL | `false` |
+| `BUILD_EQLITE_IMAGE` | Build EQLite image | `false` |
+| `USE_ARM64_EQLite` | Use ARM64 for EQLite | `false` |
 
 ## ARM64 / Graviton Support
 
-CovenantSQL supports both ARM64 and x86_64 architectures:
+EQLite supports both ARM64 and x86_64 architectures:
 
 ```bash
 # Build multi-arch image (both platforms)
-bun run images:cql
+bun run images:eqlite
 
 # Build ARM64 only (Apple Silicon, AWS Graviton)
-bun run images:cql:arm
+bun run images:eqlite:arm
 
 # Build x86_64 only
-bun run images:cql:x86
+bun run images:eqlite:x86
 
 # Push to registry
-bun run images:cql:push
+bun run images:eqlite:push
 ```
 
-For AWS Graviton instances, set `use_arm64_cql = true` in Terraform.
+For AWS Graviton instances, set `use_arm64_eqlite = true` in Terraform.
 
 ## Helm Charts
 

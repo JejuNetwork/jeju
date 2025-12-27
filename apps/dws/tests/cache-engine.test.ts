@@ -838,4 +838,199 @@ describe('CacheEngine', () => {
       expect(entries.length).toBe(3)
     })
   })
+
+  // ===========================================================================
+  // Pub/Sub Operations
+  // ===========================================================================
+
+  describe('Pub/Sub Operations', () => {
+    test('PUBLISH to channel with no subscribers returns 0', () => {
+      const recipients = engine.publish('channel1', 'hello')
+      expect(recipients).toBe(0)
+    })
+
+    test('SUBSCRIBE and receive messages', () => {
+      const messages: string[] = []
+
+      engine.subscribe('channel1', (msg) => {
+        messages.push(msg.message)
+      })
+
+      engine.publish('channel1', 'message1')
+      engine.publish('channel1', 'message2')
+
+      expect(messages).toEqual(['message1', 'message2'])
+    })
+
+    test('PUBLISH returns recipient count', () => {
+      engine.subscribe('channel1', () => {})
+      engine.subscribe('channel1', () => {})
+
+      const recipients = engine.publish('channel1', 'hello')
+      expect(recipients).toBe(2)
+    })
+
+    test('UNSUBSCRIBE stops receiving messages', () => {
+      const messages: string[] = []
+
+      const unsubscribe = engine.subscribe('channel1', (msg) => {
+        messages.push(msg.message)
+      })
+
+      engine.publish('channel1', 'before')
+      unsubscribe()
+      engine.publish('channel1', 'after')
+
+      expect(messages).toEqual(['before'])
+    })
+
+    test('PSUBSCRIBE matches patterns', () => {
+      const messages: Array<{ channel: string; message: string }> = []
+
+      engine.psubscribe('user:*', (msg) => {
+        messages.push({ channel: msg.channel, message: msg.message })
+      })
+
+      engine.publish('user:123', 'hello user 123')
+      engine.publish('user:456', 'hello user 456')
+      engine.publish('system:alert', 'this should not match')
+
+      expect(messages.length).toBe(2)
+      expect(messages[0].channel).toBe('user:123')
+      expect(messages[1].channel).toBe('user:456')
+    })
+
+    test('PUNSUBSCRIBE stops pattern matching', () => {
+      const messages: string[] = []
+
+      const unsubscribe = engine.psubscribe('news:*', (msg) => {
+        messages.push(msg.message)
+      })
+
+      engine.publish('news:sports', 'sports news')
+      unsubscribe()
+      engine.publish('news:tech', 'tech news')
+
+      expect(messages).toEqual(['sports news'])
+    })
+
+    test('PUBSUB CHANNELS lists active channels', () => {
+      engine.subscribe('channel1', () => {})
+      engine.subscribe('channel2', () => {})
+
+      const channels = engine.pubsubChannels()
+
+      expect(channels).toContain('channel1')
+      expect(channels).toContain('channel2')
+    })
+
+    test('PUBSUB CHANNELS with pattern', () => {
+      engine.subscribe('user:1', () => {})
+      engine.subscribe('user:2', () => {})
+      engine.subscribe('system:alert', () => {})
+
+      const userChannels = engine.pubsubChannels('user:*')
+
+      expect(userChannels).toContain('user:1')
+      expect(userChannels).toContain('user:2')
+      expect(userChannels).not.toContain('system:alert')
+    })
+
+    test('PUBSUB NUMSUB returns subscriber counts', () => {
+      engine.subscribe('channel1', () => {})
+      engine.subscribe('channel1', () => {})
+      engine.subscribe('channel2', () => {})
+
+      const counts = engine.pubsubNumsub('channel1', 'channel2', 'channel3')
+
+      expect(counts.get('channel1')).toBe(2)
+      expect(counts.get('channel2')).toBe(1)
+      expect(counts.get('channel3')).toBe(0)
+    })
+
+    test('PUBSUB NUMPAT returns pattern subscription count', () => {
+      engine.psubscribe('user:*', () => {})
+      engine.psubscribe('order:*', () => {})
+
+      const count = engine.pubsubNumpat()
+      expect(count).toBe(2)
+    })
+
+    test('getPubSubStats returns correct statistics', () => {
+      engine.subscribe('ch1', () => {})
+      engine.subscribe('ch1', () => {})
+      engine.subscribe('ch2', () => {})
+      engine.psubscribe('pattern:*', () => {})
+
+      engine.publish('ch1', 'msg1')
+      engine.publish('ch1', 'msg2')
+
+      const stats = engine.getPubSubStats()
+
+      expect(stats.channels).toBe(2)
+      expect(stats.patterns).toBe(1)
+      expect(stats.subscribers).toBe(4) // 3 channel + 1 pattern
+      expect(stats.messagesPublished).toBe(2)
+    })
+
+    test('Message includes publisherId when provided', () => {
+      let receivedPublisherId: string | undefined
+
+      engine.subscribe('channel', (msg) => {
+        receivedPublisherId = msg.publisherId
+      })
+
+      engine.publish('channel', 'hello', 'sender-123')
+
+      expect(receivedPublisherId).toBe('sender-123')
+    })
+
+    test('Message includes timestamp', () => {
+      let receivedTimestamp: number | undefined
+      const beforePublish = Date.now()
+
+      engine.subscribe('channel', (msg) => {
+        receivedTimestamp = msg.timestamp
+      })
+
+      engine.publish('channel', 'hello')
+      const afterPublish = Date.now()
+
+      expect(receivedTimestamp).toBeDefined()
+      expect(receivedTimestamp).toBeGreaterThanOrEqual(beforePublish)
+      expect(receivedTimestamp).toBeLessThanOrEqual(afterPublish)
+    })
+
+    test('Multiple patterns can match same message', () => {
+      const matches: string[] = []
+
+      engine.psubscribe('*', (_msg) => {
+        matches.push('wildcard')
+      })
+      engine.psubscribe('user:*', (_msg) => {
+        matches.push('user pattern')
+      })
+
+      engine.publish('user:123', 'hello')
+
+      expect(matches).toContain('wildcard')
+      expect(matches).toContain('user pattern')
+    })
+
+    test('Channel and pattern subscribers both receive', () => {
+      const messages: string[] = []
+
+      engine.subscribe('user:123', (msg) => {
+        messages.push(`direct: ${msg.message}`)
+      })
+      engine.psubscribe('user:*', (msg) => {
+        messages.push(`pattern: ${msg.message}`)
+      })
+
+      engine.publish('user:123', 'hello')
+
+      expect(messages).toContain('direct: hello')
+      expect(messages).toContain('pattern: hello')
+    })
+  })
 })

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JNS Domain Info</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-card: #1a1a24;
+      --border-color: #2a2a35;
+      --text-primary: #ffffff;
+      --text-secondary: #8888aa;
+      --accent-green: #00ff88;
+      --accent-red: #ff4444;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(0, 255, 136, 0.1);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-icon svg {
+      width: 28px;
+      height: 28px;
+      stroke: var(--accent-green);
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    .domain-name {
+      color: var(--accent-green);
+    }
+
+    .section {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .record {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .record:last-child {
+      border-bottom: none;
+    }
+
+    .record-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .record-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text-primary);
+      word-break: break-all;
+      max-width: 350px;
+      text-align: right;
+    }
+
+    .record-value.address {
+      color: var(--accent-green);
+    }
+
+    .record-value.link {
+      color: #6699ff;
+      text-decoration: none;
+    }
+
+    .record-value.link:hover {
+      text-decoration: underline;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent-green);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error {
+      text-align: center;
+      padding: 40px;
+      color: var(--accent-red);
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.2s;
+      border: none;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-primary {
+      background: var(--accent-green);
+      color: var(--bg-primary);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <h1>JNS Info: <span class="domain-name" id="domainName">--</span></h1>
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <p>Resolving domain...</p>
+    </div>
+
+    <div id="content" style="display: none;">
+      <div class="section">
+        <div class="section-title">Ownership</div>
+        <div class="record">
+          <span class="record-label">Owner Address</span>
+          <span class="record-value address" id="ownerAddress">--</span>
+        </div>
+        <div class="record">
+          <span class="record-label">Node Hash</span>
+          <span class="record-value" id="nodeHash">--</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Content</div>
+        <div class="record">
+          <span class="record-label">Worker Endpoint</span>
+          <a class="record-value link" id="workerEndpoint" href="#" target="_blank">--</a>
+        </div>
+        <div class="record">
+          <span class="record-label">IPFS Hash</span>
+          <span class="record-value" id="ipfsHash">--</span>
+        </div>
+        <div class="record">
+          <span class="record-label">Contenthash</span>
+          <span class="record-value" id="contenthash">--</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Resolution</div>
+        <div class="record">
+          <span class="record-label">Resolved Via</span>
+          <span class="record-value" id="resolvedVia">--</span>
+        </div>
+        <div class="record">
+          <span class="record-label">Resolved At</span>
+          <span class="record-value" id="resolvedAt">--</span>
+        </div>
+      </div>
+
+      <div id="textRecords" class="section" style="display: none;">
+        <div class="section-title">Text Records</div>
+        <div id="textRecordsList"></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="visitDomain()">Visit Domain</button>
+        <button class="btn btn-secondary" onclick="refreshInfo()">Refresh</button>
+      </div>
+    </div>
+
+    <div id="error" class="error" style="display: none;">
+      <p>Failed to resolve domain</p>
+      <div class="actions" style="justify-content: center;">
+        <button class="btn btn-secondary" onclick="refreshInfo()">Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search)
+    const domain = params.get('domain') || 'unknown.jeju'
+    
+    document.getElementById('domainName').textContent = domain
+
+    async function loadInfo() {
+      document.getElementById('loading').style.display = 'block'
+      document.getElementById('content').style.display = 'none'
+      document.getElementById('error').style.display = 'none'
+
+      try {
+        const response = await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({ type: 'jns_resolve', domain }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message))
+            } else if (response?.error) {
+              reject(new Error(response.error))
+            } else {
+              resolve(response)
+            }
+          })
+        })
+
+        if (!response) {
+          throw new Error('Domain not found')
+        }
+
+        // Populate fields
+        document.getElementById('ownerAddress').textContent = response.address || '--'
+        document.getElementById('nodeHash').textContent = response.node || '--'
+        document.getElementById('workerEndpoint').textContent = response.workerEndpoint || '--'
+        document.getElementById('workerEndpoint').href = response.workerEndpoint || '#'
+        document.getElementById('ipfsHash').textContent = response.ipfsHash || '--'
+        document.getElementById('contenthash').textContent = response.contenthash || '--'
+        document.getElementById('resolvedVia').textContent = response.resolvedVia || '--'
+        document.getElementById('resolvedAt').textContent = response.resolvedAt 
+          ? new Date(response.resolvedAt).toLocaleString() 
+          : '--'
+
+        // Text records
+        if (response.textRecords && Object.keys(response.textRecords).length > 0) {
+          const textSection = document.getElementById('textRecords')
+          const textList = document.getElementById('textRecordsList')
+          textList.innerHTML = ''
+          
+          for (const [key, value] of Object.entries(response.textRecords)) {
+            const record = document.createElement('div')
+            record.className = 'record'
+            record.innerHTML = `
+              <span class="record-label">${key}</span>
+              <span class="record-value">${value}</span>
+            `
+            textList.appendChild(record)
+          }
+          
+          textSection.style.display = 'block'
+        }
+
+        document.getElementById('loading').style.display = 'none'
+        document.getElementById('content').style.display = 'block'
+
+      } catch (e) {
+        console.error('Resolution failed:', e)
+        document.getElementById('loading').style.display = 'none'
+        document.getElementById('error').style.display = 'block'
+      }
+    }
+
+    function visitDomain() {
+      window.location.href = `http://${domain}`
+    }
+
+    function refreshInfo() {
+      // Clear cache and reload
+      chrome.runtime.sendMessage({ type: 'jns_clearCache' }, () => {
+        loadInfo()
+      })
+    }
+
+    loadInfo()
+  </script>
+</body>
+</html>

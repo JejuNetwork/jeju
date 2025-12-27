@@ -11,7 +11,7 @@
  *   describe.skipIf(SKIP.NO_INFRA)('My Integration Tests', () => { ... })
  *
  *   // Skip individual test if specific service missing
- *   test.skipIf(SKIP.CQL)('should query database', async () => { ... })
+ *   test.skipIf(SKIP.EQLite)('should query database', async () => { ... })
  *
  *   // Or throw if infrastructure is required
  *   beforeAll(async () => {
@@ -38,8 +38,8 @@ async function checkEndpoint(url: string, timeout = 2000): Promise<boolean> {
 }
 
 // Check if services are actually running
-async function checkCQL(): Promise<boolean> {
-  return checkEndpoint(`http://127.0.0.1:${INFRA_PORTS.CQL.get()}/health`)
+async function checkEQLite(): Promise<boolean> {
+  return checkEndpoint(`http://127.0.0.1:${INFRA_PORTS.EQLite.get()}/health`)
 }
 
 async function checkAnvil(): Promise<boolean> {
@@ -86,7 +86,7 @@ async function checkDocker(): Promise<boolean> {
 
 // Cached status
 let infraStatus: {
-  cql: boolean
+  eqlite: boolean
   anvil: boolean
   dws: boolean
   ipfs: boolean
@@ -106,7 +106,7 @@ export async function checkInfrastructure(): Promise<typeof infraStatus> {
   const infraReady = envBool('INFRA_READY')
   if (infraReady) {
     infraStatus = {
-      cql: true,
+      eqlite: true,
       anvil: true,
       dws: true,
       ipfs: true,
@@ -117,15 +117,15 @@ export async function checkInfrastructure(): Promise<typeof infraStatus> {
   }
 
   // Check services in parallel
-  const [cql, anvil, dws, ipfs, docker] = await Promise.all([
-    envBool('CQL_AVAILABLE') || checkCQL(),
+  const [eqlite, anvil, dws, ipfs, docker] = await Promise.all([
+    envBool('EQLITE_AVAILABLE') || checkEQLite(),
     envBool('ANVIL_AVAILABLE') || checkAnvil(),
     envBool('DWS_AVAILABLE') || checkDWS(),
     envBool('IPFS_AVAILABLE') || checkIPFS(),
     envBool('DOCKER_AVAILABLE') || checkDocker(),
   ])
 
-  infraStatus = { cql, anvil, dws, ipfs, docker, checked: true }
+  infraStatus = { eqlite, anvil, dws, ipfs, docker, checked: true }
   return infraStatus
 }
 
@@ -133,7 +133,10 @@ export async function checkInfrastructure(): Promise<typeof infraStatus> {
  * Wait for infrastructure to be ready
  */
 export async function waitForInfra(
-  services: ('cql' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = ['cql', 'anvil'],
+  services: ('eqlite' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = [
+    'eqlite',
+    'anvil',
+  ],
   timeout = 60000,
 ): Promise<boolean> {
   const start = Date.now()
@@ -158,7 +161,10 @@ export async function waitForInfra(
  * Throw if required infrastructure is not available
  */
 export async function requireInfra(
-  services: ('cql' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = ['cql', 'anvil'],
+  services: ('eqlite' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = [
+    'eqlite',
+    'anvil',
+  ],
 ): Promise<void> {
   const status = await checkInfrastructure()
 
@@ -173,7 +179,7 @@ export async function requireInfra(
 
 // Synchronous skip conditions for describe.skipIf
 // These check environment variables only (fast)
-const cqlEnv = envBool('CQL_AVAILABLE') || envBool('INFRA_READY')
+const eqliteEnv = envBool('EQLITE_AVAILABLE') || envBool('INFRA_READY')
 const anvilEnv = envBool('ANVIL_AVAILABLE') || envBool('INFRA_READY')
 const dwsEnv = envBool('DWS_AVAILABLE')
 const ipfsEnv = envBool('IPFS_AVAILABLE')
@@ -186,7 +192,7 @@ const infraReadyEnv = envBool('INFRA_READY')
  */
 export const SKIP = {
   // Service unavailable conditions
-  CQL: !cqlEnv,
+  EQLite: !eqliteEnv,
   ANVIL: !anvilEnv,
   DWS: !dwsEnv,
   IPFS: !ipfsEnv,
@@ -194,11 +200,11 @@ export const SKIP = {
 
   // Composite conditions
   NO_CHAIN: !anvilEnv,
-  NO_INFRA: !cqlEnv || !anvilEnv,
-  NO_STORAGE: !cqlEnv || !ipfsEnv,
-  NO_DISTRIBUTED: !cqlEnv || !ipfsEnv,
+  NO_INFRA: !eqliteEnv || !anvilEnv,
+  NO_STORAGE: !eqliteEnv || !ipfsEnv,
+  NO_DISTRIBUTED: !eqliteEnv || !ipfsEnv,
   NO_DWS: !dwsEnv,
-  NO_FULL: !cqlEnv || !anvilEnv || !dwsEnv,
+  NO_FULL: !eqliteEnv || !anvilEnv || !dwsEnv,
 
   // Set by CI to skip long-running tests
   CI_ONLY: envBool('CI'),
@@ -208,7 +214,7 @@ export const SKIP = {
  * Status for logging
  */
 export const INFRA_STATUS = {
-  cql: cqlEnv,
+  eqlite: eqliteEnv,
   anvil: anvilEnv,
   dws: dwsEnv,
   ipfs: ipfsEnv,
@@ -221,7 +227,7 @@ export const INFRA_STATUS = {
  */
 export function logInfraStatus(): void {
   console.log('\n=== Infrastructure Status ===')
-  console.log(`CQL: ${INFRA_STATUS.cql ? '✓' : '✗'}`)
+  console.log(`EQLite: ${INFRA_STATUS.eqlite ? '✓' : '✗'}`)
   console.log(`Anvil: ${INFRA_STATUS.anvil ? '✓' : '✗'}`)
   console.log(`DWS: ${INFRA_STATUS.dws ? '✓' : '✗'}`)
   console.log(`IPFS: ${INFRA_STATUS.ipfs ? '✓' : '✗'}`)

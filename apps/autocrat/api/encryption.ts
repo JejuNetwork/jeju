@@ -161,12 +161,14 @@ function getDAUrl(): string {
   return getServiceUrl('storage', 'api')
 }
 
+import { config } from './config'
+
 /**
  * SECURITY: Get encryption key WITHOUT caching in memory.
  * In production, this should NOT be called - use KMS encryption directly.
  */
 function getEncryptionKeyOnce(): string {
-  const key = process.env.TEE_ENCRYPTION_SECRET
+  const key = config.teeEncryptionSecret
   if (!key) {
     throw new Error('TEE_ENCRYPTION_SECRET environment variable is required')
   }

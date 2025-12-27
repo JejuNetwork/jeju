@@ -10,11 +10,10 @@
  * Usage:
  *   git remote add dws https://dws.jejunetwork.org/git/myapp
  *   git push dws main
+ *
+ * Workerd compatible: Uses exec API for file operations.
  */
 
-import { execSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { getContract, getRpcUrl, type NetworkType } from '@jejunetwork/config'
 import {
   type Address,
@@ -30,6 +29,69 @@ import {
   isKMSAvailable,
   type KMSWalletClient,
 } from '../shared/kms-wallet'
+
+// Config injection for workerd compatibility
+interface DeployHookEnvConfig {
+  execUrl: string
+}
+
+let envConfig: DeployHookEnvConfig = {
+  execUrl: 'http://localhost:4020/exec',
+}
+
+export function configureDeployHook(
+  config: Partial<DeployHookEnvConfig>,
+): void {
+  envConfig = { ...envConfig, ...config }
+}
+
+// DWS Exec API
+
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+async function exec(
+  command: string[],
+  options?: { cwd?: string; stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(envConfig.execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+async function execCommand(cmd: string, cwd?: string): Promise<string> {
+  const result = await exec(['sh', '-c', cmd], { cwd })
+  if (result.exitCode !== 0) {
+    throw new Error(`Command failed: ${result.stderr}`)
+  }
+  return result.stdout
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  const result = await exec(['test', '-e', path])
+  return result.exitCode === 0
+}
+
+async function readFile(path: string): Promise<string> {
+  const result = await exec(['cat', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read file: ${result.stderr}`)
+  }
+  return result.stdout
+}
+
+function joinPath(...parts: string[]): string {
+  return parts.join('/').replace(/\/+/g, '/')
+}
 
 export interface DeployHookConfig {
   repoPath: string
@@ -114,23 +176,26 @@ const JNS_RESOLVER_ABI = [
 /**
  * Detect framework from repository
  */
-function detectFramework(repoPath: string): {
+async function detectFramework(repoPath: string): Promise<{
   name: string
   buildCmd: string
   outputDir: string
-} {
+}> {
   for (const [name, config] of Object.entries(FRAMEWORK_CONFIGS)) {
     for (const file of config.detect) {
-      if (existsSync(join(repoPath, file))) {
+      const exists = await fileExists(joinPath(repoPath, file))
+      if (exists) {
         return { name, ...config }
       }
     }
   }
 
   // Check package.json for react-scripts
-  const pkgPath = join(repoPath, 'package.json')
-  if (existsSync(pkgPath)) {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  const pkgPath = joinPath(repoPath, 'package.json')
+  const pkgExists = await fileExists(pkgPath)
+  if (pkgExists) {
+    const pkgContent = await readFile(pkgPath)
+    const pkg = JSON.parse(pkgContent)
     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
 
     if (deps['react-scripts']) {
@@ -153,7 +218,7 @@ function detectFramework(repoPath: string): {
 /**
  * Check if repo has API/worker code
  */
-function hasWorkerCode(repoPath: string): boolean {
+async function hasWorkerCode(repoPath: string): Promise<boolean> {
   const indicators = [
     'api/index.ts',
     'api/index.js',
@@ -165,15 +230,18 @@ function hasWorkerCode(repoPath: string): boolean {
   ]
 
   for (const indicator of indicators) {
-    if (existsSync(join(repoPath, indicator))) {
+    const exists = await fileExists(joinPath(repoPath, indicator))
+    if (exists) {
       return true
     }
   }
 
   // Check package.json for worker script
-  const pkgPath = join(repoPath, 'package.json')
-  if (existsSync(pkgPath)) {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  const pkgPath = joinPath(repoPath, 'package.json')
+  const pkgExists = await fileExists(pkgPath)
+  if (pkgExists) {
+    const pkgContent = await readFile(pkgPath)
+    const pkg = JSON.parse(pkgContent)
     if (pkg.scripts?.['build:worker'] || pkg.scripts?.worker) {
       return true
     }
@@ -192,15 +260,13 @@ async function buildProject(
   const logs: string[] = []
 
   // Install dependencies
-  if (existsSync(join(repoPath, 'package.json'))) {
-    if (!existsSync(join(repoPath, 'node_modules'))) {
+  const hasPkg = await fileExists(joinPath(repoPath, 'package.json'))
+  if (hasPkg) {
+    const hasNodeModules = await fileExists(joinPath(repoPath, 'node_modules'))
+    if (!hasNodeModules) {
       logs.push('Installing dependencies...')
       try {
-        const installOutput = execSync('bun install', {
-          cwd: repoPath,
-          encoding: 'utf-8',
-          stdio: 'pipe',
-        })
+        const installOutput = await execCommand('bun install', repoPath)
         logs.push(installOutput)
       } catch (e) {
         const error = e as { stderr?: string }
@@ -214,11 +280,7 @@ async function buildProject(
   if (framework.buildCmd) {
     logs.push(`Building with: ${framework.buildCmd}`)
     try {
-      const buildOutput = execSync(framework.buildCmd, {
-        cwd: repoPath,
-        encoding: 'utf-8',
-        stdio: 'pipe',
-      })
+      const buildOutput = await execCommand(framework.buildCmd, repoPath)
       logs.push(buildOutput)
     } catch (e) {
       const error = e as { stderr?: string }
@@ -234,15 +296,14 @@ async function buildProject(
  * Upload directory to IPFS
  */
 async function uploadToIPFS(dirPath: string): Promise<string | null> {
-  const ipfsApiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001'
+  const ipfsApiUrl = 'http://localhost:5001'
 
   try {
-    // Use IPFS CLI for directory upload
-    const result = execSync(`ipfs add -r -Q --cid-version=1 "${dirPath}"`, {
-      encoding: 'utf-8',
-    }).trim()
-
-    return result
+    // Use IPFS CLI for directory upload via exec API
+    const result = await execCommand(
+      `ipfs add -r -Q --cid-version=1 "${dirPath}"`,
+    )
+    return result.trim()
   } catch {
     // Fallback: try API endpoint
     const response = await fetch(
@@ -419,19 +480,22 @@ async function deployWorker(
   _appName: string,
 ): Promise<boolean> {
   // Check for jeju-manifest.json
-  const manifestPath = join(repoPath, 'jeju-manifest.json')
-  if (!existsSync(manifestPath)) {
+  const manifestPath = joinPath(repoPath, 'jeju-manifest.json')
+  const manifestExists = await fileExists(manifestPath)
+  if (!manifestExists) {
     return false
   }
 
   // Build worker
-  const pkgPath = join(repoPath, 'package.json')
-  if (existsSync(pkgPath)) {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  const pkgPath = joinPath(repoPath, 'package.json')
+  const pkgExists = await fileExists(pkgPath)
+  if (pkgExists) {
+    const pkgContent = await readFile(pkgPath)
+    const pkg = JSON.parse(pkgContent)
 
     if (pkg.scripts?.['build:worker']) {
       try {
-        execSync('bun run build:worker', { cwd: repoPath, stdio: 'pipe' })
+        await execCommand('bun run build:worker', repoPath)
       } catch {
         return false
       }
@@ -466,7 +530,7 @@ export async function runDeployHook(
   )
 
   // Detect framework
-  const framework = detectFramework(config.repoPath)
+  const framework = await detectFramework(config.repoPath)
   console.log(`[Deploy] Detected framework: ${framework.name}`)
 
   // Build
@@ -480,8 +544,9 @@ export async function runDeployHook(
   }
 
   // Upload to IPFS
-  const outputPath = join(config.repoPath, framework.outputDir)
-  if (!existsSync(outputPath)) {
+  const outputPath = joinPath(config.repoPath, framework.outputDir)
+  const outputExists = await fileExists(outputPath)
+  if (!outputExists) {
     result.error = `Output directory not found: ${framework.outputDir}`
     result.duration = Date.now() - startTime
     return result
@@ -511,7 +576,8 @@ export async function runDeployHook(
   }
 
   // Deploy worker if applicable
-  if (hasWorkerCode(config.repoPath)) {
+  const hasWorker = await hasWorkerCode(config.repoPath)
+  if (hasWorker) {
     result.workerDeployed = await deployWorker(config.repoPath, config.appName)
     console.log(`[Deploy] Worker deployed: ${result.workerDeployed}`)
   }

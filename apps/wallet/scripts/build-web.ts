@@ -3,34 +3,21 @@
  * Web Build Script
  *
  * Builds the wallet web app for production deployment.
+ * Uses shared externals from @jejunetwork/shared.
  */
 
 import { existsSync } from 'node:fs'
 import { mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { DEFAULT_BROWSER_EXTERNALS } from '@jejunetwork/shared/dev-server'
 
 const ROOT = resolve(import.meta.dir, '..')
 const DIST_DIR = resolve(ROOT, 'dist')
 const isProduction = process.env.NODE_ENV === 'production'
 
-// External packages that should not be bundled for browser
-const BROWSER_EXTERNALS = [
-  // Node.js builtins
-  'bun:sqlite',
-  'child_process',
-  'http2',
-  'tls',
-  'dgram',
-  'fs',
-  'net',
-  'dns',
-  'stream',
-  'crypto',
-  'node:url',
-  'node:fs',
-  'node:path',
-  'node:crypto',
-  'node:events',
+// Additional externals for wallet (node modules not in shared list)
+const WALLET_EXTERNALS = [
+  ...DEFAULT_BROWSER_EXTERNALS,
   'node:os',
   'node:child_process',
   'node:readline',
@@ -81,7 +68,7 @@ const browserPlugin = {
 }
 
 async function build(): Promise<void> {
-  console.log('Building wallet web app...')
+  console.log('[Wallet] Building web app...')
 
   // Clean dist directory
   if (existsSync(DIST_DIR)) {
@@ -98,7 +85,7 @@ async function build(): Promise<void> {
     target: 'browser',
     splitting: false,
     packages: 'bundle',
-    external: BROWSER_EXTERNALS,
+    external: WALLET_EXTERNALS,
     plugins: [browserPlugin],
     define: {
       'process.env.NODE_ENV': JSON.stringify(
@@ -121,10 +108,8 @@ async function build(): Promise<void> {
   })
 
   if (!result.success) {
-    console.error('Build failed:')
-    for (const log of result.logs) {
-      console.error(log)
-    }
+    console.error('[Wallet] Build failed:')
+    for (const log of result.logs) console.error(log)
     process.exit(1)
   }
 
@@ -134,18 +119,18 @@ async function build(): Promise<void> {
   )
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'main.js'
 
-  // Read and copy CSS
+  // Copy CSS
   const cssPath = resolve(ROOT, 'web/globals.css')
   if (existsSync(cssPath)) {
     const css = await Bun.file(cssPath).text()
     await Bun.write(resolve(DIST_DIR, 'globals.css'), css)
   }
 
-  // Read tailwind config for inline styles
+  // Read tailwind config
   const tailwindConfig = (await import(resolve(ROOT, 'tailwind.config.ts')))
     .default
 
-  // Create index.html with Tailwind CDN and inline config
+  // Create index.html
   const html = `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -159,12 +144,7 @@ async function build(): Promise<void> {
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = ${JSON.stringify({
-      darkMode: tailwindConfig.darkMode,
-      theme: {
-        extend: tailwindConfig.theme?.extend,
-      },
-    })}
+    tailwind.config = ${JSON.stringify({ darkMode: tailwindConfig.darkMode, theme: { extend: tailwindConfig.theme?.extend } })}
   </script>
   <link rel="stylesheet" href="/globals.css">
 </head>
@@ -176,7 +156,7 @@ async function build(): Promise<void> {
 
   await Bun.write(resolve(DIST_DIR, 'index.html'), html)
 
-  console.log('Build succeeded:')
+  console.log('[Wallet] Build succeeded:')
   for (const output of result.outputs) {
     const size =
       output.size > 1024 * 1024
@@ -187,6 +167,6 @@ async function build(): Promise<void> {
 }
 
 build().catch((error) => {
-  console.error('Build failed:', error)
+  console.error('[Wallet] Build failed:', error)
   process.exit(1)
 })

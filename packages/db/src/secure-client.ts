@@ -1,14 +1,14 @@
 /**
- * Secure CQL Client
+ * Secure EQLite Client
  *
  * Client for apps to provision and access their own isolated databases
  * through DWS with cryptographic authentication.
  *
  * @example
  * ```typescript
- * import { createSecureCQLClient } from '@jejunetwork/db'
+ * import { createSecureEQLiteClient } from '@jejunetwork/db'
  *
- * const client = createSecureCQLClient({
+ * const client = createSecureEQLiteClient({
  *   dwsEndpoint: 'http://localhost:4030',
  *   privateKey: '0x...',
  *   appName: 'my-app',
@@ -53,7 +53,7 @@ const ListDatabasesResponseSchema = z.object({
 
 // Types
 
-export interface SecureCQLConfig {
+export interface SecureEQLiteConfig {
   /** DWS endpoint URL */
   dwsEndpoint: string
   /** Private key for signing requests */
@@ -108,12 +108,12 @@ const _ExecResultSchema = z.object({
 
 // Client Implementation
 
-export class SecureCQLClient {
-  private config: SecureCQLConfig
+export class SecureEQLiteClient {
+  private config: SecureEQLiteConfig
   private account: ReturnType<typeof privateKeyToAccount>
   private databaseId: string | null
 
-  constructor(config: SecureCQLConfig) {
+  constructor(config: SecureEQLiteConfig) {
     this.config = {
       timeout: 30000,
       ...config,
@@ -360,7 +360,7 @@ export class SecureCQLClient {
       privateKey: this.config.privateKey,
     })
 
-    const response = await fetch(`${this.config.dwsEndpoint}/cql/query`, {
+    const response = await fetch(`${this.config.dwsEndpoint}/eqlite/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -378,22 +378,22 @@ export class SecureCQLClient {
       const errorMsg = errorResult.success
         ? errorResult.data.error
         : 'Unknown error'
-      throw new Error(`CQL ${type} failed: ${errorMsg}`)
+      throw new Error(`EQLite ${type} failed: ${errorMsg}`)
     }
 
     const data = await response.json()
     if (type === 'query') {
-      return expectValid(_QueryResultSchema, data, 'CQL query response') as T
+      return expectValid(_QueryResultSchema, data, 'EQLite query response') as T
     }
-    return expectValid(_ExecResultSchema, data, 'CQL exec response') as T
+    return expectValid(_ExecResultSchema, data, 'EQLite exec response') as T
   }
 }
 
 /**
- * Create a secure CQL client for an app
+ * Create a secure EQLite client for an app
  */
-export function createSecureCQLClient(
-  config: SecureCQLConfig,
-): SecureCQLClient {
-  return new SecureCQLClient(config)
+export function createSecureEQLiteClient(
+  config: SecureEQLiteConfig,
+): SecureEQLiteClient {
+  return new SecureEQLiteClient(config)
 }

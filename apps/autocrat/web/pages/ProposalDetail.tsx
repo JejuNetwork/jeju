@@ -132,22 +132,56 @@ export default function ProposalDetailPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'APPROVED':
-        return <CheckCircle className="text-green-500" size={20} />
+        return (
+          <CheckCircle
+            className="text-[var(--color-success)]"
+            size={20}
+            aria-hidden="true"
+          />
+        )
       case 'REJECTED':
-        return <XCircle className="text-red-500" size={20} />
+        return (
+          <XCircle
+            className="text-[var(--color-error)]"
+            size={20}
+            aria-hidden="true"
+          />
+        )
       case 'AUTOCRAT_REVIEW':
-        return <Users className="text-blue-500" size={20} />
+        return (
+          <Users
+            className="text-[var(--color-primary)]"
+            size={20}
+            aria-hidden="true"
+          />
+        )
       case 'CEO_QUEUE':
-        return <Clock className="text-yellow-500" size={20} />
+        return (
+          <Clock
+            className="text-[var(--color-warning)]"
+            size={20}
+            aria-hidden="true"
+          />
+        )
       default:
-        return <Clock className="text-gray-400" size={20} />
+        return (
+          <Clock
+            className="text-[var(--text-tertiary)]"
+            size={20}
+            aria-hidden="true"
+          />
+        )
     }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin" size={32} />
+        <Loader2
+          className="animate-spin text-[var(--color-primary)]"
+          size={32}
+          aria-label="Loading"
+        />
       </div>
     )
   }
@@ -155,9 +189,15 @@ export default function ProposalDetailPage() {
   if (error || !proposal) {
     return (
       <div className="card-static p-8 text-center">
-        <XCircle className="mx-auto mb-4 text-red-500" size={48} />
-        <h2 className="text-xl font-semibold mb-2">Proposal Not Found</h2>
-        <p className="text-gray-500 mb-4">
+        <XCircle
+          className="mx-auto mb-4 text-[var(--color-error)]"
+          size={48}
+          aria-hidden="true"
+        />
+        <h2 className="text-xl font-semibold mb-2 text-[var(--text-primary)]">
+          Proposal Not Found
+        </h2>
+        <p className="text-[var(--text-secondary)] mb-4">
           {error ?? 'Unable to load proposal'}
         </p>
         <Link to="/proposals" className="btn-secondary">
@@ -173,16 +213,21 @@ export default function ProposalDetailPage() {
       <div className="flex items-center gap-4">
         <Link
           to="/proposals"
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors"
+          aria-label="Back to proposals"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft
+            size={20}
+            className="text-[var(--text-secondary)]"
+            aria-hidden="true"
+          />
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl font-semibold flex items-center gap-2">
+          <h1 className="text-xl font-semibold flex items-center gap-2 text-[var(--text-primary)]">
             {getStatusIcon(proposal.status)}
             Proposal {proposal.proposalId.slice(0, 10)}...
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--text-secondary)]">
             {proposal.proposalType} • Created{' '}
             {new Date(proposal.createdAt).toLocaleDateString()}
           </p>
@@ -194,36 +239,44 @@ export default function ProposalDetailPage() {
         {/* Proposal Details */}
         <div className="lg:col-span-2 space-y-4">
           <div className="card-static p-4 sm:p-6">
-            <h2 className="font-semibold mb-4">Proposal Details</h2>
+            <h2 className="font-semibold mb-4 text-[var(--text-primary)]">
+              Proposal Details
+            </h2>
             <dl className="space-y-3">
-              <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                <dt className="text-gray-500">Proposer</dt>
-                <dd className="font-mono text-sm">
+              <div className="flex justify-between py-2 border-b border-[var(--border)]">
+                <dt className="text-[var(--text-secondary)]">Proposer</dt>
+                <dd className="font-mono text-sm text-[var(--text-primary)]">
                   {proposal.proposer.slice(0, 6)}...
                   {proposal.proposer.slice(-4)}
                 </dd>
               </div>
-              <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                <dt className="text-gray-500">Status</dt>
-                <dd className="flex items-center gap-2">
+              <div className="flex justify-between py-2 border-b border-[var(--border)]">
+                <dt className="text-[var(--text-secondary)]">Status</dt>
+                <dd className="flex items-center gap-2 text-[var(--text-primary)]">
                   {getStatusIcon(proposal.status)}
                   {proposal.status}
                 </dd>
               </div>
-              <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                <dt className="text-gray-500">Quality Score</dt>
-                <dd className="font-semibold">{proposal.qualityScore}/100</dd>
+              <div className="flex justify-between py-2 border-b border-[var(--border)]">
+                <dt className="text-[var(--text-secondary)]">Quality Score</dt>
+                <dd className="font-semibold text-[var(--text-primary)]">
+                  {proposal.qualityScore}/100
+                </dd>
               </div>
               {proposal.totalStaked && (
-                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                  <dt className="text-gray-500">Total Staked</dt>
-                  <dd>{proposal.totalStaked}</dd>
+                <div className="flex justify-between py-2 border-b border-[var(--border)]">
+                  <dt className="text-[var(--text-secondary)]">Total Staked</dt>
+                  <dd className="text-[var(--text-primary)]">
+                    {proposal.totalStaked}
+                  </dd>
                 </div>
               )}
               {proposal.backerCount && (
                 <div className="flex justify-between py-2">
-                  <dt className="text-gray-500">Backers</dt>
-                  <dd>{proposal.backerCount}</dd>
+                  <dt className="text-[var(--text-secondary)]">Backers</dt>
+                  <dd className="text-[var(--text-primary)]">
+                    {proposal.backerCount}
+                  </dd>
                 </div>
               )}
             </dl>
@@ -232,8 +285,8 @@ export default function ProposalDetailPage() {
           {/* Research Section */}
           <div className="card-static p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold flex items-center gap-2">
-                <FileSearch size={18} />
+              <h2 className="font-semibold flex items-center gap-2 text-[var(--text-primary)]">
+                <FileSearch size={18} aria-hidden="true" />
                 Research
               </h2>
               <div className="flex gap-2">
@@ -244,7 +297,11 @@ export default function ProposalDetailPage() {
                   className="btn-secondary text-sm"
                 >
                   {researchLoading ? (
-                    <Loader2 className="animate-spin" size={14} />
+                    <Loader2
+                      className="animate-spin"
+                      size={14}
+                      aria-hidden="true"
+                    />
                   ) : (
                     'Quick Screen'
                   )}
@@ -256,7 +313,11 @@ export default function ProposalDetailPage() {
                   className="btn-primary text-sm"
                 >
                   {researchLoading ? (
-                    <Loader2 className="animate-spin" size={14} />
+                    <Loader2
+                      className="animate-spin"
+                      size={14}
+                      aria-hidden="true"
+                    />
                   ) : (
                     'Deep Research'
                   )}
@@ -265,29 +326,29 @@ export default function ProposalDetailPage() {
             </div>
 
             {quickScreen && (
-              <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 mb-4">
+              <div className="p-4 rounded-lg bg-[var(--bg-secondary)] mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span
                     className={`px-2 py-0.5 rounded text-xs font-medium ${
                       quickScreen.recommendation === 'proceed'
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-[var(--color-success)]/20 text-[var(--color-success)]'
                         : quickScreen.recommendation === 'reject'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700'
+                          ? 'bg-[var(--color-error)]/20 text-[var(--color-error)]'
+                          : 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]'
                     }`}
                   >
                     {quickScreen.recommendation.toUpperCase()}
                   </span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-[var(--text-secondary)]">
                     {quickScreen.confidence}% confidence
                   </span>
                 </div>
                 {quickScreen.redFlags.length > 0 && (
                   <div className="mt-2">
-                    <span className="text-xs font-medium text-red-600">
+                    <span className="text-xs font-medium text-[var(--color-error)]">
                       Red Flags:
                     </span>
-                    <ul className="text-sm text-gray-600 mt-1">
+                    <ul className="text-sm text-[var(--text-secondary)] mt-1">
                       {quickScreen.redFlags.map((flag) => (
                         <li key={flag}>• {flag}</li>
                       ))}
@@ -296,10 +357,10 @@ export default function ProposalDetailPage() {
                 )}
                 {quickScreen.greenFlags.length > 0 && (
                   <div className="mt-2">
-                    <span className="text-xs font-medium text-green-600">
+                    <span className="text-xs font-medium text-[var(--color-success)]">
                       Green Flags:
                     </span>
-                    <ul className="text-sm text-gray-600 mt-1">
+                    <ul className="text-sm text-[var(--text-secondary)] mt-1">
                       {quickScreen.greenFlags.map((flag) => (
                         <li key={flag}>• {flag}</li>
                       ))}
@@ -311,33 +372,41 @@ export default function ProposalDetailPage() {
 
             {research && (
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                <div className="p-4 rounded-lg bg-[var(--bg-secondary)]">
                   <div className="flex items-center gap-4 mb-4">
                     <span
                       className={`px-3 py-1 rounded-full text-sm font-medium ${
                         research.recommendation === 'proceed'
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-[var(--color-success)]/20 text-[var(--color-success)]'
                           : research.recommendation === 'reject'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-yellow-100 text-yellow-700'
+                            ? 'bg-[var(--color-error)]/20 text-[var(--color-error)]'
+                            : 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]'
                       }`}
                     >
                       {research.recommendation.toUpperCase()}
                     </span>
-                    <span className="text-sm">
-                      Risk: <strong>{research.riskLevel}</strong>
+                    <span className="text-sm text-[var(--text-secondary)]">
+                      Risk:{' '}
+                      <strong className="text-[var(--text-primary)]">
+                        {research.riskLevel}
+                      </strong>
                     </span>
-                    <span className="text-sm">
-                      Confidence: <strong>{research.confidenceLevel}%</strong>
+                    <span className="text-sm text-[var(--text-secondary)]">
+                      Confidence:{' '}
+                      <strong className="text-[var(--text-primary)]">
+                        {research.confidenceLevel}%
+                      </strong>
                     </span>
                   </div>
-                  <p className="text-sm mb-4">{research.summary}</p>
+                  <p className="text-sm mb-4 text-[var(--text-secondary)]">
+                    {research.summary}
+                  </p>
                   {research.keyFindings.length > 0 && (
                     <div className="mb-3">
-                      <h4 className="text-xs font-medium uppercase text-gray-500 mb-1">
+                      <h4 className="text-xs font-medium uppercase text-[var(--text-tertiary)] mb-1">
                         Key Findings
                       </h4>
-                      <ul className="text-sm space-y-1">
+                      <ul className="text-sm space-y-1 text-[var(--text-secondary)]">
                         {research.keyFindings.map((finding) => (
                           <li key={finding}>✓ {finding}</li>
                         ))}
@@ -346,10 +415,10 @@ export default function ProposalDetailPage() {
                   )}
                   {research.concerns.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-medium uppercase text-gray-500 mb-1">
+                      <h4 className="text-xs font-medium uppercase text-[var(--text-tertiary)] mb-1">
                         Concerns
                       </h4>
-                      <ul className="text-sm space-y-1 text-yellow-600">
+                      <ul className="text-sm space-y-1 text-[var(--color-warning)]">
                         {research.concerns.map((concern) => (
                           <li key={concern}>⚠ {concern}</li>
                         ))}
@@ -362,17 +431,17 @@ export default function ProposalDetailPage() {
                     href={`https://ipfs.io/ipfs/${research.ipfsHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-500 hover:underline flex items-center gap-1"
+                    className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] flex items-center gap-1"
                   >
                     View full report on IPFS
-                    <ExternalLink size={14} />
+                    <ExternalLink size={14} aria-hidden="true" />
                   </a>
                 )}
               </div>
             )}
 
             {!quickScreen && !research && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--text-secondary)]">
                 Run a quick screen or deep research to analyze this proposal.
               </p>
             )}
@@ -383,23 +452,25 @@ export default function ProposalDetailPage() {
         <div className="space-y-4">
           {/* Moderation Score */}
           <div className="card-static p-4">
-            <h3 className="font-semibold flex items-center gap-2 mb-3">
-              <Shield size={16} />
+            <h3 className="font-semibold flex items-center gap-2 mb-3 text-[var(--text-primary)]">
+              <Shield size={16} aria-hidden="true" />
               Moderation
             </h3>
             {moderationScore ? (
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Score</span>
-                  <span className="font-semibold">
+                  <span className="text-[var(--text-secondary)]">Score</span>
+                  <span className="font-semibold text-[var(--text-primary)]">
                     {moderationScore.score}/100
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Flags</span>
+                  <span className="text-[var(--text-secondary)]">Flags</span>
                   <span
                     className={
-                      moderationScore.flagCount > 0 ? 'text-red-500' : ''
+                      moderationScore.flagCount > 0
+                        ? 'text-[var(--color-error)]'
+                        : 'text-[var(--text-primary)]'
                     }
                   >
                     {moderationScore.flagCount}
@@ -407,32 +478,38 @@ export default function ProposalDetailPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No moderation data</p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                No moderation data
+              </p>
             )}
           </div>
 
           {/* Flags */}
           <div className="card-static p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Flag size={16} />
+              <h3 className="font-semibold flex items-center gap-2 text-[var(--text-primary)]">
+                <Flag size={16} aria-hidden="true" />
                 Flags ({flags.length})
               </h3>
               <button
                 type="button"
                 onClick={() => setShowFlagForm(!showFlagForm)}
-                className="text-sm text-blue-500 hover:underline"
+                className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
               >
                 {showFlagForm ? 'Cancel' : 'Report'}
               </button>
             </div>
 
             {showFlagForm && (
-              <div className="mb-4 p-3 border rounded-lg border-gray-200 dark:border-gray-700">
+              <div className="mb-4 p-3 border rounded-lg border-[var(--border)] bg-[var(--bg-secondary)]">
+                <label htmlFor="flag-type" className="sr-only">
+                  Flag Type
+                </label>
                 <select
+                  id="flag-type"
                   value={flagType}
                   onChange={(e) => setFlagType(e.target.value)}
-                  className="w-full mb-2 p-2 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                  className="input mb-2"
                 >
                   <option value="spam">Spam</option>
                   <option value="inappropriate">Inappropriate</option>
@@ -440,11 +517,15 @@ export default function ProposalDetailPage() {
                   <option value="misleading">Misleading</option>
                   <option value="other">Other</option>
                 </select>
+                <label htmlFor="flag-reason" className="sr-only">
+                  Reason for flagging
+                </label>
                 <textarea
+                  id="flag-reason"
                   value={flagReason}
                   onChange={(e) => setFlagReason(e.target.value)}
                   placeholder="Reason for flagging..."
-                  className="w-full p-2 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                  className="textarea text-sm"
                   rows={3}
                 />
                 <button
@@ -454,7 +535,11 @@ export default function ProposalDetailPage() {
                   className="btn-primary w-full mt-2 text-sm"
                 >
                   {flagSubmitting ? (
-                    <Loader2 className="animate-spin mx-auto" size={16} />
+                    <Loader2
+                      className="animate-spin mx-auto"
+                      size={16}
+                      aria-hidden="true"
+                    />
                   ) : (
                     'Submit Flag'
                   )}
@@ -467,16 +552,22 @@ export default function ProposalDetailPage() {
                 {flags.map((flag) => (
                   <div
                     key={flag.id}
-                    className="p-2 rounded bg-gray-50 dark:bg-gray-800 text-sm"
+                    className="p-2 rounded bg-[var(--bg-secondary)] text-sm"
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <AlertTriangle size={14} className="text-yellow-500" />
-                      <span className="font-medium">{flag.flagType}</span>
+                      <AlertTriangle
+                        size={14}
+                        className="text-[var(--color-warning)]"
+                        aria-hidden="true"
+                      />
+                      <span className="font-medium text-[var(--text-primary)]">
+                        {flag.flagType}
+                      </span>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-[var(--text-secondary)]">
                       {flag.reason}
                     </p>
-                    <div className="flex gap-3 mt-2 text-xs text-gray-500">
+                    <div className="flex gap-3 mt-2 text-xs text-[var(--text-tertiary)]">
                       <span>👍 {flag.upvotes}</span>
                       <span>👎 {flag.downvotes}</span>
                     </div>
@@ -484,7 +575,9 @@ export default function ProposalDetailPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No flags reported</p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                No flags reported
+              </p>
             )}
           </div>
         </div>

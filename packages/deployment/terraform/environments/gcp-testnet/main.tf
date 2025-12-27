@@ -307,10 +307,10 @@ module "farcaster_hub" {
 }
 
 # ============================================================
-# Module: CovenantSQL (GCP - Parity with AWS)
+# Module: EQLite (GCP - Parity with AWS)
 # ============================================================
-module "covenantsql" {
-  source = "../../modules/covenantsql-gcp"
+module "eqlite" {
+  source = "../../modules/eqlite-gcp"
 
   project_id          = var.project_id
   environment         = local.environment
@@ -494,7 +494,7 @@ output "testnet_urls" {
     git         = "https://git.testnet.${var.domain_name}"
     jns         = "https://jns.testnet.${var.domain_name}"
     indexer     = "https://indexer.testnet.${var.domain_name}"
-    covenantsql = module.covenantsql.http_endpoint
+    eqlite = module.eqlite.http_endpoint
   }
 }
 

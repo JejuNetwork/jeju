@@ -83,7 +83,7 @@ describe.skipIf(SKIP_E2E)('Secure Database Provisioning', () => {
       privateKey: TEST_PRIVATE_KEY,
     })
 
-    const resp = await fetch(`${DWS_ENDPOINT}/cql/query`, {
+    const resp = await fetch(`${DWS_ENDPOINT}/eqlite/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -112,7 +112,7 @@ describe.skipIf(SKIP_E2E)('Secure Database Provisioning', () => {
       privateKey: TEST_PRIVATE_KEY,
     })
 
-    const resp = await fetch(`${DWS_ENDPOINT}/cql/query`, {
+    const resp = await fetch(`${DWS_ENDPOINT}/eqlite/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -142,7 +142,7 @@ describe.skipIf(SKIP_E2E)('Secure Database Provisioning', () => {
       privateKey: OTHER_PRIVATE_KEY,
     })
 
-    const resp = await fetch(`${DWS_ENDPOINT}/cql/query`, {
+    const resp = await fetch(`${DWS_ENDPOINT}/eqlite/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -158,7 +158,7 @@ describe.skipIf(SKIP_E2E)('Secure Database Provisioning', () => {
   })
 
   test('should require authentication for non-system databases', async () => {
-    const resp = await fetch(`${DWS_ENDPOINT}/cql/query`, {
+    const resp = await fetch(`${DWS_ENDPOINT}/eqlite/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -176,7 +176,7 @@ describe.skipIf(SKIP_E2E)('Secure Database Provisioning', () => {
   })
 
   test('should allow system database access from localhost', async () => {
-    const resp = await fetch(`${DWS_ENDPOINT}/cql/query`, {
+    const resp = await fetch(`${DWS_ENDPOINT}/eqlite/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

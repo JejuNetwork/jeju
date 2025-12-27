@@ -85,7 +85,7 @@ These services run on the Terraform-provisioned K8s cluster:
 | `gateway` | API Gateway | ✅ Required |
 | `bundler` | ERC-4337 Bundler | ✅ Required |
 | `farcaster-hub` | Social Identity | ✅ Required |
-| `covenantsql` | Decentralized DB | ✅ Required |
+| `eqlite` | Decentralized DB | ✅ Required |
 | `messaging` | Relay + KMS | ✅ Required |
 
 ---

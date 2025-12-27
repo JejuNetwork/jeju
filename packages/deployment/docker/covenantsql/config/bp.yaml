@@ -1,4 +1,4 @@
-# CovenantSQL Block Producer Configuration
+# EQLite Block Producer Configuration
 # Local development configuration
 
 # Node identification
@@ -8,7 +8,7 @@ Role: BlockProducer
 # Network configuration
 ListenAddr: "0.0.0.0:4661"
 RPCAddr: "0.0.0.0:4662"
-KayakAddr: "0.0.0.0:4663"
+BftRaftAddr: "0.0.0.0:4663"
 HTTPAddr: "0.0.0.0:8546"
 
 # Data directories
@@ -31,7 +31,7 @@ Storage:
 
 # Consensus configuration
 Consensus:
-  Type: "kayak"
+  Type: "bftraft"
   HeartbeatInterval: 1s
   ElectionTimeout: 5s
   MaxInflightBlocks: 256

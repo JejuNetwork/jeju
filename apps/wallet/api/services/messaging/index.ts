@@ -19,6 +19,7 @@ import { createLogger } from '@jejunetwork/shared'
 import { type Address, type Hex, hexToBytes } from 'viem'
 import { z } from 'zod'
 import { storage } from '../../../web/platform/storage'
+import { config } from '../../config'
 
 const log = createLogger('wallet:messaging')
 
@@ -142,8 +143,8 @@ export const DEFAULT_PREFERENCES: MessagingPreferences = {
   blockedFids: [],
 }
 
-const HUB_URL = getFarcasterHubUrl()
-const RELAY_URL = process.env.XMTP_RELAY_URL
+const HUB_URL = config.farcasterHubUrl || getFarcasterHubUrl()
+const RELAY_URL = config.xmtpRelayUrl
 
 function extractEmbeds(
   embeds: Array<{ url?: string; castId?: { fid: number; hash: string } }>,

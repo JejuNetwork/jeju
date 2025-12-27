@@ -5,7 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   type Address,
@@ -21,7 +21,24 @@ import {
   type Token,
 } from '../../lib/data-client'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import {
+  EmptyState,
+  ErrorState,
+  FilterTabs,
+  Grid,
+  InfoCard,
+  PageHeader,
+} from '../components/ui'
 import { JEJU_CHAIN_ID } from '../config/chains'
+
+type FilterType = 'all' | 'verified' | 'new'
+type OrderByType = 'volume' | 'recent' | 'holders'
+
+const FILTER_OPTIONS = [
+  { value: 'all' as const, label: 'All Coins' },
+  { value: 'verified' as const, label: 'Verified', icon: '✓' },
+  { value: 'new' as const, label: 'New', icon: '🆕' },
+]
 
 function formatNumber(num: number | bigint): string {
   const n = typeof num === 'bigint' ? Number(num) : num
@@ -40,53 +57,53 @@ function TokenCard({ token }: { token: Token }) {
   return (
     <Link
       to={`/coins/${JEJU_CHAIN_ID}/${token.address}`}
-      className="card p-5 group hover:scale-[1.02] transition-all"
+      className="group block animate-fade-in-up"
     >
-      <div className="flex items-center gap-3 mb-4">
-        {token.logoUrl ? (
-          <img
-            src={token.logoUrl}
-            alt={token.symbol}
-            className="w-12 h-12 rounded-2xl"
-          />
-        ) : (
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-lg font-bold text-white group-hover:scale-110 transition-transform">
-            {initials}
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3
-              className="text-lg font-semibold truncate"
-              style={{ color: 'var(--text-primary)' }}
+      <article className="card p-5 h-full hover:scale-[1.02] transition-all duration-300">
+        <div className="flex items-center gap-3 mb-4">
+          {token.logoUrl ? (
+            <img
+              src={token.logoUrl}
+              alt=""
+              className="w-12 h-12 rounded-2xl"
+              aria-hidden="true"
+            />
+          ) : (
+            <div
+              className="w-12 h-12 rounded-2xl gradient-warm flex items-center justify-center text-lg font-bold text-white group-hover:scale-110 transition-transform"
+              aria-hidden="true"
             >
-              {token.name}
-            </h3>
-            {token.verified && <span className="text-blue-400 text-sm">✓</span>}
+              {initials}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-primary truncate">
+                {token.name}
+              </h3>
+              {token.verified && (
+                <span className="text-blue-400 text-sm" title="Verified token">
+                  ✓
+                </span>
+              )}
+            </div>
+            <p className="text-sm font-mono text-tertiary">${token.symbol}</p>
           </div>
-          <p
-            className="text-sm font-mono"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            ${token.symbol}
-          </p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p style={{ color: 'var(--text-tertiary)' }}>Supply</p>
-          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {supplyFormatted}
-          </p>
-        </div>
-        <div>
-          <p style={{ color: 'var(--text-tertiary)' }}>Holders</p>
-          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {token.holders ? formatNumber(token.holders) : '—'}
-          </p>
-        </div>
-      </div>
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt className="text-tertiary">Supply</dt>
+            <dd className="font-semibold text-primary">{supplyFormatted}</dd>
+          </div>
+          <div>
+            <dt className="text-tertiary">Holders</dt>
+            <dd className="font-semibold text-primary">
+              {token.holders ? formatNumber(token.holders) : '—'}
+            </dd>
+          </div>
+        </dl>
+      </article>
     </Link>
   )
 }
@@ -111,7 +128,6 @@ async function fetchDefaultTokens(): Promise<Token[]> {
     }
 
     try {
-      // Fetch basic ERC-20 info directly from RPC
       const [name, symbol, decimals, totalSupply] = await Promise.all([
         client.readContract({
           address,
@@ -155,10 +171,8 @@ async function fetchDefaultTokens(): Promise<Token[]> {
 }
 
 export default function CoinsPage() {
-  const [filter, setFilter] = useState<'all' | 'verified' | 'new'>('all')
-  const [orderBy, setOrderBy] = useState<'volume' | 'recent' | 'holders'>(
-    'recent',
-  )
+  const [filter, setFilter] = useState<FilterType>('all')
+  const [orderBy, setOrderBy] = useState<OrderByType>('recent')
 
   // Check if indexer is healthy
   const { data: indexerUp } = useQuery({
@@ -195,157 +209,92 @@ export default function CoinsPage() {
     staleTime: 10000,
   })
 
-  const filteredTokens =
-    filter === 'new' && tokens
-      ? tokens.filter(
-          (t) => t.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        )
-      : tokens
+  const filteredTokens = useMemo(() => {
+    if (!tokens) return []
+    if (filter === 'new') {
+      return tokens.filter(
+        (t) => t.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      )
+    }
+    return tokens
+  }, [tokens, filter])
 
   return (
-    <div>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1
-            className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            🪙 Coins
-          </h1>
-          <p
-            className="text-sm sm:text-base"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Browse and trade tokens on the network
-          </p>
-        </div>
-        <Link
-          to="/coins/launch"
-          className="btn-primary w-full md:w-auto text-center"
-        >
-          Create Token
-        </Link>
-      </div>
+    <div className="animate-fade-in">
+      <PageHeader
+        icon="🪙"
+        title="Coins"
+        description="Discover, trade, and launch tokens on the network"
+        action={{ label: 'Create Token', href: '/coins/launch' }}
+      />
 
       {/* Indexer Status Warning */}
       {!indexerUp && (
-        <div
-          className="card p-4 mb-6 border-yellow-500/30"
-          style={{ backgroundColor: 'rgba(234, 179, 8, 0.1)' }}
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-xl">⚠️</span>
-            <div>
-              <p
-                className="font-medium"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Limited Data Available
-              </p>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                The indexer is offline. Showing deployed tokens only.
-              </p>
-            </div>
-          </div>
-        </div>
+        <InfoCard variant="warning" className="mb-6">
+          <p className="font-medium">Limited Data Available</p>
+          <p className="text-sm opacity-80">
+            The indexer is offline. Showing deployed tokens only.
+          </p>
+        </InfoCard>
       )}
 
+      {/* Filters and Sort */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
-          {(['all', 'verified', 'new'] as const).map((f) => (
-            <button
-              type="button"
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                filter === f ? 'bg-bazaar-primary text-white' : ''
-              }`}
-              style={
-                filter !== f
-                  ? {
-                      backgroundColor: 'var(--bg-secondary)',
-                      color: 'var(--text-secondary)',
-                    }
-                  : undefined
-              }
-            >
-              {f === 'all' ? 'All' : f === 'verified' ? '✓ Verified' : '🆕 New'}
-            </button>
-          ))}
-        </div>
+        <FilterTabs
+          options={FILTER_OPTIONS}
+          value={filter}
+          onChange={setFilter}
+          className="flex-1"
+        />
 
-        <div className="flex gap-2 sm:ml-auto">
-          <select
-            value={orderBy}
-            onChange={(e) => setOrderBy(e.target.value as typeof orderBy)}
-            className="input text-sm py-2"
-          >
-            <option value="recent">Most Recent</option>
-            <option value="volume">Top Volume</option>
-            <option value="holders">Most Holders</option>
-          </select>
-        </div>
+        <select
+          value={orderBy}
+          onChange={(e) => setOrderBy(e.target.value as OrderByType)}
+          className="input text-sm py-2 w-full sm:w-44"
+          aria-label="Sort tokens by"
+        >
+          <option value="recent">Most Recent</option>
+          <option value="volume">Top Volume</option>
+          <option value="holders">Most Holders</option>
+        </select>
       </div>
 
+      {/* Loading State */}
       {isLoading && (
         <div className="flex justify-center py-20">
           <LoadingSpinner size="lg" />
         </div>
       )}
 
+      {/* Error State */}
       {error && (
-        <div className="card p-6 border-red-500/30 bg-red-500/10">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div className="flex-1">
-              <p className="font-semibold mb-1 text-red-400">
-                Unable to load tokens
-              </p>
-              <p
-                className="text-sm mb-3"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                {error instanceof Error ? error.message : 'Network error'}
-              </p>
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="btn-secondary text-sm"
-              >
-                Retry
-              </button>
+        <ErrorState
+          message={
+            error instanceof Error ? error.message : 'Failed to load tokens'
+          }
+          onRetry={() => refetch()}
+        />
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !error && filteredTokens.length === 0 && (
+        <EmptyState
+          icon="🪙"
+          title="No Tokens Yet"
+          description="Be the first to create a token on the network and start building your community."
+          action={{ label: 'Create First Token', href: '/coins/launch' }}
+        />
+      )}
+
+      {/* Tokens Grid */}
+      {!isLoading && !error && filteredTokens.length > 0 && (
+        <Grid cols={3}>
+          {filteredTokens.map((token, index) => (
+            <div key={token.address} className={`stagger-${(index % 6) + 1}`}>
+              <TokenCard token={token} />
             </div>
-          </div>
-        </div>
-      )}
-
-      {!isLoading && !error && filteredTokens?.length === 0 && (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4">🪙</div>
-          <h3
-            className="text-lg font-semibold mb-2"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            No Tokens Yet
-          </h3>
-          <p
-            className="mb-4 text-sm"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Be the first to create a token on the network
-          </p>
-          <Link to="/coins/launch" className="btn-primary">
-            Create First Token
-          </Link>
-        </div>
-      )}
-
-      {!isLoading && !error && filteredTokens && filteredTokens.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTokens.map((token) => (
-            <TokenCard key={token.address} token={token} />
           ))}
-        </div>
+        </Grid>
       )}
     </div>
   )

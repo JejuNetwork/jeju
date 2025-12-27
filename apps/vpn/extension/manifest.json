@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "Jeju VPN & Name Service",
+  "short_name": "Jeju VPN",
+  "version": "1.0.0",
+  "description": "Decentralized VPN proxy and .jeju domain resolution. Route browser traffic through the Jeju Network for privacy and access to Web3 applications.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "proxy",
+    "webRequest",
+    "webNavigation",
+    "declarativeNetRequest",
+    "tabs",
+    "activeTab",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "*://*.jeju/*",
+    "http://*.jeju/*",
+    "https://*.jeju/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Jeju VPN"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "jeju_rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js", "error.html", "icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "externally_connectable": {
+    "matches": ["https://*.jejunetwork.org/*"]
+  }
+}

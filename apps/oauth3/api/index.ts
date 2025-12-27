@@ -10,20 +10,14 @@ import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { isAddress } from 'viem'
 import type { AuthConfig } from '../lib/types'
+import { config as oauth3Config } from './config'
 import { createClientRouter } from './routes/client'
 import { createFarcasterRouter } from './routes/farcaster'
 import { createOAuthRouter } from './routes/oauth'
 import { createSessionRouter } from './routes/session'
 import { createWalletRouter } from './routes/wallet'
 
-const isDev = process.env.NODE_ENV !== 'production'
-
-function requireEnv(name: string, devDefault?: string): string {
-  const value = process.env[name]
-  if (value) return value
-  if (isDev && devDefault !== undefined) return devDefault
-  throw new Error(`Required environment variable ${name} is not set`)
-}
+const isDev = !oauth3Config.isProduction
 
 function parseAddress(
   value: string | undefined,
@@ -41,27 +35,27 @@ function parseAddress(
 
 const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
 
-const config: AuthConfig = {
-  rpcUrl: requireEnv('RPC_URL', 'http://localhost:8545'),
+const authConfig: AuthConfig = {
+  rpcUrl: oauth3Config.rpcUrl,
   mpcRegistryAddress: parseAddress(
-    process.env.MPC_REGISTRY_ADDRESS,
+    oauth3Config.mpcRegistryAddress,
     ZERO_ADDRESS,
   ),
   identityRegistryAddress: parseAddress(
-    process.env.IDENTITY_REGISTRY_ADDRESS,
+    oauth3Config.identityRegistryAddress,
     ZERO_ADDRESS,
   ),
-  serviceAgentId: requireEnv('SERVICE_AGENT_ID', 'auth.jeju'),
-  jwtSecret: requireEnv('JWT_SECRET', 'dev-secret-change-in-production'),
-  sessionDuration: 24 * 60 * 60 * 1000, // 24 hours
-  allowedOrigins: requireEnv('ALLOWED_ORIGINS', '*').split(','),
+  serviceAgentId: oauth3Config.serviceAgentId,
+  jwtSecret: oauth3Config.jwtSecret,
+  sessionDuration: oauth3Config.sessionDuration,
+  allowedOrigins: oauth3Config.allowedOrigins,
 }
 
 async function createApp() {
   const app = new Elysia()
     .use(
       cors({
-        origin: config.allowedOrigins,
+        origin: authConfig.allowedOrigins,
         credentials: true,
         allowedHeaders: [
           'Content-Type',
@@ -151,16 +145,16 @@ async function createApp() {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       })
     })
-    .use(await createOAuthRouter(config))
-    .use(createWalletRouter(config))
-    .use(createFarcasterRouter(config))
-    .use(createSessionRouter(config))
-    .use(createClientRouter(config))
+    .use(await createOAuthRouter(authConfig))
+    .use(createWalletRouter(authConfig))
+    .use(createFarcasterRouter(authConfig))
+    .use(createSessionRouter(authConfig))
+    .use(createClientRouter(authConfig))
 
   return app
 }
 
-const port = Number(process.env.PORT ?? 4200)
+const port = oauth3Config.port
 
 createApp().then((app) => {
   app.listen(port, () => {

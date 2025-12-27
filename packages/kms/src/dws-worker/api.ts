@@ -24,7 +24,7 @@ import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, verifyMessage } from 'viem'
 import { z } from 'zod'
-import { deriveEncryptionKey } from '../crypto.js'
+import { deriveEncryptionKey, toArrayBuffer } from '../crypto.js'
 import { createMPCClient, MPCPartyDiscovery } from './mpc-discovery'
 
 // Request body schemas
@@ -637,9 +637,9 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
 
         const plainBytes = new TextEncoder().encode(params.plaintext)
         const ciphertext = await crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv: nonceBytes },
+          { name: 'AES-GCM', iv: toArrayBuffer(nonceBytes) },
           keyMaterial,
-          plainBytes,
+          toArrayBuffer(plainBytes),
         )
 
         // Zero derived key after use
@@ -706,9 +706,9 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
         const nonceBytes = Buffer.from(params.nonce, 'base64')
 
         const plaintext = await crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv: nonceBytes },
+          { name: 'AES-GCM', iv: toArrayBuffer(nonceBytes) },
           keyMaterial,
-          cipherBytes,
+          toArrayBuffer(cipherBytes),
         )
 
         // Zero derived key after use

@@ -1,11 +1,11 @@
 /**
  * Autocrat Header Component
  *
- * Navigation header with DAO-centric navigation.
+ * Bright, accessible navigation header with mobile-friendly design.
  */
 
-import { Building2, Menu, Plus, User, Wallet, X } from 'lucide-react'
-import { useState } from 'react'
+import { Building2, Menu, Plus, Sparkles, User, Wallet, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { injected } from 'wagmi/connectors'
@@ -16,39 +16,107 @@ interface NavLink {
   icon: typeof Building2
 }
 
-const NAV_LINKS: NavLink[] = [{ to: '/', label: 'DAOs', icon: Building2 }]
+const NAV_LINKS: NavLink[] = [
+  { to: '/', label: 'Organizations', icon: Building2 },
+]
 
 export function Header() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+
   const { address, isConnected } = useAccount()
   const { connect, isPending } = useConnect()
   const { disconnect } = useDisconnect()
 
-  const handleConnect = () => {
+  const handleConnect = useCallback(() => {
     connect({ connector: injected() })
-  }
+  }, [connect])
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-  }
+  const formatAddress = (addr: string) =>
+    `${addr.slice(0, 6)}...${addr.slice(-4)}`
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [])
+
+  // Close mobile menu on escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false)
+        menuButtonRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [mobileMenuOpen])
+
+  // Trap focus in mobile menu
+  useEffect(() => {
+    if (mobileMenuOpen && mobileMenuRef.current) {
+      const focusableElements = mobileMenuRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )
+      const firstElement = focusableElements[0] as HTMLElement
+      firstElement?.focus()
+    }
+  }, [mobileMenuOpen])
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileMenuOpen])
 
   return (
-    <header className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-14">
+    <header
+      className="sticky top-0 z-50 backdrop-blur-xl border-b transition-colors duration-200"
+      style={{
+        backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
+        borderColor: 'var(--border)',
+      }}
+    >
+      <div className="container mx-auto">
+        <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
+          <Link
+            to="/"
+            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-lg p-1 -m-1"
+            style={
+              {
+                '--tw-ring-color': 'var(--color-primary)',
+              } as React.CSSProperties
+            }
+            aria-label="Autocrat - Home"
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105"
+              style={{ background: 'var(--gradient-primary)' }}
+            >
+              <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
-            <span className="font-bold text-lg text-white hidden sm:block">
+            <span
+              className="hidden sm:block font-bold text-lg"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Autocrat
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav
+            className="hidden md:flex items-center gap-2"
+            aria-label="Main navigation"
+          >
             {NAV_LINKS.map((link) => {
               const Icon = link.icon
               const isActive = location.pathname === link.to
@@ -56,13 +124,21 @@ export function Header() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-violet-500/20 text-violet-300'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2"
+                  style={
+                    {
+                      backgroundColor: isActive
+                        ? 'rgba(6, 214, 160, 0.12)'
+                        : 'transparent',
+                      color: isActive
+                        ? 'var(--color-primary)'
+                        : 'var(--text-secondary)',
+                      '--tw-ring-color': 'var(--color-primary)',
+                    } as React.CSSProperties
+                  }
+                  aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4" aria-hidden="true" />
                   {link.label}
                 </Link>
               )
@@ -70,34 +146,55 @@ export function Header() {
           </nav>
 
           {/* Right Section */}
-          <div className="flex items-center gap-3">
-            {/* Create DAO Button */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Create DAO Button - Desktop */}
             <Link
               to="/create"
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              style={
+                {
+                  background: 'var(--gradient-primary)',
+                  '--tw-ring-color': 'var(--color-primary)',
+                } as React.CSSProperties
+              }
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" aria-hidden="true" />
               Create DAO
             </Link>
 
             {/* Wallet Connection */}
-            {isConnected ? (
+            {isConnected && address ? (
               <div className="flex items-center gap-2">
                 <Link
                   to="/my-daos"
-                  className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
-                  title="My DAOs"
+                  className="p-2.5 rounded-xl transition-colors focus:outline-none focus-visible:ring-2"
+                  style={
+                    {
+                      backgroundColor: 'var(--surface)',
+                      color: 'var(--text-secondary)',
+                      '--tw-ring-color': 'var(--color-primary)',
+                    } as React.CSSProperties
+                  }
+                  aria-label="My DAOs"
                 >
-                  <User className="w-5 h-5" />
+                  <User className="w-5 h-5" aria-hidden="true" />
                 </Link>
                 <button
                   type="button"
                   onClick={() => disconnect()}
-                  className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-slate-300 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  style={
+                    {
+                      backgroundColor: 'var(--surface)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border)',
+                      '--tw-ring-color': 'var(--color-primary)',
+                    } as React.CSSProperties
+                  }
                 >
-                  <Wallet className="w-4 h-4" />
+                  <Wallet className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">
-                    {formatAddress(address ?? '')}
+                    {formatAddress(address)}
                   </span>
                 </button>
               </div>
@@ -106,25 +203,49 @@ export function Header() {
                 type="button"
                 onClick={handleConnect}
                 disabled={isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-slate-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 disabled:opacity-60"
+                style={
+                  {
+                    backgroundColor: 'var(--surface)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border)',
+                    '--tw-ring-color': 'var(--color-primary)',
+                  } as React.CSSProperties
+                }
               >
-                <Wallet className="w-4 h-4" />
+                <Wallet className="w-4 h-4" aria-hidden="true" />
                 <span className="hidden sm:inline">
-                  {isPending ? 'Connecting...' : 'Connect'}
+                  {isPending ? 'Connecting...' : 'Connect Wallet'}
+                </span>
+                <span className="sm:hidden">
+                  {isPending ? '...' : 'Connect'}
                 </span>
               </button>
             )}
 
             {/* Mobile Menu Toggle */}
             <button
+              ref={menuButtonRef}
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 hover:bg-slate-800 rounded-lg text-slate-400"
+              className="md:hidden p-2.5 rounded-xl transition-colors focus:outline-none focus-visible:ring-2"
+              style={
+                {
+                  backgroundColor: mobileMenuOpen
+                    ? 'var(--bg-secondary)'
+                    : 'transparent',
+                  color: 'var(--text-primary)',
+                  '--tw-ring-color': 'var(--color-primary)',
+                } as React.CSSProperties
+              }
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             >
               {mobileMenuOpen ? (
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               ) : (
-                <Menu className="w-5 h-5" />
+                <Menu className="w-5 h-5" aria-hidden="true" />
               )}
             </button>
           </div>
@@ -133,8 +254,22 @@ export function Header() {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-800 bg-slate-900">
-          <nav className="container mx-auto px-4 py-4 space-y-1">
+        <div
+          ref={mobileMenuRef}
+          id="mobile-menu"
+          className="md:hidden border-t animate-in"
+          style={{
+            backgroundColor: 'var(--bg-primary)',
+            borderColor: 'var(--border)',
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation"
+        >
+          <nav
+            className="container mx-auto py-4 space-y-1"
+            aria-label="Mobile navigation"
+          >
             {NAV_LINKS.map((link) => {
               const Icon = link.icon
               const isActive = location.pathname === link.to
@@ -143,23 +278,31 @@ export function Header() {
                   key={link.to}
                   to={link.to}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-violet-500/20 text-violet-300'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }`}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: isActive
+                      ? 'rgba(6, 214, 160, 0.12)'
+                      : 'transparent',
+                    color: isActive
+                      ? 'var(--color-primary)'
+                      : 'var(--text-primary)',
+                  }}
+                  aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-5 h-5" aria-hidden="true" />
                   {link.label}
                 </Link>
               )
             })}
+
+            {/* Create DAO - Mobile */}
             <Link
               to="/create"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-violet-600 text-white"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-white mt-2"
+              style={{ background: 'var(--gradient-primary)' }}
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-5 h-5" aria-hidden="true" />
               Create DAO
             </Link>
           </nav>

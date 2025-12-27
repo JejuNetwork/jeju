@@ -5,6 +5,7 @@
  * End-to-end encrypted messaging between Farcaster users.
  */
 
+import { clsx } from 'clsx'
 import {
   Archive,
   BellOff,
@@ -18,9 +19,10 @@ import {
   Search,
   Send,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { FarcasterConnect } from '../components/farcaster'
+import { PageHeader } from '../components/shared'
 import { useFarcasterStatus } from '../hooks/useFarcaster'
 import {
   type Conversation,
@@ -53,20 +55,13 @@ export function MessagesPage() {
   // If not connected to Farcaster, show connect prompt
   if (!farcasterStatus?.connected && walletConnected && !statusLoading) {
     return (
-      <div className="min-h-screen p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-factory-100 flex items-center gap-3">
-              <MessageSquare className="w-7 h-7 text-accent-400" />
-              Messages
-            </h1>
-            <p className="text-factory-400 mt-1">
-              End-to-end encrypted direct messages
-            </p>
-          </div>
-        </div>
-
-        <div className="max-w-lg mx-auto">
+      <div className="page-container">
+        <PageHeader
+          title="Messages"
+          icon={MessageSquare}
+          iconColor="text-factory-400"
+        />
+        <div className="max-w-lg mx-auto animate-in">
           <FarcasterConnect />
         </div>
       </div>
@@ -76,56 +71,72 @@ export function MessagesPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-8 py-4 border-b border-factory-800">
-        <div>
-          <h1 className="text-2xl font-bold text-factory-100 flex items-center gap-3">
-            <MessageSquare className="w-7 h-7 text-accent-400" />
-            Messages
-            {messagingStatus?.unreadCount ? (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-accent-500 text-white">
-                {messagingStatus.unreadCount}
-              </span>
-            ) : null}
-          </h1>
-          <p className="text-factory-400 mt-1 flex items-center gap-2">
-            <Lock className="w-3 h-3" />
-            End-to-end encrypted with Direct Casts
-          </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 lg:px-8 py-4 border-b border-surface-800/50 bg-surface-950/80 backdrop-blur-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-factory-500/15 border border-factory-500/20 flex items-center justify-center">
+            <MessageSquare
+              className="w-5 h-5 text-factory-400"
+              aria-hidden="true"
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-surface-50 font-display">
+                Messages
+              </h1>
+              {messagingStatus?.unreadCount ? (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-factory-500 text-white">
+                  {messagingStatus.unreadCount}
+                </span>
+              ) : null}
+            </div>
+            <p className="text-surface-400 text-sm flex items-center gap-1.5">
+              <Lock className="w-3 h-3" aria-hidden="true" />
+              End-to-end encrypted
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Connection status */}
-          <div
-            className={`w-2 h-2 rounded-full ${
-              messagingStatus?.connected ? 'bg-green-400' : 'bg-factory-500'
-            }`}
-          />
-          <span className="text-sm text-factory-400">
-            {messagingStatus?.connected ? 'Connected' : 'Disconnected'}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div
+              className={clsx(
+                'w-2 h-2 rounded-full',
+                messagingStatus?.connected
+                  ? 'bg-success-400'
+                  : 'bg-surface-500',
+              )}
+              aria-hidden="true"
+            />
+            <span className="text-sm text-surface-400">
+              {messagingStatus?.connected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
 
-          {/* Reconnect button */}
           {!messagingStatus?.connected && (
             <button
               type="button"
               className="btn btn-ghost"
               onClick={() => reconnect.mutate()}
               disabled={reconnect.isPending}
+              aria-label="Reconnect"
             >
               <RefreshCw
-                className={`w-4 h-4 ${reconnect.isPending ? 'animate-spin' : ''}`}
+                className={clsx(
+                  'w-4 h-4',
+                  reconnect.isPending && 'animate-spin',
+                )}
               />
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Conversation list */}
-        <div className="w-80 border-r border-factory-800 flex flex-col">
-          {/* Search/New conversation */}
-          <div className="p-4 border-b border-factory-800">
+        <div className="w-full sm:w-80 border-r border-surface-800/50 flex flex-col bg-surface-900/50">
+          <div className="p-3 sm:p-4 border-b border-surface-800/50">
             <button
               type="button"
               className="btn btn-primary w-full"
@@ -135,22 +146,27 @@ export function MessagesPage() {
             </button>
           </div>
 
-          {/* Conversations */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
             {conversationsLoading ? (
               <div className="p-8 flex items-center justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-factory-500" />
+                <Loader2
+                  className="w-6 h-6 animate-spin text-surface-500"
+                  aria-hidden="true"
+                />
               </div>
             ) : conversations.length === 0 ? (
               <div className="p-8 text-center">
-                <MessageSquare className="w-10 h-10 mx-auto mb-3 text-factory-600" />
-                <p className="text-factory-400 text-sm">No conversations yet</p>
-                <p className="text-factory-500 text-xs mt-1">
-                  Start a new conversation to chat
+                <MessageSquare
+                  className="w-10 h-10 mx-auto mb-3 text-surface-600"
+                  aria-hidden="true"
+                />
+                <p className="text-surface-400 text-sm">No messages yet</p>
+                <p className="text-surface-500 text-xs mt-1">
+                  Start a conversation
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-factory-800">
+              <div className="divide-y divide-surface-800/50">
                 {conversations.map((conv) => (
                   <ConversationItem
                     key={conv.id}
@@ -170,7 +186,7 @@ export function MessagesPage() {
         </div>
 
         {/* Message area */}
-        <div className="flex-1 flex flex-col">
+        <div className="hidden sm:flex flex-1 flex-col">
           {showNewConversation ? (
             <NewConversation
               onSelect={(fid) => {
@@ -184,12 +200,17 @@ export function MessagesPage() {
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <MessageSquare className="w-16 h-16 mx-auto mb-4 text-factory-700" />
-                <h3 className="text-lg font-medium text-factory-300 mb-2">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-800/50 flex items-center justify-center">
+                  <MessageSquare
+                    className="w-8 h-8 text-surface-600"
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="text-lg font-semibold text-surface-300 mb-2 font-display">
                   Select a conversation
                 </h3>
-                <p className="text-factory-500 text-sm">
-                  Choose an existing conversation or start a new one
+                <p className="text-surface-500 text-sm">
+                  Choose a conversation or start a new one
                 </p>
               </div>
             </div>
@@ -200,10 +221,6 @@ export function MessagesPage() {
   )
 }
 
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
 function ConversationItem({
   conversation,
   isSelected,
@@ -213,7 +230,7 @@ function ConversationItem({
   isSelected: boolean
   onClick: () => void
 }) {
-  const formatTime = (timestamp: number) => {
+  const formatTime = useCallback((timestamp: number) => {
     const now = Date.now()
     const diff = now - timestamp
     const days = Math.floor(diff / 86400000)
@@ -233,18 +250,18 @@ function ConversationItem({
       month: 'short',
       day: 'numeric',
     })
-  }
+  }, [])
 
   return (
     <button
       type="button"
-      className={`w-full p-4 text-left hover:bg-factory-800 transition-colors ${
-        isSelected ? 'bg-factory-800' : ''
-      }`}
+      className={clsx(
+        'w-full p-4 text-left hover:bg-surface-800/50 transition-colors',
+        isSelected && 'bg-surface-800/80',
+      )}
       onClick={onClick}
     >
       <div className="flex items-start gap-3">
-        {/* Avatar */}
         {conversation.otherUser?.pfpUrl ? (
           <img
             src={conversation.otherUser.pfpUrl}
@@ -252,31 +269,30 @@ function ConversationItem({
             className="w-10 h-10 rounded-full object-cover flex-shrink-0"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-factory-700 flex items-center justify-center text-factory-400 flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-surface-700 flex items-center justify-center text-surface-400 flex-shrink-0">
             {conversation.otherUser?.username?.slice(0, 2).toUpperCase() ?? '?'}
           </div>
         )}
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-medium text-factory-100 truncate">
+            <span className="font-medium text-surface-100 truncate">
               {conversation.otherUser?.displayName ||
                 conversation.otherUser?.username ||
                 'Unknown'}
             </span>
             {conversation.lastMessage && (
-              <span className="text-xs text-factory-500 flex-shrink-0 ml-2">
+              <span className="text-xs text-surface-500 flex-shrink-0 ml-2">
                 {formatTime(conversation.lastMessage.timestamp)}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <p className="text-sm text-factory-400 truncate flex-1">
+            <p className="text-sm text-surface-400 truncate flex-1">
               {conversation.lastMessage?.text ?? 'No messages yet'}
             </p>
             {conversation.unreadCount > 0 && (
-              <span className="px-1.5 py-0.5 text-xs rounded-full bg-accent-500 text-white flex-shrink-0">
+              <span className="px-1.5 py-0.5 text-xs rounded-full bg-factory-500 text-white flex-shrink-0">
                 {conversation.unreadCount}
               </span>
             )}
@@ -299,20 +315,20 @@ function NewConversation({
 
   return (
     <div className="flex-1 flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-factory-800">
+      <div className="p-4 border-b border-surface-800/50">
         <div className="flex items-center gap-2">
-          <Search className="w-5 h-5 text-factory-500" />
+          <Search className="w-5 h-5 text-surface-500" aria-hidden="true" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by username..."
-            className="flex-1 bg-transparent border-none focus:outline-none text-factory-100 placeholder-factory-500"
+            className="flex-1 bg-transparent border-none focus:outline-none text-surface-100 placeholder-surface-500"
+            aria-label="Search users"
           />
           <button
             type="button"
-            className="text-factory-400 hover:text-factory-200 text-sm"
+            className="text-surface-400 hover:text-surface-200 text-sm"
             onClick={onCancel}
           >
             Cancel
@@ -320,29 +336,31 @@ function NewConversation({
         </div>
       </div>
 
-      {/* Results */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {isLoading ? (
           <div className="p-8 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-factory-500" />
+            <Loader2
+              className="w-6 h-6 animate-spin text-surface-500"
+              aria-hidden="true"
+            />
           </div>
         ) : query.length < 2 ? (
           <div className="p-8 text-center">
-            <p className="text-factory-500 text-sm">
+            <p className="text-surface-500 text-sm">
               Enter a username to search
             </p>
           </div>
         ) : searchResults?.users.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-factory-400 text-sm">No users found</p>
+            <p className="text-surface-400 text-sm">No users found</p>
           </div>
         ) : (
-          <div className="divide-y divide-factory-800">
+          <div className="divide-y divide-surface-800/50">
             {searchResults?.users.map((user) => (
               <button
                 key={user.fid}
                 type="button"
-                className="w-full p-4 text-left hover:bg-factory-800 transition-colors"
+                className="w-full p-4 text-left hover:bg-surface-800/50 transition-colors"
                 onClick={() => onSelect(user.fid)}
               >
                 <div className="flex items-center gap-3">
@@ -353,15 +371,15 @@ function NewConversation({
                       className="w-10 h-10 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-factory-700 flex items-center justify-center text-factory-400">
+                    <div className="w-10 h-10 rounded-full bg-surface-700 flex items-center justify-center text-surface-400">
                       {user.username.slice(0, 2).toUpperCase()}
                     </div>
                   )}
                   <div>
-                    <p className="font-medium text-factory-100">
+                    <p className="font-medium text-surface-100">
                       {user.displayName || user.username}
                     </p>
-                    <p className="text-sm text-factory-400">@{user.username}</p>
+                    <p className="text-sm text-surface-400">@{user.username}</p>
                   </div>
                 </div>
               </button>
@@ -387,28 +405,20 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
 
   const messages = messagesData?.messages ?? []
 
-  // Mark as read when viewing
-  // biome-ignore lint/correctness/useExhaustiveDependencies: markAsRead should not trigger re-run
   useEffect(() => {
     if (recipientFid && messages.length > 0) {
       markAsRead.mutate(recipientFid)
     }
-  }, [recipientFid, messages.length])
+  }, [recipientFid, messages.length, markAsRead])
 
-  // Scroll to bottom on new messages
-  // biome-ignore lint/correctness/useExhaustiveDependencies: messages changes should trigger scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [])
 
   const handleSend = async () => {
     if (!messageText.trim()) return
 
-    await sendMessage.mutateAsync({
-      recipientFid,
-      text: messageText.trim(),
-    })
-
+    await sendMessage.mutateAsync({ recipientFid, text: messageText.trim() })
     setMessageText('')
     inputRef.current?.focus()
   }
@@ -423,22 +433,22 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-factory-800 flex items-center justify-between">
+      <div className="p-4 border-b border-surface-800/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-factory-700 flex items-center justify-center text-factory-400 text-sm">
+          <div className="w-8 h-8 rounded-full bg-surface-700 flex items-center justify-center text-surface-400 text-sm">
             {recipientFid}
           </div>
-          <span className="font-medium text-factory-100">
+          <span className="font-medium text-surface-100">
             FID: {recipientFid}
           </span>
         </div>
 
-        {/* Menu */}
         <div className="relative">
           <button
             type="button"
-            className="p-2 rounded hover:bg-factory-800 text-factory-500"
+            className="p-2 rounded-lg hover:bg-surface-800 text-surface-500"
             onClick={() => setShowMenu(!showMenu)}
+            aria-label="More options"
           >
             <MoreVertical className="w-5 h-5" />
           </button>
@@ -450,12 +460,11 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
                 aria-label="Close menu"
                 className="fixed inset-0 z-10 bg-transparent border-none cursor-default"
                 onClick={() => setShowMenu(false)}
-                onKeyDown={(e) => e.key === 'Escape' && setShowMenu(false)}
               />
               <div className="absolute right-0 top-full mt-1 z-20 card py-1 min-w-[160px]">
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left text-sm text-factory-200 hover:bg-factory-800 flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-surface-200 hover:bg-surface-800 flex items-center gap-2"
                   onClick={() => {
                     archiveConversation.mutate(recipientFid)
                     setShowMenu(false)
@@ -466,7 +475,7 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
                 </button>
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left text-sm text-factory-200 hover:bg-factory-800 flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-surface-200 hover:bg-surface-800 flex items-center gap-2"
                   onClick={() => {
                     muteConversation.mutate({ recipientFid, muted: true })
                     setShowMenu(false)
@@ -482,19 +491,22 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-factory-500" />
+            <Loader2
+              className="w-6 h-6 animate-spin text-surface-500"
+              aria-hidden="true"
+            />
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8">
-            <Lock className="w-8 h-8 mx-auto mb-3 text-factory-600" />
-            <p className="text-factory-400 text-sm">
-              Messages are end-to-end encrypted
-            </p>
-            <p className="text-factory-500 text-xs mt-1">
-              Start the conversation below
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-surface-800/50 flex items-center justify-center">
+              <Lock className="w-6 h-6 text-surface-600" aria-hidden="true" />
+            </div>
+            <p className="text-surface-400 text-sm">Messages are encrypted</p>
+            <p className="text-surface-500 text-xs mt-1">
+              Send a message to start
             </p>
           </div>
         ) : (
@@ -506,7 +518,7 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-factory-800">
+      <div className="p-4 border-t border-surface-800/50">
         <div className="flex items-center gap-2">
           <input
             ref={inputRef}
@@ -517,12 +529,14 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
             placeholder="Type a message..."
             className="input flex-1"
             disabled={sendMessage.isPending}
+            aria-label="Message input"
           />
           <button
             type="button"
             className="btn btn-primary"
             onClick={handleSend}
             disabled={!messageText.trim() || sendMessage.isPending}
+            aria-label="Send message"
           >
             {sendMessage.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -537,42 +551,48 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
 }
 
 function MessageBubble({ message }: { message: Message }) {
-  const formatTime = (timestamp: number) => {
+  const formatTime = useCallback((timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
     })
-  }
+  }, [])
 
   return (
     <div
-      className={`flex ${message.isFromMe ? 'justify-end' : 'justify-start'}`}
+      className={clsx(
+        'flex',
+        message.isFromMe ? 'justify-end' : 'justify-start',
+      )}
     >
       <div
-        className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+        className={clsx(
+          'max-w-[70%] rounded-2xl px-4 py-2',
           message.isFromMe
-            ? 'bg-accent-600 text-white rounded-br-md'
-            : 'bg-factory-800 text-factory-100 rounded-bl-md'
-        }`}
+            ? 'bg-factory-500 text-white rounded-br-md'
+            : 'bg-surface-800 text-surface-100 rounded-bl-md',
+        )}
       >
         <p className="whitespace-pre-wrap break-words">{message.text}</p>
         <div
-          className={`flex items-center gap-1 mt-1 ${
-            message.isFromMe ? 'justify-end' : 'justify-start'
-          }`}
+          className={clsx(
+            'flex items-center gap-1 mt-1',
+            message.isFromMe ? 'justify-end' : 'justify-start',
+          )}
         >
           <span
-            className={`text-xs ${
-              message.isFromMe ? 'text-white/60' : 'text-factory-500'
-            }`}
+            className={clsx(
+              'text-xs',
+              message.isFromMe ? 'text-white/60' : 'text-surface-500',
+            )}
           >
             {formatTime(message.timestamp)}
           </span>
           {message.isFromMe &&
             (message.isRead ? (
-              <CheckCheck className="w-3 h-3 text-white/60" />
+              <CheckCheck className="w-3 h-3 text-white/60" aria-label="Read" />
             ) : (
-              <Check className="w-3 h-3 text-white/60" />
+              <Check className="w-3 h-3 text-white/60" aria-label="Sent" />
             ))}
         </div>
       </div>

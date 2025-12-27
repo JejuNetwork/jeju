@@ -43,9 +43,15 @@ export type { TrezorAccount, TrezorKeyring } from './hardware/trezor'
 export * from './history'
 // Network infrastructure (indexer, bundler, graphql)
 export * as jeju from './jeju'
-export type { JNSName, JNSPricing, JNSRegistrationParams } from './jns'
+export type {
+  JNSName,
+  JNSPricing,
+  JNSRegistrationParams,
+  JNSResolution,
+  JNSResolverSettings,
+} from './jns'
 // JNS Name Service
-export { JNSService, jnsService } from './jns'
+export { JNSResolver, JNSService, jnsResolver, jnsService } from './jns'
 export type {
   Account,
   HardwareAccount,

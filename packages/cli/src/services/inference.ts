@@ -122,6 +122,16 @@ class LocalInferenceServer {
   }
 
   private detectDefaultProvider(): string {
+    // In dev mode, prefer a configured cloud provider if DWS isn't working
+    // Priority: groq (fast/free tier), anthropic, openai, then dws
+    const preferredOrder = ['groq', 'anthropic', 'openai', 'dws']
+    for (const provider of preferredOrder) {
+      if (provider === 'dws') return 'dws'
+      const keyVar = API_KEY_VARS[provider]
+      if (keyVar && process.env[keyVar]) {
+        return provider
+      }
+    }
     return 'dws'
   }
 

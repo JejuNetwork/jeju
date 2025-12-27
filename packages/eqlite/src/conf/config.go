@@ -1,0 +1,216 @@
+
+package conf
+
+import (
+	"os"
+	"path"
+	"time"
+
+	yaml "gopkg.in/yaml.v2"
+
+	"eqlite/src/crypto"
+	"eqlite/src/crypto/asymmetric"
+	"eqlite/src/crypto/hash"
+	"eqlite/src/pow/cpuminer"
+	"eqlite/src/proto"
+	"eqlite/src/utils/log"
+)
+
+// these const specify the role of this app, which can be "miner", "blockProducer".
+const (
+	MinerBuildTag         = "M"
+	BlockProducerBuildTag = "B"
+	ClientBuildTag        = "C"
+	UnknownBuildTag       = "U"
+)
+
+// StartSucceedMessage is printed when EQLite started successfully.
+const StartSucceedMessage = "EQLite Started Successfully"
+
+// RoleTag indicate which role the daemon is playing.
+var RoleTag = UnknownBuildTag
+
+// BaseAccountInfo defines base info to build a BaseAccount.
+type BaseAccountInfo struct {
+	Address hash.Hash `yaml:"Address"`
+}
+
+// BPGenesisInfo hold all genesis info fields.
+type BPGenesisInfo struct {
+	// Version defines the block version
+	Version int32 `yaml:"Version"`
+	// Timestamp defines the initial time of chain
+	Timestamp time.Time `yaml:"Timestamp"`
+	// BaseAccounts defines the base accounts for testnet
+	BaseAccounts []BaseAccountInfo `yaml:"BaseAccounts"`
+}
+
+// BPInfo hold all BP info fields.
+type BPInfo struct {
+	// PublicKey point to BlockProducer public key
+	PublicKey *asymmetric.PublicKey `yaml:"PublicKey"`
+	// NodeID is the node id of Block Producer
+	NodeID proto.NodeID `yaml:"NodeID"`
+	// RawNodeID
+	RawNodeID proto.RawNodeID `yaml:"-"`
+	// Nonce is the nonce, SEE: cmd/eqlite for more
+	Nonce cpuminer.Uint256 `yaml:"Nonce"`
+	// ChainFileName is the chain db's name
+	ChainFileName string `yaml:"ChainFileName"`
+	// BPGenesis is the genesis block filed
+	BPGenesis BPGenesisInfo `yaml:"BPGenesisInfo,omitempty"`
+}
+
+// MinerDatabaseFixture config.
+type MinerDatabaseFixture struct {
+	DatabaseID               proto.DatabaseID `yaml:"DatabaseID"`
+	Term                     uint64           `yaml:"Term"`
+	Leader                   proto.NodeID     `yaml:"Leader"`
+	Servers                  []proto.NodeID   `yaml:"Servers"`
+	GenesisBlockFile         string           `yaml:"GenesisBlockFile"`
+	AutoGenerateGenesisBlock bool             `yaml:"AutoGenerateGenesisBlock,omitempty"`
+}
+
+// MinerInfo for miner config.
+type MinerInfo struct {
+	// node basic config.
+	RootDir                string                 `yaml:"RootDir"`
+	MaxReqTimeGap          time.Duration          `yaml:"MaxReqTimeGap,omitempty"`
+	ProvideServiceInterval time.Duration          `yaml:"ProvideServiceInterval,omitempty"`
+	DiskUsageInterval      time.Duration          `yaml:"DiskUsageInterval,omitempty"`
+	TargetUsers            []proto.AccountAddress `yaml:"TargetUsers,omitempty"`
+}
+
+// DNSSeed defines seed DNS info.
+type DNSSeed struct {
+	EnforcedDNSSEC bool     `yaml:"EnforcedDNSSEC"`
+	DNSServers     []string `yaml:"DNSServers"`
+	Domain         string   `yaml:"Domain"`
+	BPCount        int      `yaml:"BPCount"`
+}
+
+// Config holds all the config read from yaml config file.
+type Config struct {
+	UseTestMasterKey bool `yaml:"UseTestMasterKey,omitempty"` // when UseTestMasterKey use default empty masterKey
+	// StartupSyncHoles indicates synchronizing hole blocks from other peers on BP
+	// startup/reloading.
+	StartupSyncHoles bool `yaml:"StartupSyncHoles,omitempty"`
+	GenerateKeyPair  bool `yaml:"-"`
+	//TODO(auxten): set yaml key for config
+	WorkingRoot        string            `yaml:"WorkingRoot"`
+	PubKeyStoreFile    string            `yaml:"PubKeyStoreFile"`
+	PrivateKeyFile     string            `yaml:"PrivateKeyFile"`
+	WalletAddress      string            `yaml:"WalletAddress"`
+	DHTFileName        string            `yaml:"DHTFileName"`
+	ListenAddr         string            `yaml:"ListenAddr"`
+	ListenDirectAddr   string            `yaml:"ListenDirectAddr,omitempty"`
+	ExternalListenAddr string            `yaml:"-"` // for metric purpose
+	ThisNodeID         proto.NodeID      `yaml:"ThisNodeID"`
+	ValidDNSKeys       map[string]string `yaml:"ValidDNSKeys"` // map[DNSKEY]domain
+	// Check By BP DHT.Ping
+	MinNodeIDDifficulty int `yaml:"MinNodeIDDifficulty"`
+
+	DNSSeed DNSSeed `yaml:"DNSSeed"`
+
+	BP    *BPInfo    `yaml:"BlockProducer"`
+	Miner *MinerInfo `yaml:"Miner,omitempty"`
+
+	KnownNodes  []proto.Node `yaml:"KnownNodes"`
+	SeedBPNodes []proto.Node `yaml:"-"`
+
+	QPS                uint32        `yaml:"QPS"`
+	ChainBusPeriod     time.Duration `yaml:"ChainBusPeriod"`
+	BillingBlockCount  uint64        `yaml:"BillingBlockCount"` // BillingBlockCount is for sql chain miners syncing billing with main chain
+	BPPeriod           time.Duration `yaml:"BPPeriod"`
+	BPTick             time.Duration `yaml:"BPTick"`
+	SQLChainPeriod     time.Duration `yaml:"SQLChainPeriod"`
+	SQLChainTick       time.Duration `yaml:"SQLChainTick"`
+	SQLChainTTL        int32         `yaml:"SQLChainTTL"`
+	MinProviderDeposit uint64        `yaml:"MinProviderDeposit"`
+}
+
+// GConf is the global config pointer.
+var GConf *Config
+
+// LoadConfig loads config from configPath.
+func LoadConfig(configPath string) (config *Config, err error) {
+	configBytes, err := os.ReadFile(configPath)
+	if err != nil {
+		log.WithError(err).Error("read config file failed")
+		return
+	}
+	config = &Config{}
+	err = yaml.Unmarshal(configBytes, config)
+	if err != nil {
+		log.WithError(err).Error("unmarshal config file failed")
+		return
+	}
+
+	if config.BPPeriod == time.Duration(0) {
+		config.BPPeriod = 10 * time.Second
+	}
+
+	if config.WorkingRoot == "" {
+		config.WorkingRoot = "./"
+	}
+
+	if config.PrivateKeyFile == "" {
+		config.PrivateKeyFile = "private.key"
+	}
+
+	if config.PubKeyStoreFile == "" {
+		config.PubKeyStoreFile = "public.keystore"
+	}
+	if config.DHTFileName == "" {
+		config.DHTFileName = "dht.db"
+	}
+
+	configDir := path.Dir(configPath)
+	if !path.IsAbs(config.PubKeyStoreFile) {
+		config.PubKeyStoreFile = path.Join(configDir, config.PubKeyStoreFile)
+	}
+
+	if !path.IsAbs(config.PrivateKeyFile) {
+		config.PrivateKeyFile = path.Join(configDir, config.PrivateKeyFile)
+	}
+
+	if !path.IsAbs(config.DHTFileName) {
+		config.DHTFileName = path.Join(configDir, config.DHTFileName)
+	}
+
+	if !path.IsAbs(config.WorkingRoot) {
+		config.WorkingRoot = path.Join(configDir, config.WorkingRoot)
+	}
+
+	if config.BP != nil && !path.IsAbs(config.BP.ChainFileName) {
+		config.BP.ChainFileName = path.Join(configDir, config.BP.ChainFileName)
+	}
+
+	if config.Miner != nil && !path.IsAbs(config.Miner.RootDir) {
+		config.Miner.RootDir = path.Join(configDir, config.Miner.RootDir)
+	}
+
+	if len(config.KnownNodes) > 0 {
+		for _, node := range config.KnownNodes {
+			if node.ID == config.ThisNodeID {
+				if config.WalletAddress == "" && node.PublicKey != nil {
+					var walletHash proto.AccountAddress
+
+					if walletHash, err = crypto.PubKeyHash(node.PublicKey); err != nil {
+						return
+					}
+
+					config.WalletAddress = walletHash.String()
+				}
+
+				if config.ExternalListenAddr == "" {
+					config.ExternalListenAddr = node.Addr
+				}
+
+				break
+			}
+		}
+	}
+
+	return
+}

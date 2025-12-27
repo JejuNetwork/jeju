@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 
 /**
- * Build and push multi-arch CovenantSQL Docker image
+ * Build and push multi-arch EQLite Docker image
  *
  * Usage:
- *   bun run scripts/build-covenantsql.ts              # Build locally
- *   bun run scripts/build-covenantsql.ts --push       # Build and push to ECR
- *   bun run scripts/build-covenantsql.ts --arm-only   # Build ARM64 only
- *   bun run scripts/build-covenantsql.ts --x86-only   # Build x86_64 only
+ *   bun run scripts/build-eqlite.ts              # Build locally
+ *   bun run scripts/build-eqlite.ts --push       # Build and push to ECR
+ *   bun run scripts/build-eqlite.ts --arm-only   # Build ARM64 only
+ *   bun run scripts/build-eqlite.ts --x86-only   # Build x86_64 only
  */
 
 import { join } from 'node:path'
@@ -26,7 +26,7 @@ const X86_ONLY = process.argv.includes('--x86-only')
 const NETWORK: NetworkType = getRequiredNetwork()
 
 const SCRIPT_DIR = import.meta.dir
-const DOCKER_DIR = join(SCRIPT_DIR, '../docker/covenantsql')
+const DOCKER_DIR = join(SCRIPT_DIR, '../docker/eqlite')
 
 function getPlatforms(): string {
   if (ARM_ONLY) return 'linux/arm64'
@@ -75,7 +75,7 @@ async function setupBuildx(): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  console.log('🐳 Building CovenantSQL multi-arch image\n')
+  console.log('🐳 Building EQLite multi-arch image\n')
   console.log(`   Platforms: ${getPlatforms()}`)
   console.log(`   Push: ${PUSH}`)
   console.log(`   Network: ${NETWORK}\n`)
@@ -86,12 +86,12 @@ async function main(): Promise<void> {
   const gitHash = await getGitShortHash()
   const tag = `${NETWORK}-${gitHash}`
 
-  let imageName = 'jeju/covenantsql'
+  let imageName = 'jeju/eqlite'
   if (PUSH) {
     const registry = await getEcrRegistry()
     console.log(`📦 ECR Registry: ${registry}\n`)
     await loginToEcr(registry)
-    imageName = `${registry}/jeju/covenantsql`
+    imageName = `${registry}/jeju/eqlite`
   }
 
   const fullTag = `${imageName}:${tag}`
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  console.log(`\n✅ CovenantSQL image built successfully`)
+  console.log(`\n✅ EQLite image built successfully`)
   console.log(`   Tag: ${fullTag}`)
   console.log(`   Latest: ${latestTag}`)
 

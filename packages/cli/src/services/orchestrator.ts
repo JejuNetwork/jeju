@@ -29,7 +29,7 @@ const ContractAddressesSchema = z.record(z.string(), ContractAddressValueSchema)
 
 export interface ServiceConfig {
   inference: boolean
-  cql: boolean
+  eqlite: boolean
   oracle: boolean
   indexer: boolean
   jns: boolean
@@ -57,7 +57,7 @@ interface MockServer {
 
 const SERVICE_PORTS = {
   inference: DEFAULT_PORTS.inference,
-  cql: DEFAULT_PORTS.cql,
+  eqlite: DEFAULT_PORTS.eqlite,
   oracle: DEFAULT_PORTS.oracle,
   indexer: DEFAULT_PORTS.indexerGraphQL,
   jns: DEFAULT_PORTS.jns,
@@ -181,7 +181,7 @@ class ServicesOrchestrator {
   async startAll(config: Partial<ServiceConfig> = {}): Promise<void> {
     const enabledServices: ServiceConfig = {
       inference: config.inference ?? true,
-      cql: config.cql ?? true,
+      eqlite: config.eqlite ?? true,
       oracle: config.oracle ?? true,
       indexer: config.indexer ?? true,
       jns: config.jns ?? true,
@@ -195,10 +195,10 @@ class ServicesOrchestrator {
 
     logger.step('Starting development services in parallel...')
 
-    // Phase 1: Start core services in parallel (inference, cql, oracle, storage/DWS)
+    // Phase 1: Start core services in parallel (inference, eqlite, oracle, storage/DWS)
     const phase1Tasks: Promise<void>[] = []
     if (enabledServices.inference) phase1Tasks.push(this.startInference())
-    if (enabledServices.cql) phase1Tasks.push(this.startCQL())
+    if (enabledServices.eqlite) phase1Tasks.push(this.startEQLite())
     if (enabledServices.oracle) phase1Tasks.push(this.startOracle())
     if (enabledServices.storage) phase1Tasks.push(this.startStorage())
 
@@ -255,51 +255,84 @@ class ServicesOrchestrator {
     })
   }
 
-  private async startCQL(): Promise<void> {
-    const port = SERVICE_PORTS.cql
+  private async startEQLite(): Promise<void> {
+    const port = SERVICE_PORTS.eqlite
 
     if (await isPortInUse(port)) {
-      logger.info(`CQL already running on port ${port}`)
-      this.services.set('cql', {
-        name: 'CQL',
-        type: 'server',
-        port,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      })
+      // Check if EQLite is responding
+      try {
+        const response = await fetch(`http://localhost:${port}/v1/status`, {
+          signal: AbortSignal.timeout(2000),
+        })
+        if (response.ok) {
+          logger.info(`EQLite already running on port ${port}`)
+          this.services.set('eqlite', {
+            name: 'EQLite (EQLite)',
+            type: 'server',
+            port,
+            url: `http://localhost:${port}`,
+            healthCheck: '/v1/status',
+          })
+          return
+        }
+      } catch {
+        // Port in use but not EQLite
+      }
+      logger.warn(`Port ${port} in use but not by EQLite`)
       return
     }
 
-    const dbPath = join(this.rootDir, 'packages/db')
-    const dataDir = join(this.rootDir, '.data/cql')
+    // Start EQLite via Docker Compose
+    const composeFile = join(
+      this.rootDir,
+      'packages/deployment/docker/eqlite-internal.compose.yaml',
+    )
 
-    if (!existsSync(dataDir)) {
-      mkdirSync(dataDir, { recursive: true })
+    if (!existsSync(composeFile)) {
+      logger.error('EQLite compose file not found')
+      logger.info(
+        'Expected at: packages/deployment/docker/eqlite-internal.compose.yaml',
+      )
+      logger.info('Build with: cd packages/eqlite && make docker')
+      return
     }
 
-    const proc = spawn(['bun', 'run', 'server'], {
-      cwd: dbPath,
+    logger.step('Starting EQLite cluster via Docker...')
+
+    const proc = spawn(['docker', 'compose', '-f', composeFile, 'up', '-d'], {
+      cwd: this.rootDir,
       stdout: 'inherit',
       stderr: 'inherit',
-      env: {
-        ...process.env,
-        PORT: String(port),
-        CQL_PORT: String(port),
-        CQL_DATA_DIR: dataDir,
-        RPC_URL: this.rpcUrl,
-      },
     })
 
-    this.services.set('cql', {
-      name: 'CQL (CovenantSQL)',
-      type: 'process',
-      port,
-      process: proc,
-      url: `http://localhost:${port}`,
-      healthCheck: '/health',
-    })
+    // Wait for cluster to be ready
+    const startTime = Date.now()
+    const timeout = 30000
 
-    logger.success(`CQL database starting on port ${port} (decentralized SQL)`)
+    while (Date.now() - startTime < timeout) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      try {
+        const response = await fetch(`http://localhost:${port}/v1/status`, {
+          signal: AbortSignal.timeout(2000),
+        })
+        if (response.ok) {
+          this.services.set('eqlite', {
+            name: 'EQLite (EQLite)',
+            type: 'process',
+            port,
+            process: proc,
+            url: `http://localhost:${port}`,
+            healthCheck: '/v1/status',
+          })
+          logger.success(`EQLite cluster running on port ${port}`)
+          return
+        }
+      } catch {
+        // Still starting
+      }
+    }
+
+    logger.error('EQLite cluster failed to start within 30 seconds')
   }
 
   private async startOracle(): Promise<void> {
@@ -535,8 +568,8 @@ class ServicesOrchestrator {
     // Check if Docker is available
     const dockerAvailable = await this.isDockerAvailable()
     if (!dockerAvailable) {
-      logger.info('Docker not available, starting CQL-only indexer')
-      await this.startCQLOnlyIndexer()
+      logger.info('Docker not available, starting EQLite-only indexer')
+      await this.startEQLiteOnlyIndexer()
       return
     }
 
@@ -544,9 +577,9 @@ class ServicesOrchestrator {
     const dbReady = await this.provisionPostgresWithRetry(3)
     if (!dbReady) {
       logger.warn(
-        'Failed to provision PostgreSQL after retries, starting CQL-only indexer',
+        'Failed to provision PostgreSQL after retries, starting EQLite-only indexer',
       )
-      await this.startCQLOnlyIndexer()
+      await this.startEQLiteOnlyIndexer()
       return
     }
 
@@ -554,9 +587,9 @@ class ServicesOrchestrator {
     const connectionVerified = await this.verifyPostgresConnection()
     if (!connectionVerified) {
       logger.warn(
-        'PostgreSQL connection verification failed, starting CQL-only indexer',
+        'PostgreSQL connection verification failed, starting EQLite-only indexer',
       )
-      await this.startCQLOnlyIndexer()
+      await this.startEQLiteOnlyIndexer()
       return
     }
 
@@ -586,10 +619,10 @@ class ServicesOrchestrator {
         CHAIN_ID: '31337',
         JEJU_NETWORK: 'localnet',
         NODE_ENV: 'development',
-        // Enable CQL sync for decentralized reads
-        CQL_SYNC_ENABLED: this.services.has('cql') ? 'true' : 'false',
-        CQL_DATABASE_ID: 'indexer-sync',
-        CQL_SYNC_INTERVAL: '30000',
+        // Enable EQLite sync for decentralized reads
+        EQLITE_SYNC_ENABLED: this.services.has('eqlite') ? 'true' : 'false',
+        EQLITE_DATABASE_ID: 'indexer-sync',
+        EQLITE_SYNC_INTERVAL: '30000',
       },
     })
 
@@ -817,20 +850,20 @@ class ServicesOrchestrator {
     return null
   }
 
-  private async startCQLOnlyIndexer(): Promise<void> {
+  private async startEQLiteOnlyIndexer(): Promise<void> {
     const port = SERVICE_PORTS.indexer
     const indexerPath = join(this.rootDir, 'apps/indexer')
 
-    // Check if CQL is available for read-only mode
-    const cqlService = this.services.get('cql')
-    const cqlAvailable = cqlService !== undefined
+    // Check if EQLite is available for read-only mode
+    const eqliteService = this.services.get('eqlite')
+    const eqliteAvailable = eqliteService !== undefined
 
-    if (!cqlAvailable) {
-      logger.warn('CQL not available - indexer will run in mock mode')
+    if (!eqliteAvailable) {
+      logger.warn('EQLite not available - indexer will run in mock mode')
     }
 
     if (existsSync(indexerPath)) {
-      // Start indexer in CQL-only mode (no PostgreSQL)
+      // Start indexer in EQLite-only mode (no PostgreSQL)
       const proc = spawn(['bun', 'run', 'api/api-server.ts'], {
         cwd: indexerPath,
         stdout: 'inherit',
@@ -843,16 +876,16 @@ class ServicesOrchestrator {
           RPC_ETH_HTTP: this.rpcUrl,
           JEJU_NETWORK: 'localnet',
           NODE_ENV: 'development',
-          // CQL-only mode - no PostgreSQL
-          INDEXER_MODE: 'cql-only',
-          CQL_SYNC_ENABLED: 'false', // Don't sync, just read
-          CQL_READ_ENABLED: cqlAvailable ? 'true' : 'false',
-          CQL_DATABASE_ID: 'indexer-sync',
+          // EQLite-only mode - no PostgreSQL
+          INDEXER_MODE: 'eqlite-only',
+          EQLITE_SYNC_ENABLED: 'false', // Don't sync, just read
+          EQLITE_READ_ENABLED: eqliteAvailable ? 'true' : 'false',
+          EQLITE_DATABASE_ID: 'indexer-sync',
         },
       })
 
       this.services.set('indexer', {
-        name: 'Indexer (CQL-only)',
+        name: 'Indexer (EQLite-only)',
         type: 'process',
         port,
         process: proc,
@@ -861,7 +894,7 @@ class ServicesOrchestrator {
       })
 
       logger.success(
-        `Indexer starting on port ${port} (CQL-only mode${cqlAvailable ? '' : ' - mock data'})`,
+        `Indexer starting on port ${port} (EQLite-only mode${eqliteAvailable ? '' : ' - mock data'})`,
       )
       return
     }
@@ -1981,7 +2014,7 @@ class ServicesOrchestrator {
     // Only show main services, not DWS sub-routes (cron, computeBridge, git, pkg)
     const mainServices = [
       'inference',
-      'cql',
+      'eqlite',
       'oracle',
       'indexer',
       'jns',
@@ -2047,9 +2080,9 @@ class ServicesOrchestrator {
       env.PUBLIC_JEJU_GATEWAY_URL = inference.url
     }
 
-    const cql = this.services.get('cql')
-    if (cql?.url) {
-      env.CQL_BLOCK_PRODUCER_ENDPOINT = cql.url
+    const eqlite = this.services.get('eqlite')
+    if (eqlite?.url) {
+      env.EQLITE_BLOCK_PRODUCER_ENDPOINT = eqlite.url
     }
 
     const oracle = this.services.get('oracle')

@@ -64,6 +64,10 @@ interface TestOptions {
   docker?: boolean
   /** Skip smoke tests (not recommended) */
   skipSmokeTests?: boolean
+  /** Filter tests by pattern (passed to --grep) */
+  grep?: string
+  /** Specific test file to run */
+  testFile?: string
 }
 
 interface ManifestTesting {
@@ -141,6 +145,11 @@ export const testCommand = new Command('test')
   .option('--force', 'Force override existing test lock')
   .option('--forge-opts <opts>', 'Pass options to forge test')
   .option('--skip-smoke-tests', 'Skip smoke tests before E2E (not recommended)')
+  .option(
+    '--grep <pattern>',
+    'Filter tests by pattern (passed to playwright --grep)',
+  )
+  .option('--test-file <file>', 'Run specific test file')
   .action(async (options) => {
     const mode = options.mode as TestMode
     const rootDir = findMonorepoRoot()
@@ -1332,6 +1341,48 @@ async function runAppTests(
     }
   }
 
+  // E2E mode: use playwright directly for better control
+  if (mode === 'e2e') {
+    const playwrightConfig = join(appPath, 'playwright.config.ts')
+    if (!existsSync(playwrightConfig)) {
+      logger.info(`No playwright.config.ts for ${appName}`)
+      return { name: appName, passed: true, duration: 0, skipped: true }
+    }
+
+    try {
+      const args = ['playwright', 'test']
+
+      // Add specific test file if provided
+      if (options.testFile) {
+        args.push(String(options.testFile))
+      }
+
+      // Add grep filter if provided
+      if (options.grep) {
+        args.push('--grep', String(options.grep))
+      }
+
+      if (options.verbose) args.push('--reporter=list')
+
+      await execa('bunx', args, {
+        cwd: appPath,
+        stdio: 'inherit',
+        timeout,
+        env: { ...process.env, ...env, SKIP_WEBSERVER: '1' },
+      })
+
+      return { name: appName, passed: true, duration: Date.now() - start }
+    } catch (error) {
+      const err = error as ExecaError
+      return {
+        name: appName,
+        passed: false,
+        duration: Date.now() - start,
+        output: String(err.stderr ?? ''),
+      }
+    }
+  }
+
   if (!testCmd) {
     logger.info(`No ${mode} tests for ${appName}`)
     return { name: appName, passed: true, duration: 0, skipped: true }
@@ -1341,6 +1392,7 @@ async function runAppTests(
     const [cmd, ...args] = testCmd.split(' ')
     if (options.watch) args.push('--watch')
     if (options.coverage) args.push('--coverage')
+    if (options.grep) args.push('--grep', String(options.grep))
 
     await execa(cmd, args, {
       cwd: appPath,

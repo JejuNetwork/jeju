@@ -1,0 +1,224 @@
+package worker
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync/atomic"
+
+	"eqlite/src/blockproducer/interfaces"
+	"eqlite/src/conf"
+	"eqlite/src/consistent"
+	"eqlite/src/crypto/hash"
+	"eqlite/src/proto"
+	"eqlite/src/route"
+	rpc "eqlite/src/rpc/mux"
+	"eqlite/src/types"
+	"eqlite/src/utils"
+)
+
+var (
+	testEventProfiles = []*types.SQLChainProfile{
+		&types.SQLChainProfile{
+			ID: proto.DatabaseID("111"),
+			Users: []*types.SQLChainUser{
+				testUser1,
+			},
+		},
+		&types.SQLChainProfile{
+			ID: proto.DatabaseID("222"),
+			Users: []*types.SQLChainUser{
+				testUser2,
+			},
+		},
+		&types.SQLChainProfile{
+			ID: proto.DatabaseID("333"),
+			Users: []*types.SQLChainUser{
+				testUser3,
+			},
+		},
+		&types.SQLChainProfile{
+			ID: proto.DatabaseID("444"),
+			Users: []*types.SQLChainUser{
+				testUser4,
+			},
+		},
+	}
+	testOddProfiles = []*types.SQLChainProfile{
+		&types.SQLChainProfile{
+			ID: proto.DatabaseID("111"),
+			Users: []*types.SQLChainUser{
+				testUser4,
+			},
+		},
+		&types.SQLChainProfile{
+			ID: proto.DatabaseID("222"),
+			Users: []*types.SQLChainUser{
+				testUser3,
+			},
+		},
+		&types.SQLChainProfile{
+			ID: proto.DatabaseID("333"),
+			Users: []*types.SQLChainUser{
+				testUser2,
+			},
+		},
+	}
+	testEventBlocks = types.BPBlock{
+		SignedHeader: types.BPSignedHeader{
+			BPHeader: types.BPHeader{
+				Version: 1,
+			},
+		},
+		Transactions: []interfaces.Transaction{
+			types.NewCreateDatabase(&types.CreateDatabaseHeader{}),
+			types.NewCreateDatabase(&types.CreateDatabaseHeader{}),
+			types.NewCreateDatabase(&types.CreateDatabaseHeader{}),
+		},
+	}
+	testOddBlocks = types.BPBlock{
+		SignedHeader: types.BPSignedHeader{
+			BPHeader: types.BPHeader{
+				Version: 1,
+			},
+		},
+		Transactions: []interfaces.Transaction{
+			types.NewCreateDatabase(&types.CreateDatabaseHeader{}),
+		},
+	}
+	testID           = proto.DatabaseID("111")
+	testNotExistID   = proto.DatabaseID("not exist")
+	testAddr         = proto.AccountAddress(hash.THashH([]byte{'a', 'd', 'd', 'r', '1'}))
+	testNotExistAddr = proto.AccountAddress(hash.THashH([]byte{'a', 'a'}))
+	testUser1        = &types.SQLChainUser{
+		Address:    testAddr,
+		Permission: types.UserPermissionFromRole(types.Write),
+		Status:     types.Normal,
+	}
+	testUser2 = &types.SQLChainUser{
+		Address:    testAddr,
+		Permission: types.UserPermissionFromRole(types.Read),
+		Status:     types.Arrears,
+	}
+	testUser3 = &types.SQLChainUser{
+		Address:    testAddr,
+		Permission: types.UserPermissionFromRole(types.Write),
+		Status:     types.Reminder,
+	}
+	testUser4 = &types.SQLChainUser{
+		Address:    testAddr,
+		Permission: types.UserPermissionFromRole(types.Read),
+		Status:     types.Arbitration,
+	}
+)
+
+type blockInfo struct {
+	c, h    uint32
+	block   *types.BPBlock
+	profile []*types.SQLChainProfile
+}
+
+type stubBPService struct {
+	blockMap map[uint32]*blockInfo
+	count    uint32
+}
+
+func (s *stubBPService) FetchLastIrreversibleBlock(
+	req *types.FetchLastIrreversibleBlockReq, resp *types.FetchLastIrreversibleBlockResp) (err error) {
+	count := atomic.LoadUint32(&s.count)
+	if bi, ok := s.blockMap[count%2]; ok {
+		resp.Height = bi.h
+		resp.Count = bi.c
+		resp.Block = bi.block
+		resp.SQLChains = bi.profile
+	}
+	atomic.AddUint32(&s.count, 1)
+	return
+}
+
+func (s *stubBPService) FetchBlockByCount(req *types.FetchBlockByCountReq, resp *types.FetchBlockResp) (err error) {
+	count := atomic.LoadUint32(&s.count)
+	if req.Count > count {
+		return ErrNotExists
+	}
+	if bi, ok := s.blockMap[req.Count%2]; ok {
+		resp.Count = bi.c
+		resp.Height = bi.h
+		resp.Block = bi.block
+	}
+	return
+}
+
+func (s *stubBPService) Init() {
+	s.blockMap = make(map[uint32]*blockInfo)
+	s.blockMap[0] = &blockInfo{
+		c:       0,
+		h:       0,
+		block:   &testEventBlocks,
+		profile: testEventProfiles,
+	}
+	s.blockMap[1] = &blockInfo{
+		c:       1,
+		h:       1,
+		block:   &testOddBlocks,
+		profile: testOddProfiles,
+	}
+	atomic.StoreUint32(&s.count, 0)
+}
+
+func initNode() (cleanupFunc func(), server *rpc.Server, err error) {
+	var d string
+	if d, err = os.MkdirTemp("", "db_test_"); err != nil {
+		return
+	}
+
+	// init conf
+	_, testFile, _, _ := runtime.Caller(0)
+	pubKeyStoreFile := filepath.Join(d, PubKeyStorePath)
+	utils.RemoveAll(pubKeyStoreFile + "*")
+	clientPubKeyStoreFile := filepath.Join(d, PubKeyStorePath+"_c")
+	utils.RemoveAll(clientPubKeyStoreFile + "*")
+	dupConfFile := filepath.Join(d, "config.yaml")
+	confFile := filepath.Join(filepath.Dir(testFile), "../test/node_standalone/config.yaml")
+	if err = utils.DupConf(confFile, dupConfFile); err != nil {
+		return
+	}
+	privateKeyPath := filepath.Join(filepath.Dir(testFile), "../test/node_standalone/private.key")
+
+	conf.GConf, _ = conf.LoadConfig(dupConfFile)
+	// reset the once
+	route.Once.Reset()
+	route.InitKMS(clientPubKeyStoreFile)
+
+	var dht *route.DHTService
+
+	// init dht
+	dht, err = route.NewDHTService(pubKeyStoreFile, new(consistent.KMSStorage), true)
+	if err != nil {
+		return
+	}
+
+	// init rpc
+	if server, err = rpc.NewServerWithService(rpc.ServiceMap{route.DHTRPCName: dht}); err != nil {
+		return
+	}
+
+	// init private key
+	masterKey := []byte("")
+	if err = server.InitRPCServer(conf.GConf.ListenAddr, privateKeyPath, masterKey); err != nil {
+		return
+	}
+
+	// start server
+	go server.Serve()
+
+	cleanupFunc = func() {
+		os.RemoveAll(d)
+		server.Listener.Close()
+		server.Stop()
+		// clear the connection pool
+		rpc.GetSessionPoolInstance().Close()
+	}
+
+	return
+}

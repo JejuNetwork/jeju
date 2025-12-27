@@ -1,14 +1,13 @@
 /**
  * MigrationManager Integration Tests
  *
- * Tests the actual MigrationManager class behavior against live CQL.
+ * Tests the actual MigrationManager class behavior against live EQLite.
  *
- * Run with live CQL: CQL_AVAILABLE=true bun test migration-manager.test.ts
- * Run with mock server: bun run mock-cql-server & bun test migration-manager.test.ts
+ * Set EQLITE_AVAILABLE=true to force running, or tests auto-detect EQLite availability.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { type CQLClient, getCQL, resetCQL } from './client.js'
+import { type EQLiteClient, getEQLite, resetEQLite } from './client.js'
 import {
   createMigrationManager,
   createTable,
@@ -17,14 +16,13 @@ import {
   MigrationManager,
 } from './migration.js'
 
-// Skip tests if CQL is not available
-const CQL_ENDPOINT = process.env.CQL_ENDPOINT ?? 'http://localhost:4661'
-const SKIP_LIVE = process.env.CQL_AVAILABLE !== 'true'
+// EQLite endpoint
+const EQLITE_ENDPOINT = process.env.EQLITE_ENDPOINT ?? 'http://localhost:4661'
 
-// Helper to check if CQL is reachable
-async function _isCQLAvailable(): Promise<boolean> {
+// Check if EQLite is reachable
+async function isEQLiteAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${CQL_ENDPOINT}/health`, {
+    const response = await fetch(`${EQLITE_ENDPOINT}/v1/status`, {
       signal: AbortSignal.timeout(2000),
     })
     return response.ok
@@ -33,16 +31,21 @@ async function _isCQLAvailable(): Promise<boolean> {
   }
 }
 
-describe.skipIf(SKIP_LIVE)('MigrationManager (Live Integration)', () => {
-  let client: CQLClient
+// Auto-detect EQLite availability at test load time
+const EQLITE_RUNNING =
+  process.env.EQLITE_AVAILABLE === 'true' ||
+  (await isEQLiteAvailable().catch(() => false))
+
+describe.skipIf(!EQLITE_RUNNING)('MigrationManager (Live Integration)', () => {
+  let client: EQLiteClient
   let manager: MigrationManager
   const testDbId = `test-migrations-${Date.now()}`
   const testMigrationsTable = `_migrations_${Date.now()}`
 
   beforeEach(async () => {
-    await resetCQL()
-    client = getCQL({
-      blockProducerEndpoint: CQL_ENDPOINT,
+    await resetEQLite()
+    client = getEQLite({
+      blockProducerEndpoint: EQLITE_ENDPOINT,
       databaseId: testDbId,
     })
     manager = new MigrationManager(client, testDbId, testMigrationsTable)
@@ -256,8 +259,8 @@ describe.skipIf(SKIP_LIVE)('MigrationManager (Live Integration)', () => {
 
 describe('createMigrationManager factory', () => {
   it('should create manager with default table name', () => {
-    const client = getCQL({
-      blockProducerEndpoint: CQL_ENDPOINT,
+    const client = getEQLite({
+      blockProducerEndpoint: EQLITE_ENDPOINT,
       databaseId: 'factory-test-db',
     })
     const manager = createMigrationManager(client, 'factory-test-db')
@@ -265,8 +268,8 @@ describe('createMigrationManager factory', () => {
   })
 
   it('should create manager with custom table name', () => {
-    const client = getCQL({
-      blockProducerEndpoint: CQL_ENDPOINT,
+    const client = getEQLite({
+      blockProducerEndpoint: EQLITE_ENDPOINT,
       databaseId: 'factory-test-db-2',
     })
     const manager = createMigrationManager(

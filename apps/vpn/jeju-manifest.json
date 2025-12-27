@@ -10,6 +10,7 @@
     "dev:web": "bun run dev:web",
     "dev:api": "bun run dev:api",
     "build": "bun run build",
+    "build:extension": "bun run build:extension",
     "start": "bun run start",
     "test": "bun run test"
   },
@@ -22,7 +23,19 @@
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["vpn", "wireguard", "socks5", "privacy", "decentralized", "infrastructure"],
+  "tags": ["vpn", "wireguard", "socks5", "privacy", "decentralized", "infrastructure", "browser-extension", "jns", "name-service"],
+  "browserExtension": {
+    "enabled": true,
+    "path": "extension/",
+    "name": "Jeju VPN & Name Service",
+    "features": ["proxy", "jns-resolution", "webrtc-protection"],
+    "permissions": ["proxy", "webRequest", "webNavigation", "storage"],
+    "stores": {
+      "chrome": "pending",
+      "firefox": "pending",
+      "edge": "pending"
+    }
+  },
   "jns": {
     "name": "vpn.jeju",
     "description": "Decentralized VPN Network",

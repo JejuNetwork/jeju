@@ -3,41 +3,402 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Example - Jeju Network</title>
+  <meta name="description" content="Decentralized task manager">
+  <meta name="theme-color" content="#7c3aed">
+  <title>Jeju Tasks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Outfit', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
           colors: {
-            jeju: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              300: '#7dd3fc',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
-            }
-          }
-        }
-      }
+            brand: {
+              50: '#faf5ff',
+              100: '#f3e8ff',
+              200: '#e9d5ff',
+              300: '#d8b4fe',
+              400: '#c084fc',
+              500: '#a855f7',
+              600: '#9333ea',
+              700: '#7c3aed',
+              800: '#6b21a8',
+              900: '#581c87',
+            },
+            accent: {
+              50: '#ecfeff',
+              100: '#cffafe',
+              200: '#a5f3fc',
+              300: '#67e8f9',
+              400: '#22d3ee',
+              500: '#06b6d4',
+              600: '#0891b2',
+              700: '#0e7490',
+              800: '#155e75',
+              900: '#164e63',
+            },
+            success: {
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+            },
+            warning: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+            },
+            danger: {
+              400: '#f87171',
+              500: '#ef4444',
+              600: '#dc2626',
+            },
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-out',
+            'slide-up': 'slideUp 0.4s ease-out',
+            'slide-in': 'slideIn 0.3s ease-out',
+            'bounce-in': 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+            'check': 'check 0.3s ease-out forwards',
+            'shimmer': 'shimmer 2s linear infinite',
+            'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            slideUp: {
+              '0%': { opacity: '0', transform: 'translateY(20px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            slideIn: {
+              '0%': { opacity: '0', transform: 'translateX(-10px)' },
+              '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            bounceIn: {
+              '0%': { opacity: '0', transform: 'scale(0.9)' },
+              '50%': { transform: 'scale(1.02)' },
+              '100%': { opacity: '1', transform: 'scale(1)' },
+            },
+            check: {
+              '0%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(1.2)' },
+              '100%': { transform: 'scale(1)' },
+            },
+            shimmer: {
+              '0%': { backgroundPosition: '-200% 0' },
+              '100%': { backgroundPosition: '200% 0' },
+            },
+            pulseSoft: {
+              '0%, 100%': { opacity: '1' },
+              '50%': { opacity: '0.7' },
+            },
+          },
+        },
+      },
     }
   </script>
   <style>
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
+    /* CSS Variables for easy theming */
+    :root {
+      --gradient-brand: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
+      --gradient-card: linear-gradient(180deg, rgba(124, 58, 237, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+      --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.15);
     }
-    .fade-in { animation: fadeIn 0.2s ease-out; }
+
+    /* Focus visible styles for accessibility */
+    *:focus-visible {
+      outline: 2px solid #7c3aed;
+      outline-offset: 2px;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #d8b4fe;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #c084fc;
+    }
+
+    /* Selection styling */
+    ::selection {
+      background: #c084fc;
+      color: white;
+    }
+
+    /* Base body styling */
+    body {
+      background: linear-gradient(135deg, #faf5ff 0%, #ecfeff 50%, #f3e8ff 100%);
+      min-height: 100vh;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #1e1b4b 100%);
+      }
+    }
+
+    /* Geometric background pattern */
+    .bg-pattern {
+      background-image: 
+        radial-gradient(circle at 25% 25%, rgba(124, 58, 237, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
+    }
+
+    /* Card glass effect */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .glass-card {
+        background: rgba(30, 27, 75, 0.6);
+        border: 1px solid rgba(124, 58, 237, 0.2);
+      }
+    }
+
+    /* Custom checkbox styling */
+    .custom-checkbox {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 0.5rem;
+      border: 2px solid #d8b4fe;
+      background: white;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .custom-checkbox:hover {
+      border-color: #a855f7;
+      box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+    }
+
+    .custom-checkbox:checked {
+      background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
+      border-color: transparent;
+    }
+
+    .custom-checkbox:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 0.875rem;
+      font-weight: bold;
+    }
+
+    .custom-checkbox:focus-visible {
+      outline: 2px solid #7c3aed;
+      outline-offset: 2px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .custom-checkbox {
+        background: rgba(30, 27, 75, 0.8);
+        border-color: #6b21a8;
+      }
+    }
+
+    /* Gradient text */
+    .gradient-text {
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Button styles */
+    .btn-primary {
+      background: var(--gradient-brand);
+      color: white;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.75rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Input styles */
+    .input-styled {
+      background: rgba(255, 255, 255, 0.9);
+      border: 2px solid #e9d5ff;
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .input-styled:hover {
+      border-color: #d8b4fe;
+    }
+
+    .input-styled:focus {
+      border-color: #a855f7;
+      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+      outline: none;
+    }
+
+    .input-styled::placeholder {
+      color: #a1a1aa;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .input-styled {
+        background: rgba(30, 27, 75, 0.8);
+        border-color: #6b21a8;
+        color: white;
+      }
+      .input-styled:hover {
+        border-color: #7c3aed;
+      }
+      .input-styled:focus {
+        border-color: #a855f7;
+        box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
+      }
+    }
+
+    /* Priority badge styles */
+    .priority-low {
+      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+      color: #065f46;
+    }
+    .priority-medium {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      color: #92400e;
+    }
+    .priority-high {
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+      color: #991b1b;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .priority-low {
+        background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+        color: #d1fae5;
+      }
+      .priority-medium {
+        background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
+        color: #fef3c7;
+      }
+      .priority-high {
+        background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%);
+        color: #fee2e2;
+      }
+    }
+
+    /* Todo item hover effect */
+    .todo-item {
+      transition: all 0.2s ease;
+    }
+
+    .todo-item:hover {
+      transform: translateX(4px);
+    }
+
+    /* Icon button */
+    .icon-btn {
+      width: 2.5rem;
+      height: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.625rem;
+      transition: all 0.2s ease;
+      font-size: 1.125rem;
+    }
+
+    .icon-btn:hover {
+      transform: scale(1.1);
+    }
+
+    /* Loading shimmer */
+    .shimmer {
+      background: linear-gradient(90deg, #f3e8ff 0%, #e9d5ff 50%, #f3e8ff 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .shimmer {
+        background: linear-gradient(90deg, #1e1b4b 0%, #2e1065 50%, #1e1b4b 100%);
+        background-size: 200% 100%;
+      }
+    }
+
+    /* Skip link for accessibility */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: #7c3aed;
+      color: white;
+      padding: 8px 16px;
+      z-index: 100;
+      text-decoration: none;
+      border-radius: 0 0 8px 0;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+
+    /* Responsive container */
+    @media (max-width: 640px) {
+      .mobile-stack {
+        flex-direction: column;
+      }
+    }
+
+    /* Reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
-  <div id="app"></div>
+<body class="bg-pattern min-h-screen font-sans text-gray-900 dark:text-white antialiased">
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <div id="app" role="application" aria-label="Jeju Tasks"></div>
   <script type="module" src="./app.ts"></script>
 </body>
 </html>

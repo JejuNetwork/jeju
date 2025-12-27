@@ -1,5 +1,5 @@
 # Jeju Messaging Infrastructure Module - GCP
-# Deploys relay nodes, integrates with CovenantSQL and KMS
+# Deploys relay nodes, integrates with EQLite and KMS
 # GCP equivalent of AWS messaging module
 
 variable "project_id" {
@@ -22,8 +22,8 @@ variable "vpc_name" {
   type        = string
 }
 
-variable "covenantsql_endpoint" {
-  description = "CovenantSQL endpoint URL"
+variable "eqlite_endpoint" {
+  description = "EQLite endpoint URL"
   type        = string
 }
 
@@ -137,9 +137,9 @@ resource "google_secret_manager_secret" "kms_master_key" {
   labels = var.labels
 }
 
-resource "google_secret_manager_secret" "covenantsql_credentials" {
+resource "google_secret_manager_secret" "eqlite_credentials" {
   project   = var.project_id
-  secret_id = "${local.name_prefix}-covenantsql-credentials"
+  secret_id = "${local.name_prefix}-eqlite-credentials"
 
   replication {
     auto {}
@@ -173,9 +173,9 @@ resource "google_secret_manager_secret_iam_member" "kms_master_access" {
   member    = "serviceAccount:${google_service_account.messaging.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "covenantsql_access" {
+resource "google_secret_manager_secret_iam_member" "eqlite_access" {
   project   = var.project_id
-  secret_id = google_secret_manager_secret.covenantsql_credentials.secret_id
+  secret_id = google_secret_manager_secret.eqlite_credentials.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.messaging.email}"
 }
@@ -247,9 +247,9 @@ output "kms_master_key_secret_id" {
   value       = google_secret_manager_secret.kms_master_key.secret_id
 }
 
-output "covenantsql_credentials_secret_id" {
-  description = "Secret Manager ID for CovenantSQL credentials"
-  value       = google_secret_manager_secret.covenantsql_credentials.secret_id
+output "eqlite_credentials_secret_id" {
+  description = "Secret Manager ID for EQLite credentials"
+  value       = google_secret_manager_secret.eqlite_credentials.secret_id
 }
 
 output "relay_endpoint" {
@@ -267,7 +267,7 @@ output "service_discovery" {
   value = {
     relay_endpoint = "https://relay.${var.environment}.${var.domain_name}"
     kms_endpoint   = "https://kms.${var.environment}.${var.domain_name}"
-    covenantsql    = var.covenantsql_endpoint
+    eqlite    = var.eqlite_endpoint
     farcaster_hub  = var.farcaster_hub_url
     key_registry   = var.key_registry_address
     node_registry  = var.node_registry_address

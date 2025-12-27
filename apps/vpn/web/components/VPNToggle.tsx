@@ -14,7 +14,6 @@ export function VPNToggle({
 }: VPNToggleProps) {
   const [showRipple, setShowRipple] = useState(false)
 
-  // Trigger ripple effect on connection
   useEffect(() => {
     if (isConnected && !isLoading) {
       setShowRipple(true)
@@ -25,47 +24,49 @@ export function VPNToggle({
   }, [isConnected, isLoading])
 
   return (
-    <div className="flex flex-col items-center py-8">
-      {/* Outer ring with animated gradient */}
+    <div className="flex flex-col items-center py-6 sm:py-8">
+      {/* Toggle Button Container */}
       <div className="relative">
-        {/* Background ring animation */}
+        {/* Background ring animation when connected */}
         <div
           className={`absolute inset-0 rounded-full transition-all duration-500 ${
             isConnected ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
         >
-          <div className="absolute inset-[-8px] rounded-full bg-gradient-to-r from-[#00ff88]/20 via-[#00cc6a]/10 to-[#00ff88]/20 animate-spin-slow" />
+          <div className="absolute inset-[-8px] rounded-full bg-gradient-to-r from-accent/20 via-accent-secondary/10 to-accent/20 animate-spin-slow" />
         </div>
 
-        {/* Ripple effect on connect */}
+        {/* Ripple effect on connection */}
         {showRipple && (
           <>
-            <div className="absolute inset-[-20px] rounded-full border-2 border-[#00ff88]/50 animate-ripple" />
-            <div className="absolute inset-[-40px] rounded-full border border-[#00ff88]/30 animate-ripple-delay" />
+            <div className="absolute inset-[-20px] rounded-full border-2 border-accent/50 animate-ripple" />
+            <div className="absolute inset-[-40px] rounded-full border border-accent/30 animate-ripple-delay" />
           </>
         )}
 
         {/* Pulse glow when connected */}
         {isConnected && (
-          <div className="absolute inset-[-4px] rounded-full animate-pulse-glow bg-[#00ff88]/10" />
+          <div className="absolute inset-[-4px] rounded-full animate-pulse-glow bg-accent/10" />
         )}
 
-        {/* Main button */}
+        {/* Main toggle button */}
         <button
           type="button"
           onClick={onToggle}
           disabled={isLoading}
           aria-label={isConnected ? 'Disconnect VPN' : 'Connect VPN'}
+          aria-pressed={isConnected}
           className={`
-            relative w-36 h-36 rounded-full flex items-center justify-center
+            relative w-32 h-32 sm:w-36 sm:h-36 rounded-full flex items-center justify-center
             transition-all duration-500 transform
-            focus:outline-none focus:ring-4 focus:ring-[#00ff88]/30
+            focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:ring-offset-2 focus-visible:ring-offset-surface
             ${
               isConnected
-                ? 'bg-gradient-to-br from-[#00ff88] via-[#00dd77] to-[#00cc6a] shadow-2xl shadow-[#00ff88]/40'
-                : 'bg-gradient-to-br from-[#1a1a25] to-[#12121a] border-2 border-[#2a2a35] hover:border-[#00ff88]/30 hover:shadow-lg hover:shadow-[#00ff88]/10'
+                ? 'bg-gradient-to-br from-accent via-accent-secondary to-accent-tertiary shadow-2xl shadow-accent/40'
+                : 'bg-gradient-to-br from-surface-hover to-surface-elevated border-2 border-border hover:border-accent/30 hover:shadow-glow'
             }
             ${isLoading ? 'scale-95' : 'hover:scale-105 active:scale-95'}
+            disabled:cursor-wait
           `}
         >
           {/* Inner glow ring */}
@@ -79,30 +80,28 @@ export function VPNToggle({
 
           {/* Icon */}
           {isLoading ? (
-            <div className="relative">
-              <Loader2
-                className={`w-14 h-14 animate-spin ${
-                  isConnected ? 'text-black/80' : 'text-[#00ff88]'
-                }`}
-              />
-            </div>
+            <Loader2
+              className={`w-12 h-12 sm:w-14 sm:h-14 animate-spin ${
+                isConnected ? 'text-black/80' : 'text-accent'
+              }`}
+            />
           ) : isConnected ? (
-            <ShieldCheck className="w-14 h-14 text-black/90 drop-shadow-sm" />
+            <ShieldCheck className="w-12 h-12 sm:w-14 sm:h-14 text-black/90 drop-shadow-sm" />
           ) : (
-            <Power className="w-14 h-14 text-[#606070] group-hover:text-[#00ff88] transition-colors" />
+            <Power className="w-12 h-12 sm:w-14 sm:h-14 text-muted group-hover:text-accent transition-colors" />
           )}
         </button>
       </div>
 
       {/* Status text */}
-      <div className="mt-8 text-center">
+      <div className="mt-6 sm:mt-8 text-center px-4">
         <div className="flex items-center justify-center gap-2 mb-2">
           {isConnected && !isLoading && (
-            <Lock className="w-4 h-4 text-[#00ff88] animate-fade-in" />
+            <Lock className="w-4 h-4 text-accent animate-fade-in" />
           )}
           <h2
-            className={`text-2xl font-semibold transition-all duration-300 ${
-              isConnected ? 'text-[#00ff88] glow-text' : 'text-white'
+            className={`text-xl sm:text-2xl font-semibold transition-all duration-300 ${
+              isConnected ? 'text-accent glow-text' : 'text-white'
             }`}
           >
             {isLoading
@@ -110,24 +109,24 @@ export function VPNToggle({
                 ? 'Disconnecting...'
                 : 'Connecting...'
               : isConnected
-                ? 'Protected'
+                ? 'Connected'
                 : 'Tap to Connect'}
           </h2>
         </div>
-        <p className="text-sm text-[#808090] max-w-xs mx-auto">
+        <p className="text-sm text-muted-light max-w-xs mx-auto leading-relaxed">
           {isLoading
             ? isConnected
-              ? 'Safely closing your secure tunnel...'
-              : 'Establishing encrypted connection...'
+              ? 'Disconnecting...'
+              : 'Connecting...'
             : isConnected
-              ? 'Your traffic is encrypted and routed through Jeju'
-              : 'Connect to secure your internet connection'}
+              ? 'Traffic encrypted'
+              : 'Secure your connection'}
         </p>
       </div>
 
       {/* Keyboard shortcut hint */}
-      <div className="mt-4 text-xs text-[#505060]">
-        <kbd className="px-2 py-1 bg-[#1a1a25] rounded border border-[#2a2a35] font-mono">
+      <div className="mt-4 text-xs text-muted hidden sm:block">
+        <kbd className="px-2 py-1 bg-surface-elevated rounded-md border border-border font-mono text-muted-light">
           {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Shift+V
         </kbd>
         <span className="ml-2">to toggle</span>

@@ -32,7 +32,7 @@ interface DeploymentSteps {
   VALIDATE: boolean
   TERRAFORM: boolean
   IMAGES: boolean
-  CQL_IMAGE: boolean
+  EQLITE_IMAGE: boolean
   KUBERNETES: boolean
   DWS_APPS: boolean
   VERIFY: boolean
@@ -42,9 +42,9 @@ const STEPS: DeploymentSteps = {
   VALIDATE: process.env.SKIP_VALIDATE !== 'true',
   TERRAFORM: process.env.SKIP_TERRAFORM !== 'true',
   IMAGES: process.env.SKIP_IMAGES !== 'true',
-  CQL_IMAGE:
-    process.env.BUILD_CQL_IMAGE === 'true' ||
-    process.env.USE_ARM64_CQL === 'true',
+  EQLITE_IMAGE:
+    process.env.BUILD_EQLITE_IMAGE === 'true' ||
+    process.env.USE_ARM64_EQLite === 'true',
   KUBERNETES: process.env.SKIP_KUBERNETES !== 'true',
   DWS_APPS: process.env.SKIP_DWS_APPS !== 'true',
   VERIFY: process.env.SKIP_VERIFY !== 'true',
@@ -102,13 +102,10 @@ async function main(): Promise<void> {
     )
   }
 
-  if (STEPS.CQL_IMAGE) {
-    await step(
-      'Building and pushing CovenantSQL multi-arch image',
-      async () => {
-        await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/build-covenantsql.ts')} --push`
-      },
-    )
+  if (STEPS.EQLITE_IMAGE) {
+    await step('Building and pushing EQLite multi-arch image', async () => {
+      await $`NETWORK=${NETWORK} bun run ${join(ROOT, 'scripts/build-eqlite.ts')} --push`
+    })
   }
 
   if (STEPS.KUBERNETES) {

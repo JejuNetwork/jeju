@@ -17,6 +17,7 @@ import {
   Shield,
   Wallet,
   X,
+  Zap,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { ApprovalsView } from './components/approvals'
@@ -108,7 +109,7 @@ function App() {
         return address ? (
           <MessagesView address={address} />
         ) : (
-          <ConnectPrompt message="Connect your wallet to access messaging" />
+          <ConnectPrompt message="Connect to send and receive messages" />
         )
       case 'portfolio':
         return (
@@ -125,37 +126,37 @@ function App() {
         return address ? (
           <PoolsView address={address} />
         ) : (
-          <ConnectPrompt message="Connect your wallet to manage liquidity pools" />
+          <ConnectPrompt message="Connect to provide liquidity" />
         )
       case 'perps':
         return address ? (
           <PerpsView address={address} />
         ) : (
-          <ConnectPrompt message="Connect your wallet to trade perpetuals" />
+          <ConnectPrompt message="Connect to trade perps" />
         )
       case 'launchpad':
         return address ? (
           <LaunchpadView address={address} />
         ) : (
-          <ConnectPrompt message="Connect your wallet to launch or buy tokens" />
+          <ConnectPrompt message="Connect to launch or buy tokens" />
         )
       case 'nfts':
         return address ? (
           <NFTGallery address={address} />
         ) : (
-          <ConnectPrompt message="Connect your wallet to view your NFTs" />
+          <ConnectPrompt message="Connect to view your NFTs" />
         )
       case 'names':
         return address ? (
           <NamesView address={address} />
         ) : (
-          <ConnectPrompt message="Connect your wallet to register .jeju names" />
+          <ConnectPrompt message="Connect to claim .jeju names" />
         )
       case 'approvals':
         return address ? (
           <ApprovalsView address={address} />
         ) : (
-          <ConnectPrompt message="Connect your wallet to manage security" />
+          <ConnectPrompt message="Connect to manage token approvals" />
         )
       case 'settings':
         return <SettingsView />
@@ -169,35 +170,36 @@ function App() {
       {/* Sidebar */}
       <aside
         className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border
-        transform transition-transform duration-200 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border
+        transform transition-transform duration-300 ease-out
         lg:relative lg:translate-x-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="flex items-center justify-between p-5 border-b border-border">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <span className="text-xl font-bold text-white">J</span>
+              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-pulse-glow">
+                <Zap className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-lg font-semibold">{networkName}</h1>
-                <p className="text-xs text-muted-foreground">Agentic Wallet</p>
-              </div>
+              <h1 className="text-lg font-bold gradient-text">{networkName}</h1>
             </div>
             <button
               type="button"
               onClick={() => setIsSidebarOpen(false)}
               className="lg:hidden p-2 rounded-lg hover:bg-accent"
+              aria-label="Close sidebar"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
+          <nav
+            className="flex-1 p-3 space-y-1 overflow-y-auto"
+            aria-label="Main navigation"
+          >
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
               <button
                 type="button"
@@ -206,9 +208,10 @@ function App() {
                   setViewMode(id)
                   setIsSidebarOpen(false)
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                aria-current={viewMode === id ? 'page' : undefined}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${
                   viewMode === id
-                    ? 'bg-primary text-primary-foreground shadow-md'
+                    ? 'bg-gradient-to-r from-emerald-600/20 to-teal-600/10 text-emerald-400 border border-emerald-500/30'
                     : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -222,27 +225,32 @@ function App() {
           {isConnected && (
             <div className="p-4 border-t border-border">
               <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-xl p-4 border border-emerald-500/20">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground">
-                    Portfolio Value
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Total Balance
                   </span>
                   <button
                     type="button"
                     onClick={() => refetch()}
-                    className="p-1 hover:bg-accent rounded"
-                    title="Refresh"
+                    className="p-1.5 hover:bg-accent rounded-lg transition-colors"
+                    aria-label="Refresh balance"
                   >
                     <RefreshCw
-                      className={`w-3 h-3 ${balancesLoading ? 'animate-spin' : ''}`}
+                      className={`w-3.5 h-3.5 ${balancesLoading ? 'animate-spin' : ''}`}
                     />
                   </button>
                 </div>
                 <div className="text-2xl font-bold text-emerald-400">
-                  {balancesLoading ? '...' : formatUsd(totalUsdValue)}
+                  {balancesLoading ? (
+                    <span className="inline-block w-24 h-7 bg-emerald-500/20 rounded animate-pulse" />
+                  ) : (
+                    formatUsd(totalUsdValue)
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {aggregatedBalances.length} token
-                  {aggregatedBalances.length !== 1 ? 's' : ''} • All chains
+                <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  {aggregatedBalances.length} asset
+                  {aggregatedBalances.length !== 1 ? 's' : ''} across all chains
                 </div>
               </div>
             </div>
@@ -254,13 +262,15 @@ function App() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-semibold flex items-center gap-1">
                       {chain?.name ?? 'Multi-Chain'}
+                      <span className="text-emerald-400">✓</span>
                     </p>
                     <button
                       type="button"
                       onClick={copyAddress}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono group"
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-mono group mt-0.5"
+                      aria-label="Copy wallet address"
                     >
                       {address?.slice(0, 6)}...{address?.slice(-4)}
                       {copied ? (
@@ -270,7 +280,7 @@ function App() {
                       )}
                     </button>
                   </div>
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50" />
                 </div>
 
                 {/* Quick Actions */}
@@ -278,36 +288,39 @@ function App() {
                   <button
                     type="button"
                     onClick={() => setViewMode('chat')}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                   >
-                    <Send className="w-3 h-3" /> Send
+                    <Send className="w-3.5 h-3.5" /> Send
                   </button>
                   <button
                     type="button"
                     onClick={copyAddress}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded-lg bg-secondary hover:bg-secondary/80"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
                   >
-                    <ArrowDownToLine className="w-3 h-3" /> Receive
+                    <ArrowDownToLine className="w-3.5 h-3.5" /> Receive
                   </button>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => disconnect()}
-                  className="w-full px-4 py-2 text-xs rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                  className="w-full px-4 py-2 text-xs font-medium rounded-xl bg-secondary/50 hover:bg-secondary transition-colors"
                 >
                   Disconnect
                 </button>
               </div>
             ) : (
               <div className="space-y-2">
+                <p className="text-xs text-muted-foreground text-center mb-3">
+                  Connect your wallet
+                </p>
                 {connectors.slice(0, 2).map((connector) => (
                   <button
                     type="button"
                     key={connector.id}
                     onClick={() => connect(connector.id)}
                     disabled={isConnecting}
-                    className="w-full px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                    className="w-full px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
                   >
                     {connector.name}
                   </button>
@@ -324,14 +337,15 @@ function App() {
                 setViewMode('settings')
                 setIsSidebarOpen(false)
               }}
-              className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+              aria-current={viewMode === 'settings' ? 'page' : undefined}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${
                 viewMode === 'settings'
                   ? 'bg-accent text-foreground'
                   : 'hover:bg-accent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Settings className="w-5 h-5" />
-              <span className="text-sm">Settings</span>
+              <span className="text-sm font-medium">Settings</span>
             </button>
           </div>
         </div>
@@ -341,7 +355,7 @@ function App() {
       {isSidebarOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden cursor-default"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
           onClick={() => setIsSidebarOpen(false)}
           aria-label="Close sidebar"
         />
@@ -350,26 +364,28 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
-        <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
+        <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card safe-area-top">
           <button
             type="button"
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 rounded-lg hover:bg-accent"
+            className="p-2 rounded-xl hover:bg-accent transition-colors"
+            aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-              <span className="text-sm font-bold text-white">J</span>
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md shadow-emerald-500/20">
+              <Zap className="w-4 h-4 text-white" />
             </div>
-            <span className="font-semibold">{networkName}</span>
+            <span className="font-bold">{networkName}</span>
           </div>
-          {isConnected && (
-            <span className="text-xs font-medium text-emerald-400">
+          {isConnected ? (
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
               {formatUsd(totalUsdValue)}
             </span>
+          ) : (
+            <div className="w-10" />
           )}
-          {!isConnected && <div className="w-10" />}
         </header>
 
         {/* Content */}
@@ -421,7 +437,7 @@ function PortfolioView({
 }: PortfolioViewProps) {
   if (!isConnected) {
     return (
-      <ConnectPrompt message="View your unified portfolio across all chains. No chain switching required." />
+      <ConnectPrompt message="See all your assets across every chain in one view" />
     )
   }
 
@@ -555,13 +571,17 @@ function PortfolioView({
 
         {/* Features */}
         <div className="rounded-2xl bg-card border border-border p-6">
-          <h3 className="font-semibold mb-4">Why Network?</h3>
+          <h3 className="font-semibold mb-4">Why Use This Wallet?</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { emoji: '⚡', title: 'Bridgeless', desc: 'No manual bridging' },
-              { emoji: '🔗', title: 'Multi-Chain', desc: 'All chains unified' },
-              { emoji: '🤖', title: 'AI Agent', desc: 'Chat to transact' },
-              { emoji: '🛡️', title: 'Secure', desc: 'Transaction preview' },
+              {
+                emoji: '⚡',
+                title: 'Bridgeless',
+                desc: 'Move tokens instantly',
+              },
+              { emoji: '🔗', title: 'Multi-Chain', desc: 'One unified view' },
+              { emoji: '🤖', title: 'AI Agent', desc: 'Just ask for it' },
+              { emoji: '🛡️', title: 'Secure', desc: 'Preview before signing' },
             ].map(({ emoji, title, desc }) => (
               <div
                 key={title}

@@ -29,7 +29,7 @@
 /**
  * Create a config injection system for an app
  */
-export function createAppConfig<T extends Record<string, unknown>>(
+export function createAppConfig<T extends object>(
   defaults: T,
 ): {
   config: T

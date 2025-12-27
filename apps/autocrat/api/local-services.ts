@@ -1,6 +1,6 @@
 /**
  * Decentralized Services - storage and inference for council
- * Uses CovenantSQL for storage and DWS for compute
+ * Uses EQLite for storage and DWS for compute
  * Automatically configured per network from @jejunetwork/config
  */
 
@@ -44,7 +44,7 @@ function getDWSEndpoint(): string {
   return getDWSComputeUrl()
 }
 
-// CQL is the source of truth - no in-memory caching for serverless compatibility
+// EQLite is the source of truth - no in-memory caching for serverless compatibility
 
 export async function initStorage(): Promise<void> {
   await initializeState()
@@ -120,7 +120,7 @@ export async function inference(request: InferenceRequest): Promise<string> {
   return dwsGenerate(prompt, system)
 }
 
-// Vote storage - persisted to CQL
+// Vote storage - persisted to EQLite
 export async function storeVote(
   proposalId: string,
   vote: {
@@ -142,7 +142,7 @@ export async function getVotes(proposalId: string): Promise<AutocratVote[]> {
   return autocratVoteState.getByProposal(proposalId)
 }
 
-// Research storage - persisted to CQL
+// Research storage - persisted to EQLite
 export async function generateResearch(
   proposalId: string,
   description: string,
@@ -195,7 +195,7 @@ Be specific and actionable.`
 export async function getResearch(
   proposalId: string,
 ): Promise<{ report: string; model: string; completedAt: number } | null> {
-  // Query research from CQL via stored objects
+  // Query research from EQLite via stored objects
   const stored = await storageState.findByType('research', proposalId)
   if (!stored || stored.type !== 'research') return null
   return {
@@ -205,7 +205,7 @@ export async function getResearch(
   }
 }
 
-// Proposal content index for duplicate detection - persisted to CQL
+// Proposal content index for duplicate detection - persisted to EQLite
 export async function indexProposal(
   contentHash: string,
   title: string,
@@ -235,9 +235,11 @@ export function isInitialized(): boolean {
   return initialized
 }
 
+import { config } from './config'
+
 // Ollama is optional for local development - not part of main infra
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434'
-export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2'
+const OLLAMA_URL = config.ollamaUrl
+export const OLLAMA_MODEL = config.ollamaModel
 
 export async function checkOllama(): Promise<boolean> {
   const r = await fetch(`${OLLAMA_URL}/api/tags`, {

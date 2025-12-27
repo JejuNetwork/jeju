@@ -10,8 +10,8 @@ import {
 import { join, normalize, resolve } from 'node:path'
 import {
   CORE_PORTS,
-  getCQLBlockProducerUrl,
   getDWSUrl,
+  getEQLiteBlockProducerUrl,
 } from '@jejunetwork/config'
 import { toError } from '@jejunetwork/types'
 import { Command } from 'commander'
@@ -409,7 +409,7 @@ async function startDwsDev(options: {
   logger.subheader('DWS Server')
   logger.keyValue('Port', options.port)
   logger.keyValue('RPC', rpcUrl)
-  logger.keyValue('CQL', getCQLBlockProducerUrl())
+  logger.keyValue('EQLite', getEQLiteBlockProducerUrl())
   logger.newline()
 
   const infraEnv = infra.getEnvVars()

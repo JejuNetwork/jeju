@@ -40,37 +40,37 @@ const SECTIONS: SettingSection[] = [
   {
     id: 'accounts',
     title: 'Linked Accounts',
-    description: 'Social login & recovery options',
+    description: 'Social recovery options',
     icon: Link2,
   },
   {
     id: 'security',
     title: 'Security',
-    description: 'Transaction protection and approvals',
+    description: 'Transaction safety',
     icon: Shield,
   },
   {
     id: 'hardware',
     title: 'Hardware Wallet',
-    description: 'Connect Ledger or Trezor',
+    description: 'Ledger & Trezor',
     icon: Usb,
   },
   {
     id: 'notifications',
     title: 'Notifications',
-    description: 'Alerts and updates',
+    description: 'Stay informed',
     icon: Bell,
   },
   {
     id: 'networks',
     title: 'Networks',
-    description: 'Supported chains',
+    description: 'Active chains',
     icon: Globe,
   },
   {
     id: 'advanced',
     title: 'Advanced',
-    description: 'Slippage, MEV protection',
+    description: 'Trading settings',
     icon: Key,
   },
 ]

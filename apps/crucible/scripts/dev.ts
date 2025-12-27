@@ -1,39 +1,24 @@
 /**
  * Crucible Development Server
  *
- * Simple Bun-based dev server - serves static HTML and builds frontend.
- * API is started separately via package.json scripts.
+ * Builds frontend with HMR, serves static files, proxies API requests.
+ * Has custom plugins for pino and React that require custom script.
+ *
+ * Usage:
+ *   bun run dev                    # Frontend + API
+ *   bun run scripts/dev.ts         # Frontend only
  */
 
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import {
+  CRUCIBLE_THEME,
+  DEFAULT_BROWSER_EXTERNALS,
+} from '@jejunetwork/shared/dev-server'
 
 const FRONTEND_PORT = Number(process.env.PORT) || 4020
 const API_PORT = Number(process.env.API_PORT) || 4021
-
-// Browser externals
-const EXTERNALS = [
-  'bun:sqlite',
-  'child_process',
-  'http2',
-  'tls',
-  'dgram',
-  'fs',
-  'net',
-  'dns',
-  'stream',
-  'crypto',
-  'module',
-  'worker_threads',
-  'node:url',
-  'node:fs',
-  'node:path',
-  'node:crypto',
-  'node:events',
-  'node:module',
-  'pino',
-  'pino-pretty',
-]
 
 let buildInProgress = false
 
@@ -49,13 +34,72 @@ async function buildFrontend(): Promise<void> {
     splitting: true,
     minify: false,
     sourcemap: 'inline',
-    external: EXTERNALS,
+    external: DEFAULT_BROWSER_EXTERNALS,
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
       'process.env.PUBLIC_API_URL': JSON.stringify(
         `http://localhost:${API_PORT}`,
       ),
+      'process.env': JSON.stringify({
+        NODE_ENV: 'development',
+        PUBLIC_API_URL: `http://localhost:${API_PORT}`,
+      }),
+      'globalThis.process': JSON.stringify({
+        env: { NODE_ENV: 'development' },
+      }),
     },
+    plugins: [
+      {
+        name: 'browser-shims',
+        setup(build) {
+          // Pino stub
+          build.onResolve({ filter: /^pino$/ }, () => ({
+            path: 'pino',
+            namespace: 'pino-stub',
+          }))
+          build.onLoad({ filter: /.*/, namespace: 'pino-stub' }, () => ({
+            contents: `
+              const logger = {
+                debug: console.debug.bind(console),
+                info: console.info.bind(console),
+                warn: console.warn.bind(console),
+                error: console.error.bind(console),
+                fatal: console.error.bind(console),
+                trace: console.trace.bind(console),
+                child: () => logger,
+                level: 'info',
+                levels: { values: { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 } },
+              };
+              export default function pino() { return logger; }
+              export const levels = logger.levels;
+            `,
+            loader: 'js',
+          }))
+
+          // Dedupe React
+          const reactPath = require.resolve('react')
+          const reactDomPath = require.resolve('react-dom')
+          build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
+          build.onResolve({ filter: /^react-dom$/ }, () => ({
+            path: reactDomPath,
+          }))
+          build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+            path: require.resolve('react/jsx-runtime'),
+          }))
+          build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+            path: require.resolve('react/jsx-dev-runtime'),
+          }))
+
+          // Workspace packages
+          build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+            path: resolve(process.cwd(), '../../packages/shared/src/index.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+            path: resolve(process.cwd(), '../../packages/types/src/index.ts'),
+          }))
+        },
+      },
+    ],
   })
 
   buildInProgress = false
@@ -70,85 +114,35 @@ async function buildFrontend(): Promise<void> {
 }
 
 function generateDevHtml(): string {
+  const theme = CRUCIBLE_THEME
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <meta name="theme-color" content="#0A0E17" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)">
-  <title>Crucible - Agent Orchestration Platform</title>
-  <meta name="description" content="Decentralized agent orchestration platform for autonomous AI agents. Start, create, and manage agents on the network.">
+  <meta name="theme-color" content="${theme.dark.bg}" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="${theme.light.bg}" media="(prefers-color-scheme: light)">
+  <title>Crucible - Dev</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script>
-    (function() {
-      try {
-        const savedTheme = localStorage.getItem('crucible-theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark;
-        if (shouldBeDark) {
-          document.documentElement.classList.add('dark');
-        }
-      } catch (e) {}
-    })();
-  </script>
+  <link href="${theme.fonts.google}" rel="stylesheet">
+  <script>window.process = window.process || { env: { NODE_ENV: 'development' } };</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            display: ['Sora', 'system-ui', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
+          fontFamily: { sans: ['${theme.fonts.sans}', 'system-ui', 'sans-serif'], display: ['${theme.fonts.display}', 'system-ui', 'sans-serif'], mono: ['${theme.fonts.mono}', 'monospace'] },
           colors: {
-            crucible: {
-              primary: '#3B82F6',
-              'primary-dark': '#2563EB',
-              'primary-light': '#60A5FA',
-              accent: '#06B6D4',
-              'accent-dark': '#0891B2',
-              'accent-light': '#22D3EE',
-              purple: '#8B5CF6',
-              'purple-dark': '#7C3AED',
-              'purple-light': '#A78BFA',
-              ember: '#F97316',
-              success: '#10B981',
-              error: '#EF4444',
-              warning: '#F59E0B',
-              info: '#3B82F6',
-            },
-            light: {
-              bg: '#F8FAFC',
-              'bg-secondary': '#F1F5F9',
-              'bg-tertiary': '#E2E8F0',
-              surface: '#FFFFFF',
-              'surface-elevated': '#FFFFFF',
-              border: '#E2E8F0',
-              'border-strong': '#CBD5E1',
-              text: '#0F172A',
-              'text-secondary': '#475569',
-              'text-tertiary': '#94A3B8',
-            },
-            dark: {
-              bg: '#0A0E17',
-              'bg-secondary': '#111827',
-              'bg-tertiary': '#1E293B',
-              surface: '#1E293B',
-              'surface-elevated': '#334155',
-              border: '#334155',
-              'border-strong': '#475569',
-              text: '#F8FAFC',
-              'text-secondary': '#CBD5E1',
-              'text-tertiary': '#64748B',
-            },
+            crucible: { primary: '${theme.colors.primary}', accent: '${theme.colors.accent}', purple: '${theme.colors.purple}', ember: '#F97316', success: '#10B981', error: '#EF4444' },
           },
         },
       },
+    }
+    const saved = localStorage.getItem('${theme.storageKey}');
+    if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
     }
   </script>
   <link rel="stylesheet" href="/globals.css">
@@ -163,8 +157,6 @@ function generateDevHtml(): string {
 async function startServer(): Promise<void> {
   await mkdir('./dist/dev', { recursive: true })
   await buildFrontend()
-
-  const devHtml = generateDevHtml()
 
   Bun.serve({
     port: FRONTEND_PORT,
@@ -220,8 +212,8 @@ async function startServer(): Promise<void> {
         return new Response(publicFile)
       }
 
-      // Serve index.html for SPA
-      return new Response(devHtml, {
+      // Serve index.html (SPA fallback)
+      return new Response(generateDevHtml(), {
         headers: { 'Content-Type': 'text/html' },
       })
     },
@@ -242,5 +234,5 @@ async function startServer(): Promise<void> {
   }
 }
 
-console.log('[Crucible] Starting dev server...')
+console.log('[Crucible] Starting dev server...\n')
 startServer()

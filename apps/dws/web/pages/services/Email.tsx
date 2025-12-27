@@ -141,9 +141,6 @@ export default function EmailPage() {
       >
         <div>
           <h1 className="page-title">Decentralized Email</h1>
-          <p className="page-subtitle">
-            End-to-end encrypted email powered by your wallet
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -368,14 +365,13 @@ export default function EmailPage() {
           ) : !isConnected ? (
             <div className="empty-state">
               <Mail size={48} />
-              <h3>Connect your wallet</h3>
-              <p>Connect your wallet to access your decentralized mailbox</p>
+              <h3>Connect wallet</h3>
             </div>
           ) : emails.length === 0 ? (
             <div className="empty-state">
               <Inbox size={48} />
-              <h3>No emails</h3>
-              <p>Your {selectedFolder} is empty</p>
+              <h3>All clear</h3>
+              <p>No messages</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '0' }}>

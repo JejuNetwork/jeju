@@ -121,8 +121,8 @@ jobs:
             ${{ steps.login-ecr.outputs.registry }}/jeju/${{ matrix.app }}:mainnet-latest
           platforms: linux/amd64
 
-  build-covenantsql:
-    name: Build CovenantSQL (Multi-Arch)
+  build-eqlite:
+    name: Build EQLite (Multi-Arch)
     runs-on: ubuntu-latest
     needs: validate-prerequisites
     steps:
@@ -141,15 +141,15 @@ jobs:
       - name: Set up QEMU for multi-arch
         uses: docker/setup-qemu-action@v3
 
-      - name: Build and push CovenantSQL
+      - name: Build and push EQLite
         uses: docker/build-push-action@v5
         with:
-          context: ./packages/deployment/docker/covenantsql
-          file: ./packages/deployment/docker/covenantsql/Dockerfile
+          context: ./packages/deployment/docker/eqlite
+          file: ./packages/deployment/docker/eqlite/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/jeju/covenantsql:mainnet-${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/jeju/covenantsql:mainnet-latest
+            ${{ steps.login-ecr.outputs.registry }}/jeju/eqlite:mainnet-${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/jeju/eqlite:mainnet-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
@@ -157,7 +157,7 @@ jobs:
   deploy-kubernetes:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
-    needs: [build-and-push, build-covenantsql, deploy-infrastructure]
+    needs: [build-and-push, build-eqlite, deploy-infrastructure]
     environment: mainnet
     steps:
       - uses: actions/checkout@v4

@@ -152,9 +152,6 @@ export default function BucketsPage() {
       >
         <div>
           <h1 className="page-title">Storage Buckets</h1>
-          <p className="page-subtitle">
-            S3-compatible object storage backed by IPFS and decentralized nodes
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -242,7 +239,6 @@ export default function BucketsPage() {
             <div className="empty-state">
               <Database size={48} />
               <h3>No buckets yet</h3>
-              <p>Create your first storage bucket</p>
               <button
                 type="button"
                 className="btn btn-primary"
@@ -418,7 +414,7 @@ export default function BucketsPage() {
             ) : objects.length === 0 ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
                 <File size={32} />
-                <p>No objects in this bucket</p>
+                <p>Bucket is empty</p>
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"

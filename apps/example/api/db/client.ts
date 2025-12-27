@@ -1,5 +1,5 @@
-import { getCQLBlockProducerUrl } from '@jejunetwork/config'
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { expectAddress } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import {
@@ -9,15 +9,16 @@ import {
   type UpdateTodoInput,
 } from '../../lib/schemas'
 
-const DATABASE_ID = process.env.CQL_DATABASE_ID || 'todo-experimental'
+const DATABASE_ID = process.env.EQLITE_DATABASE_ID || 'todo-experimental'
 
-let dbClient: CQLClient | null = null
+let dbClient: EQLiteClient | null = null
 
-export function getDatabase(): CQLClient {
+export function getDatabase(): EQLiteClient {
   if (!dbClient) {
-    dbClient = getCQL({
+    dbClient = getEQLite({
       blockProducerEndpoint:
-        process.env.CQL_BLOCK_PRODUCER_ENDPOINT || getCQLBlockProducerUrl(),
+        process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT ||
+        getEQLiteBlockProducerUrl(),
       databaseId: DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
@@ -57,7 +58,7 @@ function rowToTodo(row: TodoRow): Todo {
 }
 
 export class TodoRepository {
-  private db: CQLClient
+  private db: EQLiteClient
 
   constructor() {
     this.db = getDatabase()

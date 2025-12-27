@@ -1,20 +1,20 @@
 /**
- * Production build script for Bazaar
+ * Bazaar Production Build
  *
- * Builds:
- * 1. Static frontend (dist/static/) - for IPFS/CDN deployment
- * 2. Worker bundle (dist/worker/) - for DWS serverless deployment
+ * Builds frontend and API worker for deployment.
+ * CSS is processed inline using Tailwind CLI.
  *
- * Uses shared build utilities from @jejunetwork/shared
- * All public env vars use PUBLIC_ prefix (not VITE_).
+ * Usage:
+ *   bun run scripts/build.ts
+ *   jeju build --app bazaar
  */
 
 import { existsSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { BunPlugin } from 'bun'
-import { buildCSS } from './build-css'
 
 const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
@@ -22,7 +22,55 @@ const WORKER_DIR = `${DIST_DIR}/worker`
 
 const network = getCurrentNetwork()
 
-// Plugin to shim server-only modules, dedupe React/@noble/curves, and resolve workspace packages
+// Build Tailwind CSS
+async function buildCSS(): Promise<string> {
+  const globalsPath = './web/globals.css'
+  if (!existsSync(globalsPath)) {
+    throw new Error(`CSS input file not found: ${globalsPath}`)
+  }
+
+  const tempDir = await mkdtemp(join(tmpdir(), 'bazaar-css-'))
+  const inputPath = join(tempDir, 'input.css')
+  const outputPath = join(tempDir, 'output.css')
+
+  let globalsContent = await readFile(globalsPath, 'utf-8')
+  globalsContent = globalsContent.replace(
+    '@import "tailwindcss";',
+    `@tailwind base;\n@tailwind components;\n@tailwind utilities;`,
+  )
+
+  await writeFile(inputPath, globalsContent)
+
+  const proc = Bun.spawn(
+    [
+      'bunx',
+      'tailwindcss',
+      '-i',
+      inputPath,
+      '-o',
+      outputPath,
+      '-c',
+      './tailwind.config.ts',
+      '--content',
+      './web/**/*.{ts,tsx}',
+      '--minify',
+    ],
+    { stdout: 'pipe', stderr: 'pipe', cwd: process.cwd() },
+  )
+
+  const exitCode = await proc.exited
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text()
+    await rm(tempDir, { recursive: true })
+    throw new Error(`Tailwind CSS build failed: ${stderr}`)
+  }
+
+  const css = await readFile(outputPath, 'utf-8')
+  await rm(tempDir, { recursive: true })
+  return css
+}
+
+// Browser plugin for shimming and deduplication
 const browserPlugin: BunPlugin = {
   name: 'browser-plugin',
   setup(build) {
@@ -46,7 +94,7 @@ const browserPlugin: BunPlugin = {
       path: require.resolve('react-dom/client'),
     }))
 
-    // Dedupe @noble/curves to prevent duplicate exports
+    // Dedupe @noble/curves
     build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({
       path: require.resolve('@noble/curves/secp256k1'),
     }))
@@ -60,8 +108,7 @@ const browserPlugin: BunPlugin = {
       path: require.resolve(args.path),
     }))
 
-    // Resolve workspace packages to their source files to ensure proper bundling
-    // @jejunetwork/auth package
+    // Resolve workspace packages
     build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
       path: resolve('../../packages/auth/src/index.ts'),
     }))
@@ -96,10 +143,7 @@ const browserPlugin: BunPlugin = {
   },
 }
 
-// External packages that should not be bundled for browser
-// Only include Node.js-specific packages that truly cannot run in browser
 const BROWSER_EXTERNALS = [
-  // Node.js builtins that have no browser equivalent
   'bun:sqlite',
   'child_process',
   'http2',
@@ -119,7 +163,6 @@ const BROWSER_EXTERNALS = [
   'node:events',
   'node:module',
   'node:worker_threads',
-  // Server-only packages
   '@jejunetwork/deployment',
   '@jejunetwork/db',
   '@jejunetwork/kms',
@@ -130,7 +173,6 @@ const BROWSER_EXTERNALS = [
   'pino-pretty',
 ]
 
-// External packages for worker build
 const WORKER_EXTERNALS = [
   'bun:sqlite',
   'child_process',
@@ -141,14 +183,14 @@ const WORKER_EXTERNALS = [
 ]
 
 async function buildFrontend(): Promise<void> {
-  console.log('Building static frontend...')
+  console.log('Building frontend...')
 
   const result = await Bun.build({
     entrypoints: ['./web/client.tsx'],
     outdir: STATIC_DIR,
     target: 'browser',
-    splitting: false, // Disable splitting to ensure defines apply correctly
-    packages: 'bundle', // Bundle all packages
+    splitting: false,
+    packages: 'bundle',
     minify: true,
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
@@ -173,7 +215,6 @@ async function buildFrontend(): Promise<void> {
         },
         browser: true,
       }),
-      // Public environment variables (using PUBLIC_ prefix)
       'import.meta.env': JSON.stringify({
         PUBLIC_NETWORK: network,
         MODE: 'production',
@@ -191,24 +232,19 @@ async function buildFrontend(): Promise<void> {
 
   if (!result.success) {
     console.error('Frontend build failed:')
-    for (const log of result.logs) {
-      console.error(log)
-    }
+    for (const log of result.logs) console.error(log)
     throw new Error('Frontend build failed')
   }
 
-  // Find the main entry file
   const mainEntry = result.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('client'),
   )
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'client.js'
 
-  // Build CSS with Tailwind (properly processed, no CDN)
-  console.log('Processing Tailwind CSS...')
+  console.log('Building CSS...')
   const cssContent = await buildCSS()
   await Bun.write(`${STATIC_DIR}/styles.css`, cssContent)
 
-  // Create index.html (no Tailwind CDN - CSS is bundled)
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -216,29 +252,21 @@ async function buildFrontend(): Promise<void> {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
-  <title>Bazaar - Agent Marketplace on the Network</title>
-  <meta name="description" content="The fun, light-hearted marketplace for tokens, collectibles, prediction markets, and more.">
+  <title>Bazaar - Agent Marketplace</title>
+  <meta name="description" content="The marketplace for tokens, collectibles, prediction markets, and more.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <script>
-    // Theme detection
     (function() {
       try {
         const savedTheme = localStorage.getItem('bazaar-theme');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark;
-        if (shouldBeDark) {
-          document.documentElement.classList.add('dark');
-        }
+        if (savedTheme ? savedTheme === 'dark' : prefersDark) document.documentElement.classList.add('dark');
       } catch (e) {}
     })();
-    // Runtime config
-    window.__JEJU_CONFIG__ = ${JSON.stringify({
-      apiUrl: process.env.PUBLIC_API_URL || '',
-      network,
-    })};
+    window.__JEJU_CONFIG__ = ${JSON.stringify({ apiUrl: process.env.PUBLIC_API_URL || '', network })};
   </script>
 </head>
 <body class="font-sans antialiased">
@@ -249,13 +277,11 @@ async function buildFrontend(): Promise<void> {
 
   await Bun.write(`${STATIC_DIR}/index.html`, html)
 
-  // Copy public assets
   if (existsSync('./public')) {
-    const { cp } = await import('node:fs/promises')
     await cp('./public', `${STATIC_DIR}/public`, { recursive: true })
   }
 
-  console.log(`Frontend built to ${STATIC_DIR}/`)
+  console.log(`  Frontend: ${STATIC_DIR}/`)
 }
 
 async function buildWorker(): Promise<void> {
@@ -268,38 +294,31 @@ async function buildWorker(): Promise<void> {
     minify: true,
     sourcemap: 'external',
     external: WORKER_EXTERNALS,
-    define: {
-      'process.env.NODE_ENV': JSON.stringify('production'),
-    },
+    define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   })
 
   if (!result.success) {
     console.error('Worker build failed:')
-    for (const log of result.logs) {
-      console.error(log)
-    }
+    for (const log of result.logs) console.error(log)
     throw new Error('Worker build failed')
   }
 
-  // Get git info for metadata
   let gitCommit = 'unknown'
   let gitBranch = 'unknown'
   try {
     const commitResult = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'])
-    if (commitResult.success) {
+    if (commitResult.success)
       gitCommit = new TextDecoder().decode(commitResult.stdout).trim()
-    }
     const branchResult = Bun.spawnSync([
       'git',
       'rev-parse',
       '--abbrev-ref',
       'HEAD',
     ])
-    if (branchResult.success) {
+    if (branchResult.success)
       gitBranch = new TextDecoder().decode(branchResult.stdout).trim()
-    }
   } catch {
-    // Git not available
+    /* Git not available */
   }
 
   const metadata = {
@@ -308,10 +327,7 @@ async function buildWorker(): Promise<void> {
     entrypoint: 'worker.js',
     compatibilityDate: '2025-06-01',
     buildTime: new Date().toISOString(),
-    git: {
-      commit: gitCommit,
-      branch: gitBranch,
-    },
+    git: { commit: gitCommit, branch: gitBranch },
     runtime: 'workerd',
   }
 
@@ -319,15 +335,11 @@ async function buildWorker(): Promise<void> {
     `${WORKER_DIR}/metadata.json`,
     JSON.stringify(metadata, null, 2),
   )
-
-  console.log(`Worker built to ${WORKER_DIR}/`)
+  console.log(`  Worker: ${WORKER_DIR}/`)
 }
 
 async function createDeploymentBundle(): Promise<void> {
-  console.log('Creating deployment bundle...')
-
-  // Create deployment manifest
-  const deploymentManifest = {
+  const manifest = {
     name: 'bazaar',
     version: '2.0.0',
     architecture: {
@@ -348,45 +360,32 @@ async function createDeploymentBundle(): Promise<void> {
     dws: {
       regions: ['global'],
       tee: { preferred: true, required: false },
-      database: {
-        type: 'covenantsql',
-        migrations: 'migrations/',
-      },
+      database: { type: 'eqlite', migrations: 'migrations/' },
     },
     compatibilityDate: '2025-06-01',
   }
 
   await Bun.write(
     `${DIST_DIR}/deployment.json`,
-    JSON.stringify(deploymentManifest, null, 2),
+    JSON.stringify(manifest, null, 2),
   )
-
-  console.log('Deployment bundle created')
+  console.log(`  Manifest: ${DIST_DIR}/deployment.json`)
 }
 
 async function build(): Promise<void> {
-  console.log('Building Bazaar for decentralized deployment...\n')
+  console.log('Building Bazaar for production...\n')
 
-  // Clean dist directory
   if (existsSync(DIST_DIR)) {
     await rm(DIST_DIR, { recursive: true })
   }
 
-  // Create directories
-  const { mkdir } = await import('node:fs/promises')
   await mkdir(STATIC_DIR, { recursive: true })
   await mkdir(WORKER_DIR, { recursive: true })
 
-  // Build frontend and worker in parallel
   await Promise.all([buildFrontend(), buildWorker()])
-
-  // Create deployment bundle
   await createDeploymentBundle()
 
   console.log('\nBuild complete.')
-  console.log('   Static frontend: ./dist/static/')
-  console.log('   API worker: ./dist/worker/')
-  console.log('   Deployment manifest: ./dist/deployment.json')
 }
 
 build().catch((error) => {

@@ -1,5 +1,5 @@
 /**
- * Shared utilities for CQL package
+ * Shared utilities for EQLite package
  */
 
 import { z } from 'zod'

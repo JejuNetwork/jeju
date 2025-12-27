@@ -279,7 +279,7 @@ export const ServicesNetworkConfigSchema = z.object({
     executor: UrlString,
     bots: UrlString.optional(),
   }),
-  cql: z.object({
+  eqlite: z.object({
     blockProducer: UrlString,
     miner: UrlString,
   }),
@@ -736,3 +736,88 @@ export const RpcHexResultSchema = z.object({
   result: z.string().optional(),
 })
 export type RpcHexResult = z.infer<typeof RpcHexResultSchema>
+
+// Bridge Config Schemas (EVMSol cross-chain bridge)
+
+/** Bridge mode - determines which chains and features are active */
+export const BridgeModeSchema = z.enum(['local', 'testnet', 'mainnet'])
+export type BridgeMode = z.infer<typeof BridgeModeSchema>
+
+/** Bridge components configuration */
+export const BridgeComponentsSchema = z.object({
+  relayer: z.boolean(),
+  prover: z.boolean(),
+  beaconWatcher: z.boolean(),
+  healthMonitor: z.boolean(),
+})
+export type BridgeComponents = z.infer<typeof BridgeComponentsSchema>
+
+/** Bridge ports configuration */
+export const BridgePortsSchema = z.object({
+  relayer: z.number().int().positive(),
+  prover: z.number().int().positive(),
+  health: z.number().int().positive(),
+})
+export type BridgePorts = z.infer<typeof BridgePortsSchema>
+
+/** EVM chain configuration for bridge */
+export const BridgeEvmChainSchema = z.object({
+  chainId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().min(1),
+  beaconUrl: z.string().optional(),
+  bridgeAddress: z.string(),
+  lightClientAddress: z.string(),
+})
+export type BridgeEvmChain = z.infer<typeof BridgeEvmChainSchema>
+
+/** Solana configuration for bridge */
+export const BridgeSolanaConfigSchema = z.object({
+  network: z.string().optional(),
+  rpcUrl: z.string().min(1),
+  bridgeProgramId: z.string(),
+  evmLightClientProgramId: z.string(),
+})
+export type BridgeSolanaConfig = z.infer<typeof BridgeSolanaConfigSchema>
+
+/** TEE configuration for bridge */
+export const BridgeTeeConfigSchema = z.object({
+  endpoint: z.string().min(1),
+  maxBatchSize: z.number().int().positive(),
+  batchTimeoutMs: z.number().int().positive(),
+  requireRealTEE: z.boolean().optional(),
+})
+export type BridgeTeeConfig = z.infer<typeof BridgeTeeConfigSchema>
+
+/** Prover configuration for bridge */
+export const BridgeProverConfigSchema = z.object({
+  mode: z.enum(['self-hosted', 'succinct-network']),
+  workers: z.number().int().positive(),
+  maxMemoryMb: z.number().int().positive(),
+  timeoutMs: z.number().int().positive(),
+  useMockProofs: z.boolean(),
+})
+export type BridgeProverConfig = z.infer<typeof BridgeProverConfigSchema>
+
+/** Security configuration for mainnet */
+export const BridgeSecurityConfigSchema = z.object({
+  multisigRequired: z.boolean(),
+  minValidators: z.number().int().positive(),
+  validatorThreshold: z.number().int().positive(),
+})
+export type BridgeSecurityConfig = z.infer<typeof BridgeSecurityConfigSchema>
+
+/** Full bridge configuration schema */
+export const BridgeConfigSchema = z.object({
+  mode: BridgeModeSchema,
+  components: BridgeComponentsSchema,
+  ports: BridgePortsSchema,
+  chains: z.object({
+    evm: z.array(BridgeEvmChainSchema),
+    solana: BridgeSolanaConfigSchema,
+  }),
+  tee: BridgeTeeConfigSchema,
+  prover: BridgeProverConfigSchema,
+  security: BridgeSecurityConfigSchema.optional(),
+})
+export type BridgeConfig = z.infer<typeof BridgeConfigSchema>

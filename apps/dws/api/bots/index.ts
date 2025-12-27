@@ -636,7 +636,7 @@ export class BotDeploymentService {
    * Load bot state from persistent storage
    */
   private async loadBotState(): Promise<void> {
-    // TODO: Load from CQL or on-chain registry
+    // TODO: Load from EQLite or on-chain registry
     // For now, bots are ephemeral
   }
 

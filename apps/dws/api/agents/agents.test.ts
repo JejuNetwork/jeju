@@ -2,11 +2,11 @@
  * Agent System Tests
  *
  * Tests the full agent lifecycle: registration, deployment, invocation, and termination.
- * Requires CQL to be running - all tests use real infrastructure.
+ * Requires EQLite to be running - all tests use real infrastructure.
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getCQLUrl } from '@jejunetwork/config'
+import { getEQLiteUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import * as registry from './registry'
 import type {
@@ -35,14 +35,14 @@ const TEST_CHARACTER: AgentCharacter = {
 // Initialize registry before tests
 beforeAll(async () => {
   await registry.initRegistry({
-    cqlUrl: getCQLUrl(),
-    databaseId: process.env.CQL_DATABASE_ID ?? 'dws-test',
+    eqliteUrl: getEQLiteUrl(),
+    databaseId: process.env.EQLITE_DATABASE_ID ?? 'dws-test',
   })
 })
 
-// Registry Tests (CQL-backed)
+// Registry Tests (EQLite-backed)
 
-describe('Agent Registry (CQL)', () => {
+describe('Agent Registry (EQLite)', () => {
   test('should register agent', async () => {
     const request: RegisterAgentRequest = {
       character: TEST_CHARACTER,

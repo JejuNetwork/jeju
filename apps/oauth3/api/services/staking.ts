@@ -16,7 +16,7 @@ import {
 
 // Staking contract ABI matching Staking.sol
 const STAKING_ABI = parseAbi([
-  'function getPosition(address) view returns (tuple(uint256 stakedAmount, uint256 stakedAt, uint256 linkedAgentId, uint256 reputationBonus, uint256 unbondingAmount, uint256 unbondingStartTime, bool isActive, bool isFrozen))',
+  'function getPosition(address) view returns ((uint256, uint256, uint256, uint256, uint256, uint256, bool, bool))',
   'function getTier(address) view returns (uint8)',
   'function getEffectiveUsdValue(address) view returns (uint256)',
 ])

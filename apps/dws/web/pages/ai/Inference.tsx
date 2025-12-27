@@ -61,9 +61,6 @@ export default function InferencePage() {
       >
         <div>
           <h1 className="page-title">AI Inference</h1>
-          <p className="page-subtitle">
-            Chat completions and text generation via decentralized AI nodes
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <select
@@ -118,8 +115,7 @@ export default function InferencePage() {
               }}
             >
               <Brain size={48} />
-              <h3>Start a conversation</h3>
-              <p>Send a message to interact with the AI model</p>
+              <h3>Start chatting</h3>
               <div
                 style={{
                   display: 'grid',

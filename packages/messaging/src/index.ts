@@ -375,15 +375,15 @@ export * from './sdk'
 // Storage adapters
 export {
   type ConsistencyLevel,
-  type CQLConfig,
-  CQLMessageStorage,
-  createCQLStorage,
-  getCQLStorage,
-  resetCQLStorage,
+  createEQLiteStorage,
+  type EQLiteConfig,
+  EQLiteMessageStorage,
+  getEQLiteStorage,
+  resetEQLiteStorage,
   type StoredConversation,
   type StoredKeyBundle,
   type StoredMessage,
-} from './storage/cql-storage'
+} from './storage/eqlite-storage'
 // TEE-backed key management
 export * from './tee'
 // XMTP node and router (excluding RelayNode)

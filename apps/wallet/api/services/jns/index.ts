@@ -389,3 +389,11 @@ export class JNSService {
 }
 
 export const jnsService = new JNSService()
+
+// Re-export gateway resolver
+export {
+  type JNSResolution,
+  JNSResolver,
+  type JNSResolverSettings,
+  jnsResolver,
+} from './resolver'

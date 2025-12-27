@@ -3,6 +3,7 @@
  * Testnet-only JEJU token faucet.
  */
 
+import { Droplets, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Address } from 'viem'
@@ -159,21 +160,28 @@ export default function FaucetPage() {
   // Mainnet guard - show disabled message
   if (info?.isMainnet) {
     return (
-      <div className="max-w-xl mx-auto">
-        <div className="card bg-base-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">🚫</span>
-            <h1 className="text-xl font-bold">Faucet Not Available</h1>
+      <div style={{ maxWidth: '560px', margin: '0 auto' }}>
+        <div className="card">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1rem',
+            }}
+          >
+            <Droplets size={28} style={{ color: 'var(--text-muted)' }} />
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+              Faucet Not Available
+            </h1>
           </div>
-          <p className="text-base-content/70">
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
             The faucet is only available on testnet and localnet. Mainnet tokens
             must be acquired through exchanges or other means.
           </p>
-          <div className="mt-4">
-            <Link to="/" className="btn btn-ghost btn-sm">
-              ← Back to Dashboard
-            </Link>
-          </div>
+          <Link to="/" className="btn btn-secondary">
+            Back to Dashboard
+          </Link>
         </div>
       </div>
     )
@@ -181,15 +189,10 @@ export default function FaucetPage() {
 
   if (!isConnected) {
     return (
-      <div className="max-w-xl mx-auto">
-        <div className="card bg-base-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">💧</span>
-            <h1 className="text-xl font-bold">JEJU Faucet</h1>
-          </div>
-          <p className="text-base-content/70">
-            Connect your wallet to use the faucet.
-          </p>
+      <div style={{ maxWidth: '560px', margin: '0 auto' }}>
+        <div className="empty-state" style={{ paddingTop: '3rem' }}>
+          <Droplets size={64} />
+          <h3>Connect wallet to claim</h3>
         </div>
       </div>
     )
@@ -198,65 +201,176 @@ export default function FaucetPage() {
   const isRegistered = status?.isRegistered ?? false
 
   return (
-    <div className="max-w-xl mx-auto space-y-4">
-      <div className="card bg-base-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">💧</span>
-            <h1 className="text-xl font-bold">{info?.name ?? 'JEJU Faucet'}</h1>
+    <div
+      style={{
+        maxWidth: '560px',
+        margin: '0 auto',
+        display: 'grid',
+        gap: '1.25rem',
+      }}
+    >
+      <div className="card">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1rem',
+          }}
+        >
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+          >
+            <div
+              className="stat-icon compute"
+              style={{ width: 44, height: 44 }}
+            >
+              <Droplets size={22} />
+            </div>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 700 }}>
+              {info?.name ?? 'JEJU Faucet'}
+            </h1>
           </div>
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-icon"
             onClick={refresh}
             disabled={loading}
-            title="Refresh status"
+            aria-label="Refresh status"
           >
-            <span className={loading ? 'animate-spin inline-block' : ''}>
-              🔄
-            </span>
+            <RefreshCw
+              size={18}
+              style={{
+                animation: loading ? 'spin 0.75s linear infinite' : 'none',
+              }}
+            />
           </button>
         </div>
 
-        <p className="mb-4 text-base-content/70">
-          {info?.description ?? 'Get JEJU tokens for testing on the network.'}
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            marginBottom: '1.5rem',
+            lineHeight: 1.6,
+          }}
+        >
+          {info?.description ??
+            'Get free JEJU tokens to explore and test the network.'}
         </p>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="p-3 rounded-lg bg-base-300">
-            <span className="text-xs text-base-content/60">
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            marginBottom: '1.5rem',
+          }}
+        >
+          <div
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-tertiary)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                marginBottom: '0.25rem',
+              }}
+            >
               Amount per claim
-            </span>
-            <div className="font-bold">
+            </div>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
               {status?.amountPerClaim ?? info?.amountPerClaim ?? '100'} JEJU
             </div>
           </div>
-          <div className="p-3 rounded-lg bg-base-300">
-            <span className="text-xs text-base-content/60">Cooldown</span>
-            <div className="font-bold">{info?.cooldownHours ?? 12} hours</div>
+          <div
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-tertiary)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                marginBottom: '0.25rem',
+              }}
+            >
+              Cooldown
+            </div>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              {info?.cooldownHours ?? 12} hours
+            </div>
           </div>
         </div>
 
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-base-300">
-            <div className="flex items-center gap-2">
+        <div
+          style={{
+            display: 'grid',
+            gap: '0.75rem',
+            marginBottom: '1.5rem',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.875rem 1rem',
+              background: 'var(--bg-tertiary)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+            >
               {loading ? (
-                <span className="animate-spin">🔄</span>
-              ) : isRegistered ? (
-                <span>✅</span>
+                <div
+                  className="spinner"
+                  style={{ width: 16, height: 16, borderWidth: 2 }}
+                />
               ) : (
-                <span>⚠️</span>
+                <span
+                  className={`badge ${isRegistered ? 'badge-success' : 'badge-warning'}`}
+                  style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}
+                >
+                  {isRegistered ? 'OK' : 'REQ'}
+                </span>
               )}
-              <span className="text-sm">ERC-8004 Registry</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                ERC-8004 Registry
+              </span>
             </div>
             <span
-              className={`text-sm font-medium ${
-                loading
-                  ? 'text-base-content/50'
+              style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: loading
+                  ? 'var(--text-dim)'
                   : isRegistered
-                    ? 'text-success'
-                    : 'text-warning'
-              }`}
+                    ? 'var(--success)'
+                    : 'var(--warning)',
+              }}
             >
               {loading
                 ? 'Checking...'
@@ -266,25 +380,46 @@ export default function FaucetPage() {
             </span>
           </div>
 
-          <div className="flex items-center justify-between p-3 rounded-lg bg-base-300">
-            <div className="flex items-center gap-2">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.875rem 1rem',
+              background: 'var(--bg-tertiary)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+            >
               {loading ? (
-                <span className="animate-spin">🔄</span>
-              ) : status && status.cooldownRemaining === 0 ? (
-                <span>✅</span>
+                <div
+                  className="spinner"
+                  style={{ width: 16, height: 16, borderWidth: 2 }}
+                />
               ) : (
-                <span>⏰</span>
+                <span
+                  className={`badge ${status?.cooldownRemaining === 0 ? 'badge-success' : 'badge-warning'}`}
+                  style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}
+                >
+                  {status?.cooldownRemaining === 0 ? 'OK' : 'WAIT'}
+                </span>
               )}
-              <span className="text-sm">Cooldown</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                Cooldown Status
+              </span>
             </div>
             <span
-              className={`text-sm font-medium ${
-                loading
-                  ? 'text-base-content/50'
+              style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: loading
+                  ? 'var(--text-dim)'
                   : status?.cooldownRemaining === 0
-                    ? 'text-success'
-                    : 'text-warning'
-              }`}
+                    ? 'var(--success)'
+                    : 'var(--warning)',
+              }}
             >
               {loading
                 ? 'Checking...'
@@ -296,96 +431,144 @@ export default function FaucetPage() {
         </div>
 
         {error && (
-          <div className="alert alert-error mb-4">
-            <span>❌</span>
-            <span className="text-sm">{error}</span>
+          <div
+            style={{
+              padding: '1rem',
+              background: 'var(--error-soft)',
+              borderLeft: '3px solid var(--error)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '1rem',
+              color: 'var(--error)',
+              fontSize: '0.9rem',
+            }}
+          >
+            {error}
           </div>
         )}
 
         <button
           type="button"
-          className="btn btn-primary w-full"
+          className="btn btn-primary"
           onClick={claim}
           disabled={!status?.eligible || claiming || loading}
+          style={{ width: '100%' }}
         >
           {claiming ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="loading loading-spinner loading-sm" />
+            <>
+              <div className="spinner" style={{ width: 18, height: 18 }} />
               Claiming...
-            </span>
+            </>
           ) : (
-            <span className="flex items-center justify-center gap-2">
-              <span>💧</span>
+            <>
+              <Droplets size={18} />
               {status?.eligible
                 ? `Claim ${status.amountPerClaim} JEJU`
                 : 'Claim JEJU'}
-            </span>
+            </>
           )}
         </button>
 
         {claimResult && (
           <div
-            className={`mt-4 alert ${
-              claimResult.success ? 'alert-success' : 'alert-error'
-            }`}
+            style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: claimResult.success
+                ? 'var(--success-soft)'
+                : 'var(--error-soft)',
+              borderLeft: `3px solid ${claimResult.success ? 'var(--success)' : 'var(--error)'}`,
+              borderRadius: 'var(--radius-md)',
+            }}
           >
-            {claimResult.success ? (
-              <div className="flex items-start gap-3">
-                <span className="text-xl">✅</span>
-                <div>
-                  <p className="font-medium">Claim Successful</p>
-                  <p className="text-sm mt-1 opacity-70">
-                    You received {claimResult.amount} JEJU
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <span className="text-xl">❌</span>
-                <div>
-                  <p className="font-medium">Claim Failed</p>
-                  <p className="text-sm mt-1 opacity-70">{claimResult.error}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="card bg-base-200 p-4">
-        <button
-          type="button"
-          className="flex items-center justify-between w-full"
-          onClick={() => setShowApiDocs(!showApiDocs)}
-        >
-          <h3 className="text-sm font-semibold">Developer API</h3>
-          <span>{showApiDocs ? '▲' : '▼'}</span>
-        </button>
-
-        {showApiDocs && (
-          <div className="mt-4">
-            <p className="text-sm mb-3 text-base-content/70">
-              Integrate the faucet into your agents and applications.
-            </p>
-            <div className="space-y-2 text-xs font-mono">
-              <div className="p-2 rounded bg-base-300">
-                <span className="text-success">GET</span>{' '}
-                /faucet/status/:address
-              </div>
-              <div className="p-2 rounded bg-base-300">
-                <span className="text-info">POST</span> /faucet/claim{' '}
-                {'{ address }'}
-              </div>
-              <div className="p-2 rounded bg-base-300">
-                <span className="text-secondary">GET</span> /faucet/info
-              </div>
+            <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
+              {claimResult.success ? 'Claim Successful' : 'Claim Failed'}
+            </div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              {claimResult.success
+                ? `You received ${claimResult.amount} JEJU`
+                : claimResult.error}
             </div>
           </div>
         )}
       </div>
 
-      <div className="text-center">
-        <Link to="/" className="text-sm hover:underline text-base-content/70">
+      <div className="card">
+        <button
+          type="button"
+          onClick={() => setShowApiDocs(!showApiDocs)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            color: 'var(--text-primary)',
+          }}
+        >
+          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+            Developer API
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>
+            {showApiDocs ? '▲' : '▼'}
+          </span>
+        </button>
+
+        {showApiDocs && (
+          <div style={{ marginTop: '1rem' }}>
+            <p
+              style={{
+                fontSize: '0.9rem',
+                marginBottom: '1rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Integrate the faucet into your agents and applications.
+            </p>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <code
+                style={{
+                  display: 'block',
+                  padding: '0.625rem 0.875rem',
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8rem',
+                }}
+              >
+                <span style={{ color: 'var(--success)' }}>GET</span>{' '}
+                /faucet/status/:address
+              </code>
+              <code
+                style={{
+                  display: 'block',
+                  padding: '0.625rem 0.875rem',
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8rem',
+                }}
+              >
+                <span style={{ color: 'var(--info)' }}>POST</span> /faucet/claim
+              </code>
+              <code
+                style={{
+                  display: 'block',
+                  padding: '0.625rem 0.875rem',
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8rem',
+                }}
+              >
+                <span style={{ color: 'var(--accent)' }}>GET</span> /faucet/info
+              </code>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ textAlign: 'center' }}>
+        <Link to="/" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
           ← Back to Dashboard
         </Link>
       </div>

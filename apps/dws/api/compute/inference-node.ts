@@ -212,7 +212,7 @@ function getClient(): PublicClient {
 
 function getComputeRegistryAddress(): Address {
   if (!computeRegistryAddress) {
-    const address = getContract('compute', 'ComputeRegistry')
+    const address = getContract('compute', 'registry')
     if (!address) {
       throw new Error('ComputeRegistry address not configured')
     }

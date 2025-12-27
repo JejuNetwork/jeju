@@ -157,7 +157,7 @@ export function Services() {
       <div>
         <h1 className="text-2xl font-bold">Services</h1>
         <p className="text-volcanic-400 mt-1">
-          Configure and manage node services to earn rewards
+          Choose what your machine offers the network
         </p>
       </div>
 
@@ -589,7 +589,7 @@ export function Services() {
 
       {/* Other Services Grid */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Other Services</h2>
+        <h2 className="text-lg font-semibold">Network Services</h2>
 
         {otherServices.map((service) => (
           <motion.div

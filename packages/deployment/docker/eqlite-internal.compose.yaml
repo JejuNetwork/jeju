@@ -1,0 +1,262 @@
+# Internal EQLite (EQLite) Cluster for Jeju Local Development
+#
+# This starts a EQLite cluster using the internal packages/eqlite implementation:
+# - 3 Block Producers (BFT-Raft consensus)
+# - 3 Miners (data storage)
+# - 1 Adapter (HTTP API)
+#
+# Usage:
+#   docker compose -f eqlite-internal.compose.yaml up -d
+#
+# Connect via:
+#   http://localhost:4661 (adapter API)
+#
+# Build from source:
+#   docker compose -f eqlite-internal.compose.yaml build
+
+services:
+  # ============================================================================
+  # EQLite Builder - Builds binaries from packages/eqlite
+  # ============================================================================
+  eqlite-builder:
+    build:
+      context: ../../eqlite
+      dockerfile: ../deployment/docker/eqlite-internal.Dockerfile
+      target: builder
+    image: jeju-eqlite-builder:latest
+
+  # ============================================================================
+  # Block Producer 0 (Bootstrap)
+  # ============================================================================
+  eqlite-bp-0:
+    build:
+      context: ../../eqlite
+      dockerfile: ../deployment/docker/eqlite-internal.Dockerfile
+    image: jeju-eqlite:latest
+    container_name: eqlite-bp-0
+    hostname: eqlite-bp-0
+    environment:
+      EQLITE_ROLE: blockproducer
+      EQLITE_CONF: /config/bp-0.yaml
+      EQLITE_NODE_ID: bp-0
+      EQLITE_BOOTSTRAP: "true"
+    ports:
+      - "4660:4661"  # Different port to avoid conflict
+      - "8546:8546"  # HTTP API
+    volumes:
+      - ./eqlite-config:/config:ro
+      - eqlite-bp-0-data:/data
+    networks:
+      eqlite-internal:
+        ipv4_address: 172.29.0.2
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8546/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Block Producer 1
+  # ============================================================================
+  eqlite-bp-1:
+    image: jeju-eqlite:latest
+    container_name: eqlite-bp-1
+    hostname: eqlite-bp-1
+    depends_on:
+      eqlite-bp-0:
+        condition: service_healthy
+    environment:
+      EQLITE_ROLE: blockproducer
+      EQLITE_CONF: /config/bp-1.yaml
+      EQLITE_NODE_ID: bp-1
+    volumes:
+      - ./eqlite-config:/config:ro
+      - eqlite-bp-1-data:/data
+    networks:
+      eqlite-internal:
+        ipv4_address: 172.29.0.3
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8546/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Block Producer 2
+  # ============================================================================
+  eqlite-bp-2:
+    image: jeju-eqlite:latest
+    container_name: eqlite-bp-2
+    hostname: eqlite-bp-2
+    depends_on:
+      eqlite-bp-0:
+        condition: service_healthy
+    environment:
+      EQLITE_ROLE: blockproducer
+      EQLITE_CONF: /config/bp-2.yaml
+      EQLITE_NODE_ID: bp-2
+    volumes:
+      - ./eqlite-config:/config:ro
+      - eqlite-bp-2-data:/data
+    networks:
+      eqlite-internal:
+        ipv4_address: 172.29.0.4
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8546/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner 0
+  # ============================================================================
+  eqlite-miner-0:
+    image: jeju-eqlite:latest
+    container_name: eqlite-miner-0
+    hostname: eqlite-miner-0
+    depends_on:
+      eqlite-bp-0:
+        condition: service_healthy
+      eqlite-bp-1:
+        condition: service_healthy
+      eqlite-bp-2:
+        condition: service_healthy
+    environment:
+      EQLITE_ROLE: miner
+      EQLITE_CONF: /config/miner-0.yaml
+      EQLITE_NODE_ID: miner-0
+    volumes:
+      - ./eqlite-config:/config:ro
+      - eqlite-miner-0-data:/data
+    networks:
+      eqlite-internal:
+        ipv4_address: 172.29.0.5
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8546/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner 1
+  # ============================================================================
+  eqlite-miner-1:
+    image: jeju-eqlite:latest
+    container_name: eqlite-miner-1
+    hostname: eqlite-miner-1
+    depends_on:
+      eqlite-bp-0:
+        condition: service_healthy
+    environment:
+      EQLITE_ROLE: miner
+      EQLITE_CONF: /config/miner-1.yaml
+      EQLITE_NODE_ID: miner-1
+    volumes:
+      - ./eqlite-config:/config:ro
+      - eqlite-miner-1-data:/data
+    networks:
+      eqlite-internal:
+        ipv4_address: 172.29.0.6
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8546/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Miner 2
+  # ============================================================================
+  eqlite-miner-2:
+    image: jeju-eqlite:latest
+    container_name: eqlite-miner-2
+    hostname: eqlite-miner-2
+    depends_on:
+      eqlite-bp-0:
+        condition: service_healthy
+    environment:
+      EQLITE_ROLE: miner
+      EQLITE_CONF: /config/miner-2.yaml
+      EQLITE_NODE_ID: miner-2
+    volumes:
+      - ./eqlite-config:/config:ro
+      - eqlite-miner-2-data:/data
+    networks:
+      eqlite-internal:
+        ipv4_address: 172.29.0.7
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8546/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # HTTP Adapter (Client API)
+  # ============================================================================
+  eqlite-adapter:
+    image: jeju-eqlite:latest
+    container_name: eqlite-adapter
+    hostname: eqlite-adapter
+    depends_on:
+      eqlite-miner-0:
+        condition: service_healthy
+      eqlite-miner-1:
+        condition: service_healthy
+      eqlite-miner-2:
+        condition: service_healthy
+    environment:
+      EQLITE_ROLE: adapter
+      EQLITE_CONF: /config/adapter.yaml
+      EQLITE_ADAPTER_ADDR: "0.0.0.0:4661"
+    ports:
+      - "4661:4661"  # HTTP API
+    volumes:
+      - ./eqlite-config:/config:ro
+      - eqlite-adapter-data:/data
+    networks:
+      eqlite-internal:
+        ipv4_address: 172.29.0.10
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4661/v1/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  eqlite-internal:
+    driver: bridge
+    name: eqlite-internal
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  eqlite-bp-0-data:
+  eqlite-bp-1-data:
+  eqlite-bp-2-data:
+  eqlite-miner-0-data:
+  eqlite-miner-1-data:
+  eqlite-miner-2-data:
+  eqlite-adapter-data:
+
+
+

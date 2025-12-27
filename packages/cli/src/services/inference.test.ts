@@ -329,7 +329,7 @@ describe('Response Normalization', () => {
       model: data.model,
       choices: [
         {
-          message: { role: 'assistant', content: data.content[0].text ?? '' },
+          message: { role: 'assistant', content: data.content[0]?.text ?? '' },
           finish_reason:
             data.stop_reason === 'end_turn' ? 'stop' : data.stop_reason,
         },

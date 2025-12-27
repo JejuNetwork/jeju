@@ -4,8 +4,9 @@
  * Form for composing and publishing new Farcaster casts.
  */
 
+import { clsx } from 'clsx'
 import { AtSign, Image, Link2, Loader2, Send, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type Cast,
   useFarcasterStatus,
@@ -28,7 +29,7 @@ export function CastComposer({
   replyTo,
   onClearReply,
   onSuccess,
-  placeholder = "What's happening?",
+  placeholder = 'Share an update...',
   autoFocus = false,
 }: CastComposerProps) {
   const { data: status } = useFarcasterStatus()
@@ -44,14 +45,13 @@ export function CastComposer({
   const isOverLimit = remainingChars < 0
   const canSubmit = text.trim().length > 0 && !isOverLimit && isConnected
 
-  // Auto-resize textarea based on content
-  // biome-ignore lint/correctness/useExhaustiveDependencies: text changes should trigger resize
+  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
     }
-  }, [text])
+  }, [])
 
   // Auto-focus
   useEffect(() => {
@@ -60,7 +60,7 @@ export function CastComposer({
     }
   }, [autoFocus])
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!canSubmit) return
 
     const embeds = embedUrl.trim() ? [{ url: embedUrl.trim() }] : undefined
@@ -77,21 +77,31 @@ export function CastComposer({
     setShowEmbedInput(false)
     onClearReply?.()
     onSuccess?.()
-  }
+  }, [
+    canSubmit,
+    embedUrl,
+    text,
+    channelId,
+    replyTo,
+    publishMutation,
+    onClearReply,
+    onSuccess,
+  ])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault()
-      handleSubmit()
-    }
-  }
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handleSubmit()
+      }
+    },
+    [handleSubmit],
+  )
 
   if (!isConnected) {
     return (
       <div className="card p-4 text-center">
-        <p className="text-factory-400 text-sm">
-          Connect your Farcaster account to post
-        </p>
+        <p className="text-surface-400 text-sm">Connect Farcaster to post</p>
       </div>
     )
   }
@@ -100,15 +110,16 @@ export function CastComposer({
     <div className="card p-4">
       {/* Reply indicator */}
       {replyTo && (
-        <div className="flex items-center justify-between mb-3 pb-3 border-b border-factory-800">
-          <div className="flex items-center gap-2 text-sm text-factory-400">
+        <div className="flex items-center justify-between mb-3 pb-3 border-b border-surface-800/50">
+          <div className="flex items-center gap-2 text-sm text-surface-400">
             <span>Replying to</span>
-            <span className="text-accent-400">@{replyTo.author.username}</span>
+            <span className="text-factory-400">@{replyTo.author.username}</span>
           </div>
           <button
             type="button"
-            className="p-1 rounded hover:bg-factory-800 text-factory-500"
+            className="p-1 rounded-lg hover:bg-surface-800 text-surface-500 transition-colors"
             onClick={onClearReply}
+            aria-label="Cancel reply"
           >
             <X className="w-4 h-4" />
           </button>
@@ -124,7 +135,7 @@ export function CastComposer({
             className="w-10 h-10 rounded-full object-cover"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-factory-700 flex items-center justify-center text-factory-400">
+          <div className="w-10 h-10 rounded-full bg-surface-700 flex items-center justify-center text-surface-400">
             {status.username?.slice(0, 2).toUpperCase() ?? '?'}
           </div>
         )}
@@ -137,9 +148,10 @@ export function CastComposer({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full bg-transparent border-none resize-none focus:outline-none text-factory-100 placeholder-factory-500 min-h-[60px]"
+            className="w-full bg-transparent border-none resize-none focus:outline-none text-surface-100 placeholder-surface-500 min-h-[60px]"
             rows={1}
             disabled={publishMutation.isPending}
+            aria-label="Cast content"
           />
 
           {/* Embed input */}
@@ -151,14 +163,16 @@ export function CastComposer({
                 onChange={(e) => setEmbedUrl(e.target.value)}
                 placeholder="Enter URL..."
                 className="input flex-1 text-sm py-1.5"
+                aria-label="Embed URL"
               />
               <button
                 type="button"
-                className="p-1.5 rounded hover:bg-factory-800 text-factory-500"
+                className="p-1.5 rounded-lg hover:bg-surface-800 text-surface-500 transition-colors"
                 onClick={() => {
                   setShowEmbedInput(false)
                   setEmbedUrl('')
                 }}
+                aria-label="Remove URL"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -175,29 +189,37 @@ export function CastComposer({
           )}
 
           {/* Actions bar */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-factory-800">
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-800/50">
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                className="p-2 rounded-lg hover:bg-factory-800 text-factory-500 hover:text-accent-400 transition-colors"
+                className={clsx(
+                  'p-2 rounded-lg hover:bg-surface-800 transition-colors',
+                  showEmbedInput
+                    ? 'text-factory-400'
+                    : 'text-surface-500 hover:text-factory-400',
+                )}
                 onClick={() => setShowEmbedInput(!showEmbedInput)}
                 title="Add link"
+                aria-label="Add link"
               >
                 <Link2 className="w-5 h-5" />
               </button>
               <button
                 type="button"
-                className="p-2 rounded-lg hover:bg-factory-800 text-factory-500 hover:text-accent-400 transition-colors opacity-50 cursor-not-allowed"
+                className="p-2 rounded-lg text-surface-500 opacity-50 cursor-not-allowed"
                 title="Add image (coming soon)"
                 disabled
+                aria-label="Add image (coming soon)"
               >
                 <Image className="w-5 h-5" />
               </button>
               <button
                 type="button"
-                className="p-2 rounded-lg hover:bg-factory-800 text-factory-500 hover:text-accent-400 transition-colors opacity-50 cursor-not-allowed"
+                className="p-2 rounded-lg text-surface-500 opacity-50 cursor-not-allowed"
                 title="Mention user (coming soon)"
                 disabled
+                aria-label="Mention user (coming soon)"
               >
                 <AtSign className="w-5 h-5" />
               </button>
@@ -206,13 +228,15 @@ export function CastComposer({
             <div className="flex items-center gap-3">
               {/* Character count */}
               <span
-                className={`text-sm ${
+                className={clsx(
+                  'text-sm',
                   isOverLimit
-                    ? 'text-red-400'
+                    ? 'text-error-400'
                     : remainingChars < 50
-                      ? 'text-amber-400'
-                      : 'text-factory-500'
-                }`}
+                      ? 'text-warning-400'
+                      : 'text-surface-500',
+                )}
+                title={`${remainingChars} characters remaining`}
               >
                 {remainingChars}
               </span>
@@ -225,9 +249,12 @@ export function CastComposer({
                 disabled={!canSubmit || publishMutation.isPending}
               >
                 {publishMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2
+                    className="w-4 h-4 animate-spin"
+                    aria-hidden="true"
+                  />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Send className="w-4 h-4" aria-hidden="true" />
                 )}
                 <span className="hidden sm:inline">
                   {replyTo ? 'Reply' : 'Cast'}

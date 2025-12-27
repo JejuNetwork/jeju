@@ -51,9 +51,7 @@ x-testnet-env: &testnet-env
 services:
   # Local Development (Simulated TEE)
   oauth3-agent-local:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: ghcr.io/jeju-network/oauth3-agent:latest
     profiles: [local]
     environment:
       OAUTH3_NODE_ID: oauth3-local-1
@@ -75,9 +73,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   mpc-coordinator:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.mpc
+    image: ghcr.io/jeju-network/oauth3-mpc:latest
     profiles: [local]
     environment:
       MPC_NODE_ID: mpc-local-1

@@ -14,6 +14,7 @@ import type {
   AgentAction,
   AgentContext,
   AgentDefinition,
+  AgentRole,
   AgentTrigger,
   CrucibleConfig,
   ExecutionCost,
@@ -704,22 +705,22 @@ export class ExecutorSDK {
 
       case 'JOIN_ROOM':
         if (action.params?.roomId) {
-          const roomId = BigInt(String(action.params.roomId))
-          const role = String(action.params.role ?? 'participant') as
-            | 'participant'
-            | 'moderator'
-            | 'red_team'
-            | 'blue_team'
-            | 'observer'
-          await this.roomSdk.joinRoom(roomId, agentId, role)
+          const role = (action.params.role as AgentRole) ?? 'participant'
+          await this.roomSdk.joinRoom(
+            BigInt(String(action.params.roomId)),
+            agentId,
+            role,
+          )
           return true
         }
         return false
 
       case 'LEAVE_ROOM':
         if (action.params?.roomId) {
-          const roomId = BigInt(String(action.params.roomId))
-          await this.roomSdk.leaveRoom(roomId, agentId)
+          await this.roomSdk.leaveRoom(
+            BigInt(String(action.params.roomId)),
+            agentId,
+          )
           return true
         }
         return false

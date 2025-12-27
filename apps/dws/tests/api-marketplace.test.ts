@@ -2,13 +2,13 @@
  * API Marketplace Tests
  *
  * Comprehensive test suite for the decentralized API marketplace
- * Note: Some tests require CovenantSQL. They will be skipped when CQL is not available.
+ * Note: Some tests require EQLite. They will be skipped when EQLite is not available.
  */
 
 import { describe, expect, test } from 'bun:test'
 
-// Check if CQL is available
-const CQL_AVAILABLE = !!process.env.CQL_BLOCK_PRODUCER_ENDPOINT
+// Check if EQLite is available
+const EQLITE_AVAILABLE = !!process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
 
 import type { Address } from 'viem'
 
@@ -121,9 +121,9 @@ describe('Providers', () => {
   })
 })
 
-// Registry Tests (require CQL)
+// Registry Tests (require EQLite)
 
-describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
+describe.skipIf(!EQLITE_AVAILABLE)('Registry', () => {
   const testApiKey = 'sk-test-key-12345678901234567890'
 
   test('should create a listing', async () => {
@@ -220,9 +220,9 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   })
 })
 
-// Account Tests (require CQL)
+// Account Tests (require EQLite)
 
-describe.skipIf(!CQL_AVAILABLE)('Accounts', () => {
+describe.skipIf(!EQLITE_AVAILABLE)('Accounts', () => {
   // Use unique addresses per test run to avoid accumulation issues
   const testId = Date.now().toString(16).slice(-8)
 
@@ -639,7 +639,7 @@ describe('Access Control', () => {
   })
 })
 
-// Payment Tests (some require CQL)
+// Payment Tests (some require EQLite)
 
 describe('Payments', () => {
   test('should create 402 response', () => {
@@ -669,7 +669,7 @@ describe('Payments', () => {
     expect(proof?.amount).toBe(1000000000000000n)
   })
 
-  test.skipIf(!CQL_AVAILABLE)('should process deposit', async () => {
+  test.skipIf(!EQLITE_AVAILABLE)('should process deposit', async () => {
     const testId = Date.now().toString(16).slice(-8)
     const depositor = `0x${testId}222222222222222222222222222222` as Address
 
@@ -709,9 +709,9 @@ describe('Payments', () => {
   })
 })
 
-// Integration Tests (require CQL)
+// Integration Tests (require EQLite)
 
-describe.skipIf(!CQL_AVAILABLE)('Integration', () => {
+describe.skipIf(!EQLITE_AVAILABLE)('Integration', () => {
   test('should perform full listing creation flow', async () => {
     const seller = '0x3333333333333333333333333333333333333333' as Address
     const apiKey = 'sk-integration-test-key-123456789'

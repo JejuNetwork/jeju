@@ -1,16 +1,21 @@
 /**
  * Bazaar Development Server
  *
- * Simple Bun-based dev server - no shared package dependencies.
- * Builds frontend, serves static files, proxies API requests.
+ * Builds frontend with HMR, serves static files, proxies API requests.
+ * For full-stack dev with infrastructure, use: jeju dev
+ *
+ * Usage:
+ *   bun run dev                    # Frontend + API
+ *   bun run scripts/dev.ts         # Frontend only
  */
 
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import {
   CORE_PORTS,
   getCoreAppUrl,
-  getCQLBlockProducerUrl,
+  getEQLiteBlockProducerUrl,
   getIndexerGraphqlUrl,
   getRpcUrl,
 } from '@jejunetwork/config'
@@ -21,9 +26,7 @@ const API_PORT = CORE_PORTS.BAZAAR_API.get()
 const DWS_URL = getCoreAppUrl('DWS_API')
 const USE_DWS = process.env.USE_DWS === 'true'
 
-// Browser externals - packages that can't run in browser
 const EXTERNALS = [
-  // Node.js built-ins
   'bun:sqlite',
   'child_process',
   'http2',
@@ -56,7 +59,7 @@ async function buildFrontend(): Promise<void> {
     entrypoints: ['./web/client.tsx'],
     outdir: './dist/dev',
     target: 'browser',
-    splitting: false, // Disabled due to Bun duplicate export bug with secp256k1
+    splitting: false,
     minify: false,
     sourcemap: 'inline',
     external: EXTERNALS,
@@ -75,53 +78,28 @@ async function buildFrontend(): Promise<void> {
     },
     plugins: [
       {
-        name: 'browser-pino-stub',
+        name: 'browser-shims',
         setup(build) {
-          // Replace pino imports with a browser-safe stub
+          // Pino stub - use real file to avoid duplicate export issues
           build.onResolve({ filter: /^pino$/ }, () => ({
-            path: 'pino',
-            namespace: 'pino-stub',
-          }))
-          build.onLoad({ filter: /.*/, namespace: 'pino-stub' }, () => ({
-            contents: `
-              const noop = () => {};
-              const createChild = () => logger;
-              const logger = {
-                debug: console.debug.bind(console),
-                info: console.info.bind(console),
-                warn: console.warn.bind(console),
-                error: console.error.bind(console),
-                fatal: console.error.bind(console),
-                trace: console.trace.bind(console),
-                child: createChild,
-                level: 'info',
-                levels: { values: { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 } },
-              };
-              export default function pino() { return logger; }
-              export const levels = logger.levels;
-            `,
-            loader: 'js',
+            path: resolve(process.cwd(), './web/stubs/pino.ts'),
           }))
 
-          // Dedupe React - force all react imports to resolve to the same location
+          // Dedupe React
           const reactPath = require.resolve('react')
           const reactDomPath = require.resolve('react-dom')
-          const reactJsxPath = require.resolve('react/jsx-runtime')
-          const reactJsxDevPath = require.resolve('react/jsx-dev-runtime')
-
           build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
           build.onResolve({ filter: /^react-dom$/ }, () => ({
             path: reactDomPath,
           }))
           build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
-            path: reactJsxPath,
+            path: require.resolve('react/jsx-runtime'),
           }))
           build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
-            path: reactJsxDevPath,
+            path: require.resolve('react/jsx-dev-runtime'),
           }))
 
-          // Resolve workspace packages to source files
-          const { resolve } = require('node:path')
+          // Workspace packages
           build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
             path: resolve(process.cwd(), '../../packages/auth/src/index.ts'),
           }))
@@ -173,18 +151,17 @@ async function startApiServer(): Promise<void> {
     TEE_PLATFORM: 'local',
     TEE_REGION: 'local',
     RPC_URL: getRpcUrl('localnet'),
-    DWS_URL: DWS_URL,
+    DWS_URL,
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: getIndexerGraphqlUrl(),
-    COVENANTSQL_NODES: getCQLBlockProducerUrl(),
-    COVENANTSQL_DATABASE_ID:
-      process.env.COVENANTSQL_DATABASE_ID || 'dev-bazaar',
-    COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',
+    EQLITE_NODES: getEQLiteBlockProducerUrl(),
+    EQLITE_DATABASE_ID: process.env.EQLITE_DATABASE_ID || 'dev-bazaar',
+    EQLITE_PRIVATE_KEY: process.env.EQLITE_PRIVATE_KEY || '',
   })
 
-  app.listen(API_PORT, () => {
-    console.log(`[Bazaar] API: http://localhost:${API_PORT}`)
-  })
+  app.listen(API_PORT, () =>
+    console.log(`[Bazaar] API: http://localhost:${API_PORT}`),
+  )
 }
 
 async function startFrontendServer(): Promise<void> {
@@ -244,15 +221,12 @@ async function startFrontendServer(): Promise<void> {
       }
 
       // Serve public files
-      if (path !== '/' && !path.includes('.')) {
-        // SPA fallback
-      }
       const publicFile = Bun.file(`./public${path}`)
       if (path !== '/' && (await publicFile.exists())) {
         return new Response(publicFile)
       }
 
-      // Serve index.html (with Tailwind CDN for dev)
+      // Serve index.html (SPA fallback)
       return new Response(generateDevHtml(), {
         headers: { 'Content-Type': 'text/html' },
       })
@@ -286,10 +260,7 @@ function generateDevHtml(): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script>
-    // Process polyfill for browser
-    window.process = window.process || { env: { NODE_ENV: 'development' } };
-  </script>
+  <script>window.process = window.process || { env: { NODE_ENV: 'development' } };</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { darkMode: 'class' }

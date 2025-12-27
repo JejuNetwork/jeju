@@ -41,8 +41,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          CQL_BLOCK_PRODUCER_ENDPOINT: ${{ secrets.CQL_BLOCK_PRODUCER_ENDPOINT }}
-          LEADERBOARD_CQL_DATABASE_ID: ${{ secrets.LEADERBOARD_CQL_DATABASE_ID || 'leaderboard' }}
+          EQLITE_BLOCK_PRODUCER_ENDPOINT: ${{ secrets.EQLITE_BLOCK_PRODUCER_ENDPOINT }}
+          LEADERBOARD_EQLITE_DATABASE_ID: ${{ secrets.LEADERBOARD_EQLITE_DATABASE_ID || 'leaderboard' }}
         run: |
           COMMAND="${{ github.event.inputs.command || 'all' }}"
           DAYS="${{ github.event.inputs.days || '7' }}"

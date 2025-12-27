@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "covenantsql.fullname" . }}-config
+  name: {{ include "eqlite.fullname" . }}-config
   labels:
-    {{- include "covenantsql.labels" . | nindent 4 }}
+    {{- include "eqlite.labels" . | nindent 4 }}
 data:
   bp.yaml: |
     # Block Producer Configuration
@@ -12,7 +12,7 @@ data:
     # Network configuration
     ListenAddr: "0.0.0.0:{{ .Values.blockProducer.service.clientPort }}"
     RPCAddr: "0.0.0.0:{{ .Values.blockProducer.service.rpcPort }}"
-    KayakAddr: "0.0.0.0:{{ .Values.blockProducer.service.kayakPort }}"
+    BftRaftAddr: "0.0.0.0:{{ .Values.blockProducer.service.bftraftPort }}"
     HTTPAddr: "0.0.0.0:{{ .Values.blockProducer.service.httpPort }}"
 
     # Data directories
@@ -33,9 +33,9 @@ data:
       SyncWrites: true
       CompactionInterval: 300
 
-    # Consensus configuration (Kayak - BFT-Raft)
+    # Consensus configuration (BftRaft - BFT-Raft)
     Consensus:
-      Type: "kayak"
+      Type: "bftraft"
       HeartbeatInterval: {{ .Values.blockProducer.config.heartbeatInterval }}
       ElectionTimeout: {{ .Values.blockProducer.config.electionTimeout }}
       MaxInflightBlocks: 256
@@ -86,7 +86,7 @@ data:
     HTTPAddr: "0.0.0.0:{{ .Values.miner.service.httpPort }}"
 
     # Block Producer connection
-    BlockProducerAddr: "{{ include "covenantsql.fullname" . }}-bp:{{ .Values.blockProducer.service.clientPort }}"
+    BlockProducerAddr: "{{ include "eqlite.fullname" . }}-bp:{{ .Values.blockProducer.service.clientPort }}"
 
     # Data directories
     DataDir: "/data"

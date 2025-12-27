@@ -2,7 +2,7 @@
  * Autocrat API Server - Elysia
  *
  * AI-powered DAO governance with multi-tenant support.
- * Fully decentralized: CovenantSQL for state, DWS for compute, dstack for TEE.
+ * Fully decentralized: EQLite for state, DWS for compute, dstack for TEE.
  */
 
 import { cors } from '@elysiajs/cors'

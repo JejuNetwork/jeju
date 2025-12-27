@@ -18,6 +18,7 @@ import type { Address, Hex } from 'viem'
 import { WebSocket } from 'ws'
 import { z } from 'zod'
 import { PROXY_REGISTRY_ABI } from '../abis'
+import { config as nodeConfig } from '../config'
 import { getChain, type NodeClient } from '../contracts'
 
 /** Type for proxy node from contract */
@@ -233,7 +234,7 @@ export class ResidentialProxyService {
     }
 
     // Hash region code (e.g., "US" -> keccak256("US"))
-    const region = regionCode ?? process.env.PROXY_REGION ?? 'GLOBAL'
+    const region = regionCode ?? nodeConfig.proxyRegion ?? 'GLOBAL'
     const regionHash = `0x${bytesToHex(hash256(region))}` as Hex
 
     // Get endpoint URL for callback

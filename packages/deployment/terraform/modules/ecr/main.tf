@@ -65,7 +65,7 @@ variable "repositories" {
       image_tag_mutability = "MUTABLE"
     },
     {
-      name                 = "jeju/covenantsql"
+      name                 = "jeju/eqlite"
       scan_on_push         = true
       image_tag_mutability = "MUTABLE"
     },

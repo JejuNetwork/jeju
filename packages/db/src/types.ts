@@ -1,8 +1,8 @@
 /**
- * @jejunetwork/db - Database Types (CovenantSQL)
+ * @jejunetwork/db - Database Types (EQLite)
  *
  * Types for decentralized SQL database integration.
- * CovenantSQL provides:
+ * EQLite provides:
  * - BFT-Raft consensus for strong consistency
  * - Column-level ACL for privacy
  * - Multi-tenant database rental
@@ -13,17 +13,17 @@ import type { Address, Hex } from 'viem'
 
 // Consistency Types
 
-/** Query consistency level for CovenantSQL */
+/** Query consistency level for EQLite */
 export type ConsistencyLevel = 'strong' | 'eventual'
 
 // Connection Types
 
 /**
  * Minimal interface for code that only needs query and exec methods.
- * Use this instead of CQLClient when you don't need the full client API.
- * CQLClient, CQLConnection, and CQLTransaction all implement this interface.
+ * Use this instead of EQLiteClient when you don't need the full client API.
+ * EQLiteClient, EQLiteConnection, and EQLiteTransaction all implement this interface.
  */
-export interface CQLQueryable {
+export interface EQLiteQueryable {
   /** Execute a read query */
   query<T>(
     sql: string,
@@ -34,7 +34,7 @@ export interface CQLQueryable {
   exec(sql: string, params?: QueryParam[], dbId?: string): Promise<ExecResult>
 }
 
-export interface CQLConfig {
+export interface EQLiteConfig {
   /** Block producer endpoint */
   blockProducerEndpoint: string
   /** Miner node endpoint (for direct queries) */
@@ -57,18 +57,18 @@ export interface CQLConfig {
   debug?: boolean
 }
 
-export interface CQLConnectionPool {
+export interface EQLiteConnectionPool {
   /** Get a connection from the pool */
-  acquire(): Promise<CQLConnection>
+  acquire(): Promise<EQLiteConnection>
   /** Release a connection back to the pool */
-  release(connection: CQLConnection): void
+  release(connection: EQLiteConnection): void
   /** Close all connections */
   close(): Promise<void>
   /** Pool statistics */
   stats(): { active: number; idle: number; total: number }
 }
 
-export interface CQLConnection {
+export interface EQLiteConnection {
   /** Connection ID */
   id: string
   /** Database ID */
@@ -80,12 +80,12 @@ export interface CQLConnection {
   /** Execute a write query */
   exec(sql: string, params?: QueryParam[]): Promise<ExecResult>
   /** Start a transaction */
-  beginTransaction(): Promise<CQLTransaction>
+  beginTransaction(): Promise<EQLiteTransaction>
   /** Close the connection */
   close(): Promise<void>
 }
 
-export interface CQLTransaction {
+export interface EQLiteTransaction {
   /** Transaction ID */
   id: string
   /** Execute query within transaction */
@@ -120,7 +120,7 @@ export interface ExecResult {
   rowsAffected: number
   /** Last insert ID (if applicable) */
   lastInsertId?: bigint
-  /** Transaction hash on CQL chain */
+  /** Transaction hash on EQLite chain */
   txHash: Hex
   /** Block height of transaction */
   blockHeight: number
@@ -130,13 +130,13 @@ export interface ExecResult {
 
 export interface ColumnMeta {
   name: string
-  type: CQLDataType
+  type: EQLiteDataType
   nullable: boolean
   primaryKey: boolean
   autoIncrement: boolean
 }
 
-export type CQLDataType =
+export type EQLiteDataType =
   | 'INTEGER'
   | 'BIGINT'
   | 'REAL'
@@ -343,19 +343,19 @@ export interface RentalEventDetails {
   months?: number
 }
 
-export type CQLEventDetails =
+export type EQLiteEventDetails =
   | { type: 'query'; data: QueryEventDetails }
   | { type: 'exec'; data: ExecEventDetails }
   | { type: 'migration'; data: MigrationEventDetails }
   | { type: 'acl'; data: ACLEventDetails }
   | { type: 'rental'; data: RentalEventDetails }
 
-export interface CQLEvent {
+export interface EQLiteEvent {
   type: 'query' | 'exec' | 'migration' | 'acl' | 'rental'
   databaseId: string
   timestamp: number
   actor?: Address
-  details: CQLEventDetails
+  details: EQLiteEventDetails
   txHash?: Hex
 }
 

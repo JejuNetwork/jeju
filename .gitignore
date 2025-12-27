@@ -135,8 +135,8 @@ test-ledger/
 # SP1 circuit build artifacts (actual circuits in packages/bridge/circuits/)
 /circuits/
 
-# CQL local development data
-.cql-data/
+# EQLite local development data
+.eqlite-data/
 
 # Tauri build artifacts
 **/src-tauri/gen/

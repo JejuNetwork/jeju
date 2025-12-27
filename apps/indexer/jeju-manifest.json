@@ -96,7 +96,7 @@
     },
     "robustness": {
       "frontendStorage": "ipfs",
-      "dataStorage": "cql",
+      "dataStorage": "eqlite",
       "nodeDiscovery": "on-chain",
       "coordination": "p2p",
       "multiOrigin": true,

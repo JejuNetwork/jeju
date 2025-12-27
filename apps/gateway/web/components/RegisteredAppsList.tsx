@@ -305,7 +305,7 @@ export default function RegisteredAppsList({
           />
           <input
             className="input"
-            type="text"
+            type="search"
             placeholder="Search agents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -430,12 +430,12 @@ export default function RegisteredAppsList({
               color: 'var(--text-primary)',
             }}
           >
-            No Agents Found
+            {searchQuery ? 'No Matches' : 'Be the First'}
           </h3>
           <p>
             {searchQuery
-              ? `No results for "${searchQuery}"`
-              : 'No agents registered yet'}
+              ? `No agents match "${searchQuery}" — try a different search or check back later.`
+              : 'No agents registered yet. Register yours and lead the way.'}
           </p>
         </div>
       )}

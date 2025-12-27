@@ -1,9 +1,9 @@
 /**
  * OAuth3 State Service - Database-backed storage for sessions, clients, and auth codes
- * REQUIRES CQL - no in-memory fallback
+ * Set USE_MEMORY_STATE=true to use in-memory storage for development/testing
  */
 
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import type { EQLiteClient } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import type {
   AuthProvider,
@@ -11,7 +11,8 @@ import type {
   RegisteredClient,
 } from '../../lib/types'
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'oauth3'
+const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
+const USE_MEMORY_STATE = process.env.USE_MEMORY_STATE === 'true'
 
 // Simple in-memory cache for performance (not for persistence)
 interface SimpleCacheClient {
@@ -43,31 +44,97 @@ function createSimpleCacheClient(): SimpleCacheClient {
   }
 }
 
-let cqlClient: CQLClient | null = null
+let eqliteClient: EQLiteClient | null = null
 let cacheClient: SimpleCacheClient | null = null
 let initialized = false
+let memoryMode = USE_MEMORY_STATE
 
-export async function getCQLClient(): Promise<CQLClient> {
-  if (!cqlClient) {
-    cqlClient = getCQL({
-      databaseId: CQL_DATABASE_ID,
+// In-memory state stores (used when EQLite is not available)
+const memoryStores = {
+  sessions: new Map<string, AuthSession>(),
+  clients: new Map<string, RegisteredClient>(),
+  authCodes: new Map<
+    string,
+    {
+      clientId: string
+      redirectUri: string
+      userId: string
+      scope: string[]
+      expiresAt: number
+      codeChallenge?: string
+      codeChallengeMethod?: string
+    }
+  >(),
+  refreshTokens: new Map<
+    string,
+    {
+      sessionId: string
+      clientId: string
+      userId: string
+      expiresAt: number
+      revoked: boolean
+    }
+  >(),
+  oauthStates: new Map<
+    string,
+    {
+      nonce: string
+      provider: string
+      clientId: string
+      redirectUri: string
+      codeVerifier?: string
+      expiresAt: number
+    }
+  >(),
+  clientReports: new Map<
+    string,
+    {
+      reportId: string
+      clientId: string
+      reporterAddress: string
+      category: string
+      evidence: string
+      status: 'pending' | 'resolved' | 'dismissed'
+      createdAt: number
+      resolvedAt?: number
+      resolution?: string
+    }
+  >(),
+}
+
+async function getEQLiteClient(): Promise<EQLiteClient | null> {
+  if (memoryMode) {
+    return null
+  }
+
+  if (!eqliteClient) {
+    const { getEQLite } = await import('@jejunetwork/db')
+    eqliteClient = getEQLite({
+      databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
 
-    const healthy = await cqlClient.isHealthy()
+    const healthy = await eqliteClient.isHealthy()
     if (!healthy) {
-      throw new Error(
-        'OAuth3 requires CovenantSQL for state persistence.\n' +
-          'Start CQL with: docker compose up -d cql\n' +
-          'Or run: bun run start (which starts all dependencies)',
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'OAuth3 requires EQLite for state persistence.\n' +
+            'Start EQLite with: docker compose up -d eqlite\n' +
+            'Or run: bun run start (which starts all dependencies)',
+        )
+      }
+      console.warn(
+        '[OAuth3] EQLite not available, falling back to in-memory storage',
       )
+      memoryMode = true
+      return null
     }
 
     await ensureTablesExist()
   }
 
-  return cqlClient
+  return eqliteClient
 }
 
 function getCache(): SimpleCacheClient {
@@ -80,8 +147,12 @@ function getCache(): SimpleCacheClient {
 async function ensureTablesExist(): Promise<void> {
   if (initialized) return
 
-  const client = await getCQLClient()
-  if (!client) return
+  const client = await getEQLiteClient()
+  if (!client) {
+    initialized = true
+    console.log('[OAuth3] Using in-memory storage')
+    return
+  }
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS sessions (
@@ -93,15 +164,12 @@ async function ensureTablesExist(): Promise<void> {
       email TEXT,
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL,
-      metadata TEXT NOT NULL DEFAULT '{}',
-      encrypted_pii TEXT,
-      ephemeral_key_id TEXT
+      metadata TEXT NOT NULL DEFAULT '{}'
     )`,
 
     `CREATE TABLE IF NOT EXISTS clients (
       client_id TEXT PRIMARY KEY,
       client_secret TEXT,
-      client_secret_hash TEXT,
       name TEXT NOT NULL,
       redirect_uris TEXT NOT NULL,
       allowed_providers TEXT NOT NULL,
@@ -165,124 +233,76 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const sql of tables) {
-    await client.exec(sql, [], CQL_DATABASE_ID)
+    await client.exec(sql, [], EQLITE_DATABASE_ID)
   }
 
   initialized = true
   console.log('[OAuth3] Database initialized')
 }
 
-// Session State with encrypted PII
+// Session State
 export const sessionState = {
   async save(session: AuthSession): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const cache = getCache()
 
-    // Encrypt PII (address, email, fid) before storage
-    let encryptedPII: string | null = null
-    if (session.address || session.email || session.fid) {
-      const { encryptSessionData } = await import('./kms')
-      const encrypted = await encryptSessionData({
-        address: session.address,
-        email: session.email,
-        fid: session.fid,
-      })
-      encryptedPII = JSON.stringify(encrypted)
+    if (!client) {
+      memoryStores.sessions.set(session.sessionId, session)
+    } else {
+      await client.exec(
+        `INSERT INTO sessions (session_id, user_id, provider, address, fid, email, created_at, expires_at, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(session_id) DO UPDATE SET
+         expires_at = excluded.expires_at, metadata = excluded.metadata`,
+        [
+          session.sessionId,
+          session.userId,
+          session.provider,
+          session.address ?? null,
+          session.fid ?? null,
+          session.email ?? null,
+          session.createdAt,
+          session.expiresAt,
+          JSON.stringify(session.metadata),
+        ],
+        EQLITE_DATABASE_ID,
+      )
     }
 
-    await client.exec(
-      `INSERT INTO sessions (session_id, user_id, provider, address, fid, email, created_at, expires_at, metadata, encrypted_pii)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(session_id) DO UPDATE SET
-       expires_at = excluded.expires_at, metadata = excluded.metadata, encrypted_pii = excluded.encrypted_pii`,
-      [
-        session.sessionId,
-        session.userId,
-        session.provider,
-        null, // Don't store plaintext address
-        null, // Don't store plaintext fid
-        null, // Don't store plaintext email
-        session.createdAt,
-        session.expiresAt,
-        JSON.stringify(session.metadata),
-        encryptedPII,
-      ],
-      CQL_DATABASE_ID,
-    )
-
-    // Cache with encrypted data only
-    const cachedSession = {
-      ...session,
-      address: undefined,
-      email: undefined,
-      fid: undefined,
-    }
     await cache.set(
       `session:${session.sessionId}`,
-      JSON.stringify(cachedSession),
+      JSON.stringify(session),
       Math.floor((session.expiresAt - Date.now()) / 1000),
     )
   },
 
-  async get(
-    sessionId: string,
-    options?: { decryptPII?: boolean },
-  ): Promise<AuthSession | null> {
+  async get(sessionId: string): Promise<AuthSession | null> {
     const cache = getCache()
-
-    // For cached sessions, we don't have PII (it's encrypted in DB)
-    if (!options?.decryptPII) {
-      const cached = await cache.get(`session:${sessionId}`)
-      if (cached) {
-        return JSON.parse(cached) as AuthSession
-      }
+    const cached = await cache.get(`session:${sessionId}`)
+    if (cached) {
+      return JSON.parse(cached) as AuthSession
     }
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
+
+    if (!client) {
+      const session = memoryStores.sessions.get(sessionId)
+      if (!session || session.expiresAt <= Date.now()) return null
+      return session
+    }
+
     const result = await client.query<SessionRow>(
       'SELECT * FROM sessions WHERE session_id = ? AND expires_at > ?',
       [sessionId, Date.now()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
 
-    const row = result.rows[0]
-    let session = rowToSession(row)
-
-    // Decrypt PII if requested and available
-    if (options?.decryptPII && row.encrypted_pii) {
-      try {
-        const { decryptSessionData } = await import('./kms')
-        const encrypted = JSON.parse(row.encrypted_pii) as {
-          ciphertext: string
-          iv: string
-          keyId: string
-          encryptedAt: number
-        }
-        const decrypted = await decryptSessionData(encrypted)
-        session = {
-          ...session,
-          address: decrypted.address as `0x${string}` | undefined,
-          email: decrypted.email as string | undefined,
-          fid: decrypted.fid as number | undefined,
-        }
-      } catch (err) {
-        console.error('[SessionState] Failed to decrypt PII:', err)
-        // Continue without PII rather than failing
-      }
-    }
-
-    // Cache without PII
-    const cachedSession = {
-      ...session,
-      address: undefined,
-      email: undefined,
-      fid: undefined,
-    }
+    const session = rowToSession(result.rows[0])
     await cache.set(
       `session:${sessionId}`,
-      JSON.stringify(cachedSession),
+      JSON.stringify(session),
       Math.floor((session.expiresAt - Date.now()) / 1000),
     )
 
@@ -290,38 +310,57 @@ export const sessionState = {
   },
 
   async delete(sessionId: string): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const cache = getCache()
 
-    await client.exec(
-      'DELETE FROM sessions WHERE session_id = ?',
-      [sessionId],
-      CQL_DATABASE_ID,
-    )
+    if (!client) {
+      memoryStores.sessions.delete(sessionId)
+    } else {
+      await client.exec(
+        'DELETE FROM sessions WHERE session_id = ?',
+        [sessionId],
+        EQLITE_DATABASE_ID,
+      )
+    }
 
     await cache.delete(`session:${sessionId}`)
   },
 
   async findByUserId(userId: string): Promise<AuthSession[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
+
+    if (!client) {
+      const now = Date.now()
+      return Array.from(memoryStores.sessions.values()).filter(
+        (s) => s.userId === userId && s.expiresAt > now,
+      )
+    }
+
     const result = await client.query<SessionRow>(
       'SELECT * FROM sessions WHERE user_id = ? AND expires_at > ?',
       [userId, Date.now()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     return result.rows.map(rowToSession)
   },
 
   async updateExpiry(sessionId: string, newExpiry: number): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const cache = getCache()
 
-    await client.exec(
-      'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
-      [newExpiry, sessionId],
-      CQL_DATABASE_ID,
-    )
+    if (!client) {
+      const session = memoryStores.sessions.get(sessionId)
+      if (session) {
+        session.expiresAt = newExpiry
+      }
+    } else {
+      await client.exec(
+        'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+        [newExpiry, sessionId],
+        EQLITE_DATABASE_ID,
+      )
+    }
 
     await cache.delete(`session:${sessionId}`)
   },
@@ -330,45 +369,37 @@ export const sessionState = {
 // Client State
 export const clientState = {
   async save(client: RegisteredClient): Promise<void> {
-    const db = await getCQLClient()
+    const db = await getEQLiteClient()
     const cache = getCache()
 
-    await db.exec(
-      `INSERT INTO clients (client_id, client_secret, client_secret_hash, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(client_id) DO UPDATE SET
-       name = excluded.name, redirect_uris = excluded.redirect_uris,
-       allowed_providers = excluded.allowed_providers, active = excluded.active,
-       stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation,
-       client_secret_hash = excluded.client_secret_hash`,
-      [
-        client.clientId,
-        client.clientSecret ?? null, // Legacy support
-        client.clientSecretHash ? JSON.stringify(client.clientSecretHash) : null,
-        client.name,
-        JSON.stringify(client.redirectUris),
-        JSON.stringify(client.allowedProviders),
-        client.owner,
-        client.createdAt,
-        client.active ? 1 : 0,
-        client.stake ? JSON.stringify(client.stake) : null,
-        client.reputation ? JSON.stringify(client.reputation) : null,
-        client.moderation ? JSON.stringify(client.moderation) : null,
-      ],
-      CQL_DATABASE_ID,
-    )
-
-    // Don't cache the secret hash
-    const cachedClient = {
-      ...client,
-      clientSecret: undefined,
-      clientSecretHash: undefined,
+    if (!db) {
+      memoryStores.clients.set(client.clientId, client)
+    } else {
+      await db.exec(
+        `INSERT INTO clients (client_id, client_secret, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(client_id) DO UPDATE SET
+         name = excluded.name, redirect_uris = excluded.redirect_uris,
+         allowed_providers = excluded.allowed_providers, active = excluded.active,
+         stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation`,
+        [
+          client.clientId,
+          client.clientSecret ?? null,
+          client.name,
+          JSON.stringify(client.redirectUris),
+          JSON.stringify(client.allowedProviders),
+          client.owner,
+          client.createdAt,
+          client.active ? 1 : 0,
+          client.stake ? JSON.stringify(client.stake) : null,
+          client.reputation ? JSON.stringify(client.reputation) : null,
+          client.moderation ? JSON.stringify(client.moderation) : null,
+        ],
+        EQLITE_DATABASE_ID,
+      )
     }
-    await cache.set(
-      `client:${client.clientId}`,
-      JSON.stringify(cachedClient),
-      3600,
-    )
+
+    await cache.set(`client:${client.clientId}`, JSON.stringify(client), 3600)
   },
 
   async get(clientId: string): Promise<RegisteredClient | null> {
@@ -378,11 +409,16 @@ export const clientState = {
       return JSON.parse(cached) as RegisteredClient
     }
 
-    const db = await getCQLClient()
+    const db = await getEQLiteClient()
+
+    if (!db) {
+      return memoryStores.clients.get(clientId) ?? null
+    }
+
     const result = await db.query<ClientRow>(
       'SELECT * FROM clients WHERE client_id = ?',
       [clientId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -394,14 +430,18 @@ export const clientState = {
   },
 
   async delete(clientId: string): Promise<void> {
-    const db = await getCQLClient()
+    const db = await getEQLiteClient()
     const cache = getCache()
 
-    await db.exec(
-      'DELETE FROM clients WHERE client_id = ?',
-      [clientId],
-      CQL_DATABASE_ID,
-    )
+    if (!db) {
+      memoryStores.clients.delete(clientId)
+    } else {
+      await db.exec(
+        'DELETE FROM clients WHERE client_id = ?',
+        [clientId],
+        EQLITE_DATABASE_ID,
+      )
+    }
 
     await cache.delete(`client:${clientId}`)
   },
@@ -421,23 +461,27 @@ export const authCodeState = {
       codeChallengeMethod?: string
     },
   ): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
-    await client.exec(
-      `INSERT INTO auth_codes (code, client_id, redirect_uri, user_id, scope, expires_at, code_challenge, code_challenge_method)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        code,
-        data.clientId,
-        data.redirectUri,
-        data.userId,
-        JSON.stringify(data.scope),
-        data.expiresAt,
-        data.codeChallenge ?? null,
-        data.codeChallengeMethod ?? null,
-      ],
-      CQL_DATABASE_ID,
-    )
+    if (!client) {
+      memoryStores.authCodes.set(code, data)
+    } else {
+      await client.exec(
+        `INSERT INTO auth_codes (code, client_id, redirect_uri, user_id, scope, expires_at, code_challenge, code_challenge_method)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          code,
+          data.clientId,
+          data.redirectUri,
+          data.userId,
+          JSON.stringify(data.scope),
+          data.expiresAt,
+          data.codeChallenge ?? null,
+          data.codeChallengeMethod ?? null,
+        ],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 
   async get(code: string): Promise<{
@@ -449,11 +493,18 @@ export const authCodeState = {
     codeChallenge?: string
     codeChallengeMethod?: string
   } | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
+
+    if (!client) {
+      const data = memoryStores.authCodes.get(code)
+      if (!data || data.expiresAt <= Date.now()) return null
+      return data
+    }
+
     const result = await client.query<AuthCodeRow>(
       'SELECT * FROM auth_codes WHERE code = ? AND expires_at > ?',
       [code, Date.now()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -471,12 +522,16 @@ export const authCodeState = {
   },
 
   async delete(code: string): Promise<void> {
-    const client = await getCQLClient()
-    await client.exec(
-      'DELETE FROM auth_codes WHERE code = ?',
-      [code],
-      CQL_DATABASE_ID,
-    )
+    const client = await getEQLiteClient()
+    if (!client) {
+      memoryStores.authCodes.delete(code)
+    } else {
+      await client.exec(
+        'DELETE FROM auth_codes WHERE code = ?',
+        [code],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 }
 
@@ -491,21 +546,25 @@ export const refreshTokenState = {
       expiresAt: number
     },
   ): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
-    await client.exec(
-      `INSERT INTO refresh_tokens (token, session_id, client_id, user_id, created_at, expires_at, revoked)
-       VALUES (?, ?, ?, ?, ?, ?, 0)`,
-      [
-        token,
-        data.sessionId,
-        data.clientId,
-        data.userId,
-        Date.now(),
-        data.expiresAt,
-      ],
-      CQL_DATABASE_ID,
-    )
+    if (!client) {
+      memoryStores.refreshTokens.set(token, { ...data, revoked: false })
+    } else {
+      await client.exec(
+        `INSERT INTO refresh_tokens (token, session_id, client_id, user_id, created_at, expires_at, revoked)
+         VALUES (?, ?, ?, ?, ?, ?, 0)`,
+        [
+          token,
+          data.sessionId,
+          data.clientId,
+          data.userId,
+          Date.now(),
+          data.expiresAt,
+        ],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 
   async get(token: string): Promise<{
@@ -515,11 +574,16 @@ export const refreshTokenState = {
     expiresAt: number
     revoked: boolean
   } | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
+
+    if (!client) {
+      return memoryStores.refreshTokens.get(token) ?? null
+    }
+
     const result = await client.query<RefreshTokenRow>(
       'SELECT * FROM refresh_tokens WHERE token = ?',
       [token],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -535,21 +599,32 @@ export const refreshTokenState = {
   },
 
   async revoke(token: string): Promise<void> {
-    const client = await getCQLClient()
-    await client.exec(
-      'UPDATE refresh_tokens SET revoked = 1 WHERE token = ?',
-      [token],
-      CQL_DATABASE_ID,
-    )
+    const client = await getEQLiteClient()
+    if (!client) {
+      const data = memoryStores.refreshTokens.get(token)
+      if (data) data.revoked = true
+    } else {
+      await client.exec(
+        'UPDATE refresh_tokens SET revoked = 1 WHERE token = ?',
+        [token],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 
   async revokeAllForSession(sessionId: string): Promise<void> {
-    const client = await getCQLClient()
-    await client.exec(
-      'UPDATE refresh_tokens SET revoked = 1 WHERE session_id = ?',
-      [sessionId],
-      CQL_DATABASE_ID,
-    )
+    const client = await getEQLiteClient()
+    if (!client) {
+      for (const data of memoryStores.refreshTokens.values()) {
+        if (data.sessionId === sessionId) data.revoked = true
+      }
+    } else {
+      await client.exec(
+        'UPDATE refresh_tokens SET revoked = 1 WHERE session_id = ?',
+        [sessionId],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 }
 
@@ -566,23 +641,27 @@ export const oauthStateStore = {
       expiresAt: number
     },
   ): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
-    await client.exec(
-      `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        state,
-        data.nonce,
-        data.provider,
-        data.clientId,
-        data.redirectUri,
-        data.codeVerifier ?? null,
-        Date.now(),
-        data.expiresAt,
-      ],
-      CQL_DATABASE_ID,
-    )
+    if (!client) {
+      memoryStores.oauthStates.set(state, data)
+    } else {
+      await client.exec(
+        `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          state,
+          data.nonce,
+          data.provider,
+          data.clientId,
+          data.redirectUri,
+          data.codeVerifier ?? null,
+          Date.now(),
+          data.expiresAt,
+        ],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 
   async get(state: string): Promise<{
@@ -592,11 +671,24 @@ export const oauthStateStore = {
     redirectUri: string
     codeVerifier?: string
   } | null> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
+
+    if (!client) {
+      const data = memoryStores.oauthStates.get(state)
+      if (!data || data.expiresAt <= Date.now()) return null
+      return {
+        nonce: data.nonce,
+        provider: data.provider,
+        clientId: data.clientId,
+        redirectUri: data.redirectUri,
+        codeVerifier: data.codeVerifier,
+      }
+    }
+
     const result = await client.query<OAuthStateRow>(
       'SELECT * FROM oauth_states WHERE state = ? AND expires_at > ?',
       [state, Date.now()],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -612,12 +704,16 @@ export const oauthStateStore = {
   },
 
   async delete(state: string): Promise<void> {
-    const client = await getCQLClient()
-    await client.exec(
-      'DELETE FROM oauth_states WHERE state = ?',
-      [state],
-      CQL_DATABASE_ID,
-    )
+    const client = await getEQLiteClient()
+    if (!client) {
+      memoryStores.oauthStates.delete(state)
+    } else {
+      await client.exec(
+        'DELETE FROM oauth_states WHERE state = ?',
+        [state],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 }
 
@@ -662,13 +758,11 @@ interface SessionRow {
   created_at: number
   expires_at: number
   metadata: string
-  encrypted_pii: string | null
 }
 
 interface ClientRow {
   client_id: string
   client_secret: string | null
-  client_secret_hash: string | null
   name: string
   redirect_uris: string
   allowed_providers: string
@@ -730,10 +824,7 @@ function rowToSession(row: SessionRow): AuthSession {
 function rowToClient(row: ClientRow): RegisteredClient {
   return {
     clientId: row.client_id,
-    clientSecret: row.client_secret as Hex | undefined, // Legacy
-    clientSecretHash: row.client_secret_hash
-      ? (JSON.parse(row.client_secret_hash) as RegisteredClient['clientSecretHash'])
-      : undefined,
+    clientSecret: row.client_secret as Hex | undefined,
     name: row.name,
     redirectUris: JSON.parse(row.redirect_uris) as string[],
     allowedProviders: JSON.parse(row.allowed_providers) as AuthProvider[],
@@ -767,30 +858,39 @@ interface ClientReport {
 
 export const clientReportState = {
   async save(report: ClientReport): Promise<void> {
-    const db = await getCQLClient()
+    const db = await getEQLiteClient()
 
-    await db.exec(
-      `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(report_id) DO UPDATE SET
-       status = excluded.status, resolved_at = excluded.resolved_at, resolution = excluded.resolution`,
-      [
-        report.reportId,
-        report.clientId,
-        report.reporterAddress,
-        report.category,
-        report.evidence,
-        report.status,
-        report.createdAt,
-        report.resolvedAt ?? null,
-        report.resolution ?? null,
-      ],
-      CQL_DATABASE_ID,
-    )
+    if (!db) {
+      memoryStores.clientReports.set(report.reportId, report)
+    } else {
+      await db.exec(
+        `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(report_id) DO UPDATE SET
+         status = excluded.status, resolved_at = excluded.resolved_at, resolution = excluded.resolution`,
+        [
+          report.reportId,
+          report.clientId,
+          report.reporterAddress,
+          report.category,
+          report.evidence,
+          report.status,
+          report.createdAt,
+          report.resolvedAt ?? null,
+          report.resolution ?? null,
+        ],
+        EQLITE_DATABASE_ID,
+      )
+    }
   },
 
   async get(reportId: string): Promise<ClientReport | null> {
-    const db = await getCQLClient()
+    const db = await getEQLiteClient()
+
+    if (!db) {
+      return memoryStores.clientReports.get(reportId) ?? null
+    }
+
     const result = await db.query<{
       report_id: string
       client_id: string
@@ -804,7 +904,7 @@ export const clientReportState = {
     }>(
       'SELECT * FROM client_reports WHERE report_id = ?',
       [reportId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -824,7 +924,14 @@ export const clientReportState = {
   },
 
   async getByClient(clientId: string): Promise<ClientReport[]> {
-    const db = await getCQLClient()
+    const db = await getEQLiteClient()
+
+    if (!db) {
+      return Array.from(memoryStores.clientReports.values())
+        .filter((r) => r.clientId === clientId)
+        .sort((a, b) => b.createdAt - a.createdAt)
+    }
+
     const result = await db.query<{
       report_id: string
       client_id: string
@@ -838,7 +945,7 @@ export const clientReportState = {
     }>(
       'SELECT * FROM client_reports WHERE client_id = ? ORDER BY created_at DESC',
       [clientId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     return result.rows.map((row) => ({
@@ -859,13 +966,22 @@ export const clientReportState = {
     reporterAddress: string,
     withinMs: number = 24 * 60 * 60 * 1000,
   ): Promise<boolean> {
-    const db = await getCQLClient()
+    const db = await getEQLiteClient()
     const cutoff = Date.now() - withinMs
+
+    if (!db) {
+      return Array.from(memoryStores.clientReports.values()).some(
+        (r) =>
+          r.clientId === clientId &&
+          r.reporterAddress.toLowerCase() === reporterAddress.toLowerCase() &&
+          r.createdAt > cutoff,
+      )
+    }
 
     const result = await db.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM client_reports WHERE client_id = ? AND reporter_address = ? AND created_at > ?',
       [clientId, reporterAddress.toLowerCase(), cutoff],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     return (result.rows[0]?.count ?? 0) > 0
@@ -873,10 +989,8 @@ export const clientReportState = {
 }
 
 /**
- * Verify client secret using hash comparison.
- * Supports both new hashed secrets and legacy plaintext (for migration).
- *
- * SECURITY: Uses constant-time comparison via KMS service.
+ * Verify client secret using constant-time comparison to prevent timing attacks.
+ * Returns true if the client exists, is active, and the secret matches.
  */
 export async function verifyClientSecret(
   clientId: string,
@@ -893,7 +1007,7 @@ export async function verifyClientSecret(
   }
 
   // Public clients (no secret) - allow for PKCE flows
-  if (!client.clientSecretHash && !client.clientSecret) {
+  if (!client.clientSecret) {
     return { valid: true }
   }
 
@@ -902,44 +1016,22 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_secret_required' }
   }
 
-  // Prefer hashed secret verification
-  if (client.clientSecretHash) {
-    // Use KMS for secure hash verification
-    const { verifyClientSecretHash } = await import('./kms')
-    const isValid = await verifyClientSecretHash(
-      clientSecret,
-      client.clientSecretHash,
-    )
-    if (!isValid) {
-      return { valid: false, error: 'invalid_client_secret' }
-    }
-    return { valid: true }
+  // Constant-time comparison to prevent timing attacks
+  const storedSecret = client.clientSecret
+  if (storedSecret.length !== clientSecret.length) {
+    return { valid: false, error: 'invalid_client_secret' }
   }
 
-  // Legacy plaintext comparison (for migration only)
-  // TODO: Remove after all clients migrated
-  if (client.clientSecret) {
-    console.warn(
-      `[State] Client ${clientId} using legacy plaintext secret. Run migration.`,
-    )
-    const storedSecret = client.clientSecret
-    if (storedSecret.length !== clientSecret.length) {
-      return { valid: false, error: 'invalid_client_secret' }
-    }
-
-    let result = 0
-    for (let i = 0; i < storedSecret.length; i++) {
-      result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
-    }
-
-    if (result !== 0) {
-      return { valid: false, error: 'invalid_client_secret' }
-    }
-
-    return { valid: true }
+  let result = 0
+  for (let i = 0; i < storedSecret.length; i++) {
+    result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
   }
 
-  return { valid: false, error: 'invalid_client_secret' }
+  if (result !== 0) {
+    return { valid: false, error: 'invalid_client_secret' }
+  }
+
+  return { valid: true }
 }
 
-export { getCache }
+export { getEQLiteClient, getCache }

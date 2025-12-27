@@ -45,69 +45,51 @@ const PROPOSAL_TYPE_CONFIG: Record<
   general: {
     label: 'General',
     icon: FileText,
-    color: 'text-slate-400 bg-slate-500/20',
-    description: 'General governance proposal',
+    color: 'text-[var(--text-secondary)] bg-[var(--bg-secondary)]',
+    description: 'Governance proposal',
   },
   funding: {
     label: 'Funding',
     icon: DollarSign,
-    color: 'text-green-400 bg-green-500/20',
-    description: 'Request treasury funding',
+    color: 'text-[var(--color-success)] bg-[var(--color-success)]/20',
+    description: 'Treasury allocation request',
   },
   code: {
     label: 'Code Change',
     icon: GitBranch,
-    color: 'text-violet-400 bg-violet-500/20',
-    description: 'Technical implementation',
+    color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/20',
+    description: 'Contract or codebase update',
   },
   moderation: {
     label: 'Moderation',
     icon: Shield,
-    color: 'text-orange-400 bg-orange-500/20',
-    description: 'Content or user moderation',
+    color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/20',
+    description: 'Content or member action',
   },
   bug_report: {
     label: 'Bug Report',
     icon: FileCode2,
-    color: 'text-red-400 bg-red-500/20',
-    description: 'Security or bug disclosure',
+    color: 'text-[var(--color-error)] bg-[var(--color-error)]/20',
+    description: 'Security disclosure',
   },
 }
 
 const STATUS_CONFIG: Record<ProposalStatus, { label: string; color: string }> =
   {
-    draft: { label: 'Draft', color: 'text-slate-400 bg-slate-500/20' },
-    pending_quality: {
-      label: 'Pending Quality',
-      color: 'text-yellow-400 bg-yellow-500/20',
-    },
-    submitted: { label: 'Submitted', color: 'text-blue-400 bg-blue-500/20' },
-    board_review: {
-      label: 'Board Review',
-      color: 'text-purple-400 bg-purple-500/20',
-    },
-    research: { label: 'Research', color: 'text-indigo-400 bg-indigo-500/20' },
-    board_final: {
-      label: 'Final Review',
-      color: 'text-cyan-400 bg-cyan-500/20',
-    },
-    ceo_queue: {
-      label: 'CEO Queue',
-      color: 'text-orange-400 bg-orange-500/20',
-    },
-    approved: { label: 'Approved', color: 'text-green-400 bg-green-500/20' },
-    executing: { label: 'Executing', color: 'text-teal-400 bg-teal-500/20' },
-    completed: {
-      label: 'Completed',
-      color: 'text-emerald-400 bg-emerald-500/20',
-    },
-    rejected: { label: 'Rejected', color: 'text-red-400 bg-red-500/20' },
-    vetoed: { label: 'Vetoed', color: 'text-red-400 bg-red-500/20' },
-    executed: {
-      label: 'Executed',
-      color: 'text-emerald-400 bg-emerald-500/20',
-    },
-    cancelled: { label: 'Cancelled', color: 'text-slate-400 bg-slate-500/20' },
+    draft: { label: 'Draft', color: 'badge-primary' },
+    pending_quality: { label: 'Pending Quality', color: 'badge-warning' },
+    submitted: { label: 'Submitted', color: 'badge-primary' },
+    board_review: { label: 'Board Review', color: 'badge-primary' },
+    research: { label: 'Research', color: 'badge-primary' },
+    board_final: { label: 'Final Review', color: 'badge-primary' },
+    ceo_queue: { label: 'CEO Queue', color: 'badge-warning' },
+    approved: { label: 'Approved', color: 'badge-success' },
+    executing: { label: 'Executing', color: 'badge-primary' },
+    completed: { label: 'Completed', color: 'badge-success' },
+    rejected: { label: 'Rejected', color: 'badge-error' },
+    vetoed: { label: 'Vetoed', color: 'badge-error' },
+    executed: { label: 'Executed', color: 'badge-success' },
+    cancelled: { label: 'Cancelled', color: 'badge-primary' },
   }
 
 const SEVERITY_CONFIG: Record<
@@ -116,27 +98,32 @@ const SEVERITY_CONFIG: Record<
 > = {
   critical: {
     label: 'Critical',
-    color: 'text-red-400 bg-red-500/20 border-red-500/50',
+    color:
+      'text-[var(--color-error)] bg-[var(--color-error)]/20 border-[var(--color-error)]/50',
     reward: '$5,000 - $50,000',
   },
   high: {
     label: 'High',
-    color: 'text-orange-400 bg-orange-500/20 border-orange-500/50',
+    color:
+      'text-[var(--color-warning)] bg-[var(--color-warning)]/20 border-[var(--color-warning)]/50',
     reward: '$1,000 - $5,000',
   },
   medium: {
     label: 'Medium',
-    color: 'text-yellow-400 bg-yellow-500/20 border-yellow-500/50',
+    color:
+      'text-[var(--color-warning)] bg-[var(--color-warning)]/20 border-[var(--color-warning)]/50',
     reward: '$250 - $1,000',
   },
   low: {
     label: 'Low',
-    color: 'text-blue-400 bg-blue-500/20 border-blue-500/50',
+    color:
+      'text-[var(--color-primary)] bg-[var(--color-primary)]/20 border-[var(--color-primary)]/50',
     reward: '$50 - $250',
   },
   informational: {
     label: 'Informational',
-    color: 'text-slate-400 bg-slate-500/20 border-slate-500/50',
+    color:
+      'text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-[var(--border)]',
     reward: 'Recognition',
   },
 }
@@ -170,48 +157,55 @@ function VoteCard({
   const isCEO = agentRole === 'CEO'
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+    <div className="card">
       <div className="flex items-start gap-3">
         <div
           className={`w-10 h-10 rounded-xl flex items-center justify-center ${
             isCEO
-              ? 'bg-gradient-to-br from-violet-500 to-pink-500'
-              : 'bg-slate-700'
+              ? 'bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-accent)]'
+              : 'bg-[var(--bg-secondary)]'
           }`}
         >
           {isCEO ? (
-            <Crown className="w-5 h-5 text-white" />
+            <Crown className="w-5 h-5 text-white" aria-hidden="true" />
           ) : (
-            <Bot className="w-5 h-5 text-slate-300" />
+            <Bot
+              className="w-5 h-5 text-[var(--text-secondary)]"
+              aria-hidden="true"
+            />
           )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-slate-200">{agentName}</p>
-              <p className="text-xs text-slate-500">{agentRole}</p>
+              <p className="font-medium text-[var(--text-primary)]">
+                {agentName}
+              </p>
+              <p className="text-xs text-[var(--text-tertiary)]">{agentRole}</p>
             </div>
             <span
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+              className={`badge ${
                 vote === 'approve'
-                  ? 'bg-green-500/20 text-green-400'
+                  ? 'badge-success'
                   : vote === 'reject'
-                    ? 'bg-red-500/20 text-red-400'
-                    : 'bg-slate-500/20 text-slate-400'
+                    ? 'badge-error'
+                    : 'badge-primary'
               }`}
             >
               {vote === 'approve' ? (
-                <ThumbsUp className="w-3 h-3" />
+                <ThumbsUp className="w-3 h-3" aria-hidden="true" />
               ) : vote === 'reject' ? (
-                <ThumbsDown className="w-3 h-3" />
+                <ThumbsDown className="w-3 h-3" aria-hidden="true" />
               ) : null}
               {vote.charAt(0).toUpperCase() + vote.slice(1)}
             </span>
           </div>
           {reasoning && (
-            <p className="text-sm text-slate-400 mt-2">{reasoning}</p>
+            <p className="text-sm text-[var(--text-secondary)] mt-2">
+              {reasoning}
+            </p>
           )}
-          <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+          <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-tertiary)]">
             <span>Confidence: {Math.round(confidence * 100)}%</span>
             <span>{new Date(votedAt).toLocaleDateString()}</span>
           </div>
@@ -241,32 +235,34 @@ function ProposalView({
     totalVotes > 0 ? Math.round((approveCount / totalVotes) * 100) : 0
 
   return (
-    <div className="min-h-screen bg-slate-950 pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
+      <div className="sticky top-0 z-50 bg-[var(--surface)]/95 backdrop-blur-xl border-b border-[var(--border)]">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Link
               to={`/dao/${daoId}?tab=governance`}
-              className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+              className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              aria-label="Back to governance"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5" aria-hidden="true" />
             </Link>
             <div className="flex-1">
               <div className="flex items-center gap-3">
                 <span
-                  className={`px-2 py-1 rounded-lg text-xs font-medium ${typeConfig.color}`}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium ${typeConfig.color}`}
                 >
-                  <TypeIcon className="w-3 h-3 inline-block mr-1" />
+                  <TypeIcon
+                    className="w-3.5 h-3.5 inline-block mr-1"
+                    aria-hidden="true"
+                  />
                   {typeConfig.label}
                 </span>
-                <span
-                  className={`px-2 py-1 rounded-lg text-xs font-medium ${statusConfig.color}`}
-                >
+                <span className={`badge ${statusConfig.color}`}>
                   {statusConfig.label}
                 </span>
               </div>
-              <h1 className="text-xl font-bold text-white mt-1">
+              <h1 className="text-xl font-bold text-[var(--text-primary)] mt-1">
                 {proposal.title}
               </h1>
             </div>
@@ -275,19 +271,19 @@ function ProposalView({
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6">
             {/* Description */}
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6">
-              <div className="prose prose-invert prose-sm max-w-none">
+            <div className="card-static p-6">
+              <div className="prose prose-sm max-w-none">
                 {proposal.description.split('\n').map((line, i) => {
                   const lineKey = `desc-${i}-${line.substring(0, 20)}`
                   if (line.startsWith('## ')) {
                     return (
                       <h2
                         key={lineKey}
-                        className="text-lg font-semibold text-slate-200 mt-4 mb-2"
+                        className="text-lg font-semibold text-[var(--text-primary)] mt-4 mb-2"
                       >
                         {line.replace('## ', '')}
                       </h2>
@@ -295,13 +291,16 @@ function ProposalView({
                   }
                   if (line.startsWith('1. ') || line.startsWith('- ')) {
                     return (
-                      <p key={lineKey} className="text-slate-400 ml-4">
+                      <p
+                        key={lineKey}
+                        className="text-[var(--text-secondary)] ml-4"
+                      >
                         {line}
                       </p>
                     )
                   }
                   return line ? (
-                    <p key={lineKey} className="text-slate-400">
+                    <p key={lineKey} className="text-[var(--text-secondary)]">
                       {line}
                     </p>
                   ) : null
@@ -310,8 +309,10 @@ function ProposalView({
             </div>
 
             {/* Board Votes */}
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6">
-              <h3 className="font-semibold text-slate-200 mb-4">Board Votes</h3>
+            <div className="card-static p-6">
+              <h3 className="font-semibold text-[var(--text-primary)] mb-4">
+                Board Votes
+              </h3>
               <div className="space-y-3">
                 {proposal.boardVotes.map((vote) => (
                   <VoteCard
@@ -325,8 +326,8 @@ function ProposalView({
                   />
                 ))}
                 {proposal.boardVotes.length === 0 && (
-                  <div className="text-center py-6 text-slate-500 text-sm">
-                    No votes yet
+                  <div className="text-center py-6 text-[var(--text-tertiary)] text-sm">
+                    Awaiting board review
                   </div>
                 )}
               </div>
@@ -334,13 +335,15 @@ function ProposalView({
 
             {/* Tags */}
             {proposal.tags.length > 0 && (
-              <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6">
-                <h3 className="font-semibold text-slate-200 mb-4">Tags</h3>
+              <div className="card-static p-6">
+                <h3 className="font-semibold text-[var(--text-primary)] mb-4">
+                  Tags
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {proposal.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-sm"
+                      className="px-3 py-1 bg-[var(--bg-secondary)] text-[var(--text-secondary)] rounded-lg text-sm"
                     >
                       {tag}
                     </span>
@@ -353,28 +356,32 @@ function ProposalView({
           {/* Sidebar */}
           <div className="space-y-4">
             {/* Status Card */}
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5">
-              <h4 className="text-sm font-medium text-slate-400 mb-3">
+            <div className="card-static p-5">
+              <h4 className="text-sm font-medium text-[var(--text-tertiary)] mb-3">
                 Voting Progress
               </h4>
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">Board Approval</span>
-                  <span className="text-slate-200">
+                  <span className="text-[var(--text-secondary)]">
+                    Board Approval
+                  </span>
+                  <span className="text-[var(--text-primary)]">
                     {approveCount}/{totalVotes} ({approvalPercent}%)
                   </span>
                 </div>
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-green-500 rounded-full"
+                    className="h-full bg-[var(--color-success)] rounded-full transition-all duration-300"
                     style={{ width: `${approvalPercent}%` }}
                   />
                 </div>
               </div>
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">CEO Decision</span>
-                  <span className="text-slate-200">
+                  <span className="text-[var(--text-secondary)]">
+                    CEO Decision
+                  </span>
+                  <span className="text-[var(--text-primary)]">
                     {proposal.ceoDecision
                       ? proposal.ceoDecision.approved
                         ? 'Approved'
@@ -382,21 +389,21 @@ function ProposalView({
                       : 'Pending'}
                   </span>
                 </div>
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
                   {proposal.ceoDecision && (
                     <div
                       className={`h-full rounded-full ${
                         proposal.ceoDecision.approved
-                          ? 'bg-green-500'
-                          : 'bg-red-500'
+                          ? 'bg-[var(--color-success)]'
+                          : 'bg-[var(--color-error)]'
                       }`}
                       style={{ width: '100%' }}
                     />
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
+                <Clock className="w-4 h-4" aria-hidden="true" />
                 <span>
                   Updated {new Date(proposal.updatedAt).toLocaleDateString()}
                 </span>
@@ -404,38 +411,39 @@ function ProposalView({
             </div>
 
             {/* Meta */}
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5">
-              <h4 className="text-sm font-medium text-slate-400 mb-3">
+            <div className="card-static p-5">
+              <h4 className="text-sm font-medium text-[var(--text-tertiary)] mb-3">
                 Details
               </h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Created</span>
-                  <span className="text-slate-300">
+                  <span className="text-[var(--text-tertiary)]">Created</span>
+                  <span className="text-[var(--text-primary)]">
                     {new Date(proposal.createdAt).toLocaleDateString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Proposer</span>
-                  <span className="text-slate-300 font-mono text-xs">
+                  <span className="text-[var(--text-tertiary)]">Proposer</span>
+                  <span className="text-[var(--text-primary)] font-mono text-xs">
                     {proposal.proposer.slice(0, 6)}...
                     {proposal.proposer.slice(-4)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Proposal ID</span>
-                  <span className="text-slate-300">{proposal.proposalId}</span>
+                  <span className="text-[var(--text-tertiary)]">
+                    Proposal ID
+                  </span>
+                  <span className="text-[var(--text-primary)]">
+                    {proposal.proposalId}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Actions */}
             {proposal.status === 'submitted' && (
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
+              <button type="button" className="btn-primary w-full">
+                <RefreshCw className="w-4 h-4" aria-hidden="true" />
                 Request Review
               </button>
             )}
@@ -582,36 +590,40 @@ function CreateProposalForm({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
+      <div className="sticky top-0 z-50 bg-[var(--surface)]/95 backdrop-blur-xl border-b border-[var(--border)]">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
                 to={`/dao/${daoId}?tab=governance`}
-                className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+                className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                aria-label="Back to governance"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" aria-hidden="true" />
               </Link>
               <div>
                 <div className="flex items-center gap-2">
                   <span className={`p-1.5 rounded-lg ${typeConfig.color}`}>
-                    <TypeIcon className="w-4 h-4" />
+                    <TypeIcon className="w-4 h-4" aria-hidden="true" />
                   </span>
-                  <h1 className="text-xl font-bold text-white">
+                  <h1 className="text-xl font-bold text-[var(--text-primary)]">
                     New {typeConfig.label} Proposal
                   </h1>
                 </div>
-                <p className="text-sm text-slate-500 mt-0.5">
+                <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
                   {typeConfig.description}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               {submitError && (
-                <div className="flex items-center gap-2 text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4" />
+                <div
+                  className="flex items-center gap-2 text-[var(--color-error)] text-sm"
+                  role="alert"
+                >
+                  <AlertCircle className="w-4 h-4" aria-hidden="true" />
                   {submitError}
                 </div>
               )}
@@ -623,16 +635,19 @@ function CreateProposalForm({
                   !title.trim() ||
                   !description.trim()
                 }
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                className="btn-primary disabled:bg-[var(--bg-tertiary)] disabled:text-[var(--text-tertiary)] disabled:cursor-not-allowed"
               >
                 {createProposalMutation.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2
+                      className="w-4 h-4 animate-spin"
+                      aria-hidden="true"
+                    />
                     Submitting...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4" aria-hidden="true" />
                     Submit Proposal
                   </>
                 )}
@@ -645,11 +660,11 @@ function CreateProposalForm({
       {/* Form */}
       <div className="container mx-auto px-4 py-8 max-w-2xl space-y-6">
         {/* Basic Info */}
-        <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
+        <div className="card-static p-6 space-y-4">
           <div>
             <label
               htmlFor="proposal-title"
-              className="block text-sm font-medium text-slate-300 mb-2"
+              className="block text-sm font-medium text-[var(--text-primary)] mb-2"
             >
               Title *
             </label>
@@ -659,13 +674,13 @@ function CreateProposalForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Brief, descriptive title"
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+              className="input"
             />
           </div>
           <div>
             <label
               htmlFor="proposal-description"
-              className="block text-sm font-medium text-slate-300 mb-2"
+              className="block text-sm font-medium text-[var(--text-primary)] mb-2"
             >
               Description *
             </label>
@@ -675,26 +690,28 @@ function CreateProposalForm({
               onChange={(e) => setDescription(e.target.value)}
               placeholder={
                 type === 'bug_report'
-                  ? 'Describe the vulnerability, its impact, and how you discovered it...'
-                  : 'Provide context, motivation, and details...'
+                  ? 'Describe the vulnerability and its impact...'
+                  : 'Context, motivation, and implementation details...'
               }
               rows={8}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+              className="textarea"
             />
-            <p className="text-xs text-slate-500 mt-1">Markdown supported</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">
+              Markdown supported
+            </p>
           </div>
         </div>
 
         {/* Bug Report Specific */}
         {type === 'bug_report' && (
           <>
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold text-slate-200">
+            <div className="card-static p-6 space-y-4">
+              <h3 className="font-semibold text-[var(--text-primary)]">
                 Vulnerability Details
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <span className="block text-sm font-medium text-slate-300 mb-2">
+                  <span className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     Severity *
                   </span>
                   <div className="space-y-2">
@@ -711,12 +728,12 @@ function CreateProposalForm({
                         className={`w-full p-3 rounded-xl border text-left transition-colors ${
                           severity === key
                             ? config.color
-                            : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                            : 'bg-[var(--bg-secondary)] border-[var(--border)] hover:border-[var(--border-strong)]'
                         }`}
                       >
                         <div className="flex justify-between items-center">
                           <span className="font-medium">{config.label}</span>
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-[var(--text-tertiary)]">
                             {config.reward}
                           </span>
                         </div>
@@ -727,7 +744,7 @@ function CreateProposalForm({
                 <div>
                   <label
                     htmlFor="vuln-type"
-                    className="block text-sm font-medium text-slate-300 mb-2"
+                    className="block text-sm font-medium text-[var(--text-primary)] mb-2"
                   >
                     Vulnerability Type *
                   </label>
@@ -737,7 +754,7 @@ function CreateProposalForm({
                     onChange={(e) =>
                       setVulnType(e.target.value as VulnerabilityType)
                     }
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+                    className="input"
                   >
                     {VULN_TYPES.map((vt) => (
                       <option key={vt.value} value={vt.value}>
@@ -748,22 +765,23 @@ function CreateProposalForm({
                 </div>
               </div>
               <div>
-                <span className="block text-sm font-medium text-slate-300 mb-2">
+                <span className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Affected Components
                 </span>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {affectedComponents.map((c) => (
                     <span
                       key={c}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-700 text-slate-300 rounded-lg text-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-[var(--bg-secondary)] text-[var(--text-secondary)] rounded-lg text-sm"
                     >
                       {c}
                       <button
                         type="button"
                         onClick={() => removeComponent(c)}
-                        className="hover:text-red-400"
+                        className="hover:text-[var(--color-error)]"
+                        aria-label={`Remove ${c}`}
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3 h-3" aria-hidden="true" />
                       </button>
                     </span>
                   ))}
@@ -775,12 +793,12 @@ function CreateProposalForm({
                     onChange={(e) => setComponentInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addComponent()}
                     placeholder="e.g., FeeDistributor.sol"
-                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 text-sm"
+                    className="input flex-1 text-sm"
                   />
                   <button
                     type="button"
                     onClick={addComponent}
-                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
+                    className="btn-secondary text-sm"
                   >
                     Add
                   </button>
@@ -788,8 +806,8 @@ function CreateProposalForm({
               </div>
             </div>
 
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold text-slate-200">
+            <div className="card-static p-6 space-y-4">
+              <h3 className="font-semibold text-[var(--text-primary)]">
                 Steps to Reproduce
               </h3>
               <div className="space-y-2">
@@ -798,7 +816,7 @@ function CreateProposalForm({
                     key={`step-${step.slice(0, 30).replace(/\s+/g, '-')}-${index}`}
                     className="flex gap-2 items-start"
                   >
-                    <span className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs text-slate-400 mt-2 shrink-0">
+                    <span className="w-6 h-6 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-xs text-[var(--text-tertiary)] mt-2 shrink-0">
                       {index + 1}
                     </span>
                     <input
@@ -806,15 +824,16 @@ function CreateProposalForm({
                       value={step}
                       onChange={(e) => updateStep(index, e.target.value)}
                       placeholder={`Step ${index + 1}`}
-                      className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                      className="input flex-1"
                     />
                     {stepsToReproduce.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeStep(index)}
-                        className="p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
+                        className="p-2 hover:bg-[var(--color-error)]/20 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--color-error)] transition-colors"
+                        aria-label={`Remove step ${index + 1}`}
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -822,15 +841,15 @@ function CreateProposalForm({
                 <button
                   type="button"
                   onClick={addStep}
-                  className="text-sm text-violet-400 hover:text-violet-300"
+                  className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
                 >
                   + Add Step
                 </button>
               </div>
             </div>
 
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold text-slate-200">
+            <div className="card-static p-6 space-y-4">
+              <h3 className="font-semibold text-[var(--text-primary)]">
                 Proof of Concept (Optional)
               </h3>
               <textarea
@@ -838,12 +857,12 @@ function CreateProposalForm({
                 onChange={(e) => setPoc(e.target.value)}
                 placeholder="Code snippet or detailed technical proof..."
                 rows={6}
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 resize-none font-mono text-sm"
+                className="textarea font-mono text-sm"
               />
             </div>
 
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold text-slate-200">
+            <div className="card-static p-6 space-y-4">
+              <h3 className="font-semibold text-[var(--text-primary)]">
                 Suggested Fix (Optional)
               </h3>
               <textarea
@@ -851,7 +870,7 @@ function CreateProposalForm({
                 onChange={(e) => setSuggestedFix(e.target.value)}
                 placeholder="Recommended mitigation or fix..."
                 rows={4}
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+                className="textarea"
               />
             </div>
           </>
@@ -859,13 +878,15 @@ function CreateProposalForm({
 
         {/* Funding Specific */}
         {type === 'funding' && (
-          <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-slate-200">Funding Details</h3>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="card-static p-6 space-y-4">
+            <h3 className="font-semibold text-[var(--text-primary)]">
+              Funding Details
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label
                   htmlFor="funding-amount"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-[var(--text-primary)] mb-2"
                 >
                   Amount *
                 </label>
@@ -876,12 +897,12 @@ function CreateProposalForm({
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00"
-                    className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-l-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                    className="input rounded-r-none flex-1"
                   />
                   <select
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
-                    className="px-4 py-3 bg-slate-700 border border-slate-600 rounded-r-xl text-slate-200"
+                    className="input rounded-l-none border-l-0"
                   >
                     <option value="ETH">ETH</option>
                     <option value="USDC">USDC</option>
@@ -892,7 +913,7 @@ function CreateProposalForm({
               <div>
                 <label
                   htmlFor="recipient-address"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-[var(--text-primary)] mb-2"
                 >
                   Recipient Address *
                 </label>
@@ -902,7 +923,7 @@ function CreateProposalForm({
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
                   placeholder="0x..."
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 font-mono"
+                  className="input font-mono"
                 />
               </div>
             </div>
@@ -911,22 +932,25 @@ function CreateProposalForm({
 
         {/* Code Specific */}
         {type === 'code' && (
-          <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-slate-200">Linked PRs</h3>
+          <div className="card-static p-6 space-y-4">
+            <h3 className="font-semibold text-[var(--text-primary)]">
+              Linked PRs
+            </h3>
             <div className="flex flex-wrap gap-2 mb-2">
               {linkedPRs.map((pr) => (
                 <span
                   key={pr}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-700 text-slate-300 rounded-lg text-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-[var(--bg-secondary)] text-[var(--text-secondary)] rounded-lg text-sm"
                 >
-                  <GitBranch className="w-3 h-3" />
+                  <GitBranch className="w-3 h-3" aria-hidden="true" />
                   {pr}
                   <button
                     type="button"
                     onClick={() => removePR(pr)}
-                    className="hover:text-red-400"
+                    className="hover:text-[var(--color-error)]"
+                    aria-label={`Remove ${pr}`}
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3" aria-hidden="true" />
                   </button>
                 </span>
               ))}
@@ -938,34 +962,18 @@ function CreateProposalForm({
                 onChange={(e) => setPrInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addPR()}
                 placeholder="org/repo#123"
-                className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 text-sm"
+                className="input flex-1 text-sm"
               />
               <button
                 type="button"
                 onClick={addPR}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
+                className="btn-secondary text-sm"
               >
                 Add
               </button>
             </div>
           </div>
         )}
-
-        {/* Info Box */}
-        <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-5">
-          <div className="flex items-start gap-3">
-            <Bot className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-medium text-violet-300">AI Review Process</h4>
-              <p className="text-sm text-violet-200/70 mt-1">
-                Your proposal will be automatically reviewed by the DAO's board
-                of AI agents. Each agent will analyze the proposal based on
-                their expertise and vote accordingly. The CEO will make the
-                final decision based on board recommendations.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -993,8 +1001,8 @@ export default function ProposalPage() {
 
   if (!daoId) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <p className="text-slate-400">DAO not found</p>
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <p className="text-[var(--text-secondary)]">DAO not found</p>
       </div>
     )
   }
@@ -1005,41 +1013,42 @@ export default function ProposalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <Loader2
+          className="w-8 h-8 text-[var(--color-primary)] animate-spin"
+          aria-label="Loading"
+        />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center">
-            <AlertCircle className="w-10 h-10 text-red-400" />
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-[var(--color-error)]/20 border border-[var(--color-error)]/30 flex items-center justify-center">
+            <AlertCircle
+              className="w-10 h-10 text-[var(--color-error)]"
+              aria-hidden="true"
+            />
           </div>
-          <h2 className="text-xl font-semibold text-slate-200 mb-2">
+          <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
             Failed to load proposal
           </h2>
-          <p className="text-slate-500 mb-4">
-            {error instanceof Error
-              ? error.message
-              : 'An unknown error occurred'}
+          <p className="text-[var(--text-secondary)] mb-4">
+            {error instanceof Error ? error.message : 'Connection error'}
           </p>
           <div className="flex gap-3 justify-center">
             <button
               type="button"
               onClick={() => refetch()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-colors"
+              className="btn-secondary"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
               Try Again
             </button>
-            <Link
-              to={`/dao/${daoId}?tab=governance`}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
+            <Link to={`/dao/${daoId}?tab=governance`} className="btn-primary">
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
               Back to Governance
             </Link>
           </div>
@@ -1050,14 +1059,14 @@ export default function ProposalPage() {
 
   if (!proposal) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-slate-200 mb-2">
-            Proposal Not Found
+          <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+            Proposal not found
           </h2>
           <Link
             to={`/dao/${daoId}?tab=governance`}
-            className="text-violet-400 hover:text-violet-300"
+            className="text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
           >
             Back to Governance
           </Link>

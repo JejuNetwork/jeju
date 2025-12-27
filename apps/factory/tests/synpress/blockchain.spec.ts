@@ -20,8 +20,10 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
 async function runJejuCLI(command: string): Promise<string> {
+  const workspaceRoot = process.cwd().replace(/\/apps\/factory.*$/, '')
   const { stdout, stderr } = await execAsync(
-    `cd /home/shaw/Documents/jeju && bun run packages/cli/src/index.ts ${command}`,
+    `bun run packages/cli/src/index.ts ${command}`,
+    { cwd: workspaceRoot },
   )
   if (stderr && !stderr.includes('warning')) {
     throw new Error(stderr)

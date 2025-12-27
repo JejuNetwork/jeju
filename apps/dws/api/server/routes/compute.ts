@@ -135,12 +135,12 @@ export function createComputeRouter() {
       // Health check
       .get('/health', async () => {
         let queuedCount = 0
-        let cqlStatus = 'connected'
+        let eqliteStatus = 'connected'
         try {
           const queued = await computeJobState.getQueued()
           queuedCount = queued.length
         } catch {
-          cqlStatus = 'unavailable'
+          eqliteStatus = 'unavailable'
         }
         return {
           service: 'dws-compute',
@@ -148,7 +148,7 @@ export function createComputeRouter() {
           activeJobs: activeJobs.size,
           maxConcurrent: MAX_CONCURRENT,
           queuedJobs: queuedCount,
-          cqlStatus,
+          eqliteStatus,
         }
       })
 

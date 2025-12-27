@@ -5,6 +5,7 @@
 import { cors } from '@elysiajs/cors'
 import { validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import { config } from './config'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -277,13 +278,11 @@ setInterval(() => {
 }, 60_000).unref()
 
 export function createIndexerMCPServer() {
-  const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',')
-    .map((o) => o.trim())
-    .filter(Boolean)
+  const CORS_ORIGINS = config.corsOrigins
 
   const app = new Elysia()
     .use(
-      CORS_ORIGINS?.length
+      CORS_ORIGINS.length
         ? cors({ origin: CORS_ORIGINS, credentials: true })
         : cors(),
     )
@@ -685,7 +684,7 @@ Include:
   return app
 }
 
-const MCP_PORT = parseInt(process.env.MCP_PORT || '4353', 10)
+const MCP_PORT = config.mcpPort
 
 export async function startMCPServer(): Promise<void> {
   const app = createIndexerMCPServer()

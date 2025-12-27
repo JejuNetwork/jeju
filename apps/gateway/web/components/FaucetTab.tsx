@@ -251,7 +251,7 @@ export default function FaucetTab() {
                   margin: 0,
                 }}
               >
-                Get testnet tokens to build and experiment
+                Grab testnet tokens to build, test, and explore
               </p>
             </div>
           </div>
@@ -584,8 +584,8 @@ export default function FaucetTab() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Register in the ERC-8004 Identity Registry to claim tokens.
-                  This prevents bots and ensures tokens go to real developers.
+                  Quick registration in the Identity Registry unlocks the
+                  faucet. It keeps bots out and tokens flowing to real builders.
                 </p>
                 <button
                   type="button"
@@ -705,7 +705,7 @@ export default function FaucetTab() {
                 fontSize: '0.9375rem',
               }}
             >
-              Connect your wallet to claim tokens
+              Connect your wallet to get started
             </p>
             <WalletButton />
           </div>
@@ -836,6 +836,8 @@ export default function FaucetTab() {
         <button
           type="button"
           onClick={() => setShowApiDocs(!showApiDocs)}
+          aria-expanded={showApiDocs}
+          aria-controls="api-docs"
           style={{
             width: '100%',
             display: 'flex',
@@ -865,7 +867,7 @@ export default function FaucetTab() {
         </button>
 
         {showApiDocs && (
-          <div style={{ marginTop: '1rem' }}>
+          <div id="api-docs" style={{ marginTop: '1rem' }}>
             <p
               style={{
                 color: 'var(--text-secondary)',

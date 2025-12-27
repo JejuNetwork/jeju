@@ -419,7 +419,7 @@ export function createAgentRouter() {
           return { error: 'Agent not found' }
         }
 
-        // Memory retrieval requires CQL integration - returns empty until agent has stored memories
+        // Memory retrieval requires EQLite integration - returns empty until agent has stored memories
         return {
           memories: [],
           count: 0,

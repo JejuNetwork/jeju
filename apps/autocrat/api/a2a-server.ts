@@ -36,6 +36,7 @@ import {
   type DeliberationRequest,
 } from './agents/runtime'
 import type { AutocratBlockchain } from './blockchain'
+import { config } from './config'
 import {
   checkOllama,
   generateResearch,
@@ -508,7 +509,7 @@ Return ONLY a JSON object with these exact fields (scores 0-100):
         summary,
         description,
         cloudEndpoint,
-        process.env.CLOUD_API_KEY,
+        config.cloudApiKey,
       )
       return {
         message:

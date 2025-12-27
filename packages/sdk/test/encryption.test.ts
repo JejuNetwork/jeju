@@ -110,11 +110,11 @@ describe('Email Encryption', () => {
   })
 
   describe('encryptEmail / decryptEmail', () => {
-    test('encrypted output has correct structure', () => {
+    test('encrypted output has correct structure', async () => {
       const recipient = generateKeyPair()
       const message = 'Test message'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
 
       expect(encrypted.ciphertext).toMatch(/^0x[a-f0-9]+$/)
       expect(encrypted.nonce).toMatch(/^0x[a-f0-9]+$/)
@@ -122,54 +122,54 @@ describe('Email Encryption', () => {
       expect(encrypted.tag).toMatch(/^0x[a-f0-9]+$/)
     })
 
-    test('nonce is 12 bytes (24 hex chars)', () => {
+    test('nonce is 12 bytes (24 hex chars)', async () => {
       const recipient = generateKeyPair()
       const message = 'Test'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
 
       // 0x + 24 hex chars = 26 total
       expect(encrypted.nonce.length).toBe(26)
     })
 
-    test('tag is 16 bytes (32 hex chars)', () => {
+    test('tag is 16 bytes (32 hex chars)', async () => {
       const recipient = generateKeyPair()
       const message = 'Test'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
 
       // 0x + 32 hex chars = 34 total
       expect(encrypted.tag.length).toBe(34)
     })
 
-    test('ephemeral public key is 65 bytes (130 hex chars) - uncompressed secp256k1', () => {
+    test('ephemeral public key is 65 bytes (130 hex chars) - uncompressed secp256k1', async () => {
       const recipient = generateKeyPair()
       const message = 'Test'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
 
       // 0x + 130 hex chars = 132 total (65 bytes uncompressed)
       expect(encrypted.ephemeralPublicKey.length).toBe(132)
     })
 
-    test('decryption fails with wrong key', () => {
+    test('decryption fails with wrong key', async () => {
       const recipient = generateKeyPair()
       const wrongKey = generateKeyPair()
       const message = 'Secret message'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
 
-      expect(() => {
-        decryptEmail(encrypted, wrongKey.privateKey)
-      }).toThrow()
+      await expect(
+        decryptEmail(encrypted, wrongKey.privateKey),
+      ).rejects.toThrow()
     })
 
-    test('ciphertext differs for same plaintext (due to random nonce)', () => {
+    test('ciphertext differs for same plaintext (due to random nonce)', async () => {
       const recipient = generateKeyPair()
       const message = 'Same message'
 
-      const encrypted1 = encryptEmail(message, recipient.publicKey)
-      const encrypted2 = encryptEmail(message, recipient.publicKey)
+      const encrypted1 = await encryptEmail(message, recipient.publicKey)
+      const encrypted2 = await encryptEmail(message, recipient.publicKey)
 
       // Ciphertexts should differ due to random nonce and ephemeral key
       expect(encrypted1.ciphertext).not.toBe(encrypted2.ciphertext)
@@ -179,21 +179,21 @@ describe('Email Encryption', () => {
       )
     })
 
-    test('ciphertext length scales with message length', () => {
+    test('ciphertext length scales with message length', async () => {
       const recipient = generateKeyPair()
 
-      const short = encryptEmail('Hi', recipient.publicKey)
-      const long = encryptEmail('A'.repeat(1000), recipient.publicKey)
+      const short = await encryptEmail('Hi', recipient.publicKey)
+      const long = await encryptEmail('A'.repeat(1000), recipient.publicKey)
 
       // Longer message = longer ciphertext
       expect(long.ciphertext.length).toBeGreaterThan(short.ciphertext.length)
     })
 
-    test('detects tampering with ciphertext', () => {
+    test('detects tampering with ciphertext', async () => {
       const recipient = generateKeyPair()
       const message = 'Important message'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
 
       // Tamper with ciphertext
       const tamperedCiphertext = (encrypted.ciphertext.slice(0, -2) +
@@ -203,16 +203,16 @@ describe('Email Encryption', () => {
         ciphertext: tamperedCiphertext,
       }
 
-      expect(() => {
-        decryptEmail(tampered, recipient.privateKey)
-      }).toThrow()
+      await expect(
+        decryptEmail(tampered, recipient.privateKey),
+      ).rejects.toThrow()
     })
 
-    test('detects tampering with auth tag', () => {
+    test('detects tampering with auth tag', async () => {
       const recipient = generateKeyPair()
       const message = 'Important message'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
 
       // Tamper with tag
       const tamperedTag = `${encrypted.tag.slice(0, -2)}00` as `0x${string}`
@@ -221,17 +221,20 @@ describe('Email Encryption', () => {
         tag: tamperedTag,
       }
 
-      expect(() => {
-        decryptEmail(tampered, recipient.privateKey)
-      }).toThrow()
+      await expect(
+        decryptEmail(tampered, recipient.privateKey),
+      ).rejects.toThrow()
     })
 
-    test('encryption is deterministic with same ephemeral key (structure)', () => {
+    test('encryption is deterministic with same ephemeral key (structure)', async () => {
       // While ephemeral keys are random, we can verify structure consistency
       const recipient = generateKeyPair()
 
       for (let i = 0; i < 10; i++) {
-        const encrypted = encryptEmail('Test message', recipient.publicKey)
+        const encrypted = await encryptEmail(
+          'Test message',
+          recipient.publicKey,
+        )
 
         // All encryptions should have valid structure
         expect(encrypted.ciphertext.startsWith('0x')).toBe(true)
@@ -242,17 +245,17 @@ describe('Email Encryption', () => {
       }
     })
 
-    test('round-trip encryption/decryption works', () => {
+    test('round-trip encryption/decryption works', async () => {
       const recipient = generateKeyPair()
       const message = 'Hello, secure world!'
 
-      const encrypted = encryptEmail(message, recipient.publicKey)
-      const decrypted = decryptEmail(encrypted, recipient.privateKey)
+      const encrypted = await encryptEmail(message, recipient.publicKey)
+      const decrypted = await decryptEmail(encrypted, recipient.privateKey)
 
       expect(decrypted).toBe(message)
     })
 
-    test('round-trip works with various message lengths', () => {
+    test('round-trip works with various message lengths', async () => {
       const recipient = generateKeyPair()
       const testMessages = [
         '',
@@ -264,15 +267,15 @@ describe('Email Encryption', () => {
       ]
 
       for (const message of testMessages) {
-        const encrypted = encryptEmail(message, recipient.publicKey)
-        const decrypted = decryptEmail(encrypted, recipient.privateKey)
+        const encrypted = await encryptEmail(message, recipient.publicKey)
+        const decrypted = await decryptEmail(encrypted, recipient.privateKey)
         expect(decrypted).toBe(message)
       }
     })
   })
 
   describe('encryptForMultipleRecipients / decryptFromMultipleRecipients', () => {
-    test('encrypts for multiple recipients', () => {
+    test('encrypts for multiple recipients', async () => {
       const alice = generateKeyPair()
       const bob = generateKeyPair()
       const charlie = generateKeyPair()
@@ -285,7 +288,7 @@ describe('Email Encryption', () => {
 
       const message = 'Group message'
 
-      const result = encryptForMultipleRecipients(message, recipients)
+      const result = await encryptForMultipleRecipients(message, recipients)
 
       expect(result.encryptedContent).toBeDefined()
       expect(result.recipientKeys.size).toBe(3)
@@ -294,7 +297,7 @@ describe('Email Encryption', () => {
       expect(result.recipientKeys.has('charlie')).toBe(true)
     })
 
-    test("wrong recipient cannot decrypt with another's key package", () => {
+    test("wrong recipient cannot decrypt with another's key package", async () => {
       const alice = generateKeyPair()
       const bob = generateKeyPair()
       const eve = generateKeyPair() // Attacker
@@ -306,22 +309,22 @@ describe('Email Encryption', () => {
 
       const message = 'Secret message'
 
-      const result = encryptForMultipleRecipients(message, recipients)
+      const result = await encryptForMultipleRecipients(message, recipients)
 
       // Eve tries to use Alice's key package with her own private key
       const aliceKey = result.recipientKeys.get('alice')
       if (!aliceKey) throw new Error('Alice key not found')
 
-      expect(() => {
+      await expect(
         decryptFromMultipleRecipients(
           result.encryptedContent,
           aliceKey,
           eve.privateKey,
-        )
-      }).toThrow()
+        ),
+      ).rejects.toThrow()
     })
 
-    test('handles single recipient structure', () => {
+    test('handles single recipient structure', async () => {
       const alice = generateKeyPair()
 
       const recipients = new Map<string, Uint8Array>([
@@ -330,14 +333,14 @@ describe('Email Encryption', () => {
 
       const message = 'Just for Alice'
 
-      const result = encryptForMultipleRecipients(message, recipients)
+      const result = await encryptForMultipleRecipients(message, recipients)
 
       expect(result.recipientKeys.size).toBe(1)
       expect(result.recipientKeys.has('alice')).toBe(true)
       expect(result.encryptedContent.ciphertext.startsWith('0x')).toBe(true)
     })
 
-    test('handles many recipients (10) structure', () => {
+    test('handles many recipients (10) structure', async () => {
       const recipients = new Map<string, Uint8Array>()
 
       for (let i = 0; i < 10; i++) {
@@ -347,7 +350,7 @@ describe('Email Encryption', () => {
 
       const message = 'Message for 10 recipients'
 
-      const result = encryptForMultipleRecipients(message, recipients)
+      const result = await encryptForMultipleRecipients(message, recipients)
 
       expect(result.recipientKeys.size).toBe(10)
       for (let i = 0; i < 10; i++) {
@@ -355,7 +358,7 @@ describe('Email Encryption', () => {
       }
     })
 
-    test('recipient keys are unique per recipient', () => {
+    test('recipient keys are unique per recipient', async () => {
       const alice = generateKeyPair()
       const bob = generateKeyPair()
 
@@ -364,7 +367,7 @@ describe('Email Encryption', () => {
         ['bob', bob.publicKey],
       ])
 
-      const result = encryptForMultipleRecipients('Message', recipients)
+      const result = await encryptForMultipleRecipients('Message', recipients)
 
       const aliceKey = result.recipientKeys.get('alice')
       const bobKey = result.recipientKeys.get('bob')
@@ -372,7 +375,7 @@ describe('Email Encryption', () => {
       expect(aliceKey).not.toBe(bobKey)
     })
 
-    test('different encryptions produce different outputs', () => {
+    test('different encryptions produce different outputs', async () => {
       const alice = generateKeyPair()
 
       const recipients = new Map<string, Uint8Array>([
@@ -381,8 +384,8 @@ describe('Email Encryption', () => {
 
       const message = 'Same message'
 
-      const result1 = encryptForMultipleRecipients(message, recipients)
-      const result2 = encryptForMultipleRecipients(message, recipients)
+      const result1 = await encryptForMultipleRecipients(message, recipients)
+      const result2 = await encryptForMultipleRecipients(message, recipients)
 
       // Ciphertexts should differ due to random keys
       expect(result1.encryptedContent.ciphertext).not.toBe(
@@ -390,14 +393,17 @@ describe('Email Encryption', () => {
       )
     })
 
-    test('recipient key packages have expected length', () => {
+    test('recipient key packages have expected length', async () => {
       const alice = generateKeyPair()
 
       const recipients = new Map<string, Uint8Array>([
         ['alice', alice.publicKey],
       ])
 
-      const result = encryptForMultipleRecipients('Test message', recipients)
+      const result = await encryptForMultipleRecipients(
+        'Test message',
+        recipients,
+      )
 
       const aliceKey = result.recipientKeys.get('alice')
       expect(aliceKey).toBeDefined()
@@ -406,7 +412,7 @@ describe('Email Encryption', () => {
       expect(aliceKey?.length).toBe(252)
     })
 
-    test('multi-recipient round-trip encryption/decryption works', () => {
+    test('multi-recipient round-trip encryption/decryption works', async () => {
       const alice = generateKeyPair()
       const bob = generateKeyPair()
 
@@ -417,12 +423,12 @@ describe('Email Encryption', () => {
 
       const message = 'Multi-recipient secret message'
 
-      const result = encryptForMultipleRecipients(message, recipients)
+      const result = await encryptForMultipleRecipients(message, recipients)
 
       // Alice can decrypt
       const aliceKey = result.recipientKeys.get('alice')
       if (!aliceKey) throw new Error('Alice key not found')
-      const aliceDecrypted = decryptFromMultipleRecipients(
+      const aliceDecrypted = await decryptFromMultipleRecipients(
         result.encryptedContent,
         aliceKey,
         alice.privateKey,
@@ -432,7 +438,7 @@ describe('Email Encryption', () => {
       // Bob can also decrypt
       const bobKey = result.recipientKeys.get('bob')
       if (!bobKey) throw new Error('Bob key not found')
-      const bobDecrypted = decryptFromMultipleRecipients(
+      const bobDecrypted = await decryptFromMultipleRecipients(
         result.encryptedContent,
         bobKey,
         bob.privateKey,

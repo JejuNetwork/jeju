@@ -1,8 +1,9 @@
 import { defineConfig } from 'vocs'
 
 export default defineConfig({
-  title: 'Jeju',
-  description: 'OP-Stack L2 for Agents',
+  title: 'Jeju Network',
+  description:
+    'Documentation for Jeju, an OP-Stack Ethereum L2 designed for AI agents.',
   logoUrl: '/logo.svg',
   iconUrl: '/favicon.ico',
   rootDir: 'docs',
@@ -21,7 +22,23 @@ export default defineConfig({
   },
 
   theme: {
-    accentColor: '#3eaf7c',
+    accentColor: '#00d4aa',
+    variables: {
+      color: {
+        background: {
+          light: '#fafbfc',
+          dark: '#0f1419',
+        },
+        backgroundDark: {
+          light: '#f0f4f8',
+          dark: '#1a1f2e',
+        },
+        text: {
+          light: '#1a1a2e',
+          dark: '#e8eaed',
+        },
+      },
+    },
   },
 
   topNav: [

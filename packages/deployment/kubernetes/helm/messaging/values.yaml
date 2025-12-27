@@ -57,9 +57,9 @@ relay:
     # Jeju L2 RPC
     jejuRpcUrl: "https://testnet-rpc.jejunetwork.org"
     
-    # CovenantSQL
-    covenantsqlNodes: ""
-    covenantsqlDatabaseId: "jeju-messaging"
+    # EQLite
+    eqliteNodes: ""
+    eqliteDatabaseId: "jeju-messaging"
     
     # IPFS for large payloads
     ipfsGateway: "https://gateway.testnet.jejunetwork.org"
@@ -198,8 +198,8 @@ secrets:
     secretName: messaging-operator-keys
     key: private-keys
   
-  covenantsqlCredentials:
-    secretName: covenantsql-credentials
+  eqliteCredentials:
+    secretName: eqlite-credentials
     key: credentials
   
   kmsMasterKey:

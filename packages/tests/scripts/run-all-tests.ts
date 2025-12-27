@@ -3,7 +3,7 @@
  * Unified Test Runner for All Apps and Packages
  *
  * Runs all tests against real localnet with:
- * - Automatic infrastructure startup (Anvil, CQL, Redis, Postgres)
+ * - Automatic infrastructure startup (Anvil, EQLite, Redis, Postgres)
  * - Contract deployment
  * - All apps started
  * - E2E tests with real wallet interactions
@@ -41,7 +41,7 @@ const CHAIN_ID = process.env.CHAIN_ID || '31337'
 const DATABASE_URL =
   process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
-const CQL_URL = process.env.CQL_URL || 'http://127.0.0.1:4661'
+const EQLITE_URL = process.env.EQLITE_URL || 'http://127.0.0.1:4661'
 
 // Standard test accounts (Anvil defaults)
 const DEPLOYER_KEY =
@@ -225,7 +225,7 @@ async function runBunTests(
         CHAIN_ID,
         DATABASE_URL,
         REDIS_URL,
-        CQL_URL,
+        EQLITE_URL,
       })
       .cwd(join(rootDir, 'packages/tests'))
 
@@ -328,7 +328,7 @@ async function runE2ETests(rootDir: string): Promise<TestResult> {
         CHAIN_ID,
         DATABASE_URL,
         REDIS_URL,
-        CQL_URL,
+        EQLITE_URL,
         CI: 'true',
       })
       .cwd(join(rootDir, 'packages/tests'))
