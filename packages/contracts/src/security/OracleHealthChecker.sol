@@ -45,12 +45,12 @@ abstract contract OracleHealthChecker is Ownable {
     // ============ Structs ============
 
     struct OracleConfig {
-        uint256 stalenessThreshold;         // Max age of price data (seconds)
-        uint256 deviationThresholdBps;      // Max price deviation (basis points)
-        uint256 minOracles;                 // Minimum oracles for consensus
-        uint256 heartbeatInterval;          // Expected heartbeat interval
-        uint256 circuitBreakerTimeout;      // Circuit breaker recovery time
-        bool requireConsensus;              // Require multi-oracle consensus
+        uint256 stalenessThreshold; // Max age of price data (seconds)
+        uint256 deviationThresholdBps; // Max price deviation (basis points)
+        uint256 minOracles; // Minimum oracles for consensus
+        uint256 heartbeatInterval; // Expected heartbeat interval
+        uint256 circuitBreakerTimeout; // Circuit breaker recovery time
+        bool requireConsensus; // Require multi-oracle consensus
     }
 
     struct OracleInfo {
@@ -67,7 +67,7 @@ abstract contract OracleHealthChecker is Ownable {
     struct PriceObservation {
         uint256 price;
         uint256 timestamp;
-        uint256 oracleCount;     // How many oracles contributed
+        uint256 oracleCount; // How many oracles contributed
         bool isValid;
     }
 
@@ -97,14 +97,16 @@ abstract contract OracleHealthChecker is Ownable {
      * @notice Initialize oracle health checker with default config
      */
     function _initOracleHealthChecker() internal {
-        _initOracleHealthChecker(OracleConfig({
-            stalenessThreshold: 300,         // 5 minutes
-            deviationThresholdBps: 1000,     // 10% max deviation
-            minOracles: 1,                   // Minimum 1 oracle
-            heartbeatInterval: 60,           // 1 minute heartbeat
-            circuitBreakerTimeout: 300,      // 5 minute recovery
-            requireConsensus: false          // Single oracle mode
-        }));
+        _initOracleHealthChecker(
+            OracleConfig({
+                stalenessThreshold: 300, // 5 minutes
+                deviationThresholdBps: 1000, // 10% max deviation
+                minOracles: 1, // Minimum 1 oracle
+                heartbeatInterval: 60, // 1 minute heartbeat
+                circuitBreakerTimeout: 300, // 5 minute recovery
+                requireConsensus: false // Single oracle mode
+            })
+        );
     }
 
     /**
@@ -116,10 +118,10 @@ abstract contract OracleHealthChecker is Ownable {
         maxPriceHistoryLength = 100; // Keep last 100 observations
 
         _globalOracleCircuitBreaker.init(
-            3,      // 3 failures to trip
-            2,      // 2 successes to recover
+            3, // 3 failures to trip
+            2, // 2 successes to recover
             config.circuitBreakerTimeout,
-            3       // 3 requests in half-open
+            3 // 3 requests in half-open
         );
     }
 
@@ -192,7 +194,7 @@ abstract contract OracleHealthChecker is Ownable {
         OracleInfo storage info = oracles[oracle];
         if (info.oracleAddress == address(0)) return false;
         if (!info.isActive) return false;
-        
+
         return block.timestamp - info.lastUpdate <= oracleConfig.stalenessThreshold;
     }
 
@@ -203,18 +205,17 @@ abstract contract OracleHealthChecker is Ownable {
      * @return isValid Whether deviation is acceptable
      * @return deviationBps Actual deviation in basis points
      */
-    function checkPriceDeviation(
-        uint256 newPrice,
-        uint256 previousPrice
-    ) public view returns (bool isValid, uint256 deviationBps) {
+    function checkPriceDeviation(uint256 newPrice, uint256 previousPrice)
+        public
+        view
+        returns (bool isValid, uint256 deviationBps)
+    {
         if (previousPrice == 0) {
             return (newPrice > 0, 0);
         }
 
-        uint256 diff = newPrice > previousPrice 
-            ? newPrice - previousPrice 
-            : previousPrice - newPrice;
-        
+        uint256 diff = newPrice > previousPrice ? newPrice - previousPrice : previousPrice - newPrice;
+
         deviationBps = (diff * 10000) / previousPrice;
         isValid = deviationBps <= oracleConfig.deviationThresholdBps;
     }
@@ -258,11 +259,11 @@ abstract contract OracleHealthChecker is Ownable {
                 info.circuitBreaker.recordFailure();
                 info.failureCount++;
                 emit PriceDeviationDetected(msg.sender, deviationBps);
-                
+
                 if (info.circuitBreaker.getState() == CircuitBreaker.State.OPEN) {
                     emit OracleCircuitBreakerTripped(msg.sender);
                 }
-                
+
                 revert PriceDeviationTooHigh(price, info.lastPrice, deviationBps);
             }
         }
@@ -298,11 +299,11 @@ abstract contract OracleHealthChecker is Ownable {
         // Collect prices from healthy oracles
         for (uint256 i = 0; i < oracleList.length; i++) {
             OracleInfo storage info = oracles[oracleList[i]];
-            
-            if (info.isActive && 
-                isOracleFresh(oracleList[i]) && 
-                info.circuitBreaker.getState() != CircuitBreaker.State.OPEN) {
-                
+
+            if (
+                info.isActive && isOracleFresh(oracleList[i])
+                    && info.circuitBreaker.getState() != CircuitBreaker.State.OPEN
+            ) {
                 prices[healthyCount] = info.lastPrice;
                 priceSum += info.lastPrice;
                 healthyCount++;
@@ -323,9 +324,9 @@ abstract contract OracleHealthChecker is Ownable {
             // Simple median for small sets
             _sortPrices(prices, healthyCount);
             if (healthyCount % 2 == 0) {
-                consensusPrice = (prices[healthyCount/2 - 1] + prices[healthyCount/2]) / 2;
+                consensusPrice = (prices[healthyCount / 2 - 1] + prices[healthyCount / 2]) / 2;
             } else {
-                consensusPrice = prices[healthyCount/2];
+                consensusPrice = prices[healthyCount / 2];
             }
         }
 
@@ -355,12 +356,9 @@ abstract contract OracleHealthChecker is Ownable {
      * @param oracleCount Number of oracles
      */
     function _addPriceObservation(uint256 price, uint256 oracleCount) internal {
-        priceHistory.push(PriceObservation({
-            price: price,
-            timestamp: block.timestamp,
-            oracleCount: oracleCount,
-            isValid: true
-        }));
+        priceHistory.push(
+            PriceObservation({price: price, timestamp: block.timestamp, oracleCount: oracleCount, isValid: true})
+        );
 
         // Trim history if too long
         if (priceHistory.length > maxPriceHistoryLength) {
@@ -408,7 +406,7 @@ abstract contract OracleHealthChecker is Ownable {
 
         for (uint256 i = priceHistory.length; i > 0; i--) {
             PriceObservation storage obs = priceHistory[i - 1];
-            
+
             if (obs.timestamp < cutoff) {
                 break;
             }
@@ -416,10 +414,8 @@ abstract contract OracleHealthChecker is Ownable {
             if (!obs.isValid) continue;
 
             // Weight by time spent at this price
-            uint256 nextTimestamp = i < priceHistory.length 
-                ? priceHistory[i].timestamp 
-                : block.timestamp;
-            
+            uint256 nextTimestamp = i < priceHistory.length ? priceHistory[i].timestamp : block.timestamp;
+
             uint256 weight = nextTimestamp - obs.timestamp;
             weightedSum += obs.price * weight;
             totalWeight += weight;
@@ -513,5 +509,3 @@ abstract contract OracleHealthChecker is Ownable {
         return priceHistory.length;
     }
 }
-
-

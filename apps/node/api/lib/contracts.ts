@@ -88,6 +88,7 @@ export interface ContractAddresses {
   cdnRegistry: Address
   cdnBilling: Address
   vpnRegistry: Address
+  databaseProvider: Address
 }
 
 /** Localnet contract addresses (deterministic from Anvil deployment order) */
@@ -113,6 +114,7 @@ const LOCALNET_ADDRESSES: ContractAddresses = {
   cdnRegistry: '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1',
   cdnBilling: '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE',
   vpnRegistry: '0x322813FD9a801C5507C9544993C34b5A5B9B5b7b',
+  databaseProvider: '0x4A679253410272dd5232B3Ff7cF5dbB88f295319',
 }
 
 // Validate localnet addresses at module load time
@@ -247,6 +249,12 @@ export function getContractAddresses(chainId: number): ContractAddresses {
     cdnRegistry: safeGetAddress('cdn', 'registry', network, 'CDN_REGISTRY'),
     cdnBilling: safeGetAddress('cdn', 'billing', network, 'CDN_BILLING'),
     vpnRegistry: safeGetAddress('vpn', 'registry', network, 'VPN_REGISTRY'),
+    databaseProvider: safeGetAddress(
+      'database',
+      'provider',
+      network,
+      'DATABASE_PROVIDER',
+    ),
   }
 }
 

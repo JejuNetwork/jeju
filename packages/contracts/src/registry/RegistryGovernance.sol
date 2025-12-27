@@ -751,9 +751,8 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
         }
 
         // Call ReputationProviderRegistry.getAggregatedReputation(agentId)
-        (bool success, bytes memory data) = reputationProviderRegistry.staticcall(
-            abi.encodeWithSignature("getAggregatedReputation(uint256)", agentId)
-        );
+        (bool success, bytes memory data) =
+            reputationProviderRegistry.staticcall(abi.encodeWithSignature("getAggregatedReputation(uint256)", agentId));
 
         if (success && data.length >= 32) {
             (weightedScore,,) = abi.decode(data, (uint256, uint256[], uint256[]));

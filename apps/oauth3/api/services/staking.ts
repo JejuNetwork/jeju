@@ -34,17 +34,45 @@ function getRpcUrl(): string {
   return rpcUrl
 }
 
-// Get staking contract address - REQUIRED
+// Get staking contract address from env or localnet deployment
 function getStakingContractAddress(): Address {
-  const address = process.env.STAKING_CONTRACT_ADDRESS
-  if (!address) {
-    throw new Error(
-      'STAKING_CONTRACT_ADDRESS environment variable is required.\n' +
-        'Deploy the Staking contract first with: bun run scripts/deploy-staking.ts\n' +
-        'Use `bun run start` to start all dependencies.',
-    )
+  // First check environment variable
+  const envAddress = process.env.STAKING_CONTRACT_ADDRESS
+  if (envAddress) {
+    return envAddress as Address
   }
-  return address as Address
+
+  // Try to load from localnet bootstrap output
+  try {
+    const { readFileSync, existsSync } = require('fs')
+    const { join } = require('path')
+    
+    // Look for localnet-complete.json in the monorepo
+    const possiblePaths = [
+      join(process.cwd(), '../../packages/contracts/deployments/localnet-complete.json'),
+      join(process.cwd(), '../packages/contracts/deployments/localnet-complete.json'),
+      join(process.cwd(), 'packages/contracts/deployments/localnet-complete.json'),
+    ]
+
+    for (const path of possiblePaths) {
+      if (existsSync(path)) {
+        const data = JSON.parse(readFileSync(path, 'utf-8'))
+        const address = data?.contracts?.oauth3Staking
+        if (address && address !== '0x0000000000000000000000000000000000000000') {
+          console.log(`[Staking] Loaded staking contract from ${path}: ${address}`)
+          return address as Address
+        }
+      }
+    }
+  } catch {
+    // Ignore errors loading from file
+  }
+
+  throw new Error(
+    'STAKING_CONTRACT_ADDRESS not found.\n' +
+      'Either set STAKING_CONTRACT_ADDRESS environment variable, or\n' +
+      'run `bun run start` (or `jeju dev`) to bootstrap contracts.',
+  )
 }
 
 // Create public client for on-chain reads

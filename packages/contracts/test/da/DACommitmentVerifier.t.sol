@@ -19,12 +19,7 @@ contract MockDABlobRegistry {
     mapping(bytes32 => bool) private _available;
     mapping(bytes32 => bytes32) private _commitments;
 
-    function setBlob(
-        bytes32 blobId,
-        bytes32 commitment,
-        bytes32 merkleRoot,
-        bool available
-    ) external {
+    function setBlob(bytes32 blobId, bytes32 commitment, bytes32 merkleRoot, bool available) external {
         _blobs[blobId] = IDATypes.BlobMetadata({
             blobId: blobId,
             status: available ? IDATypes.BlobStatus.AVAILABLE : IDATypes.BlobStatus.PENDING,
@@ -88,17 +83,13 @@ contract DACommitmentVerifierTest is Test {
 
         // Deploy calldata fallback
         calldataFallback = new CalldataFallback(
-            0.001 ether,  // submission fee
-            128 * 1024,   // max blob size
+            0.001 ether, // submission fee
+            128 * 1024, // max blob size
             admin
         );
 
         // Deploy verifier
-        verifier = new DACommitmentVerifier(
-            address(blobRegistry),
-            address(calldataFallback),
-            admin
-        );
+        verifier = new DACommitmentVerifier(address(blobRegistry), address(calldataFallback), admin);
 
         // Setup mock blob
         blobRegistry.setBlob(TEST_BLOB_ID, TEST_COMMITMENT, TEST_MERKLE_ROOT, true);
@@ -320,12 +311,7 @@ contract DACommitmentVerifierTest is Test {
         verifier.challengeUnavailability{value: 0.1 ether}(TEST_OUTPUT_ROOT, TEST_BLOB_ID);
 
         // Get challenge ID
-        bytes32 challengeId = keccak256(abi.encodePacked(
-            TEST_OUTPUT_ROOT,
-            TEST_BLOB_ID,
-            challenger,
-            block.timestamp
-        ));
+        bytes32 challengeId = keccak256(abi.encodePacked(TEST_OUTPUT_ROOT, TEST_BLOB_ID, challenger, block.timestamp));
 
         // Resolve with availability proof (empty proof uses registry verification)
         vm.prank(proposer);
@@ -349,7 +335,7 @@ contract DACommitmentVerifierTest is Test {
             submittedAt: block.timestamp,
             isCalldata: false
         });
-        
+
         bytes32 outputRoot = keccak256("unavailable-output");
         verifier.registerCommitment(outputRoot, commitment);
 
@@ -359,12 +345,7 @@ contract DACommitmentVerifierTest is Test {
         vm.prank(challenger);
         verifier.challengeUnavailability{value: 0.1 ether}(outputRoot, unavailableBlobId);
 
-        bytes32 challengeId = keccak256(abi.encodePacked(
-            outputRoot,
-            unavailableBlobId,
-            challenger,
-            challengeTime
-        ));
+        bytes32 challengeId = keccak256(abi.encodePacked(outputRoot, unavailableBlobId, challenger, challengeTime));
 
         uint256 challengerBalanceBefore = challenger.balance;
 
@@ -395,12 +376,7 @@ contract DACommitmentVerifierTest is Test {
         vm.prank(challenger);
         verifier.challengeUnavailability{value: 0.1 ether}(TEST_OUTPUT_ROOT, TEST_BLOB_ID);
 
-        bytes32 challengeId = keccak256(abi.encodePacked(
-            TEST_OUTPUT_ROOT,
-            TEST_BLOB_ID,
-            challenger,
-            block.timestamp
-        ));
+        bytes32 challengeId = keccak256(abi.encodePacked(TEST_OUTPUT_ROOT, TEST_BLOB_ID, challenger, block.timestamp));
 
         // Try to finalize too early
         vm.expectRevert(DACommitmentVerifier.ChallengePeriodNotExpired.selector);
@@ -470,7 +446,7 @@ contract DACommitmentVerifierTest is Test {
 
     function test_RevertWhen_MarkVerified_NotFound() public {
         bytes32 nonExistent = keccak256("non-existent");
-        
+
         vm.expectRevert(DACommitmentVerifier.CommitmentNotFound.selector);
         verifier.markVerified(nonExistent);
     }

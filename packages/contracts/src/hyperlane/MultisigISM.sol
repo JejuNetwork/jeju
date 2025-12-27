@@ -23,16 +23,17 @@ contract MultisigISM is Ownable2Step {
 
     // Default threshold
     uint8 public defaultThreshold;
-    
+
     // SECURITY: Timelock for validator changes
     uint256 public constant VALIDATOR_CHANGE_DELAY = 24 hours;
-    
+
     struct PendingValidatorChange {
         address validator;
         bool isAddition; // true = add, false = remove
         uint256 executeAfter;
         bool executed;
     }
+
     mapping(bytes32 => PendingValidatorChange) public pendingValidatorChanges;
 
     event ValidatorAdded(address indexed validator);
@@ -41,7 +42,7 @@ contract MultisigISM is Ownable2Step {
     event DefaultThresholdSet(uint8 threshold);
     event ValidatorChangeProposed(bytes32 indexed changeId, address validator, bool isAddition, uint256 executeAfter);
     event ValidatorChangeCancelled(bytes32 indexed changeId);
-    
+
     error ChangeNotFound();
     error ChangeNotReady();
     error ChangeAlreadyExecuted();
@@ -62,7 +63,7 @@ contract MultisigISM is Ownable2Step {
      */
     function proposeAddValidator(address _validator) public onlyOwner returns (bytes32 changeId) {
         require(!isValidator[_validator], "Already validator");
-        
+
         changeId = keccak256(abi.encodePacked(_validator, true, block.timestamp));
         pendingValidatorChanges[changeId] = PendingValidatorChange({
             validator: _validator,
@@ -70,10 +71,10 @@ contract MultisigISM is Ownable2Step {
             executeAfter: block.timestamp + VALIDATOR_CHANGE_DELAY,
             executed: false
         });
-        
+
         emit ValidatorChangeProposed(changeId, _validator, true, block.timestamp + VALIDATOR_CHANGE_DELAY);
     }
-    
+
     /**
      * @notice Execute pending validator addition
      */
@@ -83,11 +84,11 @@ contract MultisigISM is Ownable2Step {
         if (change.executed) revert ChangeAlreadyExecuted();
         if (block.timestamp < change.executeAfter) revert ChangeNotReady();
         if (!change.isAddition) revert ChangeNotFound();
-        
+
         change.executed = true;
         _addValidator(change.validator);
     }
-    
+
     /**
      * @notice Legacy addValidator - now requires timelock
      */
@@ -108,7 +109,7 @@ contract MultisigISM is Ownable2Step {
      */
     function proposeRemoveValidator(address _validator) public onlyOwner returns (bytes32 changeId) {
         require(isValidator[_validator], "Not validator");
-        
+
         changeId = keccak256(abi.encodePacked(_validator, false, block.timestamp));
         pendingValidatorChanges[changeId] = PendingValidatorChange({
             validator: _validator,
@@ -116,10 +117,10 @@ contract MultisigISM is Ownable2Step {
             executeAfter: block.timestamp + VALIDATOR_CHANGE_DELAY,
             executed: false
         });
-        
+
         emit ValidatorChangeProposed(changeId, _validator, false, block.timestamp + VALIDATOR_CHANGE_DELAY);
     }
-    
+
     /**
      * @notice Execute pending validator removal
      */
@@ -129,11 +130,11 @@ contract MultisigISM is Ownable2Step {
         if (change.executed) revert ChangeAlreadyExecuted();
         if (block.timestamp < change.executeAfter) revert ChangeNotReady();
         if (change.isAddition) revert ChangeNotFound();
-        
+
         change.executed = true;
         _removeValidatorInternal(change.validator);
     }
-    
+
     /**
      * @notice Cancel pending validator change
      */
@@ -141,7 +142,7 @@ contract MultisigISM is Ownable2Step {
         PendingValidatorChange storage change = pendingValidatorChanges[changeId];
         if (change.executeAfter == 0) revert ChangeNotFound();
         if (change.executed) revert ChangeAlreadyExecuted();
-        
+
         delete pendingValidatorChanges[changeId];
         emit ValidatorChangeCancelled(changeId);
     }
@@ -152,7 +153,7 @@ contract MultisigISM is Ownable2Step {
     function removeValidator(address _validator) external onlyOwner {
         proposeRemoveValidator(_validator);
     }
-    
+
     function _removeValidatorInternal(address _validator) internal {
         require(isValidator[_validator], "Not validator");
 
@@ -246,10 +247,3 @@ contract MultisigISM is Ownable2Step {
         return t == 0 ? defaultThreshold : t;
     }
 }
-
-
-
-
-
-
-

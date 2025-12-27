@@ -28,36 +28,37 @@ library CircuitBreaker {
 
     // ============ Enums ============
     enum State {
-        CLOSED,     // Normal operation
-        OPEN,       // All requests rejected
-        HALF_OPEN   // Testing recovery
+        CLOSED, // Normal operation
+        OPEN, // All requests rejected
+        HALF_OPEN // Testing recovery
+
     }
 
     // ============ Structs ============
 
     /// @notice Circuit breaker state
     struct Breaker {
-        State state;                    // Current circuit state
-        uint256 failures;               // Consecutive failures
-        uint256 successes;              // Consecutive successes (in half-open)
-        uint256 lastFailure;            // Last failure timestamp
-        uint256 openUntil;              // When circuit can transition to half-open
-        uint256 failureThreshold;       // Failures before opening circuit
-        uint256 successThreshold;       // Successes in half-open before closing
-        uint256 timeout;                // Time before auto-recovery attempt
-        uint256 halfOpenMaxRequests;    // Max requests allowed in half-open state
-        uint256 halfOpenRequestCount;   // Current requests in half-open
+        State state; // Current circuit state
+        uint256 failures; // Consecutive failures
+        uint256 successes; // Consecutive successes (in half-open)
+        uint256 lastFailure; // Last failure timestamp
+        uint256 openUntil; // When circuit can transition to half-open
+        uint256 failureThreshold; // Failures before opening circuit
+        uint256 successThreshold; // Successes in half-open before closing
+        uint256 timeout; // Time before auto-recovery attempt
+        uint256 halfOpenMaxRequests; // Max requests allowed in half-open state
+        uint256 halfOpenRequestCount; // Current requests in half-open
     }
 
     /// @notice Sliding window for failure rate calculation
     struct SlidingWindowBreaker {
         State state;
-        uint256[] failureTimestamps;    // Ring buffer of failure timestamps
-        uint256 bufferIndex;            // Current position in ring buffer
-        uint256 windowSize;             // Time window in seconds
-        uint256 failureRateThreshold;   // Failure rate (basis points) to trip
-        uint256 minRequests;            // Minimum requests before checking rate
-        uint256 requestCount;           // Total requests in window
+        uint256[] failureTimestamps; // Ring buffer of failure timestamps
+        uint256 bufferIndex; // Current position in ring buffer
+        uint256 windowSize; // Time window in seconds
+        uint256 failureRateThreshold; // Failure rate (basis points) to trip
+        uint256 minRequests; // Minimum requests before checking rate
+        uint256 requestCount; // Total requests in window
         uint256 openUntil;
         uint256 timeout;
         uint256 successThreshold;
@@ -86,7 +87,7 @@ library CircuitBreaker {
         if (failureThreshold == 0 || successThreshold == 0 || timeout == 0) {
             revert InvalidConfiguration();
         }
-        
+
         self.state = State.CLOSED;
         self.failures = 0;
         self.successes = 0;
@@ -125,7 +126,7 @@ library CircuitBreaker {
         if (self.halfOpenRequestCount >= self.halfOpenMaxRequests) {
             return false;
         }
-        
+
         self.halfOpenRequestCount++;
         return true;
     }
@@ -156,7 +157,7 @@ library CircuitBreaker {
 
         if (self.state == State.HALF_OPEN) {
             self.successes++;
-            
+
             // Check if we should close the circuit
             if (self.successes >= self.successThreshold) {
                 self.state = State.CLOSED;
@@ -186,7 +187,7 @@ library CircuitBreaker {
 
         if (self.state == State.CLOSED) {
             self.failures++;
-            
+
             // Check if we should open the circuit
             if (self.failures >= self.failureThreshold) {
                 self.state = State.OPEN;
@@ -251,8 +252,10 @@ library CircuitBreaker {
         uint256 successThreshold,
         uint256 halfOpenMaxRequests
     ) internal {
-        if (bufferSize == 0 || windowSize == 0 || failureRateThreshold == 0 || 
-            failureRateThreshold > 10000 || timeout == 0) {
+        if (
+            bufferSize == 0 || windowSize == 0 || failureRateThreshold == 0 || failureRateThreshold > 10000
+                || timeout == 0
+        ) {
             revert InvalidConfiguration();
         }
 
@@ -297,7 +300,7 @@ library CircuitBreaker {
         if (self.halfOpenRequestCount >= self.halfOpenMaxRequests) {
             return false;
         }
-        
+
         self.halfOpenRequestCount++;
         self.requestCount++;
         return true;
@@ -344,7 +347,7 @@ library CircuitBreaker {
             if (self.requestCount >= self.minRequests) {
                 uint256 recentFailures = _countRecentFailures(self);
                 uint256 failureRate = (recentFailures * 10000) / self.requestCount;
-                
+
                 if (failureRate >= self.failureRateThreshold) {
                     self.state = State.OPEN;
                     self.openUntil = block.timestamp + self.timeout;
@@ -360,7 +363,7 @@ library CircuitBreaker {
      */
     function _countRecentFailures(SlidingWindowBreaker storage self) private view returns (uint256 count) {
         uint256 windowStart = block.timestamp - self.windowSize;
-        
+
         for (uint256 i = 0; i < self.failureTimestamps.length; i++) {
             if (self.failureTimestamps[i] >= windowStart) {
                 count++;
@@ -375,7 +378,7 @@ library CircuitBreaker {
      */
     function getFailureRate(SlidingWindowBreaker storage self) internal view returns (uint256 rate) {
         if (self.requestCount == 0) return 0;
-        
+
         uint256 recentFailures = _countRecentFailures(self);
         return (recentFailures * 10000) / self.requestCount;
     }
@@ -389,11 +392,9 @@ library CircuitBreaker {
         self.successes = 0;
         self.halfOpenRequestCount = 0;
         self.requestCount = 0;
-        
+
         for (uint256 i = 0; i < self.failureTimestamps.length; i++) {
             self.failureTimestamps[i] = 0;
         }
     }
 }
-
-

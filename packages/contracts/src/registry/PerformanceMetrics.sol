@@ -78,8 +78,10 @@ library PerformanceMetrics {
             : (self.requestsServed * BPS) / targetThroughput;
 
         return AggregatedScore({
-            overall: (self.uptimeScore * w.uptime + self.successRate * w.success + 
-                     latencyScore * w.latency + throughputScore * w.throughput) / BPS,
+            overall: (
+                self.uptimeScore * w.uptime + self.successRate * w.success + latencyScore * w.latency
+                    + throughputScore * w.throughput
+            ) / BPS,
             reliability: (self.uptimeScore + self.successRate) / 2,
             performance: (latencyScore + throughputScore) / 2,
             timestamp: block.timestamp

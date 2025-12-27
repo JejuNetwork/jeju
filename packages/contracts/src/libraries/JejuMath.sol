@@ -51,21 +51,21 @@ library JejuMath {
         result = PRECISION;
         uint256 term = x;
 
-        result += term;                                   // x^1/1!
+        result += term; // x^1/1!
         term = (term * x) / (2 * PRECISION);
-        result += term;                                   // x^2/2!
+        result += term; // x^2/2!
         term = (term * x) / (3 * PRECISION);
-        result += term;                                   // x^3/3!
+        result += term; // x^3/3!
         term = (term * x) / (4 * PRECISION);
-        result += term;                                   // x^4/4!
+        result += term; // x^4/4!
         term = (term * x) / (5 * PRECISION);
-        result += term;                                   // x^5/5!
+        result += term; // x^5/5!
         term = (term * x) / (6 * PRECISION);
-        result += term;                                   // x^6/6!
+        result += term; // x^6/6!
         term = (term * x) / (7 * PRECISION);
-        result += term;                                   // x^7/7!
+        result += term; // x^7/7!
         term = (term * x) / (8 * PRECISION);
-        result += term;                                   // x^8/8!
+        result += term; // x^8/8!
     }
 
     /**
@@ -85,18 +85,18 @@ library JejuMath {
         // Find k such that x / 2^k is in [1, 2)
         uint256 k = 0;
         uint256 scaled = x;
-        
+
         // Scale down by powers of 2 until scaled < 2
         while (scaled >= 2 * PRECISION) {
             scaled = scaled / 2;
             k++;
         }
-        
+
         // Now scaled is in [1, 2), use Taylor series for ln(scaled)
         // result = k * ln(2) + ln(scaled)
         result = k * LN_2 + _lnTaylorRange1to2(scaled);
     }
-    
+
     /**
      * @notice Taylor series for ln(x) where x is in range [1, 2)
      * @dev Uses ln(1+y) = y - y²/2 + y³/3 - y⁴/4 + ... for y = x - 1
@@ -105,10 +105,10 @@ library JejuMath {
     function _lnTaylorRange1to2(uint256 x) private pure returns (uint256) {
         if (x == PRECISION) return 0;
         if (x >= 2 * PRECISION) revert InvalidInput();
-        
+
         // y = x - 1, so y is in [0, 1)
         uint256 y = x - PRECISION;
-        
+
         // Compute powers of y
         uint256 y2 = (y * y) / PRECISION;
         uint256 y3 = (y2 * y) / PRECISION;
@@ -117,11 +117,11 @@ library JejuMath {
         uint256 y6 = (y5 * y) / PRECISION;
         uint256 y7 = (y6 * y) / PRECISION;
         uint256 y8 = (y7 * y) / PRECISION;
-        
+
         // ln(1+y) = y - y²/2 + y³/3 - y⁴/4 + y⁵/5 - y⁶/6 + y⁷/7 - y⁸/8
         uint256 positive = y + (y3 / 3) + (y5 / 5) + (y7 / 7);
         uint256 negative = (y2 / 2) + (y4 / 4) + (y6 / 6) + (y8 / 8);
-        
+
         return positive > negative ? positive - negative : 0;
     }
 
@@ -160,22 +160,40 @@ library JejuMath {
         // We want sqrt(x) where x has 18 decimals
         // sqrt(x) should also have 18 decimals
         // So we compute: sqrt(x * 1e18) which gives us the right precision
-        
+
         uint256 scaled = x * PRECISION;
-        
+
         // Initial guess: find the highest bit set and use 2^(highestBit/2)
         // This gives us a much better starting point than x itself
         uint256 xAux = scaled;
         result = 1;
-        
-        if (xAux >= 1 << 128) { xAux >>= 128; result <<= 64; }
-        if (xAux >= 1 << 64) { xAux >>= 64; result <<= 32; }
-        if (xAux >= 1 << 32) { xAux >>= 32; result <<= 16; }
-        if (xAux >= 1 << 16) { xAux >>= 16; result <<= 8; }
-        if (xAux >= 1 << 8) { xAux >>= 8; result <<= 4; }
-        if (xAux >= 1 << 4) { xAux >>= 4; result <<= 2; }
-        if (xAux >= 1 << 2) { result <<= 1; }
-        
+
+        if (xAux >= 1 << 128) {
+            xAux >>= 128;
+            result <<= 64;
+        }
+        if (xAux >= 1 << 64) {
+            xAux >>= 64;
+            result <<= 32;
+        }
+        if (xAux >= 1 << 32) {
+            xAux >>= 32;
+            result <<= 16;
+        }
+        if (xAux >= 1 << 16) {
+            xAux >>= 16;
+            result <<= 8;
+        }
+        if (xAux >= 1 << 8) {
+            xAux >>= 8;
+            result <<= 4;
+        }
+        if (xAux >= 1 << 4) {
+            xAux >>= 4;
+            result <<= 2;
+        }
+        if (xAux >= 1 << 2) result <<= 1;
+
         // Babylonian method iterations (7 iterations is enough for 256-bit precision)
         result = (result + scaled / result) >> 1;
         result = (result + scaled / result) >> 1;
@@ -250,13 +268,11 @@ library JejuMath {
      *      So max shares ≈ cost / minPrice ≈ cost * 100 (for 1% min price)
      *      We use b * ln(e^(cost/b)) as a tighter bound when possible
      */
-    function lmsrSharesForCost(
-        uint256 qYes,
-        uint256 qNo,
-        uint256 b,
-        uint256 cost,
-        bool buyYes
-    ) internal pure returns (uint256 shares) {
+    function lmsrSharesForCost(uint256 qYes, uint256 qNo, uint256 b, uint256 cost, bool buyYes)
+        internal
+        pure
+        returns (uint256 shares)
+    {
         if (cost == 0) return 0;
         if (b == 0) revert DivisionByZero();
 
@@ -264,7 +280,7 @@ library JejuMath {
         uint256 targetCost = costBefore + cost;
 
         // Upper bound estimation:
-        // In LMSR, buying shares increases cost. The cheapest case is when 
+        // In LMSR, buying shares increases cost. The cheapest case is when
         // the outcome has probability near 0, where price ≈ 0.
         // A reasonable upper bound is cost * b / PRECISION when prices are low,
         // or cost * 100 as a safe maximum (assumes min price > 1%)
@@ -303,7 +319,7 @@ library JejuMath {
      */
     function mulDiv(uint256 a, uint256 b, uint256 denominator) internal pure returns (uint256 result) {
         if (denominator == 0) revert DivisionByZero();
-        
+
         // Use assembly for 512-bit precision multiplication
         uint256 prod0;
         uint256 prod1;
@@ -362,4 +378,3 @@ library JejuMath {
         return a >= b ? a - b : b - a;
     }
 }
-

@@ -38,8 +38,9 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
     // Weighted delegation (for quadratic voting implementations)
     struct WeightedDelegation {
         address delegate;
-        uint256 weightBps;  // Basis points (100 = 1%)
+        uint256 weightBps; // Basis points (100 = 1%)
     }
+
     mapping(address => WeightedDelegation[]) public weightedDelegations;
 
     // Max supply cap
@@ -52,13 +53,11 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
     error InvalidDelegation();
     error TotalWeightExceeds100Percent();
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint256 initialSupply_,
-        uint256 maxSupply_,
-        address owner_
-    ) ERC20(name_, symbol_) ERC20Permit(name_) Ownable(owner_) {
+    constructor(string memory name_, string memory symbol_, uint256 initialSupply_, uint256 maxSupply_, address owner_)
+        ERC20(name_, symbol_)
+        ERC20Permit(name_)
+        Ownable(owner_)
+    {
         maxSupply = maxSupply_;
         if (initialSupply_ > 0) {
             _mint(owner_, initialSupply_);
@@ -119,10 +118,7 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
      * @param delegates Array of delegates
      * @param weights Array of weight basis points (must sum to <= 10000)
      */
-    function setWeightedDelegations(
-        address[] calldata delegates,
-        uint256[] calldata weights
-    ) external {
+    function setWeightedDelegations(address[] calldata delegates, uint256[] calldata weights) external {
         require(delegates.length == weights.length, "Length mismatch");
 
         // Clear existing delegations
@@ -133,10 +129,7 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
             if (delegates[i] == address(0)) revert InvalidDelegation();
             totalWeight += weights[i];
 
-            weightedDelegations[msg.sender].push(WeightedDelegation({
-                delegate: delegates[i],
-                weightBps: weights[i]
-            }));
+            weightedDelegations[msg.sender].push(WeightedDelegation({delegate: delegates[i], weightBps: weights[i]}));
 
             emit WeightedDelegationSet(msg.sender, delegates[i], weights[i]);
         }
@@ -157,11 +150,7 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
      * @param account Account to query
      * @return Array of weighted delegations
      */
-    function getWeightedDelegations(address account)
-        external
-        view
-        returns (WeightedDelegation[] memory)
-    {
+    function getWeightedDelegations(address account) external view returns (WeightedDelegation[] memory) {
         return weightedDelegations[account];
     }
 
@@ -171,11 +160,7 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
      * @param delegate The delegate receiving votes
      * @return Weighted vote amount
      */
-    function getWeightedVotesFrom(address delegator, address delegate)
-        external
-        view
-        returns (uint256)
-    {
+    function getWeightedVotesFrom(address delegator, address delegate) external view returns (uint256) {
         WeightedDelegation[] storage delegations = weightedDelegations[delegator];
         uint256 balance = balanceOf(delegator);
 
@@ -219,4 +204,3 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
         return "mode=timestamp";
     }
 }
-

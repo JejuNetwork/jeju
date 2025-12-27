@@ -32,10 +32,10 @@ contract RewardEmitter is Ownable, ReentrancyGuard {
     uint256 public immutable totalAllocation;
 
     // Distribution percentages (bps)
-    uint256 public constant NODE_OPERATOR_BPS = 4000;  // 40%
-    uint256 public constant XLP_PROVIDER_BPS = 2500;   // 25%
-    uint256 public constant STAKING_BPS = 2000;        // 20%
-    uint256 public constant ECOSYSTEM_BPS = 1500;      // 15%
+    uint256 public constant NODE_OPERATOR_BPS = 4000; // 40%
+    uint256 public constant XLP_PROVIDER_BPS = 2500; // 25%
+    uint256 public constant STAKING_BPS = 2000; // 20%
+    uint256 public constant ECOSYSTEM_BPS = 1500; // 15%
     uint256 public constant BPS = 10000;
 
     // Yearly emission rates (percentage of total allocation)
@@ -295,4 +295,3 @@ contract RewardEmitter is Ownable, ReentrancyGuard {
         emit EmergencyWithdraw(to, amount);
     }
 }
-

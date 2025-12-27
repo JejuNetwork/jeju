@@ -28,14 +28,14 @@ import {BlockingMixin} from "../moderation/BlockingMixin.sol";
  *      - Merchant fulfills order
  *      - Merchant captures payment (funds released)
  *      - Supports void (before capture) and refund (after capture)
- * 
+ *
  * Key Features:
  * - Gasless for buyers via EIP-3009 or Permit2
  * - Operator-sponsored gas (credit card model)
  * - Configurable operator fees
  * - Partial captures and refunds
  * - Time-limited authorizations
- * 
+ *
  * @custom:security-contact security@jejunetwork.org
  */
 contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents {
@@ -90,11 +90,10 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     error TransferFailed();
     error UserBlocked();
 
-    constructor(
-        address _owner,
-        address _feeRecipient,
-        address[] memory _initialTokens
-    ) Ownable(_owner) EIP712("Jeju Commerce Protocol", "1") {
+    constructor(address _owner, address _feeRecipient, address[] memory _initialTokens)
+        Ownable(_owner)
+        EIP712("Jeju Commerce Protocol", "1")
+    {
         feeRecipient = _feeRecipient;
 
         for (uint256 i = 0; i < _initialTokens.length; i++) {
@@ -111,13 +110,11 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
      * @param orderRef External order reference
      * @return paymentId Unique payment identifier
      */
-    function authorize(
-        address merchant,
-        address token,
-        uint256 amount,
-        uint256 duration,
-        bytes32 orderRef
-    ) external nonReentrant returns (bytes32 paymentId) {
+    function authorize(address merchant, address token, uint256 amount, uint256 duration, bytes32 orderRef)
+        external
+        nonReentrant
+        returns (bytes32 paymentId)
+    {
         if (!registeredMerchants[merchant]) revert InvalidMerchant();
         if (!supportedTokens[token]) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
@@ -127,9 +124,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         // Check if merchant has blocked the payer
         if (blocking.isBlocked(msg.sender, merchant)) revert UserBlocked();
 
-        paymentId = keccak256(
-            abi.encodePacked(msg.sender, merchant, token, amount, block.timestamp, orderRef)
-        );
+        paymentId = keccak256(abi.encodePacked(msg.sender, merchant, token, amount, block.timestamp, orderRef));
 
         // Transfer tokens to escrow
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -146,15 +141,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
             orderRef: orderRef
         });
 
-        emit PaymentAuthorized(
-            paymentId,
-            msg.sender,
-            merchant,
-            token,
-            amount,
-            block.timestamp + duration,
-            orderRef
-        );
+        emit PaymentAuthorized(paymentId, msg.sender, merchant, token, amount, block.timestamp + duration, orderRef);
     }
 
     /**
@@ -187,25 +174,14 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
 
         // Verify signature
         uint256 nonce = nonces[payer]++;
-        bytes32 structHash = keccak256(
-            abi.encode(
-                AUTHORIZATION_TYPEHASH,
-                merchant,
-                token,
-                amount,
-                deadline,
-                orderRef,
-                nonce
-            )
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(AUTHORIZATION_TYPEHASH, merchant, token, amount, deadline, orderRef, nonce));
 
         bytes32 digest = _hashTypedDataV4(structHash);
         address signer = ECDSA.recover(digest, signature);
         if (signer != payer) revert InvalidSignature();
 
-        paymentId = keccak256(
-            abi.encodePacked(payer, merchant, token, amount, block.timestamp, orderRef)
-        );
+        paymentId = keccak256(abi.encodePacked(payer, merchant, token, amount, block.timestamp, orderRef));
 
         // Transfer tokens to escrow
         IERC20(token).safeTransferFrom(payer, address(this), amount);
@@ -224,15 +200,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
             orderRef: orderRef
         });
 
-        emit PaymentAuthorized(
-            paymentId,
-            payer,
-            merchant,
-            token,
-            amount,
-            expiresAt,
-            orderRef
-        );
+        emit PaymentAuthorized(paymentId, payer, merchant, token, amount, expiresAt, orderRef);
     }
 
     /**
@@ -241,13 +209,9 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
      * @param captureAmount Amount to capture (can be partial)
      * @param fulfillmentRef Proof of fulfillment
      */
-    function capture(
-        bytes32 paymentId,
-        uint256 captureAmount,
-        bytes32 fulfillmentRef
-    ) external nonReentrant {
+    function capture(bytes32 paymentId, uint256 captureAmount, bytes32 fulfillmentRef) external nonReentrant {
         PaymentAuthorization storage auth = authorizations[paymentId];
-        
+
         if (auth.status != PaymentStatus.Authorized) revert InvalidPayment();
         if (block.timestamp > auth.expiresAt) revert PaymentExpired();
         if (msg.sender != auth.merchant) revert InvalidMerchant();
@@ -293,13 +257,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
 
         totalVolume += captureAmount;
 
-        emit PaymentCaptured(
-            paymentId,
-            auth.merchant,
-            captureAmount,
-            operatorFee,
-            fulfillmentRef
-        );
+        emit PaymentCaptured(paymentId, auth.merchant, captureAmount, operatorFee, fulfillmentRef);
     }
 
     /**
@@ -307,10 +265,10 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
      * @param request Capture request details
      * @param merchantSignature Merchant's signature authorizing capture
      */
-    function captureForMerchant(
-        CaptureRequest calldata request,
-        bytes calldata merchantSignature
-    ) external nonReentrant {
+    function captureForMerchant(CaptureRequest calldata request, bytes calldata merchantSignature)
+        external
+        nonReentrant
+    {
         OperatorConfig storage opConfig = operators[msg.sender];
         if (!opConfig.isActive) revert InvalidOperator();
 
@@ -319,9 +277,8 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         if (block.timestamp > auth.expiresAt) revert PaymentExpired();
 
         // Verify merchant signature (simplified for this implementation)
-        bytes32 captureHash = keccak256(
-            abi.encodePacked(request.paymentId, request.captureAmount, request.fulfillmentRef)
-        );
+        bytes32 captureHash =
+            keccak256(abi.encodePacked(request.paymentId, request.captureAmount, request.fulfillmentRef));
         address signer = ECDSA.recover(captureHash.toEthSignedMessageHash(), merchantSignature);
         if (signer != auth.merchant) revert InvalidMerchant();
 
@@ -382,11 +339,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
      * @param refundAmount Amount to refund
      * @param reason Refund reason
      */
-    function refund(
-        bytes32 paymentId,
-        uint256 refundAmount,
-        string calldata reason
-    ) external nonReentrant {
+    function refund(bytes32 paymentId, uint256 refundAmount, string calldata reason) external nonReentrant {
         PaymentAuthorization storage auth = authorizations[paymentId];
 
         if (auth.status != PaymentStatus.Captured && auth.status != PaymentStatus.Authorized) {
@@ -417,12 +370,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     function getPayment(bytes32 paymentId)
         external
         view
-        returns (
-            PaymentAuthorization memory auth,
-            uint256 captured,
-            uint256 refunded,
-            uint256 available
-        )
+        returns (PaymentAuthorization memory auth, uint256 captured, uint256 refunded, uint256 available)
     {
         auth = authorizations[paymentId];
         captured = capturedAmounts[paymentId];
@@ -445,11 +393,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     /**
      * @notice Get protocol stats
      */
-    function getProtocolStats()
-        external
-        view
-        returns (uint256 volume, uint256 fees, uint256 feeBps)
-    {
+    function getProtocolStats() external view returns (uint256 volume, uint256 fees, uint256 feeBps) {
         return (totalVolume, totalProtocolFees, protocolFeeBps);
     }
 
@@ -537,13 +481,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
 
         totalVolume += captureAmount;
 
-        emit PaymentCaptured(
-            auth.paymentId,
-            auth.merchant,
-            captureAmount,
-            operatorFee,
-            fulfillmentRef
-        );
+        emit PaymentCaptured(auth.paymentId, auth.merchant, captureAmount, operatorFee, fulfillmentRef);
     }
 }
-

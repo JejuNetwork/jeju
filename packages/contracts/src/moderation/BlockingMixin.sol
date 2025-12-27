@@ -68,20 +68,16 @@ library BlockingMixin {
      * @param targetAgentId The receiving agent
      * @return blocked True if interaction is blocked
      */
-    function isAgentBlocked(
-        Data storage self,
-        uint256 sourceAgentId,
-        uint256 targetAgentId
-    ) internal view returns (bool) {
+    function isAgentBlocked(Data storage self, uint256 sourceAgentId, uint256 targetAgentId)
+        internal
+        view
+        returns (bool)
+    {
         if (self.blockRegistry == address(0)) return false;
         if (sourceAgentId == 0 || targetAgentId == 0) return false;
 
         (bool success, bytes memory data) = self.blockRegistry.staticcall(
-            abi.encodeWithSelector(
-                IUserBlockRegistry.isAgentInteractionBlocked.selector,
-                sourceAgentId,
-                targetAgentId
-            )
+            abi.encodeWithSelector(IUserBlockRegistry.isAgentInteractionBlocked.selector, sourceAgentId, targetAgentId)
         );
 
         if (success && data.length >= 32) {
@@ -111,11 +107,7 @@ library BlockingMixin {
 
         (bool success, bytes memory data) = self.blockRegistry.staticcall(
             abi.encodeWithSelector(
-                IUserBlockRegistry.isAnyBlockActive.selector,
-                sourceAddress,
-                targetAddress,
-                sourceAgentId,
-                targetAgentId
+                IUserBlockRegistry.isAnyBlockActive.selector, sourceAddress, targetAddress, sourceAgentId, targetAgentId
             )
         );
 
@@ -146,11 +138,7 @@ library BlockingMixin {
      * @param sourceAgentId The initiating agent
      * @param targetAgentId The receiving agent
      */
-    function requireAgentNotBlocked(
-        Data storage self,
-        uint256 sourceAgentId,
-        uint256 targetAgentId
-    ) internal view {
+    function requireAgentNotBlocked(Data storage self, uint256 sourceAgentId, uint256 targetAgentId) internal view {
         if (isAgentBlocked(self, sourceAgentId, targetAgentId)) {
             revert AgentBlocked(sourceAgentId, targetAgentId);
         }
@@ -189,4 +177,3 @@ library BlockingMixin {
         emit BlockRegistryUpdated(oldRegistry, _blockRegistry);
     }
 }
-

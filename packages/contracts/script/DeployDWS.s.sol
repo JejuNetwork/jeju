@@ -54,17 +54,10 @@ contract DeployDWS is Script {
         JNSResolver jnsResolver = new JNSResolver(address(jnsRegistry));
         console.log("JNSResolver:", address(jnsResolver));
 
-        JNSRegistrar jnsRegistrar = new JNSRegistrar(
-            address(jnsRegistry),
-            address(jnsResolver),
-            treasury
-        );
+        JNSRegistrar jnsRegistrar = new JNSRegistrar(address(jnsRegistry), address(jnsResolver), treasury);
         console.log("JNSRegistrar:", address(jnsRegistrar));
 
-        JNSReverseRegistrar jnsReverseRegistrar = new JNSReverseRegistrar(
-            address(jnsRegistry),
-            address(jnsResolver)
-        );
+        JNSReverseRegistrar jnsReverseRegistrar = new JNSReverseRegistrar(address(jnsRegistry), address(jnsResolver));
         console.log("JNSReverseRegistrar:", address(jnsReverseRegistrar));
 
         // Set resolver for root node
@@ -100,11 +93,7 @@ contract DeployDWS is Script {
         // ============================================================
         console.log("--- Storage Manager ---");
 
-        StorageManager storageManager = new StorageManager(
-            identityRegistry,
-            treasury,
-            deployer
-        );
+        StorageManager storageManager = new StorageManager(identityRegistry, treasury, deployer);
         console.log("StorageManager:", address(storageManager));
         console.log("  Default quota: 10 GB");
         console.log("  Permanent storage fee: 0.001 ETH/MB");
@@ -126,12 +115,7 @@ contract DeployDWS is Script {
         console.log("--- CDN Registry ---");
 
         uint256 minProviderStake = 0.01 ether;
-        CDNRegistry cdnRegistry = new CDNRegistry(
-            deployer,
-            identityRegistry,
-            banManager,
-            minProviderStake
-        );
+        CDNRegistry cdnRegistry = new CDNRegistry(deployer, identityRegistry, banManager, minProviderStake);
         console.log("CDNRegistry:", address(cdnRegistry));
         console.log("  Min provider stake:", minProviderStake / 1 ether, "ETH");
         console.log("  Min node stake: 0.001 ETH");
@@ -141,16 +125,27 @@ contract DeployDWS is Script {
         // Register Canonical App Names (optional - may fail on testnet/mainnet)
         // ============================================================
         console.log("--- Registering Canonical Names ---");
-        
+
         // Register core app names (1 year duration)
         // Pricing: 3-char=0.1 ETH, 4-char=0.01 ETH, 5+ char=0.001 ETH per year
         // This is optional - names can be registered separately
         bool skipNames = vm.envOr("SKIP_NAME_REGISTRATION", false);
-        
+
         if (!skipNames) {
             uint256 oneYear = 365 days;
-            string[10] memory appNames = ["gateway", "bazaar", "compute", "storage", "indexer", "cloud", "docs", "monitoring", "crucible", "factory"];
-            
+            string[10] memory appNames = [
+                "gateway",
+                "bazaar",
+                "compute",
+                "storage",
+                "indexer",
+                "cloud",
+                "docs",
+                "monitoring",
+                "crucible",
+                "factory"
+            ];
+
             for (uint256 i = 0; i < appNames.length; i++) {
                 uint256 nameLen = bytes(appNames[i]).length;
                 uint256 registrationPrice = nameLen == 3 ? 0.1 ether : (nameLen == 4 ? 0.01 ether : 0.001 ether);

@@ -14,15 +14,16 @@ interface ICDNTypes {
      * @notice Type of CDN provider
      */
     enum ProviderType {
-        DECENTRALIZED,      // Permissionless node operators
-        CLOUDFRONT,         // AWS CloudFront
-        CLOUDFLARE,         // Cloudflare CDN
-        FASTLY,             // Fastly CDN
-        FLEEK,              // Fleek Network (decentralized)
-        PIPE,               // Pipe Network (Solana-based)
-        AIOZ,               // AIOZ W3IPFS
-        IPFS_GATEWAY,       // Direct IPFS gateway
-        RESIDENTIAL         // Residential proxy/edge nodes
+        DECENTRALIZED, // Permissionless node operators
+        CLOUDFRONT, // AWS CloudFront
+        CLOUDFLARE, // Cloudflare CDN
+        FASTLY, // Fastly CDN
+        FLEEK, // Fleek Network (decentralized)
+        PIPE, // Pipe Network (Solana-based)
+        AIOZ, // AIOZ W3IPFS
+        IPFS_GATEWAY, // Direct IPFS gateway
+        RESIDENTIAL // Residential proxy/edge nodes
+
     }
 
     /**
@@ -44,7 +45,8 @@ interface ICDNTypes {
         SA_EAST_1,
         AF_SOUTH_1,
         ME_SOUTH_1,
-        GLOBAL              // Anycast/global
+        GLOBAL // Anycast/global
+
     }
 
     /**
@@ -62,14 +64,15 @@ interface ICDNTypes {
      * @notice Cache status for requests
      */
     enum CacheStatus {
-        HIT,                // Served from edge cache
-        MISS,               // Fetched from origin
-        STALE,              // Served stale while revalidating
-        BYPASS,             // Cache bypassed
-        EXPIRED,            // Cache expired, refetched
-        REVALIDATED,        // Conditional request, not modified
-        DYNAMIC,            // Not cacheable
-        ERROR               // Origin error
+        HIT, // Served from edge cache
+        MISS, // Fetched from origin
+        STALE, // Served stale while revalidating
+        BYPASS, // Cache bypassed
+        EXPIRED, // Cache expired, refetched
+        REVALIDATED, // Conditional request, not modified
+        DYNAMIC, // Not cacheable
+        ERROR // Origin error
+
     }
 
     // ============ Structs ============
@@ -85,7 +88,7 @@ interface ICDNTypes {
         bytes32 attestationHash;
         uint256 stake;
         uint256 registeredAt;
-        uint256 agentId;          // ERC-8004 agent ID
+        uint256 agentId; // ERC-8004 agent ID
         bool active;
         bool verified;
     }
@@ -110,12 +113,12 @@ interface ICDNTypes {
      * @notice Provider pricing structure
      */
     struct ProviderPricing {
-        uint256 pricePerGBEgress;         // wei per GB transferred
-        uint256 pricePerMillionRequests;  // wei per 1M requests
-        uint256 pricePerGBStorage;        // wei per GB cached
-        uint256 minimumCommitmentWei;     // Minimum monthly commitment
-        uint256 freeEgressGB;             // Free tier
-        uint256 freeRequestsM;            // Free tier (millions)
+        uint256 pricePerGBEgress; // wei per GB transferred
+        uint256 pricePerMillionRequests; // wei per 1M requests
+        uint256 pricePerGBStorage; // wei per GB cached
+        uint256 minimumCommitmentWei; // Minimum monthly commitment
+        uint256 freeEgressGB; // Free tier
+        uint256 freeRequestsM; // Free tier (millions)
     }
 
     /**
@@ -124,11 +127,11 @@ interface ICDNTypes {
     struct ProviderMetrics {
         uint256 totalBytesServed;
         uint256 totalRequests;
-        uint256 cacheHitRate;             // 0-10000 (basis points)
+        uint256 cacheHitRate; // 0-10000 (basis points)
         uint256 avgLatencyMs;
         uint256 p99LatencyMs;
-        uint256 uptime;                   // 0-10000 (basis points)
-        uint256 errorRate;                // 0-10000 (basis points)
+        uint256 uptime; // 0-10000 (basis points)
+        uint256 errorRate; // 0-10000 (basis points)
         uint256 lastHealthCheck;
     }
 
@@ -141,8 +144,8 @@ interface ICDNTypes {
         ProviderPricing pricing;
         ProviderMetrics metrics;
         Region[] regions;
-        uint256 healthScore;              // 0-100
-        uint256 reputationScore;          // 0-100
+        uint256 healthScore; // 0-100
+        uint256 reputationScore; // 0-100
     }
 
     /**
@@ -165,16 +168,16 @@ interface ICDNTypes {
      * @notice Edge node metrics
      */
     struct EdgeNodeMetrics {
-        uint256 currentLoad;              // 0-10000 (basis points)
-        uint256 bandwidthUsage;           // Mbps
+        uint256 currentLoad; // 0-10000 (basis points)
+        uint256 bandwidthUsage; // Mbps
         uint256 activeConnections;
         uint256 requestsPerSecond;
         uint256 bytesServedTotal;
         uint256 requestsTotal;
-        uint256 cacheSize;                // bytes
+        uint256 cacheSize; // bytes
         uint256 cacheEntries;
-        uint256 cacheHitRate;             // 0-10000
-        uint256 avgResponseTime;          // ms
+        uint256 cacheHitRate; // 0-10000
+        uint256 avgResponseTime; // ms
         uint256 lastUpdated;
     }
 
@@ -185,8 +188,8 @@ interface ICDNTypes {
         bytes32 siteId;
         address owner;
         string domain;
-        string origin;                    // Origin URL (IPFS, S3, etc.)
-        bytes32 contentHash;              // Current content hash
+        string origin; // Origin URL (IPFS, S3, etc.)
+        bytes32 contentHash; // Current content hash
         uint256 createdAt;
         uint256 updatedAt;
         bool active;
@@ -208,7 +211,7 @@ interface ICDNTypes {
         uint256 requests;
         uint256 cacheHits;
         uint256 cacheMisses;
-        bytes signature;                  // Provider signature
+        bytes signature; // Provider signature
     }
 
     /**
@@ -246,62 +249,28 @@ interface ICDNTypes {
     }
 
     event EdgeNodeRegistered(
-        bytes32 indexed nodeId,
-        address indexed operator,
-        Region region,
-        ProviderType providerType,
-        uint256 stake
+        bytes32 indexed nodeId, address indexed operator, Region region, ProviderType providerType, uint256 stake
     );
 
-    event EdgeNodeStatusUpdated(
-        bytes32 indexed nodeId,
-        NodeStatus status
-    );
+    event EdgeNodeStatusUpdated(bytes32 indexed nodeId, NodeStatus status);
 
-    event EdgeNodeDeactivated(
-        bytes32 indexed nodeId,
-        address indexed operator,
-        string reason
-    );
+    event EdgeNodeDeactivated(bytes32 indexed nodeId, address indexed operator, string reason);
 
-    event SiteCreated(
-        bytes32 indexed siteId,
-        address indexed owner,
-        string domain
-    );
+    event SiteCreated(bytes32 indexed siteId, address indexed owner, string domain);
 
-    event SiteUpdated(
-        bytes32 indexed siteId,
-        bytes32 contentHash
-    );
+    event SiteUpdated(bytes32 indexed siteId, bytes32 contentHash);
 
     event InvalidationRequested(
-        bytes32 indexed requestId,
-        bytes32 indexed siteId,
-        address requestedBy,
-        uint256 pathCount
+        bytes32 indexed requestId, bytes32 indexed siteId, address requestedBy, uint256 pathCount
     );
 
-    event InvalidationCompleted(
-        bytes32 indexed requestId,
-        uint256 nodesProcessed
-    );
+    event InvalidationCompleted(bytes32 indexed requestId, uint256 nodesProcessed);
 
     event UsageReported(
-        bytes32 indexed nodeId,
-        address indexed provider,
-        uint256 bytesServed,
-        uint256 requests,
-        uint256 period
+        bytes32 indexed nodeId, address indexed provider, uint256 bytesServed, uint256 requests, uint256 period
     );
 
-    event BillingSettled(
-        bytes32 indexed billingId,
-        address indexed user,
-        address indexed provider,
-        uint256 amount
-    );
+    event BillingSettled(bytes32 indexed billingId, address indexed user, address indexed provider, uint256 amount);
 
     event StakeSlashed(address indexed provider, uint256 amount, string reason);
 }
-

@@ -75,7 +75,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
     event StakeTokenAdded(address indexed token);
     event StakeTokenRemoved(address indexed token);
 
-
     error MetadataTooLarge();
     error KeyTooLong();
     error InvalidStakeAmount();
@@ -100,7 +99,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         if (agents[agentId].isBanned) revert AgentIsBanned();
         _;
     }
-
 
     constructor() ERC721("ERC-8004 Trustless Agent", "AGENT") {
         _nextAgentId = 1; // Start from 1, 0 is invalid

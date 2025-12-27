@@ -85,12 +85,11 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
      * @param tier Storage tier determining reward rate
      * @return status The content status after registration
      */
-    function registerContent(
-        bytes32 contentHash,
-        bytes32 infohash,
-        uint64 size,
-        ContentTier tier
-    ) external payable returns (ContentStatus) {
+    function registerContent(bytes32 contentHash, bytes32 infohash, uint64 size, ContentTier tier)
+        external
+        payable
+        returns (ContentStatus)
+    {
         require(_content[contentHash].uploadedAt == 0, "Already registered");
         require(size > 0, "Invalid size");
         require(!blocked[contentHash], "Content banned");
@@ -125,11 +124,10 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
      * @param evidenceHash Hash of evidence (stored off-chain)
      * @return caseId Moderation case ID
      */
-    function flagContent(
-        bytes32 contentHash,
-        ViolationType violationType,
-        bytes32 evidenceHash
-    ) external returns (bytes32 caseId) {
+    function flagContent(bytes32 contentHash, ViolationType violationType, bytes32 evidenceHash)
+        external
+        returns (bytes32 caseId)
+    {
         ContentRecord storage record = _content[contentHash];
         require(record.uploadedAt > 0, "Content not found");
         require(record.status != ContentStatus.BANNED, "Already banned");
@@ -149,10 +147,7 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
             // Call moderation marketplace to open case
             (bool success, bytes memory data) = moderationMarketplace.call(
                 abi.encodeWithSignature(
-                    "openCase(address,string,bytes32)",
-                    record.uploader,
-                    "Content violation",
-                    evidenceHash
+                    "openCase(address,string,bytes32)", record.uploader, "Content violation", evidenceHash
                 )
             );
             require(success, "Failed to open case");
@@ -167,10 +162,7 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
      * @notice Ban content (only owner or moderation marketplace)
      */
     function banContent(bytes32 contentHash) external {
-        require(
-            msg.sender == owner() || msg.sender == moderationMarketplace,
-            "Unauthorized"
-        );
+        require(msg.sender == owner() || msg.sender == moderationMarketplace, "Unauthorized");
         _banContentInternal(contentHash);
     }
 
@@ -178,10 +170,7 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
      * @notice Clear flagged content (only owner or moderation marketplace)
      */
     function clearContent(bytes32 contentHash) external {
-        require(
-            msg.sender == owner() || msg.sender == moderationMarketplace,
-            "Unauthorized"
-        );
+        require(msg.sender == owner() || msg.sender == moderationMarketplace, "Unauthorized");
         ContentRecord storage record = _content[contentHash];
         require(record.status == ContentStatus.FLAGGED, "Not flagged");
 
@@ -219,7 +208,7 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
 
         bytes32 contentHash = infohashToContent[infohash];
         isSeeding[infohash][msg.sender] = false;
-        
+
         if (_content[contentHash].seedCount > 0) {
             _content[contentHash].seedCount--;
         }
@@ -236,11 +225,7 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
      * @param bytesServed Bytes served to peers
      * @param signature Oracle signature validating the report
      */
-    function reportSeeding(
-        bytes32 infohash,
-        uint128 bytesServed,
-        bytes calldata signature
-    ) external nonReentrant {
+    function reportSeeding(bytes32 infohash, uint128 bytesServed, bytes calldata signature) external nonReentrant {
         require(isSeeding[infohash][msg.sender], "Not seeding this content");
 
         bytes32 contentHash = infohashToContent[infohash];
@@ -248,16 +233,14 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
         require(record.status == ContentStatus.APPROVED, "Content not approved");
 
         // Verify oracle signature
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(msg.sender, infohash, bytesServed, block.timestamp / 3600)
-        );
+        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, infohash, bytesServed, block.timestamp / 3600));
         bytes32 ethSignedHash = messageHash.toEthSignedMessageHash();
         address signer = ethSignedHash.recover(signature);
         require(signer == seedingOracle, "Invalid signature");
 
         // Calculate reward
         uint128 reward = _calculateReward(bytesServed, record.tier);
-        
+
         // Cap at available pool
         if (reward > record.rewardPool) {
             reward = record.rewardPool;
@@ -317,15 +300,13 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
         return _blocklist.length;
     }
 
-    function getBlocklistBatch(uint256 offset, uint256 limit) 
-        external view returns (bytes32[] memory) 
-    {
+    function getBlocklistBatch(uint256 offset, uint256 limit) external view returns (bytes32[] memory) {
         uint256 len = _blocklist.length;
         if (offset >= len) return new bytes32[](0);
-        
+
         uint256 end = offset + limit;
         if (end > len) end = len;
-        
+
         bytes32[] memory batch = new bytes32[](end - offset);
         for (uint256 i = offset; i < end; i++) {
             batch[i - offset] = _blocklist[i];
@@ -370,15 +351,15 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
 
     function _banContentInternal(bytes32 contentHash) internal {
         ContentRecord storage record = _content[contentHash];
-        
+
         if (!blocked[contentHash]) {
             blocked[contentHash] = true;
             _blocklist.push(contentHash);
         }
-        
+
         if (record.uploadedAt > 0) {
             record.status = ContentStatus.BANNED;
-            
+
             // Refund remaining reward pool to treasury
             if (record.rewardPool > 0 && treasury != address(0)) {
                 uint128 refund = record.rewardPool;
@@ -393,11 +374,11 @@ contract ContentRegistry is IContentRegistry, ReentrancyGuard, Ownable {
 
     function _calculateMinPool(uint64 size, ContentTier tier) internal view returns (uint128) {
         if (tier == ContentTier.NETWORK_FREE) return 0;
-        
+
         // Require enough for ~50 full downloads
         uint128 gbSize = uint128(size) / (1024 * 1024 * 1024);
         if (gbSize == 0) gbSize = 1;
-        
+
         return gbSize * rewardRates[tier] * 50;
     }
 

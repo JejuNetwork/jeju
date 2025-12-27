@@ -144,7 +144,14 @@ contract ValidationRegistry is IValidationRegistry {
     function getValidationStatus(bytes32 requestHash)
         external
         view
-        returns (address validatorAddress, uint256 agentId, uint8 response, bytes32 responseHash, bytes32 tag, uint256 lastUpdate)
+        returns (
+            address validatorAddress,
+            uint256 agentId,
+            uint8 response,
+            bytes32 responseHash,
+            bytes32 tag,
+            uint256 lastUpdate
+        )
     {
         Response storage resp = _responses[requestHash];
         return (resp.validatorAddress, resp.agentId, resp.response, resp.responseHash, resp.tag, resp.lastUpdate);
@@ -196,11 +203,7 @@ contract ValidationRegistry is IValidationRegistry {
         return _requestExists[requestHash];
     }
 
-    function getRequest(bytes32 requestHash)
-        external
-        view
-        returns (address, uint256, string memory, uint256)
-    {
+    function getRequest(bytes32 requestHash) external view returns (address, uint256, string memory, uint256) {
         Request storage request = _requests[requestHash];
         require(request.validatorAddress != address(0), "Request not found");
         return (request.validatorAddress, request.agentId, request.requestUri, request.timestamp);

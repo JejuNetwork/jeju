@@ -18,7 +18,8 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
     uint256 public constant MIN_THRESHOLD = 2;
     uint256 public constant MAX_SEQUENCERS = 100;
     uint256 public constant ADMIN_TIMELOCK_DELAY = 2 days;
-    bytes32 public constant BATCH_TYPEHASH = keccak256("BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)");
+    bytes32 public constant BATCH_TYPEHASH =
+        keccak256("BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)");
 
     // ============ Immutables ============
     address public immutable batchInbox;
@@ -32,7 +33,13 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
     mapping(address => bool) public isSequencer;
     address[] public sequencers;
 
-    struct PendingChange { bytes32 changeType; bytes data; uint256 executeAfter; bool executed; }
+    struct PendingChange {
+        bytes32 changeType;
+        bytes data;
+        uint256 executeAfter;
+        bool executed;
+    }
+
     mapping(bytes32 => PendingChange) public pendingChanges;
 
     // ============ Events ============
@@ -60,22 +67,33 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
     error ChangeNotFound();
     error ChangeAlreadyExecuted();
 
-    modifier onlySequencerRegistry() { if (msg.sender != sequencerRegistry) revert NotSequencerRegistry(); _; }
+    modifier onlySequencerRegistry() {
+        if (msg.sender != sequencerRegistry) revert NotSequencerRegistry();
+        _;
+    }
 
     constructor(address _batchInbox, address _owner, uint256 _threshold) Ownable(_owner) {
         if (_batchInbox == address(0)) revert ZeroAddress();
         if (_threshold < MIN_THRESHOLD) revert ThresholdTooLow();
         batchInbox = _batchInbox;
         threshold = _threshold;
-        DOMAIN_SEPARATOR = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256("ThresholdBatchSubmitter"), keccak256("1"), block.chainid, address(this)
-        ));
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("ThresholdBatchSubmitter"),
+                keccak256("1"),
+                block.chainid,
+                address(this)
+            )
+        );
     }
 
     // ============ Core ============
 
-    function submitBatch(bytes calldata batchData, bytes[] calldata signatures, address[] calldata signers) external nonReentrant {
+    function submitBatch(bytes calldata batchData, bytes[] calldata signatures, address[] calldata signers)
+        external
+        nonReentrant
+    {
         uint256 sigCount = signatures.length;
         if (sigCount < threshold) revert InsufficientSignatures(sigCount, threshold);
         if (sigCount != signers.length) revert InsufficientSignatures(signers.length, sigCount);
@@ -98,15 +116,26 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
         emit BatchSubmitted(keccak256(batchData), currentNonce, signers);
     }
 
-    function getBatchDigest(bytes calldata batchData) external view returns (bytes32) { return _hashTypedData(keccak256(batchData), nonce); }
-    function getBatchDigestWithNonce(bytes calldata batchData, uint256 _nonce) external view returns (bytes32) { return _hashTypedData(keccak256(batchData), _nonce); }
+    function getBatchDigest(bytes calldata batchData) external view returns (bytes32) {
+        return _hashTypedData(keccak256(batchData), nonce);
+    }
+
+    function getBatchDigestWithNonce(bytes calldata batchData, uint256 _nonce) external view returns (bytes32) {
+        return _hashTypedData(keccak256(batchData), _nonce);
+    }
 
     function _hashTypedData(bytes32 batchHash, uint256 _nonce) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(BATCH_TYPEHASH, batchHash, _nonce, block.chainid))));
+        return keccak256(
+            abi.encodePacked(
+                "\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(BATCH_TYPEHASH, batchHash, _nonce, block.chainid))
+            )
+        );
     }
 
     function _getSequencerIndex(address seq) internal view returns (uint256) {
-        for (uint256 i; i < sequencers.length; ++i) if (sequencers[i] == seq) return i;
+        for (uint256 i; i < sequencers.length; ++i) {
+            if (sequencers[i] == seq) return i;
+        }
         revert NotAuthorizedSequencer(seq);
     }
 
@@ -138,7 +167,12 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
 
     function executeAddSequencer(bytes32 changeId) external {
         address seq = abi.decode(_executeChange(changeId, keccak256("ADD_SEQUENCER")), (address));
-        if (!isSequencer[seq]) { isSequencer[seq] = true; sequencers.push(seq); sequencerCount++; emit SequencerAdded(seq); }
+        if (!isSequencer[seq]) {
+            isSequencer[seq] = true;
+            sequencers.push(seq);
+            sequencerCount++;
+            emit SequencerAdded(seq);
+        }
     }
 
     function proposeRemoveSequencer(address seq) external onlyOwner returns (bytes32) {
@@ -151,13 +185,17 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
     }
 
     function proposeSetThreshold(uint256 _threshold) external onlyOwner returns (bytes32) {
-        if (_threshold < MIN_THRESHOLD || _threshold > sequencerCount) revert InvalidThreshold(_threshold, sequencerCount);
+        if (_threshold < MIN_THRESHOLD || _threshold > sequencerCount) {
+            revert InvalidThreshold(_threshold, sequencerCount);
+        }
         return _proposeChange(keccak256("SET_THRESHOLD"), abi.encode(_threshold));
     }
 
     function executeSetThreshold(bytes32 changeId) external {
         uint256 _threshold = abi.decode(_executeChange(changeId, keccak256("SET_THRESHOLD")), (uint256));
-        if (_threshold < MIN_THRESHOLD || _threshold > sequencerCount) revert InvalidThreshold(_threshold, sequencerCount);
+        if (_threshold < MIN_THRESHOLD || _threshold > sequencerCount) {
+            revert InvalidThreshold(_threshold, sequencerCount);
+        }
         emit ThresholdUpdated(threshold, _threshold);
         threshold = _threshold;
     }
@@ -174,10 +212,17 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
         if (!isSequencer[seq]) return;
         isSequencer[seq] = false;
         for (uint256 i; i < sequencers.length; ++i) {
-            if (sequencers[i] == seq) { sequencers[i] = sequencers[sequencers.length - 1]; sequencers.pop(); break; }
+            if (sequencers[i] == seq) {
+                sequencers[i] = sequencers[sequencers.length - 1];
+                sequencers.pop();
+                break;
+            }
         }
         sequencerCount--;
-        if (threshold > sequencerCount && sequencerCount >= MIN_THRESHOLD) { emit ThresholdUpdated(threshold, sequencerCount); threshold = sequencerCount; }
+        if (threshold > sequencerCount && sequencerCount >= MIN_THRESHOLD) {
+            emit ThresholdUpdated(threshold, sequencerCount);
+            threshold = sequencerCount;
+        }
         emit SequencerRemoved(seq);
     }
 
@@ -191,12 +236,17 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
 
     function syncFromRegistry() external onlySequencerRegistry {
         (address[] memory active,) = ISequencerRegistry(sequencerRegistry).getActiveSequencers();
-        for (uint256 i; i < sequencers.length; ++i) isSequencer[sequencers[i]] = false;
+        for (uint256 i; i < sequencers.length; ++i) {
+            isSequencer[sequencers[i]] = false;
+        }
         delete sequencers;
 
         uint256 toAdd = active.length > MAX_SEQUENCERS ? MAX_SEQUENCERS : active.length;
         for (uint256 i; i < toAdd; ++i) {
-            if (active[i] != address(0) && !isSequencer[active[i]]) { isSequencer[active[i]] = true; sequencers.push(active[i]); }
+            if (active[i] != address(0) && !isSequencer[active[i]]) {
+                isSequencer[active[i]] = true;
+                sequencers.push(active[i]);
+            }
         }
         sequencerCount = sequencers.length;
         if (threshold > sequencerCount && sequencerCount >= MIN_THRESHOLD) threshold = sequencerCount;
@@ -204,9 +254,17 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
     }
 
     // ============ View ============
-    function getSequencers() external view returns (address[] memory) { return sequencers; }
-    function getCurrentNonce() external view returns (uint256) { return nonce; }
-    function getPendingChange(bytes32 changeId) external view returns (PendingChange memory) { return pendingChanges[changeId]; }
+    function getSequencers() external view returns (address[] memory) {
+        return sequencers;
+    }
+
+    function getCurrentNonce() external view returns (uint256) {
+        return nonce;
+    }
+
+    function getPendingChange(bytes32 changeId) external view returns (PendingChange memory) {
+        return pendingChanges[changeId];
+    }
 }
 
 interface ISequencerRegistry {

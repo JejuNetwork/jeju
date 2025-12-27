@@ -7,13 +7,16 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IFeeConfig {
-    function getDistributionFees() external view returns (
-        uint16 appShareBps,
-        uint16 lpShareBps,
-        uint16 contributorShareBps,
-        uint16 ethLpShareBps,
-        uint16 tokenLpShareBps
-    );
+    function getDistributionFees()
+        external
+        view
+        returns (
+            uint16 appShareBps,
+            uint16 lpShareBps,
+            uint16 contributorShareBps,
+            uint16 ethLpShareBps,
+            uint16 tokenLpShareBps
+        );
 }
 
 /**
@@ -59,12 +62,9 @@ contract FeeEnforcer is Ownable, ReentrancyGuard {
     error CallFailed(bytes returnData);
     error InvalidFeeConfig();
 
-    constructor(
-        address _feeConfig,
-        address _feeDistributor,
-        address _feeToken,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _feeConfig, address _feeDistributor, address _feeToken, address initialOwner)
+        Ownable(initialOwner)
+    {
         feeConfig = IFeeConfig(_feeConfig);
         feeDistributor = _feeDistributor;
         feeToken = IERC20(_feeToken);
@@ -76,10 +76,12 @@ contract FeeEnforcer is Ownable, ReentrancyGuard {
      * @param data Calldata to forward
      * @return returnData Data returned from target
      */
-    function execute(
-        address target,
-        bytes calldata data
-    ) external payable nonReentrant returns (bytes memory returnData) {
+    function execute(address target, bytes calldata data)
+        external
+        payable
+        nonReentrant
+        returns (bytes memory returnData)
+    {
         if (!authorizedTargets[target]) revert UnauthorizedTarget();
 
         // Calculate required fee
@@ -119,11 +121,12 @@ contract FeeEnforcer is Ownable, ReentrancyGuard {
      * @param data Calldata to forward
      * @param feeAmount Amount of fee tokens to pay
      */
-    function executeWithTokenFee(
-        address target,
-        bytes calldata data,
-        uint256 feeAmount
-    ) external payable nonReentrant returns (bytes memory returnData) {
+    function executeWithTokenFee(address target, bytes calldata data, uint256 feeAmount)
+        external
+        payable
+        nonReentrant
+        returns (bytes memory returnData)
+    {
         if (!authorizedTargets[target]) revert UnauthorizedTarget();
 
         uint256 requiredFee = calculateFee(target, msg.value);
@@ -183,11 +186,12 @@ contract FeeEnforcer is Ownable, ReentrancyGuard {
      * @param datas Array of calldata
      * @param values Array of ETH values per call
      */
-    function batchExecute(
-        address[] calldata targets,
-        bytes[] calldata datas,
-        uint256[] calldata values
-    ) external payable nonReentrant returns (bytes[] memory returnDatas) {
+    function batchExecute(address[] calldata targets, bytes[] calldata datas, uint256[] calldata values)
+        external
+        payable
+        nonReentrant
+        returns (bytes[] memory returnDatas)
+    {
         require(targets.length == datas.length && datas.length == values.length, "Length mismatch");
 
         uint256 totalValue = 0;
@@ -253,4 +257,3 @@ contract FeeEnforcer is Ownable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

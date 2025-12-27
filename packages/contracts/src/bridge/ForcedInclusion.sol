@@ -44,11 +44,11 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
     address public immutable batchInbox;
     address public sequencerRegistry;
     address public securityCouncil;
-    
+
     mapping(bytes32 => QueuedTx) public queuedTxs;
     bytes32[] public pendingTxIds;
     uint256 public totalPendingFees;
-    
+
     uint256 public pendingUnpauseTime;
     PendingRegistryChange public pendingRegistryChange;
 
@@ -84,15 +84,15 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
     }
 
     error BatchInboxNotContract();
-    
+
     /// @param _batchInbox Batch inbox contract address
     /// @param _sequencerRegistry Sequencer registry for active sequencer checks
     /// @param _securityCouncil Security council for emergency pause
     /// @param _owner Contract owner
     /// @param _skipContractCheck Set to true only in tests - production must be false
     constructor(
-        address _batchInbox, 
-        address _sequencerRegistry, 
+        address _batchInbox,
+        address _sequencerRegistry,
         address _securityCouncil,
         address _owner,
         bool _skipContractCheck
@@ -101,10 +101,12 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         // SECURITY: Validate batchInbox is a contract, not an EOA (skip in tests)
         if (!_skipContractCheck) {
             uint256 codeSize;
-            assembly { codeSize := extcodesize(_batchInbox) }
+            assembly {
+                codeSize := extcodesize(_batchInbox)
+            }
             if (codeSize == 0) revert BatchInboxNotContract();
         }
-        
+
         batchInbox = _batchInbox;
         sequencerRegistry = _sequencerRegistry;
         securityCouncil = _securityCouncil;
@@ -122,7 +124,10 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
     }
 
     function markIncluded(bytes32 txId, bytes32 batchRoot, bytes32[] calldata proof) external nonReentrant {
-        if (sequencerRegistry != address(0) && !ISequencerRegistryForced(sequencerRegistry).isActiveSequencer(msg.sender)) {
+        if (
+            sequencerRegistry != address(0)
+                && !ISequencerRegistryForced(sequencerRegistry).isActiveSequencer(msg.sender)
+        ) {
             revert NotActiveSequencer();
         }
 
@@ -130,7 +135,10 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         if (qtx.sender == address(0)) revert TxNotFound();
         if (qtx.included) revert TxAlreadyIncluded();
         if (block.number > qtx.queuedAtBlock + INCLUSION_WINDOW_BLOCKS) revert WindowExpired();
-        if (proof.length == 0 || !_verifyProof(keccak256(abi.encodePacked(qtx.sender, qtx.data, qtx.gasLimit)), batchRoot, proof)) {
+        if (
+            proof.length == 0
+                || !_verifyProof(keccak256(abi.encodePacked(qtx.sender, qtx.data, qtx.gasLimit)), batchRoot, proof)
+        ) {
             revert InvalidInclusionProof();
         }
 
@@ -155,7 +163,7 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         address txSender = qtx.sender;
         uint256 gasLimit = qtx.gasLimit;
         bytes memory data = qtx.data;
-        
+
         // CEI: Update state BEFORE external calls
         qtx.included = true;
         totalPendingFees -= fee;
@@ -203,7 +211,8 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
 
     function canForceInclude(bytes32 txId) external view returns (bool) {
         QueuedTx storage q = queuedTxs[txId];
-        return q.sender != address(0) && !q.included && !q.expired && block.number > q.queuedAtBlock + INCLUSION_WINDOW_BLOCKS;
+        return q.sender != address(0) && !q.included && !q.expired
+            && block.number > q.queuedAtBlock + INCLUSION_WINDOW_BLOCKS;
     }
 
     function getPendingCount() external view returns (uint256 count) {
@@ -224,7 +233,9 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         uint256 idx;
         for (uint256 i; i < pendingTxIds.length && idx < count; ++i) {
             QueuedTx storage q = queuedTxs[pendingTxIds[i]];
-            if (!q.included && !q.expired && block.number > q.queuedAtBlock + INCLUSION_WINDOW_BLOCKS) result[idx++] = pendingTxIds[i];
+            if (!q.included && !q.expired && block.number > q.queuedAtBlock + INCLUSION_WINDOW_BLOCKS) {
+                result[idx++] = pendingTxIds[i];
+            }
         }
         return result;
     }
@@ -233,8 +244,8 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
 
     /// @notice Emergency pause - only Security Council can pause
     /// @dev This pauses queueTx but NOT forceInclude (anti-censorship must always work)
-    function pause() external onlySecurityCouncil { 
-        _pause(); 
+    function pause() external onlySecurityCouncil {
+        _pause();
         emit EmergencyPause(msg.sender);
     }
 
@@ -257,10 +268,8 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
 
     /// @notice Propose a new sequencer registry - requires 2 day timelock
     function proposeSequencerRegistry(address _registry) external onlyOwner {
-        pendingRegistryChange = PendingRegistryChange({
-            newRegistry: _registry,
-            executeAfter: block.timestamp + REGISTRY_CHANGE_DELAY
-        });
+        pendingRegistryChange =
+            PendingRegistryChange({newRegistry: _registry, executeAfter: block.timestamp + REGISTRY_CHANGE_DELAY});
         emit RegistryChangeProposed(_registry, block.timestamp + REGISTRY_CHANGE_DELAY);
     }
 
@@ -268,7 +277,7 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
     function executeSequencerRegistry() external {
         if (pendingRegistryChange.executeAfter == 0) revert NoPendingChange();
         if (block.timestamp < pendingRegistryChange.executeAfter) revert TimelockNotExpired();
-        
+
         emit SequencerRegistryUpdated(sequencerRegistry, pendingRegistryChange.newRegistry);
         sequencerRegistry = pendingRegistryChange.newRegistry;
         delete pendingRegistryChange;

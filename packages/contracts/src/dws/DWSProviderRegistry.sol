@@ -9,14 +9,17 @@ import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 import {IDWSTypes} from "./IDWSTypes.sol";
 
 interface IMultiServiceStakeManager {
-    function positions(address user) external view returns (
-        uint256 totalStaked,
-        uint256 stakedAt,
-        uint256 unbondingAmount,
-        uint256 unbondingStartTime,
-        bool isActive,
-        bool isFrozen
-    );
+    function positions(address user)
+        external
+        view
+        returns (
+            uint256 totalStaked,
+            uint256 stakedAt,
+            uint256 unbondingAmount,
+            uint256 unbondingStartTime,
+            bool isActive,
+            bool isFrozen
+        );
 }
 
 /**
@@ -38,7 +41,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
 
     // Unified provider registry
     mapping(address => ProviderInfo) public providers;
-    
+
     // Providers by service type
     mapping(ServiceType => address[]) public providersByService;
     mapping(address => mapping(ServiceType => bool)) public providesService;
@@ -79,7 +82,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
         minStakeByService[ServiceType.Compute] = 1_000 ether;
         minStakeByService[ServiceType.Storage] = 1_000 ether;
         minStakeByService[ServiceType.CDN] = 500 ether;
-        minStakeByService[ServiceType.Database] = 5_000 ether;  // Higher for DB (more responsibility)
+        minStakeByService[ServiceType.Database] = 5_000 ether; // Higher for DB (more responsibility)
         minStakeByService[ServiceType.Inference] = 2_000 ether;
     }
 
@@ -93,11 +96,12 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
      * @param endpoint HTTP/HTTPS endpoint
      * @param attestationHash TEE attestation hash
      */
-    function registerProvider(
-        ServiceType[] calldata services,
-        string calldata endpoint,
-        bytes32 attestationHash
-    ) external payable nonReentrant whenNotPaused {
+    function registerProvider(ServiceType[] calldata services, string calldata endpoint, bytes32 attestationHash)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         require(services.length > 0, "No services specified");
         require(!providers[msg.sender].active, "Already registered");
         moderation.requireNotBanned(msg.sender);
@@ -113,7 +117,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
         // Check effective stake (direct + unified staking)
         uint256 effectiveStake = msg.value;
         if (address(stakeManager) != address(0)) {
-            (uint256 totalStaked,,,,bool isActive,bool isFrozen) = stakeManager.positions(msg.sender);
+            (uint256 totalStaked,,,, bool isActive, bool isFrozen) = stakeManager.positions(msg.sender);
             if (isActive && !isFrozen) {
                 effectiveStake += totalStaked;
             }
@@ -155,7 +159,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
     ) external payable nonReentrant whenNotPaused {
         require(services.length > 0, "No services specified");
         require(!providers[msg.sender].active, "Already registered");
-        
+
         erc8004.verifyAndLinkAgent(msg.sender, agentId);
         moderation.requireProviderNotBanned(msg.sender, agentId);
 
@@ -169,7 +173,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
 
         uint256 effectiveStake = msg.value;
         if (address(stakeManager) != address(0)) {
-            (uint256 totalStaked,,,,bool isActive,bool isFrozen) = stakeManager.positions(msg.sender);
+            (uint256 totalStaked,,,, bool isActive, bool isFrozen) = stakeManager.positions(msg.sender);
             if (isActive && !isFrozen) {
                 effectiveStake += totalStaked;
             }
@@ -203,7 +207,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
      */
     function addServices(ServiceType[] calldata newServices) external payable {
         require(providers[msg.sender].active, "Not registered");
-        
+
         for (uint256 i = 0; i < newServices.length; i++) {
             if (!providesService[msg.sender][newServices[i]]) {
                 providersByService[newServices[i]].push(msg.sender);
@@ -247,7 +251,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
 
         uint256 toReturn = providers[msg.sender].stakedAmount - providers[msg.sender].slashedAmount;
         if (toReturn > 0) {
-            (bool success, ) = payable(msg.sender).call{value: toReturn}("");
+            (bool success,) = payable(msg.sender).call{value: toReturn}("");
             require(success, "Transfer failed");
         }
     }
@@ -258,7 +262,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
         require(amount <= available, "Amount too high");
 
         providers[provider].slashedAmount += amount;
-        (bool success, ) = payable(treasury).call{value: amount}("");
+        (bool success,) = payable(treasury).call{value: amount}("");
         require(success, "Slash transfer failed");
 
         emit ProviderSlashed(provider, amount, reason);
@@ -274,11 +278,10 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
      * @param serviceType The type of service
      * @param count Number of providers needed
      */
-    function assignProviders(
-        bytes32 resourceId,
-        ServiceType serviceType,
-        uint256 count
-    ) external returns (ResourceAssignment memory) {
+    function assignProviders(bytes32 resourceId, ServiceType serviceType, uint256 count)
+        external
+        returns (ResourceAssignment memory)
+    {
         address[] memory active = getActiveProviders(serviceType);
         require(active.length >= count, "Not enough providers");
 
@@ -319,7 +322,7 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
     function getActiveProviders(ServiceType serviceType) public view returns (address[] memory) {
         address[] storage all = providersByService[serviceType];
         uint256 count = 0;
-        
+
         for (uint256 i = 0; i < all.length; i++) {
             if (isProviderHealthy(all[i])) {
                 count++;
@@ -337,14 +340,13 @@ contract DWSProviderRegistry is IDWSTypes, Ownable, Pausable, ReentrancyGuard {
     }
 
     function isProviderHealthy(address provider) public view returns (bool) {
-        return providers[provider].active &&
-               block.timestamp - providers[provider].lastHeartbeat < heartbeatTimeout;
+        return providers[provider].active && block.timestamp - providers[provider].lastHeartbeat < heartbeatTimeout;
     }
 
     function getProviderEffectiveStake(address provider) public view returns (uint256) {
         uint256 stake = providers[provider].stakedAmount;
         if (address(stakeManager) != address(0)) {
-            (uint256 totalStaked,,,,bool isActive,bool isFrozen) = stakeManager.positions(provider);
+            (uint256 totalStaked,,,, bool isActive, bool isFrozen) = stakeManager.positions(provider);
             if (isActive && !isFrozen) {
                 stake += totalStaked;
             }

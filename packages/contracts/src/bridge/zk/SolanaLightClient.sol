@@ -101,11 +101,7 @@ contract SolanaLightClient is ISolanaLightClient, Ownable {
         }
 
         // Store verified slot
-        slots[slot] = SlotData({
-            bankHash: bankHash,
-            slot: slot,
-            verified: true
-        });
+        slots[slot] = SlotData({bankHash: bankHash, slot: slot, verified: true});
         latestSlot = slot;
 
         emit SlotVerified(slot, bankHash);
@@ -166,4 +162,3 @@ contract SolanaLightClient is ISolanaLightClient, Ownable {
         return verifier.verifyProof(proof, publicInputs);
     }
 }
-

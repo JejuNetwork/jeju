@@ -11,9 +11,7 @@ import {EIP3009Token} from "./EIP3009Token.sol";
 contract NetworkUSDC is EIP3009Token {
     bool public immutable mintable;
 
-    constructor(address owner_, uint256 initialSupply_, bool mintable_)
-        EIP3009Token("USD Coin", "USDC", 6, owner_)
-    {
+    constructor(address owner_, uint256 initialSupply_, bool mintable_) EIP3009Token("USD Coin", "USDC", 6, owner_) {
         mintable = mintable_;
         if (initialSupply_ > 0) {
             _mint(owner_, initialSupply_);

@@ -14,14 +14,14 @@ import "../src/registry/IdentityRegistry.sol";
 contract DeployProofOfCloud is Script {
     // Default configuration
     uint256 constant DEFAULT_THRESHOLD = 2;
-    
+
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
         // Required addresses
         address identityRegistry = vm.envOr("IDENTITY_REGISTRY", address(0));
-        
+
         // Oracle signers (comma-separated list in env)
         address[] memory signers = _getSignersFromEnv(deployer);
         uint256 threshold = vm.envOr("POC_THRESHOLD", DEFAULT_THRESHOLD);
@@ -53,13 +53,9 @@ contract DeployProofOfCloud is Script {
         console.log("");
 
         // Deploy ProofOfCloudValidator
-        ProofOfCloudValidator validator = new ProofOfCloudValidator(
-            payable(identityRegistry),
-            signers,
-            threshold,
-            owner
-        );
-        
+        ProofOfCloudValidator validator =
+            new ProofOfCloudValidator(payable(identityRegistry), signers, threshold, owner);
+
         console.log("ProofOfCloudValidator deployed:", address(validator));
         console.log("");
 
@@ -87,7 +83,7 @@ contract DeployProofOfCloud is Script {
     function _getSignersFromEnv(address defaultSigner) internal view returns (address[] memory) {
         // Try to get signers from environment
         string memory signersEnv = vm.envOr("POC_SIGNERS", string(""));
-        
+
         if (bytes(signersEnv).length == 0) {
             // Use deployer as default signer for testing
             address[] memory signers = new address[](2);
@@ -143,11 +139,14 @@ contract DeployProofOfCloud is Script {
         for (uint256 i = start; i < addrBytes.length; i++) {
             uint8 c = uint8(addrBytes[i]);
             uint8 digit;
-            if (c >= 48 && c <= 57) { // 0-9
+            if (c >= 48 && c <= 57) {
+                // 0-9
                 digit = c - 48;
-            } else if (c >= 65 && c <= 70) { // A-F
+            } else if (c >= 65 && c <= 70) {
+                // A-F
                 digit = c - 55;
-            } else if (c >= 97 && c <= 102) { // a-f
+            } else if (c >= 97 && c <= 102) {
+                // a-f
                 digit = c - 87;
             } else {
                 continue; // Skip whitespace
@@ -157,4 +156,3 @@ contract DeployProofOfCloud is Script {
         return address(uint160(result));
     }
 }
-

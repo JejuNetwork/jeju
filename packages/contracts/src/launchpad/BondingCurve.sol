@@ -35,11 +35,11 @@ contract BondingCurve is ReentrancyGuard {
 
     uint256 public constant GRADUATION_DELAY = 24 hours;
     uint256 public constant LP_LOCK_PERIOD = 30 days;
-    
+
     bool public graduationQueued;
     uint256 public graduationQueuedAt;
     uint256 public graduationExecutableAt;
-    
+
     // LP token lock tracking
     uint256 public lpTokensLocked;
     uint256 public lpUnlockTime;
@@ -124,7 +124,7 @@ contract BondingCurve is ReentrancyGuard {
         graduationQueuedAt = block.timestamp;
         graduationExecutableAt = block.timestamp + GRADUATION_DELAY;
         lpTokenRecipient = launchpad; // LP tokens go to launchpad/protocol
-        
+
         emit GraduationQueued(graduationExecutableAt, realEthReserves, realTokenReserves);
     }
 
@@ -211,7 +211,7 @@ contract BondingCurve is ReentrancyGuard {
         require(msg.sender == launchpad, "Only launchpad");
         require(realEthReserves >= graduationTarget, "Target not reached");
         if (graduated) revert AlreadyGraduated();
-        
+
         if (!graduationQueued) {
             _queueGraduation();
         }
@@ -227,13 +227,11 @@ contract BondingCurve is ReentrancyGuard {
     /**
      * @notice Get graduation status
      */
-    function getGraduationStatus() external view returns (
-        bool isQueued,
-        bool isGraduated,
-        uint256 executableAt,
-        uint256 lpLocked,
-        uint256 lpUnlock
-    ) {
+    function getGraduationStatus()
+        external
+        view
+        returns (bool isQueued, bool isGraduated, uint256 executableAt, uint256 lpLocked, uint256 lpUnlock)
+    {
         return (graduationQueued, graduated, graduationExecutableAt, lpTokensLocked, lpUnlockTime);
     }
 

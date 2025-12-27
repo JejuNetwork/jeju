@@ -63,7 +63,6 @@ contract TrainedModelRegistry is Ownable, ReentrancyGuard {
     event TrainerAuthorized(address indexed trainer, bool authorized);
     event MinBenchmarkUpdated(uint256 oldScore, uint256 newScore);
 
-
     error ModelAlreadyExists();
     error ModelNotFound();
     error InvalidArchetype();

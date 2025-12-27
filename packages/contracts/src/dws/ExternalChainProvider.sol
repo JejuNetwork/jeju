@@ -24,7 +24,6 @@ import {IDWSTypes} from "./IDWSTypes.sol";
  * 5. Provider earns rewards proportional to usage
  */
 contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
-
     // ============ Types ============
 
     enum ChainType {
@@ -41,17 +40,19 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         Optimism,
         Base,
         Custom,
-        Ethereum   // EVM L1 for Chainlink, MEV
+        Ethereum // EVM L1 for Chainlink, MEV
+
     }
 
     enum NodeType {
-        RPC,            // Read-only RPC node
-        Validator,      // Consensus validator
-        Archive,        // Full archive node
-        Light,          // Light client
-        Indexer,        // Chain indexer
-        Geyser,         // Streaming data (Solana)
-        Bridge          // Bridge relay node
+        RPC, // Read-only RPC node
+        Validator, // Consensus validator
+        Archive, // Full archive node
+        Light, // Light client
+        Indexer, // Chain indexer
+        Geyser, // Streaming data (Solana)
+        Bridge // Bridge relay node
+
     }
 
     enum NetworkMode {
@@ -64,13 +65,13 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         ChainType chainType;
         NodeType nodeType;
         NetworkMode network;
-        string version;              // e.g., "v2.1.0" for Solana
+        string version; // e.g., "v2.1.0" for Solana
         bool teeRequired;
-        string teeType;              // "intel_tdx", "amd_sev", "sgx"
+        string teeType; // "intel_tdx", "amd_sev", "sgx"
         uint256 minMemoryGb;
         uint256 minStorageGb;
         uint256 minCpuCores;
-        string[] additionalParams;   // Chain-specific config
+        string[] additionalParams; // Chain-specific config
     }
 
     struct ChainNodeProvider {
@@ -80,8 +81,8 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         NodeType[] supportedNodes;
         NetworkMode[] supportedNetworks;
         uint256 stakedAmount;
-        bytes32 teeAttestation;      // TEE attestation hash
-        string endpoint;              // Provider management endpoint
+        bytes32 teeAttestation; // TEE attestation hash
+        string endpoint; // Provider management endpoint
         uint256 registeredAt;
         uint256 lastHeartbeat;
         bool active;
@@ -97,7 +98,7 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         string rpcEndpoint;
         string wsEndpoint;
         uint256 provisionedAt;
-        uint256 expiresAt;            // 0 for indefinite
+        uint256 expiresAt; // 0 for indefinite
         uint256 pricePerHour;
         uint256 totalPaid;
         NodeStatus status;
@@ -141,12 +142,7 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event ProviderRegistered(
-        bytes32 indexed providerId,
-        address indexed provider,
-        ChainType[] chains,
-        uint256 stake
-    );
+    event ProviderRegistered(bytes32 indexed providerId, address indexed provider, ChainType[] chains, uint256 stake);
     event ProviderUpdated(bytes32 indexed providerId, string endpoint);
     event ProviderDeactivated(bytes32 indexed providerId);
 
@@ -222,7 +218,7 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
 
         // Initialize EVM Archive Node Requirements
         // Required for Chainlink price feeds and MEV bots
-        
+
         // Ethereum (reth archive)
         chainRequirements[ChainType.Ethereum][NetworkMode.Devnet] = ChainRequirements({
             minMemoryGb: 8,
@@ -396,10 +392,13 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
      * @param config Node configuration
      * @param durationHours How long to provision (0 for indefinite)
      */
-    function provisionNode(
-        ChainNodeConfig calldata config,
-        uint256 durationHours
-    ) external payable nonReentrant whenNotPaused returns (bytes32 nodeId) {
+    function provisionNode(ChainNodeConfig calldata config, uint256 durationHours)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 nodeId)
+    {
         // Find matching provider
         bytes32 providerId = _findMatchingProvider(config);
         if (providerId == bytes32(0)) revert NoAvailableProvider();
@@ -436,14 +435,7 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         // Distribute payment
         _distributePayment(providerId, msg.value);
 
-        emit NodeProvisioned(
-            nodeId,
-            providerId,
-            msg.sender,
-            config.chainType,
-            config.nodeType,
-            config.network
-        );
+        emit NodeProvisioned(nodeId, providerId, msg.sender, config.chainType, config.nodeType, config.network);
     }
 
     /**
@@ -483,11 +475,7 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Provider reports node is ready with endpoints
      */
-    function reportNodeReady(
-        bytes32 nodeId,
-        string calldata rpcEndpoint,
-        string calldata wsEndpoint
-    ) external {
+    function reportNodeReady(bytes32 nodeId, string calldata rpcEndpoint, string calldata wsEndpoint) external {
         ProvisionedNode storage node = nodes[nodeId];
         ChainNodeProvider storage provider = providers[node.providerId];
         if (provider.provider != msg.sender) revert Unauthorized();
@@ -573,18 +561,18 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
 
         // Send protocol fee to treasury
         if (protocolFee > 0) {
-            (bool success, ) = payable(treasury).call{value: protocolFee}("");
+            (bool success,) = payable(treasury).call{value: protocolFee}("");
             require(success, "Treasury transfer failed");
         }
 
         // Send provider share (or route through DelegatedNodeStaking)
         if (delegatedStaking != address(0)) {
             // Route through delegated staking for profit sharing
-            (bool success, ) = payable(delegatedStaking).call{value: providerShare}("");
+            (bool success,) = payable(delegatedStaking).call{value: providerShare}("");
             require(success, "Staking transfer failed");
         } else {
             // Direct to provider
-            (bool success, ) = payable(providers[providerId].provider).call{value: providerShare}("");
+            (bool success,) = payable(providers[providerId].provider).call{value: providerShare}("");
             require(success, "Provider transfer failed");
         }
     }
@@ -617,7 +605,11 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         return result;
     }
 
-    function _providerSupports(bytes32 providerId, ChainType chainType, NetworkMode network) internal view returns (bool) {
+    function _providerSupports(bytes32 providerId, ChainType chainType, NetworkMode network)
+        internal
+        view
+        returns (bool)
+    {
         ChainNodeProvider storage provider = providers[providerId];
         if (!provider.active) return false;
         if (block.timestamp - provider.lastHeartbeat > 10 minutes) return false;
@@ -649,11 +641,10 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Admin ============
 
-    function setChainRequirements(
-        ChainType chainType,
-        NetworkMode network,
-        ChainRequirements calldata requirements
-    ) external onlyOwner {
+    function setChainRequirements(ChainType chainType, NetworkMode network, ChainRequirements calldata requirements)
+        external
+        onlyOwner
+    {
         chainRequirements[chainType][network] = requirements;
     }
 
@@ -682,4 +673,3 @@ contract ExternalChainProvider is Ownable, Pausable, ReentrancyGuard {
         _unpause();
     }
 }
-

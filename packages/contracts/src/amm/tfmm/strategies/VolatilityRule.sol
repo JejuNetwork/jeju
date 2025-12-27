@@ -14,7 +14,6 @@ import {IStrategyRule} from "../IStrategyRule.sol";
  * to reduce overall portfolio volatility.
  */
 contract VolatilityRule is IStrategyRule, Ownable {
-
     // ============ Constants ============
 
     uint256 private constant WEIGHT_PRECISION = 1e18;
@@ -48,11 +47,7 @@ contract VolatilityRule is IStrategyRule, Ownable {
 
     // ============ Events ============
 
-    event ParametersUpdated(
-        uint256 lookbackPeriod,
-        uint256 targetVolatilityBps,
-        uint256 maxVolatilityBps
-    );
+    event ParametersUpdated(uint256 lookbackPeriod, uint256 targetVolatilityBps, uint256 maxVolatilityBps);
 
     // ============ Constructor ============
 
@@ -84,11 +79,12 @@ contract VolatilityRule is IStrategyRule, Ownable {
     /**
      * @inheritdoc IStrategyRule
      */
-    function calculateWeights(
-        address pool,
-        uint256[] calldata prices,
-        uint256[] calldata currentWeights
-    ) external view override returns (uint256[] memory newWeights, uint256 blocks) {
+    function calculateWeights(address pool, uint256[] calldata prices, uint256[] calldata currentWeights)
+        external
+        view
+        override
+        returns (uint256[] memory newWeights, uint256 blocks)
+    {
         newWeights = new uint256[](prices.length);
         blocks = blocksToTarget;
 
@@ -177,10 +173,7 @@ contract VolatilityRule is IStrategyRule, Ownable {
     /**
      * @notice Get volatility for a token
      */
-    function getTokenVolatility(
-        address pool,
-        uint256 tokenIndex
-    ) external view returns (uint256 volatilityBps) {
+    function getTokenVolatility(address pool, uint256 tokenIndex) external view returns (uint256 volatilityBps) {
         uint256[] storage history = _priceHistory[pool][tokenIndex];
         if (history.length < 2) return targetVolatilityBps;
         return _calculateVolatility(history);
@@ -188,11 +181,10 @@ contract VolatilityRule is IStrategyRule, Ownable {
 
     // ============ Admin Functions ============
 
-    function setParameters(
-        uint256 lookbackPeriod_,
-        uint256 targetVolatilityBps_,
-        uint256 maxVolatilityBps_
-    ) external onlyGovernance {
+    function setParameters(uint256 lookbackPeriod_, uint256 targetVolatilityBps_, uint256 maxVolatilityBps_)
+        external
+        onlyGovernance
+    {
         require(targetVolatilityBps_ <= 10000, "Target vol too high");
         require(maxVolatilityBps_ >= targetVolatilityBps_, "Max must be >= target");
 
@@ -217,9 +209,7 @@ contract VolatilityRule is IStrategyRule, Ownable {
 
     // ============ Internal Functions ============
 
-    function _calculateVolatility(
-        uint256[] storage history
-    ) internal view returns (uint256 volatilityBps) {
+    function _calculateVolatility(uint256[] storage history) internal view returns (uint256 volatilityBps) {
         uint256 length = lookbackPeriod > history.length ? history.length : lookbackPeriod;
         if (length < 2) return targetVolatilityBps;
 
@@ -300,4 +290,3 @@ contract VolatilityRule is IStrategyRule, Ownable {
         return weights;
     }
 }
-

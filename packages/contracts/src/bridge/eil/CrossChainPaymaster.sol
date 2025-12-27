@@ -164,7 +164,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     /// @notice Total gas fees collected (in selected tokens)
     uint256 public totalGasFeesCollected;
 
-
     /// @notice XLP statistics for competition tracking
     mapping(address => XLPStats) public xlpStats;
 
@@ -252,7 +251,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         bool useCrossChainLiquidity;
     }
 
-
     event VoucherRequested(
         bytes32 indexed requestId,
         address indexed requester,
@@ -321,7 +319,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     event XLPStatsUpdated(address indexed xlp, uint256 totalBids, uint256 wonBids, uint256 totalVolume);
 
-
     error UnsupportedToken();
     error InsufficientAmount();
     error InsufficientFee();
@@ -350,10 +347,13 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     error XLPNotInAllowlist();
     error XLPAlreadyBid();
 
-
-    constructor(IEntryPoint _entryPoint, address _l1StakeManager, uint256 _chainId, address _priceOracle, address _owner)
-        BasePaymaster(_entryPoint)
-    {
+    constructor(
+        IEntryPoint _entryPoint,
+        address _l1StakeManager,
+        uint256 _chainId,
+        address _priceOracle,
+        address _owner
+    ) BasePaymaster(_entryPoint) {
         require(_l1StakeManager != address(0), "Invalid stake manager");
         l1StakeManager = _l1StakeManager;
         chainId = _chainId;
@@ -432,7 +432,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         supportedTokens[token] = supported;
         emit TokenSupportUpdated(token, supported);
     }
-
 
     function createVoucherRequest(
         address token,
@@ -581,7 +580,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         uint256 excessRefund = msg.value - maxFee;
 
         requestId = keccak256(
-            abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce)
+            abi.encodePacked(
+                msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce
+            )
         );
 
         voucherRequests[requestId] = VoucherRequest({
@@ -609,13 +610,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         );
 
         IEIP3009(token).transferWithAuthorization(
-            msg.sender,
-            address(this),
-            amount,
-            validAfter,
-            validBefore,
-            authNonce,
-            authSignature
+            msg.sender, address(this), amount, validAfter, validBefore, authNonce, authSignature
         );
 
         if (excessRefund > 0) {
@@ -632,7 +627,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         currentFee = MIN_FEE + (elapsedBlocks * request.feeIncrement);
         if (currentFee > request.maxFee) currentFee = request.maxFee;
     }
-
 
     function submitBid(bytes32 requestId) external nonReentrant {
         VoucherRequest storage request = voucherRequests[requestId];
@@ -716,7 +710,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (!success) revert TransferFailed();
     }
 
-
     function depositLiquidity(address token, uint256 amount) external nonReentrant {
         if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert InsufficientAmount();
@@ -753,7 +746,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit XLPWithdraw(msg.sender, address(0), amount);
         _transferETH(msg.sender, amount);
     }
-
 
     function claimProtocolFees() external nonReentrant returns (uint256 claimed) {
         address treasury = address(feeConfig) != address(0) ? feeConfig.getTreasury() : owner();
@@ -814,7 +806,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         VoucherRequest storage request = voucherRequests[vouchers[voucherId].requestId];
         emit VoucherFulfilled(voucherId, request.recipient, vouchers[voucherId].amount);
     }
-
 
     /**
      * @notice Issue a voucher to fulfill a request (XLP only)
@@ -958,7 +949,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-
     /**
      * @notice Fulfill a voucher on the destination chain
      * @param voucherId Voucher to fulfill
@@ -1018,7 +1008,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             if (gasAmount > 0) _transferETH(recipient, gasAmount);
         }
     }
-
 
     /**
      * @notice Validate UserOp with multi-token gas payment support
@@ -1339,7 +1328,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         preferredToken = prefToken;
     }
 
-
     /**
      * @notice Get XLP liquidity for a token
      * @param xlp XLP address
@@ -1472,7 +1460,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         oracleSet = address(priceOracle) != address(0);
     }
 
-
     /**
      * @notice Deposit ETH to EntryPoint for gas sponsorship
      * @dev Called by owner or XLPs to fund gas sponsorship
@@ -1489,7 +1476,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         require(totalETHLiquidity >= amount, "Insufficient pool liquidity");
         entryPoint.depositTo{value: amount}(address(this));
     }
-
 
     /// @notice Swap fee in basis points (30 = 0.3%)
     uint256 public swapFeeBps = 30;
@@ -1677,7 +1663,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         swapFees = totalSwapFees;
         currentFeeBps = swapFeeBps;
     }
-
 
     receive() external payable {
         // Accept ETH for deposits and EntryPoint refunds

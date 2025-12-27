@@ -11,18 +11,16 @@ interface IPyth {
         int32 expo;
         uint256 publishTime;
     }
+
     function getPriceUnsafe(bytes32 id) external view returns (Price memory);
     function getPriceNoOlderThan(bytes32 id, uint256 age) external view returns (Price memory);
 }
 
 interface IChainlinkFeed {
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    );
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
     function decimals() external view returns (uint8);
 }
 
@@ -41,7 +39,6 @@ interface ITWAPOracle {
  * Priority: Pyth (permissionless) > Chainlink > TWAP
  */
 contract OracleRegistry is IOracleRegistry, Ownable {
-
     enum OracleType {
         CHAINLINK,
         PYTH,
@@ -50,10 +47,10 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     }
 
     struct OracleInfo {
-        address feed;           // Feed address (Chainlink aggregator, custom feed)
-        bytes32 pythId;         // Pyth price ID (if Pyth)
-        uint256 heartbeat;      // Max staleness in seconds
-        uint8 decimals;         // Source decimals
+        address feed; // Feed address (Chainlink aggregator, custom feed)
+        bytes32 pythId; // Pyth price ID (if Pyth)
+        uint256 heartbeat; // Max staleness in seconds
+        uint8 decimals; // Source decimals
         OracleType oracleType;
         bool active;
     }
@@ -89,17 +86,8 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     /// @notice Max deviation between primary and fallback (basis points)
     uint256 public maxPriceDeviation = 500; // 5%
 
-    event OracleRegistered(
-        address indexed token,
-        address feed,
-        bytes32 pythId,
-        OracleType oracleType
-    );
-    event FallbackOracleRegistered(
-        address indexed token,
-        address feed,
-        OracleType oracleType
-    );
+    event OracleRegistered(address indexed token, address feed, bytes32 pythId, OracleType oracleType);
+    event FallbackOracleRegistered(address indexed token, address feed, OracleType oracleType);
     event OracleDeactivated(address indexed token);
     event PythUpdated(address indexed pyth);
     event TWAPOracleUpdated(address indexed twapOracle);
@@ -111,11 +99,7 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     error OracleInactive(address token);
     error PriceDeviationTooHigh(address token, uint256 deviation);
 
-    constructor(
-        address pyth_,
-        address twapOracle_,
-        address governance_
-    ) Ownable(msg.sender) {
+    constructor(address pyth_, address twapOracle_, address governance_) Ownable(msg.sender) {
         pyth = IPyth(pyth_);
         twapOracle = ITWAPOracle(twapOracle_);
         governance = governance_;
@@ -126,11 +110,7 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         _;
     }
 
-    function registerChainlinkOracle(
-        address token,
-        address feed,
-        uint256 heartbeat
-    ) external onlyOwner {
+    function registerChainlinkOracle(address token, address feed, uint256 heartbeat) external onlyOwner {
         uint8 feedDecimals = IChainlinkFeed(feed).decimals();
 
         oracles[token] = OracleInfo({
@@ -145,11 +125,7 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit OracleRegistered(token, feed, bytes32(0), OracleType.CHAINLINK);
     }
 
-    function registerPythOracle(
-        address token,
-        bytes32 pythId,
-        uint256 heartbeat
-    ) external onlyOwner {
+    function registerPythOracle(address token, bytes32 pythId, uint256 heartbeat) external onlyOwner {
         oracles[token] = OracleInfo({
             feed: address(pyth),
             pythId: pythId,
@@ -162,10 +138,7 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit OracleRegistered(token, address(pyth), pythId, OracleType.PYTH);
     }
 
-    function registerTWAPOracle(
-        address token,
-        uint256 heartbeat
-    ) external onlyOwner {
+    function registerTWAPOracle(address token, uint256 heartbeat) external onlyOwner {
         oracles[token] = OracleInfo({
             feed: address(twapOracle),
             pythId: bytes32(0),
@@ -178,12 +151,11 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit OracleRegistered(token, address(twapOracle), bytes32(0), OracleType.TWAP);
     }
 
-    function registerOracle(
-        address token,
-        address feed,
-        uint256 heartbeat,
-        uint8 decimals
-    ) external override onlyOwner {
+    function registerOracle(address token, address feed, uint256 heartbeat, uint8 decimals)
+        external
+        override
+        onlyOwner
+    {
         oracles[token] = OracleInfo({
             feed: feed,
             pythId: bytes32(0),
@@ -255,12 +227,11 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         }
     }
 
-    function getPriceWithValidation(address token) external view returns (
-        uint256 primaryPrice,
-        uint256 fallbackPrice,
-        uint256 deviation,
-        bool isValid
-    ) {
+    function getPriceWithValidation(address token)
+        external
+        view
+        returns (uint256 primaryPrice, uint256 fallbackPrice, uint256 deviation, bool isValid)
+    {
         OracleInfo storage info = oracles[token];
         OracleInfo storage fallbackInfo = fallbackOracles[token];
 
@@ -308,7 +279,7 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         OracleInfo storage info = oracles[token];
 
         if (info.oracleType == OracleType.CHAINLINK) {
-            (, , , uint256 updatedAt, ) = IChainlinkFeed(info.feed).latestRoundData();
+            (,,, uint256 updatedAt,) = IChainlinkFeed(info.feed).latestRoundData();
             return block.timestamp - updatedAt > info.heartbeat;
         }
 
@@ -318,12 +289,8 @@ contract OracleRegistry is IOracleRegistry, Ownable {
 
     function getOracleConfig(address token) external view override returns (OracleConfig memory config) {
         OracleInfo storage info = oracles[token];
-        config = OracleConfig({
-            feed: info.feed,
-            heartbeat: info.heartbeat,
-            decimals: info.decimals,
-            active: info.active
-        });
+        config =
+            OracleConfig({feed: info.feed, heartbeat: info.heartbeat, decimals: info.decimals, active: info.active});
     }
 
     function getOracleType(address token) external view returns (OracleType) {
@@ -379,13 +346,13 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         }
     }
 
-    function _tryGetChainlinkPrice(OracleInfo storage info, address) internal view returns (bool success, uint256 price) {
+    function _tryGetChainlinkPrice(OracleInfo storage info, address)
+        internal
+        view
+        returns (bool success, uint256 price)
+    {
         try IChainlinkFeed(info.feed).latestRoundData() returns (
-            uint80,
-            int256 answer,
-            uint256,
-            uint256 updatedAt,
-            uint80
+            uint80, int256 answer, uint256, uint256 updatedAt, uint80
         ) {
             uint256 staleness = block.timestamp - updatedAt;
             if (staleness > info.heartbeat || answer <= 0) {
@@ -427,9 +394,7 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     }
 
     function _tryGetCustomPrice(OracleInfo storage info, address) internal view returns (bool success, uint256 price) {
-        (bool callSuccess, bytes memory data) = info.feed.staticcall(
-            abi.encodeWithSignature("latestAnswer()")
-        );
+        (bool callSuccess, bytes memory data) = info.feed.staticcall(abi.encodeWithSignature("latestAnswer()"));
 
         if (!callSuccess || data.length == 0) {
             return (false, 0);
@@ -461,4 +426,3 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         maxPriceDeviation = deviationBps;
     }
 }
-

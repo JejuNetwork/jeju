@@ -17,7 +17,6 @@ import {IStrategyRule} from "../IStrategyRule.sol";
  * - Lower band = SMA - k * StdDev
  */
 contract MeanReversionRule is IStrategyRule, Ownable {
-
     // ============ Constants ============
 
     uint256 private constant WEIGHT_PRECISION = 1e18;
@@ -49,11 +48,7 @@ contract MeanReversionRule is IStrategyRule, Ownable {
 
     // ============ Events ============
 
-    event ParametersUpdated(
-        uint256 lookbackPeriod,
-        uint256 bandMultiplier,
-        uint256 sensitivity
-    );
+    event ParametersUpdated(uint256 lookbackPeriod, uint256 bandMultiplier, uint256 sensitivity);
 
     // ============ Constructor ============
 
@@ -84,11 +79,12 @@ contract MeanReversionRule is IStrategyRule, Ownable {
     /**
      * @inheritdoc IStrategyRule
      */
-    function calculateWeights(
-        address pool,
-        uint256[] calldata prices,
-        uint256[] calldata currentWeights
-    ) external view override returns (uint256[] memory newWeights, uint256 blocks) {
+    function calculateWeights(address pool, uint256[] calldata prices, uint256[] calldata currentWeights)
+        external
+        view
+        override
+        returns (uint256[] memory newWeights, uint256 blocks)
+    {
         newWeights = new uint256[](prices.length);
         blocks = blocksToTarget;
 
@@ -188,11 +184,10 @@ contract MeanReversionRule is IStrategyRule, Ownable {
 
     // ============ Admin Functions ============
 
-    function setParameters(
-        uint256 lookbackPeriod_,
-        uint256 bandMultiplier_,
-        uint256 sensitivity_
-    ) external onlyGovernance {
+    function setParameters(uint256 lookbackPeriod_, uint256 bandMultiplier_, uint256 sensitivity_)
+        external
+        onlyGovernance
+    {
         require(bandMultiplier_ >= 100 && bandMultiplier_ <= 400, "Invalid band multiplier");
         require(sensitivity_ > 0 && sensitivity_ <= 500, "Invalid sensitivity");
 
@@ -213,10 +208,11 @@ contract MeanReversionRule is IStrategyRule, Ownable {
 
     // ============ Internal Functions ============
 
-    function _calculateStats(
-        uint256[] storage history,
-        uint256 period
-    ) internal view returns (uint256 sma, uint256 stdDev) {
+    function _calculateStats(uint256[] storage history, uint256 period)
+        internal
+        view
+        returns (uint256 sma, uint256 stdDev)
+    {
         uint256 length = period > history.length ? history.length : period;
         uint256 startIndex = history.length - length;
 
@@ -274,4 +270,3 @@ contract MeanReversionRule is IStrategyRule, Ownable {
         return weights;
     }
 }
-

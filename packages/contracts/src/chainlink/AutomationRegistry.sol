@@ -8,7 +8,11 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 /// @title AutomationRegistry
 /// @notice Keeper network for automated contract execution
 contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
-    enum UpkeepType { CONDITIONAL, LOG_TRIGGER, TIME_BASED }
+    enum UpkeepType {
+        CONDITIONAL,
+        LOG_TRIGGER,
+        TIME_BASED
+    }
 
     struct Upkeep {
         address target;
@@ -57,7 +61,14 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
     address public feeRecipient;
     address public governance;
 
-    event UpkeepRegistered(uint256 indexed id, address indexed target, address admin, uint32 executeGas, uint32 interval, UpkeepType upkeepType);
+    event UpkeepRegistered(
+        uint256 indexed id,
+        address indexed target,
+        address admin,
+        uint32 executeGas,
+        uint32 interval,
+        UpkeepType upkeepType
+    );
     event UpkeepPerformed(uint256 indexed id, bool success, address indexed keeper, uint96 payment, uint256 gasUsed);
     event UpkeepCanceled(uint256 indexed id, uint96 remainingBalance);
     event UpkeepFunded(uint256 indexed id, uint96 amount, uint96 newBalance);
@@ -209,29 +220,36 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
         emit KeeperSlashed(keeper, amount, reason);
     }
 
-    function checkUpkeep(uint256 id, bytes calldata) external view returns (bool upkeepNeeded, bytes memory performData) {
+    function checkUpkeep(uint256 id, bytes calldata)
+        external
+        view
+        returns (bool upkeepNeeded, bytes memory performData)
+    {
         Upkeep storage upkeep = upkeeps[id];
         if (!upkeep.active) return (false, "");
         if (upkeep.balance < config.minUpkeepBalance) return (false, "");
         if (block.timestamp < upkeep.lastPerformed + upkeep.interval) return (false, "");
 
-        (bool success, bytes memory result) = upkeep.target.staticcall(
-            abi.encodeWithSignature("checkUpkeep(bytes)", upkeep.checkData)
-        );
+        (bool success, bytes memory result) =
+            upkeep.target.staticcall(abi.encodeWithSignature("checkUpkeep(bytes)", upkeep.checkData));
         if (!success) return (false, "");
         (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
     }
 
-    function performUpkeep(uint256 id, bytes calldata performData) external nonReentrant onlyApprovedKeeper whenNotPaused {
+    function performUpkeep(uint256 id, bytes calldata performData)
+        external
+        nonReentrant
+        onlyApprovedKeeper
+        whenNotPaused
+    {
         Upkeep storage upkeep = upkeeps[id];
         if (!upkeep.active) revert UpkeepNotActive();
         if (upkeep.balance < config.minUpkeepBalance) revert InsufficientBalance();
         if (block.timestamp < upkeep.lastPerformed + upkeep.interval) revert TooSoon();
 
         uint256 gasStart = gasleft();
-        (bool success,) = upkeep.target.call{gas: upkeep.executeGas}(
-            abi.encodeWithSignature("performUpkeep(bytes)", performData)
-        );
+        (bool success,) =
+            upkeep.target.call{gas: upkeep.executeGas}(abi.encodeWithSignature("performUpkeep(bytes)", performData));
         uint256 gasUsed = gasStart - gasleft();
         uint96 payment = calculatePayment(gasUsed);
 
@@ -268,10 +286,19 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
         governance = _governance;
     }
 
-    function pause() external onlyGovernance { _pause(); }
-    function unpause() external onlyGovernance { _unpause(); }
+    function pause() external onlyGovernance {
+        _pause();
+    }
 
-    function getUpkeep(uint256 id) external view returns (address, uint96, address, uint32, uint32, uint32, uint32, bool) {
+    function unpause() external onlyGovernance {
+        _unpause();
+    }
+
+    function getUpkeep(uint256 id)
+        external
+        view
+        returns (address, uint96, address, uint32, uint32, uint32, uint32, bool)
+    {
         Upkeep storage u = upkeeps[id];
         return (u.target, u.balance, u.admin, u.executeGas, u.interval, u.lastPerformed, u.performCount, u.active);
     }
@@ -303,6 +330,9 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
 }
 
 interface IAutomationCompatible {
-    function checkUpkeep(bytes calldata checkData) external view returns (bool upkeepNeeded, bytes memory performData);
+    function checkUpkeep(bytes calldata checkData)
+        external
+        view
+        returns (bool upkeepNeeded, bytes memory performData);
     function performUpkeep(bytes calldata performData) external;
 }

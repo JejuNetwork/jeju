@@ -50,23 +50,11 @@ interface IPackageRegistry {
 
     // ============ Events ============
 
-    event PackageCreated(
-        bytes32 indexed packageId,
-        string name,
-        string scope,
-        address indexed owner
-    );
+    event PackageCreated(bytes32 indexed packageId, string name, string scope, address indexed owner);
 
-    event PackageTransferred(
-        bytes32 indexed packageId,
-        address indexed oldOwner,
-        address indexed newOwner
-    );
+    event PackageTransferred(bytes32 indexed packageId, address indexed oldOwner, address indexed newOwner);
 
-    event PackageDeprecated(
-        bytes32 indexed packageId,
-        bool deprecated
-    );
+    event PackageDeprecated(bytes32 indexed packageId, bool deprecated);
 
     event VersionPublished(
         bytes32 indexed packageId,
@@ -76,29 +64,13 @@ interface IPackageRegistry {
         address indexed publisher
     );
 
-    event VersionDeprecated(
-        bytes32 indexed packageId,
-        string version,
-        string message
-    );
+    event VersionDeprecated(bytes32 indexed packageId, string version, string message);
 
-    event MaintainerAdded(
-        bytes32 indexed packageId,
-        address indexed user,
-        bool canPublish,
-        bool canManage
-    );
+    event MaintainerAdded(bytes32 indexed packageId, address indexed user, bool canPublish, bool canManage);
 
-    event MaintainerRemoved(
-        bytes32 indexed packageId,
-        address indexed user
-    );
+    event MaintainerRemoved(bytes32 indexed packageId, address indexed user);
 
-    event DownloadRecorded(
-        bytes32 indexed packageId,
-        bytes32 indexed versionId,
-        address indexed downloader
-    );
+    event DownloadRecorded(bytes32 indexed packageId, bytes32 indexed versionId, address indexed downloader);
 
     // ============ Package Management ============
 
@@ -133,31 +105,17 @@ interface IPackageRegistry {
         uint256 size
     ) external returns (bytes32 versionId);
 
-    function deprecateVersion(
-        bytes32 packageId,
-        string calldata version,
-        string calldata message
-    ) external;
+    function deprecateVersion(bytes32 packageId, string calldata version, string calldata message) external;
 
     function setLatestVersion(bytes32 packageId, string calldata version) external;
 
     // ============ Maintainer Management ============
 
-    function addMaintainer(
-        bytes32 packageId,
-        address user,
-        bool canPublish,
-        bool canManage
-    ) external;
+    function addMaintainer(bytes32 packageId, address user, bool canPublish, bool canManage) external;
 
     function removeMaintainer(bytes32 packageId, address user) external;
 
-    function updateMaintainer(
-        bytes32 packageId,
-        address user,
-        bool canPublish,
-        bool canManage
-    ) external;
+    function updateMaintainer(bytes32 packageId, address user, bool canPublish, bool canManage) external;
 
     // ============ View Functions ============
 
@@ -187,4 +145,3 @@ interface IPackageRegistry {
 
     function recordDownload(bytes32 packageId, bytes32 versionId) external;
 }
-

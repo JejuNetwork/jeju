@@ -603,28 +603,28 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
             }
         }
     }
-    
+
     /// @notice Track pending refunds for users whose direct refund failed
     mapping(address => uint256) public pendingRefunds;
-    
+
     /// @notice Event emitted when a user withdraws their pending refund
     event RefundWithdrawn(address indexed user, uint256 amount);
-    
+
     /// @notice Withdraw any pending refunds (pull pattern for failed refunds)
     function withdrawPendingRefund() external nonReentrant {
         uint256 amount = pendingRefunds[msg.sender];
         require(amount > 0, "no pending refund");
-        
+
         // CEI: Clear before transfer
         pendingRefunds[msg.sender] = 0;
-        
+
         (bool success,) = payable(msg.sender).call{value: amount}("");
         if (!success) {
             // Re-credit on failure so user can try again
             pendingRefunds[msg.sender] = amount;
             revert("refund failed");
         }
-        
+
         emit RefundWithdrawn(msg.sender, amount);
     }
 
@@ -714,21 +714,15 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
     }
 
     function _readTokenUsdPriceFromOracle(address oracle) internal view returns (uint256) {
-        OracleLib.ChainlinkConfig memory config = OracleLib.ChainlinkConfig({
-            feed: oracle,
-            maxStaleness: maxFeedAgeSeconds,
-            expectedDecimals: 8
-        });
+        OracleLib.ChainlinkConfig memory config =
+            OracleLib.ChainlinkConfig({feed: oracle, maxStaleness: maxFeedAgeSeconds, expectedDecimals: 8});
         (uint256 price,) = OracleLib.readChainlinkPriceStrict(config);
         return price;
     }
 
     function _readEthUsdPrice() internal view returns (uint256) {
-        OracleLib.ChainlinkConfig memory config = OracleLib.ChainlinkConfig({
-            feed: address(ethUsdFeed),
-            maxStaleness: maxFeedAgeSeconds,
-            expectedDecimals: 8
-        });
+        OracleLib.ChainlinkConfig memory config =
+            OracleLib.ChainlinkConfig({feed: address(ethUsdFeed), maxStaleness: maxFeedAgeSeconds, expectedDecimals: 8});
         (uint256 price,) = OracleLib.readChainlinkPriceStrict(config);
         return price;
     }

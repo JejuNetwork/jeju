@@ -73,7 +73,7 @@ contract PerformanceMetricsTest is Test {
         assertEq(m.requestsServed, 800);
         assertEq(m.bytesServed, 800_000);
         assertEq(m.uptimeScore, 9500); // Latest value
-        assertEq(m.avgLatencyMs, 80);  // Latest value
+        assertEq(m.avgLatencyMs, 80); // Latest value
     }
 
     function test_RecordUptime_AccumulatesDuration() public {
@@ -149,12 +149,8 @@ contract PerformanceMetricsTest is Test {
         harness.update(10000, 0, 50, 10000, 0); // Perfect uptime, zero success
 
         // Weight heavily towards uptime
-        PerformanceMetrics.ScoreWeights memory weights = PerformanceMetrics.ScoreWeights({
-            uptime: 8000,
-            success: 0,
-            latency: 1000,
-            throughput: 1000
-        });
+        PerformanceMetrics.ScoreWeights memory weights =
+            PerformanceMetrics.ScoreWeights({uptime: 8000, success: 0, latency: 1000, throughput: 1000});
 
         PerformanceMetrics.AggregatedScore memory score = harness.calculateScore(weights, 100, 5000);
         assertGt(score.overall, 8000); // Uptime dominates
@@ -252,11 +248,11 @@ contract PerformanceMetricsTest is Test {
         harness.update(uptime, success, latency, requests, 0);
 
         PerformanceMetrics.ScoreWeights memory weights = PerformanceMetrics.defaultWeights();
-        PerformanceMetrics.AggregatedScore memory score = harness.calculateScore(weights, targetLatency, targetThroughput);
+        PerformanceMetrics.AggregatedScore memory score =
+            harness.calculateScore(weights, targetLatency, targetThroughput);
 
         assertLe(score.overall, 10000);
         assertLe(score.reliability, 10000);
         assertLe(score.performance, 10000);
     }
 }
-

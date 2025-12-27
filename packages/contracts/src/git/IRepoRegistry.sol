@@ -69,11 +69,7 @@ interface IRepoRegistry {
     // ============ Events ============
 
     event RepositoryCreated(
-        bytes32 indexed repoId,
-        address indexed owner,
-        string name,
-        uint256 agentId,
-        RepoVisibility visibility
+        bytes32 indexed repoId, address indexed owner, string name, uint256 agentId, RepoVisibility visibility
     );
 
     event RepositoryUpdated(bytes32 indexed repoId, string description, bytes32 metadataCid);
@@ -85,11 +81,7 @@ interface IRepoRegistry {
     event RepositoryForked(bytes32 indexed repoId, bytes32 indexed forkedFrom, address indexed owner);
 
     event BranchPushed(
-        bytes32 indexed repoId,
-        string branch,
-        bytes32 oldCommitCid,
-        bytes32 newCommitCid,
-        address indexed pusher
+        bytes32 indexed repoId, string branch, bytes32 oldCommitCid, bytes32 newCommitCid, address indexed pusher
     );
 
     event BranchCreated(bytes32 indexed repoId, string branch, bytes32 tipCommitCid, address indexed creator);
@@ -182,4 +174,3 @@ interface IRepoRegistry {
 
     function getRepositoryCount() external view returns (uint256);
 }
-

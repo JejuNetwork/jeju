@@ -51,7 +51,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
         CANCELLED
     }
 
-
     struct Listing {
         uint256 listingId;
         address seller;
@@ -67,7 +66,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
         uint256 createdAt;
         uint256 expiresAt;
     }
-
 
     uint256 public platformFeeBps = 250;
     uint256 public constant MAX_PLATFORM_FEE_BPS = 1000;
@@ -85,7 +83,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
     IIdentityRegistry public identityRegistry;
     mapping(uint256 => uint256) public listingAgentId;
     mapping(uint256 => uint256[]) public agentListings;
-
 
     event ListingCreated(
         uint256 indexed listingId,
@@ -117,7 +114,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event SellerAgentLinked(uint256 indexed listingId, uint256 indexed agentId);
 
-
     error InvalidPrice();
     error InvalidAmount();
     error InvalidCurrency();
@@ -140,7 +136,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
         if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
         _;
     }
-
 
     constructor(address initialOwner, address _gameGold, address _usdc, address _feeRecipient) Ownable(initialOwner) {
         if (_gameGold == address(0) || _usdc == address(0) || _feeRecipient == address(0)) {
@@ -383,12 +378,11 @@ contract Marketplace is ReentrancyGuard, Ownable {
         return "2.1.0";
     }
 
-    function _buildAsset(
-        AssetType assetType,
-        address assetContract,
-        uint256 tokenId,
-        uint256 amount
-    ) internal pure returns (AssetLib.Asset memory) {
+    function _buildAsset(AssetType assetType, address assetContract, uint256 tokenId, uint256 amount)
+        internal
+        pure
+        returns (AssetLib.Asset memory)
+    {
         if (assetType == AssetType.ERC721) {
             return AssetLib.erc721(assetContract, tokenId);
         } else if (assetType == AssetType.ERC1155) {

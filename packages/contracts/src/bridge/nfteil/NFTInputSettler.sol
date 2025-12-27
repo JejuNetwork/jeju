@@ -4,17 +4,9 @@ pragma solidity ^0.8.33;
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {NFTAssetType, NFT_TRANSFER_ORDER_TYPE, NFTTransferOrderData} from "./INFTEIL.sol";
 import {
-    NFTAssetType,
-    NFT_TRANSFER_ORDER_TYPE,
-    NFTTransferOrderData
-} from "./INFTEIL.sol";
-import {
-    IInputSettler,
-    GaslessCrossChainOrder,
-    ResolvedCrossChainOrder,
-    Output,
-    FillInstruction
+    IInputSettler, GaslessCrossChainOrder, ResolvedCrossChainOrder, Output, FillInstruction
 } from "../../oif/IOIF.sol";
 import {BaseInputSettler} from "../../oif/BaseInputSettler.sol";
 import {AssetLib} from "../../libraries/AssetLib.sol";
@@ -37,11 +29,7 @@ import {AssetLib} from "../../libraries/AssetLib.sol";
  * - Users can refund expired intents
  * - Solver must be registered in SolverRegistry
  */
-contract NFTInputSettler is 
-    BaseInputSettler,
-    IERC721Receiver,
-    IERC1155Receiver
-{
+contract NFTInputSettler is BaseInputSettler, IERC721Receiver, IERC1155Receiver {
     // ============ State Variables ============
 
     /// @notice NFT order storage
@@ -84,19 +72,18 @@ contract NFTInputSettler is
 
     // ============ Constructor ============
 
-    constructor(
-        uint256 _chainId,
-        address _oracle,
-        address _solverRegistry
-    ) BaseInputSettler(_chainId, _oracle, _solverRegistry) {}
+    constructor(uint256 _chainId, address _oracle, address _solverRegistry)
+        BaseInputSettler(_chainId, _oracle, _solverRegistry)
+    {}
 
     // ============ Asset Handling Implementation ============
 
     /// @inheritdoc BaseInputSettler
-    function _lockAssets(
-        GaslessCrossChainOrder calldata order,
-        address user
-    ) internal override returns (bytes32 orderId) {
+    function _lockAssets(GaslessCrossChainOrder calldata order, address user)
+        internal
+        override
+        returns (bytes32 orderId)
+    {
         // Decode NFT order data
         NFTTransferOrderData memory nftData = abi.decode(order.orderData, (NFTTransferOrderData));
 
@@ -233,10 +220,12 @@ contract NFTInputSettler is
     // ============ View Functions ============
 
     /// @notice Resolve a gasless order into a full resolved order
-    function resolveFor(
-        GaslessCrossChainOrder calldata order,
-        bytes calldata /* originFillerData */
-    ) external view override returns (ResolvedCrossChainOrder memory resolved) {
+    function resolveFor(GaslessCrossChainOrder calldata order, bytes calldata /* originFillerData */ )
+        external
+        view
+        override
+        returns (ResolvedCrossChainOrder memory resolved)
+    {
         NFTTransferOrderData memory nftData = abi.decode(order.orderData, (NFTTransferOrderData));
 
         bytes32 orderId = keccak256(
@@ -297,39 +286,30 @@ contract NFTInputSettler is
 
     // ============ ERC721/1155 Receiver ============
 
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return 
-            interfaceId == type(IERC721Receiver).interfaceId ||
-            interfaceId == type(IERC1155Receiver).interfaceId;
+        return interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 
     function version() external pure returns (string memory) {

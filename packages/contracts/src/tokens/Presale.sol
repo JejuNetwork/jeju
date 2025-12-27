@@ -11,7 +11,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @title Presale
  * @author Jeju Network
  * @notice Universal presale contract supporting fixed price and CCA (Continuous Clearing Auction)
- * @dev 
+ * @dev
  * Modes:
  * 1. Fixed Price: Traditional presale with set token price
  * 2. CCA Auction: Reverse Dutch auction where price decays, all pay clearing price
@@ -31,14 +31,17 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
     //                              ENUMS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    enum PresaleMode { FIXED_PRICE, CCA_AUCTION }
+    enum PresaleMode {
+        FIXED_PRICE,
+        CCA_AUCTION
+    }
 
     enum Phase {
         NOT_STARTED,
         WHITELIST,
         PUBLIC,
         ENDED,
-        CLEARING,      // CCA only: price being determined
+        CLEARING, // CCA only: price being determined
         DISTRIBUTION,
         FAILED
     }
@@ -49,15 +52,15 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
 
     struct Config {
         PresaleMode mode;
-        uint256 totalTokens;         // Total tokens for sale
-        uint256 softCap;             // Minimum ETH to raise
-        uint256 hardCap;             // Maximum ETH to raise
+        uint256 totalTokens; // Total tokens for sale
+        uint256 softCap; // Minimum ETH to raise
+        uint256 hardCap; // Maximum ETH to raise
         uint256 minContribution;
         uint256 maxContribution;
-        uint256 tokenPrice;          // Fixed price mode: wei per token
-        uint256 startPrice;          // CCA: starting price
-        uint256 reservePrice;        // CCA: minimum price floor
-        uint256 priceDecayPerBlock;  // CCA: price decrease per block
+        uint256 tokenPrice; // Fixed price mode: wei per token
+        uint256 startPrice; // CCA: starting price
+        uint256 reservePrice; // CCA: minimum price floor
+        uint256 priceDecayPerBlock; // CCA: price decrease per block
         uint256 whitelistStart;
         uint256 publicStart;
         uint256 presaleEnd;
@@ -65,24 +68,24 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     struct VestingConfig {
-        uint256 tgeUnlockBps;        // % unlocked at TGE (basis points)
-        uint256 cliffDuration;       // Cliff period in seconds
-        uint256 vestingDuration;     // Total vesting after cliff
+        uint256 tgeUnlockBps; // % unlocked at TGE (basis points)
+        uint256 cliffDuration; // Cliff period in seconds
+        uint256 vestingDuration; // Total vesting after cliff
     }
 
     struct BonusConfig {
-        uint256 whitelistBonusBps;   // Bonus for whitelist participants
-        uint256 holderBonusBps;      // Bonus for qualifying holders
-        uint256 volume1EthBonusBps;  // Bonus for 1+ ETH
-        uint256 volume5EthBonusBps;  // Bonus for 5+ ETH
+        uint256 whitelistBonusBps; // Bonus for whitelist participants
+        uint256 holderBonusBps; // Bonus for qualifying holders
+        uint256 volume1EthBonusBps; // Bonus for 1+ ETH
+        uint256 volume5EthBonusBps; // Bonus for 5+ ETH
         uint256 volume10EthBonusBps; // Bonus for 10+ ETH
-        address holderToken;         // Token to check for holder bonus
-        uint256 holderMinBalance;    // Minimum balance for holder bonus
+        address holderToken; // Token to check for holder bonus
+        uint256 holderMinBalance; // Minimum balance for holder bonus
     }
 
     struct Contribution {
         uint256 ethAmount;
-        uint256 maxPrice;            // CCA: max price willing to pay
+        uint256 maxPrice; // CCA: max price willing to pay
         uint256 tokenAllocation;
         uint256 bonusTokens;
         uint256 claimedTokens;
@@ -106,7 +109,7 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public totalRaised;
     uint256 public totalParticipants;
     uint256 public totalTokensSold;
-    uint256 public clearingPrice;    // CCA: final price
+    uint256 public clearingPrice; // CCA: final price
 
     address public treasury;
     address public crossChainVerifier;
@@ -318,7 +321,9 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function _calculateBonus(uint256 ethAmount, uint256 tokenAmount, bool isWhitelist, bool isHolder)
-        internal view returns (uint256 bonus)
+        internal
+        view
+        returns (uint256 bonus)
     {
         if (isWhitelist && bonuses.whitelistBonusBps > 0) {
             bonus += (tokenAmount * bonuses.whitelistBonusBps) / 10000;
@@ -494,8 +499,13 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
         treasury = _treasury;
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     //                              VIEW FUNCTIONS
@@ -532,16 +542,20 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
         return config.reservePrice;
     }
 
-    function getContribution(address account) external view returns (
-        uint256 ethAmount,
-        uint256 tokenAllocation,
-        uint256 bonusTokens,
-        uint256 claimedTokens,
-        uint256 claimable,
-        uint256 refundAmount,
-        bool claimed,
-        bool refunded
-    ) {
+    function getContribution(address account)
+        external
+        view
+        returns (
+            uint256 ethAmount,
+            uint256 tokenAllocation,
+            uint256 bonusTokens,
+            uint256 claimedTokens,
+            uint256 claimable,
+            uint256 refundAmount,
+            bool claimed,
+            bool refunded
+        )
+    {
         Contribution storage c = contributions[account];
         return (
             c.ethAmount,
@@ -555,15 +569,19 @@ contract Presale is Ownable2Step, Pausable, ReentrancyGuard {
         );
     }
 
-    function getPresaleStats() external view returns (
-        uint256 raised,
-        uint256 participants,
-        uint256 tokensSold,
-        uint256 softCap,
-        uint256 hardCap,
-        uint256 price,
-        Phase phase
-    ) {
+    function getPresaleStats()
+        external
+        view
+        returns (
+            uint256 raised,
+            uint256 participants,
+            uint256 tokensSold,
+            uint256 softCap,
+            uint256 hardCap,
+            uint256 price,
+            Phase phase
+        )
+    {
         return (
             totalRaised,
             totalParticipants,

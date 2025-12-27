@@ -12,21 +12,12 @@ contract MockVRFConsumer is VRFConsumerBaseV2_5 {
 
     constructor(address coordinator) VRFConsumerBaseV2_5(coordinator) {}
 
-    function requestRandomness(
-        bytes32 keyHash,
-        uint64 subId,
-        uint16 confirmations,
-        uint32 callbackGas,
-        uint32 numWords
-    ) external returns (uint256) {
-        requestId = VRFCoordinatorV2_5(msg.sender).requestRandomWords(
-            keyHash,
-            subId,
-            confirmations,
-            callbackGas,
-            numWords,
-            ""
-        );
+    function requestRandomness(bytes32 keyHash, uint64 subId, uint16 confirmations, uint32 callbackGas, uint32 numWords)
+        external
+        returns (uint256)
+    {
+        requestId =
+            VRFCoordinatorV2_5(msg.sender).requestRandomWords(keyHash, subId, confirmations, callbackGas, numWords, "");
         return requestId;
     }
 
@@ -54,11 +45,11 @@ contract VRFCoordinatorTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        
+
         // Deploy coordinator with zero addresses for LINK (native payment only)
         coordinator = new VRFCoordinatorV2_5(
-            address(0),  // LINK token
-            address(0),  // LINK/ETH feed
+            address(0), // LINK token
+            address(0), // LINK/ETH feed
             governance
         );
 
@@ -66,7 +57,7 @@ contract VRFCoordinatorTest is Test {
         bytes32 changeId = coordinator.proposeRegisterProvingKey(keyHash, oracle);
         vm.warp(block.timestamp + 24 hours + 1);
         coordinator.executeRegisterProvingKey(changeId);
-        
+
         vm.stopPrank();
 
         // Deploy consumer
@@ -77,9 +68,9 @@ contract VRFCoordinatorTest is Test {
     function test_CreateSubscription() public {
         vm.prank(user);
         uint64 subId = coordinator.createSubscription();
-        
+
         assertEq(subId, 1);
-        
+
         (,,, address subOwner,) = coordinator.getSubscription(subId);
         assertEq(subOwner, user);
     }
@@ -123,14 +114,14 @@ contract VRFCoordinatorTest is Test {
         uint256 requestId = coordinator.requestRandomWords(
             keyHash,
             subId,
-            3,      // confirmations
+            3, // confirmations
             100000, // callback gas
-            1,      // num words
+            1, // num words
             ""
         );
 
         assertGt(requestId, 0);
-        
+
         // Check pending request exists
         assertTrue(coordinator.pendingRequestExists(subId));
     }
@@ -146,14 +137,7 @@ contract VRFCoordinatorTest is Test {
 
         // Request random words
         vm.prank(address(consumer));
-        uint256 requestId = coordinator.requestRandomWords(
-            keyHash,
-            subId,
-            3,
-            100000,
-            1,
-            ""
-        );
+        uint256 requestId = coordinator.requestRandomWords(keyHash, subId, 3, 100000, 1, "");
 
         // Oracle fulfills
         uint256[] memory randomWords = new uint256[](1);
@@ -172,11 +156,11 @@ contract VRFCoordinatorTest is Test {
         uint64 subId = coordinator.createSubscription();
         vm.deal(user, 1 ether);
         coordinator.fundSubscriptionNative{value: 0.5 ether}(subId);
-        
+
         uint256 balanceBefore = user.balance;
         coordinator.cancelSubscription(subId, user);
         uint256 balanceAfter = user.balance;
-        
+
         assertEq(balanceAfter - balanceBefore, 0.5 ether);
         vm.stopPrank();
     }
@@ -213,8 +197,7 @@ contract VRFCoordinatorTest is Test {
         randomWords[0] = 12345;
 
         vm.expectRevert();
-        vm.prank(user);  // Not an oracle
+        vm.prank(user); // Not an oracle
         coordinator.fulfillRandomWords(requestId, randomWords, address(consumer));
     }
 }
-

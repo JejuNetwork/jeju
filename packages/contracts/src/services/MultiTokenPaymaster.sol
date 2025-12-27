@@ -33,20 +33,20 @@ contract MultiTokenPaymaster is BasePaymaster {
     using SafeERC20 for IERC20;
 
     // ============ Pause State ============
-    
+
     bool private _paused;
-    
+
     event Paused(address account);
     event Unpaused(address account);
-    
+
     error EnforcedPause();
     error ExpectedPause();
-    
+
     modifier whenNotPaused() {
         if (_paused) revert EnforcedPause();
         _;
     }
-    
+
     modifier whenPaused() {
         if (!_paused) revert ExpectedPause();
         _;
@@ -86,6 +86,7 @@ contract MultiTokenPaymaster is BasePaymaster {
         JEJU, // 0
         USDC, // 1
         ETH // 2
+
     }
 
     /// @notice ETH address constant
@@ -131,7 +132,7 @@ contract MultiTokenPaymaster is BasePaymaster {
         }
         require(_usdc != address(0), "Invalid USDC");
         require(_jeju != address(0), "Invalid JEJU");
-        require(_creditManager != address(0), "Invalid credit manager"); 
+        require(_creditManager != address(0), "Invalid credit manager");
         require(_serviceRegistry != address(0), "Invalid service registry");
         require(_priceOracle != address(0), "Invalid price oracle");
         require(_revenueWallet != address(0), "Invalid revenue wallet");
@@ -207,14 +208,8 @@ contract MultiTokenPaymaster is BasePaymaster {
     }
 
     function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
-        (
-            address user,
-            string memory serviceName,
-            address token,
-            ,
-            uint256 overpayment,
-            bool useCredit
-        ) = abi.decode(context, (address, string, address, uint256, uint256, bool));
+        (address user, string memory serviceName, address token,, uint256 overpayment, bool useCredit) =
+            abi.decode(context, (address, string, address, uint256, uint256, bool));
 
         uint256 serviceCost = serviceRegistry.getServiceCost(serviceName, user);
         uint256 actualTotalCost = _calculateTotalCost(serviceCost, actualGasCost, token);
@@ -261,8 +256,8 @@ contract MultiTokenPaymaster is BasePaymaster {
             totalCost = serviceCostInETH + gasCostWithMargin;
         } else {
             uint256 gasCostInToken = priceOracle.convertAmount(ETH_ADDRESS, tokenAddr, gasCostWithMargin);
-            uint256 serviceCostInToken = tokenAddr == address(jeju) 
-                ? serviceCost 
+            uint256 serviceCostInToken = tokenAddr == address(jeju)
+                ? serviceCost
                 : priceOracle.convertAmount(address(jeju), tokenAddr, serviceCost);
             totalCost = serviceCostInToken + gasCostInToken;
         }
@@ -287,7 +282,6 @@ contract MultiTokenPaymaster is BasePaymaster {
         serviceRegistry = IServiceRegistry(newRegistry);
         emit ServiceRegistryUpdated(oldRegistry, newRegistry);
     }
-
 
     function setRevenueWallet(address newWallet) external onlyOwner {
         if (newWallet == address(0)) revert InvalidRevenueWallet();
@@ -325,7 +319,7 @@ contract MultiTokenPaymaster is BasePaymaster {
         _paused = false;
         emit Unpaused(msg.sender);
     }
-    
+
     function paused() public view returns (bool) {
         return _paused;
     }

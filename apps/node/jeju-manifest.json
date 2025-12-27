@@ -16,13 +16,14 @@
     "main": 1420,
     "cdn": 4020,
     "proxy": 4025,
-    "compute": 4026
+    "compute": 4026,
+    "database": 4661
   },
   "dependencies": ["contracts", "config", "dws"],
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["node", "infrastructure", "operator", "cdn", "storage", "compute", "proxy", "rewards"],
+  "tags": ["node", "infrastructure", "operator", "cdn", "storage", "compute", "proxy", "database", "cql", "miner", "rewards"],
   "jns": {
     "name": "node.jeju",
     "description": "Network Node Operator Dashboard",
@@ -40,7 +41,7 @@
     "metadata": {
       "category": "infrastructure",
       "provider": "jeju-network",
-      "features": ["cdn-edge", "storage-node", "compute-node", "proxy-node"]
+      "features": ["cdn-edge", "storage-node", "compute-node", "proxy-node", "database-miner"]
     },
     "trustModels": ["staked"],
     "x402Support": false,

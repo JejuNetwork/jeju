@@ -86,8 +86,8 @@ interface IStorageTypes {
     struct StorageDeal {
         bytes32 dealId;
         address user;
-        DealStatus status;    // Packed with user (saves 1 slot)
-        StorageTier tier;     // Packed with user (saves 1 slot)
+        DealStatus status; // Packed with user (saves 1 slot)
+        StorageTier tier; // Packed with user (saves 1 slot)
         address provider;
         string cid;
         uint256 sizeBytes;
@@ -104,7 +104,7 @@ interface IStorageTypes {
     /// @dev Slot 1: provider (20) + tier (1) = 21 bytes packed
     struct StorageQuote {
         address provider;
-        StorageTier tier;     // Packed with provider
+        StorageTier tier; // Packed with provider
         uint256 sizeBytes;
         uint256 durationDays;
         uint256 cost;

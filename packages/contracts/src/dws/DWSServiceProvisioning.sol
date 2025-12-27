@@ -26,12 +26,12 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
     struct ServiceDefinition {
         bytes32 serviceId;
         string serviceName;
-        string codeCid;              // IPFS CID of service code bundle
-        bytes32 codeHash;            // Keccak256 of code for verification
-        string entrypoint;           // Worker entrypoint (e.g., "index.js")
-        string runtime;              // "workerd", "bun", "docker"
+        string codeCid; // IPFS CID of service code bundle
+        bytes32 codeHash; // Keccak256 of code for verification
+        string entrypoint; // Worker entrypoint (e.g., "index.js")
+        string runtime; // "workerd", "bun", "docker"
         address owner;
-        uint256 ownerAgentId;        // ERC-8004 agent ID of owner (optional)
+        uint256 ownerAgentId; // ERC-8004 agent ID of owner (optional)
         ServiceRequirements requirements;
         ServicePricing pricing;
         ServiceStatus status;
@@ -45,28 +45,28 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
         uint256 minCpuMillis;
         uint256 minStorageMb;
         bool teeRequired;
-        string teePlatform;          // "intel_tdx", "amd_sev", "phala", "" for any
+        string teePlatform; // "intel_tdx", "amd_sev", "phala", "" for any
         uint256 minInstances;
         uint256 maxInstances;
         uint256 minNodeStake;
         uint256 minNodeReputation;
-        bool mpcRequired;            // Needs access to MPC infrastructure
-        bytes32 mpcClusterId;        // Required MPC cluster (0 for any)
+        bool mpcRequired; // Needs access to MPC infrastructure
+        bytes32 mpcClusterId; // Required MPC cluster (0 for any)
     }
 
     struct ServicePricing {
-        uint256 basePrice;           // Base price per request
+        uint256 basePrice; // Base price per request
         uint256 minPrice;
         uint256 maxPrice;
-        uint256 pricePerSecond;      // For long-running services
-        uint256 pricePerMb;          // For data transfer
+        uint256 pricePerSecond; // For long-running services
+        uint256 pricePerMb; // For data transfer
     }
 
     struct ServiceDeployment {
         bytes32 deploymentId;
         bytes32 serviceId;
-        uint256 nodeAgentId;         // DWS node running this service
-        string endpoint;             // HTTP endpoint
+        uint256 nodeAgentId; // DWS node running this service
+        string endpoint; // HTTP endpoint
         DeploymentStatus status;
         uint256 deployedAt;
         uint256 lastHealthCheck;
@@ -74,8 +74,20 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
         uint256 errorsCount;
     }
 
-    enum ServiceStatus { Draft, Pending, Active, Paused, Deprecated }
-    enum DeploymentStatus { Deploying, Active, Draining, Stopped, Failed }
+    enum ServiceStatus {
+        Draft,
+        Pending,
+        Active,
+        Paused,
+        Deprecated
+    }
+    enum DeploymentStatus {
+        Deploying,
+        Active,
+        Draining,
+        Stopped,
+        Failed
+    }
 
     // ============ State ============
 
@@ -84,9 +96,9 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
 
     mapping(bytes32 => ServiceDefinition) public services;
     mapping(string => bytes32) public serviceNameToId;
-    mapping(bytes32 => bytes32[]) public serviceDeployments;  // serviceId => deploymentIds
+    mapping(bytes32 => bytes32[]) public serviceDeployments; // serviceId => deploymentIds
     mapping(bytes32 => ServiceDeployment) public deployments;
-    mapping(uint256 => bytes32[]) public nodeServices;        // nodeAgentId => serviceIds
+    mapping(uint256 => bytes32[]) public nodeServices; // nodeAgentId => serviceIds
 
     bytes32[] public allServiceIds;
 
@@ -95,20 +107,12 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event ServiceProvisioned(
-        bytes32 indexed serviceId,
-        string serviceName,
-        string codeCid,
-        address owner
-    );
+    event ServiceProvisioned(bytes32 indexed serviceId, string serviceName, string codeCid, address owner);
     event ServiceUpdated(bytes32 indexed serviceId, string codeCid, uint256 version);
     event ServiceStatusChanged(bytes32 indexed serviceId, ServiceStatus oldStatus, ServiceStatus newStatus);
 
     event DeploymentReported(
-        bytes32 indexed deploymentId,
-        bytes32 indexed serviceId,
-        uint256 indexed nodeAgentId,
-        string endpoint
+        bytes32 indexed deploymentId, bytes32 indexed serviceId, uint256 indexed nodeAgentId, string endpoint
     );
     event DeploymentStatusChanged(bytes32 indexed deploymentId, DeploymentStatus oldStatus, DeploymentStatus newStatus);
     event DeploymentHealthChecked(bytes32 indexed deploymentId, bool healthy);
@@ -127,10 +131,7 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address _serviceRegistry
-    ) Ownable(msg.sender) {
+    constructor(address _identityRegistry, address _serviceRegistry) Ownable(msg.sender) {
         identityRegistry = IIdentityRegistry(_identityRegistry);
         serviceRegistry = ServiceRegistry(_serviceRegistry);
     }
@@ -185,12 +186,7 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
 
         // Register in ServiceRegistry for pricing/usage tracking
         serviceRegistry.registerService(
-            serviceName,
-            category,
-            pricing.basePrice,
-            pricing.minPrice,
-            pricing.maxPrice,
-            msg.sender
+            serviceName, category, pricing.basePrice, pricing.minPrice, pricing.maxPrice, msg.sender
         );
 
         emit ServiceProvisioned(serviceId, serviceName, codeCid, msg.sender);
@@ -199,11 +195,7 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
     /**
      * @notice Update service code (creates new version)
      */
-    function updateServiceCode(
-        bytes32 serviceId,
-        string calldata codeCid,
-        bytes32 codeHash
-    ) external {
+    function updateServiceCode(bytes32 serviceId, string calldata codeCid, bytes32 codeHash) external {
         ServiceDefinition storage service = services[serviceId];
         if (service.owner == address(0)) revert ServiceNotFound();
         if (service.owner != msg.sender) revert UnauthorizedOwner();
@@ -256,11 +248,10 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
      * @param nodeAgentId Node's ERC-8004 agent ID
      * @param endpoint HTTP endpoint for the deployment
      */
-    function reportDeployment(
-        bytes32 serviceId,
-        uint256 nodeAgentId,
-        string calldata endpoint
-    ) external returns (bytes32 deploymentId) {
+    function reportDeployment(bytes32 serviceId, uint256 nodeAgentId, string calldata endpoint)
+        external
+        returns (bytes32 deploymentId)
+    {
         ServiceDefinition storage service = services[serviceId];
         if (service.owner == address(0)) revert ServiceNotFound();
 
@@ -295,10 +286,7 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
     /**
      * @notice Update deployment status
      */
-    function updateDeploymentStatus(
-        bytes32 deploymentId,
-        DeploymentStatus newStatus
-    ) external {
+    function updateDeploymentStatus(bytes32 deploymentId, DeploymentStatus newStatus) external {
         ServiceDeployment storage deployment = deployments[deploymentId];
         if (deployment.nodeAgentId == 0) revert DeploymentNotFound();
 
@@ -315,12 +303,9 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
     /**
      * @notice Report health check result
      */
-    function reportHealthCheck(
-        bytes32 deploymentId,
-        bool healthy,
-        uint256 requestsServed,
-        uint256 errorsCount
-    ) external {
+    function reportHealthCheck(bytes32 deploymentId, bool healthy, uint256 requestsServed, uint256 errorsCount)
+        external
+    {
         ServiceDeployment storage deployment = deployments[deploymentId];
         if (deployment.nodeAgentId == 0) revert DeploymentNotFound();
 
@@ -372,9 +357,11 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
         // Count matching services first
         uint256 matchCount = 0;
         for (uint256 i = 0; i < allServiceIds.length; i++) {
-            if (_nodeMatchesRequirements(
-                allServiceIds[i], hasTee, teePlatform, memoryMb, cpuMillis, nodeStake, nodeReputation
-            )) {
+            if (
+                _nodeMatchesRequirements(
+                    allServiceIds[i], hasTee, teePlatform, memoryMb, cpuMillis, nodeStake, nodeReputation
+                )
+            ) {
                 matchCount++;
             }
         }
@@ -383,9 +370,11 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
         matchingServices = new bytes32[](matchCount);
         uint256 idx = 0;
         for (uint256 i = 0; i < allServiceIds.length; i++) {
-            if (_nodeMatchesRequirements(
-                allServiceIds[i], hasTee, teePlatform, memoryMb, cpuMillis, nodeStake, nodeReputation
-            )) {
+            if (
+                _nodeMatchesRequirements(
+                    allServiceIds[i], hasTee, teePlatform, memoryMb, cpuMillis, nodeStake, nodeReputation
+                )
+            ) {
                 matchingServices[idx++] = allServiceIds[i];
             }
         }
@@ -401,17 +390,21 @@ contract DWSServiceProvisioning is Ownable, ReentrancyGuard {
     /**
      * @notice Get service definition
      */
-    function getService(bytes32 serviceId) external view returns (
-        string memory serviceName,
-        string memory codeCid,
-        bytes32 codeHash,
-        string memory entrypoint,
-        string memory runtime,
-        address serviceOwner,
-        ServiceStatus status,
-        uint256 version,
-        uint256 activeDeployments
-    ) {
+    function getService(bytes32 serviceId)
+        external
+        view
+        returns (
+            string memory serviceName,
+            string memory codeCid,
+            bytes32 codeHash,
+            string memory entrypoint,
+            string memory runtime,
+            address serviceOwner,
+            ServiceStatus status,
+            uint256 version,
+            uint256 activeDeployments
+        )
+    {
         ServiceDefinition storage service = services[serviceId];
         return (
             service.serviceName,

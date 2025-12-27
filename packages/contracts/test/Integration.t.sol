@@ -90,10 +90,7 @@ contract DecentralizationIntegrationTest is Test {
         // Slash sequencer1 via timelock governance ban (since ownership was transferred)
         // Note: slashDoubleSign is now permissionless with cryptographic proof
         // This test uses slashGovernanceBan which requires governance/owner
-        bytes memory slashData = abi.encodeWithSelector(
-            SequencerRegistry.slashGovernanceBan.selector,
-            sequencer1
-        );
+        bytes memory slashData = abi.encodeWithSelector(SequencerRegistry.slashGovernanceBan.selector, sequencer1);
 
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(sequencerRegistry), slashData, "Slash double signer");

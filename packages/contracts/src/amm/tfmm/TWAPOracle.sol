@@ -45,24 +45,23 @@ interface IUniswapV3Pool {
  * - Volatility detection
  */
 contract TWAPOracle is Ownable {
-
     // ============ Structs ============
 
     struct PoolConfig {
-        address pool;           // Uniswap V3 pool address
-        address quoteToken;     // Quote token (e.g., USDC, WETH)
-        uint8 baseDecimals;     // Decimals of base token
-        uint8 quoteDecimals;    // Decimals of quote token
-        uint32 twapPeriod;      // TWAP period in seconds
-        bool isToken0Base;      // True if base token is token0
+        address pool; // Uniswap V3 pool address
+        address quoteToken; // Quote token (e.g., USDC, WETH)
+        uint8 baseDecimals; // Decimals of base token
+        uint8 quoteDecimals; // Decimals of quote token
+        uint32 twapPeriod; // TWAP period in seconds
+        bool isToken0Base; // True if base token is token0
         bool active;
     }
 
     struct PriceData {
-        uint256 price;          // Price in 8 decimals
-        int24 currentTick;      // Current tick
-        int24 twapTick;         // TWAP tick
-        uint256 timestamp;      // Block timestamp
+        uint256 price; // Price in 8 decimals
+        int24 currentTick; // Current tick
+        int24 twapTick; // TWAP tick
+        uint256 timestamp; // Block timestamp
     }
 
     // ============ State Variables ============
@@ -159,21 +158,12 @@ contract TWAPOracle is Ownable {
         // Use shared TickMath library for tick-to-price conversion
         uint256 rawPrice = _tickToPrice(twapTick, config.isToken0Base);
 
-        uint256 adjustedPrice = _adjustDecimals(
-            rawPrice,
-            config.baseDecimals,
-            config.quoteDecimals,
-            config.isToken0Base
-        );
+        uint256 adjustedPrice =
+            _adjustDecimals(rawPrice, config.baseDecimals, config.quoteDecimals, config.isToken0Base);
 
         uint256 usdPrice = _convertToUSD(adjustedPrice, config.quoteToken);
 
-        return PriceData({
-            price: usdPrice,
-            currentTick: currentTick,
-            twapTick: twapTick,
-            timestamp: block.timestamp
-        });
+        return PriceData({price: usdPrice, currentTick: currentTick, twapTick: twapTick, timestamp: block.timestamp});
     }
 
     function getTWAPTick(address pool, uint32 period) external view returns (int24) {
@@ -207,7 +197,7 @@ contract TWAPOracle is Ownable {
         if (!config.active) return false;
 
         IUniswapV3Pool pool = IUniswapV3Pool(config.pool);
-        (, , , uint16 observationCardinality, , , ) = pool.slot0();
+        (,,, uint16 observationCardinality,,,) = pool.slot0();
 
         uint16 requiredObservations = uint16(config.twapPeriod / 12) + 1;
         return observationCardinality >= requiredObservations;
@@ -220,12 +210,12 @@ contract TWAPOracle is Ownable {
         secondsAgos[0] = period;
         secondsAgos[1] = 0;
 
-        (int56[] memory tickCumulatives, ) = pool.observe(secondsAgos);
+        (int56[] memory tickCumulatives,) = pool.observe(secondsAgos);
 
         int56 tickDiff = tickCumulatives[1] - tickCumulatives[0];
         twap = int24(tickDiff / int56(int32(period)));
 
-        (, current, , , , , ) = pool.slot0();
+        (, current,,,,,) = pool.slot0();
     }
 
     /// @notice Convert tick to price using shared TickMath library
@@ -250,12 +240,11 @@ contract TWAPOracle is Ownable {
         return price;
     }
 
-    function _adjustDecimals(
-        uint256 price,
-        uint8 baseDecimals,
-        uint8 quoteDecimals,
-        bool isToken0Base
-    ) internal pure returns (uint256) {
+    function _adjustDecimals(uint256 price, uint8 baseDecimals, uint8 quoteDecimals, bool isToken0Base)
+        internal
+        pure
+        returns (uint256)
+    {
         int256 decimalDiff = int256(uint256(quoteDecimals)) - int256(uint256(baseDecimals));
 
         if (isToken0Base) {
@@ -286,9 +275,8 @@ contract TWAPOracle is Ownable {
             return price;
         }
 
-        (bool success, bytes memory data) = quoteOracle.staticcall(
-            abi.encodeWithSignature("getPrice(address)", quoteToken)
-        );
+        (bool success, bytes memory data) =
+            quoteOracle.staticcall(abi.encodeWithSignature("getPrice(address)", quoteToken));
 
         if (!success || data.length == 0) {
             revert InvalidPrice();

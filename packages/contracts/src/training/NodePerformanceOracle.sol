@@ -27,11 +27,12 @@ import {ComputeRegistry} from "../compute/ComputeRegistry.sol";
  */
 contract NodePerformanceOracle is Ownable, ReentrancyGuard {
     enum GPUTier {
-        Unknown,      // 0
-        Consumer,     // 1 - RTX 3090, 4080, etc.
-        Prosumer,     // 2 - RTX 4090, A5000
-        Datacenter,   // 3 - A100, A10G
-        HighEnd       // 4 - H100, H200
+        Unknown, // 0
+        Consumer, // 1 - RTX 3090, 4080, etc.
+        Prosumer, // 2 - RTX 4090, A5000
+        Datacenter, // 3 - A100, A10G
+        HighEnd // 4 - H100, H200
+
     }
 
     struct NodeMetrics {
@@ -41,20 +42,16 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         uint64 droppedRounds;
         uint64 witnessSubmissions;
         uint64 successfulWitnesses;
-        
         // Performance metrics
         uint64 averageLatencyMs;
         uint64 averageBandwidthMbps;
         uint64 averageTokensPerSec;
-        
         // Classification
         GPUTier gpuTier;
         bytes32 attestationHash;
-        
         // Timestamps
         uint64 lastActiveTimestamp;
         uint64 registeredAt;
-        
         // Computed score (updated periodically)
         uint8 score;
     }
@@ -74,8 +71,6 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         uint32 roundHeight;
         bytes32 runId;
     }
-
-
 
     /// @notice Node metrics by address
     mapping(address => NodeMetrics) public nodeMetrics;
@@ -104,8 +99,6 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
     /// @notice GPU tier score multipliers (basis points, 100 = 1x)
     mapping(GPUTier => uint16) public gpuTierMultipliers;
 
-
-
     event NodeRegistered(address indexed node, GPUTier gpuTier, bytes32 attestationHash);
     event MetricsUpdated(address indexed node, uint64 latency, uint64 bandwidth, uint64 tps);
     event RoundParticipationRecorded(bytes32 indexed runId, address indexed node, bool successful);
@@ -114,15 +107,11 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
     event GPUTierUpdated(address indexed node, GPUTier oldTier, GPUTier newTier);
     event ReporterUpdated(address indexed reporter, bool authorized);
 
-
-
     error NodeNotRegistered();
     error AlreadyRegistered();
     error NotAuthorizedReporter();
     error InvalidMetrics();
     error InvalidGPUTier();
-
-
 
     modifier onlyReporter() {
         if (!authorizedReporters[msg.sender] && msg.sender != owner()) {
@@ -136,26 +125,18 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         _;
     }
 
-
-
-    constructor(
-        address _coordinator,
-        address _computeRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _coordinator, address _computeRegistry, address initialOwner) Ownable(initialOwner) {
         coordinator = ITrainingCoordinator(_coordinator);
         computeRegistry = ComputeRegistry(_computeRegistry);
         authorizedReporters[initialOwner] = true;
 
         // Set default GPU tier multipliers
-        gpuTierMultipliers[GPUTier.Unknown] = 10;      // 0.1x
-        gpuTierMultipliers[GPUTier.Consumer] = 50;     // 0.5x
-        gpuTierMultipliers[GPUTier.Prosumer] = 75;     // 0.75x
-        gpuTierMultipliers[GPUTier.Datacenter] = 90;   // 0.9x
-        gpuTierMultipliers[GPUTier.HighEnd] = 100;     // 1.0x
+        gpuTierMultipliers[GPUTier.Unknown] = 10; // 0.1x
+        gpuTierMultipliers[GPUTier.Consumer] = 50; // 0.5x
+        gpuTierMultipliers[GPUTier.Prosumer] = 75; // 0.75x
+        gpuTierMultipliers[GPUTier.Datacenter] = 90; // 0.9x
+        gpuTierMultipliers[GPUTier.HighEnd] = 100; // 1.0x
     }
-
-
 
     /**
      * @notice Register a node for performance tracking
@@ -191,17 +172,12 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         emit NodeRegistered(msg.sender, gpuTier, attestationHash);
     }
 
-
-
     /**
      * @notice Report performance metrics for a node
      * @param node Node address
      * @param report Metric report data
      */
-    function reportMetrics(
-        address node,
-        MetricReport calldata report
-    ) external onlyReporter nodeExists(node) {
+    function reportMetrics(address node, MetricReport calldata report) external onlyReporter nodeExists(node) {
         NodeMetrics storage metrics = nodeMetrics[node];
 
         // Update running averages (exponential moving average with alpha=0.2)
@@ -231,11 +207,11 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
      * @param node Node address
      * @param successful Whether the round was successful
      */
-    function recordRoundParticipation(
-        bytes32 runId,
-        address node,
-        bool successful
-    ) external onlyReporter nodeExists(node) {
+    function recordRoundParticipation(bytes32 runId, address node, bool successful)
+        external
+        onlyReporter
+        nodeExists(node)
+    {
         NodeMetrics storage metrics = nodeMetrics[node];
         RunParticipation storage participation = runParticipation[node][runId];
 
@@ -266,11 +242,10 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
      * @param nodes Array of node addresses
      * @param successful Array of success flags
      */
-    function recordBatchRoundParticipation(
-        bytes32 runId,
-        address[] calldata nodes,
-        bool[] calldata successful
-    ) external onlyReporter {
+    function recordBatchRoundParticipation(bytes32 runId, address[] calldata nodes, bool[] calldata successful)
+        external
+        onlyReporter
+    {
         if (nodes.length != successful.length) revert InvalidMetrics();
 
         for (uint256 i = 0; i < nodes.length; i++) {
@@ -302,11 +277,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
      * @param node Node address
      * @param successful Whether the witness was accepted
      */
-    function recordWitness(
-        bytes32 runId,
-        address node,
-        bool successful
-    ) external onlyReporter nodeExists(node) {
+    function recordWitness(bytes32 runId, address node, bool successful) external onlyReporter nodeExists(node) {
         NodeMetrics storage metrics = nodeMetrics[node];
         RunParticipation storage participation = runParticipation[node][runId];
 
@@ -321,8 +292,6 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
 
         emit WitnessRecorded(runId, node, successful);
     }
-
-
 
     /**
      * @notice Get the performance score for a node
@@ -348,31 +317,24 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
 
     function _calculateScore(NodeMetrics storage metrics) internal view returns (uint8) {
         // Component scores (0-100 each)
-        
+
         // 1. GPU tier score (40% weight)
         uint256 gpuScore = gpuTierMultipliers[metrics.gpuTier];
-        
+
         // 2. Bandwidth score (30% weight) - normalize to 0-100 based on typical range 0-10Gbps
-        uint256 bandwidthScore = metrics.averageBandwidthMbps > 10000 
-            ? 100 
-            : (metrics.averageBandwidthMbps * 100) / 10000;
-        
+        uint256 bandwidthScore =
+            metrics.averageBandwidthMbps > 10000 ? 100 : (metrics.averageBandwidthMbps * 100) / 10000;
+
         // 3. TPS score (20% weight) - normalize based on typical range 0-1000 tokens/sec
-        uint256 tpsScore = metrics.averageTokensPerSec > 1000 
-            ? 100 
-            : (metrics.averageTokensPerSec * 100) / 1000;
-        
+        uint256 tpsScore = metrics.averageTokensPerSec > 1000 ? 100 : (metrics.averageTokensPerSec * 100) / 1000;
+
         // 4. Reliability score (10% weight) - completion rate
         uint256 reliabilityScore = metrics.totalRoundsParticipated > 0
             ? (metrics.successfulRounds * 100) / metrics.totalRoundsParticipated
             : 50;
 
         // Weighted average
-        uint256 totalScore = 
-            (gpuScore * 40) + 
-            (bandwidthScore * 30) + 
-            (tpsScore * 20) + 
-            (reliabilityScore * 10);
+        uint256 totalScore = (gpuScore * 40) + (bandwidthScore * 30) + (tpsScore * 20) + (reliabilityScore * 10);
 
         return uint8(totalScore / 100);
     }
@@ -380,14 +342,12 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
     function _updateScore(address node, NodeMetrics storage metrics) internal {
         uint8 oldScore = metrics.score;
         uint8 newScore = _calculateScore(metrics);
-        
+
         if (newScore != oldScore) {
             metrics.score = newScore;
             emit ScoreUpdated(node, oldScore, newScore);
         }
     }
-
-
 
     /**
      * @notice Get optimal nodes for a training run
@@ -397,12 +357,11 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
      * @param minScore Minimum performance score
      * @return selected Array of selected node addresses
      */
-    function getOptimalNodes(
-        uint16 count,
-        GPUTier minGpuTier,
-        uint64 minBandwidth,
-        uint8 minScore
-    ) external view returns (address[] memory selected) {
+    function getOptimalNodes(uint16 count, GPUTier minGpuTier, uint64 minBandwidth, uint8 minScore)
+        external
+        view
+        returns (address[] memory selected)
+    {
         // Count eligible nodes
         uint256 eligibleCount = 0;
         for (uint256 i = 0; i < registeredNodes.length; i++) {
@@ -451,10 +410,11 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
      * @return nodes Array of node addresses
      * @return nodeScores Array of scores
      */
-    function getNodesAboveScore(uint8 minScore) external view returns (
-        address[] memory nodes,
-        uint8[] memory nodeScores
-    ) {
+    function getNodesAboveScore(uint8 minScore)
+        external
+        view
+        returns (address[] memory nodes, uint8[] memory nodeScores)
+    {
         uint256 count = 0;
         for (uint256 i = 0; i < registeredNodes.length; i++) {
             if (nodeMetrics[registeredNodes[i]].score >= minScore) {
@@ -475,8 +435,6 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
             }
         }
     }
-
-
 
     /**
      * @notice Get full metrics for a node
@@ -526,29 +484,25 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
      */
     function isNodeActive(address node) external view returns (bool) {
         NodeMetrics storage metrics = nodeMetrics[node];
-        return metrics.registeredAt > 0 && 
-               block.timestamp - metrics.lastActiveTimestamp < 1 hours;
+        return metrics.registeredAt > 0 && block.timestamp - metrics.lastActiveTimestamp < 1 hours;
     }
 
-
-
-    function _isEligible(
-        address node,
-        GPUTier minGpuTier,
-        uint64 minBandwidth,
-        uint8 minScore
-    ) internal view returns (bool) {
+    function _isEligible(address node, GPUTier minGpuTier, uint64 minBandwidth, uint8 minScore)
+        internal
+        view
+        returns (bool)
+    {
         NodeMetrics storage metrics = nodeMetrics[node];
-        
+
         // Check if node is active (last seen within 1 hour)
         if (block.timestamp - metrics.lastActiveTimestamp > 1 hours) return false;
-        
+
         // Check GPU tier
         if (uint8(metrics.gpuTier) < uint8(minGpuTier)) return false;
-        
+
         // Check bandwidth
         if (metrics.averageBandwidthMbps < minBandwidth) return false;
-        
+
         // Check score
         if (metrics.score < minScore) return false;
 
@@ -561,14 +515,12 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         return uint64((2 * uint256(newValue) + 8 * uint256(current)) / 10);
     }
 
-
-
     /**
      * @notice Update GPU tier for a node (admin or self)
      */
     function updateGPUTier(address node, GPUTier newTier) external nodeExists(node) {
         if (msg.sender != node && msg.sender != owner()) revert NotAuthorizedReporter();
-        
+
         NodeMetrics storage metrics = nodeMetrics[node];
         GPUTier oldTier = metrics.gpuTier;
         metrics.gpuTier = newTier;
@@ -629,4 +581,3 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

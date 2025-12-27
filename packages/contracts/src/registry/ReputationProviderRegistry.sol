@@ -6,8 +6,21 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
-    enum ProposalType { ADD_PROVIDER, REMOVE_PROVIDER, UPDATE_WEIGHT, SUSPEND_PROVIDER, UNSUSPEND_PROVIDER }
-    enum ProposalStatus { PENDING, COUNCIL_REVIEW, APPROVED, REJECTED, EXECUTED, CANCELLED }
+    enum ProposalType {
+        ADD_PROVIDER,
+        REMOVE_PROVIDER,
+        UPDATE_WEIGHT,
+        SUSPEND_PROVIDER,
+        UNSUSPEND_PROVIDER
+    }
+    enum ProposalStatus {
+        PENDING,
+        COUNCIL_REVIEW,
+        APPROVED,
+        REJECTED,
+        EXECUTED,
+        CANCELLED
+    }
 
     struct ReputationProvider {
         address providerContract;
@@ -44,8 +57,25 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         bool proposerClaimed;
     }
 
-    struct Opinion { address author; uint256 stake; uint256 reputation; bool inFavor; string ipfsHash; string summary; uint256 timestamp; bool claimed; }
-    struct Vote { address voter; uint256 stake; uint256 reputation; bool inFavor; uint256 timestamp; bool claimed; }
+    struct Opinion {
+        address author;
+        uint256 stake;
+        uint256 reputation;
+        bool inFavor;
+        string ipfsHash;
+        string summary;
+        uint256 timestamp;
+        bool claimed;
+    }
+
+    struct Vote {
+        address voter;
+        uint256 stake;
+        uint256 reputation;
+        bool inFavor;
+        uint256 timestamp;
+        bool claimed;
+    }
 
     uint256 public constant MIN_PROPOSAL_STAKE = 0.01 ether;
     uint256 public constant MIN_VOTE_STAKE = 0.001 ether;
@@ -86,9 +116,17 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     event ProviderWeightUpdated(address indexed provider, uint256 oldWeight, uint256 newWeight);
     event ProviderSuspended(address indexed provider);
     event ProviderUnsuspended(address indexed provider);
-    event ProposalCreated(bytes32 indexed proposalId, ProposalType proposalType, address indexed targetProvider, address indexed proposer, uint256 stake);
+    event ProposalCreated(
+        bytes32 indexed proposalId,
+        ProposalType proposalType,
+        address indexed targetProvider,
+        address indexed proposer,
+        uint256 stake
+    );
     event ProposalVoted(bytes32 indexed proposalId, address indexed voter, bool inFavor, uint256 stake);
-    event OpinionAdded(bytes32 indexed proposalId, address indexed author, bool inFavor, uint256 stake, string ipfsHash);
+    event OpinionAdded(
+        bytes32 indexed proposalId, address indexed author, bool inFavor, uint256 stake, string ipfsHash
+    );
     event ProposalStatusChanged(bytes32 indexed proposalId, ProposalStatus oldStatus, ProposalStatus newStatus);
     event CouncilDecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash, string reason);
     event RewardsClaimed(bytes32 indexed proposalId, address indexed claimer, uint256 amount);
@@ -127,7 +165,13 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         treasury = _treasury;
     }
 
-    function proposeAddProvider(address provider, string calldata name, string calldata desc, uint256 weight) external payable nonReentrant whenNotPaused returns (bytes32) {
+    function proposeAddProvider(address provider, string calldata name, string calldata desc, uint256 weight)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (bytes32)
+    {
         _validateProposalStake();
         if (provider == address(0)) revert InvalidAddress();
         if (providers[provider].addedAt != 0) revert ProviderExists();
@@ -143,7 +187,13 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         return _createProposal(ProposalType.REMOVE_PROVIDER, provider, "", "", 0);
     }
 
-    function proposeUpdateWeight(address provider, uint256 weight) external payable nonReentrant whenNotPaused returns (bytes32) {
+    function proposeUpdateWeight(address provider, uint256 weight)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (bytes32)
+    {
         _validateProposalStake();
         if (providers[provider].addedAt == 0) revert ProviderNotFound();
         if (weight > MAX_WEIGHT) revert InvalidWeight();
@@ -166,11 +216,36 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         return _createProposal(ProposalType.UNSUSPEND_PROVIDER, provider, "", "", 0);
     }
 
-    function _validateProposalStake() internal view { if (msg.value < MIN_PROPOSAL_STAKE) revert InsufficientStake(); }
+    function _validateProposalStake() internal view {
+        if (msg.value < MIN_PROPOSAL_STAKE) revert InsufficientStake();
+    }
 
-    function _createProposal(ProposalType pType, address target, string memory name, string memory desc, uint256 weight) internal returns (bytes32 id) {
+    function _createProposal(ProposalType pType, address target, string memory name, string memory desc, uint256 weight)
+        internal
+        returns (bytes32 id)
+    {
         id = keccak256(abi.encodePacked(_nextProposalId++, pType, target, msg.sender, block.timestamp));
-        proposals[id] = Proposal(id, pType, target, name, desc, weight, msg.sender, msg.value, 0, 0, 0, 0, block.timestamp, block.timestamp + CHALLENGE_PERIOD, 0, ProposalStatus.PENDING, bytes32(0), "", false);
+        proposals[id] = Proposal(
+            id,
+            pType,
+            target,
+            name,
+            desc,
+            weight,
+            msg.sender,
+            msg.value,
+            0,
+            0,
+            0,
+            0,
+            block.timestamp,
+            block.timestamp + CHALLENGE_PERIOD,
+            0,
+            ProposalStatus.PENDING,
+            bytes32(0),
+            "",
+            false
+        );
         allProposalIds.push(id);
         emit ProposalCreated(id, pType, target, msg.sender, msg.value);
     }
@@ -185,13 +260,23 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         userVoteIndex[id][msg.sender] = proposalVotes[id].length - 1;
         hasVoted[id][msg.sender] = true;
 
-        if (inFavor) { p.forStake += msg.value; p.forCount++; }
-        else { p.againstStake += msg.value; p.againstCount++; }
+        if (inFavor) {
+            p.forStake += msg.value;
+            p.forCount++;
+        } else {
+            p.againstStake += msg.value;
+            p.againstCount++;
+        }
 
         emit ProposalVoted(id, msg.sender, inFavor, msg.value);
     }
 
-    function addOpinion(bytes32 id, bool inFavor, string calldata ipfsHash, string calldata summary) external payable nonReentrant whenNotPaused {
+    function addOpinion(bytes32 id, bool inFavor, string calldata ipfsHash, string calldata summary)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (msg.value < MIN_OPINION_STAKE) revert InsufficientStake();
         Proposal storage p = proposals[id];
         _validatePendingProposal(p);
@@ -272,11 +357,17 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         ProposalStatus old = p.status;
         p.status = ProposalStatus.EXECUTED;
 
-        if (p.proposalType == ProposalType.ADD_PROVIDER) _addProvider(p.targetProvider, p.providerName, p.providerDescription, p.proposedWeight);
-        else if (p.proposalType == ProposalType.REMOVE_PROVIDER) _removeProvider(p.targetProvider);
-        else if (p.proposalType == ProposalType.UPDATE_WEIGHT) _updateWeight(p.targetProvider, p.proposedWeight);
-        else if (p.proposalType == ProposalType.SUSPEND_PROVIDER) _suspendProvider(p.targetProvider);
-        else if (p.proposalType == ProposalType.UNSUSPEND_PROVIDER) _unsuspendProvider(p.targetProvider);
+        if (p.proposalType == ProposalType.ADD_PROVIDER) {
+            _addProvider(p.targetProvider, p.providerName, p.providerDescription, p.proposedWeight);
+        } else if (p.proposalType == ProposalType.REMOVE_PROVIDER) {
+            _removeProvider(p.targetProvider);
+        } else if (p.proposalType == ProposalType.UPDATE_WEIGHT) {
+            _updateWeight(p.targetProvider, p.proposedWeight);
+        } else if (p.proposalType == ProposalType.SUSPEND_PROVIDER) {
+            _suspendProvider(p.targetProvider);
+        } else if (p.proposalType == ProposalType.UNSUSPEND_PROVIDER) {
+            _unsuspendProvider(p.targetProvider);
+        }
 
         emit ProposalStatusChanged(id, old, ProposalStatus.EXECUTED);
     }
@@ -291,7 +382,10 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
 
     function _removeProvider(address addr) internal {
         ReputationProvider storage p = providers[addr];
-        if (p.isActive) { activeProviderCount--; if (!p.isSuspended) totalWeight -= p.weight; }
+        if (p.isActive) {
+            activeProviderCount--;
+            if (!p.isSuspended) totalWeight -= p.weight;
+        }
         p.isActive = false;
         emit ProviderRemoved(addr);
     }
@@ -321,20 +415,38 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     function claimRewards(bytes32 id) external nonReentrant {
         Proposal storage p = proposals[id];
         if (p.createdAt == 0) revert ProposalNotFound();
-        if (p.status != ProposalStatus.EXECUTED && p.status != ProposalStatus.REJECTED && p.status != ProposalStatus.CANCELLED) revert ProposalNotApproved();
+        if (
+            p.status != ProposalStatus.EXECUTED && p.status != ProposalStatus.REJECTED
+                && p.status != ProposalStatus.CANCELLED
+        ) revert ProposalNotApproved();
 
         uint256 total;
         if (msg.sender == p.proposer && !p.proposerClaimed) {
             uint256 c = _calcClaim(p, p.stake, true, true);
-            if (c > 0) { total += c; p.proposerClaimed = true; }
+            if (c > 0) {
+                total += c;
+                p.proposerClaimed = true;
+            }
         }
         if (hasVoted[id][msg.sender]) {
             Vote storage v = proposalVotes[id][userVoteIndex[id][msg.sender]];
-            if (!v.claimed) { uint256 c = _calcClaim(p, v.stake, v.inFavor, false); if (c > 0) { total += c; v.claimed = true; } }
+            if (!v.claimed) {
+                uint256 c = _calcClaim(p, v.stake, v.inFavor, false);
+                if (c > 0) {
+                    total += c;
+                    v.claimed = true;
+                }
+            }
         }
         if (hasOpined[id][msg.sender]) {
             Opinion storage o = proposalOpinions[id][userOpinionIndex[id][msg.sender]];
-            if (!o.claimed && o.stake > 0) { uint256 c = _calcClaim(p, o.stake, o.inFavor, false); if (c > 0) { total += c; o.claimed = true; } }
+            if (!o.claimed && o.stake > 0) {
+                uint256 c = _calcClaim(p, o.stake, o.inFavor, false);
+                if (c > 0) {
+                    total += c;
+                    o.claimed = true;
+                }
+            }
         }
 
         if (total == 0) revert NothingToClaim();
@@ -342,7 +454,11 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         emit RewardsClaimed(id, msg.sender, total);
     }
 
-    function _calcClaim(Proposal storage p, uint256 stake, bool inFavor, bool isProposer) internal view returns (uint256) {
+    function _calcClaim(Proposal storage p, uint256 stake, bool inFavor, bool isProposer)
+        internal
+        view
+        returns (uint256)
+    {
         if (p.status == ProposalStatus.CANCELLED) return 0;
         bool passed = p.status == ProposalStatus.EXECUTED;
         bool won = isProposer ? passed : ((inFavor && passed) || (!inFavor && !passed));
@@ -361,32 +477,43 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         require(ok, "Transfer failed");
     }
 
-    function getAggregatedReputation(uint256 agentId) external view returns (uint256 score, uint256[] memory scores, uint256[] memory weights) {
+    function getAggregatedReputation(uint256 agentId)
+        external
+        view
+        returns (uint256 score, uint256[] memory scores, uint256[] memory weights)
+    {
         uint256 cnt = _countActive();
         scores = new uint256[](cnt);
         weights = new uint256[](cnt);
-        uint256 total; uint256 idx;
+        uint256 total;
+        uint256 idx;
 
         for (uint256 i; i < providerList.length; i++) {
             ReputationProvider storage p = providers[providerList[i]];
             if (!p.isActive || p.isSuspended) continue;
             uint256 s = _getProviderScore(p.providerContract, agentId);
             uint256 w = totalWeight > 0 ? (p.weight * 10000) / totalWeight : 10000 / cnt;
-            scores[idx] = s; weights[idx] = w;
-            total += s * w; idx++;
+            scores[idx] = s;
+            weights[idx] = w;
+            total += s * w;
+            idx++;
         }
         score = total / 10000;
         if (score > 10000) score = 10000;
     }
 
     function _countActive() internal view returns (uint256 cnt) {
-        for (uint256 i; i < providerList.length; i++)
+        for (uint256 i; i < providerList.length; i++) {
             if (providers[providerList[i]].isActive && !providers[providerList[i]].isSuspended) cnt++;
+        }
     }
 
     function _getProviderScore(address addr, uint256 agentId) internal view returns (uint256) {
         (bool ok, bytes memory data) = addr.staticcall(abi.encodeWithSignature("getReputationScore(uint256)", agentId));
-        if (ok && data.length >= 32) { uint256 s = abi.decode(data, (uint256)); return s > 10000 ? 10000 : s; }
+        if (ok && data.length >= 32) {
+            uint256 s = abi.decode(data, (uint256));
+            return s > 10000 ? 10000 : s;
+        }
         return 5000;
     }
 
@@ -398,19 +525,40 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         emit ProviderFeedbackRecorded(addr, agentId, score);
     }
 
-    function getProvider(address addr) external view returns (ReputationProvider memory) { return providers[addr]; }
-    function getAllProviders() external view returns (address[] memory) { return providerList; }
+    function getProvider(address addr) external view returns (ReputationProvider memory) {
+        return providers[addr];
+    }
+
+    function getAllProviders() external view returns (address[] memory) {
+        return providerList;
+    }
+
     function getActiveProviders() external view returns (address[] memory out) {
         uint256 cnt = _countActive();
         out = new address[](cnt);
         uint256 idx;
-        for (uint256 i; i < providerList.length; i++)
-            if (providers[providerList[i]].isActive && !providers[providerList[i]].isSuspended) out[idx++] = providerList[i];
+        for (uint256 i; i < providerList.length; i++) {
+            if (providers[providerList[i]].isActive && !providers[providerList[i]].isSuspended) {
+                out[idx++] = providerList[i];
+            }
+        }
     }
-    function getProposal(bytes32 id) external view returns (Proposal memory) { return proposals[id]; }
-    function getProposalVotes(bytes32 id) external view returns (Vote[] memory) { return proposalVotes[id]; }
-    function getProposalOpinions(bytes32 id) external view returns (Opinion[] memory) { return proposalOpinions[id]; }
-    function getAllProposals() external view returns (bytes32[] memory) { return allProposalIds; }
+
+    function getProposal(bytes32 id) external view returns (Proposal memory) {
+        return proposals[id];
+    }
+
+    function getProposalVotes(bytes32 id) external view returns (Vote[] memory) {
+        return proposalVotes[id];
+    }
+
+    function getProposalOpinions(bytes32 id) external view returns (Opinion[] memory) {
+        return proposalOpinions[id];
+    }
+
+    function getAllProposals() external view returns (bytes32[] memory) {
+        return allProposalIds;
+    }
 
     function isQuorumReached(bytes32 id) external view returns (bool, uint256, uint256) {
         Proposal storage p = proposals[id];
@@ -421,22 +569,48 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
 
     function getClaimableAmount(bytes32 id, address user) external view returns (uint256 total) {
         Proposal storage p = proposals[id];
-        if (p.status != ProposalStatus.EXECUTED && p.status != ProposalStatus.REJECTED && p.status != ProposalStatus.CANCELLED) return 0;
+        if (
+            p.status != ProposalStatus.EXECUTED && p.status != ProposalStatus.REJECTED
+                && p.status != ProposalStatus.CANCELLED
+        ) return 0;
         if (user == p.proposer && !p.proposerClaimed) total += _calcClaim(p, p.stake, true, true);
-        if (hasVoted[id][user]) { Vote storage v = proposalVotes[id][userVoteIndex[id][user]]; if (!v.claimed) total += _calcClaim(p, v.stake, v.inFavor, false); }
-        if (hasOpined[id][user]) { Opinion storage o = proposalOpinions[id][userOpinionIndex[id][user]]; if (!o.claimed && o.stake > 0) total += _calcClaim(p, o.stake, o.inFavor, false); }
+        if (hasVoted[id][user]) {
+            Vote storage v = proposalVotes[id][userVoteIndex[id][user]];
+            if (!v.claimed) total += _calcClaim(p, v.stake, v.inFavor, false);
+        }
+        if (hasOpined[id][user]) {
+            Opinion storage o = proposalOpinions[id][userOpinionIndex[id][user]];
+            if (!o.claimed && o.stake > 0) total += _calcClaim(p, o.stake, o.inFavor, false);
+        }
     }
 
-    function initializeProvider(address addr, string calldata name, string calldata desc, uint256 weight) external onlyOwner {
+    function initializeProvider(address addr, string calldata name, string calldata desc, uint256 weight)
+        external
+        onlyOwner
+    {
         if (providers[addr].addedAt != 0) revert ProviderExists();
         if (weight > MAX_WEIGHT) revert InvalidWeight();
         _addProvider(addr, name, desc, weight);
     }
 
-    function setCouncilGovernance(address v) external onlyOwner { emit ConfigUpdated("council", councilGovernance, v); councilGovernance = v; }
-    function setTreasury(address v) external onlyOwner { if (v == address(0)) revert InvalidAddress(); emit ConfigUpdated("treasury", treasury, v); treasury = v; }
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function setCouncilGovernance(address v) external onlyOwner {
+        emit ConfigUpdated("council", councilGovernance, v);
+        councilGovernance = v;
+    }
+
+    function setTreasury(address v) external onlyOwner {
+        if (v == address(0)) revert InvalidAddress();
+        emit ConfigUpdated("treasury", treasury, v);
+        treasury = v;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     function withdrawProtocolFees() external onlyOwner {
         uint256 amt = totalProtocolFees;
@@ -457,6 +631,9 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         emit ProposalStatusChanged(id, old, ProposalStatus.REJECTED);
     }
 
-    function version() external pure returns (string memory) { return "2.0.0"; }
+    function version() external pure returns (string memory) {
+        return "2.0.0";
+    }
+
     receive() external payable {}
 }

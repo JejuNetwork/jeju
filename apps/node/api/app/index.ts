@@ -45,6 +45,7 @@ const CliAppConfigSchema = z.object({
     xlp: z.boolean(),
     solver: z.boolean(),
     sequencer: z.boolean(),
+    database: z.boolean(),
   }),
   compute: z.object({
     type: z.enum(['cpu', 'gpu', 'both']),
@@ -85,6 +86,7 @@ const DEFAULT_CONFIG: CliAppConfig = {
     xlp: false,
     solver: false,
     sequencer: false,
+    database: false,
   },
   compute: {
     type: 'cpu',
@@ -137,6 +139,13 @@ const SERVICE_REQUIREMENTS: Record<string, ServiceRequirements> = {
     minCpuCores: 1,
     minMemoryMb: 1024,
     minStorageGb: 10,
+    requiresGpu: false,
+    requiresTee: false,
+  },
+  database: {
+    minCpuCores: 4,
+    minMemoryMb: 8192,
+    minStorageGb: 100,
     requiresGpu: false,
     requiresTee: false,
   },
@@ -354,6 +363,10 @@ async function cmdSetup(): Promise<void> {
   )
   config.services.proxy = await promptYesNo('    Proxy (share bandwidth)', true)
   config.services.storage = await promptYesNo('    Storage (share disk)', false)
+  config.services.database = await promptYesNo(
+    '    Database (CQL miner/storage)',
+    false,
+  )
 
   console.log(chalk.bold('\n  Trading Bots (optional, 50/50 profit split)'))
   config.bots.enabled = await promptYesNo('    Enable trading bots?', false)
@@ -528,6 +541,10 @@ async function cmdStart(): Promise<void> {
     if (name === 'cron') {
       startCronService(services.cron)
     }
+
+    if (name === 'database') {
+      startDatabaseService(services.database, config)
+    }
   }
 
   log('success', `Running ${started.length} services: ${started.join(', ')}`)
@@ -570,6 +587,53 @@ function startCronService(
 
   poll()
   setInterval(poll, 30000)
+}
+
+async function startDatabaseService(
+  databaseService: ReturnType<typeof createNodeServices>['database'],
+  config: CliAppConfig,
+) {
+  const blockProducerEndpoint =
+    process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? 'https://cql.jejunetwork.org'
+  const minerEndpoint =
+    process.env.CQL_MINER_ENDPOINT ?? 'http://localhost:4661'
+
+  if (!config.privateKey) {
+    log('warn', 'Database service requires private key - skipping')
+    return
+  }
+
+  try {
+    await databaseService.initialize({
+      blockProducerEndpoint,
+      minerEndpoint,
+      privateKey: config.privateKey,
+      capacityGB: 100,
+      pricePerGBMonth: 1000000000000000n, // 0.001 ETH
+      stakeAmount: 100000000000000000n, // 0.1 ETH minimum stake
+      hostedDatabases: [],
+      enableBackups: true,
+      backupRetentionDays: 30,
+      maxConcurrentQueries: 100,
+      queryTimeoutMs: 30000,
+    })
+
+    await databaseService.start()
+    log('success', 'Database (CQL) service started')
+
+    // Periodically log stats
+    setInterval(() => {
+      const stats = databaseService.getStats()
+      if (stats.queriesPerSecond > 0) {
+        log(
+          'debug',
+          `CQL: ${stats.queriesPerSecond.toFixed(2)} qps, ${stats.avgQueryLatencyMs.toFixed(0)}ms avg latency`,
+        )
+      }
+    }, 60000)
+  } catch (e) {
+    log('warn', `Database service failed to start: ${String(e)}`)
+  }
 }
 
 async function cmdEarnings(): Promise<void> {

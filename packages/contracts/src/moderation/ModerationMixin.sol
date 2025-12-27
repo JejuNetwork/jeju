@@ -30,9 +30,8 @@ library ModerationMixin {
     function isAddressBanned(Data storage self, address account) internal view returns (bool) {
         if (self.banManager == address(0)) return false;
 
-        (bool success, bytes memory data) = self.banManager.staticcall(
-            abi.encodeWithSignature("isAddressBanned(address)", account)
-        );
+        (bool success, bytes memory data) =
+            self.banManager.staticcall(abi.encodeWithSignature("isAddressBanned(address)", account));
 
         if (success && data.length >= 32) {
             return abi.decode(data, (bool));
@@ -46,17 +45,15 @@ library ModerationMixin {
         if (!self.identityRegistry.agentExists(agentId)) return false;
 
         if (self.banManager != address(0)) {
-            (bool banSuccess, bytes memory banData) = self.banManager.staticcall(
-                abi.encodeWithSignature("isNetworkBanned(uint256)", agentId)
-            );
+            (bool banSuccess, bytes memory banData) =
+                self.banManager.staticcall(abi.encodeWithSignature("isNetworkBanned(uint256)", agentId));
             if (banSuccess && banData.length >= 32) {
                 if (abi.decode(banData, (bool))) return true;
             }
         }
 
-        (bool regSuccess, bytes memory regData) = address(self.identityRegistry).staticcall(
-            abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId)
-        );
+        (bool regSuccess, bytes memory regData) =
+            address(self.identityRegistry).staticcall(abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId));
 
         if (regSuccess && regData.length >= 224) {
             (,,,,,, bool banned) = abi.decode(regData, (string, string, string, string, bool, uint8, bool));

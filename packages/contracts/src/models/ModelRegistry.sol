@@ -10,7 +10,6 @@ import "../registry/BaseArtifactRegistry.sol";
  * @dev Stores model metadata on-chain, weights in IPFS/Arweave
  */
 contract ModelRegistry is BaseArtifactRegistry {
-
     enum ModelType {
         LLM,
         VISION,
@@ -38,18 +37,18 @@ contract ModelRegistry is BaseArtifactRegistry {
         ModelType modelType;
         LicenseType license;
         string licenseUri;
-        // Other fields like description, tags are in base Artifact
     }
+    // Other fields like description, tags are in base Artifact
 
     struct ModelVersionExtended {
         // Base fields in ArtifactVersion
-        string weightsUri;           // IPFS/Arweave CID
-        bytes32 weightsHash;         // SHA256 of weights
+        string weightsUri; // IPFS/Arweave CID
+        bytes32 weightsHash; // SHA256 of weights
         uint256 weightsSize;
-        string configUri;            // config.json CID
-        string tokenizerUri;         // tokenizer CID
+        string configUri; // config.json CID
+        string tokenizerUri; // tokenizer CID
         uint256 parameterCount;
-        string precision;            // fp16, bf16, fp32, int8, int4
+        string precision; // fp16, bf16, fp32, int8, int4
     }
 
     struct ModelFile {
@@ -57,7 +56,7 @@ contract ModelRegistry is BaseArtifactRegistry {
         string cid;
         uint256 size;
         bytes32 sha256Hash;
-        string fileType;             // weights, config, tokenizer, other
+        string fileType; // weights, config, tokenizer, other
     }
 
     struct GateRequest {
@@ -74,27 +73,18 @@ contract ModelRegistry is BaseArtifactRegistry {
     mapping(bytes32 => mapping(uint256 => ModelVersionExtended)) public extendedVersions;
     mapping(bytes32 => ModelFile[]) public files;
     mapping(bytes32 => GateRequest[]) public gateRequests;
-    
+
     uint256 private _nextModelId = 1;
     uint256 private _nextVersionId = 1;
     uint256 private _nextRequestId = 1;
 
     event ModelCreated(
-        bytes32 indexed modelId,
-        string indexed organization,
-        string name,
-        address indexed owner,
-        ModelType modelType
+        bytes32 indexed modelId, string indexed organization, string name, address indexed owner, ModelType modelType
     );
 
     event ModelUpdated(bytes32 indexed modelId);
 
-    event FileUploaded(
-        bytes32 indexed modelId,
-        string filename,
-        string cid,
-        uint256 size
-    );
+    event FileUploaded(bytes32 indexed modelId, string filename, string cid, uint256 size);
 
     event ModelDownloaded(bytes32 indexed modelId, address indexed downloader);
     event ModelStarred(bytes32 indexed modelId, address indexed user, bool starred);
@@ -106,11 +96,9 @@ contract ModelRegistry is BaseArtifactRegistry {
     error RequestNotFound();
     error RequestAlreadyProcessed();
 
-    constructor(
-        address _identityRegistry,
-        address _treasury,
-        address initialOwner
-    ) BaseArtifactRegistry(_identityRegistry, _treasury, initialOwner) {}
+    constructor(address _identityRegistry, address _treasury, address initialOwner)
+        BaseArtifactRegistry(_identityRegistry, _treasury, initialOwner)
+    {}
 
     /**
      * @notice Create a new model
@@ -139,11 +127,7 @@ contract ModelRegistry is BaseArtifactRegistry {
         _createArtifact(modelId, name, organization, visibility, description, tags, agentId);
 
         // Store extended metadata
-        modelMetadata[modelId] = ModelMetadata({
-            modelType: modelType,
-            license: license,
-            licenseUri: ""
-        });
+        modelMetadata[modelId] = ModelMetadata({modelType: modelType, license: license, licenseUri: ""});
 
         emit ModelCreated(modelId, organization, name, msg.sender, modelType);
     }
@@ -151,12 +135,11 @@ contract ModelRegistry is BaseArtifactRegistry {
     /**
      * @notice Update model metadata
      */
-    function updateModel(
-        bytes32 modelId,
-        string calldata description,
-        string[] calldata tags,
-        Visibility visibility
-    ) external exists(modelId) onlyArtifactOwner(modelId) {
+    function updateModel(bytes32 modelId, string calldata description, string[] calldata tags, Visibility visibility)
+        external
+        exists(modelId)
+        onlyArtifactOwner(modelId)
+    {
         Artifact storage model = artifacts[modelId];
         model.description = description;
         model.tags = tags;
@@ -198,7 +181,7 @@ contract ModelRegistry is BaseArtifactRegistry {
             parameterCount: parameterCount,
             precision: precision
         });
-        
+
         // Emitted VersionPublished by base
     }
 
@@ -213,13 +196,9 @@ contract ModelRegistry is BaseArtifactRegistry {
         bytes32 sha256Hash,
         string calldata fileType
     ) external nonReentrant exists(modelId) canPublish(modelId) {
-        files[modelId].push(ModelFile({
-            filename: filename,
-            cid: cid,
-            size: size,
-            sha256Hash: sha256Hash,
-            fileType: fileType
-        }));
+        files[modelId].push(
+            ModelFile({filename: filename, cid: cid, size: size, sha256Hash: sha256Hash, fileType: fileType})
+        );
 
         artifacts[modelId].updatedAt = block.timestamp;
 
@@ -251,15 +230,17 @@ contract ModelRegistry is BaseArtifactRegistry {
 
         requestId = keccak256(abi.encodePacked(_nextRequestId++, modelId, msg.sender, block.timestamp));
 
-        gateRequests[modelId].push(GateRequest({
-            requestId: requestId,
-            modelId: modelId,
-            requester: msg.sender,
-            requestedAt: block.timestamp,
-            approved: false,
-            rejected: false,
-            reason: ""
-        }));
+        gateRequests[modelId].push(
+            GateRequest({
+                requestId: requestId,
+                modelId: modelId,
+                requester: msg.sender,
+                requestedAt: block.timestamp,
+                approved: false,
+                rejected: false,
+                reason: ""
+            })
+        );
 
         emit GateRequestCreated(modelId, requestId, msg.sender);
     }
@@ -267,70 +248,63 @@ contract ModelRegistry is BaseArtifactRegistry {
     /**
      * @notice Approve access request
      */
-    function approveAccess(bytes32 modelId, bytes32 requestId) 
-        external 
-        exists(modelId) 
-        onlyArtifactOwner(modelId) 
-    {
+    function approveAccess(bytes32 modelId, bytes32 requestId) external exists(modelId) onlyArtifactOwner(modelId) {
         GateRequest[] storage requests = gateRequests[modelId];
-        
+
         for (uint256 i = 0; i < requests.length; i++) {
             if (requests[i].requestId == requestId) {
                 if (requests[i].approved || requests[i].rejected) revert RequestAlreadyProcessed();
-                
+
                 requests[i].approved = true;
                 hasAccess[modelId][requests[i].requester] = true;
-                
+
                 emit GateRequestApproved(modelId, requestId);
                 emit AccessGranted(modelId, requests[i].requester);
                 return;
             }
         }
-        
+
         revert RequestNotFound();
     }
 
     /**
      * @notice Reject access request
      */
-    function rejectAccess(bytes32 modelId, bytes32 requestId, string calldata reason) 
-        external 
-        exists(modelId) 
-        onlyArtifactOwner(modelId) 
+    function rejectAccess(bytes32 modelId, bytes32 requestId, string calldata reason)
+        external
+        exists(modelId)
+        onlyArtifactOwner(modelId)
     {
         GateRequest[] storage requests = gateRequests[modelId];
-        
+
         for (uint256 i = 0; i < requests.length; i++) {
             if (requests[i].requestId == requestId) {
                 if (requests[i].approved || requests[i].rejected) revert RequestAlreadyProcessed();
-                
+
                 requests[i].rejected = true;
                 requests[i].reason = reason;
-                
+
                 emit GateRequestRejected(modelId, requestId, reason);
                 return;
             }
         }
-        
+
         revert RequestNotFound();
     }
 
-    function _getAgentIdForAddress(address /* addr */) internal pure returns (uint256) {
+    function _getAgentIdForAddress(address /* addr */ ) internal pure returns (uint256) {
         return 0; // Would query indexer in production
     }
 
     // View functions to reassemble full structs
-    
+
     struct FullModel {
         Artifact artifact;
         ModelMetadata metadata;
     }
 
     function getModel(bytes32 modelId) external view returns (FullModel memory) {
-        return FullModel({
-            artifact: artifacts[modelId],
-            metadata: modelMetadata[modelId]
-        });
+        return FullModel({artifact: artifacts[modelId], metadata: modelMetadata[modelId]});
     }
 
     struct FullVersion {
@@ -341,12 +315,9 @@ contract ModelRegistry is BaseArtifactRegistry {
     function getVersions(bytes32 modelId) external view returns (FullVersion[] memory) {
         ArtifactVersion[] memory baseVersions = versions[modelId];
         FullVersion[] memory result = new FullVersion[](baseVersions.length);
-        
+
         for (uint256 i = 0; i < baseVersions.length; i++) {
-            result[i] = FullVersion({
-                base: baseVersions[i],
-                extended: extendedVersions[modelId][i]
-            });
+            result[i] = FullVersion({base: baseVersions[i], extended: extendedVersions[modelId][i]});
         }
         return result;
     }
@@ -356,10 +327,7 @@ contract ModelRegistry is BaseArtifactRegistry {
         // Versions are pushed, so iterate backwards to find latest
         for (uint256 i = baseVersions.length; i > 0; i--) {
             if (baseVersions[i - 1].isLatest) {
-                return FullVersion({
-                    base: baseVersions[i - 1],
-                    extended: extendedVersions[modelId][i - 1]
-                });
+                return FullVersion({base: baseVersions[i - 1], extended: extendedVersions[modelId][i - 1]});
             }
         }
         revert InvalidVersion();

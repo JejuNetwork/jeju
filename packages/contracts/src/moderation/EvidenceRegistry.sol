@@ -6,8 +6,15 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
-    enum EvidencePosition { FOR_ACTION, AGAINST_ACTION }
-    enum EvidenceStatus { ACTIVE, REWARDED, SLASHED }
+    enum EvidencePosition {
+        FOR_ACTION,
+        AGAINST_ACTION
+    }
+    enum EvidenceStatus {
+        ACTIVE,
+        REWARDED,
+        SLASHED
+    }
 
     struct Evidence {
         bytes32 evidenceId;
@@ -76,10 +83,31 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
     address public treasury;
     uint256 public totalProtocolFees;
 
-    event EvidenceSubmitted(bytes32 indexed evidenceId, bytes32 indexed caseId, address indexed submitter, uint256 stake, EvidencePosition position, string ipfsHash, uint256 timeWeight);
-    event EvidenceSupported(bytes32 indexed evidenceId, address indexed supporter, uint256 stake, bool isSupporting, string comment, uint256 timeWeight);
+    event EvidenceSubmitted(
+        bytes32 indexed evidenceId,
+        bytes32 indexed caseId,
+        address indexed submitter,
+        uint256 stake,
+        EvidencePosition position,
+        string ipfsHash,
+        uint256 timeWeight
+    );
+    event EvidenceSupported(
+        bytes32 indexed evidenceId,
+        address indexed supporter,
+        uint256 stake,
+        bool isSupporting,
+        string comment,
+        uint256 timeWeight
+    );
     event CaseRegistered(bytes32 indexed caseId, uint256 createdAt, uint256 endsAt);
-    event CaseResolved(bytes32 indexed caseId, bool outcomeWasAction, uint256 totalForStake, uint256 totalAgainstStake, uint256 protocolFees);
+    event CaseResolved(
+        bytes32 indexed caseId,
+        bool outcomeWasAction,
+        uint256 totalForStake,
+        uint256 totalAgainstStake,
+        uint256 protocolFees
+    );
     event RewardsClaimed(bytes32 indexed evidenceId, address indexed claimer, uint256 amount, bool wasSubmitter);
     event ProtocolFeesWithdrawn(address indexed to, uint256 amount);
     event ConfigUpdated(string indexed config, address oldVal, address newVal);
@@ -114,7 +142,12 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         emit CaseRegistered(caseId, createdAt, endsAt);
     }
 
-    function submitEvidence(bytes32 caseId, string calldata ipfsHash, string calldata summary, EvidencePosition position) external payable nonReentrant whenNotPaused returns (bytes32 evidenceId) {
+    function submitEvidence(
+        bytes32 caseId,
+        string calldata ipfsHash,
+        string calldata summary,
+        EvidencePosition position
+    ) external payable nonReentrant whenNotPaused returns (bytes32 evidenceId) {
         if (msg.value < MIN_EVIDENCE_STAKE) revert InsufficientStake();
         if (bytes(summary).length > MAX_SUMMARY_LENGTH) revert SummaryTooLong();
 
@@ -125,7 +158,24 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         evidenceId = keccak256(abi.encodePacked(_nextEvidenceId++, caseId, msg.sender, block.timestamp));
         uint256 tw = _calculateTimeWeight(ce.caseEndsAt);
 
-        evidence[evidenceId] = Evidence(evidenceId, caseId, msg.sender, msg.value, _getReputation(msg.sender), ipfsHash, summary, position, 0, 0, 0, 0, block.timestamp, tw, EvidenceStatus.ACTIVE, false);
+        evidence[evidenceId] = Evidence(
+            evidenceId,
+            caseId,
+            msg.sender,
+            msg.value,
+            _getReputation(msg.sender),
+            ipfsHash,
+            summary,
+            position,
+            0,
+            0,
+            0,
+            0,
+            block.timestamp,
+            tw,
+            EvidenceStatus.ACTIVE,
+            false
+        );
 
         ce.evidenceIds.push(evidenceId);
         caseEvidenceCount[caseId]++;
@@ -137,29 +187,45 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         emit EvidenceSubmitted(evidenceId, caseId, msg.sender, msg.value, position, ipfsHash, tw);
     }
 
-    function supportEvidence(bytes32 evidenceId, bool isSupporting, string calldata comment) external payable nonReentrant whenNotPaused {
+    function supportEvidence(bytes32 evidenceId, bool isSupporting, string calldata comment)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (msg.value < MIN_SUPPORT_STAKE) revert InsufficientStake();
-        
+
         Evidence storage e = evidence[evidenceId];
         if (e.submittedAt == 0) revert EvidenceNotFound();
         if (e.submitter == msg.sender) revert CannotSupportOwnEvidence();
-        
+
         CaseEvidence storage ce = caseEvidence[e.caseId];
         _validateActiveCase(ce);
         if (hasSupported[evidenceId][msg.sender]) revert AlreadySupported();
         if (evidenceSupport[evidenceId].length >= MAX_SUPPORTS_PER_EVIDENCE) revert MaxSupportsReached();
 
         uint256 tw = _calculateTimeWeight(ce.caseEndsAt);
-        evidenceSupport[evidenceId].push(EvidenceSupport(msg.sender, msg.value, _getReputation(msg.sender), isSupporting, comment, block.timestamp, tw, false));
+        evidenceSupport[evidenceId].push(
+            EvidenceSupport(
+                msg.sender, msg.value, _getReputation(msg.sender), isSupporting, comment, block.timestamp, tw, false
+            )
+        );
 
         userSupportIndex[evidenceId][msg.sender] = evidenceSupport[evidenceId].length - 1;
         hasSupported[evidenceId][msg.sender] = true;
 
-        if (isSupporting) { e.supportStake += msg.value; e.supporterCount++; }
-        else { e.opposeStake += msg.value; e.opposerCount++; }
+        if (isSupporting) {
+            e.supportStake += msg.value;
+            e.supporterCount++;
+        } else {
+            e.opposeStake += msg.value;
+            e.opposerCount++;
+        }
 
         bool addToFor = isSupporting == (e.position == EvidencePosition.FOR_ACTION);
-        _addWeightedStake(ce, addToFor ? EvidencePosition.FOR_ACTION : EvidencePosition.AGAINST_ACTION, (msg.value * tw) / 10000);
+        _addWeightedStake(
+            ce, addToFor ? EvidencePosition.FOR_ACTION : EvidencePosition.AGAINST_ACTION, (msg.value * tw) / 10000
+        );
 
         emit EvidenceSupported(evidenceId, msg.sender, msg.value, isSupporting, comment, tw);
     }
@@ -177,7 +243,9 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 totalPot;
         for (uint256 i; i < ce.evidenceIds.length; i++) {
             Evidence storage e = evidence[ce.evidenceIds[i]];
-            e.status = ((e.position == EvidencePosition.FOR_ACTION) == outcomeWasAction) ? EvidenceStatus.REWARDED : EvidenceStatus.SLASHED;
+            e.status = ((e.position == EvidencePosition.FOR_ACTION) == outcomeWasAction)
+                ? EvidenceStatus.REWARDED
+                : EvidenceStatus.SLASHED;
             totalPot += e.stake + e.supportStake + e.opposeStake;
         }
 
@@ -217,7 +285,11 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
 
         if (e.submitter == claimer && !e.submitterClaimed && e.stake > 0) {
             uint256 c = _calcClaim(ce, e.stake, e.status == EvidenceStatus.REWARDED, true);
-            if (c > 0) { claim += c; e.submitterClaimed = true; wasSubmitter = true; }
+            if (c > 0) {
+                claim += c;
+                e.submitterClaimed = true;
+                wasSubmitter = true;
+            }
         }
 
         if (hasSupported[evidenceId][claimer]) {
@@ -225,12 +297,19 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
             if (!s.claimed && s.stake > 0) {
                 bool won = s.isSupporting ? e.status == EvidenceStatus.REWARDED : e.status == EvidenceStatus.SLASHED;
                 uint256 c = _calcClaim(ce, s.stake, won, false);
-                if (c > 0) { claim += c; s.claimed = true; }
+                if (c > 0) {
+                    claim += c;
+                    s.claimed = true;
+                }
             }
         }
     }
 
-    function _calcClaim(CaseEvidence storage ce, uint256 stake, bool won, bool isSubmitter) internal view returns (uint256) {
+    function _calcClaim(CaseEvidence storage ce, uint256 stake, bool won, bool isSubmitter)
+        internal
+        view
+        returns (uint256)
+    {
         if (!won) return 0;
         (uint256 winPool, uint256 losePool) = _calcPools(ce);
         if (winPool == 0) return stake;
@@ -244,8 +323,13 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         for (uint256 i; i < ce.evidenceIds.length; i++) {
             Evidence storage ev = evidence[ce.evidenceIds[i]];
             uint256 evTotal = ev.stake + ev.supportStake;
-            if (ev.status == EvidenceStatus.REWARDED) { win += evTotal; lose += ev.opposeStake; }
-            else { lose += evTotal; win += ev.opposeStake; }
+            if (ev.status == EvidenceStatus.REWARDED) {
+                win += evTotal;
+                lose += ev.opposeStake;
+            } else {
+                lose += evTotal;
+                win += ev.opposeStake;
+            }
         }
     }
 
@@ -268,8 +352,12 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
 
     function _getReputation(address user) internal view returns (uint256) {
         if (reputationProvider == address(0)) return 5000;
-        (bool ok, bytes memory data) = reputationProvider.staticcall(abi.encodeWithSignature("getReputation(address)", user));
-        if (ok && data.length >= 32) { uint256 r = abi.decode(data, (uint256)); return r > 10000 ? 10000 : r; }
+        (bool ok, bytes memory data) =
+            reputationProvider.staticcall(abi.encodeWithSignature("getReputation(address)", user));
+        if (ok && data.length >= 32) {
+            uint256 r = abi.decode(data, (uint256));
+            return r > 10000 ? 10000 : r;
+        }
         return 5000;
     }
 
@@ -282,22 +370,44 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         CaseEvidence storage ce = caseEvidence[id];
         return (ce.evidenceIds, ce.totalForStake, ce.totalAgainstStake, ce.resolved);
     }
-    function getCaseEvidenceDetails(bytes32 id) external view returns (CaseEvidence memory) { return caseEvidence[id]; }
-    function getEvidence(bytes32 id) external view returns (Evidence memory) { return evidence[id]; }
-    function getEvidenceSupport(bytes32 id) external view returns (EvidenceSupport[] memory) { return evidenceSupport[id]; }
-    function getUserEvidence(address u) external view returns (bytes32[] memory) { return userEvidence[u]; }
-    function getUserCaseEvidence(bytes32 c, address u) external view returns (bytes32[] memory) { return userCaseEvidence[c][u]; }
+
+    function getCaseEvidenceDetails(bytes32 id) external view returns (CaseEvidence memory) {
+        return caseEvidence[id];
+    }
+
+    function getEvidence(bytes32 id) external view returns (Evidence memory) {
+        return evidence[id];
+    }
+
+    function getEvidenceSupport(bytes32 id) external view returns (EvidenceSupport[] memory) {
+        return evidenceSupport[id];
+    }
+
+    function getUserEvidence(address u) external view returns (bytes32[] memory) {
+        return userEvidence[u];
+    }
+
+    function getUserCaseEvidence(bytes32 c, address u) external view returns (bytes32[] memory) {
+        return userCaseEvidence[c][u];
+    }
 
     function getClaimableAmount(bytes32 evidenceId, address user) external view returns (uint256 total) {
         Evidence storage e = evidence[evidenceId];
         if (e.submittedAt == 0 || !caseEvidence[e.caseId].resolved) return 0;
         CaseEvidence storage ce = caseEvidence[e.caseId];
-        if (e.submitter == user && !e.submitterClaimed && e.stake > 0)
+        if (e.submitter == user && !e.submitterClaimed && e.stake > 0) {
             total += _calcClaim(ce, e.stake, e.status == EvidenceStatus.REWARDED, true);
+        }
         if (hasSupported[evidenceId][user]) {
             EvidenceSupport storage s = evidenceSupport[evidenceId][userSupportIndex[evidenceId][user]];
-            if (!s.claimed && s.stake > 0)
-                total += _calcClaim(ce, s.stake, s.isSupporting ? e.status == EvidenceStatus.REWARDED : e.status == EvidenceStatus.SLASHED, false);
+            if (!s.claimed && s.stake > 0) {
+                total += _calcClaim(
+                    ce,
+                    s.stake,
+                    s.isSupporting ? e.status == EvidenceStatus.REWARDED : e.status == EvidenceStatus.SLASHED,
+                    false
+                );
+            }
         }
     }
 
@@ -305,17 +415,35 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         CaseEvidence storage ce = caseEvidence[id];
         return ce.caseCreatedAt != 0 && !ce.resolved && block.timestamp <= ce.caseEndsAt;
     }
+
     function getCurrentTimeWeight(bytes32 id) external view returns (uint256) {
         CaseEvidence storage ce = caseEvidence[id];
         return ce.caseCreatedAt == 0 ? 10000 : _calculateTimeWeight(ce.caseEndsAt);
     }
 
-    function setModerationMarketplace(address v) external onlyOwner { emit ConfigUpdated("marketplace", moderationMarketplace, v); moderationMarketplace = v; }
-    function setReputationProvider(address v) external onlyOwner { emit ConfigUpdated("reputation", reputationProvider, v); reputationProvider = v; }
-    function setTreasury(address v) external onlyOwner { if (v == address(0)) revert InvalidAddress(); emit ConfigUpdated("treasury", treasury, v); treasury = v; }
+    function setModerationMarketplace(address v) external onlyOwner {
+        emit ConfigUpdated("marketplace", moderationMarketplace, v);
+        moderationMarketplace = v;
+    }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function setReputationProvider(address v) external onlyOwner {
+        emit ConfigUpdated("reputation", reputationProvider, v);
+        reputationProvider = v;
+    }
+
+    function setTreasury(address v) external onlyOwner {
+        if (v == address(0)) revert InvalidAddress();
+        emit ConfigUpdated("treasury", treasury, v);
+        treasury = v;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     function withdrawProtocolFees() external onlyOwner {
         uint256 amt = totalProtocolFees;
@@ -329,9 +457,9 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         if (address(this).balance > 0) _transfer(treasury, address(this).balance);
     }
 
-    function version() external pure returns (string memory) { return "2.0.0"; }
+    function version() external pure returns (string memory) {
+        return "2.0.0";
+    }
+
     receive() external payable {}
 }
-
-
-

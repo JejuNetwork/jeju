@@ -28,10 +28,11 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
     // ============ Types ============
 
     enum Service {
-        NODE,       // Node operation staking
-        XLP,        // Cross-chain liquidity provider
-        PAYMASTER,  // Gas sponsorship pool
-        GOVERNANCE  // Governance voting weight
+        NODE, // Node operation staking
+        XLP, // Cross-chain liquidity provider
+        PAYMASTER, // Gas sponsorship pool
+        GOVERNANCE // Governance voting weight
+
     }
 
     struct StakePosition {
@@ -44,18 +45,18 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
     }
 
     struct ServiceAllocation {
-        uint256 amount;         // Amount allocated to this service
-        uint256 allocatedAt;    // When allocation was made
-        bool slashable;         // Whether this allocation can be slashed
-        uint256 slashedAmount;  // Amount slashed from this allocation
+        uint256 amount; // Amount allocated to this service
+        uint256 allocatedAt; // When allocation was made
+        bool slashable; // Whether this allocation can be slashed
+        uint256 slashedAmount; // Amount slashed from this allocation
     }
 
     struct ServiceConfig {
-        address handler;        // External service contract
-        uint256 minAllocation;  // Minimum stake per allocation
-        uint256 rewardRateBps;  // Reward rate in basis points (annual)
-        uint256 slashCapBps;    // Max slash percentage per incident
-        bool enabled;           // Service accepting allocations
+        address handler; // External service contract
+        uint256 minAllocation; // Minimum stake per allocation
+        uint256 rewardRateBps; // Reward rate in basis points (annual)
+        uint256 slashCapBps; // Max slash percentage per incident
+        bool enabled; // Service accepting allocations
     }
 
     // ============ Constants ============
@@ -109,11 +110,7 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _stakingToken,
-        address _treasury,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _stakingToken, address _treasury, address initialOwner) Ownable(initialOwner) {
         stakingToken = IERC20(_stakingToken);
         treasury = _treasury;
     }
@@ -172,9 +169,8 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
 
         // Notify external handler if configured
         if (config.handler != address(0)) {
-            (bool success,) = config.handler.call(
-                abi.encodeWithSignature("onAllocate(address,uint256)", msg.sender, amount)
-            );
+            (bool success,) =
+                config.handler.call(abi.encodeWithSignature("onAllocate(address,uint256)", msg.sender, amount));
             // Don't revert if handler call fails - just log
         }
     }
@@ -201,9 +197,8 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
         // Notify external handler
         ServiceConfig storage config = serviceConfigs[service];
         if (config.handler != address(0)) {
-            (bool success,) = config.handler.call(
-                abi.encodeWithSignature("onDeallocate(address,uint256)", msg.sender, amount)
-            );
+            (bool success,) =
+                config.handler.call(abi.encodeWithSignature("onDeallocate(address,uint256)", msg.sender, amount));
         }
     }
 
@@ -262,12 +257,7 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount to slash
      * @param reason Reason for slashing
      */
-    function slash(
-        address user,
-        Service service,
-        uint256 amount,
-        string calldata reason
-    ) external nonReentrant {
+    function slash(address user, Service service, uint256 amount, string calldata reason) external nonReentrant {
         ServiceConfig storage config = serviceConfigs[service];
         if (msg.sender != config.handler && msg.sender != owner()) revert OnlyHandler();
 
@@ -326,10 +316,8 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
         ServiceConfig storage paymasterConfig = serviceConfigs[Service.PAYMASTER];
 
         require(
-            msg.sender == nodeConfig.handler ||
-            msg.sender == xlpConfig.handler ||
-            msg.sender == paymasterConfig.handler ||
-            msg.sender == owner(),
+            msg.sender == nodeConfig.handler || msg.sender == xlpConfig.handler || msg.sender == paymasterConfig.handler
+                || msg.sender == owner(),
             "Not authorized"
         );
 
@@ -346,10 +334,8 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
     function getAvailableToAllocate(address user) public view returns (uint256) {
         StakePosition storage pos = positions[user];
 
-        uint256 allocated = allocations[user][Service.NODE].amount +
-                           allocations[user][Service.XLP].amount +
-                           allocations[user][Service.PAYMASTER].amount +
-                           allocations[user][Service.GOVERNANCE].amount;
+        uint256 allocated = allocations[user][Service.NODE].amount + allocations[user][Service.XLP].amount
+            + allocations[user][Service.PAYMASTER].amount + allocations[user][Service.GOVERNANCE].amount;
 
         if (pos.totalStaked <= allocated) return 0;
         return pos.totalStaked - allocated;
@@ -361,26 +347,28 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
      * @return Total allocated
      */
     function getTotalAllocated(address user) external view returns (uint256) {
-        return allocations[user][Service.NODE].amount +
-               allocations[user][Service.XLP].amount +
-               allocations[user][Service.PAYMASTER].amount +
-               allocations[user][Service.GOVERNANCE].amount;
+        return allocations[user][Service.NODE].amount + allocations[user][Service.XLP].amount
+            + allocations[user][Service.PAYMASTER].amount + allocations[user][Service.GOVERNANCE].amount;
     }
 
     /**
      * @notice Get user's full position info
      * @param user User address
      */
-    function getPosition(address user) external view returns (
-        uint256 totalStakedAmount,
-        uint256 available,
-        uint256 nodeAlloc,
-        uint256 xlpAlloc,
-        uint256 paymasterAlloc,
-        uint256 governanceAlloc,
-        uint256 pending,
-        bool frozen
-    ) {
+    function getPosition(address user)
+        external
+        view
+        returns (
+            uint256 totalStakedAmount,
+            uint256 available,
+            uint256 nodeAlloc,
+            uint256 xlpAlloc,
+            uint256 paymasterAlloc,
+            uint256 governanceAlloc,
+            uint256 pending,
+            bool frozen
+        )
+    {
         StakePosition storage pos = positions[user];
         return (
             pos.totalStaked,
@@ -456,4 +444,3 @@ contract MultiServiceStakeManager is Ownable, Pausable, ReentrancyGuard {
         _unpause();
     }
 }
-

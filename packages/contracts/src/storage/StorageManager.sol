@@ -20,7 +20,6 @@ import "../registry/IdentityRegistry.sol";
  * - Storage quotas and pricing
  */
 contract StorageManager is ReentrancyGuard, Pausable, Ownable {
-
     // ============ Enums ============
 
     enum StorageBackend {
@@ -102,21 +101,14 @@ contract StorageManager is ReentrancyGuard, Pausable, Ownable {
     // ============ Events ============
 
     event ProviderRegistered(
-        bytes32 indexed providerId,
-        address indexed operator,
-        StorageBackend backend,
-        string endpoint
+        bytes32 indexed providerId, address indexed operator, StorageBackend backend, string endpoint
     );
 
     event ProviderUpdated(bytes32 indexed providerId);
     event ProviderDeactivated(bytes32 indexed providerId);
 
     event FileUploaded(
-        bytes32 indexed uploadId,
-        address indexed uploader,
-        string cid,
-        uint256 size,
-        StorageBackend backend
+        bytes32 indexed uploadId, address indexed uploader, string cid, uint256 size, StorageBackend backend
     );
 
     event FilePinned(bytes32 indexed uploadId, bytes32 indexed providerId);
@@ -151,11 +143,7 @@ contract StorageManager is ReentrancyGuard, Pausable, Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address _treasury,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _identityRegistry, address _treasury, address initialOwner) Ownable(initialOwner) {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         treasury = _treasury;
     }
@@ -194,12 +182,11 @@ contract StorageManager is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Update provider settings
      */
-    function updateProvider(
-        bytes32 providerId,
-        string calldata endpoint,
-        uint256 capacityGB,
-        uint256 pricePerGBMonth
-    ) external providerExists(providerId) onlyProviderOperator(providerId) {
+    function updateProvider(bytes32 providerId, string calldata endpoint, uint256 capacityGB, uint256 pricePerGBMonth)
+        external
+        providerExists(providerId)
+        onlyProviderOperator(providerId)
+    {
         StorageProvider storage provider = providers[providerId];
         provider.endpoint = endpoint;
         provider.capacityGB = capacityGB;
@@ -211,10 +198,10 @@ contract StorageManager is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Deactivate provider
      */
-    function deactivateProvider(bytes32 providerId) 
-        external 
-        providerExists(providerId) 
-        onlyProviderOperator(providerId) 
+    function deactivateProvider(bytes32 providerId)
+        external
+        providerExists(providerId)
+        onlyProviderOperator(providerId)
     {
         providers[providerId].isActive = false;
         emit ProviderDeactivated(providerId);
@@ -286,8 +273,8 @@ contract StorageManager is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Record that a file was pinned by a provider
      */
-    function recordPin(bytes32 uploadId, bytes32 providerId) 
-        external 
+    function recordPin(bytes32 uploadId, bytes32 providerId)
+        external
         providerExists(providerId)
         onlyProviderOperator(providerId)
     {
@@ -447,7 +434,7 @@ contract StorageManager is ReentrancyGuard, Pausable, Ownable {
     function withdrawFees() external onlyOwner {
         uint256 balance = address(this).balance;
         if (balance > 0) {
-            (bool success, ) = treasury.call{value: balance}("");
+            (bool success,) = treasury.call{value: balance}("");
             require(success, "Transfer failed");
         }
     }
@@ -458,5 +445,3 @@ contract StorageManager is ReentrancyGuard, Pausable, Ownable {
 
     receive() external payable {}
 }
-
-

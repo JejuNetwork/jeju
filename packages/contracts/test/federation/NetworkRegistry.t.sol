@@ -7,7 +7,7 @@ import {NetworkRegistry} from "../../src/federation/NetworkRegistry.sol";
 /**
  * @title NetworkRegistryTest
  * @notice Tests for the core network registry contract
- * 
+ *
  * Tests cover:
  * - Network registration with different stake levels
  * - Trust tier management (UNSTAKED, STAKED, VERIFIED)
@@ -18,7 +18,7 @@ import {NetworkRegistry} from "../../src/federation/NetworkRegistry.sol";
  */
 contract NetworkRegistryTest is Test {
     NetworkRegistry registry;
-    
+
     address owner;
     address verificationAuthority;
     address governance;
@@ -82,13 +82,7 @@ contract NetworkRegistryTest is Test {
 
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 5 ether}(
-            JEJU_CHAIN_ID,
-            "Staked Network",
-            "https://rpc.staked.network",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID, "Staked Network", "https://rpc.staked.network", "", "", contracts, bytes32(0)
         );
 
         NetworkRegistry.NetworkInfo memory network = registry.getNetwork(JEJU_CHAIN_ID);
@@ -107,13 +101,7 @@ contract NetworkRegistryTest is Test {
 
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            "Verification Stake Network",
-            "https://rpc.network",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID, "Verification Stake Network", "https://rpc.network", "", "", contracts, bytes32(0)
         );
 
         NetworkRegistry.NetworkInfo memory network = registry.getNetwork(JEJU_CHAIN_ID);
@@ -133,13 +121,7 @@ contract NetworkRegistryTest is Test {
         vm.startPrank(operator1);
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            "Pending Verification",
-            "https://rpc.network",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID, "Pending Verification", "https://rpc.network", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
@@ -309,9 +291,9 @@ contract NetworkRegistryTest is Test {
 
         vm.startPrank(operator1);
         registry.establishTrust(JEJU_CHAIN_ID, FORK_CHAIN_ID);
-        
+
         assertTrue(registry.isTrusted(JEJU_CHAIN_ID, FORK_CHAIN_ID));
-        
+
         registry.revokeTrust(JEJU_CHAIN_ID, FORK_CHAIN_ID);
         vm.stopPrank();
 
@@ -442,15 +424,7 @@ contract NetworkRegistryTest is Test {
         vm.startPrank(operator2);
         NetworkRegistry.NetworkContracts memory contracts;
         vm.expectRevert(NetworkRegistry.NetworkExists.selector);
-        registry.registerNetwork(
-            JEJU_CHAIN_ID,
-            "Duplicate",
-            "",
-            "",
-            "",
-            contracts,
-            bytes32(0)
-        );
+        registry.registerNetwork(JEJU_CHAIN_ID, "Duplicate", "", "", "", contracts, bytes32(0));
         vm.stopPrank();
     }
 
@@ -487,15 +461,7 @@ contract NetworkRegistryTest is Test {
     function _registerNetwork(uint256 chainId, address operator, uint256 stake) internal {
         vm.startPrank(operator);
         NetworkRegistry.NetworkContracts memory contracts;
-        registry.registerNetwork{value: stake}(
-            chainId,
-            "Network",
-            "https://rpc.network",
-            "",
-            "",
-            contracts,
-            bytes32(0)
-        );
+        registry.registerNetwork{value: stake}(chainId, "Network", "https://rpc.network", "", "", contracts, bytes32(0));
         vm.stopPrank();
     }
 
@@ -506,4 +472,3 @@ contract NetworkRegistryTest is Test {
         registry.setVerifiedByGovernance(chainId);
     }
 }
-

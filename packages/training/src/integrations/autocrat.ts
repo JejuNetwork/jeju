@@ -88,6 +88,13 @@ ${proposal.description}
 - Compute costs are pre-approved in this proposal
 `
 
+    const submitterAddress = proposal.submitter ?? getDeployerAddress()
+    if (!submitterAddress) {
+      throw new Error(
+        'Submitter address required - provide in proposal or set DEPLOYER_ADDRESS env var',
+      )
+    }
+
     const response = await fetch(
       `${this.autocratApiUrl}/api/v1/proposals/generate`,
       {
@@ -100,10 +107,12 @@ ${proposal.description}
       },
     )
 
-    const submitterAddress =
-      proposal.submitter ??
-      ((getDeployerAddress() ??
-        '0x0000000000000000000000000000000000000000') as Address)
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(
+        `Failed to submit training proposal: ${response.status} ${errorText}`,
+      )
+    }
 
     const result: TrainingProposal = {
       proposalId,
@@ -113,8 +122,8 @@ ${proposal.description}
       modelName: proposal.modelName,
       estimatedCost: proposal.estimatedCost,
       estimatedDuration: proposal.trainingSteps * 100,
-      submitter: submitterAddress,
-      status: response.ok ? 'submitted' : 'draft',
+      submitter: submitterAddress as Address,
+      status: 'submitted',
     }
 
     return result
@@ -142,16 +151,20 @@ ${proposal.description}
       )
     }
 
+    const submitterAddress = deployment.submitter ?? getDeployerAddress()
+    if (!submitterAddress) {
+      throw new Error(
+        'Submitter address required - provide in deployment or set DEPLOYER_ADDRESS env var',
+      )
+    }
+
     const proposal: ModelDeploymentProposal = {
       proposalId,
       modelName: deployment.modelName,
       modelVersion: deployment.modelVersion,
       checkpointCid,
       trainingMetrics: deployment.trainingMetrics,
-      submitter:
-        deployment.submitter ??
-        ((getDeployerAddress() ??
-          '0x0000000000000000000000000000000000000000') as Address),
+      submitter: submitterAddress as Address,
       status: 'pending',
       createdAt: Date.now(),
     }

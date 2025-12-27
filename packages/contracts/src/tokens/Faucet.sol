@@ -29,9 +29,9 @@ contract Faucet is Ownable, ReentrancyGuard {
     // =========================================================================
 
     struct TokenConfig {
-        uint256 amount;         // Amount to drip per claim
-        bool enabled;           // Whether this token is active
-        uint256 totalDripped;   // Total amount dripped
+        uint256 amount; // Amount to drip per claim
+        bool enabled; // Whether this token is active
+        uint256 totalDripped; // Total amount dripped
     }
 
     // =========================================================================
@@ -149,7 +149,7 @@ contract Faucet is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < tokenList.length; i++) {
             address token = tokenList[i];
             TokenConfig storage config = tokens[token];
-            
+
             if (config.enabled && config.amount > 0) {
                 uint256 balance = IERC20(token).balanceOf(address(this));
                 if (balance >= config.amount) {
@@ -166,17 +166,17 @@ contract Faucet is Ownable, ReentrancyGuard {
         }
 
         totalEthDripped += ethDripAmount;
-        
+
         (bool success,) = recipient.call{value: ethDripAmount}("");
         if (!success) revert TransferFailed();
-        
+
         emit DrippedETH(recipient, ethDripAmount);
     }
 
     function _dripToken(address recipient, address token) internal {
         TokenConfig storage config = tokens[token];
         if (!config.enabled) revert TokenNotEnabled(token);
-        
+
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance < config.amount) {
             revert InsufficientBalance(token, balance, config.amount);
@@ -184,17 +184,17 @@ contract Faucet is Ownable, ReentrancyGuard {
 
         config.totalDripped += config.amount;
         IERC20(token).safeTransfer(recipient, config.amount);
-        
+
         emit Dripped(recipient, token, config.amount);
     }
 
     function _checkEligibility(address account) internal view {
         // Check denylist
         if (denylist[account]) revert Denied();
-        
+
         // Check allowlist
         if (allowlistEnabled && !allowlist[account]) revert NotAllowed();
-        
+
         // Check cooldown
         uint256 nextClaimTime = lastClaim[account] + cooldown;
         if (block.timestamp < nextClaimTime) {
@@ -212,12 +212,12 @@ contract Faucet is Ownable, ReentrancyGuard {
     function canClaim(address account) external view returns (bool eligible, uint256 cooldownRemaining) {
         if (denylist[account]) return (false, 0);
         if (allowlistEnabled && !allowlist[account]) return (false, 0);
-        
+
         uint256 nextClaimTime = lastClaim[account] + cooldown;
         if (block.timestamp < nextClaimTime) {
             return (false, nextClaimTime - block.timestamp);
         }
-        
+
         return (true, 0);
     }
 
@@ -231,7 +231,11 @@ contract Faucet is Ownable, ReentrancyGuard {
     /**
      * @notice Get token configuration
      */
-    function getTokenConfig(address token) external view returns (uint256 amount, bool enabled, uint256 balance, uint256 totalDripped_) {
+    function getTokenConfig(address token)
+        external
+        view
+        returns (uint256 amount, bool enabled, uint256 balance, uint256 totalDripped_)
+    {
         TokenConfig storage config = tokens[token];
         uint256 bal = token == address(0) ? address(this).balance : IERC20(token).balanceOf(address(this));
         return (config.amount, config.enabled, bal, config.totalDripped);
@@ -240,38 +244,39 @@ contract Faucet is Ownable, ReentrancyGuard {
     /**
      * @notice Get faucet statistics
      */
-    function getStats() external view returns (
-        uint256 _totalClaims,
-        uint256 _totalEthDripped,
-        uint256 ethBalance,
-        uint256 tokenCount
-    ) {
+    function getStats()
+        external
+        view
+        returns (uint256 _totalClaims, uint256 _totalEthDripped, uint256 ethBalance, uint256 tokenCount)
+    {
         return (totalClaims, totalEthDripped, address(this).balance, tokenList.length);
     }
 
     /**
      * @notice Estimate what a claim will yield
      */
-    function estimateDrip(address account) external view returns (
-        bool eligible,
-        uint256 ethAmount,
-        address[] memory tokenAddresses,
-        uint256[] memory tokenAmounts
-    ) {
+    function estimateDrip(address account)
+        external
+        view
+        returns (bool eligible, uint256 ethAmount, address[] memory tokenAddresses, uint256[] memory tokenAmounts)
+    {
         (eligible,) = this.canClaim(account);
-        
+
         ethAmount = (ethEnabled && address(this).balance >= ethDripAmount) ? ethDripAmount : 0;
-        
+
         uint256 count = 0;
         for (uint256 i = 0; i < tokenList.length; i++) {
-            if (tokens[tokenList[i]].enabled && IERC20(tokenList[i]).balanceOf(address(this)) >= tokens[tokenList[i]].amount) {
+            if (
+                tokens[tokenList[i]].enabled
+                    && IERC20(tokenList[i]).balanceOf(address(this)) >= tokens[tokenList[i]].amount
+            ) {
                 count++;
             }
         }
-        
+
         tokenAddresses = new address[](count);
         tokenAmounts = new uint256[](count);
-        
+
         uint256 j = 0;
         for (uint256 i = 0; i < tokenList.length; i++) {
             address token = tokenList[i];
@@ -294,13 +299,9 @@ contract Faucet is Ownable, ReentrancyGuard {
         if (tokens[token].amount == 0 && amount > 0) {
             tokenList.push(token);
         }
-        
-        tokens[token] = TokenConfig({
-            amount: amount,
-            enabled: enabled,
-            totalDripped: tokens[token].totalDripped
-        });
-        
+
+        tokens[token] = TokenConfig({amount: amount, enabled: enabled, totalDripped: tokens[token].totalDripped});
+
         emit TokenConfigured(token, amount, enabled);
     }
 
@@ -391,4 +392,3 @@ contract Faucet is Ownable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

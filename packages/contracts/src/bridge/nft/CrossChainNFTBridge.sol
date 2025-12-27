@@ -137,10 +137,7 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
     event BridgeCancelled(bytes32 indexed requestId);
 
     event CollectionMapped(
-        address indexed localCollection,
-        uint256 indexed remoteChainId,
-        bytes32 remoteCollection,
-        bool isNative
+        address indexed localCollection, uint256 indexed remoteChainId, bytes32 remoteCollection, bool isNative
     );
 
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
@@ -178,12 +175,13 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
      * @param destChainId Destination chain ID (101/102 for Solana)
      * @param destRecipient Recipient on destination chain (32 bytes for Solana compatibility)
      */
-    function bridgeNFT(
-        address nftContract,
-        uint256 tokenId,
-        uint256 destChainId,
-        bytes32 destRecipient
-    ) external payable nonReentrant whenNotPaused returns (bytes32 requestId) {
+    function bridgeNFT(address nftContract, uint256 tokenId, uint256 destChainId, bytes32 destRecipient)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 requestId)
+    {
         if (!isSupported[nftContract]) revert CollectionNotSupported();
         if (destRecipient == bytes32(0)) revert InvalidDestination();
         if (msg.value < calculateBridgeFee(nftContract)) revert InsufficientFee();
@@ -194,22 +192,15 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
         // Generate unique request ID
         requestId = keccak256(
             abi.encodePacked(
-                block.chainid,
-                nftContract,
-                tokenId,
-                destChainId,
-                destRecipient,
-                _requestNonce++,
-                block.timestamp
+                block.chainid, nftContract, tokenId, destChainId, destRecipient, _requestNonce++, block.timestamp
             )
         );
 
         // Get token URI
         string memory tokenUri = "";
         // Try to get tokenURI if the contract supports it
-        (bool success, bytes memory data) = nftContract.staticcall(
-            abi.encodeWithSignature("tokenURI(uint256)", tokenId)
-        );
+        (bool success, bytes memory data) =
+            nftContract.staticcall(abi.encodeWithSignature("tokenURI(uint256)", tokenId));
         if (success && data.length > 0) {
             tokenUri = abi.decode(data, (string));
         }
@@ -255,7 +246,7 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
         if (tokenIds.length > MAX_BATCH_SIZE) revert BatchTooLarge();
         if (!isSupported[nftContract]) revert CollectionNotSupported();
         if (destRecipient == bytes32(0)) revert InvalidDestination();
-        
+
         uint256 totalFee = calculateBridgeFee(nftContract) * tokenIds.length;
         if (msg.value < totalFee) revert InsufficientFee();
 
@@ -268,21 +259,13 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
 
             bytes32 requestId = keccak256(
                 abi.encodePacked(
-                    block.chainid,
-                    nftContract,
-                    tokenId,
-                    destChainId,
-                    destRecipient,
-                    _requestNonce++,
-                    block.timestamp,
-                    i
+                    block.chainid, nftContract, tokenId, destChainId, destRecipient, _requestNonce++, block.timestamp, i
                 )
             );
 
             string memory tokenUri = "";
-            (bool success, bytes memory data) = nftContract.staticcall(
-                abi.encodeWithSignature("tokenURI(uint256)", tokenId)
-            );
+            (bool success, bytes memory data) =
+                nftContract.staticcall(abi.encodeWithSignature("tokenURI(uint256)", tokenId));
             if (success && data.length > 0) {
                 tokenUri = abi.decode(data, (string));
             }
@@ -330,9 +313,7 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
         string calldata tokenUri,
         bytes calldata proof
     ) external nonReentrant whenNotPaused {
-        bytes32 transferId = keccak256(
-            abi.encodePacked(sourceChainId, sourceRequestId, block.chainid)
-        );
+        bytes32 transferId = keccak256(abi.encodePacked(sourceChainId, sourceRequestId, block.chainid));
 
         if (completedTransfers[transferId]) revert TransferAlreadyCompleted();
 
@@ -383,12 +364,10 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Add a supported collection with remote chain mapping
      */
-    function addCollection(
-        address localCollection,
-        uint256 remoteChainId,
-        bytes32 remoteCollection,
-        bool isNative
-    ) external onlyOwner {
+    function addCollection(address localCollection, uint256 remoteChainId, bytes32 remoteCollection, bool isNative)
+        external
+        onlyOwner
+    {
         if (!isSupported[localCollection]) {
             supportedCollections.push(localCollection);
             isSupported[localCollection] = true;
@@ -486,9 +465,7 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
      * @notice Check if a transfer is completed
      */
     function isTransferCompleted(uint256 sourceChainId, bytes32 sourceRequestId) external view returns (bool) {
-        bytes32 transferId = keccak256(
-            abi.encodePacked(sourceChainId, sourceRequestId, block.chainid)
-        );
+        bytes32 transferId = keccak256(abi.encodePacked(sourceChainId, sourceRequestId, block.chainid));
         return completedTransfers[transferId];
     }
 
@@ -504,15 +481,7 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
         bytes calldata signature
     ) internal view {
         bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                sourceChainId,
-                sourceRequestId,
-                block.chainid,
-                nftContract,
-                tokenId,
-                recipient,
-                tokenUri
-            )
+            abi.encodePacked(sourceChainId, sourceRequestId, block.chainid, nftContract, tokenId, recipient, tokenUri)
         );
 
         bytes32 ethSignedHash = messageHash.toEthSignedMessageHash();
@@ -559,12 +528,7 @@ contract CrossChainNFTBridge is Ownable, ReentrancyGuard, Pausable {
         // For wrapped NFTs, the contract must implement mint function
         // This assumes a WrappedNFT contract that this bridge can mint on
         (bool success,) = nftContract.call(
-            abi.encodeWithSignature(
-                "bridgeMint(address,uint256,string)",
-                recipient,
-                tokenId,
-                tokenUri
-            )
+            abi.encodeWithSignature("bridgeMint(address,uint256,string)", recipient, tokenId, tokenUri)
         );
         require(success, "Mint failed");
 
@@ -622,4 +586,3 @@ contract WrappedNFT is ERC721URIStorage, Ownable {
         bridge = _bridge;
     }
 }
-

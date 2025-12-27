@@ -42,10 +42,10 @@ contract DeployDecentralization is Script {
     uint256 constant TIMELOCK_DELAY = 30 days;
     uint256 constant EMERGENCY_MIN_DELAY = 7 days;
     uint256 constant DISPUTE_TIMEOUT = 7 days;
-    
+
     // Genesis MIPS state hash (Optimism official)
     bytes32 constant ABSOLUTE_PRESTATE = 0x03925193e3e89f87835bbdf3a813f60b2aa818a36bbe71cd5d8fd7e79f5e8afe;
-    
+
     // Default MIPS/PreimageOracle addresses (from Optimism deployments)
     // Sepolia (Ethereum testnet) - for Jeju L2 testnet rolling up to Sepolia
     address constant SEPOLIA_MIPS = 0x32bea447d89e9a9756ed5f6F4e96C3A0f8F2e89e;
@@ -66,7 +66,7 @@ contract DeployDecentralization is Script {
         address governance = vm.envOr("GOVERNANCE", deployer);
         address securityCouncil = vm.envOr("SECURITY_COUNCIL", address(0));
         address l2OutputOracle = vm.envOr("L2_OUTPUT_ORACLE", address(0));
-        
+
         console.log("==================================================");
         console.log("Deploying Stage 2 Decentralized Infrastructure");
         console.log("==================================================");
@@ -76,7 +76,7 @@ contract DeployDecentralization is Script {
         console.log("");
 
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Get chain ID for network-specific defaults
         uint256 chainId = block.chainid;
 
@@ -88,7 +88,7 @@ contract DeployDecentralization is Script {
         } else {
             console.log("Using existing JEJUToken:", jejuToken);
         }
-        
+
         if (identityRegistry == address(0)) {
             IdentityRegistry idRegistry = new IdentityRegistry();
             identityRegistry = address(idRegistry);
@@ -96,7 +96,7 @@ contract DeployDecentralization is Script {
         } else {
             console.log("Using existing IdentityRegistry:", identityRegistry);
         }
-        
+
         if (reputationRegistry == address(0)) {
             ReputationRegistry repRegistry = new ReputationRegistry(payable(identityRegistry));
             reputationRegistry = address(repRegistry);
@@ -110,11 +110,11 @@ contract DeployDecentralization is Script {
         // STAGE 2: CANNON FRAUD PROOF SYSTEM
         // ============================================================
         console.log("--- Cannon Fraud Proof System ---");
-        
+
         // Get MIPS addresses from env or use network defaults
         address mipsAddress = vm.envOr("MIPS_ADDRESS", address(0));
         address preimageOracleAddress = vm.envOr("PREIMAGE_ORACLE_ADDRESS", address(0));
-        
+
         // Use network-specific defaults if not provided
         if (mipsAddress == address(0) || preimageOracleAddress == address(0)) {
             if (chainId == 11155111) {
@@ -135,18 +135,14 @@ contract DeployDecentralization is Script {
                 preimageOracleAddress = address(uint160(uint256(keccak256("PREIMAGE_ORACLE_PLACEHOLDER"))));
             }
         }
-        
+
         console.log("PreimageOracle:", preimageOracleAddress);
         console.log("MIPS:", mipsAddress);
-        
+
         // Deploy CannonProver with MIPS integration
         // Note: CannonProver will only work for real fraud proofs when
         // connected to actual deployed MIPS and PreimageOracle contracts
-        CannonProver cannonProver = new CannonProver(
-            mipsAddress,
-            preimageOracleAddress,
-            ABSOLUTE_PRESTATE
-        );
+        CannonProver cannonProver = new CannonProver(mipsAddress, preimageOracleAddress, ABSOLUTE_PRESTATE);
         console.log("CannonProver deployed:", address(cannonProver));
         console.log("");
 
@@ -154,7 +150,7 @@ contract DeployDecentralization is Script {
         // STAGE 2: GOVERNANCE & SECURITY
         // ============================================================
         console.log("--- Governance & Security ---");
-        
+
         // Deploy Safe-compatible Security Council if not provided
         // In production, this would be an actual Gnosis Safe multisig
         if (securityCouncil == address(0)) {
@@ -168,12 +164,7 @@ contract DeployDecentralization is Script {
         }
 
         // Deploy GovernanceTimelock with Stage 2 delays
-        GovernanceTimelock timelock = new GovernanceTimelock(
-            governance, 
-            securityCouncil, 
-            deployer, 
-            TIMELOCK_DELAY
-        );
+        GovernanceTimelock timelock = new GovernanceTimelock(governance, securityCouncil, deployer, TIMELOCK_DELAY);
         console.log("GovernanceTimelock deployed:", address(timelock));
         console.log("  - Upgrade delay:", TIMELOCK_DELAY / 1 days, "days");
         console.log("  - Emergency min delay:", EMERGENCY_MIN_DELAY / 1 days, "days");
@@ -183,26 +174,17 @@ contract DeployDecentralization is Script {
         // STAGE 2: SEQUENCER DECENTRALIZATION
         // ============================================================
         console.log("--- Sequencer Decentralization ---");
-        
+
         // Deploy SequencerRegistry
-        SequencerRegistry sequencerRegistry = new SequencerRegistry(
-            jejuToken, 
-            identityRegistry, 
-            reputationRegistry, 
-            treasury, 
-            deployer
-        );
+        SequencerRegistry sequencerRegistry =
+            new SequencerRegistry(jejuToken, identityRegistry, reputationRegistry, treasury, deployer);
         console.log("SequencerRegistry deployed:", address(sequencerRegistry));
 
         // Deploy ThresholdBatchSubmitter
         address batchInbox = vm.envOr("BATCH_INBOX", address(0x4200000000000000000000000000000000000015));
         uint256 batcherThreshold = vm.envOr("SIGNER_THRESHOLD", uint256(2));
-        
-        ThresholdBatchSubmitter thresholdBatcher = new ThresholdBatchSubmitter(
-            batchInbox,
-            deployer,
-            batcherThreshold
-        );
+
+        ThresholdBatchSubmitter thresholdBatcher = new ThresholdBatchSubmitter(batchInbox, deployer, batcherThreshold);
         console.log("ThresholdBatchSubmitter deployed:", address(thresholdBatcher));
         console.log("  - Batch inbox:", batchInbox);
         console.log("  - Threshold:", batcherThreshold);
@@ -212,7 +194,7 @@ contract DeployDecentralization is Script {
         // STAGE 2: DISPUTE RESOLUTION
         // ============================================================
         console.log("--- Dispute Resolution ---");
-        
+
         // Deploy DisputeGameFactory
         DisputeGameFactory disputeFactory = new DisputeGameFactory(treasury, deployer);
         console.log("DisputeGameFactory deployed:", address(disputeFactory));
@@ -227,13 +209,13 @@ contract DeployDecentralization is Script {
         // STAGE 2: FORCED INCLUSION (CENSORSHIP RESISTANCE)
         // ============================================================
         console.log("--- Forced Inclusion ---");
-        
+
         // Skip contract check on localnet/devnet (batchInbox may not be deployed)
         bool skipContractCheck = (chainId == 31337 || chainId == 1337);
         if (skipContractCheck) {
             console.log("  Skipping batchInbox contract check (localnet mode)");
         }
-        
+
         // Deploy ForcedInclusion contract
         // Security Council is set to deployer initially, should be updated to multisig
         ForcedInclusion forcedInclusion = new ForcedInclusion(
@@ -252,20 +234,15 @@ contract DeployDecentralization is Script {
         // STAGE 2: BRIDGE ADAPTERS
         // ============================================================
         console.log("--- Bridge Adapters ---");
-        
+
         // Deploy L2OutputOracleAdapter
         L2OutputOracleAdapter l2Adapter = new L2OutputOracleAdapter(
-            payable(address(sequencerRegistry)), 
-            payable(address(disputeFactory)), 
-            l2OutputOracle
+            payable(address(sequencerRegistry)), payable(address(disputeFactory)), l2OutputOracle
         );
         console.log("L2OutputOracleAdapter deployed:", address(l2Adapter));
 
         // Deploy OptimismPortalAdapter
-        OptimismPortalAdapter portalAdapter = new OptimismPortalAdapter(
-            address(timelock), 
-            securityCouncil
-        );
+        OptimismPortalAdapter portalAdapter = new OptimismPortalAdapter(address(timelock), securityCouncil);
         console.log("OptimismPortalAdapter deployed:", address(portalAdapter));
         console.log("");
 
@@ -273,13 +250,13 @@ contract DeployDecentralization is Script {
         // TRANSFER OWNERSHIP TO TIMELOCK
         // ============================================================
         console.log("--- Transferring Ownership ---");
-        
+
         sequencerRegistry.transferOwnership(address(timelock));
         disputeFactory.transferOwnership(address(timelock));
         l2Adapter.transferOwnership(address(timelock));
         thresholdBatcher.transferOwnership(address(timelock));
         forcedInclusion.transferOwnership(address(timelock));
-        
+
         console.log("All contracts now owned by GovernanceTimelock");
         console.log("Upgrades require 30-day timelock");
 
@@ -316,7 +293,7 @@ contract DeployDecentralization is Script {
         console.log("  [x] Forced inclusion mechanism");
         console.log("  [x] Security Council integration");
         console.log("");
-        
+
         // Fraud proof status depends on MIPS deployment
         if (mipsAddress.code.length > 0 && preimageOracleAddress.code.length > 0) {
             console.log("  [x] Cannon MIPS fraud proofs - PRODUCTION READY");

@@ -101,7 +101,6 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
         _;
     }
 
-
     modifier requiresIdentity(uint256 amount) {
         // Get agent ID from balance (NFT ownership)
         uint256 agentBalance = identityRegistry.balanceOf(msg.sender);
@@ -160,9 +159,8 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
         if (msg.value < requiredFee) revert InsufficientFee();
 
         transferNonce++;
-        transferId = keccak256(
-            abi.encodePacked(chainId, destChainId, token, msg.sender, recipient, amount, transferNonce)
-        );
+        transferId =
+            keccak256(abi.encodePacked(chainId, destChainId, token, msg.sender, recipient, amount, transferNonce));
 
         // Store transfer request
         transfers[transferId] = TransferRecord({
@@ -195,7 +193,7 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
 
         // Refund excess fee using call() for gas forward compatibility
         if (msg.value > requiredFee) {
-            (bool success, ) = payable(msg.sender).call{value: msg.value - requiredFee}("");
+            (bool success,) = payable(msg.sender).call{value: msg.value - requiredFee}("");
             if (!success) revert FeeRefundFailed();
         }
     }
@@ -270,11 +268,7 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
 
     // ============ Admin Functions ============
 
-    function registerToken(
-        address token,
-        bytes32 solanaMint,
-        bool _isHomeChain
-    ) external onlyAdmin {
+    function registerToken(address token, bytes32 solanaMint, bool _isHomeChain) external onlyAdmin {
         tokenToSolanaMint[token] = solanaMint;
         solanaMintToToken[solanaMint] = token;
         isTokenHome[token] = _isHomeChain;
@@ -298,7 +292,7 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
 
     function collectFees() external {
         uint256 balance = address(this).balance;
-        (bool success, ) = payable(feeCollector).call{value: balance}("");
+        (bool success,) = payable(feeCollector).call{value: balance}("");
         if (!success) revert FeeCollectionFailed();
         emit FeesCollected(feeCollector, balance);
     }
@@ -328,10 +322,7 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
 
     // ============ Internal ============
 
-    function _verifyProof(
-        uint256[8] calldata proof,
-        uint256[] calldata publicInputs
-    ) internal view returns (bool) {
+    function _verifyProof(uint256[8] calldata proof, uint256[] calldata publicInputs) internal view returns (bool) {
         // Delegate to the Groth16 verifier contract for cryptographic verification
         return verifier.verifyProof(proof, publicInputs);
     }
@@ -347,7 +338,12 @@ interface IBridgeToken {
 }
 
 interface IBridgeIdentityRegistry {
-    enum StakeTier { NONE, SMALL, MEDIUM, HIGH }
+    enum StakeTier {
+        NONE,
+        SMALL,
+        MEDIUM,
+        HIGH
+    }
 
     struct AgentRegistration {
         uint256 agentId;
@@ -365,4 +361,3 @@ interface IBridgeIdentityRegistry {
     function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
     function getAgent(uint256 agentId) external view returns (AgentRegistration memory);
 }
-

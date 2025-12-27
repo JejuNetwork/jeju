@@ -16,15 +16,29 @@ interface ILiquidityVault {
 }
 
 interface IMultiServiceStakeManager {
-    enum Service { NODE, XLP, PAYMASTER, GOVERNANCE }
+    enum Service {
+        NODE,
+        XLP,
+        PAYMASTER,
+        GOVERNANCE
+    }
+
     function stake(uint256 amount) external;
     function allocate(Service service, uint256 amount) external;
     function deallocate(Service service, uint256 amount) external;
-    function getPosition(address user) external view returns (
-        uint256 totalStaked, uint256 available, uint256 nodeAlloc,
-        uint256 xlpAlloc, uint256 paymasterAlloc, uint256 governanceAlloc,
-        uint256 pending, bool frozen
-    );
+    function getPosition(address user)
+        external
+        view
+        returns (
+            uint256 totalStaked,
+            uint256 available,
+            uint256 nodeAlloc,
+            uint256 xlpAlloc,
+            uint256 paymasterAlloc,
+            uint256 governanceAlloc,
+            uint256 pending,
+            bool frozen
+        );
 }
 
 interface IFederatedLiquidity {
@@ -56,11 +70,11 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
 
     // Default allocation strategy (bps)
     struct AllocationStrategy {
-        uint256 ethVaultBps;      // LiquidityVault ETH
-        uint256 tokenVaultBps;    // LiquidityVault Token
-        uint256 nodeStakeBps;     // Staking - Node operation
-        uint256 xlpStakeBps;      // Staking - XLP
-        uint256 paymasterStakeBps;// Staking - Paymaster
+        uint256 ethVaultBps; // LiquidityVault ETH
+        uint256 tokenVaultBps; // LiquidityVault Token
+        uint256 nodeStakeBps; // Staking - Node operation
+        uint256 xlpStakeBps; // Staking - XLP
+        uint256 paymasterStakeBps; // Staking - Paymaster
         uint256 governanceStakeBps; // Staking - Governance
     }
 
@@ -98,12 +112,9 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
     error InsufficientDeposit();
     error NoPosition();
 
-    constructor(
-        address _liquidityVault,
-        address _stakeManager,
-        address _stakingToken,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _liquidityVault, address _stakeManager, address _stakingToken, address initialOwner)
+        Ownable(initialOwner)
+    {
         liquidityVault = ILiquidityVault(_liquidityVault);
         stakeManager = IMultiServiceStakeManager(_stakeManager);
         stakingToken = IERC20(_stakingToken);
@@ -172,8 +183,8 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
             stakeManager.stake(stakeAmount);
 
             // Calculate service allocations from stake portion
-            uint256 totalStakeBps = strategy.nodeStakeBps + strategy.xlpStakeBps +
-                                    strategy.paymasterStakeBps + strategy.governanceStakeBps;
+            uint256 totalStakeBps =
+                strategy.nodeStakeBps + strategy.xlpStakeBps + strategy.paymasterStakeBps + strategy.governanceStakeBps;
 
             if (totalStakeBps > 0) {
                 if (strategy.nodeStakeBps > 0) {
@@ -186,7 +197,9 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
                 }
                 if (strategy.paymasterStakeBps > 0) {
                     uint256 paymasterAmount = (stakeAmount * strategy.paymasterStakeBps) / totalStakeBps;
-                    if (paymasterAmount > 0) stakeManager.allocate(IMultiServiceStakeManager.Service.PAYMASTER, paymasterAmount);
+                    if (paymasterAmount > 0) {
+                        stakeManager.allocate(IMultiServiceStakeManager.Service.PAYMASTER, paymasterAmount);
+                    }
                 }
                 if (strategy.governanceStakeBps > 0) {
                     uint256 govAmount = (stakeAmount * strategy.governanceStakeBps) / totalStakeBps;
@@ -210,9 +223,8 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
      * @param strategy Custom allocation percentages
      */
     function setStrategy(AllocationStrategy calldata strategy) external {
-        uint256 total = strategy.ethVaultBps + strategy.tokenVaultBps +
-                        strategy.nodeStakeBps + strategy.xlpStakeBps +
-                        strategy.paymasterStakeBps + strategy.governanceStakeBps;
+        uint256 total = strategy.ethVaultBps + strategy.tokenVaultBps + strategy.nodeStakeBps + strategy.xlpStakeBps
+            + strategy.paymasterStakeBps + strategy.governanceStakeBps;
 
         if (total != BPS) revert InvalidAllocation();
 
@@ -242,13 +254,17 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
     /**
      * @notice Get user's total position across all pools
      */
-    function getPosition(address user) external view returns (
-        uint256 ethVaultShares,
-        uint256 tokenVaultShares,
-        uint256 stakedAmount,
-        uint256 pendingRewards,
-        AllocationStrategy memory strategy
-    ) {
+    function getPosition(address user)
+        external
+        view
+        returns (
+            uint256 ethVaultShares,
+            uint256 tokenVaultShares,
+            uint256 stakedAmount,
+            uint256 pendingRewards,
+            AllocationStrategy memory strategy
+        )
+    {
         ethVaultShares = liquidityVault.ethShares(user);
         tokenVaultShares = liquidityVault.elizaShares(user);
 
@@ -272,9 +288,8 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
     // ============ Admin ============
 
     function setDefaultStrategy(AllocationStrategy calldata strategy) external onlyOwner {
-        uint256 total = strategy.ethVaultBps + strategy.tokenVaultBps +
-                        strategy.nodeStakeBps + strategy.xlpStakeBps +
-                        strategy.paymasterStakeBps + strategy.governanceStakeBps;
+        uint256 total = strategy.ethVaultBps + strategy.tokenVaultBps + strategy.nodeStakeBps + strategy.xlpStakeBps
+            + strategy.paymasterStakeBps + strategy.governanceStakeBps;
 
         if (total != BPS) revert InvalidAllocation();
 
@@ -295,4 +310,3 @@ contract LiquidityRouter is Ownable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

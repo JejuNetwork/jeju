@@ -40,21 +40,22 @@ contract SolanaVerifier is Ownable {
 
     /// @notice Solana program types we support
     enum SolanaProgramType {
-        SPL_TOKEN,           // Classic SPL tokens
-        SPL_TOKEN_2022,      // Token extensions (ai16z style)
-        METAPLEX_METADATA,   // NFT metadata
-        CUSTOM_REGISTRY      // daos.fun, custom programs
+        SPL_TOKEN, // Classic SPL tokens
+        SPL_TOKEN_2022, // Token extensions (ai16z style)
+        METAPLEX_METADATA, // NFT metadata
+        CUSTOM_REGISTRY // daos.fun, custom programs
+
     }
 
     /// @notice Verified Solana token/registry entry
     struct SolanaEntry {
-        bytes32 mint;           // Solana mint address (pubkey)
-        bytes32 authority;      // Mint authority
+        bytes32 mint; // Solana mint address (pubkey)
+        bytes32 authority; // Mint authority
         string name;
         string symbol;
         string uri;
         SolanaProgramType programType;
-        uint256 supply;         // Total supply (if token)
+        uint256 supply; // Total supply (if token)
         uint8 decimals;
         bool verified;
         uint256 verifiedAt;
@@ -85,7 +86,7 @@ contract SolanaVerifier is Ownable {
     /// @notice Solana SPL Token program ID
     bytes32 public constant SPL_TOKEN_PROGRAM = 0x06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9;
 
-    /// @notice Solana Token-2022 program ID  
+    /// @notice Solana Token-2022 program ID
     bytes32 public constant SPL_TOKEN_2022_PROGRAM = 0x069b8857feab8184fb687f634618c035dac439dc1aeb3b5598a0f00000000001;
 
     // ============================================================================
@@ -116,11 +117,7 @@ contract SolanaVerifier is Ownable {
     // ============================================================================
 
     event SolanaEntryVerified(
-        bytes32 indexed mint,
-        string name,
-        string symbol,
-        SolanaProgramType programType,
-        uint64 sequence
+        bytes32 indexed mint, string name, string symbol, SolanaProgramType programType, uint64 sequence
     );
 
     event TrustedEmitterUpdated(bytes32 indexed oldEmitter, bytes32 indexed newEmitter);
@@ -176,13 +173,7 @@ contract SolanaVerifier is Ownable {
         countByType[entry.programType]++;
         totalEntries++;
 
-        emit SolanaEntryVerified(
-            entry.mint,
-            entry.name,
-            entry.symbol,
-            entry.programType,
-            parsed.sequence
-        );
+        emit SolanaEntryVerified(entry.mint, entry.name, entry.symbol, entry.programType, parsed.sequence);
     }
 
     /**
@@ -260,14 +251,14 @@ contract SolanaVerifier is Ownable {
     function getMintsByType(SolanaProgramType programType) external view returns (bytes32[] memory) {
         uint256 count = countByType[programType];
         bytes32[] memory mints = new bytes32[](count);
-        
+
         uint256 idx = 0;
         for (uint256 i = 0; i < verifiedMints.length && idx < count; i++) {
             if (entries[verifiedMints[i]].programType == programType) {
                 mints[idx++] = verifiedMints[i];
             }
         }
-        
+
         return mints;
     }
 
@@ -303,7 +294,7 @@ contract SolanaVerifier is Ownable {
     function parseVAA(bytes calldata vaa) internal view returns (ParsedVAA memory parsed) {
         // Call Wormhole core bridge for verification
         (IWormhole.VM memory vm, bool valid, string memory reason) = wormhole.parseAndVerifyVM(vaa);
-        
+
         if (!valid) {
             // Revert with the Wormhole error reason
             revert VerificationFailed();
@@ -347,13 +338,13 @@ contract SolanaVerifier is Ownable {
         bytes32 mint;
         bytes32 authority;
         uint256 supply;
-        
+
         assembly {
             mint := mload(add(payload, 32))
             authority := mload(add(payload, 64))
             supply := mload(add(payload, 98))
         }
-        
+
         entry.mint = mint;
         entry.authority = authority;
         entry.programType = SolanaProgramType(uint8(payload[64]));
@@ -377,4 +368,3 @@ contract SolanaVerifier is Ownable {
         return "1.0.0";
     }
 }
-

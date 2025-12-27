@@ -9,10 +9,11 @@ interface IContentRegistry {
     // ============ Enums ============
 
     enum ContentStatus {
-        UNKNOWN,      // Not registered
-        APPROVED,     // Safe content
-        FLAGGED,      // Under review
-        BANNED        // Permanently banned
+        UNKNOWN, // Not registered
+        APPROVED, // Safe content
+        FLAGGED, // Under review
+        BANNED // Permanently banned
+
     }
 
     enum ViolationType {
@@ -24,11 +25,12 @@ interface IContentRegistry {
     }
 
     enum ContentTier {
-        NETWORK_FREE,      // Protocol assets, free to serve
-        COMMUNITY,         // Subsidized community content
-        STANDARD,          // Normal paid storage
+        NETWORK_FREE, // Protocol assets, free to serve
+        COMMUNITY, // Subsidized community content
+        STANDARD, // Normal paid storage
         PRIVATE_ENCRYPTED, // Encrypted data
-        PREMIUM_HOT        // High-demand content
+        PREMIUM_HOT // High-demand content
+
     }
 
     // ============ Structs ============
@@ -55,45 +57,29 @@ interface IContentRegistry {
     // ============ Events ============
 
     event ContentRegistered(
-        bytes32 indexed contentHash,
-        bytes32 indexed infohash,
-        address indexed uploader,
-        ContentTier tier,
-        uint64 size
+        bytes32 indexed contentHash, bytes32 indexed infohash, address indexed uploader, ContentTier tier, uint64 size
     );
 
-    event ContentFlagged(
-        bytes32 indexed contentHash,
-        ViolationType violationType,
-        address reporter
-    );
+    event ContentFlagged(bytes32 indexed contentHash, ViolationType violationType, address reporter);
 
     event ContentBanned(bytes32 indexed contentHash, ViolationType violationType);
     event ContentCleared(bytes32 indexed contentHash);
 
     event SeedingStarted(bytes32 indexed infohash, address indexed seeder);
     event SeedingStopped(bytes32 indexed infohash, address indexed seeder);
-    event SeedingReported(
-        bytes32 indexed infohash,
-        address indexed seeder,
-        uint128 bytesServed
-    );
+    event SeedingReported(bytes32 indexed infohash, address indexed seeder, uint128 bytesServed);
     event RewardsClaimed(address indexed seeder, uint128 amount);
 
     // ============ Content Functions ============
 
-    function registerContent(
-        bytes32 contentHash,
-        bytes32 infohash,
-        uint64 size,
-        ContentTier tier
-    ) external payable returns (ContentStatus);
+    function registerContent(bytes32 contentHash, bytes32 infohash, uint64 size, ContentTier tier)
+        external
+        payable
+        returns (ContentStatus);
 
-    function flagContent(
-        bytes32 contentHash,
-        ViolationType violationType,
-        bytes32 evidenceHash
-    ) external returns (bytes32 caseId);
+    function flagContent(bytes32 contentHash, ViolationType violationType, bytes32 evidenceHash)
+        external
+        returns (bytes32 caseId);
 
     function banContent(bytes32 contentHash) external;
     function clearContent(bytes32 contentHash) external;
@@ -106,11 +92,7 @@ interface IContentRegistry {
 
     function startSeeding(bytes32 infohash) external;
     function stopSeeding(bytes32 infohash) external;
-    function reportSeeding(
-        bytes32 infohash,
-        uint128 bytesServed,
-        bytes calldata signature
-    ) external;
+    function reportSeeding(bytes32 infohash, uint128 bytesServed, bytes calldata signature) external;
     function claimRewards() external;
 
     function getSeederStats(address seeder) external view returns (SeederStats memory);

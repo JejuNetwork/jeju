@@ -57,13 +57,11 @@ contract MockPriceOracle {
         updatedAt = _updatedAt;
     }
 
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 _updatedAt,
-        uint80 answeredInRound
-    ) {
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 _updatedAt, uint80 answeredInRound)
+    {
         return (1, price, block.timestamp, updatedAt, 1);
     }
 }
@@ -96,13 +94,7 @@ contract StakingTest is Test {
         secondaryOracle = new MockPriceOracle();
 
         vm.prank(owner);
-        staking = new Staking(
-            address(jeju),
-            address(identityRegistry),
-            address(primaryOracle),
-            treasury,
-            owner
-        );
+        staking = new Staking(address(jeju), address(identityRegistry), address(primaryOracle), treasury, owner);
 
         // Set secondary oracle
         vm.prank(owner);
@@ -224,7 +216,7 @@ contract StakingTest is Test {
     // ═══════════════════════════════════════════════════════════════════════
 
     function test_Tier_Free() public {
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.FREE));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.FREE));
     }
 
     function test_Tier_Builder() public {
@@ -232,7 +224,7 @@ contract StakingTest is Test {
         vm.prank(alice);
         staking.stake(1 ether);
 
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.BUILDER));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.BUILDER));
     }
 
     function test_Tier_Pro() public {
@@ -240,7 +232,7 @@ contract StakingTest is Test {
         vm.prank(alice);
         staking.stake(10 ether);
 
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.PRO));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.PRO));
     }
 
     function test_Tier_Unlimited() public {
@@ -248,7 +240,7 @@ contract StakingTest is Test {
         vm.prank(alice);
         staking.stake(100 ether);
 
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.UNLIMITED));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.UNLIMITED));
     }
 
     function test_Tier_Whitelisted() public {
@@ -256,7 +248,7 @@ contract StakingTest is Test {
         staking.setWhitelisted(alice, true);
 
         // No stake but still unlimited
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.UNLIMITED));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.UNLIMITED));
     }
 
     function test_Tier_ChangeEmitsEvent() public {
@@ -275,21 +267,21 @@ contract StakingTest is Test {
         staking.stake(10 ether);
 
         // At $10/JEJU, 10 JEJU = $100 = PRO tier
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.PRO));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.PRO));
 
         // Add 50% reputation bonus (5000 BPS)
         vm.prank(owner);
         staking.updateReputationBonus(alice, 5000);
 
         // Now effective value = $100 * 1.5 = $150, still PRO
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.PRO));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.PRO));
 
         // Stake more to get near $1000 threshold
         vm.prank(alice);
         staking.stake(57 ether); // Now 67 JEJU = $670
 
         // With 50% bonus: $670 * 1.5 = $1005 = UNLIMITED
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.UNLIMITED));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.UNLIMITED));
     }
 
     function test_ReputationBonus_MaxCapped() public {
@@ -313,22 +305,22 @@ contract StakingTest is Test {
         vm.prank(alice);
         staking.stake(50 ether);
 
-        assertEq(uint(staking.getTier(alice)), uint(Staking.Tier.UNLIMITED));
+        assertEq(uint256(staking.getTier(alice)), uint256(Staking.Tier.UNLIMITED));
     }
 
     function test_Oracle_StalenessCheck() public {
         // Warp time forward first to avoid underflow
         vm.warp(block.timestamp + 10 hours);
-        
+
         // Update secondary oracle to be fresh
         secondaryOracle.setUpdatedAt(block.timestamp);
-        
+
         // Make primary oracle stale (> 1 hour old)
         primaryOracle.setUpdatedAt(block.timestamp - 2 hours);
 
         // Should fall back to secondary which is still fresh
         uint256 price = staking.getJejuPrice();
-        
+
         // Secondary is still fresh at $10
         assertEq(price, 10e8);
     }
@@ -336,16 +328,16 @@ contract StakingTest is Test {
     function test_Oracle_FallbackOnBothStale() public {
         // Warp time forward first to avoid underflow
         vm.warp(block.timestamp + 100 hours);
-        
+
         // Update the last known good price first
         staking.updateLastKnownGoodPrice();
-        
+
         // Make both oracles stale
         primaryOracle.setUpdatedAt(block.timestamp - 2 hours);
         secondaryOracle.setUpdatedAt(block.timestamp - 2 hours);
 
         uint256 price = staking.getJejuPrice();
-        
+
         // Should use last known good price or fallback
         assertTrue(price > 0);
     }
@@ -370,7 +362,7 @@ contract StakingTest is Test {
     function test_Oracle_SecondaryFallback() public {
         // Primary gives invalid price
         primaryOracle.setPrice(0);
-        
+
         // Secondary has valid price
         secondaryOracle.setPrice(15e8);
 
@@ -383,7 +375,7 @@ contract StakingTest is Test {
 
         staking.updateLastKnownGoodPrice();
 
-        (,uint256 lastGoodPrice,,,) = staking.getPriceInfo();
+        (, uint256 lastGoodPrice,,,) = staking.getPriceInfo();
         assertEq(lastGoodPrice, 25e8);
     }
 
@@ -437,7 +429,7 @@ contract StakingTest is Test {
         staking.completeUnstaking();
 
         assertEq(jeju.balanceOf(alice) - aliceBalanceBefore, 10 ether);
-        
+
         Staking.StakePosition memory pos = staking.getPosition(alice);
         assertFalse(pos.isActive);
         assertEq(pos.unbondingAmount, 0);
@@ -461,7 +453,7 @@ contract StakingTest is Test {
         staking.stake(10 ether); // PRO tier
 
         (uint256 limit, uint256 used, uint256 remaining) = staking.getAllocation(alice, Staking.Service.RPC);
-        
+
         assertEq(limit, 1000); // PRO tier RPC limit
         assertEq(used, 0);
         assertEq(remaining, 1000);
@@ -472,7 +464,7 @@ contract StakingTest is Test {
         staking.stake(100 ether); // UNLIMITED tier
 
         (uint256 limit, uint256 used, uint256 remaining) = staking.getAllocation(alice, Staking.Service.RPC);
-        
+
         assertEq(limit, 0); // 0 means unlimited
         assertEq(remaining, type(uint256).max);
     }
@@ -485,7 +477,7 @@ contract StakingTest is Test {
         vm.prank(rpcService);
         staking.consumeAllocation(alice, Staking.Service.RPC, 100);
 
-        (,uint256 used,) = staking.getAllocation(alice, Staking.Service.RPC);
+        (, uint256 used,) = staking.getAllocation(alice, Staking.Service.RPC);
         assertEq(used, 100);
     }
 
@@ -522,7 +514,7 @@ contract StakingTest is Test {
         vm.prank(rpcService);
         staking.recordUsage(alice, Staking.Service.COMPUTE, 50);
 
-        (,uint256 used,) = staking.getAllocation(alice, Staking.Service.COMPUTE);
+        (, uint256 used,) = staking.getAllocation(alice, Staking.Service.COMPUTE);
         assertEq(used, 50);
     }
 
@@ -536,7 +528,7 @@ contract StakingTest is Test {
         vm.prank(rpcService);
         staking.reduceStorageUsage(alice, 30);
 
-        (,uint256 used,) = staking.getAllocation(alice, Staking.Service.STORAGE);
+        (, uint256 used,) = staking.getAllocation(alice, Staking.Service.STORAGE);
         assertEq(used, 70);
     }
 
@@ -603,10 +595,10 @@ contract StakingTest is Test {
         staking.setTierConfig(
             Staking.Tier.BUILDER,
             20e8, // $20
-            200,  // 200 req/min
+            200, // 200 req/min
             2000, // 2GB storage
-            200,  // 200 compute
-            20    // 20 GB CDN
+            200, // 200 compute
+            20 // 20 GB CDN
         );
 
         Staking.TierConfig memory config = staking.getTierConfig(Staking.Tier.BUILDER);
@@ -672,7 +664,7 @@ contract StakingTest is Test {
 
     function test_GetStakeRequirement() public {
         (uint256 usdValue, uint256 jejuAmount) = staking.getStakeRequirement(Staking.Tier.PRO);
-        
+
         assertEq(usdValue, 100e8); // $100
         // At $10/JEJU, need 10 JEJU
         assertEq(jejuAmount, 10 ether);
@@ -682,13 +674,8 @@ contract StakingTest is Test {
         primaryOracle.setPrice(25e8);
         staking.updateLastKnownGoodPrice();
 
-        (
-            uint256 currentPrice,
-            uint256 lastGoodPrice,
-            uint256 lastUpdateTime,
-            address primary,
-            address secondary
-        ) = staking.getPriceInfo();
+        (uint256 currentPrice, uint256 lastGoodPrice, uint256 lastUpdateTime, address primary, address secondary) =
+            staking.getPriceInfo();
 
         assertEq(currentPrice, 25e8);
         assertEq(lastGoodPrice, 25e8);
@@ -697,4 +684,3 @@ contract StakingTest is Test {
         assertEq(secondary, address(secondaryOracle));
     }
 }
-

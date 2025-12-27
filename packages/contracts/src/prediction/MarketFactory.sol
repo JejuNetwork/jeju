@@ -69,7 +69,9 @@ contract MarketFactory is Ownable, Pausable {
     error MarketAlreadyExists();
     error InvalidLiquidity();
 
-    constructor(address _predictionMarket, address _oracle, uint256 _defaultLiquidity, address _owner) Ownable(_owner) {
+    constructor(address _predictionMarket, address _oracle, uint256 _defaultLiquidity, address _owner)
+        Ownable(_owner)
+    {
         require(_predictionMarket != address(0), "Invalid market");
         require(_oracle != address(0), "Invalid oracle");
         require(_defaultLiquidity > 0, "Invalid liquidity");

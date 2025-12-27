@@ -50,18 +50,9 @@ contract ComputeOutputSettler is BaseOutputSettler {
     // ============ Events ============
 
     event ComputeRentalFilled(
-        bytes32 indexed orderId,
-        bytes32 indexed rentalId,
-        address indexed provider,
-        address user,
-        uint256 durationHours
+        bytes32 indexed orderId, bytes32 indexed rentalId, address indexed provider, address user, uint256 durationHours
     );
-    event ComputeInferenceFilled(
-        bytes32 indexed orderId,
-        address indexed provider,
-        address indexed user,
-        string model
-    );
+    event ComputeInferenceFilled(bytes32 indexed orderId, address indexed provider, address indexed user, string model);
     event InferenceSettled(
         bytes32 indexed orderId,
         address indexed provider,
@@ -69,11 +60,7 @@ contract ComputeOutputSettler is BaseOutputSettler {
         uint256 inputTokens,
         uint256 outputTokens
     );
-    event ComputeContractsUpdated(
-        address computeRental,
-        address inferenceServing,
-        address ledgerManager
-    );
+    event ComputeContractsUpdated(address computeRental, address inferenceServing, address ledgerManager);
 
     // ============ Errors ============
 
@@ -85,12 +72,9 @@ contract ComputeOutputSettler is BaseOutputSettler {
 
     // ============ Constructor ============
 
-    constructor(
-        uint256 _chainId,
-        address _computeRental,
-        address _inferenceServing,
-        address _ledgerManager
-    ) BaseOutputSettler(_chainId) {
+    constructor(uint256 _chainId, address _computeRental, address _inferenceServing, address _ledgerManager)
+        BaseOutputSettler(_chainId)
+    {
         computeRental = _computeRental;
         inferenceServing = _inferenceServing;
         ledgerManager = _ledgerManager;
@@ -98,11 +82,10 @@ contract ComputeOutputSettler is BaseOutputSettler {
 
     // ============ Admin ============
 
-    function setComputeContracts(
-        address _computeRental,
-        address _inferenceServing,
-        address _ledgerManager
-    ) external onlyOwner {
+    function setComputeContracts(address _computeRental, address _inferenceServing, address _ledgerManager)
+        external
+        onlyOwner
+    {
         computeRental = _computeRental;
         inferenceServing = _inferenceServing;
         ledgerManager = _ledgerManager;
@@ -112,11 +95,12 @@ contract ComputeOutputSettler is BaseOutputSettler {
     // ============ IOutputSettler Implementation ============
 
     /// @notice Fills an order on the destination chain
-    function fill(
-        bytes32 orderId,
-        bytes calldata originData,
-        bytes calldata fillerData
-    ) external payable override nonReentrant {
+    function fill(bytes32 orderId, bytes calldata originData, bytes calldata fillerData)
+        external
+        payable
+        override
+        nonReentrant
+    {
         if (filledOrders[orderId]) revert OrderAlreadyFilled();
 
         // Decode order type from first 32 bytes of originData
@@ -145,23 +129,20 @@ contract ComputeOutputSettler is BaseOutputSettler {
 
     // ============ Compute Rental Fill ============
 
-    function fillComputeRental(
-        bytes32 orderId,
-        ComputeRentalOrderData calldata data,
-        address user,
-        uint256 payment
-    ) external nonReentrant returns (bytes32 rentalId) {
+    function fillComputeRental(bytes32 orderId, ComputeRentalOrderData calldata data, address user, uint256 payment)
+        external
+        nonReentrant
+        returns (bytes32 rentalId)
+    {
         if (filledOrders[orderId]) revert OrderAlreadyFilled();
         rentalId = _fillRental(orderId, data, user, payment);
         emit Fill(orderId, COMPUTE_RENTAL_ORDER_TYPE, abi.encode(rentalId));
     }
 
-    function _fillRental(
-        bytes32 orderId,
-        ComputeRentalOrderData memory data,
-        address user,
-        uint256 payment
-    ) internal returns (bytes32 rentalId) {
+    function _fillRental(bytes32 orderId, ComputeRentalOrderData memory data, address user, uint256 payment)
+        internal
+        returns (bytes32 rentalId)
+    {
         if (computeRental == address(0)) revert ComputeRentalNotSet();
         if (data.provider == address(0)) revert InvalidProvider();
         if (user == address(0)) revert InvalidRecipient();
@@ -213,12 +194,9 @@ contract ComputeOutputSettler is BaseOutputSettler {
         emit Fill(orderId, COMPUTE_INFERENCE_ORDER_TYPE, abi.encode(data.model));
     }
 
-    function _fillInference(
-        bytes32 orderId,
-        ComputeInferenceOrderData memory data,
-        address user,
-        uint256 payment
-    ) internal {
+    function _fillInference(bytes32 orderId, ComputeInferenceOrderData memory data, address user, uint256 payment)
+        internal
+    {
         if (user == address(0)) revert InvalidRecipient();
 
         // CEI: Mark filled
@@ -278,13 +256,9 @@ contract ComputeOutputSettler is BaseOutputSettler {
 
     // ============ Standard Token Fill ============
 
-    function _fillToken(
-        bytes32 orderId,
-        address token,
-        uint256 amount,
-        address recipient,
-        uint256 gasAmount
-    ) internal {
+    function _fillToken(bytes32 orderId, address token, uint256 amount, address recipient, uint256 gasAmount)
+        internal
+    {
         if (amount == 0) revert InvalidAmount();
         if (recipient == address(0)) revert InvalidRecipient();
 

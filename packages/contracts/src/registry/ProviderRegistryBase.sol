@@ -37,12 +37,9 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
     error TransferFailed();
     error WithdrawalWouldBreachMinimum();
 
-    constructor(
-        address _owner,
-        address _identityRegistry,
-        address _banManager,
-        uint256 _minProviderStake
-    ) Ownable(_owner) {
+    constructor(address _owner, address _identityRegistry, address _banManager, uint256 _minProviderStake)
+        Ownable(_owner)
+    {
         if (_identityRegistry != address(0)) {
             erc8004.setIdentityRegistry(_identityRegistry);
             moderation.setIdentityRegistry(_identityRegistry);
@@ -69,7 +66,9 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
         if (msg.value < minProviderStake) revert InsufficientStake(msg.value, minProviderStake);
         _onProviderRegistered(provider, agentId, msg.value);
         providerList.push(provider);
-        unchecked { providerCount++; }
+        unchecked {
+            providerCount++;
+        }
         emit ProviderRegistered(provider, agentId, msg.value, block.timestamp);
     }
 
@@ -113,6 +112,11 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
         moderation.setBanManager(manager);
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 }

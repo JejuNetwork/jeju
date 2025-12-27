@@ -17,12 +17,7 @@ contract MockWormhole {
     uint64 public mockSequence;
     bytes public mockPayload;
 
-    function setMockData(
-        uint16 chainId,
-        bytes32 emitter,
-        uint64 sequence,
-        bytes memory payload
-    ) external {
+    function setMockData(uint16 chainId, bytes32 emitter, uint64 sequence, bytes memory payload) external {
         mockChainId = chainId;
         mockEmitter = emitter;
         mockSequence = sequence;
@@ -62,7 +57,7 @@ contract MockWormhole {
 /**
  * @title SolanaVerifierTest
  * @notice Tests for Solana SPL/SPL-2022 registry verification via Wormhole
- * 
+ *
  * Tests cover:
  * - Manual entry verification (owner)
  * - Entry queries by type
@@ -72,7 +67,7 @@ contract MockWormhole {
 contract SolanaVerifierTest is Test {
     SolanaVerifier verifier;
     MockWormhole mockWormhole;
-    
+
     address owner;
     bytes32 trustedEmitter;
 
@@ -104,7 +99,7 @@ contract SolanaVerifierTest is Test {
             "AI16Z",
             "https://arweave.net/metadata",
             SolanaVerifier.SolanaProgramType.SPL_TOKEN_2022,
-            1000000000 * 10**9, // 1B tokens
+            1000000000 * 10 ** 9, // 1B tokens
             9
         );
         vm.stopPrank();
@@ -126,7 +121,7 @@ contract SolanaVerifierTest is Test {
 
     function test_AddMultipleEntries() public {
         vm.startPrank(owner);
-        
+
         // SPL Token (classic)
         verifier.addVerifiedEntry(
             MOCK_MINT_1,
@@ -135,7 +130,7 @@ contract SolanaVerifierTest is Test {
             "CLASSIC",
             "https://arweave.net/1",
             SolanaVerifier.SolanaProgramType.SPL_TOKEN,
-            1000000 * 10**6,
+            1000000 * 10 ** 6,
             6
         );
 
@@ -147,7 +142,7 @@ contract SolanaVerifierTest is Test {
             "AI16Z",
             "https://arweave.net/2",
             SolanaVerifier.SolanaProgramType.SPL_TOKEN_2022,
-            1000000000 * 10**9,
+            1000000000 * 10 ** 9,
             9
         );
 
@@ -159,7 +154,7 @@ contract SolanaVerifierTest is Test {
             "DAO",
             "https://arweave.net/3",
             SolanaVerifier.SolanaProgramType.CUSTOM_REGISTRY,
-            500000000 * 10**9,
+            500000000 * 10 ** 9,
             9
         );
 
@@ -207,14 +202,7 @@ contract SolanaVerifierTest is Test {
 
         vm.prank(owner);
         verifier.addVerifiedEntry(
-            MOCK_MINT_1,
-            MOCK_AUTHORITY,
-            "Test",
-            "TEST",
-            "",
-            SolanaVerifier.SolanaProgramType.SPL_TOKEN,
-            1000,
-            6
+            MOCK_MINT_1, MOCK_AUTHORITY, "Test", "TEST", "", SolanaVerifier.SolanaProgramType.SPL_TOKEN, 1000, 6
         );
 
         assertTrue(verifier.isVerified(MOCK_MINT_1));
@@ -225,36 +213,29 @@ contract SolanaVerifierTest is Test {
 
     function test_SetTrustedEmitter() public {
         bytes32 newEmitter = keccak256("new-emitter");
-        
+
         vm.prank(owner);
         verifier.setTrustedEmitter(newEmitter);
-        
+
         assertEq(verifier.trustedEmitter(), newEmitter);
     }
 
     function test_SetWormhole() public {
         address newWormhole = makeAddr("newWormhole");
-        
+
         vm.prank(owner);
         verifier.setWormhole(newWormhole);
-        
+
         assertEq(address(verifier.wormhole()), newWormhole);
     }
 
     function test_RevertWhen_NonOwnerAddsEntry() public {
         address notOwner = makeAddr("notOwner");
-        
+
         vm.prank(notOwner);
         vm.expectRevert();
         verifier.addVerifiedEntry(
-            MOCK_MINT_1,
-            MOCK_AUTHORITY,
-            "Test",
-            "TEST",
-            "",
-            SolanaVerifier.SolanaProgramType.SPL_TOKEN,
-            1000,
-            6
+            MOCK_MINT_1, MOCK_AUTHORITY, "Test", "TEST", "", SolanaVerifier.SolanaProgramType.SPL_TOKEN, 1000, 6
         );
     }
 
@@ -263,9 +244,9 @@ contract SolanaVerifierTest is Test {
     function test_VerifyEntry_RevertOnInvalidVAA() public {
         // Set mock to return invalid (fail verification)
         mockWormhole.setShouldFail(true, "VAA verification failed");
-        
+
         bytes memory mockVaa = hex"0000";
-        
+
         vm.expectRevert(SolanaVerifier.VerificationFailed.selector);
         verifier.verifyEntry(mockVaa);
     }
@@ -280,14 +261,14 @@ contract SolanaVerifierTest is Test {
         );
 
         bytes memory mockVaa = hex"0000";
-        
+
         vm.expectRevert(SolanaVerifier.InvalidChainId.selector);
         verifier.verifyEntry(mockVaa);
     }
 
     function test_VerifyEntry_RevertOnWrongEmitter() public {
         bytes32 wrongEmitter = keccak256("wrong-emitter");
-        
+
         // Set mock to return a valid VAA but with wrong emitter
         mockWormhole.setMockData(
             1, // Solana chain ID
@@ -297,7 +278,7 @@ contract SolanaVerifierTest is Test {
         );
 
         bytes memory mockVaa = hex"0000";
-        
+
         vm.expectRevert(SolanaVerifier.InvalidEmitter.selector);
         verifier.verifyEntry(mockVaa);
     }
@@ -317,7 +298,7 @@ contract SolanaVerifierTest is Test {
 
     function _setupMultipleEntries() internal {
         vm.startPrank(owner);
-        
+
         verifier.addVerifiedEntry(
             MOCK_MINT_1,
             MOCK_AUTHORITY,

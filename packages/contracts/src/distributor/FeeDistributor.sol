@@ -76,7 +76,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event AppAgentLinked(address indexed app, uint256 indexed agentId);
 
-
     error OnlyPaymaster();
     error OnlyOracle();
     error InvalidAddress();
@@ -459,7 +458,7 @@ contract FeeDistributorV2 is ReentrancyGuard, Ownable {
     IERC20 public immutable token;
     address public immutable vault;
     address public paymaster;
-    
+
     uint256 public totalCollected;
     uint256 public totalDistributed;
 
@@ -485,20 +484,20 @@ contract FeeDistributorV2 is ReentrancyGuard, Ownable {
 
     function collectFees(uint256 amount) external {
         if (msg.sender != paymaster) revert OnlyPaymaster();
-        
+
         token.safeTransferFrom(msg.sender, address(this), amount);
         totalCollected += amount;
-        
+
         emit FeesCollected(amount, block.timestamp);
     }
 
     function distributeFees() external nonReentrant {
         uint256 balance = token.balanceOf(address(this));
         if (balance == 0) return;
-        
+
         token.safeTransfer(vault, balance);
         totalDistributed += balance;
-        
+
         emit FeesDistributed(vault, balance);
     }
 

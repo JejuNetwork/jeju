@@ -124,10 +124,7 @@ interface IFeeConfig {
         uint16 bridgeFeeMaxBps
     );
     event TokenOverrideSet(
-        address indexed token,
-        uint16 xlpRewardShareBps,
-        uint16 protocolShareBps,
-        uint16 burnShareBps
+        address indexed token, uint16 xlpRewardShareBps, uint16 protocolShareBps, uint16 burnShareBps
     );
     event TokenOverrideRemoved(address indexed token);
     event FeeChangeProposed(bytes32 indexed changeId, bytes32 feeType, uint256 effectiveAt, address proposedBy);

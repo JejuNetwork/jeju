@@ -47,7 +47,7 @@ contract RegistrySyncOracle is Ownable {
         RegistryType registryType;
         bytes32 registryAddress;
         uint256 entryCount;
-        bytes32 merkleRoot;      // Root of all entries
+        bytes32 merkleRoot; // Root of all entries
         uint256 blockNumber;
         uint256 timestamp;
         bytes32 updateId;
@@ -101,18 +101,9 @@ contract RegistrySyncOracle is Ownable {
         bytes32 merkleRoot
     );
 
-    event EntryUpdated(
-        bytes32 indexed updateId,
-        bytes32 indexed entryId,
-        string name,
-        bool isActive
-    );
+    event EntryUpdated(bytes32 indexed updateId, bytes32 indexed entryId, string name, bool isActive);
 
-    event BatchUpdated(
-        uint256 indexed sourceChainId,
-        uint256 updateCount,
-        uint256 entryCount
-    );
+    event BatchUpdated(uint256 indexed sourceChainId, uint256 updateCount, uint256 entryCount);
 
     event RelayerUpdated(address indexed relayer, bool authorized);
     event SyncIntervalUpdated(uint256 oldInterval, uint256 newInterval);
@@ -195,9 +186,10 @@ contract RegistrySyncOracle is Ownable {
         bytes32[] calldata merkleRoots,
         uint256 blockNumber
     ) external onlyRelayer {
-        if (registryTypes.length != registryAddresses.length ||
-            registryTypes.length != entryCounts.length ||
-            registryTypes.length != merkleRoots.length) {
+        if (
+            registryTypes.length != registryAddresses.length || registryTypes.length != entryCounts.length
+                || registryTypes.length != merkleRoots.length
+        ) {
             revert InvalidUpdate();
         }
 
@@ -264,10 +256,10 @@ contract RegistrySyncOracle is Ownable {
         string[] calldata metadataUris,
         bool[] calldata isActives
     ) external onlyRelayer {
-        if (entryIds.length != originIds.length ||
-            entryIds.length != names.length ||
-            entryIds.length != metadataUris.length ||
-            entryIds.length != isActives.length) {
+        if (
+            entryIds.length != originIds.length || entryIds.length != names.length
+                || entryIds.length != metadataUris.length || entryIds.length != isActives.length
+        ) {
             revert InvalidUpdate();
         }
 
@@ -294,18 +286,19 @@ contract RegistrySyncOracle is Ownable {
     // View Functions
     // ============================================================================
 
-    function computeUpdateId(
-        uint256 chainId,
-        RegistryType registryType,
-        uint256 blockNumber
-    ) public pure returns (bytes32) {
+    function computeUpdateId(uint256 chainId, RegistryType registryType, uint256 blockNumber)
+        public
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked("jeju:sync:", chainId, ":", uint8(registryType), ":", blockNumber));
     }
 
-    function getLatestUpdate(
-        uint256 chainId,
-        RegistryType registryType
-    ) external view returns (RegistryUpdate memory) {
+    function getLatestUpdate(uint256 chainId, RegistryType registryType)
+        external
+        view
+        returns (RegistryUpdate memory)
+    {
         return latestUpdates[chainId][registryType];
     }
 
@@ -351,4 +344,3 @@ contract RegistrySyncOracle is Ownable {
         return "1.0.0";
     }
 }
-

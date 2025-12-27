@@ -43,8 +43,8 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
     uint256 public constant RATE_LIMIT_PERIOD = 1 days;
 
     // Quota limits by tier (in bytes)
-    uint256 public constant FREE_QUOTA = 100 * 1024 * 1024;     // 100 MB
-    uint256 public constant STAKED_QUOTA = 1024 * 1024 * 1024;  // 1 GB
+    uint256 public constant FREE_QUOTA = 100 * 1024 * 1024; // 100 MB
+    uint256 public constant STAKED_QUOTA = 1024 * 1024 * 1024; // 1 GB
     uint256 public constant PREMIUM_QUOTA = 10 * 1024 * 1024 * 1024; // 10 GB
 
     // Rate limits by tier (emails per day)
@@ -116,8 +116,10 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
     }
 
     modifier onlyAuthorizedRelay() {
-        if (!authorizedRelays[msg.sender] && 
-            (address(providerStaking) == address(0) || !providerStaking.isActiveRelay(msg.sender))) {
+        if (
+            !authorizedRelays[msg.sender]
+                && (address(providerStaking) == address(0) || !providerStaking.isActiveRelay(msg.sender))
+        ) {
             revert NotAuthorizedRelay();
         }
         _;
@@ -125,12 +127,9 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _jns,
-        address _banManager,
-        string memory _emailDomain,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _jns, address _banManager, string memory _emailDomain, address initialOwner)
+        Ownable(initialOwner)
+    {
         if (_jns == address(0)) revert InvalidAddress();
         jns = IJNS(_jns);
         banManager = IBanManager(_banManager);
@@ -142,22 +141,25 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Register a new email account (free tier)
      */
-    function register(
-        bytes32 jnsNode,
-        bytes32 publicKeyHash,
-        address[] calldata preferredRelays
-    ) external override whenNotPaused nonReentrant {
+    function register(bytes32 jnsNode, bytes32 publicKeyHash, address[] calldata preferredRelays)
+        external
+        override
+        whenNotPaused
+        nonReentrant
+    {
         _register(jnsNode, publicKeyHash, preferredRelays, AccountTier.FREE, 0);
     }
 
     /**
      * @notice Register with staking for external network access
      */
-    function registerWithStake(
-        bytes32 jnsNode,
-        bytes32 publicKeyHash,
-        address[] calldata preferredRelays
-    ) external payable override whenNotPaused nonReentrant {
+    function registerWithStake(bytes32 jnsNode, bytes32 publicKeyHash, address[] calldata preferredRelays)
+        external
+        payable
+        override
+        whenNotPaused
+        nonReentrant
+    {
         if (msg.value < MIN_STAKE) revert InsufficientStake();
         _register(jnsNode, publicKeyHash, preferredRelays, AccountTier.STAKED, msg.value);
     }
@@ -173,8 +175,8 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
         if (jns.owner(jnsNode) != msg.sender) revert NotJNSOwner();
         if (address(banManager) != address(0) && banManager.isAddressBanned(msg.sender)) revert AccountBanned();
 
-        uint256 quotaLimit = tier == AccountTier.FREE ? FREE_QUOTA : 
-                            tier == AccountTier.STAKED ? STAKED_QUOTA : PREMIUM_QUOTA;
+        uint256 quotaLimit =
+            tier == AccountTier.FREE ? FREE_QUOTA : tier == AccountTier.STAKED ? STAKED_QUOTA : PREMIUM_QUOTA;
 
         _accounts[msg.sender] = EmailAccount({
             owner: msg.sender,
@@ -215,19 +217,21 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Update account configuration
      */
-    function updateAccount(
-        bytes32 newPublicKeyHash,
-        address[] calldata newRelays
-    ) external override onlyActiveAccount whenNotPaused {
+    function updateAccount(bytes32 newPublicKeyHash, address[] calldata newRelays)
+        external
+        override
+        onlyActiveAccount
+        whenNotPaused
+    {
         EmailAccount storage account = _accounts[msg.sender];
-        
+
         bytes32 oldKeyHash = account.publicKeyHash;
         account.publicKeyHash = newPublicKeyHash;
         account.preferredRelays = newRelays;
         account.lastActivityAt = block.timestamp;
 
         emit AccountUpdated(msg.sender, newPublicKeyHash, newRelays);
-        
+
         if (oldKeyHash != newPublicKeyHash) {
             emit PublicKeyRotated(msg.sender, oldKeyHash, newPublicKeyHash);
         }
@@ -273,7 +277,7 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
      */
     function unstake() external override onlyActiveAccount nonReentrant {
         EmailAccount storage account = _accounts[msg.sender];
-        
+
         uint256 requestTime = unstakeRequestTime[msg.sender];
         if (requestTime == 0) revert StakeTooSoon();
         if (block.timestamp < requestTime + UNSTAKE_COOLDOWN) revert UnstakeCooldownActive();
@@ -289,7 +293,7 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
         totalStaked -= amount;
         delete unstakeRequestTime[msg.sender];
 
-        (bool success, ) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{value: amount}("");
         require(success, "Transfer failed");
 
         emit AccountTierChanged(msg.sender, oldTier, AccountTier.FREE, 0);
@@ -300,7 +304,7 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
      */
     function setConfig(EmailConfig calldata config) external override onlyActiveAccount {
         EmailAccount storage account = _accounts[msg.sender];
-        
+
         // Only staked accounts can enable external outbound
         if (config.allowExternalOutbound && account.tier == AccountTier.FREE) {
             revert ExternalNotAllowed();
@@ -317,14 +321,14 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
      */
     function deactivate() external override onlyActiveAccount nonReentrant {
         EmailAccount storage account = _accounts[msg.sender];
-        
+
         // Return staked amount
         if (account.stakedAmount > 0) {
             uint256 amount = account.stakedAmount;
             account.stakedAmount = 0;
             totalStaked -= amount;
-            
-            (bool success, ) = msg.sender.call{value: amount}("");
+
+            (bool success,) = msg.sender.call{value: amount}("");
             require(success, "Transfer failed");
         }
 
@@ -372,7 +376,9 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
 
         // Notify ban manager if configured
         if (address(banManager) != address(0)) {
-            banManager.applyAddressBan(owner_, keccak256(abi.encodePacked("EMAIL_BAN", owner_, block.timestamp)), reason);
+            banManager.applyAddressBan(
+                owner_, keccak256(abi.encodePacked("EMAIL_BAN", owner_, block.timestamp)), reason
+            );
         }
     }
 
@@ -393,11 +399,11 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Record email sent
      */
-    function recordEmailSent(
-        address sender,
-        uint256 sizeBytes,
-        bool isExternal
-    ) external override onlyAuthorizedRelay {
+    function recordEmailSent(address sender, uint256 sizeBytes, bool isExternal)
+        external
+        override
+        onlyAuthorizedRelay
+    {
         EmailAccount storage account = _accounts[sender];
         if (account.status != AccountStatus.ACTIVE) revert AccountInactive();
 
@@ -413,8 +419,9 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
         }
 
         // Check rate limit
-        uint256 limit = account.tier == AccountTier.FREE ? FREE_RATE_LIMIT :
-                       account.tier == AccountTier.STAKED ? STAKED_RATE_LIMIT : PREMIUM_RATE_LIMIT;
+        uint256 limit = account.tier == AccountTier.FREE
+            ? FREE_RATE_LIMIT
+            : account.tier == AccountTier.STAKED ? STAKED_RATE_LIMIT : PREMIUM_RATE_LIMIT;
         if (account.emailsSentToday >= limit) {
             revert RateLimitExceeded();
         }
@@ -431,10 +438,7 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Record storage change
      */
-    function recordStorageChange(
-        address owner_,
-        int256 deltaBytes
-    ) external override onlyAuthorizedRelay {
+    function recordStorageChange(address owner_, int256 deltaBytes) external override onlyAuthorizedRelay {
         EmailAccount storage account = _accounts[owner_];
         if (account.status == AccountStatus.INACTIVE) revert NotRegistered();
 
@@ -483,30 +487,31 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
         return account.status == AccountStatus.ACTIVE;
     }
 
-    function getRateLimit(address owner_) external view override returns (
-        uint256 sent,
-        uint256 limit,
-        uint256 resetsAt
-    ) {
+    function getRateLimit(address owner_)
+        external
+        view
+        override
+        returns (uint256 sent, uint256 limit, uint256 resetsAt)
+    {
         EmailAccount storage account = _accounts[owner_];
         sent = account.emailsSentToday;
-        limit = account.tier == AccountTier.FREE ? FREE_RATE_LIMIT :
-               account.tier == AccountTier.STAKED ? STAKED_RATE_LIMIT : PREMIUM_RATE_LIMIT;
+        limit = account.tier == AccountTier.FREE
+            ? FREE_RATE_LIMIT
+            : account.tier == AccountTier.STAKED ? STAKED_RATE_LIMIT : PREMIUM_RATE_LIMIT;
         resetsAt = account.lastResetTimestamp + RATE_LIMIT_PERIOD;
     }
 
-    function getQuota(address owner_) external view override returns (
-        uint256 used,
-        uint256 limit
-    ) {
+    function getQuota(address owner_) external view override returns (uint256 used, uint256 limit) {
         EmailAccount storage account = _accounts[owner_];
         return (account.quotaUsedBytes, account.quotaLimitBytes);
     }
 
-    function resolveEmail(string calldata /* emailAddress */) external view override returns (
-        bytes32 publicKeyHash,
-        address[] memory preferredRelays
-    ) {
+    function resolveEmail(string calldata /* emailAddress */ )
+        external
+        view
+        override
+        returns (bytes32 publicKeyHash, address[] memory preferredRelays)
+    {
         // TODO: Parse email address and resolve via JNS
         // For now, return empty (actual implementation needs JNS label parsing)
         return (bytes32(0), new address[](0));
@@ -537,7 +542,7 @@ contract EmailRegistry is IEmailRegistry, Ownable, Pausable, ReentrancyGuard {
     function withdrawSlashedFunds() external onlyOwner {
         uint256 balance = address(this).balance - totalStaked;
         if (balance > 0) {
-            (bool success, ) = owner().call{value: balance}("");
+            (bool success,) = owner().call{value: balance}("");
             require(success, "Transfer failed");
         }
     }

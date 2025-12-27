@@ -8,10 +8,10 @@ pragma solidity ^0.8.33;
  */
 interface IOracleRegistry {
     struct OracleConfig {
-        address feed;           // Oracle feed address
-        uint256 heartbeat;      // Max staleness in seconds
-        uint8 decimals;         // Price decimals
-        bool active;            // Whether oracle is active
+        address feed; // Oracle feed address
+        uint256 heartbeat; // Max staleness in seconds
+        uint8 decimals; // Price decimals
+        bool active; // Whether oracle is active
     }
 
     /**
@@ -49,11 +49,5 @@ interface IOracleRegistry {
      * @param heartbeat Max staleness
      * @param decimals Price decimals
      */
-    function registerOracle(
-        address token,
-        address feed,
-        uint256 heartbeat,
-        uint8 decimals
-    ) external;
+    function registerOracle(address token, address feed, uint256 heartbeat, uint8 decimals) external;
 }
-

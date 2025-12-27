@@ -20,15 +20,14 @@ import {IOracleRegistry} from "./IOracleRegistry.sol";
  * - Compensates gas costs from pool
  */
 contract WeightUpdateRunner is Ownable, ReentrancyGuard {
-
     // ============ Structs ============
 
     struct PoolConfig {
         address strategyRule;
-        address[] oracles;          // Oracle addresses for each token
-        uint256 updateIntervalSec;  // Minimum seconds between updates
-        uint256 lastUpdate;         // Timestamp of last update
-        uint256 blocksToTarget;     // Default blocks for weight interpolation
+        address[] oracles; // Oracle addresses for each token
+        uint256 updateIntervalSec; // Minimum seconds between updates
+        uint256 lastUpdate; // Timestamp of last update
+        uint256 blocksToTarget; // Default blocks for weight interpolation
         bool active;
     }
 
@@ -54,18 +53,9 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event PoolRegistered(
-        address indexed pool,
-        address indexed strategyRule,
-        uint256 updateInterval
-    );
+    event PoolRegistered(address indexed pool, address indexed strategyRule, uint256 updateInterval);
     event PoolDeactivated(address indexed pool);
-    event UpdatePerformed(
-        address indexed pool,
-        uint256[] oldWeights,
-        uint256[] newWeights,
-        uint256 gasUsed
-    );
+    event UpdatePerformed(address indexed pool, uint256[] oldWeights, uint256[] newWeights, uint256 gasUsed);
     event OracleRegistryUpdated(address indexed newRegistry);
     event GovernanceUpdated(address indexed newGovernance);
 
@@ -79,10 +69,7 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address oracleRegistry_,
-        address governance_
-    ) Ownable(msg.sender) {
+    constructor(address oracleRegistry_, address governance_) Ownable(msg.sender) {
         oracleRegistry = IOracleRegistry(oracleRegistry_);
         governance = governance_;
         updateCompensation = 0.001 ether;
@@ -196,11 +183,7 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
 
         // Calculate new weights using strategy
         IStrategyRule strategy = IStrategyRule(config.strategyRule);
-        (uint256[] memory newWeights, uint256 blocksToTarget) = strategy.calculateWeights(
-            pool,
-            prices,
-            currentWeights
-        );
+        (uint256[] memory newWeights, uint256 blocksToTarget) = strategy.calculateWeights(pool, prices, currentWeights);
 
         // Apply update to pool
         tfmmPool.updateWeights(newWeights, blocksToTarget > 0 ? blocksToTarget : config.blocksToTarget);
@@ -252,11 +235,7 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
         uint256[] memory currentWeights = tfmmPool.getNormalizedWeights();
 
         IStrategyRule strategy = IStrategyRule(config.strategyRule);
-        (uint256[] memory newWeights, uint256 blocksToTarget) = strategy.calculateWeights(
-            pool,
-            prices,
-            currentWeights
-        );
+        (uint256[] memory newWeights, uint256 blocksToTarget) = strategy.calculateWeights(pool, prices, currentWeights);
 
         tfmmPool.updateWeights(newWeights, blocksToTarget > 0 ? blocksToTarget : config.blocksToTarget);
         config.lastUpdate = block.timestamp;
@@ -363,4 +342,3 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
         }
     }
 }
-

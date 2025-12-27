@@ -15,8 +15,8 @@ contract PresaleTest is Test {
     address public user2 = address(4);
     address public user3 = address(5);
 
-    uint256 public constant TOKEN_SUPPLY = 1_000_000_000 * 10**18;
-    uint256 public constant PRESALE_ALLOCATION = 100_000_000 * 10**18;
+    uint256 public constant TOKEN_SUPPLY = 1_000_000_000 * 10 ** 18;
+    uint256 public constant PRESALE_ALLOCATION = 100_000_000 * 10 ** 18;
     uint256 public constant SOFT_CAP = 10 ether;
     uint256 public constant HARD_CAP = 100 ether;
     uint256 public constant MIN_CONTRIBUTION = 0.1 ether;
@@ -47,7 +47,9 @@ contract PresaleTest is Test {
             MIN_CONTRIBUTION,
             MAX_CONTRIBUTION,
             TOKEN_PRICE,
-            0, 0, 0, // CCA params
+            0,
+            0,
+            0, // CCA params
             whitelistStart,
             publicStart,
             presaleEnd,
@@ -102,7 +104,7 @@ contract PresaleTest is Test {
         vm.prank(user1);
         presale.contribute{value: 1 ether}();
 
-        (uint256 ethAmount,,,,,,, ) = presale.getContribution(user1);
+        (uint256 ethAmount,,,,,,,) = presale.getContribution(user1);
         assertEq(ethAmount, 1 ether);
     }
 
@@ -124,10 +126,10 @@ contract PresaleTest is Test {
         vm.prank(user1);
         presale.contribute{value: 1 ether}();
 
-        (uint256 ethAmount, uint256 tokenAllocation,,,,,, ) = presale.getContribution(user1);
+        (uint256 ethAmount, uint256 tokenAllocation,,,,,,) = presale.getContribution(user1);
         assertEq(ethAmount, 1 ether);
         // 1 ETH / 0.001 ETH per token = 1000 tokens
-        assertEq(tokenAllocation, 1000 * 10**18);
+        assertEq(tokenAllocation, 1000 * 10 ** 18);
     }
 
     function test_BelowMinContribution() public {
@@ -154,9 +156,9 @@ contract PresaleTest is Test {
         presale.contribute{value: 2 ether}();
         vm.stopPrank();
 
-        (uint256 ethAmount, uint256 tokenAllocation,,,,,, ) = presale.getContribution(user1);
+        (uint256 ethAmount, uint256 tokenAllocation,,,,,,) = presale.getContribution(user1);
         assertEq(ethAmount, 3 ether);
-        assertEq(tokenAllocation, 3000 * 10**18);
+        assertEq(tokenAllocation, 3000 * 10 ** 18);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -177,9 +179,9 @@ contract PresaleTest is Test {
         vm.prank(user1);
         presale.contribute{value: 1 ether}();
 
-        (, uint256 tokenAllocation, uint256 bonusTokens,,,,, ) = presale.getContribution(user1);
-        assertEq(tokenAllocation, 1000 * 10**18);
-        assertEq(bonusTokens, 100 * 10**18); // 10% bonus
+        (, uint256 tokenAllocation, uint256 bonusTokens,,,,,) = presale.getContribution(user1);
+        assertEq(tokenAllocation, 1000 * 10 ** 18);
+        assertEq(bonusTokens, 100 * 10 ** 18); // 10% bonus
     }
 
     function test_VolumeBonus() public {
@@ -192,9 +194,9 @@ contract PresaleTest is Test {
         vm.prank(user1);
         presale.contribute{value: 5 ether}();
 
-        (, uint256 tokenAllocation, uint256 bonusTokens,,,,, ) = presale.getContribution(user1);
-        assertEq(tokenAllocation, 5000 * 10**18);
-        assertEq(bonusTokens, 150 * 10**18); // 3% of 5000
+        (, uint256 tokenAllocation, uint256 bonusTokens,,,,,) = presale.getContribution(user1);
+        assertEq(tokenAllocation, 5000 * 10 ** 18);
+        assertEq(bonusTokens, 150 * 10 ** 18); // 3% of 5000
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -221,7 +223,7 @@ contract PresaleTest is Test {
         vm.prank(user1);
         presale.claim();
 
-        assertEq(token.balanceOf(user1), 5000 * 10**18);
+        assertEq(token.balanceOf(user1), 5000 * 10 ** 18);
     }
 
     function test_ClaimBeforeTGE() public {
@@ -256,11 +258,11 @@ contract PresaleTest is Test {
         // At TGE
         vm.warp(tgeTimestamp);
         uint256 claimable = presale.getClaimableAmount(user1);
-        assertEq(claimable, 1000 * 10**18); // 20% of 5000
+        assertEq(claimable, 1000 * 10 ** 18); // 20% of 5000
 
         vm.prank(user1);
         presale.claim();
-        assertEq(token.balanceOf(user1), 1000 * 10**18);
+        assertEq(token.balanceOf(user1), 1000 * 10 ** 18);
 
         // During cliff - still only TGE amount
         vm.warp(tgeTimestamp + 15 days);
@@ -271,12 +273,12 @@ contract PresaleTest is Test {
         vm.warp(tgeTimestamp + 30 days + 45 days);
         claimable = presale.getClaimableAmount(user1);
         // 50% of remaining 4000 = 2000
-        assertEq(claimable, 2000 * 10**18);
+        assertEq(claimable, 2000 * 10 ** 18);
 
         // After full vest
         vm.warp(tgeTimestamp + 30 days + 90 days);
         claimable = presale.getClaimableAmount(user1);
-        assertEq(claimable, 4000 * 10**18); // Remaining 80%
+        assertEq(claimable, 4000 * 10 ** 18); // Remaining 80%
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -464,30 +466,30 @@ contract PresaleTest is Test {
         ccaPresale.setClearingPrice(clearingPrice, contributors);
 
         // Verify allocations calculated correctly
-        (uint256 eth1, uint256 alloc1,,,,,, ) = ccaPresale.getContribution(user1);
-        (uint256 eth2, uint256 alloc2,,,,,, ) = ccaPresale.getContribution(user2);
+        (uint256 eth1, uint256 alloc1,,,,,,) = ccaPresale.getContribution(user1);
+        (uint256 eth2, uint256 alloc2,,,,,,) = ccaPresale.getContribution(user2);
 
         assertEq(eth1, 5 ether);
         assertEq(eth2, 5 ether);
         // 5 ETH / 0.002 ETH per token = 2500 tokens
-        assertEq(alloc1, 2500 * 10**18);
-        assertEq(alloc2, 2500 * 10**18);
+        assertEq(alloc1, 2500 * 10 ** 18);
+        assertEq(alloc2, 2500 * 10 ** 18);
 
         // === Phase 3: TGE - Claim tokens ===
         vm.warp(tgeTimestamp);
 
         uint256 claimable1 = ccaPresale.getClaimableAmount(user1);
-        assertEq(claimable1, 2500 * 10**18);
+        assertEq(claimable1, 2500 * 10 ** 18);
 
         vm.prank(user1);
         ccaPresale.claim();
 
-        assertEq(ccaToken.balanceOf(user1), 2500 * 10**18);
+        assertEq(ccaToken.balanceOf(user1), 2500 * 10 ** 18);
 
         vm.prank(user2);
         ccaPresale.claim();
 
-        assertEq(ccaToken.balanceOf(user2), 2500 * 10**18);
+        assertEq(ccaToken.balanceOf(user2), 2500 * 10 ** 18);
 
         // === Phase 4: Finalize ===
         uint256 treasuryBefore = treasury.balance;
@@ -549,13 +551,13 @@ contract PresaleTest is Test {
         ccaPresale.setClearingPrice(0.002 ether, contributors);
 
         // User1 and user3 get allocation
-        (, uint256 alloc1,,,,,, ) = ccaPresale.getContribution(user1);
-        (, uint256 alloc3,,,,,, ) = ccaPresale.getContribution(user3);
-        assertEq(alloc1, 2500 * 10**18);
-        assertEq(alloc3, 2500 * 10**18);
+        (, uint256 alloc1,,,,,,) = ccaPresale.getContribution(user1);
+        (, uint256 alloc3,,,,,,) = ccaPresale.getContribution(user3);
+        assertEq(alloc1, 2500 * 10 ** 18);
+        assertEq(alloc3, 2500 * 10 ** 18);
 
         // User2 gets refund instead
-        (,, , , , uint256 refund2, , ) = ccaPresale.getContribution(user2);
+        (,,,,, uint256 refund2,,) = ccaPresale.getContribution(user2);
         assertEq(refund2, 5 ether);
 
         // User2 claims refund
@@ -587,7 +589,7 @@ contract PresaleTest is Test {
 
         assertEq(raised, 5 ether);
         assertEq(participants, 1);
-        assertEq(tokensSold, 5000 * 10**18);
+        assertEq(tokensSold, 5000 * 10 ** 18);
         assertEq(softCap_, SOFT_CAP);
         assertEq(hardCap_, HARD_CAP);
         assertEq(price, TOKEN_PRICE);
@@ -596,6 +598,6 @@ contract PresaleTest is Test {
 
     function test_PreviewAllocation() public view {
         uint256 preview = presale.previewAllocation(1 ether, false, false);
-        assertEq(preview, 1000 * 10**18);
+        assertEq(preview, 1000 * 10 ** 18);
     }
 }

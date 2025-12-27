@@ -62,13 +62,14 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     }
 
     enum TrustTier {
-        UNSTAKED,   // Listed but not trusted
-        STAKED,     // 1+ ETH stake
-        VERIFIED    // Governance approved
+        UNSTAKED, // Listed but not trusted
+        STAKED, // 1+ ETH stake
+        VERIFIED // Governance approved
+
     }
 
     struct ChainInfo {
-        uint256 chainId;        // EVM chain ID or Wormhole chain ID for non-EVM
+        uint256 chainId; // EVM chain ID or Wormhole chain ID for non-EVM
         ChainType chainType;
         string name;
         string rpcUrl;
@@ -80,24 +81,24 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     }
 
     struct RegistryInfo {
-        bytes32 registryId;     // Unique ID: keccak256(chainId, registryType, address)
+        bytes32 registryId; // Unique ID: keccak256(chainId, registryType, address)
         uint256 chainId;
         ChainType chainType;
         RegistryType registryType;
         bytes32 contractAddress; // bytes32 to support both EVM and Solana addresses
         string name;
         string version;
-        string metadataUri;     // IPFS URI for extended metadata
-        uint256 entryCount;     // Approximate entries in registry
+        string metadataUri; // IPFS URI for extended metadata
+        uint256 entryCount; // Approximate entries in registry
         uint256 lastSyncBlock;
         bool isActive;
         uint256 registeredAt;
     }
 
     struct RegistryEntry {
-        bytes32 entryId;        // Unique ID across all registries
+        bytes32 entryId; // Unique ID across all registries
         bytes32 registryId;
-        bytes32 originId;       // ID in the origin registry
+        bytes32 originId; // ID in the origin registry
         string name;
         string metadataUri;
         uint256 syncedAt;
@@ -138,10 +139,10 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     // Wormhole for Solana verification
     IWormhole public wormhole;
     mapping(bytes32 => bool) public verifiedSolanaRegistries;
-    
+
     /// @notice Trusted Solana emitter for registry messages
     bytes32 public trustedSolanaEmitter;
-    
+
     /// @notice Processed VAA sequences for replay protection
     mapping(uint64 => bool) public processedVAASequences;
 
@@ -178,12 +179,7 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     event RegistryUpdated(bytes32 indexed registryId, uint256 entryCount, uint256 lastSyncBlock);
     event RegistryDeactivated(bytes32 indexed registryId);
 
-    event EntryFederated(
-        bytes32 indexed entryId,
-        bytes32 indexed registryId,
-        bytes32 originId,
-        string name
-    );
+    event EntryFederated(bytes32 indexed entryId, bytes32 indexed registryId, bytes32 originId, string name);
 
     event SolanaRegistryVerified(bytes32 indexed registryId, bytes32 programId);
 
@@ -227,12 +223,12 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
      * @notice Register a new chain in the federation
      * @dev Anyone can register, but unstaked chains have limited trust
      */
-    function registerChain(
-        uint256 chainId,
-        ChainType chainType,
-        string calldata name,
-        string calldata rpcUrl
-    ) external payable nonReentrant whenNotPaused {
+    function registerChain(uint256 chainId, ChainType chainType, string calldata name, string calldata rpcUrl)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (chains[chainId].registeredAt != 0) revert ChainExists();
 
         TrustTier tier = TrustTier.UNSTAKED;
@@ -363,14 +359,10 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Update registry stats (called by indexer/oracle)
      */
-    function updateRegistryStats(
-        bytes32 registryId,
-        uint256 entryCount,
-        uint256 lastSyncBlock
-    ) external {
+    function updateRegistryStats(bytes32 registryId, uint256 entryCount, uint256 lastSyncBlock) external {
         RegistryInfo storage registry = registries[registryId];
         if (registry.registeredAt == 0) revert RegistryNotFound();
-        
+
         ChainInfo storage chain = chains[registry.chainId];
         if (chain.networkOperator != msg.sender && msg.sender != owner()) revert NotOperator();
 
@@ -383,12 +375,9 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Federate a critical entry (identities, high-value items)
      */
-    function federateEntry(
-        bytes32 registryId,
-        bytes32 originId,
-        string calldata name,
-        string calldata metadataUri
-    ) external {
+    function federateEntry(bytes32 registryId, bytes32 originId, string calldata name, string calldata metadataUri)
+        external
+    {
         RegistryInfo storage registry = registries[registryId];
         if (registry.registeredAt == 0) revert RegistryNotFound();
 
@@ -436,7 +425,7 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     function verifySolanaRegistry(bytes calldata vaa) external whenNotPaused {
         // Parse and verify VAA through Wormhole core bridge
         (IWormhole.VM memory vm, bool valid, string memory reason) = wormhole.parseAndVerifyVM(vaa);
-        
+
         if (!valid) {
             revert VerificationFailed(reason);
         }
@@ -491,16 +480,16 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
         // [36..] name: bytes
         // [...] metadataUriLen: uint16
         // [...] metadataUri: bytes
-        
+
         if (payload.length < 36) revert InvalidPayload();
-        
+
         uint8 registryTypeRaw = uint8(payload[33]);
         RegistryType registryType = RegistryType(registryTypeRaw);
-        
+
         uint16 nameLen = uint16(uint8(payload[34])) << 8 | uint16(uint8(payload[35]));
-        
+
         bytes32 registryId = computeRegistryId(WORMHOLE_SOLANA, registryType, programId);
-        
+
         if (registries[registryId].registeredAt != 0) {
             revert RegistryExists();
         }
@@ -582,15 +571,15 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
         // [33] registryType: uint8
         // [34-41] entryCount: uint64
         // [42-49] lastSyncSlot: uint64
-        
+
         if (payload.length < 50) revert InvalidPayload();
-        
+
         uint8 registryTypeRaw = uint8(payload[33]);
         RegistryType registryType = RegistryType(registryTypeRaw);
-        
+
         bytes32 registryId = computeRegistryId(WORMHOLE_SOLANA, registryType, programId);
         RegistryInfo storage registry = registries[registryId];
-        
+
         if (registry.registeredAt == 0) revert RegistryNotFound();
 
         // Extract entry count and sync slot
@@ -600,7 +589,7 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
             entryCount := mload(add(payload, 42))
             lastSyncSlot := mload(add(payload, 50))
         }
-        
+
         // Update BigEndian to LittleEndian for Solana compatibility
         entryCount = _swapEndian64(entryCount);
         lastSyncSlot = _swapEndian64(lastSyncSlot);
@@ -622,19 +611,19 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
         // [68..] name: bytes
         // [...] metadataUriLen: uint16
         // [...] metadataUri: bytes
-        
+
         if (payload.length < 68) revert InvalidPayload();
-        
+
         uint8 registryTypeRaw = uint8(payload[33]);
         RegistryType registryType = RegistryType(registryTypeRaw);
-        
+
         bytes32 originId;
         assembly {
             originId := mload(add(payload, 66))
         }
-        
+
         bytes32 registryId = computeRegistryId(WORMHOLE_SOLANA, registryType, programId);
-        
+
         if (registries[registryId].registeredAt == 0) revert RegistryNotFound();
 
         // Extract name
@@ -683,14 +672,9 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
      * @notice Swap endianness of uint64 (Solana uses little-endian)
      */
     function _swapEndian64(uint64 val) internal pure returns (uint64) {
-        return ((val & 0xFF00000000000000) >> 56) |
-               ((val & 0x00FF000000000000) >> 40) |
-               ((val & 0x0000FF0000000000) >> 24) |
-               ((val & 0x000000FF00000000) >> 8) |
-               ((val & 0x00000000FF000000) << 8) |
-               ((val & 0x0000000000FF0000) << 24) |
-               ((val & 0x000000000000FF00) << 40) |
-               ((val & 0x00000000000000FF) << 56);
+        return ((val & 0xFF00000000000000) >> 56) | ((val & 0x00FF000000000000) >> 40)
+            | ((val & 0x0000FF0000000000) >> 24) | ((val & 0x000000FF00000000) >> 8) | ((val & 0x00000000FF000000) << 8)
+            | ((val & 0x0000000000FF0000) << 24) | ((val & 0x000000000000FF00) << 40) | ((val & 0x00000000000000FF) << 56);
     }
 
     /**
@@ -750,11 +734,11 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     // View Functions
     // ============================================================================
 
-    function computeRegistryId(
-        uint256 chainId,
-        RegistryType registryType,
-        bytes32 contractAddress
-    ) public pure returns (bytes32) {
+    function computeRegistryId(uint256 chainId, RegistryType registryType, bytes32 contractAddress)
+        public
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked("jeju:registry:", chainId, ":", uint8(registryType), ":", contractAddress));
     }
 
@@ -834,4 +818,3 @@ contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
 
     receive() external payable {}
 }
-

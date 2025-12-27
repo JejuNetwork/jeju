@@ -35,39 +35,39 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     // ============ Structs ============
 
     struct FeeDistributionConfig {
-        uint256 treasuryBps;           // % to DAO treasury
-        uint256 contributorPoolBps;     // % to contributor pool
-        uint256 dependencyPoolBps;      // % to dependency pool
-        uint256 jejuBps;               // % to Jeju network treasury
-        uint256 burnBps;               // % to burn
-        uint256 reserveBps;            // % reserved for unregistered deps
+        uint256 treasuryBps; // % to DAO treasury
+        uint256 contributorPoolBps; // % to contributor pool
+        uint256 dependencyPoolBps; // % to dependency pool
+        uint256 jejuBps; // % to Jeju network treasury
+        uint256 burnBps; // % to burn
+        uint256 reserveBps; // % reserved for unregistered deps
     }
 
     struct DAOPool {
         bytes32 daoId;
-        address token;                  // Pool token
-        uint256 totalAccumulated;       // Total fees collected
-        uint256 contributorPool;        // Available for contributors
-        uint256 dependencyPool;         // Available for dependencies
-        uint256 reservePool;            // Reserved for unregistered deps
+        address token; // Pool token
+        uint256 totalAccumulated; // Total fees collected
+        uint256 contributorPool; // Available for contributors
+        uint256 dependencyPool; // Available for dependencies
+        uint256 reservePool; // Reserved for unregistered deps
         uint256 lastDistributedEpoch;
         uint256 epochStartTime;
     }
 
     struct ContributorShare {
         bytes32 contributorId;
-        uint256 weight;                 // Contribution weight (basis points)
+        uint256 weight; // Contribution weight (basis points)
         uint256 pendingRewards;
         uint256 claimedRewards;
         uint256 lastClaimEpoch;
     }
 
     struct DependencyShare {
-        bytes32 depHash;                // keccak256(registryType:packageName)
-        bytes32 contributorId;          // Registered maintainer (if any)
-        uint256 weight;                 // Dependency weight
-        uint256 transitiveDepth;        // Depth in dependency tree
-        uint256 usageCount;             // How many repos use this
+        bytes32 depHash; // keccak256(registryType:packageName)
+        bytes32 contributorId; // Registered maintainer (if any)
+        uint256 weight; // Dependency weight
+        uint256 transitiveDepth; // Depth in dependency tree
+        uint256 usageCount; // How many repos use this
         uint256 pendingRewards;
         uint256 claimedRewards;
         bool isRegistered;
@@ -86,10 +86,10 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
 
     struct WeightVote {
         address voter;
-        bytes32 targetId;               // Contributor or dependency ID
-        int256 weightAdjustment;        // Positive or negative adjustment
+        bytes32 targetId; // Contributor or dependency ID
+        int256 weightAdjustment; // Positive or negative adjustment
         string reason;
-        uint256 reputation;             // Voter reputation weight
+        uint256 reputation; // Voter reputation weight
         uint256 votedAt;
     }
 
@@ -133,57 +133,22 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event FeesDeposited(
-        bytes32 indexed daoId,
-        address indexed depositor,
-        uint256 amount,
-        string source
-    );
+    event FeesDeposited(bytes32 indexed daoId, address indexed depositor, uint256 amount, string source);
 
-    event EpochCreated(
-        bytes32 indexed daoId,
-        uint256 indexed epochId,
-        uint256 startTime,
-        uint256 endTime
-    );
+    event EpochCreated(bytes32 indexed daoId, uint256 indexed epochId, uint256 startTime, uint256 endTime);
 
-    event EpochFinalized(
-        bytes32 indexed daoId,
-        uint256 indexed epochId,
-        uint256 totalDistributed
-    );
+    event EpochFinalized(bytes32 indexed daoId, uint256 indexed epochId, uint256 totalDistributed);
 
-    event ContributorWeightSet(
-        bytes32 indexed daoId,
-        bytes32 indexed contributorId,
-        uint256 weight
-    );
+    event ContributorWeightSet(bytes32 indexed daoId, bytes32 indexed contributorId, uint256 weight);
 
-    event DependencyRegistered(
-        bytes32 indexed daoId,
-        bytes32 indexed depHash,
-        string packageName,
-        uint256 weight
-    );
+    event DependencyRegistered(bytes32 indexed daoId, bytes32 indexed depHash, string packageName, uint256 weight);
 
-    event DependencyWeightUpdated(
-        bytes32 indexed daoId,
-        bytes32 indexed depHash,
-        uint256 newWeight
-    );
+    event DependencyWeightUpdated(bytes32 indexed daoId, bytes32 indexed depHash, uint256 newWeight);
 
-    event RewardsClaimed(
-        bytes32 indexed contributorId,
-        bytes32 indexed daoId,
-        uint256 amount
-    );
+    event RewardsClaimed(bytes32 indexed contributorId, bytes32 indexed daoId, uint256 amount);
 
     event WeightVoteCast(
-        bytes32 indexed daoId,
-        uint256 indexed epochId,
-        address indexed voter,
-        bytes32 targetId,
-        int256 adjustment
+        bytes32 indexed daoId, uint256 indexed epochId, address indexed voter, bytes32 targetId, int256 adjustment
     );
 
     event ConfigUpdated(bytes32 indexed daoId);
@@ -219,12 +184,9 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _daoRegistry,
-        address _jejuTreasury,
-        address _contributorRegistry,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _daoRegistry, address _jejuTreasury, address _contributorRegistry, address _owner)
+        Ownable(_owner)
+    {
         daoRegistry = IDAORegistry(_daoRegistry);
         jejuTreasury = _jejuTreasury;
         contributorRegistry = _contributorRegistry;
@@ -247,10 +209,12 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
      * @param daoId DAO to credit fees to
      * @param source Description of fee source (e.g., "rpc-fees", "compute-fees")
      */
-    function depositFees(
-        bytes32 daoId,
-        string calldata source
-    ) external payable onlyAuthorizedDepositor whenNotPaused {
+    function depositFees(bytes32 daoId, string calldata source)
+        external
+        payable
+        onlyAuthorizedDepositor
+        whenNotPaused
+    {
         if (msg.value == 0) return;
 
         DAOPool storage pool = _daoPools[daoId];
@@ -295,12 +259,11 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Deposit ERC20 fees
      */
-    function depositTokenFees(
-        bytes32 daoId,
-        address token,
-        uint256 amount,
-        string calldata source
-    ) external onlyAuthorizedDepositor whenNotPaused {
+    function depositTokenFees(bytes32 daoId, address token, uint256 amount, string calldata source)
+        external
+        onlyAuthorizedDepositor
+        whenNotPaused
+    {
         if (amount == 0) return;
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -344,11 +307,7 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Set contributor weight for current epoch
      */
-    function setContributorWeight(
-        bytes32 daoId,
-        bytes32 contributorId,
-        uint256 weight
-    ) external onlyDAOAdmin(daoId) {
+    function setContributorWeight(bytes32 daoId, bytes32 contributorId, uint256 weight) external onlyDAOAdmin(daoId) {
         if (weight > MAX_BPS) revert InvalidWeight();
 
         uint256 epochId = _currentEpoch[daoId];
@@ -423,14 +382,16 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     ) external {
         uint256 epochId = _currentEpoch[daoId];
 
-        _epochVotes[daoId][epochId].push(WeightVote({
-            voter: msg.sender,
-            targetId: targetId,
-            weightAdjustment: adjustment,
-            reason: reason,
-            reputation: reputation,
-            votedAt: block.timestamp
-        }));
+        _epochVotes[daoId][epochId].push(
+            WeightVote({
+                voter: msg.sender,
+                targetId: targetId,
+                weightAdjustment: adjustment,
+                reason: reason,
+                reputation: reputation,
+                votedAt: block.timestamp
+            })
+        );
 
         emit WeightVoteCast(daoId, epochId, msg.sender, targetId, adjustment);
     }
@@ -440,16 +401,18 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     function _createEpoch(bytes32 daoId) internal {
         uint256 epochId = _currentEpoch[daoId] + 1;
 
-        _epochs[daoId].push(Epoch({
-            epochId: epochId,
-            daoId: daoId,
-            startTime: block.timestamp,
-            endTime: block.timestamp + DEFAULT_EPOCH_DURATION,
-            totalContributorRewards: 0,
-            totalDependencyRewards: 0,
-            totalDistributed: 0,
-            finalized: false
-        }));
+        _epochs[daoId].push(
+            Epoch({
+                epochId: epochId,
+                daoId: daoId,
+                startTime: block.timestamp,
+                endTime: block.timestamp + DEFAULT_EPOCH_DURATION,
+                totalContributorRewards: 0,
+                totalDependencyRewards: 0,
+                totalDistributed: 0,
+                finalized: false
+            })
+        );
 
         _currentEpoch[daoId] = epochId;
         _daoPools[daoId].lastDistributedEpoch = epochId;
@@ -520,11 +483,10 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    function _distributeContributorRewards(
-        bytes32 daoId,
-        uint256 epochId,
-        uint256 poolAmount
-    ) internal returns (uint256 distributed) {
+    function _distributeContributorRewards(bytes32 daoId, uint256 epochId, uint256 poolAmount)
+        internal
+        returns (uint256 distributed)
+    {
         bytes32[] memory contributors = _epochContributors[daoId][epochId];
         if (contributors.length == 0) return 0;
 
@@ -552,10 +514,7 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
         return distributed;
     }
 
-    function _distributeDependencyRewards(
-        bytes32 daoId,
-        uint256 poolAmount
-    ) internal returns (uint256 distributed) {
+    function _distributeDependencyRewards(bytes32 daoId, uint256 poolAmount) internal returns (uint256 distributed) {
         bytes32[] memory deps = _daoDependencies[daoId];
         if (deps.length == 0) return 0;
 
@@ -588,12 +547,10 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Claim contributor rewards
      */
-    function claimContributorRewards(
-        bytes32 daoId,
-        bytes32 contributorId,
-        uint256[] calldata epochs,
-        address recipient
-    ) external nonReentrant {
+    function claimContributorRewards(bytes32 daoId, bytes32 contributorId, uint256[] calldata epochs, address recipient)
+        external
+        nonReentrant
+    {
         DAOPool memory pool = _daoPools[daoId];
         uint256 totalRewards = 0;
 
@@ -625,11 +582,7 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Claim dependency rewards (by registered maintainer)
      */
-    function claimDependencyRewards(
-        bytes32 daoId,
-        bytes32 depHash,
-        address recipient
-    ) external nonReentrant {
+    function claimDependencyRewards(bytes32 daoId, bytes32 depHash, address recipient) external nonReentrant {
         DependencyShare storage dep = _dependencyShares[daoId][depHash];
         if (!dep.isRegistered) revert DependencyNotRegistered();
         if (dep.pendingRewards == 0) revert NoPendingRewards();
@@ -651,13 +604,9 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Configuration ============
 
-    function setDAOConfig(
-        bytes32 daoId,
-        FeeDistributionConfig calldata config
-    ) external onlyDAOAdmin(daoId) {
-        uint256 total = config.treasuryBps + config.contributorPoolBps +
-                       config.dependencyPoolBps + config.jejuBps +
-                       config.burnBps + config.reserveBps;
+    function setDAOConfig(bytes32 daoId, FeeDistributionConfig calldata config) external onlyDAOAdmin(daoId) {
+        uint256 total = config.treasuryBps + config.contributorPoolBps + config.dependencyPoolBps + config.jejuBps
+            + config.burnBps + config.reserveBps;
         if (total != MAX_BPS) revert InvalidConfig();
 
         _daoConfigs[daoId] = config;
@@ -673,9 +622,8 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
     }
 
     function setDefaultConfig(FeeDistributionConfig calldata config) external onlyOwner {
-        uint256 total = config.treasuryBps + config.contributorPoolBps +
-                       config.dependencyPoolBps + config.jejuBps +
-                       config.burnBps + config.reserveBps;
+        uint256 total = config.treasuryBps + config.contributorPoolBps + config.dependencyPoolBps + config.jejuBps
+            + config.burnBps + config.reserveBps;
         if (total != MAX_BPS) revert InvalidConfig();
 
         defaultConfig = config;
@@ -697,18 +645,15 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
         return _epochs[daoId][epochId - 1];
     }
 
-    function getContributorShare(
-        bytes32 daoId,
-        uint256 epochId,
-        bytes32 contributorId
-    ) external view returns (ContributorShare memory) {
+    function getContributorShare(bytes32 daoId, uint256 epochId, bytes32 contributorId)
+        external
+        view
+        returns (ContributorShare memory)
+    {
         return _contributorShares[daoId][epochId][contributorId];
     }
 
-    function getDependencyShare(
-        bytes32 daoId,
-        bytes32 depHash
-    ) external view returns (DependencyShare memory) {
+    function getDependencyShare(bytes32 daoId, bytes32 depHash) external view returns (DependencyShare memory) {
         return _dependencyShares[daoId][depHash];
     }
 
@@ -716,17 +661,11 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
         return _getConfig(daoId);
     }
 
-    function getEpochVotes(
-        bytes32 daoId,
-        uint256 epochId
-    ) external view returns (WeightVote[] memory) {
+    function getEpochVotes(bytes32 daoId, uint256 epochId) external view returns (WeightVote[] memory) {
         return _epochVotes[daoId][epochId];
     }
 
-    function getPendingContributorRewards(
-        bytes32 daoId,
-        bytes32 contributorId
-    ) external view returns (uint256 total) {
+    function getPendingContributorRewards(bytes32 daoId, bytes32 contributorId) external view returns (uint256 total) {
         uint256 currentEpochId = _currentEpoch[daoId];
         for (uint256 i = 1; i <= currentEpochId; i++) {
             total += _contributorShares[daoId][i][contributorId].pendingRewards;
@@ -766,4 +705,3 @@ contract DeepFundingDistributor is Ownable, Pausable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

@@ -74,26 +74,16 @@ contract EvidenceRegistryTest is Test {
         uint256 protocolFees
     );
 
-    event RewardsClaimed(
-        bytes32 indexed evidenceId,
-        address indexed claimer,
-        uint256 amount,
-        bool wasSubmitter
-    );
+    event RewardsClaimed(bytes32 indexed evidenceId, address indexed claimer, uint256 amount, bool wasSubmitter);
 
     event ProtocolFeesWithdrawn(address indexed to, uint256 amount);
 
     function setUp() public {
         marketplace = new MockModerationMarketplace();
         reputationProvider = new MockReputationProvider();
-        
+
         vm.prank(owner);
-        registry = new EvidenceRegistry(
-            address(marketplace),
-            address(reputationProvider),
-            treasury,
-            owner
-        );
+        registry = new EvidenceRegistry(address(marketplace), address(reputationProvider), treasury, owner);
 
         marketplace.setEvidenceRegistry(address(registry));
 
@@ -120,22 +110,19 @@ contract EvidenceRegistryTest is Test {
     function test_SubmitEvidence() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            "Test evidence summary",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", "Test evidence summary", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         EvidenceRegistry.Evidence memory evidence = registry.getEvidence(evidenceId);
-        
+
         assertEq(evidence.caseId, TEST_CASE_ID);
         assertEq(evidence.submitter, alice);
         assertEq(evidence.stake, 0.001 ether);
         assertEq(evidence.ipfsHash, "QmTestHash123");
         assertEq(evidence.summary, "Test evidence summary");
         assertEq(evidence.submitterReputation, 8000); // Alice's reputation
-        assertEq(uint(evidence.position), uint(EvidenceRegistry.EvidencePosition.FOR_ACTION));
-        assertEq(uint(evidence.status), uint(EvidenceRegistry.EvidenceStatus.ACTIVE));
+        assertEq(uint256(evidence.position), uint256(EvidenceRegistry.EvidencePosition.FOR_ACTION));
+        assertEq(uint256(evidence.status), uint256(EvidenceRegistry.EvidenceStatus.ACTIVE));
         assertTrue(evidence.timeWeight >= 10000); // Base weight + time bonus
     }
 
@@ -143,53 +130,41 @@ contract EvidenceRegistryTest is Test {
         vm.prank(alice);
         vm.expectRevert(EvidenceRegistry.InsufficientStake.selector);
         registry.submitEvidence{value: 0.0009 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            "Test evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", "Test evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
     }
 
     function test_SubmitEvidence_SummaryTooLong() public {
         bytes memory longSummary = new bytes(501);
-        for (uint i = 0; i < 501; i++) {
+        for (uint256 i = 0; i < 501; i++) {
             longSummary[i] = "a";
         }
 
         vm.prank(alice);
         vm.expectRevert(EvidenceRegistry.SummaryTooLong.selector);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            string(longSummary),
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", string(longSummary), EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
     }
 
     function test_SubmitEvidence_CaseNotRegistered() public {
         bytes32 unknownCase = keccak256("unknown-case");
-        
+
         vm.prank(alice);
         vm.expectRevert(EvidenceRegistry.CaseNotRegistered.selector);
         registry.submitEvidence{value: 0.001 ether}(
-            unknownCase,
-            "QmTestHash123",
-            "Test evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            unknownCase, "QmTestHash123", "Test evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
     }
 
     function test_SubmitEvidence_AfterVotingEnded() public {
         // Warp past voting end
         vm.warp(caseEndTime + 1);
-        
+
         vm.prank(alice);
         vm.expectRevert(EvidenceRegistry.VotingEnded.selector);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            "Test evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", "Test evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
     }
 
@@ -200,25 +175,18 @@ contract EvidenceRegistryTest is Test {
     function test_CannotSupportOwnEvidence() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            "Test evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", "Test evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         // Alice tries to support her own evidence
         vm.prank(alice);
         vm.expectRevert(EvidenceRegistry.CannotSupportOwnEvidence.selector);
-        registry.supportEvidence{value: 0.0005 ether}(
-            evidenceId,
-            true,
-            "Self-support attempt"
-        );
+        registry.supportEvidence{value: 0.0005 ether}(evidenceId, true, "Self-support attempt");
     }
 
     function test_MaxEvidencePerCase() public {
         // Submit 50 pieces of evidence (the max)
-        for (uint i = 0; i < 50; i++) {
+        for (uint256 i = 0; i < 50; i++) {
             address submitter = address(uint160(100 + i));
             vm.deal(submitter, 1 ether);
             vm.prank(submitter);
@@ -236,20 +204,14 @@ contract EvidenceRegistryTest is Test {
         vm.prank(lastSubmitter);
         vm.expectRevert(EvidenceRegistry.MaxEvidenceReached.selector);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash51",
-            "Too much evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash51", "Too much evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
     }
 
     function test_SupportEvidence_CannotSupportTwice() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            "Test evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", "Test evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
@@ -268,14 +230,11 @@ contract EvidenceRegistryTest is Test {
         // Submit at start (7 days remaining = 168 hours)
         vm.prank(alice);
         bytes32 earlyEvidenceId = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmEarlyHash",
-            "Early evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmEarlyHash", "Early evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         EvidenceRegistry.Evidence memory earlyEvidence = registry.getEvidence(earlyEvidenceId);
-        
+
         // Max time bonus is 72% (7200 BPS), so weight should be ~17200
         assertGe(earlyEvidence.timeWeight, 17000);
         assertLe(earlyEvidence.timeWeight, 17200);
@@ -287,14 +246,11 @@ contract EvidenceRegistryTest is Test {
 
         vm.prank(alice);
         bytes32 lateEvidenceId = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmLateHash",
-            "Late evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmLateHash", "Late evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         EvidenceRegistry.Evidence memory lateEvidence = registry.getEvidence(lateEvidenceId);
-        
+
         // 1 hour remaining = 100 BPS bonus
         assertEq(lateEvidence.timeWeight, 10100);
     }
@@ -303,15 +259,12 @@ contract EvidenceRegistryTest is Test {
         // Early submission
         vm.prank(alice);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmEarlyHash",
-            "Early evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmEarlyHash", "Early evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         // Check case totals reflect time-weighted stake
-        (,uint256 totalFor,,) = registry.getCaseEvidence(TEST_CASE_ID);
-        
+        (, uint256 totalFor,,) = registry.getCaseEvidence(TEST_CASE_ID);
+
         // 0.001 ether with ~172% weight = ~0.00172 ether
         assertGe(totalFor, 0.0017 ether);
     }
@@ -323,29 +276,18 @@ contract EvidenceRegistryTest is Test {
     function test_SupportEvidence_Basic() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            "Test evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", "Test evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
-        registry.supportEvidence{value: 0.0005 ether}(
-            evidenceId,
-            true,
-            "I agree with this evidence"
-        );
+        registry.supportEvidence{value: 0.0005 ether}(evidenceId, true, "I agree with this evidence");
 
         EvidenceRegistry.Evidence memory evidence = registry.getEvidence(evidenceId);
         assertEq(evidence.supportStake, 0.0005 ether);
         assertEq(evidence.supporterCount, 1);
 
         vm.prank(charlie);
-        registry.supportEvidence{value: 0.0005 ether}(
-            evidenceId,
-            false,
-            "I disagree"
-        );
+        registry.supportEvidence{value: 0.0005 ether}(evidenceId, false, "I disagree");
 
         evidence = registry.getEvidence(evidenceId);
         assertEq(evidence.opposeStake, 0.0005 ether);
@@ -355,10 +297,7 @@ contract EvidenceRegistryTest is Test {
     function test_SupportEvidence_MinStakeRequired() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmTestHash123",
-            "Test evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmTestHash123", "Test evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
@@ -373,18 +312,12 @@ contract EvidenceRegistryTest is Test {
     function test_ResolveCase_ForAction() public {
         vm.prank(alice);
         bytes32 evidenceIdFor = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
         bytes32 evidenceIdAgainst = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence against action",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence against action", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
         marketplace.resolveCase(TEST_CASE_ID, true);
@@ -392,25 +325,19 @@ contract EvidenceRegistryTest is Test {
         EvidenceRegistry.Evidence memory evidenceFor = registry.getEvidence(evidenceIdFor);
         EvidenceRegistry.Evidence memory evidenceAgainst = registry.getEvidence(evidenceIdAgainst);
 
-        assertEq(uint(evidenceFor.status), uint(EvidenceRegistry.EvidenceStatus.REWARDED));
-        assertEq(uint(evidenceAgainst.status), uint(EvidenceRegistry.EvidenceStatus.SLASHED));
+        assertEq(uint256(evidenceFor.status), uint256(EvidenceRegistry.EvidenceStatus.REWARDED));
+        assertEq(uint256(evidenceAgainst.status), uint256(EvidenceRegistry.EvidenceStatus.SLASHED));
     }
 
     function test_ResolveCase_AgainstAction() public {
         vm.prank(alice);
         bytes32 evidenceIdFor = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
         bytes32 evidenceIdAgainst = registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence against action",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence against action", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
         marketplace.resolveCase(TEST_CASE_ID, false);
@@ -418,25 +345,19 @@ contract EvidenceRegistryTest is Test {
         EvidenceRegistry.Evidence memory evidenceFor = registry.getEvidence(evidenceIdFor);
         EvidenceRegistry.Evidence memory evidenceAgainst = registry.getEvidence(evidenceIdAgainst);
 
-        assertEq(uint(evidenceFor.status), uint(EvidenceRegistry.EvidenceStatus.SLASHED));
-        assertEq(uint(evidenceAgainst.status), uint(EvidenceRegistry.EvidenceStatus.REWARDED));
+        assertEq(uint256(evidenceFor.status), uint256(EvidenceRegistry.EvidenceStatus.SLASHED));
+        assertEq(uint256(evidenceAgainst.status), uint256(EvidenceRegistry.EvidenceStatus.REWARDED));
     }
 
     function test_ResolveCase_CollectsProtocolFees() public {
         vm.prank(alice);
         registry.submitEvidence{value: 0.1 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
         registry.submitEvidence{value: 0.05 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence against action",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence against action", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
         marketplace.resolveCase(TEST_CASE_ID, true);
@@ -449,10 +370,7 @@ contract EvidenceRegistryTest is Test {
     function test_OnlyMarketplaceCanResolve() public {
         vm.prank(alice);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
@@ -462,7 +380,7 @@ contract EvidenceRegistryTest is Test {
 
     function test_CannotResolveUnregisteredCase() public {
         bytes32 unknownCase = keccak256("unknown");
-        
+
         vm.expectRevert(EvidenceRegistry.CaseNotRegistered.selector);
         marketplace.resolveCase(unknownCase, true);
     }
@@ -474,18 +392,12 @@ contract EvidenceRegistryTest is Test {
     function test_ClaimRewards_SubmitterWinner() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence against",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence against", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
         marketplace.resolveCase(TEST_CASE_ID, true);
@@ -496,7 +408,7 @@ contract EvidenceRegistryTest is Test {
         registry.claimRewards(evidenceId);
 
         uint256 aliceBalanceAfter = alice.balance;
-        
+
         // Alice should get back more than her stake
         assertTrue(aliceBalanceAfter > aliceBalanceBefore);
         assertTrue(aliceBalanceAfter - aliceBalanceBefore > 0.002 ether);
@@ -505,18 +417,12 @@ contract EvidenceRegistryTest is Test {
     function test_ClaimRewards_SubmitterLoser() public {
         vm.prank(alice);
         bytes32 evidenceIdFor = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence against",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence against", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
         // Action NOT taken - Alice loses
@@ -530,10 +436,7 @@ contract EvidenceRegistryTest is Test {
     function test_ClaimRewards_SupporterWinner() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         // Bob supports Alice's evidence
@@ -552,7 +455,7 @@ contract EvidenceRegistryTest is Test {
         registry.claimRewards(evidenceId);
 
         uint256 bobBalanceAfter = bob.balance;
-        
+
         // Bob should get back more than his stake
         assertTrue(bobBalanceAfter > bobBalanceBefore);
     }
@@ -560,10 +463,7 @@ contract EvidenceRegistryTest is Test {
     function test_ClaimRewards_SupporterOpposedAndWon() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         // Charlie opposes the FOR_ACTION evidence (betting it's wrong)
@@ -579,7 +479,7 @@ contract EvidenceRegistryTest is Test {
         registry.claimRewards(evidenceId);
 
         uint256 charlieBalanceAfter = charlie.balance;
-        
+
         // Charlie should get rewards for correctly opposing
         assertTrue(charlieBalanceAfter > charlieBalanceBefore);
     }
@@ -587,10 +487,7 @@ contract EvidenceRegistryTest is Test {
     function test_ClaimRewards_CannotClaimTwice() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         marketplace.resolveCase(TEST_CASE_ID, true);
@@ -607,10 +504,7 @@ contract EvidenceRegistryTest is Test {
     function test_ClaimRewards_CannotClaimBeforeResolution() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(alice);
@@ -626,16 +520,10 @@ contract EvidenceRegistryTest is Test {
         // Alice submits to both cases
         vm.startPrank(alice);
         bytes32 evidenceId1 = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence 1",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence 1", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
         bytes32 evidenceId2 = registry.submitEvidence{value: 0.003 ether}(
-            caseId2,
-            "QmHash2",
-            "Evidence 2",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            caseId2, "QmHash2", "Evidence 2", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
         vm.stopPrank();
 
@@ -653,7 +541,7 @@ contract EvidenceRegistryTest is Test {
         registry.batchClaimRewards(evidenceIds);
 
         uint256 aliceBalanceAfter = alice.balance;
-        
+
         // Should have claimed from both
         assertTrue(aliceBalanceAfter > aliceBalanceBefore);
         assertTrue(aliceBalanceAfter - aliceBalanceBefore >= 0.005 ether);
@@ -666,18 +554,12 @@ contract EvidenceRegistryTest is Test {
     function test_WithdrawProtocolFees() public {
         vm.prank(alice);
         registry.submitEvidence{value: 1 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence for action",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence for action", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
         registry.submitEvidence{value: 0.5 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence against action",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence against action", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
         marketplace.resolveCase(TEST_CASE_ID, true);
@@ -708,21 +590,15 @@ contract EvidenceRegistryTest is Test {
 
         vm.prank(alice);
         registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence 1",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence 1", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(bob);
         registry.submitEvidence{value: 0.003 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence 2",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence 2", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
-        (bytes32[] memory evidenceIds, uint256 totalFor, uint256 totalAgainst, bool resolved) = 
+        (bytes32[] memory evidenceIds, uint256 totalFor, uint256 totalAgainst, bool resolved) =
             registry.getCaseEvidence(TEST_CASE_ID);
 
         assertEq(evidenceIds.length, 2);
@@ -734,18 +610,12 @@ contract EvidenceRegistryTest is Test {
     function test_GetUserEvidence() public {
         vm.prank(alice);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence 1",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence 1", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(alice);
         registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash2",
-            "Evidence 2",
-            EvidenceRegistry.EvidencePosition.AGAINST_ACTION
+            TEST_CASE_ID, "QmHash2", "Evidence 2", EvidenceRegistry.EvidencePosition.AGAINST_ACTION
         );
 
         bytes32[] memory aliceEvidence = registry.getUserEvidence(alice);
@@ -762,10 +632,7 @@ contract EvidenceRegistryTest is Test {
     function test_GetClaimableAmount() public {
         vm.prank(alice);
         bytes32 evidenceId = registry.submitEvidence{value: 0.002 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         // Before resolution
@@ -789,7 +656,7 @@ contract EvidenceRegistryTest is Test {
         address newTreasury = address(102);
 
         vm.startPrank(owner);
-        
+
         registry.setModerationMarketplace(newMarketplace);
         assertEq(registry.moderationMarketplace(), newMarketplace);
 
@@ -815,10 +682,7 @@ contract EvidenceRegistryTest is Test {
         vm.prank(alice);
         vm.expectRevert();
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
 
         vm.prank(owner);
@@ -826,10 +690,7 @@ contract EvidenceRegistryTest is Test {
 
         vm.prank(alice);
         registry.submitEvidence{value: 0.001 ether}(
-            TEST_CASE_ID,
-            "QmHash1",
-            "Evidence",
-            EvidenceRegistry.EvidencePosition.FOR_ACTION
+            TEST_CASE_ID, "QmHash1", "Evidence", EvidenceRegistry.EvidencePosition.FOR_ACTION
         );
     }
 

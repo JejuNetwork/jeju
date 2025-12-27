@@ -16,13 +16,7 @@ import {AssetLib} from "../../libraries/AssetLib.sol";
  * @notice EIL-compliant paymaster for trustless cross-chain NFT transfers
  * @dev Uses AssetLib for unified NFT handling and EILUtils for fee calculations
  */
-contract NFTPaymaster is 
-    INFTPaymaster,
-    Ownable,
-    ReentrancyGuard,
-    IERC721Receiver,
-    IERC1155Receiver
-{
+contract NFTPaymaster is INFTPaymaster, Ownable, ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
@@ -80,11 +74,10 @@ contract NFTPaymaster is
         supportedCollections[collection] = supported;
     }
 
-    function registerWrappedCollection(
-        uint256 sourceChainId,
-        address sourceCollection,
-        address wrappedCollection
-    ) external override {
+    function registerWrappedCollection(uint256 sourceChainId, address sourceCollection, address wrappedCollection)
+        external
+        override
+    {
         xlpWrappedCollections[msg.sender][sourceChainId][sourceCollection] = wrappedCollection;
         emit WrappedCollectionRegistered(sourceChainId, sourceCollection, wrappedCollection);
     }
@@ -105,7 +98,7 @@ contract NFTPaymaster is
         uint256 gasOnDestination,
         uint256 maxFee,
         uint256 feeIncrement
-    ) external payable nonReentrant override returns (bytes32 requestId) {
+    ) external payable override nonReentrant returns (bytes32 requestId) {
         if (!supportedCollections[collection]) revert UnsupportedCollection();
         if (recipient == address(0)) revert InvalidRecipient();
         if (maxFee < MIN_FEE) revert InvalidFee();
@@ -121,8 +114,7 @@ contract NFTPaymaster is
         // Generate request ID
         requestId = keccak256(
             abi.encodePacked(
-                msg.sender, collection, tokenId, destinationChainId, 
-                block.number, block.timestamp, ++_requestNonce
+                msg.sender, collection, tokenId, destinationChainId, block.number, block.timestamp, ++_requestNonce
             )
         );
 
@@ -161,8 +153,16 @@ contract NFTPaymaster is
         totalRequests++;
 
         emit NFTVoucherRequested(
-            requestId, msg.sender, assetType, collection, tokenId, amount,
-            destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT
+            requestId,
+            msg.sender,
+            assetType,
+            collection,
+            tokenId,
+            amount,
+            destinationChainId,
+            recipient,
+            maxFee,
+            block.number + REQUEST_TIMEOUT
         );
     }
 
@@ -175,7 +175,7 @@ contract NFTPaymaster is
         if (currentFee > request.maxFee) currentFee = request.maxFee;
     }
 
-    function refundExpiredRequest(bytes32 requestId) external nonReentrant override {
+    function refundExpiredRequest(bytes32 requestId) external override nonReentrant {
         NFTVoucherRequest storage request = voucherRequests[requestId];
 
         if (request.requester == address(0)) revert InvalidRecipient();
@@ -210,10 +210,12 @@ contract NFTPaymaster is
 
     // ============ Voucher Issuance ============
 
-    function issueNFTVoucher(
-        bytes32 requestId,
-        bytes calldata signature
-    ) external nonReentrant override returns (bytes32 voucherId) {
+    function issueNFTVoucher(bytes32 requestId, bytes calldata signature)
+        external
+        override
+        nonReentrant
+        returns (bytes32 voucherId)
+    {
         NFTVoucherRequest storage request = voucherRequests[requestId];
 
         if (request.requester == address(0)) revert InvalidRecipient();
@@ -237,8 +239,13 @@ contract NFTPaymaster is
         // Verify signature
         bytes32 commitment = keccak256(
             abi.encodePacked(
-                requestId, msg.sender, request.collection, request.tokenId,
-                request.amount, fee, request.destinationChainId
+                requestId,
+                msg.sender,
+                request.collection,
+                request.tokenId,
+                request.amount,
+                fee,
+                request.destinationChainId
             )
         );
         address signer = commitment.toEthSignedMessageHash().recover(signature);
@@ -286,11 +293,9 @@ contract NFTPaymaster is
         address recipient,
         uint256 gasAmount,
         bytes calldata xlpSignature
-    ) external nonReentrant override {
+    ) external override nonReentrant {
         bytes32 voucherHash = keccak256(
-            abi.encodePacked(
-                voucherId, requestId, xlp, collection, tokenId, amount, recipient, gasAmount, chainId
-            )
+            abi.encodePacked(voucherId, requestId, xlp, collection, tokenId, amount, recipient, gasAmount, chainId)
         );
 
         if (fulfilledVoucherHashes[voucherHash]) revert VoucherAlreadyFulfilled();
@@ -306,7 +311,7 @@ contract NFTPaymaster is
 
     // ============ Claim Source NFT ============
 
-    function claimSourceNFT(bytes32 voucherId) external nonReentrant override {
+    function claimSourceNFT(bytes32 voucherId) external override nonReentrant {
         NFTVoucher storage voucher = vouchers[voucherId];
 
         if (voucher.xlp != msg.sender) revert OnlyXLP();
@@ -339,12 +344,11 @@ contract NFTPaymaster is
 
     // ============ Internal Functions ============
 
-    function _buildNFTAsset(
-        NFTAssetType assetType,
-        address collection,
-        uint256 tokenId,
-        uint256 amount
-    ) internal pure returns (AssetLib.Asset memory) {
+    function _buildNFTAsset(NFTAssetType assetType, address collection, uint256 tokenId, uint256 amount)
+        internal
+        pure
+        returns (AssetLib.Asset memory)
+    {
         if (assetType == NFTAssetType.ERC721) {
             return AssetLib.erc721(collection, tokenId);
         } else {
@@ -364,10 +368,15 @@ contract NFTPaymaster is
 
     function canFulfillRequest(bytes32 requestId) external view returns (bool) {
         NFTVoucherRequest storage request = voucherRequests[requestId];
-        return request.requester != address(0) && !request.claimed && !request.expired && block.number <= request.deadline;
+        return
+            request.requester != address(0) && !request.claimed && !request.expired && block.number <= request.deadline;
     }
 
-    function getXLPWrappedCollection(address xlp, uint256 sourceChainId, address sourceCollection) external view returns (address) {
+    function getXLPWrappedCollection(address xlp, uint256 sourceChainId, address sourceCollection)
+        external
+        view
+        returns (address)
+    {
         return xlpWrappedCollections[xlp][sourceChainId][sourceCollection];
     }
 
@@ -381,11 +390,21 @@ contract NFTPaymaster is
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns (bytes4) {
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata) external pure override returns (bytes4) {
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 

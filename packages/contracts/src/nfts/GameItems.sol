@@ -33,15 +33,7 @@ import {INFTModerationHooks} from "./interfaces/INFTModeration.sol";
  *
  * @custom:security-contact security@jejunetwork.org
  */
-contract GameItems is
-    ERC1155Supply,
-    ERC1155URIStorage,
-    Ownable,
-    ReentrancyGuard,
-    Pausable,
-    IERC2981,
-    IGameItems
-{
+contract GameItems is ERC1155Supply, ERC1155URIStorage, Ownable, ReentrancyGuard, Pausable, IERC2981, IGameItems {
     // =========================================================================
     // State
     // =========================================================================
@@ -128,12 +120,10 @@ contract GameItems is
     // Constructor
     // =========================================================================
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        string memory _baseUri,
-        address _owner
-    ) ERC1155(_baseUri) Ownable(_owner) {
+    constructor(string memory _name, string memory _symbol, string memory _baseUri, address _owner)
+        ERC1155(_baseUri)
+        Ownable(_owner)
+    {
         name = _name;
         symbol = _symbol;
         royaltyReceiver = _owner;
@@ -192,12 +182,12 @@ contract GameItems is
     // =========================================================================
 
     /// @inheritdoc IGameItems
-    function mintItem(
-        address to,
-        uint256 itemId,
-        uint256 amount,
-        bytes32 gameId
-    ) external override nonReentrant whenNotPaused {
+    function mintItem(address to, uint256 itemId, uint256 amount, bytes32 gameId)
+        external
+        override
+        nonReentrant
+        whenNotPaused
+    {
         _validateMint(to, itemId, amount, gameId);
         _mint(to, itemId, amount, "");
         _recordProvenance(itemId, address(0), to);
@@ -205,12 +195,12 @@ contract GameItems is
     }
 
     /// @inheritdoc IGameItems
-    function mintBatch(
-        address to,
-        uint256[] calldata itemIds,
-        uint256[] calldata amounts,
-        bytes32 gameId
-    ) external override nonReentrant whenNotPaused {
+    function mintBatch(address to, uint256[] calldata itemIds, uint256[] calldata amounts, bytes32 gameId)
+        external
+        override
+        nonReentrant
+        whenNotPaused
+    {
         for (uint256 i = 0; i < itemIds.length; i++) {
             _validateMint(to, itemIds[i], amounts[i], gameId);
         }
@@ -225,7 +215,7 @@ contract GameItems is
     function publicMint(uint256 itemId, uint256 amount) external payable nonReentrant whenNotPaused {
         ItemConfig storage config = itemConfigs[itemId];
         require(config.mintPrice > 0, "Not public mintable");
-        
+
         uint256 totalPrice = config.mintPrice * amount;
         if (msg.value < totalPrice) revert InsufficientPayment();
 
@@ -245,7 +235,7 @@ contract GameItems is
 
     function _validateMint(address to, uint256 itemId, uint256 amount, bytes32 gameId) internal view {
         ItemConfig storage config = itemConfigs[itemId];
-        
+
         // Operator check (skip for public mints which check payment)
         if (config.mintPrice == 0 && !isGameOperator(msg.sender, gameId)) {
             revert NotGameOperator();
@@ -280,9 +270,7 @@ contract GameItems is
 
         // Only owner or approved operator can burn
         require(
-            from == msg.sender || 
-            isApprovedForAll(from, msg.sender) ||
-            isGameOperator(msg.sender, config.gameId),
+            from == msg.sender || isApprovedForAll(from, msg.sender) || isGameOperator(msg.sender, config.gameId),
             "Not authorized"
         );
 
@@ -309,12 +297,11 @@ contract GameItems is
     // Transfers
     // =========================================================================
 
-    function _update(
-        address from,
-        address to,
-        uint256[] memory ids,
-        uint256[] memory values
-    ) internal virtual override(ERC1155, ERC1155Supply) {
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal
+        virtual
+        override(ERC1155, ERC1155Supply)
+    {
         // Check transferability and moderation for each item
         for (uint256 i = 0; i < ids.length; i++) {
             if (from != address(0) && to != address(0)) {
@@ -339,13 +326,15 @@ contract GameItems is
     // =========================================================================
 
     function _recordProvenance(uint256 itemId, address from, address to) internal {
-        _provenance[itemId][to].push(ProvenanceEntry({
-            chainId: block.chainid,
-            blockNumber: block.number,
-            timestamp: block.timestamp,
-            from: from,
-            to: to
-        }));
+        _provenance[itemId][to].push(
+            ProvenanceEntry({
+                chainId: block.chainid,
+                blockNumber: block.number,
+                timestamp: block.timestamp,
+                from: from,
+                to: to
+            })
+        );
     }
 
     /// @notice Get provenance for a specific owner's holding
@@ -433,14 +422,7 @@ contract GameItems is
     // ERC165
     // =========================================================================
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC1155, IERC165)
-        returns (bool)
-    {
-        return
-            interfaceId == type(IERC2981).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view override(ERC1155, IERC165) returns (bool) {
+        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 }

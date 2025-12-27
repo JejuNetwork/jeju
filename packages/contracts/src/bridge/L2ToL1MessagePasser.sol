@@ -74,7 +74,9 @@ contract L2ToL1MessagePasser {
     /// @return The keccak256 hash of the withdrawal message
     function hashWithdrawal(WithdrawalMessage memory _message) public pure returns (bytes32) {
         return keccak256(
-            abi.encode(_message.nonce, _message.sender, _message.target, _message.value, _message.gasLimit, _message.data)
+            abi.encode(
+                _message.nonce, _message.sender, _message.target, _message.value, _message.gasLimit, _message.data
+            )
         );
     }
 

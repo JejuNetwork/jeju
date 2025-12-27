@@ -54,24 +54,16 @@ contract AutomationRegistryTest is Test {
         vm.prank(user);
         uint256 upkeepId = registry.registerUpkeep{value: 0.1 ether}(
             address(target),
-            500000,   // executeGas
-            3600,     // interval (1 hour)
-            "",       // checkData
+            500000, // executeGas
+            3600, // interval (1 hour)
+            "", // checkData
             AutomationRegistry.UpkeepType.CONDITIONAL
         );
 
         assertEq(upkeepId, 1);
 
-        (
-            address upkeepTarget,
-            uint96 balance,
-            address admin,
-            uint32 executeGas,
-            uint32 interval,
-            ,
-            ,
-            bool active
-        ) = registry.getUpkeep(upkeepId);
+        (address upkeepTarget, uint96 balance, address admin, uint32 executeGas, uint32 interval,,, bool active) =
+            registry.getUpkeep(upkeepId);
 
         assertEq(upkeepTarget, address(target));
         assertEq(balance, 0.1 ether);
@@ -85,11 +77,7 @@ contract AutomationRegistryTest is Test {
         vm.deal(user, 1 ether);
         vm.prank(user);
         uint256 upkeepId = registry.registerUpkeep{value: 0.1 ether}(
-            address(target),
-            500000,
-            3600,
-            "",
-            AutomationRegistry.UpkeepType.CONDITIONAL
+            address(target), 500000, 3600, "", AutomationRegistry.UpkeepType.CONDITIONAL
         );
 
         vm.prank(user);
@@ -102,14 +90,14 @@ contract AutomationRegistryTest is Test {
     function test_RegisterKeeper() public {
         address newKeeper = address(5);
         vm.deal(newKeeper, 1 ether);
-        
+
         vm.prank(newKeeper);
         registry.registerKeeper{value: 0.1 ether}();
 
         AutomationRegistry.KeeperInfo memory info = registry.getKeeperInfo(newKeeper);
         assertEq(info.keeper, newKeeper);
         assertEq(info.stake, 0.1 ether);
-        assertFalse(info.approved);  // Not approved yet
+        assertFalse(info.approved); // Not approved yet
     }
 
     function test_PerformUpkeep() public {
@@ -119,7 +107,7 @@ contract AutomationRegistryTest is Test {
         uint256 upkeepId = registry.registerUpkeep{value: 0.5 ether}(
             address(target),
             500000,
-            60,  // 1 minute interval
+            60, // 1 minute interval
             "",
             AutomationRegistry.UpkeepType.CONDITIONAL
         );
@@ -148,15 +136,11 @@ contract AutomationRegistryTest is Test {
         vm.deal(user, 1 ether);
         vm.prank(user);
         uint256 upkeepId = registry.registerUpkeep{value: 0.5 ether}(
-            address(target),
-            500000,
-            3600,
-            "",
-            AutomationRegistry.UpkeepType.CONDITIONAL
+            address(target), 500000, 3600, "", AutomationRegistry.UpkeepType.CONDITIONAL
         );
 
         uint256 balanceBefore = user.balance;
-        
+
         vm.prank(user);
         registry.cancelUpkeep(upkeepId);
 
@@ -171,11 +155,7 @@ contract AutomationRegistryTest is Test {
         vm.deal(user, 1 ether);
         vm.prank(user);
         uint256 upkeepId = registry.registerUpkeep{value: 0.1 ether}(
-            address(target),
-            500000,
-            60,
-            "",
-            AutomationRegistry.UpkeepType.CONDITIONAL
+            address(target), 500000, 60, "", AutomationRegistry.UpkeepType.CONDITIONAL
         );
 
         skip(120);
@@ -209,11 +189,7 @@ contract AutomationRegistryTest is Test {
         vm.deal(user, 1 ether);
         vm.prank(user);
         uint256 upkeepId = registry.registerUpkeep{value: 0.1 ether}(
-            address(target),
-            500000,
-            60,
-            "",
-            AutomationRegistry.UpkeepType.CONDITIONAL
+            address(target), 500000, 60, "", AutomationRegistry.UpkeepType.CONDITIONAL
         );
 
         skip(120);
@@ -228,11 +204,7 @@ contract AutomationRegistryTest is Test {
         vm.deal(user, 1 ether);
         vm.prank(user);
         registry.registerUpkeep{value: 0.1 ether}(
-            address(target),
-            500000,
-            3600,
-            "",
-            AutomationRegistry.UpkeepType.CONDITIONAL
+            address(target), 500000, 3600, "", AutomationRegistry.UpkeepType.CONDITIONAL
         );
 
         (
@@ -250,4 +222,3 @@ contract AutomationRegistryTest is Test {
         assertEq(keeperCount, 1);
     }
 }
-

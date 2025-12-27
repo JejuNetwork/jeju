@@ -25,15 +25,15 @@ import "../registry/ReputationRegistry.sol";
  * - Malicious guardians can be slashed and banned
  */
 contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
-
     // ============ Enums ============
 
     enum GuardianTier {
-        NONE,           // Not a guardian
-        OBSERVER,       // Can flag issues only
-        REVIEWER,       // Can review, needs quorum
-        SENIOR,         // Can approve alone for minor changes
-        LEAD            // Full authority, can override
+        NONE, // Not a guardian
+        OBSERVER, // Can flag issues only
+        REVIEWER, // Can review, needs quorum
+        SENIOR, // Can approve alone for minor changes
+        LEAD // Full authority, can override
+
     }
 
     enum ReviewAction {
@@ -56,14 +56,14 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
     // ============ Structs ============
 
     struct Guardian {
-        uint256 agentId;            // ERC-8004 agent ID
+        uint256 agentId; // ERC-8004 agent ID
         address owner;
         GuardianTier tier;
         uint256 stakedAmount;
-        string[] specializations;   // ["solidity", "typescript", "security", etc.]
+        string[] specializations; // ["solidity", "typescript", "security", etc.]
         uint256 reviewsCompleted;
-        uint256 reviewsApproved;    // Successful reviews
-        uint256 reviewsDisputed;    // Reviews that were disputed and lost
+        uint256 reviewsApproved; // Successful reviews
+        uint256 reviewsDisputed; // Reviews that were disputed and lost
         uint256 rewardsEarned;
         uint256 slashedAmount;
         uint256 registeredAt;
@@ -74,13 +74,13 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
 
     struct Review {
         bytes32 reviewId;
-        bytes32 subjectId;          // PR ID, bounty ID, etc.
-        string subjectType;         // "pr", "bounty", "package", "model"
+        bytes32 subjectId; // PR ID, bounty ID, etc.
+        string subjectType; // "pr", "bounty", "package", "model"
         address guardian;
         uint256 guardianAgentId;
         ReviewAction action;
         ReviewStatus status;
-        string commentUri;          // IPFS URI for review comments
+        string commentUri; // IPFS URI for review comments
         string[] suggestions;
         uint256 createdAt;
         uint256 resolvedAt;
@@ -93,7 +93,7 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
         bytes32 subjectId;
         string subjectType;
         address requester;
-        string contentUri;          // IPFS URI of content to review
+        string contentUri; // IPFS URI of content to review
         uint256 rewardAmount;
         address rewardToken;
         string[] requiredSpecializations;
@@ -111,12 +111,12 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
     uint256 public constant MIN_STAKE_SENIOR = 0.05 ether;
     uint256 public constant MIN_STAKE_LEAD = 0.1 ether;
 
-    uint256 public constant SLASH_PERCENTAGE_BPS = 2000;    // 20% slash for bad reviews
-    uint256 public constant REWARD_PERCENTAGE_BPS = 8000;   // 80% of review reward to guardian
+    uint256 public constant SLASH_PERCENTAGE_BPS = 2000; // 20% slash for bad reviews
+    uint256 public constant REWARD_PERCENTAGE_BPS = 8000; // 80% of review reward to guardian
 
     uint256 public constant MIN_REVIEWS_FOR_SENIOR = 50;
-    uint256 public constant MIN_APPROVAL_RATE_BPS = 8000;   // 80% approval rate needed
-    uint256 public constant REVIEW_QUORUM = 3;              // Reviews needed for quorum
+    uint256 public constant MIN_APPROVAL_RATE_BPS = 8000; // 80% approval rate needed
+    uint256 public constant REVIEW_QUORUM = 3; // Reviews needed for quorum
 
     // ============ State ============
 
@@ -124,12 +124,12 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
     ReputationRegistry public reputationRegistry;
     address public treasury;
 
-    mapping(uint256 => Guardian) public guardians;          // agentId => Guardian
-    mapping(address => uint256) public addressToAgent;      // address => agentId
+    mapping(uint256 => Guardian) public guardians; // agentId => Guardian
+    mapping(address => uint256) public addressToAgent; // address => agentId
     mapping(bytes32 => Review) public reviews;
     mapping(bytes32 => ReviewRequest) public reviewRequests;
     mapping(bytes32 => mapping(address => bool)) public hasReviewed; // subjectId => guardian => reviewed
-    
+
     // Specialization tracking
     mapping(string => uint256[]) public guardiansBySpecialization;
     string[] public allSpecializations;
@@ -145,12 +145,16 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
     event GuardianSlashed(uint256 indexed agentId, uint256 amount, string reason);
     event GuardianBanned(uint256 indexed agentId, string reason);
     event GuardianUnbanned(uint256 indexed agentId);
-    
-    event ReviewSubmitted(bytes32 indexed reviewId, bytes32 indexed subjectId, address indexed guardian, ReviewAction action);
+
+    event ReviewSubmitted(
+        bytes32 indexed reviewId, bytes32 indexed subjectId, address indexed guardian, ReviewAction action
+    );
     event ReviewDisputed(bytes32 indexed reviewId, bytes32 indexed disputeCaseId);
     event ReviewResolved(bytes32 indexed reviewId, ReviewStatus status);
-    
-    event ReviewRequestCreated(bytes32 indexed requestId, bytes32 indexed subjectId, string subjectType, uint256 reward);
+
+    event ReviewRequestCreated(
+        bytes32 indexed requestId, bytes32 indexed subjectId, string subjectType, uint256 reward
+    );
     event ReviewRequestCompleted(bytes32 indexed requestId, ReviewStatus finalStatus);
 
     // ============ Errors ============
@@ -184,11 +188,7 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address _treasury,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _identityRegistry, address _treasury, address initialOwner) Ownable(initialOwner) {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         treasury = _treasury;
     }
@@ -200,11 +200,11 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
      * @param agentId Your ERC-8004 agent ID
      * @param specializations Array of specialization tags
      */
-    function registerGuardian(uint256 agentId, string[] calldata specializations) 
-        external 
+    function registerGuardian(uint256 agentId, string[] calldata specializations)
+        external
         payable
-        nonReentrant 
-        whenNotPaused 
+        nonReentrant
+        whenNotPaused
     {
         // Verify agent ownership
         address agentOwner = identityRegistry.ownerOf(agentId);
@@ -348,9 +348,9 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Complete a review request and distribute rewards
      */
-    function completeReviewRequest(bytes32 requestId, bytes32[] calldata reviewIds, ReviewStatus finalStatus) 
-        external 
-        nonReentrant 
+    function completeReviewRequest(bytes32 requestId, bytes32[] calldata reviewIds, ReviewStatus finalStatus)
+        external
+        nonReentrant
     {
         ReviewRequest storage request = reviewRequests[requestId];
         if (request.createdAt == 0) revert RequestNotFound();
@@ -522,4 +522,3 @@ contract GuardianRegistry is ReentrancyGuard, Pausable, Ownable {
 
     receive() external payable {}
 }
-

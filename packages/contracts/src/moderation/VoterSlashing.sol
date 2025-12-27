@@ -53,12 +53,13 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
     // ============ SECURITY: Case Quality Tracking ============
     // Prevents griefing where attackers create frivolous cases to slash honest voters
-    
+
     enum CaseQuality {
-        UNKNOWN,      // Not yet assessed
-        LOW,          // Frivolous or spam case - losses don't count
-        MEDIUM,       // Borderline case - 50% weight on losses
-        HIGH          // Legitimate case - full loss weight
+        UNKNOWN, // Not yet assessed
+        LOW, // Frivolous or spam case - losses don't count
+        MEDIUM, // Borderline case - 50% weight on losses
+        HIGH // Legitimate case - full loss weight
+
     }
 
     struct CaseQualityRecord {
@@ -76,7 +77,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
     // Minimum total stake for a case to be considered "high quality"
     uint256 public constant MIN_QUALITY_STAKE = 1 ether;
-    
+
     // Minimum vote margin for quality assessment (prevents 50/50 cases from being "low")
     uint256 public constant MIN_QUALITY_MARGIN_BPS = 2000; // 20%
 
@@ -88,17 +89,17 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════
 
     // Slash thresholds
-    uint256 public constant TIER_1_LOSSES = 4;   // Start slashing
-    uint256 public constant TIER_2_LOSSES = 7;   // Increased slash
-    uint256 public constant TIER_3_LOSSES = 10;  // Max slash + ban
+    uint256 public constant TIER_1_LOSSES = 4; // Start slashing
+    uint256 public constant TIER_2_LOSSES = 7; // Increased slash
+    uint256 public constant TIER_3_LOSSES = 10; // Max slash + ban
 
     // Slash amounts (basis points)
-    uint256 public constant TIER_1_SLASH_BPS = 500;   // 5%
-    uint256 public constant TIER_2_SLASH_BPS = 1500;  // 15%
-    uint256 public constant TIER_3_SLASH_BPS = 2500;  // 25%
+    uint256 public constant TIER_1_SLASH_BPS = 500; // 5%
+    uint256 public constant TIER_2_SLASH_BPS = 1500; // 15%
+    uint256 public constant TIER_3_SLASH_BPS = 2500; // 25%
 
     // Recovery constants
-    uint256 public constant WINS_TO_RESET = 5;        // Consecutive wins to reset tier
+    uint256 public constant WINS_TO_RESET = 5; // Consecutive wins to reset tier
     uint256 public constant INACTIVITY_RESET = 90 days; // Inactivity period for reset
     uint256 public constant VOTING_BAN_DURATION = 30 days; // Voting ban duration
 
@@ -110,11 +111,11 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════
 
     mapping(address => VoterRecord) public voterRecords;
-    
+
     // Links to other contracts
     address public moderationMarketplace;
     address public treasury;
-    
+
     // Total slashed for stats
     uint256 public totalSlashedAmount;
     uint256 public totalBannedVoters;
@@ -123,47 +124,19 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     //                              EVENTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    event VoteRecorded(
-        address indexed voter,
-        bytes32 indexed caseId,
-        bool won,
-        uint256 consecutiveLosses
-    );
+    event VoteRecorded(address indexed voter, bytes32 indexed caseId, bool won, uint256 consecutiveLosses);
 
-    event VoterSlashed(
-        address indexed voter,
-        uint256 slashAmount,
-        uint256 penaltyTier,
-        uint256 consecutiveLosses
-    );
+    event VoterSlashed(address indexed voter, uint256 slashAmount, uint256 penaltyTier, uint256 consecutiveLosses);
 
-    event VoterBanned(
-        address indexed voter,
-        uint256 banExpiry,
-        uint256 totalLosses
-    );
+    event VoterBanned(address indexed voter, uint256 banExpiry, uint256 totalLosses);
 
-    event VoterRecovered(
-        address indexed voter,
-        uint256 newTier,
-        uint256 consecutiveWins
-    );
+    event VoterRecovered(address indexed voter, uint256 newTier, uint256 consecutiveWins);
 
-    event VoterReset(
-        address indexed voter,
-        string reason
-    );
+    event VoterReset(address indexed voter, string reason);
 
-    event CaseQualityAssessed(
-        bytes32 indexed caseId,
-        CaseQuality quality,
-        address assessor
-    );
+    event CaseQualityAssessed(bytes32 indexed caseId, CaseQuality quality, address assessor);
 
-    event QualityAssessorUpdated(
-        address indexed assessor,
-        bool authorized
-    );
+    event QualityAssessorUpdated(address indexed assessor, bool authorized);
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              ERRORS
@@ -177,11 +150,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     //                              CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════
 
-    constructor(
-        address _marketplace,
-        address _treasury,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _marketplace, address _treasury, address _owner) Ownable(_owner) {
         moderationMarketplace = _marketplace;
         treasury = _treasury;
     }
@@ -198,20 +167,18 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
      * @param won Whether they voted on the winning side
      * @param stakeAtRisk The stake they had at risk
      */
-    function recordVoteOutcome(
-        address voter,
-        bytes32 caseId,
-        bool won,
-        uint256 stakeAtRisk
-    ) external nonReentrant returns (uint256 slashAmount) {
+    function recordVoteOutcome(address voter, bytes32 caseId, bool won, uint256 stakeAtRisk)
+        external
+        nonReentrant
+        returns (uint256 slashAmount)
+    {
         if (msg.sender != moderationMarketplace) revert OnlyMarketplace();
 
         VoterRecord storage record = voterRecords[voter];
         CaseQualityRecord storage quality = caseQuality[caseId];
-        
+
         // Check for inactivity reset
-        if (record.lastVoteTimestamp > 0 && 
-            block.timestamp - record.lastVoteTimestamp > INACTIVITY_RESET) {
+        if (record.lastVoteTimestamp > 0 && block.timestamp - record.lastVoteTimestamp > INACTIVITY_RESET) {
             _resetVoter(voter, "inactivity");
         }
 
@@ -239,7 +206,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         // SECURITY: Only count losses on high-quality cases for slashing
         // This prevents griefing where attackers create frivolous cases
         bool countForSlashing = false;
-        
+
         if (quality.quality == CaseQuality.HIGH) {
             // High quality case - full weight
             record.consecutiveLosses++;
@@ -284,11 +251,11 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
      */
     function canVote(address voter) external view returns (bool, string memory) {
         VoterRecord storage record = voterRecords[voter];
-        
+
         if (record.votingBanned && block.timestamp < record.votingBanExpiry) {
             return (false, "VOTING_BANNED");
         }
-        
+
         return (true, "ALLOWED");
     }
 
@@ -296,10 +263,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     //                              INTERNAL
     // ═══════════════════════════════════════════════════════════════════════
 
-    function _applySlash(
-        address voter,
-        uint256 stakeAtRisk
-    ) internal returns (uint256 slashAmount) {
+    function _applySlash(address voter, uint256 stakeAtRisk) internal returns (uint256 slashAmount) {
         VoterRecord storage record = voterRecords[voter];
 
         // Calculate slash based on tier
@@ -320,19 +284,14 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         record.lastSlashTimestamp = block.timestamp;
         totalSlashedAmount += slashAmount;
 
-        emit VoterSlashed(
-            voter,
-            slashAmount,
-            record.penaltyTier,
-            record.consecutiveLosses
-        );
+        emit VoterSlashed(voter, slashAmount, record.penaltyTier, record.consecutiveLosses);
 
         return slashAmount;
     }
 
     function _banVoter(address voter) internal {
         VoterRecord storage record = voterRecords[voter];
-        
+
         record.votingBanned = true;
         record.votingBanExpiry = block.timestamp + VOTING_BAN_DURATION;
         totalBannedVoters++;
@@ -342,12 +301,12 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
     function _recoverVoter(address voter) internal {
         VoterRecord storage record = voterRecords[voter];
-        
+
         // Reduce tier (but not below 0)
         if (record.penaltyTier > 0) {
             record.penaltyTier--;
         }
-        
+
         // Clear ban if was banned
         if (record.votingBanned && record.penaltyTier == 0) {
             record.votingBanned = false;
@@ -360,12 +319,12 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
     function _resetVoter(address voter, string memory reason) internal {
         VoterRecord storage record = voterRecords[voter];
-        
+
         // Preserve historical totals but reset penalties
         record.consecutiveLosses = 0;
         record.consecutiveWins = 0;
         record.penaltyTier = 0;
-        
+
         if (record.votingBanned) {
             record.votingBanned = false;
             record.votingBanExpiry = 0;
@@ -397,20 +356,24 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         VoterRecord storage record = voterRecords[voter];
         return record.votingBanned && block.timestamp < record.votingBanExpiry;
     }
-    
+
     /**
      * @notice Get full voter record
      */
-    function getVoterRecord(address voter) external view returns (
-        uint256 totalVotes,
-        uint256 winningVotes,
-        uint256 losingVotes,
-        uint256 consecutiveLosses,
-        uint256 penaltyTier,
-        uint256 totalSlashed,
-        bool votingBanned,
-        uint256 votingBanExpiry
-    ) {
+    function getVoterRecord(address voter)
+        external
+        view
+        returns (
+            uint256 totalVotes,
+            uint256 winningVotes,
+            uint256 losingVotes,
+            uint256 consecutiveLosses,
+            uint256 penaltyTier,
+            uint256 totalSlashed,
+            bool votingBanned,
+            uint256 votingBanExpiry
+        )
+    {
         VoterRecord storage record = voterRecords[voter];
         return (
             record.totalVotes,
@@ -474,7 +437,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         }
 
         CaseQualityRecord storage record = caseQuality[caseId];
-        
+
         record.quality = quality;
         record.assessedAt = block.timestamp;
         record.yesVotes = yesVotes;
@@ -500,7 +463,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         if (msg.sender != moderationMarketplace) revert OnlyMarketplace();
 
         CaseQualityRecord storage record = caseQuality[caseId];
-        
+
         record.yesVotes = yesVotes;
         record.noVotes = noVotes;
         record.totalStake = totalStake;
@@ -510,7 +473,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
         // Auto-assessment logic
         uint256 totalVotes = yesVotes + noVotes;
-        
+
         if (totalStake < MIN_QUALITY_STAKE || totalVotes < 3) {
             // Low stake or few voters = low quality (likely spam/griefing)
             record.quality = CaseQuality.LOW;
@@ -521,7 +484,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
             // Check vote margin - controversial cases (close votes) are medium quality
             uint256 larger = yesVotes > noVotes ? yesVotes : noVotes;
             uint256 marginBps = ((larger - (totalVotes - larger)) * 10000) / totalVotes;
-            
+
             if (marginBps >= MIN_QUALITY_MARGIN_BPS) {
                 // Clear consensus + evidence = high quality
                 record.quality = CaseQuality.HIGH;
@@ -537,21 +500,13 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     /**
      * @notice Get case quality info
      */
-    function getCaseQuality(bytes32 caseId) external view returns (
-        CaseQuality quality,
-        uint256 assessedAt,
-        uint256 totalStake,
-        bool hasEvidence,
-        address assessor
-    ) {
+    function getCaseQuality(bytes32 caseId)
+        external
+        view
+        returns (CaseQuality quality, uint256 assessedAt, uint256 totalStake, bool hasEvidence, address assessor)
+    {
         CaseQualityRecord storage record = caseQuality[caseId];
-        return (
-            record.quality,
-            record.assessedAt,
-            record.totalStake,
-            record.hasEvidence,
-            record.assessor
-        );
+        return (record.quality, record.assessedAt, record.totalStake, record.hasEvidence, record.assessor);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -581,4 +536,3 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         _resetVoter(voter, "admin_reset");
     }
 }
-

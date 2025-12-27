@@ -13,9 +13,5 @@ interface IZKVerifier {
      * @param publicInputs The public inputs to the circuit
      * @return True if the proof is valid, false otherwise
      */
-    function verifyProof(
-        uint256[8] calldata proof,
-        uint256[] calldata publicInputs
-    ) external view returns (bool);
+    function verifyProof(uint256[8] calldata proof, uint256[] calldata publicInputs) external view returns (bool);
 }
-

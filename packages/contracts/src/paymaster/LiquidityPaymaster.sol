@@ -24,7 +24,7 @@ contract LiquidityPaymaster is BasePaymaster {
     address public immutable vault;
     IPriceOracle public oracle;
     uint256 public feeMargin; // In basis points (100 = 1%)
-    
+
     uint256 public constant MAX_FEE_MARGIN = 1000; // 10% max
     uint256 public constant ORACLE_CHANGE_DELAY = 24 hours; // SECURITY: Oracle timelock
 
@@ -35,11 +35,11 @@ contract LiquidityPaymaster is BasePaymaster {
     error OracleChangePending();
     error NoOracleChangePending();
     error OracleChangeNotReady();
-    
+
     // SECURITY: Oracle change timelock
     address public pendingOracle;
     uint256 public oracleChangeTime;
-    
+
     event OracleChangeProposed(address indexed newOracle, uint256 effectiveTime);
     event OracleChangeExecuted(address indexed oldOracle, address indexed newOracle);
     event OracleChangeCancelled();
@@ -60,7 +60,7 @@ contract LiquidityPaymaster is BasePaymaster {
         require(_vault != address(0), "Invalid vault");
         require(_oracle != address(0), "Invalid oracle");
         require(_feeMargin <= MAX_FEE_MARGIN, "Fee margin too high");
-        
+
         token = IERC20(_token);
         vault = _vault;
         oracle = IPriceOracle(_oracle);
@@ -81,38 +81,38 @@ contract LiquidityPaymaster is BasePaymaster {
     function proposeOracle(address _oracle) public onlyOwner {
         require(_oracle != address(0), "Invalid oracle");
         if (pendingOracle != address(0)) revert OracleChangePending();
-        
+
         pendingOracle = _oracle;
         oracleChangeTime = block.timestamp + ORACLE_CHANGE_DELAY;
-        
+
         emit OracleChangeProposed(_oracle, oracleChangeTime);
     }
-    
+
     /// @notice Execute oracle change after timelock expires
     function executeOracleChange() external onlyOwner {
         if (pendingOracle == address(0)) revert NoOracleChangePending();
         if (block.timestamp < oracleChangeTime) revert OracleChangeNotReady();
-        
+
         address oldOracle = address(oracle);
         oracle = IPriceOracle(pendingOracle);
-        
+
         emit OracleUpdated(oldOracle, pendingOracle);
         emit OracleChangeExecuted(oldOracle, pendingOracle);
-        
+
         pendingOracle = address(0);
         oracleChangeTime = 0;
     }
-    
+
     /// @notice Cancel pending oracle change
     function cancelOracleChange() external onlyOwner {
         if (pendingOracle == address(0)) revert NoOracleChangePending();
-        
+
         emit OracleChangeCancelled();
-        
+
         pendingOracle = address(0);
         oracleChangeTime = 0;
     }
-    
+
     /// @notice Legacy setOracle - now requires timelock
     function setOracle(address _oracle) external onlyOwner {
         proposeOracle(_oracle);
@@ -121,39 +121,40 @@ contract LiquidityPaymaster is BasePaymaster {
     function getTokenAmountForEth(uint256 ethCost) public view returns (uint256) {
         (uint256 ethPrice, uint256 ethDecimals) = oracle.getPrice(address(0));
         (uint256 tokenPrice, uint256 tokenDecimals) = oracle.getPrice(address(token));
-        
+
         if (ethPrice == 0 || tokenPrice == 0) revert PriceNotAvailable();
-        
+
         uint256 tokenAmount = (ethCost * ethPrice * (10 ** tokenDecimals)) / (tokenPrice * (10 ** ethDecimals));
         tokenAmount = tokenAmount + (tokenAmount * feeMargin) / 10000;
-        
+
         return tokenAmount;
     }
 
-    function _validatePaymasterUserOp(
-        PackedUserOperation calldata userOp,
-        bytes32,
-        uint256 maxCost
-    ) internal view override returns (bytes memory context, uint256 validationData) {
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 maxCost)
+        internal
+        view
+        override
+        returns (bytes memory context, uint256 validationData)
+    {
         address sender = userOp.sender;
-        
+
         if (moderation.isAddressBanned(sender)) return ("", 1);
-        
+
         uint256 tokenAmount = getTokenAmountForEth(maxCost);
-        
+
         if (token.balanceOf(sender) < tokenAmount) return ("", 1);
         if (token.allowance(sender, address(this)) < tokenAmount) return ("", 1);
-        
+
         context = abi.encode(sender, maxCost, tokenAmount);
         validationData = 0;
     }
 
     function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
         (address sender,, uint256 maxTokenAmount) = abi.decode(context, (address, uint256, uint256));
-        
+
         uint256 actualTokenCost = getTokenAmountForEth(actualGasCost);
         uint256 tokensToPay = actualTokenCost < maxTokenAmount ? actualTokenCost : maxTokenAmount;
-        
+
         token.safeTransferFrom(sender, vault, tokensToPay);
         emit GasSponsored(sender, actualGasCost, tokensToPay);
     }
@@ -170,4 +171,3 @@ contract LiquidityPaymaster is BasePaymaster {
         return moderation.isAddressBanned(user);
     }
 }
-

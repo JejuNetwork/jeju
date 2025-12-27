@@ -29,13 +29,11 @@ contract JejuMathHarness {
         return JejuMath.lmsrPrice(qYes, qNo, b, forYes);
     }
 
-    function lmsrSharesForCost(
-        uint256 qYes,
-        uint256 qNo,
-        uint256 b,
-        uint256 cost,
-        bool buyYes
-    ) external pure returns (uint256) {
+    function lmsrSharesForCost(uint256 qYes, uint256 qNo, uint256 b, uint256 cost, bool buyYes)
+        external
+        pure
+        returns (uint256)
+    {
         return JejuMath.lmsrSharesForCost(qYes, qNo, b, cost, buyYes);
     }
 
@@ -200,7 +198,7 @@ contract JejuMathTest is Test {
         uint256 b = 100e18;
         uint256 yesPrice = harness.lmsrPrice(0, 0, b, true);
         uint256 noPrice = harness.lmsrPrice(0, 0, b, false);
-        
+
         // With equal shares, prices should be ~50% each
         assertApproxEqRel(yesPrice, 5000, 0.01e18);
         assertApproxEqRel(noPrice, 5000, 0.01e18);
@@ -211,7 +209,7 @@ contract JejuMathTest is Test {
         uint256 b = 100e18;
         uint256 yesPrice = harness.lmsrPrice(50e18, 0, b, true);
         uint256 noPrice = harness.lmsrPrice(50e18, 0, b, false);
-        
+
         // More yes shares means higher yes price
         assertTrue(yesPrice > 5000);
         assertTrue(noPrice < 5000);
@@ -279,10 +277,10 @@ contract JejuMathTest is Test {
     function testFuzz_exp_ln_inverse(uint256 x) public view {
         // Bound x to reasonable range where exp and ln are both valid
         x = bound(x, PRECISION, 5 * PRECISION); // 1 <= x <= 5
-        
+
         uint256 expResult = harness.exp(x);
         uint256 lnResult = harness.ln(expResult);
-        
+
         // ln(exp(x)) should approximately equal x
         assertApproxEqRel(lnResult, x, 0.1e18); // 10% tolerance for numerical precision
     }
@@ -291,10 +289,10 @@ contract JejuMathTest is Test {
         // Input x is in 18-decimal format, so minimum should be PRECISION (1.0)
         // to avoid precision loss with very small fractional inputs
         x = bound(x, PRECISION, 1000 * PRECISION);
-        
+
         uint256 sqrtResult = harness.sqrt(x);
         uint256 squared = (sqrtResult * sqrtResult) / PRECISION;
-        
+
         // sqrt(x)^2 should approximately equal x (within 1% due to rounding)
         assertApproxEqRel(squared, x, 0.01e18);
     }
@@ -305,10 +303,10 @@ contract JejuMathTest is Test {
         b = bound(b, PRECISION, 1000 * PRECISION);
         qYes = bound(qYes, 0, 100 * b / PRECISION); // q/b < 100, well under 130
         qNo = bound(qNo, 0, 100 * b / PRECISION);
-        
+
         uint256 yesPrice = harness.lmsrPrice(qYes, qNo, b, true);
         uint256 noPrice = harness.lmsrPrice(qYes, qNo, b, false);
-        
+
         // Prices should sum to 10000 (100%) or 9999 due to rounding
         uint256 sum = yesPrice + noPrice;
         assertTrue(sum >= 9999 && sum <= 10000, "Prices should sum to ~100%");

@@ -42,8 +42,7 @@ contract DisputeGameFactoryTest is Test {
     function testProposalCreatesProverChange() public {
         vm.startPrank(owner);
 
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         (
             DisputeGameFactory.ProverType proverType,
@@ -65,8 +64,7 @@ contract DisputeGameFactoryTest is Test {
     function testExecutionFailsBeforeTimelock() public {
         vm.startPrank(owner);
 
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         // Try to execute immediately
         vm.expectRevert(DisputeGameFactory.TimelockNotExpired.selector);
@@ -83,8 +81,7 @@ contract DisputeGameFactoryTest is Test {
     function testExecutionSucceedsAfterTimelock() public {
         vm.startPrank(owner);
 
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         // Warp past timelock
         vm.warp(block.timestamp + 30 days + 1);
@@ -106,8 +103,7 @@ contract DisputeGameFactoryTest is Test {
     function testProverCancellationWorks() public {
         vm.startPrank(owner);
 
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         // Cancel the change
         factory.cancelProverChange(changeId);
@@ -123,8 +119,7 @@ contract DisputeGameFactoryTest is Test {
     function testCannotExecuteCancelledProverChange() public {
         vm.startPrank(owner);
 
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         // Cancel the change
         factory.cancelProverChange(changeId);
@@ -142,8 +137,7 @@ contract DisputeGameFactoryTest is Test {
     function testCannotExecuteProverChangeTwice() public {
         vm.startPrank(owner);
 
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         // Warp past timelock
         vm.warp(block.timestamp + 30 days + 1);
@@ -166,8 +160,7 @@ contract DisputeGameFactoryTest is Test {
 
     function testOnlyOwnerCanCancelProverChange() public {
         vm.prank(owner);
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         vm.prank(challenger);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, challenger));
@@ -176,8 +169,7 @@ contract DisputeGameFactoryTest is Test {
 
     function testAnyoneCanExecuteProverChangeAfterTimelock() public {
         vm.prank(owner);
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         // Warp past timelock
         vm.warp(block.timestamp + 30 days + 1);
@@ -377,9 +369,7 @@ contract DisputeGameFactoryTest is Test {
 
         vm.expectEmit(true, false, false, true);
         emit DisputeGameFactory.ProverChangeProposed(
-            keccak256(
-                abi.encodePacked(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true, block.timestamp)
-            ),
+            keccak256(abi.encodePacked(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true, block.timestamp)),
             DisputeGameFactory.ProverType.ALTERNATIVE,
             newProverImpl,
             true,
@@ -394,8 +384,7 @@ contract DisputeGameFactoryTest is Test {
     function testProverChangeCancelledEvent() public {
         vm.startPrank(owner);
 
-        bytes32 changeId =
-            factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
+        bytes32 changeId = factory.proposeProverChange(DisputeGameFactory.ProverType.ALTERNATIVE, newProverImpl, true);
 
         vm.expectEmit(true, false, false, false);
         emit DisputeGameFactory.ProverChangeCancelled(changeId);

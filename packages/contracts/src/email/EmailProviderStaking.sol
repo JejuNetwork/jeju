@@ -33,9 +33,10 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
     // ============ Enums ============
 
     enum ProviderType {
-        RELAY,      // Internal relay node
-        BRIDGE,     // Web2 SMTP bridge
-        EXTERNAL    // External domain provider
+        RELAY, // Internal relay node
+        BRIDGE, // Web2 SMTP bridge
+        EXTERNAL // External domain provider
+
     }
 
     enum ProviderStatus {
@@ -51,16 +52,16 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
         address operator;
         ProviderType providerType;
         ProviderStatus status;
-        string endpoint;            // API/SMTP endpoint
-        string domain;              // Email domain (for EXTERNAL type)
+        string endpoint; // API/SMTP endpoint
+        string domain; // Email domain (for EXTERNAL type)
         uint256 stakedAmount;
         uint256 registeredAt;
         uint256 lastActivityAt;
         uint256 emailsProcessed;
         uint256 spamReports;
-        uint256 uptime;             // Basis points (10000 = 100%)
+        uint256 uptime; // Basis points (10000 = 100%)
         uint256 slashCount;
-        bytes teeAttestation;       // TEE attestation for relay nodes
+        bytes teeAttestation; // TEE attestation for relay nodes
     }
 
     struct PerformanceMetrics {
@@ -73,17 +74,17 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constants ============
 
-    uint256 public constant MIN_RELAY_STAKE = 1000 ether;       // 1000 JEJU
-    uint256 public constant MIN_BRIDGE_STAKE = 5000 ether;      // 5000 JEJU
-    uint256 public constant MIN_EXTERNAL_STAKE = 2000 ether;    // 2000 JEJU
+    uint256 public constant MIN_RELAY_STAKE = 1000 ether; // 1000 JEJU
+    uint256 public constant MIN_BRIDGE_STAKE = 5000 ether; // 5000 JEJU
+    uint256 public constant MIN_EXTERNAL_STAKE = 2000 ether; // 2000 JEJU
 
-    uint256 public constant SPAM_SLASH_BPS = 1000;              // 10%
-    uint256 public constant DOWNTIME_SLASH_BPS = 500;           // 5%
-    uint256 public constant CENSORSHIP_SLASH_BPS = 5000;        // 50%
-    uint256 public constant ILLEGAL_CONTENT_SLASH_BPS = 10000;  // 100%
+    uint256 public constant SPAM_SLASH_BPS = 1000; // 10%
+    uint256 public constant DOWNTIME_SLASH_BPS = 500; // 5%
+    uint256 public constant CENSORSHIP_SLASH_BPS = 5000; // 50%
+    uint256 public constant ILLEGAL_CONTENT_SLASH_BPS = 10000; // 100%
 
     uint256 public constant UNSTAKE_COOLDOWN = 14 days;
-    uint256 public constant MIN_UPTIME_BPS = 9500;              // 95% minimum uptime
+    uint256 public constant MIN_UPTIME_BPS = 9500; // 95% minimum uptime
 
     uint256 public constant BPS_DENOMINATOR = 10000;
 
@@ -128,55 +129,24 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
     // ============ Events ============
 
     event ProviderRegistered(
-        address indexed operator,
-        ProviderType providerType,
-        string endpoint,
-        string domain,
-        uint256 stakedAmount
+        address indexed operator, ProviderType providerType, string endpoint, string domain, uint256 stakedAmount
     );
 
-    event ProviderUpdated(
-        address indexed operator,
-        string newEndpoint,
-        bytes newAttestation
-    );
+    event ProviderUpdated(address indexed operator, string newEndpoint, bytes newAttestation);
 
     event ProviderStatusChanged(
-        address indexed operator,
-        ProviderStatus oldStatus,
-        ProviderStatus newStatus,
-        string reason
+        address indexed operator, ProviderStatus oldStatus, ProviderStatus newStatus, string reason
     );
 
-    event StakeAdded(
-        address indexed operator,
-        uint256 amount,
-        uint256 totalStake
-    );
+    event StakeAdded(address indexed operator, uint256 amount, uint256 totalStake);
 
-    event UnstakeRequested(
-        address indexed operator,
-        uint256 amount,
-        uint256 availableAt
-    );
+    event UnstakeRequested(address indexed operator, uint256 amount, uint256 availableAt);
 
-    event Unstaked(
-        address indexed operator,
-        uint256 amount
-    );
+    event Unstaked(address indexed operator, uint256 amount);
 
-    event Slashed(
-        address indexed operator,
-        uint256 amount,
-        string reason
-    );
+    event Slashed(address indexed operator, uint256 amount, string reason);
 
-    event MetricsReported(
-        address indexed operator,
-        uint256 emailsProcessed,
-        uint256 spamBlocked,
-        uint256 uptime
-    );
+    event MetricsReported(address indexed operator, uint256 emailsProcessed, uint256 spamBlocked, uint256 uptime);
 
     // ============ Errors ============
 
@@ -206,12 +176,9 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _stakingToken,
-        address _treasury,
-        address _identityRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _stakingToken, address _treasury, address _identityRegistry, address initialOwner)
+        Ownable(initialOwner)
+    {
         stakingToken = IERC20(_stakingToken);
         treasury = _treasury;
         identityRegistry = IIdentityRegistry(_identityRegistry);
@@ -345,10 +312,7 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Update provider endpoint and attestation
      */
-    function updateProvider(
-        string calldata newEndpoint,
-        bytes calldata newAttestation
-    ) external onlyActiveProvider {
+    function updateProvider(string calldata newEndpoint, bytes calldata newAttestation) external onlyActiveProvider {
         Provider storage provider = providers[msg.sender];
         provider.endpoint = newEndpoint;
         provider.teeAttestation = newAttestation;
@@ -375,11 +339,7 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
         if (unstakeRequestTime[msg.sender] != 0) revert UnstakeCooldownActive();
         unstakeRequestTime[msg.sender] = block.timestamp;
 
-        emit UnstakeRequested(
-            msg.sender,
-            providers[msg.sender].stakedAmount,
-            block.timestamp + UNSTAKE_COOLDOWN
-        );
+        emit UnstakeRequested(msg.sender, providers[msg.sender].stakedAmount, block.timestamp + UNSTAKE_COOLDOWN);
     }
 
     /**
@@ -414,7 +374,7 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
 
         // Transfer stake
         if (address(stakingToken) == address(0)) {
-            (bool success, ) = msg.sender.call{value: amount}("");
+            (bool success,) = msg.sender.call{value: amount}("");
             require(success, "Transfer failed");
         } else {
             stakingToken.safeTransfer(msg.sender, amount);
@@ -456,11 +416,7 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Report spam origination (oracle only)
      */
-    function reportSpam(
-        address operator,
-        uint256 count,
-        bytes32 evidenceHash
-    ) external onlyOracle {
+    function reportSpam(address operator, uint256 count, bytes32 evidenceHash) external onlyOracle {
         Provider storage provider = providers[operator];
         if (provider.status == ProviderStatus.INACTIVE) revert NotRegistered();
 
@@ -477,26 +433,19 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Slash a provider for violations
      */
-    function slash(
-        address operator,
-        uint256 slashBps,
-        string calldata reason
-    ) external onlyOwner {
+    function slash(address operator, uint256 slashBps, string calldata reason) external onlyOwner {
         _slash(operator, slashBps, reason);
     }
 
     /**
      * @notice Slash for CSAM/illegal content (100% + ban)
      */
-    function slashAndBanForIllegalContent(
-        address operator,
-        string calldata reason
-    ) external onlyOwner {
+    function slashAndBanForIllegalContent(address operator, string calldata reason) external onlyOwner {
         Provider storage provider = providers[operator];
         if (provider.status == ProviderStatus.INACTIVE) revert NotRegistered();
 
         uint256 amount = provider.stakedAmount;
-        
+
         provider.stakedAmount = 0;
         provider.status = ProviderStatus.BANNED;
         provider.slashCount++;
@@ -516,7 +465,7 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
         // Transfer to treasury
         if (amount > 0) {
             if (address(stakingToken) == address(0)) {
-                (bool success, ) = treasury.call{value: amount}("");
+                (bool success,) = treasury.call{value: amount}("");
                 require(success, "Transfer failed");
             } else {
                 stakingToken.safeTransfer(treasury, amount);
@@ -540,7 +489,7 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
         uint256 minStake = _getMinStake(provider.providerType);
         if (provider.stakedAmount < minStake) {
             provider.status = ProviderStatus.SUSPENDED;
-            
+
             if (provider.providerType == ProviderType.RELAY) {
                 activeRelayCount--;
             } else if (provider.providerType == ProviderType.BRIDGE) {
@@ -553,7 +502,7 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
         // Transfer to treasury
         if (slashAmount > 0) {
             if (address(stakingToken) == address(0)) {
-                (bool success, ) = treasury.call{value: slashAmount}("");
+                (bool success,) = treasury.call{value: slashAmount}("");
                 require(success, "Transfer failed");
             } else {
                 stakingToken.safeTransfer(treasury, slashAmount);
@@ -575,27 +524,25 @@ contract EmailProviderStaking is Ownable, Pausable, ReentrancyGuard {
 
     function isActiveRelay(address operator) external view returns (bool) {
         Provider storage provider = providers[operator];
-        return provider.status == ProviderStatus.ACTIVE && 
-               provider.providerType == ProviderType.RELAY;
+        return provider.status == ProviderStatus.ACTIVE && provider.providerType == ProviderType.RELAY;
     }
 
     function isActiveBridge(address operator) external view returns (bool) {
         Provider storage provider = providers[operator];
-        return provider.status == ProviderStatus.ACTIVE && 
-               provider.providerType == ProviderType.BRIDGE;
+        return provider.status == ProviderStatus.ACTIVE && provider.providerType == ProviderType.BRIDGE;
     }
 
     function getActiveRelays() external view returns (address[] memory) {
         address[] memory relays = new address[](activeRelayCount);
         uint256 idx = 0;
-        
+
         for (uint256 i = 0; i < allProviders.length && idx < activeRelayCount; i++) {
             Provider storage p = providers[allProviders[i]];
             if (p.status == ProviderStatus.ACTIVE && p.providerType == ProviderType.RELAY) {
                 relays[idx++] = allProviders[i];
             }
         }
-        
+
         return relays;
     }
 

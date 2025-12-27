@@ -74,7 +74,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     // Slashed node recovery
     mapping(bytes32 => uint256) public slashTimestamp;
 
-
     event NodeRegistered(
         bytes32 indexed nodeId, address indexed operator, string endpoint, string region, uint256 stakedAmount
     );
@@ -104,7 +103,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     error SlashCooldownNotMet();
     error OracleNotActive();
 
-
     constructor(address _stakingToken, address _initialOwner) Ownable(_initialOwner) {
         stakingToken = IERC20(_stakingToken);
     }
@@ -133,7 +131,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
 
         emit OracleDeregistered(msg.sender);
     }
-
 
     function registerNode(string calldata endpoint, string calldata region, uint256 stakeAmount)
         external
@@ -299,7 +296,7 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         if (deliveryRate > MAX_SCORE) deliveryRate = MAX_SCORE;
 
         PerformanceMetrics.Metrics storage perf = performance[nodeId];
-        
+
         // Use library update function or manual update
         // Manual update to match previous smoothing logic:
         perf.uptimeScore = (perf.uptimeScore * 8 + uptimeScore * 2) / 10;
@@ -358,7 +355,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         emit SlashedStakeRecovered(nodeId, msg.sender, remaining);
     }
 
-
     function getNodesByRegion(string calldata region) external view returns (bytes32[] memory) {
         return nodesByRegion[region];
     }
@@ -385,7 +381,7 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
 
         if (!node.isActive || node.isSlashed) return false;
         if (block.timestamp - node.lastHeartbeat > heartbeatInterval * 3) return false;
-        
+
         // Use library check or custom
         return perf.isHealthy(9000, 9500);
     }
@@ -426,7 +422,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     function getOracleInfo(address oracle) external view returns (OracleInfo memory) {
         return oracles[oracle];
     }
-
 
     function setMinStake(uint256 _minStake) external onlyOwner {
         if (_minStake < MIN_STAKE_FLOOR || _minStake > MAX_STAKE_CEILING) {
@@ -474,7 +469,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     function unpause() external onlyOwner {
         _unpause();
     }
-
 
     function _removeFromActiveList(bytes32 nodeId) internal {
         uint256 length = activeNodeIds.length;

@@ -8,7 +8,7 @@ import {NetworkRegistry} from "../../src/federation/NetworkRegistry.sol";
 /**
  * @title FederationGovernanceTest
  * @notice Tests for AI DAO-controlled federation governance
- * 
+ *
  * Tests cover:
  * - Proposal creation flow
  * - AI evaluation scoring
@@ -22,7 +22,7 @@ import {NetworkRegistry} from "../../src/federation/NetworkRegistry.sol";
 contract FederationGovernanceTest is Test {
     FederationGovernance governance;
     NetworkRegistry registry;
-    
+
     address deployer;
     address operator1;
     address operator2;
@@ -96,7 +96,7 @@ contract FederationGovernanceTest is Test {
         );
 
         NetworkRegistry.NetworkInfo memory network = registry.getNetwork(JEJU_CHAIN_ID);
-        
+
         // Should be STAKED but NOT verified (needs governance)
         assertEq(uint8(network.trustTier), uint8(NetworkRegistry.TrustTier.STAKED));
         assertFalse(network.isVerified);
@@ -132,31 +132,25 @@ contract FederationGovernanceTest is Test {
 
     function test_FullGovernanceApprovalFlow() public {
         uint256 startTime = block.timestamp;
-        
+
         // Step 1: Register network with verification stake
         vm.startPrank(operator1);
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            "Jeju Network",
-            "https://rpc.jejunetwork.org",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID, "Jeju Network", "https://rpc.jejunetwork.org", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
         // Step 2: AI Oracle submits evaluation
         bytes32 proposalId = _getProposalId(JEJU_CHAIN_ID);
-        
+
         vm.startPrank(aiOracle);
         governance.submitAIEvaluation(
             proposalId,
-            95,  // uptime
-            90,  // uniqueness
-            85,  // rpc health
-            80   // operator reputation
+            95, // uptime
+            90, // uniqueness
+            85, // rpc health
+            80 // operator reputation
         );
         vm.stopPrank();
 
@@ -177,10 +171,7 @@ contract FederationGovernanceTest is Test {
         // Step 5: Autocrat approves (this sets timelockEnds = now + 7 days)
         vm.startPrank(councilGovernance);
         governance.submitAutocratDecision(
-            proposalId,
-            true,
-            keccak256("AI approved this network"),
-            "Network meets all quality criteria"
+            proposalId, true, keccak256("AI approved this network"), "Network meets all quality criteria"
         );
         vm.stopPrank();
 
@@ -208,13 +199,7 @@ contract FederationGovernanceTest is Test {
         vm.startPrank(operator1);
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            "Suspicious Network",
-            "https://rpc.suspicious.network",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID, "Suspicious Network", "https://rpc.suspicious.network", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
@@ -224,10 +209,10 @@ contract FederationGovernanceTest is Test {
         vm.startPrank(aiOracle);
         governance.submitAIEvaluation(
             proposalId,
-            30,  // poor uptime
-            20,  // not unique (possible Sybil)
-            40,  // poor rpc
-            10   // unknown operator
+            30, // poor uptime
+            20, // not unique (possible Sybil)
+            40, // poor rpc
+            10 // unknown operator
         );
         vm.stopPrank();
 
@@ -251,20 +236,14 @@ contract FederationGovernanceTest is Test {
     function test_SybilProtection_MaxNetworksPerOperator() public {
         // Sybil protection: max 5 networks per operator can be pending VERIFIED
         // Registration itself is permissionless, but governance tracks limits
-        
+
         vm.startPrank(operator1);
         NetworkRegistry.NetworkContracts memory contracts;
 
         // Register 5 networks with VERIFIED stake
         for (uint256 i = 1; i <= 5; i++) {
             registry.registerNetwork{value: 10 ether}(
-                JEJU_CHAIN_ID + i,
-                "Network",
-                "https://rpc.network",
-                "",
-                "",
-                contracts,
-                bytes32(0)
+                JEJU_CHAIN_ID + i, "Network", "https://rpc.network", "", "", contracts, bytes32(0)
             );
         }
         vm.stopPrank();
@@ -277,13 +256,7 @@ contract FederationGovernanceTest is Test {
         // This is fine because the network won't be VERIFIED without governance
         vm.startPrank(operator1);
         registry.registerNetwork{value: 10 ether}(
-            JEJU_CHAIN_ID + 6,
-            "Network 6",
-            "https://rpc.network6",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID + 6, "Network 6", "https://rpc.network6", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
@@ -291,7 +264,7 @@ contract FederationGovernanceTest is Test {
         NetworkRegistry.NetworkInfo memory network = registry.getNetwork(JEJU_CHAIN_ID + 6);
         assertTrue(network.isActive);
         assertFalse(network.isVerified);
-        
+
         // The governance proposal was rejected, so this network can't become sequencer
         // This is the Sybil protection - you can register, but can't become VERIFIED
     }
@@ -301,13 +274,7 @@ contract FederationGovernanceTest is Test {
         vm.startPrank(operator1);
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            "Network 1",
-            "https://rpc.network1",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID, "Network 1", "https://rpc.network1", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
@@ -319,13 +286,7 @@ contract FederationGovernanceTest is Test {
         // Operator can still register (permissionless) but governance proposal fails
         vm.startPrank(operator1);
         registry.registerNetwork{value: 10 ether}(
-            FORK_CHAIN_ID,
-            "Network 2",
-            "https://rpc.network2",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            FORK_CHAIN_ID, "Network 2", "https://rpc.network2", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
@@ -348,9 +309,7 @@ contract FederationGovernanceTest is Test {
         // Challenge the network
         vm.startPrank(operator2);
         bytes32 challengeId = governance.challengeNetwork{value: 1 ether}(
-            JEJU_CHAIN_ID,
-            FederationGovernance.ChallengeReason.SYBIL_SUSPECTED,
-            "ipfs://evidence"
+            JEJU_CHAIN_ID, FederationGovernance.ChallengeReason.SYBIL_SUSPECTED, "ipfs://evidence"
         );
         vm.stopPrank();
 
@@ -362,7 +321,7 @@ contract FederationGovernanceTest is Test {
         // Guardians vote to uphold challenge
         vm.prank(guardian1);
         governance.voteOnChallenge(challengeId, true);
-        
+
         vm.prank(guardian2);
         governance.voteOnChallenge(challengeId, true);
 
@@ -385,16 +344,14 @@ contract FederationGovernanceTest is Test {
         // Frivolous challenge
         vm.startPrank(operator2);
         bytes32 challengeId = governance.challengeNetwork{value: 1 ether}(
-            JEJU_CHAIN_ID,
-            FederationGovernance.ChallengeReason.OTHER,
-            "ipfs://fake-evidence"
+            JEJU_CHAIN_ID, FederationGovernance.ChallengeReason.OTHER, "ipfs://fake-evidence"
         );
         vm.stopPrank();
 
         // Guardians vote to reject challenge
         vm.prank(guardian1);
         governance.voteOnChallenge(challengeId, false);
-        
+
         vm.prank(guardian2);
         governance.voteOnChallenge(challengeId, false);
 
@@ -415,11 +372,11 @@ contract FederationGovernanceTest is Test {
     function test_SequencerRotation() public {
         // Create 3 verified networks
         _createVerifiedNetwork(JEJU_CHAIN_ID, operator1);
-        
+
         // Reset time and create second network
         vm.warp(1 days); // Reset to low timestamp
         _createVerifiedNetwork(FORK_CHAIN_ID, operator2);
-        
+
         vm.warp(1 days); // Reset again
         _createVerifiedNetwork(TEST_CHAIN_ID, operator3);
 
@@ -457,9 +414,7 @@ contract FederationGovernanceTest is Test {
         // Revoke first network via challenge
         vm.startPrank(operator3);
         bytes32 challengeId = governance.challengeNetwork{value: 1 ether}(
-            JEJU_CHAIN_ID,
-            FederationGovernance.ChallengeReason.MALICIOUS_BEHAVIOR,
-            "ipfs://evidence"
+            JEJU_CHAIN_ID, FederationGovernance.ChallengeReason.MALICIOUS_BEHAVIOR, "ipfs://evidence"
         );
         vm.stopPrank();
 
@@ -482,7 +437,7 @@ contract FederationGovernanceTest is Test {
     function test_GuardianManagement() public {
         // Add new guardian
         address newGuardian = makeAddr("newGuardian");
-        
+
         vm.startPrank(deployer);
         governance.addGuardian(newGuardian, 4);
         vm.stopPrank();
@@ -504,9 +459,7 @@ contract FederationGovernanceTest is Test {
 
         vm.startPrank(operator2);
         bytes32 challengeId = governance.challengeNetwork{value: 1 ether}(
-            JEJU_CHAIN_ID,
-            FederationGovernance.ChallengeReason.DOWNTIME,
-            "ipfs://evidence"
+            JEJU_CHAIN_ID, FederationGovernance.ChallengeReason.DOWNTIME, "ipfs://evidence"
         );
         vm.stopPrank();
 
@@ -523,13 +476,7 @@ contract FederationGovernanceTest is Test {
         vm.startPrank(operator1);
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 10 ether}(
-            JEJU_CHAIN_ID,
-            "Network 1",
-            "https://rpc.network1",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            JEJU_CHAIN_ID, "Network 1", "https://rpc.network1", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
@@ -555,28 +502,17 @@ contract FederationGovernanceTest is Test {
         // For tests, we compute it the same way
         address operator = registry.networkOperators(chainId);
         NetworkRegistry.NetworkInfo memory network = registry.getNetwork(chainId);
-        return keccak256(abi.encodePacked(
-            chainId,
-            operator,
-            network.stake,
-            network.registeredAt
-        ));
+        return keccak256(abi.encodePacked(chainId, operator, network.stake, network.registeredAt));
     }
 
     function _createVerifiedNetwork(uint256 chainId, address operator) internal {
         uint256 startTime = block.timestamp;
-        
+
         // Register
         vm.startPrank(operator);
         NetworkRegistry.NetworkContracts memory contracts;
         registry.registerNetwork{value: 10 ether}(
-            chainId,
-            "Network",
-            "https://rpc.network",
-            "",
-            "",
-            contracts,
-            bytes32(0)
+            chainId, "Network", "https://rpc.network", "", "", contracts, bytes32(0)
         );
         vm.stopPrank();
 
@@ -593,12 +529,7 @@ contract FederationGovernanceTest is Test {
 
         // Autocrat approves (sets timelockEnds = now + 7 days)
         vm.startPrank(councilGovernance);
-        governance.submitAutocratDecision(
-            proposalId,
-            true,
-            keccak256("approved"),
-            "Approved by AI DAO"
-        );
+        governance.submitAutocratDecision(proposalId, true, keccak256("approved"), "Approved by AI DAO");
         vm.stopPrank();
 
         // Wait for ANOTHER 7 days past the autocrat decision
@@ -608,4 +539,3 @@ contract FederationGovernanceTest is Test {
         governance.executeProposal(proposalId);
     }
 }
-

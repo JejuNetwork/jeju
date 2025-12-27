@@ -42,18 +42,10 @@ contract ModerationIntegrationTest is Test {
         );
 
         // Deploy CommitRevealVoting
-        commitReveal = new CommitRevealVoting(
-            address(marketplace),
-            treasury,
-            owner
-        );
+        commitReveal = new CommitRevealVoting(address(marketplace), treasury, owner);
 
         // Deploy VoterSlashing
-        voterSlashing = new VoterSlashing(
-            address(marketplace),
-            treasury,
-            owner
-        );
+        voterSlashing = new VoterSlashing(address(marketplace), treasury, owner);
 
         // Deploy Token with ban enforcement
         token = new Token(
@@ -103,7 +95,7 @@ contract ModerationIntegrationTest is Test {
     function test_BanManager_DirectUnban() public {
         vm.prank(owner);
         banManager.applyAddressBan(target, bytes32(0), "Test ban");
-        
+
         assertTrue(banManager.isAddressBanned(target));
 
         vm.prank(owner);
@@ -183,7 +175,7 @@ contract ModerationIntegrationTest is Test {
         vm.prank(reporter);
         marketplace.stake{value: 1 ether}();
 
-        (uint256 amount, , , , bool isStaked) = marketplace.stakes(reporter);
+        (uint256 amount,,,, bool isStaked) = marketplace.stakes(reporter);
         assertEq(amount, 1 ether);
         assertTrue(isStaked);
     }
@@ -200,7 +192,7 @@ contract ModerationIntegrationTest is Test {
         vm.prank(reporter);
         marketplace.unstake(0.5 ether);
 
-        (uint256 amount, , , , bool isStaked) = marketplace.stakes(reporter);
+        (uint256 amount,,,, bool isStaked) = marketplace.stakes(reporter);
         assertEq(amount, 0.5 ether);
         assertTrue(isStaked);
     }
@@ -221,8 +213,7 @@ contract ModerationIntegrationTest is Test {
         vm.prank(voter1);
         commitReveal.commitVote{value: 0.1 ether}(caseId, commitHash);
 
-        (bool hasCommitted, bool hasRevealed, uint256 stakeAmount,) = 
-            commitReveal.getCommitStatus(caseId, voter1);
+        (bool hasCommitted, bool hasRevealed, uint256 stakeAmount,) = commitReveal.getCommitStatus(caseId, voter1);
 
         assertTrue(hasCommitted);
         assertFalse(hasRevealed);
@@ -239,7 +230,7 @@ contract ModerationIntegrationTest is Test {
         commitReveal.initializeVoting(caseId);
 
         bytes32 commitHash = commitReveal.generateCommitHash(caseId, position, salt, voter1);
-        
+
         vm.prank(voter1);
         commitReveal.commitVote{value: 0.1 ether}(caseId, commitHash);
 
@@ -264,7 +255,7 @@ contract ModerationIntegrationTest is Test {
         commitReveal.initializeVoting(caseId);
 
         bytes32 commitHash = commitReveal.generateCommitHash(caseId, position, salt, voter1);
-        
+
         vm.prank(voter1);
         commitReveal.commitVote{value: 0.1 ether}(caseId, commitHash);
 
@@ -283,8 +274,7 @@ contract ModerationIntegrationTest is Test {
         vm.prank(address(marketplace));
         voterSlashing.recordVoteOutcome(voter1, caseId, true, 1 ether);
 
-        (uint256 totalVotes, uint256 winningVotes,,,,,, ) = 
-            voterSlashing.getVoterRecord(voter1);
+        (uint256 totalVotes, uint256 winningVotes,,,,,,) = voterSlashing.getVoterRecord(voter1);
 
         assertEq(totalVotes, 1);
         assertEq(winningVotes, 1);
@@ -300,7 +290,7 @@ contract ModerationIntegrationTest is Test {
         vm.prank(address(marketplace));
         voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
 
-        (uint256 totalVotes, uint256 winningVotes, uint256 losingVotes, uint256 consecutiveLosses,,,,) = 
+        (uint256 totalVotes, uint256 winningVotes, uint256 losingVotes, uint256 consecutiveLosses,,,,) =
             voterSlashing.getVoterRecord(voter1);
 
         assertEq(totalVotes, 1);
@@ -311,16 +301,16 @@ contract ModerationIntegrationTest is Test {
 
     function test_VoterSlashing_SlashAfterConsecutiveLosses() public {
         // Record 4 consecutive losses (threshold for tier 1 slashing)
-        for (uint i = 0; i < 4; i++) {
+        for (uint256 i = 0; i < 4; i++) {
             bytes32 caseId = keccak256(abi.encodePacked("case-loss-", i));
-            
+
             // Assess case as HIGH quality so losses count
             vm.prank(address(marketplace));
             voterSlashing.assessCaseQuality(caseId, VoterSlashing.CaseQuality.HIGH, 10, 2, 2 ether, true);
-            
+
             vm.prank(address(marketplace));
             uint256 slashAmount = voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
-            
+
             if (i == 3) {
                 // 4th loss should trigger slashing (5% of 1 ether = 0.05 ether)
                 assertEq(slashAmount, 0.05 ether);
@@ -333,13 +323,13 @@ contract ModerationIntegrationTest is Test {
 
     function test_VoterSlashing_VotingBanAfterManyLosses() public {
         // Record 10 consecutive losses (threshold for ban)
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             bytes32 caseId = keccak256(abi.encodePacked("case-loss-", i));
-            
+
             // Assess case as HIGH quality so losses count
             vm.prank(address(marketplace));
             voterSlashing.assessCaseQuality(caseId, VoterSlashing.CaseQuality.HIGH, 10, 2, 2 ether, true);
-            
+
             vm.prank(address(marketplace));
             voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
         }
@@ -351,13 +341,13 @@ contract ModerationIntegrationTest is Test {
 
     function test_VoterSlashing_RecoveryAfterWins() public {
         // First lose 5 times to get to tier 1
-        for (uint i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < 5; i++) {
             bytes32 caseId = keccak256(abi.encodePacked("loss-", i));
-            
+
             // Assess case as HIGH quality so losses count
             vm.prank(address(marketplace));
             voterSlashing.assessCaseQuality(caseId, VoterSlashing.CaseQuality.HIGH, 10, 2, 2 ether, true);
-            
+
             vm.prank(address(marketplace));
             voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
         }
@@ -366,7 +356,7 @@ contract ModerationIntegrationTest is Test {
         assertGt(penaltyTierBefore, 0);
 
         // Win 5 times to recover
-        for (uint i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < 5; i++) {
             bytes32 caseId = keccak256(abi.encodePacked("win-", i));
             vm.prank(address(marketplace));
             voterSlashing.recordVoteOutcome(voter1, caseId, true, 1 ether);
@@ -423,4 +413,3 @@ contract ModerationIntegrationTest is Test {
         assertEq(token.balanceOf(target), 9000 ether);
     }
 }
-

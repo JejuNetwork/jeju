@@ -18,12 +18,12 @@ contract TFMMPoolTest is Test {
     TFMMPool public pool;
     MockERC20 public tokenA;
     MockERC20 public tokenB;
-    
+
     address public owner = address(1);
     address public governance = address(2);
     address public user = address(3);
     address public weightRunner = address(4);
-    
+
     uint256 constant WEIGHT_PRECISION = 1e18;
     uint256 constant INITIAL_BALANCE = 1000e18;
 
@@ -59,7 +59,7 @@ contract TFMMPoolTest is Test {
         // Mint tokens and approve
         tokenA.mint(user, INITIAL_BALANCE);
         tokenB.mint(user, INITIAL_BALANCE);
-        
+
         vm.startPrank(user);
         tokenA.approve(address(pool), type(uint256).max);
         tokenB.approve(address(pool), type(uint256).max);
@@ -146,11 +146,7 @@ contract TFMMPoolTest is Test {
         pool.addLiquidity(amounts, 0);
 
         // Get quote
-        (uint256 amountOut, uint256 feeAmount) = pool.getAmountOut(
-            address(tokenA),
-            address(tokenB),
-            10e18
-        );
+        (uint256 amountOut, uint256 feeAmount) = pool.getAmountOut(address(tokenA), address(tokenB), 10e18);
 
         assertGt(amountOut, 0);
         assertGt(feeAmount, 0);
@@ -179,10 +175,10 @@ contract TFMMPoolTest is Test {
         // Weights should interpolate over 100 blocks
         // After 0 blocks, should still be close to original
         uint256[] memory currentWeights = pool.getNormalizedWeights();
-        
+
         // Move forward 100 blocks to reach target
         vm.roll(block.number + 100);
-        
+
         currentWeights = pool.getNormalizedWeights();
         assertEq(currentWeights[0], newWeights[0]);
         assertEq(currentWeights[1], newWeights[1]);
@@ -280,4 +276,3 @@ contract TFMMPoolTest is Test {
         assertGt(state.totalSupply, 0);
     }
 }
-

@@ -100,7 +100,9 @@ contract JobRegistry is Ownable, ReentrancyGuard {
     // Events
     // =========================================================================
 
-    event JobSubmitted(bytes32 indexed jobId, address indexed submitter, string archetype, bytes32 dataHash, uint256 reward);
+    event JobSubmitted(
+        bytes32 indexed jobId, address indexed submitter, string archetype, bytes32 dataHash, uint256 reward
+    );
 
     event JobClaimed(bytes32 indexed jobId, address indexed worker, bytes32 attestation);
 

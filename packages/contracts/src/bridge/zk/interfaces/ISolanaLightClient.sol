@@ -19,4 +19,3 @@ interface ISolanaLightClient {
         uint256[] calldata publicInputs
     ) external;
 }
-

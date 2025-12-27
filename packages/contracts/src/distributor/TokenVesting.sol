@@ -192,7 +192,14 @@ contract TokenVesting is Ownable2Step, ReentrancyGuard {
         totalVesting += totalAmount;
 
         emit VestingScheduleCreated(
-            scheduleId, beneficiary, totalAmount, tgeStartTime, cliffDuration, vestingDuration, tgeUnlockPercent, revocable
+            scheduleId,
+            beneficiary,
+            totalAmount,
+            tgeStartTime,
+            cliffDuration,
+            vestingDuration,
+            tgeUnlockPercent,
+            revocable
         );
     }
 
@@ -449,10 +456,3 @@ contract TokenVesting is Ownable2Step, ReentrancyGuard {
         }
     }
 }
-
-
-
-
-
-
-

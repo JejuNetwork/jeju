@@ -150,7 +150,7 @@ contract DecentralizationFuzzTest is Test {
 
         vm.warp(block.timestamp + delay);
         bool canExec = timelock.canExecute(proposalId);
-        
+
         // timelock delay is 60 seconds, GRACE_PERIOD is 14 days
         // canExecute is true if delay >= 60 AND delay <= 60 + 14 days
         uint256 executeAfter = 60;

@@ -32,9 +32,10 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
 
     /// @notice Trust tiers determine what a network can participate in
     enum TrustTier {
-        UNSTAKED,   // Auto-joined, no stake - listed only, no consensus participation
-        STAKED,     // 1+ ETH stake - can participate in federation consensus
-        VERIFIED    // 10+ ETH + governance approval - full trust, sequencer eligible
+        UNSTAKED, // Auto-joined, no stake - listed only, no consensus participation
+        STAKED, // 1+ ETH stake - can participate in federation consensus
+        VERIFIED // 10+ ETH + governance approval - full trust, sequencer eligible
+
     }
 
     struct NetworkContracts {
@@ -45,7 +46,7 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
         address liquidityVault;
         address governance;
         address oracle;
-        address registryHub;  // Link to RegistryHub for this network
+        address registryHub; // Link to RegistryHub for this network
     }
 
     struct NetworkInfo {
@@ -62,7 +63,7 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
         TrustTier trustTier;
         bool isActive;
         bool isVerified;
-        bool isSuperchain;  // Part of OP Superchain
+        bool isSuperchain; // Part of OP Superchain
     }
 
     struct TrustRelation {
@@ -201,10 +202,7 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
             if (federationGovernance != address(0)) {
                 (bool success,) = federationGovernance.call(
                     abi.encodeWithSignature(
-                        "createNetworkProposal(uint256,address,uint256)",
-                        chainId,
-                        msg.sender,
-                        msg.value
+                        "createNetworkProposal(uint256,address,uint256)", chainId, msg.sender, msg.value
                     )
                 );
                 // Governance proposal creation is best-effort
@@ -246,10 +244,7 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
                 // Interface call to create governance proposal
                 (bool success,) = federationGovernance.call(
                     abi.encodeWithSignature(
-                        "createNetworkProposal(uint256,address,uint256)",
-                        chainId,
-                        msg.sender,
-                        network.stake
+                        "createNetworkProposal(uint256,address,uint256)", chainId, msg.sender, network.stake
                     )
                 );
                 // Don't revert if governance call fails - stake is still added
@@ -307,11 +302,11 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
      * @param percentageBps Percentage to slash in basis points (10000 = 100%)
      * @param recipient Where to send slashed funds
      */
-    function slashStake(
-        uint256 chainId,
-        uint256 percentageBps,
-        address recipient
-    ) external onlyGovernance nonReentrant {
+    function slashStake(uint256 chainId, uint256 percentageBps, address recipient)
+        external
+        onlyGovernance
+        nonReentrant
+    {
         NetworkInfo storage network = networks[chainId];
         if (network.registeredAt == 0) revert NetworkNotFound();
         require(percentageBps <= 10000, "Invalid percentage");
@@ -344,7 +339,7 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
         }
         NetworkInfo storage network = networks[chainId];
         if (network.registeredAt == 0) revert NetworkNotFound();
-        
+
         network.isSuperchain = isSuperchain;
         emit NetworkUpdated(chainId, network.name, network.operator);
     }
@@ -551,4 +546,3 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

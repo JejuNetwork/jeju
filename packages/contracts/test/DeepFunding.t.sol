@@ -39,11 +39,7 @@ contract DeepFundingTest is Test {
         address mockIdentityRegistry = address(0x100);
 
         // Deploy contributor registry
-        contributorRegistry = new ContributorRegistry(
-            mockIdentityRegistry,
-            verifier,
-            owner
-        );
+        contributorRegistry = new ContributorRegistry(mockIdentityRegistry, verifier, owner);
 
         // Deploy distributor
         distributor = new DeepFundingDistributor(
@@ -61,13 +57,10 @@ contract DeepFundingTest is Test {
     function test_RegisterIndividual() public {
         vm.prank(contributor1);
 
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
-        ContributorRegistry.Contributor memory contrib =
-            contributorRegistry.getContributor(contributorId);
+        ContributorRegistry.Contributor memory contrib = contributorRegistry.getContributor(contributorId);
 
         assertEq(contrib.wallet, contributor1);
         assertEq(uint256(contrib.contributorType), uint256(ContributorRegistry.ContributorType.INDIVIDUAL));
@@ -77,13 +70,10 @@ contract DeepFundingTest is Test {
     function test_RegisterOrganization() public {
         vm.prank(contributor1);
 
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.ORGANIZATION,
-            "ipfs://QmOrg"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.ORGANIZATION, "ipfs://QmOrg");
 
-        ContributorRegistry.Contributor memory contrib =
-            contributorRegistry.getContributor(contributorId);
+        ContributorRegistry.Contributor memory contrib = contributorRegistry.getContributor(contributorId);
 
         assertEq(uint256(contrib.contributorType), uint256(ContributorRegistry.ContributorType.ORGANIZATION));
     }
@@ -91,13 +81,10 @@ contract DeepFundingTest is Test {
     function test_RegisterProject() public {
         vm.prank(contributor1);
 
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.PROJECT,
-            "ipfs://QmProject"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.PROJECT, "ipfs://QmProject");
 
-        ContributorRegistry.Contributor memory contrib =
-            contributorRegistry.getContributor(contributorId);
+        ContributorRegistry.Contributor memory contrib = contributorRegistry.getContributor(contributorId);
 
         assertEq(uint256(contrib.contributorType), uint256(ContributorRegistry.ContributorType.PROJECT));
     }
@@ -105,36 +92,23 @@ contract DeepFundingTest is Test {
     function test_RevertDoubleRegistration() public {
         vm.startPrank(contributor1);
 
-        contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.expectRevert(ContributorRegistry.AlreadyRegistered.selector);
-        contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile2"
-        );
+        contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile2");
 
         vm.stopPrank();
     }
 
     function test_AddSocialLink() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
-        contributorRegistry.addSocialLink(
-            contributorId,
-            keccak256("github"),
-            "testuser"
-        );
+        contributorRegistry.addSocialLink(contributorId, keccak256("github"), "testuser");
 
-        ContributorRegistry.SocialLink[] memory links =
-            contributorRegistry.getSocialLinks(contributorId);
+        ContributorRegistry.SocialLink[] memory links = contributorRegistry.getSocialLinks(contributorId);
 
         assertEq(links.length, 1);
         assertEq(links[0].handle, "testuser");
@@ -143,47 +117,29 @@ contract DeepFundingTest is Test {
 
     function test_VerifySocialLink() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
-        contributorRegistry.addSocialLink(
-            contributorId,
-            keccak256("github"),
-            "testuser"
-        );
+        contributorRegistry.addSocialLink(contributorId, keccak256("github"), "testuser");
 
         vm.prank(verifier);
-        contributorRegistry.verifySocialLink(
-            contributorId,
-            keccak256("github"),
-            keccak256("proof")
-        );
+        contributorRegistry.verifySocialLink(contributorId, keccak256("github"), keccak256("proof"));
 
-        ContributorRegistry.SocialLink[] memory links =
-            contributorRegistry.getSocialLinks(contributorId);
+        ContributorRegistry.SocialLink[] memory links = contributorRegistry.getSocialLinks(contributorId);
 
         assertEq(uint256(links[0].status), uint256(ContributorRegistry.VerificationStatus.VERIFIED));
     }
 
     function test_ClaimRepository() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
-        bytes32 claimId = contributorRegistry.claimRepository(
-            contributorId,
-            "jeju-network",
-            "jeju"
-        );
+        bytes32 claimId = contributorRegistry.claimRepository(contributorId, "jeju-network", "jeju");
 
-        ContributorRegistry.RepositoryClaim[] memory claims =
-            contributorRegistry.getRepositoryClaims(contributorId);
+        ContributorRegistry.RepositoryClaim[] memory claims = contributorRegistry.getRepositoryClaims(contributorId);
 
         assertEq(claims.length, 1);
         assertEq(claims[0].owner, "jeju-network");
@@ -193,45 +149,29 @@ contract DeepFundingTest is Test {
 
     function test_VerifyRepository() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
-        bytes32 claimId = contributorRegistry.claimRepository(
-            contributorId,
-            "jeju-network",
-            "jeju"
-        );
+        bytes32 claimId = contributorRegistry.claimRepository(contributorId, "jeju-network", "jeju");
 
         vm.prank(verifier);
         contributorRegistry.verifyRepository(claimId, keccak256("repoProof"));
 
-        bytes32 foundContributor = contributorRegistry.getContributorForRepo(
-            "jeju-network",
-            "jeju"
-        );
+        bytes32 foundContributor = contributorRegistry.getContributorForRepo("jeju-network", "jeju");
 
         assertEq(foundContributor, contributorId);
     }
 
     function test_ClaimDependency() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
-        bytes32 claimId = contributorRegistry.claimDependency(
-            contributorId,
-            "viem",
-            "npm"
-        );
+        bytes32 claimId = contributorRegistry.claimDependency(contributorId, "viem", "npm");
 
-        ContributorRegistry.DependencyClaim[] memory claims =
-            contributorRegistry.getDependencyClaims(contributorId);
+        ContributorRegistry.DependencyClaim[] memory claims = contributorRegistry.getDependencyClaims(contributorId);
 
         assertEq(claims.length, 1);
         assertEq(claims[0].packageName, "viem");
@@ -240,26 +180,21 @@ contract DeepFundingTest is Test {
 
     function test_DeactivateContributor() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
         contributorRegistry.deactivate(contributorId);
 
-        ContributorRegistry.Contributor memory contrib =
-            contributorRegistry.getContributor(contributorId);
+        ContributorRegistry.Contributor memory contrib = contributorRegistry.getContributor(contributorId);
 
         assertFalse(contrib.active);
     }
 
     function test_ReactivateContributor() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
         contributorRegistry.deactivate(contributorId);
@@ -267,8 +202,7 @@ contract DeepFundingTest is Test {
         vm.prank(contributor1);
         contributorRegistry.reactivate(contributorId);
 
-        ContributorRegistry.Contributor memory contrib =
-            contributorRegistry.getContributor(contributorId);
+        ContributorRegistry.Contributor memory contrib = contributorRegistry.getContributor(contributorId);
 
         assertTrue(contrib.active);
     }
@@ -291,12 +225,7 @@ contract DeepFundingTest is Test {
         assertEq(jejuBps, 500);
         assertEq(reserveBps, 500);
 
-        uint256 total = treasuryBps +
-                       contributorPoolBps +
-                       dependencyPoolBps +
-                       jejuBps +
-                       burnBps +
-                       reserveBps;
+        uint256 total = treasuryBps + contributorPoolBps + dependencyPoolBps + jejuBps + burnBps + reserveBps;
 
         assertEq(total, 10000);
     }
@@ -355,34 +284,22 @@ contract DeepFundingTest is Test {
 
     function test_RevertUnauthorizedVerification() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor1);
-        contributorRegistry.addSocialLink(
-            contributorId,
-            keccak256("github"),
-            "testuser"
-        );
+        contributorRegistry.addSocialLink(contributorId, keccak256("github"), "testuser");
 
         // Random address tries to verify
         vm.prank(address(0x999));
         vm.expectRevert(ContributorRegistry.NotVerifier.selector);
-        contributorRegistry.verifySocialLink(
-            contributorId,
-            keccak256("github"),
-            keccak256("proof")
-        );
+        contributorRegistry.verifySocialLink(contributorId, keccak256("github"), keccak256("proof"));
     }
 
     function test_RevertNonOwnerActions() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         // Different address tries to update profile
         vm.prank(contributor2);
@@ -392,13 +309,10 @@ contract DeepFundingTest is Test {
 
     function test_GetContributorByWallet() public {
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
-        ContributorRegistry.Contributor memory contrib =
-            contributorRegistry.getContributorByWallet(contributor1);
+        ContributorRegistry.Contributor memory contrib = contributorRegistry.getContributorByWallet(contributor1);
 
         assertEq(contrib.contributorId, contributorId);
         assertEq(contrib.wallet, contributor1);
@@ -406,16 +320,10 @@ contract DeepFundingTest is Test {
 
     function test_GetContributorCount() public {
         vm.prank(contributor1);
-        contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         vm.prank(contributor2);
-        contributorRegistry.register(
-            ContributorRegistry.ContributorType.ORGANIZATION,
-            "ipfs://QmProfile2"
-        );
+        contributorRegistry.register(ContributorRegistry.ContributorType.ORGANIZATION, "ipfs://QmProfile2");
 
         assertEq(contributorRegistry.getContributorCount(), 2);
     }
@@ -424,27 +332,17 @@ contract DeepFundingTest is Test {
         bytes32 GITHUB_PLATFORM = keccak256("github");
 
         vm.prank(contributor1);
-        bytes32 contributorId = contributorRegistry.register(
-            ContributorRegistry.ContributorType.INDIVIDUAL,
-            "ipfs://QmProfile1"
-        );
+        bytes32 contributorId =
+            contributorRegistry.register(ContributorRegistry.ContributorType.INDIVIDUAL, "ipfs://QmProfile1");
 
         // Not verified initially
         assertFalse(contributorRegistry.isVerifiedGitHub(contributorId));
 
         vm.prank(contributor1);
-        contributorRegistry.addSocialLink(
-            contributorId,
-            GITHUB_PLATFORM,
-            "testuser"
-        );
+        contributorRegistry.addSocialLink(contributorId, GITHUB_PLATFORM, "testuser");
 
         vm.prank(verifier);
-        contributorRegistry.verifySocialLink(
-            contributorId,
-            GITHUB_PLATFORM,
-            keccak256("proof")
-        );
+        contributorRegistry.verifySocialLink(contributorId, GITHUB_PLATFORM, keccak256("proof"));
 
         // Now verified
         assertTrue(contributorRegistry.isVerifiedGitHub(contributorId));
@@ -495,4 +393,3 @@ contract DeepFundingTest is Test {
         assertTrue(normalizedSum <= 10000);
     }
 }
-

@@ -52,4 +52,3 @@ interface ICouncilGovernance {
     function markCompleted(bytes32 proposalId) external;
     function markFailed(bytes32 proposalId, string calldata reason) external;
 }
-

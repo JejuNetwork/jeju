@@ -17,12 +17,7 @@ abstract contract Moderated is AgentGated {
     error AddressIsBanned(address account);
     error AgentIdIsBanned(uint256 agentId);
 
-
-    constructor(
-        address _identityRegistry,
-        address _banManager,
-        address _owner
-    ) AgentGated(_identityRegistry, _owner) {
+    constructor(address _identityRegistry, address _banManager, address _owner) AgentGated(_identityRegistry, _owner) {
         if (_banManager != address(0)) {
             moderation.setBanManager(_banManager);
         }
@@ -44,7 +39,7 @@ abstract contract Moderated is AgentGated {
     modifier fullAccessCheck(address account) {
         _requireAgent(account);
         if (moderation.isAddressBanned(account)) revert AddressIsBanned(account);
-        
+
         uint256 agentId = _findAgentForAddress(account);
         if (agentId > 0 && moderation.isAgentBanned(agentId)) {
             revert AgentIdIsBanned(agentId);
@@ -76,12 +71,12 @@ abstract contract Moderated is AgentGated {
             if (address(identityRegistry) == address(0)) {
                 return (false, "No identity registry");
             }
-            
+
             uint256 agentId = _findAgentForAddress(account);
             if (agentId == 0) {
                 return (false, "Agent registration required");
             }
-            
+
             if (_isAgentBanned(agentId)) {
                 return (false, "Agent is banned");
             }

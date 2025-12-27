@@ -143,7 +143,13 @@ contract TokenVestingTest is Test {
 
         vm.expectRevert(TokenVesting.ZeroAddress.selector);
         vesting.createSchedule(
-            address(0), VESTING_AMOUNT, CLIFF_DURATION, VESTING_DURATION, TGE_UNLOCK_PERCENT, true, TokenVesting.VestingCategory.Team
+            address(0),
+            VESTING_AMOUNT,
+            CLIFF_DURATION,
+            VESTING_DURATION,
+            TGE_UNLOCK_PERCENT,
+            true,
+            TokenVesting.VestingCategory.Team
         );
         vm.stopPrank();
     }
@@ -154,7 +160,13 @@ contract TokenVestingTest is Test {
 
         vm.expectRevert(TokenVesting.ZeroAmount.selector);
         vesting.createSchedule(
-            beneficiary1, 0, CLIFF_DURATION, VESTING_DURATION, TGE_UNLOCK_PERCENT, true, TokenVesting.VestingCategory.Team
+            beneficiary1,
+            0,
+            CLIFF_DURATION,
+            VESTING_DURATION,
+            TGE_UNLOCK_PERCENT,
+            true,
+            TokenVesting.VestingCategory.Team
         );
         vm.stopPrank();
     }
@@ -227,7 +239,13 @@ contract TokenVestingTest is Test {
         vm.startPrank(owner);
         vesting.startTGE(block.timestamp);
         vesting.createSchedulesBatch(
-            beneficiaries, amounts, CLIFF_DURATION, VESTING_DURATION, TGE_UNLOCK_PERCENT, true, TokenVesting.VestingCategory.Advisors
+            beneficiaries,
+            amounts,
+            CLIFF_DURATION,
+            VESTING_DURATION,
+            TGE_UNLOCK_PERCENT,
+            true,
+            TokenVesting.VestingCategory.Advisors
         );
         vm.stopPrank();
 
@@ -467,7 +485,13 @@ contract TokenVestingTest is Test {
         vesting.startTGE(block.timestamp);
 
         bytes32 scheduleId = vesting.createSchedule(
-            beneficiary1, VESTING_AMOUNT, CLIFF_DURATION, VESTING_DURATION, TGE_UNLOCK_PERCENT, true, TokenVesting.VestingCategory.Team
+            beneficiary1,
+            VESTING_AMOUNT,
+            CLIFF_DURATION,
+            VESTING_DURATION,
+            TGE_UNLOCK_PERCENT,
+            true,
+            TokenVesting.VestingCategory.Team
         );
 
         vesting.revoke(scheduleId);
@@ -486,7 +510,13 @@ contract TokenVestingTest is Test {
         vesting.startTGE(block.timestamp);
 
         bytes32 scheduleId = vesting.createSchedule(
-            beneficiary1, VESTING_AMOUNT, CLIFF_DURATION, VESTING_DURATION, TGE_UNLOCK_PERCENT, true, TokenVesting.VestingCategory.Team
+            beneficiary1,
+            VESTING_AMOUNT,
+            CLIFF_DURATION,
+            VESTING_DURATION,
+            TGE_UNLOCK_PERCENT,
+            true,
+            TokenVesting.VestingCategory.Team
         );
         vm.stopPrank();
 
@@ -500,7 +530,13 @@ contract TokenVestingTest is Test {
         vesting.startTGE(block.timestamp);
 
         bytes32 scheduleId = vesting.createSchedule(
-            beneficiary1, VESTING_AMOUNT, CLIFF_DURATION, VESTING_DURATION, TGE_UNLOCK_PERCENT, true, TokenVesting.VestingCategory.Team
+            beneficiary1,
+            VESTING_AMOUNT,
+            CLIFF_DURATION,
+            VESTING_DURATION,
+            TGE_UNLOCK_PERCENT,
+            true,
+            TokenVesting.VestingCategory.Team
         );
         vm.stopPrank();
 
@@ -515,7 +551,13 @@ contract TokenVestingTest is Test {
         vesting.startTGE(block.timestamp);
 
         vesting.createSchedule(
-            beneficiary1, VESTING_AMOUNT, CLIFF_DURATION, VESTING_DURATION, TGE_UNLOCK_PERCENT, true, TokenVesting.VestingCategory.Team
+            beneficiary1,
+            VESTING_AMOUNT,
+            CLIFF_DURATION,
+            VESTING_DURATION,
+            TGE_UNLOCK_PERCENT,
+            true,
+            TokenVesting.VestingCategory.Team
         );
 
         vesting.createSchedule(
@@ -527,7 +569,3 @@ contract TokenVestingTest is Test {
         assertEq(schedules.length, 2);
     }
 }
-
-
-
-

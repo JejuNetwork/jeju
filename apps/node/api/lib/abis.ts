@@ -636,6 +636,149 @@ export const PROXY_REGISTRY_ABI = [
   },
 ] as const
 
+export const DATABASE_PROVIDER_ABI = [
+  {
+    type: 'function',
+    name: 'registerProvider',
+    inputs: [
+      { name: 'endpoint', type: 'string' },
+      { name: 'capacity', type: 'uint256' },
+      { name: 'pricePerGBMonth', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'getProvider',
+    inputs: [{ name: 'provider', type: 'address' }],
+    outputs: [
+      { name: 'endpoint', type: 'string' },
+      { name: 'capacity', type: 'uint256' },
+      { name: 'used', type: 'uint256' },
+      { name: 'pricePerGBMonth', type: 'uint256' },
+      { name: 'stake', type: 'uint256' },
+      { name: 'hostedDatabases', type: 'uint256' },
+      { name: 'totalQueriesServed', type: 'uint256' },
+      { name: 'isActive', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'updateCapacity',
+    inputs: [{ name: 'newCapacity', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'updatePrice',
+    inputs: [{ name: 'newPrice', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'hostDatabase',
+    inputs: [{ name: 'databaseId', type: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'unhostDatabase',
+    inputs: [{ name: 'databaseId', type: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'reportQueryMetrics',
+    inputs: [
+      { name: 'queriesServed', type: 'uint256' },
+      { name: 'bytesTransferred', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'claimRewards',
+    inputs: [],
+    outputs: [{ name: 'amount', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'pendingRewards',
+    inputs: [{ name: 'provider', type: 'address' }],
+    outputs: [{ name: 'amount', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'addStake',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'withdrawStake',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'deactivate',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getActiveProviders',
+    inputs: [],
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getProvidersForDatabase',
+    inputs: [{ name: 'databaseId', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'event',
+    name: 'ProviderRegistered',
+    inputs: [
+      { name: 'provider', type: 'address', indexed: true },
+      { name: 'endpoint', type: 'string', indexed: false },
+      { name: 'capacity', type: 'uint256', indexed: false },
+      { name: 'stake', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'DatabaseHosted',
+    inputs: [
+      { name: 'provider', type: 'address', indexed: true },
+      { name: 'databaseId', type: 'bytes32', indexed: true },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'RewardsClaimed',
+    inputs: [
+      { name: 'provider', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+    ],
+  },
+] as const
+
 export const VPN_REGISTRY_ABI = [
   {
     type: 'function',

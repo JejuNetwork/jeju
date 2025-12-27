@@ -38,23 +38,25 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
     // ============ Enums ============
 
     enum ProposalStatus {
-        PENDING_MARKET,      // Prediction market voting
-        MARKET_PASSED,       // Market confidence met
-        AUTOCRAT_REVIEW,     // AI DAO reviewing
-        APPROVED,            // AI approved, in timelock
-        ACTIVE,              // Network is VERIFIED
-        REJECTED,            // Did not pass market or AI review
-        CHALLENGED,          // Under guardian review
-        REVOKED              // VERIFIED status revoked
+        PENDING_MARKET, // Prediction market voting
+        MARKET_PASSED, // Market confidence met
+        AUTOCRAT_REVIEW, // AI DAO reviewing
+        APPROVED, // AI approved, in timelock
+        ACTIVE, // Network is VERIFIED
+        REJECTED, // Did not pass market or AI review
+        CHALLENGED, // Under guardian review
+        REVOKED // VERIFIED status revoked
+
     }
 
     enum ChallengeReason {
-        SYBIL_SUSPECTED,     // Multiple networks from same operator
-        DOWNTIME,            // Network unresponsive
-        MALICIOUS_BEHAVIOR,  // Evidence of malicious activity
-        INVALID_GENESIS,     // Genesis hash mismatch
-        RPC_FAILURE,         // RPC endpoints not working
-        OTHER                // Other reason with evidence
+        SYBIL_SUSPECTED, // Multiple networks from same operator
+        DOWNTIME, // Network unresponsive
+        MALICIOUS_BEHAVIOR, // Evidence of malicious activity
+        INVALID_GENESIS, // Genesis hash mismatch
+        RPC_FAILURE, // RPC endpoints not working
+        OTHER // Other reason with evidence
+
     }
 
     // ============ Structs ============
@@ -165,17 +167,8 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
 
     // ============ Events ============
 
-    event ProposalCreated(
-        bytes32 indexed proposalId,
-        uint256 indexed chainId,
-        address indexed operator,
-        uint256 stake
-    );
-    event ProposalStatusChanged(
-        bytes32 indexed proposalId,
-        ProposalStatus oldStatus,
-        ProposalStatus newStatus
-    );
+    event ProposalCreated(bytes32 indexed proposalId, uint256 indexed chainId, address indexed operator, uint256 stake);
+    event ProposalStatusChanged(bytes32 indexed proposalId, ProposalStatus oldStatus, ProposalStatus newStatus);
     event AIEvaluationReceived(
         bytes32 indexed proposalId,
         uint8 uptimeScore,
@@ -184,30 +177,15 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
         uint8 operatorReputationScore,
         uint8 overallScore
     );
-    event AutocratDecision(
-        bytes32 indexed proposalId,
-        bool approved,
-        bytes32 decisionHash,
-        string reason
-    );
+    event AutocratDecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash, string reason);
     event NetworkVerified(uint256 indexed chainId, address indexed operator);
     event NetworkRevoked(uint256 indexed chainId, string reason);
 
     event ChallengeCreated(
-        bytes32 indexed challengeId,
-        uint256 indexed chainId,
-        address indexed challenger,
-        ChallengeReason reason
+        bytes32 indexed challengeId, uint256 indexed chainId, address indexed challenger, ChallengeReason reason
     );
-    event ChallengeVoted(
-        bytes32 indexed challengeId,
-        address indexed guardian,
-        bool upheld
-    );
-    event ChallengeResolved(
-        bytes32 indexed challengeId,
-        bool upheld
-    );
+    event ChallengeVoted(bytes32 indexed challengeId, address indexed guardian, bool upheld);
+    event ChallengeResolved(bytes32 indexed challengeId, bool upheld);
 
     event GuardianAdded(address indexed guardian, uint256 agentId);
     event GuardianRemoved(address indexed guardian);
@@ -270,11 +248,10 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
      * @param operator The network operator address
      * @param stake Amount staked
      */
-    function createNetworkProposal(
-        uint256 chainId,
-        address operator,
-        uint256 stake
-    ) external returns (bytes32 proposalId) {
+    function createNetworkProposal(uint256 chainId, address operator, uint256 stake)
+        external
+        returns (bytes32 proposalId)
+    {
         // Only NetworkRegistry can create proposals
         require(msg.sender == address(networkRegistry), "Only NetworkRegistry");
         if (stake < MIN_STAKE_FOR_PROPOSAL) revert InsufficientStake();
@@ -285,12 +262,7 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
         if (history.isBanned) revert OperatorIsBanned();
         if (history.totalNetworks >= MAX_NETWORKS_PER_OPERATOR) revert TooManyNetworks();
 
-        proposalId = keccak256(abi.encodePacked(
-            chainId,
-            operator,
-            stake,
-            block.timestamp
-        ));
+        proposalId = keccak256(abi.encodePacked(chainId, operator, stake, block.timestamp));
 
         // Create prediction market for this network
         bytes32 marketId = _createPredictionMarket(chainId, operator);
@@ -321,10 +293,7 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Creates a prediction market for network approval
      */
-    function _createPredictionMarket(
-        uint256 chainId,
-        address operator
-    ) internal returns (bytes32 marketId) {
+    function _createPredictionMarket(uint256 chainId, address operator) internal returns (bytes32 marketId) {
         // Market ID derived from chain
         marketId = keccak256(abi.encodePacked("NETWORK_APPROVAL", chainId, block.timestamp));
 
@@ -364,19 +333,14 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
 
         // Calculate overall score (weighted average)
         proposal.overallScore = uint8(
-            (uint256(uptimeScore) * 30 +
-             uint256(uniquenessScore) * 25 +
-             uint256(rpcHealthScore) * 25 +
-             uint256(operatorReputationScore) * 20) / 100
+            (
+                uint256(uptimeScore) * 30 + uint256(uniquenessScore) * 25 + uint256(rpcHealthScore) * 25
+                    + uint256(operatorReputationScore) * 20
+            ) / 100
         );
 
         emit AIEvaluationReceived(
-            proposalId,
-            uptimeScore,
-            uniquenessScore,
-            rpcHealthScore,
-            operatorReputationScore,
-            proposal.overallScore
+            proposalId, uptimeScore, uniquenessScore, rpcHealthScore, operatorReputationScore, proposal.overallScore
         );
     }
 
@@ -424,16 +388,15 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
             // Fallback for testing only
             return 7000;
         }
-        
+
         // Try TWAP first: getTWAPData(bytes32) returns (count, avgYes, avgNo, start, end, ready)
-        (bool success, bytes memory data) = predictionMarket.staticcall(
-            abi.encodeWithSignature("getTWAPData(bytes32)", marketId)
-        );
-        
+        (bool success, bytes memory data) =
+            predictionMarket.staticcall(abi.encodeWithSignature("getTWAPData(bytes32)", marketId));
+
         if (success && data.length >= 192) {
-            (uint256 count, uint256 avgYes, uint256 avgNo,, , bool ready) = 
+            (uint256 count, uint256 avgYes, uint256 avgNo,,, bool ready) =
                 abi.decode(data, (uint256, uint256, uint256, uint256, uint256, bool));
-            
+
             if (ready && count >= 2) {
                 uint256 total = avgYes + avgNo;
                 if (total > 0) {
@@ -441,12 +404,10 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
                 }
             }
         }
-        
+
         // Fallback: instant price via getMarketPrices(bytes32)
-        (success, data) = predictionMarket.staticcall(
-            abi.encodeWithSignature("getMarketPrices(bytes32)", marketId)
-        );
-        
+        (success, data) = predictionMarket.staticcall(abi.encodeWithSignature("getMarketPrices(bytes32)", marketId));
+
         if (success && data.length >= 64) {
             (uint256 yesPrice, uint256 noPrice) = abi.decode(data, (uint256, uint256));
             uint256 total = yesPrice + noPrice;
@@ -454,7 +415,7 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
                 return (yesPrice * 10000) / total;
             }
         }
-        
+
         return 5000; // Neutral if no market data
     }
 
@@ -468,12 +429,9 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
      * @param decisionHash IPFS hash of full decision rationale
      * @param reason Brief reason for decision
      */
-    function submitAutocratDecision(
-        bytes32 proposalId,
-        bool approved,
-        bytes32 decisionHash,
-        string calldata reason
-    ) external {
+    function submitAutocratDecision(bytes32 proposalId, bool approved, bytes32 decisionHash, string calldata reason)
+        external
+    {
         // Only Council governance can submit Autocrat decisions
         require(msg.sender == address(councilGovernance), "Only CouncilGovernance");
 
@@ -546,11 +504,12 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
      * @param reason Reason for challenge
      * @param evidence IPFS hash of evidence
      */
-    function challengeNetwork(
-        uint256 chainId,
-        ChallengeReason reason,
-        string calldata evidence
-    ) external payable nonReentrant returns (bytes32 challengeId) {
+    function challengeNetwork(uint256 chainId, ChallengeReason reason, string calldata evidence)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 challengeId)
+    {
         if (msg.value < CHALLENGE_BOND) revert ChallengeBondRequired();
 
         bytes32 proposalId = chainIdToProposal[chainId];
@@ -739,9 +698,8 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
         require(block.timestamp >= lastRotation + rotationInterval, "Too soon");
         require(verifiedChainIds.length > 0, "No verified chains");
 
-        uint256 oldChainId = verifiedChainIds.length > currentSequencerIndex
-            ? verifiedChainIds[currentSequencerIndex]
-            : 0;
+        uint256 oldChainId =
+            verifiedChainIds.length > currentSequencerIndex ? verifiedChainIds[currentSequencerIndex] : 0;
 
         currentSequencerIndex = (currentSequencerIndex + 1) % verifiedChainIds.length;
         uint256 newChainId = verifiedChainIds[currentSequencerIndex];
@@ -770,38 +728,38 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
 
     // ============ View Functions ============
 
-    function getProposal(bytes32 proposalId) external view returns (
-        uint256 chainId,
-        address operator,
-        uint256 stake,
-        ProposalStatus status,
-        uint8 overallScore,
-        bool autocratApproved,
-        uint256 timelockEnds
-    ) {
+    function getProposal(bytes32 proposalId)
+        external
+        view
+        returns (
+            uint256 chainId,
+            address operator,
+            uint256 stake,
+            ProposalStatus status,
+            uint8 overallScore,
+            bool autocratApproved,
+            uint256 timelockEnds
+        )
+    {
         NetworkProposal storage p = proposals[proposalId];
-        return (
-            p.chainId,
-            p.operator,
-            p.stake,
-            p.status,
-            p.overallScore,
-            p.autocratApproved,
-            p.timelockEnds
-        );
+        return (p.chainId, p.operator, p.stake, p.status, p.overallScore, p.autocratApproved, p.timelockEnds);
     }
 
-    function getChallenge(bytes32 challengeId) external view returns (
-        uint256 chainId,
-        address challenger,
-        ChallengeReason reason,
-        string memory evidence,
-        uint256 challengeBond,
-        bool resolved,
-        bool upheld,
-        uint256 voteCount,
-        uint256 approveCount
-    ) {
+    function getChallenge(bytes32 challengeId)
+        external
+        view
+        returns (
+            uint256 chainId,
+            address challenger,
+            ChallengeReason reason,
+            string memory evidence,
+            uint256 challengeBond,
+            bool resolved,
+            bool upheld,
+            uint256 voteCount,
+            uint256 approveCount
+        )
+    {
         Challenge storage c = _challenges[challengeId];
         return (
             c.chainId,
@@ -816,21 +774,19 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
         );
     }
 
-    function getOperatorHistory(address operator) external view returns (
-        uint256 totalNetworks,
-        uint256 approvedNetworks,
-        uint256 rejectedNetworks,
-        uint256 revokedNetworks,
-        bool isBanned
-    ) {
+    function getOperatorHistory(address operator)
+        external
+        view
+        returns (
+            uint256 totalNetworks,
+            uint256 approvedNetworks,
+            uint256 rejectedNetworks,
+            uint256 revokedNetworks,
+            bool isBanned
+        )
+    {
         OperatorHistory storage h = operatorHistories[operator];
-        return (
-            h.totalNetworks,
-            h.approvedNetworks,
-            h.rejectedNetworks,
-            h.revokedNetworks,
-            h.isBanned
-        );
+        return (h.totalNetworks, h.approvedNetworks, h.rejectedNetworks, h.revokedNetworks, h.isBanned);
     }
 
     function getVerifiedChainIds() external view returns (uint256[] memory) {
@@ -878,4 +834,3 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
 
     receive() external payable {}
 }
-

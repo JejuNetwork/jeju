@@ -137,12 +137,10 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount to stake
      * @param agentId Optional ERC-8004 agent ID (0 to skip)
      */
-    function _stakeETH(
-        BaseStakePosition storage position,
-        address user,
-        uint256 amount,
-        uint256 agentId
-    ) internal notBanned(user) {
+    function _stakeETH(BaseStakePosition storage position, address user, uint256 amount, uint256 agentId)
+        internal
+        notBanned(user)
+    {
         if (amount == 0) revert ZeroAmount();
 
         bool wasActive = position.isActive;
@@ -206,11 +204,7 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
      * @param user User address
      * @param amount Amount to unbond
      */
-    function _startUnbonding(
-        BaseStakePosition storage position,
-        address user,
-        uint256 amount
-    ) internal {
+    function _startUnbonding(BaseStakePosition storage position, address user, uint256 amount) internal {
         if (position.isFrozen) revert StakeFrozenError();
         if (position.isSlashed) revert StakeSlashedError();
         if (amount == 0) revert ZeroAmount();
@@ -230,10 +224,7 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
      * @param position Storage pointer to user's position
      * @param user User address
      */
-    function _completeUnstakingETH(
-        BaseStakePosition storage position,
-        address user
-    ) internal {
+    function _completeUnstakingETH(BaseStakePosition storage position, address user) internal {
         if (position.isFrozen) revert StakeFrozenError();
         if (position.unbondingStartTime == 0) revert NotUnbonding();
         if (block.timestamp < position.unbondingStartTime + unbondingPeriod) revert UnbondingNotComplete();
@@ -259,11 +250,7 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
      * @param user User address
      * @param token Token to return
      */
-    function _completeUnstakingToken(
-        BaseStakePosition storage position,
-        address user,
-        IERC20 token
-    ) internal {
+    function _completeUnstakingToken(BaseStakePosition storage position, address user, IERC20 token) internal {
         if (position.isFrozen) revert StakeFrozenError();
         if (position.unbondingStartTime == 0) revert NotUnbonding();
         if (block.timestamp < position.unbondingStartTime + unbondingPeriod) revert UnbondingNotComplete();
@@ -285,11 +272,7 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Link an ERC-8004 agent to position
      */
-    function _linkAgentInternal(
-        BaseStakePosition storage position,
-        address user,
-        uint256 agentId
-    ) internal {
+    function _linkAgentInternal(BaseStakePosition storage position, address user, uint256 agentId) internal {
         if (position.agentId != 0) revert AgentAlreadyLinked();
 
         // Verify ownership if registry is set
@@ -309,11 +292,10 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
      * @param user User address
      * @param reason Reason for freezing
      */
-    function _freezeStake(
-        BaseStakePosition storage position,
-        address user,
-        string calldata reason
-    ) internal onlyModerator {
+    function _freezeStake(BaseStakePosition storage position, address user, string calldata reason)
+        internal
+        onlyModerator
+    {
         if (position.isFrozen) revert StakeFrozenError();
         position.isFrozen = true;
         emit StakeFrozen(user, reason, msg.sender);
@@ -324,10 +306,7 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
      * @param position Storage pointer to user's position
      * @param user User address
      */
-    function _unfreezeStake(
-        BaseStakePosition storage position,
-        address user
-    ) internal onlyModerator {
+    function _unfreezeStake(BaseStakePosition storage position, address user) internal onlyModerator {
         if (!position.isFrozen) revert StakeNotFrozen();
         position.isFrozen = false;
         emit StakeUnfrozen(user, msg.sender);
@@ -340,12 +319,10 @@ abstract contract BaseStaking is Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount to slash
      * @param reason Reason for slashing
      */
-    function _slashETH(
-        BaseStakePosition storage position,
-        address user,
-        uint256 amount,
-        string calldata reason
-    ) internal onlyModerator {
+    function _slashETH(BaseStakePosition storage position, address user, uint256 amount, string calldata reason)
+        internal
+        onlyModerator
+    {
         uint256 slashable = position.amount;
         uint256 toSlash = amount > slashable ? slashable : amount;
         if (toSlash == 0) revert ZeroAmount();

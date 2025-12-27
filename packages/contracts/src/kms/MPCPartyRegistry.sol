@@ -25,32 +25,32 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
     // ============ Structs ============
 
     struct MPCParty {
-        uint256 agentId;              // ERC-8004 IdentityRegistry agent ID
-        address partyAddress;         // EOA that controls this party
-        string endpoint;              // HTTP endpoint for MPC protocol
-        bytes32 attestationHash;      // Hash of TEE attestation quote
-        uint256 attestationExpiry;    // When attestation expires
-        string teePlatform;           // "intel_tdx", "amd_sev", "phala"
-        uint256 stakedAmount;         // Staked tokens for slashing
+        uint256 agentId; // ERC-8004 IdentityRegistry agent ID
+        address partyAddress; // EOA that controls this party
+        string endpoint; // HTTP endpoint for MPC protocol
+        bytes32 attestationHash; // Hash of TEE attestation quote
+        uint256 attestationExpiry; // When attestation expires
+        string teePlatform; // "intel_tdx", "amd_sev", "phala"
+        uint256 stakedAmount; // Staked tokens for slashing
         PartyStatus status;
         uint256 registeredAt;
         uint256 lastHeartbeat;
-        uint256 signaturesProvided;   // Total signatures this party contributed to
-        uint256 slashCount;           // Number of times slashed
+        uint256 signaturesProvided; // Total signatures this party contributed to
+        uint256 slashCount; // Number of times slashed
     }
 
     struct MPCCluster {
         bytes32 clusterId;
-        string name;                  // Human-readable name
-        uint256 threshold;            // Minimum parties needed to sign (t)
-        uint256 totalParties;         // Total parties in cluster (n)
-        uint256[] partyAgentIds;      // Agent IDs of parties in this cluster
-        bytes groupPublicKey;         // Aggregated public key
-        address derivedAddress;       // Ethereum address derived from public key
-        address owner;                // Who created/owns this cluster
+        string name; // Human-readable name
+        uint256 threshold; // Minimum parties needed to sign (t)
+        uint256 totalParties; // Total parties in cluster (n)
+        uint256[] partyAgentIds; // Agent IDs of parties in this cluster
+        bytes groupPublicKey; // Aggregated public key
+        address derivedAddress; // Ethereum address derived from public key
+        address owner; // Who created/owns this cluster
         uint256 createdAt;
         ClusterStatus status;
-        uint256 signaturesCompleted;  // Total signatures produced
+        uint256 signaturesCompleted; // Total signatures produced
     }
 
     struct SigningSession {
@@ -64,19 +64,35 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
         uint256 sharesCollected;
     }
 
-    enum PartyStatus { Inactive, Active, Slashed, Exiting }
-    enum ClusterStatus { Pending, Active, Rotating, Dissolved }
-    enum SessionStatus { Pending, Signing, Complete, Expired, Failed }
+    enum PartyStatus {
+        Inactive,
+        Active,
+        Slashed,
+        Exiting
+    }
+    enum ClusterStatus {
+        Pending,
+        Active,
+        Rotating,
+        Dissolved
+    }
+    enum SessionStatus {
+        Pending,
+        Signing,
+        Complete,
+        Expired,
+        Failed
+    }
 
     // ============ State ============
 
     IIdentityRegistry public identityRegistry;
     IERC20 public stakeToken;
 
-    mapping(uint256 => MPCParty) public parties;           // agentId => Party
-    mapping(bytes32 => MPCCluster) public clusters;        // clusterId => Cluster
-    mapping(bytes32 => SigningSession) public sessions;    // sessionId => Session
-    mapping(address => uint256) public addressToAgentId;   // party address => agentId
+    mapping(uint256 => MPCParty) public parties; // agentId => Party
+    mapping(bytes32 => MPCCluster) public clusters; // clusterId => Cluster
+    mapping(bytes32 => SigningSession) public sessions; // sessionId => Session
+    mapping(address => uint256) public addressToAgentId; // party address => agentId
 
     uint256[] public activePartyIds;
     bytes32[] public activeClusterIds;
@@ -90,37 +106,25 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
 
     // Authorized services that can request signatures
     mapping(address => bool) public authorizedServices;
-    mapping(uint256 => bool) public authorizedServiceAgents;  // ERC-8004 agent IDs
+    mapping(uint256 => bool) public authorizedServiceAgents; // ERC-8004 agent IDs
 
     // ============ Events ============
 
-    event PartyRegistered(
-        uint256 indexed agentId,
-        address indexed partyAddress,
-        string endpoint,
-        string teePlatform
-    );
+    event PartyRegistered(uint256 indexed agentId, address indexed partyAddress, string endpoint, string teePlatform);
     event PartyStatusChanged(uint256 indexed agentId, PartyStatus oldStatus, PartyStatus newStatus);
     event AttestationRefreshed(uint256 indexed agentId, bytes32 attestationHash, uint256 expiresAt);
     event PartySlashed(uint256 indexed agentId, uint256 amount, string reason);
     event PartyExiting(uint256 indexed agentId, uint256 exitableAt);
 
     event ClusterCreated(
-        bytes32 indexed clusterId,
-        string name,
-        uint256 threshold,
-        uint256 totalParties,
-        address owner
+        bytes32 indexed clusterId, string name, uint256 threshold, uint256 totalParties, address owner
     );
     event ClusterKeyGenerated(bytes32 indexed clusterId, bytes groupPublicKey, address derivedAddress);
     event ClusterStatusChanged(bytes32 indexed clusterId, ClusterStatus oldStatus, ClusterStatus newStatus);
     event ClusterDissolved(bytes32 indexed clusterId);
 
     event SigningSessionCreated(
-        bytes32 indexed sessionId,
-        bytes32 indexed clusterId,
-        bytes32 messageHash,
-        address requester
+        bytes32 indexed sessionId, bytes32 indexed clusterId, bytes32 messageHash, address requester
     );
     event SigningSessionCompleted(bytes32 indexed sessionId, bytes signature);
     event SigningSessionFailed(bytes32 indexed sessionId, string reason);
@@ -148,11 +152,7 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _identityRegistry,
-        address _stakeToken,
-        uint256 _minPartyStake
-    ) Ownable(msg.sender) {
+    constructor(address _identityRegistry, address _stakeToken, uint256 _minPartyStake) Ownable(msg.sender) {
         identityRegistry = IIdentityRegistry(_identityRegistry);
         stakeToken = IERC20(_stakeToken);
         minPartyStake = _minPartyStake;
@@ -217,10 +217,7 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
     /**
      * @notice Refresh TEE attestation
      */
-    function refreshAttestation(
-        uint256 agentId,
-        bytes calldata attestation
-    ) external {
+    function refreshAttestation(uint256 agentId, bytes calldata attestation) external {
         MPCParty storage party = parties[agentId];
         if (party.partyAddress == address(0)) revert PartyNotFound();
         if (party.partyAddress != msg.sender) revert UnauthorizedService();
@@ -304,11 +301,10 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
      * @param threshold Minimum parties needed to sign (t)
      * @param partyAgentIds Agent IDs of parties to include
      */
-    function createCluster(
-        string calldata name,
-        uint256 threshold,
-        uint256[] calldata partyAgentIds
-    ) external returns (bytes32 clusterId) {
+    function createCluster(string calldata name, uint256 threshold, uint256[] calldata partyAgentIds)
+        external
+        returns (bytes32 clusterId)
+    {
         uint256 totalParties = partyAgentIds.length;
 
         if (threshold < 2) revert InvalidThreshold();
@@ -347,11 +343,7 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
      * @notice Set the group public key after distributed key generation
      * @dev Called by cluster owner after off-chain DKG completes
      */
-    function setClusterPublicKey(
-        bytes32 clusterId,
-        bytes calldata groupPublicKey,
-        address derivedAddress
-    ) external {
+    function setClusterPublicKey(bytes32 clusterId, bytes calldata groupPublicKey, address derivedAddress) external {
         MPCCluster storage cluster = clusters[clusterId];
         if (cluster.owner == address(0)) revert ClusterNotFound();
         if (cluster.owner != msg.sender) revert UnauthorizedService();
@@ -387,10 +379,7 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
      * @notice Request a signature from a cluster
      * @dev Only authorized services can request signatures
      */
-    function requestSignature(
-        bytes32 clusterId,
-        bytes32 messageHash
-    ) external returns (bytes32 sessionId) {
+    function requestSignature(bytes32 clusterId, bytes32 messageHash) external returns (bytes32 sessionId) {
         if (!authorizedServices[msg.sender] && !authorizedServiceAgents[addressToAgentId[msg.sender]]) {
             revert UnauthorizedService();
         }
@@ -417,10 +406,7 @@ contract MPCPartyRegistry is Ownable, ReentrancyGuard {
     /**
      * @notice Report signing session complete (called by coordinator)
      */
-    function reportSessionComplete(
-        bytes32 sessionId,
-        bytes calldata signature
-    ) external {
+    function reportSessionComplete(bytes32 sessionId, bytes calldata signature) external {
         SigningSession storage session = sessions[sessionId];
         if (session.requester == address(0)) revert SessionNotFound();
         if (session.status != SessionStatus.Pending && session.status != SessionStatus.Signing) {

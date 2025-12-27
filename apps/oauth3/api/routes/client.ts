@@ -196,8 +196,6 @@ export function createClientRouter(_config: AuthConfig) {
           createdAt: client.createdAt,
           tier: client.stake?.tier ?? ClientTier.FREE,
           reputationScore: client.reputation?.score,
-          // Flag if dev mode verification was used
-          devMode: stakeResult.devMode || reputationCheck.devMode,
         }
       },
       { body: RegisterClientBodySchema },

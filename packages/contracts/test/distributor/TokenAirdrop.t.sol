@@ -180,7 +180,3 @@ contract TokenAirdropTest is Test {
         assertEq(uint256(airdrop.TOTAL_DRIP_DAYS()) * uint256(airdrop.DRIP_PERCENT_BPS()), 10000);
     }
 }
-
-
-
-

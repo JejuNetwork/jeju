@@ -33,18 +33,19 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum RiskTier {
-        CONSERVATIVE,   // Low risk, low return
-        BALANCED,       // Medium risk, medium return
-        AGGRESSIVE      // High risk, high return
+        CONSERVATIVE, // Low risk, low return
+        BALANCED, // Medium risk, medium return
+        AGGRESSIVE // High risk, high return
+
     }
 
     struct SleeveConfig {
-        uint256 maxUtilizationBps;  // Max % of sleeve that can be utilized
-        uint256 minTokenRiskScore;  // Minimum risk score for tokens using this sleeve
-        uint256 baseYieldBps;       // Base yield for this sleeve
-        uint256 riskPremiumBps;     // Additional yield for higher risk
-        uint256 totalDeposited;     // Total ETH in this sleeve
-        uint256 totalUtilized;      // Amount currently in use
+        uint256 maxUtilizationBps; // Max % of sleeve that can be utilized
+        uint256 minTokenRiskScore; // Minimum risk score for tokens using this sleeve
+        uint256 baseYieldBps; // Base yield for this sleeve
+        uint256 riskPremiumBps; // Additional yield for higher risk
+        uint256 totalDeposited; // Total ETH in this sleeve
+        uint256 totalUtilized; // Amount currently in use
     }
 
     struct UserPosition {
@@ -70,19 +71,20 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
     IERC20 public rewardToken;
     uint256 public totalDeposits;
     uint256 public totalYieldDistributed;
-    
+
     // SECURITY: Timelocks for critical admin changes
     uint256 public constant RISK_SCORE_CHANGE_DELAY = 24 hours;
     uint256 public constant CONSUMER_CHANGE_DELAY = 12 hours;
-    
+
     struct PendingRiskScoreChange {
         address token;
         uint256 newScore;
         uint256 executeAfter;
         bool executed;
     }
+
     mapping(bytes32 => PendingRiskScoreChange) public pendingRiskScoreChanges;
-    
+
     struct PendingConsumerChange {
         address consumer;
         bool approved;
@@ -90,13 +92,14 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
         uint256 executeAfter;
         bool executed;
     }
+
     mapping(bytes32 => PendingConsumerChange) public pendingConsumerChanges;
-    
+
     event RiskScoreChangeProposed(bytes32 indexed changeId, address token, uint256 newScore, uint256 executeAfter);
     event RiskScoreChangeExecuted(bytes32 indexed changeId, address token, uint256 newScore);
     event ConsumerChangeProposed(bytes32 indexed changeId, address consumer, bool approved, uint256 executeAfter);
     event ConsumerChangeExecuted(bytes32 indexed changeId, address consumer, bool approved);
-    
+
     error ChangeNotFound();
     error ChangeNotReady();
     error ChangeAlreadyExecuted();
@@ -121,28 +124,28 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
 
         // Initialize sleeve configs
         sleeves[RiskTier.CONSERVATIVE] = SleeveConfig({
-            maxUtilizationBps: 2000,   // 20%
-            minTokenRiskScore: 80,      // Only high-safety tokens
-            baseYieldBps: 300,          // 3% base
+            maxUtilizationBps: 2000, // 20%
+            minTokenRiskScore: 80, // Only high-safety tokens
+            baseYieldBps: 300, // 3% base
             riskPremiumBps: 0,
             totalDeposited: 0,
             totalUtilized: 0
         });
 
         sleeves[RiskTier.BALANCED] = SleeveConfig({
-            maxUtilizationBps: 5000,   // 50%
-            minTokenRiskScore: 50,      // Medium-safety tokens
-            baseYieldBps: 500,          // 5% base
-            riskPremiumBps: 200,        // +2% risk premium
+            maxUtilizationBps: 5000, // 50%
+            minTokenRiskScore: 50, // Medium-safety tokens
+            baseYieldBps: 500, // 5% base
+            riskPremiumBps: 200, // +2% risk premium
             totalDeposited: 0,
             totalUtilized: 0
         });
 
         sleeves[RiskTier.AGGRESSIVE] = SleeveConfig({
-            maxUtilizationBps: 8000,   // 80%
-            minTokenRiskScore: 20,      // Most tokens
-            baseYieldBps: 800,          // 8% base
-            riskPremiumBps: 500,        // +5% risk premium
+            maxUtilizationBps: 8000, // 80%
+            minTokenRiskScore: 20, // Most tokens
+            baseYieldBps: 800, // 8% base
+            riskPremiumBps: 500, // +5% risk premium
             totalDeposited: 0,
             totalUtilized: 0
         });
@@ -329,13 +332,11 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
 
     // ============ View Functions ============
 
-    function getSleeveStats(RiskTier tier) external view returns (
-        uint256 deposited,
-        uint256 utilized,
-        uint256 available,
-        uint256 utilizationBps,
-        uint256 yieldBps
-    ) {
+    function getSleeveStats(RiskTier tier)
+        external
+        view
+        returns (uint256 deposited, uint256 utilized, uint256 available, uint256 utilizationBps, uint256 yieldBps)
+    {
         SleeveConfig storage sleeve = sleeves[tier];
         deposited = sleeve.totalDeposited;
         utilized = sleeve.totalUtilized;
@@ -344,11 +345,11 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
         yieldBps = sleeve.baseYieldBps + sleeve.riskPremiumBps;
     }
 
-    function getUserPosition(address user, RiskTier tier) external view returns (
-        uint256 deposited,
-        uint256 pendingYield,
-        uint256 depositDuration
-    ) {
+    function getUserPosition(address user, RiskTier tier)
+        external
+        view
+        returns (uint256 deposited, uint256 pendingYield, uint256 depositDuration)
+    {
         UserPosition storage position = positions[user][tier];
         deposited = position.amount;
         pendingYield = _calculateYield(user, tier) + position.accumulatedYield;
@@ -361,7 +362,7 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
     /// @dev SECURITY: Prevents instant risk score manipulation to drain liquidity
     function proposeTokenRiskScore(address token, uint256 score) public onlyOwner returns (bytes32 changeId) {
         require(score <= 100, "Score must be 0-100");
-        
+
         changeId = keccak256(abi.encodePacked(token, score, block.timestamp));
         pendingRiskScoreChanges[changeId] = PendingRiskScoreChange({
             token: token,
@@ -369,24 +370,24 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
             executeAfter: block.timestamp + RISK_SCORE_CHANGE_DELAY,
             executed: false
         });
-        
+
         emit RiskScoreChangeProposed(changeId, token, score, block.timestamp + RISK_SCORE_CHANGE_DELAY);
     }
-    
+
     /// @notice Execute pending risk score change
     function executeTokenRiskScore(bytes32 changeId) external {
         PendingRiskScoreChange storage change = pendingRiskScoreChanges[changeId];
         if (change.executeAfter == 0) revert ChangeNotFound();
         if (change.executed) revert ChangeAlreadyExecuted();
         if (block.timestamp < change.executeAfter) revert ChangeNotReady();
-        
+
         change.executed = true;
         tokenRiskScores[change.token] = change.newScore;
-        
+
         emit RiskScoreChangeExecuted(changeId, change.token, change.newScore);
         emit TokenRiskScoreSet(change.token, change.newScore);
     }
-    
+
     /// @notice Legacy setTokenRiskScore - now requires timelock
     function setTokenRiskScore(address token, uint256 score) external onlyOwner {
         proposeTokenRiskScore(token, score);
@@ -394,7 +395,11 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
 
     /// @notice Propose approving/revoking a consumer - requires 12-hour delay
     /// @dev SECURITY: Prevents instant unauthorized access to liquidity
-    function proposeApprovedConsumer(address consumer, bool approved, RiskTier maxTier) public onlyOwner returns (bytes32 changeId) {
+    function proposeApprovedConsumer(address consumer, bool approved, RiskTier maxTier)
+        public
+        onlyOwner
+        returns (bytes32 changeId)
+    {
         changeId = keccak256(abi.encodePacked(consumer, approved, maxTier, block.timestamp));
         pendingConsumerChanges[changeId] = PendingConsumerChange({
             consumer: consumer,
@@ -403,24 +408,24 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
             executeAfter: block.timestamp + CONSUMER_CHANGE_DELAY,
             executed: false
         });
-        
+
         emit ConsumerChangeProposed(changeId, consumer, approved, block.timestamp + CONSUMER_CHANGE_DELAY);
     }
-    
+
     /// @notice Execute pending consumer change
     function executeApprovedConsumer(bytes32 changeId) external {
         PendingConsumerChange storage change = pendingConsumerChanges[changeId];
         if (change.executeAfter == 0) revert ChangeNotFound();
         if (change.executed) revert ChangeAlreadyExecuted();
         if (block.timestamp < change.executeAfter) revert ChangeNotReady();
-        
+
         change.executed = true;
         approvedConsumers[change.consumer] = change.approved;
         consumerMaxTier[change.consumer] = change.maxTier;
-        
+
         emit ConsumerChangeExecuted(changeId, change.consumer, change.approved);
     }
-    
+
     /// @notice Legacy setApprovedConsumer - now requires timelock
     function setApprovedConsumer(address consumer, bool approved, RiskTier maxTier) external onlyOwner {
         proposeApprovedConsumer(consumer, approved, maxTier);
@@ -444,4 +449,3 @@ contract RiskSleeve is Ownable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

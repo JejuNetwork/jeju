@@ -322,4 +322,3 @@ contract GovernanceMixinTest is Test {
         assertEq(gotTL, tl);
     }
 }
-

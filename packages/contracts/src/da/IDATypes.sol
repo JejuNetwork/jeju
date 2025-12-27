@@ -90,43 +90,21 @@ interface IDATypes {
 
     // ============ Events ============
 
-    event OperatorRegistered(
-        address indexed operator,
-        uint256 indexed agentId,
-        uint256 stake,
-        string endpoint
-    );
+    event OperatorRegistered(address indexed operator, uint256 indexed agentId, uint256 stake, string endpoint);
 
     event OperatorUpdated(address indexed operator);
 
-    event OperatorSlashed(
-        address indexed operator,
-        uint256 slashAmount,
-        string reason
-    );
+    event OperatorSlashed(address indexed operator, uint256 slashAmount, string reason);
 
     event OperatorExited(address indexed operator, uint256 unstakeAmount);
 
-    event BlobSubmitted(
-        bytes32 indexed blobId,
-        address indexed submitter,
-        uint256 size,
-        bytes32 commitment
-    );
+    event BlobSubmitted(bytes32 indexed blobId, address indexed submitter, uint256 size, bytes32 commitment);
 
-    event BlobConfirmed(
-        bytes32 indexed blobId,
-        uint256 operatorCount,
-        bytes32 attestationHash
-    );
+    event BlobConfirmed(bytes32 indexed blobId, uint256 operatorCount, bytes32 attestationHash);
 
     event BlobExpired(bytes32 indexed blobId);
 
-    event AttestationSubmitted(
-        bytes32 indexed blobId,
-        address indexed operator,
-        uint256 chunkCount
-    );
+    event AttestationSubmitted(bytes32 indexed blobId, address indexed operator, uint256 chunkCount);
 
     // ============ Errors ============
 
@@ -143,4 +121,3 @@ interface IDATypes {
     error InvalidProof();
     error Unauthorized();
 }
-

@@ -23,14 +23,14 @@ interface IGovernableParameter {
      * @notice Describes a governable parameter
      */
     struct ParameterInfo {
-        bytes32 id;           // Unique parameter identifier
-        string name;          // Human-readable name
-        string description;   // Description of what it controls
-        ParameterType pType;  // Type of the parameter
-        uint256 minValue;     // Minimum allowed value (for numeric types)
-        uint256 maxValue;     // Maximum allowed value (for numeric types)
+        bytes32 id; // Unique parameter identifier
+        string name; // Human-readable name
+        string description; // Description of what it controls
+        ParameterType pType; // Type of the parameter
+        uint256 minValue; // Minimum allowed value (for numeric types)
+        uint256 maxValue; // Maximum allowed value (for numeric types)
         uint256 currentValue; // Current value (encoded as uint256)
-        bool requiresTimelock;// Whether changes require timelock
+        bool requiresTimelock; // Whether changes require timelock
     }
 
     enum ParameterType {
@@ -43,12 +43,7 @@ interface IGovernableParameter {
     /**
      * @notice Emitted when a parameter is updated via governance
      */
-    event ParameterUpdated(
-        bytes32 indexed parameterId,
-        uint256 oldValue,
-        uint256 newValue,
-        address indexed updatedBy
-    );
+    event ParameterUpdated(bytes32 indexed parameterId, uint256 oldValue, uint256 newValue, address indexed updatedBy);
 
     /**
      * @notice Get all governable parameters for this contract
@@ -201,4 +196,3 @@ abstract contract GovernableParameterBase is IGovernableParameter {
         pendingGovernance = address(0);
     }
 }
-

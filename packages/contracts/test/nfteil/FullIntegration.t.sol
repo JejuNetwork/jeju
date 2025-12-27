@@ -12,9 +12,9 @@ import {WrappedNFT} from "../../src/bridge/nfteil/WrappedNFT.sol";
 import {NFTPaymaster} from "../../src/bridge/nfteil/NFTPaymaster.sol";
 import {NFTInputSettler} from "../../src/bridge/nfteil/NFTInputSettler.sol";
 import {
-    NFTAssetType, 
-    WrappedNFTInfo, 
-    NFTVoucherRequest, 
+    NFTAssetType,
+    WrappedNFTInfo,
+    NFTVoucherRequest,
     NFTVoucher,
     NFTTransferOrderData,
     NFT_TRANSFER_ORDER_TYPE
@@ -40,14 +40,14 @@ contract MockMailbox {
 
     uint32 public localDomain;
     uint256 private _nonce;
-    
+
     struct Message {
         uint32 origin;
         bytes32 sender;
         bytes body;
         bool delivered;
     }
-    
+
     mapping(bytes32 => Message) public messages;
     bytes32[] public messageQueue;
 
@@ -58,27 +58,22 @@ contract MockMailbox {
         localDomain = _domain;
     }
 
-    function dispatch(
-        uint32 destinationDomain,
-        bytes32 recipientAddress,
-        bytes calldata messageBody
-    ) external payable returns (bytes32 messageId) {
-        messageId = keccak256(abi.encodePacked(
-            localDomain,
-            destinationDomain,
-            msg.sender,
-            recipientAddress,
-            _nonce++,
-            block.timestamp
-        ));
-        
+    function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        payable
+        returns (bytes32 messageId)
+    {
+        messageId = keccak256(
+            abi.encodePacked(localDomain, destinationDomain, msg.sender, recipientAddress, _nonce++, block.timestamp)
+        );
+
         messages[messageId] = Message({
             origin: localDomain,
             sender: bytes32(uint256(uint160(msg.sender))),
             body: messageBody,
             delivered: false
         });
-        
+
         messageQueue.push(messageId);
         emit MessageDispatched(messageId, destinationDomain, recipientAddress);
     }
@@ -104,24 +99,22 @@ contract MockMailbox {
 contract MockIGP {
     uint256 public baseFee = 0.0001 ether;
     uint256 public gasPrice = 20 gwei;
-    
+
     mapping(uint32 => uint256) public domainGasMultiplier;
-    
+
     event GasPaid(bytes32 indexed messageId, uint32 destination, uint256 amount);
 
     constructor() {
         // Set default multipliers
         domainGasMultiplier[1] = 100; // Ethereum mainnet - expensive
-        domainGasMultiplier[2] = 10;  // L2 - cheap
+        domainGasMultiplier[2] = 10; // L2 - cheap
         domainGasMultiplier[137] = 5; // Polygon - very cheap
     }
 
-    function payForGas(
-        bytes32 messageId,
-        uint32 destinationDomain,
-        uint256 gasAmount,
-        address /* refundAddress */
-    ) external payable {
+    function payForGas(bytes32 messageId, uint32 destinationDomain, uint256 gasAmount, address /* refundAddress */ )
+        external
+        payable
+    {
         uint256 required = quoteGasPayment(destinationDomain, gasAmount);
         require(msg.value >= required, "Insufficient gas payment");
         emit GasPaid(messageId, destinationDomain, msg.value);
@@ -142,7 +135,7 @@ contract MockOracle is IOracle {
     mapping(bytes32 => bool) public attestations;
     mapping(bytes32 => bytes) public attestationData;
     mapping(bytes32 => uint256) public attestationBlocks;
-    
+
     event Attested(bytes32 indexed orderId, bytes proof);
 
     function attest(bytes32 orderId, bytes calldata proof) external {
@@ -182,20 +175,16 @@ contract MockL1StakeManager {
         uint256 registeredAt;
         bool active;
     }
-    
+
     mapping(address => XLPStake) public stakes;
     uint256 public totalStaked;
-    
+
     event XLPRegistered(address indexed xlp, uint256 amount);
     event XLPSlashed(address indexed xlp, uint256 amount, bytes32 reason);
 
     function registerXLP(uint256 amount) external payable {
         require(msg.value >= amount, "Insufficient stake");
-        stakes[msg.sender] = XLPStake({
-            amount: amount,
-            registeredAt: block.timestamp,
-            active: true
-        });
+        stakes[msg.sender] = XLPStake({amount: amount, registeredAt: block.timestamp, active: true});
         totalStaked += amount;
         emit XLPRegistered(msg.sender, amount);
     }
@@ -342,7 +331,7 @@ contract FullIntegrationTest is Test {
         // Mint NFT
         vm.prank(owner);
         uint256 tokenId = nftL1.mint(user1, "ipfs://test-hyperlane");
-        
+
         // Get gas quote
         uint256 gasQuote = nftL1.quoteBridge(L2_DOMAIN, tokenId);
         console.log("Gas quote for L2:", gasQuote);
@@ -366,7 +355,7 @@ contract FullIntegrationTest is Test {
 
         // Get message data and deliver on destination
         (uint32 origin, bytes32 sender, bytes memory body) = mailboxL1.getMessage(messageId);
-        
+
         // Mailbox L2 calls handle (we use mailboxL2 as sender since nftL2 checks its mailbox)
         vm.prank(address(mailboxL2));
         nftL2.handle(origin, sender, body);
@@ -406,7 +395,7 @@ contract FullIntegrationTest is Test {
     }
 
     // =========================================================================
-    // EIL INTEGRATION TESTS  
+    // EIL INTEGRATION TESTS
     // =========================================================================
 
     function test_EIL_XLPRegistrationAndStake() public {
@@ -447,17 +436,9 @@ contract FullIntegrationTest is Test {
         // Create voucher request
         vm.startPrank(user1);
         nftL1.approve(address(nftPaymaster), tokenId);
-        
+
         bytes32 requestId = nftPaymaster.createNFTVoucherRequest{value: 0.01 ether}(
-            NFTAssetType.ERC721,
-            address(nftL1),
-            tokenId,
-            1,
-            L2_DOMAIN,
-            user1,
-            0.001 ether,
-            0.01 ether,
-            0.0001 ether
+            NFTAssetType.ERC721, address(nftL1), tokenId, 1, L2_DOMAIN, user1, 0.001 ether, 0.01 ether, 0.0001 ether
         );
         vm.stopPrank();
 
@@ -535,19 +516,11 @@ contract FullIntegrationTest is Test {
         // 2. User creates request
         vm.prank(owner);
         uint256 tokenId = nftL1.mint(user1, "ipfs://full-flow");
-        
+
         vm.startPrank(user1);
         nftL1.approve(address(nftPaymaster), tokenId);
         bytes32 requestId = nftPaymaster.createNFTVoucherRequest{value: 0.01 ether}(
-            NFTAssetType.ERC721,
-            address(nftL1),
-            tokenId,
-            1,
-            L2_DOMAIN,
-            user1,
-            0.001 ether,
-            0.01 ether,
-            0.0001 ether
+            NFTAssetType.ERC721, address(nftL1), tokenId, 1, L2_DOMAIN, user1, 0.001 ether, 0.01 ether, 0.0001 ether
         );
         vm.stopPrank();
 
@@ -556,16 +529,10 @@ contract FullIntegrationTest is Test {
 
         // 3. XLP issues voucher
         uint256 currentFee = nftPaymaster.getCurrentFee(requestId);
-        bytes32 commitment = keccak256(abi.encodePacked(
-            requestId,
-            xlp,
-            address(nftL1),
-            tokenId,
-            uint256(1),
-            currentFee,
-            uint256(L2_DOMAIN)
-        ));
-        
+        bytes32 commitment = keccak256(
+            abi.encodePacked(requestId, xlp, address(nftL1), tokenId, uint256(1), currentFee, uint256(L2_DOMAIN))
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpKey, commitment.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -715,15 +682,17 @@ contract FullIntegrationTest is Test {
         vm.stopPrank();
 
         // Get order ID (generated based on user, nonce, etc.)
-        bytes32 orderId = keccak256(abi.encodePacked(
-            user1,
-            uint256(0), // nonce
-            uint256(L1_DOMAIN),
-            address(nftL1),
-            tokenId,
-            uint256(L2_DOMAIN),
-            openBlock // Block when open was called
-        ));
+        bytes32 orderId = keccak256(
+            abi.encodePacked(
+                user1,
+                uint256(0), // nonce
+                uint256(L1_DOMAIN),
+                address(nftL1),
+                tokenId,
+                uint256(L2_DOMAIN),
+                openBlock // Block when open was called
+            )
+        );
 
         // 2. Solver claims order
         vm.prank(solver);
@@ -739,7 +708,7 @@ contract FullIntegrationTest is Test {
 
         // 5. Solver settles
         assertTrue(nftInputSettler.canSettle(orderId));
-        
+
         vm.prank(solver);
         nftInputSettler.settle(orderId);
 
@@ -789,15 +758,11 @@ contract FullIntegrationTest is Test {
         vm.stopPrank();
 
         // Calculate order ID
-        bytes32 orderId = keccak256(abi.encodePacked(
-            user1,
-            currentNonce,
-            uint256(L1_DOMAIN),
-            address(nftL1),
-            tokenId,
-            uint256(L2_DOMAIN),
-            openBlock
-        ));
+        bytes32 orderId = keccak256(
+            abi.encodePacked(
+                user1, currentNonce, uint256(L1_DOMAIN), address(nftL1), tokenId, uint256(L2_DOMAIN), openBlock
+            )
+        );
 
         assertFalse(nftInputSettler.canRefund(orderId));
 
@@ -841,12 +806,12 @@ contract FullIntegrationTest is Test {
 
         // 4. Verify on L2
         assertEq(nftL2.ownerOf(tokenId), user1);
-        
+
         // 5. Also create wrapped NFT entry (with different tokenId to avoid collision)
         uint256 wrappedTokenId = 999;
         vm.prank(owner);
         wrappedNFT.wrap(L1_DOMAIN, address(nftL1), wrappedTokenId, "ipfs://wrapped", user2);
-        
+
         // Both should exist
         assertEq(nftL2.ownerOf(tokenId), user1);
         assertEq(wrappedNFT.ownerOf(wrappedTokenId), user2);
@@ -881,11 +846,11 @@ contract FullIntegrationTest is Test {
         vm.startPrank(user1);
         bytes32 messageId = nftL1.bridgeNFT{value: gasQuote}(L2_DOMAIN, bytes32(uint256(uint160(user1))), nft1);
         vm.stopPrank();
-        
+
         (uint32 origin, bytes32 sender, bytes memory body) = mailboxL1.getMessage(messageId);
         vm.prank(address(mailboxL2));
         nftL2.handle(origin, sender, body);
-        
+
         assertEq(nftL2.ownerOf(nft1), user1);
         console.log("Path 1 (Hyperlane): NFT bridged");
 
@@ -893,15 +858,7 @@ contract FullIntegrationTest is Test {
         vm.startPrank(user1);
         nftL1.approve(address(nftPaymaster), nft2);
         bytes32 requestId = nftPaymaster.createNFTVoucherRequest{value: 0.01 ether}(
-            NFTAssetType.ERC721,
-            address(nftL1),
-            nft2,
-            1,
-            L2_DOMAIN,
-            user1,
-            0.001 ether,
-            0.01 ether,
-            0.0001 ether
+            NFTAssetType.ERC721, address(nftL1), nft2, 1, L2_DOMAIN, user1, 0.001 ether, 0.01 ether, 0.0001 ether
         );
         vm.stopPrank();
         assertEq(nftL1.ownerOf(nft2), address(nftPaymaster));
@@ -955,7 +912,7 @@ contract FullIntegrationTest is Test {
         // Setup activity
         vm.prank(xlp);
         l1StakeManager.registerXLP{value: 5 ether}(5 ether);
-        
+
         vm.prank(owner);
         uint256 tokenId = nftL1.mint(user1, "ipfs://stats");
 
@@ -965,7 +922,7 @@ contract FullIntegrationTest is Test {
 
         // Get stats
         (uint256 bridgedOut, uint256 bridgedIn, uint32 homeDomain, bool isHome) = nftL1.getCrossChainStats();
-        
+
         console.log("Home NFT Stats:");
         console.log("  Bridged out:", bridgedOut);
         console.log("  Bridged in:", bridgedIn);

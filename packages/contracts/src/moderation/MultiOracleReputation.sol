@@ -34,35 +34,35 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════
 
     struct OracleConfig {
-        string name;              // Oracle identifier
-        address oracleAddress;    // Oracle contract or signer
-        uint256 weight;           // Weight in aggregation (basis points)
-        bool isActive;            // Whether this oracle is active
-        uint256 minScore;         // Minimum score to be considered valid
-        uint256 maxScore;         // Maximum score for normalization
-        uint256 stalePeriod;      // Time after which score is stale
+        string name; // Oracle identifier
+        address oracleAddress; // Oracle contract or signer
+        uint256 weight; // Weight in aggregation (basis points)
+        bool isActive; // Whether this oracle is active
+        uint256 minScore; // Minimum score to be considered valid
+        uint256 maxScore; // Maximum score for normalization
+        uint256 stalePeriod; // Time after which score is stale
     }
 
     struct ReputationScore {
-        uint256 rawScore;         // Raw score from oracle
-        uint256 normalizedScore;  // Normalized to 0-10000 scale
-        uint256 timestamp;        // When score was fetched
-        bool isValid;             // Whether score is valid
+        uint256 rawScore; // Raw score from oracle
+        uint256 normalizedScore; // Normalized to 0-10000 scale
+        uint256 timestamp; // When score was fetched
+        bool isValid; // Whether score is valid
     }
 
     struct AggregatedReputation {
-        uint256 aggregatedScore;  // Final aggregated score (0-10000)
-        uint256 lastUpdated;      // Last aggregation timestamp
-        uint256 oracleCount;      // Number of oracles contributing
-        uint256 confidence;       // Confidence score based on oracle agreement
-        bool isValid;             // Whether aggregation is valid
+        uint256 aggregatedScore; // Final aggregated score (0-10000)
+        uint256 lastUpdated; // Last aggregation timestamp
+        uint256 oracleCount; // Number of oracles contributing
+        uint256 confidence; // Confidence score based on oracle agreement
+        bool isValid; // Whether aggregation is valid
     }
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    uint256 public constant MAX_SCORE = 10000;       // 100% in basis points
+    uint256 public constant MAX_SCORE = 10000; // 100% in basis points
     uint256 public constant MIN_ORACLES_FOR_VALID = 2; // Minimum oracles needed
     uint256 public constant DEFAULT_STALE_PERIOD = 7 days;
     uint256 public constant MAX_ORACLES = 10;
@@ -81,16 +81,16 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
 
     // oracleId => config
     mapping(uint8 => OracleConfig) public oracles;
-    
+
     // user => oracleId => score
     mapping(address => mapping(uint8 => ReputationScore)) public userScores;
-    
+
     // user => aggregated reputation
     mapping(address => AggregatedReputation) public aggregatedReputations;
-    
+
     // List of active oracle IDs
     uint8[] public activeOracleIds;
-    
+
     // Total weight of all active oracles
     uint256 public totalWeight;
 
@@ -98,32 +98,13 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
     //                              EVENTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    event OracleRegistered(
-        uint8 indexed oracleId,
-        string name,
-        address oracleAddress,
-        uint256 weight
-    );
+    event OracleRegistered(uint8 indexed oracleId, string name, address oracleAddress, uint256 weight);
 
-    event OracleUpdated(
-        uint8 indexed oracleId,
-        uint256 newWeight,
-        bool isActive
-    );
+    event OracleUpdated(uint8 indexed oracleId, uint256 newWeight, bool isActive);
 
-    event ScoreUpdated(
-        address indexed user,
-        uint8 indexed oracleId,
-        uint256 rawScore,
-        uint256 normalizedScore
-    );
+    event ScoreUpdated(address indexed user, uint8 indexed oracleId, uint256 rawScore, uint256 normalizedScore);
 
-    event ReputationAggregated(
-        address indexed user,
-        uint256 aggregatedScore,
-        uint256 oracleCount,
-        uint256 confidence
-    );
+    event ReputationAggregated(address indexed user, uint256 aggregatedScore, uint256 oracleCount, uint256 confidence);
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              ERRORS
@@ -179,17 +160,13 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
     /**
      * @notice Update oracle configuration
      */
-    function updateOracle(
-        uint8 oracleId,
-        uint256 newWeight,
-        bool isActive
-    ) external onlyOwner {
+    function updateOracle(uint8 oracleId, uint256 newWeight, bool isActive) external onlyOwner {
         OracleConfig storage oracle = oracles[oracleId];
         if (oracle.oracleAddress == address(0)) revert OracleNotFound();
 
         // Adjust total weight
         totalWeight = totalWeight - oracle.weight + newWeight;
-        
+
         oracle.weight = newWeight;
         oracle.isActive = isActive;
 
@@ -212,17 +189,15 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
      * @param rawScore The raw score from the oracle
      * @param signature Optional signature from oracle (for off-chain oracles)
      */
-    function submitScore(
-        address user,
-        uint8 oracleId,
-        uint256 rawScore,
-        bytes calldata signature
-    ) external nonReentrant {
+    function submitScore(address user, uint8 oracleId, uint256 rawScore, bytes calldata signature)
+        external
+        nonReentrant
+    {
         OracleConfig storage oracle = oracles[oracleId];
-        
+
         if (oracle.oracleAddress == address(0)) revert OracleNotFound();
         if (!oracle.isActive) revert OracleNotActive();
-        
+
         // Verify caller is authorized (either oracle contract or signed message)
         if (msg.sender != oracle.oracleAddress) {
             if (!_verifySignature(user, oracleId, rawScore, signature, oracle.oracleAddress)) {
@@ -232,7 +207,7 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
 
         // Normalize score
         uint256 normalizedScore = _normalizeScore(rawScore, oracle.minScore, oracle.maxScore);
-        
+
         userScores[user][oracleId] = ReputationScore({
             rawScore: rawScore,
             normalizedScore: normalizedScore,
@@ -249,20 +224,19 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
     /**
      * @notice Batch submit scores (for oracle operators)
      */
-    function batchSubmitScores(
-        address[] calldata users,
-        uint8 oracleId,
-        uint256[] calldata rawScores
-    ) external nonReentrant {
+    function batchSubmitScores(address[] calldata users, uint8 oracleId, uint256[] calldata rawScores)
+        external
+        nonReentrant
+    {
         OracleConfig storage oracle = oracles[oracleId];
-        
+
         if (msg.sender != oracle.oracleAddress) revert Unauthorized();
         if (!oracle.isActive) revert OracleNotActive();
         if (users.length != rawScores.length) revert InvalidScore();
 
         for (uint256 i = 0; i < users.length; i++) {
             uint256 normalizedScore = _normalizeScore(rawScores[i], oracle.minScore, oracle.maxScore);
-            
+
             userScores[users[i]][oracleId] = ReputationScore({
                 rawScore: rawScores[i],
                 normalizedScore: normalizedScore,
@@ -357,57 +331,43 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
     /**
      * @notice Get aggregated reputation for a user
      */
-    function getReputation(address user) external view returns (
-        uint256 score,
-        uint256 confidence,
-        uint256 oracleCount,
-        bool isValid
-    ) {
+    function getReputation(address user)
+        external
+        view
+        returns (uint256 score, uint256 confidence, uint256 oracleCount, bool isValid)
+    {
         AggregatedReputation storage rep = aggregatedReputations[user];
-        
+
         // Check if stale (any score older than 30 days makes it stale)
         bool stale = block.timestamp - rep.lastUpdated > 30 days;
-        
-        return (
-            rep.aggregatedScore,
-            rep.confidence,
-            rep.oracleCount,
-            rep.isValid && !stale
-        );
+
+        return (rep.aggregatedScore, rep.confidence, rep.oracleCount, rep.isValid && !stale);
     }
 
     /**
      * @notice Get individual oracle score for a user
      */
-    function getOracleScore(address user, uint8 oracleId) external view returns (
-        uint256 rawScore,
-        uint256 normalizedScore,
-        uint256 timestamp,
-        bool isValid,
-        bool isStale
-    ) {
+    function getOracleScore(address user, uint8 oracleId)
+        external
+        view
+        returns (uint256 rawScore, uint256 normalizedScore, uint256 timestamp, bool isValid, bool isStale)
+    {
         ReputationScore storage score = userScores[user][oracleId];
         OracleConfig storage oracle = oracles[oracleId];
-        
+
         bool stale = block.timestamp - score.timestamp > oracle.stalePeriod;
-        
-        return (
-            score.rawScore,
-            score.normalizedScore,
-            score.timestamp,
-            score.isValid,
-            stale
-        );
+
+        return (score.rawScore, score.normalizedScore, score.timestamp, score.isValid, stale);
     }
 
     /**
      * @notice Get all oracle scores for a user
      */
-    function getAllScores(address user) external view returns (
-        uint8[] memory oracleIds,
-        uint256[] memory normalizedScores,
-        bool[] memory isValid
-    ) {
+    function getAllScores(address user)
+        external
+        view
+        returns (uint8[] memory oracleIds, uint256[] memory normalizedScores, bool[] memory isValid)
+    {
         uint256 len = activeOracleIds.length;
         oracleIds = new uint8[](len);
         normalizedScores = new uint256[](len);
@@ -417,7 +377,7 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
             uint8 oracleId = activeOracleIds[i];
             ReputationScore storage score = userScores[user][oracleId];
             OracleConfig storage oracle = oracles[oracleId];
-            
+
             oracleIds[i] = oracleId;
             normalizedScores[i] = score.normalizedScore;
             isValid[i] = score.isValid && (block.timestamp - score.timestamp <= oracle.stalePeriod);
@@ -430,52 +390,42 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
     //                              INTERNAL
     // ═══════════════════════════════════════════════════════════════════════
 
-    function _normalizeScore(
-        uint256 rawScore,
-        uint256 minScore,
-        uint256 maxScore
-    ) internal pure returns (uint256) {
+    function _normalizeScore(uint256 rawScore, uint256 minScore, uint256 maxScore) internal pure returns (uint256) {
         if (rawScore <= minScore) return 0;
         if (rawScore >= maxScore) return MAX_SCORE;
-        
+
         return ((rawScore - minScore) * MAX_SCORE) / (maxScore - minScore);
     }
 
-    function _calculateVariance(
-        uint256[] memory scores,
-        uint256 count,
-        uint256 mean
-    ) internal pure returns (uint256) {
+    function _calculateVariance(uint256[] memory scores, uint256 count, uint256 mean) internal pure returns (uint256) {
         if (count <= 1) return 0;
-        
+
         uint256 sumSquaredDiff = 0;
         for (uint256 i = 0; i < count; i++) {
             uint256 diff = scores[i] > mean ? scores[i] - mean : mean - scores[i];
             sumSquaredDiff += diff * diff;
         }
-        
+
         return sumSquaredDiff / count;
     }
 
-    function _verifySignature(
-        address user,
-        uint8 oracleId,
-        uint256 rawScore,
-        bytes calldata signature,
-        address signer
-    ) internal pure returns (bool) {
+    function _verifySignature(address user, uint8 oracleId, uint256 rawScore, bytes calldata signature, address signer)
+        internal
+        pure
+        returns (bool)
+    {
         bytes32 messageHash = keccak256(abi.encodePacked(user, oracleId, rawScore));
         bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-        
+
         (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
         address recovered = ecrecover(ethSignedHash, v, r, s);
-        
+
         return recovered == signer;
     }
 
     function _splitSignature(bytes calldata sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
         require(sig.length == 65, "Invalid signature length");
-        
+
         assembly {
             r := calldataload(sig.offset)
             s := calldataload(add(sig.offset, 32))
@@ -493,4 +443,3 @@ contract MultiOracleReputation is Ownable, ReentrancyGuard {
         }
     }
 }
-

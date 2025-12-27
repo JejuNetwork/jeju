@@ -100,11 +100,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(
-        address _computeRegistry,
-        address _mpcKeyRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _computeRegistry, address _mpcKeyRegistry, address initialOwner) Ownable(initialOwner) {
         computeRegistry = ComputeRegistry(_computeRegistry);
         mpcKeyRegistry = MPCKeyRegistry(_mpcKeyRegistry);
     }
@@ -169,13 +165,15 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             if (!allowed) revert InvalidMPCKey();
         }
 
-        pendingClients[runId].push(Client({
-            addr: msg.sender,
-            p2pEndpointId: p2pEndpointId,
-            state: ClientState.Healthy,
-            exitedHeight: 0,
-            joinedAt: uint64(block.timestamp)
-        }));
+        pendingClients[runId].push(
+            Client({
+                addr: msg.sender,
+                p2pEndpointId: p2pEndpointId,
+                state: ClientState.Healthy,
+                exitedHeight: 0,
+                joinedAt: uint64(block.timestamp)
+            })
+        );
     }
 
     function tick(bytes32 runId) external nonReentrant runExists(runId) notHalted(runId) {
@@ -198,13 +196,14 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     function _tickWaitingForMembers(bytes32 runId, Run storage run, uint64 currentTime) internal {
         Client[] storage pending = pendingClients[runId];
         bool hasEnoughClients = pending.length >= run.config.initMinClients;
-        bool extraTimeElapsed = _checkTimeout(run.stateStartTimestamp, currentTime, run.config.waitingForMembersExtraTime);
+        bool extraTimeElapsed =
+            _checkTimeout(run.stateStartTimestamp, currentTime, run.config.waitingForMembersExtraTime);
 
         if (hasEnoughClients && extraTimeElapsed) {
             _moveUnhealthyToExited(runId, 0);
             Client[] storage clients = runClients[runId];
             uint16 clientCount = uint16(pending.length > MAX_CLIENTS ? MAX_CLIENTS : pending.length);
-            
+
             for (uint16 i = 0; i < clientCount; i++) {
                 clients.push(pending[i]);
                 clientIndices[runId][pending[i].addr] = i + 1;
@@ -229,11 +228,8 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
                 return;
             }
 
-            uint64 randomSeed = uint64(uint256(keccak256(abi.encodePacked(
-                blockhash(block.number - 1),
-                block.timestamp,
-                runId
-            ))));
+            uint64 randomSeed =
+                uint64(uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, runId))));
             _startRoundTrain(runId, run, currentTime, randomSeed, 0);
         }
     }
@@ -266,24 +262,21 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
                 }
             }
 
-            bool shouldEndEpoch = 
-                (run.epochState.lastStep != 0 && run.progress.step == run.epochState.lastStep) ||
-                (runClients[runId].length < run.config.minClients) ||
-                (numWitnesses < _getWitnessQuorum(run, numWitnesses)) ||
-                (run.progress.step >= run.config.totalSteps) ||
-                run.pendingPause;
+            bool shouldEndEpoch = (run.epochState.lastStep != 0 && run.progress.step == run.epochState.lastStep)
+                || (runClients[runId].length < run.config.minClients)
+                || (numWitnesses < _getWitnessQuorum(run, numWitnesses)) || (run.progress.step >= run.config.totalSteps)
+                || run.pendingPause;
 
             if (shouldEndEpoch) {
                 _startCooldown(runId, run, currentTime);
                 return;
             }
 
-            uint64 randomSeed = uint64(uint256(keccak256(abi.encodePacked(
-                blockhash(block.number - 1),
-                block.timestamp,
-                runId,
-                run.progress.step
-            ))));
+            uint64 randomSeed = uint64(
+                uint256(
+                    keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, runId, run.progress.step))
+                )
+            );
 
             _startRoundTrain(runId, run, currentTime, randomSeed, 0);
         }
@@ -317,11 +310,12 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    function submitWitness(
-        bytes32 runId,
-        WitnessSubmission calldata submission,
-        bytes calldata proof
-    ) external nonReentrant runExists(runId) notHalted(runId) {
+    function submitWitness(bytes32 runId, WitnessSubmission calldata submission, bytes calldata proof)
+        external
+        nonReentrant
+        runExists(runId)
+        notHalted(runId)
+    {
         Run storage run = runs[runId];
 
         // Must be in RoundTrain or RoundWitness state
@@ -349,7 +343,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         emit WitnessSubmitted(runId, msg.sender, currentRound.height, submission.participantBloom);
 
         uint16 witnessCount = uint16(roundWitnesses[runId][currentRound.height].length);
-        uint16 witnessNodes = run.config.witnessNodes == 0 
+        uint16 witnessNodes = run.config.witnessNodes == 0
             ? uint16(runClients[runId].length > MAX_WITNESSES ? MAX_WITNESSES : runClients[runId].length)
             : run.config.witnessNodes;
 
@@ -358,10 +352,12 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    function submitWarmupWitness(
-        bytes32 runId,
-        WitnessSubmission calldata submission
-    ) external nonReentrant runExists(runId) notHalted(runId) {
+    function submitWarmupWitness(bytes32 runId, WitnessSubmission calldata submission)
+        external
+        nonReentrant
+        runExists(runId)
+        notHalted(runId)
+    {
         Run storage run = runs[runId];
 
         // Must be in Warmup state
@@ -385,16 +381,13 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         emit WitnessSubmitted(runId, msg.sender, currentRound.height, submission.participantBloom);
 
         uint16 witnessCount = uint16(roundWitnesses[runId][currentRound.height].length);
-        uint16 witnessNodes = run.config.witnessNodes == 0 
+        uint16 witnessNodes = run.config.witnessNodes == 0
             ? uint16(runClients[runId].length > MAX_WITNESSES ? MAX_WITNESSES : runClients[runId].length)
             : run.config.witnessNodes;
 
         if (witnessCount == witnessNodes) {
-            uint64 randomSeed = uint64(uint256(keccak256(abi.encodePacked(
-                blockhash(block.number - 1),
-                block.timestamp,
-                runId
-            ))));
+            uint64 randomSeed =
+                uint64(uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, runId))));
             _startRoundTrain(runId, run, uint64(block.timestamp), randomSeed, 0);
         }
     }
@@ -411,7 +404,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < unhealthyIndices.length; i++) {
             uint16 idx = unhealthyIndices[i];
             if (idx >= clients.length) continue;
-            
+
             Client storage client = clients[idx];
             if (client.state != ClientState.Healthy) continue;
             if (!_isClientHealthy(runId, run, idx)) {
@@ -421,11 +414,12 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    function submitCheckpoint(
-        bytes32 runId,
-        bytes32 modelHash,
-        string calldata hfRepo
-    ) external nonReentrant runExists(runId) notHalted(runId) {
+    function submitCheckpoint(bytes32 runId, bytes32 modelHash, string calldata hfRepo)
+        external
+        nonReentrant
+        runExists(runId)
+        notHalted(runId)
+    {
         Run storage run = runs[runId];
         if (clientIndices[runId][msg.sender] == 0) revert ClientNotInRun();
         run.model.modelHash = modelHash;
@@ -440,7 +434,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
 
         Client[] storage clients = runClients[runId];
         Client storage client = clients[clientIdx - 1];
-        
+
         if (client.state == ClientState.Healthy) {
             client.state = ClientState.Withdrawn;
             emit ClientExited(runId, msg.sender, ClientState.Withdrawn);
@@ -450,9 +444,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     function pauseRun(bytes32 runId) external runExists(runId) onlyRunCreator(runId) {
         Run storage run = runs[runId];
 
-        if (run.state == RunState.Uninitialized || 
-            run.state == RunState.Finished || 
-            run.state == RunState.Paused) {
+        if (run.state == RunState.Uninitialized || run.state == RunState.Finished || run.state == RunState.Paused) {
             revert CannotPause();
         }
 
@@ -514,7 +506,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
 
     function getWitnessQuorum(bytes32 runId) external view returns (uint16) {
         Run storage run = runs[runId];
-        uint16 witnessNodes = run.config.witnessNodes == 0 
+        uint16 witnessNodes = run.config.witnessNodes == 0
             ? uint16(runClients[runId].length > MAX_WITNESSES ? MAX_WITNESSES : runClients[runId].length)
             : run.config.witnessNodes;
         return _getWitnessQuorum(run, witnessNodes);
@@ -524,14 +516,18 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         return activeRunIds.length;
     }
 
-    function getRun(bytes32 runId) external view returns (
-        address creator,
-        RunState state,
-        uint16 epoch,
-        uint32 step,
-        uint16 clientCount,
-        PrivacyMode privacyMode
-    ) {
+    function getRun(bytes32 runId)
+        external
+        view
+        returns (
+            address creator,
+            RunState state,
+            uint16 epoch,
+            uint32 step,
+            uint16 clientCount,
+            PrivacyMode privacyMode
+        )
+    {
         Run storage run = runs[runId];
         return (
             run.creator,
@@ -544,18 +540,11 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     }
 
     function _validateConfig(CoordinatorConfig calldata config) internal pure returns (bool) {
-        return config.maxRoundTrainTime > 0 &&
-            config.roundWitnessTime > 0 &&
-            config.minClients > 0 &&
-            config.initMinClients >= config.minClients &&
-            config.initMinClients <= MAX_CLIENTS &&
-            config.globalBatchSizeStart > 0 &&
-            config.globalBatchSizeEnd >= config.globalBatchSizeStart &&
-            config.totalSteps > 0 &&
-            config.witnessNodes <= config.minClients &&
-            config.witnessNodes <= MAX_WITNESSES &&
-            config.cooldownTime > 0 &&
-            config.waitingForMembersExtraTime > 0;
+        return config.maxRoundTrainTime > 0 && config.roundWitnessTime > 0 && config.minClients > 0
+            && config.initMinClients >= config.minClients && config.initMinClients <= MAX_CLIENTS
+            && config.globalBatchSizeStart > 0 && config.globalBatchSizeEnd >= config.globalBatchSizeStart
+            && config.totalSteps > 0 && config.witnessNodes <= config.minClients && config.witnessNodes <= MAX_WITNESSES
+            && config.cooldownTime > 0 && config.waitingForMembersExtraTime > 0;
     }
 
     function _checkTimeout(uint64 startTime, uint64 currentTime, uint64 duration) internal pure returns (bool) {
@@ -563,8 +552,8 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     }
 
     function _checkEpochTimeout(Run storage run, uint64 currentTime) internal view returns (bool) {
-        return run.epochState.startTimestamp != currentTime &&
-            currentTime >= run.epochState.startTimestamp + run.config.epochTime;
+        return run.epochState.startTimestamp != currentTime
+            && currentTime >= run.epochState.startTimestamp + run.config.epochTime;
     }
 
     function _changeState(bytes32 runId, Run storage run, RunState newState, uint64 currentTime) internal {
@@ -574,13 +563,9 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         emit StateTransition(runId, oldState, newState, currentTime);
     }
 
-    function _startRoundTrain(
-        bytes32 runId,
-        Run storage run,
-        uint64 currentTime,
-        uint64 randomSeed,
-        uint16 tieBreaker
-    ) internal {
+    function _startRoundTrain(bytes32 runId, Run storage run, uint64 currentTime, uint64 randomSeed, uint16 tieBreaker)
+        internal
+    {
         uint32 nextHeight;
         uint64 nextDataIndex;
         uint32 nextRoundsHead;
@@ -616,7 +601,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         // Clear witness proofs for reuse
         Round storage currentRound = run.epochState.rounds[run.epochState.roundsHead];
         delete currentRound.witnessProofs;
-        
+
         _changeState(runId, run, RunState.Cooldown, currentTime);
     }
 
@@ -657,52 +642,49 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
 
     function _getTargetGlobalBatchSize(Run storage run, uint64 dataIndex) internal view returns (uint16) {
         uint64 tokensProcessed = dataIndex * run.model.maxSeqLen;
-        
+
         if (tokensProcessed >= run.config.globalBatchSizeWarmupTokens) {
             return run.config.globalBatchSizeEnd;
         }
 
         uint256 progress = (tokensProcessed * 1e18) / run.config.globalBatchSizeWarmupTokens;
-        uint256 batchSize = run.config.globalBatchSizeStart +
-            ((run.config.globalBatchSizeEnd - run.config.globalBatchSizeStart) * progress) / 1e18;
-        
+        uint256 batchSize = run.config.globalBatchSizeStart
+            + ((run.config.globalBatchSizeEnd - run.config.globalBatchSizeStart) * progress) / 1e18;
+
         return uint16(batchSize);
     }
 
     function _getWitnessQuorum(Run storage run, uint16 witnessCount) internal view returns (uint16) {
         uint16 witnessNodes = run.config.witnessNodes == 0 ? witnessCount : run.config.witnessNodes;
-        
+
         if (witnessNodes <= 1) return 1;
         if (witnessNodes == 2) return 2;
         if (witnessNodes == 3) return 2;
-        
+
         return uint16((uint256(witnessNodes) * WITNESS_QUORUM_PERCENT) / 100);
     }
 
-    function _verifyWitnessCommittee(
-        Run storage run,
-        uint16 clientIndex,
-        uint64 randomSeed,
-        bytes calldata
-    ) internal view returns (bool) {
+    function _verifyWitnessCommittee(Run storage run, uint16 clientIndex, uint64 randomSeed, bytes calldata)
+        internal
+        view
+        returns (bool)
+    {
         // Simplified committee selection: deterministic based on random seed
         uint256 hash = uint256(keccak256(abi.encodePacked(randomSeed, clientIndex)));
-        uint16 witnessNodes = run.config.witnessNodes == 0 
+        uint16 witnessNodes = run.config.witnessNodes == 0
             ? uint16(runClients[run.runId].length > MAX_WITNESSES ? MAX_WITNESSES : runClients[run.runId].length)
             : run.config.witnessNodes;
-        
+
         // Check if this client is selected as a witness
         return (hash % runClients[run.runId].length) < witnessNodes;
     }
 
     function _isClientHealthy(bytes32 runId, Run storage run, uint16 clientIndex) internal view returns (bool) {
         // Check previous round's witness bloom filters
-        uint32 prevRoundIdx = run.epochState.roundsHead == 0 
-            ? NUM_STORED_ROUNDS - 1 
-            : run.epochState.roundsHead - 1;
-        
+        uint32 prevRoundIdx = run.epochState.roundsHead == 0 ? NUM_STORED_ROUNDS - 1 : run.epochState.roundsHead - 1;
+
         WitnessSubmission[] storage witnesses = roundWitnesses[runId][run.epochState.rounds[prevRoundIdx].height];
-        
+
         // Client is healthy if it appears in the majority of witness bloom filters
         uint256 quorum = _getWitnessQuorum(run, uint16(witnesses.length));
         uint256 confirmations = 0;
@@ -725,9 +707,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     }
 
     function _isActive(RunState state) internal pure returns (bool) {
-        return state == RunState.RoundTrain || 
-               state == RunState.RoundWitness || 
-               state == RunState.Cooldown;
+        return state == RunState.RoundTrain || state == RunState.RoundWitness || state == RunState.Cooldown;
     }
 
     function _removeFromActiveRuns(bytes32 runId) internal {
@@ -769,4 +749,3 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

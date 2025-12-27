@@ -11,7 +11,12 @@ interface IOracleConsumer {
 /// @title OracleRouter
 /// @notice Generic data request router for off-chain data
 contract OracleRouter is Ownable2Step, ReentrancyGuard {
-    enum RequestStatus { PENDING, FULFILLED, CANCELLED, EXPIRED }
+    enum RequestStatus {
+        PENDING,
+        FULFILLED,
+        CANCELLED,
+        EXPIRED
+    }
 
     struct OracleRequest {
         bytes32 jobId;
@@ -65,7 +70,9 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
     uint256 public totalFulfilled;
     uint256 public totalFeesCollected;
 
-    event OracleRequested(bytes32 indexed requestId, bytes32 indexed jobId, address indexed requester, bytes data, uint96 payment);
+    event OracleRequested(
+        bytes32 indexed requestId, bytes32 indexed jobId, address indexed requester, bytes data, uint96 payment
+    );
     event OracleFulfilled(bytes32 indexed requestId, bytes response, bool success, uint96 payment);
     event OracleCancelled(bytes32 indexed requestId, address requester);
     event JobRegistered(bytes32 indexed jobId, string name, address oracle, uint96 minPayment);
@@ -110,12 +117,11 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
         });
     }
 
-    function requestData(
-        bytes32 jobId,
-        bytes calldata data,
-        address callbackAddress,
-        bytes4 callbackSelector
-    ) external payable returns (bytes32 requestId) {
+    function requestData(bytes32 jobId, bytes calldata data, address callbackAddress, bytes4 callbackSelector)
+        external
+        payable
+        returns (bytes32 requestId)
+    {
         Job storage job = jobs[jobId];
         if (!job.active) revert InvalidJob();
         if (msg.value < job.minPayment) revert InsufficientPayment();
@@ -148,9 +154,8 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
 
         bool success;
         if (request.callbackAddress != address(0)) {
-            (success,) = request.callbackAddress.call(
-                abi.encodeWithSelector(request.callbackSelector, requestId, response)
-            );
+            (success,) =
+                request.callbackAddress.call(abi.encodeWithSelector(request.callbackSelector, requestId, response));
         } else {
             success = true;
         }
@@ -181,9 +186,22 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
         emit OracleCancelled(requestId, msg.sender);
     }
 
-    function registerJob(bytes32 jobId, string calldata name, string calldata description, address oracle, uint96 minPayment) external onlyGovernance {
+    function registerJob(
+        bytes32 jobId,
+        string calldata name,
+        string calldata description,
+        address oracle,
+        uint96 minPayment
+    ) external onlyGovernance {
         if (jobs[jobId].active) revert JobAlreadyExists();
-        jobs[jobId] = Job({ jobId: jobId, name: name, description: description, oracle: oracle, minPayment: minPayment, active: true });
+        jobs[jobId] = Job({
+            jobId: jobId,
+            name: name,
+            description: description,
+            oracle: oracle,
+            minPayment: minPayment,
+            active: true
+        });
         jobIds.push(jobId);
         emit JobRegistered(jobId, name, oracle, minPayment);
     }

@@ -9,27 +9,20 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface IMailboxArb {
-    function dispatch(
-        uint32 destinationDomain,
-        bytes32 recipientAddress,
-        bytes calldata messageBody
-    ) external payable returns (bytes32);
-    
+    function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        payable
+        returns (bytes32);
+
     function localDomain() external view returns (uint32);
 }
 
 interface IInterchainGasPaymasterArb {
-    function payForGas(
-        bytes32 messageId,
-        uint32 destinationDomain,
-        uint256 gasAmount,
-        address refundAddress
-    ) external payable;
-    
-    function quoteGasPayment(
-        uint32 destinationDomain,
-        uint256 gasAmount
-    ) external view returns (uint256);
+    function payForGas(bytes32 messageId, uint32 destinationDomain, uint256 gasAmount, address refundAddress)
+        external
+        payable;
+
+    function quoteGasPayment(uint32 destinationDomain, uint256 gasAmount) external view returns (uint256);
 }
 
 interface IBanManagerArb {
@@ -62,31 +55,31 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     struct CrossChainCase {
         bytes32 caseId;
-        bytes32 originChainCaseId;    // Case ID on originating chain
-        uint32 originDomain;          // Hyperlane domain of origin
-        address target;               // Target of the ban
-        address reporter;             // Who reported
-        uint256 totalYesVotes;        // Aggregated YES votes
-        uint256 totalNoVotes;         // Aggregated NO votes
-        mapping(uint32 => uint256) yesVotesByChain;  // YES votes per chain
-        mapping(uint32 => uint256) noVotesByChain;   // NO votes per chain
+        bytes32 originChainCaseId; // Case ID on originating chain
+        uint32 originDomain; // Hyperlane domain of origin
+        address target; // Target of the ban
+        address reporter; // Who reported
+        uint256 totalYesVotes; // Aggregated YES votes
+        uint256 totalNoVotes; // Aggregated NO votes
+        mapping(uint32 => uint256) yesVotesByChain; // YES votes per chain
+        mapping(uint32 => uint256) noVotesByChain; // NO votes per chain
         uint256 votingEnds;
         bool resolved;
-        uint8 outcome;                // 0=pending, 1=banned, 2=cleared
+        uint8 outcome; // 0=pending, 1=banned, 2=cleared
         string reason;
     }
 
     struct ChainConfig {
-        uint32 domain;               // Hyperlane domain
+        uint32 domain; // Hyperlane domain
         bytes32 arbitrationContract; // This contract's address on that chain
-        bytes32 banManagerContract;  // BanManager address on that chain
+        bytes32 banManagerContract; // BanManager address on that chain
         bool isActive;
-        uint256 voteWeight;          // Weight multiplier for votes from this chain
+        uint256 voteWeight; // Weight multiplier for votes from this chain
     }
 
     struct VoteMessage {
         bytes32 caseId;
-        uint8 position;              // 0 = YES, 1 = NO
+        uint8 position; // 0 = YES, 1 = NO
         uint256 voteWeight;
         address voter;
     }
@@ -105,7 +98,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     uint256 public constant CROSS_CHAIN_VOTING_PERIOD = 5 days;
     uint256 public constant GAS_LIMIT = 500_000;
     uint256 public constant MIN_CHAINS_FOR_QUORUM = 2;
-    
+
     // Message types
     uint8 public constant MSG_VOTE = 1;
     uint8 public constant MSG_RESOLUTION = 2;
@@ -114,7 +107,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     // SECURITY: Acknowledgment timeout - chains must confirm within this period
     uint256 public constant ACKNOWLEDGMENT_TIMEOUT = 24 hours;
-    
+
     // SECURITY: Retry period for failed deliveries
     uint256 public constant RETRY_PERIOD = 6 hours;
 
@@ -125,26 +118,26 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     IMailboxArb public mailbox;
     IInterchainGasPaymasterArb public igp;
     IBanManagerArb public banManager;
-    
+
     // caseId => case data
     mapping(bytes32 => CrossChainCase) public cases;
-    
+
     // domain => chain config
     mapping(uint32 => ChainConfig) public chainConfigs;
-    
+
     // List of active domains
     uint32[] public activeDomains;
-    
+
     // Track which chains have voted on a case
     mapping(bytes32 => mapping(uint32 => bool)) public chainHasVoted;
-    
+
     // Hub chain domain (where aggregation happens)
     uint32 public hubDomain;
     bool public isHub;
 
     // ============ SECURITY: Cross-Chain Acknowledgment System ============
     // Tracks which chains have confirmed resolution receipt
-    
+
     struct ResolutionAcknowledgment {
         uint256 broadcastTime;
         uint256 expectedAcks;
@@ -153,13 +146,13 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
         mapping(uint32 => bool) chainAcknowledged;
         mapping(uint32 => uint256) ackTimestamp;
     }
-    
+
     // caseId => acknowledgment tracking
     mapping(bytes32 => ResolutionAcknowledgment) public resolutionAcks;
-    
+
     // Cases pending acknowledgment
     bytes32[] public pendingAckCases;
-    
+
     // Track failed deliveries for retry
     mapping(bytes32 => mapping(uint32 => uint256)) public lastRetryAttempt;
 
@@ -167,61 +160,25 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     //                              EVENTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    event CaseEscalated(
-        bytes32 indexed caseId,
-        bytes32 indexed originCaseId,
-        uint32 originDomain,
-        address target
-    );
+    event CaseEscalated(bytes32 indexed caseId, bytes32 indexed originCaseId, uint32 originDomain, address target);
 
-    event CrossChainVoteReceived(
-        bytes32 indexed caseId,
-        uint32 indexed fromDomain,
-        uint256 yesVotes,
-        uint256 noVotes
-    );
+    event CrossChainVoteReceived(bytes32 indexed caseId, uint32 indexed fromDomain, uint256 yesVotes, uint256 noVotes);
 
-    event CrossChainVoteSent(
-        bytes32 indexed caseId,
-        uint32 indexed toDomain,
-        bytes32 messageId
-    );
+    event CrossChainVoteSent(bytes32 indexed caseId, uint32 indexed toDomain, bytes32 messageId);
 
-    event CaseResolvedCrossChain(
-        bytes32 indexed caseId,
-        uint8 outcome,
-        uint256 totalYesVotes,
-        uint256 totalNoVotes
-    );
+    event CaseResolvedCrossChain(bytes32 indexed caseId, uint8 outcome, uint256 totalYesVotes, uint256 totalNoVotes);
 
-    event ResolutionBroadcast(
-        bytes32 indexed caseId,
-        uint32 indexed toDomain,
-        bytes32 messageId
-    );
+    event ResolutionBroadcast(bytes32 indexed caseId, uint32 indexed toDomain, bytes32 messageId);
 
     event ResolutionAcknowledged(
-        bytes32 indexed caseId,
-        uint32 indexed fromDomain,
-        uint256 receivedAcks,
-        uint256 expectedAcks
+        bytes32 indexed caseId, uint32 indexed fromDomain, uint256 receivedAcks, uint256 expectedAcks
     );
 
-    event ResolutionFullyAcknowledged(
-        bytes32 indexed caseId,
-        uint256 timestamp
-    );
+    event ResolutionFullyAcknowledged(bytes32 indexed caseId, uint256 timestamp);
 
-    event ResolutionRetryQueued(
-        bytes32 indexed caseId,
-        uint32 indexed domain,
-        uint256 retryTime
-    );
+    event ResolutionRetryQueued(bytes32 indexed caseId, uint32 indexed domain, uint256 retryTime);
 
-    event AcknowledgmentTimeout(
-        bytes32 indexed caseId,
-        uint32[] failedDomains
-    );
+    event AcknowledgmentTimeout(bytes32 indexed caseId, uint32[] failedDomains);
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              ERRORS
@@ -241,12 +198,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     //                              CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════
 
-    constructor(
-        address _mailbox,
-        address _igp,
-        uint32 _hubDomain,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _mailbox, address _igp, uint32 _hubDomain, address _owner) Ownable(_owner) {
         mailbox = IMailboxArb(_mailbox);
         igp = IInterchainGasPaymasterArb(_igp);
         hubDomain = _hubDomain;
@@ -267,17 +219,13 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     /**
      * @notice Escalate a local case to cross-chain arbitration
      */
-    function escalateCase(
-        bytes32 originCaseId,
-        address target,
-        address reporter,
-        string calldata reason
-    ) external payable nonReentrant returns (bytes32 caseId) {
-        caseId = keccak256(abi.encodePacked(
-            originCaseId,
-            mailbox.localDomain(),
-            block.timestamp
-        ));
+    function escalateCase(bytes32 originCaseId, address target, address reporter, string calldata reason)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 caseId)
+    {
+        caseId = keccak256(abi.encodePacked(originCaseId, mailbox.localDomain(), block.timestamp));
 
         CrossChainCase storage c = cases[caseId];
         if (c.caseId != bytes32(0)) revert AlreadyEscalated();
@@ -294,12 +242,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
         // If not hub, send escalation to hub
         if (!isHub) {
-            _sendToHub(caseId, MSG_ESCALATION, abi.encode(
-                originCaseId,
-                target,
-                reporter,
-                reason
-            ));
+            _sendToHub(caseId, MSG_ESCALATION, abi.encode(originCaseId, target, reporter, reason));
         }
 
         return caseId;
@@ -312,17 +255,13 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     /**
      * @notice Submit local chain votes to hub for aggregation
      */
-    function submitChainVotes(
-        bytes32 caseId,
-        uint256 yesVotes,
-        uint256 noVotes
-    ) external payable nonReentrant {
+    function submitChainVotes(bytes32 caseId, uint256 yesVotes, uint256 noVotes) external payable nonReentrant {
         CrossChainCase storage c = cases[caseId];
         if (c.caseId == bytes32(0)) revert CaseNotFound();
         if (block.timestamp > c.votingEnds) revert VotingEnded();
 
         uint32 localDomain = mailbox.localDomain();
-        
+
         // Apply chain weight
         ChainConfig storage config = chainConfigs[localDomain];
         uint256 weightedYes = yesVotes * config.voteWeight / 10000;
@@ -335,13 +274,15 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
         // Send to hub if not hub
         if (!isHub) {
-            bytes memory voteData = abi.encode(VoteMessage({
-                caseId: caseId,
-                position: yesVotes > noVotes ? 0 : 1,
-                voteWeight: yesVotes > noVotes ? weightedYes : weightedNo,
-                voter: msg.sender
-            }));
-            
+            bytes memory voteData = abi.encode(
+                VoteMessage({
+                    caseId: caseId,
+                    position: yesVotes > noVotes ? 0 : 1,
+                    voteWeight: yesVotes > noVotes ? weightedYes : weightedNo,
+                    voter: msg.sender
+                })
+            );
+
             _sendToHub(caseId, MSG_VOTE, voteData);
         }
     }
@@ -355,7 +296,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
      */
     function resolveCase(bytes32 caseId) external payable nonReentrant {
         if (!isHub) revert NotHub();
-        
+
         CrossChainCase storage c = cases[caseId];
         if (c.caseId == bytes32(0)) revert CaseNotFound();
         if (c.resolved) revert AlreadyResolved();
@@ -365,7 +306,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
         uint256 chainCount = 0;
         uint256 totalYes = 0;
         uint256 totalNo = 0;
-        
+
         for (uint256 i = 0; i < activeDomains.length; i++) {
             uint32 domain = activeDomains[i];
             if (chainHasVoted[caseId][domain]) {
@@ -395,13 +336,9 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     /**
      * @notice Handle incoming Hyperlane message
      */
-    function handle(
-        uint32 origin,
-        bytes32 sender,
-        bytes calldata body
-    ) external {
+    function handle(uint32 origin, bytes32 sender, bytes calldata body) external {
         if (msg.sender != address(mailbox)) revert OnlyMailbox();
-        
+
         ChainConfig storage config = chainConfigs[origin];
         if (!config.isActive) revert ChainNotSupported();
         if (sender != config.arbitrationContract) revert ChainNotSupported();
@@ -424,7 +361,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     function _handleVote(uint32 origin, bytes calldata payload) internal {
         VoteMessage memory vote = abi.decode(payload, (VoteMessage));
-        
+
         CrossChainCase storage c = cases[vote.caseId];
         if (c.caseId == bytes32(0)) return;
         if (block.timestamp > c.votingEnds) return;
@@ -436,37 +373,27 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
             c.noVotesByChain[origin] += vote.voteWeight;
             c.totalNoVotes += vote.voteWeight;
         }
-        
+
         chainHasVoted[vote.caseId][origin] = true;
 
-        emit CrossChainVoteReceived(vote.caseId, origin, 
-            c.yesVotesByChain[origin], 
-            c.noVotesByChain[origin]
-        );
+        emit CrossChainVoteReceived(vote.caseId, origin, c.yesVotesByChain[origin], c.noVotesByChain[origin]);
     }
 
     function _handleResolution(bytes calldata payload) internal {
         ResolutionMessage memory resolution = abi.decode(payload, (ResolutionMessage));
-        
+
         CrossChainCase storage c = cases[resolution.caseId];
         if (c.resolved) return;
 
         c.resolved = true;
         c.outcome = resolution.outcome;
 
-        emit CaseResolvedCrossChain(
-            resolution.caseId,
-            resolution.outcome,
-            c.totalYesVotes,
-            c.totalNoVotes
-        );
+        emit CaseResolvedCrossChain(resolution.caseId, resolution.outcome, c.totalYesVotes, c.totalNoVotes);
 
         // Apply ban if outcome is BAN_UPHELD (1)
         if (resolution.outcome == 1 && address(banManager) != address(0)) {
             banManager.applyAddressBan(
-                c.target,
-                resolution.caseId,
-                string(abi.encodePacked("Cross-chain arbitration: ", c.reason))
+                c.target, resolution.caseId, string(abi.encodePacked("Cross-chain arbitration: ", c.reason))
             );
         } else if (resolution.outcome == 2 && address(banManager) != address(0)) {
             // Clear any pending bans if CLEARED (2)
@@ -478,7 +405,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     }
 
     function _handleEscalation(uint32 origin, bytes calldata payload) internal {
-        (bytes32 originCaseId, address target, address reporter, string memory reason) = 
+        (bytes32 originCaseId, address target, address reporter, string memory reason) =
             abi.decode(payload, (bytes32, address, address, string));
 
         bytes32 caseId = keccak256(abi.encodePacked(originCaseId, origin, block.timestamp));
@@ -501,17 +428,13 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     function _sendToHub(bytes32 caseId, uint8 msgType, bytes memory payload) internal {
         bytes memory message = abi.encodePacked(msgType, payload);
-        
+
         uint256 gasPayment = igp.quoteGasPayment(hubDomain, GAS_LIMIT);
         if (msg.value < gasPayment) revert InsufficientGas();
 
         ChainConfig storage hubConfig = chainConfigs[hubDomain];
-        
-        bytes32 messageId = mailbox.dispatch{value: msg.value}(
-            hubDomain,
-            hubConfig.arbitrationContract,
-            message
-        );
+
+        bytes32 messageId = mailbox.dispatch{value: msg.value}(hubDomain, hubConfig.arbitrationContract, message);
 
         igp.payForGas{value: gasPayment}(messageId, hubDomain, GAS_LIMIT, msg.sender);
 
@@ -520,14 +443,10 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     function _broadcastResolution(bytes32 caseId) internal {
         CrossChainCase storage c = cases[caseId];
-        
-        ResolutionMessage memory resolution = ResolutionMessage({
-            caseId: caseId,
-            outcome: c.outcome,
-            target: c.target,
-            reason: c.reason
-        });
-        
+
+        ResolutionMessage memory resolution =
+            ResolutionMessage({caseId: caseId, outcome: c.outcome, target: c.target, reason: c.reason});
+
         bytes memory message = abi.encodePacked(MSG_RESOLUTION, abi.encode(resolution));
 
         // SECURITY: Initialize acknowledgment tracking
@@ -545,12 +464,8 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
             expectedAckCount++;
 
             uint256 gasPayment = igp.quoteGasPayment(domain, GAS_LIMIT);
-            
-            bytes32 messageId = mailbox.dispatch{value: gasPayment}(
-                domain,
-                config.arbitrationContract,
-                message
-            );
+
+            bytes32 messageId = mailbox.dispatch{value: gasPayment}(domain, config.arbitrationContract, message);
 
             igp.payForGas{value: gasPayment}(messageId, domain, GAS_LIMIT, address(this));
 
@@ -567,15 +482,15 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
      */
     function _handleAcknowledgment(bytes32 caseId, uint32 fromDomain) internal {
         ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
-        
+
         if (ack.chainAcknowledged[fromDomain]) return; // Already acknowledged
-        
+
         ack.chainAcknowledged[fromDomain] = true;
         ack.ackTimestamp[fromDomain] = block.timestamp;
         ack.receivedAcks++;
-        
+
         emit ResolutionAcknowledged(caseId, fromDomain, ack.receivedAcks, ack.expectedAcks);
-        
+
         if (ack.receivedAcks >= ack.expectedAcks) {
             ack.fullyAcknowledged = true;
             emit ResolutionFullyAcknowledged(caseId, block.timestamp);
@@ -587,18 +502,14 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
      */
     function _sendAcknowledgment(bytes32 caseId) internal {
         if (isHub) return; // Hub doesn't ack to itself
-        
+
         bytes memory message = abi.encodePacked(MSG_ACKNOWLEDGMENT, caseId);
-        
+
         ChainConfig storage hubConfig = chainConfigs[hubDomain];
         uint256 gasPayment = igp.quoteGasPayment(hubDomain, GAS_LIMIT);
-        
-        bytes32 messageId = mailbox.dispatch{value: gasPayment}(
-            hubDomain,
-            hubConfig.arbitrationContract,
-            message
-        );
-        
+
+        bytes32 messageId = mailbox.dispatch{value: gasPayment}(hubDomain, hubConfig.arbitrationContract, message);
+
         igp.payForGas{value: gasPayment}(messageId, hubDomain, GAS_LIMIT, address(this));
     }
 
@@ -610,23 +521,19 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
         ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
         if (ack.fullyAcknowledged) revert AlreadyResolved();
         if (ack.broadcastTime == 0) revert CaseNotFound();
-        
+
         CrossChainCase storage c = cases[caseId];
-        
-        ResolutionMessage memory resolution = ResolutionMessage({
-            caseId: caseId,
-            outcome: c.outcome,
-            target: c.target,
-            reason: c.reason
-        });
-        
+
+        ResolutionMessage memory resolution =
+            ResolutionMessage({caseId: caseId, outcome: c.outcome, target: c.target, reason: c.reason});
+
         bytes memory message = abi.encodePacked(MSG_RESOLUTION, abi.encode(resolution));
 
         for (uint256 i = 0; i < activeDomains.length; i++) {
             uint32 domain = activeDomains[i];
             if (domain == hubDomain) continue;
             if (ack.chainAcknowledged[domain]) continue;
-            
+
             // Enforce retry cooldown
             if (block.timestamp < lastRetryAttempt[caseId][domain] + RETRY_PERIOD) continue;
 
@@ -636,12 +543,8 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
             lastRetryAttempt[caseId][domain] = block.timestamp;
 
             uint256 gasPayment = igp.quoteGasPayment(domain, GAS_LIMIT);
-            
-            bytes32 messageId = mailbox.dispatch{value: gasPayment}(
-                domain,
-                config.arbitrationContract,
-                message
-            );
+
+            bytes32 messageId = mailbox.dispatch{value: gasPayment}(domain, config.arbitrationContract, message);
 
             igp.payForGas{value: gasPayment}(messageId, domain, GAS_LIMIT, address(this));
 
@@ -652,20 +555,24 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     /**
      * @notice Check acknowledgment status for a case
      */
-    function getAcknowledgmentStatus(bytes32 caseId) external view returns (
-        uint256 broadcastTime,
-        uint256 expectedAcks,
-        uint256 receivedAcks,
-        bool fullyAcknowledged,
-        uint32[] memory unackedDomains
-    ) {
+    function getAcknowledgmentStatus(bytes32 caseId)
+        external
+        view
+        returns (
+            uint256 broadcastTime,
+            uint256 expectedAcks,
+            uint256 receivedAcks,
+            bool fullyAcknowledged,
+            uint32[] memory unackedDomains
+        )
+    {
         ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
-        
+
         broadcastTime = ack.broadcastTime;
         expectedAcks = ack.expectedAcks;
         receivedAcks = ack.receivedAcks;
         fullyAcknowledged = ack.fullyAcknowledged;
-        
+
         // Find unacknowledged domains
         uint256 unackedCount = 0;
         for (uint256 i = 0; i < activeDomains.length; i++) {
@@ -674,7 +581,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
                 unackedCount++;
             }
         }
-        
+
         unackedDomains = new uint32[](unackedCount);
         uint256 idx = 0;
         for (uint256 i = 0; i < activeDomains.length; i++) {
@@ -692,10 +599,10 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < pendingAckCases.length; i++) {
             bytes32 caseId = pendingAckCases[i];
             ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
-            
+
             if (ack.fullyAcknowledged) continue;
             if (block.timestamp <= ack.broadcastTime + ACKNOWLEDGMENT_TIMEOUT) continue;
-            
+
             // Find failed domains
             uint32[] memory failedDomains = new uint32[](ack.expectedAcks - ack.receivedAcks);
             uint256 idx = 0;
@@ -705,7 +612,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
                     failedDomains[idx++] = domain;
                 }
             }
-            
+
             emit AcknowledgmentTimeout(caseId, failedDomains);
         }
     }
@@ -714,12 +621,10 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     //                              ADMIN
     // ═══════════════════════════════════════════════════════════════════════
 
-    function addChain(
-        uint32 domain,
-        bytes32 arbitrationContract,
-        bytes32 banManagerContract,
-        uint256 voteWeight
-    ) external onlyOwner {
+    function addChain(uint32 domain, bytes32 arbitrationContract, bytes32 banManagerContract, uint256 voteWeight)
+        external
+        onlyOwner
+    {
         chainConfigs[domain] = ChainConfig({
             domain: domain,
             arbitrationContract: arbitrationContract,
@@ -732,7 +637,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     function removeChain(uint32 domain) external onlyOwner {
         chainConfigs[domain].isActive = false;
-        
+
         for (uint256 i = 0; i < activeDomains.length; i++) {
             if (activeDomains[i] == domain) {
                 activeDomains[i] = activeDomains[activeDomains.length - 1];
@@ -744,4 +649,3 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     receive() external payable {}
 }
-

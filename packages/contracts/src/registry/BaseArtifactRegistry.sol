@@ -52,8 +52,8 @@ abstract contract BaseArtifactRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 publishedAt;
         address publisher;
         bool isLatest;
-        // Additional metadata can be added in derived contracts or separate mappings
     }
+    // Additional metadata can be added in derived contracts or separate mappings
 
     IdentityRegistry public immutable identityRegistry;
     address public treasury;
@@ -61,22 +61,22 @@ abstract contract BaseArtifactRegistry is Ownable, Pausable, ReentrancyGuard {
     mapping(bytes32 => Artifact) public artifacts;
     mapping(bytes32 => ArtifactVersion[]) public versions;
     mapping(bytes32 => mapping(string => uint256)) public versionIndex; // artifactId => versionTag => index
-    
+
     // Access control
     mapping(bytes32 => mapping(address => bool)) public hasAccess;
     mapping(bytes32 => mapping(address => bool)) public isCollaborator;
-    
+
     // Stars
     mapping(bytes32 => mapping(address => bool)) public hasStarred;
-    
+
     // Namespace ownership (org/user => owner)
     mapping(string => address) public namespaceOwner;
-    
+
     // Name uniqueness: keccak256(namespace/name)
     mapping(bytes32 => bool) public nameTaken;
-    
+
     bytes32[] public allArtifacts;
-    
+
     // Fees
     uint256 public publishFee;
     uint256 public storageFeePerGB;
@@ -84,7 +84,9 @@ abstract contract BaseArtifactRegistry is Ownable, Pausable, ReentrancyGuard {
     // Events
     event ArtifactCreated(bytes32 indexed id, string indexed namespace, string name, address indexed owner);
     event ArtifactUpdated(bytes32 indexed id);
-    event VersionPublished(bytes32 indexed artifactId, bytes32 indexed versionId, string version, address indexed publisher);
+    event VersionPublished(
+        bytes32 indexed artifactId, bytes32 indexed versionId, string version, address indexed publisher
+    );
     event AccessGranted(bytes32 indexed artifactId, address indexed user);
     event AccessRevoked(bytes32 indexed artifactId, address indexed user);
     event ArtifactStarred(bytes32 indexed artifactId, address indexed user, bool starred);
@@ -172,16 +174,15 @@ abstract contract BaseArtifactRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 size
     ) internal returns (uint256 index) {
         ArtifactVersion[] storage artifactVersions = versions[artifactId];
-        
+
         // Mark previous versions as not latest
         for (uint256 i = 0; i < artifactVersions.length; i++) {
             artifactVersions[i].isLatest = false;
         }
 
         uint256 existingIndex = versionIndex[artifactId][version];
-        bool versionExists = artifactVersions.length > 0 && 
-            existingIndex < artifactVersions.length &&
-            keccak256(bytes(artifactVersions[existingIndex].version)) == keccak256(bytes(version));
+        bool versionExists = artifactVersions.length > 0 && existingIndex < artifactVersions.length
+            && keccak256(bytes(artifactVersions[existingIndex].version)) == keccak256(bytes(version));
 
         ArtifactVersion memory newVersion = ArtifactVersion({
             versionId: versionId,
@@ -294,7 +295,7 @@ abstract contract BaseArtifactRegistry is Ownable, Pausable, ReentrancyGuard {
     function withdrawFees() external onlyOwner {
         uint256 balance = address(this).balance;
         if (balance > 0) {
-            (bool success, ) = treasury.call{value: balance}("");
+            (bool success,) = treasury.call{value: balance}("");
             require(success, "Transfer failed");
         }
     }

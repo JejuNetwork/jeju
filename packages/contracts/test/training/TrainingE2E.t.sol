@@ -44,22 +44,10 @@ contract TrainingE2ETest is Test {
         rewardToken = new SimpleToken();
 
         // Deploy training contracts
-        coordinator = new TrainingCoordinator(
-            address(computeRegistry),
-            address(mpcRegistry),
-            owner
-        );
+        coordinator = new TrainingCoordinator(address(computeRegistry), address(mpcRegistry), owner);
         rewards = new TrainingRewards(address(coordinator), owner);
-        registry = new TrainingRegistry(
-            address(coordinator),
-            address(mpcRegistry),
-            owner
-        );
-        oracle = new NodePerformanceOracle(
-            address(coordinator),
-            address(computeRegistry),
-            owner
-        );
+        registry = new TrainingRegistry(address(coordinator), address(mpcRegistry), owner);
+        oracle = new NodePerformanceOracle(address(coordinator), address(computeRegistry), owner);
 
         // Fund and register providers
         vm.deal(provider1, 1 ether);
@@ -124,17 +112,10 @@ contract TrainingE2ETest is Test {
         console.log("\n=== RUN CREATION TEST ===\n");
 
         coordinator.createRun(
-            runId,
-            getDefaultConfig(),
-            getDefaultModel(),
-            ITrainingCoordinator.PrivacyMode.Public,
-            bytes32(0)
+            runId, getDefaultConfig(), getDefaultModel(), ITrainingCoordinator.PrivacyMode.Public, bytes32(0)
         );
 
-        assertEq(
-            uint256(coordinator.getRunState(runId)),
-            uint256(ITrainingCoordinator.RunState.WaitingForMembers)
-        );
+        assertEq(uint256(coordinator.getRunState(runId)), uint256(ITrainingCoordinator.RunState.WaitingForMembers));
         console.log("Run created successfully");
     }
 
@@ -142,11 +123,7 @@ contract TrainingE2ETest is Test {
         console.log("\n=== CLIENT JOINING TEST ===\n");
 
         coordinator.createRun(
-            runId,
-            getDefaultConfig(),
-            getDefaultModel(),
-            ITrainingCoordinator.PrivacyMode.Public,
-            bytes32(0)
+            runId, getDefaultConfig(), getDefaultModel(), ITrainingCoordinator.PrivacyMode.Public, bytes32(0)
         );
 
         vm.prank(provider1);
@@ -185,11 +162,7 @@ contract TrainingE2ETest is Test {
 
         // Create run first
         coordinator.createRun(
-            runId,
-            getDefaultConfig(),
-            getDefaultModel(),
-            ITrainingCoordinator.PrivacyMode.Public,
-            bytes32(0)
+            runId, getDefaultConfig(), getDefaultModel(), ITrainingCoordinator.PrivacyMode.Public, bytes32(0)
         );
 
         // Approve and create reward pool
@@ -211,7 +184,7 @@ contract TrainingE2ETest is Test {
         oracle.registerNode(NodePerformanceOracle.GPUTier.Prosumer, bytes32(0));
 
         address[] memory optimalNodes = oracle.getOptimalNodes(3, NodePerformanceOracle.GPUTier.Unknown, 0, 0);
-        
+
         console.log("Optimal nodes count:", optimalNodes.length);
         assertEq(optimalNodes.length, 3, "Got 3 optimal nodes");
 
@@ -228,11 +201,7 @@ contract TrainingE2ETest is Test {
 
         // 2. Create training run
         coordinator.createRun(
-            runId,
-            getDefaultConfig(),
-            getDefaultModel(),
-            ITrainingCoordinator.PrivacyMode.Public,
-            bytes32(0)
+            runId, getDefaultConfig(), getDefaultModel(), ITrainingCoordinator.PrivacyMode.Public, bytes32(0)
         );
         console.log("Step 2: Run created");
 
@@ -258,10 +227,7 @@ contract TrainingE2ETest is Test {
         console.log("Step 5: Reward pool created");
 
         // 6. Verify state
-        assertEq(
-            uint256(coordinator.getRunState(runId)),
-            uint256(ITrainingCoordinator.RunState.WaitingForMembers)
-        );
+        assertEq(uint256(coordinator.getRunState(runId)), uint256(ITrainingCoordinator.RunState.WaitingForMembers));
 
         address[] memory optimal = oracle.getOptimalNodes(5, NodePerformanceOracle.GPUTier.Unknown, 0, 0);
         assertTrue(optimal.length > 0, "Have optimal nodes");

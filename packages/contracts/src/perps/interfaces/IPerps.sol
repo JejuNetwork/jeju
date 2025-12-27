@@ -111,21 +111,30 @@ struct OpenInterest {
 interface IPerpetualMarket {
     // Events
     event MarketCreated(bytes32 indexed marketId, string symbol, address baseAsset);
-    event PositionOpened(bytes32 indexed positionId, address indexed trader, bytes32 indexed marketId, PositionSide side, uint256 size, uint256 price);
+    event PositionOpened(
+        bytes32 indexed positionId,
+        address indexed trader,
+        bytes32 indexed marketId,
+        PositionSide side,
+        uint256 size,
+        uint256 price
+    );
     event PositionClosed(bytes32 indexed positionId, address indexed trader, uint256 exitPrice, int256 pnl);
     event PositionModified(bytes32 indexed positionId, uint256 newSize, uint256 newMargin);
-    event PositionLiquidated(bytes32 indexed positionId, address indexed liquidator, uint256 liquidationPrice, uint256 reward);
+    event PositionLiquidated(
+        bytes32 indexed positionId, address indexed liquidator, uint256 liquidationPrice, uint256 reward
+    );
     event FundingPaid(bytes32 indexed marketId, int256 fundingRate, int256 fundingIndex);
     event OrderPlaced(bytes32 indexed orderId, address indexed trader, bytes32 indexed marketId, OrderType orderType);
     event OrderFilled(bytes32 indexed orderId, bytes32 indexed positionId, uint256 fillPrice);
     event OrderCancelled(bytes32 indexed orderId);
-    
+
     // Market management
     function createMarket(MarketConfig calldata config) external returns (bytes32 marketId);
     function updateMarket(bytes32 marketId, MarketConfig calldata config) external;
     function pauseMarket(bytes32 marketId) external;
     function unpauseMarket(bytes32 marketId) external;
-    
+
     // Trading
     function openPosition(
         bytes32 marketId,
@@ -135,25 +144,25 @@ interface IPerpetualMarket {
         PositionSide side,
         uint256 leverage
     ) external returns (TradeResult memory);
-    
+
     function closePosition(bytes32 positionId) external returns (TradeResult memory);
-    
+
     function decreasePosition(bytes32 positionId, uint256 sizeDecrease) external returns (TradeResult memory);
-    
+
     function addMargin(bytes32 positionId, uint256 amount) external;
-    
+
     function removeMargin(bytes32 positionId, uint256 amount) external;
-    
+
     // Orders
     function placeOrder(Order calldata order) external returns (bytes32 orderId);
     function cancelOrder(bytes32 orderId) external;
     function executeOrder(bytes32 orderId) external returns (TradeResult memory);
-    
+
     // Liquidation
     function liquidate(bytes32 positionId) external returns (uint256 liquidatorReward);
     function isLiquidatable(bytes32 positionId) external view returns (bool canLiquidate, uint256 healthFactor);
     function getLiquidationPrice(bytes32 positionId) external view returns (uint256);
-    
+
     // View functions
     function getPosition(bytes32 positionId) external view returns (Position memory);
     function getTraderPositions(address trader) external view returns (bytes32[] memory);
@@ -173,7 +182,7 @@ interface IMarginManager {
     event Withdraw(address indexed trader, address indexed token, uint256 amount);
     event CollateralLocked(address indexed trader, bytes32 indexed positionId, uint256 amount);
     event CollateralReleased(address indexed trader, bytes32 indexed positionId, uint256 amount);
-    
+
     function deposit(address token, uint256 amount) external;
     function withdraw(address token, uint256 amount) external;
     function getCollateralBalance(address trader, address token) external view returns (uint256);
@@ -193,7 +202,7 @@ interface IFundingRateEngine {
 
 interface ILiquidationEngine {
     event Liquidation(bytes32 indexed positionId, address indexed liquidator, uint256 penalty, uint256 reward);
-    
+
     function canLiquidate(bytes32 positionId) external view returns (bool);
     function liquidate(bytes32 positionId) external returns (uint256 liquidatorReward);
     function partialLiquidate(bytes32 positionId, uint256 percentage) external returns (uint256 liquidatorReward);
@@ -203,7 +212,7 @@ interface IInsuranceFund {
     event FundDeposit(address indexed token, uint256 amount);
     event FundWithdraw(address indexed token, uint256 amount);
     event DeficitCovered(bytes32 indexed positionId, uint256 amount);
-    
+
     function deposit(address token, uint256 amount) external;
     function withdraw(address token, uint256 amount) external;
     function coverDeficit(address token, uint256 amount) external;
@@ -216,4 +225,3 @@ interface IPriceOracle {
     function getMarkPrice(bytes32 marketId) external view returns (uint256);
     function getIndexPrice(bytes32 marketId) external view returns (uint256);
 }
-

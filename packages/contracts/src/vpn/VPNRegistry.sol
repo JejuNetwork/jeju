@@ -64,18 +64,9 @@ contract VPNRegistry is Ownable, Pausable, ReentrancyGuard {
     mapping(bytes2 => bool) public blockedCountries;
     mapping(address => UserContribution) public contributions;
 
-    event NodeRegistered(
-        address indexed operator,
-        bytes2 countryCode,
-        uint256 stake,
-        string endpoint
-    );
+    event NodeRegistered(address indexed operator, bytes2 countryCode, uint256 stake, string endpoint);
 
-    event NodeUpdated(
-        address indexed operator,
-        bytes2 countryCode,
-        string endpoint
-    );
+    event NodeUpdated(address indexed operator, bytes2 countryCode, string endpoint);
 
     event NodeDeactivated(address indexed operator);
     event NodeReactivated(address indexed operator);
@@ -83,20 +74,11 @@ contract VPNRegistry is Ownable, Pausable, ReentrancyGuard {
     event StakeAdded(address indexed operator, uint256 amount, uint256 total);
     event StakeWithdrawn(address indexed operator, uint256 amount);
 
-    event SessionRecorded(
-        address indexed node,
-        address indexed client,
-        uint256 bytesServed,
-        bool successful
-    );
+    event SessionRecorded(address indexed node, address indexed client, uint256 bytesServed, bool successful);
 
     event NodeSlashed(address indexed operator, uint256 amount, string reason);
 
-    event ContributionRecorded(
-        address indexed user,
-        uint256 bytesUsed,
-        uint256 bytesContributed
-    );
+    event ContributionRecorded(address indexed user, uint256 bytesUsed, uint256 bytesContributed);
 
     event CountryStatusUpdated(bytes2 countryCode, bool allowed, bool blocked);
 
@@ -255,12 +237,10 @@ contract VPNRegistry is Ownable, Pausable, ReentrancyGuard {
         emit StakeWithdrawn(msg.sender, amount);
     }
 
-    function recordSession(
-        address nodeAddr,
-        address client,
-        uint256 bytesServed,
-        bool successful
-    ) external onlyCoordinator {
+    function recordSession(address nodeAddr, address client, uint256 bytesServed, bool successful)
+        external
+        onlyCoordinator
+    {
         VPNNode storage node = nodes[nodeAddr];
         if (node.registeredAt == 0) revert NodeNotRegistered();
 
@@ -274,11 +254,7 @@ contract VPNRegistry is Ownable, Pausable, ReentrancyGuard {
         emit SessionRecorded(nodeAddr, client, bytesServed, successful);
     }
 
-    function recordContribution(
-        address user,
-        uint256 bytesUsed,
-        uint256 bytesContributed
-    ) external onlyCoordinator {
+    function recordContribution(address user, uint256 bytesUsed, uint256 bytesContributed) external onlyCoordinator {
         UserContribution storage contrib = contributions[user];
         if (block.timestamp > contrib.periodEnd) {
             contrib.vpnBytesUsed = 0;
@@ -434,4 +410,3 @@ contract VPNRegistry is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

@@ -18,7 +18,6 @@ import {IStrategyRule} from "../IStrategyRule.sol";
  * - momentumThresholdBps: Minimum momentum to act on
  */
 contract MomentumRule is IStrategyRule, Ownable {
-
     // ============ Constants ============
 
     uint256 private constant WEIGHT_PRECISION = 1e18;
@@ -49,11 +48,7 @@ contract MomentumRule is IStrategyRule, Ownable {
 
     // ============ Events ============
 
-    event ParametersUpdated(
-        uint256 lookbackBlocks,
-        uint256 sensitivity,
-        uint256 momentumThresholdBps
-    );
+    event ParametersUpdated(uint256 lookbackBlocks, uint256 sensitivity, uint256 momentumThresholdBps);
     event PriceRecorded(address indexed pool, uint256[] prices);
 
     // ============ Constructor ============
@@ -85,11 +80,12 @@ contract MomentumRule is IStrategyRule, Ownable {
     /**
      * @inheritdoc IStrategyRule
      */
-    function calculateWeights(
-        address pool,
-        uint256[] calldata prices,
-        uint256[] calldata currentWeights
-    ) external view override returns (uint256[] memory newWeights, uint256 blocks) {
+    function calculateWeights(address pool, uint256[] calldata prices, uint256[] calldata currentWeights)
+        external
+        view
+        override
+        returns (uint256[] memory newWeights, uint256 blocks)
+    {
         newWeights = new uint256[](prices.length);
         blocks = blocksToTarget;
 
@@ -108,9 +104,7 @@ contract MomentumRule is IStrategyRule, Ownable {
             }
 
             // Get oldest price in lookback window
-            uint256 lookbackIndex = history.length > lookbackBlocks
-                ? history.length - lookbackBlocks
-                : 0;
+            uint256 lookbackIndex = history.length > lookbackBlocks ? history.length - lookbackBlocks : 0;
             uint256 oldPrice = history[lookbackIndex];
             uint256 currentPrice = prices[i];
 
@@ -121,9 +115,8 @@ contract MomentumRule is IStrategyRule, Ownable {
             }
 
             // Check threshold
-            bool meetsThreshold = momentum > 0
-                ? uint256(momentum) >= momentumThresholdBps
-                : uint256(-momentum) >= momentumThresholdBps;
+            bool meetsThreshold =
+                momentum > 0 ? uint256(momentum) >= momentumThresholdBps : uint256(-momentum) >= momentumThresholdBps;
 
             // Calculate score
             uint256 score = WEIGHT_PRECISION;
@@ -204,11 +197,11 @@ contract MomentumRule is IStrategyRule, Ownable {
     /**
      * @notice Get recent prices for a token
      */
-    function getRecentPrices(
-        address pool,
-        uint256 tokenIndex,
-        uint256 count
-    ) external view returns (uint256[] memory) {
+    function getRecentPrices(address pool, uint256 tokenIndex, uint256 count)
+        external
+        view
+        returns (uint256[] memory)
+    {
         uint256[] storage history = _priceHistory[pool][tokenIndex];
         uint256 length = count > history.length ? history.length : count;
         uint256[] memory recent = new uint256[](length);
@@ -222,11 +215,10 @@ contract MomentumRule is IStrategyRule, Ownable {
 
     // ============ Admin Functions ============
 
-    function setParameters(
-        uint256 lookbackBlocks_,
-        uint256 sensitivity_,
-        uint256 momentumThresholdBps_
-    ) external onlyGovernance {
+    function setParameters(uint256 lookbackBlocks_, uint256 sensitivity_, uint256 momentumThresholdBps_)
+        external
+        onlyGovernance
+    {
         require(sensitivity_ > 0 && sensitivity_ <= 500, "Invalid sensitivity");
         require(momentumThresholdBps_ <= 1000, "Threshold too high");
 
@@ -272,4 +264,3 @@ contract MomentumRule is IStrategyRule, Ownable {
         return weights;
     }
 }
-

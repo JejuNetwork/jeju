@@ -210,11 +210,11 @@ contract PaymasterFactoryTest is Test {
         // Vault and distributor use regular Ownable - ownership transfers immediately
         assertEq(LiquidityVault(payable(vault)).owner(), projectA);
         assertEq(FeeDistributor(distributor).owner(), projectA);
-        
+
         // Paymaster uses Ownable2Step - need to accept ownership
         // Factory initiated transfer, projectA is pendingOwner
         assertEq(LiquidityPaymaster(payable(paymaster)).pendingOwner(), projectA);
-        
+
         // Accept ownership
         vm.prank(projectA);
         LiquidityPaymaster(payable(paymaster)).acceptOwnership();
@@ -552,5 +552,4 @@ contract PaymasterFactoryTest is Test {
         address[] memory tokens = factory.getDeploymentsByOperator(makeAddr("nobody"));
         assertEq(tokens.length, 0);
     }
-
 }

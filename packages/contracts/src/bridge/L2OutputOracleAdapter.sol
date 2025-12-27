@@ -22,9 +22,9 @@ contract L2OutputOracleAdapter {
         bytes32 outputRoot;
         uint256 timestamp;
         uint256 l2BlockNumber;
-        bytes32 daCommitment;     // Required DA commitment
-        bool daVerified;          // Has DA been verified
-        bool isCalldataFallback;  // True if using calldata fallback
+        bytes32 daCommitment; // Required DA commitment
+        bool daVerified; // Has DA been verified
+        bool isCalldataFallback; // True if using calldata fallback
     }
 
     mapping(bytes32 => bool) public challengedOutputs;
@@ -37,10 +37,7 @@ contract L2OutputOracleAdapter {
     event OutputDeleted(bytes32 indexed outputRoot);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event OutputProposed(
-        bytes32 indexed outputRoot,
-        uint256 indexed l2BlockNumber,
-        bytes32 indexed daCommitment,
-        bool isCalldataFallback
+        bytes32 indexed outputRoot, uint256 indexed l2BlockNumber, bytes32 indexed daCommitment, bool isCalldataFallback
     );
     event DAVerified(bytes32 indexed outputRoot, bytes32 indexed daCommitment);
     event DAVerifierSet(address indexed verifier);
@@ -81,12 +78,10 @@ contract L2OutputOracleAdapter {
      * @param _daCommitment The DA commitment (blob ID or calldata hash)
      * @param _daProof Proof linking output to DA commitment
      */
-    function proposeOutput(
-        bytes32 _outputRoot,
-        uint256 _l2BlockNumber,
-        bytes32 _daCommitment,
-        bytes calldata _daProof
-    ) external onlyAuthorizedSequencer {
+    function proposeOutput(bytes32 _outputRoot, uint256 _l2BlockNumber, bytes32 _daCommitment, bytes calldata _daProof)
+        external
+        onlyAuthorizedSequencer
+    {
         if (_daCommitment == bytes32(0)) revert DACommitmentRequired();
 
         bool isCalldata = false;
@@ -147,9 +142,12 @@ contract L2OutputOracleAdapter {
      * @notice Post output data to calldata fallback
      * @param _batchData The batch data to store
      */
-    function postCalldataFallback(
-        bytes calldata _batchData
-    ) external payable onlyAuthorizedSequencer returns (bytes32) {
+    function postCalldataFallback(bytes calldata _batchData)
+        external
+        payable
+        onlyAuthorizedSequencer
+        returns (bytes32)
+    {
         if (address(calldataFallback) == address(0)) revert DAVerificationFailed();
 
         return calldataFallback.postCalldata{value: msg.value}(_batchData);
@@ -195,18 +193,13 @@ contract L2OutputOracleAdapter {
     /**
      * @notice Challenge output for DA unavailability
      */
-    function challengeDAUnavailability(
-        bytes32 outputRoot
-    ) external payable {
+    function challengeDAUnavailability(bytes32 outputRoot) external payable {
         Output storage output = _outputs[outputRoot];
         if (output.timestamp == 0) revert OutputNotFound();
         if (challengedOutputs[outputRoot]) revert OutputAlreadyChallenged();
 
         if (address(daCommitmentVerifier) != address(0)) {
-            daCommitmentVerifier.challengeUnavailability{value: msg.value}(
-                outputRoot,
-                output.daCommitment
-            );
+            daCommitmentVerifier.challengeUnavailability{value: msg.value}(outputRoot, output.daCommitment);
         }
 
         challengedOutputs[outputRoot] = true;
@@ -257,9 +250,8 @@ contract L2OutputOracleAdapter {
         returns (bytes32 outputRoot, uint128 timestamp, uint128 l2BlockNumber)
     {
         // Call the L2OutputOracle to get the output proposal
-        (bool success, bytes memory data) = l2OutputOracle.staticcall(
-            abi.encodeWithSignature("getL2Output(uint256)", _outputIndex)
-        );
+        (bool success, bytes memory data) =
+            l2OutputOracle.staticcall(abi.encodeWithSignature("getL2Output(uint256)", _outputIndex));
         require(success, "L2OutputOracle call failed");
 
         // Decode the OutputProposal struct
@@ -279,9 +271,8 @@ contract L2OutputOracleAdapter {
         bytes32[] calldata _proof
     ) external view returns (bool valid) {
         // Get the output root at the index
-        (bool success, bytes memory data) = l2OutputOracle.staticcall(
-            abi.encodeWithSignature("getL2Output(uint256)", _outputIndex)
-        );
+        (bool success, bytes memory data) =
+            l2OutputOracle.staticcall(abi.encodeWithSignature("getL2Output(uint256)", _outputIndex));
         if (!success) return false;
 
         (bytes32 outputRoot,,) = abi.decode(data, (bytes32, uint128, uint128));

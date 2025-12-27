@@ -30,10 +30,10 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     uint256 public constant MAX_UTILIZATION = 80;
     uint256 public minETHLiquidity = 10 ether;
     uint256 private constant PRECISION = 1e18;
-    
+
     /// @notice Minimum initial deposit to prevent share inflation attacks
     uint256 public constant MIN_INITIAL_DEPOSIT = 0.001 ether;
-    
+
     /// @notice Virtual shares offset to prevent share inflation attacks
     /// @dev Using virtual shares means the first depositor cannot manipulate share price
     uint256 private constant VIRTUAL_SHARES = 1e6;
@@ -47,7 +47,6 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     event FeesClaimed(address indexed provider, uint256 amount);
     event PaymasterSet(address indexed paymaster);
     event FeeDistributorSet(address indexed feeDistributor);
-
 
     error InsufficientLiquidity();
     error BelowMinimumLiquidity();
@@ -63,7 +62,6 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         if (_rewardToken == address(0)) revert InvalidAddress();
         rewardToken = IERC20(_rewardToken);
     }
-
 
     modifier onlyPaymaster() {
         if (msg.sender != paymaster) revert OnlyPaymaster();
@@ -121,7 +119,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         uint256 virtualTotalShares = totalETHLiquidity + VIRTUAL_SHARES;
         uint256 virtualBalance = address(this).balance + VIRTUAL_BALANCE;
         uint256 ethAmount = (shares * virtualBalance) / virtualTotalShares;
-        
+
         // Ensure we don't withdraw more than actual balance (safety check)
         if (ethAmount > address(this).balance) {
             ethAmount = address(this).balance;
@@ -198,7 +196,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         uint256 virtualTotalShares = totalElizaLiquidity + VIRTUAL_SHARES;
         uint256 virtualBalance = currentBalance + VIRTUAL_BALANCE;
         uint256 elizaAmount = (shares * virtualBalance) / virtualTotalShares;
-        
+
         // Ensure we don't withdraw more than actual balance (safety check)
         if (elizaAmount > currentBalance) {
             elizaAmount = currentBalance;

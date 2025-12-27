@@ -92,11 +92,11 @@ contract TreasuryFactory is Ownable {
      * @return treasuryId Unique identifier for the treasury
      * @return treasury Address of the deployed treasury
      */
-    function createTreasury(
-        string calldata treasuryName,
-        address admin,
-        uint256 dailyLimit
-    ) external payable returns (bytes32 treasuryId, address treasury) {
+    function createTreasury(string calldata treasuryName, address admin, uint256 dailyLimit)
+        external
+        payable
+        returns (bytes32 treasuryId, address treasury)
+    {
         _validateCreation(treasuryName, admin);
 
         uint256 limit = dailyLimit > 0 ? dailyLimit : defaultDailyLimit;
@@ -115,11 +115,11 @@ contract TreasuryFactory is Ownable {
      * @return treasuryId Unique identifier for the treasury
      * @return treasury Address of the deployed treasury
      */
-    function createTEETreasury(
-        string calldata treasuryName,
-        address admin,
-        uint256 dailyLimit
-    ) external payable returns (bytes32 treasuryId, address treasury) {
+    function createTEETreasury(string calldata treasuryName, address admin, uint256 dailyLimit)
+        external
+        payable
+        returns (bytes32 treasuryId, address treasury)
+    {
         _validateCreation(treasuryName, admin);
 
         uint256 limit = dailyLimit > 0 ? dailyLimit : defaultDailyLimit;

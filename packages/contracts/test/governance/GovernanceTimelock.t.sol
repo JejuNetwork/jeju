@@ -373,12 +373,12 @@ contract GovernanceTimelockTest is Test {
     function testSetTimelockDelay() public {
         // Decentralization: Minimum delay is 7 days, must go through proposal
         uint256 newDelay = 14 days;
-        
+
         bytes memory callData = abi.encodeWithSelector(timelock.setTimelockDelay.selector, newDelay);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Update delay");
-        
+
         // Warp past timelock but within grace period (14 days)
         vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         timelock.execute(proposalId);
@@ -389,13 +389,13 @@ contract GovernanceTimelockTest is Test {
     function testSetTimelockDelayBelowMinimum() public {
         // Setting delay below minimum should fail even via proposal
         bytes memory callData = abi.encodeWithSelector(timelock.setTimelockDelay.selector, 3 days);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Update delay");
-        
+
         // Warp past timelock but within grace period (14 days)
         vm.warp(block.timestamp + LOCALNET_DELAY + 1);
-        
+
         // Execute should fail with InvalidDelay (wrapped in ExecutionFailed)
         vm.expectRevert(GovernanceTimelock.ExecutionFailed.selector);
         timelock.execute(proposalId);
@@ -403,13 +403,13 @@ contract GovernanceTimelockTest is Test {
 
     function testSetGovernance() public {
         address newGov = makeAddr("newGov");
-        
+
         // Must go through proposal flow, not direct owner call
         bytes memory callData = abi.encodeWithSelector(timelock.setGovernance.selector, newGov);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Change governance");
-        
+
         // Warp past timelock but within grace period (14 days)
         vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         timelock.execute(proposalId);
@@ -419,13 +419,13 @@ contract GovernanceTimelockTest is Test {
 
     function testSetSecurityCouncil() public {
         address newCouncil = makeAddr("newCouncil");
-        
+
         // Must go through proposal flow, not direct owner call
         bytes memory callData = abi.encodeWithSelector(timelock.setSecurityCouncil.selector, newCouncil);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Change security council");
-        
+
         // Warp past timelock but within grace period (14 days)
         vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         timelock.execute(proposalId);

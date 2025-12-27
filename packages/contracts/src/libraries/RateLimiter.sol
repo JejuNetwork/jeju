@@ -25,45 +25,45 @@ library RateLimiter {
 
     /// @notice Fixed window rate limit state
     struct FixedWindow {
-        uint256 count;           // Current count in window
-        uint256 windowStart;     // Start of current window
-        uint256 limit;           // Max actions per window
-        uint256 windowSize;      // Window duration in seconds
+        uint256 count; // Current count in window
+        uint256 windowStart; // Start of current window
+        uint256 limit; // Max actions per window
+        uint256 windowSize; // Window duration in seconds
     }
 
     /// @notice Sliding window rate limit state (uses two half-windows)
     struct SlidingWindow {
-        uint256 previousCount;   // Count from previous window
-        uint256 currentCount;    // Count in current window
-        uint256 windowStart;     // Start of current window
-        uint256 limit;           // Max actions per window
-        uint256 windowSize;      // Window duration in seconds
+        uint256 previousCount; // Count from previous window
+        uint256 currentCount; // Count in current window
+        uint256 windowStart; // Start of current window
+        uint256 limit; // Max actions per window
+        uint256 windowSize; // Window duration in seconds
     }
 
     /// @notice Token bucket rate limit state
     struct TokenBucket {
-        uint256 tokens;          // Current tokens available
-        uint256 lastRefill;      // Last refill timestamp
-        uint256 capacity;        // Max tokens (burst capacity)
-        uint256 refillRate;      // Tokens per second
+        uint256 tokens; // Current tokens available
+        uint256 lastRefill; // Last refill timestamp
+        uint256 capacity; // Max tokens (burst capacity)
+        uint256 refillRate; // Tokens per second
     }
 
     /// @notice Adaptive cooldown state
     struct AdaptiveCooldown {
-        uint256 violations;      // Consecutive violations
-        uint256 lastViolation;   // Last violation timestamp
-        uint256 cooldownUntil;   // Current cooldown end time
-        uint256 baseCooldown;    // Base cooldown duration
-        uint256 maxCooldown;     // Maximum cooldown duration
-        uint256 decayPeriod;     // Period after which violations decay
+        uint256 violations; // Consecutive violations
+        uint256 lastViolation; // Last violation timestamp
+        uint256 cooldownUntil; // Current cooldown end time
+        uint256 baseCooldown; // Base cooldown duration
+        uint256 maxCooldown; // Maximum cooldown duration
+        uint256 decayPeriod; // Period after which violations decay
     }
 
     /// @notice Global rate limit state (shared across all users)
     struct GlobalLimit {
-        uint256 count;           // Current global count
-        uint256 windowStart;     // Window start
-        uint256 limit;           // Global limit per window
-        uint256 windowSize;      // Window size
+        uint256 count; // Current global count
+        uint256 windowStart; // Window start
+        uint256 limit; // Global limit per window
+        uint256 windowSize; // Window size
     }
 
     // ============ Fixed Window Functions ============
@@ -74,11 +74,7 @@ library RateLimiter {
      * @param limit Maximum actions per window
      * @param windowSize Window duration in seconds
      */
-    function init(
-        FixedWindow storage self,
-        uint256 limit,
-        uint256 windowSize
-    ) internal {
+    function init(FixedWindow storage self, uint256 limit, uint256 windowSize) internal {
         if (limit == 0 || windowSize == 0) revert InvalidConfiguration();
         self.limit = limit;
         self.windowSize = windowSize;
@@ -112,11 +108,7 @@ library RateLimiter {
      */
     function consumeOrRevert(FixedWindow storage self) internal {
         if (!consume(self)) {
-            revert RateLimitExceeded(
-                self.count,
-                self.limit,
-                self.windowStart + self.windowSize
-            );
+            revert RateLimitExceeded(self.count, self.limit, self.windowStart + self.windowSize);
         }
     }
 
@@ -140,11 +132,7 @@ library RateLimiter {
      * @param limit Maximum actions per window
      * @param windowSize Window duration in seconds
      */
-    function init(
-        SlidingWindow storage self,
-        uint256 limit,
-        uint256 windowSize
-    ) internal {
+    function init(SlidingWindow storage self, uint256 limit, uint256 windowSize) internal {
         if (limit == 0 || windowSize == 0) revert InvalidConfiguration();
         self.limit = limit;
         self.windowSize = windowSize;
@@ -167,7 +155,7 @@ library RateLimiter {
         if (currentTime >= windowEnd) {
             // How many windows have passed?
             uint256 windowsPassed = (currentTime - self.windowStart) / self.windowSize;
-            
+
             if (windowsPassed == 1) {
                 // Just moved to next window
                 self.previousCount = self.currentCount;
@@ -177,14 +165,14 @@ library RateLimiter {
                 self.previousCount = 0;
                 self.currentCount = 0;
             }
-            
+
             self.windowStart = self.windowStart + (windowsPassed * self.windowSize);
         }
 
         // Calculate weighted count using sliding window
         uint256 timeIntoWindow = currentTime - self.windowStart;
         uint256 previousWeight = self.windowSize - timeIntoWindow;
-        
+
         // Weighted count = (previous * weight) + current
         uint256 weightedCount = ((self.previousCount * previousWeight) / self.windowSize) + self.currentCount;
 
@@ -205,12 +193,8 @@ library RateLimiter {
             uint256 timeIntoWindow = block.timestamp - self.windowStart;
             uint256 previousWeight = self.windowSize - timeIntoWindow;
             uint256 weightedCount = ((self.previousCount * previousWeight) / self.windowSize) + self.currentCount;
-            
-            revert RateLimitExceeded(
-                weightedCount,
-                self.limit,
-                self.windowStart + self.windowSize
-            );
+
+            revert RateLimitExceeded(weightedCount, self.limit, self.windowStart + self.windowSize);
         }
     }
 
@@ -222,11 +206,7 @@ library RateLimiter {
      * @param capacity Maximum tokens (burst capacity)
      * @param refillRate Tokens added per second
      */
-    function init(
-        TokenBucket storage self,
-        uint256 capacity,
-        uint256 refillRate
-    ) internal {
+    function init(TokenBucket storage self, uint256 capacity, uint256 refillRate) internal {
         if (capacity == 0 || refillRate == 0) revert InvalidConfiguration();
         self.capacity = capacity;
         self.refillRate = refillRate;
@@ -244,11 +224,11 @@ library RateLimiter {
 
         uint256 tokensToAdd = elapsed * self.refillRate;
         self.tokens = self.tokens + tokensToAdd;
-        
+
         if (self.tokens > self.capacity) {
             self.tokens = self.capacity;
         }
-        
+
         self.lastRefill = block.timestamp;
     }
 
@@ -260,7 +240,7 @@ library RateLimiter {
      */
     function consume(TokenBucket storage self, uint256 amount) internal returns (bool allowed) {
         refill(self);
-        
+
         if (self.tokens < amount) {
             return false;
         }
@@ -278,12 +258,8 @@ library RateLimiter {
             // Calculate when tokens will be available
             uint256 tokensNeeded = 1 - self.tokens;
             uint256 waitTime = (tokensNeeded + self.refillRate - 1) / self.refillRate;
-            
-            revert RateLimitExceeded(
-                self.tokens,
-                1,
-                block.timestamp + waitTime
-            );
+
+            revert RateLimitExceeded(self.tokens, 1, block.timestamp + waitTime);
         }
     }
 
@@ -308,12 +284,9 @@ library RateLimiter {
      * @param maxCooldown Maximum cooldown duration in seconds
      * @param decayPeriod Time after which violations start decaying
      */
-    function init(
-        AdaptiveCooldown storage self,
-        uint256 baseCooldown,
-        uint256 maxCooldown,
-        uint256 decayPeriod
-    ) internal {
+    function init(AdaptiveCooldown storage self, uint256 baseCooldown, uint256 maxCooldown, uint256 decayPeriod)
+        internal
+    {
         if (baseCooldown == 0 || maxCooldown < baseCooldown) revert InvalidConfiguration();
         self.baseCooldown = baseCooldown;
         self.maxCooldown = maxCooldown;
@@ -352,7 +325,7 @@ library RateLimiter {
         if (self.decayPeriod > 0 && self.lastViolation > 0) {
             uint256 timeSinceLastViolation = block.timestamp - self.lastViolation;
             uint256 decayCount = timeSinceLastViolation / self.decayPeriod;
-            
+
             if (decayCount > 0 && self.violations > 0) {
                 self.violations = decayCount >= self.violations ? 0 : self.violations - decayCount;
             }
@@ -366,7 +339,7 @@ library RateLimiter {
         // violations=1: base, violations=2: 2*base, violations=3: 4*base, etc.
         uint256 multiplier = 1 << (self.violations - 1); // 2^(violations-1)
         cooldownDuration = self.baseCooldown * multiplier;
-        
+
         if (cooldownDuration > self.maxCooldown) {
             cooldownDuration = self.maxCooldown;
         }
@@ -396,7 +369,7 @@ library RateLimiter {
 
         uint256 timeSinceLastViolation = block.timestamp - self.lastViolation;
         uint256 decayCount = timeSinceLastViolation / self.decayPeriod;
-        
+
         return decayCount >= self.violations ? 0 : self.violations - decayCount;
     }
 
@@ -408,11 +381,7 @@ library RateLimiter {
      * @param limit Maximum actions per window across all users
      * @param windowSize Window duration in seconds
      */
-    function init(
-        GlobalLimit storage self,
-        uint256 limit,
-        uint256 windowSize
-    ) internal {
+    function init(GlobalLimit storage self, uint256 limit, uint256 windowSize) internal {
         if (limit == 0 || windowSize == 0) revert InvalidConfiguration();
         self.limit = limit;
         self.windowSize = windowSize;
@@ -446,13 +415,7 @@ library RateLimiter {
      */
     function consumeOrRevert(GlobalLimit storage self) internal {
         if (!consume(self)) {
-            revert RateLimitExceeded(
-                self.count,
-                self.limit,
-                self.windowStart + self.windowSize
-            );
+            revert RateLimitExceeded(self.count, self.limit, self.windowStart + self.windowSize);
         }
     }
 }
-
-

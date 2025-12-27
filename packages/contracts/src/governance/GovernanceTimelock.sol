@@ -17,7 +17,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         bool cancelled;
         ProposalType proposalType;
     }
-    
+
     /// @notice Grace period after timelock expires during which proposal can be executed
     uint256 public constant GRACE_PERIOD = 14 days;
 

@@ -32,7 +32,7 @@ contract PaymasterFactory is Ownable {
     TokenRegistry public immutable registry;
     IEntryPoint public immutable entryPoint;
     address public immutable oracle;
-    
+
     mapping(address => Deployment) public deployments;
     mapping(address => address[]) public operatorDeployments;
     address[] public deployedTokens;
@@ -59,26 +59,21 @@ contract PaymasterFactory is Ownable {
         uint256 timestamp
     );
 
-    constructor(
-        address _registry,
-        address _entryPoint,
-        address _oracle,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _registry, address _entryPoint, address _oracle, address _owner) Ownable(_owner) {
         require(_registry != address(0), "Invalid registry");
         require(_entryPoint != address(0), "Invalid entry point");
         require(_oracle != address(0), "Invalid oracle");
-        
+
         registry = TokenRegistry(_registry);
         entryPoint = IEntryPoint(_entryPoint);
         oracle = _oracle;
     }
 
-    function deployPaymaster(
-        address token,
-        uint256 feeMargin,
-        address operator
-    ) external notBanned returns (address paymaster, address vault, address distributor) {
+    function deployPaymaster(address token, uint256 feeMargin, address operator)
+        external
+        notBanned
+        returns (address paymaster, address vault, address distributor)
+    {
         if (!registry.isSupported(token)) revert TokenNotRegistered(token);
         if (deployments[token].paymaster != address(0)) revert AlreadyDeployed(token);
         if (feeMargin > 1000) revert InvalidFeeMargin(feeMargin);
@@ -86,14 +81,7 @@ contract PaymasterFactory is Ownable {
 
         vault = address(new LiquidityVault(token, address(this)));
         distributor = address(new FeeDistributorV2(token, vault, address(this)));
-        paymaster = address(new LiquidityPaymaster(
-            entryPoint,
-            token,
-            vault,
-            oracle,
-            feeMargin,
-            address(this)
-        ));
+        paymaster = address(new LiquidityPaymaster(entryPoint, token, vault, oracle, feeMargin, address(this)));
 
         LiquidityVault(payable(vault)).setPaymaster(paymaster);
         LiquidityVault(payable(vault)).setFeeDistributor(distributor);
@@ -115,15 +103,7 @@ contract PaymasterFactory is Ownable {
         operatorDeployments[operator].push(token);
         totalDeployments++;
 
-        emit PaymasterDeployed(
-            token,
-            operator,
-            paymaster,
-            vault,
-            distributor,
-            feeMargin,
-            block.timestamp
-        );
+        emit PaymasterDeployed(token, operator, paymaster, vault, distributor, feeMargin, block.timestamp);
     }
 
     function getDeployment(address token) external view returns (Deployment memory) {
@@ -171,4 +151,3 @@ contract PaymasterFactory is Ownable {
         return moderation.isAddressBanned(user);
     }
 }
-

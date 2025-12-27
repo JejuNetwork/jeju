@@ -96,6 +96,7 @@ interface BootstrapResult {
     oauth3TeeVerifier?: string
     oauth3IdentityRegistry?: string
     oauth3AppRegistry?: string
+    oauth3Staking?: string
     // Bazaar Marketplace
     nftMarketplace?: string
     simpleCollectible?: string
@@ -325,6 +326,7 @@ class CompleteBootstrapper {
     result.contracts.oauth3TeeVerifier = oauth3.teeVerifier
     result.contracts.oauth3IdentityRegistry = oauth3.identityRegistry
     result.contracts.oauth3AppRegistry = oauth3.appRegistry
+    result.contracts.oauth3Staking = oauth3.staking
     console.log('')
 
     // Step 5.12: Deploy NFT Marketplace
@@ -1401,11 +1403,12 @@ class CompleteBootstrapper {
    * - OAuth3AppRegistry: Registers OAuth3 applications
    */
   private async deployOAuth3(
-    _contracts: Partial<BootstrapResult['contracts']>,
+    contracts: Partial<BootstrapResult['contracts']>,
   ): Promise<{
     teeVerifier: string
     identityRegistry: string
     appRegistry: string
+    staking: string
   }> {
     try {
       // Deploy OAuth3TEEVerifier first (with zero address for identityRegistry initially)
@@ -1427,6 +1430,22 @@ class CompleteBootstrapper {
         'src/oauth3/OAuth3AppRegistry.sol:OAuth3AppRegistry',
         [identityRegistry, teeVerifier],
         'OAuth3AppRegistry',
+      )
+
+      // Deploy Staking contract for OAuth3 tier verification
+      // Constructor: (address _token, address _registry, address _oracle, address _treasury, address _owner)
+      const jejuToken = contracts.jeju ?? '0x0000000000000000000000000000000000000000'
+      const priceOracle = contracts.priceOracle ?? '0x0000000000000000000000000000000000000000'
+      const staking = this.deployContractFromPackages(
+        'src/staking/Staking.sol:Staking',
+        [
+          jejuToken,
+          identityRegistry,
+          priceOracle,
+          this.deployerAddress, // treasury (deployer for localnet)
+          this.deployerAddress, // owner (deployer for localnet)
+        ],
+        'OAuth3 Staking',
       )
 
       // Update TEEVerifier to set the identityRegistry
@@ -1459,13 +1478,14 @@ class CompleteBootstrapper {
       }
 
       console.log('  ✅ OAuth3 deployed')
-      console.log('     ✨ TEEVerifier, IdentityRegistry, AppRegistry ready')
+      console.log('     ✨ TEEVerifier, IdentityRegistry, AppRegistry, Staking ready')
       return {
         teeVerifier,
         identityRegistry,
         appRegistry,
+        staking,
       }
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.log('  ⚠️  OAuth3 deployment skipped (contracts may not exist)')
       console.log('     Error:', errorMsg)
@@ -1473,6 +1493,7 @@ class CompleteBootstrapper {
         teeVerifier: '0x0000000000000000000000000000000000000000',
         identityRegistry: '0x0000000000000000000000000000000000000000',
         appRegistry: '0x0000000000000000000000000000000000000000',
+        staking: '0x0000000000000000000000000000000000000000',
       }
     }
   }
@@ -2278,6 +2299,12 @@ PUBLIC_JNS_RESOLVER_ADDRESS="${result.contracts.jnsResolver || ''}"
 PUBLIC_STORAGE_MANAGER_ADDRESS="${result.contracts.storageManager || ''}"
 PUBLIC_WORKER_REGISTRY_ADDRESS="${result.contracts.workerRegistry || ''}"
 PUBLIC_CDN_REGISTRY_ADDRESS="${result.contracts.cdnRegistry || ''}"
+
+# OAuth3 (Decentralized Auth)
+PUBLIC_OAUTH3_TEE_VERIFIER_ADDRESS="${result.contracts.oauth3TeeVerifier || ''}"
+PUBLIC_OAUTH3_IDENTITY_REGISTRY_ADDRESS="${result.contracts.oauth3IdentityRegistry || ''}"
+PUBLIC_OAUTH3_APP_REGISTRY_ADDRESS="${result.contracts.oauth3AppRegistry || ''}"
+PUBLIC_OAUTH3_STAKING_ADDRESS="${result.contracts.oauth3Staking || ''}"
 `
     writeFileSync(gatewayEnvPath, gatewayEnvContent)
     console.log(`   ${gatewayEnvPath}`)
@@ -2347,6 +2374,12 @@ JNS_RESOLVER_ADDRESS="${result.contracts.jnsResolver || ''}"
 STORAGE_MANAGER_ADDRESS="${result.contracts.storageManager || ''}"
 WORKER_REGISTRY_ADDRESS="${result.contracts.workerRegistry || ''}"
 CDN_REGISTRY_ADDRESS="${result.contracts.cdnRegistry || ''}"
+
+# OAuth3 (Decentralized Auth)
+OAUTH3_TEE_VERIFIER_ADDRESS="${result.contracts.oauth3TeeVerifier || ''}"
+OAUTH3_IDENTITY_REGISTRY_ADDRESS="${result.contracts.oauth3IdentityRegistry || ''}"
+OAUTH3_APP_REGISTRY_ADDRESS="${result.contracts.oauth3AppRegistry || ''}"
+STAKING_CONTRACT_ADDRESS="${result.contracts.oauth3Staking || ''}"
 
 # x402 Configuration
 X402_NETWORK=jeju-localnet

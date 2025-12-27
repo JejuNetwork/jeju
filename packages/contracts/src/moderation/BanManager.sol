@@ -5,7 +5,10 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface IHyperlaneMailbox {
-    function dispatch(uint32 destinationDomain, bytes32 recipient, bytes calldata body) external payable returns (bytes32);
+    function dispatch(uint32 destinationDomain, bytes32 recipient, bytes calldata body)
+        external
+        payable
+        returns (bytes32);
 }
 
 interface IHyperlaneReceiver {
@@ -98,7 +101,6 @@ contract BanManager is Ownable, Pausable, IHyperlaneReceiver {
     error OnlyMailbox();
     error UnauthorizedSender();
 
-
     modifier onlyGovernance() {
         if (msg.sender != governance && msg.sender != owner()) {
             revert OnlyGovernance();
@@ -112,7 +114,6 @@ contract BanManager is Ownable, Pausable, IHyperlaneReceiver {
         }
         _;
     }
-
 
     constructor(address _governance, address initialOwner) Ownable(initialOwner) {
         require(_governance != address(0), "Invalid governance");
@@ -345,11 +346,7 @@ contract BanManager is Ownable, Pausable, IHyperlaneReceiver {
             bytes32 remote = remoteBanManagers[chainIds[i]];
             require(remote != bytes32(0), "Remote not set");
 
-            bytes32 messageId = hyperlaneMailbox.dispatch{value: feePerChain}(
-                chainIds[i],
-                remote,
-                payload
-            );
+            bytes32 messageId = hyperlaneMailbox.dispatch{value: feePerChain}(chainIds[i], remote, payload);
 
             emit CrossChainBanSynced(chainIds[i], messageId);
         }
