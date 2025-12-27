@@ -61,10 +61,64 @@ func convertQueryAndBuildArgs(pattern string, args []types.NamedArg) (containsDD
 			continue
 		}
 
+		lower := strings.ToLower(query)
+
+		// First try string-based SHOW handling (covers cases sqlparser can't handle)
+		if strings.HasPrefix(lower, "show ") {
+			translated := translateShowByString(query)
+			if translated != "" {
+				log.WithFields(log.Fields{
+					"from": query,
+					"to":   translated,
+				}).Debug("query translated")
+				resultQueries = append(resultQueries, translated)
+				continue
+			}
+		}
+
+		// Handle DESC/DESCRIBE statements
+		if strings.HasPrefix(lower, "desc ") || strings.HasPrefix(lower, "describe ") {
+			tableName := extractTableNameFromDesc(query)
+			if tableName != "" {
+				translated := "PRAGMA table_info(" + tableName + ")"
+				log.WithFields(log.Fields{
+					"from": query,
+					"to":   translated,
+				}).Debug("query translated")
+				resultQueries = append(resultQueries, translated)
+				continue
+			}
+		}
+
+		// Check for DDL statements by string pattern (for cases parser doesn't handle)
+		if isDDLByString(lower) {
+			containsDDL = true
+			// Check for invalid table names
+			if strings.Contains(lower, "sqlite") {
+				for _, word := range strings.Fields(lower) {
+					if strings.HasPrefix(word, "sqlite") {
+						err = errors.Wrapf(ErrInvalidTableName, "%s", word)
+						return
+					}
+				}
+			}
+			// Check for stateful functions in DDL (e.g., DEFAULT CURRENT_TIMESTAMP)
+			if err = checkStatefulFunctions(query); err != nil {
+				return
+			}
+			resultQueries = append(resultQueries, query)
+			continue
+		}
+
 		// Try to parse the statement
 		stmt, parseErr := sqlparser.Parse(query)
 		if parseErr != nil {
-			// If parsing fails, just pass through the query
+			// If it looks like DDL but fails to parse, return error
+			if looksLikeDDL(lower) {
+				err = errors.Wrap(parseErr, "parse sql failed")
+				return
+			}
+			// Otherwise pass through the query
 			log.WithError(parseErr).WithField("query", query).Debug("failed to parse query, passing through")
 			resultQueries = append(resultQueries, query)
 			continue
@@ -116,6 +170,95 @@ func convertQueryAndBuildArgs(pattern string, args []types.NamedArg) (containsDD
 	return
 }
 
+// translateShowByString handles SHOW statements by string pattern matching
+// This handles cases that the SQL parser can't parse correctly
+func translateShowByString(query string) string {
+	lower := strings.ToLower(query)
+	words := strings.Fields(lower)
+	if len(words) < 2 {
+		return ""
+	}
+
+	switch words[1] {
+	case "tables":
+		return `SELECT name FROM sqlite_master WHERE type = "table" AND name NOT LIKE "sqlite%"`
+	case "index":
+		// SHOW INDEX FROM [TABLE] tablename
+		tableName := extractTableName(words, 2)
+		if tableName != "" {
+			return `SELECT name FROM sqlite_master WHERE type = "index" AND tbl_name = "` + tableName + `" AND name NOT LIKE "sqlite%"`
+		}
+	case "create":
+		// SHOW CREATE TABLE tablename
+		if len(words) >= 4 && words[2] == "table" {
+			tableName := extractTableName(words, 3)
+			if tableName != "" {
+				return `SELECT sql FROM sqlite_master WHERE type = "table" AND tbl_name = "` + tableName + `" AND tbl_name NOT LIKE "sqlite%"`
+			}
+		}
+	}
+	return ""
+}
+
+// extractTableName extracts the table name from word list starting at index
+func extractTableName(words []string, startIdx int) string {
+	if startIdx >= len(words) {
+		return ""
+	}
+	// Skip "from" or "table" keywords
+	for i := startIdx; i < len(words); i++ {
+		if words[i] != "from" && words[i] != "table" {
+			return words[i]
+		}
+	}
+	return ""
+}
+
+// extractTableNameFromDesc extracts table name from DESC/DESCRIBE statement
+func extractTableNameFromDesc(query string) string {
+	words := strings.Fields(query)
+	if len(words) >= 2 {
+		// DESC tablename or DESCRIBE tablename
+		return words[1]
+	}
+	return ""
+}
+
+// isDDLByString checks if a query is a DDL statement by string pattern
+func isDDLByString(lower string) bool {
+	ddlPrefixes := []string{
+		"create table",
+		"create virtual table",
+		"create index",
+		"create unique index",
+		"create trigger",
+		"create view",
+		"drop table",
+		"drop index",
+		"drop trigger",
+		"drop view",
+		"alter table",
+	}
+	for _, prefix := range ddlPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// looksLikeDDL checks if a query looks like it's trying to be DDL
+func looksLikeDDL(lower string) bool {
+	// Check if it starts with a DDL keyword
+	ddlKeywords := []string{"create ", "drop ", "alter "}
+	for _, keyword := range ddlKeywords {
+		if strings.HasPrefix(lower, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
 // translateShowStatement translates MySQL-style SHOW statements to SQLite equivalents
 func translateShowStatement(stmt *sqlparser.Show) string {
 	switch strings.ToLower(stmt.Type) {
@@ -142,9 +285,15 @@ func checkStatefulFunctions(query string) error {
 		return errors.Wrap(ErrStatefulQueryParts, "random function not supported")
 	}
 
-	// Check for current_timestamp
+	// Check for current_timestamp, current_date, current_time
 	if strings.Contains(lower, "current_timestamp") {
 		return errors.Wrap(ErrStatefulQueryParts, "CURRENT_TIMESTAMP not supported")
+	}
+	if strings.Contains(lower, "current_date") {
+		return errors.Wrap(ErrStatefulQueryParts, "CURRENT_DATE not supported")
+	}
+	if strings.Contains(lower, "current_time") {
+		return errors.Wrap(ErrStatefulQueryParts, "CURRENT_TIME not supported")
 	}
 
 	// Check for sqlite functions

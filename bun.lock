@@ -514,6 +514,7 @@
       "devDependencies": {
         "@capacitor/core": "^6.1.0",
         "@capacitor/preferences": "^6.0.0",
+        "@jejunetwork/config": "workspace:*",
         "@jejunetwork/tests": "workspace:*",
         "@playwright/test": "1.57.0",
         "@synthetixio/synpress": "4.1.1",

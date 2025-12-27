@@ -39,6 +39,7 @@
     "capacitor-secure-storage-plugin": "^0.10.0"
   },
   "devDependencies": {
+    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/tests": "workspace:*",
     "@capacitor/core": "^6.1.0",
     "@capacitor/preferences": "^6.0.0",
