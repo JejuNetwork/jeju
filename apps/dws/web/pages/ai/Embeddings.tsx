@@ -138,8 +138,8 @@ export default function EmbeddingsPage() {
         {results.length === 0 ? (
           <div className="empty-state" style={{ padding: '3rem' }}>
             <MessageSquare size={48} />
-            <h3>No embeddings yet</h3>
-            <p>Enter text above to generate vector embeddings</p>
+            <h3>Ready to embed</h3>
+            <p>Enter text to generate high-dimensional vector representations</p>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '1rem' }}>

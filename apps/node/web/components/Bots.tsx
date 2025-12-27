@@ -109,7 +109,7 @@ export function Bots() {
       <div>
         <h1 className="text-2xl font-bold">Trading Bots</h1>
         <p className="text-volcanic-400 mt-1">
-          Automated strategies that earn profits with 50/50 treasury split
+          Automated trading with 50/50 profit share
         </p>
       </div>
 

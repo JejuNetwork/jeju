@@ -15,13 +15,15 @@ import {
 } from '@jejunetwork/messaging'
 import { createLogger } from '@jejunetwork/shared'
 import type { Hex } from 'viem'
+import { getFactoryConfig } from '../config'
 import type { FarcasterSignerRow } from '../db/client'
 import { getActiveSigner, getSignerPrivateKey } from './signer'
 
 const log = createLogger('dc-service')
 
 const HUB_URL = getFarcasterHubUrl()
-const DC_RELAY_URL = process.env.DC_RELAY_URL ?? 'http://localhost:3300'
+const config = getFactoryConfig()
+const DC_RELAY_URL = config.dcRelayUrl
 
 /**
  * Client cache - one DC client per user session

@@ -144,8 +144,8 @@ export default function SecretsPage() {
         ) : secrets.length === 0 ? (
           <div className="empty-state">
             <Lock size={48} />
-            <h3>No secrets stored</h3>
-            <p>Add your first encrypted secret</p>
+            <h3>Ready to secure</h3>
+            <p>Store sensitive data with encryption and TEE protection</p>
             <button
               type="button"
               className="btn btn-primary"

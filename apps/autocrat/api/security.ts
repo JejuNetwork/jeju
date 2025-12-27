@@ -17,8 +17,10 @@ import { Elysia } from 'elysia'
 import { type Address, isAddress, verifyMessage } from 'viem'
 import { z } from 'zod'
 
+import { config } from './config'
+
 // CQL configuration for audit persistence
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
+const CQL_DATABASE_ID = config.cqlDatabaseId
 let auditCqlClient: CQLClient | null = null
 let auditTableInitialized = false
 
@@ -88,7 +90,7 @@ function checkRateLimit(key: string, tier: RateLimitTier): boolean {
  * Uses crypto.timingSafeEqual for constant-time comparison to prevent timing attacks
  */
 function validateApiKey(apiKey: string): boolean {
-  const validKey = process.env.AUTOCRAT_API_KEY
+  const validKey = config.autocratApiKey
   if (!validKey) {
     // In localnet, allow if no key configured
     const network = getCurrentNetwork()

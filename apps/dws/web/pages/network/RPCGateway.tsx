@@ -191,8 +191,8 @@ export default function RPCGatewayPage() {
         ) : chains.length === 0 ? (
           <div className="empty-state">
             <Radio size={48} />
-            <h3>No chains available</h3>
-            <p>Check back later for supported chains</p>
+            <h3>Chains loading</h3>
+            <p>Network chain configurations are being synchronized</p>
           </div>
         ) : (
           <div className="table-container">

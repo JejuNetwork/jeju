@@ -189,7 +189,7 @@ export default function EILStats() {
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ margin: '0 auto' }} />
         <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>
-          Loading EIL stats...
+          Loading protocol stats...
         </p>
       </div>
     )
@@ -198,9 +198,9 @@ export default function EILStats() {
   if (error) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-        <p style={{ color: 'var(--error)' }}>Failed to load EIL stats</p>
+        <p style={{ color: 'var(--error)' }}>Unable to load protocol data</p>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-          Indexer may be unavailable
+          Check back shortly
         </p>
       </div>
     )

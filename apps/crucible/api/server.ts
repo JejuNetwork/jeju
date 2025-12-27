@@ -15,10 +15,13 @@ import {
 import type { ContractCategoryName } from '@jejunetwork/config'
 import {
   getCurrentNetwork,
+  getEnvNumber,
+  getEnvVar,
   getRpcUrl,
   getServicesConfig,
   getServiceUrl,
 } from '@jejunetwork/config'
+import { config as crucibleConfig, configureCrucible } from './config'
 import type { JsonObject } from '@jejunetwork/types'
 import { isHexString, isValidAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -180,27 +183,19 @@ const metrics = {
 // Rate limiting configuration
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_WINDOW_MS = 60_000 // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = parseInt(
-  process.env.RATE_LIMIT_MAX_REQUESTS ?? '100',
-  10,
-)
+const RATE_LIMIT_MAX_REQUESTS = crucibleConfig.rateLimitMaxRequests
 
 // CORS configuration - restrict to allowed origins
-const ALLOWED_ORIGINS = (
-  process.env.CORS_ALLOWED_ORIGINS ??
-  'http://localhost:3000,http://localhost:4000'
-)
+const ALLOWED_ORIGINS = crucibleConfig.corsAllowedOrigins
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
 
 // API key for authenticated endpoints
-const API_KEY = process.env.API_KEY
+const API_KEY = crucibleConfig.apiKey
 // Default to requiring auth on non-localnet (testnet/mainnet)
-const NETWORK = getCurrentNetwork()
-const REQUIRE_AUTH =
-  process.env.REQUIRE_AUTH === 'true' ||
-  (process.env.REQUIRE_AUTH !== 'false' && NETWORK !== 'localnet')
+const NETWORK = crucibleConfig.network
+const REQUIRE_AUTH = crucibleConfig.requireAuth
 
 // Paths that don't require authentication
 const PUBLIC_PATHS = ['/health', '/metrics', '/.well-known']
@@ -217,7 +212,7 @@ function getRequiredEnv(key: string, defaultValue?: string): string {
 }
 
 function getPrivateKey(): `0x${string}` | undefined {
-  const pk = process.env.PRIVATE_KEY
+  const pk = crucibleConfig.privateKey
   if (!pk) return undefined
   if (!isHexString(pk)) {
     throw new Error('PRIVATE_KEY must be a valid hex string starting with 0x')
@@ -229,6 +224,8 @@ function getOptionalAddress(
   key: string,
   defaultValue: `0x${string}`,
 ): `0x${string}` {
+  // This function is used for contract addresses that may come from env
+  // For now, we'll keep it but it should be refactored to use config
   const value = process.env[key]
   if (value && /^0x[a-fA-F0-9]{40}$/.test(value)) {
     return value as `0x${string}`
@@ -312,22 +309,22 @@ const config: CrucibleConfig = {
       LOCALNET_DEFAULTS.serviceRegistry,
     ),
     autocratTreasury:
-      process.env.AUTOCRAT_TREASURY_ADDRESS &&
-      isValidAddress(process.env.AUTOCRAT_TREASURY_ADDRESS)
-        ? process.env.AUTOCRAT_TREASURY_ADDRESS
+      crucibleConfig.autocratTreasuryAddress &&
+      isValidAddress(crucibleConfig.autocratTreasuryAddress)
+        ? crucibleConfig.autocratTreasuryAddress
         : undefined,
   },
   services: (() => {
     const servicesConfig = getServicesConfig()
     return {
       computeMarketplace:
-        process.env.COMPUTE_MARKETPLACE_URL ??
+        crucibleConfig.computeMarketplaceUrl ??
         servicesConfig.compute.marketplace,
       storageApi: servicesConfig.storage.api,
       ipfsGateway: servicesConfig.storage.ipfsGateway,
       indexerGraphql: servicesConfig.indexer.graphql,
-      cqlEndpoint: process.env.CQL_ENDPOINT ?? servicesConfig.cql.blockProducer,
-      dexCacheUrl: process.env.DEX_CACHE_URL,
+      cqlEndpoint: crucibleConfig.cqlEndpoint ?? servicesConfig.cql.blockProducer,
+      dexCacheUrl: crucibleConfig.dexCacheUrl,
     }
   })(),
   network: getNetwork(),
@@ -422,7 +419,7 @@ if (config.privateKey && walletClient) {
   // Seed DWS infrastructure, then initialize bots
   seedDWSInfrastructure()
     .then(() => {
-      if (process.env.BOTS_ENABLED !== 'false' && botInitializer) {
+      if (crucibleConfig.botsEnabled && botInitializer) {
         return botInitializer.initializeDefaultBots()
       }
       return new Map<bigint, TradingBot>()
@@ -1244,11 +1241,11 @@ import { type AutonomousAgentRunner, createAgentRunner } from './autonomous'
 // Global autonomous runner (started if AUTONOMOUS_ENABLED=true)
 let autonomousRunner: AutonomousAgentRunner | null = null
 
-if (process.env.AUTONOMOUS_ENABLED === 'true') {
+if (crucibleConfig.autonomousEnabled) {
   autonomousRunner = createAgentRunner({
-    enableBuiltinCharacters: process.env.ENABLE_BUILTIN_CHARACTERS !== 'false',
-    defaultTickIntervalMs: Number(process.env.TICK_INTERVAL_MS ?? 60_000),
-    maxConcurrentAgents: Number(process.env.MAX_CONCURRENT_AGENTS ?? 10),
+    enableBuiltinCharacters: crucibleConfig.enableBuiltinCharacters,
+    defaultTickIntervalMs: crucibleConfig.defaultTickIntervalMs,
+    maxConcurrentAgents: crucibleConfig.maxConcurrentAgents,
   })
   autonomousRunner
     .start()
@@ -1378,8 +1375,7 @@ app.get('/api/v1/search/agents', async ({ query, set }) => {
   }
 })
 
-const portStr = process.env.API_PORT ?? '4021'
-const port = parseInt(portStr, 10)
+const port = crucibleConfig.apiPort
 if (Number.isNaN(port) || port <= 0 || port > 65535) {
   throw new Error(`Invalid PORT: ${portStr}. Must be a valid port number`)
 }
@@ -1392,6 +1388,32 @@ log.info('Starting server', {
   port,
   network: config.network,
   wallet: maskedWallet,
+})
+
+// Initialize config from environment variables at startup
+configureCrucible({
+  network: getCurrentNetwork(),
+  apiKey: getEnvVar('API_KEY'),
+  apiPort: getEnvNumber('API_PORT'),
+  requireAuth: getEnvVar('REQUIRE_AUTH'),
+  rateLimitMaxRequests: getEnvNumber('RATE_LIMIT_MAX_REQUESTS'),
+  corsAllowedOrigins: getEnvVar('CORS_ALLOWED_ORIGINS'),
+  privateKey: getEnvVar('PRIVATE_KEY'),
+  autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
+  computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),
+  cqlEndpoint: getEnvVar('CQL_ENDPOINT'),
+  dexCacheUrl: getEnvVar('DEX_CACHE_URL'),
+  botsEnabled: getEnvVar('BOTS_ENABLED'),
+  autonomousEnabled: getEnvVar('AUTONOMOUS_ENABLED'),
+  enableBuiltinCharacters: getEnvVar('ENABLE_BUILTIN_CHARACTERS'),
+  defaultTickIntervalMs: getEnvNumber('TICK_INTERVAL_MS'),
+  maxConcurrentAgents: getEnvNumber('MAX_CONCURRENT_AGENTS'),
+  farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
+  dwsUrl: getEnvVar('DWS_URL'),
+  ipfsGateway: getEnvVar('IPFS_GATEWAY'),
+  cronSecret: getEnvVar('CRON_SECRET'),
+  banManagerAddress: getEnvVar('MODERATION_BAN_MANAGER'),
+  moderationMarketplaceAddress: getEnvVar('MODERATION_MARKETPLACE_ADDRESS'),
 })
 
 // Start server - set port on the app object so Bun's auto-serve uses the right port

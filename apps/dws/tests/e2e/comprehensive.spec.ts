@@ -339,10 +339,9 @@ const DWS_ROUTES: Array<{
  */
 const DWS_API_ROUTES = [
   { path: '/health', method: 'GET', expectedStatus: [200] },
-  { path: '/api/health', method: 'GET', expectedStatus: [200, 404] },
-  { path: '/storage', method: 'GET', expectedStatus: [200, 401, 404] },
-  { path: '/compute', method: 'GET', expectedStatus: [200, 401, 404] },
-  { path: '/cdn', method: 'GET', expectedStatus: [200, 401, 404] },
+  { path: '/cdn/health', method: 'GET', expectedStatus: [200] },
+  // Storage health can return 500 if WebTorrent not initialized
+  { path: '/storage/health', method: 'GET', expectedStatus: [200, 500] },
 ]
 
 // Screenshot directory

@@ -14,7 +14,9 @@ import {
 } from '@jejunetwork/messaging'
 import type { Address, Hex } from 'viem'
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+import { config } from './config'
+
+const HUB_URL = config.farcasterHubUrl
 
 /**
  * Channel types for different Bazaar entities

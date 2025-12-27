@@ -6,13 +6,17 @@ import {
   createOAuthProvider,
   type OAuthConfig,
   type OAuthState,
-} from '@jejunetwork/auth'
+} from '@jejunetwork/auth/providers'
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
 import { toHex } from 'viem'
 import { z } from 'zod'
 import type { AuthConfig, AuthSession, AuthToken } from '../../lib/types'
 import { AuthProvider } from '../../lib/types'
+import {
+  createHtmlPage,
+  escapeHtml,
+} from '../shared/html-templates'
 import {
   authCodeState,
   clientState,
@@ -22,18 +26,6 @@ import {
   sessionState,
   verifyClientSecret,
 } from '../services/state'
-
-/**
- * HTML escape to prevent XSS in rendered templates.
- */
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
 
 // Zod schema for JWT payload validation
 const JwtPayloadSchema = z.object({
@@ -116,6 +108,82 @@ function getOAuthConfig(
   return config
 }
 
+/**
+ * Generate the authorize page HTML
+ */
+function generateAuthorizePage(
+  clientName: string,
+  clientId: string,
+  redirectUri: string,
+  state: string,
+): string {
+  const encodedRedirectUri = encodeURIComponent(redirectUri)
+
+  const content = `
+  <main class="card" role="main">
+    <div class="logo">JEJU</div>
+    <div class="subtitle">Choose how to sign in</div>
+    <div class="client-name" role="status">
+      Connecting to <strong>${escapeHtml(clientName)}</strong>
+    </div>
+    
+    <nav class="providers" aria-label="Sign in options">
+      <a href="/wallet/challenge?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}" 
+         class="provider-btn primary"
+         role="button">
+        <span class="icon" aria-hidden="true">🔐</span>
+        Connect Wallet
+      </a>
+      
+      <a href="/farcaster/init?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}" 
+         class="provider-btn"
+         role="button">
+        <span class="icon" aria-hidden="true">🟣</span>
+        Sign in with Farcaster
+      </a>
+      
+      <div class="divider" role="separator"><span>or continue with</span></div>
+      
+      <a href="/oauth/social/github?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}" 
+         class="provider-btn"
+         role="button">
+        <span class="icon" aria-hidden="true">🐙</span>
+        GitHub
+      </a>
+      
+      <a href="/oauth/social/google?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}" 
+         class="provider-btn"
+         role="button">
+        <span class="icon" aria-hidden="true">🔵</span>
+        Google
+      </a>
+      
+      <a href="/oauth/social/twitter?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}" 
+         class="provider-btn"
+         role="button">
+        <span class="icon" aria-hidden="true">🐦</span>
+        Twitter
+      </a>
+      
+      <a href="/oauth/social/discord?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}" 
+         class="provider-btn"
+         role="button">
+        <span class="icon" aria-hidden="true">💬</span>
+        Discord
+      </a>
+    </nav>
+    
+    <footer class="footer">
+      <a href="https://jejunetwork.org">Jeju Network</a>
+    </footer>
+  </main>`
+
+  return createHtmlPage({
+    title: 'Sign In',
+    content,
+  })
+}
+
 export async function createOAuthRouter(config: AuthConfig) {
   // Initialize database tables
   await initializeState()
@@ -161,160 +229,16 @@ export async function createOAuthRouter(config: AuthConfig) {
           }
 
           const state = query.state ?? crypto.randomUUID()
-          const clientId = query.client_id
-          const redirectUri = encodeURIComponent(query.redirect_uri)
-
-          return new Response(
-            `<!DOCTYPE html>
-<html>
-<head>
-  <title>Sign in - Jeju Network</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'JetBrains Mono', 'SF Mono', monospace;
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #e0e0e0;
-    }
-    .container {
-      background: rgba(20, 20, 30, 0.9);
-      border: 1px solid rgba(100, 255, 218, 0.2);
-      border-radius: 16px;
-      padding: 48px;
-      max-width: 420px;
-      width: 90%;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-    .logo {
-      font-size: 32px;
-      font-weight: 700;
-      background: linear-gradient(135deg, #64ffda 0%, #00bcd4 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      text-align: center;
-      margin-bottom: 8px;
-    }
-    .subtitle {
-      text-align: center;
-      color: #888;
-      font-size: 14px;
-      margin-bottom: 32px;
-    }
-    .client-name {
-      text-align: center;
-      font-size: 18px;
-      margin-bottom: 24px;
-      color: #fff;
-    }
-    .providers {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .provider-btn {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px 20px;
-      border: 1px solid rgba(100, 255, 218, 0.3);
-      border-radius: 12px;
-      background: rgba(30, 30, 45, 0.8);
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-decoration: none;
-    }
-    .provider-btn:hover {
-      background: rgba(100, 255, 218, 0.1);
-      border-color: #64ffda;
-      transform: translateY(-2px);
-    }
-    .provider-btn.primary {
-      background: linear-gradient(135deg, #64ffda 0%, #00bcd4 100%);
-      color: #0a0a0a;
-      font-weight: 600;
-      border: none;
-    }
-    .provider-btn.primary:hover { opacity: 0.9; }
-    .icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-    .divider {
-      display: flex;
-      align-items: center;
-      margin: 24px 0;
-      color: #666;
-      font-size: 12px;
-    }
-    .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: rgba(255,255,255,0.1);
-    }
-    .divider span { padding: 0 16px; }
-    .footer {
-      text-align: center;
-      margin-top: 24px;
-      font-size: 12px;
-      color: #666;
-    }
-    .footer a { color: #64ffda; text-decoration: none; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo">JEJU</div>
-    <div class="subtitle">Decentralized Authentication</div>
-    <div class="client-name">Sign in to ${escapeHtml(client.name)}</div>
-    
-    <div class="providers">
-      <a href="/wallet/challenge?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}" class="provider-btn primary">
-        <span class="icon">🔐</span>
-        Connect Wallet
-      </a>
-      
-      <a href="/farcaster/init?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}" class="provider-btn">
-        <span class="icon">🟣</span>
-        Sign in with Farcaster
-      </a>
-      
-      <div class="divider"><span>or continue with</span></div>
-      
-      <a href="/oauth/social/github?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}" class="provider-btn">
-        <span class="icon">🐙</span>
-        GitHub
-      </a>
-      
-      <a href="/oauth/social/google?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}" class="provider-btn">
-        <span class="icon">🔵</span>
-        Google
-      </a>
-      
-      <a href="/oauth/social/twitter?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}" class="provider-btn">
-        <span class="icon">🐦</span>
-        Twitter
-      </a>
-      
-      <a href="/oauth/social/discord?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}" class="provider-btn">
-        <span class="icon">💬</span>
-        Discord
-      </a>
-    </div>
-    
-    <div class="footer">
-      Powered by <a href="https://jejunetwork.org">Jeju Network</a>
-    </div>
-  </div>
-</body>
-</html>`,
-            { headers: { 'Content-Type': 'text/html' } },
+          const html = generateAuthorizePage(
+            client.name,
+            query.client_id,
+            query.redirect_uri,
+            state,
           )
+
+          return new Response(html, {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          })
         },
         { query: AuthorizeQuerySchema },
       )

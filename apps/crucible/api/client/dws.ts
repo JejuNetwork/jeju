@@ -74,10 +74,12 @@ const InferenceAvailabilitySchema = z.object({
  * Get DWS endpoint from environment or centralized config
  * Returns base URL without /compute suffix
  */
+import { config } from '../config'
+
 export function getDWSEndpoint(): string {
   // Allow env override for testing
-  if (process.env.DWS_URL) {
-    return process.env.DWS_URL.replace(/\/compute\/?$/, '')
+  if (config.dwsUrl) {
+    return config.dwsUrl.replace(/\/compute\/?$/, '')
   }
   // Use centralized config
   return getDWSUrl()
@@ -316,7 +318,7 @@ export function createDWSClient(config: DWSClientConfig): DWSClient {
 function getDefaultDWSClient(): DWSClient {
   const baseUrl = getDWSEndpoint()
   const ipfsGateway =
-    process.env.IPFS_GATEWAY ??
+    config.ipfsGateway ??
     getServiceUrl('storage', 'ipfsGateway') ??
     `${baseUrl}/storage`
   return new DWSClient({ baseUrl, ipfsGateway })

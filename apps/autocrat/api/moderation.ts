@@ -137,7 +137,9 @@ interface TrustRow {
   updated_at: number
 }
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
+import { config } from './config'
+
+const CQL_DATABASE_ID = config.cqlDatabaseId
 
 const STAKE: Record<FlagType, number> = {
   DUPLICATE: 10,
@@ -170,7 +172,7 @@ async function getCQLClient(): Promise<CQLClient> {
     cqlClient = getCQL({
       databaseId: CQL_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !config.isProduction,
     })
   }
   return cqlClient

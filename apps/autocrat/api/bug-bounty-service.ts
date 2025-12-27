@@ -61,8 +61,10 @@ import {
   VulnerabilityTypeSchema,
 } from '../lib'
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
-const OPERATOR_KEY = process.env.OPERATOR_PRIVATE_KEY
+import { config } from './config'
+
+const CQL_DATABASE_ID = config.cqlDatabaseId
+const OPERATOR_KEY = config.operatorKey
 
 // Config handles env overrides
 function getDWSEndpoint(): string {
@@ -93,7 +95,7 @@ async function getCQLClient(): Promise<CQLClient> {
     cqlClient = getCQL({
       databaseId: CQL_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !config.isProduction,
     })
 
     const healthy = await cqlClient.isHealthy()

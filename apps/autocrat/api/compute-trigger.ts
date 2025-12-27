@@ -73,8 +73,10 @@ function getComputeEndpoint(): string {
   return getDWSComputeUrl()
 }
 
+import { config } from './config'
+
 // Cron expression for orchestrator cycle - env override for custom schedules
-const ORCHESTRATOR_CRON = process.env.ORCHESTRATOR_CRON ?? '*/30 * * * * *'
+const ORCHESTRATOR_CRON = config.orchestratorCron
 
 export function getAutocratTriggers(): Array<
   Omit<Trigger, 'id' | 'createdAt'>

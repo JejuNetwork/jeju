@@ -1,24 +1,30 @@
+/**
+ * CI/CD Page
+ *
+ * Browse and filter CI runs with responsive design.
+ */
+
 import { clsx } from 'clsx'
-import {
-  CheckCircle,
-  Clock,
-  GitBranch,
-  Loader2,
-  Play,
-  Plus,
-  Search,
-  XCircle,
-} from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle, Clock, GitBranch, Loader2, Play, Plus, XCircle } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SearchBar,
+  StatsGrid,
+} from '../components/shared'
 import { type CIRunStatus, useCIRuns, useCIStats } from '../hooks/useCI'
+import { formatDuration, formatRelativeTime } from '../lib/format'
 
 const statusColors: Record<CIRunStatus, string> = {
-  queued: 'bg-factory-700/50 text-factory-300',
+  queued: 'badge-neutral',
   running: 'badge-warning',
   success: 'badge-success',
-  failure: 'bg-red-500/20 text-red-400',
-  cancelled: 'bg-factory-700/50 text-factory-300',
+  failure: 'badge-error',
+  cancelled: 'badge-neutral',
 }
 
 const statusLabels: Record<CIRunStatus, string> = {
@@ -29,16 +35,24 @@ const statusLabels: Record<CIRunStatus, string> = {
   cancelled: 'Cancelled',
 }
 
-const StatusIcon = ({ status }: { status: CIRunStatus }) => {
+const statusFilters = [
+  { value: 'all', label: 'All' },
+  { value: 'running', label: 'Running' },
+  { value: 'success', label: 'Success' },
+  { value: 'failure', label: 'Failed' },
+  { value: 'queued', label: 'Queued' },
+]
+
+function StatusIcon({ status }: { status: CIRunStatus }) {
   switch (status) {
     case 'success':
-      return <CheckCircle className="w-4 h-4 text-green-400" />
+      return <CheckCircle className="w-5 h-5 text-success-400" aria-hidden="true" />
     case 'failure':
-      return <XCircle className="w-4 h-4 text-red-400" />
+      return <XCircle className="w-5 h-5 text-error-400" aria-hidden="true" />
     case 'running':
-      return <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+      return <Loader2 className="w-5 h-5 text-warning-400 animate-spin" aria-hidden="true" />
     default:
-      return <Clock className="w-4 h-4 text-factory-400" />
+      return <Clock className="w-5 h-5 text-surface-400" aria-hidden="true" />
   }
 }
 
@@ -51,213 +65,137 @@ export function CIPage() {
   )
   const { stats, isLoading: statsLoading } = useCIStats()
 
-  const filteredRuns = runs.filter((run) => {
-    if (search) {
+  const filteredRuns = useMemo(() => {
+    return runs.filter((run) => {
+      if (!search) return true
       const searchLower = search.toLowerCase()
       return (
         run.workflow.toLowerCase().includes(searchLower) ||
         run.branch.toLowerCase().includes(searchLower) ||
         run.commitMessage.toLowerCase().includes(searchLower)
       )
-    }
-    return true
-  })
+    })
+  }, [runs, search])
 
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '-'
-    if (seconds < 60) return `${seconds}s`
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}m ${secs}s`
-  }
-
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffMins = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`
-    return date.toLocaleDateString()
-  }
+  const statsData = useMemo(() => [
+    { label: 'Total Runs', value: stats.total.toString(), color: 'text-info-400', loading: statsLoading },
+    { label: 'Running', value: stats.running.toString(), color: 'text-warning-400', loading: statsLoading },
+    { label: 'Successful', value: stats.success.toString(), color: 'text-success-400', loading: statsLoading },
+    { label: 'Failed', value: stats.failed.toString(), color: 'text-error-400', loading: statsLoading },
+  ], [stats, statsLoading])
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-factory-100 flex items-center gap-3">
-            <Play className="w-7 h-7 text-green-400" />
-            CI/CD
-          </h1>
-          <p className="text-factory-400 mt-1">
-            Continuous integration and deployment
-          </p>
-        </div>
-        <Link to="/ci/new" className="btn btn-primary">
-          <Plus className="w-4 h-4" />
-          New Workflow
-        </Link>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="CI/CD"
+        description="Automated builds, tests, and deployments"
+        icon={Play}
+        iconColor="text-success-400"
+        action={
+          <Link to="/ci/new" className="btn btn-primary">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">New</span> Workflow
+          </Link>
+        }
+      />
 
-      <div className="card p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-factory-500" />
-            <input
-              type="text"
-              placeholder="Search workflows..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input pl-10"
-            />
-          </div>
+      <div className="card p-3 sm:p-4 mb-6 animate-in">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search workflows..."
+            className="flex-1 mb-0 p-0 border-0 bg-transparent shadow-none"
+          />
 
-          <div className="flex gap-2">
-            {(['all', 'running', 'success', 'failure', 'queued'] as const).map(
-              (status) => (
-                <button
-                  type="button"
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={clsx(
-                    'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                    statusFilter === status
-                      ? 'bg-accent-600 text-white'
-                      : 'bg-factory-800 text-factory-400 hover:text-factory-100',
-                  )}
-                >
-                  {status === 'all' ? 'All' : statusLabels[status]}
-                </button>
-              ),
-            )}
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Status filters">
+            {statusFilters.map((status) => (
+              <button
+                key={status.value}
+                type="button"
+                onClick={() => setStatusFilter(status.value as CIRunStatus | 'all')}
+                className={clsx(
+                  'px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                  statusFilter === status.value
+                    ? 'bg-factory-500 text-white shadow-glow'
+                    : 'bg-surface-800 text-surface-400 hover:text-surface-100 hover:bg-surface-700',
+                )}
+                aria-pressed={statusFilter === status.value}
+              >
+                {status.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          {
-            label: 'Total Runs',
-            value: stats.total.toString(),
-            color: 'text-blue-400',
-          },
-          {
-            label: 'Running',
-            value: stats.running.toString(),
-            color: 'text-amber-400',
-          },
-          {
-            label: 'Successful',
-            value: stats.success.toString(),
-            color: 'text-green-400',
-          },
-          {
-            label: 'Failed',
-            value: stats.failed.toString(),
-            color: 'text-red-400',
-          },
-        ].map((stat) => (
-          <div key={stat.label} className="card p-4 text-center">
-            {statsLoading ? (
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-factory-500" />
-            ) : (
-              <p className={clsx('text-2xl font-bold', stat.color)}>
-                {stat.value}
-              </p>
-            )}
-            <p className="text-factory-500 text-sm">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+      <StatsGrid stats={statsData} columns={4} />
 
       {isLoading ? (
-        <div className="card p-12 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-accent-500" />
-        </div>
+        <LoadingState text="Loading CI runs..." />
       ) : error ? (
-        <div className="card p-12 text-center">
-          <Play className="w-12 h-12 mx-auto mb-4 text-red-400" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            Failed to load CI runs
-          </h3>
-          <p className="text-factory-500">Please try again later</p>
-        </div>
+        <ErrorState title="Failed to load CI runs" />
       ) : filteredRuns.length === 0 ? (
-        <div className="card p-12 text-center">
-          <Play className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            No workflow runs found
-          </h3>
-          <p className="text-factory-500 mb-4">
-            {search
-              ? 'Try adjusting your search terms'
-              : 'Trigger your first workflow'}
-          </p>
-          <Link to="/ci/new" className="btn btn-primary">
-            New Workflow
-          </Link>
-        </div>
+        <EmptyState
+          icon={Play}
+          title="No workflow runs found"
+          description={search ? 'Try a different search term' : 'Create a workflow to automate your builds'}
+          actionLabel="New Workflow"
+          actionHref="/ci/new"
+        />
       ) : (
         <div className="space-y-4">
-          {filteredRuns.map((run) => (
+          {filteredRuns.map((run, index) => (
             <Link
               key={run.id}
               to={`/ci/${run.id}`}
-              className="card p-6 card-hover block"
+              className="card p-5 sm:p-6 card-hover block animate-slide-up"
+              style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className="flex items-start justify-between gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <StatusIcon status={run.status} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-factory-100">
-                        {run.workflow}
-                      </h3>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                      <h3 className="font-semibold text-surface-100">{run.workflow}</h3>
                       <span className={clsx('badge', statusColors[run.status])}>
                         {statusLabels[run.status]}
                       </span>
                     </div>
-                    <p className="text-factory-400 text-sm mb-2 truncate">
+                    <p className="text-surface-400 text-sm mb-2 truncate">
                       {run.commitMessage ?? 'No commit message'}
                     </p>
-                    <div className="flex items-center gap-4 text-sm text-factory-500">
-                      <span className="flex items-center gap-1">
-                        <GitBranch className="w-4 h-4" />
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-surface-500">
+                      <span className="flex items-center gap-1.5">
+                        <GitBranch className="w-4 h-4" aria-hidden="true" />
                         {run.branch}
                       </span>
-                      <span className="font-mono text-xs">
-                        {run.commit.slice(0, 7)}
-                      </span>
+                      <span className="font-mono text-xs">{run.commit.slice(0, 7)}</span>
                       <span>{run.author}</span>
                     </div>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-factory-300 font-medium">
-                    {formatDuration(run.duration)}
+                <div className="text-left sm:text-right flex-shrink-0">
+                  <p className="text-surface-300 font-medium font-display">
+                    {run.duration ? formatDuration(run.duration) : '-'}
                   </p>
-                  <p className="text-factory-500 text-sm">
-                    {formatTime(run.startedAt)}
+                  <p className="text-surface-500 text-sm">
+                    {formatRelativeTime(run.startedAt)}
                   </p>
                 </div>
               </div>
 
               {run.jobs.length > 0 && (
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-factory-800">
+                <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-surface-800/50">
                   {run.jobs.map((job) => (
                     <span
                       key={job.name}
                       className={clsx(
                         'px-2 py-1 rounded text-xs',
-                        job.status === 'success' &&
-                          'bg-green-500/20 text-green-400',
-                        job.status === 'failure' &&
-                          'bg-red-500/20 text-red-400',
-                        job.status === 'running' &&
-                          'bg-amber-500/20 text-amber-400',
-                        !['success', 'failure', 'running'].includes(
-                          job.status,
-                        ) && 'bg-factory-800 text-factory-400',
+                        job.status === 'success' && 'bg-success-500/20 text-success-400',
+                        job.status === 'failure' && 'bg-error-500/20 text-error-400',
+                        job.status === 'running' && 'bg-warning-500/20 text-warning-400',
+                        !['success', 'failure', 'running'].includes(job.status) && 'bg-surface-800 text-surface-400',
                       )}
                     >
                       {job.name}

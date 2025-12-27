@@ -184,8 +184,8 @@ export default function WorkersPage() {
         ) : workers.length === 0 ? (
           <div className="empty-state">
             <Zap size={48} />
-            <h3>No workers deployed</h3>
-            <p>Deploy your first serverless function</p>
+            <h3>Ready to deploy</h3>
+            <p>Create serverless functions that scale automatically across the network</p>
             <button
               type="button"
               className="btn btn-primary"

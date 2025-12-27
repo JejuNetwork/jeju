@@ -62,8 +62,8 @@ export default function RegistryTab() {
           <RegisterAppForm />
         ) : (
           <ConnectPrompt
-            message="Connect your wallet to register"
-            action="Registration requires a wallet to sign and stake"
+            message="Connect to register your identity"
+            action="You'll need a wallet to sign and stake your registration"
           />
         ))}
       {selectedAppId !== null && (

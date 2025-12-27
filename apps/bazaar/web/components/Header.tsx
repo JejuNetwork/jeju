@@ -1,109 +1,145 @@
-import { useEffect, useState } from 'react'
+/**
+ * Header Component
+ *
+ * Main navigation header with responsive mobile menu and theme toggle.
+ * Follows WCAG 2.1 AA accessibility guidelines.
+ */
+
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAccount, useDisconnect } from 'wagmi'
 import { AuthButton } from './auth/AuthButton'
+
+const NAV_ITEMS = [
+  { href: '/', label: 'Home', icon: '🏠' },
+  { href: '/swap', label: 'Swap', icon: '🔄' },
+  { href: '/pools', label: 'Pools', icon: '💧' },
+  { href: '/perps', label: 'Perps', icon: '📈' },
+  { href: '/coins', label: 'Coins', icon: '🪙' },
+  { href: '/markets', label: 'Predictions', icon: '🔮' },
+  { href: '/items', label: 'Items', icon: '🖼️' },
+] as const
 
 export function Header() {
   const { pathname } = useLocation()
   const { address } = useAccount()
   const { disconnect } = useDisconnect()
-  const [showMobileMenu, setShowMobileMenu] = useState(false)
-  const [showPortfolioDropdown, setShowPortfolioDropdown] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false)
   const [isDark, setIsDark] = useState(true)
   const [mounted, setMounted] = useState(false)
 
-  const navItems = [
-    { href: '/', label: 'Home', icon: '🏠' },
-    { href: '/swap', label: 'Swap', icon: '🔄' },
-    { href: '/pools', label: 'Pools', icon: '💧' },
-    { href: '/perps', label: 'Perps', icon: '📈' },
-    { href: '/coins', label: 'Coins', icon: '🪙' },
-    { href: '/markets', label: 'Predictions', icon: '🎯' },
-    { href: '/items', label: 'Items', icon: '🖼️' },
-  ]
-
+  // Initialize theme from localStorage/system preference
   useEffect(() => {
     setMounted(true)
     const savedTheme = localStorage.getItem('bazaar-theme')
-    const prefersDark = window.matchMedia(
-      '(prefers-color-scheme: dark)',
-    ).matches
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark
     setIsDark(shouldBeDark)
     document.documentElement.classList.toggle('dark', shouldBeDark)
   }, [])
 
-  const toggleTheme = () => {
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+    setAccountDropdownOpen(false)
+  }, [pathname])
+
+  // Prevent scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileMenuOpen])
+
+  // Handle escape key to close menus
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false)
+        setAccountDropdownOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [])
+
+  const toggleTheme = useCallback(() => {
     const newIsDark = !isDark
     setIsDark(newIsDark)
     document.documentElement.classList.toggle('dark', newIsDark)
     localStorage.setItem('bazaar-theme', newIsDark ? 'dark' : 'light')
-  }
+  }, [isDark])
 
-  const isActive = (href: string) => {
-    if (!pathname) return false
-    if (href === '/') return pathname === '/'
-    return pathname.startsWith(href)
-  }
+  const isActive = useCallback(
+    (href: string) => {
+      if (href === '/') return pathname === '/'
+      return pathname.startsWith(href)
+    },
+    [pathname],
+  )
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setShowMobileMenu(false)
-  }, [])
-
-  // Prevent scroll when mobile menu is open
-  useEffect(() => {
-    document.body.style.overflow = showMobileMenu ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [showMobileMenu])
+  const handleDisconnect = useCallback(() => {
+    disconnect()
+    setAccountDropdownOpen(false)
+  }, [disconnect])
 
   if (!mounted) return null
 
   return (
     <>
+      {/* Skip to main content link for keyboard users */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
       <header
-        className="fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-300"
-        style={{
-          backgroundColor: 'var(--surface)',
-          borderColor: 'var(--border)',
-          backdropFilter: 'blur(12px)',
-        }}
+        className="fixed top-0 left-0 right-0 z-50 border-b bg-surface/80 backdrop-blur-xl transition-colors duration-300"
+        style={{ borderColor: 'var(--border)' }}
       >
-        <div className="container mx-auto px-4">
+        <nav className="container mx-auto px-4" aria-label="Main navigation">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 md:gap-3 group">
-              <div className="text-2xl md:text-3xl group-hover:animate-bounce-subtle">
+            <Link
+              to="/"
+              className="flex items-center gap-2 md:gap-3 group focus-ring rounded-xl"
+              aria-label="Bazaar - Go to home page"
+            >
+              <span
+                className="text-2xl md:text-3xl group-hover:animate-bounce-subtle"
+                aria-hidden="true"
+              >
                 🏝️
-              </div>
+              </span>
               <span className="text-xl md:text-2xl font-bold text-gradient">
                 Bazaar
               </span>
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive(item.href)
-                      ? 'bg-bazaar-primary/10 text-bazaar-primary'
-                      : 'hover:bg-[var(--bg-secondary)]'
-                  }`}
-                  style={{
-                    color: isActive(item.href)
-                      ? 'var(--color-primary)'
-                      : 'var(--text-secondary)',
-                  }}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="hidden lg:flex items-center gap-1" role="menubar">
+              {NAV_ITEMS.map((item) => {
+                const active = isActive(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    role="menuitem"
+                    aria-current={active ? 'page' : undefined}
+                    className={`
+                      px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 focus-ring
+                      ${active
+                        ? 'bg-primary-soft text-primary-color shadow-glow-sm'
+                        : 'text-secondary hover:text-primary hover:bg-surface-secondary'
+                      }
+                    `}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
 
             {/* Right Side Controls */}
             <div className="flex items-center gap-2 md:gap-3">
@@ -111,13 +147,12 @@ export function Header() {
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="p-2 md:p-2.5 rounded-xl transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}
-                aria-label={
-                  isDark ? 'Switch to light mode' : 'Switch to dark mode'
-                }
+                className="p-2 md:p-2.5 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-all duration-200 hover:scale-105 focus-ring"
+                aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
               >
-                {isDark ? '☀️' : '🌙'}
+                <span className="text-lg" aria-hidden="true">
+                  {isDark ? '☀️' : '🌙'}
+                </span>
               </button>
 
               {/* Auth Button - Desktop */}
@@ -128,23 +163,24 @@ export function Header() {
                   <>
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowPortfolioDropdown(!showPortfolioDropdown)
-                      }
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-200"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                      }}
+                      onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-all duration-200 focus-ring"
+                      aria-expanded={accountDropdownOpen}
+                      aria-haspopup="menu"
                     >
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-bazaar-primary to-bazaar-accent flex items-center justify-center text-xs font-bold text-white">
+                      <div
+                        className="w-6 h-6 rounded-full gradient-cool flex items-center justify-center text-xs font-bold text-white"
+                        aria-hidden="true"
+                      >
                         {address.slice(2, 4).toUpperCase()}
                       </div>
-                      <span className="text-sm font-medium">
+                      <span className="text-sm font-medium text-primary">
                         {address.slice(0, 6)}...{address.slice(-4)}
                       </span>
                       <svg
-                        className={`w-4 h-4 transition-transform ${showPortfolioDropdown ? 'rotate-180' : ''}`}
+                        className={`w-4 h-4 text-secondary transition-transform duration-200 ${
+                          accountDropdownOpen ? 'rotate-180' : ''
+                        }`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -159,40 +195,55 @@ export function Header() {
                       </svg>
                     </button>
 
-                    {/* Dropdown Menu */}
-                    {showPortfolioDropdown && (
+                    {/* Account Dropdown */}
+                    {accountDropdownOpen && (
                       <>
                         <button
                           type="button"
-                          className="fixed inset-0 z-40 cursor-default"
-                          onClick={() => setShowPortfolioDropdown(false)}
-                          aria-label="Close dropdown"
+                          className="fixed inset-0 z-40"
+                          onClick={() => setAccountDropdownOpen(false)}
+                          aria-label="Close menu"
                         />
                         <div
-                          className="absolute right-0 top-full mt-2 w-56 rounded-xl border shadow-lg z-50 overflow-hidden"
-                          style={{
-                            backgroundColor: 'var(--surface)',
-                            borderColor: 'var(--border)',
-                          }}
+                          className="absolute right-0 top-full mt-2 w-56 rounded-xl border bg-surface shadow-lg z-50 overflow-hidden animate-scale-in"
+                          style={{ borderColor: 'var(--border)' }}
+                          role="menu"
                         >
                           <Link
                             to="/portfolio"
-                            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)]"
-                            onClick={() => setShowPortfolioDropdown(false)}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-surface-secondary transition-colors"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            role="menuitem"
                           >
-                            <span className="text-xl">📊</span>
+                            <span aria-hidden="true">📊</span>
                             <span className="font-medium">View Portfolio</span>
                           </Link>
+                          <Link
+                            to="/rewards"
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-surface-secondary transition-colors"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            role="menuitem"
+                          >
+                            <span aria-hidden="true">🎁</span>
+                            <span className="font-medium">Rewards</span>
+                          </Link>
+                          <Link
+                            to="/settings"
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-surface-secondary transition-colors"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            role="menuitem"
+                          >
+                            <span aria-hidden="true">⚙️</span>
+                            <span className="font-medium">Settings</span>
+                          </Link>
+                          <div className="border-t" style={{ borderColor: 'var(--border)' }} />
                           <button
                             type="button"
-                            onClick={() => {
-                              disconnect()
-                              setShowPortfolioDropdown(false)
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)] text-left border-t"
-                            style={{ borderColor: 'var(--border)' }}
+                            onClick={handleDisconnect}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-secondary transition-colors text-left text-error"
+                            role="menuitem"
                           >
-                            <span className="text-xl">🚪</span>
+                            <span aria-hidden="true">🚪</span>
                             <span className="font-medium">Disconnect</span>
                           </button>
                         </div>
@@ -205,19 +256,20 @@ export function Header() {
               {/* Mobile Menu Button */}
               <button
                 type="button"
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="lg:hidden p-2.5 rounded-xl transition-all"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}
-                aria-label="Toggle menu"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2.5 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-all focus-ring"
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-menu"
               >
                 <svg
-                  className="w-6 h-6"
+                  className="w-6 h-6 text-primary"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
                 >
-                  {showMobileMenu ? (
+                  {mobileMenuOpen ? (
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -236,43 +288,44 @@ export function Header() {
               </button>
             </div>
           </div>
-        </div>
+        </nav>
       </header>
 
       {/* Mobile Menu Overlay */}
       <div
         className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${
-          showMobileMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        aria-hidden={!mobileMenuOpen}
       >
         <button
           type="button"
-          className="absolute inset-0 cursor-default"
-          onClick={() => setShowMobileMenu(false)}
-          aria-label="Close mobile menu"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-label="Close menu"
+          tabIndex={mobileMenuOpen ? 0 : -1}
         />
       </div>
 
       {/* Mobile Menu Panel */}
       <nav
-        className={`fixed top-0 right-0 bottom-0 w-[280px] z-50 lg:hidden transition-transform duration-300 ease-out ${
-          showMobileMenu ? 'translate-x-0' : 'translate-x-full'
+        id="mobile-menu"
+        className={`fixed top-0 right-0 bottom-0 w-[300px] max-w-[85vw] z-50 lg:hidden transition-transform duration-300 ease-out bg-surface ${
+          mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
-        style={{ backgroundColor: 'var(--surface)' }}
+        aria-label="Mobile navigation"
+        aria-hidden={!mobileMenuOpen}
       >
         <div className="flex flex-col h-full">
           {/* Mobile Menu Header */}
-          <div
-            className="flex items-center justify-between p-4 border-b"
-            style={{ borderColor: 'var(--border)' }}
-          >
+          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
             <span className="text-lg font-bold text-gradient">Menu</span>
             <button
               type="button"
-              onClick={() => setShowMobileMenu(false)}
-              className="p-2 rounded-xl"
-              style={{ backgroundColor: 'var(--bg-secondary)' }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-colors focus-ring"
+              aria-label="Close menu"
+              tabIndex={mobileMenuOpen ? 0 : -1}
             >
               <svg
                 className="w-5 h-5"
@@ -293,71 +346,68 @@ export function Header() {
 
           {/* Mobile Nav Items */}
           <div className="flex-1 overflow-y-auto py-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setShowMobileMenu(false)}
-                className={`flex items-center gap-3 px-6 py-4 text-base font-medium transition-colors ${
-                  isActive(item.href)
-                    ? 'bg-bazaar-primary/10 border-r-4 border-bazaar-primary'
-                    : 'hover:bg-[var(--bg-secondary)]'
-                }`}
-                style={{
-                  color: isActive(item.href)
-                    ? 'var(--color-primary)'
-                    : 'var(--text-primary)',
-                }}
-              >
-                <span className="text-xl">{item.icon}</span>
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map((item, index) => {
+              const active = isActive(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`
+                    flex items-center gap-3 px-6 py-4 text-base font-medium transition-colors
+                    animate-fade-in-up stagger-${index + 1}
+                    ${active
+                      ? 'bg-primary-soft border-r-4 border-primary-color text-primary-color'
+                      : 'hover:bg-surface-secondary text-primary'
+                    }
+                  `}
+                  aria-current={active ? 'page' : undefined}
+                  tabIndex={mobileMenuOpen ? 0 : -1}
+                  style={{
+                    borderColor: active ? 'var(--color-primary)' : undefined,
+                  }}
+                >
+                  <span className="text-xl" aria-hidden="true">{item.icon}</span>
+                  {item.label}
+                </Link>
+              )
+            })}
           </div>
 
           {/* Mobile Wallet Section */}
-          <div
-            className="p-4 border-t"
-            style={{ borderColor: 'var(--border)' }}
-          >
+          <div className="p-4 border-t" style={{ borderColor: 'var(--border)' }}>
             {!address ? (
               <AuthButton className="w-full" />
             ) : (
               <div className="space-y-3">
-                <div
-                  className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-bazaar-primary to-bazaar-accent flex items-center justify-center text-sm font-bold text-white">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary">
+                  <div className="w-10 h-10 rounded-full gradient-cool flex items-center justify-center text-sm font-bold text-white">
                     {address.slice(2, 4).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-sm font-medium text-primary truncate">
                       {address.slice(0, 10)}...{address.slice(-6)}
                     </p>
-                    <p
-                      className="text-xs"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
-                      Connected
-                    </p>
+                    <p className="text-xs text-tertiary">Connected</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     to="/portfolio"
-                    onClick={() => setShowMobileMenu(false)}
+                    onClick={() => setMobileMenuOpen(false)}
                     className="btn-secondary text-center text-sm py-2.5"
+                    tabIndex={mobileMenuOpen ? 0 : -1}
                   >
                     Portfolio
                   </Link>
                   <button
                     type="button"
                     onClick={() => {
-                      disconnect()
-                      setShowMobileMenu(false)
+                      handleDisconnect()
+                      setMobileMenuOpen(false)
                     }}
                     className="btn-secondary text-sm py-2.5"
+                    tabIndex={mobileMenuOpen ? 0 : -1}
                   >
                     Disconnect
                   </button>

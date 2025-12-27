@@ -79,16 +79,17 @@ export default function SettingsPage() {
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
         <p className="page-subtitle">
-          Manage your account, security, and preferences
+          Customize your experience and manage your account
         </p>
       </div>
 
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '200px 1fr',
+          gridTemplateColumns: 'minmax(180px, 220px) 1fr',
           gap: '1.5rem',
         }}
+        className="settings-grid"
       >
         <div className="card" style={{ height: 'fit-content' }}>
           <div style={{ display: 'grid', gap: '0.25rem' }}>
@@ -463,43 +464,13 @@ export default function SettingsPage() {
                         {item.desc}
                       </div>
                     </div>
-                    <label
-                      style={{
-                        position: 'relative',
-                        width: 44,
-                        height: 24,
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <label className="toggle-switch">
                       <input
                         type="checkbox"
                         defaultChecked={item.enabled}
-                        style={{ opacity: 0, width: 0, height: 0 }}
+                        aria-label={`Toggle ${item.label}`}
                       />
-                      <span
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: item.enabled
-                            ? 'var(--accent)'
-                            : 'var(--bg-primary)',
-                          borderRadius: 12,
-                          transition: 'background 0.2s',
-                        }}
-                      >
-                        <span
-                          style={{
-                            position: 'absolute',
-                            top: 2,
-                            left: item.enabled ? 22 : 2,
-                            width: 20,
-                            height: 20,
-                            background: 'white',
-                            borderRadius: '50%',
-                            transition: 'left 0.2s',
-                          }}
-                        />
-                      </span>
+                      <span className="toggle-slider" />
                     </label>
                   </div>
                 ))}
@@ -532,8 +503,10 @@ export default function SettingsPage() {
 
               <div className="empty-state" style={{ padding: '3rem' }}>
                 <Server size={48} />
-                <h3>No nodes registered</h3>
-                <p>Register a compute node to start earning as a provider</p>
+                <h3>Ready to provide</h3>
+                <p>
+                  Register compute nodes to contribute capacity and earn rewards
+                </p>
                 <button
                   type="button"
                   className="btn btn-primary"

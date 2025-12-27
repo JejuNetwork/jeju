@@ -1,5 +1,6 @@
 import { getExternalRpc } from '@jejunetwork/config'
 import { expectHex } from '@jejunetwork/types'
+import { config as nodeConfig } from '../config'
 import {
   type Address,
   type Chain,
@@ -1525,14 +1526,14 @@ export function createArbitrageExecutor(
   // Validate EVM private key - required for operation
   const evmPrivateKey = validateEvmPrivateKey(
     config.evmPrivateKey ||
-      process.env.EVM_PRIVATE_KEY ||
-      process.env.JEJU_PRIVATE_KEY,
+      nodeConfig.evmPrivateKey ||
+      nodeConfig.jejuPrivateKey,
     'EVM_PRIVATE_KEY or JEJU_PRIVATE_KEY',
   )
 
   // Solana private key is optional but validated if provided
   const solanaPrivateKey =
-    config.solanaPrivateKey || process.env.SOLANA_PRIVATE_KEY
+    config.solanaPrivateKey || nodeConfig.solanaPrivateKey
   if (solanaPrivateKey) {
     // Validate base64 format (Solana keys are 64 bytes base64 encoded)
     const decoded = Buffer.from(solanaPrivateKey, 'base64')
@@ -1547,14 +1548,14 @@ export function createArbitrageExecutor(
     evmPrivateKey,
     solanaPrivateKey,
     evmRpcUrls: config.evmRpcUrls || {
-      1: process.env.RPC_URL_1 || getExternalRpc('ethereum'),
-      42161: process.env.RPC_URL_42161 || getExternalRpc('arbitrum'),
-      10: process.env.RPC_URL_10 || getExternalRpc('optimism'),
-      8453: process.env.RPC_URL_8453 || getExternalRpc('base'),
+      1: nodeConfig.rpcUrl1 || getExternalRpc('ethereum'),
+      42161: nodeConfig.rpcUrl42161 || getExternalRpc('arbitrum'),
+      10: nodeConfig.rpcUrl10 || getExternalRpc('optimism'),
+      8453: nodeConfig.rpcUrl8453 || getExternalRpc('base'),
     },
-    solanaRpcUrl: config.solanaRpcUrl ?? process.env.SOLANA_RPC_URL,
-    zkBridgeEndpoint: config.zkBridgeEndpoint ?? process.env.ZK_BRIDGE_ENDPOINT,
-    oneInchApiKey: config.oneInchApiKey ?? process.env.ONEINCH_API_KEY,
+    solanaRpcUrl: config.solanaRpcUrl ?? nodeConfig.solanaRpcUrl,
+    zkBridgeEndpoint: config.zkBridgeEndpoint ?? nodeConfig.zkBridgeEndpoint,
+    oneInchApiKey: config.oneInchApiKey ?? nodeConfig.oneInchApiKey,
     maxSlippageBps: config.maxSlippageBps ?? 50,
     jitoTipLamports: config.jitoTipLamports ?? BigInt(10000),
   }

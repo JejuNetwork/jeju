@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-  <title>Autocrat</title>
-  <meta name="description" content="AI governance">
+  <title>Autocrat - AI Governance</title>
+  <meta name="description" content="Create and manage AI-powered DAOs with autonomous governance">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Autocrat">
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F8FAFC">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#030712">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAFBFF">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0B1120">
   <!-- Tailwind CSS Play CDN for development -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -19,29 +19,21 @@
         extend: {
           screens: { xs: '400px' },
           colors: {
-            council: {
-              primary: '#00E5FF',
-              secondary: '#8B5CF6',
-              success: '#00FF88',
-              warning: '#FFB800',
-              error: '#FF3B3B',
-            },
+            primary: '#06D6A0',
+            accent: '#FF6B6B',
+            secondary: '#8B5CF6',
           },
           fontFamily: {
-            sans: ['var(--font-geist)', 'system-ui', 'sans-serif'],
-            mono: ['var(--font-mono)', 'monospace'],
-          },
-          animation: { in: 'in 0.2s ease-out' },
-          keyframes: {
-            in: {
-              '0%': { opacity: '0', transform: 'translateY(-4px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' },
-            },
+            sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           },
         },
       },
     }
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./web/app/globals.css">
   <script>
     // Process shim for browser compatibility with Node.js libraries
@@ -57,6 +49,15 @@
       }
     })();
   </script>
+  <style>
+    /* CSS variables for JavaScript access */
+    :root {
+      --bg-primary-rgb: 250, 251, 255;
+    }
+    .dark {
+      --bg-primary-rgb: 11, 17, 32;
+    }
+  </style>
 </head>
 <body>
   <div id="root"></div>

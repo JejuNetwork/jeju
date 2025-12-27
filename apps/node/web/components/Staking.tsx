@@ -70,7 +70,7 @@ export function Staking() {
       <div>
         <h1 className="text-2xl font-bold">Staking</h1>
         <p className="text-volcanic-400 mt-1">
-          Manage your stakes and claim rewards
+          Put your ETH to work on the network
         </p>
       </div>
 

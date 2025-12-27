@@ -12,7 +12,9 @@ import {
 } from '@jejunetwork/messaging'
 import type { Address } from 'viem'
 
-const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+import { config } from './config'
+
+const HUB_URL = config.farcasterHubUrl
 const CRUCIBLE_CHANNEL_ID = 'crucible'
 const CRUCIBLE_CHANNEL_URL = `https://warpcast.com/~/channel/${CRUCIBLE_CHANNEL_ID}`
 

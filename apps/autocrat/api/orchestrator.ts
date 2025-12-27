@@ -25,6 +25,7 @@ import {
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { type CEOPersona, toHex } from '../lib'
 import type { DAOFull, FundingProject } from '../lib/types'
+import { config } from './config'
 import type { AutocratBlockchain } from './blockchain'
 import { createDAOService, type DAOService } from './dao-service'
 
@@ -252,7 +253,7 @@ export class AutocratOrchestrator {
     await initLocalServices()
     await autocratAgentRuntime.initialize()
 
-    const operatorKey = process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY
+    const operatorKey = config.operatorKey ?? config.privateKey
     if (operatorKey) {
       this.account = privateKeyToAccount(toHex(operatorKey))
     }

@@ -450,8 +450,8 @@ export function ChatInterface({
             </h2>
             <p className="text-muted-foreground mb-6 max-w-md">
               {walletConnected
-                ? 'Ask me anything about your portfolio, swap tokens, or manage your assets.'
-                : 'Connect your wallet to get started with your AI-powered wallet assistant.'}
+                ? 'Ask me to swap, send, or check your portfolio.'
+                : 'Connect to start chatting with your wallet.'}
             </p>
 
             {walletConnected && (

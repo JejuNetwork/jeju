@@ -110,7 +110,7 @@ export function IntentsView() {
           </div>
         ) : intents?.length === 0 ? (
           <div className="empty-state">
-            <p>No intents found</p>
+            <p>No intents yet. Create one to get started.</p>
           </div>
         ) : (
           intents?.map((intent) => (

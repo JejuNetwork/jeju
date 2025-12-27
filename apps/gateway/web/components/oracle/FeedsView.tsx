@@ -199,7 +199,7 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-4" style={{ marginBottom: '1.5rem' }}>
         <div>
           <div className="text-xs text-gray-500 mb-1">Feed ID</div>
           <div className="font-mono text-sm truncate">
@@ -226,7 +226,7 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-2" style={{ marginBottom: '1.5rem' }}>
         <div>
           <div className="text-xs text-gray-500 mb-1">Base Token</div>
           <div className="font-mono text-sm truncate">{feedSpec.baseToken}</div>
@@ -239,7 +239,7 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-3">
         <div>
           <div className="text-xs text-gray-500 mb-1">TWAP Window</div>
           <div>{feedSpec.twapWindowSeconds}s</div>

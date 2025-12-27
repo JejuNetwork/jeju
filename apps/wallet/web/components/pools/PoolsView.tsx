@@ -62,7 +62,7 @@ export function PoolsView({ address }: PoolsViewProps) {
               Liquidity Pools
             </h2>
             <p className="text-muted-foreground">
-              Provide liquidity, earn trading fees
+              Earn fees on every trade
             </p>
           </div>
           <button

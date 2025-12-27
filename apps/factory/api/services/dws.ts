@@ -1,19 +1,19 @@
 /** DWS Client */
 
-import { getContract, getDWSUrl, getRpcUrl } from '@jejunetwork/config'
+import { getContract } from '@jejunetwork/config'
 import { identityRegistryAbi } from '@jejunetwork/contracts'
 import { isValidAddress } from '@jejunetwork/types'
 import { type Address, createPublicClient, http } from 'viem'
+import { getFactoryConfig } from '../config'
 
 const DWS_TAG = 'dws'
-const FALLBACK_DWS_URL = process.env.DWS_URL || getDWSUrl()
 
 const ZERO_ADDR: Address = '0x0000000000000000000000000000000000000000'
 
 function getRegistryAddress(configAddress?: Address): Address {
   if (configAddress) return configAddress
-  const envAddress = process.env.IDENTITY_REGISTRY_ADDRESS
-  if (envAddress && isValidAddress(envAddress)) return envAddress
+  const config = getFactoryConfig()
+  if (config.identityRegistryAddress) return config.identityRegistryAddress
   return (getContract('registry', 'identity') || ZERO_ADDR) as Address
 }
 
@@ -62,12 +62,13 @@ class DWSClient {
   private nodeRefreshInterval = 60000
   private initialized = false
 
-  async initialize(config?: {
+  async initialize(initConfig?: {
     rpcUrl?: string
     identityRegistryAddress?: Address
   }): Promise<void> {
-    const rpcUrl = config?.rpcUrl ?? process.env.RPC_URL ?? getRpcUrl()
-    this.registryAddress = getRegistryAddress(config?.identityRegistryAddress)
+    const factoryConfig = getFactoryConfig()
+    const rpcUrl = initConfig?.rpcUrl ?? factoryConfig.rpcUrl
+    this.registryAddress = getRegistryAddress(initConfig?.identityRegistryAddress)
 
     this.publicClient = createPublicClient({
       transport: http(rpcUrl),
@@ -138,8 +139,9 @@ class DWSClient {
       await this.discoverNodes()
     }
 
+    const config = getFactoryConfig()
     if (this.nodes.size === 0) {
-      return FALLBACK_DWS_URL
+      return config.dwsUrl
     }
 
     const sorted = Array.from(this.nodes.values()).sort((a, b) => {
@@ -150,7 +152,7 @@ class DWSClient {
       return latencyDiff
     })
 
-    return sorted[0].endpoint ?? FALLBACK_DWS_URL
+    return sorted[0].endpoint ?? config.dwsUrl
   }
 
   private async request<T>(

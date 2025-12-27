@@ -1,7 +1,7 @@
 /**
  * Create DAO Wizard
  *
- * Multi-step wizard for creating a new AI-powered DAO with CEO and board configuration.
+ * Engaging multi-step wizard for creating AI-powered DAOs.
  */
 
 import {
@@ -20,11 +20,12 @@ import {
   Plus,
   Settings,
   Shield,
+  Sparkles,
   Trash2,
   Users,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   DECISION_STYLE_OPTIONS,
@@ -109,74 +110,71 @@ interface AgentFormProps {
   onRemove?: () => void
 }
 
-function AgentForm({
-  agent,
-  onChange,
-  isCEO = false,
-  onRemove,
-}: AgentFormProps) {
+function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps) {
   const [expanded, setExpanded] = useState(true)
   const preset = BOARD_ROLE_PRESETS[agent.role]
 
-  const updatePersona = (updates: Partial<CreateAgentDraft['persona']>) => {
-    onChange({ ...agent, persona: { ...agent.persona, ...updates } })
-  }
+  const updatePersona = useCallback(
+    (updates: Partial<CreateAgentDraft['persona']>) => {
+      onChange({ ...agent, persona: { ...agent.persona, ...updates } })
+    },
+    [agent, onChange]
+  )
 
-  const updateValue = (index: number, value: string) => {
-    const newValues = [...agent.values]
-    newValues[index] = value
-    onChange({ ...agent, values: newValues })
-  }
+  const updateValue = useCallback(
+    (index: number, value: string) => {
+      const newValues = [...agent.values]
+      newValues[index] = value
+      onChange({ ...agent, values: newValues })
+    },
+    [agent, onChange]
+  )
 
-  const addValue = () => {
+  const addValue = useCallback(() => {
     onChange({ ...agent, values: [...agent.values, ''] })
-  }
+  }, [agent, onChange])
 
-  const removeValue = (index: number) => {
-    onChange({ ...agent, values: agent.values.filter((_, i) => i !== index) })
-  }
-
-  const addTrait = (trait: string) => {
-    if (trait && !agent.persona.traits.includes(trait)) {
-      updatePersona({ traits: [...agent.persona.traits, trait] })
-    }
-  }
-
-  const removeTrait = (trait: string) => {
-    updatePersona({ traits: agent.persona.traits.filter((t) => t !== trait) })
-  }
-
-  // Expose trait functions for future use
-  void addTrait
-  void removeTrait
+  const removeValue = useCallback(
+    (index: number) => {
+      onChange({ ...agent, values: agent.values.filter((_, i) => i !== index) })
+    },
+    [agent, onChange]
+  )
 
   return (
-    <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl overflow-hidden">
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+      }}
+    >
       {/* Header */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors"
+        className="w-full flex items-center justify-between p-4 transition-colors"
+        style={{ backgroundColor: expanded ? 'transparent' : 'var(--surface)' }}
+        aria-expanded={expanded}
       >
         <div className="flex items-center gap-3">
           <div
-            className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-              isCEO
-                ? 'bg-gradient-to-br from-violet-500 to-pink-500'
-                : 'bg-slate-700'
-            }`}
+            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            style={{
+              background: isCEO ? 'var(--gradient-accent)' : 'var(--gradient-secondary)',
+            }}
           >
             {isCEO ? (
-              <Crown className="w-5 h-5 text-white" />
+              <Crown className="w-5 h-5 text-white" aria-hidden="true" />
             ) : (
-              <Bot className="w-5 h-5 text-slate-300" />
+              <Bot className="w-5 h-5 text-white" aria-hidden="true" />
             )}
           </div>
           <div className="text-left">
-            <p className="font-medium text-slate-200">
+            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
               {agent.persona.name || (isCEO ? 'CEO' : preset.name)}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               {isCEO ? 'Chief Executive Officer' : preset.description}
             </p>
           </div>
@@ -189,28 +187,34 @@ function AgentForm({
                 e.stopPropagation()
                 onRemove()
               }}
-              className="p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: 'var(--text-tertiary)' }}
+              aria-label="Remove board member"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
             </button>
           )}
           {expanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-500" />
+            <ChevronUp className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
           ) : (
-            <ChevronDown className="w-5 h-5 text-slate-500" />
+            <ChevronDown className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
           )}
         </div>
       </button>
 
       {/* Content */}
       {expanded && (
-        <div className="p-4 pt-0 space-y-4 border-t border-slate-800">
+        <div
+          className="p-4 pt-0 space-y-4 border-t"
+          style={{ borderColor: 'var(--border)' }}
+        >
           {/* Role Selection (for non-CEO) */}
           {!isCEO && (
             <div>
               <label
                 htmlFor={`role-${agent.persona.name}`}
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
               >
                 Role
               </label>
@@ -230,7 +234,7 @@ function AgentForm({
                     },
                   })
                 }}
-                className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+                className="select"
               >
                 {BOARD_ROLE_OPTIONS.map((role) => (
                   <option key={role} value={role}>
@@ -242,11 +246,9 @@ function AgentForm({
                 <input
                   type="text"
                   value={agent.customRoleName ?? ''}
-                  onChange={(e) =>
-                    onChange({ ...agent, customRoleName: e.target.value })
-                  }
+                  onChange={(e) => onChange({ ...agent, customRoleName: e.target.value })}
                   placeholder="Custom role name"
-                  className="mt-2 w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                  className="input mt-2"
                 />
               )}
             </div>
@@ -256,7 +258,8 @@ function AgentForm({
           <div>
             <label
               htmlFor={`agent-name-${isCEO ? 'ceo' : 'board'}`}
-              className="block text-sm font-medium text-slate-300 mb-2"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
             >
               Agent Name
             </label>
@@ -265,10 +268,8 @@ function AgentForm({
               type="text"
               value={agent.persona.name}
               onChange={(e) => updatePersona({ name: e.target.value })}
-              placeholder={
-                isCEO ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`
-              }
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+              placeholder={isCEO ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`}
+              className="input"
             />
           </div>
 
@@ -276,7 +277,8 @@ function AgentForm({
           <div>
             <label
               htmlFor={`agent-bio-${isCEO ? 'ceo' : 'board'}`}
-              className="block text-sm font-medium text-slate-300 mb-2"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
             >
               Bio
             </label>
@@ -284,9 +286,9 @@ function AgentForm({
               id={`agent-bio-${isCEO ? 'ceo' : 'board'}`}
               value={agent.persona.bio}
               onChange={(e) => updatePersona({ bio: e.target.value })}
-              placeholder="Brief description of this agent's purpose and focus"
+                placeholder="What this agent focuses on and how they contribute"
               rows={2}
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+              className="textarea"
             />
           </div>
 
@@ -294,7 +296,8 @@ function AgentForm({
           <div>
             <label
               htmlFor={`agent-personality-${isCEO ? 'ceo' : 'board'}`}
-              className="block text-sm font-medium text-slate-300 mb-2"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
             >
               Personality
             </label>
@@ -302,15 +305,18 @@ function AgentForm({
               id={`agent-personality-${isCEO ? 'ceo' : 'board'}`}
               value={agent.persona.personality}
               onChange={(e) => updatePersona({ personality: e.target.value })}
-              placeholder="Describe the agent's personality traits and approach"
+                placeholder="How this agent approaches decisions and communicates"
               rows={2}
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+              className="textarea"
             />
           </div>
 
           {/* Model */}
           <div>
-            <span className="block text-sm font-medium text-slate-300 mb-2">
+            <span
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               AI Model
             </span>
             <div className="grid grid-cols-2 gap-2">
@@ -321,18 +327,27 @@ function AgentForm({
                     key={model.id}
                     type="button"
                     onClick={() => onChange({ ...agent, modelId: model.id })}
-                    className={`p-3 rounded-xl border text-left transition-colors ${
-                      isSelected
-                        ? 'bg-violet-500/20 border-violet-500/50'
-                        : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
-                    }`}
+                    className="p-3 rounded-xl text-left transition-all"
+                    style={{
+                      backgroundColor: isSelected
+                        ? 'rgba(6, 214, 160, 0.12)'
+                        : 'var(--bg-secondary)',
+                      border: isSelected
+                        ? '1px solid rgba(6, 214, 160, 0.4)'
+                        : '1px solid var(--border)',
+                    }}
                   >
                     <p
-                      className={`text-sm font-medium ${isSelected ? 'text-violet-300' : 'text-slate-200'}`}
+                      className="text-sm font-medium"
+                      style={{
+                        color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)',
+                      }}
                     >
                       {model.name}
                     </p>
-                    <p className="text-xs text-slate-500">{model.provider}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      {model.provider}
+                    </p>
                   </button>
                 )
               })}
@@ -341,7 +356,10 @@ function AgentForm({
 
           {/* Decision Style */}
           <div>
-            <span className="block text-sm font-medium text-slate-300 mb-2">
+            <span
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Decision Style
             </span>
             <div className="flex gap-2">
@@ -351,21 +369,26 @@ function AgentForm({
                   <button
                     key={style.value}
                     type="button"
-                    onClick={() =>
-                      onChange({ ...agent, decisionStyle: style.value })
-                    }
-                    className={`flex-1 p-3 rounded-xl border text-center transition-colors ${
-                      isSelected
-                        ? 'bg-violet-500/20 border-violet-500/50'
-                        : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
-                    }`}
+                    onClick={() => onChange({ ...agent, decisionStyle: style.value })}
+                    className="flex-1 p-3 rounded-xl text-center transition-all"
+                    style={{
+                      backgroundColor: isSelected
+                        ? 'rgba(6, 214, 160, 0.12)'
+                        : 'var(--bg-secondary)',
+                      border: isSelected
+                        ? '1px solid rgba(6, 214, 160, 0.4)'
+                        : '1px solid var(--border)',
+                    }}
                   >
                     <p
-                      className={`text-sm font-medium ${isSelected ? 'text-violet-300' : 'text-slate-200'}`}
+                      className="text-sm font-medium"
+                      style={{
+                        color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)',
+                      }}
                     >
                       {style.label}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                       {style.description}
                     </p>
                   </button>
@@ -378,7 +401,8 @@ function AgentForm({
           <div>
             <label
               htmlFor={`comm-tone-${isCEO ? 'ceo' : 'board'}`}
-              className="block text-sm font-medium text-slate-300 mb-2"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
             >
               Communication Tone
             </label>
@@ -386,11 +410,9 @@ function AgentForm({
               id={`comm-tone-${isCEO ? 'ceo' : 'board'}`}
               value={agent.persona.communicationTone}
               onChange={(e) =>
-                updatePersona({
-                  communicationTone: e.target.value as CommunicationTone,
-                })
+                updatePersona({ communicationTone: e.target.value as CommunicationTone })
               }
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+              className="select"
             >
               {TONE_OPTIONS.map((tone) => (
                 <option key={tone.value} value={tone.value}>
@@ -402,30 +424,32 @@ function AgentForm({
 
           {/* Values */}
           <div>
-            <span className="block text-sm font-medium text-slate-300 mb-2">
-              <Heart className="w-4 h-4 inline mr-1" />
+            <span
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              <Heart className="w-4 h-4 inline mr-1" aria-hidden="true" />
               Core Values
             </span>
             <div className="space-y-2">
               {agent.values.map((value, index) => (
-                <div
-                  key={`agent-value-${value || `empty-${index}`}`}
-                  className="flex gap-2"
-                >
+                <div key={`value-${index}`} className="flex gap-2">
                   <input
                     type="text"
                     value={value}
                     onChange={(e) => updateValue(index, e.target.value)}
                     placeholder="e.g., Security is paramount"
-                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                    className="input flex-1"
                   />
                   {agent.values.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeValue(index)}
-                      className="p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
+                      className="p-2 rounded-lg transition-colors"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      aria-label="Remove value"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4 h-4" aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -433,9 +457,10 @@ function AgentForm({
               <button
                 type="button"
                 onClick={addValue}
-                className="inline-flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-300"
+                className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+                style={{ color: 'var(--color-primary)' }}
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4" aria-hidden="true" />
                 Add Value
               </button>
             </div>
@@ -446,7 +471,8 @@ function AgentForm({
             <div>
               <label
                 htmlFor={`weight-${agent.persona.name}`}
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
               >
                 Voting Weight ({agent.weight}%)
               </label>
@@ -458,14 +484,14 @@ function AgentForm({
                 step="5"
                 value={agent.weight}
                 onChange={(e) =>
-                  onChange({
-                    ...agent,
-                    weight: Number.parseInt(e.target.value, 10),
-                  })
+                  onChange({ ...agent, weight: Number.parseInt(e.target.value, 10) })
                 }
-                className="w-full"
+                className="w-full accent-[var(--color-primary)]"
               />
-              <div className="flex justify-between text-xs text-slate-500">
+              <div
+                className="flex justify-between text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 <span>5%</span>
                 <span>50%</span>
               </div>
@@ -496,54 +522,53 @@ export default function CreateDAOPage() {
     createBoardMember('CODE'),
     createBoardMember('COMMUNITY'),
   ])
-  const [governanceParams, setGovernanceParams] = useState(
-    DEFAULT_GOVERNANCE_PARAMS,
+  const [governanceParams, setGovernanceParams] = useState(DEFAULT_GOVERNANCE_PARAMS)
+
+  const currentStepIndex = useMemo(
+    () => STEPS.findIndex((s) => s.id === step),
+    [step]
   )
 
-  const currentStepIndex = STEPS.findIndex((s) => s.id === step)
-
-  const goNext = () => {
+  const goNext = useCallback(() => {
     const nextIndex = currentStepIndex + 1
     if (nextIndex < STEPS.length) {
       setStep(STEPS[nextIndex].id)
     }
-  }
+  }, [currentStepIndex])
 
-  const goPrev = () => {
+  const goPrev = useCallback(() => {
     const prevIndex = currentStepIndex - 1
     if (prevIndex >= 0) {
       setStep(STEPS[prevIndex].id)
     }
-  }
+  }, [currentStepIndex])
 
-  const addBoardMember = () => {
-    setBoard([...board, createBoardMember('CUSTOM')])
-  }
+  const addBoardMember = useCallback(() => {
+    setBoard((prev) => [...prev, createBoardMember('CUSTOM')])
+  }, [])
 
-  const removeBoardMember = (index: number) => {
-    if (board.length > 3) {
-      setBoard(board.filter((_, i) => i !== index))
-    }
-  }
+  const removeBoardMember = useCallback((index: number) => {
+    setBoard((prev) => (prev.length > 3 ? prev.filter((_, i) => i !== index) : prev))
+  }, [])
 
-  const updateBoardMember = (index: number, agent: CreateAgentDraft) => {
-    const newBoard = [...board]
-    newBoard[index] = agent
-    setBoard(newBoard)
-  }
+  const updateBoardMember = useCallback((index: number, agent: CreateAgentDraft) => {
+    setBoard((prev) => {
+      const newBoard = [...prev]
+      newBoard[index] = agent
+      return newBoard
+    })
+  }, [])
 
-  const addTag = () => {
+  const addTag = useCallback(() => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()])
+      setTags((prev) => [...prev, tagInput.trim()])
       setTagInput('')
     }
-  }
+  }, [tagInput, tags])
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     setSubmitError(null)
 
-    // Treasury will be deployed by the backend as part of DAO creation
-    // We don't need to provide an address - the backend handles this
     const draft: CreateDAODraft = {
       name,
       displayName,
@@ -551,7 +576,7 @@ export default function CreateDAOPage() {
       avatarCid: '',
       bannerCid: '',
       visibility: 'public',
-      treasury: '0x0000000000000000000000000000000000000000' as `0x${string}`, // Placeholder - backend deploys actual treasury
+      treasury: '0x0000000000000000000000000000000000000000' as `0x${string}`,
       ceo,
       board,
       governanceParams,
@@ -562,28 +587,33 @@ export default function CreateDAOPage() {
 
     createDAOMutation.mutate(draft, {
       onSuccess: (newDAO) => {
-        // Navigate to the newly created DAO
         navigate(`/dao/${newDAO.daoId}`)
       },
       onError: (error) => {
-        setSubmitError(
-          error instanceof Error ? error.message : 'Failed to create DAO',
-        )
+        setSubmitError(error instanceof Error ? error.message : 'Failed to create DAO')
       },
     })
-  }
+  }, [
+    name,
+    displayName,
+    description,
+    farcasterChannel,
+    tags,
+    ceo,
+    board,
+    governanceParams,
+    createDAOMutation,
+    navigate,
+  ])
 
-  const isStepValid = (): boolean => {
+  const isStepValid = useMemo((): boolean => {
     switch (step) {
       case 'basics':
         return name.trim().length >= 3 && displayName.trim().length >= 2
       case 'ceo':
         return ceo.persona.name.trim().length >= 2
       case 'board':
-        return (
-          board.length >= 3 &&
-          board.every((b) => b.persona.name.trim().length >= 2)
-        )
+        return board.length >= 3 && board.every((b) => b.persona.name.trim().length >= 2)
       case 'governance':
         return true
       case 'review':
@@ -591,28 +621,40 @@ export default function CreateDAOPage() {
       default:
         return false
     }
-  }
+  }, [step, name, displayName, ceo, board])
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
-        <div className="container mx-auto px-4 py-4">
+      <header
+        className="sticky top-0 z-50 backdrop-blur-xl border-b"
+        style={{
+          backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <div className="container mx-auto py-4">
           <div className="flex items-center justify-between">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors"
+              className="inline-flex items-center gap-2 transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
               Cancel
             </Link>
-            <h1 className="text-lg font-semibold text-white">Create DAO</h1>
+            <h1
+              className="text-lg font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Create DAO
+            </h1>
             <div className="w-20" />
           </div>
         </div>
 
         {/* Progress Steps */}
-        <div className="container mx-auto px-4 pb-4">
+        <div className="container mx-auto pb-4">
           <div className="flex items-center justify-between">
             {STEPS.map((s, index) => {
               const Icon = s.icon
@@ -624,53 +666,66 @@ export default function CreateDAOPage() {
                   type="button"
                   onClick={() => isPast && setStep(s.id)}
                   disabled={!isPast && !isCurrent}
-                  className={`flex items-center gap-2 ${
-                    isCurrent
-                      ? 'text-violet-400'
+                  className="flex items-center gap-2 disabled:cursor-not-allowed"
+                  style={{
+                    color: isCurrent
+                      ? 'var(--color-primary)'
                       : isPast
-                        ? 'text-slate-400 cursor-pointer hover:text-slate-200'
-                        : 'text-slate-600 cursor-not-allowed'
-                  }`}
+                        ? 'var(--color-success)'
+                        : 'var(--text-tertiary)',
+                  }}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      isCurrent
-                        ? 'bg-violet-500/20 border border-violet-500'
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                    style={{
+                      backgroundColor: isCurrent
+                        ? 'rgba(6, 214, 160, 0.15)'
                         : isPast
-                          ? 'bg-emerald-500/20 border border-emerald-500'
-                          : 'bg-slate-800 border border-slate-700'
-                    }`}
+                          ? 'rgba(16, 185, 129, 0.15)'
+                          : 'var(--bg-secondary)',
+                      border: isCurrent
+                        ? '2px solid var(--color-primary)'
+                        : isPast
+                          ? '2px solid var(--color-success)'
+                          : '2px solid var(--border)',
+                    }}
                   >
                     {isPast ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
+                      <Check className="w-4 h-4" aria-hidden="true" />
                     ) : (
-                      <Icon className="w-4 h-4" />
+                      <Icon className="w-4 h-4" aria-hidden="true" />
                     )}
                   </div>
-                  <span className="hidden sm:inline text-sm">{s.label}</span>
+                  <span className="hidden sm:inline text-sm font-medium">{s.label}</span>
                 </button>
               )
             })}
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <main className="container mx-auto py-8 max-w-2xl pb-32">
         {/* Step: Basics */}
         {step === 'basics' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">DAO Basics</h2>
-              <p className="text-slate-400">
-                Set up the fundamental identity of your DAO.
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Organization basics
+              </h2>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Define your DAO&apos;s identity and purpose.
               </p>
             </div>
 
             <div>
               <label
                 htmlFor="dao-slug"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
               >
                 Slug / Username
               </label>
@@ -679,22 +734,21 @@ export default function CreateDAOPage() {
                 type="text"
                 value={name}
                 onChange={(e) =>
-                  setName(
-                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-                  )
+                  setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
                 }
                 placeholder="my-dao"
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                className="input"
               />
-              <p className="text-xs text-slate-500 mt-1">
-                Used in URLs: autocrat.jejunetwork.org/dao/{name || 'my-dao'}
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                URL path: /dao/{name || 'your-dao'}
               </p>
             </div>
 
             <div>
               <label
                 htmlFor="dao-display-name"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
               >
                 Display Name
               </label>
@@ -704,14 +758,15 @@ export default function CreateDAOPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="My DAO"
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                className="input"
               />
             </div>
 
             <div>
               <label
                 htmlFor="dao-description"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
               >
                 Description
               </label>
@@ -719,18 +774,19 @@ export default function CreateDAOPage() {
                 id="dao-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What does your DAO do? What is its mission?"
+                placeholder="Describe what your organization does and its goals"
                 rows={4}
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+                className="textarea"
               />
             </div>
 
             <div>
               <label
                 htmlFor="dao-farcaster"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
               >
-                <MessageSquare className="w-4 h-4 inline mr-1" />
+                <MessageSquare className="w-4 h-4 inline mr-1" aria-hidden="true" />
                 Farcaster Channel (optional)
               </label>
               <input
@@ -739,30 +795,39 @@ export default function CreateDAOPage() {
                 value={farcasterChannel}
                 onChange={(e) => setFarcasterChannel(e.target.value)}
                 placeholder="/my-channel"
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+                className="input"
               />
-              <p className="text-xs text-slate-500 mt-1">
-                Link to an existing channel or we'll create one for your DAO
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                Optional: Link to your Farcaster channel
               </p>
             </div>
 
             <div>
-              <span className="block text-sm font-medium text-slate-300 mb-2">
+              <span
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 Tags
               </span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                    }}
                   >
                     {tag}
                     <button
                       type="button"
                       onClick={() => setTags(tags.filter((t) => t !== tag))}
-                      className="hover:text-red-400"
+                      className="transition-colors"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      aria-label={`Remove tag ${tag}`}
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-3 h-3" aria-hidden="true" />
                     </button>
                   </span>
                 ))}
@@ -774,12 +839,16 @@ export default function CreateDAOPage() {
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addTag()}
                   placeholder="Add a tag"
-                  className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 text-sm"
+                  className="input flex-1 text-sm"
                 />
                 <button
                   type="button"
                   onClick={addTag}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
+                  className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                  }}
                 >
                   Add
                 </button>
@@ -790,14 +859,17 @@ export default function CreateDAOPage() {
 
         {/* Step: CEO */}
         {step === 'ceo' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Configure CEO
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                CEO configuration
               </h2>
-              <p className="text-slate-400">
-                The CEO is the final decision maker for your DAO. Configure
-                their personality, values, and decision-making style.
+              <p style={{ color: 'var(--text-secondary)' }}>
+                The CEO makes final decisions on all proposals. Define their persona,
+                values, and decision-making approach.
               </p>
             </div>
 
@@ -807,13 +879,16 @@ export default function CreateDAOPage() {
 
         {/* Step: Board */}
         {step === 'board' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Configure Board
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Board members
               </h2>
-              <p className="text-slate-400">
-                Board members review proposals before they reach the CEO.
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Board members analyze and vote on proposals before CEO review.
                 Minimum 3 members required.
               </p>
             </div>
@@ -821,14 +896,10 @@ export default function CreateDAOPage() {
             <div className="space-y-4">
               {board.map((agent, index) => (
                 <AgentForm
-                  key={`board-${agent.role}-${agent.persona.name || index}`}
+                  key={`board-${agent.role}-${index}`}
                   agent={agent}
                   onChange={(a) => updateBoardMember(index, a)}
-                  onRemove={
-                    board.length > 3
-                      ? () => removeBoardMember(index)
-                      : undefined
-                  }
+                  onRemove={board.length > 3 ? () => removeBoardMember(index) : undefined}
                 />
               ))}
             </div>
@@ -836,9 +907,13 @@ export default function CreateDAOPage() {
             <button
               type="button"
               onClick={addBoardMember}
-              className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:border-violet-500/50 hover:text-violet-400 transition-colors"
+              className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-xl transition-colors"
+              style={{
+                borderColor: 'var(--border)',
+                color: 'var(--text-tertiary)',
+              }}
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-5 h-5" aria-hidden="true" />
               Add Board Member
             </button>
           </div>
@@ -846,22 +921,32 @@ export default function CreateDAOPage() {
 
         {/* Step: Governance */}
         {step === 'governance' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Governance Parameters
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Governance rules
               </h2>
-              <p className="text-slate-400">
-                Configure how proposals are evaluated and approved.
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Set thresholds and parameters for proposal evaluation.
               </p>
             </div>
 
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+            <div
+              className="rounded-xl p-5 space-y-4"
+              style={{
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)',
+              }}
+            >
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label
                     htmlFor="min-quality-score"
-                    className="block text-sm font-medium text-slate-300 mb-2"
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     Min Quality Score
                   </label>
@@ -877,13 +962,14 @@ export default function CreateDAOPage() {
                         minQualityScore: Number.parseInt(e.target.value, 10),
                       })
                     }
-                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+                    className="input"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="min-board-approvals"
-                    className="block text-sm font-medium text-slate-300 mb-2"
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     Min Board Approvals
                   </label>
@@ -899,13 +985,14 @@ export default function CreateDAOPage() {
                         minBoardApprovals: Number.parseInt(e.target.value, 10),
                       })
                     }
-                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+                    className="input"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="voting-period"
-                    className="block text-sm font-medium text-slate-300 mb-2"
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     Voting Period (days)
                   </label>
@@ -918,17 +1005,17 @@ export default function CreateDAOPage() {
                     onChange={(e) =>
                       setGovernanceParams({
                         ...governanceParams,
-                        councilVotingPeriod:
-                          Number.parseInt(e.target.value, 10) * 86400,
+                        councilVotingPeriod: Number.parseInt(e.target.value, 10) * 86400,
                       })
                     }
-                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+                    className="input"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="min-proposal-stake"
-                    className="block text-sm font-medium text-slate-300 mb-2"
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     Min Proposal Stake (ETH)
                   </label>
@@ -942,12 +1029,15 @@ export default function CreateDAOPage() {
                         minProposalStake: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+                    className="input"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-700 space-y-3">
+              <div
+                className="pt-4 border-t space-y-3"
+                style={{ borderColor: 'var(--border)' }}
+              >
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -958,9 +1048,9 @@ export default function CreateDAOPage() {
                         ceoVetoEnabled: e.target.checked,
                       })
                     }
-                    className="w-5 h-5 rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-violet-500"
+                    className="w-5 h-5 rounded accent-[var(--color-primary)]"
                   />
-                  <span className="text-slate-300">Enable CEO Veto Power</span>
+                  <span style={{ color: 'var(--text-primary)' }}>Enable CEO Veto Power</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -972,11 +1062,10 @@ export default function CreateDAOPage() {
                         communityVetoEnabled: e.target.checked,
                       })
                     }
-                    className="w-5 h-5 rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-violet-500"
+                    className="w-5 h-5 rounded accent-[var(--color-primary)]"
                   />
-                  <span className="text-slate-300">
-                    Enable Community Veto ({governanceParams.vetoThreshold}%
-                    threshold)
+                  <span style={{ color: 'var(--text-primary)' }}>
+                    Enable Community Veto ({governanceParams.vetoThreshold}% threshold)
                   </span>
                 </label>
               </div>
@@ -986,55 +1075,93 @@ export default function CreateDAOPage() {
 
         {/* Step: Review */}
         {step === 'review' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Review & Create
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Review configuration
               </h2>
-              <p className="text-slate-400">
-                Review your DAO configuration before creating it.
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Confirm your DAO settings before deployment.
               </p>
             </div>
 
             {/* Summary Card */}
-            <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl overflow-hidden">
+            <div
+              className="rounded-2xl overflow-hidden"
+              style={{
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)',
+              }}
+            >
               {/* DAO Info */}
-              <div className="p-5 border-b border-slate-800">
+              <div
+                className="p-5 border-b"
+                style={{ borderColor: 'var(--border)' }}
+              >
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-2xl font-bold text-white">
+                  <div
+                    className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
+                    style={{ background: 'var(--gradient-secondary)' }}
+                  >
                     {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-white">
+                    <h3
+                      className="text-xl font-bold"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
                       {displayName}
                     </h3>
-                    <p className="text-slate-500">@{name}</p>
+                    <p style={{ color: 'var(--text-tertiary)' }}>@{name}</p>
                   </div>
                 </div>
-                <p className="mt-3 text-slate-400 text-sm">{description}</p>
+                <p
+                  className="mt-3 text-sm"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {description}
+                </p>
                 {farcasterChannel && (
-                  <p className="mt-2 text-sm text-violet-400">
-                    <MessageSquare className="w-4 h-4 inline mr-1" />
+                  <p
+                    className="mt-2 text-sm"
+                    style={{ color: 'var(--color-secondary)' }}
+                  >
+                    <MessageSquare className="w-4 h-4 inline mr-1" aria-hidden="true" />
                     {farcasterChannel}
                   </p>
                 )}
               </div>
 
               {/* CEO */}
-              <div className="p-5 border-b border-slate-800">
-                <h4 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">
+              <div
+                className="p-5 border-b"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <h4
+                  className="text-sm font-medium uppercase tracking-wider mb-3"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   CEO
                 </h4>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-                    <Crown className="w-5 h-5 text-white" />
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    style={{ background: 'var(--gradient-accent)' }}
+                  >
+                    <Crown className="w-5 h-5 text-white" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="font-medium text-slate-200">
+                    <p
+                      className="font-medium"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
                       {ceo.persona.name}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      {MODEL_OPTIONS.find((m) => m.id === ceo.modelId)?.name} •{' '}
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      {MODEL_OPTIONS.find((m) => m.id === ceo.modelId)?.name} ·{' '}
                       {ceo.decisionStyle}
                     </p>
                   </div>
@@ -1042,25 +1169,34 @@ export default function CreateDAOPage() {
               </div>
 
               {/* Board */}
-              <div className="p-5 border-b border-slate-800">
-                <h4 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">
+              <div
+                className="p-5 border-b"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <h4
+                  className="text-sm font-medium uppercase tracking-wider mb-3"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   Board ({board.length} members)
                 </h4>
                 <div className="space-y-2">
                   {board.map((member, index) => (
-                    <div
-                      key={`preview-${member.role}-${member.persona.name || index}`}
-                      className="flex items-center gap-3"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center">
-                        <Bot className="w-4 h-4 text-slate-300" />
+                    <div key={`review-${member.role}-${index}`} className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        style={{ background: 'var(--gradient-secondary)' }}
+                      >
+                        <Bot className="w-4 h-4 text-white" aria-hidden="true" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-slate-200">
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
                           {member.persona.name}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          {member.role} • {member.weight}% weight
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                          {member.role} · {member.weight}% weight
                         </p>
                       </div>
                     </div>
@@ -1070,31 +1206,34 @@ export default function CreateDAOPage() {
 
               {/* Governance */}
               <div className="p-5">
-                <h4 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">
+                <h4
+                  className="text-sm font-medium uppercase tracking-wider mb-3"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   Governance
                 </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-slate-500">Min Quality</p>
-                    <p className="text-slate-200">
+                    <p style={{ color: 'var(--text-tertiary)' }}>Min Quality</p>
+                    <p style={{ color: 'var(--text-primary)' }}>
                       {governanceParams.minQualityScore}
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-500">Board Approvals</p>
-                    <p className="text-slate-200">
+                    <p style={{ color: 'var(--text-tertiary)' }}>Board Approvals</p>
+                    <p style={{ color: 'var(--text-primary)' }}>
                       {governanceParams.minBoardApprovals} required
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-500">Voting Period</p>
-                    <p className="text-slate-200">
+                    <p style={{ color: 'var(--text-tertiary)' }}>Voting Period</p>
+                    <p style={{ color: 'var(--text-primary)' }}>
                       {governanceParams.councilVotingPeriod / 86400} days
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-500">CEO Veto</p>
-                    <p className="text-slate-200">
+                    <p style={{ color: 'var(--text-tertiary)' }}>CEO Veto</p>
+                    <p style={{ color: 'var(--text-primary)' }}>
                       {governanceParams.ceoVetoEnabled ? 'Enabled' : 'Disabled'}
                     </p>
                   </div>
@@ -1102,40 +1241,62 @@ export default function CreateDAOPage() {
               </div>
             </div>
 
-            <div className="p-4 bg-violet-500/10 border border-violet-500/30 rounded-xl">
+            <div
+              className="p-4 rounded-xl"
+              style={{
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+              }}
+            >
               <div className="flex items-start gap-3">
-                <Coins className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" />
+                <Coins className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--color-secondary)' }} />
                 <div>
-                  <h4 className="font-medium text-violet-300">Funding</h4>
-                  <p className="text-sm text-violet-200/70 mt-1">
-                    Your DAO will pay for AI inference costs from its treasury.
-                    Make sure to fund your treasury after creation.
+                  <h4 className="font-medium" style={{ color: 'var(--color-secondary)' }}>
+                    Treasury funding
+                  </h4>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: 'rgba(139, 92, 246, 0.8)' }}
+                  >
+                    AI inference costs are paid from your treasury. Fund your treasury
+                    after deployment to enable proposal processing.
                   </p>
                 </div>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </main>
 
       {/* Footer Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800">
-        <div className="container mx-auto px-4 py-4 max-w-2xl flex justify-between">
+      <footer
+        className="fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t"
+        style={{
+          backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <div className="container mx-auto py-4 max-w-2xl flex justify-between">
           <button
             type="button"
             onClick={goPrev}
             disabled={currentStepIndex === 0}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 rounded-xl font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: 'var(--surface)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             Back
           </button>
 
           {step === 'review' ? (
             <div className="flex items-center gap-4">
               {submitError && (
-                <div className="flex items-center gap-2 text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4" />
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-error)' }}>
+                  <AlertCircle className="w-4 h-4" aria-hidden="true" />
                   {submitError}
                 </div>
               )}
@@ -1143,17 +1304,18 @@ export default function CreateDAOPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={createDAOMutation.isPending}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 text-white rounded-xl font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
+                style={{ background: 'var(--gradient-primary)' }}
               >
                 {createDAOMutation.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                     Creating...
                   </>
                 ) : (
                   <>
-                    <Check className="w-4 h-4" />
-                    Create DAO
+                    <Sparkles className="w-4 h-4" aria-hidden="true" />
+                    Launch DAO
                   </>
                 )}
               </button>
@@ -1162,15 +1324,16 @@ export default function CreateDAOPage() {
             <button
               type="button"
               onClick={goNext}
-              disabled={!isStepValid()}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-medium transition-colors"
+              disabled={!isStepValid}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'var(--gradient-primary)' }}
             >
               Continue
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </button>
           )}
         </div>
-      </div>
+      </footer>
     </div>
   )
 }

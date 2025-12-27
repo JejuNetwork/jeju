@@ -138,9 +138,9 @@ export function NamesView({ address }: NamesViewProps) {
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center mb-4 shadow-xl shadow-teal-500/20">
             <AtSign className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold">Network Name Service</h2>
+          <h2 className="text-2xl font-bold">Name Service</h2>
           <p className="text-muted-foreground mt-1">
-            Register .jeju names for your wallet
+            Claim your .jeju identity
           </p>
         </div>
 
@@ -715,9 +715,9 @@ export function NamesView({ address }: NamesViewProps) {
           ) : (
             <div className="text-center py-12 bg-card border border-border rounded-2xl">
               <AtSign className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No Names Registered</h3>
+              <h3 className="text-lg font-medium">No Names Yet</h3>
               <p className="text-muted-foreground mt-2">
-                Register a .jeju name to get started
+                Claim a .jeju name to get started
               </p>
               <button
                 type="button"

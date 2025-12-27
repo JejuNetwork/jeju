@@ -21,8 +21,10 @@ let dbPersistence: TrainingDbPersistence | null = null
 async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
   if (dbPersistence) return dbPersistence
 
+import { config } from '../config'
+
   // Try to get database client from environment
-  const dbEndpoint = process.env.CQL_ENDPOINT
+  const dbEndpoint = config.cqlEndpoint
   if (!dbEndpoint) {
     log.warn(
       'CQL_ENDPOINT not set - trajectory batches will not be persisted to database',
@@ -141,8 +143,8 @@ let warnedAboutMissingSecret = false
  * Cron authentication header check
  */
 function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
-  const cronSecret = process.env.CRON_SECRET
-  const network = process.env.NETWORK ?? 'localnet'
+  const cronSecret = config.cronSecret
+  const network = config.network
 
   if (!cronSecret) {
     // SECURITY: Only allow unauthenticated cron access in localnet

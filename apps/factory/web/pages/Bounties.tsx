@@ -1,44 +1,50 @@
-import { clsx } from 'clsx'
-import {
-  Clock,
-  DollarSign,
-  Loader2,
-  Plus,
-  Search,
-  Tag,
-  Users,
-} from 'lucide-react'
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useBounties, useBountyStats } from '../hooks/useBounties'
+/**
+ * Bounties Page
+ *
+ * Browse and filter bounties with responsive design.
+ */
 
-type BountyStatusFilter =
-  | 'open'
-  | 'in_progress'
-  | 'review'
-  | 'completed'
-  | 'all'
+import { clsx } from 'clsx'
+import { Clock, DollarSign, Plus, Tag, Users } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SearchBar,
+  StatsGrid,
+} from '../components/shared'
+import { useBounties, useBountyStats } from '../hooks/useBounties'
+import { formatDeadline } from '../lib/format'
+
+type BountyStatusFilter = 'open' | 'in_progress' | 'review' | 'completed' | 'all'
 type SortOption = 'reward' | 'deadline' | 'applicants'
 
-function isValidSortOption(value: string): value is SortOption {
-  return ['reward', 'deadline', 'applicants'].includes(value)
-}
-
-const statusColors = {
+const statusColors: Record<string, string> = {
   open: 'badge-success',
   in_progress: 'badge-warning',
   review: 'badge-info',
-  completed: 'bg-factory-700/50 text-factory-300',
-  cancelled: 'bg-red-500/20 text-red-400',
+  completed: 'badge-neutral',
+  cancelled: 'badge-error',
 }
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   open: 'Open',
   in_progress: 'In Progress',
   review: 'In Review',
   completed: 'Completed',
   cancelled: 'Cancelled',
 }
+
+const statusFilters = [
+  { value: 'all', label: 'All' },
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'review', label: 'In Review' },
+  { value: 'completed', label: 'Completed' },
+]
 
 export function BountiesPage() {
   const [filter, setFilter] = useState<BountyStatusFilter>('all')
@@ -50,94 +56,87 @@ export function BountiesPage() {
   )
   const { stats, isLoading: statsLoading } = useBountyStats()
 
-  const filteredBounties = bounties
-    .filter((bounty) => {
-      if (
-        search &&
-        !bounty.title.toLowerCase().includes(search.toLowerCase())
-      ) {
-        return false
-      }
-      return true
-    })
-    .sort((a, b) => {
-      if (sortBy === 'reward') {
-        const aAmount = Number.parseFloat(a.rewards[0].amount ?? '0')
-        const bAmount = Number.parseFloat(b.rewards[0].amount ?? '0')
-        return bAmount - aAmount
-      }
-      if (sortBy === 'deadline') {
-        return a.deadline - b.deadline
-      }
-      return b.applicants - a.applicants
-    })
+  const filteredBounties = useMemo(() => {
+    return bounties
+      .filter((bounty) => {
+        if (!search) return true
+        return bounty.title.toLowerCase().includes(search.toLowerCase())
+      })
+      .sort((a, b) => {
+        if (sortBy === 'reward') {
+          const aAmount = Number.parseFloat(a.rewards[0].amount)
+          const bAmount = Number.parseFloat(b.rewards[0].amount)
+          return bAmount - aAmount
+        }
+        if (sortBy === 'deadline') {
+          return a.deadline - b.deadline
+        }
+        return b.applicants - a.applicants
+      })
+  }, [bounties, search, sortBy])
 
-  const formatDeadline = (timestamp: number) => {
-    const days = Math.ceil((timestamp - Date.now()) / (1000 * 60 * 60 * 24))
-    if (days === 1) return '1 day left'
-    if (days <= 0) return 'Expired'
-    return `${days} days left`
-  }
+  const handleSortChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value
+    if (value === 'reward' || value === 'deadline' || value === 'applicants') {
+      setSortBy(value)
+    }
+  }, [])
+
+  const statsData = [
+    { label: 'Open Bounties', value: stats.openBounties.toString(), color: 'text-success-400', loading: statsLoading },
+    { label: 'Total Value', value: stats.totalValue, color: 'text-warning-400', loading: statsLoading },
+    { label: 'Completed', value: stats.completed.toString(), color: 'text-info-400', loading: statsLoading },
+    { label: 'Avg. Payout', value: stats.avgPayout, color: 'text-accent-400', loading: statsLoading },
+  ]
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-factory-100 flex items-center gap-3">
-            <DollarSign className="w-7 h-7 text-green-400" />
-            Bounties
-          </h1>
-          <p className="text-factory-400 mt-1">
-            Find work, earn rewards, build the network
-          </p>
-        </div>
-        <Link to="/bounties/create" className="btn btn-primary">
-          <Plus className="w-4 h-4" />
-          Create Bounty
-        </Link>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Bounties"
+        description="Funded tasks for open-source contributors"
+        icon={DollarSign}
+        iconColor="text-success-400"
+        action={
+          <Link to="/bounties/create" className="btn btn-primary">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Create</span> Bounty
+          </Link>
+        }
+      />
 
-      <div className="card p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-factory-500" />
-            <input
-              type="text"
-              placeholder="Search bounties..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input pl-10"
-            />
-          </div>
+      <div className="card p-3 sm:p-4 mb-6 animate-in">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search bounties..."
+            className="flex-1 mb-0 p-0 border-0 bg-transparent shadow-none"
+          />
 
-          <div className="flex gap-2">
-            {(
-              ['all', 'open', 'in_progress', 'review', 'completed'] as const
-            ).map((status) => (
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Status filters">
+            {statusFilters.map((status) => (
               <button
+                key={status.value}
                 type="button"
-                key={status}
-                onClick={() => setFilter(status)}
+                onClick={() => setFilter(status.value as BountyStatusFilter)}
                 className={clsx(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                  filter === status
-                    ? 'bg-accent-600 text-white'
-                    : 'bg-factory-800 text-factory-400 hover:text-factory-100',
+                  'px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                  filter === status.value
+                    ? 'bg-factory-500 text-white shadow-glow'
+                    : 'bg-surface-800 text-surface-400 hover:text-surface-100 hover:bg-surface-700',
                 )}
+                aria-pressed={filter === status.value}
               >
-                {status === 'all' ? 'All' : statusLabels[status]}
+                {status.label}
               </button>
             ))}
           </div>
 
           <select
             value={sortBy}
-            onChange={(e) => {
-              if (isValidSortOption(e.target.value)) {
-                setSortBy(e.target.value)
-              }
-            }}
-            className="input w-auto"
+            onChange={handleSortChange}
+            className="input w-full sm:w-auto"
+            aria-label="Sort bounties by"
           >
             <option value="reward">Highest Reward</option>
             <option value="deadline">Ending Soon</option>
@@ -146,93 +145,43 @@ export function BountiesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          {
-            label: 'Open Bounties',
-            value: stats.openBounties.toString(),
-            color: 'text-green-400',
-          },
-          {
-            label: 'Total Value',
-            value: stats.totalValue,
-            color: 'text-amber-400',
-          },
-          {
-            label: 'Completed',
-            value: stats.completed.toString(),
-            color: 'text-blue-400',
-          },
-          {
-            label: 'Avg. Payout',
-            value: stats.avgPayout,
-            color: 'text-purple-400',
-          },
-        ].map((stat) => (
-          <div key={stat.label} className="card p-4 text-center">
-            {statsLoading ? (
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-factory-500" />
-            ) : (
-              <p className={clsx('text-2xl font-bold', stat.color)}>
-                {stat.value}
-              </p>
-            )}
-            <p className="text-factory-500 text-sm">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+      <StatsGrid stats={statsData} columns={4} />
 
       {isLoading ? (
-        <div className="card p-12 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-accent-500" />
-        </div>
+        <LoadingState text="Loading bounties..." />
       ) : error ? (
-        <div className="card p-12 text-center">
-          <DollarSign className="w-12 h-12 mx-auto mb-4 text-red-400" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            Failed to load bounties
-          </h3>
-          <p className="text-factory-500">Please try again later</p>
-        </div>
+        <ErrorState title="Failed to load bounties" />
       ) : filteredBounties.length === 0 ? (
-        <div className="card p-12 text-center">
-          <DollarSign className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            No bounties found
-          </h3>
-          <p className="text-factory-500 mb-4">
-            {search
-              ? 'Try adjusting your search terms'
-              : 'Be the first to create a bounty'}
-          </p>
-          <Link to="/bounties/create" className="btn btn-primary">
-            Create a Bounty
-          </Link>
-        </div>
+        <EmptyState
+          icon={DollarSign}
+          title="No bounties found"
+          description={search ? 'Try a different search term' : 'Create a bounty to fund open-source work'}
+          actionLabel="Create Bounty"
+          actionHref="/bounties/create"
+        />
       ) : (
         <div className="space-y-4">
-          {filteredBounties.map((bounty) => (
+          {filteredBounties.map((bounty, index) => (
             <Link
               key={bounty.id}
               to={`/bounties/${bounty.id}`}
-              className="card p-6 card-hover block"
+              className="card p-5 sm:p-6 card-hover block animate-slide-up"
+              style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className="flex items-start justify-between gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-factory-100 truncate">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                    <h3 className="font-semibold text-surface-100 truncate">
                       {bounty.title}
                     </h3>
-                    <span
-                      className={clsx('badge', statusColors[bounty.status])}
-                    >
+                    <span className={clsx('badge', statusColors[bounty.status])}>
                       {statusLabels[bounty.status]}
                     </span>
                   </div>
-                  <p className="text-factory-400 text-sm mb-4 line-clamp-2">
+                  <p className="text-surface-400 text-sm mb-4 line-clamp-2">
                     {bounty.description}
                   </p>
-                  <div className="flex flex-wrap items-center gap-4 text-sm">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
                     <div className="flex flex-wrap gap-2">
                       {bounty.skills.map((skill) => (
                         <span key={skill} className="badge badge-info">
@@ -240,37 +189,35 @@ export function BountiesPage() {
                         </span>
                       ))}
                     </div>
-                    <span className="flex items-center gap-1 text-factory-500">
-                      <Clock className="w-4 h-4" />
+                    <span className="flex items-center gap-1.5 text-surface-500">
+                      <Clock className="w-4 h-4" aria-hidden="true" />
                       {formatDeadline(bounty.deadline)}
                     </span>
-                    <span className="flex items-center gap-1 text-factory-500">
-                      <Users className="w-4 h-4" />
+                    <span className="flex items-center gap-1.5 text-surface-500">
+                      <Users className="w-4 h-4" aria-hidden="true" />
                       {bounty.applicants} applicants
                     </span>
-                    <span className="flex items-center gap-1 text-factory-500">
-                      <Tag className="w-4 h-4" />
+                    <span className="flex items-center gap-1.5 text-surface-500">
+                      <Tag className="w-4 h-4" aria-hidden="true" />
                       {bounty.milestones} milestones
                     </span>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
+                <div className="text-left sm:text-right flex-shrink-0">
                   <div className="space-y-1">
                     {bounty.rewards.map((reward, idx) => (
                       <p
                         key={`${reward.token}-${reward.amount}`}
                         className={clsx(
-                          'font-bold',
-                          idx === 0
-                            ? 'text-xl text-green-400'
-                            : 'text-sm text-factory-400',
+                          'font-bold font-display',
+                          idx === 0 ? 'text-xl text-success-400' : 'text-sm text-surface-400',
                         )}
                       >
                         {reward.amount} {reward.token}
                       </p>
                     ))}
                   </div>
-                  <p className="text-factory-500 text-sm mt-1">Reward</p>
+                  <p className="text-surface-500 text-sm mt-1">Reward</p>
                 </div>
               </div>
             </Link>

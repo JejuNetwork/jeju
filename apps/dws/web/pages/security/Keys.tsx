@@ -131,8 +131,8 @@ export default function KeysPage() {
         ) : keys.length === 0 ? (
           <div className="empty-state">
             <Key size={48} />
-            <h3>No keys created</h3>
-            <p>Create your first threshold signing key</p>
+            <h3>Ready to secure</h3>
+            <p>Create threshold signing keys with distributed key shares</p>
             <button
               type="button"
               className="btn btn-primary"

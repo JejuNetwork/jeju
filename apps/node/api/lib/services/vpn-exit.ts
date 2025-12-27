@@ -13,7 +13,9 @@ interface ExecResult {
   pid?: number
 }
 
-const execUrl = process.env.DWS_EXEC_URL ?? 'http://localhost:4020/exec'
+import { config as nodeConfig } from '../config'
+
+const execUrl = nodeConfig.dwsExecUrl
 
 async function _exec(
   command: string[],
@@ -2266,8 +2268,8 @@ export class VPNExitService {
    */
   private getExternalIP(): string {
     // Try to get external IP from environment or detect it
-    if (process.env.EXTERNAL_IP) {
-      return process.env.EXTERNAL_IP
+    if (nodeConfig.externalIp) {
+      return nodeConfig.externalIp
     }
 
     // Use the tunnel subnet gateway as default

@@ -7,13 +7,12 @@
 import { getCoreAppUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { z } from 'zod'
+import { config } from './config'
 
 // API Base URL
 
 export const API_BASE =
-  typeof window !== 'undefined'
-    ? ''
-    : process.env.BAZAAR_API_URL || getCoreAppUrl('BAZAAR_API')
+  typeof window !== 'undefined' ? '' : config.bazaarApiUrl
 
 // Query Keys for React Query
 

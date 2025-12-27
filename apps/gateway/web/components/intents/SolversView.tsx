@@ -75,7 +75,7 @@ export function SolversView() {
                 color: 'var(--text-secondary)',
               }}
             >
-              No solvers registered yet
+              No solvers yet. Be the first to register.
             </div>
           ) : (
             leaderboard?.slice(0, 5).map((entry, index) => (
@@ -233,7 +233,7 @@ export function SolversView() {
               color: 'var(--text-secondary)',
             }}
           >
-            No solvers registered yet
+            No active solvers. Register to start solving intents.
           </div>
         ) : (
           solvers?.map((solver) => (

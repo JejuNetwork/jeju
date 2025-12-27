@@ -1,11 +1,18 @@
+/**
+ * Navigation Component
+ *
+ * Desktop sidebar navigation with collapsible sections.
+ * Accessible with proper ARIA landmarks and keyboard navigation.
+ */
+
 import { clsx } from 'clsx'
 import {
   Bell,
+  Bot,
   Box,
   Brain,
   Briefcase,
   ChevronDown,
-  Database,
   DollarSign,
   GitBranch,
   HelpCircle,
@@ -19,12 +26,26 @@ import {
   Settings,
   Sparkles,
   User,
-  Users,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
-const navigation = [
+interface NavItem {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  badge?: string
+}
+
+interface NavSection {
+  name: string
+  icon: React.ComponentType<{ className?: string }>
+  children: NavItem[]
+}
+
+type NavEntry = NavItem | NavSection
+
+const navigation: NavEntry[] = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Feed', href: '/feed', icon: MessageSquare },
   { name: 'Messages', href: '/messages', icon: Mail },
@@ -52,49 +73,59 @@ const navigation = [
     icon: Brain,
     children: [
       { name: 'Models', href: '/models', icon: Brain },
-      { name: 'Datasets', href: '/datasets', icon: Database },
+      { name: 'Agents', href: '/agents', icon: Bot },
     ],
-  },
-  {
-    name: 'Network',
-    icon: Users,
-    children: [{ name: 'Agents', href: '/agents', icon: Users }],
   },
 ]
 
-const bottomNav = [
+const bottomNav: NavItem[] = [
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Help', href: '/help', icon: HelpCircle },
 ]
+
+function isNavSection(item: NavEntry): item is NavSection {
+  return 'children' in item
+}
 
 export function Navigation() {
   const location = useLocation()
   const [expanded, setExpanded] = useState<string[]>(['Work', 'Code', 'AI'])
 
-  const toggleExpanded = (name: string) => {
+  const toggleExpanded = useCallback((name: string) => {
     setExpanded((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
     )
-  }
+  }, [])
 
-  const isActive = (href: string) => {
-    if (href === '/') return location.pathname === '/'
-    return location.pathname.startsWith(href)
-  }
+  const isActive = useCallback(
+    (href: string) => {
+      if (href === '/') return location.pathname === '/'
+      return location.pathname.startsWith(href)
+    },
+    [location.pathname],
+  )
 
   return (
-    <nav className="fixed left-0 top-0 bottom-0 w-64 bg-factory-950 border-r border-factory-800 flex flex-col">
+    <nav
+      className="fixed left-0 top-0 bottom-0 w-64 bg-surface-950/95 backdrop-blur-lg border-r border-surface-800/50 flex flex-col z-30"
+      role="navigation"
+      aria-label="Main navigation"
+    >
       {/* Logo */}
-      <div className="p-6 border-b border-factory-800">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-accent-700 flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-white" />
+      <div className="p-5 border-b border-surface-800/50">
+        <Link
+          to="/"
+          className="flex items-center gap-3 group"
+          aria-label="Factory - Go to home"
+        >
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center shadow-glow transition-transform group-hover:scale-105">
+            <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="font-bold text-lg text-factory-100 font-display">
+            <h1 className="font-bold text-lg text-surface-50 font-display">
               Factory
             </h1>
-            <p className="text-xs text-factory-500">Developer Hub</p>
+            <p className="text-xs text-surface-500">Ship code, earn rewards</p>
           </div>
         </Link>
       </div>
@@ -102,76 +133,101 @@ export function Navigation() {
       {/* Search */}
       <div className="px-4 py-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-factory-500" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full pl-10 pr-4 py-2 bg-factory-900 border border-factory-800 rounded-lg text-sm text-factory-300 placeholder-factory-600 focus:outline-none focus:border-accent-500 transition-colors"
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500"
+            aria-hidden="true"
           />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-factory-600 bg-factory-800 px-1.5 py-0.5 rounded">
+          <input
+            type="search"
+            placeholder="Search..."
+            aria-label="Search Factory"
+            className="w-full pl-10 pr-12 py-2.5 bg-surface-900/80 border border-surface-800 rounded-xl text-sm text-surface-200 placeholder-surface-500 focus:outline-none focus:border-factory-500 focus:ring-2 focus:ring-factory-500/20 transition-all"
+          />
+          <kbd
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-500 bg-surface-800 px-1.5 py-0.5 rounded"
+            aria-hidden="true"
+          >
             ⌘K
           </kbd>
         </div>
       </div>
 
       {/* Main Navigation */}
-      <div className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4">
+        <ul className="space-y-1" role="list">
           {navigation.map((item) => (
             <li key={item.name}>
-              {'children' in item ? (
+              {isNavSection(item) ? (
                 <div>
                   <button
                     type="button"
                     onClick={() => toggleExpanded(item.name)}
                     className={clsx(
-                      'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                      'text-factory-400 hover:text-factory-100 hover:bg-factory-800/50',
+                      'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+                      'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
                     )}
+                    aria-expanded={expanded.includes(item.name)}
+                    aria-controls={`nav-section-${item.name}`}
                   >
                     <span className="flex items-center gap-3">
-                      <item.icon className="w-5 h-5" />
+                      <item.icon className="w-5 h-5" aria-hidden="true" />
                       {item.name}
                     </span>
                     <ChevronDown
                       className={clsx(
-                        'w-4 h-4 transition-transform',
+                        'w-4 h-4 transition-transform duration-200',
                         expanded.includes(item.name) && 'rotate-180',
                       )}
+                      aria-hidden="true"
                     />
                   </button>
-                  {expanded.includes(item.name) && item.children && (
-                    <ul className="mt-1 ml-4 space-y-1">
-                      {item.children.map((child) => (
-                        <li key={child.href}>
-                          <Link
-                            to={child.href}
-                            className={clsx(
-                              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                              isActive(child.href)
-                                ? 'bg-accent-500/10 text-accent-400 font-medium'
-                                : 'text-factory-400 hover:text-factory-100 hover:bg-factory-800/50',
-                            )}
-                          >
-                            <child.icon className="w-4 h-4" />
-                            {child.name}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+
+                  <ul
+                    id={`nav-section-${item.name}`}
+                    className={clsx(
+                      'mt-1 ml-4 space-y-1 overflow-hidden transition-all duration-200',
+                      expanded.includes(item.name)
+                        ? 'max-h-96 opacity-100'
+                        : 'max-h-0 opacity-0',
+                    )}
+                    role="list"
+                  >
+                    {item.children.map((child) => (
+                      <li key={child.href}>
+                        <Link
+                          to={child.href}
+                          className={clsx(
+                            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                            isActive(child.href)
+                              ? 'bg-factory-500/15 text-factory-400 font-medium border-l-2 border-factory-400 ml-[-2px]'
+                              : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
+                          )}
+                          aria-current={
+                            isActive(child.href) ? 'page' : undefined
+                          }
+                        >
+                          <child.icon
+                            className="w-4 h-4"
+                            aria-hidden="true"
+                          />
+                          {child.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : (
                 <Link
                   to={item.href}
                   className={clsx(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                     isActive(item.href)
-                      ? 'bg-accent-500/10 text-accent-400'
-                      : 'text-factory-400 hover:text-factory-100 hover:bg-factory-800/50',
+                      ? 'bg-factory-500/15 text-factory-400 shadow-sm'
+                      : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
                   )}
+                  aria-current={isActive(item.href) ? 'page' : undefined}
                 >
-                  <item.icon className="w-5 h-5" />
+                  <item.icon className="w-5 h-5" aria-hidden="true" />
                   {item.name}
                 </Link>
               )}
@@ -181,20 +237,21 @@ export function Navigation() {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="border-t border-factory-800 px-3 py-4">
-        <ul className="space-y-1">
+      <div className="border-t border-surface-800/50 px-3 py-3">
+        <ul className="space-y-1" role="list">
           {bottomNav.map((item) => (
             <li key={item.name}>
               <Link
                 to={item.href}
                 className={clsx(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                   isActive(item.href)
-                    ? 'bg-accent-500/10 text-accent-400'
-                    : 'text-factory-400 hover:text-factory-100 hover:bg-factory-800/50',
+                    ? 'bg-factory-500/15 text-factory-400'
+                    : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
                 )}
+                aria-current={isActive(item.href) ? 'page' : undefined}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className="w-5 h-5" aria-hidden="true" />
                 {item.name}
               </Link>
             </li>
@@ -203,22 +260,23 @@ export function Navigation() {
       </div>
 
       {/* User section */}
-      <div className="border-t border-factory-800 p-4">
+      <div className="border-t border-surface-800/50 p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-factory-800 flex items-center justify-center">
-            <User className="w-5 h-5 text-factory-400" />
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-surface-700 to-surface-800 flex items-center justify-center ring-2 ring-surface-700">
+            <User className="w-5 h-5 text-surface-400" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-factory-100 truncate">
+            <p className="text-sm font-medium text-surface-100 truncate">
               Connect Wallet
             </p>
-            <p className="text-xs text-factory-500">to get started</p>
+            <p className="text-xs text-surface-500">to get started</p>
           </div>
           <button
             type="button"
-            className="p-2 hover:bg-factory-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface-800 rounded-lg transition-colors text-surface-400 hover:text-surface-200"
+            aria-label="Notifications"
           >
-            <Bell className="w-5 h-5 text-factory-400" />
+            <Bell className="w-5 h-5" />
           </button>
         </div>
       </div>

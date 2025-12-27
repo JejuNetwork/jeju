@@ -46,7 +46,7 @@ export function ContributionPanel() {
       <div>
         <h2 className="text-xl font-semibold">Fair Contribution</h2>
         <p className="text-sm text-[#606070] mt-1">
-          Help power the network and earn tokens
+          Share bandwidth, earn tokens
         </p>
       </div>
 

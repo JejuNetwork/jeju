@@ -13,9 +13,26 @@ interface ConnectionStatsProps {
   connection: VPNConnection
 }
 
+interface StatBoxProps {
+  icon: React.ReactNode
+  label: string
+  value: string
+}
+
+function StatBox({ icon, label, value }: StatBoxProps) {
+  return (
+    <div className="bg-surface-hover rounded-xl p-3">
+      <div className="flex items-center gap-2 mb-1">
+        {icon}
+        <span className="text-xs text-muted">{label}</span>
+      </div>
+      <div className="text-lg font-bold">{value}</div>
+    </div>
+  )
+}
+
 export function ConnectionStats({ connection }: ConnectionStatsProps) {
   const validatedConnection = VPNConnectionSchema.parse(connection)
-
   const [stats, setStats] = useState<ConnectionStatsType | null>(null)
 
   useEffect(() => {
@@ -38,59 +55,38 @@ export function ConnectionStats({ connection }: ConnectionStatsProps) {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-medium">Connection</h3>
-        <span className="text-xs text-[#00ff88] bg-[#00ff88]/10 px-2 py-1 rounded-full">
-          Active
-        </span>
+        <h3 className="font-medium">Live Stats</h3>
+        <span className="status-connected">Connected</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-[#1a1a25] rounded-xl p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <ArrowDown className="w-4 h-4 text-[#00ff88]" />
-            <span className="text-xs text-[#606070]">Download</span>
-          </div>
-          <div className="text-lg font-semibold">
-            {formatBytes(stats?.bytes_down ?? validatedConnection.bytes_down)}
-          </div>
-        </div>
-
-        <div className="bg-[#1a1a25] rounded-xl p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <ArrowUp className="w-4 h-4 text-[#00cc6a]" />
-            <span className="text-xs text-[#606070]">Upload</span>
-          </div>
-          <div className="text-lg font-semibold">
-            {formatBytes(stats?.bytes_up ?? validatedConnection.bytes_up)}
-          </div>
-        </div>
-
-        <div className="bg-[#1a1a25] rounded-xl p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock className="w-4 h-4 text-[#00aa55]" />
-            <span className="text-xs text-[#606070]">Duration</span>
-          </div>
-          <div className="text-lg font-semibold">
-            {formatDuration(stats?.connected_seconds ?? 0)}
-          </div>
-        </div>
-
-        <div className="bg-[#1a1a25] rounded-xl p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Wifi className="w-4 h-4 text-[#008844]" />
-            <span className="text-xs text-[#606070]">Latency</span>
-          </div>
-          <div className="text-lg font-semibold">
-            {stats?.latency_ms ?? validatedConnection.latency_ms}ms
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-3">
+        <StatBox
+          icon={<ArrowDown className="w-4 h-4 text-accent" />}
+          label="Download"
+          value={formatBytes(stats?.bytes_down ?? validatedConnection.bytes_down)}
+        />
+        <StatBox
+          icon={<ArrowUp className="w-4 h-4 text-accent-secondary" />}
+          label="Upload"
+          value={formatBytes(stats?.bytes_up ?? validatedConnection.bytes_up)}
+        />
+        <StatBox
+          icon={<Clock className="w-4 h-4 text-accent-tertiary" />}
+          label="Duration"
+          value={formatDuration(stats?.connected_seconds ?? 0)}
+        />
+        <StatBox
+          icon={<Wifi className="w-4 h-4 text-accent-muted" />}
+          label="Latency"
+          value={`${stats?.latency_ms ?? validatedConnection.latency_ms}ms`}
+        />
       </div>
 
       {validatedConnection.local_ip && (
-        <div className="mt-4 pt-4 border-t border-[#2a2a35]">
+        <div className="mt-4 pt-4 border-t border-border">
           <div className="flex justify-between text-sm">
-            <span className="text-[#606070]">VPN IP</span>
-            <span className="font-mono">{validatedConnection.local_ip}</span>
+            <span className="text-muted">VPN IP</span>
+            <span className="font-mono text-accent">{validatedConnection.local_ip}</span>
           </div>
         </div>
       )}

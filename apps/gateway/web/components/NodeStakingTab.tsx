@@ -57,8 +57,8 @@ export default function NodeStakingTab() {
           <MyNodesCard />
         ) : (
           <ConnectPrompt
-            message="Connect your wallet to view your nodes"
-            action="See your registered nodes and their status"
+            message="Connect to view your nodes"
+            action="See your registered nodes, staking rewards, and status"
           />
         ))}
       {activeSection === 'register' &&
@@ -66,8 +66,8 @@ export default function NodeStakingTab() {
           <RegisterNodeForm />
         ) : (
           <ConnectPrompt
-            message="Connect your wallet to register a node"
-            action="Stake tokens and register your node on the network"
+            message="Connect to register a node"
+            action="Stake tokens, join the network, and start earning rewards"
           />
         ))}
     </div>

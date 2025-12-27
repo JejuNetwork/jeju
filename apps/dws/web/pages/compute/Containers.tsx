@@ -63,7 +63,7 @@ export default function ContainersPage() {
         <div>
           <h1 className="page-title">Containers</h1>
           <p className="page-subtitle">
-            Run containerized workloads on the decentralized compute network
+            Launch containers instantly on our global decentralized network
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -149,8 +149,11 @@ export default function ContainersPage() {
         ) : containers.length === 0 ? (
           <div className="empty-state">
             <Box size={48} />
-            <h3>No container executions</h3>
-            <p>Run your first container to get started</p>
+            <h3>Ready to launch</h3>
+            <p>
+              Run Docker containers on decentralized infrastructure with just a
+              few clicks
+            </p>
             <button
               type="button"
               className="btn btn-primary"

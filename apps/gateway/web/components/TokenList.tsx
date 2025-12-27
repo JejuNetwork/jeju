@@ -214,7 +214,7 @@ export default function TokenList() {
               color: 'var(--text-primary)',
             }}
           >
-            No Tokens Registered
+            No Tokens Yet
           </h3>
           <p
             style={{
@@ -226,8 +226,8 @@ export default function TokenList() {
               lineHeight: 1.6,
             }}
           >
-            Register tokens to enable gas sponsorship and multi-token payments.
-            Deploy the paymaster system to get started.
+            Register tokens to enable gas sponsorship and multi-token payments
+            across the network.
           </p>
           <div
             style={{

@@ -189,9 +189,9 @@ export default function IPFSPage() {
         {files.length === 0 ? (
           <div className="empty-state">
             <Globe size={48} />
-            <h3>No files uploaded</h3>
+            <h3>Ready for permanent storage</h3>
             <p>
-              Upload files to IPFS for decentralized, content-addressed storage
+              Upload files to IPFS for immutable, content-addressed storage
             </p>
             <button
               type="button"

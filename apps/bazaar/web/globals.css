@@ -1,14 +1,16 @@
 /* Import Tailwind via CDN for dev, or compile for production */
 @import "tailwindcss";
 
-/* Theme Variables - Light Mode (default) */
+/* ============================================================================
+   Theme Variables - Light Mode (default)
+   ============================================================================ */
 :root {
   /* Font family variables */
   --font-outfit: 'Outfit', system-ui, sans-serif;
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Brand Colors */
+  /* Brand Colors - Vibrant & Fun */
   --color-primary: #FF6B35;
   --color-primary-dark: #E85A2A;
   --color-primary-light: #FF8F66;
@@ -18,6 +20,8 @@
   --color-purple: #7C3AED;
   --color-purple-dark: #6D28D9;
   --color-purple-light: #A78BFA;
+  --color-pink: #EC4899;
+  --color-yellow: #FBBF24;
   
   /* Light Mode Surfaces */
   --bg-primary: #FFFBF7;
@@ -38,19 +42,26 @@
   --color-info: #3B82F6;
   
   /* Shadows */
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
-  --shadow-card-hover: 0 8px 30px rgba(255, 107, 53, 0.15);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 12px 40px rgba(255, 107, 53, 0.18);
+  --shadow-glow-sm: 0 0 12px rgba(255, 107, 53, 0.25);
+  --shadow-glow: 0 0 24px rgba(255, 107, 53, 0.35);
   
   /* Mesh gradient */
   --mesh-gradient: 
-    radial-gradient(at 40% 20%, rgba(255, 107, 53, 0.12) 0px, transparent 50%),
-    radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.08) 0px, transparent 50%),
-    radial-gradient(at 0% 50%, rgba(0, 217, 192, 0.08) 0px, transparent 50%),
-    radial-gradient(at 80% 50%, rgba(255, 107, 53, 0.06) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.06) 0px, transparent 50%);
+    radial-gradient(at 40% 20%, rgba(255, 107, 53, 0.15) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(0, 217, 192, 0.1) 0px, transparent 50%),
+    radial-gradient(at 80% 50%, rgba(255, 107, 53, 0.08) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.08) 0px, transparent 50%);
+    
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(255, 107, 53, 0.4);
 }
 
-/* Dark Mode */
+/* ============================================================================
+   Dark Mode
+   ============================================================================ */
 .dark {
   --bg-primary: #0D0B14;
   --bg-secondary: #161222;
@@ -64,17 +75,21 @@
   --text-tertiary: #7D7888;
   
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-card-hover: 0 8px 30px rgba(255, 107, 53, 0.2);
+  --shadow-card-hover: 0 12px 40px rgba(255, 107, 53, 0.25);
+  --shadow-glow-sm: 0 0 12px rgba(255, 107, 53, 0.3);
+  --shadow-glow: 0 0 24px rgba(255, 107, 53, 0.4);
   
   --mesh-gradient: 
-    radial-gradient(at 40% 20%, rgba(255, 107, 53, 0.18) 0px, transparent 50%),
-    radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.12) 0px, transparent 50%),
-    radial-gradient(at 0% 50%, rgba(0, 217, 192, 0.1) 0px, transparent 50%),
-    radial-gradient(at 80% 50%, rgba(255, 107, 53, 0.08) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.08) 0px, transparent 50%);
+    radial-gradient(at 40% 20%, rgba(255, 107, 53, 0.2) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(0, 217, 192, 0.12) 0px, transparent 50%),
+    radial-gradient(at 80% 50%, rgba(255, 107, 53, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.1) 0px, transparent 50%);
 }
 
-/* Base Styles */
+/* ============================================================================
+   Base Styles
+   ============================================================================ */
 * {
   box-sizing: border-box;
   padding: 0;
@@ -97,6 +112,7 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+  line-height: 1.6;
 }
 
 /* Background Mesh */
@@ -109,7 +125,9 @@ body::before {
   pointer-events: none;
 }
 
-/* Typography */
+/* ============================================================================
+   Typography
+   ============================================================================ */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -117,7 +135,14 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
 }
 
-/* Custom Scrollbar */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ============================================================================
+   Custom Scrollbar
+   ============================================================================ */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -144,13 +169,117 @@ h1, h2, h3, h4, h5, h6 {
   color: white;
 }
 
+/* ============================================================================
+   Accessibility
+   ============================================================================ */
+
+/* Focus states */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1rem 2rem;
+  background: var(--color-primary);
+  color: white;
+  font-weight: 600;
+  z-index: 9999;
+  border-radius: 0 0 1rem 1rem;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ============================================================================
+   Utility Classes - Text
+   ============================================================================ */
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+  
+  .text-primary {
+    color: var(--text-primary);
+  }
+  
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+  
+  .text-tertiary {
+    color: var(--text-tertiary);
+  }
+  
+  .text-success {
+    color: var(--color-success);
+  }
+  
+  .text-error {
+    color: var(--color-error);
+  }
+  
+  .text-warning {
+    color: var(--color-warning);
+  }
+  
+  .text-primary-color {
+    color: var(--color-primary);
+  }
 }
 
-/* Component Layer */
+/* ============================================================================
+   Utility Classes - Backgrounds
+   ============================================================================ */
+@layer utilities {
+  .bg-surface {
+    background-color: var(--surface);
+  }
+  
+  .bg-surface-secondary {
+    background-color: var(--bg-secondary);
+  }
+  
+  .bg-surface-elevated {
+    background-color: var(--surface-elevated);
+  }
+  
+  .bg-primary-soft {
+    background-color: rgba(255, 107, 53, 0.1);
+  }
+  
+  .border-default {
+    border-color: var(--border);
+  }
+}
+
+/* ============================================================================
+   Component Layer
+   ============================================================================ */
 @layer components {
   /* Card Base */
   .card {
@@ -166,20 +295,31 @@ h1, h2, h3, h4, h5, h6 {
     transform: translateY(-2px);
   }
   
+  /* Card without hover effect */
+  .card-static {
+    @apply rounded-2xl border;
+    background-color: var(--surface);
+    border-color: var(--border);
+    box-shadow: var(--shadow-card);
+  }
+  
   /* Button Base */
   .btn {
     @apply px-6 py-3 rounded-xl font-semibold transition-all duration-200;
-    @apply active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
   
   .btn-primary {
     @apply btn text-white;
     background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.25);
   }
   
-  .btn-primary:hover {
+  .btn-primary:hover:not(:disabled) {
     background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
-    box-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px);
   }
   
   .btn-secondary {
@@ -189,25 +329,37 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--text-primary);
   }
   
-  .btn-secondary:hover {
+  .btn-secondary:hover:not(:disabled) {
     border-color: var(--color-primary);
     background-color: var(--bg-secondary);
   }
   
   .btn-accent {
-    @apply btn text-dark-bg;
+    @apply btn text-white;
     background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);
+    box-shadow: 0 2px 8px rgba(0, 217, 192, 0.25);
   }
   
-  .btn-accent:hover {
+  .btn-accent:hover:not(:disabled) {
     background: linear-gradient(135deg, var(--color-accent-light) 0%, var(--color-accent) 100%);
     box-shadow: 0 0 20px rgba(0, 217, 192, 0.4);
+  }
+  
+  .btn-ghost {
+    @apply btn;
+    background: transparent;
+    color: var(--text-secondary);
+  }
+  
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
   }
   
   /* Input Base */
   .input {
     @apply w-full px-4 py-3 rounded-xl transition-all duration-200;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-0;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-0;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
     color: var(--text-primary);
@@ -266,6 +418,11 @@ h1, h2, h3, h4, h5, h6 {
   .text-gradient-warm {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  }
+  
+  .text-gradient-cool {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, var(--color-purple) 0%, var(--color-accent) 100%);
   }
   
   /* Mobile Touch Improvements */
@@ -331,11 +488,150 @@ h1, h2, h3, h4, h5, h6 {
     animation: shimmer 1.5s infinite;
   }
   
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+  /* Gradient backgrounds for feature cards */
+  .gradient-primary {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  }
+  
+  .gradient-accent {
+    background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);
+  }
+  
+  .gradient-purple {
+    background: linear-gradient(135deg, var(--color-purple) 0%, var(--color-purple-dark) 100%);
+  }
+  
+  .gradient-warm {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #F59E0B 100%);
+  }
+  
+  .gradient-cool {
+    background: linear-gradient(135deg, var(--color-purple) 0%, var(--color-accent) 100%);
+  }
+  
+  .gradient-sunset {
+    background: linear-gradient(135deg, #FF6B35 0%, #EC4899 50%, #7C3AED 100%);
   }
 }
+
+/* ============================================================================
+   Animations
+   ============================================================================ */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+/* Animation utility classes */
+@layer utilities {
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-bounce-subtle {
+    animation: bounce-subtle 2s ease-in-out infinite;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.4s ease-out;
+  }
+  
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+  
+  .animate-modal-in {
+    animation: modal-in 0.2s ease-out;
+  }
+  
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+  
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+  
+  .animate-wiggle {
+    animation: wiggle 0.5s ease-in-out;
+  }
+}
+
+/* Staggered animations for lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
 
 /* Animate elements on scroll */
 @media (prefers-reduced-motion: no-preference) {
@@ -351,7 +647,9 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Form element dark mode fixes for dropdown options */
+/* ============================================================================
+   Form element dark mode fixes
+   ============================================================================ */
 select option {
   background-color: var(--surface);
   color: var(--text-primary);
@@ -360,6 +658,47 @@ select option {
 .dark select option {
   background-color: var(--surface);
 }
+
+/* Range input styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+  transition: transform 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+}
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
 
 /* Hide scrollbar utility */
 .scrollbar-hide {
@@ -372,9 +711,106 @@ select option {
 }
 
 /* Line clamp utilities */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Truncate text */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shadow utilities */
+.shadow-glow-sm {
+  box-shadow: var(--shadow-glow-sm);
+}
+
+.shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+/* ============================================================================
+   Grid utilities
+   ============================================================================ */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .grid-4 {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}
+
+/* ============================================================================
+   Interactive effects
+   ============================================================================ */
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Glow on hover */
+.hover-glow:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+/* Scale on hover */
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Active press effect */
+.press-effect:active {
+  transform: scale(0.98);
 }

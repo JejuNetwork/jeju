@@ -1,22 +1,28 @@
+/**
+ * Projects Page
+ *
+ * Browse and filter projects with responsive design.
+ */
+
 import { clsx } from 'clsx'
-import {
-  CheckCircle,
-  Clock,
-  LayoutDashboard,
-  Loader2,
-  Plus,
-  Search,
-  Users,
-} from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle, Clock, LayoutDashboard, Plus, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SearchBar,
+  StatsGrid,
+} from '../components/shared'
 import { type Project, useProjects } from '../hooks/useProjects'
 
 const statusColors: Record<Project['status'], string> = {
   active: 'badge-success',
   on_hold: 'badge-warning',
   completed: 'badge-info',
-  archived: 'bg-factory-700/50 text-factory-300',
+  archived: 'badge-neutral',
 }
 
 const statusLabels: Record<Project['status'], string> = {
@@ -26,29 +32,42 @@ const statusLabels: Record<Project['status'], string> = {
   archived: 'Archived',
 }
 
+const statusFilters = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'on_hold', label: 'On Hold' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'archived', label: 'Archived' },
+]
+
 export function ProjectsPage() {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<Project['status'] | 'all'>(
-    'all',
-  )
+  const [statusFilter, setStatusFilter] = useState<Project['status'] | 'all'>('all')
 
   const { projects, isLoading, error } = useProjects(
     statusFilter !== 'all' ? { status: statusFilter } : undefined,
   )
 
-  const filteredProjects = projects.filter((project) => {
-    if (search && !project.name.toLowerCase().includes(search.toLowerCase())) {
-      return false
-    }
-    return true
-  })
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      if (!search) return true
+      return project.name.toLowerCase().includes(search.toLowerCase())
+    })
+  }, [projects, search])
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: projects.length,
     active: projects.filter((p) => p.status === 'active').length,
     completed: projects.filter((p) => p.status === 'completed').length,
     totalMembers: projects.reduce((sum, p) => sum + p.members, 0),
-  }
+  }), [projects])
+
+  const statsData = useMemo(() => [
+    { label: 'Total Projects', value: stats.total.toString(), color: 'text-accent-400', loading: isLoading },
+    { label: 'Active', value: stats.active.toString(), color: 'text-success-400', loading: isLoading },
+    { label: 'Completed', value: stats.completed.toString(), color: 'text-info-400', loading: isLoading },
+    { label: 'Total Members', value: stats.totalMembers.toString(), color: 'text-warning-400', loading: isLoading },
+  ], [stats, isLoading])
 
   const getProgress = (project: Project) => {
     if (project.tasks.total === 0) return 0
@@ -56,175 +75,117 @@ export function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-factory-100 flex items-center gap-3">
-            <LayoutDashboard className="w-7 h-7 text-indigo-400" />
-            Projects
-          </h1>
-          <p className="text-factory-400 mt-1">
-            Project management and coordination
-          </p>
-        </div>
-        <Link to="/projects/new" className="btn btn-primary">
-          <Plus className="w-4 h-4" />
-          New Project
-        </Link>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Projects"
+        description="Track tasks, milestones, and team progress"
+        icon={LayoutDashboard}
+        iconColor="text-accent-400"
+        action={
+          <Link to="/projects/new" className="btn btn-primary">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">New</span> Project
+          </Link>
+        }
+      />
 
-      <div className="card p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-factory-500" />
-            <input
-              type="text"
-              placeholder="Search projects..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input pl-10"
-            />
-          </div>
+      <div className="card p-3 sm:p-4 mb-6 animate-in">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search projects..."
+            className="flex-1 mb-0 p-0 border-0 bg-transparent shadow-none"
+          />
 
-          <div className="flex gap-2">
-            {(
-              ['all', 'active', 'on_hold', 'completed', 'archived'] as const
-            ).map((status) => (
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Status filters">
+            {statusFilters.map((status) => (
               <button
+                key={status.value}
                 type="button"
-                key={status}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => setStatusFilter(status.value as Project['status'] | 'all')}
                 className={clsx(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                  statusFilter === status
-                    ? 'bg-accent-600 text-white'
-                    : 'bg-factory-800 text-factory-400 hover:text-factory-100',
+                  'px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                  statusFilter === status.value
+                    ? 'bg-factory-500 text-white shadow-glow'
+                    : 'bg-surface-800 text-surface-400 hover:text-surface-100 hover:bg-surface-700',
                 )}
+                aria-pressed={statusFilter === status.value}
               >
-                {status === 'all' ? 'All' : statusLabels[status]}
+                {status.label}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          {
-            label: 'Total Projects',
-            value: stats.total.toString(),
-            color: 'text-indigo-400',
-          },
-          {
-            label: 'Active',
-            value: stats.active.toString(),
-            color: 'text-green-400',
-          },
-          {
-            label: 'Completed',
-            value: stats.completed.toString(),
-            color: 'text-blue-400',
-          },
-          {
-            label: 'Total Members',
-            value: stats.totalMembers.toString(),
-            color: 'text-purple-400',
-          },
-        ].map((stat) => (
-          <div key={stat.label} className="card p-4 text-center">
-            {isLoading ? (
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-factory-500" />
-            ) : (
-              <p className={clsx('text-2xl font-bold', stat.color)}>
-                {stat.value}
-              </p>
-            )}
-            <p className="text-factory-500 text-sm">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+      <StatsGrid stats={statsData} columns={4} />
 
       {isLoading ? (
-        <div className="card p-12 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-accent-500" />
-        </div>
+        <LoadingState text="Loading projects..." />
       ) : error ? (
-        <div className="card p-12 text-center">
-          <LayoutDashboard className="w-12 h-12 mx-auto mb-4 text-red-400" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            Failed to load projects
-          </h3>
-          <p className="text-factory-500">Please try again later</p>
-        </div>
+        <ErrorState title="Failed to load projects" />
       ) : filteredProjects.length === 0 ? (
-        <div className="card p-12 text-center">
-          <LayoutDashboard className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            No projects found
-          </h3>
-          <p className="text-factory-500 mb-4">
-            {search
-              ? 'Try adjusting your search terms'
-              : 'Create your first project'}
-          </p>
-          <Link to="/projects/new" className="btn btn-primary">
-            New Project
-          </Link>
-        </div>
+        <EmptyState
+          icon={LayoutDashboard}
+          title="No projects found"
+          description={search ? 'Try a different search term' : 'Create a project to track your work'}
+          actionLabel="New Project"
+          actionHref="/projects/new"
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProjects.map((project) => (
+          {filteredProjects.map((project, index) => (
             <Link
               key={project.id}
               to={`/projects/${project.id}`}
-              className="card p-6 card-hover block"
+              className="card p-5 sm:p-6 card-hover block animate-slide-up"
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-factory-100 truncate">
-                    {project.name}
-                  </h3>
-                  <p className="text-factory-500 text-sm capitalize">
-                    {project.visibility}
-                  </p>
+                  <h3 className="font-semibold text-surface-100 truncate">{project.name}</h3>
+                  <p className="text-surface-500 text-sm capitalize">{project.visibility}</p>
                 </div>
                 <span className={clsx('badge', statusColors[project.status])}>
                   {statusLabels[project.status]}
                 </span>
               </div>
 
-              <p className="text-factory-400 text-sm line-clamp-2 mb-4">
+              <p className="text-surface-400 text-sm line-clamp-2 mb-4">
                 {project.description ?? 'No description provided'}
               </p>
 
               <div className="mb-4">
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-factory-500">Progress</span>
-                  <span className="text-factory-300">
-                    {getProgress(project)}%
-                  </span>
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-surface-500">Progress</span>
+                  <span className="text-surface-300 font-medium">{getProgress(project)}%</span>
                 </div>
-                <div className="w-full h-2 bg-factory-800 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-surface-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-accent-500 rounded-full transition-all"
+                    className="h-full bg-gradient-to-r from-factory-500 to-accent-500 rounded-full transition-all duration-500"
                     style={{ width: `${getProgress(project)}%` }}
+                    role="progressbar"
+                    aria-valuenow={getProgress(project)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm text-factory-500">
+              <div className="flex items-center justify-between text-sm text-surface-500">
                 <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4" />
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4" aria-hidden="true" />
                     {project.tasks.completed}/{project.tasks.total}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4" aria-hidden="true" />
                     {project.tasks.inProgress}
                   </span>
                 </div>
-                <span className="flex items-center gap-1">
-                  <Users className="w-4 h-4" />
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4" aria-hidden="true" />
                   {project.members}
                 </span>
               </div>

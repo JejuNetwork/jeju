@@ -11,6 +11,7 @@ function randomUUID(): string {
 }
 
 import { Elysia } from 'elysia'
+import { config } from '../config'
 
 // ============================================================================
 // Structured Logging with Request IDs

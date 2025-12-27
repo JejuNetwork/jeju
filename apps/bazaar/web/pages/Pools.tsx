@@ -1,12 +1,16 @@
 /**
- * Pools Page - Display liquidity pools with metrics and management
+ * Pools Page
+ *
+ * Display liquidity pools with metrics and management
  */
 
 import { ArrowUpDown, Droplets, Search, TrendingUp } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { type Address, formatUnits } from 'viem'
 import { useAccount } from 'wagmi'
+import { LoadingSpinner } from '../components/LoadingSpinner'
+import { EmptyState, Grid, PageHeader, StatCard } from '../components/ui'
 import {
   formatWeight,
   useTFMMPoolState,
@@ -28,6 +32,12 @@ interface PoolRowProps {
   onSelect: () => void
 }
 
+const STRATEGY_COLORS: Record<string, string> = {
+  momentum: 'from-blue-500 to-cyan-500',
+  'mean-reversion': 'from-purple-500 to-pink-500',
+  volatility: 'from-orange-500 to-yellow-500',
+}
+
 function PoolRow({
   address,
   name,
@@ -39,246 +49,85 @@ function PoolRow({
   onSelect,
 }: PoolRowProps) {
   const { poolState } = useTFMMPoolState(isSelected ? address : null)
-  const { balance: userBalance } = useTFMMUserBalance(
-    isSelected ? address : null,
-  )
-
-  const strategyColors: Record<string, string> = {
-    momentum: 'var(--accent-blue)',
-    'mean-reversion': 'var(--accent-purple)',
-    volatility: 'var(--accent-orange)',
-  }
+  const { balance: userBalance } = useTFMMUserBalance(isSelected ? address : null)
 
   return (
-    <button
-      type="button"
-      className="card"
-      style={{
-        padding: '1rem 1.25rem',
-        marginBottom: '0.75rem',
-        cursor: 'pointer',
-        border: isSelected
-          ? '2px solid var(--accent)'
-          : '1px solid var(--border)',
-        transition: 'all 0.2s ease',
-        width: '100%',
-        textAlign: 'left',
-        background: 'inherit',
-      }}
-      onClick={onSelect}
+    <article
+      className={`card mb-3 transition-all duration-200 ${
+        isSelected ? 'ring-2 ring-primary-color' : ''
+      }`}
+      style={{ borderColor: isSelected ? 'var(--color-primary)' : undefined }}
     >
-      <div className="flex items-center justify-between gap-4">
-        {/* Pool Info */}
-        <div style={{ flex: '2', minWidth: 0 }}>
-          <div className="flex items-center gap-2">
-            <Droplets size={20} style={{ color: 'var(--accent)' }} />
-            <h3
-              style={{
-                fontSize: '1rem',
-                fontWeight: '600',
-                margin: 0,
-                color: 'var(--text-primary)',
-              }}
-            >
-              {name}
-            </h3>
+      <button
+        type="button"
+        className="w-full p-4 text-left"
+        onClick={onSelect}
+        aria-expanded={isSelected}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Pool Info */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${STRATEGY_COLORS[strategy] ?? 'from-gray-500 to-gray-600'} flex items-center justify-center`}>
+              <Droplets className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-primary truncate">{name}</h3>
+              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium uppercase bg-gradient-to-r ${STRATEGY_COLORS[strategy] ?? 'from-gray-500 to-gray-600'} text-white`}>
+                {strategy}
+              </span>
+            </div>
           </div>
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '0.125rem 0.5rem',
-              borderRadius: '4px',
-              fontSize: '0.7rem',
-              fontWeight: '500',
-              marginTop: '0.375rem',
-              background: `${strategyColors[strategy] ?? 'var(--accent)'}20`,
-              color: strategyColors[strategy] ?? 'var(--accent)',
-              textTransform: 'uppercase',
-            }}
-          >
-            {strategy}
+
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 flex-shrink-0">
+            <div className="text-right">
+              <p className="text-xs text-tertiary uppercase">TVL</p>
+              <p className="font-semibold text-primary">{tvl}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-tertiary uppercase">APY</p>
+              <p className="font-semibold text-success">{apy}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-tertiary uppercase">24h Vol</p>
+              <p className="font-semibold text-primary">{volume24h}</p>
+            </div>
           </div>
-        </div>
 
-        {/* TVL */}
-        <div style={{ flex: '1', textAlign: 'right' }}>
-          <p
-            style={{
-              fontSize: '0.7rem',
-              color: 'var(--text-muted)',
-              margin: 0,
-              textTransform: 'uppercase',
-            }}
-          >
-            TVL
-          </p>
-          <p
-            style={{
-              fontSize: '1rem',
-              fontWeight: '600',
-              margin: '0.125rem 0 0',
-              color: 'var(--text-primary)',
-            }}
-          >
-            {tvl}
-          </p>
-        </div>
-
-        {/* APY */}
-        <div style={{ flex: '1', textAlign: 'right' }}>
-          <p
-            style={{
-              fontSize: '0.7rem',
-              color: 'var(--text-muted)',
-              margin: 0,
-              textTransform: 'uppercase',
-            }}
-          >
-            APY
-          </p>
-          <p
-            style={{
-              fontSize: '1rem',
-              fontWeight: '600',
-              margin: '0.125rem 0 0',
-              color: 'var(--success)',
-            }}
-          >
-            {apy}
-          </p>
-        </div>
-
-        {/* 24h Volume */}
-        <div style={{ flex: '1', textAlign: 'right' }}>
-          <p
-            style={{
-              fontSize: '0.7rem',
-              color: 'var(--text-muted)',
-              margin: 0,
-              textTransform: 'uppercase',
-            }}
-          >
-            24h Vol
-          </p>
-          <p
-            style={{
-              fontSize: '1rem',
-              fontWeight: '600',
-              margin: '0.125rem 0 0',
-              color: 'var(--text-primary)',
-            }}
-          >
-            {volume24h}
-          </p>
-        </div>
-
-        {/* Action */}
-        <div style={{ flex: '0 0 auto' }}>
+          {/* Action */}
           <Link
             to={`/liquidity?pool=${address}`}
-            className="btn-primary"
-            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+            className="btn-primary text-sm py-2 px-4 sm:ml-4"
             onClick={(e) => e.stopPropagation()}
           >
             Add
           </Link>
         </div>
-      </div>
+      </button>
 
       {/* Expanded Details */}
       {isSelected && poolState && (
-        <div
-          style={{
-            marginTop: '1rem',
-            paddingTop: '1rem',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          <div className="grid grid-4" style={{ gap: '1rem' }}>
+        <div className="px-4 pb-4 pt-0 border-t animate-fade-in" style={{ borderColor: 'var(--border)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
             <div>
-              <p
-                style={{
-                  fontSize: '0.7rem',
-                  color: 'var(--text-muted)',
-                  margin: 0,
-                }}
-              >
-                Tokens
-              </p>
-              <p
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  margin: '0.25rem 0 0',
-                }}
-              >
-                {poolState.tokens.length} assets
-              </p>
+              <p className="text-xs text-tertiary">Tokens</p>
+              <p className="font-medium text-primary">{poolState.tokens.length} assets</p>
             </div>
             <div>
-              <p
-                style={{
-                  fontSize: '0.7rem',
-                  color: 'var(--text-muted)',
-                  margin: 0,
-                }}
-              >
-                Swap Fee
-              </p>
-              <p
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  margin: '0.25rem 0 0',
-                }}
-              >
+              <p className="text-xs text-tertiary">Swap Fee</p>
+              <p className="font-medium text-primary">
                 {Number(formatUnits(poolState.swapFee, 16)).toFixed(2)}%
               </p>
             </div>
             <div>
-              <p
-                style={{
-                  fontSize: '0.7rem',
-                  color: 'var(--text-muted)',
-                  margin: 0,
-                }}
-              >
-                Total Supply
-              </p>
-              <p
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  margin: '0.25rem 0 0',
-                }}
-              >
-                {Number(
-                  formatUnits(poolState.totalSupply, 18),
-                ).toLocaleString()}{' '}
-                LP
+              <p className="text-xs text-tertiary">Total Supply</p>
+              <p className="font-medium text-primary">
+                {Number(formatUnits(poolState.totalSupply, 18)).toLocaleString()} LP
               </p>
             </div>
             <div>
-              <p
-                style={{
-                  fontSize: '0.7rem',
-                  color: 'var(--text-muted)',
-                  margin: 0,
-                }}
-              >
-                Your Balance
-              </p>
-              <p
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  margin: '0.25rem 0 0',
-                  color:
-                    userBalance > 0n
-                      ? 'var(--success)'
-                      : 'var(--text-secondary)',
-                }}
-              >
+              <p className="text-xs text-tertiary">Your Balance</p>
+              <p className={`font-medium ${userBalance > 0n ? 'text-success' : 'text-tertiary'}`}>
                 {Number(formatUnits(userBalance, 18)).toLocaleString()} LP
               </p>
             </div>
@@ -286,27 +135,13 @@ function PoolRow({
 
           {/* Token Weights */}
           {poolState.weights.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <p
-                style={{
-                  fontSize: '0.7rem',
-                  color: 'var(--text-muted)',
-                  margin: '0 0 0.5rem',
-                }}
-              >
-                Token Weights
-              </p>
-              <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+            <div className="mt-4">
+              <p className="text-xs text-tertiary mb-2">Token Weights</p>
+              <div className="flex flex-wrap gap-2">
                 {poolState.weights.map((weight, i) => (
                   <span
                     key={poolState.tokens[i]}
-                    style={{
-                      padding: '0.25rem 0.5rem',
-                      background: 'var(--surface-elevated)',
-                      borderRadius: '4px',
-                      fontSize: '0.75rem',
-                      fontFamily: 'monospace',
-                    }}
+                    className="px-2 py-1 bg-surface-secondary rounded text-xs font-mono"
                   >
                     Token {i + 1}: {formatWeight(weight)}
                   </span>
@@ -316,72 +151,7 @@ function PoolRow({
           )}
         </div>
       )}
-    </button>
-  )
-}
-
-function StatsCard({
-  label,
-  value,
-  icon: Icon,
-  trend,
-}: {
-  label: string
-  value: string
-  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>
-  trend?: string
-}) {
-  return (
-    <div className="card" style={{ padding: '1.25rem' }}>
-      <div className="flex items-center gap-3">
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            background: 'var(--accent-soft)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon size={20} style={{ color: 'var(--accent)' }} />
-        </div>
-        <div>
-          <p
-            style={{
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)',
-              margin: 0,
-            }}
-          >
-            {label}
-          </p>
-          <div className="flex items-center gap-2">
-            <p
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: '700',
-                margin: '0.125rem 0 0',
-              }}
-            >
-              {value}
-            </p>
-            {trend && (
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--success)',
-                  fontWeight: '500',
-                }}
-              >
-                {trend}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    </article>
   )
 }
 
@@ -393,40 +163,40 @@ export default function PoolsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
   // Filter and sort pools
-  const filteredPools = pools
-    .filter(
-      (pool) =>
-        pool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        pool.strategy.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-    .sort((a, b) => {
-      // Name sorting uses string comparison
-      if (sortField === 'name') {
-        return sortDirection === 'asc'
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name)
-      }
+  const filteredPools = useMemo(() => {
+    return pools
+      .filter(
+        (pool) =>
+          pool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          pool.strategy.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+      .sort((a, b) => {
+        if (sortField === 'name') {
+          return sortDirection === 'asc'
+            ? a.name.localeCompare(b.name)
+            : b.name.localeCompare(a.name)
+        }
 
-      // All other fields use numeric comparison
-      let aVal: number
-      let bVal: number
-      switch (sortField) {
-        case 'tvl':
-          aVal = a.metrics.tvlUsd
-          bVal = b.metrics.tvlUsd
-          break
-        case 'apy':
-          aVal = a.metrics.apyPercent
-          bVal = b.metrics.apyPercent
-          break
-        case 'volume':
-          aVal = a.metrics.volume24hUsd
-          bVal = b.metrics.volume24hUsd
-          break
-      }
+        let aVal: number
+        let bVal: number
+        switch (sortField) {
+          case 'tvl':
+            aVal = a.metrics.tvlUsd
+            bVal = b.metrics.tvlUsd
+            break
+          case 'apy':
+            aVal = a.metrics.apyPercent
+            bVal = b.metrics.apyPercent
+            break
+          case 'volume':
+            aVal = a.metrics.volume24hUsd
+            bVal = b.metrics.volume24hUsd
+            break
+        }
 
-      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
-    })
+        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+      })
+  }, [pools, searchQuery, sortField, sortDirection])
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -437,90 +207,56 @@ export default function PoolsPage() {
     }
   }
 
-  // Calculate aggregate stats from typed metrics
+  // Calculate aggregate stats
   const totalTVL = pools.reduce((sum, p) => sum + p.metrics.tvlUsd, 0)
-  const avgAPY =
-    pools.length > 0
-      ? pools.reduce((sum, p) => sum + p.metrics.apyPercent, 0) / pools.length
-      : 0
+  const avgAPY = pools.length > 0
+    ? pools.reduce((sum, p) => sum + p.metrics.apyPercent, 0) / pools.length
+    : 0
   const totalVolume = pools.reduce((sum, p) => sum + p.metrics.volume24hUsd, 0)
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1
-            className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            💧 Pools
-          </h1>
-          <p
-            className="text-sm sm:text-base"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Provide liquidity and earn fees on every trade
-          </p>
-        </div>
-        <Link
-          to="/liquidity"
-          className="btn-primary w-full md:w-auto text-center"
-        >
-          + Add Liquidity
-        </Link>
-      </div>
+    <div className="animate-fade-in">
+      <PageHeader
+        icon="💧"
+        title="Pools"
+        description="Provide liquidity and earn trading fees on every swap"
+        action={{ label: 'Add Liquidity', href: '/liquidity' }}
+      />
 
       {/* Stats Overview */}
-      <div className="grid grid-3 mb-6" style={{ gap: '1rem' }}>
-        <StatsCard
+      <Grid cols={3} className="mb-6">
+        <StatCard
+          icon={Droplets}
           label="Total Value Locked"
           value={`$${(totalTVL / 1e6).toFixed(2)}M`}
-          icon={Droplets}
-          trend="+5.2%"
+          trend={{ value: '+5.2%', positive: true }}
         />
-        <StatsCard
+        <StatCard
+          icon={TrendingUp}
           label="Average APY"
           value={`${avgAPY.toFixed(1)}%`}
-          icon={TrendingUp}
         />
-        <StatsCard
+        <StatCard
+          icon={ArrowUpDown}
           label="24h Volume"
           value={`$${(totalVolume / 1e6).toFixed(2)}M`}
-          icon={ArrowUpDown}
         />
-      </div>
+      </Grid>
 
       {/* Search and Sort */}
-      <div
-        className="flex flex-col sm:flex-row gap-3 mb-4"
-        style={{ alignItems: 'stretch' }}
-      >
-        <div style={{ position: 'relative', flex: '1' }}>
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
           <Search
-            size={18}
-            style={{
-              position: 'absolute',
-              left: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)',
-            }}
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-tertiary"
+            aria-hidden="true"
           />
           <input
-            type="text"
+            type="search"
             placeholder="Search pools..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.75rem 0.75rem 0.75rem 2.5rem',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              color: 'var(--text-primary)',
-              fontSize: '0.875rem',
-            }}
+            className="input pl-10 w-full"
+            aria-label="Search pools"
           />
         </div>
 
@@ -530,30 +266,15 @@ export default function PoolsPage() {
               key={field}
               type="button"
               onClick={() => toggleSort(field)}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '6px',
-                border: '1px solid var(--border)',
-                background:
-                  sortField === field ? 'var(--accent-soft)' : 'var(--surface)',
-                color:
-                  sortField === field
-                    ? 'var(--accent)'
-                    : 'var(--text-secondary)',
-                fontSize: '0.75rem',
-                fontWeight: '500',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-              }}
+              className={`px-3 py-2 rounded-lg text-xs font-medium uppercase transition-all focus-ring ${
+                sortField === field
+                  ? 'bg-primary-soft text-primary-color'
+                  : 'bg-surface-secondary text-secondary hover:text-primary'
+              }`}
             >
               {field === 'volume' ? '24h Vol' : field}
               {sortField === field && (
-                <span style={{ fontSize: '0.6rem' }}>
-                  {sortDirection === 'desc' ? '↓' : '↑'}
-                </span>
+                <span className="ml-1">{sortDirection === 'desc' ? '↓' : '↑'}</span>
               )}
             </button>
           ))}
@@ -562,35 +283,19 @@ export default function PoolsPage() {
 
       {/* Pool List */}
       {isLoading ? (
-        <div className="card p-6 text-center">
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              border: '3px solid var(--border)',
-              borderTopColor: 'var(--accent)',
-              borderRadius: '50%',
-              margin: '0 auto 1rem',
-              animation: 'spin 1s linear infinite',
-            }}
-          />
-          <p style={{ color: 'var(--text-secondary)' }}>Loading pools...</p>
+        <div className="flex justify-center py-20">
+          <LoadingSpinner size="lg" />
         </div>
       ) : filteredPools.length === 0 ? (
-        <div className="card p-6 text-center">
-          <div className="text-5xl mb-4">🔍</div>
-          <h3
-            className="text-lg font-semibold mb-2"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            No Pools Found
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {searchQuery
+        <EmptyState
+          icon="🔍"
+          title="No Pools Found"
+          description={
+            searchQuery
               ? 'Try adjusting your search criteria'
-              : 'No pools available at this time'}
-          </p>
-        </div>
+              : 'No pools available at this time'
+          }
+        />
       ) : (
         <div>
           {filteredPools.map((pool) => (
@@ -604,9 +309,7 @@ export default function PoolsPage() {
               volume24h={pool.volume24h}
               isSelected={selectedPool === pool.address}
               onSelect={() =>
-                setSelectedPool(
-                  selectedPool === pool.address ? null : pool.address,
-                )
+                setSelectedPool(selectedPool === pool.address ? null : pool.address)
               }
             />
           ))}
@@ -615,33 +318,11 @@ export default function PoolsPage() {
 
       {/* Connect Wallet CTA */}
       {!isConnected && (
-        <div
-          className="card"
-          style={{
-            marginTop: '1.5rem',
-            padding: '1.5rem',
-            textAlign: 'center',
-            background: 'var(--accent-soft)',
-            border: '1px solid var(--accent)',
-          }}
-        >
-          <h3
-            style={{
-              fontSize: '1.125rem',
-              fontWeight: '600',
-              marginBottom: '0.5rem',
-              color: 'var(--text-primary)',
-            }}
-          >
+        <div className="card p-6 mt-6 text-center bg-gradient-to-br from-orange-500/5 to-purple-500/5 border-dashed">
+          <h3 className="text-lg font-semibold text-primary mb-2">
             Connect to View Your Positions
           </h3>
-          <p
-            style={{
-              fontSize: '0.875rem',
-              color: 'var(--text-secondary)',
-              margin: 0,
-            }}
-          >
+          <p className="text-sm text-secondary">
             Connect your wallet to see your LP positions and manage liquidity
           </p>
         </div>

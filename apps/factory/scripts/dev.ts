@@ -22,7 +22,7 @@ import {
 import type { BunPlugin } from 'bun'
 
 const FRONTEND_PORT = CORE_PORTS.FACTORY.get()
-const API_PORT = CORE_PORTS.FACTORY_API.get()
+const API_PORT = FRONTEND_PORT + 1 // API runs on port + 1
 
 const EXTERNALS = [
   'bun:sqlite',
@@ -51,7 +51,9 @@ const EXTERNALS = [
   '@jejunetwork/training',
   '@jejunetwork/sdk',
   'elysia',
-  '@elysiajs/*',
+  '@elysiajs/cors',
+  '@elysiajs/openapi',
+  '@elysiajs/static',
   'ioredis',
   'typeorm',
   '@google-cloud/*',
@@ -101,6 +103,10 @@ const browserPlugin: BunPlugin = {
           trace: console.trace.bind(console),
           child: () => logger,
           level: 'info',
+        };
+        export const levels = {
+          labels: { 10: 'trace', 20: 'debug', 30: 'info', 40: 'warn', 50: 'error', 60: 'fatal' },
+          values: { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 },
         };
         export default function pino() { return logger; }
       `,

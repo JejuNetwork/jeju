@@ -71,7 +71,7 @@ export default function AgentsPage() {
         <div>
           <h1 className="page-title">Agents & MCP</h1>
           <p className="page-subtitle">
-            Agent-to-Agent communication and Model Context Protocol integration
+            Connect AI agents and enable them to collaborate on tasks
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -177,9 +177,10 @@ export default function AgentsPage() {
           ) : agents.length === 0 ? (
             <div className="empty-state">
               <Bot size={48} />
-              <h3>No agents registered</h3>
+              <h3>Ready for agents</h3>
               <p>
-                Register an A2A agent to enable agent-to-agent communication
+                Register your first agent to start building collaborative AI
+                workflows
               </p>
               <button
                 type="button"
@@ -340,7 +341,7 @@ export default function AgentsPage() {
           (!selectedAgent ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Activity size={32} />
-              <p>Select an agent to view its tasks</p>
+              <p>Choose an agent from the list to view its task history</p>
             </div>
           ) : tasksLoading ? (
             <div
@@ -355,7 +356,7 @@ export default function AgentsPage() {
           ) : tasks.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Activity size={32} />
-              <p>No tasks for this agent</p>
+              <p>This agent has not processed any tasks yet</p>
             </div>
           ) : (
             <div className="table-container">
@@ -436,7 +437,7 @@ export default function AgentsPage() {
                     color: 'var(--text-muted)',
                   }}
                 >
-                  No MCP tools available
+                  Connect MCP servers to enable tool access for your agents
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
@@ -487,7 +488,7 @@ export default function AgentsPage() {
                     color: 'var(--text-muted)',
                   }}
                 >
-                  No MCP resources available
+                  Resources from connected MCP servers will appear here
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '0.5rem' }}>

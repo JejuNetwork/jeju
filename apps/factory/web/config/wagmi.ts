@@ -8,7 +8,7 @@
 import {
   type ChainConfig,
   createDecentralizedWagmiConfig,
-} from '@jejunetwork/ui'
+} from '@jejunetwork/ui/wallet'
 
 // Network configurations
 const NETWORK_CONFIGS: Record<string, ChainConfig> = {

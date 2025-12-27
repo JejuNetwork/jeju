@@ -1,10 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --jeju-glow: rgba(34, 197, 94, 0.15);
+    --jeju-glow-strong: rgba(34, 197, 94, 0.3);
+  }
+
   html {
     @apply bg-volcanic-950 text-volcanic-100;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   * {
@@ -22,58 +32,73 @@
   ::-webkit-scrollbar-thumb {
     @apply bg-volcanic-700 rounded hover:bg-volcanic-600;
   }
+
+  /* Focus visible for accessibility */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    @apply outline-none ring-2 ring-jeju-500/50 ring-offset-2 ring-offset-volcanic-950;
+  }
+
+  :focus:not(:focus-visible) {
+    @apply outline-none;
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-volcanic-900/50 backdrop-blur-sm border border-volcanic-800 rounded-xl p-4;
+    @apply bg-volcanic-900/60 backdrop-blur-md border border-volcanic-800/80 rounded-2xl p-5 shadow-lg;
   }
   
   .card-hover {
-    @apply card transition-all duration-200 hover:border-jeju-500/50 hover:shadow-lg hover:shadow-jeju-500/10;
+    @apply card transition-all duration-300 hover:border-jeju-500/40 hover:shadow-xl hover:shadow-jeju-500/5 cursor-pointer;
+  }
+
+  .card-glow {
+    @apply card border-jeju-500/30 shadow-lg shadow-jeju-500/10;
   }
   
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply px-5 py-2.5 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-volcanic-950;
   }
   
   .btn-primary {
-    @apply btn bg-jeju-600 text-white hover:bg-jeju-500 active:bg-jeju-700;
+    @apply btn bg-gradient-to-r from-jeju-600 to-jeju-500 text-white hover:from-jeju-500 hover:to-jeju-400 active:scale-[0.98] shadow-lg shadow-jeju-500/20 focus-visible:ring-jeju-500;
   }
   
   .btn-secondary {
-    @apply btn bg-volcanic-800 text-volcanic-200 hover:bg-volcanic-700 active:bg-volcanic-900;
+    @apply btn bg-volcanic-800/80 text-volcanic-200 hover:bg-volcanic-700 active:bg-volcanic-800 border border-volcanic-700/50 focus-visible:ring-volcanic-500;
   }
   
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-500 active:bg-red-700;
+    @apply btn bg-gradient-to-r from-red-600 to-red-500 text-white hover:from-red-500 hover:to-red-400 active:scale-[0.98] focus-visible:ring-red-500;
   }
   
   .btn-ghost {
-    @apply btn text-volcanic-400 hover:text-volcanic-200 hover:bg-volcanic-800/50;
+    @apply btn text-volcanic-400 hover:text-volcanic-100 hover:bg-volcanic-800/50 focus-visible:ring-volcanic-500;
   }
   
   .input {
-    @apply w-full px-3 py-2 bg-volcanic-900 border border-volcanic-700 rounded-lg 
+    @apply w-full px-4 py-3 bg-volcanic-900/80 border border-volcanic-700/50 rounded-xl 
            text-volcanic-100 placeholder:text-volcanic-500
-           focus:outline-none focus:ring-2 focus:ring-jeju-500/50 focus:border-jeju-500
+           focus:outline-none focus:ring-2 focus:ring-jeju-500/40 focus:border-jeju-500/50
            transition-all duration-200;
   }
   
   .label {
-    @apply block text-sm font-medium text-volcanic-300 mb-1;
+    @apply block text-sm font-medium text-volcanic-300 mb-2;
   }
   
   .status-dot {
-    @apply w-2 h-2 rounded-full;
+    @apply w-2.5 h-2.5 rounded-full;
   }
   
   .status-healthy {
-    @apply status-dot bg-jeju-500 shadow-lg shadow-jeju-500/50;
+    @apply status-dot bg-jeju-500 shadow-lg shadow-jeju-500/50 animate-pulse;
   }
   
   .status-warning {
-    @apply status-dot bg-yellow-500 shadow-lg shadow-yellow-500/50;
+    @apply status-dot bg-amber-500 shadow-lg shadow-amber-500/50;
   }
   
   .status-error {
@@ -85,11 +110,48 @@
   }
   
   .gradient-text {
-    @apply bg-gradient-to-r from-jeju-400 to-jeju-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-jeju-400 via-emerald-400 to-jeju-500 bg-clip-text text-transparent;
   }
   
   .glow {
-    @apply shadow-lg shadow-jeju-500/20;
+    @apply shadow-xl shadow-jeju-500/20;
+  }
+
+  .toggle {
+    @apply relative w-12 h-6 rounded-full transition-colors cursor-pointer;
+  }
+
+  .toggle-thumb {
+    @apply absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm;
+  }
+
+  .toggle-on {
+    @apply bg-jeju-500;
+  }
+
+  .toggle-off {
+    @apply bg-volcanic-700;
+  }
+
+  .toggle-thumb-on {
+    @apply translate-x-7;
+  }
+
+  .toggle-thumb-off {
+    @apply translate-x-1;
+  }
+
+  /* Stat cards with gradient accent */
+  .stat-card {
+    @apply card relative overflow-hidden;
+  }
+
+  .stat-card::before {
+    @apply content-[''] absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-jeju-500 to-emerald-500 opacity-0 transition-opacity;
+  }
+
+  .stat-card:hover::before {
+    @apply opacity-100;
   }
 }
 
@@ -98,5 +160,46 @@
     background-size: 200% 200%;
     animation: gradient 8s ease infinite;
   }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
 }
 
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 15px var(--jeju-glow);
+    opacity: 0.9;
+  }
+  50% { 
+    box-shadow: 0 0 25px var(--jeju-glow-strong);
+    opacity: 1;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-gradient,
+  .animate-float,
+  .animate-glow-pulse,
+  .animate-pulse {
+    animation: none;
+  }
+}/* Better selection highlight */
+::selection {
+  @apply bg-jeju-500/30;
+}
