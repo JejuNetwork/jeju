@@ -1,3 +1,11 @@
+/**
+ * Oracle Node
+ *
+ * SECURITY: This module uses KMS for all signing operations.
+ * Private keys are NEVER loaded into memory. All cryptographic
+ * operations are delegated to the KMS service (MPC or TEE).
+ */
+
 import { getChainId, getRpcUrl } from '@jejunetwork/config'
 import {
   COMMITTEE_MANAGER_ABI,
@@ -7,32 +15,58 @@ import {
   readContract,
 } from '@jejunetwork/shared'
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
-import { expectHex, parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
+import { parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
+  type Address,
   type Chain,
   createPublicClient,
-  createWalletClient,
   defineChain,
+  encodeFunctionData,
   encodePacked,
   type Hex,
   http,
   isHex,
   keccak256,
   toBytes,
-  type WalletClient,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
+import { getKMSSigner, type KMSSigner } from '../../lib/kms-signer'
 import { type PriceData, PriceFetcher } from './price-fetcher'
 import type { PriceReport } from './types'
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const
 
+/**
+ * Secure Oracle Node Config
+ *
+ * SECURITY: No private keys in config. Uses KMS service IDs instead.
+ */
+export interface SecureOracleNodeConfig {
+  rpcUrl: string
+  chainId: number
+  /** KMS service ID for operator signing (registration) */
+  operatorServiceId: string
+  /** KMS service ID for worker signing (reports, heartbeats) */
+  workerServiceId: string
+  feedRegistry: Address
+  reportVerifier: Address
+  committeeManager: Address
+  feeRouter: Address
+  networkConnector: Address
+  pollIntervalMs: number
+  heartbeatIntervalMs: number
+  metricsPort: number
+  priceSources: string[]
+}
+
 export class OracleNode {
-  private config: OracleNodeConfig
+  private config: SecureOracleNodeConfig
   private publicClient: ReturnType<typeof createPublicClient>
-  private walletClient: WalletClient
+  private workerSigner: KMSSigner
+  private operatorSigner: KMSSigner
+  private workerAddress: Address | null = null
+  private operatorAddress: Address | null = null
   private priceFetcher: PriceFetcher
   private operatorId: Hex | null = null
   private running = false
@@ -40,24 +74,22 @@ export class OracleNode {
   private heartbeatInterval?: Timer
   private metrics: NodeMetrics
   private startTime: number
+  private chain: Chain
 
-  constructor(config: OracleNodeConfig) {
+  constructor(config: SecureOracleNodeConfig) {
     this.config = config
     this.startTime = Date.now()
 
-    const account = privateKeyToAccount(config.workerPrivateKey)
-    const chain = this.getChain(config.chainId)
+    this.chain = this.getChain(config.chainId)
 
     this.publicClient = createPublicClient({
-      chain,
+      chain: this.chain,
       transport: http(config.rpcUrl),
     })
 
-    this.walletClient = createWalletClient({
-      account,
-      chain,
-      transport: http(config.rpcUrl),
-    })
+    // SECURITY: Use KMS signers instead of private keys
+    this.workerSigner = getKMSSigner(config.workerServiceId)
+    this.operatorSigner = getKMSSigner(config.operatorServiceId)
 
     this.priceFetcher = new PriceFetcher(config.rpcUrl, config.priceSources)
 
@@ -76,6 +108,18 @@ export class OracleNode {
     if (this.running) return
 
     console.log('[OracleNode] Starting...')
+
+    // Initialize KMS signers and get addresses
+    await this.workerSigner.initialize()
+    await this.operatorSigner.initialize()
+
+    this.workerAddress = await this.workerSigner.getAddress()
+    this.operatorAddress = await this.operatorSigner.getAddress()
+
+    console.log(`[OracleNode] Worker address: ${this.workerAddress}`)
+    console.log(`[OracleNode] Operator address: ${this.operatorAddress}`)
+    console.log(`[OracleNode] Signing mode: ${this.workerSigner.getMode()}`)
+
     await this.ensureRegistered()
 
     this.running = true
@@ -100,15 +144,13 @@ export class OracleNode {
   }
 
   private async ensureRegistered(): Promise<void> {
-    if (!this.walletClient.account)
-      throw new Error('Wallet client has no account')
-    const workerAddress = this.walletClient.account.address
+    if (!this.workerAddress) throw new Error('Worker address not initialized')
 
     const existingOperatorId = await readContract(this.publicClient, {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
-      args: [workerAddress],
+      args: [this.workerAddress],
     })
 
     if (existingOperatorId !== ZERO_BYTES32) {
@@ -118,22 +160,17 @@ export class OracleNode {
     }
 
     console.log('[OracleNode] Registering new operator...')
-    const operatorAccount = privateKeyToAccount(this.config.operatorPrivateKey)
-    const chain = this.getChain(this.config.chainId)
-    const operatorClient = createWalletClient({
-      account: operatorAccount,
-      chain,
-      transport: http(this.config.rpcUrl),
-    })
 
-    const hash = await operatorClient.writeContract({
-      address: this.config.networkConnector,
-      abi: NETWORK_CONNECTOR_ABI,
-      functionName: 'registerOperator',
-      args: [ZERO_BYTES32, 0n, workerAddress],
-      chain: null,
-      account: null,
-    })
+    // Build and sign the registration transaction via KMS
+    const hash = await this.sendSignedTransaction(
+      this.operatorSigner,
+      this.config.networkConnector,
+      encodeFunctionData({
+        abi: NETWORK_CONNECTOR_ABI,
+        functionName: 'registerOperator',
+        args: [ZERO_BYTES32, 0n, this.workerAddress],
+      }),
+    )
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
@@ -141,7 +178,7 @@ export class OracleNode {
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
-      args: [workerAddress],
+      args: [this.workerAddress],
     })
     console.log(`[OracleNode] Operator ID: ${this.operatorId}`)
   }
@@ -160,7 +197,6 @@ export class OracleNode {
     const prices = await this.priceFetcher.fetchAllPrices()
 
     for (const feedId of feedIds) {
-      // feedId is bytes32 from contract, validate it's a proper Hex
       if (!isHex(feedId)) continue
       const priceData = prices.get(feedId)
       if (!priceData) continue
@@ -178,15 +214,13 @@ export class OracleNode {
   }
 
   private async isCommitteeMember(feedId: Hex): Promise<boolean> {
-    if (!this.walletClient.account)
-      throw new Error('Wallet client has no account')
-    const workerAddress = this.walletClient.account.address
+    if (!this.workerAddress) throw new Error('Worker address not initialized')
 
     return readContract(this.publicClient, {
       address: this.config.committeeManager,
       abi: COMMITTEE_MANAGER_ABI,
       functionName: 'isCommitteeMember',
-      args: [feedId, workerAddress],
+      args: [feedId, this.workerAddress],
     })
   }
 
@@ -210,6 +244,8 @@ export class OracleNode {
     }
 
     const reportHash = this.computeReportHash(report)
+
+    // SECURITY: Sign report via KMS - private key never in memory
     const signature = await this.signReport(reportHash)
 
     console.log(
@@ -218,26 +254,28 @@ export class OracleNode {
 
     this.metrics.reportsSubmitted++
 
-    const hash = await this.walletClient.writeContract({
-      address: this.config.reportVerifier,
-      abi: REPORT_VERIFIER_ABI,
-      functionName: 'submitReport',
-      args: [
-        {
-          report: {
-            feedId: report.feedId,
-            price: report.price,
-            confidence: report.confidence,
-            timestamp: report.timestamp,
-            round: report.round,
-            sourcesHash: report.sourcesHash,
+    // Build and sign the transaction via KMS
+    const hash = await this.sendSignedTransaction(
+      this.workerSigner,
+      this.config.reportVerifier,
+      encodeFunctionData({
+        abi: REPORT_VERIFIER_ABI,
+        functionName: 'submitReport',
+        args: [
+          {
+            report: {
+              feedId: report.feedId,
+              price: report.price,
+              confidence: report.confidence,
+              timestamp: report.timestamp,
+              round: report.round,
+              sourcesHash: report.sourcesHash,
+            },
+            signatures: [signature],
           },
-          signatures: [signature],
-        },
-      ],
-      chain: null,
-      account: null,
-    })
+        ],
+      }),
+    )
 
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
 
@@ -268,13 +306,55 @@ export class OracleNode {
     )
   }
 
+  /**
+   * SECURITY: Sign report via KMS - private key never exposed
+   */
   private async signReport(reportHash: Hex): Promise<Hex> {
-    if (!this.walletClient.account)
-      throw new Error('Wallet client has no account')
-    return this.walletClient.signMessage({
-      message: { raw: toBytes(reportHash) },
-      account: this.walletClient.account,
+    const result = await this.workerSigner.sign({
+      messageHash: reportHash,
+      metadata: { type: 'oracle-report' },
     })
+    return result.signature
+  }
+
+  /**
+   * SECURITY: Build, sign, and send transaction via KMS
+   */
+  private async sendSignedTransaction(
+    signer: KMSSigner,
+    to: Address,
+    data: Hex,
+  ): Promise<Hex> {
+    const signerAddress = await signer.getAddress()
+
+    // Get nonce and gas parameters
+    const [nonce, gasPrice] = await Promise.all([
+      this.publicClient.getTransactionCount({ address: signerAddress }),
+      this.publicClient.getGasPrice(),
+    ])
+
+    // Estimate gas
+    const gasLimit = await this.publicClient.estimateGas({
+      account: signerAddress,
+      to,
+      data,
+    })
+
+    // Send transaction via KMS
+    return signer.sendTransaction(
+      {
+        transaction: {
+          to,
+          data,
+          nonce,
+          gas: gasLimit,
+          gasPrice,
+          chainId: this.config.chainId,
+        },
+        chain: this.chain,
+      },
+      this.config.rpcUrl,
+    )
   }
 
   private async sendHeartbeat(): Promise<void> {
@@ -282,14 +362,15 @@ export class OracleNode {
 
     console.log('[OracleNode] Sending heartbeat...')
 
-    const hash = await this.walletClient.writeContract({
-      address: this.config.networkConnector,
-      abi: NETWORK_CONNECTOR_ABI,
-      functionName: 'recordHeartbeat',
-      args: [this.operatorId],
-      chain: null,
-      account: null,
-    })
+    const hash = await this.sendSignedTransaction(
+      this.workerSigner,
+      this.config.networkConnector,
+      encodeFunctionData({
+        abi: NETWORK_CONNECTOR_ABI,
+        functionName: 'recordHeartbeat',
+        args: [this.operatorId],
+      }),
+    )
 
     await this.publicClient.waitForTransactionReceipt({ hash })
     this.metrics.lastHeartbeat = Date.now()
@@ -305,6 +386,14 @@ export class OracleNode {
     return this.operatorId
   }
 
+  getWorkerAddress(): Address | null {
+    return this.workerAddress
+  }
+
+  getOperatorAddress(): Address | null {
+    return this.operatorAddress
+  }
+
   private getChain(chainId: number): Chain {
     switch (chainId) {
       case 8453:
@@ -314,7 +403,6 @@ export class OracleNode {
       case 31337:
         return foundry
       default:
-        // Create a custom chain for unknown chain IDs
         return defineChain({
           id: chainId,
           name: `Chain ${chainId}`,
@@ -326,25 +414,19 @@ export class OracleNode {
 }
 
 /**
- * SECURITY: Private keys MUST be provided via environment variables.
- * Hardcoded test keys removed to prevent accidental production use.
+ * Create secure node config from environment.
+ *
+ * SECURITY: Uses KMS service IDs instead of private keys.
+ * Private keys are managed by the KMS service (MPC or TEE).
  */
-function getRequiredPrivateKey(envVar: string): `0x${string}` {
-  const key = process.env[envVar]
-  if (!key) {
-    throw new Error(
-      `${envVar} is required. Set this environment variable with a valid private key.`,
-    )
-  }
-  return expectHex(key)
-}
-
-export function createNodeConfig(): OracleNodeConfig {
+export function createNodeConfig(): SecureOracleNodeConfig {
   return {
     rpcUrl: getRpcUrl(),
     chainId: getChainId(),
-    operatorPrivateKey: getRequiredPrivateKey('OPERATOR_PRIVATE_KEY'),
-    workerPrivateKey: getRequiredPrivateKey('WORKER_PRIVATE_KEY'),
+    // SECURITY: Service IDs for KMS, not private keys
+    operatorServiceId:
+      process.env.ORACLE_OPERATOR_SERVICE_ID ?? 'oracle-operator',
+    workerServiceId: process.env.ORACLE_WORKER_SERVICE_ID ?? 'oracle-worker',
 
     feedRegistry: parseEnvAddress(
       process.env.FEED_REGISTRY_ADDRESS,
@@ -364,13 +446,19 @@ export function createNodeConfig(): OracleNodeConfig {
       ZERO_ADDRESS,
     ),
 
-    pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || '60000', 10),
+    pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS ?? '60000', 10),
     heartbeatIntervalMs: parseInt(
-      process.env.HEARTBEAT_INTERVAL_MS || '300000',
+      process.env.HEARTBEAT_INTERVAL_MS ?? '300000',
       10,
     ),
-    metricsPort: parseInt(process.env.METRICS_PORT || '9090', 10),
+    metricsPort: parseInt(process.env.METRICS_PORT ?? '9090', 10),
 
     priceSources: [],
   }
 }
+
+/**
+ * Legacy config type for backwards compatibility.
+ * @deprecated Use SecureOracleNodeConfig with KMS service IDs
+ */
+export type OracleNodeConfig = SecureOracleNodeConfig

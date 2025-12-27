@@ -25,6 +25,11 @@ import {
   stringToBytes,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 
 export interface DeployHookConfig {
   repoPath: string
@@ -257,27 +262,19 @@ async function uploadToIPFS(dirPath: string): Promise<string | null> {
 
 /**
  * Update JNS contenthash
+ *
+ * SECURITY: In production, uses KMS-backed signing to protect against side-channel attacks.
  */
 async function updateJNS(
   name: string,
   cid: string,
   network: NetworkType,
-  privateKey: Hex,
+  privateKey?: Hex,
 ): Promise<string | null> {
   const jnsResolver = getContract('jns', 'jnsResolver') as Address | undefined
   if (!jnsResolver) return null
 
   const rpcUrl = getRpcUrl(network)
-  const account = privateKeyToAccount(privateKey)
-
-  const walletClient = createWalletClient({
-    account,
-    transport: http(rpcUrl),
-  })
-
-  const node = namehash(name)
-  const contenthash = encodeIPFSContenthash(cid)
-
   const chainId =
     network === 'mainnet' ? 1 : network === 'testnet' ? 11155111 : 31337
   const chain = {
@@ -286,6 +283,52 @@ async function updateJNS(
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [rpcUrl] } },
   }
+
+  // Try KMS-backed signing first
+  const kmsKeyId = process.env.DEPLOY_HOOK_KMS_KEY_ID
+  const ownerAddress = process.env.DEPLOY_HOOK_OWNER_ADDRESS as
+    | Address
+    | undefined
+
+  let walletClient: ReturnType<typeof createWalletClient> | KMSWalletClient
+
+  if (kmsKeyId && ownerAddress) {
+    const kmsAvailable = await isKMSAvailable()
+    if (kmsAvailable) {
+      walletClient = await createKMSWalletClient({
+        chain,
+        rpcUrl,
+        kmsKeyId,
+        ownerAddress,
+      })
+    } else if (process.env.NODE_ENV === 'production') {
+      console.error('[DeployHook] KMS not available in production')
+      return null
+    } else if (privateKey) {
+      walletClient = createWalletClient({
+        account: privateKeyToAccount(privateKey),
+        transport: http(rpcUrl),
+      })
+    } else {
+      return null
+    }
+  } else if (privateKey) {
+    // Fallback to direct key (development only)
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(
+        '[DeployHook] Using direct key in production - set DEPLOY_HOOK_KMS_KEY_ID',
+      )
+    }
+    walletClient = createWalletClient({
+      account: privateKeyToAccount(privateKey),
+      transport: http(rpcUrl),
+    })
+  } else {
+    return null
+  }
+
+  const node = namehash(name)
+  const contenthash = encodeIPFSContenthash(cid)
 
   try {
     const hash = await walletClient.writeContract({

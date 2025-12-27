@@ -1,5 +1,13 @@
-import { type Address, encodePacked, type Hex, keccak256 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+/**
+ * Leaderboard Reputation Service
+ *
+ * SECURITY: This module uses KMS for all signing operations.
+ * Private keys are NEVER loaded into memory. All cryptographic
+ * operations are delegated to the KMS service (MPC or TEE).
+ */
+
+import { type Address, encodePacked, type Hash, type Hex, keccak256 } from 'viem'
+import { getKMSSigner, type KMSSigner } from '../../lib/kms-signer'
 import { LEADERBOARD_CONFIG } from './config'
 import { exec, query } from './db'
 
@@ -30,6 +38,35 @@ export interface AttestationData {
     timestamp: number
     signature: Hex | null
   } | null
+}
+
+// SECURITY: Lazy-initialized KMS signer - no private key in memory
+let oracleSigner: KMSSigner | null = null
+
+/**
+ * Get the oracle signer.
+ *
+ * SECURITY: Uses KMS service ID instead of raw private key.
+ * The private key is never loaded into memory.
+ */
+async function getOracleSigner(): Promise<KMSSigner | null> {
+  const { oracle } = LEADERBOARD_CONFIG
+
+  // Check if oracle signing is enabled
+  if (!oracle.isEnabled) {
+    return null
+  }
+
+  if (!oracleSigner) {
+    const serviceId =
+      process.env.LEADERBOARD_ORACLE_SERVICE_ID ?? 'leaderboard-oracle'
+    oracleSigner = getKMSSigner(serviceId)
+    await oracleSigner.initialize()
+    console.log(`[Leaderboard] Oracle signer initialized`)
+    console.log(`[Leaderboard] Signing mode: ${oracleSigner.getMode()}`)
+  }
+
+  return oracleSigner
 }
 
 export async function calculateUserReputation(
@@ -67,24 +104,24 @@ export async function calculateUserReputation(
     [username],
   )
 
-  const scores = scoreResult[0] || {
+  const scores = scoreResult[0] ?? {
     total_score: 0,
     pr_score: 0,
     issue_score: 0,
     review_score: 0,
     comment_score: 0,
   }
-  const prCounts = prCountResult[0] || { total_prs: 0, merged_prs: 0 }
-  const commitCounts = commitCountResult[0] || { total_commits: 0 }
+  const prCounts = prCountResult[0] ?? { total_prs: 0, merged_prs: 0 }
+  const commitCounts = commitCountResult[0] ?? { total_commits: 0 }
 
-  const totalScore = Number(scores.total_score) ?? 0
-  const prScore = Number(scores.pr_score) ?? 0
-  const issueScore = Number(scores.issue_score) ?? 0
-  const reviewScore = Number(scores.review_score) ?? 0
-  const commitScore = Number(scores.comment_score) ?? 0
-  const mergedPrCount = Number(prCounts.merged_prs) ?? 0
-  const totalPrCount = Number(prCounts.total_prs) ?? 0
-  const totalCommits = Number(commitCounts.total_commits) ?? 0
+  const totalScore = Number(scores.total_score)
+  const prScore = Number(scores.pr_score)
+  const issueScore = Number(scores.issue_score)
+  const reviewScore = Number(scores.review_score)
+  const commitScore = Number(scores.comment_score)
+  const mergedPrCount = Number(prCounts.merged_prs)
+  const totalPrCount = Number(prCounts.total_prs)
+  const totalCommits = Number(commitCounts.total_commits)
 
   let normalizedScore: number
   if (totalScore <= 0) {
@@ -123,9 +160,12 @@ export async function createAttestation(
   reputation: ReputationData,
   timestamp: number,
 ): Promise<AttestationData> {
-  const { oracle, contracts, chain } = LEADERBOARD_CONFIG
+  const { contracts, chain } = LEADERBOARD_CONFIG
 
-  if (!oracle.isEnabled || !oracle.privateKey) {
+  // Get signer - returns null if oracle is disabled
+  const signer = await getOracleSigner()
+
+  if (!signer) {
     return {
       hash: null,
       signature: null,
@@ -163,10 +203,17 @@ export async function createAttestation(
     ),
   )
 
-  const account = privateKeyToAccount(oracle.privateKey)
-  const signature = await account.signMessage({
-    message: { raw: attestationHash },
+  // SECURITY: Sign via KMS - private key never in memory
+  const result = await signer.sign({
+    messageHash: attestationHash as Hash,
+    metadata: {
+      type: 'attestation',
+      walletAddress,
+      agentId: String(agentId),
+    },
   })
+
+  const signature = result.signature
 
   return {
     hash: attestationHash,

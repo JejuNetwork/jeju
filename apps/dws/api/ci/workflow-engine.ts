@@ -12,9 +12,15 @@ import {
   http,
   keccak256,
   toBytes,
+  type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 import { parse as parseYaml } from 'yaml'
 import { z } from 'zod'
 import type { GitRepoManager } from '../git/repo-manager'
@@ -48,6 +54,8 @@ export interface WorkflowEngineConfig {
   rpcUrl: string
   triggerRegistryAddress: Address
   privateKey?: Hex
+  kmsKeyId?: string
+  ownerAddress?: Address
 }
 
 interface WorkflowContext {
@@ -73,7 +81,9 @@ export class WorkflowEngine {
   private repoManager: GitRepoManager
   private triggerRegistryAddress: Address
   private publicClient: ReturnType<typeof createPublicClient>
-  private walletClient: ReturnType<typeof createWalletClient> | undefined
+  private walletClient: WalletClient | KMSWalletClient | undefined
+  private config: WorkflowEngineConfig
+  private initialized = false
 
   private workflows: Map<string, Workflow> = new Map() // workflowId -> Workflow
   private runs: Map<string, WorkflowRun> = new Map() // runId -> WorkflowRun
@@ -92,6 +102,7 @@ export class WorkflowEngine {
   ) {
     this.backend = backend
     this.repoManager = repoManager
+    this.config = config
     this.triggerRegistryAddress = config.triggerRegistryAddress
 
     const chain = {
@@ -104,6 +115,7 @@ export class WorkflowEngine {
       transport: http(config.rpcUrl),
     })
 
+    // Initialize with direct key if provided
     if (config.privateKey) {
       const account = privateKeyToAccount(config.privateKey)
       this.walletClient = createWalletClient({
@@ -112,6 +124,39 @@ export class WorkflowEngine {
         transport: http(config.rpcUrl),
       })
     }
+  }
+
+  /**
+   * Initialize KMS-backed signing for side-channel protection
+   */
+  async initializeSecureSigning(): Promise<void> {
+    if (this.initialized) return
+
+    const { kmsKeyId, ownerAddress, rpcUrl } = this.config
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (kmsKeyId && ownerAddress) {
+      const kmsAvailable = await isKMSAvailable()
+      if (kmsAvailable) {
+        const chain = {
+          ...foundry,
+          rpcUrls: { default: { http: [rpcUrl] } },
+        }
+        this.walletClient = await createKMSWalletClient({
+          chain,
+          rpcUrl,
+          kmsKeyId,
+          ownerAddress,
+        })
+        console.log('[CI] Using KMS-backed signing (FROST threshold)')
+      } else if (isProduction) {
+        throw new Error('KMS not available for CI engine in production')
+      }
+    } else if (isProduction && !this.walletClient) {
+      console.warn('[CI] No wallet configured in production')
+    }
+
+    this.initialized = true
   }
 
   /**

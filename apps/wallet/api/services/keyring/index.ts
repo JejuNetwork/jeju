@@ -1,7 +1,15 @@
 /**
  * Network Keyring Service
  * Secure key management for wallet accounts
- * Supports: HD wallets, private key import, watch-only, hardware wallets
+ * Supports: HD wallets, private key import, watch-only, hardware wallets, KMS-backed
+ *
+ * SECURITY PRIORITY:
+ * 1. KMS-backed accounts (keys never leave KMS)
+ * 2. Hardware accounts (keys on secure element)
+ * 3. HD/Imported accounts (local encrypted storage)
+ *
+ * For high-security operations, use createKMSAccount() which ensures
+ * private keys never exist on this device.
  */
 
 import { expectJson } from '@jejunetwork/types'
@@ -12,10 +20,11 @@ import {
   validateMnemonic,
 } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
-import { type Address, type Hex, isHex } from 'viem'
+import { type Address, type Hex, isHex, keccak256, toBytes, toHex } from 'viem'
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { bytesToHex } from '../../../lib/buffer'
+import { getKMSSigner, type KMSSigner } from '../kms-signer'
 
 // Convert bytes to Hex type with proper typing
 function toHexString(bytes: Uint8Array): Hex {
@@ -36,7 +45,7 @@ function requireHex(value: string, context: string): Hex {
 
 import { secureStorage } from '../../../web/platform/secure-storage'
 
-type KeySourceType = 'hd' | 'imported' | 'watch' | 'hardware' | 'smart'
+type KeySourceType = 'hd' | 'imported' | 'watch' | 'hardware' | 'smart' | 'kms'
 
 interface Account {
   address: Address
@@ -74,6 +83,20 @@ interface SmartWalletAccount extends Account {
   ownerAddress: Address
 }
 
+/**
+ * KMS-backed account - private key NEVER exists on this device.
+ * This is the most secure account type for high-value operations.
+ */
+interface KMSAccount extends Account {
+  type: 'kms'
+  /** Key ID in the KMS system */
+  keyId: string
+  /** Public key (for verification) */
+  publicKey: Hex
+  /** Whether MPC signing is used */
+  useMPC: boolean
+}
+
 // HD Paths
 const HD_PATHS = {
   ethereum: "m/44'/60'/0'/0", // Standard BIP44
@@ -86,11 +109,19 @@ class KeyringService {
   private encryptedMnemonics: Map<string, string> = new Map() // walletId -> encrypted mnemonic
   private hdAccountToWallet: Map<Address, string> = new Map() // address -> walletId for HD accounts
   private encryptedPrivateKeys: Map<Address, string> = new Map()
+  private kmsAccounts: Map<Address, KMSAccount> = new Map() // KMS-backed accounts
+  private kmsSigner: KMSSigner | null = null // Lazy-loaded KMS signer
   private isLocked = true
   private sessionKey: CryptoKey | null = null
   private walletSalt: Uint8Array | null = null // Per-wallet random salt for key derivation
   private unlockInProgress: Promise<boolean> | null = null // Prevent concurrent unlock calls
   private static readonly SALT_KEY = 'jeju_keyring_salt'
+  
+  /**
+   * Whether to prefer KMS signing when available.
+   * When true, signing operations will attempt KMS first before falling back to local.
+   */
+  private preferKMSSigning = process.env.PREFER_KMS_SIGNING === 'true'
 
   // Initialize keyring - must be called with password
   async unlock(password: string): Promise<boolean> {
@@ -270,6 +301,97 @@ class KeyringService {
     this.saveAccounts()
   }
 
+  /**
+   * Create a KMS-backed account.
+   *
+   * SECURITY: This is the most secure account type. The private key is
+   * generated and stored in the KMS (using TEE or MPC) and NEVER exists
+   * on this device. All signing operations are performed remotely.
+   *
+   * Use this for:
+   * - High-value accounts
+   * - Treasury operations
+   * - DAO governance
+   * - Any operation requiring side-channel resistance
+   */
+  async createKMSAccount(
+    name?: string,
+    options?: { useMPC?: boolean },
+  ): Promise<KMSAccount> {
+    const signer = this.getOrCreateKMSSigner()
+    await signer.initialize()
+
+    // Register a new key in KMS
+    const ownerAddress = '0x0000000000000000000000000000000000000000' as Address
+    const result = await signer.registerKey(ownerAddress, {
+      name: name ?? 'KMS Account',
+      useMPC: options?.useMPC ?? true, // Default to MPC for maximum security
+    })
+
+    const kmsAccount: KMSAccount = {
+      address: result.address,
+      type: 'kms',
+      name: name ?? 'KMS Account',
+      keyId: result.keyId,
+      publicKey: result.publicKey,
+      useMPC: options?.useMPC ?? true,
+      createdAt: Date.now(),
+    }
+
+    this.accounts.set(result.address, kmsAccount)
+    this.kmsAccounts.set(result.address, kmsAccount)
+    await this.saveAccounts()
+
+    return kmsAccount
+  }
+
+  /**
+   * Link an existing KMS key to this wallet.
+   */
+  async linkKMSAccount(
+    keyId: string,
+    name?: string,
+  ): Promise<KMSAccount> {
+    const signer = this.getOrCreateKMSSigner()
+    await signer.initialize()
+
+    const keyInfo = await signer.getKey(keyId)
+
+    if (this.accounts.has(keyInfo.address as Address)) {
+      throw new Error('Account already exists')
+    }
+
+    const kmsAccount: KMSAccount = {
+      address: keyInfo.address as Address,
+      type: 'kms',
+      name: name ?? 'KMS Account',
+      keyId: keyInfo.keyId,
+      publicKey: keyInfo.publicKey as Hex,
+      useMPC: !!keyInfo.mpc,
+      createdAt: Date.now(),
+    }
+
+    this.accounts.set(keyInfo.address as Address, kmsAccount)
+    this.kmsAccounts.set(keyInfo.address as Address, kmsAccount)
+    await this.saveAccounts()
+
+    return kmsAccount
+  }
+
+  private getOrCreateKMSSigner(): KMSSigner {
+    if (!this.kmsSigner) {
+      this.kmsSigner = getKMSSigner({ useMPC: true })
+    }
+    return this.kmsSigner
+  }
+
+  /**
+   * Check if an account is KMS-backed.
+   */
+  isKMSAccount(address: Address): boolean {
+    return this.kmsAccounts.has(address)
+  }
+
   // Get all accounts
   getAccounts(): Account[] {
     return Array.from(this.accounts.values())
@@ -280,7 +402,12 @@ class KeyringService {
     return this.accounts.get(address)
   }
 
-  // Sign transaction
+  /**
+   * Sign a transaction.
+   *
+   * For KMS accounts, signing happens remotely (key never on device).
+   * For local accounts, the key is decrypted temporarily for signing.
+   */
   async signTransaction(
     address: Address,
     tx: {
@@ -303,6 +430,35 @@ class KeyringService {
       throw new Error('Cannot sign with watch-only account')
     }
 
+    // KMS accounts: sign remotely (private key never on device)
+    if (account.type === 'kms') {
+      const kmsAccount = this.kmsAccounts.get(address)
+      if (!kmsAccount) throw new Error('KMS account data not found')
+
+      // Serialize transaction for hashing
+      const txData = JSON.stringify({
+        to: tx.to,
+        value: tx.value?.toString(),
+        data: tx.data,
+        nonce: tx.nonce,
+        gas: tx.gas?.toString(),
+        gasPrice: tx.gasPrice?.toString(),
+        maxFeePerGas: tx.maxFeePerGas?.toString(),
+        maxPriorityFeePerGas: tx.maxPriorityFeePerGas?.toString(),
+        chainId: tx.chainId,
+      })
+      const txHash = keccak256(toBytes(txData))
+
+      const signer = this.getOrCreateKMSSigner()
+      const result = await signer.signTransactionHash(
+        kmsAccount.keyId,
+        txHash,
+        address,
+      )
+      return result.signature
+    }
+
+    // Local accounts: decrypt and sign
     const signer = await this.getSigner(address, password)
 
     // Build EIP-1559 or legacy transaction
@@ -332,7 +488,11 @@ class KeyringService {
     })
   }
 
-  // Sign message
+  /**
+   * Sign a message.
+   *
+   * For KMS accounts, signing happens remotely (key never on device).
+   */
   async signMessage(
     address: Address,
     message: string,
@@ -345,11 +505,30 @@ class KeyringService {
       throw new Error('Cannot sign with watch-only account')
     }
 
+    // KMS accounts: sign remotely
+    if (account.type === 'kms') {
+      const kmsAccount = this.kmsAccounts.get(address)
+      if (!kmsAccount) throw new Error('KMS account data not found')
+
+      const signer = this.getOrCreateKMSSigner()
+      const result = await signer.signPersonalMessage(
+        kmsAccount.keyId,
+        message,
+        address,
+      )
+      return result.signature
+    }
+
+    // Local accounts: decrypt and sign
     const signer = await this.getSigner(address, password)
     return signer.signMessage({ message })
   }
 
-  // Sign typed data (EIP-712)
+  /**
+   * Sign typed data (EIP-712).
+   *
+   * For KMS accounts, signing happens remotely (key never on device).
+   */
   async signTypedData(
     address: Address,
     typedData: {
@@ -367,6 +546,30 @@ class KeyringService {
       throw new Error('Cannot sign with watch-only account')
     }
 
+    // KMS accounts: sign remotely
+    if (account.type === 'kms') {
+      const kmsAccount = this.kmsAccounts.get(address)
+      if (!kmsAccount) throw new Error('KMS account data not found')
+
+      const signer = this.getOrCreateKMSSigner()
+      const result = await signer.signTypedData({
+        keyId: kmsAccount.keyId,
+        domain: typedData.domain as {
+          name?: string
+          version?: string
+          chainId?: number
+          verifyingContract?: Address
+          salt?: Hex
+        },
+        types: typedData.types,
+        primaryType: typedData.primaryType,
+        message: typedData.message,
+        requester: address,
+      })
+      return result.signature
+    }
+
+    // Local accounts: decrypt and sign
     const signer = await this.getSigner(address, password)
     return signer.signTypedData(
       typedData as Parameters<typeof signer.signTypedData>[0],
@@ -537,12 +740,16 @@ class KeyringService {
       // Schema that transforms string address to Address type
       const AccountSchema = z.object({
         address: z.string().transform((addr) => addr as Address),
-        type: z.enum(['hd', 'imported', 'watch', 'hardware', 'smart']),
+        type: z.enum(['hd', 'imported', 'watch', 'hardware', 'smart', 'kms']),
         name: z.string(),
         hdPath: z.string().optional(),
         index: z.number().optional(),
         isDefault: z.boolean().optional(),
         createdAt: z.number(),
+        // KMS-specific fields
+        keyId: z.string().optional(),
+        publicKey: z.string().optional(),
+        useMPC: z.boolean().optional(),
       })
 
       const accounts = expectJson(stored, z.array(AccountSchema), 'accounts')
@@ -558,12 +765,38 @@ class KeyringService {
           createdAt: a.createdAt,
         }
         this.accounts.set(account.address, account)
+
+        // Also populate KMS accounts map
+        if (a.type === 'kms' && a.keyId && a.publicKey !== undefined) {
+          const kmsAccount: KMSAccount = {
+            ...account,
+            type: 'kms',
+            keyId: a.keyId,
+            publicKey: a.publicKey as Hex,
+            useMPC: a.useMPC ?? true,
+          }
+          this.kmsAccounts.set(account.address, kmsAccount)
+        }
       }
     }
   }
 
   private async saveAccounts(): Promise<void> {
-    const accounts = Array.from(this.accounts.values())
+    const accounts = Array.from(this.accounts.values()).map((account) => {
+      // Include KMS-specific fields when saving
+      if (account.type === 'kms') {
+        const kmsAccount = this.kmsAccounts.get(account.address)
+        if (kmsAccount) {
+          return {
+            ...account,
+            keyId: kmsAccount.keyId,
+            publicKey: kmsAccount.publicKey,
+            useMPC: kmsAccount.useMPC,
+          }
+        }
+      }
+      return account
+    })
     await secureStorage.set('jeju-accounts', JSON.stringify(accounts))
   }
 }
@@ -577,5 +810,6 @@ export type {
   WatchAccount,
   HardwareAccount,
   SmartWalletAccount,
+  KMSAccount,
   KeySourceType,
 }

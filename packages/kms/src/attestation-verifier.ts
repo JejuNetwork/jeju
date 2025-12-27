@@ -65,6 +65,11 @@ export interface AttestationVerifierConfig {
   iasApiKey?: string
   /** Whether to allow local/simulated attestations */
   allowLocalMode?: boolean
+  /**
+   * Network mode for additional validation.
+   * On mainnet, hardware TEE is REQUIRED and simulator is rejected.
+   */
+  network?: 'localnet' | 'testnet' | 'mainnet'
 }
 
 /**
@@ -86,14 +91,53 @@ export class AttestationVerifier {
   private config: Required<AttestationVerifierConfig>
 
   constructor(config: AttestationVerifierConfig) {
+    const network = config.network ?? 'localnet'
+
+    // SECURITY: On mainnet, enforce strict hardware TEE requirements
+    if (network === 'mainnet') {
+      if (config.teeType === 'local') {
+        throw new Error(
+          'SECURITY: Local/simulated TEE mode is NOT allowed on mainnet. ' +
+            'Configure TEE_ENDPOINT to point to hardware TEE (Intel TDX or AMD SEV).',
+        )
+      }
+      if (config.allowLocalMode) {
+        log.warn(
+          'SECURITY: allowLocalMode is ignored on mainnet - hardware TEE required',
+        )
+      }
+      if (!config.trustedMeasurements || config.trustedMeasurements.length === 0) {
+        throw new Error(
+          'SECURITY: Trusted measurements MUST be configured on mainnet. ' +
+            'Add known enclave measurements to prevent arbitrary code execution.',
+        )
+      }
+    }
+
+    // SECURITY: On testnet, warn but allow simulator for testing
+    if (network === 'testnet' && config.teeType === 'local') {
+      log.warn(
+        'SECURITY WARNING: Using simulated TEE on testnet. ' +
+          'Ensure hardware TEE is used for any real value operations.',
+      )
+    }
+
     this.config = {
       teeType: config.teeType,
       maxAttestationAgeMs: config.maxAttestationAgeMs ?? 60 * 60 * 1000, // 1 hour
       trustedMeasurements: config.trustedMeasurements ?? [],
       iasUrl: config.iasUrl ?? 'https://api.trustedservices.intel.com/sgx',
       iasApiKey: config.iasApiKey ?? '',
-      allowLocalMode: config.allowLocalMode ?? false,
+      allowLocalMode: network === 'mainnet' ? false : (config.allowLocalMode ?? false),
+      network,
     }
+
+    log.info('AttestationVerifier initialized', {
+      teeType: this.config.teeType,
+      network: this.config.network,
+      trustedMeasurements: this.config.trustedMeasurements.length,
+      hardwareRequired: network === 'mainnet',
+    })
   }
 
   /**
@@ -102,6 +146,30 @@ export class AttestationVerifier {
   async verify(
     attestation: TEEAttestation,
   ): Promise<AttestationVerificationResult> {
+    // SECURITY: On mainnet, reject any attestation from simulated platforms
+    if (this.config.network === 'mainnet') {
+      const platform = attestation.platform?.toLowerCase()
+      if (
+        platform === 'simulated' ||
+        platform === 'simulator' ||
+        platform === 'local' ||
+        platform === 'mock'
+      ) {
+        log.error('SECURITY: Simulated TEE attestation rejected on mainnet', {
+          platform: attestation.platform,
+        })
+        return {
+          valid: false,
+          teeType: this.config.teeType,
+          measurementTrusted: false,
+          fresh: false,
+          error:
+            'SECURITY: Simulated/local TEE attestations are NOT valid on mainnet. ' +
+            'Only hardware TEE (Intel TDX, AMD SEV, AWS Nitro) is accepted.',
+        }
+      }
+    }
+
     // Check freshness first (applies to all modes)
     const fresh = this.checkFreshness(attestation)
     if (!fresh) {
@@ -116,6 +184,22 @@ export class AttestationVerifier {
 
     // Check measurement against trusted list
     const measurementTrusted = this.checkMeasurement(attestation.measurement)
+
+    // SECURITY: On mainnet, measurement MUST be trusted
+    if (this.config.network === 'mainnet' && !measurementTrusted) {
+      log.error('SECURITY: Untrusted measurement rejected on mainnet', {
+        measurement: attestation.measurement?.slice(0, 20),
+      })
+      return {
+        valid: false,
+        teeType: this.config.teeType,
+        measurementTrusted: false,
+        fresh,
+        error:
+          'SECURITY: Enclave measurement is not in the trusted list. ' +
+          'Add the measurement to trustedMeasurements if this is a valid enclave.',
+      }
+    }
 
     switch (this.config.teeType) {
       case 'sgx':

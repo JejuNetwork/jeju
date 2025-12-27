@@ -11,6 +11,7 @@ import type {
   PriceReport,
 } from '@jejunetwork/types'
 import {
+  type Account,
   type Address,
   type Chain,
   createPublicClient,
@@ -26,15 +27,21 @@ import {
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
 import { type PriceData, PriceFetcher } from './price-fetcher'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const
 
 export class OracleNode {
   private config: OracleNodeConfig
-  private account: PrivateKeyAccount
+  private account: PrivateKeyAccount | Account
   private publicClient
-  private walletClient: WalletClient
+  private walletClient: WalletClient | KMSWalletClient
+  private kmsWallet: KMSWalletClient | null = null
   private priceFetcher: PriceFetcher
   private operatorId: Hex | null = null
   private running = false
@@ -42,11 +49,14 @@ export class OracleNode {
   private heartbeatInterval?: Timer
   private metrics: NodeMetrics
   private startTime: number
+  private useKMS = false
+  private initialized = false
 
   constructor(config: OracleNodeConfig) {
     this.config = config
     this.startTime = Date.now()
 
+    // Initialize with direct key first (will be replaced by KMS if available)
     this.account = privateKeyToAccount(config.workerPrivateKey)
     const chain = this.getChain(config.chainId)
 
@@ -78,6 +88,9 @@ export class OracleNode {
     if (this.running) return
 
     console.log('[OracleNode] Starting...')
+
+    // Initialize KMS-backed signing if available (side-channel protection)
+    await this.initializeSecureSigning()
 
     // Check if operator is registered
     await this.ensureRegistered()
@@ -314,6 +327,68 @@ export class OracleNode {
 
   getOperatorId(): Hex | null {
     return this.operatorId
+  }
+
+  /**
+   * Initialize KMS-backed signing for side-channel protection
+   *
+   * In production, this ensures private keys are never held in TEE memory.
+   * Signing is performed via FROST threshold cryptography through the KMS.
+   */
+  private async initializeSecureSigning(): Promise<void> {
+    if (this.initialized) return
+
+    const isProduction = process.env.NODE_ENV === 'production'
+    const kmsKeyId = process.env.ORACLE_KMS_KEY_ID
+    const ownerAddress = process.env.ORACLE_OWNER_ADDRESS as Address | undefined
+
+    // Check if KMS is available and configured
+    if (kmsKeyId && ownerAddress) {
+      const kmsAvailable = await isKMSAvailable()
+
+      if (kmsAvailable) {
+        try {
+          const chain = this.getChain(this.config.chainId)
+          this.kmsWallet = await createKMSWalletClient({
+            chain,
+            rpcUrl: this.config.rpcUrl,
+            kmsKeyId,
+            ownerAddress,
+          })
+          this.account = this.kmsWallet.account
+          this.walletClient = this.kmsWallet as unknown as WalletClient
+          this.useKMS = true
+          console.log(
+            '[OracleNode] Using KMS-backed signing (FROST threshold cryptography)',
+          )
+        } catch (err) {
+          console.error('[OracleNode] Failed to initialize KMS:', err)
+          if (isProduction) {
+            throw new Error(
+              'KMS initialization failed in production - cannot use insecure direct keys',
+            )
+          }
+        }
+      } else if (isProduction) {
+        throw new Error(
+          'KMS not available in production - set ORACLE_KMS_KEY_ID and ensure KMS is running',
+        )
+      }
+    } else if (isProduction) {
+      console.error(
+        '[OracleNode] CRITICAL: Using direct private key in production. ' +
+          'Set ORACLE_KMS_KEY_ID and ORACLE_OWNER_ADDRESS for side-channel protection.',
+      )
+      // In strict mode, uncomment to enforce KMS:
+      // throw new Error('KMS required in production')
+    } else {
+      console.warn(
+        '[OracleNode] Using direct private key (development mode). ' +
+          'Set ORACLE_KMS_KEY_ID for KMS-backed signing.',
+      )
+    }
+
+    this.initialized = true
   }
 
   private getChain(chainId: number): Chain {

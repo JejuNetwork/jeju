@@ -22,6 +22,7 @@ import type {
   RoomType,
 } from '../../lib/types'
 import { expect, expectTrue } from '../schemas'
+import type { KMSSigner } from './kms-signer'
 import { createLogger, type Logger } from './logger'
 import type { CrucibleStorage } from './storage'
 
@@ -73,7 +74,14 @@ export interface RoomSDKConfig {
   crucibleConfig: CrucibleConfig
   storage: CrucibleStorage
   publicClient: PublicClient
+  /**
+   * @deprecated Use kmsSigner for production. walletClient only for localnet.
+   */
   walletClient?: WalletClient
+  /**
+   * KMS-backed signer for threshold signing (production).
+   */
+  kmsSigner?: KMSSigner
   logger?: Logger
 }
 
@@ -82,6 +90,7 @@ export class RoomSDK {
   private storage: CrucibleStorage
   private publicClient: PublicClient
   private walletClient?: WalletClient
+  private kmsSigner?: KMSSigner
   private log: Logger
 
   constructor(sdkConfig: RoomSDKConfig) {
@@ -89,7 +98,45 @@ export class RoomSDK {
     this.storage = sdkConfig.storage
     this.publicClient = sdkConfig.publicClient
     this.walletClient = sdkConfig.walletClient
+    this.kmsSigner = sdkConfig.kmsSigner
     this.log = sdkConfig.logger ?? createLogger('RoomSDK')
+  }
+
+  /**
+   * Check if write operations are available (KMS or wallet configured)
+   */
+  canWrite(): boolean {
+    return !!(this.kmsSigner?.isInitialized() || this.walletClient)
+  }
+
+  /**
+   * Execute a contract write using KMS or wallet
+   */
+  private async executeWrite(params: {
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args?: readonly unknown[]
+    value?: bigint
+  }): Promise<`0x${string}`> {
+    // Prefer KMS signer if available
+    if (this.kmsSigner?.isInitialized()) {
+      this.log.debug('Executing write via KMS', { functionName: params.functionName })
+      return this.kmsSigner.signContractWrite(params)
+    }
+
+    // Fallback to wallet client (localnet only)
+    if (this.walletClient) {
+      this.log.debug('Executing write via wallet', { functionName: params.functionName })
+      const account = expect(this.walletClient.account, 'Wallet account required')
+      const { request } = await this.publicClient.simulateContract({
+        ...params,
+        account,
+      })
+      return this.walletClient.writeContract(request)
+    }
+
+    throw new Error('No signer available - configure KMS or wallet')
   }
 
   async createRoom(
@@ -98,7 +145,9 @@ export class RoomSDK {
     roomType: RoomType,
     roomConfig: RoomConfig,
   ): Promise<{ roomId: bigint; stateCid: string }> {
-    if (!this.walletClient) throw new Error('Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for room creation (KMS or wallet)')
+    }
 
     this.log.info('Creating room', { name, roomType })
 
@@ -119,18 +168,12 @@ export class RoomSDK {
       ],
     )
 
-    const { request } = await this.publicClient.simulateContract({
+    const txHash = await this.executeWrite({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'createRoom',
       args: [name, description, this.roomTypeToNumber(roomType), configBytes],
-      account: expect(
-        this.walletClient.account,
-        'Wallet client account is required',
-      ),
     })
-
-    const txHash = await this.walletClient.writeContract(request)
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
     })
@@ -240,21 +283,18 @@ export class RoomSDK {
       role,
     })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'joinRoom',
       args: [roomId, agentId, this.agentRoleToNumber(role)],
-      account,
     })
-
-    await wallet.writeContract(request)
   }
 
   async leaveRoom(roomId: bigint, agentId: bigint): Promise<void> {
-    expect(this.walletClient, 'Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for leave room (KMS or wallet)')
+    }
     expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
 
@@ -263,17 +303,12 @@ export class RoomSDK {
       agentId: agentId.toString(),
     })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'leaveRoom',
       args: [roomId, agentId],
-      account,
     })
-
-    await wallet.writeContract(request)
   }
 
   async loadState(roomId: bigint): Promise<RoomState> {
@@ -288,7 +323,9 @@ export class RoomSDK {
     content: string,
     action?: string,
   ): Promise<RoomMessage> {
-    expect(this.walletClient, 'Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for post message (KMS or wallet)')
+    }
     expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expect(content, 'Message content is required')
@@ -320,17 +357,12 @@ export class RoomSDK {
 
     const stateCid = await this.storage.storeRoomState(newState)
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'updateRoomState',
       args: [roomId, stateCid],
-      account,
     })
-
-    await wallet.writeContract(request)
     return message
   }
 
@@ -344,23 +376,20 @@ export class RoomSDK {
   }
 
   async setPhase(roomId: bigint, phase: RoomPhase): Promise<void> {
-    expect(this.walletClient, 'Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for set phase (KMS or wallet)')
+    }
     expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     expect(phase, 'Phase is required')
 
     this.log.info('Setting room phase', { roomId: roomId.toString(), phase })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'setPhase',
       args: [roomId, this.phaseToNumber(phase)],
-      account,
     })
-
-    await wallet.writeContract(request)
 
     const state = await this.loadState(roomId)
     const stateCid = await this.storage.storeRoomState({
@@ -370,17 +399,12 @@ export class RoomSDK {
       updatedAt: Date.now(),
     })
 
-    const { request: updateRequest } = await this.publicClient.simulateContract(
-      {
-        address: this.config.contracts.roomRegistry,
-        abi: ROOM_REGISTRY_ABI,
-        functionName: 'updateRoomState',
-        args: [roomId, stateCid],
-        account,
-      },
-    )
-
-    await wallet.writeContract(updateRequest)
+    await this.executeWrite({
+      address: this.config.contracts.roomRegistry,
+      abi: ROOM_REGISTRY_ABI,
+      functionName: 'updateRoomState',
+      args: [roomId, stateCid],
+    })
   }
 
   async updateScore(
@@ -388,7 +412,9 @@ export class RoomSDK {
     agentId: bigint,
     delta: number,
   ): Promise<void> {
-    expect(this.walletClient, 'Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for update score (KMS or wallet)')
+    }
     expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expectTrue(
@@ -418,17 +444,12 @@ export class RoomSDK {
       updatedAt: Date.now(),
     })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
       functionName: 'updateRoomState',
       args: [roomId, stateCid],
-      account,
     })
-
-    await wallet.writeContract(request)
   }
 
   private roomTypeToNumber(type: RoomType): number {

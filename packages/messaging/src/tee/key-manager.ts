@@ -387,6 +387,10 @@ export class TEEXMTPKeyManager {
 
   /**
    * Perform ECDH key exchange inside TEE
+   *
+   * SECURITY: The private key never leaves the TEE enclave.
+   * The ECDH computation happens entirely inside the secure enclave,
+   * protecting against side-channel attacks.
    */
   async sharedSecret(
     privateKeyId: string,
@@ -411,24 +415,43 @@ export class TEEXMTPKeyManager {
       return shared
     }
 
-    // Real TEE mode - use TEE provider for ECDH
-    // Note: This requires the TEE provider to support ECDH operations
-    // For now, we derive a shared secret using HKDF from both keys
+    // Real TEE mode - ECDH happens inside the secure enclave
     await this.ensureTEEConnected()
 
-    // In real TEE, the ECDH happens inside the enclave
-    // This is a simplified implementation - real TEE would handle this securely
-    const derivedKey = await this.deriveKeyInTEE(
-      privateKeyId,
-      `ecdh-${Date.now()}`,
-      `ecdh:${theirPublicKey}`,
-    )
+    if (!this.teeProvider) {
+      throw new Error('TEE provider not available for ECDH')
+    }
 
-    return fromHex(derivedKey.publicKey)
+    // Request ECDH from TEE provider - private key never leaves enclave
+    const response = await fetch(`${this.config.kmsEndpoint}/ecdh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keyId: privateKeyId,
+        theirPublicKey,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`TEE ECDH failed: ${response.status} - ${error}`)
+    }
+
+    const result = (await response.json()) as { sharedSecret: string }
+    return fromHex(result.sharedSecret as Hex)
   }
 
   /**
    * Export encrypted backup of keys with strong KDF
+   *
+   * @deprecated This method exports the private key material (encrypted).
+   * Even encrypted exports pose security risks:
+   * - The encryption password could be compromised
+   * - The encrypted backup could be stored insecurely
+   * - Decryption exposes the raw key to memory
+   *
+   * For production, use the TEE provider's secure backup mechanisms
+   * which never expose key material to application code.
    */
   async exportEncrypted(
     keyId: string,
@@ -439,6 +462,11 @@ export class TEEXMTPKeyManager {
         'Direct key export not supported in TEE mode. Use TEE provider backup mechanisms.',
       )
     }
+
+    log.warn('🚨 SECURITY WARNING: Exporting key material - this is dangerous', {
+      keyId,
+      warning: 'Even encrypted exports expose key material to potential attacks',
+    })
 
     const keyStore = this.mockKeyStore.get(keyId)
     if (!keyStore) {

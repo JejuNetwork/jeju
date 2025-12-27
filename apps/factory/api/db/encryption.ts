@@ -3,243 +3,78 @@
  *
  * Production-grade encryption for SQLite database files.
  * Uses AES-256-GCM for authenticated encryption.
- *
- * Features:
- * - Transparent encryption/decryption
- * - Key derivation from master key
- * - Integrity verification via GCM auth tag
- * - Automatic key rotation support
- * - Secure memory handling
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
-// Workerd-compatible: Uses Web Crypto API and shared crypto utilities
 import {
-  decryptAesGcm,
-  deriveKeyScrypt,
-  encryptAesGcm,
-  hash256,
+  createCipheriv,
+  createDecipheriv,
+  createHash,
   randomBytes,
-} from '@jejunetwork/shared'
+  scryptSync,
+} from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 
-// DWS Exec API for file operations (workerd-compatible)
-interface ExecResult {
-  exitCode: number
-  stdout: string
-  stderr: string
-}
-
-// Config injection for workerd compatibility
-export interface EncryptionConfig {
-  execUrl: string
-  dbEncryptionKey?: string
-  keyDerivationSalt?: string
-}
-
-let encryptionConfig: EncryptionConfig = {
-  execUrl: 'http://localhost:4020/exec',
-}
-
-export function configureEncryption(config: Partial<EncryptionConfig>): void {
-  encryptionConfig = { ...encryptionConfig, ...config }
-}
-
-const execUrl = encryptionConfig.execUrl
-
-async function exec(
-  command: string[],
-  options?: { stdin?: string },
-): Promise<ExecResult> {
-  const response = await fetch(execUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command, ...options }),
-  })
-  if (!response.ok) {
-    throw new Error(`Exec API error: ${response.status}`)
-  }
-  return response.json() as Promise<ExecResult>
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  const result = await exec(['test', '-f', path])
-  return result.exitCode === 0
-}
-
-async function readFile(path: string): Promise<Buffer> {
-  const result = await exec(['cat', path])
-  if (result.exitCode !== 0) {
-    throw new Error(`Failed to read ${path}: ${result.stderr}`)
-  }
-  return Buffer.from(result.stdout, 'utf-8')
-}
-
-async function writeFile(path: string, content: Buffer): Promise<void> {
-  await exec(['sh', '-c', `cat > "${path}"`], {
-    stdin: content.toString('base64'),
-  })
-}
-
-// Simple logger since @jejunetwork/shared may not be available
-const log = {
-  info: (msg: string, data?: Record<string, unknown>) =>
-    console.log(`[db-encryption] ${msg}`, data ?? ''),
-  warn: (msg: string, data?: Record<string, unknown>) =>
-    console.warn(`[db-encryption] ${msg}`, data ?? ''),
-  debug: (msg: string, data?: Record<string, unknown>) =>
-    console.debug(`[db-encryption] ${msg}`, data ?? ''),
-  error: (msg: string, data?: Record<string, unknown>) =>
-    console.error(`[db-encryption] ${msg}`, data ?? ''),
-}
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-/** Environment variable for the database encryption key */
+// Configuration
 const DB_ENCRYPTION_KEY_ENV = 'FACTORY_DB_ENCRYPTION_KEY'
-
-/** Salt for key derivation */
 const KEY_DERIVATION_SALT_ENV = 'FACTORY_DB_KEY_SALT'
-
-/** Encryption algorithm (used by Node.js crypto) */
-const _ALGORITHM = 'aes-256-gcm'
-void _ALGORITHM // Reserved for future use with Node.js crypto
-
-/** IV length in bytes */
+const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 12
-
-/** Auth tag length in bytes */
 const AUTH_TAG_LENGTH = 16
-
-/** Key length in bytes */
 const KEY_LENGTH = 32
-
-/** Scrypt parameters for key derivation */
-const SCRYPT_PARAMS = {
-  N: 2 ** 17, // CPU/memory cost (131072)
-  r: 8, // Block size
-  p: 1, // Parallelization
-  maxmem: 256 * 1024 * 1024, // 256 MB
-}
-
-/** File header to identify encrypted databases */
 const ENCRYPTED_HEADER = Buffer.from('JEJU_ENC_DB_V1')
 
-// ============================================================================
-// KEY MANAGEMENT
-// ============================================================================
-
+// Cached derived key
 let derivedKey: Buffer | null = null
 let keySalt: Buffer | null = null
 
-/**
- * Get or derive the encryption key
- * Uses scrypt for secure key derivation from master key
- */
-async function getEncryptionKey(): Promise<Buffer> {
-  if (derivedKey) {
-    return derivedKey
-  }
+function getEncryptionKey(): Buffer {
+  if (derivedKey) return derivedKey
 
-  // Use injected config, fallback to process.env for backwards compatibility
-  const masterKey =
-    encryptionConfig.dbEncryptionKey ?? process.env[DB_ENCRYPTION_KEY_ENV]
-  const isProduction =
-    typeof process !== 'undefined' && process.env.NODE_ENV === 'production'
-
+  const masterKey = process.env[DB_ENCRYPTION_KEY_ENV]
   if (!masterKey) {
-    if (isProduction) {
-      throw new Error(
-        `CRITICAL: ${DB_ENCRYPTION_KEY_ENV} must be set in production. ` +
-          'Generate with: openssl rand -hex 32',
-      )
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`${DB_ENCRYPTION_KEY_ENV} must be set in production`)
     }
-    log.warn(
-      `${DB_ENCRYPTION_KEY_ENV} not set - database will not be encrypted. ` +
-        'THIS IS INSECURE FOR PRODUCTION',
-    )
     return Buffer.alloc(0)
   }
 
-  // Get or generate salt
-  const saltHex =
-    encryptionConfig.keyDerivationSalt ?? process.env[KEY_DERIVATION_SALT_ENV]
-  if (saltHex) {
-    keySalt = Buffer.from(saltHex, 'hex')
-  } else {
-    keySalt = Buffer.from(Array.from(randomBytes(32)))
-    log.warn(
-      `${KEY_DERIVATION_SALT_ENV} not set - using random salt. ` +
-        'Set this in production for consistent key derivation.',
-    )
-  }
+  const saltHex = process.env[KEY_DERIVATION_SALT_ENV]
+  keySalt = saltHex ? Buffer.from(saltHex, 'hex') : randomBytes(32)
 
-  // Derive key using scrypt (workerd-compatible via @noble/hashes)
-  const masterKeyBuffer = Buffer.from(masterKey, 'hex')
-  const derived = await deriveKeyScrypt(masterKeyBuffer, keySalt as Buffer, {
-    N: SCRYPT_PARAMS.N,
-    r: SCRYPT_PARAMS.r,
-    p: SCRYPT_PARAMS.p,
-    dkLen: KEY_LENGTH,
-  })
-  derivedKey = Buffer.from(derived)
-  log.info('Database encryption key derived successfully')
+  derivedKey = scryptSync(Buffer.from(masterKey, 'hex'), keySalt, KEY_LENGTH)
   return derivedKey
 }
 
-/**
- * Clear the cached encryption key from memory
- * Call this when shutting down or rotating keys
- */
 export function clearEncryptionKey(): void {
   if (derivedKey) {
-    derivedKey.fill(0) // Securely zero out the key
+    derivedKey.fill(0)
     derivedKey = null
   }
   if (keySalt) {
     keySalt.fill(0)
     keySalt = null
   }
-  log.info('Encryption key cleared from memory')
 }
 
-// ============================================================================
-// ENCRYPTION/DECRYPTION
-// ============================================================================
-
-/**
- * Encrypt a buffer using AES-256-GCM (workerd-compatible)
- */
-async function encryptBuffer(plaintext: Buffer, key: Buffer): Promise<Buffer> {
+function encryptBuffer(plaintext: Buffer, key: Buffer): Buffer {
   const iv = randomBytes(IV_LENGTH)
-  const { ciphertext, tag } = await encryptAesGcm(
-    new Uint8Array(plaintext),
-    new Uint8Array(key),
-  )
+  const cipher = createCipheriv(ALGORITHM, key, iv)
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
+  const authTag = cipher.getAuthTag()
 
-  // Format: header(14) + version(1) + iv(12) + authTag(16) + salt(32) + ciphertext
-  const result = Buffer.concat([
+  return Buffer.concat([
     ENCRYPTED_HEADER,
-    Buffer.from([1]), // Version 1
-    Buffer.from(iv),
-    Buffer.from(tag),
-    keySalt ?? Buffer.from(randomBytes(32)),
-    Buffer.from(ciphertext),
+    Buffer.from([1]), // Version
+    iv,
+    authTag,
+    keySalt ?? randomBytes(32),
+    ciphertext,
   ])
-
-  return result
 }
 
-/**
- * Decrypt a buffer using AES-256-GCM (workerd-compatible)
- */
-async function decryptBuffer(encrypted: Buffer, key: Buffer): Promise<Buffer> {
-  // Parse the encrypted format
+function decryptBuffer(encrypted: Buffer, key: Buffer): Buffer {
   const headerEnd = ENCRYPTED_HEADER.length
-  const header = encrypted.subarray(0, headerEnd)
-
-  if (!header.equals(ENCRYPTED_HEADER)) {
+  if (!encrypted.subarray(0, headerEnd).equals(ENCRYPTED_HEADER)) {
     throw new Error('Invalid encrypted database format')
   }
 
@@ -257,320 +92,83 @@ async function decryptBuffer(encrypted: Buffer, key: Buffer): Promise<Buffer> {
   const authTag = encrypted.subarray(authTagStart, saltStart)
   const ciphertext = encrypted.subarray(ciphertextStart)
 
-  const plaintext = await decryptAesGcm(
-    new Uint8Array(ciphertext),
-    new Uint8Array(key),
-    new Uint8Array(iv),
-    new Uint8Array(authTag),
-  )
+  const decipher = createDecipheriv(ALGORITHM, key, iv)
+  decipher.setAuthTag(authTag)
 
-  return Buffer.from(plaintext)
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()])
 }
 
-// ============================================================================
-// FILE OPERATIONS
-// ============================================================================
+export function isEncryptionEnabled(): boolean {
+  return !!process.env[DB_ENCRYPTION_KEY_ENV]
+}
 
-/**
- * Check if a file is encrypted (workerd-compatible)
- */
-export async function isFileEncrypted(filePath: string): Promise<boolean> {
-  if (!(await fileExists(filePath))) {
-    return false
-  }
+export function isFileEncrypted(filePath: string): boolean {
+  if (!existsSync(filePath)) return false
 
-  // Read header via DWS exec API
-  const result = await exec([
-    'head',
-    '-c',
-    String(ENCRYPTED_HEADER.length),
-    filePath,
-  ])
-  if (result.exitCode !== 0) {
-    return false
-  }
-  const header = Buffer.from(result.stdout, 'utf-8')
+  const fd = require('node:fs').openSync(filePath, 'r')
+  const header = Buffer.alloc(ENCRYPTED_HEADER.length)
+  require('node:fs').readSync(fd, header, 0, header.length, 0)
+  require('node:fs').closeSync(fd)
+
   return header.equals(ENCRYPTED_HEADER)
 }
 
-/**
- * Encrypt a database file
- */
-export async function encryptDatabaseFile(
-  sourcePath: string,
-  destPath?: string,
-): Promise<void> {
-  const key = await getEncryptionKey()
-  if (key.length === 0) {
-    log.warn('Skipping encryption - no key configured')
-    return
-  }
+export async function loadEncryptedDatabase(filePath: string): Promise<Buffer | null> {
+  const key = getEncryptionKey()
+  if (!existsSync(filePath)) return null
+  if (key.length === 0) return readFileSync(filePath)
+  if (!isFileEncrypted(filePath)) return readFileSync(filePath)
 
-  if (!(await fileExists(sourcePath))) {
-    throw new Error(`Source file not found: ${sourcePath}`)
-  }
-
-  if (await isFileEncrypted(sourcePath)) {
-    log.info('Database is already encrypted', { path: sourcePath })
-    return
-  }
-
-  const plaintext = await readFile(sourcePath)
-  const encrypted = await encryptBuffer(plaintext, key)
-
-  const outputPath = destPath ?? sourcePath
-  await writeFile(outputPath, encrypted)
-
-  log.info('Database encrypted successfully', {
-    source: sourcePath,
-    dest: outputPath,
-    originalSize: plaintext.length,
-    encryptedSize: encrypted.length,
-  })
+  const encrypted = readFileSync(filePath)
+  return decryptBuffer(encrypted, key)
 }
 
-/**
- * Decrypt a database file
- */
-export async function decryptDatabaseFile(
-  sourcePath: string,
-  destPath?: string,
-): Promise<void> {
-  const key = await getEncryptionKey()
+export async function saveEncryptedDatabase(data: Buffer, filePath: string): Promise<void> {
+  const key = getEncryptionKey()
   if (key.length === 0) {
-    log.warn('Skipping decryption - no key configured')
+    writeFileSync(filePath, data)
     return
   }
 
-  if (!(await fileExists(sourcePath))) {
-    throw new Error(`Source file not found: ${sourcePath}`)
-  }
-
-  if (!(await isFileEncrypted(sourcePath))) {
-    log.info('Database is not encrypted', { path: sourcePath })
-    return
-  }
-
-  const encrypted = await readFile(sourcePath)
-  const plaintext = await decryptBuffer(encrypted, key)
-
-  const outputPath = destPath ?? sourcePath
-  await writeFile(outputPath, plaintext)
-
-  log.info('Database decrypted successfully', {
-    source: sourcePath,
-    dest: outputPath,
-    encryptedSize: encrypted.length,
-    decryptedSize: plaintext.length,
-  })
+  const encrypted = encryptBuffer(data, key)
+  writeFileSync(filePath, encrypted)
 }
 
-/**
- * Load an encrypted database file into memory (for SQLite)
- * Returns the decrypted content as a Buffer
- */
-export async function loadEncryptedDatabase(
-  filePath: string,
-): Promise<Buffer | null> {
-  const key = await getEncryptionKey()
-
-  if (!(await fileExists(filePath))) {
-    return null
-  }
-
-  // If no encryption key, return file as-is
-  if (key.length === 0) {
-    return await readFile(filePath)
-  }
-
-  // Check if file is encrypted
-  if (!(await isFileEncrypted(filePath))) {
-    log.warn('Database file is not encrypted - consider encrypting it', {
-      path: filePath,
-    })
-    return await readFile(filePath)
-  }
-
-  const encrypted = await readFile(filePath)
-  return await decryptBuffer(encrypted, key)
+export function calculateChecksum(data: Buffer): string {
+  return createHash('sha256').update(data).digest('hex')
 }
 
-/**
- * Save an in-memory database to an encrypted file
- */
-export async function saveEncryptedDatabase(
-  data: Buffer,
-  filePath: string,
-): Promise<void> {
-  const key = await getEncryptionKey()
-
-  // If no encryption key, save as-is
-  if (key.length === 0) {
-    await writeFile(filePath, data)
-    return
-  }
-
-  const encrypted = await encryptBuffer(data, key)
-  await writeFile(filePath, encrypted)
-
-  log.debug('Database saved with encryption', {
-    path: filePath,
-    size: encrypted.length,
-  })
-}
-
-// ============================================================================
-// SECURE FIELD ENCRYPTION
-// ============================================================================
-
-/**
- * Encrypt a single field value (for sensitive columns)
- */
 export async function encryptField(plaintext: string): Promise<string> {
-  const key = await getEncryptionKey()
-  if (key.length === 0) {
-    return plaintext
-  }
+  const key = getEncryptionKey()
+  if (key.length === 0) return plaintext
 
   const iv = randomBytes(IV_LENGTH)
-  const { ciphertext, tag } = await encryptAesGcm(
-    new TextEncoder().encode(plaintext),
-    new Uint8Array(key),
-  )
-
-  // Format: iv + authTag + ciphertext, base64 encoded
-  const result = Buffer.concat([
-    Buffer.from(iv),
-    Buffer.from(tag),
-    Buffer.from(ciphertext),
+  const cipher = createCipheriv(ALGORITHM, key, iv)
+  const ciphertext = Buffer.concat([
+    cipher.update(Buffer.from(plaintext, 'utf8')),
+    cipher.final(),
   ])
-  return `enc:${result.toString('base64')}`
+  const authTag = cipher.getAuthTag()
+
+  return `enc:${Buffer.concat([iv, authTag, ciphertext]).toString('base64')}`
 }
 
-/**
- * Decrypt a single field value
- */
 export async function decryptField(encrypted: string): Promise<string> {
-  const key = await getEncryptionKey()
-  if (key.length === 0) {
-    return encrypted
-  }
-
-  // Check for encryption prefix
-  if (!encrypted.startsWith('enc:')) {
-    return encrypted // Not encrypted
-  }
+  const key = getEncryptionKey()
+  if (key.length === 0) return encrypted
+  if (!encrypted.startsWith('enc:')) return encrypted
 
   const data = Buffer.from(encrypted.slice(4), 'base64')
-
   const iv = data.subarray(0, IV_LENGTH)
   const authTag = data.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH)
   const ciphertext = data.subarray(IV_LENGTH + AUTH_TAG_LENGTH)
 
-  const plaintext = await decryptAesGcm(
-    new Uint8Array(ciphertext),
-    new Uint8Array(key),
-    new Uint8Array(iv),
-    new Uint8Array(authTag),
-  )
+  const decipher = createDecipheriv(ALGORITHM, key, iv)
+  decipher.setAuthTag(authTag)
 
-  return new TextDecoder().decode(plaintext)
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
 }
 
-/**
- * Check if a field value is encrypted
- */
-export function isFieldEncrypted(value: string): boolean {
-  return value.startsWith('enc:')
-}
-
-// ============================================================================
-// DATABASE CHECKSUM
-// ============================================================================
-
-/**
- * Calculate a checksum for database integrity verification
- */
-export async function calculateChecksum(data: Buffer): Promise<string> {
-  const hash = await hash256(new Uint8Array(data))
-  return Array.from(hash)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-/**
- * Verify database integrity
- */
-export async function verifyDatabaseIntegrity(
-  filePath: string,
-  expectedChecksum?: string,
-): Promise<{ valid: boolean; checksum: string }> {
-  const data = await loadEncryptedDatabase(filePath)
-  if (!data) {
-    return { valid: false, checksum: '' }
-  }
-
-  const checksum = await calculateChecksum(data)
-  const valid = expectedChecksum ? checksum === expectedChecksum : true
-
-  return { valid, checksum }
-}
-
-// ============================================================================
-// KEY ROTATION
-// ============================================================================
-
-/**
- * Re-encrypt database with a new key
- * Used for key rotation
- */
-export async function rotateEncryptionKey(
-  filePath: string,
-  newKeyHex: string,
-): Promise<void> {
-  // Load with current key
-  const data = await loadEncryptedDatabase(filePath)
-  if (!data) {
-    throw new Error(`Database not found: ${filePath}`)
-  }
-
-  // Create backup
-  const backupPath = `${filePath}.backup.${Date.now()}`
-  writeFileSync(backupPath, readFileSync(filePath))
-  log.info('Created backup before key rotation', { backup: backupPath })
-
-  // Clear current key
-  clearEncryptionKey()
-
-  // Set new key
-  process.env[DB_ENCRYPTION_KEY_ENV] = newKeyHex
-
-  // Re-encrypt with new key
-  await saveEncryptedDatabase(data, filePath)
-
-  log.info('Database re-encrypted with new key', { path: filePath })
-
-  // Securely delete backup after successful rotation
-  // (In production, keep backups for a period)
-  // unlinkSync(backupPath)
-}
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
-/**
- * Initialize database encryption
- * Call this at application startup
- */
 export async function initializeEncryption(): Promise<boolean> {
-  const key = await getEncryptionKey()
-  return key.length > 0
-}
-
-/**
- * Check if encryption is enabled
- */
-export function isEncryptionEnabled(): boolean {
-  return !!process.env[DB_ENCRYPTION_KEY_ENV]
+  return getEncryptionKey().length > 0
 }

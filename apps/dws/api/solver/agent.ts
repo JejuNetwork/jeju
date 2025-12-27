@@ -1,4 +1,5 @@
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
   http,
@@ -7,6 +8,11 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { getChain } from '../shared/chains.js'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 import {
   ERC20_APPROVE_ABI,
   INPUT_SETTLER_ABI,
@@ -90,6 +96,30 @@ export class SolverAgent {
   async start(): Promise<void> {
     console.log('📡 Connecting to chains...')
     const pk = process.env.SOLVER_PRIVATE_KEY
+    const kmsKeyId = process.env.SOLVER_KMS_KEY_ID
+    const ownerAddress = process.env.SOLVER_OWNER_ADDRESS as Address | undefined
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    // Determine if we should use KMS
+    let useKMS = false
+    if (kmsKeyId && ownerAddress) {
+      const kmsAvailable = await isKMSAvailable()
+      if (kmsAvailable) {
+        useKMS = true
+        console.log(
+          '[Solver] Using KMS-backed signing (FROST threshold cryptography)',
+        )
+      } else if (isProduction) {
+        throw new Error(
+          'KMS not available in production - set SOLVER_KMS_KEY_ID and ensure KMS is running',
+        )
+      }
+    } else if (isProduction && pk) {
+      console.error(
+        '[Solver] CRITICAL: Using direct SOLVER_PRIVATE_KEY in production. ' +
+          'Set SOLVER_KMS_KEY_ID and SOLVER_OWNER_ADDRESS for side-channel protection.',
+      )
+    }
 
     for (const chain of this.config.chains) {
       const chainDef = getChain(chain.chainId)
@@ -97,14 +127,30 @@ export class SolverAgent {
         chain: chainDef,
         transport: http(chain.rpcUrl),
       })
-      const wallet = pk
-        ? createWalletClient({
-            account: privateKeyToAccount(pk as `0x${string}`),
-            chain: chainDef,
-            transport: http(chain.rpcUrl),
-          })
-        : undefined
-      this.clients.set(chain.chainId, { public: pub, wallet })
+
+      let wallet: WalletClient | KMSWalletClient | undefined
+
+      if (useKMS && kmsKeyId && ownerAddress) {
+        // Use KMS-backed wallet (side-channel protected)
+        wallet = await createKMSWalletClient({
+          chain: chainDef,
+          rpcUrl: chain.rpcUrl,
+          kmsKeyId,
+          ownerAddress,
+        })
+      } else if (pk) {
+        // Fallback to direct key (development only)
+        wallet = createWalletClient({
+          account: privateKeyToAccount(pk as `0x${string}`),
+          chain: chainDef,
+          transport: http(chain.rpcUrl),
+        })
+      }
+
+      this.clients.set(chain.chainId, {
+        public: pub,
+        wallet: wallet as WalletClient | undefined,
+      })
       console.log(`   ✓ ${chain.name}`)
     }
 

@@ -47,10 +47,20 @@ export interface CouncilDeployment {
   agents: CouncilAgentConfig[]
 }
 
+/**
+ * CEO configuration
+ *
+ * SECURITY: Uses keyId to reference MPC-managed keys instead of raw private keys.
+ * Private keys are NEVER stored or reconstructed in memory.
+ */
 export interface CEOConfig {
   name: string
   address: Address
-  privateKey?: Hex
+  /**
+   * Key ID for the CEO's signing key (managed by SecureSigningService)
+   * SECURITY: References an MPC key - private key is NEVER reconstructed
+   */
+  signingKeyId?: string
   modelProvider: string
   modelId: string
   systemPrompt: string

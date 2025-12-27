@@ -12,6 +12,9 @@
  *
  * Config-first: Uses services.json for hub URL.
  * Falls back to public hub if config not available.
+ *
+ * SECURITY: Uses MPC signing via SecureSigningService.
+ * Private keys are NEVER reconstructed in memory.
  */
 
 import {
@@ -19,8 +22,11 @@ import {
   getFarcasterHubUrl,
   getNeynarApiKey,
 } from '@jejunetwork/config'
+import {
+  getSecureSigningService,
+  type SecureSigningService,
+} from '@jejunetwork/kms'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import type {
   AuthProvider,
@@ -47,12 +53,28 @@ const FARCASTER_HUB_URL = getFarcasterHubUrl()
 const FARCASTER_API_URL = getFarcasterApiUrl()
 const NEYNAR_API_KEY = getNeynarApiKey()
 
+/**
+ * Farcaster session
+ *
+ * SECURITY: Uses keyId to reference MPC-managed keys instead of raw private keys.
+ * The signerKeyId references a key managed by SecureSigningService.
+ */
 export interface FarcasterSession {
   fid: number
   profile: FarcasterProfile
+  /**
+   * Key ID for the signer key (managed by SecureSigningService)
+   * SECURITY: References an MPC key - private key is NEVER reconstructed
+   */
   signerKeyId?: string
+  /**
+   * Public key of the signer (derived from MPC key)
+   */
   signerPublicKey?: Hex
-  signerPrivateKey?: Hex // Only set for delegated signing (stored securely in TEE)
+  /**
+   * Address of the signer (derived from MPC key)
+   */
+  signerAddress?: Address
   expiresAt?: number
 }
 
@@ -154,6 +176,12 @@ export interface FarcasterProviderConfig {
   appFid?: number
 }
 
+/**
+ * Farcaster Provider
+ *
+ * SECURITY: All signing operations use FROST threshold signatures via SecureSigningService.
+ * Private keys are NEVER reconstructed in memory.
+ */
 export class FarcasterProvider {
   private apiKey: string
   private hubUrl: string
@@ -161,12 +189,14 @@ export class FarcasterProvider {
   private useHubDirect: boolean
   private sessions: Map<number, FarcasterSession> = new Map()
   private signCallback?: FarcasterSignCallback
+  private readonly signingService: SecureSigningService
 
   constructor(config?: FarcasterProviderConfig) {
     this.apiKey = config?.apiKey ?? NEYNAR_API_KEY
     this.hubUrl = config?.hubUrl ?? FARCASTER_HUB_URL
     this.apiUrl = config?.apiUrl ?? FARCASTER_API_URL
     this.useHubDirect = !this.apiKey
+    this.signingService = getSecureSigningService()
     // Note: appName and appFid from config can be used for app-specific branding if needed
   }
 
@@ -431,32 +461,46 @@ export class FarcasterProvider {
     }
   }
 
+  /**
+   * Sign a Farcaster message
+   *
+   * SECURITY: Uses FROST threshold signing via SecureSigningService.
+   * Private keys are NEVER reconstructed in memory.
+   */
   private async signMessage(
     session: FarcasterSession,
     message: Record<string, unknown>,
   ): Promise<Uint8Array> {
     // Hash the message using Farcaster's message encoding
     const messageBytes = new TextEncoder().encode(JSON.stringify(message))
-    const messageHash = toBytes(keccak256(messageBytes))
+    const messageHash = keccak256(messageBytes)
 
-    // If session has a delegated signer private key, use it directly
-    if (session.signerPrivateKey) {
-      const signerAccount = privateKeyToAccount(session.signerPrivateKey)
-      const signature = await signerAccount.signMessage({
-        message: { raw: messageHash },
+    // If session has a delegated signer key ID, use MPC signing
+    if (session.signerKeyId) {
+      if (!this.signingService.hasKey(session.signerKeyId)) {
+        throw new Error(
+          `Signer key ${session.signerKeyId} not found in SecureSigningService. ` +
+            'Generate it first using getSecureSigningService().generateKey()',
+        )
+      }
+
+      const result = await this.signingService.sign({
+        keyId: session.signerKeyId,
+        message: '',
+        messageHash,
       })
-      return toBytes(signature)
+      return toBytes(result.signature)
     }
 
     // If we have an external sign callback configured, use it
     if (this.signCallback) {
-      return this.signCallback(messageHash)
+      return this.signCallback(toBytes(messageHash))
     }
 
     // Otherwise, throw - signing requires either a delegated key or callback
     throw new Error(
       'Cannot sign Farcaster message: no signer key or sign callback configured. ' +
-        'Either set session.signerPrivateKey for delegated signing, or provide a signCallback.',
+        'Either set session.signerKeyId for delegated signing, or provide a signCallback.',
     )
   }
 
@@ -758,32 +802,38 @@ export class FarcasterProvider {
     }
   }
 
+  /**
+   * Create a signer request for delegated signing
+   *
+   * SECURITY: Generates an MPC key for signing - private key is NEVER reconstructed
+   */
   async createSignerRequest(
     fid: number,
     appName: string,
     appFid: number,
-  ): Promise<FarcasterSignerRequest> {
-    const signerKeyBytes = crypto.getRandomValues(new Uint8Array(32))
-    const signerKeyHex = toHex(signerKeyBytes) as Hex
-    const signerAccount = privateKeyToAccount(signerKeyHex)
+  ): Promise<FarcasterSignerRequest & { signerKeyId: string }> {
+    // Generate a new MPC key for this signer
+    const signerKeyId = `farcaster-signer-${fid}-${Date.now()}`
+    const keyResult = await this.signingService.generateKey(signerKeyId)
 
     const deadline = Math.floor(Date.now() / 1000) + 86400
 
-    const message = keccak256(
-      toBytes(
-        `Add signer ${signerAccount.address} for FID ${fid} by app ${appName} (FID ${appFid}) before ${deadline}`,
-      ),
-    )
+    const messageText = `Add signer ${keyResult.address} for FID ${fid} by app ${appName} (FID ${appFid}) before ${deadline}`
+    const messageHash = keccak256(toBytes(messageText))
 
-    const signature = await signerAccount.signMessage({
-      message: { raw: toBytes(message) },
+    // Sign using MPC - private key is NEVER reconstructed
+    const signResult = await this.signingService.sign({
+      keyId: signerKeyId,
+      message: '',
+      messageHash,
     })
 
     return {
       fid,
-      signerPublicKey: toHex(signerAccount.publicKey),
-      signature,
+      signerPublicKey: keyResult.publicKey,
+      signature: signResult.signature,
       deadline,
+      signerKeyId, // Return the key ID so it can be stored in the session
     }
   }
 

@@ -47,7 +47,7 @@ let cqlClient: CQLClient | null = null
 let cacheClient: SimpleCacheClient | null = null
 let initialized = false
 
-async function getCQLClient(): Promise<CQLClient> {
+export async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
     cqlClient = getCQL({
       databaseId: CQL_DATABASE_ID,
@@ -93,12 +93,15 @@ async function ensureTablesExist(): Promise<void> {
       email TEXT,
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL,
-      metadata TEXT NOT NULL DEFAULT '{}'
+      metadata TEXT NOT NULL DEFAULT '{}',
+      encrypted_pii TEXT,
+      ephemeral_key_id TEXT
     )`,
 
     `CREATE TABLE IF NOT EXISTS clients (
       client_id TEXT PRIMARY KEY,
       client_secret TEXT,
+      client_secret_hash TEXT,
       name TEXT NOT NULL,
       redirect_uris TEXT NOT NULL,
       allowed_providers TEXT NOT NULL,
@@ -169,43 +172,70 @@ async function ensureTablesExist(): Promise<void> {
   console.log('[OAuth3] Database initialized')
 }
 
-// Session State
+// Session State with encrypted PII
 export const sessionState = {
   async save(session: AuthSession): Promise<void> {
     const client = await getCQLClient()
     const cache = getCache()
 
+    // Encrypt PII (address, email, fid) before storage
+    let encryptedPII: string | null = null
+    if (session.address || session.email || session.fid) {
+      const { encryptSessionData } = await import('./kms')
+      const encrypted = await encryptSessionData({
+        address: session.address,
+        email: session.email,
+        fid: session.fid,
+      })
+      encryptedPII = JSON.stringify(encrypted)
+    }
+
     await client.exec(
-      `INSERT INTO sessions (session_id, user_id, provider, address, fid, email, created_at, expires_at, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO sessions (session_id, user_id, provider, address, fid, email, created_at, expires_at, metadata, encrypted_pii)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(session_id) DO UPDATE SET
-       expires_at = excluded.expires_at, metadata = excluded.metadata`,
+       expires_at = excluded.expires_at, metadata = excluded.metadata, encrypted_pii = excluded.encrypted_pii`,
       [
         session.sessionId,
         session.userId,
         session.provider,
-        session.address ?? null,
-        session.fid ?? null,
-        session.email ?? null,
+        null, // Don't store plaintext address
+        null, // Don't store plaintext fid
+        null, // Don't store plaintext email
         session.createdAt,
         session.expiresAt,
         JSON.stringify(session.metadata),
+        encryptedPII,
       ],
       CQL_DATABASE_ID,
     )
 
+    // Cache with encrypted data only
+    const cachedSession = {
+      ...session,
+      address: undefined,
+      email: undefined,
+      fid: undefined,
+    }
     await cache.set(
       `session:${session.sessionId}`,
-      JSON.stringify(session),
+      JSON.stringify(cachedSession),
       Math.floor((session.expiresAt - Date.now()) / 1000),
     )
   },
 
-  async get(sessionId: string): Promise<AuthSession | null> {
+  async get(
+    sessionId: string,
+    options?: { decryptPII?: boolean },
+  ): Promise<AuthSession | null> {
     const cache = getCache()
-    const cached = await cache.get(`session:${sessionId}`)
-    if (cached) {
-      return JSON.parse(cached) as AuthSession
+
+    // For cached sessions, we don't have PII (it's encrypted in DB)
+    if (!options?.decryptPII) {
+      const cached = await cache.get(`session:${sessionId}`)
+      if (cached) {
+        return JSON.parse(cached) as AuthSession
+      }
     }
 
     const client = await getCQLClient()
@@ -217,10 +247,42 @@ export const sessionState = {
 
     if (!result.rows[0]) return null
 
-    const session = rowToSession(result.rows[0])
+    const row = result.rows[0]
+    let session = rowToSession(row)
+
+    // Decrypt PII if requested and available
+    if (options?.decryptPII && row.encrypted_pii) {
+      try {
+        const { decryptSessionData } = await import('./kms')
+        const encrypted = JSON.parse(row.encrypted_pii) as {
+          ciphertext: string
+          iv: string
+          keyId: string
+          encryptedAt: number
+        }
+        const decrypted = await decryptSessionData(encrypted)
+        session = {
+          ...session,
+          address: decrypted.address as `0x${string}` | undefined,
+          email: decrypted.email as string | undefined,
+          fid: decrypted.fid as number | undefined,
+        }
+      } catch (err) {
+        console.error('[SessionState] Failed to decrypt PII:', err)
+        // Continue without PII rather than failing
+      }
+    }
+
+    // Cache without PII
+    const cachedSession = {
+      ...session,
+      address: undefined,
+      email: undefined,
+      fid: undefined,
+    }
     await cache.set(
       `session:${sessionId}`,
-      JSON.stringify(session),
+      JSON.stringify(cachedSession),
       Math.floor((session.expiresAt - Date.now()) / 1000),
     )
 
@@ -272,15 +334,17 @@ export const clientState = {
     const cache = getCache()
 
     await db.exec(
-      `INSERT INTO clients (client_id, client_secret, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO clients (client_id, client_secret, client_secret_hash, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(client_id) DO UPDATE SET
        name = excluded.name, redirect_uris = excluded.redirect_uris,
        allowed_providers = excluded.allowed_providers, active = excluded.active,
-       stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation`,
+       stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation,
+       client_secret_hash = excluded.client_secret_hash`,
       [
         client.clientId,
-        client.clientSecret ?? null,
+        client.clientSecret ?? null, // Legacy support
+        client.clientSecretHash ? JSON.stringify(client.clientSecretHash) : null,
         client.name,
         JSON.stringify(client.redirectUris),
         JSON.stringify(client.allowedProviders),
@@ -294,7 +358,17 @@ export const clientState = {
       CQL_DATABASE_ID,
     )
 
-    await cache.set(`client:${client.clientId}`, JSON.stringify(client), 3600)
+    // Don't cache the secret hash
+    const cachedClient = {
+      ...client,
+      clientSecret: undefined,
+      clientSecretHash: undefined,
+    }
+    await cache.set(
+      `client:${client.clientId}`,
+      JSON.stringify(cachedClient),
+      3600,
+    )
   },
 
   async get(clientId: string): Promise<RegisteredClient | null> {
@@ -588,11 +662,13 @@ interface SessionRow {
   created_at: number
   expires_at: number
   metadata: string
+  encrypted_pii: string | null
 }
 
 interface ClientRow {
   client_id: string
   client_secret: string | null
+  client_secret_hash: string | null
   name: string
   redirect_uris: string
   allowed_providers: string
@@ -654,7 +730,10 @@ function rowToSession(row: SessionRow): AuthSession {
 function rowToClient(row: ClientRow): RegisteredClient {
   return {
     clientId: row.client_id,
-    clientSecret: row.client_secret as Hex | undefined,
+    clientSecret: row.client_secret as Hex | undefined, // Legacy
+    clientSecretHash: row.client_secret_hash
+      ? (JSON.parse(row.client_secret_hash) as RegisteredClient['clientSecretHash'])
+      : undefined,
     name: row.name,
     redirectUris: JSON.parse(row.redirect_uris) as string[],
     allowedProviders: JSON.parse(row.allowed_providers) as AuthProvider[],
@@ -794,8 +873,10 @@ export const clientReportState = {
 }
 
 /**
- * Verify client secret using constant-time comparison to prevent timing attacks.
- * Returns true if the client exists, is active, and the secret matches.
+ * Verify client secret using hash comparison.
+ * Supports both new hashed secrets and legacy plaintext (for migration).
+ *
+ * SECURITY: Uses constant-time comparison via KMS service.
  */
 export async function verifyClientSecret(
   clientId: string,
@@ -812,7 +893,7 @@ export async function verifyClientSecret(
   }
 
   // Public clients (no secret) - allow for PKCE flows
-  if (!client.clientSecret) {
+  if (!client.clientSecretHash && !client.clientSecret) {
     return { valid: true }
   }
 
@@ -821,22 +902,44 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_secret_required' }
   }
 
-  // Constant-time comparison to prevent timing attacks
-  const storedSecret = client.clientSecret
-  if (storedSecret.length !== clientSecret.length) {
-    return { valid: false, error: 'invalid_client_secret' }
+  // Prefer hashed secret verification
+  if (client.clientSecretHash) {
+    // Use KMS for secure hash verification
+    const { verifyClientSecretHash } = await import('./kms')
+    const isValid = await verifyClientSecretHash(
+      clientSecret,
+      client.clientSecretHash,
+    )
+    if (!isValid) {
+      return { valid: false, error: 'invalid_client_secret' }
+    }
+    return { valid: true }
   }
 
-  let result = 0
-  for (let i = 0; i < storedSecret.length; i++) {
-    result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
+  // Legacy plaintext comparison (for migration only)
+  // TODO: Remove after all clients migrated
+  if (client.clientSecret) {
+    console.warn(
+      `[State] Client ${clientId} using legacy plaintext secret. Run migration.`,
+    )
+    const storedSecret = client.clientSecret
+    if (storedSecret.length !== clientSecret.length) {
+      return { valid: false, error: 'invalid_client_secret' }
+    }
+
+    let result = 0
+    for (let i = 0; i < storedSecret.length; i++) {
+      result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
+    }
+
+    if (result !== 0) {
+      return { valid: false, error: 'invalid_client_secret' }
+    }
+
+    return { valid: true }
   }
 
-  if (result !== 0) {
-    return { valid: false, error: 'invalid_client_secret' }
-  }
-
-  return { valid: true }
+  return { valid: false, error: 'invalid_client_secret' }
 }
 
-export { getCQLClient, getCache }
+export { getCache }

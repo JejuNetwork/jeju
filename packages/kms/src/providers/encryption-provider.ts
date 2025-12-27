@@ -4,6 +4,15 @@
  * Access conditions:
  * - 'timestamp': Verified locally
  * - 'balance', 'stake', 'role', 'agent', 'contract': Verified on-chain
+ *
+ * ⚠️ SIDE-CHANNEL SECURITY NOTE:
+ * The master encryption key is stored in memory (this.masterKey). If a TEE
+ * side-channel attack can read memory, ALL encrypted data can be decrypted.
+ *
+ * FOR MAXIMUM SECURITY:
+ * - Use MPC-based encryption where the key is split across parties
+ * - Consider HSM-backed key storage for the master key
+ * - Implement key rotation schedules to limit exposure window
  */
 
 import { getEnv, getEnvBoolean, requireEnv } from '@jejunetwork/shared'
@@ -15,6 +24,7 @@ import {
   decryptFromPayload,
   deriveKeyForEncryption,
   deriveKeyFromSecret,
+  deriveKeyFromSecretAsync,
   encryptToPayload,
   extractRecoveryId,
   generateKeyId,
@@ -77,14 +87,41 @@ interface Session {
 export class EncryptionProvider implements KMSProvider {
   type = KMSProviderType.ENCRYPTION
   private connected = false
-  private masterKey: Uint8Array
+  private masterKey: Uint8Array | null = null
   private keys = new Map<string, EncryptionKey>()
   private keyVersions = new Map<string, KeyVersionRecord[]>()
   private sessions = new Map<string, Session>()
+  private initPromise: Promise<void> | null = null
+  private useAsyncDerivation: boolean
 
   constructor(_config: EncryptionConfig) {
-    const secret = requireEnv('KMS_ENCRYPTION_SECRET')
-    this.masterKey = deriveKeyFromSecret(secret)
+    // Check if async derivation is enabled (recommended for production)
+    this.useAsyncDerivation = getEnvBoolean('KMS_USE_ASYNC_KEY_DERIVATION', false)
+
+    if (!this.useAsyncDerivation) {
+      // Legacy synchronous derivation (fast but less secure)
+      const secret = requireEnv('KMS_ENCRYPTION_SECRET')
+      this.masterKey = deriveKeyFromSecret(secret)
+    }
+  }
+
+  /**
+   * Initialize master key using async derivation (PBKDF2)
+   *
+   * SECURITY: PBKDF2 with 100k iterations provides resistance against
+   * brute-force attacks if the derived key is observed via side-channel.
+   */
+  private async initializeMasterKey(): Promise<void> {
+    if (this.masterKey) return
+    if (this.initPromise) return this.initPromise
+
+    this.initPromise = (async () => {
+      const secret = requireEnv('KMS_ENCRYPTION_SECRET')
+      this.masterKey = await deriveKeyFromSecretAsync(secret, 'jeju:kms:encryption:v1')
+      log.info('Master key derived using PBKDF2 (100k iterations)')
+    })()
+
+    return this.initPromise
   }
 
   async isAvailable(): Promise<boolean> {
@@ -93,12 +130,20 @@ export class EncryptionProvider implements KMSProvider {
 
   async connect(): Promise<void> {
     if (this.connected) return
+    // Initialize master key with async derivation if enabled
+    if (this.useAsyncDerivation) {
+      await this.initializeMasterKey()
+    }
     this.connected = true
-    log.info('Encryption provider initialized')
+    log.info('Encryption provider initialized', {
+      asyncDerivation: this.useAsyncDerivation,
+    })
   }
 
   async disconnect(): Promise<void> {
-    this.masterKey.fill(0)
+    if (this.masterKey) {
+      this.masterKey.fill(0)
+    }
     for (const key of this.keys.values()) key.encryptedKey.fill(0)
     for (const versions of this.keyVersions.values()) {
       for (const v of versions) v.encryptedKey.fill(0)
@@ -121,7 +166,7 @@ export class EncryptionProvider implements KMSProvider {
     const keyBytes = crypto.getRandomValues(new Uint8Array(32))
     const keyHex = toHex(keyBytes) as `0x${string}`
     const account = privateKeyToAccount(keyHex)
-    const encryptedKey = await sealWithMasterKey(keyBytes, this.masterKey)
+    const encryptedKey = await sealWithMasterKey(keyBytes, this.getMasterKey())
     keyBytes.fill(0)
 
     const metadata: KeyMetadata = {
@@ -193,12 +238,12 @@ export class EncryptionProvider implements KMSProvider {
     if (existingKey) {
       encryptionKey = await unsealWithMasterKey(
         existingKey.encryptedKey,
-        this.masterKey,
+        this.getMasterKey(),
       )
       version = existingKey.version
     } else {
       encryptionKey = await deriveKeyForEncryption(
-        this.masterKey,
+        this.getMasterKey(),
         keyId,
         JSON.stringify(request.policy),
       )
@@ -252,17 +297,17 @@ export class EncryptionProvider implements KMSProvider {
           throw new Error(`Key version ${version} has been revoked`)
         decryptionKey = await unsealWithMasterKey(
           versionRecord.encryptedKey,
-          this.masterKey,
+          this.getMasterKey(),
         )
       } else {
         decryptionKey = await unsealWithMasterKey(
           existingKey.encryptedKey,
-          this.masterKey,
+          this.getMasterKey(),
         )
       }
     } else {
       decryptionKey = await deriveKeyForEncryption(
-        this.masterKey,
+        this.getMasterKey(),
         payload.keyId,
         JSON.stringify(payload.policy),
       )
@@ -280,7 +325,7 @@ export class EncryptionProvider implements KMSProvider {
     const key = this.keys.get(request.keyId)
     if (!key) throw new Error(`Key ${request.keyId} not found`)
 
-    const keyBytes = await unsealWithMasterKey(key.encryptedKey, this.masterKey)
+    const keyBytes = await unsealWithMasterKey(key.encryptedKey, this.getMasterKey())
     const account = privateKeyToAccount(toHex(keyBytes) as `0x${string}`)
     keyBytes.fill(0)
 
@@ -363,7 +408,7 @@ export class EncryptionProvider implements KMSProvider {
 
     const newKeyBytes = crypto.getRandomValues(new Uint8Array(32))
     const account = privateKeyToAccount(toHex(newKeyBytes) as `0x${string}`)
-    const encryptedNewKey = await sealWithMasterKey(newKeyBytes, this.masterKey)
+    const encryptedNewKey = await sealWithMasterKey(newKeyBytes, this.getMasterKey())
     newKeyBytes.fill(0)
 
     const newVersion = existingKey.version + 1
@@ -509,6 +554,19 @@ export class EncryptionProvider implements KMSProvider {
 
   private async ensureConnected(): Promise<void> {
     if (!this.connected) await this.connect()
+    if (!this.masterKey) {
+      throw new Error('Master key not initialized - call connect() first')
+    }
+  }
+
+  /**
+   * Get the master key, ensuring it's initialized
+   */
+  private getMasterKey(): Uint8Array {
+    if (!this.masterKey) {
+      throw new Error('Master key not initialized - call connect() first')
+    }
+    return this.masterKey
   }
 
   getStatus(): { connected: boolean; keyCount: number; sessionCount: number } {

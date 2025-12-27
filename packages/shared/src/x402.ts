@@ -4,15 +4,24 @@
  * Implements Coinbase x402 specification with EIP-712 signatures
  * for micropayment-gated API access.
  *
+ * SECURITY NOTE (TEE Side-Channel Resistance):
+ * - Use `signPaymentPayloadWithKMS` in production for TEE safety
+ * - The `signPaymentPayload` function is for client-side use only
+ * - Server-side signing must use KMS to protect private keys
+ *
  * @see https://x402.org
  */
 
 import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
+  concat,
   formatEther,
+  type Hex,
+  keccak256,
   parseEther,
   recoverTypedDataAddress,
+  toBytes,
   verifyTypedData,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -390,6 +399,10 @@ export async function verifyPayment(
 
 /**
  * Sign a payment payload using EIP-712
+ *
+ * WARNING: This function takes a raw private key and should ONLY be used
+ * client-side (in wallets/browsers). For server-side TEE environments,
+ * use `signPaymentPayloadWithKMS` instead.
  */
 export async function signPaymentPayload(
   payload: Omit<PaymentPayload, 'signature'>,
@@ -418,6 +431,95 @@ export async function signPaymentPayload(
   })
 
   return { ...payload, signature }
+}
+
+/**
+ * Compute EIP-712 struct hash for payment message
+ */
+function computePaymentStructHash(payload: Omit<PaymentPayload, 'signature'>): Hex {
+  const typeHash = keccak256(
+    toBytes(
+      'Payment(string scheme,string network,address asset,address payTo,uint256 amount,string resource,string nonce,uint256 timestamp)',
+    ),
+  )
+
+  // Encode struct fields according to EIP-712
+  const encodedData = concat([
+    typeHash,
+    keccak256(toBytes(payload.scheme)),
+    keccak256(toBytes(payload.network)),
+    toBytes(payload.asset as Hex, { size: 32 }),
+    toBytes(payload.payTo as Hex, { size: 32 }),
+    toBytes(BigInt(payload.amount), { size: 32 }),
+    keccak256(toBytes(payload.resource)),
+    keccak256(toBytes(payload.nonce)),
+    toBytes(BigInt(payload.timestamp), { size: 32 }),
+  ])
+
+  return keccak256(encodedData)
+}
+
+/**
+ * Compute EIP-712 domain separator for payment
+ */
+function computePaymentDomainSeparator(network: X402Network): Hex {
+  const typeHash = keccak256(
+    toBytes(
+      'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)',
+    ),
+  )
+
+  const domain = getEIP712Domain(network)
+
+  const encodedData = concat([
+    typeHash,
+    keccak256(toBytes(domain.name)),
+    keccak256(toBytes(domain.version)),
+    toBytes(BigInt(domain.chainId), { size: 32 }),
+    toBytes(domain.verifyingContract as Hex, { size: 32 }),
+  ])
+
+  return keccak256(encodedData)
+}
+
+/**
+ * Sign a payment payload using KMS (TEE-safe)
+ *
+ * This function uses the KMS SDK for signing, ensuring private keys
+ * never enter TEE memory. Use this for all server-side signing.
+ *
+ * @param payload - Payment payload to sign
+ * @param keyId - KMS key ID to use for signing
+ * @param kmsSignTypedData - KMS signTypedData function (injected to avoid circular deps)
+ * @returns Signed payment payload
+ *
+ * @example
+ * ```typescript
+ * import { signTypedData } from '@jejunetwork/kms'
+ *
+ * const signedPayload = await signPaymentPayloadWithKMS(
+ *   payload,
+ *   'user-payment-key-123',
+ *   signTypedData,
+ * )
+ * ```
+ */
+export async function signPaymentPayloadWithKMS(
+  payload: Omit<PaymentPayload, 'signature'>,
+  keyId: string,
+  kmsSignTypedData: (
+    domainSeparator: Hex,
+    structHash: Hex,
+    keyId: string,
+  ) => Promise<{ signature: Hex }>,
+): Promise<PaymentPayload> {
+  const network = payload.network as X402Network
+  const domainSeparator = computePaymentDomainSeparator(network)
+  const structHash = computePaymentStructHash(payload)
+
+  const result = await kmsSignTypedData(domainSeparator, structHash, keyId)
+
+  return { ...payload, signature: result.signature }
 }
 
 /**

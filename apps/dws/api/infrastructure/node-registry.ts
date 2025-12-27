@@ -22,6 +22,11 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 import { z } from 'zod'
 import { parseQuote, verifyQuote } from '../poc/quote-parser'
 import type {
@@ -221,13 +226,14 @@ const DWS_NODE_TAG = 'dws-node'
 
 export class NodeRegistry {
   private publicClient: PublicClient
-  private walletClient: WalletClient<
-    HttpTransport,
-    Chain,
-    PrivateKeyAccount
-  > | null = null
+  private walletClient:
+    | WalletClient<HttpTransport, Chain, PrivateKeyAccount>
+    | KMSWalletClient
+    | null = null
   private registryAddress: Address
   private chain: Chain
+  private networkConfig: NetworkConfig
+  private initialized = false
 
   // Cache
   private nodeCache = new Map<string, NodeConfig>()
@@ -237,15 +243,22 @@ export class NodeRegistry {
   // Event handlers
   private eventHandlers: InfraEventHandler[] = []
 
-  constructor(config: NetworkConfig, privateKey?: Hex) {
+  constructor(
+    config: NetworkConfig,
+    privateKey?: Hex,
+    kmsKeyId?: string,
+    ownerAddress?: Address,
+  ) {
     this.registryAddress = config.contracts.identityRegistry
     this.chain = getChainFromConfig(config)
+    this.networkConfig = config
 
     this.publicClient = createPublicClient({
       chain: this.chain,
       transport: http(config.rpcUrl),
     })
 
+    // Initialize with direct key if provided
     if (privateKey) {
       const account = privateKeyToAccount(privateKey)
       this.walletClient = createWalletClient({
@@ -254,6 +267,35 @@ export class NodeRegistry {
         transport: http(config.rpcUrl),
       })
     }
+
+    // Store KMS config for later initialization
+    if (kmsKeyId && ownerAddress) {
+      this.initKMS(kmsKeyId, ownerAddress).catch((err) => {
+        console.error('[NodeRegistry] Failed to initialize KMS:', err)
+      })
+    }
+  }
+
+  /**
+   * Initialize KMS-backed signing
+   */
+  private async initKMS(kmsKeyId: string, ownerAddress: Address): Promise<void> {
+    if (this.initialized) return
+
+    const kmsAvailable = await isKMSAvailable()
+    if (kmsAvailable) {
+      this.walletClient = await createKMSWalletClient({
+        chain: this.chain,
+        rpcUrl: this.networkConfig.rpcUrl,
+        kmsKeyId,
+        ownerAddress,
+      })
+      console.log('[NodeRegistry] Using KMS-backed signing')
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new Error('KMS not available for node registry in production')
+    }
+
+    this.initialized = true
   }
 
   // Node Registration

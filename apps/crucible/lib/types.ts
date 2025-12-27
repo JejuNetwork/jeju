@@ -388,7 +388,15 @@ export interface SearchResult<T> {
 
 export interface CrucibleConfig {
   rpcUrl: string
+  /**
+   * @deprecated Use KMS for production. Private key only for localnet development.
+   */
   privateKey?: string
+  /**
+   * KMS key ID for threshold signing (production).
+   * When set, all signing operations use KMS instead of privateKey.
+   */
+  kmsKeyId?: string
   contracts: {
     agentVault: Address
     roomRegistry: Address
@@ -404,6 +412,7 @@ export interface CrucibleConfig {
     indexerGraphql: string
     cqlEndpoint?: string
     dexCacheUrl?: string
+    kmsEndpoint?: string
   }
   network: 'localnet' | 'testnet' | 'mainnet'
 }

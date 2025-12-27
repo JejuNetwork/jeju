@@ -3,14 +3,22 @@
  *
  * Gas sponsorship from a treasury contract for users without gas.
  * Works with any treasury contract that implements the standard interface.
+ *
+ * SECURITY: Uses MPC signing via SecureSigningService.
+ * Private keys are NEVER reconstructed in memory.
  */
 
+import {
+  getSecureSigningService,
+  type SecureSigningService,
+} from '@jejunetwork/kms'
 import {
   type Address,
   type Chain,
   concat,
   createPublicClient,
   createWalletClient,
+  custom,
   encodeAbiParameters,
   type Hex,
   http,
@@ -20,7 +28,6 @@ import {
   toBytes,
   toHex,
 } from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry, mainnet, sepolia } from 'viem/chains'
 import type { DID } from '../did/index.js'
 import type {
@@ -103,22 +110,51 @@ function getChain(chainId: number): Chain {
  *
  * Manages gas sponsorship for users from a treasury contract.
  * Tracks per-user gas usage and enforces policy limits.
+ *
+ * SECURITY: All signing operations use FROST threshold signatures via SecureSigningService.
+ * The operator's private key is NEVER reconstructed in memory.
  */
 export class TreasuryPaymaster {
   private readonly treasuryAddress: Address
-  private readonly operatorPrivateKey: Hex
+  private readonly operatorKeyId: string
+  private readonly operatorAddress: Address
   private readonly rpcUrl: string
   private readonly chainId: number
   private readonly policy: SponsorshipPolicy
   private readonly userStates: Map<DID, UserSponsorshipState>
+  private readonly signingService: SecureSigningService
 
   constructor(config: PaymasterConfig) {
     this.treasuryAddress = config.treasuryAddress
-    this.operatorPrivateKey = config.operatorPrivateKey
+    this.operatorKeyId = config.operatorKeyId
+    this.operatorAddress = config.operatorAddress
     this.rpcUrl = config.rpcUrl
     this.chainId = config.chainId
     this.policy = { ...DEFAULT_POLICY, ...config.policy }
     this.userStates = new Map()
+    this.signingService = getSecureSigningService()
+  }
+
+  /**
+   * Initialize the paymaster
+   * Ensures the MPC key is available
+   */
+  async initialize(): Promise<void> {
+    // Ensure the key exists in the signing service
+    if (!this.signingService.hasKey(this.operatorKeyId)) {
+      throw new Error(
+        `Operator key ${this.operatorKeyId} not found in SecureSigningService. ` +
+          'Generate it first using getSecureSigningService().generateKey()',
+      )
+    }
+
+    // Verify the address matches
+    const address = this.signingService.getAddress(this.operatorKeyId)
+    if (address.toLowerCase() !== this.operatorAddress.toLowerCase()) {
+      throw new Error(
+        `Operator key address mismatch: expected ${this.operatorAddress}, got ${address}`,
+      )
+    }
   }
 
   /**
@@ -170,21 +206,19 @@ export class TreasuryPaymaster {
       return { sponsored: false, error: decision.reason }
     }
 
-    const account = privateKeyToAccount(this.operatorPrivateKey)
     const validUntil =
       decision.validUntil ?? Math.floor(Date.now() / 1000) + 3600
     const validAfter = Math.floor(Date.now() / 1000)
 
-    // Generate paymaster signature per ERC-4337 spec
+    // Generate paymaster signature per ERC-4337 spec using MPC signing
     const paymasterDataBytes = await this.generatePaymasterSignature(
-      account,
       userOp,
       validUntil,
       validAfter,
     )
 
     const paymasterData: PaymasterData = {
-      paymaster: account.address,
+      paymaster: this.operatorAddress,
       paymasterData: paymasterDataBytes,
       validUntil,
       validAfter,
@@ -201,11 +235,12 @@ export class TreasuryPaymaster {
   }
 
   /**
-   * Generate ERC-4337 paymaster signature
+   * Generate ERC-4337 paymaster signature using MPC signing
    * Format: validUntil (6 bytes) || validAfter (6 bytes) || signature (65 bytes)
+   *
+   * SECURITY: Uses FROST threshold signing - private key is NEVER reconstructed
    */
   private async generatePaymasterSignature(
-    account: PrivateKeyAccount,
     userOp: UserOperation,
     validUntil: number,
     validAfter: number,
@@ -227,13 +262,15 @@ export class TreasuryPaymaster {
       ]),
     )
 
-    // Sign the paymaster hash
-    const signature = await account.signMessage({
-      message: { raw: toBytes(paymasterHash) },
+    // Sign the paymaster hash using MPC (FROST)
+    const signResult = await this.signingService.sign({
+      keyId: this.operatorKeyId,
+      message: '',
+      messageHash: paymasterHash,
     })
 
     // Pack: validUntil (6 bytes) || validAfter (6 bytes) || signature (65 bytes)
-    return concat([validUntilBytes, validAfterBytes, signature])
+    return concat([validUntilBytes, validAfterBytes, signResult.signature])
   }
 
   /**
@@ -387,13 +424,63 @@ export class TreasuryPaymaster {
 
   /**
    * Fund a user's wallet directly from treasury
+   *
+   * SECURITY: This operation requires sending a transaction, which uses
+   * the MPC-signed account to interact with the treasury contract.
    */
   async fundUser(userAddress: Address, amount: bigint): Promise<Hex> {
-    const account = privateKeyToAccount(this.operatorPrivateKey)
     const chain = getChain(this.chainId)
+    const publicClient = createPublicClient({
+      chain,
+      transport: http(this.rpcUrl),
+    })
 
+    // Create wallet client with MPC-backed signing
     const walletClient = createWalletClient({
-      account,
+      account: {
+        address: this.operatorAddress,
+        type: 'local',
+        publicKey: '0x', // Not needed for transaction signing
+        signMessage: async ({ message }) => {
+          const msgBytes =
+            typeof message === 'string'
+              ? toBytes(message)
+              : 'raw' in message
+                ? message.raw
+                : toBytes(message as string)
+          const result = await this.signingService.sign({
+            keyId: this.operatorKeyId,
+            message: msgBytes,
+          })
+          return result.signature
+        },
+        signTransaction: async (tx) => {
+          // Serialize and sign the transaction
+          const serialized = await publicClient.prepareTransactionRequest(tx)
+          const txHash = keccak256(toBytes(JSON.stringify(serialized)))
+          const result = await this.signingService.sign({
+            keyId: this.operatorKeyId,
+            message: '',
+            messageHash: txHash,
+          })
+          return result.signature
+        },
+        signTypedData: async (typedData) => {
+          const result = await this.signingService.signTypedData({
+            keyId: this.operatorKeyId,
+            domain: typedData.domain as Parameters<
+              typeof this.signingService.signTypedData
+            >[0]['domain'],
+            types: typedData.types as Record<
+              string,
+              Array<{ name: string; type: string }>
+            >,
+            primaryType: typedData.primaryType,
+            message: typedData.message as Record<string, unknown>,
+          })
+          return result.signature
+        },
+      },
       chain,
       transport: http(this.rpcUrl),
     })
@@ -462,6 +549,13 @@ export class TreasuryPaymaster {
     ])
 
     return balance > 0n && isActive
+  }
+
+  /**
+   * Shutdown the paymaster - called when cleaning up
+   */
+  shutdown(): void {
+    this.userStates.clear()
   }
 }
 

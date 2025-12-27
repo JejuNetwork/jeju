@@ -116,6 +116,14 @@ interface SigningNonce {
   E: Hex // Commitment for e
 }
 
+export interface FROSTCluster {
+  keyId: string
+  threshold: number
+  totalParties: number
+  groupPublicKey: Hex
+  groupAddress: Address
+}
+
 export class FROSTCoordinator {
   readonly keyId: string
   readonly threshold: number
@@ -126,6 +134,7 @@ export class FROSTCoordinator {
   private privateShare: bigint | null = null
   private publicShares = new Map<number, Hex>()
   private groupPublicKey: Hex | null = null
+  private groupAddress: Address | null = null
 
   // Signing state
   private signingNonces = new Map<string, SigningNonce>()
@@ -134,6 +143,124 @@ export class FROSTCoordinator {
     this.keyId = keyId
     this.threshold = threshold
     this.totalParties = totalParties
+  }
+
+  // ============ High-Level API (for SigningService) ============
+
+  /**
+   * Initialize the cluster by running DKG
+   * This is a convenience method for single-process testing.
+   * In production, DKG should be coordinated across separate parties.
+   */
+  async initializeCluster(): Promise<FROSTCluster> {
+    // Generate contributions for all parties (simulating distributed DKG)
+    const contributions = await Promise.all(
+      Array.from({ length: this.totalParties }, (_, i) =>
+        this.generateKeyGenContribution(i + 1),
+      ),
+    )
+
+    // Finalize key generation
+    const result = await this.finalizeKeyGen(
+      contributions.map((c) => c.publicShare),
+      contributions.map((c) => c.commitment),
+    )
+
+    this.groupPublicKey = result.groupPublicKey
+    this.groupAddress = result.groupAddress
+
+    return {
+      keyId: this.keyId,
+      threshold: this.threshold,
+      totalParties: this.totalParties,
+      groupPublicKey: result.groupPublicKey,
+      groupAddress: result.groupAddress,
+    }
+  }
+
+  /**
+   * Get the cluster address
+   */
+  getAddress(): Address {
+    if (!this.groupAddress) {
+      throw new Error('Cluster not initialized - call initializeCluster() first')
+    }
+    return this.groupAddress
+  }
+
+  /**
+   * Get the cluster info
+   */
+  getCluster(): FROSTCluster {
+    if (!this.groupPublicKey || !this.groupAddress) {
+      throw new Error('Cluster not initialized - call initializeCluster() first')
+    }
+    return {
+      keyId: this.keyId,
+      threshold: this.threshold,
+      totalParties: this.totalParties,
+      groupPublicKey: this.groupPublicKey,
+      groupAddress: this.groupAddress,
+    }
+  }
+
+  /**
+   * Sign a message hash using FROST
+   * This is a convenience method for single-process testing.
+   * In production, signing should be coordinated across separate parties.
+   */
+  async sign(messageHash: Hex): Promise<{ r: Hex; s: Hex; v: number }> {
+    if (!this.groupPublicKey) {
+      throw new Error('Cluster not initialized - call initializeCluster() first')
+    }
+
+    // Generate commitments from t parties
+    const participantIndices = Array.from(
+      { length: this.threshold },
+      (_, i) => i + 1,
+    )
+
+    const commitmentResults = await Promise.all(
+      participantIndices.map(async (partyIndex) => {
+        const { nonce, commitment } = await this.generateSigningCommitment(
+          partyIndex,
+          messageHash,
+        )
+        return { partyIndex, nonce, commitment }
+      }),
+    )
+
+    // Convert to D/E format (using nonce bytes)
+    const commitments = commitmentResults.map((c) => ({
+      partyIndex: c.partyIndex,
+      D: toHex(c.nonce.slice(0, 32)) as Hex,
+      E: toHex(c.nonce.slice(32, 64)) as Hex,
+      commitment: c.commitment,
+    }))
+
+    // Generate signature shares
+    const shares = await Promise.all(
+      commitmentResults.map(async (c) => {
+        const share = await this.generateSignatureShare(
+          c.partyIndex,
+          messageHash,
+          c.nonce,
+          commitments.map((cm) => ({
+            partyIndex: cm.partyIndex,
+            commitment: cm.commitment,
+          })),
+        )
+        return { partyIndex: c.partyIndex, share }
+      }),
+    )
+
+    // Aggregate signatures
+    return FROSTCoordinator.aggregateSignatures(
+      messageHash,
+      this.groupPublicKey,
+      commitments,
+      shares,
+    )
   }
 
   // ============ Key Generation ============

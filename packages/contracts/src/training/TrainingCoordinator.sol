@@ -81,6 +81,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     error NotRegisteredProvider();
     error MPCKeyRequired();
     error InvalidMPCKey();
+    error ETHTransferFailed();
 
     modifier runExists(bytes32 runId) {
         if (runs[runId].stateStartTimestamp == 0) revert RunNotFound();
@@ -742,7 +743,8 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     }
 
     function withdrawFees(address to) external onlyOwner {
-        payable(to).transfer(address(this).balance);
+        (bool success, ) = payable(to).call{value: address(this).balance}("");
+        if (!success) revert ETHTransferFailed();
     }
 
     function version() external pure returns (string memory) {

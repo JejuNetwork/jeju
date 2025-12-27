@@ -1,5 +1,10 @@
 /**
  * OAuth3 routes - main authentication flows
+ *
+ * SECURITY: This module uses KMS-backed signing for JWT tokens.
+ * - No JWT secrets in memory (MPC threshold signing)
+ * - OAuth provider secrets are sealed to TEE attestation
+ * - Short-lived tokens with ephemeral keys
  */
 
 import {
@@ -10,9 +15,19 @@ import {
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
 import { toHex } from 'viem'
-import { z } from 'zod'
 import type { AuthConfig, AuthSession, AuthToken } from '../../lib/types'
 import { AuthProvider } from '../../lib/types'
+import {
+  generateSecureToken,
+  getEphemeralKey,
+  initializeKMS,
+  verifySecureToken,
+} from '../services/kms'
+import {
+  getOAuthConfig as getSealedOAuthConfig,
+  isProviderConfigured,
+  loadSealedProviders,
+} from '../services/sealed-oauth'
 import {
   authCodeState,
   clientState,
@@ -34,13 +49,6 @@ function escapeHtml(unsafe: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
 }
-
-// Zod schema for JWT payload validation
-const JwtPayloadSchema = z.object({
-  sub: z.string(),
-  iat: z.number(),
-  exp: z.number(),
-})
 
 const AuthorizeQuerySchema = t.Object({
   client_id: t.Optional(t.String()),
@@ -70,55 +78,46 @@ const SocialCallbackQuerySchema = t.Object({
   error_description: t.Optional(t.String()),
 })
 
-// OAuth config from environment
-function getOAuthConfig(
+/**
+ * Get OAuth config for a provider using sealed secrets.
+ * Falls back to plaintext env vars for migration.
+ */
+async function getOAuthConfigSecure(
   provider: AuthProvider,
   baseRedirectUri: string,
-): OAuthConfig {
-  const configs: Record<string, OAuthConfig> = {
-    [AuthProvider.GITHUB]: {
-      clientId: process.env.GITHUB_CLIENT_ID ?? '',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
-      redirectUri: `${baseRedirectUri}/oauth/callback/github`,
-      scopes: ['read:user', 'user:email'],
-    },
-    [AuthProvider.GOOGLE]: {
-      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-      redirectUri: `${baseRedirectUri}/oauth/callback/google`,
-      scopes: ['openid', 'email', 'profile'],
-    },
-    [AuthProvider.TWITTER]: {
-      clientId: process.env.TWITTER_CLIENT_ID ?? '',
-      clientSecret: process.env.TWITTER_CLIENT_SECRET ?? '',
-      redirectUri: `${baseRedirectUri}/oauth/callback/twitter`,
-      scopes: ['users.read', 'tweet.read'],
-    },
-    [AuthProvider.DISCORD]: {
-      clientId: process.env.DISCORD_CLIENT_ID ?? '',
-      clientSecret: process.env.DISCORD_CLIENT_SECRET ?? '',
-      redirectUri: `${baseRedirectUri}/oauth/callback/discord`,
-      scopes: ['identify', 'email'],
-    },
+): Promise<OAuthConfig> {
+  // Try sealed secrets first
+  const sealedConfig = await getSealedOAuthConfig(provider, baseRedirectUri)
+  if (sealedConfig) {
+    return sealedConfig
   }
 
-  const config = configs[provider]
-  if (!config) {
-    throw new Error(`No OAuth config for provider: ${provider}`)
-  }
-
-  if (!config.clientId || !config.clientSecret) {
-    throw new Error(
-      `Missing OAuth credentials for ${provider}. Set ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET`,
-    )
-  }
-
-  return config
+  // Not configured
+  throw new Error(
+    `OAuth provider ${provider} not configured.\n` +
+      `Set ${provider.toUpperCase()}_CLIENT_ID and either:\n` +
+      `  - ${provider.toUpperCase()}_SEALED_SECRET (recommended, secure)\n` +
+      `  - ${provider.toUpperCase()}_CLIENT_SECRET (legacy, insecure)`,
+  )
 }
 
 export async function createOAuthRouter(config: AuthConfig) {
   // Initialize database tables
   await initializeState()
+
+  // Initialize KMS for secure token signing
+  await initializeKMS({
+    jwtSigningKeyId: config.jwtSigningKeyId ?? 'oauth3-jwt-signing',
+    jwtSignerAddress:
+      config.jwtSignerAddress ??
+      ('0x0000000000000000000000000000000000000000' as `0x${string}`),
+    serviceAgentId: config.serviceAgentId,
+    chainId: config.chainId ?? 'eip155:420691',
+    devMode: config.devMode ?? process.env.NODE_ENV !== 'production',
+  })
+
+  // Load sealed OAuth provider secrets
+  await loadSealedProviders()
 
   const baseUrl = process.env.BASE_URL ?? 'http://localhost:4200'
 
@@ -375,21 +374,26 @@ export async function createOAuthRouter(config: AuthConfig) {
               }
             }
 
-            // Generate tokens
-            const accessToken = await generateToken(
-              authCode.userId,
-              config.jwtSecret,
-            )
+            // Generate tokens using KMS-backed signing
+            const accessToken = await generateSecureToken(authCode.userId, {
+              expiresInSeconds: 3600,
+              issuer: 'jeju:oauth3',
+              audience: 'gateway',
+            })
             const refreshToken = crypto.randomUUID()
 
-            // Create session
+            // Create session with ephemeral key
+            const sessionId = crypto.randomUUID()
+            const ephemeralKey = await getEphemeralKey(sessionId)
+
             const session: AuthSession = {
-              sessionId: crypto.randomUUID(),
+              sessionId,
               userId: authCode.userId,
               provider: 'wallet',
               createdAt: Date.now(),
               expiresAt: Date.now() + config.sessionDuration,
               metadata: {},
+              ephemeralKeyId: ephemeralKey.keyId,
             }
             await sessionState.save(session)
 
@@ -467,21 +471,26 @@ export async function createOAuthRouter(config: AuthConfig) {
             // Revoke old refresh token
             await refreshTokenState.revoke(body.refresh_token)
 
-            // Generate new tokens
-            const accessToken = await generateToken(
-              storedToken.userId,
-              config.jwtSecret,
-            )
+            // Generate new tokens using KMS-backed signing
+            const accessToken = await generateSecureToken(storedToken.userId, {
+              expiresInSeconds: 3600,
+              issuer: 'jeju:oauth3',
+              audience: 'gateway',
+            })
             const newRefreshToken = crypto.randomUUID()
 
-            // Create new session
+            // Create new session with ephemeral key
+            const sessionId = crypto.randomUUID()
+            const ephemeralKey = await getEphemeralKey(sessionId)
+
             const session: AuthSession = {
-              sessionId: crypto.randomUUID(),
+              sessionId,
               userId: storedToken.userId,
               provider: 'wallet',
               createdAt: Date.now(),
               expiresAt: Date.now() + config.sessionDuration,
               metadata: {},
+              ephemeralKeyId: ephemeralKey.keyId,
             }
             await sessionState.save(session)
 
@@ -515,7 +524,8 @@ export async function createOAuthRouter(config: AuthConfig) {
         }
 
         const token = auth.slice(7)
-        const userId = await verifyToken(token, config.jwtSecret)
+        // Verify using KMS-backed verification
+        const userId = await verifySecureToken(token)
         if (!userId) {
           set.status = 401
           return { error: 'invalid_token' }
@@ -562,20 +572,17 @@ export async function createOAuthRouter(config: AuthConfig) {
             }
           }
 
-          // Check if credentials are configured
-          const envPrefix = providerName.toUpperCase()
-          if (
-            !process.env[`${envPrefix}_CLIENT_ID`] ||
-            !process.env[`${envPrefix}_CLIENT_SECRET`]
-          ) {
+          // Check if provider is configured (sealed or legacy)
+          if (!isProviderConfigured(provider)) {
             set.status = 503
             return {
               error: 'provider_not_configured',
-              message: `${providerName} OAuth is not configured. Set ${envPrefix}_CLIENT_ID and ${envPrefix}_CLIENT_SECRET environment variables.`,
+              message: `${providerName} OAuth is not configured. Set ${providerName.toUpperCase()}_CLIENT_ID and ${providerName.toUpperCase()}_SEALED_SECRET.`,
             }
           }
 
-          const oauthConfig = getOAuthConfig(provider, baseUrl)
+          // Get config with sealed secrets
+          const oauthConfig = await getOAuthConfigSecure(provider, baseUrl)
           const oauthProvider = createOAuthProvider(provider, oauthConfig)
 
           // Generate state for CSRF protection
@@ -664,7 +671,8 @@ export async function createOAuthRouter(config: AuthConfig) {
             return { error: 'unsupported_provider' }
           }
 
-          const oauthConfig = getOAuthConfig(provider, baseUrl)
+          // Get config with sealed secrets
+          const oauthConfig = await getOAuthConfigSecure(provider, baseUrl)
           const oauthProvider = createOAuthProvider(provider, oauthConfig)
 
           // Exchange code for token
@@ -755,99 +763,5 @@ async function sha256Base64Url(input: string): Promise<string> {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/**
- * HMAC-SHA256 signing for JWT (RFC 7519).
- */
-async function hmacSha256Sign(data: string, secret: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const keyData = encoder.encode(secret)
-  const messageData = encoder.encode(data)
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-
-  const signature = await crypto.subtle.sign('HMAC', key, messageData)
-  const signatureArray = new Uint8Array(signature)
-
-  // Convert to base64url
-  let binary = ''
-  for (const byte of signatureArray) {
-    binary += String.fromCharCode(byte)
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-/**
- * HMAC-SHA256 verification for JWT.
- */
-async function hmacSha256Verify(
-  data: string,
-  signature: string,
-  secret: string,
-): Promise<boolean> {
-  const expected = await hmacSha256Sign(data, secret)
-  // Constant-time comparison
-  if (expected.length !== signature.length) return false
-  let result = 0
-  for (let i = 0; i < expected.length; i++) {
-    result |= expected.charCodeAt(i) ^ signature.charCodeAt(i)
-  }
-  return result === 0
-}
-
-// JWT token generation with proper HMAC-SHA256
-async function generateToken(userId: string, secret: string): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-  const payload = btoa(
-    JSON.stringify({
-      sub: userId,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 3600,
-      jti: crypto.randomUUID(), // Unique token ID
-    }),
-  )
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-  const signature = await hmacSha256Sign(`${header}.${payload}`, secret)
-  return `${header}.${payload}.${signature}`
-}
-
-type JwtPayload = z.infer<typeof JwtPayloadSchema>
-
-async function verifyToken(
-  token: string,
-  secret: string,
-): Promise<string | null> {
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-
-  const valid = await hmacSha256Verify(
-    `${parts[0]}.${parts[1]}`,
-    parts[2],
-    secret,
-  )
-  if (!valid) return null
-
-  // Decode base64url to base64
-  const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-
-  const parseResult = JwtPayloadSchema.safeParse(JSON.parse(atob(padded)))
-  if (!parseResult.success) return null
-
-  const decoded: JwtPayload = parseResult.data
-  if (decoded.exp < Math.floor(Date.now() / 1000)) return null
-
-  return decoded.sub
-}
+// Note: JWT signing/verification is now handled by KMS service
+// See api/services/kms.ts for secure MPC-backed implementation

@@ -1,15 +1,23 @@
-import { readContract, writeContract } from '@jejunetwork/shared'
-import { expectAddress, parseEnvHex, ZERO_ADDRESS } from '@jejunetwork/types'
+/**
+ * Faucet Service
+ *
+ * SECURITY: This module uses KMS for all signing operations.
+ * Private keys are NEVER loaded into memory. All cryptographic
+ * operations are delegated to the KMS service (MPC or TEE).
+ */
+
+import { readContract } from '@jejunetwork/shared'
+import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { IERC20_ABI } from '@jejunetwork/ui'
 import {
   type Address,
   createPublicClient,
-  createWalletClient,
+  encodeFunctionData,
   formatEther,
+  type Hex,
   http,
   parseEther,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { jejuTestnet } from '../../lib/chains'
 import {
   IDENTITY_REGISTRY_ADDRESS,
@@ -20,14 +28,21 @@ import {
   getRpcUrl,
   JEJU_CHAIN_ID,
 } from '../../lib/config/networks'
+import { getKMSSigner, type KMSSigner } from '../../lib/kms-signer'
 import { faucetState, initializeState } from './state'
 
+/**
+ * Faucet configuration.
+ *
+ * SECURITY: No private key in config. Uses KMS service ID instead.
+ */
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000,
   amountPerClaim: parseEther('100'),
   jejuTokenAddress: JEJU_TOKEN_ADDRESS,
   identityRegistryAddress: IDENTITY_REGISTRY_ADDRESS,
-  faucetPrivateKey: parseEnvHex(process.env.FAUCET_PRIVATE_KEY),
+  /** KMS service ID for faucet signing */
+  serviceId: process.env.FAUCET_SERVICE_ID ?? 'faucet',
 }
 
 const IDENTITY_REGISTRY_ABI = [
@@ -47,15 +62,29 @@ const publicClient = createPublicClient({
   transport: http(getRpcUrl(JEJU_CHAIN_ID)),
 })
 
-function getWalletClient() {
-  if (!FAUCET_CONFIG.faucetPrivateKey)
-    throw new Error('FAUCET_PRIVATE_KEY not configured')
-  const account = privateKeyToAccount(FAUCET_CONFIG.faucetPrivateKey)
-  return createWalletClient({
-    account,
-    chain: jejuTestnet,
-    transport: http(getRpcUrl(JEJU_CHAIN_ID)),
-  })
+// SECURITY: Lazy-initialized KMS signer - no private key in memory
+let faucetSigner: KMSSigner | null = null
+let faucetAddress: Address | null = null
+
+async function getFaucetSigner(): Promise<KMSSigner> {
+  if (!faucetSigner) {
+    faucetSigner = getKMSSigner(FAUCET_CONFIG.serviceId)
+    await faucetSigner.initialize()
+    faucetAddress = await faucetSigner.getAddress()
+    console.log(`[Faucet] Initialized with address: ${faucetAddress}`)
+    console.log(`[Faucet] Signing mode: ${faucetSigner.getMode()}`)
+  }
+  return faucetSigner
+}
+
+async function getFaucetAddress(): Promise<Address> {
+  if (!faucetAddress) {
+    await getFaucetSigner()
+  }
+  if (!faucetAddress) {
+    throw new Error('Faucet address not initialized')
+  }
+  return faucetAddress
 }
 
 export interface FaucetStatus {
@@ -109,18 +138,16 @@ async function getCooldownRemaining(address: string): Promise<number> {
 }
 
 async function getFaucetBalance(): Promise<bigint> {
-  if (
-    FAUCET_CONFIG.jejuTokenAddress === ZERO_ADDRESS ||
-    !FAUCET_CONFIG.faucetPrivateKey
-  ) {
+  if (FAUCET_CONFIG.jejuTokenAddress === ZERO_ADDRESS) {
     return 0n
   }
-  const account = privateKeyToAccount(FAUCET_CONFIG.faucetPrivateKey)
+
+  const address = await getFaucetAddress()
   return await readContract(publicClient, {
     address: FAUCET_CONFIG.jejuTokenAddress,
     abi: IERC20_ABI,
     functionName: 'balanceOf',
-    args: [account.address],
+    args: [address],
   })
 }
 
@@ -176,13 +203,45 @@ export async function claimFromFaucet(
     throw new Error('JEJU token not configured')
   }
 
-  const walletClient = getWalletClient()
-  const hash = await writeContract(walletClient, {
-    address: FAUCET_CONFIG.jejuTokenAddress,
+  // SECURITY: Sign and send transaction via KMS - private key never in memory
+  const signer = await getFaucetSigner()
+  const signerAddress = await getFaucetAddress()
+
+  // Build transfer data
+  const data = encodeFunctionData({
     abi: IERC20_ABI,
     functionName: 'transfer',
     args: [validated, FAUCET_CONFIG.amountPerClaim],
   })
+
+  // Get nonce and gas parameters
+  const [nonce, gasPrice] = await Promise.all([
+    publicClient.getTransactionCount({ address: signerAddress }),
+    publicClient.getGasPrice(),
+  ])
+
+  // Estimate gas
+  const gasLimit = await publicClient.estimateGas({
+    account: signerAddress,
+    to: FAUCET_CONFIG.jejuTokenAddress,
+    data,
+  })
+
+  // Send transaction via KMS
+  const hash = await signer.sendTransaction(
+    {
+      transaction: {
+        to: FAUCET_CONFIG.jejuTokenAddress,
+        data,
+        nonce,
+        gas: gasLimit,
+        gasPrice,
+        chainId: JEJU_CHAIN_ID,
+      },
+      chain: jejuTestnet,
+    },
+    getRpcUrl(JEJU_CHAIN_ID),
+  )
 
   await faucetState.recordClaim(validated)
   return {

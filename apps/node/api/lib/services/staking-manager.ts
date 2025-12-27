@@ -11,10 +11,13 @@
  * - Compute Provider: 20-40% (commission for hardware/operations)
  * - Capital Stakers: 60-80% (proportional to delegation)
  * - Protocol Fee: 5% (to treasury)
+ *
+ * SECURITY: Uses KMS-backed signing via SecureSigner. No private keys in memory.
  */
 
-import { type Address, formatEther, type Hex } from 'viem'
-import { getChain, type NodeClient } from '../contracts'
+import { type Address, encodeFunctionData, formatEther, type Hex } from 'viem'
+import { type NodeClient, type SecureNodeClient } from '../contracts'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 // Contract ABI for DelegatedNodeStaking
 const DELEGATED_NODE_STAKING_ABI = [
@@ -170,6 +173,8 @@ export interface StakingConfig {
   minDelegation: bigint
   endpoint: string
   region: string
+  /** KMS key ID for secure signing (no raw private keys) */
+  keyId?: string
 }
 
 export interface StakingState {
@@ -255,10 +260,17 @@ const DEFAULT_CONFIG: StakingConfig = {
 }
 
 export function createStakingManagerService(
-  client: NodeClient,
+  client: NodeClient | SecureNodeClient,
   config: Partial<StakingConfig> = {},
 ): StakingManagerService {
   const fullConfig: StakingConfig = { ...DEFAULT_CONFIG, ...config }
+
+  // Get keyId from config or SecureNodeClient
+  const keyId = config.keyId ?? ('keyId' in client ? client.keyId : undefined)
+  let signer: SecureSigner | null = null
+  if (keyId) {
+    signer = createSecureSigner(keyId)
+  }
 
   const state: StakingState = {
     selfStake: 0n,
@@ -281,8 +293,8 @@ export function createStakingManagerService(
   }
 
   async function registerNode(selfStake: bigint): Promise<Hex> {
-    if (!client.walletClient?.account) {
-      throw new Error('Wallet client required')
+    if (!signer) {
+      throw new Error('Signer not configured - provide keyId in config')
     }
 
     const contractAddr = getContractAddress()
@@ -291,10 +303,8 @@ export function createStakingManagerService(
       `[Staking] Registering node with ${formatEther(selfStake)} ETH stake...`,
     )
 
-    const hash = await client.walletClient.writeContract({
-      chain: getChain(client.chainId),
-      account: client.walletClient.account,
-      address: contractAddr,
+    // Encode contract call
+    const data = encodeFunctionData({
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'registerOperator',
       args: [
@@ -312,7 +322,18 @@ export function createStakingManagerService(
           region: fullConfig.region,
         },
       ],
+    })
+
+    // Sign via KMS and broadcast
+    const { signedTransaction, hash } = await signer.signTransaction({
+      to: contractAddr,
+      data,
       value: selfStake,
+      chainId: client.chainId,
+    })
+
+    await client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     const receipt = await client.publicClient.waitForTransactionReceipt({
@@ -321,11 +342,12 @@ export function createStakingManagerService(
     console.log(`[Staking] Node registered in tx: ${receipt.transactionHash}`)
 
     // Get the node ID from contract
+    const signerAddress = await signer.getAddress()
     const nodeId = await client.publicClient.readContract({
       address: contractAddr,
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'operatorNode',
-      args: [client.walletClient.account.address],
+      args: [signerAddress],
     })
 
     fullConfig.nodeId = nodeId
@@ -337,8 +359,8 @@ export function createStakingManagerService(
   }
 
   async function setCommission(bps: number): Promise<Hex> {
-    if (!client.walletClient?.account) {
-      throw new Error('Wallet client required')
+    if (!signer) {
+      throw new Error('Signer not configured - provide keyId in config')
     }
 
     if (bps < 500 || bps > 5000) {
@@ -352,13 +374,20 @@ export function createStakingManagerService(
     console.log(`[Staking] Initiating commission change to ${bps / 100}%...`)
     console.log(`[Staking] Note: 7-day delay before commission takes effect`)
 
-    const hash = await client.walletClient.writeContract({
-      chain: getChain(client.chainId),
-      account: client.walletClient.account,
-      address: contractAddr,
+    const data = encodeFunctionData({
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'initiateCommissionChange',
       args: [BigInt(bps)],
+    })
+
+    const { signedTransaction, hash } = await signer.signTransaction({
+      to: contractAddr,
+      data,
+      chainId: client.chainId,
+    })
+
+    await client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     const receipt = await client.publicClient.waitForTransactionReceipt({
@@ -372,22 +401,29 @@ export function createStakingManagerService(
   }
 
   async function addSelfStake(amount: bigint): Promise<Hex> {
-    if (!client.walletClient?.account) {
-      throw new Error('Wallet client required')
+    if (!signer) {
+      throw new Error('Signer not configured - provide keyId in config')
     }
 
     const contractAddr = getContractAddress()
 
     console.log(`[Staking] Adding ${formatEther(amount)} ETH self-stake...`)
 
-    const hash = await client.walletClient.writeContract({
-      chain: getChain(client.chainId),
-      account: client.walletClient.account,
-      address: contractAddr,
+    const data = encodeFunctionData({
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'addSelfStake',
       args: [],
+    })
+
+    const { signedTransaction, hash } = await signer.signTransaction({
+      to: contractAddr,
+      data,
       value: amount,
+      chainId: client.chainId,
+    })
+
+    await client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     const receipt = await client.publicClient.waitForTransactionReceipt({
@@ -402,8 +438,8 @@ export function createStakingManagerService(
   }
 
   async function claimRewards(): Promise<Hex> {
-    if (!client.walletClient?.account) {
-      throw new Error('Wallet client required')
+    if (!signer) {
+      throw new Error('Signer not configured - provide keyId in config')
     }
 
     if (!fullConfig.nodeId || fullConfig.nodeId === '0x') {
@@ -414,13 +450,20 @@ export function createStakingManagerService(
 
     console.log('[Staking] Claiming rewards...')
 
-    const hash = await client.walletClient.writeContract({
-      chain: getChain(client.chainId),
-      account: client.walletClient.account,
-      address: contractAddr,
+    const data = encodeFunctionData({
       abi: DELEGATED_NODE_STAKING_ABI,
       functionName: 'claimRewards',
       args: [fullConfig.nodeId],
+    })
+
+    const { signedTransaction, hash } = await signer.signTransaction({
+      to: contractAddr,
+      data,
+      chainId: client.chainId,
+    })
+
+    await client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     const receipt = await client.publicClient.waitForTransactionReceipt({

@@ -1,5 +1,4 @@
 import { getExternalRpc } from '@jejunetwork/config'
-import { expectHex } from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
@@ -14,9 +13,15 @@ import {
   type Transport,
   type WalletClient,
 } from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 import { z } from 'zod'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
+
+/**
+ * SECURITY WARNING: Solana signing still uses in-memory keypair.
+ * TODO: Integrate Solana KMS (e.g., Fireblocks, AWS KMS with Solana support)
+ * For now, Solana operations should be disabled in production TEE environments.
+ */
 
 // Client types with generic chain/transport to avoid strict type checking issues
 interface EVMClientPair {
@@ -102,7 +107,13 @@ const JITO_TIP_ACCOUNTS = [
 const HYPERLIQUID_API = 'https://api.hyperliquid.xyz'
 
 export interface ExecutorConfig {
-  evmPrivateKey: Hex
+  /** KMS key ID for EVM signing (secure, no local private keys) */
+  evmKeyId: string
+  /**
+   * @deprecated Solana private key - SECURITY RISK
+   * TODO: Replace with Solana KMS integration (Fireblocks/AWS KMS)
+   * Should be disabled in production TEE environments
+   */
   solanaPrivateKey?: string
   evmRpcUrls: Record<number, string>
   solanaRpcUrl?: string
@@ -149,17 +160,29 @@ function isJupiterQuote(data: unknown): data is JupiterQuote {
 
 export class ArbitrageExecutor {
   private config: ExecutorConfig
-  private evmAccount: PrivateKeyAccount
+  private evmSigner: SecureSigner
+  private evmAddress: Address | null = null // Derived from KMS on init
+  /**
+   * @deprecated Solana keypair in memory - SECURITY RISK
+   * TODO: Replace with Solana KMS integration
+   */
   private solanaKeypair: Keypair | null = null
   private solanaConnection: Connection | null = null
   private evmClients = new Map<number, EVMClientPair>()
 
   constructor(config: ExecutorConfig) {
     this.config = config
-    this.evmAccount = privateKeyToAccount(config.evmPrivateKey)
+    // Use KMS-backed signer for EVM (no local private keys)
+    this.evmSigner = createSecureSigner(config.evmKeyId)
 
-    // Initialize Solana
+    // Initialize Solana - WARNING: Uses in-memory keypair
+    // This should be disabled in production TEE environments
     if (config.solanaPrivateKey) {
+      console.warn(
+        '[ArbitrageExecutor] WARNING: Solana uses in-memory keypair. ' +
+          'This is a security risk in TEE environments. ' +
+          'TODO: Integrate Solana KMS.',
+      )
       const secretKey = Buffer.from(config.solanaPrivateKey, 'base64')
       this.solanaKeypair = Keypair.fromSecretKey(secretKey)
     }
@@ -168,7 +191,7 @@ export class ArbitrageExecutor {
       this.solanaConnection = new Connection(config.solanaRpcUrl, 'confirmed')
     }
 
-    // Initialize EVM clients
+    // Initialize EVM clients (public only - signing via KMS)
     for (const [chainIdStr, rpcUrl] of Object.entries(config.evmRpcUrls)) {
       const chainId = Number(chainIdStr)
       const chainConfig = CHAIN_CONFIGS[chainId]
@@ -179,8 +202,8 @@ export class ArbitrageExecutor {
         transport: http(rpcUrl),
       })
 
+      // Wallet client without account - transactions signed via KMS
       const walletClient: WalletClient<Transport, Chain> = createWalletClient({
-        account: this.evmAccount,
         chain: chainConfig.chain,
         transport: http(rpcUrl),
       })
@@ -190,6 +213,27 @@ export class ArbitrageExecutor {
         wallet: walletClient,
       })
     }
+  }
+
+  /**
+   * Initialize the executor - derives EVM address from KMS
+   * Must be called before any operations
+   */
+  async initialize(): Promise<void> {
+    this.evmAddress = await this.evmSigner.getAddress()
+    console.log(`[ArbitrageExecutor] Initialized with address: ${this.evmAddress}`)
+  }
+
+  /**
+   * Get EVM address (derived from KMS key)
+   */
+  getAddress(): Address {
+    if (!this.evmAddress) {
+      throw new Error(
+        'ArbitrageExecutor not initialized. Call initialize() first.',
+      )
+    }
+    return this.evmAddress
   }
   async executeSolanaEvmArb(opportunity: ArbOpportunity): Promise<{
     success: boolean
@@ -338,7 +382,7 @@ export class ArbitrageExecutor {
       solanaToken.mint,
       bridgeAmount,
       evmChainId,
-      this.evmAccount.address,
+      this.getAddress(),
     )
     console.log(`   ✓ Bridge initiated: ${bridgeTx}`)
 
@@ -398,7 +442,7 @@ export class ArbitrageExecutor {
       address: destToken,
       abi: parseAbi(['function balanceOf(address) view returns (uint256)']),
       functionName: 'balanceOf',
-      args: [this.evmAccount.address],
+      args: [this.getAddress()],
     })
 
     const startTime = Date.now()
@@ -410,7 +454,7 @@ export class ArbitrageExecutor {
         address: destToken,
         abi: parseAbi(['function balanceOf(address) view returns (uint256)']),
         functionName: 'balanceOf',
-        args: [this.evmAccount.address],
+        args: [this.getAddress()],
       })
 
       // Check if balance increased by expected amount (with 1% tolerance)
@@ -822,7 +866,7 @@ export class ArbitrageExecutor {
       return this.getUniswapQuote(chainId, fromToken, toToken, amount)
     }
 
-    const url = `${ONEINCH_SWAP_API}/${chainId}/swap?src=${fromToken}&dst=${toToken}&amount=${amount}&from=${this.evmAccount.address}&slippage=${this.config.maxSlippageBps / 100}&disableEstimate=true`
+    const url = `${ONEINCH_SWAP_API}/${chainId}/swap?src=${fromToken}&dst=${toToken}&amount=${amount}&from=${this.getAddress()}&slippage=${this.config.maxSlippageBps / 100}&disableEstimate=true`
 
     const response = await fetch(url, {
       headers: {
@@ -912,13 +956,15 @@ export class ArbitrageExecutor {
     if (!clients) throw new Error(`Chain ${chainId} not configured`)
 
     if (quote.txData) {
-      // Use 1inch tx data
-      const hash = await clients.wallet.sendTransaction({
-        account: this.evmAccount,
-        chain: clients.wallet.chain,
+      // Use 1inch tx data - sign via KMS and broadcast
+      const chainId = chainConfig?.chain.id ?? 1
+      const { signedTransaction, hash } = await this.evmSigner.signTransaction({
         to: ONEINCH_ROUTER,
         data: quote.txData,
-        value: 0n,
+        chainId,
+      })
+      await clients.public.sendRawTransaction({
+        serializedTransaction: signedTransaction,
       })
 
       await clients.public.waitForTransactionReceipt({ hash })
@@ -960,11 +1006,15 @@ export class ArbitrageExecutor {
       args: [routerAddress, quote.inputAmount],
     })
 
-    const approveHash = await clients.wallet.sendTransaction({
-      account: this.evmAccount,
-      chain: clients.wallet.chain,
-      to: quote.inputToken,
-      data: approveData,
+    // Sign approve tx via KMS
+    const { signedTransaction: signedApprove, hash: approveHash } =
+      await this.evmSigner.signTransaction({
+        to: quote.inputToken,
+        data: approveData,
+        chainId: chainConfig?.chain.id ?? 1,
+      })
+    await clients.public.sendRawTransaction({
+      serializedTransaction: signedApprove,
     })
     await clients.public.waitForTransactionReceipt({ hash: approveHash })
 
@@ -980,7 +1030,7 @@ export class ArbitrageExecutor {
           tokenIn: quote.inputToken,
           tokenOut: quote.outputToken,
           fee: 3000,
-          recipient: this.evmAccount.address,
+          recipient: this.getAddress(),
           amountIn: quote.inputAmount,
           amountOutMinimum: minOut,
           sqrtPriceLimitX96: 0n,
@@ -988,11 +1038,14 @@ export class ArbitrageExecutor {
       ],
     })
 
-    const hash = await clients.wallet.sendTransaction({
-      account: this.evmAccount,
-      chain: clients.wallet.chain,
+    // Sign swap tx via KMS
+    const { signedTransaction, hash } = await this.evmSigner.signTransaction({
       to: routerAddress,
       data: swapData,
+      chainId: chainConfig?.chain.id ?? 1,
+    })
+    await clients.public.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     await clients.public.waitForTransactionReceipt({ hash })
@@ -1145,7 +1198,7 @@ export class ArbitrageExecutor {
         destChainId,
         tokenAddress,
         amount: amount.toString(),
-        recipient: this.evmAccount.address,
+        recipient: this.getAddress(),
       }),
     })
 
@@ -1212,9 +1265,9 @@ export class ArbitrageExecutor {
     // Create the typed data for EIP-712 signing (Hyperliquid format)
     const actionHash = this.hashHyperliquidAction(orderAction, nonce)
 
-    // Sign with EVM account
-    const signature = await this.evmAccount.signMessage({
-      message: { raw: actionHash },
+    // Sign via KMS (no local private keys)
+    const signature = await this.evmSigner.signMessage({
+      message: actionHash,
     })
 
     // Submit to Hyperliquid exchange API
@@ -1329,15 +1382,15 @@ export class ArbitrageExecutor {
       type: 'withdraw3',
       hyperliquidChain: 'Mainnet',
       signatureChainId: '0xa4b1', // Arbitrum chain ID in hex
-      destination: this.evmAccount.address,
+      destination: this.getAddress(),
       amount: (amountUsd * 1e6).toFixed(0), // USDC has 6 decimals
       time: timestamp,
     }
 
-    // Sign the withdrawal
+    // Sign the withdrawal via KMS
     const actionHash = this.hashHyperliquidAction(withdrawAction, nonce)
-    const signature = await this.evmAccount.signMessage({
-      message: { raw: actionHash },
+    const signature = await this.evmSigner.signMessage({
+      message: actionHash,
     })
 
     // Submit withdrawal

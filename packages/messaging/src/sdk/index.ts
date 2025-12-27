@@ -2,6 +2,11 @@
  * Network Messaging SDK
  *
  * Decentralized private messaging for Network L2
+ *
+ * SECURITY NOTE:
+ * For production deployments, use KMS-backed cryptography to protect
+ * private keys from side-channel attacks on TEE enclaves.
+ * See SecureMessagingClientConfig and the kms-crypto module.
  */
 
 // ABIs
@@ -31,6 +36,16 @@ export {
   publicKeyToHex,
   serializeEncryptedMessage,
 } from './crypto'
+// KMS-backed cryptography (secure - keys never in memory)
+export {
+  initializeKMSKeys,
+  type KMSClientConfig,
+  type KMSKeyCurve,
+  type KMSKeyType,
+  RemoteKMSEncryptionProvider,
+  RemoteKMSSigner,
+  warnLocalKeyUsage,
+} from './kms-crypto'
 // Types
 export {
   type Attachment,
@@ -44,6 +59,8 @@ export {
   type GetMessagesRequest,
   type GetMessagesResponse,
   type KeyBundleResponse,
+  type KMSEncryptionProvider,
+  type KMSSigner,
   type Message,
   type MessageEnvelope,
   type MessageEvent,
@@ -59,6 +76,7 @@ export {
   type Reaction,
   type ReadReceiptData,
   type RelayNode,
+  type SecureMessagingClientConfig,
   type SendMessageRequest,
   type SendMessageResponse,
   type SerializedEncryptedMessage,

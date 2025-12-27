@@ -17,8 +17,18 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import { Elysia } from 'elysia'
-import { createEVMClient } from '../clients/evm-client.js'
-import { createSolanaClient } from '../clients/solana-client.js'
+import { createEVMClient, type EVMClient } from '../clients/evm-client.js'
+import {
+  createKMSEVMClient,
+  type KMSEVMClient,
+} from '../clients/kms-evm-client.js'
+import { initializeRemoteKMSSigner } from '../clients/kms-signer-adapter.js'
+import {
+  createKMSSolanaClient,
+  initializeRemoteKMSEd25519Signer,
+  type KMSSolanaClient,
+} from '../clients/kms-solana-client.js'
+import { createSolanaClient, type SolanaClient } from '../clients/solana-client.js'
 import { createTEEBatcher } from '../tee/batcher.js'
 import type {
   ChainId,
@@ -27,7 +37,7 @@ import type {
   SolanaStateCommitment,
   SP1Proof,
 } from '../types/index.js'
-import { TransferStatus, toHash32 } from '../types/index.js'
+import { type Hash32, TransferStatus, toHash32 } from '../types/index.js'
 import {
   BatchProofResponseSchema,
   ConsensusSnapshotSchema,
@@ -94,19 +104,49 @@ export interface RelayerConfig {
   retryDelayMs: number
 }
 
+/**
+ * EVM Chain Configuration
+ *
+ * SECURITY: For production, use kmsConfig instead of privateKey.
+ * Direct privateKey usage is vulnerable to TEE side-channel attacks.
+ */
 export interface EVMChainConfig {
   chainId: ChainId
   rpcUrl: string
   bridgeAddress: string
   lightClientAddress: string
-  privateKey: string
+  /**
+   * @deprecated Use kmsConfig for production - privateKey is vulnerable to side-channel attacks
+   */
+  privateKey?: string
+  /** KMS configuration for secure signing (recommended for production) */
+  kmsConfig?: {
+    endpoint: string
+    keyId: string
+    apiKey?: string
+  }
 }
 
+/**
+ * Solana Chain Configuration
+ *
+ * SECURITY: For production, use kmsConfig instead of keypairPath.
+ * Direct keypair usage is vulnerable to TEE side-channel attacks.
+ */
 export interface SolanaChainConfig {
   rpcUrl: string
   bridgeProgramId: string
   evmLightClientProgramId: string
-  keypairPath: string
+  /**
+   * @deprecated Use kmsConfig for production - keypair files are vulnerable to side-channel attacks
+   */
+  keypairPath?: string
+  /** KMS configuration for secure signing (recommended for production) */
+  kmsConfig?: {
+    endpoint: string
+    keyId: string
+    apiKey?: string
+  }
 }
 
 interface ConsensusSnapshot {
@@ -162,9 +202,18 @@ export class RelayerService {
   private config: RelayerConfig
   private app: Elysia
   private batcher: ReturnType<typeof createTEEBatcher>
-  private evmClients: Map<ChainId, ReturnType<typeof createEVMClient>> =
-    new Map()
-  private solanaClient: ReturnType<typeof createSolanaClient> | null = null
+  /**
+   * EVM clients - can be either direct privateKey clients (dev only) or KMS-backed (production)
+   * SECURITY: For production, use KMS-backed clients to protect against side-channel attacks
+   */
+  private evmClients: Map<ChainId, EVMClient | KMSEVMClient> = new Map()
+  /**
+   * Solana client - can be either keypair-based (dev only) or KMS-backed (production)
+   * SECURITY: For production, use KMS-backed clients to protect against side-channel attacks
+   */
+  private solanaClient: SolanaClient | KMSSolanaClient | null = null
+  /** Track whether we're using secure KMS signing */
+  private usingKMS = false
 
   // State
   private pendingTransfers: Map<string, PendingTransfer> = new Map()
@@ -205,29 +254,128 @@ export class RelayerService {
 
     await this.batcher.initialize()
 
-    for (const chainConfig of this.config.evmChains) {
-      const client = createEVMClient({
-        chainId: chainConfig.chainId,
-        rpcUrl: chainConfig.rpcUrl,
-        privateKey: chainConfig.privateKey as `0x${string}`,
-        bridgeAddress: chainConfig.bridgeAddress as `0x${string}`,
-        lightClientAddress: chainConfig.lightClientAddress as `0x${string}`,
-      })
-      this.evmClients.set(chainConfig.chainId, client)
-      log.info('EVM client initialized', { chainId: chainConfig.chainId })
+    // SECURITY CHECK: Production must use KMS
+    const hasAnyKmsConfig = this.config.evmChains.some((c) => c.kmsConfig) ||
+      this.config.solanaConfig.kmsConfig
+
+    if (isProduction && !hasAnyKmsConfig) {
+      throw new Error(
+        'SECURITY BLOCK: Production relayer MUST use KMS-backed signing.\n\n' +
+        'Using privateKey or keypairPath in production exposes keys to TEE side-channel attacks.\n\n' +
+        'Configure kmsConfig for each chain:\n' +
+        '  evmChains: [{ kmsConfig: { endpoint, keyId, apiKey? } }]\n' +
+        '  solanaConfig: { kmsConfig: { endpoint, keyId, apiKey? } }',
+      )
     }
 
-    const keypair = await this.loadSolanaKeypair()
-    this.solanaClient = createSolanaClient({
-      rpcUrl: this.config.solanaConfig.rpcUrl,
-      commitment: 'confirmed',
-      keypair,
-      bridgeProgramId: new PublicKey(this.config.solanaConfig.bridgeProgramId),
-      evmLightClientProgramId: new PublicKey(
-        this.config.solanaConfig.evmLightClientProgramId,
-      ),
-    })
-    log.info('Solana client initialized')
+    // Initialize EVM clients
+    for (const chainConfig of this.config.evmChains) {
+      let client: EVMClient | KMSEVMClient
+
+      if (chainConfig.kmsConfig) {
+        // KMS-backed client (production-safe)
+        log.info('Initializing KMS-backed EVM client', {
+          chainId: chainConfig.chainId,
+          kmsEndpoint: chainConfig.kmsConfig.endpoint,
+        })
+
+        const kmsSigner = await initializeRemoteKMSSigner(
+          {
+            endpoint: chainConfig.kmsConfig.endpoint,
+            apiKey: chainConfig.kmsConfig.apiKey,
+          },
+          chainConfig.kmsConfig.keyId,
+        )
+
+        client = createKMSEVMClient({
+          chainId: chainConfig.chainId,
+          rpcUrl: chainConfig.rpcUrl,
+          bridgeAddress: chainConfig.bridgeAddress as `0x${string}`,
+          lightClientAddress: chainConfig.lightClientAddress as `0x${string}`,
+          kmsSigner,
+        })
+        this.usingKMS = true
+      } else if (chainConfig.privateKey) {
+        // Direct privateKey client (development only)
+        if (isProduction) {
+          throw new Error(
+            `SECURITY BLOCK: Chain ${chainConfig.chainId} uses privateKey in production.\n` +
+            'Switch to kmsConfig for production deployments.',
+          )
+        }
+        log.warn(
+          'Using direct privateKey - INSECURE, development only',
+          { chainId: chainConfig.chainId },
+        )
+        client = createEVMClient({
+          chainId: chainConfig.chainId,
+          rpcUrl: chainConfig.rpcUrl,
+          privateKey: chainConfig.privateKey as `0x${string}`,
+          bridgeAddress: chainConfig.bridgeAddress as `0x${string}`,
+          lightClientAddress: chainConfig.lightClientAddress as `0x${string}`,
+        })
+      } else {
+        throw new Error(
+          `Chain ${chainConfig.chainId}: No privateKey or kmsConfig provided`,
+        )
+      }
+
+      this.evmClients.set(chainConfig.chainId, client)
+      log.info('EVM client initialized', {
+        chainId: chainConfig.chainId,
+        usingKMS: !!chainConfig.kmsConfig,
+      })
+    }
+
+    // Initialize Solana client
+    if (this.config.solanaConfig.kmsConfig) {
+      // KMS-backed Solana client (production-safe)
+      log.info('Initializing KMS-backed Solana client', {
+        kmsEndpoint: this.config.solanaConfig.kmsConfig.endpoint,
+      })
+
+      const kmsSigner = await initializeRemoteKMSEd25519Signer(
+        {
+          endpoint: this.config.solanaConfig.kmsConfig.endpoint,
+          apiKey: this.config.solanaConfig.kmsConfig.apiKey,
+        },
+        this.config.solanaConfig.kmsConfig.keyId,
+      )
+
+      this.solanaClient = createKMSSolanaClient({
+        rpcUrl: this.config.solanaConfig.rpcUrl,
+        commitment: 'confirmed',
+        bridgeProgramId: new PublicKey(this.config.solanaConfig.bridgeProgramId),
+        evmLightClientProgramId: new PublicKey(
+          this.config.solanaConfig.evmLightClientProgramId,
+        ),
+        kmsSigner,
+      })
+      this.usingKMS = true
+    } else if (this.config.solanaConfig.keypairPath) {
+      // Direct keypair client (development only)
+      if (isProduction) {
+        throw new Error(
+          'SECURITY BLOCK: Solana config uses keypairPath in production.\n' +
+          'Switch to kmsConfig for production deployments.',
+        )
+      }
+      log.warn('Using direct keypair - INSECURE, development only')
+      const keypair = await this.loadSolanaKeypair()
+      this.solanaClient = createSolanaClient({
+        rpcUrl: this.config.solanaConfig.rpcUrl,
+        commitment: 'confirmed',
+        keypair,
+        bridgeProgramId: new PublicKey(this.config.solanaConfig.bridgeProgramId),
+        evmLightClientProgramId: new PublicKey(
+          this.config.solanaConfig.evmLightClientProgramId,
+        ),
+      })
+    } else {
+      throw new Error('Solana config: No keypairPath or kmsConfig provided')
+    }
+
+    log.info('Solana client initialized', { usingKMS: this.usingKMS })
 
     this.startProcessingLoop()
     this.app.listen(this.config.port)
@@ -649,19 +797,8 @@ export class RelayerService {
       const { blockhash } = await connection.getLatestBlockhash()
       tx.recentBlockhash = blockhash
 
-      // Sign and submit the transaction
-      const keypair = this.solanaClient.getKeypair()
-      if (!keypair) {
-        log.error('No keypair available for signing')
-        return
-      }
-
-      const signature = await sendAndConfirmTransaction(
-        connection,
-        tx,
-        [keypair],
-        { commitment: 'confirmed' },
-      )
+      // Sign and submit using the appropriate method based on client type
+      const signature = await this.signAndSendSolanaTransaction(tx)
 
       log.info('Submitted EVM light client update to Solana', {
         slot: update.slot.toString(),
@@ -984,7 +1121,7 @@ export class RelayerService {
           ? BigInt(pending.sourceCommitment.slot)
           : BigInt(0)
 
-      const signature = await this.solanaClient.completeTransfer({
+      const signature = await this.completeSolanaTransfer({
         transferId: transfer.transferId,
         mint: new PublicKey(transfer.token),
         sender: transfer.sender,
@@ -1003,6 +1140,62 @@ export class RelayerService {
         `No client available for destination chain ${transfer.destChain}`,
       )
     }
+  }
+
+  /**
+   * Sign and send a Solana transaction using either KMS or local keypair
+   *
+   * SECURITY: When using KMS, no private key enters this process.
+   */
+  private async signAndSendSolanaTransaction(
+    transaction: Transaction,
+  ): Promise<string> {
+    if (!this.solanaClient) {
+      throw new Error('Solana client not initialized')
+    }
+
+    // Check if it's a KMS-backed client
+    if ('sendTransaction' in this.solanaClient && this.usingKMS) {
+      // KMS-backed client
+      return (this.solanaClient as KMSSolanaClient).sendTransaction(transaction)
+    }
+
+    // Legacy keypair-based client
+    const legacyClient = this.solanaClient as SolanaClient
+    const keypair = legacyClient.getKeypair()
+    if (!keypair) {
+      throw new Error('No keypair available for signing')
+    }
+
+    const connection = legacyClient.getConnection()
+    return sendAndConfirmTransaction(connection, transaction, [keypair], {
+      commitment: 'confirmed',
+    })
+  }
+
+  /**
+   * Complete a Solana transfer using either KMS or local keypair
+   *
+   * SECURITY: When using KMS, no private key enters this process.
+   */
+  private async completeSolanaTransfer(params: {
+    transferId: Hash32
+    mint: PublicKey
+    sender: Uint8Array
+    recipient: PublicKey
+    amount: bigint
+    evmBlockNumber: bigint
+    proof: Uint8Array
+    publicInputs: Uint8Array
+  }): Promise<string> {
+    if (!this.solanaClient) {
+      throw new Error('Solana client not initialized')
+    }
+
+    // For now, both client types use the same completeTransfer logic
+    // The difference is in how the transaction is signed
+    const legacyClient = this.solanaClient as SolanaClient
+    return legacyClient.completeTransfer(params)
   }
 
   private cleanupOldData(): void {
@@ -1059,6 +1252,9 @@ export class RelayerService {
   }
 
   private async loadSolanaKeypair(): Promise<Keypair> {
+    if (!this.config.solanaConfig.keypairPath) {
+      throw new Error('Solana keypairPath not configured')
+    }
     const keypairPath = this.config.solanaConfig.keypairPath.replace(
       '~',
       getHomeDir(),

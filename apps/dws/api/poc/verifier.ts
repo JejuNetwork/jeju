@@ -5,6 +5,7 @@
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/contracts'
 import {
+  type Account,
   type Address,
   type Chain,
   createPublicClient,
@@ -19,6 +20,11 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 import { hashHardwareId, parseQuote, verifyQuote } from './quote-parser'
 import { PoCRegistryClient } from './registry-client'
 import {
@@ -133,13 +139,15 @@ interface VerifierConfig {
 export class PoCVerifier {
   private readonly config: VerifierConfig
   private readonly publicClient
-  private readonly walletClient: WalletClient
-  private readonly account: PrivateKeyAccount
+  private walletClient: WalletClient | KMSWalletClient
+  private account: PrivateKeyAccount | Account
   private readonly registryClient: PoCRegistryClient | null
   private readonly eventListeners = new Set<PoCEventListener>()
+  private initialized = false
 
   constructor(config: VerifierConfig) {
     this.config = config
+    // Initialize with direct key (will be replaced by KMS in initSecure)
     this.account = privateKeyToAccount(config.signerKey)
     const transport = http(config.rpcUrl)
     this.publicClient = createPublicClient({ chain: config.chain, transport })
@@ -151,6 +159,41 @@ export class PoCVerifier {
     this.registryClient = config.registryEndpoint
       ? new PoCRegistryClient({ offChainEndpoints: [config.registryEndpoint] })
       : null
+  }
+
+  /**
+   * Initialize KMS-backed signing for side-channel protection
+   */
+  async initializeSecureSigning(): Promise<void> {
+    if (this.initialized) return
+
+    const kmsKeyId = process.env.POC_VERIFIER_KMS_KEY_ID
+    const ownerAddress = process.env.POC_VERIFIER_OWNER_ADDRESS as
+      | Address
+      | undefined
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (kmsKeyId && ownerAddress) {
+      const kmsAvailable = await isKMSAvailable()
+      if (kmsAvailable) {
+        this.walletClient = await createKMSWalletClient({
+          chain: this.config.chain,
+          rpcUrl: this.config.rpcUrl,
+          kmsKeyId,
+          ownerAddress,
+        })
+        this.account = this.walletClient.account
+        console.log('[PoC Verifier] Using KMS-backed signing (FROST threshold)')
+      } else if (isProduction) {
+        throw new Error('KMS not available for PoC verifier in production')
+      }
+    } else if (isProduction) {
+      console.warn(
+        '[PoC Verifier] Using direct key in production - set POC_VERIFIER_KMS_KEY_ID',
+      )
+    }
+
+    this.initialized = true
   }
 
   async verifyAttestation(

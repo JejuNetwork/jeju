@@ -2,39 +2,57 @@
  * Agent Identity Service
  *
  * Manages agent identity, wallets, and on-chain registration using:
- * - @jejunetwork/kms for key management
+ * - @jejunetwork/kms for key management (SecureSigningService for FROST)
  * - @jejunetwork/auth for OAuth3 identity
  * - Agent0 SDK for on-chain registration
+ *
+ * SECURITY: Uses SecureSigningService for wallet provisioning.
+ * Private keys are NEVER reconstructed in memory.
  *
  * @packageDocumentation
  */
 
-import { getMPCCoordinator } from '@jejunetwork/kms'
+import {
+  getSecureSigningService,
+  type SecureSigningService,
+} from '@jejunetwork/kms'
 import { logger } from '@jejunetwork/shared'
 import type { Address } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { getAgent0Client } from '../agent0/client'
 import { agentRegistry } from '../services/agent-registry.service'
 import { AgentStatus } from '../types/agent-registry'
 
 /**
  * Identity setup options
+ *
+ * SECURITY: Does NOT support passing raw private keys.
+ * All keys are managed via SecureSigningService.
  */
 export interface IdentitySetupOptions {
   /** Skip Agent0 on-chain registration */
   skipAgent0Registration?: boolean
   /** Skip wallet provisioning */
   skipWalletProvisioning?: boolean
-  /** Use existing private key instead of generating new one */
-  existingPrivateKey?: `0x${string}`
+  /**
+   * Use existing key ID from SecureSigningService instead of generating new one
+   * SECURITY: References an MPC key - private key is NEVER reconstructed
+   */
+  existingKeyId?: string
 }
 
 /**
  * Agent identity result
+ *
+ * SECURITY: Contains keyId for MPC-managed signing keys.
  */
 export interface AgentIdentity {
   agentId: string
   walletAddress?: string
+  /**
+   * Key ID for the agent's signing key (managed by SecureSigningService)
+   * SECURITY: References an MPC key - private key is NEVER reconstructed
+   */
+  signingKeyId?: string
   oauth3WalletId?: string
   agent0TokenId?: string
   registrationTxHash?: string
@@ -45,17 +63,26 @@ export interface AgentIdentity {
  * Agent Identity Service
  *
  * Handles the complete identity lifecycle for agents including:
- * - Wallet provisioning via MPC key generation
+ * - Wallet provisioning via MPC key generation (FROST)
  * - On-chain registration via Agent0/ERC-8004
  * - Identity linking and reputation
+ *
+ * SECURITY: All signing operations use FROST threshold signatures.
+ * Private keys are NEVER reconstructed in memory.
  */
 export class AgentIdentityService {
   private identities: Map<string, AgentIdentity> = new Map()
+  private readonly signingService: SecureSigningService
+
+  constructor() {
+    this.signingService = getSecureSigningService()
+  }
 
   /**
    * Set up identity for a new agent
    *
    * Creates wallet, registers on-chain, and links identity.
+   * SECURITY: Uses FROST MPC for wallet provisioning.
    */
   async setupAgentIdentity(
     agentId: string,
@@ -67,14 +94,22 @@ export class AgentIdentityService {
 
     // Provision wallet unless skipped or existing key provided
     if (!options.skipWalletProvisioning) {
-      if (options.existingPrivateKey) {
-        identity.walletAddress = privateKeyToAccount(
-          options.existingPrivateKey,
-        ).address
-        logger.info(`Using existing wallet: ${identity.walletAddress}`)
+      if (options.existingKeyId) {
+        // Use existing MPC key
+        if (!this.signingService.hasKey(options.existingKeyId)) {
+          throw new Error(
+            `Key ${options.existingKeyId} not found in SecureSigningService`,
+          )
+        }
+        identity.walletAddress = this.signingService.getAddress(
+          options.existingKeyId,
+        )
+        identity.signingKeyId = options.existingKeyId
+        logger.info(`Using existing MPC key: ${identity.walletAddress}`)
       } else {
-        const walletAddress = await this.provisionWallet(agentId)
+        const { walletAddress, keyId } = await this.provisionWallet(agentId)
         identity.walletAddress = walletAddress
+        identity.signingKeyId = keyId
       }
     }
 
@@ -145,37 +180,33 @@ export class AgentIdentityService {
   }
 
   /**
-   * Provision wallet via MPC key generation
+   * Provision wallet via FROST MPC key generation
    *
    * Uses FROST threshold MPC to generate a distributed key where
    * the agent never has access to the full private key.
+   *
+   * SECURITY: Private key is NEVER reconstructed in memory.
    */
-  async provisionWallet(agentId: string): Promise<string> {
+  async provisionWallet(
+    agentId: string,
+  ): Promise<{ walletAddress: string; keyId: string }> {
     logger.info(`Provisioning MPC wallet for ${agentId}`)
 
-    const mpcCoordinator = getMPCCoordinator()
+    const keyId = `agent-${agentId}`
 
-    // Get active parties for key generation
-    const activeParties = mpcCoordinator.getActiveParties()
-    if (activeParties.length < 3) {
-      throw new Error('Insufficient active MPC parties for key generation')
-    }
+    // Generate distributed key using FROST via SecureSigningService
+    const keyResult = await this.signingService.generateKey(keyId)
 
-    // Generate distributed key using MPC
-    const partyIds = activeParties.slice(0, 3).map((p) => p.id)
-    const keyGenResult = await mpcCoordinator.generateKey({
-      keyId: `agent-${agentId}`,
-      threshold: 2,
-      totalParties: 3,
-      partyIds,
-      curve: 'secp256k1',
+    logger.info(`Wallet provisioned: ${keyResult.address}`, {
+      keyId,
+      threshold: keyResult.threshold,
+      totalParties: keyResult.totalParties,
     })
 
-    // Derive address from public key
-    const walletAddress = keyGenResult.address
-
-    logger.info(`Wallet provisioned: ${walletAddress}`)
-    return walletAddress
+    return {
+      walletAddress: keyResult.address,
+      keyId,
+    }
   }
 
   /**

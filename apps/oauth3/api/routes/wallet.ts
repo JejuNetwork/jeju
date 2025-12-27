@@ -1,11 +1,14 @@
 /**
  * Wallet authentication routes
+ *
+ * SECURITY: Sessions use ephemeral keys and encrypted PII storage.
  */
 
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig, WalletAuthChallenge } from '../../lib/types'
+import { getEphemeralKey } from '../services/kms'
 import { authCodeState, clientState, sessionState } from '../services/state'
 
 /**
@@ -351,16 +354,19 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
           expiresAt: Date.now() + 5 * 60 * 1000,
         })
 
-        // Create session
+        // Create session with ephemeral key
         const sessionId = crypto.randomUUID()
+        const ephemeralKey = await getEphemeralKey(sessionId)
+
         await sessionState.save({
           sessionId,
           userId,
           provider: 'wallet',
-          address: address,
+          address, // Will be encrypted by sessionState.save()
           createdAt: Date.now(),
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
           metadata: {},
+          ephemeralKeyId: ephemeralKey.keyId,
         })
 
         // Clean up challenge

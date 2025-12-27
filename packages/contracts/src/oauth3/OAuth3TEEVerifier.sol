@@ -4,13 +4,14 @@ pragma solidity ^0.8.33;
 import {IOAuth3TEEVerifier} from "./IOAuth3.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title OAuth3TEEVerifier
  * @notice Verifies TEE attestations from dstack nodes
  * @dev Supports Intel TDX via dstack attestation verification
  */
-contract OAuth3TEEVerifier is IOAuth3TEEVerifier {
+contract OAuth3TEEVerifier is IOAuth3TEEVerifier, ReentrancyGuard {
     using ECDSA for bytes32;
 
     bytes32 public constant DSTACK_PROVIDER = keccak256("DSTACK");
@@ -27,6 +28,8 @@ contract OAuth3TEEVerifier is IOAuth3TEEVerifier {
 
     uint256 public constant MIN_STAKE = 1 ether;
     uint256 public constant ATTESTATION_VALIDITY = 24 hours;
+
+    error ETHTransferFailed();
 
     struct Node {
         bytes32 nodeId;
@@ -126,7 +129,7 @@ contract OAuth3TEEVerifier is IOAuth3TEEVerifier {
         emit NodeRegistered(nodeId, msg.sender, publicKeyHash, block.timestamp);
     }
 
-    function deregisterNode(bytes32 nodeId) external {
+    function deregisterNode(bytes32 nodeId) external nonReentrant {
         Node storage node = nodes[nodeId];
         require(node.operator == msg.sender || msg.sender == owner, "Unauthorized");
         require(node.active, "Node not active");
@@ -144,7 +147,8 @@ contract OAuth3TEEVerifier is IOAuth3TEEVerifier {
         if (node.stake > 0) {
             uint256 stake = node.stake;
             node.stake = 0;
-            payable(node.operator).transfer(stake);
+            (bool success, ) = payable(node.operator).call{value: stake}("");
+            if (!success) revert ETHTransferFailed();
         }
     }
 

@@ -1,11 +1,22 @@
 /**
- * FROST Threshold Signing
+ * FROST Threshold Signing - SECURE THRESHOLD IMPLEMENTATION
  *
  * True threshold ECDSA using FROST (Flexible Round-Optimized Schnorr Threshold).
  * The private key is NEVER reconstructed - each party contributes a partial signature.
  *
+ * ✅ SECURITY PROPERTIES:
+ * - Private key NEVER exists in any single location
+ * - Aggregation only combines partial signatures (no secret reconstruction)
+ * - Resistant to TEE side-channel attacks when parties are on separate hardware
+ * - Each party only ever sees their own secret share
+ *
+ * DEPLOYMENT REQUIREMENTS for side-channel resistance:
+ * - Deploy each party on SEPARATE physical TEE hardware
+ * - Use different cloud providers/regions for geographic distribution
+ * - Ensure threshold (t) is high enough that compromising t-1 parties is infeasible
+ *
  * This implements a simplified FROST-like protocol for secp256k1.
- * For production, use a well-audited library like ZCash's frost-secp256k1.
+ * For production, consider using a well-audited library like ZCash's frost-secp256k1.
  */
 
 import { secp256k1 } from '@noble/curves/secp256k1'
@@ -363,11 +374,60 @@ export function randomScalar(): bigint {
   return mod(BigInt(`0x${bytesToHex(bytes)}`), CURVE_ORDER)
 }
 
+/**
+ * SECURITY NOTICE: Centralized FROST Coordinator
+ *
+ * ⚠️ WARNING: This coordinator stores ALL key shares in a single process.
+ * This is ONLY safe for:
+ *   - Local development (localnet)
+ *   - Testing
+ *
+ * For production (testnet/mainnet), use DistributedFROSTCoordinator which
+ * communicates with remote party endpoints. Each party should run on
+ * SEPARATE physical hardware to resist side-channel attacks.
+ *
+ * A TEE side-channel attack against this centralized coordinator can
+ * extract ALL key shares and reconstruct the private key.
+ */
 export class FROSTCoordinator {
   private cluster: FROSTCluster
   private keyShares: Map<number, FROSTKeyShare> = new Map()
+  private network: 'localnet' | 'testnet' | 'mainnet'
 
-  constructor(clusterId: string, threshold: number, totalParties: number) {
+  constructor(
+    clusterId: string,
+    threshold: number,
+    totalParties: number,
+    options?: {
+      network?: 'localnet' | 'testnet' | 'mainnet'
+      acknowledgeInsecureCentralized?: boolean
+    },
+  ) {
+    // Determine network from options or environment
+    const envNetwork = (typeof process !== 'undefined' && process.env?.NETWORK) ?? 'localnet'
+    this.network = options?.network ?? (envNetwork as 'localnet' | 'testnet' | 'mainnet')
+
+    // SECURITY BLOCK: Prevent centralized coordinator on production networks
+    if (this.network === 'mainnet') {
+      throw new Error(
+        'SECURITY BLOCK: FROSTCoordinator cannot be used on mainnet.\n\n' +
+        'This centralized coordinator stores ALL key shares in a single process.\n' +
+        'A TEE side-channel attack would expose the complete private key.\n\n' +
+        'For mainnet, you MUST use DistributedFROSTCoordinator with parties\n' +
+        'deployed on SEPARATE physical TEE hardware.\n\n' +
+        'See: packages/kms/src/dws-worker/frost-coordinator.ts for the distributed version.',
+      )
+    }
+
+    if (this.network === 'testnet' && !options?.acknowledgeInsecureCentralized) {
+      throw new Error(
+        'SECURITY WARNING: FROSTCoordinator is insecure for testnet.\n\n' +
+        'This centralized coordinator stores ALL key shares in a single process.\n' +
+        'For testnet with real value, use DistributedFROSTCoordinator.\n\n' +
+        'To proceed anyway (testing only), set acknowledgeInsecureCentralized: true',
+      )
+    }
+
     this.cluster = {
       clusterId,
       threshold,

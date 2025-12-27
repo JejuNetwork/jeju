@@ -3,10 +3,13 @@
  *
  * React hooks for Farcaster channel feeds in the Bazaar app.
  * Each entity (coin, item, perp, prediction) has its own channel.
+ *
+ * SECURITY: Posting is done via Warpcast redirect (client-side signing).
+ * Server-side posting would require KMS integration for TEE safety.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Address, Hex } from 'viem'
+import { useQuery } from '@tanstack/react-query'
+import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
 import {
   type BazaarChannel,
@@ -132,61 +135,35 @@ export function useBazaarFeed(options?: { limit?: number; enabled?: boolean }) {
 }
 
 /**
- * Hook for posting to a channel
+ * Hook for getting Warpcast compose URL (safe posting via redirect)
+ *
+ * SECURITY: Uses client-side Warpcast for signing.
+ * Server-side posting would require KMS-backed Farcaster signer.
  */
-export function usePostToChannel(channelUrl: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (params: {
-      text: string
-      fid: number
-      signerPrivateKey: Hex
-      embeds?: string[]
-    }) => {
-      return bazaarMessaging.postToChannel({
+export function useComposeUrl(channelUrl: string) {
+  return {
+    getComposeUrl: (params?: { text?: string; embeds?: string[] }) =>
+      bazaarMessaging.getComposeUrl({
         channelUrl,
-        text: params.text,
-        fid: params.fid,
-        signerPrivateKey: params.signerPrivateKey,
-        embeds: params.embeds,
-      })
-    },
-    onSuccess: () => {
-      // Invalidate the feed cache to refetch
-      queryClient.invalidateQueries({
-        queryKey: ['channel', 'feed', channelUrl],
-      })
-    },
-  })
+        text: params?.text,
+        embeds: params?.embeds,
+      }),
+  }
 }
 
 /**
- * Hook for posting to an entity channel
+ * Hook for getting Warpcast compose URL for entity channel
  */
-export function usePostToEntityChannel(type: BazaarChannelType, id: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (params: {
-      text: string
-      fid: number
-      signerPrivateKey: Hex
-      embeds?: string[]
-    }) => {
-      return bazaarMessaging.postToEntityChannel({
+export function useEntityComposeUrl(type: BazaarChannelType, id: string) {
+  return {
+    getComposeUrl: (params?: { text?: string; embeds?: string[] }) =>
+      bazaarMessaging.getEntityComposeUrl({
         type,
         id,
-        text: params.text,
-        fid: params.fid,
-        signerPrivateKey: params.signerPrivateKey,
-        embeds: params.embeds,
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entity', 'feed', type, id] })
-    },
-  })
+        text: params?.text,
+        embeds: params?.embeds,
+      }),
+  }
 }
 
 /**

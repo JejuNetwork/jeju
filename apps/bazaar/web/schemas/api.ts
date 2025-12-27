@@ -142,3 +142,145 @@ const ABIFunctionSchema = z.object({
 
 export const ABISchema = z.array(ABIFunctionSchema)
 export type ABI = z.infer<typeof ABISchema>
+
+// DWS Response Schemas for integration tests
+
+export const DWSHealthResponseSchema = z.object({
+  status: z.string(),
+  version: z.string().optional(),
+  uptime: z.number().optional(),
+})
+
+export type DWSHealthResponse = z.infer<typeof DWSHealthResponseSchema>
+
+export const DWSWorkerdHealthResponseSchema = z.object({
+  status: z.string(),
+  workersActive: z.number().optional(),
+  instancesTotal: z.number().optional(),
+})
+
+export type DWSWorkerdHealthResponse = z.infer<
+  typeof DWSWorkerdHealthResponseSchema
+>
+
+export const DWSWorkerDeployResponseSchema = z.object({
+  workerId: z.string(),
+  status: z.string().optional(),
+  instances: z.number().optional(),
+  url: z.string().optional(),
+})
+
+export type DWSWorkerDeployResponse = z.infer<
+  typeof DWSWorkerDeployResponseSchema
+>
+
+export const DWSFunctionDeployResponseSchema = z.object({
+  functionId: z.string(),
+  status: z.string().optional(),
+  invokeUrl: z.string().optional(),
+})
+
+export type DWSFunctionDeployResponse = z.infer<
+  typeof DWSFunctionDeployResponseSchema
+>
+
+export const DWSInvokeResponseSchema = z.object({
+  result: z.unknown(),
+  executionTime: z.number().optional(),
+  billingMs: z.number().optional(),
+})
+
+export type DWSInvokeResponse = z.infer<typeof DWSInvokeResponseSchema>
+
+export const AgentCardResponseSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  version: z.string().optional(),
+  skills: z.array(z.string()).optional(),
+  icon: z.string().optional(),
+  url: z.string().optional(),
+})
+
+export type AgentCardResponse = z.infer<typeof AgentCardResponseSchema>
+
+export const A2AServiceInfoResponseSchema = z.object({
+  service: z.string(),
+  version: z.string(),
+  description: z.string().optional(),
+  agentCard: z.string().optional(),
+})
+
+export type A2AServiceInfoResponse = z.infer<
+  typeof A2AServiceInfoResponseSchema
+>
+
+// DWS Response Schemas for integration tests
+
+export const DWSHealthResponseSchema = z.object({
+  status: z.string(),
+  version: z.string().optional(),
+  uptime: z.number().optional(),
+})
+
+export type DWSHealthResponse = z.infer<typeof DWSHealthResponseSchema>
+
+export const DWSWorkerdHealthResponseSchema = z.object({
+  status: z.string(),
+  workersActive: z.number().optional(),
+  instancesTotal: z.number().optional(),
+})
+
+export type DWSWorkerdHealthResponse = z.infer<
+  typeof DWSWorkerdHealthResponseSchema
+>
+
+export const DWSWorkerDeployResponseSchema = z.object({
+  workerId: z.string(),
+  status: z.string().optional(),
+  instances: z.number().optional(),
+  url: z.string().optional(),
+})
+
+export type DWSWorkerDeployResponse = z.infer<
+  typeof DWSWorkerDeployResponseSchema
+>
+
+export const DWSFunctionDeployResponseSchema = z.object({
+  functionId: z.string(),
+  status: z.string().optional(),
+  invokeUrl: z.string().optional(),
+})
+
+export type DWSFunctionDeployResponse = z.infer<
+  typeof DWSFunctionDeployResponseSchema
+>
+
+export const DWSInvokeResponseSchema = z.object({
+  result: z.unknown(),
+  executionTime: z.number().optional(),
+  billingMs: z.number().optional(),
+})
+
+export type DWSInvokeResponse = z.infer<typeof DWSInvokeResponseSchema>
+
+export const AgentCardResponseSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  version: z.string().optional(),
+  skills: z.array(z.string()).optional(),
+  icon: z.string().optional(),
+  url: z.string().optional(),
+})
+
+export type AgentCardResponse = z.infer<typeof AgentCardResponseSchema>
+
+export const A2AServiceInfoResponseSchema = z.object({
+  service: z.string(),
+  version: z.string(),
+  description: z.string().optional(),
+  agentCard: z.string().optional(),
+})
+
+export type A2AServiceInfoResponse = z.infer<
+  typeof A2AServiceInfoResponseSchema
+>

@@ -21,6 +21,11 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 import { PackageManifestSchema } from '../shared/schemas/internal-storage'
 import type { BackendManager } from '../storage/backends'
 import { encodeCidToBytes32 } from './cid-utils'
@@ -299,18 +304,23 @@ export interface PkgRegistryManagerConfig {
   rpcUrl: string
   packageRegistryAddress: Address
   privateKey?: Hex
+  kmsKeyId?: string
+  ownerAddress?: Address
 }
 
 export class PkgRegistryManager {
   private publicClient: PublicClient
-  private walletClient: WalletClient | null = null
+  private walletClient: WalletClient | KMSWalletClient | null = null
   private packageRegistryAddress: Address
   private backend: BackendManager
   private manifestCache: Map<string, PackageManifest> = new Map()
   private cidMap: Map<Hex, string> = new Map() // bytes32 hash -> original CID string
+  private config: PkgRegistryManagerConfig
+  private initialized = false
 
   constructor(config: PkgRegistryManagerConfig, backend: BackendManager) {
     this.backend = backend
+    this.config = config
     this.packageRegistryAddress = config.packageRegistryAddress
 
     const chain = {
@@ -325,6 +335,7 @@ export class PkgRegistryManager {
       transport: http(config.rpcUrl),
     })
 
+    // Initialize with direct key if provided (will be replaced by KMS)
     if (config.privateKey) {
       const account = privateKeyToAccount(config.privateKey)
       this.walletClient = createWalletClient({
@@ -333,6 +344,39 @@ export class PkgRegistryManager {
         transport: http(config.rpcUrl),
       })
     }
+  }
+
+  /**
+   * Initialize KMS-backed signing for side-channel protection
+   */
+  async initializeSecureSigning(): Promise<void> {
+    if (this.initialized) return
+
+    const { kmsKeyId, ownerAddress, rpcUrl } = this.config
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (kmsKeyId && ownerAddress) {
+      const kmsAvailable = await isKMSAvailable()
+      if (kmsAvailable) {
+        const chain = {
+          ...foundry,
+          rpcUrls: { default: { http: [rpcUrl] } },
+        }
+        this.walletClient = await createKMSWalletClient({
+          chain,
+          rpcUrl,
+          kmsKeyId,
+          ownerAddress,
+        })
+        console.log('[PkgRegistry] Using KMS-backed signing')
+      } else if (isProduction) {
+        throw new Error('KMS not available for package registry in production')
+      }
+    } else if (isProduction && !this.walletClient) {
+      console.warn('[PkgRegistry] No wallet configured in production')
+    }
+
+    this.initialized = true
   }
 
   /**

@@ -6,10 +6,18 @@
  */
 
 import { Database } from 'bun:sqlite'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import FACTORY_SCHEMA from './schema'
+import {
+  clearEncryptionKey,
+  isEncryptionEnabled,
+  isFileEncrypted,
+  loadEncryptedDatabase,
+  saveEncryptedDatabase,
+} from './encryption'
 
 // Schemas for row validation
 const BountyRowSchema = z.object({
@@ -264,6 +272,7 @@ export type LeaderboardRow = z.infer<typeof LeaderboardRowSchema>
 let db: Database | null = null
 const DATA_DIR = process.env.FACTORY_DATA_DIR || join(process.cwd(), 'data')
 const DB_PATH = join(DATA_DIR, 'factory.sqlite')
+const DB_TEMP_PATH = join(DATA_DIR, 'factory.sqlite.tmp')
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) {
@@ -271,6 +280,34 @@ function ensureDataDir() {
   }
 }
 
+/** Initialize database with encryption support (async) */
+export async function initDB(): Promise<Database> {
+  if (db) return db
+
+  ensureDataDir()
+
+  // Handle encrypted database file
+  if (isEncryptionEnabled() && existsSync(DB_PATH) && isFileEncrypted(DB_PATH)) {
+    const decrypted = await loadEncryptedDatabase(DB_PATH)
+    if (decrypted) {
+      writeFileSync(DB_TEMP_PATH, decrypted)
+      db = new Database(DB_TEMP_PATH)
+      console.log('[db] Loaded encrypted database')
+    }
+  }
+
+  if (!db) {
+    db = new Database(DB_PATH)
+  }
+
+  db.exec('PRAGMA journal_mode = WAL')
+  db.exec('PRAGMA foreign_keys = ON')
+  db.exec(FACTORY_SCHEMA)
+
+  return db
+}
+
+/** Get database (sync - call initDB first for encryption support) */
 export function getDB(): Database {
   if (db) return db
 
@@ -278,14 +315,38 @@ export function getDB(): Database {
   db = new Database(DB_PATH)
   db.exec('PRAGMA journal_mode = WAL')
   db.exec('PRAGMA foreign_keys = ON')
-
-  // Run schema
   db.exec(FACTORY_SCHEMA)
 
   return db
 }
 
-export function closeDB() {
+/** Close database and encrypt if enabled (async) */
+export async function closeDB(): Promise<void> {
+  if (!db) return
+
+  db.close()
+  db = null
+
+  // Encrypt the database on close
+  if (isEncryptionEnabled()) {
+    const sourcePath = existsSync(DB_TEMP_PATH) ? DB_TEMP_PATH : DB_PATH
+    const data = readFileSync(sourcePath)
+    await saveEncryptedDatabase(data, DB_PATH)
+
+    // Clean up temp file
+    if (existsSync(DB_TEMP_PATH)) {
+      const zeros = Buffer.alloc(data.length, 0)
+      writeFileSync(DB_TEMP_PATH, zeros)
+      require('node:fs').unlinkSync(DB_TEMP_PATH)
+    }
+
+    clearEncryptionKey()
+    console.log('[db] Database encrypted and saved')
+  }
+}
+
+/** Sync close (no encryption) */
+export function closeDBSync() {
   if (db) {
     db.close()
     db = null
@@ -2286,7 +2347,9 @@ export function createPackageToken(
 ): { row: PackageTokenRow; plainToken: string } {
   const db = getDB()
   const id = generateId('token')
-  const plainToken = `pkg_${id}_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+  // Use cryptographically secure random bytes for token generation
+  const randomPart = randomBytes(24).toString('base64url')
+  const plainToken = `pkg_${id}_${randomPart}`
   const now = Date.now()
 
   // Hash the token using SHA-256

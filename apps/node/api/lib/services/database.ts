@@ -14,13 +14,13 @@ import {
   type DatabaseInfo,
   type ExecResult,
   getCQL,
-  type QueryParam,
   type QueryResult,
 } from '@jejunetwork/db'
-import type { Address, Hex } from 'viem'
+import type { Address } from 'viem'
 import { z } from 'zod'
 import { DATABASE_PROVIDER_ABI } from '../abis'
 import { getChain, type NodeClient } from '../contracts'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 // Configuration schema
 const DatabaseServiceConfigSchema = z.object({
@@ -28,8 +28,8 @@ const DatabaseServiceConfigSchema = z.object({
   blockProducerEndpoint: z.string().url(),
   /** CQL miner endpoint (this node's endpoint) */
   minerEndpoint: z.string().url(),
-  /** Private key for signing database operations */
-  privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  /** KMS key ID for secure signing (no raw private keys) */
+  keyId: z.string().min(1),
   /** Storage capacity in GB */
   capacityGB: z.number().positive(),
   /** Price per GB per month in wei */
@@ -115,6 +115,7 @@ export class DatabaseService {
   private nodeClient: NodeClient
   private cqlClient: CQLClient | null = null
   private config: DatabaseServiceConfig | null = null
+  private signer: SecureSigner | null = null
   private isRunning = false
   private queryCount = 0
   private queryLatencies: number[] = []
@@ -125,15 +126,23 @@ export class DatabaseService {
   }
 
   /**
-   * Initialize the CQL client connection
+   * Initialize the CQL client connection with KMS-backed signing
+   *
+   * SECURITY: No private keys in memory. All signing via KMS MPC.
    */
   async initialize(config: DatabaseServiceConfig): Promise<void> {
     this.config = validateDatabaseServiceConfig(config)
 
+    // Create secure signer for KMS-backed signing
+    this.signer = createSecureSigner(this.config.keyId)
+
+    // CQL client uses KMS for signing via secure signer
+    // The CQL package should be updated to accept a signer interface
+    // For now, we pass the keyId and let CQL handle KMS integration
     const cqlConfig: CQLConfig = {
       blockProducerEndpoint: this.config.blockProducerEndpoint,
       minerEndpoint: this.config.minerEndpoint,
-      privateKey: this.config.privateKey as Hex,
+      keyId: this.config.keyId, // KMS key ID instead of raw private key
       timeout: this.config.queryTimeoutMs,
     }
 
@@ -173,21 +182,22 @@ export class DatabaseService {
 
   /**
    * Register as a database provider on-chain
+   *
+   * SECURITY: Transaction signed via KMS MPC, no local private keys
    */
   async register(config: DatabaseServiceConfig): Promise<string> {
     const validatedConfig = validateDatabaseServiceConfig(config)
 
-    if (!this.nodeClient.walletClient?.account) {
-      throw new Error('Wallet not connected')
+    if (!this.signer) {
+      throw new Error('Service not initialized - call initialize() first')
     }
 
     const capacityBytes =
       BigInt(validatedConfig.capacityGB) * 1024n * 1024n * 1024n
 
-    const hash = await this.nodeClient.walletClient.writeContract({
-      chain: getChain(this.nodeClient.chainId),
-      account: this.nodeClient.walletClient.account,
-      address: this.nodeClient.addresses.databaseProvider,
+    // Encode contract call
+    const { encodeFunctionData } = await import('viem')
+    const data = encodeFunctionData({
       abi: DATABASE_PROVIDER_ABI,
       functionName: 'registerProvider',
       args: [
@@ -195,7 +205,19 @@ export class DatabaseService {
         capacityBytes,
         validatedConfig.pricePerGBMonth,
       ],
+    })
+
+    // Sign transaction via KMS and broadcast
+    const { signedTransaction, hash } = await this.signer.signTransaction({
+      to: this.nodeClient.addresses.databaseProvider,
+      data,
       value: validatedConfig.stakeAmount,
+      chainId: this.nodeClient.chainId,
+    })
+
+    // Broadcast the signed transaction
+    await this.nodeClient.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     return hash
@@ -418,19 +440,32 @@ export class DatabaseService {
 
   /**
    * Claim pending rewards from database operations
+   *
+   * SECURITY: Transaction signed via KMS MPC, no local private keys
    */
   async claimRewards(): Promise<string> {
-    if (!this.nodeClient.walletClient?.account) {
-      throw new Error('Wallet not connected')
+    if (!this.signer) {
+      throw new Error('Service not initialized - call initialize() first')
     }
 
-    const hash = await this.nodeClient.walletClient.writeContract({
-      chain: getChain(this.nodeClient.chainId),
-      account: this.nodeClient.walletClient.account,
-      address: this.nodeClient.addresses.databaseProvider,
+    // Encode contract call
+    const { encodeFunctionData } = await import('viem')
+    const data = encodeFunctionData({
       abi: DATABASE_PROVIDER_ABI,
       functionName: 'claimRewards',
       args: [],
+    })
+
+    // Sign transaction via KMS and broadcast
+    const { signedTransaction, hash } = await this.signer.signTransaction({
+      to: this.nodeClient.addresses.databaseProvider,
+      data,
+      chainId: this.nodeClient.chainId,
+    })
+
+    // Broadcast the signed transaction
+    await this.nodeClient.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     return hash

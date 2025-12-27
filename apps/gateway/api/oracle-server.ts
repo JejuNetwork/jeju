@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 import { getCurrentNetwork } from '@jejunetwork/config'
-import type { NetworkType, OracleNodeConfig } from '@jejunetwork/types'
+import type { NetworkType } from '@jejunetwork/types'
 import {
   createConfig,
   MetricsExporter,
   OracleNode,
+  type SecureOracleNodeConfig,
   validateConfig,
 } from './oracle'
 
@@ -20,14 +21,19 @@ Options:
   --help, -h              Show this help
 
 Environment:
-  OPERATOR_PRIVATE_KEY    Operator wallet key (required)
-  WORKER_PRIVATE_KEY      Worker wallet key (required)
-  JEJU_NETWORK            Network override
-  BASE_SEPOLIA_RPC_URL    Testnet RPC
-  BASE_MAINNET_RPC_URL    Mainnet RPC
+  ORACLE_OPERATOR_SERVICE_ID   KMS service ID for operator (default: oracle-operator)
+  ORACLE_WORKER_SERVICE_ID     KMS service ID for worker (default: oracle-worker)
+  KMS_SERVICE_URL              KMS API endpoint
+  KMS_SIGNING_MODE             Signing mode: mpc, tee, or local-dev
+  JEJU_NETWORK                 Network override
+  BASE_SEPOLIA_RPC_URL         Testnet RPC
+  BASE_MAINNET_RPC_URL         Mainnet RPC
+
+SECURITY: Private keys are managed by the KMS service (MPC or TEE).
+          Keys are never loaded into this process.
 
 Example:
-  OPERATOR_PRIVATE_KEY=0x... WORKER_PRIVATE_KEY=0x... bun run src/oracle-server.ts --network=testnet
+  bun run src/oracle-server.ts --network=testnet
 `
 
 function parseArgs(): {
@@ -71,7 +77,7 @@ async function main(): Promise<void> {
   console.log()
 
   // Load and validate configuration
-  let config: OracleNodeConfig
+  let config: SecureOracleNodeConfig
   try {
     config = await createConfig(network)
     config.metricsPort = metricsPort

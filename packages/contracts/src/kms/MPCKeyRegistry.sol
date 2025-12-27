@@ -21,6 +21,8 @@ contract MPCKeyRegistry is Ownable, AccessControl, ReentrancyGuard {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
+    error ETHTransferFailed();
+
     enum AccessType {
         OPEN, // Anyone can access
         OWNER_ONLY, // Only key owner
@@ -435,6 +437,7 @@ contract MPCKeyRegistry is Ownable, AccessControl, ReentrancyGuard {
     }
 
     function withdrawSlashedStake(address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        payable(to).transfer(amount);
+        (bool success, ) = payable(to).call{value: amount}("");
+        if (!success) revert ETHTransferFailed();
     }
 }

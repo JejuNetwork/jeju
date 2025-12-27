@@ -1,5 +1,34 @@
 /**
  * @jejunetwork/kms - Key Management Types
+ *
+ * ## Production Security Recommendations
+ *
+ * ### Key Hierarchy
+ * 1. **Master Keys**: Use HSM (AWS CloudHSM, Azure KeyVault, YubiHSM)
+ *    - Never export master keys from hardware
+ *    - Configure HSM_PROVIDER, HSM_ENDPOINT in production
+ *
+ * 2. **Signing Keys**: Use MPC/FROST threshold signing
+ *    - Private key NEVER reconstructed in any single process
+ *    - Requires 2-of-3 or 3-of-5 threshold agreement
+ *    - Set KMS_ENDPOINT, KMS_KEY_ID in production
+ *
+ * 3. **TEE Protection**: Hardware attestation required
+ *    - Set TEE_ENDPOINT to a verified SGX/SEV/Nitro enclave
+ *    - Local encrypted mode DISABLED in production
+ *
+ * ### Side-Channel Attack Mitigation
+ * - No raw private keys in application memory
+ * - PBKDF2 with 100k iterations for key derivation
+ * - Constant-time comparison for sensitive values
+ * - Memory zeroing after key operations
+ *
+ * ### Required Environment Variables (Production)
+ * - KMS_ENDPOINT: URL to KMS service
+ * - KMS_KEY_ID: Key identifier for signing operations
+ * - TEE_ENDPOINT: URL to hardware TEE service
+ * - HSM_PROVIDER: One of aws-cloudhsm, azure-keyvault, hashicorp-vault, yubihsm
+ * - HSM_ENDPOINT: URL to HSM service
  */
 
 import type { TEEAttestation as TEEAttestationType } from '@jejunetwork/types'
@@ -18,9 +47,11 @@ export {
   TEEAttestationVerificationResultSchema,
   TEEKeyInfoSchema,
   TEENodeInfoSchema,
-  TEEPlatform as TEEPlatformEnum,
   TEEPlatformSchema,
 } from '@jejunetwork/types'
+// Re-export TEEPlatform const (value export requires import + re-export pattern)
+import { TEEPlatform as TEEPlatformConst } from '@jejunetwork/types'
+export { TEEPlatformConst as TEEPlatformEnum }
 
 export const KMSProviderType = {
   ENCRYPTION: 'encryption',

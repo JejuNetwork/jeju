@@ -20,6 +20,7 @@ import type {
   MemoryEntry,
   SearchResult,
 } from '../../lib/types'
+import type { KMSSigner } from './kms-signer'
 
 /** Agent registration data from IdentityRegistry contract */
 interface AgentRegistration {
@@ -69,7 +70,15 @@ export interface AgentSDKConfig {
   storage: CrucibleStorage
   compute: CrucibleCompute
   publicClient: PublicClient
+  /**
+   * @deprecated Use kmsSigner for production. walletClient only for localnet.
+   */
   walletClient?: WalletClient
+  /**
+   * KMS-backed signer for threshold signing (production).
+   * When provided, all write operations use KMS instead of walletClient.
+   */
+  kmsSigner?: KMSSigner
   logger?: Logger
 }
 
@@ -79,6 +88,7 @@ export class AgentSDK {
   private compute: CrucibleCompute
   private publicClient: PublicClient
   private walletClient?: WalletClient
+  private kmsSigner?: KMSSigner
   private log: Logger
 
   constructor(sdkConfig: AgentSDKConfig) {
@@ -87,7 +97,45 @@ export class AgentSDK {
     this.compute = sdkConfig.compute
     this.publicClient = sdkConfig.publicClient
     this.walletClient = sdkConfig.walletClient
+    this.kmsSigner = sdkConfig.kmsSigner
     this.log = sdkConfig.logger ?? createLogger('AgentSDK')
+  }
+
+  /**
+   * Check if write operations are available (KMS or wallet configured)
+   */
+  canWrite(): boolean {
+    return !!(this.kmsSigner?.isInitialized() || this.walletClient)
+  }
+
+  /**
+   * Execute a contract write using KMS or wallet
+   */
+  private async executeWrite(params: {
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args?: readonly unknown[]
+    value?: bigint
+  }): Promise<`0x${string}`> {
+    // Prefer KMS signer if available
+    if (this.kmsSigner?.isInitialized()) {
+      this.log.debug('Executing write via KMS', { functionName: params.functionName })
+      return this.kmsSigner.signContractWrite(params)
+    }
+
+    // Fallback to wallet client (localnet only)
+    if (this.walletClient) {
+      this.log.debug('Executing write via wallet', { functionName: params.functionName })
+      const account = expect(this.walletClient.account, 'Wallet account required')
+      const { request } = await this.publicClient.simulateContract({
+        ...params,
+        account,
+      })
+      return this.walletClient.writeContract(request)
+    }
+
+    throw new Error('No signer available - configure KMS or wallet')
   }
 
   async registerAgent(
@@ -102,8 +150,9 @@ export class AgentSDK {
     characterCid: string
     stateCid: string
   }> {
-    if (!this.walletClient)
-      throw new Error('Wallet client required for registration')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for registration (KMS or wallet)')
+    }
 
     this.log.info('Registering agent', {
       name: character.name,
@@ -117,18 +166,12 @@ export class AgentSDK {
 
     this.log.debug('Stored character and state', { characterCid, stateCid })
 
-    const { request } = await this.publicClient.simulateContract({
+    const txHash = await this.executeWrite({
       address: this.config.contracts.identityRegistry,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'register',
       args: [tokenUri],
-      account: expect(
-        this.walletClient.account,
-        'Wallet client account is required',
-      ),
     })
-
-    const txHash = await this.walletClient.writeContract(request)
     this.log.debug('Registration tx submitted', { txHash })
 
     const receipt = await this.publicClient.waitForTransactionReceipt({
@@ -161,7 +204,9 @@ export class AgentSDK {
     agentId: bigint,
     initialFunding?: bigint,
   ): Promise<Address> {
-    expect(this.walletClient, 'Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for vault creation (KMS or wallet)')
+    }
     expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
 
     const funding = initialFunding ?? parseEther('0.01')
@@ -171,18 +216,13 @@ export class AgentSDK {
       funding: funding.toString(),
     })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    const txHash = await this.executeWrite({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'createVault',
       args: [agentId],
       value: funding,
-      account,
     })
-
-    const txHash = await wallet.writeContract(request)
     await this.publicClient.waitForTransactionReceipt({ hash: txHash })
 
     const vaultAddress = (await this.publicClient.readContract({
@@ -303,7 +343,9 @@ export class AgentSDK {
     agentId: bigint,
     updates: Partial<AgentState>,
   ): Promise<{ state: AgentState; cid: string }> {
-    if (!this.walletClient) throw new Error('Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for state update (KMS or wallet)')
+    }
 
     this.log.info('Updating agent state', { agentId: agentId.toString() })
 
@@ -318,17 +360,12 @@ export class AgentSDK {
 
     const newTokenUri = `ipfs://${agent.characterCid}#state=${cid}`
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.identityRegistry,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setAgentUri',
       args: [agentId, newTokenUri],
-      account,
     })
-
-    await this.walletClient.writeContract(request)
     this.log.info('State updated', {
       agentId: agentId.toString(),
       newStateCid: cid,
@@ -391,18 +428,13 @@ export class AgentSDK {
       amount: amount.toString(),
     })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    const txHash = await this.executeWrite({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'deposit',
       args: [agentId],
       value: amount,
-      account,
     })
-
-    const txHash = await this.walletClient.writeContract(request)
     await this.publicClient.waitForTransactionReceipt({ hash: txHash })
 
     this.log.info('Vault funded', { agentId: agentId.toString(), txHash })
@@ -410,7 +442,9 @@ export class AgentSDK {
   }
 
   async withdrawFromVault(agentId: bigint, amount: bigint): Promise<string> {
-    expect(this.walletClient, 'Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for withdrawal (KMS or wallet)')
+    }
     expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expectTrue(amount > 0n, 'Amount must be greater than 0')
 
@@ -419,17 +453,12 @@ export class AgentSDK {
       amount: amount.toString(),
     })
 
-    const wallet = expect(this.walletClient, 'Wallet client is required')
-    const account = expect(wallet.account, 'Wallet client account is required')
-    const { request } = await this.publicClient.simulateContract({
+    const txHash = await this.executeWrite({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'withdraw',
       args: [agentId, amount],
-      account,
     })
-
-    const txHash = await wallet.writeContract(request)
     await this.publicClient.waitForTransactionReceipt({ hash: txHash })
 
     this.log.info('Withdrawal complete', {
@@ -440,20 +469,16 @@ export class AgentSDK {
   }
 
   async setSpendLimit(agentId: bigint, limit: bigint): Promise<void> {
-    if (!this.walletClient) throw new Error('Wallet client required')
+    if (!this.canWrite()) {
+      throw new Error('Signer required for spend limit (KMS or wallet)')
+    }
 
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'setSpendLimit',
       args: [agentId, limit],
-      account: expect(
-        this.walletClient.account,
-        'Wallet client account is required',
-      ),
     })
-
-    await this.walletClient.writeContract(request)
     this.log.info('Spend limit set', {
       agentId: agentId.toString(),
       limit: limit.toString(),

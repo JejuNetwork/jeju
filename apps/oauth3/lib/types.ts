@@ -20,16 +20,41 @@ export type AuthProvider = (typeof AuthProvider)[keyof typeof AuthProvider]
 
 // ============ Session Types ============
 
+/** Encrypted PII data stored separately from session */
+export interface EncryptedSessionPII {
+  /** Encrypted ciphertext containing address, email, fid */
+  ciphertext: string
+  /** Initialization vector */
+  iv: string
+  /** KMS key ID used for encryption */
+  keyId: string
+  /** When data was encrypted */
+  encryptedAt: number
+}
+
 export interface AuthSession {
   sessionId: string
   userId: string
   provider: AuthProvider
+  /**
+   * @deprecated Use encryptedPII instead. Plain PII is insecure.
+   */
   address?: Address
+  /**
+   * @deprecated Use encryptedPII instead.
+   */
   fid?: number
+  /**
+   * @deprecated Use encryptedPII instead.
+   */
   email?: string
+  /** Encrypted PII (address, email, fid) */
+  encryptedPII?: EncryptedSessionPII
   createdAt: number
   expiresAt: number
   metadata: Record<string, string>
+  /** Ephemeral key ID for this session */
+  ephemeralKeyId?: string
 }
 
 // ============ OAuth Flow Types ============
@@ -161,9 +186,27 @@ export interface ClientModerationInfo {
   banTxHash?: Hex
 }
 
+/** Hashed client secret for secure storage */
+export interface HashedClientSecret {
+  /** Argon2id/PBKDF2 hash of the secret */
+  hash: string
+  /** Per-client random salt */
+  salt: string
+  /** Hash algorithm used */
+  algorithm: 'argon2id' | 'pbkdf2'
+  /** Schema version for migrations */
+  version: number
+}
+
 export interface RegisteredClient {
   clientId: string
+  /**
+   * @deprecated Use clientSecretHash instead. Plain secrets are insecure.
+   * Only present for migration purposes.
+   */
   clientSecret?: Hex
+  /** Hashed client secret (secure storage) */
+  clientSecretHash?: HashedClientSecret
   name: string
   redirectUris: string[]
   allowedProviders: AuthProvider[]
@@ -200,6 +243,29 @@ export const MIN_REPUTATION_SCORE = 3000 // 30%
 /** Report stake required to file a report (in wei) */
 export const REPORT_STAKE_AMOUNT = 1n * 10n ** 18n // 1 JEJU
 
+// ============ Sealed OAuth Secrets ============
+
+/** Sealed secret that can only be decrypted inside verified TEE */
+export interface SealedSecret {
+  /** AES-GCM encrypted ciphertext */
+  ciphertext: string
+  /** Initialization vector */
+  iv: string
+  /** Authentication tag */
+  tag: string
+  /** When secret was sealed */
+  sealedAt: number
+}
+
+/** OAuth provider configuration with sealed secrets */
+export interface SealedOAuthProvider {
+  clientId: string
+  /** Sealed client secret - requires TEE attestation to decrypt */
+  sealedSecret: SealedSecret
+  redirectUri: string
+  scopes: string[]
+}
+
 // ============ Config ============
 
 export interface AuthConfig {
@@ -207,7 +273,19 @@ export interface AuthConfig {
   mpcRegistryAddress: Address
   identityRegistryAddress: Address
   serviceAgentId: string
+  /**
+   * @deprecated Use KMS-backed signing instead.
+   * This field will be removed in favor of MPC threshold signing.
+   */
   jwtSecret: string
+  /** MPC key ID for JWT signing (replaces jwtSecret) */
+  jwtSigningKeyId?: string
+  /** MPC signer address for JWT verification */
+  jwtSignerAddress?: Address
   sessionDuration: number
   allowedOrigins: string[]
+  /** Chain ID for KMS access policies */
+  chainId?: string
+  /** Whether running in dev mode (no MPC) */
+  devMode?: boolean
 }

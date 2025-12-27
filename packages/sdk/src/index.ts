@@ -84,4 +84,6 @@ export * from './vpn'
 export * from './vpn-module'
 // Wallet utilities
 export * from './wallet'
+// KMS-backed secure wallet (recommended for production/TEE environments)
+export * from './kms-wallet'
 export * from './work'

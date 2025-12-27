@@ -4,19 +4,16 @@ import {
   getMainnetChain,
   getTestnetChain,
 } from '@jejunetwork/shared'
-import { expectAddress, expectHex, ZERO_ADDRESS } from '@jejunetwork/types'
+import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
   createPublicClient,
-  createWalletClient,
-  type Hex,
   http,
   isAddress,
   type PublicClient,
-  type WalletClient,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { createSecureSigner, type SecureSigner } from './secure-signer'
 
 /** Safely get contract address from config, with env var override */
 function safeGetAddress(
@@ -274,19 +271,79 @@ export function getChain(chainId: number): Chain {
   }
 }
 
-export interface NodeClient {
+/**
+ * Secure Node Client - Uses KMS for all signing operations
+ *
+ * SECURITY: No private keys are stored in memory.
+ * All signing delegated to KMS MPC threshold signatures.
+ */
+export interface SecureNodeClient {
   publicClient: PublicClient
-  walletClient: WalletClient | null
+  signer: SecureSigner
   addresses: ContractAddresses
   chainId: number
+  chain: Chain
+  /** KMS key ID for this node */
+  keyId: string
+  /** Wallet address derived from KMS key */
+  walletAddress: Address | null
   // Optional stake tracking for sequencer eligibility
   stake?: bigint
 }
 
+/**
+ * @deprecated Use createSecureNodeClient instead - it uses KMS for secure signing
+ */
+export interface NodeClient {
+  publicClient: PublicClient
+  /** @deprecated walletClient exposes private keys - use SecureNodeClient.signer instead */
+  walletClient: null
+  addresses: ContractAddresses
+  chainId: number
+  stake?: bigint
+}
+
+/**
+ * Create a secure node client with KMS-backed signing
+ *
+ * SECURITY PROPERTIES:
+ * - No private keys in memory
+ * - All signing via KMS MPC (threshold signatures)
+ * - TEE attestation required for signing operations
+ */
+export function createSecureNodeClient(
+  rpcUrl: string,
+  chainId: number,
+  keyId: string,
+): SecureNodeClient {
+  const chain = getChain(chainId)
+
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  })
+
+  const signer = createSecureSigner(keyId)
+  const addresses = getContractAddresses(chainId)
+
+  return {
+    publicClient,
+    signer,
+    addresses,
+    chainId,
+    chain,
+    keyId,
+    walletAddress: null, // Populated lazily via signer.getAddress()
+  }
+}
+
+/**
+ * @deprecated Use createSecureNodeClient instead
+ * This function is kept for backwards compatibility during migration
+ */
 export function createNodeClient(
   rpcUrl: string,
   chainId: number,
-  privateKey?: Hex,
 ): NodeClient {
   const chain = getChain(chainId)
 
@@ -295,22 +352,11 @@ export function createNodeClient(
     transport: http(rpcUrl),
   })
 
-  let walletClient: WalletClient | null = null
-  if (privateKey) {
-    const validatedKey = expectHex(privateKey, 'privateKey')
-    const account = privateKeyToAccount(validatedKey)
-    walletClient = createWalletClient({
-      account,
-      chain,
-      transport: http(rpcUrl),
-    })
-  }
-
   const addresses = getContractAddresses(chainId)
 
   return {
     publicClient,
-    walletClient,
+    walletClient: null,
     addresses,
     chainId,
   }

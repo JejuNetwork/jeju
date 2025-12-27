@@ -1,6 +1,19 @@
 /**
  * Wallet utilities for network SDK
  * Supports both EOA and ERC-4337 Smart Accounts
+ *
+ * ⚠️ SECURITY WARNING FOR TEE/PRODUCTION ENVIRONMENTS ⚠️
+ *
+ * This wallet implementation handles private keys in memory.
+ * For production deployments, especially in TEE environments where
+ * side-channel attacks are possible, use createKMSWallet() instead.
+ *
+ * KMS-backed wallets:
+ * - Never expose private keys in process memory
+ * - Use MPC (2-of-3 or 3-of-5) threshold signing
+ * - No single party ever has the complete key
+ *
+ * @see createKMSWallet in './kms-wallet' for secure signing
  */
 
 import type { NetworkType } from '@jejunetwork/types'
@@ -26,6 +39,21 @@ import {
   privateKeyToAccount,
 } from 'viem/accounts'
 import { getChainConfig, getContract, getServicesConfig } from './config'
+
+/**
+ * Check if running in a production environment where local keys are dangerous
+ */
+function isProductionEnvironment(): boolean {
+  const env = process.env.NODE_ENV
+  const network = process.env.JEJU_NETWORK ?? process.env.NETWORK
+  return (
+    env === 'production' ||
+    network === 'mainnet' ||
+    network === 'testnet' ||
+    process.env.TEE_PLATFORM === 'intel_tdx' ||
+    process.env.TEE_PLATFORM === 'amd_sev'
+  )
+}
 
 export interface WalletConfig {
   privateKey?: Hex
@@ -73,9 +101,31 @@ function getNetworkChain(network: NetworkType): Chain {
   }
 }
 
+/**
+ * Create a wallet from a private key, mnemonic, or pre-configured account.
+ *
+ * ⚠️ SECURITY WARNING: This function handles private keys in memory.
+ * For production/TEE environments, use createKMSWallet() instead.
+ *
+ * @deprecated For production use. Use createKMSWallet() for secure signing.
+ */
 export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
   const chain = getNetworkChain(config.network)
   const services = getServicesConfig(config.network)
+
+  // SECURITY: Warn about private key usage in production
+  if (
+    isProductionEnvironment() &&
+    (config.privateKey || config.mnemonic) &&
+    !process.env.ALLOW_INSECURE_LOCAL_KEYS
+  ) {
+    console.warn(
+      '\n⚠️  SECURITY WARNING: Using private keys in production environment.\n' +
+        '   Private keys in memory are vulnerable to side-channel attacks.\n' +
+        '   Consider using createKMSWallet() for MPC-backed signing.\n' +
+        '   Set ALLOW_INSECURE_LOCAL_KEYS=true to suppress this warning.\n',
+    )
+  }
 
   // Create account from private key or mnemonic
   let account: LocalAccount

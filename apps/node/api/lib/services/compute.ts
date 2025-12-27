@@ -1,8 +1,12 @@
-import type { Address } from 'viem'
+/**
+ * SECURITY: Uses KMS-backed signing via SecureSigner. No private keys in memory.
+ */
+import { type Address, encodeFunctionData } from 'viem'
 import { z } from 'zod'
 import type { HardwareInfo } from '../../../lib/types'
 import { COMPUTE_STAKING_ABI, INFERENCE_SERVING_ABI } from '../abis'
-import { getChain, type NodeClient } from '../contracts'
+import { type NodeClient, type SecureNodeClient } from '../contracts'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
 import {
   type ComputeCapabilities,
   type ComputeMode,
@@ -124,13 +128,19 @@ function validateComputeOffer(data: unknown): ComputeOffer {
 }
 
 export class ComputeService {
-  private client: NodeClient
+  private client: NodeClient | SecureNodeClient
+  private signer: SecureSigner | null = null
   private hardware: HardwareInfo | null = null
   private capabilities: ComputeCapabilities | null = null
   private nonTeeAcknowledged = false
 
-  constructor(client: NodeClient) {
+  constructor(client: NodeClient | SecureNodeClient, keyId?: string) {
     this.client = client
+    // Get keyId from client or constructor
+    const resolvedKeyId = keyId ?? ('keyId' in client ? client.keyId : undefined)
+    if (resolvedKeyId) {
+      this.signer = createSecureSigner(resolvedKeyId)
+    }
   }
 
   setHardware(hardware: HardwareInfo | HardwareInfoCamel): void {
@@ -212,17 +222,25 @@ export class ComputeService {
   }
 
   async stake(amount: bigint): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
+    if (!this.signer) {
+      throw new Error('Signer not configured - provide keyId')
     }
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
-      address: this.client.addresses.computeStaking,
+    const data = encodeFunctionData({
       abi: COMPUTE_STAKING_ABI,
       functionName: 'stakeAsProvider',
+      args: [],
+    })
+
+    const { signedTransaction, hash } = await this.signer.signTransaction({
+      to: this.client.addresses.computeStaking,
+      data,
       value: amount,
+      chainId: this.client.chainId,
+    })
+
+    await this.client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     return hash
@@ -231,8 +249,8 @@ export class ComputeService {
   async registerService(config: ComputeServiceConfig): Promise<string> {
     const validatedConfig = validateComputeServiceConfig(config)
 
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
+    if (!this.signer) {
+      throw new Error('Signer not configured - provide keyId')
     }
 
     // Check if non-TEE mode requires acknowledgment
@@ -272,7 +290,7 @@ export class ComputeService {
     }
 
     // First stake if needed
-    const address = this.client.walletClient.account.address
+    const address = await this.signer.getAddress()
     const state = await this.getState(address)
     if (!state.isStaked) {
       await this.stake(validatedConfig.stakeAmount)
@@ -293,10 +311,7 @@ export class ComputeService {
     }
 
     // Then register service
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
-      address: this.client.addresses.inferenceServing,
+    const data = encodeFunctionData({
       abi: INFERENCE_SERVING_ABI,
       functionName: 'registerService',
       args: [
@@ -307,36 +322,62 @@ export class ComputeService {
       ],
     })
 
+    const { signedTransaction, hash } = await this.signer.signTransaction({
+      to: this.client.addresses.inferenceServing,
+      data,
+      chainId: this.client.chainId,
+    })
+
+    await this.client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
+    })
+
     return hash
   }
 
   async withdraw(): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
+    if (!this.signer) {
+      throw new Error('Signer not configured - provide keyId')
     }
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
-      address: this.client.addresses.inferenceServing,
+    const data = encodeFunctionData({
       abi: INFERENCE_SERVING_ABI,
       functionName: 'withdraw',
+      args: [],
+    })
+
+    const { signedTransaction, hash } = await this.signer.signTransaction({
+      to: this.client.addresses.inferenceServing,
+      data,
+      chainId: this.client.chainId,
+    })
+
+    await this.client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     return hash
   }
 
   async unstake(): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
+    if (!this.signer) {
+      throw new Error('Signer not configured - provide keyId')
     }
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
-      address: this.client.addresses.computeStaking,
+    const data = encodeFunctionData({
       abi: COMPUTE_STAKING_ABI,
       functionName: 'unstake',
+      args: [],
+    })
+
+    const { signedTransaction, hash } = await this.signer.signTransaction({
+      to: this.client.addresses.computeStaking,
+      data,
+      chainId: this.client.chainId,
+    })
+
+    await this.client.publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
     })
 
     return hash
@@ -391,6 +432,9 @@ export class ComputeService {
   }
 }
 
-export function createComputeService(client: NodeClient): ComputeService {
-  return new ComputeService(client)
+export function createComputeService(
+  client: NodeClient | SecureNodeClient,
+  keyId?: string,
+): ComputeService {
+  return new ComputeService(client, keyId)
 }

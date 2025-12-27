@@ -3,9 +3,21 @@
  *
  * High-level API for posting to Farcaster via direct hub RPC.
  * Supports casts, reactions, links, and user data updates.
+ *
+ * SECURITY NOTE:
+ * This implementation stores the private key in memory.
+ * For production use, prefer KMSFarcasterPoster which keeps
+ * private keys inside the KMS enclave, protected from side-channel attacks.
+ *
+ * @see {@link ./kms-poster.ts} for the secure KMS-backed implementation
  */
 
+import { createLogger } from '@jejunetwork/shared'
 import type { Hex } from 'viem'
+import {
+  enforceNoLocalKeysInProduction,
+  securityAudit,
+} from '../../security'
 import { CastBuilder, type CastOptions } from './cast-builder'
 import {
   buildMessage,
@@ -22,6 +34,8 @@ import {
   type HubEndpoint,
   HubSubmitter,
 } from './submitter'
+
+const log = createLogger('farcaster-poster')
 export interface FarcasterPosterConfig {
   /** Farcaster ID */
   fid: number
@@ -60,7 +74,23 @@ export class FarcasterPoster {
   private readonly signerPrivateKey: Uint8Array
   private readonly network: FarcasterNetwork
 
+  /**
+   * @deprecated For production, use KMSFarcasterPoster which keeps
+   * private keys inside the KMS enclave. This constructor stores
+   * the private key in memory, making it vulnerable to side-channel attacks.
+   */
   constructor(config: FarcasterPosterConfig) {
+    // Security check - prevent local key usage in production
+    enforceNoLocalKeysInProduction('FarcasterPoster constructor')
+
+    log.warn('Using local FarcasterPoster - private key in memory. Use KMSFarcasterPoster for production.')
+
+    securityAudit.log({
+      operation: 'farcaster-poster:init',
+      success: true,
+      metadata: { fid: config.fid, mode: 'local' },
+    })
+
     this.fid = config.fid
     this.signerPrivateKey = config.signerPrivateKey
     this.network =

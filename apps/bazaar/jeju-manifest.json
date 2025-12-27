@@ -82,7 +82,7 @@
         "kv": {
           "BAZAAR_CACHE": "bazaar-cache-kv"
         },
-        "secrets": ["DATABASE_URL", "PRIVATE_KEY"]
+        "secrets": ["DATABASE_URL"]
       },
       "routes": [
         { "pattern": "/api/*", "zone": "bazaar-api" },
@@ -118,7 +118,7 @@
       "bindings": {
         "BAZAAR_CACHE": { "type": "kv", "name": "bazaar-cache-kv" }
       },
-      "secrets": ["DATABASE_URL", "PRIVATE_KEY", "RPC_URL"],
+      "secrets": ["DATABASE_URL", "RPC_URL"],
       "routes": [
         { "pattern": "/api/*" },
         { "pattern": "/health" }

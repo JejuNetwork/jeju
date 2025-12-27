@@ -3,8 +3,10 @@
 import { isHexString, isValidAddress } from '@jejunetwork/types'
 import { type Address, verifyMessage } from 'viem'
 import { extractRawAuthHeaders, type RawAuthHeaders } from '../lib/type-guards'
+import { validateNonce } from './nonce-store'
 
 const MAX_SIGNATURE_AGE_MS = 5 * 60 * 1000
+const MIN_NONCE_LENGTH = 16
 
 export interface AuthContext {
   address: Address
@@ -65,6 +67,7 @@ type RequireAuthResult =
 
 export async function requireAuth(
   headers: Record<string, string | undefined>,
+  options: { skipNonceCheck?: boolean } = {},
 ): Promise<RequireAuthResult> {
   const rawHeaders = extractRawAuthHeaders(headers)
   const auth = extractAuthHeaders(rawHeaders)
@@ -74,11 +77,25 @@ export async function requireAuth(
   }
 
   const nonce = headers['x-jeju-nonce'] ?? ''
+
+  // Validate nonce length for write operations
+  if (!options.skipNonceCheck && nonce.length < MIN_NONCE_LENGTH) {
+    return { success: false, error: `Nonce must be at least ${MIN_NONCE_LENGTH} characters` }
+  }
+
   const expectedMessage = `Factory Auth\nTimestamp: ${auth.timestamp}\nNonce: ${nonce}`
 
   const isValid = await verifyAuthentication(auth, expectedMessage)
   if (!isValid) {
     return { success: false, error: 'Invalid or expired signature' }
+  }
+
+  // Check for replay attacks (skip for read-only operations if desired)
+  if (!options.skipNonceCheck) {
+    const nonceResult = validateNonce(auth.address, nonce, auth.timestamp)
+    if (!nonceResult.valid) {
+      return { success: false, error: nonceResult.reason ?? 'Nonce already used' }
+    }
   }
 
   return { success: true, address: auth.address }

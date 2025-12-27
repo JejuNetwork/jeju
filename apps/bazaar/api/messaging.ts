@@ -3,18 +3,32 @@
  *
  * Provides Farcaster feed integration for the Bazaar marketplace.
  * Each entity type (coin, item, collection, perp, prediction) has its own channel.
+ *
+ * SECURITY (TEE Side-Channel Resistance):
+ * - Private keys NEVER enter this service
+ * - Server-side posting uses MPC signer (DWS worker)
+ * - Client-side posting uses Warpcast redirect
  */
 
 import {
-  createPoster,
   type FarcasterCast,
   FarcasterClient,
   type FarcasterProfile,
-  type PostedCast,
 } from '@jejunetwork/messaging'
 import type { Address, Hex } from 'viem'
 
 const HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud'
+const MPC_SIGNER_URL = process.env.MPC_SIGNER_URL ?? ''
+
+/**
+ * Result from posting to Farcaster via KMS
+ */
+export interface KMSPostResult {
+  hash: Hex
+  fid: number
+  text: string
+  timestamp: number
+}
 
 /**
  * Channel types for different Bazaar entities
@@ -198,38 +212,40 @@ class BazaarMessagingService {
   }
 
   /**
-   * Post to a channel (requires signer)
+   * Get Warpcast compose URL for posting to a channel
+   *
+   * SECURITY: Server-side posting requires KMS integration for TEE safety.
+   * Until KMS-backed Farcaster signing is implemented, use client-side
+   * posting via Warpcast redirect.
    */
-  async postToChannel(params: {
+  getComposeUrl(params: {
     channelUrl: string
-    text: string
-    fid: number
-    signerPrivateKey: Hex
+    text?: string
     embeds?: string[]
-  }): Promise<PostedCast> {
-    const poster = createPoster(params.fid, params.signerPrivateKey, HUB_URL)
-    return poster.castToChannel(params.text, params.channelUrl, {
-      embeds: params.embeds,
-    })
+  }): string {
+    const baseUrl = 'https://warpcast.com/~/compose'
+    const searchParams = new URLSearchParams()
+    if (params.text) searchParams.set('text', params.text)
+    if (params.channelUrl) searchParams.set('channelUrl', params.channelUrl)
+    if (params.embeds?.length) {
+      params.embeds.forEach((url) => searchParams.append('embeds[]', url))
+    }
+    return `${baseUrl}?${searchParams.toString()}`
   }
 
   /**
-   * Post to a Bazaar entity channel
+   * Get Warpcast compose URL for a Bazaar entity channel
    */
-  async postToEntityChannel(params: {
+  getEntityComposeUrl(params: {
     type: BazaarChannelType
     id: string
-    text: string
-    fid: number
-    signerPrivateKey: Hex
+    text?: string
     embeds?: string[]
-  }): Promise<PostedCast> {
+  }): string {
     const channelUrl = getChannelUrl(params.type, params.id)
-    return this.postToChannel({
+    return this.getComposeUrl({
       channelUrl,
       text: params.text,
-      fid: params.fid,
-      signerPrivateKey: params.signerPrivateKey,
       embeds: params.embeds,
     })
   }
@@ -396,6 +412,75 @@ class BazaarMessagingService {
         floorChange: params.floorChange,
       },
     }
+  }
+
+  /**
+   * Post to a channel using KMS/MPC signing (TEE-safe)
+   *
+   * Uses the MPC signer service to sign Farcaster messages without
+   * exposing private keys to the Bazaar API.
+   *
+   * @param params.signerId - MPC signer ID (from createSigner flow)
+   * @param params.text - Cast text content
+   * @param params.channelUrl - Target channel URL
+   * @param params.embeds - Optional embed URLs
+   */
+  async postToChannelWithKMS(params: {
+    signerId: string
+    text: string
+    channelUrl: string
+    embeds?: string[]
+  }): Promise<KMSPostResult> {
+    if (!MPC_SIGNER_URL) {
+      throw new Error(
+        'MPC_SIGNER_URL not configured. Set MPC_SIGNER_URL environment variable.',
+      )
+    }
+
+    const response = await fetch(`${MPC_SIGNER_URL}/cast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        signerId: params.signerId,
+        text: params.text,
+        parentUrl: params.channelUrl,
+        embeds: params.embeds?.map((url) => ({ url })),
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to post via MPC signer: ${error}`)
+    }
+
+    const result = (await response.json()) as KMSPostResult
+    return result
+  }
+
+  /**
+   * Post to an entity channel using KMS/MPC signing (TEE-safe)
+   */
+  async postToEntityChannelWithKMS(params: {
+    signerId: string
+    type: BazaarChannelType
+    id: string
+    text: string
+    embeds?: string[]
+  }): Promise<KMSPostResult> {
+    const channelUrl = getChannelUrl(params.type, params.id)
+    return this.postToChannelWithKMS({
+      signerId: params.signerId,
+      text: params.text,
+      channelUrl,
+      embeds: params.embeds,
+    })
+  }
+
+  /**
+   * Check if KMS/MPC posting is available
+   */
+  isKMSPostingAvailable(): boolean {
+    return Boolean(MPC_SIGNER_URL)
   }
 }
 

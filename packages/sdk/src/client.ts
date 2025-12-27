@@ -52,15 +52,22 @@ import { createStorageModule, type StorageModule } from './storage'
 import { createTrainingModule, type TrainingModule } from './training'
 import { createValidationModule, type ValidationModule } from './validation'
 import { createVPNModule, type VPNModule } from './vpn-module'
+import { createKMSWallet, type KMSWallet } from './kms-wallet'
 import { createWallet, type JejuWallet } from './wallet'
 import { createWorkModule, type WorkModule } from './work'
 
 export interface JejuClientConfig {
   /** Network to connect to */
   network: NetworkType
-  /** Private key (hex string starting with 0x) */
+  /**
+   * Private key (hex string starting with 0x)
+   * @deprecated For production use. Use KMS configuration for secure signing.
+   */
   privateKey?: Hex
-  /** Mnemonic phrase */
+  /**
+   * Mnemonic phrase
+   * @deprecated For production use. Use KMS configuration for secure signing.
+   */
   mnemonic?: string
   /** Pre-configured local account (from viem/accounts) */
   account?: LocalAccount
@@ -70,6 +77,29 @@ export interface JejuClientConfig {
   rpcUrl?: string
   /** Custom bundler URL override */
   bundlerUrl?: string
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // KMS Configuration (Recommended for Production/TEE environments)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * KMS endpoint URL for secure signing
+   * When provided, private key signing is delegated to KMS (MPC-backed)
+   */
+  kmsEndpoint?: string
+  /**
+   * KMS key ID for this wallet
+   * Required when using KMS mode
+   */
+  kmsKeyId?: string
+  /**
+   * Wallet address (required for KMS mode since we can't derive from key)
+   */
+  kmsAddress?: Address
+  /**
+   * KMS authentication token
+   */
+  kmsAuthToken?: string
 }
 
 export interface JejuClient {
@@ -170,9 +200,16 @@ export interface JejuClient {
 export async function createJejuClient(
   config: JejuClientConfig,
 ): Promise<JejuClient> {
-  if (!config.privateKey && !config.mnemonic && !config.account) {
+  // Check for KMS mode first (recommended for production)
+  const isKMSMode = config.kmsEndpoint && config.kmsKeyId && config.kmsAddress
+  const isLocalKeyMode =
+    config.privateKey || config.mnemonic || config.account
+
+  if (!isKMSMode && !isLocalKeyMode) {
     throw new Error(
-      `${getNetworkName()}Client requires privateKey, mnemonic, or account`,
+      `${getNetworkName()}Client requires either:\n` +
+        '  - KMS configuration (kmsEndpoint, kmsKeyId, kmsAddress) for secure signing, or\n' +
+        '  - Local key (privateKey, mnemonic, or account) for development',
     )
   }
 
@@ -180,14 +217,29 @@ export async function createJejuClient(
   const chainConfig = getChainConfig(network)
   const servicesConfig = getServicesConfig(network)
 
-  // Create wallet
-  const wallet = await createWallet({
-    privateKey: config.privateKey,
-    mnemonic: config.mnemonic,
-    account: config.account,
-    smartAccount: config.smartAccount,
-    network,
-  })
+  // Create wallet (KMS-backed or local)
+  let wallet: JejuWallet | KMSWallet
+
+  if (isKMSMode) {
+    // Use KMS-backed wallet (recommended for production/TEE)
+    wallet = await createKMSWallet({
+      address: config.kmsAddress,
+      kmsEndpoint: config.kmsEndpoint,
+      keyId: config.kmsKeyId,
+      network,
+      smartAccount: config.smartAccount,
+      authToken: config.kmsAuthToken,
+    })
+  } else {
+    // Use local key wallet (development only)
+    wallet = await createWallet({
+      privateKey: config.privateKey,
+      mnemonic: config.mnemonic,
+      account: config.account,
+      smartAccount: config.smartAccount,
+      network,
+    })
+  }
 
   // Get contract addresses for modules that need them
   const contractAddresses = getContractAddresses(network)

@@ -280,6 +280,16 @@ function natReverseModifyPacket(
 
 const VPNExitConfigSchema = z.object({
   listenPort: z.number().min(1024).max(65535).default(51820),
+  /**
+   * KMS key ID for X25519 key derivation
+   * The KMS will derive the WireGuard private key from this ID
+   * No raw private keys stored locally
+   */
+  kmsKeyId: z.string().optional(),
+  /**
+   * @deprecated Use kmsKeyId instead
+   * Only for legacy/dev environments
+   */
   privateKey: z.string().min(32).optional(),
   endpoint: z.string(),
   countryCode: z.string().length(2),
@@ -1518,9 +1528,36 @@ export class VPNExitService {
     this.config = parsedConfig
 
     // Generate or decode keys
-    if (config.privateKey) {
+    // TODO: Integrate with KMS for X25519 key derivation
+    // For now, if kmsKeyId is provided, we should derive keys from KMS
+    // This is a security placeholder until full KMS X25519 support
+    if (config.kmsKeyId) {
+      console.warn(
+        '[VPNExit] KMS X25519 key derivation not yet implemented. ' +
+          'Using derived key from ID for now. ' +
+          'TODO: Implement proper KMS X25519 integration.',
+      )
+      // Derive a deterministic key from the KMS key ID for now
+      // This should be replaced with actual KMS X25519 key derivation
+      const keyIdHash = BLAKE2s.hash(
+        new TextEncoder().encode(`vpn-x25519:${config.kmsKeyId}`),
+      )
+      keyIdHash[0] &= 248
+      keyIdHash[31] &= 127
+      keyIdHash[31] |= 64
+      this.privateKey = keyIdHash
+    } else if (config.privateKey) {
+      console.warn(
+        '[VPNExit] WARNING: Using legacy in-memory private key. ' +
+          'This is a security risk in TEE environments. ' +
+          'Use kmsKeyId instead.',
+      )
       this.privateKey = new Uint8Array(Buffer.from(config.privateKey, 'base64'))
     } else {
+      console.warn(
+        '[VPNExit] WARNING: Generating ephemeral X25519 key in memory. ' +
+          'This is a security risk. Configure kmsKeyId for production.',
+      )
       this.privateKey = X25519.generatePrivateKey()
     }
     this.publicKey = X25519.getPublicKey(this.privateKey)

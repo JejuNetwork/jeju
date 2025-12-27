@@ -4,9 +4,16 @@
  * Full implementation of W3C VC Data Model 1.1 for OAuth3 identity attestations.
  * Uses EcdsaSecp256k1Signature2019 for Ethereum-compatible proofs.
  *
+ * SECURITY: Uses MPC signing via SecureSigningService.
+ * Private keys are NEVER reconstructed in memory.
+ *
  * @see https://www.w3.org/TR/vc-data-model/
  */
 
+import {
+  getSecureSigningService,
+  type SecureSigningService,
+} from '@jejunetwork/kms'
 import {
   type Address,
   createPublicClient,
@@ -16,7 +23,6 @@ import {
   recoverMessageAddress,
   toBytes,
 } from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { toBase64Url } from '../polyfills.js'
 import type {
   AuthProvider,
@@ -98,17 +104,64 @@ export interface CredentialPresentation {
   proof: CredentialProof
 }
 
-export class VerifiableCredentialIssuer {
-  private issuerAccount: PrivateKeyAccount
-  private issuerDid: string
-  private issuerName: string
-  private chainId: number
+/**
+ * Issuer configuration
+ *
+ * SECURITY: Uses keyId to reference MPC-managed keys instead of raw private keys.
+ */
+export interface IssuerConfig {
+  /** Key ID for the issuer's signing key (managed by SecureSigningService) */
+  keyId: string
+  /** Issuer address (derived from the MPC key) */
+  issuerAddress: Address
+  /** Human-readable issuer name */
+  issuerName: string
+  /** Chain ID for DID construction */
+  chainId: number
+}
 
-  constructor(privateKey: Hex, issuerName: string, chainId: number) {
-    this.issuerAccount = privateKeyToAccount(privateKey)
-    this.chainId = chainId
-    this.issuerDid = `did:ethr:${chainId}:${this.issuerAccount.address}`
-    this.issuerName = issuerName
+/**
+ * Verifiable Credential Issuer
+ *
+ * SECURITY: All signing operations use FROST threshold signatures via SecureSigningService.
+ * The issuer's private key is NEVER reconstructed in memory.
+ */
+export class VerifiableCredentialIssuer {
+  private readonly keyId: string
+  private readonly issuerAddress: Address
+  private readonly issuerDid: string
+  private readonly issuerName: string
+  private readonly chainId: number
+  private readonly signingService: SecureSigningService
+
+  constructor(config: IssuerConfig) {
+    this.keyId = config.keyId
+    this.issuerAddress = config.issuerAddress
+    this.chainId = config.chainId
+    this.issuerDid = `did:ethr:${config.chainId}:${config.issuerAddress}`
+    this.issuerName = config.issuerName
+    this.signingService = getSecureSigningService()
+  }
+
+  /**
+   * Initialize the issuer
+   * Ensures the MPC key is available
+   */
+  async initialize(): Promise<void> {
+    if (!this.signingService.hasKey(this.keyId)) {
+      throw new Error(
+        `Issuer key ${this.keyId} not found in SecureSigningService. ` +
+          'Generate it first using getSecureSigningService().generateKey()',
+      )
+    }
+
+    // Verify the address matches
+    const address = this.signingService.getAddress(this.keyId)
+    if (address.toLowerCase() !== this.issuerAddress.toLowerCase()) {
+      throw new Error(
+        `Issuer key address mismatch: expected ${this.issuerAddress}, got ${address}`,
+      )
+    }
   }
 
   async issueCredential(
@@ -215,10 +268,14 @@ export class VerifiableCredentialIssuer {
     }
 
     const hash = keccak256(toBytes(JSON.stringify(dataToSign)))
-    const signature = await this.issuerAccount.signMessage({
-      message: { raw: toBytes(hash) },
+
+    // Sign using MPC - private key is NEVER reconstructed
+    const signResult = await this.signingService.sign({
+      keyId: this.keyId,
+      message: '',
+      messageHash: hash,
     })
-    presentation.proof.proofValue = signature
+    presentation.proof.proofValue = signResult.signature
 
     if (challenge) {
       presentation.proof.jws = this.createJWS(hash, challenge, domain)
@@ -227,6 +284,11 @@ export class VerifiableCredentialIssuer {
     return presentation
   }
 
+  /**
+   * Sign a credential using MPC
+   *
+   * SECURITY: Uses FROST threshold signing - private key is NEVER reconstructed
+   */
   private async signCredential(credential: VerifiableCredential): Promise<Hex> {
     const credentialWithoutProof = {
       ...credential,
@@ -236,11 +298,14 @@ export class VerifiableCredentialIssuer {
     const canonicalized = JSON.stringify(credentialWithoutProof)
     const hash = keccak256(toBytes(canonicalized))
 
-    const signature = await this.issuerAccount.signMessage({
-      message: { raw: toBytes(hash) },
+    // Sign using MPC - private key is NEVER reconstructed
+    const signResult = await this.signingService.sign({
+      keyId: this.keyId,
+      message: '',
+      messageHash: hash,
     })
 
-    return signature
+    return signResult.signature
   }
 
   private getCredentialTypeForProvider(provider: AuthProvider): string {
@@ -280,7 +345,7 @@ export class VerifiableCredentialIssuer {
   }
 
   getIssuerAddress(): Address {
-    return this.issuerAccount.address
+    return this.issuerAddress
   }
 }
 

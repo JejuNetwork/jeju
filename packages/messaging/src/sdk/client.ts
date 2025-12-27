@@ -3,6 +3,11 @@
  *
  * High-level client for sending and receiving encrypted messages
  * via the decentralized relay network.
+ *
+ * SECURITY NOTE:
+ * For production use, configure KMS-backed signing and encryption
+ * to protect private keys from side-channel attacks on TEE enclaves.
+ * See SecureMessagingClientConfig for KMS configuration options.
  */
 
 import { createLogger } from '@jejunetwork/shared'
@@ -39,10 +44,13 @@ import {
   serializeEncryptedMessage,
   signPreKey,
 } from './crypto'
+import { warnLocalKeyUsage } from './kms-crypto'
 import {
   type DeliveryReceiptData,
   ErrorCodes,
   type KeyBundleResponse,
+  type KMSEncryptionProvider,
+  type KMSSigner,
   type Message,
   type MessageEnvelope,
   type MessageEvent,
@@ -52,6 +60,7 @@ import {
   type NodeRegistryResponse,
   type ReadReceiptData,
   type RelayNode,
+  type SecureMessagingClientConfig,
   type SendMessageRequest,
   type SendMessageResponse,
 } from './types'
@@ -60,11 +69,26 @@ import {
 const MAX_MESSAGE_CACHE_SIZE = 1000
 
 export class MessagingClient {
-  private config: MessagingClientConfig
+  private config: MessagingClientConfig | SecureMessagingClientConfig
   private publicClient: PublicClient
   private walletClient?: WalletClient
+
+  /**
+   * @deprecated Use kmsSigner instead.
+   * Raw key pairs in memory are vulnerable to side-channel attacks.
+   */
   private keyPair?: KeyPair
+
+  /**
+   * @deprecated Use kmsSigner instead.
+   * Raw signing keys in memory are vulnerable to side-channel attacks.
+   */
   private signingKeyPair?: SigningKeyPair
+
+  // KMS-backed providers (secure - keys never in memory)
+  private kmsSigner?: KMSSigner
+  private kmsEncryption?: KMSEncryptionProvider
+
   private relayNode?: RelayNode
   private ws?: WebSocket
   private eventHandlers: Set<MessageEventHandler> = new Set()
@@ -73,7 +97,10 @@ export class MessagingClient {
   private messageCache: Map<string, Message> = new Map()
   private messageCacheOrder: string[] = [] // Track insertion order for LRU eviction
 
-  constructor(config: MessagingClientConfig) {
+  // Track if we're using secure KMS mode
+  private readonly useKMSMode: boolean
+
+  constructor(config: MessagingClientConfig | SecureMessagingClientConfig) {
     // Validate the JSON-serializable portion of config
     MessagingClientConfigBaseSchema.parse(config)
 
@@ -83,26 +110,52 @@ export class MessagingClient {
       transport: http(config.rpcUrl),
     })
 
-    if (config.keyPair) {
-      this.keyPair = config.keyPair
+    // Check for KMS mode
+    const secureConfig = config as SecureMessagingClientConfig
+    if (secureConfig.kmsSigner || secureConfig.kmsEncryption) {
+      this.useKMSMode = true
+      this.kmsSigner = secureConfig.kmsSigner
+      this.kmsEncryption = secureConfig.kmsEncryption
+      log.info('Using KMS-backed cryptography - private keys protected')
+    } else {
+      this.useKMSMode = false
+      if (config.keyPair) {
+        warnLocalKeyUsage('keyPair initialization')
+        this.keyPair = config.keyPair
+      }
     }
   }
 
   /**
    * Initialize the client: derive keys, register on-chain, connect to relay
+   *
+   * @param signature - Wallet signature for key derivation (not needed if using KMS)
    */
   async initialize(signature?: string): Promise<void> {
-    // 1. Derive or use provided key pairs
-    if (!this.keyPair || !this.signingKeyPair) {
-      if (!signature) {
+    // 1. If using KMS mode, keys are already initialized
+    if (this.useKMSMode) {
+      if (!this.kmsSigner || !this.kmsEncryption) {
         throw new MessagingError(
-          'Signature required to derive messaging keys',
-          ErrorCodes.UNAUTHORIZED,
+          'KMS mode requires both kmsSigner and kmsEncryption',
+          ErrorCodes.KMS_UNAVAILABLE,
         )
       }
-      const keyPairs = deriveKeyPairsFromWallet(this.config.address, signature)
-      this.keyPair = keyPairs.encryption
-      this.signingKeyPair = keyPairs.signing
+      log.info('KMS mode: keys already initialized in secure enclave')
+    } else {
+      // Legacy mode: derive keys from wallet signature (DEPRECATED)
+      if (!this.keyPair || !this.signingKeyPair) {
+        if (!signature) {
+          throw new MessagingError(
+            'Signature required to derive messaging keys',
+            ErrorCodes.UNAUTHORIZED,
+          )
+        }
+
+        warnLocalKeyUsage('key derivation from wallet signature')
+        const keyPairs = deriveKeyPairsFromWallet(this.config.address, signature)
+        this.keyPair = keyPairs.encryption
+        this.signingKeyPair = keyPairs.signing
+      }
     }
 
     // 2. Check if key is registered on-chain
@@ -520,7 +573,11 @@ export class MessagingClient {
 
     switch (wsMessage.type) {
       case 'message':
-        this.handleIncomingMessage(wsMessage.data as MessageEnvelope)
+        this.handleIncomingMessage(wsMessage.data as MessageEnvelope).catch(
+          (err: Error) => {
+            log.error('Failed to handle incoming message', { error: err.message })
+          },
+        )
         break
       case 'delivery_receipt': {
         if (!this.relayNode) {
@@ -552,11 +609,32 @@ export class MessagingClient {
     }
   }
 
-  private handleIncomingMessage(envelope: MessageEnvelope): void {
-    if (!this.keyPair) return
+  private async handleIncomingMessage(envelope: MessageEnvelope): Promise<void> {
+    // Check we have decryption capability
+    if (!this.kmsEncryption && !this.keyPair) {
+      log.error('Cannot decrypt message - no decryption capability')
+      return
+    }
 
     const encrypted = deserializeEncryptedMessage(envelope.encryptedContent)
-    const decrypted = decryptMessage(encrypted, this.keyPair.privateKey)
+
+    let decrypted: Uint8Array
+
+    if (this.kmsEncryption) {
+      // Secure path: decryption happens in KMS
+      decrypted = await this.kmsEncryption.decrypt(
+        encrypted.ciphertext,
+        encrypted.nonce,
+        encrypted.ephemeralPublicKey,
+      )
+    } else if (this.keyPair) {
+      // Legacy path: local decryption (DEPRECATED)
+      warnLocalKeyUsage('message decryption')
+      decrypted = decryptMessage(encrypted, this.keyPair.privateKey)
+    } else {
+      return
+    }
+
     const content = new TextDecoder().decode(decrypted)
 
     const message: Message = {
@@ -608,9 +686,10 @@ export class MessagingClient {
     // Validate request
     SendMessageRequestSchema.parse(request)
 
-    if (!this.keyPair) {
+    // Check we have encryption capability
+    if (!this.kmsEncryption && !this.keyPair) {
       throw new MessagingError(
-        'Client not initialized',
+        'Client not initialized - no encryption capability',
         ErrorCodes.NO_KEY_BUNDLE,
       )
     }
@@ -624,12 +703,28 @@ export class MessagingClient {
       )
     }
 
-    // 2. Encrypt message
-    const encrypted = encryptMessage(
-      request.content,
-      recipientKey,
-      this.keyPair.privateKey,
-    )
+    // 2. Encrypt message (prefer KMS if available)
+    let encrypted: { ciphertext: Uint8Array; nonce: Uint8Array; ephemeralPublicKey: Uint8Array }
+
+    if (this.kmsEncryption) {
+      // Secure path: encryption happens in KMS
+      const plaintext = new TextEncoder().encode(request.content)
+      encrypted = await this.kmsEncryption.encrypt(plaintext, recipientKey)
+    } else if (this.keyPair) {
+      // Legacy path: local encryption (DEPRECATED)
+      warnLocalKeyUsage('message encryption')
+      const result = encryptMessage(
+        request.content,
+        recipientKey,
+        this.keyPair.privateKey,
+      )
+      encrypted = result
+    } else {
+      throw new MessagingError(
+        'No encryption capability available',
+        ErrorCodes.NO_KEY_BUNDLE,
+      )
+    }
 
     // 3. Create envelope
     const envelope: MessageEnvelope = {
@@ -776,10 +871,21 @@ export class MessagingClient {
    * Returns null if client not initialized
    */
   getPublicKey(): Uint8Array | null {
-    if (!this.keyPair) {
-      return null
+    // Prefer KMS public key
+    if (this.kmsEncryption) {
+      return this.kmsEncryption.publicKey
     }
-    return this.keyPair.publicKey
+    if (this.keyPair) {
+      return this.keyPair.publicKey
+    }
+    return null
+  }
+
+  /**
+   * Check if client is using secure KMS mode
+   */
+  isSecureMode(): boolean {
+    return this.useKMSMode
   }
 
   /**
@@ -789,14 +895,14 @@ export class MessagingClient {
    * @param nonce - Hex-encoded nonce
    * @returns Decrypted content as string
    */
-  decryptContent(
+  async decryptContent(
     encryptedContent: string,
     ephemeralPublicKey: string,
     nonce: string,
-  ): string {
-    if (!this.keyPair) {
+  ): Promise<string> {
+    if (!this.kmsEncryption && !this.keyPair) {
       throw new MessagingError(
-        'Client not initialized',
+        'Client not initialized - no decryption capability',
         ErrorCodes.NO_KEY_BUNDLE,
       )
     }
@@ -807,7 +913,26 @@ export class MessagingClient {
       nonce,
     })
 
-    const decrypted = decryptMessage(encrypted, this.keyPair.privateKey)
+    let decrypted: Uint8Array
+
+    if (this.kmsEncryption) {
+      // Secure path: decryption happens in KMS
+      decrypted = await this.kmsEncryption.decrypt(
+        encrypted.ciphertext,
+        encrypted.nonce,
+        encrypted.ephemeralPublicKey,
+      )
+    } else if (this.keyPair) {
+      // Legacy path: local decryption (DEPRECATED)
+      warnLocalKeyUsage('content decryption')
+      decrypted = decryptMessage(encrypted, this.keyPair.privateKey)
+    } else {
+      throw new MessagingError(
+        'No decryption capability',
+        ErrorCodes.NO_KEY_BUNDLE,
+      )
+    }
+
     return new TextDecoder().decode(decrypted)
   }
 

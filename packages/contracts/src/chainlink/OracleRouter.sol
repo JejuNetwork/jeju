@@ -94,6 +94,7 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
     error OracleNotApproved();
     error DataTooLarge();
     error JobAlreadyExists();
+    error ETHTransferFailed();
 
     modifier onlyGovernance() {
         if (msg.sender != governance && msg.sender != owner()) revert NotGovernance();
@@ -162,8 +163,12 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
 
         uint96 payment = request.payment;
         uint96 oraclePayment = payment * config.oracleFeeBps / 10000;
-        payable(msg.sender).transfer(oraclePayment);
-        payable(feeRecipient).transfer(payment - oraclePayment);
+        
+        (bool oracleSuccess, ) = payable(msg.sender).call{value: oraclePayment}("");
+        if (!oracleSuccess) revert ETHTransferFailed();
+        
+        (bool feeSuccess, ) = payable(feeRecipient).call{value: payment - oraclePayment}("");
+        if (!feeSuccess) revert ETHTransferFailed();
 
         OracleInfo storage oracleInfo = oracles[msg.sender];
         oracleInfo.fulfillmentCount++;
@@ -182,7 +187,8 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
         if (block.timestamp <= request.expiration && msg.sender != governance) revert RequestNotPending();
 
         request.status = RequestStatus.CANCELLED;
-        payable(msg.sender).transfer(request.payment);
+        (bool success, ) = payable(msg.sender).call{value: request.payment}("");
+        if (!success) revert ETHTransferFailed();
         emit OracleCancelled(requestId, msg.sender);
     }
 
@@ -259,7 +265,10 @@ contract OracleRouter is Ownable2Step, ReentrancyGuard {
             }
         }
         delete oracles[oracle];
-        if (stake > 0) payable(oracle).transfer(stake);
+        if (stake > 0) {
+            (bool success, ) = payable(oracle).call{value: stake}("");
+            if (!success) revert ETHTransferFailed();
+        }
         emit OracleRemoved(oracle);
     }
 

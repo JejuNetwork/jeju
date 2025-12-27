@@ -1,20 +1,27 @@
+/**
+ * X402 Payment Settler
+ *
+ * SECURITY: This module uses KMS for all signing operations.
+ * Private keys are NEVER loaded into memory. All cryptographic
+ * operations are delegated to the KMS service (MPC or TEE).
+ */
+
 import { readContract } from '@jejunetwork/contracts'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
   createPublicClient,
-  createWalletClient,
+  encodeFunctionData,
   formatUnits,
   type Hex,
   http,
   type PublicClient,
   parseEventLogs,
   type TransactionReceipt,
-  type WalletClient,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { config, getPrivateKeyFromKMS } from '../config'
+import { getKMSSigner, type KMSSigner } from '../../../lib/kms-signer'
+import { config } from '../config'
 import { getChainConfig, getTokenConfig } from '../lib/chains'
 import { ERC20_ABI, X402_FACILITATOR_ABI } from '../lib/contracts'
 import type { DecodedPayment, SettlementResult } from '../lib/schemas'
@@ -57,24 +64,59 @@ const pendingSettlements = new Map<
   string,
   { timestamp: number; payment: DecodedPayment }
 >()
+
+// SECURITY: Client cache without wallet client - we use KMS for signing
 const clientCache = new Map<
   string,
   {
     publicClient: PublicClient
-    walletClient: WalletClient | null
     chain: Chain
+    rpcUrl: string
   }
 >()
 
+// SECURITY: Lazy-initialized KMS signer - no private key in memory
+let facilitatorSigner: KMSSigner | null = null
+let facilitatorAddress: Address | null = null
+
+async function getFacilitatorSigner(): Promise<KMSSigner> {
+  if (!facilitatorSigner) {
+    const serviceId =
+      process.env.X402_FACILITATOR_SERVICE_ID ?? 'x402-facilitator'
+    facilitatorSigner = getKMSSigner(serviceId)
+    await facilitatorSigner.initialize()
+    facilitatorAddress = await facilitatorSigner.getAddress()
+    console.log(`[Settler] Facilitator signer initialized: ${facilitatorAddress}`)
+    console.log(`[Settler] Signing mode: ${facilitatorSigner.getMode()}`)
+  }
+  return facilitatorSigner
+}
+
+async function getFacilitatorAddress(): Promise<Address> {
+  if (!facilitatorAddress) {
+    await getFacilitatorSigner()
+  }
+  if (!facilitatorAddress) {
+    throw new Error('Facilitator address not initialized')
+  }
+  return facilitatorAddress
+}
+
 export async function createClients(
   network: string,
-): Promise<{ publicClient: PublicClient; walletClient: WalletClient | null }> {
+): Promise<{
+  publicClient: PublicClient
+  chain: Chain
+  rpcUrl: string
+  signerAddress: Address
+}> {
+  // Ensure signer is initialized
+  const signerAddress = await getFacilitatorAddress()
+
   const cached = clientCache.get(network)
-  if (cached)
-    return {
-      publicClient: cached.publicClient,
-      walletClient: cached.walletClient,
-    }
+  if (cached) {
+    return { ...cached, signerAddress }
+  }
 
   const chainConfig = getChainConfig(network)
   if (!chainConfig) throw new Error(`Unsupported network: ${network}`)
@@ -97,19 +139,10 @@ export async function createClients(
     transport: http(chainConfig.rpcUrl, transportConfig),
   }) as PublicClient
 
-  let walletClient: WalletClient | null = null
-  const privateKey = (await getPrivateKeyFromKMS()) ?? cfg.privateKey
+  const clientData = { publicClient, chain, rpcUrl: chainConfig.rpcUrl }
+  clientCache.set(network, clientData)
 
-  if (privateKey) {
-    walletClient = createWalletClient({
-      account: privateKeyToAccount(privateKey),
-      chain,
-      transport: http(chainConfig.rpcUrl, transportConfig),
-    })
-  }
-
-  clientCache.set(network, { publicClient, walletClient, chain })
-  return { publicClient, walletClient }
+  return { ...clientData, signerAddress }
 }
 
 export function clearClientCache(): void {
@@ -289,10 +322,17 @@ type SettlementArgs =
       `0x${string}`,
     ]
 
+/**
+ * Execute a settlement using KMS for signing.
+ *
+ * SECURITY: Private key never in memory. Transaction is built,
+ * sent to KMS for signing, and broadcast.
+ */
 async function executeSettlement(
   payment: DecodedPayment,
   publicClient: PublicClient,
-  walletClient: WalletClient,
+  chain: Chain,
+  rpcUrl: string,
   functionName: 'settle' | 'settleWithAuthorization',
   args: SettlementArgs,
 ): Promise<SettlementResult> {
@@ -351,31 +391,49 @@ async function executeSettlement(
     }
 
     try {
-      if (!walletClient.account) throw new Error('Wallet client has no account')
-      const { request } = await publicClient.simulateContract({
-        address: cfg.facilitatorAddress,
+      // Get signer and address
+      const signer = await getFacilitatorSigner()
+      const signerAddress = await getFacilitatorAddress()
+
+      // Build transaction data
+      const data = encodeFunctionData({
         abi: X402_FACILITATOR_ABI,
         functionName,
         args: args as never,
-        account: walletClient.account,
       })
 
-      const gasEstimate = await publicClient.estimateContractGas({
-        address: cfg.facilitatorAddress,
-        abi: X402_FACILITATOR_ABI,
-        functionName,
-        args: args as never,
-        account: walletClient.account,
-      })
+      // Get nonce and gas parameters
+      const [nonce, gasPrice] = await Promise.all([
+        publicClient.getTransactionCount({ address: signerAddress }),
+        publicClient.getGasPrice(),
+      ])
 
+      // Estimate gas with buffer
+      const gasEstimate = await publicClient.estimateGas({
+        account: signerAddress,
+        to: cfg.facilitatorAddress,
+        data,
+      })
       const gasLimit = BigInt(
         Math.ceil(Number(gasEstimate) * RETRY_CONFIG.gasMultiplier),
       )
 
-      const hash = await walletClient.writeContract({
-        ...request,
-        gas: gasLimit,
-      })
+      // SECURITY: Sign and send via KMS - private key never in memory
+      const hash = await signer.sendTransaction(
+        {
+          transaction: {
+            to: cfg.facilitatorAddress,
+            data,
+            nonce,
+            gas: gasLimit,
+            gasPrice,
+            chainId: chain.id,
+          },
+          chain,
+        },
+        rpcUrl,
+      )
+
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
       if (receipt.status !== 'success') {
@@ -447,27 +505,33 @@ function isRetryableError(error: Error): boolean {
 
 export async function settlePayment(
   payment: DecodedPayment,
-  _network: string,
+  network: string,
   publicClient: PublicClient,
-  walletClient: WalletClient,
 ): Promise<SettlementResult> {
-  return executeSettlement(payment, publicClient, walletClient, 'settle', [
-    payment.payer,
-    payment.recipient,
-    payment.token,
-    payment.amount,
-    payment.resource,
-    payment.nonce,
-    BigInt(payment.timestamp),
-    payment.signature,
-  ])
+  const { chain, rpcUrl } = await createClients(network)
+  return executeSettlement(
+    payment,
+    publicClient,
+    chain,
+    rpcUrl,
+    'settle',
+    [
+      payment.payer,
+      payment.recipient,
+      payment.token,
+      payment.amount,
+      payment.resource,
+      payment.nonce,
+      BigInt(payment.timestamp),
+      payment.signature,
+    ],
+  )
 }
 
 export async function settleGaslessPayment(
   payment: DecodedPayment,
-  _network: string,
+  network: string,
   publicClient: PublicClient,
-  walletClient: WalletClient,
   authParams: {
     validAfter: number
     validBefore: number
@@ -475,10 +539,12 @@ export async function settleGaslessPayment(
     authSignature: Hex
   },
 ): Promise<SettlementResult> {
+  const { chain, rpcUrl } = await createClients(network)
   return executeSettlement(
     payment,
     publicClient,
-    walletClient,
+    chain,
+    rpcUrl,
     'settleWithAuthorization',
     [
       payment.payer,
