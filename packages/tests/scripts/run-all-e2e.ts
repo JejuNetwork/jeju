@@ -150,15 +150,17 @@ function discoverTestableApps(rootDir: string): Array<{ name: string; manifest: 
 }
 
 // Start app in background
+// Uses 'bun run start' for production-like testing against DWS infrastructure
 async function startApp(
   appPath: string,
   manifest: AppManifest,
   env: Record<string, string>,
 ): Promise<Subprocess | null> {
-  const devCommand = manifest.commands?.dev || 'bun run dev'
-  const [cmd, ...args] = devCommand.split(' ')
+  // Prefer 'start' command for production-like testing, fall back to 'dev'
+  const startCommand = manifest.commands?.start || 'bun run start'
+  const [cmd, ...args] = startCommand.split(' ')
 
-  console.log(`  Starting ${manifest.name}...`)
+  console.log(`  Starting ${manifest.name} (production mode)...`)
 
   const proc = spawn([cmd, ...args], {
     cwd: appPath,

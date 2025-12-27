@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '../lib/logger'
-import { SMOKE_TEST_PORT, startSmokeTestServer } from './smoke-test-page'
+import { startSmokeTestServer } from './smoke-test-page'
 
 export interface SmokeTestResult {
   passed: boolean
@@ -58,7 +58,7 @@ export async function runSmokeTests(
 
   let smokeServer: { stop: () => void; url: string } | undefined
   let browser: Awaited<ReturnType<typeof import('playwright').chromium.launch>> | undefined
-  let context: Awaited<ReturnType<typeof browser.newContext>> | undefined
+  let context: Awaited<ReturnType<NonNullable<typeof browser>['newContext']>> | undefined
 
   try {
     // Step 1: Start smoke test server
@@ -121,7 +121,7 @@ export async function runSmokeTests(
       // Dynamically import to handle case where AI keys aren't configured
       try {
         const { isLLMConfigured, verifyImage } = await import(
-          '../../../tests/shared/ai/llm'
+          '@jejunetwork/tests/ai'
         )
 
         if (!isLLMConfigured()) {

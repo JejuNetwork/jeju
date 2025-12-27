@@ -802,36 +802,6 @@ class ServicesOrchestrator {
     return true
   }
 
-  private async verifyIndexerSchema(indexerPath: string): Promise<boolean> {
-    const containerName = await this.findPostgresContainer()
-    if (!containerName) return false
-
-    const checkResult = await Bun.spawn(
-      [
-        'docker',
-        'exec',
-        containerName,
-        'psql',
-        '-U',
-        'postgres',
-        '-d',
-        'indexer',
-        '-c',
-        "SELECT 1 FROM information_schema.tables WHERE table_name = 'block'",
-      ],
-      { stdout: 'pipe', stderr: 'pipe' },
-    )
-    const output = await new Response(checkResult.stdout).text()
-
-    if (output.includes('1')) {
-      logger.success('Schema synchronized')
-      return true
-    }
-
-    logger.warn('Schema synchronization may have failed')
-    return false
-  }
-
   private async findPostgresContainer(): Promise<string | null> {
     const containerNames = ['dws-postgres-indexer', 'squid-db-1']
 

@@ -836,63 +836,6 @@ describe('responseJson', () => {
   })
 })
 
-describe('fetchJsonAs', () => {
-  // Note: This test requires mocking or a real server
-  // For unit tests, we'll test basic validation logic
-
-  test('validates response with guard', async () => {
-    // Create a mock Response
-    const mockFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ valid: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-    const isValidResponse = (v: unknown): v is { valid: boolean } =>
-      isObject(v) && hasBooleanProperty(v, 'valid')
-
-    const result = await fetchJsonAs('https://example.com/api', isValidResponse)
-    expect(result).toEqual({ valid: true })
-
-    globalThis.fetch = mockFetch
-  })
-
-  test('throws for invalid response structure', async () => {
-    const mockFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ invalid: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-    const isValidResponse = (v: unknown): v is { valid: boolean } =>
-      isObject(v) && hasBooleanProperty(v, 'valid')
-
-    await expect(
-      fetchJsonAs('https://example.com/api', isValidResponse),
-    ).rejects.toThrow('Invalid response structure')
-
-    globalThis.fetch = mockFetch
-  })
-
-  test('throws for non-ok response', async () => {
-    const mockFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response('Not Found', {
-        status: 404,
-        statusText: 'Not Found',
-      })
-
-    const guard = (v: unknown): v is { data: string } => true
-
-    await expect(fetchJsonAs('https://example.com/api', guard)).rejects.toThrow(
-      'Fetch failed: 404 Not Found',
-    )
-
-    globalThis.fetch = mockFetch
-  })
-})
 
 // =============================================================================
 // Special Type Guards

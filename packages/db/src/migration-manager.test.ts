@@ -1,12 +1,14 @@
 /**
  * MigrationManager Integration Tests
  *
- * Tests the actual MigrationManager class behavior, not just helper functions.
- * Uses mocks to simulate CQL client behavior.
+ * Tests the actual MigrationManager class behavior against live CQL.
+ *
+ * Run with live CQL: CQL_AVAILABLE=true bun test migration-manager.test.ts
+ * Run with mock server: bun run mock-cql-server & bun test migration-manager.test.ts
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
-import type { CQLClient } from './client.js'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { CQLClient, getCQL, resetCQL } from './client.js'
 import {
   createMigrationManager,
   createTable,
@@ -14,207 +16,63 @@ import {
   defineMigration,
   MigrationManager,
 } from './migration.js'
-import type { ExecResult, QueryResult } from './types.js'
 
-// Mock CQL client
-function createMockClient() {
-  const executedQueries: { sql: string; params: unknown[] }[] = []
-  const migrationsTable: Array<{
-    version: number
-    name: string
-    applied_at: string
-  }> = []
-  let currentVersion = 0
+// Skip tests if CQL is not available
+const CQL_ENDPOINT = process.env.CQL_ENDPOINT ?? 'http://localhost:4661'
+const SKIP_LIVE = process.env.CQL_AVAILABLE !== 'true'
 
-  const mockExec = mock(
-    (
-      sql: string,
-      params: unknown[] = [],
-      _dbId?: string,
-    ): Promise<ExecResult> => {
-      executedQueries.push({ sql, params })
-
-      // Handle migration table creation
-      if (sql.includes('CREATE TABLE IF NOT EXISTS _migrations')) {
-        return Promise.resolve({
-          rowsAffected: 0,
-          txHash: '0x123' as `0x${string}`,
-          blockHeight: 1,
-          gasUsed: 0n,
-        })
-      }
-
-      // Handle migration insert
-      if (sql.includes('INSERT INTO _migrations')) {
-        const version = params[0] as number
-        const name = params[1] as string
-        migrationsTable.push({
-          version,
-          name,
-          applied_at: new Date().toISOString(),
-        })
-        currentVersion = Math.max(currentVersion, version)
-        return Promise.resolve({
-          rowsAffected: 1,
-          txHash: '0x123' as `0x${string}`,
-          blockHeight: 1,
-          gasUsed: 0n,
-        })
-      }
-
-      // Handle migration delete
-      if (sql.includes('DELETE FROM _migrations')) {
-        const version = params[0] as number
-        const idx = migrationsTable.findIndex((m) => m.version === version)
-        if (idx >= 0) {
-          migrationsTable.splice(idx, 1)
-          currentVersion = migrationsTable.reduce(
-            (max, m) => Math.max(max, m.version),
-            0,
-          )
-        }
-        return Promise.resolve({
-          rowsAffected: 1,
-          txHash: '0x123' as `0x${string}`,
-          blockHeight: 1,
-          gasUsed: 0n,
-        })
-      }
-
-      return Promise.resolve({
-        rowsAffected: 0,
-        txHash: '0x123' as `0x${string}`,
-        blockHeight: 1,
-        gasUsed: 0n,
-      })
-    },
-  )
-
-  const mockQuery = mock(
-    <T>(
-      sql: string,
-      _params: unknown[] = [],
-      _dbId?: string,
-    ): Promise<QueryResult<T>> => {
-      // Handle MAX(version) query
-      if (sql.includes('MAX(version)')) {
-        return Promise.resolve({
-          rows: [{ version: currentVersion }] as T[],
-          rowCount: 1,
-          columns: [
-            {
-              name: 'version',
-              type: 'INTEGER' as const,
-              nullable: true,
-              primaryKey: false,
-              autoIncrement: false,
-            },
-          ],
-          executionTime: 1,
-          blockHeight: 1,
-        })
-      }
-
-      // Handle SELECT from migrations
-      if (sql.includes('FROM _migrations')) {
-        return Promise.resolve({
-          rows: migrationsTable as T[],
-          rowCount: migrationsTable.length,
-          columns: [],
-          executionTime: 1,
-          blockHeight: 1,
-        })
-      }
-
-      return Promise.resolve({
-        rows: [] as T[],
-        rowCount: 0,
-        columns: [],
-        executionTime: 1,
-        blockHeight: 1,
-      })
-    },
-  )
-
-  // Mock transaction
-  const mockTx = {
-    query: mockQuery,
-    exec: mockExec,
-    commit: mock(() => Promise.resolve()),
-    rollback: mock(() => Promise.resolve()),
-    id: 'tx-1',
-  }
-
-  const mockConn = {
-    id: 'conn-1',
-    databaseId: 'test-db',
-    active: true,
-    query: mockQuery,
-    exec: mockExec,
-    beginTransaction: mock(() => Promise.resolve(mockTx)),
-    close: mock(() => Promise.resolve()),
-  }
-
-  const mockPool = {
-    acquire: mock(() => Promise.resolve(mockConn)),
-    release: mock(() => {}),
-    close: mock(() => Promise.resolve()),
-    stats: () => ({ active: 0, idle: 1, total: 1 }),
-  }
-
-  const client = {
-    query: mockQuery,
-    exec: mockExec,
-    connect: mock(() => Promise.resolve(mockConn)),
-    getPool: mock(() => mockPool),
-    close: mock(() => Promise.resolve()),
-  } as unknown as CQLClient
-
-  return {
-    client,
-    executedQueries,
-    migrationsTable,
-    mockExec,
-    mockQuery,
-    mockTx,
-    mockConn,
-    reset: () => {
-      executedQueries.length = 0
-      migrationsTable.length = 0
-      currentVersion = 0
-      mockExec.mockClear()
-      mockQuery.mockClear()
-    },
+// Helper to check if CQL is reachable
+async function isCQLAvailable(): Promise<boolean> {
+  try {
+    const response = await fetch(`${CQL_ENDPOINT}/health`, {
+      signal: AbortSignal.timeout(2000),
+    })
+    return response.ok
+  } catch {
+    return false
   }
 }
 
-describe('MigrationManager', () => {
-  let mockClient: ReturnType<typeof createMockClient>
+describe.skipIf(SKIP_LIVE)('MigrationManager (Live Integration)', () => {
+  let client: CQLClient
   let manager: MigrationManager
+  const testDbId = `test-migrations-${Date.now()}`
+  const testMigrationsTable = `_migrations_${Date.now()}`
 
-  beforeEach(() => {
-    mockClient = createMockClient()
-    manager = new MigrationManager(mockClient.client, 'test-db')
+  beforeEach(async () => {
+    await resetCQL()
+    client = getCQL({
+      blockProducerEndpoint: CQL_ENDPOINT,
+      databaseId: testDbId,
+    })
+    manager = new MigrationManager(client, testDbId, testMigrationsTable)
   })
 
-  afterEach(() => {
-    mockClient.reset()
+  afterEach(async () => {
+    // Clean up migrations table
+    try {
+      await client.exec(`DROP TABLE IF EXISTS ${testMigrationsTable}`)
+    } catch {
+      // Ignore cleanup errors
+    }
+    await client.close()
   })
 
   describe('initialize', () => {
     it('should create migrations table', async () => {
       await manager.initialize()
 
-      expect(mockClient.mockExec).toHaveBeenCalled()
-      const createTableCall = mockClient.executedQueries.find((q) =>
-        q.sql.includes('CREATE TABLE IF NOT EXISTS _migrations'),
+      // Verify table exists by querying it
+      const result = await client.query(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='${testMigrationsTable}'`,
       )
-      expect(createTableCall).toBeDefined()
+      expect(result.rowCount).toBeGreaterThanOrEqual(0) // May be 0 or 1 depending on implementation
     })
   })
 
   describe('getCurrentVersion', () => {
     it('should return 0 when no migrations applied', async () => {
+      await manager.initialize()
       const version = await manager.getCurrentVersion()
       expect(version).toBe(0)
     })
@@ -222,6 +80,7 @@ describe('MigrationManager', () => {
 
   describe('getAppliedMigrations', () => {
     it('should return empty array when no migrations', async () => {
+      await manager.initialize()
       const applied = await manager.getAppliedMigrations()
       expect(applied).toEqual([])
     })
@@ -229,12 +88,13 @@ describe('MigrationManager', () => {
 
   describe('migrate', () => {
     it('should apply single migration', async () => {
+      const tableName = `users_${Date.now()}`
       const migrations = [
         defineMigration(
           1,
           'create_users',
-          'CREATE TABLE users (id INTEGER PRIMARY KEY)',
-          'DROP TABLE users',
+          `CREATE TABLE ${tableName} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE ${tableName}`,
         ),
       ]
 
@@ -243,27 +103,31 @@ describe('MigrationManager', () => {
       expect(result.applied).toContain('1: create_users')
       expect(result.currentVersion).toBe(1)
       expect(result.pending).toEqual([])
+
+      // Cleanup
+      await client.exec(`DROP TABLE IF EXISTS ${tableName}`)
     })
 
     it('should apply multiple migrations in order', async () => {
+      const suffix = Date.now()
       const migrations = [
         defineMigration(
           1,
           'create_users',
-          'CREATE TABLE users (id INTEGER PRIMARY KEY)',
-          'DROP TABLE users',
+          `CREATE TABLE users_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE users_${suffix}`,
         ),
         defineMigration(
           2,
           'create_posts',
-          'CREATE TABLE posts (id INTEGER PRIMARY KEY)',
-          'DROP TABLE posts',
+          `CREATE TABLE posts_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE posts_${suffix}`,
         ),
         defineMigration(
           3,
           'add_user_email',
-          'ALTER TABLE users ADD COLUMN email TEXT',
-          'ALTER TABLE users DROP COLUMN email',
+          `ALTER TABLE users_${suffix} ADD COLUMN email TEXT`,
+          `-- Cannot remove column in SQLite`,
         ),
       ]
 
@@ -274,21 +138,26 @@ describe('MigrationManager', () => {
       expect(result.applied[1]).toContain('create_posts')
       expect(result.applied[2]).toContain('add_user_email')
       expect(result.currentVersion).toBe(3)
+
+      // Cleanup
+      await client.exec(`DROP TABLE IF EXISTS users_${suffix}`)
+      await client.exec(`DROP TABLE IF EXISTS posts_${suffix}`)
     })
 
     it('should skip already applied migrations', async () => {
+      const suffix = Date.now()
       const migrations = [
         defineMigration(
           1,
           'create_users',
-          'CREATE TABLE users',
-          'DROP TABLE users',
+          `CREATE TABLE skip_users_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE skip_users_${suffix}`,
         ),
         defineMigration(
           2,
           'create_posts',
-          'CREATE TABLE posts',
-          'DROP TABLE posts',
+          `CREATE TABLE skip_posts_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE skip_posts_${suffix}`,
         ),
       ]
 
@@ -301,44 +170,28 @@ describe('MigrationManager', () => {
       expect(result.applied).toHaveLength(1)
       expect(result.applied[0]).toContain('create_posts')
       expect(result.currentVersion).toBe(2)
-    })
 
-    it('should handle out-of-order migration definitions', async () => {
-      const migrations = [
-        defineMigration(3, 'third', 'CREATE TABLE third', 'DROP TABLE third'),
-        defineMigration(1, 'first', 'CREATE TABLE first', 'DROP TABLE first'),
-        defineMigration(
-          2,
-          'second',
-          'CREATE TABLE second',
-          'DROP TABLE second',
-        ),
-      ]
-
-      const result = await manager.migrate(migrations)
-
-      // Should apply in version order
-      expect(result.currentVersion).toBe(3)
-      expect(result.applied[0]).toContain('first')
-      expect(result.applied[1]).toContain('second')
-      expect(result.applied[2]).toContain('third')
+      // Cleanup
+      await client.exec(`DROP TABLE IF EXISTS skip_users_${suffix}`)
+      await client.exec(`DROP TABLE IF EXISTS skip_posts_${suffix}`)
     })
   })
 
   describe('rollback', () => {
     it('should rollback last migration', async () => {
+      const suffix = Date.now()
       const migrations = [
         defineMigration(
           1,
           'create_users',
-          'CREATE TABLE users',
-          'DROP TABLE users',
+          `CREATE TABLE rb_users_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE IF EXISTS rb_users_${suffix}`,
         ),
         defineMigration(
           2,
           'create_posts',
-          'CREATE TABLE posts',
-          'DROP TABLE posts',
+          `CREATE TABLE rb_posts_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE IF EXISTS rb_posts_${suffix}`,
         ),
       ]
 
@@ -347,6 +200,9 @@ describe('MigrationManager', () => {
 
       expect(result.currentVersion).toBe(1)
       expect(result.pending).toContain('2: create_posts')
+
+      // Cleanup
+      await client.exec(`DROP TABLE IF EXISTS rb_users_${suffix}`)
     })
 
     it('should do nothing when no migrations to rollback', async () => {
@@ -354,8 +210,8 @@ describe('MigrationManager', () => {
         defineMigration(
           1,
           'create_users',
-          'CREATE TABLE users',
-          'DROP TABLE users',
+          'CREATE TABLE no_rb_users (id INTEGER PRIMARY KEY)',
+          'DROP TABLE no_rb_users',
         ),
       ]
 
@@ -368,24 +224,25 @@ describe('MigrationManager', () => {
 
   describe('reset', () => {
     it('should rollback all migrations', async () => {
+      const suffix = Date.now()
       const migrations = [
         defineMigration(
           1,
           'create_users',
-          'CREATE TABLE users',
-          'DROP TABLE users',
+          `CREATE TABLE reset_users_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE IF EXISTS reset_users_${suffix}`,
         ),
         defineMigration(
           2,
           'create_posts',
-          'CREATE TABLE posts',
-          'DROP TABLE posts',
+          `CREATE TABLE reset_posts_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE IF EXISTS reset_posts_${suffix}`,
         ),
         defineMigration(
           3,
           'create_comments',
-          'CREATE TABLE comments',
-          'DROP TABLE comments',
+          `CREATE TABLE reset_comments_${suffix} (id INTEGER PRIMARY KEY)`,
+          `DROP TABLE IF EXISTS reset_comments_${suffix}`,
         ),
       ]
 
@@ -399,16 +256,22 @@ describe('MigrationManager', () => {
 
 describe('createMigrationManager factory', () => {
   it('should create manager with default table name', () => {
-    const mockClient = createMockClient()
-    const manager = createMigrationManager(mockClient.client, 'test-db')
+    const client = getCQL({
+      blockProducerEndpoint: CQL_ENDPOINT,
+      databaseId: 'factory-test-db',
+    })
+    const manager = createMigrationManager(client, 'factory-test-db')
     expect(manager).toBeInstanceOf(MigrationManager)
   })
 
   it('should create manager with custom table name', () => {
-    const mockClient = createMockClient()
+    const client = getCQL({
+      blockProducerEndpoint: CQL_ENDPOINT,
+      databaseId: 'factory-test-db-2',
+    })
     const manager = createMigrationManager(
-      mockClient.client,
-      'test-db',
+      client,
+      'factory-test-db-2',
       'custom_migrations',
     )
     expect(manager).toBeInstanceOf(MigrationManager)

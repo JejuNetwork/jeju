@@ -129,6 +129,31 @@ export * from './helpers/on-chain'
 // Screenshot utilities
 export * from './helpers/screenshots'
 
+// AI-powered visual verification
+export {
+  verifyPage,
+  verifyElement,
+  verifyPages,
+  createAppVisualTest,
+  type PageVerificationOptions,
+  type VerificationResult,
+} from './visual-verification'
+
+// LLM utilities for test verification
+export {
+  llm,
+  chat,
+  complete,
+  describeImage,
+  verifyImage,
+  isLLMConfigured,
+  requireLLM,
+  type LLMMessage,
+  type LLMOptions,
+  type LLMResponse,
+  type ImageVerification,
+} from './ai'
+
 // Test data constants
 export {
   BASE_SELECTORS,
@@ -199,6 +224,38 @@ export {
   waitForRpc,
   waitForService,
 } from './utils'
+
+// ============================================================================
+// Live Infrastructure Testing (NO MOCKS)
+// ============================================================================
+
+export {
+  // Infrastructure status
+  getInfraStatus,
+  getInfraConfig,
+  printInfraStatus,
+  // Infrastructure requirements
+  requireInfra,
+  hasInfra,
+  type InfraRequirement,
+  type InfraStatus,
+  // Individual service checks
+  checkCqlAvailable,
+  checkChainAvailable,
+  checkSolanaAvailable,
+  checkIpfsAvailable,
+  // Live clients for tests
+  getLiveInfra,
+  getLiveCqlClient,
+  getLiveRedisClient,
+  getChainConfig,
+  CqlTestClient,
+  RedisTestClient,
+  type LiveInfra,
+  // Test helpers
+  skipWithoutInfra,
+  describeWithInfra,
+} from './live-infrastructure'
 
 // ============================================================================
 // Full App Crawler - Comprehensive E2E Coverage

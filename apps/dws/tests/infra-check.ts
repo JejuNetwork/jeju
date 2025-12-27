@@ -1,20 +1,16 @@
 /**
- * Infrastructure availability checks for tests
+ * Infrastructure availability for tests
  *
- * These skip flags are computed at module load time based on
- * environment variables that are set either by:
- * 1. The jeju test CLI (which starts services and sets vars)
- * 2. Manual configuration (e.g., CQL_AVAILABLE=true)
- * 3. The preload.ts file (if services are already running)
+ * IMPORTANT: The Jeju CLI test orchestrator now uses a FAIL-FAST approach.
+ * If you're running tests via `jeju test`, all infrastructure is guaranteed
+ * to be available - the test run will crash before reaching tests if not.
  *
- * Usage:
- *   import { SKIP } from './infra-check'
- *   describe.skipIf(SKIP.STORAGE)('Storage Tests', () => { ... })
- *   test.skipIf(SKIP.K8S)('should deploy to k8s', () => { ... })
+ * These exports are DEPRECATED and exist only for backward compatibility.
+ * DO NOT add new skipIf patterns. Tests that need infrastructure should:
+ * 1. Be run via `jeju test` which ensures infrastructure
+ * 2. Crash with a clear error if infrastructure is missing
  *
- * When running standalone without jeju test:
- *   INFRA_READY=true bun test tests/integration.test.ts
- *   K8S_AVAILABLE=true bun test tests/infrastructure-k8s.test.ts
+ * @deprecated Use `jeju test` CLI instead of manual infrastructure checks
  */
 
 // Helper to get boolean from env
@@ -22,48 +18,46 @@ function envBool(key: string): boolean {
   return process.env[key] === 'true'
 }
 
-// These are set by jeju test or manually
-// By default, assume not available unless explicitly set
-const cql = envBool('CQL_AVAILABLE')
-const anvil = envBool('ANVIL_AVAILABLE')
-const dws = envBool('DWS_AVAILABLE')
-const docker = envBool('DOCKER_AVAILABLE')
-const k8s = envBool('K8S_AVAILABLE')
-const ipfs = envBool('IPFS_AVAILABLE')
-
-// Or use INFRA_READY as a shortcut for core services
+// Infrastructure is available if running via jeju test
 const infraReady = envBool('INFRA_READY')
-const allInfra = infraReady || (cql && anvil)
 
-// Computed status
-const storage = cql && ipfs
-
-// Export skip conditions (true = skip, false = run)
-// Skip when service is NOT available
+// DEPRECATED: Skip flags - all should be false when running via jeju test
+// These remain for backward compatibility but should not be used
 export const SKIP = {
-  // Service unavailable conditions
-  CQL: !cql && !infraReady,
-  ANVIL: !anvil && !infraReady,
-  DWS: !dws,
-  DOCKER: !docker,
-  K8S: !k8s,
-  IPFS: !ipfs,
-  STORAGE: !storage && !infraReady,
-
-  // Composite conditions
-  NO_CHAIN: !anvil && !infraReady,
-  NO_INFRA: !allInfra,
-  NO_K8S: !k8s || !docker,
-  NO_DISTRIBUTED: (!cql && !infraReady) || !ipfs,
+  CQL: false,
+  ANVIL: false,
+  DWS: false,
+  DOCKER: false,
+  K8S: !envBool('K8S_AVAILABLE'), // K8S is optional even in jeju test
+  IPFS: false,
+  STORAGE: false,
+  NO_CHAIN: false,
+  NO_INFRA: !infraReady,
+  NO_K8S: !envBool('K8S_AVAILABLE'),
+  NO_DISTRIBUTED: false,
 } as const
 
-// For backward compatibility
+// Status flags - should all be true when running via jeju test
 export const INFRA_STATUS = {
-  cql: cql || infraReady,
-  anvil: anvil || infraReady,
-  dws,
-  docker,
-  k8s,
-  ipfs,
-  storage: storage || infraReady,
+  cql: true,
+  anvil: true,
+  dws: true,
+  docker: true,
+  k8s: envBool('K8S_AVAILABLE'),
+  ipfs: true,
+  storage: true,
+}
+
+/**
+ * Require infrastructure to be available or crash
+ * Use this at the start of test files that need infrastructure
+ */
+export function requireInfrastructure(): void {
+  if (!infraReady) {
+    throw new Error(
+      'FATAL: Infrastructure not available. ' +
+        'Run tests with `jeju test` to ensure infrastructure is started. ' +
+        'Or set INFRA_READY=true if you have manually started services.',
+    )
+  }
 }
