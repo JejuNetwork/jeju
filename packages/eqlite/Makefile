@@ -59,7 +59,8 @@ docker_clean: status
 
 alpine_release: builder
 	temp_container=$$(docker create $(BUILDER):$(VERSION)) ; \
-	docker cp $${temp_container}:/app/bin - | gzip > app-bin.tgz
+	docker cp $${temp_container}:/go/src/eqlite/bin - | gzip > app-bin.tgz ; \
+	docker rm $${temp_container}
 
 save: status
 ifeq ($(SHIP_VERSION),)
@@ -69,15 +70,15 @@ endif
 	tar zcf $(IMAGE_TAR_GZ) $(IMAGE_TAR)
 
 start:
-	docker-compose down
-	docker-compose up --no-start
-	docker-compose start
+	docker compose down
+	docker compose up --no-start
+	docker compose start
 
 stop:
-	docker-compose down
+	docker compose down
 
 logs:
-	docker-compose logs -f --tail=10
+	docker compose logs -f --tail=10
 
 push_testnet:
 	docker tag $(IMAGE):$(VERSION) $(IMAGE):testnet

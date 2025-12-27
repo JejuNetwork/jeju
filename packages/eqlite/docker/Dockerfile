@@ -1,5 +1,5 @@
-# Stage: all runner
-FROM alpine:3.9
+# Stage: runtime
+FROM alpine:3.19
 
 ARG COMMIT
 ARG VERSION
@@ -16,9 +16,17 @@ ENV VERSION=${VERSION}
 ENV EQLITE_ROLE=miner
 ENV EQLITE_CONF=config.yaml
 
-RUN apk --no-cache add ca-certificates icu-libs musl
+# Include ICU libs for dynamic linking and other runtime dependencies
+RUN apk --no-cache add ca-certificates icu-libs musl libgcc libstdc++ sqlite-libs
 
 WORKDIR /app
-COPY --from=eqlite/eqlite-builder /go/src/eqlite/bin/* /app/
+COPY --from=eqlite/eqlite-builder:latest /go/src/eqlite/bin/eqlited /app/
+COPY --from=eqlite/eqlite-builder:latest /go/src/eqlite/bin/eqlite-minerd /app/
+COPY --from=eqlite/eqlite-builder:latest /go/src/eqlite/bin/eqlite /app/
+COPY --from=eqlite/eqlite-builder:latest /go/src/eqlite/bin/eqlite-fuse /app/
+COPY --from=eqlite/eqlite-builder:latest /go/src/eqlite/bin/eqlite-mysql-adapter /app/
+COPY --from=eqlite/eqlite-builder:latest /go/src/eqlite/bin/eqlite-proxy /app/
+COPY docker/docker-entry.sh /app/
+RUN chmod +x /app/docker-entry.sh
 ENTRYPOINT [ "./docker-entry.sh" ]
 EXPOSE 4661
