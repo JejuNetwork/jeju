@@ -15,7 +15,6 @@ import {
   Send,
   Settings,
   Shield,
-  Sparkles,
   Wallet,
   X,
   Zap,
@@ -56,19 +55,18 @@ interface NavItem {
   id: ViewMode
   label: string
   icon: LucideIcon
-  description: string
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'chat', label: 'Chat', icon: MessageSquare, description: 'Talk to your wallet' },
-  { id: 'messages', label: 'Messages', icon: Mail, description: 'Wallet-to-wallet' },
-  { id: 'portfolio', label: 'Portfolio', icon: Wallet, description: 'All your assets' },
-  { id: 'pools', label: 'Pools', icon: Droplets, description: 'Earn fees' },
-  { id: 'perps', label: 'Perps', icon: Activity, description: 'Leverage trading' },
-  { id: 'launchpad', label: 'Launch', icon: Rocket, description: 'Launch tokens' },
-  { id: 'nfts', label: 'NFTs', icon: Image, description: 'Your collection' },
-  { id: 'names', label: 'Names', icon: AtSign, description: 'Claim .jeju' },
-  { id: 'approvals', label: 'Security', icon: Shield, description: 'Token access' },
+  { id: 'chat', label: 'Chat', icon: MessageSquare },
+  { id: 'messages', label: 'Messages', icon: Mail },
+  { id: 'portfolio', label: 'Portfolio', icon: Wallet },
+  { id: 'pools', label: 'Pools', icon: Droplets },
+  { id: 'perps', label: 'Perps', icon: Activity },
+  { id: 'launchpad', label: 'Launch', icon: Rocket },
+  { id: 'nfts', label: 'NFTs', icon: Image },
+  { id: 'names', label: 'Names', icon: AtSign },
+  { id: 'approvals', label: 'Security', icon: Shield },
 ]
 
 function App() {
@@ -185,13 +183,7 @@ function App() {
               <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-pulse-glow">
                 <Zap className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-lg font-bold gradient-text">{networkName}</h1>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-emerald-400" />
-                  Your smart wallet
-                </p>
-              </div>
+              <h1 className="text-lg font-bold gradient-text">{networkName}</h1>
             </div>
             <button
               type="button"
@@ -205,7 +197,7 @@ function App() {
 
           {/* Navigation */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">
-            {NAV_ITEMS.map(({ id, label, icon: Icon, description }) => (
+            {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
               <button
                 type="button"
                 key={id}
@@ -214,21 +206,14 @@ function App() {
                   setIsSidebarOpen(false)
                 }}
                 aria-current={viewMode === id ? 'page' : undefined}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${
                   viewMode === id
-                    ? 'bg-gradient-to-r from-emerald-600/20 to-teal-600/10 text-emerald-400 border border-emerald-500/30 shadow-md shadow-emerald-500/5'
+                    ? 'bg-gradient-to-r from-emerald-600/20 to-teal-600/10 text-emerald-400 border border-emerald-500/30'
                     : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <span className={viewMode === id ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]' : ''}>
-                  <Icon className="w-5 h-5" />
-                </span>
-                <div className="flex-1 text-left">
-                  <span className="font-medium block">{label}</span>
-                  <span className={`text-xs ${viewMode === id ? 'text-emerald-400/70' : 'text-muted-foreground/70'}`}>
-                    {description}
-                  </span>
-                </div>
+                <Icon className="w-5 h-5" />
+                <span className="font-medium">{label}</span>
               </button>
             ))}
           </nav>

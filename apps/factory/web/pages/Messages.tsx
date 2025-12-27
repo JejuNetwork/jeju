@@ -56,7 +56,6 @@ export function MessagesPage() {
       <div className="page-container">
         <PageHeader
           title="Messages"
-          description="Encrypted direct messages via Farcaster"
           icon={MessageSquare}
           iconColor="text-factory-400"
         />

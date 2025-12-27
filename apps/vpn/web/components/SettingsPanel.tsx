@@ -124,12 +124,7 @@ export function SettingsPanel() {
 
   return (
     <div className="p-5 space-y-5 pb-safe">
-      <div>
-        <h2 className="text-xl font-semibold">Settings</h2>
-        <p className="text-sm text-muted mt-1">
-          Make it yours
-        </p>
-      </div>
+      <h2 className="text-xl font-semibold">Settings</h2>
 
       {/* Connection Settings */}
       <div className="card space-y-4">

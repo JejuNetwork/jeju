@@ -62,9 +62,6 @@ export default function ContainersPage() {
       >
         <div>
           <h1 className="page-title">Containers</h1>
-          <p className="page-subtitle">
-            Launch containers instantly on our global decentralized network
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button

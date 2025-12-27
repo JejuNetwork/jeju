@@ -78,9 +78,6 @@ export default function SettingsPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
-        <p className="page-subtitle">
-          Customize your experience and manage your account
-        </p>
       </div>
 
       <div
@@ -503,10 +500,7 @@ export default function SettingsPage() {
 
               <div className="empty-state" style={{ padding: '3rem' }}>
                 <Server size={48} />
-                <h3>Ready to provide</h3>
-                <p>
-                  Register compute nodes to contribute capacity and earn rewards
-                </p>
+                <h3>No nodes registered</h3>
                 <button
                   type="button"
                   className="btn btn-primary"

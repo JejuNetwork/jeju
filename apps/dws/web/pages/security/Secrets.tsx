@@ -72,9 +72,6 @@ export default function SecretsPage() {
       >
         <div>
           <h1 className="page-title">Secrets Vault</h1>
-          <p className="page-subtitle">
-            Encrypted secrets storage with TEE protection
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -144,8 +141,7 @@ export default function SecretsPage() {
         ) : secrets.length === 0 ? (
           <div className="empty-state">
             <Lock size={48} />
-            <h3>Ready to secure</h3>
-            <p>Store sensitive data with encryption and TEE protection</p>
+            <h3>No secrets yet</h3>
             <button
               type="button"
               className="btn btn-primary"

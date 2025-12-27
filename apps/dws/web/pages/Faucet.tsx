@@ -192,8 +192,7 @@ export default function FaucetPage() {
       <div style={{ maxWidth: '560px', margin: '0 auto' }}>
         <div className="empty-state" style={{ paddingTop: '3rem' }}>
           <Droplets size={64} />
-          <h3>JEJU Faucet</h3>
-          <p>Connect your wallet to claim free testnet tokens</p>
+          <h3>Connect wallet to claim</h3>
         </div>
       </div>
     )

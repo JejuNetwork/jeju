@@ -5,6 +5,7 @@
  */
 
 import { startA2AServer } from './a2a-server'
+import { config } from './config'
 import { startMCPServer } from './mcp-server'
 import { startRestServer } from './rest-server'
 import { getCQLSync } from './utils/cql-sync'
@@ -43,7 +44,7 @@ async function main(): Promise<void> {
         )
       }
 
-      if (schemaReady && process.env.CQL_SYNC_ENABLED === 'true') {
+      if (schemaReady && config.cqlSyncEnabled) {
         const cqlSync = getCQLSync()
         await cqlSync.initialize(dataSource)
         await cqlSync.start()
@@ -92,7 +93,7 @@ main().catch((error: Error) => {
   console.error('[Indexer] Startup failed:', error.message)
 
   // Log more details in development
-  if (process.env.NODE_ENV !== 'production') {
+  if (!config.isProduction) {
     console.error(error.stack)
   }
 

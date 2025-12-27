@@ -122,9 +122,8 @@ function generateAuthorizePage(
   const content = `
   <main class="card" role="main">
     <div class="logo">JEJU</div>
-    <div class="subtitle">Choose how to sign in</div>
     <div class="client-name" role="status">
-      Connecting to <strong>${escapeHtml(clientName)}</strong>
+      <strong>${escapeHtml(clientName)}</strong>
     </div>
     
     <nav class="providers" aria-label="Sign in options">

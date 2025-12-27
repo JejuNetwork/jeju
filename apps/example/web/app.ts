@@ -408,12 +408,9 @@ function renderHeader(): string {
            style="background: var(--gradient-brand);">
         <span class="text-3xl sm:text-4xl" role="img" aria-label="Tasks icon">✨</span>
       </div>
-      <h1 class="text-3xl sm:text-4xl font-bold gradient-text mb-2">
+      <h1 class="text-3xl sm:text-4xl font-bold gradient-text">
         Jeju Tasks
       </h1>
-      <p class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-        Organize your day, own your data
-      </p>
       ${state.address ? renderUserBadge() : ''}
     </header>
   `
@@ -453,12 +450,8 @@ function renderConnect(): string {
             d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       </div>
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-        Get Started
-      </h2>
-      <p class="text-gray-600 dark:text-gray-400 mb-8 max-w-sm mx-auto">
-        Connect your wallet to manage tasks on a secure, decentralized network.
-        No accounts, no tracking, just you and your data.
+      <p class="text-gray-600 dark:text-gray-400 mb-8">
+        Connect your wallet to continue
       </p>
       <button
         id="connect"
@@ -469,21 +462,6 @@ function renderConnect(): string {
         ${state.isConnecting ? 'Connecting...' : 'Connect Wallet'}
       </button>
       ${state.error ? renderError() : ''}
-      
-      <div class="mt-10 pt-8 border-t border-gray-200 dark:border-gray-700">
-        <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Powered by</p>
-        <div class="flex items-center justify-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-          <span class="flex items-center gap-1">
-            <span aria-hidden="true">🗄️</span> CQL
-          </span>
-          <span class="flex items-center gap-1">
-            <span aria-hidden="true">📦</span> IPFS
-          </span>
-          <span class="flex items-center gap-1">
-            <span aria-hidden="true">🔐</span> KMS
-          </span>
-        </div>
-      </div>
     </div>
   `
 }
@@ -613,34 +591,16 @@ function renderTodoList(): string {
 }
 
 function renderEmptyState(): string {
-  const messages: Record<AppState['filter'], { icon: string; title: string; text: string }> = {
-    all: {
-      icon: '🎯',
-      title: 'Start fresh',
-      text: 'Add a task above to get going.',
-    },
-    pending: {
-      icon: '🎉',
-      title: 'All clear',
-      text: 'No pending tasks. Add something new when you are ready.',
-    },
-    completed: {
-      icon: '📝',
-      title: 'Nothing here yet',
-      text: 'Completed tasks will appear here.',
-    },
+  const messages: Record<AppState['filter'], string> = {
+    all: 'No tasks yet',
+    pending: 'All done',
+    completed: 'Nothing completed',
   }
-
-  const msg = messages[state.filter]
 
   return `
     <div class="glass-card rounded-2xl p-8 sm:p-12 text-center">
-      <span class="text-5xl mb-4 block" role="img" aria-hidden="true">${msg.icon}</span>
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-        ${msg.title}
-      </h3>
-      <p class="text-gray-600 dark:text-gray-400 text-sm">
-        ${msg.text}
+      <p class="text-gray-500 dark:text-gray-400">
+        ${messages[state.filter]}
       </p>
     </div>
   `
@@ -757,7 +717,7 @@ function renderFooter(): string {
   return `
     <footer class="mt-12 text-center">
       <p class="text-xs text-gray-400 dark:text-gray-600">
-        Built on <span class="font-medium">Jeju Network</span> — decentralized storage, encryption, and identity
+        Jeju Network
       </p>
     </footer>
   `

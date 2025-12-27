@@ -69,9 +69,6 @@ export default function CDNPage() {
       >
         <div>
           <h1 className="page-title">CDN</h1>
-          <p className="page-subtitle">
-            Content delivery network with global edge caching
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button

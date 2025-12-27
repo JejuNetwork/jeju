@@ -32,9 +32,14 @@ export interface IndexerConfig {
 
   // Security
   logLevel: string
+  corsOrigins: string[]
 
   // Indexer mode
   indexerMode: string
+
+  // Staking
+  stakingAddress?: string
+  ethUsdPrice: number
 }
 
 const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
@@ -69,9 +74,14 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
 
   // Security
   logLevel: getEnvVar('LOG_LEVEL') ?? 'info',
+  corsOrigins: (getEnvVar('CORS_ORIGINS') ?? '').split(',').filter(Boolean),
 
   // Indexer mode
   indexerMode: getEnvVar('INDEXER_MODE') ?? 'postgres',
+
+  // Staking
+  stakingAddress: getEnvVar('INDEXER_STAKING_ADDRESS'),
+  ethUsdPrice: getEnvNumber('ETH_USD_PRICE') ?? 2000,
 })
 
 export { config }

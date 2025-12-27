@@ -36,7 +36,6 @@ export function GitPage() {
     <div className="page-container">
       <PageHeader
         title="Repositories"
-        description="Git hosting with on-chain commits"
         icon={GitBranch}
         iconColor="text-accent-400"
         action={

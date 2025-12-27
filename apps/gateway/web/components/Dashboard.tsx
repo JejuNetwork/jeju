@@ -88,17 +88,15 @@ export default function Dashboard() {
 
       <div className="container" style={{ paddingTop: '1.5rem' }}>
         {isConnected && <MultiTokenBalanceDisplay />}
-        <nav className="nav-tab-container" aria-label="Main navigation">
+        <nav className="nav-tab-container">
           {TABS.map(({ id, icon: Icon, label }) => (
             <button
               type="button"
               key={id}
               className={`button nav-tab ${activeTab === id ? '' : 'button-secondary'}`}
               onClick={() => setActiveTab(id)}
-              aria-current={activeTab === id ? 'page' : undefined}
-              aria-label={`${label} section`}
             >
-              <Icon size={16} aria-hidden="true" />
+              <Icon size={16} />
               {label}
             </button>
           ))}

@@ -69,38 +69,10 @@ export function HomePage() {
   ]
 
   const quickActions = [
-    {
-      href: '/bounties',
-      label: 'Create Bounty',
-      description: 'Fund open-source work',
-      icon: DollarSign,
-      gradient: 'from-success-500/20 to-success-600/10',
-      iconColor: 'text-success-400',
-    },
-    {
-      href: '/git',
-      label: 'New Repository',
-      description: 'Decentralized git hosting',
-      icon: GitBranch,
-      gradient: 'from-accent-500/20 to-accent-600/10',
-      iconColor: 'text-accent-400',
-    },
-    {
-      href: '/packages',
-      label: 'Publish Package',
-      description: 'Distribute libraries',
-      icon: Package,
-      gradient: 'from-info-500/20 to-info-600/10',
-      iconColor: 'text-info-400',
-    },
-    {
-      href: '/models',
-      label: 'Upload Model',
-      description: 'Host ML artifacts',
-      icon: Brain,
-      gradient: 'from-warning-500/20 to-warning-600/10',
-      iconColor: 'text-warning-400',
-    },
+    { href: '/bounties', label: 'Create Bounty', icon: DollarSign, gradient: 'from-success-500/20 to-success-600/10', iconColor: 'text-success-400' },
+    { href: '/git', label: 'New Repository', icon: GitBranch, gradient: 'from-accent-500/20 to-accent-600/10', iconColor: 'text-accent-400' },
+    { href: '/packages', label: 'Publish Package', icon: Package, gradient: 'from-info-500/20 to-info-600/10', iconColor: 'text-info-400' },
+    { href: '/models', label: 'Upload Model', icon: Brain, gradient: 'from-warning-500/20 to-warning-600/10', iconColor: 'text-warning-400' },
   ]
 
   const quickStats = [
@@ -142,14 +114,9 @@ export function HomePage() {
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center shadow-glow animate-float">
             <Sparkles className="w-7 h-7 text-white" aria-hidden="true" />
           </div>
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold font-display text-surface-50">
-              <span className="text-gradient">Factory</span>
-            </h1>
-            <p className="text-surface-400 mt-1 text-base sm:text-lg">
-              Open-source coordination, on-chain
-            </p>
-          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold font-display text-surface-50">
+            <span className="text-gradient">Factory</span>
+          </h1>
         </div>
         <WalletButton />
       </header>
@@ -294,9 +261,6 @@ export function HomePage() {
               <p className="font-semibold text-surface-100 text-sm sm:text-base">
                 {action.label}
               </p>
-              <p className="text-surface-500 text-xs sm:text-sm mt-1 hidden sm:block">
-                {action.description}
-              </p>
             </Link>
           ))}
         </div>
@@ -322,15 +286,9 @@ export function HomePage() {
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
-        <div className="card p-8 sm:p-10 text-center bg-gradient-to-br from-surface-800/50 to-surface-900/50">
-          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-accent-500/15 flex items-center justify-center">
-            <MessageSquare className="w-8 h-8 text-accent-400" aria-hidden="true" />
-          </div>
-          <h3 className="text-lg font-semibold text-surface-100 mb-2 font-display">
-            Developer feed
-          </h3>
-          <p className="text-surface-400 mb-6 max-w-md mx-auto">
-            Coordinate with other builders on Farcaster. Share progress, find collaborators, discuss ideas.
+        <div className="card p-6 sm:p-8 text-center bg-gradient-to-br from-surface-800/50 to-surface-900/50">
+          <p className="text-surface-400 mb-4">
+            Connect with other builders on Farcaster
           </p>
           <Link to="/feed" className="btn btn-primary">
             <MessageSquare className="w-4 h-4" />

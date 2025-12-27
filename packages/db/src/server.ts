@@ -58,7 +58,9 @@ function executeQuery(body: QueryBody): {
   rowCount?: number
   columns?: string[]
   rowsAffected?: number
-  lastInsertRowid?: number
+  lastInsertId?: string
+  txHash?: string
+  gasUsed?: string
   executionTime: number
   blockHeight: number
 } {
@@ -81,7 +83,7 @@ function executeQuery(body: QueryBody): {
       rows,
       rowCount: rows.length,
       columns,
-      executionTime: performance.now() - start,
+      executionTime: Math.round(performance.now() - start),
       blockHeight: blockHeight,
     }
   } else {
@@ -89,11 +91,16 @@ function executeQuery(body: QueryBody): {
     const result = stmt.run(...params)
     blockHeight++ // Simulate block advancement on writes
 
+    // Generate a pseudo-txHash for dev mode compatibility
+    const pseudoTxHash = `0x${blockHeight.toString(16).padStart(64, '0')}`
+    
     return {
       success: true,
       rowsAffected: result.changes,
-      lastInsertRowid: Number(result.lastInsertRowid),
-      executionTime: performance.now() - start,
+      lastInsertId: String(result.lastInsertRowid),
+      txHash: pseudoTxHash,
+      gasUsed: '21000', // Standard gas for simple operations
+      executionTime: Math.round(performance.now() - start),
       blockHeight: blockHeight,
     }
   }
@@ -142,6 +149,9 @@ const app = new Elysia()
           error: err instanceof Error ? err.message : String(err),
           executionTime: 0,
           blockHeight,
+          txHash: '0x0',
+          gasUsed: '0',
+          rowsAffected: 0,
         }
       }
     },
@@ -164,6 +174,9 @@ const app = new Elysia()
         error: err instanceof Error ? err.message : String(err),
         executionTime: 0,
         blockHeight,
+        txHash: '0x0',
+        gasUsed: '0',
+        rowsAffected: 0,
       }
     }
   })
@@ -179,6 +192,9 @@ const app = new Elysia()
           error: err instanceof Error ? err.message : String(err),
           executionTime: 0,
           blockHeight,
+          txHash: '0x0',
+          gasUsed: '0',
+          rowsAffected: 0,
         }
       }
     },
@@ -201,6 +217,9 @@ const app = new Elysia()
         error: err instanceof Error ? err.message : String(err),
         executionTime: 0,
         blockHeight,
+        txHash: '0x0',
+        gasUsed: '0',
+        rowsAffected: 0,
       }
     }
   })

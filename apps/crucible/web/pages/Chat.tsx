@@ -1,10 +1,8 @@
 /**
  * Chat Page
- *
- * Chat with agents and manage collaboration rooms
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChatInterface } from '../components/ChatInterface'
 import { LoadingSpinner } from '../components/LoadingSpinner'
@@ -14,7 +12,7 @@ import {
   useChatCharacters,
   useCreateRoom,
 } from '../hooks'
-import { getRoomTypeConfig, ROOM_TYPE_CONFIG } from '../lib/constants'
+import { ROOM_TYPE_CONFIG } from '../lib/constants'
 
 const ROOM_TYPES = Object.entries(ROOM_TYPE_CONFIG).map(([type, config]) => ({
   type: type as RoomType,
@@ -30,13 +28,11 @@ export default function ChatPage() {
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterWithRuntime | null>(null)
   const [showCreateRoom, setShowCreateRoom] = useState(false)
   const [roomName, setRoomName] = useState('')
-  const [roomDescription, setRoomDescription] = useState('')
   const [roomType, setRoomType] = useState<RoomType>('collaboration')
 
   const { data: characters, isLoading } = useChatCharacters()
   const createRoom = useCreateRoom()
 
-  // Set initial character from URL param
   useEffect(() => {
     if (characters && initialCharacter && !selectedCharacter) {
       const found = characters.find((c) => c.id === initialCharacter)
@@ -44,55 +40,37 @@ export default function ChatPage() {
     }
   }, [characters, initialCharacter, selectedCharacter])
 
-  // Memoized room type info
-  const selectedRoomInfo = useMemo(() => getRoomTypeConfig(roomType), [roomType])
-
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!roomName.trim()) return
 
     const result = await createRoom.mutateAsync({
       name: roomName.trim(),
-      description: roomDescription.trim() || undefined,
       roomType,
     })
 
     setShowCreateRoom(false)
     setRoomName('')
-    setRoomDescription('')
     navigate(`/chat/${result.roomId}`)
-  }
-
-  const handleSelectCharacter = (character: CharacterWithRuntime) => {
-    setSelectedCharacter(character)
   }
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20" role="status">
         <LoadingSpinner size="lg" />
-        <p className="mt-4 text-sm" style={{ color: 'var(--text-tertiary)' }}>
-          Loading agents
-        </p>
       </div>
     )
   }
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1
-            className="text-3xl md:text-4xl font-bold mb-2 font-display"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Chat
-          </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            {roomId ? `Room: ${roomId}` : 'Send messages to agents'}
-          </p>
-        </div>
+        <h1
+          className="text-3xl md:text-4xl font-bold font-display"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Chat
+        </h1>
         <button
           type="button"
           onClick={() => setShowCreateRoom(!showCreateRoom)}
@@ -103,14 +81,9 @@ export default function ChatPage() {
         </button>
       </header>
 
-      {/* Create Room Panel */}
       {showCreateRoom && (
-        <section
-          className="card-static p-6 mb-8 animate-slide-up"
-          aria-labelledby="create-room-heading"
-        >
+        <section className="card-static p-6 mb-8 animate-slide-up">
           <h2
-            id="create-room-heading"
             className="text-lg font-bold mb-5 font-display"
             style={{ color: 'var(--text-primary)' }}
           >
@@ -131,30 +104,9 @@ export default function ChatPage() {
                 type="text"
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
-                placeholder="Security Review"
                 className="input max-w-md"
                 required
                 autoFocus
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="room-description"
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Description
-                <span className="ml-2 font-normal" style={{ color: 'var(--text-tertiary)' }}>
-                  (optional)
-                </span>
-              </label>
-              <textarea
-                id="room-description"
-                value={roomDescription}
-                onChange={(e) => setRoomDescription(e.target.value)}
-                placeholder="What is this room for?"
-                className="input min-h-[80px] max-w-lg resize-none"
               />
             </div>
 
@@ -171,7 +123,7 @@ export default function ChatPage() {
                     key={rt.type}
                     type="button"
                     onClick={() => setRoomType(rt.type)}
-                    className={`p-4 rounded-xl border text-left transition-all ${
+                    className={`p-4 rounded-xl border text-center transition-all ${
                       roomType === rt.type
                         ? 'ring-2 ring-[var(--color-primary)] border-[var(--color-primary)]'
                         : 'border-[var(--border)] hover:border-[var(--border-strong)]'
@@ -184,7 +136,7 @@ export default function ChatPage() {
                     }}
                     aria-pressed={roomType === rt.type}
                   >
-                    <div className="text-2xl mb-2" aria-hidden="true">
+                    <div className="text-2xl mb-1" aria-hidden="true">
                       {rt.icon}
                     </div>
                     <p
@@ -196,32 +148,22 @@ export default function ChatPage() {
                   </button>
                 ))}
               </div>
-              <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
-                {selectedRoomInfo.description}
-              </p>
             </fieldset>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowCreateRoom(false)}
-                className="btn-ghost order-2 sm:order-1"
+                className="btn-ghost"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!roomName.trim() || createRoom.isPending}
-                className="btn-primary order-1 sm:order-2"
+                className="btn-primary"
               >
-                {createRoom.isPending ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    Creating
-                  </>
-                ) : (
-                  'Create'
-                )}
+                {createRoom.isPending ? <LoadingSpinner size="sm" /> : 'Create'}
               </button>
             </div>
 
@@ -240,9 +182,7 @@ export default function ChatPage() {
         </section>
       )}
 
-      {/* Main Chat Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Agent Selector - Sidebar */}
         <aside className="lg:col-span-4 xl:col-span-3">
           <div className="card-static p-4 lg:sticky lg:top-24">
             <h2
@@ -254,18 +194,17 @@ export default function ChatPage() {
             <div
               className="space-y-2 max-h-[300px] lg:max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-hide"
               role="listbox"
-              aria-label="Available agents"
             >
               {characters?.length === 0 && (
                 <p className="text-sm p-3" style={{ color: 'var(--text-tertiary)' }}>
-                  No agents available
+                  No agents
                 </p>
               )}
               {characters?.map((character) => (
                 <button
                   key={character.id}
                   type="button"
-                  onClick={() => handleSelectCharacter(character)}
+                  onClick={() => setSelectedCharacter(character)}
                   className={`w-full p-3 rounded-xl text-left transition-all ${
                     selectedCharacter?.id === character.id
                       ? 'ring-2 ring-[var(--color-primary)] bg-[var(--color-primary)]/10'
@@ -281,26 +220,16 @@ export default function ChatPage() {
                   aria-selected={selectedCharacter?.id === character.id}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className="font-medium truncate"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        {character.name}
-                      </p>
-                      <p
-                        className="text-xs truncate"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
-                        {character.id}
-                      </p>
-                    </div>
+                    <p
+                      className="font-medium truncate"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {character.name}
+                    </p>
                     <div
                       className={`flex-shrink-0 ${
                         character.hasRuntime ? 'status-dot-active' : 'status-dot-inactive'
                       }`}
-                      title={character.hasRuntime ? 'Online' : 'Offline'}
-                      aria-label={character.hasRuntime ? 'Online' : 'Offline'}
                     />
                   </div>
                 </button>
@@ -309,7 +238,6 @@ export default function ChatPage() {
           </div>
         </aside>
 
-        {/* Chat Interface - Main Area */}
         <main className="lg:col-span-8 xl:col-span-9">
           {selectedCharacter ? (
             <ChatInterface
@@ -319,17 +247,9 @@ export default function ChatPage() {
             />
           ) : (
             <div className="card-static p-12 text-center min-h-[400px] flex flex-col items-center justify-center">
-              <div className="text-5xl mb-4 animate-float" aria-hidden="true">
-                💬
-              </div>
-              <h3
-                className="text-xl font-bold mb-2 font-display"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Select an agent
-              </h3>
+              <div className="text-5xl mb-4" aria-hidden="true">💬</div>
               <p style={{ color: 'var(--text-secondary)' }}>
-                Choose from the sidebar to start
+                Select an agent
               </p>
             </div>
           )}

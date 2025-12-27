@@ -10,24 +10,25 @@
 import { cors } from '@elysiajs/cors'
 import Elysia from 'elysia'
 import { z } from 'zod'
+import { config } from './config'
 import {
   claimFromFaucet,
   getFaucetInfo,
   getFaucetStatus,
 } from './services/faucet-service'
 
-const PORT = Number(process.env.GATEWAY_API_PORT) || 4013
+const PORT = config.gatewayApiPort
 
 const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/)
 
 // SECURITY: Restrict CORS origins in production
-const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-const isProduction = process.env.NODE_ENV === 'production'
+const CORS_ORIGINS = config.corsOrigins
+const isProduction = config.isProduction
 
 const app = new Elysia()
   .use(
     cors({
-      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
+      origin: isProduction && CORS_ORIGINS.length > 0 ? CORS_ORIGINS : true,
       methods: ['GET', 'POST', 'OPTIONS'],
       allowedHeaders: ['Content-Type'],
       maxAge: 86400,

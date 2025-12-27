@@ -121,12 +121,9 @@ export function Navigation() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center shadow-glow transition-transform group-hover:scale-105">
             <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
           </div>
-          <div>
-            <h1 className="font-bold text-lg text-surface-50 font-display">
-              Factory
-            </h1>
-            <p className="text-xs text-surface-500">Ship code, earn rewards</p>
-          </div>
+          <h1 className="font-bold text-lg text-surface-50 font-display">
+            Factory
+          </h1>
         </Link>
       </div>
 
@@ -265,12 +262,9 @@ export function Navigation() {
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-surface-700 to-surface-800 flex items-center justify-center ring-2 ring-surface-700">
             <User className="w-5 h-5 text-surface-400" aria-hidden="true" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-surface-100 truncate">
-              Connect Wallet
-            </p>
-            <p className="text-xs text-surface-500">to get started</p>
-          </div>
+          <p className="flex-1 min-w-0 text-sm font-medium text-surface-100 truncate">
+            Connect Wallet
+          </p>
           <button
             type="button"
             className="p-2 hover:bg-surface-800 rounded-lg transition-colors text-surface-400 hover:text-surface-200"

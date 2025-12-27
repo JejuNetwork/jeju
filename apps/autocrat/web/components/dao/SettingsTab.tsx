@@ -32,23 +32,18 @@ interface SettingsTabProps {
 
 interface SectionProps {
   title: string
-  description?: string
   children: React.ReactNode
 }
 
-function Section({ title, description, children }: SectionProps) {
+function Section({ title, children }: Omit<SectionProps, 'description'>) {
   return (
     <div className="mb-8">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-          {title}
-        </h3>
-        {description && (
-          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            {description}
-          </p>
-        )}
-      </div>
+      <h3
+        className="text-lg font-semibold mb-4"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        {title}
+      </h3>
       {children}
     </div>
   )
@@ -232,7 +227,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       )}
 
       {/* Contract Addresses */}
-      <Section title="Contract Addresses" description="On-chain contract addresses">
+      <Section title="Contract Addresses">
         <div
           className="rounded-xl p-4"
           style={{
@@ -248,7 +243,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       </Section>
 
       {/* Visibility */}
-      <Section title="Visibility" description="Control discoverability">
+      <Section title="Visibility">
         <div className="grid gap-3">
           {visibilityOptions.map((option) => {
             const Icon = option.icon
@@ -312,10 +307,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       </Section>
 
       {/* Governance Parameters */}
-      <Section
-        title="Governance Parameters"
-        description="Proposal evaluation thresholds"
-      >
+      <Section title="Governance Parameters">
         <div
           className="rounded-xl p-5 space-y-4"
           style={{
@@ -422,10 +414,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       </Section>
 
       {/* External Integrations */}
-      <Section
-        title="External Integrations"
-        description="Platform connections"
-      >
+      <Section title="External Integrations">
         <div className="space-y-4">
           {/* Farcaster */}
           <div
@@ -442,14 +431,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               >
                 <MessageSquare className="w-5 h-5" style={{ color: 'var(--color-secondary)' }} />
               </div>
-              <div>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Farcaster Channel
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Farcaster channel for announcements
-                </p>
-              </div>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                Farcaster
+              </p>
             </div>
             <input
               type="text"
@@ -476,14 +460,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               >
                 <Globe className="w-5 h-5" style={{ color: 'var(--color-info)' }} />
               </div>
-              <div>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Website
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Organization website
-                </p>
-              </div>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                Website
+              </p>
             </div>
             <input
               type="url"
@@ -510,14 +489,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               >
                 <Users className="w-5 h-5" style={{ color: '#6366F1' }} />
               </div>
-              <div>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Discord
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Server invite link
-                </p>
-              </div>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                Discord
+              </p>
             </div>
             <input
               type="url"
@@ -544,14 +518,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               >
                 <Twitter className="w-5 h-5" style={{ color: '#0EA5E9' }} />
               </div>
-              <div>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Twitter / X
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Handle
-                </p>
-              </div>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                Twitter / X
+              </p>
             </div>
             <input
               type="text"
@@ -578,14 +547,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               >
                 <GitBranch className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
               </div>
-              <div>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  GitHub Organization
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Organization name
-                </p>
-              </div>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                GitHub
+              </p>
             </div>
             <input
               type="text"

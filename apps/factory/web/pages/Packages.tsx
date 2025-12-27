@@ -34,7 +34,6 @@ export function PackagesPage() {
     <div className="page-container">
       <PageHeader
         title="Packages"
-        description="Publish and install libraries on-chain"
         icon={Package}
         iconColor="text-info-400"
         action={

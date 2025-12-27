@@ -1,12 +1,13 @@
 import { getCQLUrl, getDWSUrl } from '@jejunetwork/config'
+import { config } from '../config'
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../../lib/config'
 import { CHAIN_IDS } from '../../lib/config/networks'
 
 export const LEADERBOARD_DB = {
-  databaseId: process.env.LEADERBOARD_CQL_DATABASE_ID || 'leaderboard',
+  databaseId: config.leaderboardCqlDatabaseId,
   endpoint: getCQLUrl(),
   timeout: 30000,
-  debug: process.env.NODE_ENV !== 'production',
+  debug: config.leaderboardDebug,
 } as const
 
 export const LEADERBOARD_CHAIN = {
@@ -22,9 +23,9 @@ export const LEADERBOARD_CONTRACTS = {
 } as const
 
 export const LEADERBOARD_ORACLE = {
-  privateKey: process.env.ATTESTATION_ORACLE_PRIVATE_KEY as
-    | `0x${string}`
-    | undefined,
+  get privateKey(): `0x${string}` | undefined {
+    return config.attestationOraclePrivateKey as `0x${string}` | undefined
+  },
   get isEnabled(): boolean {
     return Boolean(
       this.privateKey &&
@@ -35,7 +36,9 @@ export const LEADERBOARD_ORACLE = {
 } as const
 
 export const LEADERBOARD_DOMAIN = {
-  domain: process.env.LEADERBOARD_DOMAIN || getDomainDefault(),
+  get domain(): string {
+    return config.leaderboardDomain || getDomainDefault()
+  },
   tokenIssuer: 'jeju:leaderboard',
   tokenAudience: 'gateway',
 } as const
@@ -65,20 +68,30 @@ export const LEADERBOARD_TOKENS = {
 } as const
 
 export const LEADERBOARD_GITHUB = {
-  token: process.env.GITHUB_TOKEN,
-  repositories: (
-    process.env.LEADERBOARD_REPOSITORIES || 'jejunetwork/jeju'
-  ).split(','),
+  get token(): string | undefined {
+    return config.githubToken
+  },
+  get repositories(): string[] {
+    return config.leaderboardRepositories.split(',')
+  },
 } as const
 
 export const LEADERBOARD_STORAGE = {
-  dwsApiUrl: process.env.DWS_API_URL || getDWSUrl(),
-  dataDir: process.env.LEADERBOARD_DATA_DIR || './data/leaderboard',
+  get dwsApiUrl(): string {
+    return config.dwsApiUrl || getDWSUrl()
+  },
+  get dataDir(): string {
+    return config.leaderboardDataDir
+  },
 } as const
 
 export const LEADERBOARD_LLM = {
-  openRouterApiKey: process.env.OPENROUTER_API_KEY,
-  model: process.env.LEADERBOARD_LLM_MODEL || 'anthropic/claude-sonnet-4-5',
+  get openRouterApiKey(): string | undefined {
+    return config.openrouterApiKey
+  },
+  get model(): string {
+    return config.leaderboardLlmModel
+  },
 } as const
 
 export const LEADERBOARD_CONFIG = {

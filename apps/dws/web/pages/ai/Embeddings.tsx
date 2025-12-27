@@ -76,9 +76,6 @@ export default function EmbeddingsPage() {
       >
         <div>
           <h1 className="page-title">Embeddings</h1>
-          <p className="page-subtitle">
-            Generate vector embeddings for text similarity and search
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <select
@@ -138,8 +135,7 @@ export default function EmbeddingsPage() {
         {results.length === 0 ? (
           <div className="empty-state" style={{ padding: '3rem' }}>
             <MessageSquare size={48} />
-            <h3>Ready to embed</h3>
-            <p>Enter text to generate high-dimensional vector representations</p>
+            <h3>Enter text above</h3>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '1rem' }}>

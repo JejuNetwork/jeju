@@ -1,4 +1,4 @@
-import { Loader2, Lock, Power, ShieldCheck, Sparkles } from 'lucide-react'
+import { Loader2, Lock, Power, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface VPNToggleProps {
@@ -109,21 +109,18 @@ export function VPNToggle({
                 ? 'Disconnecting...'
                 : 'Connecting...'
               : isConnected
-                ? 'You\'re Protected'
+                ? 'Connected'
                 : 'Tap to Connect'}
           </h2>
-          {isConnected && !isLoading && (
-            <Sparkles className="w-4 h-4 text-accent animate-fade-in" />
-          )}
         </div>
         <p className="text-sm text-muted-light max-w-xs mx-auto leading-relaxed">
           {isLoading
             ? isConnected
-              ? 'Safely closing your secure tunnel...'
-              : 'Establishing encrypted connection...'
+              ? 'Disconnecting...'
+              : 'Connecting...'
             : isConnected
-              ? 'Your internet traffic is now encrypted and private.'
-              : 'One tap to secure your browsing. Fast and free.'}
+              ? 'Traffic encrypted'
+              : 'Secure your connection'}
         </p>
       </div>
 

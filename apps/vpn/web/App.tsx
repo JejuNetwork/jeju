@@ -5,7 +5,6 @@ import {
   Heart,
   Settings,
   Shield,
-  Sparkles,
   Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -126,15 +125,7 @@ function App() {
               }`}
             />
           </div>
-          <div>
-            <h1 className="text-lg font-semibold flex items-center gap-1.5">
-              Jeju VPN
-              {isConnected && <Sparkles className="w-4 h-4 text-accent" />}
-            </h1>
-            <p className="text-xs text-muted">
-              {isConnected ? 'Traffic encrypted' : 'Private browsing'}
-            </p>
-          </div>
+          <h1 className="text-lg font-semibold">Jeju VPN</h1>
         </div>
         {getStatusBadge()}
       </header>
@@ -188,7 +179,6 @@ function App() {
               <div className="flex items-center gap-3 p-4 bg-accent/5 border border-accent/20 rounded-xl">
                 <Heart className="w-5 h-5 text-accent flex-shrink-0" />
                 <p className="text-sm text-muted-light">
-                  <span className="text-white font-medium">Free, no limits.</span>{' '}
                   Contribute bandwidth when idle to help others.
                 </p>
               </div>

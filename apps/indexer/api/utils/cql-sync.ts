@@ -5,6 +5,7 @@
 import type { QueryParam } from '@jejunetwork/db'
 import { type CQLClient, getCQL } from '@jejunetwork/db'
 import type { DataSource, EntityMetadata } from 'typeorm'
+import { config } from '../config'
 
 type SqlPrimitive = string | number | boolean | null | bigint | Date
 type SqlParam = SqlPrimitive | SqlPrimitive[]
@@ -42,24 +43,24 @@ interface QueryResult<T = SqlRow> {
   rowCount: number
 }
 
-const CQL_ENABLED = process.env.CQL_SYNC_ENABLED === 'true'
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'indexer-sync'
+const CQL_ENABLED = config.cqlSyncEnabled
+const CQL_DATABASE_ID = config.cqlDatabaseId
 
 function getSyncIntervalMs(): number {
-  const interval = parseInt(process.env.CQL_SYNC_INTERVAL ?? '30000', 10)
-  if (Number.isNaN(interval) || interval <= 0) {
+  const interval = config.cqlSyncInterval
+  if (interval <= 0) {
     throw new Error(
-      `Invalid CQL_SYNC_INTERVAL: ${process.env.CQL_SYNC_INTERVAL}. Must be a positive integer.`,
+      `Invalid CQL_SYNC_INTERVAL: ${interval}. Must be a positive integer.`,
     )
   }
   return interval
 }
 
 function getBatchSize(): number {
-  const batch = parseInt(process.env.CQL_SYNC_BATCH_SIZE ?? '1000', 10)
-  if (Number.isNaN(batch) || batch <= 0) {
+  const batch = config.cqlSyncBatchSize
+  if (batch <= 0) {
     throw new Error(
-      `Invalid CQL_SYNC_BATCH_SIZE: ${process.env.CQL_SYNC_BATCH_SIZE}. Must be a positive integer.`,
+      `Invalid CQL_SYNC_BATCH_SIZE: ${batch}. Must be a positive integer.`,
     )
   }
   return batch

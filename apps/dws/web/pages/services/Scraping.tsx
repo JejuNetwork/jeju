@@ -77,9 +77,6 @@ export default function ScrapingPage() {
       >
         <div>
           <h1 className="page-title">Web Scraping</h1>
-          <p className="page-subtitle">
-            Browserless-compatible web scraping with distributed browser pool
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -166,8 +163,7 @@ export default function ScrapingPage() {
           ) : nodes.length === 0 ? (
             <div className="empty-state">
               <Cloud size={48} />
-              <h3>Nodes initializing</h3>
-              <p>Browser pool is starting up. Check back shortly.</p>
+              <h3>No nodes available</h3>
             </div>
           ) : (
             <div className="table-container">
@@ -402,7 +398,7 @@ export default function ScrapingPage() {
             <div className="empty-state">
               <Globe size={48} />
               <h3>Ready to browse</h3>
-              <p>Create a session for persistent browser automation</p>
+              <p>No active sessions</p>
             </div>
           ) : (
             <div className="table-container">

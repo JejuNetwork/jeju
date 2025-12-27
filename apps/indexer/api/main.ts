@@ -5,6 +5,7 @@
 import './init'
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { config } from './config'
 import { type Store, TypeormDatabase } from '@subsquid/typeorm-store'
 import {
   Account,
@@ -527,7 +528,7 @@ processor.run(
                 block: blockEntity,
                 transaction: txEntity,
                 timestamp: blockTimestamp,
-                chainId: parseInt(process.env.CHAIN_ID ?? '420691', 10),
+                chainId: config.chainId,
               }),
             )
 
@@ -590,7 +591,7 @@ processor.run(
                 block: blockEntity,
                 transaction: txEntity,
                 timestamp: blockTimestamp,
-                chainId: parseInt(process.env.CHAIN_ID ?? '420691', 10),
+                chainId: config.chainId,
               }),
             )
 

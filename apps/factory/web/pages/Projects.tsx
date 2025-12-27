@@ -78,7 +78,6 @@ export function ProjectsPage() {
     <div className="page-container">
       <PageHeader
         title="Projects"
-        description="Track tasks, milestones, and team progress"
         icon={LayoutDashboard}
         iconColor="text-accent-400"
         action={

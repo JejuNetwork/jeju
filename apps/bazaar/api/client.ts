@@ -4,7 +4,6 @@
  * Provides type-safe API access using Zod schemas for response validation.
  */
 
-import { getCoreAppUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { z } from 'zod'
 import { config } from './config'

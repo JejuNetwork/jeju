@@ -57,7 +57,6 @@ export function ModelsPage() {
     <div className="page-container">
       <PageHeader
         title="Models"
-        description="Host and serve ML models"
         icon={Brain}
         iconColor="text-warning-400"
         action={

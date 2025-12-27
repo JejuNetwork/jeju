@@ -577,7 +577,7 @@ export class TEEXMTPKeyManager {
    */
   private toKMSAttestation(attestation: TEEAttestation): KMSTEEAttestation {
     return {
-      quote: attestation.nonce, // Use nonce as quote identifier
+      quote: attestation.nonce ?? attestation.quote,
       measurement: attestation.measurement,
       timestamp: attestation.timestamp,
       verified: true, // Attestation was verified during generation

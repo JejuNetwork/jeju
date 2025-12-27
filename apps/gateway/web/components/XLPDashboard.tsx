@@ -334,20 +334,13 @@ export default function XLPDashboard() {
           XLP Dashboard
         </h2>
 
-        <div
-          className="sub-tab-container"
-          role="tablist"
-          aria-label="XLP Dashboard sections"
-        >
+        <div className="sub-tab-container">
           {(['overview', 'liquidity', 'stake', 'history'] as const).map(
             (tab) => (
               <button
                 type="button"
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                role="tab"
-                aria-selected={activeTab === tab}
-                aria-controls={`tabpanel-${tab}`}
                 className={`sub-tab ${activeTab === tab ? 'sub-tab-active' : ''}`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -357,7 +350,7 @@ export default function XLPDashboard() {
         </div>
 
         {activeTab === 'overview' && (
-          <div role="tabpanel" id="tabpanel-overview" aria-labelledby="tab-overview">
+          <div>
             <div
               className="grid grid-2"
               style={{ gap: '1rem', marginBottom: '1.5rem' }}
@@ -477,7 +470,7 @@ export default function XLPDashboard() {
 
         {activeTab === 'liquidity' &&
           (isConnected ? (
-            <div role="tabpanel" id="tabpanel-liquidity" aria-labelledby="tab-liquidity">
+            <div>
               <div style={{ marginBottom: '2rem' }}>
                 <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
                   ETH Liquidity (Gas Sponsorship)
@@ -516,7 +509,6 @@ export default function XLPDashboard() {
                       onChange={(e) => setEthAmount(e.target.value)}
                       disabled={isLoading}
                       style={{ flex: 1 }}
-                      aria-label="ETH amount to deposit"
                     />
                     <button
                       type="submit"
@@ -570,7 +562,6 @@ export default function XLPDashboard() {
                         onChange={(e) => setTokenAmount(e.target.value)}
                         disabled={isLoading}
                         style={{ flex: 1 }}
-                        aria-label={`${selectedToken?.symbol ?? 'Token'} amount to deposit`}
                       />
                       <button
                         type="submit"
@@ -607,7 +598,7 @@ export default function XLPDashboard() {
 
         {activeTab === 'stake' &&
           (isConnected ? (
-            <div role="tabpanel" id="tabpanel-stake" aria-labelledby="tab-stake">
+            <div>
               {!stake?.isActive ? (
                 <div>
                   <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>

@@ -37,7 +37,7 @@ export interface LogEntry {
   stack?: string
 }
 
-const LOG_LEVEL = process.env.LOG_LEVEL ?? 'info'
+const LOG_LEVEL = config.logLevel
 const LOG_LEVELS: Record<string, number> = {
   debug: 0,
   info: 1,
@@ -51,7 +51,7 @@ function shouldLog(level: string): boolean {
 
 function formatLog(entry: LogEntry): string {
   // JSON structured logging for production, pretty for dev
-  if (process.env.NODE_ENV === 'production') {
+  if (config.isProduction) {
     return JSON.stringify(entry)
   }
 
@@ -137,7 +137,7 @@ export function requestLogger(service: string) {
       const url = new URL(request.url)
 
       // Skip logging for health checks in production
-      if (url.pathname === '/health' && process.env.NODE_ENV === 'production') {
+      if (url.pathname === '/health' && config.isProduction) {
         return
       }
 
@@ -164,10 +164,7 @@ export function requestLogger(service: string) {
         const durationMs = Date.now() - start
 
         // Skip logging for health checks in production
-        if (
-          url.pathname === '/health' &&
-          process.env.NODE_ENV === 'production'
-        ) {
+        if (url.pathname === '/health' && config.isProduction) {
           return
         }
 
@@ -215,7 +212,7 @@ export function requestLogger(service: string) {
           walletAddress: clientInfo?.walletAddress,
           agentId: clientInfo?.agentId,
           error: errorMessage,
-          stack: process.env.NODE_ENV !== 'production' ? stack : undefined,
+          stack: !config.isProduction ? stack : undefined,
           message: 'Request failed',
         })
       },

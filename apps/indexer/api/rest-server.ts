@@ -95,8 +95,9 @@ import {
   validateParams,
   validateQuery,
 } from './utils/validation'
+import { config } from './config'
 
-const REST_PORT = parseInt(process.env.REST_PORT || '4352', 10)
+const REST_PORT = config.restPort
 
 if (!REST_PORT || REST_PORT <= 0 || REST_PORT > 65535) {
   throw new Error(
@@ -104,11 +105,9 @@ if (!REST_PORT || REST_PORT <= 0 || REST_PORT > 65535) {
   )
 }
 
-const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',')
-  .map((o) => o.trim())
-  .filter(Boolean)
+const CORS_ORIGINS = config.corsOrigins
 
-const corsOptions = CORS_ORIGINS?.length
+const corsOptions = CORS_ORIGINS.length
   ? {
       origin: CORS_ORIGINS,
       credentials: true,

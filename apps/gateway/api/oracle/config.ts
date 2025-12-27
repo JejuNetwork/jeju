@@ -12,14 +12,15 @@ import type {
 } from '@jejunetwork/types'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress } from 'viem'
+import { config as gatewayConfig } from '../config'
 
 // Local type aliases for convenience
 type NetworkConfig = OracleNetworkConfig
 type ConfigFileData = OracleConfigFileData
 
-const REQUIRED_ENV_VARS = [
-  'OPERATOR_PRIVATE_KEY',
-  'WORKER_PRIVATE_KEY',
+const REQUIRED_PRIVATE_KEYS = [
+  'operatorPrivateKey',
+  'workerPrivateKey',
 ] as const
 
 const REQUIRED_ADDRESSES = [
@@ -72,11 +73,11 @@ export function loadContractAddresses(
   const addresses: Record<string, Address> = {}
 
   const envOverrides: Record<string, string | undefined> = {
-    feedRegistry: process.env.FEED_REGISTRY_ADDRESS,
-    reportVerifier: process.env.REPORT_VERIFIER_ADDRESS,
-    committeeManager: process.env.COMMITTEE_MANAGER_ADDRESS,
-    feeRouter: process.env.FEE_ROUTER_ADDRESS,
-    networkConnector: process.env.NETWORK_CONNECTOR_ADDRESS,
+    feedRegistry: gatewayConfig.feedRegistryAddress,
+    reportVerifier: gatewayConfig.reportVerifierAddress,
+    committeeManager: gatewayConfig.committeeManagerAddress,
+    feeRouter: gatewayConfig.feeRouterAddress,
+    networkConnector: gatewayConfig.networkConnectorAddress,
   }
 
   for (const key of REQUIRED_ADDRESSES) {
@@ -126,26 +127,28 @@ async function createConfigAsync(
 ): Promise<OracleNodeConfig> {
   console.log(`[Config] Loading configuration for network: ${network}`)
 
-  const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v])
-  if (missingVars.length > 0) {
+  const missingKeys: string[] = []
+  if (!gatewayConfig.operatorPrivateKey) missingKeys.push('operatorPrivateKey')
+  if (!gatewayConfig.workerPrivateKey) missingKeys.push('workerPrivateKey')
+  if (missingKeys.length > 0) {
     throw new ConfigurationError(
-      `Missing required environment variables: ${missingVars.join(', ')}`,
+      `Missing required config keys: ${missingKeys.join(', ')}`,
     )
   }
 
   const networkConfig = await loadNetworkConfig(network)
   const addresses = loadContractAddresses(networkConfig)
 
-  if (!process.env.OPERATOR_PRIVATE_KEY)
-    throw new Error('OPERATOR_PRIVATE_KEY environment variable required')
-  if (!process.env.WORKER_PRIVATE_KEY)
-    throw new Error('WORKER_PRIVATE_KEY environment variable required')
+  if (!gatewayConfig.operatorPrivateKey)
+    throw new Error('OPERATOR_PRIVATE_KEY config required')
+  if (!gatewayConfig.workerPrivateKey)
+    throw new Error('WORKER_PRIVATE_KEY config required')
   const operatorKey = validatePrivateKey(
-    process.env.OPERATOR_PRIVATE_KEY,
+    gatewayConfig.operatorPrivateKey,
     'OPERATOR_PRIVATE_KEY',
   )
   const workerKey = validatePrivateKey(
-    process.env.WORKER_PRIVATE_KEY,
+    gatewayConfig.workerPrivateKey,
     'WORKER_PRIVATE_KEY',
   )
 

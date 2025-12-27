@@ -69,8 +69,7 @@ function generateWalletConnectPage(
 ): string {
   const content = `
   <main class="card" role="main">
-    <div class="logo">Wallet Sign-In</div>
-    <div class="subtitle">Sign once to prove it's you</div>
+    <div class="logo">Wallet</div>
     
     <div class="message-box" role="region" aria-label="Message to sign">
       <span aria-hidden="true">${escapeHtml(message)}</span>

@@ -14,16 +14,10 @@ interface NavLink {
   to: string
   label: string
   icon: typeof Building2
-  description: string
 }
 
 const NAV_LINKS: NavLink[] = [
-  {
-    to: '/',
-    label: 'Organizations',
-    icon: Building2,
-    description: 'Browse all DAOs',
-  },
+  { to: '/', label: 'Organizations', icon: Building2 },
 ]
 
 export function Header() {
@@ -105,17 +99,12 @@ export function Header() {
             >
               <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
-            <div className="hidden sm:block">
-              <span className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
-                Autocrat
-              </span>
-              <span
-                className="block text-xs font-medium"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                AI Governance
-              </span>
-            </div>
+            <span
+              className="hidden sm:block font-bold text-lg"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Autocrat
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -256,32 +245,15 @@ export function Header() {
                   key={link.to}
                   to={link.to}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors"
                   style={{
                     backgroundColor: isActive ? 'rgba(6, 214, 160, 0.12)' : 'transparent',
                     color: isActive ? 'var(--color-primary)' : 'var(--text-primary)',
                   }}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{
-                      backgroundColor: isActive
-                        ? 'rgba(6, 214, 160, 0.15)'
-                        : 'var(--bg-secondary)',
-                    }}
-                  >
-                    <Icon className="w-5 h-5" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <span className="block">{link.label}</span>
-                    <span
-                      className="block text-xs"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
-                      {link.description}
-                    </span>
-                  </div>
+                  <Icon className="w-5 h-5" aria-hidden="true" />
+                  {link.label}
                 </Link>
               )
             })}
@@ -290,21 +262,11 @@ export function Header() {
             <Link
               to="/create"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold text-white mt-3"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-white mt-2"
               style={{ background: 'var(--gradient-primary)' }}
             >
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
-              >
-                <Plus className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <div>
-                <span className="block">Create DAO</span>
-                <span className="block text-xs opacity-80">
-                  Deploy a new organization
-                </span>
-              </div>
+              <Plus className="w-5 h-5" aria-hidden="true" />
+              Create DAO
             </Link>
           </nav>
         </div>
