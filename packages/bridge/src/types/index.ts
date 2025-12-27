@@ -328,8 +328,12 @@ export interface AccountProof {
 
 // TEE BATCHING TYPES
 
-/** TEE attestation for proof batching */
-export interface TEEAttestation {
+/**
+ * TEE attestation for proof batching (optimized for bridge operations)
+ * Uses Uint8Array/bigint for performance in proof generation.
+ * For standard TEE attestation, use TEEAttestation from @jejunetwork/types
+ */
+export interface TEEBatchAttestation {
   /** TEE enclave measurement */
   measurement: Hash32
   /** Attestation quote */
@@ -348,7 +352,7 @@ export interface ProofBatch {
   /** Single aggregated proof for the batch */
   aggregatedProof: SP1Proof
   /** TEE attestation (optional, for pre-verification caching) */
-  teeAttestation: TEEAttestation | null
+  teeAttestation: TEEBatchAttestation | null
   /** Total fees collected for this batch */
   totalFees: bigint
   /** Proof generation cost */

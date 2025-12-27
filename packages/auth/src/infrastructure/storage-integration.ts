@@ -121,7 +121,7 @@ export class OAuth3StorageService {
       await this.decrypt(data),
       OAuth3SessionSchema,
       'encrypted session',
-    )
+    ) as OAuth3Session
     if (session.expiresAt < Date.now()) {
       await this.deleteSession(sessionId)
       return null
@@ -137,7 +137,7 @@ export class OAuth3StorageService {
       await this.decrypt(data),
       OAuth3SessionSchema,
       'encrypted session',
-    )
+    ) as OAuth3Session
 
     // Update index with retrieved session
     this.sessionIndex.set(session.sessionId, {

@@ -6,10 +6,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import {
-  describeWithInfra,
-  hasInfra,
-} from '@jeju/tests/shared/live-infrastructure'
+import { hasInfra } from '@jejunetwork/tests/shared/live-infrastructure'
 import type { Address } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
@@ -37,37 +34,32 @@ import {
 } from '../auth/types'
 
 // Check if OAuth3 TEE service is available for live tests
-const OAUTH3_AVAILABLE = await hasInfra({ gateway: true })
+const OAUTH3_AVAILABLE = await hasInfra(['gateway'])
 const OAUTH3_TEE_URL = process.env.OAUTH3_TEE_URL || 'https://oauth3.jeju.ai'
 
 // Valid hex session ID (32 bytes = 64 hex chars + 0x prefix)
 const validSessionId =
   '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
 
-describeWithInfra(
-  'OAuth3 Validation with Live TEE',
-  { gateway: true },
-  () => {
-    const oauth3Config: OAuth3Config = {
-      teeAgentUrl: OAUTH3_TEE_URL,
-      appId: '0x1234',
-    }
+describe.skipIf(!OAUTH3_AVAILABLE)('OAuth3 Validation with Live TEE', () => {
+  const oauth3Config: OAuth3Config = {
+    teeAgentUrl: OAUTH3_TEE_URL,
+    appId: '0x1234',
+  }
 
-    test('rejects invalid session ID format', async () => {
-      const result = await validateOAuth3Session('not-a-hex', oauth3Config)
-      expect(result.valid).toBe(false)
-      expect(result.error).toBe('Invalid session ID format')
-    })
+  test('rejects invalid session ID format', async () => {
+    const result = await validateOAuth3Session('not-a-hex', oauth3Config)
+    expect(result.valid).toBe(false)
+    expect(result.error).toBe('Invalid session ID format')
+  })
 
-    test('rejects non-existent session', async () => {
-      // A valid format but non-existent session should return session not found
-      const result = await validateOAuth3Session(validSessionId, oauth3Config)
-      expect(result.valid).toBe(false)
-      // Either "Session not found" or network error depending on TEE availability
-    })
-  },
-  OAUTH3_AVAILABLE,
-)
+  test('rejects non-existent session', async () => {
+    // A valid format but non-existent session should return session not found
+    const result = await validateOAuth3Session(validSessionId, oauth3Config)
+    expect(result.valid).toBe(false)
+    // Either "Session not found" or network error depending on TEE availability
+  })
+})
 
 describe('OAuth3 Validation Unit Tests', () => {
   const oauth3Config: OAuth3Config = {

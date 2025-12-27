@@ -17,7 +17,7 @@ import { z } from 'zod'
 import type {
   CrossChainTransfer,
   Hash32,
-  TEEAttestation,
+  TEEBatchAttestation,
 } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import {
@@ -288,7 +288,7 @@ export class PhalaClient {
   /**
    * Convert attestation to format used by batcher
    */
-  toTEEAttestation(attestation: PhalaAttestationResponse): TEEAttestation {
+  toTEEAttestation(attestation: PhalaAttestationResponse): TEEBatchAttestation {
     if (!this.enclavePublicKey) {
       throw new Error(
         'Enclave public key not initialized - call initialize() first',

@@ -261,7 +261,11 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
 
         const ts = parseInt(timestamp, 10)
         const now = Date.now()
-        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+        if (
+          Number.isNaN(ts) ||
+          ts < now - 5 * 60 * 1000 ||
+          ts > now + 30 * 1000
+        ) {
           set.status = 401
           return { error: 'Invalid or expired timestamp' }
         }
@@ -305,7 +309,11 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
 
         const ts = parseInt(timestamp, 10)
         const now = Date.now()
-        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+        if (
+          Number.isNaN(ts) ||
+          ts < now - 5 * 60 * 1000 ||
+          ts > now + 30 * 1000
+        ) {
           set.status = 401
           return { error: 'Invalid or expired timestamp' }
         }

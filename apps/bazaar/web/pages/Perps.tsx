@@ -56,12 +56,6 @@ export default function PerpsPage() {
     return `$${Number(formatUnits(price, 8)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  function _formatPnl(pnl: bigint): string {
-    const value = Number(formatUnits(pnl, 18))
-    const sign = value >= 0 ? '+' : ''
-    return `${sign}$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-
   function calculatePositionSize(): string {
     if (!marginAmount || !leverage) return '0'
     const margin = Number(marginAmount)

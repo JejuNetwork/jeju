@@ -2,8 +2,8 @@
  * @fileoverview Contract ABI exports
  * @module @jejunetwork/contracts/abis
  *
- * TYPED ABIs (camelCase) - Re-exported from generated.ts with full viem type inference
- * DEPRECATED ABIs (PascalCase) - Cast to Abi, no type inference (kept for backward compatibility)
+ * TYPED ABIs (camelCase) - Import directly from @jejunetwork/contracts (which exports from generated.ts)
+ * DEPRECATED ABIs (PascalCase) - Import directly from @jejunetwork/contracts
  *
  * Always use typed ABIs (camelCase):
  * ```typescript
@@ -11,50 +11,21 @@
  * ```
  */
 
-// ============================================================================
-// TYPED ABIs - Export from generated (full type inference)
-// ============================================================================
-export {
-  automationRegistryAbi,
+// Import ABIs from generated for PascalCase aliases
+import {
   banManagerAbi,
-  // PascalCase aliases for backward compatibility
-  banManagerAbi as BanManagerAbi,
-  bondingCurveAbi,
-  chainlinkGovernanceAbi,
-  creditManagerAbi,
-  federatedIdentityAbi,
-  federatedLiquidityAbi,
-  federatedSolverAbi,
-  hyperlaneOracleAbi,
-  icoPresaleAbi,
   identityRegistryAbi,
-  identityRegistryAbi as IdentityRegistryAbi,
-  inputSettlerAbi,
-  launchpadTokenAbi,
-  liquidityPaymasterAbi,
-  liquidityVaultAbi,
-  lpLockerAbi,
-  mockErc20Abi,
   moderationMarketplaceAbi,
-  moderationMarketplaceAbi as ModerationMarketplaceAbi,
-  multiTokenPaymasterAbi,
-  networkRegistryAbi,
-  oracleRegistryAbi,
-  oracleRouterAbi,
-  otcAbi,
-  outputSettlerAbi,
-  paymasterFactoryAbi,
-  registrationHelperAbi,
   reputationRegistryAbi,
-  reputationRegistryAbi as ReputationRegistryAbi,
-  simplePoolOracleAbi,
-  solverRegistryAbi,
-  tokenLaunchpadAbi,
-  tokenRegistryAbi,
-  userBlockRegistryAbi,
-  validationRegistryAbi,
-  vrfCoordinatorV2_5Abi,
 } from '../generated'
+
+// ============================================================================
+// PascalCase aliases for backward compatibility
+// ============================================================================
+export const BanManagerAbi = banManagerAbi
+export const IdentityRegistryAbi = identityRegistryAbi
+export const ModerationMarketplaceAbi = moderationMarketplaceAbi
+export const ReputationRegistryAbi = reputationRegistryAbi
 
 // ============================================================================
 // TYPED ABI FRAGMENTS - Common patterns with full type inference

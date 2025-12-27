@@ -196,12 +196,18 @@ describe('Step', () => {
 
     // Verify sequential step numbers
     for (let i = 0; i < steps.length; i++) {
-      expect(steps[i].stepNumber).toBe(i)
+      const step = steps[i]
+      if (!step) throw new Error(`Step ${i} is undefined`)
+      expect(step.stepNumber).toBe(i)
     }
 
     // Verify increasing timestamps
     for (let i = 1; i < steps.length; i++) {
-      expect(steps[i].timestamp).toBeGreaterThan(steps[i - 1].timestamp)
+      const current = steps[i]
+      const previous = steps[i - 1]
+      if (!current || !previous)
+        throw new Error(`Step at index ${i} is undefined`)
+      expect(current.timestamp).toBeGreaterThan(previous.timestamp)
     }
   })
 })

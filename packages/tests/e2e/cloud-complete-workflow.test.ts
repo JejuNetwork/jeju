@@ -43,8 +43,8 @@ import {
   type CloudConfig,
   CloudIntegration,
   ViolationType,
-} from '../../packages/deployment/scripts/shared/cloud-integration'
-import { Logger } from '../../packages/deployment/scripts/shared/logger'
+} from '../../../packages/deployment/scripts/shared/cloud-integration'
+import { Logger } from '../../../packages/deployment/scripts/shared/logger'
 
 const logger = new Logger('cloud-complete-workflow')
 

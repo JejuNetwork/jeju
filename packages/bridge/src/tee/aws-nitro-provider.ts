@@ -32,7 +32,7 @@ async function existsSyncSafe(path: string): Promise<boolean> {
 }
 
 import { keccak256, toBytes } from 'viem'
-import type { TEEAttestation } from '../types/index.js'
+import type { TEEBatchAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import { createLogger } from '../utils/logger.js'
 import { NitroDocumentSchema } from '../utils/validation.js'
@@ -156,7 +156,7 @@ export class AWSNitroProvider implements ITEEProvider {
     }
   }
 
-  toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+  toTEEAttestation(attestation: AttestationResponse): TEEBatchAttestation {
     const publicKey = attestation.publicKey ?? this.publicKey
     if (!publicKey) {
       throw new Error('No public key available - initialize provider first')

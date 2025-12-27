@@ -12,8 +12,8 @@
  * All integrations are fully permissionless - no API keys required.
  */
 
-import { EventEmitter } from 'node:events'
 import type { Address, PublicClient, WalletClient } from 'viem'
+import { WorkerdEventEmitter } from '../../utils/event-emitter'
 import { AcrossAdapter, type AcrossDeposit } from './across'
 import { type CowAuction, type CowOrder, CowProtocolSolver } from './cow'
 import { UniswapXAdapter, type UniswapXOrder } from './uniswapx'
@@ -43,7 +43,7 @@ export interface AggregatorConfig {
   isTestnet?: boolean
 }
 
-export class ExternalProtocolAggregator extends EventEmitter {
+export class ExternalProtocolAggregator extends WorkerdEventEmitter {
   private config: AggregatorConfig
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
 
@@ -90,9 +90,10 @@ export class ExternalProtocolAggregator extends EventEmitter {
         chainIds,
         this.config.isTestnet,
       )
-      this.across.on('deposit', (d: AcrossDeposit) =>
-        this.handleAcrossDeposit(d),
-      )
+      this.across.on('deposit', (data: unknown) => {
+        const d = data as AcrossDeposit
+        this.handleAcrossDeposit(d)
+      })
       await this.across.start()
     }
 
@@ -102,15 +103,19 @@ export class ExternalProtocolAggregator extends EventEmitter {
         chainIds,
         this.config.isTestnet,
       )
-      this.uniswapx.on('order', (o: UniswapXOrder) =>
-        this.handleUniswapXOrder(o),
-      )
+      this.uniswapx.on('order', (data) => {
+        const o = data as UniswapXOrder
+        this.handleUniswapXOrder(o)
+      })
       await this.uniswapx.start()
     }
 
     if (this.config.enableCow !== false) {
       this.cow = new CowProtocolSolver(this.clients, chainIds)
-      this.cow.on('auction', (a: CowAuction) => this.handleCowAuction(a))
+      this.cow.on('auction', (data) => {
+        const a = data as CowAuction
+        this.handleCowAuction(a)
+      })
       await this.cow.start()
     }
 

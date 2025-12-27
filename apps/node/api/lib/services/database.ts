@@ -14,6 +14,7 @@ import {
   type DatabaseInfo,
   type ExecResult,
   getCQL,
+  type QueryParam,
   type QueryResult,
 } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
@@ -275,7 +276,7 @@ export class DatabaseService {
    */
   async executeQuery<T>(
     sql: string,
-    params: unknown[],
+    params: QueryParam[],
     databaseId: string,
   ): Promise<QueryResult<T>> {
     if (!this.cqlClient) {
@@ -301,7 +302,7 @@ export class DatabaseService {
    */
   async executeWrite(
     sql: string,
-    params: unknown[],
+    params: QueryParam[],
     databaseId: string,
   ): Promise<ExecResult> {
     if (!this.cqlClient) {

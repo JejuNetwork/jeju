@@ -34,8 +34,8 @@ import {
   CloudIntegration,
   defaultCloudServices,
   ViolationType,
-} from '../../packages/deployment/scripts/shared/cloud-integration'
-import { Logger } from '../../packages/deployment/scripts/shared/logger'
+} from '../../../packages/deployment/scripts/shared/cloud-integration'
+import { Logger } from '../../../packages/deployment/scripts/shared/logger'
 import { TEST_ACCOUNTS } from '../shared/utils'
 
 const logger = new Logger('cloud-e2e-test')

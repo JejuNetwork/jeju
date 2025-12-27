@@ -3,13 +3,11 @@
  *
  * Uses a pre-built documentation index generated at build time.
  * Run `bun run build:docs-index` to generate the index.
+ *
+ * NOTE: This module is worker-compatible - no node:path/fs imports.
+ * DOCS_ROOT is only for build scripts and tests (they import it from build-index.ts).
  */
 
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-export const DOCS_ROOT = path.join(__dirname, '..', 'docs', 'pages')
 export const EXCLUDED_DIRS = new Set(['node_modules', 'public', 'components'])
 const MAX_SEARCH_RESULTS = 20
 

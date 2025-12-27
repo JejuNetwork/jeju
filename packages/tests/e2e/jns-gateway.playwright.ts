@@ -11,11 +11,19 @@
  *   bunx playwright test packages/tests/e2e/jns-gateway.spec.ts --config packages/tests/smoke/synpress.config.ts
  */
 
+import type { Page } from '@playwright/test'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-import { createPublicClient, http } from 'viem'
 import { createWalletSetup } from '../shared/synpress.config.base'
 import { PASSWORD } from '../shared/utils'
+
+// Synpress fixture types
+interface SynpressFixtures {
+  context: { newPage(): Promise<Page> }
+  page: Page
+  metamaskPage: Page
+  extensionId: string
+}
 
 const basicSetup = createWalletSetup()
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
@@ -25,17 +33,12 @@ const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546'
 const JNS_GATEWAY_PORT = parseInt(process.env.JNS_GATEWAY_PORT || '4005', 10)
 const JNS_GATEWAY_URL = `http://localhost:${JNS_GATEWAY_PORT}`
 
-const chain = {
+const _chain = {
   id: 31337,
   name: 'Network Local',
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
-}
-
-const _publicClient = createPublicClient({
-  chain,
-  transport: http(RPC_URL),
-})
+} as const
 
 test.describe('JNS Gateway Tests', () => {
   test('should serve gateway health check', async ({ page }) => {
@@ -95,12 +98,9 @@ test.describe('Wake Page Tests', () => {
     console.log('✅ Gateway page loads correctly')
   })
 
-  test('should allow funding via wallet when wake page is shown', async ({
-    context,
-    page,
-    metamaskPage,
-    extensionId,
-  }) => {
+  test('should allow funding via wallet when wake page is shown', async (fixtures) => {
+    const { context, page, metamaskPage, extensionId } =
+      fixtures as SynpressFixtures
     // This test requires:
     // 1. An unfunded app to show the wake page (set WAKE_PAGE_TEST_APP env var)
     // 2. A connected wallet with funds

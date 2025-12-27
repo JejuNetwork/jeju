@@ -4,6 +4,7 @@
  * Wraps your app to provide OAuth3 authentication context.
  */
 
+import { TEEAttestationSchema } from '@jejunetwork/types'
 import {
   createContext,
   type ReactNode,
@@ -27,7 +28,7 @@ import type {
   OAuth3Session,
   VerifiableCredential,
 } from '../types.js'
-import { SessionCapability, TEEProvider } from '../types.js'
+import { SessionCapability } from '../types.js'
 
 // Hex string schema - validates 0x-prefixed hex strings
 const HexSchema = z
@@ -47,22 +48,7 @@ const SessionCapabilitySchema = z.enum([
   SessionCapability.DELEGATE,
 ])
 
-// TEE provider schema
-const TEEProviderSchema = z.enum([
-  TEEProvider.DSTACK,
-  TEEProvider.PHALA,
-  TEEProvider.SIMULATED,
-])
-
-// TEE attestation schema
-const TEEAttestationSchema = z.object({
-  quote: HexSchema,
-  measurement: HexSchema,
-  reportData: HexSchema,
-  timestamp: z.number().int().positive(),
-  provider: TEEProviderSchema,
-  verified: z.boolean(),
-})
+// TEEAttestationSchema is imported from @jejunetwork/types
 
 // Full OAuth3Session schema with proper validation
 const OAuth3SessionSchema = z.object({

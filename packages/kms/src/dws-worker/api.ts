@@ -625,9 +625,11 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
         const nonce = Buffer.from(nonceBytes).toString('base64')
 
         // Encrypt using AES-256-GCM (via Web Crypto)
+        // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+        const keyBuffer = new Uint8Array(derivedKey).buffer
         const keyMaterial = await crypto.subtle.importKey(
           'raw',
-          derivedKey,
+          keyBuffer,
           'AES-GCM',
           false,
           ['encrypt'],
@@ -690,9 +692,11 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
           'kms-api-encrypt',
         )
 
+        // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+        const keyBuffer = new Uint8Array(derivedKey).buffer
         const keyMaterial = await crypto.subtle.importKey(
           'raw',
-          derivedKey,
+          keyBuffer,
           'AES-GCM',
           false,
           ['decrypt'],

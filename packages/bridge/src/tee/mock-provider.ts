@@ -6,7 +6,7 @@
  */
 
 import { keccak256, toBytes } from 'viem'
-import type { TEEAttestation } from '../types/index.js'
+import type { TEEBatchAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import { createLogger } from '../utils/logger.js'
 import type {
@@ -111,7 +111,7 @@ export class MockTEEProvider implements ITEEProvider {
     }
   }
 
-  toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+  toTEEAttestation(attestation: AttestationResponse): TEEBatchAttestation {
     return {
       measurement: toHash32(
         Buffer.from(attestation.measurement.slice(2), 'hex'),

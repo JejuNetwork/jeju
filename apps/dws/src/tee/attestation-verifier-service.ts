@@ -406,6 +406,7 @@ export class AttestationVerifierService {
         result.isValid,
       ],
       account,
+      chain: null,
     })
 
     console.log(
@@ -444,6 +445,7 @@ export class AttestationVerifierService {
       functionName: 'addTrustedMrEnclave',
       args: [mrEnclaveHash],
       account,
+      chain: null,
     })
   }
 
@@ -461,6 +463,7 @@ export class AttestationVerifierService {
       functionName: 'addTrustedMrSigner',
       args: [mrSignerHash],
       account,
+      chain: null,
     })
   }
 
@@ -478,6 +481,7 @@ export class AttestationVerifierService {
       functionName: 'removeTrustedMrEnclave',
       args: [mrEnclaveHash],
       account,
+      chain: null,
     })
   }
 
@@ -495,6 +499,7 @@ export class AttestationVerifierService {
       functionName: 'removeTrustedMrSigner',
       args: [mrSignerHash],
       account,
+      chain: null,
     })
   }
 

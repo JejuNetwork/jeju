@@ -5,7 +5,6 @@
 import { cors } from '@elysiajs/cors'
 import { validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import { security } from './utils/security'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -17,6 +16,7 @@ import {
   buildTokenBalancesQuery,
   buildTransactionQuery,
 } from './utils/graphql-utils'
+import { security } from './utils/security'
 import { BadRequestError, NotFoundError } from './utils/types'
 import {
   analyzeTransactionPromptArgsSchema,

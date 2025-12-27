@@ -58,7 +58,6 @@ import {
 import servicesJsonRaw from './services.json' with { type: 'json' }
 import vendorAppsJsonRaw from './vendor-apps.json' with { type: 'json' }
 
-export * from './cdn'
 export * from './dev-proxy'
 // Network utilities
 // Note: Some of these use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo)
@@ -2027,6 +2026,16 @@ export function getJejuMainnetHyperlaneIgp(): string {
 
 // Branding Config
 
+// App Config Injection
+export {
+  createAppConfig,
+  getEnvBool,
+  getEnvNumber,
+  getEnvVar,
+  getNodeEnv,
+  isDevelopmentEnv,
+  isTestEnv,
+} from './app-config'
 export {
   clearBrandingCache,
   generateForkBranding,
@@ -2075,6 +2084,20 @@ export {
   hasApiKey,
   printApiKeyStatus,
 } from './api-keys'
+
+// Chainlink Configuration
+export type {
+  AutomationConfig,
+  ChainlinkFeed,
+  VRFConfig,
+} from './chainlink'
+export {
+  getAutomationConfig,
+  getChainlinkFeed,
+  getChainlinkFeeds,
+  getVRFConfig,
+  hasChainlinkSupport,
+} from './chainlink'
 
 // Node.js-only modules (internal, not exported)
 // These modules use node:fs and are internal implementation details.

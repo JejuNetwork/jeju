@@ -57,14 +57,18 @@ describe('AgentWithConfig structure', () => {
       id: 'agent-123',
       userId: 'user-456',
       name: 'Test Agent',
-      status: 'active',
+      isActive: true,
       modelTier: 'standard',
-      autonomousTrading: true,
-      autonomousPosting: true,
-      autonomousCommenting: false,
-      autonomousDMs: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      autonomousEnabled: true,
+      pointsBalance: 1000,
+      lifetimePnL: 0,
+      totalTrades: 0,
+      winRate: 0,
+      character: {
+        name: 'Test Agent',
+        system: 'You are a helpful trading agent.',
+        bio: ['A helpful trading agent'],
+      },
       systemPrompt: 'You are a helpful trading agent.',
       personality: 'Friendly and analytical',
       tradingStrategy: 'momentum',
@@ -72,9 +76,9 @@ describe('AgentWithConfig structure', () => {
     }
 
     expect(agent.id).toBe('agent-123')
-    expect(agent.status).toBe('active')
+    expect(agent.isActive).toBe(true)
     expect(agent.modelTier).toBe('standard')
-    expect(agent.autonomousTrading).toBe(true)
+    expect(agent.autonomousEnabled).toBe(true)
     expect(agent.systemPrompt).toBeDefined()
     expect(agent.personality).toBeDefined()
     expect(agent.tradingStrategy).toBe('momentum')
@@ -86,14 +90,17 @@ describe('AgentWithConfig structure', () => {
       id: 'agent-123',
       userId: 'user-456',
       name: 'Minimal Agent',
-      status: 'active',
+      isActive: true,
       modelTier: 'lite',
-      autonomousTrading: false,
-      autonomousPosting: false,
-      autonomousCommenting: false,
-      autonomousDMs: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      autonomousEnabled: false,
+      pointsBalance: 0,
+      lifetimePnL: 0,
+      totalTrades: 0,
+      winRate: 0,
+      character: {
+        name: 'Minimal Agent',
+        bio: [],
+      },
     }
 
     expect(agent.systemPrompt).toBeUndefined()
@@ -108,41 +115,43 @@ describe('AgentWithConfig structure', () => {
         id: 'agent-123',
         userId: 'user-456',
         name: 'Test',
-        status: 'active',
+        isActive: true,
         modelTier: tier,
-        autonomousTrading: false,
-        autonomousPosting: false,
-        autonomousCommenting: false,
-        autonomousDMs: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        autonomousEnabled: false,
+        pointsBalance: 0,
+        lifetimePnL: 0,
+        totalTrades: 0,
+        winRate: 0,
+        character: {
+          name: 'Test',
+          bio: [],
+        },
       }
       expect(agent.modelTier).toBe(tier)
     }
   })
 
-  it('supports all agent statuses', () => {
-    const statuses: AgentWithConfig['status'][] = [
-      'active',
-      'inactive',
-      'suspended',
-    ]
+  it('supports active and inactive states', () => {
+    const states = [true, false]
 
-    for (const status of statuses) {
+    for (const isActive of states) {
       const agent: AgentWithConfig = {
         id: 'agent-123',
         userId: 'user-456',
         name: 'Test',
-        status,
+        isActive,
         modelTier: 'lite',
-        autonomousTrading: false,
-        autonomousPosting: false,
-        autonomousCommenting: false,
-        autonomousDMs: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        autonomousEnabled: false,
+        pointsBalance: 0,
+        lifetimePnL: 0,
+        totalTrades: 0,
+        winRate: 0,
+        character: {
+          name: 'Test',
+          bio: [],
+        },
       }
-      expect(agent.status).toBe(status)
+      expect(agent.isActive).toBe(isActive)
     }
   })
 })

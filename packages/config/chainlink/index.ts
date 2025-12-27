@@ -6,15 +6,10 @@
  */
 
 import { z } from 'zod'
-// @ts-expect-error TypeScript 5.3+ supports import attributes
 import automation from './automation.json' with { type: 'json' }
-// @ts-expect-error TypeScript 5.3+ supports import attributes
 import feeds from './feeds.json' with { type: 'json' }
-// @ts-expect-error TypeScript 5.3+ supports import attributes
 import nodes from './nodes.json' with { type: 'json' }
-// @ts-expect-error TypeScript 5.3+ supports import attributes
 import staking from './staking.json' with { type: 'json' }
-// @ts-expect-error TypeScript 5.3+ supports import attributes
 import vrf from './vrf.json' with { type: 'json' }
 
 export { feeds, staking, vrf, automation, nodes }
@@ -256,7 +251,8 @@ export function getVRFConfig(chainId: number): VRFConfig {
   if (!config) {
     throw new Error(`Chainlink VRF not configured for chain ${chainId}`)
   }
-  return config
+  // JSON import doesn't preserve literal types, cast after validation
+  return config as VRFConfig
 }
 
 export function getAutomationConfig(chainId: number): AutomationConfig {
@@ -266,7 +262,8 @@ export function getAutomationConfig(chainId: number): AutomationConfig {
   if (!config) {
     throw new Error(`Chainlink Automation not configured for chain ${chainId}`)
   }
-  return config
+  // JSON import doesn't preserve literal types, cast after validation
+  return config as AutomationConfig
 }
 
 export function getLinkTokenAddress(chainId: number): string {

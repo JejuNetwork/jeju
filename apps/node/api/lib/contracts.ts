@@ -87,8 +87,8 @@ export interface ContractAddresses {
   banManager: Address
   cdnRegistry: Address
   cdnBilling: Address
-  vpnRegistry: Address
   databaseProvider: Address
+  vpnRegistry: Address
 }
 
 /** Localnet contract addresses (deterministic from Anvil deployment order) */

@@ -23,7 +23,6 @@ async function loadWebTorrent(): Promise<WebTorrentConstructor> {
 }
 
 import * as nodeHttp from 'node:http'
-import { getCDNConfig, getCDNContracts, getRpcUrl } from '@jejunetwork/config'
 import { bytesToHex, createHash, randomBytes } from '@jejunetwork/shared'
 import { expectHex } from '@jejunetwork/types'
 import { LRUCache } from 'lru-cache'
@@ -40,10 +39,6 @@ import {
   type OracleAttestation,
   OracleAttestationSchema,
 } from '../../../lib/validation'
-
-// Get config-first settings
-const cdnConfig = getCDNConfig()
-const cdnContracts = getCDNContracts()
 
 // Configuration Schema
 
@@ -233,21 +228,17 @@ export class HybridTorrentService {
   private metricsServer: nodeHttp.Server | null = null
 
   constructor(config: Partial<HybridTorrentConfig>) {
-    // Config-first approach: Use @jejunetwork/config values, allow runtime overrides
-    const p2pConfig = cdnConfig.edge.p2p
-
+    // Validate config - seedingOracleUrl is required
     this.config = TorrentConfigSchema.parse({
-      // Trackers from config
-      trackers: config.trackers ?? p2pConfig.trackers,
-      // RPC and contracts from config
-      rpcUrl: config.rpcUrl ?? getRpcUrl(),
-      contentRegistryAddress:
-        config.contentRegistryAddress ?? cdnContracts.contentRegistry,
-      // Oracle URL - from getDWSUrl base + /oracle/seeding endpoint
-      seedingOracleUrl: config.seedingOracleUrl,
-      // Cache settings from config
-      maxCacheBytes: config.maxCacheBytes ?? cdnConfig.edge.cache.maxSizeBytes,
-      // Runtime overrides
+      trackers: [
+        'wss://tracker.openwebtorrent.com',
+        'wss://tracker.btorrent.xyz',
+        'wss://tracker.fastcast.nz',
+        'udp://tracker.openbittorrent.com:80',
+        'udp://tracker.opentrackr.org:31337',
+      ],
+      seedingOracleUrl:
+        config.seedingOracleUrl ?? process.env.SEEDING_ORACLE_URL,
       ...config,
     })
 

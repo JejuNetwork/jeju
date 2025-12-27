@@ -136,15 +136,19 @@ function AgentForm({
     onChange({ ...agent, values: agent.values.filter((_, i) => i !== index) })
   }
 
-  const _addTrait = (trait: string) => {
+  const addTrait = (trait: string) => {
     if (trait && !agent.persona.traits.includes(trait)) {
       updatePersona({ traits: [...agent.persona.traits, trait] })
     }
   }
 
-  const _removeTrait = (trait: string) => {
+  const removeTrait = (trait: string) => {
     updatePersona({ traits: agent.persona.traits.filter((t) => t !== trait) })
   }
+
+  // Expose trait functions for future use
+  void addTrait
+  void removeTrait
 
   return (
     <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl overflow-hidden">
@@ -404,7 +408,10 @@ function AgentForm({
             </span>
             <div className="space-y-2">
               {agent.values.map((value, index) => (
-                <div key={index} className="flex gap-2">
+                <div
+                  key={`agent-value-${value || `empty-${index}`}`}
+                  className="flex gap-2"
+                >
                   <input
                     type="text"
                     value={value}
@@ -814,7 +821,7 @@ export default function CreateDAOPage() {
             <div className="space-y-4">
               {board.map((agent, index) => (
                 <AgentForm
-                  key={index}
+                  key={`board-${agent.role}-${agent.persona.name || index}`}
                   agent={agent}
                   onChange={(a) => updateBoardMember(index, a)}
                   onRemove={
@@ -1041,7 +1048,10 @@ export default function CreateDAOPage() {
                 </h4>
                 <div className="space-y-2">
                   {board.map((member, index) => (
-                    <div key={index} className="flex items-center gap-3">
+                    <div
+                      key={`preview-${member.role}-${member.persona.name || index}`}
+                      className="flex items-center gap-3"
+                    >
                       <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center">
                         <Bot className="w-4 h-4 text-slate-300" />
                       </div>

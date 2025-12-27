@@ -17,6 +17,7 @@ import {
   KmsEncryptResponseSchema,
 } from '../types'
 import { type ArweaveBackend, getArweaveBackend } from './arweave-backend'
+import { type FilecoinBackend, getFilecoinBackend } from './filecoin-backend'
 import type {
   ContentAddress,
   ContentCategory,
@@ -55,7 +56,8 @@ const DEFAULT_CONFIG: MultiBackendConfig = {
     { type: 'local', enabled: true, priority: 0 },
     { type: 'webtorrent', enabled: true, priority: 1 },
     { type: 'ipfs', enabled: true, priority: 2 },
-    { type: 'arweave', enabled: true, priority: 3 },
+    { type: 'filecoin', enabled: true, priority: 3 },
+    { type: 'arweave', enabled: true, priority: 4 },
   ],
   defaultTier: 'popular',
   replicationFactor: 2,
@@ -63,8 +65,8 @@ const DEFAULT_CONFIG: MultiBackendConfig = {
   // System content: WebTorrent + IPFS (fast, free)
   systemContentBackends: ['webtorrent', 'ipfs'],
 
-  // Popular content: WebTorrent + IPFS (incentivized)
-  popularContentBackends: ['webtorrent', 'ipfs'],
+  // Popular content: WebTorrent + IPFS + Filecoin (incentivized)
+  popularContentBackends: ['webtorrent', 'ipfs', 'filecoin'],
 
   // Private content: Local + IPFS with encryption
   privateContentBackends: ['local', 'ipfs'],
@@ -82,6 +84,7 @@ export class MultiBackendManager {
 
   // Specialized backends
   private arweaveBackend: ArweaveBackend
+  private filecoinBackend: FilecoinBackend
   private webtorrentBackend: WebTorrentBackend | null = null
 
   // Popularity tracking
@@ -97,6 +100,7 @@ export class MultiBackendManager {
 
     // Initialize specialized backends
     this.arweaveBackend = getArweaveBackend()
+    this.filecoinBackend = getFilecoinBackend()
     // WebTorrent is lazy-loaded to avoid native module issues
 
     // Initialize basic backends
@@ -219,6 +223,21 @@ export class MultiBackendManager {
       healthCheck: () => this.arweaveBackend.healthCheck(),
     })
 
+    // Filecoin wrapper
+    this.backends.set('filecoin', {
+      name: 'filecoin',
+      type: 'filecoin',
+      upload: async (content: Buffer, options?: { filename?: string }) => {
+        const result = await this.filecoinBackend.upload(content, {
+          filename: options?.filename,
+        })
+        return { cid: result.cid, url: `https://w3s.link/ipfs/${result.cid}` }
+      },
+      download: (cid: string) => this.filecoinBackend.download(cid),
+      exists: (cid: string) => this.filecoinBackend.exists(cid),
+      healthCheck: () => this.filecoinBackend.healthCheck(),
+    })
+
     // WebTorrent wrapper (lazy loaded)
     this.backends.set('webtorrent', {
       name: 'webtorrent',
@@ -317,6 +336,9 @@ export class MultiBackendManager {
           addresses.magnetUri = torrent?.magnetUri
         } else if (backendType === 'arweave') {
           addresses.arweaveTxId = result.cid
+        } else if (backendType === 'filecoin') {
+          // Filecoin CID is the IPFS CID used for the deal
+          addresses.filecoinDealId = result.cid
         }
       }
     }

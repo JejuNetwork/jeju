@@ -12,11 +12,11 @@
  * 3. Attestation freshness (timestamp)
  */
 
+import type { TEEAttestation } from '@jejunetwork/types'
 import { secp256k1 } from '@noble/curves/secp256k1'
 import { sha256 } from '@noble/hashes/sha256'
 import { type Hex, keccak256, toBytes } from 'viem'
 import { teeLogger as log } from './logger.js'
-import type { TEEAttestation } from './types.js'
 
 /**
  * Trusted verifier public keys for attestation signature verification.
@@ -392,7 +392,7 @@ export class AttestationVerifier {
     }
 
     return Promise.resolve({
-      valid: fresh && attestation.verified,
+      valid: fresh && (attestation.verified ?? false),
       teeType: 'local',
       measurementTrusted: true, // Local mode trusts all measurements
       fresh,
@@ -485,12 +485,16 @@ export class AttestationVerifier {
     for (const trustedPubKey of TRUSTED_VERIFIER_PUBLIC_KEYS) {
       try {
         const pubKeyBytes = toBytes(trustedPubKey)
-        const signature = new secp256k1.Signature(
-          BigInt(`0x${Buffer.from(r).toString('hex')}`),
-          BigInt(`0x${Buffer.from(s).toString('hex')}`),
-        )
+        // Reconstruct signature in compact format (64 bytes: r + s)
+        const signatureBytes = new Uint8Array(64)
+        signatureBytes.set(r, 0)
+        signatureBytes.set(s, 32)
 
-        const isValid = secp256k1.verify(signature, messageHash, pubKeyBytes)
+        const isValid = secp256k1.verify(
+          signatureBytes,
+          messageHash,
+          pubKeyBytes,
+        )
         if (isValid) {
           log.info('Attestation signature verified', {
             verifierKey: trustedPubKey.slice(0, 20),

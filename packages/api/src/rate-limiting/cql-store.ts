@@ -132,9 +132,11 @@ export class CQLRateLimitStore implements RateLimitStore {
     const result = await this.client.query<{
       count: number
       reset_at: number
-    }>(`SELECT count, reset_at FROM ${RATE_LIMIT_TABLE} WHERE key = ?`, [
-      fullKey,
-    ], this.databaseId)
+    }>(
+      `SELECT count, reset_at FROM ${RATE_LIMIT_TABLE} WHERE key = ?`,
+      [fullKey],
+      this.databaseId,
+    )
 
     let newCount: number
     let finalResetAt: number

@@ -12,7 +12,13 @@
  * - Distributed to edge nodes securely
  */
 
-import { randomBytes } from 'node:crypto'
+// Use Web Crypto API instead of node:crypto for workerd compatibility
+function randomBytes(length: number): Buffer {
+  const arr = new Uint8Array(length)
+  crypto.getRandomValues(arr)
+  return Buffer.from(arr)
+}
+
 import type { Address } from 'viem'
 import { keccak256, toHex } from 'viem'
 

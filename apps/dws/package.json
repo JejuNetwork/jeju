@@ -5,7 +5,8 @@
   "type": "module",
   "main": "api/index.ts",
   "exports": {
-    ".": "./api/index.ts"
+    ".": "./api/index.ts",
+    "./api/utils/event-emitter": "./api/utils/event-emitter.ts"
   },
   "scripts": {
     "dev": "concurrently \"bun run scripts/dev-frontend.ts\" \"bun run api/server/index.ts\"",

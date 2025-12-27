@@ -8,8 +8,7 @@ import type { Block, Log } from '../processor'
 export type BlockHeader = Block
 export type LogData = Log
 
-// Re-export relationId for backwards compatibility
-export { relationId } from './relation-id'
+// Import relationId directly from ./relation-id instead
 
 export function createAccountFactory() {
   const accounts = new Map<string, Account>()

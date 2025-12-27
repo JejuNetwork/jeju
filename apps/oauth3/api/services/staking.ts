@@ -95,7 +95,7 @@ function getPublicClient() {
   const network = process.env.NETWORK ?? 'localnet'
 
   // Determine chain based on network
-  let chain
+  let chain: typeof mainnet | typeof sepolia | typeof foundry
   switch (network) {
     case 'mainnet':
       chain = mainnet

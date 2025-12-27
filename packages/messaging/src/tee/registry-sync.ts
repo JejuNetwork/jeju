@@ -19,12 +19,9 @@ import { base, baseSepolia } from 'viem/chains'
 
 const log = createLogger('key-registry-sync')
 
+import type { TEEAttestation } from '@jejunetwork/types'
 import type { TEEXMTPKeyManager } from './key-manager'
-import type {
-  KeyRegistration,
-  RegistrationResult,
-  TEEAttestation,
-} from './types'
+import type { KeyRegistration, RegistrationResult } from './types'
 
 const KEY_REGISTRY_ABI = [
   {
@@ -423,12 +420,12 @@ export class KeyRegistrySync {
       ],
       [
         {
-          version: BigInt(attestation.version),
-          enclaveId: attestation.enclaveId,
-          measurement: attestation.measurement as `0x${string}`,
-          nonce: attestation.nonce as `0x${string}`,
+          version: BigInt(attestation.version ?? 1),
+          enclaveId: attestation.enclaveId ?? '',
+          measurement: attestation.measurement,
+          nonce: attestation.nonce ?? ('0x' as `0x${string}`),
           timestamp: BigInt(attestation.timestamp),
-          signature: attestation.signature as `0x${string}`,
+          signature: attestation.signature ?? ('0x' as `0x${string}`),
         },
       ],
     )

@@ -298,11 +298,14 @@ export function trajectoryToTrainingFormat(trajectory: GameTrajectory): {
   response: string
   reward: number
 } {
+  const firstStep = trajectory.steps[0]
+  if (!firstStep) throw new Error('Trajectory has no steps')
+  const obs = firstStep.observation
   const prompt = `You are playing Tic-Tac-Toe. The current board is:
-${trajectory.steps[0].observation.board ?? 'Empty board'}
+${obs?.board ?? 'Empty board'}
 
-You are player ${trajectory.steps[0].observation.currentPlayer ?? 'X'}.
-Valid moves: ${trajectory.steps[0].observation.validMoves.join(', ') ?? 'None'}
+You are player ${obs?.currentPlayer ?? 'X'}.
+Valid moves: ${obs?.validMoves?.join(', ') ?? 'None'}
 
 What move do you make and why?`
 

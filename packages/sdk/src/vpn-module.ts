@@ -251,15 +251,21 @@ export function createVPNModule(
 
       // Return sessions that haven't ended
       for (const log of startedLogs) {
-        if (endedSessionIds.has(log.args.sessionId)) {
+        const sessionId = log.args.sessionId
+        const user = log.args.user
+        const node = log.args.node
+        const timestamp = log.args.timestamp
+        if (!sessionId || !user || !node || timestamp === undefined) continue
+
+        if (endedSessionIds.has(sessionId)) {
           continue
         }
 
         sessions.push({
-          sessionId: log.args.sessionId,
-          user: log.args.user,
-          node: log.args.node,
-          startedAt: Number(log.args.timestamp),
+          sessionId,
+          user,
+          node,
+          startedAt: Number(timestamp),
           bytesTransferred: 0n,
           status: 'active',
         })
@@ -294,21 +300,37 @@ export function createVPNModule(
         { bytesTransferred: bigint; timestamp: bigint }
       >()
       for (const log of endedLogs) {
-        endedMap.set(log.args.sessionId, {
-          bytesTransferred: log.args.bytesTransferred,
-          timestamp: log.args.timestamp,
+        const sessionId = log.args.sessionId
+        const bytesTransferred = log.args.bytesTransferred
+        const timestamp = log.args.timestamp
+        if (
+          !sessionId ||
+          bytesTransferred === undefined ||
+          timestamp === undefined
+        )
+          continue
+
+        endedMap.set(sessionId, {
+          bytesTransferred,
+          timestamp,
         })
       }
 
       // Build session history
       for (const log of startedLogs) {
-        const endData = endedMap.get(log.args.sessionId)
+        const sessionId = log.args.sessionId
+        const user = log.args.user
+        const node = log.args.node
+        const timestamp = log.args.timestamp
+        if (!sessionId || !user || !node || timestamp === undefined) continue
+
+        const endData = endedMap.get(sessionId)
 
         sessions.push({
-          sessionId: log.args.sessionId,
-          user: log.args.user,
-          node: log.args.node,
-          startedAt: Number(log.args.timestamp),
+          sessionId,
+          user,
+          node,
+          startedAt: Number(timestamp),
           endedAt: endData ? Number(endData.timestamp) : undefined,
           bytesTransferred: endData?.bytesTransferred ?? 0n,
           status: endData ? 'completed' : 'active',

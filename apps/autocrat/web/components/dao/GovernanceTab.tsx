@@ -104,6 +104,16 @@ const STATUS_CONFIG: Record<
     color: 'text-red-400',
     bgColor: 'bg-red-500/20 border-red-500/30',
   },
+  executed: {
+    label: 'Executed',
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/20 border-emerald-500/30',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    color: 'text-slate-400',
+    bgColor: 'bg-slate-500/20 border-slate-500/30',
+  },
 }
 
 function ProposalCard({

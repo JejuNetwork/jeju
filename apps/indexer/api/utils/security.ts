@@ -5,7 +5,11 @@
  * - Request timeout enforcement
  */
 
-import { randomUUID } from 'node:crypto'
+// Use Web Crypto API instead of node:crypto for workerd compatibility
+function randomUUID(): string {
+  return crypto.randomUUID()
+}
+
 import { Elysia } from 'elysia'
 
 // ============================================================================

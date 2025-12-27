@@ -90,7 +90,7 @@ function findBackup(network: string, backupName: string): string {
   return backupPath
 }
 
-function loadDeploymentState(backupPath: string): typeof ORIGINAL_STATE {
+function loadDeploymentState(backupPath: string) {
   const deploymentFile = join(backupPath, 'deployment.json')
   if (!existsSync(deploymentFile)) {
     throw new Error(`Deployment file not found in backup: ${deploymentFile}`)

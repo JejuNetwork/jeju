@@ -28,6 +28,30 @@ const SHARES_SOLD_EVENT = parseAbiItem(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
+//                         TYPE GUARDS & HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+type SharesBoughtEventArgs = {
+  marketId?: Hex
+}
+
+type SharesSoldEventArgs = {
+  marketId?: Hex
+}
+
+function hasSharesBoughtArgs(
+  args: SharesBoughtEventArgs,
+): args is { marketId: Hex } {
+  return args.marketId !== undefined
+}
+
+function hasSharesSoldArgs(
+  args: SharesSoldEventArgs,
+): args is { marketId: Hex } {
+  return args.marketId !== undefined
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -490,7 +514,9 @@ export function createPredictionModule(
       })
 
       for (const log of buyLogs) {
-        marketIds.add(log.args.marketId)
+        if (hasSharesBoughtArgs(log.args)) {
+          marketIds.add(log.args.marketId)
+        }
       }
 
       // Also check sell events in case they bought and sold
@@ -503,7 +529,9 @@ export function createPredictionModule(
       })
 
       for (const log of sellLogs) {
-        marketIds.add(log.args.marketId)
+        if (hasSharesSoldArgs(log.args)) {
+          marketIds.add(log.args.marketId)
+        }
       }
 
       // Get current position for each market

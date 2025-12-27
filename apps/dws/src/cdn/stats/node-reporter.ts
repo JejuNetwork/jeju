@@ -20,14 +20,33 @@ import { base } from 'viem/chains'
 type ViemPublicClient = ReturnType<typeof createPublicClient>
 type ViemWalletClient = ReturnType<typeof createWalletClient>
 
-import * as http from 'node:http'
+// Workerd-compatible: Metrics server uses Fetch API handler instead of node:http
 import type { CDNRegion } from '@jejunetwork/types'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import type { EdgeCache } from '../cache/edge-cache'
 import type { RegionalCacheCoordinator } from '../cache/regional-coordinator'
 
+// Config injection for workerd compatibility
+export interface NodeReporterConfig {
+  oracleEndpoint?: string
+  nodePrivateKey?: string
+  statsContractAddress?: string
+}
+
+let reporterConfig: NodeReporterConfig = {
+  oracleEndpoint: 'https://oracle.jejunetwork.com/cdn-stats',
+}
+
+export function configureNodeReporter(
+  config: Partial<NodeReporterConfig>,
+): void {
+  reporterConfig = { ...reporterConfig, ...config }
+}
+
 const ORACLE_ENDPOINT =
-  process.env.STATS_ORACLE_URL ?? 'https://oracle.jejunetwork.com/cdn-stats'
+  reporterConfig.oracleEndpoint ??
+  (typeof process !== 'undefined' ? process.env.STATS_ORACLE_URL : undefined) ??
+  'https://oracle.jejunetwork.com/cdn-stats'
 
 // ============================================================================
 // Types
@@ -179,7 +198,7 @@ export class NodeStatsReporter {
     requests: number
   }> = []
   private reportInterval: ReturnType<typeof setInterval> | null = null
-  private metricsServer: http.Server | null = null
+  private metricsHandler: ((req: Request) => Promise<Response>) | null = null
 
   // Current period stats
   private currentBytes = 0
@@ -197,9 +216,18 @@ export class NodeStatsReporter {
         config.nodeId ?? `node-${Math.random().toString(36).slice(2, 10)}`,
       region: config.region ?? 'us-east-1',
       rpcUrl: config.rpcUrl ?? getRpcUrl(),
-      privateKey: config.privateKey ?? process.env.NODE_PRIVATE_KEY,
+      privateKey:
+        config.privateKey ??
+        reporterConfig.nodePrivateKey ??
+        (typeof process !== 'undefined'
+          ? process.env.NODE_PRIVATE_KEY
+          : undefined),
       statsContractAddress:
-        config.statsContractAddress ?? process.env.CDN_STATS_CONTRACT,
+        config.statsContractAddress ??
+        reporterConfig.statsContractAddress ??
+        (typeof process !== 'undefined'
+          ? process.env.CDN_STATS_CONTRACT
+          : undefined),
       reportIntervalMs: config.reportIntervalMs ?? 3600000, // 1 hour
       metricsPort: config.metricsPort,
     }
@@ -258,44 +286,50 @@ export class NodeStatsReporter {
       clearInterval(this.reportInterval)
       this.reportInterval = null
     }
-    if (this.metricsServer) {
-      this.metricsServer.close()
-      this.metricsServer = null
-    }
+    this.metricsHandler = null
 
     // Final report
     await this.generateAndSubmitReport()
   }
 
-  private async startMetricsServer(): Promise<void> {
-    this.metricsServer = http.createServer(async (req, res) => {
-      if (req.url === '/metrics') {
-        res.setHeader('Content-Type', metricsRegistry.contentType)
-        res.end(await metricsRegistry.metrics())
-      } else if (req.url === '/health') {
-        res.setHeader('Content-Type', 'application/json')
-        res.end(
-          JSON.stringify({
+  /**
+   * Get Fetch API handler for metrics endpoint (workerd-compatible)
+   * This should be registered as a route in the main Elysia app
+   */
+  getMetricsHandler(): (req: Request) => Promise<Response> {
+    if (!this.metricsHandler) {
+      this.metricsHandler = async (req: Request): Promise<Response> => {
+        const url = new URL(req.url)
+
+        if (url.pathname === '/metrics') {
+          return new Response(await metricsRegistry.metrics(), {
+            headers: { 'Content-Type': metricsRegistry.contentType },
+          })
+        }
+
+        if (url.pathname === '/health') {
+          return Response.json({
             status: 'healthy',
             uptime: Date.now() - this.startTime,
-          }),
-        )
-      } else if (req.url === '/stats') {
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify(this.generateReport()))
-      } else {
-        res.writeHead(404)
-        res.end('Not found')
+          })
+        }
+
+        if (url.pathname === '/stats') {
+          return Response.json(this.generateReport())
+        }
+
+        return new Response('Not found', { status: 404 })
       }
-    })
+    }
+    return this.metricsHandler
+  }
 
-    const server = this.metricsServer
-    await new Promise<void>((resolve) => {
-      server.listen(this.config.metricsPort, resolve)
-    })
-
+  private async startMetricsServer(): Promise<void> {
+    // In workerd, metrics are served via Fetch API handler, not a separate server
+    // The handler should be registered in the main Elysia app
+    this.metricsHandler = this.getMetricsHandler()
     console.log(
-      `[NodeStatsReporter] Metrics on port ${this.config.metricsPort}`,
+      `[NodeStatsReporter] Metrics handler ready (register at /metrics, /health, /stats)`,
     )
   }
 

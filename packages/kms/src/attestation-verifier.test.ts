@@ -5,6 +5,7 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
+import type { TEEAttestation } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import {
@@ -12,7 +13,6 @@ import {
   createAttestationVerifier,
   type TrustedMeasurement,
 } from './attestation-verifier'
-import type { TEEAttestation } from './types'
 
 describe('AttestationVerifier', () => {
   describe('initialization', () => {

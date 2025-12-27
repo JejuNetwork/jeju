@@ -5,11 +5,13 @@
  * - System content: All nodes seed core apps (free, capped bandwidth)
  * - Popular content: Incentivized seeding for hot content
  * - Private content: Encrypted, access-controlled seeding
+ *
+ * Workerd compatible: Uses S3-compatible DWS storage backend.
  */
 
-import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { WorkerdEventEmitter } from '../utils/event-emitter'
+import type { BackendManager } from './backends'
+import { S3Backend } from './s3-backend'
 import type {
   ContentCategory,
   ContentTier,
@@ -159,13 +161,16 @@ const DEFAULT_CONFIG: WebTorrentConfig = {
 
 // WebTorrent Backend
 
-export class WebTorrentBackend extends EventEmitter {
+const TORRENT_BUCKET = 'webtorrent-content'
+
+export class WebTorrentBackend extends WorkerdEventEmitter {
   readonly name = 'webtorrent'
   readonly type: StorageBackendType = 'webtorrent'
 
   private config: WebTorrentConfig
   private client: WebTorrentInstance | null = null
   private clientInitPromise: Promise<WebTorrentInstance> | null = null
+  private s3: S3Backend | null = null
 
   /** Get client, asserting it's initialized (use after await getClient()) */
   private get clientOrThrow(): WebTorrentInstance {
@@ -184,31 +189,39 @@ export class WebTorrentBackend extends EventEmitter {
     private: 0,
   }
 
-  constructor(config: Partial<WebTorrentConfig> = {}) {
+  constructor(
+    config: Partial<WebTorrentConfig> = {},
+    storageBackend?: BackendManager,
+  ) {
     super()
     this.config = { ...DEFAULT_CONFIG, ...config }
 
-    // Load config from environment
-    if (process.env.WEBTORRENT_TRACKERS) {
-      this.config.trackers = process.env.WEBTORRENT_TRACKERS.split(',')
-    }
-    if (process.env.WEBTORRENT_MAX_CACHE_GB) {
-      this.config.maxCacheSizeGB = parseInt(
-        process.env.WEBTORRENT_MAX_CACHE_GB,
-        10,
-      )
-    }
-    if (process.env.WEBTORRENT_SYSTEM_BW_MBPS) {
-      this.config.systemContentBandwidthMbps = parseInt(
-        process.env.WEBTORRENT_SYSTEM_BW_MBPS,
-        10,
-      )
+    // Initialize S3 backend for storage operations
+    if (storageBackend) {
+      this.s3 = new S3Backend(storageBackend)
     }
 
-    // Ensure download path exists
-    if (!existsSync(this.config.downloadPath)) {
-      mkdirSync(this.config.downloadPath, { recursive: true })
+    // Config injection for workerd compatibility
+    // Note: Environment variables can still be used via configureWebTorrentBackend
+  }
+
+  /** Initialize storage bucket */
+  async initializeStorage(): Promise<void> {
+    if (!this.s3) return
+    const existingBucket = await this.s3.getBucket(TORRENT_BUCKET)
+    if (!existingBucket) {
+      await this.s3.createBucket(TORRENT_BUCKET, 'webtorrent-system')
     }
+  }
+
+  /** Set storage backend for S3 operations */
+  setStorageBackend(backend: BackendManager): void {
+    this.s3 = new S3Backend(backend)
+  }
+
+  /** Get S3 backend for direct access */
+  getS3Backend(): S3Backend | null {
+    return this.s3
   }
 
   /**
@@ -245,6 +258,7 @@ export class WebTorrentBackend extends EventEmitter {
 
   /**
    * Create torrent from content
+   * Uses S3-compatible DWS storage backend
    */
   async createTorrent(
     content: Buffer,
@@ -257,13 +271,28 @@ export class WebTorrentBackend extends EventEmitter {
   ): Promise<TorrentInfo> {
     const client = await this.getClient()
 
-    // Write content to temp file for seeding
-    const tempPath = join(this.config.downloadPath, options.name)
-    writeFileSync(tempPath, content)
+    // Store content in S3-compatible storage
+    if (this.s3) {
+      const key = `${options.tier}/${options.cid}/${options.name}`
+      await this.s3.putObject({
+        bucket: TORRENT_BUCKET,
+        key,
+        body: content,
+        contentType: 'application/octet-stream',
+        metadata: {
+          'x-torrent-tier': options.tier,
+          'x-torrent-category': options.category,
+          'x-torrent-cid': options.cid,
+        },
+      })
+    }
+
+    // Create a Blob for WebTorrent seeding (works in workerd)
+    const blob = new Blob([new Uint8Array(content)])
 
     return new Promise((resolve, reject) => {
       client.seed(
-        tempPath,
+        blob as unknown as string, // WebTorrent accepts Blob in browser environments
         {
           name: options.name,
           announce: this.config.trackers,
@@ -343,7 +372,7 @@ export class WebTorrentBackend extends EventEmitter {
       this.clientOrThrow.add(
         magnetUri,
         {
-          path: this.config.downloadPath,
+          // Use in-memory storage instead of filesystem path
           announce: this.config.trackers,
         },
         (torrent) => {
@@ -391,7 +420,52 @@ export class WebTorrentBackend extends EventEmitter {
   }
 
   /**
-   * Download content via torrent
+   * Download content from S3 storage by CID
+   */
+  async downloadFromStorage(
+    cid: string,
+    tier: ContentTier = 'popular',
+  ): Promise<Buffer | null> {
+    if (!this.s3) return null
+
+    // List objects with CID prefix to find the content
+    const result = await this.s3.listObjects({
+      bucket: TORRENT_BUCKET,
+      prefix: `${tier}/${cid}/`,
+      maxKeys: 1,
+    })
+
+    if (result.contents.length === 0) {
+      // Try other tiers
+      for (const t of ['system', 'popular', 'private'] as ContentTier[]) {
+        if (t === tier) continue
+        const altResult = await this.s3.listObjects({
+          bucket: TORRENT_BUCKET,
+          prefix: `${t}/${cid}/`,
+          maxKeys: 1,
+        })
+        if (altResult.contents.length > 0 && altResult.contents[0]) {
+          const obj = await this.s3.getObject({
+            bucket: TORRENT_BUCKET,
+            key: altResult.contents[0].key,
+          })
+          return obj.body
+        }
+      }
+      return null
+    }
+
+    const firstContent = result.contents[0]
+    if (!firstContent) return null
+    const obj = await this.s3.getObject({
+      bucket: TORRENT_BUCKET,
+      key: firstContent.key,
+    })
+    return obj.body
+  }
+
+  /**
+   * Download content via torrent, with S3 storage fallback
    */
   async download(cidOrInfoHash: string): Promise<Buffer> {
     // Look up by CID first
@@ -400,12 +474,24 @@ export class WebTorrentBackend extends EventEmitter {
       infoHash = cidOrInfoHash
     }
 
+    // If not in torrent metadata, try S3 storage
     if (!infoHash) {
+      const stored = await this.downloadFromStorage(cidOrInfoHash)
+      if (stored) return stored
       throw new Error(`Torrent not found: ${cidOrInfoHash}`)
     }
 
     const torrent = this.clientOrThrow.get(infoHash)
     if (!torrent) {
+      // Fallback to S3 storage
+      const metadata = this.torrentMetadata.get(infoHash)
+      if (metadata) {
+        const stored = await this.downloadFromStorage(
+          metadata.cid,
+          metadata.tier,
+        )
+        if (stored) return stored
+      }
       throw new Error(`Torrent not in client: ${infoHash}`)
     }
 
@@ -751,17 +837,55 @@ export class WebTorrentBackend extends EventEmitter {
   }
 }
 
+// Config injection for workerd compatibility
+let globalWebTorrentEnvConfig: Partial<WebTorrentConfig> | null = null
+
+export function configureWebTorrentBackend(
+  config: Partial<WebTorrentConfig>,
+): void {
+  globalWebTorrentEnvConfig = { ...globalWebTorrentEnvConfig, ...config }
+}
+
 // Factory
 
 let globalWebTorrentBackend: WebTorrentBackend | null = null
 
 export function getWebTorrentBackend(
   config?: Partial<WebTorrentConfig>,
+  storageBackend?: BackendManager,
 ): WebTorrentBackend {
   if (!globalWebTorrentBackend) {
-    globalWebTorrentBackend = new WebTorrentBackend(config)
+    // Merge injected config with provided config
+    const mergedConfig = {
+      ...globalWebTorrentEnvConfig,
+      ...config,
+    }
+    globalWebTorrentBackend = new WebTorrentBackend(
+      mergedConfig,
+      storageBackend,
+    )
+    // Initialize storage bucket asynchronously
+    if (storageBackend) {
+      globalWebTorrentBackend.initializeStorage().catch((err: Error) => {
+        console.warn('[WebTorrent] Failed to initialize storage:', err.message)
+      })
+    }
+  } else if (storageBackend && !globalWebTorrentBackend.getS3Backend()) {
+    globalWebTorrentBackend.setStorageBackend(storageBackend)
+    globalWebTorrentBackend.initializeStorage().catch((err: Error) => {
+      console.warn('[WebTorrent] Failed to initialize storage:', err.message)
+    })
   }
   return globalWebTorrentBackend
+}
+
+export async function initializeWebTorrentBackend(
+  config?: Partial<WebTorrentConfig>,
+  storageBackend?: BackendManager,
+): Promise<WebTorrentBackend> {
+  const backend = getWebTorrentBackend(config, storageBackend)
+  await backend.initializeStorage()
+  return backend
 }
 
 export function resetWebTorrentBackend(): void {

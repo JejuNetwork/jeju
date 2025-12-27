@@ -25,8 +25,101 @@
  * ```
  */
 
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+// Workerd-compatible: Uses DWS exec API for file operations
+// Note: This SDK is typically used in CLI/build contexts, but made workerd-compatible for worker deployments
+
+// DWS Exec API for file operations
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+// Config injection for workerd compatibility
+export interface CDNSDKConfig {
+  execUrl: string
+}
+
+let sdkConfig: CDNSDKConfig = {
+  execUrl: 'http://localhost:4020/exec',
+}
+
+export function configureCDNSDK(config: Partial<CDNSDKConfig>): void {
+  sdkConfig = { ...sdkConfig, ...config }
+}
+
+const execUrl = sdkConfig.execUrl
+
+async function exec(
+  command: string[],
+  options?: { stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+async function readdir(
+  dir: string,
+): Promise<Array<{ name: string; isDirectory: () => boolean }>> {
+  const result = await exec(['sh', '-c', `ls -la "${dir}" | tail -n +2`])
+  if (result.exitCode !== 0) {
+    return []
+  }
+  return result.stdout
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => {
+      const parts = line.trim().split(/\s+/)
+      const name = parts[parts.length - 1]
+      const isDir = line.startsWith('d')
+      return {
+        name,
+        isDirectory: () => isDir,
+      }
+    })
+}
+
+async function readFile(path: string): Promise<Buffer> {
+  const result = await exec(['cat', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read ${path}: ${result.stderr}`)
+  }
+  return Buffer.from(result.stdout, 'utf-8')
+}
+
+async function stat(path: string): Promise<{ size: number }> {
+  const result = await exec(['stat', '-f', '%z', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to stat ${path}: ${result.stderr}`)
+  }
+  return { size: parseInt(result.stdout.trim(), 10) }
+}
+
+function join(...parts: string[]): string {
+  return parts.join('/').replace(/\/+/g, '/')
+}
+
+function relative(from: string, to: string): string {
+  const fromParts = from.split('/').filter(Boolean)
+  const toParts = to.split('/').filter(Boolean)
+  let i = 0
+  while (
+    i < fromParts.length &&
+    i < toParts.length &&
+    fromParts[i] === toParts[i]
+  ) {
+    i++
+  }
+  return toParts.slice(i).join('/')
+}
+
 import {
   getIpfsGatewayEnv,
   getRpcUrl,
@@ -259,12 +352,13 @@ export class CDNClient {
 
   /**
    * Collect all files from build directory
+   * Uses DWS exec API for workerd compatibility
    */
   private async collectFiles(dir: string): Promise<FileUpload[]> {
     const files: FileUpload[] = []
 
     const processDir = async (currentDir: string) => {
-      const entries = await readdir(currentDir, { withFileTypes: true })
+      const entries = await readdir(currentDir)
 
       for (const entry of entries) {
         const fullPath = join(currentDir, entry.name)
@@ -274,7 +368,7 @@ export class CDNClient {
           if (entry.name !== 'node_modules' && !entry.name.startsWith('.')) {
             await processDir(fullPath)
           }
-        } else if (entry.isFile()) {
+        } else {
           const fileStat = await stat(fullPath)
           const content = await readFile(fullPath)
           const relativePath = relative(dir, fullPath)

@@ -31,9 +31,18 @@ export async function waitForTxAndParseLog<T>(
       if (decoded.eventName === eventName) {
         // Event args can be array (positional) or object (named)
         // Convert to record for consistent handling
-        const args: Record<string, unknown> = Array.isArray(decoded.args)
-          ? Object.fromEntries(decoded.args.map((val, idx) => [idx, val]))
-          : (decoded.args ?? {})
+        const decodedArgs = decoded.args
+        let args: Record<string, unknown>
+        if (Array.isArray(decodedArgs)) {
+          args = Object.fromEntries(
+            decodedArgs.map((val, idx) => [String(idx), val]),
+          )
+        } else if (decodedArgs && typeof decodedArgs === 'object') {
+          // After Array.isArray check, we know it's a non-array object
+          args = Object.fromEntries(Object.entries(decodedArgs))
+        } else {
+          args = {}
+        }
         return {
           receipt,
           result: extractFn(args),

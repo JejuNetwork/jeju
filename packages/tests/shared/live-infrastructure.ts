@@ -386,17 +386,14 @@ export class CqlTestClient {
  * Get live Redis client for testing
  */
 export async function getLiveRedisClient(): Promise<RedisTestClient> {
-  const config = getInfraConfig()
   await requireInfra(['redis'])
-  return new RedisTestClient(config.redisUrl)
+  return new RedisTestClient()
 }
 
 /**
  * Simple Redis client interface for tests
  */
 export class RedisTestClient {
-  constructor(_url: string) {}
-
   async get(_key: string): Promise<string | null> {
     // Note: For real Redis integration, you would use ioredis or similar
     // This is a placeholder that demonstrates the interface

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeju Name Service</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a24;
+      --text: #e8e8ec;
+      --text-secondary: #a0a0ac;
+      --text-muted: #6c6c7a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --border: #2a2a36;
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 360px;
+      min-height: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .header {
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .header-text h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .header-text p {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .status-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.online {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .status-dot.offline {
+      background: var(--error);
+    }
+
+    .status-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .status-latency {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .content {
+      padding: 16px;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+    }
+
+    .toggle-label {
+      font-weight: 500;
+    }
+
+    .toggle-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: 1px solid var(--border);
+    }
+
+    .toggle.active {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle.active::after {
+      transform: translateX(20px);
+    }
+
+    .input-group {
+      margin-bottom: 12px;
+    }
+
+    .input-label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 13px;
+      font-family: monospace;
+    }
+
+    .input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 16px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .lookup-result {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius);
+      font-family: monospace;
+      font-size: 12px;
+      display: none;
+    }
+
+    .lookup-result.visible {
+      display: block;
+    }
+
+    .lookup-result .label {
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .lookup-result .value {
+      color: var(--text);
+      word-break: break-all;
+      margin-bottom: 8px;
+    }
+
+    .lookup-result .value:last-child {
+      margin-bottom: 0;
+    }
+
+    .footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 12px;
+    }
+
+    .footer-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    .footer-link:hover {
+      color: var(--accent);
+    }
+
+    .version {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .quick-lookup {
+      display: flex;
+      gap: 8px;
+    }
+
+    .quick-lookup .input {
+      flex: 1;
+    }
+
+    .quick-lookup .btn {
+      width: auto;
+      padding: 10px 16px;
+    }
+
+    .cache-info {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-icon">J</div>
+    <div class="header-text">
+      <h1>Jeju Name Service</h1>
+      <p>Decentralized .jeju domain resolution</p>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="status-dot" id="localStatus"></div>
+      <span class="status-label">Local Node</span>
+      <span class="status-latency" id="localLatency">-</span>
+    </div>
+    <div class="status-item">
+      <div class="status-dot" id="gatewayStatus"></div>
+      <span class="status-label">Gateway</span>
+      <span class="status-latency" id="gatewayLatency">-</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="section">
+      <div class="section-title">Settings</div>
+      
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Enable JNS Resolution</div>
+          <div class="toggle-desc">Resolve .jeju domains automatically</div>
+        </div>
+        <div class="toggle" id="enableToggle"></div>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Prefer Local Node</div>
+          <div class="toggle-desc">Use local DWS node when available</div>
+        </div>
+        <div class="toggle" id="preferLocalToggle"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Quick Lookup</div>
+      <div class="quick-lookup">
+        <input type="text" class="input" id="lookupInput" placeholder="example.jeju">
+        <button class="btn" id="lookupBtn">Resolve</button>
+      </div>
+      <div class="lookup-result" id="lookupResult">
+        <div class="label">Domain:</div>
+        <div class="value" id="resultDomain">-</div>
+        <div class="label">IPFS Hash:</div>
+        <div class="value" id="resultIpfs">-</div>
+        <div class="label">Worker:</div>
+        <div class="value" id="resultWorker">-</div>
+        <div class="label">Resolved via:</div>
+        <div class="value" id="resultVia">-</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Gateway URLs</div>
+      <div class="input-group">
+        <label class="input-label">Local DWS URL</label>
+        <input type="text" class="input" id="localDwsUrl" value="http://localhost:4030">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Public Gateway URL</label>
+        <input type="text" class="input" id="gatewayUrl" value="https://gateway.jejunetwork.org">
+      </div>
+      <div class="input-group">
+        <label class="input-label">IPFS Gateway URL</label>
+        <input type="text" class="input" id="ipfsGateway" value="https://ipfs.jejunetwork.org">
+      </div>
+    </div>
+
+    <button class="btn btn-secondary" id="clearCacheBtn">Clear Resolution Cache</button>
+    <div class="cache-info" id="cacheInfo">Cache: 0 entries</div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-links">
+      <a href="https://jeju.network" target="_blank" class="footer-link">Website</a>
+      <a href="https://docs.jeju.network" target="_blank" class="footer-link">Docs</a>
+      <a href="https://github.com/jejunetwork" target="_blank" class="footer-link">GitHub</a>
+    </div>
+    <span class="version">v1.0.0</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

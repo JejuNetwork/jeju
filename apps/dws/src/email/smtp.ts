@@ -8,6 +8,12 @@
  * - DKIM signing for outbound
  */
 
+// Workerd-compatible: SMTP server converted to HTTP-based submission
+// IMPORTANT: SMTP is a protocol-level server (TCP/TLS) which is NOT available in workerd
+// This service MUST run on the DWS node itself, not in a workerd worker
+// For workerd compatibility, SMTP submission is converted to HTTP-based API
+
+// Import net/tls for SMTP protocol server (available on DWS node)
 import { createServer, type Server, type Socket } from 'node:net'
 import { createServer as createTLSServer, TLSSocket } from 'node:tls'
 import { createHash, signRSA } from '@jejunetwork/shared'

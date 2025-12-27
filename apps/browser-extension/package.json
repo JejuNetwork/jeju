@@ -1,0 +1,17 @@
+{
+  "name": "@jejunetwork/browser-extension",
+  "version": "1.0.0",
+  "description": "Jeju Name Service browser extension for .jeju domain resolution",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun build:icons && bun run zip",
+    "build:icons": "bun scripts/generate-icons.ts",
+    "zip": "cd dist && zip -r ../jeju-jns-extension.zip .",
+    "dev": "echo 'Load unpacked extension from this directory in chrome://extensions'",
+    "lint": "echo 'No lint configured for browser extension'"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268"
+  }
+}

@@ -50,7 +50,7 @@ function getPublicClient() {
   const rpcUrl = getRpcUrl()
   const network = process.env.NETWORK ?? 'localnet'
 
-  let chain
+  let chain: typeof mainnet | typeof sepolia | typeof foundry
   switch (network) {
     case 'mainnet':
       chain = mainnet

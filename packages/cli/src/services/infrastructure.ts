@@ -29,7 +29,6 @@ export interface InfrastructureStatus {
 }
 
 const CQL_PORT = INFRA_PORTS.CQL.get()
-const _CQL_DATA_DIR = '.data/cql'
 
 // DWS provides cache and DA services via /cache and /da endpoints
 const DWS_PORT = CORE_PORTS.DWS_API.get()

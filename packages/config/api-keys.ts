@@ -306,7 +306,7 @@ export function printApiKeyStatus(): void {
     for (const s of missing) {
       const config = API_KEY_REGISTRY[s.name as ApiKeyName]
       console.log(`   ${s.name.padEnd(15)} - ${s.description}`)
-      if (config.fallback) {
+      if (config?.fallback) {
         console.log(`                    └─ Fallback: ${config.fallback}`)
       }
     }

@@ -6,7 +6,6 @@ import { cors } from '@elysiajs/cors'
 import { validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { security } from './utils/security'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -23,6 +22,7 @@ import {
   buildTokenStatsQuery,
   buildTransactionQuery,
 } from './utils/graphql-utils'
+import { security } from './utils/security'
 import { BadRequestError } from './utils/types'
 import {
   a2aRequestSchema,

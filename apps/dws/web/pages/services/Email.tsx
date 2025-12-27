@@ -90,7 +90,7 @@ export default function EmailPage() {
       id: 'archive',
       label: 'Archive',
       icon: <Archive size={18} />,
-      count: index.archive?.length ?? 0,
+      count: index?.archive?.length ?? 0,
     },
     {
       id: 'trash',

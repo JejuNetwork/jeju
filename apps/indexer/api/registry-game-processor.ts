@@ -19,8 +19,9 @@ import {
   TagUpdate,
 } from '../src/model'
 import type { ProcessorContext } from './processor'
-import { createAccountFactory, relationId } from './utils/entities'
+import { createAccountFactory } from './utils/entities'
 import { decodeEventArgs } from './utils/hex'
+import { relationId } from './utils/relation-id'
 
 const stringArraySchema = z.array(z.string())
 

@@ -11,13 +11,7 @@
 import { AddressSchema, HashSchema, HexSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Import JSON-RPC types directly from @jejunetwork/types
-export type {
-  JsonRpcErrorResponse,
-  JsonRpcRequest,
-  JsonRpcResponse,
-  JsonRpcSuccessResponse,
-} from '@jejunetwork/types'
+// Import schemas and types directly from @jejunetwork/types instead of re-exporting
 
 // Additional Address & Hash Schemas (extend shared schemas)
 
@@ -288,24 +282,27 @@ export type ChainIdResponse = z.infer<typeof ChainIdResponseSchema>
 export type GetCodeResponse = z.infer<typeof GetCodeResponseSchema>
 
 /**
- * Parse and validate eth_blockNumber response
+ * Parse and validate eth_blockNumber response, returning the block number
  */
-export function parseBlockNumberResponse(data: unknown): BlockNumberResponse {
-  return BlockNumberResponseSchema.parse(data)
+export function parseBlockNumberResponse(data: unknown): number {
+  const parsed = BlockNumberResponseSchema.parse(data)
+  return parseInt(parsed.result, 16)
 }
 
 /**
- * Parse and validate eth_chainId response
+ * Parse and validate eth_chainId response, returning the chain ID
  */
-export function parseChainIdResponse(data: unknown): ChainIdResponse {
-  return ChainIdResponseSchema.parse(data)
+export function parseChainIdResponse(data: unknown): number {
+  const parsed = ChainIdResponseSchema.parse(data)
+  return parseInt(parsed.result, 16)
 }
 
 /**
- * Parse and validate eth_getCode response
+ * Parse and validate eth_getCode response, returning the bytecode
  */
-export function parseGetCodeResponse(data: unknown): GetCodeResponse {
-  return GetCodeResponseSchema.parse(data)
+export function parseGetCodeResponse(data: unknown): string {
+  const parsed = GetCodeResponseSchema.parse(data)
+  return parsed.result
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

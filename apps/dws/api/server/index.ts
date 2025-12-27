@@ -50,6 +50,7 @@ import {
   type P2PCoordinator,
 } from '../decentralized'
 import { createAppDeployerRouter } from '../deploy'
+import { createDNSRouter } from '../dns/routes'
 import { GitRepoManager } from '../git/repo-manager'
 import {
   createHelmProviderRouter,
@@ -61,6 +62,7 @@ import {
   getServiceMesh,
 } from '../infrastructure'
 import { banCheckMiddleware } from '../middleware/ban-check'
+import { createHuggingFaceRouter } from '../ml/huggingface-compat'
 import { PkgRegistryManager } from '../pkg/registry-manager'
 import { createServicesRouter, discoverExistingServices } from '../services'
 import { createBackendManager } from '../storage/backends'
@@ -68,7 +70,7 @@ import type { ServiceHealth } from '../types'
 import { WorkerdExecutor } from '../workers/workerd/executor'
 import { createA2ARouter } from './routes/a2a'
 import { createAPIMarketplaceRouter } from './routes/api-marketplace'
-import { createCDNRouter, shutdownHybridCDN } from './routes/cdn'
+import { createCDNRouter } from './routes/cdn'
 import { createCIRouter } from './routes/ci'
 import { createComputeRouter } from './routes/compute'
 import { createContainerRouter } from './routes/containers'
@@ -85,7 +87,6 @@ import {
 } from './routes/load-balancer'
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
-import { createNodeRouter } from './routes/node'
 import { createOAuth3Router } from './routes/oauth3'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
@@ -95,14 +96,42 @@ import {
   type SubscribableWebSocket,
   SubscriptionMessageSchema,
 } from './routes/prices'
-import { createProxyRouter } from './routes/proxy'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
+import { createStakingRouter } from './routes/staking'
 import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
 import { createWorkersRouter } from './routes/workers'
+
+// Config injection for workerd compatibility
+export interface DWSServerConfig {
+  privateKey?: Hex
+  frontendCid?: string
+  emailDomain?: string
+  contentScreeningEnabled?: boolean
+  oauth3AgentUrl?: string
+  daOperatorPrivateKey?: Hex
+  daOperatorEndpoint?: string
+  daOperatorRegion?: string
+  daOperatorCapacityGB?: number
+  daContractAddress?: Address
+  baseUrl?: string
+  agentsDatabaseId?: string
+  inferenceUrl?: string
+  kmsUrl?: string
+  devnet?: boolean
+  appsDir?: string
+  p2pEnabled?: boolean
+  nodeEnv?: string
+}
+
+let serverConfig: DWSServerConfig = {}
+
+export function configureDWSServer(config: Partial<DWSServerConfig>): void {
+  serverConfig = { ...serverConfig, ...config }
+}
 
 // Server port - from centralized config (env override via CORE_PORTS)
 const PORT = CORE_PORTS.DWS_API.get()
@@ -117,7 +146,12 @@ interface RateLimitEntry {
 
 const rateLimitStore = new Map<string, RateLimitEntry>()
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
-const RATE_LIMIT_MAX = process.env.NODE_ENV === 'test' ? 100000 : 1000
+const RATE_LIMIT_MAX =
+  (serverConfig.nodeEnv ??
+    (typeof process !== 'undefined' ? process.env.NODE_ENV : undefined)) ===
+  'test'
+    ? 100000
+    : 1000
 const SKIP_RATE_LIMIT_PATHS = ['/health', '/.well-known/']
 
 function rateLimiter() {
@@ -234,7 +268,10 @@ const app = new Elysia()
 const backendManager = createBackendManager()
 
 // Environment validation - require addresses in production
-const isProduction = process.env.NODE_ENV === 'production'
+const nodeEnv =
+  serverConfig.nodeEnv ??
+  (typeof process !== 'undefined' ? process.env.NODE_ENV : undefined)
+const isProduction = nodeEnv === 'production'
 const NETWORK = getCurrentNetwork()
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address
 
@@ -256,7 +293,11 @@ function getContractOrZero(
 const gitConfig = {
   rpcUrl: getRpcUrl(NETWORK),
   repoRegistryAddress: getContractOrZero('registry', 'repo'),
-  privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
+  privateKey:
+    (serverConfig.privateKey as Hex | undefined) ??
+    (typeof process !== 'undefined'
+      ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
+      : undefined),
 }
 
 const repoManager = new GitRepoManager(gitConfig, backendManager)
@@ -265,7 +306,11 @@ const repoManager = new GitRepoManager(gitConfig, backendManager)
 const pkgConfig = {
   rpcUrl: getRpcUrl(NETWORK),
   packageRegistryAddress: getContractOrZero('registry', 'package'),
-  privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
+  privateKey:
+    (serverConfig.privateKey as Hex | undefined) ??
+    (typeof process !== 'undefined'
+      ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
+      : undefined),
 }
 
 const registryManager = new PkgRegistryManager(pkgConfig, backendManager)
@@ -274,7 +319,11 @@ const registryManager = new PkgRegistryManager(pkgConfig, backendManager)
 const ciConfig = {
   rpcUrl: getRpcUrl(NETWORK),
   triggerRegistryAddress: getContractOrZero('registry', 'trigger'),
-  privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
+  privateKey:
+    (serverConfig.privateKey as Hex | undefined) ??
+    (typeof process !== 'undefined'
+      ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
+      : undefined),
 }
 
 const workflowEngine = new WorkflowEngine(ciConfig, backendManager, repoManager)
@@ -284,7 +333,9 @@ const workflowEngine = new WorkflowEngine(ciConfig, backendManager, repoManager)
 const decentralizedConfig = {
   rpcUrl: getRpcUrl(NETWORK),
   identityRegistryAddress: getContractOrZero('registry', 'identity'),
-  frontendCid: process.env.DWS_FRONTEND_CID,
+  frontendCid:
+    serverConfig.frontendCid ??
+    (typeof process !== 'undefined' ? process.env.DWS_FRONTEND_CID : undefined),
 }
 
 const decentralized = createDecentralizedServices(
@@ -303,7 +354,10 @@ const emailRelayConfig = {
   emailStakingAddress: getContractOrZero('staking', 'email'),
   jnsAddress: getContractOrZero('registry', 'jns'),
   dwsEndpoint: `http://localhost:${PORT}`,
-  emailDomain: process.env.EMAIL_DOMAIN ?? 'jeju.mail',
+  emailDomain:
+    serverConfig.emailDomain ??
+    (typeof process !== 'undefined' ? process.env.EMAIL_DOMAIN : undefined) ??
+    'jeju.mail',
   rateLimits: {
     free: {
       emailsPerDay: 50,
@@ -327,7 +381,11 @@ const emailRelayConfig = {
       maxEmailSizeMb: 100,
     },
   },
-  contentScreeningEnabled: process.env.CONTENT_SCREENING_ENABLED !== 'false',
+  contentScreeningEnabled:
+    serverConfig.contentScreeningEnabled ??
+    (typeof process !== 'undefined'
+      ? process.env.CONTENT_SCREENING_ENABLED !== 'false'
+      : true),
 }
 initializeEmailRelayService(emailRelayConfig)
 
@@ -377,7 +435,13 @@ app
         pkg: { status: 'healthy' },
         ci: { status: 'healthy' },
         oauth3: {
-          status: process.env.OAUTH3_AGENT_URL ? 'available' : 'not-configured',
+          status:
+            (serverConfig.oauth3AgentUrl ??
+            (typeof process !== 'undefined'
+              ? process.env.OAUTH3_AGENT_URL
+              : undefined))
+              ? 'available'
+              : 'not-configured',
         },
         s3: { status: 'healthy' },
         workers: { status: 'healthy' },
@@ -507,6 +571,7 @@ app.use(createScrapingRouter())
 app.use(createRPCRouter())
 app.use(createEdgeRouter())
 app.use(createFaucetRouter()) // Testnet-only faucet
+app.use(createStakingRouter()) // Node staking and earnings
 app.use(createPricesRouter())
 app.use(createModerationRouter())
 app.use(createEmailRouter())
@@ -514,6 +579,12 @@ app.use(createEmailRouter())
 // Funding and package registry proxy
 app.use(createFundingRouter())
 app.use(createPkgRegistryProxyRouter())
+
+// DNS services (DoH, JNS, ENS bridge)
+app.use(createDNSRouter())
+
+// ML model storage (HuggingFace Hub compatible)
+app.use(createHuggingFaceRouter())
 
 // Load balancer
 app.use(createLoadBalancerRouter())
@@ -534,15 +605,33 @@ app.use(createIndexerRouter())
 
 // Data Availability Layer
 const daConfig = {
-  operatorPrivateKey: process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined,
-  operatorEndpoint: process.env.DWS_BASE_URL || `http://localhost:${PORT}`,
-  operatorRegion: process.env.DA_OPERATOR_REGION || 'default',
-  operatorCapacityGB: parseInt(
-    process.env.DA_OPERATOR_CAPACITY_GB || '100',
-    10,
-  ),
+  operatorPrivateKey:
+    (serverConfig.daOperatorPrivateKey as Hex | undefined) ??
+    (typeof process !== 'undefined'
+      ? (process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined)
+      : undefined),
+  operatorEndpoint:
+    serverConfig.daOperatorEndpoint ??
+    serverConfig.baseUrl ??
+    (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ??
+    `http://localhost:${PORT}`,
+  operatorRegion:
+    serverConfig.daOperatorRegion ??
+    (typeof process !== 'undefined'
+      ? process.env.DA_OPERATOR_REGION
+      : undefined) ??
+    'default',
+  operatorCapacityGB:
+    serverConfig.daOperatorCapacityGB ??
+    (typeof process !== 'undefined'
+      ? parseInt(process.env.DA_OPERATOR_CAPACITY_GB || '100', 10)
+      : 100),
   // DA contract address - not yet in centralized config
-  daContractAddress: (process.env.DA_CONTRACT_ADDRESS || ZERO_ADDR) as Address,
+  daContractAddress:
+    (serverConfig.daContractAddress as Address | undefined) ??
+    (typeof process !== 'undefined'
+      ? ((process.env.DA_CONTRACT_ADDRESS || ZERO_ADDR) as Address)
+      : ZERO_ADDR),
   rpcUrl: getRpcUrl(NETWORK),
 }
 
@@ -664,7 +753,10 @@ app.get('/_internal/peers', () => {
 
 // Agent card for discovery
 app.get('/.well-known/agent-card.json', () => {
-  const baseUrl = process.env.DWS_BASE_URL || `http://localhost:${PORT}`
+  const baseUrl =
+    serverConfig.baseUrl ??
+    (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ??
+    `http://localhost:${PORT}`
   return {
     name: 'DWS',
     description: 'Decentralized Web Services',
@@ -732,12 +824,6 @@ app.get('/.well-known/agent-card.json', () => {
 // DWS Cache Service routes (decentralized cache with TEE support)
 app.use(createCacheRoutes())
 
-// Node operator routes
-app.use(createNodeRouter())
-
-// Reverse proxy for all Jeju services (indexer, monitoring, etc.)
-app.use(createProxyRouter())
-
 // Root-level /stats endpoint for vendor app compatibility
 // Returns cache stats in standard format
 app.get('/stats', () => {
@@ -765,7 +851,12 @@ initializeCacheProvisioning().catch((err) => {
 
 // Initialize agent system
 const CQL_URL = getCQLBlockProducerUrl()
-const AGENTS_DB_ID = process.env.AGENTS_DATABASE_ID ?? 'dws-agents'
+const AGENTS_DB_ID =
+  serverConfig.agentsDatabaseId ??
+  (typeof process !== 'undefined'
+    ? process.env.AGENTS_DATABASE_ID
+    : undefined) ??
+  'dws-agents'
 initRegistry({ cqlUrl: CQL_URL, databaseId: AGENTS_DB_ID }).catch((err) => {
   console.warn(
     '[DWS] Agent registry init failed (CQL may not be running):',
@@ -781,8 +872,17 @@ workerdExecutor
     initExecutor(workerdExecutor, {
       // Local service URLs - deployment-specific configuration
       inferenceUrl:
-        process.env.DWS_INFERENCE_URL ?? 'http://127.0.0.1:4030/compute',
-      kmsUrl: process.env.DWS_KMS_URL ?? 'http://127.0.0.1:4030/kms',
+        serverConfig.inferenceUrl ??
+        (typeof process !== 'undefined'
+          ? process.env.DWS_INFERENCE_URL
+          : undefined) ??
+        'http://127.0.0.1:4030/compute',
+      kmsUrl:
+        serverConfig.kmsUrl ??
+        (typeof process !== 'undefined'
+          ? process.env.DWS_KMS_URL
+          : undefined) ??
+        'http://127.0.0.1:4030/kms',
       cqlUrl: CQL_URL,
     })
     console.log('[DWS] Agent executor initialized')
@@ -804,8 +904,6 @@ function shutdown(signal: string) {
   console.log('[DWS] Indexer proxy stopped')
   stopKeepaliveService()
   console.log('[DWS] Keepalive service stopped')
-  shutdownHybridCDN().catch(() => {})
-  console.log('[DWS] Hybrid CDN stopped')
   if (p2pCoordinator) {
     p2pCoordinator.stop()
     console.log('[DWS] P2P coordinator stopped')
@@ -818,25 +916,10 @@ function shutdown(signal: string) {
 }
 
 if (import.meta.main) {
-  const baseUrl = process.env.DWS_BASE_URL || `http://localhost:${PORT}`
-
-  // Validate required secrets in production
-  if (isProduction) {
-    const requiredSecrets = [
-      'DEFAULT_POSTGRES_PASSWORD',
-      'DEFAULT_MINIO_PASSWORD',
-      'VAULT_ENCRYPTION_SECRET',
-      'API_KEY_ENCRYPTION_SECRET',
-      'CI_ENCRYPTION_SECRET',
-    ]
-    const missing = requiredSecrets.filter((s) => !process.env[s])
-    if (missing.length > 0) {
-      console.error(
-        `[DWS] CRITICAL: Missing required secrets in production: ${missing.join(', ')}`,
-      )
-      process.exit(1)
-    }
-  }
+  const baseUrl =
+    serverConfig.baseUrl ??
+    (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ??
+    `http://localhost:${PORT}`
 
   console.log(`[DWS] Running at ${baseUrl}`)
   console.log(
@@ -857,9 +940,17 @@ if (import.meta.main) {
   }
 
   // Initialize local CDN for devnet (serves all Jeju app frontends)
-  if (!isProduction || process.env.DEVNET === 'true') {
+  if (
+    !isProduction ||
+    serverConfig.devnet ||
+    (typeof process !== 'undefined' && process.env.DEVNET === 'true')
+  ) {
     const appsDir =
-      process.env.JEJU_APPS_DIR ?? process.cwd().replace('/apps/dws', '/apps')
+      serverConfig.appsDir ??
+      (typeof process !== 'undefined'
+        ? process.env.JEJU_APPS_DIR
+        : undefined) ??
+      '/apps'
     initializeLocalCDN({ appsDir, cacheEnabled: true })
       .then(() => {
         const localCDN = getLocalCDNServer()
@@ -1016,7 +1107,10 @@ if (import.meta.main) {
   })
 
   // Start P2P coordination if enabled
-  if (process.env.DWS_P2P_ENABLED === 'true') {
+  if (
+    serverConfig.p2pEnabled ||
+    (typeof process !== 'undefined' && process.env.DWS_P2P_ENABLED === 'true')
+  ) {
     p2pCoordinator = decentralized.createP2P(baseUrl)
     distributedRateLimiter = decentralized.createRateLimiter(p2pCoordinator)
     p2pCoordinator

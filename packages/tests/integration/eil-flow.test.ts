@@ -11,8 +11,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { getConstant, getEILConfig } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -39,37 +38,24 @@ import { TEST_ACCOUNTS } from '../shared/utils'
 const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
 const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
 
-// Load EIL config from JSON files directly to avoid module resolution issues
-function loadEilConfig(): {
-  l1StakeManager: string
-  crossChainPaymaster: string
-  entryPoint: string
-} | null {
-  const paths = [
-    resolve(process.cwd(), 'packages/config/eil.json'),
-    resolve(process.cwd(), '../../packages/config/eil.json'),
-    resolve(process.cwd(), '../config/eil.json'),
-  ]
-
-  for (const path of paths) {
-    if (existsSync(path)) {
-      const config = JSON.parse(readFileSync(path, 'utf-8'))
-      const localnet = config.localnet || config
-      return {
-        l1StakeManager: localnet.l1StakeManager || '',
-        crossChainPaymaster: localnet.crossChainPaymaster || '',
-        entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
-      }
-    }
-  }
-  return null
-}
-
 // EIL contracts from config
 interface EILConfig {
   l1StakeManager: string
   crossChainPaymaster: string
   entryPoint: string
+}
+
+function loadEilConfig(): EILConfig | null {
+  try {
+    const config = getEILConfig('localnet')
+    return {
+      l1StakeManager: config.hub?.l1StakeManager || '',
+      crossChainPaymaster: config.hub?.crossChainPaymaster || '',
+      entryPoint: getConstant('entryPointV07'),
+    }
+  } catch {
+    return null
+  }
 }
 
 // Test accounts from shared constants (Anvil defaults)

@@ -1,7 +1,48 @@
-import { type ChildProcess, spawn } from 'node:child_process'
-import { createCipheriv, createDecipheriv } from 'node:crypto'
+// Workerd-compatible: Uses WorkerdEventEmitter
+// IMPORTANT: VPN exit service requires UDP sockets (dgram) and TUN devices which are NOT available in workerd
+// This service MUST run on the DWS node itself, not in a workerd worker
+// Protocol-level networking (UDP, TUN) requires system-level access
+
+import { WorkerdEventEmitter } from '@jejunetwork/dws/api/utils/event-emitter'
+
+// DWS Exec API for process spawning (for TUN device management)
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+  pid?: number
+}
+
+const execUrl = process.env.DWS_EXEC_URL ?? 'http://localhost:4020/exec'
+
+async function _exec(
+  command: string[],
+  options?: {
+    env?: Record<string, string>
+    stdin?: string
+    background?: boolean
+  },
+): Promise<ExecResult> {
+  const response = await fetch(execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+// Note: dgram and net are protocol-level APIs not available in workerd
+// VPN service uses these and MUST run on DWS node
+// For workerd compatibility, VPN would need to:
+// - Use DWS exec API to spawn WireGuard processes
+// - Or convert to HTTP-based VPN protocol
+
+// Import dgram and net - these are available on DWS node but not in workerd workers
+// VPN service MUST run on DWS node, not in workerd
 import * as dgram from 'node:dgram'
-import { EventEmitter } from 'node:events'
 import * as net from 'node:net'
 import { bytesToHex, createHash, randomBytes } from '@jejunetwork/shared'
 import { expectAddress, isPlainObject } from '@jejunetwork/types'
@@ -584,7 +625,7 @@ class NATTable {
 
 // TUN Device Manager
 
-class TUNDevice extends EventEmitter {
+class TUNDevice extends WorkerdEventEmitter {
   private readProcess: ChildProcess | null = null
   private readonly interfaceName: string
   private readonly subnet: string
@@ -1222,6 +1263,17 @@ const BLAKE2s = {
     return BLAKE2s.hash(data, 16, key)
   },
 }
+
+// ChaCha20-Poly1305 for WireGuard
+// IMPORTANT: VPN exit service MUST run on DWS node (not in workerd) because it requires:
+// - UDP sockets (dgram) - not available in workerd
+// - TUN devices - not available in workerd
+// - Protocol-level networking - not available in workerd
+// This crypto code runs on DWS node where node:crypto is available
+
+// Import node:crypto (available on DWS node, not in workerd workers)
+// VPN service runs on DWS node, so this is safe
+import { createCipheriv, createDecipheriv } from 'node:crypto'
 
 const ChaCha20Poly1305 = {
   encrypt(

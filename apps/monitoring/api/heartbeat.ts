@@ -62,6 +62,7 @@ if (!NODE_ID) {
 if (!OPERATOR_PRIVATE_KEY) {
   throw new Error('OPERATOR_PRIVATE_KEY environment variable is required')
 }
+const VALIDATED_PRIVATE_KEY: string = OPERATOR_PRIVATE_KEY
 
 /** Validate and parse a hex private key. */
 function parsePrivateKey(key: string): `0x${string}` {
@@ -75,7 +76,7 @@ function parsePrivateKey(key: string): `0x${string}` {
 
 /** Creates the operator account from environment. Encapsulated to prevent key leakage. */
 function getOperatorAccount() {
-  const key = parsePrivateKey(OPERATOR_PRIVATE_KEY)
+  const key = parsePrivateKey(VALIDATED_PRIVATE_KEY)
   return privateKeyToAccount(key)
 }
 

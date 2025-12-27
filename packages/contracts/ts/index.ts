@@ -36,13 +36,21 @@ export {
 // ERC20 typed ABI fragments (for common operations)
 // PascalCase ABI aliases for backward compatibility
 export {
-  BanManagerAbi,
   ERC20ReadAbi,
   ERC20WriteAbi,
-  IdentityRegistryAbi,
-  ModerationMarketplaceAbi,
-  ReputationRegistryAbi,
 } from './abis'
+
+// PascalCase aliases - import from generated and re-export
+import {
+  banManagerAbi,
+  identityRegistryAbi,
+  moderationMarketplaceAbi,
+  reputationRegistryAbi,
+} from './generated'
+export const BanManagerAbi = banManagerAbi
+export const IdentityRegistryAbi = identityRegistryAbi
+export const ModerationMarketplaceAbi = moderationMarketplaceAbi
+export const ReputationRegistryAbi = reputationRegistryAbi
 export {
   type AccountId,
   type AssetInfo,

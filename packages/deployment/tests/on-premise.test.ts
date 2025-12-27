@@ -325,10 +325,6 @@ describe('Cluster Configuration', () => {
   it('should not have overlapping CIDR ranges', () => {
     const config = createMinimalConfig()
 
-    // Simple check: pod and service CIDRs should start with different prefixes
-    const _podPrefix = config.networking.podCidr.split('.')[0]
-    const _servicePrefix = config.networking.serviceCidr.split('.')[0]
-
     // Both use 10.x.x.x but different subnets is OK for this test
     expect(config.networking.podCidr).not.toBe(config.networking.serviceCidr)
   })

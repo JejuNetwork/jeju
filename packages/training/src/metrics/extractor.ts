@@ -631,6 +631,9 @@ export class TrajectoryMetricsExtractor {
     // Get start/end balance from environment state
     const firstStep = steps[0]
     const lastStep = steps[steps.length - 1]
+    if (!firstStep || !lastStep) {
+      throw new Error('Trajectory must have at least one step')
+    }
     const startBalance = firstStep.environmentState?.agentBalance
     const endBalance = lastStep.environmentState?.agentBalance
 

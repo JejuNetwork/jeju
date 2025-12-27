@@ -14,8 +14,8 @@ import {
   parseAbi,
   toBytes,
 } from 'viem'
-import { kmsLogger as log } from './logger.js'
 import { base, baseSepolia, mainnet } from 'viem/chains'
+import { kmsLogger as log } from './logger.js'
 import type {
   AgentCondition,
   BalanceCondition,

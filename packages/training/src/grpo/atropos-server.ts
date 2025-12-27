@@ -566,6 +566,7 @@ export function createAtroposServer() {
         .reduce((sum, x) => sum + x.max_context_len * Math.max(0, x.weight), 0)
 
       const currentEnv = state.envs[envId]
+      if (!currentEnv) throw new Error(`Environment ${envId} not found`)
       let envGroupSize = currentEnv.group_size ?? 1
       let envWeight =
         total > 0 && currentEnv

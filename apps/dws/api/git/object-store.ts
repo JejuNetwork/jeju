@@ -3,9 +3,61 @@
  * Stores and retrieves git objects from the DWS storage backend
  */
 
-import { promisify } from 'node:util'
-import { deflate, inflate } from 'node:zlib'
+// Use Web CompressionStream API instead of node:zlib for workerd compatibility
 import { createHash } from '@jejunetwork/shared'
+
+async function inflateAsync(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new DecompressionStream('deflate')
+  const writer = stream.writable.getWriter()
+  const reader = stream.readable.getReader()
+
+  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
+  writer.write(data.slice())
+  writer.close()
+
+  const chunks: Uint8Array[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}
+
+async function deflateAsync(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new CompressionStream('deflate')
+  const writer = stream.writable.getWriter()
+  const reader = stream.readable.getReader()
+
+  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
+  writer.write(data.slice())
+  writer.close()
+
+  const chunks: Uint8Array[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}
+
 import type { BackendManager } from '../storage/backends'
 import type {
   GitBlob,
@@ -19,8 +71,7 @@ import type {
   StoredGitObject,
 } from './types'
 
-const inflateAsync = promisify(inflate)
-const deflateAsync = promisify(deflate)
+// Functions already defined above using CompressionStream API
 
 export class GitObjectStore {
   private backend: BackendManager
@@ -59,8 +110,8 @@ export class GitObjectStore {
     const header = Buffer.from(`${type} ${content.length}\0`)
     const full = Buffer.concat([header, content])
 
-    // Compress with zlib (git's loose object format)
-    const compressed = await deflateAsync(full)
+    // Compress with deflate (git's loose object format)
+    const compressed = await deflateAsync(new Uint8Array(full))
 
     // Store in backend
     const result = await this.backend.upload(Buffer.from(compressed), {
@@ -103,7 +154,13 @@ export class GitObjectStore {
     }
 
     // Decompress
-    const decompressed = await inflateAsync(result.content)
+    const contentUint8 =
+      result.content instanceof Buffer
+        ? new Uint8Array(result.content)
+        : result.content instanceof Uint8Array
+          ? result.content
+          : new Uint8Array(result.content)
+    const decompressed = await inflateAsync(contentUint8)
 
     // Parse header
     const nullIndex = decompressed.indexOf(0)

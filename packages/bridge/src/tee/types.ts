@@ -1,5 +1,5 @@
 import type { Hex } from 'viem'
-import type { TEEAttestation } from '../types/index.js'
+import type { TEEBatchAttestation } from '../types/index.js'
 
 export type TEEProvider = 'auto' | 'mock' | 'phala' | 'aws' | 'gcp' | 'azure'
 
@@ -52,7 +52,7 @@ export interface ITEEProvider {
   verifyAttestation(
     attestation: AttestationResponse,
   ): Promise<AttestationVerification>
-  toTEEAttestation(attestation: AttestationResponse): TEEAttestation
+  toTEEAttestation(attestation: AttestationResponse): TEEBatchAttestation
   getStatus(): Promise<{
     available: boolean
     enclaveId?: string

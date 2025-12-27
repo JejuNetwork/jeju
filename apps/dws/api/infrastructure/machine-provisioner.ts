@@ -20,8 +20,7 @@
 
 import { getRpcUrl } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
-import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { parseEther } from 'viem'
 import { z } from 'zod'
 import * as scheduler from '../containers/scheduler'
 import type { ComputeNode } from '../containers/types'
@@ -248,21 +247,7 @@ export class MachineProvisioner {
   /**
    * Initialize the provisioner
    */
-  async initialize(privateKey?: Hex): Promise<void> {
-    this.publicClient = createPublicClient({
-      transport: http(this.config.rpcUrl),
-    })
-
-    if (privateKey ?? this.config.privateKey) {
-      const account = privateKeyToAccount(
-        (privateKey ?? this.config.privateKey) as Hex,
-      )
-      this.walletClient = createWalletClient({
-        account,
-        transport: http(this.config.rpcUrl),
-      })
-    }
-
+  async initialize(_privateKey?: Hex): Promise<void> {
     // Start background tasks
     this.startBackgroundTasks()
 
@@ -584,30 +569,36 @@ export class MachineProvisioner {
     )
 
     if (filter) {
-      if (filter.region) {
-        machines = machines.filter((m) => m.specs.region === filter.region)
+      const {
+        region,
+        minCpu,
+        minMemoryMb,
+        gpuRequired,
+        teeRequired,
+        maxPricePerHourWei,
+      } = filter
+      if (region) {
+        machines = machines.filter((m) => m.specs.region === region)
       }
-      if (filter.minCpu) {
-        machines = machines.filter((m) => m.specs.cpuCores >= filter.minCpu)
+      if (minCpu) {
+        machines = machines.filter((m) => m.specs.cpuCores >= minCpu)
       }
-      if (filter.minMemoryMb) {
-        machines = machines.filter(
-          (m) => m.specs.memoryMb >= filter.minMemoryMb,
-        )
+      if (minMemoryMb) {
+        machines = machines.filter((m) => m.specs.memoryMb >= minMemoryMb)
       }
-      if (filter.gpuRequired) {
+      if (gpuRequired) {
         machines = machines.filter(
           (m) => m.capabilities.gpu && m.specs.gpuCount > 0,
         )
       }
-      if (filter.teeRequired) {
+      if (teeRequired) {
         machines = machines.filter(
           (m) => m.capabilities.tee && m.specs.teePlatform !== null,
         )
       }
-      if (filter.maxPricePerHourWei !== undefined) {
+      if (maxPricePerHourWei !== undefined) {
         machines = machines.filter(
-          (m) => m.pricePerHourWei <= filter.maxPricePerHourWei,
+          (m) => m.pricePerHourWei <= maxPricePerHourWei,
         )
       }
     }

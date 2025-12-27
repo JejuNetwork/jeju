@@ -24,7 +24,7 @@ import { keccak256, toBytes } from 'viem'
 import type {
   CrossChainTransfer,
   Hash32,
-  TEEAttestation,
+  TEEBatchAttestation,
 } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import { computeMerkleRoot, createLogger } from '../utils/index.js'
@@ -406,7 +406,7 @@ class PhalaProviderAdapter implements ITEEProvider {
     }
   }
 
-  toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+  toTEEAttestation(attestation: AttestationResponse): TEEBatchAttestation {
     if (!attestation.publicKey) {
       throw new Error('Attestation missing public key')
     }

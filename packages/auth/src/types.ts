@@ -5,7 +5,14 @@
  * threshold MPC signing, and W3C Verifiable Credentials.
  */
 
+import type { TEEAttestation as SharedTEEAttestation } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+
+// Re-export TEEAttestation from shared types
+export type { TEEAttestation } from '@jejunetwork/types'
+
+// Local type alias for use in this file
+type TEEAttestation = SharedTEEAttestation
 
 /** Generic JSON record type for OAuth state */
 export type JsonRecord = Record<string, unknown>
@@ -81,7 +88,8 @@ export interface OAuth3Session {
   capabilities: SessionCapability[]
   /** Public key derived from the signing key - can be used to verify signatures */
   signingPublicKey: Hex
-  attestation: TEEAttestation
+  /** Optional TEE attestation for the session - required for secure sessions */
+  attestation?: TEEAttestation
 }
 
 /**
@@ -102,15 +110,6 @@ export const SessionCapability = {
 } as const
 export type SessionCapability =
   (typeof SessionCapability)[keyof typeof SessionCapability]
-
-export interface TEEAttestation {
-  quote: Hex
-  measurement: Hex
-  reportData: Hex
-  timestamp: number
-  provider: TEEProvider
-  verified: boolean
-}
 
 export const TEEProvider = {
   DSTACK: 'dstack',

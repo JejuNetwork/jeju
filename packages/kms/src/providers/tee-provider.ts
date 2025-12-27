@@ -6,6 +6,7 @@
  */
 
 import { getEnv, getEnvBoolean, requireEnv } from '@jejunetwork/shared'
+import type { TEEAttestation } from '@jejunetwork/types'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -36,7 +37,6 @@ import {
   KMSProviderType,
   type SignedMessage,
   type SignRequest,
-  type TEEAttestation,
   type TEEConfig,
 } from '../types.js'
 
@@ -103,15 +103,23 @@ export class TEEProvider implements KMSProvider {
 
       // SECURITY: Verify attestation BEFORE accepting enclave key
       if (data.attestation) {
-        const attestationValid = await this.attestationVerifier.verify(
-          data.attestation,
-        )
+        const attestation: TEEAttestation = {
+          quote: data.attestation.quote as Hex,
+          measurement: data.attestation.measurement as Hex,
+          timestamp: data.attestation.timestamp,
+          verified: data.attestation.verified,
+          verifierSignature: data.attestation.verifierSignature as
+            | Hex
+            | undefined,
+        }
+        const attestationValid =
+          await this.attestationVerifier.verify(attestation)
         if (!attestationValid.valid) {
           throw new Error(
             `Remote TEE attestation verification failed: ${attestationValid.error ?? 'unknown error'}`,
           )
         }
-        this.attestation = data.attestation
+        this.attestation = attestation
         log.info('Remote TEE attestation verified', {
           teeType: attestationValid.teeType,
           measurementTrusted: attestationValid.measurementTrusted,
@@ -178,10 +186,10 @@ export class TEEProvider implements KMSProvider {
         this.keys.set(keyId, {
           metadata,
           encryptedPrivateKey: new Uint8Array(0),
-          publicKey: result.publicKey,
-          address: result.address,
+          publicKey: result.publicKey as Hex,
+          address: result.address as Address,
         })
-        return { metadata, publicKey: result.publicKey }
+        return { metadata, publicKey: result.publicKey as Hex }
       }
       log.warn('Remote key generation failed, using local generation')
     }
@@ -278,7 +286,7 @@ export class TEEProvider implements KMSProvider {
               ? toBytes(request.message as Hex)
               : request.message,
           ),
-          signature: result.signature,
+          signature: result.signature as Hex,
           recoveryId: parseInt(result.signature.slice(130, 132), 16) - 27,
           keyId: request.keyId,
           signedAt: Date.now(),

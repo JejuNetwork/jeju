@@ -12,7 +12,6 @@
  * @see https://docs.succinct.xyz/
  */
 
-import { join } from 'node:path'
 import {
   getSuccinctApiKey,
   isProduction,
@@ -31,22 +30,33 @@ import {
 // Dynamic imports for Node.js-only features (local proving)
 // These are only loaded when local proving is actually used
 type FsModule = typeof import('node:fs')
+type PathModule = typeof import('node:path')
 type BunSpawnFn = typeof import('bun').spawn
 let fsModule: FsModule | null = null
+let pathModule: PathModule | null = null
 let bunSpawn: BunSpawnFn | null = null
 
 async function loadNodeModules(): Promise<{
   fs: FsModule
+  path: PathModule
   spawn: BunSpawnFn
 }> {
   if (!fsModule) {
     fsModule = await import('node:fs')
   }
+  if (!pathModule) {
+    pathModule = await import('node:path')
+  }
   if (!bunSpawn) {
     const bun = await import('bun')
     bunSpawn = bun.spawn
   }
-  return { fs: fsModule, spawn: bunSpawn }
+  return { fs: fsModule, path: pathModule, spawn: bunSpawn }
+}
+
+/** Simple path join for serverless-compatible usage */
+function joinPath(...segments: string[]): string {
+  return segments.join('/').replace(/\/+/g, '/')
 }
 
 function isNodeEnvironment(): boolean {
@@ -176,7 +186,7 @@ export class SP1Client {
       workers: 2,
       ...config,
     }
-    this.tempDir = join(config.programsDir, '.sp1-temp')
+    this.tempDir = joinPath(config.programsDir, '.sp1-temp')
   }
 
   /**
@@ -341,7 +351,7 @@ export class SP1Client {
     }
 
     try {
-      const { fs, spawn } = await loadNodeModules()
+      const { fs, path, spawn } = await loadNodeModules()
 
       // Check for cargo-prove
       try {
@@ -362,8 +372,8 @@ export class SP1Client {
       // Check for sp1 CLI in common paths
       const home = getHomeDir()
       const sp1Paths = [
-        join(home, '.sp1', 'bin', 'sp1'),
-        join(home, '.cargo', 'bin', 'sp1'),
+        path.join(home, '.sp1', 'bin', 'sp1'),
+        path.join(home, '.cargo', 'bin', 'sp1'),
       ]
 
       for (const sp1Path of sp1Paths) {
@@ -399,7 +409,7 @@ export class SP1Client {
     request: ProofRequest,
     startTime: number,
   ): Promise<ProofResult> {
-    const { fs, spawn } = await loadNodeModules()
+    const { fs, path, spawn } = await loadNodeModules()
 
     const programPath = this.getProgramPath(request.type)
 
@@ -409,8 +419,8 @@ export class SP1Client {
     }
 
     // Write inputs to temp file
-    const inputPath = join(this.tempDir, `${id}_input.json`)
-    const outputPath = join(this.tempDir, `${id}_output.json`)
+    const inputPath = path.join(this.tempDir, `${id}_input.json`)
+    const outputPath = path.join(this.tempDir, `${id}_output.json`)
 
     fs.writeFileSync(
       inputPath,
@@ -428,7 +438,7 @@ export class SP1Client {
     const buildProc = spawn({
       cmd: [cargoProvePath, 'prove', 'build'],
       cwd: programPath.includes('/target/')
-        ? join(programPath, '..', '..', '..')
+        ? path.join(programPath, '..', '..', '..')
         : programPath,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -457,7 +467,7 @@ export class SP1Client {
         '--elf',
         programPath.includes('/target/')
           ? programPath
-          : join(programPath, 'target', 'release', programName),
+          : path.join(programPath, 'target', 'release', programName),
         '--input',
         inputPath,
         '--output',
@@ -667,18 +677,18 @@ export class SP1Client {
       throw new Error(`Unknown proof type: ${type}`)
     }
     // Return program directory for cargo prove
-    return join(this.config.programsDir, programName)
+    return joinPath(this.config.programsDir, programName)
   }
 
   /**
    * Get the path to cargo-prove binary (Node.js only)
    */
   private async getCargoProvePath(): Promise<string> {
-    const { fs } = await loadNodeModules()
+    const { fs, path } = await loadNodeModules()
     const home = getHomeDir()
     const paths = [
-      join(home, '.sp1', 'bin', 'cargo-prove'),
-      join(home, '.cargo', 'bin', 'cargo-prove'),
+      path.join(home, '.sp1', 'bin', 'cargo-prove'),
+      path.join(home, '.cargo', 'bin', 'cargo-prove'),
     ]
 
     for (const p of paths) {
@@ -753,7 +763,7 @@ export class SP1Client {
  * In Node.js environments, local proving is available if SP1 toolchain is installed.
  */
 export function createSP1Client(config?: Partial<SP1Config>): SP1Client {
-  const programsDir = config?.programsDir ?? join(process.cwd(), 'circuits')
+  const programsDir = config?.programsDir ?? joinPath(process.cwd(), 'circuits')
 
   const succinctApiKey = config?.succinctApiKey ?? getSuccinctApiKey()
 

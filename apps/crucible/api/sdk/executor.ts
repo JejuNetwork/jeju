@@ -660,14 +660,22 @@ export class ExecutorSDK {
 
       case 'JOIN_ROOM':
         if (action.params?.roomId) {
-          await this.roomSdk.joinRoom(BigInt(action.params.roomId), agentId)
+          const roomId = BigInt(String(action.params.roomId))
+          const role = String(action.params.role ?? 'participant') as
+            | 'participant'
+            | 'moderator'
+            | 'red_team'
+            | 'blue_team'
+            | 'observer'
+          await this.roomSdk.joinRoom(roomId, agentId, role)
           return true
         }
         return false
 
       case 'LEAVE_ROOM':
         if (action.params?.roomId) {
-          await this.roomSdk.leaveRoom(BigInt(action.params.roomId), agentId)
+          const roomId = BigInt(String(action.params.roomId))
+          await this.roomSdk.leaveRoom(roomId, agentId)
           return true
         }
         return false
@@ -697,7 +705,7 @@ export class ExecutorSDK {
         // Action not handled - log it but don't fail silently
         this.log.debug('Unhandled action type', {
           type,
-          params: action.params,
+          params: JSON.stringify(action.params ?? {}),
           hint: 'This action may need to be routed to the Jeju plugin runtime',
         })
         return false

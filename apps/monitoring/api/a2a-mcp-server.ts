@@ -75,12 +75,18 @@ function validatePromQLQuery(query: string): {
   error?: string
 } {
   if (query.length > MAX_QUERY_LENGTH) {
-    return { valid: false, error: `Query too long (max ${MAX_QUERY_LENGTH} chars)` }
+    return {
+      valid: false,
+      error: `Query too long (max ${MAX_QUERY_LENGTH} chars)`,
+    }
   }
 
   for (const pattern of DANGEROUS_PROMQL_PATTERNS) {
     if (pattern.test(query)) {
-      return { valid: false, error: 'Query contains potentially expensive patterns' }
+      return {
+        valid: false,
+        error: 'Query contains potentially expensive patterns',
+      }
     }
   }
 
@@ -847,7 +853,9 @@ export function createMonitoringMCPServer() {
           const validation = validatePromQLQuery(args.query)
           if (!validation.valid) {
             return {
-              content: [{ type: 'text', text: validation.error ?? 'Invalid query' }],
+              content: [
+                { type: 'text', text: validation.error ?? 'Invalid query' },
+              ],
               isError: true,
             }
           }

@@ -239,8 +239,9 @@ export class AgentService {
     const character = agent.character
     const messageExamples = Array.isArray(character.messageExamples)
       ? character.messageExamples
-          .map((example: Array<{ content?: { text?: string } }>) =>
-            example[0]?.content?.text,
+          .map(
+            (example: Array<{ content?: { text?: string } }>) =>
+              example[0]?.content?.text,
           )
           .filter((text: string | undefined): text is string => !!text)
       : undefined

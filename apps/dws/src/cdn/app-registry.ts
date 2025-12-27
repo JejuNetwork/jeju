@@ -5,11 +5,80 @@
  * - Serve static frontends via CDN
  * - Apply per-app cache rules
  * - Support local devnet and production IPFS modes
+ *
+ * Workerd-compatible: Uses DWS exec API instead of Node.js fs
  */
 
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
 import type { CacheRule } from '@jejunetwork/types'
+
+// DWS Exec API - runs commands on the DWS node
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+let execUrl = 'http://localhost:4020/exec'
+
+export function configureAppRegistry(config: { execUrl?: string }): void {
+  if (config.execUrl) execUrl = config.execUrl
+}
+
+async function exec(
+  command: string[],
+  options?: { stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+async function readdir(
+  path: string,
+): Promise<Array<{ name: string; isDirectory: () => boolean }>> {
+  const result = await exec(['sh', '-c', `ls -la "${path}" | tail -n +2`])
+  if (result.exitCode !== 0) {
+    return []
+  }
+  return result.stdout
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => {
+      const parts = line.trim().split(/\s+/)
+      const name = parts[parts.length - 1]
+      const isDir = line.startsWith('d')
+      return {
+        name,
+        isDirectory: () => isDir,
+      }
+    })
+}
+
+async function readFile(path: string): Promise<string> {
+  const result = await exec(['cat', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read ${path}: ${result.stderr}`)
+  }
+  return result.stdout
+}
+
+async function stat(path: string): Promise<{ isFile: () => boolean } | null> {
+  const result = await exec(['test', '-f', path])
+  if (result.exitCode === 0) {
+    return { isFile: () => true }
+  }
+  return null
+}
+
+function join(...parts: string[]): string {
+  return parts.join('/').replace(/\/+/g, '/')
+}
 
 export interface AppFrontendConfig {
   name: string
@@ -83,13 +152,15 @@ export class AppRegistry {
   private initialized = false
 
   constructor(appsDir?: string) {
-    this.appsDir = appsDir ?? resolve(process.cwd(), '../../')
+    // Default to /apps if no appsDir provided (workerd-compatible)
+    // In workerd, this should be configured via configureAppRegistry
+    this.appsDir = appsDir ?? '/apps'
   }
 
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    const entries = await readdir(this.appsDir, { withFileTypes: true })
+    const entries = await readdir(this.appsDir)
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
@@ -99,7 +170,7 @@ export class AppRegistry {
 
       if (!manifestExists) continue
 
-      const manifestContent = await readFile(manifestPath, 'utf-8')
+      const manifestContent = await readFile(manifestPath)
       const manifest: JejuManifest = JSON.parse(manifestContent)
 
       const config = this.parseManifest(manifest, entry.name)

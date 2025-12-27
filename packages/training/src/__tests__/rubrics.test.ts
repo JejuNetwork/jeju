@@ -58,7 +58,10 @@ describe('RubricCriterion', () => {
 
     expect(criterion.levels).toHaveLength(5)
     expect(criterion.weight).toBeLessThanOrEqual(1)
-    expect(criterion.levels[0].score).toBeLessThan(criterion.levels[4].score)
+    const firstLevel = criterion.levels[0]
+    const lastLevel = criterion.levels[4]
+    if (!firstLevel || !lastLevel) throw new Error('Levels missing')
+    expect(firstLevel.score).toBeLessThan(lastLevel.score)
   })
 
   it('validates social engagement criterion', () => {
@@ -297,7 +300,12 @@ describe('Rubric versioning', () => {
     const v2 = parseVersion('1.1.0')
 
     // Compare major.minor
-    const isNewer = v2[0] > v1[0] || (v2[0] === v1[0] && v2[1] > v1[1])
+    const v1Major = v1[0] ?? 0
+    const v1Minor = v1[1] ?? 0
+    const v2Major = v2[0] ?? 0
+    const v2Minor = v2[1] ?? 0
+    const isNewer =
+      v2Major > v1Major || (v2Major === v1Major && v2Minor > v1Minor)
 
     expect(isNewer).toBe(true)
   })
