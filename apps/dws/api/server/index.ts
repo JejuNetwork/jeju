@@ -85,6 +85,7 @@ import {
 } from './routes/load-balancer'
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
+import { createNodeRouter } from './routes/node'
 import { createOAuth3Router } from './routes/oauth3'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
@@ -94,11 +95,10 @@ import {
   type SubscribableWebSocket,
   SubscriptionMessageSchema,
 } from './routes/prices'
+import { createProxyRouter } from './routes/proxy'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
-import { createNodeRouter } from './routes/node'
-import { createProxyRouter } from './routes/proxy'
 import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
@@ -831,7 +831,9 @@ if (import.meta.main) {
     ]
     const missing = requiredSecrets.filter((s) => !process.env[s])
     if (missing.length > 0) {
-      console.error(`[DWS] CRITICAL: Missing required secrets in production: ${missing.join(', ')}`)
+      console.error(
+        `[DWS] CRITICAL: Missing required secrets in production: ${missing.join(', ')}`,
+      )
       process.exit(1)
     }
   }

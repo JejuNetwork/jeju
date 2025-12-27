@@ -163,7 +163,10 @@ export async function verifyPayment(
   if (isProductionEnv()) {
     const rpcUrl = process.env.RPC_URL
     if (!rpcUrl) {
-      return { valid: false, error: 'RPC_URL not configured for payment verification' }
+      return {
+        valid: false,
+        error: 'RPC_URL not configured for payment verification',
+      }
     }
 
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
@@ -200,16 +203,21 @@ export async function verifyPayment(
       }
     } else {
       // For ERC20 transfers, verify via transfer event logs
-      const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+      const transferTopic =
+        '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
       const transferLog = receipt.logs.find(
         (log) =>
           log.address.toLowerCase() === proof.asset.toLowerCase() &&
           log.topics[0] === transferTopic &&
-          log.topics[2]?.toLowerCase() === `0x000000000000000000000000${expectedRecipient.slice(2).toLowerCase()}`,
+          log.topics[2]?.toLowerCase() ===
+            `0x000000000000000000000000${expectedRecipient.slice(2).toLowerCase()}`,
       )
 
       if (!transferLog) {
-        return { valid: false, error: 'ERC20 transfer to recipient not found in transaction' }
+        return {
+          valid: false,
+          error: 'ERC20 transfer to recipient not found in transaction',
+        }
       }
 
       const transferAmount = BigInt(transferLog.data)
@@ -218,7 +226,9 @@ export async function verifyPayment(
       }
     }
   } else {
-    console.warn('[X402] Payment verification skipped in non-production environment')
+    console.warn(
+      '[X402] Payment verification skipped in non-production environment',
+    )
   }
 
   // Mark transaction hash as used

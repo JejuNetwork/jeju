@@ -18,10 +18,10 @@ import {
   type CDNRegionType,
   getCDNConfig,
   getCDNContracts,
+  getCurrentNetwork,
   getJNSContracts,
   getRpcUrl,
   getServiceUrl,
-  getCurrentNetwork,
 } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
@@ -217,8 +217,9 @@ export function createCDNRouter() {
       .post(
         '/invalidate',
         ({ body }) => {
+          const { paths } = body as { paths: string[] }
           let purged = 0
-          for (const path of body.paths) {
+          for (const path of paths) {
             purged += cache.purge(path)
           }
           return { success: true, entriesPurged: purged }
@@ -321,10 +322,11 @@ export function createCDNRouter() {
       .post(
         '/warmup',
         async ({ body }) => {
+          const { urls } = body as { urls: string[] }
           let success = 0
           let failed = 0
 
-          for (const url of body.urls) {
+          for (const url of urls) {
             const urlObj = new URL(url)
             const result = await fetcher.fetch(urlObj.pathname, undefined, {
               headers: {},
@@ -696,6 +698,260 @@ export function createCDNRouter() {
           success: true,
           cid,
           hasP2P: cdn.hasP2P(cid),
+        }
+      })
+
+      // ============================================================================
+      // Staking & Billing Routes - Permissionless registration and financialization
+      // ============================================================================
+
+      .get('/staking/config', () => {
+        const cdnContracts = getCDNContracts()
+        const stakingConfig = cdnConfig.staking
+
+        return {
+          contracts: {
+            cdnRegistry: cdnContracts.cdnRegistry,
+            cdnBilling: cdnContracts.cdnBilling,
+            cdnCoordinator: cdnContracts.cdnCoordinator,
+            contentRegistry: cdnContracts.contentRegistry,
+          },
+          requirements: {
+            minStake: stakingConfig.minStake.toString(),
+            settlementInterval: stakingConfig.settlementInterval,
+            minSettlementAmount: stakingConfig.minSettlementAmount.toString(),
+          },
+          p2p: {
+            trackers: cdnConfig.edge.p2p.trackers,
+            bootstrapPeers: cdnConfig.edge.coordination.bootstrapPeers,
+          },
+        }
+      })
+
+      .get('/staking/regions', () => {
+        // Return available regions for edge node registration
+        const regions = [
+          {
+            id: 'us-east-1',
+            name: 'US East (N. Virginia)',
+            p2pRegion: 'na-east',
+          },
+          { id: 'us-east-2', name: 'US East (Ohio)', p2pRegion: 'na-east' },
+          {
+            id: 'us-west-1',
+            name: 'US West (N. California)',
+            p2pRegion: 'na-west',
+          },
+          { id: 'us-west-2', name: 'US West (Oregon)', p2pRegion: 'na-west' },
+          { id: 'eu-west-1', name: 'EU West (Ireland)', p2pRegion: 'eu-west' },
+          { id: 'eu-west-2', name: 'EU West (London)', p2pRegion: 'eu-west' },
+          {
+            id: 'eu-central-1',
+            name: 'EU Central (Frankfurt)',
+            p2pRegion: 'eu-central',
+          },
+          {
+            id: 'ap-northeast-1',
+            name: 'Asia Pacific (Tokyo)',
+            p2pRegion: 'apac-east',
+          },
+          {
+            id: 'ap-northeast-2',
+            name: 'Asia Pacific (Seoul)',
+            p2pRegion: 'apac-east',
+          },
+          {
+            id: 'ap-southeast-1',
+            name: 'Asia Pacific (Singapore)',
+            p2pRegion: 'apac-south',
+          },
+          {
+            id: 'ap-southeast-2',
+            name: 'Asia Pacific (Sydney)',
+            p2pRegion: 'apac-south',
+          },
+          {
+            id: 'ap-south-1',
+            name: 'Asia Pacific (Mumbai)',
+            p2pRegion: 'apac-south',
+          },
+          {
+            id: 'sa-east-1',
+            name: 'South America (São Paulo)',
+            p2pRegion: 'sa',
+          },
+          { id: 'af-south-1', name: 'Africa (Cape Town)', p2pRegion: 'global' },
+          {
+            id: 'me-south-1',
+            name: 'Middle East (Bahrain)',
+            p2pRegion: 'global',
+          },
+          { id: 'global', name: 'Global (Any Region)', p2pRegion: 'global' },
+        ]
+
+        return { regions, defaultRegion: 'global' }
+      })
+
+      .get('/staking/provider-types', () => {
+        // Return available provider types for CDN registration
+        return {
+          types: [
+            {
+              id: 0,
+              name: 'decentralized',
+              description: 'Individual node operator',
+            },
+            {
+              id: 1,
+              name: 'enterprise',
+              description: 'Enterprise provider with SLA',
+            },
+            { id: 2, name: 'data_center', description: 'Data center provider' },
+            {
+              id: 3,
+              name: 'residential',
+              description: 'Residential node operator',
+            },
+          ],
+          defaultType: 0,
+        }
+      })
+
+      .get('/network/nodes', async () => {
+        // Return connected nodes from coordination
+        const coordinator = getCDNCoordinator(undefined)
+        if (!coordinator) {
+          return {
+            nodes: [],
+            total: 0,
+            message: 'Coordination not initialized',
+          }
+        }
+
+        const nodes = coordinator.getConnectedNodes()
+        return {
+          nodes: nodes.map((n) => ({
+            nodeId: n.nodeId,
+            region: n.region,
+            endpoint: n.endpoint,
+            lastSeen: n.lastSeen,
+            capabilities: n.capabilities,
+          })),
+          total: nodes.length,
+          regions: coordinator.getStats().regions.length,
+        }
+      })
+
+      .get('/network/stats', async () => {
+        const coordinator = getCDNCoordinator(undefined)
+        const swarmStats = hybridCDN ? hybridCDN.getSwarmStats() : null
+        const cacheStats = cache.getStats()
+
+        return {
+          cache: {
+            entries: cacheStats.entries,
+            sizeBytes: cacheStats.sizeBytes,
+            hitRate: cacheStats.hitRate,
+          },
+          p2p: swarmStats ?? {
+            activeTorrents: 0,
+            seedingTorrents: 0,
+            totalPeers: 0,
+            downloadSpeed: 0,
+            uploadSpeed: 0,
+          },
+          coordination: coordinator
+            ? coordinator.getStats()
+            : { connectedNodes: 0, regionsConnected: 0 },
+        }
+      })
+
+      // ============================================================================
+      // Billing Routes - Usage-based billing and settlements
+      // ============================================================================
+
+      .get('/billing/config', () => {
+        const cdnContracts = getCDNContracts()
+        const stakingConfig = cdnConfig.staking
+
+        return {
+          contracts: {
+            cdnBilling: cdnContracts.cdnBilling,
+            cdnRegistry: cdnContracts.cdnRegistry,
+          },
+          parameters: {
+            minBalance: '0.001', // ETH
+            protocolFeeBps: 300, // 3%
+            settlementPeriod: 86400, // 1 day in seconds
+          },
+          rates: {
+            pricePerGBEgress: '0.0001', // ETH per GB
+            pricePerMillionRequests: '0.00001', // ETH per million requests
+            pricePerGBStorage: '0.00005', // ETH per GB per month
+          },
+          staking: {
+            settlementInterval: stakingConfig.settlementInterval,
+            minSettlementAmount: stakingConfig.minSettlementAmount.toString(),
+            autoClaim: stakingConfig.autoClaim,
+            autoCompound: stakingConfig.autoCompound,
+          },
+        }
+      })
+
+      .get('/billing/provider-info', () => {
+        // Returns info for providers to understand how billing works
+        return {
+          howItWorks: {
+            step1: 'Register as CDN provider via CDNRegistry contract',
+            step2: 'Stake minimum amount to activate edge node',
+            step3: 'Start serving traffic and reporting metrics',
+            step4: 'Earnings accumulate based on bytes served',
+            step5: 'Claim earnings via CDNBilling contract',
+          },
+          earnings: {
+            formula: 'bytesServed * pricePerByte + requests * pricePerRequest',
+            settlementPeriod: '24 hours',
+            protocolFee: '3%',
+            payoutCurrency: 'ETH or JEJU (configurable)',
+          },
+          requirements: {
+            minStake: cdnConfig.staking.minStake.toString(),
+            uptimeTarget: '99.5%',
+            slashingConditions: [
+              'Extended downtime (>4 hours)',
+              'Serving malicious content',
+              'Bandwidth manipulation',
+            ],
+          },
+        }
+      })
+
+      .get('/billing/user-info', () => {
+        // Returns info for users (app developers) about billing
+        return {
+          howItWorks: {
+            step1: 'Deposit balance to CDNBilling contract',
+            step2: 'Deploy app with JNS name and CDN configuration',
+            step3: 'Traffic is served by edge nodes',
+            step4: 'Usage is metered and deducted from balance',
+            step5: 'Top up balance as needed or enable auto-replenish',
+          },
+          pricing: {
+            egress: '$0.01 per GB equivalent in ETH',
+            requests: '$0.001 per million requests',
+            storage: '$0.005 per GB per month',
+            included: {
+              cacheMiss: 'No charge for cache misses',
+              p2pEgress: 'P2P egress is free (paid by peers)',
+            },
+          },
+          freeUsage: {
+            description: 'Small apps under threshold are free',
+            threshold: {
+              egress: '10 GB per month',
+              requests: '1 million per month',
+            },
+          },
         }
       })
   )

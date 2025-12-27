@@ -175,7 +175,7 @@ describe('Workers Endpoints', () => {
 
 describe('CDN Endpoints', () => {
   test('GET /cdn/stats returns CDN statistics', async () => {
-    const { status, data } = await api<{
+    const { status } = await api<{
       requests?: number
       bandwidth?: number
     }>('/cdn/stats')

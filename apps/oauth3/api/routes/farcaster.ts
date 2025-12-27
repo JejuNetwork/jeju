@@ -12,7 +12,7 @@ import { authCodeState, clientState, sessionState } from '../services/state'
 /**
  * HTML escape to prevent XSS in rendered templates.
  */
-function escapeHtml(unsafe: string): string {
+function _escapeHtml(unsafe: string): string {
   return unsafe
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -372,7 +372,10 @@ Resources:
         )
         if (!messageValidation.valid) {
           set.status = 400
-          return { error: 'invalid_message', error_description: messageValidation.error }
+          return {
+            error: 'invalid_message',
+            error_description: messageValidation.error,
+          }
         }
 
         // Verify signature
@@ -443,7 +446,11 @@ function validateFarcasterMessage(
   expectedFid: number,
 ): { valid: boolean; error?: string } {
   // Check domain
-  if (!message.startsWith(`${expectedDomain} wants you to sign in with your Ethereum account:`)) {
+  if (
+    !message.startsWith(
+      `${expectedDomain} wants you to sign in with your Ethereum account:`,
+    )
+  ) {
     return { valid: false, error: 'invalid_domain' }
   }
 
@@ -463,13 +470,18 @@ function validateFarcasterMessage(
   }
 
   // Check issued at is recent (within 10 minutes)
-  const issuedAtMatch = message.match(/Issued At: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/)
+  const issuedAtMatch = message.match(
+    /Issued At: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/,
+  )
   if (!issuedAtMatch) {
     return { valid: false, error: 'missing_issued_at' }
   }
 
   const issuedAt = new Date(issuedAtMatch[1]).getTime()
-  if (isNaN(issuedAt) || Math.abs(Date.now() - issuedAt) > 10 * 60 * 1000) {
+  if (
+    Number.isNaN(issuedAt) ||
+    Math.abs(Date.now() - issuedAt) > 10 * 60 * 1000
+  ) {
     return { valid: false, error: 'message_too_old' }
   }
 

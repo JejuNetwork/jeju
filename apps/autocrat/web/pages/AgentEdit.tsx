@@ -139,7 +139,10 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="channel-url" className="block text-xs text-slate-500 mb-1">
+              <label
+                htmlFor="channel-url"
+                className="block text-xs text-slate-500 mb-1"
+              >
                 Channel URL
               </label>
               <input
@@ -160,7 +163,12 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               />
             </div>
             <div>
-              <label htmlFor="fid" className="block text-xs text-slate-500 mb-1">FID</label>
+              <label
+                htmlFor="fid"
+                className="block text-xs text-slate-500 mb-1"
+              >
+                FID
+              </label>
               <input
                 id="fid"
                 type="number"
@@ -245,7 +253,10 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
       {connector.type === 'github' && (
         <div className="space-y-3">
           <div>
-            <label htmlFor="repo-url" className="block text-xs text-slate-500 mb-1">
+            <label
+              htmlFor="repo-url"
+              className="block text-xs text-slate-500 mb-1"
+            >
               Repository URL
             </label>
             <input
@@ -668,7 +679,10 @@ export default function AgentEditPage() {
         >
           <div className="space-y-4">
             <div>
-              <label htmlFor="agent-name" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-name"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Name
               </label>
               <input
@@ -680,7 +694,10 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label htmlFor="agent-bio" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-bio"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Bio
               </label>
               <textarea
@@ -692,7 +709,10 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label htmlFor="agent-personality" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-personality"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Personality
               </label>
               <textarea
@@ -704,7 +724,10 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label htmlFor="agent-voice-style" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-voice-style"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Voice Style
               </label>
               <input
@@ -717,7 +740,10 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label htmlFor="agent-tone" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-tone"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Communication Tone
               </label>
               <select
@@ -885,7 +911,10 @@ export default function AgentEditPage() {
             </div>
             {!isCEO && (
               <div>
-                <label htmlFor="voting-weight" className="block text-sm font-medium text-slate-300 mb-2">
+                <label
+                  htmlFor="voting-weight"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
                   Voting Weight ({weight}%)
                 </label>
                 <input
@@ -999,7 +1028,10 @@ export default function AgentEditPage() {
         >
           <div className="space-y-4">
             <div>
-              <label htmlFor="custom-instructions" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="custom-instructions"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Custom Instructions
               </label>
               <textarea

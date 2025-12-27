@@ -266,9 +266,12 @@ class ExtensionSecureStorage implements SecureStorageAdapter {
     if (!storage) return null
 
     const stored = await new Promise<string | undefined>((resolve) => {
-      storage.get(`secure_${key}`, (result: Record<string, string | undefined>) => {
-        resolve(result[`secure_${key}`])
-      })
+      storage.get(
+        `secure_${key}`,
+        (result: Record<string, string | undefined>) => {
+          resolve(result[`secure_${key}`])
+        },
+      )
     })
 
     if (!stored) return null
@@ -334,9 +337,12 @@ class ExtensionSecureStorage implements SecureStorageAdapter {
     const storage = this.getStorage()
     if (!storage) return false
     return new Promise((resolve) => {
-      storage.get(`secure_${key}`, (result: Record<string, string | undefined>) => {
-        resolve(result[`secure_${key}`] !== undefined)
-      })
+      storage.get(
+        `secure_${key}`,
+        (result: Record<string, string | undefined>) => {
+          resolve(result[`secure_${key}`] !== undefined)
+        },
+      )
     })
   }
 }
@@ -540,7 +546,7 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
   async set(
     key: string,
     value: string,
-    options?: SecureStorageOptions,
+    _options?: SecureStorageOptions,
   ): Promise<void> {
     // Try native keychain first
     if (await this.tryNativeKeychain()) {

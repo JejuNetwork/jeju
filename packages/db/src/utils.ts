@@ -286,7 +286,9 @@ export function validateColumnType(columnType: string): string {
 
   // Check for injection characters
   if (/[;'"\\()]/g.test(trimmed)) {
-    throw new Error(`Invalid column type "${columnType}": contains unsafe characters`)
+    throw new Error(
+      `Invalid column type "${columnType}": contains unsafe characters`,
+    )
   }
 
   // Extract base type (handle VARCHAR(255), DECIMAL(10,2), etc.)
@@ -331,7 +333,9 @@ export function validateMetadataFilter(filter: string): string {
   // Check for known unsafe patterns
   for (const pattern of UNSAFE_FILTER_PATTERNS) {
     if (pattern.test(trimmed)) {
-      throw new Error(`Unsafe SQL pattern detected in metadata filter: ${trimmed}`)
+      throw new Error(
+        `Unsafe SQL pattern detected in metadata filter: ${trimmed}`,
+      )
     }
   }
 

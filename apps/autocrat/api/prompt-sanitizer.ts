@@ -214,10 +214,7 @@ export function validateInputLength(
  */
 export function validateAndSanitizeInput<
   T extends Record<string, string | string[] | undefined>,
->(
-  input: T,
-  limits: Partial<Record<keyof T, number>>,
-): T {
+>(input: T, limits: Partial<Record<keyof T, number>>): T {
   const result = { ...input }
 
   for (const [key, limit] of Object.entries(limits) as [keyof T, number][]) {
@@ -236,4 +233,3 @@ export function validateAndSanitizeInput<
 
   return result
 }
-

@@ -1,10 +1,14 @@
-import { getRpcUrl } from '@jejunetwork/config'
+import { CDN_REGIONS, getCDNConfig, getCDNContracts } from '@jejunetwork/config'
 import type { CDNRegion } from '@jejunetwork/types'
 import { expectAddress, expectHex, toBigInt } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import { CDN_REGISTRY_ABI } from '../abis'
 import { getChain, type NodeClient } from '../contracts'
+
+// Get config-first CDN settings
+const cdnConfig = getCDNConfig()
+const _cdnContracts = getCDNContracts()
 
 /** Type for CDN edge node as returned by getEdgeNode contract call */
 interface CDNEdgeNodeResult {
@@ -68,27 +72,11 @@ function parseMetricsResult(result: readonly unknown[]): CDNMetricsResult {
 
 // Types & Validation
 
-// Valid CDN regions
-const CDN_REGIONS = new Set([
-  'us-east-1',
-  'us-east-2',
-  'us-west-1',
-  'us-west-2',
-  'eu-west-1',
-  'eu-west-2',
-  'eu-central-1',
-  'ap-northeast-1',
-  'ap-northeast-2',
-  'ap-southeast-1',
-  'ap-southeast-2',
-  'ap-south-1',
-  'sa-east-1',
-  'af-south-1',
-  'me-south-1',
-])
+// Use CDN_REGIONS from config
+const CDN_REGIONS_SET = new Set<string>(CDN_REGIONS)
 
 function isCDNRegion(val: string): val is CDNRegion {
-  return CDN_REGIONS.has(val)
+  return CDN_REGIONS_SET.has(val)
 }
 
 // Use the actual CDNRegion type from @jejunetwork/types
@@ -143,7 +131,8 @@ const CDNServiceStateSchema = z.object({
   nodeId: HexStringSchema,
   endpoint: z.string().url(),
   region: z.custom<CDNRegion>(
-    (val): val is CDNRegion => typeof val === 'string' && CDN_REGIONS.has(val),
+    (val): val is CDNRegion =>
+      typeof val === 'string' && CDN_REGIONS_SET.has(val),
   ),
   stake: z.bigint(),
   status: z.enum([
@@ -322,14 +311,20 @@ export class CDNService {
 
   /**
    * Start the edge node process
+   *
+   * Uses config-first approach:
+   * - Port from config.edge.port (overridable)
+   * - Cache size from config.edge.cache.maxSizeBytes
+   * - Contract addresses from getCDNContracts()
+   * - RPC URL from config
    */
   async startEdgeNode(
     nodeId: string,
     config: {
-      port: number
-      maxCacheSizeMB: number
-      origins: Array<{ name: string; type: string; endpoint: string }>
-    },
+      port?: number
+      maxCacheSizeMB?: number
+      origins?: Array<{ name: string; type: string; endpoint: string }>
+    } = {},
   ): Promise<void> {
     if (this.edgeNodeProcess) {
       console.warn('[CDN] Edge node already running')
@@ -338,23 +333,33 @@ export class CDNService {
 
     const privateKey = await this.getPrivateKey()
 
+    // Config-first with optional runtime overrides
+    const port = config.port ?? cdnConfig.edge.port
+    const cacheSizeMB =
+      config.maxCacheSizeMB ??
+      Math.floor(cdnConfig.edge.cache.maxSizeBytes / (1024 * 1024))
+
     // Start edge node as subprocess
+    // Uses minimal env - config values come from @jejunetwork/config inside the subprocess
     this.edgeNodeProcess = Bun.spawn({
       cmd: ['bun', 'run', '-w', '@jejunetwork/dws', 'cdn:edge'],
       env: {
         ...process.env,
+        // Node-specific settings (can't come from config)
         CDN_NODE_ID: nodeId,
-        CDN_PORT: config.port.toString(),
-        CDN_CACHE_SIZE_MB: config.maxCacheSizeMB.toString(),
         PRIVATE_KEY: privateKey,
-        CDN_REGISTRY_ADDRESS: this.client.addresses.cdnRegistry,
-        CDN_BILLING_ADDRESS: this.client.addresses.cdnBilling,
-        RPC_URL: process.env.RPC_URL ?? getRpcUrl(),
+        // Override config defaults if explicitly provided
+        ...(config.port ? { CDN_PORT: port.toString() } : {}),
+        ...(config.maxCacheSizeMB
+          ? { CDN_CACHE_SIZE_MB: cacheSizeMB.toString() }
+          : {}),
       },
       stdio: ['inherit', 'inherit', 'inherit'],
     })
 
-    console.log(`[CDN] Started edge node on port ${config.port}`)
+    console.log(
+      `[CDN] Started edge node on port ${port} (cache: ${cacheSizeMB}MB)`,
+    )
   }
 
   /**

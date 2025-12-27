@@ -240,11 +240,17 @@ class TradingBotImpl implements TradingBot {
     const routerAddress = DEX_ROUTERS[chainId]
     const wethAddress = WETH_ADDRESSES[chainId]
 
-    if (!routerAddress || routerAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !routerAddress ||
+      routerAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       throw new Error(`No DEX router configured for chain ${chainId}`)
     }
 
-    if (!wethAddress || wethAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !wethAddress ||
+      wethAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       throw new Error(`No WETH address configured for chain ${chainId}`)
     }
 
@@ -333,7 +339,9 @@ class TradingBotImpl implements TradingBot {
           chain,
         })
 
-        await this.publicClient.waitForTransactionReceipt({ hash: approveTxHash })
+        await this.publicClient.waitForTransactionReceipt({
+          hash: approveTxHash,
+        })
       }
 
       // Calculate minimum output with slippage

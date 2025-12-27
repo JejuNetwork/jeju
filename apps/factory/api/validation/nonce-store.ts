@@ -61,7 +61,10 @@ class NonceStore {
   private cleanupInterval: ReturnType<typeof setInterval>
 
   constructor() {
-    this.cleanupInterval = setInterval(() => this.cleanup(), CLEANUP_INTERVAL_MS)
+    this.cleanupInterval = setInterval(
+      () => this.cleanup(),
+      CLEANUP_INTERVAL_MS,
+    )
     log.info('Nonce store initialized', { ttlMs: NONCE_TTL_MS })
   }
 
@@ -307,4 +310,3 @@ export function generateNonce(): string {
 
 // Re-export NONCE_TTL_MS for client-side guidance
 export { NONCE_TTL_MS }
-

@@ -204,7 +204,10 @@ function AgentForm({
           {/* Role Selection (for non-CEO) */}
           {!isCEO && (
             <div>
-              <label htmlFor={`role-${agent.persona.name}`} className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor={`role-${agent.persona.name}`}
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Role
               </label>
               <select
@@ -247,7 +250,10 @@ function AgentForm({
 
           {/* Name */}
           <div>
-            <label htmlFor={`agent-name-${isCEO ? 'ceo' : 'board'}`} className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`agent-name-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Agent Name
             </label>
             <input
@@ -264,7 +270,10 @@ function AgentForm({
 
           {/* Bio */}
           <div>
-            <label htmlFor={`agent-bio-${isCEO ? 'ceo' : 'board'}`} className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`agent-bio-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Bio
             </label>
             <textarea
@@ -279,7 +288,10 @@ function AgentForm({
 
           {/* Personality */}
           <div>
-            <label htmlFor={`agent-personality-${isCEO ? 'ceo' : 'board'}`} className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`agent-personality-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Personality
             </label>
             <textarea
@@ -360,7 +372,10 @@ function AgentForm({
 
           {/* Communication Tone */}
           <div>
-            <label htmlFor={`comm-tone-${isCEO ? 'ceo' : 'board'}`} className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`comm-tone-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Communication Tone
             </label>
             <select
@@ -422,7 +437,10 @@ function AgentForm({
           {/* Weight (for non-CEO) */}
           {!isCEO && (
             <div>
-              <label htmlFor={`weight-${agent.persona.name}`} className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor={`weight-${agent.persona.name}`}
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Voting Weight ({agent.weight}%)
               </label>
               <input
@@ -643,7 +661,10 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label htmlFor="dao-slug" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-slug"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Slug / Username
               </label>
               <input
@@ -664,7 +685,10 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label htmlFor="dao-display-name" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-display-name"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Display Name
               </label>
               <input
@@ -678,7 +702,10 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label htmlFor="dao-description" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-description"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Description
               </label>
               <textarea
@@ -692,7 +719,10 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label htmlFor="dao-farcaster" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-farcaster"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 <MessageSquare className="w-4 h-4 inline mr-1" />
                 Farcaster Channel (optional)
               </label>
@@ -822,7 +852,10 @@ export default function CreateDAOPage() {
             <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="min-quality-score" className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="min-quality-score"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Min Quality Score
                   </label>
                   <input
@@ -841,7 +874,10 @@ export default function CreateDAOPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="min-board-approvals" className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="min-board-approvals"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Min Board Approvals
                   </label>
                   <input
@@ -860,7 +896,10 @@ export default function CreateDAOPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="voting-period" className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="voting-period"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Voting Period (days)
                   </label>
                   <input
@@ -880,7 +919,10 @@ export default function CreateDAOPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="min-proposal-stake" className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="min-proposal-stake"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Min Proposal Stake (ETH)
                   </label>
                   <input

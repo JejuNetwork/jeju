@@ -12,7 +12,6 @@
  * - Secure memory handling
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   createCipheriv,
   createDecipheriv,
@@ -20,6 +19,7 @@ import {
   randomBytes,
   scrypt,
 } from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 
 // Simple logger since @jejunetwork/shared may not be available
 const log = {
@@ -309,7 +309,9 @@ export async function decryptDatabaseFile(
  * Load an encrypted database file into memory (for SQLite)
  * Returns the decrypted content as a Buffer
  */
-export async function loadEncryptedDatabase(filePath: string): Promise<Buffer | null> {
+export async function loadEncryptedDatabase(
+  filePath: string,
+): Promise<Buffer | null> {
   const key = await getEncryptionKey()
 
   if (!existsSync(filePath)) {
@@ -509,4 +511,3 @@ export async function initializeEncryption(): Promise<boolean> {
 export function isEncryptionEnabled(): boolean {
   return !!process.env[DB_ENCRYPTION_KEY_ENV]
 }
-

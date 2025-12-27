@@ -110,7 +110,10 @@ export async function aesGcmDecrypt(
     // Empty data marker
     return new Uint8Array(0)
   }
-  if (decryptedBytes.length > 0 && decryptedBytes[0] === NON_EMPTY_DATA_PREFIX) {
+  if (
+    decryptedBytes.length > 0 &&
+    decryptedBytes[0] === NON_EMPTY_DATA_PREFIX
+  ) {
     // Remove the non-empty marker prefix
     return decryptedBytes.slice(1)
   }

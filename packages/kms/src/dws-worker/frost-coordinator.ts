@@ -392,7 +392,8 @@ export class FROSTCoordinator {
       if (bindingFactor === ZERO) continue
 
       // R_i scalar = d_i + rho_i * e_i (scalar domain aggregation)
-      const partyRScalar = (dScalar + (bindingFactor * eScalar) % CURVE_ORDER) % CURVE_ORDER
+      const partyRScalar =
+        (dScalar + ((bindingFactor * eScalar) % CURVE_ORDER)) % CURVE_ORDER
       aggregateRScalar = (aggregateRScalar + partyRScalar) % CURVE_ORDER
     }
 

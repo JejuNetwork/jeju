@@ -136,7 +136,10 @@ async function getEthUsdPrice(): Promise<number> {
     console.warn(
       `[RateLimiter] Chain ${chainId} has no Chainlink support, using fallback price: $${fallbackPrice}`,
     )
-    priceCache = { price: fallbackPrice, expiresAt: Date.now() + PRICE_CACHE_TTL }
+    priceCache = {
+      price: fallbackPrice,
+      expiresAt: Date.now() + PRICE_CACHE_TTL,
+    }
     return fallbackPrice
   }
 
@@ -186,7 +189,9 @@ async function getEthUsdPrice(): Promise<number> {
   }
 
   if (answer <= 0n) {
-    console.error('[RateLimiter] Chainlink returned invalid price, using fallback')
+    console.error(
+      '[RateLimiter] Chainlink returned invalid price, using fallback',
+    )
     if (priceCache) return priceCache.price
     priceCache = { price: fallbackPrice, expiresAt: Date.now() + 60_000 }
     return fallbackPrice

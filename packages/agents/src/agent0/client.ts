@@ -160,7 +160,8 @@ export class Agent0Client implements IAgent0Client {
 
     if (this.initPromise) {
       await this.initPromise
-      return this.sdk!
+      if (!this.sdk) throw new Error('SDK initialization failed')
+      return this.sdk
     }
 
     this.initPromise = (async () => {
@@ -206,7 +207,8 @@ export class Agent0Client implements IAgent0Client {
 
     await this.initPromise
     this.initPromise = null
-    return this.sdk!
+    if (!this.sdk) throw new Error('SDK initialization failed')
+    return this.sdk
   }
 
   private requireWriteAccess(sdk: SDK) {
@@ -398,8 +400,16 @@ export class Agent0Client implements IAgent0Client {
       await agent.setMCP(params.mcpEndpoint, '1.0.0', false)
     if (params.a2aEndpoint)
       await agent.setA2A(params.a2aEndpoint, '1.0.0', false)
-    if (params.skills) params.skills.forEach((s) => agent.addSkill(s, false))
-    if (params.domains) params.domains.forEach((d) => agent.addDomain(d, false))
+    if (params.skills) {
+      for (const s of params.skills) {
+        agent.addSkill(s, false)
+      }
+    }
+    if (params.domains) {
+      for (const d of params.domains) {
+        agent.addDomain(d, false)
+      }
+    }
     if (params.active !== undefined) agent.setActive(params.active)
     if (params.x402Support !== undefined)
       agent.setX402Support(params.x402Support)
@@ -682,7 +692,10 @@ export function createAgent0Client(): Agent0Client {
 let instance: Agent0Client | null = null
 
 export function getAgent0Client(): Agent0Client {
-  return instance ?? (instance = createAgent0Client())
+  if (!instance) {
+    instance = createAgent0Client()
+  }
+  return instance
 }
 
 export function resetAgent0Client(): void {

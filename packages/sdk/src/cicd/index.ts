@@ -16,7 +16,14 @@ import type { JejuWallet } from '../wallet'
 // API response schemas for validation
 const JobStepSchema = z.object({
   name: z.string(),
-  status: z.enum(['pending', 'queued', 'running', 'success', 'failed', 'cancelled']),
+  status: z.enum([
+    'pending',
+    'queued',
+    'running',
+    'success',
+    'failed',
+    'cancelled',
+  ]),
   duration: z.number().optional(),
   output: z.string().optional(),
 })
@@ -24,7 +31,14 @@ const JobStepSchema = z.object({
 const WorkflowJobSchema = z.object({
   id: z.string(),
   name: z.string(),
-  status: z.enum(['pending', 'queued', 'running', 'success', 'failed', 'cancelled']),
+  status: z.enum([
+    'pending',
+    'queued',
+    'running',
+    'success',
+    'failed',
+    'cancelled',
+  ]),
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   duration: z.number().optional(),
@@ -48,7 +62,14 @@ const WorkflowRunSchema = z.object({
   branch: z.string(),
   commitSha: z.string(),
   commitMessage: z.string().optional(),
-  status: z.enum(['pending', 'queued', 'running', 'success', 'failed', 'cancelled']),
+  status: z.enum([
+    'pending',
+    'queued',
+    'running',
+    'success',
+    'failed',
+    'cancelled',
+  ]),
   triggeredBy: z.string(),
   startedAt: z.string(),
   completedAt: z.string().optional(),
@@ -77,7 +98,13 @@ const DeploymentSchema = z.object({
   repoName: z.string(),
   branch: z.string(),
   commitSha: z.string(),
-  status: z.enum(['pending', 'in_progress', 'success', 'failed', 'rolled_back']),
+  status: z.enum([
+    'pending',
+    'in_progress',
+    'success',
+    'failed',
+    'rolled_back',
+  ]),
   deployedBy: z.string(),
   deployedAt: z.string(),
   url: z.string().optional(),
@@ -339,14 +366,22 @@ export function createCICDModule(
   return {
     // Workflows
     async createWorkflow(params) {
-      return request('/workflows', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      }, CICDWorkflowSchema)
+      return request(
+        '/workflows',
+        {
+          method: 'POST',
+          body: JSON.stringify(params),
+        },
+        CICDWorkflowSchema,
+      )
     },
 
     async getWorkflow(workflowId) {
-      return request(`/workflows/${workflowId}`, {}, CICDWorkflowSchema.nullable())
+      return request(
+        `/workflows/${workflowId}`,
+        {},
+        CICDWorkflowSchema.nullable(),
+      )
     },
 
     async listWorkflows(repoId) {
@@ -355,10 +390,14 @@ export function createCICDModule(
     },
 
     async updateWorkflow(workflowId, updates) {
-      return request(`/workflows/${workflowId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      }, CICDWorkflowSchema)
+      return request(
+        `/workflows/${workflowId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(updates),
+        },
+        CICDWorkflowSchema,
+      )
     },
 
     async deleteWorkflow(workflowId) {
@@ -375,13 +414,17 @@ export function createCICDModule(
 
     // Workflow Runs
     async triggerWorkflow(params) {
-      return request(`/workflows/${params.workflowId}/trigger`, {
-        method: 'POST',
-        body: JSON.stringify({
-          branch: params.branch,
-          inputs: params.inputs,
-        }),
-      }, WorkflowRunSchema)
+      return request(
+        `/workflows/${params.workflowId}/trigger`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            branch: params.branch,
+            inputs: params.inputs,
+          }),
+        },
+        WorkflowRunSchema,
+      )
     },
 
     async getRun(runId) {
@@ -401,7 +444,11 @@ export function createCICDModule(
     },
 
     async rerunWorkflow(runId) {
-      return request(`/runs/${runId}/rerun`, { method: 'POST' }, WorkflowRunSchema)
+      return request(
+        `/runs/${runId}/rerun`,
+        { method: 'POST' },
+        WorkflowRunSchema,
+      )
     },
 
     async getRunLogs(runId, jobId) {
@@ -438,14 +485,22 @@ export function createCICDModule(
 
     // Deployments
     async deploy(repoId, config) {
-      return request(`/repos/${repoId}/deploy`, {
-        method: 'POST',
-        body: JSON.stringify(config),
-      }, DeploymentSchema)
+      return request(
+        `/repos/${repoId}/deploy`,
+        {
+          method: 'POST',
+          body: JSON.stringify(config),
+        },
+        DeploymentSchema,
+      )
     },
 
     async getDeployment(deploymentId) {
-      return request(`/deployments/${deploymentId}`, {}, DeploymentSchema.nullable())
+      return request(
+        `/deployments/${deploymentId}`,
+        {},
+        DeploymentSchema.nullable(),
+      )
     },
 
     async listDeployments(repoId, environment) {
@@ -457,9 +512,13 @@ export function createCICDModule(
     },
 
     async rollback(deploymentId) {
-      return request(`/deployments/${deploymentId}/rollback`, {
-        method: 'POST',
-      }, DeploymentSchema)
+      return request(
+        `/deployments/${deploymentId}/rollback`,
+        {
+          method: 'POST',
+        },
+        DeploymentSchema,
+      )
     },
 
     async promoteToProduction(stagingDeploymentId) {
@@ -473,7 +532,11 @@ export function createCICDModule(
     },
 
     async getDeploymentStatus(deploymentId) {
-      return request(`/deployments/${deploymentId}/status`, {}, DeploymentSchema)
+      return request(
+        `/deployments/${deploymentId}/status`,
+        {},
+        DeploymentSchema,
+      )
     },
 
     // Releases

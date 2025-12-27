@@ -8,12 +8,7 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import {
-  type Address,
-  encodeFunctionData,
-  type Hex,
-  parseAbiItem,
-} from 'viem'
+import { type Address, encodeFunctionData, type Hex, parseAbiItem } from 'viem'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
 
@@ -21,7 +16,7 @@ import type { JejuWallet } from '../wallet'
 const TOKEN_REGISTERED_EVENT = parseAbiItem(
   'event TokenRegistered(bytes32 indexed tokenId, address tokenAddress, address priceOracle)',
 )
-const CONSIGNMENT_TOPPED_UP_EVENT = parseAbiItem(
+const _CONSIGNMENT_TOPPED_UP_EVENT = parseAbiItem(
   'event ConsignmentToppedUp(uint256 indexed consignmentId, uint256 amount)',
 )
 

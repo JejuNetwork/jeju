@@ -8,7 +8,6 @@ import {
   type NetworkType,
 } from '@jejunetwork/config'
 import { Command } from 'commander'
-import { validateNetwork } from '../lib/security'
 import {
   createPublicClient,
   createWalletClient,
@@ -20,6 +19,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
 import { logger } from '../lib/logger'
+import { validateNetwork } from '../lib/security'
 import { findMonorepoRoot } from '../lib/system'
 
 type CQLMode = 'cluster' | 'testnet'

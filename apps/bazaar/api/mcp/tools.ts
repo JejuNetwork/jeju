@@ -39,6 +39,7 @@ const SWAP_ROUTER_ABI = [
     type: 'function',
   },
 ] as const
+
 import {
   getContractDetails,
   getLatestBlocks,

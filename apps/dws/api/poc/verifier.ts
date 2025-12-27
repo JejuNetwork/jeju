@@ -481,7 +481,8 @@ export class PoCVerifier {
         '[PoC Verifier] WARNING: HARDWARE_ID_SALT not set. Using dev-only salt.',
       )
     }
-    const salt = hardwareIdSalt ?? keccak256(toBytes('DEV_ONLY_INSECURE_POC_SALT'))
+    const salt =
+      hardwareIdSalt ?? keccak256(toBytes('DEV_ONLY_INSECURE_POC_SALT'))
 
     return new PoCVerifier({
       chain,

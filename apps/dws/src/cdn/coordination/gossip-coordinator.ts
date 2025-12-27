@@ -159,7 +159,14 @@ export class CDNGossipCoordinator extends EventEmitter {
 
     // Subscribe to topics
     // biome-ignore lint/suspicious/noExplicitAny: libp2p services are dynamically typed
-    const pubsub = (this.node.services as Record<string, unknown>).pubsub as { subscribe: (topic: string) => void; addEventListener: (event: string, handler: (evt: { detail: { topic: string; data: Uint8Array } }) => void) => void; publish: (topic: string, data: Uint8Array) => Promise<void> }
+    const pubsub = (this.node.services as Record<string, unknown>).pubsub as {
+      subscribe: (topic: string) => void
+      addEventListener: (
+        event: string,
+        handler: (evt: { detail: { topic: string; data: Uint8Array } }) => void,
+      ) => void
+      publish: (topic: string, data: Uint8Array) => Promise<void>
+    }
     if (!pubsub) {
       throw new Error('PubSub service not available')
     }
@@ -370,7 +377,9 @@ export class CDNGossipCoordinator extends EventEmitter {
       throw new Error('Node not started')
     }
 
-    const pubsub = (this.node.services as Record<string, unknown>).pubsub as { publish: (topic: string, data: Uint8Array) => Promise<void> } | undefined
+    const pubsub = (this.node.services as Record<string, unknown>).pubsub as
+      | { publish: (topic: string, data: Uint8Array) => Promise<void> }
+      | undefined
     if (!pubsub) {
       throw new Error('PubSub service not available')
     }

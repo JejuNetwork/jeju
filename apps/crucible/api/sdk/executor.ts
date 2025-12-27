@@ -660,20 +660,14 @@ export class ExecutorSDK {
 
       case 'JOIN_ROOM':
         if (action.params?.roomId) {
-          await this.roomSdk.joinRoom(
-            BigInt(action.params.roomId),
-            agentId,
-          )
+          await this.roomSdk.joinRoom(BigInt(action.params.roomId), agentId)
           return true
         }
         return false
 
       case 'LEAVE_ROOM':
         if (action.params?.roomId) {
-          await this.roomSdk.leaveRoom(
-            BigInt(action.params.roomId),
-            agentId,
-          )
+          await this.roomSdk.leaveRoom(BigInt(action.params.roomId), agentId)
           return true
         }
         return false
@@ -682,7 +676,11 @@ export class ExecutorSDK {
         if (roomId && action.params?.phase) {
           await this.roomSdk.setPhase(
             BigInt(roomId),
-            String(action.params.phase) as 'setup' | 'active' | 'paused' | 'completed',
+            String(action.params.phase) as
+              | 'setup'
+              | 'active'
+              | 'paused'
+              | 'completed',
           )
           return true
         }
@@ -690,10 +688,7 @@ export class ExecutorSDK {
 
       case 'FUND_VAULT':
         if (action.params?.amount) {
-          await this.agentSdk.fundVault(
-            agentId,
-            BigInt(action.params.amount),
-          )
+          await this.agentSdk.fundVault(agentId, BigInt(action.params.amount))
           return true
         }
         return false

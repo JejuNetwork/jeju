@@ -61,12 +61,18 @@ const PHASES = [
 
 type Phase = (typeof PHASES)[number]
 
-function log(message: string, level: 'info' | 'success' | 'error' | 'warn' = 'info') {
+function log(
+  message: string,
+  level: 'info' | 'success' | 'error' | 'warn' = 'info',
+) {
   const icons = { info: 'ℹ️', success: '✅', error: '❌', warn: '⚠️' }
   console.log(`${icons[level]}  ${message}`)
 }
 
-function exec(command: string, options: { cwd?: string; silent?: boolean } = {}) {
+function exec(
+  command: string,
+  options: { cwd?: string; silent?: boolean } = {},
+) {
   const { cwd = ROOT, silent = false } = options
   log(`Executing: ${command}`, 'info')
   try {
@@ -76,7 +82,7 @@ function exec(command: string, options: { cwd?: string; silent?: boolean } = {})
       encoding: 'utf-8',
     })
     return true
-  } catch (error) {
+  } catch (_error) {
     return false
   }
 }
@@ -88,7 +94,10 @@ class DeploymentOrchestrator {
 
   constructor(config: DeploymentConfig) {
     this.config = config
-    this.stateFile = join(DEPLOYMENT_DIR, `.deployment-state-${config.network}.json`)
+    this.stateFile = join(
+      DEPLOYMENT_DIR,
+      `.deployment-state-${config.network}.json`,
+    )
     this.state = this.loadState()
   }
 
@@ -234,7 +243,7 @@ class DeploymentOrchestrator {
 
     if (this.config.network === 'localnet') {
       log('Starting local infrastructure (Anvil + Docker)...', 'info')
-      
+
       // Start Anvil for local chain
       try {
         execSync('pgrep -f "anvil" > /dev/null', { stdio: 'pipe' })
@@ -246,13 +255,18 @@ class DeploymentOrchestrator {
       }
 
       // Start essential Docker services
-      const dockerComposeFile = join(DEPLOYMENT_DIR, 'docker/docker-compose.yml')
+      const dockerComposeFile = join(
+        DEPLOYMENT_DIR,
+        'docker/docker-compose.yml',
+      )
       if (existsSync(dockerComposeFile)) {
-        exec(`docker compose -f ${dockerComposeFile} up -d`, { cwd: DEPLOYMENT_DIR })
+        exec(`docker compose -f ${dockerComposeFile} up -d`, {
+          cwd: DEPLOYMENT_DIR,
+        })
       }
     } else {
       log('Deploying Kubernetes services...', 'info')
-      
+
       // Use Helmfile for testnet/mainnet
       const helmfileDir = join(DEPLOYMENT_DIR, 'kubernetes/helmfile')
       const cmd = this.config.dryRun
@@ -277,10 +291,13 @@ class DeploymentOrchestrator {
     if (this.config.network === 'localnet') {
       // For localnet, start Anvil if not running and deploy to it
       log('Deploying contracts to local Anvil...', 'info')
-      
+
       // Check if Anvil is running
       try {
-        execSync('curl -s http://localhost:8545 -X POST -H "Content-Type: application/json" -d \'{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}\'', { stdio: 'pipe' })
+        execSync(
+          'curl -s http://localhost:8545 -X POST -H "Content-Type: application/json" -d \'{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}\'',
+          { stdio: 'pipe' },
+        )
       } catch {
         log('Starting Anvil...', 'info')
         exec('anvil &', { silent: true })
@@ -289,18 +306,26 @@ class DeploymentOrchestrator {
       }
 
       // Deploy core contracts to Anvil
-      exec(`cd ${CONTRACTS_DIR} && forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`, {
-        cwd: CONTRACTS_DIR,
-      })
+      exec(
+        `cd ${CONTRACTS_DIR} && forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
+        {
+          cwd: CONTRACTS_DIR,
+        },
+      )
     } else {
       const deployScript = join(DEPLOYMENT_DIR, 'scripts/deploy/contracts.ts')
       if (!existsSync(deployScript)) {
         log('Contract deployment script not found, using forge', 'warn')
-        exec(`forge script script/Deploy.s.sol --broadcast --rpc-url $JEJU_RPC_URL`, {
-          cwd: CONTRACTS_DIR,
-        })
+        exec(
+          `forge script script/Deploy.s.sol --broadcast --rpc-url $JEJU_RPC_URL`,
+          {
+            cwd: CONTRACTS_DIR,
+          },
+        )
       } else {
-        exec(`NETWORK=${this.config.network} bun run ${deployScript}`, { cwd: ROOT })
+        exec(`NETWORK=${this.config.network} bun run ${deployScript}`, {
+          cwd: ROOT,
+        })
       }
     }
 
@@ -316,9 +341,14 @@ class DeploymentOrchestrator {
 
     log('Bootstrapping DWS...', 'info')
 
-    const bootstrapScript = join(DEPLOYMENT_DIR, 'scripts/deploy/dws-bootstrap.ts')
+    const bootstrapScript = join(
+      DEPLOYMENT_DIR,
+      'scripts/deploy/dws-bootstrap.ts',
+    )
     if (existsSync(bootstrapScript)) {
-      exec(`NETWORK=${this.config.network} bun run ${bootstrapScript}`, { cwd: ROOT })
+      exec(`NETWORK=${this.config.network} bun run ${bootstrapScript}`, {
+        cwd: ROOT,
+      })
     } else {
       log('DWS bootstrap script not found', 'warn')
     }
@@ -335,7 +365,10 @@ class DeploymentOrchestrator {
 
     log('Deploying external chain infrastructure...', 'info')
 
-    const chainScript = join(DEPLOYMENT_DIR, 'scripts/deploy/dws-external-chains.ts')
+    const chainScript = join(
+      DEPLOYMENT_DIR,
+      'scripts/deploy/dws-external-chains.ts',
+    )
 
     for (const chain of this.config.chains) {
       log(`Provisioning ${chain}...`, 'info')
@@ -362,8 +395,13 @@ class DeploymentOrchestrator {
 
     log('Setting up multi-cloud coordination...', 'info')
 
-    const mcScript = join(DEPLOYMENT_DIR, 'scripts/infrastructure/multi-cloud-coordinator.ts')
-    exec(`NETWORK=${this.config.network} bun run ${mcScript} all`, { cwd: ROOT })
+    const mcScript = join(
+      DEPLOYMENT_DIR,
+      'scripts/infrastructure/multi-cloud-coordinator.ts',
+    )
+    exec(`NETWORK=${this.config.network} bun run ${mcScript} all`, {
+      cwd: ROOT,
+    })
 
     this.markPhaseComplete('multi-cloud')
     log('Multi-cloud setup complete', 'success')
@@ -377,15 +415,19 @@ class DeploymentOrchestrator {
     if (this.config.network === 'localnet') {
       checks.push({
         name: 'Kurtosis enclave',
-        check: () => exec('kurtosis enclave inspect jeju-localnet', { silent: true }),
+        check: () =>
+          exec('kurtosis enclave inspect jeju-localnet', { silent: true }),
       })
     } else {
       checks.push({
         name: 'Kubernetes pods',
         check: () =>
-          exec('kubectl get pods -n jeju-system --field-selector=status.phase!=Running', {
-            silent: true,
-          }),
+          exec(
+            'kubectl get pods -n jeju-system --field-selector=status.phase!=Running',
+            {
+              silent: true,
+            },
+          ),
       })
     }
 
@@ -446,7 +488,7 @@ class DeploymentOrchestrator {
 ║                  DEPLOYMENT COMPLETE                         ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  Network:    ${this.config.network.padEnd(46)}║
-║  Duration:   ${(duration + ' minutes').padEnd(46)}║
+║  Duration:   ${(`${duration} minutes`).padEnd(46)}║
 ║  Phases:     ${this.state.completedPhases.length.toString().padEnd(46)}║
 ╠══════════════════════════════════════════════════════════════╣
 ║  Completed Phases:                                           ║`)
@@ -540,4 +582,3 @@ main().catch((error) => {
   console.error('❌ Deployment failed:', error.message)
   process.exit(1)
 })
-

@@ -15,7 +15,7 @@
  */
 
 import { z } from 'zod'
-import { getContract, getServiceUrl, getCurrentNetwork } from './index'
+import { getContract, getCurrentNetwork, getServiceUrl } from './index'
 
 // CDN Regions - matches on-chain enum
 export const CDN_REGIONS = [
@@ -79,7 +79,11 @@ export const CDN_TO_P2P_REGION: Record<CDNRegionType, P2PRegionType> = {
 
 export const EdgeCacheConfigSchema = z.object({
   /** Max cache size in bytes */
-  maxSizeBytes: z.number().int().positive().default(512 * 1024 * 1024), // 512MB
+  maxSizeBytes: z
+    .number()
+    .int()
+    .positive()
+    .default(512 * 1024 * 1024), // 512MB
   /** Max number of cache entries */
   maxEntries: z.number().int().positive().default(100000),
   /** Default TTL in seconds */
@@ -106,9 +110,17 @@ export const P2PConfigSchema = z.object({
   /** Min access count before enabling P2P for content */
   threshold: z.number().int().positive().default(10),
   /** Min content size for P2P (bytes) */
-  minSize: z.number().int().nonnegative().default(10 * 1024), // 10KB
+  minSize: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(10 * 1024), // 10KB
   /** Max content size for P2P (bytes) */
-  maxSize: z.number().int().positive().default(100 * 1024 * 1024), // 100MB
+  maxSize: z
+    .number()
+    .int()
+    .positive()
+    .default(100 * 1024 * 1024), // 100MB
   /** Auto-seed popular content */
   autoSeedPopular: z.boolean().default(true),
   /** Popularity threshold for auto-seeding */
@@ -248,7 +260,7 @@ export function getCDNConfig(overrides?: Partial<CDNConfig>): CDNConfig {
 
   // Get service URLs from config
   const dwsApiUrl = getServiceUrl('dws', 'api')
-  const nodeApiUrl = getServiceUrl('node', 'api')
+  const _nodeApiUrl = getServiceUrl('node', 'api')
   const nodeCdnUrl = getServiceUrl('node', 'cdn')
   const ipfsGatewayUrl = getServiceUrl('storage', 'ipfsGateway')
 

@@ -525,7 +525,7 @@ describe('EdgeCache Eviction', () => {
     expect(smallCache.getStats().entries).toBeLessThanOrEqual(5)
 
     // Oldest entry should be evicted (entry-0 was accessed first)
-    const { status: status0 } = smallCache.get('entry-0')
+    smallCache.get('entry-0') // Access entry-0 to see if it was evicted
     const { status: status5 } = smallCache.get('entry-5')
     expect(status5).toBe('HIT')
     // entry-0 may or may not be evicted depending on access pattern

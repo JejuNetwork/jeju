@@ -271,9 +271,9 @@ describe('StaticTrajectoryStorage', () => {
       // Should have auto-flushed
       expect(storage.getBufferStats().count).toBe(0)
       expect(flushedBatch).not.toBeNull()
-      const batch = flushedBatch!
-      expect(batch.trajectoryCount).toBe(2)
-      expect(batch.storageCid).toBe('QmTest123')
+      if (!flushedBatch) throw new Error('Expected flushedBatch to be defined')
+      expect(flushedBatch.trajectoryCount).toBe(2)
+      expect(flushedBatch.storageCid).toBe('QmTest123')
     })
 
     test('associates LLM calls with trajectories', async () => {
@@ -301,8 +301,8 @@ describe('StaticTrajectoryStorage', () => {
       expect(fetchCalls.length).toBe(1)
 
       // Verify the uploaded content includes LLM calls
-      const uploadCall = fetchCalls[0]!
-      expect(uploadCall.url).toContain('/storage/upload')
+      expect(fetchCalls[0]).toBeDefined()
+      expect(fetchCalls[0].url).toContain('/storage/upload')
     })
 
     test('handles empty buffer flush gracefully', async () => {
@@ -376,21 +376,24 @@ describe('StaticTrajectoryStorage', () => {
       globalThis.fetch = origFetch
 
       expect(uploadedData).not.toBeNull()
+      if (!uploadedData) throw new Error('Expected uploadedData to be defined')
 
       // Decompress and parse
-      const decompressed = gunzipSync(uploadedData!).toString('utf8')
+      const decompressed = gunzipSync(uploadedData).toString('utf8')
       const lines = decompressed.split('\n').filter((l) => l.trim())
 
       expect(lines.length).toBeGreaterThanOrEqual(2) // Header + at least 1 trajectory
 
       // Verify header
-      const header = JSON.parse(lines[0]!)
+      expect(lines[0]).toBeDefined()
+      const header = JSON.parse(lines[0])
       expect(header._type).toBe('header')
       expect(header.appName).toBe('jsonl-test')
       expect(header.trajectoryCount).toBe(1)
 
       // Verify trajectory
-      const trajLine = JSON.parse(lines[1]!)
+      expect(lines[1]).toBeDefined()
+      const trajLine = JSON.parse(lines[1])
       expect(trajLine._type).toBe('trajectory')
       expect(trajLine.agentId).toBe('test-agent-1')
       expect(trajLine.archetype).toBe('test-archetype')

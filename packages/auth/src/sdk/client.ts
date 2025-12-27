@@ -10,9 +10,9 @@
  * - IPFS storage for credentials
  */
 
+import { HexSchema } from '@jejunetwork/types'
 import { type Address, type Hex, toHex } from 'viem'
 import { z } from 'zod'
-import { HexSchema } from '@jejunetwork/types'
 
 // OAuth callback data schema
 const OAuthCallbackSchema = z.object({
