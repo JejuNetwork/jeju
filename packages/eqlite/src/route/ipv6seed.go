@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/EQLite/beacon/ipv6"
+	"eqlite/src/beacon/ipv6"
 	"github.com/pkg/errors"
 
 	"eqlite/src/crypto"

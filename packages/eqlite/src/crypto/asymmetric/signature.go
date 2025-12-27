@@ -6,7 +6,7 @@ import (
 	"errors"
 	"math/big"
 
-	hsp "github.com/EQLite/HashStablePack/marshalhash"
+	hsp "eqlite/src/marshalhash"
 	ec "github.com/btcsuite/btcd/btcec"
 	lru "github.com/hashicorp/golang-lru"
 

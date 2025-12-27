@@ -70,12 +70,9 @@ func Create(
 	}
 
 	req.Tx = types.NewCreateDatabase(&types.CreateDatabaseHeader{
-		Owner:          clientAddr,
-		ResourceMeta:   meta,
-		GasPrice:       gasPrice,
-		AdvancePayment: advancePayment,
-		TokenType:      types.Particle,
-		Nonce:          nonceResp.Nonce,
+		Owner:        clientAddr,
+		ResourceMeta: meta,
+		Nonce:        nonceResp.Nonce,
 	})
 
 	if err = req.Tx.Sign(privateKey); err != nil {

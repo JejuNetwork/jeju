@@ -3,13 +3,12 @@ package types
 
 //go:generate hsp
 
-// TokenType is deprecated. All token operations are now handled by Ethereum contracts.
-// This type is kept for backwards compatibility during migration.
+// TokenType represents the token used for transactions.
+// All token operations are now handled by the EQLiteRegistry smart contract on Ethereum.
 type TokenType int32
 
 const (
-	// Ether represents ETH/JEJU tokens handled by smart contracts.
-	// This is the only supported token type.
+	// Ether represents JEJU tokens handled by smart contracts.
 	Ether TokenType = 0
 )
 
@@ -19,7 +18,6 @@ func (t TokenType) String() string {
 }
 
 // FromString returns the token type from string.
-// Always returns Ether as it's the only supported type.
 func FromString(t string) TokenType {
 	return Ether
 }

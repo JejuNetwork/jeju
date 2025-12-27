@@ -18,12 +18,14 @@ type Range struct {
 }
 
 // MinerIncome defines the income of miner.
+// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
 type MinerIncome struct {
 	Miner  proto.AccountAddress
 	Income uint64
 }
 
 // UserCost defines the cost of user.
+// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
 type UserCost struct {
 	User   proto.AccountAddress
 	Cost   uint64
@@ -31,6 +33,7 @@ type UserCost struct {
 }
 
 // UpdateBillingHeader defines the UpdateBilling transaction header.
+// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
 type UpdateBillingHeader struct {
 	Receiver proto.AccountAddress
 	Nonce    pi.AccountNonce
@@ -40,6 +43,7 @@ type UpdateBillingHeader struct {
 }
 
 // UpdateBilling defines the UpdateBilling transaction.
+// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
 type UpdateBilling struct {
 	UpdateBillingHeader
 	pi.TransactionTypeMixin
@@ -47,6 +51,7 @@ type UpdateBilling struct {
 }
 
 // NewUpdateBilling returns new instance.
+// Deprecated: Billing is now handled by the EQLiteRegistry smart contract.
 func NewUpdateBilling(header *UpdateBillingHeader) *UpdateBilling {
 	return &UpdateBilling{
 		UpdateBillingHeader:  *header,

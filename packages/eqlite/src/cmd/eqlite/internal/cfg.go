@@ -123,7 +123,7 @@ func bgServerInit() {
 	if tmpPath == "" {
 		tmpPath = os.TempDir()
 	}
-	logPath := filepath.Join(tmpPath, "covenant_service.log")
+	logPath := filepath.Join(tmpPath, "eqlite_service.log")
 	bgLog, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		ConsoleLog.Errorf("open log file failed: %s, %v", logPath, err)

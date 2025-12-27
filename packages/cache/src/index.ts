@@ -1,91 +1,62 @@
 /**
  * @jejunetwork/cache
  *
- * Decentralized serverless cache with Redis compatibility and IPFS persistence.
+ * Production-ready decentralized serverless cache with Redis compatibility.
  *
  * Features:
  * - Redis-compatible API (GET, SET, HSET, LPUSH, SADD, ZADD, etc.)
- * - IPFS persistence for data durability
- * - MPC-based encryption (using Jeju KMS instead of Lit Protocol)
- * - LRU eviction with configurable memory limits
+ * - Automatic retries with exponential backoff
  * - Namespace isolation for multi-tenancy
+ * - Rate limiting awareness
  * - Works in browser, Node.js, and serverless environments
  *
- * @example Browser/Serverless Client
+ * @example
  * ```typescript
  * import { CacheClient } from '@jejunetwork/cache'
  *
  * const cache = new CacheClient({
- *   serverUrl: 'https://cache.dws.jeju.network',
- *   enableEncryption: true,
+ *   serverUrl: 'https://dws.jeju.network',
+ *   namespace: 'my-app',
  * })
  *
- * // Authenticate for encryption
- * await cache.signMessageForEncryption(address, signMessage)
+ * // Simple set/get
+ * await cache.set('key', 'value')
+ * const value = await cache.get('key')
  *
- * // Set with encryption
- * await cache.set('secret', { password: 'hunter2' }, { encrypt: true })
+ * // With TTL
+ * await cache.set('key', 'value', { ttl: 3600 })
  *
- * // Get and decrypt
- * const { data } = await cache.get('secret', { decrypt: true })
- * ```
+ * // Hash operations
+ * await cache.hset('user:1', 'name', 'Alice')
+ * const name = await cache.hget('user:1', 'name')
  *
- * @example DWS Node Server
- * ```typescript
- * import { CacheServer } from '@jejunetwork/cache'
+ * // List operations
+ * await cache.rpush('queue', 'task1', 'task2')
+ * const task = await cache.lpop('queue')
  *
- * const server = new CacheServer({
- *   maxMemoryMb: 512,
- *   ipfsApiUrl: 'http://localhost:5001',
- * })
+ * // Set operations
+ * await cache.sadd('tags', 'redis', 'cache', 'fast')
+ * const tags = await cache.smembers('tags')
  *
- * // Set with automatic IPFS backup
- * await server.set('ns', 'key', { hello: 'world' })
- *
- * // Get (from memory or IPFS fallback)
- * const value = await server.get('ns', 'key')
+ * // Sorted set operations
+ * await cache.zadd('leaderboard', { member: 'player1', score: 100 })
+ * const top3 = await cache.zrange('leaderboard', 0, 2)
  * ```
  */
 
 // Client
 export { CacheClient, createCacheClient } from './client'
 
-// Server
-export { CacheServer, createCacheServer } from './server'
-
-// Encryption
-export {
-  CacheEncryption,
-  createAuthSignature,
-  getCacheEncryption,
-  initializeCacheEncryption,
-  resetCacheEncryption,
-  verifyAuthSignature,
-  type CacheEncryptionConfig,
-} from './encryption'
-
 // Types
 export {
   // Error handling
   CacheError,
   CacheErrorCode,
-  // Schemas
-  AuthSignatureSchema,
-  CacheResponseSchema,
-  CacheSetOptionsSchema,
-  CacheStatsSchema,
-  EncryptedCacheEntrySchema,
   // Types
-  type AccessCondition,
-  type AuthSignature,
   type CacheClientConfig,
   type CacheEntry,
-  type CacheGetOptions,
-  type CacheNodeInfo,
   type CacheResponse,
   type CacheServerConfig,
   type CacheSetOptions,
   type CacheStats,
-  type EncryptedCacheEntry,
 } from './types'
-

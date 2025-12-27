@@ -12,7 +12,7 @@ import (
 	"eqlite/src/twopc"
 	"eqlite/src/utils/log"
 
-	// Register EQLite/go-sqlite3-encrypt engine.
+	// Register mattn/go-sqlite3 engine.
 	_ "github.com/mattn/go-sqlite3"
 )
 

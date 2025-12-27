@@ -5,13 +5,30 @@ import (
 	"sort"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/version"
 
 	"eqlite/src/utils/log"
 )
 
+// Version info for EQLite - set at build time
+var (
+	Version   = "unknown"
+	Revision  = "unknown"
+	Branch    = "unknown"
+	BuildDate = "unknown"
+)
+
 func init() {
-	prometheus.MustRegister(version.NewCollector("EQLite"))
+	// Register version info as a gauge
+	buildInfo := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "eqlite",
+			Name:      "build_info",
+			Help:      "A metric with a constant '1' value labeled by version, revision, branch, and build_date.",
+		},
+		[]string{"version", "revision", "branch", "build_date"},
+	)
+	buildInfo.WithLabelValues(Version, Revision, Branch, BuildDate).Set(1)
+	prometheus.MustRegister(buildInfo)
 }
 
 // StartMetricCollector starts collector registered in NewNodeCollector().

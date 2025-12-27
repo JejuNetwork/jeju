@@ -222,7 +222,6 @@ type PermStat struct {
 }
 
 // SQLChainUser defines a SQLChain user.
-// Note: Payments and deposits are now handled by the EQLiteRegistry smart contract.
 type SQLChainUser struct {
 	Address    proto.AccountAddress
 	Permission *UserPermission
@@ -230,7 +229,6 @@ type SQLChainUser struct {
 }
 
 // MinerInfo defines a miner.
-// Note: Income and deposits are now handled by the EQLiteRegistry smart contract.
 type MinerInfo struct {
 	Address       proto.AccountAddress
 	NodeID        proto.NodeID
@@ -240,7 +238,6 @@ type MinerInfo struct {
 }
 
 // SQLChainProfile defines a SQLChainProfile related to an account.
-// Note: Payments and staking are now handled by the EQLiteRegistry smart contract.
 type SQLChainProfile struct {
 	ID                proto.DatabaseID
 	Address           proto.AccountAddress
@@ -255,11 +252,10 @@ type SQLChainProfile struct {
 
 	EncodedGenesis []byte
 
-	Meta ResourceMeta // dumped from db creation tx
+	Meta ResourceMeta
 }
 
 // ProviderProfile defines a provider list.
-// Note: Deposit and staking are now handled by the EQLiteRegistry smart contract.
 type ProviderProfile struct {
 	Provider      proto.AccountAddress
 	Space         uint64  // reserved storage space in bytes
@@ -267,12 +263,9 @@ type ProviderProfile struct {
 	LoadAvgPerCPU float64 // max loadAvg15 per CPU
 	TargetUser    []proto.AccountAddress
 	NodeID        proto.NodeID
-	// Deprecated: GasPrice is now handled by ETH contracts
-	GasPrice uint64
 }
 
 // Account stores account metadata.
-// Note: Token balances are now tracked on-chain via EQLiteRegistry contract.
 type Account struct {
 	Address   proto.AccountAddress
 	Rating    float64

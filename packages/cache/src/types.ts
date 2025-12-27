@@ -1,21 +1,17 @@
 /**
  * @jejunetwork/cache - Type Definitions
  *
- * Decentralized serverless cache with Redis compatibility and IPFS persistence.
- * Uses MPC-based encryption instead of centralized key management.
+ * Decentralized serverless cache with Redis compatibility.
  */
 
-import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
 /**
- * Cache entry wrapper that includes IPFS CID for persistence
+ * Cache entry wrapper
  */
 export interface CacheEntry<T = string> {
   /** The actual data */
   data: T
-  /** IPFS CID where data is backed up ('pending' if backup in progress) */
-  cid: string
   /** Timestamp when entry was created */
   createdAt: number
   /** Timestamp when entry was last accessed */
@@ -25,31 +21,11 @@ export interface CacheEntry<T = string> {
 }
 
 /**
- * Encrypted cache entry for MPC-protected data
- */
-export interface EncryptedCacheEntry {
-  /** Encrypted data (AES-GCM ciphertext) */
-  encryptedData: Hex
-  /** IV for AES-GCM */
-  iv: Hex
-  /** Auth tag for AES-GCM */
-  tag: Hex
-  /** Owner address that can decrypt */
-  ownerAddress: Address
-  /** Optional: Key ID for MPC key derivation */
-  keyId?: string
-  /** Whether MPC threshold signing was used for encryption key */
-  mpc: boolean
-}
-
-/**
- * Response wrapper for cache operations (similar to redis-ipfs RipWrapped)
+ * Response wrapper for cache operations
  */
 export interface CacheResponse<T = string> {
   /** The data value */
   data: T
-  /** IPFS CID for persistent backup */
-  cid: string
   /** Timestamp when set */
   setAtTimestamp: number
   /** Duration of the operation in ms */
@@ -62,16 +38,16 @@ export interface CacheResponse<T = string> {
 export interface CacheClientConfig {
   /** DWS cache server URL */
   serverUrl: string
-  /** Enable MPC-based encryption */
-  enableEncryption?: boolean
-  /** MPC threshold for encryption (default: 2) */
-  mpcThreshold?: number
-  /** Total MPC parties for encryption (default: 3) */
-  mpcTotalParties?: number
+  /** Cache namespace for isolation (default: 'default') */
+  namespace?: string
   /** Default TTL in seconds (default: 3600) */
   defaultTtlSeconds?: number
-  /** Custom IPFS gateway URL for direct retrieval */
-  ipfsGatewayUrl?: string
+  /** Max retries for failed requests (default: 3) */
+  maxRetries?: number
+  /** Base delay in ms for exponential backoff (default: 100) */
+  baseDelayMs?: number
+  /** Max delay in ms for exponential backoff (default: 5000) */
+  maxDelayMs?: number
 }
 
 /**
@@ -84,12 +60,6 @@ export interface CacheServerConfig {
   defaultTtlSeconds?: number
   /** Maximum TTL in seconds (default: 30 days) */
   maxTtlSeconds?: number
-  /** IPFS API URL for backup */
-  ipfsApiUrl?: string
-  /** IPFS gateway URL for retrieval */
-  ipfsGatewayUrl?: string
-  /** Enable MPC key management */
-  enableMpc?: boolean
 }
 
 /**
@@ -102,55 +72,6 @@ export interface CacheSetOptions {
   nx?: boolean
   /** Only set if key exists */
   xx?: boolean
-  /** Encrypt the value using MPC */
-  encrypt?: boolean
-  /** Owner address for encrypted data */
-  ownerAddress?: Address
-}
-
-/**
- * Options for cache get operations
- */
-export interface CacheGetOptions {
-  /** Decrypt the value if encrypted */
-  decrypt?: boolean
-  /** Auth signature for decryption */
-  authSig?: AuthSignature
-}
-
-/**
- * Auth signature for proving identity (replaces Lit Protocol's AuthSig)
- */
-export interface AuthSignature {
-  /** Ethereum address */
-  address: Address
-  /** Signature */
-  sig: Hex
-  /** Signed message */
-  signedMessage: string
-  /** Signature method */
-  derivedVia: 'web3.eth.personal.sign' | 'EIP712' | 'siwe'
-}
-
-/**
- * Access control conditions for encrypted data
- */
-export interface AccessCondition {
-  /** Condition type */
-  type: 'address' | 'balance' | 'contract' | 'timestamp'
-  /** Chain ID */
-  chain?: string
-  /** Contract address (for contract conditions) */
-  contractAddress?: Address
-  /** Method to call (for contract conditions) */
-  method?: string
-  /** Parameters for the method */
-  parameters?: (string | number | boolean)[]
-  /** Return value test */
-  returnValueTest?: {
-    comparator: '=' | '!=' | '>' | '<' | '>=' | '<='
-    value: string | number
-  }
 }
 
 /**
@@ -173,71 +94,24 @@ export interface CacheStats {
   evictions: number
   /** Expired keys cleaned up */
   expiredKeys: number
-  /** Keys backed up to IPFS */
-  ipfsBackedKeys: number
+  /** Average key size in bytes */
+  avgKeySize: number
+  /** Average value size in bytes */
+  avgValueSize: number
+  /** Age of oldest key in ms */
+  oldestKeyAge: number
+  /** Number of namespaces */
+  namespaces: number
   /** Uptime in ms */
   uptime: number
 }
 
-/**
- * Node info for distributed cache network
- */
-export interface CacheNodeInfo {
-  /** Node ID */
-  nodeId: string
-  /** Node address */
-  address: Address
-  /** Endpoint URL */
-  endpoint: string
-  /** Geographic region */
-  region: string
-  /** Maximum memory in MB */
-  maxMemoryMb: number
-  /** Used memory in MB */
-  usedMemoryMb: number
-  /** Node status */
-  status: 'online' | 'offline' | 'draining'
-  /** Last heartbeat timestamp */
-  lastHeartbeat: number
-  /** MPC party index (if participating in MPC) */
-  mpcPartyIndex?: number
-}
-
 // Zod schemas for validation
-
-export const AuthSignatureSchema = z.object({
-  address: z.string().startsWith('0x') as z.ZodType<Address>,
-  sig: z.string().startsWith('0x') as z.ZodType<Hex>,
-  signedMessage: z.string(),
-  derivedVia: z.enum(['web3.eth.personal.sign', 'EIP712', 'siwe']),
-})
 
 export const CacheSetOptionsSchema = z.object({
   ttl: z.number().optional(),
   nx: z.boolean().optional(),
   xx: z.boolean().optional(),
-  encrypt: z.boolean().optional(),
-  ownerAddress: z
-    .string()
-    .startsWith('0x')
-    .optional() as z.ZodOptional<z.ZodType<Address>>,
-})
-
-export const CacheResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
-  z.object({
-    data: dataSchema,
-    cid: z.string(),
-    setAtTimestamp: z.number(),
-    duration: z.number().optional(),
-  })
-
-export const EncryptedCacheEntrySchema = z.object({
-  encryptedData: z.string().startsWith('0x') as z.ZodType<Hex>,
-  iv: z.string().startsWith('0x') as z.ZodType<Hex>,
-  tag: z.string().startsWith('0x') as z.ZodType<Hex>,
-  ownerAddress: z.string().startsWith('0x') as z.ZodType<Address>,
-  keyId: z.string().optional(),
-  mpc: z.boolean(),
 })
 
 export const CacheStatsSchema = z.object({
@@ -249,7 +123,10 @@ export const CacheStatsSchema = z.object({
   hitRate: z.number(),
   evictions: z.number(),
   expiredKeys: z.number(),
-  ipfsBackedKeys: z.number(),
+  avgKeySize: z.number(),
+  avgValueSize: z.number(),
+  oldestKeyAge: z.number(),
+  namespaces: z.number(),
   uptime: z.number(),
 })
 
@@ -258,15 +135,11 @@ export const CacheStatsSchema = z.object({
  */
 export const CacheErrorCode = {
   KEY_NOT_FOUND: 'KEY_NOT_FOUND',
-  ENCRYPTION_FAILED: 'ENCRYPTION_FAILED',
-  DECRYPTION_FAILED: 'DECRYPTION_FAILED',
   UNAUTHORIZED: 'UNAUTHORIZED',
-  IPFS_BACKUP_FAILED: 'IPFS_BACKUP_FAILED',
-  IPFS_RETRIEVAL_FAILED: 'IPFS_RETRIEVAL_FAILED',
-  MPC_ERROR: 'MPC_ERROR',
   QUOTA_EXCEEDED: 'QUOTA_EXCEEDED',
   INVALID_TTL: 'INVALID_TTL',
   SERVER_ERROR: 'SERVER_ERROR',
+  RATE_LIMITED: 'RATE_LIMITED',
 } as const
 
 export type CacheErrorCode = (typeof CacheErrorCode)[keyof typeof CacheErrorCode]
@@ -284,4 +157,3 @@ export class CacheError extends Error {
     this.name = 'CacheError'
   }
 }
-

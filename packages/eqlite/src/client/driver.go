@@ -34,10 +34,6 @@ const (
 	DBScheme = "eqlite"
 	// DBSchemeAlias defines the alias dsn scheme.
 	DBSchemeAlias = "eqlite"
-	// DefaultGasPrice defines the default gas price for new created database.
-	DefaultGasPrice = 1
-	// DefaultAdvancePayment defines the default advance payment for new created database.
-	DefaultAdvancePayment = 20000000
 )
 
 var (
@@ -85,8 +81,9 @@ func (d *eqliteDriver) Open(dsn string) (conn driver.Conn, err error) {
 }
 
 // ResourceMeta defines new database resources requirement descriptions.
+// ResourceMeta describes database resource requirements.
+// Note: Payments and staking are now handled by the EQLiteRegistry smart contract.
 type ResourceMeta struct {
-	// copied fields from types.ResourceMeta
 	TargetMiners           []proto.AccountAddress `json:"target-miners,omitempty"`        // designated miners
 	Node                   uint16                 `json:"node,omitempty"`                 // reserved node count
 	Space                  uint64                 `json:"space,omitempty"`                // reserved storage space in bytes
@@ -96,9 +93,6 @@ type ResourceMeta struct {
 	UseEventualConsistency bool                   `json:"eventual-consistency,omitempty"` // use eventual consistency replication if enabled
 	ConsistencyLevel       float64                `json:"consistency-level,omitempty"`    // customized strong consistency level
 	IsolationLevel         int                    `json:"isolation-level,omitempty"`      // customized isolation level
-
-	GasPrice       uint64 `json:"gas-price"`       // customized gas price
-	AdvancePayment uint64 `json:"advance-payment"` // customized advance payment
 }
 
 func defaultInit() (err error) {
@@ -174,13 +168,6 @@ func Create(meta ResourceMeta) (txHash hash.Hash, dsn string, err error) {
 		return
 	}
 
-	if meta.GasPrice == 0 {
-		meta.GasPrice = DefaultGasPrice
-	}
-	if meta.AdvancePayment == 0 {
-		meta.AdvancePayment = DefaultAdvancePayment
-	}
-
 	req.TTL = 1
 	req.Tx = types.NewCreateDatabase(&types.CreateDatabaseHeader{
 		Owner: clientAddr,
@@ -195,10 +182,7 @@ func Create(meta ResourceMeta) (txHash hash.Hash, dsn string, err error) {
 			ConsistencyLevel:       meta.ConsistencyLevel,
 			IsolationLevel:         meta.IsolationLevel,
 		},
-		GasPrice:       meta.GasPrice,
-		AdvancePayment: meta.AdvancePayment,
-		TokenType:      types.Particle,
-		Nonce:          nonceResp.Nonce,
+		Nonce: nonceResp.Nonce,
 	})
 
 	if err = req.Tx.Sign(privateKey); err != nil {
@@ -305,14 +289,6 @@ func Drop(dsn string) (txHash hash.Hash, err error) {
 	return
 }
 
-// GetTokenBalance is deprecated.
-// Token balances are now managed by the EQLiteRegistry smart contract on Ethereum.
-// This function always returns an error directing users to check on-chain.
-func GetTokenBalance(tt types.TokenType) (balance uint64, err error) {
-	err = errors.New("token balances are now managed by the EQLiteRegistry smart contract - check on-chain via Jeju Network explorer")
-	return
-}
-
 // UpdatePermission sends UpdatePermission transaction to chain.
 func UpdatePermission(targetUser proto.AccountAddress,
 	targetChain proto.AccountAddress, perm *types.UserPermission) (txHash hash.Hash, err error) {
@@ -363,61 +339,6 @@ func UpdatePermission(targetUser proto.AccountAddress,
 	}
 
 	txHash = up.Hash()
-	return
-}
-
-// TransferToken send Transfer transaction to chain.
-func TransferToken(targetUser proto.AccountAddress, amount uint64, tokenType types.TokenType) (
-	txHash hash.Hash, err error,
-) {
-	if atomic.LoadUint32(&driverInitialized) == 0 {
-		err = ErrNotInitialized
-		return
-	}
-
-	var (
-		pubKey  *asymmetric.PublicKey
-		privKey *asymmetric.PrivateKey
-		addr    proto.AccountAddress
-		nonce   interfaces.AccountNonce
-	)
-	if pubKey, err = kms.GetLocalPublicKey(); err != nil {
-		return
-	}
-	if privKey, err = kms.GetLocalPrivateKey(); err != nil {
-		return
-	}
-	if addr, err = crypto.PubKeyHash(pubKey); err != nil {
-		return
-	}
-
-	nonce, err = getNonce(addr)
-	if err != nil {
-		return
-	}
-
-	tran := types.NewTransfer(&types.TransferHeader{
-		Sender:    addr,
-		Receiver:  targetUser,
-		Amount:    amount,
-		TokenType: tokenType,
-		Nonce:     nonce,
-	})
-	err = tran.Sign(privKey)
-	if err != nil {
-		log.WithError(err).Warning("sign failed")
-		return
-	}
-	addTxReq := new(types.AddTxReq)
-	addTxResp := new(types.AddTxResp)
-	addTxReq.Tx = tran
-	err = requestBP(route.MCCAddTx, addTxReq, addTxResp)
-	if err != nil {
-		log.WithError(err).Warning("send tx failed")
-		return
-	}
-
-	txHash = tran.Hash()
 	return
 }
 

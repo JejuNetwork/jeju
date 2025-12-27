@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/cache",
   "version": "0.1.0",
-  "description": "Decentralized serverless cache with Redis compatibility and IPFS persistence",
+  "description": "Production-ready decentralized cache client with Redis compatibility",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -21,18 +21,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@jejunetwork/kms": "workspace:*",
-    "@jejunetwork/shared": "workspace:*",
-    "@jejunetwork/types": "workspace:*",
-    "viem": "2.43.3",
     "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "5.9.3"
-  },
-  "peerDependencies": {
-    "viem": ">=2.0.0"
   },
   "repository": {
     "type": "git",
@@ -43,4 +36,3 @@
     "access": "public"
   }
 }
-

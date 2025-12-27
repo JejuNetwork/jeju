@@ -14,7 +14,9 @@ import (
 )
 
 var (
-	perm string
+	toUser string
+	toDSN  string
+	perm   string
 )
 
 // CmdGrant is eqlite grant command entity.

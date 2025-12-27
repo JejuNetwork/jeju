@@ -1,14 +1,11 @@
-
 package dpos
 
 import (
-	"bytes"
 	"database/sql"
-	"fmt"
 	"strings"
 
-	"github.com/xwb1989/sqlparser"
 	"github.com/pkg/errors"
+	"github.com/xwb1989/sqlparser"
 
 	"eqlite/src/types"
 	"eqlite/src/utils/log"
@@ -45,17 +42,6 @@ var (
 			"now":       true,
 			"localtime": true,
 		},
-
-		// all sqlite functions is already ignored, including
-		//"sqlite_offset":             nil,
-		//"sqlite_version":            nil,
-		//"sqlite_source_id":          nil,
-		//"sqlite_log":                nil,
-		//"sqlite_compileoption_used": nil,
-		//"sqlite_rename_table":       nil,
-		//"sqlite_rename_trigger":     nil,
-		//"sqlite_rename_parent":      nil,
-		//"sqlite_record":             nil,
 	}
 )
 
@@ -64,137 +50,61 @@ func convertQueryAndBuildArgs(pattern string, args []types.NamedArg) (containsDD
 		strings.Contains(lower, "rollback") || strings.Contains(lower, "commit") {
 		return false, pattern, nil, nil
 	}
-	var (
-		tokenizer  = sqlparser.NewStringTokenizer(pattern)
-		queryParts []string
-		statements []sqlparser.Statement
-		i          int
-		origQuery  string
-		query      string
-	)
 
-	if queryParts, statements, err = sqlparser.ParseMultiple(tokenizer); err != nil {
-		err = errors.Wrap(err, "parse sql failed")
-		return
-	}
+	// Split by semicolon for multiple statements
+	queries := strings.Split(pattern, ";")
+	var resultQueries []string
 
-	for i = range queryParts {
-		walkNodes := []sqlparser.SQLNode{statements[i]}
+	for _, query := range queries {
+		query = strings.TrimSpace(query)
+		if query == "" {
+			continue
+		}
 
-		switch stmt := statements[i].(type) {
+		// Try to parse the statement
+		stmt, parseErr := sqlparser.Parse(query)
+		if parseErr != nil {
+			// If parsing fails, just pass through the query
+			log.WithError(parseErr).WithField("query", query).Debug("failed to parse query, passing through")
+			resultQueries = append(resultQueries, query)
+			continue
+		}
+
+		switch s := stmt.(type) {
 		case *sqlparser.Show:
-			origQuery = queryParts[i]
-
-			switch stmt.Type {
-			case "table":
-				if stmt.ShowCreate {
-					query = fmt.Sprintf(`SELECT sql
-FROM sqlite_master
-WHERE type = "table" AND tbl_name = "%s"
-	AND tbl_name NOT LIKE "sqlite%%"`,
-						stmt.OnTable.Name.String())
-				} else {
-					query = fmt.Sprintf(`PRAGMA table_info(%s)`, stmt.OnTable.Name.String())
-				}
-			case "index":
-				query = fmt.Sprintf(`SELECT name
-FROM sqlite_master
-WHERE type = "index" AND tbl_name = "%s"
-	AND name NOT LIKE "sqlite%%"`, stmt.OnTable.Name.String())
-			case "tables":
-				query = `SELECT name FROM sqlite_master WHERE type = "table" AND name NOT LIKE "sqlite%"`
+			// Handle SHOW statements - convert to SQLite equivalents
+			translated := translateShowStatement(s)
+			if translated != "" {
+				log.WithFields(log.Fields{
+					"from": query,
+					"to":   translated,
+				}).Debug("query translated")
+				resultQueries = append(resultQueries, translated)
+			} else {
+				resultQueries = append(resultQueries, query)
 			}
-
-			log.WithFields(log.Fields{
-				"from": origQuery,
-				"to":   query,
-			}).Debug("query translated")
-
-			queryParts[i] = query
 		case *sqlparser.DDL:
 			containsDDL = true
-			if stmt.TableSpec != nil {
-				// walk table default values for invalid stateful expressions
-				for _, c := range stmt.TableSpec.Columns {
-					if c == nil || c.Type.Default == nil {
-						continue
-					}
-
-					walkNodes = append(walkNodes, c.Type.Default)
-				}
-			}
-			// for new table
-			if strings.HasPrefix(strings.ToLower(stmt.NewName.Name.String()), "sqlite") {
-				// invalid table name
-				err = errors.Wrapf(ErrInvalidTableName, "%s", stmt.NewName.Name.String())
+			// Check for invalid table names
+			if s.NewName.Name.String() != "" && strings.HasPrefix(strings.ToLower(s.NewName.Name.String()), "sqlite") {
+				err = errors.Wrapf(ErrInvalidTableName, "%s", s.NewName.Name.String())
 				return
 			}
-			// for alter table/alter index
-			if strings.HasPrefix(strings.ToLower(stmt.Table.Name.String()), "sqlite") {
-				// invalid table name
-				err = errors.Wrapf(ErrInvalidTableName, "%s", stmt.NewName.Name.String())
+			if s.Table.Name.String() != "" && strings.HasPrefix(strings.ToLower(s.Table.Name.String()), "sqlite") {
+				err = errors.Wrapf(ErrInvalidTableName, "%s", s.Table.Name.String())
 				return
 			}
-		}
-
-		// scan query and test if there is any stateful query logic like time expression or random function
-		err = sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, err error) {
-			switch n := node.(type) {
-			case *sqlparser.SQLVal:
-				if n.Type == sqlparser.ValArg && bytes.EqualFold([]byte("CURRENT_TIMESTAMP"), n.Val) {
-					// current_timestamp literal in default expression
-					err = errors.Wrap(ErrStatefulQueryParts, "DEFAULT CURRENT_TIMESTAMP not supported")
-					return
-				}
-			case *sqlparser.TimeExpr:
-				tb := sqlparser.NewTrackedBuffer(nil)
-				err = errors.Wrapf(ErrStatefulQueryParts, "time expression %s not supported",
-					tb.WriteNode(n).String())
+			resultQueries = append(resultQueries, query)
+		default:
+			// Check for stateful functions
+			if err = checkStatefulFunctions(query); err != nil {
 				return
-			case *sqlparser.FuncExpr:
-				if strings.HasPrefix(n.Name.Lowered(), "sqlite") {
-					tb := sqlparser.NewTrackedBuffer(nil)
-					err = errors.Wrapf(ErrStatefulQueryParts, "function call %s not supported",
-						tb.WriteNode(n).String())
-					return
-				}
-				if sanitizeArgs, ok := sanitizeFunctionMap[n.Name.Lowered()]; ok {
-					// need to sanitize this function
-					tb := sqlparser.NewTrackedBuffer(nil)
-					sanitizeErr := errors.Wrapf(ErrStatefulQueryParts, "stateful function call %s not supported",
-						tb.WriteNode(n).String())
-
-					if sanitizeArgs == nil {
-						err = sanitizeErr
-						return
-					}
-
-					err = sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, walkErr error) {
-						if v, ok := node.(*sqlparser.SQLVal); ok {
-							if v.Type == sqlparser.StrVal {
-								argStr := strings.ToLower(string(v.Val))
-
-								if sanitizeArgs[argStr] {
-									walkErr = sanitizeErr
-								}
-								return
-							}
-						}
-						return true, nil
-					})
-
-					return
-				}
 			}
-			return true, nil
-		}, walkNodes...)
-		if err != nil {
-			err = errors.Wrap(err, "parse sql failed")
-			return
+			resultQueries = append(resultQueries, query)
 		}
 	}
 
-	p = strings.Join(queryParts, "; ")
+	p = strings.Join(resultQueries, "; ")
 
 	ifs = make([]interface{}, len(args))
 	for i, v := range args {
@@ -204,4 +114,54 @@ WHERE type = "index" AND tbl_name = "%s"
 		}
 	}
 	return
+}
+
+// translateShowStatement translates MySQL-style SHOW statements to SQLite equivalents
+func translateShowStatement(stmt *sqlparser.Show) string {
+	switch strings.ToLower(stmt.Type) {
+	case "tables":
+		return `SELECT name FROM sqlite_master WHERE type = "table" AND name NOT LIKE "sqlite%"`
+	case "table":
+		if stmt.OnTable.Name.String() != "" {
+			return "PRAGMA table_info(" + stmt.OnTable.Name.String() + ")"
+		}
+	case "index":
+		if stmt.OnTable.Name.String() != "" {
+			return `SELECT name FROM sqlite_master WHERE type = "index" AND tbl_name = "` + stmt.OnTable.Name.String() + `" AND name NOT LIKE "sqlite%"`
+		}
+	}
+	return ""
+}
+
+// checkStatefulFunctions checks for disallowed stateful functions in a query
+func checkStatefulFunctions(query string) error {
+	lower := strings.ToLower(query)
+
+	// Check for random functions
+	if strings.Contains(lower, "random(") || strings.Contains(lower, "randomblob(") {
+		return errors.Wrap(ErrStatefulQueryParts, "random function not supported")
+	}
+
+	// Check for current_timestamp
+	if strings.Contains(lower, "current_timestamp") {
+		return errors.Wrap(ErrStatefulQueryParts, "CURRENT_TIMESTAMP not supported")
+	}
+
+	// Check for sqlite functions
+	if strings.Contains(lower, "sqlite_") {
+		return errors.Wrap(ErrStatefulQueryParts, "sqlite internal functions not supported")
+	}
+
+	// Check for date/time functions with 'now'
+	for funcName, args := range sanitizeFunctionMap {
+		if args != nil && strings.Contains(lower, funcName+"(") {
+			for arg := range args {
+				if strings.Contains(lower, "'"+arg+"'") {
+					return errors.Wrapf(ErrStatefulQueryParts, "stateful function %s with %s not supported", funcName, arg)
+				}
+			}
+		}
+	}
+
+	return nil
 }

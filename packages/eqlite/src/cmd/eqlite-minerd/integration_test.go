@@ -396,8 +396,6 @@ func TestFullProcess(t *testing.T) {
 			TargetMiners:   minersAddrs,
 			Node:           uint16(len(minersAddrs)),
 			IsolationLevel: int(sql.LevelReadUncommitted),
-			GasPrice:       testGasPrice,
-			AdvancePayment: testAdvancePayment,
 		}
 		// wait for chain service
 		var ctx1, cancel1 = context.WithTimeout(context.Background(), 1*time.Minute)
@@ -435,7 +433,6 @@ func TestFullProcess(t *testing.T) {
 		profile := profileResp.Profile
 		So(profile.Address.DatabaseID(), ShouldEqual, dbID)
 		So(profile.Owner.String(), ShouldEqual, clientAddr.String())
-		So(profile.TokenType, ShouldEqual, types.Particle)
 		minersMap := make(map[proto.AccountAddress]bool)
 		for _, miner := range profile.Miners {
 			minersMap[miner.Address] = true
@@ -563,28 +560,7 @@ func TestFullProcess(t *testing.T) {
 			c.So(result, ShouldEqual, 10000000000)
 		})
 
-		ctx2, ccl2 := context.WithTimeout(context.Background(), 3*time.Minute)
-		defer ccl2()
-		err = waitProfileChecking(ctx2, 3*time.Second, dbID, func(profile *types.SQLChainProfile) bool {
-			for _, user := range profile.Users {
-				if user.AdvancePayment != testAdvancePayment {
-					return true
-				}
-			}
-			return false
-		})
-		So(err, ShouldBeNil)
-
-		ctx3, ccl3 := context.WithTimeout(context.Background(), 1*time.Minute)
-		defer ccl3()
-		err = waitProfileChecking(ctx3, 3*time.Second, dbID, func(profile *types.SQLChainProfile) bool {
-			getIncome := false
-			for _, miner := range profile.Miners {
-				getIncome = getIncome || (miner.PendingIncome != 0 || miner.ReceivedIncome != 0)
-			}
-			return getIncome
-		})
-		So(err, ShouldBeNil)
+		// Billing-related checks removed - now handled by EQLiteRegistry smart contract
 
 		err = db.Close()
 		So(err, ShouldBeNil)
@@ -937,7 +913,6 @@ func benchOutsideMinerWithTargetMinerList(
 			Node:                   minerCount,
 			UseEventualConsistency: benchEventualConsistency,
 			IsolationLevel:         int(sql.LevelReadUncommitted),
-			AdvancePayment:         testAdvancePayment,
 		}
 		// wait for chain service
 		var ctx1, cancel1 = context.WithTimeout(context.Background(), 1*time.Minute)

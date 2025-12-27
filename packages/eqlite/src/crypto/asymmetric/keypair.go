@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	hsp "github.com/EQLite/HashStablePack/marshalhash"
+	hsp "eqlite/src/marshalhash"
 	ec "github.com/btcsuite/btcd/btcec"
 
 	mine "eqlite/src/pow/cpuminer"

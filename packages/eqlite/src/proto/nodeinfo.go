@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	hsp "github.com/EQLite/HashStablePack/marshalhash"
+	hsp "eqlite/src/marshalhash"
 
 	"eqlite/src/crypto/asymmetric"
 	"eqlite/src/crypto/hash"

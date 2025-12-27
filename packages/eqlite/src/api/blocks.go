@@ -7,6 +7,7 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 
 	"eqlite/src/api/models"
+	"eqlite/src/rpc/jsonrpc"
 )
 
 func init() {
@@ -37,7 +38,7 @@ type BPGetBlockListResponse struct {
 func bpGetBlockList(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (
 	result interface{}, err error,
 ) {
-	params := ctx.Value("_params").(*bpGetBlockListParams)
+	params := jsonrpc.GetParams(ctx).(*bpGetBlockListParams)
 	model := models.BlocksModel{}
 	blocks, pagination, err := model.GetBlockList(params.Since, params.Page, params.Size)
 	if err != nil {
@@ -57,7 +58,7 @@ type bpGetBlockByHeightParams struct {
 func bpGetBlockByHeight(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (
 	result interface{}, err error,
 ) {
-	params := ctx.Value("_params").(*bpGetBlockByHeightParams)
+	params := jsonrpc.GetParams(ctx).(*bpGetBlockByHeightParams)
 	model := models.BlocksModel{}
 	return model.GetBlockByHeight(params.Height)
 }
@@ -69,7 +70,7 @@ type bpGetBlockByHashParams struct {
 func bpGetBlockByHash(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (
 	result interface{}, err error,
 ) {
-	params := ctx.Value("_params").(*bpGetBlockByHashParams)
+	params := jsonrpc.GetParams(ctx).(*bpGetBlockByHashParams)
 	model := models.BlocksModel{}
 	return model.GetBlockByHash(params.Hash)
 }

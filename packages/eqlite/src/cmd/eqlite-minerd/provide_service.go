@@ -132,8 +132,6 @@ func sendProvideService(reg *prometheus.Registry) {
 			Space:         keySpace,
 			Memory:        memoryBytes,
 			LoadAvgPerCPU: loadAvg,
-			GasPrice:      defaultGasPrice,
-			TokenType:     types.Particle,
 			NodeID:        nodeID,
 		},
 	)

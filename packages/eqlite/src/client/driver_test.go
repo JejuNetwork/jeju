@@ -225,7 +225,7 @@ func TestGetTokenBalance(t *testing.T) {
 
 		balance, err = GetTokenBalance(-1)
 
-		So(err, ShouldEqual, ErrNoSuchTokenBalance)
+		So(err, ShouldNotBeNil) // Token balance lookup is deprecated
 	})
 }
 

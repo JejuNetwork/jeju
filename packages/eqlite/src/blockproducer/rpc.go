@@ -80,11 +80,13 @@ func (s *ChainRPCService) AddTx(req *types.AddTxReq, _ *types.AddTxResp) (err er
 }
 
 // QueryAccountTokenBalance is the RPC method to query account token balance.
+// Note: Returns error - token balances are now managed by EQLiteRegistry smart contract.
 func (s *ChainRPCService) QueryAccountTokenBalance(
 	req *types.QueryAccountTokenBalanceReq, resp *types.QueryAccountTokenBalanceResp) (err error,
 ) {
 	resp.Addr = req.Addr
-	resp.Balance, resp.OK = s.chain.loadAccountTokenBalance(req.Addr, req.TokenType)
+	resp.Balance = 0
+	resp.OK = false
 	return
 }
 

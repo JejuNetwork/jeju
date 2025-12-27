@@ -88,7 +88,7 @@ func showDatabaseInfo(dsn string) {
 			fmt.Printf("Database ID: %s\n", req.DBID)
 			fmt.Printf("Owner: %s\n", resp.Profile.Owner)
 			fmt.Printf("Your permission: %s\n", user.Permission.Role.String())
-			fmt.Printf("Status: %s\n", user.Status)
+			fmt.Printf("Status: %v\n", user.Status)
 			fmt.Println("\nNote: Token balances and staking are managed by the EQLiteRegistry smart contract.")
 			return
 		}
@@ -156,7 +156,7 @@ func runWallet(cmd *Command, args []string) {
 
 	fmt.Printf("\n\nWallet address: %s\n", conf.GConf.WalletAddress)
 	fmt.Println("\nNote: Token balances are managed by the EQLiteRegistry smart contract on Ethereum.")
-	fmt.Println("Use the Jeju Network explorer or contract interface to check your token balance.\n")
+	fmt.Println("Use the Jeju Network explorer or contract interface to check your token balance.")
 
 	if databaseID != "" {
 		showDatabaseInfo(databaseID)

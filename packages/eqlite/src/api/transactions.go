@@ -8,6 +8,7 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 
 	"eqlite/src/api/models"
+	"eqlite/src/rpc/jsonrpc"
 )
 
 func init() {
@@ -38,7 +39,7 @@ type BPGetTransactionListResponse struct {
 func bpGetTransactionList(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (
 	result interface{}, err error,
 ) {
-	params := ctx.Value("_params").(*bpGetTransactionListParams)
+	params := jsonrpc.GetParams(ctx).(*bpGetTransactionListParams)
 	model := models.TransactionsModel{}
 	transactions, pagination, err := model.GetTransactionList(params.Since, params.Page, params.Size)
 	if err != nil {
@@ -70,7 +71,7 @@ func (params *bpGetTransactionListOfBlockParams) Validate() error {
 func bpGetTransactionListOfBlock(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (
 	result interface{}, err error,
 ) {
-	params := ctx.Value("_params").(*bpGetTransactionListOfBlockParams)
+	params := jsonrpc.GetParams(ctx).(*bpGetTransactionListOfBlockParams)
 	model := models.TransactionsModel{}
 	transactions, pagination, err := model.GetTransactionListOfBlock(params.BlockHeight, params.Page, params.Size)
 	if err != nil {
@@ -90,7 +91,7 @@ type bpGetTransactionByHashParams struct {
 func bpGetTransactionByHash(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (
 	result interface{}, err error,
 ) {
-	params := ctx.Value("_params").(*bpGetTransactionByHashParams)
+	params := jsonrpc.GetParams(ctx).(*bpGetTransactionByHashParams)
 	model := models.TransactionsModel{}
 	return model.GetTransactionByHash(params.Hash)
 }

@@ -106,9 +106,6 @@ func TestChain(t *testing.T) {
 			Transactions: []pi.Transaction{
 				types.NewBaseAccount(&types.Account{
 					Address: addr1,
-					TokenBalance: [5]uint64{
-						1000000, 1000000, 1000000, 1000000, 1000000,
-					},
 				}),
 			},
 		}
@@ -189,13 +186,13 @@ func TestChain(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(fetchBlockResp.SQLChains, ShouldBeEmpty)
 
+			// Note: Token balance queries are deprecated
 			var (
 				queryBalanceReq  = &types.QueryAccountTokenBalanceReq{Addr: addr2, TokenType: 0}
 				queryBalanceResp = &types.QueryAccountTokenBalanceResp{}
 			)
 			err = rpcService.QueryAccountTokenBalance(queryBalanceReq, queryBalanceResp)
-			So(err, ShouldBeNil)
-			So(queryBalanceResp.OK, ShouldBeFalse)
+			So(err, ShouldNotBeNil) // Now returns error since token balances are deprecated
 
 			Convey("Chain APIs should return correct result of state objects", func() {
 				var loaded bool
@@ -208,8 +205,7 @@ func TestChain(t *testing.T) {
 				})
 				So(loaded, ShouldBeFalse)
 				_, loaded = chain.immutable.loadOrStoreAccountObject(addr2, &types.Account{
-					Address:      addr2,
-					TokenBalance: [types.SupportTokenNumber]uint64{100, 100, 100, 100, 100},
+					Address: addr2,
 				})
 				So(loaded, ShouldBeFalse)
 
@@ -225,11 +221,6 @@ func TestChain(t *testing.T) {
 					&types.FetchLastIrreversibleBlockReq{Address: addr2}, fetchBlockResp)
 				So(err, ShouldBeNil)
 				So(fetchBlockResp.SQLChains, ShouldNotBeEmpty)
-
-				err = rpcService.QueryAccountTokenBalance(queryBalanceReq, queryBalanceResp)
-				So(err, ShouldBeNil)
-				So(queryBalanceResp.OK, ShouldBeTrue)
-				So(queryBalanceResp.Balance, ShouldEqual, 100)
 
 				// query for account sqlchain profiles
 				var profilesResp = new(types.QueryAccountSQLChainProfilesResp)
@@ -292,16 +283,13 @@ func TestChain(t *testing.T) {
 
 		Convey("Multiple provide service", func() {
 			var (
-				nonce            pi.AccountNonce
-				t1, t2           pi.Transaction
-				loaded           bool
-				po1, po2         *types.ProviderProfile
-				bal1, bal2, bal3 uint64
+				nonce    pi.AccountNonce
+				t1, t2   pi.Transaction
+				loaded   bool
+				po1, po2 *types.ProviderProfile
 			)
 
 			// Create transaction for testing
-			bal1, loaded = chain.headBranch.preview.loadAccountTokenBalance(addr1, types.Particle)
-			So(loaded, ShouldBeTrue)
 			nonce, err = chain.nextNonce(addr1)
 			So(err, ShouldBeNil)
 			So(nonce, ShouldEqual, 1)
@@ -313,17 +301,12 @@ func TestChain(t *testing.T) {
 			So(err, ShouldBeNil)
 			err = chain.produceBlock(begin.Add(chain.period * conf.BPHeightCIPFixProvideService).UTC())
 			So(err, ShouldBeNil)
-			bal2, loaded = chain.headBranch.preview.loadAccountTokenBalance(addr1, types.Particle)
-			So(loaded, ShouldBeTrue)
 			po1, loaded = chain.headBranch.preview.loadProviderObject(addr1)
 			So(loaded, ShouldBeTrue)
-			So(bal1-bal2, ShouldEqual, po1.Deposit)
 			err = chain.storeTx(t2)
 			So(err, ShouldBeNil)
 			err = chain.produceBlock(begin.Add(chain.period * (conf.BPHeightCIPFixProvideService + 1)).UTC())
 			So(err, ShouldBeNil)
-			bal3, loaded = chain.headBranch.preview.loadAccountTokenBalance(addr1, types.Particle)
-			So(bal3, ShouldEqual, bal2)
 			po2, loaded = chain.headBranch.preview.loadProviderObject(addr1)
 			So(po2, ShouldResemble, po1)
 			So(po2 == po1, ShouldBeFalse)
@@ -471,8 +454,7 @@ func TestChain(t *testing.T) {
 					config.Genesis.Transactions = append(
 						config.Genesis.Transactions,
 						types.NewBaseAccount(&types.Account{
-							Address:      addr2,
-							TokenBalance: [5]uint64{1000, 1000, 1000, 1000, 1000},
+							Address: addr2,
 						}),
 					)
 					chain, err = NewChain(config)
@@ -486,8 +468,7 @@ func TestChain(t *testing.T) {
 					config.Genesis.Transactions = append(
 						config.Genesis.Transactions,
 						types.NewBaseAccount(&types.Account{
-							Address:      addr2,
-							TokenBalance: [5]uint64{1000, 1000, 1000, 1000, 1000},
+							Address: addr2,
 						}),
 					)
 					err = config.Genesis.SetHash()

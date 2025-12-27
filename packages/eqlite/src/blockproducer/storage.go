@@ -274,9 +274,8 @@ func updateAccount(account *types.Account) storageProcedure {
 	}
 	return func(tx *sql.Tx) (err error) {
 		log.WithFields(log.Fields{
-			"account_address":  account.Address.String(),
-			"account_nonce":    account.NextNonce,
-			"account_balances": account.TokenBalance,
+			"account_address": account.Address.String(),
+			"account_nonce":   account.NextNonce,
 		}).Debug("updating account")
 		_, err = tx.Exec(`INSERT OR REPLACE INTO "accounts" ("address", "encoded")
 	VALUES (?, ?)`,
@@ -309,7 +308,6 @@ func updateShardChain(profile *types.SQLChainProfile) storageProcedure {
 			"profile_owner":         profile.Owner.String(),
 			"profile_address":       profile.Address.String(),
 			"profile_database_id":   profile.ID,
-			"profile_token_type":    profile.TokenType,
 			"profile_miners_number": len(profile.Miners),
 		}).Debug("updating profile")
 		_, err = tx.Exec(`INSERT OR REPLACE INTO "shardChain" ("address", "id", "encoded")
@@ -368,9 +366,8 @@ func updateProvider(profile *types.ProviderProfile) storageProcedure {
 	}
 	return func(tx *sql.Tx) (err error) {
 		log.WithFields(log.Fields{
-			"provider_address":    profile.Provider.String(),
-			"provider_token_type": profile.TokenType,
-			"provider_node_id":    profile.NodeID,
+			"provider_address": profile.Provider.String(),
+			"provider_node_id": profile.NodeID,
 		}).Debug("updating provider")
 		_, err = tx.Exec(`INSERT OR REPLACE INTO "provider" ("address", "encoded") VALUES (?, ?)`,
 			profile.Provider.String(),

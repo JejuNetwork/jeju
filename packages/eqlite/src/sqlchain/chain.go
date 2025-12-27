@@ -1135,7 +1135,7 @@ func (c *Chain) billing(h int32, node *blockNode) (ub *types.UpdateBilling, err 
 	ub = types.NewUpdateBilling(&types.UpdateBillingHeader{
 		Users: make([]*types.UserCost, len(usersMap)),
 	})
-	ub.Version = int32(ub.HSPDefaultVersion())
+	ub.Version = 1 // Default version
 
 	i = 0
 	j = 0

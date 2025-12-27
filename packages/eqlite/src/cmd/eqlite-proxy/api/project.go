@@ -82,9 +82,9 @@ func getProjects(c *gin.Context) {
 		for _, user := range profile.Users {
 			if user.Address == accountAddr {
 				balance = gin.H{
-					"deposit":         user.Deposit,
-					"arrears":         user.Arrears,
-					"advance_payment": user.AdvancePayment,
+					"deposit":         uint64(0), // Billing fields deprecated
+					"arrears":         uint64(0), // Billing fields deprecated
+					"advance_payment": uint64(0), // Billing fields deprecated
 				}
 				break
 			}

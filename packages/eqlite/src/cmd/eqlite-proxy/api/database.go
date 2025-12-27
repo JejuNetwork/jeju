@@ -134,9 +134,9 @@ func databaseBalance(c *gin.Context) {
 	for _, user := range profile.Users {
 		if user.Address == accountAddr {
 			responseWithData(c, http.StatusOK, gin.H{
-				"deposit":         user.Deposit,
-				"arrears":         user.Arrears,
-				"advance_payment": user.AdvancePayment,
+				"deposit":         uint64(0), // Billing fields deprecated
+				"arrears":         uint64(0), // Billing fields deprecated
+				"advance_payment": uint64(0), // Billing fields deprecated
 			})
 			return
 		}
@@ -218,9 +218,9 @@ func databaseList(c *gin.Context) {
 		for _, user := range p.Users {
 			if user.Address == accountAddr && user.Permission.HasSuperPermission() {
 				profile["id"] = p.ID
-				profile["deposit"] = user.Deposit
-				profile["arrears"] = user.Arrears
-				profile["advance_payment"] = user.AdvancePayment
+				profile["deposit"] = uint64(0)         // Billing fields deprecated
+				profile["arrears"] = uint64(0)         // Billing fields deprecated
+				profile["advance_payment"] = uint64(0) // Billing fields deprecated
 
 				profiles = append(profiles, profile)
 			}
@@ -264,8 +264,6 @@ func createDatabase(db *gorp.DbMap, developer int64, account int64, nodeCount ui
 
 	meta := client.ResourceMeta{}
 	meta.Node = nodeCount
-	meta.GasPrice = client.DefaultGasPrice
-	meta.AdvancePayment = client.DefaultAdvancePayment
 
 	var (
 		txReq  = new(types.AddTxReq)
@@ -286,10 +284,7 @@ func createDatabase(db *gorp.DbMap, developer int64, account int64, nodeCount ui
 			ConsistencyLevel:       meta.ConsistencyLevel,
 			IsolationLevel:         meta.IsolationLevel,
 		},
-		GasPrice:       meta.GasPrice,
-		AdvancePayment: meta.AdvancePayment,
-		TokenType:      types.Particle,
-		Nonce:          nonceResp.Nonce,
+		Nonce: nonceResp.Nonce,
 	})
 
 	if err = txReq.Tx.Sign(p.Key); err != nil {
@@ -385,7 +380,7 @@ func TopUpTask(ctx context.Context, cfg *config.Config, db *gorp.DbMap, t *model
 		return
 	}
 
-	dbAccount, err := args.Database.AccountAddress()
+	_, err = args.Database.AccountAddress()
 	if err != nil {
 		err = errors.Wrapf(err, "get database wallet account failed")
 		return
@@ -429,49 +424,8 @@ func TopUpTask(ctx context.Context, cfg *config.Config, db *gorp.DbMap, t *model
 		return
 	}
 
-	nonceReq := new(types.NextAccountNonceReq)
-	nonceResp := new(types.NextAccountNonceResp)
-	nonceReq.Addr = accountAddr
-
-	err = rpc.RequestBP(route.MCCNextAccountNonce.String(), nonceReq, nonceResp)
-	if err != nil {
-		err = errors.Wrapf(err, "get account nonce failed")
-		return
-	}
-
-	tx := types.NewTransfer(&types.TransferHeader{
-		Sender:    accountAddr,
-		Receiver:  dbAccount,
-		Amount:    args.Amount,
-		TokenType: types.Particle,
-		Nonce:     nonceResp.Nonce,
-	})
-
-	err = tx.Sign(p.Key)
-	if err != nil {
-		err = errors.Wrapf(err, "sign database top-up token transfer tx failed")
-		return
-	}
-
-	addTxReq := new(types.AddTxReq)
-	addTxResp := new(types.AddTxResp)
-	addTxReq.Tx = tx
-	err = rpc.RequestBP(route.MCCAddTx.String(), addTxReq, addTxResp)
-	if err != nil {
-		err = errors.Wrapf(err, "send add tx transaction rpc failed")
-		return
-	}
-
-	// wait for transaction to complete in several cycles
-	timeoutCtx, cancelCtx := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancelCtx()
-
-	lastState, _ := waitForTxState(timeoutCtx, tx.Hash())
-	r = gin.H{
-		"db":    args.Database,
-		"tx":    tx.Hash().String(),
-		"state": lastState.String(),
-	}
-
+	// Token transfers are now handled by the EQLiteRegistry smart contract
+	// This functionality is deprecated
+	err = errors.New("database top-up is deprecated - use EQLiteRegistry contract on Ethereum for staking")
 	return
 }

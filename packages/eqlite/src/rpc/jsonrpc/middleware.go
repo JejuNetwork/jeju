@@ -14,6 +14,11 @@ type contextKey string
 
 const paramsContextKey contextKey = "_params"
 
+// GetParams retrieves the parsed params from context.
+func GetParams(ctx context.Context) interface{} {
+	return ctx.Value(paramsContextKey)
+}
+
 // Validator is designed for params checking.
 type Validator interface {
 	Validate() error

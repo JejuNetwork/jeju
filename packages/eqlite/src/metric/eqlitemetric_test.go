@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	. "github.com/smartystreets/goconvey/convey"
 
-	"eqlite/src/utils/log"`
+	"eqlite/src/utils/log"
 )
 
 func TestMetrics(t *testing.T) {

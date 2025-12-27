@@ -15,6 +15,4 @@ var (
 	ErrInvalidRequestSeq = errors.New("invalid request sequence applied")
 	// ErrInvalidProfile indicates the SQLChain profile is invalid.
 	ErrInvalidProfile = errors.New("invalid sqlchain profile")
-	// ErrNoSuchTokenBalance indicates no such token balance in chain.
-	ErrNoSuchTokenBalance = errors.New("no such token balance")
 )

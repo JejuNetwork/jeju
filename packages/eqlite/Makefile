@@ -139,91 +139,91 @@ bin/eqlited.test:
 	$(GOTEST) \
 		-ldflags "$(ldflags_role_bp)" \
 		-o bin/eqlited.test \
-		eqlite/src/cmd/cqld
+		eqlite/src/cmd/eqlited
 
 bin/eqlited:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_bp)" \
 		-o bin/eqlited \
-		eqlite/src/cmd/cqld
+		eqlite/src/cmd/eqlited
 
 bin/eqlited.static:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_bp) $(static_flags)" \
 		-o bin/eqlited \
-		eqlite/src/cmd/cqld
+		eqlite/src/cmd/eqlited
 
 bin/eqlite-minerd.test:
 	$(GOTEST_MINER) \
 		-ldflags "$(ldflags_role_miner)" \
 		-o bin/eqlite-minerd.test \
-		eqlite/src/cmd/cql-minerd
+		eqlite/src/cmd/eqlite-minerd
 
 bin/eqlite-minerd:
 	$(GOBUILD_MINER) \
 		-ldflags "$(ldflags_role_miner)" \
 		-o bin/eqlite-minerd \
-		eqlite/src/cmd/cql-minerd
+		eqlite/src/cmd/eqlite-minerd
 
 bin/eqlite-minerd.static:
 	$(GOBUILD_MINER) \
 		-ldflags "$(ldflags_role_miner) $(static_flags)" \
 		-o bin/eqlite-minerd \
-		eqlite/src/cmd/cql-minerd
+		eqlite/src/cmd/eqlite-minerd
 
 bin/eqlite.test:
 	$(GOTEST) \
 		-ldflags "$(ldflags_role_client)" \
 		-o bin/eqlite.test \
-		eqlite/src/cmd/cql
+		eqlite/src/cmd/eqlite
 
 bin/eqlite:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client_simple_log)" \
 		-o bin/eqlite \
-		eqlite/src/cmd/cql
+		eqlite/src/cmd/eqlite
 
 bin/eqlite.static:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client_simple_log) $(static_flags)" \
 		-o bin/eqlite \
-		eqlite/src/cmd/cql
+		eqlite/src/cmd/eqlite
 
 bin/eqlite-fuse:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client_simple_log)" \
 		-o bin/eqlite-fuse \
-		eqlite/src/cmd/cql-fuse
+		eqlite/src/cmd/eqlite-fuse
 
 bin/eqlite-fuse.static:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client_simple_log) $(static_flags)" \
 		-o bin/eqlite-fuse \
-		eqlite/src/cmd/cql-fuse
+		eqlite/src/cmd/eqlite-fuse
 
 bin/eqlite-mysql-adapter:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client)" \
 		-o bin/eqlite-mysql-adapter \
-		eqlite/src/cmd/cql-mysql-adapter
+		eqlite/src/cmd/eqlite-mysql-adapter
 
 bin/eqlite-mysql-adapter.static:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client) $(static_flags)" \
 		-o bin/eqlite-mysql-adapter \
-		eqlite/src/cmd/cql-mysql-adapter
+		eqlite/src/cmd/eqlite-mysql-adapter
 
 bin/eqlite-proxy:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client)" \
 		-o bin/eqlite-proxy \
-		eqlite/src/cmd/cql-proxy
+		eqlite/src/cmd/eqlite-proxy
 
 bin/eqlite-proxy.static:
 	$(GOBUILD) \
 		-ldflags "$(ldflags_role_client) $(static_flags)" \
 		-o bin/eqlite-proxy \
-		eqlite/src/cmd/cql-proxy
+		eqlite/src/cmd/eqlite-proxy
 
 bp: bin/eqlited.test bin/eqlited
 

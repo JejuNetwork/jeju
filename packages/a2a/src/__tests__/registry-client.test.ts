@@ -7,148 +7,144 @@
 
 import { beforeAll, describe, expect, it } from 'bun:test'
 import {
-  checkChainAvailable,
-  describeWithInfra,
   getChainConfig,
+  hasInfra,
 } from '@jejunetwork/tests/shared/live-infrastructure'
 import { createPublicClient, http } from 'viem'
 import { RegistryClient } from '../blockchain/registry-client'
 
 // Check if chain is available
-const CHAIN_AVAILABLE = await checkChainAvailable()
+const CHAIN_AVAILABLE = await hasInfra(['chain'])
 
-describeWithInfra(
-  'RegistryClient',
-  { chain: true },
-  () => {
-    let client: RegistryClient
-    let chainConfig: ReturnType<typeof getChainConfig>
+// Only run chain tests if chain is available
+const describeIfChain = CHAIN_AVAILABLE ? describe : describe.skip
 
-    beforeAll(() => {
-      chainConfig = getChainConfig()
+describeIfChain('RegistryClient', () => {
+  let client: RegistryClient
+  let chainConfig: ReturnType<typeof getChainConfig>
 
-      // Create registry client with live chain
-      client = new RegistryClient({
-        rpcUrl: chainConfig.rpcUrl,
-        identityRegistryAddress: chainConfig.contracts.identityRegistry,
-        reputationSystemAddress: chainConfig.contracts.reputationSystem,
+  beforeAll(() => {
+    chainConfig = getChainConfig()
+
+    // Create registry client with live chain
+    client = new RegistryClient({
+      rpcUrl: chainConfig.rpcUrl,
+      identityRegistryAddress: chainConfig.accounts.deployer.address as `0x${string}`, // Placeholder
+      reputationSystemAddress: chainConfig.accounts.deployer.address as `0x${string}`, // Placeholder
+    })
+  })
+
+  describe('chain connectivity', () => {
+    it('should connect to live chain', async () => {
+      const publicClient = createPublicClient({
+        transport: http(chainConfig.rpcUrl),
       })
+
+      const chainId = await publicClient.getChainId()
+      expect(chainId).toBe(chainConfig.chainId)
+    })
+  })
+
+  describe('getAgentProfile', () => {
+    it('should return null for non-existent agent', async () => {
+      // Token ID 999999 should not exist
+      const profile = await client.getAgentProfile(999999)
+      expect(profile).toBeNull()
     })
 
-    describe('chain connectivity', () => {
-      it('should connect to live chain', async () => {
-        const publicClient = createPublicClient({
-          chain: chainConfig.chain,
-          transport: http(chainConfig.rpcUrl),
-        })
+    it('should handle invalid agent ID gracefully', async () => {
+      const profile = await client.getAgentProfile(-1)
+      expect(profile).toBeNull()
+    })
+  })
 
-        const chainId = await publicClient.getChainId()
-        expect(chainId).toBe(chainConfig.chainId)
-      })
+  describe('getAgentProfileByAddress', () => {
+    it('should return null for address with no registered agent', async () => {
+      // Random address that won't have an agent
+      const profile = await client.getAgentProfileByAddress(
+        '0x0000000000000000000000000000000000000001',
+      )
+      expect(profile).toBeNull()
     })
 
-    describe('getAgentProfile', () => {
-      it('should return null for non-existent agent', async () => {
-        // Token ID 999999 should not exist
-        const profile = await client.getAgentProfile(999999)
-        expect(profile).toBeNull()
-      })
+    it('should return null for zero address', async () => {
+      const profile = await client.getAgentProfileByAddress(
+        '0x0000000000000000000000000000000000000000',
+      )
+      expect(profile).toBeNull()
+    })
+  })
 
-      it('should handle invalid agent ID gracefully', async () => {
-        const profile = await client.getAgentProfile(-1)
-        expect(profile).toBeNull()
-      })
+  describe('getAgentReputation', () => {
+    it('should return default reputation for non-existent agent', async () => {
+      const rep = await client.getAgentReputation(999999)
+
+      // Should return default/zero values
+      expect(rep.totalBets).toBe(0)
+      expect(rep.winningBets).toBe(0)
+      expect(rep.isBanned).toBe(false)
+    })
+  })
+
+  describe('verifyAgent', () => {
+    it('should return false for non-existent token', async () => {
+      const result = await client.verifyAgent(
+        '0x1234567890123456789012345678901234567890',
+        999999,
+      )
+      expect(result).toBe(false)
     })
 
-    describe('getAgentProfileByAddress', () => {
-      it('should return null for address with no registered agent', async () => {
-        // Random address that won't have an agent
-        const profile = await client.getAgentProfileByAddress(
-          '0x0000000000000000000000000000000000000001',
-        )
-        expect(profile).toBeNull()
-      })
+    it('should handle address case insensitivity', async () => {
+      // Both should fail for non-existent token
+      const resultLower = await client.verifyAgent(
+        '0xabcdef1234567890123456789012345678901234',
+        999999,
+      )
+      const resultUpper = await client.verifyAgent(
+        '0xABCDEF1234567890123456789012345678901234',
+        999999,
+      )
 
-      it('should return null for zero address', async () => {
-        const profile = await client.getAgentProfileByAddress(
-          '0x0000000000000000000000000000000000000000',
-        )
-        expect(profile).toBeNull()
-      })
+      expect(resultLower).toBe(false)
+      expect(resultUpper).toBe(false)
+    })
+  })
+
+  describe('isEndpointActive', () => {
+    it('should return false for unregistered endpoint', async () => {
+      const result = await client.isEndpointActive(
+        'https://unregistered-endpoint.example.com',
+      )
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('discoverAgents', () => {
+    it('should return empty array when no agents match criteria', async () => {
+      // Very high minimum reputation should return no matches
+      const agents = await client.discoverAgents({ minReputation: 99999 })
+      expect(agents).toEqual([])
     })
 
-    describe('getAgentReputation', () => {
-      it('should return default reputation for non-existent agent', async () => {
-        const rep = await client.getAgentReputation(999999)
+    it('should handle discovery with default parameters', async () => {
+      const agents = await client.discoverAgents({})
+      expect(Array.isArray(agents)).toBe(true)
+    })
+  })
 
-        // Should return default/zero values
-        expect(rep.totalBets).toBe(0)
-        expect(rep.winningBets).toBe(0)
-        expect(rep.isBanned).toBe(false)
-      })
+  describe('getAgent', () => {
+    it('should return null for non-numeric agent ID', async () => {
+      const result = await client.getAgent('not-a-number')
+      expect(result).toBeNull()
     })
 
-    describe('verifyAgent', () => {
-      it('should return false for non-existent token', async () => {
-        const result = await client.verifyAgent(
-          '0x1234567890123456789012345678901234567890',
-          999999,
-        )
-        expect(result).toBe(false)
-      })
-
-      it('should handle address case insensitivity', async () => {
-        // Both should fail for non-existent token
-        const resultLower = await client.verifyAgent(
-          '0xabcdef1234567890123456789012345678901234',
-          999999,
-        )
-        const resultUpper = await client.verifyAgent(
-          '0xABCDEF1234567890123456789012345678901234',
-          999999,
-        )
-
-        expect(resultLower).toBe(false)
-        expect(resultUpper).toBe(false)
-      })
+    it('should return null for non-existent numeric ID', async () => {
+      const result = await client.getAgent('999999')
+      expect(result).toBeNull()
     })
-
-    describe('isEndpointActive', () => {
-      it('should return false for unregistered endpoint', async () => {
-        const result = await client.isEndpointActive(
-          'https://unregistered-endpoint.example.com',
-        )
-        expect(result).toBe(false)
-      })
-    })
-
-    describe('discoverAgents', () => {
-      it('should return empty array when no agents match criteria', async () => {
-        // Very high minimum reputation should return no matches
-        const agents = await client.discoverAgents({ minReputation: 99999 })
-        expect(agents).toEqual([])
-      })
-
-      it('should handle discovery with default parameters', async () => {
-        const agents = await client.discoverAgents({})
-        expect(Array.isArray(agents)).toBe(true)
-      })
-    })
-
-    describe('getAgent', () => {
-      it('should return null for non-numeric agent ID', async () => {
-        const result = await client.getAgent('not-a-number')
-        expect(result).toBeNull()
-      })
-
-      it('should return null for non-existent numeric ID', async () => {
-        const result = await client.getAgent('999999')
-        expect(result).toBeNull()
-      })
-    })
-  },
-  CHAIN_AVAILABLE,
-)
+  })
+})
 
 // Unit tests that don't require live chain - test parsing logic
 describe('RegistryClient parsing logic', () => {

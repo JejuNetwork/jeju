@@ -126,7 +126,7 @@ type QueryAccountTokenBalanceReq struct {
 	TokenType TokenType
 }
 
-// QueryAccountTokenBalanceResp defines a request of the QueryAccountTokenBalance RPC method.
+// QueryAccountTokenBalanceResp defines a response of the QueryAccountTokenBalance RPC method.
 type QueryAccountTokenBalanceResp struct {
 	proto.Envelope
 	Addr    proto.AccountAddress

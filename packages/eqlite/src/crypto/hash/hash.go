@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math/bits"
 
-	hsp "github.com/EQLite/HashStablePack/marshalhash"
+	hsp "eqlite/src/marshalhash"
 
 	"eqlite/src/utils/log"
 )

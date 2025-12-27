@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	hsp "github.com/EQLite/HashStablePack/marshalhash"
+	hsp "eqlite/src/marshalhash"
 )
 
 const (
