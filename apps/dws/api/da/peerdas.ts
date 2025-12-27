@@ -169,7 +169,7 @@ function computeRowParity(row: Uint8Array[], parityIndex: number): Uint8Array {
     const coeff = gfPow((i + 1) % 255 || 1, parityIndex + 1)
 
     for (let j = 0; j < FIELD_ELEMENT_SIZE; j++) {
-      const cellByte = row[i]?.[j] ?? 0
+      const cellByte = row[i][j] ?? 0
       // GF multiplication and addition (XOR)
       parity[j] = gfAdd(parity[j], gfMul(cellByte, coeff))
     }
@@ -191,7 +191,7 @@ export function computeColumnParity(
     const coeff = gfPow((i + 1) % 255 || 1, parityIndex + 1)
 
     for (let j = 0; j < FIELD_ELEMENT_SIZE; j++) {
-      const cellByte = column[i]?.[j] ?? 0
+      const cellByte = column[i][j] ?? 0
       parity[j] = gfAdd(parity[j], gfMul(cellByte, coeff))
     }
   }

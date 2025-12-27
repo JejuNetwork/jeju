@@ -470,8 +470,19 @@ export class PoCVerifier {
     if (!pocConfig.identityRegistryAddress)
       throw new Error('PoC identity registry not configured')
 
-    const hardwareIdSalt =
-      process.env.HARDWARE_ID_SALT ?? keccak256(toBytes('jeju-poc-salt'))
+    const hardwareIdSalt = process.env.HARDWARE_ID_SALT
+    if (!hardwareIdSalt) {
+      if (network === 'mainnet') {
+        throw new Error(
+          'CRITICAL: HARDWARE_ID_SALT must be set in mainnet. PoC verification cannot be secured without it.',
+        )
+      }
+      console.warn(
+        '[PoC Verifier] WARNING: HARDWARE_ID_SALT not set. Using dev-only salt.',
+      )
+    }
+    const salt =
+      hardwareIdSalt ?? keccak256(toBytes('DEV_ONLY_INSECURE_POC_SALT'))
 
     return new PoCVerifier({
       chain,
@@ -480,7 +491,7 @@ export class PoCVerifier {
       validatorAddress: pocConfig.validatorAddress as Address,
       identityRegistryAddress: pocConfig.identityRegistryAddress as Address,
       registryEndpoint: process.env.POC_REGISTRY_ENDPOINT,
-      hardwareIdSalt: hardwareIdSalt as Hex,
+      hardwareIdSalt: salt as Hex,
     })
   }
 }

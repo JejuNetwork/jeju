@@ -746,10 +746,10 @@ ${chalk.bold('Quick Start:')}
     config.network = values.network
     config.rpcUrl = getRpcUrl(config.network)
     config.chainId = getChainId(config.network)
-        ? 420690
-        : config.network === 'testnet'
-          ? 420691
-          : 31337
+      ? 420690
+      : config.network === 'testnet'
+        ? 420691
+        : 31337
     saveConfig(config)
   }
 

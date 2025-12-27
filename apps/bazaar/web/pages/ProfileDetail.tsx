@@ -106,7 +106,7 @@ export default function ProfileDetailPage() {
               className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold"
               style={{ backgroundColor: 'var(--bg-secondary)' }}
             >
-              {profile.name?.charAt(0) ?? '?'}
+              {profile.name.charAt(0) ?? '?'}
             </div>
           )}
           <div>

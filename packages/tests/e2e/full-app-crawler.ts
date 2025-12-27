@@ -13,7 +13,7 @@
  *   })
  */
 
-import type { Page, Locator, BrowserContext } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
 // Types
@@ -103,28 +103,35 @@ const DEFAULT_CONFIG: Required<CrawlConfig> = {
 const SELECTORS = {
   // Navigation elements
   navLinks: 'nav a, header a, [role="navigation"] a',
-  menuButtons: '[role="menuitem"], [data-testid*="menu"], button[aria-haspopup]',
+  menuButtons:
+    '[role="menuitem"], [data-testid*="menu"], button[aria-haspopup]',
   dropdowns: '[role="listbox"], [role="menu"], select',
 
   // Interactive elements
-  buttons: 'button:not([disabled]), [role="button"]:not([disabled]), input[type="submit"], input[type="button"]',
+  buttons:
+    'button:not([disabled]), [role="button"]:not([disabled]), input[type="submit"], input[type="button"]',
   links: 'a[href]:not([href^="#"]):not([href^="javascript:"])',
   forms: 'form',
   inputs: 'input:not([type="hidden"]), textarea, select',
 
   // Wallet elements
-  walletConnect: '[data-testid*="connect"], [aria-label*="connect wallet" i], button:has-text(/connect/i)',
-  walletDisconnect: '[data-testid*="disconnect"], [aria-label*="disconnect" i], button:has-text(/disconnect/i)',
+  walletConnect:
+    '[data-testid*="connect"], [aria-label*="connect wallet" i], button:has-text(/connect/i)',
+  walletDisconnect:
+    '[data-testid*="disconnect"], [aria-label*="disconnect" i], button:has-text(/disconnect/i)',
 
   // Modal elements
   modals: '[role="dialog"], [data-testid*="modal"], .modal, [class*="modal"]',
-  modalClose: '[aria-label*="close" i], button:has-text(/close|cancel|dismiss/i), [data-testid*="close"]',
+  modalClose:
+    '[aria-label*="close" i], button:has-text(/close|cancel|dismiss/i), [data-testid*="close"]',
 
   // Error elements
-  errorMessages: '[role="alert"], .error, [class*="error"], [data-testid*="error"]',
+  errorMessages:
+    '[role="alert"], .error, [class*="error"], [data-testid*="error"]',
 
   // Loading elements
-  loading: '[data-testid*="loading"], [aria-busy="true"], .loading, [class*="spinner"]',
+  loading:
+    '[data-testid*="loading"], [aria-busy="true"], .loading, [class*="spinner"]',
 }
 
 /**
@@ -332,11 +339,16 @@ async function testButtonClick(
     await closeModals(page)
 
     // Navigate back if we went to a new page (preserve crawl state)
-    if (page.url() !== currentUrl && isInternalUrl(currentUrl, config.baseUrl)) {
-      await page.goBack({ waitUntil: 'domcontentloaded', timeout: config.timeout }).catch(() => {
-        // May fail if no history, navigate directly
-        page.goto(currentUrl, { timeout: config.timeout })
-      })
+    if (
+      page.url() !== currentUrl &&
+      isInternalUrl(currentUrl, config.baseUrl)
+    ) {
+      await page
+        .goBack({ waitUntil: 'domcontentloaded', timeout: config.timeout })
+        .catch(() => {
+          // May fail if no history, navigate directly
+          page.goto(currentUrl, { timeout: config.timeout })
+        })
       await waitForPageReady(page, config.timeout)
     }
 
@@ -354,7 +366,7 @@ async function testButtonClick(
 async function testFormSubmission(
   page: Page,
   form: Locator,
-  config: Required<CrawlConfig>,
+  _config: Required<CrawlConfig>,
 ): Promise<ActionResult> {
   const result: ActionResult = {
     page: page.url(),
@@ -366,7 +378,9 @@ async function testFormSubmission(
 
   try {
     // Fill inputs with test data
-    const inputs = await form.locator('input:not([type="hidden"]):not([type="submit"])').all()
+    const inputs = await form
+      .locator('input:not([type="hidden"]):not([type="submit"])')
+      .all()
 
     for (const input of inputs) {
       const type = (await input.getAttribute('type')) || 'text'
@@ -440,7 +454,11 @@ export async function runFullAppCrawl(
     // Skip if already visited or should be skipped
     if (visitedPaths.has(normalizedPath)) continue
     if (shouldSkipUrl(url, fullConfig)) continue
-    if (fullConfig.excludeExternalLinks && !isInternalUrl(url, fullConfig.baseUrl)) continue
+    if (
+      fullConfig.excludeExternalLinks &&
+      !isInternalUrl(url, fullConfig.baseUrl)
+    )
+      continue
 
     visitedPaths.add(normalizedPath)
 
@@ -450,7 +468,10 @@ export async function runFullAppCrawl(
 
     try {
       // Navigate to page
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: fullConfig.timeout })
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: fullConfig.timeout,
+      })
       await waitForPageReady(page, fullConfig.timeout)
 
       // Extract page state
@@ -466,7 +487,10 @@ export async function runFullAppCrawl(
         const absoluteUrl = new URL(link, url).href
         const linkPath = getNormalizedPath(absoluteUrl, fullConfig.baseUrl)
 
-        if (!visitedPaths.has(linkPath) && isInternalUrl(absoluteUrl, fullConfig.baseUrl)) {
+        if (
+          !visitedPaths.has(linkPath) &&
+          isInternalUrl(absoluteUrl, fullConfig.baseUrl)
+        ) {
           urlQueue.push(absoluteUrl)
         }
       }
@@ -528,7 +552,8 @@ export async function runFullAppCrawl(
         }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
       result.errors.push({
         url,
         action: 'navigation',
@@ -541,7 +566,8 @@ export async function runFullAppCrawl(
   result.coverage.linksVisited = visitedPaths.size
   const totalActions = result.actionsPerformed.length
   const failedActions = result.actionsPerformed.filter((a) => !a.success).length
-  result.coverage.errorRate = totalActions > 0 ? failedActions / totalActions : 0
+  result.coverage.errorRate =
+    totalActions > 0 ? failedActions / totalActions : 0
 
   return result
 }
@@ -585,7 +611,10 @@ export function createAppCrawler(config: Partial<CrawlConfig>) {
     ).toBeLessThan(3)
 
     // Assert reasonable coverage
-    expect(result.coverage.totalPages, 'Should visit at least 1 page').toBeGreaterThan(0)
+    expect(
+      result.coverage.totalPages,
+      'Should visit at least 1 page',
+    ).toBeGreaterThan(0)
   }
 }
 
@@ -606,7 +635,9 @@ export function generateCrawlReport(result: CrawlResult): string {
   lines.push(`| Buttons Clicked | ${result.coverage.buttonsClicked} |`)
   lines.push(`| Total Forms | ${result.coverage.totalForms} |`)
   lines.push(`| Forms Tested | ${result.coverage.formsSubmitted} |`)
-  lines.push(`| Error Rate | ${(result.coverage.errorRate * 100).toFixed(2)}% |`)
+  lines.push(
+    `| Error Rate | ${(result.coverage.errorRate * 100).toFixed(2)}% |`,
+  )
   lines.push('')
 
   lines.push('## Pages Visited')
@@ -633,4 +664,3 @@ export function generateCrawlReport(result: CrawlResult): string {
 
   return lines.join('\n')
 }
-

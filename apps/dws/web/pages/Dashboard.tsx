@@ -43,7 +43,8 @@ export default function Dashboard({ viewMode }: DashboardProps) {
   const { data: account, isLoading: accountLoading } = useUserAccount()
 
   // Show loading state while initial data loads
-  const isDataLoading = containersLoading || workersLoading || jobsLoading || accountLoading
+  const isDataLoading =
+    containersLoading || workersLoading || jobsLoading || accountLoading
 
   if (!isConnected || !address) {
     return (
@@ -108,8 +109,12 @@ export default function Dashboard({ viewMode }: DashboardProps) {
   const jobsList = jobsData?.jobs ?? []
   const nodesList = nodesData?.nodes ?? []
 
-  const runningContainers = executions.filter((e) => e.status === 'running').length
-  const activeWorkers = workerFunctions.filter((f) => f.status === 'active').length
+  const runningContainers = executions.filter(
+    (e) => e.status === 'running',
+  ).length
+  const activeWorkers = workerFunctions.filter(
+    (f) => f.status === 'active',
+  ).length
   const runningJobs = jobsList.filter((j) => j.status === 'running').length
   const onlineNodes = nodesList.filter((n) => n.status === 'online').length
 
@@ -571,9 +576,18 @@ interface ProviderDashboardProps {
 function ProviderDashboard({ onlineNodes, nodesData }: ProviderDashboardProps) {
   const nodes = nodesData?.nodes ?? []
   const totalCpu = nodes.reduce((sum, n) => sum + n.resources.totalCpu, 0)
-  const availableCpu = nodes.reduce((sum, n) => sum + n.resources.availableCpu, 0)
-  const totalMemory = nodes.reduce((sum, n) => sum + n.resources.totalMemoryMb, 0)
-  const availableMemory = nodes.reduce((sum, n) => sum + n.resources.availableMemoryMb, 0)
+  const availableCpu = nodes.reduce(
+    (sum, n) => sum + n.resources.availableCpu,
+    0,
+  )
+  const totalMemory = nodes.reduce(
+    (sum, n) => sum + n.resources.totalMemoryMb,
+    0,
+  )
+  const availableMemory = nodes.reduce(
+    (sum, n) => sum + n.resources.availableMemoryMb,
+    0,
+  )
 
   return (
     <>

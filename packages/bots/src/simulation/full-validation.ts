@@ -881,7 +881,7 @@ export class FullValidationRunner {
       matrix[i] = []
       for (let j = 0; j < n; j++) {
         if (i === j) matrix[i][j] = 1
-        else if (matrix[j]?.[i] !== undefined) matrix[i][j] = matrix[j][i]
+        else if (matrix[j][i] !== undefined) matrix[i][j] = matrix[j][i]
         else matrix[i][j] = 0.6 + Math.random() * 0.3 // 0.6-0.9 correlation
       }
     }

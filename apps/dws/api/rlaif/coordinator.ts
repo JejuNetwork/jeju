@@ -330,7 +330,7 @@ export class RLAIFCoordinator {
     run.updatedAt = Date.now()
 
     console.log(`[RLAIF] Iteration ${iteration.iteration} complete`, {
-      evalScore: iteration.metrics?.evalScore,
+      evalScore: iteration.metrics.evalScore,
       promoted: iteration.evalPassed,
     })
 

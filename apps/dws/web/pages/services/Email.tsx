@@ -90,7 +90,7 @@ export default function EmailPage() {
       id: 'archive',
       label: 'Archive',
       icon: <Archive size={18} />,
-      count: index?.archive?.length ?? 0,
+      count: index.archive?.length ?? 0,
     },
     {
       id: 'trash',
@@ -123,8 +123,8 @@ export default function EmailPage() {
   const emails = getCurrentEmails().filter(
     (email: EmailEntry) =>
       !searchQuery ||
-      email.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.from?.toLowerCase().includes(searchQuery.toLowerCase()),
+      email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      email.from.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (

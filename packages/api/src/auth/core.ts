@@ -396,7 +396,7 @@ export async function requireAuth(
   if (!result.authenticated || !result.user) {
     throw new AuthError(
       result.error ?? 'Authentication required',
-      result.error?.includes('expired')
+      result.error.includes('expired')
         ? AuthErrorCode.SESSION_EXPIRED
         : AuthErrorCode.MISSING_CREDENTIALS,
       401,

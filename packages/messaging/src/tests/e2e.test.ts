@@ -4,6 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { expectValid } from '@jejunetwork/types'
+import { privateKeyToAccount } from 'viem/accounts'
 import { createRelayServer } from '../node'
 import {
   RelayHealthResponseSchema,
@@ -24,6 +25,31 @@ import {
   publicKeyToHex,
   serializeEncryptedMessage,
 } from '../sdk'
+
+// Test accounts for authentication (hardhat/anvil default accounts)
+const TEST_ACCOUNTS = {
+  alice: privateKeyToAccount(
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+  ),
+  bob: privateKeyToAccount(
+    '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+  ),
+}
+
+// Helper to generate authentication headers for a given address
+async function getAuthHeaders(
+  account: ReturnType<typeof privateKeyToAccount>,
+  action: string,
+  target: string,
+): Promise<Record<string, string>> {
+  const timestamp = Date.now().toString()
+  const message = `${action}:${target}:${timestamp}`
+  const signature = await account.signMessage({ message })
+  return {
+    'x-jeju-signature': signature,
+    'x-jeju-timestamp': timestamp,
+  }
+}
 
 describe('Crypto', () => {
   test('generates valid key pairs', () => {
@@ -199,11 +225,11 @@ describe('Relay Server', () => {
   })
 
   test('retrieves pending messages for recipient', async () => {
-    const alice = generateKeyPair()
     const bob = generateKeyPair()
 
-    const aliceAddress = `0x${publicKeyToHex(alice.publicKey).slice(0, 40)}`
-    const bobAddress = `0x${publicKeyToHex(bob.publicKey).slice(0, 40)}`
+    // Use test accounts for auth, encryption key pair for encryption
+    const aliceAddress = TEST_ACCOUNTS.alice.address
+    const bobAddress = TEST_ACCOUNTS.bob.address
 
     // Send a message
     const message = 'Pending message test'
@@ -223,8 +249,15 @@ describe('Relay Server', () => {
       body: JSON.stringify(envelope),
     })
 
-    // Fetch pending messages
-    const response = await fetch(`${BASE_URL}/messages/${bobAddress}`)
+    // Fetch pending messages with authentication
+    const authHeaders = await getAuthHeaders(
+      TEST_ACCOUNTS.bob,
+      'Get messages',
+      bobAddress,
+    )
+    const response = await fetch(`${BASE_URL}/messages/${bobAddress}`, {
+      headers: authHeaders,
+    })
     expect(response.ok).toBe(true)
 
     const rawResult: unknown = await response.json()
@@ -300,12 +333,12 @@ describe('E2E Flow', () => {
   })
 
   test('complete message flow: encrypt -> send -> receive -> decrypt', async () => {
-    // Setup users
+    // Setup users - use test accounts for auth, key pairs for encryption
     const alice = generateKeyPair()
     const bob = generateKeyPair()
 
-    const aliceAddress = `0xAlice${publicKeyToHex(alice.publicKey).slice(0, 34)}`
-    const bobAddress = `0xBob${publicKeyToHex(bob.publicKey).slice(0, 36)}`
+    const aliceAddress = TEST_ACCOUNTS.alice.address
+    const bobAddress = TEST_ACCOUNTS.bob.address
 
     // Alice sends encrypted message to Bob
     const originalMessage = 'Hello from Alice to Bob! 🔐'
@@ -331,8 +364,16 @@ describe('E2E Flow', () => {
     })
     expect(sendResponse.ok).toBe(true)
 
-    // Bob retrieves messages
-    const fetchResponse = await fetch(`${BASE_URL}/messages/${bobAddress}`)
+    // Bob retrieves messages with authentication
+    const authHeaders = await getAuthHeaders(
+      TEST_ACCOUNTS.bob,
+      'Get messages',
+      bobAddress,
+    )
+    const fetchResponse = await fetch(`${BASE_URL}/messages/${bobAddress}`, {
+      headers: authHeaders,
+    })
+    expect(fetchResponse.ok).toBe(true)
     const rawFetchResult: unknown = await fetchResponse.json()
     const { messages } = expectValid(
       RelayMessagesResponseSchema,
@@ -355,19 +396,22 @@ describe('E2E Flow', () => {
   })
 
   test('multiple messages between users', async () => {
-    const alice = generateKeyPair()
     const bob = generateKeyPair()
 
-    const aliceAddress = `0xMultiAlice${publicKeyToHex(alice.publicKey).slice(0, 30)}`
-    const bobAddress = `0xMultiBob${publicKeyToHex(bob.publicKey).slice(0, 32)}`
+    const aliceAddress = TEST_ACCOUNTS.alice.address
+    const bobAddress = TEST_ACCOUNTS.bob.address
 
     const messagesToSend = ['First message', 'Second message', 'Third message']
+    const sentIds: string[] = []
 
-    // Send all messages
+    // Send all messages and track their IDs
     for (const msg of messagesToSend) {
       const encrypted = encryptMessage(msg, bob.publicKey)
+      const id = crypto.randomUUID()
+      sentIds.push(id)
+
       const envelope: MessageEnvelope = {
-        id: crypto.randomUUID(),
+        id,
         from: aliceAddress,
         to: bobAddress,
         encryptedContent: serializeEncryptedMessage(encrypted),
@@ -381,8 +425,15 @@ describe('E2E Flow', () => {
       })
     }
 
-    // Fetch all
-    const response = await fetch(`${BASE_URL}/messages/${bobAddress}`)
+    // Fetch all with authentication
+    const authHeaders = await getAuthHeaders(
+      TEST_ACCOUNTS.bob,
+      'Get messages',
+      bobAddress,
+    )
+    const response = await fetch(`${BASE_URL}/messages/${bobAddress}`, {
+      headers: authHeaders,
+    })
     const rawMultiResult: unknown = await response.json()
     const { messages, count } = expectValid(
       RelayMessagesResponseSchema,
@@ -392,9 +443,11 @@ describe('E2E Flow', () => {
 
     expect(count).toBeGreaterThanOrEqual(messagesToSend.length)
 
-    // Decrypt all from Alice
-    const fromAlice = messages.filter((m) => m.from === aliceAddress)
-    const decrypted = fromAlice.map((m) => {
+    // Only decrypt messages we sent in this test (by ID)
+    const ourMessages = messages.filter((m) => sentIds.includes(m.id))
+    expect(ourMessages.length).toBe(messagesToSend.length)
+
+    const decrypted = ourMessages.map((m) => {
       const enc = deserializeEncryptedMessage(m.encryptedContent)
       return decryptMessageToString(enc, bob.privateKey)
     })

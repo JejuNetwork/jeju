@@ -12,7 +12,17 @@ await Bun.build({
   target: 'bun',
   format: 'esm',
   splitting: false,
-  external: ['viem', 'permissionless', '@noble/curves', '@noble/hashes', 'zod', '@jejunetwork/types', '@jejunetwork/shared', '@jejunetwork/config', '@jejunetwork/token'],
+  external: [
+    'viem',
+    'permissionless',
+    '@noble/curves',
+    '@noble/hashes',
+    'zod',
+    '@jejunetwork/types',
+    '@jejunetwork/shared',
+    '@jejunetwork/config',
+    '@jejunetwork/token',
+  ],
 })
 
 console.log('Build complete')

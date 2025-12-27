@@ -127,6 +127,24 @@ contract MockCouncil is ICouncilGovernance {
     function markFailed(bytes32, string calldata) external {}
 }
 
+// Mock ZK verifier
+contract MockZKVerifier {
+    function verifyProof(
+        uint256[8] calldata proof,
+        uint256[] calldata publicInputs
+    ) external pure returns (bool) {
+        // Mock: accept any non-zero proof
+        bool hasNonZero = false;
+        for (uint256 i = 0; i < 8; i++) {
+            if (proof[i] != 0) {
+                hasNonZero = true;
+                break;
+            }
+        }
+        return hasNonZero && publicInputs.length > 0;
+    }
+}
+
 // Mock bridge token
 contract MockBridgeToken {
     string public name = "Mock Token";
@@ -172,6 +190,7 @@ contract ZKBridgeTest is Test {
     ZKBridge public bridge;
     MockIdentityRegistry public identityRegistry;
     MockSolanaLightClient public lightClient;
+    MockZKVerifier public verifier;
     MockBridgeToken public token;
     
     address public admin;
@@ -186,12 +205,14 @@ contract ZKBridgeTest is Test {
         // Deploy mocks
         identityRegistry = new MockIdentityRegistry();
         lightClient = new MockSolanaLightClient();
+        verifier = new MockZKVerifier();
         token = new MockBridgeToken();
         
         // Deploy bridge
         bridge = new ZKBridge(
             address(lightClient),
             address(identityRegistry),
+            address(verifier),
             0.001 ether,
             100 wei
         );
@@ -304,6 +325,7 @@ contract GovernedZKBridgeTest is Test {
     GovernedZKBridge public bridge;
     MockIdentityRegistry public identityRegistry;
     MockSolanaLightClient public lightClient;
+    MockZKVerifier public verifier;
     MockCouncil public council;
     MockBridgeToken public token;
     
@@ -315,12 +337,14 @@ contract GovernedZKBridgeTest is Test {
     function setUp() public {
         identityRegistry = new MockIdentityRegistry();
         lightClient = new MockSolanaLightClient();
+        verifier = new MockZKVerifier();
         council = new MockCouncil();
         token = new MockBridgeToken();
         
         bridge = new GovernedZKBridge(
             address(lightClient),
             address(identityRegistry),
+            address(verifier),
             address(council),
             guardian,
             0.001 ether,

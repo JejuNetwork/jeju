@@ -300,7 +300,7 @@ If automated bridging isn't working, use these cast commands:
 1. BRIDGE TO OPTIMISM SEPOLIA:
    cast send --rpc-url ${TESTNETS.sepolia.rpcUrl} \\
      --private-key $DEPLOYER_PRIVATE_KEY \\
-     ${TESTNETS.optimismSepolia.bridge?.contract} \\
+     ${TESTNETS.optimismSepolia.bridge.contract} \\
      "depositTransaction(address,uint256,uint64,bool,bytes)" \\
      ${address} 0.02ether 100000 false 0x \\
      --value 0.02ether
@@ -308,7 +308,7 @@ If automated bridging isn't working, use these cast commands:
 2. BRIDGE TO BASE SEPOLIA:
    cast send --rpc-url ${TESTNETS.sepolia.rpcUrl} \\
      --private-key $DEPLOYER_PRIVATE_KEY \\
-     ${TESTNETS.baseSepolia.bridge?.contract} \\
+     ${TESTNETS.baseSepolia.bridge.contract} \\
      "depositTransaction(address,uint256,uint64,bool,bytes)" \\
      ${address} 0.02ether 100000 false 0x \\
      --value 0.02ether
@@ -316,7 +316,7 @@ If automated bridging isn't working, use these cast commands:
 3. BRIDGE TO ARBITRUM SEPOLIA:
    cast send --rpc-url ${TESTNETS.sepolia.rpcUrl} \\
      --private-key $DEPLOYER_PRIVATE_KEY \\
-     ${TESTNETS.arbitrumSepolia.bridge?.contract} \\
+     ${TESTNETS.arbitrumSepolia.bridge.contract} \\
      --value 0.02ether
 
 Set your private key first:

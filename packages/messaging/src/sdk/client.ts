@@ -395,18 +395,59 @@ export class MessagingClient {
       const ws = new WebSocket(wsUrl)
       this.ws = ws
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         this.reconnectAttempts = 0
 
-        // Subscribe to messages for this address
-        ws.send(
-          JSON.stringify({
-            type: 'subscribe',
-            address: this.config.address,
-          }),
-        )
+        try {
+          // Generate subscription authentication
+          const timestamp = Date.now()
+          const message = `Subscribe to Jeju messages:${this.config.address}:${timestamp}`
 
-        resolve()
+          let signature: string
+          if (this.walletClient?.account) {
+            // Sign using wallet client
+            signature = await this.walletClient.signMessage({
+              account: this.walletClient.account,
+              message,
+            })
+          } else if (this.signingKeyPair) {
+            // Fall back to signing key pair if no wallet client
+            const { ed25519 } = await import('@noble/curves/ed25519')
+            const messageBytes = new TextEncoder().encode(message)
+            const sig = ed25519.sign(
+              messageBytes,
+              this.signingKeyPair.privateKey,
+            )
+            signature = `0x${Buffer.from(sig).toString('hex')}`
+          } else {
+            reject(
+              new MessagingError(
+                'No signing capability - need walletClient or signingKeyPair',
+                ErrorCodes.UNAUTHORIZED,
+              ),
+            )
+            return
+          }
+
+          // Subscribe to messages for this address with authentication
+          ws.send(
+            JSON.stringify({
+              type: 'subscribe',
+              address: this.config.address,
+              signature,
+              timestamp,
+            }),
+          )
+
+          resolve()
+        } catch (err) {
+          reject(
+            new MessagingError(
+              `Failed to sign subscription request: ${err instanceof Error ? err.message : 'Unknown error'}`,
+              ErrorCodes.UNAUTHORIZED,
+            ),
+          )
+        }
       }
 
       ws.onmessage = (event) => {

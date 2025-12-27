@@ -292,7 +292,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
       const receipt = await l2Client.getTransactionReceipt({ hash: txHash })
 
       expect(receipt).toBeTruthy()
-      expect(receipt?.status).toBe('success')
+      expect(receipt.status).toBe('success')
 
       console.log(`   ✅ Receipt retrieved successfully`)
     })

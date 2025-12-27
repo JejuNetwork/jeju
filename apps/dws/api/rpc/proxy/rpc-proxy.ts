@@ -157,7 +157,7 @@ export async function proxyRequest(
   }
 
   let lastError: Error | null = null
-  const usedDWS = endpoints[0]?.includes('localhost') ?? false
+  const usedDWS = endpoints[0].includes('localhost') ?? false
 
   for (let i = 0; i < endpoints.length; i++) {
     const endpoint = endpoints[i]

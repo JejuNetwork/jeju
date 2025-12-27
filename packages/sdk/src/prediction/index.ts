@@ -9,9 +9,23 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
+import {
+  type Address,
+  encodeFunctionData,
+  type Hex,
+  parseAbiItem,
+  parseEther,
+} from 'viem'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Event signatures for tracking positions
+const SHARES_BOUGHT_EVENT = parseAbiItem(
+  'event SharesBought(bytes32 indexed marketId, address indexed buyer, bool isYes, uint256 shares, uint256 cost)',
+)
+const SHARES_SOLD_EVENT = parseAbiItem(
+  'event SharesSold(bytes32 indexed marketId, address indexed seller, bool isYes, uint256 shares, uint256 returnAmount)',
+)
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -463,8 +477,44 @@ export function createPredictionModule(
     },
 
     async listMyPositions() {
-      // Would need to enumerate - simplified
-      return []
+      const positions: Position[] = []
+      const marketIds = new Set<Hex>()
+
+      // Query buy events for this user to find markets they participated in
+      const buyLogs = await wallet.publicClient.getLogs({
+        address: predictionMarketAddress,
+        event: SHARES_BOUGHT_EVENT,
+        args: { buyer: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of buyLogs) {
+        marketIds.add(log.args.marketId)
+      }
+
+      // Also check sell events in case they bought and sold
+      const sellLogs = await wallet.publicClient.getLogs({
+        address: predictionMarketAddress,
+        event: SHARES_SOLD_EVENT,
+        args: { seller: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of sellLogs) {
+        marketIds.add(log.args.marketId)
+      }
+
+      // Get current position for each market
+      for (const marketId of marketIds) {
+        const position = await this.getPosition(marketId)
+        if (position && (position.yesShares > 0n || position.noShares > 0n)) {
+          positions.push(position)
+        }
+      }
+
+      return positions
     },
 
     async claimWinnings(marketId) {

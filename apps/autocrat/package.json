@@ -5,7 +5,8 @@
   "main": "api/server.ts",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"bun index.html\" \"bun run api/server.ts\"",
+    "dev": "concurrently \"bun run dev:web\" \"bun run api/server.ts\"",
+    "dev:web": "PORT=4042 bun index.html",
     "build": "bun build.web.ts && bun build api/server.ts --outdir dist/api --target bun",
     "start": "bun dist/api/server.js",
     "test": "bun test tests/ && bunx playwright test tests/e2e/ --config playwright.config.ts && bunx playwright test tests/synpress/ --config synpress.config.ts",

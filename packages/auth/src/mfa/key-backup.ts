@@ -63,7 +63,10 @@ export class KeyBackupManager {
     this.options = { ...DEFAULT_OPTIONS, ...options }
 
     // Production security check
-    if (isProductionEnv() && this.options.iterations < MIN_PRODUCTION_ITERATIONS) {
+    if (
+      isProductionEnv() &&
+      this.options.iterations < MIN_PRODUCTION_ITERATIONS
+    ) {
       throw new Error(
         `PBKDF2 iterations too low for production: ${this.options.iterations}. ` +
           `Minimum required: ${MIN_PRODUCTION_ITERATIONS}`,

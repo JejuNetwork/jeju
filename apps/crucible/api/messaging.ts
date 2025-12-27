@@ -90,8 +90,13 @@ class CrucibleMessagingService {
     }
 
     // Profile fetch may fail due to Hub API limitations (e.g. getLinksByTargetFid returns 400)
-    // In that case, return null and let the caller handle it gracefully
-    const profile = await this.hubClient.getProfile(fid).catch(() => null)
+    // In that case, log the error and return null
+    const profile = await this.hubClient.getProfile(fid).catch((err) => {
+      // This is expected for some FIDs due to Hub API limitations
+      // Only log at debug level to avoid noise
+      console.debug(`[Messaging] Profile fetch failed for FID ${fid}: ${err}`)
+      return null
+    })
     if (profile) {
       profileCache.set(fid, { profile, cachedAt: Date.now() })
     }

@@ -52,8 +52,8 @@ describe('CacheEngine Performance', () => {
   test('handles 1k list operations in under 50ms', () => {
     const start = Date.now()
     for (let i = 0; i < 1000; i++) {
-      engine.lpush('perf', `list-${i}`, 'a', 'b', 'c')
-      engine.rpush('perf', `list-${i}`, 'd', 'e')
+      engine.lpush('perf', `list-${i}`, ['a', 'b', 'c'])
+      engine.rpush('perf', `list-${i}`, ['d', 'e'])
       engine.lrange('perf', `list-${i}`, 0, -1)
     }
     const duration = Date.now() - start
@@ -64,7 +64,7 @@ describe('CacheEngine Performance', () => {
   test('handles 1k set operations in under 50ms', () => {
     const start = Date.now()
     for (let i = 0; i < 1000; i++) {
-      engine.sadd('perf', `set-${i}`, 'member1', 'member2', 'member3')
+      engine.sadd('perf', `set-${i}`, ['member1', 'member2', 'member3'])
       engine.sismember('perf', `set-${i}`, 'member1')
       engine.smembers('perf', `set-${i}`)
     }

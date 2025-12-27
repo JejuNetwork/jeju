@@ -4,9 +4,9 @@
  * Provides simpler property names and convenience methods for common auth patterns.
  */
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Address, Hex } from 'viem'
-import type { AuthProvider } from '../../types.js'
+import type { AuthProvider, VerifiableCredential } from '../../types.js'
 import { useOAuth3 } from '../provider.js'
 
 /**
@@ -57,6 +57,37 @@ export interface UseJejuAuthReturn {
 }
 
 /**
+ * Parse credential type to account type
+ */
+function credentialTypeToAccountType(credentialTypes: string[]): string {
+  for (const type of credentialTypes) {
+    if (type.includes('Farcaster')) return 'farcaster'
+    if (type.includes('Twitter')) return 'twitter'
+    if (type.includes('Google')) return 'google'
+    if (type.includes('GitHub')) return 'github'
+    if (type.includes('Discord')) return 'discord'
+    if (type.includes('Apple')) return 'apple'
+    if (type.includes('Email')) return 'email'
+    if (type.includes('Phone')) return 'phone'
+  }
+  return 'wallet'
+}
+
+/**
+ * Convert verifiable credentials to linked accounts
+ */
+function credentialsToLinkedAccounts(
+  credentials: VerifiableCredential[],
+): LinkedAccount[] {
+  return credentials.map((credential) => ({
+    type: credentialTypeToAccountType(credential.type),
+    identifier: credential.credentialSubject.providerId,
+    handle: credential.credentialSubject.providerHandle,
+    linkedAt: new Date(credential.issuanceDate).getTime(),
+  }))
+}
+
+/**
  * useJejuAuth hook
  *
  * Convenience wrapper around useOAuth3 with simpler property names.
@@ -82,12 +113,21 @@ export interface UseJejuAuthReturn {
  */
 export function useJejuAuth(): UseJejuAuthReturn {
   const oauth3 = useOAuth3()
+  const [credentials, setCredentials] = useState<VerifiableCredential[]>([])
+
+  // Fetch credentials when session changes
+  useEffect(() => {
+    if (oauth3.session) {
+      oauth3.getCredentials().then(setCredentials).catch(console.error)
+    } else {
+      setCredentials([])
+    }
+  }, [oauth3.session, oauth3.getCredentials])
 
   // Build linked accounts from credentials
   const linkedAccounts = useMemo((): LinkedAccount[] => {
-    // For now return empty array - app should fetch via API or getCredentials()
-    return []
-  }, [])
+    return credentialsToLinkedAccounts(credentials)
+  }, [credentials])
 
   // Login with wallet
   const loginWithWallet = useCallback(async () => {

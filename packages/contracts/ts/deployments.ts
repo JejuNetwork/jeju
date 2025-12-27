@@ -236,12 +236,12 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
     serviceRegistry: toAddress(identity?.serviceRegistry),
 
     // DeFi
-    poolManager: toAddress(v4?.poolManager),
-    swapRouter: toAddress(v4?.swapRouter),
-    positionManager: toAddress(v4?.positionManager),
-    quoterV4: toAddress(v4?.quoterV4),
-    stateView: toAddress(v4?.stateView),
-    weth: toAddress(v4?.weth),
+    poolManager: toAddress(v4.poolManager),
+    swapRouter: toAddress(v4.swapRouter),
+    positionManager: toAddress(v4.positionManager),
+    quoterV4: toAddress(v4.quoterV4),
+    stateView: toAddress(v4.stateView),
+    weth: toAddress(v4.weth),
 
     // Marketplace
     marketplace: getBazaarMarketplace(chainId),

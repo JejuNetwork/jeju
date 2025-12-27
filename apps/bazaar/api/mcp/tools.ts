@@ -8,10 +8,38 @@ import {
   expect,
   expectPositive,
   expectValid,
+  ZERO_ADDRESS,
 } from '@jejunetwork/types'
+import { type Address, encodeFunctionData, parseEther } from 'viem'
 import { z } from 'zod'
 import { JEJU_CHAIN_ID } from '../../config/chains'
 import { getV4Contracts } from '../../config/contracts'
+
+// Swap Router ABI for encoding calldata
+const SWAP_ROUTER_ABI = [
+  {
+    inputs: [
+      {
+        components: [
+          { name: 'tokenIn', type: 'address' },
+          { name: 'tokenOut', type: 'address' },
+          { name: 'fee', type: 'uint24' },
+          { name: 'recipient', type: 'address' },
+          { name: 'amountIn', type: 'uint256' },
+          { name: 'amountOutMinimum', type: 'uint256' },
+          { name: 'sqrtPriceLimitX96', type: 'uint160' },
+        ],
+        name: 'params',
+        type: 'tuple',
+      },
+    ],
+    name: 'exactInputSingle',
+    outputs: [{ name: 'amountOut', type: 'uint256' }],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+] as const
+
 import {
   getContractDetails,
   getLatestBlocks,
@@ -108,6 +136,10 @@ interface TransactionInfo {
 interface SwapResult {
   action: 'sign-and-send'
   transaction: TransactionInfo
+  value: string
+  approvalRequired: boolean
+  approvalToken: Address | undefined
+  approvalAmount: string | undefined
   note: string
 }
 
@@ -274,7 +306,7 @@ export async function callMCPTool(
         args,
         'get_token_details args',
       )
-      const validatedAddress = AddressSchema.parse(address)
+      const validatedAddress = AddressSchema.parse(address) as Address
       const [details, holders, transfers] = await Promise.all([
         getContractDetails(validatedAddress),
         getTokenHolders(validatedAddress, 10),
@@ -309,17 +341,46 @@ export async function callMCPTool(
         args,
         'swap_tokens args',
       )
-      AddressSchema.parse(fromToken)
-      AddressSchema.parse(toToken)
+      const validatedFromToken = AddressSchema.parse(fromToken) as Address
+      const validatedToToken = AddressSchema.parse(toToken) as Address
       expect(amount, 'amount is required')
+
       const contracts = getV4Contracts(JEJU_CHAIN_ID)
+      const swapRouter = expect(
+        contracts.swapRouter,
+        'Swap router not deployed on this chain',
+      )
+
+      const calldata = encodeFunctionData({
+        abi: SWAP_ROUTER_ABI,
+        functionName: 'exactInputSingle',
+        args: [
+          {
+            tokenIn: validatedFromToken,
+            tokenOut: validatedToToken,
+            fee: 3000, // 0.3% fee tier
+            recipient: ZERO_ADDRESS as Address, // Will be replaced by caller
+            amountIn: parseEther(amount),
+            amountOutMinimum: 0n, // No slippage protection - caller should add
+            sqrtPriceLimitX96: 0n,
+          },
+        ],
+      })
+
+      const isNativeInput =
+        validatedFromToken.toLowerCase() === ZERO_ADDRESS.toLowerCase()
+
       return makeResult({
         action: 'sign-and-send',
         transaction: {
-          to: contracts?.swapRouter ?? contracts?.poolManager ?? '0x',
-          data: '0x...',
+          to: swapRouter,
+          data: calldata,
         },
-        note: 'Swap transaction prepared',
+        value: isNativeInput ? parseEther(amount).toString() : '0',
+        approvalRequired: !isNativeInput,
+        approvalToken: isNativeInput ? undefined : validatedFromToken,
+        approvalAmount: isNativeInput ? undefined : amount,
+        note: 'Swap transaction prepared. Caller should set recipient address.',
       })
     }
 
@@ -329,7 +390,7 @@ export async function callMCPTool(
         args,
         'check_ban_status args',
       )
-      const validatedAddress = AddressSchema.parse(address)
+      const validatedAddress = AddressSchema.parse(address) as Address
       const result = await checkBanStatus(validatedAddress)
       return makeResult({
         ...result,
@@ -345,7 +406,7 @@ export async function callMCPTool(
         args,
         'get_moderator_stats args',
       )
-      const validatedAddress = AddressSchema.parse(address)
+      const validatedAddress = AddressSchema.parse(address) as Address
       const stats = await getModeratorStats(validatedAddress)
       const validatedStats = expect(
         stats,

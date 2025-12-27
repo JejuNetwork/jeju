@@ -10,10 +10,32 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
+import {
+  type Address,
+  encodeFunctionData,
+  type Hex,
+  keccak256,
+  parseAbiItem,
+  parseEther,
+  toBytes,
+} from 'viem'
 import { requireContract, safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { JejuWallet } from '../wallet'
+
+// Event signatures for querying logs
+const DEPOSIT_EVENT = parseAbiItem(
+  'event TransactionDeposited(address indexed from, address indexed to, uint256 indexed version, bytes opaqueData)',
+)
+const ERC20_DEPOSIT_EVENT = parseAbiItem(
+  'event ERC20DepositInitiated(address indexed l1Token, address indexed l2Token, address indexed from, address to, uint256 amount, bytes extraData)',
+)
+const MESSAGE_PASSED_EVENT = parseAbiItem(
+  'event MessagePassed(uint256 indexed nonce, address indexed sender, address indexed target, uint256 value, uint256 gasLimit, bytes data, bytes32 withdrawalHash)',
+)
+const NFT_BRIDGE_EVENT = parseAbiItem(
+  'event NFTBridgeInitiated(bytes32 indexed transferId, address tokenAddress, uint256 tokenId, address sender, address recipient, uint256 destChainId)',
+)
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -591,14 +613,127 @@ export function createBridgeModule(
       return { txHash, depositId: txHash as Hex }
     },
 
-    async getDeposit(_depositId) {
-      // Would query indexer or events - requires external service
+    async getDeposit(depositId) {
+      // Query TransactionDeposited events for ETH deposits
+      const depositLogs = await wallet.publicClient.getLogs({
+        address: optimismPortalAddress,
+        event: DEPOSIT_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Find matching deposit by transaction hash (depositId is the txHash for ETH deposits)
+      for (const log of depositLogs) {
+        if (log.transactionHash === depositId) {
+          const block = await wallet.publicClient.getBlock({
+            blockHash: log.blockHash,
+          })
+
+          return {
+            depositId,
+            sender: log.args.from,
+            recipient: log.args.to,
+            token: '0x0000000000000000000000000000000000000000' as Address, // ETH
+            amount: 0n, // Would need to decode opaqueData
+            sourceChainId: BigInt(await wallet.publicClient.getChainId()),
+            destChainId: 0n, // L2 chain ID
+            timestamp: block.timestamp,
+            status: MessageStatus.FINALIZED, // ETH deposits are instant on L2
+          }
+        }
+      }
+
+      // Also check ERC20 deposits on L1StandardBridge
+      const erc20Logs = await wallet.publicClient.getLogs({
+        address: l1StandardBridgeAddress,
+        event: ERC20_DEPOSIT_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of erc20Logs) {
+        if (log.transactionHash === depositId) {
+          const block = await wallet.publicClient.getBlock({
+            blockHash: log.blockHash,
+          })
+
+          return {
+            depositId,
+            sender: log.args.from,
+            recipient: log.args.to,
+            token: log.args.l1Token,
+            amount: log.args.amount,
+            sourceChainId: BigInt(await wallet.publicClient.getChainId()),
+            destChainId: 0n, // L2 chain ID
+            timestamp: block.timestamp,
+            status: MessageStatus.FINALIZED,
+          }
+        }
+      }
+
       return null
     },
 
     async getMyDeposits() {
-      // Would query indexer - requires external service
-      return []
+      const deposits: BridgeDeposit[] = []
+      const chainId = BigInt(await wallet.publicClient.getChainId())
+
+      // Query ETH deposits
+      const ethLogs = await wallet.publicClient.getLogs({
+        address: optimismPortalAddress,
+        event: DEPOSIT_EVENT,
+        args: { from: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of ethLogs) {
+        const block = await wallet.publicClient.getBlock({
+          blockHash: log.blockHash,
+        })
+
+        deposits.push({
+          depositId: log.transactionHash as Hex,
+          sender: log.args.from,
+          recipient: log.args.to,
+          token: '0x0000000000000000000000000000000000000000' as Address,
+          amount: 0n, // Would decode from opaqueData
+          sourceChainId: chainId,
+          destChainId: 0n,
+          timestamp: block.timestamp,
+          status: MessageStatus.FINALIZED,
+        })
+      }
+
+      // Query ERC20 deposits
+      const erc20Logs = await wallet.publicClient.getLogs({
+        address: l1StandardBridgeAddress,
+        event: ERC20_DEPOSIT_EVENT,
+        args: { from: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of erc20Logs) {
+        const block = await wallet.publicClient.getBlock({
+          blockHash: log.blockHash,
+        })
+
+        deposits.push({
+          depositId: log.transactionHash as Hex,
+          sender: log.args.from,
+          recipient: log.args.to,
+          token: log.args.l1Token,
+          amount: log.args.amount,
+          sourceChainId: chainId,
+          destChainId: 0n,
+          timestamp: block.timestamp,
+          status: MessageStatus.FINALIZED,
+        })
+      }
+
+      // Sort by timestamp descending
+      return deposits.sort((a, b) => Number(b.timestamp - a.timestamp))
     },
 
     async initiateWithdrawal(params) {
@@ -696,14 +831,109 @@ export function createBridgeModule(
       })
     },
 
-    async getWithdrawal(_withdrawalId) {
-      // Would query indexer - requires external service
+    async getWithdrawal(withdrawalId) {
+      if (!l2ToL1MessagePasserAddress) {
+        return null
+      }
+
+      // Query MessagePassed events
+      const logs = await wallet.publicClient.getLogs({
+        address: l2ToL1MessagePasserAddress,
+        event: MESSAGE_PASSED_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of logs) {
+        if (log.args.withdrawalHash === withdrawalId) {
+          const block = await wallet.publicClient.getBlock({
+            blockHash: log.blockHash,
+          })
+
+          // Cache the withdrawal data for prove/finalize operations
+          withdrawalDataCache.set(withdrawalId, {
+            nonce: log.args.nonce,
+            sender: log.args.sender,
+            target: log.args.target,
+            value: log.args.value,
+            gasLimit: log.args.gasLimit,
+            data: log.args.data as Hex,
+          })
+
+          // Get withdrawal status
+          const status = await this.getWithdrawalStatus(withdrawalId)
+
+          return {
+            withdrawalId,
+            sender: log.args.sender,
+            recipient: log.args.target,
+            token: '0x0000000000000000000000000000000000000000' as Address,
+            amount: log.args.value,
+            sourceChainId: BigInt(await wallet.publicClient.getChainId()),
+            destChainId: 1n, // L1
+            timestamp: block.timestamp,
+            proofSubmitted: status.proven,
+            finalized: status.finalized,
+          }
+        }
+      }
+
       return null
     },
 
     async getMyWithdrawals() {
-      // Would query indexer - requires external service
-      return []
+      if (!l2ToL1MessagePasserAddress) {
+        return []
+      }
+
+      const withdrawals: BridgeWithdrawal[] = []
+      const chainId = BigInt(await wallet.publicClient.getChainId())
+
+      // Query MessagePassed events for this user
+      const logs = await wallet.publicClient.getLogs({
+        address: l2ToL1MessagePasserAddress,
+        event: MESSAGE_PASSED_EVENT,
+        args: { sender: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of logs) {
+        const withdrawalId = log.args.withdrawalHash
+
+        const block = await wallet.publicClient.getBlock({
+          blockHash: log.blockHash,
+        })
+
+        // Cache the withdrawal data
+        withdrawalDataCache.set(withdrawalId, {
+          nonce: log.args.nonce,
+          sender: log.args.sender,
+          target: log.args.target,
+          value: log.args.value,
+          gasLimit: log.args.gasLimit,
+          data: log.args.data as Hex,
+        })
+
+        // Get withdrawal status
+        const status = await this.getWithdrawalStatus(withdrawalId)
+
+        withdrawals.push({
+          withdrawalId,
+          sender: log.args.sender,
+          recipient: log.args.target,
+          token: '0x0000000000000000000000000000000000000000' as Address,
+          amount: log.args.value,
+          sourceChainId: chainId,
+          destChainId: 1n,
+          timestamp: block.timestamp,
+          proofSubmitted: status.proven,
+          finalized: status.finalized,
+        })
+      }
+
+      // Sort by timestamp descending
+      return withdrawals.sort((a, b) => Number(b.timestamp - a.timestamp))
     },
 
     async getWithdrawalStatus(withdrawalId) {
@@ -771,8 +1001,62 @@ export function createBridgeModule(
       return { txHash, messageId }
     },
 
-    async getMessage(_messageId) {
-      // Would query indexer - requires external service
+    async getMessage(messageId) {
+      // Query Dispatch events from Hyperlane mailbox
+      const dispatchEvent = parseAbiItem(
+        'event Dispatch(address indexed sender, uint32 indexed destination, bytes32 indexed recipient, bytes message)',
+      )
+
+      const logs = await wallet.publicClient.getLogs({
+        address: hyperlaneMailboxAddress,
+        event: dispatchEvent,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Find the message with matching ID (messageId is typically the log topic)
+      for (const log of logs) {
+        // Compute message ID from event data
+        const computedId = keccak256(
+          toBytes(
+            `${log.args.sender}${log.args.destination}${log.args.recipient}${log.args.message}`,
+          ),
+        )
+
+        if (
+          computedId === messageId ||
+          log.transactionHash === (messageId as Hex)
+        ) {
+          const block = await wallet.publicClient.getBlock({
+            blockHash: log.blockHash,
+          })
+
+          // Check if delivered
+          const delivered = await wallet.publicClient.readContract({
+            address: hyperlaneMailboxAddress,
+            abi: HYPERLANE_MAILBOX_ABI,
+            functionName: 'delivered',
+            args: [messageId],
+          })
+
+          // Convert bytes32 recipient back to address
+          const recipientAddress = ('0x' +
+            log.args.recipient.slice(26)) as Address
+
+          return {
+            messageId,
+            sender: log.args.sender,
+            recipient: recipientAddress,
+            sourceChainId: BigInt(await wallet.publicClient.getChainId()),
+            destChainId: BigInt(log.args.destination),
+            data: log.args.message as Hex,
+            gasLimit: 0n, // Hyperlane handles gas
+            status: delivered ? MessageStatus.FINALIZED : MessageStatus.PENDING,
+            timestamp: block.timestamp,
+          }
+        }
+      }
+
       return null
     },
 
@@ -841,8 +1125,56 @@ export function createBridgeModule(
     },
 
     async getMyNFTTransfers() {
-      // Would query indexer - requires external service
-      return []
+      const transfers: NFTBridgeTransfer[] = []
+
+      // Query NFTBridgeInitiated events for this user
+      const logs = await wallet.publicClient.getLogs({
+        address: nftBridgeAddress,
+        event: NFT_BRIDGE_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of logs) {
+        // Filter for transfers where user is sender
+        if (log.args.sender.toLowerCase() !== wallet.address.toLowerCase()) {
+          continue
+        }
+
+        // Get the full transfer data from contract
+        const result = await wallet.publicClient.readContract({
+          address: nftBridgeAddress,
+          abi: NFT_BRIDGE_ABI,
+          functionName: 'getTransfer',
+          args: [log.args.transferId],
+        })
+
+        const transfer = result as {
+          transferId: Hex
+          tokenAddress: Address
+          tokenId: bigint
+          sender: Address
+          recipient: Address
+          sourceChainId: bigint
+          destChainId: bigint
+          status: number
+        }
+
+        if (transfer.sender !== '0x0000000000000000000000000000000000000000') {
+          transfers.push({
+            transferId: transfer.transferId,
+            tokenAddress: transfer.tokenAddress,
+            tokenId: transfer.tokenId,
+            sender: transfer.sender,
+            recipient: transfer.recipient,
+            sourceChainId: transfer.sourceChainId,
+            destChainId: transfer.destChainId,
+            status: transfer.status as MessageStatus,
+          })
+        }
+      }
+
+      return transfers
     },
 
     async sendHyperlaneMessage(destDomain, recipient, message) {

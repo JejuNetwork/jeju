@@ -170,7 +170,7 @@ export function extend2D(
 ): ExtendedMatrix2D {
   const totalRows = matrix.rows + parityRows
   const totalCols = matrix.cols + parityCols
-  const cellSize = matrix.data[0]?.[0]?.length ?? 32
+  const cellSize = matrix.data[0][0].length ?? 32
 
   // Create extended matrix
   const extended: Uint8Array[][] = []
@@ -263,7 +263,7 @@ export function reconstruct2D(
   extended: ExtendedMatrix2D,
   availableCells: Map<string, Uint8Array>,
 ): Matrix2D {
-  const cellSize = extended.data[0]?.[0]?.length ?? 32
+  const cellSize = extended.data[0][0].length ?? 32
   const reconstructed: Uint8Array[][] = []
 
   // First pass: reconstruct rows
@@ -400,7 +400,7 @@ function interpolateCell(
  * Verify extended matrix is consistent
  */
 export function verifyExtended(extended: ExtendedMatrix2D): boolean {
-  const cellSize = extended.data[0]?.[0]?.length ?? 32
+  const cellSize = extended.data[0][0].length ?? 32
 
   // Verify row parity
   for (let r = 0; r < extended.dataRows; r++) {

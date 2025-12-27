@@ -86,8 +86,8 @@ export function mapTokenTransferResponse(
   return {
     id: transfer.id,
     token: transfer.token?.address || null,
-    from: transfer.from?.address || null,
-    to: transfer.to?.address || null,
+    from: transfer.from.address || null,
+    to: transfer.to.address || null,
     value: transfer.value?.toString() || null,
     tokenId: transfer.tokenId || null,
     tokenStandard: transfer.tokenStandard,
@@ -215,15 +215,15 @@ export function mapOracleReportResponse(
   }
   return {
     reportId: report.reportId,
-    feedId: report.feed?.feedId || null,
-    symbol: report.feed?.symbol || null,
+    feedId: report.feed.feedId || null,
+    symbol: report.feed.symbol || null,
     round: report.round.toString(),
     price: report.price.toString(),
     confidence: report.confidence.toString(),
     timestamp: report.timestamp.toISOString(),
     isDisputed: report.isDisputed,
     isValid: report.isValid,
-    submittedBy: report.submittedBy?.address || null,
+    submittedBy: report.submittedBy.address || null,
     submittedAt: report.submittedAt.toISOString(),
     txHash: report.txHash || null,
     blockNumber: report.blockNumber || null,
@@ -257,9 +257,9 @@ export function mapOracleDisputeResponse(
   }
   return {
     disputeId: dispute.disputeId,
-    reportId: dispute.report?.reportId || null,
-    feedId: dispute.feed?.feedId || null,
-    disputer: dispute.disputer?.address || null,
+    reportId: dispute.report.reportId || null,
+    feedId: dispute.feed.feedId || null,
+    disputer: dispute.disputer.address || null,
     bond: dispute.bond.toString(),
     reason: dispute.reason,
     status: dispute.status,
@@ -301,7 +301,7 @@ export function mapCrossServiceRequestResponse(
   }
   return {
     requestId: request.requestId,
-    requester: request.requester?.address || null,
+    requester: request.requester.address || null,
     type: request.requestType,
     sourceCid: request.sourceCid,
     sourceProvider: request.sourceProvider?.address || null,

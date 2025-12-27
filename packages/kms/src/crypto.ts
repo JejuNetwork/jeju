@@ -29,6 +29,11 @@ export interface AESGCMPayload {
   mpc?: boolean
 }
 
+/** Marker byte for empty data - allows round-tripping empty strings */
+const EMPTY_DATA_MARKER = new Uint8Array([0x00])
+/** Marker byte prefix for non-empty data */
+const NON_EMPTY_DATA_PREFIX = 0x01
+
 /** Encrypt data using AES-256-GCM */
 export async function aesGcmEncrypt(
   data: Uint8Array,
@@ -45,6 +50,13 @@ export async function aesGcmEncrypt(
     throw new Error('AES-256 requires a 32-byte (256-bit) key')
   }
 
+  // Handle empty data specially - Web Crypto throws on empty input
+  // We use a marker byte scheme: 0x00 = empty, 0x01 + data = non-empty
+  const dataToEncrypt =
+    data.byteLength === 0
+      ? EMPTY_DATA_MARKER
+      : new Uint8Array([NON_EMPTY_DATA_PREFIX, ...data])
+
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
@@ -56,7 +68,7 @@ export async function aesGcmEncrypt(
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
-    toArrayBuffer(data),
+    toArrayBuffer(dataToEncrypt),
   )
   return { ciphertext: new Uint8Array(encrypted), iv }
 }
@@ -91,7 +103,23 @@ export async function aesGcmDecrypt(
     cryptoKey,
     toArrayBuffer(ciphertext),
   )
-  return new Uint8Array(decrypted)
+  const decryptedBytes = new Uint8Array(decrypted)
+
+  // Handle marker byte scheme for empty data support
+  if (decryptedBytes.length === 1 && decryptedBytes[0] === 0x00) {
+    // Empty data marker
+    return new Uint8Array(0)
+  }
+  if (
+    decryptedBytes.length > 0 &&
+    decryptedBytes[0] === NON_EMPTY_DATA_PREFIX
+  ) {
+    // Remove the non-empty marker prefix
+    return decryptedBytes.slice(1)
+  }
+
+  // Legacy data without marker (for backwards compatibility)
+  return decryptedBytes
 }
 
 /** Seal (encrypt) a key with a master key - prepends IV to output */

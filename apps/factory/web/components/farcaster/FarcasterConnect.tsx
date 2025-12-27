@@ -58,7 +58,7 @@ export function FarcasterConnect({
       setStep('done')
     } else if (
       onboarding?.steps.linkFid.complete &&
-      !onboarding?.steps.activateSigner.complete
+      !onboarding.steps.activateSigner.complete
     ) {
       setStep('sign')
     } else if (lookup?.found) {

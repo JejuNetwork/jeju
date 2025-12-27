@@ -5,8 +5,8 @@
  * Covers storage, compute, CDN, git, packages, and container management.
  */
 
-import { test, expect } from '@playwright/test'
-import { runFullAppCrawl, type CrawlConfig } from '@jejunetwork/tests/e2e/full-app-crawler'
+import { runFullAppCrawl } from '@jejunetwork/tests/e2e/full-app-crawler'
+import { expect, test } from '@playwright/test'
 
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4031', 10)
 const BASE_URL = `http://localhost:${DWS_PORT}`
@@ -38,11 +38,17 @@ test.describe('DWS - Full Page Coverage', () => {
 
     console.log('DWS Crawl Summary:')
     console.log(`  Pages: ${result.coverage.totalPages}`)
-    console.log(`  Buttons: ${result.coverage.buttonsClicked}/${result.coverage.totalButtons}`)
-    console.log(`  Forms: ${result.coverage.formsSubmitted}/${result.coverage.totalForms}`)
+    console.log(
+      `  Buttons: ${result.coverage.buttonsClicked}/${result.coverage.totalButtons}`,
+    )
+    console.log(
+      `  Forms: ${result.coverage.formsSubmitted}/${result.coverage.totalForms}`,
+    )
     console.log(`  Errors: ${result.errors.length}`)
 
-    expect(result.coverage.totalPages, 'Should discover pages').toBeGreaterThan(0)
+    expect(result.coverage.totalPages, 'Should discover pages').toBeGreaterThan(
+      0,
+    )
   })
 
   test('should navigate to storage section', async ({ page }) => {
@@ -114,7 +120,10 @@ test.describe('DWS - Full Page Coverage', () => {
       (e) => !e.includes('favicon') && !e.includes('net::ERR'),
     )
 
-    expect(criticalErrors.length, 'Should have minimal console errors').toBeLessThan(3)
+    expect(
+      criticalErrors.length,
+      'Should have minimal console errors',
+    ).toBeLessThan(3)
   })
 
   test('should be responsive on mobile', async ({ page }) => {
@@ -125,10 +134,15 @@ test.describe('DWS - Full Page Coverage', () => {
 
     // Check navigation is accessible (hamburger menu or visible nav)
     const nav = page.locator('nav, [role="navigation"], [data-testid*="nav"]')
-    const menuButton = page.locator('button[aria-label*="menu" i], [data-testid*="menu"]')
+    const menuButton = page.locator(
+      'button[aria-label*="menu" i], [data-testid*="menu"]',
+    )
 
-    const hasNavigation = (await nav.count()) > 0 || (await menuButton.count()) > 0
-    expect(hasNavigation, 'Should have accessible navigation on mobile').toBe(true)
+    const hasNavigation =
+      (await nav.count()) > 0 || (await menuButton.count()) > 0
+    expect(hasNavigation, 'Should have accessible navigation on mobile').toBe(
+      true,
+    )
   })
 })
 
@@ -137,17 +151,23 @@ test.describe('DWS - Storage Features', () => {
     await page.goto(`${BASE_URL}/storage`)
 
     // Should show storage metrics or upload UI
-    const storageContent = page.locator('[data-testid*="storage"], h1:has-text(/storage/i), .storage')
-    await expect(storageContent.first()).toBeVisible({ timeout: 10000 }).catch(() => {
-      // Storage section may be at different route
-    })
+    const storageContent = page.locator(
+      '[data-testid*="storage"], h1:has-text(/storage/i), .storage',
+    )
+    await expect(storageContent.first())
+      .toBeVisible({ timeout: 10000 })
+      .catch(() => {
+        // Storage section may be at different route
+      })
   })
 
   test('should have file upload capability', async ({ page }) => {
     await page.goto(`${BASE_URL}/storage`)
 
     // Look for upload button or dropzone
-    const uploadButton = page.locator('button:has-text(/upload/i), input[type="file"], [data-testid*="upload"]')
+    const uploadButton = page.locator(
+      'button:has-text(/upload/i), input[type="file"], [data-testid*="upload"]',
+    )
     const hasUpload = (await uploadButton.count()) > 0
 
     // Upload is optional but expected
@@ -161,19 +181,24 @@ test.describe('DWS - Compute Features', () => {
   test('should display compute dashboard', async ({ page }) => {
     await page.goto(`${BASE_URL}/compute`)
 
-    const computeContent = page.locator('[data-testid*="compute"], h1:has-text(/compute/i), .compute')
-    await expect(computeContent.first()).toBeVisible({ timeout: 10000 }).catch(() => {
-      // Compute section may be at different route
-    })
+    const computeContent = page.locator(
+      '[data-testid*="compute"], h1:has-text(/compute/i), .compute',
+    )
+    await expect(computeContent.first())
+      .toBeVisible({ timeout: 10000 })
+      .catch(() => {
+        // Compute section may be at different route
+      })
   })
 
   test('should show available compute resources', async ({ page }) => {
     await page.goto(`${BASE_URL}/compute`)
 
     // Look for resource metrics
-    const metrics = page.locator('[data-testid*="metric"], .metric, [class*="stat"]')
+    const _metrics = page.locator(
+      '[data-testid*="metric"], .metric, [class*="stat"]',
+    )
     // Just verify page loads properly
     await expect(page.locator('body')).toBeVisible()
   })
 })
-

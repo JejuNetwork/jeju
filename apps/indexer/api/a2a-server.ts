@@ -321,7 +321,7 @@ async function executeSkill(
       const topics = validated.topics
       const query = buildLogsQuery({
         address: validated.address,
-        topic0: topics?.[0],
+        topic0: topics[0],
         fromBlock: validated.fromBlock,
         toBlock: validated.toBlock,
         limit: validated.limit ?? 100,

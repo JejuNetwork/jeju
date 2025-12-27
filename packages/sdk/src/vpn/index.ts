@@ -10,7 +10,23 @@
  */
 
 import type { Address } from 'viem'
+import { z } from 'zod'
 import { VPNA2AResultSchema } from '../shared/schemas'
+
+// Schema for VPNAgentCard - validates external API responses
+const VPNAgentCardSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  url: z.string(),
+  skills: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      paymentRequired: z.boolean(),
+    }),
+  ),
+})
 
 export interface VPNSDKConfig {
   rpcUrl: string
@@ -204,7 +220,11 @@ export function createVPNAgentClient(
   return {
     async discover(): Promise<VPNAgentCard> {
       const response = await fetch(`${endpoint}/.well-known/agent-card.json`)
-      return response.json()
+      if (!response.ok) {
+        throw new Error(`Failed to discover VPN agent: ${response.statusText}`)
+      }
+      const rawData: unknown = await response.json()
+      return VPNAgentCardSchema.parse(rawData)
     },
 
     async connect(

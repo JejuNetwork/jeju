@@ -777,7 +777,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     }
 
     const rows = await this.query<{ count: number }>(sql, params)
-    return rows[0]?.count ?? 0
+    return rows[0].count ?? 0
   }
 
   async searchMemories(params: {
@@ -1168,7 +1168,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
         relationship.sourceEntityId,
         relationship.targetEntityId,
         relationship.agentId ?? this.agentId,
-        relationship.tags?.[0] ?? 'default',
+        relationship.tags[0] ?? 'default',
         this.toJson((relationship.metadata as JsonValue) ?? {}),
       ],
     )
@@ -1179,7 +1179,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     await this.exec(
       'UPDATE relationships SET type = ?, metadata = ? WHERE id = ?',
       [
-        relationship.tags?.[0] ?? 'default',
+        relationship.tags[0] ?? 'default',
         this.toJson((relationship.metadata as JsonValue) ?? {}),
         relationship.id,
       ],
@@ -1543,7 +1543,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       'SELECT COUNT(*) as count FROM participants WHERE entity_id = ? AND room_id = ?',
       [entityId, roomId],
     )
-    return (rows[0]?.count ?? 0) > 0
+    return (rows[0].count ?? 0) > 0
   }
 
   async getTasksByName(name: string): Promise<Task[]> {
@@ -1637,7 +1637,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     const rows = await this.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM agents',
     )
-    return rows[0]?.count ?? 0
+    return rows[0].count ?? 0
   }
 
   async cleanupAgents(): Promise<void> {

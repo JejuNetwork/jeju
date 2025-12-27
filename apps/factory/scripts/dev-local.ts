@@ -139,7 +139,7 @@ async function main() {
   const cleanup = () => {
     console.log('')
     console.log('Shutting down...')
-    if (services['Factory Client']?.pid) {
+    if (services['Factory Client'].pid) {
       process.kill(services['Factory Client'].pid)
     }
     process.exit(0)

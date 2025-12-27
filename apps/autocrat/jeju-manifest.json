@@ -15,9 +15,9 @@
     "test": "SKIP_TEE_TESTS=true bun test tests/unit/"
   },
   "ports": {
-    "main": 3010,
-    "frontend": 3010,
-    "api": 8010
+    "main": 4040,
+    "frontend": 4042,
+    "api": 4040
   },
   "dependencies": [
     "contracts",
@@ -49,7 +49,7 @@
     "url": "https://autocrat.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:8010/health",
+    "url": "http://localhost:4040/health",
     "interval": 30000
   },
   "agent": {

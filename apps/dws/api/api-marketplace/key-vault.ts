@@ -493,17 +493,23 @@ async function generateAttestation(keyId: string): Promise<string> {
     return result.attestation
   }
 
-  // Development mode - log warning
-  if (isProductionEnv()) {
+  // SECURITY: In production, we should have a TEE attestation endpoint
+  const enclaveId = process.env.TEE_ENCLAVE_ID
+  if (!enclaveId) {
+    if (isProductionEnv()) {
+      throw new Error(
+        'CRITICAL: TEE_ENCLAVE_ID must be set in production. Attestation cannot be generated without proper enclave identification.',
+      )
+    }
     console.warn(
-      '[KeyVault] TEE attestation endpoint not configured - using local attestation',
+      '[KeyVault] WARNING: TEE_ENCLAVE_ID not set. Using dev-only attestation.',
     )
   }
 
   const attestationData = {
     keyId,
     timestamp,
-    enclave: process.env.TEE_ENCLAVE_ID ?? 'development',
+    enclave: enclaveId ?? 'DEV_ONLY_ENCLAVE',
     version: '1.0.0',
   }
   return btoa(JSON.stringify(attestationData))
@@ -614,13 +620,13 @@ export async function getVaultStats(): Promise<VaultStats> {
     }
   }
 
-  const userKeys = keysResult.rows[0]?.count ?? 0
+  const userKeys = keysResult.rows[0].count ?? 0
 
   return {
     totalKeys: userKeys + systemKeyCount,
     totalSystemKeys: systemKeyCount,
     totalUserKeys: userKeys,
-    totalAccesses: accessResult.rows[0]?.count ?? 0,
-    recentAccesses: recentResult.rows[0]?.count ?? 0,
+    totalAccesses: accessResult.rows[0].count ?? 0,
+    recentAccesses: recentResult.rows[0].count ?? 0,
   }
 }

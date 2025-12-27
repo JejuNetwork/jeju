@@ -14,8 +14,8 @@
  */
 
 import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
-import { initializeExternalRPCNodes, type ChainType } from '../external-chains'
-import { initializeBotDeployment, type BotType } from '../bots'
+import { type BotType, initializeBotDeployment } from '../bots'
+import { type ChainType, initializeExternalRPCNodes } from '../external-chains'
 
 // ============================================================================
 // Configuration
@@ -30,11 +30,7 @@ const CHAINS_BY_NETWORK: Record<NetworkType, ChainType[]> = {
 
 // Bots to deploy per network
 const BOTS_BY_NETWORK: Record<NetworkType, BotType[]> = {
-  localnet: [
-    'DEX_ARBITRAGE',
-    'ORACLE_KEEPER',
-    'OIF_SOLVER',
-  ],
+  localnet: ['DEX_ARBITRAGE', 'ORACLE_KEEPER', 'OIF_SOLVER'],
   testnet: [
     'DEX_ARBITRAGE',
     'LIQUIDATION',

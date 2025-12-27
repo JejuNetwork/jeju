@@ -85,7 +85,7 @@ function calculateVisibilityScore(
   flags: ProposalFlag[],
   getStats: (address: string) => ModeratorStats,
 ): ModerationScore {
-  const proposalId = flags[0]?.proposalId ?? 'unknown'
+  const proposalId = flags[0].proposalId ?? 'unknown'
   const activeFlags = flags.filter((f) => !f.resolved)
 
   const weighted = activeFlags.reduce((sum, f) => {
@@ -158,7 +158,7 @@ function shouldAutoReject(score: ModerationScore): {
     const top = score.flags.sort(
       (a, b) => WEIGHT[b.flagType] - WEIGHT[a.flagType],
     )[0]
-    return { reject: true, reason: top?.reason ?? 'Too many flags' }
+    return { reject: true, reason: top.reason ?? 'Too many flags' }
   }
 
   if (

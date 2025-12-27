@@ -110,7 +110,7 @@ export function getEvmTokenAddress(
   symbol: string,
   chainId: number,
 ): Address | undefined {
-  return TOKENS[symbol]?.[chainId]
+  return TOKENS[symbol][chainId]
 }
 
 export interface XLPConfig {
@@ -229,7 +229,7 @@ export class XLPService extends EventEmitter {
     chainId: number,
     token: string,
   ): Promise<Address> {
-    const tokenAddress = TOKENS[token]?.[chainId]
+    const tokenAddress = TOKENS[token][chainId]
     if (!tokenAddress) {
       throw new Error(`Token ${token} not supported on chain ${chainId}`)
     }
@@ -309,7 +309,7 @@ export class XLPService extends EventEmitter {
     const poolAddress = this.config.xlpPoolAddresses[chainId]
     if (!poolAddress) throw new Error(`No XLP pool on chain ${chainId}`)
 
-    const tokenAddress = TOKENS[token]?.[chainId]
+    const tokenAddress = TOKENS[token][chainId]
     if (!tokenAddress)
       throw new Error(`Token ${token} not supported on chain ${chainId}`)
 
@@ -407,7 +407,7 @@ export class XLPService extends EventEmitter {
       return { success: false }
     }
 
-    const tokenAddress = TOKENS[request.token]?.[request.destChain]
+    const tokenAddress = TOKENS[request.token][request.destChain]
     if (!tokenAddress) {
       return { success: false }
     }
@@ -715,7 +715,7 @@ export class XLPService extends EventEmitter {
     const poolAddress = this.config.xlpPoolAddresses[chainId]
     if (!poolAddress) return
 
-    const tokenAddress = TOKENS[token]?.[chainId]
+    const tokenAddress = TOKENS[token][chainId]
     if (!tokenAddress) return
 
     const balance = (await clients.public.readContract({

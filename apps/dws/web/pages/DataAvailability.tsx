@@ -380,7 +380,7 @@ export default function DataAvailabilityPage() {
                     <div
                       style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}
                     >
-                      {op.region} · {op.usedGB?.toFixed(1) ?? 0}/{op.capacityGB}{' '}
+                      {op.region} · {op.usedGB.toFixed(1) ?? 0}/{op.capacityGB}{' '}
                       GB
                     </div>
                   </div>

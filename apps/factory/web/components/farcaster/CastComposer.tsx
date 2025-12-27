@@ -117,7 +117,7 @@ export function CastComposer({
 
       {/* Author info */}
       <div className="flex items-start gap-3">
-        {status?.pfpUrl ? (
+        {status.pfpUrl ? (
           <img
             src={status.pfpUrl}
             alt={status.username ?? ''}
@@ -125,7 +125,7 @@ export function CastComposer({
           />
         ) : (
           <div className="w-10 h-10 rounded-full bg-factory-700 flex items-center justify-center text-factory-400">
-            {status?.username?.slice(0, 2).toUpperCase() ?? '?'}
+            {status.username?.slice(0, 2).toUpperCase() ?? '?'}
           </div>
         )}
 

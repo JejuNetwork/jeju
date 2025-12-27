@@ -233,7 +233,7 @@ export const checkTrainingStatus: Action = {
       const jobDetails = activeJobs
         .map((j) => {
           const progress =
-            j.metrics?.step && j.metrics?.totalSteps
+            j.metrics?.step && j.metrics.totalSteps
               ? `${((j.metrics.step / j.metrics.totalSteps) * 100).toFixed(1)}%`
               : 'starting'
           const loss = j.metrics?.loss?.toFixed(4) ?? 'N/A'

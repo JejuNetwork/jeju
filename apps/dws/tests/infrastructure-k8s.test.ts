@@ -7,20 +7,14 @@
  * - Terraform provider resource management
  * - Service mesh backend routing
  *
- * Requires: Docker, K8s cluster (k3s/k3d), Helm
- *
- * Run with: jeju test --target-app dws --mode integration
+ * Run with: bun test tests/infrastructure-k8s.test.ts
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import type { Address } from 'viem'
-import { dwsRequest } from './setup'
-import { SKIP } from './infra-check'
+import { app } from '../api/server'
 
 setDefaultTimeout(60000)
-
-// Skip all K8s tests if no K8s cluster available
-const skipAll = SKIP.NO_K8S
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
@@ -93,11 +87,11 @@ interface IngressesListResponse {
 
 // Helm Provider Tests
 
-describe.skipIf(skipAll)('Helm Provider', () => {
+describe('Helm Provider', () => {
   let deploymentId: string
 
   test('helm health check returns healthy', async () => {
-    const res = await dwsRequest('/helm/health')
+    const res = await app.request('/helm/health')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as StatusResponse
@@ -105,7 +99,7 @@ describe.skipIf(skipAll)('Helm Provider', () => {
   })
 
   test('list deployments returns array', async () => {
-    const res = await dwsRequest('/helm/deployments', {
+    const res = await app.request('/helm/deployments', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -124,7 +118,7 @@ describe.skipIf(skipAll)('Helm Provider', () => {
       },
     ]
 
-    const res = await dwsRequest('/helm/apply', {
+    const res = await app.request('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -174,7 +168,7 @@ describe.skipIf(skipAll)('Helm Provider', () => {
       },
     ]
 
-    const res = await dwsRequest('/helm/apply', {
+    const res = await app.request('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -207,7 +201,7 @@ describe.skipIf(skipAll)('Helm Provider', () => {
       },
     ]
 
-    const res = await dwsRequest('/helm/apply', {
+    const res = await app.request('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -228,7 +222,7 @@ describe.skipIf(skipAll)('Helm Provider', () => {
   test('get deployment by id', async () => {
     if (!deploymentId) return
 
-    const res = await dwsRequest(`/helm/deployments/${deploymentId}`, {
+    const res = await app.request(`/helm/deployments/${deploymentId}`, {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -240,7 +234,7 @@ describe.skipIf(skipAll)('Helm Provider', () => {
   test('delete deployment', async () => {
     if (!deploymentId) return
 
-    const res = await dwsRequest(`/helm/deployments/${deploymentId}`, {
+    const res = await app.request(`/helm/deployments/${deploymentId}`, {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
@@ -298,7 +292,7 @@ describe.skipIf(skipAll)('Helm Provider', () => {
       },
     ]
 
-    const res = await dwsRequest('/helm/apply', {
+    const res = await app.request('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -321,12 +315,12 @@ describe.skipIf(skipAll)('Helm Provider', () => {
 
 // Terraform Provider Tests
 
-describe.skipIf(skipAll)('Terraform Provider', () => {
+describe('Terraform Provider', () => {
   let workerId: string
   let containerId: string
 
   test('terraform provider schema returns valid schema', async () => {
-    const res = await dwsRequest('/terraform/v1/schema')
+    const res = await app.request('/terraform/v1/schema')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as TerraformSchemaResponse
@@ -339,7 +333,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   })
 
   test('create worker resource via Terraform API', async () => {
-    const res = await dwsRequest('/terraform/v1/resources/dws_worker', {
+    const res = await app.request('/terraform/v1/resources/dws_worker', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -372,7 +366,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   test('read worker resource', async () => {
     if (!workerId) return
 
-    const res = await dwsRequest(
+    const res = await app.request(
       `/terraform/v1/resources/dws_worker/${workerId}`,
       {
         headers: { 'x-jeju-address': TEST_ADDRESS },
@@ -388,7 +382,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   test('update worker resource', async () => {
     if (!workerId) return
 
-    const res = await dwsRequest(
+    const res = await app.request(
       `/terraform/v1/resources/dws_worker/${workerId}`,
       {
         method: 'PUT',
@@ -411,7 +405,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   })
 
   test('create container resource', async () => {
-    const res = await dwsRequest('/terraform/v1/resources/dws_container', {
+    const res = await app.request('/terraform/v1/resources/dws_container', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -436,7 +430,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   test('read container resource', async () => {
     if (!containerId) return
 
-    const res = await dwsRequest(
+    const res = await app.request(
       `/terraform/v1/resources/dws_container/${containerId}`,
       {
         headers: { 'x-jeju-address': TEST_ADDRESS },
@@ -449,7 +443,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   })
 
   test('list nodes data source', async () => {
-    const res = await dwsRequest(
+    const res = await app.request(
       '/terraform/v1/data/dws_nodes?capability=compute',
       {
         headers: { 'x-jeju-address': TEST_ADDRESS },
@@ -464,7 +458,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   test('delete worker resource', async () => {
     if (!workerId) return
 
-    const res = await dwsRequest(
+    const res = await app.request(
       `/terraform/v1/resources/dws_worker/${workerId}`,
       {
         method: 'DELETE',
@@ -477,7 +471,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   test('delete container resource', async () => {
     if (!containerId) return
 
-    const res = await dwsRequest(
+    const res = await app.request(
       `/terraform/v1/resources/dws_container/${containerId}`,
       {
         method: 'DELETE',
@@ -488,7 +482,7 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
   })
 
   test('terraform plan simulation', async () => {
-    const res = await dwsRequest('/terraform/v1/plan', {
+    const res = await app.request('/terraform/v1/plan', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -516,12 +510,12 @@ describe.skipIf(skipAll)('Terraform Provider', () => {
 
 // K3s Provider Tests
 
-describe.skipIf(skipAll)('K3s Provider', () => {
+describe('K3s Provider', () => {
   // Skip cluster creation tests in CI unless K3S_TEST=true
   const skipClusterTests = process.env.K3S_TEST !== 'true'
 
   test('k3s health check', async () => {
-    const res = await dwsRequest('/k3s/health')
+    const res = await app.request('/k3s/health')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as StatusResponse
@@ -529,7 +523,7 @@ describe.skipIf(skipAll)('K3s Provider', () => {
   })
 
   test('list clusters returns array', async () => {
-    const res = await dwsRequest('/k3s/clusters', {
+    const res = await app.request('/k3s/clusters', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -539,7 +533,7 @@ describe.skipIf(skipAll)('K3s Provider', () => {
   })
 
   test('check available providers', async () => {
-    const res = await dwsRequest('/k3s/providers')
+    const res = await app.request('/k3s/providers')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as ProvidersListResponse
@@ -548,7 +542,7 @@ describe.skipIf(skipAll)('K3s Provider', () => {
   })
 
   test.skipIf(skipClusterTests)('create k3d cluster', async () => {
-    const res = await dwsRequest('/k3s/clusters', {
+    const res = await app.request('/k3s/clusters', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -585,7 +579,7 @@ describe.skipIf(skipAll)('K3s Provider', () => {
       },
     }
 
-    const res = await dwsRequest('/k3s/clusters/dws-test-cluster/apply', {
+    const res = await app.request('/k3s/clusters/dws-test-cluster/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -598,7 +592,7 @@ describe.skipIf(skipAll)('K3s Provider', () => {
   })
 
   test.skipIf(skipClusterTests)('install helm chart to cluster', async () => {
-    const res = await dwsRequest('/k3s/clusters/dws-test-cluster/helm', {
+    const res = await app.request('/k3s/clusters/dws-test-cluster/helm', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -616,7 +610,7 @@ describe.skipIf(skipAll)('K3s Provider', () => {
   })
 
   test.skipIf(skipClusterTests)('delete cluster', async () => {
-    const res = await dwsRequest('/k3s/clusters/dws-test-cluster', {
+    const res = await app.request('/k3s/clusters/dws-test-cluster', {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
@@ -627,9 +621,9 @@ describe.skipIf(skipAll)('K3s Provider', () => {
 
 // Service Mesh Tests
 
-describe.skipIf(skipAll)('Service Mesh', () => {
+describe('Service Mesh', () => {
   test('mesh health check', async () => {
-    const res = await dwsRequest('/mesh/health')
+    const res = await app.request('/mesh/health')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as ServiceMeshResponse
@@ -637,7 +631,7 @@ describe.skipIf(skipAll)('Service Mesh', () => {
   })
 
   test('register service backend', async () => {
-    const res = await dwsRequest('/mesh/services', {
+    const res = await app.request('/mesh/services', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -656,7 +650,7 @@ describe.skipIf(skipAll)('Service Mesh', () => {
   })
 
   test('get service backends', async () => {
-    const res = await dwsRequest('/mesh/services/default/test-api', {
+    const res = await app.request('/mesh/services/default/test-api', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     // May be 404 if service wasn't registered yet
@@ -664,7 +658,7 @@ describe.skipIf(skipAll)('Service Mesh', () => {
   })
 
   test('create access policy', async () => {
-    const res = await dwsRequest('/mesh/policies/access', {
+    const res = await app.request('/mesh/policies/access', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -683,7 +677,7 @@ describe.skipIf(skipAll)('Service Mesh', () => {
   })
 
   test('list policies', async () => {
-    const res = await dwsRequest('/mesh/policies/access', {
+    const res = await app.request('/mesh/policies/access', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -693,7 +687,7 @@ describe.skipIf(skipAll)('Service Mesh', () => {
   })
 
   test('mesh metrics available', async () => {
-    const res = await dwsRequest('/mesh/metrics', {
+    const res = await app.request('/mesh/metrics', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect([200, 404]).toContain(res.status)
@@ -702,14 +696,14 @@ describe.skipIf(skipAll)('Service Mesh', () => {
 
 // Ingress Controller Tests
 
-describe.skipIf(skipAll)('Ingress Controller', () => {
+describe('Ingress Controller', () => {
   test('ingress health check', async () => {
-    const res = await dwsRequest('/ingress/health')
+    const res = await app.request('/ingress/health')
     expect(res.status).toBe(200)
   })
 
   test('create ingress rule for worker', async () => {
-    const res = await dwsRequest('/ingress/rules', {
+    const res = await app.request('/ingress/rules', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -736,7 +730,7 @@ describe.skipIf(skipAll)('Ingress Controller', () => {
   })
 
   test('create ingress rule for service', async () => {
-    const res = await dwsRequest('/ingress/rules', {
+    const res = await app.request('/ingress/rules', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -765,7 +759,7 @@ describe.skipIf(skipAll)('Ingress Controller', () => {
   })
 
   test('list ingress rules', async () => {
-    const res = await dwsRequest('/ingress/rules', {
+    const res = await app.request('/ingress/rules', {
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
     expect(res.status).toBe(200)
@@ -775,7 +769,7 @@ describe.skipIf(skipAll)('Ingress Controller', () => {
   })
 
   test('delete ingress rule', async () => {
-    const res = await dwsRequest('/ingress/rules/api-ingress', {
+    const res = await app.request('/ingress/rules/api-ingress', {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
@@ -785,10 +779,10 @@ describe.skipIf(skipAll)('Ingress Controller', () => {
 
 // End-to-End Deployment Flow Tests
 
-describe.skipIf(skipAll)('E2E Deployment Flow', () => {
+describe('E2E Deployment Flow', () => {
   test('full deployment flow: Terraform -> Helm -> Ingress', async () => {
     // Step 1: Create infrastructure with Terraform
-    const tfWorkerRes = await dwsRequest(
+    const tfWorkerRes = await app.request(
       '/terraform/v1/resources/dws_worker',
       {
         method: 'POST',
@@ -809,7 +803,7 @@ describe.skipIf(skipAll)('E2E Deployment Flow', () => {
     const tfWorker = (await tfWorkerRes.json()) as TerraformResourceResponse
 
     // Step 2: Deploy services with Helm
-    const helmRes = await dwsRequest('/helm/apply', {
+    const helmRes = await app.request('/helm/apply', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -834,7 +828,7 @@ describe.skipIf(skipAll)('E2E Deployment Flow', () => {
     expect(helmRes.status).toBe(200)
 
     // Step 3: Create ingress to expose the service
-    const ingressRes = await dwsRequest('/ingress/rules', {
+    const ingressRes = await app.request('/ingress/rules', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -859,11 +853,11 @@ describe.skipIf(skipAll)('E2E Deployment Flow', () => {
     expect(ingressRes.status).toBe(200)
 
     // Step 4: Cleanup
-    await dwsRequest(`/terraform/v1/resources/dws_worker/${tfWorker.id}`, {
+    await app.request(`/terraform/v1/resources/dws_worker/${tfWorker.id}`, {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })
-    await dwsRequest('/ingress/rules/e2e-flow-ingress', {
+    await app.request('/ingress/rules/e2e-flow-ingress', {
       method: 'DELETE',
       headers: { 'x-jeju-address': TEST_ADDRESS },
     })

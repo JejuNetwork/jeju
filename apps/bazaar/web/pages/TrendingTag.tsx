@@ -92,11 +92,11 @@ export default function TrendingTagPage() {
       return { posts: [] as PostData[], tagInfo: null as TagInfo | null }
     }
 
-    const firstPageTag = data.pages[0]?.tag ?? null
+    const firstPageTag = data.pages[0].tag ?? null
     const allPosts = data.pages.flatMap((page) => page.posts)
     const unique = new Map<string, PostData>()
     allPosts.forEach((post: PostData) => {
-      if (post?.id) {
+      if (post.id) {
         unique.set(post.id, post)
       }
     })

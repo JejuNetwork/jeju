@@ -79,24 +79,49 @@ export function checkRateLimit(
   }
 }
 
-export function getClientId(request: Request): string {
-  const realIp = request.headers.get('x-real-ip')
-  if (realIp) {
-    return realIp.trim()
-  }
+/**
+ * SECURITY: Validate IP address format to prevent header injection
+ */
+function isValidIpAddress(ip: string): boolean {
+  const ipv4Regex =
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$/
+  return ipv4Regex.test(ip) || ipv6Regex.test(ip)
+}
 
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) {
-    const ips = forwarded
-      .split(',')
-      .map((ip) => ip.trim())
-      .reverse()
-    for (const ip of ips) {
-      if (ip && !isPrivateIp(ip)) {
-        return ip
+/**
+ * SECURITY: Only trust proxy headers in development or when explicitly configured
+ */
+const TRUST_PROXY_HEADERS =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.TRUST_PROXY_HEADERS === 'true'
+
+export function getClientId(request: Request): string {
+  // SECURITY: Only trust proxy headers if explicitly configured
+  if (TRUST_PROXY_HEADERS) {
+    const realIp = request.headers.get('x-real-ip')
+    if (realIp) {
+      const trimmedIp = realIp.trim()
+      // SECURITY: Validate IP format to prevent header injection
+      if (isValidIpAddress(trimmedIp)) {
+        return trimmedIp
       }
     }
-    if (ips[0]) return ips[0]
+
+    const forwarded = request.headers.get('x-forwarded-for')
+    if (forwarded) {
+      const ips = forwarded
+        .split(',')
+        .map((ip) => ip.trim())
+        .filter(isValidIpAddress)
+        .reverse()
+      for (const ip of ips) {
+        if (ip && !isPrivateIp(ip)) {
+          return ip
+        }
+      }
+      if (ips[0]) return ips[0]
+    }
   }
 
   return 'unknown'
@@ -274,10 +299,33 @@ export function generateNonce(username: string): string {
   return keccak256(toBytes(data)).slice(0, 18)
 }
 
+/**
+ * SECURITY: Allowed CORS origins for production
+ */
+const ALLOWED_CORS_ORIGINS = new Set(
+  (process.env.LEADERBOARD_CORS_ORIGINS ?? '').split(',').filter(Boolean),
+)
+const isProductionEnv = process.env.NODE_ENV === 'production'
+
 export function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('origin') || '*'
+  const requestOrigin = request.headers.get('origin')
+
+  // SECURITY: In production, validate origin against allowlist
+  let allowedOrigin: string
+  if (isProductionEnv) {
+    if (requestOrigin && ALLOWED_CORS_ORIGINS.has(requestOrigin)) {
+      allowedOrigin = requestOrigin
+    } else {
+      // Return first allowed origin or empty if none configured
+      allowedOrigin = ALLOWED_CORS_ORIGINS.values().next().value ?? ''
+    }
+  } else {
+    // In development, allow any origin
+    allowedOrigin = requestOrigin ?? '*'
+  }
+
   return {
-    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers':
       'Content-Type, Authorization, X-Requested-With',

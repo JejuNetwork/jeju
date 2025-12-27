@@ -20,14 +20,12 @@ import {
 } from 'lucide-react'
 import { useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { useDAO } from '../hooks/useDAO'
-import type { DAODetail as DAODetailType } from '../types/dao'
-
 // Tab components
 import { AgentsTab } from '../components/dao/AgentsTab'
 import { GovernanceTab } from '../components/dao/GovernanceTab'
 import { SettingsTab } from '../components/dao/SettingsTab'
 import { TreasuryTab } from '../components/dao/TreasuryTab'
+import { useDAO } from '../hooks/useDAO'
 
 type TabId = 'agents' | 'governance' | 'treasury' | 'settings'
 
@@ -48,7 +46,11 @@ function StatCard({
   label,
   value,
   subtext,
-}: { label: string; value: string | number; subtext?: string }) {
+}: {
+  label: string
+  value: string | number
+  subtext?: string
+}) {
   return (
     <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
       <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
@@ -65,12 +67,7 @@ export default function DAODetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Use the real API hook
-  const {
-    data: dao,
-    isLoading: loading,
-    error,
-    refetch,
-  } = useDAO(daoId)
+  const { data: dao, isLoading: loading, error, refetch } = useDAO(daoId)
 
   const activeTab = (searchParams.get('tab') as TabId) || 'agents'
 
@@ -100,7 +97,9 @@ export default function DAODetailPage() {
             Failed to load DAO
           </h2>
           <p className="text-slate-500 mb-4">
-            {error instanceof Error ? error.message : 'An unknown error occurred'}
+            {error instanceof Error
+              ? error.message
+              : 'An unknown error occurred'}
           </p>
           <div className="flex gap-3 justify-center">
             <button

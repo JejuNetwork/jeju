@@ -9,7 +9,7 @@ import {
 } from '@jejunetwork/auth/providers'
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
-import { keccak256, toBytes, toHex } from 'viem'
+import { toHex } from 'viem'
 import { z } from 'zod'
 import type { AuthConfig, AuthSession, AuthToken } from '../../lib/types'
 import { AuthProvider } from '../../lib/types'
@@ -20,7 +20,20 @@ import {
   oauthStateStore,
   refreshTokenState,
   sessionState,
+  verifyClientSecret,
 } from '../services/state'
+
+/**
+ * HTML escape to prevent XSS in rendered templates.
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
 
 // Zod schema for JWT payload validation
 const JwtPayloadSchema = z.object({
@@ -258,7 +271,7 @@ export async function createOAuthRouter(config: AuthConfig) {
   <div class="container">
     <div class="logo">JEJU</div>
     <div class="subtitle">Decentralized Authentication</div>
-    <div class="client-name">Sign in to ${client.name}</div>
+    <div class="client-name">Sign in to ${escapeHtml(client.name)}</div>
     
     <div class="providers">
       <a href="/wallet/challenge?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}" class="provider-btn primary">
@@ -315,6 +328,22 @@ export async function createOAuthRouter(config: AuthConfig) {
               return { error: 'invalid_request' }
             }
 
+            // Verify client credentials
+            const secretResult = await verifyClientSecret(
+              body.client_id,
+              body.client_secret,
+            )
+            if (!secretResult.valid) {
+              set.status = 401
+              return {
+                error: secretResult.error,
+                error_description:
+                  secretResult.error === 'client_secret_required'
+                    ? 'This client requires a client_secret'
+                    : 'Invalid client credentials',
+              }
+            }
+
             const authCode = await authCodeState.get(body.code)
             if (!authCode) {
               set.status = 400
@@ -326,9 +355,17 @@ export async function createOAuthRouter(config: AuthConfig) {
               return { error: 'invalid_grant' }
             }
 
-            // Verify PKCE if used
-            if (authCode.codeChallenge && body.code_verifier) {
-              const verifierHash = keccak256(toBytes(body.code_verifier))
+            // Verify PKCE if challenge was provided during authorization
+            if (authCode.codeChallenge) {
+              if (!body.code_verifier) {
+                set.status = 400
+                return {
+                  error: 'invalid_grant',
+                  error_description: 'PKCE code_verifier required',
+                }
+              }
+              // Use SHA-256 per OAuth2 PKCE spec (RFC 7636)
+              const verifierHash = await sha256Base64Url(body.code_verifier)
               if (verifierHash !== authCode.codeChallenge) {
                 set.status = 400
                 return {
@@ -339,7 +376,10 @@ export async function createOAuthRouter(config: AuthConfig) {
             }
 
             // Generate tokens
-            const accessToken = generateToken(authCode.userId, config.jwtSecret)
+            const accessToken = await generateToken(
+              authCode.userId,
+              config.jwtSecret,
+            )
             const refreshToken = crypto.randomUUID()
 
             // Create session
@@ -381,6 +421,19 @@ export async function createOAuthRouter(config: AuthConfig) {
               return { error: 'invalid_request' }
             }
 
+            // Verify client credentials
+            const secretResult = await verifyClientSecret(
+              body.client_id,
+              body.client_secret,
+            )
+            if (!secretResult.valid) {
+              set.status = 401
+              return {
+                error: secretResult.error,
+                error_description: 'Invalid client credentials',
+              }
+            }
+
             const storedToken = await refreshTokenState.get(body.refresh_token)
             if (!storedToken) {
               set.status = 400
@@ -415,7 +468,7 @@ export async function createOAuthRouter(config: AuthConfig) {
             await refreshTokenState.revoke(body.refresh_token)
 
             // Generate new tokens
-            const accessToken = generateToken(
+            const accessToken = await generateToken(
               storedToken.userId,
               config.jwtSecret,
             )
@@ -462,7 +515,7 @@ export async function createOAuthRouter(config: AuthConfig) {
         }
 
         const token = auth.slice(7)
-        const userId = verifyToken(token, config.jwtSecret)
+        const userId = await verifyToken(token, config.jwtSecret)
         if (!userId) {
           set.status = 401
           return { error: 'invalid_token' }
@@ -684,35 +737,113 @@ export async function createOAuthRouter(config: AuthConfig) {
   )
 }
 
-// Simple JWT-like token generation
-function generateToken(userId: string, secret: string): string {
+/**
+ * SHA-256 hash with Base64URL encoding for PKCE (RFC 7636).
+ * This is the standard S256 code_challenge_method.
+ */
+async function sha256Base64Url(input: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(input)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = new Uint8Array(hashBuffer)
+
+  // Convert to base64url (RFC 4648 Section 5)
+  let binary = ''
+  for (const byte of hashArray) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/**
+ * HMAC-SHA256 signing for JWT (RFC 7519).
+ */
+async function hmacSha256Sign(data: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const keyData = encoder.encode(secret)
+  const messageData = encoder.encode(data)
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+
+  const signature = await crypto.subtle.sign('HMAC', key, messageData)
+  const signatureArray = new Uint8Array(signature)
+
+  // Convert to base64url
+  let binary = ''
+  for (const byte of signatureArray) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/**
+ * HMAC-SHA256 verification for JWT.
+ */
+async function hmacSha256Verify(
+  data: string,
+  signature: string,
+  secret: string,
+): Promise<boolean> {
+  const expected = await hmacSha256Sign(data, secret)
+  // Constant-time comparison
+  if (expected.length !== signature.length) return false
+  let result = 0
+  for (let i = 0; i < expected.length; i++) {
+    result |= expected.charCodeAt(i) ^ signature.charCodeAt(i)
+  }
+  return result === 0
+}
+
+// JWT token generation with proper HMAC-SHA256
+async function generateToken(userId: string, secret: string): Promise<string> {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+
   const payload = btoa(
     JSON.stringify({
       sub: userId,
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 3600,
+      jti: crypto.randomUUID(), // Unique token ID
     }),
   )
-  const signature = keccak256(toBytes(`${header}.${payload}.${secret}`)).slice(
-    0,
-    32,
-  )
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+
+  const signature = await hmacSha256Sign(`${header}.${payload}`, secret)
   return `${header}.${payload}.${signature}`
 }
 
 type JwtPayload = z.infer<typeof JwtPayloadSchema>
 
-function verifyToken(token: string, secret: string): string | null {
+async function verifyToken(
+  token: string,
+  secret: string,
+): Promise<string | null> {
   const parts = token.split('.')
   if (parts.length !== 3) return null
 
-  const expectedSig = keccak256(
-    toBytes(`${parts[0]}.${parts[1]}.${secret}`),
-  ).slice(0, 32)
-  if (parts[2] !== expectedSig) return null
+  const valid = await hmacSha256Verify(
+    `${parts[0]}.${parts[1]}`,
+    parts[2],
+    secret,
+  )
+  if (!valid) return null
 
-  const parseResult = JwtPayloadSchema.safeParse(JSON.parse(atob(parts[1])))
+  // Decode base64url to base64
+  const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+
+  const parseResult = JwtPayloadSchema.safeParse(JSON.parse(atob(padded)))
   if (!parseResult.success) return null
 
   const decoded: JwtPayload = parseResult.data

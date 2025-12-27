@@ -300,9 +300,9 @@ describe('Key Vault', () => {
 
     const metadata = getKeyMetadata(vaultKey.id)
     expect(metadata).toBeDefined()
-    expect(metadata?.providerId).toBe('openai')
+    expect(metadata.providerId).toBe('openai')
     // Encrypted key should not be in metadata
-    expect((metadata as Record<string, unknown>)?.encryptedKey).toBeUndefined()
+    expect((metadata as Record<string, unknown>).encryptedKey).toBeUndefined()
   })
 
   test('should decrypt key for valid request', async () => {

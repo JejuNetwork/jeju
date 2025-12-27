@@ -82,7 +82,7 @@ export function createJejuProvider(
         {
           role: 'system' as const,
           content:
-            runtime.character?.system ?? 'You are a helpful AI assistant.',
+            runtime.character.system ?? 'You are a helpful AI assistant.',
         },
         {
           role: 'user' as const,
@@ -131,7 +131,7 @@ export function createJejuProvider(
         2,
       )
 
-      const systemPrompt = `${runtime.character?.system ?? 'You are a helpful AI assistant.'}
+      const systemPrompt = `${runtime.character.system ?? 'You are a helpful AI assistant.'}
 
 You must respond with valid JSON that matches this schema:
 ${schemaDescription}

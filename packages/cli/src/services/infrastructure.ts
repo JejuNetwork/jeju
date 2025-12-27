@@ -29,12 +29,12 @@ export interface InfrastructureStatus {
 }
 
 const CQL_PORT = INFRA_PORTS.CQL.get()
-const CQL_DATA_DIR = '.data/cql'
+const _CQL_DATA_DIR = '.data/cql'
 
 // DWS provides cache and DA services via /cache and /da endpoints
-// No longer need standalone cache-service or da-server
 const DWS_PORT = CORE_PORTS.DWS_API.get()
 
+// Docker services - IPFS is started via Docker, cache/DA are provided by DWS
 const DOCKER_SERVICES = {
   ipfs: {
     port: CORE_PORTS.IPFS_API.DEFAULT,
@@ -42,7 +42,6 @@ const DOCKER_SERVICES = {
     name: 'IPFS',
     container: 'jeju-ipfs',
     required: true,
-    native: false,
   },
   farcaster: {
     port: 2281,
@@ -50,7 +49,6 @@ const DOCKER_SERVICES = {
     name: 'Farcaster Hub',
     container: 'jeju-farcaster-hub',
     required: false,
-    native: false,
   },
 } as const
 
@@ -82,29 +80,31 @@ export class InfrastructureService {
       return true
     }
 
-    logger.step('Starting CQL (CovenantSQL)...')
+    logger.step('Starting CQL cluster (Docker Compose)...')
 
-    const dbPath = join(this.rootDir, 'packages/db')
-    if (!existsSync(dbPath)) {
-      logger.error('CQL package not found at packages/db')
+    const composeFile = join(
+      this.rootDir,
+      'packages/deployment/docker/cql-cluster.compose.yaml',
+    )
+
+    if (!existsSync(composeFile)) {
+      logger.error('CQL cluster compose file not found')
+      logger.info(
+        'Expected at: packages/deployment/docker/cql-cluster.compose.yaml',
+      )
       return false
     }
 
-    // Ensure data directory exists
-    const dataDir = join(this.rootDir, CQL_DATA_DIR)
-    const { mkdirSync } = await import('node:fs')
-    mkdirSync(dataDir, { recursive: true })
+    // Check if Docker is running
+    if (!(await this.isDockerRunning())) {
+      logger.error('Docker is not running. Please start Docker first.')
+      return false
+    }
 
-    cqlProcess = execa('bun', ['run', 'server'], {
-      cwd: dbPath,
-      env: {
-        ...process.env,
-        PORT: String(CQL_PORT),
-        CQL_PORT: String(CQL_PORT),
-        CQL_DATA_DIR: dataDir,
-      },
+    // Start CQL cluster via Docker Compose
+    cqlProcess = execa('docker', ['compose', '-f', composeFile, 'up', '-d'], {
+      cwd: this.rootDir,
       stdio: 'pipe',
-      detached: true,
     })
 
     // Capture errors for debugging
@@ -113,48 +113,56 @@ export class InfrastructureService {
       startupError += data.toString()
     })
 
-    cqlProcess.on('error', (err) => {
-      logger.error(`CQL process error: ${err.message}`)
-    })
+    try {
+      await cqlProcess
+    } catch (err) {
+      logger.error(
+        `CQL cluster failed to start: ${startupError || String(err)}`,
+      )
+      return false
+    }
 
-    cqlProcess.on('exit', (code) => {
-      if (code !== 0 && code !== null) {
-        logger.error(`CQL exited with code ${code}`)
-        if (startupError) {
-          logger.debug(`CQL stderr: ${startupError.slice(0, 500)}`)
-        }
-      }
-    })
-
-    cqlProcess.unref()
-
-    // Wait up to 30 seconds for CQL to start (60 * 500ms)
-    for (let i = 0; i < 60; i++) {
+    // Wait up to 60 seconds for CQL to become healthy
+    logger.info('Waiting for CQL cluster to become healthy...')
+    for (let i = 0; i < 120; i++) {
       await this.sleep(500)
       if (await this.isCQLRunning()) {
-        logger.success(`CQL running on port ${CQL_PORT}`)
+        logger.success(`CQL cluster running on port ${CQL_PORT}`)
+        logger.keyValue('  Load Balancer', `http://127.0.0.1:${CQL_PORT}`)
+        logger.keyValue('  Stats UI', 'http://127.0.0.1:8547/stats')
         return true
       }
-      // Log progress every 5 seconds
-      if (i > 0 && i % 10 === 0) {
-        logger.info(`  Still waiting for CQL... (${i / 2}s)`)
+      // Log progress every 10 seconds
+      if (i > 0 && i % 20 === 0) {
+        logger.info(`  Still waiting for CQL cluster... (${i / 2}s)`)
       }
     }
 
-    logger.error('CQL failed to start within 30 seconds')
+    logger.error('CQL cluster failed to become healthy within 60 seconds')
     if (startupError) {
-      logger.error(`CQL error output: ${startupError.slice(0, 500)}`)
+      logger.error(`Docker output: ${startupError.slice(0, 500)}`)
     }
     return false
   }
 
   async stopCQL(): Promise<void> {
+    const composeFile = join(
+      this.rootDir,
+      'packages/deployment/docker/cql-cluster.compose.yaml',
+    )
+
+    if (existsSync(composeFile)) {
+      logger.step('Stopping CQL cluster...')
+      await execa('docker', ['compose', '-f', composeFile, 'down'], {
+        cwd: this.rootDir,
+        reject: false,
+      })
+    }
+
     if (cqlProcess) {
       cqlProcess.kill('SIGTERM')
       cqlProcess = null
     }
-    // Also kill any orphaned CQL processes
-    await execa('pkill', ['-f', 'packages/db.*server'], { reject: false })
   }
 
   // Cache and DA services are now provided by DWS at /cache and /da endpoints
@@ -522,7 +530,10 @@ export class InfrastructureService {
     }
 
     // Docker + services need to be sequential, but can run parallel to CQL
-    const dockerTask = async (): Promise<{ name: string; success: boolean }> => {
+    const dockerTask = async (): Promise<{
+      name: string
+      success: boolean
+    }> => {
       // Start Docker if not running
       if (!dockerRunning) {
         const started = await this.startDocker()

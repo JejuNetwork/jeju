@@ -8,9 +8,17 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { type Address, encodeFunctionData, type Hex, parseAbiItem } from 'viem'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Event signatures for tracking
+const TOKEN_REGISTERED_EVENT = parseAbiItem(
+  'event TokenRegistered(bytes32 indexed tokenId, address tokenAddress, address priceOracle)',
+)
+const _CONSIGNMENT_TOPPED_UP_EVENT = parseAbiItem(
+  'event ConsignmentToppedUp(uint256 indexed consignmentId, uint256 amount)',
+)
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -324,6 +332,55 @@ const OTC_ABI = [
     inputs: [{ name: 'beneficiary', type: 'address' }],
     outputs: [{ type: 'uint256[]' }],
   },
+  {
+    name: 'offers',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'offerId', type: 'uint256' }],
+    outputs: [
+      { name: 'consignmentId', type: 'uint256' },
+      { name: 'tokenId', type: 'bytes32' },
+      { name: 'beneficiary', type: 'address' },
+      { name: 'tokenAmount', type: 'uint256' },
+      { name: 'discountBps', type: 'uint16' },
+      { name: 'createdAt', type: 'uint256' },
+      { name: 'unlockTime', type: 'uint256' },
+      { name: 'priceUsdPerToken', type: 'uint256' },
+      { name: 'maxPriceDeviation', type: 'uint256' },
+      { name: 'ethUsdPrice', type: 'uint256' },
+      { name: 'currency', type: 'uint8' },
+      { name: 'approved', type: 'bool' },
+      { name: 'paid', type: 'bool' },
+      { name: 'fulfilled', type: 'bool' },
+      { name: 'cancelled', type: 'bool' },
+      { name: 'payer', type: 'address' },
+      { name: 'amountPaid', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'getTokenPrice',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'bytes32' }],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'tokenCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'topUpConsignment',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'consignmentId', type: 'uint256' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
 ] as const
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -369,8 +426,25 @@ export function createOTCModule(
 
   return {
     async listRegisteredTokens() {
-      // Would need to enumerate token list - simplified
-      return []
+      const tokens: RegisteredToken[] = []
+
+      // Query TokenRegistered events to find all tokens
+      const logs = await wallet.publicClient.getLogs({
+        address: otcAddress,
+        event: TOKEN_REGISTERED_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      for (const log of logs) {
+        const tokenId = log.args.tokenId
+        const token = await this.getToken(tokenId)
+        if (token) {
+          tokens.push(token)
+        }
+      }
+
+      return tokens
     },
 
     async getToken(tokenId) {
@@ -393,9 +467,13 @@ export function createOTCModule(
       }
     },
 
-    async getTokenPrice(_tokenId) {
-      // Would call the price oracle - returns USD with 8 decimals
-      return 0n
+    async getTokenPrice(tokenId) {
+      return wallet.publicClient.readContract({
+        address: otcAddress,
+        abi: OTC_ABI,
+        functionName: 'getTokenPrice',
+        args: [tokenId],
+      })
     },
 
     async createConsignment(params) {
@@ -476,8 +554,13 @@ export function createOTCModule(
       return wallet.sendTransaction({ to: otcAddress, data })
     },
 
-    async topUpConsignment(_consignmentId, _amount) {
-      throw new Error('Not implemented')
+    async topUpConsignment(consignmentId, amount) {
+      const data = encodeFunctionData({
+        abi: OTC_ABI,
+        functionName: 'topUpConsignment',
+        args: [consignmentId, amount],
+      })
+      return wallet.sendTransaction({ to: otcAddress, data })
     },
 
     async createOffer(params) {
@@ -502,29 +585,79 @@ export function createOTCModule(
       return { offerId: 0n, txHash }
     },
 
-    async getOffer(_offerId) {
-      // Would read offer from contract
-      return null
+    async getOffer(offerId) {
+      const result = await wallet.publicClient.readContract({
+        address: otcAddress,
+        abi: OTC_ABI,
+        functionName: 'offers',
+        args: [offerId],
+      })
+
+      // Check if offer exists (created at would be 0)
+      if (result[5] === 0n) return null
+
+      return {
+        id: offerId,
+        consignmentId: result[0],
+        tokenId: result[1],
+        beneficiary: result[2],
+        tokenAmount: result[3],
+        discountBps: Number(result[4]),
+        createdAt: result[5],
+        unlockTime: result[6],
+        priceUsdPerToken: result[7],
+        maxPriceDeviation: result[8],
+        ethUsdPrice: result[9],
+        currency: result[10] as PaymentCurrency,
+        approved: result[11],
+        paid: result[12],
+        fulfilled: result[13],
+        cancelled: result[14],
+        payer: result[15],
+        amountPaid: result[16],
+      }
     },
 
     async listMyOffers() {
-      await wallet.publicClient.readContract({
+      const offerIds = await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
         functionName: 'getBeneficiaryOffers',
         args: [wallet.address],
       })
-      return []
+
+      const MAX_OFFERS = 100
+      const offers: Offer[] = []
+      const limitedIds = offerIds.slice(0, MAX_OFFERS)
+
+      for (const id of limitedIds) {
+        const offer = await this.getOffer(id)
+        if (offer) offers.push(offer)
+      }
+
+      return offers
     },
 
     async listPendingOffers() {
-      await wallet.publicClient.readContract({
+      const offerIds = await wallet.publicClient.readContract({
         address: otcAddress,
         abi: OTC_ABI,
         functionName: 'getOpenOfferIds',
         args: [],
       })
-      return []
+
+      const MAX_OFFERS = 100
+      const offers: Offer[] = []
+      const limitedIds = offerIds.slice(0, MAX_OFFERS)
+
+      for (const id of limitedIds) {
+        const offer = await this.getOffer(id)
+        if (offer && !offer.cancelled && !offer.fulfilled) {
+          offers.push(offer)
+        }
+      }
+
+      return offers
     },
 
     async approveOffer(offerId) {

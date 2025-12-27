@@ -339,26 +339,66 @@ describe('MessagingClientConfigBaseSchema', () => {
   })
 })
 describe('WebSocketSubscribeSchema', () => {
-  test('accepts valid subscribe message', () => {
-    const valid = {
-      type: 'subscribe',
-      address: '0x123',
-    }
-    expect(WebSocketSubscribeSchema.safeParse(valid).success).toBe(true)
+  const validSubscription = {
+    type: 'subscribe',
+    address: '0x1234567890123456789012345678901234567890',
+    signature:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12',
+    timestamp: Date.now(),
+  }
+
+  test('accepts valid subscribe message with auth', () => {
+    expect(WebSocketSubscribeSchema.safeParse(validSubscription).success).toBe(
+      true,
+    )
   })
 
   test('rejects wrong type literal', () => {
     const invalid = {
+      ...validSubscription,
       type: 'unsubscribe',
-      address: '0x123',
     }
     expect(WebSocketSubscribeSchema.safeParse(invalid).success).toBe(false)
   })
 
   test('rejects empty address', () => {
     const invalid = {
-      type: 'subscribe',
+      ...validSubscription,
       address: '',
+    }
+    expect(WebSocketSubscribeSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  test('rejects missing signature', () => {
+    const invalid = {
+      type: 'subscribe',
+      address: '0x123',
+      timestamp: Date.now(),
+    }
+    expect(WebSocketSubscribeSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  test('rejects missing timestamp', () => {
+    const invalid = {
+      type: 'subscribe',
+      address: '0x123',
+      signature: '0x1234567890abcdef',
+    }
+    expect(WebSocketSubscribeSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  test('rejects invalid signature format', () => {
+    const invalid = {
+      ...validSubscription,
+      signature: 'not-hex-prefixed',
+    }
+    expect(WebSocketSubscribeSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  test('rejects negative timestamp', () => {
+    const invalid = {
+      ...validSubscription,
+      timestamp: -1,
     }
     expect(WebSocketSubscribeSchema.safeParse(invalid).success).toBe(false)
   })

@@ -311,11 +311,11 @@ export class X402Client {
     this.config = config
     const chainConfig = CHAIN_CONFIGS[config.chainId]
     const rpcUrl =
-      config.rpcUrl ?? chainConfig?.rpcUrl ?? 'http://127.0.0.1:6546'
+      config.rpcUrl ?? chainConfig.rpcUrl ?? 'http://127.0.0.1:6546'
 
     const chain: Chain = {
       id: config.chainId,
-      name: chainConfig?.name ?? 'Unknown',
+      name: chainConfig.name ?? 'Unknown',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [rpcUrl] } },
     }
@@ -357,7 +357,7 @@ export class X402Client {
       name: 'x402 Facilitator',
       chainId: this.config.chainId,
       supportedTokens: [
-        CHAIN_CONFIGS[this.config.chainId]?.usdc ||
+        CHAIN_CONFIGS[this.config.chainId].usdc ||
           ('0x0000000000000000000000000000000000000000' as Address),
       ],
       protocolFeeBps: Number(feeBps),
@@ -407,7 +407,7 @@ export class X402Client {
       throw new Error('Wallet not connected')
     }
 
-    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc
+    const token = params.token || CHAIN_CONFIGS[this.config.chainId].usdc
     if (!token)
       throw new Error('No token specified and no default USDC for chain')
 
@@ -494,7 +494,7 @@ export class X402Client {
       throw new Error('Wallet not connected')
     }
 
-    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc
+    const token = params.token || CHAIN_CONFIGS[this.config.chainId].usdc
     if (!token) throw new Error('No token specified')
 
     // Ensure approval
@@ -600,7 +600,7 @@ export class X402Client {
       throw new Error('Wallet not connected')
     }
 
-    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc
+    const token = params.token || CHAIN_CONFIGS[this.config.chainId].usdc
     if (!token)
       throw new Error('No token specified and no default USDC for chain')
 

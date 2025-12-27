@@ -150,7 +150,7 @@ class DWSClient {
       return latencyDiff
     })
 
-    return sorted[0]?.endpoint ?? FALLBACK_DWS_URL
+    return sorted[0].endpoint ?? FALLBACK_DWS_URL
   }
 
   private async request<T>(

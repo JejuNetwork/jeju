@@ -214,3 +214,139 @@ export function parseBoolean(
   if (envValue === undefined) return defaultValue
   return envValue === 'true' || envValue === '1'
 }
+
+/**
+ * Database ID pattern - only allows safe characters for database identifiers.
+ * Prevents path traversal attacks via database ID manipulation.
+ */
+const DATABASE_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
+
+/**
+ * Validate a database ID to prevent path traversal attacks.
+ * Only allows alphanumeric characters, hyphens, and underscores.
+ *
+ * @param dbId - The database ID to validate
+ * @throws Error if the ID contains unsafe characters
+ */
+export function validateDatabaseId(dbId: string): string {
+  if (!dbId || typeof dbId !== 'string') {
+    throw new Error('Invalid database ID: must be a non-empty string')
+  }
+
+  if (!DATABASE_ID_PATTERN.test(dbId)) {
+    throw new Error(
+      `Invalid database ID "${dbId}": must contain only alphanumeric characters, hyphens, or underscores (max 128 chars)`,
+    )
+  }
+
+  // Block path traversal attempts
+  if (dbId.includes('..') || dbId.includes('/') || dbId.includes('\\')) {
+    throw new Error(`Invalid database ID "${dbId}": path traversal not allowed`)
+  }
+
+  return dbId
+}
+
+/**
+ * SQL column type whitelist - only allows known safe SQL data types.
+ */
+const ALLOWED_COLUMN_TYPES = new Set([
+  'INTEGER',
+  'BIGINT',
+  'REAL',
+  'FLOAT',
+  'DOUBLE',
+  'TEXT',
+  'BLOB',
+  'BOOLEAN',
+  'TIMESTAMP',
+  'DATETIME',
+  'DATE',
+  'TIME',
+  'JSON',
+  'NUMERIC',
+  'DECIMAL',
+  'VARCHAR',
+  'CHAR',
+])
+
+/**
+ * Validate a SQL column type to prevent injection.
+ * Only allows whitelisted SQL data types.
+ *
+ * @param columnType - The column type to validate
+ * @throws Error if the type is not whitelisted
+ */
+export function validateColumnType(columnType: string): string {
+  if (!columnType || typeof columnType !== 'string') {
+    throw new Error('Invalid column type: must be a non-empty string')
+  }
+
+  const trimmed = columnType.trim().toUpperCase()
+
+  // Check for injection characters
+  if (/[;'"\\()]/g.test(trimmed)) {
+    throw new Error(
+      `Invalid column type "${columnType}": contains unsafe characters`,
+    )
+  }
+
+  // Extract base type (handle VARCHAR(255), DECIMAL(10,2), etc.)
+  const baseType = trimmed.split(/[\s(]/)[0]
+
+  if (!baseType || !ALLOWED_COLUMN_TYPES.has(baseType)) {
+    throw new Error(
+      `Invalid column type "${columnType}": must be a valid SQL type (INTEGER, TEXT, REAL, BLOB, BOOLEAN, TIMESTAMP, etc.)`,
+    )
+  }
+
+  return trimmed
+}
+
+/**
+ * Unsafe SQL patterns that indicate injection attempts in metadata filters.
+ */
+const UNSAFE_FILTER_PATTERNS = [
+  /\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|UNION|TRUNCATE)\b/i,
+  /--/, // SQL comments
+  /;\s*$/, // Trailing semicolon
+  /\/\*/, // Multi-line comment start
+  /\bEXEC\b|\bXP_/i, // Command execution
+  /\bWAITFOR\b|\bSLEEP\b|\bBENCHMARK\b/i, // Time-based injection
+  /\bLOAD_FILE\b|\bOUTFILE\b|\bINFILE\b/i, // File operations
+]
+
+/**
+ * Validate a SQL WHERE clause fragment for metadata filtering.
+ * Only allows safe parameterized filter patterns.
+ *
+ * @param filter - The filter string to validate
+ * @throws Error if the filter contains unsafe patterns
+ */
+export function validateMetadataFilter(filter: string): string {
+  if (!filter || typeof filter !== 'string') {
+    throw new Error('Invalid metadata filter: must be a non-empty string')
+  }
+
+  const trimmed = filter.trim()
+
+  // Check for known unsafe patterns
+  for (const pattern of UNSAFE_FILTER_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      throw new Error(
+        `Unsafe SQL pattern detected in metadata filter: ${trimmed}`,
+      )
+    }
+  }
+
+  // Must use parameterized format (contains ? placeholders)
+  // Allow: column = ?, column > ?, column IN (?, ?), column IS NULL, column LIKE ?
+  const SAFE_FILTER_PATTERN = /^[a-zA-Z0-9_."`\s(),=<>!?%-]+$/
+  if (!SAFE_FILTER_PATTERN.test(trimmed)) {
+    throw new Error(
+      `Invalid metadata filter "${trimmed}": must use parameterized format (e.g., "column = ?")`,
+    )
+  }
+
+  return trimmed
+}

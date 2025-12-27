@@ -160,8 +160,16 @@ function useFaucet() {
 
 export default function FaucetTab() {
   const { isConnected } = useAccount()
-  const { status, loading, claiming, claimResult, info, claim, refresh, error } =
-    useFaucet()
+  const {
+    status,
+    loading,
+    claiming,
+    claimResult,
+    info,
+    claim,
+    refresh,
+    error,
+  } = useFaucet()
   const [showApiDocs, setShowApiDocs] = useState(false)
 
   const isRegistered = status?.isRegistered ?? false
@@ -315,7 +323,10 @@ export default function FaucetTab() {
                   marginBottom: '0.25rem',
                 }}
               >
-                <ClockIcon size={14} style={{ color: 'rgba(255,255,255,0.7)' }} />
+                <ClockIcon
+                  size={14}
+                  style={{ color: 'rgba(255,255,255,0.7)' }}
+                />
                 <span
                   style={{
                     fontSize: '0.75rem',
@@ -541,7 +552,9 @@ export default function FaucetTab() {
               marginBottom: '1.5rem',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}
+            >
               <div
                 style={{
                   padding: '0.5rem',
@@ -577,10 +590,12 @@ export default function FaucetTab() {
                 <button
                   type="button"
                   onClick={() => {
-                    window.dispatchEvent(new CustomEvent('navigate-to-register'))
+                    window.dispatchEvent(
+                      new CustomEvent('navigate-to-register'),
+                    )
                     const tabs = document.querySelectorAll('button')
                     for (const tab of tabs) {
-                      if (tab.textContent?.includes('Registry')) {
+                      if (tab.textContent.includes('Registry')) {
                         tab.click()
                         break
                       }
@@ -711,7 +726,11 @@ export default function FaucetTab() {
           >
             {claimResult.success ? (
               <div
-                style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                }}
               >
                 <CheckCircle2Icon
                   size={22}
@@ -761,7 +780,11 @@ export default function FaucetTab() {
               </div>
             ) : (
               <div
-                style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                }}
               >
                 <AlertCircleIcon
                   size={22}
@@ -806,7 +829,10 @@ export default function FaucetTab() {
       </div>
 
       {/* Developer API Card */}
-      <div className="card" style={{ marginTop: '1rem', padding: '1rem 1.25rem' }}>
+      <div
+        className="card"
+        style={{ marginTop: '1rem', padding: '1rem 1.25rem' }}
+      >
         <button
           type="button"
           onClick={() => setShowApiDocs(!showApiDocs)}
@@ -826,9 +852,15 @@ export default function FaucetTab() {
             Developer API
           </span>
           {showApiDocs ? (
-            <ChevronUpIcon size={18} style={{ color: 'var(--text-secondary)' }} />
+            <ChevronUpIcon
+              size={18}
+              style={{ color: 'var(--text-secondary)' }}
+            />
           ) : (
-            <ChevronDownIcon size={18} style={{ color: 'var(--text-secondary)' }} />
+            <ChevronDownIcon
+              size={18}
+              style={{ color: 'var(--text-secondary)' }}
+            />
           )}
         </button>
 
@@ -843,7 +875,13 @@ export default function FaucetTab() {
             >
               Integrate the faucet into your agents and applications.
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}
+            >
               <div
                 style={{
                   padding: '0.75rem 1rem',
@@ -867,7 +905,9 @@ export default function FaucetTab() {
                   fontSize: '0.8125rem',
                 }}
               >
-                <span style={{ color: 'var(--info)', fontWeight: 600 }}>POST</span>{' '}
+                <span style={{ color: 'var(--info)', fontWeight: 600 }}>
+                  POST
+                </span>{' '}
                 /api/faucet/claim {'{ address }'}
               </div>
               <div

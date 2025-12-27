@@ -215,7 +215,7 @@ const app = new Elysia()
     return {
       agents: agents.map((a) => ({
         ...mapAgentSummary(a),
-        owner: a.owner?.address,
+        owner: a.owner.address,
       })),
       total,
       limit: validated.limit,

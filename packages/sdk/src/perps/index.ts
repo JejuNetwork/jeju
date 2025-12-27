@@ -10,10 +10,27 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
+import {
+  type Address,
+  encodeFunctionData,
+  type Hex,
+  parseAbiItem,
+  parseEther,
+} from 'viem'
 import { z } from 'zod'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Event signatures for order tracking
+const ORDER_PLACED_EVENT = parseAbiItem(
+  'event OrderPlaced(bytes32 indexed orderId, address indexed trader, bytes32 indexed marketId, uint8 orderType)',
+)
+const ORDER_EXECUTED_EVENT = parseAbiItem(
+  'event OrderExecuted(bytes32 indexed orderId, uint256 executionPrice, uint256 fee)',
+)
+const ORDER_CANCELLED_EVENT = parseAbiItem(
+  'event OrderCancelled(bytes32 indexed orderId)',
+)
 
 // Contract return type schemas
 const MarketSchema = z.object({
@@ -486,6 +503,32 @@ const PERPS_MARKET_ABI = [
       { name: 'healthFactor', type: 'uint256' },
     ],
   },
+  {
+    name: 'getOrder',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'orderId', type: 'bytes32' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'orderId', type: 'bytes32' },
+          { name: 'trader', type: 'address' },
+          { name: 'marketId', type: 'bytes32' },
+          { name: 'side', type: 'uint8' },
+          { name: 'orderType', type: 'uint8' },
+          { name: 'size', type: 'uint256' },
+          { name: 'price', type: 'uint256' },
+          { name: 'triggerPrice', type: 'uint256' },
+          { name: 'margin', type: 'uint256' },
+          { name: 'marginToken', type: 'address' },
+          { name: 'leverage', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+          { name: 'status', type: 'uint8' },
+        ],
+      },
+    ],
+  },
 ] as const
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -822,13 +865,100 @@ export function createPerpsModule(
       }
     },
 
-    async getOrder(_orderId) {
-      // Would need to read from contract
-      return null
+    async getOrder(orderId) {
+      const result = await wallet.publicClient.readContract({
+        address: perpsMarketAddress,
+        abi: PERPS_MARKET_ABI,
+        functionName: 'getOrder',
+        args: [orderId],
+      })
+
+      const order = result as {
+        orderId: Hex
+        trader: Address
+        marketId: Hex
+        side: number
+        orderType: number
+        size: bigint
+        price: bigint
+        triggerPrice: bigint
+        margin: bigint
+        marginToken: Address
+        leverage: bigint
+        deadline: bigint
+        status: number
+      }
+
+      // Check if order exists (empty order has zero values)
+      if (order.deadline === 0n) return null
+
+      return {
+        orderId: order.orderId,
+        trader: order.trader,
+        marketId: order.marketId,
+        side: order.side as PositionSide,
+        orderType: order.orderType as OrderType,
+        size: order.size,
+        price: order.price,
+        triggerPrice: order.triggerPrice,
+        margin: order.margin,
+        marginToken: order.marginToken,
+        leverage: Number(order.leverage),
+        deadline: order.deadline,
+        status: order.status as OrderStatus,
+      }
     },
 
-    async getTraderOrders(_trader) {
-      return []
+    async getTraderOrders(trader) {
+      const address = trader ?? wallet.address
+      const orders: Order[] = []
+
+      // Query OrderPlaced events for this trader
+      const placedLogs = await wallet.publicClient.getLogs({
+        address: perpsMarketAddress,
+        event: ORDER_PLACED_EVENT,
+        args: { trader: address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Get cancelled orders to filter them out
+      const cancelledLogs = await wallet.publicClient.getLogs({
+        address: perpsMarketAddress,
+        event: ORDER_CANCELLED_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+      const cancelledOrderIds = new Set(
+        cancelledLogs.map((log) => log.args.orderId),
+      )
+
+      // Get executed orders to filter them out
+      const executedLogs = await wallet.publicClient.getLogs({
+        address: perpsMarketAddress,
+        event: ORDER_EXECUTED_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+      const executedOrderIds = new Set(
+        executedLogs.map((log) => log.args.orderId),
+      )
+
+      // Get details for pending orders
+      for (const log of placedLogs.slice(-100)) {
+        // Limit to last 100
+        const orderId = log.args.orderId
+        if (cancelledOrderIds.has(orderId) || executedOrderIds.has(orderId)) {
+          continue
+        }
+
+        const order = await this.getOrder(orderId)
+        if (order && order.status === OrderStatus.Pending) {
+          orders.push(order)
+        }
+      }
+
+      return orders
     },
 
     async liquidate(positionId) {

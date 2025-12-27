@@ -1074,7 +1074,7 @@ export function createGitRouter(ctx: GitContext) {
           trackGitContribution(user, repo.repoId as Hex, name, 'commit', {
             branch: branchName,
             commitCount: commits.length,
-            message: commits[0]?.message.split('\n')[0] ?? 'Push',
+            message: commits[0].message.split('\n')[0] ?? 'Push',
           })
 
           results.push({ ref: update.refName, success: true })

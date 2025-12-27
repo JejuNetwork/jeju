@@ -57,8 +57,8 @@ describe('AES-256-GCM Encryption', () => {
       const plaintext = new Uint8Array(0)
       const { ciphertext, iv } = await aesGcmEncrypt(plaintext, testKey)
 
-      // Even empty data produces auth tag (16 bytes)
-      expect(ciphertext.length).toBe(16)
+      // Empty data uses marker byte scheme: 1 byte marker + 16 byte auth tag = 17 bytes
+      expect(ciphertext.length).toBe(17)
 
       const decrypted = await aesGcmDecrypt(ciphertext, iv, testKey)
       expect(decrypted.length).toBe(0)

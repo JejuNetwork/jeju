@@ -46,7 +46,7 @@ describe('RPC Service', () => {
     it('should create clients for supported chains', () => {
       const client = service.getClient(1)
       expect(client).toBeDefined()
-      expect(client.chain?.id).toBe(1)
+      expect(client.chain.id).toBe(1)
     })
 
     it('should reuse clients for same chain', () => {
@@ -59,8 +59,8 @@ describe('RPC Service', () => {
       const ethClient = service.getClient(1)
       const baseClient = service.getClient(8453)
       expect(ethClient).not.toBe(baseClient)
-      expect(ethClient.chain?.id).toBe(1)
-      expect(baseClient.chain?.id).toBe(8453)
+      expect(ethClient.chain.id).toBe(1)
+      expect(baseClient.chain.id).toBe(8453)
     })
   })
 

@@ -11,6 +11,7 @@
  * Service registry is persisted to CQL for recovery across DWS restarts.
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -207,8 +208,24 @@ export interface ServiceInstance {
   config: ServiceConfig
 }
 
-// Default service configurations - DEV ONLY
-// Production deployments MUST override passwords via env vars or config
+// SECURITY: Get service password with production enforcement
+function getServicePassword(envVar: string, serviceName: string): string {
+  const password = process.env[envVar]
+  if (!password) {
+    if (isProductionEnv()) {
+      throw new Error(
+        `CRITICAL: ${envVar} must be set in production. ${serviceName} cannot be deployed with default credentials.`,
+      )
+    }
+    console.warn(
+      `[Services] WARNING: ${envVar} not set. Using dev-only default for ${serviceName}.`,
+    )
+    return `dev_${serviceName}_password`
+  }
+  return password
+}
+
+// Default service configurations
 const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
   postgres: {
     version: '15',
@@ -221,7 +238,10 @@ const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
       retries: 3,
     },
     env: {
-      POSTGRES_PASSWORD: process.env.DEFAULT_POSTGRES_PASSWORD || 'postgres',
+      POSTGRES_PASSWORD: getServicePassword(
+        'DEFAULT_POSTGRES_PASSWORD',
+        'postgres',
+      ),
     },
   },
   redis: {
@@ -252,7 +272,10 @@ const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
     ports: [{ container: 9000 }, { container: 9001 }],
     env: {
       MINIO_ROOT_USER: process.env.DEFAULT_MINIO_USER || 'minioadmin',
-      MINIO_ROOT_PASSWORD: process.env.DEFAULT_MINIO_PASSWORD || 'minioadmin',
+      MINIO_ROOT_PASSWORD: getServicePassword(
+        'DEFAULT_MINIO_PASSWORD',
+        'minio',
+      ),
     },
   },
 }
@@ -418,9 +441,9 @@ export async function provisionService(
   const mergedConfig: ServiceConfig = {
     ...defaults,
     ...config,
-    resources: { ...defaults?.resources, ...config.resources },
-    env: { ...defaults?.env, ...config.env },
-    ports: config.ports.length > 0 ? config.ports : (defaults?.ports ?? []),
+    resources: { ...defaults.resources, ...config.resources },
+    env: { ...defaults.env, ...config.env },
+    ports: config.ports.length > 0 ? config.ports : (defaults.ports ?? []),
   }
 
   const containerName = `dws-${config.type}-${config.name}`

@@ -561,8 +561,8 @@ export async function getAgentStats(
   }>('SELECT * FROM agent_metrics WHERE agent_id = ?', [agentId])
 
   const metrics = rows[0]
-  const invocations = metrics?.invocation_count ?? 0
-  const errors = metrics?.error_count ?? 0
+  const invocations = metrics.invocation_count ?? 0
+  const errors = metrics.error_count ?? 0
   const avgLatency =
     metrics && metrics.latency_samples > 0
       ? metrics.total_latency_ms / metrics.latency_samples
@@ -673,9 +673,9 @@ export async function getRegistryStats(): Promise<{
     ])
 
   return {
-    totalAgents: totalResult[0]?.count ?? 0,
-    activeAgents: activeResult[0]?.count ?? 0,
-    pendingAgents: pendingResult[0]?.count ?? 0,
-    totalCronTriggers: triggersResult[0]?.count ?? 0,
+    totalAgents: totalResult[0].count ?? 0,
+    activeAgents: activeResult[0].count ?? 0,
+    pendingAgents: pendingResult[0].count ?? 0,
+    totalCronTriggers: triggersResult[0].count ?? 0,
   }
 }

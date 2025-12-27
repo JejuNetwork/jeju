@@ -272,7 +272,7 @@ export function FeedPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {currentFeed?.casts.map((cast) => (
+              {currentFeed.casts.map((cast) => (
                 <CastCard
                   key={cast.hash}
                   cast={cast}

@@ -148,8 +148,8 @@ export class WebSocketBlockSubscriber extends EventEmitter {
     }
 
     const urls = this.config.rpcUrls[chainId]
-    const wsUrl = urls?.ws ?? DEFAULT_WS_URLS[chainId]
-    const httpUrl = urls?.http ?? `https://rpc.ankr.com/eth`
+    const wsUrl = urls.ws ?? DEFAULT_WS_URLS[chainId]
+    const httpUrl = urls.http ?? `https://rpc.ankr.com/eth`
 
     // Create client with WebSocket transport if available
     let client: PublicClient
@@ -260,7 +260,7 @@ export class WebSocketBlockSubscriber extends EventEmitter {
    */
   private startPolling(subscription: BlockSubscription): void {
     const { chainId, client } = subscription
-    const pollInterval = CHAINS[chainId]?.id === 42161 ? 250 : 2000 // Arbitrum is faster
+    const pollInterval = CHAINS[chainId].id === 42161 ? 250 : 2000 // Arbitrum is faster
 
     const poll = async () => {
       if (!this.running) return

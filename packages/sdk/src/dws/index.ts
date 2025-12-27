@@ -268,7 +268,7 @@ export function createDWSModule(
   network: NetworkType,
 ): DWSModule {
   const services = getServicesConfig(network)
-  const dwsApiUrl = services.dws?.api ?? `${services.gateway.api}/dws`
+  const dwsApiUrl = services.dws.api ?? `${services.gateway.api}/dws`
 
   async function authHeaders(): Promise<Record<string, string>> {
     return generateAuthHeaders(wallet, 'jeju-dws')

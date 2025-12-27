@@ -11,7 +11,7 @@ let indexerAvailable = false
 
 // Get indexer URL from config
 const services = getServicesConfig(getCurrentNetwork())
-const INDEXER_URL = services.indexer?.graphql || 'http://localhost:4350/graphql'
+const INDEXER_URL = services.indexer.graphql || 'http://localhost:4350/graphql'
 
 describe('Indexer Client', () => {
   beforeAll(async () => {

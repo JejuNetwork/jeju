@@ -35,6 +35,9 @@
     "wagmi": "2.18.1",
     "zod": "4.2.1"
   },
+  "optionalDependencies": {
+    "@nicememes/capacitor-secure-storage-plugin": "^1.1.0"
+  },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",
     "@capacitor/core": "^6.1.0",

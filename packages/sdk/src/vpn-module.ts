@@ -7,9 +7,20 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
-import { encodeFunctionData } from 'viem'
+import { encodeFunctionData, parseAbiItem } from 'viem'
 import { getContractAddresses } from './config'
 import type { JejuWallet } from './wallet'
+
+// Event signatures for session tracking
+const SESSION_STARTED_EVENT = parseAbiItem(
+  'event SessionStarted(bytes32 indexed sessionId, address indexed user, address indexed node, uint256 timestamp)',
+)
+const SESSION_ENDED_EVENT = parseAbiItem(
+  'event SessionEnded(bytes32 indexed sessionId, uint256 bytesTransferred, uint256 timestamp)',
+)
+const BANDWIDTH_REPORTED_EVENT = parseAbiItem(
+  'event BandwidthReported(address indexed node, uint256 avgMbps, uint256 latencyMs)',
+)
 
 export const VPNNodeStatus = {
   INACTIVE: 0,
@@ -215,13 +226,97 @@ export function createVPNModule(
     },
 
     async getActiveSessions(): Promise<VPNSession[]> {
-      // Would need additional contract method or indexer
-      return []
+      const sessions: VPNSession[] = []
+
+      // Query session started events for current user
+      const startedLogs = await wallet.publicClient.getLogs({
+        address: vpnRegistryAddress,
+        event: SESSION_STARTED_EVENT,
+        args: { user: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Query all ended sessions to filter out completed ones
+      const endedLogs = await wallet.publicClient.getLogs({
+        address: vpnRegistryAddress,
+        event: SESSION_ENDED_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      const endedSessionIds = new Set(
+        endedLogs.map((log) => log.args.sessionId),
+      )
+
+      // Return sessions that haven't ended
+      for (const log of startedLogs) {
+        if (endedSessionIds.has(log.args.sessionId)) {
+          continue
+        }
+
+        sessions.push({
+          sessionId: log.args.sessionId,
+          user: log.args.user,
+          node: log.args.node,
+          startedAt: Number(log.args.timestamp),
+          bytesTransferred: 0n,
+          status: 'active',
+        })
+      }
+
+      return sessions
     },
 
     async getSessionHistory(): Promise<VPNSession[]> {
-      // Would need indexer integration
-      return []
+      const sessions: VPNSession[] = []
+
+      // Query session started events for current user
+      const startedLogs = await wallet.publicClient.getLogs({
+        address: vpnRegistryAddress,
+        event: SESSION_STARTED_EVENT,
+        args: { user: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Query ended sessions for bytes transferred
+      const endedLogs = await wallet.publicClient.getLogs({
+        address: vpnRegistryAddress,
+        event: SESSION_ENDED_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Map ended sessions by ID
+      const endedMap = new Map<
+        Hex,
+        { bytesTransferred: bigint; timestamp: bigint }
+      >()
+      for (const log of endedLogs) {
+        endedMap.set(log.args.sessionId, {
+          bytesTransferred: log.args.bytesTransferred,
+          timestamp: log.args.timestamp,
+        })
+      }
+
+      // Build session history
+      for (const log of startedLogs) {
+        const endData = endedMap.get(log.args.sessionId)
+
+        sessions.push({
+          sessionId: log.args.sessionId,
+          user: log.args.user,
+          node: log.args.node,
+          startedAt: Number(log.args.timestamp),
+          endedAt: endData ? Number(endData.timestamp) : undefined,
+          bytesTransferred: endData?.bytesTransferred ?? 0n,
+          status: endData ? 'completed' : 'active',
+        })
+      }
+
+      // Sort by start time descending (most recent first)
+      return sessions.sort((a, b) => b.startedAt - a.startedAt)
     },
 
     async getVPNStats(): Promise<VPNStats> {
@@ -267,12 +362,49 @@ export function createVPNModule(
       const node = await fetchNodeDetails(operator)
       if (!node) return null
 
+      // Query bandwidth reports for this node
+      const bandwidthLogs = await wallet.publicClient.getLogs({
+        address: vpnRegistryAddress,
+        event: BANDWIDTH_REPORTED_EVENT,
+        args: { node: operator },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Calculate averages from recent reports (last 100)
+      const recentReports = bandwidthLogs.slice(-100)
+      let avgLatencyMs = 0
+      let avgBandwidthMbps = 0
+
+      if (recentReports.length > 0) {
+        const totalLatency = recentReports.reduce(
+          (sum, log) => sum + Number(log.args.latencyMs),
+          0,
+        )
+        const totalBandwidth = recentReports.reduce(
+          (sum, log) => sum + Number(log.args.avgMbps),
+          0,
+        )
+        avgLatencyMs = Math.round(totalLatency / recentReports.length)
+        avgBandwidthMbps = Math.round(totalBandwidth / recentReports.length)
+      }
+
+      // Calculate uptime based on lastSeen timestamp
+      const currentTime = Math.floor(Date.now() / 1000)
+      const timeSinceLastSeen = currentTime - node.lastSeen
+      const isRecentlyActive = timeSinceLastSeen < 300 // 5 minutes
+      const uptimePercent = isRecentlyActive
+        ? node.status === VPNNodeStatus.ACTIVE
+          ? 99
+          : 50
+        : 0
+
       return {
-        avgLatencyMs: 0, // Would need ping testing
+        avgLatencyMs,
         successRate: node.successRate,
-        uptimePercent: node.status === VPNNodeStatus.ACTIVE ? 99 : 0,
+        uptimePercent,
         totalConnections: Number(node.totalSessions),
-        avgBandwidthMbps: 100, // Would need additional metrics
+        avgBandwidthMbps,
       }
     },
 

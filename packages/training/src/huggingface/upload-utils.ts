@@ -136,10 +136,10 @@ export async function uploadToHuggingFaceViaCLI(
 ): Promise<void> {
   const execAsync = promisify(exec)
 
-  process.env.HUGGINGFACE_HUB_TOKEN = token
-
+  // Pass token via env to the child process only, not globally
   await execAsync(
     `huggingface-cli upload ${repoName} ${localDir} --repo-type ${repoType}`,
+    { env: { ...process.env, HUGGINGFACE_HUB_TOKEN: token } },
   )
 }
 

@@ -35,10 +35,10 @@ import { getExternalRPCNodeService } from '../../external-chains'
 
 // Known local ports for each chain (used in localnet mode)
 const LOCAL_RPC_PORTS: Record<number, number> = {
-  1: 8545,      // Ethereum
-  42161: 8547,  // Arbitrum
-  10: 8549,     // Optimism
-  8453: 8551,   // Base
+  1: 8545, // Ethereum
+  42161: 8547, // Arbitrum
+  10: 8549, // Optimism
+  8453: 8551, // Base
 }
 export interface TokenPrice {
   address: Address
@@ -230,7 +230,7 @@ export class MultiChainPriceAggregator {
 
   /**
    * Initialize RPC clients from DWS-provisioned external chain nodes
-   * 
+   *
    * For localnet: Uses known local Docker container ports directly
    * For testnet/mainnet: Uses DWS-provisioned nodes
    */
@@ -250,7 +250,9 @@ export class MultiChainPriceAggregator {
           // Verify the node is actually responding
           const isHealthy = await this.checkRpcHealth(rpcUrl, chainId)
           if (!isHealthy) {
-            console.log(`[PriceAggregator] Chain ${chainId}: Local node not responding on port ${port}`)
+            console.log(
+              `[PriceAggregator] Chain ${chainId}: Local node not responding on port ${port}`,
+            )
             rpcUrl = null
           }
         }
@@ -259,9 +261,11 @@ export class MultiChainPriceAggregator {
         const externalNodes = getExternalRPCNodeService()
         rpcUrl = externalNodes.getRpcEndpointByChainId(chainId)
       }
-      
+
       if (!rpcUrl) {
-        console.log(`[PriceAggregator] Chain ${chainId}: No active node (prices unavailable)`)
+        console.log(
+          `[PriceAggregator] Chain ${chainId}: No active node (prices unavailable)`,
+        )
         continue
       }
 
@@ -269,7 +273,7 @@ export class MultiChainPriceAggregator {
         chain: this.getViemChain(chainId),
         transport: http(rpcUrl, { timeout: 10_000 }),
       }) as PublicClient<Transport, Chain>
-      
+
       this.clients.set(chainId, client)
       activeCount++
       console.log(`[PriceAggregator] Chain ${chainId}: Using ${rpcUrl}`)
@@ -284,7 +288,10 @@ export class MultiChainPriceAggregator {
   /**
    * Check if an RPC endpoint is healthy
    */
-  private async checkRpcHealth(rpcUrl: string, expectedChainId: number): Promise<boolean> {
+  private async checkRpcHealth(
+    rpcUrl: string,
+    expectedChainId: number,
+  ): Promise<boolean> {
     try {
       const response = await fetch(rpcUrl, {
         method: 'POST',
@@ -344,7 +351,7 @@ export class MultiChainPriceAggregator {
    * Returns null if:
    * - DWS RPC nodes are not provisioned/active
    * - Token price cannot be fetched
-   * 
+   *
    * No fallback to external RPCs - fully permissionless.
    */
   async getPrice(
@@ -500,7 +507,7 @@ export class MultiChainPriceAggregator {
       return 2000 // Default fallback price
     }
 
-    const feedAddress = CHAINLINK_FEEDS[chainId]?.['ETH/USD']
+    const feedAddress = CHAINLINK_FEEDS[chainId]['ETH/USD']
     if (!feedAddress) {
       console.warn(`No ETH/USD price feed for chain ${chainId}, using default`)
       return 2000 // Default fallback price
@@ -789,7 +796,7 @@ export class MultiChainPriceAggregator {
    * Check if address is WETH
    */
   private isWETH(chainId: number, address: Address): boolean {
-    return WETH[chainId]?.toLowerCase() === address.toLowerCase()
+    return WETH[chainId].toLowerCase() === address.toLowerCase()
   }
 
   /**

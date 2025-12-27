@@ -262,9 +262,9 @@ describe('RLAIF Service', () => {
       const degenTrajectories = service.getTrajectories('test-env', 'degen')
 
       expect(traderTrajectories.length).toBe(1)
-      expect(traderTrajectories[0]?.agentId).toBe('agent-001')
+      expect(traderTrajectories[0].agentId).toBe('agent-001')
       expect(degenTrajectories.length).toBe(1)
-      expect(degenTrajectories[0]?.agentId).toBe('agent-002')
+      expect(degenTrajectories[0].agentId).toBe('agent-002')
     })
   })
 

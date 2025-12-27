@@ -112,7 +112,7 @@ async function setupTokenModeration() {
     readFileSync(DEPLOYMENT_FILE, 'utf8'),
   )
 
-  if (!deployment.moderation?.banManager) {
+  if (!deployment.moderation.banManager) {
     throw new Error('BanManager not deployed. Run deploy-moderation.ts first.')
   }
 

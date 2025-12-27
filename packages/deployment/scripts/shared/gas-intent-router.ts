@@ -582,7 +582,7 @@ export class GasIntentRouter {
     }
 
     const recommendation = viableOptions[0] || null
-    const requiresBridge = recommendation?.sourceChainId !== this.config.chainId
+    const requiresBridge = recommendation.sourceChainId !== this.config.chainId
 
     return {
       recommendation,

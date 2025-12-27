@@ -9,7 +9,38 @@
  */
 
 import { type CQLClient, getCQL } from '@jejunetwork/db'
-import type { Task, TaskStore } from '../types/server'
+import { z } from 'zod'
+import type { Message, Task, TaskArtifact, TaskStore } from '../types/server'
+
+// Zod schemas for validating parsed JSON from database
+const PartSchema = z.object({
+  kind: z.enum(['text', 'data', 'file']),
+  text: z.string().optional(),
+  data: z.record(z.unknown()).optional(),
+  file: z
+    .object({
+      name: z.string(),
+      mimeType: z.string(),
+      bytes: z.string(),
+    })
+    .optional(),
+})
+
+const MessageSchema: z.ZodType<Message> = z.object({
+  role: z.enum(['user', 'agent']),
+  messageId: z.string(),
+  parts: z.array(PartSchema),
+  kind: z.literal('message'),
+})
+
+const TaskArtifactSchema: z.ZodType<TaskArtifact> = z.object({
+  artifactId: z.string(),
+  name: z.string(),
+  parts: z.array(PartSchema),
+})
+
+const HistorySchema = z.array(MessageSchema)
+const ArtifactsSchema = z.array(TaskArtifactSchema)
 
 // CQL Database configuration
 const A2A_TASKS_DATABASE_ID = 'a2a-tasks'
@@ -69,6 +100,34 @@ interface TaskRow {
 }
 
 function rowToTask(row: TaskRow): Task {
+  // Parse and validate history JSON with Zod schema
+  let history: Message[] | undefined
+  if (row.history) {
+    const parsed = HistorySchema.safeParse(JSON.parse(row.history))
+    if (parsed.success) {
+      history = parsed.data
+    } else {
+      console.warn(
+        `[A2A TaskStore] Invalid history JSON for task ${row.id}:`,
+        parsed.error.message,
+      )
+    }
+  }
+
+  // Parse and validate artifacts JSON with Zod schema
+  let artifacts: TaskArtifact[] | undefined
+  if (row.artifacts) {
+    const parsed = ArtifactsSchema.safeParse(JSON.parse(row.artifacts))
+    if (parsed.success) {
+      artifacts = parsed.data
+    } else {
+      console.warn(
+        `[A2A TaskStore] Invalid artifacts JSON for task ${row.id}:`,
+        parsed.error.message,
+      )
+    }
+  }
+
   return {
     kind: 'task',
     id: row.id,
@@ -78,8 +137,8 @@ function rowToTask(row: TaskRow): Task {
       timestamp: row.status_timestamp ?? undefined,
       message: row.status_message ?? undefined,
     },
-    history: row.history ? JSON.parse(row.history) : undefined,
-    artifacts: row.artifacts ? JSON.parse(row.artifacts) : undefined,
+    history,
+    artifacts,
   }
 }
 
@@ -237,7 +296,7 @@ export class ExtendedTaskStore implements TaskStore {
       queryParams,
       A2A_TASKS_DATABASE_ID,
     )
-    const totalSize = countResult.rows[0]?.count ?? 0
+    const totalSize = countResult.rows[0].count ?? 0
 
     // Pagination
     const pageSize = Math.min(params.pageSize ?? 10, 100) // Max 100 per page
@@ -347,7 +406,7 @@ export class ExtendedTaskStore implements TaskStore {
       A2A_TASKS_DATABASE_ID,
     )
 
-    return result.rows[0]?.count ?? 0
+    return result.rows[0].count ?? 0
   }
 
   /**

@@ -19,9 +19,6 @@ import { verifySignedRequest } from './provisioning'
 
 const SIGNATURE_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
 
-// System databases that don't require auth (internal use only, not exposed)
-const SYSTEM_DATABASES = new Set(['dws', 'dws-agents', 'dws-database-registry'])
-
 // Schemas
 
 const queryParamSchema = z.union([
@@ -37,17 +34,9 @@ const signedQuerySchema = z.object({
   sql: z.string().min(1),
   params: z.array(queryParamSchema).default([]),
   timestamp: z.number().int().positive(),
-  // Authentication
+  // Authentication - REQUIRED for all requests
   signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
   signer: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-})
-
-const unsignedQuerySchema = z.object({
-  database: z.string().min(1),
-  type: z.enum(['query', 'exec']),
-  sql: z.string().min(1),
-  params: z.array(queryParamSchema).default([]),
-  timestamp: z.number().int().positive(),
 })
 
 // Secure Query Execution
@@ -149,61 +138,16 @@ export function createSecureCQLRouter() {
       /**
        * Secure query endpoint - requires signature
        */
-      .post('/query', async ({ body, set, request }) => {
-        // Check if this is a signed request
+      .post('/query', async ({ body, set }) => {
+        // SECURITY: All requests MUST be signed - no localhost bypass
         const parsed = signedQuerySchema.safeParse(body)
 
         if (!parsed.success) {
-          // Try unsigned schema for internal requests (localhost only)
-          const unsignedParsed = unsignedQuerySchema.safeParse(body)
-          if (unsignedParsed.success) {
-            // Only allow unsigned requests for system databases from localhost
-            const host = request.headers.get('host') ?? ''
-            const isLocal =
-              host.startsWith('localhost') || host.startsWith('127.0.0.1')
-
-            if (!isLocal) {
-              set.status = 401
-              return { error: 'Authentication required for remote requests' }
-            }
-
-            if (!SYSTEM_DATABASES.has(unsignedParsed.data.database)) {
-              set.status = 401
-              return {
-                error: 'Authentication required for non-system databases',
-              }
-            }
-
-            // Execute without auth for system databases from localhost
-            const client = getCQL()
-            const {
-              sql: querySql,
-              params: queryParams,
-              database: queryDb,
-            } = unsignedParsed.data
-            if (unsignedParsed.data.type === 'query') {
-              const result = await client.query(querySql, queryParams, queryDb)
-              return {
-                rows: result.rows,
-                rowCount: result.rowCount,
-                columns: result.columns.map((c) => c.name),
-                executionTime: result.executionTime,
-                blockHeight: result.blockHeight,
-              }
-            } else {
-              const result = await client.exec(querySql, queryParams, queryDb)
-              return {
-                rowsAffected: result.rowsAffected,
-                lastInsertId: result.lastInsertId?.toString(),
-                txHash: result.txHash,
-                blockHeight: result.blockHeight,
-                gasUsed: result.gasUsed.toString(),
-              }
-            }
-          }
-
           set.status = 400
-          return { error: 'Invalid request', details: parsed.error.issues }
+          return {
+            error: 'Invalid request: signature required',
+            details: parsed.error.issues,
+          }
         }
 
         const { database, type, sql, params, timestamp, signature, signer } =

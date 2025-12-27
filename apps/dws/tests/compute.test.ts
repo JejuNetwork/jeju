@@ -27,8 +27,9 @@ setDefaultTimeout(10000)
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
-// Skip integration tests when infrastructure isn't available or explicitly requested
-const SKIP = process.env.SKIP_INTEGRATION === 'true' || process.env.INFRA_READY !== 'true'
+// Skip integration tests when running from root (parallel execution causes issues)
+// Only skip if explicitly requested, not by default in CI
+const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
 describe.skipIf(SKIP)('Compute Service', () => {
   // Set up mock inference node for tests
@@ -81,6 +82,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
     })
 
     ;(globalThis as Record<string, unknown>)._testMockServer = mockServer
+    _mockServerStarted = true
 
     // Register mock inference node
     registerNode({

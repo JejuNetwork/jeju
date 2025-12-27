@@ -7,14 +7,19 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { formatUnits } from 'viem'
 import {
-  fetchTokensWithMarketData,
+  type Address,
+  createPublicClient,
+  erc20Abi,
+  formatUnits,
+  http,
+} from 'viem'
+import { CONTRACTS, RPC_URL } from '../../config'
+import {
   checkIndexerHealth,
+  fetchTokensWithMarketData,
   type Token,
 } from '../../lib/data-client'
-import { CONTRACTS, RPC_URL } from '../../config'
-import { createPublicClient, erc20Abi, http, type Address } from 'viem'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { JEJU_CHAIN_ID } from '../config/chains'
 
@@ -231,7 +236,10 @@ export default function CoinsPage() {
           <div className="flex items-center gap-3">
             <span className="text-xl">⚠️</span>
             <div>
-              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+              <p
+                className="font-medium"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 Limited Data Available
               </p>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>

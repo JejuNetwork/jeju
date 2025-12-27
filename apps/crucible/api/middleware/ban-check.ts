@@ -80,8 +80,9 @@ export function banCheckMiddleware() {
     }
 
     // Extract address from various sources
+    // Note: x-jeju-address header is used (signature verified by ownership check)
     let address: string | null =
-      request.headers.get('x-wallet-address') ?? url.searchParams.get('address')
+      request.headers.get('x-jeju-address') ?? url.searchParams.get('address')
 
     if (!address) {
       // Try to get from JSON body with schema validation

@@ -17,7 +17,7 @@ import { createLogger } from '@jejunetwork/shared'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex } from '@noble/hashes/utils'
 import { Elysia } from 'elysia'
-import type { Address } from 'viem'
+import { type Address, type Hex, verifyMessage } from 'viem'
 
 import {
   IPFSAddResponseSchema,
@@ -476,13 +476,51 @@ export function createRelayServer(config: NodeConfig) {
 
       const { address } = params
 
-      // Validate address format (prevent injection)
-      if (
-        !/^0x[a-fA-F0-9]{40}$/i.test(address) &&
-        !/^[a-zA-Z0-9._-]+$/.test(address)
-      ) {
+      // Validate Ethereum address format only (required for signature verification)
+      if (!/^0x[a-fA-F0-9]{40}$/i.test(address)) {
         set.status = 400
         return { error: 'Invalid address format' }
+      }
+
+      // SECURITY: Authenticate request - only the owner can fetch their messages
+      const signature = headers.get('x-jeju-signature') as Hex | null
+      const timestamp = headers.get('x-jeju-timestamp')
+
+      if (!signature || !timestamp) {
+        set.status = 401
+        return {
+          error:
+            'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.',
+        }
+      }
+
+      // Validate timestamp to prevent replay attacks
+      const ts = parseInt(timestamp, 10)
+      const now = Date.now()
+      if (
+        Number.isNaN(ts) ||
+        ts < now - MAX_MESSAGE_AGE_MS ||
+        ts > now + MAX_CLOCK_SKEW_MS
+      ) {
+        set.status = 401
+        return { error: 'Invalid or expired timestamp' }
+      }
+
+      // Verify signature proves ownership
+      let isValid = false
+      try {
+        isValid = await verifyMessage({
+          address: address as Address,
+          message: `Get messages:${address}:${timestamp}`,
+          signature,
+        })
+      } catch {
+        isValid = false
+      }
+
+      if (!isValid) {
+        set.status = 401
+        return { error: 'Invalid signature - cannot verify address ownership' }
       }
 
       const pending = await getPendingMessages(address)
@@ -498,8 +536,9 @@ export function createRelayServer(config: NodeConfig) {
       }
     })
 
-    .get('/message/:id', async ({ params, set }) => {
+    .get('/message/:id', async ({ params, request, set }) => {
       const { id } = params
+      const headers = request.headers as RequestHeaders
 
       // Validate UUID format to prevent injection
       if (
@@ -518,6 +557,60 @@ export function createRelayServer(config: NodeConfig) {
         return { error: 'Message not found' }
       }
 
+      // SECURITY: Authenticate request - only sender or recipient can view message
+      const signature = headers.get('x-jeju-signature') as Hex | null
+      const timestamp = headers.get('x-jeju-timestamp')
+
+      if (!signature || !timestamp) {
+        set.status = 401
+        return {
+          error:
+            'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.',
+        }
+      }
+
+      // Validate timestamp
+      const ts = parseInt(timestamp, 10)
+      const now = Date.now()
+      if (
+        Number.isNaN(ts) ||
+        ts < now - MAX_MESSAGE_AGE_MS ||
+        ts > now + MAX_CLOCK_SKEW_MS
+      ) {
+        set.status = 401
+        return { error: 'Invalid or expired timestamp' }
+      }
+
+      // Try verifying as sender
+      let isAuthorized = false
+      try {
+        isAuthorized = await verifyMessage({
+          address: message.envelope.from as Address,
+          message: `Get message:${id}:${timestamp}`,
+          signature,
+        })
+      } catch {
+        isAuthorized = false
+      }
+
+      // Try verifying as recipient if not sender
+      if (!isAuthorized) {
+        try {
+          isAuthorized = await verifyMessage({
+            address: message.envelope.to as Address,
+            message: `Get message:${id}:${timestamp}`,
+            signature,
+          })
+        } catch {
+          isAuthorized = false
+        }
+      }
+
+      if (!isAuthorized) {
+        set.status = 401
+        return { error: 'Unauthorized - must be sender or recipient' }
+      }
+
       return {
         ...message.envelope,
         cid: message.cid,
@@ -526,8 +619,9 @@ export function createRelayServer(config: NodeConfig) {
       }
     })
 
-    .post('/read/:id', async ({ params, set }) => {
+    .post('/read/:id', async ({ params, request, set }) => {
       const { id } = params
+      const headers = request.headers as RequestHeaders
 
       // Validate UUID format
       if (
@@ -544,6 +638,49 @@ export function createRelayServer(config: NodeConfig) {
       if (!message) {
         set.status = 404
         return { error: 'Message not found' }
+      }
+
+      // SECURITY: Only the recipient can mark a message as read
+      const signature = headers.get('x-jeju-signature') as Hex | null
+      const timestamp = headers.get('x-jeju-timestamp')
+
+      if (!signature || !timestamp) {
+        set.status = 401
+        return {
+          error:
+            'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.',
+        }
+      }
+
+      // Validate timestamp
+      const ts = parseInt(timestamp, 10)
+      const now = Date.now()
+      if (
+        Number.isNaN(ts) ||
+        ts < now - MAX_MESSAGE_AGE_MS ||
+        ts > now + MAX_CLOCK_SKEW_MS
+      ) {
+        set.status = 401
+        return { error: 'Invalid or expired timestamp' }
+      }
+
+      // Verify signature from recipient only
+      let isValid = false
+      try {
+        isValid = await verifyMessage({
+          address: message.envelope.to as Address,
+          message: `Mark read:${id}:${timestamp}`,
+          signature,
+        })
+      } catch {
+        isValid = false
+      }
+
+      if (!isValid) {
+        set.status = 401
+        return {
+          error: 'Unauthorized - only recipient can mark message as read',
+        }
       }
 
       // Update status in CQL
@@ -614,6 +751,9 @@ interface WebSocketLike {
   readyState: number
 }
 
+/** Max age for subscription timestamp (5 minutes) */
+const MAX_SUBSCRIPTION_AGE_MS = 5 * 60 * 1000
+
 /**
  * Process a subscription message and set up the subscriber
  * Returns the subscribed address or null if invalid
@@ -661,7 +801,45 @@ async function processSubscription(
     return null
   }
 
-  const address = parseResult.data.address.toLowerCase()
+  const { address: rawAddress, signature, timestamp } = parseResult.data
+  const address = rawAddress.toLowerCase()
+
+  // Validate timestamp to prevent replay attacks
+  const now = Date.now()
+  if (
+    timestamp < now - MAX_SUBSCRIPTION_AGE_MS ||
+    timestamp > now + MAX_CLOCK_SKEW_MS
+  ) {
+    ws.send(
+      JSON.stringify({
+        type: 'error',
+        error: 'Invalid or expired timestamp',
+      }),
+    )
+    return null
+  }
+
+  // Verify signature proves ownership of the address
+  let isValid = false
+  try {
+    isValid = await verifyMessage({
+      address: rawAddress as Address,
+      message: `Subscribe to Jeju messages:${rawAddress}:${timestamp}`,
+      signature: signature as Hex,
+    })
+  } catch {
+    isValid = false
+  }
+
+  if (!isValid) {
+    ws.send(
+      JSON.stringify({
+        type: 'error',
+        error: 'Invalid signature - cannot verify address ownership',
+      }),
+    )
+    return null
+  }
 
   // Check subscriber limit to prevent DoS
   if (!subscribers.has(address) && subscribers.size >= MAX_SUBSCRIBERS) {

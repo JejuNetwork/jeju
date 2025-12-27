@@ -250,7 +250,7 @@ export class ExternalProtocolAggregator extends EventEmitter {
         chainId: order.chainId,
         inputToken: order.input.token,
         outputToken:
-          order.outputs[0]?.token ||
+          order.outputs[0].token ||
           '0x0000000000000000000000000000000000000000',
         inputAmount: order.input.amount,
         outputAmount: totalOutput,

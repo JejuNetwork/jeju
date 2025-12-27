@@ -6,7 +6,24 @@
 
 import { useCallback } from 'react'
 import type { Address, Hex } from 'viem'
+import type { SignTypedDataOptions } from '../../sdk/client.js'
 import { useOAuth3 } from '../provider.js'
+
+/**
+ * EIP-712 typed data structure
+ */
+export interface TypedDataParams {
+  domain: {
+    name?: string
+    version?: string
+    chainId?: number
+    verifyingContract?: Address
+    salt?: Hex
+  }
+  types: Record<string, Array<{ name: string; type: string }>>
+  primaryType: string
+  message: Record<string, unknown>
+}
 
 /**
  * Wallet hook return type
@@ -18,13 +35,14 @@ export interface UseJejuWalletReturn {
   ready: boolean
   /** Sign a message */
   signMessage: (message: string | Uint8Array) => Promise<Hex>
-  /** Sign typed data */
-  signTypedData: (typedData: Record<string, unknown>) => Promise<Hex>
-  /** Send a transaction */
+  /** Sign EIP-712 typed data */
+  signTypedData: (typedData: TypedDataParams) => Promise<Hex>
+  /** Send a transaction via the smart account */
   sendTransaction: (tx: {
     to: Address
     data?: Hex
     value?: bigint
+    gasLimit?: bigint
   }) => Promise<Hex>
 }
 
@@ -60,19 +78,28 @@ export function useJejuWallet(): UseJejuWalletReturn {
   )
 
   const signTypedData = useCallback(
-    async (_typedData: Record<string, unknown>): Promise<Hex> => {
-      // TODO: Implement typed data signing when available in OAuth3
-      throw new Error('signTypedData not yet implemented')
+    async (typedData: TypedDataParams): Promise<Hex> => {
+      const options: SignTypedDataOptions = {
+        domain: typedData.domain,
+        types: typedData.types,
+        primaryType: typedData.primaryType,
+        message: typedData.message,
+      }
+      return oauth3.client.signTypedData(options)
     },
-    [],
+    [oauth3.client],
   )
 
   const sendTransaction = useCallback(
-    async (_tx: { to: Address; data?: Hex; value?: bigint }): Promise<Hex> => {
-      // TODO: Implement transaction sending via smart account
-      throw new Error('sendTransaction not yet implemented')
+    async (tx: {
+      to: Address
+      data?: Hex
+      value?: bigint
+      gasLimit?: bigint
+    }): Promise<Hex> => {
+      return oauth3.client.sendTransaction(tx)
     },
-    [],
+    [oauth3.client],
   )
 
   return {

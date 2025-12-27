@@ -272,19 +272,22 @@ export class ExternalRPCNodeService {
     const dwsEndpoint = DWS_ENDPOINTS[this.network]
 
     // Request node from DWS
-    const response = await fetch(`${dwsEndpoint}/api/external-chains/provision`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chain,
-        chainId: config.chainId,
-        image: config.dwsImage,
-        minMemoryGb: config.dwsMinMemoryGb,
-        minStorageGb: config.dwsMinStorageGb,
-        minCpuCores: config.dwsMinCpuCores,
-        teeRequired: this.network === 'mainnet' && config.teeRequired,
-      }),
-    })
+    const response = await fetch(
+      `${dwsEndpoint}/api/external-chains/provision`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chain,
+          chainId: config.chainId,
+          image: config.dwsImage,
+          minMemoryGb: config.dwsMinMemoryGb,
+          minStorageGb: config.dwsMinStorageGb,
+          minCpuCores: config.dwsMinCpuCores,
+          teeRequired: this.network === 'mainnet' && config.teeRequired,
+        }),
+      },
+    )
 
     if (!response.ok) {
       const error = await response.text()
@@ -331,12 +334,20 @@ export class ExternalRPCNodeService {
     const { spawn } = await import('bun')
 
     // Check if container exists
-    const checkProc = spawn(['docker', 'ps', '-aq', '-f', `name=${containerName}`])
+    const checkProc = spawn([
+      'docker',
+      'ps',
+      '-aq',
+      '-f',
+      `name=${containerName}`,
+    ])
     const checkOutput = await new Response(checkProc.stdout).text()
 
     if (checkOutput.trim()) {
       // Container exists - start it
-      console.log(`[ExternalRPCNodes] Starting existing container: ${containerName}`)
+      console.log(
+        `[ExternalRPCNodes] Starting existing container: ${containerName}`,
+      )
       const startProc = spawn(['docker', 'start', containerName])
       await startProc.exited
       return
@@ -354,41 +365,40 @@ export class ExternalRPCNodeService {
       args.push('--entrypoint', 'anvil')
       args.push(config.dockerImage)
       args.push(
-        '--fork-url', config.forkUrl,
-        '--chain-id', String(config.chainId),
-        '--host', '0.0.0.0',
-        '--port', '8545',
-        '--block-time', '2',
+        '--fork-url',
+        config.forkUrl,
+        '--chain-id',
+        String(config.chainId),
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8545',
+        '--block-time',
+        '2',
       )
     } else if (config.chain === 'solana') {
-      // Force x86_64 platform for ARM Macs
-      args.push('--platform', 'linux/amd64')
       args.push(
-        '-p', `${config.rpcPort}:8899`,
-        '-p', `${config.wsPort}:8900`,
-        '-p', '9900:9900',
+        '-p',
+        `${config.rpcPort}:8899`,
+        '-p',
+        `${config.wsPort}:8900`,
+        '-p',
+        '9900:9900',
       )
       args.push(config.dockerImage)
-      // Build solana-test-validator command
-      const solanaArgs = [
+      args.push(
         'solana-test-validator',
-        '--bind-address', '0.0.0.0',
-        '--rpc-port', '8899',
-        '--faucet-port', '9900',
+        '--bind-address',
+        '0.0.0.0',
+        '--rpc-port',
+        '8899',
+        '--faucet-port',
+        '9900',
         '--reset',
         '--quiet',
-      ]
-      // Add --no-bpf-jit on ARM architecture for compatibility
-      if (process.arch === 'arm64' || process.arch === 'arm') {
-        console.log('[ExternalRPCNodes] ARM detected, using --no-bpf-jit for Solana')
-        solanaArgs.push('--no-bpf-jit')
-      }
-      args.push(...solanaArgs)
-    } else if (config.chain === 'bitcoin') {
-      args.push(
-        '-p', `${config.rpcPort}:18443`,
-        '-p', '18444:18444',
       )
+    } else if (config.chain === 'bitcoin') {
+      args.push('-p', `${config.rpcPort}:18443`, '-p', '18444:18444')
       args.push(config.dockerImage)
       args.push(
         '-regtest',
@@ -435,7 +445,9 @@ export class ExternalRPCNodeService {
     }
 
     node.status = 'unhealthy'
-    console.warn(`[ExternalRPCNodes] ${node.chain} timed out - may still be syncing`)
+    console.warn(
+      `[ExternalRPCNodes] ${node.chain} timed out - may still be syncing`,
+    )
   }
 
   /**
@@ -457,7 +469,10 @@ export class ExternalRPCNodeService {
       ).catch(() => null)
 
       if (response?.ok) {
-        const status = (await response.json()) as { status: string; syncProgress: number }
+        const status = (await response.json()) as {
+          status: string
+          syncProgress: number
+        }
         node.status = status.status as NodeStatus
         node.syncProgress = status.syncProgress
 
@@ -482,7 +497,11 @@ export class ExternalRPCNodeService {
    * Check if a node is healthy
    */
   private async checkNodeHealth(node: ExternalChainNode): Promise<boolean> {
-    if (node.chainId > 0 && node.chain !== 'solana' && node.chain !== 'bitcoin') {
+    if (
+      node.chainId > 0 &&
+      node.chain !== 'solana' &&
+      node.chain !== 'bitcoin'
+    ) {
       // EVM chain
       const response = await fetch(node.rpcEndpoint, {
         method: 'POST',
@@ -498,7 +517,9 @@ export class ExternalRPCNodeService {
 
       if (!response) return false
 
-      const result = (await response.json().catch(() => null)) as { result?: string } | null
+      const result = (await response.json().catch(() => null)) as {
+        result?: string
+      } | null
       if (!result?.result) return false
 
       const chainId = parseInt(result.result, 16)
@@ -514,7 +535,9 @@ export class ExternalRPCNodeService {
       }).catch(() => null)
 
       if (!response) return false
-      const result = (await response.json().catch(() => null)) as { result?: string } | null
+      const result = (await response.json().catch(() => null)) as {
+        result?: string
+      } | null
       return result?.result === 'ok'
     }
 

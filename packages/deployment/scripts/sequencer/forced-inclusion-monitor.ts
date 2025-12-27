@@ -131,7 +131,7 @@ class ForcedInclusionMonitor {
         for (const log of logs) {
           const args = log.args
           if (
-            !args?.txId ||
+            !args.txId ||
             !args.sender ||
             args.fee === undefined ||
             args.queuedAtBlock === undefined
@@ -154,7 +154,7 @@ class ForcedInclusionMonitor {
       onLogs: (logs) => {
         for (const log of logs) {
           const args = log.args
-          if (!args?.txId || !args.sequencer || !args.batchRoot) continue
+          if (!args.txId || !args.sequencer || !args.batchRoot) continue
           this.handleTxIncluded(args.txId, args.sequencer, args.batchRoot)
         }
       },
@@ -167,7 +167,7 @@ class ForcedInclusionMonitor {
       onLogs: (logs) => {
         for (const log of logs) {
           const args = log.args
-          if (!args?.txId || !args.forcer || args.reward === undefined) continue
+          if (!args.txId || !args.forcer || args.reward === undefined) continue
           this.handleTxForced(args.txId, args.forcer, args.reward)
         }
       },
@@ -180,7 +180,7 @@ class ForcedInclusionMonitor {
       onLogs: (logs) => {
         for (const log of logs) {
           const args = log.args
-          if (!args?.txId || !args.sender || args.refund === undefined) continue
+          if (!args.txId || !args.sender || args.refund === undefined) continue
           this.handleTxExpired(args.txId, args.sender, args.refund)
         }
       },
@@ -237,7 +237,7 @@ class ForcedInclusionMonitor {
     for (const log of queuedLogs) {
       const args = log.args
       if (
-        !args?.txId ||
+        !args.txId ||
         !args.sender ||
         args.fee === undefined ||
         args.queuedAtBlock === undefined
@@ -248,19 +248,19 @@ class ForcedInclusionMonitor {
 
     for (const log of includedLogs) {
       const args = log.args
-      if (!args?.txId || !args.sequencer || !args.batchRoot) continue
+      if (!args.txId || !args.sequencer || !args.batchRoot) continue
       this.handleTxIncluded(args.txId, args.sequencer, args.batchRoot)
     }
 
     for (const log of forcedLogs) {
       const args = log.args
-      if (!args?.txId || !args.forcer || args.reward === undefined) continue
+      if (!args.txId || !args.forcer || args.reward === undefined) continue
       this.handleTxForced(args.txId, args.forcer, args.reward)
     }
 
     for (const log of expiredLogs) {
       const args = log.args
-      if (!args?.txId || !args.sender || args.refund === undefined) continue
+      if (!args.txId || !args.sender || args.refund === undefined) continue
       this.handleTxExpired(args.txId, args.sender, args.refund)
     }
   }
@@ -473,7 +473,7 @@ export async function getPendingForcedTxs(
 
   for (const log of events) {
     const args = log.args
-    if (!args?.txId || args.queuedAtBlock === undefined) continue
+    if (!args.txId || args.queuedAtBlock === undefined) continue
     const txId = args.txId
     const queuedAtBlock = args.queuedAtBlock
 

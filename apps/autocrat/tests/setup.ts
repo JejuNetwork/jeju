@@ -181,7 +181,9 @@ async function verifyContractsDeployed(
   }
 }
 
-async function ensureContracts(rpcUrl: string): Promise<ContractAddresses | null> {
+async function ensureContracts(
+  rpcUrl: string,
+): Promise<ContractAddresses | null> {
   const existing = loadContractAddresses()
 
   if (existing?.identityRegistry) {

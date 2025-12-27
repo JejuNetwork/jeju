@@ -137,7 +137,7 @@ class CrucibleService {
     const result = AgentTaskSchema.safeParse(json)
     if (!result.success) {
       throw new Error(
-        `Invalid task response: ${result.error.issues[0]?.message}`,
+        `Invalid task response: ${result.error.issues[0].message}`,
       )
     }
     return result.data
@@ -167,7 +167,7 @@ class CrucibleService {
     const result = AgentTaskSchema.safeParse(json)
     if (!result.success) {
       throw new Error(
-        `Invalid task response: ${result.error.issues[0]?.message}`,
+        `Invalid task response: ${result.error.issues[0].message}`,
       )
     }
     return result.data

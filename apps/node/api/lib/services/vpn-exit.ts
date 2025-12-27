@@ -711,7 +711,7 @@ class TUNDevice extends EventEmitter {
     // Buffer for accumulating partial packets
     let packetBuffer = Buffer.alloc(0)
 
-    tcpdump.stdout?.on('data', (data: Buffer) => {
+    tcpdump.stdout.on('data', (data: Buffer) => {
       // tcpdump -X outputs hex dumps - parse them
       const lines = data.toString().split('\n')
       for (const line of lines) {
@@ -731,7 +731,7 @@ class TUNDevice extends EventEmitter {
       }
     })
 
-    tcpdump.stderr?.on('data', (data: Buffer) => {
+    tcpdump.stderr.on('data', (data: Buffer) => {
       const msg = data.toString()
       if (!msg.includes('listening on') && !msg.includes('packets captured')) {
         console.warn('[TUN] tcpdump:', msg.trim())

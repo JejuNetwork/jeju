@@ -145,7 +145,7 @@ export class MCPCommunicationClient {
     }
 
     // Extract result from content
-    const textContent = response.content?.find(
+    const textContent = response.content.find(
       (c): c is { type: string; text: string } =>
         typeof c === 'object' && c !== null && 'type' in c && c.type === 'text',
     )

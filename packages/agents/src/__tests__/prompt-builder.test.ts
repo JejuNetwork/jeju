@@ -138,9 +138,21 @@ describe('truncateToTokenLimitSync', () => {
 describe('buildSafePrompt', () => {
   test('builds prompt from sections', () => {
     const sections: PromptSection[] = [
-      { name: 'system', content: 'You are a helpful assistant.', priority: 100 },
-      { name: 'context', content: 'The user is asking about weather.', priority: 50 },
-      { name: 'query', content: 'What is the weather like today?', priority: 80 },
+      {
+        name: 'system',
+        content: 'You are a helpful assistant.',
+        priority: 100,
+      },
+      {
+        name: 'context',
+        content: 'The user is asking about weather.',
+        priority: 50,
+      },
+      {
+        name: 'query',
+        content: 'What is the weather like today?',
+        priority: 80,
+      },
     ]
 
     const result = buildSafePrompt(sections)
@@ -213,12 +225,18 @@ describe('Prompt Builder Edge Cases', () => {
 
     const result = buildSafePrompt(sections)
     // Should truncate if exceeds model limit
-    expect(result.finalTokens).toBeLessThanOrEqual(getModelTokenLimit('default'))
+    expect(result.finalTokens).toBeLessThanOrEqual(
+      getModelTokenLimit('default'),
+    )
   })
 
   test('handles special characters in content', () => {
     const sections: PromptSection[] = [
-      { name: 'special', content: '`code` **bold** _italic_ \n\n---', priority: 100 },
+      {
+        name: 'special',
+        content: '`code` **bold** _italic_ \n\n---',
+        priority: 100,
+      },
     ]
 
     const result = buildSafePrompt(sections)

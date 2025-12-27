@@ -7,30 +7,10 @@
  * 3. Send a message
  * 4. Receive a response
  * 5. Clean up
- *
- * Requires: Full infrastructure (DWS server, CQL, contracts)
- * Run with: jeju test --target-app dws --mode integration
  */
 
 import { afterAll, describe, expect, test } from 'bun:test'
-
-// Skip all tests if INFRA_READY is not set
-const SKIP_ALL = process.env.INFRA_READY !== 'true'
-
-// Only import heavy modules if we're going to run tests
-// This avoids async initialization issues with Bun's test runner
-let Elysia: typeof import('elysia').Elysia
-let initExecutor: typeof import('./executor').initExecutor
-let createAgentRouter: typeof import('./routes').createAgentRouter
-let app: InstanceType<typeof Elysia>
-let mockExecutor: MockWorkerdExecutor
-
-if (!SKIP_ALL) {
-  Elysia = (await import('elysia')).Elysia
-  initExecutor = (await import('./executor')).initExecutor
-  createAgentRouter = (await import('./routes')).createAgentRouter
-}
-
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type {
   IWorkerdExecutor,
@@ -38,6 +18,8 @@ import type {
   WorkerdResponse,
   WorkerdWorkerDefinition,
 } from '../workers/workerd/types'
+import { initExecutor } from './executor'
+import { createAgentRouter } from './routes'
 import type {
   AgentCharacter,
   AgentMessage,
@@ -111,7 +93,7 @@ class MockWorkerdWithInference implements IWorkerdExecutor {
 
   async deployWorker(worker: WorkerdWorkerDefinition): Promise<void> {
     // Extract character from bindings
-    const characterBinding = worker.bindings?.find(
+    const characterBinding = worker.bindings.find(
       (b) => b.name === 'AGENT_CHARACTER',
     )
     const character = characterBinding?.value
@@ -189,7 +171,7 @@ class MockWorkerdWithInference implements IWorkerdExecutor {
     const lowerMessage = userMessage.toLowerCase()
 
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
-      return `Hello! I'm ${character.name}. ${character.bio?.[0] ?? 'How can I help you today?'}`
+      return `Hello! I'm ${character.name}. ${character.bio[0] ?? 'How can I help you today?'}`
     }
 
     if (lowerMessage.includes('help')) {
@@ -200,7 +182,7 @@ class MockWorkerdWithInference implements IWorkerdExecutor {
       lowerMessage.includes('who are you') ||
       lowerMessage.includes('what are you')
     ) {
-      return `I'm ${character.name}. ${character.bio?.join(' ') ?? character.system}`
+      return `I'm ${character.name}. ${character.bio.join(' ') ?? character.system}`
     }
 
     // Default response
@@ -212,12 +194,11 @@ class MockWorkerdWithInference implements IWorkerdExecutor {
 
 const TEST_OWNER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
-// Initialize only if not skipping
-if (!SKIP_ALL) {
-  mockExecutor = new MockWorkerdWithInference()
-  initExecutor(mockExecutor)
-  app = new Elysia().use(createAgentRouter())
-}
+const mockExecutor = new MockWorkerdWithInference()
+
+// Initialize
+initExecutor(mockExecutor)
+const app = new Elysia().use(createAgentRouter())
 
 // Request helper
 async function request(
@@ -225,7 +206,6 @@ async function request(
   path: string,
   body?: Record<string, unknown>,
 ) {
-  if (SKIP_ALL) throw new Error('Tests should be skipped')
   const req = new Request(`http://localhost${path}`, {
     method,
     headers: {
@@ -239,7 +219,7 @@ async function request(
 
 // Full Flow Tests
 
-describe.skipIf(SKIP_ALL)('Full Agent Flow', () => {
+describe('Full Agent Flow', () => {
   let agentId: string
 
   test('1. Health check passes', async () => {
@@ -399,7 +379,7 @@ describe.skipIf(SKIP_ALL)('Full Agent Flow', () => {
 
 // Multiple Agents Test
 
-describe.skipIf(SKIP_ALL)('Multiple Agents', () => {
+describe('Multiple Agents', () => {
   const agentIds: string[] = []
 
   afterAll(async () => {
@@ -470,7 +450,7 @@ describe.skipIf(SKIP_ALL)('Multiple Agents', () => {
 
 // Error Handling Tests
 
-describe.skipIf(SKIP_ALL)('Error Handling', () => {
+describe('Error Handling', () => {
   test('returns 404 for non-existent agent', async () => {
     const res = await request('GET', '/agents/non-existent-id')
     expect(res.status).toBe(404)

@@ -265,7 +265,7 @@ describe('InferenceResponseSchema', () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.id).toBe('response-123')
-      expect(result.data.choices[0]?.finish_reason).toBe('stop')
+      expect(result.data.choices[0].finish_reason).toBe('stop')
     }
   })
 

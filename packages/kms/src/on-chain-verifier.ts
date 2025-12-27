@@ -68,8 +68,7 @@ interface CacheEntry {
  */
 export class OnChainVerifier {
   private config: Required<OnChainVerifierConfig>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private clients = new Map<string, any>()
+  private clients = new Map<string, PublicClient>()
   private cache = new Map<string, CacheEntry>()
 
   constructor(config: OnChainVerifierConfig = {}) {
@@ -80,8 +79,7 @@ export class OnChainVerifier {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getClient(chain: string): any {
+  private getClient(chain: string): PublicClient {
     const cached = this.clients.get(chain)
     if (cached) return cached
 

@@ -579,8 +579,8 @@ export class ScientificBenchmark {
     }
 
     return {
-      bestStrategy: rankings[0]?.strategy ?? '',
-      worstStrategy: rankings[rankings.length - 1]?.strategy ?? '',
+      bestStrategy: rankings[0].strategy ?? '',
+      worstStrategy: rankings[rankings.length - 1].strategy ?? '',
       rankings,
       pairwiseTests,
     }

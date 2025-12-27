@@ -84,7 +84,7 @@ describe('ExtendedTaskStore', () => {
       // Create test data - save order determines updated_at order
       // Note: status.timestamp is metadata, updated_at is actual save time
       const now = Date.now()
-      
+
       taskSaveTimes['task-1'] = Date.now()
       await store.save(
         createTask(
@@ -94,10 +94,10 @@ describe('ExtendedTaskStore', () => {
           new Date(now - 3000).toISOString(),
         ),
       )
-      
+
       // Small delay to ensure different updated_at values
-      await new Promise(r => setTimeout(r, 5))
-      
+      await new Promise((r) => setTimeout(r, 5))
+
       taskSaveTimes['task-2'] = Date.now()
       await store.save(
         createTask(
@@ -107,9 +107,9 @@ describe('ExtendedTaskStore', () => {
           new Date(now - 2000).toISOString(),
         ),
       )
-      
-      await new Promise(r => setTimeout(r, 5))
-      
+
+      await new Promise((r) => setTimeout(r, 5))
+
       taskSaveTimes['task-3'] = Date.now()
       await store.save(
         createTask(
@@ -119,9 +119,9 @@ describe('ExtendedTaskStore', () => {
           new Date(now - 1000).toISOString(),
         ),
       )
-      
-      await new Promise(r => setTimeout(r, 5))
-      
+
+      await new Promise((r) => setTimeout(r, 5))
+
       taskSaveTimes['task-4'] = Date.now()
       await store.save(
         createTask('task-4', 'ctx-b', 'failed', new Date(now).toISOString()),
@@ -187,12 +187,14 @@ describe('ExtendedTaskStore', () => {
 
     it('should filter by lastUpdatedAfter', async () => {
       // Use the save time of task-3 to filter - should get task-3 and task-4
-      const cutoffTime = taskSaveTimes['task-3']! - 1 // Just before task-3 was saved
+      const task3SaveTime = taskSaveTimes['task-3']
+      expect(task3SaveTime).toBeDefined()
+      const cutoffTime = task3SaveTime - 1 // Just before task-3 was saved
       const result = await store.list({ lastUpdatedAfter: cutoffTime })
 
       // Should include task-3 and task-4 (saved after cutoff)
       expect(result.tasks.length).toBe(2)
-      const taskIds = result.tasks.map(t => t.id)
+      const taskIds = result.tasks.map((t) => t.id)
       expect(taskIds).toContain('task-3')
       expect(taskIds).toContain('task-4')
     })

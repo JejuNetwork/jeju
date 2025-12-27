@@ -308,11 +308,11 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       endpoints: {
         primary: {
           url: chain.rpcUrl,
-          healthy: health[chain.rpcUrl]?.healthy ?? true,
+          healthy: health[chain.rpcUrl].healthy ?? true,
         },
         fallbacks: chain.fallbackRpcs.map((url) => ({
           url,
-          healthy: health[url]?.healthy ?? true,
+          healthy: health[url].healthy ?? true,
         })),
       },
     }

@@ -631,8 +631,8 @@ export class TrajectoryMetricsExtractor {
     // Get start/end balance from environment state
     const firstStep = steps[0]
     const lastStep = steps[steps.length - 1]
-    const startBalance = firstStep?.environmentState?.agentBalance
-    const endBalance = lastStep?.environmentState?.agentBalance
+    const startBalance = firstStep.environmentState?.agentBalance
+    const endBalance = lastStep.environmentState?.agentBalance
 
     const normalizedScenarioId: string | undefined =
       params.scenarioId != null ? params.scenarioId : undefined

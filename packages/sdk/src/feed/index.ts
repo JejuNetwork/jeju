@@ -10,8 +10,107 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import { getServicesConfig } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// API response schemas for validation
+const FeedUserSchema = z.object({
+  fid: z.number(),
+  username: z.string(),
+  displayName: z.string(),
+  pfpUrl: z.string().optional(),
+  bio: z.string().optional(),
+  followerCount: z.number(),
+  followingCount: z.number(),
+  address: z
+    .string()
+    .transform((s) => s as Address)
+    .optional(),
+  verifiedAddresses: z
+    .array(z.string().transform((s) => s as Address))
+    .optional(),
+  isFollowing: z.boolean().optional(),
+  isFollowedBy: z.boolean().optional(),
+})
+
+const FeedChannelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  imageUrl: z.string().optional(),
+  leadFid: z.number(),
+  followerCount: z.number(),
+  createdAt: z.string(),
+  isFollowing: z.boolean().optional(),
+})
+
+const FeedPostSchema: z.ZodType<FeedPost> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    hash: z.string(),
+    author: FeedUserSchema,
+    content: z.string(),
+    embeds: z
+      .array(
+        z.object({
+          url: z.string().optional(),
+          metadata: z
+            .object({
+              title: z.string().optional(),
+              description: z.string().optional(),
+              image: z.string().optional(),
+            })
+            .optional(),
+        }),
+      )
+      .optional(),
+    channel: FeedChannelSchema.optional(),
+    timestamp: z.string(),
+    likes: z.number(),
+    recasts: z.number(),
+    replies: z.number(),
+    parentHash: z.string().optional(),
+    rootHash: z.string().optional(),
+    reactions: z.object({
+      liked: z.boolean(),
+      recasted: z.boolean(),
+    }),
+  }),
+)
+
+const FeedResponseSchema = z.object({
+  posts: z.array(FeedPostSchema),
+  nextCursor: z.string().optional(),
+})
+
+const UsersResponseSchema = z.object({
+  users: z.array(FeedUserSchema),
+  nextCursor: z.string().optional(),
+})
+
+const ChannelsResponseSchema = z.object({
+  channels: z.array(FeedChannelSchema),
+  nextCursor: z.string().optional(),
+})
+
+const NotificationSchema = z.object({
+  id: z.string(),
+  type: z.enum(['like', 'recast', 'reply', 'follow', 'mention']),
+  actor: FeedUserSchema,
+  post: FeedPostSchema.optional(),
+  timestamp: z.string(),
+  isRead: z.boolean(),
+})
+
+const NotificationsResponseSchema = z.object({
+  notifications: z.array(NotificationSchema),
+  nextCursor: z.string().optional(),
+})
+
+const LinkedFidResponseSchema = z.object({
+  fid: z.number().nullable(),
+})
 
 export interface FeedPost {
   id: string
@@ -221,6 +320,7 @@ export function createFeedModule(
   async function request<T>(
     path: string,
     options: RequestInit = {},
+    schema?: z.ZodType<T>,
   ): Promise<T> {
     const headers = await buildAuthHeaders()
     const response = await fetch(`${baseUrl}${path}`, {
@@ -233,7 +333,11 @@ export function createFeedModule(
       throw new Error(`Feed API error: ${response.status} - ${error}`)
     }
 
-    return response.json() as Promise<T>
+    const json: unknown = await response.json()
+    if (schema) {
+      return schema.parse(json)
+    }
+    return json as T
   }
 
   return {
@@ -242,17 +346,17 @@ export function createFeedModule(
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request<{ posts: FeedPost[]; nextCursor?: string }>(
-        `/home?${params}`,
-      )
+      return request(`/home?${params}`, {}, FeedResponseSchema)
     },
 
     async getChannelFeed(channelId, cursor, limit = 25) {
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request<{ posts: FeedPost[]; nextCursor?: string }>(
+      return request(
         `/channels/${channelId}/feed?${params}`,
+        {},
+        FeedResponseSchema,
       )
     },
 
@@ -260,48 +364,50 @@ export function createFeedModule(
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request<{ posts: FeedPost[]; nextCursor?: string }>(
-        `/users/${fid}/feed?${params}`,
-      )
+      return request(`/users/${fid}/feed?${params}`, {}, FeedResponseSchema)
     },
 
     async getTrendingFeed(cursor, limit = 25) {
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request<{ posts: FeedPost[]; nextCursor?: string }>(
-        `/trending?${params}`,
-      )
+      return request(`/trending?${params}`, {}, FeedResponseSchema)
     },
 
     async getPost(hash) {
-      return request<FeedPost | null>(`/posts/${hash}`)
+      return request(`/posts/${hash}`, {}, FeedPostSchema.nullable())
     },
 
     async getReplies(hash, cursor) {
       const params = cursor ? `?cursor=${cursor}` : ''
-      return request<{ posts: FeedPost[]; nextCursor?: string }>(
-        `/posts/${hash}/replies${params}`,
-      )
+      return request(`/posts/${hash}/replies${params}`, {}, FeedResponseSchema)
     },
 
     // Posting
     async post(params) {
-      return request<FeedPost>('/posts', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      })
+      return request(
+        '/posts',
+        {
+          method: 'POST',
+          body: JSON.stringify(params),
+        },
+        FeedPostSchema,
+      )
     },
 
     async reply(parentHash, text, embeds) {
-      return request<FeedPost>('/posts', {
-        method: 'POST',
-        body: JSON.stringify({
-          text,
-          parentHash,
-          embeds,
-        }),
-      })
+      return request(
+        '/posts',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            text,
+            parentHash,
+            embeds,
+          }),
+        },
+        FeedPostSchema,
+      )
     },
 
     async deletePost(hash) {
@@ -327,19 +433,31 @@ export function createFeedModule(
 
     // Users
     async getUser(fid) {
-      return request<FeedUser | null>(`/users/${fid}`)
+      return request(`/users/${fid}`, {}, FeedUserSchema.nullable())
     },
 
     async getUserByUsername(username) {
-      return request<FeedUser | null>(`/users/by-username/${username}`)
+      return request(
+        `/users/by-username/${username}`,
+        {},
+        FeedUserSchema.nullable(),
+      )
     },
 
     async getUserByAddress(address) {
-      return request<FeedUser | null>(`/users/by-address/${address}`)
+      return request(
+        `/users/by-address/${address}`,
+        {},
+        FeedUserSchema.nullable(),
+      )
     },
 
     async searchUsers(query) {
-      return request<FeedUser[]>(`/users/search?q=${encodeURIComponent(query)}`)
+      return request(
+        `/users/search?q=${encodeURIComponent(query)}`,
+        {},
+        z.array(FeedUserSchema),
+      )
     },
 
     async follow(fid) {
@@ -352,39 +470,47 @@ export function createFeedModule(
 
     async getFollowers(fid, cursor) {
       const params = cursor ? `?cursor=${cursor}` : ''
-      return request<{ users: FeedUser[]; nextCursor?: string }>(
+      return request(
         `/users/${fid}/followers${params}`,
+        {},
+        UsersResponseSchema,
       )
     },
 
     async getFollowing(fid, cursor) {
       const params = cursor ? `?cursor=${cursor}` : ''
-      return request<{ users: FeedUser[]; nextCursor?: string }>(
+      return request(
         `/users/${fid}/following${params}`,
+        {},
+        UsersResponseSchema,
       )
     },
 
     // Channels
     async getChannel(channelId) {
-      return request<FeedChannel | null>(`/channels/${channelId}`)
+      return request(`/channels/${channelId}`, {}, FeedChannelSchema.nullable())
     },
 
     async listChannels(cursor, limit = 25) {
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request<{ channels: FeedChannel[]; nextCursor?: string }>(
-        `/channels?${params}`,
-      )
+      return request(`/channels?${params}`, {}, ChannelsResponseSchema)
     },
 
     async getTrendingChannels(limit = 10) {
-      return request<FeedChannel[]>(`/channels/trending?limit=${limit}`)
+      return request(
+        `/channels/trending?limit=${limit}`,
+        {},
+        z.array(FeedChannelSchema),
+      )
     },
 
     async searchChannels(query) {
-      return request<FeedChannel[]>(
+      return request(
         `/channels/search?q=${encodeURIComponent(query)}`,
+        {},
+        z.array(FeedChannelSchema),
       )
     },
 
@@ -397,23 +523,13 @@ export function createFeedModule(
     },
 
     async getMyChannels() {
-      return request<FeedChannel[]>('/channels/my')
+      return request('/channels/my', {}, z.array(FeedChannelSchema))
     },
 
     // Notifications
     async getNotifications(cursor) {
       const params = cursor ? `?cursor=${cursor}` : ''
-      return request<{
-        notifications: Array<{
-          id: string
-          type: 'like' | 'recast' | 'reply' | 'follow' | 'mention'
-          actor: FeedUser
-          post?: FeedPost
-          timestamp: string
-          isRead: boolean
-        }>
-        nextCursor?: string
-      }>(`/notifications${params}`)
+      return request(`/notifications${params}`, {}, NotificationsResponseSchema)
     },
 
     async markNotificationsRead(notificationIds) {
@@ -425,8 +541,10 @@ export function createFeedModule(
 
     // Search
     async searchPosts(query, limit = 25) {
-      return request<FeedPost[]>(
+      return request(
         `/posts/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+        {},
+        z.array(FeedPostSchema),
       )
     },
 
@@ -446,7 +564,11 @@ export function createFeedModule(
     },
 
     async getLinkedFid() {
-      const result = await request<{ fid: number | null }>('/wallet/linked')
+      const result = await request(
+        '/wallet/linked',
+        {},
+        LinkedFidResponseSchema,
+      )
       return result.fid
     },
   }

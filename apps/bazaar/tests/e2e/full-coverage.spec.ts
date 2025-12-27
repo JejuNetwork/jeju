@@ -5,7 +5,7 @@
  * Uses baseURL from playwright.config.ts (configured via @jejunetwork/config/ports)
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Bazaar - Full Coverage', () => {
   test.beforeEach(async ({ page }) => {
@@ -38,7 +38,9 @@ test.describe('Bazaar - Full Coverage', () => {
   })
 
   test('should have proper meta tags', async ({ page }) => {
-    const viewport = await page.locator('meta[name="viewport"]').getAttribute('content')
+    const viewport = await page
+      .locator('meta[name="viewport"]')
+      .getAttribute('content')
     expect(viewport).toBeTruthy()
   })
 
@@ -65,36 +67,35 @@ test.describe('Bazaar - Full Coverage', () => {
 })
 
 test.describe('Bazaar - Navigation', () => {
+  test('should navigate to Home', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Home', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Swap', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/swap`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Swap', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/swap`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Pools', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/pools`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Pools', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/pools`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Marketplace', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/marketplace`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Marketplace', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/marketplace`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
-
-    test('should navigate to Collections', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/collections`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Collections', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/collections`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
   test('should navigate via links', async ({ page }) => {
     await page.goto('/')
@@ -150,7 +151,9 @@ test.describe('Bazaar - Form Interactions', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    const inputs = await page.locator('input:visible:not([type="hidden"])').all()
+    const inputs = await page
+      .locator('input:visible:not([type="hidden"])')
+      .all()
 
     for (const input of inputs.slice(0, 5)) {
       const type = await input.getAttribute('type')

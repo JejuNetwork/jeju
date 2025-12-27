@@ -120,7 +120,7 @@ function analyzePage(filePath: string): PageInfo | null {
     route =
       filePath
         .split('/pages/')[1]
-        ?.replace(/\.tsx?$/, '')
+        .replace(/\.tsx?$/, '')
         .replace(/index$/, '') ?? '/'
   } else if (filePath.includes('/app/')) {
     const appPart = filePath.split('/app/')[1] ?? ''

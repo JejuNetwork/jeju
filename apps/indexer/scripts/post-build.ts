@@ -14,23 +14,37 @@ function fixCircularImports(): number {
     join(indexerRoot, 'lib/src/model/generated'),
     join(indexerRoot, 'lib/api/model/generated'),
   ]
-  
-  const primitives = ['String', 'Number', 'Boolean', 'Date', 'Object', 'Function', 'Array', 'BigInt']
+
+  const primitives = [
+    'String',
+    'Number',
+    'Boolean',
+    'Date',
+    'Object',
+    'Function',
+    'Array',
+    'BigInt',
+  ]
   let fixed = 0
 
   for (const modelDir of modelDirs) {
     if (!existsSync(modelDir)) continue
 
-    for (const file of readdirSync(modelDir).filter(f => f.endsWith('.model.js'))) {
+    for (const file of readdirSync(modelDir).filter((f) =>
+      f.endsWith('.model.js'),
+    )) {
       const filePath = join(modelDir, file)
       let content = readFileSync(filePath, 'utf-8')
       let modified = false
 
-      content = content.replace(/__metadata\("design:type", ([A-Z][A-Za-z0-9_]*)\)/g, (match, className) => {
-        if (primitives.includes(className)) return match
-        modified = true
-        return '__metadata("design:type", Function)'
-      })
+      content = content.replace(
+        /__metadata\("design:type", ([A-Z][A-Za-z0-9_]*)\)/g,
+        (match, className) => {
+          if (primitives.includes(className)) return match
+          modified = true
+          return '__metadata("design:type", Function)'
+        },
+      )
 
       if (modified) {
         writeFileSync(filePath, content)
@@ -47,7 +61,7 @@ function fixEsmImports(): number {
     join(indexerRoot, 'lib/src/model/generated'),
     join(indexerRoot, 'lib/api/model/generated'),
   ]
-  
+
   let fixed = 0
   for (const modelDir of modelDirs) {
     if (!existsSync(modelDir)) continue
@@ -58,18 +72,24 @@ function fixEsmImports(): number {
 
 function fixEsmImportsInDir(modelDir: string): number {
   if (!existsSync(modelDir)) return 0
-  
+
   let fixed = 0
-  for (const file of readdirSync(modelDir).filter(f => f.endsWith('.js'))) {
+  for (const file of readdirSync(modelDir).filter((f) => f.endsWith('.js'))) {
     const filePath = join(modelDir, file)
-    let content = readFileSync(filePath, 'utf-8')
-    
+    const content = readFileSync(filePath, 'utf-8')
+
     const newContent = content
-      .replace(/from ["'](\.[^"']+)["']/g, (match, path) => 
-        path.endsWith('.js') || path.endsWith('.json') ? match : `from "${path}.js"`)
-      .replace(/export \* from ["'](\.[^"']+)["']/g, (match, path) => 
-        path.endsWith('.js') || path.endsWith('.json') ? match : `export * from "${path}.js"`)
-    
+      .replace(/from ["'](\.[^"']+)["']/g, (match, path) =>
+        path.endsWith('.js') || path.endsWith('.json')
+          ? match
+          : `from "${path}.js"`,
+      )
+      .replace(/export \* from ["'](\.[^"']+)["']/g, (match, path) =>
+        path.endsWith('.js') || path.endsWith('.json')
+          ? match
+          : `export * from "${path}.js"`,
+      )
+
     if (newContent !== content) {
       writeFileSync(filePath, newContent)
       fixed++
@@ -82,12 +102,14 @@ function fixEsmImportsInDir(modelDir: string): number {
 function fixMigrations(): number {
   const migrationsDir = join(indexerRoot, 'db/migrations')
   if (!existsSync(migrationsDir)) return 0
-  
+
   let fixed = 0
-  for (const file of readdirSync(migrationsDir).filter(f => f.endsWith('.js'))) {
+  for (const file of readdirSync(migrationsDir).filter((f) =>
+    f.endsWith('.js'),
+  )) {
     const filePath = join(migrationsDir, file)
     let content = readFileSync(filePath, 'utf-8')
-    
+
     if (content.startsWith('module.exports = ')) {
       content = content.replace(/^module\.exports = /, 'export default ')
       writeFileSync(filePath, content)
@@ -102,4 +124,6 @@ const circular = fixCircularImports()
 const esm = fixEsmImports()
 const migrations = fixMigrations()
 
-console.log(`[post-build] Fixed ${circular} circular imports, ${esm} ESM imports, ${migrations} migrations`)
+console.log(
+  `[post-build] Fixed ${circular} circular imports, ${esm} ESM imports, ${migrations} migrations`,
+)

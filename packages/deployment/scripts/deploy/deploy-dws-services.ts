@@ -493,12 +493,18 @@ async function main() {
 
     const codeCid = await uploadToIPFS(ipfsUrl, code, `${service.name}.js`)
 
-    // After dryRun check above, these are guaranteed to be defined
+    // After dryRun check above, privateKey and serviceProvisioningAddress are validated
+    if (!privateKey || !serviceProvisioningAddress) {
+      throw new Error(
+        'Configuration missing: privateKey and serviceProvisioningAddress required',
+      )
+    }
+
     const serviceId = await provisionService(
-      privateKey!,
+      privateKey,
       networkConfig.rpcUrl,
       networkConfig.chain,
-      serviceProvisioningAddress!,
+      serviceProvisioningAddress,
       service,
       codeCid,
       hash,
@@ -509,7 +515,7 @@ async function main() {
       endpoints = await waitForDeployments(
         networkConfig.rpcUrl,
         networkConfig.chain,
-        serviceProvisioningAddress!,
+        serviceProvisioningAddress,
         serviceId,
         1,
         60000,

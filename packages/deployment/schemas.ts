@@ -842,6 +842,78 @@ export const IPFSAddResponseLineSchema = z.object({
 })
 export type IPFSAddResponseLine = z.infer<typeof IPFSAddResponseLineSchema>
 
+// Bridge Config Schemas (for security checks)
+
+/**
+ * TEE configuration schema
+ */
+export const TEEConfigSchema = z
+  .object({
+    endpoint: z.string().optional(),
+    maxBatchSize: z.number().optional(),
+    batchTimeoutMs: z.number().optional(),
+    requireRealTEE: z.boolean().optional(),
+  })
+  .passthrough()
+export type TEEConfig = z.infer<typeof TEEConfigSchema>
+
+/**
+ * Prover configuration schema
+ */
+export const ProverConfigSchema = z
+  .object({
+    mode: z.string().optional(),
+    workers: z.number().optional(),
+    maxMemoryMb: z.number().optional(),
+    timeoutMs: z.number().optional(),
+    useMockProofs: z.boolean().optional(),
+  })
+  .passthrough()
+export type ProverConfig = z.infer<typeof ProverConfigSchema>
+
+/**
+ * Security configuration schema
+ */
+export const SecurityConfigSchema = z
+  .object({
+    multisigRequired: z.boolean().optional(),
+    minValidators: z.number().optional(),
+    validatorThreshold: z.number().optional(),
+  })
+  .passthrough()
+export type SecurityConfig = z.infer<typeof SecurityConfigSchema>
+
+/**
+ * Bridge configuration schema (packages/bridge/config/*.json)
+ */
+export const BridgeConfigSchema = z
+  .object({
+    mode: z.string().optional(),
+    components: z.record(z.string(), z.boolean()).optional(),
+    ports: z.record(z.string(), z.number()).optional(),
+    chains: z.record(z.string(), z.unknown()).optional(),
+    tee: TEEConfigSchema.optional(),
+    prover: ProverConfigSchema.optional(),
+    security: SecurityConfigSchema.optional(),
+  })
+  .passthrough()
+export type BridgeConfig = z.infer<typeof BridgeConfigSchema>
+
+/**
+ * ZK Bridge deployment schema (packages/contracts/deployments/<network>/zk-bridge.json)
+ */
+export const ZKBridgeDeploymentSchema = z
+  .object({
+    zkBridge: AddressSchema.optional(),
+    solanaLightClient: AddressSchema.optional(),
+    groth16Verifier: AddressSchema.optional(),
+    verifier: AddressSchema.optional(),
+    deployedAt: z.number().optional(),
+    deployer: AddressSchema.optional(),
+  })
+  .passthrough()
+export type ZKBridgeDeployment = z.infer<typeof ZKBridgeDeploymentSchema>
+
 // Validation Helpers
 
 /**

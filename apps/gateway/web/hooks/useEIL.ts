@@ -82,7 +82,7 @@ interface ContractsNetworkConfig {
 // Get liquidity contracts for current network
 function getLiquidityContracts(): ContractsNetworkConfig['liquidity'] {
   const config = getContractsConfig(NETWORK)
-  return config?.liquidity as ContractsNetworkConfig['liquidity']
+  return config.liquidity as ContractsNetworkConfig['liquidity']
 }
 
 // Helper to get chain config based on current network
@@ -109,7 +109,7 @@ export function useEILConfig() {
 
   const networkConfig = getNetworkConfig()
   const chainConfig = networkConfig.chains[chainId]
-  const paymasterAddress = chainConfig?.crossChainPaymaster
+  const paymasterAddress = chainConfig.crossChainPaymaster
   const crossChainPaymaster = (
     paymasterAddress && paymasterAddress.length > 0
       ? paymasterAddress
@@ -120,7 +120,7 @@ export function useEILConfig() {
 
   const configuredChains = SUPPORTED_CHAINS.map((supportedChain) => {
     const config = networkConfig.chains[supportedChain.id.toString()]
-    const addr = config?.crossChainPaymaster
+    const addr = config.crossChainPaymaster
     return {
       ...supportedChain,
       paymasterAddress: (addr && addr.length > 0 ? addr : undefined) as
@@ -130,7 +130,7 @@ export function useEILConfig() {
   })
 
   // Get appTokenPreference address from chain config if available
-  const appTokenPreferenceAddr = chainConfig?.tokens?.appTokenPreference as
+  const appTokenPreferenceAddr = chainConfig.tokens?.appTokenPreference as
     | Address
     | undefined
 
@@ -153,7 +153,7 @@ export function useEILConfig() {
     l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as
       | Address
       | undefined,
-    supportedTokens: chainConfig?.tokens
+    supportedTokens: chainConfig.tokens
       ? Object.values(chainConfig.tokens).filter((addr): addr is Address =>
           Boolean(addr),
         )

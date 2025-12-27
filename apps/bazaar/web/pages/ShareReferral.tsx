@@ -53,9 +53,9 @@ export default function ShareReferralPage() {
       return
     }
 
-    if (isSuccess && data?.referralCode) {
+    if (isSuccess && data.referralCode) {
       navigate(`/?ref=${data.referralCode}`, { replace: true })
-    } else if (isSuccess && !data?.referralCode) {
+    } else if (isSuccess && !data.referralCode) {
       navigate('/', { replace: true })
     } else if (isError) {
       navigate('/', { replace: true })

@@ -235,14 +235,14 @@ async function getMailboxEmails(
   return result.rows
 }
 
-async function getMailboxCount(_address: string): Promise<number> {
+async function getMailboxCount(address: string): Promise<number> {
   const client = await getCQLClient()
   const result = await client.query<{ count: number }>(
-    'SELECT COUNT(*) as count FROM email_mailboxes',
-    [],
+    'SELECT COUNT(*) as count FROM email_mailboxes WHERE owner = ?',
+    [address.toLowerCase()],
     CQL_DATABASE_ID,
   )
-  return result.rows[0]?.count ?? 0
+  return result.rows[0].count ?? 0
 }
 
 function rowToIndexEntry(row: EmailRow): EmailIndexEntry {

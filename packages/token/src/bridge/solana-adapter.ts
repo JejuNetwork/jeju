@@ -294,7 +294,7 @@ export class SolanaAdapter {
     const MIN_MESSAGE_LENGTH = 77 // 1 + 4 + 4 + 32 + 4 + 32 = 77 bytes minimum
     if (!message || message.length < MIN_MESSAGE_LENGTH) {
       throw new Error(
-        `Invalid message: expected at least ${MIN_MESSAGE_LENGTH} bytes, got ${message?.length ?? 0}`,
+        `Invalid message: expected at least ${MIN_MESSAGE_LENGTH} bytes, got ${message.length ?? 0}`,
       )
     }
 

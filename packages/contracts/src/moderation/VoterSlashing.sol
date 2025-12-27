@@ -580,7 +580,5 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     function adminResetVoter(address voter) external onlyOwner {
         _resetVoter(voter, "admin_reset");
     }
-
-    receive() external payable {}
 }
 

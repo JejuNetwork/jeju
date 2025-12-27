@@ -83,7 +83,7 @@ export COMPUTE_MODEL=claude-3-opus
 | `ASSESSOR_KEY` | No | - | Private key for quality assessor |
 | `TEE_API_KEY` | No | - | Phala Cloud API key |
 | `COMPUTE_URL` | No | `http://localhost:8020` | Compute marketplace URL |
-| `JEJU_COMPUTE_API_URL` | No | `http://localhost:8010` | RLAIF API URL for training pipelines |
+| `JEJU_COMPUTE_API_URL` | No | `http://localhost:4040` | RLAIF API URL for training pipelines |
 
 ## Security
 
@@ -133,7 +133,7 @@ For external training pipelines to use the RLAIF endpoint:
 
 ```bash
 # Set environment variable in your training service
-JEJU_COMPUTE_API_URL=http://localhost:8010
+JEJU_COMPUTE_API_URL=http://localhost:4040
 ```
 
 Example training run creation:

@@ -1,3 +1,4 @@
+import { isProductionEnv } from '@jejunetwork/config'
 import type {
   X402Network,
   X402PaymentHeader,
@@ -5,8 +6,8 @@ import type {
   X402PaymentRequirement,
 } from '@jejunetwork/shared'
 import { expectJson, ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Address } from 'viem'
-import { hashMessage, recoverAddress } from 'viem'
+import type { Address, Hex } from 'viem'
+import { createPublicClient, hashMessage, http, recoverAddress } from 'viem'
 import { z } from 'zod'
 import { x402State } from '../../state.js'
 
@@ -177,11 +178,77 @@ export function getPaymentInfo() {
   }
 }
 
+// Track used tx hashes to prevent replay
+const usedCreditTxHashes = new Set<string>()
+
 export async function purchaseCredits(
   addr: string,
-  _txHash: string,
+  txHash: string,
   amount: bigint,
-) {
+): Promise<{ success: boolean; newBalance?: bigint; error?: string }> {
+  // Validate tx hash format
+  if (!txHash || !/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+    return { success: false, error: 'Invalid transaction hash' }
+  }
+
+  // Check for replay
+  const txHashLower = txHash.toLowerCase()
+  if (usedCreditTxHashes.has(txHashLower)) {
+    return { success: false, error: 'Transaction already used' }
+  }
+
+  // In production, verify the transaction on-chain
+  if (isProductionEnv()) {
+    const rpcUrl = process.env.RPC_URL
+    if (!rpcUrl) {
+      return { success: false, error: 'RPC_URL not configured' }
+    }
+
+    const publicClient = createPublicClient({ transport: http(rpcUrl) })
+
+    // Verify transaction exists and is confirmed
+    const receipt = await publicClient
+      .getTransactionReceipt({ hash: txHash as Hex })
+      .catch(() => null)
+
+    if (!receipt) {
+      return { success: false, error: 'Transaction not found or not confirmed' }
+    }
+
+    if (receipt.status !== 'success') {
+      return { success: false, error: 'Transaction failed' }
+    }
+
+    // Verify the transaction was to the payment recipient
+    const tx = await publicClient
+      .getTransaction({ hash: txHash as Hex })
+      .catch(() => null)
+
+    if (!tx) {
+      return { success: false, error: 'Could not fetch transaction details' }
+    }
+
+    if (tx.to?.toLowerCase() !== PAYMENT_RECIPIENT.toLowerCase()) {
+      return { success: false, error: 'Transaction recipient mismatch' }
+    }
+
+    if (tx.value < amount) {
+      return { success: false, error: 'Transaction value insufficient' }
+    }
+
+    // Verify sender matches the address requesting credits
+    if (tx.from.toLowerCase() !== addr.toLowerCase()) {
+      return { success: false, error: 'Transaction sender mismatch' }
+    }
+  } else {
+    console.warn(
+      '[X402] Credit purchase verification skipped in non-production',
+    )
+  }
+
+  // Mark tx hash as used
+  usedCreditTxHashes.add(txHashLower)
+
   const newBalance = await addCredits(addr, amount)
   return { success: true, newBalance }
 }

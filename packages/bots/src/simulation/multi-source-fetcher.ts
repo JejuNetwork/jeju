@@ -394,7 +394,7 @@ export class MultiSourceFetcher {
     const priceMap = new Map<number, number>()
 
     const coinData = data.coins[tokenId]
-    if (coinData?.prices) {
+    if (coinData.prices) {
       for (const point of coinData.prices) {
         priceMap.set(point.timestamp * 1000, point.price)
       }
@@ -767,7 +767,7 @@ export class MultiSourceFetcher {
 
       for (const [chainName, chainId] of Object.entries(SUPPORTED_CHAINS)) {
         const addresses = TOKEN_ADDRESSES[chainId]
-        if (!addresses?.[token]) continue
+        if (!addresses[token]) continue
 
         const llamaId = `${chainName}:${addresses[token]}`
         const url = `${DEFI_LLAMA_COINS}/prices/current/${llamaId}`

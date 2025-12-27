@@ -1,4 +1,7 @@
-import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests/playwright-only'
+import {
+  createSynpressConfig,
+  createWalletSetup,
+} from '@jejunetwork/tests/playwright-only'
 
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4031', 10)
 
@@ -13,4 +16,3 @@ export default createSynpressConfig({
 
 // Export wallet setup for Synpress
 export const basicSetup = createWalletSetup()
-

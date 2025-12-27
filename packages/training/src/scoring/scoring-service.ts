@@ -200,7 +200,7 @@ export class ArchetypeScoringService {
     const scores: ArchetypeScore[] = []
 
     for (const batch of batches) {
-      const scenarioId = batch[0]?.archetype ?? 'unknown'
+      const scenarioId = batch[0].archetype ?? 'unknown'
       const { system, user } = judgePromptBuilder.buildComparisonPrompt(
         batch,
         scenarioId,

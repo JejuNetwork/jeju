@@ -276,7 +276,7 @@ export class AppDeployer {
             name: svc.name,
             status: svc.status === 'running' ? 'running' : 'stopped',
             endpoint: svc.endpoint,
-            port: svc.ports[0]?.host,
+            port: svc.ports[0].host,
           })
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
@@ -329,7 +329,7 @@ export class AppDeployer {
       // Create the app's database
       await createDatabase(instance.id, appName.replace(/-/g, '_'))
 
-      const port = instance.ports[0]?.host ?? 25432
+      const port = instance.ports[0].host ?? 25432
 
       return {
         type: 'postgres',
@@ -404,7 +404,7 @@ export class AppDeployer {
         name: s.name,
         status: s.status === 'running' ? 'running' : 'stopped',
         endpoint: s.endpoint,
-        port: s.ports[0]?.host,
+        port: s.ports[0].host,
       })),
     }
   }
@@ -481,68 +481,12 @@ const DeployRequestSchema = z.object({
   }),
 })
 
-// Deployment record with version history
-interface DeploymentRecord {
-  id: string
-  appName: string
-  owner: Address
-  domain: string
-  status: 'deploying' | 'active' | 'failed' | 'stopped'
-  version: string
-  commit?: string
-  branch?: string
-  createdAt: number
-  updatedAt: number
-  url: string
-  framework?: string
-  region: string
-  previousVersions: Array<{ version: string; commit?: string; deployedAt: number }>
-}
-
-// Track deployments in memory (in production, use persistent storage)
-const deploymentStore = new Map<string, DeploymentRecord>()
-
 export function createAppDeployerRouter() {
   return new Elysia({ prefix: '/deploy' })
     .get('/health', () => ({
       status: 'healthy',
       service: 'dws-app-deployer',
     }))
-
-    .get('/list', async ({ request }) => {
-      const ownerHeader = request.headers.get('x-jeju-address')?.toLowerCase()
-
-      // Get deployments for this owner
-      const deployments = Array.from(deploymentStore.values()).filter((d) => {
-        if (!ownerHeader) return true
-        return d.owner?.toLowerCase() === ownerHeader
-      })
-
-      // Also check running services
-      const services = await listServicesAsync()
-      const serviceDeployments = services
-        .filter((s) => {
-          if (!ownerHeader) return true
-          // Skip services without owner or with non-matching owner
-          return s.owner?.toLowerCase() === ownerHeader
-        })
-        .map((s) => ({
-          id: s.id,
-          appName: s.name,
-          owner: s.owner || ('0x0' as Address),
-          domain: `${s.name}.jeju.app`,
-          status: s.status === 'running' ? 'active' : ('stopped' as const),
-          version: s.config.version || 'v1.0.0',
-          createdAt: s.createdAt,
-          updatedAt: Date.now(),
-          url: `https://${s.name}.jeju.app`,
-          region: 'global',
-        }))
-
-      return {
-        deployments: [...deployments, ...serviceDeployments],
-      }
-    })
 
     .post('/', async ({ body, request, set }) => {
       const parsed = DeployRequestSchema.safeParse(body)
@@ -555,41 +499,11 @@ export function createAppDeployerRouter() {
       const owner = (ownerHeader ??
         '0x0000000000000000000000000000000000000000') as Address
 
-      const manifest = parsed.data.manifest as AppManifest
       const deployer = new AppDeployer(owner)
-      const result = await deployer.deploy(manifest)
+      const result = await deployer.deploy(parsed.data.manifest as AppManifest)
 
       if (result.status === 'failed') {
         set.status = 500
-      } else {
-        // Track deployment with version history
-        const existing = deploymentStore.get(manifest.name)
-        const now = Date.now()
-
-        const record: DeploymentRecord = {
-          id: existing?.id || `deploy-${now}`,
-          appName: manifest.name,
-          owner,
-          domain: `${manifest.name}.jeju.app`,
-          status: result.status === 'success' ? 'active' : 'deploying',
-          version: manifest.version,
-          createdAt: existing?.createdAt || now,
-          updatedAt: now,
-          url: `https://${manifest.name}.jeju.app`,
-          region: 'global',
-          previousVersions: existing?.previousVersions || [],
-        }
-
-        // Push current version to history if updating
-        if (existing && existing.version !== manifest.version) {
-          record.previousVersions.push({
-            version: existing.version,
-            commit: existing.commit,
-            deployedAt: existing.updatedAt,
-          })
-        }
-
-        deploymentStore.set(manifest.name, record)
       }
 
       return result
@@ -611,68 +525,6 @@ export function createAppDeployerRouter() {
         mode:
           process.env.NODE_ENV === 'production' ? 'production' : 'development',
         simulatorAllowed: process.env.NODE_ENV !== 'production',
-      }
-    })
-
-    .post('/:appName/rollback', async ({ params, request, set }) => {
-      const ownerHeader = request.headers.get('x-jeju-address')?.toLowerCase()
-      const deployment = Array.from(deploymentStore.values()).find(
-        (d) => d.appName === params.appName && d.owner.toLowerCase() === ownerHeader,
-      )
-
-      if (!deployment) {
-        set.status = 404
-        return { error: 'Deployment not found' }
-      }
-
-      if (deployment.previousVersions.length === 0) {
-        set.status = 400
-        return { error: 'No previous version to rollback to' }
-      }
-
-      const previousVersion = deployment.previousVersions.pop()
-      if (!previousVersion) {
-        set.status = 400
-        return { error: 'No previous version available' }
-      }
-
-      // Save current version to history before rollback
-      deployment.previousVersions.push({
-        version: deployment.version,
-        commit: deployment.commit,
-        deployedAt: deployment.updatedAt,
-      })
-
-      // Rollback to previous version
-      deployment.version = previousVersion.version
-      deployment.commit = previousVersion.commit
-      deployment.updatedAt = Date.now()
-      deployment.status = 'active'
-
-      console.log(`[Deploy] Rolled back ${params.appName} to ${previousVersion.version}`)
-
-      return {
-        success: true,
-        appName: deployment.appName,
-        rolledBackTo: previousVersion.version,
-        previousVersion: deployment.previousVersions[deployment.previousVersions.length - 1]?.version,
-      }
-    })
-
-    .get('/:appName/versions', async ({ params, request, set }) => {
-      const ownerHeader = request.headers.get('x-jeju-address')?.toLowerCase()
-      const deployment = Array.from(deploymentStore.values()).find(
-        (d) => d.appName === params.appName && (!ownerHeader || d.owner.toLowerCase() === ownerHeader),
-      )
-
-      if (!deployment) {
-        set.status = 404
-        return { error: 'Deployment not found' }
-      }
-
-      return {
-        current: { version: deployment.version, commit: deployment.commit, deployedAt: deployment.updatedAt },
-        history: deployment.previousVersions,
       }
     })
 }

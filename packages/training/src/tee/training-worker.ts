@@ -786,14 +786,14 @@ export class TrainingWorker {
     )
 
     if (!response.ok) {
-      logger.warn('[TrainingWorker] Download failed, returning empty data')
-      return []
+      throw new Error(
+        `[TrainingWorker] Download failed: ${response.status} ${response.statusText}`,
+      )
     }
 
     const data: unknown = await response.json()
     if (!isArrayOf(data, guard)) {
-      logger.warn('[TrainingWorker] Invalid download data, returning empty')
-      return []
+      throw new Error('[TrainingWorker] Invalid download data format')
     }
     return data
   }

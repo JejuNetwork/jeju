@@ -189,6 +189,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
       throw new Error('Workerd not initialized. Call initialize() first.')
     }
 
+    // SECURITY: Only pass minimal required environment variables to workers
+    // Do NOT spread process.env - that would leak server secrets
     const proc = Bun.spawn(
       [this.workerdPath, 'serve', configPath, '--verbose'],
       {
@@ -196,7 +198,9 @@ export class WorkerdExecutor implements IWorkerdExecutor {
         stdout: 'pipe',
         stderr: 'pipe',
         env: {
-          ...process.env,
+          PATH: process.env.PATH,
+          HOME: process.env.HOME,
+          TMPDIR: process.env.TMPDIR,
           WORKERD_LOG_LEVEL: 'info',
         },
       },

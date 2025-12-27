@@ -686,19 +686,10 @@ export class EmailRelayService {
     }
 
     if (recipientPublicKeys.size === 0) {
-      console.warn(
-        '[EmailRelay] No recipient public keys found - storing unencrypted',
+      // SECURITY: Do not store emails unencrypted - fail instead
+      throw new Error(
+        '[EmailRelay] Cannot send email: no recipient public keys found. All internal recipients must have registered public keys.',
       )
-      const plainBytes = Buffer.from(contentString, 'utf8')
-      return {
-        ciphertext: `0x${plainBytes.toString('hex')}` as Hex,
-        nonce: '0x000000000000000000000000' as Hex,
-        ephemeralKey: '0x' as Hex,
-        recipients: recipients.map((r) => ({
-          address: r.full,
-          encryptedKey: '0x' as Hex,
-        })),
-      }
     }
 
     const { encryptedContent, recipientKeys } =

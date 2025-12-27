@@ -233,7 +233,7 @@ export function getTokenAddress(
   chainId: number,
   symbol: string,
 ): Address | undefined {
-  return CROSS_CHAIN_TOKENS[chainId]?.[symbol]
+  return CROSS_CHAIN_TOKENS[chainId][symbol]
 }
 
 /**

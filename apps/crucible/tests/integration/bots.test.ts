@@ -54,8 +54,8 @@ describe('Trading Bot Integration', () => {
         const testnetBot = testnetBots[i]
         expect(mainnetBot.name).toBe(testnetBot.name)
         expect(mainnetBot.strategies.length).toBe(testnetBot.strategies.length)
-        expect(mainnetBot.strategies[0]?.type).toBe(
-          testnetBot.strategies[0]?.type,
+        expect(mainnetBot.strategies[0].type).toBe(
+          testnetBot.strategies[0].type,
         )
       })
     })
@@ -129,14 +129,14 @@ describe('Trading Bot Integration', () => {
 
     test('should have appropriate chain selection per strategy', () => {
       DEFAULT_BOTS.forEach((bot) => {
-        if (bot.strategies[0]?.type === 'LIQUIDATION') {
+        if (bot.strategies[0].type === 'LIQUIDATION') {
           // Liquidation should focus on the network where perpetual market exists
           expect(
             bot.chains.includes(420691) || bot.chains.includes(420690),
           ).toBe(true)
         }
 
-        if (bot.strategies[0]?.type === 'CROSS_CHAIN_ARBITRAGE') {
+        if (bot.strategies[0].type === 'CROSS_CHAIN_ARBITRAGE') {
           // Cross-chain should have multiple chains
           expect(bot.chains.length).toBeGreaterThan(1)
         }

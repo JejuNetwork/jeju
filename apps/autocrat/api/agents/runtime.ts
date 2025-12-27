@@ -169,7 +169,7 @@ TRAITS: ${persona.traits.join(', ')}
 COMMUNICATION STYLE: ${persona.communicationTone}
 ${persona.voiceStyle ? `Voice Style: ${persona.voiceStyle}` : ''}
 
-${persona.specialties?.length ? `AREAS OF EXPERTISE: ${persona.specialties.join(', ')}` : ''}
+${persona.specialties.length ? `AREAS OF EXPERTISE: ${persona.specialties.join(', ')}` : ''}
 
 RESPONSIBILITIES:
 - Make final decisions on governance proposals

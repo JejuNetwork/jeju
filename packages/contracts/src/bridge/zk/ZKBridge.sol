@@ -8,6 +8,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 import "./interfaces/IZKBridge.sol";
 import "./interfaces/ISolanaLightClient.sol";
+import "./interfaces/IZKVerifier.sol";
 
 /**
  * @title ZKBridge
@@ -35,6 +36,7 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
 
     ISolanaLightClient public immutable lightClient;
     IBridgeIdentityRegistry public immutable identityRegistry;
+    IZKVerifier public immutable verifier;
     uint256 public immutable chainId;
     uint256 public constant SOLANA_CHAIN_ID = 101;
 
@@ -44,6 +46,7 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
     uint256 public baseFee;
     uint256 public feePerByte;
     address public admin;
+    address public pendingAdmin;
     address public feeCollector;
 
     /// @notice Minimum stake tier required for transfers above threshold
@@ -72,6 +75,8 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
     event TokenRegistered(address indexed token, bytes32 indexed solanaMint, bool isHome);
     event FeeUpdated(uint256 baseFee, uint256 feePerByte);
     event FeesCollected(address indexed collector, uint256 amount);
+    event AdminTransferInitiated(address indexed currentAdmin, address indexed pendingAdmin);
+    event AdminTransferAccepted(address indexed newAdmin);
 
     // ============ Errors ============
 
@@ -81,10 +86,13 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
     error InvalidProof();
     error SlotNotVerified();
     error OnlyAdmin();
+    error OnlyPendingAdmin();
     error TokenTransferFailed();
     error SenderNotRegistered();
     error InsufficientStakeTier();
     error SenderBanned();
+    error FeeRefundFailed();
+    error FeeCollectionFailed();
 
     // ============ Modifiers ============
 
@@ -118,11 +126,14 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
     constructor(
         address _lightClient,
         address _identityRegistry,
+        address _verifier,
         uint256 _baseFee,
         uint256 _feePerByte
     ) {
+        require(_verifier != address(0), "Verifier address required");
         lightClient = ISolanaLightClient(_lightClient);
         identityRegistry = IBridgeIdentityRegistry(_identityRegistry);
+        verifier = IZKVerifier(_verifier);
         chainId = block.chainid;
         baseFee = _baseFee;
         feePerByte = _feePerByte;
@@ -182,9 +193,10 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
 
         emit TransferInitiated(transferId, token, msg.sender, recipient, amount, destChainId);
 
-        // Refund excess fee
+        // Refund excess fee using call() for gas forward compatibility
         if (msg.value > requiredFee) {
-            payable(msg.sender).transfer(msg.value - requiredFee);
+            (bool success, ) = payable(msg.sender).call{value: msg.value - requiredFee}("");
+            if (!success) revert FeeRefundFailed();
         }
     }
 
@@ -286,13 +298,22 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
 
     function collectFees() external {
         uint256 balance = address(this).balance;
-        payable(feeCollector).transfer(balance);
+        (bool success, ) = payable(feeCollector).call{value: balance}("");
+        if (!success) revert FeeCollectionFailed();
         emit FeesCollected(feeCollector, balance);
     }
 
     function transferAdmin(address newAdmin) external onlyAdmin {
         require(newAdmin != address(0), "Invalid admin");
-        admin = newAdmin;
+        pendingAdmin = newAdmin;
+        emit AdminTransferInitiated(admin, newAdmin);
+    }
+
+    function acceptAdminTransfer() external {
+        if (msg.sender != pendingAdmin) revert OnlyPendingAdmin();
+        admin = pendingAdmin;
+        pendingAdmin = address(0);
+        emit AdminTransferAccepted(admin);
     }
 
     function pause() external onlyAdmin {
@@ -310,12 +331,9 @@ contract ZKBridge is IZKBridge, ReentrancyGuard, Pausable {
     function _verifyProof(
         uint256[8] calldata proof,
         uint256[] calldata publicInputs
-    ) internal pure returns (bool) {
-        // Groth16 verification logic
-        // In production, delegates to verifier contract
-        if (proof[0] == 0 && proof[1] == 0) return false;
-        if (publicInputs.length < 7) return false;
-        return true;
+    ) internal view returns (bool) {
+        // Delegate to the Groth16 verifier contract for cryptographic verification
+        return verifier.verifyProof(proof, publicInputs);
     }
 
     receive() external payable {}

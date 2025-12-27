@@ -6,7 +6,52 @@ import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig, WalletAuthChallenge } from '../../lib/types'
-import { authCodeState, sessionState } from '../services/state'
+import { authCodeState, clientState, sessionState } from '../services/state'
+
+/**
+ * HTML escape to prevent XSS in rendered templates.
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+/**
+ * JS string escape for template literals.
+ */
+function escapeJsString(unsafe: string): string {
+  return unsafe
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/`/g, '\\`')
+    .replace(/\$/g, '\\$')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+}
+
+/**
+ * Validate redirect URI against client's registered patterns.
+ */
+function validateRedirectUri(
+  redirectUri: string,
+  allowedPatterns: string[],
+): boolean {
+  for (const pattern of allowedPatterns) {
+    const regexPattern = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+    const regex = new RegExp(`^${regexPattern}$`)
+    if (regex.test(redirectUri)) {
+      return true
+    }
+  }
+  return false
+}
 
 const ChallengeQuerySchema = t.Object({
   client_id: t.String(),
@@ -40,8 +85,20 @@ export function createWalletRouter(_config: AuthConfig) {
   return new Elysia({ name: 'wallet', prefix: '/wallet' })
     .get(
       '/challenge',
-      async ({ query }) => {
+      async ({ query, set }) => {
         const { client_id: clientId, redirect_uri: redirectUri, state } = query
+
+        // Validate client exists and redirect URI is allowed
+        const client = await clientState.get(clientId)
+        if (!client || !client.active) {
+          set.status = 400
+          return { error: 'invalid_client' }
+        }
+
+        if (!validateRedirectUri(redirectUri, client.redirectUris)) {
+          set.status = 400
+          return { error: 'invalid_redirect_uri' }
+        }
 
         const challengeId = crypto.randomUUID()
         const nonce = crypto.randomUUID()
@@ -154,7 +211,7 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
   <div class="container">
     <div class="logo">Connect Wallet</div>
     
-    <div class="message-box">${message}</div>
+    <div class="message-box">${escapeHtml(message)}</div>
     
     <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
     
@@ -162,8 +219,8 @@ This signature will not trigger any blockchain transaction or cost any gas fees.
   </div>
 
   <script>
-    const challengeId = '${challengeId}';
-    const message = \`${message.replace(/`/g, '\\`')}\`;
+    const challengeId = '${escapeJsString(challengeId)}';
+    const message = '${escapeJsString(message)}';
     
     let provider = null;
     let address = null;

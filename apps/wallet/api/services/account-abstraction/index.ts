@@ -37,15 +37,15 @@ const JEJU_CONTRACTS: Record<
 }
 
 const getAccountFactory = (chainId: number): Address => {
-  return JEJU_CONTRACTS[chainId]?.factory || ZERO_ADDRESS
+  return JEJU_CONTRACTS[chainId].factory || ZERO_ADDRESS
 }
 
 const getEntryPoint = (chainId: number): Address => {
-  return JEJU_CONTRACTS[chainId]?.entryPoint || ENTRY_POINT_V07
+  return JEJU_CONTRACTS[chainId].entryPoint || ENTRY_POINT_V07
 }
 
 const getSponsoredPaymaster = (chainId: number): Address | undefined => {
-  return JEJU_CONTRACTS[chainId]?.sponsoredPaymaster
+  return JEJU_CONTRACTS[chainId].sponsoredPaymaster
 }
 
 export interface SmartAccount {

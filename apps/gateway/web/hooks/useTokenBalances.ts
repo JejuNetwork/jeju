@@ -38,7 +38,7 @@ export function useTokenBalances() {
 
     tokens.forEach((token, index) => {
       const balance = data[index]
-      if (balance?.status === 'success' && balance.result !== undefined) {
+      if (balance.status === 'success' && balance.result !== undefined) {
         result[token.symbol] = balance.result
       }
     })

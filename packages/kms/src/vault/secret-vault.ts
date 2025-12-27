@@ -490,6 +490,26 @@ export class SecretVault {
       daConfigured: !!this.config.daEndpoint,
     }
   }
+
+  /**
+   * Securely shut down the vault, zeroing all sensitive data.
+   *
+   * SECURITY: This method MUST be called before the vault is garbage collected
+   * to ensure the master encryption key is zeroed from memory.
+   */
+  shutdown(): void {
+    // Zero the master encryption key
+    this.encryptionKey.fill(0)
+
+    // Clear all secrets
+    this.secrets.clear()
+    this.versions.clear()
+    this.policies.clear()
+    this.accessLogs.length = 0
+
+    this.initialized = false
+    log.info('SecretVault shutdown complete - all sensitive data zeroed')
+  }
 }
 
 let vaultInstance: SecretVault | undefined
@@ -506,5 +526,8 @@ export function getSecretVault(config?: Partial<VaultConfig>): SecretVault {
 }
 
 export function resetSecretVault(): void {
+  if (vaultInstance) {
+    vaultInstance.shutdown()
+  }
   vaultInstance = undefined
 }

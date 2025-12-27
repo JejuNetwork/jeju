@@ -104,7 +104,7 @@ export function getExplorerUrl(chainId: number): string {
 }
 
 export function getChainName(chainId: number): string {
-  return CHAINS[chainId as keyof typeof CHAINS]?.name ?? 'Unknown'
+  return CHAINS[chainId as keyof typeof CHAINS].name ?? 'Unknown'
 }
 
 // Common tokens by chain (public addresses)

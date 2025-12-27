@@ -226,7 +226,7 @@ export namespace SlippageModel {
     }
 
     const midPrice =
-      (orderBook.bids[0]?.price ?? 0 + (orderBook.asks[0]?.price ?? 0)) / 2
+      (orderBook.bids[0].price ?? 0 + (orderBook.asks[0].price ?? 0)) / 2
     let remainingAmount = amountUsd
     let totalCost = 0
     let totalFilled = 0
@@ -247,7 +247,7 @@ export namespace SlippageModel {
 
     if (remainingAmount > 0) {
       // Not enough liquidity - use last price with penalty
-      const lastPrice = orders[orders.length - 1]?.price ?? midPrice
+      const lastPrice = orders[orders.length - 1].price ?? midPrice
       const penaltyPrice = isBuy ? lastPrice * 1.05 : lastPrice * 0.95
       totalFilled += remainingAmount / penaltyPrice
       totalCost += remainingAmount

@@ -498,7 +498,7 @@ export const intentState = {
       CQL_DATABASE_ID,
     )
 
-    return result.rows[0]?.count ?? 0
+    return result.rows[0].count ?? 0
   },
 }
 
@@ -645,7 +645,7 @@ export const routeState = {
       CQL_DATABASE_ID,
     )
 
-    const current = BigInt(result.rows[0]?.total_volume ?? '0')
+    const current = BigInt(result.rows[0].total_volume ?? '0')
     const newTotal = (current + amount).toString()
 
     await client.exec(
@@ -669,7 +669,7 @@ export const x402State = {
       [addr],
       CQL_DATABASE_ID,
     )
-    const balance = result.rows[0]?.balance ?? '0'
+    const balance = result.rows[0].balance ?? '0'
     await cache.set(`credits:${addr}`, balance, 300)
     return BigInt(balance)
   },

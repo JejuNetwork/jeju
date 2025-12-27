@@ -339,12 +339,12 @@ export default function ItemMintPage() {
           {/* Image Preview */}
           {form.imageUrl && (
             <div>
-              <label
+              <span
                 className="text-sm block mb-1.5"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 Preview
-              </label>
+              </span>
               <div
                 className="rounded-xl overflow-hidden max-w-xs"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}

@@ -286,7 +286,7 @@ export async function processCrossServiceEvents(
         crossServiceRequests.set(requestId, crossServiceRequest)
 
         ctx.log.debug(
-          `Container pulled: ${cid.slice(0, 16)}... for rental ${rentalId?.slice(0, 10) ?? 'N/A'}...`,
+          `Container pulled: ${cid.slice(0, 16)}... for rental ${rentalId.slice(0, 10) ?? 'N/A'}...`,
         )
       }
 
@@ -524,9 +524,7 @@ export async function getMarketplaceStats(
 
   // Query full-stack agents - count manually since array contains is complex
   const allAgents = await ctx.store.find(RegisteredAgent)
-  const fullStackAgents = allAgents.filter((a) =>
-    a.tags?.includes('full-stack'),
-  )
+  const fullStackAgents = allAgents.filter((a) => a.tags.includes('full-stack'))
 
   return {
     compute: {

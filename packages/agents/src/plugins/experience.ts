@@ -197,7 +197,7 @@ const feedbackEvaluator: Evaluator = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     // Check for feedback indicators
     const feedbackKeywords = [
@@ -218,7 +218,7 @@ const feedbackEvaluator: Evaluator = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : (message.content?.text ?? '')
+        : (message.content.text ?? '')
 
     // Determine sentiment
     const positive = ['good', 'helpful', 'correct', 'like', '👍']

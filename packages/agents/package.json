@@ -17,6 +17,7 @@
     "@elizaos/core": "1.7.0",
     "@jejunetwork/a2a": "workspace:*",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/mcp": "workspace:*",
     "@jejunetwork/shared": "workspace:*",

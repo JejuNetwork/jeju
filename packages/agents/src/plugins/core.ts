@@ -49,7 +49,7 @@ const tradeAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     const tradeKeywords = ['buy', 'sell', 'long', 'short', 'trade', 'position']
     return tradeKeywords.some((kw) => text.toLowerCase().includes(kw))
@@ -59,7 +59,7 @@ const tradeAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : (message.content?.text ?? '')
+        : (message.content.text ?? '')
 
     logger.info(`Trade action triggered for agent ${agentId}`, { text })
 
@@ -111,7 +111,7 @@ const a2aMessageAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     return (
       text.toLowerCase().includes('agent') &&
@@ -125,7 +125,7 @@ const a2aMessageAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : (message.content?.text ?? '')
+        : (message.content.text ?? '')
 
     // Extract target agent ID from message
     const agentMatch = text.match(/agent[- ]?(\w+)/i)
@@ -179,7 +179,7 @@ const discoverAgentsAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     const discoverKeywords = ['find', 'discover', 'search', 'which', 'list']
     return (
@@ -192,7 +192,7 @@ const discoverAgentsAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : (message.content?.text ?? '')
+        : (message.content.text ?? '')
 
     // Extract skills from message
     const skills: string[] = []
@@ -279,7 +279,7 @@ const riskEvaluator: Evaluator = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     // Run on trade-related messages
     const tradeKeywords = [

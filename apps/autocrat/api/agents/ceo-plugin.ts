@@ -106,7 +106,7 @@ const makeDecisionAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     return content.includes('0x') || content.includes('proposal')
   },
 
@@ -117,7 +117,7 @@ const makeDecisionAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (!proposalIdMatch) {
@@ -199,7 +199,7 @@ const requestResearchAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     return content.includes('research') || content.includes('investigate')
   },
 
@@ -210,7 +210,7 @@ const requestResearchAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     const proposalId = proposalIdMatch?.[0] ?? 'pending'
@@ -251,7 +251,7 @@ const getDeliberationAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     return (
       content.includes('autocrat') ||
       content.includes('deliberation') ||
@@ -266,7 +266,7 @@ const getDeliberationAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (!proposalIdMatch) {
@@ -404,7 +404,7 @@ const modifyFeesAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
     const feeKeywords = [
       'fee',
       'fees',
@@ -430,7 +430,7 @@ const modifyFeesAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
 
     const parseRequest = (): FeeChangeRequest | null => {
       // Distribution fees
@@ -635,7 +635,7 @@ const viewFeesAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
     return (
       (content.includes('fee') || content.includes('fees')) &&
       (content.includes('show') ||

@@ -326,6 +326,18 @@ export class MPCCoordinator {
     return { complete: false }
   }
 
+  /**
+   * Aggregate partial signatures into final signature.
+   *
+   * NOTE: This implementation uses Shamir's Secret Sharing for key distribution
+   * and reconstructs the full key temporarily for signing. The key is zeroed
+   * immediately after use. For true threshold signing where the key is never
+   * reconstructed, use the FROST implementation in frost-signing.ts.
+   *
+   * SECURITY: The reconstructed key is held only for the duration of signing
+   * and is zeroed immediately after. While this is less secure than true
+   * threshold signing, it provides a working MPC signing capability.
+   */
   private async aggregateSignature(
     session: MPCSignSession,
   ): Promise<MPCSignatureResult> {
@@ -340,6 +352,8 @@ export class MPCCoordinator {
       return Array.from(key.partyShares.keys()).indexOf(partyId) + 1
     })
 
+    // Reconstruct key using Lagrange interpolation
+    // NOTE: This temporarily reconstructs the full private key
     let reconstructedKey = 0n
     for (let i = 0; i < session.participants.length; i++) {
       const share = keySecrets.get(session.participants[i])
@@ -367,7 +381,8 @@ export class MPCCoordinator {
       message: { raw: toBytes(session.messageHash) },
     })
 
-    // Zero reconstructed key after use (bigint is immutable, reassign helps GC)
+    // SECURITY: Zero the reconstructed key immediately after use
+    // Note: bigint is immutable, so we can only clear the reference
     reconstructedKey = 0n
 
     return {

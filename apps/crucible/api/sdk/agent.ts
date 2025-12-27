@@ -252,15 +252,15 @@ export class AgentSDK {
     if (characterCid) {
       const character = await this.storage.loadCharacter(characterCid)
       if (
-        character.topics?.includes('trading') ||
-        character.topics?.includes('arbitrage') ||
-        character.topics?.includes('mev')
+        character.topics.includes('trading') ||
+        character.topics.includes('arbitrage') ||
+        character.topics.includes('mev')
       ) {
         botType = 'trading_bot'
       } else if (
-        character.topics?.includes('org') ||
-        character.topics?.includes('todo') ||
-        character.topics?.includes('team')
+        character.topics.includes('org') ||
+        character.topics.includes('todo') ||
+        character.topics.includes('team')
       ) {
         botType = 'org_tool'
       }

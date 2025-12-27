@@ -62,14 +62,14 @@ function getCacheControl(app: AppFrontendConfig, path: string): string {
 function matchPattern(path: string, pattern: string): boolean {
   // Convert glob pattern to regex
   // Handle patterns like /**/*.js (any js file at any depth) and /assets/** (anything under assets)
-  const DOUBLE_STAR = '<<<DOUBLE_STAR>>>'
+  const PLACEHOLDER = '__GLOB_DOUBLESTAR__'
   const regexStr = pattern
     .replace(/\./g, '\\.')
-    .replace(/\*\*/g, DOUBLE_STAR)
-    .replace(/\*/g, '[^/]+')
-    .replace(new RegExp(`${DOUBLE_STAR}/`, 'g'), '(?:.*/)?')
-    .replace(new RegExp(`/${DOUBLE_STAR}`, 'g'), '(?:/.*)?')
-    .replace(new RegExp(DOUBLE_STAR, 'g'), '.*')
+    .replace(/\*\*/g, PLACEHOLDER) // Placeholder for **
+    .replace(/\*/g, '[^/]+') // * matches one or more non-slash chars
+    .replace(new RegExp(`${PLACEHOLDER}/`, 'g'), '(?:.*/)?') // **/ becomes optional path prefix
+    .replace(new RegExp(`/${PLACEHOLDER}`, 'g'), '(?:/.*)?') // /** becomes optional path suffix
+    .replace(new RegExp(PLACEHOLDER, 'g'), '.*') // standalone ** matches anything
 
   const regex = new RegExp(`^${regexStr}$`)
   return regex.test(path)

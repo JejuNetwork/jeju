@@ -117,15 +117,15 @@ export class IntentSwapRouter {
     const bestRoute = routes[0]
     const priceImpact = this.calculatePriceImpact(
       intent.inputAmount,
-      bestRoute?.estimatedOutput ?? 0n,
+      bestRoute.estimatedOutput ?? 0n,
     )
 
     return {
       bestRoute,
       alternativeRoutes: routes.slice(1),
       priceImpact,
-      totalFeeUsd: this.estimateFeeUsd(bestRoute?.fee ?? 0n),
-      executionTimeEstimate: bestRoute?.executionTime ?? 0,
+      totalFeeUsd: this.estimateFeeUsd(bestRoute.fee ?? 0n),
+      executionTimeEstimate: bestRoute.executionTime ?? 0,
     }
   }
 

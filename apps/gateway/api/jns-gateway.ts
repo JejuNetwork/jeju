@@ -23,6 +23,11 @@ import {
   resolveDevProxy,
 } from './dev-proxy'
 
+// SECURITY: Restrict CORS in production
+const JNS_CORS_ORIGINS =
+  process.env.JNS_CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
+
 const JNS_RESOLVER_ABI = [
   {
     name: 'contenthash',
@@ -215,7 +220,16 @@ export class JNSGateway {
   }
 
   private setupRoutes(): void {
-    this.app.use(cors())
+    // SECURITY: Apply CORS restrictions in production
+    this.app.use(
+      cors({
+        origin:
+          isProduction && JNS_CORS_ORIGINS?.length ? JNS_CORS_ORIGINS : true,
+        methods: ['GET', 'OPTIONS'],
+        allowedHeaders: ['Content-Type'],
+        maxAge: 86400,
+      }),
+    )
 
     this.app.get('/health', () => ({
       status: 'healthy',
@@ -249,7 +263,10 @@ export class JNSGateway {
     // Helper to handle host-based JNS routing
     const handleHostBasedRouting = async (
       request: Request,
-      set: { status?: number | string; headers: Record<string, string | number> },
+      set: {
+        status?: number | string
+        headers: Record<string, string | number>
+      },
     ): Promise<Response | string | object | null> => {
       const host = request.headers.get('host') ?? ''
       // Match various JNS patterns:

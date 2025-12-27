@@ -137,22 +137,49 @@ export async function markNonceFailed(
   localPending.delete(key)
 }
 
+/**
+ * SECURITY: Local lock to prevent race conditions during reservation
+ * This ensures the check-then-act pattern is atomic within a single instance
+ */
+const reservationLocks = new Set<string>()
+const LOCK_TIMEOUT_MS = 5000
+
 export async function reserveNonce(
   client: PublicClient,
   payer: Address,
   nonce: string,
 ): Promise<{ reserved: boolean; error?: string }> {
-  if (await isNonceUsedLocally(payer, nonce))
-    return { reserved: false, error: 'Nonce already used or pending' }
-  if (await isNonceUsedOnChain(client, payer, nonce)) {
-    await markNonceUsed(payer, nonce)
-    return { reserved: false, error: 'Nonce already used on-chain' }
+  const key = nonceKey(payer, nonce)
+
+  // SECURITY: Acquire local lock to prevent race conditions
+  if (reservationLocks.has(key)) {
+    return { reserved: false, error: 'Nonce reservation in progress' }
   }
-  if ((await checkHealth()) && (await cacheGet(nonceKey(payer, nonce)))) {
-    return { reserved: false, error: 'Nonce already reserved' }
+
+  reservationLocks.add(key)
+
+  // Auto-release lock after timeout to prevent deadlocks
+  const lockTimeout = setTimeout(() => {
+    reservationLocks.delete(key)
+  }, LOCK_TIMEOUT_MS)
+
+  try {
+    if (await isNonceUsedLocally(payer, nonce)) {
+      return { reserved: false, error: 'Nonce already used or pending' }
+    }
+    if (await isNonceUsedOnChain(client, payer, nonce)) {
+      await markNonceUsed(payer, nonce)
+      return { reserved: false, error: 'Nonce already used on-chain' }
+    }
+    if ((await checkHealth()) && (await cacheGet(key))) {
+      return { reserved: false, error: 'Nonce already reserved' }
+    }
+    await markNoncePending(payer, nonce)
+    return { reserved: true }
+  } finally {
+    clearTimeout(lockTimeout)
+    reservationLocks.delete(key)
   }
-  await markNoncePending(payer, nonce)
-  return { reserved: true }
 }
 
 export function generateNonce(): string {

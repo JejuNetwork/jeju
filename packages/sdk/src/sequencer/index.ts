@@ -489,7 +489,7 @@ export function createSequencerModule(
     },
 
     async getSequencerMetrics(address) {
-      const seq = await this.getSequencer(address)
+      const seq = await this.getSequencer(address ?? wallet.address)
       if (!seq) {
         return {
           totalBlocks: 0n,
@@ -500,10 +500,27 @@ export function createSequencerModule(
         }
       }
 
+      // Get slashing history to count missed blocks
+      const slashingHistory = await this.getSlashingHistory(
+        seq.sequencerAddress,
+      )
+      const missedBlocks = BigInt(
+        slashingHistory.filter((s) => s.reason.includes('missed')).length,
+      )
+
+      // Calculate uptime based on blocks produced vs expected
+      const now = BigInt(Math.floor(Date.now() / 1000))
+      const activeDuration = now - seq.registeredAt
+      const expectedBlocks = activeDuration / SLOT_DURATION
+      const uptime =
+        expectedBlocks > 0n
+          ? Math.min(100, Number((seq.blocksProduced * 100n) / expectedBlocks))
+          : 100
+
       return {
         totalBlocks: seq.blocksProduced,
-        missedBlocks: 0n, // Would need to track
-        uptime: 100, // Would calculate
+        missedBlocks,
+        uptime,
         averageBlockTime: SLOT_DURATION,
         latestBlock: seq.lastBlockTime,
       }

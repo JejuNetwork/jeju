@@ -191,7 +191,7 @@ class HistoryService {
     if (!chain) {
       throw new Error(`Chain ${tx.chainId} not supported`)
     }
-    const symbol = chain.nativeCurrency?.symbol ?? 'ETH'
+    const symbol = chain.nativeCurrency.symbol ?? 'ETH'
 
     let title = ''
     let subtitle = ''

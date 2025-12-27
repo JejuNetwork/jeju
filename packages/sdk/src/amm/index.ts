@@ -691,11 +691,38 @@ export function createAMMModule(
 
       const [amountOut, poolType, fee] = result as [bigint, number, number]
 
+      // Calculate price impact
+      // Price impact = (execution price - spot price) / spot price * 100
+      // For a constant product AMM, this is approximately: amountIn / (reserve + amountIn) * 100
+      let priceImpact = 0
+      if (amountIn > 0n && amountOut > 0n) {
+        // Get spot price by quoting a small amount
+        const smallAmount = amountIn / 1000n > 0n ? amountIn / 1000n : 1n
+        const smallQuote = await wallet.publicClient.readContract({
+          address: routerAddress,
+          abi: XLP_ROUTER_ABI,
+          functionName: 'quoteForRouter',
+          args: [tokenIn, tokenOut, smallAmount],
+        })
+        const [smallAmountOut] = smallQuote as [bigint, number, number]
+
+        if (smallAmountOut > 0n) {
+          // Calculate spot rate vs execution rate
+          const spotRate = (smallAmountOut * 10000n) / smallAmount
+          const executionRate = (amountOut * 10000n) / amountIn
+          // Price impact as percentage (scaled by 100)
+          if (spotRate > 0n) {
+            const impactBps = ((spotRate - executionRate) * 10000n) / spotRate
+            priceImpact = Number(impactBps) / 100 // Convert to percentage
+          }
+        }
+      }
+
       return {
         amountOut,
         poolType: poolType as PoolType,
         fee,
-        priceImpact: 0, // Would need to calculate
+        priceImpact,
         path: [tokenIn, tokenOut],
       }
     },

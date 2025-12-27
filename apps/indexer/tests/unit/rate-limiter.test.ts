@@ -404,7 +404,7 @@ describe('Client Identification', () => {
 
   it('should extract IP from x-forwarded-for header', () => {
     const forwardedFor = '203.0.113.195, 70.41.3.18, 150.172.238.178'
-    const ip = forwardedFor.split(',')[0]?.trim()
+    const ip = forwardedFor.split(',')[0].trim()
     expect(ip).toBe('203.0.113.195')
   })
 })

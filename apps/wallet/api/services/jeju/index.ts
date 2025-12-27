@@ -413,15 +413,16 @@ export async function getApprovals(
   const data = await graphql(
     `
     query GetApprovals($address: String!) {
-      approvalEvents(
+      tokenApprovalEvents(
         where: { owner: { address_eq: $address } }
         orderBy: timestamp_DESC
       ) {
-        token { address symbol chainId }
+        token { address symbol }
         spender { address }
         value
         transaction { hash }
         timestamp
+        chainId
       }
     }
   `,
@@ -433,6 +434,75 @@ export async function getApprovals(
   return data.approvalEvents.map((a) => ({
     ...a,
     chainId: a.chainId ?? 420691, // Default to Jeju mainnet
+  }))
+}
+
+export interface IndexedNFTApproval {
+  contractAddress: string
+  contractName: string
+  operator: string
+  tokenId: string | null
+  isApprovalForAll: boolean
+  approved: boolean
+  txHash: string
+  timestamp: string
+  chainId: number
+}
+
+const NFTApprovalsDataSchema = z.object({
+  nftApprovalEvents: z.array(
+    z.object({
+      token: z.object({
+        address: z.string(),
+        name: z.string().optional(),
+      }),
+      operator: z.object({ address: z.string() }),
+      tokenId: z.string().nullable(),
+      isApprovalForAll: z.boolean(),
+      approved: z.boolean(),
+      transaction: z.object({ hash: z.string() }),
+      timestamp: z.string(),
+      chainId: z.number(),
+    }),
+  ),
+})
+
+export async function getNFTApprovals(
+  address: Address,
+): Promise<IndexedNFTApproval[]> {
+  const data = await graphql(
+    `
+    query GetNFTApprovals($address: String!) {
+      nftApprovalEvents(
+        where: { owner: { address_eq: $address }, approved_eq: true }
+        orderBy: timestamp_DESC
+      ) {
+        token { address }
+        operator { address }
+        tokenId
+        isApprovalForAll
+        approved
+        transaction { hash }
+        timestamp
+        chainId
+      }
+    }
+  `,
+    NFTApprovalsDataSchema,
+    'getNFTApprovals',
+    { address: address.toLowerCase() },
+  )
+
+  return data.nftApprovalEvents.map((a) => ({
+    contractAddress: a.token.address,
+    contractName: a.token.name ?? 'Unknown Collection',
+    operator: a.operator.address,
+    tokenId: a.tokenId,
+    isApprovalForAll: a.isApprovalForAll,
+    approved: a.approved,
+    txHash: a.transaction.hash,
+    timestamp: a.timestamp,
+    chainId: a.chainId,
   }))
 }
 
@@ -494,7 +564,7 @@ export async function getGasPrice(): Promise<{
     'getGasPrice',
   )
 
-  if (!data.oracleFeeds[0]?.latestPrice) {
+  if (!data.oracleFeeds[0].latestPrice) {
     throw new Error('No gas price oracle feed available')
   }
 
@@ -654,6 +724,6 @@ export async function getIndexerHealth(): Promise<{
 
   return {
     status: health.status,
-    latestBlock: blocks.blocks[0]?.number ?? 0,
+    latestBlock: blocks.blocks[0].number ?? 0,
   }
 }

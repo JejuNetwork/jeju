@@ -1,7 +1,7 @@
 /** Manage CovenantSQL decentralized database */
 
-import { execSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getRpcUrl as getConfigRpcUrl,
@@ -19,9 +19,10 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
 import { logger } from '../lib/logger'
+import { validateNetwork } from '../lib/security'
 import { findMonorepoRoot } from '../lib/system'
 
-type CQLMode = 'dev' | 'cluster' | 'testnet'
+type CQLMode = 'cluster' | 'testnet'
 
 interface ClusterStatus {
   mode: CQLMode
@@ -108,23 +109,20 @@ export const cqlCommand = new Command('cql').description(
 
 cqlCommand
   .command('start')
-  .description('Start CQL database')
+  .description('Start CQL database cluster')
   .option(
     '--mode <mode>',
-    'Mode: dev (SQLite), cluster (multi-node), testnet',
-    'dev',
+    'Mode: cluster (multi-node Docker), testnet (remote)',
+    'cluster',
   )
   .option('--miners <count>', 'Number of miner nodes (cluster mode)', '3')
-  .option('--detach', 'Run in background')
+  .option('--detach', 'Run in background', true)
   .action(async (options) => {
     const mode = options.mode as CQLMode
     logger.header('CQL START')
     logger.keyValue('Mode', mode)
 
     switch (mode) {
-      case 'dev':
-        await startDevMode(options.detach)
-        break
       case 'cluster':
         await startClusterMode(Number(options.miners), options.detach)
         break
@@ -132,29 +130,17 @@ cqlCommand
         await connectTestnet()
         break
       default:
-        logger.error(`Unknown mode: ${mode}`)
+        logger.error(`Unknown mode: ${mode}. Use 'cluster' or 'testnet'.`)
         process.exit(1)
     }
   })
 
 cqlCommand
   .command('stop')
-  .description('Stop CQL database')
-  .option('--mode <mode>', 'Mode: dev, cluster', 'dev')
-  .action(async (options) => {
-    const mode = options.mode as CQLMode
+  .description('Stop CQL database cluster')
+  .action(async () => {
     logger.header('CQL STOP')
-
-    switch (mode) {
-      case 'dev':
-        await stopDevMode()
-        break
-      case 'cluster':
-        await stopClusterMode()
-        break
-      default:
-        logger.info('Nothing to stop for testnet mode')
-    }
+    await stopClusterMode()
   })
 
 cqlCommand
@@ -194,7 +180,10 @@ cqlCommand
   )
   .action(async (options) => {
     logger.header('CQL DEPLOY')
-    logger.keyValue('Network', options.network)
+
+    // SECURITY: Validate network to prevent command injection
+    const network = validateNetwork(options.network)
+    logger.keyValue('Network', network)
 
     const rootDir = findMonorepoRoot()
     const deployScript = join(
@@ -212,7 +201,7 @@ cqlCommand
     logger.newline()
 
     logger.step('Deploying CQL infrastructure...')
-    execSync(`bun run ${deployScript} --network ${options.network}`, {
+    execSync(`bun run ${deployScript} --network ${network}`, {
       cwd: rootDir,
       stdio: 'inherit',
     })
@@ -307,85 +296,6 @@ cqlCommand
     }
   })
 
-async function startDevMode(detach: boolean): Promise<void> {
-  const rootDir = findMonorepoRoot()
-  const dbPath = join(rootDir, 'packages/db')
-
-  if (!existsSync(dbPath)) {
-    logger.error('packages/db not found')
-    process.exit(1)
-  }
-
-  // Check if already running
-  const running = await isDevModeRunning()
-  if (running) {
-    logger.success('CQL dev server already running')
-    return
-  }
-
-  logger.step('Starting CQL dev server (SQLite-backed)...')
-
-  const port = process.env.CQL_PORT ?? '4661'
-  const dataDir = join(rootDir, '.data/cql')
-
-  if (!existsSync(dataDir)) {
-    mkdirSync(dataDir, { recursive: true })
-  }
-
-  if (detach) {
-    const proc = spawn('bun', ['run', 'server'], {
-      cwd: dbPath,
-      env: {
-        ...process.env,
-        PORT: port,
-        CQL_PORT: port,
-        CQL_DATA_DIR: dataDir,
-      },
-      stdio: 'ignore',
-      detached: true,
-    })
-    proc.unref()
-
-    // Wait for startup
-    for (let i = 0; i < 30; i++) {
-      await sleep(500)
-      if (await isDevModeRunning()) {
-        logger.success(`CQL dev server running on port ${port}`)
-        return
-      }
-    }
-    logger.error('CQL dev server failed to start')
-    process.exit(1)
-  } else {
-    // Run in foreground
-    const proc = spawn('bun', ['run', 'server'], {
-      cwd: dbPath,
-      env: {
-        ...process.env,
-        PORT: port,
-        CQL_PORT: port,
-        CQL_DATA_DIR: dataDir,
-      },
-      stdio: 'inherit',
-    })
-
-    process.on('SIGINT', () => {
-      proc.kill('SIGTERM')
-      process.exit(0)
-    })
-
-    await new Promise<void>((resolve) => {
-      proc.on('exit', () => resolve())
-    })
-  }
-}
-
-async function stopDevMode(): Promise<void> {
-  logger.step('Stopping CQL dev server...')
-  execSync('pkill -f "packages/db.*server" || true', { stdio: 'ignore' })
-  logger.success('CQL dev server stopped')
-}
-
 async function startClusterMode(
   minerCount: number,
   detach: boolean,
@@ -462,28 +372,7 @@ async function connectTestnet(): Promise<void> {
   }
 }
 
-async function isDevModeRunning(): Promise<boolean> {
-  const port = process.env.CQL_PORT ?? '4661'
-  const response = await fetch(`http://127.0.0.1:${port}/health`, {
-    signal: AbortSignal.timeout(2000),
-  }).catch(() => null)
-  return response?.ok ?? false
-}
-
 async function getClusterStatus(): Promise<ClusterStatus> {
-  // Try dev mode first
-  if (await isDevModeRunning()) {
-    return {
-      mode: 'dev',
-      blockProducer: {
-        running: true,
-        endpoint: `http://localhost:${process.env.CQL_PORT ?? '4661'}`,
-      },
-      miners: [],
-      healthy: true,
-    }
-  }
-
   // Check cluster mode
   const bpHealthy = await checkEndpoint('http://localhost:8546/v1/health')
   const lbHealthy = await checkEndpoint('http://localhost:4661/health')
@@ -505,7 +394,7 @@ async function getClusterStatus(): Promise<ClusterStatus> {
   }
 
   return {
-    mode: 'dev',
+    mode: 'cluster',
     blockProducer: { running: false },
     miners: [],
     healthy: false,

@@ -78,11 +78,12 @@ contract GovernedZKBridge is ZKBridge {
     constructor(
         address _lightClient,
         address _identityRegistry,
+        address _verifier,
         address _council,
         address _guardian,
         uint256 _baseFee,
         uint256 _feePerByte
-    ) ZKBridge(_lightClient, _identityRegistry, _baseFee, _feePerByte) {
+    ) ZKBridge(_lightClient, _identityRegistry, _verifier, _baseFee, _feePerByte) {
         council = ICouncilGovernance(_council);
         guardian = _guardian;
         admin = address(this); // Self-admin, only governance can modify

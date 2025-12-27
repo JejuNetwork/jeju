@@ -21,10 +21,31 @@ import { join } from 'node:path'
 // Configuration
 const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546'
 
-// Anvil default deployer
-const DEPLOYER_KEY =
-  process.env.PRIVATE_KEY ||
+// Anvil default key - ONLY for local development
+const ANVIL_DEFAULT_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
+/**
+ * Get deployer key with safety checks.
+ * Anvil default key only allowed for local RPCs.
+ */
+function getDeployerKey(): string {
+  const envKey = process.env.PRIVATE_KEY
+  if (envKey) return envKey
+
+  const isLocalRpc =
+    RPC_URL.includes('127.0.0.1') || RPC_URL.includes('localhost')
+  if (!isLocalRpc) {
+    throw new Error(
+      'PRIVATE_KEY environment variable required for non-local deployments. ' +
+        'The Anvil default key is only allowed for local development.',
+    )
+  }
+
+  return ANVIL_DEFAULT_KEY
+}
+
+const DEPLOYER_KEY = getDeployerKey()
 
 const CONTRACTS_DIR = join(import.meta.dirname, '../../../packages/contracts')
 
@@ -57,7 +78,9 @@ function checkPrerequisites(): void {
     }).trim()
     console.log(`  Localnet running (block ${blockNumber})`)
   } catch {
-    console.error('Localnet not running. Start with: jeju dev or jeju infra start')
+    console.error(
+      'Localnet not running. Start with: jeju dev or jeju infra start',
+    )
     process.exit(1)
   }
 
@@ -106,11 +129,12 @@ function sendTx(to: string, sig: string, args: string[], label: string): void {
   console.log(`    ${label}`)
 }
 
-function loadExistingContracts(): { usdc: string; jeju: string; weth: string } | null {
-  const localnetPath = join(
-    CONTRACTS_DIR,
-    'deployments/localnet-complete.json',
-  )
+function loadExistingContracts(): {
+  usdc: string
+  jeju: string
+  weth: string
+} | null {
+  const localnetPath = join(CONTRACTS_DIR, 'deployments/localnet-complete.json')
 
   if (!existsSync(localnetPath)) {
     return null
@@ -201,7 +225,9 @@ async function deployPerpsSystem(): Promise<DeploymentResult> {
 
   // Authorize PerpetualMarket to manage collateral (proposes, will need execution after timelock)
   // For local dev, we'll skip the timelock by directly setting
-  console.log('    Note: MarginManager authorization requires 12-hour timelock in production')
+  console.log(
+    '    Note: MarginManager authorization requires 12-hour timelock in production',
+  )
 
   // Step 6: Set up price feeds for local dev (manual prices)
   console.log('\n6. Setting up price feeds...')
@@ -317,7 +343,9 @@ async function createMarkets(
       const output = execSync(cmd, { encoding: 'utf-8', stdio: 'pipe' })
 
       // Extract marketId from logs (MarketCreated event)
-      const logMatch = output.match(/topics:\s*\[\s*0x[a-fA-F0-9]+,\s*(0x[a-fA-F0-9]+)/)
+      const logMatch = output.match(
+        /topics:\s*\[\s*0x[a-fA-F0-9]+,\s*(0x[a-fA-F0-9]+)/,
+      )
       const marketId = logMatch ? logMatch[1] : `market-${markets.length}`
 
       console.log(`    Market ${config.symbol}: created`)
@@ -346,18 +374,12 @@ async function createMarkets(
 
 function saveDeployment(result: DeploymentResult): void {
   // Save to perps-specific deployment file
-  const deployPath = join(
-    CONTRACTS_DIR,
-    'deployments/perps-localnet.json',
-  )
+  const deployPath = join(CONTRACTS_DIR, 'deployments/perps-localnet.json')
   writeFileSync(deployPath, JSON.stringify(result, null, 2))
   console.log(`\nSaved: ${deployPath}`)
 
   // Update main localnet deployment
-  const localnetPath = join(
-    CONTRACTS_DIR,
-    'deployments/localnet-complete.json',
-  )
+  const localnetPath = join(CONTRACTS_DIR, 'deployments/localnet-complete.json')
   if (existsSync(localnetPath)) {
     const data = JSON.parse(readFileSync(localnetPath, 'utf-8'))
     if (!data.contracts) data.contracts = {}
@@ -372,7 +394,10 @@ function saveDeployment(result: DeploymentResult): void {
   }
 
   // Update config/contracts.json
-  const configPath = join(import.meta.dirname, '../../../packages/config/contracts.json')
+  const configPath = join(
+    import.meta.dirname,
+    '../../../packages/config/contracts.json',
+  )
   if (existsSync(configPath)) {
     const config = JSON.parse(readFileSync(configPath, 'utf-8'))
     if (!config.localnet) config.localnet = {}
@@ -416,7 +441,7 @@ INSURANCE_FUND_ADDRESS=${result.insuranceFund}
 }
 
 function printSummary(result: DeploymentResult): void {
-  console.log('\n' + '='.repeat(60))
+  console.log(`\n${'='.repeat(60)}`)
   console.log('PERPETUAL TRADING BOOTSTRAP COMPLETE')
   console.log('='.repeat(60))
   console.log('\nContracts:')

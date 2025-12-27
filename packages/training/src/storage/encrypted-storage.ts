@@ -174,7 +174,7 @@ export class EncryptedTrajectoryStorage {
         accessControlConditions: policy.conditions,
         accessControlConditionType: 'unified',
         encryptedSymmetricKey: 'unencrypted',
-        chain: policy.conditions[0]?.chainId,
+        chain: policy.conditions[0].chainId,
       }
     }
 
@@ -200,7 +200,7 @@ export class EncryptedTrajectoryStorage {
       accessControlConditions: policy.conditions,
       accessControlConditionType: 'unified',
       encryptedSymmetricKey: result.id,
-      chain: policy.conditions[0]?.chainId,
+      chain: policy.conditions[0].chainId,
     }
   }
 

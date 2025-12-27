@@ -486,7 +486,7 @@ export class CacheBillingManager {
       .slice(2)
       .padStart(64, '0')
     const hasCorrectRecipient = transferLogs.some(
-      (log) => log.topics[2]?.slice(2).toLowerCase() === expectedRecipient,
+      (log) => log.topics[2].slice(2).toLowerCase() === expectedRecipient,
     )
 
     if (!hasCorrectRecipient) {

@@ -246,7 +246,7 @@ export function getTestnetChains(): ChainConfig[] {
 
 export function getNetworkRpcUrl(chainId: number): string | undefined {
   const chain = chains[chainId]
-  return chain?.rpcUrls.jeju?.http[0] ?? chain?.rpcUrls.default.http[0]
+  return chain.rpcUrls.jeju?.http[0] ?? chain.rpcUrls.default.http[0]
 }
 
 export interface ChainContracts {

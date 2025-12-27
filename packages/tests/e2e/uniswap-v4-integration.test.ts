@@ -49,7 +49,7 @@ describe('Uniswap V4 Integration Tests', () => {
     // Load deployments from @jejunetwork/contracts
     v4Deployment = rawDeployments.uniswapV4_1337 as V4Deployment
 
-    if (!v4Deployment?.poolManager) {
+    if (!v4Deployment.poolManager) {
       throw new Error(
         'V4 deployment not found. Run: bun run scripts/deploy-uniswap-v4.ts',
       )

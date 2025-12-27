@@ -69,10 +69,19 @@ export type MessagingClientConfigBase = z.infer<
   typeof MessagingClientConfigBaseSchema
 >
 
+/** Hex string schema that validates 0x-prefixed hex for signatures */
+const SignatureHexSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]+$/, 'must be a 0x-prefixed hex string')
+
 export const WebSocketSubscribeSchema = z
   .object({
     type: z.literal('subscribe'),
     address: z.string().min(1, 'address is required').max(256),
+    /** Signature proving ownership of the address */
+    signature: SignatureHexSchema,
+    /** Timestamp to prevent replay attacks (must be within 5 minutes) */
+    timestamp: z.number().int().positive(),
   })
   .strict()
 

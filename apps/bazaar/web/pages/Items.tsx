@@ -776,6 +776,7 @@ function ListItemModal({
             {/* Price */}
             <div>
               <label
+                htmlFor="listing-price"
                 className="block text-sm font-medium mb-2"
                 style={{ color: 'var(--text-secondary)' }}
               >
@@ -783,6 +784,7 @@ function ListItemModal({
               </label>
               <div className="flex gap-2">
                 <input
+                  id="listing-price"
                   type="number"
                   step="0.001"
                   min="0.001"
@@ -812,12 +814,14 @@ function ListItemModal({
             {/* Duration */}
             <div>
               <label
+                htmlFor="listing-duration"
                 className="block text-sm font-medium mb-2"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 Duration
               </label>
               <select
+                id="listing-duration"
                 value={state.duration}
                 onChange={(e) =>
                   onStateChange({ ...state, duration: e.target.value })

@@ -277,7 +277,7 @@ export class StaticTrajectoryStorage implements TrajectoryStorage {
     return {
       count: this.buffer.length,
       ageMs: this.bufferStartTime ? Date.now() - this.bufferStartTime : null,
-      oldestTrajectoryId: this.buffer[0]?.record.trajectoryId ?? null,
+      oldestTrajectoryId: this.buffer[0].record.trajectoryId ?? null,
     }
   }
 

@@ -8,11 +8,12 @@
  * 4. Verify DAO appears in list
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { connectAndVerify, test, walletPassword } from '@jejunetwork/tests'
 import { expect } from '@playwright/test'
 import { MetaMask } from '@synthetixio/synpress/playwright'
 
-const AUTOCRAT_URL = process.env.BASE_URL || 'http://localhost:3010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_WEB.get()}`
 
 // Test data
 const TEST_DAO = {
@@ -58,12 +59,14 @@ test.describe('DAO Creation with Wallet', () => {
     })
 
     // Step 1: Basics
-    await expect(page.getByRole('heading', { name: 'DAO Basics' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'DAO Basics' }),
+    ).toBeVisible()
 
     await page.getByLabel(/Slug/).fill(TEST_DAO.name)
     await page.getByLabel(/Display Name/).fill(TEST_DAO.displayName)
     await page.getByLabel(/Description/).fill(TEST_DAO.description)
-    
+
     // Optional: Farcaster channel
     const farcasterInput = page.getByLabel(/Farcaster Channel/)
     if (await farcasterInput.isVisible()) {
@@ -83,10 +86,12 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Step 2: CEO Configuration
-    await expect(page.getByRole('heading', { name: 'Configure CEO' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Configure CEO' }),
+    ).toBeVisible()
 
     await page.getByLabel('Agent Name').fill(TEST_DAO.ceo.name)
-    
+
     const bioInput = page.getByLabel('Bio')
     if (await bioInput.isVisible()) {
       await bioInput.fill(TEST_DAO.ceo.bio)
@@ -106,7 +111,7 @@ test.describe('DAO Creation with Wallet', () => {
       const valueInputs = page.locator('input[placeholder*="Security"]')
       if (await valueInputs.nth(i).isVisible()) {
         await valueInputs.nth(i).fill(TEST_DAO.ceo.values[i])
-        
+
         // Add new value input if needed
         if (i < TEST_DAO.ceo.values.length - 1) {
           await page.getByText('Add Value').click()
@@ -118,7 +123,9 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Step 3: Board Configuration
-    await expect(page.getByRole('heading', { name: 'Configure Board' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Configure Board' }),
+    ).toBeVisible()
 
     // Board should have 3 default members
     // Fill in their names
@@ -134,7 +141,9 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Step 4: Governance Parameters
-    await expect(page.getByRole('heading', { name: 'Governance Parameters' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Governance Parameters' }),
+    ).toBeVisible()
 
     // Default values should be pre-filled
     const minQualityInput = page.locator('input[type="number"]').first()
@@ -195,7 +204,9 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // On CEO step, don't fill name
-    await expect(page.getByRole('heading', { name: 'Configure CEO' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Configure CEO' }),
+    ).toBeVisible()
 
     // Continue button should be disabled
     const continueButton = page.getByRole('button', { name: 'Continue' })
@@ -243,7 +254,9 @@ test.describe('DAO Creation with Wallet', () => {
     // Data should be preserved
     await expect(page.getByLabel(/Slug/)).toHaveValue('persist-test')
     await expect(page.getByLabel(/Display Name/)).toHaveValue('Persist Test')
-    await expect(page.getByLabel(/Description/)).toHaveValue('Testing data persistence')
+    await expect(page.getByLabel(/Description/)).toHaveValue(
+      'Testing data persistence',
+    )
 
     // Go forward again
     await page.getByRole('button', { name: 'Continue' }).click()
@@ -315,10 +328,14 @@ test.describe('Board Member Management', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Should see 3 board member forms
-    await expect(page.getByRole('heading', { name: 'Configure Board' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Configure Board' }),
+    ).toBeVisible()
 
     // Count expandable sections (board member forms)
-    const boardForms = page.locator('[class*="bg-slate-900"]').filter({ hasText: /Treasury|Code|Community/ })
+    const _boardForms = page
+      .locator('[class*="bg-slate-900"]')
+      .filter({ hasText: /Treasury|Code|Community/ })
     // Should have at least 3
   })
 
@@ -376,9 +393,11 @@ test.describe('Board Member Management', () => {
 
     // With 3 members (minimum), trash buttons should not be visible
     // or should be disabled
-    const trashButtons = page.locator('button').filter({ has: page.locator('svg.lucide-trash-2') })
+    const trashButtons = page
+      .locator('button')
+      .filter({ has: page.locator('svg.lucide-trash-2') })
     const count = await trashButtons.count()
-    
+
     // Either no trash buttons, or they should not allow removal
     if (count > 0) {
       // If visible, clicking should not reduce below 3
@@ -409,19 +428,24 @@ test.describe('Governance Parameters', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.getByLabel('Agent Name').fill('Gov Defaults CEO')
     await page.getByRole('button', { name: 'Continue' }).click()
-    
+
     // Fill board names
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // On governance step
-    await expect(page.getByRole('heading', { name: 'Governance Parameters' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Governance Parameters' }),
+    ).toBeVisible()
 
     // Check defaults
     const minQualityInput = page.locator('input[type="number"]').first()
     await expect(minQualityInput).toHaveValue('70')
 
     // CEO veto should be enabled by default
-    const ceoVetoCheckbox = page.getByText('Enable CEO Veto Power').locator('..').locator('input[type="checkbox"]')
+    const ceoVetoCheckbox = page
+      .getByText('Enable CEO Veto Power')
+      .locator('..')
+      .locator('input[type="checkbox"]')
     if (await ceoVetoCheckbox.isVisible()) {
       await expect(ceoVetoCheckbox).toBeChecked()
     }
@@ -495,7 +519,7 @@ test.describe('Error Handling', () => {
     const count = await nameInputs.count()
     for (let i = 0; i < count; i++) {
       const input = nameInputs.nth(i)
-      if (await input.isVisible() && !(await input.inputValue())) {
+      if ((await input.isVisible()) && !(await input.inputValue())) {
         await input.fill(`Board Member ${i + 1}`)
       }
     }

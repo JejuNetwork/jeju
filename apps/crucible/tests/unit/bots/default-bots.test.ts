@@ -20,7 +20,7 @@ import { TEST_CHAIN_IDS } from '../../fixtures/bot-mocks'
 describe('Default Bots Configuration', () => {
   describe('DEFAULT_BOTS', () => {
     test('should have all required bot types', () => {
-      const botTypes = DEFAULT_BOTS.map((b) => b.strategies[0]?.type)
+      const botTypes = DEFAULT_BOTS.map((b) => b.strategies[0].type)
       expect(botTypes).toContain('DEX_ARBITRAGE')
       expect(botTypes).toContain('SANDWICH')
       expect(botTypes).toContain('CROSS_CHAIN_ARBITRAGE')

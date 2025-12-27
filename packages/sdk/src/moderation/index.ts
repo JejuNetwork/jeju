@@ -560,6 +560,27 @@ const REPUTATION_LABEL_MANAGER_ABI = [
     outputs: [{ type: 'bytes32[]' }],
   },
   {
+    name: 'getLabelById',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'labelId', type: 'bytes32' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'label', type: 'string' },
+          { name: 'issuer', type: 'address' },
+          { name: 'target', type: 'address' },
+          { name: 'score', type: 'uint256' },
+          { name: 'reason', type: 'string' },
+          { name: 'issuedAt', type: 'uint256' },
+          { name: 'expiresAt', type: 'uint256' },
+          { name: 'revoked', type: 'bool' },
+        ],
+      },
+    ],
+  },
+  {
     name: 'isTrusted',
     type: 'function',
     stateMutability: 'view',
@@ -1151,15 +1172,41 @@ export function createModerationModule(
     },
 
     async getMyIssuedLabels() {
-      await wallet.publicClient.readContract({
+      const labelIds = await wallet.publicClient.readContract({
         address: reputationLabelManagerAddress,
         abi: REPUTATION_LABEL_MANAGER_ABI,
         functionName: 'getLabelsByIssuer',
         args: [wallet.address],
       })
 
-      // Would need to fetch each label - simplified for now
-      return []
+      const MAX_LABELS = 100
+      const labels: ReputationLabel[] = []
+      const limitedIds = labelIds.slice(0, MAX_LABELS)
+
+      for (const labelId of limitedIds) {
+        const result = await wallet.publicClient.readContract({
+          address: reputationLabelManagerAddress,
+          abi: REPUTATION_LABEL_MANAGER_ABI,
+          functionName: 'getLabelById',
+          args: [labelId],
+        })
+
+        // Check if label exists (issuedAt would be 0 for non-existent)
+        if (result.issuedAt > 0n) {
+          labels.push({
+            label: result.label,
+            issuer: result.issuer,
+            target: result.target,
+            score: result.score,
+            reason: result.reason,
+            issuedAt: result.issuedAt,
+            expiresAt: result.expiresAt,
+            revoked: result.revoked,
+          })
+        }
+      }
+
+      return labels
     },
 
     async isTrusted(target) {

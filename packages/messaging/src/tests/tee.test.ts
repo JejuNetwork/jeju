@@ -18,6 +18,7 @@ const TEST_CONFIG = {
   kmsEndpoint: 'http://localhost:8080',
   enclaveId: 'jeju-tee-test',
   attestationRequired: true,
+  network: 'local' as const, // Required: mockMode only allowed on 'local'
   mockMode: true, // Required: explicitly enable mock mode for testing
 }
 

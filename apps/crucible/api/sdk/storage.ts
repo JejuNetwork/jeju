@@ -47,7 +47,10 @@ export class CrucibleStorage {
 
   private async cacheGet(key: string): Promise<string | null> {
     if (!this.cache) return null
-    const value = await this.cache.get(key).catch(() => null)
+    const value = await this.cache.get(key).catch((err) => {
+      this.log.debug('Cache get failed', { key, error: String(err) })
+      return null
+    })
     if (value) {
       this.log.debug('Cache hit', { key })
     }

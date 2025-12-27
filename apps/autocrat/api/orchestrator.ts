@@ -591,7 +591,7 @@ export class AutocratOrchestrator {
       agentId:
         ['Treasury', 'Code', 'Community', 'Security', 'Legal'][
           v.role
-        ]?.toLowerCase() ?? 'unknown',
+        ].toLowerCase() ?? 'unknown',
       confidence: 75,
       timestamp: Date.now(),
     }))
@@ -802,7 +802,7 @@ export class AutocratOrchestrator {
     // Check for specific personas with custom templates (based on persona traits/personality)
     if (
       ceoName.toLowerCase().includes('monkey king') ||
-      persona.personality?.toLowerCase().includes('mischievous')
+      persona.personality.toLowerCase().includes('mischievous')
     ) {
       return {
         playful: {

@@ -259,10 +259,16 @@ export const CORE_PORTS = {
   },
 
   /** Autocrat CEO - CEO agent server */
-  AUTOCRAT_CEO: {
+  AUTOCRAT_AGENT: {
     DEFAULT: 4041,
-    ENV_VAR: 'CEO_PORT',
-    get: () => safeParsePort(process.env.CEO_PORT, 4041),
+    ENV_VAR: 'AUTOCRAT_AGENT_PORT',
+    get: () => safeParsePort(process.env.AUTOCRAT_AGENT_PORT, 4041),
+  },
+
+  AUTOCRAT_WEB: {
+    DEFAULT: 4042,
+    ENV_VAR: 'AUTOCRAT_WEB_PORT',
+    get: () => safeParsePort(process.env.AUTOCRAT_WEB_PORT, 4042),
   },
 
   /** KMS API - Key Management Service */
@@ -833,6 +839,26 @@ export function getDocumentationA2AUrl(): string {
 export function getOAuth3Url(): string {
   if (process.env.OAUTH3_URL) return process.env.OAUTH3_URL
   const port = CORE_PORTS.OAUTH3_API.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the Autocrat Web URL
+ */
+export function getAutocratWebUrl(): string {
+  if (process.env.AUTOCRAT_WEB_URL) return process.env.AUTOCRAT_WEB_URL
+  const port = CORE_PORTS.AUTOCRAT_WEB.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the Autocrat API URL
+ */
+export function getAutocratApiUrl(): string {
+  if (process.env.AUTOCRAT_API_URL) return process.env.AUTOCRAT_API_URL
+  const port = CORE_PORTS.AUTOCRAT_API.get()
   const host = process.env.HOST || '127.0.0.1'
   return `http://${host}:${port}`
 }

@@ -60,7 +60,8 @@
   "tee": {
     "endpoint": "${TEE_ENDPOINT}",
     "maxBatchSize": 50,
-    "batchTimeoutMs": 120000
+    "batchTimeoutMs": 120000,
+    "requireRealTEE": true
   },
   "prover": {
     "mode": "self-hosted",

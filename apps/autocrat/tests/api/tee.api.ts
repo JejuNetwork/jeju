@@ -3,10 +3,11 @@
  */
 
 import { createServer, type Server } from 'node:http'
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 import { keccak256, stringToBytes } from 'viem'
 
-const AUTOCRAT_URL = 'http://localhost:8010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
 
 interface MockInferenceRequest {
   model: string

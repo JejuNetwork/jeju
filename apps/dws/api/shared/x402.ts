@@ -3,9 +3,10 @@
  * Shared payment handling for Git and Pkg services
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Address } from 'viem'
-import { isAddress } from 'viem'
+import type { Address, Hex } from 'viem'
+import { createPublicClient, http, isAddress } from 'viem'
 import { parseAddressOrDefault } from './utils/crypto'
 import type { ElysiaContext } from './validation'
 
@@ -108,14 +109,30 @@ export function createPaymentRequirement(
   }
 }
 
+// SECURITY: Track used transaction hashes to prevent replay attacks
+// NOTE: In production with multiple instances, use Redis or similar distributed cache
+const usedTxHashes = new Map<string, number>()
+const TX_HASH_EXPIRY_MS = 24 * 60 * 60 * 1000 // 24 hours
+const MAX_TX_AGE_MS = 10 * 60 * 1000 // 10 minutes - transaction must be recent
+
+// Cleanup old tx hashes periodically
+setInterval(() => {
+  const now = Date.now()
+  for (const [hash, timestamp] of usedTxHashes) {
+    if (now - timestamp > TX_HASH_EXPIRY_MS) {
+      usedTxHashes.delete(hash)
+    }
+  }
+}, 60_000)
+
 /**
  * Verify a payment proof
- * In production, would verify the transaction on-chain
+ * In production, verifies the transaction on-chain
  */
 export async function verifyPayment(
   proof: PaymentProof,
   expectedAmount: bigint,
-  _expectedRecipient: Address,
+  expectedRecipient: Address,
 ): Promise<{ valid: boolean; error?: string }> {
   // Basic validation
   if (!proof.txHash || proof.txHash.length !== 66) {
@@ -130,11 +147,92 @@ export async function verifyPayment(
     }
   }
 
-  // In production: verify on-chain that:
-  // 1. Transaction exists and is confirmed
-  // 2. Amount and recipient match
-  // 3. Transaction is recent (not replay)
-  // 4. Asset matches expected token
+  // Check for transaction replay
+  const txHashLower = proof.txHash.toLowerCase()
+  if (usedTxHashes.has(txHashLower)) {
+    return { valid: false, error: 'Transaction already used (replay detected)' }
+  }
+
+  // Check transaction age (must be recent)
+  const now = Date.now()
+  if (proof.timestamp > 0 && now - proof.timestamp > MAX_TX_AGE_MS) {
+    return { valid: false, error: 'Transaction proof too old' }
+  }
+
+  // In production, verify on-chain
+  if (isProductionEnv()) {
+    const rpcUrl = process.env.RPC_URL
+    if (!rpcUrl) {
+      return {
+        valid: false,
+        error: 'RPC_URL not configured for payment verification',
+      }
+    }
+
+    const publicClient = createPublicClient({ transport: http(rpcUrl) })
+
+    // Verify transaction exists and is confirmed
+    const receipt = await publicClient
+      .getTransactionReceipt({ hash: proof.txHash as Hex })
+      .catch(() => null)
+
+    if (!receipt) {
+      return { valid: false, error: 'Transaction not found or not confirmed' }
+    }
+
+    if (receipt.status !== 'success') {
+      return { valid: false, error: 'Transaction failed' }
+    }
+
+    // Verify the transaction details
+    const tx = await publicClient
+      .getTransaction({ hash: proof.txHash as Hex })
+      .catch(() => null)
+
+    if (!tx) {
+      return { valid: false, error: 'Could not fetch transaction details' }
+    }
+
+    // For native ETH transfers, check recipient and value
+    if (proof.asset === ZERO_ADDRESS) {
+      if (tx.to?.toLowerCase() !== expectedRecipient.toLowerCase()) {
+        return { valid: false, error: 'Transaction recipient mismatch' }
+      }
+      if (tx.value < expectedAmount) {
+        return { valid: false, error: 'Transaction value insufficient' }
+      }
+    } else {
+      // For ERC20 transfers, verify via transfer event logs
+      const transferTopic =
+        '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+      const transferLog = receipt.logs.find(
+        (log) =>
+          log.address.toLowerCase() === proof.asset.toLowerCase() &&
+          log.topics[0] === transferTopic &&
+          log.topics[2]?.toLowerCase() ===
+            `0x000000000000000000000000${expectedRecipient.slice(2).toLowerCase()}`,
+      )
+
+      if (!transferLog) {
+        return {
+          valid: false,
+          error: 'ERC20 transfer to recipient not found in transaction',
+        }
+      }
+
+      const transferAmount = BigInt(transferLog.data)
+      if (transferAmount < expectedAmount) {
+        return { valid: false, error: 'ERC20 transfer amount insufficient' }
+      }
+    }
+  } else {
+    console.warn(
+      '[X402] Payment verification skipped in non-production environment',
+    )
+  }
+
+  // Mark transaction hash as used
+  usedTxHashes.set(txHashLower, now)
 
   return { valid: true }
 }

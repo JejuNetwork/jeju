@@ -82,7 +82,7 @@ export interface ParsedLinkProof {
 export function parseLinkProofMessage(message: string): ParsedLinkProof | null {
   const lines = message.split('\n')
 
-  const domainMatch = lines[0]?.match(/^(.+) wants to link/)
+  const domainMatch = lines[0].match(/^(.+) wants to link/)
   if (!domainMatch) {
     return null
   }

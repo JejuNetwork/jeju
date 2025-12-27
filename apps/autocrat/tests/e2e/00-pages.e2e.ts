@@ -7,9 +7,10 @@
  * - No console errors
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3010'
+const BASE_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_WEB.get()}`
 
 test.describe('All Pages Load', () => {
   test.beforeEach(async ({ page }) => {

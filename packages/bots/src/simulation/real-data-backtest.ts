@@ -627,8 +627,8 @@ export class MultiChainBacktester {
       this.fetcher.fetchDEXTVL(),
     ])
 
-    console.log(`  ETH: $${prices.ETH?.toFixed(0) ?? 3500}`)
-    console.log(`  BTC: $${prices.BTC?.toFixed(0) ?? 95000}`)
+    console.log(`  ETH: $${prices.ETH.toFixed(0) ?? 3500}`)
+    console.log(`  BTC: $${prices.BTC.toFixed(0) ?? 95000}`)
 
     // Analyze each chain
     const chainAnalyses: ChainAnalysis[] = []
@@ -672,7 +672,7 @@ export class MultiChainBacktester {
         opportunities: arbOpps,
         mevOpportunities: mevOpps,
         dailyVolume: arbOpps.reduce((s, o) => s + o.tradeSize, 0) / days,
-        totalTVL: tvl[DEXES[chain.chainId]?.[0]?.name.toLowerCase()] ?? 0,
+        totalTVL: tvl[DEXES[chain.chainId][0].name.toLowerCase()] ?? 0,
         profitableTrades: profitableTrades.length,
         unprofitableTrades: unprofitableTrades.length,
         totalProfit,

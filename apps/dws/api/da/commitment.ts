@@ -375,7 +375,7 @@ export function createPolynomialCommitment(
   parityChunkCount: number,
   blobId: Hex,
 ): PolynomialCommitment {
-  const chunkSize = chunks[0]?.length ?? 0
+  const chunkSize = chunks[0].length ?? 0
   const commitment = createCommitment(
     chunks,
     chunkSize,
@@ -399,7 +399,7 @@ export function createPolynomialCommitment(
     },
 
     getProof(index: number): ChunkProof | null {
-      return chunksWithProofs[index]?.proof ?? null
+      return chunksWithProofs[index].proof ?? null
     },
 
     verify(chunk: Chunk): boolean {

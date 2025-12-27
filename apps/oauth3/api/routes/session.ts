@@ -95,7 +95,7 @@ export function createSessionRouter(config: AuthConfig) {
       await sessionState.delete(sessionId)
 
       // Clear cookie
-      if (cookie?.jeju_session) {
+      if (cookie.jeju_session) {
         cookie.jeju_session.set({
           value: '',
           maxAge: 0,
@@ -134,7 +134,7 @@ export function createSessionRouter(config: AuthConfig) {
       await sessionState.save(newSession)
 
       // Update cookie
-      if (cookie?.jeju_session) {
+      if (cookie.jeju_session) {
         cookie.jeju_session.set({
           value: newSessionId,
           maxAge: config.sessionDuration / 1000,

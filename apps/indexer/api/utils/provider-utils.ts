@@ -159,7 +159,7 @@ export async function getContainerDetail(
       tag: container.tag,
       sizeBytes: container.sizeBytes.toString(),
       uploadedAt: container.uploadedAt.toISOString(),
-      uploadedBy: container.uploadedBy?.address ?? null,
+      uploadedBy: container.uploadedBy.address ?? null,
       storageProvider: container.storageProvider
         ? {
             address: container.storageProvider.address,

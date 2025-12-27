@@ -224,11 +224,7 @@ export function AgentsTab({ dao }: AgentsTabProps) {
         <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">
           Chief Executive Officer
         </h3>
-        <AgentCard
-          agent={dao.ceo}
-          isCEO
-          onViewDetails={setSelectedAgent}
-        />
+        <AgentCard agent={dao.ceo} isCEO onViewDetails={setSelectedAgent} />
       </div>
 
       {/* Board Section */}

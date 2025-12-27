@@ -7,17 +7,65 @@
  * @packageDocumentation
  */
 
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import type {
   AgentCapabilities,
   AgentDiscoveryProfile,
 } from '@jejunetwork/types'
+import { z } from 'zod'
 import type {
   AgentConfig,
   AgentLog,
   AgentPerformance,
   CreateAgentParams,
 } from '../types'
+
+// Zod schemas for database row validation
+const AgentRowSchema = z.object({
+  id: z.string(),
+  user_id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  profile_image_url: z.string().nullable(),
+  character: z.string(),
+  model_tier: z.enum(['lite', 'standard', 'pro']),
+  autonomous_enabled: z.union([z.number(), z.boolean()]),
+  is_active: z.union([z.number(), z.boolean()]),
+  points_balance: z.number(),
+  wallet_address: z.string().nullable(),
+  oauth3_wallet_id: z.string().nullable(),
+  lifetime_pnl: z.number(),
+  total_trades: z.number(),
+  win_rate: z.number(),
+  created_at: z.string().nullable(),
+  updated_at: z.string().nullable(),
+})
+
+const AgentLogRowSchema = z.object({
+  id: z.string(),
+  agent_id: z.string(),
+  type: z.enum([
+    'chat',
+    'tick',
+    'trade',
+    'error',
+    'system',
+    'post',
+    'comment',
+    'dm',
+  ]),
+  level: z.enum(['info', 'warn', 'error', 'debug']),
+  message: z.string(),
+  prompt: z.string().nullable(),
+  completion: z.string().nullable(),
+  thinking: z.string().nullable(),
+  metadata: z.string().nullable(),
+  created_at: z.string(),
+})
+
+type AgentRow = z.infer<typeof AgentRowSchema>
+type AgentLogRow = z.infer<typeof AgentLogRowSchema>
 
 /**
  * Agent with configuration
@@ -30,17 +78,123 @@ export interface AgentWithConfig extends AgentConfig {
 }
 
 /**
+ * Convert database row to AgentConfig
+ */
+function rowToAgentConfig(row: AgentRow): AgentConfig {
+  const character = JSON.parse(row.character)
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    description: row.description ?? undefined,
+    profileImageUrl: row.profile_image_url ?? undefined,
+    character,
+    modelTier: row.model_tier,
+    autonomousEnabled: Boolean(row.autonomous_enabled),
+    isActive: Boolean(row.is_active),
+    pointsBalance: row.points_balance,
+    walletAddress: row.wallet_address ?? undefined,
+    oauth3WalletId: row.oauth3_wallet_id ?? undefined,
+    lifetimePnL: row.lifetime_pnl,
+    totalTrades: row.total_trades,
+    winRate: row.win_rate,
+  }
+}
+
+/**
+ * Convert database row to AgentLog
+ */
+function rowToAgentLog(row: AgentLogRow): AgentLog {
+  return {
+    id: row.id,
+    agentId: row.agent_id,
+    type: row.type,
+    level: row.level,
+    message: row.message,
+    prompt: row.prompt ?? undefined,
+    completion: row.completion ?? undefined,
+    thinking: row.thinking ?? undefined,
+    metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    createdAt: new Date(row.created_at),
+  }
+}
+
+/**
  * Service for agent lifecycle management
  */
 export class AgentService {
+  private db: CQLClient
+
+  constructor(db?: CQLClient) {
+    this.db = db ?? getCQL()
+  }
+
   /**
    * Create a new agent
    */
   async createAgent(params: CreateAgentParams): Promise<AgentConfig> {
     logger.info(`Creating agent ${params.name} for user ${params.userId}`)
 
-    // Implementation will use @jejunetwork/db
-    throw new Error('Not implemented - requires database integration')
+    const id = `agent-${crypto.randomUUID()}`
+    const now = new Date().toISOString()
+
+    // Build character from params
+    const character = {
+      name: params.name,
+      system: params.system,
+      bio: params.bio ?? [],
+      lore: [],
+      adjectives: [],
+      topics: [],
+      style: {
+        all: [],
+        chat: [],
+        post: [],
+      },
+      messageExamples: [],
+      postExamples: [],
+    }
+
+    await this.db.exec(
+      `INSERT INTO agents (
+        id, user_id, name, description, profile_image_url, character,
+        model_tier, autonomous_enabled, is_active, points_balance,
+        lifetime_pnl, total_trades, win_rate, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        params.userId,
+        params.name,
+        params.description ?? null,
+        params.profileImageUrl ?? null,
+        JSON.stringify(character),
+        params.modelTier ?? 'standard',
+        1, // autonomous_enabled
+        1, // is_active
+        params.initialDeposit ?? 0,
+        0, // lifetime_pnl
+        0, // total_trades
+        0, // win_rate
+        now,
+        now,
+      ],
+    )
+
+    return {
+      id,
+      userId: params.userId,
+      name: params.name,
+      description: params.description,
+      profileImageUrl: params.profileImageUrl,
+      character,
+      modelTier: params.modelTier ?? 'standard',
+      autonomousEnabled: true,
+      isActive: true,
+      pointsBalance: params.initialDeposit ?? 0,
+      lifetimePnL: 0,
+      totalTrades: 0,
+      winRate: 0,
+    }
   }
 
   /**
@@ -53,17 +207,47 @@ export class AgentService {
     logger.info(
       `Getting agent ${agentId}${managerId ? ` for manager ${managerId}` : ''}`,
     )
-    throw new Error('Not implemented - requires database integration')
+
+    let sql = 'SELECT * FROM agents WHERE id = ?'
+    const params: (string | number | null)[] = [agentId]
+
+    if (managerId) {
+      sql += ' AND user_id = ?'
+      params.push(managerId)
+    }
+
+    const result = await this.db.query<AgentRow>(sql, params)
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    const row = AgentRowSchema.parse(result.rows[0])
+    return rowToAgentConfig(row)
   }
 
   /**
    * Get agent with full configuration
    */
   async getAgentWithConfig(
-    _agentId: string,
-    _managerId?: string,
+    agentId: string,
+    managerId?: string,
   ): Promise<AgentWithConfig | null> {
-    throw new Error('Not implemented - requires database integration')
+    const agent = await this.getAgent(agentId, managerId)
+    if (!agent) return null
+
+    const character = agent.character
+    return {
+      ...agent,
+      systemPrompt: character.system,
+      personality: character.adjectives?.join(', '),
+      tradingStrategy: character.topics?.find((t: string) =>
+        t.toLowerCase().includes('trading'),
+      ),
+      messageExamples: character.messageExamples?.map(
+        (e: { content: { text: string } }[]) => e[0]?.content?.text,
+      ),
+    }
   }
 
   /**
@@ -76,7 +260,23 @@ export class AgentService {
     logger.info(
       `Listing agents for user ${managerId}${filters ? ` with filters: ${JSON.stringify(filters)}` : ''}`,
     )
-    throw new Error('Not implemented - requires database integration')
+
+    let sql = 'SELECT * FROM agents WHERE user_id = ?'
+    const params: (string | number | null)[] = [managerId]
+
+    if (filters?.autonomousTrading !== undefined) {
+      sql += ' AND autonomous_enabled = ?'
+      params.push(filters.autonomousTrading ? 1 : 0)
+    }
+
+    sql += ' ORDER BY created_at DESC'
+
+    const result = await this.db.query<AgentRow>(sql, params)
+
+    return result.rows.map((row) => {
+      const validated = AgentRowSchema.parse(row)
+      return rowToAgentConfig(validated)
+    })
   }
 
   /**
@@ -105,7 +305,84 @@ export class AgentService {
     logger.info(
       `Updating agent ${agentId} by ${managerId}: ${JSON.stringify(updates)}`,
     )
-    throw new Error('Not implemented - requires database integration')
+
+    // First get the existing agent
+    const existing = await this.getAgent(agentId, managerId)
+    if (!existing) {
+      throw new Error(`Agent ${agentId} not found or not owned by ${managerId}`)
+    }
+
+    // Build update fields
+    const setClauses: string[] = []
+    const params: (string | number | null)[] = []
+
+    if (updates.name !== undefined) {
+      setClauses.push('name = ?')
+      params.push(updates.name)
+    }
+
+    if (updates.description !== undefined) {
+      setClauses.push('description = ?')
+      params.push(updates.description)
+    }
+
+    if (updates.profileImageUrl !== undefined) {
+      setClauses.push('profile_image_url = ?')
+      params.push(updates.profileImageUrl)
+    }
+
+    if (updates.modelTier !== undefined) {
+      setClauses.push('model_tier = ?')
+      params.push(updates.modelTier)
+    }
+
+    if (updates.autonomousTrading !== undefined) {
+      setClauses.push('autonomous_enabled = ?')
+      params.push(updates.autonomousTrading ? 1 : 0)
+    }
+
+    // Update character if any character fields changed
+    if (
+      updates.system !== undefined ||
+      updates.bio !== undefined ||
+      updates.personality !== undefined ||
+      updates.tradingStrategy !== undefined
+    ) {
+      const character = { ...existing.character }
+      if (updates.system !== undefined) character.system = updates.system
+      if (updates.bio !== undefined) character.bio = updates.bio
+      if (updates.personality !== undefined) {
+        character.adjectives = updates.personality
+          .split(',')
+          .map((a: string) => a.trim())
+      }
+      if (updates.tradingStrategy !== undefined) {
+        const topics = character.topics?.filter(
+          (t: string) => !t.toLowerCase().includes('trading'),
+        )
+        topics.push(updates.tradingStrategy)
+        character.topics = topics
+      }
+      setClauses.push('character = ?')
+      params.push(JSON.stringify(character))
+    }
+
+    setClauses.push('updated_at = ?')
+    params.push(new Date().toISOString())
+
+    params.push(agentId)
+    params.push(managerId)
+
+    await this.db.exec(
+      `UPDATE agents SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`,
+      params,
+    )
+
+    const updated = await this.getAgent(agentId, managerId)
+    if (!updated) {
+      throw new Error('Failed to retrieve updated agent')
+    }
+    return updated
   }
 
   /**
@@ -113,7 +390,15 @@ export class AgentService {
    */
   async deleteAgent(agentId: string, managerId: string): Promise<void> {
     logger.info(`Deleting agent ${agentId} by ${managerId}`)
-    throw new Error('Not implemented - requires database integration')
+
+    const result = await this.db.exec(
+      'DELETE FROM agents WHERE id = ? AND user_id = ?',
+      [agentId, managerId],
+    )
+
+    if (result.rowsAffected === 0) {
+      throw new Error(`Agent ${agentId} not found or not owned by ${managerId}`)
+    }
   }
 
   /**
@@ -127,7 +412,22 @@ export class AgentService {
     logger.info(
       `Depositing ${amount} points to agent ${agentId} from ${managerId}`,
     )
-    throw new Error('Not implemented - requires database integration')
+
+    if (amount <= 0) {
+      throw new Error('Deposit amount must be positive')
+    }
+
+    await this.db.exec(
+      `UPDATE agents SET points_balance = points_balance + ?, updated_at = ?
+       WHERE id = ? AND user_id = ?`,
+      [amount, new Date().toISOString(), agentId, managerId],
+    )
+
+    const agent = await this.getAgent(agentId, managerId)
+    if (!agent) {
+      throw new Error(`Agent ${agentId} not found`)
+    }
+    return agent
   }
 
   /**
@@ -141,7 +441,30 @@ export class AgentService {
     logger.info(
       `Withdrawing ${amount} points from agent ${agentId} to ${managerId}`,
     )
-    throw new Error('Not implemented - requires database integration')
+
+    if (amount <= 0) {
+      throw new Error('Withdrawal amount must be positive')
+    }
+
+    // Check balance first
+    const agent = await this.getAgent(agentId, managerId)
+    if (!agent) {
+      throw new Error(`Agent ${agentId} not found or not owned by ${managerId}`)
+    }
+
+    if (agent.pointsBalance < amount) {
+      throw new Error(
+        `Insufficient balance: ${agent.pointsBalance} < ${amount}`,
+      )
+    }
+
+    await this.db.exec(
+      `UPDATE agents SET points_balance = points_balance - ?, updated_at = ?
+       WHERE id = ? AND user_id = ?`,
+      [amount, new Date().toISOString(), agentId, managerId],
+    )
+
+    return { ...agent, pointsBalance: agent.pointsBalance - amount }
   }
 
   /**
@@ -156,41 +479,167 @@ export class AgentService {
     logger.debug(
       `Deducting ${amount} points from ${agentId}: ${reason}${relatedId ? ` (${relatedId})` : ''}`,
     )
-    throw new Error('Not implemented - requires database integration')
+
+    // Get current balance
+    const result = await this.db.query<{ points_balance: number }>(
+      'SELECT points_balance FROM agents WHERE id = ?',
+      [agentId],
+    )
+
+    if (result.rows.length === 0) {
+      throw new Error(`Agent ${agentId} not found`)
+    }
+
+    const currentBalance = result.rows[0].points_balance
+    if (currentBalance < amount) {
+      throw new Error(`Insufficient points: ${currentBalance} < ${amount}`)
+    }
+
+    const newBalance = currentBalance - amount
+
+    await this.db.exec(
+      `UPDATE agents SET points_balance = ?, updated_at = ? WHERE id = ?`,
+      [newBalance, new Date().toISOString(), agentId],
+    )
+
+    // Log the transaction
+    await this.createLog(agentId, {
+      type: 'system',
+      level: 'info',
+      message: `Deducted ${amount} points: ${reason}`,
+      metadata: { reason, relatedId, amount, balanceAfter: newBalance },
+    })
+
+    return newBalance
   }
 
   /**
    * Get agent performance metrics
    */
-  async getPerformance(_agentId: string): Promise<AgentPerformance> {
-    throw new Error('Not implemented - requires database integration')
+  async getPerformance(agentId: string): Promise<AgentPerformance> {
+    const result = await this.db.query<{
+      lifetime_pnl: number
+      total_trades: number
+      win_rate: number
+    }>('SELECT lifetime_pnl, total_trades, win_rate FROM agents WHERE id = ?', [
+      agentId,
+    ])
+
+    if (result.rows.length === 0) {
+      throw new Error(`Agent ${agentId} not found`)
+    }
+
+    const row = result.rows[0]
+    const profitableTrades = Math.round(row.total_trades * row.win_rate)
+
+    return {
+      lifetimePnL: row.lifetime_pnl,
+      totalTrades: row.total_trades,
+      profitableTrades,
+      winRate: row.win_rate,
+      avgTradeSize:
+        row.total_trades > 0
+          ? Math.abs(row.lifetime_pnl) / row.total_trades
+          : 0,
+    }
   }
 
   /**
    * Get agent chat history
    */
-  async getChatHistory(_agentId: string, _limit = 50) {
-    throw new Error('Not implemented - requires database integration')
+  async getChatHistory(
+    agentId: string,
+    limit = 50,
+  ): Promise<
+    { role: 'user' | 'assistant'; content: string; createdAt: Date }[]
+  > {
+    const result = await this.db.query<{
+      role: string
+      message: string
+      created_at: string
+    }>(
+      `SELECT role, message, created_at FROM agent_messages
+       WHERE agent_id = ?
+       ORDER BY created_at DESC
+       LIMIT ?`,
+      [agentId, limit],
+    )
+
+    return result.rows.map((row) => ({
+      role: row.role as 'user' | 'assistant',
+      content: row.message,
+      createdAt: new Date(row.created_at),
+    }))
   }
 
   /**
    * Get agent logs
    */
   async getLogs(
-    _agentId: string,
-    _filters?: { type?: string; level?: string; limit?: number },
-  ) {
-    throw new Error('Not implemented - requires database integration')
+    agentId: string,
+    filters?: { type?: string; level?: string; limit?: number },
+  ): Promise<AgentLog[]> {
+    let sql = 'SELECT * FROM agent_logs WHERE agent_id = ?'
+    const params: (string | number)[] = [agentId]
+
+    if (filters?.type) {
+      sql += ' AND type = ?'
+      params.push(filters.type)
+    }
+
+    if (filters?.level) {
+      sql += ' AND level = ?'
+      params.push(filters.level)
+    }
+
+    sql += ' ORDER BY created_at DESC'
+
+    if (filters?.limit) {
+      sql += ' LIMIT ?'
+      params.push(filters.limit)
+    }
+
+    const result = await this.db.query<AgentLogRow>(sql, params)
+
+    return result.rows.map((row) => {
+      const validated = AgentLogRowSchema.parse(row)
+      return rowToAgentLog(validated)
+    })
   }
 
   /**
    * Create a log entry
    */
   async createLog(
-    _agentId: string,
-    _log: Omit<AgentLog, 'id' | 'agentId' | 'createdAt'>,
-  ) {
-    throw new Error('Not implemented - requires database integration')
+    agentId: string,
+    log: Omit<AgentLog, 'id' | 'agentId' | 'createdAt'>,
+  ): Promise<AgentLog> {
+    const id = `log-${crypto.randomUUID()}`
+    const now = new Date().toISOString()
+
+    await this.db.exec(
+      `INSERT INTO agent_logs (id, agent_id, type, level, message, prompt, completion, thinking, metadata, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        agentId,
+        log.type,
+        log.level,
+        log.message,
+        log.prompt ?? null,
+        log.completion ?? null,
+        log.thinking ?? null,
+        log.metadata ? JSON.stringify(log.metadata) : null,
+        now,
+      ],
+    )
+
+    return {
+      id,
+      agentId,
+      ...log,
+      createdAt: new Date(now),
+    }
   }
 
   /**
