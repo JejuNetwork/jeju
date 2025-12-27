@@ -2,7 +2,7 @@
  * Factory Database Schema
  *
  * SQLite schema for Factory's persistent data storage.
- * Uses packages/db SecureCQLClient for DWS integration in production.
+ * Uses packages/db SecureEQLiteClient for DWS integration in production.
  */
 
 export const FACTORY_SCHEMA = `

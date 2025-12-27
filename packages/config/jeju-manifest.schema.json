@@ -292,12 +292,12 @@
         },
         "database": {
           "type": "object",
-          "description": "Database configuration - supports CovenantSQL (decentralized) or Postgres (container)",
+          "description": "Database configuration - supports EQLite (decentralized) or Postgres (container)",
           "properties": {
             "type": { 
               "type": "string", 
-              "enum": ["covenantsql", "postgres", "d1", "none"],
-              "description": "Database type: covenantsql (decentralized), postgres (Docker container), d1, or none"
+              "enum": ["eqlite", "postgres", "d1", "none"],
+              "description": "Database type: eqlite (decentralized), postgres (Docker container), d1, or none"
             },
             "name": { "type": "string", "description": "Database name/identifier" },
             "consistency": { "type": "string", "enum": ["strong", "eventual"] },
@@ -392,12 +392,12 @@
       "properties": {
         "database": {
           "type": "object",
-          "description": "CovenantQL database configuration",
+          "description": "EQLite database configuration",
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["covenantql", "cql-sync", "none"],
-              "description": "Database mode: covenantql (direct), cql-sync (replicated from Postgres), none"
+              "enum": ["eqlite", "eqlite-sync", "none"],
+              "description": "Database mode: eqlite (direct), eqlite-sync (replicated from Postgres), none"
             },
             "databaseId": {
               "type": "string",

@@ -2,7 +2,7 @@
  * Cache billing via x402 payment protocol
  */
 
-import { getCQL } from '@jejunetwork/db'
+import { getEQLite } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { isAddress, keccak256, toBytes } from 'viem'
 import type { CacheInstance, CacheRentalPlan } from './types'
@@ -169,7 +169,7 @@ export class CacheBillingManager {
   private payments: Map<string, CachePayment> = new Map()
   private usageMetrics: Map<string, UsageMetrics[]> = new Map()
   private invoices: Map<string, BillingInvoice> = new Map()
-  private cqlClient: ReturnType<typeof getCQL> | null = null
+  private eqliteClient: ReturnType<typeof getEQLite> | null = null
   private initialized = false
 
   constructor(config: Partial<CachePaymentConfig> = {}) {
@@ -201,20 +201,20 @@ export class CacheBillingManager {
     }
 
     try {
-      this.cqlClient = getCQL()
+      this.eqliteClient = getEQLite()
       await this.ensureTables()
-      await this.loadFromCQL()
+      await this.loadFromEQLite()
     } catch (_err) {
-      this.cqlClient = null
+      this.eqliteClient = null
     }
 
     this.initialized = true
   }
 
   private async ensureTables(): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.eqliteClient) return
 
-    await this.cqlClient.exec(`
+    await this.eqliteClient.exec(`
       CREATE TABLE IF NOT EXISTS cache_subscriptions (
         id TEXT PRIMARY KEY,
         instance_id TEXT NOT NULL,
@@ -232,7 +232,7 @@ export class CacheBillingManager {
       )
     `)
 
-    await this.cqlClient.exec(`
+    await this.eqliteClient.exec(`
       CREATE TABLE IF NOT EXISTS cache_payments (
         id TEXT PRIMARY KEY,
         instance_id TEXT NOT NULL,
@@ -249,7 +249,7 @@ export class CacheBillingManager {
       )
     `)
 
-    await this.cqlClient.exec(`
+    await this.eqliteClient.exec(`
       CREATE TABLE IF NOT EXISTS cache_usage_metrics (
         id TEXT PRIMARY KEY,
         instance_id TEXT NOT NULL,
@@ -266,7 +266,7 @@ export class CacheBillingManager {
       )
     `)
 
-    await this.cqlClient.exec(`
+    await this.eqliteClient.exec(`
       CREATE TABLE IF NOT EXISTS cache_invoices (
         id TEXT PRIMARY KEY,
         instance_id TEXT NOT NULL,
@@ -285,11 +285,11 @@ export class CacheBillingManager {
     `)
   }
 
-  private async loadFromCQL(): Promise<void> {
-    if (!this.cqlClient) return
+  private async loadFromEQLite(): Promise<void> {
+    if (!this.eqliteClient) return
 
     // Load subscriptions
-    const subs = await this.cqlClient.query<{
+    const subs = await this.eqliteClient.query<{
       id: string
       instance_id: string
       owner: string
@@ -682,12 +682,12 @@ export class CacheBillingManager {
     existing.push(fullMetrics)
     this.usageMetrics.set(instanceId, existing)
 
-    if (this.cqlClient) {
+    if (this.eqliteClient) {
       const id = keccak256(
         toBytes(`usage:${instanceId}:${metrics.periodStart}`),
       ).slice(0, 18)
 
-      await this.cqlClient.exec(
+      await this.eqliteClient.exec(
         `INSERT INTO cache_usage_metrics 
          (id, instance_id, period_start, period_end, gets, sets, deletes, total_ops,
           peak_memory_mb, avg_memory_mb, network_in_bytes, network_out_bytes)
@@ -780,8 +780,8 @@ export class CacheBillingManager {
 
     this.invoices.set(invoiceId, invoice)
 
-    if (this.cqlClient) {
-      await this.cqlClient.exec(
+    if (this.eqliteClient) {
+      await this.eqliteClient.exec(
         `INSERT INTO cache_invoices
          (id, instance_id, owner, period_start, period_end, line_items, subtotal, platform_fee, total, status, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -875,9 +875,9 @@ export class CacheBillingManager {
   }
 
   private async persistSubscription(sub: CacheSubscription): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.eqliteClient) return
 
-    await this.cqlClient.exec(
+    await this.eqliteClient.exec(
       `INSERT OR REPLACE INTO cache_subscriptions
        (id, instance_id, owner, plan_id, billing_mode, status, current_period_start,
         current_period_end, next_billing_date, last_payment_id, total_paid, created_at, cancelled_at)
@@ -901,9 +901,9 @@ export class CacheBillingManager {
   }
 
   private async persistPayment(payment: CachePayment): Promise<void> {
-    if (!this.cqlClient) return
+    if (!this.eqliteClient) return
 
-    await this.cqlClient.exec(
+    await this.eqliteClient.exec(
       `INSERT INTO cache_payments
        (id, instance_id, owner, amount, asset, tx_hash, status, billing_mode,
         period_start, period_end, created_at, verified_at)

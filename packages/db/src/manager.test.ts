@@ -2,22 +2,22 @@
  * Database Manager Tests
  *
  * Live integration tests for DatabaseManager class.
- * Requires CQL or mock-cql-server to be running.
+ * Requires EQLite or mock-eqlite-server to be running.
  *
- * Set CQL_AVAILABLE=true to force running, or tests auto-detect CQL availability.
+ * Set EQLITE_AVAILABLE=true to force running, or tests auto-detect EQLite availability.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { resetCQL } from './client.js'
+import { resetEQLite } from './client.js'
 import { DatabaseManager, type DatabaseManagerConfig } from './manager'
 
-// CQL endpoint
-const CQL_ENDPOINT = process.env.CQL_ENDPOINT ?? 'http://localhost:4661'
+// EQLite endpoint
+const EQLITE_ENDPOINT = process.env.EQLITE_ENDPOINT ?? 'http://localhost:4661'
 
-// Helper to check if CQL is reachable
-async function isCQLAvailable(): Promise<boolean> {
+// Check if EQLite is reachable
+async function isEQLiteAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${CQL_ENDPOINT}/health`, {
+    const response = await fetch(`${EQLITE_ENDPOINT}/v1/status`, {
       signal: AbortSignal.timeout(2000),
     })
     return response.ok
@@ -26,12 +26,12 @@ async function isCQLAvailable(): Promise<boolean> {
   }
 }
 
-// Auto-detect CQL availability at test load time
-const CQL_RUNNING =
-  process.env.CQL_AVAILABLE === 'true' ||
-  (await isCQLAvailable().catch(() => false))
+// Auto-detect EQLite availability at test load time
+const EQLITE_RUNNING =
+  process.env.EQLITE_AVAILABLE === 'true' ||
+  (await isEQLiteAvailable().catch(() => false))
 
-describe.skipIf(!CQL_RUNNING)('DatabaseManager (Live Integration)', () => {
+describe.skipIf(!EQLITE_RUNNING)('DatabaseManager (Live Integration)', () => {
   let manager: DatabaseManager
   const testDbId = `test-manager-${Date.now()}`
 
@@ -46,7 +46,7 @@ describe.skipIf(!CQL_RUNNING)('DatabaseManager (Live Integration)', () => {
   }
 
   beforeEach(async () => {
-    await resetCQL()
+    await resetEQLite()
   })
 
   afterEach(async () => {
@@ -56,7 +56,7 @@ describe.skipIf(!CQL_RUNNING)('DatabaseManager (Live Integration)', () => {
   })
 
   it('should start and report healthy status', async () => {
-    const available = await isCQLAvailable()
+    const available = await isEQLiteAvailable()
     expect(available).toBe(true)
 
     manager = new DatabaseManager(defaultConfig)
@@ -108,12 +108,13 @@ describe.skipIf(!CQL_RUNNING)('DatabaseManager (Live Integration)', () => {
     })
     await manager.start()
 
-    // Insert test data
-    await manager.exec("INSERT INTO query_test (id, name) VALUES ('1', 'Test')")
+    // Use unique ID for each test run and INSERT OR REPLACE to handle reruns
+    const testId = `test-${Date.now()}`
+    await manager.exec(`INSERT OR REPLACE INTO query_test (id, name) VALUES (?, 'Test')`, [testId])
 
     const result = await manager.query<{ id: string; name: string }>(
       'SELECT * FROM query_test WHERE id = ?',
-      ['1'],
+      [testId],
     )
 
     expect(result.rows).toHaveLength(1)
@@ -127,8 +128,10 @@ describe.skipIf(!CQL_RUNNING)('DatabaseManager (Live Integration)', () => {
     })
     await manager.start()
 
-    const result = await manager.exec('INSERT INTO exec_test (id) VALUES (?)', [
-      'test-1',
+    // Use unique ID for each test run
+    const testId = `exec-${Date.now()}`
+    const result = await manager.exec('INSERT OR REPLACE INTO exec_test (id) VALUES (?)', [
+      testId,
     ])
 
     expect(result.rowsAffected).toBe(1)

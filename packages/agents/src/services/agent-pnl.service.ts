@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import { z } from 'zod'
 
@@ -56,10 +56,10 @@ type TradeResultRow = z.infer<typeof TradeResultRowSchema>
  * Agent P&L Service
  */
 export class AgentPnLService {
-  private db: CQLClient
+  private db: EQLiteClient
 
-  constructor(db?: CQLClient) {
-    this.db = db ?? getCQL()
+  constructor(db?: EQLiteClient) {
+    this.db = db ?? getEQLite()
   }
 
   /**

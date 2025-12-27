@@ -23,6 +23,8 @@ export type NodeCapability =
   | 'high-cpu' // Has >16 cores
   | 'ssd' // Has fast SSD storage
   | 'bandwidth' // Has high bandwidth (>1Gbps)
+  | 'eqlite-bp' // EQLite Block Producer
+  | 'eqlite-miner' // EQLite Miner (SQL storage)
 
 export type TEEPlatform = 'intel_sgx' | 'intel_tdx' | 'amd_sev' | 'none'
 
@@ -78,6 +80,17 @@ export interface NodeConfig {
   activeJobs: number
   cpuUsage: number
   memoryUsage: number
+
+  // EQLite-specific config (for eqlite-bp and eqlite-miner capabilities)
+  eqlite?: {
+    nodeId: Hex // EQLite NodeID (32 bytes)
+    role: 'block_producer' | 'miner'
+    rpcEndpoint: string // EQLite RPC endpoint
+    p2pPort: number
+    databaseCount?: number // For miners: number of hosted databases
+    totalQueries?: number // Lifetime query count
+    registryNodeId?: Hex // On-chain EQLiteRegistry node ID
+  }
 }
 
 // Worker Types - What users deploy

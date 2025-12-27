@@ -23,7 +23,7 @@
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["node", "infrastructure", "operator", "cdn", "storage", "compute", "proxy", "database", "cql", "miner", "rewards"],
+  "tags": ["node", "infrastructure", "operator", "cdn", "storage", "compute", "proxy", "database", "eqlite", "miner", "rewards"],
   "jns": {
     "name": "node.jeju",
     "description": "Network Node Operator Dashboard",

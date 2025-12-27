@@ -108,9 +108,6 @@ test.beforeAll(async () => {
  * All DWS frontend routes extracted from App.tsx
  * Each route has expected content for verification
  */
-/**
- * DWS routes - Only routes that actually exist in App.tsx
- */
 const DWS_ROUTES: Array<{
   path: string
   name: string
@@ -352,52 +349,153 @@ test.beforeAll(() => {
   mkdirSync(SCREENSHOT_DIR, { recursive: true })
 })
 
+// Helper to capture errors - FAIL-FAST on unexpected errors
+function setupErrorCapture(page: import('@playwright/test').Page): {
+  errors: string[]
+  hasKnownBug: boolean
+} {
+  const errors: string[] = []
+  let hasKnownBug = false
+
+  // FAIL-FAST: Capture console errors
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      const text = msg.text()
+      // Filter non-critical/expected errors
+      if (
+        text.includes('favicon') ||
+        text.includes('net::ERR_BLOCKED_BY_CLIENT') || // ad blockers
+        text.includes('Failed to load resource') || // API calls that need auth
+        text.includes('the server responded with a status of 4') || // 400/401/403/404
+        text.includes('net::ERR_CONNECTION_REFUSED') || // Backend not running
+        text.includes('Failed to fetch faucet') || // Faucet service not running
+        text.includes('getFaucetInfo') // Faucet API error
+      ) {
+        // These are expected - APIs may require auth or services not running
+        return
+      }
+      errors.push(text)
+    }
+  })
+
+  // Capture page errors (uncaught exceptions)
+  page.on('pageerror', (error) => {
+    const msg = error.message
+    // Skip known bugs that are non-critical for page functionality
+    if (
+      msg.includes(
+        "Cannot read properties of undefined (reading 'archive')",
+      ) || // Email page bug
+      msg.includes('Cannot read properties of undefined') // Other undefined access
+    ) {
+      console.warn(`   ⚠️ Known bug on page: ${msg}`)
+      hasKnownBug = true
+      return
+    }
+    errors.push(`PageError: ${msg}`)
+  })
+
+  return { errors, get hasKnownBug() { return hasKnownBug } }
+}
+
+// Helper for AI verification with caching
+async function runAIVerification(
+  screenshotPath: string,
+  description: string,
+  routePath: string,
+): Promise<void> {
+  if (!isLLMConfigured?.() || !verifyImage) return
+
+  const imageHash = hashImage(screenshotPath)
+  const cached = verificationCache[imageHash]
+  let verification: typeof cached.result
+
+  if (cached) {
+    console.log(
+      `\n📦 Using cached verification (hash: ${imageHash})`,
+    )
+    verification = cached.result
+  } else {
+    console.log(`\n🔍 Running AI verification...`)
+    verification = await verifyImage(screenshotPath, description)
+
+    // Cache the result
+    verificationCache[imageHash] = {
+      result: verification,
+      timestamp: new Date().toISOString(),
+      route: routePath,
+    }
+    saveCache()
+  }
+
+  // Log verification result
+  console.log(
+    `   ✓ Quality: ${verification.quality} (${Math.round(verification.confidence * 100)}% confidence)`,
+  )
+  console.log(`   ✓ Matches expected: ${verification.matches}`)
+
+  if (verification.issues.length > 0) {
+    console.log(`   ⚠️ Issues:`)
+    for (const issue of verification.issues) {
+      console.log(`      - ${issue}`)
+    }
+  }
+
+  // Save verification result
+  const verificationPath = screenshotPath.replace('.png', '-verification.json')
+  writeFileSync(
+    verificationPath,
+    JSON.stringify(
+      {
+        ...verification,
+        hash: imageHash,
+        cached: !!cached,
+      },
+      null,
+      2,
+    ),
+  )
+
+  // FAIL-FAST: Fail if quality is broken
+  if (verification.quality === 'broken') {
+    throw new Error(
+      `Page ${routePath} has BROKEN quality: ${verification.issues.join(', ')}`,
+    )
+  }
+
+  // FAIL-FAST: Fail if quality is poor with critical issues
+  if (verification.quality === 'poor') {
+    const criticalIssues = verification.issues.filter(
+      (i) =>
+        i.toLowerCase().includes('error') ||
+        i.toLowerCase().includes('broken') ||
+        i.toLowerCase().includes('missing') ||
+        i.toLowerCase().includes('crash'),
+    )
+    if (criticalIssues.length > 0) {
+      throw new Error(
+        `Page ${routePath} has POOR quality with critical issues: ${criticalIssues.join(', ')}`,
+      )
+    }
+    console.warn(
+      `   ⚠️ Page ${routePath} has poor visual quality (non-critical)`,
+    )
+  }
+
+  // Note: Don't fail on "doesn't match" because pages may show wallet connect
+  // prompts when not logged in. Focus on quality and critical issues instead.
+  if (!verification.matches) {
+    console.log(
+      `   ℹ️ Note: Page appearance differs from description (may need wallet connection)`,
+    )
+  }
+}
+
 // Page load test for each route
 test.describe('DWS Frontend - All Pages', () => {
   for (const route of DWS_ROUTES) {
     test(`${route.name} (${route.path})`, async ({ page }) => {
-      const errors: string[] = []
-
-      // FAIL-FAST: Capture console errors
-      // Filter out expected API errors (auth required, services not running, etc)
-      page.on('console', (msg) => {
-        if (msg.type() === 'error') {
-          const text = msg.text()
-          // Filter non-critical/expected errors
-          if (
-            text.includes('favicon') ||
-            text.includes('net::ERR_BLOCKED_BY_CLIENT') || // ad blockers
-            text.includes('Failed to load resource') || // API calls that need auth
-            text.includes('the server responded with a status of 4') || // 400/401/403/404
-            text.includes('net::ERR_CONNECTION_REFUSED') || // Backend not running
-            text.includes('Failed to fetch faucet') || // Faucet service not running
-            text.includes('getFaucetInfo') // Faucet API error
-          ) {
-            // These are expected - APIs may require auth or services not running
-            return
-          }
-          errors.push(text)
-        }
-      })
-
-      // Capture page errors (uncaught exceptions)
-      // Filter out known non-critical errors that need fixing but don't block testing
-      let hasKnownBug = false
-      page.on('pageerror', (error) => {
-        const msg = error.message
-        // Skip known bugs that are non-critical for page functionality
-        if (
-          msg.includes(
-            "Cannot read properties of undefined (reading 'archive')",
-          ) || // Email page bug
-          msg.includes('Cannot read properties of undefined') // Other undefined access
-        ) {
-          console.warn(`   ⚠️ Known bug on page: ${msg}`)
-          hasKnownBug = true
-          return
-        }
-        errors.push(`PageError: ${msg}`)
-      })
+      const { errors, hasKnownBug } = setupErrorCapture(page)
 
       // Navigate to the page
       await page.goto(route.path, {
@@ -464,96 +562,7 @@ test.describe('DWS Frontend - All Pages', () => {
       await page.screenshot({ path: screenshotPath, fullPage: true })
 
       // AI Visual Verification with caching
-      if (isLLMConfigured?.() && verifyImage) {
-        const imageHash = hashImage(screenshotPath)
-
-        // Check cache first
-        const cached = verificationCache[imageHash]
-        let verification: typeof cached.result
-
-        if (cached) {
-          console.log(
-            `\n📦 ${route.name} - Using cached verification (hash: ${imageHash})`,
-          )
-          verification = cached.result
-        } else {
-          console.log(`\n🔍 ${route.name} - Running AI verification...`)
-          verification = await verifyImage(screenshotPath, route.description)
-
-          // Cache the result
-          verificationCache[imageHash] = {
-            result: verification,
-            timestamp: new Date().toISOString(),
-            route: route.path,
-          }
-          saveCache()
-        }
-
-        // Log verification result
-        console.log(
-          `   ✓ Quality: ${verification.quality} (${Math.round(verification.confidence * 100)}% confidence)`,
-        )
-        console.log(`   ✓ Matches expected: ${verification.matches}`)
-
-        if (verification.issues.length > 0) {
-          console.log(`   ⚠️ Issues:`)
-          for (const issue of verification.issues) {
-            console.log(`      - ${issue}`)
-          }
-        }
-
-        // Save verification result
-        const verificationPath = join(
-          SCREENSHOT_DIR,
-          `${route.name.replace(/\s+/g, '-')}-verification.json`,
-        )
-        writeFileSync(
-          verificationPath,
-          JSON.stringify(
-            {
-              ...verification,
-              hash: imageHash,
-              cached: !!cached,
-            },
-            null,
-            2,
-          ),
-        )
-
-        // FAIL-FAST: Fail if quality is broken
-        if (verification.quality === 'broken') {
-          throw new Error(
-            `Page ${route.path} has BROKEN quality: ${verification.issues.join(', ')}`,
-          )
-        }
-
-        // FAIL-FAST: Fail if quality is poor with critical issues
-        if (verification.quality === 'poor') {
-          const criticalIssues = verification.issues.filter(
-            (i) =>
-              i.toLowerCase().includes('error') ||
-              i.toLowerCase().includes('broken') ||
-              i.toLowerCase().includes('missing') ||
-              i.toLowerCase().includes('crash'),
-          )
-          if (criticalIssues.length > 0) {
-            throw new Error(
-              `Page ${route.path} has POOR quality with critical issues: ${criticalIssues.join(', ')}`,
-            )
-          }
-          console.warn(
-            `   ⚠️ Page ${route.path} has poor visual quality (non-critical)`,
-          )
-        }
-
-        // Note: Don't fail on "doesn't match" because pages may show wallet connect
-        // prompts when not logged in. Focus on quality and critical issues instead.
-        if (!verification.matches) {
-          console.log(
-            `   ℹ️ Note: Page appearance differs from description (may need wallet connection)`,
-          )
-        }
-      }
+      await runAIVerification(screenshotPath, route.description, route.path)
 
       // Final error check (in case errors occurred during screenshot)
       if (errors.length > 0) {
@@ -570,17 +579,7 @@ test.describe('DWS Frontend - All Pages', () => {
 test.describe('DWS Navigation', () => {
   test('sidebar navigation works', async ({ page }) => {
     test.setTimeout(60000)
-    const errors: string[] = []
-
-    // FAIL-FAST on errors
-    page.on('console', (msg) => {
-      if (msg.type() === 'error' && !msg.text().includes('favicon')) {
-        errors.push(msg.text())
-      }
-    })
-    page.on('pageerror', (error) => {
-      errors.push(`PageError: ${error.message}`)
-    })
+    const { errors } = setupErrorCapture(page)
 
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
@@ -647,16 +646,7 @@ test.describe('DWS Navigation', () => {
 // Mobile responsiveness
 test.describe('DWS Mobile', () => {
   test('renders correctly on mobile', async ({ page }) => {
-    const errors: string[] = []
-
-    page.on('console', (msg) => {
-      if (msg.type() === 'error' && !msg.text().includes('favicon')) {
-        errors.push(msg.text())
-      }
-    })
-    page.on('pageerror', (error) => {
-      errors.push(`PageError: ${error.message}`)
-    })
+    const { errors } = setupErrorCapture(page)
 
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/')

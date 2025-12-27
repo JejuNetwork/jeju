@@ -7,7 +7,7 @@
  * 2. Managed: Detects existing infrastructure from `jeju test`
  *
  * REQUIRED INFRASTRUCTURE:
- * - Docker services (CQL, IPFS, Cache, DA)
+ * - Docker services (EQLite, IPFS, Cache, DA)
  * - Localnet (Anvil)
  * - DWS server
  *
@@ -22,7 +22,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   CORE_PORTS,
-  getCQLBlockProducerUrl,
+  getEQLiteBlockProducerUrl,
   getIpfsApiUrl,
   INFRA_PORTS,
 } from '@jejunetwork/config'
@@ -48,10 +48,10 @@ const DWS_PORT = 4030
 
 // Docker service ports
 const DOCKER_SERVICES = {
-  cql: {
-    port: INFRA_PORTS.CQL.get(),
+  eqlite: {
+    port: INFRA_PORTS.EQLite.get(),
     healthPath: '/health',
-    name: 'CovenantSQL',
+    name: 'EQLite',
   },
   ipfs: {
     port: CORE_PORTS.IPFS_API.DEFAULT,
@@ -218,7 +218,7 @@ async function startDockerServices(rootDir: string): Promise<boolean> {
       'compose',
       'up',
       '-d',
-      'cql',
+      'eqlite',
       'ipfs',
       'cache-service',
       'da-server',
@@ -380,8 +380,8 @@ function setEnvVars(status: InfraStatus): void {
   process.env.CDN_URL = `${status.dwsUrl}/cdn`
 
   // Docker service URLs
-  process.env.CQL_URL = getCQLBlockProducerUrl()
-  process.env.CQL_BLOCK_PRODUCER_ENDPOINT = getCQLBlockProducerUrl()
+  process.env.EQLITE_URL = getEQLiteBlockProducerUrl()
+  process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT = getEQLiteBlockProducerUrl()
   process.env.IPFS_API_URL = getIpfsApiUrl()
   process.env.DA_URL = 'http://127.0.0.1:4010'
   process.env.CACHE_URL = 'http://127.0.0.1:4115'

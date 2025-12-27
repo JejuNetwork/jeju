@@ -24,8 +24,8 @@ export interface AutocratConfig {
   operatorKey?: string
   privateKey?: string
 
-  // CQL Database
-  cqlDatabaseId: string
+  // EQLite Database
+  eqliteDatabaseId: string
 
   // API Keys
   autocratApiKey?: string
@@ -67,7 +67,7 @@ const { config, configure: setAutocratConfig } = createAppConfig<AutocratConfig>
     ceoModelId: getEnvVar('CEO_MODEL_ID') ?? 'claude-opus-4-5',
     operatorKey: getEnvVar('OPERATOR_KEY'),
     privateKey: getEnvVar('PRIVATE_KEY'),
-    cqlDatabaseId: getEnvVar('CQL_DATABASE_ID') ?? 'autocrat',
+    eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID') ?? 'autocrat',
     autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
     cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     teePlatform: getEnvVar('TEE_PLATFORM'),

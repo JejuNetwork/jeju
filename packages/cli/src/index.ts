@@ -21,7 +21,7 @@ import { circularCommand } from './commands/circular'
 import { cleanCommand } from './commands/clean'
 import { cleanupCommand } from './commands/cleanup'
 import { computeCommand } from './commands/compute'
-import { cqlCommand } from './commands/cql'
+import { eqliteCommand } from './commands/eqlite'
 import { decentralizeCommand } from './commands/decentralize'
 import { deployCommand } from './commands/deploy'
 import { deployMipsCommand } from './commands/deploy-mips'
@@ -118,7 +118,7 @@ program.addCommand(setupCommand)
 program.addCommand(seedCommand)
 program.addCommand(publishCommand)
 program.addCommand(infraCommand)
-program.addCommand(cqlCommand)
+program.addCommand(eqliteCommand)
 program.addCommand(tokenCommand)
 program.addCommand(dwsCommand)
 program.addCommand(validateCommand)

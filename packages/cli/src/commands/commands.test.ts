@@ -535,21 +535,21 @@ describe('seed command', () => {
   })
 })
 
-describe('cql command', () => {
-  test('--help shows CovenantSQL options', async () => {
-    const { stdout, exitCode } = await runCLI(['cql', '--help'])
+describe('eqlite command', () => {
+  test('--help shows EQLite options', async () => {
+    const { stdout, exitCode } = await runCLI(['eqlite', '--help'])
     expect(exitCode).toBe(0)
-    expect(stdout).toContain('CovenantSQL')
+    expect(stdout).toContain('EQLite')
   })
 
   test('start subcommand has mode option', async () => {
-    const { stdout, exitCode } = await runCLI(['cql', 'start', '--help'])
+    const { stdout, exitCode } = await runCLI(['eqlite', 'start', '--help'])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('--mode')
   })
 
   test('status subcommand exists', async () => {
-    const { stdout, exitCode } = await runCLI(['cql', 'status', '--help'])
+    const { stdout, exitCode } = await runCLI(['eqlite', 'status', '--help'])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('status')
   })

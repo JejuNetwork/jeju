@@ -1,13 +1,13 @@
 /**
- * Image Cache - CQL-backed layer-level caching for fast container pulls
+ * Image Cache - EQLite-backed layer-level caching for fast container pulls
  * Implements content-addressed deduplication across images
  */
 
-import { getCQLMinerUrl, getCQLUrl } from '@jejunetwork/config'
-import { getCQL, resetCQL } from '@jejunetwork/db'
+import { getEQLiteMinerUrl, getEQLiteUrl } from '@jejunetwork/config'
+import { getEQLite, resetEQLite } from '@jejunetwork/db'
 import type { ContainerImage, ImageCache, LayerCache } from './types'
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
+const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws'
 
 // Cache configuration
 const MAX_CACHE_SIZE_MB = parseInt(
@@ -16,30 +16,30 @@ const MAX_CACHE_SIZE_MB = parseInt(
 ) // 10GB default
 const CACHE_EVICTION_THRESHOLD = 0.9 // Evict when 90% full
 
-// CQL Client singleton
-let cqlClient: ReturnType<typeof getCQL> | null = null
+// EQLite Client singleton
+let eqliteClient: ReturnType<typeof getEQLite> | null = null
 
-async function getCQLClient() {
-  if (!cqlClient) {
-    resetCQL()
-    const blockProducerEndpoint = getCQLUrl()
-    const minerEndpoint = getCQLMinerUrl()
+async function getEQLiteClient() {
+  if (!eqliteClient) {
+    resetEQLite()
+    const blockProducerEndpoint = getEQLiteUrl()
+    const minerEndpoint = getEQLiteMinerUrl()
 
-    cqlClient = getCQL({
+    eqliteClient = getEQLite({
       blockProducerEndpoint,
       minerEndpoint,
-      databaseId: CQL_DATABASE_ID,
+      databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
 
     await ensureTablesExist()
   }
-  return cqlClient
+  return eqliteClient
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (!cqlClient) return
+  if (!eqliteClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS container_layers (
@@ -81,20 +81,20 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await cqlClient.exec(ddl, [], CQL_DATABASE_ID)
+    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await cqlClient.exec(idx, [], CQL_DATABASE_ID)
+    await eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
   }
 
   // Initialize stats row if not exists
-  await cqlClient.exec(
+  await eqliteClient.exec(
     `INSERT INTO container_cache_stats (id, current_size_mb, cache_hits, cache_misses)
      VALUES ('global', 0, 0, 0)
      ON CONFLICT(id) DO NOTHING`,
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }
 
@@ -138,11 +138,11 @@ interface PrewarmRow {
 export async function getCachedLayer(
   digest: string,
 ): Promise<LayerCache | null> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<LayerRow>(
     'SELECT * FROM container_layers WHERE digest = ?',
     [digest],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const row = result.rows[0]
@@ -153,7 +153,7 @@ export async function getCachedLayer(
   await client.exec(
     'UPDATE container_layers SET last_accessed_at = ?, hit_count = hit_count + 1 WHERE digest = ?',
     [now, digest],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return {
@@ -173,7 +173,7 @@ export async function cacheLayer(
   size: number,
   localPath: string,
 ): Promise<LayerCache> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const sizeMb = size / (1024 * 1024)
 
   // Check current cache size
@@ -202,27 +202,27 @@ export async function cacheLayer(
      ON CONFLICT(digest) DO UPDATE SET
      cid = excluded.cid, local_path = excluded.local_path, last_accessed_at = excluded.last_accessed_at`,
     [digest, cid, size, localPath, now, now],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   // Update cache size
   await client.exec(
     'UPDATE container_cache_stats SET current_size_mb = current_size_mb + ? WHERE id = ?',
     [sizeMb, 'global'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return layer
 }
 
 export async function invalidateLayer(digest: string): Promise<boolean> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
 
   // Get layer size first
   const result = await client.query<LayerRow>(
     'SELECT size FROM container_layers WHERE digest = ?',
     [digest],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   if (!result.rows[0]) return false
@@ -233,14 +233,14 @@ export async function invalidateLayer(digest: string): Promise<boolean> {
   await client.exec(
     'DELETE FROM container_layers WHERE digest = ?',
     [digest],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   // Update cache size
   await client.exec(
     'UPDATE container_cache_stats SET current_size_mb = current_size_mb - ? WHERE id = ?',
     [sizeMb, 'global'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return true
@@ -251,11 +251,11 @@ export async function invalidateLayer(digest: string): Promise<boolean> {
 export async function getCachedImage(
   digest: string,
 ): Promise<ImageCache | null> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<ImageRow>(
     'SELECT * FROM container_images WHERE digest = ?',
     [digest],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const row = result.rows[0]
@@ -266,7 +266,7 @@ export async function getCachedImage(
   await client.exec(
     'UPDATE container_images SET last_accessed_at = ?, hit_count = hit_count + 1 WHERE digest = ?',
     [now, digest],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const layers: LayerCache[] = JSON.parse(row.layers) as LayerCache[]
@@ -286,7 +286,7 @@ export async function cacheImage(
   image: ContainerImage,
   layers: LayerCache[],
 ): Promise<ImageCache> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const now = Date.now()
 
   const cached: ImageCache = {
@@ -312,18 +312,18 @@ export async function cacheImage(
       JSON.stringify(layers),
       cached.totalSize,
     ],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return cached
 }
 
 export async function invalidateImage(digest: string): Promise<boolean> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.exec(
     'DELETE FROM container_images WHERE digest = ?',
     [digest],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
   return result.rowsAffected > 0
 }
@@ -344,11 +344,11 @@ export interface CacheStats {
 }
 
 async function getStatsRow(): Promise<StatsRow> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<StatsRow>(
     'SELECT * FROM container_cache_stats WHERE id = ?',
     ['global'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
   return (
     result.rows[0] ?? {
@@ -361,42 +361,42 @@ async function getStatsRow(): Promise<StatsRow> {
 }
 
 export async function recordCacheHit(): Promise<void> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   await client.exec(
     'UPDATE container_cache_stats SET cache_hits = cache_hits + 1 WHERE id = ?',
     ['global'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }
 
 export async function recordCacheMiss(): Promise<void> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   await client.exec(
     'UPDATE container_cache_stats SET cache_misses = cache_misses + 1 WHERE id = ?',
     ['global'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }
 
 export async function getCacheStats(): Promise<CacheStats> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
 
   const layerCount = await client.query<{ count: number }>(
     'SELECT COUNT(*) as count FROM container_layers',
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const imageCount = await client.query<{ count: number }>(
     'SELECT COUNT(*) as count FROM container_images',
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const layerStats = await client.query<{ total_size: number; oldest: number }>(
     'SELECT COALESCE(SUM(size), 0) as total_size, COALESCE(MIN(cached_at), 0) as oldest FROM container_layers',
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const stats = await getStatsRow()
@@ -432,13 +432,13 @@ export async function getCacheStats(): Promise<CacheStats> {
 // Cache Eviction (LRU)
 
 async function evictLRULayers(requiredSpaceMb: number): Promise<void> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
 
   // Get layers sorted by LRU
   const layers = await client.query<LayerRow>(
     'SELECT digest, size FROM container_layers ORDER BY last_accessed_at ASC',
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   let freedMb = 0
@@ -451,14 +451,14 @@ async function evictLRULayers(requiredSpaceMb: number): Promise<void> {
     await client.exec(
       'DELETE FROM container_layers WHERE digest = ?',
       [layer.digest],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     // Also remove from any image caches that reference this layer
     const images = await client.query<ImageRow>(
       'SELECT digest, layers FROM container_images',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     for (const image of images.rows) {
@@ -467,7 +467,7 @@ async function evictLRULayers(requiredSpaceMb: number): Promise<void> {
         await client.exec(
           'DELETE FROM container_images WHERE digest = ?',
           [image.digest],
-          CQL_DATABASE_ID,
+          EQLITE_DATABASE_ID,
         )
       }
     }
@@ -479,7 +479,7 @@ async function evictLRULayers(requiredSpaceMb: number): Promise<void> {
   await client.exec(
     'UPDATE container_cache_stats SET current_size_mb = current_size_mb - ? WHERE id = ?',
     [freedMb, 'global'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }
 
@@ -491,21 +491,21 @@ export interface PrewarmRequest {
 }
 
 export async function queuePrewarm(request: PrewarmRequest): Promise<void> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const id = crypto.randomUUID()
   await client.exec(
     `INSERT INTO prewarm_queue (id, image_digests, priority, created_at) VALUES (?, ?, ?, ?)`,
     [id, JSON.stringify(request.imageDigests), request.priority, Date.now()],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }
 
 export async function getPrewarmQueue(): Promise<PrewarmRequest[]> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<PrewarmRow>(
     'SELECT * FROM prewarm_queue ORDER BY CASE priority WHEN ? THEN 0 WHEN ? THEN 1 ELSE 2 END, created_at ASC',
     ['high', 'normal'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return result.rows.map((row) => ({
@@ -515,28 +515,28 @@ export async function getPrewarmQueue(): Promise<PrewarmRequest[]> {
 }
 
 export async function clearPrewarmQueue(): Promise<void> {
-  const client = await getCQLClient()
-  await client.exec('DELETE FROM prewarm_queue', [], CQL_DATABASE_ID)
+  const client = await getEQLiteClient()
+  await client.exec('DELETE FROM prewarm_queue', [], EQLITE_DATABASE_ID)
 }
 
-// Prewarm status tracking via CQL
+// Prewarm status tracking via EQLite
 export async function setPrewarmingStatus(status: boolean): Promise<void> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   await client.exec(
     `INSERT INTO container_cache_stats (id, current_size_mb, cache_hits, cache_misses)
      VALUES ('prewarm_status', ?, 0, 0)
      ON CONFLICT(id) DO UPDATE SET current_size_mb = ?`,
     [status ? 1 : 0, status ? 1 : 0],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }
 
 export async function isCurrentlyPrewarming(): Promise<boolean> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<StatsRow>(
     'SELECT current_size_mb FROM container_cache_stats WHERE id = ?',
     ['prewarm_status'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
   return (result.rows[0].current_size_mb ?? 0) > 0
 }
@@ -556,13 +556,13 @@ export interface DeduplicationStats {
 }
 
 export async function analyzeDeduplication(): Promise<DeduplicationStats> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
 
   // Get all images with their layers
   const images = await client.query<ImageRow>(
     'SELECT digest, layers FROM container_images',
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const layerUsage = new Map<string, { count: number; size: number }>()
@@ -620,18 +620,18 @@ export async function exportCache(): Promise<{
   layers: LayerCache[]
   images: ImageCache[]
 }> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
 
   const layerResult = await client.query<LayerRow>(
     'SELECT * FROM container_layers',
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const imageResult = await client.query<ImageRow>(
     'SELECT * FROM container_images',
     [],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return {
@@ -657,12 +657,12 @@ export async function exportCache(): Promise<{
 }
 
 export async function clearCache(): Promise<void> {
-  const client = await getCQLClient()
-  await client.exec('DELETE FROM container_layers', [], CQL_DATABASE_ID)
-  await client.exec('DELETE FROM container_images', [], CQL_DATABASE_ID)
+  const client = await getEQLiteClient()
+  await client.exec('DELETE FROM container_layers', [], EQLITE_DATABASE_ID)
+  await client.exec('DELETE FROM container_images', [], EQLITE_DATABASE_ID)
   await client.exec(
     'UPDATE container_cache_stats SET current_size_mb = 0, cache_hits = 0, cache_misses = 0 WHERE id = ?',
     ['global'],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }

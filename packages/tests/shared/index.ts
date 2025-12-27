@@ -222,10 +222,10 @@ export {
 // ============================================================================
 
 export {
-  CqlTestClient,
+  EqliteTestClient,
   checkChainAvailable,
   // Individual service checks
-  checkCqlAvailable,
+  checkEqliteAvailable,
   checkIpfsAvailable,
   checkSolanaAvailable,
   describeWithInfra,
@@ -233,7 +233,7 @@ export {
   getInfraConfig,
   // Infrastructure status
   getInfraStatus,
-  getLiveCqlClient,
+  getLiveEqliteClient,
   // Live clients for tests
   getLiveInfra,
   getLiveRedisClient,

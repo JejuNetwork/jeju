@@ -3,9 +3,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "covenantsql.fullname" . }}-bp
+  name: {{ include "eqlite.fullname" . }}-bp
   labels:
-    {{- include "covenantsql.bpLabels" . | nindent 4 }}
+    {{- include "eqlite.bpLabels" . | nindent 4 }}
 spec:
   type: ClusterIP
   clusterIP: None
@@ -16,9 +16,9 @@ spec:
     - name: rpc
       port: {{ .Values.blockProducer.service.rpcPort }}
       targetPort: rpc
-    - name: kayak
-      port: {{ .Values.blockProducer.service.kayakPort }}
-      targetPort: kayak
+    - name: bftraft
+      port: {{ .Values.blockProducer.service.bftraftPort }}
+      targetPort: bftraft
     - name: http
       port: {{ .Values.blockProducer.service.httpPort }}
       targetPort: http
@@ -26,7 +26,7 @@ spec:
       port: {{ .Values.blockProducer.service.metricsPort }}
       targetPort: metrics
   selector:
-    {{- include "covenantsql.bpSelectorLabels" . | nindent 4 }}
+    {{- include "eqlite.bpSelectorLabels" . | nindent 4 }}
 {{- end }}
 ---
 # Miner Service (headless for StatefulSet)
@@ -34,9 +34,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "covenantsql.fullname" . }}-miner
+  name: {{ include "eqlite.fullname" . }}-miner
   labels:
-    {{- include "covenantsql.minerLabels" . | nindent 4 }}
+    {{- include "eqlite.minerLabels" . | nindent 4 }}
 spec:
   type: ClusterIP
   clusterIP: None
@@ -51,7 +51,7 @@ spec:
       port: {{ .Values.miner.service.metricsPort }}
       targetPort: metrics
   selector:
-    {{- include "covenantsql.minerSelectorLabels" . | nindent 4 }}
+    {{- include "eqlite.minerSelectorLabels" . | nindent 4 }}
 {{- end }}
 ---
 # Load Balancer Service (for external clients)
@@ -59,9 +59,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "covenantsql.fullname" . }}
+  name: {{ include "eqlite.fullname" . }}
   labels:
-    {{- include "covenantsql.labels" . | nindent 4 }}
+    {{- include "eqlite.labels" . | nindent 4 }}
   {{- with .Values.loadBalancer.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -76,5 +76,5 @@ spec:
       port: 8546
       targetPort: http
   selector:
-    {{- include "covenantsql.minerSelectorLabels" . | nindent 4 }}
+    {{- include "eqlite.minerSelectorLabels" . | nindent 4 }}
 {{- end }}

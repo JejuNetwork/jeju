@@ -14,7 +14,7 @@ import {
   CORE_PORTS,
   type ContractCategoryName,
   getContract,
-  getCQLBlockProducerUrl,
+  getEQLiteBlockProducerUrl,
   getCurrentNetwork,
   getRpcUrl,
 } from '@jejunetwork/config'
@@ -38,7 +38,9 @@ import { initializeContainerSystem } from '../containers'
 import {
   createDatabaseRouter,
   createKeepaliveRouter,
-  createSecureCQLRouter,
+  createSecureEQLiteRouter,
+  ensureEQLiteService,
+  getEQLiteStatus,
   type RegisteredDatabase,
   type ResourceStatus,
   startKeepaliveService,
@@ -591,7 +593,7 @@ app.use(createLoadBalancerRouter())
 
 // Secure database provisioning and access
 app.use(createDatabaseRouter())
-app.use(createSecureCQLRouter())
+app.use(createSecureEQLiteRouter())
 app.use(createKeepaliveRouter())
 
 // Infrastructure services (postgres, redis, etc.)
@@ -850,16 +852,16 @@ initializeCacheProvisioning().catch((err) => {
 })
 
 // Initialize agent system
-const CQL_URL = getCQLBlockProducerUrl()
+const EQLITE_URL = getEQLiteBlockProducerUrl()
 const AGENTS_DB_ID =
   serverConfig.agentsDatabaseId ??
   (typeof process !== 'undefined'
     ? process.env.AGENTS_DATABASE_ID
     : undefined) ??
   'dws-agents'
-initRegistry({ cqlUrl: CQL_URL, databaseId: AGENTS_DB_ID }).catch((err) => {
+initRegistry({ eqliteUrl: EQLITE_URL, databaseId: AGENTS_DB_ID }).catch((err) => {
   console.warn(
-    '[DWS] Agent registry init failed (CQL may not be running):',
+    '[DWS] Agent registry init failed (EQLite may not be running):',
     err.message,
   )
 })
@@ -883,7 +885,7 @@ workerdExecutor
           ? process.env.DWS_KMS_URL
           : undefined) ??
         'http://127.0.0.1:4030/kms',
-      cqlUrl: CQL_URL,
+      eqliteUrl: EQLITE_URL,
     })
     console.log('[DWS] Agent executor initialized')
   })
@@ -1233,8 +1235,20 @@ if (import.meta.main) {
 
   // Discover existing DWS-managed containers on startup
   discoverExistingServices()
-    .then(() => {
+    .then(async () => {
       console.log('[DWS] Infrastructure services discovery complete')
+
+      // Initialize EQLite as a DWS-managed service (not a separate deployment)
+      try {
+        await ensureEQLiteService()
+        const status = getEQLiteStatus()
+        console.log(`[DWS] EQLite running at ${status.endpoint}`)
+      } catch (err) {
+        console.warn(
+          `[DWS] EQLite auto-start failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        )
+        console.warn('[DWS] EQLite will be started on first database request')
+      }
     })
     .catch(console.error)
 

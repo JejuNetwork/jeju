@@ -1,4 +1,4 @@
-# CovenantSQL Module - Decentralized Database Cluster
+# EQLite Module - Decentralized Database Cluster
 # Minimal node configuration for production
 
 variable "environment" {
@@ -17,7 +17,7 @@ variable "subnet_ids" {
 }
 
 variable "node_count" {
-  description = "Number of CovenantSQL nodes (minimum 3 for consensus)"
+  description = "Number of EQLite nodes (minimum 3 for consensus)"
   type        = number
   default     = 3
 }
@@ -41,13 +41,13 @@ variable "arm_instance_type" {
 }
 
 variable "ecr_registry" {
-  description = "ECR registry URL for custom CovenantSQL image"
+  description = "ECR registry URL for custom EQLite image"
   type        = string
   default     = ""
 }
 
-variable "cql_image_tag" {
-  description = "CovenantSQL Docker image tag"
+variable "eqlite_image_tag" {
+  description = "EQLite Docker image tag"
   type        = string
   default     = "latest"
 }
@@ -72,25 +72,25 @@ variable "allowed_cidr_blocks" {
 variable "private_key_ssm_param" {
   description = "SSM parameter name for node private key"
   type        = string
-  default     = "/jeju/covenantsql/private-key"
+  default     = "/jeju/eqlite/private-key"
 }
 
-# Security Group for CovenantSQL nodes
-resource "aws_security_group" "covenantsql" {
-  name        = "jeju-covenantsql-${var.environment}"
-  description = "Security group for CovenantSQL nodes"
+# Security Group for EQLite nodes
+resource "aws_security_group" "eqlite" {
+  name        = "jeju-eqlite-${var.environment}"
+  description = "Security group for EQLite nodes"
   vpc_id      = var.vpc_id
 
-  # CovenantSQL client port
+  # EQLite client port
   ingress {
     from_port   = 4661
     to_port     = 4661
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-    description = "CovenantSQL client connections"
+    description = "EQLite client connections"
   }
 
-  # CovenantSQL node-to-node communication
+  # EQLite node-to-node communication
   ingress {
     from_port   = 4662
     to_port     = 4662
@@ -99,16 +99,16 @@ resource "aws_security_group" "covenantsql" {
     description = "Node-to-node communication"
   }
 
-  # CovenantSQL Kayak (consensus) port
+  # EQLite BftRaft (consensus) port
   ingress {
     from_port   = 4663
     to_port     = 4663
     protocol    = "tcp"
     self        = true
-    description = "Kayak consensus"
+    description = "BftRaft consensus"
   }
 
-  # CovenantSQL HTTP API
+  # EQLite HTTP API
   ingress {
     from_port   = 8546
     to_port     = 8546
@@ -135,15 +135,15 @@ resource "aws_security_group" "covenantsql" {
   }
 
   tags = {
-    Name        = "jeju-covenantsql-${var.environment}"
+    Name        = "jeju-eqlite-${var.environment}"
     Environment = var.environment
-    Component   = "covenantsql"
+    Component   = "eqlite"
   }
 }
 
-# IAM Role for CovenantSQL nodes
-resource "aws_iam_role" "covenantsql" {
-  name = "jeju-covenantsql-${var.environment}"
+# IAM Role for EQLite nodes
+resource "aws_iam_role" "eqlite" {
+  name = "jeju-eqlite-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -159,15 +159,15 @@ resource "aws_iam_role" "covenantsql" {
   })
 
   tags = {
-    Name        = "jeju-covenantsql-${var.environment}"
+    Name        = "jeju-eqlite-${var.environment}"
     Environment = var.environment
   }
 }
 
 # IAM Policy for SSM and CloudWatch
-resource "aws_iam_role_policy" "covenantsql" {
-  name = "jeju-covenantsql-${var.environment}"
-  role = aws_iam_role.covenantsql.id
+resource "aws_iam_role_policy" "eqlite" {
+  name = "jeju-eqlite-${var.environment}"
+  role = aws_iam_role.eqlite.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -203,13 +203,13 @@ resource "aws_iam_role_policy" "covenantsql" {
 }
 
 # Instance Profile
-resource "aws_iam_instance_profile" "covenantsql" {
-  name = "jeju-covenantsql-${var.environment}"
-  role = aws_iam_role.covenantsql.name
+resource "aws_iam_instance_profile" "eqlite" {
+  name = "jeju-eqlite-${var.environment}"
+  role = aws_iam_role.eqlite.name
 }
 
 # EBS Volume for each node
-resource "aws_ebs_volume" "covenantsql_data" {
+resource "aws_ebs_volume" "eqlite_data" {
   count             = var.node_count
   availability_zone = data.aws_subnet.selected[count.index].availability_zone
   size              = var.storage_size_gb
@@ -219,9 +219,9 @@ resource "aws_ebs_volume" "covenantsql_data" {
   encrypted         = true
 
   tags = {
-    Name        = "jeju-covenantsql-data-${var.environment}-${count.index}"
+    Name        = "jeju-eqlite-data-${var.environment}-${count.index}"
     Environment = var.environment
-    Component   = "covenantsql"
+    Component   = "eqlite"
     NodeIndex   = count.index
   }
 }
@@ -231,18 +231,18 @@ data "aws_subnet" "selected" {
   id    = var.subnet_ids[count.index % length(var.subnet_ids)]
 }
 
-# Launch Template for CovenantSQL nodes
-resource "aws_launch_template" "covenantsql" {
-  name_prefix   = "jeju-covenantsql-${var.environment}-"
+# Launch Template for EQLite nodes
+resource "aws_launch_template" "eqlite" {
+  name_prefix   = "jeju-eqlite-${var.environment}-"
   image_id      = local.selected_ami
   instance_type = local.selected_instance
   key_name      = var.key_name
 
   iam_instance_profile {
-    name = aws_iam_instance_profile.covenantsql.name
+    name = aws_iam_instance_profile.eqlite.name
   }
 
-  vpc_security_group_ids = [aws_security_group.covenantsql.id]
+  vpc_security_group_ids = [aws_security_group.eqlite.id]
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -265,49 +265,49 @@ resource "aws_launch_template" "covenantsql" {
     node_count            = var.node_count
     private_key_ssm_param = var.private_key_ssm_param
     architecture          = local.architecture
-    cql_image             = local.cql_image
+    eqlite_image             = local.eqlite_image
   }))
 
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name        = "jeju-covenantsql-${var.environment}"
+      Name        = "jeju-eqlite-${var.environment}"
       Environment = var.environment
-      Component   = "covenantsql"
+      Component   = "eqlite"
     }
   }
 
   tags = {
-    Name        = "jeju-covenantsql-${var.environment}"
+    Name        = "jeju-eqlite-${var.environment}"
     Environment = var.environment
   }
 }
 
-# CovenantSQL Node Instances
-resource "aws_instance" "covenantsql" {
+# EQLite Node Instances
+resource "aws_instance" "eqlite" {
   count = var.node_count
 
   launch_template {
-    id      = aws_launch_template.covenantsql.id
+    id      = aws_launch_template.eqlite.id
     version = "$Latest"
   }
 
   subnet_id = var.subnet_ids[count.index % length(var.subnet_ids)]
 
   tags = {
-    Name        = "jeju-covenantsql-${var.environment}-${count.index}"
+    Name        = "jeju-eqlite-${var.environment}-${count.index}"
     Environment = var.environment
-    Component   = "covenantsql"
+    Component   = "eqlite"
     NodeIndex   = count.index
   }
 }
 
 # Attach data volumes to instances
-resource "aws_volume_attachment" "covenantsql_data" {
+resource "aws_volume_attachment" "eqlite_data" {
   count       = var.node_count
   device_name = "/dev/xvdf"
-  volume_id   = aws_ebs_volume.covenantsql_data[count.index].id
-  instance_id = aws_instance.covenantsql[count.index].id
+  volume_id   = aws_ebs_volume.eqlite_data[count.index].id
+  instance_id = aws_instance.eqlite[count.index].id
 }
 
 # Amazon Linux 2 AMI - x86_64
@@ -346,12 +346,12 @@ locals {
   selected_ami       = var.use_arm64 ? data.aws_ami.amazon_linux_2_arm64.id : data.aws_ami.amazon_linux_2_x86.id
   selected_instance  = var.use_arm64 ? var.arm_instance_type : var.instance_type
   architecture       = var.use_arm64 ? "arm64" : "x86_64"
-  cql_image          = var.ecr_registry != "" ? "${var.ecr_registry}/jeju/covenantsql:${var.cql_image_tag}" : "covenantsql/covenantsql:latest"
+  eqlite_image          = var.ecr_registry != "" ? "${var.ecr_registry}/jeju/eqlite:${var.eqlite_image_tag}" : "eqlite/eqlite:latest"
 }
 
 # Internal Network Load Balancer for client connections
-resource "aws_lb" "covenantsql" {
-  name               = "jeju-covenantsql-${var.environment}"
+resource "aws_lb" "eqlite" {
+  name               = "jeju-eqlite-${var.environment}"
   internal           = true
   load_balancer_type = "network"
   subnets            = var.subnet_ids
@@ -359,15 +359,15 @@ resource "aws_lb" "covenantsql" {
   enable_cross_zone_load_balancing = true
 
   tags = {
-    Name        = "jeju-covenantsql-${var.environment}"
+    Name        = "jeju-eqlite-${var.environment}"
     Environment = var.environment
-    Component   = "covenantsql"
+    Component   = "eqlite"
   }
 }
 
-# Target Group for CovenantSQL client port
-resource "aws_lb_target_group" "covenantsql_client" {
-  name     = "jeju-covenantsql-client-${var.environment}"
+# Target Group for EQLite client port
+resource "aws_lb_target_group" "eqlite_client" {
+  name     = "jeju-eqlite-client-${var.environment}"
   port     = 4661
   protocol = "TCP"
   vpc_id   = var.vpc_id
@@ -383,14 +383,14 @@ resource "aws_lb_target_group" "covenantsql_client" {
   }
 
   tags = {
-    Name        = "jeju-covenantsql-client-${var.environment}"
+    Name        = "jeju-eqlite-client-${var.environment}"
     Environment = var.environment
   }
 }
 
 # Target Group for HTTP API
-resource "aws_lb_target_group" "covenantsql_http" {
-  name     = "jeju-covenantsql-http-${var.environment}"
+resource "aws_lb_target_group" "eqlite_http" {
+  name     = "jeju-eqlite-http-${var.environment}"
   port     = 8546
   protocol = "TCP"
   vpc_id   = var.vpc_id
@@ -406,97 +406,97 @@ resource "aws_lb_target_group" "covenantsql_http" {
   }
 
   tags = {
-    Name        = "jeju-covenantsql-http-${var.environment}"
+    Name        = "jeju-eqlite-http-${var.environment}"
     Environment = var.environment
   }
 }
 
 # Register instances with target groups
-resource "aws_lb_target_group_attachment" "covenantsql_client" {
+resource "aws_lb_target_group_attachment" "eqlite_client" {
   count            = var.node_count
-  target_group_arn = aws_lb_target_group.covenantsql_client.arn
-  target_id        = aws_instance.covenantsql[count.index].id
+  target_group_arn = aws_lb_target_group.eqlite_client.arn
+  target_id        = aws_instance.eqlite[count.index].id
   port             = 4661
 }
 
-resource "aws_lb_target_group_attachment" "covenantsql_http" {
+resource "aws_lb_target_group_attachment" "eqlite_http" {
   count            = var.node_count
-  target_group_arn = aws_lb_target_group.covenantsql_http.arn
-  target_id        = aws_instance.covenantsql[count.index].id
+  target_group_arn = aws_lb_target_group.eqlite_http.arn
+  target_id        = aws_instance.eqlite[count.index].id
   port             = 8546
 }
 
 # Listeners
-resource "aws_lb_listener" "covenantsql_client" {
-  load_balancer_arn = aws_lb.covenantsql.arn
+resource "aws_lb_listener" "eqlite_client" {
+  load_balancer_arn = aws_lb.eqlite.arn
   port              = 4661
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.covenantsql_client.arn
+    target_group_arn = aws_lb_target_group.eqlite_client.arn
   }
 }
 
-resource "aws_lb_listener" "covenantsql_http" {
-  load_balancer_arn = aws_lb.covenantsql.arn
+resource "aws_lb_listener" "eqlite_http" {
+  load_balancer_arn = aws_lb.eqlite.arn
   port              = 8546
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.covenantsql_http.arn
+    target_group_arn = aws_lb_target_group.eqlite_http.arn
   }
 }
 
 # CloudWatch Log Group
-resource "aws_cloudwatch_log_group" "covenantsql" {
-  name              = "/jeju/covenantsql/${var.environment}"
+resource "aws_cloudwatch_log_group" "eqlite" {
+  name              = "/jeju/eqlite/${var.environment}"
   retention_in_days = 30
 
   tags = {
-    Name        = "jeju-covenantsql-${var.environment}"
+    Name        = "jeju-eqlite-${var.environment}"
     Environment = var.environment
   }
 }
 
 # Outputs
 output "lb_dns_name" {
-  description = "DNS name of the CovenantSQL load balancer"
-  value       = aws_lb.covenantsql.dns_name
+  description = "DNS name of the EQLite load balancer"
+  value       = aws_lb.eqlite.dns_name
 }
 
 output "client_endpoint" {
-  description = "CovenantSQL client endpoint"
-  value       = "${aws_lb.covenantsql.dns_name}:4661"
+  description = "EQLite client endpoint"
+  value       = "${aws_lb.eqlite.dns_name}:4661"
 }
 
 output "http_endpoint" {
-  description = "CovenantSQL HTTP API endpoint"
-  value       = "http://${aws_lb.covenantsql.dns_name}:8546"
+  description = "EQLite HTTP API endpoint"
+  value       = "http://${aws_lb.eqlite.dns_name}:8546"
 }
 
 output "node_ips" {
-  description = "Private IPs of CovenantSQL nodes"
-  value       = aws_instance.covenantsql[*].private_ip
+  description = "Private IPs of EQLite nodes"
+  value       = aws_instance.eqlite[*].private_ip
 }
 
 output "security_group_id" {
-  description = "Security group ID for CovenantSQL nodes"
-  value       = aws_security_group.covenantsql.id
+  description = "Security group ID for EQLite nodes"
+  value       = aws_security_group.eqlite.id
 }
 
 output "architecture" {
-  description = "CPU architecture of CovenantSQL nodes"
+  description = "CPU architecture of EQLite nodes"
   value       = local.architecture
 }
 
 output "instance_type_used" {
-  description = "EC2 instance type for CovenantSQL nodes"
+  description = "EC2 instance type for EQLite nodes"
   value       = local.selected_instance
 }
 
-output "cql_image" {
-  description = "CovenantSQL Docker image being used"
-  value       = local.cql_image
+output "eqlite_image" {
+  description = "EQLite Docker image being used"
+  value       = local.eqlite_image
 }

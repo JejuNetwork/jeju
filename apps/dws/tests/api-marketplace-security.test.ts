@@ -8,14 +8,14 @@
  * - Rate limiting enforcement
  * - Injection attacks
  *
- * Note: Some tests require CovenantSQL for state operations.
+ * Note: Some tests require EQLite for state operations.
  */
 
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 
-// Check if CQL is available
-const CQL_AVAILABLE = !!process.env.CQL_BLOCK_PRODUCER_ENDPOINT
+// Check if EQLite is available
+const EQLITE_AVAILABLE = !!process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
 
 import {
   type AccessControl,
@@ -505,9 +505,9 @@ describe('Injection Attack Prevention', () => {
   })
 })
 
-// Full Flow Security Tests (require CQL)
+// Full Flow Security Tests (require EQLite)
 
-describe.skipIf(!CQL_AVAILABLE)('Full Flow Security', () => {
+describe.skipIf(!EQLITE_AVAILABLE)('Full Flow Security', () => {
   test('should prevent key exposure in complete proxy flow', () => {
     const apiKey = 'sk-flow-security-test1234567890'
     const seller = '0x4444444444444444444444444444444444444444' as Address
@@ -538,7 +538,7 @@ describe.skipIf(!CQL_AVAILABLE)('Full Flow Security', () => {
     expect(metadataStr).not.toContain(apiKey)
   })
 
-  test.skipIf(!CQL_AVAILABLE)(
+  test.skipIf(!EQLITE_AVAILABLE)(
     'should enforce payment before access',
     async () => {
       const testId = Date.now().toString(16).slice(-8)

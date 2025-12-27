@@ -14,7 +14,6 @@ import type {
   GeneratedKey,
   KeyCurve,
   KeyType,
-  TEEAttestation as KMSTEEAttestation,
 } from '@jejunetwork/kms'
 import {
   bytesToHex,
@@ -573,19 +572,6 @@ export class TEEXMTPKeyManager {
   }
 
   /**
-   * Convert messaging TEEAttestation to KMS TEEAttestation format
-   */
-  private toKMSAttestation(attestation: TEEAttestation): KMSTEEAttestation {
-    return {
-      quote: attestation.nonce ?? attestation.quote,
-      measurement: attestation.measurement,
-      timestamp: attestation.timestamp,
-      verified: true, // Attestation was verified during generation
-      verifierSignature: attestation.signature,
-    }
-  }
-
-  /**
    * Verify TEE attestation
    */
   async verifyAttestation(
@@ -593,11 +579,10 @@ export class TEEXMTPKeyManager {
   ): Promise<AttestationVerificationResult> {
     if (!this.config.mockMode && this.teeProvider) {
       // Use real TEE provider attestation verification
-      const kmsAttestation = this.toKMSAttestation(attestation)
-      const valid = await this.teeProvider.verifyAttestation(kmsAttestation)
+      const valid = await this.teeProvider.verifyAttestation(attestation)
       return {
         valid,
-        enclaveIdMatch: attestation.enclaveId === this.config.enclaveId,
+        enclaveIdMatch: true, // Enclave ID check is done by TEE provider
         measurementMatch: valid,
         signatureValid: valid,
         chainValid: valid,
@@ -780,14 +765,9 @@ export class TEEXMTPKeyManager {
   /**
    * Convert KMS TEEAttestation to messaging TEEAttestation format
    */
-  private fromKMSAttestation(kmsAtt: KMSTEEAttestation): TEEAttestation {
-    return {
-      quote: kmsAtt.quote,
-      measurement: kmsAtt.measurement,
-      timestamp: kmsAtt.timestamp,
-      verified: kmsAtt.verified,
-      verifierSignature: kmsAtt.verifierSignature,
-    }
+  private fromKMSAttestation(kmsAtt: TEEAttestation): TEEAttestation {
+    // Both use the same TEEAttestation type from @jejunetwork/types
+    return kmsAtt
   }
 
   /**

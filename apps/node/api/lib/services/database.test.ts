@@ -9,7 +9,7 @@ describe('DatabaseService', () => {
   describe('validateDatabaseServiceConfig', () => {
     test('validates valid config', () => {
       const config = {
-        blockProducerEndpoint: 'https://cql.example.com',
+        blockProducerEndpoint: 'https://eqlite.example.com',
         minerEndpoint: 'http://localhost:4661',
         privateKey:
           '0x1234567890123456789012345678901234567890123456789012345678901234',
@@ -24,7 +24,7 @@ describe('DatabaseService', () => {
       }
 
       const result = validateDatabaseServiceConfig(config)
-      expect(result.blockProducerEndpoint).toBe('https://cql.example.com')
+      expect(result.blockProducerEndpoint).toBe('https://eqlite.example.com')
       expect(result.capacityGB).toBe(100)
       expect(result.enableBackups).toBe(true)
     })
@@ -45,7 +45,7 @@ describe('DatabaseService', () => {
 
     test('rejects invalid private key format', () => {
       const config = {
-        blockProducerEndpoint: 'https://cql.example.com',
+        blockProducerEndpoint: 'https://eqlite.example.com',
         minerEndpoint: 'http://localhost:4661',
         privateKey: 'invalid-key',
         capacityGB: 100,
@@ -58,7 +58,7 @@ describe('DatabaseService', () => {
 
     test('rejects negative capacity', () => {
       const config = {
-        blockProducerEndpoint: 'https://cql.example.com',
+        blockProducerEndpoint: 'https://eqlite.example.com',
         minerEndpoint: 'http://localhost:4661',
         privateKey:
           '0x1234567890123456789012345678901234567890123456789012345678901234',

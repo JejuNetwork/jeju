@@ -3,14 +3,14 @@
  *
  * Tests against real API providers when keys are available.
  * These tests are skipped if the required API keys are not set.
- * Note: These tests also require CovenantSQL for state management.
+ * Note: These tests also require EQLite for state management.
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 
-// Check if CQL is available for state operations
-const CQL_AVAILABLE = !!process.env.CQL_BLOCK_PRODUCER_ENDPOINT
+// Check if EQLite is available for state operations
+const EQLITE_AVAILABLE = !!process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
 
 import {
   ALL_PROVIDERS,
@@ -516,9 +516,9 @@ describe('Tavily Live', () => {
   })
 })
 
-// Access Control Live Tests (require CQL)
+// Access Control Live Tests (require EQLite)
 
-describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
+describe.skipIf(!EQLITE_AVAILABLE)('Access Control Enforcement', () => {
   test('should block requests to unauthorized endpoints', async () => {
     // Create a listing with restricted endpoints
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test')
@@ -598,9 +598,9 @@ describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
   })
 })
 
-// Payment Enforcement Tests (require CQL)
+// Payment Enforcement Tests (require EQLite)
 
-describe.skipIf(!CQL_AVAILABLE)('Payment Enforcement', () => {
+describe.skipIf(!EQLITE_AVAILABLE)('Payment Enforcement', () => {
   test('should reject requests with insufficient balance', async () => {
     const testId = Date.now().toString(16).slice(-8)
     const poorUser: Address =

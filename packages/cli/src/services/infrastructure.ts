@@ -5,7 +5,7 @@ import { platform } from 'node:os'
 import { join } from 'node:path'
 import {
   CORE_PORTS,
-  getCQLBlockProducerUrl,
+  getEQLiteBlockProducerUrl,
   getFarcasterHubUrl,
   INFRA_PORTS,
 } from '@jejunetwork/config'
@@ -22,13 +22,13 @@ export interface ServiceHealth {
 
 export interface InfrastructureStatus {
   docker: boolean
-  cql: boolean
+  eqlite: boolean
   services: ServiceHealth[]
   localnet: boolean
   allHealthy: boolean
 }
 
-const CQL_PORT = INFRA_PORTS.CQL.get()
+const EQLITE_PORT = INFRA_PORTS.EQLite.get()
 
 // DWS provides cache and DA services via /cache and /da endpoints
 const DWS_PORT = CORE_PORTS.DWS_API.get()
@@ -53,7 +53,7 @@ const DOCKER_SERVICES = {
 
 const LOCALNET_PORT = DEFAULT_PORTS.l2Rpc
 
-let cqlProcess: ResultPromise | null = null
+let eqliteProcess: ResultPromise | null = null
 
 export class InfrastructureService {
   private rootDir: string
@@ -62,9 +62,9 @@ export class InfrastructureService {
     this.rootDir = rootDir
   }
 
-  async isCQLRunning(): Promise<boolean> {
+  async isEQLiteRunning(): Promise<boolean> {
     try {
-      const response = await fetch(`http://127.0.0.1:${CQL_PORT}/health`, {
+      const response = await fetch(`http://127.0.0.1:${EQLITE_PORT}/v1/status`, {
         signal: AbortSignal.timeout(2000),
       })
       return response.ok
@@ -73,118 +73,87 @@ export class InfrastructureService {
     }
   }
 
-  async startCQL(): Promise<boolean> {
-    if (await this.isCQLRunning()) {
-      logger.success('CQL already running')
+  async startEQLite(): Promise<boolean> {
+    if (await this.isEQLiteRunning()) {
+      logger.success('EQLite already running')
       return true
     }
 
-    // Try Docker first, fall back to local SQLite server
     const dockerAvailable = await this.isDockerRunning()
-    const composeFile = join(
-      this.rootDir,
-      'packages/deployment/docker/cql-cluster.compose.yaml',
-    )
-
-    if (dockerAvailable && existsSync(composeFile)) {
-      logger.step('Starting CQL cluster (Docker Compose)...')
-      const started = await this.startCQLDocker(composeFile)
-      if (started) return true
-      logger.warn('Docker CQL failed, falling back to local SQLite server')
+    if (!dockerAvailable) {
+      logger.error('Docker is required for EQLite. Please start Docker.')
+      return false
     }
 
-    // Fall back to local SQLite-backed CQL server
-    return this.startCQLLocal()
-  }
+    const composeFile = join(
+      this.rootDir,
+      'packages/deployment/docker/eqlite-internal.compose.yaml',
+    )
 
-  private async startCQLDocker(composeFile: string): Promise<boolean> {
-    cqlProcess = execa('docker', ['compose', '-f', composeFile, 'up', '-d'], {
+    if (!existsSync(composeFile)) {
+      logger.error('EQLite compose file not found')
+      logger.info('Expected at: packages/deployment/docker/eqlite-internal.compose.yaml')
+      logger.info('Build with: cd packages/eqlite && make docker')
+      return false
+    }
+
+    logger.step('Starting EQLite cluster...')
+
+    eqliteProcess = execa('docker', ['compose', '-f', composeFile, 'up', '-d'], {
       cwd: this.rootDir,
       stdio: 'pipe',
     })
 
     let startupError = ''
-    cqlProcess.stderr?.on('data', (data: Buffer) => {
+    eqliteProcess.stderr?.on('data', (data: Buffer) => {
       startupError += data.toString()
     })
 
     try {
-      await cqlProcess
+      await eqliteProcess
     } catch (err) {
-      logger.error(
-        `CQL cluster failed to start: ${startupError || String(err)}`,
-      )
+      logger.error(`EQLite cluster failed to start: ${startupError || String(err)}`)
       return false
     }
 
-    logger.info('Waiting for CQL cluster to become healthy...')
+    // Wait for cluster to become healthy
+    logger.info('Waiting for EQLite cluster to become healthy...')
     for (let i = 0; i < 120; i++) {
       await this.sleep(500)
-      if (await this.isCQLRunning()) {
-        logger.success(`CQL cluster running on port ${CQL_PORT}`)
-        logger.keyValue('  Load Balancer', `http://127.0.0.1:${CQL_PORT}`)
-        logger.keyValue('  Stats UI', 'http://127.0.0.1:8547/stats')
+      if (await this.isEQLiteRunning()) {
+        logger.success(`EQLite cluster running on port ${EQLITE_PORT}`)
+        logger.keyValue('  API Endpoint', `http://127.0.0.1:${EQLITE_PORT}`)
         return true
       }
       if (i > 0 && i % 20 === 0) {
-        logger.info(`  Still waiting for CQL cluster... (${i / 2}s)`)
+        logger.info(`  Still waiting for EQLite... (${i / 2}s)`)
       }
     }
 
-    logger.error('CQL cluster failed to become healthy within 60 seconds')
+    logger.error('EQLite cluster failed to become healthy within 60 seconds')
     if (startupError) {
       logger.error(`Docker output: ${startupError.slice(0, 500)}`)
     }
     return false
   }
 
-  private async startCQLLocal(): Promise<boolean> {
-    logger.step('Starting CQL server (SQLite-backed)...')
-
-    const dbPath = join(this.rootDir, 'packages/db')
-    const dataDir = join(this.rootDir, '.data/cql')
-
-    cqlProcess = execa('bun', ['run', 'server'], {
-      cwd: dbPath,
-      stdio: 'pipe',
-      env: {
-        ...process.env,
-        PORT: String(CQL_PORT),
-        CQL_PORT: String(CQL_PORT),
-        CQL_DATA_DIR: dataDir,
-      },
-    })
-
-    // Wait for server to start
-    for (let i = 0; i < 30; i++) {
-      await this.sleep(500)
-      if (await this.isCQLRunning()) {
-        logger.success(`CQL server running on port ${CQL_PORT} (SQLite mode)`)
-        return true
-      }
-    }
-
-    logger.error('CQL server failed to start within 15 seconds')
-    return false
-  }
-
-  async stopCQL(): Promise<void> {
+  async stopEQLite(): Promise<void> {
     const composeFile = join(
       this.rootDir,
-      'packages/deployment/docker/cql-cluster.compose.yaml',
+      'packages/deployment/docker/eqlite-internal.compose.yaml',
     )
 
     if (existsSync(composeFile)) {
-      logger.step('Stopping CQL cluster...')
+      logger.step('Stopping EQLite cluster...')
       await execa('docker', ['compose', '-f', composeFile, 'down'], {
         cwd: this.rootDir,
         reject: false,
       })
     }
 
-    if (cqlProcess) {
-      cqlProcess.kill('SIGTERM')
-      cqlProcess = null
+    if (eqliteProcess) {
+      eqliteProcess.kill('SIGTERM')
+      eqliteProcess = null
     }
   }
 
@@ -327,13 +296,13 @@ export class InfrastructureService {
     return results
   }
 
-  async getCQLHealth(): Promise<ServiceHealth> {
-    const healthy = await this.isCQLRunning()
+  async getEQLiteHealth(): Promise<ServiceHealth> {
+    const healthy = await this.isEQLiteRunning()
     return {
-      name: 'CovenantSQL',
-      port: CQL_PORT,
+      name: 'EQLite (EQLite)',
+      port: EQLITE_PORT,
       healthy,
-      url: `http://127.0.0.1:${CQL_PORT}`,
+      url: `http://127.0.0.1:${EQLITE_PORT}`,
     }
   }
 
@@ -416,8 +385,8 @@ export class InfrastructureService {
   async stopServices(): Promise<void> {
     logger.step('Stopping all services...')
 
-    await this.stopCQL()
-    logger.success('CQL stopped')
+    await this.stopEQLite()
+    logger.success('EQLite stopped')
 
     const composePath = join(
       this.rootDir,
@@ -496,20 +465,20 @@ export class InfrastructureService {
   }
 
   async getStatus(): Promise<InfrastructureStatus> {
-    const cql = await this.isCQLRunning()
+    const eqlite = await this.isEQLiteRunning()
     const docker = await this.isDockerRunning()
     const dockerServices = docker ? await this.checkDockerServices() : []
     const localnet = await this.isLocalnetRunning()
 
-    const cqlHealth = await this.getCQLHealth()
-    const services = [cqlHealth, ...dockerServices]
+    const eqliteHealth = await this.getEQLiteHealth()
+    const services = [eqliteHealth, ...dockerServices]
 
     const allHealthy =
-      cql && docker && dockerServices.every((s) => s.healthy) && localnet
+      eqlite && docker && dockerServices.every((s) => s.healthy) && localnet
 
     return {
       docker,
-      cql,
+      eqlite,
       services,
       localnet,
       allHealthy,
@@ -525,9 +494,9 @@ export class InfrastructureService {
     logger.info('Starting infrastructure in parallel...\n')
 
     // Check what's already running in parallel
-    const [cqlRunning, dockerInstalled, dockerRunning, localnetRunning] =
+    const [eqliteRunning, dockerInstalled, dockerRunning, localnetRunning] =
       await Promise.all([
-        this.isCQLRunning(),
+        this.isEQLiteRunning(),
         this.isDockerInstalled(),
         this.isDockerRunning(),
         this.isLocalnetRunning(),
@@ -543,16 +512,16 @@ export class InfrastructureService {
     // Start independent services in parallel
     const startTasks: Promise<{ name: string; success: boolean }>[] = []
 
-    // CQL can start independently
-    if (!cqlRunning) {
+    // EQLite can start independently
+    if (!eqliteRunning) {
       startTasks.push(
-        this.startCQL().then((success) => ({ name: 'CQL', success })),
+        this.startEQLite().then((success) => ({ name: 'EQLite', success })),
       )
     } else {
-      logger.success(`CQL already running on port ${CQL_PORT}`)
+      logger.success(`EQLite already running on port ${EQLITE_PORT}`)
     }
 
-    // Docker + services need to be sequential, but can run parallel to CQL
+    // Docker + services need to be sequential, but can run parallel to EQLite
     const dockerTask = async (): Promise<{
       name: string
       success: boolean
@@ -640,12 +609,12 @@ export class InfrastructureService {
   printStatus(status: InfrastructureStatus): void {
     logger.subheader('Infrastructure Status')
 
-    // CQL first - it's the core database
+    // EQLite first - it's the core database
     logger.table([
       {
-        label: 'CQL (native)',
-        value: status.cql ? `http://127.0.0.1:${CQL_PORT}` : 'stopped',
-        status: status.cql ? 'ok' : 'error',
+        label: 'EQLite (native)',
+        value: status.eqlite ? `http://127.0.0.1:${EQLITE_PORT}` : 'stopped',
+        status: status.eqlite ? 'ok' : 'error',
       },
     ])
 
@@ -657,9 +626,9 @@ export class InfrastructureService {
       },
     ])
 
-    // Docker services (CQL already shown above)
+    // Docker services (EQLite already shown above)
     for (const service of status.services) {
-      if (service.name === 'CovenantSQL') continue // Already shown
+      if (service.name === 'EQLite') continue // Already shown
       logger.table([
         {
           label: service.name,
@@ -687,8 +656,8 @@ export class InfrastructureService {
     return {
       L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
       JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
-      CQL_URL: getCQLBlockProducerUrl(),
-      CQL_BLOCK_PRODUCER_ENDPOINT: getCQLBlockProducerUrl(),
+      EQLITE_URL: getEQLiteBlockProducerUrl(),
+      EQLITE_BLOCK_PRODUCER_ENDPOINT: getEQLiteBlockProducerUrl(),
       IPFS_API_URL: `http://127.0.0.1:${CORE_PORTS.IPFS_API.DEFAULT}`,
       // Cache and DA are now provided by DWS
       DA_URL: `http://127.0.0.1:${DWS_PORT}/da`,

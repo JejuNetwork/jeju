@@ -451,11 +451,11 @@ export const VENDOR_PORTS = {
 // Infrastructure Ports (6xxx range for Jeju chain, 9xxx for other infra)
 
 export const INFRA_PORTS = {
-  /** CovenantSQL - Decentralized SQL database (block producer) */
-  CQL: {
+  /** EQLite - Decentralized SQL database (block producer) */
+  EQLite: {
     DEFAULT: 4661,
-    ENV_VAR: 'CQL_PORT',
-    get: () => safeParsePort(process.env.CQL_PORT, 4661),
+    ENV_VAR: 'EQLITE_PORT',
+    get: () => safeParsePort(process.env.EQLITE_PORT, 4661),
   },
 
   /** L1 RPC - Jeju localnet L1. Port 6545 avoids conflicts with Anvil/Hardhat default (8545) */
@@ -749,15 +749,15 @@ export function isLocalnet(rpcUrl: string): boolean {
 }
 
 /**
- * Get the CovenantSQL block producer URL
- * Respects environment variable overrides: CQL_BLOCK_PRODUCER_ENDPOINT, CQL_URL, then CQL_PORT
+ * Get the EQLite block producer URL
+ * Respects environment variable overrides: EQLITE_BLOCK_PRODUCER_ENDPOINT, EQLITE_URL, then EQLITE_PORT
  */
-export function getCQLBlockProducerUrl(): string {
-  if (process.env.CQL_BLOCK_PRODUCER_ENDPOINT)
-    return process.env.CQL_BLOCK_PRODUCER_ENDPOINT
-  if (process.env.CQL_URL) return process.env.CQL_URL
-  const port = INFRA_PORTS.CQL.get()
-  const host = process.env.CQL_HOST || '127.0.0.1'
+export function getEQLiteBlockProducerUrl(): string {
+  if (process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT)
+    return process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+  if (process.env.EQLITE_URL) return process.env.EQLITE_URL
+  const port = INFRA_PORTS.EQLite.get()
+  const host = process.env.EQLITE_HOST || '127.0.0.1'
   return `http://${host}:${port}`
 }
 
@@ -913,6 +913,30 @@ export function getAutocratWebUrl(): string {
 export function getAutocratApiUrl(): string {
   if (process.env.AUTOCRAT_API_URL) return process.env.AUTOCRAT_API_URL
   const port = CORE_PORTS.AUTOCRAT_API.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the DWS API endpoint
+ * Respects environment variable overrides: DWS_ENDPOINT, DWS_URL, then DWS_PORT
+ */
+export function getDWSEndpoint(): string {
+  if (process.env.DWS_ENDPOINT) return process.env.DWS_ENDPOINT
+  if (process.env.DWS_URL) return process.env.DWS_URL
+  const port = CORE_PORTS.DWS_API.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the KMS API endpoint
+ * Respects environment variable overrides: KMS_ENDPOINT, KMS_URL, then KMS_PORT
+ */
+export function getKMSEndpoint(): string {
+  if (process.env.KMS_ENDPOINT) return process.env.KMS_ENDPOINT
+  if (process.env.KMS_URL) return process.env.KMS_URL
+  const port = CORE_PORTS.KMS_API.get()
   const host = process.env.HOST || '127.0.0.1'
   return `http://${host}:${port}`
 }

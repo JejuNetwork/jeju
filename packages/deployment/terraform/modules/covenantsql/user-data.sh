@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# CovenantSQL Node Setup Script
+# EQLite Node Setup Script
 # Environment: ${environment}
 # Node Count: ${node_count}
 # Architecture: ${architecture}
-# Image: ${cql_image}
+# Image: ${eqlite_image}
 
-echo "Starting CovenantSQL node setup..."
+echo "Starting EQLite node setup..."
 echo "Architecture: ${architecture}"
 
 # Install dependencies
@@ -24,9 +24,9 @@ if [ -b /dev/xvdf ]; then
   if ! file -s /dev/xvdf | grep -q 'filesystem'; then
     mkfs.xfs /dev/xvdf
   fi
-  mkdir -p /data/covenantsql
-  mount /dev/xvdf /data/covenantsql
-  echo '/dev/xvdf /data/covenantsql xfs defaults,nofail 0 2' >> /etc/fstab
+  mkdir -p /data/eqlite
+  mount /dev/xvdf /data/eqlite
+  echo '/dev/xvdf /data/eqlite xfs defaults,nofail 0 2' >> /etc/fstab
 fi
 
 # Get instance metadata (IMDSv2)
@@ -50,33 +50,33 @@ PRIVATE_KEY=$(aws ssm get-parameter --region $REGION \
 
 # Get all node IPs for cluster discovery
 ALL_NODES=$(aws ec2 describe-instances --region $REGION \
-  --filters "Name=tag:Component,Values=covenantsql" "Name=tag:Environment,Values=${environment}" "Name=instance-state-name,Values=running" \
+  --filters "Name=tag:Component,Values=eqlite" "Name=tag:Environment,Values=${environment}" "Name=instance-state-name,Values=running" \
   --query 'Reservations[].Instances[].PrivateIpAddress' --output text | tr '\t' ',')
 
-# Create CovenantSQL config directory
-mkdir -p /data/covenantsql/config
-mkdir -p /data/covenantsql/data
+# Create EQLite config directory
+mkdir -p /data/eqlite/config
+mkdir -p /data/eqlite/data
 
 # Generate node config
-cat > /data/covenantsql/config/config.yaml << EOF
-# CovenantSQL Node Configuration
+cat > /data/eqlite/config/config.yaml << EOF
+# EQLite Node Configuration
 # Generated for ${environment} environment
 # Architecture: ${architecture}
 
 IsTestNet: $([ "${environment}" == "testnet" ] && echo "true" || echo "false")
 
-WorkingRoot: /data/covenantsql/data
+WorkingRoot: /data/eqlite/data
 
 ThisNodeID: node-$NODE_INDEX
 
-PubKeyStoreFile: /data/covenantsql/config/public.keystore
-PrivateKeyFile: /data/covenantsql/config/private.key
+PubKeyStoreFile: /data/eqlite/config/public.keystore
+PrivateKeyFile: /data/eqlite/config/private.key
 
 ListenAddr: "0.0.0.0:4661"
 ExternalAddr: "$PRIVATE_IP:4661"
 
-KayakAddr: "0.0.0.0:4663"
-Kayak:
+BftRaftAddr: "0.0.0.0:4663"
+BftRaft:
   NumOfTicksPerElection: 10
   NumOfTicksPerHeartBeat: 1
   TickTimeout: 100ms
@@ -114,7 +114,7 @@ $(echo "$ALL_NODES" | tr ',' '\n' | while read ip; do echo "    - \"$ip:4662\"";
 Logging:
   Level: info
   Format: json
-  Output: /data/covenantsql/logs/node.log
+  Output: /data/eqlite/logs/node.log
 
 # Metrics
 Metrics:
@@ -123,21 +123,21 @@ Metrics:
 EOF
 
 # Write private key
-echo "$PRIVATE_KEY" > /data/covenantsql/config/private.key
-chmod 600 /data/covenantsql/config/private.key
+echo "$PRIVATE_KEY" > /data/eqlite/config/private.key
+chmod 600 /data/eqlite/config/private.key
 
 # Create logs directory
-mkdir -p /data/covenantsql/logs
+mkdir -p /data/eqlite/logs
 
-# Pull the CovenantSQL image (supports ARM64 and x86_64)
-CQL_IMAGE="${cql_image}"
-echo "Pulling CovenantSQL image: $CQL_IMAGE"
-docker pull $CQL_IMAGE
+# Pull the EQLite image (supports ARM64 and x86_64)
+EQLITE_IMAGE="${eqlite_image}"
+echo "Pulling EQLite image: $EQLITE_IMAGE"
+docker pull $EQLITE_IMAGE
 
-# Create systemd service for CovenantSQL
-cat > /etc/systemd/system/covenantsql.service << EOF
+# Create systemd service for EQLite
+cat > /etc/systemd/system/eqlite.service << EOF
 [Unit]
-Description=CovenantSQL Node
+Description=EQLite Node
 After=docker.service
 Requires=docker.service
 
@@ -145,29 +145,29 @@ Requires=docker.service
 Type=simple
 Restart=always
 RestartSec=10
-ExecStartPre=-/usr/bin/docker stop covenantsql
-ExecStartPre=-/usr/bin/docker rm covenantsql
-ExecStart=/usr/bin/docker run --name covenantsql \
+ExecStartPre=-/usr/bin/docker stop eqlite
+ExecStartPre=-/usr/bin/docker rm eqlite
+ExecStart=/usr/bin/docker run --name eqlite \
   -p 4661:4661 \
   -p 4662:4662 \
   -p 4663:4663 \
   -p 8546:8546 \
   -p 9100:9100 \
-  -v /data/covenantsql/config:/config:ro \
-  -v /data/covenantsql/data:/data \
-  -v /data/covenantsql/logs:/logs \
-  $CQL_IMAGE \
+  -v /data/eqlite/config:/config:ro \
+  -v /data/eqlite/data:/data \
+  -v /data/eqlite/logs:/logs \
+  $EQLITE_IMAGE \
   -config /config/config.yaml
-ExecStop=/usr/bin/docker stop covenantsql
+ExecStop=/usr/bin/docker stop eqlite
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Start CovenantSQL service
+# Start EQLite service
 systemctl daemon-reload
-systemctl enable covenantsql
-systemctl start covenantsql
+systemctl enable eqlite
+systemctl start eqlite
 
 # Install CloudWatch agent for log shipping
 yum install -y amazon-cloudwatch-agent
@@ -179,8 +179,8 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << EOF
       "files": {
         "collect_list": [
           {
-            "file_path": "/data/covenantsql/logs/node.log",
-            "log_group_name": "/jeju/covenantsql/${environment}",
+            "file_path": "/data/eqlite/logs/node.log",
+            "log_group_name": "/jeju/eqlite/${environment}",
             "log_stream_name": "node-$NODE_INDEX",
             "timezone": "UTC"
           }
@@ -189,14 +189,14 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << EOF
     }
   },
   "metrics": {
-    "namespace": "Jeju/CovenantSQL",
+    "namespace": "Jeju/EQLite",
     "metrics_collected": {
       "cpu": {
         "resources": ["*"],
         "measurement": ["cpu_usage_idle", "cpu_usage_user", "cpu_usage_system"]
       },
       "disk": {
-        "resources": ["/", "/data/covenantsql"],
+        "resources": ["/", "/data/eqlite"],
         "measurement": ["disk_used_percent", "disk_free"]
       },
       "mem": {
@@ -216,10 +216,10 @@ EOF
 systemctl enable amazon-cloudwatch-agent
 systemctl start amazon-cloudwatch-agent
 
-echo "CovenantSQL node setup complete."
+echo "EQLite node setup complete."
 echo "Node: $NODE_INDEX"
 echo "IP: $PRIVATE_IP"
 echo "Architecture: ${architecture}"
-echo "Image: $CQL_IMAGE"
+echo "Image: $EQLITE_IMAGE"
 echo "Client Port: 4661"
 echo "HTTP API: 8546"

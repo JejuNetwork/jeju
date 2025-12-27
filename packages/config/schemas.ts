@@ -279,7 +279,7 @@ export const ServicesNetworkConfigSchema = z.object({
     executor: UrlString,
     bots: UrlString.optional(),
   }),
-  cql: z.object({
+  eqlite: z.object({
     blockProducer: UrlString,
     miner: UrlString,
   }),

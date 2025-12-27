@@ -512,8 +512,8 @@ buildCommand
   })
 
 buildCommand
-  .command('covenantsql')
-  .description('Build CovenantSQL multi-arch Docker image')
+  .command('eqlite')
+  .description('Build EQLite multi-arch Docker image')
   .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
   .option('--push', 'Push image to ECR after building')
   .option('--arm-only', 'Build ARM64 only')
@@ -528,11 +528,11 @@ buildCommand
       const rootDir = findMonorepoRoot()
       const scriptPath = join(
         rootDir,
-        'packages/deployment/scripts/build-covenantsql.ts',
+        'packages/deployment/scripts/build-eqlite.ts',
       )
 
       if (!existsSync(scriptPath)) {
-        logger.error('Build CovenantSQL script not found')
+        logger.error('Build EQLite script not found')
         return
       }
 

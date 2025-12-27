@@ -12,7 +12,7 @@
  */
 
 import { getDWSComputeUrl, getDWSUrl } from '@jejunetwork/config'
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import {
@@ -33,21 +33,21 @@ import type {
   ViolationSummary,
 } from './types'
 
-// ============ CQL Database Setup ============
+// ============ EQLite Database Setup ============
 
 const EMAIL_SCREENING_DATABASE_ID = 'dws-email-screening'
-let cqlClient: CQLClient | null = null
+let eqliteClient: EQLiteClient | null = null
 
-async function getCQLClient(): Promise<CQLClient> {
-  if (!cqlClient) {
-    cqlClient = getCQL()
+async function getEQLiteClient(): Promise<EQLiteClient> {
+  if (!eqliteClient) {
+    eqliteClient = getEQLite()
     await ensureScreeningTables()
   }
-  return cqlClient
+  return eqliteClient
 }
 
 async function ensureScreeningTables(): Promise<void> {
-  if (!cqlClient) return
+  if (!eqliteClient) return
 
   const createAccountFlagsTable = `
     CREATE TABLE IF NOT EXISTS email_account_flags (
@@ -89,22 +89,22 @@ async function ensureScreeningTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_moderation_queue_processed ON email_moderation_queue(processed, created_at)
   `
 
-  await cqlClient.exec(createAccountFlagsTable, [], EMAIL_SCREENING_DATABASE_ID)
-  await cqlClient.exec(createAccountFlagsIndex, [], EMAIL_SCREENING_DATABASE_ID)
-  await cqlClient.exec(createAccountStatsTable, [], EMAIL_SCREENING_DATABASE_ID)
-  await cqlClient.exec(
+  await eqliteClient.exec(createAccountFlagsTable, [], EMAIL_SCREENING_DATABASE_ID)
+  await eqliteClient.exec(createAccountFlagsIndex, [], EMAIL_SCREENING_DATABASE_ID)
+  await eqliteClient.exec(createAccountStatsTable, [], EMAIL_SCREENING_DATABASE_ID)
+  await eqliteClient.exec(
     createModerationQueueTable,
     [],
     EMAIL_SCREENING_DATABASE_ID,
   )
-  await cqlClient.exec(
+  await eqliteClient.exec(
     createModerationQueueIndex,
     [],
     EMAIL_SCREENING_DATABASE_ID,
   )
 }
 
-// CQL row types
+// EQLite row types
 interface AccountFlagRow {
   id: number
   address: string
@@ -328,7 +328,7 @@ export class ContentScreeningPipeline {
       })
     }
 
-    // Track flags for account (CQL-backed)
+    // Track flags for account (EQLite-backed)
     await this.trackAccountFlag(senderAddress, flags)
     await this.incrementAccountEmailCount(senderAddress)
 
@@ -462,7 +462,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Track flags for an account (CQL-backed)
+   * Track flags for an account (EQLite-backed)
    */
   private async trackAccountFlag(
     address: Address,
@@ -470,7 +470,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   ): Promise<void> {
     if (flags.length === 0) return
 
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const now = Date.now()
     const normalizedAddress = address.toLowerCase()
 
@@ -492,10 +492,10 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Increment account email count (CQL-backed)
+   * Increment account email count (EQLite-backed)
    */
   private async incrementAccountEmailCount(address: Address): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const normalizedAddress = address.toLowerCase()
     const now = Date.now()
 
@@ -511,10 +511,10 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Check if account review is needed (CQL-backed)
+   * Check if account review is needed (EQLite-backed)
    */
   private async shouldTriggerAccountReview(address: Address): Promise<boolean> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const normalizedAddress = address.toLowerCase()
 
     // Get email count
@@ -556,7 +556,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Perform full account review with LLM and submit to moderation system (CQL-backed)
+   * Perform full account review with LLM and submit to moderation system (EQLite-backed)
    */
   async performAccountReview(address: Address): Promise<AccountReview> {
     const flags = await this.getAccountFlags(address)
@@ -758,10 +758,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Queue review in CQL when moderation endpoint is unavailable
+   * Queue review in EQLite when moderation endpoint is unavailable
    */
   private async queueModerationReview(review: AccountReview): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const now = Date.now()
 
     await client.exec(
@@ -779,17 +779,17 @@ Return ONLY valid JSON:
       EMAIL_SCREENING_DATABASE_ID,
     )
 
-    console.log(`[ContentScreening] Review queued in CQL for ${review.account}`)
+    console.log(`[ContentScreening] Review queued in EQLite for ${review.account}`)
     console.warn(
       `[ContentScreening] Moderation review pending for ${review.account}: ${review.recommendation}`,
     )
   }
 
   /**
-   * Get pending moderation reviews from CQL (for retry processing)
+   * Get pending moderation reviews from EQLite (for retry processing)
    */
   async getPendingModerationReviews(): Promise<AccountReview[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
 
     const result = await client.query<ModerationQueueRow>(
       `SELECT * FROM email_moderation_queue WHERE processed = 0 ORDER BY created_at ASC`,
@@ -813,10 +813,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Clear a review from the queue after successful submission (CQL-backed)
+   * Clear a review from the queue after successful submission (EQLite-backed)
    */
   async clearModerationReview(account: string): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const normalizedAccount = account.toLowerCase()
 
     await client.exec(
@@ -827,7 +827,7 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Retry submitting pending reviews to moderation system (CQL-backed)
+   * Retry submitting pending reviews to moderation system (EQLite-backed)
    */
   async retryPendingReviews(): Promise<{ submitted: number; failed: number }> {
     const pending = await this.getPendingModerationReviews()
@@ -848,7 +848,7 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Determine screening action based on flags and scores (CQL-backed)
+   * Determine screening action based on flags and scores (EQLite-backed)
    */
   private async determineAction(
     flags: ContentFlag[],
@@ -880,7 +880,7 @@ Return ONLY valid JSON:
       return 'review'
     }
 
-    // Check account history (CQL-backed)
+    // Check account history (EQLite-backed)
     const accountFlags = await this.getAccountFlags(address)
     if (accountFlags.length > 5) {
       return 'review'
@@ -1082,10 +1082,10 @@ Return ONLY valid JSON:
   // ============ Account Management ============
 
   /**
-   * Clear flags for an account (after moderation resolution) (CQL-backed)
+   * Clear flags for an account (after moderation resolution) (EQLite-backed)
    */
   async clearAccountFlags(address: Address): Promise<void> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const normalizedAddress = address.toLowerCase()
 
     await client.exec(
@@ -1102,10 +1102,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Get account flags for review (CQL-backed)
+   * Get account flags for review (EQLite-backed)
    */
   async getAccountFlags(address: Address): Promise<ContentFlag[]> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const normalizedAddress = address.toLowerCase()
 
     const result = await client.query<AccountFlagRow>(
@@ -1123,10 +1123,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Get account email count (CQL-backed)
+   * Get account email count (EQLite-backed)
    */
   async getAccountEmailCount(address: Address): Promise<number> {
-    const client = await getCQLClient()
+    const client = await getEQLiteClient()
     const normalizedAddress = address.toLowerCase()
 
     const result = await client.query<Pick<AccountStatsRow, 'email_count'>>(

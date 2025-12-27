@@ -3,46 +3,46 @@
  *
  * Secure key storage using TEE with MPC threshold encryption.
  * Keys never leave the enclave - only injected into outbound requests.
- * All state is persisted to CQL for serverless compatibility.
+ * All state is persisted to EQLite for serverless compatibility.
  */
 
 import { isProductionEnv, isTestMode } from '@jejunetwork/config'
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { PROVIDERS_BY_ID } from './providers'
 import type { VaultDecryptRequest, VaultKey } from './types'
 
-// CQL-backed storage - no in-memory state for serverless compatibility
+// EQLite-backed storage - no in-memory state for serverless compatibility
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws'
+const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws'
 
-let cqlClient: CQLClient | null = null
+let eqliteClient: EQLiteClient | null = null
 let tablesInitialized = false
 
-async function getCQLClient(): Promise<CQLClient> {
-  if (!cqlClient) {
-    cqlClient = getCQL({
-      databaseId: CQL_DATABASE_ID,
+async function getEQLiteClient(): Promise<EQLiteClient> {
+  if (!eqliteClient) {
+    eqliteClient = getEQLite({
+      databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
 
-    const healthy = await cqlClient.isHealthy()
+    const healthy = await eqliteClient.isHealthy()
     if (!healthy) {
-      throw new Error('[Key Vault] CovenantSQL is required for vault storage')
+      throw new Error('[Key Vault] EQLite is required for vault storage')
     }
 
     await ensureTablesExist()
   }
-  return cqlClient
+  return eqliteClient
 }
 
 async function ensureTablesExist(): Promise<void> {
   if (tablesInitialized) return
 
-  const client = cqlClient
+  const client = eqliteClient
   if (!client) return
 
   const tables = [
@@ -69,13 +69,13 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await client.exec(ddl, [], CQL_DATABASE_ID)
+    await client.exec(ddl, [], EQLITE_DATABASE_ID)
   }
 
   tablesInitialized = true
 }
 
-// Row types for CQL queries
+// Row types for EQLite queries
 interface VaultKeyRow {
   id: string
   provider_id: string
@@ -191,8 +191,8 @@ export async function storeKey(
     createdAt: Date.now(),
   }
 
-  // Store in CQL
-  const client = await getCQLClient()
+  // Store in EQLite
+  const client = await getEQLiteClient()
   const attestationValue = vaultKey.attestation ?? ''
   await client.exec(
     `INSERT INTO vault_keys (id, provider_id, owner, encrypted_key, attestation, created_at)
@@ -205,7 +205,7 @@ export async function storeKey(
       attestationValue,
       vaultKey.createdAt,
     ],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return vaultKey
@@ -217,11 +217,11 @@ export async function storeKey(
 export async function getKeyMetadata(
   id: string,
 ): Promise<Omit<VaultKey, 'encryptedKey'> | undefined> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<VaultKeyRow>(
     'SELECT id, provider_id, owner, attestation, created_at FROM vault_keys WHERE id = ?',
     [id],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const row = result.rows[0]
@@ -243,11 +243,11 @@ export async function deleteKey(
   id: string,
   requester: Address,
 ): Promise<boolean> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<VaultKeyRow>(
     'SELECT owner FROM vault_keys WHERE id = ?',
     [id],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const row = result.rows[0]
@@ -261,7 +261,7 @@ export async function deleteKey(
   await client.exec(
     'DELETE FROM vault_keys WHERE id = ?',
     [id],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
   return true
 }
@@ -272,11 +272,11 @@ export async function deleteKey(
 export async function getKeysByOwner(
   owner: Address,
 ): Promise<Array<Omit<VaultKey, 'encryptedKey'>>> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<VaultKeyRow>(
     'SELECT id, provider_id, owner, attestation, created_at FROM vault_keys WHERE owner = ?',
     [owner.toLowerCase()],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return result.rows.map((row) => ({
@@ -324,12 +324,12 @@ export async function decryptKeyForRequest(
     return null
   }
 
-  // User-stored keys from CQL
-  const client = await getCQLClient()
+  // User-stored keys from EQLite
+  const client = await getEQLiteClient()
   const result = await client.query<VaultKeyRow>(
     'SELECT * FROM vault_keys WHERE id = ?',
     [request.keyId],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const vaultKey = result.rows[0]
@@ -360,7 +360,7 @@ export async function decryptKeyForRequest(
 /**
  * Load system keys from environment
  * Called at startup to pre-load configured API keys
- * System keys are read directly from env vars, not stored in CQL
+ * System keys are read directly from env vars, not stored in EQLite
  */
 export function loadSystemKeys(): void {
   let count = 0
@@ -396,7 +396,7 @@ async function logAccess(
   requestId: string,
   success: boolean,
 ): Promise<void> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const id = crypto.randomUUID()
   await client.exec(
     `INSERT INTO vault_access_log (id, key_id, requester, request_id, timestamp, success)
@@ -409,7 +409,7 @@ async function logAccess(
       Date.now(),
       success ? 1 : 0,
     ],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 }
 
@@ -417,11 +417,11 @@ async function logAccess(
  * Get access log for a key
  */
 export async function getAccessLog(keyId: string): Promise<AccessLogEntry[]> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<AccessLogRow>(
     'SELECT * FROM vault_access_log WHERE key_id = ? ORDER BY timestamp DESC LIMIT 1000',
     [keyId],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return result.rows.map((row) => ({
@@ -439,11 +439,11 @@ export async function getAccessLog(keyId: string): Promise<AccessLogEntry[]> {
 export async function getAccessLogByRequester(
   requester: Address,
 ): Promise<AccessLogEntry[]> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<AccessLogRow>(
     'SELECT * FROM vault_access_log WHERE requester = ? ORDER BY timestamp DESC LIMIT 1000',
     [requester.toLowerCase()],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return result.rows.map((row) => ({
@@ -552,11 +552,11 @@ export async function rotateKey(
   owner: Address,
   newApiKey: string,
 ): Promise<VaultKey | null> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const result = await client.query<VaultKeyRow>(
     'SELECT * FROM vault_keys WHERE id = ?',
     [oldKeyId],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   const oldKey = result.rows[0]
@@ -574,7 +574,7 @@ export async function rotateKey(
   await client.exec(
     'DELETE FROM vault_keys WHERE id = ?',
     [oldKeyId],
-    CQL_DATABASE_ID,
+    EQLITE_DATABASE_ID,
   )
 
   return newKey
@@ -591,24 +591,24 @@ export interface VaultStats {
 }
 
 export async function getVaultStats(): Promise<VaultStats> {
-  const client = await getCQLClient()
+  const client = await getEQLiteClient()
   const hourAgo = Date.now() - 3600000
 
   const [keysResult, accessResult, recentResult] = await Promise.all([
     client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM vault_keys',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     ),
     client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM vault_access_log',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     ),
     client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM vault_access_log WHERE timestamp > ?',
       [hourAgo],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     ),
   ])
 

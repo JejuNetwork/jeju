@@ -1,16 +1,16 @@
 # Jeju Infrastructure Stack
 #
-# Docker services for local development (excludes CQL which runs natively):
+# Docker services for local development (excludes EQLite which runs natively):
 # - IPFS: Decentralized storage
 # - JNS Gateway: Name resolution and frontend serving
 # - PostgreSQL: For Indexer (Subsquid requirement only)
 #
 # NOTE: Cache and DA services are now provided by DWS at /cache and /da endpoints
 #
-# CQL (CovenantSQL) runs NATIVELY via the CLI for faster dev:
-#   jeju dev  # Starts CQL + these Docker services + localnet
+# EQLite (EQLite) runs NATIVELY via the CLI for faster dev:
+#   jeju dev  # Starts EQLite + these Docker services + localnet
 #
-# For production-like testing with Docker-based CQL:
+# For production-like testing with Docker-based EQLite:
 #   docker compose --profile production up
 #
 # Usage (standalone Docker services only):
@@ -45,7 +45,7 @@ services:
 
   # ============================================================================
   # PostgreSQL - ONLY for Indexer (Subsquid requires it)
-  # All other apps should use CovenantSQL
+  # All other apps should use EQLite
   # ============================================================================
   postgres:
     image: postgres:15-alpine
@@ -70,16 +70,16 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # CQL - Docker-based CovenantSQL (for production-like testing)
-  # NOTE: For normal dev, CQL runs NATIVELY via `jeju dev` for faster startup
+  # EQLite - Docker-based EQLite (for production-like testing)
+  # NOTE: For normal dev, EQLite runs NATIVELY via `jeju dev` for faster startup
   # Use this with: docker compose --profile production up
   # ============================================================================
-  cql:
+  eqlite:
     build:
-      context: ./covenantsql
+      context: ./eqlite
       dockerfile: Dockerfile
-    container_name: jeju-cql-docker
-    hostname: cql
+    container_name: jeju-eqlite-docker
+    hostname: eqlite
     profiles:
       - production
     ports:
@@ -87,13 +87,13 @@ services:
       - "4662:4662"   # Node-to-node
       - "8546:8546"   # HTTP API
     environment:
-      - CQL_ROLE=bp
-      - CQL_NODE_ID=00000000000000000000000000000001
-      - CQL_DATA_DIR=/data
-      - CQL_LOG_LEVEL=info
+      - EQLITE_ROLE=bp
+      - EQLITE_NODE_ID=00000000000000000000000000000001
+      - EQLITE_DATA_DIR=/data
+      - EQLITE_LOG_LEVEL=info
     volumes:
-      - cql-bp-data:/data
-      - ./covenantsql/config/bp.yaml:/config/config.yaml:ro
+      - eqlite-bp-data:/data
+      - ./eqlite/config/bp.yaml:/config/config.yaml:ro
     networks:
       - jeju
     healthcheck:
@@ -104,26 +104,26 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  cql-miner:
+  eqlite-miner:
     build:
-      context: ./covenantsql
+      context: ./eqlite
       dockerfile: Dockerfile
-    container_name: jeju-cql-miner
-    hostname: cql-miner
+    container_name: jeju-eqlite-miner
+    hostname: eqlite-miner
     profiles:
       - production
     environment:
-      - CQL_ROLE=miner
-      - CQL_BP_ADDR=cql:4661
-      - CQL_DATA_DIR=/data
-      - CQL_LOG_LEVEL=info
+      - EQLITE_ROLE=miner
+      - EQLITE_BP_ADDR=eqlite:4661
+      - EQLITE_DATA_DIR=/data
+      - EQLITE_LOG_LEVEL=info
     volumes:
-      - cql-miner-data:/data
-      - ./covenantsql/config/miner.yaml:/config/config.yaml:ro
+      - eqlite-miner-data:/data
+      - ./eqlite/config/miner.yaml:/config/config.yaml:ro
     networks:
       - jeju
     depends_on:
-      cql:
+      eqlite:
         condition: service_healthy
     restart: unless-stopped
 
@@ -278,7 +278,7 @@ networks:
 volumes:
   ipfs-data:
   postgres-data:
-  cql-bp-data:      # Docker-based CQL (production profile)
-  cql-miner-data:   # Docker-based CQL miner (production profile)
+  eqlite-bp-data:      # Docker-based EQLite (production profile)
+  eqlite-miner-data:   # Docker-based EQLite miner (production profile)
   farcaster-hub-data:
   farcaster-hub-identity:

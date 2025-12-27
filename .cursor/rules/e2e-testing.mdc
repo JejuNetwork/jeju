@@ -5,15 +5,15 @@ alwaysApply: true
 
 # E2E Testing Guide
 
-## Current Status (48 tests passing)
+## Current Status (82 tests passing)
 
-| App | Tests | Status |
-|-----|-------|--------|
-| DWS | 39 | ✅ All pass with AI verification |
-| Autocrat | 4 | ✅ All pass |
-| Crucible | 5 | ✅ All pass |
+| App | Tests | Coverage |
+|-----|-------|----------|
+| DWS | 39 | ✅ 31 pages, navigation, mobile, 5 API endpoints |
+| Autocrat | 20 | ✅ DAO list, create wizard (5 steps), form validation, mobile |
+| Crucible | 23 | ✅ Agents, chat, rooms, header, footer, mobile |
 | Bazaar | - | ⏳ Needs dependencies |
-| Gateway | - | ⏳ Needs CQL |
+| Gateway | 15+ | ⏳ Needs EQLite (10 tabs ready) |
 | Factory | - | ⏳ Needs setup |
 | Monitoring | - | ⏳ Needs setup |
 | Node | - | ⏳ Needs Tauri |

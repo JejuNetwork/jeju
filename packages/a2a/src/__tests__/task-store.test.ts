@@ -2,38 +2,46 @@
  * ExtendedTaskStore Tests
  *
  * Tests for task storage with list functionality
+ * Requires EQLite to be running
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { hasInfra } from '@jejunetwork/tests/shared/live-infrastructure'
 import { ExtendedTaskStore } from '../core/task-store'
 import type { Task } from '../types/server'
 
-describe('ExtendedTaskStore', () => {
+// Check if EQLite is available
+const EQLITE_AVAILABLE = await hasInfra(['eqlite'])
+
+// Only run tests if EQLite is available
+const describeIfEqlite = EQLITE_AVAILABLE ? describe : describe.skip
+
+function createTask(
+  id: string,
+  contextId: string,
+  state: string,
+  timestamp?: string,
+): Task {
+  return {
+    kind: 'task',
+    id,
+    contextId,
+    status: {
+      state: state as Task['status']['state'],
+      timestamp: timestamp ?? new Date().toISOString(),
+    },
+    history: [],
+  }
+}
+
+describeIfEqlite('ExtendedTaskStore', () => {
   let store: ExtendedTaskStore
 
   beforeEach(async () => {
     store = new ExtendedTaskStore()
-    // Clear any leftover data from previous tests - CQL database is shared
+    // Clear any leftover data from previous tests - EQLite database is shared
     await store.clear()
   })
-
-  function createTask(
-    id: string,
-    contextId: string,
-    state: string,
-    timestamp?: string,
-  ): Task {
-    return {
-      kind: 'task',
-      id,
-      contextId,
-      status: {
-        state: state as Task['status']['state'],
-        timestamp: timestamp ?? new Date().toISOString(),
-      },
-      history: [],
-    }
-  }
 
   describe('save', () => {
     it('should save task to store', async () => {

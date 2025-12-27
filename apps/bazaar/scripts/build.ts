@@ -357,10 +357,10 @@ async function createDeploymentBundle(): Promise<void> {
         routes: ['/api/*', '/health', '/.well-known/*'],
       },
     },
-    dws: {
+dws: {
       regions: ['global'],
       tee: { preferred: true, required: false },
-      database: { type: 'covenantsql', migrations: 'migrations/' },
+      database: { type: 'eqlite', migrations: 'migrations/' },
     },
     compatibilityDate: '2025-06-01',
   }

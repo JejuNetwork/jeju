@@ -94,7 +94,7 @@ describe('Indexer Proxy', () => {
     expect(validate(null)).toBeNull()
   })
 
-  it('detects CQL-supported query types', () => {
+  it('detects EQLite-supported query types', () => {
     const detect = (q: string) => {
       const ql = q.toLowerCase()
       if (ql.includes('__typename')) return 'introspection'

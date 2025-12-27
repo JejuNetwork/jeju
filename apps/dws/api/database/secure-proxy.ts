@@ -1,14 +1,14 @@
 /**
- * Secure CQL Proxy
+ * Secure EQLite Proxy
  *
- * All CQL queries must go through this proxy which:
+ * All EQLite queries must go through this proxy which:
  * 1. Verifies request signatures
  * 2. Checks database ownership/ACL
- * 3. Forwards authenticated requests to CQL
+ * 3. Forwards authenticated requests to EQLite
  * 4. Logs access for audit
  */
 
-import { getCQL } from '@jejunetwork/db'
+import { getEQLite } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
@@ -70,7 +70,7 @@ async function executeSecureQuery(params: {
   params: (string | number | boolean | null)[]
   signer: Address
 }): Promise<SecureQueryResult> {
-  const client = getCQL()
+  const client = getEQLite()
 
   if (params.type === 'query') {
     const result = await client.query<
@@ -112,7 +112,7 @@ export async function internalQuery<T>(
   sql: string,
   params: (string | number | boolean | null)[] = [],
 ): Promise<T[]> {
-  const client = getCQL()
+  const client = getEQLite()
   const result = await client.query<T>(sql, params, database)
   return result.rows
 }
@@ -122,7 +122,7 @@ export async function internalExec(
   sql: string,
   params: (string | number | boolean | null)[] = [],
 ): Promise<{ rowsAffected: number; txHash: string }> {
-  const client = getCQL()
+  const client = getEQLite()
   const result = await client.exec(sql, params, database)
   return {
     rowsAffected: result.rowsAffected,
@@ -132,9 +132,9 @@ export async function internalExec(
 
 // Router
 
-export function createSecureCQLRouter() {
+export function createSecureEQLiteRouter() {
   return (
-    new Elysia({ prefix: '/cql' })
+    new Elysia({ prefix: '/eqlite' })
       /**
        * Secure query endpoint - requires signature
        */
@@ -203,7 +203,7 @@ export function createSecureCQLRouter() {
       })
 
       .get('/health', () => ({
-        service: 'dws-secure-cql',
+        service: 'dws-secure-eqlite',
         status: 'healthy',
       }))
   )

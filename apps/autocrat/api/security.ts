@@ -6,22 +6,22 @@
  * - Wallet signature verification for user actions
  * - Rate limiting per IP/address
  * - Request validation and sanitization
- * - Audit logging for sensitive operations (persisted to CQL)
+ * - Audit logging for sensitive operations (persisted to EQLite)
  */
 
 // Use Web Crypto API for workerd compatibility
 // Note: timingSafeEqual is implemented using constant-time comparison
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import { type Address, isAddress, verifyMessage } from 'viem'
 import { z } from 'zod'
 
 import { config } from './config'
 
-// CQL configuration for audit persistence
-const CQL_DATABASE_ID = config.cqlDatabaseId
-let auditCqlClient: CQLClient | null = null
+// EQLite configuration for audit persistence
+const EQLITE_DATABASE_ID = config.eqliteDatabaseId
+let auditEqliteClient: EQLiteClient | null = null
 let auditTableInitialized = false
 
 // Rate limiting configuration
@@ -49,7 +49,7 @@ interface AuditEntry {
 // In-memory rate limit store (use Redis in production for multi-instance)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
 
-// Audit log buffer (flushes to CQL periodically)
+// Audit log buffer (flushes to EQLite periodically)
 const auditBuffer: AuditEntry[] = []
 const MAX_AUDIT_BUFFER = 100
 
@@ -141,21 +141,21 @@ async function verifyWalletSignature(
 }
 
 /**
- * Initialize CQL client and audit table
+ * Initialize EQLite client and audit table
  */
-async function ensureAuditTable(): Promise<CQLClient> {
-  if (!auditCqlClient) {
-    auditCqlClient = getCQL({
-      databaseId: CQL_DATABASE_ID,
+async function ensureAuditTable(): Promise<EQLiteClient> {
+  if (!auditEqliteClient) {
+    auditEqliteClient = getEQLite({
+      databaseId: EQLITE_DATABASE_ID,
       timeout: 10000,
       debug: false,
     })
   }
 
   if (!auditTableInitialized) {
-    const healthy = await auditCqlClient.isHealthy()
+    const healthy = await auditEqliteClient.isHealthy()
     if (healthy) {
-      await auditCqlClient.exec(
+      await auditEqliteClient.exec(
         `CREATE TABLE IF NOT EXISTS audit_log (
           id TEXT PRIMARY KEY,
           timestamp INTEGER NOT NULL,
@@ -167,23 +167,23 @@ async function ensureAuditTable(): Promise<CQLClient> {
           details TEXT
         )`,
         [],
-        CQL_DATABASE_ID,
+        EQLITE_DATABASE_ID,
       )
-      await auditCqlClient.exec(
+      await auditEqliteClient.exec(
         `CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)`,
         [],
-        CQL_DATABASE_ID,
+        EQLITE_DATABASE_ID,
       )
-      await auditCqlClient.exec(
+      await auditEqliteClient.exec(
         `CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor)`,
         [],
-        CQL_DATABASE_ID,
+        EQLITE_DATABASE_ID,
       )
       auditTableInitialized = true
     }
   }
 
-  return auditCqlClient
+  return auditEqliteClient
 }
 
 /**
@@ -199,7 +199,7 @@ function addAuditEntry(entry: AuditEntry): void {
 }
 
 /**
- * Flush audit log to persistent storage (CQL)
+ * Flush audit log to persistent storage (EQLite)
  */
 async function flushAuditLog(): Promise<void> {
   if (auditBuffer.length === 0) return
@@ -213,12 +213,12 @@ async function flushAuditLog(): Promise<void> {
     )
   }
 
-  // Persist to CQL for long-term audit trail
+  // Persist to EQLite for long-term audit trail
   try {
     const client = await ensureAuditTable()
     const healthy = await client.isHealthy()
     if (!healthy) {
-      console.warn('[Audit] CQL not available, audit entries not persisted')
+      console.warn('[Audit] EQLite not available, audit entries not persisted')
       return
     }
 
@@ -237,7 +237,7 @@ async function flushAuditLog(): Promise<void> {
           entry.success ? 1 : 0,
           JSON.stringify(entry.details),
         ],
-        CQL_DATABASE_ID,
+        EQLITE_DATABASE_ID,
       )
     }
   } catch (err) {

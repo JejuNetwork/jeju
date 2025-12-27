@@ -31,7 +31,7 @@ export interface CrucibleConfig {
   // Contracts
   autocratTreasuryAddress?: string
   computeMarketplaceUrl?: string
-  cqlEndpoint?: string
+  eqliteEndpoint?: string
   dexCacheUrl?: string
 
   // Bots
@@ -50,8 +50,8 @@ export interface CrucibleConfig {
   dwsUrl?: string
   ipfsGateway?: string
 
-  // CQL
-  cqlEndpoint?: string
+  // EQLite
+  eqliteEndpoint?: string
 
   // Cron
   cronSecret?: string
@@ -79,7 +79,7 @@ const { config, configure: setCrucibleConfig } =
     privateKey: getEnvVar('PRIVATE_KEY'),
     autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
     computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),
-    cqlEndpoint: getEnvVar('CQL_ENDPOINT') ?? servicesConfig.cql.blockProducer,
+    eqliteEndpoint: getEnvVar('EQLITE_ENDPOINT') ?? servicesConfig.eqlite.blockProducer,
     dexCacheUrl: getEnvVar('DEX_CACHE_URL'),
     botsEnabled: getEnvVar('BOTS_ENABLED') !== 'false',
     autonomousEnabled: getEnvVar('AUTONOMOUS_ENABLED') === 'true',

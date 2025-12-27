@@ -120,8 +120,8 @@ describe('Standalone API Server', () => {
         ...process.env,
         API_PORT: API_PORT.toString(),
         NETWORK: 'localnet',
-        COVENANTSQL_DATABASE_ID: '',
-        COVENANTSQL_PRIVATE_KEY: '',
+        EQLITE_DATABASE_ID: '',
+        EQLITE_PRIVATE_KEY: '',
       },
     })
 
@@ -214,9 +214,9 @@ describe('Worker Module', () => {
       DWS_URL: getCoreAppUrl('DWS_API'),
       GATEWAY_URL: getCoreAppUrl('GATEWAY'),
       INDEXER_URL: getCoreAppUrl('NODE_EXPLORER_UI'),
-      COVENANTSQL_NODES: '',
-      COVENANTSQL_DATABASE_ID: '',
-      COVENANTSQL_PRIVATE_KEY: '',
+      EQLITE_NODES: '',
+      EQLITE_DATABASE_ID: '',
+      EQLITE_PRIVATE_KEY: '',
     }
 
     const mockCtx = {

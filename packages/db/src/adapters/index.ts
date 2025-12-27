@@ -1,9 +1,9 @@
 /**
- * CQL ORM Adapters
+ * EQLite ORM Adapters
  */
 export {
-  type DrizzleCQL,
-  type DrizzleCQLConfig,
+  type DrizzleEQLite,
+  type DrizzleEQLiteConfig,
   type DrizzleLogger,
   type DrizzleTable,
   drizzle,

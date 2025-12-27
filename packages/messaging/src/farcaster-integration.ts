@@ -9,7 +9,7 @@
  * - Wallet-to-wallet messaging via Jeju messaging SDK
  * - FID-to-FID messaging via Farcaster Direct Casts
  * - Unified conversation view
- * - CovenantSQL storage for persistence
+ * - EQLite storage for persistence
  * - Automatic routing based on recipient type
  */
 
@@ -21,19 +21,19 @@ import {
   type MessagingClientConfig,
 } from './sdk'
 import {
-  type CQLConfig,
-  type CQLMessageStorage,
-  createCQLStorage,
+  type EQLiteConfig,
+  type EQLiteMessageStorage,
+  createEQLiteStorage,
   type StoredMessage,
-} from './storage/cql-storage'
+} from './storage/eqlite-storage'
 
 export interface UnifiedMessagingConfig {
   /** Jeju messaging client config */
   messaging: MessagingClientConfig
   /** Farcaster Direct Cast client config */
   farcaster?: DCClientConfig
-  /** CQL storage config */
-  storage?: CQLConfig
+  /** EQLite storage config */
+  storage?: EQLiteConfig
 }
 
 export interface UnifiedMessage {
@@ -78,7 +78,7 @@ export class UnifiedMessagingService {
   private messagingClient: MessagingClient
   private farcasterClient?: DirectCastClient
   private farcasterConfig?: DCClientConfig
-  private storage: CQLMessageStorage
+  private storage: EQLiteMessageStorage
   private initialized = false
   private address: Address
   private farcasterFid?: number
@@ -93,7 +93,7 @@ export class UnifiedMessagingService {
       this.farcasterConfig = config.farcaster
       this.farcasterFid = config.farcaster.fid
     }
-    this.storage = createCQLStorage(config.storage)
+    this.storage = createEQLiteStorage(config.storage)
   }
 
   async initialize(signature?: string): Promise<void> {

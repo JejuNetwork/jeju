@@ -12,11 +12,11 @@ export interface IndexerConfig {
   dbIdleTimeout: number
   dbLogging: boolean
 
-  // CQL Sync
-  cqlSyncEnabled: boolean
-  cqlDatabaseId: string
-  cqlSyncInterval: number
-  cqlSyncBatchSize: number
+  // EQLite Sync
+  eqliteSyncEnabled: boolean
+  eqliteDatabaseId: string
+  eqliteSyncInterval: number
+  eqliteSyncBatchSize: number
 
   // Chain
   chainId: number
@@ -54,11 +54,11 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
   dbIdleTimeout: getEnvNumber('DB_IDLE_TIMEOUT') ?? 30000,
   dbLogging: getEnvVar('DB_LOGGING') === 'true',
 
-  // CQL Sync
-  cqlSyncEnabled: getEnvVar('CQL_SYNC_ENABLED') === 'true',
-  cqlDatabaseId: getEnvVar('CQL_DATABASE_ID') ?? 'indexer-sync',
-  cqlSyncInterval: getEnvNumber('CQL_SYNC_INTERVAL') ?? 30000,
-  cqlSyncBatchSize: getEnvNumber('CQL_SYNC_BATCH_SIZE') ?? 1000,
+  // EQLite Sync
+  eqliteSyncEnabled: getEnvVar('EQLITE_SYNC_ENABLED') === 'true',
+  eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID') ?? 'indexer-sync',
+  eqliteSyncInterval: getEnvNumber('EQLITE_SYNC_INTERVAL') ?? 30000,
+  eqliteSyncBatchSize: getEnvNumber('EQLITE_SYNC_BATCH_SIZE') ?? 1000,
 
   // Chain
   chainId: getEnvNumber('CHAIN_ID') ?? 420691,

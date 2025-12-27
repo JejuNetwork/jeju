@@ -59,7 +59,7 @@ export interface DWSConfig {
     regions?: string[]
   }
   database?: {
-    type: 'postgres' | 'covenantsql' | 'd1' | 'none'
+    type: 'postgres' | 'eqlite' | 'd1' | 'none'
     name: string
     version?: string
     resources?: ResourceConfig
@@ -80,7 +80,7 @@ export interface DWSConfig {
 
 export interface DecentralizationConfig {
   database?: {
-    type: 'covenantql' | 'cql-sync' | 'none'
+    type: 'eqlite' | 'eqlite-sync' | 'none'
     databaseId?: string
   }
   cdn?: {
@@ -340,10 +340,10 @@ export class AppDeployer {
       }
     }
 
-    if (config.type === 'covenantsql') {
-      // CQL databases are created on-demand
+    if (config.type === 'eqlite') {
+      // EQLite databases are created on-demand
       return {
-        type: 'covenantsql',
+        type: 'eqlite',
         name: dbName,
       }
     }
@@ -437,7 +437,7 @@ const DeployRequestSchema = z.object({
       .object({
         database: z
           .object({
-            type: z.enum(['postgres', 'covenantsql', 'd1', 'none']),
+            type: z.enum(['postgres', 'eqlite', 'd1', 'none']),
             name: z.string(),
             version: z.string().optional(),
             resources: z

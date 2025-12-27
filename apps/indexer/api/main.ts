@@ -45,32 +45,32 @@ import { processOracleEvents } from './oracle-processor'
 import { type ProcessorContext, processor } from './processor'
 import { processRegistryEvents } from './registry-game-processor'
 import { processStorageEvents } from './storage-processor'
-import { getCQLSync } from './utils/cql-sync'
+import { getEQLiteSync } from './utils/eqlite-sync'
 import { getDataSource } from './utils/db'
 
-const cqlSync = getCQLSync()
-let cqlInitialized = false
+const eqliteSync = getEQLiteSync()
+let eqliteInitialized = false
 
 processor.run(
   new TypeormDatabase({ supportHotBlocks: true }),
   async (ctx: ProcessorContext<Store>) => {
     if (
       ctx.blocks.length > 0 &&
-      !cqlInitialized &&
-      !cqlSync.getStats().running
+      !eqliteInitialized &&
+      !eqliteSync.getStats().running
     ) {
-      cqlInitialized = true
+      eqliteInitialized = true
       getDataSource()
         .then((dataSource) => {
           if (!dataSource) throw new Error('DataSource not available')
-          return cqlSync.initialize(dataSource)
+          return eqliteSync.initialize(dataSource)
         })
-        .then(() => cqlSync.start())
+        .then(() => eqliteSync.start())
         .catch((err: Error) => {
           ctx.log.error(
-            `CQL sync initialization failed: ${err.message}. Continuing without decentralized reads.`,
+            `EQLite sync initialization failed: ${err.message}. Continuing without decentralized reads.`,
           )
-          cqlInitialized = false
+          eqliteInitialized = false
         })
     }
     const blocks: BlockEntity[] = []

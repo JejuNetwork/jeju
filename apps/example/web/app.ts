@@ -462,6 +462,21 @@ function renderConnect(): string {
         ${state.isConnecting ? 'Connecting...' : 'Connect Wallet'}
       </button>
       ${state.error ? renderError() : ''}
+      
+      <div class="mt-10 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Powered by</p>
+        <div class="flex items-center justify-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+          <span class="flex items-center gap-1">
+            <span aria-hidden="true">🗄️</span> EQLite
+          </span>
+          <span class="flex items-center gap-1">
+            <span aria-hidden="true">📦</span> IPFS
+          </span>
+          <span class="flex items-center gap-1">
+            <span aria-hidden="true">🔐</span> KMS
+          </span>
+        </div>
+      </div>
     </div>
   `
 }

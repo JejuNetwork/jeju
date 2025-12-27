@@ -952,6 +952,74 @@ export function createCacheRoutes() {
       },
     )
 
+    // ========================================
+    // Pub/Sub Routes
+    // ========================================
+
+    .post(
+      '/publish',
+      async ({ body }) => {
+        const engine = getSharedEngine()
+        const recipients = engine.publish(body.channel, body.message, body.publisherId)
+        return { recipients }
+      },
+      {
+        body: t.Object({
+          channel: t.String(),
+          message: t.String(),
+          publisherId: t.Optional(t.String()),
+        }),
+      },
+    )
+
+    .get(
+      '/pubsub/channels',
+      async ({ query }) => {
+        const engine = getSharedEngine()
+        const channels = engine.pubsubChannels(query.pattern)
+        return { channels }
+      },
+      {
+        query: t.Object({
+          pattern: t.Optional(t.String()),
+        }),
+      },
+    )
+
+    .post(
+      '/pubsub/numsub',
+      async ({ body }) => {
+        const engine = getSharedEngine()
+        const result = engine.pubsubNumsub(...body.channels)
+        const subscribers: Record<string, number> = {}
+        for (const [channel, count] of result) {
+          subscribers[channel] = count
+        }
+        return { subscribers }
+      },
+      {
+        body: t.Object({
+          channels: t.Array(t.String()),
+        }),
+      },
+    )
+
+    .get('/pubsub/numpat', async () => {
+      const engine = getSharedEngine()
+      const count = engine.pubsubNumpat()
+      return { count }
+    })
+
+    .get('/pubsub/stats', async () => {
+      const engine = getSharedEngine()
+      const stats = engine.getPubSubStats()
+      return { stats }
+    })
+
+    // ========================================
+    // Plans & Instances Routes
+    // ========================================
+
     .get('/plans', async () => {
       const manager = getCacheProvisioningManager()
       const plans = manager.getPlans()

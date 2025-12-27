@@ -10,14 +10,14 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
 import {
-  CovenantSQLClient,
-  createCovenantSQLClient,
+  EQLiteClient,
+  createEQLiteClient,
   createTableMigration,
-  getCovenantSQLClient,
+  getEQLiteClient,
   MigrationManager,
-  resetCovenantSQLClient,
+  resetEQLiteClient,
 } from '@jejunetwork/db'
 import {
   getMPCConfig,
@@ -28,15 +28,15 @@ import {
 import { getHSMClient, HSMClient, resetHSMClient } from '@jejunetwork/shared'
 import { keccak256, toBytes, verifyMessage } from 'viem'
 
-// CovenantSQL Client Tests
+// EQLite Client Tests
 
-describe('CovenantSQL Client - Boundary Conditions', () => {
+describe('EQLite Client - Boundary Conditions', () => {
   beforeEach(() => {
-    resetCovenantSQLClient()
+    resetEQLiteClient()
   })
 
   it('should reject empty nodes array', async () => {
-    const client = createCovenantSQLClient({
+    const client = createEQLiteClient({
       nodes: [],
       databaseId: 'test',
       privateKey: 'key',
@@ -48,8 +48,8 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle single node configuration', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       poolSize: 1,
@@ -60,8 +60,8 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle maximum pool size', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       poolSize: 100,
@@ -71,8 +71,8 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle zero query timeout', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       queryTimeout: 0,
@@ -82,8 +82,8 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle zero retry attempts', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       retryAttempts: 0,
@@ -93,8 +93,8 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should use default consistency when not specified', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -103,30 +103,30 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 })
 
-describe('CovenantSQL Client - Error Handling', () => {
+describe('EQLite Client - Error Handling', () => {
   beforeEach(() => {
-    resetCovenantSQLClient()
+    resetEQLiteClient()
   })
 
   it('should throw on missing databaseId from env', async () => {
-    resetCovenantSQLClient()
-    const originalDbId = process.env.COVENANTSQL_DATABASE_ID
-    const originalKey = process.env.COVENANTSQL_PRIVATE_KEY
+    resetEQLiteClient()
+    const originalDbId = process.env.EQLITE_DATABASE_ID
+    const originalKey = process.env.EQLITE_PRIVATE_KEY
 
-    delete process.env.COVENANTSQL_DATABASE_ID
-    delete process.env.COVENANTSQL_PRIVATE_KEY
+    delete process.env.EQLITE_DATABASE_ID
+    delete process.env.EQLITE_PRIVATE_KEY
 
-    expect(() => getCovenantSQLClient()).toThrow(
-      'COVENANTSQL_DATABASE_ID and COVENANTSQL_PRIVATE_KEY',
+    expect(() => getEQLiteClient()).toThrow(
+      'EQLITE_DATABASE_ID and EQLITE_PRIVATE_KEY',
     )
 
     // Restore
-    if (originalDbId) process.env.COVENANTSQL_DATABASE_ID = originalDbId
-    if (originalKey) process.env.COVENANTSQL_PRIVATE_KEY = originalKey
+    if (originalDbId) process.env.EQLITE_DATABASE_ID = originalDbId
+    if (originalKey) process.env.EQLITE_PRIVATE_KEY = originalKey
   })
 
   it('should handle malformed node URLs gracefully', async () => {
-    const client = createCovenantSQLClient({
+    const client = createEQLiteClient({
       nodes: ['not-a-valid-url', ':::invalid:::'],
       databaseId: 'test',
       privateKey: 'key',
@@ -137,8 +137,8 @@ describe('CovenantSQL Client - Error Handling', () => {
   })
 
   it('should close connections cleanly', async () => {
-    const client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -149,14 +149,14 @@ describe('CovenantSQL Client - Error Handling', () => {
   })
 })
 
-describe('CovenantSQL Client - SQL Operations', () => {
+describe('EQLite Client - SQL Operations', () => {
   beforeEach(() => {
-    resetCovenantSQLClient()
+    resetEQLiteClient()
   })
 
   it('should build correct INSERT SQL for single row', async () => {
-    const _client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const _client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -167,8 +167,8 @@ describe('CovenantSQL Client - SQL Operations', () => {
   })
 
   it('should build correct INSERT SQL for multiple rows', async () => {
-    const _client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const _client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -191,8 +191,8 @@ describe('CovenantSQL Client - SQL Operations', () => {
   })
 
   it('should handle empty insert data', async () => {
-    const _client = createCovenantSQLClient({
-      nodes: [getCQLBlockProducerUrl()],
+    const _client = createEQLiteClient({
+      nodes: [getEQLiteBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -1280,11 +1280,11 @@ describe('Concurrent Operations', () => {
 // Integration Verification Tests
 
 describe('Module Export Verification', () => {
-  it('should export all CovenantSQL components', async () => {
-    expect(typeof CovenantSQLClient).toBe('function')
-    expect(typeof createCovenantSQLClient).toBe('function')
-    expect(typeof getCovenantSQLClient).toBe('function')
-    expect(typeof resetCovenantSQLClient).toBe('function')
+  it('should export all EQLite components', async () => {
+    expect(typeof EQLiteClient).toBe('function')
+    expect(typeof createEQLiteClient).toBe('function')
+    expect(typeof getEQLiteClient).toBe('function')
+    expect(typeof resetEQLiteClient).toBe('function')
     expect(typeof MigrationManager).toBe('function')
     expect(typeof createTableMigration).toBe('function')
   })

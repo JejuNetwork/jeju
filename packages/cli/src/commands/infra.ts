@@ -98,7 +98,7 @@ infraCommand
   .command('logs')
   .description('Show logs from Docker services')
   .option('-f, --follow', 'Follow log output')
-  .option('--service <name>', 'Specific service (cql, ipfs, cache, da)')
+  .option('--service <name>', 'Specific service (eqlite, ipfs, cache, da)')
   .action(async (options: { follow?: boolean; service?: string }) => {
     const rootDir = findMonorepoRoot()
 
@@ -106,7 +106,7 @@ infraCommand
     if (options.follow) args.push('-f')
     if (options.service) {
       const serviceMap: Record<string, string> = {
-        cql: 'cql',
+        eqlite: 'eqlite',
         ipfs: 'ipfs',
         cache: 'cache-service',
         da: 'da-server',
@@ -271,7 +271,7 @@ infraCommand
   .option('--skip-images', 'Skip Docker image builds')
   .option('--skip-kubernetes', 'Skip Kubernetes deployment')
   .option('--skip-verify', 'Skip verification step')
-  .option('--build-cql', 'Build CovenantSQL image')
+  .option('--build-eqlite', 'Build EQLite image')
   .action(
     async (options: {
       network: string
@@ -280,7 +280,7 @@ infraCommand
       skipImages?: boolean
       skipKubernetes?: boolean
       skipVerify?: boolean
-      buildCql?: boolean
+      buildEqlite?: boolean
     }) => {
       const rootDir = findMonorepoRoot()
       const scriptPath = join(
@@ -303,7 +303,7 @@ infraCommand
       if (options.skipImages) env.SKIP_IMAGES = 'true'
       if (options.skipKubernetes) env.SKIP_KUBERNETES = 'true'
       if (options.skipVerify) env.SKIP_VERIFY = 'true'
-      if (options.buildCql) env.BUILD_CQL_IMAGE = 'true'
+      if (options.buildEqlite) env.BUILD_EQLITE_IMAGE = 'true'
 
       await execa('bun', ['run', scriptPath], {
         cwd: rootDir,
@@ -368,8 +368,8 @@ infraCommand
   )
 
 infraCommand
-  .command('build-cql')
-  .description('Build multi-arch CovenantSQL Docker image')
+  .command('build-eqlite')
+  .description('Build multi-arch EQLite Docker image')
   .option('--push', 'Push image to registry')
   .option('--arm-only', 'Build ARM64 only')
   .option('--x86-only', 'Build x86_64 only')
@@ -382,11 +382,11 @@ infraCommand
       const rootDir = findMonorepoRoot()
       const scriptPath = join(
         rootDir,
-        'packages/deployment/scripts/build-covenantsql.ts',
+        'packages/deployment/scripts/build-eqlite.ts',
       )
 
       if (!existsSync(scriptPath)) {
-        logger.error('Build CovenantSQL script not found')
+        logger.error('Build EQLite script not found')
         return
       }
 

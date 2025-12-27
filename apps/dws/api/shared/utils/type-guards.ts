@@ -273,18 +273,18 @@ export function isRiskLevel(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CQL Query Response Type Guards
+// EQLite Query Response Type Guards
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Generic CQL query response shape */
-export interface CqlQueryResponse<T> {
+/** Generic EQLite query response shape */
+export interface EqliteQueryResponse<T> {
   rows?: T[]
 }
 
-/** Check if value is a valid CQL query response */
-export function isCqlQueryResponse<T>(
+/** Check if value is a valid EQLite query response */
+export function isEqliteQueryResponse<T>(
   data: unknown,
-): data is CqlQueryResponse<T> {
+): data is EqliteQueryResponse<T> {
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     return false
   const obj = data as Record<string, unknown>

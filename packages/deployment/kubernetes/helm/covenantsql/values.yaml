@@ -1,4 +1,4 @@
-# CovenantSQL Helm Chart Values
+# EQLite Helm Chart Values
 # Default configuration for testnet deployment
 
 # Global settings
@@ -9,7 +9,7 @@ global:
 
 # Image configuration
 image:
-  repository: ghcr.io/jeju-network/covenantsql
+  repository: ghcr.io/jeju-network/eqlite
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -22,7 +22,7 @@ fullnameOverride: ""
 # ============================================================================
 blockProducer:
   enabled: true
-  replicaCount: 1  # Only 1 BP per cluster (leader election via Kayak)
+  replicaCount: 1  # Only 1 BP per cluster (leader election via BftRaft)
 
   resources:
     limits:
@@ -49,7 +49,7 @@ blockProducer:
     type: ClusterIP
     clientPort: 4661
     rpcPort: 4662
-    kayakPort: 4663
+    bftraftPort: 4663
     httpPort: 8546
     metricsPort: 9100
 
@@ -123,14 +123,14 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: cql.testnet.jejunetwork.org
+    - host: eqlite.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: cql-tls
+    - secretName: eqlite-tls
       hosts:
-        - cql.testnet.jejunetwork.org
+        - eqlite.testnet.jejunetwork.org
 
 # ============================================================================
 # Service Account
@@ -143,8 +143,8 @@ serviceAccount:
 # ============================================================================
 # Contract Addresses (unified contracts from main deployment)
 # ============================================================================
-# CQL uses ComputeRegistry with serviceType=keccak256("database")
-# instead of separate CQL-specific contracts
+# EQLite uses ComputeRegistry with serviceType=keccak256("database")
+# instead of separate EQLite-specific contracts
 contracts:
   computeRegistry: ""   # ComputeRegistry - register as database provider
   serviceRegistry: ""   # ServiceRegistry - for pricing and usage
@@ -162,7 +162,7 @@ rpc:
 # ============================================================================
 operator:
   # Private key for operator transactions (from secret)
-  privateKeySecret: cql-operator-key
+  privateKeySecret: eqlite-operator-key
   privateKeyKey: private-key
 
   # Heartbeat interval

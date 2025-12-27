@@ -1,12 +1,12 @@
 /**
- * CQL Migration System
+ * EQLite Migration System
  *
- * Schema migration utilities for CovenantSQL databases.
+ * Schema migration utilities for EQLite databases.
  * Supports versioned migrations with up/down capabilities.
  */
 
 import { toError } from '@jejunetwork/types'
-import type { CQLClient } from './client.js'
+import type { EQLiteClient } from './client.js'
 import type { Migration, MigrationResult } from './types.js'
 import {
   validateColumnType,
@@ -18,12 +18,12 @@ import {
 // Migration Manager
 
 export class MigrationManager {
-  private client: CQLClient
+  private client: EQLiteClient
   private databaseId: string
   private tableName: string
 
   constructor(
-    client: CQLClient,
+    client: EQLiteClient,
     databaseId: string,
     tableName: string = '_migrations',
   ) {
@@ -120,7 +120,7 @@ export class MigrationManager {
         }
 
         console.log(
-          `[CQL] Applying migration: ${migration.version} - ${migration.name}`,
+          `[EQLite] Applying migration: ${migration.version} - ${migration.name}`,
         )
 
         await tx.exec(migration.up, [])
@@ -175,7 +175,7 @@ export class MigrationManager {
     }
 
     console.log(
-      `[CQL] Rolling back migration: ${migration.version} - ${migration.name}`,
+      `[EQLite] Rolling back migration: ${migration.version} - ${migration.name}`,
     )
 
     const conn = await this.client.connect(this.databaseId)
@@ -399,7 +399,7 @@ export function createTableMigration(
 // Factory
 
 export function createMigrationManager(
-  client: CQLClient,
+  client: EQLiteClient,
   databaseId: string,
   tableName?: string,
 ): MigrationManager {

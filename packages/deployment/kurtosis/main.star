@@ -1,4 +1,4 @@
-# Jeju Localnet - Full Stack with CovenantSQL + Solana
+# Jeju Localnet - Full Stack with EQLite + Solana
 # Pure TCP ports only - no UDP/QUIC issues on macOS!
 
 # Pinned versions for reproducibility (December 2025)
@@ -8,8 +8,8 @@ OP_GETH_VERSION = "v1.101603.5"  # Latest stable op-geth version
 OP_RETH_VERSION = "v1.1.2"
 SOLANA_VERSION = "v2.1.0"  # Solana validator version
 
-# CovenantSQL - use the upstream image
-CQL_IMAGE = "covenantsql/covenantsql:latest"
+# EQLite - use the upstream image
+EQLITE_IMAGE = "eqlite/eqlite:latest"
 
 # Solana test validator - disabled by default as no official Docker image available
 # Build custom or use community image if needed
@@ -20,20 +20,20 @@ def run(plan, args={}):
     Full Jeju stack for local development:
     - L1: Geth --dev (auto-mines, no consensus needed)
     - L2: op-geth + op-node with P2P disabled (no UDP)
-    - CQL: CovenantSQL block producer for decentralized storage
+    - EQLite: EQLite block producer for decentralized storage
     - Solana: Test validator for cross-chain MEV/LP operations
     - Only TCP ports = works on macOS Docker Desktop
     """
     
     # Allow custom image overrides via args
-    cql_image = args.get("cql_image", CQL_IMAGE)
+    eqlite_image = args.get("eqlite_image", EQLITE_IMAGE)
     solana_image = args.get("solana_image", SOLANA_IMAGE)
-    enable_cql = args.get("enable_cql", False)  # Disabled by default - official image has incompatible entrypoint
+    enable_eqlite = args.get("enable_eqlite", False)  # Disabled by default - official image has incompatible entrypoint
     enable_solana = args.get("enable_solana", False)  # Disabled by default - no reliable Docker image
     
     plan.print("Starting Jeju Localnet...")
     plan.print("OP Stack: " + OP_STACK_VERSION)
-    plan.print("CovenantSQL: " + cql_image)
+    plan.print("EQLite: " + eqlite_image)
     if enable_solana:
         plan.print("Solana: " + solana_image)
     plan.print("")
@@ -100,12 +100,12 @@ def run(plan, args={}):
     
     services = ["geth-l1", "op-geth"]
     
-    # CovenantSQL: Decentralized database for messaging and storage (optional)
-    if enable_cql:
-        cql_config = plan.render_templates(
+    # EQLite: Decentralized database for messaging and storage (optional)
+    if enable_eqlite:
+        eqlite_config = plan.render_templates(
             config={
                 "config.yaml": struct(
-                    template="""# CovenantSQL single-node config for local development
+                    template="""# EQLite single-node config for local development
 WorkingRoot: "/data"
 ThisNodeID: "00000000000000000000000000000000"
 ListenAddr: "0.0.0.0:4661"
@@ -118,13 +118,13 @@ Genesis:
                     data={},
                 ),
             },
-            name="cql-config",
+            name="eqlite-config",
         )
         
-        cql = plan.add_service(
-            name="covenantsql",
+        eqlite = plan.add_service(
+            name="eqlite",
             config=ServiceConfig(
-                image=cql_image,
+                image=eqlite_image,
                 ports={
                     "api": PortSpec(number=4661, transport_protocol="TCP", application_protocol="http"),
                     "rpc": PortSpec(number=4661, transport_protocol="TCP"),
@@ -134,16 +134,16 @@ Genesis:
                     "-single-node",
                 ],
                 env_vars={
-                    "CQL_LOG_LEVEL": "info",
+                    "EQLITE_LOG_LEVEL": "info",
                 },
                 files={
-                    "/app": cql_config,
+                    "/app": eqlite_config,
                 },
             )
         )
         
-        plan.print("CovenantSQL started")
-        services.append("covenantsql")
+        plan.print("EQLite started")
+        services.append("eqlite")
     
     if enable_solana:
         solana = plan.add_service(
@@ -182,8 +182,8 @@ Genesis:
     plan.print("Endpoints:")
     plan.print("  L1 RPC:     http://127.0.0.1:6545")
     plan.print("  L2 RPC:     http://127.0.0.1:6546  (use port forwarding)")
-    if enable_cql:
-        plan.print("  CQL API:    http://127.0.0.1:4661  (use port forwarding)")
+    if enable_eqlite:
+        plan.print("  EQLite API:    http://127.0.0.1:4661  (use port forwarding)")
     if enable_solana:
         plan.print("  Solana RPC: http://127.0.0.1:8899  (use port forwarding)")
         plan.print("  Solana WS:  ws://127.0.0.1:8900   (use port forwarding)")
@@ -193,8 +193,8 @@ Genesis:
     plan.print("")
     plan.print("Port forwarding commands:")
     plan.print("  kurtosis port print jeju-localnet op-geth rpc")
-    if enable_cql:
-        plan.print("  kurtosis port print jeju-localnet covenantsql api")
+    if enable_eqlite:
+        plan.print("  kurtosis port print jeju-localnet eqlite api")
     if enable_solana:
         plan.print("  kurtosis port print jeju-localnet solana-validator rpc")
     plan.print("")

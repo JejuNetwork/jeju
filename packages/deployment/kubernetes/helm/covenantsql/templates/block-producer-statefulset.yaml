@@ -2,19 +2,19 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "covenantsql.fullname" . }}-bp
+  name: {{ include "eqlite.fullname" . }}-bp
   labels:
-    {{- include "covenantsql.bpLabels" . | nindent 4 }}
+    {{- include "eqlite.bpLabels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.blockProducer.replicaCount }}
-  serviceName: {{ include "covenantsql.fullname" . }}-bp
+  serviceName: {{ include "eqlite.fullname" . }}-bp
   selector:
     matchLabels:
-      {{- include "covenantsql.bpSelectorLabels" . | nindent 6 }}
+      {{- include "eqlite.bpSelectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "covenantsql.bpSelectorLabels" . | nindent 8 }}
+        {{- include "eqlite.bpSelectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
@@ -22,7 +22,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "covenantsql.serviceAccountName" . }}
+      serviceAccountName: {{ include "eqlite.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -32,7 +32,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - cqld
+            - eqlited
             - -config
             - /config/bp.yaml
             - -role
@@ -44,8 +44,8 @@ spec:
             - name: rpc
               containerPort: {{ .Values.blockProducer.service.rpcPort }}
               protocol: TCP
-            - name: kayak
-              containerPort: {{ .Values.blockProducer.service.kayakPort }}
+            - name: bftraft
+              containerPort: {{ .Values.blockProducer.service.bftraftPort }}
               protocol: TCP
             - name: http
               containerPort: {{ .Values.blockProducer.service.httpPort }}
@@ -76,20 +76,20 @@ spec:
             - name: logs
               mountPath: /logs
           env:
-            - name: CQL_NODE_ID
+            - name: EQLITE_NODE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: CQL_ROLE
+            - name: EQLITE_ROLE
               value: "blockproducer"
-            - name: CQL_RPC_URL
+            - name: EQLITE_RPC_URL
               value: {{ .Values.rpc.primary | quote }}
             {{- if .Values.contracts.registry }}
-            - name: CQL_REGISTRY_ADDRESS
+            - name: EQLITE_REGISTRY_ADDRESS
               value: {{ .Values.contracts.registry | quote }}
             {{- end }}
             {{- if .Values.operator.privateKeySecret }}
-            - name: CQL_OPERATOR_KEY
+            - name: EQLITE_OPERATOR_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.operator.privateKeySecret }}
@@ -98,7 +98,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "covenantsql.fullname" . }}-config
+            name: {{ include "eqlite.fullname" . }}-config
         - name: logs
           emptyDir: {}
       {{- with .Values.blockProducer.nodeSelector }}

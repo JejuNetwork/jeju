@@ -89,7 +89,8 @@ async function deployContracts(): Promise<Record<string, string>> {
   console.log('Deploying contracts...')
 
   const { stdout } = await execAsync(
-    'cd /home/shaw/Documents/jeju && bun run scripts/deploy-contracts.ts --network localnet',
+    'bun run scripts/deploy-contracts.ts --network localnet',
+    { cwd: join(process.cwd(), '..', '..') },
   )
 
   // Parse deployed addresses from output
@@ -307,9 +308,11 @@ async function runJejuCLIVerification(): Promise<VerificationResult[]> {
     { cmd: 'project list --network localnet', expected: 'projects' },
   ]
 
+  const workspaceRoot = join(process.cwd(), '..', '..')
   for (const test of cliTests) {
     const result = await execAsync(
-      `cd /home/shaw/Documents/jeju && bun run packages/cli/src/index.ts ${test.cmd} 2>&1`,
+      `bun run packages/cli/src/index.ts ${test.cmd} 2>&1`,
+      { cwd: workspaceRoot },
     ).catch((e: Error) => ({ stdout: '', stderr: e.message }))
 
     verifications.push({

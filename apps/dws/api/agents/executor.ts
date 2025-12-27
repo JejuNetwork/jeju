@@ -3,7 +3,7 @@
  * Manages agent workers via workerd
  */
 
-import { getCQLBlockProducerUrl } from '@jejunetwork/config'
+import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/types'
 import { z } from 'zod'
 import type {
@@ -58,7 +58,7 @@ export interface ExecutorConfig {
   /** DWS internal URLs */
   inferenceUrl: string
   kmsUrl: string
-  cqlUrl: string
+  eqliteUrl: string
 
   /** Warm pool settings */
   warmPool: WarmPoolConfig
@@ -90,8 +90,8 @@ export class AgentExecutor {
         'http://127.0.0.1:4030/compute',
       kmsUrl:
         config.kmsUrl ?? process.env.DWS_KMS_URL ?? 'http://127.0.0.1:4030/kms',
-      cqlUrl:
-        config.cqlUrl ?? process.env.DWS_CQL_URL ?? getCQLBlockProducerUrl(),
+      eqliteUrl:
+        config.eqliteUrl ?? process.env.DWS_EQLITE_URL ?? getEQLiteBlockProducerUrl(),
       warmPool: config.warmPool ?? DEFAULT_WARM_POOL_CONFIG,
       elizaWorkerCid: config.elizaWorkerCid ?? DEFAULT_ELIZA_WORKER_CID,
     }
@@ -157,7 +157,7 @@ export class AgentExecutor {
         value: this.config.inferenceUrl,
       },
       { name: 'DWS_KMS_URL', type: 'text', value: this.config.kmsUrl },
-      { name: 'DWS_CQL_URL', type: 'text', value: this.config.cqlUrl },
+      { name: 'DWS_EQLITE_URL', type: 'text', value: this.config.eqliteUrl },
 
       // Agent-specific
       { name: 'AGENT_ID', type: 'text', value: agent.id },

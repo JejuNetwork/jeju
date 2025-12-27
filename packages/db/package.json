@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/db",
   "version": "0.1.0",
-  "description": "Database Integration for Jeju Network - Powered by CovenantSQL",
+  "description": "Database Integration for Jeju Network - Powered by EQLite",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -20,15 +20,13 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "server": "bun run src/server.ts",
-    "dev": "bun run src/server.ts",
-    "start": "bun run src/server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/eqlite": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "elysia": "^1.4.19",
     "generic-pool": "^3.9.0",

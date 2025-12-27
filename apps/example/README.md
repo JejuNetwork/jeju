@@ -8,7 +8,7 @@ This dApp showcases end-to-end decentralization using:
 
 | Service | Technology | Purpose |
 |---------|------------|---------|
-| **Database** | CQL (CovenantSQL) | Decentralized SQL storage with BFT-Raft consensus |
+| **Database** | EQLite (EQLite) | Decentralized SQL storage with BFT-Raft consensus |
 | **Cache** | Compute Redis | Decentralized caching via compute network |
 | **Storage** | IPFS | Frontend hosting and file attachments |
 | **Secrets** | KMS (MPC) | Encrypted todos with threshold key management |
@@ -146,7 +146,7 @@ NETWORK=testnet DEPLOYER_PRIVATE_KEY=0x... bun run deploy
 │       ▼                    ▼                    ▼          │
 │  ┌─────────┐         ┌─────────┐         ┌─────────┐       │
 │  │  Cache  │         │   DB    │         │ Storage │       │
-│  │ (Redis) │         │  (CQL)  │         │ (IPFS)  │       │
+│  │ (Redis) │         │  (EQLite)  │         │ (IPFS)  │       │
 │  └─────────┘         └─────────┘         └─────────┘       │
 │       │                    │                    │          │
 │       ▼                    ▼                    ▼          │
@@ -217,8 +217,8 @@ PORT=4500
 FRONTEND_PORT=4501
 
 # Services
-CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4661
-CQL_DATABASE_ID=todo-experimental
+EQLITE_BLOCK_PRODUCER_ENDPOINT=http://localhost:4661
+EQLITE_DATABASE_ID=todo-experimental
 COMPUTE_CACHE_ENDPOINT=http://localhost:4200/cache
 KMS_ENDPOINT=http://localhost:4400
 STORAGE_API_ENDPOINT=http://localhost:4010

@@ -1,4 +1,4 @@
-# CovenantSQL Miner Configuration
+# EQLite Miner Configuration
 # Local development configuration
 
 # Node identification (will be auto-generated per instance)
@@ -8,7 +8,7 @@ Role: Miner
 ListenAddr: "0.0.0.0:4661"
 
 # Block Producer connection
-BlockProducerAddr: "cql-bp:4661"
+BlockProducerAddr: "eqlite-bp:4661"
 
 # Data directories
 DataDir: "/data"

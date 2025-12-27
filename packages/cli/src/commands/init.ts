@@ -450,8 +450,8 @@ NETWORK=localnet
 L2_RPC_URL=http://localhost:6546
 
 # Services
-CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4661
-CQL_DATABASE_ID=${config.databaseId}
+EQLITE_BLOCK_PRODUCER_ENDPOINT=http://localhost:4661
+EQLITE_DATABASE_ID=${config.databaseId}
 COMPUTE_CACHE_ENDPOINT=http://localhost:4200/cache
 KMS_ENDPOINT=http://localhost:4400
 DWS_URL=http://localhost:4030
@@ -485,7 +485,7 @@ ${config.description}
 
 ## Features
 
-- **Fully Decentralized**: CQL database, IPFS storage, KMS encryption
+- **Fully Decentralized**: EQLite database, IPFS storage, KMS encryption
 - **AI Integration**: A2A and MCP protocols for agent communication
 - **Monetization**: x402 payment protocol for paid APIs
 - **OAuth3 Authentication**: TEE-backed decentralized auth with social logins

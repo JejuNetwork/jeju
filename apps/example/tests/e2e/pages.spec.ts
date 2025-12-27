@@ -32,7 +32,7 @@ test.describe('Frontend Page Load', () => {
 
     // Should show Jeju Network branding
     await expect(page.getByText(/Powered by Jeju Network/i)).toBeVisible()
-    await expect(page.getByText(/CQL.*IPFS.*KMS/i)).toBeVisible()
+    await expect(page.getByText(/EQLite.*IPFS.*KMS/i)).toBeVisible()
   })
 
   test('has proper HTML structure', async ({ page }) => {

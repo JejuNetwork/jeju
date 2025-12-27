@@ -1,11 +1,11 @@
-import { getCQLUrl, getDWSUrl } from '@jejunetwork/config'
+import { getEQLiteUrl, getDWSUrl } from '@jejunetwork/config'
 import { config } from '../config'
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../../lib/config'
 import { CHAIN_IDS } from '../../lib/config/networks'
 
 export const LEADERBOARD_DB = {
-  databaseId: config.leaderboardCqlDatabaseId,
-  endpoint: getCQLUrl(),
+  databaseId: config.leaderboardEqliteDatabaseId,
+  endpoint: getEQLiteUrl(),
   timeout: 30000,
   debug: config.leaderboardDebug,
 } as const

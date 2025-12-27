@@ -16,8 +16,8 @@ export interface OAuth3Config {
   sessionDuration: number
   allowedOrigins: string[]
 
-  // CQL
-  cqlDatabaseId: string
+  // EQLite
+  eqliteDatabaseId: string
 
   // OAuth providers
   githubClientId?: string
@@ -49,8 +49,8 @@ const { config, configure: setOAuth3Config } = createAppConfig<OAuth3Config>({
   sessionDuration: 24 * 60 * 60 * 1000, // 24 hours
   allowedOrigins: (getEnvVar('ALLOWED_ORIGINS') ?? '*').split(','),
 
-  // CQL
-  cqlDatabaseId: getEnvVar('CQL_DATABASE_ID') ?? 'oauth3',
+  // EQLite
+  eqliteDatabaseId: getEnvVar('EQLite_DATABASE_ID') ?? 'oauth3',
 
   // OAuth providers
   githubClientId: getEnvVar('GITHUB_CLIENT_ID'),

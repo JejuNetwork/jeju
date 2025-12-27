@@ -28,10 +28,10 @@
 
 import { getLogLevel, isProductionEnv } from '@jejunetwork/config'
 import pino from 'pino'
-import { type CQLClient, getCQL, resetCQL } from './client.js'
+import { type EQLiteClient, getEQLite, resetEQLite } from './client.js'
 import type {
-  CQLConfig,
-  CQLQueryable,
+  EQLiteConfig,
+  EQLiteQueryable,
   ExecResult,
   QueryParam,
   QueryResult,
@@ -59,8 +59,8 @@ export interface DatabaseManagerConfig {
   appName: string
   /** Database ID */
   databaseId: string
-  /** CQL configuration overrides */
-  cqlConfig?: Partial<CQLConfig>
+  /** EQLite configuration overrides */
+  eqliteConfig?: Partial<EQLiteConfig>
   /** Schema DDL statements to execute on initialization */
   schema?: string[]
   /** Index DDL statements to execute on initialization */
@@ -95,11 +95,11 @@ export interface DatabaseManagerStats {
 
 // Database Manager Implementation
 
-export class DatabaseManager implements CQLQueryable {
+export class DatabaseManager implements EQLiteQueryable {
   private config: Required<
     Omit<
       DatabaseManagerConfig,
-      | 'cqlConfig'
+      | 'eqliteConfig'
       | 'schema'
       | 'indexes'
       | 'onHealthChange'
@@ -108,7 +108,7 @@ export class DatabaseManager implements CQLQueryable {
     >
   > &
     DatabaseManagerConfig
-  private client: CQLClient | null = null
+  private client: EQLiteClient | null = null
   private status: ManagerStatus = 'stopped'
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null
   private lastHealthCheck = 0
@@ -173,9 +173,9 @@ export class DatabaseManager implements CQLQueryable {
   }
 
   /**
-   * Get the CQL client (throws if not healthy)
+   * Get the EQLite client (throws if not healthy)
    */
-  getClient(): CQLClient {
+  getClient(): EQLiteClient {
     if (!this.client || this.status === 'unhealthy') {
       throw new Error(`Database not available (status: ${this.status})`)
     }
@@ -205,7 +205,7 @@ export class DatabaseManager implements CQLQueryable {
   }
 
   /**
-   * Execute a query (CQLQueryable interface)
+   * Execute a query (EQLiteQueryable interface)
    */
   async query<T>(
     sql: string,
@@ -217,7 +217,7 @@ export class DatabaseManager implements CQLQueryable {
   }
 
   /**
-   * Execute a statement (CQLQueryable interface)
+   * Execute a statement (EQLiteQueryable interface)
    */
   async exec(
     sql: string,
@@ -246,13 +246,13 @@ export class DatabaseManager implements CQLQueryable {
   // Private Methods
 
   private async connect(): Promise<void> {
-    resetCQL()
+    resetEQLite()
 
-    this.client = getCQL({
+    this.client = getEQLite({
       databaseId: this.config.databaseId,
       timeout: 30000,
       debug: this.config.debug,
-      ...this.config.cqlConfig,
+      ...this.config.eqliteConfig,
     })
 
     // Test connection
@@ -260,7 +260,7 @@ export class DatabaseManager implements CQLQueryable {
     if (!healthy) {
       this.status = 'unhealthy'
       this.emitHealthChange(false)
-      throw new Error('Database connection failed - CQL is not healthy')
+      throw new Error('Database connection failed - EQLite is not healthy')
     }
 
     // Initialize schema if not done
@@ -378,13 +378,13 @@ export class DatabaseManager implements CQLQueryable {
       await this.sleep(delay)
 
       // Reset the global client and try to reconnect
-      resetCQL()
+      resetEQLite()
 
-      this.client = getCQL({
+      this.client = getEQLite({
         databaseId: this.config.databaseId,
         timeout: 30000,
         debug: this.config.debug,
-        ...this.config.cqlConfig,
+        ...this.config.eqliteConfig,
       })
 
       const healthy = await this.client.isHealthy()

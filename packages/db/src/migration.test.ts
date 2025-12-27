@@ -271,7 +271,7 @@ describe('createTable', () => {
   })
 
   describe('sql data types', () => {
-    it('should handle all CQL data types', () => {
+    it('should handle all EQLite data types', () => {
       const { up } = createTable('all_types', [
         { name: 'int_col', type: 'INTEGER' },
         { name: 'bigint_col', type: 'BIGINT' },

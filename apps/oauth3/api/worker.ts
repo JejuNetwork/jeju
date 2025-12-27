@@ -24,7 +24,7 @@ interface Env {
   SERVICE_AGENT_ID: string
   JWT_SECRET: string
   ALLOWED_ORIGINS: string
-  CQL_DATABASE_ID: string
+  EQLITE_DATABASE_ID: string
   // Social OAuth
   GITHUB_CLIENT_ID?: string
   GITHUB_CLIENT_SECRET?: string
@@ -57,7 +57,7 @@ async function createApp(env: Env) {
   process.env.SERVICE_AGENT_ID = env.SERVICE_AGENT_ID
   process.env.JWT_SECRET = env.JWT_SECRET
   process.env.ALLOWED_ORIGINS = env.ALLOWED_ORIGINS
-  process.env.CQL_DATABASE_ID = env.CQL_DATABASE_ID
+  process.env.EQLITE_DATABASE_ID = env.EQLITE_DATABASE_ID
   process.env.BASE_URL = 'https://auth.jejunetwork.org'
 
   // Social OAuth env vars

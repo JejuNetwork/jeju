@@ -1,7 +1,7 @@
 /**
- * CQL Server - SQLite-backed CovenantSQL-compatible API
+ * EQLite Server - SQLite-backed EQLite-compatible API
  *
- * Provides a local development server that mimics the CQL HTTP API.
+ * Provides a local development server that mimics the EQLite HTTP API.
  * Used by `jeju dev`, `jeju test`, and `jeju start` when Docker is unavailable.
  *
  * Usage: bun run server
@@ -13,8 +13,8 @@ import { dirname, join } from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { Elysia, t } from 'elysia'
 
-const PORT = parseInt(process.env.CQL_PORT ?? process.env.PORT ?? '4661', 10)
-const DATA_DIR = process.env.CQL_DATA_DIR ?? join(process.cwd(), '.data/cql')
+const PORT = parseInt(process.env.EQLITE_PORT ?? process.env.PORT ?? '4661', 10)
+const DATA_DIR = process.env.EQLITE_DATA_DIR ?? join(process.cwd(), '.data/eqlite')
 
 // Ensure data directory exists
 if (!existsSync(DATA_DIR)) {
@@ -299,7 +299,7 @@ const app = new Elysia()
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`CQL Server (SQLite-compat) running on http://localhost:${PORT}`)
+  console.log(`EQLite Server (SQLite-compat) running on http://localhost:${PORT}`)
   console.log(`  Data directory: ${DATA_DIR}`)
   console.log(`  Mode: local development`)
   console.log(`  Health: http://localhost:${PORT}/health`)

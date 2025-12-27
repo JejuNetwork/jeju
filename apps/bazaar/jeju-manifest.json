@@ -90,7 +90,7 @@
       ]
     },
     "database": {
-      "type": "covenantsql",
+      "type": "eqlite",
       "name": "bazaar-db",
       "consistency": "strong",
       "tables": ["market_cache", "user_preferences"]

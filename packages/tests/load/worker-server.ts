@@ -27,7 +27,7 @@ const cache: CacheClient = getCacheClient(CACHE_NAMESPACE)
 
 // Simulate database query with real I/O
 async function simulateDbQuery(ms: number = 10): Promise<void> {
-  // In production this would be CovenantSQL or other DB
+  // In production this would be EQLite or other DB
   await new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 

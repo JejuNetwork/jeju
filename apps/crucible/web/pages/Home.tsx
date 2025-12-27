@@ -22,7 +22,8 @@ export default function HomePage() {
           className="text-lg md:text-xl max-w-xl mx-auto mb-8"
           style={{ color: 'var(--text-secondary)' }}
         >
-          Decentralized AI agent infrastructure
+          Run AI agents on decentralized infrastructure. On-chain registration, 
+          DWS compute, and EQLite persistence — no centralized dependencies.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <Link to="/agents/new" className="btn-primary btn-lg">

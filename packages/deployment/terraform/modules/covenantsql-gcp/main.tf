@@ -1,4 +1,4 @@
-# CovenantSQL Module for GCP - Decentralized Database Cluster
+# EQLite Module for GCP - Decentralized Database Cluster
 # Uses ARM64 (Tau T2A / Ampere Altra) instances by default for cost savings
 
 variable "project_id" {
@@ -34,7 +34,7 @@ variable "subnet_name" {
 }
 
 variable "node_count" {
-  description = "Number of CovenantSQL nodes (minimum 3 for consensus)"
+  description = "Number of EQLite nodes (minimum 3 for consensus)"
   type        = number
   default     = 3
 }
@@ -69,14 +69,14 @@ variable "allowed_source_ranges" {
   default     = []
 }
 
-variable "cql_image" {
-  description = "CovenantSQL container image (must support ARM64 if use_arm64=true)"
+variable "eqlite_image" {
+  description = "EQLite container image (must support ARM64 if use_arm64=true)"
   type        = string
   default     = ""
 }
 
-variable "cql_image_tag" {
-  description = "CovenantSQL image tag"
+variable "eqlite_image_tag" {
+  description = "EQLite image tag"
   type        = string
   default     = "latest"
 }
@@ -92,19 +92,19 @@ locals {
   architecture = var.use_arm64 ? "arm64" : "x86_64"
   
   # Use custom image if provided, otherwise use official (x86 only)
-  container_image = var.cql_image != "" ? "${var.cql_image}:${var.cql_image_tag}" : "covenantsql/covenantsql:latest"
+  container_image = var.eqlite_image != "" ? "${var.eqlite_image}:${var.eqlite_image_tag}" : "eqlite/eqlite:latest"
   
   common_labels = merge(var.labels, {
     environment = var.environment
-    component   = "covenantsql"
+    component   = "eqlite"
     architecture = local.architecture
   })
 }
 
-# Service Account for CovenantSQL nodes
-resource "google_service_account" "covenantsql" {
-  account_id   = "covenantsql-${var.environment}"
-  display_name = "CovenantSQL Node Service Account"
+# Service Account for EQLite nodes
+resource "google_service_account" "eqlite" {
+  account_id   = "eqlite-${var.environment}"
+  display_name = "EQLite Node Service Account"
   project      = var.project_id
 }
 
@@ -112,19 +112,19 @@ resource "google_service_account" "covenantsql" {
 resource "google_project_iam_member" "logging" {
   project = var.project_id
   role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.covenantsql.email}"
+  member  = "serviceAccount:${google_service_account.eqlite.email}"
 }
 
 # IAM: Allow metrics
 resource "google_project_iam_member" "monitoring" {
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${google_service_account.covenantsql.email}"
+  member  = "serviceAccount:${google_service_account.eqlite.email}"
 }
 
 # Firewall: Client connections
-resource "google_compute_firewall" "covenantsql_client" {
-  name    = "covenantsql-client-${var.environment}"
+resource "google_compute_firewall" "eqlite_client" {
+  name    = "eqlite-client-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -134,12 +134,12 @@ resource "google_compute_firewall" "covenantsql_client" {
   }
 
   source_ranges = var.allowed_source_ranges
-  target_tags   = ["covenantsql"]
+  target_tags   = ["eqlite"]
 }
 
 # Firewall: Node-to-node communication
-resource "google_compute_firewall" "covenantsql_internal" {
-  name    = "covenantsql-internal-${var.environment}"
+resource "google_compute_firewall" "eqlite_internal" {
+  name    = "eqlite-internal-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -148,13 +148,13 @@ resource "google_compute_firewall" "covenantsql_internal" {
     ports    = ["4662", "4663"]
   }
 
-  source_tags = ["covenantsql"]
-  target_tags = ["covenantsql"]
+  source_tags = ["eqlite"]
+  target_tags = ["eqlite"]
 }
 
 # Firewall: HTTP API
-resource "google_compute_firewall" "covenantsql_http" {
-  name    = "covenantsql-http-${var.environment}"
+resource "google_compute_firewall" "eqlite_http" {
+  name    = "eqlite-http-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -164,12 +164,12 @@ resource "google_compute_firewall" "covenantsql_http" {
   }
 
   source_ranges = var.allowed_source_ranges
-  target_tags   = ["covenantsql"]
+  target_tags   = ["eqlite"]
 }
 
 # Firewall: Health checks from GCP load balancers
-resource "google_compute_firewall" "covenantsql_health" {
-  name    = "covenantsql-health-${var.environment}"
+resource "google_compute_firewall" "eqlite_health" {
+  name    = "eqlite-health-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -179,17 +179,17 @@ resource "google_compute_firewall" "covenantsql_health" {
   }
 
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
-  target_tags   = ["covenantsql"]
+  target_tags   = ["eqlite"]
 }
 
 # Instance Template
-resource "google_compute_instance_template" "covenantsql" {
-  name_prefix  = "covenantsql-${var.environment}-"
+resource "google_compute_instance_template" "eqlite" {
+  name_prefix  = "eqlite-${var.environment}-"
   machine_type = local.machine_type
   project      = var.project_id
   region       = var.region
 
-  tags = ["covenantsql"]
+  tags = ["eqlite"]
 
   disk {
     source_image = var.use_arm64 ? "ubuntu-os-cloud/ubuntu-2204-lts-arm64" : "ubuntu-os-cloud/ubuntu-2204-lts"
@@ -205,7 +205,7 @@ resource "google_compute_instance_template" "covenantsql" {
   }
 
   service_account {
-    email  = google_service_account.covenantsql.email
+    email  = google_service_account.eqlite.email
     scopes = ["cloud-platform"]
   }
 
@@ -217,7 +217,7 @@ resource "google_compute_instance_template" "covenantsql" {
     #!/bin/bash
     set -e
 
-    echo "Starting CovenantSQL node setup..."
+    echo "Starting EQLite node setup..."
     echo "Architecture: ${local.architecture}"
 
     # Install dependencies
@@ -233,7 +233,7 @@ resource "google_compute_instance_template" "covenantsql" {
     INSTANCE_ZONE=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/zone | cut -d'/' -f4)
     INTERNAL_IP=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
 
-    # Extract node index from instance name (e.g., covenantsql-testnet-001 -> 001)
+    # Extract node index from instance name (e.g., eqlite-testnet-001 -> 001)
     NODE_INDEX=$(echo $INSTANCE_NAME | grep -oE '[0-9]+$' || echo "0")
 
     echo "Node: $INSTANCE_NAME"
@@ -242,31 +242,31 @@ resource "google_compute_instance_template" "covenantsql" {
     echo "Index: $NODE_INDEX"
 
     # Create directories
-    mkdir -p /data/covenantsql/{config,data,logs}
+    mkdir -p /data/eqlite/{config,data,logs}
 
     # Generate config
-    cat > /data/covenantsql/config/config.yaml << CONFIGEOF
+    cat > /data/eqlite/config/config.yaml << CONFIGEOF
     IsTestNet: $([ "${var.environment}" == "testnet" ] && echo "true" || echo "false")
     WorkingRoot: /data
     ThisNodeID: node-$NODE_INDEX
     ListenAddr: "0.0.0.0:4661"
     ExternalAddr: "$INTERNAL_IP:4661"
-    KayakAddr: "0.0.0.0:4663"
+    BftRaftAddr: "0.0.0.0:4663"
     APIAddr: "0.0.0.0:8546"
     Logging:
       Level: info
       Format: json
     CONFIGEOF
 
-    # Pull and run CovenantSQL
-    CQL_IMAGE="${local.container_image}"
-    echo "Pulling image: $CQL_IMAGE"
-    docker pull $CQL_IMAGE
+    # Pull and run EQLite
+    EQLITE_IMAGE="${local.container_image}"
+    echo "Pulling image: $EQLITE_IMAGE"
+    docker pull $EQLITE_IMAGE
 
     # Create systemd service
-    cat > /etc/systemd/system/covenantsql.service << SERVICEEOF
+    cat > /etc/systemd/system/eqlite.service << SERVICEEOF
     [Unit]
-    Description=CovenantSQL Node
+    Description=EQLite Node
     After=docker.service
     Requires=docker.service
 
@@ -274,29 +274,29 @@ resource "google_compute_instance_template" "covenantsql" {
     Type=simple
     Restart=always
     RestartSec=10
-    ExecStartPre=-/usr/bin/docker stop covenantsql
-    ExecStartPre=-/usr/bin/docker rm covenantsql
-    ExecStart=/usr/bin/docker run --name covenantsql \\
+    ExecStartPre=-/usr/bin/docker stop eqlite
+    ExecStartPre=-/usr/bin/docker rm eqlite
+    ExecStart=/usr/bin/docker run --name eqlite \\
       -p 4661:4661 -p 4662:4662 -p 4663:4663 -p 8546:8546 \\
-      -v /data/covenantsql/config:/config:ro \\
-      -v /data/covenantsql/data:/data \\
-      -v /data/covenantsql/logs:/logs \\
-      $CQL_IMAGE -config /config/config.yaml
-    ExecStop=/usr/bin/docker stop covenantsql
+      -v /data/eqlite/config:/config:ro \\
+      -v /data/eqlite/data:/data \\
+      -v /data/eqlite/logs:/logs \\
+      $EQLITE_IMAGE -config /config/config.yaml
+    ExecStop=/usr/bin/docker stop eqlite
 
     [Install]
     WantedBy=multi-user.target
     SERVICEEOF
 
     systemctl daemon-reload
-    systemctl enable covenantsql
-    systemctl start covenantsql
+    systemctl enable eqlite
+    systemctl start eqlite
 
     # Install Cloud Ops agent
     curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
     bash add-google-cloud-ops-agent-repo.sh --also-install
 
-    echo "CovenantSQL node setup complete"
+    echo "EQLite node setup complete"
   EOF
 
   labels = local.common_labels
@@ -307,14 +307,14 @@ resource "google_compute_instance_template" "covenantsql" {
 }
 
 # Managed Instance Group
-resource "google_compute_region_instance_group_manager" "covenantsql" {
-  name               = "covenantsql-${var.environment}"
-  base_instance_name = "covenantsql-${var.environment}"
+resource "google_compute_region_instance_group_manager" "eqlite" {
+  name               = "eqlite-${var.environment}"
+  base_instance_name = "eqlite-${var.environment}"
   region             = var.region
   project            = var.project_id
 
   version {
-    instance_template = google_compute_instance_template.covenantsql.id
+    instance_template = google_compute_instance_template.eqlite.id
   }
 
   target_size = var.node_count
@@ -330,7 +330,7 @@ resource "google_compute_region_instance_group_manager" "covenantsql" {
   }
 
   auto_healing_policies {
-    health_check      = google_compute_health_check.covenantsql.id
+    health_check      = google_compute_health_check.eqlite.id
     initial_delay_sec = 300
   }
 
@@ -344,8 +344,8 @@ resource "google_compute_region_instance_group_manager" "covenantsql" {
 }
 
 # Health Check
-resource "google_compute_health_check" "covenantsql" {
-  name    = "covenantsql-health-${var.environment}"
+resource "google_compute_health_check" "eqlite" {
+  name    = "eqlite-health-${var.environment}"
   project = var.project_id
 
   check_interval_sec  = 10
@@ -360,36 +360,36 @@ resource "google_compute_health_check" "covenantsql" {
 }
 
 # Internal Load Balancer
-resource "google_compute_region_backend_service" "covenantsql" {
-  name                  = "covenantsql-backend-${var.environment}"
+resource "google_compute_region_backend_service" "eqlite" {
+  name                  = "eqlite-backend-${var.environment}"
   region                = var.region
   project               = var.project_id
   protocol              = "TCP"
   load_balancing_scheme = "INTERNAL"
-  health_checks         = [google_compute_health_check.covenantsql.id]
+  health_checks         = [google_compute_health_check.eqlite.id]
 
   backend {
-    group = google_compute_region_instance_group_manager.covenantsql.instance_group
+    group = google_compute_region_instance_group_manager.eqlite.instance_group
   }
 }
 
-resource "google_compute_forwarding_rule" "covenantsql_client" {
-  name                  = "covenantsql-client-${var.environment}"
+resource "google_compute_forwarding_rule" "eqlite_client" {
+  name                  = "eqlite-client-${var.environment}"
   region                = var.region
   project               = var.project_id
   load_balancing_scheme = "INTERNAL"
-  backend_service       = google_compute_region_backend_service.covenantsql.id
+  backend_service       = google_compute_region_backend_service.eqlite.id
   ports                 = ["4661"]
   network               = var.network_name
   subnetwork            = var.subnet_name
 }
 
-resource "google_compute_forwarding_rule" "covenantsql_http" {
-  name                  = "covenantsql-http-${var.environment}"
+resource "google_compute_forwarding_rule" "eqlite_http" {
+  name                  = "eqlite-http-${var.environment}"
   region                = var.region
   project               = var.project_id
   load_balancing_scheme = "INTERNAL"
-  backend_service       = google_compute_region_backend_service.covenantsql.id
+  backend_service       = google_compute_region_backend_service.eqlite.id
   ports                 = ["8546"]
   network               = var.network_name
   subnetwork            = var.subnet_name
@@ -397,23 +397,23 @@ resource "google_compute_forwarding_rule" "covenantsql_http" {
 
 # Outputs
 output "client_endpoint" {
-  description = "CovenantSQL client endpoint"
-  value       = "${google_compute_forwarding_rule.covenantsql_client.ip_address}:4661"
+  description = "EQLite client endpoint"
+  value       = "${google_compute_forwarding_rule.eqlite_client.ip_address}:4661"
 }
 
 output "http_endpoint" {
-  description = "CovenantSQL HTTP API endpoint"
-  value       = "http://${google_compute_forwarding_rule.covenantsql_http.ip_address}:8546"
+  description = "EQLite HTTP API endpoint"
+  value       = "http://${google_compute_forwarding_rule.eqlite_http.ip_address}:8546"
 }
 
 output "instance_group" {
   description = "Instance group URL"
-  value       = google_compute_region_instance_group_manager.covenantsql.instance_group
+  value       = google_compute_region_instance_group_manager.eqlite.instance_group
 }
 
 output "service_account_email" {
   description = "Service account email"
-  value       = google_service_account.covenantsql.email
+  value       = google_service_account.eqlite.email
 }
 
 output "architecture" {
@@ -426,7 +426,7 @@ output "machine_type" {
   value       = local.machine_type
 }
 
-output "cql_image" {
-  description = "CovenantSQL container image"
+output "eqlite_image" {
+  description = "EQLite container image"
   value       = local.container_image
 }

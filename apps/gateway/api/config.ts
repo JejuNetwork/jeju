@@ -111,7 +111,7 @@ const { config, configure: setGatewayConfig } = createAppConfig<GatewayConfig>({
   vaultEncryptionSecret: getEnvVar('VAULT_ENCRYPTION_SECRET'),
 
   // Leaderboard
-  leaderboardCqlDatabaseId: getEnvVar('LEADERBOARD_CQL_DATABASE_ID') ?? 'leaderboard',
+  leaderboardCqlDatabaseId: getEnvVar('LEADERBOARD_EQLite_DATABASE_ID') ?? 'leaderboard',
   leaderboardDebug: !isProductionEnv(),
   attestationOraclePrivateKey: getEnvVar('ATTESTATION_ORACLE_PRIVATE_KEY'),
   leaderboardDomain: getEnvVar('LEADERBOARD_DOMAIN') ?? 'leaderboard.jejunetwork.org',

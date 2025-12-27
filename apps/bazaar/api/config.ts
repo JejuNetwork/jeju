@@ -16,9 +16,9 @@ export interface BazaarConfig {
   // Messaging
   farcasterHubUrl: string
 
-  // CQL Database
-  covenantsqlDatabaseId: string
-  covenantsqlPrivateKey?: string
+  // EQLite Database
+  eqliteDatabaseId: string
+  eqlitePrivateKey?: string
 }
 
 const { config, configure: setBazaarConfig } = createAppConfig<BazaarConfig>({
@@ -26,8 +26,8 @@ const { config, configure: setBazaarConfig } = createAppConfig<BazaarConfig>({
     getEnvVar('BAZAAR_API_URL') ?? getCoreAppUrl('BAZAAR_API'),
   farcasterHubUrl:
     getEnvVar('FARCASTER_HUB_URL') ?? 'https://hub.pinata.cloud',
-  covenantsqlDatabaseId: getEnvVar('COVENANTSQL_DATABASE_ID') ?? '',
-  covenantsqlPrivateKey: getEnvVar('COVENANTSQL_PRIVATE_KEY'),
+  eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID') ?? '',
+  eqlitePrivateKey: getEnvVar('EQLITE_PRIVATE_KEY'),
 })
 
 export { config }

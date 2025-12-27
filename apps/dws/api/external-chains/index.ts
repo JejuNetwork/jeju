@@ -666,7 +666,7 @@ export class ExternalRPCNodeService {
   }
 
   private async loadNodeState(): Promise<void> {
-    // TODO: Load from CQL or on-chain registry for testnet/mainnet
+    // TODO: Load from EQLite or on-chain registry for testnet/mainnet
   }
 
   async shutdown(): Promise<void> {

@@ -22,19 +22,19 @@ const TEST_ADDRESS = privateKeyToAccount(TEST_PRIVATE_KEY).address
 const TEST_PAYMENT_TOKEN =
   '0x0000000000000000000000000000000000000000' as Address
 
-// Check if CQL is available for integration tests
-async function checkCQLHealth(): Promise<boolean> {
+// Check if EQLite is available for integration tests
+async function checkEQLiteHealth(): Promise<boolean> {
   const endpoint =
-    process.env.CQL_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
+    process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
   const response = await fetch(`${endpoint}/health`, {
     signal: AbortSignal.timeout(3000),
   }).catch(() => null)
   return response?.ok ?? false
 }
 
-const CQL_AVAILABLE = await checkCQLHealth()
+const EQLITE_AVAILABLE = await checkEQLiteHealth()
 
-// Mock CQL Client for Unit Testing
+// Mock EQLite Client for Unit Testing
 
 interface MockDatabase {
   id: string
@@ -85,7 +85,7 @@ interface MockRental {
   paymentStatus: 'current' | 'overdue' | 'cancelled'
 }
 
-class MockCQLClient {
+class MockEQLiteClient {
   private databases = new Map<string, MockDatabase>()
   private rentals = new Map<string, MockRental>()
   private connectionPools = new Map<string, { active: number; idle: number }>()
@@ -157,7 +157,7 @@ class MockCQLClient {
     paymentToken?: Address
   }): Promise<MockDatabase> {
     if (!this.healthy) {
-      throw new Error('CQL service is not healthy')
+      throw new Error('EQLite service is not healthy')
     }
 
     if (config.nodeCount < 1) {
@@ -481,7 +481,7 @@ class MockCQLClient {
 // Database Provisioning Tests
 
 describe('Secure SQL Database Provisioning', () => {
-  const client = new MockCQLClient()
+  const client = new MockEQLiteClient()
 
   beforeAll(() => {
     client.reset()
@@ -566,7 +566,7 @@ describe('Secure SQL Database Provisioning', () => {
           nodeCount: 1,
           owner: TEST_ADDRESS,
         }),
-      ).rejects.toThrow('CQL service is not healthy')
+      ).rejects.toThrow('EQLite service is not healthy')
 
       client.setHealthy(true)
     })
@@ -907,14 +907,14 @@ describe('Secure SQL Database Provisioning', () => {
   })
 })
 
-// Integration Tests (requires CQL to be running)
+// Integration Tests (requires EQLite to be running)
 
-describe.skipIf(!CQL_AVAILABLE)(
-  'CQL Integration - Database Provisioning',
+describe.skipIf(!EQLITE_AVAILABLE)(
+  'EQLite Integration - Database Provisioning',
   () => {
-    test('should connect to CQL block producer', async () => {
+    test('should connect to EQLite block producer', async () => {
       const endpoint =
-        process.env.CQL_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
+        process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
       const response = await fetch(`${endpoint}/health`)
 
       expect(response.ok).toBe(true)
@@ -922,7 +922,7 @@ describe.skipIf(!CQL_AVAILABLE)(
 
     test('should get block producer status', async () => {
       const endpoint =
-        process.env.CQL_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
+        process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
       const response = await fetch(`${endpoint}/api/v1/status`)
 
       if (response.ok) {

@@ -2,8 +2,8 @@
  * Network Council - AI DAO Governance
  *
  * DECENTRALIZED ARCHITECTURE:
- * 1. CovenantSQL (CQL) required for state persistence
- *    - Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d
+ * 1. EQLite (EQLite) required for state persistence
+ *    - Set EQLITE_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d
  *
  * 2. DWS Compute required for AI inference
  *    - Automatically configured per network (JEJU_NETWORK=localnet|testnet|mainnet)
@@ -1167,7 +1167,7 @@ async function start() {
     ceoModelId: getEnvVar('CEO_MODEL_ID'),
     operatorKey: getEnvVar('OPERATOR_KEY'),
     privateKey: getEnvVar('PRIVATE_KEY'),
-    cqlDatabaseId: getEnvVar('CQL_DATABASE_ID'),
+    eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID'),
     autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
     cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     teePlatform: getEnvVar('TEE_PLATFORM'),

@@ -1,18 +1,18 @@
 /**
- * CovenantSQL Client with circuit breaker pattern
+ * EQLite Client with circuit breaker pattern
  *
  * Automatically uses network-aware configuration from @jejunetwork/config.
  * No env vars required - just set JEJU_NETWORK=localnet|testnet|mainnet.
  */
 
 import {
-  getCQLMinerUrl,
-  getCQLUrl,
-  getCqlDatabaseId,
-  getCqlPrivateKey,
-  getCqlTimeout,
+  getEQLiteMinerUrl,
+  getEQLiteUrl,
+  getEqliteDatabaseId,
+  getEqlitePrivateKey,
+  getEqliteTimeout,
   getLogLevel,
-  isCqlDebug,
+  isEqliteDebug,
   isProductionEnv,
 } from '@jejunetwork/config'
 import { createPool, type Pool } from 'generic-pool'
@@ -23,10 +23,10 @@ import { z } from 'zod'
 import type {
   ACLRule,
   BlockProducerInfo,
-  CQLConfig,
-  CQLConnection,
-  CQLConnectionPool,
-  CQLTransaction,
+  EQLiteConfig,
+  EQLiteConnection,
+  EQLiteConnectionPool,
+  EQLiteTransaction,
   CreateRentalRequest,
   DatabaseConfig,
   DatabaseInfo,
@@ -194,7 +194,7 @@ const BlockProducerInfoSchema = z
   })
   .passthrough()
 
-const CQLConfigSchema = z
+const EQLiteConfigSchema = z
   .object({
     blockProducerEndpoint: z.string().url(),
     minerEndpoint: z.string().url().optional(),
@@ -206,7 +206,7 @@ const CQLConfigSchema = z
   .strict()
 
 const log = pino({
-  name: 'cql',
+  name: 'eqlite',
   level: getLogLevel(),
   transport: !isProductionEnv()
     ? { target: 'pino-pretty', options: { colorize: true } }
@@ -321,7 +321,7 @@ async function requestVoid(url: string, options?: RequestInit): Promise<void> {
   })
 }
 
-class CQLConnectionImpl implements CQLConnection {
+class EQLiteConnectionImpl implements EQLiteConnection {
   id: string
   databaseId: string
   active = true
@@ -329,7 +329,7 @@ class CQLConnectionImpl implements CQLConnection {
   private timeout: number
   private debug: boolean
 
-  constructor(id: string, databaseId: string, config: CQLConfig) {
+  constructor(id: string, databaseId: string, config: EQLiteConfig) {
     this.id = id
     this.databaseId = databaseId
     this.endpoint = config.minerEndpoint ?? config.blockProducerEndpoint
@@ -345,10 +345,10 @@ class CQLConnectionImpl implements CQLConnection {
     return this.execute('exec', sql, params) as Promise<ExecResult>
   }
 
-  async beginTransaction(): Promise<CQLTransaction> {
+  async beginTransaction(): Promise<EQLiteTransaction> {
     const txId = `tx-${crypto.randomUUID()}`
     await this.exec('BEGIN TRANSACTION')
-    return new CQLTransactionImpl(txId, this)
+    return new EQLiteTransactionImpl(txId, this)
   }
 
   async close(): Promise<void> {
@@ -361,6 +361,7 @@ class CQLConnectionImpl implements CQLConnection {
     params?: QueryParam[],
   ): Promise<QueryResult<unknown> | ExecResult> {
     const startTime = Date.now()
+
     const payload = {
       database: this.databaseId,
       type,
@@ -377,25 +378,25 @@ class CQLConnectionImpl implements CQLConnection {
       timestamp: Date.now(),
     }
 
-    const response = await fetch(`${this.endpoint}/api/v1/query`, {
+    const response = await fetch(`${this.endpoint}/v1/${type}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ assoc: true, ...payload }),
       signal: AbortSignal.timeout(this.timeout),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
       if (this.debug)
-        console.error(`[CQL] ${type} error: ${response.status} - ${errorText}`)
-      throw new Error(`CQL ${type} failed: ${response.status}`)
+        console.error(`[EQLite] ${type} error: ${response.status} - ${errorText}`)
+      throw new Error(`EQLite ${type} failed: ${response.status}`)
     }
 
     const rawResult: unknown = await response.json()
     const executionTime = Date.now() - startTime
     if (this.debug)
       console.log(
-        `[CQL] ${type}: query executed (${executionTime}ms, params: ${params?.length ?? 0})`,
+        `[EQLite] ${type}: executed (${executionTime}ms, params: ${params?.length ?? 0})`,
       )
 
     if (type === 'query') {
@@ -428,12 +429,12 @@ class CQLConnectionImpl implements CQLConnection {
   }
 }
 
-class CQLTransactionImpl implements CQLTransaction {
+class EQLiteTransactionImpl implements EQLiteTransaction {
   id: string
-  private conn: CQLConnectionImpl
+  private conn: EQLiteConnectionImpl
   private done = false
 
-  constructor(id: string, conn: CQLConnectionImpl) {
+  constructor(id: string, conn: EQLiteConnectionImpl) {
     this.id = id
     this.conn = conn
   }
@@ -461,15 +462,15 @@ class CQLTransactionImpl implements CQLTransaction {
   }
 }
 
-class CQLConnectionPoolImpl implements CQLConnectionPool {
-  private pool: Pool<CQLConnectionImpl>
+class EQLiteConnectionPoolImpl implements EQLiteConnectionPool {
+  private pool: Pool<EQLiteConnectionImpl>
 
-  constructor(config: CQLConfig, dbId: string, maxSize = 10) {
-    this.pool = createPool<CQLConnectionImpl>(
+  constructor(config: EQLiteConfig, dbId: string, maxSize = 10) {
+    this.pool = createPool<EQLiteConnectionImpl>(
       {
         create: async () => {
           const id = `conn-${crypto.randomUUID()}`
-          return new CQLConnectionImpl(id, dbId, config)
+          return new EQLiteConnectionImpl(id, dbId, config)
         },
         destroy: async (conn) => {
           await conn.close()
@@ -485,14 +486,14 @@ class CQLConnectionPoolImpl implements CQLConnectionPool {
     )
   }
 
-  async acquire(): Promise<CQLConnection> {
+  async acquire(): Promise<EQLiteConnection> {
     const conn = await this.pool.acquire()
     conn.active = true
     return conn
   }
 
-  release(conn: CQLConnection): void {
-    const impl = conn as CQLConnectionImpl
+  release(conn: EQLiteConnection): void {
+    const impl = conn as EQLiteConnectionImpl
     impl.active = false
     this.pool.release(impl)
   }
@@ -511,27 +512,27 @@ class CQLConnectionPoolImpl implements CQLConnectionPool {
   }
 }
 
-export class CQLClient {
-  private config: CQLConfig
-  private pools = new Map<string, CQLConnectionPool>()
+export class EQLiteClient {
+  private config: EQLiteConfig
+  private pools = new Map<string, EQLiteConnectionPool>()
   private get endpoint() {
     return this.config.blockProducerEndpoint
   }
 
-  constructor(config: CQLConfig) {
+  constructor(config: EQLiteConfig) {
     this.config = config
   }
 
-  getPool(dbId: string): CQLConnectionPool {
+  getPool(dbId: string): EQLiteConnectionPool {
     let pool = this.pools.get(dbId)
     if (!pool) {
-      pool = new CQLConnectionPoolImpl(this.config, dbId)
+      pool = new EQLiteConnectionPoolImpl(this.config, dbId)
       this.pools.set(dbId, pool)
     }
     return pool
   }
 
-  async connect(dbId?: string): Promise<CQLConnection> {
+  async connect(dbId?: string): Promise<EQLiteConnection> {
     const id = dbId ?? this.config.databaseId
     if (!id) throw new Error('Database ID required')
     return this.getPool(id).acquire()
@@ -668,7 +669,7 @@ export class CQLClient {
   async isHealthy(): Promise<boolean> {
     const response = await circuitBreaker
       .fire(async () => {
-        const res = await fetch(`${this.endpoint}/health`, {
+        const res = await fetch(`${this.endpoint}/v1/status`, {
           signal: AbortSignal.timeout(5000),
         })
         return res
@@ -703,7 +704,7 @@ export class CQLClient {
    *
    * @example
    * ```typescript
-   * await cql.createVectorIndex({
+   * await eqlite.createVectorIndex({
    *   tableName: 'embeddings',
    *   dimensions: 384,
    *   metadataColumns: [
@@ -726,7 +727,7 @@ export class CQLClient {
    *
    * @example
    * ```typescript
-   * await cql.insertVector({
+   * await eqlite.insertVector({
    *   tableName: 'embeddings',
    *   vector: [0.1, 0.2, 0.3, ...], // 384 dimensions
    *   metadata: { title: 'My Document', source: 'wiki' }
@@ -776,7 +777,7 @@ export class CQLClient {
    *
    * @example
    * ```typescript
-   * await cql.insertVectorBatch({
+   * await eqlite.insertVectorBatch({
    *   tableName: 'embeddings',
    *   vectors: [
    *     { vector: [...], metadata: { title: 'Doc 1' } },
@@ -813,7 +814,7 @@ export class CQLClient {
    *
    * @example
    * ```typescript
-   * const results = await cql.searchVectors({
+   * const results = await eqlite.searchVectors({
    *   tableName: 'embeddings',
    *   vector: queryEmbedding,
    *   k: 10,
@@ -900,7 +901,7 @@ WHERE embedding MATCH ?
    *
    * @example
    * ```typescript
-   * await cql.deleteVectors('embeddings', [1, 2, 3], 'db-id')
+   * await eqlite.deleteVectors('embeddings', [1, 2, 3], 'db-id')
    * ```
    */
   async deleteVectors(
@@ -959,50 +960,49 @@ WHERE embedding MATCH ?
   }
 }
 
-let cqlClient: CQLClient | null = null
+let eqliteClient: EQLiteClient | null = null
 
 const DEFAULT_TIMEOUT = 30000
 
 /**
- * Get a CQL client with automatic network-aware configuration.
+ * Get a EQLite client with automatic network-aware configuration.
  * Configuration is resolved in this order:
  * 1. Explicit config parameter
  * 2. Environment variable override
  * 3. Network-based config from services.json (based on JEJU_NETWORK)
  */
-export function getCQL(config?: Partial<CQLConfig>): CQLClient {
-  if (!cqlClient) {
-    const blockProducerEndpoint = config?.blockProducerEndpoint ?? getCQLUrl()
-    const minerEndpoint = config?.minerEndpoint ?? getCQLMinerUrl()
+export function getEQLite(config?: Partial<EQLiteConfig>): EQLiteClient {
+  if (!eqliteClient) {
+    const blockProducerEndpoint = config?.blockProducerEndpoint ?? getEQLiteUrl()
+    const minerEndpoint = config?.minerEndpoint ?? getEQLiteMinerUrl()
 
     if (!blockProducerEndpoint) {
       throw new Error(
-        'CQL blockProducerEndpoint is required. Set via config, CQL_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.',
+        'EQLite blockProducerEndpoint is required. Set via config, EQLITE_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.',
       )
     }
 
     const resolvedConfig = {
       blockProducerEndpoint,
       minerEndpoint,
-      privateKey: config?.privateKey ?? (getCqlPrivateKey() as Hex | undefined),
-      databaseId: config?.databaseId ?? getCqlDatabaseId(),
+      privateKey: config?.privateKey ?? (getEqlitePrivateKey() as Hex | undefined),
+      databaseId: config?.databaseId ?? getEqliteDatabaseId(),
       timeout:
-        config?.timeout ?? parseTimeout(getCqlTimeout(), DEFAULT_TIMEOUT),
-      debug: config?.debug ?? isCqlDebug(),
+        config?.timeout ?? parseTimeout(getEqliteTimeout(), DEFAULT_TIMEOUT),
+      debug: config?.debug ?? isEqliteDebug(),
     }
 
-    const validated = CQLConfigSchema.parse(resolvedConfig)
+    const validated = EQLiteConfigSchema.parse(resolvedConfig)
 
-    cqlClient = new CQLClient(validated as CQLConfig)
+    eqliteClient = new EQLiteClient(validated as EQLiteConfig)
   }
-  return cqlClient
+  return eqliteClient
 }
 
-export async function resetCQL(): Promise<void> {
-  if (cqlClient) {
-    await cqlClient.close()
-    cqlClient = null
+export async function resetEQLite(): Promise<void> {
+  if (eqliteClient) {
+    await eqliteClient.close()
+    eqliteClient = null
   }
 }
 
-export { CQLClient as CovenantSQLClient }

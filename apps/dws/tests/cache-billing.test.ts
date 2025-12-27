@@ -474,7 +474,7 @@ describe('CacheBillingManager', () => {
 
 describe('Billing Integration with Routes', () => {
   // These tests verify the billing routes work through the API
-  // They require CQL to be running and will be skipped if unavailable
+  // They require EQLite to be running and will be skipped if unavailable
 
   test('billing requirement endpoint returns 200', async () => {
     const { createCacheRoutes } = await import('../api/cache/routes')
@@ -484,10 +484,10 @@ describe('Billing Integration with Routes', () => {
     resetCacheProvisioning()
     resetCacheBilling()
 
-    // Skip if CQL is not available (integration test requirement)
+    // Skip if EQLite is not available (integration test requirement)
     const initialized = await initializeCacheProvisioning().catch(() => false)
     if (!initialized) {
-      console.log('[Test] Skipping: CQL not available')
+      console.log('[Test] Skipping: EQLite not available')
       resetCacheProvisioning()
       resetCacheBilling()
       return
@@ -521,10 +521,10 @@ describe('Billing Integration with Routes', () => {
     resetCacheProvisioning()
     resetCacheBilling()
 
-    // Skip if CQL is not available (integration test requirement)
+    // Skip if EQLite is not available (integration test requirement)
     const initialized = await initializeCacheProvisioning().catch(() => false)
     if (!initialized) {
-      console.log('[Test] Skipping: CQL not available')
+      console.log('[Test] Skipping: EQLite not available')
       resetCacheProvisioning()
       resetCacheBilling()
       return

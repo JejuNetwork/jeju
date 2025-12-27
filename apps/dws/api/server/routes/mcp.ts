@@ -111,6 +111,12 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
           mimeType: 'application/json',
           description: 'Service mesh status and policies',
         },
+        {
+          uri: 'dws://cache/stats',
+          name: 'Cache Statistics',
+          mimeType: 'application/json',
+          description: 'Decentralized cache statistics and health',
+        },
       ],
     }))
     .post(
@@ -159,6 +165,9 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
             break
           case 'dws://mesh/services':
             data = await fetchResource('/mesh/health')
+            break
+          case 'dws://cache/stats':
+            data = await fetchResource('/cache/stats')
             break
           default:
             set.status = 400
@@ -362,6 +371,60 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
           name: 'dws_helm_list',
           description: 'List Helm deployments',
           inputSchema: { type: 'object', properties: {} },
+        },
+        {
+          name: 'dws_cache_get',
+          description: 'Get a value from the decentralized cache',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              key: { type: 'string', description: 'Cache key' },
+              namespace: { type: 'string', description: 'Cache namespace (default: default)' },
+            },
+            required: ['key'],
+          },
+        },
+        {
+          name: 'dws_cache_set',
+          description: 'Set a value in the decentralized cache',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              key: { type: 'string', description: 'Cache key' },
+              value: { type: 'string', description: 'Value to store' },
+              ttl: { type: 'number', description: 'TTL in seconds' },
+              namespace: { type: 'string', description: 'Cache namespace (default: default)' },
+            },
+            required: ['key', 'value'],
+          },
+        },
+        {
+          name: 'dws_cache_del',
+          description: 'Delete keys from the decentralized cache',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              keys: { type: 'array', items: { type: 'string' }, description: 'Keys to delete' },
+              namespace: { type: 'string', description: 'Cache namespace (default: default)' },
+            },
+            required: ['keys'],
+          },
+        },
+        {
+          name: 'dws_cache_stats',
+          description: 'Get cache statistics',
+          inputSchema: { type: 'object', properties: {} },
+        },
+        {
+          name: 'dws_cache_keys',
+          description: 'List cache keys matching a pattern',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              pattern: { type: 'string', description: 'Key pattern (default: *)' },
+              namespace: { type: 'string', description: 'Cache namespace (default: default)' },
+            },
+          },
         },
       ],
     }))
@@ -595,6 +658,56 @@ export function createMCPRouter(_ctx: MCPContext = {}) {
             const response = await fetch(`${baseUrl}/helm/deployments`, {
               headers: { 'x-jeju-address': userAddress },
             })
+            const result = await response.json()
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+          }
+
+          case 'dws_cache_get': {
+            const key = getString(body.arguments, 'key')
+            const namespace = getOptionalString(body.arguments, 'namespace') ?? 'default'
+            const params = new URLSearchParams({ key, namespace })
+            const response = await fetch(`${baseUrl}/cache/get?${params}`)
+            const result = await response.json()
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+          }
+
+          case 'dws_cache_set': {
+            const key = getString(body.arguments, 'key')
+            const value = getString(body.arguments, 'value')
+            const ttl = body.arguments.ttl as number | undefined
+            const namespace = getOptionalString(body.arguments, 'namespace') ?? 'default'
+            const response = await fetch(`${baseUrl}/cache/set`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key, value, ttl, namespace }),
+            })
+            const result = await response.json()
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+          }
+
+          case 'dws_cache_del': {
+            const keys = body.arguments.keys as string[]
+            const namespace = getOptionalString(body.arguments, 'namespace') ?? 'default'
+            const response = await fetch(`${baseUrl}/cache/del`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ keys, namespace }),
+            })
+            const result = await response.json()
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+          }
+
+          case 'dws_cache_stats': {
+            const response = await fetch(`${baseUrl}/cache/stats`)
+            const result = await response.json()
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+          }
+
+          case 'dws_cache_keys': {
+            const pattern = getOptionalString(body.arguments, 'pattern') ?? '*'
+            const namespace = getOptionalString(body.arguments, 'namespace') ?? 'default'
+            const params = new URLSearchParams({ pattern, namespace })
+            const response = await fetch(`${baseUrl}/cache/keys?${params}`)
             const result = await response.json()
             return { content: [{ type: 'text', text: JSON.stringify(result) }] }
           }

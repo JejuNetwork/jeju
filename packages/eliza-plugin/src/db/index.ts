@@ -1,14 +1,14 @@
 /**
- * CQL Database Plugin for ElizaOS
+ * EQLite Database Plugin for ElizaOS
  *
- * Provides a decentralized database adapter using CovenantSQL.
+ * Provides a decentralized database adapter using EQLite.
  * This replaces @elizaos/plugin-sql for Jeju-based agents.
  */
 
-export { CQLDatabaseAdapter } from './adapter'
+export { EQLiteDatabaseAdapter } from './adapter'
 export {
-  CQL_SCHEMA,
+  EQLITE_SCHEMA,
   checkMigrationStatus,
-  runCQLMigrations,
+  runEQLiteMigrations,
 } from './migrations'
-export { cqlDatabasePlugin } from './plugin'
+export { eqliteDatabasePlugin } from './plugin'

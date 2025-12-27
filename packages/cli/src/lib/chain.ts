@@ -39,10 +39,10 @@ import {
 const PortsConfigSchema = z.object({
   l1Port: z.number().int().min(1).max(65535),
   l2Port: z.number().int().min(1).max(65535),
-  cqlPort: z.number().int().min(0).max(65535).optional(),
+  eqlitePort: z.number().int().min(0).max(65535).optional(),
   l1Rpc: z.string().url().optional(),
   l2Rpc: z.string().url().optional(),
-  cqlApi: z.string().url().optional(),
+  eqliteApi: z.string().url().optional(),
   chainId: z.number().int().positive().optional(),
   timestamp: z.string().optional(),
 })
@@ -197,9 +197,9 @@ export async function startLocalnet(
     'op-geth',
     'rpc',
   ])
-  const cqlPortResult = await execa(
+  const eqlitePortResult = await execa(
     'kurtosis',
-    ['port', 'print', ENCLAVE_NAME, 'covenantsql', 'api'],
+    ['port', 'print', ENCLAVE_NAME, 'eqlite', 'api'],
     { reject: false },
   )
 
@@ -218,20 +218,20 @@ export async function startLocalnet(
   ) {
     throw new Error(`Invalid port values: L1=${l1Port}, L2=${l2Port}`)
   }
-  const cqlPortStr =
-    cqlPortResult.exitCode === 0
-      ? cqlPortResult.stdout.trim().split(':').pop()
+  const eqlitePortStr =
+    eqlitePortResult.exitCode === 0
+      ? eqlitePortResult.stdout.trim().split(':').pop()
       : null
-  const cqlPort = cqlPortStr ? parseInt(cqlPortStr, 10) : 0
+  const eqlitePort = eqlitePortStr ? parseInt(eqlitePortStr, 10) : 0
 
   // Save ports config
   const portsConfig = {
     l1Port,
     l2Port,
-    cqlPort,
+    eqlitePort,
     l1Rpc: `http://127.0.0.1:${l1Port}`,
     l2Rpc: `http://127.0.0.1:${l2Port}`,
-    cqlApi: cqlPort ? `http://127.0.0.1:${cqlPort}` : undefined,
+    eqliteApi: eqlitePort ? `http://127.0.0.1:${eqlitePort}` : undefined,
     chainId: 31337,
     timestamp: new Date().toISOString(),
   }
@@ -244,8 +244,8 @@ export async function startLocalnet(
   logger.step('Setting up port forwarding...')
   await setupPortForwarding(l1Port, DEFAULT_PORTS.l1Rpc, 'L1 RPC')
   await setupPortForwarding(l2Port, DEFAULT_PORTS.l2Rpc, 'L2 RPC')
-  if (cqlPort) {
-    await setupPortForwarding(cqlPort, DEFAULT_PORTS.cql, 'CQL API')
+  if (eqlitePort) {
+    await setupPortForwarding(eqlitePort, DEFAULT_PORTS.eqlite, 'EQLite API')
   }
 
   // Wait for chain to be ready

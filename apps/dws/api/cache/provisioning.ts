@@ -2,7 +2,7 @@
  * Cache instance provisioning and lifecycle management
  */
 
-import { getCQL } from '@jejunetwork/db'
+import { getEQLite } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { CacheEngine } from './engine'
@@ -23,7 +23,7 @@ import {
   CacheTier,
 } from './types'
 
-const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws-cache'
+const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws-cache'
 
 const DEFAULT_PLANS: CacheRentalPlan[] = [
   {
@@ -142,14 +142,14 @@ export class CacheProvisioningManager {
   private plans: CacheRentalPlan[] = DEFAULT_PLANS
   private listeners: Set<CacheEventListener> = new Set()
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
-  private cqlClient: ReturnType<typeof getCQL> | null = null
+  private eqliteClient: ReturnType<typeof getEQLite> | null = null
   private initialized = false
 
   async initialize(): Promise<void> {
     console.log('[Cache Provisioning] Initializing...')
-    this.cqlClient = getCQL()
+    this.eqliteClient = getEQLite()
     await this.ensureTablesExist()
-    await this.loadFromCQL()
+    await this.loadFromEQLite()
     this.cleanupInterval = setInterval(
       () => this.cleanupExpiredInstances(),
       60000,
@@ -242,7 +242,7 @@ export class CacheProvisioningManager {
 
       this.instances.set(instanceId, instance)
       this.teeProviders.set(instanceId, teeProvider)
-      await this.saveInstanceToCQL(instance)
+      await this.saveInstanceToEQLite(instance)
 
       this.emit({
         type: CacheEventType.INSTANCE_CREATE,
@@ -279,13 +279,13 @@ export class CacheProvisioningManager {
 
     this.instances.set(instanceId, instance)
     this.engines.set(instanceId, engine)
-    await this.saveInstanceToCQL(instance)
+    await this.saveInstanceToEQLite(instance)
 
     // Update node usage
     if (node) {
       node.usedMemoryMb += plan.maxMemoryMb
       node.instanceCount++
-      await this.saveNodeToCQL(node)
+      await this.saveNodeToEQLite(node)
     }
 
     this.emit({
@@ -340,12 +340,12 @@ export class CacheProvisioningManager {
       if (node) {
         node.usedMemoryMb -= instance.maxMemoryMb
         node.instanceCount--
-        await this.saveNodeToCQL(node)
+        await this.saveNodeToEQLite(node)
       }
     }
 
-    // Remove from CQL
-    await this.deleteInstanceFromCQL(instanceId)
+    // Remove from EQLite
+    await this.deleteInstanceFromEQLite(instanceId)
 
     this.instances.delete(instanceId)
 
@@ -377,7 +377,7 @@ export class CacheProvisioningManager {
     }
 
     instance.expiresAt += additionalHours * 60 * 60 * 1000
-    await this.saveInstanceToCQL(instance)
+    await this.saveInstanceToEQLite(instance)
 
     return instance
   }
@@ -408,7 +408,7 @@ export class CacheProvisioningManager {
     }
 
     this.nodes.set(nodeId, node)
-    await this.saveNodeToCQL(node)
+    await this.saveNodeToEQLite(node)
 
     this.emit({
       type: CacheEventType.NODE_JOIN,
@@ -439,7 +439,7 @@ export class CacheProvisioningManager {
       })
     }
 
-    await this.saveNodeToCQL(node)
+    await this.saveNodeToEQLite(node)
     return true
   }
 
@@ -522,7 +522,7 @@ export class CacheProvisioningManager {
     if (stats) {
       instance.usedMemoryMb = stats.usedMemoryBytes / (1024 * 1024)
       instance.keyCount = stats.totalKeys
-      await this.saveInstanceToCQL(instance)
+      await this.saveInstanceToEQLite(instance)
     }
   }
 
@@ -624,7 +624,7 @@ export class CacheProvisioningManager {
         now - node.lastHeartbeat > offlineThreshold
       ) {
         node.status = 'offline'
-        await this.saveNodeToCQL(node)
+        await this.saveNodeToEQLite(node)
         this.emit({
           type: CacheEventType.NODE_LEAVE,
           timestamp: now,
@@ -635,10 +635,10 @@ export class CacheProvisioningManager {
   }
 
   private async ensureTablesExist(): Promise<void> {
-    if (!this.cqlClient) {
-      // Not an error - CQL is optional for local development
+    if (!this.eqliteClient) {
+      // Not an error - EQLite is optional for local development
       console.log(
-        '[Cache Provisioning] CQL client not available - running in memory-only mode',
+        '[Cache Provisioning] EQLite client not available - running in memory-only mode',
       )
       return
     }
@@ -682,30 +682,30 @@ export class CacheProvisioningManager {
     ]
 
     for (const ddl of tables) {
-      await this.cqlClient.exec(ddl, [], CQL_DATABASE_ID)
+      await this.eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
     }
 
     for (const idx of indexes) {
-      await this.cqlClient.exec(idx, [], CQL_DATABASE_ID)
+      await this.eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
     }
 
-    console.log('[Cache Provisioning] CQL tables ensured')
+    console.log('[Cache Provisioning] EQLite tables ensured')
   }
 
-  private async loadFromCQL(): Promise<void> {
-    if (!this.cqlClient) {
-      // CQL is optional - nothing to load in memory-only mode
+  private async loadFromEQLite(): Promise<void> {
+    if (!this.eqliteClient) {
+      // EQLite is optional - nothing to load in memory-only mode
       console.log(
-        '[Cache Provisioning] CQL unavailable - starting with empty state',
+        '[Cache Provisioning] EQLite unavailable - starting with empty state',
       )
       return
     }
 
     // Load instances
-    const instancesResult = await this.cqlClient.query<CacheInstanceRow>(
+    const instancesResult = await this.eqliteClient.query<CacheInstanceRow>(
       'SELECT * FROM cache_instances WHERE status = ?',
       ['running'],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     // Collect TEE initialization promises to await later
@@ -778,10 +778,10 @@ export class CacheProvisioningManager {
     }
 
     // Load nodes
-    const nodesResult = await this.cqlClient.query<CacheNodeRow>(
+    const nodesResult = await this.eqliteClient.query<CacheNodeRow>(
       'SELECT * FROM cache_nodes',
       [],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
 
     for (const row of nodesResult.rows) {
@@ -807,16 +807,16 @@ export class CacheProvisioningManager {
     )
   }
 
-  private async saveInstanceToCQL(instance: CacheInstance): Promise<void> {
-    if (!this.cqlClient) {
-      // CQL is optional - log at debug level
+  private async saveInstanceToEQLite(instance: CacheInstance): Promise<void> {
+    if (!this.eqliteClient) {
+      // EQLite is optional - log at debug level
       console.log(
-        `[Cache Provisioning] CQL unavailable, instance ${instance.id} in memory only`,
+        `[Cache Provisioning] EQLite unavailable, instance ${instance.id} in memory only`,
       )
       return
     }
 
-    await this.cqlClient.exec(
+    await this.eqliteClient.exec(
       `INSERT INTO cache_instances (id, owner, namespace, tier, max_memory_mb, used_memory_mb, key_count, created_at, expires_at, status, tee_provider, node_id, endpoint)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
@@ -839,36 +839,36 @@ export class CacheProvisioningManager {
         instance.nodeId ?? null,
         instance.endpoint ?? null,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   }
 
-  private async deleteInstanceFromCQL(instanceId: string): Promise<void> {
-    if (!this.cqlClient) {
-      // CQL is optional - log at debug level
+  private async deleteInstanceFromEQLite(instanceId: string): Promise<void> {
+    if (!this.eqliteClient) {
+      // EQLite is optional - log at debug level
       console.log(
-        `[Cache Provisioning] CQL unavailable, instance ${instanceId} deletion in memory only`,
+        `[Cache Provisioning] EQLite unavailable, instance ${instanceId} deletion in memory only`,
       )
       return
     }
 
-    await this.cqlClient.exec(
+    await this.eqliteClient.exec(
       'DELETE FROM cache_instances WHERE id = ?',
       [instanceId],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   }
 
-  private async saveNodeToCQL(node: CacheNode): Promise<void> {
-    if (!this.cqlClient) {
-      // CQL is optional - log at debug level
+  private async saveNodeToEQLite(node: CacheNode): Promise<void> {
+    if (!this.eqliteClient) {
+      // EQLite is optional - log at debug level
       console.log(
-        `[Cache Provisioning] CQL unavailable, node ${node.nodeId} in memory only`,
+        `[Cache Provisioning] EQLite unavailable, node ${node.nodeId} in memory only`,
       )
       return
     }
 
-    await this.cqlClient.exec(
+    await this.eqliteClient.exec(
       `INSERT INTO cache_nodes (node_id, address, endpoint, region, tier, tee_provider, max_memory_mb, used_memory_mb, instance_count, status, last_heartbeat)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(node_id) DO UPDATE SET
@@ -889,7 +889,7 @@ export class CacheProvisioningManager {
         node.status,
         node.lastHeartbeat,
       ],
-      CQL_DATABASE_ID,
+      EQLITE_DATABASE_ID,
     )
   }
 }

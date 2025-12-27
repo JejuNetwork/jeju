@@ -654,11 +654,11 @@ describe('Relay Server Edge Cases', () => {
     expect(response.status).toBe(404)
   })
 
-  test('health endpoint includes CQL availability status', async () => {
+  test('health endpoint includes EQLite availability status', async () => {
     const response = await fetch(`${BASE_URL}/health`)
-    const data: { stats?: { cqlAvailable?: boolean } } = await response.json()
+    const data: { stats?: { eqliteAvailable?: boolean } } = await response.json()
 
-    expect(typeof data.stats?.cqlAvailable).toBe('boolean')
+    expect(typeof data.stats?.eqliteAvailable).toBe('boolean')
   })
 })
 

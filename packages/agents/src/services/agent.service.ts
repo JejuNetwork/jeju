@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { type CQLClient, getCQL } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import type {
   AgentCapabilities,
@@ -123,10 +123,10 @@ function rowToAgentLog(row: AgentLogRow): AgentLog {
  * Service for agent lifecycle management
  */
 export class AgentService {
-  private db: CQLClient
+  private db: EQLiteClient
 
-  constructor(db?: CQLClient) {
-    this.db = db ?? getCQL()
+  constructor(db?: EQLiteClient) {
+    this.db = db ?? getEQLite()
   }
 
   /**

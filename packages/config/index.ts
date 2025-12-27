@@ -454,12 +454,12 @@ export function getServicesConfig(
     },
     monitoring: config.monitoring,
     crucible: config.crucible,
-    cql: {
+    eqlite: {
       blockProducer:
-        getEnvService('CQL_BLOCK_PRODUCER_ENDPOINT') ??
-        getEnvService('CQL_URL') ??
-        config.cql.blockProducer,
-      miner: getEnvService('CQL_MINER_ENDPOINT') ?? config.cql.miner,
+        getEnvService('EQLITE_BLOCK_PRODUCER_ENDPOINT') ??
+        getEnvService('EQLITE_URL') ??
+        config.eqlite.blockProducer,
+      miner: getEnvService('EQLITE_MINER_ENDPOINT') ?? config.eqlite.miner,
     },
     dws: {
       api:
@@ -591,16 +591,16 @@ export function getExplorerUrl(network?: NetworkType): string {
   return getServicesConfig(network).explorer
 }
 
-// Decentralized Services (CQL, DWS, Autocrat)
+// Decentralized Services (EQLite, DWS, Autocrat)
 
-/** Get CovenantSQL block producer URL - for decentralized database */
-export function getCQLUrl(network?: NetworkType): string {
-  return getServicesConfig(network).cql.blockProducer
+/** Get EQLite block producer URL - for decentralized database */
+export function getEQLiteUrl(network?: NetworkType): string {
+  return getServicesConfig(network).eqlite.blockProducer
 }
 
-/** Get CovenantSQL miner URL */
-export function getCQLMinerUrl(network?: NetworkType): string {
-  return getServicesConfig(network).cql.miner
+/** Get EQLite miner URL */
+export function getEQLiteMinerUrl(network?: NetworkType): string {
+  return getServicesConfig(network).eqlite.miner
 }
 
 /** Get DWS (Decentralized Web Services) API URL */
@@ -2059,34 +2059,34 @@ export function getLogLevel(): string {
   return process.env.LOG_LEVEL ?? 'info'
 }
 
-/** Get CQL private key (secret - env var only) */
-export function getCqlPrivateKey(): string | undefined {
-  return process.env.CQL_PRIVATE_KEY
+/** Get EQLite private key (secret - env var only) */
+export function getEqlitePrivateKey(): string | undefined {
+  return process.env.EQLITE_PRIVATE_KEY
 }
 
-/** Get CQL database ID */
-export function getCqlDatabaseId(): string | undefined {
-  return process.env.CQL_DATABASE_ID
+/** Get EQLite database ID */
+export function getEqliteDatabaseId(): string | undefined {
+  return process.env.EQLITE_DATABASE_ID
 }
 
-/** Get CQL timeout */
-export function getCqlTimeout(): string | undefined {
-  return process.env.CQL_TIMEOUT
+/** Get EQLite timeout */
+export function getEqliteTimeout(): string | undefined {
+  return process.env.EQLITE_TIMEOUT
 }
 
-/** Check if CQL debug is enabled */
-export function isCqlDebug(): boolean {
-  return process.env.CQL_DEBUG === 'true'
+/** Check if EQLite debug is enabled */
+export function isEqliteDebug(): boolean {
+  return process.env.EQLITE_DEBUG === 'true'
 }
 
-/** Get CQL port */
-export function getCqlPort(): number {
-  return parseInt(process.env.CQL_PORT ?? process.env.PORT ?? '4400', 10)
+/** Get EQLite port */
+export function getEqlitePort(): number {
+  return parseInt(process.env.EQLITE_PORT ?? process.env.PORT ?? '4400', 10)
 }
 
-/** Get CQL data directory */
-export function getCqlDataDir(): string {
-  return process.env.CQL_DATA_DIR ?? './.data/cql'
+/** Get EQLite data directory */
+export function getEqliteDataDir(): string {
+  return process.env.EQLITE_DATA_DIR ?? './.data/eqlite'
 }
 
 // Auth Configuration

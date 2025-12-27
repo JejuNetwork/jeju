@@ -18,7 +18,7 @@ import {
   isAgentCharacter,
   isAgentStatus,
   isCDNRegion,
-  isCqlQueryResponse,
+  isEqliteQueryResponse,
   isCronAction,
   isInstanceStatus,
   isInvocationStatus,
@@ -633,35 +633,35 @@ describe('isRiskLevel', () => {
 })
 
 // =============================================================================
-// CQL Query Response Type Guards
+// EQLite Query Response Type Guards
 // =============================================================================
 
-describe('isCqlQueryResponse', () => {
-  test('returns true for valid CQL response with rows', () => {
-    expect(isCqlQueryResponse({ rows: [] })).toBe(true)
-    expect(isCqlQueryResponse({ rows: [{ id: 1 }, { id: 2 }] })).toBe(true)
+describe('isEqliteQueryResponse', () => {
+  test('returns true for valid EQLite response with rows', () => {
+    expect(isEqliteQueryResponse({ rows: [] })).toBe(true)
+    expect(isEqliteQueryResponse({ rows: [{ id: 1 }, { id: 2 }] })).toBe(true)
   })
 
   test('returns true for response without rows property', () => {
-    expect(isCqlQueryResponse({})).toBe(true)
-    expect(isCqlQueryResponse({ other: 'data' })).toBe(true)
+    expect(isEqliteQueryResponse({})).toBe(true)
+    expect(isEqliteQueryResponse({ other: 'data' })).toBe(true)
   })
 
   test('returns false when rows is not an array', () => {
-    expect(isCqlQueryResponse({ rows: 'not array' })).toBe(false)
-    expect(isCqlQueryResponse({ rows: 123 })).toBe(false)
-    expect(isCqlQueryResponse({ rows: {} })).toBe(false)
+    expect(isEqliteQueryResponse({ rows: 'not array' })).toBe(false)
+    expect(isEqliteQueryResponse({ rows: 123 })).toBe(false)
+    expect(isEqliteQueryResponse({ rows: {} })).toBe(false)
   })
 
   test('returns false for null and undefined', () => {
-    expect(isCqlQueryResponse(null)).toBe(false)
-    expect(isCqlQueryResponse(undefined)).toBe(false)
+    expect(isEqliteQueryResponse(null)).toBe(false)
+    expect(isEqliteQueryResponse(undefined)).toBe(false)
   })
 
   test('returns false for non-objects', () => {
-    expect(isCqlQueryResponse('string')).toBe(false)
-    expect(isCqlQueryResponse(123)).toBe(false)
-    expect(isCqlQueryResponse([])).toBe(false)
+    expect(isEqliteQueryResponse('string')).toBe(false)
+    expect(isEqliteQueryResponse(123)).toBe(false)
+    expect(isEqliteQueryResponse([])).toBe(false)
   })
 })
 

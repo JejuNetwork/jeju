@@ -1,33 +1,33 @@
 /**
- * CQL Database Plugin for ElizaOS
+ * EQLite Database Plugin for ElizaOS
  *
- * Provides a decentralized database adapter using CovenantSQL.
+ * Provides a decentralized database adapter using EQLite.
  * Automatically initializes and runs migrations on startup.
  *
  * @example
  * ```typescript
- * import { cqlDatabasePlugin } from '@jejunetwork/eliza-plugin';
+ * import { eqliteDatabasePlugin } from '@jejunetwork/eliza-plugin';
  *
  * const character: Character = {
  *   name: 'MyAgent',
- *   plugins: [cqlDatabasePlugin],
+ *   plugins: [eqliteDatabasePlugin],
  *   // ...
  * };
  * ```
  */
 
 import { type IAgentRuntime, logger, type Plugin } from '@elizaos/core'
-import { getCqlDatabaseId } from '@jejunetwork/config'
-import { getCQL } from '@jejunetwork/db'
-import { CQLDatabaseAdapter } from './adapter'
-import { checkMigrationStatus, runCQLMigrations } from './migrations'
+import { getEqliteDatabaseId } from '@jejunetwork/config'
+import { getEQLite } from '@jejunetwork/db'
+import { EQLiteDatabaseAdapter } from './adapter'
+import { checkMigrationStatus, runEQLiteMigrations } from './migrations'
 
 /**
- * Create a CQL database adapter for the given agent
+ * Create a EQLite database adapter for the given agent
  */
-function createCQLAdapter(agentId: string): CQLDatabaseAdapter {
-  const databaseId = getCqlDatabaseId() ?? 'eliza'
-  return new CQLDatabaseAdapter(
+function createEQLiteAdapter(agentId: string): EQLiteDatabaseAdapter {
+  const databaseId = getEqliteDatabaseId() ?? 'eliza'
+  return new EQLiteDatabaseAdapter(
     agentId as `${string}-${string}-${string}-${string}-${string}`,
     {
       databaseId,
@@ -37,21 +37,21 @@ function createCQLAdapter(agentId: string): CQLDatabaseAdapter {
 }
 
 /**
- * CQL Database Plugin for ElizaOS
+ * EQLite Database Plugin for ElizaOS
  *
  * This plugin provides:
- * - CovenantSQL-based database adapter
+ * - EQLite-based database adapter
  * - Automatic schema migration on startup
  */
-export const cqlDatabasePlugin: Plugin = {
-  name: '@jejunetwork/plugin-cql',
-  description: 'Decentralized database adapter using CovenantSQL',
+export const eqliteDatabasePlugin: Plugin = {
+  name: '@jejunetwork/plugin-eqlite',
+  description: 'Decentralized database adapter using EQLite',
   priority: 0, // Load first to ensure database is available
 
   init: async (_config: Record<string, string>, runtime: IAgentRuntime) => {
     logger.info(
-      { src: 'plugin:cql', agentId: runtime.agentId },
-      'Initializing CQL database plugin',
+      { src: 'plugin:eqlite', agentId: runtime.agentId },
+      'Initializing EQLite database plugin',
     )
 
     // Check if a database adapter is already registered
@@ -75,40 +75,40 @@ export const cqlDatabasePlugin: Plugin = {
 
     if (adapterRegistered) {
       logger.info(
-        { src: 'plugin:cql', agentId: runtime.agentId },
-        'Database adapter already registered, skipping CQL initialization',
+        { src: 'plugin:eqlite', agentId: runtime.agentId },
+        'Database adapter already registered, skipping EQLite initialization',
       )
       return
     }
 
-    // Check CQL health
-    const cql = getCQL()
-    const healthy = await cql.isHealthy()
+    // Check EQLite health
+    const eqlite = getEQLite()
+    const healthy = await eqlite.isHealthy()
     if (!healthy) {
       throw new Error(
-        '[CQL] CovenantSQL is not healthy. ' +
+        '[EQLite] EQLite is not healthy. ' +
           'Ensure Jeju services are running: cd /path/to/jeju && bun jeju dev\n' +
-          'Or start CQL manually: bun run cql',
+          'Or start EQLite manually: bun run eqlite',
       )
     }
 
     // Check and run migrations
-    const databaseId = getCqlDatabaseId() ?? 'eliza'
-    const migrated = await checkMigrationStatus(cql, databaseId)
+    const databaseId = getEqliteDatabaseId() ?? 'eliza'
+    const migrated = await checkMigrationStatus(eqlite, databaseId)
     if (!migrated) {
-      logger.info({ src: 'plugin:cql' }, 'Running CQL schema migrations...')
-      await runCQLMigrations(cql, databaseId)
+      logger.info({ src: 'plugin:eqlite' }, 'Running EQLite schema migrations...')
+      await runEQLiteMigrations(eqlite, databaseId)
     }
 
     // Create and register the adapter
-    const adapter = createCQLAdapter(runtime.agentId)
+    const adapter = createEQLiteAdapter(runtime.agentId)
     runtime.registerDatabaseAdapter(adapter)
 
     logger.info(
-      { src: 'plugin:cql', agentId: runtime.agentId, databaseId },
-      'CQL database adapter registered',
+      { src: 'plugin:eqlite', agentId: runtime.agentId, databaseId },
+      'EQLite database adapter registered',
     )
   },
 }
 
-export default cqlDatabasePlugin
+export default eqliteDatabasePlugin

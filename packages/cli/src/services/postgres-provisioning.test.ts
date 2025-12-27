@@ -66,12 +66,12 @@ describe('PostgreSQL Provisioning', () => {
   })
 
   it('selects indexer mode', () => {
-    const mode = (pg: boolean, cql: boolean, force: boolean) =>
-      force ? 'cql-only' : pg ? 'postgres' : cql ? 'cql-only' : 'unavailable'
+    const mode = (pg: boolean, eqlite: boolean, force: boolean) =>
+      force ? 'eqlite-only' : pg ? 'postgres' : eqlite ? 'eqlite-only' : 'unavailable'
 
     expect(mode(true, true, false)).toBe('postgres')
-    expect(mode(false, true, false)).toBe('cql-only')
-    expect(mode(true, true, true)).toBe('cql-only')
+    expect(mode(false, true, false)).toBe('eqlite-only')
+    expect(mode(true, true, true)).toBe('eqlite-only')
     expect(mode(false, false, false)).toBe('unavailable')
   })
 

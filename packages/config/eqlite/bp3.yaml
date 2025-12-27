@@ -1,0 +1,32 @@
+# EQLite Block Producer 3 Configuration
+WorkingRoot: /data
+PubKeyStoreFile: /data/public.keystore
+PrivateKeyFile: /data/private.key
+
+ListenAddr: 0.0.0.0:4661
+ThisNodeID: bp3
+
+# HTTP API for queries
+APIAddr: 0.0.0.0:8546
+
+# Block producer settings
+IsBlockProducer: true
+NumOfWorker: 2
+
+# Database settings
+DatabaseDir: /data/db
+
+# Genesis block
+GenesisBlockFile: /app/genesis.json
+
+# Bootstrap to bp1
+BootstrapNodes:
+  - eqlite-bp1:4661
+
+# Consensus settings
+BPPeriod: 1s
+BPTick: 100ms
+
+# Logging
+LogLevel: info
+

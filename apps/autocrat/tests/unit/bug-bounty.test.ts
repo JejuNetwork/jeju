@@ -2,7 +2,7 @@
  * Bug Bounty System Tests
  *
  * Tests for the bug bounty submission assessment flow.
- * Note: Full E2E flow tests require CQL database to be running.
+ * Note: Full E2E flow tests require EQLite database to be running.
  */
 
 import { describe, expect, setDefaultTimeout, test } from 'bun:test'

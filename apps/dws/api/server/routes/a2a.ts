@@ -22,6 +22,7 @@ const CAPABILITIES = [
   'terraform',
   'ingress',
   'mesh',
+  'cache',
 ] as const
 
 export function createA2ARouter() {
@@ -58,6 +59,7 @@ export function createA2ARouter() {
           terraform: '/terraform',
           ingress: '/ingress',
           mesh: '/mesh',
+          cache: '/cache',
         },
       }))
 
