@@ -29,7 +29,22 @@ interface ExecResult {
   stderr: string
 }
 
-const execUrl = process.env.DWS_EXEC_URL ?? 'http://localhost:4020/exec'
+// Config injection for workerd compatibility
+export interface EncryptionConfig {
+  execUrl: string
+  dbEncryptionKey?: string
+  keyDerivationSalt?: string
+}
+
+let encryptionConfig: EncryptionConfig = {
+  execUrl: 'http://localhost:4020/exec',
+}
+
+export function configureEncryption(config: Partial<EncryptionConfig>): void {
+  encryptionConfig = { ...encryptionConfig, ...config }
+}
+
+const execUrl = encryptionConfig.execUrl
 
 async function exec(
   command: string[],
@@ -87,8 +102,9 @@ const DB_ENCRYPTION_KEY_ENV = 'FACTORY_DB_ENCRYPTION_KEY'
 /** Salt for key derivation */
 const KEY_DERIVATION_SALT_ENV = 'FACTORY_DB_KEY_SALT'
 
-/** Encryption algorithm */
+/** Encryption algorithm (used by Node.js crypto) */
 const _ALGORITHM = 'aes-256-gcm'
+void _ALGORITHM // Reserved for future use with Node.js crypto
 
 /** IV length in bytes */
 const IV_LENGTH = 12
@@ -126,8 +142,11 @@ async function getEncryptionKey(): Promise<Buffer> {
     return derivedKey
   }
 
-  const masterKey = process.env[DB_ENCRYPTION_KEY_ENV]
-  const isProduction = process.env.NODE_ENV === 'production'
+  // Use injected config, fallback to process.env for backwards compatibility
+  const masterKey =
+    encryptionConfig.dbEncryptionKey ?? process.env[DB_ENCRYPTION_KEY_ENV]
+  const isProduction =
+    typeof process !== 'undefined' && process.env.NODE_ENV === 'production'
 
   if (!masterKey) {
     if (isProduction) {
@@ -144,11 +163,12 @@ async function getEncryptionKey(): Promise<Buffer> {
   }
 
   // Get or generate salt
-  const saltHex = process.env[KEY_DERIVATION_SALT_ENV]
+  const saltHex =
+    encryptionConfig.keyDerivationSalt ?? process.env[KEY_DERIVATION_SALT_ENV]
   if (saltHex) {
     keySalt = Buffer.from(saltHex, 'hex')
   } else {
-    keySalt = randomBytes(32)
+    keySalt = Buffer.from(Array.from(randomBytes(32)))
     log.warn(
       `${KEY_DERIVATION_SALT_ENV} not set - using random salt. ` +
         'Set this in production for consistent key derivation.',

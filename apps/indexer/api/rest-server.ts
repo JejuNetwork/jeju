@@ -51,6 +51,7 @@ import {
   mapTokenTransferResponse,
 } from './utils/response-utils'
 import { getAgentById, getPopularTags, search } from './utils/search'
+import { security } from './utils/security'
 import {
   getRateLimitStats,
   RATE_LIMITS,
@@ -124,6 +125,7 @@ const corsOptions = CORS_ORIGINS?.length
 
 const app = new Elysia()
   .use(cors(corsOptions))
+  .use(security({ service: 'indexer-rest' }))
   .use(stakeRateLimiter({ skipPaths: ['/health', '/'] }))
   .get('/health', () => ({
     status: isSchemaReady() ? 'ok' : 'degraded',

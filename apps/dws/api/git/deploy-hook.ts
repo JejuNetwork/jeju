@@ -12,20 +12,19 @@
  *   git push dws main
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
-import { join, dirname } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { getContract, getRpcUrl, type NetworkType } from '@jejunetwork/config'
 import {
+  type Address,
   createWalletClient,
+  type Hex,
   http,
   keccak256,
   stringToBytes,
-  type Address,
-  type Hex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { z } from 'zod'
 
 export interface DeployHookConfig {
   repoPath: string
@@ -110,9 +109,11 @@ const JNS_RESOLVER_ABI = [
 /**
  * Detect framework from repository
  */
-function detectFramework(
-  repoPath: string,
-): { name: string; buildCmd: string; outputDir: string } {
+function detectFramework(repoPath: string): {
+  name: string
+  buildCmd: string
+  outputDir: string
+} {
   for (const [name, config] of Object.entries(FRAMEWORK_CONFIGS)) {
     for (const file of config.detect) {
       if (existsSync(join(repoPath, file))) {
@@ -232,18 +233,20 @@ async function uploadToIPFS(dirPath: string): Promise<string | null> {
 
   try {
     // Use IPFS CLI for directory upload
-    const result = execSync(
-      `ipfs add -r -Q --cid-version=1 "${dirPath}"`,
-      { encoding: 'utf-8' },
-    ).trim()
+    const result = execSync(`ipfs add -r -Q --cid-version=1 "${dirPath}"`, {
+      encoding: 'utf-8',
+    }).trim()
 
     return result
   } catch {
     // Fallback: try API endpoint
-    const response = await fetch(`${ipfsApiUrl}/api/v0/add?recursive=true&cid-version=1`, {
-      method: 'POST',
-      // Would need to implement directory upload via API
-    })
+    const response = await fetch(
+      `${ipfsApiUrl}/api/v0/add?recursive=true&cid-version=1`,
+      {
+        method: 'POST',
+        // Would need to implement directory upload via API
+      },
+    )
 
     if (!response.ok) return null
 
@@ -275,7 +278,8 @@ async function updateJNS(
   const node = namehash(name)
   const contenthash = encodeIPFSContenthash(cid)
 
-  const chainId = network === 'mainnet' ? 1 : network === 'testnet' ? 11155111 : 31337
+  const chainId =
+    network === 'mainnet' ? 1 : network === 'testnet' ? 11155111 : 31337
   const chain = {
     id: chainId,
     name: network,
@@ -331,8 +335,7 @@ function encodeIPFSContenthash(cid: string): Hex {
  * Base58 decode
  */
 function base58Decode(str: string): Uint8Array {
-  const ALPHABET =
-    '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
   let leadingZeros = 0
   for (const char of str) {
@@ -370,7 +373,7 @@ function base58Decode(str: string): Uint8Array {
  */
 async function deployWorker(
   repoPath: string,
-  appName: string,
+  _appName: string,
 ): Promise<boolean> {
   // Check for jeju-manifest.json
   const manifestPath = join(repoPath, 'jeju-manifest.json')
@@ -415,7 +418,9 @@ export async function runDeployHook(
     duration: 0,
   }
 
-  console.log(`[Deploy] Starting deployment for ${config.appName}@${config.branch}`)
+  console.log(
+    `[Deploy] Starting deployment for ${config.appName}@${config.branch}`,
+  )
 
   // Detect framework
   const framework = detectFramework(config.repoPath)

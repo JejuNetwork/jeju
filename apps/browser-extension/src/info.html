@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JNS Domain Info</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-secondary: #12121a;
+      --text: #e8e8ec;
+      --text-secondary: #a0a0ac;
+      --text-muted: #6c6c7a;
+      --accent: #6366f1;
+      --success: #22c55e;
+      --border: #2a2a36;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 40px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 24px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+
+    .row {
+      display: flex;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .row:last-child {
+      border-bottom: none;
+    }
+
+    .label {
+      width: 160px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .value {
+      flex: 1;
+      font-family: monospace;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .value a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .value a:hover {
+      text-decoration: underline;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-success {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+    }
+
+    .badge .dot {
+      width: 6px;
+      height: 6px;
+      background: currentColor;
+      border-radius: 50%;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .error {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      padding: 16px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-icon">J</div>
+      <div>
+        <h1 id="domainTitle">Loading...</h1>
+        <p class="subtitle">Jeju Name Service Domain Information</p>
+      </div>
+    </div>
+
+    <div id="content">
+      <div class="loading">
+        <div class="spinner"></div>
+        Resolving domain...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const domain = params.get('domain') || 'unknown.jeju';
+    document.getElementById('domainTitle').textContent = domain;
+
+    async function loadDomainInfo() {
+      const settings = await chrome.runtime.sendMessage({ type: 'getSettings' });
+      const resolution = await chrome.runtime.sendMessage({ type: 'resolve', domain });
+
+      const content = document.getElementById('content');
+
+      if (!resolution) {
+        content.innerHTML = `
+          <div class="error">
+            <strong>Resolution Failed</strong><br>
+            Could not resolve this domain. The domain may not exist or JNS gateways are unreachable.
+          </div>
+        `;
+        return;
+      }
+
+      content.innerHTML = `
+        <div class="card">
+          <div class="card-title">Domain Information</div>
+          <div class="row">
+            <span class="label">Domain</span>
+            <span class="value">${resolution.domain}</span>
+          </div>
+          <div class="row">
+            <span class="label">Status</span>
+            <span class="value">
+              <span class="badge badge-success">
+                <span class="dot"></span>
+                Resolved
+              </span>
+            </span>
+          </div>
+          <div class="row">
+            <span class="label">Resolved Via</span>
+            <span class="value">${resolution.resolvedVia}</span>
+          </div>
+          <div class="row">
+            <span class="label">Resolved At</span>
+            <span class="value">${new Date(resolution.resolvedAt).toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">On-Chain Records</div>
+          <div class="row">
+            <span class="label">Node Hash</span>
+            <span class="value">${resolution.node || '-'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Owner Address</span>
+            <span class="value">${resolution.address || '-'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Contenthash</span>
+            <span class="value">${resolution.contenthash || '-'}</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Content Delivery</div>
+          <div class="row">
+            <span class="label">IPFS Hash</span>
+            <span class="value">${resolution.ipfsHash 
+              ? `<a href="${settings.ipfsGateway}/ipfs/${resolution.ipfsHash}" target="_blank">${resolution.ipfsHash}</a>` 
+              : '-'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Worker Endpoint</span>
+            <span class="value">${resolution.workerEndpoint 
+              ? `<a href="${resolution.workerEndpoint}" target="_blank">${resolution.workerEndpoint}</a>` 
+              : '-'}</span>
+          </div>
+        </div>
+
+        ${resolution.textRecords ? `
+          <div class="card">
+            <div class="card-title">Text Records</div>
+            ${Object.entries(resolution.textRecords).map(([key, value]) => `
+              <div class="row">
+                <span class="label">${key}</span>
+                <span class="value">${value}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <div class="actions">
+          <a href="http://${domain}" class="btn">Visit Domain</a>
+          <button class="btn btn-secondary" onclick="loadDomainInfo()">Refresh</button>
+          <button class="btn btn-secondary" onclick="window.close()">Close</button>
+        </div>
+      `;
+    }
+
+    loadDomainInfo();
+  </script>
+</body>
+</html>

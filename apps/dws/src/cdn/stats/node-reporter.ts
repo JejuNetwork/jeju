@@ -26,8 +26,27 @@ import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import type { EdgeCache } from '../cache/edge-cache'
 import type { RegionalCacheCoordinator } from '../cache/regional-coordinator'
 
+// Config injection for workerd compatibility
+export interface NodeReporterConfig {
+  oracleEndpoint?: string
+  nodePrivateKey?: string
+  statsContractAddress?: string
+}
+
+let reporterConfig: NodeReporterConfig = {
+  oracleEndpoint: 'https://oracle.jejunetwork.com/cdn-stats',
+}
+
+export function configureNodeReporter(
+  config: Partial<NodeReporterConfig>,
+): void {
+  reporterConfig = { ...reporterConfig, ...config }
+}
+
 const ORACLE_ENDPOINT =
-  process.env.STATS_ORACLE_URL ?? 'https://oracle.jejunetwork.com/cdn-stats'
+  reporterConfig.oracleEndpoint ??
+  (typeof process !== 'undefined' ? process.env.STATS_ORACLE_URL : undefined) ??
+  'https://oracle.jejunetwork.com/cdn-stats'
 
 // ============================================================================
 // Types
@@ -197,9 +216,18 @@ export class NodeStatsReporter {
         config.nodeId ?? `node-${Math.random().toString(36).slice(2, 10)}`,
       region: config.region ?? 'us-east-1',
       rpcUrl: config.rpcUrl ?? getRpcUrl(),
-      privateKey: config.privateKey ?? process.env.NODE_PRIVATE_KEY,
+      privateKey:
+        config.privateKey ??
+        reporterConfig.nodePrivateKey ??
+        (typeof process !== 'undefined'
+          ? process.env.NODE_PRIVATE_KEY
+          : undefined),
       statsContractAddress:
-        config.statsContractAddress ?? process.env.CDN_STATS_CONTRACT,
+        config.statsContractAddress ??
+        reporterConfig.statsContractAddress ??
+        (typeof process !== 'undefined'
+          ? process.env.CDN_STATS_CONTRACT
+          : undefined),
       reportIntervalMs: config.reportIntervalMs ?? 3600000, // 1 hour
       metricsPort: config.metricsPort,
     }

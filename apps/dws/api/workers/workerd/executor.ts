@@ -22,7 +22,7 @@ import type {
   WorkerdResponse,
   WorkerdWorkerDefinition,
 } from './types'
-import { DEFAULT_WORKERD_CONFIG } from './types'
+import { getDefaultWorkerdConfig } from './types'
 
 export class WorkerdExecutor implements IWorkerdExecutor {
   private config: WorkerdConfig
@@ -42,7 +42,9 @@ export class WorkerdExecutor implements IWorkerdExecutor {
 
   constructor(backend: BackendManager, config: Partial<WorkerdConfig> = {}) {
     this.backend = backend
-    this.config = { ...DEFAULT_WORKERD_CONFIG, ...config }
+    // Merge injected global config with provided config
+    const defaultConfig = getDefaultWorkerdConfig()
+    this.config = { ...defaultConfig, ...config }
   }
 
   /**

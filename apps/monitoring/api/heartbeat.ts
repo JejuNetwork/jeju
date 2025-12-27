@@ -62,6 +62,7 @@ if (!NODE_ID) {
 if (!OPERATOR_PRIVATE_KEY) {
   throw new Error('OPERATOR_PRIVATE_KEY environment variable is required')
 }
+const VALIDATED_PRIVATE_KEY: string = OPERATOR_PRIVATE_KEY
 
 /** Validate and parse a hex private key. */
 function parsePrivateKey(key: string): `0x${string}` {
@@ -73,7 +74,11 @@ function parsePrivateKey(key: string): `0x${string}` {
   return key
 }
 
-const validatedPrivateKey = parsePrivateKey(OPERATOR_PRIVATE_KEY)
+/** Creates the operator account from environment. Encapsulated to prevent key leakage. */
+function getOperatorAccount() {
+  const key = parsePrivateKey(VALIDATED_PRIVATE_KEY)
+  return privateKeyToAccount(key)
+}
 
 const NODE_EXPLORER_API =
   process.env.NODE_EXPLORER_API ?? 'https://nodes.jejunetwork.org/api'
@@ -87,7 +92,6 @@ if (Number.isNaN(INTERVAL) || INTERVAL <= 0) {
 
 const CONFIG = {
   NODE_ID,
-  OPERATOR_PRIVATE_KEY: validatedPrivateKey,
   NODE_EXPLORER_API,
   RPC_URL,
   INTERVAL,
@@ -103,7 +107,7 @@ async function sendHeartbeat(): Promise<void> {
     chain,
     transport: http(CONFIG.RPC_URL),
   })
-  const account = privateKeyToAccount(CONFIG.OPERATOR_PRIVATE_KEY)
+  const account = getOperatorAccount()
 
   const chainId = await publicClient.getChainId()
   const blockNumber = await publicClient.getBlockNumber()

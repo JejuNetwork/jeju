@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as http from 'node:http'
 // Workerd-compatible: HTTP server converted to Fetch API handler
 import * as https from 'node:https'
 import * as path from 'node:path'
@@ -83,27 +84,27 @@ interface CachedAsset {
 
 const metricsRegistry = new Registry()
 
-const _assetRequestsTotal = new Counter({
+const assetRequestsTotal = new Counter({
   name: 'static_asset_requests_total',
   help: 'Total asset requests',
   labelNames: ['path', 'status', 'source'],
   registers: [metricsRegistry],
 })
 
-const _assetBytesServed = new Counter({
+const assetBytesServed = new Counter({
   name: 'static_asset_bytes_served_total',
   help: 'Total bytes served',
   labelNames: ['source'],
   registers: [metricsRegistry],
 })
 
-const _assetCacheHits = new Counter({
+const assetCacheHits = new Counter({
   name: 'static_asset_cache_hits_total',
   help: 'Cache hits',
   registers: [metricsRegistry],
 })
 
-const _assetCacheMisses = new Counter({
+const assetCacheMisses = new Counter({
   name: 'static_asset_cache_misses_total',
   help: 'Cache misses',
   registers: [metricsRegistry],
@@ -115,13 +116,20 @@ const assetCacheSize = new Gauge({
   registers: [metricsRegistry],
 })
 
-const _assetLatency = new Histogram({
+const assetLatency = new Histogram({
   name: 'static_asset_latency_seconds',
   help: 'Asset serving latency',
   labelNames: ['source'],
   buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
   registers: [metricsRegistry],
 })
+
+// Export metrics for potential future use
+void assetRequestsTotal
+void assetBytesServed
+void assetCacheHits
+void assetCacheMisses
+void assetLatency
 
 // MIME Types
 
@@ -158,6 +166,8 @@ export class StaticAssetService {
   private client: NodeClient | null
   private torrent: HybridTorrentService | null = null
   private running = false
+  private server: http.Server | null = null
+  private metricsServer: http.Server | null = null
 
   // Asset caching
   private assetCache = new LRUCache<string, CachedAsset>({
@@ -246,8 +256,6 @@ export class StaticAssetService {
 
   private async startServer(): Promise<void> {
     // In workerd, handlers are registered in the main Elysia app
-    // Just initialize the handler
-    this.requestHandler = this.getRequestHandler()
     console.log(
       `[StaticAssets] Request handler ready (register at port ${this.config.listenPort})`,
     )
@@ -257,7 +265,6 @@ export class StaticAssetService {
     if (!this.config.metricsPort) return
 
     // In workerd, handlers are registered in the main Elysia app
-    this.metricsHandler = this.getMetricsHandler()
     console.log(
       `[StaticAssets] Metrics handler ready (register at port ${this.config.metricsPort})`,
     )

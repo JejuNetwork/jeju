@@ -237,6 +237,15 @@ export class AgentService {
     if (!agent) return null
 
     const character = agent.character
+    const messageExamples = Array.isArray(character.messageExamples)
+      ? character.messageExamples
+          .map(
+            (example: Array<{ content?: { text?: string } }>) =>
+              example[0]?.content?.text,
+          )
+          .filter((text: string | undefined): text is string => !!text)
+      : undefined
+
     return {
       ...agent,
       systemPrompt: character.system,
@@ -244,9 +253,7 @@ export class AgentService {
       tradingStrategy: character.topics?.find((t: string) =>
         t.toLowerCase().includes('trading'),
       ),
-      messageExamples: character.messageExamples?.map(
-        (e: { content: { text?: string } }[]) => e[0].content.text ?? '',
-      ),
+      messageExamples,
     }
   }
 
@@ -358,11 +365,11 @@ export class AgentService {
       }
       if (updates.tradingStrategy !== undefined) {
         const existingTopics = character.topics ?? []
-        const topics = existingTopics.filter(
+        const filteredTopics = existingTopics.filter(
           (t: string) => !t.toLowerCase().includes('trading'),
         )
-        topics.push(updates.tradingStrategy)
-        character.topics = topics
+        filteredTopics.push(updates.tradingStrategy)
+        character.topics = filteredTopics
       }
       setClauses.push('character = ?')
       params.push(JSON.stringify(character))
@@ -510,9 +517,9 @@ export class AgentService {
       message: `Deducted ${amount} points: ${reason}`,
       metadata: {
         reason,
+        relatedId: relatedId ?? null,
         amount,
-        balanceAfter: Number(newBalance),
-        ...(relatedId && { relatedId }),
+        balanceAfter: newBalance,
       },
     })
 

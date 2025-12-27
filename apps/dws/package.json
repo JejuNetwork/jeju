@@ -5,7 +5,8 @@
   "type": "module",
   "main": "api/index.ts",
   "exports": {
-    ".": "./api/index.ts"
+    ".": "./api/index.ts",
+    "./api/utils/event-emitter": "./api/utils/event-emitter.ts"
   },
   "scripts": {
     "dev": "concurrently \"bun run scripts/dev-frontend.ts\" \"bun run api/server/index.ts\"",
@@ -22,6 +23,7 @@
     "cockatiel": "^3.2.1",
     "@elysiajs/cors": "^1.4.0",
     "@elysiajs/eden": "^1.4.5",
+    "@jejunetwork/api": "workspace:*",
     "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",

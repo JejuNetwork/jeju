@@ -128,16 +128,15 @@ export async function checkReputation(
         }
       }
 
-      // Get moderation reputation
-      const modRep = await client.readContract({
+      // Get moderation reputation - returns tuple, index 4 is reputationScore
+      const modRepTuple = await client.readContract({
         address: moderationAddress,
         abi: MODERATION_ABI,
         functionName: 'moderatorReputation',
         args: [address],
       })
-      // modRep is a tuple: [successfulBans, unsuccessfulBans, ..., reputationScore, ...]
-      // reputationScore is at index 4
-      const reputationScore = modRep[4]
+      // moderatorReputation returns: (successfulBans, unsuccessfulBans, totalSlashedFrom, totalSlashedOthers, reputationScore, ...)
+      const reputationScore = modRepTuple[4]
       if (reputationScore > 0n) {
         aggregatedScore = Number(reputationScore)
       }
@@ -157,16 +156,15 @@ export async function checkReputation(
   // Get aggregated reputation if registry is configured
   if (reputationAddress) {
     try {
-      const reputation = await client.readContract({
+      // getAggregatedReputation returns: (score, scores[], weights[], providerCount, isValid)
+      const reputationTuple = await client.readContract({
         address: reputationAddress,
         abi: REPUTATION_REGISTRY_ABI,
         functionName: 'getAggregatedReputation',
         args: [address],
       })
+      const [score, , , , isValid] = reputationTuple
 
-      // reputation is a tuple: [score, scores[], weights[], providerCount, isValid]
-      const isValid = reputation[4]
-      const score = reputation[0]
       if (isValid && score > 0n) {
         // Combine with moderation score (weighted average: 40% moderation, 60% reputation)
         aggregatedScore = Math.floor(

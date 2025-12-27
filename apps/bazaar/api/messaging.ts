@@ -243,7 +243,7 @@ class BazaarMessagingService {
       return cached.profile
     }
 
-    const profile = await this.hubClient.getProfile(fid).catch(() => null)
+    const profile = await this.hubClient.getProfile(fid)
     if (profile) {
       profileCache.set(fid, { profile, cachedAt: Date.now() })
     }

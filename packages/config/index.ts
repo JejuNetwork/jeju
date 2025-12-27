@@ -2026,6 +2026,16 @@ export function getJejuMainnetHyperlaneIgp(): string {
 
 // Branding Config
 
+// App Config Injection
+export {
+  createAppConfig,
+  getEnvBool,
+  getEnvNumber,
+  getEnvVar,
+  getNodeEnv,
+  isDevelopmentEnv,
+  isTestEnv,
+} from './app-config'
 export {
   clearBrandingCache,
   generateForkBranding,

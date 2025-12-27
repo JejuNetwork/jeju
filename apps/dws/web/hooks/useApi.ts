@@ -165,6 +165,73 @@ export function useCDNStats() {
   })
 }
 
+export function useStorageAnalytics() {
+  return useQuery({
+    queryKey: ['storage-analytics'],
+    queryFn: () =>
+      fetchApi<{
+        global: {
+          totalStorageBytes: number
+          totalBandwidthBytes24h: number
+          totalRequests24h: number
+          totalUploads24h: number
+          totalDownloads24h: number
+          activeNodes: number
+          activeUsers: number
+          contentCount: number
+          avgResponseTimeMs: number
+          errorRate: number
+        }
+        performance: {
+          p50LatencyMs: number
+          p95LatencyMs: number
+          p99LatencyMs: number
+          cacheHitRate: number
+        }
+        costs: {
+          storageCost24h: string
+          bandwidthCost24h: string
+          totalCost24h: string
+          projectedMonthlyCost: string
+        }
+        trends: {
+          storageGrowthRate: number
+          bandwidthTrend: number
+          requestTrend: number
+          costTrend: number
+        }
+        backends: Array<{
+          backend: string
+          storageBytes: number
+          contentCount: number
+          requests24h: number
+          bandwidth24h: number
+          avgLatencyMs: number
+          successRate: number
+          status: 'healthy' | 'degraded' | 'down'
+        }>
+        regions: Array<{
+          region: string
+          nodeCount: number
+          storageBytes: number
+          bandwidth24h: number
+          requests24h: number
+          avgLatencyMs: number
+        }>
+        topContent: Array<{
+          cid: string
+          name: string
+          requests24h: number
+          bandwidth24h: number
+          tier: string
+          category: string
+          trendDirection: 'up' | 'down' | 'stable'
+        }>
+      }>('/storage/analytics'),
+    refetchInterval: 60000, // Refresh every minute
+  })
+}
+
 // Compute hooks
 
 export function useJobs() {

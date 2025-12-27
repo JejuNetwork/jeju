@@ -82,30 +82,23 @@ This document tracks Node.js dependencies that are incompatible with workerd/V8 
 
 ### 1. Node.js HTTP Servers (apps/node - Node Service)
 **Files with Node.js http/https servers:**
-- `apps/node/api/lib/services/static-assets.ts` - Uses `http.createServer()`
-- `apps/node/api/lib/services/residential-proxy.ts` - Uses `http.createServer()`
-- `apps/node/api/lib/services/edge-coordinator.ts` - Uses `node:http`
+- `apps/node/api/lib/services/static-assets.ts` - ✅ Converted to Fetch API handler
+- `apps/node/api/lib/services/residential-proxy.ts` - ✅ Converted to Fetch API handler
+- `apps/node/api/lib/services/edge-coordinator.ts` - ✅ Converted to Fetch API handler
 
-**Status**: These are in `apps/node` which is a separate Node.js service (not a DWS worker). They can remain as-is since they run on the DWS node itself, not in workerd isolates.
-
-**Note**: If `apps/node` needs to be deployed as a DWS worker, these must be converted to Fetch API handlers.
+**Status**: ✅ All converted to Fetch API handlers for workerd compatibility. These services can now run in workerd workers if needed.
 
 ### 2. SMTP Server (Protocol Server)
 **Files:**
 - `apps/dws/src/email/smtp.ts` - Uses `node:net`, `node:tls` for SMTP protocol server
 
-**Status**: SMTP is a protocol-level server (not HTTP). This would require a different approach:
-- Option 1: Use DWS exec API to spawn an external SMTP server
-- Option 2: Convert to HTTP-based submission (SMTP over HTTP)
-- Option 3: Use a workerd-compatible TCP server if available
-
-**Recommendation**: Keep as-is for now, or convert to HTTP-based submission endpoint.
+**Status**: ⚠️ SMTP is a protocol-level server (not HTTP) which requires TCP/TLS sockets not available in workerd. This service MUST run on the DWS node itself, not in a workerd worker. The file has been annotated with this requirement.
 
 ### 3. DNS Server
 **Files:**
-- `apps/dws/src/dns/upstream.ts` - Uses `node:dgram` for DNS
+- `apps/dws/src/dns/upstream.ts` - ❌ File not found (may have been removed)
 
-**Status**: DNS protocol server. Would need DNS-over-HTTPS or DWS exec API approach.
+**Status**: ✅ DNS already uses DNS-over-HTTPS (DoH) via HTTP endpoints in `apps/dws/api/dns/routes.ts` and `apps/dws/api/dns/doh-server.ts`. No dgram usage found.
 
 ### 2. Node.js crypto (Advanced Functions)
 **Files using advanced Node.js crypto:**
@@ -119,18 +112,58 @@ This document tracks Node.js dependencies that are incompatible with workerd/V8 
 - Can remain as-is if they run on DWS node
 - If needed in workerd, would require Web Crypto API SubtleCrypto implementation
 
-### 3. process.env Usage
-**Status**: ⚠️ Widespread usage across all apps
+### 3. process.env Usage → Config Injection
+**Status**: ✅ In Progress - Pattern Established
 
 **Analysis**: 
 - `process.env` is supported in workerd (via environment variables)
 - However, best practice is to use config injection for workers
-- Most current usage is in server-side code (OK) or build scripts (OK)
+- Config injection provides better testability and workerd compatibility
+
+**Solution**: Created `packages/config/app-config.ts` with utilities:
+- `createAppConfig<T>()` - Creates config injection system
+- `getEnvVar()`, `getEnvBool()`, `getEnvNumber()` - Safe env var access
+- `isProductionEnv()`, `isDevelopmentEnv()`, `isTestEnv()` - Environment helpers
+
+**Files Updated**:
+- `apps/dws/api/server/index.ts` - Added `DwsServerConfig` and `configureDwsServer()`
+- `apps/dws/api/storage/webtorrent-backend.ts` - Added `WebTorrentConfig` and `configureWebTorrentBackend()`
+- `apps/dws/api/workers/workerd/executor.ts` - Added `WorkerdConfig` and `configureWorkerd()`
+- `apps/dws/api/workers/workerd/types.ts` - Updated to use injected config
+- `apps/dws/src/cdn/app-registry.ts` - Added `configureAppRegistry()`
+- `apps/dws/src/cdn/stats/node-reporter.ts` - Added `NodeReporterConfig` and `configureNodeReporter()`
+- `apps/dws/src/email/imap.ts` - Added `configureIMAPServer()`
+- `apps/dws/api/infrastructure/k3s-provider.ts` - Added `K3sProviderConfig` and `configureK3sProvider()`
+- `apps/dws/api/infrastructure/service-mesh.ts` - Added `ServiceMeshConfig` and `configureServiceMesh()`
+- `apps/dws/src/cdn/edge/index.ts` - Added `EdgeNodeStartConfig` and `configureEdgeNode()`
+- `apps/factory/api/db/encryption.ts` - Added `EncryptionConfig` and `configureEncryption()`
+
+**Pattern**:
+```typescript
+// Define config interface
+export interface MyServiceConfig {
+  apiUrl: string
+  privateKey?: string
+}
+
+// Create config with defaults
+let serviceConfig: MyServiceConfig = {
+  apiUrl: 'http://localhost:3000',
+}
+
+// Export configure function
+export function configureMyService(config: Partial<MyServiceConfig>): void {
+  serviceConfig = { ...serviceConfig, ...config }
+}
+
+// Use config (with fallback to process.env for backward compatibility)
+const apiUrl = serviceConfig.apiUrl ?? getEnvVar('API_URL') ?? process.env.API_URL
+```
 
 **Recommendation**:
-- Server-side code: Keep `process.env` usage
-- Worker code: Use config injection pattern (see `k3s-provider.ts` for example)
-- Build scripts: Keep as-is (run outside workerd)
+- Worker code: Use config injection pattern
+- Server-side code: Can use config injection or `process.env` (both supported)
+- Build scripts: Keep `process.env` as-is (run outside workerd)
 
 ### 4. Static File Reads
 **Files reading static files:**
@@ -263,6 +296,14 @@ const value = process.env.MY_CONFIG
 
 **After (for workers):**
 ```typescript
+import { getEnvVar, createAppConfig } from '@jejunetwork/config'
+
+// Option 1: Using createAppConfig helper
+const { config, configure } = createAppConfig<MyConfig>({
+  myConfig: 'default',
+})
+
+// Option 2: Manual pattern (for more control)
 interface MyConfig {
   myConfig: string
 }
@@ -270,6 +311,9 @@ let config: MyConfig = { myConfig: 'default' }
 export function configureMyService(c: Partial<MyConfig>): void {
   config = { ...config, ...c }
 }
+
+// Usage (with fallback to process.env for backward compatibility)
+const value = config.myConfig ?? getEnvVar('MY_CONFIG') ?? process.env.MY_CONFIG
 ```
 
 ### Pattern 5: Compression (zlib)
@@ -313,8 +357,11 @@ async function gzip(data: Uint8Array): Promise<Uint8Array> {
 6. ✅ Replaced `crypto.timingSafeEqual()` with constant-time XOR comparison
 7. ✅ Replaced `node:zlib` with Web CompressionStream API (batch-processor, git pack/object-store)
 8. ✅ Replaced `node:util.promisify` with direct async/await patterns
-9. ✅ Converted Node.js HTTP servers to Fetch API handlers (node-reporter, executor)
+9. ✅ Converted Node.js HTTP servers to Fetch API handlers (node-reporter, executor, static-assets, residential-proxy, edge-coordinator)
 10. ✅ Converted `child_process.spawn()` and `Bun.spawn()` to DWS exec API (IMAP, executor)
+11. ✅ Converted factory encryption crypto to Web Crypto API and @noble/hashes
+12. ✅ Converted VPN exit crypto to @noble/ciphers (with fallback for DWS node)
+13. ✅ Converted CDN SDK file collection to DWS exec API
 
 ### Server-Side Services (OK to use Node.js APIs):
 - `apps/node` - Node service (runs on DWS node)

@@ -36,7 +36,7 @@
     "zod": "4.2.1"
   },
   "optionalDependencies": {
-    "@nicememes/capacitor-secure-storage-plugin": "^1.1.0"
+    "capacitor-secure-storage-plugin": "^0.10.0"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

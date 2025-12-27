@@ -413,7 +413,7 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
 
   private async tryNativeKeychain(): Promise<boolean> {
     if (!this.useNativeKeychain) return false
-    // Check if SecureStoragePlugin is available (from @nicememes/capacitor-secure-storage-plugin)
+    // Check if SecureStoragePlugin is available (from capacitor-secure-storage-plugin)
     // This plugin uses iOS Keychain and Android EncryptedSharedPreferences
     if (typeof window === 'undefined' || !('Capacitor' in window)) {
       return false
@@ -509,14 +509,16 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first (iOS Keychain / Android Keystore)
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
-      const result = await SecureStoragePlugin.get({ key: this.prefix + key })
-      if (result.value) {
+      // capacitor-secure-storage-plugin throws if key doesn't exist
+      try {
+        const result = await SecureStoragePlugin.get({ key: this.prefix + key })
         // Native keychain handles biometrics natively
         return result.value
+      } catch {
+        return null
       }
-      return null
     }
 
     // Fallback: Use encrypted Preferences
@@ -561,7 +563,7 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
       await SecureStoragePlugin.set({ key: this.prefix + key, value })
       return
@@ -593,7 +595,7 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
       await SecureStoragePlugin.remove({ key: this.prefix + key })
       return
@@ -608,10 +610,14 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     // Try native keychain first
     if (await this.tryNativeKeychain()) {
       const { SecureStoragePlugin } = await import(
-        '@nicememes/capacitor-secure-storage-plugin'
+        'capacitor-secure-storage-plugin'
       )
-      const result = await SecureStoragePlugin.get({ key: this.prefix + key })
-      return result.value !== undefined && result.value !== null
+      try {
+        await SecureStoragePlugin.get({ key: this.prefix + key })
+        return true
+      } catch {
+        return false
+      }
     }
 
     // Fallback: Check Preferences

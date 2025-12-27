@@ -1,7 +1,11 @@
-// Workerd-compatible: Uses Web Crypto API and DWS exec API
+// Workerd-compatible: Uses WorkerdEventEmitter
+// IMPORTANT: VPN exit service requires UDP sockets (dgram) and TUN devices which are NOT available in workerd
+// This service MUST run on the DWS node itself, not in a workerd worker
+// Protocol-level networking (UDP, TUN) requires system-level access
+
 import { WorkerdEventEmitter } from '@jejunetwork/dws/api/utils/event-emitter'
 
-// DWS Exec API for process spawning
+// DWS Exec API for process spawning (for TUN device management)
 interface ExecResult {
   exitCode: number
   stdout: string
@@ -30,10 +34,16 @@ async function _exec(
   return response.json() as Promise<ExecResult>
 }
 
-// Note: dgram and net are protocol-level APIs. For workerd compatibility:
-// - DNS operations should use DNS-over-HTTPS
-// - TCP/UDP operations should use DWS exec API to spawn external processes
-// - Or convert to HTTP-based protocols
+// Note: dgram and net are protocol-level APIs not available in workerd
+// VPN service uses these and MUST run on DWS node
+// For workerd compatibility, VPN would need to:
+// - Use DWS exec API to spawn WireGuard processes
+// - Or convert to HTTP-based VPN protocol
+
+// Import dgram and net - these are available on DWS node but not in workerd workers
+// VPN service MUST run on DWS node, not in workerd
+import * as dgram from 'node:dgram'
+import * as net from 'node:net'
 import { bytesToHex, createHash, randomBytes } from '@jejunetwork/shared'
 import { expectAddress, isPlainObject } from '@jejunetwork/types'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
@@ -1254,58 +1264,62 @@ const BLAKE2s = {
   },
 }
 
-// Workerd-compatible ChaCha20-Poly1305 using @noble/ciphers
-// Note: VPN exit service requires UDP sockets and TUN devices which aren't available in workerd
-// This service should run on the DWS node itself, not in a workerd worker
-let chacha20Poly1305: typeof import('@noble/ciphers/chacha') | null = null
+// ChaCha20-Poly1305 for WireGuard
+// IMPORTANT: VPN exit service MUST run on DWS node (not in workerd) because it requires:
+// - UDP sockets (dgram) - not available in workerd
+// - TUN devices - not available in workerd
+// - Protocol-level networking - not available in workerd
+// This crypto code runs on DWS node where node:crypto is available
 
-async function loadChaCha20Poly1305() {
-  if (!chacha20Poly1305) {
-    const mod = await import('@noble/ciphers/chacha')
-    chacha20Poly1305 = mod
-  }
-  return chacha20Poly1305
-}
+// Import node:crypto (available on DWS node, not in workerd workers)
+// VPN service runs on DWS node, so this is safe
+import { createCipheriv, createDecipheriv } from 'node:crypto'
 
 const ChaCha20Poly1305 = {
-  async encrypt(
+  encrypt(
     key: Uint8Array,
     nonce: Uint8Array,
     plaintext: Uint8Array,
     aad: Uint8Array = new Uint8Array(0),
-  ): Promise<Uint8Array> {
-    // Use @noble/ciphers for workerd compatibility
-    // Fallback to node:crypto if @noble/ciphers not available
-    try {
-      const chacha = await loadChaCha20Poly1305()
-      // @noble/ciphers chacha20-poly1305 implementation
-      // Note: This is a simplified version - full WireGuard compatibility may require native crypto
-      const cipher = chacha.chacha20poly1305(key, nonce)
-      const encrypted = cipher.encrypt(plaintext, aad)
-      return encrypted
-    } catch {
-      // Fallback: VPN service should run on DWS node with native crypto support
-      // This is a protocol-level service that requires system-level networking
-      throw new Error(
-        'ChaCha20-Poly1305 requires native crypto support. VPN exit service must run on DWS node.',
-      )
-    }
+  ): Uint8Array {
+    const cipher = createCipheriv(
+      'chacha20-poly1305',
+      Buffer.from(key),
+      Buffer.from(nonce),
+      { authTagLength: 16 },
+    )
+    cipher.setAAD(Buffer.from(aad), { plaintextLength: plaintext.length })
+    const encrypted = cipher.update(Buffer.from(plaintext))
+    cipher.final()
+    const tag = cipher.getAuthTag()
+    const result = new Uint8Array(encrypted.length + tag.length)
+    result.set(new Uint8Array(encrypted), 0)
+    result.set(new Uint8Array(tag), encrypted.length)
+    return result
   },
 
-  async decrypt(
+  decrypt(
     key: Uint8Array,
     nonce: Uint8Array,
     ciphertext: Uint8Array,
     aad: Uint8Array = new Uint8Array(0),
-  ): Promise<Uint8Array | null> {
+  ): Uint8Array | null {
     if (ciphertext.length < TAG_SIZE) return null
+    const encrypted = ciphertext.subarray(0, ciphertext.length - TAG_SIZE)
+    const tag = ciphertext.subarray(ciphertext.length - TAG_SIZE)
+    const decipher = createDecipheriv(
+      'chacha20-poly1305',
+      Buffer.from(key),
+      Buffer.from(nonce),
+      { authTagLength: 16 },
+    )
+    decipher.setAAD(Buffer.from(aad), { plaintextLength: encrypted.length })
+    decipher.setAuthTag(Buffer.from(tag))
     try {
-      const chacha = await loadChaCha20Poly1305()
-      const cipher = chacha.chacha20poly1305(key, nonce)
-      const decrypted = cipher.decrypt(ciphertext, aad)
-      return decrypted
+      const decrypted = decipher.update(Buffer.from(encrypted))
+      decipher.final()
+      return new Uint8Array(decrypted)
     } catch {
-      // Fallback: VPN service should run on DWS node
       return null
     }
   },

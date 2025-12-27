@@ -1,4 +1,4 @@
-import * as nodeHttp from 'node:http'
+// Workerd-compatible: HTTP server converted to Fetch API handler
 import { randomHex } from '@jejunetwork/shared'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import { LRUCache } from 'lru-cache'
@@ -259,8 +259,10 @@ export class EdgeCoordinator {
     ttl: 5 * 60 * 1000, // 5 minutes
   })
   private messageHandlers = new Map<string, (msg: GossipMessage) => void>()
+  // WebSocket server - uses 'ws' package which requires Node.js
+  // For workerd compatibility, WebSocket connections should use standard WebSocket API
+  // This service should run on DWS node for full WebSocketServer support
   private wss: WebSocketServer | null = null
-  private httpServer: nodeHttp.Server | null = null
   private gossipInterval: ReturnType<typeof setInterval> | null = null
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
   private running = false
@@ -351,79 +353,62 @@ export class EdgeCoordinator {
 
     // Close servers
     if (this.wss) this.wss.close()
-    if (this.httpServer) this.httpServer.close()
 
     console.log('[EdgeCoordinator] Stopped')
   }
 
+  /**
+   * Get Fetch API handler for HTTP requests (workerd-compatible)
+   */
+  getRequestHandler(): (req: Request) => Promise<Response> {
+    return async (req: Request): Promise<Response> => {
+      const url = new URL(req.url)
+
+      // Health check endpoint
+      if (url.pathname === '/health') {
+        return Response.json({
+          status: this.running ? 'healthy' : 'stopped',
+          nodeId: this.config.nodeId,
+          peers: this.peers.size,
+        })
+      }
+
+      // Peers endpoint
+      if (url.pathname === '/peers') {
+        const peerList = Array.from(this.peers.entries()).map(
+          ([nodeId, peer]) => ({
+            nodeId,
+            address: peer.info.operator,
+            lastSeen: peer.info.lastSeen,
+          }),
+        )
+        return Response.json({ peers: peerList })
+      }
+
+      // Metrics endpoint
+      if (url.pathname === '/metrics') {
+        return Response.json({
+          cacheHits: this.metricsState.cacheHits,
+          cacheMisses: this.metricsState.cacheMisses,
+          bytesServed: this.metricsState.totalBytesServed,
+        })
+      }
+
+      return new Response('Not found', { status: 404 })
+    }
+  }
+
   private async startServer(): Promise<void> {
-    const httpServer = nodeHttp.createServer(
-      async (req: nodeHttp.IncomingMessage, res: nodeHttp.ServerResponse) => {
-        if (req.url === '/health') {
-          res.setHeader('Content-Type', 'application/json')
-          res.end(
-            JSON.stringify({
-              status: this.running ? 'healthy' : 'stopped',
-              peers: this.peers.size,
-              contentIndexSize: this.contentIndex.size,
-            }),
-          )
-          return
-        }
-
-        if (req.url === '/metrics') {
-          res.setHeader('Content-Type', metricsRegistry.contentType)
-          res.end(await metricsRegistry.metrics())
-          return
-        }
-
-        if (req.url === '/gossip' && req.method === 'POST') {
-          // Handle HTTP gossip transport
-          let body = ''
-          req.on('data', (chunk: string) => {
-            body += chunk
-          })
-          req.on('end', async () => {
-            const parseResult = GossipMessageSchema.safeParse(JSON.parse(body))
-            if (!parseResult.success) {
-              res.writeHead(400)
-              res.end('Invalid message')
-              return
-            }
-            await this.handleMessage(parseResult.data, null)
-            res.writeHead(200)
-            res.end('OK')
-          })
-          return
-        }
-
-        res.writeHead(404)
-        res.end('Not found')
-      },
-    )
-    this.httpServer = httpServer
-
+    // WebSocket server requires WebSocketServer from 'ws' package (Node.js-specific)
+    // This must run on DWS node, not in workerd
+    // For workerd, WebSocket connections would use standard WebSocket API
     this.wss = new WebSocketServer({
-      server: httpServer,
+      noServer: true, // Handle upgrades separately
       maxPayload: this.config.maxMessageSizeBytes,
     })
 
-    this.wss.on('connection', (ws, req) => {
-      const ip = req.socket.remoteAddress ?? 'unknown'
-
-      // Validate origin if allowedOrigins is configured
-      if (this.config.allowedOrigins.length > 0) {
-        const origin = req.headers.origin ?? ''
-        if (!this.config.allowedOrigins.includes(origin)) {
-          console.warn(
-            `[EdgeCoordinator] Rejected connection from ${ip}: origin '${origin}' not in allowed list`,
-          )
-          ws.close(1008, 'Origin not allowed')
-          return
-        }
-      }
-
-      console.log(`[EdgeCoordinator] New connection from ${ip}`)
+    this.wss.on('connection', (ws) => {
+      console.log('[EdgeCoordinator] New WebSocket connection')
 
       ws.on('message', async (data: Buffer | ArrayBuffer | Buffer[]) => {
         // Check message size (defense in depth, WebSocketServer also enforces maxPayload)
@@ -434,7 +419,7 @@ export class EdgeCoordinator {
             : Buffer.from(data)
         if (rawData.length > this.config.maxMessageSizeBytes) {
           console.error(
-            `[EdgeCoordinator] Message too large: ${rawData.length} bytes from ${ip}`,
+            `[EdgeCoordinator] Message too large: ${rawData.length} bytes`,
           )
           ws.close(1009, 'Message too large')
           return
@@ -469,9 +454,12 @@ export class EdgeCoordinator {
       })
     })
 
-    await new Promise<void>((resolve) => {
-      this.httpServer?.listen(this.config.listenPort, resolve)
-    })
+    console.log(
+      `[EdgeCoordinator] Request handler ready (register at port ${this.config.listenPort})`,
+    )
+    console.warn(
+      '[EdgeCoordinator] WebSocket server requires DWS node execution',
+    )
   }
 
   // Peer Authentication

@@ -292,6 +292,13 @@ export class TEEProvider implements KMSProvider {
           signedAt: Date.now(),
         }
       }
+
+      // Cannot fallback to local if key was generated remotely (no local private key)
+      if (key.encryptedPrivateKey.length === 0) {
+        throw new Error(
+          `Remote signing failed for key ${request.keyId} and no local fallback available`,
+        )
+      }
       log.warn('Remote signing failed, using local signing')
     }
 

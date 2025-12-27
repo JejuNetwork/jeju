@@ -35,7 +35,20 @@ interface ExecResult {
   stderr: string
 }
 
-const execUrl = process.env.DWS_EXEC_URL ?? 'http://localhost:4020/exec'
+// Config injection for workerd compatibility
+export interface CDNSDKConfig {
+  execUrl: string
+}
+
+let sdkConfig: CDNSDKConfig = {
+  execUrl: 'http://localhost:4020/exec',
+}
+
+export function configureCDNSDK(config: Partial<CDNSDKConfig>): void {
+  sdkConfig = { ...sdkConfig, ...config }
+}
+
+const execUrl = sdkConfig.execUrl
 
 async function exec(
   command: string[],

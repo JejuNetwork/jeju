@@ -110,8 +110,9 @@ const fileRegistry = new Map<string, HFModelFile>() // oid -> file info
 /**
  * Parse model ID from path
  * Supports: org/model, model (default org), org/model/revision
+ * @internal Reserved for future use
  */
-function _parseModelPath(path: string): {
+function parseModelPath(path: string): {
   org: string
   model: string
   revision: string
@@ -134,6 +135,7 @@ function _parseModelPath(path: string): {
 
   throw new Error('Invalid model path')
 }
+void parseModelPath
 
 /**
  * Generate SHA256 hash for content
@@ -154,8 +156,9 @@ size ${size}
 
 /**
  * Parse Git LFS pointer
+ * @internal Reserved for future use
  */
-function _parseLFSPointer(
+function parseLFSPointer(
   content: string,
 ): { oid: string; size: number } | null {
   const oidMatch = content.match(/oid sha256:([a-f0-9]{64})/)
@@ -168,6 +171,7 @@ function _parseLFSPointer(
     size: parseInt(sizeMatch[1], 10),
   }
 }
+void parseLFSPointer
 
 /**
  * Get IPFS client URL from environment
@@ -182,8 +186,14 @@ function getIPFSUrl(): string {
 async function uploadToIPFS(content: Uint8Array): Promise<string> {
   const ipfsUrl = getIPFSUrl()
 
+  // Convert Uint8Array to ArrayBuffer to satisfy BlobPart type
+  const buffer = content.buffer.slice(
+    content.byteOffset,
+    content.byteOffset + content.byteLength,
+  ) as ArrayBuffer
+
   const formData = new FormData()
-  formData.append('file', new Blob([content]))
+  formData.append('file', new Blob([buffer]))
 
   const response = await fetch(`${ipfsUrl}/api/v0/add?cid-version=1`, {
     method: 'POST',
@@ -308,8 +318,8 @@ export function createHuggingFaceRouter() {
       // LFS Batch API (main endpoint for downloads/uploads)
       .post(
         '/:org/:model/info/lfs/objects/batch',
-        async ({ params, body, set }) => {
-          const _modelId = `${params.org}/${params.model}`
+        async ({ params, body }) => {
+          void `${params.org}/${params.model}` // modelId reserved for future use
           const request = body as HFLFSBatchRequest
 
           const response: HFLFSBatchResponse = {
@@ -384,7 +394,13 @@ export function createHuggingFaceRouter() {
 
         const content = await downloadFromIPFS(fileInfo.ipfsCid)
 
-        return new Response(content, {
+        // Convert Uint8Array to ArrayBuffer for Response body
+        const buffer = content.buffer.slice(
+          content.byteOffset,
+          content.byteOffset + content.byteLength,
+        ) as ArrayBuffer
+
+        return new Response(buffer, {
           headers: {
             'Content-Type': 'application/octet-stream',
             'Content-Length': String(fileInfo.size),
@@ -394,34 +410,28 @@ export function createHuggingFaceRouter() {
       })
 
       // LFS Object Upload
-      .put(
-        '/lfs/:oid',
-        async ({ params, body, set }) => {
-          const content = new Uint8Array(body as ArrayBuffer)
-          const computedOid = sha256(content)
+      .put('/lfs/:oid', async ({ params, body, set }) => {
+        const content = new Uint8Array(body as ArrayBuffer)
+        const computedOid = sha256(content)
 
-          if (computedOid !== params.oid) {
-            set.status = 400
-            return { error: 'SHA256 mismatch' }
-          }
+        if (computedOid !== params.oid) {
+          set.status = 400
+          return { error: 'SHA256 mismatch' }
+        }
 
-          const ipfsCid = await uploadToIPFS(content)
+        const ipfsCid = await uploadToIPFS(content)
 
-          fileRegistry.set(params.oid, {
-            filename: '', // Will be set when model is registered
-            size: content.length,
-            sha256: params.oid,
-            ipfsCid,
-            lfsPointer: generateLFSPointer(params.oid, content.length),
-          })
+        fileRegistry.set(params.oid, {
+          filename: '', // Will be set when model is registered
+          size: content.length,
+          sha256: params.oid,
+          ipfsCid,
+          lfsPointer: generateLFSPointer(params.oid, content.length),
+        })
 
-          set.status = 200
-          return { success: true, ipfsCid }
-        },
-        {
-          type: 'arrayBuffer',
-        },
-      )
+        set.status = 200
+        return { success: true, ipfsCid }
+      })
 
       // === File Download (non-LFS) ===
 
@@ -452,7 +462,13 @@ export function createHuggingFaceRouter() {
         else if (filePath.endsWith('.txt')) contentType = 'text/plain'
         else if (filePath.endsWith('.md')) contentType = 'text/markdown'
 
-        return new Response(content, {
+        // Convert Uint8Array to ArrayBuffer for Response body
+        const buffer = content.buffer.slice(
+          content.byteOffset,
+          content.byteOffset + content.byteLength,
+        ) as ArrayBuffer
+
+        return new Response(buffer, {
           headers: {
             'Content-Type': contentType,
             'Content-Length': String(fileInfo.size),
@@ -467,7 +483,7 @@ export function createHuggingFaceRouter() {
       // Register/update a model
       .post(
         '/api/models/:org/:model',
-        async ({ params, body, set }) => {
+        async ({ params, body }) => {
           const modelId = `${params.org}/${params.model}`
 
           const config: HFModelConfig = {
@@ -518,62 +534,56 @@ export function createHuggingFaceRouter() {
       )
 
       // Upload a file to a model
-      .post(
-        '/:org/:model/upload/:revision/*',
-        async ({ params, body, set }) => {
-          const modelId = `${params.org}/${params.model}`
-          const filePath = params['*']
-          const content = new Uint8Array(body as ArrayBuffer)
+      .post('/:org/:model/upload/:revision/*', async ({ params, body }) => {
+        const modelId = `${params.org}/${params.model}`
+        const filePath = params['*']
+        const content = new Uint8Array(body as ArrayBuffer)
 
-          // Upload to IPFS
-          const ipfsCid = await uploadToIPFS(content)
-          const fileHash = sha256(content)
+        // Upload to IPFS
+        const ipfsCid = await uploadToIPFS(content)
+        const fileHash = sha256(content)
 
-          const fileInfo: HFModelFile = {
-            filename: filePath,
-            size: content.length,
-            sha256: fileHash,
-            ipfsCid,
+        const fileInfo: HFModelFile = {
+          filename: filePath,
+          size: content.length,
+          sha256: fileHash,
+          ipfsCid,
+        }
+
+        // If file is large, use LFS
+        if (content.length > 10 * 1024 * 1024) {
+          fileInfo.lfsPointer = generateLFSPointer(fileHash, content.length)
+        }
+
+        // Update model config
+        let config = modelRegistry.get(modelId)
+        if (!config) {
+          config = {
+            modelId,
+            revision: params.revision,
+            files: [],
+            owner: '0x0000000000000000000000000000000000000000' as Address,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
           }
+        }
 
-          // If file is large, use LFS
-          if (content.length > 10 * 1024 * 1024) {
-            fileInfo.lfsPointer = generateLFSPointer(fileHash, content.length)
-          }
+        // Remove existing file with same name
+        config.files = config.files.filter((f) => f.filename !== filePath)
+        config.files.push(fileInfo)
+        config.updatedAt = Date.now()
 
-          // Update model config
-          let config = modelRegistry.get(modelId)
-          if (!config) {
-            config = {
-              modelId,
-              revision: params.revision,
-              files: [],
-              owner: '0x0000000000000000000000000000000000000000' as Address,
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            }
-          }
+        modelRegistry.set(modelId, config)
+        fileRegistry.set(fileHash, fileInfo)
 
-          // Remove existing file with same name
-          config.files = config.files.filter((f) => f.filename !== filePath)
-          config.files.push(fileInfo)
-          config.updatedAt = Date.now()
-
-          modelRegistry.set(modelId, config)
-          fileRegistry.set(fileHash, fileInfo)
-
-          return {
-            success: true,
-            filename: filePath,
-            size: content.length,
-            sha256: fileHash,
-            ipfsCid,
-          }
-        },
-        {
-          type: 'arrayBuffer',
-        },
-      )
+        return {
+          success: true,
+          filename: filePath,
+          size: content.length,
+          sha256: fileHash,
+          ipfsCid,
+        }
+      })
 
       // === Search API ===
 

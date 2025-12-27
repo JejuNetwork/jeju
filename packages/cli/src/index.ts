@@ -42,6 +42,7 @@ import { serviceCommand } from './commands/service'
 import { setupCommand } from './commands/setup'
 import { startCommand } from './commands/start'
 import { statusCommand } from './commands/status'
+import { storageCommand } from './commands/storage'
 import { superchainCommand } from './commands/superchain'
 import { testCommand } from './commands/test'
 import { tokenCommand } from './commands/token'
@@ -129,6 +130,7 @@ program.addCommand(verifyStage2Command)
 program.addCommand(faucetCommand)
 program.addCommand(botsCommand)
 program.addCommand(vendorCommand)
+program.addCommand(storageCommand)
 
 // Default: show help
 program.action(() => {
@@ -561,6 +563,28 @@ program.action(() => {
   )
   console.log(
     `  ${chalk.cyan(`${cliName} dws pkg-search`)}    Search packages\n`,
+  )
+
+  console.log(chalk.bold('Storage:\n'))
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} storage manifest`) +
+      '        Generate system content manifest',
+  )
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} storage sign-url`) +
+      '        Generate signed URLs',
+  )
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} storage verify`) +
+      '          Verify content with storage proofs',
+  )
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} storage stats`) +
+      '           Show storage analytics\n',
   )
 
   console.log(chalk.bold('Compute:\n'))

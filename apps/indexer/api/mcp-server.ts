@@ -16,6 +16,7 @@ import {
   buildTokenBalancesQuery,
   buildTransactionQuery,
 } from './utils/graphql-utils'
+import { security } from './utils/security'
 import { BadRequestError, NotFoundError } from './utils/types'
 import {
   analyzeTransactionPromptArgsSchema,
@@ -286,6 +287,7 @@ export function createIndexerMCPServer() {
         ? cors({ origin: CORS_ORIGINS, credentials: true })
         : cors(),
     )
+    .use(security({ service: 'indexer-mcp' }))
     .onError(({ error, set }) => {
       const errorMessage =
         error instanceof Error ? error.message : String(error)

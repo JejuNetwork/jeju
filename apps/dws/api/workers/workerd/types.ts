@@ -35,18 +35,42 @@ export interface WorkerdConfig {
   execUrl?: string
 }
 
-export const DEFAULT_WORKERD_CONFIG: WorkerdConfig = {
-  binaryPath: process.env.WORKERD_PATH || '/usr/local/bin/workerd',
-  workDir: process.env.WORKERD_WORK_DIR || '/tmp/dws-workerd',
-  portRange: { min: 30000, max: 35000 },
-  maxIsolatesPerProcess: 50,
-  isolateMemoryMb: 128,
-  requestTimeoutMs: 30000,
-  cpuTimeLimitMs: 50,
-  subrequestLimit: 50,
-  idleTimeoutMs: 300000, // 5 minutes
-  mode: 'pool',
+// Config injection for workerd compatibility
+let workerdGlobalConfig: Partial<WorkerdConfig> | null = null
+
+export function configureWorkerd(config: Partial<WorkerdConfig>): void {
+  workerdGlobalConfig = { ...workerdGlobalConfig, ...config }
 }
+
+export function getDefaultWorkerdConfig(): WorkerdConfig {
+  // Use injected config, fallback to process.env for backwards compatibility
+  const binaryPath =
+    workerdGlobalConfig?.binaryPath ??
+    (typeof process !== 'undefined' && process.env.WORKERD_PATH
+      ? process.env.WORKERD_PATH
+      : '/usr/local/bin/workerd')
+  const workDir =
+    workerdGlobalConfig?.workDir ??
+    (typeof process !== 'undefined' && process.env.WORKERD_WORK_DIR
+      ? process.env.WORKERD_WORK_DIR
+      : '/tmp/dws-workerd')
+
+  return {
+    binaryPath,
+    workDir,
+    portRange: workerdGlobalConfig?.portRange ?? { min: 30000, max: 35000 },
+    maxIsolatesPerProcess: workerdGlobalConfig?.maxIsolatesPerProcess ?? 50,
+    isolateMemoryMb: workerdGlobalConfig?.isolateMemoryMb ?? 128,
+    requestTimeoutMs: workerdGlobalConfig?.requestTimeoutMs ?? 30000,
+    cpuTimeLimitMs: workerdGlobalConfig?.cpuTimeLimitMs ?? 50,
+    subrequestLimit: workerdGlobalConfig?.subrequestLimit ?? 50,
+    idleTimeoutMs: workerdGlobalConfig?.idleTimeoutMs ?? 300000, // 5 minutes
+    mode: workerdGlobalConfig?.mode ?? 'pool',
+    execUrl: workerdGlobalConfig?.execUrl,
+  }
+}
+
+export const DEFAULT_WORKERD_CONFIG: WorkerdConfig = getDefaultWorkerdConfig()
 
 // Worker Definition Types
 

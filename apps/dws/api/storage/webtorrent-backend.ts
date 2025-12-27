@@ -201,22 +201,8 @@ export class WebTorrentBackend extends WorkerdEventEmitter {
       this.s3 = new S3Backend(storageBackend)
     }
 
-    // Load config from environment (Bun auto-loads .env)
-    if (process.env.WEBTORRENT_TRACKERS) {
-      this.config.trackers = process.env.WEBTORRENT_TRACKERS.split(',')
-    }
-    if (process.env.WEBTORRENT_MAX_CACHE_GB) {
-      this.config.maxCacheSizeGB = parseInt(
-        process.env.WEBTORRENT_MAX_CACHE_GB,
-        10,
-      )
-    }
-    if (process.env.WEBTORRENT_SYSTEM_BW_MBPS) {
-      this.config.systemContentBandwidthMbps = parseInt(
-        process.env.WEBTORRENT_SYSTEM_BW_MBPS,
-        10,
-      )
-    }
+    // Config injection for workerd compatibility
+    // Note: Environment variables can still be used via configureWebTorrentBackend
   }
 
   /** Initialize storage bucket */
@@ -851,6 +837,15 @@ export class WebTorrentBackend extends WorkerdEventEmitter {
   }
 }
 
+// Config injection for workerd compatibility
+let globalWebTorrentEnvConfig: Partial<WebTorrentConfig> | null = null
+
+export function configureWebTorrentBackend(
+  config: Partial<WebTorrentConfig>,
+): void {
+  globalWebTorrentEnvConfig = { ...globalWebTorrentEnvConfig, ...config }
+}
+
 // Factory
 
 let globalWebTorrentBackend: WebTorrentBackend | null = null
@@ -860,7 +855,15 @@ export function getWebTorrentBackend(
   storageBackend?: BackendManager,
 ): WebTorrentBackend {
   if (!globalWebTorrentBackend) {
-    globalWebTorrentBackend = new WebTorrentBackend(config, storageBackend)
+    // Merge injected config with provided config
+    const mergedConfig = {
+      ...globalWebTorrentEnvConfig,
+      ...config,
+    }
+    globalWebTorrentBackend = new WebTorrentBackend(
+      mergedConfig,
+      storageBackend,
+    )
     // Initialize storage bucket asynchronously
     if (storageBackend) {
       globalWebTorrentBackend.initializeStorage().catch((err: Error) => {
