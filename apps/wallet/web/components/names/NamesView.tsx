@@ -2,19 +2,32 @@
  * Names View - JNS Name Service
  */
 
-import { AtSign, CheckCircle, Clock, Search, XCircle } from 'lucide-react'
+import {
+  AtSign,
+  CheckCircle,
+  Clock,
+  ExternalLink,
+  Globe,
+  RefreshCw,
+  Search,
+  Server,
+  Settings,
+  XCircle,
+} from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
   type JNSName,
   type JNSPricing,
+  type JNSResolution,
   jnsService,
 } from '../../../api/services'
+import { useJnsResolver } from '../../hooks/useJnsResolver'
 
 interface NamesViewProps {
   address: string
 }
 
-type TabType = 'search' | 'my-names'
+type TabType = 'search' | 'my-names' | 'resolve' | 'settings'
 
 export function NamesView({ address }: NamesViewProps) {
   const [tab, setTab] = useState<TabType>('search')
@@ -26,10 +39,36 @@ export function NamesView({ address }: NamesViewProps) {
   const [years, setYears] = useState(1)
   const [myPrimaryName, setMyPrimaryName] = useState<string | null>(null)
 
+  // Gateway resolver state
+  const [resolveQuery, setResolveQuery] = useState('')
+  const [gatewayResolution, setGatewayResolution] =
+    useState<JNSResolution | null>(null)
+  const [isResolving, setIsResolving] = useState(false)
+  const [resolveError, setResolveError] = useState('')
+
+  // JNS resolver hook
+  const {
+    settings,
+    isLoading: settingsLoading,
+    gatewayStatus,
+    resolve: resolveViaGateway,
+    updateSettings,
+    clearCache,
+    checkStatus,
+    getRedirectUrl,
+  } = useJnsResolver()
+
   // Fetch primary name on mount
   useEffect(() => {
     jnsService.reverseLookup(address as `0x${string}`).then(setMyPrimaryName)
   }, [address])
+
+  // Check gateway status on mount and when switching to settings tab
+  useEffect(() => {
+    if (tab === 'settings' || tab === 'resolve') {
+      checkStatus()
+    }
+  }, [tab, checkStatus])
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery || searchQuery.length < 3) {
@@ -57,6 +96,36 @@ export function NamesView({ address }: NamesViewProps) {
     setIsSearching(false)
   }, [searchQuery, years])
 
+  const handleGatewayResolve = useCallback(async () => {
+    if (!resolveQuery) {
+      setResolveError('Enter a domain to resolve')
+      return
+    }
+
+    setIsResolving(true)
+    setResolveError('')
+    setGatewayResolution(null)
+
+    const domain = resolveQuery.endsWith('.jeju')
+      ? resolveQuery
+      : `${resolveQuery}.jeju`
+
+    const result = await resolveViaGateway(domain)
+    if (result) {
+      setGatewayResolution(result)
+    } else {
+      setResolveError('Domain not found or resolution failed')
+    }
+
+    setIsResolving(false)
+  }, [resolveQuery, resolveViaGateway])
+
+  const handleOpenResolved = useCallback(() => {
+    if (!gatewayResolution) return
+    const url = getRedirectUrl(gatewayResolution)
+    window.open(url, '_blank')
+  }, [gatewayResolution, getRedirectUrl])
+
   const formatPrice = (price: bigint) => {
     return (Number(price) / 1e18).toFixed(4)
   }
@@ -76,10 +145,12 @@ export function NamesView({ address }: NamesViewProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 justify-center border-b border-border pb-2">
+        <div className="flex gap-2 justify-center border-b border-border pb-2 flex-wrap">
           {[
-            { id: 'search' as const, label: 'Search & Register', icon: Search },
+            { id: 'search' as const, label: 'Register', icon: Search },
+            { id: 'resolve' as const, label: 'Resolve', icon: Globe },
             { id: 'my-names' as const, label: 'My Names', icon: AtSign },
+            { id: 'settings' as const, label: 'Settings', icon: Settings },
           ].map(({ id, label, icon: Icon }) => (
             <button
               type="button"
@@ -300,6 +371,327 @@ export function NamesView({ address }: NamesViewProps) {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Resolve Tab - Gateway Resolution */}
+        {tab === 'resolve' && (
+          <div className="space-y-6">
+            {/* Gateway Status */}
+            <div className="bg-card border border-border rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Gateway Status</h3>
+                <button
+                  type="button"
+                  onClick={checkStatus}
+                  className="p-2 hover:bg-secondary rounded-lg"
+                  title="Refresh status"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-xl">
+                  <Server className="w-5 h-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Local Node</p>
+                    <p className="text-xs text-muted-foreground">
+                      {gatewayStatus?.localDwsLatency
+                        ? `${gatewayStatus.localDwsLatency}ms`
+                        : 'Not checked'}
+                    </p>
+                  </div>
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      gatewayStatus?.localDws === 'online'
+                        ? 'bg-emerald-500'
+                        : 'bg-red-500'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-xl">
+                  <Globe className="w-5 h-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Public Gateway</p>
+                    <p className="text-xs text-muted-foreground">
+                      {gatewayStatus?.publicGatewayLatency
+                        ? `${gatewayStatus.publicGatewayLatency}ms`
+                        : 'Not checked'}
+                    </p>
+                  </div>
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      gatewayStatus?.publicGateway === 'online'
+                        ? 'bg-emerald-500'
+                        : 'bg-red-500'
+                    }`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Lookup */}
+            <div className="bg-card border border-border rounded-2xl p-6">
+              <h3 className="font-semibold mb-4">Resolve Domain</h3>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={resolveQuery}
+                    onChange={(e) =>
+                      setResolveQuery(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9.-]/g, ''),
+                      )
+                    }
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' && handleGatewayResolve()
+                    }
+                    placeholder="example.jeju"
+                    className="w-full px-4 py-3 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGatewayResolve}
+                  disabled={isResolving || !resolveQuery}
+                  className="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium disabled:opacity-50"
+                >
+                  {isResolving ? 'Resolving...' : 'Resolve'}
+                </button>
+              </div>
+
+              {resolveError && (
+                <p className="text-red-400 text-sm mt-2">{resolveError}</p>
+              )}
+            </div>
+
+            {/* Resolution Result */}
+            {gatewayResolution && (
+              <div className="bg-card border border-border rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-6 h-6 text-emerald-400" />
+                    <div>
+                      <h3 className="text-xl font-bold">
+                        {gatewayResolution.domain}
+                      </h3>
+                      <p className="text-emerald-400 text-sm">Resolved</p>
+                    </div>
+                  </div>
+                  {(gatewayResolution.workerEndpoint ||
+                    gatewayResolution.ipfsHash) && (
+                    <button
+                      type="button"
+                      onClick={handleOpenResolved}
+                      className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-xl text-sm"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3 font-mono text-sm">
+                  {gatewayResolution.ipfsHash && (
+                    <div className="flex flex-col gap-1 py-2 border-b border-border">
+                      <span className="text-muted-foreground text-xs">
+                        IPFS Hash
+                      </span>
+                      <span className="break-all">
+                        {gatewayResolution.ipfsHash}
+                      </span>
+                    </div>
+                  )}
+                  {gatewayResolution.workerEndpoint && (
+                    <div className="flex flex-col gap-1 py-2 border-b border-border">
+                      <span className="text-muted-foreground text-xs">
+                        Worker Endpoint
+                      </span>
+                      <span className="break-all">
+                        {gatewayResolution.workerEndpoint}
+                      </span>
+                    </div>
+                  )}
+                  {gatewayResolution.address && (
+                    <div className="flex flex-col gap-1 py-2 border-b border-border">
+                      <span className="text-muted-foreground text-xs">
+                        Address
+                      </span>
+                      <span className="break-all">
+                        {gatewayResolution.address}
+                      </span>
+                    </div>
+                  )}
+                  {gatewayResolution.contenthash && (
+                    <div className="flex flex-col gap-1 py-2 border-b border-border">
+                      <span className="text-muted-foreground text-xs">
+                        Contenthash
+                      </span>
+                      <span className="break-all">
+                        {gatewayResolution.contenthash}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1 py-2">
+                    <span className="text-muted-foreground text-xs">
+                      Resolved via
+                    </span>
+                    <span className="break-all">
+                      {gatewayResolution.resolvedVia}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Info */}
+            <div className="bg-gradient-to-br from-teal-500/10 to-emerald-500/10 border border-teal-500/20 rounded-2xl p-6">
+              <h3 className="font-semibold mb-2">About JNS Resolution</h3>
+              <p className="text-sm text-muted-foreground">
+                The Jeju Name Service (JNS) resolves .jeju domains to content
+                hosted on IPFS or worker endpoints. You can configure your local
+                DWS node in Settings for faster resolution.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Tab */}
+        {tab === 'settings' && (
+          <div className="space-y-6">
+            {settingsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              </div>
+            ) : (
+              <>
+                {/* Enable Toggle */}
+                <div className="bg-card border border-border rounded-2xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">Enable JNS Resolution</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Resolve .jeju domains automatically
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSettings({ enabled: !settings?.enabled })
+                      }
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        settings?.enabled ? 'bg-teal-500' : 'bg-secondary'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          settings?.enabled
+                            ? 'translate-x-6'
+                            : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Prefer Local Toggle */}
+                <div className="bg-card border border-border rounded-2xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">Prefer Local Node</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Use local DWS node when available
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSettings({ preferLocal: !settings?.preferLocal })
+                      }
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        settings?.preferLocal ? 'bg-teal-500' : 'bg-secondary'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          settings?.preferLocal
+                            ? 'translate-x-6'
+                            : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Gateway URLs */}
+                <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                  <h3 className="font-semibold">Gateway URLs</h3>
+
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-2">
+                      Local DWS URL
+                    </label>
+                    <input
+                      type="text"
+                      value={settings?.localDwsUrl ?? ''}
+                      onChange={(e) =>
+                        updateSettings({ localDwsUrl: e.target.value })
+                      }
+                      className="w-full px-4 py-2 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-2">
+                      Public Gateway URL
+                    </label>
+                    <input
+                      type="text"
+                      value={settings?.gatewayUrl ?? ''}
+                      onChange={(e) =>
+                        updateSettings({ gatewayUrl: e.target.value })
+                      }
+                      className="w-full px-4 py-2 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-2">
+                      IPFS Gateway URL
+                    </label>
+                    <input
+                      type="text"
+                      value={settings?.ipfsGateway ?? ''}
+                      onChange={(e) =>
+                        updateSettings({ ipfsGateway: e.target.value })
+                      }
+                      className="w-full px-4 py-2 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Cache Management */}
+                <div className="bg-card border border-border rounded-2xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">Clear Resolution Cache</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Remove cached domain resolutions
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearCache}
+                      className="px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl text-sm"
+                    >
+                      Clear Cache
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

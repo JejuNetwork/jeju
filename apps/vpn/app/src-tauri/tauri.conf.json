@@ -1,55 +1,16 @@
 {
-  "$schema": "https://schema.tauri.app/config/1",
-  "package": {
-    "productName": "Jeju VPN",
-    "version": "0.1.0"
-  },
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Jeju VPN",
+  "version": "0.1.0",
+  "identifier": "network.jeju.vpn",
   "build": {
     "beforeDevCommand": "bun run dev:web",
-    "devPath": "http://localhost:1421",
+    "devUrl": "http://localhost:1421",
     "beforeBuildCommand": "bun run build",
-    "distDir": "../dist"
+    "frontendDist": "../dist"
   },
-  "tauri": {
-    "bundle": {
-      "identifier": "network.jeju.vpn",
-      "active": true,
-      "targets": "all",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "category": "Utility",
-      "shortDescription": "Free, decentralized VPN powered by the community",
-      "longDescription": "Jeju VPN provides free, unlimited VPN access powered by a global network of community nodes. Join thousands of users in creating a more private, open internet.",
-      "appimage": {
-        "bundleMediaFramework": true
-      },
-      "deb": {
-        "depends": [],
-        "desktopTemplate": "desktop-template.desktop"
-      },
-      "macOS": {
-        "minimumSystemVersion": "10.15",
-        "frameworks": [],
-        "exceptionDomain": null,
-        "entitlements": "Entitlements.plist",
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": "",
-        "wix": null
-      }
-    },
-    "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss://*.jejunetwork.org https://*.jejunetwork.org; font-src 'self' data:"
-    },
+  "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Jeju VPN",
@@ -71,51 +32,66 @@
         "alwaysOnTop": false
       }
     ],
-    "systemTray": {
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss://*.jejunetwork.org https://*.jejunetwork.org; font-src 'self' data:"
+    },
+    "trayIcon": {
       "iconPath": "icons/32x32.png",
       "iconAsTemplate": true,
       "menuOnLeftClick": false,
       "title": "Jeju VPN"
-    },
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "Free, decentralized VPN powered by the community",
+    "longDescription": "Jeju VPN provides free, unlimited VPN access powered by a global network of community nodes. Join thousands of users in creating a more private, open internet.",
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
       },
-      "os": {
-        "all": true
-      },
-      "process": {
-        "all": true
-      },
-      "window": {
-        "all": true
-      },
-      "globalShortcut": {
-        "all": true
-      },
-      "notification": {
-        "all": true
-      },
-      "clipboard": {
-        "all": true
+      "deb": {
+        "depends": [],
+        "desktopTemplate": "desktop-template.desktop"
       }
     },
-    "cli": {
-      "description": "Jeju VPN - Decentralized Privacy Network",
-      "args": [
-        {
-          "name": "connect",
-          "short": "c",
-          "description": "Connect to VPN immediately on launch"
-        },
-        {
-          "name": "minimized",
-          "short": "m",
-          "description": "Start minimized to tray"
-        }
-      ]
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "frameworks": [],
+      "exceptionDomain": null,
+      "entitlements": "Entitlements.plist",
+      "providerShortName": null,
+      "signingIdentity": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "iOS": {
+      "developmentTeam": null
+    },
+    "android": {
+      "minSdkVersion": 24
     }
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    },
+    "os": {},
+    "process": {},
+    "notification": {},
+    "clipboard-manager": {},
+    "global-shortcut": {}
   }
 }

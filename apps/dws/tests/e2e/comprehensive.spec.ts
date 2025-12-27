@@ -388,8 +388,10 @@ test.describe('DWS Frontend - All Pages', () => {
         const msg = error.message
         // Skip known bugs that are non-critical for page functionality
         if (
-          msg.includes("Cannot read properties of undefined (reading 'archive')") || // Email page bug
-          msg.includes("Cannot read properties of undefined") // Other undefined access
+          msg.includes(
+            "Cannot read properties of undefined (reading 'archive')",
+          ) || // Email page bug
+          msg.includes('Cannot read properties of undefined') // Other undefined access
         ) {
           console.warn(`   ⚠️ Known bug on page: ${msg}`)
           hasKnownBug = true
@@ -399,8 +401,11 @@ test.describe('DWS Frontend - All Pages', () => {
       })
 
       // Navigate to the page
-      await page.goto(route.path, { waitUntil: 'domcontentloaded', timeout: 30000 })
-      
+      await page.goto(route.path, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+      })
+
       // Wait for page to stabilize
       await page.waitForTimeout(500)
 
@@ -424,8 +429,13 @@ test.describe('DWS Frontend - All Pages', () => {
         await expect(page.locator('body')).toBeVisible({ timeout: 10000 })
       } catch {
         if (hasKnownBug) {
-          console.log(`   ⚠️ Page has known bug affecting visibility - taking screenshot anyway`)
-          const screenshotPath = join(SCREENSHOT_DIR, `${route.name.replace(/\s+/g, '-')}-BUG.png`)
+          console.log(
+            `   ⚠️ Page has known bug affecting visibility - taking screenshot anyway`,
+          )
+          const screenshotPath = join(
+            SCREENSHOT_DIR,
+            `${route.name.replace(/\s+/g, '-')}-BUG.png`,
+          )
           await page.screenshot({ path: screenshotPath, fullPage: true })
           return // Skip rest of test for pages with known bugs
         }

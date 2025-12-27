@@ -10,9 +10,9 @@
  */
 
 import { existsSync } from 'node:fs'
-import { mkdir, rm, cp, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { resolve, join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { BunPlugin } from 'bun'
 
@@ -38,7 +38,19 @@ async function buildCSS(): Promise<string> {
   await writeFile(inputPath, inputContent)
 
   const proc = Bun.spawn(
-    ['bunx', 'tailwindcss', '-i', inputPath, '-o', outputPath, '-c', './tailwind.config.ts', '--content', './web/**/*.{ts,tsx,html}', '--minify'],
+    [
+      'bunx',
+      'tailwindcss',
+      '-i',
+      inputPath,
+      '-o',
+      outputPath,
+      '-c',
+      './tailwind.config.ts',
+      '--content',
+      './web/**/*.{ts,tsx,html}',
+      '--minify',
+    ],
     { stdout: 'pipe', stderr: 'pipe', cwd: process.cwd() },
   )
 
@@ -72,27 +84,84 @@ const browserPlugin: BunPlugin = {
     const reactPath = require.resolve('react')
     const reactDomPath = require.resolve('react-dom')
     build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
-    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: require.resolve('react/jsx-runtime') }))
-    build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: require.resolve('react/jsx-dev-runtime') }))
+    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-runtime'),
+    }))
+    build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-dev-runtime'),
+    }))
     build.onResolve({ filter: /^react-dom$/ }, () => ({ path: reactDomPath }))
-    build.onResolve({ filter: /^react-dom\/client$/ }, () => ({ path: require.resolve('react-dom/client') }))
+    build.onResolve({ filter: /^react-dom\/client$/ }, () => ({
+      path: require.resolve('react-dom/client'),
+    }))
 
     // Resolve workspace packages
-    build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({ path: resolve('../../packages/shared/src/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({ path: resolve('../../packages/types/src/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({ path: resolve('../../packages/config/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({ path: resolve('../../packages/ui/src/index.ts') }))
+    build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+      path: resolve('../../packages/shared/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+      path: resolve('../../packages/types/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
+      path: resolve('../../packages/config/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
+      path: resolve('../../packages/ui/src/index.ts'),
+    }))
   },
 }
 
 const BROWSER_EXTERNALS = [
-  'bun:sqlite', 'child_process', 'http2', 'tls', 'dgram', 'fs', 'net', 'dns', 'stream', 'crypto', 'module', 'worker_threads',
-  'node:url', 'node:fs', 'node:path', 'node:crypto', 'node:events', 'node:module', 'node:worker_threads',
-  '@jejunetwork/deployment', '@jejunetwork/db', '@jejunetwork/kms', '@jejunetwork/dws', '@jejunetwork/training',
-  'elysia', '@elysiajs/*', 'ioredis', 'pino', 'pino-pretty', 'typeorm',
-  '@google-cloud/*', '@grpc/*', 'google-gax', 'google-auth-library',
-  '@farcaster/hub-nodejs', '@opentelemetry/*', '@aws-sdk/*', '@huggingface/*', '@solana/*',
-  'ws', 'croner', 'opossum', 'generic-pool', 'c-kzg', 'kzg-wasm', 'borsh', 'tweetnacl', 'p-retry', 'yaml', 'prom-client',
+  'bun:sqlite',
+  'child_process',
+  'http2',
+  'tls',
+  'dgram',
+  'fs',
+  'net',
+  'dns',
+  'stream',
+  'crypto',
+  'module',
+  'worker_threads',
+  'node:url',
+  'node:fs',
+  'node:path',
+  'node:crypto',
+  'node:events',
+  'node:module',
+  'node:worker_threads',
+  '@jejunetwork/deployment',
+  '@jejunetwork/db',
+  '@jejunetwork/kms',
+  '@jejunetwork/dws',
+  '@jejunetwork/training',
+  'elysia',
+  '@elysiajs/*',
+  'ioredis',
+  'pino',
+  'pino-pretty',
+  'typeorm',
+  '@google-cloud/*',
+  '@grpc/*',
+  'google-gax',
+  'google-auth-library',
+  '@farcaster/hub-nodejs',
+  '@opentelemetry/*',
+  '@aws-sdk/*',
+  '@huggingface/*',
+  '@solana/*',
+  'ws',
+  'croner',
+  'opossum',
+  'generic-pool',
+  'c-kzg',
+  'kzg-wasm',
+  'borsh',
+  'tweetnacl',
+  'p-retry',
+  'yaml',
+  'prom-client',
 ]
 
 async function buildFrontend(): Promise<void> {
@@ -110,19 +179,26 @@ async function buildFrontend(): Promise<void> {
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
     plugins: [browserPlugin],
-    naming: { entry: '[name]-[hash].js', chunk: 'chunks/[name]-[hash].js', asset: 'assets/[name]-[hash].[ext]' },
+    naming: {
+      entry: '[name]-[hash].js',
+      chunk: 'chunks/[name]-[hash].js',
+      asset: 'assets/[name]-[hash].[ext]',
+    },
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.env.PUBLIC_NETWORK': JSON.stringify(network),
       'process.browser': 'true',
       'import.meta.env': JSON.stringify({
         VITE_NETWORK: network,
-        VITE_WALLETCONNECT_PROJECT_ID: process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+        VITE_WALLETCONNECT_PROJECT_ID:
+          process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
         MODE: 'production',
         DEV: false,
         PROD: true,
       }),
-      'import.meta.env.VITE_WALLETCONNECT_PROJECT_ID': JSON.stringify(process.env.VITE_WALLETCONNECT_PROJECT_ID || ''),
+      'import.meta.env.VITE_WALLETCONNECT_PROJECT_ID': JSON.stringify(
+        process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+      ),
     },
   })
 
@@ -132,7 +208,9 @@ async function buildFrontend(): Promise<void> {
     throw new Error('Frontend build failed')
   }
 
-  const mainEntry = result.outputs.find((o) => o.kind === 'entry-point' && o.path.includes('main'))
+  const mainEntry = result.outputs.find(
+    (o) => o.kind === 'entry-point' && o.path.includes('main'),
+  )
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'main.js'
 
   console.log('  Building CSS...')
@@ -180,7 +258,14 @@ async function buildApi(): Promise<void> {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
-    external: ['bun:sqlite', 'child_process', 'node:child_process', 'node:fs', 'node:path', 'node:crypto'],
+    external: [
+      'bun:sqlite',
+      'child_process',
+      'node:child_process',
+      'node:fs',
+      'node:path',
+      'node:crypto',
+    ],
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   })
 
@@ -209,4 +294,3 @@ build().catch((error) => {
   console.error('Build failed:', error)
   process.exit(1)
 })
-

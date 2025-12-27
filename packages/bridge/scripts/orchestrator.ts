@@ -14,15 +14,14 @@
  */
 
 import { parseArgs } from 'node:util'
-import { type Subprocess, spawn } from 'bun'
 import {
-  CORE_PORTS,
+  type BridgeConfig,
+  type BridgeMode,
   getBridgeMode,
   getBridgePrivateKey,
   loadBridgeConfig,
-  type BridgeConfig,
-  type BridgeMode,
 } from '@jejunetwork/config'
+import { type Subprocess, spawn } from 'bun'
 import {
   createHealthChecker,
   type HealthCheckConfig,
@@ -31,7 +30,7 @@ import {
   createRelayerService,
   type RelayerConfig,
 } from '../src/relayer/service.js'
-import { ChainId } from '../src/types/index.js'
+import type { ChainId } from '../src/types/index.js'
 
 class Orchestrator {
   private config: BridgeConfig

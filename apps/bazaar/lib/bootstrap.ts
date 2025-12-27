@@ -45,7 +45,8 @@ function getDeployerKey(rpcUrl: string): string {
   const envKey = process.env.PRIVATE_KEY
   if (envKey) return envKey
 
-  const isLocalRpc = rpcUrl.includes('127.0.0.1') || rpcUrl.includes('localhost')
+  const isLocalRpc =
+    rpcUrl.includes('127.0.0.1') || rpcUrl.includes('localhost')
   if (!isLocalRpc) {
     throw new Error(
       'PRIVATE_KEY environment variable required for non-local deployments.',
@@ -199,11 +200,26 @@ async function createSamplePredictionMarkets(
   const markets: PredictionMarketResult['markets'] = []
 
   const sampleMarkets = [
-    { question: 'Will Bitcoin hit $150,000 by end of 2025?', liquidity: '1000000000000000000000' },
-    { question: 'Will Ethereum 3.0 launch in Q1 2026?', liquidity: '1000000000000000000000' },
-    { question: 'Will a major AI lab release AGI by 2027?', liquidity: '500000000000000000000' },
-    { question: 'Will the US Federal Reserve cut rates in January 2026?', liquidity: '1000000000000000000000' },
-    { question: 'Will Jeju Network reach 10,000 daily active users?', liquidity: '2000000000000000000000' },
+    {
+      question: 'Will Bitcoin hit $150,000 by end of 2025?',
+      liquidity: '1000000000000000000000',
+    },
+    {
+      question: 'Will Ethereum 3.0 launch in Q1 2026?',
+      liquidity: '1000000000000000000000',
+    },
+    {
+      question: 'Will a major AI lab release AGI by 2027?',
+      liquidity: '500000000000000000000',
+    },
+    {
+      question: 'Will the US Federal Reserve cut rates in January 2026?',
+      liquidity: '1000000000000000000000',
+    },
+    {
+      question: 'Will Jeju Network reach 10,000 daily active users?',
+      liquidity: '2000000000000000000000',
+    },
   ]
 
   for (let i = 0; i < sampleMarkets.length; i++) {
@@ -377,11 +393,16 @@ export async function bootstrapPerps(
 
   // Create markets
   console.log('\n7. Creating perpetual markets...')
-  const markets = await createPerpMarkets(config, perpetualMarket, priceOracle, {
-    usdc: tokens.usdc,
-    jeju: tokens.jeju,
-    weth: tokens.weth || tokens.jeju,
-  })
+  const markets = await createPerpMarkets(
+    config,
+    perpetualMarket,
+    priceOracle,
+    {
+      usdc: tokens.usdc,
+      jeju: tokens.jeju,
+      weth: tokens.weth || tokens.jeju,
+    },
+  )
 
   return { priceOracle, marginManager, insuranceFund, perpetualMarket, markets }
 }
@@ -426,7 +447,9 @@ async function createPerpMarkets(
 
     try {
       const output = exec(cmd)
-      const logMatch = output.match(/topics:\s*\[\s*0x[a-fA-F0-9]+,\s*(0x[a-fA-F0-9]+)/)
+      const logMatch = output.match(
+        /topics:\s*\[\s*0x[a-fA-F0-9]+,\s*(0x[a-fA-F0-9]+)/,
+      )
       const marketId = logMatch ? logMatch[1] : `market-${markets.length}`
 
       console.log(`    Market ${mc.symbol}: created`)
@@ -461,7 +484,14 @@ export function savePredictionMarketDeployment(
   result: PredictionMarketResult,
 ): void {
   const deployPath = join(contractsDir, 'deployments/bazaar-localnet.json')
-  writeFileSync(deployPath, JSON.stringify({ ...result, deployedAt: new Date().toISOString() }, null, 2))
+  writeFileSync(
+    deployPath,
+    JSON.stringify(
+      { ...result, deployedAt: new Date().toISOString() },
+      null,
+      2,
+    ),
+  )
   console.log(`Saved: ${deployPath}`)
 
   // Update main localnet deployment
@@ -484,7 +514,14 @@ export function savePerpsDeployment(
   result: PerpsResult,
 ): void {
   const deployPath = join(contractsDir, 'deployments/perps-localnet.json')
-  writeFileSync(deployPath, JSON.stringify({ ...result, deployedAt: new Date().toISOString() }, null, 2))
+  writeFileSync(
+    deployPath,
+    JSON.stringify(
+      { ...result, deployedAt: new Date().toISOString() },
+      null,
+      2,
+    ),
+  )
   console.log(`Saved: ${deployPath}`)
 
   // Update main localnet deployment
@@ -502,4 +539,3 @@ export function savePerpsDeployment(
     console.log(`Updated: ${localnetPath}`)
   }
 }
-

@@ -16,15 +16,23 @@ Bun.serve({
     let path = url.pathname
 
     // API proxy
-    if (path.startsWith('/api/') || path.startsWith('/health') || path.startsWith('/.well-known/')) {
+    if (
+      path.startsWith('/api/') ||
+      path.startsWith('/health') ||
+      path.startsWith('/.well-known/')
+    ) {
       return fetch(`http://localhost:${API_PORT}${path}${url.search}`, {
         method: req.method,
         headers: req.headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
-      }).catch(() => new Response(JSON.stringify({ error: 'Backend unavailable' }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' },
-      }))
+        body:
+          req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+      }).catch(
+        () =>
+          new Response(JSON.stringify({ error: 'Backend unavailable' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      )
     }
 
     // Normalize path

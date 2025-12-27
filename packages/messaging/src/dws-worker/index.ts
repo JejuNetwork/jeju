@@ -384,7 +384,11 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
 
         const ts = parseInt(timestamp, 10)
         const now = Date.now()
-        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+        if (
+          Number.isNaN(ts) ||
+          ts < now - 5 * 60 * 1000 ||
+          ts > now + 30 * 1000
+        ) {
           set.status = 401
           return { error: 'Invalid or expired timestamp' }
         }
@@ -397,7 +401,9 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
 
         if (!isValid) {
           set.status = 401
-          return { error: 'Invalid signature - only recipient can mark as delivered' }
+          return {
+            error: 'Invalid signature - only recipient can mark as delivered',
+          }
         }
 
         stored.deliveredAt = Date.now()
@@ -422,7 +428,11 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
 
         const ts = parseInt(timestamp, 10)
         const now = Date.now()
-        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+        if (
+          Number.isNaN(ts) ||
+          ts < now - 5 * 60 * 1000 ||
+          ts > now + 30 * 1000
+        ) {
           set.status = 401
           return { error: 'Invalid or expired timestamp' }
         }
@@ -435,7 +445,9 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
 
         if (!isValid) {
           set.status = 401
-          return { error: 'Invalid signature - only recipient can mark as read' }
+          return {
+            error: 'Invalid signature - only recipient can mark as read',
+          }
         }
 
         stored.readAt = Date.now()

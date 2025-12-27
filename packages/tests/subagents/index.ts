@@ -554,4 +554,3 @@ runAnalysis(config)
     console.error('Analysis failed:', error)
     process.exit(1)
   })
-

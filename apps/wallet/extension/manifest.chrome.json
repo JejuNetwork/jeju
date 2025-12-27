@@ -45,10 +45,15 @@
     "notifications",
     "clipboardWrite",
     "clipboardRead",
-    "alarms"
+    "alarms",
+    "webNavigation",
+    "tabs"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "*://*.jeju/*",
+    "http://*.jeju/*",
+    "https://*.jeju/*"
   ],
   "web_accessible_resources": [
     {

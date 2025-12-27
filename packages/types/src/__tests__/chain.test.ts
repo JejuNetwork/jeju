@@ -398,4 +398,3 @@ describe('TransactionLog interface', () => {
     expect(log.topics.length).toBe(1)
   })
 })
-

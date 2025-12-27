@@ -32,8 +32,9 @@ async function _isCQLAvailable(): Promise<boolean> {
 }
 
 // Auto-detect CQL availability at test load time
-const CQL_RUNNING = process.env.CQL_AVAILABLE === 'true' ||
-  await isCQLAvailable().catch(() => false)
+const CQL_RUNNING =
+  process.env.CQL_AVAILABLE === 'true' ||
+  (await isCQLAvailable().catch(() => false))
 
 describe.skipIf(!CQL_RUNNING)('MigrationManager (Live Integration)', () => {
   let client: CQLClient

@@ -16,7 +16,8 @@ let CHAIN_AVAILABLE = false
 let DETECTED_CHAIN_ID = 31337
 
 try {
-  CHAIN_AVAILABLE = process.env.CHAIN_AVAILABLE === 'true' ||
+  CHAIN_AVAILABLE =
+    process.env.CHAIN_AVAILABLE === 'true' ||
     (await isRpcAvailable(REAL_RPC).catch(() => false))
 
   if (CHAIN_AVAILABLE) {

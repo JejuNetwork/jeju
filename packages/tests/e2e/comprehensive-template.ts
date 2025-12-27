@@ -14,7 +14,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 // =============================================================================
 // CUSTOMIZE THIS SECTION FOR YOUR APP
@@ -43,9 +43,7 @@ const APP_ROUTES: Array<{
 /**
  * API endpoints to health check (optional)
  */
-const API_ROUTES = [
-  { path: '/health', method: 'GET', expectedStatus: [200] },
-]
+const API_ROUTES = [{ path: '/health', method: 'GET', expectedStatus: [200] }]
 
 /**
  * Your app's API port (if different from frontend)
@@ -57,16 +55,18 @@ const API_PORT = 4030
 // =============================================================================
 
 // AI verification module
-let verifyImage: ((
-  path: string,
-  desc: string,
-) => Promise<{
-  matches: boolean
-  description: string
-  issues: string[]
-  quality: string
-  confidence: number
-}>) | undefined
+let verifyImage:
+  | ((
+      path: string,
+      desc: string,
+    ) => Promise<{
+      matches: boolean
+      description: string
+      issues: string[]
+      quality: string
+      confidence: number
+    }>)
+  | undefined
 let isLLMConfigured: (() => boolean) | undefined
 
 // Verification cache
@@ -85,7 +85,11 @@ interface VerificationCache {
 }
 
 let verificationCache: VerificationCache = {}
-const CACHE_FILE = join(process.cwd(), 'test-results', 'ai-verification-cache.json')
+const CACHE_FILE = join(
+  process.cwd(),
+  'test-results',
+  'ai-verification-cache.json',
+)
 const SCREENSHOT_DIR = join(process.cwd(), 'test-results', 'screenshots')
 
 function loadCache(): void {
@@ -257,8 +261,15 @@ test.describe('Frontend - All Pages', () => {
 
         // Save verification
         writeFileSync(
-          join(SCREENSHOT_DIR, `${route.name.replace(/\s+/g, '-')}-verification.json`),
-          JSON.stringify({ ...verification, hash: imageHash, cached: !!cached }, null, 2),
+          join(
+            SCREENSHOT_DIR,
+            `${route.name.replace(/\s+/g, '-')}-verification.json`,
+          ),
+          JSON.stringify(
+            { ...verification, hash: imageHash, cached: !!cached },
+            null,
+            2,
+          ),
         )
 
         // Fail on broken
@@ -378,4 +389,3 @@ test.afterAll(async () => {
   console.log(`\n📊 Summary: ${APP_ROUTES.length} routes tested`)
   console.log(`📁 Screenshots: ${SCREENSHOT_DIR}`)
 })
-

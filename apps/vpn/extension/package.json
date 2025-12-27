@@ -1,0 +1,18 @@
+{
+  "name": "@jejunetwork/vpn-extension",
+  "version": "1.0.0",
+  "description": "Jeju VPN browser extension - decentralized proxy and .jeju domain resolution",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun run build:icons && bun run build:zip",
+    "build:icons": "cd /Users/shawwalters/jeju/apps/vpn/extension && bun scripts/generate-icons.ts",
+    "build:zip": "cd /Users/shawwalters/jeju/apps/vpn && zip -r dist/vpn-extension.zip extension -x 'extension/node_modules/*' -x 'extension/scripts/*' -x 'extension/package.json' -x 'extension/*.ts'",
+    "dev": "echo 'Load unpacked extension from extension/ directory in chrome://extensions'",
+    "lint": "bunx biome check ."
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "sharp": "^0.33.0"
+  }
+}

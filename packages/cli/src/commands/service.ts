@@ -411,8 +411,15 @@ async function startZKBridge(options: {
 
   logger.header('ZKBRIDGE ORCHESTRATOR')
   logger.info(`Mode: ${config.mode}`)
-  logger.info(`Chains: ${config.chains.evm.map(c => c.name).join(', ')}, Solana`)
-  logger.info(`Components: ${Object.entries(config.components).filter(([_, v]) => v).map(([k]) => k).join(', ')}`)
+  logger.info(
+    `Chains: ${config.chains.evm.map((c) => c.name).join(', ')}, Solana`,
+  )
+  logger.info(
+    `Components: ${Object.entries(config.components)
+      .filter(([_, v]) => v)
+      .map(([k]) => k)
+      .join(', ')}`,
+  )
   if (options.relayerOnly) logger.info('Starting relayer only')
   if (options.proverOnly) logger.info('Starting prover only')
   logger.newline()
@@ -436,7 +443,9 @@ async function startZKBridge(options: {
   logger.success('ZK bridge orchestrator started')
   logger.info(`Relayer:  http://127.0.0.1:${config.ports.relayer}`)
   logger.info(`Prover:   http://127.0.0.1:${config.ports.prover}`)
-  logger.info(`Health:   http://127.0.0.1:${config.ports.health}/monitoring/health`)
+  logger.info(
+    `Health:   http://127.0.0.1:${config.ports.health}/monitoring/health`,
+  )
   logger.newline()
   logger.info('Press Ctrl+C to stop')
 

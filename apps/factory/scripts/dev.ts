@@ -9,23 +9,71 @@
  *   bun run scripts/dev.ts         # Frontend only
  */
 
-import { existsSync, watch, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
-import { resolve, join } from 'node:path'
-import { CORE_PORTS, getChainId, getIpfsApiUrl, getRpcUrl, getWsUrl } from '@jejunetwork/config'
+import { resolve } from 'node:path'
+import {
+  CORE_PORTS,
+  getChainId,
+  getIpfsApiUrl,
+  getRpcUrl,
+  getWsUrl,
+} from '@jejunetwork/config'
 import type { BunPlugin } from 'bun'
 
 const FRONTEND_PORT = CORE_PORTS.FACTORY.get()
 const API_PORT = CORE_PORTS.FACTORY_API.get()
 
 const EXTERNALS = [
-  'bun:sqlite', 'child_process', 'http2', 'tls', 'dgram', 'fs', 'net', 'dns', 'stream', 'crypto', 'module', 'worker_threads',
-  'node:url', 'node:fs', 'node:path', 'node:crypto', 'node:events', 'node:module', 'node:worker_threads',
-  '@jejunetwork/deployment', '@jejunetwork/db', '@jejunetwork/kms', '@jejunetwork/dws', '@jejunetwork/training', '@jejunetwork/sdk',
-  'elysia', '@elysiajs/*', 'ioredis', 'typeorm',
-  '@google-cloud/*', '@grpc/*', 'google-gax', 'google-auth-library',
-  '@farcaster/hub-nodejs', '@opentelemetry/*', '@aws-sdk/*', '@huggingface/*', '@solana/*',
-  'ws', 'croner', 'opossum', 'generic-pool', 'c-kzg', 'kzg-wasm', 'borsh', 'tweetnacl', 'p-retry', 'yaml', 'prom-client',
+  'bun:sqlite',
+  'child_process',
+  'http2',
+  'tls',
+  'dgram',
+  'fs',
+  'net',
+  'dns',
+  'stream',
+  'crypto',
+  'module',
+  'worker_threads',
+  'node:url',
+  'node:fs',
+  'node:path',
+  'node:crypto',
+  'node:events',
+  'node:module',
+  'node:worker_threads',
+  '@jejunetwork/deployment',
+  '@jejunetwork/db',
+  '@jejunetwork/kms',
+  '@jejunetwork/dws',
+  '@jejunetwork/training',
+  '@jejunetwork/sdk',
+  'elysia',
+  '@elysiajs/*',
+  'ioredis',
+  'typeorm',
+  '@google-cloud/*',
+  '@grpc/*',
+  'google-gax',
+  'google-auth-library',
+  '@farcaster/hub-nodejs',
+  '@opentelemetry/*',
+  '@aws-sdk/*',
+  '@huggingface/*',
+  '@solana/*',
+  'ws',
+  'croner',
+  'opossum',
+  'generic-pool',
+  'c-kzg',
+  'kzg-wasm',
+  'borsh',
+  'tweetnacl',
+  'p-retry',
+  'yaml',
+  'prom-client',
 ]
 
 // Browser plugin
@@ -38,7 +86,10 @@ const browserPlugin: BunPlugin = {
     }))
 
     // Pino stub
-    build.onResolve({ filter: /^pino$/ }, () => ({ path: 'pino', namespace: 'pino-stub' }))
+    build.onResolve({ filter: /^pino$/ }, () => ({
+      path: 'pino',
+      namespace: 'pino-stub',
+    }))
     build.onLoad({ filter: /.*/, namespace: 'pino-stub' }, () => ({
       contents: `
         const logger = {
@@ -61,8 +112,12 @@ const browserPlugin: BunPlugin = {
     const reactDomPath = require.resolve('react-dom')
     build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
     build.onResolve({ filter: /^react-dom$/ }, () => ({ path: reactDomPath }))
-    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: require.resolve('react/jsx-runtime') }))
-    build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: require.resolve('react/jsx-dev-runtime') }))
+    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-runtime'),
+    }))
+    build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-dev-runtime'),
+    }))
   },
 }
 
@@ -82,15 +137,24 @@ async function buildFrontend(): Promise<boolean> {
     external: EXTERNALS,
     plugins: [browserPlugin],
     define: {
-      'process.env': JSON.stringify({ NODE_ENV: 'development', JEJU_NETWORK: 'localnet' }),
+      'process.env': JSON.stringify({
+        NODE_ENV: 'development',
+        JEJU_NETWORK: 'localnet',
+      }),
       'import.meta.env.VITE_NETWORK': JSON.stringify('localnet'),
       'import.meta.env.PUBLIC_NETWORK': JSON.stringify('localnet'),
-      'import.meta.env.PUBLIC_CHAIN_ID': JSON.stringify(String(getChainId('localnet'))),
+      'import.meta.env.PUBLIC_CHAIN_ID': JSON.stringify(
+        String(getChainId('localnet')),
+      ),
       'import.meta.env.PUBLIC_RPC_URL': JSON.stringify(getRpcUrl('localnet')),
       'import.meta.env.PUBLIC_WS_URL': JSON.stringify(getWsUrl('localnet')),
       'import.meta.env.PUBLIC_IPFS_API': JSON.stringify(getIpfsApiUrl()),
-      'import.meta.env.PUBLIC_IPFS_GATEWAY': JSON.stringify('http://127.0.0.1:4180'),
-      'import.meta.env.PUBLIC_INDEXER_URL': JSON.stringify(`http://127.0.0.1:${CORE_PORTS.INDEXER_GRAPHQL.get()}/graphql`),
+      'import.meta.env.PUBLIC_IPFS_GATEWAY': JSON.stringify(
+        'http://127.0.0.1:4180',
+      ),
+      'import.meta.env.PUBLIC_INDEXER_URL': JSON.stringify(
+        `http://127.0.0.1:${CORE_PORTS.INDEXER_GRAPHQL.get()}/graphql`,
+      ),
       'import.meta.env.MODE': JSON.stringify('development'),
       'import.meta.env.DEV': JSON.stringify(true),
       'import.meta.env.PROD': JSON.stringify(false),
@@ -127,7 +191,10 @@ async function startServer(): Promise<void> {
     .replace('./main.tsx', '/main.js')
     .replace('./styles/globals.css', '/styles/globals.css')
     // Inject Tailwind CDN for dev
-    .replace('</head>', `  <script src="https://cdn.tailwindcss.com"></script>\n  </head>`)
+    .replace(
+      '</head>',
+      `  <script src="https://cdn.tailwindcss.com"></script>\n  </head>`,
+    )
 
   Bun.serve({
     port: FRONTEND_PORT,
@@ -136,20 +203,40 @@ async function startServer(): Promise<void> {
       const path = url.pathname
 
       // Proxy API requests
-      if (path.startsWith('/api/') || path === '/health' || path.startsWith('/.well-known/') || path.startsWith('/swagger') || path.startsWith('/a2a') || path.startsWith('/mcp')) {
+      if (
+        path.startsWith('/api/') ||
+        path === '/health' ||
+        path.startsWith('/.well-known/') ||
+        path.startsWith('/swagger') ||
+        path.startsWith('/a2a') ||
+        path.startsWith('/mcp')
+      ) {
         return fetch(`http://localhost:${API_PORT}${path}${url.search}`, {
           method: req.method,
           headers: req.headers,
-          body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+          body:
+            req.method !== 'GET' && req.method !== 'HEAD'
+              ? req.body
+              : undefined,
         }).catch(() => new Response('Backend unavailable', { status: 503 }))
       }
 
       // Serve built JS
-      if (path === '/main.js' || path.endsWith('.js') || path.endsWith('.js.map')) {
-        const filePath = path === '/main.js' ? './dist/dev/main.js' : `./dist/dev${path}`
+      if (
+        path === '/main.js' ||
+        path.endsWith('.js') ||
+        path.endsWith('.js.map')
+      ) {
+        const filePath =
+          path === '/main.js' ? './dist/dev/main.js' : `./dist/dev${path}`
         const file = Bun.file(filePath)
         if (await file.exists()) {
-          return new Response(file, { headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' } })
+          return new Response(file, {
+            headers: {
+              'Content-Type': 'application/javascript',
+              'Cache-Control': 'no-cache',
+            },
+          })
         }
       }
 
@@ -157,12 +244,22 @@ async function startServer(): Promise<void> {
       if (path.endsWith('.css')) {
         const file = Bun.file(`./dist/dev${path}`)
         if (await file.exists()) {
-          return new Response(file, { headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' } })
+          return new Response(file, {
+            headers: {
+              'Content-Type': 'text/css',
+              'Cache-Control': 'no-cache',
+            },
+          })
         }
         // Fallback to web directory
         const webFile = Bun.file(`./web${path}`)
         if (await webFile.exists()) {
-          return new Response(webFile, { headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' } })
+          return new Response(webFile, {
+            headers: {
+              'Content-Type': 'text/css',
+              'Cache-Control': 'no-cache',
+            },
+          })
         }
       }
 
@@ -190,4 +287,3 @@ async function startServer(): Promise<void> {
 
 console.log('[Factory] Starting dev server...\n')
 startServer()
-

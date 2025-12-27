@@ -12,7 +12,13 @@
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { CORE_PORTS, getCoreAppUrl, getCQLBlockProducerUrl, getIndexerGraphqlUrl, getRpcUrl } from '@jejunetwork/config'
+import {
+  CORE_PORTS,
+  getCoreAppUrl,
+  getCQLBlockProducerUrl,
+  getIndexerGraphqlUrl,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { createBazaarApp } from '../api/worker'
 
 const FRONTEND_PORT = CORE_PORTS.BAZAAR.get()
@@ -21,8 +27,25 @@ const DWS_URL = getCoreAppUrl('DWS_API')
 const USE_DWS = process.env.USE_DWS === 'true'
 
 const EXTERNALS = [
-  'bun:sqlite', 'child_process', 'http2', 'tls', 'dgram', 'fs', 'net', 'dns', 'stream', 'crypto', 'module', 'worker_threads',
-  'node:url', 'node:fs', 'node:path', 'node:crypto', 'node:events', 'node:module', 'node:worker_threads',
+  'bun:sqlite',
+  'child_process',
+  'http2',
+  'tls',
+  'dgram',
+  'fs',
+  'net',
+  'dns',
+  'stream',
+  'crypto',
+  'module',
+  'worker_threads',
+  'node:url',
+  'node:fs',
+  'node:path',
+  'node:crypto',
+  'node:events',
+  'node:module',
+  'node:worker_threads',
 ]
 
 let buildInProgress = false
@@ -42,16 +65,26 @@ async function buildFrontend(): Promise<void> {
     external: EXTERNALS,
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
-      'process.env.PUBLIC_API_URL': JSON.stringify(`http://localhost:${API_PORT}`),
-      'process.env': JSON.stringify({ NODE_ENV: 'development', PUBLIC_API_URL: `http://localhost:${API_PORT}` }),
-      'globalThis.process': JSON.stringify({ env: { NODE_ENV: 'development' } }),
+      'process.env.PUBLIC_API_URL': JSON.stringify(
+        `http://localhost:${API_PORT}`,
+      ),
+      'process.env': JSON.stringify({
+        NODE_ENV: 'development',
+        PUBLIC_API_URL: `http://localhost:${API_PORT}`,
+      }),
+      'globalThis.process': JSON.stringify({
+        env: { NODE_ENV: 'development' },
+      }),
     },
     plugins: [
       {
         name: 'browser-shims',
         setup(build) {
           // Pino stub
-          build.onResolve({ filter: /^pino$/ }, () => ({ path: 'pino', namespace: 'pino-stub' }))
+          build.onResolve({ filter: /^pino$/ }, () => ({
+            path: 'pino',
+            namespace: 'pino-stub',
+          }))
           build.onLoad({ filter: /.*/, namespace: 'pino-stub' }, () => ({
             contents: `
               const logger = {
@@ -75,17 +108,38 @@ async function buildFrontend(): Promise<void> {
           const reactPath = require.resolve('react')
           const reactDomPath = require.resolve('react-dom')
           build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
-          build.onResolve({ filter: /^react-dom$/ }, () => ({ path: reactDomPath }))
-          build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: require.resolve('react/jsx-runtime') }))
-          build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: require.resolve('react/jsx-dev-runtime') }))
+          build.onResolve({ filter: /^react-dom$/ }, () => ({
+            path: reactDomPath,
+          }))
+          build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+            path: require.resolve('react/jsx-runtime'),
+          }))
+          build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+            path: require.resolve('react/jsx-dev-runtime'),
+          }))
 
           // Workspace packages
-          build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({ path: resolve(process.cwd(), '../../packages/auth/src/index.ts') }))
-          build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({ path: resolve(process.cwd(), '../../packages/auth/src/react/index.ts') }))
-          build.onResolve({ filter: /^@jejunetwork\/auth\/(.*)$/ }, (args: { path: string }) => {
-            const subpath = args.path.replace('@jejunetwork/auth/', '')
-            return { path: resolve(process.cwd(), `../../packages/auth/src/${subpath}.ts`) }
-          })
+          build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+            path: resolve(process.cwd(), '../../packages/auth/src/index.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+            path: resolve(
+              process.cwd(),
+              '../../packages/auth/src/react/index.ts',
+            ),
+          }))
+          build.onResolve(
+            { filter: /^@jejunetwork\/auth\/(.*)$/ },
+            (args: { path: string }) => {
+              const subpath = args.path.replace('@jejunetwork/auth/', '')
+              return {
+                path: resolve(
+                  process.cwd(),
+                  `../../packages/auth/src/${subpath}.ts`,
+                ),
+              }
+            },
+          )
         },
       },
     ],
@@ -104,7 +158,9 @@ async function buildFrontend(): Promise<void> {
 
 async function startApiServer(): Promise<void> {
   if (USE_DWS) {
-    console.log(`[Bazaar] API proxied through DWS: ${DWS_URL}/workers/bazaar-api`)
+    console.log(
+      `[Bazaar] API proxied through DWS: ${DWS_URL}/workers/bazaar-api`,
+    )
     return
   }
 
@@ -118,18 +174,23 @@ async function startApiServer(): Promise<void> {
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: getIndexerGraphqlUrl(),
     COVENANTSQL_NODES: getCQLBlockProducerUrl(),
-    COVENANTSQL_DATABASE_ID: process.env.COVENANTSQL_DATABASE_ID || 'dev-bazaar',
+    COVENANTSQL_DATABASE_ID:
+      process.env.COVENANTSQL_DATABASE_ID || 'dev-bazaar',
     COVENANTSQL_PRIVATE_KEY: process.env.COVENANTSQL_PRIVATE_KEY || '',
   })
 
-  app.listen(API_PORT, () => console.log(`[Bazaar] API: http://localhost:${API_PORT}`))
+  app.listen(API_PORT, () =>
+    console.log(`[Bazaar] API: http://localhost:${API_PORT}`),
+  )
 }
 
 async function startFrontendServer(): Promise<void> {
   await mkdir('./dist/dev', { recursive: true })
   await buildFrontend()
 
-  const apiUrl = USE_DWS ? `${DWS_URL}/workers/bazaar-api` : `http://localhost:${API_PORT}`
+  const apiUrl = USE_DWS
+    ? `${DWS_URL}/workers/bazaar-api`
+    : `http://localhost:${API_PORT}`
 
   Bun.serve({
     port: FRONTEND_PORT,
@@ -138,11 +199,18 @@ async function startFrontendServer(): Promise<void> {
       const path = url.pathname
 
       // Proxy API requests
-      if (path.startsWith('/api/') || path === '/health' || path.startsWith('/.well-known/')) {
+      if (
+        path.startsWith('/api/') ||
+        path === '/health' ||
+        path.startsWith('/.well-known/')
+      ) {
         return fetch(`${apiUrl}${path}${url.search}`, {
           method: req.method,
           headers: req.headers,
-          body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+          body:
+            req.method !== 'GET' && req.method !== 'HEAD'
+              ? req.body
+              : undefined,
         }).catch(() => new Response('Backend unavailable', { status: 503 }))
       }
 
@@ -150,7 +218,12 @@ async function startFrontendServer(): Promise<void> {
       if (path.endsWith('.js') || path.endsWith('.js.map')) {
         const file = Bun.file(`./dist/dev${path}`)
         if (await file.exists()) {
-          return new Response(file, { headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' } })
+          return new Response(file, {
+            headers: {
+              'Content-Type': 'application/javascript',
+              'Cache-Control': 'no-cache',
+            },
+          })
         }
       }
 
@@ -158,7 +231,12 @@ async function startFrontendServer(): Promise<void> {
       if (path.endsWith('.css')) {
         const file = Bun.file(`./web${path}`)
         if (await file.exists()) {
-          return new Response(file, { headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' } })
+          return new Response(file, {
+            headers: {
+              'Content-Type': 'text/css',
+              'Cache-Control': 'no-cache',
+            },
+          })
         }
       }
 
@@ -169,7 +247,9 @@ async function startFrontendServer(): Promise<void> {
       }
 
       // Serve index.html (SPA fallback)
-      return new Response(generateDevHtml(), { headers: { 'Content-Type': 'text/html' } })
+      return new Response(generateDevHtml(), {
+        headers: { 'Content-Type': 'text/html' },
+      })
     },
   })
 

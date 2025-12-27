@@ -5,7 +5,13 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
-import { getChainId, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getCQLMinerUrl,
+  getCQLUrl,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import chalk from 'chalk'
 import { formatEther } from 'viem'
@@ -618,7 +624,10 @@ async function startDatabaseService(
     })
 
     await databaseService.start()
-    log('success', `Database (CQL) service started - BP: ${blockProducerEndpoint}`)
+    log(
+      'success',
+      `Database (CQL) service started - BP: ${blockProducerEndpoint}`,
+    )
 
     // Periodically log stats
     setInterval(() => {

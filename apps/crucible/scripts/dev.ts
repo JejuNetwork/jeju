@@ -13,8 +13,8 @@ import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import {
-  DEFAULT_BROWSER_EXTERNALS,
   CRUCIBLE_THEME,
+  DEFAULT_BROWSER_EXTERNALS,
 } from '@jejunetwork/shared/dev-server'
 
 const FRONTEND_PORT = Number(process.env.PORT) || 4020
@@ -37,16 +37,26 @@ async function buildFrontend(): Promise<void> {
     external: DEFAULT_BROWSER_EXTERNALS,
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
-      'process.env.PUBLIC_API_URL': JSON.stringify(`http://localhost:${API_PORT}`),
-      'process.env': JSON.stringify({ NODE_ENV: 'development', PUBLIC_API_URL: `http://localhost:${API_PORT}` }),
-      'globalThis.process': JSON.stringify({ env: { NODE_ENV: 'development' } }),
+      'process.env.PUBLIC_API_URL': JSON.stringify(
+        `http://localhost:${API_PORT}`,
+      ),
+      'process.env': JSON.stringify({
+        NODE_ENV: 'development',
+        PUBLIC_API_URL: `http://localhost:${API_PORT}`,
+      }),
+      'globalThis.process': JSON.stringify({
+        env: { NODE_ENV: 'development' },
+      }),
     },
     plugins: [
       {
         name: 'browser-shims',
         setup(build) {
           // Pino stub
-          build.onResolve({ filter: /^pino$/ }, () => ({ path: 'pino', namespace: 'pino-stub' }))
+          build.onResolve({ filter: /^pino$/ }, () => ({
+            path: 'pino',
+            namespace: 'pino-stub',
+          }))
           build.onLoad({ filter: /.*/, namespace: 'pino-stub' }, () => ({
             contents: `
               const logger = {
@@ -70,13 +80,23 @@ async function buildFrontend(): Promise<void> {
           const reactPath = require.resolve('react')
           const reactDomPath = require.resolve('react-dom')
           build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
-          build.onResolve({ filter: /^react-dom$/ }, () => ({ path: reactDomPath }))
-          build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: require.resolve('react/jsx-runtime') }))
-          build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: require.resolve('react/jsx-dev-runtime') }))
+          build.onResolve({ filter: /^react-dom$/ }, () => ({
+            path: reactDomPath,
+          }))
+          build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+            path: require.resolve('react/jsx-runtime'),
+          }))
+          build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+            path: require.resolve('react/jsx-dev-runtime'),
+          }))
 
           // Workspace packages
-          build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({ path: resolve(process.cwd(), '../../packages/shared/src/index.ts') }))
-          build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({ path: resolve(process.cwd(), '../../packages/types/src/index.ts') }))
+          build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+            path: resolve(process.cwd(), '../../packages/shared/src/index.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+            path: resolve(process.cwd(), '../../packages/types/src/index.ts'),
+          }))
         },
       },
     ],
@@ -145,11 +165,18 @@ async function startServer(): Promise<void> {
       const path = url.pathname
 
       // Proxy API requests
-      if (path.startsWith('/api/') || path === '/health' || path.startsWith('/.well-known/')) {
+      if (
+        path.startsWith('/api/') ||
+        path === '/health' ||
+        path.startsWith('/.well-known/')
+      ) {
         return fetch(`http://localhost:${API_PORT}${path}${url.search}`, {
           method: req.method,
           headers: req.headers,
-          body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+          body:
+            req.method !== 'GET' && req.method !== 'HEAD'
+              ? req.body
+              : undefined,
         }).catch(() => new Response('Backend unavailable', { status: 503 }))
       }
 
@@ -157,7 +184,12 @@ async function startServer(): Promise<void> {
       if (path.endsWith('.js') || path.endsWith('.js.map')) {
         const file = Bun.file(`./dist/dev${path}`)
         if (await file.exists()) {
-          return new Response(file, { headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' } })
+          return new Response(file, {
+            headers: {
+              'Content-Type': 'application/javascript',
+              'Cache-Control': 'no-cache',
+            },
+          })
         }
       }
 
@@ -165,8 +197,13 @@ async function startServer(): Promise<void> {
       if (path === '/globals.css') {
         const cssFile = Bun.file('./web/globals.css')
         const css = await cssFile.text()
-        const devCss = css.replace('@import "tailwindcss";', '/* Tailwind handled by CDN in dev */')
-        return new Response(devCss, { headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' } })
+        const devCss = css.replace(
+          '@import "tailwindcss";',
+          '/* Tailwind handled by CDN in dev */',
+        )
+        return new Response(devCss, {
+          headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' },
+        })
       }
 
       // Serve public files
@@ -176,7 +213,9 @@ async function startServer(): Promise<void> {
       }
 
       // Serve index.html (SPA fallback)
-      return new Response(generateDevHtml(), { headers: { 'Content-Type': 'text/html' } })
+      return new Response(generateDevHtml(), {
+        headers: { 'Content-Type': 'text/html' },
+      })
     },
   })
 

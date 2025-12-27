@@ -194,4 +194,3 @@ describe('Integration: Inference with Localnet', () => {
     },
   )
 })
-

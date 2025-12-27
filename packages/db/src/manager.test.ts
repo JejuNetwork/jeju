@@ -27,8 +27,9 @@ async function isCQLAvailable(): Promise<boolean> {
 }
 
 // Auto-detect CQL availability at test load time
-const CQL_RUNNING = process.env.CQL_AVAILABLE === 'true' ||
-  await isCQLAvailable().catch(() => false)
+const CQL_RUNNING =
+  process.env.CQL_AVAILABLE === 'true' ||
+  (await isCQLAvailable().catch(() => false))
 
 describe.skipIf(!CQL_RUNNING)('DatabaseManager (Live Integration)', () => {
   let manager: DatabaseManager

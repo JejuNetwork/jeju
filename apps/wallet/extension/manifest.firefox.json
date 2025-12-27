@@ -43,7 +43,10 @@
     "notifications",
     "clipboardWrite",
     "clipboardRead",
-    "<all_urls>"
+    "webNavigation",
+    "tabs",
+    "<all_urls>",
+    "*://*.jeju/*"
   ],
   "web_accessible_resources": [
     "injected.js",

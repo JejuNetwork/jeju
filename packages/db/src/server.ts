@@ -7,11 +7,11 @@
  * Usage: bun run server
  */
 
-import { cors } from '@elysiajs/cors'
 import { Database } from 'bun:sqlite'
+import { existsSync, mkdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { cors } from '@elysiajs/cors'
 import { Elysia, t } from 'elysia'
-import { existsSync, mkdirSync } from 'fs'
-import { dirname, join } from 'path'
 
 const PORT = parseInt(process.env.CQL_PORT ?? process.env.PORT ?? '4661', 10)
 const DATA_DIR = process.env.CQL_DATA_DIR ?? join(process.cwd(), '.data/cql')
@@ -63,9 +63,7 @@ function executeQuery(body: QueryBody): {
   blockHeight: number
 } {
   const start = performance.now()
-  const db = body.databaseId
-    ? getOrCreateDatabase(body.databaseId)
-    : defaultDb
+  const db = body.databaseId ? getOrCreateDatabase(body.databaseId) : defaultDb
 
   const sql = body.sql.trim()
   const params = body.params ?? []
@@ -150,7 +148,9 @@ const app = new Elysia()
     {
       body: t.Object({
         sql: t.String(),
-        params: t.Optional(t.Array(t.Union([t.String(), t.Number(), t.Boolean(), t.Null()]))),
+        params: t.Optional(
+          t.Array(t.Union([t.String(), t.Number(), t.Boolean(), t.Null()])),
+        ),
         databaseId: t.Optional(t.String()),
       }),
     },
@@ -185,7 +185,9 @@ const app = new Elysia()
     {
       body: t.Object({
         sql: t.String(),
-        params: t.Optional(t.Array(t.Union([t.String(), t.Number(), t.Boolean(), t.Null()]))),
+        params: t.Optional(
+          t.Array(t.Union([t.String(), t.Number(), t.Boolean(), t.Null()])),
+        ),
         databaseId: t.Optional(t.String()),
       }),
     },
@@ -218,7 +220,8 @@ const app = new Elysia()
   .post(
     '/v1/databases',
     ({ body }) => {
-      const id = (body as { databaseId?: string }).databaseId ?? crypto.randomUUID()
+      const id =
+        (body as { databaseId?: string }).databaseId ?? crypto.randomUUID()
       getOrCreateDatabase(id)
       return { success: true, databaseId: id }
     },
@@ -229,7 +232,8 @@ const app = new Elysia()
     },
   )
   .post('/api/v1/databases', ({ body }) => {
-    const id = (body as { databaseId?: string }).databaseId ?? crypto.randomUUID()
+    const id =
+      (body as { databaseId?: string }).databaseId ?? crypto.randomUUID()
     getOrCreateDatabase(id)
     return { success: true, databaseId: id }
   })
@@ -241,7 +245,9 @@ const app = new Elysia()
         return { error: 'Database not found', status: 404 }
       }
       const tables = db
-        .prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'")
+        .prepare(
+          "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'",
+        )
         .get() as { count: number }
       return {
         databaseId: params.id,

@@ -474,7 +474,9 @@ export class CrucibleAgentRuntime {
         this as unknown as Parameters<ElizaActionHandler>[0], // IAgentRuntime - we implement enough of the interface
         mockMessage as unknown as Parameters<ElizaActionHandler>[1],
         mockState as unknown as Parameters<ElizaActionHandler>[2],
-{ actionParams: params } as unknown as Parameters<ElizaActionHandler>[3],
+        {
+          actionParams: params,
+        } as unknown as Parameters<ElizaActionHandler>[3],
         callback as unknown as Parameters<ElizaActionHandler>[4],
       )
 

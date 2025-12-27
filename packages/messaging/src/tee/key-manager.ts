@@ -697,7 +697,9 @@ export class TEEXMTPKeyManager {
       // Local supports: 'sha256' | 'sha512' | 'none'
       // sha512 is not supported by KMS, fallback to sha256
       const hashAlgorithm =
-        request.hashAlgorithm === 'sha512' ? 'sha256' : (request.hashAlgorithm ?? 'sha256')
+        request.hashAlgorithm === 'sha512'
+          ? 'sha256'
+          : (request.hashAlgorithm ?? 'sha256')
       const result = await this.teeProvider.sign({
         keyId: request.keyId,
         message: request.message,

@@ -136,4 +136,3 @@ export interface SubagentConfig {
   fix?: boolean
   dryRun?: boolean
 }
-

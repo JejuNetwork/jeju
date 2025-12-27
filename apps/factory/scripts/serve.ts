@@ -18,15 +18,26 @@ Bun.serve({
     let path = url.pathname
 
     // API proxy
-    if (path.startsWith('/api/') || path.startsWith('/health') || path.startsWith('/.well-known/') || path.startsWith('/swagger') || path.startsWith('/a2a') || path.startsWith('/mcp')) {
+    if (
+      path.startsWith('/api/') ||
+      path.startsWith('/health') ||
+      path.startsWith('/.well-known/') ||
+      path.startsWith('/swagger') ||
+      path.startsWith('/a2a') ||
+      path.startsWith('/mcp')
+    ) {
       return fetch(`http://localhost:${API_PORT}${path}${url.search}`, {
         method: req.method,
         headers: req.headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
-      }).catch(() => new Response(JSON.stringify({ error: 'Backend unavailable' }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' },
-      }))
+        body:
+          req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+      }).catch(
+        () =>
+          new Response(JSON.stringify({ error: 'Backend unavailable' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      )
     }
 
     // Normalize path
@@ -99,4 +110,3 @@ function getCacheControl(path: string): string {
 console.log(`Factory serving on http://localhost:${PORT}`)
 console.log(`  API: http://localhost:${API_PORT}`)
 console.log(`  Static: ${STATIC_DIR}`)
-

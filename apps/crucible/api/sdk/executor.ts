@@ -2,7 +2,7 @@
  * Executor SDK - Handles agent execution: triggers, inference, and state updates.
  */
 
-import { asHex, type JsonValue } from '@jejunetwork/types'
+import { asHex } from '@jejunetwork/types'
 import {
   type Address,
   type PublicClient,
