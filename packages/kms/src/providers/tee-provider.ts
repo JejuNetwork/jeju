@@ -103,8 +103,9 @@ export class TEEProvider implements KMSProvider {
 
       // SECURITY: Verify attestation BEFORE accepting enclave key
       if (data.attestation) {
-        const attestationValid =
-          await this.attestationVerifier.verify(data.attestation)
+        const attestationValid = await this.attestationVerifier.verify(
+          data.attestation,
+        )
         if (!attestationValid.valid) {
           throw new Error(
             `Remote TEE attestation verification failed: ${attestationValid.error ?? 'unknown error'}`,

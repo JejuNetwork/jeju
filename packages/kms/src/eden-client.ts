@@ -5,15 +5,10 @@
  * to prevent malformed data from causing issues or exploits.
  */
 
-import type { Address, Hex } from 'viem'
+import type { Address } from 'viem'
 import { z } from 'zod'
 import { teeLogger as log } from './logger.js'
-import type {
-  AccessControlPolicy,
-  KeyCurve,
-  KeyType,
-  TEEAttestation,
-} from './types.js'
+import type { AccessControlPolicy, KeyCurve, KeyType } from './types.js'
 
 /**
  * Zod schemas for TEE API responses - ensures type safety at runtime
@@ -166,15 +161,11 @@ export class TEEClient {
     keyId: string,
     request: TEESignRequest,
   ): Promise<TEESignResponse | undefined> {
-    return this.fetchAndValidate(
-      `/keys/${keyId}/sign`,
-      teeSignResponseSchema,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      },
-    )
+    return this.fetchAndValidate(`/keys/${keyId}/sign`, teeSignResponseSchema, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
   }
 
   getEndpoint(): string {

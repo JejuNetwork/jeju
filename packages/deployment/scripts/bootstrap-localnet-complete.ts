@@ -589,13 +589,13 @@ class CompleteBootstrapper {
         `${process.env.HOME}/.sp1/bin/cargo-prove`,
         `${process.env.HOME}/.cargo/bin/cargo-prove`,
       ]
-      
+
       for (const p of sp1Paths) {
         if (existsSync(p)) {
           return true
         }
       }
-      
+
       return false
     }
   }
@@ -606,7 +606,9 @@ class CompleteBootstrapper {
   private getCargoProvePath(): string {
     // Check PATH first
     try {
-      const result = execSync('which cargo-prove', { stdio: 'pipe' }).toString().trim()
+      const result = execSync('which cargo-prove', { stdio: 'pipe' })
+        .toString()
+        .trim()
       if (result) return result
     } catch {
       // Not in PATH
@@ -617,11 +619,11 @@ class CompleteBootstrapper {
       `${process.env.HOME}/.sp1/bin/cargo-prove`,
       `${process.env.HOME}/.cargo/bin/cargo-prove`,
     ]
-    
+
     for (const p of paths) {
       if (existsSync(p)) return p
     }
-    
+
     return 'cargo-prove' // Fall back to PATH lookup
   }
 
@@ -642,13 +644,13 @@ class CompleteBootstrapper {
 
     try {
       console.log('     Building SP1 circuits (this may take a few minutes)...')
-      
+
       // Build ethereum circuit
       execSync(`${cargoProve} build`, {
         cwd: join(circuitsDir, 'ethereum'),
         stdio: 'pipe',
-        env: { 
-          ...process.env, 
+        env: {
+          ...process.env,
           RUSTUP_TOOLCHAIN: 'succinct',
           PATH: `${process.env.HOME}/.sp1/bin:${process.env.HOME}/.cargo/bin:${process.env.PATH}`,
         },
@@ -659,8 +661,8 @@ class CompleteBootstrapper {
       execSync(`${cargoProve} build`, {
         cwd: join(circuitsDir, 'solana-consensus'),
         stdio: 'pipe',
-        env: { 
-          ...process.env, 
+        env: {
+          ...process.env,
           RUSTUP_TOOLCHAIN: 'succinct',
           PATH: `${process.env.HOME}/.sp1/bin:${process.env.HOME}/.cargo/bin:${process.env.PATH}`,
         },
@@ -732,7 +734,9 @@ class CompleteBootstrapper {
         }
       } else {
         console.log('  📦 SP1 not installed - using mock verifier')
-        console.log('     Install SP1: curl -L https://sp1.succinct.xyz | bash && sp1up')
+        console.log(
+          '     Install SP1: curl -L https://sp1.succinct.xyz | bash && sp1up',
+        )
         verifier = this.deployContractFromPackages(
           'src/bridge/zk/MockGroth16Verifier.sol:MockGroth16Verifier',
           [],
@@ -766,7 +770,9 @@ class CompleteBootstrapper {
 
       console.log('  ✅ ZK Bridge infrastructure deployed')
       if (isMock) {
-        console.log('     ⚠️  Using mock verifier - install SP1 for real ZK proofs')
+        console.log(
+          '     ⚠️  Using mock verifier - install SP1 for real ZK proofs',
+        )
       } else {
         console.log('     🔐 Real SP1 Groth16 verifier active')
       }

@@ -406,7 +406,11 @@ export function createTrainingModule(
       for (const log of logs.slice(-100)) {
         // Limit to last 100 runs
         const run = await this.getRun(log.args.runId)
-        if (run && run.state !== RunState.FINISHED && run.state !== RunState.UNINITIALIZED) {
+        if (
+          run &&
+          run.state !== RunState.FINISHED &&
+          run.state !== RunState.UNINITIALIZED
+        ) {
           runs.push(run)
         }
       }

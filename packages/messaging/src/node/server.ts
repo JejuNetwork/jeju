@@ -488,13 +488,20 @@ export function createRelayServer(config: NodeConfig) {
 
       if (!signature || !timestamp) {
         set.status = 401
-        return { error: 'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.' }
+        return {
+          error:
+            'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.',
+        }
       }
 
       // Validate timestamp to prevent replay attacks
       const ts = parseInt(timestamp, 10)
       const now = Date.now()
-      if (Number.isNaN(ts) || ts < now - MAX_MESSAGE_AGE_MS || ts > now + MAX_CLOCK_SKEW_MS) {
+      if (
+        Number.isNaN(ts) ||
+        ts < now - MAX_MESSAGE_AGE_MS ||
+        ts > now + MAX_CLOCK_SKEW_MS
+      ) {
         set.status = 401
         return { error: 'Invalid or expired timestamp' }
       }
@@ -556,13 +563,20 @@ export function createRelayServer(config: NodeConfig) {
 
       if (!signature || !timestamp) {
         set.status = 401
-        return { error: 'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.' }
+        return {
+          error:
+            'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.',
+        }
       }
 
       // Validate timestamp
       const ts = parseInt(timestamp, 10)
       const now = Date.now()
-      if (Number.isNaN(ts) || ts < now - MAX_MESSAGE_AGE_MS || ts > now + MAX_CLOCK_SKEW_MS) {
+      if (
+        Number.isNaN(ts) ||
+        ts < now - MAX_MESSAGE_AGE_MS ||
+        ts > now + MAX_CLOCK_SKEW_MS
+      ) {
         set.status = 401
         return { error: 'Invalid or expired timestamp' }
       }
@@ -632,13 +646,20 @@ export function createRelayServer(config: NodeConfig) {
 
       if (!signature || !timestamp) {
         set.status = 401
-        return { error: 'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.' }
+        return {
+          error:
+            'Authentication required. Provide x-jeju-signature and x-jeju-timestamp headers.',
+        }
       }
 
       // Validate timestamp
       const ts = parseInt(timestamp, 10)
       const now = Date.now()
-      if (Number.isNaN(ts) || ts < now - MAX_MESSAGE_AGE_MS || ts > now + MAX_CLOCK_SKEW_MS) {
+      if (
+        Number.isNaN(ts) ||
+        ts < now - MAX_MESSAGE_AGE_MS ||
+        ts > now + MAX_CLOCK_SKEW_MS
+      ) {
         set.status = 401
         return { error: 'Invalid or expired timestamp' }
       }
@@ -657,7 +678,9 @@ export function createRelayServer(config: NodeConfig) {
 
       if (!isValid) {
         set.status = 401
-        return { error: 'Unauthorized - only recipient can mark message as read' }
+        return {
+          error: 'Unauthorized - only recipient can mark message as read',
+        }
       }
 
       // Update status in CQL

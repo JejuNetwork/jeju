@@ -165,7 +165,16 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 8,
       dockerImage: 'ghcr.io/paradigmxyz/reth:v1.1.5',
       ports: { rpc: 8545, ws: 8546 },
-      additionalParams: ['--chain', 'mainnet', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all'],
+      additionalParams: [
+        '--chain',
+        'mainnet',
+        '--http',
+        '--http.api',
+        'all',
+        '--ws',
+        '--ws.api',
+        'all',
+      ],
       evmChainId: 1,
       rpcPort: 8545,
       wsPort: 8546,
@@ -181,7 +190,17 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 16,
       dockerImage: 'ghcr.io/paradigmxyz/reth:v1.1.5',
       ports: { rpc: 8545, ws: 8546 },
-      additionalParams: ['--chain', 'mainnet', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all', '--full'],
+      additionalParams: [
+        '--chain',
+        'mainnet',
+        '--http',
+        '--http.api',
+        'all',
+        '--ws',
+        '--ws.api',
+        'all',
+        '--full',
+      ],
       evmChainId: 1,
       rpcPort: 8545,
       wsPort: 8546,
@@ -217,7 +236,12 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 8,
       dockerImage: 'offchainlabs/nitro-node:v3.2.1-d1c5a49',
       ports: { rpc: 8547, ws: 8548 },
-      additionalParams: ['--chain.id=42161', '--http.api=net,web3,eth,arb,debug', '--http.vhosts=*', '--http.addr=0.0.0.0'],
+      additionalParams: [
+        '--chain.id=42161',
+        '--http.api=net,web3,eth,arb,debug',
+        '--http.vhosts=*',
+        '--http.addr=0.0.0.0',
+      ],
       evmChainId: 42161,
       rpcPort: 8547,
       wsPort: 8548,
@@ -233,7 +257,13 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 16,
       dockerImage: 'offchainlabs/nitro-node:v3.2.1-d1c5a49',
       ports: { rpc: 8547, ws: 8548 },
-      additionalParams: ['--chain.id=42161', '--http.api=net,web3,eth,arb,debug', '--http.vhosts=*', '--http.addr=0.0.0.0', '--execution.caching.archive'],
+      additionalParams: [
+        '--chain.id=42161',
+        '--http.api=net,web3,eth,arb,debug',
+        '--http.vhosts=*',
+        '--http.addr=0.0.0.0',
+        '--execution.caching.archive',
+      ],
       evmChainId: 42161,
       rpcPort: 8547,
       wsPort: 8548,
@@ -269,7 +299,16 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 8,
       dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
       ports: { rpc: 8549, ws: 8550 },
-      additionalParams: ['--chain', 'optimism', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all'],
+      additionalParams: [
+        '--chain',
+        'optimism',
+        '--http',
+        '--http.api',
+        'all',
+        '--ws',
+        '--ws.api',
+        'all',
+      ],
       evmChainId: 10,
       rpcPort: 8549,
       wsPort: 8550,
@@ -285,7 +324,17 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 16,
       dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
       ports: { rpc: 8549, ws: 8550 },
-      additionalParams: ['--chain', 'optimism', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all', '--full'],
+      additionalParams: [
+        '--chain',
+        'optimism',
+        '--http',
+        '--http.api',
+        'all',
+        '--ws',
+        '--ws.api',
+        'all',
+        '--full',
+      ],
       evmChainId: 10,
       rpcPort: 8549,
       wsPort: 8550,
@@ -321,7 +370,16 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 8,
       dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
       ports: { rpc: 8551, ws: 8552 },
-      additionalParams: ['--chain', 'base', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all'],
+      additionalParams: [
+        '--chain',
+        'base',
+        '--http',
+        '--http.api',
+        'all',
+        '--ws',
+        '--ws.api',
+        'all',
+      ],
       evmChainId: 8453,
       rpcPort: 8551,
       wsPort: 8552,
@@ -337,7 +395,17 @@ const CHAIN_CONFIGS: Record<string, Record<NetworkMode, ChainConfig>> = {
       minCpuCores: 16,
       dockerImage: 'ghcr.io/paradigmxyz/op-reth:v1.1.5',
       ports: { rpc: 8551, ws: 8552 },
-      additionalParams: ['--chain', 'base', '--http', '--http.api', 'all', '--ws', '--ws.api', 'all', '--full'],
+      additionalParams: [
+        '--chain',
+        'base',
+        '--http',
+        '--http.api',
+        'all',
+        '--ws',
+        '--ws.api',
+        'all',
+        '--full',
+      ],
       evmChainId: 8453,
       rpcPort: 8551,
       wsPort: 8552,
@@ -590,7 +658,9 @@ async function waitForDwsDeployment(
         }
 
         if (data.status === 'active' && data.endpoints) {
-          console.log(`   Node is active after ${Math.round((Date.now() - startTime) / 1000)}s`)
+          console.log(
+            `   Node is active after ${Math.round((Date.now() - startTime) / 1000)}s`,
+          )
           return data.endpoints
         }
 
@@ -631,11 +701,14 @@ async function provisionViaOnChain(
   // Load contract addresses
   const addressesPath = join(DEPLOYMENTS_DIR, `${network}-dws.json`)
   if (!existsSync(addressesPath)) {
-    throw new Error(`DWS contracts not deployed. Run contract deployment first.`)
+    throw new Error(
+      `DWS contracts not deployed. Run contract deployment first.`,
+    )
   }
 
   const addresses = JSON.parse(readFileSync(addressesPath, 'utf-8'))
-  const externalChainProviderAddress = addresses.externalChainProvider as Address
+  const externalChainProviderAddress =
+    addresses.externalChainProvider as Address
 
   // Setup clients
   const chainConfig = getChainConfig(network)
@@ -667,17 +740,19 @@ async function provisionViaOnChain(
       args: [account.address],
     })
 
-    if (providerId === '0x' + '0'.repeat(64)) {
+    if (providerId === `0x${'0'.repeat(64)}`) {
       throw new Error('Not registered')
     }
-    console.log(`   Already registered as provider: ${providerId.slice(0, 18)}...`)
+    console.log(
+      `   Already registered as provider: ${providerId.slice(0, 18)}...`,
+    )
   } catch {
     // Register as provider
     console.log('   Registering as provider...')
 
     const teeAttestation = useTee
       ? keccak256(toBytes(`tee-attestation-${account.address}-${Date.now()}`))
-      : ('0x' + '0'.repeat(64))
+      : `0x${'0'.repeat(64)}`
 
     const registerHash = await walletClient.writeContract({
       address: externalChainProviderAddress,
@@ -732,7 +807,9 @@ async function provisionViaOnChain(
     value: parseEther(totalPayment),
   })
 
-  const provisionReceipt = await publicClient.waitForTransactionReceipt({ hash: provisionHash })
+  const provisionReceipt = await publicClient.waitForTransactionReceipt({
+    hash: provisionHash,
+  })
   const nodeId = keccak256(
     toBytes(`${account.address}${providerId}${provisionReceipt.blockNumber}`),
   )
@@ -821,7 +898,12 @@ async function main() {
       console.log(`    RPC: ${endpoints.rpc}`)
     } else {
       // Testnet/Mainnet - DWS on-chain provisioning
-      result = await provisionViaOnChain(chain, network, useTee, dwsEndpoints[network])
+      result = await provisionViaOnChain(
+        chain,
+        network,
+        useTee,
+        dwsEndpoints[network],
+      )
     }
 
     results.push(result)
@@ -852,9 +934,14 @@ async function main() {
 
   for (const result of results) {
     if (result.endpoints.rpc) {
-      console.log(`║  ${result.chain.padEnd(10)} ${result.endpoints.rpc.slice(0, 46).padEnd(46)}║`)
+      console.log(
+        `║  ${result.chain.padEnd(10)} ${result.endpoints.rpc.slice(0, 46).padEnd(46)}║`,
+      )
     } else {
-      console.log(`║  ${result.chain.padEnd(10)} pending DWS provisioning`.padEnd(58) + '║')
+      console.log(
+        `║  ${result.chain.padEnd(10)} pending DWS provisioning`.padEnd(58) +
+          '║',
+      )
     }
   }
 

@@ -303,9 +303,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               </p>
             </div>
             <div>
-              <span className="block text-xs text-slate-500 mb-1">
-                Quorum
-              </span>
+              <span className="block text-xs text-slate-500 mb-1">Quorum</span>
               <p className="text-lg font-semibold text-slate-200">
                 {dao.governanceParams.quorumBps / 100}%
               </p>

@@ -2,9 +2,17 @@
  * Quick test of security modules
  */
 
-import { checkRateLimit, getClientIdentifier, getRateLimitTier } from './api/validation/rate-limiter'
-import { validateNonce, generateNonce } from './api/validation/nonce-store'
-import { encryptField, decryptField, isEncryptionEnabled } from './api/db/encryption'
+import {
+  decryptField,
+  encryptField,
+  isEncryptionEnabled,
+} from './api/db/encryption'
+import { generateNonce, validateNonce } from './api/validation/nonce-store'
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  getRateLimitTier,
+} from './api/validation/rate-limiter'
 
 async function main() {
   console.log('=== Security Module Tests ===\n')
@@ -24,13 +32,19 @@ async function main() {
   // Nonce Store Test
   console.log('\n2. Nonce Store Test:')
   const nonce = generateNonce()
-  console.log('   Generated nonce:', nonce.slice(0, 20) + '...')
+  console.log('   Generated nonce:', `${nonce.slice(0, 20)}...`)
 
   const validation = validateNonce('0x1234567890abcdef', nonce, Date.now())
   console.log('   First use valid:', validation.valid)
 
   const replay = validateNonce('0x1234567890abcdef', nonce, Date.now())
-  console.log('   Replay blocked:', !replay.valid, '(reason:', replay.reason, ')')
+  console.log(
+    '   Replay blocked:',
+    !replay.valid,
+    '(reason:',
+    replay.reason,
+    ')',
+  )
 
   // Encryption Test
   console.log('\n3. Encryption Test:')
@@ -42,7 +56,7 @@ async function main() {
     const encrypted = await encryptField(plaintext)
     const decrypted = await decryptField(encrypted)
     console.log('   Original:', plaintext)
-    console.log('   Encrypted:', encrypted.slice(0, 30) + '...')
+    console.log('   Encrypted:', `${encrypted.slice(0, 30)}...`)
     console.log('   Decrypted:', decrypted)
     console.log('   Round-trip success:', plaintext === decrypted)
   } else {
@@ -53,4 +67,3 @@ async function main() {
 }
 
 main().catch(console.error)
-

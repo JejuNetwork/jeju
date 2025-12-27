@@ -6,18 +6,17 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { Command } from 'commander'
+import { resolvePrivateKey } from '../lib/keys'
 import { logger } from '../lib/logger'
 import {
   getManifestFingerprint,
-  loadVerifiedManifest,
-  signManifestFile,
   SignedManifestSchema,
+  signManifestFile,
   TrustedSignersSchema,
   verifyManifestFile,
 } from '../lib/manifest-signing'
-import { resolvePrivateKey } from '../lib/keys'
 import type { NetworkType } from '../types'
 
 export const manifestCommand = new Command('manifest')
@@ -78,10 +77,9 @@ function createSignCommand(): Command {
       )
 
       // Show fingerprint
-      const manifest = JSON.parse(readFileSync(resolvedPath, 'utf-8')) as Record<
-        string,
-        unknown
-      >
+      const manifest = JSON.parse(
+        readFileSync(resolvedPath, 'utf-8'),
+      ) as Record<string, unknown>
       const fingerprint = getManifestFingerprint(manifest)
 
       logger.newline()
@@ -181,7 +179,7 @@ function createInspectCommand(): Command {
 
       logger.newline()
       logger.subheader('Manifest Contents')
-      logger.info(JSON.stringify(manifest, null, 2).slice(0, 500) + '...')
+      logger.info(`${JSON.stringify(manifest, null, 2).slice(0, 500)}...`)
     })
 }
 
@@ -255,7 +253,9 @@ function createTrustedSignersCommand(): Command {
         })
 
         writeFileSync(resolvedPath, JSON.stringify(config, null, 2))
-        logger.success(`Added trusted signer: ${options.name} (${options.address})`)
+        logger.success(
+          `Added trusted signer: ${options.name} (${options.address})`,
+        )
       },
     )
 
@@ -327,5 +327,5 @@ function createTrustedSignersCommand(): Command {
 
 // Type alias for the schema
 type TrustedSignersSchema = TrustedSigners
-import type { TrustedSigners } from '../lib/manifest-signing'
 
+import type { TrustedSigners } from '../lib/manifest-signing'

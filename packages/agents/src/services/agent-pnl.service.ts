@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import { getCQL, type CQLClient } from '@jejunetwork/db'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import { z } from 'zod'
 
@@ -73,10 +73,9 @@ export class AgentPnLService {
       lifetime_pnl: number
       total_trades: number
       win_rate: number
-    }>(
-      'SELECT lifetime_pnl, total_trades, win_rate FROM agents WHERE id = ?',
-      [agentId],
-    )
+    }>('SELECT lifetime_pnl, total_trades, win_rate FROM agents WHERE id = ?', [
+      agentId,
+    ])
 
     if (agentResult.rows.length === 0) {
       throw new Error(`Agent ${agentId} not found`)
@@ -174,10 +173,9 @@ export class AgentPnLService {
       lifetime_pnl: number
       total_trades: number
       win_rate: number
-    }>(
-      'SELECT lifetime_pnl, total_trades, win_rate FROM agents WHERE id = ?',
-      [agentId],
-    )
+    }>('SELECT lifetime_pnl, total_trades, win_rate FROM agents WHERE id = ?', [
+      agentId,
+    ])
 
     if (result.rows.length === 0) {
       throw new Error(`Agent ${agentId} not found`)
@@ -207,7 +205,10 @@ export class AgentPnLService {
   /**
    * Calculate Sharpe ratio for an agent
    */
-  async calculateSharpeRatio(agentId: string, periodDays = 30): Promise<number> {
+  async calculateSharpeRatio(
+    agentId: string,
+    periodDays = 30,
+  ): Promise<number> {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - periodDays)
 
@@ -253,7 +254,7 @@ export class AgentPnLService {
     const mean =
       dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length
     const variance =
-      dailyReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) /
+      dailyReturns.reduce((sum, r) => sum + (r - mean) ** 2, 0) /
       dailyReturns.length
     const stdDev = Math.sqrt(variance)
 
@@ -269,7 +270,10 @@ export class AgentPnLService {
   /**
    * Calculate maximum drawdown for an agent
    */
-  async calculateMaxDrawdown(agentId: string, periodDays = 30): Promise<number> {
+  async calculateMaxDrawdown(
+    agentId: string,
+    periodDays = 30,
+  ): Promise<number> {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - periodDays)
 

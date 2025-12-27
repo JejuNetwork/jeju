@@ -22,7 +22,7 @@
 
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
-import { keccak256, toBytes, toHex, verifyMessage } from 'viem'
+import { keccak256, toBytes, verifyMessage } from 'viem'
 import { z } from 'zod'
 import { deriveEncryptionKey } from '../crypto.js'
 import { createMPCClient, MPCPartyDiscovery } from './mpc-discovery'

@@ -336,7 +336,9 @@ const ALLOWED_ENV_PREFIXES = ['DWS_APP_', 'APP_', 'NODE_ENV', 'TZ']
 
 function filterUserEnv(env: Record<string, string>): string[] {
   return Object.entries(env)
-    .filter(([key]) => ALLOWED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix)))
+    .filter(([key]) =>
+      ALLOWED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix)),
+    )
     .map(([k, v]) => `${k}=${v}`)
 }
 

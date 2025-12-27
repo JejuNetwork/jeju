@@ -17,6 +17,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { execa } from 'execa'
 import {
   type Address,
   createPublicClient,
@@ -29,7 +30,6 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { execa, type ResultPromise } from 'execa'
 import { logger } from '../lib/logger'
 import { WELL_KNOWN_KEYS } from '../types'
 
@@ -127,7 +127,7 @@ const EXTERNAL_CHAIN_PROVIDER_ABI = [
 // Service configurations
 interface ServiceConfig {
   chainType: number // ChainType enum
-  nodeType: number // NodeType enum  
+  nodeType: number // NodeType enum
   version: string
   dockerImage: string
   ports: { main: number; secondary?: number }
@@ -256,10 +256,14 @@ export class DWSLocalProvisioner {
     logger.step('Starting Anvil...')
 
     // Start anvil in background
-    execa('anvil', ['--host', '0.0.0.0', '--port', '8545', '--chain-id', '31337'], {
-      stdio: 'ignore',
-      detached: true,
-    }).unref()
+    execa(
+      'anvil',
+      ['--host', '0.0.0.0', '--port', '8545', '--chain-id', '31337'],
+      {
+        stdio: 'ignore',
+        detached: true,
+      },
+    ).unref()
 
     // Wait for startup
     for (let i = 0; i < 30; i++) {
@@ -281,7 +285,7 @@ export class DWSLocalProvisioner {
     // Check if already deployed (from cache)
     if (this.state.contracts) {
       // Verify contract still exists on chain
-      const account = privateKeyToAccount(this.privateKey)
+      const _account = privateKeyToAccount(this.privateKey)
       const publicClient = createPublicClient({
         chain: foundry,
         transport: http(this.rpcUrl),
@@ -305,15 +309,17 @@ export class DWSLocalProvisioner {
     logger.step('Deploying ExternalChainProvider contract...')
 
     const contractsDir = join(this.rootDir, 'packages/contracts')
-    
+
     // Deploy contract
     const result = await execa(
       'forge',
       [
         'create',
         'src/dws/ExternalChainProvider.sol:ExternalChainProvider',
-        '--rpc-url', this.rpcUrl,
-        '--private-key', this.privateKey,
+        '--rpc-url',
+        this.rpcUrl,
+        '--private-key',
+        this.privateKey,
         '--constructor-args',
         '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', // treasury
         '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', // owner
@@ -380,8 +386,10 @@ export class DWSLocalProvisioner {
       args: [account.address],
     })
 
-    if (existingProviderId !== '0x' + '0'.repeat(64)) {
-      logger.debug(`Already registered as provider: ${existingProviderId.slice(0, 18)}...`)
+    if (existingProviderId !== `0x${'0'.repeat(64)}`) {
+      logger.debug(
+        `Already registered as provider: ${existingProviderId.slice(0, 18)}...`,
+      )
       this.state.providerId = existingProviderId
       this.saveState()
       return existingProviderId
@@ -403,7 +411,7 @@ export class DWSLocalProvisioner {
         supportedNodes,
         supportedNetworks,
         'http://localhost:4030',
-        '0x' + '0'.repeat(64) as Hex, // No TEE for local
+        `0x${'0'.repeat(64)}` as Hex, // No TEE for local
       ],
       value: parseEther('1'),
     })
@@ -437,7 +445,9 @@ export class DWSLocalProvisioner {
     }
 
     // Check if already provisioned
-    const existing = this.state.provisions.find((p) => p.serviceId === serviceId)
+    const existing = this.state.provisions.find(
+      (p) => p.serviceId === serviceId,
+    )
     if (existing) {
       // Verify container is still running
       const isRunning = await this.isContainerRunning(existing.containerId)
@@ -492,12 +502,14 @@ export class DWSLocalProvisioner {
     })
 
     const nodeId = keccak256(
-      toBytes(`${account.address}${this.state.providerId}${receipt.blockNumber}`),
+      toBytes(
+        `${account.address}${this.state.providerId}${receipt.blockNumber}`,
+      ),
     )
 
     // Start Docker container
     const containerId = await this.startDockerContainer(serviceId, config)
-    
+
     // Build endpoint
     const endpoint =
       serviceId === 'postgres'
@@ -544,9 +556,12 @@ export class DWSLocalProvisioner {
 
     // Build docker run args
     const args = [
-      'run', '-d',
-      '--name', containerName,
-      '-p', `${config.ports.main}:${config.ports.main}`,
+      'run',
+      '-d',
+      '--name',
+      containerName,
+      '-p',
+      `${config.ports.main}:${config.ports.main}`,
     ]
 
     if (config.ports.secondary) {
@@ -591,7 +606,9 @@ export class DWSLocalProvisioner {
   /**
    * Main entry point - ensure all infrastructure is provisioned
    */
-  async ensureAllProvisioned(services: string[] = ['ipfs']): Promise<Record<string, string>> {
+  async ensureAllProvisioned(
+    services: string[] = ['ipfs'],
+  ): Promise<Record<string, string>> {
     logger.header('DWS ON-CHAIN PROVISIONING')
 
     // Step 1: Ensure Anvil running
@@ -608,7 +625,10 @@ export class DWSLocalProvisioner {
     // Step 4: Provision each service
     const endpoints: Record<string, string> = {}
     for (const serviceId of services) {
-      const { endpoint } = await this.provisionService(serviceId, contractAddress)
+      const { endpoint } = await this.provisionService(
+        serviceId,
+        contractAddress,
+      )
       endpoints[serviceId] = endpoint
     }
 
@@ -638,7 +658,9 @@ export class DWSLocalProvisioner {
 
     // Check all services provisioned
     for (const serviceId of services) {
-      const provision = this.state.provisions.find((p) => p.serviceId === serviceId)
+      const provision = this.state.provisions.find(
+        (p) => p.serviceId === serviceId,
+      )
       if (!provision) return false
 
       // Verify container running
@@ -678,7 +700,8 @@ export class DWSLocalProvisioner {
   }
 }
 
-export function createDWSLocalProvisioner(rootDir: string): DWSLocalProvisioner {
+export function createDWSLocalProvisioner(
+  rootDir: string,
+): DWSLocalProvisioner {
   return new DWSLocalProvisioner(rootDir)
 }
-

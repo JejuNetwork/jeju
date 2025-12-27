@@ -381,6 +381,7 @@ export default function PerpsPage() {
               <div>
                 <div className="flex justify-between mb-2">
                   <label
+                    htmlFor="leverage-slider"
                     className="text-sm"
                     style={{ color: 'var(--text-tertiary)' }}
                   >
@@ -394,6 +395,7 @@ export default function PerpsPage() {
                   </span>
                 </div>
                 <input
+                  id="leverage-slider"
                   type="range"
                   min="1"
                   max={selectedMarket.maxLeverage}
@@ -413,12 +415,14 @@ export default function PerpsPage() {
               {/* Margin Amount */}
               <div>
                 <label
+                  htmlFor="margin-amount"
                   className="text-sm block mb-2"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
                   Margin (USDC)
                 </label>
                 <input
+                  id="margin-amount"
                   type="number"
                   placeholder="100"
                   value={marginAmount}
@@ -432,12 +436,14 @@ export default function PerpsPage() {
               {/* Position Size */}
               <div>
                 <label
+                  htmlFor="position-size"
                   className="text-sm block mb-2"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
                   Position Size
                 </label>
                 <input
+                  id="position-size"
                   type="text"
                   value={`$${calculatePositionSize()}`}
                   readOnly

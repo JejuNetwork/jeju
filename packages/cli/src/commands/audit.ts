@@ -5,8 +5,8 @@
  */
 
 import { Command } from 'commander'
+import { initializeKeyAudit, keyAudit } from '../lib/key-audit'
 import { logger } from '../lib/logger'
-import { keyAudit, initializeKeyAudit } from '../lib/key-audit'
 import { findMonorepoRoot } from '../lib/system'
 
 export const auditCommand = new Command('audit')
@@ -26,7 +26,7 @@ function createListCommand(): Command {
       try {
         const rootDir = findMonorepoRoot()
         initializeKeyAudit(rootDir)
-      } catch (error) {
+      } catch (_error) {
         logger.error('Not in a Jeju project directory')
         process.exit(1)
       }
@@ -59,7 +59,7 @@ function createListCommand(): Command {
         if (!byDay.has(day)) {
           byDay.set(day, [])
         }
-        byDay.get(day)!.push(event)
+        byDay.get(day)?.push(event)
       }
 
       for (const [day, dayEvents] of byDay) {
@@ -68,7 +68,7 @@ function createListCommand(): Command {
         for (const event of dayEvents) {
           const time = event.timestamp.split('T')[1].slice(0, 8)
           const status = event.success ? '✓' : '✗'
-          const keyShort = event.keyIdentifier.slice(0, 10) + '...'
+          const keyShort = `${event.keyIdentifier.slice(0, 10)}...`
 
           console.log(
             `  ${time} ${status} ${event.eventType.padEnd(20)} ${keyShort} [${event.network}]`,
@@ -100,7 +100,7 @@ function createKeyHistoryCommand(): Command {
       try {
         const rootDir = findMonorepoRoot()
         initializeKeyAudit(rootDir)
-      } catch (error) {
+      } catch (_error) {
         logger.error('Not in a Jeju project directory')
         process.exit(1)
       }
@@ -154,7 +154,7 @@ function createExportCommand(): Command {
       try {
         const rootDir = findMonorepoRoot()
         initializeKeyAudit(rootDir)
-      } catch (error) {
+      } catch (_error) {
         logger.error('Not in a Jeju project directory')
         process.exit(1)
       }
@@ -180,4 +180,3 @@ function createExportCommand(): Command {
       }
     })
 }
-

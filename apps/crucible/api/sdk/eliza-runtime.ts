@@ -459,7 +459,10 @@ export class CrucibleAgentRuntime {
       // Eliza handlers return a boolean and call the callback with results
       let callbackResult: JsonValue = null
 
-      const callback = async (response: { text?: string; content?: { text?: string } }): Promise<void> => {
+      const callback = async (response: {
+        text?: string
+        content?: { text?: string }
+      }): Promise<void> => {
         // Capture the response from the handler
         const text = response.text ?? response.content?.text ?? ''
         callbackResult = { response: text }

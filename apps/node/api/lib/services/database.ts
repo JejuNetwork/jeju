@@ -9,13 +9,13 @@
  */
 
 import {
-  CQLClient,
-  getCQL,
+  type CQLClient,
   type CQLConfig,
   type DatabaseInfo,
-  type RentalInfo,
-  type QueryResult,
   type ExecResult,
+  getCQL,
+  type QueryResult,
+  type RentalInfo,
 } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
@@ -207,7 +207,9 @@ export class DatabaseService {
   async start(): Promise<void> {
     if (this.isRunning) return
     if (!this.cqlClient || !this.config) {
-      throw new Error('Database service not initialized. Call initialize() first.')
+      throw new Error(
+        'Database service not initialized. Call initialize() first.',
+      )
     }
 
     // Verify CQL connection
@@ -341,7 +343,7 @@ export class DatabaseService {
   /**
    * List available backups for a database
    */
-  async listBackups(databaseId: string): Promise<BackupInfo[]> {
+  async listBackups(_databaseId: string): Promise<BackupInfo[]> {
     // TODO: Implement backup listing from storage
     return []
   }
@@ -349,7 +351,10 @@ export class DatabaseService {
   /**
    * Restore a database from backup
    */
-  async restoreBackup(backupId: string, targetDatabaseId: string): Promise<void> {
+  async restoreBackup(
+    _backupId: string,
+    _targetDatabaseId: string,
+  ): Promise<void> {
     if (!this.cqlClient) {
       throw new Error('Database service not initialized')
     }
@@ -453,4 +458,3 @@ function validateBackupInfo(data: unknown): BackupInfo {
 export function createDatabaseService(nodeClient: NodeClient): DatabaseService {
   return new DatabaseService(nodeClient)
 }
-

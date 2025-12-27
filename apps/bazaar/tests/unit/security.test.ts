@@ -102,12 +102,16 @@ describe('GraphQL Where Clause Builder', () => {
   })
 
   it('builds simple number condition', () => {
-    const result = buildWhereClause([{ field: 'chainId', op: 'eq', value: 420691 }])
+    const result = buildWhereClause([
+      { field: 'chainId', op: 'eq', value: 420691 },
+    ])
     expect(result).toBe('where: { chainId_eq: 420691 }')
   })
 
   it('builds boolean condition', () => {
-    const result = buildWhereClause([{ field: 'verified', op: 'eq', value: true }])
+    const result = buildWhereClause([
+      { field: 'verified', op: 'eq', value: true },
+    ])
     expect(result).toBe('where: { verified_eq: true }')
   })
 
@@ -158,7 +162,9 @@ describe('GraphQL Where Clause Builder', () => {
 
   it('rejects Infinity values', () => {
     expect(() =>
-      buildWhereClause([{ field: 'price', op: 'gt', value: Number.POSITIVE_INFINITY }]),
+      buildWhereClause([
+        { field: 'price', op: 'gt', value: Number.POSITIVE_INFINITY },
+      ]),
     ).toThrow('Invalid number value')
   })
 
@@ -176,9 +182,7 @@ describe('GraphQL Where Clause Builder', () => {
   it('prevents GraphQL injection via field names', () => {
     // Attempt to inject GraphQL syntax via field name
     expect(() =>
-      buildWhereClause([
-        { field: 'id}, otherField: {id', op: 'eq', value: 1 },
-      ]),
+      buildWhereClause([{ field: 'id}, otherField: {id', op: 'eq', value: 1 }]),
     ).toThrow('Invalid field name')
   })
 
@@ -197,4 +201,3 @@ describe('GraphQL Where Clause Builder', () => {
     )
   })
 })
-

@@ -1,9 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  getCQLBlockProducerUrl,
-  getFarcasterHubUrl,
-} from '@jejunetwork/config'
+import { getCQLBlockProducerUrl, getFarcasterHubUrl } from '@jejunetwork/config'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import { bootstrapContracts, stopLocalnet } from '../lib/chain'
@@ -60,9 +57,7 @@ export const startCommand = new Command('start')
  * - Full JNS resolution
  * - No HMR (production build)
  */
-async function startProduction(options: {
-  minimal?: boolean
-}): Promise<void> {
+async function startProduction(options: { minimal?: boolean }): Promise<void> {
   logger.header('JEJU LOCAL PRODUCTION')
   logger.info('Building and deploying everything as in production...\n')
 
@@ -411,7 +406,11 @@ async function printReady(
     { label: 'L2 RPC', value: rpcUrl, status: 'ok' as const },
   ]
   if (proxyEnabled) {
-    const rpcDomainUrl = formatLocalUrl('rpc', DOMAIN_CONFIG.localDomain, displayPort)
+    const rpcDomainUrl = formatLocalUrl(
+      'rpc',
+      DOMAIN_CONFIG.localDomain,
+      displayPort,
+    )
     chainRows.push({
       label: 'L2 RPC (domain)',
       value: rpcDomainUrl,
@@ -429,7 +428,11 @@ async function printReady(
 
       const displayName = app.displayName || app.name
       const slug = app.name.toLowerCase().replace(/\s+/g, '-')
-      const localUrl = formatLocalUrl(slug, DOMAIN_CONFIG.localDomain, displayPort)
+      const localUrl = formatLocalUrl(
+        slug,
+        DOMAIN_CONFIG.localDomain,
+        displayPort,
+      )
       logger.table([
         {
           label: `${displayName} (IPFS)`,
@@ -466,4 +469,3 @@ async function waitForever(): Promise<void> {
     /* never resolves */
   })
 }
-

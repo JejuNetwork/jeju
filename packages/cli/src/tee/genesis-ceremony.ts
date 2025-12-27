@@ -109,7 +109,9 @@ export async function runTeeCeremony(
       )
     }
     console.log('[TEE-SIM] Running in simulator mode')
-    console.log('[TEE-SIM] WARNING: This is for TESTNET ONLY - keys are NOT secure')
+    console.log(
+      '[TEE-SIM] WARNING: This is for TESTNET ONLY - keys are NOT secure',
+    )
     return runSimulatedCeremony(network, passwordHash)
   }
 

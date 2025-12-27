@@ -136,10 +136,9 @@ export class CQLRateLimitStore implements RateLimitStore {
       const result = await tx.query<{
         count: number
         reset_at: number
-      }>(
-        `SELECT count, reset_at FROM ${RATE_LIMIT_TABLE} WHERE key = ?`,
-        [fullKey],
-      )
+      }>(`SELECT count, reset_at FROM ${RATE_LIMIT_TABLE} WHERE key = ?`, [
+        fullKey,
+      ])
 
       let newCount: number
       let newResetAt: number
@@ -274,4 +273,3 @@ export function createCQLRateLimitStore(
 ): CQLRateLimitStore {
   return new CQLRateLimitStore(config)
 }
-

@@ -159,7 +159,7 @@ class RateLimitStore {
     if (entry.count > config.maxRequests && !entry.blockedUntil) {
       entry.blockedUntil = now + config.blockDurationMs
       log.warn('Rate limit exceeded', {
-        key: key.slice(0, 20) + '...',
+        key: `${key.slice(0, 20)}...`,
         count: entry.count,
         blockedUntil: new Date(entry.blockedUntil).toISOString(),
       })
@@ -263,9 +263,7 @@ export function checkRateLimit(
       allowed: false,
       remaining: 0,
       resetAt: entry.windowStart + config.windowMs,
-      retryAfter: Math.ceil(
-        (entry.windowStart + config.windowMs - now) / 1000,
-      ),
+      retryAfter: Math.ceil((entry.windowStart + config.windowMs - now) / 1000),
     }
   }
 
@@ -340,7 +338,9 @@ export function getClientIdentifier(
 /**
  * Generate rate limit headers for response
  */
-export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
+export function getRateLimitHeaders(
+  result: RateLimitResult,
+): Record<string, string> {
   const headers: Record<string, string> = {
     'X-RateLimit-Remaining': String(result.remaining),
     'X-RateLimit-Reset': String(Math.floor(result.resetAt / 1000)),
@@ -356,7 +356,10 @@ export function getRateLimitHeaders(result: RateLimitResult): Record<string, str
 /**
  * Get rate limiter stats for health checks
  */
-export function getRateLimiterStats(): { totalEntries: number; globalCount: number } {
+export function getRateLimiterStats(): {
+  totalEntries: number
+  globalCount: number
+} {
   return store.getStats()
 }
 
@@ -366,4 +369,3 @@ export function getRateLimiterStats(): { totalEntries: number; globalCount: numb
 export function shutdownRateLimiter(): void {
   store.shutdown()
 }
-

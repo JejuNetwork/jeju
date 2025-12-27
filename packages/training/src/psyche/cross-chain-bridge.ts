@@ -24,7 +24,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import type { CoordinatorState, PsycheClient } from './psyche-client'
 

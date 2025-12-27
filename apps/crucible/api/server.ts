@@ -132,13 +132,18 @@ async function verifyAgentOwnership(
   if (!signatureResult.valid) {
     return {
       authorized: false,
-      reason: signatureResult.error ?? 'Wallet signature verification failed. Required headers: x-jeju-address, x-jeju-timestamp, x-jeju-signature',
+      reason:
+        signatureResult.error ??
+        'Wallet signature verification failed. Required headers: x-jeju-address, x-jeju-timestamp, x-jeju-signature',
     }
   }
 
   const callerAddress = signatureResult.user?.address
   if (!callerAddress) {
-    return { authorized: false, reason: 'Could not extract address from signature' }
+    return {
+      authorized: false,
+      reason: 'Could not extract address from signature',
+    }
   }
 
   // Get agent from SDK to check ownership
@@ -603,7 +608,11 @@ app.get('/info', async ({ request }) => {
   const providedKey =
     request.headers.get('x-api-key') ??
     request.headers.get('authorization')?.replace('Bearer ', '')
-  const isAuthenticated = !!(API_KEY && providedKey && constantTimeCompare(providedKey, API_KEY))
+  const isAuthenticated = !!(
+    API_KEY &&
+    providedKey &&
+    constantTimeCompare(providedKey, API_KEY)
+  )
 
   // Basic info for unauthenticated requests
   const basicInfo = {
@@ -882,33 +891,41 @@ app.post('/api/v1/agents/:agentId/fund', async ({ params, body, set }) => {
   }
 })
 
-app.post('/api/v1/agents/:agentId/memory', async ({ params, body, request, set }) => {
-  const parsedParams = parseOrThrow(
-    AgentIdParamSchema,
-    params,
-    'Agent ID parameter',
-  )
-  const parsedBody = parseOrThrow(
-    AddMemoryRequestSchema,
-    body,
-    'Add memory request',
-  )
-  const agentId = BigInt(parsedParams.agentId)
+app.post(
+  '/api/v1/agents/:agentId/memory',
+  async ({ params, body, request, set }) => {
+    const parsedParams = parseOrThrow(
+      AgentIdParamSchema,
+      params,
+      'Agent ID parameter',
+    )
+    const parsedBody = parseOrThrow(
+      AddMemoryRequestSchema,
+      body,
+      'Add memory request',
+    )
+    const agentId = BigInt(parsedParams.agentId)
 
-  // SECURITY: Verify caller owns this agent before allowing memory injection
-  const authResult = await verifyAgentOwnership(agentId, request, agentSdk, account)
-  if (!authResult.authorized) {
-    set.status = 403
-    return { error: authResult.reason }
-  }
+    // SECURITY: Verify caller owns this agent before allowing memory injection
+    const authResult = await verifyAgentOwnership(
+      agentId,
+      request,
+      agentSdk,
+      account,
+    )
+    if (!authResult.authorized) {
+      set.status = 403
+      return { error: authResult.reason }
+    }
 
-  const memory = await agentSdk.addMemory(agentId, parsedBody.content, {
-    importance: parsedBody.importance ?? undefined,
-    roomId: parsedBody.roomId ?? undefined,
-    userId: parsedBody.userId ?? undefined,
-  })
-  return { memory }
-})
+    const memory = await agentSdk.addMemory(agentId, parsedBody.content, {
+      importance: parsedBody.importance ?? undefined,
+      roomId: parsedBody.roomId ?? undefined,
+      userId: parsedBody.userId ?? undefined,
+    })
+    return { memory }
+  },
+)
 
 // Room Management
 app.post('/api/v1/rooms', async ({ body }) => {
@@ -1154,7 +1171,12 @@ app.post('/api/v1/bots/:botId/stop', async ({ params, request, set }) => {
   const agentId = BigInt(parsedParams.botId)
 
   // SECURITY: Verify caller owns this bot's agent
-  const authResult = await verifyAgentOwnership(agentId, request, agentSdk, account)
+  const authResult = await verifyAgentOwnership(
+    agentId,
+    request,
+    agentSdk,
+    account,
+  )
   if (!authResult.authorized) {
     set.status = 403
     return { error: authResult.reason }
@@ -1178,7 +1200,12 @@ app.post('/api/v1/bots/:botId/start', async ({ params, request, set }) => {
   const agentId = BigInt(parsedParams.botId)
 
   // SECURITY: Verify caller owns this bot's agent
-  const authResult = await verifyAgentOwnership(agentId, request, agentSdk, account)
+  const authResult = await verifyAgentOwnership(
+    agentId,
+    request,
+    agentSdk,
+    account,
+  )
   if (!authResult.authorized) {
     set.status = 403
     return { error: authResult.reason }

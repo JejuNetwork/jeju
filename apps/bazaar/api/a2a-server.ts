@@ -29,6 +29,7 @@ import {
   fetchTrendingTokens,
   type Token,
 } from '../lib/data-client'
+import type { A2ARequest as A2ARequestType } from '../schemas/api'
 import {
   checkBanStatus,
   getModerationCase,
@@ -40,8 +41,6 @@ import {
   prepareStakeTransaction,
   prepareVoteTransaction,
 } from './moderation-api'
-
-import type { A2ARequest as A2ARequestType } from '../schemas/api'
 
 // ABIs for transaction encoding
 const SWAP_ROUTER_ABI = [
@@ -472,8 +471,7 @@ async function executeSkill(
         ],
       })
 
-      const isNativeInput =
-        tokenIn.toLowerCase() === ZERO_ADDRESS.toLowerCase()
+      const isNativeInput = tokenIn.toLowerCase() === ZERO_ADDRESS.toLowerCase()
 
       return {
         message: 'Swap transaction prepared',
@@ -586,7 +584,11 @@ async function executeSkill(
       const activeOnly = params.activeOnly === true
       const resolvedOnly = params.resolvedOnly === true
       const limit = params.limit ? Number(params.limit) : 20
-      const cases = await getModerationCases({ activeOnly, resolvedOnly, limit })
+      const cases = await getModerationCases({
+        activeOnly,
+        resolvedOnly,
+        limit,
+      })
       return {
         message: `Found ${cases.length} moderation cases`,
         data: { cases, count: cases.length },

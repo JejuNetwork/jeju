@@ -24,7 +24,8 @@ import {
 } from './dev-proxy'
 
 // SECURITY: Restrict CORS in production
-const JNS_CORS_ORIGINS = process.env.JNS_CORS_ORIGINS?.split(',').filter(Boolean)
+const JNS_CORS_ORIGINS =
+  process.env.JNS_CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
 
 const JNS_RESOLVER_ABI = [

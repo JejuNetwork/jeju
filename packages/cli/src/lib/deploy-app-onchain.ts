@@ -608,7 +608,14 @@ function uploadToIPFS(targetPath: string, apiUrl: string): string {
   // Single file upload using spawnSync (prevents shell injection)
   const proc = spawnSync(
     'curl',
-    ['-s', '-X', 'POST', '-F', `file=@${targetPath}`, `${apiUrl}/api/v0/add?pin=true`],
+    [
+      '-s',
+      '-X',
+      'POST',
+      '-F',
+      `file=@${targetPath}`,
+      `${apiUrl}/api/v0/add?pin=true`,
+    ],
     { encoding: 'utf-8' },
   )
 

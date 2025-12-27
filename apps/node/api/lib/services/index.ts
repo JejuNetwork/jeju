@@ -13,6 +13,7 @@ export * from './storage'
 export * from './updater'
 export * from './vpn-exit'
 
+import { getCDNConfig } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { NodeClient } from '../contracts'
 import {
@@ -127,25 +128,40 @@ export function createNodeServices(
     )
   }
 
+  // Config-first approach: Use CDN config for edge coordinator defaults
+  const cdnConfig = getCDNConfig()
+
   const fullEdgeConfig: EdgeCoordinatorConfig = {
-    nodeId: edgeConfig?.nodeId ?? crypto.randomUUID(),
+    nodeId:
+      edgeConfig?.nodeId ??
+      cdnConfig.edge.coordination.nodeId ??
+      crypto.randomUUID(),
     operator: operatorAddress,
     privateKey:
       edgeConfig?.privateKey ??
       process.env.PRIVATE_KEY ??
       getDefaultPrivateKey(),
-    listenPort: edgeConfig?.listenPort ?? 4020,
-    gossipInterval: edgeConfig?.gossipInterval ?? 30000,
-    gossipFanout: edgeConfig?.gossipFanout ?? 6,
+    listenPort: edgeConfig?.listenPort ?? cdnConfig.edge.port,
+    gossipInterval:
+      edgeConfig?.gossipInterval ?? cdnConfig.edge.coordination.metricsInterval,
+    gossipFanout:
+      edgeConfig?.gossipFanout ?? cdnConfig.edge.coordination.meshSize,
     maxPeers: edgeConfig?.maxPeers ?? 50,
-    bootstrapNodes: edgeConfig?.bootstrapNodes ?? [],
-    region: edgeConfig?.region ?? 'global',
+    bootstrapNodes:
+      edgeConfig?.bootstrapNodes ?? cdnConfig.edge.coordination.bootstrapPeers,
+    region: edgeConfig?.region ?? cdnConfig.edge.region,
     staleThresholdMs: edgeConfig?.staleThresholdMs ?? 300000,
     requireOnChainRegistration: edgeConfig?.requireOnChainRegistration ?? false,
     maxMessageSizeBytes: edgeConfig?.maxMessageSizeBytes ?? 1024 * 1024,
     allowedOrigins: edgeConfig?.allowedOrigins ?? [],
     ...edgeConfig,
   }
+
+  // Initialize torrent service with config values
+  const torrentService = getHybridTorrentService({
+    trackers: cdnConfig.edge.p2p.trackers,
+    maxCacheBytes: cdnConfig.edge.cache.maxSizeBytes,
+  })
 
   return {
     compute: createComputeService(client),
@@ -156,7 +172,7 @@ export function createNodeServices(
     bridge: createBridgeService(fullBridgeConfig),
     proxy: createResidentialProxyService(client),
     edgeCoordinator: createEdgeCoordinator(fullEdgeConfig),
-    torrent: getHybridTorrentService(),
+    torrent: torrentService,
     vpn: createVPNExitService(client, vpnConfig),
     staticAssets: createStaticAssetService(client, staticConfig),
     sequencer: createSequencerService(client, sequencerConfig),

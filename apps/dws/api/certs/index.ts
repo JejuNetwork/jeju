@@ -570,7 +570,7 @@ export class CertificateManager {
 
     if (notAfterMatch) {
       const expiryDate = new Date(notAfterMatch[1])
-      if (!isNaN(expiryDate.getTime())) {
+      if (!Number.isNaN(expiryDate.getTime())) {
         return expiryDate.getTime()
       }
     }
@@ -591,7 +591,9 @@ export class CertificateManager {
     }
 
     // Invalid certificate format
-    console.error('[CertManager] Invalid certificate format - cannot determine expiry')
+    console.error(
+      '[CertManager] Invalid certificate format - cannot determine expiry',
+    )
     return Date.now() // Treat as expired to force renewal
   }
 
@@ -599,7 +601,9 @@ export class CertificateManager {
     // Compute JWK thumbprint of account key per RFC 7638
     // The thumbprint MUST be deterministic for ACME to work
     if (!this.acmeAccount?.accountKey) {
-      throw new Error('[CertManager] ACME account not initialized - cannot compute thumbprint')
+      throw new Error(
+        '[CertManager] ACME account not initialized - cannot compute thumbprint',
+      )
     }
 
     // For development mode with 'dev-key', generate deterministic thumbprint
@@ -608,7 +612,9 @@ export class CertificateManager {
       // Development-only: deterministic thumbprint based on email
       const devData = `dev:${this.config.acmeEmail}`
       const hash = keccak256(new TextEncoder().encode(devData))
-      return Buffer.from(hash.slice(2), 'hex').toString('base64url').slice(0, 43)
+      return Buffer.from(hash.slice(2), 'hex')
+        .toString('base64url')
+        .slice(0, 43)
     }
 
     // Production: compute actual JWK thumbprint from stored key

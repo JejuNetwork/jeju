@@ -1051,9 +1051,7 @@ export function createBridgeModule(
             destChainId: BigInt(log.args.destination),
             data: log.args.message as Hex,
             gasLimit: 0n, // Hyperlane handles gas
-            status: delivered
-              ? MessageStatus.FINALIZED
-              : MessageStatus.PENDING,
+            status: delivered ? MessageStatus.FINALIZED : MessageStatus.PENDING,
             timestamp: block.timestamp,
           }
         }
@@ -1139,9 +1137,7 @@ export function createBridgeModule(
 
       for (const log of logs) {
         // Filter for transfers where user is sender
-        if (
-          log.args.sender.toLowerCase() !== wallet.address.toLowerCase()
-        ) {
+        if (log.args.sender.toLowerCase() !== wallet.address.toLowerCase()) {
           continue
         }
 
@@ -1164,9 +1160,7 @@ export function createBridgeModule(
           status: number
         }
 
-        if (
-          transfer.sender !== '0x0000000000000000000000000000000000000000'
-        ) {
+        if (transfer.sender !== '0x0000000000000000000000000000000000000000') {
           transfers.push({
             transferId: transfer.transferId,
             tokenAddress: transfer.tokenAddress,

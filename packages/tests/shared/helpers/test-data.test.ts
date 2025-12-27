@@ -290,7 +290,8 @@ describe('generateTestId - ID Generation', () => {
     const after = Date.now()
 
     const parts = id.split('-')
-    const timestamp = Number.parseInt(parts[1]!, 10)
+    expect(parts[1]).toBeDefined()
+    const timestamp = Number.parseInt(parts[1], 10)
 
     expect(timestamp).toBeGreaterThanOrEqual(before)
     expect(timestamp).toBeLessThanOrEqual(after)

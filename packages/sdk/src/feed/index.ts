@@ -23,8 +23,13 @@ const FeedUserSchema = z.object({
   bio: z.string().optional(),
   followerCount: z.number(),
   followingCount: z.number(),
-  address: z.string().transform((s) => s as Address).optional(),
-  verifiedAddresses: z.array(z.string().transform((s) => s as Address)).optional(),
+  address: z
+    .string()
+    .transform((s) => s as Address)
+    .optional(),
+  verifiedAddresses: z
+    .array(z.string().transform((s) => s as Address))
+    .optional(),
   isFollowing: z.boolean().optional(),
   isFollowedBy: z.boolean().optional(),
 })
@@ -341,11 +346,7 @@ export function createFeedModule(
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request(
-        `/home?${params}`,
-        {},
-        FeedResponseSchema,
-      )
+      return request(`/home?${params}`, {}, FeedResponseSchema)
     },
 
     async getChannelFeed(channelId, cursor, limit = 25) {
@@ -363,22 +364,14 @@ export function createFeedModule(
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request(
-        `/users/${fid}/feed?${params}`,
-        {},
-        FeedResponseSchema,
-      )
+      return request(`/users/${fid}/feed?${params}`, {}, FeedResponseSchema)
     },
 
     async getTrendingFeed(cursor, limit = 25) {
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request(
-        `/trending?${params}`,
-        {},
-        FeedResponseSchema,
-      )
+      return request(`/trending?${params}`, {}, FeedResponseSchema)
     },
 
     async getPost(hash) {
@@ -387,30 +380,34 @@ export function createFeedModule(
 
     async getReplies(hash, cursor) {
       const params = cursor ? `?cursor=${cursor}` : ''
-      return request(
-        `/posts/${hash}/replies${params}`,
-        {},
-        FeedResponseSchema,
-      )
+      return request(`/posts/${hash}/replies${params}`, {}, FeedResponseSchema)
     },
 
     // Posting
     async post(params) {
-      return request('/posts', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      }, FeedPostSchema)
+      return request(
+        '/posts',
+        {
+          method: 'POST',
+          body: JSON.stringify(params),
+        },
+        FeedPostSchema,
+      )
     },
 
     async reply(parentHash, text, embeds) {
-      return request('/posts', {
-        method: 'POST',
-        body: JSON.stringify({
-          text,
-          parentHash,
-          embeds,
-        }),
-      }, FeedPostSchema)
+      return request(
+        '/posts',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            text,
+            parentHash,
+            embeds,
+          }),
+        },
+        FeedPostSchema,
+      )
     },
 
     async deletePost(hash) {
@@ -440,15 +437,27 @@ export function createFeedModule(
     },
 
     async getUserByUsername(username) {
-      return request(`/users/by-username/${username}`, {}, FeedUserSchema.nullable())
+      return request(
+        `/users/by-username/${username}`,
+        {},
+        FeedUserSchema.nullable(),
+      )
     },
 
     async getUserByAddress(address) {
-      return request(`/users/by-address/${address}`, {}, FeedUserSchema.nullable())
+      return request(
+        `/users/by-address/${address}`,
+        {},
+        FeedUserSchema.nullable(),
+      )
     },
 
     async searchUsers(query) {
-      return request(`/users/search?q=${encodeURIComponent(query)}`, {}, z.array(FeedUserSchema))
+      return request(
+        `/users/search?q=${encodeURIComponent(query)}`,
+        {},
+        z.array(FeedUserSchema),
+      )
     },
 
     async follow(fid) {
@@ -486,15 +495,15 @@ export function createFeedModule(
       const params = new URLSearchParams()
       if (cursor) params.set('cursor', cursor)
       params.set('limit', limit.toString())
-      return request(
-        `/channels?${params}`,
-        {},
-        ChannelsResponseSchema,
-      )
+      return request(`/channels?${params}`, {}, ChannelsResponseSchema)
     },
 
     async getTrendingChannels(limit = 10) {
-      return request(`/channels/trending?limit=${limit}`, {}, z.array(FeedChannelSchema))
+      return request(
+        `/channels/trending?limit=${limit}`,
+        {},
+        z.array(FeedChannelSchema),
+      )
     },
 
     async searchChannels(query) {
@@ -555,7 +564,11 @@ export function createFeedModule(
     },
 
     async getLinkedFid() {
-      const result = await request('/wallet/linked', {}, LinkedFidResponseSchema)
+      const result = await request(
+        '/wallet/linked',
+        {},
+        LinkedFidResponseSchema,
+      )
       return result.fid
     },
   }

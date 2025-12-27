@@ -246,13 +246,15 @@ export class AttestationVerifierService {
       encodePacked(['bytes', 'bytes32'], [toHex(quote), expectedReportData]),
     )
 
-    if (this.config.cacheResults && this.verificationCache.has(cacheKey)) {
-      return this.verificationCache.get(cacheKey)!
+    if (this.config.cacheResults) {
+      const cachedResult = this.verificationCache.get(cacheKey)
+      if (cachedResult) return cachedResult
     }
 
     // Check for pending verification
-    if (this.pendingVerifications.has(cacheKey)) {
-      return this.pendingVerifications.get(cacheKey)!
+    const pendingVerification = this.pendingVerifications.get(cacheKey)
+    if (pendingVerification) {
+      return pendingVerification
     }
 
     const verificationPromise = this._performVerification(

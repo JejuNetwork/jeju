@@ -752,10 +752,7 @@ async function sha256Base64Url(input: string): Promise<string> {
   for (const byte of hashArray) {
     binary += String.fromCharCode(byte)
   }
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 /**
@@ -782,10 +779,7 @@ async function hmacSha256Sign(data: string, secret: string): Promise<string> {
   for (const byte of signatureArray) {
     binary += String.fromCharCode(byte)
   }
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 /**

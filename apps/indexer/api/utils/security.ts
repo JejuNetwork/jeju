@@ -5,8 +5,8 @@
  * - Request timeout enforcement
  */
 
-import { Elysia } from 'elysia'
 import { randomUUID } from 'node:crypto'
+import { Elysia } from 'elysia'
 
 // ============================================================================
 // Structured Logging with Request IDs
@@ -50,7 +50,17 @@ function formatLog(entry: LogEntry): string {
     return JSON.stringify(entry)
   }
 
-  const { timestamp, requestId, level, method, path, statusCode, durationMs, message, error } = entry
+  const {
+    timestamp,
+    requestId,
+    level,
+    method,
+    path,
+    statusCode,
+    durationMs,
+    message,
+    error,
+  } = entry
   const status = statusCode ? ` ${statusCode}` : ''
   const duration = durationMs !== undefined ? ` ${durationMs}ms` : ''
   const msg = message ? ` - ${message}` : ''
@@ -140,61 +150,71 @@ export function requestLogger(service: string) {
         message: 'Request started',
       })
     })
-    .onAfterHandle({ as: 'global' }, ({ request, requestId, startTime, clientInfo, set }) => {
-      const url = new URL(request.url)
-      const reqId = requestId ?? 'unknown'
-      const start = startTime ?? Date.now()
-      const durationMs = Date.now() - start
+    .onAfterHandle(
+      { as: 'global' },
+      ({ request, requestId, startTime, clientInfo, set }) => {
+        const url = new URL(request.url)
+        const reqId = requestId ?? 'unknown'
+        const start = startTime ?? Date.now()
+        const durationMs = Date.now() - start
 
-      // Skip logging for health checks in production
-      if (url.pathname === '/health' && process.env.NODE_ENV === 'production') {
-        return
-      }
+        // Skip logging for health checks in production
+        if (
+          url.pathname === '/health' &&
+          process.env.NODE_ENV === 'production'
+        ) {
+          return
+        }
 
-      // Add request ID to response headers
-      set.headers['X-Request-ID'] = reqId
+        // Add request ID to response headers
+        set.headers['X-Request-ID'] = reqId
 
-      log({
-        requestId: reqId,
-        level: 'info',
-        service,
-        method: request.method,
-        path: url.pathname,
-        statusCode: typeof set.status === 'number' ? set.status : 200,
-        durationMs,
-        clientIp: clientInfo?.clientIp ?? 'unknown',
-        rateTier: (set.headers['X-RateLimit-Tier'] as string) ?? undefined,
-        message: 'Request completed',
-      })
-    })
-    .onError({ as: 'global' }, ({ request, requestId, startTime, clientInfo, error, set }) => {
-      const url = new URL(request.url)
-      const reqId = requestId ?? 'unknown'
-      const start = startTime ?? Date.now()
-      const durationMs = Date.now() - start
+        log({
+          requestId: reqId,
+          level: 'info',
+          service,
+          method: request.method,
+          path: url.pathname,
+          statusCode: typeof set.status === 'number' ? set.status : 200,
+          durationMs,
+          clientIp: clientInfo?.clientIp ?? 'unknown',
+          rateTier: (set.headers['X-RateLimit-Tier'] as string) ?? undefined,
+          message: 'Request completed',
+        })
+      },
+    )
+    .onError(
+      { as: 'global' },
+      ({ request, requestId, startTime, clientInfo, error, set }) => {
+        const url = new URL(request.url)
+        const reqId = requestId ?? 'unknown'
+        const start = startTime ?? Date.now()
+        const durationMs = Date.now() - start
 
-      // Add request ID to error response headers
-      set.headers['X-Request-ID'] = reqId
+        // Add request ID to error response headers
+        set.headers['X-Request-ID'] = reqId
 
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      const stack = error instanceof Error ? error.stack : undefined
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
+        const stack = error instanceof Error ? error.stack : undefined
 
-      log({
-        requestId: reqId,
-        level: 'error',
-        service,
-        method: request.method,
-        path: url.pathname,
-        statusCode: typeof set.status === 'number' ? set.status : 500,
-        durationMs,
-        clientIp: clientInfo?.clientIp ?? 'unknown',
-        walletAddress: clientInfo?.walletAddress,
-        agentId: clientInfo?.agentId,
-        error: errorMessage,
-        stack: process.env.NODE_ENV !== 'production' ? stack : undefined,
-        message: 'Request failed',
-      })
-    })
+        log({
+          requestId: reqId,
+          level: 'error',
+          service,
+          method: request.method,
+          path: url.pathname,
+          statusCode: typeof set.status === 'number' ? set.status : 500,
+          durationMs,
+          clientIp: clientInfo?.clientIp ?? 'unknown',
+          walletAddress: clientInfo?.walletAddress,
+          agentId: clientInfo?.agentId,
+          error: errorMessage,
+          stack: process.env.NODE_ENV !== 'production' ? stack : undefined,
+          message: 'Request failed',
+        })
+      },
+    )
 }
 
 // ============================================================================
@@ -207,13 +227,23 @@ export interface SecurityHeadersOptions {
   /** Cross-Origin-Embedder-Policy */
   crossOriginEmbedderPolicy?: boolean | 'require-corp' | 'credentialless'
   /** Cross-Origin-Opener-Policy */
-  crossOriginOpenerPolicy?: boolean | 'same-origin' | 'same-origin-allow-popups' | 'unsafe-none'
+  crossOriginOpenerPolicy?:
+    | boolean
+    | 'same-origin'
+    | 'same-origin-allow-popups'
+    | 'unsafe-none'
   /** Cross-Origin-Resource-Policy */
-  crossOriginResourcePolicy?: boolean | 'same-origin' | 'same-site' | 'cross-origin'
+  crossOriginResourcePolicy?:
+    | boolean
+    | 'same-origin'
+    | 'same-site'
+    | 'cross-origin'
   /** Referrer-Policy */
   referrerPolicy?: boolean | string
   /** Strict-Transport-Security (HSTS) */
-  strictTransportSecurity?: boolean | { maxAge: number; includeSubDomains?: boolean; preload?: boolean }
+  strictTransportSecurity?:
+    | boolean
+    | { maxAge: number; includeSubDomains?: boolean; preload?: boolean }
   /** X-Content-Type-Options */
   xContentTypeOptions?: boolean
   /** X-DNS-Prefetch-Control */
@@ -223,7 +253,12 @@ export interface SecurityHeadersOptions {
   /** X-Frame-Options */
   xFrameOptions?: boolean | 'DENY' | 'SAMEORIGIN'
   /** X-Permitted-Cross-Domain-Policies */
-  xPermittedCrossDomainPolicies?: boolean | 'none' | 'master-only' | 'by-content-type' | 'all'
+  xPermittedCrossDomainPolicies?:
+    | boolean
+    | 'none'
+    | 'master-only'
+    | 'by-content-type'
+    | 'all'
   /** X-XSS-Protection (deprecated but still useful for older browsers) */
   xXssProtection?: boolean
   /** Remove X-Powered-By header */
@@ -231,12 +266,17 @@ export interface SecurityHeadersOptions {
 }
 
 const DEFAULT_SECURITY_OPTIONS: Required<SecurityHeadersOptions> = {
-  contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'",
+  contentSecurityPolicy:
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'",
   crossOriginEmbedderPolicy: 'require-corp',
   crossOriginOpenerPolicy: 'same-origin',
   crossOriginResourcePolicy: 'same-origin',
   referrerPolicy: 'strict-origin-when-cross-origin',
-  strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true, preload: false },
+  strictTransportSecurity: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: false,
+  },
   xContentTypeOptions: true,
   xDnsPrefetchControl: 'off',
   xDownloadOptions: true,
@@ -252,32 +292,40 @@ const DEFAULT_SECURITY_OPTIONS: Required<SecurityHeadersOptions> = {
 export function securityHeaders(options: SecurityHeadersOptions = {}) {
   const opts = { ...DEFAULT_SECURITY_OPTIONS, ...options }
 
-  return new Elysia({ name: 'security-headers' })
-    .onAfterHandle({ as: 'global' }, ({ set }) => {
+  return new Elysia({ name: 'security-headers' }).onAfterHandle(
+    { as: 'global' },
+    ({ set }) => {
       // Content-Security-Policy
       if (opts.contentSecurityPolicy) {
-        const csp = typeof opts.contentSecurityPolicy === 'string'
-          ? opts.contentSecurityPolicy
-          : DEFAULT_SECURITY_OPTIONS.contentSecurityPolicy
+        const csp =
+          typeof opts.contentSecurityPolicy === 'string'
+            ? opts.contentSecurityPolicy
+            : DEFAULT_SECURITY_OPTIONS.contentSecurityPolicy
         set.headers['Content-Security-Policy'] = csp as string
       }
 
       // Cross-Origin-Embedder-Policy
       if (opts.crossOriginEmbedderPolicy) {
         set.headers['Cross-Origin-Embedder-Policy'] =
-          opts.crossOriginEmbedderPolicy === true ? 'require-corp' : opts.crossOriginEmbedderPolicy
+          opts.crossOriginEmbedderPolicy === true
+            ? 'require-corp'
+            : opts.crossOriginEmbedderPolicy
       }
 
       // Cross-Origin-Opener-Policy
       if (opts.crossOriginOpenerPolicy) {
         set.headers['Cross-Origin-Opener-Policy'] =
-          opts.crossOriginOpenerPolicy === true ? 'same-origin' : opts.crossOriginOpenerPolicy
+          opts.crossOriginOpenerPolicy === true
+            ? 'same-origin'
+            : opts.crossOriginOpenerPolicy
       }
 
       // Cross-Origin-Resource-Policy
       if (opts.crossOriginResourcePolicy) {
         set.headers['Cross-Origin-Resource-Policy'] =
-          opts.crossOriginResourcePolicy === true ? 'same-origin' : opts.crossOriginResourcePolicy
+          opts.crossOriginResourcePolicy === true
+            ? 'same-origin'
+            : opts.crossOriginResourcePolicy
       }
 
       // Referrer-Policy
@@ -290,9 +338,10 @@ export function securityHeaders(options: SecurityHeadersOptions = {}) {
 
       // Strict-Transport-Security
       if (opts.strictTransportSecurity) {
-        const hsts = typeof opts.strictTransportSecurity === 'object'
-          ? opts.strictTransportSecurity
-          : { maxAge: 31536000, includeSubDomains: true }
+        const hsts =
+          typeof opts.strictTransportSecurity === 'object'
+            ? opts.strictTransportSecurity
+            : { maxAge: 31536000, includeSubDomains: true }
         let hstsValue = `max-age=${hsts.maxAge}`
         if (hsts.includeSubDomains) hstsValue += '; includeSubDomains'
         if (hsts.preload) hstsValue += '; preload'
@@ -338,7 +387,8 @@ export function securityHeaders(options: SecurityHeadersOptions = {}) {
       if (opts.hidePoweredBy) {
         delete set.headers['X-Powered-By']
       }
-    })
+    },
+  )
 }
 
 // ============================================================================
@@ -436,12 +486,7 @@ export interface SecurityOptions {
  * Includes request logging, security headers, and timeout enforcement
  */
 export function security(options: SecurityOptions) {
-  const {
-    service,
-    logging = true,
-    headers = true,
-    timeout = true,
-  } = options
+  const { service, logging = true, headers = true, timeout = true } = options
 
   const headerOpts = typeof headers === 'object' ? headers : {}
   const timeoutOpts = typeof timeout === 'object' ? timeout : {}
@@ -454,7 +499,14 @@ export function security(options: SecurityOptions) {
   // so we always include all plugins but make them no-ops when disabled
   return base
     .use(logging ? requestLogger(service) : new Elysia({ name: 'noop-logger' }))
-    .use(headers ? securityHeaders(headerOpts) : new Elysia({ name: 'noop-headers' }))
-    .use(timeout ? requestTimeout(timeoutOpts) : new Elysia({ name: 'noop-timeout' }))
+    .use(
+      headers
+        ? securityHeaders(headerOpts)
+        : new Elysia({ name: 'noop-headers' }),
+    )
+    .use(
+      timeout
+        ? requestTimeout(timeoutOpts)
+        : new Elysia({ name: 'noop-timeout' }),
+    )
 }
-

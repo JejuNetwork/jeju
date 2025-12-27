@@ -28,8 +28,12 @@ import {
 
 // Test accounts for authentication (hardhat/anvil default accounts)
 const TEST_ACCOUNTS = {
-  alice: privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'),
-  bob: privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'),
+  alice: privateKeyToAccount(
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+  ),
+  bob: privateKeyToAccount(
+    '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+  ),
 }
 
 // Helper to generate authentication headers for a given address
@@ -246,7 +250,11 @@ describe('Relay Server', () => {
     })
 
     // Fetch pending messages with authentication
-    const authHeaders = await getAuthHeaders(TEST_ACCOUNTS.bob, 'Get messages', bobAddress)
+    const authHeaders = await getAuthHeaders(
+      TEST_ACCOUNTS.bob,
+      'Get messages',
+      bobAddress,
+    )
     const response = await fetch(`${BASE_URL}/messages/${bobAddress}`, {
       headers: authHeaders,
     })
@@ -357,7 +365,11 @@ describe('E2E Flow', () => {
     expect(sendResponse.ok).toBe(true)
 
     // Bob retrieves messages with authentication
-    const authHeaders = await getAuthHeaders(TEST_ACCOUNTS.bob, 'Get messages', bobAddress)
+    const authHeaders = await getAuthHeaders(
+      TEST_ACCOUNTS.bob,
+      'Get messages',
+      bobAddress,
+    )
     const fetchResponse = await fetch(`${BASE_URL}/messages/${bobAddress}`, {
       headers: authHeaders,
     })
@@ -414,7 +426,11 @@ describe('E2E Flow', () => {
     }
 
     // Fetch all with authentication
-    const authHeaders = await getAuthHeaders(TEST_ACCOUNTS.bob, 'Get messages', bobAddress)
+    const authHeaders = await getAuthHeaders(
+      TEST_ACCOUNTS.bob,
+      'Get messages',
+      bobAddress,
+    )
     const response = await fetch(`${BASE_URL}/messages/${bobAddress}`, {
       headers: authHeaders,
     })
