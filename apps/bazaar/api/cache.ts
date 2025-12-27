@@ -5,7 +5,7 @@
  * Configuration comes from @jejunetwork/config services.json.
  */
 
-import { type CacheClient, getCacheClient, logger } from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 
 // Singleton DWS cache client
 let cacheClient: CacheClient | null = null

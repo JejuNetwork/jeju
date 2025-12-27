@@ -22,6 +22,7 @@
     "cockatiel": "^3.2.1",
     "@elysiajs/cors": "^1.4.0",
     "@elysiajs/eden": "^1.4.5",
+    "@jejunetwork/api": "workspace:*",
     "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
