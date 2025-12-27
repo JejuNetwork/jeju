@@ -5,6 +5,7 @@
 import { getContract } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import { config } from '../config'
 import { toAddress } from '../../lib'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
 import { type FutarchyConfig, getFutarchyClient } from '../futarchy'
@@ -28,7 +29,7 @@ const erc8004Config: ERC8004Config = {
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
   validationRegistry: getContractAddr('registry', 'validation'),
-  operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+  operatorKey: config.operatorKey ?? config.privateKey,
 }
 const erc8004 = getERC8004Client(erc8004Config)
 
@@ -36,7 +37,7 @@ const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
   councilAddress: toAddress(config.contracts.council),
   predictionMarketAddress: ZERO_ADDR,
-  operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+  operatorKey: config.operatorKey ?? config.privateKey,
 }
 const futarchy = getFutarchyClient(futarchyConfig)
 

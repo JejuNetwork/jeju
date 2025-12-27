@@ -553,6 +553,4 @@ runAnalysis(config)
   .catch((error) => {
     console.error('Analysis failed:', error)
     process.exit(1)
-  })
-
-
+})

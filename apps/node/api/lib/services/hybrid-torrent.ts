@@ -35,6 +35,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+import { config as nodeConfig } from '../config'
 import {
   type OracleAttestation,
   OracleAttestationSchema,
@@ -238,7 +239,7 @@ export class HybridTorrentService {
         'udp://tracker.opentrackr.org:31337',
       ],
       seedingOracleUrl:
-        config.seedingOracleUrl ?? process.env.SEEDING_ORACLE_URL,
+        config.seedingOracleUrl ?? nodeConfig.seedingOracleUrl,
       ...config,
     })
 

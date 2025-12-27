@@ -22,12 +22,12 @@ const AddressBodySchema = z
 const NETWORK = getCurrentNetwork()
 const RPC_URL = getRpcUrl(NETWORK)
 
+import { config } from '../config'
+
 // Try to get contract addresses, but don't fail if not configured
-const BAN_MANAGER_ADDRESS = process.env.MODERATION_BAN_MANAGER as
-  | Address
-  | undefined
-const MODERATION_MARKETPLACE_ADDRESS = process.env
-  .MODERATION_MODERATION_MARKETPLACE as Address | undefined
+const BAN_MANAGER_ADDRESS = config.banManagerAddress as Address | undefined
+const MODERATION_MARKETPLACE_ADDRESS = config
+  .moderationMarketplaceAddress as Address | undefined
 
 // Skip paths that don't need ban checking
 const SKIP_PATHS = ['/health', '/info', '/metrics', '/.well-known']

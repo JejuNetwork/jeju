@@ -339,5 +339,3 @@ describe('DeploymentSchema', () => {
     expect(DeploymentSchema.safeParse(withoutL1).success).toBe(false)
   })
 })
-
-

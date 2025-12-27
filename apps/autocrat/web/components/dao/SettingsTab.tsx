@@ -1,3 +1,9 @@
+/**
+ * Settings Tab - DAO Configuration
+ *
+ * Manage visibility, external integrations, and governance parameters.
+ */
+
 import {
   AlertCircle,
   AlertTriangle,
@@ -16,7 +22,7 @@ import {
   Twitter,
   Users,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useUpdateDAO } from '../../hooks/useDAO'
 import type { DAODetail, DAOVisibility } from '../../types/dao'
 
@@ -24,21 +30,23 @@ interface SettingsTabProps {
   dao: DAODetail
 }
 
-function Section({
-  title,
-  description,
-  children,
-}: {
+interface SectionProps {
   title: string
   description?: string
   children: React.ReactNode
-}) {
+}
+
+function Section({ title, description, children }: SectionProps) {
   return (
     <div className="mb-8">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-slate-200">{title}</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+          {title}
+        </h3>
         {description && (
-          <p className="text-sm text-slate-500 mt-1">{description}</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            {description}
+          </p>
         )}
       </div>
       {children}
@@ -46,42 +54,47 @@ function Section({
   )
 }
 
-function InfoRow({
-  label,
-  value,
-  copyable = false,
-}: {
+interface InfoRowProps {
   label: string
   value: string
   copyable?: boolean
-}) {
+}
+
+function InfoRow({ label, value, copyable = false }: InfoRowProps) {
   const [copied, setCopied] = useState(false)
 
-  const handleCopy = () => {
+  const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(value)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
+  }, [value])
+
+  const displayValue = value.length > 20 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value
 
   return (
-    <div className="flex items-center justify-between py-3 border-b border-slate-800 last:border-0">
-      <span className="text-sm text-slate-400">{label}</span>
+    <div
+      className="flex items-center justify-between py-3 border-b last:border-0"
+      style={{ borderColor: 'var(--border)' }}
+    >
+      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        {label}
+      </span>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-slate-200 font-mono">
-          {value.length > 20
-            ? `${value.slice(0, 8)}...${value.slice(-6)}`
-            : value}
+        <span className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
+          {displayValue}
         </span>
         {copyable && (
           <button
             type="button"
             onClick={handleCopy}
-            className="p-1 hover:bg-slate-700 rounded transition-colors"
+            className="p-1 rounded transition-colors"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+            aria-label={copied ? 'Copied' : 'Copy to clipboard'}
           >
             {copied ? (
-              <Check className="w-4 h-4 text-emerald-400" />
+              <Check className="w-4 h-4" style={{ color: 'var(--color-success)' }} />
             ) : (
-              <Copy className="w-4 h-4 text-slate-500" />
+              <Copy className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
             )}
           </button>
         )}
@@ -92,9 +105,7 @@ function InfoRow({
 
 export function SettingsTab({ dao }: SettingsTabProps) {
   const [visibility, setVisibility] = useState<DAOVisibility>(dao.visibility)
-  const [farcasterChannel, setFarcasterChannel] = useState(
-    dao.farcasterChannel ?? '',
-  )
+  const [farcasterChannel, setFarcasterChannel] = useState(dao.farcasterChannel ?? '')
   const [websiteUrl, setWebsiteUrl] = useState(dao.websiteUrl ?? '')
   const [discordUrl, setDiscordUrl] = useState(dao.discordUrl ?? '')
   const [twitterHandle, setTwitterHandle] = useState(dao.twitterHandle ?? '')
@@ -103,15 +114,18 @@ export function SettingsTab({ dao }: SettingsTabProps) {
 
   const updateDAO = useUpdateDAO(dao.daoId)
 
-  const hasChanges =
-    visibility !== dao.visibility ||
-    farcasterChannel !== (dao.farcasterChannel ?? '') ||
-    websiteUrl !== (dao.websiteUrl ?? '') ||
-    discordUrl !== (dao.discordUrl ?? '') ||
-    twitterHandle !== (dao.twitterHandle ?? '') ||
-    githubOrg !== (dao.githubOrg ?? '')
+  const hasChanges = useMemo(() => {
+    return (
+      visibility !== dao.visibility ||
+      farcasterChannel !== (dao.farcasterChannel ?? '') ||
+      websiteUrl !== (dao.websiteUrl ?? '') ||
+      discordUrl !== (dao.discordUrl ?? '') ||
+      twitterHandle !== (dao.twitterHandle ?? '') ||
+      githubOrg !== (dao.githubOrg ?? '')
+    )
+  }, [visibility, farcasterChannel, websiteUrl, discordUrl, twitterHandle, githubOrg, dao])
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     setSaveError(null)
     updateDAO.mutate(
       {
@@ -124,13 +138,11 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       },
       {
         onError: (err) => {
-          setSaveError(
-            err instanceof Error ? err.message : 'Failed to save settings',
-          )
+          setSaveError(err instanceof Error ? err.message : 'Failed to save settings')
         },
-      },
+      }
     )
-  }
+  }, [visibility, farcasterChannel, websiteUrl, discordUrl, twitterHandle, githubOrg, updateDAO])
 
   const visibilityOptions: {
     value: DAOVisibility
@@ -141,19 +153,19 @@ export function SettingsTab({ dao }: SettingsTabProps) {
     {
       value: 'public',
       label: 'Public',
-      description: 'Anyone can discover and view this DAO',
+      description: 'Listed in directory, open to all',
       icon: Eye,
     },
     {
       value: 'unlisted',
       label: 'Unlisted',
-      description: 'Only accessible via direct link',
+      description: 'Direct link access only',
       icon: Link2,
     },
     {
       value: 'private',
       label: 'Private',
-      description: 'Only visible to members',
+      description: 'Members only',
       icon: Lock,
     },
   ]
@@ -162,28 +174,54 @@ export function SettingsTab({ dao }: SettingsTabProps) {
     <div className="max-w-3xl">
       {/* Network DAO Warning */}
       {dao.networkPermissions.isNetworkDAO && (
-        <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+        <div
+          className="mb-8 p-4 rounded-xl"
+          style={{
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+          }}
+        >
           <div className="flex items-start gap-3">
-            <Shield className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <Shield className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--color-warning)' }} />
             <div>
-              <h4 className="font-medium text-amber-300">Network DAO</h4>
-              <p className="text-sm text-amber-200/70 mt-1">
-                This is a network-level DAO with special permissions. Changes
-                here may affect the entire Jeju Network. Proceed with caution.
+              <h4 className="font-medium" style={{ color: 'var(--color-warning)' }}>
+                Network DAO
+              </h4>
+              <p className="text-sm mt-1" style={{ color: 'rgba(245, 158, 11, 0.8)' }}>
+                Network-level DAO with elevated permissions. Changes may affect
+                the entire Jeju Network.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {dao.networkPermissions.canModerateNetwork && (
-                  <span className="px-2 py-1 text-xs bg-amber-500/20 text-amber-300 rounded">
+                  <span
+                    className="px-2 py-1 text-xs rounded"
+                    style={{
+                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                      color: 'var(--color-warning)',
+                    }}
+                  >
                     Network Moderation
                   </span>
                 )}
                 {dao.networkPermissions.canManageContracts && (
-                  <span className="px-2 py-1 text-xs bg-amber-500/20 text-amber-300 rounded">
+                  <span
+                    className="px-2 py-1 text-xs rounded"
+                    style={{
+                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                      color: 'var(--color-warning)',
+                    }}
+                  >
                     Contract Management
                   </span>
                 )}
                 {dao.networkPermissions.canApproveDaos && (
-                  <span className="px-2 py-1 text-xs bg-amber-500/20 text-amber-300 rounded">
+                  <span
+                    className="px-2 py-1 text-xs rounded"
+                    style={{
+                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                      color: 'var(--color-warning)',
+                    }}
+                  >
                     DAO Approval
                   </span>
                 )}
@@ -194,11 +232,14 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       )}
 
       {/* Contract Addresses */}
-      <Section
-        title="Contract Addresses"
-        description="On-chain contract addresses for this DAO"
-      >
-        <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+      <Section title="Contract Addresses" description="On-chain contract addresses">
+        <div
+          className="rounded-xl p-4"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <InfoRow label="Treasury" value={dao.treasury} copyable />
           <InfoRow label="Council" value={dao.council} copyable />
           <InfoRow label="CEO Agent" value={dao.ceoAgentContract} copyable />
@@ -207,10 +248,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       </Section>
 
       {/* Visibility */}
-      <Section
-        title="Visibility"
-        description="Control who can discover and view this DAO"
-      >
+      <Section title="Visibility" description="Control discoverability">
         <div className="grid gap-3">
           {visibilityOptions.map((option) => {
             const Icon = option.icon
@@ -220,32 +258,51 @@ export function SettingsTab({ dao }: SettingsTabProps) {
                 key={option.value}
                 type="button"
                 onClick={() => setVisibility(option.value)}
-                className={`flex items-start gap-4 p-4 rounded-xl border text-left transition-colors ${
-                  isSelected
-                    ? 'bg-violet-500/10 border-violet-500/50'
-                    : 'bg-slate-900/50 border-slate-700 hover:border-slate-600'
-                }`}
+                className="flex items-start gap-4 p-4 rounded-xl text-left transition-all"
+                style={{
+                  backgroundColor: isSelected
+                    ? 'rgba(6, 214, 160, 0.08)'
+                    : 'var(--surface)',
+                  border: isSelected
+                    ? '2px solid var(--color-primary)'
+                    : '1px solid var(--border)',
+                }}
               >
                 <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSelected ? 'bg-violet-500/20' : 'bg-slate-800'}`}
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{
+                    backgroundColor: isSelected
+                      ? 'rgba(6, 214, 160, 0.15)'
+                      : 'var(--bg-secondary)',
+                  }}
                 >
                   <Icon
-                    className={`w-5 h-5 ${isSelected ? 'text-violet-400' : 'text-slate-400'}`}
+                    className="w-5 h-5"
+                    style={{
+                      color: isSelected ? 'var(--color-primary)' : 'var(--text-secondary)',
+                    }}
+                    aria-hidden="true"
                   />
                 </div>
                 <div className="flex-1">
                   <p
-                    className={`font-medium ${isSelected ? 'text-violet-300' : 'text-slate-200'}`}
+                    className="font-medium"
+                    style={{
+                      color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)',
+                    }}
                   >
                     {option.label}
                   </p>
-                  <p className="text-sm text-slate-500 mt-0.5">
+                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                     {option.description}
                   </p>
                 </div>
                 {isSelected && (
-                  <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center">
-                    <Check className="w-3 h-3 text-white" />
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: 'var(--color-primary)' }}
+                  >
+                    <Check className="w-3 h-3 text-white" aria-hidden="true" />
                   </div>
                 )}
               </button>
@@ -257,105 +314,140 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       {/* Governance Parameters */}
       <Section
         title="Governance Parameters"
-        description="Settings that control how proposals are evaluated and approved"
+        description="Proposal evaluation thresholds"
       >
-        <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+        <div
+          className="rounded-xl p-5 space-y-4"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
                 Min Quality Score
               </span>
-              <p className="text-lg font-semibold text-slate-200">
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {dao.governanceParams.minQualityScore}
               </p>
             </div>
             <div>
-              <span className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
                 Min Board Approvals
               </span>
-              <p className="text-lg font-semibold text-slate-200">
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {dao.governanceParams.minBoardApprovals}
               </p>
             </div>
             <div>
-              <span className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
                 Voting Period
               </span>
-              <p className="text-lg font-semibold text-slate-200">
-                {Math.floor(dao.governanceParams.councilVotingPeriod / 86400)}{' '}
-                days
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {Math.floor(dao.governanceParams.councilVotingPeriod / 86400)} days
               </p>
             </div>
             <div>
-              <span className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
                 Grace Period
               </span>
-              <p className="text-lg font-semibold text-slate-200">
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {Math.floor(dao.governanceParams.gracePeriod / 86400)} days
               </p>
             </div>
             <div>
-              <span className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
                 Min Proposal Stake
               </span>
-              <p className="text-lg font-semibold text-slate-200">
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {dao.governanceParams.minProposalStake} ETH
               </p>
             </div>
             <div>
-              <span className="block text-xs text-slate-500 mb-1">Quorum</span>
-              <p className="text-lg font-semibold text-slate-200">
+              <span className="block text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                Quorum
+              </span>
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {dao.governanceParams.quorumBps / 100}%
               </p>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-700 flex flex-wrap gap-3">
+          <div
+            className="pt-4 border-t flex flex-wrap gap-3"
+            style={{ borderColor: 'var(--border)' }}
+          >
             <span
-              className={`px-3 py-1.5 rounded-lg text-sm ${dao.governanceParams.ceoVetoEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}
+              className="px-3 py-1.5 rounded-lg text-sm"
+              style={{
+                backgroundColor: dao.governanceParams.ceoVetoEnabled
+                  ? 'rgba(16, 185, 129, 0.12)'
+                  : 'var(--bg-secondary)',
+                color: dao.governanceParams.ceoVetoEnabled
+                  ? 'var(--color-success)'
+                  : 'var(--text-tertiary)',
+              }}
             >
-              CEO Veto:{' '}
-              {dao.governanceParams.ceoVetoEnabled ? 'Enabled' : 'Disabled'}
+              CEO Veto: {dao.governanceParams.ceoVetoEnabled ? 'Enabled' : 'Disabled'}
             </span>
             <span
-              className={`px-3 py-1.5 rounded-lg text-sm ${dao.governanceParams.communityVetoEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}
+              className="px-3 py-1.5 rounded-lg text-sm"
+              style={{
+                backgroundColor: dao.governanceParams.communityVetoEnabled
+                  ? 'rgba(16, 185, 129, 0.12)'
+                  : 'var(--bg-secondary)',
+                color: dao.governanceParams.communityVetoEnabled
+                  ? 'var(--color-success)'
+                  : 'var(--text-tertiary)',
+              }}
             >
-              Community Veto:{' '}
-              {dao.governanceParams.communityVetoEnabled
-                ? 'Enabled'
-                : 'Disabled'}{' '}
+              Community Veto: {dao.governanceParams.communityVetoEnabled ? 'Enabled' : 'Disabled'}{' '}
               ({dao.governanceParams.vetoThreshold}%)
             </span>
           </div>
 
-          <div className="pt-4 border-t border-slate-700">
-            <div className="flex items-start gap-2 text-sm text-slate-500">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          <div
+            className="pt-4 border-t"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              <Info className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
               <p>
-                Governance parameters can only be changed through an approved
-                parameter_change proposal.
+                Parameters require a parameter_change proposal to modify.
               </p>
             </div>
           </div>
         </div>
       </Section>
 
-      {/* External Links / Integrations */}
+      {/* External Integrations */}
       <Section
         title="External Integrations"
-        description="Connect your DAO to external platforms and services"
+        description="Platform connections"
       >
         <div className="space-y-4">
           {/* Farcaster */}
-          <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-purple-400" />
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(139, 92, 246, 0.12)' }}
+              >
+                <MessageSquare className="w-5 h-5" style={{ color: 'var(--color-secondary)' }} />
               </div>
               <div>
-                <p className="font-medium text-slate-200">Farcaster Channel</p>
-                <p className="text-xs text-slate-500">
-                  Link to your Farcaster channel for announcements
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Farcaster Channel
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Farcaster channel for announcements
                 </p>
               </div>
             </div>
@@ -364,19 +456,33 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               value={farcasterChannel}
               onChange={(e) => setFarcasterChannel(e.target.value)}
               placeholder="/your-channel"
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+              className="input"
+              aria-label="Farcaster channel"
             />
           </div>
 
           {/* Website */}
-          <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <Globe className="w-5 h-5 text-blue-400" />
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(59, 130, 246, 0.12)' }}
+              >
+                <Globe className="w-5 h-5" style={{ color: 'var(--color-info)' }} />
               </div>
               <div>
-                <p className="font-medium text-slate-200">Website</p>
-                <p className="text-xs text-slate-500">Your DAO website URL</p>
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Website
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Organization website
+                </p>
               </div>
             </div>
             <input
@@ -384,20 +490,32 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
               placeholder="https://yourdao.org"
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+              className="input"
+              aria-label="Website URL"
             />
           </div>
 
           {/* Discord */}
-          <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-                <Users className="w-5 h-5 text-indigo-400" />
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(99, 102, 241, 0.12)' }}
+              >
+                <Users className="w-5 h-5" style={{ color: '#6366F1' }} />
               </div>
               <div>
-                <p className="font-medium text-slate-200">Discord</p>
-                <p className="text-xs text-slate-500">
-                  Discord server invite link
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Discord
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Server invite link
                 </p>
               </div>
             </div>
@@ -406,19 +524,33 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               value={discordUrl}
               onChange={(e) => setDiscordUrl(e.target.value)}
               placeholder="https://discord.gg/..."
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+              className="input"
+              aria-label="Discord invite URL"
             />
           </div>
 
           {/* Twitter */}
-          <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-sky-500/20 flex items-center justify-center">
-                <Twitter className="w-5 h-5 text-sky-400" />
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(14, 165, 233, 0.12)' }}
+              >
+                <Twitter className="w-5 h-5" style={{ color: '#0EA5E9' }} />
               </div>
               <div>
-                <p className="font-medium text-slate-200">Twitter / X</p>
-                <p className="text-xs text-slate-500">Twitter handle</p>
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Twitter / X
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Handle
+                </p>
               </div>
             </div>
             <input
@@ -426,21 +558,33 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               value={twitterHandle}
               onChange={(e) => setTwitterHandle(e.target.value)}
               placeholder="@yourdao"
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+              className="input"
+              aria-label="Twitter handle"
             />
           </div>
 
           {/* GitHub */}
-          <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-500/20 flex items-center justify-center">
-                <GitBranch className="w-5 h-5 text-slate-400" />
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
+                <GitBranch className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
               </div>
               <div>
-                <p className="font-medium text-slate-200">
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
                   GitHub Organization
                 </p>
-                <p className="text-xs text-slate-500">GitHub org name</p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Organization name
+                </p>
               </div>
             </div>
             <input
@@ -448,7 +592,8 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               value={githubOrg}
               onChange={(e) => setGithubOrg(e.target.value)}
               placeholder="your-org"
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+              className="input"
+              aria-label="GitHub organization"
             />
           </div>
         </div>
@@ -456,19 +601,31 @@ export function SettingsTab({ dao }: SettingsTabProps) {
 
       {/* Danger Zone */}
       <Section title="Danger Zone">
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
+        <div
+          className="rounded-xl p-5"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+          }}
+        >
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--color-error)' }} />
             <div>
-              <h4 className="font-medium text-red-300">Archive DAO</h4>
-              <p className="text-sm text-red-200/70 mt-1">
-                Archiving will disable all governance activities and freeze the
-                treasury. This action requires CEO approval and can only be
-                reversed through a network-level proposal.
+              <h4 className="font-medium" style={{ color: 'var(--color-error)' }}>
+                Archive DAO
+              </h4>
+              <p className="text-sm mt-1" style={{ color: 'rgba(239, 68, 68, 0.8)' }}>
+                Archiving disables governance and freezes the treasury. Requires CEO
+                approval. Reversal requires a network-level proposal.
               </p>
               <button
                 type="button"
-                className="mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 rounded-lg text-sm font-medium transition-colors"
+                className="mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                  color: 'var(--color-error)',
+                }}
               >
                 Request Archive
               </button>
@@ -478,11 +635,25 @@ export function SettingsTab({ dao }: SettingsTabProps) {
       </Section>
 
       {/* Save Button */}
-      <div className="sticky bottom-0 -mx-4 px-4 py-4 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800">
+      <div
+        className="sticky bottom-0 -mx-4 px-4 py-4 backdrop-blur-xl border-t"
+        style={{
+          backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
+          borderColor: 'var(--border)',
+        }}
+      >
         {saveError && (
-          <div className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400" />
-            <span className="text-sm text-red-300">{saveError}</span>
+          <div
+            className="mb-3 p-3 rounded-lg flex items-center gap-2"
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+            }}
+          >
+            <AlertCircle className="w-4 h-4" style={{ color: 'var(--color-error)' }} />
+            <span className="text-sm" style={{ color: 'var(--color-error)' }}>
+              {saveError}
+            </span>
           </div>
         )}
         <div className="flex justify-end">
@@ -490,16 +661,17 @@ export function SettingsTab({ dao }: SettingsTabProps) {
             type="button"
             onClick={handleSave}
             disabled={updateDAO.isPending || !hasChanges}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: 'var(--gradient-primary)' }}
           >
             {updateDAO.isPending ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                 Saving...
               </>
             ) : (
               <>
-                <Save className="w-4 h-4" />
+                <Save className="w-4 h-4" aria-hidden="true" />
                 Save Changes
               </>
             )}

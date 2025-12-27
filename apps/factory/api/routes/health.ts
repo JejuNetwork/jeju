@@ -1,10 +1,11 @@
 /** Health Routes */
 
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
+import { getFactoryConfig } from '../config'
 
-const DWS_API_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
-const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
+const config = getFactoryConfig()
+const DWS_API_URL = config.dwsUrl
+const RPC_URL = config.rpcUrl
 
 async function checkServiceHealth(
   url: string,

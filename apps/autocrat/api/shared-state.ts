@@ -7,6 +7,7 @@ import { getContract, getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { type CouncilConfig, toAddress } from '../lib'
+import { config as autocratConfig } from './config'
 import { type AutocratBlockchain, getBlockchain } from './blockchain'
 import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
 
@@ -46,7 +47,7 @@ const agent = (id: string, name: string, prompt: string) => ({
 export function getConfig(): CouncilConfig {
   return {
     rpcUrl: getRpcUrl(),
-    daoId: process.env.DEFAULT_DAO ?? 'jeju',
+    daoId: config.defaultDao,
     contracts: {
       council: getContractAddr('governance', 'council'),
       ceoAgent: getContractAddr('governance', 'ceoAgent'),
@@ -98,7 +99,7 @@ export function getConfig(): CouncilConfig {
       specialties: ['governance', 'strategy'],
     },
     // Default CEO model - can be overridden by DAO creator or governance vote
-    ceoModelId: process.env.CEO_MODEL_ID ?? 'claude-opus-4-5',
+    ceoModelId: config.ceoModelId,
     fundingConfig: {
       minStake: BigInt('1000000000000000'),
       maxStake: BigInt('100000000000000000000'),

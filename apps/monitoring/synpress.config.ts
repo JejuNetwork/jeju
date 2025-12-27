@@ -27,5 +27,3 @@ export default createSynpressConfig({
 
 export const basicSetup = createWalletSetup()
 export { PASSWORD }
-
-

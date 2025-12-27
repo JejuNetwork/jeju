@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JNS Resolution Failed</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-card: #1a1a24;
+      --border-color: #2a2a35;
+      --text-primary: #ffffff;
+      --text-secondary: #8888aa;
+      --accent-green: #00ff88;
+      --accent-red: #ff4444;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      text-align: center;
+      padding: 40px;
+      max-width: 500px;
+    }
+
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: rgba(255, 68, 68, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      stroke: var(--accent-red);
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .domain {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-green);
+      font-size: 18px;
+      margin-bottom: 24px;
+      word-break: break-all;
+    }
+
+    p {
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .reasons {
+      text-align: left;
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+
+    .reasons h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-secondary);
+    }
+
+    .reasons ul {
+      list-style: none;
+    }
+
+    .reasons li {
+      padding: 8px 0;
+      padding-left: 24px;
+      position: relative;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .reasons li::before {
+      content: "•";
+      position: absolute;
+      left: 8px;
+      color: var(--accent-red);
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-primary {
+      background: var(--accent-green);
+      color: var(--bg-primary);
+      border: none;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .footer {
+      margin-top: 48px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .footer a {
+      color: var(--accent-green);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+    </div>
+
+    <h1>JNS Resolution Failed</h1>
+    <div class="domain" id="domain">unknown.jeju</div>
+    <p>The decentralized domain could not be resolved through the Jeju Name Service.</p>
+
+    <div class="reasons">
+      <h3>Possible reasons:</h3>
+      <ul>
+        <li>The domain is not registered on JNS</li>
+        <li>No content has been published to this domain</li>
+        <li>The JNS gateway is temporarily unavailable</li>
+        <li>Your local DWS node is offline</li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="retry()">Try Again</button>
+      <a href="https://jns.jejunetwork.org" target="_blank" class="btn btn-secondary">Check Registry</a>
+    </div>
+
+    <div class="footer">
+      <p>Need help? Visit <a href="https://docs.jejunetwork.org/jns" target="_blank">JNS Documentation</a></p>
+    </div>
+  </div>
+
+  <script>
+    // Get domain from URL params
+    const params = new URLSearchParams(window.location.search)
+    const domain = params.get('domain')
+    
+    if (domain) {
+      document.getElementById('domain').textContent = domain
+    }
+
+    function retry() {
+      if (domain) {
+        window.location.href = `http://${domain}`
+      }
+    }
+  </script>
+</body>
+</html>

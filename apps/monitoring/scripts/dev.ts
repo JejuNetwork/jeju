@@ -220,13 +220,18 @@ async function startFrontendServer(): Promise<void> {
           method: req.method,
           headers: req.headers,
           body:
-            req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+            req.method !== 'GET' && req.method !== 'HEAD'
+              ? req.body
+              : undefined,
         }).catch((error) => {
           console.error('[Monitoring] Proxy error:', error.message)
-          return new Response(JSON.stringify({ error: 'Backend unavailable' }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' },
-          })
+          return new Response(
+            JSON.stringify({ error: 'Backend unavailable' }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
         })
       }
 
@@ -248,7 +253,10 @@ async function startFrontendServer(): Promise<void> {
       const devFile = Bun.file(`./dist/dev${pathname}`)
       if (await devFile.exists()) {
         return new Response(devFile, {
-          headers: { 'Content-Type': getContentType(pathname), 'Cache-Control': 'no-cache' },
+          headers: {
+            'Content-Type': getContentType(pathname),
+            'Cache-Control': 'no-cache',
+          },
         })
       }
 
@@ -257,7 +265,10 @@ async function startFrontendServer(): Promise<void> {
         const webCss = Bun.file(`./web${pathname}`)
         if (await webCss.exists()) {
           return new Response(webCss, {
-            headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' },
+            headers: {
+              'Content-Type': 'text/css',
+              'Cache-Control': 'no-cache',
+            },
           })
         }
       }
@@ -281,7 +292,10 @@ async function startFrontendServer(): Promise<void> {
   for (const dir of watchDirs) {
     if (existsSync(dir)) {
       watch(dir, { recursive: true }, (_eventType, filename) => {
-        if (filename && (filename.endsWith('.ts') || filename.endsWith('.tsx'))) {
+        if (
+          filename &&
+          (filename.endsWith('.ts') || filename.endsWith('.tsx'))
+        ) {
           console.log(`[Monitoring] ${filename} changed, rebuilding...`)
           buildFrontend()
         }

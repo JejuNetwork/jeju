@@ -1,4 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+// ============================================
+// TYPES
+// ============================================
 
 interface NetworkStats {
   totalBlocks: number
@@ -28,6 +32,34 @@ interface Transaction {
   status: string
 }
 
+type Theme = 'dark' | 'light'
+type TabId = 'overview' | 'blocks' | 'transactions' | 'graphql'
+
+interface TabConfig {
+  id: TabId
+  label: string
+  ariaLabel: string
+}
+
+interface StatConfig {
+  key: keyof Pick<
+    NetworkStats,
+    | 'totalBlocks'
+    | 'totalTransactions'
+    | 'totalAccounts'
+    | 'totalContracts'
+    | 'totalTokenTransfers'
+    | 'totalAgents'
+  >
+  icon: string
+  label: string
+  colorClass: string
+}
+
+// ============================================
+// CONSTANTS
+// ============================================
+
 const API_BASE =
   typeof window !== 'undefined' && window.location.port === '4355'
     ? 'http://localhost:4352'
@@ -38,17 +70,204 @@ const GRAPHQL_URL =
     ? 'http://localhost:4350/graphql'
     : '/graphql'
 
+const TABS: TabConfig[] = [
+  { id: 'overview', label: 'Overview', ariaLabel: 'View network overview' },
+  { id: 'blocks', label: 'Blocks', ariaLabel: 'View all blocks' },
+  {
+    id: 'transactions',
+    label: 'Transactions',
+    ariaLabel: 'View all transactions',
+  },
+  { id: 'graphql', label: 'GraphQL', ariaLabel: 'GraphQL API documentation' },
+]
+
+const STAT_CONFIGS: StatConfig[] = [
+  {
+    key: 'totalBlocks',
+    icon: '📦',
+    label: 'Blocks',
+    colorClass: 'blocks',
+  },
+  {
+    key: 'totalTransactions',
+    icon: '⚡',
+    label: 'Transactions',
+    colorClass: 'txs',
+  },
+  {
+    key: 'totalAccounts',
+    icon: '👥',
+    label: 'Accounts',
+    colorClass: 'accounts',
+  },
+  {
+    key: 'totalContracts',
+    icon: '📜',
+    label: 'Contracts',
+    colorClass: 'contracts',
+  },
+  {
+    key: 'totalTokenTransfers',
+    icon: '💎',
+    label: 'Transfers',
+    colorClass: 'transfers',
+  },
+  {
+    key: 'totalAgents',
+    icon: '🤖',
+    label: 'Agents',
+    colorClass: 'agents',
+  },
+]
+
+const GRAPHQL_QUERIES = [
+  { name: 'blocks', desc: 'Block height, hash, timestamp, gas' },
+  { name: 'transactions', desc: 'Tx hash, sender, recipient, value' },
+  { name: 'accounts', desc: 'Addresses, balances, nonces' },
+  { name: 'contracts', desc: 'Deployed bytecode and ABIs' },
+  { name: 'tokenTransfers', desc: 'ERC-20, ERC-721, ERC-1155 events' },
+  { name: 'decodedEvents', desc: 'Parsed logs with signatures' },
+  { name: 'registeredAgents', desc: 'On-chain AI agent metadata' },
+  { name: 'oracleFeeds', desc: 'Price feeds and oracle data' },
+] as const
+
+// ============================================
+// UTILITIES
+// ============================================
+
+const formatNumber = (n: number | undefined): string => {
+  if (n === undefined) return '—'
+  return new Intl.NumberFormat().format(n)
+}
+
+const shortenHash = (hash: string): string => {
+  if (!hash) return '—'
+  return `${hash.slice(0, 8)}…${hash.slice(-6)}`
+}
+
+const formatTime = (timestamp: string): string => {
+  if (!timestamp) return '—'
+  const date = new Date(timestamp)
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const formatValue = (value: string): string => {
+  if (!value) return '0'
+  const wei = BigInt(value)
+  const eth = Number(wei) / 1e18
+  if (eth === 0) return '0'
+  if (eth < 0.0001) return '< 0.0001'
+  return eth.toFixed(4)
+}
+
+// ============================================
+// COMPONENTS
+// ============================================
+
+function StatCard({
+  icon,
+  label,
+  value,
+  loading,
+  colorClass,
+}: {
+  icon: string
+  label: string
+  value: string
+  loading: boolean
+  colorClass: string
+}) {
+  return (
+    <article className="stat-card" aria-label={`${label}: ${value}`}>
+      <div className={`stat-icon ${colorClass}`} aria-hidden="true">
+        {icon}
+      </div>
+      <div className="stat-content">
+        <div className="stat-label">{label}</div>
+        {loading ? (
+          <output className="skeleton stat-skeleton" aria-label="Loading" />
+        ) : (
+          <div className="stat-value">{value}</div>
+        )}
+      </div>
+    </article>
+  )
+}
+
+function SkeletonList({ count = 3 }: { count?: number }) {
+  const skeletonKeys = useMemo(
+    () => Array.from({ length: count }, () => crypto.randomUUID()),
+    [count],
+  )
+
+  return (
+    <output className="skeleton-list" aria-label="Loading content">
+      {skeletonKeys.map((key) => (
+        <div
+          key={key}
+          className="skeleton"
+          style={{ height: 52, marginBottom: 8 }}
+        />
+      ))}
+    </output>
+  )
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <tr>
+      <td colSpan={100} className="empty-cell">
+        {message}
+      </td>
+    </tr>
+  )
+}
+
+function StatusBadge({ status }: { status: 'online' | 'loading' | 'error' }) {
+  const labels = {
+    online: 'Live',
+    loading: 'Syncing',
+    error: 'Disconnected',
+  }
+
+  return (
+    <output
+      className="status-badge"
+      aria-live="polite"
+      aria-label={`Connection status: ${labels[status]}`}
+    >
+      <span className={`status-dot ${status}`} aria-hidden="true" />
+      <span>{labels[status]}</span>
+    </output>
+  )
+}
+
+// ============================================
+// MAIN APP
+// ============================================
+
 export default function App() {
   const [stats, setStats] = useState<NetworkStats | null>(null)
   const [blocks, setBlocks] = useState<Block[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'blocks' | 'transactions' | 'graphql'
-  >('overview')
+  const [theme, setTheme] = useState<Theme>('dark')
+  const [activeTab, setActiveTab] = useState<TabId>('overview')
 
+  // Computed status
+  const connectionStatus = useMemo(() => {
+    if (error) return 'error' as const
+    if (loading) return 'loading' as const
+    return 'online' as const
+  }, [error, loading])
+
+  // Theme toggle
   const toggleTheme = useCallback(() => {
     const newTheme = theme === 'dark' ? 'light' : 'dark'
     setTheme(newTheme)
@@ -56,14 +275,18 @@ export default function App() {
     localStorage.setItem('theme', newTheme)
   }, [theme])
 
+  // Initialize theme from localStorage or system preference
   useEffect(() => {
-    const saved = localStorage.getItem('theme') as 'dark' | 'light' | null
-    if (saved) {
-      setTheme(saved)
-      document.documentElement.setAttribute('data-theme', saved)
-    }
+    const saved = localStorage.getItem('theme') as Theme | null
+    const systemPrefersDark = window.matchMedia(
+      '(prefers-color-scheme: dark)',
+    ).matches
+    const initial = saved ?? (systemPrefersDark ? 'dark' : 'light')
+    setTheme(initial)
+    document.documentElement.setAttribute('data-theme', initial)
   }, [])
 
+  // Fetch data
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
@@ -91,7 +314,7 @@ export default function App() {
 
       if (results.every((r) => r.status === 'rejected')) {
         setError(
-          'Failed to connect to indexer API. Make sure the backend is running.',
+          'Unable to reach the indexer. Verify the API server is running.',
         )
       }
 
@@ -103,57 +326,46 @@ export default function App() {
     return () => clearInterval(interval)
   }, [])
 
-  const formatNumber = (n: number | undefined) => {
-    if (n === undefined) return '—'
-    return new Intl.NumberFormat().format(n)
-  }
-
-  const shortenHash = (hash: string) => {
-    if (!hash) return '—'
-    return `${hash.slice(0, 8)}...${hash.slice(-6)}`
-  }
-
-  const formatTime = (timestamp: string) => {
-    if (!timestamp) return '—'
-    const date = new Date(timestamp)
-    return date.toLocaleString()
-  }
-
-  const formatValue = (value: string) => {
-    if (!value) return '0'
-    const wei = BigInt(value)
-    const eth = Number(wei) / 1e18
-    if (eth === 0) return '0'
-    if (eth < 0.0001) return '< 0.0001'
-    return eth.toFixed(4)
-  }
+  // Memoized recent items for overview
+  const recentBlocks = useMemo(() => blocks.slice(0, 5), [blocks])
+  const recentTransactions = useMemo(
+    () => transactions.slice(0, 5),
+    [transactions],
+  )
 
   return (
     <div className="app">
+      {/* Skip link for keyboard users */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
+      {/* Header */}
       <header className="header">
         <div className="header-left">
           <div className="logo">
-            <div className="logo-icon">
+            <div className="logo-icon" aria-hidden="true">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
-                aria-label="Indexer Logo"
+                aria-hidden="true"
               >
-                <title>Indexer Logo</title>
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </div>
-            <span>Indexer</span>
+            <span className="logo-text">Jeju Indexer</span>
           </div>
         </div>
+
         <div className="header-right">
           <a
             href={GRAPHQL_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-secondary btn-sm"
+            aria-label="Open GraphQL Playground in new tab"
           >
             <svg
               viewBox="0 0 24 24"
@@ -161,70 +373,62 @@ export default function App() {
               stroke="currentColor"
               strokeWidth="2"
               style={{ width: 16, height: 16 }}
-              aria-label="GraphQL Playground"
+              aria-hidden="true"
             >
-              <title>GraphQL Playground</title>
               <circle cx="12" cy="12" r="10" />
               <path d="M8 12h8M12 8v8" />
             </svg>
-            GraphQL Playground
+            Playground
           </a>
+
           <button
             type="button"
-            className="btn btn-ghost btn-icon"
+            className="btn-icon"
             onClick={toggleTheme}
-            title="Toggle theme"
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
-          <div
-            className={`status-indicator ${error ? 'error' : loading ? 'loading' : 'online'}`}
-          />
+
+          <StatusBadge status={connectionStatus} />
         </div>
       </header>
 
-      <nav className="tabs-nav">
-        <button
-          type="button"
-          className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button
-          type="button"
-          className={`tab ${activeTab === 'blocks' ? 'active' : ''}`}
-          onClick={() => setActiveTab('blocks')}
-        >
-          Blocks
-        </button>
-        <button
-          type="button"
-          className={`tab ${activeTab === 'transactions' ? 'active' : ''}`}
-          onClick={() => setActiveTab('transactions')}
-        >
-          Transactions
-        </button>
-        <button
-          type="button"
-          className={`tab ${activeTab === 'graphql' ? 'active' : ''}`}
-          onClick={() => setActiveTab('graphql')}
-        >
-          GraphQL
-        </button>
-      </nav>
+      {/* Navigation */}
+      <div className="tabs-nav" role="tablist" aria-label="Main navigation">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+            aria-selected={activeTab === tab.id}
+            aria-label={tab.ariaLabel}
+            tabIndex={activeTab === tab.id ? 0 : -1}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      <main className="main-content">
+      {/* Main Content */}
+      <main
+        id="main-content"
+        className="main-content"
+        aria-label="Blockchain data"
+      >
+        {/* Error Banner */}
         {error && (
-          <div className="error-banner">
+          <div className="error-banner" role="alert" aria-live="assertive">
             <svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              aria-label="Error"
+              aria-hidden="true"
             >
-              <title>Error</title>
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -233,193 +437,180 @@ export default function App() {
           </div>
         )}
 
+        {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="overview-content">
-            <div className="stats-grid">
-              <StatCard
-                icon="📦"
-                label="Total Blocks"
-                value={formatNumber(stats?.totalBlocks)}
-                loading={loading}
-              />
-              <StatCard
-                icon="📝"
-                label="Transactions"
-                value={formatNumber(stats?.totalTransactions)}
-                loading={loading}
-              />
-              <StatCard
-                icon="👤"
-                label="Accounts"
-                value={formatNumber(stats?.totalAccounts)}
-                loading={loading}
-              />
-              <StatCard
-                icon="📄"
-                label="Contracts"
-                value={formatNumber(stats?.totalContracts)}
-                loading={loading}
-              />
-              <StatCard
-                icon="💸"
-                label="Token Transfers"
-                value={formatNumber(stats?.totalTokenTransfers)}
-                loading={loading}
-              />
-              <StatCard
-                icon="🤖"
-                label="Agents"
-                value={formatNumber(stats?.totalAgents)}
-                loading={loading}
-              />
-            </div>
+          <div
+            className="overview-content"
+            role="tabpanel"
+            aria-label="Network overview"
+          >
+            {/* Stats Grid */}
+            <section className="stats-grid" aria-label="Network statistics">
+              {STAT_CONFIGS.map((config) => (
+                <StatCard
+                  key={config.key}
+                  icon={config.icon}
+                  label={config.label}
+                  value={formatNumber(stats?.[config.key])}
+                  loading={loading}
+                  colorClass={config.colorClass}
+                />
+              ))}
+            </section>
 
-            <div className="card latest-block">
+            {/* Latest Block Hero */}
+            <section
+              className="card latest-block"
+              aria-label="Latest block information"
+            >
               <div className="card-header">
-                <h3 className="card-title">
+                <h2 className="card-title">
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
-                    aria-label="Latest Block"
+                    aria-hidden="true"
                   >
-                    <title>Latest Block</title>
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="M3 9h18M9 21V9" />
                   </svg>
                   Latest Block
-                </h3>
+                </h2>
               </div>
               {loading ? (
-                <div className="skeleton" style={{ height: 80 }} />
+                <output
+                  className="skeleton"
+                  style={{ height: 100, display: 'block' }}
+                  aria-label="Loading latest block"
+                />
               ) : (
                 <div className="latest-block-info">
-                  <div className="block-number">
+                  <div className="block-hero-number">
                     #{formatNumber(stats?.latestBlockNumber)}
                   </div>
-                  <div className="block-time">
+                  <div className="block-hero-label">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
                     {formatTime(stats?.latestBlockTimestamp ?? '')}
                   </div>
                 </div>
               )}
-            </div>
+            </section>
 
+            {/* Recent Activity */}
             <div className="two-col-grid">
-              <div className="card">
+              {/* Recent Blocks */}
+              <section className="card" aria-label="Recent blocks">
                 <div className="card-header">
                   <h3 className="card-title">Recent Blocks</h3>
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => setActiveTab('blocks')}
+                    aria-label="View all blocks"
                   >
                     View All →
                   </button>
                 </div>
                 {loading ? (
-                  <div className="skeleton-list">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="skeleton"
-                        style={{ height: 48, marginBottom: 8 }}
-                      />
-                    ))}
-                  </div>
+                  <SkeletonList />
                 ) : (
-                  <div className="mini-list">
-                    {blocks.slice(0, 5).map((block) => (
-                      <div key={block.hash} className="mini-list-item">
+                  <ul className="mini-list">
+                    {recentBlocks.map((block) => (
+                      <li key={block.hash} className="mini-list-item">
                         <div className="item-main">
                           <span className="block-num">#{block.number}</span>
-                          <span className="hash">
+                          <code className="hash">
                             {shortenHash(block.hash)}
-                          </span>
+                          </code>
                         </div>
                         <div className="item-meta">
-                          <span>{block.transactionCount} txs</span>
+                          {block.transactionCount} txs
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
-              </div>
+              </section>
 
-              <div className="card">
+              {/* Recent Transactions */}
+              <section className="card" aria-label="Recent transactions">
                 <div className="card-header">
                   <h3 className="card-title">Recent Transactions</h3>
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => setActiveTab('transactions')}
+                    aria-label="View all transactions"
                   >
                     View All →
                   </button>
                 </div>
                 {loading ? (
-                  <div className="skeleton-list">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="skeleton"
-                        style={{ height: 48, marginBottom: 8 }}
-                      />
-                    ))}
-                  </div>
+                  <SkeletonList />
                 ) : (
-                  <div className="mini-list">
-                    {transactions.slice(0, 5).map((tx) => (
-                      <div key={tx.hash} className="mini-list-item">
+                  <ul className="mini-list">
+                    {recentTransactions.map((tx) => (
+                      <li key={tx.hash} className="mini-list-item">
                         <div className="item-main">
-                          <span className="hash">{shortenHash(tx.hash)}</span>
+                          <code className="hash">{shortenHash(tx.hash)}</code>
                           <span
                             className={`badge ${tx.status === 'SUCCESS' ? 'badge-success' : 'badge-error'}`}
                           >
-                            {tx.status}
+                            {tx.status === 'SUCCESS' ? 'Success' : 'Failed'}
                           </span>
                         </div>
                         <div className="item-meta">
-                          <span>{formatValue(tx.value)} ETH</span>
+                          {formatValue(tx.value)} ETH
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
-              </div>
+              </section>
             </div>
           </div>
         )}
 
+        {/* Blocks Tab */}
         {activeTab === 'blocks' && (
-          <div className="card">
+          <section className="card" role="tabpanel" aria-label="Blocks table">
             <div className="card-header">
-              <h3 className="card-title">Blocks</h3>
+              <h2 className="card-title">Blocks</h2>
             </div>
             <div className="table-container">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Block</th>
-                    <th>Hash</th>
-                    <th>Timestamp</th>
-                    <th>Transactions</th>
-                    <th>Gas Used</th>
+                    <th scope="col">Block</th>
+                    <th scope="col">Hash</th>
+                    <th scope="col">Timestamp</th>
+                    <th scope="col">Transactions</th>
+                    <th scope="col">Gas Used</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
                       <td colSpan={5}>
-                        <div className="skeleton" style={{ height: 40 }} />
+                        <output
+                          className="skeleton"
+                          style={{ height: 40, display: 'block' }}
+                          aria-label="Loading blocks"
+                        />
                       </td>
                     </tr>
                   ) : blocks.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="empty-cell">
-                        No blocks indexed yet
-                      </td>
-                    </tr>
+                    <EmptyState message="No blocks indexed yet" />
                   ) : (
                     blocks.map((block) => (
                       <tr key={block.hash}>
@@ -442,39 +633,44 @@ export default function App() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
         )}
 
+        {/* Transactions Tab */}
         {activeTab === 'transactions' && (
-          <div className="card">
+          <section
+            className="card"
+            role="tabpanel"
+            aria-label="Transactions table"
+          >
             <div className="card-header">
-              <h3 className="card-title">Transactions</h3>
+              <h2 className="card-title">Transactions</h2>
             </div>
             <div className="table-container">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Hash</th>
-                    <th>Block</th>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Value</th>
-                    <th>Status</th>
+                    <th scope="col">Hash</th>
+                    <th scope="col">Block</th>
+                    <th scope="col">From</th>
+                    <th scope="col">To</th>
+                    <th scope="col">Value</th>
+                    <th scope="col">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
                       <td colSpan={6}>
-                        <div className="skeleton" style={{ height: 40 }} />
+                        <output
+                          className="skeleton"
+                          style={{ height: 40, display: 'block' }}
+                          aria-label="Loading transactions"
+                        />
                       </td>
                     </tr>
                   ) : transactions.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="empty-cell">
-                        No transactions indexed yet
-                      </td>
-                    </tr>
+                    <EmptyState message="No transactions indexed yet" />
                   ) : (
                     transactions.map((tx) => (
                       <tr key={tx.hash}>
@@ -489,7 +685,7 @@ export default function App() {
                         </td>
                         <td>
                           <code className="address">
-                            {tx.to ? shortenHash(tx.to) : 'Contract Creation'}
+                            {tx.to ? shortenHash(tx.to) : 'Contract Deploy'}
                           </code>
                         </td>
                         <td>{formatValue(tx.value)} ETH</td>
@@ -497,7 +693,7 @@ export default function App() {
                           <span
                             className={`badge ${tx.status === 'SUCCESS' ? 'badge-success' : 'badge-error'}`}
                           >
-                            {tx.status}
+                            {tx.status === 'SUCCESS' ? 'Success' : 'Failed'}
                           </span>
                         </td>
                       </tr>
@@ -506,57 +702,66 @@ export default function App() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
         )}
 
+        {/* GraphQL Tab */}
         {activeTab === 'graphql' && (
-          <div className="graphql-section">
-            <div className="card">
+          <div
+            className="graphql-section"
+            role="tabpanel"
+            aria-label="GraphQL API documentation"
+          >
+            <section className="card" aria-label="API endpoints">
               <div className="card-header">
-                <h3 className="card-title">
+                <h2 className="card-title">
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
-                    aria-label="GraphQL API"
+                    aria-hidden="true"
                   >
-                    <title>GraphQL API</title>
                     <circle cx="12" cy="12" r="10" />
                     <path d="M8 12h8M12 8v8" />
                   </svg>
                   GraphQL API
-                </h3>
+                </h2>
               </div>
               <div className="graphql-info">
-                <p>
-                  The Indexer provides a powerful GraphQL API for querying
-                  blockchain data.
+                <p className="graphql-intro">
+                  Access the full indexed dataset through GraphQL. Filter by
+                  block range, address, or time. Results support cursor-based
+                  pagination.
                 </p>
 
-                <div className="endpoints-list">
-                  <div className="endpoint-item">
+                <ul className="endpoints-list" aria-label="API endpoints">
+                  <li className="endpoint-item">
                     <span className="endpoint-label">GraphQL Endpoint</span>
                     <code className="endpoint-url">{GRAPHQL_URL}</code>
-                  </div>
-                  <div className="endpoint-item">
+                  </li>
+                  <li className="endpoint-item">
                     <span className="endpoint-label">REST API</span>
                     <code className="endpoint-url">{API_BASE}</code>
-                  </div>
-                </div>
+                  </li>
+                </ul>
 
                 <a
                   href={GRAPHQL_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-primary"
+                  aria-label="Open GraphQL Playground in new tab"
                 >
-                  Open GraphQL Playground →
+                  Open Playground →
                 </a>
 
-                <div className="example-query">
-                  <h4>Example Query</h4>
-                  <pre>{`query {
+                <figure className="example-query">
+                  <figcaption id="example-query-heading">
+                    Example Query
+                  </figcaption>
+                  <pre>
+                    {`query {
   blocks(limit: 5, orderBy: number_DESC) {
     number
     hash
@@ -569,89 +774,57 @@ export default function App() {
     from { address }
     to { address }
   }
-}`}</pre>
-                </div>
+}`}
+                  </pre>
+                </figure>
               </div>
-            </div>
+            </section>
 
-            <div className="card">
+            <section className="card" aria-label="Available queries">
               <div className="card-header">
-                <h3 className="card-title">Available Queries</h3>
+                <h2 className="card-title">Available Queries</h2>
               </div>
-              <div className="query-list">
-                {[
-                  { name: 'blocks', desc: 'Query indexed blocks' },
-                  { name: 'transactions', desc: 'Query transactions' },
-                  { name: 'accounts', desc: 'Query accounts and balances' },
-                  { name: 'contracts', desc: 'Query smart contracts' },
-                  {
-                    name: 'tokenTransfers',
-                    desc: 'Query ERC20/721/1155 transfers',
-                  },
-                  {
-                    name: 'decodedEvents',
-                    desc: 'Query decoded contract events',
-                  },
-                  {
-                    name: 'registeredAgents',
-                    desc: 'Query registered AI agents',
-                  },
-                  { name: 'oracleFeeds', desc: 'Query oracle data feeds' },
-                ].map((q) => (
-                  <div key={q.name} className="query-item">
+              <ul className="query-list">
+                {GRAPHQL_QUERIES.map((q) => (
+                  <li key={q.name} className="query-item">
                     <code className="query-name">{q.name}</code>
                     <span className="query-desc">{q.desc}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            </section>
           </div>
         )}
       </main>
 
+      {/* Footer */}
       <footer className="footer">
-        <div className="footer-content">
-          <span>Indexer v1.0.0</span>
-          <span className="separator">•</span>
-          <a href={GRAPHQL_URL} target="_blank" rel="noopener noreferrer">
+        <nav className="footer-content" aria-label="Footer links">
+          <span>Jeju Indexer</span>
+          <span className="separator" aria-hidden="true">
+            •
+          </span>
+          <a
+            href={GRAPHQL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open GraphQL Playground"
+          >
             GraphQL
           </a>
-          <span className="separator">•</span>
+          <span className="separator" aria-hidden="true">
+            •
+          </span>
           <a
             href={`${API_BASE}/health`}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Check API health status"
           >
             Health
           </a>
-        </div>
+        </nav>
       </footer>
-    </div>
-  )
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  loading,
-}: {
-  icon: string
-  label: string
-  value: string
-  loading: boolean
-}) {
-  return (
-    <div className="stat-card">
-      <div className="stat-icon">{icon}</div>
-      <div className="stat-content">
-        <div className="stat-label">{label}</div>
-        {loading ? (
-          <div className="skeleton stat-skeleton" />
-        ) : (
-          <div className="stat-value">{value}</div>
-        )}
-      </div>
     </div>
   )
 }

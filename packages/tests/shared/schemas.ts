@@ -285,7 +285,9 @@ export const JsonRpcErrorResponseSchema = z.object({
 })
 
 export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>
-export type JsonRpcSuccessResponse = z.infer<typeof JsonRpcSuccessResponseSchema>
+export type JsonRpcSuccessResponse = z.infer<
+  typeof JsonRpcSuccessResponseSchema
+>
 export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>
 export type JsonRpcErrorResponse = z.infer<typeof JsonRpcErrorResponseSchema>
 

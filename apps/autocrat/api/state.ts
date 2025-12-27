@@ -12,7 +12,9 @@ import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
 import type { AutocratVote, StoredObject } from '../lib'
 
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'autocrat'
+import { config } from './config'
+
+const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
 const ProposalStatusSchema = z.enum([
   'draft',
@@ -146,7 +148,7 @@ async function getEQLiteClient(): Promise<EQLiteClient> {
     eqliteClient = getEQLite({
       databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !config.isProduction,
     })
 
     const healthy = await eqliteClient.isHealthy()

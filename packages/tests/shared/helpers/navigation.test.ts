@@ -18,8 +18,12 @@ try {
 }
 
 const {
-  getCurrentRoute = () => { throw new Error('Not available') },
-  isAtRoute = () => { throw new Error('Not available') },
+  getCurrentRoute = () => {
+    throw new Error('Not available')
+  },
+  isAtRoute = () => {
+    throw new Error('Not available')
+  },
   waitForServerHealthy = () => Promise.resolve(false),
 } = navigationModule ?? {}
 
@@ -27,58 +31,61 @@ const {
 // waitForServerHealthy - Server Health Checking
 // ============================================================================
 
-describe.skipIf(skipPlaywrightTests)('waitForServerHealthy - Server Availability', () => {
-  test('returns false for unreachable server', async () => {
-    const result = await waitForServerHealthy({
-      baseUrl: 'http://localhost:59999',
-      maxRetries: 2,
-      retryDelay: 100,
-      timeout: 500,
+describe.skipIf(skipPlaywrightTests)(
+  'waitForServerHealthy - Server Availability',
+  () => {
+    test('returns false for unreachable server', async () => {
+      const result = await waitForServerHealthy({
+        baseUrl: 'http://localhost:59999',
+        maxRetries: 2,
+        retryDelay: 100,
+        timeout: 500,
+      })
+
+      expect(result).toBe(false)
     })
 
-    expect(result).toBe(false)
-  })
+    test('respects maxRetries limit', async () => {
+      const start = Date.now()
+      await waitForServerHealthy({
+        baseUrl: 'http://localhost:59999',
+        maxRetries: 3,
+        retryDelay: 100,
+        timeout: 100,
+      })
+      const elapsed = Date.now() - start
 
-  test('respects maxRetries limit', async () => {
-    const start = Date.now()
-    await waitForServerHealthy({
-      baseUrl: 'http://localhost:59999',
-      maxRetries: 3,
-      retryDelay: 100,
-      timeout: 100,
-    })
-    const elapsed = Date.now() - start
-
-    // Should have waited for 2 intervals (between 3 attempts)
-    expect(elapsed).toBeGreaterThanOrEqual(200)
-    expect(elapsed).toBeLessThan(600)
-  })
-
-  test('respects timeout for each request', async () => {
-    const start = Date.now()
-    await waitForServerHealthy({
-      baseUrl: 'http://localhost:59999',
-      maxRetries: 1,
-      timeout: 500,
-    })
-    const elapsed = Date.now() - start
-
-    // Single attempt with 500ms timeout
-    expect(elapsed).toBeLessThan(1000)
-  })
-
-  test('uses default values when options not provided', async () => {
-    // Just verify it doesn't throw - will fail on connection
-    const result = await waitForServerHealthy({
-      baseUrl: 'http://localhost:59999',
-      maxRetries: 1,
-      retryDelay: 10,
-      timeout: 100,
+      // Should have waited for 2 intervals (between 3 attempts)
+      expect(elapsed).toBeGreaterThanOrEqual(200)
+      expect(elapsed).toBeLessThan(600)
     })
 
-    expect(typeof result).toBe('boolean')
-  })
-})
+    test('respects timeout for each request', async () => {
+      const start = Date.now()
+      await waitForServerHealthy({
+        baseUrl: 'http://localhost:59999',
+        maxRetries: 1,
+        timeout: 500,
+      })
+      const elapsed = Date.now() - start
+
+      // Single attempt with 500ms timeout
+      expect(elapsed).toBeLessThan(1000)
+    })
+
+    test('uses default values when options not provided', async () => {
+      // Just verify it doesn't throw - will fail on connection
+      const result = await waitForServerHealthy({
+        baseUrl: 'http://localhost:59999',
+        maxRetries: 1,
+        retryDelay: 10,
+        timeout: 100,
+      })
+
+      expect(typeof result).toBe('boolean')
+    })
+  },
+)
 
 // ============================================================================
 // waitForServerHealthy - Success Cases (Mock Server)
@@ -124,29 +131,32 @@ afterAll(() => {
   mockServer?.stop()
 })
 
-describe.skipIf(skipPlaywrightTests)('waitForServerHealthy - With Running Server', () => {
-  test('returns true for healthy server', async () => {
-    const result = await waitForServerHealthy({
-      baseUrl: `http://localhost:${MOCK_PORT}`,
-      maxRetries: 1,
-      timeout: 2000,
+describe.skipIf(skipPlaywrightTests)(
+  'waitForServerHealthy - With Running Server',
+  () => {
+    test('returns true for healthy server', async () => {
+      const result = await waitForServerHealthy({
+        baseUrl: `http://localhost:${MOCK_PORT}`,
+        maxRetries: 1,
+        timeout: 2000,
+      })
+
+      expect(result).toBe(true)
     })
 
-    expect(result).toBe(true)
-  })
+    test('accepts 4xx as healthy (server responding)', async () => {
+      // 4xx means server is running, just endpoint not found
+      const result = await waitForServerHealthy({
+        baseUrl: `http://localhost:${MOCK_PORT}/client-error`,
+        maxRetries: 1,
+        timeout: 2000,
+      })
 
-  test('accepts 4xx as healthy (server responding)', async () => {
-    // 4xx means server is running, just endpoint not found
-    const result = await waitForServerHealthy({
-      baseUrl: `http://localhost:${MOCK_PORT}/client-error`,
-      maxRetries: 1,
-      timeout: 2000,
+      // Server is responding with < 500, so it's "healthy"
+      expect(result).toBe(true)
     })
-
-    // Server is responding with < 500, so it's "healthy"
-    expect(result).toBe(true)
-  })
-})
+  },
+)
 
 // ============================================================================
 // getCurrentRoute - URL Parsing
@@ -287,34 +297,37 @@ describe.skipIf(skipPlaywrightTests)('Navigation - Edge Cases', () => {
 // Concurrent Behavior
 // ============================================================================
 
-describe.skipIf(skipPlaywrightTests)('Navigation - Concurrent Execution', () => {
-  test('multiple health checks run independently', async () => {
-    const start = Date.now()
-    const results = await Promise.all([
-      waitForServerHealthy({
-        baseUrl: `http://localhost:${MOCK_PORT}`,
-        maxRetries: 1,
-        timeout: 1000,
-      }),
-      waitForServerHealthy({
-        baseUrl: `http://localhost:${MOCK_PORT}`,
-        maxRetries: 1,
-        timeout: 1000,
-      }),
-      waitForServerHealthy({
-        baseUrl: `http://localhost:${MOCK_PORT}`,
-        maxRetries: 1,
-        timeout: 1000,
-      }),
-    ])
-    const elapsed = Date.now() - start
+describe.skipIf(skipPlaywrightTests)(
+  'Navigation - Concurrent Execution',
+  () => {
+    test('multiple health checks run independently', async () => {
+      const start = Date.now()
+      const results = await Promise.all([
+        waitForServerHealthy({
+          baseUrl: `http://localhost:${MOCK_PORT}`,
+          maxRetries: 1,
+          timeout: 1000,
+        }),
+        waitForServerHealthy({
+          baseUrl: `http://localhost:${MOCK_PORT}`,
+          maxRetries: 1,
+          timeout: 1000,
+        }),
+        waitForServerHealthy({
+          baseUrl: `http://localhost:${MOCK_PORT}`,
+          maxRetries: 1,
+          timeout: 1000,
+        }),
+      ])
+      const elapsed = Date.now() - start
 
-    // All should succeed
-    expect(results).toEqual([true, true, true])
-    // Should complete in roughly parallel time, not 3x
-    expect(elapsed).toBeLessThan(2000)
-  })
-})
+      // All should succeed
+      expect(results).toEqual([true, true, true])
+      // Should complete in roughly parallel time, not 3x
+      expect(elapsed).toBeLessThan(2000)
+    })
+  },
+)
 
 // ============================================================================
 // App-Specific Navigation Functions - Export Verification
@@ -323,48 +336,51 @@ describe.skipIf(skipPlaywrightTests)('Navigation - Concurrent Execution', () => 
 // Full E2E tests should be in the app-specific test suites.
 // Here we verify they are exported and have correct signatures.
 
-describe.skipIf(skipPlaywrightTests)('Navigation - App-Specific Functions Exist', () => {
-  test('navigateToMarket is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.navigateToMarket).toBe('function')
-    expect(nav.navigateToMarket.length).toBe(2) // page, marketId?
-  })
+describe.skipIf(skipPlaywrightTests)(
+  'Navigation - App-Specific Functions Exist',
+  () => {
+    test('navigateToMarket is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.navigateToMarket).toBe('function')
+      expect(nav.navigateToMarket.length).toBe(2) // page, marketId?
+    })
 
-  test('navigateToPortfolio is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.navigateToPortfolio).toBe('function')
-    expect(nav.navigateToPortfolio.length).toBe(1) // page
-  })
+    test('navigateToPortfolio is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.navigateToPortfolio).toBe('function')
+      expect(nav.navigateToPortfolio.length).toBe(1) // page
+    })
 
-  test('navigateToSwap is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.navigateToSwap).toBe('function')
-    expect(nav.navigateToSwap.length).toBe(1) // page
-  })
+    test('navigateToSwap is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.navigateToSwap).toBe('function')
+      expect(nav.navigateToSwap.length).toBe(1) // page
+    })
 
-  test('navigateToLiquidity is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.navigateToLiquidity).toBe('function')
-    expect(nav.navigateToLiquidity.length).toBe(1) // page
-  })
+    test('navigateToLiquidity is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.navigateToLiquidity).toBe('function')
+      expect(nav.navigateToLiquidity.length).toBe(1) // page
+    })
 
-  test('hideNextDevOverlay is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.hideNextDevOverlay).toBe('function')
-  })
+    test('hideNextDevOverlay is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.hideNextDevOverlay).toBe('function')
+    })
 
-  test('waitForPageLoad is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.waitForPageLoad).toBe('function')
-  })
+    test('waitForPageLoad is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.waitForPageLoad).toBe('function')
+    })
 
-  test('cooldownBetweenTests is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.cooldownBetweenTests).toBe('function')
-  })
+    test('cooldownBetweenTests is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.cooldownBetweenTests).toBe('function')
+    })
 
-  test('waitForRoute is exported and callable', async () => {
-    const nav = await import('./navigation')
-    expect(typeof nav.waitForRoute).toBe('function')
-  })
-})
+    test('waitForRoute is exported and callable', async () => {
+      const nav = await import('./navigation')
+      expect(typeof nav.waitForRoute).toBe('function')
+    })
+  },
+)

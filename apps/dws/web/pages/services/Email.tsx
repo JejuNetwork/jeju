@@ -368,14 +368,14 @@ export default function EmailPage() {
           ) : !isConnected ? (
             <div className="empty-state">
               <Mail size={48} />
-              <h3>Connect your wallet</h3>
-              <p>Connect your wallet to access your decentralized mailbox</p>
+              <h3>Ready for mail</h3>
+              <p>Connect your wallet to access your encrypted mailbox</p>
             </div>
           ) : emails.length === 0 ? (
             <div className="empty-state">
               <Inbox size={48} />
-              <h3>No emails</h3>
-              <p>Your {selectedFolder} is empty</p>
+              <h3>All clear</h3>
+              <p>Your {selectedFolder} is empty. Compose a new message to get started.</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '0' }}>

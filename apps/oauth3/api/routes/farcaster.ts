@@ -7,21 +7,8 @@ import QRCode from 'qrcode'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig } from '../../lib/types'
+import { createHtmlPage, escapeJsString } from '../shared/html-templates'
 import { authCodeState, clientState, sessionState } from '../services/state'
-
-/**
- * JS string escape for template literals.
- */
-function escapeJsString(unsafe: string): string {
-  return unsafe
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/"/g, '\\"')
-    .replace(/`/g, '\\`')
-    .replace(/\$/g, '\\$')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-}
 
 /**
  * Validate redirect URI against client's registered patterns.
@@ -79,6 +66,153 @@ setInterval(() => {
   }
 }, 60 * 1000)
 
+/**
+ * Generate Farcaster sign-in page HTML
+ */
+function generateFarcasterPage(
+  nonce: string,
+  domain: string,
+  qrDataUrl: string,
+  warpcastUri: string,
+): string {
+  const content = `
+  <main class="card" role="main">
+    <div class="icon-large" aria-hidden="true">🟣</div>
+    <div class="title">Farcaster Sign-In</div>
+    <div class="subtitle">Scan with Warpcast or enter your FID below</div>
+    
+    <div class="qr-container">
+      <img src="${qrDataUrl}" alt="Scan with Warpcast app to sign in" role="img">
+    </div>
+    
+    <a href="${warpcastUri}" target="_blank" rel="noopener noreferrer" class="provider-btn farcaster" role="button">
+      <span class="icon" aria-hidden="true">📱</span>
+      Open Warpcast
+    </a>
+    
+    <div class="divider" role="separator"><span>or sign manually</span></div>
+    
+    <button id="showManual" class="manual-toggle" type="button" aria-expanded="false" aria-controls="manualInput">
+      Enter Details Manually
+    </button>
+    
+    <div id="manualInput" class="manual-input" aria-hidden="true">
+      <div class="input-group">
+        <label for="fid">FID (Farcaster ID)</label>
+        <input type="number" id="fid" placeholder="e.g. 1234" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label for="custody">Custody Address</label>
+        <input type="text" id="custody" placeholder="0x..." autocomplete="off">
+      </div>
+      <button id="signBtn" class="btn" type="button">
+        Sign Message
+      </button>
+    </div>
+    
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    
+    <footer class="footer">
+      <a href="https://jejunetwork.org">Jeju Network</a>
+    </footer>
+  </main>
+  <style>
+    .icon-large { display: block; }
+  </style>`
+
+  const scripts = `
+    const nonce = '${escapeJsString(nonce)}';
+    const domain = '${escapeJsString(domain)}';
+    
+    const showManualBtn = document.getElementById('showManual');
+    const manualInput = document.getElementById('manualInput');
+    
+    showManualBtn.addEventListener('click', () => {
+      const isExpanded = showManualBtn.getAttribute('aria-expanded') === 'true';
+      showManualBtn.setAttribute('aria-expanded', !isExpanded);
+      manualInput.classList.toggle('show');
+      manualInput.setAttribute('aria-hidden', isExpanded);
+      if (!isExpanded) {
+        document.getElementById('fid').focus();
+      }
+    });
+    
+    document.getElementById('signBtn').addEventListener('click', async () => {
+      const status = document.getElementById('status');
+      const fid = document.getElementById('fid').value;
+      const custody = document.getElementById('custody').value;
+      
+      if (!fid || !custody) {
+        status.textContent = 'Please enter FID and custody address';
+        status.className = 'status error';
+        return;
+      }
+      
+      if (!window.ethereum) {
+        status.textContent = 'No wallet found. Install MetaMask to sign manually.';
+        status.className = 'status error';
+        return;
+      }
+      
+      try {
+        status.textContent = 'Signing...';
+        status.className = 'status';
+        
+        const message = domain + ' wants you to sign in with your Ethereum account:\\n' +
+          custody + '\\n\\n' +
+          'Sign in with Farcaster\\n\\n' +
+          'URI: https://' + domain + '\\n' +
+          'Version: 1\\n' +
+          'Chain ID: 10\\n' +
+          'Nonce: ' + nonce + '\\n' +
+          'Issued At: ' + new Date().toISOString() + '\\n' +
+          'Resources:\\n' +
+          '- farcaster://fid/' + fid;
+        
+        const signature = await window.ethereum.request({
+          method: 'personal_sign',
+          params: [message, custody]
+        });
+        
+        status.textContent = 'Verifying...';
+        
+        const response = await fetch('/farcaster/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nonce,
+            message,
+            signature,
+            fid: parseInt(fid, 10),
+            custody
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.redirectUrl) {
+          status.textContent = 'Success. Redirecting...';
+          status.className = 'status success';
+          window.location.href = result.redirectUrl;
+        } else {
+          throw new Error(result.error || 'Verification failed');
+        }
+        
+      } catch (err) {
+        console.error(err);
+        status.textContent = err.message || 'Sign-in failed';
+        status.className = 'status error';
+      }
+    });
+  `
+
+  return createHtmlPage({
+    title: 'Farcaster Sign In',
+    content,
+    scripts,
+  })
+}
+
 export function createFarcasterRouter(_config: AuthConfig) {
   return new Elysia({ name: 'farcaster', prefix: '/farcaster' })
     .get(
@@ -114,211 +248,10 @@ export function createFarcasterRouter(_config: AuthConfig) {
         const warpcastUri = `https://warpcast.com/~/sign-in-with-farcaster?nonce=${nonce}&domain=${domain}`
         const qrDataUrl = await generateQRDataUrl(warpcastUri)
 
-        // Return Farcaster auth page
-        return new Response(
-          `<!DOCTYPE html>
-<html>
-<head>
-  <title>Farcaster Sign In - Jeju Network</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'JetBrains Mono', 'SF Mono', monospace;
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #e0e0e0;
-    }
-    .container {
-      background: rgba(20, 20, 30, 0.9);
-      border: 1px solid rgba(138, 99, 210, 0.3);
-      border-radius: 16px;
-      padding: 48px;
-      max-width: 420px;
-      width: 90%;
-      text-align: center;
-    }
-    .logo { font-size: 48px; margin-bottom: 16px; }
-    .title { font-size: 24px; font-weight: 600; margin-bottom: 8px; color: #fff; }
-    .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
-    .qr-container {
-      width: 200px;
-      height: 200px;
-      margin: 0 auto 24px;
-      background: #fff;
-      border-radius: 12px;
-      padding: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .qr-container img { width: 100%; height: 100%; }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 28px;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-decoration: none;
-      background: linear-gradient(135deg, #8a63d2 0%, #6944ba 100%);
-      color: #fff;
-    }
-    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-    .or { margin: 24px 0; color: #666; font-size: 12px; }
-    .manual-input { display: none; margin-top: 24px; }
-    .manual-input.show { display: block; }
-    .input-group { margin-bottom: 16px; }
-    .input-group label {
-      display: block;
-      text-align: left;
-      font-size: 12px;
-      color: #888;
-      margin-bottom: 4px;
-    }
-    .input-group input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid rgba(138, 99, 210, 0.3);
-      border-radius: 8px;
-      background: rgba(0, 0, 0, 0.3);
-      color: #fff;
-      font-family: inherit;
-      font-size: 14px;
-    }
-    .input-group input:focus { outline: none; border-color: #8a63d2; }
-    .status { margin-top: 16px; font-size: 14px; color: #888; }
-    .status.error { color: #ff6b6b; }
-    .status.success { color: #64ffda; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo">🟣</div>
-    <div class="title">Sign in with Farcaster</div>
-    <div class="subtitle">Scan the QR code with Warpcast or sign manually</div>
-    
-    <div class="qr-container">
-      <img src="${qrDataUrl}" alt="Scan with Warpcast">
-    </div>
-    
-    <a href="${warpcastUri}" target="_blank" class="btn">
-      Open Warpcast
-    </a>
-    
-    <div class="or">or sign manually</div>
-    
-    <button id="showManual" style="background: transparent; border: 1px solid rgba(138, 99, 210, 0.3); color: #888; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 12px;">
-      Manual Sign-In
-    </button>
-    
-    <div id="manualInput" class="manual-input">
-      <div class="input-group">
-        <label>FID (Farcaster ID)</label>
-        <input type="number" id="fid" placeholder="e.g. 1234">
-      </div>
-      <div class="input-group">
-        <label>Custody Address</label>
-        <input type="text" id="custody" placeholder="0x...">
-      </div>
-      <button id="signBtn" class="btn" style="width: 100%; margin-top: 8px;">
-        Sign Message
-      </button>
-    </div>
-    
-    <div id="status" class="status"></div>
-  </div>
-
-  <script>
-    const nonce = '${escapeJsString(nonce)}';
-    const domain = '${escapeJsString(domain)}';
-    
-    document.getElementById('showManual').addEventListener('click', () => {
-      document.getElementById('manualInput').classList.toggle('show');
-    });
-    
-    document.getElementById('signBtn').addEventListener('click', async () => {
-      const status = document.getElementById('status');
-      const fid = document.getElementById('fid').value;
-      const custody = document.getElementById('custody').value;
-      
-      if (!fid || !custody) {
-        status.textContent = 'Please enter FID and custody address';
-        status.className = 'status error';
-        return;
-      }
-      
-      if (!window.ethereum) {
-        status.textContent = 'No wallet detected';
-        status.className = 'status error';
-        return;
-      }
-      
-      try {
-        status.textContent = 'Signing...';
-        status.className = 'status';
-        
-        const message = \`${domain} wants you to sign in with your Ethereum account:
-\${custody}
-
-Sign in with Farcaster
-
-URI: https://${domain}
-Version: 1
-Chain ID: 10
-Nonce: ${nonce}
-Issued At: \${new Date().toISOString()}
-Resources:
-- farcaster://fid/\${fid}\`;
-        
-        const signature = await window.ethereum.request({
-          method: 'personal_sign',
-          params: [message, custody]
-        });
-        
-        status.textContent = 'Verifying...';
-        
-        const response = await fetch('/farcaster/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nonce: '${escapeJsString(nonce)}',
-            message,
-            signature,
-            fid: parseInt(fid, 10),
-            custody
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (result.redirectUrl) {
-          status.textContent = 'Success. Redirecting...';
-          status.className = 'status success';
-          window.location.href = result.redirectUrl;
-        } else {
-          throw new Error(result.error || 'Verification failed');
-        }
-        
-      } catch (err) {
-        console.error(err);
-        status.textContent = err.message || 'Sign-in failed';
-        status.className = 'status error';
-      }
-    });
-  </script>
-</body>
-</html>`,
-          { headers: { 'Content-Type': 'text/html' } },
-        )
+        const html = generateFarcasterPage(nonce, domain, qrDataUrl, warpcastUri)
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
       },
       { query: InitQuerySchema },
     )
@@ -484,7 +417,7 @@ async function generateQRDataUrl(data: string): Promise<string> {
     width: 200,
     margin: 2,
     color: {
-      dark: '#000000',
+      dark: '#1e293b',
       light: '#ffffff',
     },
   })

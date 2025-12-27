@@ -1,3 +1,9 @@
+/**
+ * Governance Tab - Proposals and Voting
+ *
+ * Display and filter proposals with quick actions for creating new ones.
+ */
+
 import {
   AlertCircle,
   Bug,
@@ -15,7 +21,7 @@ import {
   Search,
   Shield,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useProposals } from '../../hooks/useDAO'
 import type {
@@ -31,158 +37,146 @@ interface GovernanceTabProps {
 
 const PROPOSAL_TYPE_CONFIG: Record<
   ProposalType,
-  { icon: typeof FileText; label: string; color: string }
+  { icon: typeof FileText; label: string; color: string; bg: string }
 > = {
-  general: { icon: FileText, label: 'General', color: 'text-slate-400' },
-  funding: { icon: Coins, label: 'Funding', color: 'text-emerald-400' },
-  code: { icon: Code, label: 'Code', color: 'text-violet-400' },
-  moderation: { icon: Shield, label: 'Moderation', color: 'text-amber-400' },
-  bug_report: { icon: Bug, label: 'Bug Report', color: 'text-orange-400' },
+  general: {
+    icon: FileText,
+    label: 'General',
+    color: 'var(--text-secondary)',
+    bg: 'rgba(148, 163, 184, 0.12)',
+  },
+  funding: {
+    icon: Coins,
+    label: 'Funding',
+    color: 'var(--color-success)',
+    bg: 'rgba(16, 185, 129, 0.12)',
+  },
+  code: {
+    icon: Code,
+    label: 'Code',
+    color: 'var(--color-secondary)',
+    bg: 'rgba(139, 92, 246, 0.12)',
+  },
+  moderation: {
+    icon: Shield,
+    label: 'Moderation',
+    color: 'var(--color-warning)',
+    bg: 'rgba(245, 158, 11, 0.12)',
+  },
+  bug_report: {
+    icon: Bug,
+    label: 'Bug Report',
+    color: 'var(--color-accent)',
+    bg: 'rgba(255, 107, 107, 0.12)',
+  },
 }
 
 const STATUS_CONFIG: Record<
   ProposalStatus,
-  { label: string; color: string; bgColor: string }
+  { label: string; color: string; bg: string }
 > = {
-  draft: {
-    label: 'Draft',
-    color: 'text-slate-400',
-    bgColor: 'bg-slate-500/20 border-slate-500/30',
-  },
-  pending_quality: {
-    label: 'Quality Review',
-    color: 'text-amber-400',
-    bgColor: 'bg-amber-500/20 border-amber-500/30',
-  },
-  submitted: {
-    label: 'Submitted',
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/20 border-blue-500/30',
-  },
-  board_review: {
-    label: 'Board Review',
-    color: 'text-violet-400',
-    bgColor: 'bg-violet-500/20 border-violet-500/30',
-  },
-  research: {
-    label: 'Research',
-    color: 'text-cyan-400',
-    bgColor: 'bg-cyan-500/20 border-cyan-500/30',
-  },
-  board_final: {
-    label: 'Board Final',
-    color: 'text-violet-400',
-    bgColor: 'bg-violet-500/20 border-violet-500/30',
-  },
-  ceo_queue: {
-    label: 'CEO Queue',
-    color: 'text-pink-400',
-    bgColor: 'bg-pink-500/20 border-pink-500/30',
-  },
-  approved: {
-    label: 'Approved',
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/20 border-emerald-500/30',
-  },
-  executing: {
-    label: 'Executing',
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/20 border-blue-500/30',
-  },
-  completed: {
-    label: 'Completed',
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/20 border-emerald-500/30',
-  },
-  rejected: {
-    label: 'Rejected',
-    color: 'text-red-400',
-    bgColor: 'bg-red-500/20 border-red-500/30',
-  },
-  vetoed: {
-    label: 'Vetoed',
-    color: 'text-red-400',
-    bgColor: 'bg-red-500/20 border-red-500/30',
-  },
-  executed: {
-    label: 'Executed',
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/20 border-emerald-500/30',
-  },
-  cancelled: {
-    label: 'Cancelled',
-    color: 'text-slate-400',
-    bgColor: 'bg-slate-500/20 border-slate-500/30',
-  },
+  draft: { label: 'Draft', color: 'var(--text-tertiary)', bg: 'rgba(148, 163, 184, 0.12)' },
+  pending_quality: { label: 'Quality Review', color: 'var(--color-warning)', bg: 'rgba(245, 158, 11, 0.12)' },
+  submitted: { label: 'Submitted', color: 'var(--color-info)', bg: 'rgba(59, 130, 246, 0.12)' },
+  board_review: { label: 'Board Review', color: 'var(--color-secondary)', bg: 'rgba(139, 92, 246, 0.12)' },
+  research: { label: 'Research', color: '#06B6D4', bg: 'rgba(6, 182, 212, 0.12)' },
+  board_final: { label: 'Board Final', color: 'var(--color-secondary)', bg: 'rgba(139, 92, 246, 0.12)' },
+  ceo_queue: { label: 'CEO Queue', color: 'var(--color-accent)', bg: 'rgba(255, 107, 107, 0.12)' },
+  approved: { label: 'Approved', color: 'var(--color-success)', bg: 'rgba(16, 185, 129, 0.12)' },
+  executing: { label: 'Executing', color: 'var(--color-info)', bg: 'rgba(59, 130, 246, 0.12)' },
+  completed: { label: 'Completed', color: 'var(--color-success)', bg: 'rgba(16, 185, 129, 0.12)' },
+  rejected: { label: 'Rejected', color: 'var(--color-error)', bg: 'rgba(239, 68, 68, 0.12)' },
+  vetoed: { label: 'Vetoed', color: 'var(--color-error)', bg: 'rgba(239, 68, 68, 0.12)' },
+  executed: { label: 'Executed', color: 'var(--color-success)', bg: 'rgba(16, 185, 129, 0.12)' },
+  cancelled: { label: 'Cancelled', color: 'var(--text-tertiary)', bg: 'rgba(148, 163, 184, 0.12)' },
 }
 
-function ProposalCard({
-  proposal,
-  daoId,
-}: {
+interface ProposalCardProps {
   proposal: ProposalListItem
   daoId: string
-}) {
-  const typeConfig =
-    PROPOSAL_TYPE_CONFIG[proposal.proposalType] ?? PROPOSAL_TYPE_CONFIG.general
+}
+
+function ProposalCard({ proposal, daoId }: ProposalCardProps) {
+  const typeConfig = PROPOSAL_TYPE_CONFIG[proposal.proposalType] ?? PROPOSAL_TYPE_CONFIG.general
   const statusConfig = STATUS_CONFIG[proposal.status] ?? STATUS_CONFIG.draft
   const Icon = typeConfig.icon
 
   return (
     <Link
       to={`/dao/${daoId}/proposal/${proposal.proposalId}`}
-      className="group block bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-violet-500/30 transition-all"
+      className="group block rounded-xl p-4 transition-all"
+      style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+      }}
     >
       <div className="flex items-start gap-3">
-        <div className="shrink-0 w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center">
-          <Icon className={`w-5 h-5 ${typeConfig.color}`} />
+        <div
+          className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: typeConfig.bg }}
+        >
+          <Icon className="w-5 h-5" style={{ color: typeConfig.color }} aria-hidden="true" />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h4 className="font-medium text-slate-200 group-hover:text-violet-300 transition-colors line-clamp-1">
+              <h4
+                className="font-medium transition-colors line-clamp-1"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {proposal.title}
               </h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {typeConfig.label} •{' '}
-                {new Date(proposal.createdAt).toLocaleDateString()}
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                {typeConfig.label} · {new Date(proposal.createdAt).toLocaleDateString()}
               </p>
             </div>
             <span
-              className={`shrink-0 px-2 py-0.5 text-xs font-medium rounded-full border ${statusConfig.bgColor} ${statusConfig.color}`}
+              className="shrink-0 px-2 py-0.5 text-xs font-semibold rounded-full"
+              style={{ backgroundColor: statusConfig.bg, color: statusConfig.color }}
             >
               {statusConfig.label}
             </span>
           </div>
 
-          <p className="text-sm text-slate-400 mt-2 line-clamp-2">
+          <p
+            className="text-sm mt-2 line-clamp-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             {proposal.summary}
           </p>
 
           <div className="mt-3 flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <div
-                className={`w-2 h-2 rounded-full ${proposal.qualityScore >= 80 ? 'bg-emerald-400' : proposal.qualityScore >= 60 ? 'bg-amber-400' : 'bg-red-400'}`}
+                className="w-2 h-2 rounded-full"
+                style={{
+                  backgroundColor:
+                    proposal.qualityScore >= 80
+                      ? 'var(--color-success)'
+                      : proposal.qualityScore >= 60
+                        ? 'var(--color-warning)'
+                        : 'var(--color-error)',
+                }}
+                aria-hidden="true"
               />
-              <span className="text-slate-400">
+              <span style={{ color: 'var(--text-secondary)' }}>
                 Quality: {proposal.qualityScore}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Shield className="w-3.5 h-3.5" />
+            <div
+              className="flex items-center gap-1.5"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <Shield className="w-3.5 h-3.5" aria-hidden="true" />
               <span>
                 {proposal.boardApprovals}/{proposal.totalBoardMembers} board
               </span>
             </div>
             {proposal.ceoApproved !== undefined && (
               <div className="flex items-center gap-1.5">
-                <Crown className="w-3.5 h-3.5" />
-                <span
-                  className={
-                    proposal.ceoApproved ? 'text-emerald-400' : 'text-red-400'
-                  }
-                >
+                <Crown className="w-3.5 h-3.5" aria-hidden="true" />
+                <span style={{ color: proposal.ceoApproved ? 'var(--color-success)' : 'var(--color-error)' }}>
                   CEO {proposal.ceoApproved ? 'Approved' : 'Rejected'}
                 </span>
               </div>
@@ -194,7 +188,11 @@ function ProposalCard({
               {proposal.tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 text-xs bg-slate-800 text-slate-500 rounded"
+                  className="px-2 py-0.5 text-xs rounded"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-tertiary)',
+                  }}
                 >
                   {tag}
                 </span>
@@ -203,7 +201,11 @@ function ProposalCard({
           )}
         </div>
 
-        <ChevronRight className="shrink-0 w-5 h-5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+        <ChevronRight
+          className="shrink-0 w-5 h-5 transition-colors"
+          style={{ color: 'var(--text-tertiary)' }}
+          aria-hidden="true"
+        />
       </div>
     </Link>
   )
@@ -211,129 +213,147 @@ function ProposalCard({
 
 export function GovernanceTab({ dao }: GovernanceTabProps) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ProposalStatus | 'all'>(
-    'all',
-  )
+  const [statusFilter, setStatusFilter] = useState<ProposalStatus | 'all'>('all')
   const [typeFilter, setTypeFilter] = useState<ProposalType | 'all'>('all')
 
-  const {
-    data: proposals = [],
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useProposals({
+  const { data: proposals = [], isLoading, isError, error, refetch } = useProposals({
     daoId: dao.daoId,
     status: statusFilter,
     type: typeFilter,
     search,
   })
 
-  const filteredProposals = proposals.filter((p) => {
-    if (search) {
-      const searchLower = search.toLowerCase()
-      return (
+  const filteredProposals = useMemo(() => {
+    if (!search) return proposals
+    const searchLower = search.toLowerCase()
+    return proposals.filter(
+      (p) =>
         p.title.toLowerCase().includes(searchLower) ||
         p.summary.toLowerCase().includes(searchLower)
-      )
-    }
-    return true
-  })
+    )
+  }, [proposals, search])
 
-  const activeCount = proposals.filter(
-    (p) => !['completed', 'rejected', 'vetoed', 'draft'].includes(p.status),
-  ).length
+  const activeCount = useMemo(() => {
+    return proposals.filter(
+      (p) => !['completed', 'rejected', 'vetoed', 'draft', 'cancelled'].includes(p.status)
+    ).length
+  }, [proposals])
+
+  const handleRetry = useCallback(() => {
+    refetch()
+  }, [refetch])
 
   return (
     <div>
       {/* Quick Actions */}
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Link
-          to={`/dao/${dao.daoId}/proposal/new?type=general`}
-          className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl hover:border-violet-500/30 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-lg bg-slate-500/20 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-slate-400" />
-          </div>
-          <div>
-            <p className="font-medium text-slate-200">New Proposal</p>
-            <p className="text-xs text-slate-500">General</p>
-          </div>
-        </Link>
-        <Link
-          to={`/dao/${dao.daoId}/proposal/new?type=bug_report`}
-          className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl hover:border-orange-500/30 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
-            <Bug className="w-5 h-5 text-orange-400" />
-          </div>
-          <div>
-            <p className="font-medium text-slate-200">Report Bug</p>
-            <p className="text-xs text-slate-500">Earn bounty</p>
-          </div>
-        </Link>
-        <Link
-          to={`/dao/${dao.daoId}/proposal/new?type=funding`}
-          className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl hover:border-emerald-500/30 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-            <Coins className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div>
-            <p className="font-medium text-slate-200">Request Funding</p>
-            <p className="text-xs text-slate-500">Treasury</p>
-          </div>
-        </Link>
-        <Link
-          to={`/dao/${dao.daoId}/proposal/new?type=code`}
-          className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl hover:border-violet-500/30 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
-            <Code className="w-5 h-5 text-violet-400" />
-          </div>
-          <div>
-            <p className="font-medium text-slate-200">Code Change</p>
-            <p className="text-xs text-slate-500">Contract</p>
-          </div>
-        </Link>
+        {[
+          { type: 'general', label: 'Proposal', sub: 'General governance', icon: FileText },
+          { type: 'bug_report', label: 'Bug Report', sub: 'Security bounty', icon: Bug },
+          { type: 'funding', label: 'Funding', sub: 'Treasury request', icon: Coins },
+          { type: 'code', label: 'Code Change', sub: 'Contract update', icon: Code },
+        ].map((action) => {
+          const config = PROPOSAL_TYPE_CONFIG[action.type as ProposalType]
+          return (
+            <Link
+              key={action.type}
+              to={`/dao/${dao.daoId}/proposal/new?type=${action.type}`}
+              className="flex items-center gap-3 p-4 rounded-xl transition-all"
+              style={{
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: config.bg }}
+              >
+                <action.icon className="w-5 h-5" style={{ color: config.color }} aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {action.label}
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  {action.sub}
+                </p>
+              </div>
+            </Link>
+          )
+        })}
       </div>
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-3 gap-3">
-        <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+        <div
+          className="rounded-xl p-4"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-emerald-400" />
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)' }}
+            >
+              <Clock className="w-5 h-5" style={{ color: 'var(--color-success)' }} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{activeCount}</p>
-              <p className="text-xs text-slate-500">Active</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                {activeCount}
+              </p>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Active
+              </p>
             </div>
           </div>
         </div>
-        <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+        <div
+          className="rounded-xl p-4"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
-              <Check className="w-5 h-5 text-violet-400" />
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(139, 92, 246, 0.12)' }}
+            >
+              <Check className="w-5 h-5" style={{ color: 'var(--color-secondary)' }} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 {dao.stats.approvedProposals}
               </p>
-              <p className="text-xs text-slate-500">Approved</p>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Approved
+              </p>
             </div>
           </div>
         </div>
-        <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+        <div
+          className="rounded-xl p-4"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-slate-500/20 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-slate-400" />
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(148, 163, 184, 0.12)' }}
+            >
+              <Calendar className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 {dao.stats.averageApprovalTime.toFixed(1)}d
               </p>
-              <p className="text-xs text-slate-500">Avg Time</p>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Avg Time
+              </p>
             </div>
           </div>
         </div>
@@ -342,22 +362,26 @@ export function GovernanceTab({ dao }: GovernanceTabProps) {
       {/* Filters */}
       <div className="mb-6 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+            style={{ color: 'var(--text-tertiary)' }}
+            aria-hidden="true"
+          />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search proposals..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
+            className="input pl-10"
+            aria-label="Search proposals"
           />
         </div>
         <div className="flex gap-2">
           <select
             value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as ProposalStatus | 'all')
-            }
-            className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+            onChange={(e) => setStatusFilter(e.target.value as ProposalStatus | 'all')}
+            className="select"
+            aria-label="Filter by status"
           >
             <option value="all">All Status</option>
             {Object.entries(STATUS_CONFIG).map(([status, config]) => (
@@ -368,10 +392,9 @@ export function GovernanceTab({ dao }: GovernanceTabProps) {
           </select>
           <select
             value={typeFilter}
-            onChange={(e) =>
-              setTypeFilter(e.target.value as ProposalType | 'all')
-            }
-            className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
+            onChange={(e) => setTypeFilter(e.target.value as ProposalType | 'all')}
+            className="select"
+            aria-label="Filter by type"
           >
             <option value="all">All Types</option>
             {Object.entries(PROPOSAL_TYPE_CONFIG).map(([type, config]) => (
@@ -382,9 +405,10 @@ export function GovernanceTab({ dao }: GovernanceTabProps) {
           </select>
           <Link
             to={`/dao/${dao.daoId}/proposal/new`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-white"
+            style={{ background: 'var(--gradient-primary)' }}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
             New
           </Link>
         </div>
@@ -393,53 +417,75 @@ export function GovernanceTab({ dao }: GovernanceTabProps) {
       {/* Proposals List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+          <Loader2
+            className="w-8 h-8 animate-spin"
+            style={{ color: 'var(--color-primary)' }}
+          />
         </div>
       ) : isError ? (
-        <div className="text-center py-16 bg-slate-900/50 border border-slate-700/50 rounded-xl">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-300 mb-2">
+        <div
+          className="text-center py-16 rounded-xl"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <AlertCircle
+            className="w-12 h-12 mx-auto mb-4"
+            style={{ color: 'var(--color-error)' }}
+          />
+          <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
             Failed to load proposals
           </h3>
-          <p className="text-slate-500 mb-4">
-            {error instanceof Error ? error.message : 'Unknown error'}
+          <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
+            {error instanceof Error ? error.message : 'Connection error'}
           </p>
           <button
             type="button"
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-colors"
+            onClick={handleRetry}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl transition-colors"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+            }}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
             Retry
           </button>
         </div>
       ) : filteredProposals.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900/50 border border-slate-700/50 rounded-xl">
-          <FileText className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-300 mb-2">
-            No proposals found
+        <div
+          className="text-center py-16 rounded-xl"
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <FileText
+            className="w-12 h-12 mx-auto mb-4"
+            style={{ color: 'var(--text-tertiary)' }}
+          />
+          <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            No proposals
           </h3>
-          <p className="text-slate-500 mb-4">
+          <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
             {search || statusFilter !== 'all' || typeFilter !== 'all'
-              ? 'Try adjusting your filters'
-              : 'Be the first to create a proposal'}
+              ? 'Adjust filters to see more results'
+              : 'No proposals have been submitted yet'}
           </p>
           <Link
             to={`/dao/${dao.daoId}/proposal/new`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-white"
+            style={{ background: 'var(--gradient-primary)' }}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
             Create Proposal
           </Link>
         </div>
       ) : (
         <div className="space-y-3">
           {filteredProposals.map((proposal) => (
-            <ProposalCard
-              key={proposal.proposalId}
-              proposal={proposal}
-              daoId={dao.daoId}
-            />
+            <ProposalCard key={proposal.proposalId} proposal={proposal} daoId={dao.daoId} />
           ))}
         </div>
       )}

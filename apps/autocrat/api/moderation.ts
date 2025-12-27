@@ -137,7 +137,9 @@ interface TrustRow {
   updated_at: number
 }
 
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'autocrat'
+import { config } from './config'
+
+const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
 const STAKE: Record<FlagType, number> = {
   DUPLICATE: 10,
@@ -170,7 +172,7 @@ async function getEQLiteClient(): Promise<EQLiteClient> {
     eqliteClient = getEQLite({
       databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !config.isProduction,
     })
   }
   return eqliteClient

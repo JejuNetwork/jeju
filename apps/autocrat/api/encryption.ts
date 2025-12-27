@@ -162,9 +162,11 @@ function getDAUrl(): string {
   return getServiceUrl('storage', 'api')
 }
 
+import { config } from './config'
+
 function getEncryptionKey(): string {
   if (!_encryptionKey) {
-    const key = process.env.TEE_ENCRYPTION_SECRET
+    const key = config.teeEncryptionSecret
     if (!key) {
       throw new Error('TEE_ENCRYPTION_SECRET environment variable is required')
     }

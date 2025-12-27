@@ -35,7 +35,7 @@ export async function invoke<T>(
   let result: T
 
   if (isTauri()) {
-    const { invoke: tauriInvoke } = await import('@tauri-apps/api/tauri')
+    const { invoke: tauriInvoke } = await import('@tauri-apps/api/core')
     result = await tauriInvoke<T>(cmd, args)
   } else {
     // Development mode: use mock handlers

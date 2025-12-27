@@ -159,7 +159,7 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
               Token Launchpad
             </h2>
             <p className="text-muted-foreground">
-              Launch and trade tokens on bonding curves
+              Create tokens with fair launch mechanics
             </p>
           </div>
           <button

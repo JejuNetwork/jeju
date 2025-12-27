@@ -18,9 +18,11 @@ import {
 function getDWSEndpoint(): string {
   return getDWSComputeUrl()
 }
-const MAX_EXECUTION_TIME = parseInt(process.env.SANDBOX_MAX_TIME ?? '3600', 10) // 1 hour
-const MAX_MEMORY_MB = parseInt(process.env.SANDBOX_MAX_MEMORY ?? '8192', 10)
-const MAX_CPU_CORES = parseInt(process.env.SANDBOX_MAX_CPU ?? '4', 10)
+import { config } from './config'
+
+const MAX_EXECUTION_TIME = config.sandboxMaxTime // 1 hour
+const MAX_MEMORY_MB = config.sandboxMaxMemory
+const MAX_CPU_CORES = config.sandboxMaxCpu
 export interface SandboxConfig {
   imageRef: string
   command: string[]

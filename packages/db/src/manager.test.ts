@@ -27,8 +27,9 @@ async function isEQLiteAvailable(): Promise<boolean> {
 }
 
 // Auto-detect EQLite availability at test load time
-const EQLITE_RUNNING = process.env.EQLITE_AVAILABLE === 'true' ||
-  await isEQLiteAvailable().catch(() => false)
+const EQLITE_RUNNING =
+  process.env.EQLITE_AVAILABLE === 'true' ||
+  (await isEQLiteAvailable().catch(() => false))
 
 describe.skipIf(!EQLITE_RUNNING)('DatabaseManager (Live Integration)', () => {
   let manager: DatabaseManager

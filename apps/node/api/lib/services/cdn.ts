@@ -4,6 +4,7 @@ import { expectAddress, expectHex, toBigInt } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import { CDN_REGISTRY_ABI } from '../abis'
+import { config } from '../config'
 import { getChain, type NodeClient } from '../contracts'
 
 /** Type for CDN edge node as returned by getEdgeNode contract call */
@@ -349,7 +350,7 @@ export class CDNService {
         PRIVATE_KEY: privateKey,
         CDN_REGISTRY_ADDRESS: this.client.addresses.cdnRegistry,
         CDN_BILLING_ADDRESS: this.client.addresses.cdnBilling,
-        RPC_URL: process.env.RPC_URL ?? getRpcUrl(),
+        RPC_URL: nodeConfig.rpcUrl ?? getRpcUrl(),
       },
       stdio: ['inherit', 'inherit', 'inherit'],
     })
@@ -570,7 +571,7 @@ export class CDNService {
     // 1. PRIVATE_KEY environment variable (for CLI/daemon mode)
     // 2. JEJU_PRIVATE_KEY environment variable (alternate name)
     // The Tauri desktop app uses secure OS keychain storage instead
-    const key = process.env.PRIVATE_KEY ?? process.env.JEJU_PRIVATE_KEY
+    const key = nodeConfig.privateKey ?? nodeConfig.jejuPrivateKey
     if (!key) {
       throw new Error(
         'Private key not available. Set PRIVATE_KEY or JEJU_PRIVATE_KEY environment variable.',

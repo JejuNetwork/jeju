@@ -17,8 +17,10 @@ import { Elysia } from 'elysia'
 import { type Address, isAddress, verifyMessage } from 'viem'
 import { z } from 'zod'
 
+import { config } from './config'
+
 // EQLite configuration for audit persistence
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'autocrat'
+const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 let auditEqliteClient: EQLiteClient | null = null
 let auditTableInitialized = false
 
@@ -88,7 +90,7 @@ function checkRateLimit(key: string, tier: RateLimitTier): boolean {
  * Uses crypto.timingSafeEqual for constant-time comparison to prevent timing attacks
  */
 function validateApiKey(apiKey: string): boolean {
-  const validKey = process.env.AUTOCRAT_API_KEY
+  const validKey = config.autocratApiKey
   if (!validKey) {
     // In localnet, allow if no key configured
     const network = getCurrentNetwork()

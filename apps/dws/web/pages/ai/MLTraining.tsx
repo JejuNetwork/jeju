@@ -136,8 +136,8 @@ export default function MLTrainingPage() {
           ) : runs.length === 0 ? (
             <div className="empty-state">
               <Sparkles size={48} />
-              <h3>No training jobs</h3>
-              <p>Start training a model on the decentralized compute network</p>
+              <h3>Ready to train</h3>
+              <p>Fine-tune or train custom models using distributed GPU compute</p>
               <button type="button" className="btn btn-primary">
                 <Plus size={16} /> New Training Job
               </button>

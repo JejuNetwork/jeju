@@ -29,9 +29,29 @@ const X402PaymentProofSchema = z.object({
   signature: z.string(),
 })
 
-const PAYMENT_RECIPIENT = (process.env.RPC_PAYMENT_RECIPIENT ||
+import { createAppConfig } from '@jejunetwork/config'
+
+interface X402PaymentsConfig {
+  paymentRecipient?: Address
+  x402Enabled?: boolean
+  [key: string]: Address | boolean | undefined
+}
+
+const { config: x402Config, configure: configureX402Payments } =
+  createAppConfig<X402PaymentsConfig>({
+    paymentRecipient: ZERO_ADDRESS,
+    x402Enabled: true,
+  })
+
+export function configureX402PaymentsConfig(
+  config: Partial<X402PaymentsConfig>,
+): void {
+  configureX402Payments(config)
+}
+
+const PAYMENT_RECIPIENT = (x402Config.paymentRecipient ||
   ZERO_ADDRESS) as Address
-const X402_ENABLED = process.env.X402_ENABLED !== 'false'
+const X402_ENABLED = x402Config.x402Enabled ?? true
 
 export const RPC_PRICING = {
   standard: 100n,

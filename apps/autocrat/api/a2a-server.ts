@@ -12,6 +12,7 @@ import {
   ZERO_ADDRESS,
 } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
+import { config } from './config'
 import { formatEther, parseEther } from 'viem'
 import { z } from 'zod'
 import type { AutocratConfig, AutocratVote } from '../lib'
@@ -493,7 +494,7 @@ Return ONLY a JSON object with these exact fields (scores 0-100):
         summary,
         description,
         cloudEndpoint,
-        process.env.CLOUD_API_KEY,
+        config.cloudApiKey,
       )
       return {
         message:

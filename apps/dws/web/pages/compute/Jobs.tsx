@@ -156,8 +156,8 @@ export default function JobsPage() {
           ) : jobs.length === 0 ? (
             <div className="empty-state">
               <Cpu size={48} />
-              <h3>No jobs submitted</h3>
-              <p>Submit your first compute job</p>
+              <h3>Ready to compute</h3>
+              <p>Run shell commands on distributed compute nodes with pay-per-use pricing</p>
               <button
                 type="button"
                 className="btn btn-primary"

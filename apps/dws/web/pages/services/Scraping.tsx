@@ -166,8 +166,8 @@ export default function ScrapingPage() {
           ) : nodes.length === 0 ? (
             <div className="empty-state">
               <Cloud size={48} />
-              <h3>No scraping nodes</h3>
-              <p>No browser nodes are currently registered</p>
+              <h3>Nodes initializing</h3>
+              <p>Browser pool is starting up. Check back shortly.</p>
             </div>
           ) : (
             <div className="table-container">
@@ -401,8 +401,8 @@ export default function ScrapingPage() {
           ) : !sessionsData?.sessions || sessionsData.sessions.length === 0 ? (
             <div className="empty-state">
               <Globe size={48} />
-              <h3>No active sessions</h3>
-              <p>Create a session for persistent browser access</p>
+              <h3>Ready to browse</h3>
+              <p>Create a session for persistent browser automation</p>
             </div>
           ) : (
             <div className="table-container">

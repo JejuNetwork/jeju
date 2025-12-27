@@ -78,7 +78,7 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
 
         {assignedFeeds.length > 0 ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-3">
               <div>
                 <div className="text-xs text-gray-500 mb-1">Assigned Feeds</div>
                 <div className="text-2xl font-bold">{assignedFeeds.length}</div>
@@ -440,7 +440,7 @@ function PerformanceMetrics() {
       <div className="card p-6">
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4" />
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-4">
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
@@ -460,7 +460,7 @@ function PerformanceMetrics() {
         Performance Metrics
       </h3>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-4">
         <div>
           <div className="text-xs text-gray-500 mb-1">Reports Submitted</div>
           <div className="text-xl font-bold">

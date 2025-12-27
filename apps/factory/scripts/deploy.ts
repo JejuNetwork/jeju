@@ -21,7 +21,11 @@ const NETWORK = getCurrentNetwork()
 const UploadResponseSchema = z.object({ cid: z.string() })
 const DeployResponseSchema = z.object({ id: z.string(), status: z.string() })
 
-function parseResponse<T>(schema: z.ZodType<T>, data: unknown, name: string): T {
+function parseResponse<T>(
+  schema: z.ZodType<T>,
+  data: unknown,
+  name: string,
+): T {
   const result = schema.safeParse(data)
   if (!result.success) {
     throw new Error(`Invalid ${name}: ${result.error.message}`)
@@ -83,7 +87,11 @@ async function deploy(): Promise<DeployResult> {
   }
 
   const uploadJson: unknown = await uploadResponse.json()
-  const frontendCid = parseResponse(UploadResponseSchema, uploadJson, 'upload response').cid
+  const frontendCid = parseResponse(
+    UploadResponseSchema,
+    uploadJson,
+    'upload response',
+  ).cid
   console.log(`  Frontend CID: ${frontendCid}`)
 
   // Upload worker
@@ -106,11 +114,17 @@ async function deploy(): Promise<DeployResult> {
   })
 
   if (!workerUploadResponse.ok) {
-    throw new Error(`Worker upload failed: ${await workerUploadResponse.text()}`)
+    throw new Error(
+      `Worker upload failed: ${await workerUploadResponse.text()}`,
+    )
   }
 
   const workerUploadJson: unknown = await workerUploadResponse.json()
-  const workerCid = parseResponse(UploadResponseSchema, workerUploadJson, 'worker upload response').cid
+  const workerCid = parseResponse(
+    UploadResponseSchema,
+    workerUploadJson,
+    'worker upload response',
+  ).cid
   console.log(`  Worker CID: ${workerCid}`)
 
   // Deploy worker to DWS
@@ -135,7 +149,11 @@ async function deploy(): Promise<DeployResult> {
   }
 
   const deployJson: unknown = await deployResponse.json()
-  const deployResult = parseResponse(DeployResponseSchema, deployJson, 'deploy response')
+  const deployResult = parseResponse(
+    DeployResponseSchema,
+    deployJson,
+    'deploy response',
+  )
   console.log(`  Worker ID: ${deployResult.id}`)
 
   // Cleanup
@@ -143,7 +161,10 @@ async function deploy(): Promise<DeployResult> {
 
   const result: DeployResult = {
     frontend: { cid: frontendCid, url: `${DWS_URL}/ipfs/${frontendCid}` },
-    backend: { workerId: deployResult.id, url: `${DWS_URL}/workerd/${deployResult.id}` },
+    backend: {
+      workerId: deployResult.id,
+      url: `${DWS_URL}/workerd/${deployResult.id}`,
+    },
   }
 
   console.log('\nDeployment complete.')
@@ -157,4 +178,3 @@ deploy().catch((error) => {
   console.error('Deployment failed:', error.message)
   process.exit(1)
 })
-

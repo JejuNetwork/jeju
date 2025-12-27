@@ -27,6 +27,9 @@ import {
   CORE_PORTS,
   getChainId,
   getContract,
+  getCurrentNetwork,
+  getEnvNumber,
+  getEnvVar,
   getNetworkName,
   getRpcUrl,
 } from '@jejunetwork/config'
@@ -65,6 +68,7 @@ import {
   type RegistryIntegrationConfig,
 } from './registry-integration'
 import { getResearchAgent } from './research-agent'
+import { config as autocratConfig, configureAutocrat } from './config'
 import { getTEEMode } from './tee'
 
 /**
@@ -175,7 +179,7 @@ const agent = (id: string, name: string, prompt: string) => ({
 function getConfig(): CouncilConfig {
   return {
     rpcUrl: getRpcUrl(),
-    daoId: process.env.DEFAULT_DAO ?? 'jeju',
+    daoId: autocratConfig.defaultDao,
     contracts: {
       council: getContractAddr('governance', 'council'),
       ceoAgent: getContractAddr('governance', 'ceoAgent'),
@@ -227,7 +231,7 @@ function getConfig(): CouncilConfig {
       specialties: ['governance', 'strategy'],
     },
     // Default CEO model - can be overridden by DAO creator or governance vote
-    ceoModelId: process.env.CEO_MODEL_ID ?? 'claude-opus-4-5',
+      ceoModelId: autocratConfig.ceoModelId,
     fundingConfig: {
       minStake: BigInt('1000000000000000'),
       maxStake: BigInt('100000000000000000000'),
@@ -294,7 +298,7 @@ const erc8004Config: ERC8004Config = {
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
   validationRegistry: getContractAddr('registry', 'validation'),
-  operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+  operatorKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
 }
 const erc8004 = getERC8004Client(erc8004Config)
 
@@ -310,7 +314,7 @@ const futarchyConfig: FutarchyConfig = {
     typeof predictionMarketAddr === 'string'
       ? toAddress(predictionMarketAddr)
       : ZERO_ADDRESS,
-  operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+  operatorKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
 }
 const futarchy = getFutarchyClient(futarchyConfig)
 
@@ -328,7 +332,7 @@ const initDAOService = () => {
       chainId: getChainId(),
       daoRegistryAddress: config.contracts.daoRegistry,
       daoFundingAddress: config.contracts.daoFunding,
-      privateKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+      privateKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
     })
     fundingOracle = getFundingOracle()
   }
@@ -1155,6 +1159,30 @@ const app = new Elysia()
 const port = CORE_PORTS.AUTOCRAT_API.get()
 
 async function start() {
+  // Initialize config from environment variables
+  configureAutocrat({
+    rpcUrl: getRpcUrl(),
+    network: getCurrentNetwork(),
+    defaultDao: getEnvVar('DEFAULT_DAO'),
+    ceoModelId: getEnvVar('CEO_MODEL_ID'),
+    operatorKey: getEnvVar('OPERATOR_KEY'),
+    privateKey: getEnvVar('PRIVATE_KEY'),
+    eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID'),
+    autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
+    cloudApiKey: getEnvVar('CLOUD_API_KEY'),
+    teePlatform: getEnvVar('TEE_PLATFORM'),
+    teeEncryptionSecret: getEnvVar('TEE_ENCRYPTION_SECRET'),
+    ollamaUrl: getEnvVar('OLLAMA_URL'),
+    ollamaModel: getEnvVar('OLLAMA_MODEL'),
+    computeModel: getEnvVar('COMPUTE_MODEL'),
+    orchestratorCron: getEnvVar('ORCHESTRATOR_CRON'),
+    sandboxMaxTime: getEnvNumber('SANDBOX_MAX_TIME'),
+    sandboxMaxMemory: getEnvNumber('SANDBOX_MAX_MEMORY'),
+    sandboxMaxCpu: getEnvNumber('SANDBOX_MAX_CPU'),
+    farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
+    nodeEnv: getEnvVar('NODE_ENV'),
+  })
+
   await initLocalServices()
   await initModeration()
   await autocratAgentRuntime.initialize()

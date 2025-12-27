@@ -11,6 +11,7 @@ import { getFarcasterApiUrl, getNeynarApiKey } from '@jejunetwork/config'
 import type { PostedCast } from '@jejunetwork/messaging'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
+import { getFactoryConfig } from '../config'
 import {
   createCastReaction,
   createFidLink,
@@ -22,7 +23,8 @@ import {
 import * as hubService from './hub'
 import { getActiveSignerWithPoster, hasActiveSigner } from './signer'
 
-const FACTORY_CHANNEL_ID = process.env.FACTORY_CHANNEL_ID ?? 'factory'
+const config = getFactoryConfig()
+const FACTORY_CHANNEL_ID = config.factoryChannelId
 const NEYNAR_API_URL = getFarcasterApiUrl()
 const NEYNAR_API_KEY = getNeynarApiKey()
 

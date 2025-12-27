@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,10 +8,14 @@
   :root {
     --background: 0 0% 6%;
     --foreground: 0 0% 98%;
+    --jeju-glow: rgba(34, 197, 94, 0.15);
   }
 
   html {
     @apply bg-surface text-white;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
@@ -19,23 +25,78 @@
   * {
     @apply border-surface-border;
   }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-jeju-500/50 ring-offset-2 ring-offset-surface;
+  }
+
+  :focus:not(:focus-visible) {
+    @apply outline-none;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply rounded-lg bg-jeju-600 px-4 py-2 text-sm font-medium hover:bg-jeju-700 transition-colors disabled:opacity-50;
+    @apply rounded-xl bg-gradient-to-r from-jeju-600 to-jeju-500 px-5 py-2.5 text-sm font-semibold text-white 
+           hover:from-jeju-500 hover:to-jeju-400 active:scale-[0.98] transition-all 
+           disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-jeju-500/20;
   }
 
   .btn-secondary {
-    @apply rounded-lg bg-surface-elevated px-4 py-2 text-sm hover:bg-surface-hover transition-colors;
+    @apply rounded-xl bg-surface-elevated px-5 py-2.5 text-sm font-medium 
+           hover:bg-surface-hover border border-surface-border transition-all;
+  }
+
+  .btn-ghost {
+    @apply rounded-lg px-4 py-2 text-sm text-muted-foreground hover:text-foreground 
+           hover:bg-surface-hover transition-colors;
   }
 
   .card {
-    @apply rounded-2xl bg-surface-elevated border border-surface-border p-6;
+    @apply rounded-2xl bg-surface-elevated border border-surface-border p-6 shadow-lg;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-jeju-500/30 hover:shadow-xl hover:shadow-jeju-500/5 cursor-pointer;
+  }
+
+  .card-glow {
+    @apply card border-jeju-500/30 shadow-lg shadow-jeju-500/10;
   }
 
   .input {
-    @apply w-full rounded-lg bg-surface border border-surface-border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-jeju-500/50;
+    @apply w-full rounded-xl bg-surface border border-surface-border px-4 py-3 text-sm 
+           placeholder:text-muted-foreground
+           focus:outline-none focus:ring-2 focus:ring-jeju-500/40 focus:border-jeju-500/50
+           transition-all duration-200;
+  }
+
+  .toggle-switch {
+    @apply relative w-12 h-6 rounded-full transition-colors cursor-pointer;
+  }
+
+  .toggle-thumb {
+    @apply absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-jeju-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent;
+  }
+
+  .stat-card {
+    @apply card relative overflow-hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-jeju-500 to-emerald-500 opacity-0 transition-opacity;
+  }
+
+  .stat-card:hover::before {
+    @apply opacity-100;
   }
 }
 
@@ -43,12 +104,20 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -69,3 +138,38 @@
   background: rgba(34, 197, 94, 0.3);
 }
 
+/* Animations */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 15px var(--jeju-glow);
+    opacity: 0.9;
+  }
+  50% { 
+    box-shadow: 0 0 25px var(--jeju-glow);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up { animation: slide-up 0.3s ease-out; }
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up,
+  .animate-fade-in,
+  .animate-pulse-glow,
+  .animate-pulse {
+    animation: none;
+  }
+}

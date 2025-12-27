@@ -21,22 +21,26 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  bootstrapPredictionMarkets,
   bootstrapPerps,
-  savePredictionMarketDeployment,
+  bootstrapPredictionMarkets,
   savePerpsDeployment,
+  savePredictionMarketDeployment,
 } from '../lib/bootstrap'
 
 const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546'
-const ANVIL_DEFAULT_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+const ANVIL_DEFAULT_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
 function getDeployerKey(): string {
   const envKey = process.env.PRIVATE_KEY
   if (envKey) return envKey
 
-  const isLocalRpc = RPC_URL.includes('127.0.0.1') || RPC_URL.includes('localhost')
+  const isLocalRpc =
+    RPC_URL.includes('127.0.0.1') || RPC_URL.includes('localhost')
   if (!isLocalRpc) {
-    throw new Error('PRIVATE_KEY environment variable required for non-local deployments.')
+    throw new Error(
+      'PRIVATE_KEY environment variable required for non-local deployments.',
+    )
   }
 
   return ANVIL_DEFAULT_KEY
@@ -48,7 +52,12 @@ const CONFIG_DIR = join(import.meta.dirname, '../../../packages/config')
 
 interface SeedResult {
   tokenFactory: string
-  coins: Array<{ address: string; name: string; symbol: string; supply: string }>
+  coins: Array<{
+    address: string
+    name: string
+    symbol: string
+    supply: string
+  }>
   nfts: Array<{ tokenId: number; uri: string }>
   predictionMarkets: number
   perpMarkets: number
@@ -79,7 +88,10 @@ function checkPrerequisites(): void {
     process.exit(1)
   }
 
-  const tokenFactoryArtifact = join(CONTRACTS_DIR, 'out/TokenFactory.sol/SimpleERC20Factory.json')
+  const tokenFactoryArtifact = join(
+    CONTRACTS_DIR,
+    'out/TokenFactory.sol/SimpleERC20Factory.json',
+  )
   if (!existsSync(tokenFactoryArtifact)) {
     console.log('  Building contracts...')
     exec('forge build', { cwd: CONTRACTS_DIR })
@@ -87,7 +99,11 @@ function checkPrerequisites(): void {
   console.log('  Contracts built')
 }
 
-function loadConfig(): { simpleCollectible: string; usdc: string; jeju: string } {
+function loadConfig(): {
+  simpleCollectible: string
+  usdc: string
+  jeju: string
+} {
   const configPath = join(CONFIG_DIR, 'contracts.json')
   const config = JSON.parse(readFileSync(configPath, 'utf-8'))
   const localnet = config.localnet
@@ -123,7 +139,13 @@ function deployContract(path: string, args: string[], name: string): string {
   return match[1]
 }
 
-function sendTx(to: string, sig: string, args: string[], label: string, value?: string): string {
+function sendTx(
+  to: string,
+  sig: string,
+  args: string[],
+  label: string,
+  value?: string,
+): string {
   const argsStr = args.map((a) => `"${a}"`).join(' ')
   const valueFlag = value ? `--value ${value}` : ''
   const cmd = `cast send ${to} "${sig}" ${argsStr} --rpc-url ${RPC_URL} --private-key ${DEPLOYER_KEY} ${valueFlag}`
@@ -139,17 +161,38 @@ function callContract(to: string, sig: string, args: string[] = []): string {
 }
 
 async function deployTokenFactory(): Promise<string> {
-  return deployContract('src/tokens/TokenFactory.sol:SimpleERC20Factory', [], 'SimpleERC20Factory')
+  return deployContract(
+    'src/tokens/TokenFactory.sol:SimpleERC20Factory',
+    [],
+    'SimpleERC20Factory',
+  )
 }
 
-async function createTestCoins(tokenFactory: string): Promise<SeedResult['coins']> {
+async function createTestCoins(
+  tokenFactory: string,
+): Promise<SeedResult['coins']> {
   console.log('\n3. Creating test coins...')
 
   const coins: SeedResult['coins'] = []
   const testTokens = [
-    { name: 'Bazaar Test Token', symbol: 'BZRT', decimals: 18, supply: '1000000000000000000000000' },
-    { name: 'Meme Coin', symbol: 'MEME', decimals: 18, supply: '1000000000000000000000000000' },
-    { name: 'Degen Token', symbol: 'DEGEN', decimals: 18, supply: '100000000000000000000000' },
+    {
+      name: 'Bazaar Test Token',
+      symbol: 'BZRT',
+      decimals: 18,
+      supply: '1000000000000000000000000',
+    },
+    {
+      name: 'Meme Coin',
+      symbol: 'MEME',
+      decimals: 18,
+      supply: '1000000000000000000000000000',
+    },
+    {
+      name: 'Degen Token',
+      symbol: 'DEGEN',
+      decimals: 18,
+      supply: '100000000000000000000000',
+    },
   ]
 
   for (const token of testTokens) {
@@ -163,7 +206,9 @@ async function createTestCoins(tokenFactory: string): Promise<SeedResult['coins'
 
       const tokenCount = callContract(tokenFactory, 'tokenCount()')
       const count = parseInt(tokenCount, 16)
-      const tokenAddressRaw = callContract(tokenFactory, 'allTokens(uint256)', [(count - 1).toString()])
+      const tokenAddressRaw = callContract(tokenFactory, 'allTokens(uint256)', [
+        (count - 1).toString(),
+      ])
       const tokenAddress = `0x${tokenAddressRaw.slice(-40)}`
 
       coins.push({
@@ -183,7 +228,9 @@ async function createTestCoins(tokenFactory: string): Promise<SeedResult['coins'
   return coins
 }
 
-async function mintTestNFTs(simpleCollectible: string): Promise<SeedResult['nfts']> {
+async function mintTestNFTs(
+  simpleCollectible: string,
+): Promise<SeedResult['nfts']> {
   console.log('\n4. Minting test NFTs...')
 
   const nfts: SeedResult['nfts'] = []
@@ -232,7 +279,9 @@ function getExistingTokenFactory(): string | null {
     const state = JSON.parse(readFileSync(seedFile, 'utf-8'))
     if (state.tokenFactory) {
       try {
-        const code = exec(`cast code ${state.tokenFactory} --rpc-url ${RPC_URL}`)
+        const code = exec(
+          `cast code ${state.tokenFactory} --rpc-url ${RPC_URL}`,
+        )
         if (code !== '0x') return state.tokenFactory
       } catch {
         // Not deployed
@@ -272,13 +321,20 @@ function checkIfSeedingNeeded(
   }
 
   try {
-    const totalSupplyHex = callContract(config.simpleCollectible, 'totalSupply()')
+    const totalSupplyHex = callContract(
+      config.simpleCollectible,
+      'totalSupply()',
+    )
     nftCount = parseInt(totalSupplyHex, 16)
   } catch {
     // Contract doesn't exist
   }
 
-  return { needsSeeding: tokenCount === 0 && nftCount === 0, tokenCount, nftCount }
+  return {
+    needsSeeding: tokenCount === 0 && nftCount === 0,
+    tokenCount,
+    nftCount,
+  }
 }
 
 function saveSeedState(result: SeedResult): void {
@@ -343,7 +399,10 @@ async function main(): Promise<void> {
   console.log(`SimpleCollectible: ${config.simpleCollectible}`)
 
   const existingFactory = getExistingTokenFactory()
-  const { needsSeeding, tokenCount, nftCount } = checkIfSeedingNeeded(config, existingFactory)
+  const { needsSeeding, tokenCount, nftCount } = checkIfSeedingNeeded(
+    config,
+    existingFactory,
+  )
 
   if (!needsSeeding && !forceFlag) {
     console.log('\n  Market already has data:')
@@ -354,7 +413,9 @@ async function main(): Promise<void> {
   }
 
   if (forceFlag && !needsSeeding) {
-    console.log(`\n  Forcing re-seed (existing: ${tokenCount} tokens, ${nftCount} NFTs)`)
+    console.log(
+      `\n  Forcing re-seed (existing: ${tokenCount} tokens, ${nftCount} NFTs)`,
+    )
   }
 
   // Step 1: Deploy TokenFactory
@@ -381,7 +442,10 @@ async function main(): Promise<void> {
   console.log('\n5. Bootstrapping prediction markets...')
   let predictionMarketCount = 0
   try {
-    const predictionResult = await bootstrapPredictionMarkets(RPC_URL, CONTRACTS_DIR)
+    const predictionResult = await bootstrapPredictionMarkets(
+      RPC_URL,
+      CONTRACTS_DIR,
+    )
     if (predictionResult) {
       predictionMarketCount = predictionResult.markets.length
       savePredictionMarketDeployment(CONTRACTS_DIR, predictionResult)

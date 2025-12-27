@@ -13,6 +13,7 @@ import {
   getCoreAppUrl,
   getEQLiteBlockProducerUrl,
   getCurrentNetwork,
+  getEnvVar,
   getIndexerGraphqlUrl,
   getL2RpcUrl,
 } from '@jejunetwork/config'
@@ -24,6 +25,7 @@ import {
   TFMMGetQuerySchema,
   TFMMPostRequestSchema,
 } from '../schemas/api'
+import { config, configureBazaar } from './config'
 import { handleA2ARequest, handleAgentCard } from './a2a-server'
 import { createIntelRouter } from './intel'
 import { handleMCPInfo, handleMCPRequest } from './mcp-server'
@@ -439,6 +441,14 @@ export default {
 const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
 
 if (isMainModule) {
+  // Initialize config from environment variables
+  configureBazaar({
+    bazaarApiUrl: getEnvVar('BAZAAR_API_URL'),
+    farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
+    eqliteDatabaseId: getEnvVar('COVENANTSQL_DATABASE_ID'),
+    eqlitePrivateKey: getEnvVar('COVENANTSQL_PRIVATE_KEY'),
+  })
+
   const PORT = CORE_PORTS.BAZAAR_API.get()
 
   const app = createBazaarApp({
@@ -450,9 +460,9 @@ if (isMainModule) {
     DWS_URL: getCoreAppUrl('DWS_API'),
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: getIndexerGraphqlUrl(),
-    EQLITE_NODES: getEQLiteBlockProducerUrl(),
-    EQLITE_DATABASE_ID: process.env.EQLITE_DATABASE_ID || '',
-    EQLITE_PRIVATE_KEY: process.env.EQLITE_PRIVATE_KEY || '',
+EQLITE_NODES: getEQLiteBlockProducerUrl(),
+    EQLITE_DATABASE_ID: config.eqliteDatabaseId,
+    EQLITE_PRIVATE_KEY: config.eqlitePrivateKey || '',
   })
 
   app.listen(PORT, () => {

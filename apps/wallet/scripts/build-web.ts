@@ -88,10 +88,17 @@ async function build(): Promise<void> {
     external: WALLET_EXTERNALS,
     plugins: [browserPlugin],
     define: {
-      'process.env.NODE_ENV': JSON.stringify(isProduction ? 'production' : 'development'),
+      'process.env.NODE_ENV': JSON.stringify(
+        isProduction ? 'production' : 'development',
+      ),
       'process.browser': JSON.stringify(true),
-      'process.env': JSON.stringify({ NODE_ENV: isProduction ? 'production' : 'development' }),
-      process: JSON.stringify({ env: { NODE_ENV: isProduction ? 'production' : 'development' }, browser: true }),
+      'process.env': JSON.stringify({
+        NODE_ENV: isProduction ? 'production' : 'development',
+      }),
+      process: JSON.stringify({
+        env: { NODE_ENV: isProduction ? 'production' : 'development' },
+        browser: true,
+      }),
     },
     naming: {
       entry: '[name]-[hash].js',
@@ -107,7 +114,9 @@ async function build(): Promise<void> {
   }
 
   // Find the main entry file
-  const mainEntry = result.outputs.find((o) => o.kind === 'entry-point' && o.path.includes('main'))
+  const mainEntry = result.outputs.find(
+    (o) => o.kind === 'entry-point' && o.path.includes('main'),
+  )
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'main.js'
 
   // Copy CSS
@@ -118,7 +127,8 @@ async function build(): Promise<void> {
   }
 
   // Read tailwind config
-  const tailwindConfig = (await import(resolve(ROOT, 'tailwind.config.ts'))).default
+  const tailwindConfig = (await import(resolve(ROOT, 'tailwind.config.ts')))
+    .default
 
   // Create index.html
   const html = `<!DOCTYPE html>
@@ -148,9 +158,10 @@ async function build(): Promise<void> {
 
   console.log('[Wallet] Build succeeded:')
   for (const output of result.outputs) {
-    const size = output.size > 1024 * 1024
-      ? `${(output.size / (1024 * 1024)).toFixed(2)} MB`
-      : `${(output.size / 1024).toFixed(2)} KB`
+    const size =
+      output.size > 1024 * 1024
+        ? `${(output.size / (1024 * 1024)).toFixed(2)} MB`
+        : `${(output.size / 1024).toFixed(2)} KB`
     console.log(`  ${output.path.replace(`${ROOT}/`, '')} - ${size}`)
   }
 }

@@ -109,6 +109,12 @@ export type ExtensionMessageType =
   | 'wallet_addEthereumChain'
   | 'jeju_crossChainTransfer'
   | 'jeju_submitIntent'
+  // JNS message types
+  | 'jns_getSettings'
+  | 'jns_updateSettings'
+  | 'jns_resolve'
+  | 'jns_clearCache'
+  | 'jns_getStatus'
 
 /**
  * Message from content script to background
@@ -128,6 +134,10 @@ export type ExtensionMessageResponse =
   | string[]
   | null
   | boolean
+  | JNSResolverSettings
+  | JNSResolution
+  | JNSGatewayStatus
+  | { success: boolean }
 
 /**
  * Response from popup after user interaction
@@ -233,4 +243,41 @@ export interface BackgroundEventMessage {
   type?: string
   chainId?: Hex
   accounts?: Address[]
+}
+
+/**
+ * JNS Resolver Settings
+ */
+export interface JNSResolverSettings {
+  enabled: boolean
+  gatewayUrl: string
+  localDwsUrl: string
+  preferLocal: boolean
+  ipfsGateway: string
+}
+
+/**
+ * JNS Resolution result from gateway
+ */
+export interface JNSResolution {
+  domain: string
+  name: string
+  node: string
+  contenthash: string | null
+  ipfsHash: string | null
+  workerEndpoint: string | null
+  address: string | null
+  textRecords: Record<string, string> | null
+  resolvedAt: number
+  resolvedVia: string
+}
+
+/**
+ * JNS Gateway status
+ */
+export interface JNSGatewayStatus {
+  localDws: 'online' | 'offline'
+  publicGateway: 'online' | 'offline'
+  localDwsLatency: number | null
+  publicGatewayLatency: number | null
 }

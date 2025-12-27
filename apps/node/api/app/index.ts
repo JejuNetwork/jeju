@@ -5,7 +5,14 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
-import { getChainId, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getEQLiteMinerUrl,
+  getEQLiteUrl,
+  getCurrentNetwork,
+  getEnvVar,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import chalk from 'chalk'
 import { formatEther } from 'viem'
@@ -21,6 +28,7 @@ import {
   meetsRequirements,
 } from '../lib/hardware'
 import { createNodeServices } from '../lib/services'
+import { config as nodeConfig, configureNode } from '../config'
 
 const CliAppConfigSchema = z.object({
   version: z.string().regex(/^\d+\.\d+\.\d+/, 'Version must be semver format'),
@@ -463,14 +471,25 @@ async function cmdStart(): Promise<void> {
 
   printBanner()
 
-  if (!config.privateKey && !process.env.JEJU_PRIVATE_KEY) {
+  // Initialize node config from environment
+  configureNode({
+    jejuPrivateKey: getEnvVar('JEJU_PRIVATE_KEY'),
+    privateKey: getEnvVar('PRIVATE_KEY'),
+    rpcUrl: getEnvVar('RPC_URL'),
+    network: (getEnvVar('JEJU_NETWORK') ?? 'testnet') as
+      | 'mainnet'
+      | 'testnet'
+      | 'localnet',
+  })
+
+  if (!config.privateKey && !nodeConfig.jejuPrivateKey) {
     console.log(chalk.yellow('  No wallet configured.'))
     console.log('  Run `jeju-node setup` or set JEJU_PRIVATE_KEY\n')
     return
   }
 
-  if (process.env.JEJU_PRIVATE_KEY) {
-    const envKey = process.env.JEJU_PRIVATE_KEY
+  if (nodeConfig.jejuPrivateKey) {
+    const envKey = nodeConfig.jejuPrivateKey
     const normalizedKey = envKey.startsWith('0x') ? envKey : `0x${envKey}`
     if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedKey)) {
       throw new Error(
@@ -617,8 +636,11 @@ async function startDatabaseService(
       queryTimeoutMs: 30000,
     })
 
-    await databaseService.start()
-    log('success', `Database (EQLite) service started - BP: ${blockProducerEndpoint}`)
+await databaseService.start()
+    log(
+      'success',
+      `Database (EQLite) service started - BP: ${blockProducerEndpoint}`,
+    )
 
     // Periodically log stats
     setInterval(() => {
@@ -858,6 +880,31 @@ ${chalk.bold('Quick Start:')}
 }
 
 if (import.meta.main) {
+  // Initialize config from environment variables
+  configureNode({
+    jejuPrivateKey: getEnvVar('JEJU_PRIVATE_KEY'),
+    privateKey: getEnvVar('PRIVATE_KEY'),
+    evmPrivateKey: getEnvVar('EVM_PRIVATE_KEY'),
+    solanaPrivateKey: getEnvVar('SOLANA_PRIVATE_KEY'),
+    rpcUrl: getEnvVar('RPC_URL'),
+    network: (getEnvVar('JEJU_NETWORK') ?? 'testnet') as
+      | 'mainnet'
+      | 'testnet'
+      | 'localnet',
+    proxyRegion: getEnvVar('PROXY_REGION'),
+    dwsExecUrl: getEnvVar('DWS_EXEC_URL'),
+    seedingOracleUrl: getEnvVar('SEEDING_ORACLE_URL'),
+    externalIp: getEnvVar('EXTERNAL_IP'),
+    rpcUrl1: getEnvVar('RPC_URL_1'),
+    rpcUrl42161: getEnvVar('RPC_URL_42161'),
+    rpcUrl10: getEnvVar('RPC_URL_10'),
+    rpcUrl8453: getEnvVar('RPC_URL_8453'),
+    solanaRpcUrl: getEnvVar('SOLANA_RPC_URL'),
+    zkBridgeEndpoint: getEnvVar('ZK_BRIDGE_ENDPOINT'),
+    zkProverEndpoint: getEnvVar('ZK_PROVER_ENDPOINT'),
+    oneInchApiKey: getEnvVar('ONEINCH_API_KEY'),
+  })
+
   main().catch((err) => {
     console.error(chalk.red('Error:'), err.message)
     process.exit(1)

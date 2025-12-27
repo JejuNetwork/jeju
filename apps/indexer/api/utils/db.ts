@@ -1,4 +1,5 @@
 import { DataSource, DefaultNamingStrategy } from 'typeorm'
+import { config } from '../config'
 import * as models from '../model'
 
 function requireEnv(name: string): string {
@@ -7,8 +8,8 @@ function requireEnv(name: string): string {
   return value
 }
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production'
-const IS_EQLITE_ONLY_MODE = process.env.INDEXER_MODE === 'eqlite-only'
+const IS_PRODUCTION = config.isProduction
+const IS_EQLITE_ONLY_MODE = config.indexerMode === 'eqlite-only'
 
 function parsePort(portStr: string, defaultPort: number): number {
   const port = parseInt(portStr, 10)
@@ -51,41 +52,27 @@ function getDBConfig(): {
     }
   }
 
+  // In production, require all DB config; in dev use config defaults
+  if (IS_PRODUCTION) {
+    if (!config.dbHost) throw new Error('DB_HOST required in production')
+    if (!config.dbName) throw new Error('DB_NAME required in production')
+    if (!config.dbUser) throw new Error('DB_USER required in production')
+    if (!config.dbPass) throw new Error('DB_PASS required in production')
+  }
+
   return {
-    host: IS_PRODUCTION
-      ? requireEnv('DB_HOST')
-      : process.env.DB_HOST || 'localhost',
-    port: IS_PRODUCTION
-      ? parsePort(requireEnv('DB_PORT'), 23798)
-      : parsePort(process.env.DB_PORT || '23798', 23798),
-    database: IS_PRODUCTION
-      ? requireEnv('DB_NAME')
-      : process.env.DB_NAME || 'indexer',
-    username: IS_PRODUCTION
-      ? requireEnv('DB_USER')
-      : process.env.DB_USER || 'postgres',
-    password: IS_PRODUCTION
-      ? requireEnv('DB_PASS')
-      : process.env.DB_PASS || 'postgres',
+    host: config.dbHost,
+    port: config.dbPort,
+    database: config.dbName,
+    username: config.dbUser,
+    password: config.dbPass,
   }
 }
 
 const POOL_CONFIG = {
-  poolSize: parsePositiveInt(
-    process.env.DB_POOL_SIZE || '10',
-    10,
-    'DB_POOL_SIZE',
-  ),
-  connectionTimeoutMillis: parsePositiveInt(
-    process.env.DB_CONNECT_TIMEOUT || '10000',
-    10000,
-    'DB_CONNECT_TIMEOUT',
-  ),
-  idleTimeoutMillis: parsePositiveInt(
-    process.env.DB_IDLE_TIMEOUT || '30000',
-    30000,
-    'DB_IDLE_TIMEOUT',
-  ),
+  poolSize: config.dbPoolSize,
+  connectionTimeoutMillis: config.dbConnectTimeout,
+  idleTimeoutMillis: config.dbIdleTimeout,
 }
 
 function toSnakeCase(str: string): string {
@@ -184,7 +171,7 @@ export async function getDataSource(): Promise<DataSource | null> {
     entities,
     namingStrategy: new SnakeNamingStrategy(),
     synchronize: false,
-    logging: process.env.DB_LOGGING === 'true',
+    logging: config.dbLogging,
     extra: {
       max: POOL_CONFIG.poolSize,
       connectionTimeoutMillis: POOL_CONFIG.connectionTimeoutMillis,

@@ -13,6 +13,7 @@ import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils'
 import type { Address, Hex } from 'viem'
+import { getFactoryConfig } from '../config'
 import {
   activateSigner,
   createFarcasterSigner,
@@ -25,21 +26,17 @@ import {
 const log = createLogger('signer-service')
 
 const HUB_URL = getFarcasterHubUrl()
-const ENCRYPTION_KEY = process.env.SIGNER_ENCRYPTION_KEY
-
-if (!ENCRYPTION_KEY) {
-  log.warn('SIGNER_ENCRYPTION_KEY not set - using derived key from NODE_ENV')
-}
 
 /**
- * Derive encryption key from environment or fallback
+ * Derive encryption key from config or fallback
  */
 function getEncryptionKey(): Uint8Array {
-  if (ENCRYPTION_KEY) {
-    return hexToBytes(ENCRYPTION_KEY.replace('0x', ''))
+  const config = getFactoryConfig()
+  if (config.signerEncryptionKey) {
+    return hexToBytes(config.signerEncryptionKey.replace('0x', ''))
   }
   // Fallback: derive from environment identifier (not secure for production)
-  const seed = `factory-signer-${process.env.NODE_ENV ?? 'development'}`
+  const seed = `factory-signer-${config.isDev ? 'development' : 'production'}`
   return hkdf(
     sha256,
     new TextEncoder().encode(seed),

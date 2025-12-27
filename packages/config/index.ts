@@ -1275,8 +1275,8 @@ export function isTestMode(): boolean {
 // Bridge Configuration
 
 import {
-  BridgeConfigSchema,
   type BridgeConfig,
+  BridgeConfigSchema,
   type BridgeMode,
 } from './schemas'
 export type { BridgeConfig, BridgeMode }
@@ -1329,7 +1329,9 @@ function resolveEnvInObject<T>(obj: T): T {
  * console.log(config.chains.evm[0].rpcUrl); // Resolved from ${BASE_SEPOLIA_RPC}
  * ```
  */
-export async function loadBridgeConfig(mode: BridgeMode): Promise<BridgeConfig> {
+export async function loadBridgeConfig(
+  mode: BridgeMode,
+): Promise<BridgeConfig> {
   if (!bridgeConfigCache) {
     bridgeConfigCache = new Map()
   }
@@ -1386,13 +1388,15 @@ function getDefaultBridgeConfig(mode: BridgeMode): unknown {
       mode: 'local',
       components: { ...baseConfig.components, beaconWatcher: false },
       chains: {
-        evm: [{
-          chainId: 31337,
-          name: 'Local EVM (Anvil)',
-          rpcUrl: 'http://127.0.0.1:6545',
-          bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-          lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-        }],
+        evm: [
+          {
+            chainId: 31337,
+            name: 'Local EVM (Anvil)',
+            rpcUrl: 'http://127.0.0.1:6545',
+            bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+            lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+          },
+        ],
         solana: {
           rpcUrl: 'http://127.0.0.1:8899',
           bridgeProgramId: 'TokenBridge11111111111111111111111111111111',
@@ -1420,19 +1424,24 @@ function getDefaultBridgeConfig(mode: BridgeMode): unknown {
       mode: 'testnet',
       components: { ...baseConfig.components, beaconWatcher: true },
       chains: {
-        evm: [{
-          chainId: 84532,
-          name: 'Base Sepolia',
-          rpcUrl: process.env.BASE_SEPOLIA_RPC ?? 'https://sepolia.base.org',
-          beaconUrl: process.env.BEACON_URL ?? 'https://lodestar-sepolia.chainsafe.io',
-          bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
-          lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
-        }],
+        evm: [
+          {
+            chainId: 84532,
+            name: 'Base Sepolia',
+            rpcUrl: process.env.BASE_SEPOLIA_RPC ?? 'https://sepolia.base.org',
+            beaconUrl:
+              process.env.BEACON_URL ?? 'https://lodestar-sepolia.chainsafe.io',
+            bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
+            lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
+          },
+        ],
         solana: {
           network: 'devnet',
-          rpcUrl: process.env.SOLANA_DEVNET_RPC ?? 'https://api.devnet.solana.com',
+          rpcUrl:
+            process.env.SOLANA_DEVNET_RPC ?? 'https://api.devnet.solana.com',
           bridgeProgramId: process.env.BRIDGE_PROGRAM_ID ?? '',
-          evmLightClientProgramId: process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
+          evmLightClientProgramId:
+            process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
         },
       },
       tee: {
@@ -1545,8 +1554,8 @@ export function getBridgePrivateKey(mode: BridgeMode): string {
 
   throw new Error(
     `PRIVATE_KEY environment variable is required for ${mode} mode. ` +
-    `Set it in your .env file or environment. ` +
-    `NEVER commit private keys to source control.`
+      `Set it in your .env file or environment. ` +
+      `NEVER commit private keys to source control.`,
   )
 }
 

@@ -8,14 +8,77 @@
  * - CDN cache integration
  * - WebP/AVIF modern format support
  * - Responsive image generation
+ *
+ * Workerd compatible: Uses exec API for file operations and processes.
  */
 
-import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import sharp from 'sharp'
+
+// Config injection for workerd compatibility
+interface MediaOptimizerEnvConfig {
+  execUrl: string
+  cacheDir: string
+}
+
+let envConfig: MediaOptimizerEnvConfig = {
+  execUrl: 'http://localhost:4020/exec',
+  cacheDir: '/tmp/dws-media-cache',
+}
+
+export function configureMediaOptimizer(
+  config: Partial<MediaOptimizerEnvConfig>,
+): void {
+  envConfig = { ...envConfig, ...config }
+}
+
+// DWS Exec API
+
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+async function exec(
+  command: string[],
+  options?: { stdin?: string },
+): Promise<ExecResult> {
+  const response = await fetch(envConfig.execUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, ...options }),
+  })
+  if (!response.ok) {
+    throw new Error(`Exec API error: ${response.status}`)
+  }
+  return response.json() as Promise<ExecResult>
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  const result = await exec(['test', '-e', path])
+  return result.exitCode === 0
+}
+
+async function mkdir(path: string): Promise<void> {
+  await exec(['mkdir', '-p', path])
+}
+
+async function readFile(path: string): Promise<Buffer> {
+  const result = await exec(['cat', path])
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to read file: ${result.stderr}`)
+  }
+  return Buffer.from(result.stdout, 'binary')
+}
+
+async function rmFile(path: string): Promise<void> {
+  await exec(['rm', '-f', path])
+}
+
+function joinPath(...parts: string[]): string {
+  return parts.join('/').replace(/\/+/g, '/')
+}
 
 // ============ Types ============
 
@@ -157,7 +220,7 @@ const RESPONSIVE_BREAKPOINTS = [
 // ============ Default Configuration ============
 
 const DEFAULT_CONFIG: MediaOptimizerConfig = {
-  cacheDir: join(tmpdir(), 'dws-media-cache'),
+  cacheDir: envConfig.cacheDir,
   maxCacheSize: 1024 * 1024 * 1024, // 1GB
   maxCacheAge: 86400000, // 24 hours
   defaultImageQuality: 80,
@@ -165,7 +228,7 @@ const DEFAULT_CONFIG: MediaOptimizerConfig = {
   enableWebP: true,
   enableAVIF: true,
   avifEnabled: true,
-  ffmpegPath: process.env.FFMPEG_PATH,
+  ffmpegPath: undefined,
 }
 
 // ============ Media Optimizer Class ============
@@ -174,15 +237,22 @@ export class MediaOptimizer {
   private config: MediaOptimizerConfig
   private cache: Map<string, MediaCacheEntry> = new Map()
   private cacheSize = 0
+  private initialized = false
 
   constructor(config?: Partial<MediaOptimizerConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
-    this.ensureCacheDir()
   }
 
-  private ensureCacheDir(): void {
-    if (!existsSync(this.config.cacheDir)) {
-      mkdirSync(this.config.cacheDir, { recursive: true })
+  async initialize(): Promise<void> {
+    if (this.initialized) return
+    await this.ensureCacheDir()
+    this.initialized = true
+  }
+
+  private async ensureCacheDir(): Promise<void> {
+    const exists = await fileExists(this.config.cacheDir)
+    if (!exists) {
+      await mkdir(this.config.cacheDir)
     }
   }
 
@@ -513,10 +583,11 @@ export class MediaOptimizer {
     const outputId = createHash('sha256')
       .update(inputPath + JSON.stringify(options))
       .digest('hex')
-    const outputPath = join(this.config.cacheDir, `${outputId}.${outputFormat}`)
+    const outputPath = joinPath(this.config.cacheDir, `${outputId}.${outputFormat}`)
 
     // Skip if already cached
-    if (existsSync(outputPath)) {
+    const exists = await fileExists(outputPath)
+    if (exists) {
       const metadata = await this.getVideoMetadata(outputPath)
       return { outputPath, metadata }
     }
@@ -628,7 +699,7 @@ export class MediaOptimizer {
     const outputId = createHash('sha256')
       .update(inputPath + String(time) + String(width) + format)
       .digest('hex')
-    const outputPath = join(this.config.cacheDir, `thumb_${outputId}.${format}`)
+    const outputPath = joinPath(this.config.cacheDir, `thumb_${outputId}.${format}`)
 
     const args = [
       '-i',
@@ -653,11 +724,11 @@ export class MediaOptimizer {
 
     await this.runFFmpeg(ffmpeg, args)
 
-    const data = readFileSync(outputPath)
+    const data = await readFile(outputPath)
     const metadata = await this.getImageMetadata(data)
 
     // Clean up temp file
-    rmSync(outputPath, { force: true })
+    await rmFile(outputPath)
 
     return { data, metadata }
   }
@@ -697,57 +768,21 @@ export class MediaOptimizer {
     }
   }
 
-  private runFFmpeg(ffmpegPath: string, args: string[]): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn(ffmpegPath, args)
-
-      let stderr = ''
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve()
-        } else {
-          reject(new Error(`FFmpeg failed with code ${code}: ${stderr}`))
-        }
-      })
-
-      proc.on('error', (err) => {
-        reject(err)
-      })
-    })
+  private async runFFmpeg(ffmpegPath: string, args: string[]): Promise<void> {
+    const result = await exec([ffmpegPath, ...args])
+    if (result.exitCode !== 0) {
+      throw new Error(`FFmpeg failed with code ${result.exitCode}: ${result.stderr}`)
+    }
   }
 
-  private runCommand(cmd: string, args: string[]): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn(cmd, args)
-
-      let stdout = ''
-      let stderr = ''
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString()
-      })
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve(stdout)
-        } else {
-          reject(new Error(`Command failed with code ${code}: ${stderr}`))
-        }
-      })
-
-      proc.on('error', (err) => {
-        reject(err)
-      })
-    })
+  private async runCommand(cmd: string, args: string[]): Promise<string> {
+    const result = await exec([cmd, ...args])
+    if (result.exitCode !== 0) {
+      throw new Error(`Command failed with code ${result.exitCode}: ${result.stderr}`)
+    }
+    return result.stdout
   }
+
 
   // ============ Caching ============
 

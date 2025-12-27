@@ -12,6 +12,11 @@
       "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./wallet": {
+      "bun": "./src/wallet/index.ts",
+      "types": "./dist/wallet/index.d.ts",
+      "import": "./dist/wallet/index.js"
     }
   },
   "files": ["dist", "src"],

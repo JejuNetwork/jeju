@@ -101,9 +101,11 @@ const evictOldest = () => {
   }
 }
 
+import { config } from './config'
+
 // Compute marketplace configuration - uses DWS network
 function getComputeModel(): string {
-  return process.env.COMPUTE_MODEL ?? 'claude-opus-4-5'
+  return config.computeModel ?? 'claude-opus-4-5'
 }
 
 interface ComputeInferenceRequest {

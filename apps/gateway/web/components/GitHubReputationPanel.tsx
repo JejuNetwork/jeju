@@ -269,7 +269,7 @@ export default function GitHubReputationPanel({
 
           {/* Reputation scores */}
           <div className="p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-2">
               <div className="text-center p-3 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
                   {leaderboardData.reputation.normalizedScore}

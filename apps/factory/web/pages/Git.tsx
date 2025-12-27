@@ -1,16 +1,22 @@
-import { clsx } from 'clsx'
-import {
-  GitBranch,
-  GitFork,
-  Loader2,
-  Lock,
-  Plus,
-  Search,
-  Star,
-} from 'lucide-react'
-import { useState } from 'react'
+/**
+ * Git Repositories Page
+ *
+ * Browse and search repositories with responsive design.
+ */
+
+import { GitBranch, GitFork, Lock, Plus, Star } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SearchBar,
+  StatsGrid,
+} from '../components/shared'
 import { useRepositories, useRepositoryStats } from '../hooks/useGit'
+import { formatRelativeTime } from '../lib/format'
 
 export function GitPage() {
   const [search, setSearch] = useState('')
@@ -19,163 +25,97 @@ export function GitPage() {
   })
   const { stats, isLoading: statsLoading } = useRepositoryStats()
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffDays = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
-    )
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    return date.toLocaleDateString()
-  }
+  const statsData = useMemo(() => [
+    { label: 'Total Repos', value: stats.totalRepos.toString(), color: 'text-accent-400', loading: statsLoading },
+    { label: 'Public Repos', value: stats.publicRepos.toString(), color: 'text-info-400', loading: statsLoading },
+    { label: 'Total Stars', value: stats.totalStars.toString(), color: 'text-warning-400', loading: statsLoading },
+    { label: 'Contributors', value: stats.contributors.toString(), color: 'text-success-400', loading: statsLoading },
+  ], [stats, statsLoading])
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-factory-100 flex items-center gap-3">
-            <GitBranch className="w-7 h-7 text-purple-400" />
-            Repositories
-          </h1>
-          <p className="text-factory-400 mt-1">
-            Decentralized git hosting on Jeju
-          </p>
-        </div>
-        <Link to="/git/new" className="btn btn-primary">
-          <Plus className="w-4 h-4" />
-          New Repository
-        </Link>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Repositories"
+        description="Git hosting with on-chain commits"
+        icon={GitBranch}
+        iconColor="text-accent-400"
+        action={
+          <Link to="/git/new" className="btn btn-primary">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">New</span> Repo
+          </Link>
+        }
+      />
 
-      <div className="card p-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-factory-500" />
-          <input
-            type="text"
-            placeholder="Search repositories..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input pl-10"
-          />
-        </div>
-      </div>
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search repositories..."
+      />
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          {
-            label: 'Total Repos',
-            value: stats.totalRepos.toString(),
-            color: 'text-purple-400',
-          },
-          {
-            label: 'Public Repos',
-            value: stats.publicRepos.toString(),
-            color: 'text-blue-400',
-          },
-          {
-            label: 'Total Stars',
-            value: stats.totalStars.toString(),
-            color: 'text-amber-400',
-          },
-          {
-            label: 'Contributors',
-            value: stats.contributors.toString(),
-            color: 'text-green-400',
-          },
-        ].map((stat) => (
-          <div key={stat.label} className="card p-4 text-center">
-            {statsLoading ? (
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-factory-500" />
-            ) : (
-              <p className={clsx('text-2xl font-bold', stat.color)}>
-                {stat.value}
-              </p>
-            )}
-            <p className="text-factory-500 text-sm">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+      <StatsGrid stats={statsData} columns={4} />
 
       {isLoading ? (
-        <div className="card p-12 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-accent-500" />
-        </div>
+        <LoadingState text="Loading repositories..." />
       ) : error ? (
-        <div className="card p-12 text-center">
-          <GitBranch className="w-12 h-12 mx-auto mb-4 text-red-400" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            Failed to load repositories
-          </h3>
-          <p className="text-factory-500">Please try again later</p>
-        </div>
+        <ErrorState title="Failed to load repositories" />
       ) : repositories.length === 0 ? (
-        <div className="card p-12 text-center">
-          <GitBranch className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-          <h3 className="text-lg font-medium text-factory-300 mb-2">
-            No repositories found
-          </h3>
-          <p className="text-factory-500 mb-4">
-            {search
-              ? 'Try adjusting your search terms'
-              : 'Create your first repository'}
-          </p>
-          <Link to="/git/new" className="btn btn-primary">
-            New Repository
-          </Link>
-        </div>
+        <EmptyState
+          icon={GitBranch}
+          title="No repositories found"
+          description={search ? 'Try a different search term' : 'Create a repo to host your code'}
+          actionLabel="New Repo"
+          actionHref="/git/new"
+        />
       ) : (
         <div className="space-y-4">
-          {repositories.map((repo) => (
+          {repositories.map((repo, index) => (
             <Link
               key={repo.id}
               to={`/git/${repo.owner}/${repo.name}`}
-              className="card p-6 card-hover block"
+              className="card p-5 sm:p-6 card-hover block animate-slide-up"
+              style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className="flex items-start justify-between gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-factory-100">
-                      {repo.fullName}
-                    </h3>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                    <h3 className="font-semibold text-surface-100">{repo.fullName}</h3>
                     {repo.isPrivate && (
-                      <span className="flex items-center gap-1 text-factory-400 text-sm">
-                        <Lock className="w-4 h-4" />
+                      <span className="flex items-center gap-1.5 text-surface-400 text-sm">
+                        <Lock className="w-4 h-4" aria-hidden="true" />
                         Private
                       </span>
                     )}
                     {repo.isFork && (
-                      <span className="flex items-center gap-1 text-factory-400 text-sm">
-                        <GitFork className="w-4 h-4" />
+                      <span className="flex items-center gap-1.5 text-surface-400 text-sm">
+                        <GitFork className="w-4 h-4" aria-hidden="true" />
                         Fork
                       </span>
                     )}
                   </div>
-                  <p className="text-factory-400 text-sm line-clamp-2 mb-3">
+                  <p className="text-surface-400 text-sm line-clamp-2 mb-3">
                     {repo.description ?? 'No description provided'}
                   </p>
-                  <div className="flex items-center gap-4 text-sm text-factory-500">
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-surface-500">
                     {repo.language && (
-                      <span className="flex items-center gap-1">
-                        <span className="w-3 h-3 rounded-full bg-blue-400" />
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full bg-info-400" aria-hidden="true" />
                         {repo.language}
                       </span>
                     )}
-                    <span className="flex items-center gap-1">
-                      <Star className="w-4 h-4" />
+                    <span className="flex items-center gap-1.5">
+                      <Star className="w-4 h-4" aria-hidden="true" />
                       {repo.stars}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <GitFork className="w-4 h-4" />
+                    <span className="flex items-center gap-1.5">
+                      <GitFork className="w-4 h-4" aria-hidden="true" />
                       {repo.forks}
                     </span>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-factory-500 text-sm">
-                    Updated {formatDate(repo.updatedAt)}
+                <div className="text-left sm:text-right flex-shrink-0">
+                  <p className="text-surface-500 text-sm">
+                    Updated {formatRelativeTime(repo.updatedAt)}
                   </p>
                 </div>
               </div>

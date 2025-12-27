@@ -70,7 +70,7 @@ export default function NodeOperatorDashboard() {
       <div className="page-header">
         <h1 className="page-title">Node Operator Dashboard</h1>
         <p className="page-subtitle">
-          Manage your nodes, monitor earnings, and track performance
+          Earn rewards by providing compute resources to the network
         </p>
       </div>
 
@@ -111,9 +111,10 @@ export default function NodeOperatorDashboard() {
       </div>
 
       <div
+        className="node-dashboard-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: '2fr 1fr',
+          gridTemplateColumns: 'minmax(0, 2fr) minmax(300px, 1fr)',
           gap: '1.5rem',
           marginTop: '1.5rem',
         }}
@@ -132,8 +133,10 @@ export default function NodeOperatorDashboard() {
           {nodes.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Server size={48} />
-              <h4>No Nodes Registered</h4>
-              <p>Register a node to start earning rewards</p>
+              <h4>Ready to provide</h4>
+              <p>
+                Register your compute node to join the network and earn rewards
+              </p>
               <a
                 href="/settings"
                 className="btn btn-primary"

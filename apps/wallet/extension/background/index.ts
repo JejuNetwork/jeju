@@ -11,6 +11,7 @@
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { z } from 'zod'
+import { jnsResolver } from '../../api/services/jns/resolver'
 import { expectNonEmpty, expectSchema } from '../../lib/validation'
 import { storage } from '../../web/platform/storage'
 import type {
@@ -19,6 +20,9 @@ import type {
   CrossChainTransferData,
   EIP1193Param,
   ExtensionMessageResponse,
+  JNSGatewayStatus,
+  JNSResolution,
+  JNSResolverSettings,
   SubmitIntentData,
 } from '../types'
 
@@ -59,6 +63,12 @@ const MessageTypeSchema = z.enum([
   'wallet_addEthereumChain',
   'jeju_crossChainTransfer',
   'jeju_submitIntent',
+  // JNS message types
+  'jns_getSettings',
+  'jns_updateSettings',
+  'jns_resolve',
+  'jns_clearCache',
+  'jns_getStatus',
 ])
 
 // EIP1193Param is already typed, we validate the structure at runtime
@@ -348,6 +358,27 @@ async function handleMessage(
     case 'disconnect':
       return handleDisconnect(origin)
 
+    // JNS handlers
+    case 'jns_getSettings':
+      return handleJnsGetSettings()
+
+    case 'jns_updateSettings': {
+      const data = requireDefined(message.data, 'message.data')
+      return handleJnsUpdateSettings(data as Partial<JNSResolverSettings>)
+    }
+
+    case 'jns_resolve': {
+      const data = requireDefined(message.data, 'message.data')
+      const domain = data.domain as string
+      return handleJnsResolve(domain)
+    }
+
+    case 'jns_clearCache':
+      return handleJnsClearCache()
+
+    case 'jns_getStatus':
+      return handleJnsGetStatus()
+
     default:
       throw new Error(`Unknown message type: ${message.type}`)
   }
@@ -522,6 +553,36 @@ async function handleSubmitIntent(data: SubmitIntentData): Promise<Hex> {
 
   const intentId = requireDefined(result.intentId, 'result.intentId')
   return intentId
+}
+
+// JNS Handler Functions
+
+async function handleJnsGetSettings(): Promise<JNSResolverSettings> {
+  await jnsResolver.init()
+  return jnsResolver.getSettings()
+}
+
+async function handleJnsUpdateSettings(
+  settings: Partial<JNSResolverSettings>,
+): Promise<JNSResolverSettings> {
+  await jnsResolver.init()
+  return jnsResolver.updateSettings(settings)
+}
+
+async function handleJnsResolve(domain: string): Promise<JNSResolution | null> {
+  await jnsResolver.init()
+  return jnsResolver.resolve(domain)
+}
+
+async function handleJnsClearCache(): Promise<{ success: boolean }> {
+  await jnsResolver.init()
+  await jnsResolver.clearCache()
+  return { success: true }
+}
+
+async function handleJnsGetStatus(): Promise<JNSGatewayStatus> {
+  await jnsResolver.init()
+  return jnsResolver.checkStatus()
 }
 
 /** Popup parameter types */

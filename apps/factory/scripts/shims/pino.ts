@@ -43,4 +43,3 @@ function createLogger(bindings: Record<string, unknown> = {}): Logger {
 export default createLogger
 export const pino = createLogger
 export { levels }
-

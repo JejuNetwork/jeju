@@ -140,7 +140,7 @@ export default function CrossChainTransfer() {
               marginBottom: '0.5rem',
             }}
           >
-            EIL Contracts Not Deployed
+            EIL Contracts Coming Soon
           </h3>
           <p
             style={{
@@ -149,8 +149,8 @@ export default function CrossChainTransfer() {
               marginBottom: '1rem',
             }}
           >
-            Cross-chain transfers require EIL (Elastic Intent Liquidity)
-            contracts to be deployed on your network.
+            Cross-chain transfers use EIL (Elastic Intent Liquidity) — a
+            trustless bridge protocol. Deploy contracts to enable this feature.
           </p>
           <p
             style={{
@@ -341,7 +341,7 @@ export default function CrossChainTransfer() {
                   color: 'var(--text-muted)',
                 }}
               >
-                Depends on XLP availability
+                ~5-30 minutes
               </span>
             </div>
             <div
@@ -412,7 +412,7 @@ export default function CrossChainTransfer() {
                   fontSize: '0.875rem',
                 }}
               >
-                Connect your wallet to transfer
+                Connect your wallet to start a cross-chain transfer
               </p>
               <WalletButton />
             </div>
@@ -442,7 +442,7 @@ export default function CrossChainTransfer() {
             Processing Transfer
           </h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            XLP is fulfilling your request...
+            A liquidity provider is fulfilling your request. Hang tight.
           </p>
           <div
             style={{
@@ -548,8 +548,7 @@ export default function CrossChainTransfer() {
             Transfer Failed
           </h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            Transaction was rejected or failed. Your funds remain in your
-            wallet.
+            Something went wrong, but your funds are safe in your wallet.
           </p>
 
           <button

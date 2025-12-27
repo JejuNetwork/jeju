@@ -65,8 +65,8 @@ export default function BillingPage({ viewMode }: BillingProps) {
           </h1>
           <p className="page-subtitle">
             {viewMode === 'provider'
-              ? 'Track your earnings and request payouts'
-              : 'Manage your x402 credits and view usage'}
+              ? 'Track your earnings and withdraw to your wallet'
+              : 'Manage credits and track usage across all services'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -231,7 +231,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
           {transactions.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Activity size={32} />
-              <p>No transactions yet</p>
+              <p>Transactions will appear here once you use DWS services</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '0.5rem' }}>

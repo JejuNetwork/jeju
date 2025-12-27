@@ -5,6 +5,7 @@
 import { getContract } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
+import { config } from '../config'
 import { A2AJsonRpcResponseSchema } from '../../lib'
 import { createAutocratA2AServer } from '../a2a-server'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
@@ -24,7 +25,7 @@ const erc8004Config: ERC8004Config = {
   identityRegistry: config.contracts.identityRegistry,
   reputationRegistry: config.contracts.reputationRegistry,
   validationRegistry: getValidationRegistryAddr(),
-  operatorKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+  operatorKey: config.operatorKey ?? config.privateKey,
 }
 const erc8004 = getERC8004Client(erc8004Config)
 

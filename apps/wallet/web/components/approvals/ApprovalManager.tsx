@@ -42,15 +42,15 @@ const RiskBadge: React.FC<{ level: TokenApproval['spender']['riskLevel'] }> = ({
   level,
 }) => {
   const styles: Record<string, string> = {
-    safe: 'bg-green-500/20 text-green-400',
-    low: 'bg-lime-500/20 text-lime-400',
-    medium: 'bg-yellow-500/20 text-yellow-400',
-    high: 'bg-red-500/20 text-red-400',
+    safe: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    low: 'bg-lime-500/20 text-lime-400 border-lime-500/30',
+    medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    high: 'bg-red-500/20 text-red-400 border-red-500/30',
   }
 
   return (
     <span
-      className={`px-2 py-0.5 text-xs font-medium rounded ${styles[level]}`}
+      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border capitalize ${styles[level]}`}
     >
       {level}
     </span>
@@ -165,60 +165,65 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-        <span className="ml-3 text-zinc-400">Loading approvals...</span>
+      <div className="p-12 flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500" />
+        <span className="mt-4 text-muted-foreground">Loading approvals...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header Stats */}
       <div className="grid grid-cols-3 gap-3">
         <button
           type="button"
           onClick={() => setFilter('all')}
-          className={`p-3 rounded-lg text-center transition-colors ${
+          aria-pressed={filter === 'all'}
+          className={`p-4 rounded-xl text-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/50 ${
             filter === 'all'
-              ? 'bg-emerald-600'
-              : 'bg-zinc-800 hover:bg-zinc-700'
+              ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30'
+              : 'bg-card border border-border hover:border-emerald-500/30'
           }`}
         >
-          <p className="text-2xl font-bold">{approvals.length}</p>
-          <p className="text-xs text-zinc-400">Total</p>
+          <p className={`text-2xl font-bold ${filter === 'all' ? 'text-emerald-400' : ''}`}>{approvals.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Total</p>
         </button>
         <button
           type="button"
           onClick={() => setFilter('unlimited')}
-          className={`p-3 rounded-lg text-center transition-colors ${
+          aria-pressed={filter === 'unlimited'}
+          className={`p-4 rounded-xl text-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/50 ${
             filter === 'unlimited'
-              ? 'bg-yellow-600'
-              : 'bg-zinc-800 hover:bg-zinc-700'
+              ? 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30'
+              : 'bg-card border border-border hover:border-yellow-500/30'
           }`}
         >
-          <p className="text-2xl font-bold">{unlimitedCount}</p>
-          <p className="text-xs text-zinc-400">Unlimited</p>
+          <p className={`text-2xl font-bold ${filter === 'unlimited' ? 'text-yellow-400' : ''}`}>{unlimitedCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">Unlimited</p>
         </button>
         <button
           type="button"
           onClick={() => setFilter('risky')}
-          className={`p-3 rounded-lg text-center transition-colors ${
-            filter === 'risky' ? 'bg-red-600' : 'bg-zinc-800 hover:bg-zinc-700'
+          aria-pressed={filter === 'risky'}
+          className={`p-4 rounded-xl text-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/50 ${
+            filter === 'risky'
+              ? 'bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/30'
+              : 'bg-card border border-border hover:border-red-500/30'
           }`}
         >
-          <p className="text-2xl font-bold">{riskyCount}</p>
-          <p className="text-xs text-zinc-400">Risky</p>
+          <p className={`text-2xl font-bold ${filter === 'risky' ? 'text-red-400' : ''}`}>{riskyCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">Risky</p>
         </button>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={selectAll}
-            className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded transition-colors"
+            className="px-4 py-2 text-sm font-medium bg-secondary hover:bg-secondary/80 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50"
           >
             {selected.size === sortedApprovals.length
               ? 'Deselect All'
@@ -228,7 +233,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
             <button
               type="button"
               onClick={handleBatchRevoke}
-              className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-500 rounded transition-colors"
+              className="px-4 py-2 text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl border border-red-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/50"
             >
               Revoke Selected ({selected.size})
             </button>
@@ -238,7 +243,8 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="px-3 py-1.5 text-sm bg-zinc-800 rounded border-none outline-none"
+            aria-label="Sort approvals by"
+            className="px-4 py-2 text-sm font-medium bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-amber-500/50"
           >
             <option value="recent">Most Recent</option>
             <option value="amount">Highest Amount</option>
@@ -247,7 +253,8 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
           <button
             type="button"
             onClick={onRefresh}
-            className="p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded transition-colors"
+            aria-label="Refresh approvals"
+            className="p-2.5 bg-secondary hover:bg-secondary/80 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50"
           >
             ↻
           </button>
@@ -256,20 +263,24 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
 
       {/* Approval List */}
       {sortedApprovals.length === 0 ? (
-        <div className="p-8 text-center text-zinc-500">
-          <p>No approvals found</p>
+        <div className="p-12 text-center bg-card border border-border rounded-2xl">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mb-4">
+            <span className="text-2xl">✨</span>
+          </div>
+          <h3 className="font-bold text-lg">No Approvals Found</h3>
+          <p className="text-muted-foreground mt-2">Your wallet is squeaky clean</p>
           {filter !== 'all' && (
             <button
               type="button"
               onClick={() => setFilter('all')}
-              className="mt-2 text-sm text-emerald-500 hover:text-emerald-400"
+              className="mt-4 text-sm text-amber-400 hover:text-amber-300 font-medium transition-colors"
             >
               Clear filter
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {sortedApprovals.map((approval) => {
             const key = getKey(approval)
             const isSelected = selected.has(key)
@@ -278,10 +289,10 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
             return (
               <div
                 key={key}
-                className={`p-4 rounded-lg transition-colors ${
+                className={`p-4 rounded-xl transition-all ${
                   isSelected
-                    ? 'bg-zinc-700 ring-1 ring-emerald-500'
-                    : 'bg-zinc-800'
+                    ? 'bg-card border-2 border-amber-500/50'
+                    : 'bg-card border border-border hover:border-amber-500/30'
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -289,36 +300,38 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleSelect(approval)}
-                    className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    aria-pressed={isSelected}
+                    aria-label={`Select ${approval.token.symbol} approval`}
+                    className={`mt-1 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/50 ${
                       isSelected
-                        ? 'bg-emerald-600 border-emerald-600'
-                        : 'border-zinc-600 hover:border-zinc-500'
+                        ? 'bg-amber-500 border-amber-500'
+                        : 'border-border hover:border-amber-500/50'
                     }`}
                   >
-                    {isSelected && <span className="text-xs">✓</span>}
+                    {isSelected && <span className="text-xs text-white font-bold">✓</span>}
                   </button>
 
                   {/* Token Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="font-bold">
                         {approval.token.symbol}
                       </span>
                       {approval.isUnlimited && (
-                        <span className="px-1.5 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 rounded">
+                        <span className="px-2 py-0.5 text-xs font-semibold bg-yellow-500/20 text-yellow-400 rounded-lg border border-yellow-500/30">
                           Unlimited
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-zinc-400 truncate">
+                    <p className="text-sm text-muted-foreground truncate">
                       Spender:{' '}
                       {approval.spender.name ||
                         `${approval.spender.address.slice(0, 6)}...${approval.spender.address.slice(-4)}`}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-2">
                       <RiskBadge level={approval.spender.riskLevel} />
                       {approval.spender.isVerified && (
-                        <span className="text-xs text-green-400">
+                        <span className="text-xs text-emerald-400 font-medium">
                           ✓ Verified
                         </span>
                       )}
@@ -327,17 +340,17 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
 
                   {/* Allowance & Actions */}
                   <div className="text-right">
-                    <p className="font-mono text-sm mb-2">
+                    <p className="font-mono text-sm font-bold mb-2">
                       {approval.isUnlimited ? '∞' : approval.allowanceFormatted}
                     </p>
                     <button
                       type="button"
                       onClick={() => handleRevoke(approval)}
                       disabled={isRevoking}
-                      className={`px-3 py-1 text-sm rounded transition-colors ${
+                      className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-500/50 ${
                         isRevoking
-                          ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
-                          : 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
+                          ? 'bg-secondary text-muted-foreground cursor-not-allowed'
+                          : 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
                       }`}
                     >
                       {isRevoking ? 'Revoking...' : 'Revoke'}

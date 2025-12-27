@@ -3,6 +3,7 @@ import {
   ExternalLink,
   Gauge,
   Globe,
+  Heart,
   Info,
   Power,
   Shield,
@@ -14,7 +15,6 @@ import { invoke } from '../../lib'
 
 const BooleanResponseSchema = z.boolean()
 
-/** Settings schema matching Rust VPNConfig */
 const VPNConfigSchema = z.object({
   rpc_url: z.string(),
   chain_id: z.number(),
@@ -41,6 +41,47 @@ const VPNConfigSchema = z.object({
 })
 
 type VPNConfig = z.infer<typeof VPNConfigSchema>
+
+interface ToggleSwitchProps {
+  enabled: boolean
+  onToggle: () => void
+  label: string
+}
+
+function ToggleSwitch({ enabled, onToggle, label }: ToggleSwitchProps) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={label}
+      aria-pressed={enabled}
+      className={`toggle-switch ${enabled ? 'bg-accent' : 'bg-border'}`}
+    >
+      <div
+        className={`toggle-thumb ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`}
+      />
+    </button>
+  )
+}
+
+interface SettingRowProps {
+  title: string
+  description: string
+  enabled: boolean
+  onToggle: () => void
+}
+
+function SettingRow({ title, description, enabled, onToggle }: SettingRowProps) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <div className="flex-1 min-w-0 pr-4">
+        <div className="font-medium text-white">{title}</div>
+        <div className="text-xs text-muted mt-0.5">{description}</div>
+      </div>
+      <ToggleSwitch enabled={enabled} onToggle={onToggle} label={title} />
+    </div>
+  )
+}
 
 export function SettingsPanel() {
   const [config, setConfig] = useState<VPNConfig | null>(null)
@@ -75,275 +116,192 @@ export function SettingsPanel() {
 
   if (!config) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="text-[#606070]">Loading settings...</div>
+      <div className="p-6 flex items-center justify-center min-h-[200px]">
+        <div className="text-muted animate-pulse">Loading settings...</div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-5 space-y-5 pb-safe">
       <div>
         <h2 className="text-xl font-semibold">Settings</h2>
-        <p className="text-sm text-[#606070] mt-1">
-          Configure your VPN experience
+        <p className="text-sm text-muted mt-1">
+          Make it yours
         </p>
       </div>
 
-      <div className="card">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Shield className="w-4 h-4 text-[#00ff88]" />
+      {/* Connection Settings */}
+      <div className="card space-y-4">
+        <h3 className="font-medium flex items-center gap-2">
+          <Shield className="w-4 h-4 text-accent" />
           Connection
         </h3>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Kill Switch</div>
-              <div className="text-xs text-[#606070]">
-                Block internet if VPN disconnects
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => updateConfig({ kill_switch: !config.kill_switch })}
-              className={`w-12 h-6 rounded-full transition-colors ${
-                config.kill_switch ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  config.kill_switch ? 'translate-x-6' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Auto Connect</div>
-              <div className="text-xs text-[#606070]">
-                Connect when app starts
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                updateConfig({ auto_connect: !config.auto_connect })
-              }
-              className={`w-12 h-6 rounded-full transition-colors ${
-                config.auto_connect ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  config.auto_connect ? 'translate-x-6' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
+          <SettingRow
+            title="Kill Switch"
+            description="Block internet if VPN disconnects"
+            enabled={config.kill_switch}
+            onToggle={() => updateConfig({ kill_switch: !config.kill_switch })}
+          />
+          <SettingRow
+            title="Auto Connect"
+            description="Connect when app launches"
+            enabled={config.auto_connect}
+            onToggle={() => updateConfig({ auto_connect: !config.auto_connect })}
+          />
         </div>
       </div>
 
-      <div className="card">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Power className="w-4 h-4 text-[#00cc6a]" />
+      {/* Startup Settings */}
+      <div className="card space-y-4">
+        <h3 className="font-medium flex items-center gap-2">
+          <Power className="w-4 h-4 text-accent-secondary" />
           Startup
         </h3>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Start on Boot</div>
-              <div className="text-xs text-[#606070]">
-                Launch VPN when system starts
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={async () => {
-                const newValue = !config.auto_start
-                await updateConfig({ auto_start: newValue })
-                await invoke('toggle_autostart', {}, BooleanResponseSchema)
-              }}
-              className={`w-12 h-6 rounded-full transition-colors ${
-                config.auto_start ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  config.auto_start ? 'translate-x-6' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Minimize to Tray</div>
-              <div className="text-xs text-[#606070]">
-                Keep running in system tray
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                updateConfig({ minimize_to_tray: !config.minimize_to_tray })
-              }
-              className={`w-12 h-6 rounded-full transition-colors ${
-                config.minimize_to_tray ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  config.minimize_to_tray ? 'translate-x-6' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
+          <SettingRow
+            title="Start on Boot"
+            description="Launch VPN when your system starts"
+            enabled={config.auto_start}
+            onToggle={async () => {
+              const newValue = !config.auto_start
+              await updateConfig({ auto_start: newValue })
+              await invoke('toggle_autostart', {}, BooleanResponseSchema)
+            }}
+          />
+          <SettingRow
+            title="Minimize to Tray"
+            description="Keep running quietly in system tray"
+            enabled={config.minimize_to_tray}
+            onToggle={() => updateConfig({ minimize_to_tray: !config.minimize_to_tray })}
+          />
         </div>
       </div>
 
-      <div className="card">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-[#00cc6a]" />
+      {/* Protocol Settings */}
+      <div className="card space-y-4">
+        <h3 className="font-medium flex items-center gap-2">
+          <Zap className="w-4 h-4 text-accent-secondary" />
           Protocol
         </h3>
 
         <div className="space-y-2">
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-xl"
+            className="w-full flex items-center justify-between p-3 bg-accent/10 border border-accent/30 rounded-xl"
           >
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-[#00ff88] rounded-full" />
-              <span>WireGuard</span>
+              <div className="w-2 h-2 bg-accent rounded-full" />
+              <span className="font-medium">WireGuard</span>
             </div>
-            <span className="text-xs text-[#00ff88]">Recommended</span>
+            <span className="text-xs text-accent font-medium">Recommended</span>
           </button>
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl opacity-50"
+            className="w-full flex items-center justify-between p-3 bg-surface-elevated rounded-xl opacity-50 cursor-not-allowed"
+            disabled
           >
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-[#606070] rounded-full" />
+              <div className="w-2 h-2 bg-muted rounded-full" />
               <span>SOCKS5 Proxy</span>
             </div>
-            <span className="text-xs text-[#606070]">Browser only</span>
+            <span className="text-xs text-muted">Coming soon</span>
           </button>
         </div>
       </div>
 
-      <div className="card">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Gauge className="w-4 h-4 text-[#00aa55]" />
-          Bandwidth Management
+      {/* Bandwidth Settings */}
+      <div className="card space-y-4">
+        <h3 className="font-medium flex items-center gap-2">
+          <Gauge className="w-4 h-4 text-accent-tertiary" />
+          Bandwidth
         </h3>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Adaptive Bandwidth</div>
-              <div className="text-xs text-[#606070]">
-                Share more when idle (up to 80%)
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={toggleAdaptive}
-              className={`w-12 h-6 rounded-full transition-colors ${
-                config.adaptive_bandwidth ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  config.adaptive_bandwidth
-                    ? 'translate-x-6'
-                    : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Edge CDN Caching</div>
-              <div className="text-xs text-[#606070]">
-                Cache and serve DWS content
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={toggleDws}
-              className={`w-12 h-6 rounded-full transition-colors ${
-                dwsEnabled ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  dwsEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
+          <SettingRow
+            title="Adaptive Bandwidth"
+            description="Share more when idle (up to 80%)"
+            enabled={config.adaptive_bandwidth}
+            onToggle={toggleAdaptive}
+          />
+          <SettingRow
+            title="Edge CDN Caching"
+            description="Help serve content faster"
+            enabled={dwsEnabled}
+            onToggle={toggleDws}
+          />
         </div>
       </div>
 
-      <div className="card">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Globe className="w-4 h-4 text-[#606070]" />
+      {/* DNS Settings */}
+      <div className="card space-y-4">
+        <h3 className="font-medium flex items-center gap-2">
+          <Globe className="w-4 h-4 text-muted" />
           DNS Servers
         </h3>
 
         <div className="space-y-2">
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-xl"
+            className="w-full flex items-center justify-between p-3 bg-accent/10 border border-accent/30 rounded-xl"
           >
-            <span>Cloudflare (1.1.1.1)</span>
-            <div className="w-2 h-2 bg-[#00ff88] rounded-full" />
+            <span className="font-medium">Cloudflare (1.1.1.1)</span>
+            <div className="w-2 h-2 bg-accent rounded-full" />
           </button>
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl"
+            className="w-full flex items-center justify-between p-3 bg-surface-elevated rounded-xl hover:bg-surface-hover transition-colors"
           >
             <span>Google (8.8.8.8)</span>
           </button>
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-[#1a1a25] rounded-xl"
+            className="w-full flex items-center justify-between p-3 bg-surface-elevated rounded-xl hover:bg-surface-hover transition-colors"
           >
-            <span>Custom</span>
-            <ChevronRight className="w-4 h-4 text-[#606070]" />
+            <span>Custom DNS</span>
+            <ChevronRight className="w-4 h-4 text-muted" />
           </button>
         </div>
       </div>
 
-      <div className="card">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Info className="w-4 h-4 text-[#606070]" />
+      {/* About Section */}
+      <div className="card space-y-4">
+        <h3 className="font-medium flex items-center gap-2">
+          <Info className="w-4 h-4 text-muted" />
           About
         </h3>
 
         <div className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-[#606070]">Version</span>
-            <span>0.1.0</span>
+            <span className="text-muted">Version</span>
+            <span className="font-medium">0.1.0</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#606070]">Network</span>
-            <span>Jeju Mainnet</span>
+            <span className="text-muted">Network</span>
+            <span className="font-medium">Jeju Mainnet</span>
           </div>
           <a
             href="https://jejunetwork.org"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between text-[#00ff88] hover:underline"
+            className="flex items-center justify-between text-accent hover:underline"
           >
-            <span>Learn More</span>
+            <span>Learn more about Jeju</span>
             <ExternalLink className="w-4 h-4" />
           </a>
         </div>
+      </div>
+
+      {/* Community Message */}
+      <div className="flex items-center gap-3 p-4 bg-accent/5 border border-accent/20 rounded-xl">
+        <Heart className="w-5 h-5 text-accent flex-shrink-0" />
+        <p className="text-sm text-muted-light">
+          <span className="text-white font-medium">You're helping the network.</span>{' '}
+          Thanks for using Jeju VPN.
+        </p>
       </div>
     </div>
   )

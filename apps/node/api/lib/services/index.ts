@@ -18,6 +18,7 @@ export * from './updater'
 // export * from './vpn-exit'
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
+import { config } from '../config'
 import type { NodeClient } from '../contracts'
 import {
   type BridgeService,
@@ -184,7 +185,7 @@ export function createNodeServices(
     operator: operatorAddress,
     privateKey:
       edgeConfig?.privateKey ??
-      process.env.PRIVATE_KEY ??
+      config.privateKey ??
       getDefaultPrivateKey(),
     listenPort: edgeConfig?.listenPort ?? 4020,
     gossipInterval: edgeConfig?.gossipInterval ?? 30000,

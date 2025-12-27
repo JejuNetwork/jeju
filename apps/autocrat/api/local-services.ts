@@ -235,9 +235,11 @@ export function isInitialized(): boolean {
   return initialized
 }
 
+import { config } from './config'
+
 // Ollama is optional for local development - not part of main infra
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434'
-export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2'
+const OLLAMA_URL = config.ollamaUrl
+export const OLLAMA_MODEL = config.ollamaModel
 
 export async function checkOllama(): Promise<boolean> {
   const r = await fetch(`${OLLAMA_URL}/api/tags`, {

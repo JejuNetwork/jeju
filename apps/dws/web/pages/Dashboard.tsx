@@ -48,8 +48,11 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <Box size={64} />
-        <h3>Welcome to DWS Console</h3>
-        <p>Connect your wallet to access Decentralized Web Services</p>
+        <h3>Welcome to DWS</h3>
+        <p>
+          Connect your wallet to start building with decentralized compute,
+          storage, and AI services
+        </p>
         <WalletButton />
       </div>
     )
@@ -102,7 +105,7 @@ export default function Dashboard({ viewMode }: DashboardProps) {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <div className="spinner" style={{ width: 48, height: 48 }} />
-        <p>Loading dashboard...</p>
+        <p>Getting your infrastructure ready...</p>
       </div>
     )
   }
@@ -125,7 +128,7 @@ export default function Dashboard({ viewMode }: DashboardProps) {
       <div className="page-header">
         <h1 className="page-title">Dashboard</h1>
         <p className="page-subtitle">
-          Overview of your DWS usage and resources
+          Your decentralized infrastructure at a glance
         </p>
       </div>
 
@@ -533,7 +536,9 @@ function RecentActivity() {
       {recentActivities.length === 0 ? (
         <div className="empty-state" style={{ padding: '1.5rem' }}>
           <Activity size={32} />
-          <p style={{ fontSize: '0.9rem' }}>No recent activity</p>
+          <p style={{ fontSize: '0.9rem', marginBottom: 0 }}>
+            Your activity will show here once you start using DWS
+          </p>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '0' }}>

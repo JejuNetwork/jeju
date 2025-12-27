@@ -10,9 +10,9 @@
  */
 
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, rm, writeFile, mkdir, cp } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { resolve, join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { BunPlugin } from 'bun'
 
@@ -42,7 +42,19 @@ async function buildCSS(): Promise<string> {
   await writeFile(inputPath, globalsContent)
 
   const proc = Bun.spawn(
-    ['bunx', 'tailwindcss', '-i', inputPath, '-o', outputPath, '-c', './tailwind.config.ts', '--content', './web/**/*.{ts,tsx}', '--minify'],
+    [
+      'bunx',
+      'tailwindcss',
+      '-i',
+      inputPath,
+      '-o',
+      outputPath,
+      '-c',
+      './tailwind.config.ts',
+      '--content',
+      './web/**/*.{ts,tsx}',
+      '--minify',
+    ],
     { stdout: 'pipe', stderr: 'pipe', cwd: process.cwd() },
   )
 
@@ -71,43 +83,104 @@ const browserPlugin: BunPlugin = {
     const reactPath = require.resolve('react')
     const reactDomPath = require.resolve('react-dom')
     build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
-    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: require.resolve('react/jsx-runtime') }))
-    build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: require.resolve('react/jsx-dev-runtime') }))
+    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-runtime'),
+    }))
+    build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({
+      path: require.resolve('react/jsx-dev-runtime'),
+    }))
     build.onResolve({ filter: /^react-dom$/ }, () => ({ path: reactDomPath }))
-    build.onResolve({ filter: /^react-dom\/client$/ }, () => ({ path: require.resolve('react-dom/client') }))
+    build.onResolve({ filter: /^react-dom\/client$/ }, () => ({
+      path: require.resolve('react-dom/client'),
+    }))
 
     // Dedupe @noble/curves
-    build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({ path: require.resolve('@noble/curves/secp256k1') }))
-    build.onResolve({ filter: /^@noble\/curves\/p256$/ }, () => ({ path: require.resolve('@noble/curves/p256') }))
-    build.onResolve({ filter: /^@noble\/curves$/ }, () => ({ path: require.resolve('@noble/curves') }))
-    build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({ path: require.resolve(args.path) }))
+    build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({
+      path: require.resolve('@noble/curves/secp256k1'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves\/p256$/ }, () => ({
+      path: require.resolve('@noble/curves/p256'),
+    }))
+    build.onResolve({ filter: /^@noble\/curves$/ }, () => ({
+      path: require.resolve('@noble/curves'),
+    }))
+    build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({
+      path: require.resolve(args.path),
+    }))
 
     // Resolve workspace packages
-    build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({ path: resolve('../../packages/auth/src/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({ path: resolve('../../packages/auth/src/react/index.ts') }))
+    build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+      path: resolve('../../packages/auth/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+      path: resolve('../../packages/auth/src/react/index.ts'),
+    }))
     build.onResolve({ filter: /^@jejunetwork\/auth\/(.*)$/ }, (args) => {
       const subpath = args.path.replace('@jejunetwork/auth/', '')
       return { path: resolve(`../../packages/auth/src/${subpath}.ts`) }
     })
-    build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({ path: resolve('../../packages/shared/src/index.ts') }))
+    build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+      path: resolve('../../packages/shared/src/index.ts'),
+    }))
     build.onResolve({ filter: /^@jejunetwork\/shared\/(.*)$/ }, (args) => ({
       path: resolve(`../../packages/shared/src/${args.path.split('/')[1]}.ts`),
     }))
-    build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({ path: resolve('../../packages/types/src/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({ path: resolve('../../packages/sdk/src/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({ path: resolve('../../packages/ui/src/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({ path: resolve('../../packages/config/index.ts') }))
-    build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({ path: resolve('../../packages/token/src/index.ts') }))
+    build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+      path: resolve('../../packages/types/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+      path: resolve('../../packages/sdk/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
+      path: resolve('../../packages/ui/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
+      path: resolve('../../packages/config/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({
+      path: resolve('../../packages/token/src/index.ts'),
+    }))
   },
 }
 
 const BROWSER_EXTERNALS = [
-  'bun:sqlite', 'child_process', 'http2', 'tls', 'dgram', 'fs', 'net', 'dns', 'stream', 'crypto', 'module', 'worker_threads',
-  'node:url', 'node:fs', 'node:path', 'node:crypto', 'node:events', 'node:module', 'node:worker_threads',
-  '@jejunetwork/deployment', '@jejunetwork/db', '@jejunetwork/kms', 'elysia', '@elysiajs/*', 'ioredis', 'pino', 'pino-pretty',
+  'bun:sqlite',
+  'child_process',
+  'http2',
+  'tls',
+  'dgram',
+  'fs',
+  'net',
+  'dns',
+  'stream',
+  'crypto',
+  'module',
+  'worker_threads',
+  'node:url',
+  'node:fs',
+  'node:path',
+  'node:crypto',
+  'node:events',
+  'node:module',
+  'node:worker_threads',
+  '@jejunetwork/deployment',
+  '@jejunetwork/db',
+  '@jejunetwork/kms',
+  'elysia',
+  '@elysiajs/*',
+  'ioredis',
+  'pino',
+  'pino-pretty',
 ]
 
-const WORKER_EXTERNALS = ['bun:sqlite', 'child_process', 'node:child_process', 'node:fs', 'node:path', 'node:crypto']
+const WORKER_EXTERNALS = [
+  'bun:sqlite',
+  'child_process',
+  'node:child_process',
+  'node:fs',
+  'node:path',
+  'node:crypto',
+]
 
 async function buildFrontend(): Promise<void> {
   console.log('Building frontend...')
@@ -124,14 +197,37 @@ async function buildFrontend(): Promise<void> {
     plugins: [browserPlugin],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
-      'process.env.PUBLIC_API_URL': JSON.stringify(process.env.PUBLIC_API_URL || ''),
+      'process.env.PUBLIC_API_URL': JSON.stringify(
+        process.env.PUBLIC_API_URL || '',
+      ),
       'process.browser': 'true',
-      'globalThis.process': JSON.stringify({ env: { NODE_ENV: 'production', PUBLIC_API_URL: process.env.PUBLIC_API_URL || '' }, browser: true }),
-      process: JSON.stringify({ env: { NODE_ENV: 'production', PUBLIC_API_URL: process.env.PUBLIC_API_URL || '' }, browser: true }),
-      'import.meta.env': JSON.stringify({ PUBLIC_NETWORK: network, MODE: 'production', DEV: false, PROD: true }),
+      'globalThis.process': JSON.stringify({
+        env: {
+          NODE_ENV: 'production',
+          PUBLIC_API_URL: process.env.PUBLIC_API_URL || '',
+        },
+        browser: true,
+      }),
+      process: JSON.stringify({
+        env: {
+          NODE_ENV: 'production',
+          PUBLIC_API_URL: process.env.PUBLIC_API_URL || '',
+        },
+        browser: true,
+      }),
+      'import.meta.env': JSON.stringify({
+        PUBLIC_NETWORK: network,
+        MODE: 'production',
+        DEV: false,
+        PROD: true,
+      }),
       'import.meta.env.PUBLIC_NETWORK': JSON.stringify(network),
     },
-    naming: { entry: '[name]-[hash].js', chunk: 'chunks/[name]-[hash].js', asset: 'assets/[name]-[hash].[ext]' },
+    naming: {
+      entry: '[name]-[hash].js',
+      chunk: 'chunks/[name]-[hash].js',
+      asset: 'assets/[name]-[hash].[ext]',
+    },
   })
 
   if (!result.success) {
@@ -140,7 +236,9 @@ async function buildFrontend(): Promise<void> {
     throw new Error('Frontend build failed')
   }
 
-  const mainEntry = result.outputs.find((o) => o.kind === 'entry-point' && o.path.includes('client'))
+  const mainEntry = result.outputs.find(
+    (o) => o.kind === 'entry-point' && o.path.includes('client'),
+  )
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'client.js'
 
   console.log('Building CSS...')
@@ -209,10 +307,19 @@ async function buildWorker(): Promise<void> {
   let gitBranch = 'unknown'
   try {
     const commitResult = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'])
-    if (commitResult.success) gitCommit = new TextDecoder().decode(commitResult.stdout).trim()
-    const branchResult = Bun.spawnSync(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
-    if (branchResult.success) gitBranch = new TextDecoder().decode(branchResult.stdout).trim()
-  } catch { /* Git not available */ }
+    if (commitResult.success)
+      gitCommit = new TextDecoder().decode(commitResult.stdout).trim()
+    const branchResult = Bun.spawnSync([
+      'git',
+      'rev-parse',
+      '--abbrev-ref',
+      'HEAD',
+    ])
+    if (branchResult.success)
+      gitBranch = new TextDecoder().decode(branchResult.stdout).trim()
+  } catch {
+    /* Git not available */
+  }
 
   const metadata = {
     name: 'bazaar-api',
@@ -224,7 +331,10 @@ async function buildWorker(): Promise<void> {
     runtime: 'workerd',
   }
 
-  await Bun.write(`${WORKER_DIR}/metadata.json`, JSON.stringify(metadata, null, 2))
+  await Bun.write(
+    `${WORKER_DIR}/metadata.json`,
+    JSON.stringify(metadata, null, 2),
+  )
   console.log(`  Worker: ${WORKER_DIR}/`)
 }
 
@@ -233,14 +343,32 @@ async function createDeploymentBundle(): Promise<void> {
     name: 'bazaar',
     version: '2.0.0',
     architecture: {
-      frontend: { type: 'static', path: 'static', spa: true, fallback: 'index.html' },
-      worker: { type: 'elysia', path: 'worker', entrypoint: 'worker.js', adapter: 'cloudflare', routes: ['/api/*', '/health', '/.well-known/*'] },
+      frontend: {
+        type: 'static',
+        path: 'static',
+        spa: true,
+        fallback: 'index.html',
+      },
+      worker: {
+        type: 'elysia',
+        path: 'worker',
+        entrypoint: 'worker.js',
+        adapter: 'cloudflare',
+        routes: ['/api/*', '/health', '/.well-known/*'],
+      },
     },
-    dws: { regions: ['global'], tee: { preferred: true, required: false }, database: { type: 'eqlite', migrations: 'migrations/' } },
+dws: {
+      regions: ['global'],
+      tee: { preferred: true, required: false },
+      database: { type: 'eqlite', migrations: 'migrations/' },
+    },
     compatibilityDate: '2025-06-01',
   }
 
-  await Bun.write(`${DIST_DIR}/deployment.json`, JSON.stringify(manifest, null, 2))
+  await Bun.write(
+    `${DIST_DIR}/deployment.json`,
+    JSON.stringify(manifest, null, 2),
+  )
   console.log(`  Manifest: ${DIST_DIR}/deployment.json`)
 }
 

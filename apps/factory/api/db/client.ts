@@ -9,6 +9,7 @@ import { Database } from 'bun:sqlite'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { getFactoryConfig } from '../config'
 import FACTORY_SCHEMA from './schema'
 
 // Schemas for row validation
@@ -262,7 +263,8 @@ export type LeaderboardRow = z.infer<typeof LeaderboardRowSchema>
 
 // Database singleton
 let db: Database | null = null
-const DATA_DIR = process.env.FACTORY_DATA_DIR || join(process.cwd(), 'data')
+const config = getFactoryConfig()
+const DATA_DIR = config.factoryDataDir
 const DB_PATH = join(DATA_DIR, 'factory.sqlite')
 
 function ensureDataDir() {

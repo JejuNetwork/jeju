@@ -272,7 +272,7 @@ export default function XLPDashboard() {
               color: 'var(--text-primary)',
             }}
           >
-            EIL Contracts Not Deployed
+            Become a Liquidity Provider
           </h3>
           <p
             style={{
@@ -284,9 +284,8 @@ export default function XLPDashboard() {
               lineHeight: 1.6,
             }}
           >
-            The XLP (Cross-Chain Liquidity Provider) system requires EIL
-            contracts. Deploy them to start providing liquidity and earning
-            fees.
+            Deploy the EIL contracts to start providing cross-chain liquidity
+            and earning fees from every transfer.
           </p>
           <div
             style={{
@@ -336,15 +335,9 @@ export default function XLPDashboard() {
         </h2>
 
         <div
-          style={{
-            display: 'flex',
-            gap: '0.25rem',
-            marginBottom: '1.5rem',
-            borderBottom: '1px solid var(--border)',
-            paddingBottom: '0.75rem',
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch',
-          }}
+          className="sub-tab-container"
+          role="tablist"
+          aria-label="XLP Dashboard sections"
         >
           {(['overview', 'liquidity', 'stake', 'history'] as const).map(
             (tab) => (
@@ -352,19 +345,10 @@ export default function XLPDashboard() {
                 type="button"
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: activeTab === tab ? 'var(--info)' : 'transparent',
-                  color: activeTab === tab ? 'white' : 'var(--text-secondary)',
-                  fontWeight: '600',
-                  fontSize: '0.8125rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
+                role="tab"
+                aria-selected={activeTab === tab}
+                aria-controls={`tabpanel-${tab}`}
+                className={`sub-tab ${activeTab === tab ? 'sub-tab-active' : ''}`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
@@ -373,7 +357,7 @@ export default function XLPDashboard() {
         </div>
 
         {activeTab === 'overview' && (
-          <div>
+          <div role="tabpanel" id="tabpanel-overview" aria-labelledby="tab-overview">
             <div
               className="grid grid-2"
               style={{ gap: '1rem', marginBottom: '1.5rem' }}
@@ -493,7 +477,7 @@ export default function XLPDashboard() {
 
         {activeTab === 'liquidity' &&
           (isConnected ? (
-            <div>
+            <div role="tabpanel" id="tabpanel-liquidity" aria-labelledby="tab-liquidity">
               <div style={{ marginBottom: '2rem' }}>
                 <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
                   ETH Liquidity (Gas Sponsorship)
@@ -532,6 +516,7 @@ export default function XLPDashboard() {
                       onChange={(e) => setEthAmount(e.target.value)}
                       disabled={isLoading}
                       style={{ flex: 1 }}
+                      aria-label="ETH amount to deposit"
                     />
                     <button
                       type="submit"
@@ -585,6 +570,7 @@ export default function XLPDashboard() {
                         onChange={(e) => setTokenAmount(e.target.value)}
                         disabled={isLoading}
                         style={{ flex: 1 }}
+                        aria-label={`${selectedToken?.symbol ?? 'Token'} amount to deposit`}
                       />
                       <button
                         type="submit"
@@ -613,7 +599,7 @@ export default function XLPDashboard() {
                   marginBottom: '1rem',
                 }}
               >
-                Connect your wallet to manage liquidity
+                Connect your wallet to manage your liquidity positions
               </p>
               <WalletButton />
             </div>
@@ -621,7 +607,7 @@ export default function XLPDashboard() {
 
         {activeTab === 'stake' &&
           (isConnected ? (
-            <div>
+            <div role="tabpanel" id="tabpanel-stake" aria-labelledby="tab-stake">
               {!stake?.isActive ? (
                 <div>
                   <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
@@ -888,7 +874,7 @@ export default function XLPDashboard() {
               }}
             >
               <h3 style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-                Become an XLP
+                Join the XLP Network
               </h3>
               <p
                 style={{
@@ -897,7 +883,7 @@ export default function XLPDashboard() {
                   fontSize: '0.875rem',
                 }}
               >
-                Stake ETH and provide cross-chain liquidity to earn fees
+                Stake ETH and earn fees from cross-chain transfers
               </p>
               <p
                 style={{
@@ -957,7 +943,7 @@ function VoucherHistory() {
           padding: '2rem',
         }}
       >
-        Connect wallet to view history
+        Connect your wallet to view your transaction history
       </p>
     )
   }
@@ -982,7 +968,7 @@ function VoucherHistory() {
           padding: '2rem',
         }}
       >
-        Unable to load voucher history. Indexer may be unavailable.
+        Unable to load history right now. Please try again shortly.
       </p>
     )
   }

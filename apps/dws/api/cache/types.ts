@@ -199,6 +199,31 @@ export interface StreamReadOptions {
   count?: number
 }
 
+// Pub/Sub Types
+
+export interface PubSubMessage {
+  channel: string
+  message: string
+  timestamp: number
+  publisherId?: string
+}
+
+export type PubSubHandler = (message: PubSubMessage) => void
+
+export interface PubSubSubscription {
+  channel: string
+  pattern: boolean
+  handler: PubSubHandler
+  subscribedAt: number
+}
+
+export interface PubSubStats {
+  channels: number
+  patterns: number
+  subscribers: number
+  messagesPublished: number
+}
+
 // Configuration
 
 export interface CacheConfig {
@@ -240,6 +265,9 @@ export const CacheEventType = {
   NODE_JOIN: 'node_join',
   NODE_LEAVE: 'node_leave',
   ATTESTATION_REFRESH: 'attestation_refresh',
+  PUBSUB_PUBLISH: 'pubsub_publish',
+  PUBSUB_SUBSCRIBE: 'pubsub_subscribe',
+  PUBSUB_UNSUBSCRIBE: 'pubsub_unsubscribe',
 } as const
 export type CacheEventType =
   (typeof CacheEventType)[keyof typeof CacheEventType]

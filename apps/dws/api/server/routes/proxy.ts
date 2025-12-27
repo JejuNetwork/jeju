@@ -14,6 +14,7 @@ function randomUUID(): string {
   return crypto.randomUUID()
 }
 
+import { createAppConfig } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 
@@ -69,53 +70,81 @@ interface ProxyMetrics {
 // Configuration
 // ============================================================================
 
-const PROXY_TARGETS: ProxyTarget[] = [
-  {
-    name: 'indexer',
-    upstream: process.env.INDEXER_URL ?? 'http://127.0.0.1:4352',
-    pathPrefix: '/indexer',
-    stripPrefix: true,
-    healthPath: '/health',
-    timeout: 30000,
-    rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
-  },
-  {
-    name: 'indexer-graphql',
-    upstream: process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350',
-    pathPrefix: '/graphql',
-    stripPrefix: false,
-    healthPath: '/',
-    timeout: 60000,
-    rateLimit: { requestsPerMinute: 500, burstSize: 50 },
-  },
-  {
-    name: 'monitoring',
-    upstream: process.env.MONITORING_URL ?? 'http://127.0.0.1:9091',
-    pathPrefix: '/monitoring',
-    stripPrefix: true,
-    healthPath: '/.well-known/agent-card.json',
-    timeout: 30000,
-    rateLimit: { requestsPerMinute: 500, burstSize: 50 },
-  },
-  {
-    name: 'prometheus',
-    upstream: process.env.PROMETHEUS_URL ?? 'http://127.0.0.1:9090',
-    pathPrefix: '/prometheus',
-    stripPrefix: true,
-    healthPath: '/-/healthy',
-    timeout: 30000,
-    rateLimit: { requestsPerMinute: 200, burstSize: 20 },
-  },
-  {
-    name: 'gateway',
-    upstream: process.env.GATEWAY_URL ?? 'http://127.0.0.1:4200',
-    pathPrefix: '/gateway',
-    stripPrefix: true,
-    healthPath: '/health',
-    timeout: 30000,
-    rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
-  },
-]
+interface ProxyRouterConfig {
+  indexerUrl?: string
+  indexerGraphqlUrl?: string
+  monitoringUrl?: string
+  prometheusUrl?: string
+  gatewayUrl?: string
+  [key: string]: string | undefined
+}
+
+const { config: proxyConfig, configure: configureProxyRouter } =
+  createAppConfig<ProxyRouterConfig>({
+    indexerUrl: 'http://127.0.0.1:4352',
+    indexerGraphqlUrl: 'http://127.0.0.1:4350',
+    monitoringUrl: 'http://127.0.0.1:9091',
+    prometheusUrl: 'http://127.0.0.1:9090',
+    gatewayUrl: 'http://127.0.0.1:4200',
+  })
+
+export function configureProxyRouterConfig(
+  config: Partial<ProxyRouterConfig>,
+): void {
+  configureProxyRouter(config)
+}
+
+function getProxyTargets(): ProxyTarget[] {
+  return [
+    {
+      name: 'indexer',
+      upstream: proxyConfig.indexerUrl ?? 'http://127.0.0.1:4352',
+      pathPrefix: '/indexer',
+      stripPrefix: true,
+      healthPath: '/health',
+      timeout: 30000,
+      rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
+    },
+    {
+      name: 'indexer-graphql',
+      upstream: proxyConfig.indexerGraphqlUrl ?? 'http://127.0.0.1:4350',
+      pathPrefix: '/graphql',
+      stripPrefix: false,
+      healthPath: '/',
+      timeout: 60000,
+      rateLimit: { requestsPerMinute: 500, burstSize: 50 },
+    },
+    {
+      name: 'monitoring',
+      upstream: proxyConfig.monitoringUrl ?? 'http://127.0.0.1:9091',
+      pathPrefix: '/monitoring',
+      stripPrefix: true,
+      healthPath: '/.well-known/agent-card.json',
+      timeout: 30000,
+      rateLimit: { requestsPerMinute: 500, burstSize: 50 },
+    },
+    {
+      name: 'prometheus',
+      upstream: proxyConfig.prometheusUrl ?? 'http://127.0.0.1:9090',
+      pathPrefix: '/prometheus',
+      stripPrefix: true,
+      healthPath: '/-/healthy',
+      timeout: 30000,
+      rateLimit: { requestsPerMinute: 200, burstSize: 20 },
+    },
+    {
+      name: 'gateway',
+      upstream: proxyConfig.gatewayUrl ?? 'http://127.0.0.1:4200',
+      pathPrefix: '/gateway',
+      stripPrefix: true,
+      healthPath: '/health',
+      timeout: 30000,
+      rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
+    },
+  ]
+}
+
+const PROXY_TARGETS = getProxyTargets()
 
 // Circuit breaker settings
 const CIRCUIT_FAILURE_THRESHOLD = 5

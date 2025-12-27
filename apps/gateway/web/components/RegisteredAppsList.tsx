@@ -305,11 +305,12 @@ export default function RegisteredAppsList({
           />
           <input
             className="input"
-            type="text"
+            type="search"
             placeholder="Search agents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ paddingLeft: '2.5rem', width: '100%' }}
+            aria-label="Search registered agents"
           />
         </div>
         <select
@@ -317,6 +318,7 @@ export default function RegisteredAppsList({
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
           style={{ width: 'auto', minWidth: '120px', flex: '0 1 auto' }}
+          aria-label="Filter by category"
         >
           {CATEGORY_FILTERS.map((cat) => (
             <option key={cat.value} value={cat.value}>
@@ -329,8 +331,9 @@ export default function RegisteredAppsList({
           onClick={fetchApps}
           className="button button-secondary"
           style={{ padding: '0.75rem', flexShrink: 0 }}
+          aria-label="Refresh agent list"
         >
-          <RefreshCwIcon size={16} />
+          <RefreshCwIcon size={16} aria-hidden="true" />
         </button>
       </div>
 
@@ -430,12 +433,12 @@ export default function RegisteredAppsList({
               color: 'var(--text-primary)',
             }}
           >
-            No Agents Found
+            {searchQuery ? 'No Matches' : 'Be the First'}
           </h3>
           <p>
             {searchQuery
-              ? `No results for "${searchQuery}"`
-              : 'No agents registered yet'}
+              ? `No agents match "${searchQuery}" — try a different search or check back later.`
+              : 'No agents registered yet. Register yours and lead the way.'}
           </p>
         </div>
       )}

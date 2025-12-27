@@ -4,8 +4,9 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { CORE_PORTS } from '@jejunetwork/config'
+import { getEnvVar, getEnvNumber } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
+import { configureFactory, getFactoryConfig } from './config'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
 import { bountiesRoutes } from './routes/bounties'
@@ -29,8 +30,11 @@ import { projectsRoutes } from './routes/projects'
 import { pullsRoutes } from './routes/pulls'
 import { repoSettingsRoutes } from './routes/repo-settings'
 
-const PORT = Number(process.env.PORT) || CORE_PORTS.FACTORY.get()
-const isDev = process.env.NODE_ENV !== 'production'
+const config = getFactoryConfig()
+// When running with frontend dev server, API uses port + 1 (frontend proxies to us)
+const API_PORT_OFFSET = process.env.API_PORT_OFFSET ? Number(process.env.API_PORT_OFFSET) : 0
+const PORT = config.port + API_PORT_OFFSET
+const isDev = config.isDev
 
 /** Auto-detect static files from dist/client if they exist */
 const STATIC_DIR = 'dist/client'
@@ -133,6 +137,17 @@ function createApp() {
 export const app = createApp()
 
 if (import.meta.main) {
+  // Initialize config from environment variables
+  configureFactory({
+    port: getEnvNumber('PORT'),
+    isDev: getEnvVar('NODE_ENV') !== 'production',
+    dwsUrl: getEnvVar('DWS_URL'),
+    rpcUrl: getEnvVar('RPC_URL'),
+    factoryDataDir: getEnvVar('FACTORY_DATA_DIR'),
+    signerEncryptionKey: getEnvVar('SIGNER_ENCRYPTION_KEY'),
+    factoryChannelId: getEnvVar('FACTORY_CHANNEL_ID'),
+    dcRelayUrl: getEnvVar('DC_RELAY_URL'),
+  })
   // Serve static files if dist/client exists
   // Note: This is registered after API routes so API routes take precedence
   if (hasStaticFiles) {

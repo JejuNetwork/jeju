@@ -106,19 +106,29 @@ export async function checkRedisAvailable(
   config: InfraConfig,
 ): Promise<boolean> {
   try {
-    // Use a simple Redis PING via HTTP if available, or just check connectivity
+    // Use TCP connection check to Redis
     const url = new URL(config.redisUrl)
     const host = url.hostname
     const port = parseInt(url.port || '6379', 10)
 
-    // Try to connect via TCP (simple check)
-    const response = await fetch(`http://${host}:${port}/`, {
-      signal: AbortSignal.timeout(1000),
+    // Use Bun.connect to check TCP connectivity
+    const socket = await Bun.connect({
+      hostname: host,
+      port: port,
+      socket: {
+        data: () => {},
+        open: () => {},
+        close: () => {},
+        error: () => {},
+        connectError: () => {},
+      },
     }).catch(() => null)
 
-    // Redis doesn't respond to HTTP, but if connection is refused, it's not running
-    // If we got ECONNREFUSED, return false. Otherwise, assume Redis is there.
-    return response !== null || true // Assume available unless we can detect otherwise
+    if (socket) {
+      socket.end()
+      return true
+    }
+    return false
   } catch {
     return false
   }

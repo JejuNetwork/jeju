@@ -32,7 +32,7 @@ export function Earnings() {
         <div>
           <h1 className="text-2xl font-bold">Earnings</h1>
           <p className="text-volcanic-400 mt-1">
-            Track your node earnings and performance
+            How your node is doing
           </p>
         </div>
 
@@ -197,7 +197,7 @@ export function Earnings() {
 
             {services.filter((s) => s.status.running).length === 0 && (
               <p className="text-center text-volcanic-500 py-4">
-                No active services
+                No services running
               </p>
             )}
           </div>
@@ -242,7 +242,7 @@ export function Earnings() {
 
             {bots.filter((b) => b.status.running).length === 0 && (
               <p className="text-center text-volcanic-500 py-4">
-                No active bots
+                No bots running
               </p>
             )}
           </div>

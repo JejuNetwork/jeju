@@ -88,8 +88,10 @@ function getDStackEndpoint(): string {
   return getDWSComputeUrl()
 }
 
+import { config } from './config'
+
 function getTEEPlatform(): TEEPlatform {
-  const envPlatform = process.env.TEE_PLATFORM
+  const envPlatform = config.teePlatform
   const parsedPlatform = TEEPlatformSchema.safeParse(envPlatform)
   if (parsedPlatform.success) {
     return parsedPlatform.data
@@ -108,7 +110,7 @@ function getTEEPlatform(): TEEPlatform {
 }
 
 function getDerivedKey(): Uint8Array {
-  const secret = process.env.TEE_ENCRYPTION_SECRET
+  const secret = config.teeEncryptionSecret
   const network = getCurrentNetwork()
 
   if (!secret) {
