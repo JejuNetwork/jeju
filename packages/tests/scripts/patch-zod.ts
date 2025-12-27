@@ -25,7 +25,6 @@ const _zodFunction = z.function as unknown as (...args: unknown[]) => {
 // Patch the function result prototype
 if (typeof z.function === 'function') {
   const originalFunction = z.function
-  // biome-ignore lint/suspicious/noExplicitAny: Zod compatibility shim requires dynamic patching
   ;(z as Record<string, unknown>).function = function (...args: unknown[]) {
     const result = originalFunction.apply(
       this,

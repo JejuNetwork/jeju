@@ -158,7 +158,6 @@ export class CDNGossipCoordinator extends EventEmitter {
     })
 
     // Subscribe to topics
-    // biome-ignore lint/suspicious/noExplicitAny: libp2p services are dynamically typed
     const pubsub = (this.node.services as Record<string, unknown>).pubsub as {
       subscribe: (topic: string) => void
       addEventListener: (
