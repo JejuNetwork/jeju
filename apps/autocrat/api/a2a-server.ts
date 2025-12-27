@@ -3,7 +3,7 @@
  */
 
 import cors from '@elysiajs/cors'
-import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
+import { getNetworkName, getWebsiteUrl, isProductionEnv } from '@jejunetwork/config'
 import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import {
   expect,
@@ -115,7 +115,22 @@ export class AutocratA2AServer {
   }
 
   private setupRoutes(): void {
-    this.app.use(cors())
+    // SECURITY: Restrict CORS origins in production
+    const A2A_CORS_ORIGINS = process.env.A2A_CORS_ORIGINS?.split(',').filter(Boolean)
+    const isProduction = isProductionEnv()
+
+    this.app.use(
+      cors(
+        isProduction && A2A_CORS_ORIGINS?.length
+          ? {
+              origin: A2A_CORS_ORIGINS,
+              methods: ['GET', 'POST', 'OPTIONS'],
+              allowedHeaders: ['Content-Type'],
+              maxAge: 86400,
+            }
+          : {}, // Allow all origins in development
+      ),
+    )
 
     this.app.get('/.well-known/agent-card.json', () => this.getAgentCard())
 

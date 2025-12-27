@@ -175,13 +175,13 @@ describe('BotInitializer', () => {
       expect(mockAgentSdk.registerAgent).toHaveBeenCalled()
     })
 
-    test('should skip initialization without private key', async () => {
+    test('should skip initialization without signer (no KMS or wallet)', async () => {
       const configWithoutKey = { ...baseConfig, privateKey: undefined }
       const init = new BotInitializer({
         crucibleConfig: configWithoutKey,
         agentSdk: mockAgentSdk as AgentSDK,
         publicClient: mockPublicClient,
-        walletClient: mockWalletClient,
+        // No walletClient, no kmsSigner - should skip
       })
 
       const bots = await init.initializeDefaultBots()

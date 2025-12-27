@@ -1,5 +1,10 @@
 /**
  * Client registration routes with staking, reputation, and moderation
+ *
+ * SECURITY: Client secrets are hashed before storage.
+ * - Plaintext secret returned only ONCE at registration
+ * - Stored as hash + salt (argon2id/PBKDF2)
+ * - Verification via constant-time comparison
  */
 
 import { Elysia, t } from 'elysia'
@@ -16,6 +21,7 @@ import {
   ClientTier,
   ReportCategory as ReportCategoryEnum,
 } from '../../lib/types'
+import { hashClientSecret } from '../services/kms'
 import { checkReputation } from '../services/reputation'
 import { verifyStake } from '../services/staking'
 import { clientReportState, clientState } from '../services/state'
@@ -162,11 +168,15 @@ export function createClientRouter(_config: AuthConfig) {
           const clientId = crypto.randomUUID()
           // Use cryptographically secure random bytes for secret
           const randomBytes = crypto.getRandomValues(new Uint8Array(32))
-          const clientSecret = toHex(randomBytes) as Hex
+          const clientSecretPlaintext = toHex(randomBytes) as Hex
+
+          // Hash the secret for secure storage - plaintext only returned once
+          const clientSecretHash = await hashClientSecret(clientSecretPlaintext)
 
           const client: RegisteredClient = {
             clientId,
-            clientSecret,
+            // Store hash only, never plaintext
+            clientSecretHash,
             name: body.name,
             redirectUris: body.redirectUris,
             allowedProviders: (body.allowedProviders ?? [
@@ -193,15 +203,19 @@ export function createClientRouter(_config: AuthConfig) {
 
           await clientState.save(client)
 
+          // Return plaintext secret ONLY at registration
+          // Client must store it securely - it cannot be recovered
           return {
             clientId,
-            clientSecret,
+            clientSecret: clientSecretPlaintext, // One-time plaintext
             name: client.name,
             redirectUris: client.redirectUris,
             allowedProviders: client.allowedProviders,
             createdAt: client.createdAt,
             tier: client.stake?.tier ?? ClientTier.FREE,
             reputationScore: client.reputation?.score,
+            _warning:
+              'Store your client_secret securely. It cannot be recovered.',
           }
         },
         { body: RegisterClientBodySchema },
@@ -308,15 +322,22 @@ export function createClientRouter(_config: AuthConfig) {
           return { error: ownershipResult.error }
         }
 
-        // Use cryptographically secure random bytes for secret
+        // Generate new secret and hash it
         const randomBytes = crypto.getRandomValues(new Uint8Array(32))
-        const newSecret = toHex(randomBytes) as Hex
-        client.clientSecret = newSecret
+        const newSecretPlaintext = toHex(randomBytes) as Hex
+        const newSecretHash = await hashClientSecret(newSecretPlaintext)
+
+        // Store hash only
+        client.clientSecretHash = newSecretHash
+        client.clientSecret = undefined // Clear any legacy plaintext
         await clientState.save(client)
 
+        // Return plaintext ONLY at rotation
         return {
           clientId: client.clientId,
-          clientSecret: newSecret,
+          clientSecret: newSecretPlaintext,
+          _warning:
+            'Store your new client_secret securely. It cannot be recovered.',
         }
       })
 

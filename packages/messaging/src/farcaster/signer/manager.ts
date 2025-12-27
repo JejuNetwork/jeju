@@ -3,6 +3,13 @@
  *
  * Manages Ed25519 signers for Farcaster, stored securely in KMS or locally.
  * Signers are delegated from the custody wallet and registered on-chain.
+ *
+ * SECURITY NOTE:
+ * For production use, prefer the DWS worker with MPC-backed signers.
+ * Local signers store private keys in memory, making them vulnerable
+ * to side-channel attacks on TEE enclaves.
+ *
+ * @see {@link ../dws-worker/index.ts} for the secure MPC-backed implementation
  */
 
 import {
@@ -18,6 +25,28 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
 
 const log = createLogger('signer-manager')
+
+import {
+  enforceNoLocalKeysInProduction,
+  securityAudit,
+} from '../../security'
+
+/**
+ * SECURITY WARNING: Local key operations are vulnerable to side-channel attacks.
+ * For production security, use MPC-backed signers via the DWS worker.
+ */
+function warnLocalKeyOperation(operation: string): void {
+  // In production, this will throw - local keys not allowed
+  enforceNoLocalKeysInProduction(operation)
+
+  log.warn(`SECURITY: Local key operation "${operation}" - consider using KMS-backed signer for production`)
+
+  securityAudit.log({
+    operation: `farcaster-signer:${operation}`,
+    success: true,
+    metadata: { mode: 'local', warning: 'local-key-operation' },
+  })
+}
 
 // Scrypt parameters for file encryption key derivation
 const SCRYPT_N = 16384
@@ -84,12 +113,17 @@ export class FarcasterSignerManager {
 
   /**
    * Generate a new signer key
+   *
+   * @deprecated For production, use the MPC-backed DWS worker which never
+   * exposes full private keys. Local signers are vulnerable to side-channel attacks.
    */
   async createSigner(params: {
     fid: number
     appName: string
     appFid?: number
   }): Promise<SignerInfo> {
+    warnLocalKeyOperation('createSigner')
+
     // Generate Ed25519 key pair
     const privateKey = randomBytes(32)
     const publicKey = ed25519.getPublicKey(privateKey)
@@ -182,8 +216,14 @@ export class FarcasterSignerManager {
 
   /**
    * Get private key for signing (should only be used internally)
+   *
+   * @deprecated This method exposes the raw private key and is DANGEROUS.
+   * Use the sign() method instead, or preferably use the MPC-backed DWS worker.
+   * @internal
    */
   async getSignerPrivateKey(keyId: string): Promise<Uint8Array | null> {
+    warnLocalKeyOperation('getSignerPrivateKey')
+
     const stored = this.signers.get(keyId)
     if (!stored || stored.info.status !== 'active') {
       return null
@@ -193,8 +233,14 @@ export class FarcasterSignerManager {
 
   /**
    * Sign a message with a signer
+   *
+   * @deprecated For production, use the MPC-backed DWS worker which performs
+   * signing inside a threshold cryptography scheme. This local signing method
+   * requires the full private key in memory, making it vulnerable to side-channel attacks.
    */
   async sign(keyId: string, message: Uint8Array): Promise<Uint8Array> {
+    warnLocalKeyOperation('sign')
+
     const stored = this.signers.get(keyId)
     if (!stored) {
       throw new Error(`Signer not found: ${keyId}`)
@@ -278,10 +324,20 @@ export class FarcasterSignerManager {
   /**
    * Export signer for backup.
    *
+   * @deprecated This method is DANGEROUS and should not be used in production.
+   * It exposes the raw private key, making it vulnerable to:
+   * - Memory inspection attacks
+   * - Side-channel attacks on TEE enclaves
+   * - Key material leakage through logs/errors
+   *
+   * For production, use the MPC-backed DWS worker where private keys
+   * are never exposed - they exist only as threshold shares across
+   * multiple secure enclaves.
+   *
    * SECURITY WARNING: This method returns the raw private key.
-   * - Never log or transmit the returned privateKey
+   * - NEVER log or transmit the returned privateKey
    * - Store exported keys encrypted at rest
-   * - Clear memory containing the key after use
+   * - Clear memory containing the key IMMEDIATELY after use
    * - Consider using secure key storage (KMS, HSM) in production
    */
   async exportSigner(keyId: string): Promise<{
@@ -295,8 +351,9 @@ export class FarcasterSignerManager {
       throw new Error(`Signer not found: ${keyId}`)
     }
 
-    log.warn('SECURITY: Exporting private key - ensure proper key handling', {
+    log.warn('🚨 CRITICAL SECURITY WARNING: Exporting private key', {
       keyId,
+      warning: 'Private key exposure - use MPC-backed DWS worker for production',
     })
 
     return {

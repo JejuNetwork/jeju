@@ -18,7 +18,7 @@ export * from './updater'
 // export * from './vpn-exit'
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { NodeClient } from '../contracts'
+import type { NodeClient, SecureNodeClient } from '../contracts'
 import {
   type BridgeService,
   type BridgeServiceConfig,
@@ -39,7 +39,8 @@ import { createDatabaseService, type DatabaseService } from './database'
 type EdgeCoordinatorConfig = {
   nodeId: string
   operator: `0x${string}`
-  privateKey: string
+  /** KMS key ID for secure signing (no raw private keys) */
+  keyId: string
   listenPort: number
   gossipInterval: number
   gossipFanout: number
@@ -129,6 +130,8 @@ export interface NodeServices {
 }
 
 export interface NodeServicesConfig {
+  /** KMS key ID for secure signing across all services */
+  keyId?: string
   bridge?: Partial<BridgeServiceConfig>
   edge?: Partial<EdgeCoordinatorConfig>
   vpn?: Partial<VPNExitConfig>
@@ -138,10 +141,11 @@ export interface NodeServicesConfig {
 }
 
 export function createNodeServices(
-  client: NodeClient,
+  client: NodeClient | SecureNodeClient,
   config: NodeServicesConfig = {},
 ): NodeServices {
   const {
+    keyId,
     bridge: bridgeConfig,
     edge: edgeConfig,
     vpn: vpnConfig,
@@ -167,25 +171,20 @@ export function createNodeServices(
     ...bridgeConfig,
   }
 
-  // Generate a valid random private key if none provided
-  const getDefaultPrivateKey = (): string => {
-    const bytes = new Uint8Array(32)
-    crypto.getRandomValues(bytes)
-    return (
-      '0x' +
-      Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('')
+  // Get keyId from config or SecureNodeClient
+  const resolvedKeyId =
+    keyId ?? ('keyId' in client ? client.keyId : undefined) ?? ''
+
+  if (!resolvedKeyId) {
+    console.warn(
+      '[NodeServices] No KMS keyId provided - services requiring signing will fail',
     )
   }
 
   const fullEdgeConfig: EdgeCoordinatorConfig = {
     nodeId: edgeConfig?.nodeId ?? crypto.randomUUID(),
     operator: operatorAddress,
-    privateKey:
-      edgeConfig?.privateKey ??
-      process.env.PRIVATE_KEY ??
-      getDefaultPrivateKey(),
+    keyId: edgeConfig?.keyId ?? resolvedKeyId,
     listenPort: edgeConfig?.listenPort ?? 4020,
     gossipInterval: edgeConfig?.gossipInterval ?? 30000,
     gossipFanout: edgeConfig?.gossipFanout ?? 6,
@@ -199,20 +198,24 @@ export function createNodeServices(
     ...edgeConfig,
   }
 
+  // Cast to NodeClient for backwards compatibility with services
+  // Services should be migrated to use SecureNodeClient
+  const legacyClient = client as NodeClient
+
   return {
-    compute: createComputeService(client),
-    oracle: createOracleService(client),
-    storage: createStorageService(client),
-    cron: createCronService(client),
-    cdn: createCDNService(client),
+    compute: createComputeService(legacyClient),
+    oracle: createOracleService(legacyClient),
+    storage: createStorageService(legacyClient),
+    cron: createCronService(legacyClient),
+    cdn: createCDNService(legacyClient),
     bridge: createBridgeService(fullBridgeConfig),
-    proxy: createResidentialProxyService(client),
+    proxy: createResidentialProxyService(legacyClient),
     edgeCoordinator: createEdgeCoordinator(fullEdgeConfig),
     torrent: getHybridTorrentService(),
-    vpn: createVPNExitService(client, vpnConfig),
-    staticAssets: createStaticAssetService(client, staticConfig),
-    sequencer: createSequencerService(client, sequencerConfig),
-    staking: createStakingManagerService(client, stakingConfig),
-    database: createDatabaseService(client),
+    vpn: createVPNExitService(legacyClient, vpnConfig),
+    staticAssets: createStaticAssetService(legacyClient, staticConfig),
+    sequencer: createSequencerService(legacyClient, sequencerConfig),
+    staking: createStakingManagerService(legacyClient, stakingConfig),
+    database: createDatabaseService(legacyClient),
   }
 }

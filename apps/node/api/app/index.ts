@@ -5,14 +5,19 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
-import { getChainId, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
-import { expectAddress, expectHex } from '@jejunetwork/types'
+import {
+  getCQLMinerUrl,
+  getCQLUrl,
+  getChainId,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
+import { expectAddress } from '@jejunetwork/types'
 import chalk from 'chalk'
 import { formatEther } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { JsonRpcResultResponseSchema } from '../../lib/validation'
-import { createNodeClient } from '../lib/contracts'
+import { createSecureNodeClient } from '../lib/contracts'
 import type { ServiceRequirements } from '../lib/hardware'
 import {
   convertHardwareToCamelCase,
@@ -20,6 +25,10 @@ import {
   detectHardware,
   meetsRequirements,
 } from '../lib/hardware'
+import {
+  createSecureSigner,
+  registerNodeWithKMS,
+} from '../lib/secure-signer'
 import { createNodeServices } from '../lib/services'
 
 const CliAppConfigSchema = z.object({
@@ -27,10 +36,9 @@ const CliAppConfigSchema = z.object({
   network: z.enum(['mainnet', 'testnet', 'localnet']),
   rpcUrl: z.string().url(),
   chainId: z.number().int().positive(),
-  privateKey: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{64}$/)
-    .or(z.literal('')),
+  /** KMS key ID for secure signing (no private key stored locally) */
+  keyId: z.string().default(''),
+  /** Wallet address derived from KMS-managed key */
   walletAddress: z
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/)
@@ -74,7 +82,7 @@ const DEFAULT_CONFIG: CliAppConfig = {
   network: 'testnet',
   rpcUrl: getRpcUrl('testnet'),
   chainId: getChainId('testnet'),
-  privateKey: '',
+  keyId: '', // KMS key ID - no private keys stored locally
   walletAddress: '',
   services: {
     compute: true,
@@ -332,27 +340,75 @@ async function cmdSetup(): Promise<void> {
         ? 420691
         : 31337
 
-  if (!config.privateKey) {
-    console.log(chalk.bold('\n  Wallet Setup'))
-    const hasKey = await promptYesNo('  Do you have a private key?', false)
-    if (hasKey) {
-      const key = await prompt('  Enter private key (0x...)')
-      if (key) {
-        const normalizedKey = key.startsWith('0x') ? key : `0x${key}`
-        if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedKey)) {
-          throw new Error(
-            'Invalid private key format: must be 64 hex characters (with or without 0x prefix)',
-          )
-        }
-        config.privateKey = normalizedKey
-        const validHexKey = expectHex(normalizedKey, 'private key')
-        config.walletAddress = privateKeyToAccount(validHexKey).address
-        console.log(chalk.green(`    ✓ Wallet: ${config.walletAddress}`))
+  if (!config.keyId) {
+    console.log(chalk.bold('\n  Wallet Setup (Secure KMS)'))
+    console.log(
+      chalk.dim(
+        '    Your keys are managed by the network KMS using threshold signatures.',
+      ),
+    )
+    console.log(
+      chalk.dim('    No private keys are stored on this machine.\n'),
+    )
+
+    const registerNew = await promptYesNo(
+      '  Register new node with KMS?',
+      true,
+    )
+
+    if (registerNew) {
+      const hardwareCamel = convertHardwareToCamelCase(hardware)
+      console.log(chalk.dim('    Registering with KMS...'))
+
+      try {
+        // Register node with KMS - this generates a threshold key
+        // with shares distributed across MPC nodes
+        const { keyId, address } = await registerNodeWithKMS(
+          '0x0000000000000000000000000000000000000000', // Placeholder until on-chain registration
+          {
+            nodeId: crypto.randomUUID(),
+            region: 'global',
+            services: Object.entries(config.services)
+              .filter(([_, v]) => v)
+              .map(([k]) => k),
+            teeCapable: hardwareCamel.tee.attestationAvailable,
+            teePlatform: hardwareCamel.tee.vendor,
+          },
+        )
+
+        config.keyId = keyId
+        config.walletAddress = address
+        console.log(chalk.green(`    ✓ Key ID: ${keyId.slice(0, 16)}...`))
+        console.log(chalk.green(`    ✓ Address: ${address}`))
+      } catch (e) {
+        console.log(
+          chalk.yellow(
+            `    ⚠ KMS registration failed: ${e instanceof Error ? e.message : String(e)}`,
+          ),
+        )
+        console.log(
+          chalk.dim(
+            '    You can retry setup later or check KMS connectivity.',
+          ),
+        )
       }
     } else {
-      console.log(
-        '    Set JEJU_PRIVATE_KEY env var or run setup again later.\n',
-      )
+      const existingKeyId = await prompt('  Enter existing KMS key ID')
+      if (existingKeyId) {
+        config.keyId = existingKeyId
+        // Derive address from KMS
+        try {
+          const signer = createSecureSigner(existingKeyId)
+          config.walletAddress = await signer.getAddress()
+          console.log(chalk.green(`    ✓ Address: ${config.walletAddress}`))
+        } catch (e) {
+          console.log(
+            chalk.yellow(
+              `    ⚠ Could not derive address: ${e instanceof Error ? e.message : String(e)}`,
+            ),
+          )
+        }
+      }
     }
   }
 
@@ -414,16 +470,18 @@ async function cmdStatus(): Promise<void> {
   )
   if (connected) console.log(`    Block ${blockNum.toLocaleString()}`)
 
-  console.log(`\n  ${chalk.bold('Wallet')}`)
-  if (config.walletAddress) {
+  console.log(`\n  ${chalk.bold('Wallet (KMS Managed)')}`)
+  if (config.keyId && config.walletAddress) {
+    console.log(`    Key ID: ${config.keyId.slice(0, 16)}...`)
     console.log(
-      `    ${config.walletAddress.slice(0, 10)}...${config.walletAddress.slice(-8)}`,
+      `    Address: ${config.walletAddress.slice(0, 10)}...${config.walletAddress.slice(-8)}`,
     )
     if (connected) {
-      const hexKey = config.privateKey
-        ? expectHex(config.privateKey, 'config.privateKey')
-        : undefined
-      const client = createNodeClient(config.rpcUrl, config.chainId, hexKey)
+      const client = createSecureNodeClient(
+        config.rpcUrl,
+        config.chainId,
+        config.keyId,
+      )
       const walletAddr = expectAddress(
         config.walletAddress,
         'config.walletAddress',
@@ -463,26 +521,30 @@ async function cmdStart(): Promise<void> {
 
   printBanner()
 
-  if (!config.privateKey && !process.env.JEJU_PRIVATE_KEY) {
-    console.log(chalk.yellow('  No wallet configured.'))
-    console.log('  Run `jeju-node setup` or set JEJU_PRIVATE_KEY\n')
+  // Check for KMS key ID (secure) or fallback to env var for legacy support
+  if (!config.keyId && !process.env.JEJU_KEY_ID) {
+    console.log(chalk.yellow('  No KMS key configured.'))
+    console.log('  Run `jeju-node setup` to register with KMS\n')
     return
   }
 
-  if (process.env.JEJU_PRIVATE_KEY) {
-    const envKey = process.env.JEJU_PRIVATE_KEY
-    const normalizedKey = envKey.startsWith('0x') ? envKey : `0x${envKey}`
-    if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedKey)) {
-      throw new Error(
-        'Invalid JEJU_PRIVATE_KEY environment variable: must be 64 hex characters',
+  // Support env var override for key ID
+  if (process.env.JEJU_KEY_ID) {
+    config.keyId = process.env.JEJU_KEY_ID
+    // Derive address from KMS
+    try {
+      const signer = createSecureSigner(config.keyId)
+      config.walletAddress = await signer.getAddress()
+    } catch (e) {
+      log(
+        'warn',
+        `Could not verify KMS key: ${e instanceof Error ? e.message : String(e)}`,
       )
     }
-    config.privateKey = normalizedKey
-    const validHexKey2 = expectHex(normalizedKey, 'JEJU_PRIVATE_KEY')
-    config.walletAddress = privateKeyToAccount(validHexKey2).address
   }
 
   log('info', `Starting on ${config.network}...`)
+  log('info', `KMS Key ID: ${config.keyId.slice(0, 16)}...`)
 
   const hardwareRaw = detectHardware()
   const hardware = convertHardwareToSnakeCase(hardwareRaw)
@@ -514,11 +576,13 @@ async function cmdStart(): Promise<void> {
     process.exit(1)
   }
 
-  const configHexKey = config.privateKey
-    ? expectHex(config.privateKey, 'config.privateKey')
-    : undefined
-  const client = createNodeClient(config.rpcUrl, config.chainId, configHexKey)
-  const services = createNodeServices(client)
+  // Create secure node client with KMS-backed signing
+  const client = createSecureNodeClient(
+    config.rpcUrl,
+    config.chainId,
+    config.keyId,
+  )
+  const services = createNodeServices(client, { keyId: config.keyId })
 
   const started: string[] = []
 
@@ -597,8 +661,8 @@ async function startDatabaseService(
   const blockProducerEndpoint = getCQLUrl(config.network)
   const minerEndpoint = getCQLMinerUrl(config.network)
 
-  if (!config.privateKey) {
-    log('warn', 'Database service requires private key - skipping')
+  if (!config.keyId) {
+    log('warn', 'Database service requires KMS key - skipping')
     return
   }
 
@@ -606,7 +670,7 @@ async function startDatabaseService(
     await databaseService.initialize({
       blockProducerEndpoint,
       minerEndpoint,
-      privateKey: config.privateKey,
+      keyId: config.keyId, // Use KMS key ID instead of raw private key
       capacityGB: 100,
       pricePerGBMonth: 1000000000000000n, // 0.001 ETH
       stakeAmount: 100000000000000000n, // 0.1 ETH minimum stake
@@ -618,7 +682,10 @@ async function startDatabaseService(
     })
 
     await databaseService.start()
-    log('success', `Database (CQL) service started - BP: ${blockProducerEndpoint}`)
+    log(
+      'success',
+      `Database (CQL) service started - BP: ${blockProducerEndpoint}`,
+    )
 
     // Periodically log stats
     setInterval(() => {
@@ -777,10 +844,10 @@ ${chalk.bold('Options:')}
   -h, --help      Show help
   -v, --version   Show version
   -n, --network   Set network (testnet/mainnet)
-  -k, --key       Set private key
+  -k, --key       Set KMS key ID
 
 ${chalk.bold('Environment:')}
-  JEJU_PRIVATE_KEY   Wallet private key
+  JEJU_KEY_ID        KMS key ID for secure signing
   JEJU_NETWORK       Network to use
 
 ${chalk.bold('Quick Start:')}
@@ -817,18 +884,22 @@ ${chalk.bold('Quick Start:')}
   }
 
   if (values.key) {
-    const normalizedKey = values.key.startsWith('0x')
-      ? values.key
-      : `0x${values.key}`
-    if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedKey)) {
+    // --key now expects a KMS key ID, not a raw private key
+    const keyId = values.key
+    const config = loadConfig()
+    config.keyId = keyId
+    // Derive address from KMS
+    try {
+      const signer = createSecureSigner(keyId)
+      config.walletAddress = await signer.getAddress()
+      saveConfig(config)
+      console.log(chalk.green(`✓ Set KMS key ID: ${keyId.slice(0, 16)}...`))
+      console.log(chalk.green(`✓ Address: ${config.walletAddress}`))
+    } catch (e) {
       throw new Error(
-        'Invalid private key format: must be 64 hex characters (with or without 0x prefix)',
+        `Could not verify KMS key: ${e instanceof Error ? e.message : String(e)}`,
       )
     }
-    const config = loadConfig()
-    config.privateKey = normalizedKey
-    const validHexKey3 = expectHex(normalizedKey, '--key option')
-    config.walletAddress = privateKeyToAccount(validHexKey3).address
   }
 
   switch (command) {

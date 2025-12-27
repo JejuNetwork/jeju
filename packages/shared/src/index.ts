@@ -505,6 +505,14 @@ export {
   type SecurityConfig,
   securityMiddleware,
 } from './security-middleware'
+// Key Security Validation (TEE/KMS enforcement)
+export {
+  enforceKeySecurityAtStartup,
+  getKMSConfig,
+  type KeySecurityValidationResult,
+  shouldUseKMS,
+  validateKeySecurityConfig,
+} from './security/key-validation'
 // Service Worker
 export {
   cacheUrls,
@@ -717,6 +725,7 @@ export {
   RPC_URLS as X402_RPC_URLS,
   type SettlementResponse,
   signPaymentPayload,
+  signPaymentPayloadWithKMS,
   type UntrustedPaymentPayload,
   USDC_ADDRESSES,
   verifyPayment,

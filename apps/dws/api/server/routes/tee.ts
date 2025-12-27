@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia'
 import {
   type Address,
+  type Chain,
   createPublicClient,
   createWalletClient,
   http,
@@ -11,6 +12,11 @@ import {
   generateNonce,
   generateReportData,
 } from '../../../src/tee'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../../shared/kms-wallet'
 
 // Get contract address from config
 const TDX_VERIFIER_ADDRESS = (process.env.TDX_ATTESTATION_VERIFIER_ADDRESS ||
@@ -21,6 +27,12 @@ const VERIFIER_PRIVATE_KEY = process.env.TEE_VERIFIER_PRIVATE_KEY as
   | undefined
 const DSTACK_ENDPOINT =
   process.env.DSTACK_ATTESTATION_ENDPOINT || 'http://localhost:8090'
+
+// KMS configuration for TEE verifier key
+const TEE_VERIFIER_KMS_KEY_ID = process.env.TEE_VERIFIER_KMS_KEY_ID
+const TEE_VERIFIER_OWNER_ADDRESS = process.env.TEE_VERIFIER_OWNER_ADDRESS as
+  | Address
+  | undefined
 
 // DStack client adapter - uses DStack integration from vendor/babylon
 // In production, this connects to the dstack attestation service
@@ -85,17 +97,90 @@ const publicClient = createPublicClient({
 
 let verifierService: AttestationVerifierService | null = null
 
+/**
+ * SECURITY NOTE: TEE Verifier Private Key
+ *
+ * The TEE verifier key is used to sign attestation verification results on-chain.
+ * This key SHOULD be held in an HSM or external KMS, not in the TEE itself.
+ *
+ * Side-channel attack vector:
+ * - If this key is in TEE memory, it can be extracted via side-channel attacks
+ * - The verifier should use a separate key management service
+ *
+ * Priority for key management:
+ * 1. KMS-backed signing via TEE_VERIFIER_KMS_KEY_ID (FROST threshold - maximum security)
+ * 2. TX relay via TX_RELAY_URL (HSM-backed transaction signing)
+ * 3. Direct key via TEE_VERIFIER_PRIVATE_KEY (development only)
+ */
 async function getVerifierService(): Promise<AttestationVerifierService> {
   if (!verifierService) {
-    if (!VERIFIER_PRIVATE_KEY) {
-      throw new Error('TEE_VERIFIER_PRIVATE_KEY not configured')
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    let walletClient
+
+    // Option 1: KMS-backed signing (FROST threshold cryptography)
+    if (TEE_VERIFIER_KMS_KEY_ID && TEE_VERIFIER_OWNER_ADDRESS) {
+      const kmsAvailable = await isKMSAvailable()
+
+      if (kmsAvailable) {
+        try {
+          // Create a minimal chain config for the KMS wallet
+          const chain: Chain = {
+            id: parseInt(process.env.CHAIN_ID ?? '1'),
+            name: 'Ethereum',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: { default: { http: [RPC_URL] } },
+          }
+
+          const kmsWallet = await createKMSWalletClient({
+            chain,
+            rpcUrl: RPC_URL,
+            kmsKeyId: TEE_VERIFIER_KMS_KEY_ID,
+            ownerAddress: TEE_VERIFIER_OWNER_ADDRESS,
+          })
+
+          walletClient = kmsWallet as unknown as ReturnType<
+            typeof createWalletClient
+          >
+          console.log(
+            '[TEE] Using KMS-backed signing for verifier (FROST threshold cryptography)',
+          )
+        } catch (err) {
+          console.error('[TEE] Failed to initialize KMS wallet:', err)
+          if (isProduction) {
+            throw new Error(
+              'KMS initialization failed in production - cannot use insecure direct keys',
+            )
+          }
+        }
+      } else if (isProduction) {
+        throw new Error(
+          'KMS not available in production - set TEE_VERIFIER_KMS_KEY_ID and ensure KMS is running',
+        )
+      }
     }
 
-    const account = privateKeyToAccount(VERIFIER_PRIVATE_KEY)
-    const walletClient = createWalletClient({
-      account,
-      transport: http(RPC_URL),
-    })
+    // Option 2: Direct key (development fallback)
+    if (!walletClient) {
+      if (isProduction && !process.env.TX_RELAY_URL) {
+        console.error(
+          '[TEE] CRITICAL: Using direct private key in production. ' +
+            'Set TEE_VERIFIER_KMS_KEY_ID for side-channel protection.',
+        )
+      }
+
+      if (!VERIFIER_PRIVATE_KEY) {
+        throw new Error(
+          'TEE_VERIFIER_PRIVATE_KEY or TEE_VERIFIER_KMS_KEY_ID must be configured',
+        )
+      }
+
+      const account = privateKeyToAccount(VERIFIER_PRIVATE_KEY)
+      walletClient = createWalletClient({
+        account,
+        transport: http(RPC_URL),
+      })
+    }
 
     verifierService = new AttestationVerifierService({
       contractAddress: TDX_VERIFIER_ADDRESS,

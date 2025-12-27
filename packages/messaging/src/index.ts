@@ -74,6 +74,14 @@ export {
   createDirectCastClient,
   DirectCastClient,
 } from './farcaster/dc/client'
+// KMS-backed Direct Cast Client (secure - keys never in memory)
+export {
+  createKMSDirectCastClient,
+  type DCKMSEncryptionProvider,
+  type DCKMSSigner,
+  KMSDirectCastClient,
+  type KMSDCClientConfig,
+} from './farcaster/dc/kms-client'
 export type {
   DCAuthFailedResponse,
   DCAuthMessage,
@@ -184,6 +192,14 @@ export {
   type ReactionTarget,
   type UserDataUpdate,
 } from './farcaster/hub/poster'
+// KMS-backed Farcaster Poster (secure - keys never in memory)
+export {
+  createKMSPoster,
+  KMSFarcasterPoster,
+  type KMSPosterConfig,
+  type KMSPosterSigner,
+  RemoteKMSPosterSigner,
+} from './farcaster/hub/kms-poster'
 // Farcaster schemas (for validation)
 export {
   CastsResponseSchema,
@@ -246,6 +262,16 @@ export {
   type SignerManagerConfig,
   type SignerStatus,
 } from './farcaster/signer/manager'
+// KMS-backed Farcaster Signer (secure - keys never in memory)
+export {
+  createKMSSignerManager,
+  type KMSFarcasterSigner,
+  KMSFarcasterSignerManager,
+  type KMSProvider,
+  type KMSSignerManagerConfig,
+  MPCKMSProvider,
+  type SignerEvent,
+} from './farcaster/signer/kms-manager'
 export {
   FARCASTER_CONTRACTS,
   generateDeadline,
@@ -269,6 +295,29 @@ export {
   type UnifiedMessagingConfig,
   UnifiedMessagingService,
 } from './farcaster-integration'
+// Unified KMS Service for Farcaster (secure - keys never in memory)
+export {
+  createFarcasterKMSService,
+  FarcasterKMSService,
+  type FarcasterKMSServiceConfig,
+} from './farcaster/kms-service'
+// Security utilities
+export {
+  auditSecurityOperation,
+  detectEnvironment,
+  enforceNoKeyExportInProduction,
+  enforceNoLocalKeysInProduction,
+  enforceNoMockModeInProduction,
+  type Environment,
+  getRecommendedSecurityConfig,
+  isLocalKeyOperationAllowed,
+  type SecurityAuditEntry,
+  securityAudit,
+  type SecurityConfig,
+  type SecurityViolationType,
+  SecurityViolationError,
+  validateSecurityConfig,
+} from './security'
 // MLS (Message Layer Security) for group messaging
 // Exclude MessageEvent which conflicts with sdk/types
 export {

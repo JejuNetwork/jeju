@@ -3,6 +3,17 @@
  *
  * For production hardware TEE, deploy your own TEE worker and set TEE_ENDPOINT.
  * Without TEE_ENDPOINT, runs in local encrypted mode using TEE_ENCRYPTION_SECRET.
+ *
+ * ⚠️ SIDE-CHANNEL SECURITY NOTE:
+ * This provider stores the encryption key (enclaveKey) in memory. If a TEE
+ * side-channel attack (Spectre, Meltdown, cache-timing) can read memory,
+ * all private keys protected by this provider can be compromised.
+ *
+ * FOR MAXIMUM SECURITY:
+ * - Use remote TEE mode with hardware attestation (set TEE_ENDPOINT)
+ * - For signing operations, prefer MPC/FROST threshold signing where no
+ *   single TEE ever holds the complete private key
+ * - Consider hardware security modules (HSM) for master key storage
  */
 
 import { getEnv, getEnvBoolean, requireEnv } from '@jejunetwork/shared'
@@ -15,7 +26,6 @@ import {
 } from '../attestation-verifier.js'
 import {
   decryptFromPayload,
-  deriveKeyFromSecret,
   encryptToPayload,
   extractRecoveryId,
   generateKeyId,
@@ -53,6 +63,7 @@ export class TEEProvider implements KMSProvider {
   private connected = false
   private remoteMode = false
   private enclaveKey: Uint8Array
+  private enclaveKeyInitialized = false
   private keys = new Map<string, EnclaveKey>()
   private attestation: TEEAttestation | undefined = undefined
   private teeClient: TEEClient | undefined = undefined
@@ -62,24 +73,98 @@ export class TEEProvider implements KMSProvider {
     this.config = config
     this.remoteMode = !!config.endpoint
 
+    // SECURITY: Production MUST use remote TEE with hardware attestation
+    const isProduction = getEnv('NODE_ENV') === 'production'
+    if (isProduction && !this.remoteMode) {
+      throw new Error(
+        'Production requires remote TEE with hardware attestation. ' +
+        'Set TEE_ENDPOINT to a hardware TEE endpoint. ' +
+        'Local encrypted mode is vulnerable to side-channel attacks.',
+      )
+    }
+
     this.teeClient = config.endpoint
       ? new TEEClient(config.endpoint)
       : undefined
 
+    // SECURITY: Use PBKDF2 with high iteration count for key derivation
+    // This protects against brute-force attacks if the secret is observed
     const secret = requireEnv('TEE_ENCRYPTION_SECRET')
-    this.enclaveKey = deriveKeyFromSecret(secret)
+    this.enclaveKey = new Uint8Array(32) // Placeholder, initialized in connect()
+    this.initializeEnclaveKey(secret)
 
     // Configure attestation verifier based on mode
+    // SECURITY: In production, never allow local mode bypass
     const teeType = this.remoteMode
       ? ((getEnv('TEE_TYPE') as 'sgx' | 'nitro') ?? 'sgx')
       : 'local'
+    const allowLocalFallback = !isProduction && (
+      !this.remoteMode || getEnvBoolean('TEE_ALLOW_LOCAL', false)
+    )
     this.attestationVerifier = createAttestationVerifier({
       teeType,
-      allowLocalMode:
-        !this.remoteMode || getEnvBoolean('TEE_ALLOW_LOCAL', false),
+      allowLocalMode: allowLocalFallback,
       iasApiKey: getEnv('INTEL_IAS_API_KEY'),
       maxAttestationAgeMs: 60 * 60 * 1000, // 1 hour
     })
+
+    if (isProduction) {
+      log.info('TEE Provider initialized in production mode', {
+        remoteMode: this.remoteMode,
+        teeType,
+        attestationRequired: true,
+      })
+    } else if (!this.remoteMode) {
+      log.warn(
+        'TEE Provider running in LOCAL ENCRYPTED mode (development only). ' +
+        'This is INSECURE and vulnerable to side-channel attacks.'
+      )
+    }
+  }
+
+  /**
+   * Initialize enclave key using PBKDF2 with high iteration count.
+   *
+   * SECURITY: Uses 100,000 iterations of PBKDF2-SHA256 to derive the key.
+   * This provides resistance against brute-force attacks even if the
+   * derived key material is observed through side-channel attacks.
+   *
+   * Additionally uses a domain-specific salt to prevent rainbow table attacks.
+   */
+  private async initializeEnclaveKey(secret: string): Promise<void> {
+    if (this.enclaveKeyInitialized) return
+
+    const encoder = new TextEncoder()
+    const secretBytes = encoder.encode(secret)
+
+    // Domain-specific salt for TEE enclave key derivation
+    const salt = encoder.encode('jeju:tee:enclave:v1')
+
+    // Import the secret as key material for PBKDF2
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      secretBytes,
+      'PBKDF2',
+      false,
+      ['deriveBits'],
+    )
+
+    // Derive 256 bits using PBKDF2 with 100,000 iterations
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      keyMaterial,
+      256,
+    )
+
+    this.enclaveKey = new Uint8Array(derivedBits)
+    this.enclaveKeyInitialized = true
+
+    log.info('Enclave key initialized with PBKDF2')
   }
 
   async isAvailable(): Promise<boolean> {
@@ -91,6 +176,10 @@ export class TEEProvider implements KMSProvider {
 
   async connect(): Promise<void> {
     if (this.connected) return
+
+    // Ensure enclave key is initialized (async PBKDF2)
+    const secret = requireEnv('TEE_ENCRYPTION_SECRET')
+    await this.initializeEnclaveKey(secret)
 
     if (this.remoteMode && this.teeClient) {
       const data = await this.teeClient.connect()

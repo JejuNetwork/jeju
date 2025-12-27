@@ -25,6 +25,7 @@ import type {
 import { expect, expectTrue } from '../schemas'
 import type { AgentSDK } from './agent'
 import type { CrucibleCompute } from './compute'
+import type { KMSSigner } from './kms-signer'
 import { createLogger, type Logger } from './logger'
 import type { RoomSDK } from './room'
 import type { CrucibleStorage } from './storage'
@@ -58,7 +59,14 @@ export interface ExecutorConfig {
   agentSdk: AgentSDK
   roomSdk: RoomSDK
   publicClient: PublicClient
-  walletClient: WalletClient
+  /**
+   * @deprecated Use kmsSigner for production. walletClient only for localnet.
+   */
+  walletClient?: WalletClient
+  /**
+   * KMS-backed signer for threshold signing (production).
+   */
+  kmsSigner?: KMSSigner
   executorAddress: Address
   costs?: ExecutorCostConfig
   logger?: Logger
@@ -77,7 +85,8 @@ export class ExecutorSDK {
   private agentSdk: AgentSDK
   private roomSdk: RoomSDK
   private publicClient: PublicClient
-  private walletClient: WalletClient
+  private walletClient?: WalletClient
+  private kmsSigner?: KMSSigner
   private executorAddress: Address
   private costs: ExecutorCostConfig
   private log: Logger
@@ -89,9 +98,47 @@ export class ExecutorSDK {
     this.roomSdk = cfg.roomSdk
     this.publicClient = cfg.publicClient
     this.walletClient = cfg.walletClient
+    this.kmsSigner = cfg.kmsSigner
     this.executorAddress = cfg.executorAddress
     this.costs = cfg.costs ?? DEFAULT_COSTS
     this.log = cfg.logger ?? createLogger('Executor')
+  }
+
+  /**
+   * Check if write operations are available (KMS or wallet configured)
+   */
+  canWrite(): boolean {
+    return !!(this.kmsSigner?.isInitialized() || this.walletClient)
+  }
+
+  /**
+   * Execute a contract write using KMS or wallet
+   */
+  private async executeWrite(params: {
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args?: readonly unknown[]
+    value?: bigint
+  }): Promise<`0x${string}`> {
+    // Prefer KMS signer if available
+    if (this.kmsSigner?.isInitialized()) {
+      this.log.debug('Executing write via KMS', { functionName: params.functionName })
+      return this.kmsSigner.signContractWrite(params)
+    }
+
+    // Fallback to wallet client (localnet only)
+    if (this.walletClient) {
+      this.log.debug('Executing write via wallet', { functionName: params.functionName })
+      const account = expect(this.walletClient.account, 'Wallet account required')
+      const { request } = await this.publicClient.simulateContract({
+        ...params,
+        account,
+      })
+      return this.walletClient.writeContract(request)
+    }
+
+    throw new Error('No signer available - configure KMS or wallet')
   }
 
   async execute(request: ExecutionRequest): Promise<ExecutionResult> {
@@ -437,7 +484,7 @@ export class ExecutorSDK {
       cronExpression,
     })
 
-    const { request } = await this.publicClient.simulateContract({
+    const txHash = await this.executeWrite({
       address: this.config.contracts.triggerRegistry,
       abi: TRIGGER_REGISTRY_ABI,
       functionName: 'registerTriggerWithAgent',
@@ -451,10 +498,7 @@ export class ExecutorSDK {
         options?.pricePerExecution ?? 0n,
         agentId,
       ],
-      account: this.walletClient.account,
     })
-
-    const txHash = await this.walletClient.writeContract(request)
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
     })
@@ -734,14 +778,12 @@ export class ExecutorSDK {
       agentId: agentId.toString(),
       amount: amount.toString(),
     })
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.agentVault,
       abi: AGENT_VAULT_ABI,
       functionName: 'spend',
       args: [agentId, this.executorAddress, amount, reason],
-      account: this.walletClient.account,
     })
-    await this.walletClient.writeContract(request)
   }
 
   private async recordTriggerExecution(
@@ -756,14 +798,12 @@ export class ExecutorSDK {
     const outputHash = asHex(
       `0x${Buffer.from(executionId).toString('hex').padStart(64, '0')}`,
     )
-    const { request } = await this.publicClient.simulateContract({
+    await this.executeWrite({
       address: this.config.contracts.triggerRegistry,
       abi: TRIGGER_REGISTRY_ABI,
       functionName: 'recordExecution',
       args: [asHex(triggerId), success, outputHash],
-      account: this.walletClient.account,
     })
-    await this.walletClient.writeContract(request)
   }
 
   private failedResult(

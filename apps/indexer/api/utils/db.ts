@@ -194,9 +194,14 @@ export async function getDataSource(): Promise<DataSource | null> {
 
   await dataSource.initialize()
   postgresAvailable = true
-  console.log(
-    `[DB] Connected: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`,
-  )
+  // Don't log connection details in production to prevent side-channel leakage
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[DB] Connected: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`,
+    )
+  } else {
+    console.log('[DB] Connected to PostgreSQL')
+  }
   return dataSource
 }
 

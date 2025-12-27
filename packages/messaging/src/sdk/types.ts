@@ -231,4 +231,96 @@ export const ErrorCodes = {
   INVALID_MESSAGE: 'INVALID_MESSAGE',
   RATE_LIMITED: 'RATE_LIMITED',
   UNAUTHORIZED: 'UNAUTHORIZED',
+  KMS_UNAVAILABLE: 'KMS_UNAVAILABLE',
 } as const
+
+/**
+ * KMS Signer Interface
+ *
+ * For secure signing operations without exposing private keys.
+ * Private keys never leave the KMS/TEE - only signatures are returned.
+ *
+ * SECURITY: This interface ensures that private keys are never handled
+ * by the application code, protecting against side-channel attacks on the
+ * TEE enclave. All cryptographic operations happen inside the secure KMS.
+ */
+export interface KMSSigner {
+  /** Key ID in the KMS */
+  readonly keyId: string
+
+  /** Public key (safe to expose) */
+  readonly publicKey: Uint8Array
+
+  /**
+   * Sign a message using the KMS.
+   * The private key never leaves the secure enclave.
+   */
+  sign(message: Uint8Array): Promise<Uint8Array>
+
+  /**
+   * Perform ECDH key exchange inside the KMS.
+   * Returns only the derived shared secret, never the private key.
+   */
+  ecdh(theirPublicKey: Uint8Array): Promise<Uint8Array>
+}
+
+/**
+ * KMS Encryption Provider Interface
+ *
+ * For secure encryption/decryption without exposing private keys.
+ * All cryptographic operations happen inside the secure KMS/TEE.
+ */
+export interface KMSEncryptionProvider {
+  /** Key ID for encryption operations */
+  readonly keyId: string
+
+  /** Public key (safe to share with message senders) */
+  readonly publicKey: Uint8Array
+
+  /**
+   * Encrypt a message for a recipient.
+   * Uses ephemeral keys and ECDH inside the KMS.
+   */
+  encrypt(
+    plaintext: Uint8Array,
+    recipientPublicKey: Uint8Array,
+  ): Promise<{
+    ciphertext: Uint8Array
+    nonce: Uint8Array
+    ephemeralPublicKey: Uint8Array
+  }>
+
+  /**
+   * Decrypt a message sent to us.
+   * ECDH and decryption happen inside the KMS.
+   */
+  decrypt(
+    ciphertext: Uint8Array,
+    nonce: Uint8Array,
+    ephemeralPublicKey: Uint8Array,
+  ): Promise<Uint8Array>
+}
+
+/**
+ * Secure client configuration using KMS.
+ *
+ * When using KMS mode, private keys never exist in application memory.
+ * This protects against side-channel attacks on the TEE enclave.
+ */
+export interface SecureMessagingClientConfig extends MessagingClientConfigBase {
+  /** KMS signer for signature operations (recommended) */
+  kmsSigner?: KMSSigner
+
+  /** KMS encryption provider for E2E encryption (recommended) */
+  kmsEncryption?: KMSEncryptionProvider
+
+  /**
+   * @deprecated Use kmsSigner instead.
+   * Raw key pairs expose private keys to application memory,
+   * making them vulnerable to side-channel attacks.
+   */
+  keyPair?: {
+    publicKey: Uint8Array
+    privateKey: Uint8Array
+  }
+}

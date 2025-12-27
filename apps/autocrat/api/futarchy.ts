@@ -1,5 +1,6 @@
 /** Futarchy - Prediction market escalation for vetoed proposals */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   type Address,
   type Chain,
@@ -14,7 +15,8 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, type LocalAccount } from 'viem/accounts'
+import { createKMSWalletClient } from './kms-signer'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { toAddress, toHex } from '../lib'
@@ -82,18 +84,26 @@ type TxResult = {
 
 export class FutarchyClient {
   private readonly client: PublicClient<Transport, Chain>
-  private readonly walletClient: WalletClient<Transport, Chain>
-  private readonly account: PrivateKeyAccount | null
+  private walletClient: WalletClient<Transport, Chain>
+  private account: LocalAccount | null
   private readonly chain: ReturnType<typeof inferChainFromRpcUrl>
+  private readonly rpcUrl: string
   private readonly councilAddress: Address
   private readonly marketAddress: Address
 
   readonly councilDeployed: boolean
   readonly predictionMarketDeployed: boolean
 
+  /**
+   * Create a FutarchyClient instance.
+   *
+   * SECURITY: In production (mainnet/testnet), raw private keys are blocked.
+   * Use FutarchyClient.create() which initializes KMS automatically.
+   */
   constructor(config: FutarchyConfig) {
     const chain = inferChainFromRpcUrl(config.rpcUrl)
     this.chain = chain
+    this.rpcUrl = config.rpcUrl
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
@@ -106,12 +116,35 @@ export class FutarchyClient {
     this.predictionMarketDeployed = config.predictionMarketAddress !== ZERO
 
     if (config.operatorKey) {
-      this.account = privateKeyToAccount(toHex(config.operatorKey))
-      this.walletClient = createWalletClient({
-        account: this.account,
-        chain,
-        transport: http(config.rpcUrl),
-      }) as WalletClient<Transport, Chain>
+      const keyHex = toHex(config.operatorKey)
+
+      // SECURITY: Block raw private keys in production
+      if (keyHex.length === 66 && isProductionEnv()) {
+        throw new Error(
+          'SECURITY: Raw private keys are not allowed in production. ' +
+            'Use FutarchyClient.create() with KMS or provide an address for KMS lookup.',
+        )
+      }
+
+      if (keyHex.length === 66) {
+        // Development only: Allow local signing with warning
+        console.warn(
+          '[FutarchyClient] ⚠️  Using local private key. NOT secure for production.',
+        )
+        this.account = privateKeyToAccount(keyHex)
+        this.walletClient = createWalletClient({
+          account: this.account,
+          chain,
+          transport: http(config.rpcUrl),
+        }) as WalletClient<Transport, Chain>
+      } else {
+        // Address only - no local signing, must use KMS
+        this.account = null
+        this.walletClient = createWalletClient({
+          chain,
+          transport: http(config.rpcUrl),
+        }) as WalletClient<Transport, Chain>
+      }
     } else {
       this.account = null
       this.walletClient = createWalletClient({
@@ -119,6 +152,38 @@ export class FutarchyClient {
         transport: http(config.rpcUrl),
       }) as WalletClient<Transport, Chain>
     }
+  }
+
+  /**
+   * Create a FutarchyClient with KMS initialized.
+   * This is the recommended way to create a FutarchyClient in production.
+   */
+  static async create(
+    config: FutarchyConfig,
+    operatorAddress: Address,
+  ): Promise<FutarchyClient> {
+    const client = new FutarchyClient({
+      ...config,
+      operatorKey: undefined, // Don't use private key path
+    })
+    await client.initializeKMS(operatorAddress)
+    return client
+  }
+
+  /**
+   * Initialize KMS for secure threshold signing
+   * Call this in production before any write operations
+   */
+  async initializeKMS(operatorAddress: Address): Promise<void> {
+    const result = await createKMSWalletClient(
+      { address: operatorAddress },
+      this.chain,
+      this.rpcUrl,
+    )
+    this.walletClient = result.client
+    console.log(
+      `[FutarchyClient] KMS initialized for ${operatorAddress} (${result.account.type})`,
+    )
   }
 
   async getVetoedProposals(): Promise<`0x${string}`[]> {

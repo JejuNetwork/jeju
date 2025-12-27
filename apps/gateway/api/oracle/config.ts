@@ -1,26 +1,25 @@
+/**
+ * Oracle Node Configuration
+ *
+ * SECURITY: This module no longer stores private keys.
+ * All signing is delegated to the KMS service (MPC or TEE).
+ * Uses KMS service IDs instead of raw private keys.
+ */
+
 import {
   ConfigurationError,
   type OracleConfigFileData,
   type OracleNetworkConfig,
   resolveEnvVar,
-  validatePrivateKey,
 } from '@jejunetwork/shared'
-import type {
-  NetworkType,
-  OracleNodeConfig,
-  PriceSourceConfig,
-} from '@jejunetwork/types'
+import type { NetworkType, PriceSourceConfig } from '@jejunetwork/types'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress } from 'viem'
+import type { SecureOracleNodeConfig } from './node'
 
 // Local type aliases for convenience
 type NetworkConfig = OracleNetworkConfig
 type ConfigFileData = OracleConfigFileData
-
-const REQUIRED_ENV_VARS = [
-  'OPERATOR_PRIVATE_KEY',
-  'WORKER_PRIVATE_KEY',
-] as const
 
 const REQUIRED_ADDRESSES = [
   'feedRegistry',
@@ -82,7 +81,7 @@ export function loadContractAddresses(
   for (const key of REQUIRED_ADDRESSES) {
     const envAddr = envOverrides[key]
     const configAddr = networkConfig.contracts[key]
-    const addr = envAddr || configAddr
+    const addr = envAddr ?? configAddr
 
     addresses[key] = validateAddressLocal(addr, key)
   }
@@ -115,39 +114,25 @@ export function buildPriceSources(
   return sources
 }
 
+/**
+ * Create a secure oracle node configuration.
+ *
+ * SECURITY: Uses KMS service IDs instead of private keys.
+ * The actual keys are managed by the KMS service (MPC or TEE).
+ */
 export function createConfig(
   network: NetworkType = 'localnet',
-): Promise<OracleNodeConfig> {
+): Promise<SecureOracleNodeConfig> {
   return createConfigAsync(network)
 }
 
 async function createConfigAsync(
   network: NetworkType,
-): Promise<OracleNodeConfig> {
+): Promise<SecureOracleNodeConfig> {
   console.log(`[Config] Loading configuration for network: ${network}`)
-
-  const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v])
-  if (missingVars.length > 0) {
-    throw new ConfigurationError(
-      `Missing required environment variables: ${missingVars.join(', ')}`,
-    )
-  }
 
   const networkConfig = await loadNetworkConfig(network)
   const addresses = loadContractAddresses(networkConfig)
-
-  if (!process.env.OPERATOR_PRIVATE_KEY)
-    throw new Error('OPERATOR_PRIVATE_KEY environment variable required')
-  if (!process.env.WORKER_PRIVATE_KEY)
-    throw new Error('WORKER_PRIVATE_KEY environment variable required')
-  const operatorKey = validatePrivateKey(
-    process.env.OPERATOR_PRIVATE_KEY,
-    'OPERATOR_PRIVATE_KEY',
-  )
-  const workerKey = validatePrivateKey(
-    process.env.WORKER_PRIVATE_KEY,
-    'WORKER_PRIVATE_KEY',
-  )
 
   console.log(
     `[Config] Network: ${network} (chainId: ${networkConfig.chainId})`,
@@ -158,8 +143,10 @@ async function createConfigAsync(
   return {
     rpcUrl: networkConfig.rpcUrl,
     chainId: networkConfig.chainId,
-    operatorPrivateKey: operatorKey,
-    workerPrivateKey: workerKey,
+    // SECURITY: Use KMS service IDs instead of private keys
+    operatorServiceId:
+      process.env.ORACLE_OPERATOR_SERVICE_ID ?? 'oracle-operator',
+    workerServiceId: process.env.ORACLE_WORKER_SERVICE_ID ?? 'oracle-worker',
     feedRegistry: addresses.feedRegistry,
     reportVerifier: addresses.reportVerifier,
     committeeManager: addresses.committeeManager,
@@ -172,7 +159,7 @@ async function createConfigAsync(
   }
 }
 
-export function validateConfig(config: OracleNodeConfig): void {
+export function validateConfig(config: SecureOracleNodeConfig): void {
   const errors: string[] = []
 
   if (!config.rpcUrl) {

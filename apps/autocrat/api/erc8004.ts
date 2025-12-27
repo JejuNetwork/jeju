@@ -5,6 +5,7 @@ import {
   reputationRegistryAbi,
   validationRegistryAbi,
 } from '@jejunetwork/contracts'
+import { isProductionEnv } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -20,7 +21,8 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, type LocalAccount } from 'viem/accounts'
+import { createKMSWalletClient } from './kms-signer'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { z } from 'zod'
 import { toAddress, toHex } from '../lib'
@@ -69,9 +71,10 @@ export interface ERC8004Config {
 
 export class ERC8004Client {
   private readonly client: PublicClient<Transport, Chain>
-  private readonly walletClient: WalletClient<Transport, Chain>
-  private readonly account: PrivateKeyAccount | null
+  private walletClient: WalletClient<Transport, Chain>
+  private account: LocalAccount | null
   private readonly chain: ReturnType<typeof inferChainFromRpcUrl>
+  private readonly rpcUrl: string
   private readonly identityAddress: Address
   private readonly reputationAddress: Address
   private readonly validationAddress: Address
@@ -80,9 +83,16 @@ export class ERC8004Client {
   readonly reputationDeployed: boolean
   readonly validationDeployed: boolean
 
+  /**
+   * Create an ERC8004Client instance.
+   *
+   * SECURITY: In production (mainnet/testnet), raw private keys are blocked.
+   * Use ERC8004Client.create() which initializes KMS automatically.
+   */
   constructor(config: ERC8004Config) {
     const chain = inferChainFromRpcUrl(config.rpcUrl)
     this.chain = chain
+    this.rpcUrl = config.rpcUrl
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
@@ -97,12 +107,35 @@ export class ERC8004Client {
     this.validationDeployed = config.validationRegistry !== ZERO
 
     if (config.operatorKey) {
-      this.account = privateKeyToAccount(toHex(config.operatorKey))
-      this.walletClient = createWalletClient({
-        account: this.account,
-        chain,
-        transport: http(config.rpcUrl),
-      }) as WalletClient<Transport, Chain>
+      const keyHex = toHex(config.operatorKey)
+
+      // SECURITY: Block raw private keys in production
+      if (keyHex.length === 66 && isProductionEnv()) {
+        throw new Error(
+          'SECURITY: Raw private keys are not allowed in production. ' +
+            'Use ERC8004Client.create() with KMS or provide an address for KMS lookup.',
+        )
+      }
+
+      if (keyHex.length === 66) {
+        // Development only: Allow local signing with warning
+        console.warn(
+          '[ERC8004Client] ⚠️  Using local private key. NOT secure for production.',
+        )
+        this.account = privateKeyToAccount(keyHex)
+        this.walletClient = createWalletClient({
+          account: this.account,
+          chain,
+          transport: http(config.rpcUrl),
+        }) as WalletClient<Transport, Chain>
+      } else {
+        // Address only - no local signing, must use KMS
+        this.account = null
+        this.walletClient = createWalletClient({
+          chain,
+          transport: http(config.rpcUrl),
+        }) as WalletClient<Transport, Chain>
+      }
     } else {
       this.account = null
       this.walletClient = createWalletClient({
@@ -110,6 +143,38 @@ export class ERC8004Client {
         transport: http(config.rpcUrl),
       }) as WalletClient<Transport, Chain>
     }
+  }
+
+  /**
+   * Create an ERC8004Client with KMS initialized.
+   * This is the recommended way to create an ERC8004Client in production.
+   */
+  static async create(
+    config: ERC8004Config,
+    operatorAddress: Address,
+  ): Promise<ERC8004Client> {
+    const client = new ERC8004Client({
+      ...config,
+      operatorKey: undefined, // Don't use private key path
+    })
+    await client.initializeKMS(operatorAddress)
+    return client
+  }
+
+  /**
+   * Initialize KMS for secure threshold signing
+   * Call this in production before any write operations
+   */
+  async initializeKMS(operatorAddress: Address): Promise<void> {
+    const result = await createKMSWalletClient(
+      { address: operatorAddress },
+      this.chain,
+      this.rpcUrl,
+    )
+    this.walletClient = result.client
+    console.log(
+      `[ERC8004Client] KMS initialized for ${operatorAddress} (${result.account.type})`,
+    )
   }
 
   async registerAgent(

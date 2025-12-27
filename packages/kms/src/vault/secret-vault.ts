@@ -1,5 +1,16 @@
 /**
  * SecretVault - Encrypted secret storage with access control and audit logging
+ *
+ * ⚠️ SIDE-CHANNEL SECURITY NOTE:
+ * The master encryption key (this.encryptionKey) is stored in memory.
+ * A TEE side-channel attack could extract this key and decrypt all secrets.
+ *
+ * FOR MAXIMUM SECURITY:
+ * - Use distributed key management (the key should be split across TEEs)
+ * - Implement automatic key rotation
+ * - Consider HSM-backed encryption for the master key
+ * - For the most sensitive secrets, use client-side encryption where
+ *   the server never sees the plaintext
  */
 
 import { getEnv, requireEnv } from '@jejunetwork/shared'

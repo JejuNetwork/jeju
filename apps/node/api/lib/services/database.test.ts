@@ -11,8 +11,7 @@ describe('DatabaseService', () => {
       const config = {
         blockProducerEndpoint: 'https://cql.example.com',
         minerEndpoint: 'http://localhost:4661',
-        privateKey:
-          '0x1234567890123456789012345678901234567890123456789012345678901234',
+        keyId: 'test-kms-key-id-12345', // KMS key ID, not raw private key
         capacityGB: 100,
         pricePerGBMonth: 1000000000000000n,
         stakeAmount: 100000000000000000n,
@@ -33,8 +32,7 @@ describe('DatabaseService', () => {
       const config = {
         blockProducerEndpoint: 'not-a-url',
         minerEndpoint: 'http://localhost:4661',
-        privateKey:
-          '0x1234567890123456789012345678901234567890123456789012345678901234',
+        keyId: 'test-kms-key-id',
         capacityGB: 100,
         pricePerGBMonth: 1000000000000000n,
         stakeAmount: 100000000000000000n,
@@ -43,11 +41,11 @@ describe('DatabaseService', () => {
       expect(() => validateDatabaseServiceConfig(config)).toThrow()
     })
 
-    test('rejects invalid private key format', () => {
+    test('rejects empty keyId', () => {
       const config = {
         blockProducerEndpoint: 'https://cql.example.com',
         minerEndpoint: 'http://localhost:4661',
-        privateKey: 'invalid-key',
+        keyId: '', // Empty keyId should fail
         capacityGB: 100,
         pricePerGBMonth: 1000000000000000n,
         stakeAmount: 100000000000000000n,
@@ -60,8 +58,7 @@ describe('DatabaseService', () => {
       const config = {
         blockProducerEndpoint: 'https://cql.example.com',
         minerEndpoint: 'http://localhost:4661',
-        privateKey:
-          '0x1234567890123456789012345678901234567890123456789012345678901234',
+        keyId: 'test-kms-key-id',
         capacityGB: -100,
         pricePerGBMonth: 1000000000000000n,
         stakeAmount: 100000000000000000n,

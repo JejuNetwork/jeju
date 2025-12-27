@@ -93,6 +93,7 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
     error InsufficientStake();
     error KeeperAlreadyRegistered();
     error TooManyKeepers();
+    error ETHTransferFailed();
 
     modifier onlyGovernance() {
         if (msg.sender != governance && msg.sender != owner()) revert NotGovernance();
@@ -168,7 +169,10 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
         upkeep.active = false;
         upkeep.balance = 0;
         totalActiveUpkeeps--;
-        if (remainingBalance > 0) payable(msg.sender).transfer(remainingBalance);
+        if (remainingBalance > 0) {
+            (bool success, ) = payable(msg.sender).call{value: remainingBalance}("");
+            if (!success) revert ETHTransferFailed();
+        }
         emit UpkeepCanceled(id, remainingBalance);
     }
 
@@ -208,7 +212,10 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
             }
         }
         delete keepers[keeper];
-        if (stake > 0) payable(keeper).transfer(stake);
+        if (stake > 0) {
+            (bool success, ) = payable(keeper).call{value: stake}("");
+            if (!success) revert ETHTransferFailed();
+        }
         emit KeeperRemoved(keeper);
     }
 
@@ -216,7 +223,8 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
         KeeperInfo storage info = keepers[keeper];
         if (info.stake < amount) amount = info.stake;
         info.stake -= amount;
-        payable(feeRecipient).transfer(amount);
+        (bool success, ) = payable(feeRecipient).call{value: amount}("");
+        if (!success) revert ETHTransferFailed();
         emit KeeperSlashed(keeper, amount, reason);
     }
 
@@ -267,8 +275,12 @@ contract AutomationRegistry is Ownable2Step, ReentrancyGuard, Pausable {
 
         uint96 keeperPayment = payment * config.keeperFeeBps / 10000;
         uint96 protocolPayment = payment - keeperPayment;
-        payable(msg.sender).transfer(keeperPayment);
-        payable(feeRecipient).transfer(protocolPayment);
+        
+        (bool keeperSuccess, ) = payable(msg.sender).call{value: keeperPayment}("");
+        if (!keeperSuccess) revert ETHTransferFailed();
+        
+        (bool protocolSuccess, ) = payable(feeRecipient).call{value: protocolPayment}("");
+        if (!protocolSuccess) revert ETHTransferFailed();
 
         emit UpkeepPerformed(id, success, msg.sender, payment, gasUsed);
     }

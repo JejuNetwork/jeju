@@ -7,6 +7,15 @@ import { openapi } from '@elysiajs/openapi'
 import { CORE_PORTS } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { a2aRoutes } from './routes/a2a'
+import { closeDB, initDB } from './db/client'
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  getRateLimitHeaders,
+  getRateLimitTier,
+  shutdownRateLimiter,
+} from './validation/rate-limiter'
+import { shutdownNonceStore } from './validation/nonce-store'
 import { agentsRoutes } from './routes/agents'
 import { bountiesRoutes } from './routes/bounties'
 import { ciRoutes } from './routes/ci'
@@ -61,6 +70,36 @@ function getMimeType(path: string): string {
 
 function createApp() {
   const baseApp = new Elysia()
+    .onRequest(({ request, set }): Response | undefined => {
+      const url = new URL(request.url)
+      // Skip rate limiting for health and docs
+      if (url.pathname === '/api/health' || url.pathname.startsWith('/swagger')) {
+        return undefined
+      }
+      const headers: Record<string, string | undefined> = {}
+      request.headers.forEach((v, k) => {
+        headers[k] = v
+      })
+      const clientId = getClientIdentifier(headers)
+      const tier = getRateLimitTier(request.method, url.pathname)
+      const result = checkRateLimit(clientId, tier)
+      const rateLimitHeaders = getRateLimitHeaders(result)
+      for (const [k, v] of Object.entries(rateLimitHeaders)) {
+        set.headers[k] = v
+      }
+      if (!result.allowed) {
+        set.status = 429
+        return new Response(
+          JSON.stringify({
+            error: 'RATE_LIMITED',
+            message: `Rate limit exceeded. Retry after ${result.retryAfter}s`,
+            retryAfter: result.retryAfter,
+          }),
+          { status: 429, headers: { 'Content-Type': 'application/json', ...rateLimitHeaders } },
+        )
+      }
+      return undefined
+    })
     .use(
       cors({
         origin: isDev
@@ -132,7 +171,24 @@ function createApp() {
 
 export const app = createApp()
 
+async function gracefulShutdown(signal: string) {
+  console.log(`[factory] ${signal} received, shutting down...`)
+  shutdownRateLimiter()
+  shutdownNonceStore()
+  await closeDB()
+  process.exit(0)
+}
+
 if (import.meta.main) {
+  // Initialize database with encryption support
+  initDB().catch((err) => {
+    console.error('[factory] Failed to initialize database:', err)
+    process.exit(1)
+  })
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+
   // Serve static files if dist/client exists
   // Note: This is registered after API routes so API routes take precedence
   if (hasStaticFiles) {

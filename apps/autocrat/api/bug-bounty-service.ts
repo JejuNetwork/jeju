@@ -28,7 +28,11 @@ import {
   keccak256,
   stringToHex,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import {
+  createKMSWalletClient,
+  getOperatorConfig,
+  type KMSAccount,
+} from './kms-signer'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
   type BountyAssessment,
@@ -62,7 +66,10 @@ import {
 } from '../lib'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'autocrat'
-const OPERATOR_KEY = process.env.OPERATOR_PRIVATE_KEY
+
+// KMS wallet client instance (initialized lazily)
+let kmsWalletClient: Awaited<ReturnType<typeof createKMSWalletClient>> | null =
+  null
 
 // Config handles env overrides
 function getDWSEndpoint(): string {
@@ -246,20 +253,17 @@ function getPublicClient() {
   })
 }
 
-function getWalletClient() {
-  if (!OPERATOR_KEY) {
-    throw new Error('OPERATOR_PRIVATE_KEY required for contract operations')
+async function getKMSWalletClientInstance() {
+  if (!kmsWalletClient) {
+    const config = getOperatorConfig()
+    if (!config) {
+      throw new Error(
+        'OPERATOR_KEY or OPERATOR_PRIVATE_KEY required for contract operations',
+      )
+    }
+    kmsWalletClient = await createKMSWalletClient(config, getChain(), getRpcUrl())
   }
-  if (!isHex(OPERATOR_KEY)) {
-    throw new Error('OPERATOR_PRIVATE_KEY must be a valid hex string')
-  }
-  const account = privateKeyToAccount(OPERATOR_KEY)
-  const chain = getChain()
-  return createWalletClient({
-    account,
-    chain,
-    transport: http(getRpcUrl()),
-  })
+  return kmsWalletClient
 }
 
 function getContractAddressOrThrow(): Address {
@@ -594,7 +598,7 @@ export async function submitBounty(
 
   // Submit to smart contract - fail if contract is required
   const contractAddr = getContractAddressOrThrow()
-  const walletClient = getWalletClient()
+  const { client: walletClient } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   // Convert CID and keyId to bytes32-compatible hex (padded to 32 bytes)
@@ -774,7 +778,7 @@ export async function completeValidation(
 
   // Update on-chain
   const contractAddr = getContractAddressOrThrow()
-  const walletClient = getWalletClient()
+  const { client: walletClient } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const txHash = await walletClient.writeContract({
@@ -849,7 +853,7 @@ export async function submitGuardianVote(
 
   // Update on-chain
   const contractAddr = getContractAddressOrThrow()
-  const walletClient = getWalletClient()
+  const { client: walletClient } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const guardianHash = await walletClient.writeContract({
@@ -924,7 +928,7 @@ export async function ceoDecision(
 
   // Update on-chain
   const contractAddr = getContractAddressOrThrow()
-  const walletClient = getWalletClient()
+  const { client: walletClient } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const ceoHash = await walletClient.writeContract({
@@ -971,7 +975,7 @@ export async function payReward(
 
   // Execute on-chain payout
   const contractAddr = getContractAddressOrThrow()
-  const walletClient = getWalletClient()
+  const { client: walletClient } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const payoutHash = await walletClient.writeContract({

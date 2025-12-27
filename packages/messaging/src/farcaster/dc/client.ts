@@ -3,6 +3,16 @@
  *
  * Handles sending/receiving encrypted direct messages between Farcaster users.
  * Uses X25519 + AES-GCM encryption for end-to-end security.
+ *
+ * SECURITY NOTE:
+ * This client stores encryption keys in memory, making it vulnerable to
+ * side-channel attacks on TEE enclaves. The signer private key (config.signerPrivateKey)
+ * is used directly for signing operations.
+ *
+ * For maximum security in production, consider:
+ * 1. Using a KMS-backed signer that never exposes the private key
+ * 2. Implementing remote signing via the Farcaster DWS worker (MPC-backed)
+ * 3. Using threshold cryptography for key operations
  */
 
 import { createLogger } from '@jejunetwork/shared'
@@ -15,6 +25,27 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
 
 const log = createLogger('dc-client')
+
+import {
+  enforceNoLocalKeysInProduction,
+  securityAudit,
+} from '../../security'
+
+/**
+ * SECURITY WARNING: Log when local key operations are used.
+ */
+function warnLocalKeyOperation(operation: string): void {
+  // In production, this will throw - local keys not allowed
+  enforceNoLocalKeysInProduction(operation)
+
+  log.warn(`SECURITY: Local key operation "${operation}" - private key in memory. Use KMSDirectCastClient for production.`)
+
+  securityAudit.log({
+    operation: `dc-client:${operation}`,
+    success: true,
+    metadata: { mode: 'local', warning: 'local-key-operation' },
+  })
+}
 
 import {
   DCPersistenceDataSchema,
@@ -118,8 +149,14 @@ export class DirectCastClient {
 
   /**
    * Derive X25519 keys from Ed25519 signer key
+   *
+   * @internal
+   * SECURITY NOTE: This stores the derived private key in memory.
+   * For production security, use a KMS-backed encryption provider.
    */
   private deriveEncryptionKeys(): void {
+    warnLocalKeyOperation('deriveEncryptionKeys')
+
     // Use HKDF to derive X25519 key from Ed25519 key
     const derived = hkdf(
       sha256,

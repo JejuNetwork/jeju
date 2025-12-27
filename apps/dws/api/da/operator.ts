@@ -8,11 +8,12 @@
  * - Integrate with TEE for data integrity
  */
 
-import type { Address, Hex } from 'viem'
+import type { Account, Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { verifyProof } from './commitment'
 import { SampleVerifier } from './sampling'
+import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
 import type {
   BlobCommitment,
   Chunk,
@@ -28,8 +29,12 @@ import type {
 // Operator Configuration
 
 export interface OperatorConfig {
-  /** Operator private key */
-  privateKey: Hex
+  /** Operator private key (deprecated - use kmsKeyId) */
+  privateKey?: Hex
+  /** KMS key ID for secure signing */
+  kmsKeyId?: string
+  /** Owner address for KMS */
+  ownerAddress?: Address
   /** Operator endpoint */
   endpoint: string
   /** Storage capacity in GB */
@@ -55,7 +60,8 @@ export type OperatorStatus =
 
 export class DAOperator {
   private readonly config: OperatorConfig
-  private readonly account: PrivateKeyAccount
+  private account: PrivateKeyAccount | null = null
+  private secureSigner: SecureSigner | null = null
   private readonly verifier: SampleVerifier
   private readonly commitments: Map<Hex, BlobCommitment> = new Map()
   private readonly chunkData: Map<Hex, Map<number, Uint8Array>> = new Map()
@@ -64,6 +70,7 @@ export class DAOperator {
   private status: OperatorStatus = 'stopped'
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null
   private gcInterval: ReturnType<typeof setInterval> | null = null
+  private initialized = false
 
   // Metrics
   private samplesResponded = 0
@@ -74,8 +81,58 @@ export class DAOperator {
 
   constructor(config: OperatorConfig) {
     this.config = config
-    this.account = privateKeyToAccount(config.privateKey)
+    // Initialize with direct key if provided
+    if (config.privateKey) {
+      this.account = privateKeyToAccount(config.privateKey)
+    }
     this.verifier = new SampleVerifier()
+  }
+
+  /**
+   * Initialize secure signing via KMS
+   */
+  private async initializeSecureSigning(): Promise<void> {
+    if (this.initialized) return
+
+    const { kmsKeyId, ownerAddress } = this.config
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (kmsKeyId && ownerAddress) {
+      this.secureSigner = await createSecureSigner(ownerAddress, kmsKeyId)
+      console.log('[DA Operator] Using KMS-backed signing (FROST threshold)')
+    } else if (isProduction && !this.account) {
+      throw new Error('DA operator requires kmsKeyId or privateKey in production')
+    } else if (isProduction) {
+      console.warn('[DA Operator] Using direct key in production - set kmsKeyId for security')
+    }
+
+    this.initialized = true
+  }
+
+  /**
+   * Sign a message using secure signer or account
+   */
+  private async signMessage(message: string): Promise<Hex> {
+    if (this.secureSigner) {
+      return this.secureSigner.signMessage(message)
+    }
+    if (this.account) {
+      return this.account.signMessage({ message })
+    }
+    throw new Error('No signer available')
+  }
+
+  /**
+   * Get operator address
+   */
+  getAddress(): Address {
+    if (this.secureSigner) {
+      return this.secureSigner.getAddress()
+    }
+    if (this.account) {
+      return this.account.address
+    }
+    throw new Error('No account available')
   }
 
   /**
@@ -85,6 +142,9 @@ export class DAOperator {
     if (this.status === 'active') return
 
     this.status = 'starting'
+
+    // Initialize secure signing
+    await this.initializeSecureSigning()
 
     // Start heartbeat
     const heartbeatMs = this.config.heartbeatIntervalMs ?? 30000

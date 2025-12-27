@@ -7,6 +7,7 @@ import type { Address, Hex, PublicClient, WalletClient } from 'viem'
 import { encodeFunctionData, parseAbi, parseEther } from 'viem'
 import type { CrucibleConfig } from '../../lib/types'
 import type { AgentSDK } from '../sdk/agent'
+import type { KMSSigner } from '../sdk/kms-signer'
 import { createLogger } from '../sdk/logger'
 import {
   createTradingBotOptions,
@@ -61,13 +62,24 @@ export interface BotInitializerConfig {
   crucibleConfig: CrucibleConfig
   agentSdk: AgentSDK
   publicClient: PublicClient
-  walletClient: WalletClient
+  /**
+   * @deprecated Use kmsSigner for production. walletClient only for localnet.
+   */
+  walletClient?: WalletClient
+  /**
+   * KMS-backed signer for threshold signing (production).
+   * When provided, all write operations use KMS instead of walletClient.
+   */
+  kmsSigner?: KMSSigner
   treasuryAddress?: Address
 }
 
 /**
  * Trading Bot Implementation
  * Real implementation with actual trading logic
+ * 
+ * SECURITY: Uses KMS-backed signing in production.
+ * Private keys are NEVER stored in this class.
  */
 class TradingBotImpl implements TradingBot {
   id: bigint
@@ -78,7 +90,8 @@ class TradingBotImpl implements TradingBot {
   private startTime = 0
   private options: TradingBotOptions
   private publicClient: PublicClient
-  private walletClient: WalletClient
+  private walletClient?: WalletClient
+  private kmsSigner?: KMSSigner
   private priceCache: Map<Address, { price: bigint; timestamp: number }> =
     new Map()
   private readonly PRICE_CACHE_TTL_MS = 5000
@@ -87,13 +100,15 @@ class TradingBotImpl implements TradingBot {
     config: TradingBotConfig,
     options: TradingBotOptions,
     publicClient: PublicClient,
-    walletClient: WalletClient,
+    walletClient?: WalletClient,
+    kmsSigner?: KMSSigner,
   ) {
     this.id = config.id
     this.config = config
     this.options = options
     this.publicClient = publicClient
     this.walletClient = walletClient
+    this.kmsSigner = kmsSigner
     this.state = {
       lastTradeTimestamp: 0,
       totalTrades: 0,
@@ -102,6 +117,51 @@ class TradingBotImpl implements TradingBot {
       pnl: 0n,
       currentPositions: new Map(),
     }
+  }
+
+  /**
+   * Execute a transaction using KMS or wallet
+   */
+  private async executeTransaction(params: {
+    to: Address
+    data: Hex
+    value?: bigint
+    chain?: Parameters<WalletClient['sendTransaction']>[0]['chain']
+  }): Promise<Hex> {
+    // Prefer KMS signer if available
+    if (this.kmsSigner?.isInitialized()) {
+      return this.kmsSigner.signTransaction({
+        to: params.to,
+        data: params.data,
+        value: params.value ?? 0n,
+      })
+    }
+
+    // Fallback to wallet client (localnet only)
+    if (this.walletClient?.account) {
+      return this.walletClient.sendTransaction({
+        to: params.to,
+        data: params.data,
+        value: params.value ?? 0n,
+        account: this.walletClient.account,
+        chain: params.chain,
+      })
+    }
+
+    throw new Error('No signer available - configure KMS or wallet')
+  }
+
+  /**
+   * Get the signer's address
+   */
+  private getSignerAddress(): Address {
+    if (this.kmsSigner?.isInitialized()) {
+      return this.kmsSigner.getAddress()
+    }
+    if (this.walletClient?.account) {
+      return this.walletClient.account.address
+    }
+    throw new Error('No signer available')
   }
 
   async start(): Promise<void> {
@@ -231,10 +291,8 @@ class TradingBotImpl implements TradingBot {
       )
     }
 
-    const account = this.walletClient.account
-    if (!account) {
-      throw new Error('Wallet client account not available')
-    }
+    // Get signer address (from KMS or wallet)
+    const signerAddress = this.getSignerAddress()
 
     const chainId = this.options.chains[0]?.chainId ?? 1
     const routerAddress = DEX_ROUTERS[chainId]
@@ -273,7 +331,7 @@ class TradingBotImpl implements TradingBot {
       : undefined
 
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800) // 30 minutes
-    const recipient = this.options.treasuryAddress ?? account.address
+    const recipient = this.options.treasuryAddress ?? signerAddress
     const slippageBps = BigInt(this.config.maxSlippageBps)
 
     let txHash: Hex
@@ -302,11 +360,10 @@ class TradingBotImpl implements TradingBot {
         router: routerAddress,
       })
 
-      txHash = await this.walletClient.sendTransaction({
+      txHash = await this.executeTransaction({
         to: routerAddress,
         data: swapData,
         value: amount,
-        account,
         chain,
       })
     } else {
@@ -316,7 +373,7 @@ class TradingBotImpl implements TradingBot {
         address: token,
         abi: ERC20_ABI,
         functionName: 'allowance',
-        args: [account.address, routerAddress],
+        args: [signerAddress, routerAddress],
       })
 
       if (currentAllowance < amount) {
@@ -332,10 +389,9 @@ class TradingBotImpl implements TradingBot {
           args: [routerAddress, amount],
         })
 
-        const approveTxHash = await this.walletClient.sendTransaction({
+        const approveTxHash = await this.executeTransaction({
           to: token,
           data: approveData,
-          account,
           chain,
         })
 
@@ -367,10 +423,9 @@ class TradingBotImpl implements TradingBot {
         router: routerAddress,
       })
 
-      txHash = await this.walletClient.sendTransaction({
+      txHash = await this.executeTransaction({
         to: routerAddress,
         data: swapData,
-        account,
         chain,
       })
     }
@@ -435,10 +490,17 @@ export class BotInitializer {
   }
 
   async initializeDefaultBots(): Promise<Map<bigint, TradingBot>> {
-    // Skip if no private key configured
-    if (!this.config.crucibleConfig.privateKey) {
-      log.warn('No private key configured, skipping bot initialization')
+    // Skip if no signer configured (KMS or wallet)
+    const hasKMS = this.config.kmsSigner?.isInitialized()
+    const hasWallet = !!this.config.walletClient
+    if (!hasKMS && !hasWallet) {
+      log.warn('No signer configured (KMS or wallet), skipping bot initialization')
       return this.bots
+    }
+    if (hasKMS) {
+      log.info('Using KMS-backed signing for trading bots')
+    } else {
+      log.warn('Using in-memory wallet for trading bots - DO NOT USE IN PRODUCTION')
     }
 
     const network = this.config.crucibleConfig.network
@@ -468,9 +530,11 @@ export class BotInitializer {
     botConfig: DefaultBotConfig,
     index: number,
   ): Promise<TradingBot> {
-    const privateKey = this.config.crucibleConfig.privateKey
-    if (!privateKey) {
-      throw new Error('Private key required for bot initialization')
+    // Verify we have a signer (KMS preferred)
+    const hasKMS = this.config.kmsSigner?.isInitialized()
+    const hasWallet = !!this.config.walletClient
+    if (!hasKMS && !hasWallet) {
+      throw new Error('Signer required for bot initialization (KMS or wallet)')
     }
 
     // Register the bot as an agent
@@ -492,10 +556,13 @@ export class BotInitializer {
       },
     )
 
+    // Create options WITHOUT privateKey - signing is handled by KMS or walletClient
+    // Note: TradingBotOptions.privateKey is deprecated
     const options = createTradingBotOptions(
       botConfig,
       agentResult.agentId,
-      privateKey as Hex,
+      // Pass a placeholder - actual signing uses KMS/wallet
+      '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
       this.config.crucibleConfig.network,
       this.config.treasuryAddress,
     )
@@ -518,6 +585,7 @@ export class BotInitializer {
       options,
       this.config.publicClient,
       this.config.walletClient,
+      this.config.kmsSigner,
     )
 
     this.bots.set(agentResult.agentId, bot)
@@ -582,6 +650,7 @@ export class BotInitializer {
       options,
       this.config.publicClient,
       this.config.walletClient,
+      this.config.kmsSigner,
     )
 
     this.bots.set(config.id, bot)

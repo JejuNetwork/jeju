@@ -164,4 +164,5 @@ export * from './perps'
 
 export * from './portfolio'
 export * from './swap'
+export * from './tee'
 export * from './validation'

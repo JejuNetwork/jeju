@@ -28,6 +28,7 @@ contract TokenRegistry is Ownable {
     error InvalidAmount();
     error InsufficientFee();
     error InvalidMargin();
+    error ETHTransferFailed();
 
     event TokenRegistered(address indexed token, address indexed registrant, address priceFeed);
     event TokenRemoved(address indexed token);
@@ -54,7 +55,8 @@ contract TokenRegistry is Ownable {
         supportedTokens.push(token);
 
         // Send fee to treasury
-        payable(treasury).transfer(msg.value);
+        (bool success, ) = payable(treasury).call{value: msg.value}("");
+        if (!success) revert ETHTransferFailed();
 
         emit TokenRegistered(token, msg.sender, priceFeed);
     }

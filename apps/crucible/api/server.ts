@@ -24,6 +24,7 @@ import { isHexString, isValidAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { createKMSSigner, type KMSSigner } from './sdk/kms-signer'
 import { localhost, mainnet, sepolia } from 'viem/chains'
 import { z } from 'zod'
 import type {
@@ -216,13 +217,36 @@ function getRequiredEnv(key: string, defaultValue?: string): string {
   return value
 }
 
+/**
+ * Get private key from environment.
+ * SECURITY WARNING: Only use for localnet development.
+ * Production MUST use KMS-backed signing (USE_KMS=true).
+ */
 function getPrivateKey(): `0x${string}` | undefined {
   const pk = process.env.PRIVATE_KEY
   if (!pk) return undefined
   if (!isHexString(pk)) {
     throw new Error('PRIVATE_KEY must be a valid hex string starting with 0x')
   }
+  // Warn if private key is used in non-localnet
+  if (NETWORK !== 'localnet') {
+    log.warn(
+      'SECURITY: Using in-memory private key in production. Set USE_KMS=true for threshold signing.',
+    )
+  }
   return pk
+}
+
+/**
+ * Check if KMS-backed signing should be used.
+ * Defaults to true in production environments.
+ */
+function shouldUseKMS(): boolean {
+  const useKms = process.env.USE_KMS
+  if (useKms === 'true') return true
+  if (useKms === 'false') return false
+  // Default: use KMS in production, allow direct signing in localnet
+  return NETWORK !== 'localnet'
 }
 
 function getOptionalAddress(
@@ -345,17 +369,42 @@ const publicClient = createPublicClient({
   transport: http(config.rpcUrl),
 })
 
-const account = validatedPrivateKey
-  ? privateKeyToAccount(validatedPrivateKey)
-  : undefined
+// KMS signer for threshold signing (production) or legacy wallet (localnet)
+let kmsSigner: KMSSigner | null = null
+let account: ReturnType<typeof privateKeyToAccount> | undefined
+let walletClient: ReturnType<typeof createWalletClient> | undefined
 
-const walletClient = account
-  ? createWalletClient({
-      account,
-      chain,
-      transport: http(config.rpcUrl),
+if (shouldUseKMS()) {
+  // Production: Use KMS-backed threshold signing
+  // Private key is NEVER loaded into this process
+  kmsSigner = createKMSSigner(config.rpcUrl, chain.id, {
+    threshold: NETWORK === 'mainnet' ? 3 : 2,
+    totalParties: NETWORK === 'mainnet' ? 5 : 3,
+  })
+
+  // Initialize KMS signer asynchronously
+  kmsSigner
+    .initialize()
+    .then(() => {
+      log.info('KMS signer initialized', {
+        address: kmsSigner?.getAddress(),
+        keyId: kmsSigner?.getKeyId(),
+      })
     })
-  : undefined
+    .catch((err) => {
+      log.error('Failed to initialize KMS signer', { error: String(err) })
+      // Don't throw - server can still serve read-only endpoints
+    })
+} else if (validatedPrivateKey) {
+  // Localnet only: Use in-memory wallet (NOT for production)
+  log.warn('Using in-memory wallet - DO NOT USE IN PRODUCTION')
+  account = privateKeyToAccount(validatedPrivateKey)
+  walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(config.rpcUrl),
+  })
+}
 
 const storage = createStorage({
   apiUrl: config.services.storageApi,
@@ -374,6 +423,7 @@ const agentSdk = createAgentSDK({
   compute,
   publicClient,
   walletClient,
+  kmsSigner: kmsSigner ?? undefined,
 })
 
 const roomSdk = createRoomSDK({
@@ -381,6 +431,7 @@ const roomSdk = createRoomSDK({
   storage,
   publicClient,
   walletClient,
+  kmsSigner: kmsSigner ?? undefined,
 })
 
 // Bot initialization
@@ -416,6 +467,7 @@ if (config.privateKey && walletClient) {
     agentSdk,
     publicClient,
     walletClient,
+    kmsSigner: kmsSigner ?? undefined,
     treasuryAddress: config.contracts.autocratTreasury,
   })
 
@@ -1103,6 +1155,16 @@ app.post('/api/v1/execute', async ({ body }) => {
 
   log.info('Executing agent', { agentId: parsedBody.agentId })
 
+  // Get executor address from KMS signer or wallet account
+  const executorAddress = kmsSigner?.isInitialized()
+    ? kmsSigner.getAddress()
+    : account?.address
+
+  if (!executorAddress) {
+    set.status = 500
+    return { error: 'No signer configured (KMS or wallet)' }
+  }
+
   const executorSdk = createExecutorSDK({
     crucibleConfig: config,
     storage,
@@ -1110,8 +1172,9 @@ app.post('/api/v1/execute', async ({ body }) => {
     agentSdk,
     roomSdk,
     publicClient,
-    walletClient: expect(walletClient, 'Wallet client is required'),
-    executorAddress: expect(account, 'Account is required').address,
+    walletClient,
+    kmsSigner: kmsSigner ?? undefined,
+    executorAddress,
   })
 
   const agentId = expect(

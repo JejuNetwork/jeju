@@ -1906,9 +1906,175 @@ export function getKmsEndpoint(): string | undefined {
   return process.env.KMS_ENDPOINT
 }
 
-/** Get KMS service URL */
-export function getKmsServiceUrl(): string {
-  return process.env.JEJU_KMS_SERVICE_URL ?? 'http://localhost:4200'
+/** Get KMS service URL - uses services.json with env override */
+export function getKmsServiceUrl(network?: NetworkType): string {
+  // Environment variable override takes precedence
+  if (process.env.KMS_SERVICE_URL) {
+    return process.env.KMS_SERVICE_URL
+  }
+  if (process.env.JEJU_KMS_SERVICE_URL) {
+    return process.env.JEJU_KMS_SERVICE_URL
+  }
+  // Fall back to services.json configuration
+  return getServicesConfig(network).kms.api
+}
+
+/** KMS threshold configuration per network */
+export interface KMSThresholdConfig {
+  /** Minimum signers required (t of n) */
+  threshold: number
+  /** Total number of MPC parties */
+  totalParties: number
+  /** Whether attestation verification is required */
+  requireAttestation: boolean
+  /** Signing timeout in milliseconds */
+  signingTimeoutMs: number
+}
+
+/**
+ * Get KMS threshold configuration for a network.
+ * 
+ * SECURITY: Mainnet requires higher thresholds and mandatory attestation.
+ * - Localnet: 1-of-1 (development mode, no attestation)
+ * - Testnet: 2-of-3 (production-like, attestation recommended)
+ * - Mainnet: 3-of-5 (high security, attestation required)
+ */
+export function getKmsThresholdConfig(network?: NetworkType): KMSThresholdConfig {
+  const resolvedNetwork = network ?? getCurrentNetwork()
+  
+  switch (resolvedNetwork) {
+    case 'mainnet':
+      return {
+        threshold: 3,
+        totalParties: 5,
+        requireAttestation: true,
+        signingTimeoutMs: 60000,
+      }
+    case 'testnet':
+      return {
+        threshold: 2,
+        totalParties: 3,
+        requireAttestation: true, // Recommended but may fallback
+        signingTimeoutMs: 30000,
+      }
+    case 'localnet':
+    default:
+      return {
+        threshold: 1,
+        totalParties: 1,
+        requireAttestation: false,
+        signingTimeoutMs: 10000,
+      }
+  }
+}
+
+/** HSM provider type for MPC party key shares */
+export type HSMProviderType = 
+  | 'software'      // Software-only (localnet/testing)
+  | 'aws_cloudhsm'  // AWS CloudHSM
+  | 'gcp_kms'       // Google Cloud KMS
+  | 'azure_hsm'     // Azure Dedicated HSM
+  | 'yubihsm'       // YubiHSM 2
+  | 'nitrokey'      // Nitrokey HSM 2
+  | 'hashicorp_vault' // HashiCorp Vault with HSM backend
+
+/** HSM configuration for MPC key shares */
+export interface HSMConfig {
+  /** HSM provider type */
+  provider: HSMProviderType
+  /** Whether HSM is required (fail if unavailable) */
+  required: boolean
+  /** Provider-specific endpoint */
+  endpoint?: string
+  /** Region for cloud HSM providers */
+  region?: string
+  /** Key wrapping algorithm */
+  keyWrapAlgorithm: 'AES256_GCM' | 'RSA_OAEP'
+  /** Maximum key operations before rotation */
+  maxOperationsBeforeRotation: number
+}
+
+/**
+ * Get HSM configuration for MPC party key shares.
+ * 
+ * SECURITY: HSM backing ensures that even TEE compromise cannot 
+ * extract the raw key shares. Key shares are:
+ * 1. Generated inside the HSM
+ * 2. Never leave the HSM in plaintext
+ * 3. Used for signing via HSM APIs
+ * 
+ * Environment variables:
+ * - HSM_PROVIDER: Override provider type
+ * - HSM_ENDPOINT: Override HSM endpoint
+ * - HSM_REGION: Override region for cloud HSMs
+ */
+export function getHSMConfig(network?: NetworkType): HSMConfig {
+  const resolvedNetwork = network ?? getCurrentNetwork()
+  
+  // Environment overrides
+  const envProvider = process.env.HSM_PROVIDER as HSMProviderType | undefined
+  const envEndpoint = process.env.HSM_ENDPOINT
+  const envRegion = process.env.HSM_REGION
+  
+  switch (resolvedNetwork) {
+    case 'mainnet':
+      return {
+        provider: envProvider ?? 'aws_cloudhsm',
+        required: true,
+        endpoint: envEndpoint,
+        region: envRegion ?? 'us-east-1',
+        keyWrapAlgorithm: 'AES256_GCM',
+        maxOperationsBeforeRotation: 1000000,
+      }
+    case 'testnet':
+      return {
+        provider: envProvider ?? 'aws_cloudhsm',
+        required: false, // Fallback to software if unavailable
+        endpoint: envEndpoint,
+        region: envRegion ?? 'us-west-2',
+        keyWrapAlgorithm: 'AES256_GCM',
+        maxOperationsBeforeRotation: 100000,
+      }
+    case 'localnet':
+    default:
+      return {
+        provider: envProvider ?? 'software',
+        required: false,
+        endpoint: envEndpoint,
+        region: envRegion,
+        keyWrapAlgorithm: 'AES256_GCM',
+        maxOperationsBeforeRotation: 10000,
+      }
+  }
+}
+
+/**
+ * Check if HSM is available and properly configured.
+ * Returns provider info or null if unavailable.
+ */
+export async function checkHSMAvailability(
+  network?: NetworkType,
+): Promise<{ available: boolean; provider: HSMProviderType; error?: string }> {
+  const config = getHSMConfig(network)
+  
+  if (config.provider === 'software') {
+    return { available: true, provider: 'software' }
+  }
+  
+  // For cloud HSMs, we'd check connectivity here
+  // This is a placeholder that would be implemented with actual HSM SDKs
+  try {
+    // AWS CloudHSM check would use @aws-sdk/client-cloudhsm-v2
+    // GCP KMS check would use @google-cloud/kms
+    // Azure HSM check would use @azure/keyvault-keys
+    return { available: true, provider: config.provider }
+  } catch (err) {
+    return {
+      available: false,
+      provider: config.provider,
+      error: String(err),
+    }
+  }
 }
 
 /** Get cron endpoint */

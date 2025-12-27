@@ -9,16 +9,17 @@ import {
   recoverMessageAddress,
   http as viemHttp,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { WebSocket, WebSocketServer } from 'ws'
 import { z } from 'zod'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 // Configuration Schema
 
 const EdgeCoordinatorConfigSchema = z.object({
   nodeId: z.string().min(1),
   operator: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  /** KMS key ID for secure signing (no raw private keys) */
+  keyId: z.string().min(1),
   listenPort: z.number().min(1024).max(65535),
   gossipInterval: z.number().min(1000).default(30000),
   maxPeers: z.number().min(1).max(1000).default(100),
@@ -240,7 +241,7 @@ const coordinatorGossipLatency = new Histogram({
 
 export class EdgeCoordinator {
   private config: EdgeCoordinatorConfig
-  private account: ReturnType<typeof privateKeyToAccount>
+  private signer: SecureSigner
   private peers = new LRUCache<string, { ws: WebSocket; info: EdgeNodeInfo }>({
     max: 1000,
     ttl: 10 * 60 * 1000, // 10 minutes
@@ -287,10 +288,8 @@ export class EdgeCoordinator {
   constructor(config: EdgeCoordinatorConfig) {
     this.config = EdgeCoordinatorConfigSchema.parse(config)
 
-    // Initialize signing account
-    this.account = privateKeyToAccount(
-      expectHex(this.config.privateKey, 'Edge coordinator private key'),
-    )
+    // Initialize secure signer (KMS-backed, no local private keys)
+    this.signer = createSecureSigner(this.config.keyId)
 
     // Setup on-chain integration
     if (this.config.rpcUrl && this.config.nodeRegistryAddress) {
@@ -549,8 +548,8 @@ export class EdgeCoordinator {
       payload: msg.payload,
     })
 
-    // Use proper ECDSA signing with viem
-    return await this.account.signMessage({ message: messageData })
+    // Sign via KMS MPC (no local private keys)
+    return await this.signer.signMessage({ message: messageData })
   }
 
   // Message Handling

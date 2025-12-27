@@ -25,9 +25,15 @@ import {
   formatEther,
   http,
   parseEther,
+  type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from './shared/kms-wallet'
 
 // Get network from config
 const NETWORK = getCurrentNetwork()
@@ -187,20 +193,51 @@ const publicClient = createPublicClient({
   transport: http(RPC_URL),
 })
 
-function getWalletClient() {
+let cachedWalletClient: WalletClient | KMSWalletClient | null = null
+
+async function getWalletClient(): Promise<WalletClient | KMSWalletClient> {
+  if (cachedWalletClient) return cachedWalletClient
+
+  // Try KMS first for side-channel protection
+  const kmsKeyId = process.env.FAUCET_KMS_KEY_ID
+  const ownerAddress = process.env.FAUCET_OWNER_ADDRESS as Address | undefined
+
+  if (kmsKeyId && ownerAddress) {
+    const kmsAvailable = await isKMSAvailable()
+    if (kmsAvailable) {
+      cachedWalletClient = await createKMSWalletClient({
+        chain,
+        rpcUrl: RPC_URL,
+        kmsKeyId,
+        ownerAddress,
+      })
+      console.log('[Faucet] Using KMS-backed signing')
+      return cachedWalletClient
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new Error('KMS not available in production for faucet')
+    }
+  }
+
+  // Fallback to direct key
   const privateKey = FAUCET_CONFIG.faucetPrivateKey
   if (!privateKey) {
-    throw new Error('FAUCET_PRIVATE_KEY not configured')
+    throw new Error('FAUCET_PRIVATE_KEY or FAUCET_KMS_KEY_ID not configured')
   }
   if (!isHexString(privateKey)) {
     throw new Error('FAUCET_PRIVATE_KEY must be a hex string starting with 0x')
   }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[Faucet] Using direct key in production - set FAUCET_KMS_KEY_ID')
+  }
+
   const account = privateKeyToAccount(privateKey)
-  return createWalletClient({
+  cachedWalletClient = createWalletClient({
     account,
     chain,
     transport: http(RPC_URL),
   })
+  return cachedWalletClient
 }
 
 const IDENTITY_REGISTRY_ABI = [

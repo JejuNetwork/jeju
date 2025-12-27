@@ -1,9 +1,15 @@
 /**
  * Session management routes
+ *
+ * SECURITY: Sessions use ephemeral keys that are:
+ * - Short-lived (15 minute rotation)
+ * - Invalidated on logout
+ * - Unique per session
  */
 
 import { Elysia, t } from 'elysia'
 import type { AuthConfig, AuthSession } from '../../lib/types'
+import { getEphemeralKey, invalidateEphemeralKey } from '../services/kms'
 import { refreshTokenState, sessionState } from '../services/state'
 
 const VerifyQuerySchema = t.Object({
@@ -91,6 +97,9 @@ export function createSessionRouter(config: AuthConfig) {
       // Revoke all refresh tokens for this session
       await refreshTokenState.revokeAllForSession(sessionId)
 
+      // Invalidate ephemeral key for this session
+      invalidateEphemeralKey(sessionId)
+
       // Delete session
       await sessionState.delete(sessionId)
 
@@ -120,13 +129,21 @@ export function createSessionRouter(config: AuthConfig) {
         return { error: 'session_not_found' }
       }
 
-      // Create new session with extended expiry
+      // Create new session with extended expiry and fresh ephemeral key
       const newSessionId = crypto.randomUUID()
+
+      // Invalidate old ephemeral key
+      invalidateEphemeralKey(sessionId)
+
+      // Get new ephemeral key
+      const newEphemeralKey = await getEphemeralKey(newSessionId)
+
       const newSession: AuthSession = {
         ...session,
         sessionId: newSessionId,
         createdAt: Date.now(),
         expiresAt: Date.now() + config.sessionDuration,
+        ephemeralKeyId: newEphemeralKey.keyId,
       }
 
       // Delete old, add new

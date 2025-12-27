@@ -7,6 +7,10 @@
  * - Provider reputation and ranking
  * - Geographic routing for latency optimization
  * - Bandwidth tracking and accounting
+ *
+ * SECURITY: In production, all signing is delegated to KMS with FROST threshold
+ * signing to protect against side-channel attacks. The full private key is never
+ * reconstructed or held in memory.
  */
 
 import { randomBytes } from 'node:crypto'
@@ -14,6 +18,7 @@ import type { Address, Hex } from 'viem'
 import { keccak256, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { StorageBackendType } from './types'
+import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
 
 // ============ Types ============
 
@@ -168,7 +173,11 @@ export interface RetrievalMarketConfig {
   paymentChannelContractAddress: Address
   marketContractAddress: Address
   rpcUrl: string
-  privateKey: Hex
+  // SECURITY: In production, use kmsKeyId instead of privateKey
+  kmsKeyId?: string
+  ownerAddress?: Address
+  // DEPRECATED: privateKey is only for development/testing
+  privateKey?: Hex
 }
 
 // ============ Default Configuration ============
@@ -183,7 +192,11 @@ const DEFAULT_MARKET_CONFIG: RetrievalMarketConfig = {
   paymentChannelContractAddress: '0x0000000000000000000000000000000000000000',
   marketContractAddress: '0x0000000000000000000000000000000000000000',
   rpcUrl: process.env.RPC_URL ?? 'http://localhost:8545',
-  privateKey: (process.env.PRIVATE_KEY ?? '0x') as Hex,
+  kmsKeyId: process.env.RETRIEVAL_MARKET_KMS_KEY_ID,
+  ownerAddress: process.env.RETRIEVAL_MARKET_OWNER_ADDRESS as
+    | Address
+    | undefined,
+  privateKey: undefined, // Not set by default
 }
 
 // ============ Retrieval Market Manager ============
@@ -196,9 +209,43 @@ export class RetrievalMarketManager {
   private deals: Map<string, RetrievalDeal> = new Map()
   private paymentChannels: Map<string, PaymentChannel> = new Map()
   private receipts: Map<string, RetrievalReceipt> = new Map()
+  private secureSigner: SecureSigner | null = null
+  private signerInitialized = false
 
   constructor(_providerId: string, config?: Partial<RetrievalMarketConfig>) {
     this.config = { ...DEFAULT_MARKET_CONFIG, ...config }
+
+    // SECURITY: Warn if using deprecated privateKey in production
+    const isProduction = process.env.NODE_ENV === 'production'
+    if (isProduction && this.config.privateKey && !this.config.kmsKeyId) {
+      console.error(
+        '[RetrievalMarketManager] CRITICAL: Using privateKey in production is insecure. ' +
+          'Set RETRIEVAL_MARKET_KMS_KEY_ID and RETRIEVAL_MARKET_OWNER_ADDRESS to use KMS-based signing.',
+      )
+    }
+  }
+
+  /**
+   * Initialize KMS-based secure signing
+   */
+  async initializeSecureSigning(): Promise<void> {
+    if (this.signerInitialized) return
+
+    if (this.config.kmsKeyId && this.config.ownerAddress) {
+      this.secureSigner = await createSecureSigner(
+        this.config.ownerAddress,
+        this.config.kmsKeyId,
+      )
+      console.log(
+        '[RetrievalMarketManager] Using KMS-based secure signing (FROST)',
+      )
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'RETRIEVAL_MARKET_KMS_KEY_ID and RETRIEVAL_MARKET_OWNER_ADDRESS required in production',
+      )
+    }
+
+    this.signerInitialized = true
   }
 
   // ============ Provider Management ============
@@ -788,17 +835,41 @@ export class RetrievalMarketManager {
   // ============ Helper Methods ============
 
   private async getAddress(): Promise<Address> {
-    if (this.config.privateKey === '0x') {
+    // SECURITY: Use KMS-based address if available (production)
+    if (this.secureSigner) {
+      return this.secureSigner.getAddress()
+    }
+
+    // Development fallback
+    if (!this.config.privateKey) {
       return '0x0000000000000000000000000000000000000000'
     }
+
     const account = privateKeyToAccount(this.config.privateKey)
     return account.address
   }
 
   private async signMessage(message: Hex): Promise<Hex> {
-    if (this.config.privateKey === '0x') {
+    // SECURITY: Use KMS-based signing if available (production)
+    if (this.secureSigner) {
+      return this.secureSigner.signHash(message)
+    }
+
+    // Development fallback - only allowed in non-production
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'KMS-based signing required in production. Call initializeSecureSigning() first.',
+      )
+    }
+
+    if (!this.config.privateKey) {
       return keccak256(message)
     }
+
+    // DEPRECATED: Direct key signing - only for development
+    console.warn(
+      '[RetrievalMarketManager] Using deprecated direct key signing. Use KMS in production.',
+    )
     const account = privateKeyToAccount(this.config.privateKey)
     return account.signMessage({ message })
   }

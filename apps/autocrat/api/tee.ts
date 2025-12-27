@@ -107,46 +107,158 @@ function getTEEPlatform(): TEEPlatform {
   }
 }
 
-function getDerivedKey(): Uint8Array {
+/**
+ * SECURITY: Encryption key derivation without memory caching.
+ *
+ * In production (mainnet/testnet), encryption is offloaded to KMS/dstack TEE.
+ * In development, uses PBKDF2 with the derived key immediately cleared after use.
+ *
+ * This prevents side-channel attacks that could extract cached key material.
+ */
+
+const KMSEncryptResponseSchema = z.object({
+  ciphertext: z.string(),
+  iv: z.string(),
+  tag: z.string(),
+})
+
+const KMSDecryptResponseSchema = z.object({
+  plaintext: z.string(),
+})
+
+/**
+ * Use KMS for encryption in production - keys never leave the secure enclave
+ */
+async function kmsEncrypt(
+  data: string,
+): Promise<{ ciphertext: string; iv: string; tag: string }> {
+  const endpoint = getDStackEndpoint()
+
+  const response = await fetch(`${endpoint}/kms/encrypt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      plaintext: data,
+      keyId: 'autocrat-tee-encryption',
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (!response.ok) {
+    throw new Error(`KMS encryption failed: ${response.status}`)
+  }
+
+  const rawResult = await response.json()
+  return KMSEncryptResponseSchema.parse(rawResult)
+}
+
+/**
+ * Use KMS for decryption in production
+ */
+async function kmsDecrypt(
+  ciphertext: string,
+  iv: string,
+  tag: string,
+): Promise<string> {
+  const endpoint = getDStackEndpoint()
+
+  const response = await fetch(`${endpoint}/kms/decrypt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ciphertext,
+      iv,
+      tag,
+      keyId: 'autocrat-tee-encryption',
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (!response.ok) {
+    throw new Error(`KMS decryption failed: ${response.status}`)
+  }
+
+  const rawResult = await response.json()
+  const result = KMSDecryptResponseSchema.parse(rawResult)
+  return result.plaintext
+}
+
+/**
+ * Derive key for local development only - key is NOT cached.
+ * Uses PBKDF2 with 100,000 iterations for brute-force resistance.
+ */
+async function deriveKeyLocal(): Promise<Uint8Array> {
   const secret = process.env.TEE_ENCRYPTION_SECRET
   const network = getCurrentNetwork()
 
   if (!secret) {
-    // Require proper secret for mainnet AND testnet - both handle real/valuable data
     if (network === 'mainnet' || network === 'testnet') {
       throw new Error(
-        `TEE_ENCRYPTION_SECRET is required for ${network}. Set a strong, random secret.`,
+        `TEE_ENCRYPTION_SECRET is required for ${network}. Use KMS encryption instead.`,
       )
     }
-    // Localnet only: use ephemeral key (changes each process restart)
-    // This ensures local dev works but data isn't recoverable across restarts
-    console.warn(
-      '[TEE] No TEE_ENCRYPTION_SECRET set. Using ephemeral key for localnet development only.',
-    )
+    // Ephemeral key for localnet only
     const ephemeralSecret = `ephemeral-${Date.now()}-${Math.random()}`
     const hash = keccak256(stringToHex(ephemeralSecret))
     return fromHex(hash.slice(0, 66))
   }
 
-  // Validate secret strength
   if (secret.length < 32) {
     throw new Error(
       'TEE_ENCRYPTION_SECRET must be at least 32 characters for adequate security',
     )
   }
 
-  const hash = keccak256(stringToHex(secret))
-  return fromHex(hash.slice(0, 66))
+  const encoder = new TextEncoder()
+  const salt = encoder.encode('jeju:autocrat:tee:v1')
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  )
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256,
+  )
+
+  // Return fresh key each time - no caching
+  return new Uint8Array(derivedBits)
 }
 
+/**
+ * Encrypt data - uses KMS in production, local derivation in development.
+ * SECURITY: Keys never cached in memory.
+ */
 async function encrypt(data: string): Promise<{
   ciphertext: string
   iv: string
   tag: string
 }> {
-  const key = getDerivedKey()
+  const network = getCurrentNetwork()
+
+  // Production: Use KMS for encryption (key never leaves TEE)
+  if (network === 'mainnet' || network === 'testnet') {
+    return kmsEncrypt(data)
+  }
+
+  // Development: Use local encryption with fresh key derivation
+  const key = await deriveKeyLocal()
   const dataBytes = new TextEncoder().encode(data)
   const { ciphertext, iv, tag } = await encryptAesGcm(dataBytes, key)
+
+  // Clear key from memory immediately after use
+  key.fill(0)
+
   return {
     ciphertext: bytesToHex(ciphertext),
     iv: bytesToHex(iv),
@@ -154,16 +266,32 @@ async function encrypt(data: string): Promise<{
   }
 }
 
+/**
+ * Decrypt data - uses KMS in production, local derivation in development.
+ * SECURITY: Keys never cached in memory.
+ */
 async function decrypt(
   ciphertext: string,
   iv: string,
   tag: string,
 ): Promise<string> {
-  const key = getDerivedKey()
+  const network = getCurrentNetwork()
+
+  // Production: Use KMS for decryption (key never leaves TEE)
+  if (network === 'mainnet' || network === 'testnet') {
+    return kmsDecrypt(ciphertext, iv, tag)
+  }
+
+  // Development: Use local decryption with fresh key derivation
+  const key = await deriveKeyLocal()
   const ciphertextBytes = fromHex(`0x${ciphertext}`)
   const ivBytes = fromHex(`0x${iv}`)
   const tagBytes = fromHex(`0x${tag}`)
   const decrypted = await decryptAesGcm(ciphertextBytes, key, ivBytes, tagBytes)
+
+  // Clear key from memory immediately after use
+  key.fill(0)
+
   return new TextDecoder().decode(decrypted)
 }
 

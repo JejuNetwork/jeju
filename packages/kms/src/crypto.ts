@@ -248,9 +248,59 @@ export function constantTimeCompare(a: Hex, b: Hex): boolean {
   return result === 0
 }
 
-/** Derive a master key from a secret string */
+/**
+ * Derive a master key from a secret string.
+ *
+ * ⚠️ SECURITY NOTE: This uses a single keccak256 hash which is fast but
+ * provides minimal protection against brute-force if the key is observed.
+ * For side-channel resistant scenarios, use deriveKeyFromSecretAsync()
+ * which uses PBKDF2 with 100,000 iterations.
+ *
+ * @deprecated Use deriveKeyFromSecretAsync for new code
+ */
 export function deriveKeyFromSecret(secret: string): Uint8Array {
   return toBytes(keccak256(toBytes(secret)))
+}
+
+/**
+ * Derive a master key from a secret string using PBKDF2.
+ *
+ * SECURITY: Uses 100,000 iterations of PBKDF2-SHA256 to provide resistance
+ * against brute-force attacks if the derived key material is observed through
+ * side-channel attacks. This is the recommended method for key derivation.
+ *
+ * @param secret - The secret string to derive from
+ * @param salt - Optional salt for domain separation (defaults to 'jeju:kms:master:v1')
+ * @returns Promise resolving to 32-byte derived key
+ */
+export async function deriveKeyFromSecretAsync(
+  secret: string,
+  salt: string = 'jeju:kms:master:v1',
+): Promise<Uint8Array> {
+  const encoder = new TextEncoder()
+  const secretBytes = encoder.encode(secret)
+  const saltBytes = encoder.encode(salt)
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    secretBytes,
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  )
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256,
+  )
+
+  return new Uint8Array(derivedBits)
 }
 
 /** Derive a key for a specific keyId and policy */
@@ -271,4 +321,50 @@ export function extractRecoveryId(signature: string): number {
   if (v >= 27 && v <= 28) return v - 27
   if (v === 0 || v === 1) return v
   return 0
+}
+
+/**
+ * Securely zero a Uint8Array in memory.
+ *
+ * ⚠️ SECURITY NOTE:
+ * This is a best-effort zeroing. JavaScript/Node.js does not guarantee:
+ * 1. That the memory won't be copied before zeroing
+ * 2. That GC won't have already moved the data
+ * 3. That JIT optimizations won't skip the zeroing
+ *
+ * For true side-channel resistance, use:
+ * - Hardware security modules (HSM)
+ * - Separate physical TEE hardware per secret
+ * - FROST-based threshold signing (secrets never combined)
+ */
+export function secureZero(buffer: Uint8Array): void {
+  // Fill with zeros
+  buffer.fill(0)
+  // Fill with random to prevent optimization from skipping
+  crypto.getRandomValues(buffer)
+  // Fill with zeros again
+  buffer.fill(0)
+}
+
+/**
+ * ⚠️ SECURITY WARNING ⚠️
+ *
+ * Bigint values CANNOT be securely zeroed in JavaScript:
+ * - Bigint is immutable - you can only create new values
+ * - The original bytes remain in heap memory until GC
+ * - GC timing is non-deterministic
+ * - Memory may have been copied by V8 optimizations
+ *
+ * FOR SIDE-CHANNEL RESISTANT OPERATIONS:
+ * - NEVER reconstruct full private keys from shares
+ * - Use true threshold signing (FROST) where secrets never combine
+ * - Deploy secret shares on physically separate hardware
+ *
+ * This function exists only to document the limitation.
+ */
+export function bigintSecurityWarning(): string {
+  return (
+    'Bigint values cannot be securely zeroed. ' +
+    'Use Uint8Array for sensitive data or avoid aggregating secrets.'
+  )
 }

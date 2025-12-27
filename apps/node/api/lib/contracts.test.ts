@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   createNodeClient,
+  createSecureNodeClient,
   getChain,
   getContractAddresses,
   jejuMainnet,
@@ -51,16 +52,14 @@ describe('Contract Client', () => {
     expect(client.addresses).toBeDefined()
   })
 
-  test('createNodeClient creates client with wallet', () => {
-    const privateKey =
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-    const client = createNodeClient('http://127.0.0.1:6546', 31337, privateKey)
+  test('createSecureNodeClient creates client with KMS signer', () => {
+    const keyId = 'test-key-id-12345'
+    const client = createSecureNodeClient('http://127.0.0.1:6546', 31337, keyId)
 
     expect(client.publicClient).toBeDefined()
-    expect(client.walletClient).toBeDefined()
-    expect(client.walletClient?.account?.address).toBe(
-      '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    )
+    expect(client.signer).toBeDefined()
+    expect(client.keyId).toBe(keyId)
+    expect(client.chainId).toBe(31337)
   })
 })
 

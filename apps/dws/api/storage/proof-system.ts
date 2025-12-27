@@ -7,6 +7,10 @@
  * - Proof of Spacetime (PoSt) - Prove data is stored over time
  * - Challenge-response protocol for storage verification
  * - Merkle proofs for partial data verification
+ *
+ * SECURITY: In production, all signing is delegated to KMS with FROST threshold
+ * signing to protect against side-channel attacks. The full private key is never
+ * reconstructed or held in memory.
  */
 
 import { createHash, randomBytes } from 'node:crypto'
@@ -22,6 +26,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import type { StorageBackendType } from './types'
+import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
 
 // ============ Types ============
 
@@ -129,7 +134,13 @@ export interface StorageProofConfig {
   slashAmountWei: bigint
   proofContractAddress: Address
   rpcUrl: string
-  privateKey: Hex
+  // SECURITY: In production, use kmsKeyId instead of privateKey
+  // kmsKeyId routes signing through FROST threshold signing (no key in memory)
+  kmsKeyId?: string
+  ownerAddress?: Address
+  // DEPRECATED: privateKey is only for development/testing
+  // In production, this should be undefined and kmsKeyId should be set
+  privateKey?: Hex
 }
 
 // ============ Default Configuration ============
@@ -143,7 +154,10 @@ const DEFAULT_PROOF_CONFIG: StorageProofConfig = {
   slashAmountWei: 10000000000000000n, // 0.01 ETH
   proofContractAddress: '0x0000000000000000000000000000000000000000',
   rpcUrl: process.env.RPC_URL ?? 'http://localhost:8545',
-  privateKey: (process.env.PRIVATE_KEY ?? '0x') as Hex,
+  kmsKeyId: process.env.STORAGE_PROOF_KMS_KEY_ID,
+  ownerAddress: process.env.STORAGE_PROOF_OWNER_ADDRESS as Address | undefined,
+  // Only use privateKey in development - not set by default
+  privateKey: undefined,
 }
 
 // ============ Merkle Tree Implementation ============
@@ -260,10 +274,43 @@ export class StorageProofManager {
   private proofs: Map<string, StorageProof> = new Map()
   private contentMerkleTrees: Map<string, MerkleTree> = new Map()
   private nodeId: string
+  private secureSigner: SecureSigner | null = null
+  private signerInitialized = false
 
   constructor(nodeId: string, config?: Partial<StorageProofConfig>) {
     this.nodeId = nodeId
     this.config = { ...DEFAULT_PROOF_CONFIG, ...config }
+
+    // SECURITY: Warn if using deprecated privateKey in production
+    const isProduction = process.env.NODE_ENV === 'production'
+    if (isProduction && this.config.privateKey && !this.config.kmsKeyId) {
+      console.error(
+        '[StorageProofManager] CRITICAL: Using privateKey in production is insecure. ' +
+          'Set STORAGE_PROOF_KMS_KEY_ID and STORAGE_PROOF_OWNER_ADDRESS to use KMS-based signing.',
+      )
+    }
+  }
+
+  /**
+   * Initialize KMS-based secure signing
+   * Call this before any operations in production
+   */
+  async initializeSecureSigning(): Promise<void> {
+    if (this.signerInitialized) return
+
+    if (this.config.kmsKeyId && this.config.ownerAddress) {
+      this.secureSigner = await createSecureSigner(
+        this.config.ownerAddress,
+        this.config.kmsKeyId,
+      )
+      console.log('[StorageProofManager] Using KMS-based secure signing (FROST)')
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'STORAGE_PROOF_KMS_KEY_ID and STORAGE_PROOF_OWNER_ADDRESS required in production',
+      )
+    }
+
+    this.signerInitialized = true
   }
 
   // ============ Challenge Creation ============
@@ -613,7 +660,18 @@ export class StorageProofManager {
   private async submitChallengeOnChain(
     challenge: StorageChallenge,
   ): Promise<void> {
-    if (this.config.privateKey === '0x') return
+    // SECURITY: In production, on-chain transactions should use a separate
+    // transaction relay service that holds keys in HSM, not this server
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(
+        '[StorageProofManager] On-chain challenge submission should use transaction relay in production',
+      )
+      // In production, delegate to a transaction relay service
+      // For now, skip on-chain submission if no key configured
+      if (!this.config.privateKey) return
+    }
+
+    if (!this.config.privateKey) return
 
     const client = createWalletClient({
       chain: foundry,
@@ -658,8 +716,17 @@ export class StorageProofManager {
   }
 
   async submitProofOnChain(proof: StorageProof): Promise<Hex> {
-    if (this.config.privateKey === '0x') {
-      throw new Error('Private key not configured')
+    // SECURITY: In production, on-chain transactions should use a separate
+    // transaction relay service that holds keys in HSM, not this server
+    if (process.env.NODE_ENV === 'production' && !this.config.privateKey) {
+      throw new Error(
+        'On-chain proof submission requires transaction relay service in production. ' +
+          'Configure TX_RELAY_URL or provide privateKey for development only.',
+      )
+    }
+
+    if (!this.config.privateKey) {
+      throw new Error('Private key not configured for on-chain submission')
     }
 
     const client = createWalletClient({
@@ -795,11 +862,27 @@ export class StorageProofManager {
   }
 
   private async signMessage(message: string): Promise<Hex> {
-    if (this.config.privateKey === '0x') {
+    // SECURITY: Use KMS-based signing if available (production)
+    if (this.secureSigner) {
+      return this.secureSigner.signMessage(message)
+    }
+
+    // Development fallback - only allowed in non-production
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'KMS-based signing required in production. Call initializeSecureSigning() first.',
+      )
+    }
+
+    if (!this.config.privateKey) {
       // Return dummy signature for testing
       return keccak256(Buffer.from(message))
     }
 
+    // DEPRECATED: Direct key signing - only for development
+    console.warn(
+      '[StorageProofManager] Using deprecated direct key signing. Use KMS in production.',
+    )
     const account = privateKeyToAccount(this.config.privateKey)
     return account.signMessage({ message })
   }
@@ -816,9 +899,16 @@ export class StorageProofManager {
   }
 
   private async getAddress(): Promise<Address> {
-    if (this.config.privateKey === '0x') {
+    // SECURITY: Use KMS-based address if available (production)
+    if (this.secureSigner) {
+      return this.secureSigner.getAddress()
+    }
+
+    // Development fallback
+    if (!this.config.privateKey) {
       return '0x0000000000000000000000000000000000000000'
     }
+
     const account = privateKeyToAccount(this.config.privateKey)
     return account.address
   }

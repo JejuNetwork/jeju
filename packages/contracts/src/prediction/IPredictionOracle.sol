@@ -171,6 +171,8 @@ interface IPredictionOracle {
 contract ExamplePredictionContract {
     IPredictionOracle public immutable oracle;
 
+    error ETHTransferFailed();
+
     struct Bet {
         bytes32 gameSessionId;
         bool predictedOutcome;
@@ -209,7 +211,8 @@ contract ExamplePredictionContract {
 
         if (outcome == bet.predictedOutcome) {
             uint256 payout = bet.amount * 2;
-            payable(msg.sender).transfer(payout);
+            (bool success, ) = payable(msg.sender).call{value: payout}("");
+            if (!success) revert ETHTransferFailed();
         }
     }
 }

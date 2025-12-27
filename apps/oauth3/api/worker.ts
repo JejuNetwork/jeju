@@ -22,17 +22,24 @@ interface Env {
   MPC_REGISTRY_ADDRESS: string
   IDENTITY_REGISTRY_ADDRESS: string
   SERVICE_AGENT_ID: string
-  JWT_SECRET: string
+  JWT_SECRET: string // Legacy - deprecated in favor of KMS
+  JWT_SIGNING_KEY_ID?: string // MPC key ID for JWT signing
+  JWT_SIGNER_ADDRESS?: string // MPC signer address
   ALLOWED_ORIGINS: string
   CQL_DATABASE_ID: string
-  // Social OAuth
+  CHAIN_ID?: string // For KMS access policies
+  // Social OAuth - sealed secrets preferred
   GITHUB_CLIENT_ID?: string
-  GITHUB_CLIENT_SECRET?: string
+  GITHUB_SEALED_SECRET?: string // Preferred
+  GITHUB_CLIENT_SECRET?: string // Legacy fallback
   GOOGLE_CLIENT_ID?: string
+  GOOGLE_SEALED_SECRET?: string
   GOOGLE_CLIENT_SECRET?: string
   TWITTER_CLIENT_ID?: string
+  TWITTER_SEALED_SECRET?: string
   TWITTER_CLIENT_SECRET?: string
   DISCORD_CLIENT_ID?: string
+  DISCORD_SEALED_SECRET?: string
   DISCORD_CLIENT_SECRET?: string
 }
 
@@ -60,19 +67,27 @@ async function createApp(env: Env) {
   process.env.CQL_DATABASE_ID = env.CQL_DATABASE_ID
   process.env.BASE_URL = 'https://auth.jejunetwork.org'
 
-  // Social OAuth env vars
+  // Social OAuth env vars - prefer sealed secrets
   if (env.GITHUB_CLIENT_ID) process.env.GITHUB_CLIENT_ID = env.GITHUB_CLIENT_ID
+  if (env.GITHUB_SEALED_SECRET)
+    process.env.GITHUB_SEALED_SECRET = env.GITHUB_SEALED_SECRET
   if (env.GITHUB_CLIENT_SECRET)
     process.env.GITHUB_CLIENT_SECRET = env.GITHUB_CLIENT_SECRET
   if (env.GOOGLE_CLIENT_ID) process.env.GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID
+  if (env.GOOGLE_SEALED_SECRET)
+    process.env.GOOGLE_SEALED_SECRET = env.GOOGLE_SEALED_SECRET
   if (env.GOOGLE_CLIENT_SECRET)
     process.env.GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET
   if (env.TWITTER_CLIENT_ID)
     process.env.TWITTER_CLIENT_ID = env.TWITTER_CLIENT_ID
+  if (env.TWITTER_SEALED_SECRET)
+    process.env.TWITTER_SEALED_SECRET = env.TWITTER_SEALED_SECRET
   if (env.TWITTER_CLIENT_SECRET)
     process.env.TWITTER_CLIENT_SECRET = env.TWITTER_CLIENT_SECRET
   if (env.DISCORD_CLIENT_ID)
     process.env.DISCORD_CLIENT_ID = env.DISCORD_CLIENT_ID
+  if (env.DISCORD_SEALED_SECRET)
+    process.env.DISCORD_SEALED_SECRET = env.DISCORD_SEALED_SECRET
   if (env.DISCORD_CLIENT_SECRET)
     process.env.DISCORD_CLIENT_SECRET = env.DISCORD_CLIENT_SECRET
 
@@ -84,9 +99,15 @@ async function createApp(env: Env) {
       ZERO_ADDRESS,
     ),
     serviceAgentId: env.SERVICE_AGENT_ID ?? 'auth.jeju',
-    jwtSecret: env.JWT_SECRET ?? 'dev-secret-change-in-production',
+    jwtSecret: env.JWT_SECRET ?? 'dev-secret-change-in-production', // Legacy
+    jwtSigningKeyId: env.JWT_SIGNING_KEY_ID,
+    jwtSignerAddress: env.JWT_SIGNER_ADDRESS
+      ? parseAddress(env.JWT_SIGNER_ADDRESS, ZERO_ADDRESS)
+      : undefined,
+    chainId: env.CHAIN_ID ?? 'eip155:420691',
     sessionDuration: 24 * 60 * 60 * 1000, // 24 hours
     allowedOrigins: (env.ALLOWED_ORIGINS ?? '*').split(','),
+    devMode: false, // DWS is production
   }
 
   const app = new Elysia()
@@ -99,6 +120,7 @@ async function createApp(env: Env) {
           'Authorization',
           'X-Jeju-Address',
           'X-Jeju-Signature',
+          'X-Jeju-Timestamp',
           'X-Jeju-Nonce',
         ],
       }),

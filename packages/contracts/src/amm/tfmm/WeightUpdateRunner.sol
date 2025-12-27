@@ -66,6 +66,7 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
     error UpdateTooSoon(uint256 secondsRemaining);
     error StrategyFailed(string reason);
     error OracleFailed(address oracle);
+    error ETHTransferFailed();
 
     // ============ Constructor ============
 
@@ -194,7 +195,8 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
 
         // Compensate caller if enabled
         if (gasCompensationEnabled && address(this).balance >= updateCompensation) {
-            payable(msg.sender).transfer(updateCompensation);
+            (bool success, ) = payable(msg.sender).call{value: updateCompensation}("");
+            if (!success) revert ETHTransferFailed();
         }
 
         emit UpdatePerformed(pool, currentWeights, newWeights, gasUsed);
@@ -326,7 +328,8 @@ contract WeightUpdateRunner is Ownable, ReentrancyGuard {
      */
     function withdrawETH(address payable to, uint256 amount) external onlyOwner {
         require(address(this).balance >= amount, "Insufficient balance");
-        to.transfer(amount);
+        (bool success, ) = to.call{value: amount}("");
+        if (!success) revert ETHTransferFailed();
     }
 
     receive() external payable {}

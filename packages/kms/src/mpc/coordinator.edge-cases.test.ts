@@ -218,6 +218,9 @@ describe('MPC Coordinator Edge Cases', () => {
     })
 
     it('should handle 3-of-5 threshold configuration', async () => {
+      // Note: Using 'testnet' instead of 'mainnet' because mainnet now
+      // requires MPC_ACKNOWLEDGE_CENTRALIZED_RISK=true to prevent insecure
+      // coordinator usage in production (see security review)
       const coordinator35 = new MPCCoordinator({
         threshold: 3,
         totalParties: 5,
@@ -225,7 +228,7 @@ describe('MPC Coordinator Edge Cases', () => {
         maxConcurrentSessions: 5,
         requireAttestation: false,
         minPartyStake: 0n,
-        network: 'mainnet',
+        network: 'testnet',
       })
 
       for (let i = 0; i < 5; i++) {
@@ -241,7 +244,7 @@ describe('MPC Coordinator Edge Cases', () => {
       }
 
       const key = await coordinator35.generateKey({
-        keyId: 'mainnet-key',
+        keyId: 'testnet-key',
         threshold: 3,
         totalParties: 5,
         partyIds: ['party-1', 'party-2', 'party-3', 'party-4', 'party-5'],

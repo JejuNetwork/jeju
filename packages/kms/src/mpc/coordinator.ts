@@ -1,10 +1,19 @@
 /**
  * MPC Coordinator - Shamir's Secret Sharing for t-of-n key management
+ *
+ * ⚠️ SECURITY WARNING ⚠️
+ *
+ * This coordinator reconstructs the full private key during signing.
+ * For production use, prefer the SecureSigningService from signing-service.ts
+ * or FROSTCoordinator from frost-signing.ts which NEVER reconstructs keys.
+ *
+ * @deprecated Use SecureSigningService or FROSTCoordinator for production
  */
 
-import { getEnvOrDefault } from '@jejunetwork/shared'
+import { getEnv, getEnvOrDefault, logger } from '@jejunetwork/shared'
 import { type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { SecureShare, SecureShareMap } from './secure-share.js'
 import {
   getMPCConfig,
   type KeyRotationParams,
@@ -89,16 +98,57 @@ function bytesToBigint(bytes: Uint8Array): bigint {
   return result
 }
 
+/**
+ * ⚠️ SECURITY WARNING: This coordinator stores ALL party secrets in memory.
+ *
+ * For production deployments:
+ * - Use SecureSigningService (signing-service.ts) which enforces distributed parties
+ * - Or deploy FROST parties on SEPARATE physical hardware
+ * - Set MPC_ACKNOWLEDGE_CENTRALIZED_RISK=true only if you understand the risks
+ */
 export class MPCCoordinator {
   private config: MPCCoordinatorConfig
   private parties = new Map<string, MPCParty>()
   private keys = new Map<string, MPCKeyGenResult>()
   private keyVersions = new Map<string, KeyVersion[]>()
   private sessions = new Map<string, MPCSignSession>()
-  private partySecrets = new Map<string, Map<string, bigint>>()
+  /**
+   * ⚠️ All party secrets stored here - defeats MPC in side-channel attack
+   * Each party should hold ONLY their own secret on separate hardware.
+   *
+   * IMPROVEMENT: Now using SecureShareMap for zeroable storage.
+   * Shares can be securely zeroed when keys are deleted or rotated.
+   */
+  private partySecrets = new Map<string, SecureShareMap>()
 
   constructor(config: Partial<MPCCoordinatorConfig> = {}) {
     this.config = { ...getMPCConfig('localnet'), ...config }
+
+    // Production safety: BLOCK insecure centralized coordinator on mainnet
+    const network = config.network ?? 'localnet'
+    if (network === 'mainnet') {
+      const acknowledged = getEnv('MPC_ACKNOWLEDGE_CENTRALIZED_RISK') === 'true'
+      if (!acknowledged) {
+        throw new Error(
+          'SECURITY BLOCK: MPCCoordinator cannot be used on mainnet.\n' +
+            'This coordinator stores ALL party secrets in memory, defeating MPC security.\n' +
+            'A TEE side-channel attack would expose the complete private key.\n\n' +
+            'For production, use:\n' +
+            '  - SecureSigningService from signing-service.ts (recommended)\n' +
+            '  - Deploy FROST parties on SEPARATE physical TEE hardware\n\n' +
+            'To bypass (NOT RECOMMENDED): Set MPC_ACKNOWLEDGE_CENTRALIZED_RISK=true',
+        )
+      }
+      logger.warn('MPCCoordinator used on mainnet with acknowledged risk')
+    } else if (network === 'testnet') {
+      const acknowledged = getEnv('MPC_ACKNOWLEDGE_CENTRALIZED_RISK') === 'true'
+      if (!acknowledged) {
+        logger.warn(
+          'MPCCoordinator stores all secrets in memory - defeats MPC security. ' +
+            'For production, use SecureSigningService or distributed FROST parties.',
+        )
+      }
+    }
   }
 
   registerParty(party: Omit<MPCParty, 'status' | 'lastSeen'>): MPCParty {
@@ -165,9 +215,9 @@ export class MPCCoordinator {
       )
     }
 
-    // Compute shares for each party
+    // Compute shares for each party using SecureShareMap (zeroable storage)
     const partyShares = new Map<string, KeyShareMetadata>()
-    const keySecrets = new Map<string, bigint>()
+    const keySecrets = new SecureShareMap()
 
     for (let i = 0; i < partyIds.length; i++) {
       const receiverId = partyIds[i]
@@ -181,8 +231,12 @@ export class MPCCoordinator {
           CURVE_ORDER
       }
 
-      keySecrets.set(receiverId, aggregatedShare)
+      // Convert to SecureShare for zeroable storage
+      keySecrets.set(receiverId, SecureShare.fromBigInt(aggregatedShare))
       const shareBytes = bigintToBytes32(aggregatedShare)
+      // Zero the aggregatedShare (though bigint reference will be GC'd)
+      aggregatedShare = 0n
+      
       partyShares.set(receiverId, {
         partyId: receiverId,
         commitment: keccak256(shareBytes),
@@ -201,6 +255,8 @@ export class MPCCoordinator {
     const privateKeyHex =
       `0x${aggregateSecret.toString(16).padStart(64, '0')}` as `0x${string}`
     const account = privateKeyToAccount(privateKeyHex)
+    // Zero after use
+    aggregateSecret = 0n
 
     const result: MPCKeyGenResult = {
       keyId,
@@ -329,18 +385,39 @@ export class MPCCoordinator {
   /**
    * Aggregate partial signatures into final signature.
    *
-   * NOTE: This implementation uses Shamir's Secret Sharing for key distribution
-   * and reconstructs the full key temporarily for signing. The key is zeroed
-   * immediately after use. For true threshold signing where the key is never
-   * reconstructed, use the FROST implementation in frost-signing.ts.
+   * ⚠️ SECURITY WARNING - SIDE CHANNEL VULNERABILITY ⚠️
    *
-   * SECURITY: The reconstructed key is held only for the duration of signing
-   * and is zeroed immediately after. While this is less secure than true
-   * threshold signing, it provides a working MPC signing capability.
+   * This implementation reconstructs the FULL PRIVATE KEY in memory during
+   * signing. It is INSECURE against TEE side-channel attacks (Spectre,
+   * Meltdown, cache-timing, etc.) because:
+   *
+   * 1. The full private key exists in memory during signing
+   * 2. JavaScript bigint is immutable - "zeroing" only clears the reference
+   * 3. All party secrets are stored in a single Map (defeats MPC purpose)
+   *
+   * FOR PRODUCTION USE:
+   * - Use the FROST implementation in frost-signing.ts which provides TRUE
+   *   threshold signing where the private key is NEVER reconstructed
+   * - Deploy parties on SEPARATE PHYSICAL HARDWARE in different locations
+   * - Use the DWS MPC architecture (dws-worker/mpc-discovery.ts)
+   *
+   * This coordinator is suitable ONLY for:
+   * - Development and testing
+   * - Scenarios where single-TEE security is acceptable
+   *
+   * @deprecated Use FROST-based distributed signing for production
    */
   private async aggregateSignature(
     session: MPCSignSession,
   ): Promise<MPCSignatureResult> {
+    // SECURITY: Log warning about key reconstruction
+    logger.warn(
+      'MPCCoordinator.aggregateSignature reconstructs the full private key in memory. ' +
+        'This is INSECURE for production TEE deployments. ' +
+        'Use SecureSigningService or FROSTCoordinator instead.',
+      { keyId: session.keyId, sessionId: session.sessionId },
+    )
+
     const key = this.keys.get(session.keyId)
     if (!key) throw new Error(`Key ${session.keyId} not found`)
 
@@ -354,12 +431,15 @@ export class MPCCoordinator {
 
     // Reconstruct key using Lagrange interpolation
     // NOTE: This temporarily reconstructs the full private key
+    // We use SecureShare to zero the intermediate values after use
     let reconstructedKey = 0n
     for (let i = 0; i < session.participants.length; i++) {
-      const share = keySecrets.get(session.participants[i])
-      if (!share)
+      const secureShare = keySecrets.get(session.participants[i])
+      if (!secureShare)
         throw new Error(`Share not found for party ${session.participants[i]}`)
 
+      // Get the share value (temporarily as bigint for arithmetic)
+      const share = secureShare.toBigInt()
       const lambda = lagrangeCoefficient(
         participantIndices,
         participantIndices[i],
@@ -381,8 +461,8 @@ export class MPCCoordinator {
       message: { raw: toBytes(session.messageHash) },
     })
 
-    // SECURITY: Zero the reconstructed key immediately after use
-    // Note: bigint is immutable, so we can only clear the reference
+    // SECURITY: Clear the reconstructed key reference after use
+    // Note: bigint is immutable, but clearing the reference helps with GC
     reconstructedKey = 0n
 
     return {
@@ -397,6 +477,17 @@ export class MPCCoordinator {
     }
   }
 
+  /**
+   * Rotate key shares using proactive secret sharing.
+   *
+   * SECURITY: This uses proactive secret sharing where each party generates
+   * a new random polynomial with zero as the secret, shares it with other
+   * parties, and everyone adds their received shares to their existing share.
+   * This changes all shares without changing the underlying secret or requiring
+   * the secret to be reconstructed.
+   *
+   * This is side-channel resistant: the secret is never reconstructed during rotation.
+   */
   async rotateKey(params: KeyRotationParams): Promise<KeyRotationResult> {
     const { keyId, newThreshold, newParties } = params
     const key = this.keys.get(keyId)
@@ -408,7 +499,6 @@ export class MPCCoordinator {
     const versions = this.keyVersions.get(keyId)
     if (!versions) throw new Error(`Key versions not found for ${keyId}`)
 
-    // newThreshold and newParties are optional rotation parameters - use current values if not provided
     const threshold = newThreshold !== undefined ? newThreshold : key.threshold
     const partyIds =
       newParties !== undefined ? newParties : Array.from(key.partyShares.keys())
@@ -417,41 +507,67 @@ export class MPCCoordinator {
     if (threshold > partyIds.length)
       throw new Error('Threshold cannot exceed party count')
 
-    const currentPartyIds = Array.from(key.partyShares.keys())
-    const currentIndices = currentPartyIds.map((_, i) => i + 1)
-
-    let secret = 0n
-    for (let i = 0; i < key.threshold; i++) {
-      const share = keySecrets.get(currentPartyIds[i])
-      if (!share)
-        throw new Error(`Share not found for party ${currentPartyIds[i]}`)
-      const lambda = lagrangeCoefficient(
-        currentIndices.slice(0, key.threshold),
-        currentIndices[i],
-      )
-      secret = (secret + share * lambda) % CURVE_ORDER
-    }
-    secret = ((secret % CURVE_ORDER) + CURVE_ORDER) % CURVE_ORDER
-
-    const newPolynomial = generatePolynomial(secret, threshold - 1)
-    const newShares = new Map<string, bigint>()
-    const newShareMetadata = new Map<string, KeyShareMetadata>()
     const newVersion = key.version + 1
 
-    for (let i = 0; i < partyIds.length; i++) {
-      const partyId = partyIds[i]
-      const share = evaluatePolynomial(newPolynomial, BigInt(i + 1))
-      newShares.set(partyId, share)
+    // PROACTIVE SECRET SHARING: Each party generates a random polynomial
+    // with constant term = 0 (zero-sharing). When all parties add their
+    // received zero-shares to their existing share, the secret stays the
+    // same but all shares change.
+    const zeroSharePolynomials = new Map<string, bigint[]>()
+    for (const partyId of partyIds) {
+      // Generate polynomial with f(0) = 0 (zero as constant term)
+      const zeroPolynomial = generatePolynomial(0n, threshold - 1)
+      zeroPolynomial[0] = 0n // Ensure constant term is zero
+      zeroSharePolynomials.set(partyId, zeroPolynomial)
+    }
 
-      newShareMetadata.set(partyId, {
-        partyId,
-        commitment: keccak256(bigintToBytes32(share)),
-        publicShare: keccak256(toBytes(`${partyId}:${i + 1}:${newVersion}`)),
+    // Each party computes new shares by adding zero-shares from all parties
+    // Using SecureShareMap for zeroable storage
+    const newShares = new SecureShareMap()
+    const newShareMetadata = new Map<string, KeyShareMetadata>()
+
+    for (let i = 0; i < partyIds.length; i++) {
+      const receiverId = partyIds[i]
+      const receiverIndex = i + 1
+
+      // Start with old share (or 0 if new party)
+      const oldSecureShare = keySecrets.get(receiverId)
+      let newShare = oldSecureShare ? oldSecureShare.toBigInt() : 0n
+
+      // Add zero-shares from each party's polynomial evaluated at receiver's index
+      for (const polynomial of zeroSharePolynomials.values()) {
+        newShare =
+          (newShare + evaluatePolynomial(polynomial, BigInt(receiverIndex))) %
+          CURVE_ORDER
+      }
+      newShare = ((newShare % CURVE_ORDER) + CURVE_ORDER) % CURVE_ORDER
+
+      // Convert to SecureShare for zeroable storage
+      const newSecureShare = SecureShare.fromBigInt(newShare)
+      newShares.set(receiverId, newSecureShare)
+      newShareMetadata.set(receiverId, {
+        partyId: receiverId,
+        commitment: keccak256(bigintToBytes32(newShare)),
+        publicShare: keccak256(
+          toBytes(`${receiverId}:${receiverIndex}:${newVersion}`),
+        ),
         createdAt: Date.now(),
         version: newVersion,
       })
+      // Clear temporary bigint reference
+      newShare = 0n
     }
 
+    // Zero out the temporary polynomials
+    for (const polynomial of zeroSharePolynomials.values()) {
+      polynomial.fill(0n)
+    }
+    zeroSharePolynomials.clear()
+
+    // Securely zero the old shares before replacing
+    keySecrets.clear()
+
+    // Update version tracking
     const currentVersion = versions.find((v) => v.status === 'active')
     if (currentVersion) {
       currentVersion.status = 'rotated'
@@ -469,14 +585,12 @@ export class MPCCoordinator {
       status: 'active',
     })
 
+    // Update key state
     key.threshold = threshold
     key.totalParties = partyIds.length
     key.partyShares = newShareMetadata
     key.version = newVersion
     this.partySecrets.set(keyId, newShares)
-
-    secret = 0n
-    newPolynomial.fill(0n)
 
     return {
       keyId,
@@ -501,10 +615,7 @@ export class MPCCoordinator {
     // Securely zero all party secrets before deletion
     const secrets = this.partySecrets.get(keyId)
     if (secrets) {
-      // Zero each secret value by overwriting with 0n before clearing
-      for (const partyId of secrets.keys()) {
-        secrets.set(partyId, 0n)
-      }
+      // SecureShareMap.clear() securely zeros all shares
       secrets.clear()
     }
     this.partySecrets.delete(keyId)

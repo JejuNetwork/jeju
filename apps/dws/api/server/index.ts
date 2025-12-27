@@ -289,15 +289,39 @@ function getContractOrZero(
   }
 }
 
+/**
+ * SECURITY WARNING: Private Key Configuration
+ *
+ * The DWS_PRIVATE_KEY is used for on-chain transactions (git registry, pkg registry, CI).
+ * In production with TEE, this key is vulnerable to side-channel attacks.
+ *
+ * Recommended production configuration:
+ * 1. Use KMS-backed signing via DWS_KMS_KEY_ID environment variable
+ * 2. Or use TX_RELAY_URL for HSM-backed transaction relay
+ * 3. Never store raw private keys in TEE memory
+ *
+ * The current implementation uses direct keys for development compatibility.
+ */
+const dwsPrivateKey =
+  (serverConfig.privateKey as Hex | undefined) ??
+  (typeof process !== 'undefined'
+    ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
+    : undefined)
+
+// Warn about direct key usage in production
+if (isProduction && dwsPrivateKey) {
+  console.warn(
+    '[DWS] WARNING: Using DWS_PRIVATE_KEY directly in production. ' +
+      'Set DWS_KMS_KEY_ID for KMS-backed signing to protect against side-channel attacks.',
+  )
+}
+
 // Git configuration - uses centralized config
 const gitConfig = {
   rpcUrl: getRpcUrl(NETWORK),
   repoRegistryAddress: getContractOrZero('registry', 'repo'),
-  privateKey:
-    (serverConfig.privateKey as Hex | undefined) ??
-    (typeof process !== 'undefined'
-      ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
-      : undefined),
+  privateKey: dwsPrivateKey,
+  kmsKeyId: process.env.DWS_KMS_KEY_ID,
 }
 
 const repoManager = new GitRepoManager(gitConfig, backendManager)
@@ -306,11 +330,8 @@ const repoManager = new GitRepoManager(gitConfig, backendManager)
 const pkgConfig = {
   rpcUrl: getRpcUrl(NETWORK),
   packageRegistryAddress: getContractOrZero('registry', 'package'),
-  privateKey:
-    (serverConfig.privateKey as Hex | undefined) ??
-    (typeof process !== 'undefined'
-      ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
-      : undefined),
+  privateKey: dwsPrivateKey,
+  kmsKeyId: process.env.DWS_KMS_KEY_ID,
 }
 
 const registryManager = new PkgRegistryManager(pkgConfig, backendManager)
@@ -319,11 +340,8 @@ const registryManager = new PkgRegistryManager(pkgConfig, backendManager)
 const ciConfig = {
   rpcUrl: getRpcUrl(NETWORK),
   triggerRegistryAddress: getContractOrZero('registry', 'trigger'),
-  privateKey:
-    (serverConfig.privateKey as Hex | undefined) ??
-    (typeof process !== 'undefined'
-      ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
-      : undefined),
+  privateKey: dwsPrivateKey,
+  kmsKeyId: process.env.DWS_KMS_KEY_ID,
 }
 
 const workflowEngine = new WorkflowEngine(ciConfig, backendManager, repoManager)
@@ -916,6 +934,14 @@ function shutdown(signal: string) {
 }
 
 if (import.meta.main) {
+  // SECURITY: Validate security configuration at startup
+  // Checks KMS availability, HSM availability, secret configuration
+  // In production, will exit if critical security requirements are not met
+  const { enforceSecurityAtStartup } = await import(
+    '../shared/security-validator'
+  )
+  await enforceSecurityAtStartup('DWS Server')
+
   const baseUrl =
     serverConfig.baseUrl ??
     (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ??

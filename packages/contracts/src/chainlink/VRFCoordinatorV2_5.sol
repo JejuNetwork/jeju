@@ -120,6 +120,7 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
     error PendingRequestExists();
     error MustBeSubOwner(address owner);
     error MustBeRequestOwner(address expected, address actual);
+    error ETHTransferFailed();
 
     modifier onlyOracle() {
         if (!oracles[msg.sender]) revert NotOracle();
@@ -206,7 +207,10 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         }
         delete subscriptions[subId];
         if (linkBalance > 0) LINK.transfer(to, linkBalance);
-        if (nativeBalance > 0) payable(to).transfer(nativeBalance);
+        if (nativeBalance > 0) {
+            (bool success, ) = payable(to).call{value: nativeBalance}("");
+            if (!success) revert ETHTransferFailed();
+        }
         emit SubscriptionCanceled(subId, to, linkBalance, nativeBalance);
     }
 
@@ -259,7 +263,8 @@ contract VRFCoordinatorV2_5 is Ownable2Step, ReentrancyGuard {
         Subscription storage sub = subscriptions[rc.subId];
         if (sub.nativeBalance >= payment) {
             sub.nativeBalance -= payment;
-            payable(feeRecipient).transfer(payment);
+            (bool transferOk, ) = payable(feeRecipient).call{value: payment}("");
+            if (!transferOk) revert ETHTransferFailed();
         } else if (sub.balance >= convertToLink(payment)) {
             uint96 linkPayment = convertToLink(payment);
             sub.balance -= linkPayment;

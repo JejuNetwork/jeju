@@ -95,12 +95,23 @@ export interface GasEstimate {
 
 /**
  * Paymaster configuration
+ *
+ * SECURITY: Uses keyId to reference MPC-managed keys instead of raw private keys.
+ * The private key is NEVER reconstructed - all signing uses FROST threshold signatures.
  */
 export interface PaymasterConfig {
   /** Treasury contract address */
   treasuryAddress: Address
-  /** Operator private key for signing */
-  operatorPrivateKey: Hex
+  /**
+   * Operator key ID for MPC signing
+   * SECURITY: This references a key managed by SecureSigningService.
+   * The actual private key is distributed across MPC parties.
+   */
+  operatorKeyId: string
+  /**
+   * Operator address (derived from the MPC key)
+   */
+  operatorAddress: Address
   /** RPC URL for chain interaction */
   rpcUrl: string
   /** Chain ID */

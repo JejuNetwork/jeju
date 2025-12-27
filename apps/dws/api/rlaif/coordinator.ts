@@ -16,10 +16,22 @@
 
 import { writeContract } from '@jejunetwork/contracts'
 import { expectValid } from '@jejunetwork/types'
-import { type Address, createWalletClient, type Hex, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import {
+  type Account,
+  type Address,
+  createWalletClient,
+  type Hex,
+  http,
+  type WalletClient,
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { z } from 'zod'
+import {
+  createKMSWalletClient,
+  isKMSAvailable,
+  type KMSWalletClient,
+} from '../shared/kms-wallet'
 import { RulerScorer } from './ruler-scorer'
 import { TrajectoryStore } from './trajectory-store'
 import {
@@ -142,6 +154,8 @@ const RLAIF_COORDINATOR_ABI = [
 export interface RLAIFCoordinatorConfig {
   rpcUrl: string
   privateKey?: Hex
+  kmsKeyId?: string
+  ownerAddress?: Address
   coordinatorAddress: Address
   computeApiUrl: string
   storageApiUrl: string
@@ -154,17 +168,19 @@ export interface RLAIFCoordinatorConfig {
 }
 
 export class RLAIFCoordinator {
-  private walletClient
-  private account
+  private walletClient: WalletClient | KMSWalletClient | undefined
+  private account: PrivateKeyAccount | Account | undefined
   private readonly chain = foundry
   private config: RLAIFCoordinatorConfig
   private trajectoryStore: TrajectoryStore
   private rulerScorer: RulerScorer
   private activeRuns: Map<string, RLAIFRun> = new Map()
+  private initialized = false
 
   constructor(config: RLAIFCoordinatorConfig) {
     this.config = config
 
+    // Initialize with direct key if provided (will be replaced by KMS in initSecure)
     if (config.privateKey) {
       this.account = privateKeyToAccount(config.privateKey)
       this.walletClient = createWalletClient({
@@ -181,6 +197,39 @@ export class RLAIFCoordinator {
     this.rulerScorer = new RulerScorer({
       computeApiUrl: config.computeApiUrl,
     })
+  }
+
+  /**
+   * Initialize secure signing via KMS
+   * Call this before any on-chain operations in production
+   */
+  async initializeSecureSigning(): Promise<void> {
+    if (this.initialized) return
+
+    const { kmsKeyId, ownerAddress, rpcUrl } = this.config
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (kmsKeyId && ownerAddress) {
+      const kmsAvailable = await isKMSAvailable()
+      if (kmsAvailable) {
+        this.walletClient = await createKMSWalletClient({
+          chain: this.chain,
+          rpcUrl,
+          kmsKeyId,
+          ownerAddress,
+        })
+        this.account = this.walletClient.account
+        console.log('[RLAIF] Using KMS-backed signing (FROST threshold)')
+      } else if (isProduction) {
+        throw new Error('KMS not available in production')
+      }
+    } else if (isProduction && !this.walletClient) {
+      throw new Error(
+        'RLAIF coordinator requires kmsKeyId and ownerAddress in production',
+      )
+    }
+
+    this.initialized = true
   }
 
   async createRun(runConfig: RLAIFRunConfig): Promise<string> {

@@ -332,7 +332,7 @@ const app = new Elysia()
         : null,
       reputation,
       attestation,
-      oracleConfigured: Boolean(LEADERBOARD_CONFIG.oracle.privateKey),
+      oracleConfigured: LEADERBOARD_CONFIG.oracle.isEnabled,
       onChainEnabled: LEADERBOARD_CONFIG.oracle.isEnabled,
     }
   })

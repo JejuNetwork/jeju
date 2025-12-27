@@ -95,11 +95,22 @@ export interface OAuth3Session {
 /**
  * Internal session data used only within the TEE.
  * SECURITY: This type should NEVER be exposed to clients or stored in localStorage.
+ *
+ * Uses keyId to reference MPC-managed keys instead of raw private keys.
+ * The private key is NEVER reconstructed in memory.
+ *
  * @internal
  */
 export interface OAuth3InternalSession extends OAuth3Session {
-  /** Private signing key - MUST stay within the TEE */
-  signingKey: Hex
+  /**
+   * Key ID for the signing key (managed by SecureSigningService)
+   * SECURITY: References an MPC key - private key is NEVER reconstructed
+   */
+  signingKeyId: string
+  /**
+   * Address derived from the signing key
+   */
+  signingAddress: Address
 }
 
 export const SessionCapability = {

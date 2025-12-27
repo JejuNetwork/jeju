@@ -1,8 +1,19 @@
 #!/usr/bin/env bun
-/** Heartbeat service - sends regular heartbeats to node explorer. */
+/**
+ * Heartbeat service - sends regular heartbeats to node explorer.
+ *
+ * SECURITY: This service uses KMS for signing to prevent private key exposure.
+ * In a TEE side-channel attack scenario, the private key never exists in memory
+ * because signing is delegated to the KMS service.
+ *
+ * Two modes are supported:
+ * 1. KMS Mode (production): Uses @jejunetwork/kms ThresholdSigner for MPC signing
+ * 2. Legacy Mode (development only): Direct key signing (insecure, for local dev)
+ */
 
-import { getRpcUrl } from '@jejunetwork/config'
-import { type Chain, createPublicClient, http, isHex } from 'viem'
+import { getKmsServiceUrl, getRpcUrl, isProductionEnv } from '@jejunetwork/config'
+import { type Chain, createPublicClient, http, type Address, type Hex, isAddress } from 'viem'
+import { z } from 'zod'
 
 function inferChainFromRpcUrl(rpcUrl: string): Chain {
   if (
@@ -35,9 +46,6 @@ function inferChainFromRpcUrl(rpcUrl: string): Chain {
   }
 }
 
-import { privateKeyToAccount } from 'viem/accounts'
-import { z } from 'zod'
-
 const EthSyncingResponseSchema = z.object({
   jsonrpc: z.literal('2.0'),
   id: z.number(),
@@ -53,31 +61,35 @@ const EthSyncingResponseSchema = z.object({
 
 type EthSyncingResult = z.infer<typeof EthSyncingResponseSchema>['result']
 
+// ============================================================================
+// Configuration
+// ============================================================================
+
 const NODE_ID = process.env.NODE_ID
-const OPERATOR_PRIVATE_KEY = process.env.OPERATOR_PRIVATE_KEY
+const OPERATOR_ADDRESS = process.env.OPERATOR_ADDRESS as Address | undefined
+const KMS_KEY_ID = process.env.KMS_KEY_ID
+const KMS_ENDPOINT = process.env.KMS_ENDPOINT ?? getKmsServiceUrl()
 
 if (!NODE_ID) {
   throw new Error('NODE_ID environment variable is required')
 }
-if (!OPERATOR_PRIVATE_KEY) {
-  throw new Error('OPERATOR_PRIVATE_KEY environment variable is required')
-}
-const VALIDATED_PRIVATE_KEY: string = OPERATOR_PRIVATE_KEY
 
-/** Validate and parse a hex private key. */
-function parsePrivateKey(key: string): `0x${string}` {
-  if (!isHex(key) || key.length !== 66) {
-    throw new Error(
-      'OPERATOR_PRIVATE_KEY must be a 64-character hex string with 0x prefix',
-    )
+// Production MUST use KMS - no raw private keys allowed
+const IS_PRODUCTION = isProductionEnv()
+
+if (IS_PRODUCTION) {
+  if (!OPERATOR_ADDRESS) {
+    throw new Error('OPERATOR_ADDRESS environment variable is required in production')
   }
-  return key
-}
-
-/** Creates the operator account from environment. Encapsulated to prevent key leakage. */
-function getOperatorAccount() {
-  const key = parsePrivateKey(VALIDATED_PRIVATE_KEY)
-  return privateKeyToAccount(key)
+  if (!isAddress(OPERATOR_ADDRESS)) {
+    throw new Error('OPERATOR_ADDRESS must be a valid Ethereum address')
+  }
+  if (!KMS_KEY_ID) {
+    throw new Error('KMS_KEY_ID environment variable is required in production')
+  }
+  if (!KMS_ENDPOINT) {
+    throw new Error('KMS_ENDPOINT environment variable is required in production')
+  }
 }
 
 const NODE_EXPLORER_API =
@@ -92,14 +104,117 @@ if (Number.isNaN(INTERVAL) || INTERVAL <= 0) {
 
 const CONFIG = {
   NODE_ID,
+  OPERATOR_ADDRESS,
+  KMS_KEY_ID,
+  KMS_ENDPOINT,
   NODE_EXPLORER_API,
   RPC_URL,
   INTERVAL,
+  IS_PRODUCTION,
+}
+
+// ============================================================================
+// KMS Signing Client
+// ============================================================================
+
+const KMSSignResponseSchema = z.object({
+  signature: z.string(),
+  keyId: z.string().optional(),
+  address: z.string().optional(),
+  signedAt: z.number().optional(),
+  mode: z.string().optional(),
+})
+
+/**
+ * Sign a message using the KMS service.
+ * The private key never leaves the KMS - only the signature is returned.
+ */
+async function signWithKMS(message: string): Promise<Hex> {
+  if (!CONFIG.KMS_ENDPOINT || !CONFIG.KMS_KEY_ID || !CONFIG.OPERATOR_ADDRESS) {
+    throw new Error('KMS configuration incomplete')
+  }
+
+  const response = await fetch(`${CONFIG.KMS_ENDPOINT}/sign`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': CONFIG.OPERATOR_ADDRESS,
+    },
+    body: JSON.stringify({
+      keyId: CONFIG.KMS_KEY_ID,
+      messageHash: message,
+      encoding: 'text',
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (!response.ok) {
+    const error = await response.text().catch(() => 'Unknown error')
+    throw new Error(`KMS signing failed: ${response.status} - ${error}`)
+  }
+
+  const result = KMSSignResponseSchema.parse(await response.json())
+  return result.signature as Hex
 }
 
 const HeartbeatResponseSchema = z.object({
   uptime_score: z.number(),
 })
+
+// ============================================================================
+// Development Mode (INSECURE - only for local testing)
+// ============================================================================
+
+/**
+ * Development-only signing using local private key.
+ * WARNING: This is INSECURE and should NEVER be used in production.
+ * The private key exists in memory and is vulnerable to side-channel attacks.
+ */
+async function signWithLocalKey(message: string): Promise<Hex> {
+  // Dynamic import to avoid loading in production
+  const { privateKeyToAccount } = await import('viem/accounts')
+  const { isHex } = await import('viem')
+
+  const key = process.env.OPERATOR_PRIVATE_KEY
+  if (!key) {
+    throw new Error('OPERATOR_PRIVATE_KEY required for development mode')
+  }
+  if (!isHex(key) || key.length !== 66) {
+    throw new Error('OPERATOR_PRIVATE_KEY must be a 64-char hex string with 0x prefix')
+  }
+
+  console.warn('⚠️  SECURITY WARNING: Using insecure local signing (development only)')
+  console.warn('⚠️  Private key is exposed in memory - vulnerable to side-channel attacks')
+
+  const account = privateKeyToAccount(key as `0x${string}`)
+  const signature = await account.signMessage({ message })
+  return signature
+}
+
+/**
+ * Sign a message using the appropriate method based on environment.
+ * Production: Uses KMS (private key never in memory)
+ * Development: Uses local key (insecure, for testing only)
+ */
+async function signMessage(message: string): Promise<Hex> {
+  if (CONFIG.IS_PRODUCTION) {
+    return signWithKMS(message)
+  }
+
+  // Development mode - allow local signing with clear warning
+  if (CONFIG.KMS_ENDPOINT && CONFIG.KMS_KEY_ID && CONFIG.OPERATOR_ADDRESS) {
+    // If KMS is configured, use it even in development
+    console.log('🔐 Using KMS signing (recommended)')
+    return signWithKMS(message)
+  }
+
+  // Fallback to local key for development only
+  return signWithLocalKey(message)
+}
+
+// ============================================================================
+// Heartbeat Logic
+// ============================================================================
 
 async function sendHeartbeat(): Promise<void> {
   const chain = inferChainFromRpcUrl(CONFIG.RPC_URL)
@@ -107,7 +222,6 @@ async function sendHeartbeat(): Promise<void> {
     chain,
     transport: http(CONFIG.RPC_URL),
   })
-  const account = getOperatorAccount()
 
   const chainId = await publicClient.getChainId()
   const blockNumber = await publicClient.getBlockNumber()
@@ -147,7 +261,10 @@ async function sendHeartbeat(): Promise<void> {
   const responseTime = Date.now() - startTime
   const timestamp = Date.now()
   const message = `Heartbeat:v1:${chainId}:${CONFIG.NODE_ID}:${timestamp}:${blockNumber}`
-  const signature = await account.signMessage({ message })
+
+  // SECURITY: Sign using KMS in production, local key only in development
+  const signature = await signMessage(message)
+
   const response = await fetch(`${CONFIG.NODE_EXPLORER_API}/nodes/heartbeat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -184,6 +301,17 @@ async function main(): Promise<void> {
   console.log('💓 Heartbeat service starting...')
   console.log(`   Node ID: ${CONFIG.NODE_ID}`)
   console.log(`   Interval: ${CONFIG.INTERVAL / 1000}s`)
+
+  // Show security mode
+  if (CONFIG.IS_PRODUCTION) {
+    console.log('   Mode: 🔐 KMS (secure)')
+    console.log(`   KMS Endpoint: ${CONFIG.KMS_ENDPOINT}`)
+    console.log(`   Operator Address: ${CONFIG.OPERATOR_ADDRESS}`)
+  } else if (CONFIG.KMS_ENDPOINT && CONFIG.KMS_KEY_ID) {
+    console.log('   Mode: 🔐 KMS (development)')
+  } else {
+    console.log('   Mode: ⚠️  Local signing (INSECURE - development only)')
+  }
 
   await sendHeartbeat()
 
