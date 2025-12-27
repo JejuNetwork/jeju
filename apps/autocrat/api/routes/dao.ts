@@ -377,12 +377,13 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
     async ({ params, query }) => {
       const proposals = await blockchain.getProposalsByDAO(params.daoId)
       // Filter by status/type if provided
-      let filtered = proposals
+      type ProposalItem = { status: string; type: string }
+      let filtered = proposals as ProposalItem[]
       if (query.status && query.status !== 'all') {
-        filtered = filtered.filter((p) => p.status === query.status)
+        filtered = filtered.filter((p: ProposalItem) => p.status === query.status)
       }
       if (query.type && query.type !== 'all') {
-        filtered = filtered.filter((p) => p.proposalType === Number(query.type))
+        filtered = filtered.filter((p: ProposalItem) => p.type === query.type)
       }
       return filtered
     },
