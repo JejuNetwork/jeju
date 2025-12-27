@@ -1,5 +1,6 @@
 # Stage: runtime
-FROM alpine:3.19
+# Use Alpine 3.22 to match golang:1.23-alpine ICU version
+FROM alpine:3.22
 
 ARG COMMIT
 ARG VERSION
