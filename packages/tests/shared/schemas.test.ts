@@ -492,7 +492,7 @@ describe('parseChainIdResponse - Chain ID Parsing', () => {
   test('should parse chain ID 31337', () => {
     const result = parseChainIdResponse({
       jsonrpc: '2.0',
-      result: '0x539',
+      result: '0x7A69', // 31337 in hex
       id: 1,
     })
     expect(result).toBe(31337)

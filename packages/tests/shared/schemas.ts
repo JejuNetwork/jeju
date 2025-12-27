@@ -11,6 +11,9 @@
 import { AddressSchema, HashSchema, HexSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
+// Re-export base schemas from @jejunetwork/types
+export { AddressSchema, HashSchema, HexSchema }
+
 // Import JSON-RPC types directly from @jejunetwork/types
 export type {
   JsonRpcErrorResponse,
@@ -264,7 +267,37 @@ export function parseIpfsAddResponse(data: unknown): IpfsAddResponse {
   return IpfsAddResponseSchema.parse(data)
 }
 
-// RPC Response schemas
+// RPC Request/Response schemas
+export const JsonRpcRequestSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  method: z.string(),
+  params: z.array(z.unknown()).default([]),
+  id: z.number().or(z.string()),
+})
+
+export const JsonRpcSuccessResponseSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  result: z.unknown(),
+  id: z.number().or(z.string()).or(z.null()),
+})
+
+export const JsonRpcErrorSchema = z.object({
+  code: z.number(),
+  message: z.string(),
+  data: z.unknown().optional(),
+})
+
+export const JsonRpcErrorResponseSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  error: JsonRpcErrorSchema,
+  id: z.number().or(z.string()).or(z.null()),
+})
+
+export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>
+export type JsonRpcSuccessResponse = z.infer<typeof JsonRpcSuccessResponseSchema>
+export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>
+export type JsonRpcErrorResponse = z.infer<typeof JsonRpcErrorResponseSchema>
+
 export const BlockNumberResponseSchema = z.object({
   jsonrpc: z.string(),
   id: z.number(),
@@ -290,22 +323,28 @@ export type GetCodeResponse = z.infer<typeof GetCodeResponseSchema>
 /**
  * Parse and validate eth_blockNumber response
  */
-export function parseBlockNumberResponse(data: unknown): BlockNumberResponse {
-  return BlockNumberResponseSchema.parse(data)
+/**
+ * Parse and validate eth_blockNumber response, returns block number as number
+ */
+export function parseBlockNumberResponse(data: unknown): number {
+  const parsed = BlockNumberResponseSchema.parse(data)
+  return parseInt(parsed.result, 16)
 }
 
 /**
- * Parse and validate eth_chainId response
+ * Parse and validate eth_chainId response, returns chain ID as number
  */
-export function parseChainIdResponse(data: unknown): ChainIdResponse {
-  return ChainIdResponseSchema.parse(data)
+export function parseChainIdResponse(data: unknown): number {
+  const parsed = ChainIdResponseSchema.parse(data)
+  return parseInt(parsed.result, 16)
 }
 
 /**
- * Parse and validate eth_getCode response
+ * Parse and validate eth_getCode response, returns bytecode as string
  */
-export function parseGetCodeResponse(data: unknown): GetCodeResponse {
-  return GetCodeResponseSchema.parse(data)
+export function parseGetCodeResponse(data: unknown): string {
+  const parsed = GetCodeResponseSchema.parse(data)
+  return parsed.result
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

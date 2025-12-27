@@ -1,5 +1,4 @@
 import {
-  getExternalRpc,
   getJejuHyperlaneIgp,
   getJejuHyperlaneMailbox,
   getRpcUrl as getJejuRpcUrl,
@@ -25,9 +24,12 @@ const DEFAULT_RPC_URLS = {
 } as const
 
 function getRpcUrl(chainName: keyof typeof DEFAULT_RPC_URLS): string {
-  // Try to get from config first
-  const configRpc = getExternalRpc(chainName)
-  if (configRpc) return configRpc
+  // Try environment variable first (e.g., AVALANCHE_RPC_URL)
+  const envKey = `${chainName.toUpperCase()}_RPC_URL`
+  const envValue = process.env[envKey]
+  if (envValue) return envValue
+
+  // Fall back to default RPC URLs
   return DEFAULT_RPC_URLS[chainName]
 }
 

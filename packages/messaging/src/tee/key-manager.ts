@@ -32,7 +32,7 @@ import type {
   EncryptedBackup,
   GenerateKeyRequest,
   GenerateKeyResult,
-  SignRequest,
+  SignRequest as LocalSignRequest,
   SignResult,
   TEEAttestation,
   TEEIdentityKey,
@@ -65,25 +65,31 @@ interface MockKeyStore {
   type: 'ed25519' | 'x25519'
 }
 
-// TEE Provider interface (matches @jejunetwork/kms)
+// TEE Provider interface (matches @jejunetwork/kms TEEProvider)
+// Import actual types from KMS for type safety
+import type {
+  AccessControlPolicy,
+  GeneratedKey,
+  KeyCurve,
+  KeyType,
+  SignedMessage,
+  SignRequest,
+  TEEAttestation as KMSTEEAttestation,
+} from '@jejunetwork/kms'
+
 interface TEEProviderInterface {
   connect(): Promise<void>
   disconnect(): Promise<void>
   isAvailable(): Promise<boolean>
   generateKey(
     owner: Address,
-    keyType: string,
-    curve: string,
-    policy: Record<string, unknown>,
-  ): Promise<{ metadata: { id: string }; publicKey: Hex }>
-  sign(request: {
-    keyId: string
-    message: Uint8Array | string
-    hashAlgorithm?: string
-  }): Promise<{ signature: Hex; keyId: string; signedAt: number }>
-  getAttestation(keyId?: string): Promise<TEEAttestation>
-  verifyAttestation(attestation: TEEAttestation): Promise<boolean>
-  getStatus(): { connected: boolean; mode: 'remote' | 'local' }
+    keyType: KeyType,
+    curve: KeyCurve,
+    policy: AccessControlPolicy,
+  ): Promise<GeneratedKey>
+  sign(request: SignRequest): Promise<SignedMessage>
+  getAttestation(keyId?: string): Promise<KMSTEEAttestation>
+  verifyAttestation(attestation: KMSTEEAttestation): Promise<boolean>
 }
 
 /**
@@ -147,9 +153,7 @@ export class TEEXMTPKeyManager {
 
       await this.teeProvider.connect()
 
-      log.info('Connected to TEE provider', {
-        status: this.teeProvider.getStatus(),
-      })
+      log.info('Connected to TEE provider')
     } catch (err) {
       const error =
         err instanceof Error
@@ -184,10 +188,8 @@ export class TEEXMTPKeyManager {
       throw new Error('TEE provider not initialized')
     }
 
-    const status = this.teeProvider.getStatus()
-    if (!status.connected) {
-      await this.teeProvider.connect()
-    }
+    // TEEProvider.connect() is idempotent - it returns early if already connected
+    await this.teeProvider.connect()
   }
 
   /**
@@ -570,6 +572,19 @@ export class TEEXMTPKeyManager {
   }
 
   /**
+   * Convert messaging TEEAttestation to KMS TEEAttestation format
+   */
+  private toKMSAttestation(attestation: TEEAttestation): KMSTEEAttestation {
+    return {
+      quote: attestation.nonce, // Use nonce as quote identifier
+      measurement: attestation.measurement,
+      timestamp: attestation.timestamp,
+      verified: true, // Attestation was verified during generation
+      verifierSignature: attestation.signature,
+    }
+  }
+
+  /**
    * Verify TEE attestation
    */
   async verifyAttestation(
@@ -577,7 +592,8 @@ export class TEEXMTPKeyManager {
   ): Promise<AttestationVerificationResult> {
     if (!this.config.mockMode && this.teeProvider) {
       // Use real TEE provider attestation verification
-      const valid = await this.teeProvider.verifyAttestation(attestation)
+      const kmsAttestation = this.toKMSAttestation(attestation)
+      const valid = await this.teeProvider.verifyAttestation(kmsAttestation)
       return {
         valid,
         enclaveIdMatch: attestation.enclaveId === this.config.enclaveId,
@@ -602,6 +618,19 @@ export class TEEXMTPKeyManager {
   }
 
   /**
+   * Convert messaging KeyPolicy to KMS AccessControlPolicy
+   * Note: Owner is passed as a separate parameter to generateKey,
+   * so we use an empty conditions array for basic ownership
+   */
+  private toAccessControlPolicy(
+    _policy: GenerateKeyRequest['policy'],
+  ): AccessControlPolicy {
+    // For XMTP keys, we use simple ownership-based access
+    // The owner address is passed separately to generateKey
+    return { conditions: [], operator: 'and' }
+  }
+
+  /**
    * Generate key inside TEE
    */
   private async generateKeyInTEE(
@@ -611,12 +640,19 @@ export class TEEXMTPKeyManager {
       // Use real TEE provider
       await this.ensureTEEConnected()
 
+      const keyType: KeyType =
+        request.type === 'ed25519' ? 'signing' : 'encryption'
+      const keyCurve: KeyCurve = request.type === 'ed25519' ? 'ed25519' : 'x25519'
+      const owner: Address =
+        request.policy?.owner ??
+        '0x0000000000000000000000000000000000000000'
+      const accessPolicy = this.toAccessControlPolicy(request.policy)
+
       const result = await this.teeProvider.generateKey(
-        (request.policy?.owner as Address) ??
-          ('0x0000000000000000000000000000000000000000' as Address),
-        request.type === 'ed25519' ? 'signing' : 'encryption',
-        request.type === 'ed25519' ? 'ed25519' : 'x25519',
-        (request.policy ?? {}) as Record<string, unknown>,
+        owner,
+        keyType,
+        keyCurve,
+        accessPolicy,
       )
 
       return {
@@ -657,15 +693,21 @@ export class TEEXMTPKeyManager {
   /**
    * Sign inside TEE
    */
-  private async signInTEE(request: SignRequest): Promise<SignResult> {
+  private async signInTEE(request: LocalSignRequest): Promise<SignResult> {
     if (!this.config.mockMode && this.teeProvider) {
       // Use real TEE provider
       await this.ensureTEEConnected()
 
+      // Map local hash algorithms to KMS-compatible ones
+      // KMS supports: 'keccak256' | 'sha256' | 'none'
+      // Local supports: 'sha256' | 'sha512' | 'none'
+      // sha512 is not supported by KMS, fallback to sha256
+      const hashAlgorithm =
+        request.hashAlgorithm === 'sha512' ? 'sha256' : (request.hashAlgorithm ?? 'sha256')
       const result = await this.teeProvider.sign({
         keyId: request.keyId,
         message: request.message,
-        hashAlgorithm: request.hashAlgorithm ?? 'sha256',
+        hashAlgorithm,
       })
 
       return {
@@ -740,13 +782,29 @@ export class TEEXMTPKeyManager {
   }
 
   /**
+   * Convert KMS TEEAttestation to messaging TEEAttestation format
+   */
+  private fromKMSAttestation(kmsAtt: KMSTEEAttestation): TEEAttestation {
+    return {
+      version: 1,
+      enclaveId: this.config.enclaveId,
+      measurement: kmsAtt.measurement,
+      pcrs: {}, // PCRs not available from KMS attestation
+      nonce: kmsAtt.quote, // Use quote as nonce
+      timestamp: kmsAtt.timestamp,
+      signature: kmsAtt.verifierSignature ?? ('0x' as Hex),
+    }
+  }
+
+  /**
    * Generate attestation for key
    */
   private async generateAttestation(keyId: string): Promise<TEEAttestation> {
     if (!this.config.mockMode && this.teeProvider) {
       // Use real TEE provider attestation
       await this.ensureTEEConnected()
-      return this.teeProvider.getAttestation(keyId)
+      const kmsAttestation = await this.teeProvider.getAttestation(keyId)
+      return this.fromKMSAttestation(kmsAttestation)
     }
 
     // Mock attestation

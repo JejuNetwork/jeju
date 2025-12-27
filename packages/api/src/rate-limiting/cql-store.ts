@@ -128,8 +128,10 @@ export class CQLRateLimitStore implements RateLimitStore {
     const now = Date.now()
     const resetAt = now + windowMs
 
+    // Get a connection for transaction
+    const conn = await this.client.connect(this.databaseId)
     // Use a transaction for atomic read-modify-write
-    const tx = await this.client.beginTransaction(this.databaseId)
+    const tx = await conn.beginTransaction()
 
     try {
       // Get current entry

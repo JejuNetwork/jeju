@@ -184,6 +184,11 @@ export type CoordinationConfig = z.infer<typeof CoordinationConfigSchema>
 // Edge Node Configuration (for node operators)
 // ============================================================================
 
+// Helper to get defaults for nested schemas
+const getEdgeCacheDefaults = () => EdgeCacheConfigSchema.parse({})
+const getP2PDefaults = () => P2PConfigSchema.parse({})
+const getCoordinationDefaults = () => CoordinationConfigSchema.parse({})
+
 export const EdgeNodeConfigSchema = z.object({
   /** Node operator region */
   region: z.enum(CDN_REGIONS).default('global'),
@@ -192,11 +197,11 @@ export const EdgeNodeConfigSchema = z.object({
   /** Public endpoint URL */
   endpoint: z.string().url().optional(),
   /** Edge cache config */
-  cache: EdgeCacheConfigSchema.default({}),
+  cache: EdgeCacheConfigSchema.default(getEdgeCacheDefaults),
   /** P2P config */
-  p2p: P2PConfigSchema.default({}),
+  p2p: P2PConfigSchema.default(getP2PDefaults),
   /** Coordination config */
-  coordination: CoordinationConfigSchema.default({}),
+  coordination: CoordinationConfigSchema.default(getCoordinationDefaults),
   /** Max concurrent connections */
   maxConnections: z.number().int().positive().default(10000),
   /** Request timeout (ms) */
@@ -234,11 +239,15 @@ export type StakingConfig = z.infer<typeof StakingConfigSchema>
 // Full CDN Configuration
 // ============================================================================
 
+// Helper to get defaults for CDN config
+const getEdgeNodeDefaults = () => EdgeNodeConfigSchema.parse({})
+const getStakingDefaults = () => StakingConfigSchema.parse({})
+
 export const CDNConfigSchema = z.object({
   /** Edge node config */
-  edge: EdgeNodeConfigSchema.default({}),
+  edge: EdgeNodeConfigSchema.default(getEdgeNodeDefaults),
   /** Staking config */
-  staking: StakingConfigSchema.default({}),
+  staking: StakingConfigSchema.default(getStakingDefaults),
 })
 
 export type CDNConfig = z.infer<typeof CDNConfigSchema>
@@ -259,9 +268,10 @@ export function getCDNConfig(overrides?: Partial<CDNConfig>): CDNConfig {
   const network = getCurrentNetwork()
 
   // Get service URLs from config
-  const dwsApiUrl = getServiceUrl('dws', 'api')
-  const _nodeApiUrl = getServiceUrl('node', 'api')
-  const nodeCdnUrl = getServiceUrl('node', 'cdn')
+  // 'compute' is the DWS/compute service
+  const dwsApiUrl = getServiceUrl('compute', 'api')
+  // 'gateway' serves CDN functionality
+  const nodeCdnUrl = getServiceUrl('gateway', 'cdn')
   const ipfsGatewayUrl = getServiceUrl('storage', 'ipfsGateway')
 
   // Build default config from services.json

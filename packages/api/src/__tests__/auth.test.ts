@@ -34,7 +34,7 @@ import {
 import {
   describeWithInfra,
   hasInfra,
-} from '@jeju/tests/shared/live-infrastructure'
+} from '@jejunetwork/tests'
 
 // Check if OAuth3 TEE service is available for live tests
 const OAUTH3_AVAILABLE = await hasInfra({ gateway: true })

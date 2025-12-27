@@ -911,7 +911,7 @@ app.post(
       agentId,
       request,
       agentSdk,
-      account,
+      account ?? null,
     )
     if (!authResult.authorized) {
       set.status = 403
@@ -1175,7 +1175,7 @@ app.post('/api/v1/bots/:botId/stop', async ({ params, request, set }) => {
     agentId,
     request,
     agentSdk,
-    account,
+    account ?? null,
   )
   if (!authResult.authorized) {
     set.status = 403
@@ -1204,7 +1204,7 @@ app.post('/api/v1/bots/:botId/start', async ({ params, request, set }) => {
     agentId,
     request,
     agentSdk,
-    account,
+    account ?? null,
   )
   if (!authResult.authorized) {
     set.status = 403

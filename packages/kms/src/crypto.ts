@@ -13,7 +13,7 @@ import { ciphertextPayloadSchema } from './schemas.js'
 const MAX_ENCRYPTION_SIZE = 100 * 1024 * 1024
 
 /** Helper to ensure ArrayBuffer compatibility for Web Crypto API */
-function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+export function toArrayBuffer(data: Uint8Array): ArrayBuffer {
   return data.buffer.slice(
     data.byteOffset,
     data.byteOffset + data.byteLength,

@@ -103,15 +103,23 @@ export class TEEProvider implements KMSProvider {
 
       // SECURITY: Verify attestation BEFORE accepting enclave key
       if (data.attestation) {
+        // TEEClient validates these are hex strings via Zod
+        const attestation: TEEAttestation = {
+          quote: data.attestation.quote as Hex,
+          measurement: data.attestation.measurement as Hex,
+          timestamp: data.attestation.timestamp,
+          verified: data.attestation.verified,
+          verifierSignature: data.attestation.verifierSignature as Hex | undefined,
+        }
         const attestationValid = await this.attestationVerifier.verify(
-          data.attestation,
+          attestation,
         )
         if (!attestationValid.valid) {
           throw new Error(
             `Remote TEE attestation verification failed: ${attestationValid.error ?? 'unknown error'}`,
           )
         }
-        this.attestation = data.attestation
+        this.attestation = attestation
         log.info('Remote TEE attestation verified', {
           teeType: attestationValid.teeType,
           measurementTrusted: attestationValid.measurementTrusted,
@@ -175,13 +183,16 @@ export class TEEProvider implements KMSProvider {
           policy,
           providerType: KMSProviderType.TEE,
         }
+        // TEEClient validates these are hex strings
+        const publicKey = result.publicKey as Hex
+        const address = result.address as Address
         this.keys.set(keyId, {
           metadata,
           encryptedPrivateKey: new Uint8Array(0),
-          publicKey: result.publicKey,
-          address: result.address,
+          publicKey,
+          address,
         })
-        return { metadata, publicKey: result.publicKey }
+        return { metadata, publicKey }
       }
       log.warn('Remote key generation failed, using local generation')
     }
@@ -272,14 +283,16 @@ export class TEEProvider implements KMSProvider {
       })
 
       if (result) {
+        // TEEClient validates signature is a hex string
+        const signature = result.signature as Hex
         return {
           message: toHex(
             typeof request.message === 'string'
               ? toBytes(request.message as Hex)
               : request.message,
           ),
-          signature: result.signature,
-          recoveryId: parseInt(result.signature.slice(130, 132), 16) - 27,
+          signature,
+          recoveryId: parseInt(signature.slice(130, 132), 16) - 27,
           keyId: request.keyId,
           signedAt: Date.now(),
         }

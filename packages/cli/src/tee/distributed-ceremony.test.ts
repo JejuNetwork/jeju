@@ -223,7 +223,16 @@ describe('Distributed TEE Ceremony', () => {
   })
 
   describe('Network Differentiation', () => {
-    test('testnet and mainnet produce different results', async () => {
+    test('throws security error for mainnet in simulation mode', async () => {
+      const providers = createTestProviders(3)
+
+      // Mainnet ceremony should throw in simulation mode for security
+      await expect(
+        runDistributedCeremony('mainnet', providers, 2),
+      ).rejects.toThrow('SECURITY ERROR')
+    })
+
+    test('testnet runs successfully in simulation mode', async () => {
       const providers = createTestProviders(3)
 
       const testnetResult = await runDistributedCeremony(
@@ -231,20 +240,9 @@ describe('Distributed TEE Ceremony', () => {
         providers,
         2,
       )
-      const mainnetResult = await runDistributedCeremony(
-        'mainnet',
-        providers,
-        2,
-      )
 
       expect(testnetResult.network).toBe('testnet')
-      expect(mainnetResult.network).toBe('mainnet')
-
-      // Public keys should be different due to different derivation paths
-      // (In simulation mode they're random, so they'll always differ)
-      expect(testnetResult.publicKeys.admin).not.toBe(
-        mainnetResult.publicKeys.admin,
-      )
+      expect(testnetResult.publicKeys.admin).toBeDefined()
     })
   })
 

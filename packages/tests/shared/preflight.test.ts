@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { createPublicClient, http } from 'viem'
 import { quickHealthCheck, runPreflightChecks, waitForChain } from './preflight'
 import { isRpcAvailable } from './utils'
 
@@ -10,10 +11,22 @@ import { isRpcAvailable } from './utils'
 const FAKE_RPC = 'http://localhost:59999'
 const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
 
-// Auto-detect chain availability
-const CHAIN_AVAILABLE =
-  process.env.CHAIN_AVAILABLE === 'true' ||
-  (await isRpcAvailable(REAL_RPC).catch(() => false))
+// Auto-detect chain availability and chain ID
+let CHAIN_AVAILABLE = false
+let DETECTED_CHAIN_ID = 31337
+
+try {
+  CHAIN_AVAILABLE = process.env.CHAIN_AVAILABLE === 'true' ||
+    (await isRpcAvailable(REAL_RPC).catch(() => false))
+
+  if (CHAIN_AVAILABLE) {
+    // Detect actual chain ID
+    const client = createPublicClient({ transport: http(REAL_RPC) })
+    DETECTED_CHAIN_ID = await client.getChainId()
+  }
+} catch {
+  CHAIN_AVAILABLE = false
+}
 
 describe('quickHealthCheck - Fast Health Validation', () => {
   test('should return false for unreachable RPC', async () => {
@@ -192,7 +205,7 @@ describe.skipIf(!CHAIN_AVAILABLE)(
     test('should pass all checks on healthy chain', async () => {
       const result = await runPreflightChecks({
         rpcUrl: REAL_RPC,
-        chainId: 31337,
+        chainId: DETECTED_CHAIN_ID,
       })
 
       expect(result.success).toBe(true)

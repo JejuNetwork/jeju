@@ -152,8 +152,7 @@ export async function checkRpcHealth(
     }
 
     const chainIdData = await chainIdResponse.json()
-    const chainIdResponse2 = parseChainIdResponse(chainIdData)
-    const chainId = parseInt(chainIdResponse2.result, 16)
+    const chainId = parseChainIdResponse(chainIdData)
 
     // Check block number
     const blockResponse = await fetch(rpcUrl, {
@@ -173,8 +172,7 @@ export async function checkRpcHealth(
     }
 
     const blockData = await blockResponse.json()
-    const blockNumberResponse = parseBlockNumberResponse(blockData)
-    const blockNumber = parseInt(blockNumberResponse.result, 16)
+    const blockNumber = parseBlockNumberResponse(blockData)
 
     return { available: true, chainId, blockNumber }
   } catch (error) {

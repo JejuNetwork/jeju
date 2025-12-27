@@ -124,6 +124,7 @@
       "dependencies": {
         "@elizaos/core": "^1.6.6",
         "@elysiajs/cors": "^1.4.0",
+        "@jejunetwork/api": "workspace:*",
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/eliza-plugin": "workspace:*",
         "@jejunetwork/messaging": "workspace:*",
@@ -397,6 +398,7 @@
       "dependencies": {
         "@jejunetwork/config": "workspace:*",
         "@jejunetwork/contracts": "workspace:*",
+        "@jejunetwork/db": "workspace:*",
         "@jejunetwork/sdk": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
         "@jejunetwork/types": "workspace:*",
@@ -516,6 +518,9 @@
         "@types/react-dom": "19.2.3",
         "typescript": "5.9.3",
       },
+      "optionalDependencies": {
+        "@nicememes/capacitor-secure-storage-plugin": "^1.1.0",
+      },
     },
     "packages/a2a": {
       "name": "@jejunetwork/a2a",
@@ -549,6 +554,7 @@
         "@elizaos/core": "1.7.0",
         "@jejunetwork/a2a": "workspace:*",
         "@jejunetwork/config": "workspace:*",
+        "@jejunetwork/db": "workspace:*",
         "@jejunetwork/kms": "workspace:*",
         "@jejunetwork/mcp": "workspace:*",
         "@jejunetwork/shared": "workspace:*",
