@@ -19,7 +19,7 @@
 import { createMPCClient } from '@jejunetwork/kms'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
-import { keccak256, toBytes, toHex } from 'viem'
+import { keccak256, toBytes, toHex, verifyMessage } from 'viem'
 import { z } from 'zod'
 
 // Request body schemas
@@ -243,10 +243,38 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
         }
       })
 
-      .post('/signers/:signerId/approve', ({ params }) => {
+      .post('/signers/:signerId/approve', async ({ params, request, set }) => {
         const signer = signers.get(params.signerId)
         if (!signer) {
-          throw new Error('Signer not found')
+          set.status = 404
+          return { error: 'Signer not found' }
+        }
+
+        // Authenticate: only the MPC group address can approve
+        const signature = request.headers.get('x-jeju-signature') as Hex | null
+        const timestamp = request.headers.get('x-jeju-timestamp')
+
+        if (!signature || !timestamp) {
+          set.status = 401
+          return { error: 'Missing authentication headers' }
+        }
+
+        const ts = parseInt(timestamp, 10)
+        const now = Date.now()
+        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+          set.status = 401
+          return { error: 'Invalid or expired timestamp' }
+        }
+
+        const isValid = await verifyMessage({
+          address: signer.groupAddress,
+          message: `Approve signer:${params.signerId}:${timestamp}`,
+          signature,
+        })
+
+        if (!isValid) {
+          set.status = 401
+          return { error: 'Invalid signature' }
         }
 
         signer.status = 'active'
@@ -259,10 +287,38 @@ export function createFarcasterWorker(config: FarcasterWorkerConfig) {
         }
       })
 
-      .post('/signers/:signerId/revoke', ({ params }) => {
+      .post('/signers/:signerId/revoke', async ({ params, request, set }) => {
         const signer = signers.get(params.signerId)
         if (!signer) {
-          throw new Error('Signer not found')
+          set.status = 404
+          return { error: 'Signer not found' }
+        }
+
+        // Authenticate: only the MPC group address can revoke
+        const signature = request.headers.get('x-jeju-signature') as Hex | null
+        const timestamp = request.headers.get('x-jeju-timestamp')
+
+        if (!signature || !timestamp) {
+          set.status = 401
+          return { error: 'Missing authentication headers' }
+        }
+
+        const ts = parseInt(timestamp, 10)
+        const now = Date.now()
+        if (Number.isNaN(ts) || ts < now - 5 * 60 * 1000 || ts > now + 30 * 1000) {
+          set.status = 401
+          return { error: 'Invalid or expired timestamp' }
+        }
+
+        const isValid = await verifyMessage({
+          address: signer.groupAddress,
+          message: `Revoke signer:${params.signerId}:${timestamp}`,
+          signature,
+        })
+
+        if (!isValid) {
+          set.status = 401
+          return { error: 'Invalid signature' }
         }
 
         signer.status = 'revoked'

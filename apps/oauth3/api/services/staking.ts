@@ -139,32 +139,35 @@ export async function verifyStake(owner: Address): Promise<{
   const stakingAddress = getStakingContractAddress()
   const client = getPublicClient()
 
-  // Get stake position from contract
-  let position: {
-    stakedAmount: bigint
-    stakedAt: bigint
-    linkedAgentId: bigint
-    reputationBonus: bigint
-    unbondingAmount: bigint
-    unbondingStartTime: bigint
-    isActive: boolean
-    isFrozen: boolean
-  }
+  // Get stake position from contract - returns tuple
+  type StakePosition = readonly [
+    stakedAmount: bigint,
+    stakedAt: bigint,
+    linkedAgentId: bigint,
+    reputationBonus: bigint,
+    unbondingAmount: bigint,
+    unbondingStartTime: bigint,
+    isActive: boolean,
+    isFrozen: boolean,
+  ]
+
+  let positionTuple: StakePosition
 
   try {
-    position = await client.readContract({
+    positionTuple = (await client.readContract({
       address: stakingAddress,
       abi: STAKING_ABI,
       functionName: 'getPosition',
       args: [owner],
-    })
+    })) as StakePosition
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error(`[Staking] Contract call failed for ${owner}: ${message}`)
     return { valid: false, error: `contract_call_failed: ${message}` }
   }
 
-  const { stakedAmount, isActive, isFrozen } = position
+  // Destructure tuple: [stakedAmount, stakedAt, linkedAgentId, reputationBonus, unbondingAmount, unbondingStartTime, isActive, isFrozen]
+  const [stakedAmount, , , , , , isActive, isFrozen] = positionTuple
 
   if (isFrozen) {
     return { valid: false, error: 'stake_frozen' }

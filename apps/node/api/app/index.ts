@@ -5,7 +5,13 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
-import { getChainId, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getCQLMinerUrl,
+  getCQLUrl,
+  getCurrentNetwork,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import chalk from 'chalk'
 import { formatEther } from 'viem'

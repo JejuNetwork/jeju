@@ -5,6 +5,7 @@
 import { cors } from '@elysiajs/cors'
 import { validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import { security } from './utils/security'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -286,6 +287,7 @@ export function createIndexerMCPServer() {
         ? cors({ origin: CORS_ORIGINS, credentials: true })
         : cors(),
     )
+    .use(security({ service: 'indexer-mcp' }))
     .onError(({ error, set }) => {
       const errorMessage =
         error instanceof Error ? error.message : String(error)

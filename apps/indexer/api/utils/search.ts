@@ -10,6 +10,14 @@ import { type SearchParams, searchParamsSchema } from './validation'
 
 export type { AgentSearchResult, ProviderResult, SearchResult }
 
+/**
+ * Escape special characters in SQL LIKE patterns to prevent injection
+ * Escapes %, _, and \ which have special meaning in LIKE patterns
+ */
+function escapeLikePattern(input: string): string {
+  return input.replace(/[%_\\]/g, (char) => `\\${char}`)
+}
+
 const searchCache = new Map<string, { data: SearchResult; expiresAt: number }>()
 const CACHE_TTL = 30_000
 const MAX_CACHE_ENTRIES = 1000
@@ -104,6 +112,8 @@ export async function search(
   const scores = new Map<string, number>()
 
   if (query?.trim()) {
+    // Escape LIKE special chars to prevent SQL injection via pattern manipulation
+    const escapedQuery = escapeLikePattern(query)
     const rawQuery = `
       SELECT a.*,
         ts_rank_cd(
@@ -116,14 +126,14 @@ export async function search(
       WHERE a.active = $2 AND (
         to_tsvector('english', COALESCE(a.name, '') || ' ' || COALESCE(a.description, '') || ' ' ||
           COALESCE(array_to_string(a.tags, ' '), '')) @@ plainto_tsquery('english', $1)
-        OR LOWER(a.name) LIKE LOWER($3) OR LOWER(a.description) LIKE LOWER($3)
-        OR EXISTS (SELECT 1 FROM unnest(a.tags) t WHERE LOWER(t) LIKE LOWER($3)))
+        OR LOWER(a.name) LIKE LOWER($3) ESCAPE '\\' OR LOWER(a.description) LIKE LOWER($3) ESCAPE '\\'
+        OR EXISTS (SELECT 1 FROM unnest(a.tags) t WHERE LOWER(t) LIKE LOWER($3) ESCAPE '\\'))
       ORDER BY rank DESC, a.stake_tier DESC LIMIT $4 OFFSET $5`
 
     const results = (await dataSource.query(rawQuery, [
       query,
       active,
-      `%${query}%`,
+      `%${escapedQuery}%`,
       limit,
       offset,
     ])) as Array<RegisteredAgent & { rank: number }>
@@ -147,14 +157,15 @@ export async function search(
 
   if (endpointType === 'all' || endpointType === 'rest') {
     const providerLimit = Math.max(10, Math.floor(limit / 4))
-    const searchPattern = query ? `%${query}%` : null
+    // Escape LIKE special chars for provider search
+    const searchPattern = query ? `%${escapeLikePattern(query)}%` : null
 
     const buildQuery = (alias: string) => {
       const conditions = [`${alias}.isActive = :active`]
       const params: { active: boolean; q?: string } = { active }
       if (searchPattern) {
         conditions.push(
-          `(LOWER(${alias}.name) LIKE LOWER(:q) OR LOWER(${alias}.endpoint) LIKE LOWER(:q))`,
+          `(LOWER(${alias}.name) LIKE LOWER(:q) ESCAPE '\\' OR LOWER(${alias}.endpoint) LIKE LOWER(:q) ESCAPE '\\')`,
         )
         params.q = searchPattern
       }

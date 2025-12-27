@@ -2,6 +2,7 @@ import { cors } from '@elysiajs/cors'
 import { type Context, Elysia } from 'elysia'
 import { z } from 'zod'
 import { RegisteredAgent } from '../src/model'
+import { security } from './utils/security'
 import { getAccountByAddress } from './utils/account-utils'
 import { getAgentsByTag } from './utils/agent-utils'
 import { getBlockByIdentifier } from './utils/block-detail-utils'
@@ -124,6 +125,7 @@ const corsOptions = CORS_ORIGINS?.length
 
 const app = new Elysia()
   .use(cors(corsOptions))
+  .use(security({ service: 'indexer-rest' }))
   .use(stakeRateLimiter({ skipPaths: ['/health', '/'] }))
   .get('/health', () => ({
     status: isSchemaReady() ? 'ok' : 'degraded',

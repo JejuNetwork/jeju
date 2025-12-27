@@ -116,7 +116,7 @@ export class CQLRateLimitStore implements RateLimitStore {
 
   /**
    * Atomic increment - increments count and returns new value
-   * This is the key operation for distributed rate limiting
+   * Uses upsert with conditional logic for atomic operation
    */
   async increment(
     key: string,
@@ -126,60 +126,61 @@ export class CQLRateLimitStore implements RateLimitStore {
 
     const fullKey = this.makeKey(key)
     const now = Date.now()
-    const resetAt = now + windowMs
+    const newResetAt = now + windowMs
 
-    // Use a transaction for atomic read-modify-write
-    const tx = await this.client.beginTransaction(this.databaseId)
+    // First, try to get current entry
+    const result = await this.client.query<{
+      count: number
+      reset_at: number
+    }>(`SELECT count, reset_at FROM ${RATE_LIMIT_TABLE} WHERE key = ?`, [
+      fullKey,
+    ], this.databaseId)
 
-    try {
-      // Get current entry
-      const result = await tx.query<{
-        count: number
-        reset_at: number
-      }>(`SELECT count, reset_at FROM ${RATE_LIMIT_TABLE} WHERE key = ?`, [
-        fullKey,
-      ])
+    let newCount: number
+    let finalResetAt: number
 
-      let newCount: number
-      let newResetAt: number
+    if (result.rows.length === 0) {
+      // New entry - insert with count 1
+      newCount = 1
+      finalResetAt = newResetAt
+      await this.client.exec(
+        `INSERT INTO ${RATE_LIMIT_TABLE} (key, count, reset_at, schema_version, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+           count = CASE WHEN excluded.reset_at > ${RATE_LIMIT_TABLE}.reset_at
+                        THEN 1 ELSE ${RATE_LIMIT_TABLE}.count + 1 END,
+           reset_at = CASE WHEN excluded.reset_at > ${RATE_LIMIT_TABLE}.reset_at
+                           THEN excluded.reset_at ELSE ${RATE_LIMIT_TABLE}.reset_at END,
+           updated_at = excluded.updated_at`,
+        [fullKey, newCount, finalResetAt, SCHEMA_VERSION, now],
+        this.databaseId,
+      )
+    } else {
+      const current = result.rows[0]
 
-      if (result.rows.length === 0) {
-        // New entry
+      if (current.reset_at < now) {
+        // Window expired, start new window
         newCount = 1
-        newResetAt = resetAt
-        await tx.exec(
-          `INSERT INTO ${RATE_LIMIT_TABLE} (key, count, reset_at, schema_version, updated_at)
-           VALUES (?, ?, ?, ?, ?)`,
-          [fullKey, newCount, newResetAt, SCHEMA_VERSION, now],
-        )
+        finalResetAt = newResetAt
       } else {
-        const current = result.rows[0]
-
-        if (current.reset_at < now) {
-          // Window expired, start new window
-          newCount = 1
-          newResetAt = resetAt
-        } else {
-          // Increment within window
-          newCount = current.count + 1
-          newResetAt = current.reset_at
-        }
-
-        await tx.exec(
-          `UPDATE ${RATE_LIMIT_TABLE}
-           SET count = ?, reset_at = ?, updated_at = ?
-           WHERE key = ?`,
-          [newCount, newResetAt, now, fullKey],
-        )
+        // Increment within current window
+        newCount = current.count + 1
+        finalResetAt = current.reset_at
       }
 
-      await tx.commit()
-
-      return { count: newCount, resetAt: newResetAt }
-    } catch (error) {
-      await tx.rollback()
-      throw error
+      // Use atomic update with version check
+      await this.client.exec(
+        `UPDATE ${RATE_LIMIT_TABLE}
+         SET count = CASE WHEN reset_at < ? THEN 1 ELSE count + 1 END,
+             reset_at = CASE WHEN reset_at < ? THEN ? ELSE reset_at END,
+             updated_at = ?
+         WHERE key = ?`,
+        [now, now, newResetAt, now, fullKey],
+        this.databaseId,
+      )
     }
+
+    return { count: newCount, resetAt: finalResetAt }
   }
 
   async delete(key: string): Promise<void> {

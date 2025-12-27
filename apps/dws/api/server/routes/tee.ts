@@ -31,9 +31,14 @@ function createDstackClientAdapter() {
       quote: string
       mode: string
     }): Promise<{ valid: boolean; tcbValid?: boolean; reason?: string }> {
-      // If DSTACK_SKIP_VERIFICATION is set, skip external verification (dev mode)
+      // SECURITY: Only skip verification in non-production with explicit flag
+      const isProduction = process.env.NODE_ENV === 'production'
       if (process.env.DSTACK_SKIP_VERIFICATION === 'true') {
-        console.log('[TEE] Skipping dstack verification (dev mode)')
+        if (isProduction) {
+          console.error('[TEE] CRITICAL: DSTACK_SKIP_VERIFICATION cannot be used in production')
+          return { valid: false, reason: 'Verification bypass not allowed in production' }
+        }
+        console.warn('[TEE] WARNING: Skipping dstack verification (dev mode only)')
         return { valid: true, tcbValid: true }
       }
 

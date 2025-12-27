@@ -6,7 +6,7 @@ import {
   createOAuthProvider,
   type OAuthConfig,
   type OAuthState,
-} from '@jejunetwork/auth/providers'
+} from '@jejunetwork/auth'
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
 import { toHex } from 'viem'
