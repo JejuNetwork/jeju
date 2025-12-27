@@ -4,7 +4,7 @@
 import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = CORE_PORTS.AUTOCRAT_API.get()
+const PORT = CORE_PORTS.AUTOCRAT_WEB.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
