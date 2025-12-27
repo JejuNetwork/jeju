@@ -706,11 +706,7 @@ export class ExecutorSDK {
         // Action not handled - log it but don't fail silently
         this.log.debug('Unhandled action type', {
           type,
-<<<<<<< HEAD
-          params: action.params as JsonValue,
-=======
           params: JSON.stringify(action.params ?? {}),
->>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
           hint: 'This action may need to be routed to the Jeju plugin runtime',
         })
         return false
