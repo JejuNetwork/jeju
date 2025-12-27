@@ -443,3 +443,4 @@ describe('VPN Types', () => {
     })
   })
 })
+

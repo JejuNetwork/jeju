@@ -384,3 +384,4 @@ describe('EventEmitter interface', () => {
     expect(received?.type).toBe('test')
   })
 })
+

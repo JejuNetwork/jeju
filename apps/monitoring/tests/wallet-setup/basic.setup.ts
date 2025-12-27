@@ -24,3 +24,4 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
 })
 
 export { PASSWORD }
+

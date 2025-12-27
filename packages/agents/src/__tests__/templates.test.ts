@@ -179,9 +179,7 @@ describe('Template Content Quality', () => {
     for (const template of Object.values(AGENT_TEMPLATES)) {
       expect(template.priorityMetrics).toBeDefined()
       expect(Array.isArray(template.priorityMetrics)).toBe(true)
-      const metrics = template.priorityMetrics
-      if (!metrics) throw new Error('priorityMetrics should be defined')
-      expect(metrics.length).toBeGreaterThan(0)
+      expect(template.priorityMetrics.length).toBeGreaterThan(0)
     }
   })
 })

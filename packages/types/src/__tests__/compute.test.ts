@@ -524,3 +524,4 @@ describe('Constant values', () => {
     expect(RentalStatus.EXPIRED).toBe(5)
   })
 })
+

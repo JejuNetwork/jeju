@@ -183,9 +183,6 @@ export class TEEProvider implements KMSProvider {
           policy,
           providerType: KMSProviderType.TEE,
         }
-        // TEEClient validates these are hex strings
-        const publicKey = result.publicKey as Hex
-        const address = result.address as Address
         this.keys.set(keyId, {
           metadata,
           encryptedPrivateKey: new Uint8Array(0),
@@ -283,8 +280,6 @@ export class TEEProvider implements KMSProvider {
       })
 
       if (result) {
-        // TEEClient validates signature is a hex string
-        const signature = result.signature as Hex
         return {
           message: toHex(
             typeof request.message === 'string'

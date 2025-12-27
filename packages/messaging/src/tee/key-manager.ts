@@ -14,6 +14,7 @@ import type {
   GeneratedKey,
   KeyCurve,
   KeyType,
+  TEEAttestation as KMSTEEAttestation,
 } from '@jejunetwork/kms'
 import {
   bytesToHex,
@@ -618,19 +619,6 @@ export class TEEXMTPKeyManager {
   }
 
   /**
-   * Convert messaging KeyPolicy to KMS AccessControlPolicy
-   * Note: Owner is passed as a separate parameter to generateKey,
-   * so we use an empty conditions array for basic ownership
-   */
-  private toAccessControlPolicy(
-    _policy: GenerateKeyRequest['policy'],
-  ): AccessControlPolicy {
-    // For XMTP keys, we use simple ownership-based access
-    // The owner address is passed separately to generateKey
-    return { conditions: [], operator: 'and' }
-  }
-
-  /**
    * Generate key inside TEE
    */
   private async generateKeyInTEE(
@@ -792,13 +780,11 @@ export class TEEXMTPKeyManager {
    */
   private fromKMSAttestation(kmsAtt: KMSTEEAttestation): TEEAttestation {
     return {
-      version: 1,
-      enclaveId: this.config.enclaveId,
+      quote: kmsAtt.quote,
       measurement: kmsAtt.measurement,
-      pcrs: {}, // PCRs not available from KMS attestation
-      nonce: kmsAtt.quote, // Use quote as nonce
       timestamp: kmsAtt.timestamp,
-      signature: kmsAtt.verifierSignature ?? ('0x' as Hex),
+      verified: kmsAtt.verified,
+      verifierSignature: kmsAtt.verifierSignature,
     }
   }
 

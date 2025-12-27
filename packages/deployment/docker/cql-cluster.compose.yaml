@@ -24,15 +24,13 @@ services:
     hostname: cql-bp
     command:
       - -config
-      - /home/cql/.cql/config.yaml
-      - -role
-      - blockproducer
+      - /config/bp.yaml
     ports:
       - "4660:4661"  # Different port to avoid conflict with LB
       - "8546:8546"  # HTTP API
       - "9100:9100"  # Metrics
     volumes:
-      - ./covenantsql/config/bp.yaml:/home/cql/.cql/config.yaml:ro
+      - ./covenantsql/config/bp.yaml:/config/bp.yaml:ro
       - cql-bp-data:/data
       - cql-bp-logs:/logs
     environment:

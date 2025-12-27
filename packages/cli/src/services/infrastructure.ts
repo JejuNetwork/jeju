@@ -79,34 +79,30 @@ export class InfrastructureService {
       return true
     }
 
-    logger.step('Starting CQL cluster (Docker Compose)...')
-
+    // Try Docker first, fall back to local SQLite server
+    const dockerAvailable = await this.isDockerRunning()
     const composeFile = join(
       this.rootDir,
       'packages/deployment/docker/cql-cluster.compose.yaml',
     )
 
-    if (!existsSync(composeFile)) {
-      logger.error('CQL cluster compose file not found')
-      logger.info(
-        'Expected at: packages/deployment/docker/cql-cluster.compose.yaml',
-      )
-      return false
+    if (dockerAvailable && existsSync(composeFile)) {
+      logger.step('Starting CQL cluster (Docker Compose)...')
+      const started = await this.startCQLDocker(composeFile)
+      if (started) return true
+      logger.warn('Docker CQL failed, falling back to local SQLite server')
     }
 
-    // Check if Docker is running
-    if (!(await this.isDockerRunning())) {
-      logger.error('Docker is not running. Please start Docker first.')
-      return false
-    }
+    // Fall back to local SQLite-backed CQL server
+    return this.startCQLLocal()
+  }
 
-    // Start CQL cluster via Docker Compose
+  private async startCQLDocker(composeFile: string): Promise<boolean> {
     cqlProcess = execa('docker', ['compose', '-f', composeFile, 'up', '-d'], {
       cwd: this.rootDir,
       stdio: 'pipe',
     })
 
-    // Capture errors for debugging
     let startupError = ''
     cqlProcess.stderr?.on('data', (data: Buffer) => {
       startupError += data.toString()
@@ -121,7 +117,6 @@ export class InfrastructureService {
       return false
     }
 
-    // Wait up to 60 seconds for CQL to become healthy
     logger.info('Waiting for CQL cluster to become healthy...')
     for (let i = 0; i < 120; i++) {
       await this.sleep(500)
@@ -131,7 +126,6 @@ export class InfrastructureService {
         logger.keyValue('  Stats UI', 'http://127.0.0.1:8547/stats')
         return true
       }
-      // Log progress every 10 seconds
       if (i > 0 && i % 20 === 0) {
         logger.info(`  Still waiting for CQL cluster... (${i / 2}s)`)
       }
@@ -141,6 +135,36 @@ export class InfrastructureService {
     if (startupError) {
       logger.error(`Docker output: ${startupError.slice(0, 500)}`)
     }
+    return false
+  }
+
+  private async startCQLLocal(): Promise<boolean> {
+    logger.step('Starting CQL server (SQLite-backed)...')
+
+    const dbPath = join(this.rootDir, 'packages/db')
+    const dataDir = join(this.rootDir, '.data/cql')
+
+    cqlProcess = execa('bun', ['run', 'server'], {
+      cwd: dbPath,
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        PORT: String(CQL_PORT),
+        CQL_PORT: String(CQL_PORT),
+        CQL_DATA_DIR: dataDir,
+      },
+    })
+
+    // Wait for server to start
+    for (let i = 0; i < 30; i++) {
+      await this.sleep(500)
+      if (await this.isCQLRunning()) {
+        logger.success(`CQL server running on port ${CQL_PORT} (SQLite mode)`)
+        return true
+      }
+    }
+
+    logger.error('CQL server failed to start within 15 seconds')
     return false
   }
 
