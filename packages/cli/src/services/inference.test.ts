@@ -329,7 +329,7 @@ describe('Response Normalization', () => {
       model: data.model,
       choices: [
         {
-          message: { role: 'assistant', content: data.content[0]?.text ?? '' },
+          message: { role: 'assistant', content: data.content[0].text ?? '' },
           finish_reason:
             data.stop_reason === 'end_turn' ? 'stop' : data.stop_reason,
         },
@@ -358,7 +358,7 @@ describe('Response Normalization', () => {
     model: string,
   ): OpenAIResponse {
     const candidate = data.candidates[0]
-    const firstPart = candidate?.content?.parts[0]
+    const firstPart = candidate.content.parts[0]
     const usage = data.usageMetadata
 
     return {
@@ -369,9 +369,9 @@ describe('Response Normalization', () => {
         {
           message: {
             role: 'assistant',
-            content: firstPart?.text ?? '',
+            content: firstPart.text ?? '',
           },
-          finish_reason: candidate?.finishReason === 'STOP' ? 'stop' : 'length',
+          finish_reason: candidate.finishReason === 'STOP' ? 'stop' : 'length',
         },
       ],
       usage: {

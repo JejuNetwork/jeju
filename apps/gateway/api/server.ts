@@ -54,7 +54,9 @@ const app = new Elysia()
     if (!bodyParsed.success) {
       return { success: false, error: 'Invalid address format' }
     }
-    const result = await claimFromFaucet(bodyParsed.data.address as `0x${string}`)
+    const result = await claimFromFaucet(
+      bodyParsed.data.address as `0x${string}`,
+    )
     return result
   })
 

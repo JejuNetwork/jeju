@@ -400,17 +400,17 @@ export async function getCacheStats(): Promise<CacheStats> {
   )
 
   const stats = await getStatsRow()
-  const totalLayers = layerCount.rows[0]?.count ?? 0
+  const totalLayers = layerCount.rows[0].count ?? 0
   const totalHits = stats.cache_hits
   const totalMisses = stats.cache_misses
   const totalRequests = totalHits + totalMisses
   const now = Date.now()
-  const oldestCachedAt = layerStats.rows[0]?.oldest ?? now
-  const totalLayerSize = layerStats.rows[0]?.total_size ?? 0
+  const oldestCachedAt = layerStats.rows[0].oldest ?? now
+  const totalLayerSize = layerStats.rows[0].total_size ?? 0
 
   return {
     totalLayers,
-    totalImages: imageCount.rows[0]?.count ?? 0,
+    totalImages: imageCount.rows[0].count ?? 0,
     cacheSizeMb: Math.round(stats.current_size_mb * 100) / 100,
     maxCacheSizeMb: MAX_CACHE_SIZE_MB,
     cacheUtilization:
@@ -538,7 +538,7 @@ export async function isCurrentlyPrewarming(): Promise<boolean> {
     ['prewarm_status'],
     CQL_DATABASE_ID,
   )
-  return (result.rows[0]?.current_size_mb ?? 0) > 0
+  return (result.rows[0].current_size_mb ?? 0) > 0
 }
 
 // Deduplication Analysis

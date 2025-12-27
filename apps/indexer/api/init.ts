@@ -108,16 +108,17 @@ export function initializeIndexer(): void {
   // Validate critical contracts are configured - fail fast
   const c = config.contracts
   const missingContracts: string[] = []
-  
+
   // Check moderation contracts
   if (!c.banManager) missingContracts.push('moderation.banManager')
   if (!c.reportingSystem) missingContracts.push('moderation.reportingSystem')
-  if (!c.reputationLabelManager) missingContracts.push('moderation.reputationLabelManager')
-  
+  if (!c.reputationLabelManager)
+    missingContracts.push('moderation.reputationLabelManager')
+
   if (missingContracts.length > 0) {
     throw new Error(
       `Required contracts not configured for ${config.network}: ${missingContracts.join(', ')}. ` +
-      `Add them to packages/config/contracts.json`
+        `Add them to packages/config/contracts.json`,
     )
   }
 

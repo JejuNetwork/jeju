@@ -24,7 +24,8 @@ import {
 } from './dev-proxy'
 
 // SECURITY: Restrict CORS in production
-const JNS_CORS_ORIGINS = process.env.JNS_CORS_ORIGINS?.split(',').filter(Boolean)
+const JNS_CORS_ORIGINS =
+  process.env.JNS_CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
 
 const JNS_RESOLVER_ABI = [
@@ -262,7 +263,10 @@ export class JNSGateway {
     // Helper to handle host-based JNS routing
     const handleHostBasedRouting = async (
       request: Request,
-      set: { status?: number | string; headers: Record<string, string | number> },
+      set: {
+        status?: number | string
+        headers: Record<string, string | number>
+      },
     ): Promise<Response | string | object | null> => {
       const host = request.headers.get('host') ?? ''
       // Match various JNS patterns:

@@ -5,6 +5,8 @@
 
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import type { Address } from 'viem'
+import { verifyMessage } from 'viem'
 import {
   analyzeDeduplication,
   type ComputeNode,
@@ -23,6 +25,10 @@ import {
   runContainer,
   warmContainers,
 } from '../../containers'
+import {
+  ContainerDeployConfigSchema,
+  getContainerProvisioner,
+} from '../../containers/provisioner'
 import {
   containerCostEstimateSchema,
   containerExecutionRequestSchema,
@@ -289,6 +295,226 @@ export function createContainerRouter() {
 
       .get('/scheduler', () => {
         return getSchedulerStats()
+      })
+
+      // ==========================================================================
+      // Container Provisioning (Heroku-like deployment)
+      // ==========================================================================
+
+      .post('/provision', async ({ body, request, set }) => {
+        const headers = extractHeaders(request)
+        const signature = headers['x-signature']
+        const timestamp = headers['x-timestamp']
+        const address = headers['x-address'] as Address
+
+        if (!signature || !timestamp || !address) {
+          set.status = 401
+          return { error: 'Missing authentication headers' }
+        }
+
+        // Verify signature
+        const timestampNum = parseInt(timestamp, 10)
+        if (Date.now() - timestampNum > 300000) {
+          set.status = 401
+          return { error: 'Request expired' }
+        }
+
+        const rawBody = body as {
+          config: unknown
+          owner: string
+          machineType?: string
+        }
+        const message = JSON.stringify({
+          containerConfig: rawBody.config,
+          timestamp: timestampNum,
+        })
+
+        const isValid = await verifyMessage({
+          address,
+          message,
+          signature: signature as `0x${string}`,
+        })
+
+        if (!isValid) {
+          set.status = 401
+          return { error: 'Invalid signature' }
+        }
+
+        const provisioner = getContainerProvisioner()
+        const validConfig = ContainerDeployConfigSchema.parse(rawBody.config)
+
+        // If machineType is provided, use it
+        if (rawBody.machineType) {
+          const machineType = provisioner.getMachineType(rawBody.machineType)
+          if (machineType) {
+            validConfig.hardware = machineType.hardware
+          }
+        }
+
+        const container = await provisioner.provision(address, validConfig)
+
+        set.status = 201
+        return {
+          containerId: container.id,
+          status: container.status,
+          endpoints: {
+            rpc: container.externalEndpoint ?? container.internalEndpoint ?? '',
+            ws: container.endpoints.find((e) => e.includes('ws')) ?? '',
+          },
+        }
+      })
+
+      .get('/provision/:id', async ({ params }) => {
+        const containerId = params.id
+        const provisioner = getContainerProvisioner()
+        const container = provisioner.getContainer(containerId)
+
+        if (!container) {
+          throw new Error('Container not found')
+        }
+
+        return {
+          containerId: container.id,
+          status: container.status,
+          replicas: container.currentReplicas,
+          endpoints: container.endpoints,
+          externalEndpoint: container.externalEndpoint,
+          internalEndpoint: container.internalEndpoint,
+          metrics: container.metrics,
+          createdAt: container.createdAt,
+          startedAt: container.startedAt,
+        }
+      })
+
+      .post('/provision/:id/scale', async ({ params, body, request, set }) => {
+        const headers = extractHeaders(request)
+        const address = headers['x-address'] as Address
+
+        if (!address) {
+          set.status = 401
+          return { error: 'Missing x-address header' }
+        }
+
+        const containerId = params.id
+        const { replicas } = body as { replicas: number }
+
+        const provisioner = getContainerProvisioner()
+        await provisioner.scale(containerId, address, replicas)
+
+        const container = provisioner.getContainer(containerId)
+        return {
+          containerId,
+          status: container?.status ?? 'unknown',
+          replicas: container?.currentReplicas ?? 0,
+        }
+      })
+
+      .post('/provision/:id/stop', async ({ params, request, set }) => {
+        const headers = extractHeaders(request)
+        const address = headers['x-address'] as Address
+
+        if (!address) {
+          set.status = 401
+          return { error: 'Missing x-address header' }
+        }
+
+        const containerId = params.id
+        const provisioner = getContainerProvisioner()
+        await provisioner.stop(containerId, address)
+
+        return { containerId, status: 'stopped' }
+      })
+
+      .post('/provision/:id/start', async ({ params, request, set }) => {
+        const headers = extractHeaders(request)
+        const address = headers['x-address'] as Address
+
+        if (!address) {
+          set.status = 401
+          return { error: 'Missing x-address header' }
+        }
+
+        const containerId = params.id
+        const provisioner = getContainerProvisioner()
+        await provisioner.start(containerId, address)
+
+        const container = provisioner.getContainer(containerId)
+        return {
+          containerId,
+          status: container?.status ?? 'unknown',
+          endpoints: container?.endpoints ?? [],
+        }
+      })
+
+      .delete('/provision/:id', async ({ params, request, set }) => {
+        const headers = extractHeaders(request)
+        const address = headers['x-address'] as Address
+
+        if (!address) {
+          set.status = 401
+          return { error: 'Missing x-address header' }
+        }
+
+        const containerId = params.id
+        const provisioner = getContainerProvisioner()
+        await provisioner.terminate(containerId, address)
+
+        return { containerId, status: 'terminated' }
+      })
+
+      .get('/provision', ({ request }) => {
+        const headers = extractHeaders(request)
+        const address = headers['x-address'] as Address | undefined
+
+        const provisioner = getContainerProvisioner()
+        const containers = address
+          ? provisioner.getContainersByOwner(address)
+          : provisioner.listContainers()
+
+        return {
+          containers: containers.map((c) => ({
+            containerId: c.id,
+            status: c.status,
+            replicas: c.currentReplicas,
+            image: `${c.config.image}:${c.config.tag}`,
+            createdAt: c.createdAt,
+          })),
+          total: containers.length,
+        }
+      })
+
+      .get('/provision/stats', () => {
+        const provisioner = getContainerProvisioner()
+        return provisioner.getStats()
+      })
+
+      .get('/machine-types', () => {
+        const provisioner = getContainerProvisioner()
+        const types = provisioner.getMachineTypes()
+        return {
+          machineTypes: types.map((mt) => ({
+            id: mt.id,
+            name: mt.name,
+            description: mt.description,
+            pricePerHour: mt.pricePerHourWei.toString(),
+            pricePerHourEth: (Number(mt.pricePerHourWei) / 1e18).toFixed(6),
+            hardware: {
+              cpu: mt.hardware.cpuCores,
+              memory: `${Math.round(mt.hardware.memoryMb / 1024)}GB`,
+              storage: `${Math.round(mt.hardware.storageMb / 1024)}GB`,
+              gpu:
+                mt.hardware.gpuType !== 'none'
+                  ? `${mt.hardware.gpuCount}x ${mt.hardware.gpuType}`
+                  : 'None',
+              tee:
+                mt.hardware.teePlatform !== 'none'
+                  ? mt.hardware.teePlatform
+                  : 'None',
+            },
+            available: mt.available,
+          })),
+          total: types.length,
+        }
       })
   )
 }

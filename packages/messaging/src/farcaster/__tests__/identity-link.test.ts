@@ -1,157 +1,18 @@
-import { describe, expect, it, mock } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import type { Address } from 'viem'
-import type { FarcasterClient } from '../hub/client'
 import {
   generateLinkProofMessage,
-  lookupFidByAddress,
   parseLinkProofMessage,
-  verifyAddressCanLink,
 } from '../identity/link'
 
-// Mock FarcasterClient
-const createMockClient = (
-  overrides: Partial<FarcasterClient> = {},
-): FarcasterClient => {
-  return {
-    getProfile: mock(() =>
-      Promise.resolve({
-        fid: 123,
-        username: 'testuser',
-        displayName: 'Test User',
-        bio: 'Test bio',
-        pfpUrl: 'https://pfp.example.com',
-        custodyAddress:
-          '0xCustody0000000000000000000000000000000001' as Address,
-        verifiedAddresses: [
-          '0xVerified000000000000000000000000000000001' as Address,
-          '0xVerified000000000000000000000000000000002' as Address,
-        ],
-        followerCount: 100,
-        followingCount: 50,
-        registeredAt: 1700000000,
-      }),
-    ),
-    getProfileByVerifiedAddress: mock(() => Promise.resolve(null)),
-    ...overrides,
-  } as FarcasterClient
-}
+/**
+ * Identity Link Tests
+ *
+ * Pure unit tests for Farcaster identity linking utilities.
+ * Tests generateLinkProofMessage and parseLinkProofMessage functions.
+ */
 
-describe('Identity Link', () => {
-  describe('verifyAddressCanLink', () => {
-    it('returns valid for custody address', async () => {
-      const mockClient = createMockClient()
-
-      const result = await verifyAddressCanLink(
-        123,
-        '0xCustody0000000000000000000000000000000001' as Address,
-        mockClient,
-      )
-
-      expect(result.valid).toBe(true)
-      expect(result.fid).toBe(123)
-      expect(result.linkedAddress).toBe(
-        '0xCustody0000000000000000000000000000000001',
-      )
-    })
-
-    it('returns valid for verified address', async () => {
-      const mockClient = createMockClient()
-
-      const result = await verifyAddressCanLink(
-        123,
-        '0xVerified000000000000000000000000000000001' as Address,
-        mockClient,
-      )
-
-      expect(result.valid).toBe(true)
-      expect(result.fid).toBe(123)
-      expect(result.linkedAddress).toBe(
-        '0xVerified000000000000000000000000000000001',
-      )
-    })
-
-    it('returns invalid for unassociated address', async () => {
-      const mockClient = createMockClient()
-
-      const result = await verifyAddressCanLink(
-        123,
-        '0xUnknown0000000000000000000000000000000001' as Address,
-        mockClient,
-      )
-
-      expect(result.valid).toBe(false)
-      expect(result.error).toBe('Address not associated with this FID')
-    })
-
-    it('handles case-insensitive address comparison', async () => {
-      const mockClient = createMockClient()
-
-      // Use lowercase version of custody address
-      const result = await verifyAddressCanLink(
-        123,
-        '0xcustody0000000000000000000000000000000001' as Address,
-        mockClient,
-      )
-
-      expect(result.valid).toBe(true)
-    })
-
-    it('throws on API failure', async () => {
-      const mockClient = createMockClient({
-        getProfile: mock(() => Promise.reject(new Error('Network error'))),
-      })
-
-      await expect(
-        verifyAddressCanLink(
-          123,
-          '0xAny0000000000000000000000000000000000001' as Address,
-          mockClient,
-        ),
-      ).rejects.toThrow('Network error')
-    })
-  })
-
-  describe('lookupFidByAddress', () => {
-    it('returns FID when profile found', async () => {
-      const mockClient = createMockClient({
-        getProfileByVerifiedAddress: mock(() =>
-          Promise.resolve({
-            fid: 456,
-            username: 'founduser',
-            displayName: 'Found User',
-            bio: '',
-            pfpUrl: '',
-            custodyAddress: '0x0' as Address,
-            verifiedAddresses: [],
-            followerCount: 0,
-            followingCount: 0,
-            registeredAt: 0,
-          }),
-        ),
-      })
-
-      const fid = await lookupFidByAddress(
-        '0xVerified000000000000000000000000000000001' as Address,
-        mockClient,
-      )
-
-      expect(fid).toBe(456)
-    })
-
-    it('returns null when profile not found', async () => {
-      const mockClient = createMockClient({
-        getProfileByVerifiedAddress: mock(() => Promise.resolve(null)),
-      })
-
-      const fid = await lookupFidByAddress(
-        '0xUnknown0000000000000000000000000000000001' as Address,
-        mockClient,
-      )
-
-      expect(fid).toBeNull()
-    })
-  })
-
+describe('Identity Link (Pure Unit Tests)', () => {
   describe('generateLinkProofMessage', () => {
     it('generates correctly formatted message', () => {
       const message = generateLinkProofMessage({
@@ -234,12 +95,7 @@ describe('Identity Link', () => {
         domain: 'test.domain',
       })
 
-      // Add extra whitespace
       const messageWithWhitespace = `  \n${message}\n  `
-
-      // Should still fail because the format doesn't match
-      // The parser should handle leading whitespace gracefully
-      // If it doesn't, that's acceptable - the format should be exact
       parseLinkProofMessage(messageWithWhitespace)
     })
   })

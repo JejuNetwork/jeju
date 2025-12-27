@@ -751,7 +751,7 @@ async function verifyTeeAttestation(attestationFile: string) {
   const attestation = result.data
 
   logger.subheader('Attestation Details')
-  logger.keyValue('Quote', `${attestation.quote?.slice(0, 60)}...`)
+  logger.keyValue('Quote', `${attestation.quote.slice(0, 60)}...`)
   logger.keyValue('Measurement', attestation.measurementHash ?? 'N/A')
 
   // Check for simulated attestation

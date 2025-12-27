@@ -6,7 +6,6 @@ import AnalyticsPage from './pages/Analytics'
 import EmbeddingsPage from './pages/ai/Embeddings'
 import InferencePage from './pages/ai/Inference'
 import MLTrainingPage from './pages/ai/MLTraining'
-import DeploymentsPage from './pages/apps/Deployments'
 import BillingPage from './pages/Billing'
 import ContainersPage from './pages/compute/Containers'
 import InfrastructurePage from './pages/compute/Infrastructure'
@@ -18,16 +17,12 @@ import DataAvailabilityPage from './pages/DataAvailability'
 import PackagesPage from './pages/developer/Packages'
 import PipelinesPage from './pages/developer/Pipelines'
 import RepositoriesPage from './pages/developer/Repositories'
-import DomainsPage from './pages/domains/Domains'
 import FaucetPage from './pages/Faucet'
-import FunctionsPage from './pages/functions/Functions'
 import ModerationPage from './pages/Moderation'
 import MarketplacePage from './pages/marketplace/Browse'
-import MarketplaceJobsPage from './pages/marketplace/Jobs'
 import ListingsPage from './pages/marketplace/Listings'
 import RPCGatewayPage from './pages/network/RPCGateway'
 import VPNProxyPage from './pages/network/VPNProxy'
-import NodesPage from './pages/nodes/Nodes'
 import SettingsPage from './pages/Settings'
 import KeysPage from './pages/security/Keys'
 import OAuth3Page from './pages/security/OAuth3'
@@ -61,18 +56,6 @@ export default function App() {
         <Route path="/storage/buckets" element={<BucketsPage />} />
         <Route path="/storage/cdn" element={<CDNPage />} />
         <Route path="/storage/ipfs" element={<IPFSPage />} />
-
-        {/* Apps & Deployments */}
-        <Route path="/apps/deployments" element={<DeploymentsPage />} />
-
-        {/* Domains */}
-        <Route path="/domains" element={<DomainsPage />} />
-
-        {/* Edge Functions */}
-        <Route path="/functions" element={<FunctionsPage />} />
-
-        {/* Node Management */}
-        <Route path="/nodes" element={<NodesPage />} />
 
         {/* Developer */}
         <Route path="/developer/repositories" element={<RepositoriesPage />} />
@@ -109,7 +92,6 @@ export default function App() {
 
         {/* Marketplace */}
         <Route path="/marketplace/browse" element={<MarketplacePage />} />
-        <Route path="/marketplace/jobs" element={<MarketplaceJobsPage />} />
         <Route
           path="/marketplace/listings"
           element={<ListingsPage viewMode={viewMode} />}

@@ -943,11 +943,11 @@ async function deployContracts(): Promise<{
     )
 
     let output = ''
-    deployScript.stdout?.on('data', (data) => {
+    deployScript.stdout.on('data', (data) => {
       output += data.toString()
     })
 
-    deployScript.stderr?.on('data', (data) => {
+    deployScript.stderr.on('data', (data) => {
       logger.warn(data.toString())
     })
 

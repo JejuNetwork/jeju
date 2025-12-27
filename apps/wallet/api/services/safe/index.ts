@@ -315,7 +315,7 @@ class SafeService {
       confirmationsRequired: tx.confirmationsRequired,
       isExecuted: tx.isExecuted,
       safeTxHash: tx.safeTxHash,
-      proposer: tx.proposer ?? tx.confirmations[0]?.owner ?? ('0x' as Address),
+      proposer: tx.proposer ?? tx.confirmations[0].owner ?? ('0x' as Address),
       submissionDate: tx.submissionDate ?? '',
     }))
   }

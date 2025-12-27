@@ -225,9 +225,9 @@ export class DockerOrchestrator {
         )
         return {
           name,
-          status: result.stdout?.includes('PONG') ? 'running' : 'error',
+          status: result.stdout.includes('PONG') ? 'running' : 'error',
           port: info.port,
-          healthy: result.stdout?.includes('PONG') || false,
+          healthy: result.stdout.includes('PONG') || false,
         }
       }
 

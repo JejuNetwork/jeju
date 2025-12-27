@@ -1,0 +1,119 @@
+# DWS Helm Values - GCP Testnet
+# GCP-specific configuration for DWS deployment
+# Note: Image repository is set via helmfile
+
+replicaCount: 3
+
+image:
+  # Repository is set via helmfile: .Values.artifact_registry/dws
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+config:
+  chainId: "420691"  # GCP testnet chain ID (federated with AWS 420690)
+  rpcUrl: "https://gcp-testnet-rpc.jejunetwork.org"
+  dwsEndpoint: "https://dws.gcp-testnet.jejunetwork.org"
+  environment: "gcp-testnet"
+
+# GCP-specific resource allocations
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Persistence using GCP persistent disks
+persistence:
+  enabled: true
+  storageClass: "standard-rwo"  # GCP default SSD storage class
+  size: 100Gi
+
+# TEE Configuration
+tee:
+  enabled: true
+  provider: intel_tdx
+  attestationRequired: true
+  attestationEndpoint: "https://attestation.gcp-testnet.jejunetwork.org"
+
+# External chain provisioning via DWS
+externalChains:
+  ethereum:
+    enabled: true
+    mode: reth
+    teeRequired: false
+  arbitrum:
+    enabled: true
+    mode: nitro
+    teeRequired: false
+  optimism:
+    enabled: true
+    mode: op_reth
+    teeRequired: false
+  base:
+    enabled: true
+    mode: op_reth
+    teeRequired: false
+  solana:
+    enabled: true
+    mode: solana_validator
+    teeRequired: false
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 4030
+
+# Ingress for GCP (using GKE Ingress)
+ingress:
+  enabled: true
+  className: "gce"
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: "dws-ip"
+    networking.gke.io/managed-certificates: "dws-cert"
+  hosts:
+    - host: dws.gcp-testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Pod autoscaling
+autoscaling:
+  enabled: false  # Fixed replicas for testnet
+
+# Node selector for GCP nodes
+nodeSelector:
+  cloud.google.com/gke-nodepool: "default-pool"
+
+# Tolerations
+tolerations: []
+
+# Affinity for HA distribution
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - dws
+          topologyKey: "kubernetes.io/hostname"
+
+# Environment variables from secrets
+env:
+  - name: DEPLOYER_PRIVATE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: dws-secrets
+        key: deployer-private-key
+        optional: true
+  - name: TEE_REGISTRY_ADDRESS
+    valueFrom:
+      configMapKeyRef:
+        name: dws-config
+        key: tee-registry-address
+        optional: true

@@ -240,7 +240,8 @@ export class AttestationVerifier {
       )
       return {
         valid: false,
-        error: 'IAS API key not configured - cannot verify SGX EPID attestation',
+        error:
+          'IAS API key not configured - cannot verify SGX EPID attestation',
       }
     }
 
@@ -496,13 +497,12 @@ export class AttestationVerifier {
           })
           return true
         }
-      } catch (error) {
-        // Continue to next key if verification fails
-        continue
-      }
+      } catch (_error) {}
     }
 
-    log.warn('Attestation signature verification failed against all trusted keys')
+    log.warn(
+      'Attestation signature verification failed against all trusted keys',
+    )
     return false
   }
 

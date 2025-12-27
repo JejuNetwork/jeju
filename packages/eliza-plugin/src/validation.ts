@@ -37,7 +37,7 @@ export const MAX_LIST_ITEMS = 100
  * Throws if text is missing or empty
  */
 export function getMessageText(message: Memory): string {
-  const text = message.content?.text
+  const text = message.content.text
   if (typeof text !== 'string' || text.trim() === '') {
     throw new Error('Message text is required')
   }
@@ -49,7 +49,7 @@ export function getMessageText(message: Memory): string {
  * Use this only for optional text where empty is valid
  */
 export function getOptionalMessageText(message: Memory): string {
-  const text = message.content?.text
+  const text = message.content.text
   return typeof text === 'string' ? text : ''
 }
 
@@ -694,7 +694,7 @@ export function getMessageTextSecure(
   message: Memory,
   maxLength: number = MAX_MESSAGE_LENGTH,
 ): string {
-  const text = message.content?.text
+  const text = message.content.text
   if (typeof text !== 'string' || text.trim() === '') {
     throw new Error('Message text is required')
   }

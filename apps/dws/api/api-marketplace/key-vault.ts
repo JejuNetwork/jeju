@@ -620,13 +620,13 @@ export async function getVaultStats(): Promise<VaultStats> {
     }
   }
 
-  const userKeys = keysResult.rows[0]?.count ?? 0
+  const userKeys = keysResult.rows[0].count ?? 0
 
   return {
     totalKeys: userKeys + systemKeyCount,
     totalSystemKeys: systemKeyCount,
     totalUserKeys: userKeys,
-    totalAccesses: accessResult.rows[0]?.count ?? 0,
-    recentAccesses: recentResult.rows[0]?.count ?? 0,
+    totalAccesses: accessResult.rows[0].count ?? 0,
+    recentAccesses: recentResult.rows[0].count ?? 0,
   }
 }

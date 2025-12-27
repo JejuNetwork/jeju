@@ -13,9 +13,8 @@
     "build": "bun build api/index.ts --outdir dist --target bun && bun build.web.ts",
     "build:web": "bun build.web.ts",
     "start": "bun run api/server/index.ts",
-    "test": "jeju test --target-app dws --mode integration",
-    "test:unit": "bun test tests/ --preload ./tests/preload.ts",
-    "test:ci": "jeju test --target-app dws --mode integration --ci",
+    "test": "jeju test --app=dws",
+    "test:unit": "bun test tests/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

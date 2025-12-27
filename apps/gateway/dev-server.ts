@@ -140,14 +140,18 @@ const server = Bun.serve({
       const response = await fetch(apiUrl, {
         method: req.method,
         headers: req.headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+        body:
+          req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
       }).catch(() => null)
 
       if (!response) {
-        return new Response(JSON.stringify({ error: 'API server unavailable' }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return new Response(
+          JSON.stringify({ error: 'API server unavailable' }),
+          {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
 
       return response

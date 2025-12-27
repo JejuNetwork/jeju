@@ -21,7 +21,7 @@ describe('Executor Logic', () => {
         if (match[2]) {
           const pairs = match[2].split(',')
           for (const pair of pairs) {
-            const [key, value] = pair.split('=').map((s) => s?.trim())
+            const [key, value] = pair.split('=').map((s) => s.trim())
             if (key && value) {
               params[key] = value
             }

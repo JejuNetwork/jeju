@@ -1,4 +1,7 @@
-import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests/playwright-only'
+import {
+  createSynpressConfig,
+  createWalletSetup,
+} from '@jejunetwork/tests/playwright-only'
 
 const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || '4001', 10)
 

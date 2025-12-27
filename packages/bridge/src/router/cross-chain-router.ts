@@ -569,7 +569,7 @@ export class CrossChainRouter {
     error?: string
   }> {
     const contracts = this.config.contracts[step.sourceChain]
-    if (!contracts?.eilPaymaster) {
+    if (!contracts.eilPaymaster) {
       return {
         success: false,
         error: `EIL paymaster not configured for chain ${step.sourceChain}`,
@@ -592,7 +592,7 @@ export class CrossChainRouter {
     error?: string
   }> {
     const contracts = this.config.contracts[step.sourceChain]
-    if (!contracts?.zkBridge) {
+    if (!contracts.zkBridge) {
       return {
         success: false,
         error: `ZK Bridge not configured for chain ${step.sourceChain}`,
@@ -615,7 +615,7 @@ export class CrossChainRouter {
     error?: string
   }> {
     const contracts = this.config.contracts[step.sourceChain]
-    if (!contracts?.hyperlaneMailbox) {
+    if (!contracts.hyperlaneMailbox) {
       return {
         success: false,
         error: `Hyperlane mailbox not configured for chain ${step.sourceChain}`,
@@ -654,7 +654,7 @@ export class CrossChainRouter {
     error?: string
   }> {
     const contracts = this.config.contracts[step.sourceChain]
-    if (!contracts?.oifInputSettler) {
+    if (!contracts.oifInputSettler) {
       return {
         success: false,
         error: `OIF input settler not configured for chain ${step.sourceChain}`,

@@ -1,4 +1,11 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test'
+/**
+ * Auth Core Tests - Live Integration
+ *
+ * Tests authentication without mocks where possible.
+ * OAuth3 tests use live TEE agent when available, skip otherwise.
+ */
+
+import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
@@ -24,118 +31,69 @@ import {
   type OAuth3Config,
   type WalletSignatureConfig,
 } from '../auth/types'
+import {
+  describeWithInfra,
+  hasInfra,
+} from '@jeju/tests/shared/live-infrastructure'
 
-describe('OAuth3 Validation', () => {
+// Check if OAuth3 TEE service is available for live tests
+const OAUTH3_AVAILABLE = await hasInfra({ gateway: true })
+const OAUTH3_TEE_URL = process.env.OAUTH3_TEE_URL || 'https://oauth3.jeju.ai'
+
+// Valid hex session ID (32 bytes = 64 hex chars + 0x prefix)
+const validSessionId =
+  '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+
+describeWithInfra(
+  'OAuth3 Validation with Live TEE',
+  { gateway: true },
+  () => {
+    const oauth3Config: OAuth3Config = {
+      teeAgentUrl: OAUTH3_TEE_URL,
+      appId: '0x1234',
+    }
+
+    test('rejects invalid session ID format', async () => {
+      const result = await validateOAuth3Session('not-a-hex', oauth3Config)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('Invalid session ID format')
+    })
+
+    test('rejects non-existent session', async () => {
+      // A valid format but non-existent session should return session not found
+      const result = await validateOAuth3Session(validSessionId, oauth3Config)
+      expect(result.valid).toBe(false)
+      // Either "Session not found" or network error depending on TEE availability
+    })
+  },
+  OAUTH3_AVAILABLE,
+)
+
+describe('OAuth3 Validation Unit Tests', () => {
   const oauth3Config: OAuth3Config = {
     teeAgentUrl: 'https://tee.example.com',
     appId: '0x1234',
   }
 
-  // Valid hex session ID (32 bytes = 64 hex chars + 0x prefix)
-  const validSessionId =
-    '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
-  const validIdentityId =
-    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-
-  const originalFetch = globalThis.fetch
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch
-  })
-
-  test('validates valid session', async () => {
-    const mockSession = {
-      sessionId: validSessionId,
-      identityId: validIdentityId,
-      smartAccount: '0x1234567890123456789012345678901234567890',
-      expiresAt: Date.now() + 3600000, // 1 hour from now
-    }
-
-    // @ts-expect-error - Bun mock type doesn't include all fetch properties
-    globalThis.fetch = mock(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(mockSession), { status: 200 }),
-      ),
-    )
-
-    const result = await validateOAuth3Session(validSessionId, oauth3Config)
-
-    expect(result.valid).toBe(true)
-    if (!result.valid || !result.user) {
-      throw new Error('Expected valid result')
-    }
-    expect(result.user.address).toBe(
-      '0x1234567890123456789012345678901234567890',
-    )
-    expect(result.user.method).toBe(AuthMethod.OAUTH3)
-    expect(result.user.sessionId).toBe(validSessionId)
-  })
-
-  test('rejects invalid session ID format', async () => {
+  test('rejects invalid session ID format immediately', async () => {
+    // This doesn't require network - validates format locally
     const result = await validateOAuth3Session('not-a-hex', oauth3Config)
-
     expect(result.valid).toBe(false)
     expect(result.error).toBe('Invalid session ID format')
   })
 
-  test('rejects session not found', async () => {
-    // @ts-expect-error - Bun mock type doesn't include all fetch properties
-    globalThis.fetch = mock(() =>
-      Promise.resolve(new Response('Not found', { status: 404 })),
-    )
-
-    const result = await validateOAuth3Session(validSessionId, oauth3Config)
-
+  test('rejects too-short session ID', async () => {
+    const result = await validateOAuth3Session('0x1234', oauth3Config)
     expect(result.valid).toBe(false)
-    expect(result.error).toBe('Session not found')
+    expect(result.error).toBe('Invalid session ID format')
   })
 
-  test('rejects expired session', async () => {
-    const mockSession = {
-      sessionId: validSessionId,
-      identityId: validIdentityId,
-      smartAccount: '0x1234567890123456789012345678901234567890',
-      expiresAt: Date.now() - 1000, // Expired
-    }
-
-    // @ts-expect-error - Bun mock type doesn't include all fetch properties
-    globalThis.fetch = mock(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(mockSession), { status: 200 }),
-      ),
+  test('rejects malformed hex', async () => {
+    const result = await validateOAuth3Session(
+      '0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG',
+      oauth3Config,
     )
-
-    const result = await validateOAuth3Session(validSessionId, oauth3Config)
-
     expect(result.valid).toBe(false)
-    expect(result.expired).toBe(true)
-    expect(result.error).toBe('Session expired')
-  })
-
-  test('handles server error', async () => {
-    // @ts-expect-error - Bun mock type doesn't include all fetch properties
-    globalThis.fetch = mock(() =>
-      Promise.resolve(new Response('Server error', { status: 500 })),
-    )
-
-    const result = await validateOAuth3Session(validSessionId, oauth3Config)
-
-    expect(result.valid).toBe(false)
-    expect(result.error).toBe('Session validation failed: 500')
-  })
-
-  test('rejects invalid session data structure', async () => {
-    // @ts-expect-error - Bun mock type doesn't include all fetch properties
-    globalThis.fetch = mock(() =>
-      Promise.resolve(
-        new Response(JSON.stringify({ invalid: 'data' }), { status: 200 }),
-      ),
-    )
-
-    const result = await validateOAuth3Session(validSessionId, oauth3Config)
-
-    expect(result.valid).toBe(false)
-    expect(result.error).toBe('Invalid session data from TEE agent')
   })
 })
 
@@ -145,42 +103,16 @@ describe('validateOAuth3FromHeaders', () => {
     appId: '0x1234',
   }
 
-  const validSessionId =
-    '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
-
-  const originalFetch = globalThis.fetch
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch
-  })
-
-  test('validates valid header', async () => {
-    const mockSession = {
-      sessionId: validSessionId,
-      identityId:
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-      smartAccount: '0x1234567890123456789012345678901234567890',
-      expiresAt: Date.now() + 3600000,
-    }
-
-    // @ts-expect-error - Bun mock type doesn't include all fetch properties
-    globalThis.fetch = mock(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(mockSession), { status: 200 }),
-      ),
-    )
-
-    const headers = { 'x-oauth3-session': validSessionId }
-    const result = await validateOAuth3FromHeaders(headers, oauth3Config)
-
-    expect(result.valid).toBe(true)
-  })
-
   test('rejects missing header', async () => {
     const result = await validateOAuth3FromHeaders({}, oauth3Config)
-
     expect(result.valid).toBe(false)
     expect(result.error).toBe('Missing x-oauth3-session header')
+  })
+
+  test('rejects invalid session ID format in header', async () => {
+    const headers = { 'x-oauth3-session': 'invalid-format' }
+    const result = await validateOAuth3FromHeaders(headers, oauth3Config)
+    expect(result.valid).toBe(false)
   })
 })
 

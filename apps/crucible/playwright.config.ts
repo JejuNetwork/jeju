@@ -1,6 +1,10 @@
+/**
+ * Crucible Playwright Configuration
+ */
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = parseInt(process.env.CRUCIBLE_PORT || '4020', 10)
+const PORT = CORE_PORTS.CRUCIBLE_API.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -9,7 +13,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  timeout: 60000,
+  timeout: 120000,
 
   use: {
     baseURL: `http://localhost:${PORT}`,
@@ -24,10 +28,12 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'bun run dev',
+  // Use 'bun run start' for production-like testing against DWS infrastructure
+  // Set SKIP_WEBSERVER=1 if app is already running
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
+    command: 'bun run start',
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
+    reuseExistingServer: true,
+    timeout: 180000,
   },
 })

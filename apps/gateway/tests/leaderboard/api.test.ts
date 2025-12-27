@@ -234,7 +234,7 @@ describe('Leaderboard API', () => {
 
     expect(response.status).toBe(200)
     expect(data.result).toBeDefined()
-    expect(data.result.parts[1]?.data?.profile?.username).toBe('testuser')
+    expect(data.result.parts[1].data?.profile?.username).toBe('testuser')
   })
 
   test('POST /api/a2a should handle unknown skill', async () => {
@@ -257,7 +257,7 @@ describe('Leaderboard API', () => {
     const data = (await response.json()) as A2AErrorResponse
 
     expect(response.status).toBe(200)
-    expect(data.result.parts[1]?.data?.error).toBeDefined()
+    expect(data.result.parts[1].data?.error).toBeDefined()
   })
 
   test('POST /api/a2a should reject non-message/send methods', async () => {

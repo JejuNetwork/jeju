@@ -220,7 +220,7 @@ export function extractClientIp(
 
   const forwardedFor = get('x-forwarded-for')
   if (forwardedFor) {
-    const ip = forwardedFor.split(',')[0]?.trim()
+    const ip = forwardedFor.split(',')[0].trim()
     if (ip) return ip
   }
 

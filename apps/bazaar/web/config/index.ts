@@ -27,9 +27,9 @@ export const RPC_URL = getRpcUrl(NETWORK)
 // Service URLs from config
 const services = getServicesConfig(NETWORK)
 
-export const INDEXER_URL = services.indexer?.graphql || ''
+export const INDEXER_URL = services.indexer.graphql || ''
 export const EXPLORER_URL = services.explorer || ''
-export const OIF_AGGREGATOR_URL = services.oif?.aggregator || ''
+export const OIF_AGGREGATOR_URL = services.oif.aggregator || ''
 export const OAUTH3_AGENT_URL = getOAuth3Url(NETWORK)
 
 // Contract addresses from config
@@ -42,20 +42,20 @@ function addr(value: string | undefined): Address {
 
 export const CONTRACTS = {
   // Tokens
-  jeju: addr(contracts.tokens?.jeju),
+  jeju: addr(contracts.tokens.jeju),
 
   // Registry
-  identityRegistry: addr(contracts.registry?.identity),
+  identityRegistry: addr(contracts.registry.identity),
 
   // Moderation
-  banManager: addr(contracts.moderation?.banManager),
-  moderationMarketplace: addr(contracts.moderation?.moderationMarketplace),
-  reportingSystem: addr(contracts.moderation?.reportingSystem),
-  reputationLabelManager: addr(contracts.moderation?.reputationLabelManager),
-  labelManager: addr(contracts.moderation?.labelManager),
+  banManager: addr(contracts.moderation.banManager),
+  moderationMarketplace: addr(contracts.moderation.moderationMarketplace),
+  reportingSystem: addr(contracts.moderation.reportingSystem),
+  reputationLabelManager: addr(contracts.moderation.reputationLabelManager),
+  labelManager: addr(contracts.moderation.labelManager),
 
   // JNS
-  jnsRegistrar: addr(contracts.jns?.registrar),
+  jnsRegistrar: addr(contracts.jns.registrar),
   bazaar: addr(contracts.commerce?.marketplace),
 
   // NFT Marketplace

@@ -167,7 +167,7 @@ function isJejuComputeAvailable(): boolean {
  */
 function resolveModel(model: string): string {
   const aliases = MODEL_ALIASES[model.toLowerCase()]
-  if (aliases?.[0]) {
+  if (aliases[0]) {
     return aliases[0]
   }
   return model
@@ -348,9 +348,8 @@ export class LLMInferenceService {
 
     const modelPricing = pricing[model] ?? pricing['llama-3.1-8b-instant']
 
-    const inputCost = (promptTokens / 1000) * (modelPricing?.input ?? 0.05)
-    const outputCost =
-      (completionTokens / 1000) * (modelPricing?.output ?? 0.08)
+    const inputCost = (promptTokens / 1000) * (modelPricing.input ?? 0.05)
+    const outputCost = (completionTokens / 1000) * (modelPricing.output ?? 0.08)
 
     return (inputCost + outputCost) / 100 // Convert cents to dollars
   }

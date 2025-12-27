@@ -357,9 +357,9 @@ Generate helpful questions and guidance. Return JSON:
     }>(response)
 
     return {
-      questions: parsed?.questions ?? categoryInfo.prompts,
-      guidance: parsed?.guidance ?? categoryInfo.description,
-      template: parsed?.template ?? this.getTemplate(category),
+      questions: parsed.questions ?? categoryInfo.prompts,
+      guidance: parsed.guidance ?? categoryInfo.description,
+      template: parsed.template ?? this.getTemplate(category),
     }
   }
 
@@ -632,7 +632,7 @@ Return: {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"
 
     const prompt = `Generate DAO proposal from idea:
 
-${daoContext ? `DAO: ${daoContext.daoName}\nCEO: ${daoContext.ceoPersona?.name ?? 'Unknown'}` : ''}
+${daoContext ? `DAO: ${daoContext.daoName}\nCEO: ${daoContext.ceoPersona.name ?? 'Unknown'}` : ''}
 
 Idea: ${idea}
 Type: ${typeName}

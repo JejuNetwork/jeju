@@ -815,11 +815,11 @@ export class AutocratBlockchain {
       }) => ({
         id: tx.hash,
         type:
-          tx.to?.toLowerCase() === treasuryAddress.toLowerCase()
+          tx.to.toLowerCase() === treasuryAddress.toLowerCase()
             ? 'inflow'
             : 'outflow',
         description:
-          tx.to?.toLowerCase() === treasuryAddress.toLowerCase()
+          tx.to.toLowerCase() === treasuryAddress.toLowerCase()
             ? 'Deposit'
             : 'Withdrawal',
         amount: formatEther(BigInt(tx.value || '0')),

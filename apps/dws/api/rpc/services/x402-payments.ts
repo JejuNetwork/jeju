@@ -241,7 +241,9 @@ export async function purchaseCredits(
       return { success: false, error: 'Transaction sender mismatch' }
     }
   } else {
-    console.warn('[X402] Credit purchase verification skipped in non-production')
+    console.warn(
+      '[X402] Credit purchase verification skipped in non-production',
+    )
   }
 
   // Mark tx hash as used

@@ -150,9 +150,7 @@ export default function RPCGatewayPage() {
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() =>
-                handleCopy(`${RPC_GATEWAY_URL}/v1/rpc/`, 'base')
-              }
+              onClick={() => handleCopy(`${RPC_GATEWAY_URL}/v1/rpc/`, 'base')}
             >
               {copied === 'base' ? <Check size={14} /> : <Copy size={14} />}
             </button>

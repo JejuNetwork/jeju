@@ -404,7 +404,7 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
       { address: address.toLowerCase() },
     )
 
-    if (data?.contracts[0]) {
+    if (data.contracts[0]) {
       const c = data.contracts[0]
       creator = AddressSchema.parse(c.creator.address)
       createdAt = new Date(c.firstSeenAt)
@@ -671,7 +671,7 @@ export async function fetchPriceHistory(
     { tokenId, interval: graphqlInterval, limit },
   )
 
-  if (!data?.tokenCandles?.length) {
+  if (!data.tokenCandles.length) {
     return []
   }
 
@@ -748,7 +748,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
     { tokenId },
   )
 
-  if (tokenData?.tokens?.[0]) {
+  if (tokenData.tokens[0]) {
     const t = tokenData.tokens[0]
     // Get high/low from daily candle
     const candleData = await gql<{
@@ -764,7 +764,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
       { tokenId },
     )
 
-    const candle = candleData?.tokenCandles?.[0]
+    const candle = candleData.tokenCandles[0]
     return {
       volume: BigInt(t.volume24h ?? '0'),
       trades: t.txCount24h ?? 0,
@@ -819,7 +819,7 @@ export async function fetchTopGainers(options: {
     { limit: options.limit ?? 10 },
   )
 
-  return data?.tokens?.map(mapToken) ?? []
+  return data.tokens.map(mapToken) ?? []
 }
 
 /**
@@ -847,7 +847,7 @@ export async function fetchTopLosers(options: {
     { limit: options.limit ?? 10 },
   )
 
-  return data?.tokens?.map(mapToken) ?? []
+  return data.tokens.map(mapToken) ?? []
 }
 
 /**
@@ -879,7 +879,7 @@ export async function fetchNewTokens(options: {
     { limit: options.limit ?? 20 },
   )
 
-  return data?.tokens?.map(mapToken) ?? []
+  return data.tokens.map(mapToken) ?? []
 }
 
 /**
@@ -944,7 +944,7 @@ export async function fetchTokenPools(
   )
 
   return (
-    data?.dexPools?.map((p) => ({
+    data.dexPools.map((p) => ({
       id: p.id,
       address: p.address,
       dex: p.dex.name,
@@ -1001,13 +1001,13 @@ export async function fetchMarketStats(chainId?: number): Promise<{
     }
   `)
 
-  const stats = data?.tokenMarketStats?.[0]
+  const stats = data.tokenMarketStats[0]
   return {
-    totalTokens: stats?.totalTokens ?? 0,
-    activeTokens24h: stats?.activeTokens24h ?? 0,
-    totalPools: stats?.totalPools ?? 0,
+    totalTokens: stats.totalTokens ?? 0,
+    activeTokens24h: stats.activeTokens24h ?? 0,
+    totalPools: stats.totalPools ?? 0,
     totalVolumeUSD24h: stats ? parseFloat(stats.totalVolumeUSD24h) : 0,
     totalLiquidityUSD: stats ? parseFloat(stats.totalLiquidityUSD) : 0,
-    totalSwaps24h: stats?.totalSwaps24h ?? 0,
+    totalSwaps24h: stats.totalSwaps24h ?? 0,
   }
 }

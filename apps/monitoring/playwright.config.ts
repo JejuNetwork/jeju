@@ -1,6 +1,10 @@
+/**
+ * Monitoring Playwright Configuration
+ */
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = parseInt(process.env.PORT || '5173', 10)
+const PORT = CORE_PORTS.MONITORING.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -8,14 +12,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'github' : 'html',
-  timeout: 30000,
+  reporter: 'html',
+  timeout: 120000,
 
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'on-first-retry',
   },
 
   projects: [
@@ -23,16 +26,14 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'mobile',
-      use: { ...devices['iPhone 14'] },
-    },
   ],
 
-  webServer: {
-    command: 'bun run dev',
+  // Use 'bun run start' for production-like testing against DWS infrastructure
+  // Set SKIP_WEBSERVER=1 if app is already running
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
+    command: 'bun run start',
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60000,
+    reuseExistingServer: true,
+    timeout: 180000,
   },
 })

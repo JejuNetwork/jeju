@@ -86,12 +86,12 @@ describe('TEE GPU Provider', () => {
         const nodes = getTEEGPUNodes()
         const node = nodes[0]
         expect(node).toBeDefined()
-        expect(node?.gpu.gpuType).toBe(GPUType.H200)
-        expect(node?.gpu.gpuCount).toBe(8)
-        expect(node?.gpu.vramGb).toBe(141)
-        expect(node?.capabilities).toContain('gpu')
-        expect(node?.capabilities).toContain('tee')
-        expect(node?.capabilities).toContain(GPUType.H200)
+        expect(node.gpu.gpuType).toBe(GPUType.H200)
+        expect(node.gpu.gpuCount).toBe(8)
+        expect(node.gpu.vramGb).toBe(141)
+        expect(node.capabilities).toContain('gpu')
+        expect(node.capabilities).toContain('tee')
+        expect(node.capabilities).toContain(GPUType.H200)
       })
     })
 

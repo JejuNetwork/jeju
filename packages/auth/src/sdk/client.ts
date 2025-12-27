@@ -10,9 +10,9 @@
  * - IPFS storage for credentials
  */
 
+import { HexSchema } from '@jejunetwork/types'
 import { type Address, type Hex, toHex } from 'viem'
 import { z } from 'zod'
-import { HexSchema } from '@jejunetwork/types'
 
 // OAuth callback data schema
 const OAuthCallbackSchema = z.object({
@@ -342,7 +342,7 @@ export class OAuth3Client {
     // If discovery fails (missing contracts, unregistered app), fall back to centralized mode
     if (this.discovery && !this.currentNode && !this.config.teeAgentUrl) {
       try {
-      await this.initialize()
+        await this.initialize()
       } catch (err) {
         console.debug(
           '[OAuth3] Decentralized discovery failed, falling back to centralized mode:',

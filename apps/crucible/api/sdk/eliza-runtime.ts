@@ -85,7 +85,7 @@ async function generateResponse(
   if (!choice) {
     throw new Error('DWS inference returned no choices')
   }
-  return choice.message?.content ?? ''
+  return choice.message.content ?? ''
 }
 
 /**
@@ -211,17 +211,17 @@ export class CrucibleAgentRuntime {
     }
 
     // Topics
-    if (char.topics?.length) {
+    if (char.topics.length) {
       parts.push(`You are knowledgeable about: ${char.topics.join(', ')}.`)
     }
 
     // Adjectives
-    if (char.adjectives?.length) {
+    if (char.adjectives.length) {
       parts.push(`Your personality traits: ${char.adjectives.join(', ')}.`)
     }
 
     // Style
-    if (char.style?.all?.length) {
+    if (char.style.all.length) {
       parts.push(`Communication style: ${char.style.all.join(' ')}`)
     }
 
@@ -459,7 +459,10 @@ export class CrucibleAgentRuntime {
       // Eliza handlers return a boolean and call the callback with results
       let callbackResult: JsonValue = null
 
-      const callback = async (response: { text?: string; content?: { text?: string } }): Promise<void> => {
+      const callback = async (response: {
+        text?: string
+        content?: { text?: string }
+      }): Promise<void> => {
         // Capture the response from the handler
         const text = response.text ?? response.content?.text ?? ''
         callbackResult = { response: text }

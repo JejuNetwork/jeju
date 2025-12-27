@@ -57,7 +57,7 @@ export class JudgePromptBuilder {
   ): { system: string; user: string } {
     const opts = { ...DEFAULT_OPTIONS, ...options }
 
-    const archetype = trajectories[0]?.archetype ?? 'default'
+    const archetype = trajectories[0].archetype ?? 'default'
     const rubric = getArchetypeRubric(archetype)
     const priorityMetrics = getArchetypePriorityMetrics(archetype)
 

@@ -262,50 +262,48 @@ export function SettingsTab({ dao }: SettingsTabProps) {
         <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs text-slate-500 mb-1">
                 Min Quality Score
-              </label>
+              </span>
               <p className="text-lg font-semibold text-slate-200">
                 {dao.governanceParams.minQualityScore}
               </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs text-slate-500 mb-1">
                 Min Board Approvals
-              </label>
+              </span>
               <p className="text-lg font-semibold text-slate-200">
                 {dao.governanceParams.minBoardApprovals}
               </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs text-slate-500 mb-1">
                 Voting Period
-              </label>
+              </span>
               <p className="text-lg font-semibold text-slate-200">
                 {Math.floor(dao.governanceParams.councilVotingPeriod / 86400)}{' '}
                 days
               </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs text-slate-500 mb-1">
                 Grace Period
-              </label>
+              </span>
               <p className="text-lg font-semibold text-slate-200">
                 {Math.floor(dao.governanceParams.gracePeriod / 86400)} days
               </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
+              <span className="block text-xs text-slate-500 mb-1">
                 Min Proposal Stake
-              </label>
+              </span>
               <p className="text-lg font-semibold text-slate-200">
                 {dao.governanceParams.minProposalStake} ETH
               </p>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
-                Quorum
-              </label>
+              <span className="block text-xs text-slate-500 mb-1">Quorum</span>
               <p className="text-lg font-semibold text-slate-200">
                 {dao.governanceParams.quorumBps / 100}%
               </p>

@@ -8,8 +8,12 @@
   "types": "./shared/index.ts",
   "exports": {
     ".": "./shared/index.ts",
+    "./ai": "./shared/ai/index.ts",
     "./playwright-only": "./playwright-only.ts",
+    "./zod-compat": "./shared/zod-compat.ts",
     "./bun-global-setup": "./shared/bun-global-setup.ts",
+    "./infra-check": "./shared/infra-check.ts",
+    "./lock-manager": "./shared/lock-manager.ts",
     "./load/simulator": "./load/simulator.ts",
     "./e2e/full-app-crawler": "./e2e/full-app-crawler.ts"
   },

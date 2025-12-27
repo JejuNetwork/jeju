@@ -333,7 +333,7 @@ test.describe('Board Member Management', () => {
     ).toBeVisible()
 
     // Count expandable sections (board member forms)
-    const boardForms = page
+    const _boardForms = page
       .locator('[class*="bg-slate-900"]')
       .filter({ hasText: /Treasury|Code|Community/ })
     // Should have at least 3

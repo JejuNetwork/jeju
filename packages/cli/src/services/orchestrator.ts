@@ -214,7 +214,8 @@ class ServicesOrchestrator {
     if (enabledServices.indexer) phase2Tasks.push(this.startIndexer())
     if (enabledServices.jns) phase2Tasks.push(this.startJNS())
     if (enabledServices.cron) phase2Tasks.push(this.startCron())
-    if (enabledServices.computeBridge) phase2Tasks.push(this.startComputeBridge())
+    if (enabledServices.computeBridge)
+      phase2Tasks.push(this.startComputeBridge())
     if (enabledServices.git) phase2Tasks.push(this.startGit())
     if (enabledServices.pkg) phase2Tasks.push(this.startPkg())
     if (enabledServices.cvm) phase2Tasks.push(this.startCVM())
@@ -739,18 +740,17 @@ class ServicesOrchestrator {
       }
 
       // Generate migrations
-      const genResult = await Bun.spawn(
-        ['bunx', 'sqd', 'migration:generate'],
-        {
-          cwd: indexerPath,
-          stdout: 'pipe',
-          stderr: 'pipe',
-          env: dbEnv,
-        },
-      ).exited
+      const genResult = await Bun.spawn(['bunx', 'sqd', 'migration:generate'], {
+        cwd: indexerPath,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: dbEnv,
+      }).exited
 
       if (genResult !== 0) {
-        logger.debug('Migration generation failed, will try direct TypeORM sync')
+        logger.debug(
+          'Migration generation failed, will try direct TypeORM sync',
+        )
       }
     }
 
@@ -766,9 +766,7 @@ class ServicesOrchestrator {
 
     if (migrationResult !== 0) {
       logger.warn(`Migration apply failed: ${migrationStderr.slice(0, 200)}`)
-      logger.warn(
-        'Run manually: cd apps/indexer && bunx sqd migration:apply',
-      )
+      logger.warn('Run manually: cd apps/indexer && bunx sqd migration:apply')
       return false
     }
 
@@ -800,36 +798,6 @@ class ServicesOrchestrator {
 
     logger.success('Migrations applied')
     return true
-  }
-
-  private async verifyIndexerSchema(indexerPath: string): Promise<boolean> {
-    const containerName = await this.findPostgresContainer()
-    if (!containerName) return false
-
-    const checkResult = await Bun.spawn(
-      [
-        'docker',
-        'exec',
-        containerName,
-        'psql',
-        '-U',
-        'postgres',
-        '-d',
-        'indexer',
-        '-c',
-        "SELECT 1 FROM information_schema.tables WHERE table_name = 'block'",
-      ],
-      { stdout: 'pipe', stderr: 'pipe' },
-    )
-    const output = await new Response(checkResult.stdout).text()
-
-    if (output.includes('1')) {
-      logger.success('Schema synchronized')
-      return true
-    }
-
-    logger.warn('Schema synchronization may have failed')
-    return false
   }
 
   private async findPostgresContainer(): Promise<string | null> {

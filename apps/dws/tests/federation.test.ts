@@ -3,9 +3,6 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
-
-// Skip integration tests when infrastructure isn't available
-const SKIP = process.env.INFRA_READY !== 'true'
 import type { Address, Hex } from 'viem'
 import { FederationManager } from '../api/git/federation'
 import { SocialManager } from '../api/git/social'
@@ -35,7 +32,7 @@ const mockRepoManager = {
   }),
 }
 
-describe.skipIf(SKIP)('Federation', () => {
+describe('Federation', () => {
   let federation: FederationManager
   let socialManager: SocialManager
 

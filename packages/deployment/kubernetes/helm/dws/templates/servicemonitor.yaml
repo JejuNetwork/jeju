@@ -1,0 +1,36 @@
+{{- if .Values.metrics.enabled }}
+{{- if .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "dws.fullname" . }}
+  labels:
+    {{- include "dws.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "dws.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      interval: {{ .Values.metrics.serviceMonitor.interval | default "30s" }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout | default "10s" }}
+      path: /metrics
+      {{- if .Values.metrics.serviceMonitor.honorLabels }}
+      honorLabels: true
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml .Values.metrics.serviceMonitor.metricRelabelings | nindent 8 }}
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml .Values.metrics.serviceMonitor.relabelings | nindent 8 }}
+      {{- end }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

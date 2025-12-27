@@ -102,7 +102,7 @@ export default function TrendingGroupPage() {
               ? tags.map((t) => t.displayName).join(' • ')
               : 'Grouped Trending'}
           </h1>
-          {tags.length > 0 && tags[0]?.category && (
+          {tags.length > 0 && tags[0].category && (
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {tags[0].category}
             </p>

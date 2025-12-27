@@ -564,7 +564,7 @@ export async function getGasPrice(): Promise<{
     'getGasPrice',
   )
 
-  if (!data.oracleFeeds[0]?.latestPrice) {
+  if (!data.oracleFeeds[0].latestPrice) {
     throw new Error('No gas price oracle feed available')
   }
 
@@ -724,6 +724,6 @@ export async function getIndexerHealth(): Promise<{
 
   return {
     status: health.status,
-    latestBlock: blocks.blocks[0]?.number ?? 0,
+    latestBlock: blocks.blocks[0].number ?? 0,
   }
 }

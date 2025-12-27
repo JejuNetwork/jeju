@@ -514,10 +514,7 @@ export function createSequencerModule(
       const expectedBlocks = activeDuration / SLOT_DURATION
       const uptime =
         expectedBlocks > 0n
-          ? Math.min(
-              100,
-              Number((seq.blocksProduced * 100n) / expectedBlocks),
-            )
+          ? Math.min(100, Number((seq.blocksProduced * 100n) / expectedBlocks))
           : 100
 
       return {

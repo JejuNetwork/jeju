@@ -31,7 +31,8 @@ import { SKIP as INFRA_SKIP } from './infra-check'
 
 setDefaultTimeout(10000)
 
-const SKIP = process.env.SKIP_INTEGRATION === 'true' || INFRA_SKIP.STORAGE
+// Skip integration tests unless explicitly enabled or running via jeju test
+const SKIP_INTEGRATION = process.env.SKIP_INTEGRATION === 'true' || INFRA_SKIP.STORAGE
 
 // Check if storage service is available
 let storageAvailable = false
@@ -119,9 +120,9 @@ async function uploadFile(
   })
 }
 
-// Backend Manager Tests
+// Backend Manager Tests - Uses in-memory/local backends, no external services needed
 
-describe.skipIf(SKIP)('BackendManager', () => {
+describe('BackendManager', () => {
   let backend: BackendManager
 
   beforeEach(() => {
@@ -332,13 +333,10 @@ describe.skipIf(SKIP)('BackendManager', () => {
   })
 })
 
-// HTTP API Tests
+// HTTP API Tests - These require storage service to be running
+// Run with: jeju test (starts all services) or REQUIRE_SERVICES=true bun test
 
-describe.skipIf(SKIP)('Storage HTTP API', () => {
-  beforeAll(async () => {
-    storageAvailable = await checkStorageHealth()
-  })
-
+describe.skipIf(SKIP_INTEGRATION)('Storage HTTP API', () => {
   afterAll(() => {
     resetMultiBackendManager()
   })
@@ -346,12 +344,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
   describe('Health', () => {
     test('GET /storage/health returns healthy', async () => {
       const res = await dwsRequest('/storage/health')
-      // Storage may not be available in test mode
-      if (!storageAvailable) {
-        expect([200, 500]).toContain(res.status)
-        return
-      }
-
       expect(res.status).toBe(200)
       const body = (await res.json()) as StorageHealthResponse
       expect(body.status).toBe('healthy')
@@ -361,10 +353,8 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
 
   describe('Upload', () => {
     test('POST /storage/upload accepts file and returns CID', async () => {
-      if (!storageAvailable) return
       const content = Buffer.from('test file content')
       const res = await uploadFile(content, { filename: 'test.txt' })
-
       expect(res.status).toBe(200)
 
       const body = (await res.json()) as UploadResponse
@@ -373,7 +363,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('POST /storage/upload without file returns 400', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/upload', {
         method: 'POST',
         body: new FormData(),
@@ -382,12 +371,10 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('POST /storage/upload handles binary files', async () => {
-      if (!storageAvailable) return
       const binaryData = Buffer.from([
         0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
       ])
       const res = await uploadFile(binaryData, { filename: 'test.png' })
-
       expect(res.status).toBe(200)
       const body = (await res.json()) as UploadResponse
       expect(body.cid).toBeDefined()
@@ -395,20 +382,17 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('POST /storage/upload with tier', async () => {
-      if (!storageAvailable) return
       const res = await uploadFile(Buffer.from('tiered content'), {
         filename: 'test.txt',
         tier: 'popular',
         category: 'data',
       })
-
       expect(res.status).toBe(200)
       const body = (await res.json()) as UploadResponse
       expect(body.tier).toBe('popular')
     })
 
     test('POST /storage/upload/json uploads JSON data', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/upload/json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -418,7 +402,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
           name: 'test-data.json',
         }),
       })
-
       expect(res.status).toBe(200)
       const body = (await res.json()) as CidResponse
       expect(body.cid).toBeDefined()
@@ -429,7 +412,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     let uploadedCid: string
 
     beforeAll(async () => {
-      if (!storageAvailable) return
       const res = await uploadFile(Buffer.from('download test content'), {
         filename: 'download-test.bin',
       })
@@ -438,7 +420,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/download/:cid returns content', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest(`/storage/download/${uploadedCid}`)
       expect(res.status).toBe(200)
       expect(res.headers.get('Content-Type')).toBe('application/octet-stream')
@@ -448,7 +429,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/download/:cid returns 404 for non-existent', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/download/nonexistent-cid-xyz')
       expect(res.status).toBe(404)
     })
@@ -458,7 +438,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     let uploadedCid: string
 
     beforeAll(async () => {
-      if (!storageAvailable) return
       const res = await uploadFile(Buffer.from('exists check'), {
         filename: 'exists-test.txt',
       })
@@ -467,7 +446,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/exists/:cid returns true for existing', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest(`/storage/exists/${uploadedCid}`)
       expect(res.status).toBe(200)
 
@@ -477,7 +455,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/exists/:cid returns false for non-existent', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/exists/nonexistent-cid-abc')
       expect(res.status).toBe(200)
 
@@ -490,7 +467,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     let testCid: string
 
     beforeAll(async () => {
-      if (!storageAvailable) return
       const res = await uploadFile(Buffer.from('management test'), {
         filename: 'manage-test.bin',
         tier: 'popular',
@@ -501,7 +477,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/content/:cid returns metadata', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest(`/storage/content/${testCid}`)
       expect(res.status).toBe(200)
 
@@ -512,7 +487,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/content lists content', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/content')
       expect(res.status).toBe(200)
 
@@ -522,7 +496,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/content?tier=popular filters by tier', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/content?tier=popular')
       expect(res.status).toBe(200)
 
@@ -535,7 +508,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
 
   describe('Popularity', () => {
     beforeAll(async () => {
-      if (!storageAvailable) return
       // Upload and access content multiple times
       for (let i = 0; i < 3; i++) {
         const res = await uploadFile(Buffer.from(`popularity test ${i}`), {
@@ -550,7 +522,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/popular returns popular content', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/popular')
       expect(res.status).toBe(200)
 
@@ -559,7 +530,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/popular?limit=5 respects limit', async () => {
-      if (!storageAvailable) return
       const res = await dwsRequest('/storage/popular?limit=5')
       expect(res.status).toBe(200)
 
@@ -570,7 +540,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
 
   describe('IPFS Compatibility', () => {
     test('POST /storage/api/v0/add works like IPFS', async () => {
-      if (!storageAvailable) return
       const formData = new FormData()
       formData.append(
         'file',
@@ -591,7 +560,6 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
     })
 
     test('GET /storage/ipfs/:cid serves content', async () => {
-      if (!storageAvailable) return
       const formData = new FormData()
       formData.append(
         'file',
@@ -615,13 +583,12 @@ describe.skipIf(SKIP)('Storage HTTP API', () => {
 
 // S3 Compatibility Tests
 
-describe.skipIf(SKIP)('S3 Compatibility', () => {
+describe.skipIf(SKIP_INTEGRATION)('S3 Compatibility', () => {
   const testBucket = `test-bucket-${Date.now()}`
   const testKey = 'test-object.txt'
   const testContent = 'Hello, DWS S3!'
 
   test('list buckets', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest('/s3')
     expect(res.status).toBe(200)
 
@@ -630,7 +597,6 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
   })
 
   test('create bucket', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest(`/s3/${testBucket}`, {
       method: 'PUT',
       headers: {
@@ -641,7 +607,6 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
   })
 
   test('put object', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest(`/s3/${testBucket}/${testKey}`, {
       method: 'PUT',
       headers: {
@@ -655,14 +620,12 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
   })
 
   test('get object', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest(`/s3/${testBucket}/${testKey}`)
     expect(res.status).toBe(200)
     expect(await res.text()).toBe(testContent)
   })
 
   test('head object', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest(`/s3/${testBucket}/${testKey}`, {
       method: 'HEAD',
     })
@@ -671,7 +634,6 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
   })
 
   test('list objects', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest(`/s3/${testBucket}?list-type=2`)
     expect(res.status).toBe(200)
 
@@ -681,7 +643,6 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
   })
 
   test('delete object', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest(`/s3/${testBucket}/${testKey}`, {
       method: 'DELETE',
     })
@@ -689,7 +650,6 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
   })
 
   test('delete bucket', async () => {
-    if (!storageAvailable) return
     const res = await dwsRequest(`/s3/${testBucket}`, {
       method: 'DELETE',
     })
@@ -699,7 +659,9 @@ describe.skipIf(SKIP)('S3 Compatibility', () => {
 
 // Edge Cases
 
-describe.skipIf(SKIP)('Edge Cases', () => {
+// Edge Cases - Uses local backends, no external services needed
+
+describe('Edge Cases', () => {
   let backend: BackendManager
 
   beforeEach(() => {

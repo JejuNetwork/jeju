@@ -78,7 +78,7 @@ contract ContainerRegistry is BaseArtifactRegistry {
         // Collect fee if set
         if (publishFee > 0 && msg.value < publishFee) revert InsufficientPayment();
 
-        repoId = keccak256(abi.encodePacked(_nextRepoId++, msg.sender, namespace, name, block.timestamp));
+        repoId = keccak256(abi.encode(_nextRepoId++, msg.sender, namespace, name, block.timestamp));
 
         uint256 agentId = _getAgentIdForAddress(msg.sender);
 
@@ -131,7 +131,7 @@ contract ContainerRegistry is BaseArtifactRegistry {
         // Collect fee if set
         if (publishFee > 0 && msg.value < publishFee) revert InsufficientPayment();
 
-        manifestId = keccak256(abi.encodePacked(_nextManifestId++, repoId, tag, digest, block.timestamp));
+        manifestId = keccak256(abi.encode(_nextManifestId++, repoId, tag, digest, block.timestamp));
 
         // Use base versioning
         uint256 index = _publishVersion(repoId, manifestId, tag, manifestUri, manifestHash, size);

@@ -471,7 +471,7 @@ export class PkgRegistryManager {
       name: this.getFullName(pkg.name, pkg.scope),
       description: pkg.description,
       'dist-tags': {
-        latest: latestVersion?.version ?? versions[0]?.version ?? '0.0.0',
+        latest: latestVersion?.version ?? versions[0].version ?? '0.0.0',
       },
       versions: versionRecords,
       time: timeRecords,

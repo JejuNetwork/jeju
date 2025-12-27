@@ -144,7 +144,10 @@ export function createSecureCQLRouter() {
 
         if (!parsed.success) {
           set.status = 400
-          return { error: 'Invalid request: signature required', details: parsed.error.issues }
+          return {
+            error: 'Invalid request: signature required',
+            details: parsed.error.issues,
+          }
         }
 
         const { database, type, sql, params, timestamp, signature, signer } =

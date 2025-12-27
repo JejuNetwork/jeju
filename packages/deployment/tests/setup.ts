@@ -100,7 +100,7 @@ export async function startAnvil(): Promise<ChildProcess> {
       }
     }, 10000)
 
-    proc.stdout?.on('data', (data: Buffer) => {
+    proc.stdout.on('data', (data: Buffer) => {
       const output = data.toString()
       if (output.includes('Listening on') && !started) {
         started = true
@@ -110,7 +110,7 @@ export async function startAnvil(): Promise<ChildProcess> {
       }
     })
 
-    proc.stderr?.on('data', (data: Buffer) => {
+    proc.stderr.on('data', (data: Buffer) => {
       const output = data.toString()
       // Anvil sometimes outputs to stderr for info messages
       if (output.includes('Listening on') && !started) {

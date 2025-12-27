@@ -27,7 +27,7 @@ describe('JejuService Integration Tests', () => {
         smartAccount: false,
       })
       // Check if SDK is fully initialized
-      sdkReady = !!service?.sdk?.payments
+      sdkReady = !!service.sdk.payments
     } catch (e) {
       console.log(
         '⚠️ Service init failed (contracts may not be deployed):',

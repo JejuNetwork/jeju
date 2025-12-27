@@ -721,8 +721,8 @@ processor.run(
       }
     }
 
-    const startBlock = ctx.blocks[0]?.header.height
-    const endBlock = ctx.blocks[ctx.blocks.length - 1]?.header.height
+    const startBlock = ctx.blocks[0].header.height
+    const endBlock = ctx.blocks[ctx.blocks.length - 1].header.height
     ctx.log.info(
       `Processed blocks ${startBlock}-${endBlock}: ` +
         `${blocks.length} blocks, ${transactions.length} txs, ${logs.length} logs, ` +

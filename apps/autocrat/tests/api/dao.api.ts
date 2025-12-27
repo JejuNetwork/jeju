@@ -417,7 +417,7 @@ test.describe('Agent Endpoints within DAO', () => {
 
     // Should not allow deleting CEO
     if (!response.ok()) {
-      const data = await response.json()
+      const _data = await response.json()
       expect(
         response.status() === 400 ||
           response.status() === 403 ||

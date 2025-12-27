@@ -115,7 +115,7 @@ contract ModelRegistry is BaseArtifactRegistry {
         // Collect fee if set
         if (publishFee > 0 && msg.value < publishFee) revert InsufficientPayment();
 
-        modelId = keccak256(abi.encodePacked(_nextModelId++, msg.sender, organization, name, block.timestamp));
+        modelId = keccak256(abi.encode(_nextModelId++, msg.sender, organization, name, block.timestamp));
         uint256 agentId = _getAgentIdForAddress(msg.sender);
 
         // Call internal create

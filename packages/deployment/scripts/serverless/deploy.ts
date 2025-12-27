@@ -666,10 +666,8 @@ class ServerlessDeployer {
     return {
       name: app.name,
       type: 'worker',
-      passed: response?.ok ?? false,
-      message: response?.ok
-        ? 'Worker is healthy'
-        : 'Worker health check failed',
+      passed: response.ok ?? false,
+      message: response.ok ? 'Worker is healthy' : 'Worker health check failed',
       duration: Date.now() - start,
     }
   }
@@ -688,8 +686,8 @@ class ServerlessDeployer {
     return {
       name: app.name,
       type: 'frontend',
-      passed: response?.ok ?? false,
-      message: response?.ok ? 'Frontend accessible' : 'Frontend not accessible',
+      passed: response.ok ?? false,
+      message: response.ok ? 'Frontend accessible' : 'Frontend not accessible',
       details: {
         cid: app.frontend?.ipfsCid ?? '',
         files: app.frontend?.files.length ?? 0,
@@ -803,7 +801,7 @@ Apps:
       console.log(`  ${icon} ${app.name}`)
       console.log(`     JNS: ${app.jnsName}`)
       if (app.worker) {
-        console.log(`     Worker: ${app.worker.codeCid?.slice(0, 16)}...`)
+        console.log(`     Worker: ${app.worker.codeCid.slice(0, 16)}...`)
       }
       if (app.frontend) {
         console.log(`     Frontend: ${app.frontend.ipfsCid?.slice(0, 16)}...`)

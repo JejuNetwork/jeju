@@ -530,8 +530,8 @@ export default function App() {
               </div>
               <div className="graphql-info">
                 <p>
-                  The Indexer provides a powerful GraphQL API for
-                  querying blockchain data.
+                  The Indexer provides a powerful GraphQL API for querying
+                  blockchain data.
                 </p>
 
                 <div className="endpoints-list">

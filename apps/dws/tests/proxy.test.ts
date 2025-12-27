@@ -2,9 +2,13 @@
  * DWS Reverse Proxy Tests
  */
 
-import { afterAll, beforeAll, describe, expect, it, mock } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { Elysia } from 'elysia'
-import { createProxyRouter, PROXY_TARGETS, proxyMetrics } from '../api/server/routes/proxy'
+import {
+  createProxyRouter,
+  PROXY_TARGETS,
+  proxyMetrics,
+} from '../api/server/routes/proxy'
 
 describe('DWS Proxy Router', () => {
   let app: Elysia
@@ -16,28 +20,31 @@ describe('DWS Proxy Router', () => {
       port: 19091,
       fetch(req) {
         const url = new URL(req.url)
-        
+
         if (url.pathname === '/health') {
           return new Response(JSON.stringify({ status: 'ok' }), {
             headers: { 'Content-Type': 'application/json' },
           })
         }
-        
+
         if (url.pathname === '/.well-known/agent-card.json') {
           return new Response(JSON.stringify({ name: 'test' }), {
             headers: { 'Content-Type': 'application/json' },
           })
         }
-        
+
         if (url.pathname === '/api/test') {
-          return new Response(JSON.stringify({ 
-            requestId: req.headers.get('X-Request-ID'),
-            forwardedFor: req.headers.get('X-Forwarded-For'),
-          }), {
-            headers: { 'Content-Type': 'application/json' },
-          })
+          return new Response(
+            JSON.stringify({
+              requestId: req.headers.get('X-Request-ID'),
+              forwardedFor: req.headers.get('X-Forwarded-For'),
+            }),
+            {
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
         }
-        
+
         if (url.pathname === '/slow') {
           // Simulate slow response
           return new Promise((resolve) => {
@@ -46,18 +53,17 @@ describe('DWS Proxy Router', () => {
             }, 100)
           })
         }
-        
+
         if (url.pathname === '/error') {
           return new Response('Internal error', { status: 500 })
         }
-        
+
         return new Response('Not found', { status: 404 })
       },
     })
 
     // Create app with proxy router
-    app = new Elysia()
-      .use(createProxyRouter())
+    app = new Elysia().use(createProxyRouter())
   })
 
   afterAll(() => {
@@ -67,11 +73,11 @@ describe('DWS Proxy Router', () => {
   describe('Health endpoint', () => {
     it('should return proxy health status', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/health')
+        new Request('http://localhost/proxy/health'),
       )
-      
+
       expect(response.status).toBe(200)
-      
+
       const body = await response.json()
       expect(body.status).toBe('healthy')
       expect(body.service).toBe('dws-proxy')
@@ -84,15 +90,15 @@ describe('DWS Proxy Router', () => {
   describe('Targets endpoint', () => {
     it('should list proxy targets', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/targets')
+        new Request('http://localhost/proxy/targets'),
       )
-      
+
       expect(response.status).toBe(200)
-      
+
       const body = await response.json()
       expect(body.targets).toBeArray()
       expect(body.targets.length).toBeGreaterThan(0)
-      
+
       const target = body.targets[0]
       expect(target.name).toBeDefined()
       expect(target.pathPrefix).toBeDefined()
@@ -102,11 +108,11 @@ describe('DWS Proxy Router', () => {
 
     it('should include health status when requested', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/targets?includeHealth=true')
+        new Request('http://localhost/proxy/targets?includeHealth=true'),
       )
-      
+
       expect(response.status).toBe(200)
-      
+
       const body = await response.json()
       // Health check may fail for unavaialble upstreams, but field should exist
       expect(body.targets[0]).toHaveProperty('healthy')
@@ -116,12 +122,12 @@ describe('DWS Proxy Router', () => {
   describe('Metrics endpoint', () => {
     it('should return Prometheus metrics', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/metrics')
+        new Request('http://localhost/proxy/metrics'),
       )
-      
+
       expect(response.status).toBe(200)
       expect(response.headers.get('Content-Type')).toContain('text/plain')
-      
+
       const body = await response.text()
       expect(body).toContain('dws_proxy_requests_total')
       expect(body).toContain('dws_proxy_errors_total')
@@ -138,11 +144,11 @@ describe('DWS Proxy Router', () => {
   describe('Logs endpoint', () => {
     it('should return recent request logs', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/logs')
+        new Request('http://localhost/proxy/logs'),
       )
-      
+
       expect(response.status).toBe(200)
-      
+
       const body = await response.json()
       expect(body.logs).toBeArray()
       expect(body.total).toBeNumber()
@@ -150,22 +156,22 @@ describe('DWS Proxy Router', () => {
 
     it('should filter logs by upstream', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/logs?upstream=monitoring')
+        new Request('http://localhost/proxy/logs?upstream=monitoring'),
       )
-      
+
       expect(response.status).toBe(200)
-      
+
       const body = await response.json()
       expect(body.logs).toBeArray()
     })
 
     it('should filter logs by minimum status', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/logs?minStatus=400')
+        new Request('http://localhost/proxy/logs?minStatus=400'),
       )
-      
+
       expect(response.status).toBe(200)
-      
+
       const body = await response.json()
       expect(body.logs).toBeArray()
     })
@@ -174,9 +180,9 @@ describe('DWS Proxy Router', () => {
   describe('Proxy routing', () => {
     it('should return error for unknown paths', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/unknown/path')
+        new Request('http://localhost/proxy/unknown/path'),
       )
-      
+
       // Should return 200 with error message (no matching target)
       const body = await response.json()
       expect(body.error).toBe('No upstream found for path')
@@ -194,7 +200,9 @@ describe('DWS Proxy Router', () => {
         expect(target.rateLimit.burstSize).toBeNumber()
         expect(target.rateLimit.burstSize).toBeGreaterThan(0)
         // Burst size should be less than requests per minute
-        expect(target.rateLimit.burstSize).toBeLessThanOrEqual(target.rateLimit.requestsPerMinute)
+        expect(target.rateLimit.burstSize).toBeLessThanOrEqual(
+          target.rateLimit.requestsPerMinute,
+        )
       }
     })
 
@@ -210,9 +218,9 @@ describe('DWS Proxy Router', () => {
   describe('Circuit breaker', () => {
     it('should track circuit state in targets', async () => {
       const response = await app.handle(
-        new Request('http://localhost/proxy/targets')
+        new Request('http://localhost/proxy/targets'),
       )
-      
+
       const body = await response.json()
       for (const target of body.targets) {
         expect(['closed', 'half-open', 'open']).toContain(target.circuitState)
@@ -262,4 +270,3 @@ describe('DWS Proxy Router', () => {
     })
   })
 })
-

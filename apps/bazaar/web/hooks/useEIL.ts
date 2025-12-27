@@ -111,7 +111,7 @@ export function useEILConfig() {
 
   const networkConfig = getNetworkConfig()
   const chainConfig = networkConfig.chains[chainId]
-  const paymasterAddress = chainConfig?.crossChainPaymaster
+  const paymasterAddress = chainConfig.crossChainPaymaster
   const crossChainPaymaster = parseOptionalAddress(paymasterAddress)
   const isAvailable =
     crossChainPaymaster &&
@@ -119,7 +119,7 @@ export function useEILConfig() {
 
   const configuredChains = SUPPORTED_CHAINS.map((supportedChain) => {
     const config = networkConfig.chains[supportedChain.id.toString()]
-    const addr = config?.crossChainPaymaster
+    const addr = config.crossChainPaymaster
     return {
       ...supportedChain,
       paymasterAddress: parseOptionalAddress(addr),
@@ -128,7 +128,7 @@ export function useEILConfig() {
 
   // Get appTokenPreference address from chain config if available
   const appTokenPreferenceAddr = parseOptionalAddress(
-    chainConfig?.tokens?.appTokenPreference,
+    chainConfig.tokens?.appTokenPreference,
   )
 
   return {

@@ -1,34 +1,39 @@
+/**
+ * Indexer Playwright Configuration
+ */
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { defineConfig, devices } from '@playwright/test'
+
+const PORT = CORE_PORTS.INDEXER_GRAPHQL.get()
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  reporter: 'html',
+  timeout: 120000,
+
   use: {
-    baseURL: process.env.A2A_URL || 'http://localhost:4351',
+    baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
+
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'api',
-      testMatch: /.*\.spec\.ts/,
-      use: {
-        baseURL: 'http://localhost:4351',
-      },
-    },
   ],
-  webServer: {
-    command: 'DB_PORT=23798 bun run api:all',
-    url: 'http://localhost:4352/health',
-    reuseExistingServer: !process.env.CI,
-    timeout: 30000,
+
+  // Use 'bun run start' for production-like testing against DWS infrastructure
+  // Set SKIP_WEBSERVER=1 if app is already running
+  webServer: process.env.SKIP_WEBSERVER ? undefined : {
+    command: 'bun run start',
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: true,
+    timeout: 180000,
   },
 })

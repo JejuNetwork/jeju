@@ -336,9 +336,16 @@ export const CORE_PORTS = {
 
   /** Wallet WebSocket - Wallet real-time updates */
   WALLET_WS: {
-    DEFAULT: 4016,
+    DEFAULT: 4017,
     ENV_VAR: 'WALLET_WS_PORT',
-    get: () => safeParsePort(process.env.WALLET_WS_PORT, 4016),
+    get: () => safeParsePort(process.env.WALLET_WS_PORT, 4017),
+  },
+
+  /** Example App - Demo/example application */
+  EXAMPLE: {
+    DEFAULT: 4500,
+    ENV_VAR: 'EXAMPLE_PORT',
+    get: () => safeParsePort(process.env.EXAMPLE_PORT, 4500),
   },
 } as const
 

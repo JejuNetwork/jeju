@@ -233,7 +233,7 @@ class WalletMessagingService {
 
     const config: MessagingClientConfig = {
       address: this.address,
-      rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
+      rpcUrl: getRpcUrl(),
       relayUrl: RELAY_URL,
     }
 

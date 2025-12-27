@@ -9,16 +9,13 @@
  * Uses secp256k1 ECDSA signatures (Ethereum-compatible) for signing.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   type Address,
   keccak256,
   recoverMessageAddress,
   stringToBytes,
-  toBytes,
-  toHex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
@@ -325,10 +322,14 @@ export async function loadVerifiedManifest(
 
     if (!result.valid) {
       if (options.requireSignature || options.network === 'mainnet') {
-        throw new Error(`Manifest signature verification failed: ${result.error}`)
+        throw new Error(
+          `Manifest signature verification failed: ${result.error}`,
+        )
       }
       logger.warn(`Manifest signature invalid: ${result.error}`)
-      logger.warn('Proceeding without verified signature (not recommended for production)')
+      logger.warn(
+        'Proceeding without verified signature (not recommended for production)',
+      )
     } else {
       logger.success(`Manifest verified, signed by: ${result.signer}`)
     }
@@ -360,7 +361,7 @@ export async function loadVerifiedManifest(
 
   if (options.network === 'testnet') {
     logger.warn('Using unsigned manifest for testnet deployment')
-    logger.info('Consider signing with: jeju manifest sign ' + manifestPath)
+    logger.info(`Consider signing with: jeju manifest sign ${manifestPath}`)
   }
 
   return {
@@ -405,9 +406,10 @@ function canonicalizeJSON(obj: unknown): string {
 /**
  * Generate a fingerprint for a manifest (for display purposes)
  */
-export function getManifestFingerprint(manifest: Record<string, unknown>): string {
+export function getManifestFingerprint(
+  manifest: Record<string, unknown>,
+): string {
   const canonical = canonicalizeJSON(manifest)
   const hash = createHash('sha256').update(canonical).digest('hex')
   return hash.slice(0, 16).toUpperCase()
 }
-

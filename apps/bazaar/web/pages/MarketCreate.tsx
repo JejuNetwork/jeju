@@ -6,8 +6,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { keccak256, parseEther, toHex } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { PREDICTION_MARKET_ADDRESS } from '../../config'
 
 // ABI for createMarket function
@@ -59,7 +63,7 @@ export default function MarketCreatePage() {
   })
 
   const { writeContract, data: txHash, isPending, error } = useWriteContract()
-  
+
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash: txHash,
   })
@@ -115,7 +119,7 @@ export default function MarketCreatePage() {
 
     // Generate unique sessionId from question + timestamp
     const sessionId = keccak256(
-      toHex(`${form.question}-${Date.now()}-${address}`)
+      toHex(`${form.question}-${Date.now()}-${address}`),
     )
 
     // Create market on-chain
@@ -205,12 +209,12 @@ export default function MarketCreatePage() {
           </div>
 
           <div>
-            <label
+            <span
               className="text-sm block mb-1.5 font-medium"
               style={{ color: 'var(--text-primary)' }}
             >
               Category
-            </label>
+            </span>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {CATEGORIES.map((cat) => (
                 <button
@@ -247,12 +251,12 @@ export default function MarketCreatePage() {
           </h2>
 
           <div>
-            <label
+            <span
               className="text-sm block mb-1.5 font-medium"
               style={{ color: 'var(--text-primary)' }}
             >
               How will this market be resolved?
-            </label>
+            </span>
             <div className="space-y-2">
               <button
                 type="button"

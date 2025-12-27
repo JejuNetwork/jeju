@@ -414,7 +414,10 @@ export class MessagingClient {
             // Fall back to signing key pair if no wallet client
             const { ed25519 } = await import('@noble/curves/ed25519')
             const messageBytes = new TextEncoder().encode(message)
-            const sig = ed25519.sign(messageBytes, this.signingKeyPair.privateKey)
+            const sig = ed25519.sign(
+              messageBytes,
+              this.signingKeyPair.privateKey,
+            )
             signature = `0x${Buffer.from(sig).toString('hex')}`
           } else {
             reject(

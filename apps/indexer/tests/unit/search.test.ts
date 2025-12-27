@@ -453,7 +453,7 @@ describe('Agent Search Result Transformation', () => {
 
     const result: AgentSearchResult = {
       agentId: mockAgent.agentId.toString(),
-      owner: mockAgent.owner?.address ?? '',
+      owner: mockAgent.owner.address ?? '',
       name: mockAgent.name ?? 'Unnamed Agent',
       metadataUri: mockAgent.tokenURI ?? '',
       active: mockAgent.active,

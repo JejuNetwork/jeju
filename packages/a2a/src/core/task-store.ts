@@ -296,7 +296,7 @@ export class ExtendedTaskStore implements TaskStore {
       queryParams,
       A2A_TASKS_DATABASE_ID,
     )
-    const totalSize = countResult.rows[0]?.count ?? 0
+    const totalSize = countResult.rows[0].count ?? 0
 
     // Pagination
     const pageSize = Math.min(params.pageSize ?? 10, 100) // Max 100 per page
@@ -406,7 +406,7 @@ export class ExtendedTaskStore implements TaskStore {
       A2A_TASKS_DATABASE_ID,
     )
 
-    return result.rows[0]?.count ?? 0
+    return result.rows[0].count ?? 0
   }
 
   /**

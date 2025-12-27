@@ -23,7 +23,6 @@ export {
   getKeyMetadata,
   getKeysByOwner,
   getVaultStats,
-  loadSystemKeys,
   storeKey,
 } from './key-vault'
 
@@ -44,16 +43,10 @@ export {
 // Providers
 export {
   getAllProviders,
-  getAllProviders as ALL_PROVIDERS_LIST,
   getConfiguredProviders,
   getProviderById,
-  getProviderById as getProvider, // Alias for backwards compatibility
   getProvidersByCategory,
 } from './providers'
-
-// Re-export provider array for tests that import ALL_PROVIDERS
-import { getAllProviders as _getAllProviders } from './providers'
-export const ALL_PROVIDERS = _getAllProviders()
 
 // Proxy Router
 export { checkProviderHealth, proxyRequest } from './proxy-router'
@@ -80,7 +73,6 @@ export {
 export {
   checkForLeaks,
   createSanitizationConfig,
-  DEFAULT_KEY_PATTERNS,
   extractPotentialKeys,
   mightContainKey,
   sanitizeObject,

@@ -11,11 +11,8 @@
  * - Geo-routing for low latency
  */
 
-import {
-  type CQLRateLimitStoreConfig,
-  CQLRateLimitStore,
-} from '@jejunetwork/api'
-import { getCQL, type CQLClient } from '@jejunetwork/db'
+import { CQLRateLimitStore } from '@jejunetwork/api'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 

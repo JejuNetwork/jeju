@@ -240,11 +240,17 @@ class TradingBotImpl implements TradingBot {
     const routerAddress = DEX_ROUTERS[chainId]
     const wethAddress = WETH_ADDRESSES[chainId]
 
-    if (!routerAddress || routerAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !routerAddress ||
+      routerAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       throw new Error(`No DEX router configured for chain ${chainId}`)
     }
 
-    if (!wethAddress || wethAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      !wethAddress ||
+      wethAddress === '0x0000000000000000000000000000000000000000'
+    ) {
       throw new Error(`No WETH address configured for chain ${chainId}`)
     }
 
@@ -333,7 +339,9 @@ class TradingBotImpl implements TradingBot {
           chain,
         })
 
-        await this.publicClient.waitForTransactionReceipt({ hash: approveTxHash })
+        await this.publicClient.waitForTransactionReceipt({
+          hash: approveTxHash,
+        })
       }
 
       // Calculate minimum output with slippage
@@ -471,7 +479,7 @@ export class BotInitializer {
         id: `trading-bot-${Date.now()}-${index}`,
         name: botConfig.name,
         description: botConfig.description,
-        system: `You are a ${botConfig.name} trading bot that executes ${botConfig.strategies[0]?.type} strategies.`,
+        system: `You are a ${botConfig.name} trading bot that executes ${botConfig.strategies[0].type} strategies.`,
         bio: [botConfig.description],
         messageExamples: [],
         topics: ['trading', 'defi', 'arbitrage', 'mev'],
@@ -495,12 +503,12 @@ export class BotInitializer {
     const tradingConfig: TradingBotConfig = {
       id: agentResult.agentId,
       name: botConfig.name,
-      strategy: this.mapStrategyType(botConfig.strategies[0]?.type),
+      strategy: this.mapStrategyType(botConfig.strategies[0].type),
       enabled: true,
       maxPositionSize: parseEther('10'),
       minTradeSize: parseEther('0.01'),
-      maxSlippageBps: botConfig.strategies[0]?.maxSlippageBps ?? 50,
-      cooldownMs: botConfig.strategies[0]?.cooldownMs ?? 60000,
+      maxSlippageBps: botConfig.strategies[0].maxSlippageBps ?? 50,
+      cooldownMs: botConfig.strategies[0].cooldownMs ?? 60000,
       targetTokens: [],
       excludedTokens: [],
     }

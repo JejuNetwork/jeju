@@ -777,7 +777,7 @@ export function createAPIMarketplaceRouter() {
         const choice = responseData.choices[0]
 
         return {
-          content: choice?.message?.content ?? '',
+          content: choice.message.content ?? '',
           model: responseData.model,
           usage: responseData.usage,
           provider: responseData.provider,
@@ -857,7 +857,7 @@ export function createAPIMarketplaceRouter() {
           'Embedding API response',
         )
         const embeddingData = responseData.data[0]
-        const embedding = embeddingData?.embedding ?? []
+        const embedding = embeddingData.embedding ?? []
 
         return {
           embedding,

@@ -21,9 +21,7 @@
  */
 
 import { parseArgs } from 'node:util'
-import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
-import type { Address, Hex } from 'viem'
-import { createPublicClient, http } from 'viem'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { z } from 'zod'
 
 // ============================================================================
@@ -52,11 +50,13 @@ interface DeploymentResult {
 const ProxyHealthResponseSchema = z.object({
   status: z.string(),
   service: z.string(),
-  targets: z.array(z.object({
-    name: z.string(),
-    pathPrefix: z.string(),
-    circuitState: z.string(),
-  })),
+  targets: z.array(
+    z.object({
+      name: z.string(),
+      pathPrefix: z.string(),
+      circuitState: z.string(),
+    }),
+  ),
   metrics: z.object({
     totalRequests: z.number(),
     totalErrors: z.number(),
@@ -120,9 +120,15 @@ class DWSProxyProvisioner {
       errors: [],
     }
 
-    console.log('╔══════════════════════════════════════════════════════════════════╗')
-    console.log('║           DWS Reverse Proxy Infrastructure Setup                 ║')
-    console.log('╚══════════════════════════════════════════════════════════════════╝')
+    console.log(
+      '╔══════════════════════════════════════════════════════════════════╗',
+    )
+    console.log(
+      '║           DWS Reverse Proxy Infrastructure Setup                 ║',
+    )
+    console.log(
+      '╚══════════════════════════════════════════════════════════════════╝',
+    )
     console.log('')
     console.log(`Network:     ${this.network}`)
     console.log(`DWS URL:     ${this.dwsUrl}`)
@@ -149,7 +155,9 @@ class DWSProxyProvisioner {
       console.log('   ℹ️  Make sure DWS includes the proxy router')
       return result
     }
-    console.log(`   ✅ Proxy is healthy (${proxyHealth.metrics.totalRequests} total requests)`)
+    console.log(
+      `   ✅ Proxy is healthy (${proxyHealth.metrics.totalRequests} total requests)`,
+    )
 
     // Step 3: Verify upstream services
     console.log('')
@@ -157,12 +165,14 @@ class DWSProxyProvisioner {
     for (const service of this.services) {
       const healthy = await this.checkServiceHealth(service)
       result.healthStatus[service.name] = healthy
-      
+
       if (healthy) {
         result.registeredServices.push(service.name)
         console.log(`   ✅ ${service.name}: healthy (${service.upstream})`)
       } else {
-        console.log(`   ⚠️  ${service.name}: not available (${service.upstream})`)
+        console.log(
+          `   ⚠️  ${service.name}: not available (${service.upstream})`,
+        )
       }
     }
 
@@ -184,9 +194,13 @@ class DWSProxyProvisioner {
 
     // Step 5: Print summary
     console.log('')
-    console.log('═══════════════════════════════════════════════════════════════════')
+    console.log(
+      '═══════════════════════════════════════════════════════════════════',
+    )
     console.log('                         Summary')
-    console.log('═══════════════════════════════════════════════════════════════════')
+    console.log(
+      '═══════════════════════════════════════════════════════════════════',
+    )
     console.log('')
     console.log('Proxy Endpoints:')
     for (const service of this.services) {
@@ -203,7 +217,9 @@ class DWSProxyProvisioner {
 
     if (result.registeredServices.length > 0) {
       result.success = true
-      console.log(`✅ Proxy infrastructure ready with ${result.registeredServices.length} services`)
+      console.log(
+        `✅ Proxy infrastructure ready with ${result.registeredServices.length} services`,
+      )
     } else {
       console.log('⚠️  No services are currently available')
       console.log('   Start the required services and re-run this script')
@@ -216,17 +232,19 @@ class DWSProxyProvisioner {
     const response = await fetch(`${this.dwsUrl}/health`, {
       signal: AbortSignal.timeout(10000),
     }).catch(() => null)
-    
+
     return response?.ok ?? false
   }
 
-  private async checkProxyHealth(): Promise<z.infer<typeof ProxyHealthResponseSchema> | null> {
+  private async checkProxyHealth(): Promise<z.infer<
+    typeof ProxyHealthResponseSchema
+  > | null> {
     const response = await fetch(`${this.dwsUrl}/proxy/health`, {
       signal: AbortSignal.timeout(10000),
     }).catch(() => null)
-    
+
     if (!response?.ok) return null
-    
+
     const json = await response.json().catch(() => null)
     const parsed = ProxyHealthResponseSchema.safeParse(json)
     return parsed.success ? parsed.data : null
@@ -237,7 +255,7 @@ class DWSProxyProvisioner {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(5000),
     }).catch(() => null)
-    
+
     return response?.ok ?? false
   }
 
@@ -246,7 +264,7 @@ class DWSProxyProvisioner {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(10000),
     }).catch(() => null)
-    
+
     // Accept 2xx or 404 (service healthy but resource not found)
     return response !== null && (response.ok || response.status === 404)
   }
@@ -284,7 +302,8 @@ Examples:
   }
 
   const network = values.network ?? getCurrentNetwork()
-  const dwsUrl = values['dws-url'] ?? process.env.DWS_URL ?? 'http://localhost:4030'
+  const dwsUrl =
+    values['dws-url'] ?? process.env.DWS_URL ?? 'http://localhost:4030'
 
   const provisioner = new DWSProxyProvisioner(dwsUrl, network)
   const result = await provisioner.provision()
@@ -305,4 +324,3 @@ main().catch((err) => {
 })
 
 export { DWSProxyProvisioner, type DeploymentResult, type ProxyTarget }
-

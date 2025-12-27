@@ -5,11 +5,9 @@
  */
 
 import {
-  Activity,
   Bot,
   Brain,
   Check,
-  ChevronRight,
   Copy,
   ExternalLink,
   FileText,
@@ -166,12 +164,11 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm cursor-default border-none"
         onClick={onClose}
         onKeyDown={(e) => e.key === 'Escape' && onClose()}
-        role="button"
-        tabIndex={0}
         aria-label="Close modal"
       />
 
@@ -312,9 +309,9 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
           {/* Values */}
           <Section title="Values & Alignment" icon={Heart}>
             <div className="space-y-2">
-              {agent.values.map((value, index) => (
+              {agent.values.map((value) => (
                 <div
-                  key={index}
+                  key={value}
                   className="flex items-start gap-3 bg-slate-800/50 border border-slate-700/50 rounded-xl p-3"
                 >
                   <div className="w-6 h-6 shrink-0 rounded-full bg-violet-500/20 flex items-center justify-center">

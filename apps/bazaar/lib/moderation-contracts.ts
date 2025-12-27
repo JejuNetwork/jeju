@@ -21,9 +21,9 @@ function getContractsForNetwork(
 
   return {
     moderationMarketplace:
-      (contracts.moderation?.moderationMarketplace as Address) || ZERO_ADDRESS,
-    banManager: (contracts.moderation?.banManager as Address) || ZERO_ADDRESS,
-    identityRegistry: (contracts.registry?.identity as Address) || ZERO_ADDRESS,
+      (contracts.moderation.moderationMarketplace as Address) || ZERO_ADDRESS,
+    banManager: (contracts.moderation.banManager as Address) || ZERO_ADDRESS,
+    identityRegistry: (contracts.registry.identity as Address) || ZERO_ADDRESS,
   }
 }
 

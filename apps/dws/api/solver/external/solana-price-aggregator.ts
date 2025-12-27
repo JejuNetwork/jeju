@@ -477,7 +477,7 @@ export class SolanaPriceAggregator {
       if (!quoteMintInfo) continue
 
       // Calculate price
-      const baseDecimals = KNOWN_TOKENS[mint]?.decimals ?? 9
+      const baseDecimals = KNOWN_TOKENS[mint].decimals ?? 9
       const quoteDecimals = quoteMintInfo.decimals
 
       const baseReserve = Number(poolState.baseReserve) / 10 ** baseDecimals

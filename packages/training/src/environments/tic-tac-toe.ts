@@ -299,10 +299,10 @@ export function trajectoryToTrainingFormat(trajectory: GameTrajectory): {
   reward: number
 } {
   const prompt = `You are playing Tic-Tac-Toe. The current board is:
-${trajectory.steps[0]?.observation.board ?? 'Empty board'}
+${trajectory.steps[0].observation.board ?? 'Empty board'}
 
-You are player ${trajectory.steps[0]?.observation.currentPlayer ?? 'X'}.
-Valid moves: ${trajectory.steps[0]?.observation.validMoves.join(', ') ?? 'None'}
+You are player ${trajectory.steps[0].observation.currentPlayer ?? 'X'}.
+Valid moves: ${trajectory.steps[0].observation.validMoves.join(', ') ?? 'None'}
 
 What move do you make and why?`
 

@@ -7,9 +7,6 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
-// Skip when infrastructure isn't ready
-const SKIP = process.env.INFRA_READY !== 'true'
-
 // Test response types
 interface AgentIdNameResponse {
   id: string
@@ -61,7 +58,7 @@ async function checkDWS(): Promise<boolean> {
   }
 }
 
-describe.skipIf(SKIP)('Agent E2E (requires DWS)', () => {
+describe('Agent E2E (requires DWS)', () => {
   let dwsAvailable = false
   let createdAgentId: string | null = null
 

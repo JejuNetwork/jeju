@@ -743,8 +743,8 @@ export class BenchmarkDataGenerator {
       // Update perpetual prices
       for (const perp of currentState.perpetualMarkets) {
         const tickerHistory = groundTruth.priceHistory[perp.ticker]
-        const priceAtTick = tickerHistory?.[i]
-        const newPrice = priceAtTick?.price ?? perp.price
+        const priceAtTick = tickerHistory[i]
+        const newPrice = priceAtTick.price ?? perp.price
         events.push({
           type: 'price:updated',
           timestamp: tickTimestamp,

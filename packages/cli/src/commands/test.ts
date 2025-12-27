@@ -1,4 +1,12 @@
-/** Comprehensive test runner with automatic setup/teardown */
+/**
+ * Comprehensive test runner with automatic setup/teardown
+ *
+ * DESIGN PRINCIPLES:
+ * 1. FAIL-FAST: If infrastructure fails to start, crash immediately
+ * 2. SMOKE FIRST: Run smoke tests before E2E to verify testing system works
+ * 3. NO SKIPS: Tests should not skip due to missing infrastructure
+ * 4. VISUAL VERIFICATION: Screenshots are verified by AI for quality
+ */
 
 import {
   existsSync,
@@ -14,6 +22,7 @@ import { type ExecaError, execa } from 'execa'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { discoverApps } from '../lib/testing'
+import { runSmokeTests as runE2ESmokeTests } from '../testing/smoke-test-runner'
 import { EthChainIdResponseSchema, validate } from '../schemas'
 import { createTestOrchestrator } from '../services/test-orchestrator'
 import type { CoverageReport, TestMode, TestResult } from '../types'
@@ -32,8 +41,11 @@ interface TestOptions {
   verbose?: boolean
   keepServices?: boolean
   skipLock?: boolean
+  /** @deprecated Infrastructure setup is now mandatory */
   skipPreflight?: boolean
+  /** @deprecated Warmup is now mandatory */
   skipWarmup?: boolean
+  /** @deprecated Bootstrap is now mandatory */
   skipBootstrap?: boolean
   infraOnly?: boolean
   teardownOnly?: boolean
@@ -50,6 +62,8 @@ interface TestOptions {
   app?: string
   deploy?: boolean
   docker?: boolean
+  /** Skip smoke tests (not recommended) */
+  skipSmokeTests?: boolean
 }
 
 interface ManifestTesting {
@@ -122,13 +136,11 @@ export const testCommand = new Command('test')
   .option('-v, --verbose', 'Verbose output')
   .option('--keep-services', 'Keep services running after tests')
   .option('--skip-lock', 'Skip test lock acquisition')
-  .option('--skip-preflight', 'Skip preflight checks')
-  .option('--skip-warmup', 'Skip app warmup')
-  .option('--skip-bootstrap', 'Skip contract bootstrap')
   .option('--infra-only', "Only run infrastructure setup, don't run tests")
   .option('--teardown-only', 'Only run teardown')
   .option('--force', 'Force override existing test lock')
   .option('--forge-opts <opts>', 'Pass options to forge test')
+  .option('--skip-smoke-tests', 'Skip smoke tests before E2E (not recommended)')
   .action(async (options) => {
     const mode = options.mode as TestMode
     const rootDir = findMonorepoRoot()
@@ -160,17 +172,18 @@ export const testCommand = new Command('test')
       }
     }
 
-    // Create test orchestrator
+    // Create test orchestrator with fail-fast settings
+    // Note: skipPreflight, skipWarmup, skipBootstrap are no longer supported
+    // Infrastructure setup is mandatory for integration/e2e/full modes
     const testOrchestrator = createTestOrchestrator({
       mode,
       app: options.targetApp,
       skipLock: options.skipLock,
-      skipPreflight: options.skipPreflight,
-      skipWarmup: options.skipWarmup,
-      skipBootstrap: options.skipBootstrap,
       keepServices: options.keepServices,
       force: options.force,
       rootDir,
+      headless: options.ci || options.headless,
+      skipSmokeTests: options.skipSmokeTests,
     })
 
     const cleanup = async () => {
@@ -350,8 +363,6 @@ testCommand
     const testOrchestrator = createTestOrchestrator({
       mode,
       skipLock: true,
-      skipPreflight: true,
-      skipWarmup: true,
       keepServices: true,
       rootDir,
     })
@@ -584,6 +595,26 @@ testCommand
       return
     }
 
+    // Run smoke tests first to verify testing infrastructure works
+    if (!options.smoke) {
+      logger.step('Running infrastructure smoke tests...')
+      const smokeResult = await runE2ESmokeTests({
+        rootDir,
+        headless: options.headless ?? true,
+        skipAIVerification: !process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY,
+      })
+
+      if (!smokeResult.passed) {
+        logger.error('Smoke tests failed - E2E tests will not run')
+        for (const error of smokeResult.errors) {
+          logger.error(`  - ${error}`)
+        }
+        if (cleanup) await cleanup()
+        process.exit(1)
+      }
+      logger.success('Smoke tests passed')
+    }
+
     // Run tests
     try {
       const results = await runSynpressTests(rootDir, options)
@@ -714,7 +745,9 @@ testCommand
 
 testCommand
   .command('crawl')
-  .description('Crawl a single app to discover and test all pages and interactions')
+  .description(
+    'Crawl a single app to discover and test all pages and interactions',
+  )
   .requiredOption('-a, --app <app>', 'App to crawl')
   .option('--max-pages <n>', 'Maximum pages to crawl', '50')
   .option('--verbose', 'Verbose output')
@@ -726,7 +759,8 @@ testCommand
     const apps = discoverApps(rootDir, true)
     const app = apps.find(
       (a) =>
-        (a._folderName ?? a.slug ?? a.name) === options.app || a.name === options.app,
+        (a._folderName ?? a.slug ?? a.name) === options.app ||
+        a.name === options.app,
     )
 
     if (!app) {

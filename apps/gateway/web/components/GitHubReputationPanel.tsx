@@ -307,7 +307,7 @@ export default function GitHubReputationPanel({
                     <AwardIcon size={18} className="text-green-600" />
                     <span className="text-sm">
                       {onChainReputation?.hasBoost
-                        ? `Reputation Boost Active (${onChainReputation?.stakeDiscount ?? 0}% stake discount)`
+                        ? `Reputation Boost Active (${onChainReputation.stakeDiscount ?? 0}% stake discount)`
                         : 'No active boost'}
                     </span>
                   </div>

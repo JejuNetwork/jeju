@@ -111,7 +111,7 @@ export class MigrationManager {
         const versionResult = await tx.query<{ version: number | null }>(
           `SELECT MAX(version) as version FROM ${this.tableName}`,
         )
-        const currentVersion = versionResult.rows[0]?.version ?? 0
+        const currentVersion = versionResult.rows[0].version ?? 0
 
         // Skip if migration already applied
         if (migration.version <= currentVersion) {
@@ -372,7 +372,8 @@ export function createTableMigration(
     if (col.unique) def += ' UNIQUE'
     if (col.default !== undefined && col.default !== null) {
       // Convert to string and validate
-      const defaultStr = typeof col.default === 'string' ? col.default : String(col.default)
+      const defaultStr =
+        typeof col.default === 'string' ? col.default : String(col.default)
       const safeDefault = validateSQLDefault(defaultStr)
       def += ` DEFAULT ${safeDefault}`
     }

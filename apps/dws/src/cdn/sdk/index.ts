@@ -27,8 +27,13 @@
 
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { getDWSUrl, getIpfsGatewayEnv, getRpcUrl, getStorageApiEndpoint } from '@jejunetwork/config'
+import {
+  getIpfsGatewayEnv,
+  getRpcUrl,
+  getStorageApiEndpoint,
+} from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
+import { z } from 'zod'
 import type {
   CacheConfig,
   CDNRegion,

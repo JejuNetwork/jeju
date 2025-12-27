@@ -322,7 +322,7 @@ export class S3Backend {
 
     const isTruncated = allKeys.length > maxKeys + commonPrefixes.size
     const nextToken = isTruncated
-      ? contents[contents.length - 1]?.key
+      ? contents[contents.length - 1].key
       : undefined
 
     return {

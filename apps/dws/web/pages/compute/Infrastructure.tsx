@@ -427,7 +427,7 @@ function WorkerdTab({
               </td>
               <td>{worker.memoryMb}MB</td>
               <td style={{ fontFamily: 'var(--font-mono)' }}>
-                {worker.invocations?.toLocaleString() ?? 0}
+                {worker.invocations.toLocaleString() ?? 0}
               </td>
               <td style={{ display: 'flex', gap: '0.25rem' }}>
                 <button

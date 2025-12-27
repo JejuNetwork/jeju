@@ -32,7 +32,8 @@ function getDeployerKey(): string {
   const envKey = process.env.PRIVATE_KEY
   if (envKey) return envKey
 
-  const isLocalRpc = RPC_URL.includes('127.0.0.1') || RPC_URL.includes('localhost')
+  const isLocalRpc =
+    RPC_URL.includes('127.0.0.1') || RPC_URL.includes('localhost')
   if (!isLocalRpc) {
     throw new Error(
       'PRIVATE_KEY environment variable required for non-local deployments. ' +

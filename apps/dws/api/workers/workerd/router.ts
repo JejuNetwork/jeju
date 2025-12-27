@@ -223,7 +223,7 @@ export class WorkerRouter {
 
       health.latencyMs = Date.now() - start
       health.lastChecked = now
-      health.healthy = response?.ok ?? false
+      health.healthy = response.ok ?? false
 
       if (health.healthy) {
         health.errorCount = 0

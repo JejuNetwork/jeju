@@ -152,7 +152,9 @@ export class TEEXMTPKeyManager {
       })
     } catch (err) {
       const error =
-        err instanceof Error ? err : new Error('Unknown TEE initialization error')
+        err instanceof Error
+          ? err
+          : new Error('Unknown TEE initialization error')
       this.teeInitError = error
       log.error('Failed to initialize TEE provider', { error: error.message })
       throw new Error(

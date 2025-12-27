@@ -26,8 +26,12 @@
 export * from './app-registry'
 // Cache
 export * from './cache'
+// Coordination - libp2p GossipSub for global cache coordination
+export * from './coordination'
 // Local CDN Server - serves static assets for devnet
 export * from './local-server'
+// P2P - Hybrid CDN with WebTorrent/BitTorrent integration
+export * from './p2p'
 // Providers (interface only - implementations are deployed infrastructure)
 export * from './providers'
 // SDK

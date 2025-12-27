@@ -47,7 +47,7 @@ describe('Indexer Proxy', () => {
       .filter((e) => e.type === 'graphql' && e.healthy)
       .sort((a, b) => a.latencyMs - b.latencyMs)[0]
 
-    expect(best?.url).toBe('http://fast')
+    expect(best.url).toBe('http://fast')
   })
 
   it('marks unhealthy after 3 errors', () => {

@@ -16,7 +16,7 @@ export default createSynpressConfig({
   testDir: './tests/synpress',
   overrides: {
     webServer: {
-      command: 'bun run dev',
+      command: 'bun run start',
       url: `http://localhost:${FACTORY_PORT}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120000,

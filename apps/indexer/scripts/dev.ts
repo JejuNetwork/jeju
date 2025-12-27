@@ -94,9 +94,12 @@ const distFiles = await Array.fromAsync(new Bun.Glob('*.css').scan(distDir))
 const cssFile = distFiles[0]
 
 // Transform HTML to use built assets
-let transformedHtml = indexHtml
+const transformedHtml = indexHtml
   .replace('/web/main.tsx', '/dist/web/main.js')
-  .replace('/web/styles/index.css', cssFile ? `/dist/web/${cssFile}` : '/web/styles/index.css')
+  .replace(
+    '/web/styles/index.css',
+    cssFile ? `/dist/web/${cssFile}` : '/web/styles/index.css',
+  )
 
 const REST_PORT = Number(process.env.REST_PORT) || 4352
 

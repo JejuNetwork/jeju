@@ -17,10 +17,10 @@ export function Alerts() {
     const matchesSearch =
       searchQuery === '' ||
       alert.labels.alertname
-        ?.toLowerCase()
+        .toLowerCase()
         .includes(searchQuery.toLowerCase()) ||
       alert.annotations.description
-        ?.toLowerCase()
+        .toLowerCase()
         .includes(searchQuery.toLowerCase())
 
     const matchesSeverity =

@@ -40,7 +40,7 @@ function initializeEndpoints(): void {
   const services = getServicesConfig(network)
 
   // Primary indexer from config
-  const graphqlUrl = services.indexer?.graphql
+  const graphqlUrl = services.indexer.graphql
   if (graphqlUrl) {
     indexerEndpoints.set('primary-graphql', {
       url: graphqlUrl,
@@ -52,7 +52,7 @@ function initializeEndpoints(): void {
     })
   }
 
-  const restUrl = services.indexer?.rest
+  const restUrl = services.indexer.rest
   if (restUrl) {
     indexerEndpoints.set('primary-rest', {
       url: restUrl,

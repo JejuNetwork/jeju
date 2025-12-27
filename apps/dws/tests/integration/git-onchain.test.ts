@@ -18,7 +18,7 @@ setDefaultTimeout(30000)
 const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
 const PRIVATE_KEY = (process.env.DWS_PRIVATE_KEY ||
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex
-const SKIP = process.env.SKIP_INTEGRATION === 'true' || process.env.INFRA_READY !== 'true'
+const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
 describe.skipIf(SKIP)('Git Registry On-Chain Integration', () => {
   let publicClient: ReturnType<typeof createPublicClient>

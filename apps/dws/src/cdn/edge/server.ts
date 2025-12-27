@@ -427,7 +427,7 @@ export class EdgeNodeServer {
     // Add cache control for immutable content
     if (
       cacheStatus === 'HIT' &&
-      headers['cache-control']?.includes('immutable')
+      headers['cache-control'].includes('immutable')
     ) {
       responseHeaders['Cache-Control'] = 'public, max-age=31536000, immutable'
     }
@@ -478,7 +478,7 @@ export class EdgeNodeServer {
    */
   private isImmutable(path: string, headers: Record<string, string>): boolean {
     // Check cache-control header
-    if (headers['cache-control']?.includes('immutable')) {
+    if (headers['cache-control'].includes('immutable')) {
       return true
     }
 
@@ -602,7 +602,7 @@ export class EdgeNodeServer {
       query: Object.fromEntries(url.searchParams),
       headers,
       clientIp:
-        headers['x-forwarded-for']?.split(',')[0]?.trim() ??
+        headers['x-forwarded-for'].split(',')[0].trim() ??
         headers['x-real-ip'] ??
         'unknown',
       timestamp: Date.now(),

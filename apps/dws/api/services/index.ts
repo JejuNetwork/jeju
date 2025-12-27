@@ -238,7 +238,10 @@ const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
       retries: 3,
     },
     env: {
-      POSTGRES_PASSWORD: getServicePassword('DEFAULT_POSTGRES_PASSWORD', 'postgres'),
+      POSTGRES_PASSWORD: getServicePassword(
+        'DEFAULT_POSTGRES_PASSWORD',
+        'postgres',
+      ),
     },
   },
   redis: {
@@ -269,7 +272,10 @@ const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
     ports: [{ container: 9000 }, { container: 9001 }],
     env: {
       MINIO_ROOT_USER: process.env.DEFAULT_MINIO_USER || 'minioadmin',
-      MINIO_ROOT_PASSWORD: getServicePassword('DEFAULT_MINIO_PASSWORD', 'minio'),
+      MINIO_ROOT_PASSWORD: getServicePassword(
+        'DEFAULT_MINIO_PASSWORD',
+        'minio',
+      ),
     },
   },
 }
@@ -435,9 +441,9 @@ export async function provisionService(
   const mergedConfig: ServiceConfig = {
     ...defaults,
     ...config,
-    resources: { ...defaults?.resources, ...config.resources },
-    env: { ...defaults?.env, ...config.env },
-    ports: config.ports.length > 0 ? config.ports : (defaults?.ports ?? []),
+    resources: { ...defaults.resources, ...config.resources },
+    env: { ...defaults.env, ...config.env },
+    ports: config.ports.length > 0 ? config.ports : (defaults.ports ?? []),
   }
 
   const containerName = `dws-${config.type}-${config.name}`

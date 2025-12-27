@@ -116,7 +116,7 @@ describe('Oracle Integration', () => {
     })
 
     afterAll(() => {
-      metrics?.stop()
+      metrics.stop()
     })
 
     test('should serve health endpoint', async () => {

@@ -242,7 +242,7 @@ async function getMailboxCount(address: string): Promise<number> {
     [address.toLowerCase()],
     CQL_DATABASE_ID,
   )
-  return result.rows[0]?.count ?? 0
+  return result.rows[0].count ?? 0
 }
 
 function rowToIndexEntry(row: EmailRow): EmailIndexEntry {

@@ -957,7 +957,7 @@ export class RealisticBacktester {
       const weekWon = weekDays.reduce((s, d) => s + d.won, 0)
       const weekWinRate = weekExecuted > 0 ? weekWon / weekExecuted : 0
 
-      const startDate = weekDays[0]?.date ?? 'N/A'
+      const startDate = weekDays[0].date ?? 'N/A'
       console.log(
         `  │ ${startDate.padEnd(15)} │ $${weekGross.toFixed(0).padStart(9)} │ $${weekNet.toFixed(0).padStart(9)} │ ${(weekWinRate * 100).toFixed(1).padStart(9)}% │`,
       )

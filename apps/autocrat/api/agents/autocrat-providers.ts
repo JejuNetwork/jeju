@@ -201,7 +201,7 @@ const otherAutocratVotesProvider: Provider = {
     _state: State,
   ): Promise<ProviderResult> => {
     // Extract proposal ID from message if present
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (!proposalMatch) {
@@ -220,7 +220,7 @@ const otherAutocratVotesProvider: Provider = {
     const votes = data.votes
 
     // Filter out own votes based on runtime's character name
-    const myRole = runtime.character.name?.replace(' Agent', '').toUpperCase()
+    const myRole = runtime.character.name.replace(' Agent', '').toUpperCase()
     const otherVotes = votes.filter((v) => v.role !== myRole)
 
     if (otherVotes.length === 0) {
@@ -302,7 +302,7 @@ const proposalDetailProvider: Provider = {
     message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (!proposalMatch) {
@@ -557,7 +557,7 @@ const researchReportsProvider: Provider = {
     message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (!proposalMatch) {

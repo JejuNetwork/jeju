@@ -20,14 +20,12 @@ import {
 } from 'lucide-react'
 import { useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { useDAO } from '../hooks/useDAO'
-import type { DAODetail as DAODetailType } from '../types/dao'
-
 // Tab components
 import { AgentsTab } from '../components/dao/AgentsTab'
 import { GovernanceTab } from '../components/dao/GovernanceTab'
 import { SettingsTab } from '../components/dao/SettingsTab'
 import { TreasuryTab } from '../components/dao/TreasuryTab'
+import { useDAO } from '../hooks/useDAO'
 
 type TabId = 'agents' | 'governance' | 'treasury' | 'settings'
 

@@ -549,7 +549,7 @@ export class ModerationSystem {
       [from, to],
       CQL_DATABASE_ID,
     )
-    return result.rows[0]?.score ?? 0
+    return result.rows[0].score ?? 0
   }
 
   private async calcTrust(addr: string): Promise<number> {
@@ -631,7 +631,7 @@ export class ModerationSystem {
       const top = s.flags.sort(
         (a, b) => WEIGHT[b.flagType] - WEIGHT[a.flagType],
       )[0]
-      return { reject: true, reason: top?.reason ?? 'Too many flags' }
+      return { reject: true, reason: top.reason ?? 'Too many flags' }
     }
     if (
       s.flags.filter(

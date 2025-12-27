@@ -6,17 +6,16 @@
  */
 
 import { describe, expect, setDefaultTimeout, test } from 'bun:test'
-import { getApp } from './setup'
+import { app } from '../api/server'
 
 setDefaultTimeout(10000)
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 // Only skip if explicitly requested, not by default in CI
-const SKIP = process.env.SKIP_INTEGRATION === 'true' || process.env.INFRA_READY !== 'true'
+const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
-// Helper to make requests to the Elysia app (lazy loads app)
+// Helper to make requests to the Elysia app
 async function request(path: string, options?: RequestInit): Promise<Response> {
-  const app = await getApp()
   const req = new Request(`http://localhost${path}`, options)
   return app.handle(req)
 }
@@ -273,7 +272,7 @@ describe.skipIf(SKIP)('Package Registry', () => {
   })
 })
 
-describe.skipIf(SKIP)('Package Edge Cases', () => {
+describe('Package Edge Cases', () => {
   describe('Package Name Validation', () => {
     test('should handle package names with hyphens', async () => {
       // Use a fake name that won't exist upstream
@@ -323,7 +322,7 @@ describe.skipIf(SKIP)('Package Edge Cases', () => {
   })
 })
 
-describe.skipIf(SKIP)('Package Server Integration', () => {
+describe('Package Server Integration', () => {
   test('DWS health should include pkg service', async () => {
     const res = await request('/health')
     expect(res.status).toBe(200)

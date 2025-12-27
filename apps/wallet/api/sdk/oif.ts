@@ -344,7 +344,7 @@ export class OIFClient {
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
     // Parse intentId from logs
-    const intentId = (receipt.logs[0]?.topics[1] ?? '0x') as Hex
+    const intentId = (receipt.logs[0].topics[1] ?? '0x') as Hex
 
     return { intentId, txHash: hash }
   }

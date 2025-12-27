@@ -25,9 +25,9 @@ export function Targets() {
   const filteredTargets = targets.filter((target: Target) => {
     const matchesSearch =
       searchQuery === '' ||
-      target.labels.job?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      target.labels.job.toLowerCase().includes(searchQuery.toLowerCase()) ||
       target.labels.instance
-        ?.toLowerCase()
+        .toLowerCase()
         .includes(searchQuery.toLowerCase()) ||
       (target.scrapeUrl ?? '').toLowerCase().includes(searchQuery.toLowerCase())
 

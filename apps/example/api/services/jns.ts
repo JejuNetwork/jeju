@@ -15,7 +15,7 @@ import {
 import { normalizeJNSName } from '../../lib/utils'
 import { expectValid } from '../utils/validation'
 
-const GATEWAY_API = getGatewayApiEndpoint()
+const GATEWAY_API = getGatewayApiEndpoint() ?? 'http://localhost:4020'
 const JNS_NAME = process.env.JNS_NAME || 'todo.jeju'
 const JNS_TIMEOUT = 10000
 
@@ -86,7 +86,7 @@ class JNSServiceImpl implements JNSService {
     if (error)
       throw new JNSError(`JNS availability check failed: ${error}`, 500)
     expectValid(jnsAvailableResponseSchema, data, 'JNS available response')
-    return data?.available ?? false
+    return data.available ?? false
   }
 
   async register(
@@ -194,7 +194,7 @@ class JNSServiceImpl implements JNSService {
     if (error) throw new JNSError(`JNS price check failed: ${error}`, 500)
 
     expectValid(jnsPriceResponseSchema, data, 'JNS price response')
-    return BigInt(data?.price ?? '0')
+    return BigInt(data.price ?? '0')
   }
 }
 

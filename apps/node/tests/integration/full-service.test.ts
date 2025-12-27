@@ -170,8 +170,8 @@ describe('Compute Service', () => {
 
     const hash = await services.compute.stake(stakeAmount).catch((e: Error) => {
       if (
-        e.message?.includes('already staked') ||
-        e.message?.includes('execution reverted')
+        e.message.includes('already staked') ||
+        e.message.includes('execution reverted')
       ) {
         return null
       }
@@ -210,8 +210,8 @@ describe('Compute Service', () => {
       })
       .catch((e: Error) => {
         if (
-          e.message?.includes('already registered') ||
-          e.message?.includes('execution reverted')
+          e.message.includes('already registered') ||
+          e.message.includes('execution reverted')
         ) {
           return null
         }
@@ -269,8 +269,8 @@ describe('Oracle Service', () => {
       })
       .catch((e: Error) => {
         if (
-          e.message?.includes('already registered') ||
-          e.message?.includes('execution reverted')
+          e.message.includes('already registered') ||
+          e.message.includes('execution reverted')
         ) {
           return null
         }
@@ -336,8 +336,8 @@ describe('Storage Service', () => {
       })
       .catch((e: Error) => {
         if (
-          e.message?.includes('already registered') ||
-          e.message?.includes('execution reverted')
+          e.message.includes('already registered') ||
+          e.message.includes('execution reverted')
         ) {
           return null
         }

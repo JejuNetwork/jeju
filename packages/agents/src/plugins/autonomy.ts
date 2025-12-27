@@ -57,7 +57,7 @@ const createPostAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     return (
       text.toLowerCase().includes('post') ||
@@ -109,7 +109,7 @@ const commentAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     return (
       text.toLowerCase().includes('comment') ||
@@ -158,7 +158,7 @@ const sendDMAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     return (
       text.toLowerCase().includes('dm') ||
@@ -170,7 +170,7 @@ const sendDMAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : (message.content?.text ?? '')
+        : (message.content.text ?? '')
 
     // Extract chat ID from message
     const chatMatch =
@@ -221,7 +221,7 @@ const planAction: Action = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : message.content?.text
+        : message.content.text
     if (!text) return false
     return (
       text.toLowerCase().includes('plan') || text.toLowerCase().includes('next')

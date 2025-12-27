@@ -513,7 +513,7 @@ export class JNSGateway {
 export async function startJNSGateway(): Promise<JNSGateway> {
   const config: JNSGatewayConfig = {
     port: parseInt(process.env.JNS_GATEWAY_PORT ?? '4022', 10),
-    rpcUrl: process.env.RPC_URL ?? getRpcUrl(),
+    rpcUrl: getRpcUrl(),
     jnsRegistryAddress: (process.env.JNS_REGISTRY_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
     jnsResolverAddress: (process.env.JNS_RESOLVER_ADDRESS ??

@@ -321,7 +321,7 @@ export default function AnalyticsPage() {
                 </span>
                 <span style={{ fontFamily: 'var(--font-mono)' }}>
                   {storageHealth ? (
-                    formatBytes(storageHealth.stats?.sizeBytes ?? 0)
+                    formatBytes(storageHealth.stats.sizeBytes ?? 0)
                   ) : (
                     <span className="shimmer inline-block w-12 h-5 rounded" />
                   )}
@@ -357,7 +357,7 @@ export default function AnalyticsPage() {
               <span style={{ color: 'var(--text-secondary)' }}>Objects</span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
                 {storageHealth ? (
-                  (storageHealth.stats?.entries ?? 0)
+                  (storageHealth.stats.entries ?? 0)
                 ) : (
                   <span className="shimmer inline-block w-8 h-5 rounded" />
                 )}
@@ -367,7 +367,7 @@ export default function AnalyticsPage() {
               <span style={{ color: 'var(--text-secondary)' }}>Backends</span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
                 {storageHealth ? (
-                  (storageHealth.backends?.length ?? 0)
+                  (storageHealth.backends.length ?? 0)
                 ) : (
                   <span className="shimmer inline-block w-6 h-5 rounded" />
                 )}

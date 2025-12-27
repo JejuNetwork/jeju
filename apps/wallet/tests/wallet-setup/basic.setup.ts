@@ -4,7 +4,11 @@
  * Sets up a MetaMask wallet with test networks for E2E testing.
  */
 
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
 import { defineWalletSetup } from '@synthetixio/synpress'
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
 import { MetaMask } from '@synthetixio/synpress/playwright'
 import {
   TEST_MNEMONIC,

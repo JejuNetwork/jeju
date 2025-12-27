@@ -405,7 +405,7 @@ export class JejuMLSClient {
   private detectDeviceType(): 'mobile' | 'desktop' | 'web' {
     // Check for browser environment
     if (typeof window !== 'undefined') {
-      const userAgent = navigator?.userAgent?.toLowerCase() ?? ''
+      const userAgent = navigator.userAgent.toLowerCase() ?? ''
       if (/mobile|android|iphone|ipad|ipod/.test(userAgent)) {
         return 'mobile'
       }

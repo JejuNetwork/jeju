@@ -780,7 +780,7 @@ export class MultiBridgeRouter extends EventEmitter {
 
       // Use historical avg time if available, otherwise use default characteristics
       const characteristics = BRIDGE_CHARACTERISTICS[provider]
-      const defaultTime = characteristics?.avgTimeSeconds ?? 600 // 10 min default
+      const defaultTime = characteristics.avgTimeSeconds ?? 600 // 10 min default
       const avgTime =
         times && times.length > 0
           ? times.reduce((a, b) => a + b, 0) / times.length
@@ -820,7 +820,7 @@ export class MultiBridgeRouter extends EventEmitter {
     })
 
     // Return null if no routes available
-    return routes[0]?.provider ?? null
+    return routes[0].provider ?? null
   }
 
   /**

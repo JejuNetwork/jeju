@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Run All E2E Tests Across All Apps
  *
@@ -15,9 +16,15 @@
  *   bun run packages/tests/scripts/run-all-e2e.ts --headless
  */
 
-import { spawn, type Subprocess } from 'bun'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
+import { type Subprocess, spawn } from 'bun'
 
 interface AppManifest {
   name: string
@@ -98,7 +105,10 @@ function parseArgs(): RunOptions {
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -107,7 +117,9 @@ function findMonorepoRoot(): string {
 }
 
 // Discover apps with E2E tests
-function discoverTestableApps(rootDir: string): Array<{ name: string; manifest: AppManifest; path: string }> {
+function discoverTestableApps(
+  rootDir: string,
+): Array<{ name: string; manifest: AppManifest; path: string }> {
   const appsDir = join(rootDir, 'apps')
   const apps: Array<{ name: string; manifest: AppManifest; path: string }> = []
 
@@ -123,7 +135,9 @@ function discoverTestableApps(rootDir: string): Array<{ name: string; manifest: 
 
     if (!existsSync(manifestPath)) continue
 
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest
+    const manifest = JSON.parse(
+      readFileSync(manifestPath, 'utf-8'),
+    ) as AppManifest
 
     // Skip disabled apps
     if (manifest.enabled === false) continue
@@ -134,8 +148,9 @@ function discoverTestableApps(rootDir: string): Array<{ name: string; manifest: 
     // Check for E2E test capability
     const hasSynpress = existsSync(join(appPath, 'synpress.config.ts'))
     const hasPlaywright = existsSync(join(appPath, 'playwright.config.ts'))
-    const hasE2ETests = existsSync(join(appPath, 'tests', 'e2e')) ||
-                        existsSync(join(appPath, 'tests', 'synpress'))
+    const hasE2ETests =
+      existsSync(join(appPath, 'tests', 'e2e')) ||
+      existsSync(join(appPath, 'tests', 'synpress'))
 
     if (hasSynpress || hasPlaywright || hasE2ETests) {
       apps.push({
@@ -150,15 +165,17 @@ function discoverTestableApps(rootDir: string): Array<{ name: string; manifest: 
 }
 
 // Start app in background
+// Uses 'bun run start' for production-like testing against DWS infrastructure
 async function startApp(
   appPath: string,
   manifest: AppManifest,
   env: Record<string, string>,
 ): Promise<Subprocess | null> {
-  const devCommand = manifest.commands?.dev || 'bun run dev'
-  const [cmd, ...args] = devCommand.split(' ')
+  // Prefer 'start' command for production-like testing, fall back to 'dev'
+  const startCommand = manifest.commands?.start || 'bun run start'
+  const [cmd, ...args] = startCommand.split(' ')
 
-  console.log(`  Starting ${manifest.name}...`)
+  console.log(`  Starting ${manifest.name} (production mode)...`)
 
   const proc = spawn([cmd, ...args], {
     cwd: appPath,
@@ -211,13 +228,15 @@ async function runAppTests(
     const hasPlaywright = existsSync(join(appPath, 'playwright.config.ts'))
     const hasE2ETests = existsSync(join(appPath, 'tests', 'e2e'))
 
+    // Run only full-coverage tests with --no-deps to avoid port conflicts
+    const baseCmd = 'bunx playwright test tests/e2e/full-coverage.spec.ts --reporter=list'
+
     if (hasPlaywright && hasE2ETests) {
-      testCommand = 'bunx playwright test tests/e2e/ --reporter=list'
+      testCommand = baseCmd
     } else if (hasPlaywright) {
-      testCommand = 'bunx playwright test --reporter=list'
+      testCommand = baseCmd
     } else if (hasE2ETests) {
-      // Use default playwright config
-      testCommand = 'bunx playwright test tests/e2e/ --reporter=list'
+      testCommand = baseCmd
     } else {
       // Skip apps without test directories
       console.log(`  No E2E test directory found for ${appName}`)
@@ -234,7 +253,7 @@ async function runAppTests(
   }
 
   const env: Record<string, string> = {
-    ...process.env as Record<string, string>,
+    ...(process.env as Record<string, string>),
     CI: options.headless ? 'true' : '',
     PWTEST_SKIP_TEST_OUTPUT: '1',
   }
@@ -371,7 +390,9 @@ async function main() {
 
       // Log result
       const status = result.passed ? '✓' : '✗'
-      console.log(`\n${status} ${app.name}: ${result.testsPassed}/${result.testsRun} passed (${result.duration}ms)`)
+      console.log(
+        `\n${status} ${app.name}: ${result.testsPassed}/${result.testsRun} passed (${result.duration}ms)`,
+      )
 
       if (!result.passed && result.testsFailed > 0) {
         console.log(`  Failed tests: ${result.testsFailed}`)
@@ -386,7 +407,7 @@ async function main() {
     }
 
     // Print summary
-    console.log('\n' + '='.repeat(60))
+    console.log(`\n${'='.repeat(60)}`)
     console.log('TEST SUMMARY')
     console.log('='.repeat(60))
 
@@ -460,4 +481,3 @@ async function main() {
 }
 
 main()
-

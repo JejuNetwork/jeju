@@ -250,7 +250,7 @@ export function createMonitoringA2AServer() {
             { kind: 'text', text: result.message },
             { kind: 'data', data: result.data },
           ],
-          messageId: parsedBody.params?.message?.messageId,
+          messageId: parsedBody.params.message.messageId,
           kind: 'message',
         },
       }
@@ -528,7 +528,7 @@ async function executeSkill(
       }
 
       const nodeTargets = parsed.data.data.activeTargets.filter(
-        (t) => t.labels.job?.includes('node') || t.labels.job?.includes('reth'),
+        (t) => t.labels.job.includes('node') || t.labels.job.includes('reth'),
       )
 
       const nodes = nodeTargets.map((t) => ({

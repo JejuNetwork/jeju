@@ -228,7 +228,7 @@ class Orchestrator {
         this.config.chains.evm.map((c) => [c.chainId, c.rpcUrl]),
       ),
       solanaRpcUrl: this.config.chains.solana.rpcUrl,
-      beaconRpcUrl: this.config.chains.evm[0]?.beaconUrl ?? '',
+      beaconRpcUrl: this.config.chains.evm[0].beaconUrl ?? '',
       proverEndpoint: `http://127.0.0.1:${this.config.ports.prover}`,
       relayerEndpoint: `http://127.0.0.1:${this.config.ports.relayer}`,
       checkIntervalMs: 30000,
@@ -311,7 +311,7 @@ class Orchestrator {
   }
 
   private async startBeaconWatcher(): Promise<void> {
-    const beaconUrl = this.config.chains.evm[0]?.beaconUrl
+    const beaconUrl = this.config.chains.evm[0].beaconUrl
     if (!beaconUrl) {
       console.log('⚠️  No beacon URL configured, skipping beacon watcher')
       return

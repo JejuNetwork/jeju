@@ -1,9 +1,9 @@
+import { GitBranch, type LucideIcon, MessageSquare } from 'lucide-react'
 import type {
   CommunicationTone,
   ConnectorType,
   DecisionStyle,
 } from '../types/dao'
-import { GitBranch, MessageSquare, type LucideIcon } from 'lucide-react'
 
 export interface ModelOption {
   id: string

@@ -118,7 +118,7 @@ export class JejuRegistryIntegration {
     })
 
     // Parse agentId from logs - require the log to exist
-    const agentIdTopic = registerReceipt.logs[0]?.topics[1]
+    const agentIdTopic = registerReceipt.logs[0].topics[1]
     if (!agentIdTopic) {
       throw new Error(
         'Failed to parse agentId from IdentityRegistry registration logs',

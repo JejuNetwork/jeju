@@ -115,7 +115,7 @@ export class DWSClient {
     const { schema, ...fetchInit } = init ?? {}
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...fetchInit,
-      headers: { ...this.headers, ...fetchInit?.headers },
+      headers: { ...this.headers, ...fetchInit.headers },
       signal: AbortSignal.timeout(this.timeout),
     })
 

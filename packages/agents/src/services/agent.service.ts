@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { getCQL, type CQLClient } from '@jejunetwork/db'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import type {
   AgentCapabilities,

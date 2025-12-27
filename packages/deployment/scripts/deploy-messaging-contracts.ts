@@ -91,12 +91,12 @@ async function runForgeCommand(args: string[], cwd: string): Promise<string> {
     let stdout = ''
     let stderr = ''
 
-    proc.stdout?.on('data', (data: Buffer) => {
+    proc.stdout.on('data', (data: Buffer) => {
       stdout += data.toString()
       process.stdout.write(data)
     })
 
-    proc.stderr?.on('data', (data: Buffer) => {
+    proc.stderr.on('data', (data: Buffer) => {
       stderr += data.toString()
       process.stderr.write(data)
     })

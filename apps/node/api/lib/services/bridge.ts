@@ -1456,7 +1456,7 @@ class BridgeServiceImpl implements BridgeService {
       },
     }
 
-    const feedAddress = CHAINLINK_FEEDS[token]?.[chainId]
+    const feedAddress = CHAINLINK_FEEDS[token][chainId]
     if (!feedAddress) return null
 
     const CHAINLINK_ABI = parseAbi([

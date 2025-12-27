@@ -17,7 +17,7 @@
 #
 # Usage: helmfile -e <environment> sync
 
-# Available environments: localnet, testnet, mainnet
+# Available environments: localnet, testnet, mainnet, gcp-testnet
 environments:
   localnet:
     values:
@@ -25,6 +25,9 @@ environments:
   testnet:
     values:
       - environments/testnet.yaml
+  gcp-testnet:
+    values:
+      - environments/gcp-testnet.yaml
   mainnet:
     values:
       - environments/mainnet.yaml
@@ -44,12 +47,12 @@ repositories:
 ---
 
 releases:
-  # AWS Load Balancer Controller (required for ingress)
+  # AWS Load Balancer Controller (required for ingress on AWS)
   - name: aws-load-balancer-controller
     namespace: kube-system
     chart: aws/aws-load-balancer-controller
     version: 1.16.0
-    installed: {{ ne .Environment.Name "localnet" }}
+    installed: {{ and (ne .Environment.Name "localnet") (ne .Environment.Name "gcp-testnet") }}
     set:
       - name: clusterName
         value: jeju-{{ .Environment.Name }}
@@ -299,6 +302,28 @@ releases:
       - ../helm/blockscout/values-{{ .Environment.Name }}.yaml
 
   # ==========================================================================
+  # DWS (Decentralized Web Services)
+  # Core infrastructure for permissionless compute, storage, and container management
+  # ==========================================================================
+
+  # DWS Core Service
+  - name: dws
+    namespace: dws
+    createNamespace: true
+    chart: ../helm/dws
+    installed: {{ ne .Environment.Name "localnet" }}
+    values:
+      - ../helm/dws/values.yaml
+      - ../helm/dws/values-{{ .Environment.Name }}.yaml
+    set:
+      - name: image.repository
+        value: {{ .Values.ecr_registry | default "jeju" }}/dws
+      - name: config.chainId
+        value: "{{ .Values.l2_chain_id }}"
+      - name: config.rpcUrl
+        value: "{{ .Values.jeju_rpc_url | default (printf "https://testnet-rpc.%s" .Values.domain_name) }}"
+
+  # ==========================================================================
   # Farcaster Hub (Self-Hosted Permissionless Hub)
   # ==========================================================================
   # NOTE: compute and oauth3 are now deployed via DWS (on-chain provisioning)
@@ -314,6 +339,15 @@ releases:
       {{- if ne .Environment.Name "localnet" }}
       - ../helm/farcaster-hubble/values-{{ .Environment.Name }}.yaml
       {{- end }}
+
+  # ==========================================================================
+  # External Chain Nodes (Deployed via DWS for testnet/mainnet)
+  # These are provisioned through DWS container infrastructure
+  # ==========================================================================
+
+  # NOTE: External chain nodes (Ethereum, Arbitrum, Optimism, Base, Solana)
+  # are now deployed via DWS provisioning for full decentralization.
+  # See: packages/deployment/scripts/deploy/dws-external-chains.ts
 
   # ==========================================================================
   # Monitoring & Alerting

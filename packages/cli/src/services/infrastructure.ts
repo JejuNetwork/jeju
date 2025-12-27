@@ -29,7 +29,7 @@ export interface InfrastructureStatus {
 }
 
 const CQL_PORT = INFRA_PORTS.CQL.get()
-const CQL_DATA_DIR = '.data/cql'
+const _CQL_DATA_DIR = '.data/cql'
 
 // DWS provides cache and DA services via /cache and /da endpoints
 const DWS_PORT = CORE_PORTS.DWS_API.get()
@@ -89,7 +89,9 @@ export class InfrastructureService {
 
     if (!existsSync(composeFile)) {
       logger.error('CQL cluster compose file not found')
-      logger.info('Expected at: packages/deployment/docker/cql-cluster.compose.yaml')
+      logger.info(
+        'Expected at: packages/deployment/docker/cql-cluster.compose.yaml',
+      )
       return false
     }
 
@@ -100,14 +102,10 @@ export class InfrastructureService {
     }
 
     // Start CQL cluster via Docker Compose
-    cqlProcess = execa(
-      'docker',
-      ['compose', '-f', composeFile, 'up', '-d'],
-      {
-        cwd: this.rootDir,
-        stdio: 'pipe',
-      },
-    )
+    cqlProcess = execa('docker', ['compose', '-f', composeFile, 'up', '-d'], {
+      cwd: this.rootDir,
+      stdio: 'pipe',
+    })
 
     // Capture errors for debugging
     let startupError = ''
@@ -118,7 +116,9 @@ export class InfrastructureService {
     try {
       await cqlProcess
     } catch (err) {
-      logger.error(`CQL cluster failed to start: ${startupError || String(err)}`)
+      logger.error(
+        `CQL cluster failed to start: ${startupError || String(err)}`,
+      )
       return false
     }
 
@@ -530,7 +530,10 @@ export class InfrastructureService {
     }
 
     // Docker + services need to be sequential, but can run parallel to CQL
-    const dockerTask = async (): Promise<{ name: string; success: boolean }> => {
+    const dockerTask = async (): Promise<{
+      name: string
+      success: boolean
+    }> => {
       // Start Docker if not running
       if (!dockerRunning) {
         const started = await this.startDocker()

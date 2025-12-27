@@ -5,10 +5,7 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import {
-  JejuInference,
-  LLMInferenceService,
-} from '../llm/inference'
+import { JejuInference, LLMInferenceService } from '../llm/inference'
 
 describe('LLMInferenceService', () => {
   let service: LLMInferenceService
@@ -26,11 +23,7 @@ describe('LLMInferenceService', () => {
 
   describe('estimateCost', () => {
     test('calculates cost for llama-3.1-8b-instant', async () => {
-      const cost = await service.estimateCost(
-        'llama-3.1-8b-instant',
-        1000,
-        500,
-      )
+      const cost = await service.estimateCost('llama-3.1-8b-instant', 1000, 500)
       // 1000 input tokens @ $0.05/1k = $0.05 cents
       // 500 output tokens @ $0.08/1k = $0.04 cents
       // Total = $0.09 cents = $0.0009
@@ -172,9 +165,7 @@ describe('Integration: Inference with Localnet', () => {
 
       const response = await service.inference({
         model: 'small',
-        messages: [
-          { role: 'user', content: 'Say "hello" and nothing else.' },
-        ],
+        messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }],
         maxTokens: 10,
       })
 
@@ -203,4 +194,3 @@ describe('Integration: Inference with Localnet', () => {
     },
   )
 })
-

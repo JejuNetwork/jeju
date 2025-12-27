@@ -11,7 +11,7 @@
 
 import crypto from 'node:crypto'
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { getCQL, type CQLClient } from '@jejunetwork/db'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import { type Address, isAddress, verifyMessage } from 'viem'
 import { z } from 'zod'

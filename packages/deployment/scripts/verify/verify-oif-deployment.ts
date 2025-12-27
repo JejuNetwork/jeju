@@ -266,7 +266,7 @@ async function main() {
     const chainData = chains[chainId.toString()]
     const contracts = chainData?.contracts ?? {}
 
-    console.log(`--- ${CHAINS[chainId]?.name ?? `Chain ${chainId}`} ---`)
+    console.log(`--- ${CHAINS[chainId].name ?? `Chain ${chainId}`} ---`)
 
     const result = await verifyChainDeployment(chainId, contracts)
 

@@ -930,7 +930,7 @@ WHERE embedding MATCH ?
       undefined,
       dbId,
     )
-    const count = result.rows[0]?.count
+    const count = result.rows[0].count
     if (typeof count !== 'number') {
       throw new Error('Unexpected COUNT(*) result structure')
     }

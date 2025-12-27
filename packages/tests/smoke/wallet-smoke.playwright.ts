@@ -87,7 +87,7 @@ test.describe('2. On-Chain State Verification', () => {
     // Get latest block
     const block = await publicClient.getBlock({ blockTag: 'latest' })
     expect(block.number).toBeDefined()
-    console.log(`✅ Latest block hash: ${block.hash?.slice(0, 18)}...`)
+    console.log(`✅ Latest block hash: ${block.hash.slice(0, 18)}...`)
     console.log(
       `✅ Block timestamp: ${new Date(Number(block.timestamp) * 1000).toISOString()}`,
     )

@@ -402,9 +402,9 @@ describe('Key Vault Security', () => {
     const metadata = getKeyMetadata(vaultKey.id)
 
     expect(metadata).toBeDefined()
-    expect(metadata?.id).toBe(vaultKey.id)
+    expect(metadata.id).toBe(vaultKey.id)
     // Ensure encrypted key is not in metadata
-    expect((metadata as Record<string, unknown>)?.encryptedKey).toBeUndefined()
+    expect((metadata as Record<string, unknown>).encryptedKey).toBeUndefined()
     expect(JSON.stringify(metadata)).not.toContain(apiKey)
   })
 

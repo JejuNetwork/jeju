@@ -342,12 +342,15 @@ describe('WebSocketSubscribeSchema', () => {
   const validSubscription = {
     type: 'subscribe',
     address: '0x1234567890123456789012345678901234567890',
-    signature: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12',
+    signature:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12',
     timestamp: Date.now(),
   }
 
   test('accepts valid subscribe message with auth', () => {
-    expect(WebSocketSubscribeSchema.safeParse(validSubscription).success).toBe(true)
+    expect(WebSocketSubscribeSchema.safeParse(validSubscription).success).toBe(
+      true,
+    )
   })
 
   test('rejects wrong type literal', () => {

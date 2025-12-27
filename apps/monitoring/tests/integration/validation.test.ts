@@ -38,7 +38,7 @@ async function graphqlQuery<T>(
 
   if (!parsed.success) {
     throw new Error(
-      `Invalid GraphQL response: ${parsed.error.issues[0]?.message}`,
+      `Invalid GraphQL response: ${parsed.error.issues[0].message}`,
     )
   }
   if (parsed.data.errors?.length) {
@@ -66,7 +66,7 @@ async function rpcCall<T>(
   const parsed = schema.safeParse(json)
 
   if (!parsed.success) {
-    throw new Error(`Invalid RPC response: ${parsed.error.issues[0]?.message}`)
+    throw new Error(`Invalid RPC response: ${parsed.error.issues[0].message}`)
   }
   if (parsed.data.error) {
     throw new Error(parsed.data.error.message)

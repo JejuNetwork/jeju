@@ -145,7 +145,7 @@ export function HomePage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-green-400">
-                        {bounty.rewards[0]?.amount} {bounty.rewards[0]?.token}
+                        {bounty.rewards[0].amount} {bounty.rewards[0].token}
                       </p>
                       <p className="text-factory-500 text-sm">Reward</p>
                     </div>

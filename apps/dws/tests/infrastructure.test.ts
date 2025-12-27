@@ -7,18 +7,12 @@
  * - Request routing and load balancing
  * - TEE attestation verification
  * - Payment integration
- *
- * Requires: CQL, IPFS, Anvil, and optionally K8s
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { Address } from 'viem'
-import { dwsRequest } from './setup'
-import { SKIP } from './infra-check'
-
-// Skip all if no infrastructure
-const skipAll = SKIP.NO_INFRA
+import { app } from '../api/server'
 
 setDefaultTimeout(60000) // Infrastructure tests may take longer
 
@@ -62,26 +56,25 @@ interface PeersResponse {
 const isLocalnet = getCurrentNetwork() === 'localnet'
 const hasAnvil = process.env.RPC_URL?.includes('localhost:6545') || isLocalnet
 
-describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
+describe('Decentralized Infrastructure', () => {
   // Health Checks
 
   describe('Infrastructure Health', () => {
     test('DWS server is running', async () => {
-      const res = await dwsRequest('/health')
+      const res = await app.request('/health')
       expect(res.status).toBe(200)
       const body = (await res.json()) as StatusResponse
       expect(body.status).toBe('healthy')
     })
 
     test('Workerd service is available', async () => {
-      const res = await dwsRequest('/workerd/health')
+      const res = await app.request('/workerd/health')
       expect(res.status).toBe(200)
     })
 
     test('Storage backends are configured', async () => {
-      const res = await dwsRequest('/storage/health')
-      // 200 = healthy, 500 = service initialization issue (acceptable in test mode)
-      expect([200, 500]).toContain(res.status)
+      const res = await app.request('/storage/health')
+      expect(res.status).toBe(200)
     })
   })
 
@@ -89,7 +82,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
   describe('Node Registry', () => {
     test('can list nodes (may be empty)', async () => {
-      const res = await dwsRequest('/edge/nodes')
+      const res = await app.request('/edge/nodes')
       expect(res.status).toBe(200)
       const body = (await res.json()) as NodesListResponse
       expect(body.nodes).toBeInstanceOf(Array)
@@ -97,7 +90,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
     test.skipIf(!hasAnvil)('can register as a node on localnet', async () => {
       // This test requires a local anvil instance running
-      const res = await dwsRequest('/edge/nodes/register', {
+      const res = await app.request('/edge/nodes/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -121,7 +114,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
       })
 
       // May fail if contracts not deployed or route doesn't exist
-      expect([200, 201, 400, 404, 500, 503]).toContain(res.status)
+      expect([200, 201, 400, 404, 503]).toContain(res.status)
     })
   })
 
@@ -129,7 +122,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
   describe('Worker Deployment', () => {
     test('can list workers', async () => {
-      const res = await dwsRequest('/workerd', {
+      const res = await app.request('/workerd', {
         headers: { 'x-jeju-address': TEST_ADDRESS },
       })
       expect(res.status).toBe(200)
@@ -138,7 +131,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
     })
 
     test('worker deployment requires code CID', async () => {
-      const res = await dwsRequest('/workerd', {
+      const res = await app.request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,7 +156,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
         }
       `
 
-      const uploadRes = await dwsRequest('/storage/upload/raw', {
+      const uploadRes = await app.request('/storage/upload/raw', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/javascript',
@@ -173,17 +166,12 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
         body: workerCode,
       })
 
-      // Storage may not be available in test mode
-      if (uploadRes.status !== 200) {
-        // Skip rest of test if storage is unavailable
-        expect([200, 500]).toContain(uploadRes.status)
-        return
-      }
+      expect(uploadRes.status).toBe(200)
       const { cid } = (await uploadRes.json()) as CidResponse
       expect(cid).toBeDefined()
 
       // Now deploy worker
-      const deployRes = await dwsRequest('/workerd', {
+      const deployRes = await app.request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -215,7 +203,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
         expect(body.workerId).toBeDefined()
 
         // Cleanup
-        await dwsRequest(`/workerd/${body.workerId}`, {
+        await app.request(`/workerd/${body.workerId}`, {
           method: 'DELETE',
           headers: { 'x-jeju-address': TEST_ADDRESS },
         })
@@ -227,7 +215,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
   describe('Request Routing', () => {
     test('routes to healthy nodes', async () => {
-      const res = await dwsRequest('/edge/route', {
+      const res = await app.request('/edge/route', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -240,11 +228,11 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
       })
 
       // May not find nodes in test environment
-      expect([200, 404, 500, 503]).toContain(res.status)
+      expect([200, 404, 503]).toContain(res.status)
     })
 
     test('RPC proxy routes requests correctly', async () => {
-      const res = await dwsRequest('/rpc/chains')
+      const res = await app.request('/rpc/chains')
       expect(res.status).toBe(200)
 
       const body = (await res.json()) as ChainsListResponse
@@ -259,7 +247,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
     test('upload and download file via IPFS', async () => {
       const testData = `Decentralized storage test ${Date.now()}`
 
-      const uploadRes = await dwsRequest('/storage/upload/raw', {
+      const uploadRes = await app.request('/storage/upload/raw', {
         method: 'POST',
         headers: {
           'Content-Type': 'text/plain',
@@ -269,16 +257,12 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
         body: testData,
       })
 
-      // Storage may not be available in test mode
-      if (uploadRes.status !== 200) {
-        expect([200, 500]).toContain(uploadRes.status)
-        return
-      }
+      expect(uploadRes.status).toBe(200)
       const { cid } = (await uploadRes.json()) as CidResponse
       expect(cid).toBeDefined()
 
       // Download and verify
-      const downloadRes = await dwsRequest(`/storage/download/${cid}`)
+      const downloadRes = await app.request(`/storage/download/${cid}`)
       expect(downloadRes.status).toBe(200)
 
       const downloaded = await downloadRes.text()
@@ -291,14 +275,14 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
       const content = 'S3 compatible storage test'
 
       // Create bucket
-      const createRes = await dwsRequest(`/s3/${bucket}`, {
+      const createRes = await app.request(`/s3/${bucket}`, {
         method: 'PUT',
         headers: { 'x-jeju-address': TEST_ADDRESS },
       })
       expect(createRes.status).toBe(200)
 
       // Put object
-      const putRes = await dwsRequest(`/s3/${bucket}/${key}`, {
+      const putRes = await app.request(`/s3/${bucket}/${key}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'text/plain',
@@ -309,13 +293,13 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
       expect(putRes.status).toBe(200)
 
       // Get object
-      const getRes = await dwsRequest(`/s3/${bucket}/${key}`)
+      const getRes = await app.request(`/s3/${bucket}/${key}`)
       expect(getRes.status).toBe(200)
       expect(await getRes.text()).toBe(content)
 
       // Cleanup
-      await dwsRequest(`/s3/${bucket}/${key}`, { method: 'DELETE' })
-      await dwsRequest(`/s3/${bucket}`, { method: 'DELETE' })
+      await app.request(`/s3/${bucket}/${key}`, { method: 'DELETE' })
+      await app.request(`/s3/${bucket}`, { method: 'DELETE' })
     })
   })
 
@@ -324,12 +308,12 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
   describe('Payment Integration', () => {
     test('x402 endpoint exists', async () => {
       // Check if x402 facilitator is configured
-      const res = await dwsRequest('/compute/x402/status')
-      expect([200, 404, 500]).toContain(res.status)
+      const res = await app.request('/compute/x402/status')
+      expect([200, 404]).toContain(res.status)
     })
 
     test('compute requests can include x402 header', async () => {
-      const res = await dwsRequest('/compute/jobs', {
+      const res = await app.request('/compute/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -341,8 +325,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
         }),
       })
 
-      // 201 = job created, 402 = payment required, 404/500 = endpoint unavailable
-      expect([201, 402, 404, 500]).toContain(res.status)
+      expect([201, 402]).toContain(res.status)
     })
   })
 
@@ -350,13 +333,13 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
   describe('TEE and Proof of Cloud', () => {
     test('PoC status endpoint exists', async () => {
-      const res = await dwsRequest('/compute/poc/status')
-      expect([200, 404, 500, 503]).toContain(res.status)
+      const res = await app.request('/compute/poc/status')
+      expect([200, 404, 503]).toContain(res.status)
     })
 
     test('can query nodes with TEE capability', async () => {
-      const res = await dwsRequest('/edge/nodes?capability=tee')
-      expect([200, 404, 500]).toContain(res.status)
+      const res = await app.request('/edge/nodes?capability=tee')
+      expect([200, 404]).toContain(res.status)
 
       if (res.status === 200) {
         const body = (await res.json()) as OptionalNodesResponse
@@ -376,8 +359,8 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
   describe('P2P Coordination', () => {
     test('can get peer count', async () => {
-      const res = await dwsRequest('/edge/peers')
-      expect([200, 404, 500]).toContain(res.status)
+      const res = await app.request('/edge/peers')
+      expect([200, 404]).toContain(res.status)
 
       if (res.status === 200) {
         const body = (await res.json()) as PeersResponse
@@ -388,7 +371,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
     test('distributed rate limiting works', async () => {
       // Make several requests quickly
       const requests = Array.from({ length: 5 }, () =>
-        dwsRequest('/health', {
+        app.request('/health', {
           headers: { 'x-jeju-address': TEST_ADDRESS },
         }),
       )
@@ -413,13 +396,13 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
   describe('Auto-Scaling', () => {
     test('load balancer stats endpoint exists', async () => {
-      const res = await dwsRequest('/compute/lb/stats')
-      expect([200, 404, 500]).toContain(res.status)
+      const res = await app.request('/compute/lb/stats')
+      expect([200, 404]).toContain(res.status)
     })
 
     test('can get container system stats', async () => {
-      const res = await dwsRequest('/containers/stats')
-      expect([200, 404, 500]).toContain(res.status)
+      const res = await app.request('/containers/stats')
+      expect([200, 404]).toContain(res.status)
     })
   })
 
@@ -427,7 +410,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 
   describe('Multi-Network Support', () => {
     test('supports multiple chain configurations', async () => {
-      const res = await dwsRequest('/rpc/chains')
+      const res = await app.request('/rpc/chains')
       expect(res.status).toBe(200)
 
       const body = (await res.json()) as ChainsListResponse
@@ -453,7 +436,7 @@ describe.skipIf(skipAll)('Decentralized Infrastructure', () => {
 describe.skipIf(!process.env.STRESS_TEST)('Infrastructure Stress Tests', () => {
   test('handles concurrent worker deployments', async () => {
     const deployments = Array.from({ length: 10 }, (_, i) =>
-      dwsRequest('/workerd', {
+      app.request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -479,7 +462,7 @@ describe.skipIf(!process.env.STRESS_TEST)('Infrastructure Stress Tests', () => {
     const requestCount = 100
 
     const requests = Array.from({ length: requestCount }, () =>
-      dwsRequest('/health'),
+      app.request('/health'),
     )
 
     const results = await Promise.all(requests)

@@ -104,7 +104,7 @@ export function mapTransactionSummary(tx: Transaction) {
   return {
     hash: tx.hash,
     blockNumber: tx.blockNumber,
-    from: tx.from?.address,
+    from: tx.from.address,
     to: tx.to?.address,
     value: tx.value.toString(),
     status: tx.status,
@@ -115,7 +115,7 @@ export function mapTransactionDetail(tx: Transaction) {
   return {
     hash: tx.hash,
     blockNumber: tx.blockNumber,
-    from: tx.from?.address,
+    from: tx.from.address,
     to: tx.to?.address,
     value: tx.value.toString(),
     gasPrice: tx.gasPrice?.toString(),

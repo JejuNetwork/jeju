@@ -505,26 +505,24 @@ describe('Contract Verification Summary', () => {
     console.log('')
     console.log('V4 Periphery:')
     console.log(
-      `  ${isDeployed(deployments.v4?.swapRouter) ? '✅' : '❌'} SwapRouter`,
+      `  ${isDeployed(deployments.v4.swapRouter) ? '✅' : '❌'} SwapRouter`,
     )
     console.log(
-      `  ${isDeployed(deployments.v4?.positionManager) ? '✅' : '❌'} PositionManager`,
+      `  ${isDeployed(deployments.v4.positionManager) ? '✅' : '❌'} PositionManager`,
     )
+    console.log(`  ${isDeployed(deployments.v4.quoterV4) ? '✅' : '❌'} Quoter`)
     console.log(
-      `  ${isDeployed(deployments.v4?.quoterV4) ? '✅' : '❌'} Quoter`,
-    )
-    console.log(
-      `  ${isDeployed(deployments.v4?.stateView) ? '✅' : '❌'} StateView`,
+      `  ${isDeployed(deployments.v4.stateView) ? '✅' : '❌'} StateView`,
     )
     console.log('')
     console.log('Marketplace:')
     console.log(
-      `  ${isDeployed(deployments.marketplace?.at || deployments.marketplace?.marketplace) ? '✅' : '❌'} Bazaar Marketplace`,
+      `  ${isDeployed(deployments.marketplace.at || deployments.marketplace.marketplace) ? '✅' : '❌'} Bazaar Marketplace`,
     )
     console.log('')
     console.log('Token Factory:')
     console.log(
-      `  ${isDeployed(deployments.factory?.at) ? '✅' : '❌'} ERC20 Factory`,
+      `  ${isDeployed(deployments.factory.at) ? '✅' : '❌'} ERC20 Factory`,
     )
     console.log('')
     console.log('═══════════════════════════════════════════════════════')

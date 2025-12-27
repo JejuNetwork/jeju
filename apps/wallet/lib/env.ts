@@ -55,7 +55,7 @@ export function getEnvOrDefault(key: string, defaultValue: string): string {
 export function isDev(): boolean {
   return (
     getEnv('NODE_ENV') === 'development' ||
-    (typeof window !== 'undefined' && window.location?.hostname === 'localhost')
+    (typeof window !== 'undefined' && window.location.hostname === 'localhost')
   )
 }
 

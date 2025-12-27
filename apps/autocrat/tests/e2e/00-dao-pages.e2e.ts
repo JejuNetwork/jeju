@@ -114,7 +114,7 @@ test.describe('DAOList Page (Home)', () => {
     await page.waitForTimeout(500)
 
     // Should show "No DAOs found" or similar
-    const emptyState = page.getByText(/No DAOs found/)
+    const _emptyState = page.getByText(/No DAOs found/)
     // May or may not be visible depending on data
   })
 })
@@ -420,7 +420,7 @@ test.describe('Accessibility', () => {
       const input = inputs.nth(i)
       const id = await input.getAttribute('id')
       if (id) {
-        const label = page.locator(`label[for="${id}"]`)
+        const _label = page.locator(`label[for="${id}"]`)
         // Should have a label
       }
     }

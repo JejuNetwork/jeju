@@ -32,7 +32,7 @@ export async function getTestDataSource(): Promise<DataSource> {
   const models = await import('../../src/model')
   const entities = Object.values(models).filter(
     (v): v is EntityClass =>
-      typeof v === 'function' && v.prototype?.constructor !== undefined,
+      typeof v === 'function' && v.prototype.constructor !== undefined,
   )
 
   testDataSource = new DataSource({

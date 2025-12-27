@@ -209,20 +209,24 @@ const server = Bun.serve({
 
 console.log(`[Factory] Dev server running at http://localhost:${PORT}`)
 
-const watcher = watch('./web', { recursive: true }, async (_event, filename) => {
-  console.log(`[Factory] File changed: ${filename}, rebuilding...`)
-  if (await build()) {
-    // Regenerate index.html after successful rebuild
-    const newIndexHtml = await Bun.file('./web/index.html').text()
-    const newJnsHtml = newIndexHtml
-      .replace('./main.tsx', '/main.js')
-      .replace('./styles/globals.css', '/styles/globals.css')
-    await Bun.write('./dist/client/index.html', newJnsHtml)
-    // Copy updated CSS
-    const newCss = await Bun.file('./web/styles/globals.css').text()
-    await Bun.write('./dist/client/styles/globals.css', newCss)
-  }
-})
+const watcher = watch(
+  './web',
+  { recursive: true },
+  async (_event, filename) => {
+    console.log(`[Factory] File changed: ${filename}, rebuilding...`)
+    if (await build()) {
+      // Regenerate index.html after successful rebuild
+      const newIndexHtml = await Bun.file('./web/index.html').text()
+      const newJnsHtml = newIndexHtml
+        .replace('./main.tsx', '/main.js')
+        .replace('./styles/globals.css', '/styles/globals.css')
+      await Bun.write('./dist/client/index.html', newJnsHtml)
+      // Copy updated CSS
+      const newCss = await Bun.file('./web/styles/globals.css').text()
+      await Bun.write('./dist/client/styles/globals.css', newCss)
+    }
+  },
+)
 
 process.on('SIGINT', () => {
   watcher.close()

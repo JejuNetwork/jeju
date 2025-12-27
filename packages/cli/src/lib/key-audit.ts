@@ -11,9 +11,9 @@
  * audit service for compliance purposes.
  */
 
-import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { z } from 'zod'
 
 // ============================================================================
@@ -65,7 +65,9 @@ export const AuditEventSchema = z.object({
   keyIdentifier: z.string(),
   network: z.string(),
   actor: z.string().optional(),
-  metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  metadata: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .optional(),
   success: z.boolean(),
   errorMessage: z.string().optional(),
   machineId: z.string(),
@@ -125,7 +127,7 @@ class KeyAuditLogger {
 
     // Write to daily log file
     const logFile = this.getLogFile()
-    const logLine = JSON.stringify(fullEvent) + '\n'
+    const logLine = `${JSON.stringify(fullEvent)}\n`
 
     try {
       appendFileSync(logFile, logLine)
@@ -246,7 +248,7 @@ class KeyAuditLogger {
       success: true,
       metadata: {
         purpose,
-        targetHash: targetHash.slice(0, 16) + '...',
+        targetHash: `${targetHash.slice(0, 16)}...`,
       },
     })
   }
@@ -391,7 +393,9 @@ export function initializeKeyAudit(rootDir: string): void {
 /**
  * Decorator-style wrapper for auditing key operations
  */
-export function withKeyAudit<T extends (...args: unknown[]) => Promise<unknown>>(
+export function withKeyAudit<
+  T extends (...args: unknown[]) => Promise<unknown>,
+>(
   fn: T,
   eventType: AuditEventType,
   getKeyIdentifier: (args: Parameters<T>) => string,
@@ -421,4 +425,3 @@ export function withKeyAudit<T extends (...args: unknown[]) => Promise<unknown>>
     }
   }) as T
 }
-

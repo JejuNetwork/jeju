@@ -12,7 +12,7 @@
     "dev:graphql": "DB_HOST=localhost DB_PORT=23798 DB_NAME=indexer DB_USER=postgres DB_PASS=postgres GQL_PORT=4350 sqd serve",
     "db:ensure": "bun scripts/ensure-db.ts",
     "dev:full": "bun run build && bun run db:ensure && bun run db:migrate && concurrently --kill-others \"bun run dev:processor\" \"bun run dev:graphql\" \"PORT=4355 bun run scripts/dev.ts\" \"bun run dev:api\"",
-    "build": "rm -rf lib && tsc && rm -rf lib/model && ln -s src/model lib/model && bun scripts/post-build.ts && bun build index.html --outdir dist/web --minify",
+    "build": "rm -rf lib && bun scripts/pre-build.ts && tsc && rm -rf lib/model && ln -s src/model lib/model && bun scripts/post-build.ts && bun build index.html --outdir dist/web --minify",
     "start": "bun lib/api/api-server.js",
     "test": "bun test ./tests/ && bunx playwright test",
     "typecheck": "tsc --noEmit",

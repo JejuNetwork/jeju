@@ -298,17 +298,17 @@ describe('Key Vault', () => {
     expect(vaultKey.owner).toBe(TEST_SELLER)
     expect(vaultKey.attestation).toBeDefined()
 
-    const metadata = await getKeyMetadata(vaultKey.id)
+    const metadata = getKeyMetadata(vaultKey.id)
     expect(metadata).toBeDefined()
-    expect(metadata?.providerId).toBe('openai')
+    expect(metadata.providerId).toBe('openai')
     // Encrypted key should not be in metadata
-    expect((metadata as Record<string, unknown>)?.encryptedKey).toBeUndefined()
+    expect((metadata as Record<string, unknown>).encryptedKey).toBeUndefined()
   })
 
   test('should decrypt key for valid request', async () => {
     const vaultKey = await storeKey('groq', TEST_SELLER, testApiKey)
 
-    const decrypted = await decryptKeyForRequest({
+    const decrypted = decryptKeyForRequest({
       keyId: vaultKey.id,
       requester: TEST_USER,
       requestContext: {
@@ -321,8 +321,8 @@ describe('Key Vault', () => {
     expect(decrypted).toBe(testApiKey)
   })
 
-  test('should return null for invalid key ID', async () => {
-    const decrypted = await decryptKeyForRequest({
+  test('should return null for invalid key ID', () => {
+    const decrypted = decryptKeyForRequest({
       keyId: 'non-existent-key',
       requester: TEST_USER,
       requestContext: {
@@ -338,38 +338,37 @@ describe('Key Vault', () => {
   test('should delete key by owner', async () => {
     const vaultKey = await storeKey('anthropic', TEST_SELLER, testApiKey)
 
-    const deleted = await deleteKey(vaultKey.id, TEST_SELLER)
+    const deleted = deleteKey(vaultKey.id, TEST_SELLER)
     expect(deleted).toBe(true)
 
-    const metadata = await getKeyMetadata(vaultKey.id)
+    const metadata = getKeyMetadata(vaultKey.id)
     expect(metadata).toBeUndefined()
   })
 
   test('should not delete key by non-owner', async () => {
     const vaultKey = await storeKey('mistral', TEST_SELLER, testApiKey)
 
-    const deleted = await deleteKey(vaultKey.id, TEST_USER)
+    const deleted = deleteKey(vaultKey.id, TEST_USER)
     expect(deleted).toBe(false)
 
-    const metadata = await getKeyMetadata(vaultKey.id)
+    const metadata = getKeyMetadata(vaultKey.id)
     expect(metadata).toBeDefined()
   })
 
   test('should get keys by owner', async () => {
-    // Use a unique owner address to avoid conflicts with other tests
-    const owner = `0x${'2'.repeat(40)}` as Address
-    await storeKey('openai', owner, `key1-${Date.now()}`)
-    await storeKey('groq', owner, `key2-${Date.now()}`)
+    const owner = '0x1111111111111111111111111111111111111111' as Address
+    await storeKey('openai', owner, 'key1')
+    await storeKey('groq', owner, 'key2')
 
-    const keys = await getKeysByOwner(owner)
-    expect(keys.length).toBeGreaterThanOrEqual(2)
+    const keys = getKeysByOwner(owner)
+    expect(keys.length).toBe(2)
     expect(
       keys.every((k) => k.owner.toLowerCase() === owner.toLowerCase()),
     ).toBe(true)
   })
 
-  test('should get vault stats', async () => {
-    const stats = await getVaultStats()
+  test('should get vault stats', () => {
+    const stats = getVaultStats()
     expect(stats.totalKeys).toBeGreaterThanOrEqual(0)
     expect(typeof stats.totalAccesses).toBe('number')
   })

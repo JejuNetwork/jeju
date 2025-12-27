@@ -109,7 +109,7 @@ export async function checkReputation(
 
   const client = getPublicClient()
   let aggregatedScore = 5000 // Default 50% for new addresses
-  let isBanned = false
+  let _isBanned = false
 
   // Check moderation status first
   if (moderationAddress) {
@@ -120,7 +120,7 @@ export async function checkReputation(
         functionName: 'isBanned',
         args: [address],
       })
-      isBanned = banned
+      _isBanned = banned
 
       if (banned) {
         return {

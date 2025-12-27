@@ -136,7 +136,7 @@ async function testEncryption() {
 
     if (
       decrypted.decision === (result.approved ? 'APPROVE' : 'REJECT') ||
-      (decrypted.decision as { approved?: boolean })?.approved ===
+      (decrypted.decision as { approved?: boolean }).approved ===
         result.approved
     ) {
       console.log('  ✅ Decision matches')

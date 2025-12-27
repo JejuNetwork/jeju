@@ -83,8 +83,8 @@ export function createCIRouter(ctx: CIContext) {
   return (
     new Elysia({ prefix: '/ci' })
       .get('/health', () => {
-        const runners = workflowEngine.getRunners?.()?.length ?? 0
-        const scheduledJobs = scheduler.listJobs?.()?.length ?? 0
+        const runners = workflowEngine.getRunners().length ?? 0
+        const scheduledJobs = scheduler.listJobs().length ?? 0
         return {
           service: 'dws-ci',
           status: 'healthy',

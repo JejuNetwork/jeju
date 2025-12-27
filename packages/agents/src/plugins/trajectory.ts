@@ -259,7 +259,7 @@ const trajectoryEvaluator: Evaluator = {
       timestamp: new Date(),
       socialContext: {
         recentMessages:
-          (state as { recentMessageCount?: number })?.recentMessageCount ?? 0,
+          (state as { recentMessageCount?: number }).recentMessageCount ?? 0,
         mentions: 0,
       },
     }
@@ -268,7 +268,7 @@ const trajectoryEvaluator: Evaluator = {
     const text =
       typeof message.content === 'string'
         ? message.content
-        : (message.content?.text ?? '')
+        : (message.content.text ?? '')
 
     recordTrajectory(
       agentId,

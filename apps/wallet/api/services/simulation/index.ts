@@ -313,8 +313,8 @@ class SimulationService {
     return {
       gasLimit,
       gasPrice,
-      maxFeePerGas: feeData?.maxFeePerGas ?? undefined,
-      maxPriorityFeePerGas: feeData?.maxPriorityFeePerGas ?? undefined,
+      maxFeePerGas: feeData.maxFeePerGas ?? undefined,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? undefined,
       totalCost,
       totalCostUsd,
     }

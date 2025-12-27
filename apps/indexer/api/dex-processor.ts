@@ -128,11 +128,11 @@ const WETH: Record<number, string> = {
 }
 
 function isStablecoin(chainId: number, address: string): boolean {
-  return STABLECOINS[chainId]?.has(address.toLowerCase()) ?? false
+  return STABLECOINS[chainId].has(address.toLowerCase()) ?? false
 }
 
 function isWETH(chainId: number, address: string): boolean {
-  return WETH[chainId]?.toLowerCase() === address.toLowerCase()
+  return WETH[chainId].toLowerCase() === address.toLowerCase()
 }
 
 function calculatePriceFromAmounts(
@@ -310,17 +310,17 @@ async function processPairCreatedV2(
   const factoryAddr = log.address.toLowerCase()
 
   // Get or create DEX
-  const dexInfo = DEX_FACTORIES[chainId]?.[factoryAddr]
-  const dexId = `${chainId}-${dexInfo?.name ?? 'Unknown'}`
+  const dexInfo = DEX_FACTORIES[chainId][factoryAddr]
+  const dexId = `${chainId}-${dexInfo.name ?? 'Unknown'}`
 
   let dex = dexes.get(dexId) || (await ctx.store.get(DEX, dexId))
   if (!dex) {
     dex = new DEX({
       id: dexId,
-      name: dexInfo?.name ?? 'Unknown DEX',
+      name: dexInfo.name ?? 'Unknown DEX',
       chainId,
       factory: factoryAddr,
-      version: dexInfo?.version ?? 'v2',
+      version: dexInfo.version ?? 'v2',
       poolCount: 0,
       totalVolumeUSD: '0',
       totalLiquidityUSD: '0',
@@ -411,14 +411,14 @@ async function processPoolCreatedV3(
   const [token0Addr, token1Addr, fee, , poolAddr] = decoded
   const factoryAddr = log.address.toLowerCase()
 
-  const dexInfo = DEX_FACTORIES[chainId]?.[factoryAddr]
-  const dexId = `${chainId}-${dexInfo?.name ?? 'Uniswap V3'}`
+  const dexInfo = DEX_FACTORIES[chainId][factoryAddr]
+  const dexId = `${chainId}-${dexInfo.name ?? 'Uniswap V3'}`
 
   let dex = dexes.get(dexId) || (await ctx.store.get(DEX, dexId))
   if (!dex) {
     dex = new DEX({
       id: dexId,
-      name: dexInfo?.name ?? 'Uniswap V3',
+      name: dexInfo.name ?? 'Uniswap V3',
       chainId,
       factory: factoryAddr,
       version: 'v3',
@@ -922,10 +922,10 @@ async function getOrCreateToken(
   }
 
   // Look up known token metadata
-  const knownToken = KNOWN_TOKENS[chainId]?.[address.toLowerCase()]
-  const symbol = knownToken?.symbol ?? address.slice(0, 8).toUpperCase()
-  const name = knownToken?.name ?? `Token ${address.slice(0, 10)}`
-  const decimals = knownToken?.decimals ?? 18
+  const knownToken = KNOWN_TOKENS[chainId][address.toLowerCase()]
+  const symbol = knownToken.symbol ?? address.slice(0, 8).toUpperCase()
+  const name = knownToken.name ?? `Token ${address.slice(0, 10)}`
+  const decimals = knownToken.decimals ?? 18
 
   token = new Token({
     id: tokenId,

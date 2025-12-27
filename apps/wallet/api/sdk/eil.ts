@@ -272,7 +272,7 @@ export class EILClient {
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
     // Parse requestId from logs
-    const rawRequestId = receipt.logs[0]?.topics[1]
+    const rawRequestId = receipt.logs[0].topics[1]
     if (!rawRequestId) {
       throw new Error('No requestId found in transaction logs')
     }

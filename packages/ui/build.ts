@@ -12,7 +12,15 @@ await Bun.build({
   target: 'bun',
   format: 'esm',
   splitting: false,
-  external: ['react', 'react/jsx-runtime', 'wagmi', 'viem', 'zod', '@jejunetwork/sdk', '@jejunetwork/types'],
+  external: [
+    'react',
+    'react/jsx-runtime',
+    'wagmi',
+    'viem',
+    'zod',
+    '@jejunetwork/sdk',
+    '@jejunetwork/types',
+  ],
 })
 
 console.log('Build complete')

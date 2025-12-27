@@ -11,7 +11,6 @@ import {
   Clock,
   Crown,
   DollarSign,
-  ExternalLink,
   FileCode2,
   FileText,
   GitBranch,
@@ -215,7 +214,7 @@ function ProposalView({
   const approveCount = proposal.boardVotes.filter(
     (v) => v.vote === 'approve',
   ).length
-  const rejectCount = proposal.boardVotes.filter(
+  const _rejectCount = proposal.boardVotes.filter(
     (v) => v.vote === 'reject',
   ).length
   const totalVotes = proposal.boardVotes.length
@@ -267,7 +266,7 @@ function ProposalView({
                   if (line.startsWith('## ')) {
                     return (
                       <h2
-                        key={i}
+                        key={`line-${i}`}
                         className="text-lg font-semibold text-slate-200 mt-4 mb-2"
                       >
                         {line.replace('## ', '')}
@@ -276,13 +275,13 @@ function ProposalView({
                   }
                   if (line.startsWith('1. ') || line.startsWith('- ')) {
                     return (
-                      <p key={i} className="text-slate-400 ml-4">
+                      <p key={`line-${i}`} className="text-slate-400 ml-4">
                         {line}
                       </p>
                     )
                   }
                   return line ? (
-                    <p key={i} className="text-slate-400">
+                    <p key={`line-${i}`} className="text-slate-400">
                       {line}
                     </p>
                   ) : null
@@ -628,10 +627,14 @@ function CreateProposalForm({
         {/* Basic Info */}
         <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor="proposal-title"
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Title *
             </label>
             <input
+              id="proposal-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -640,10 +643,14 @@ function CreateProposalForm({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor="proposal-description"
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Description *
             </label>
             <textarea
+              id="proposal-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={
@@ -667,9 +674,9 @@ function CreateProposalForm({
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <span className="block text-sm font-medium text-slate-300 mb-2">
                     Severity *
-                  </label>
+                  </span>
                   <div className="space-y-2">
                     {(
                       Object.entries(SEVERITY_CONFIG) as [
@@ -698,10 +705,14 @@ function CreateProposalForm({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="vuln-type"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Vulnerability Type *
                   </label>
                   <select
+                    id="vuln-type"
                     value={vulnType}
                     onChange={(e) =>
                       setVulnType(e.target.value as VulnerabilityType)
@@ -717,9 +728,9 @@ function CreateProposalForm({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <span className="block text-sm font-medium text-slate-300 mb-2">
                   Affected Components
-                </label>
+                </span>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {affectedComponents.map((c) => (
                     <span
@@ -829,11 +840,15 @@ function CreateProposalForm({
             <h3 className="font-semibold text-slate-200">Funding Details</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label
+                  htmlFor="funding-amount"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
                   Amount *
                 </label>
                 <div className="flex">
                   <input
+                    id="funding-amount"
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -852,10 +867,14 @@ function CreateProposalForm({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label
+                  htmlFor="recipient-address"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
                   Recipient Address *
                 </label>
                 <input
+                  id="recipient-address"
                   type="text"
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}

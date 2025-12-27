@@ -47,9 +47,9 @@ const isMainnet = network === 'mainnet'
 const NETWORK_CONFIG = {
   chain: isMainnet ? base : baseSepolia,
   rpcUrl: getRpcUrl(network),
-  banManager: (contracts.moderation?.banManager as Address) || null,
+  banManager: (contracts.moderation.banManager as Address) || null,
   moderationMarketplace:
-    (contracts.moderation?.moderationMarketplace as Address) || null,
+    (contracts.moderation.moderationMarketplace as Address) || null,
 } as const
 
 function getNetworkConfig() {

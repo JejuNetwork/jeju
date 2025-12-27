@@ -59,8 +59,8 @@ function addr(value: string | undefined): Address {
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000, // 12 hours
   amountPerClaim: parseEther('100'),
-  jejuTokenAddress: addr(contracts.tokens?.jeju),
-  identityRegistryAddress: addr(contracts.registry?.identity),
+  jejuTokenAddress: addr(contracts.tokens.jeju),
+  identityRegistryAddress: addr(contracts.registry.identity),
   faucetPrivateKey: process.env.FAUCET_PRIVATE_KEY,
 } as const
 

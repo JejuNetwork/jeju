@@ -55,7 +55,7 @@ export class Web2Bridge {
     console.log(`[Bridge] Processing inbound email: ${event.messageId}`)
 
     const recipient = event.to[0]
-    if (!recipient?.endsWith(`@${this.config.emailDomain}`)) {
+    if (!recipient.endsWith(`@${this.config.emailDomain}`)) {
       bridgeOperationsTotal.inc({
         direction: 'inbound',
         status: 'rejected_domain',

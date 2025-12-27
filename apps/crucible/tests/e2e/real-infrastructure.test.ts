@@ -19,11 +19,11 @@ import {
   getDWSEndpoint,
   getSharedDWSClient,
 } from '../../api/client/dws'
-import { createStorage } from '../../api/sdk/storage'
 import {
   createCrucibleRuntime,
   runtimeManager,
 } from '../../api/sdk/eliza-runtime'
+import { createStorage } from '../../api/sdk/storage'
 
 // Skip E2E tests if RUN_E2E is not set
 const RUN_E2E = process.env.RUN_E2E === 'true'
@@ -47,7 +47,9 @@ describe.skipIf(!RUN_E2E)('Real Infrastructure E2E', () => {
       )
     }
 
-    console.log(`[E2E] Infrastructure ready: DWS healthy, ${inference.nodes} inference nodes`)
+    console.log(
+      `[E2E] Infrastructure ready: DWS healthy, ${inference.nodes} inference nodes`,
+    )
   })
 
   afterAll(async () => {
@@ -60,8 +62,14 @@ describe.skipIf(!RUN_E2E)('Real Infrastructure E2E', () => {
 
       const response = await client.chatCompletion(
         [
-          { role: 'system', content: 'You are a helpful assistant. Be concise.' },
-          { role: 'user', content: 'What is 2+2? Answer with just the number.' },
+          {
+            role: 'system',
+            content: 'You are a helpful assistant. Be concise.',
+          },
+          {
+            role: 'user',
+            content: 'What is 2+2? Answer with just the number.',
+          },
         ],
         {
           model: 'llama-3.1-8b-instant',
@@ -211,9 +219,13 @@ describe.skipIf(!RUN_E2E)('Real Infrastructure E2E', () => {
 
       // Log for visibility
       if (actions.length === 0) {
-        console.warn('[E2E] No actions loaded - jeju-plugin may not be available')
+        console.warn(
+          '[E2E] No actions loaded - jeju-plugin may not be available',
+        )
       } else {
-        console.log(`[E2E] Loaded ${actions.length} actions, ${executableActions.length} executable`)
+        console.log(
+          `[E2E] Loaded ${actions.length} actions, ${executableActions.length} executable`,
+        )
       }
     }, 30000)
   })
@@ -269,4 +281,3 @@ These tests verify that:
 - IPFS storage works
 - Crucible runtime initializes with real inference
 `
-

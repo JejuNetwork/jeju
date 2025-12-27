@@ -793,9 +793,9 @@ export const apiListingState = {
       CQL_DATABASE_ID,
     )
     return {
-      totalListings: total.rows[0]?.count ?? 0,
-      activeListings: active.rows[0]?.count ?? 0,
-      totalRevenue: revenue.rows[0]?.total ?? '0',
+      totalListings: total.rows[0].count ?? 0,
+      activeListings: active.rows[0].count ?? 0,
+      totalRevenue: revenue.rows[0].total ?? '0',
     }
   },
 }
@@ -1185,10 +1185,10 @@ export const trainingState = {
     )
 
     return {
-      totalNodes: nodes.rows[0]?.total ?? 0,
-      activeNodes: nodes.rows[0]?.active ?? 0,
-      totalRuns: runs.rows[0]?.total ?? 0,
-      activeRuns: runs.rows[0]?.active ?? 0,
+      totalNodes: nodes.rows[0].total ?? 0,
+      activeNodes: nodes.rows[0].active ?? 0,
+      totalRuns: runs.rows[0].total ?? 0,
+      activeRuns: runs.rows[0].active ?? 0,
     }
   },
 }

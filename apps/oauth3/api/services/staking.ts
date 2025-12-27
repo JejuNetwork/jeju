@@ -5,12 +5,12 @@
  */
 
 import type { Address } from 'viem'
-import { createPublicClient, defineChain, http, parseAbi } from 'viem'
-import { mainnet, sepolia, foundry } from 'viem/chains'
+import { createPublicClient, http, parseAbi } from 'viem'
+import { foundry, mainnet, sepolia } from 'viem/chains'
 import {
+  CLIENT_TIER_THRESHOLDS,
   type ClientStakeInfo,
   type ClientTier,
-  CLIENT_TIER_THRESHOLDS,
   ClientTier as Tier,
 } from '../../lib/types'
 
@@ -90,8 +90,6 @@ function getPublicClient() {
     case 'testnet':
       chain = sepolia
       break
-    case 'localnet':
-    case 'anvil':
     default:
       // Use foundry chain for local anvil
       chain = foundry

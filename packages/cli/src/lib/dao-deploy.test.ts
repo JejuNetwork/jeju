@@ -730,7 +730,7 @@ describe('Contract ABI Verification', () => {
 
     // Check that minStakePerParticipant is in the struct
     const components = (configInput as { components?: Array<{ name: string }> })
-      ?.components
+      .components
     const hasMinStakePerParticipant = components?.some(
       (c) => c.name === 'minStakePerParticipant',
     )
@@ -789,7 +789,7 @@ describe('Contract Event Structure', () => {
 
     const inputs = (
       daoCreated as { inputs?: Array<{ name: string; indexed?: boolean }> }
-    )?.inputs
+    ).inputs
     const daoIdInput = inputs?.find((i) => i.name === 'daoId')
     expect(daoIdInput?.indexed).toBe(true)
   })
@@ -802,7 +802,7 @@ describe('Contract Event Structure', () => {
 
     const inputs = (
       projectProposed as { inputs?: Array<{ name: string; indexed?: boolean }> }
-    )?.inputs
+    ).inputs
     const projectIdInput = inputs?.find((i) => i.name === 'projectId')
     expect(projectIdInput?.indexed).toBe(true)
   })

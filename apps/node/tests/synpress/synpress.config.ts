@@ -13,7 +13,7 @@ export default createSynpressConfig({
   overrides: {
     testMatch: '*.synpress.ts',
     webServer: {
-      command: 'cd ../.. && bun run dev',
+      command: 'cd ../.. && bun run start',
       url: `http://localhost:${NODE_PORT}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120000,

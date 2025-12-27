@@ -44,7 +44,7 @@ async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
       const matchesSearch =
         dao.name.toLowerCase().includes(searchLower) ||
         dao.displayName.toLowerCase().includes(searchLower) ||
-        (dao.description?.toLowerCase().includes(searchLower) ?? false)
+        (dao.description.toLowerCase().includes(searchLower) ?? false)
       if (!matchesSearch) return false
     }
     if (params.networkOnly && !dao.isNetworkDAO) return false

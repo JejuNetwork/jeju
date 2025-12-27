@@ -331,12 +331,12 @@ describe('MLS Group Edge Cases', () => {
     await freshGroup.send('Message 3')
 
     const allMessages = await freshGroup.getMessages()
-    const middleId = allMessages[1]?.id
+    const middleId = allMessages[1].id
 
     if (middleId) {
       const beforeMiddle = await freshGroup.getMessages({ before: middleId })
       expect(beforeMiddle.length).toBe(1)
-      expect(beforeMiddle[0]?.content).toBe('Message 1')
+      expect(beforeMiddle[0].content).toBe('Message 1')
     }
   })
 
@@ -353,8 +353,8 @@ describe('MLS Group Edge Cases', () => {
 
     const descMessages = await freshGroup.getMessages({ direction: 'desc' })
     // Desc order puts newest first
-    expect(descMessages[0]?.content).toBe('Last')
-    expect(descMessages[1]?.content).toBe('First')
+    expect(descMessages[0].content).toBe('Last')
+    expect(descMessages[1].content).toBe('First')
   })
 })
 

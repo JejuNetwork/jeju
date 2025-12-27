@@ -3,25 +3,12 @@
  *
  * Tests the DWS server endpoints that the frontend API client calls.
  * These are integration tests that verify actual server behavior.
- *
- * Run with: jeju test --app=dws --mode=integration (starts infrastructure)
  */
 
-import { beforeAll, describe, expect, test } from 'bun:test'
-import { getTestEnv, isDwsReady, setup } from '../setup'
+import { describe, expect, test } from 'bun:test'
+import { getTestEnv } from './setup'
 
 const { dwsUrl } = getTestEnv()
-
-// Skip all tests if DWS server isn't running
-const skipTests = !isDwsReady()
-
-// Setup infrastructure before tests
-beforeAll(async () => {
-  await setup()
-  if (skipTests) {
-    console.log('[server-api.test] DWS not available, tests will be skipped')
-  }
-})
 
 // Helper to make requests
 async function api<T>(
@@ -257,9 +244,7 @@ describe('Error Handling', () => {
 
   test('handles concurrent requests', async () => {
     // Fire 10 concurrent requests
-    const requests = Array.from({ length: 10 }, () =>
-      fetch(`${dwsUrl}/health`),
-    )
+    const requests = Array.from({ length: 10 }, () => fetch(`${dwsUrl}/health`))
 
     const responses = await Promise.all(requests)
 
@@ -273,7 +258,10 @@ describe('Error Handling', () => {
 describe('Rate Limiting', () => {
   test('rate limit headers present', async () => {
     const res = await fetch(`${dwsUrl}/health`)
-    // May or may not have headers depending on config
+
+    // Check for common rate limit headers
+    const _headers = res.headers
+    // May or may not have these depending on config
     expect(res.status).toBe(200)
   })
 })

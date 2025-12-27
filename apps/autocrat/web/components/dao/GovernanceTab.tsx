@@ -1,6 +1,5 @@
 import {
   AlertCircle,
-  ArrowRight,
   Bug,
   Calendar,
   Check,
@@ -15,7 +14,6 @@ import {
   RefreshCw,
   Search,
   Shield,
-  X,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'

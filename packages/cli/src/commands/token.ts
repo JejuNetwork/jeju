@@ -111,10 +111,10 @@ tokenCommand
     // Token info from known tokens
     const tokenInfo = KNOWN_TOKENS[tokenSymbol]
     console.log(chalk.bold('Token Info:'))
-    console.log(`  Name:          ${tokenInfo?.name ?? tokenSymbol}`)
+    console.log(`  Name:          ${tokenInfo.name ?? tokenSymbol}`)
     console.log(`  Symbol:        ${tokenSymbol}`)
     console.log(`  Decimals:      18`)
-    console.log(`  Total Supply:  ${tokenInfo?.totalSupply ?? 'Custom'}`)
+    console.log(`  Total Supply:  ${tokenInfo.totalSupply ?? 'Custom'}`)
     console.log()
 
     // Load actual deployments
@@ -126,7 +126,7 @@ tokenCommand
     // Check home chain
     const homeDeployment = deployments[chains.homeChain]
     console.log(`  ${chalk.cyan(chains.homeChain)} (home):`)
-    if (homeDeployment?.token?.address) {
+    if (homeDeployment.token?.address) {
       console.log(
         `    Token:   ${chalk.green(homeDeployment.token.address.slice(0, 10))}...`,
       )
@@ -174,7 +174,7 @@ tokenCommand
       const chainDeployment = deployments[chain]
       console.log(`  ${chalk.dim(chain)} (synthetic):`)
 
-      if (chainDeployment?.token?.address) {
+      if (chainDeployment.token?.address) {
         console.log(
           `    Token:   ${chalk.green(chainDeployment.token.address.slice(0, 10))}...`,
         )

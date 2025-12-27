@@ -129,7 +129,46 @@
             "config": { "type": "string" },
             "timeout": { "type": "integer", "default": 300000 },
             "requiresChain": { "type": "boolean", "default": true },
-            "requiresWallet": { "type": "boolean", "default": false }
+            "requiresWallet": { "type": "boolean", "default": false },
+            "aiVerification": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable AI-powered visual verification of screenshots"
+            }
+          }
+        },
+        "smokeTest": {
+          "type": "object",
+          "description": "Smoke test configuration for verifying basic functionality",
+          "properties": {
+            "entryUrl": {
+              "type": "string",
+              "default": "/",
+              "description": "Initial URL to load for smoke test"
+            },
+            "loginButton": {
+              "type": "string",
+              "description": "Selector for login/connect wallet button"
+            },
+            "expectedAfterLogin": {
+              "type": "string",
+              "description": "Text or pattern expected after successful login"
+            },
+            "criticalPages": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of critical pages to verify (e.g., ['/', '/dashboard', '/settings'])"
+            },
+            "criticalFlows": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of critical user flows to test"
+            },
+            "pageDescriptions": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "Map of page paths to expected descriptions for AI verification"
+            }
           }
         },
         "services": {

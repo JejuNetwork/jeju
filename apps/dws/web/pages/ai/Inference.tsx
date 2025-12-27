@@ -29,7 +29,7 @@ export default function InferencePage() {
     })
 
     const choice = result.choices[0]
-    if (choice?.message?.content) {
+    if (choice.message.content) {
       setMessages([
         ...newMessages,
         { role: 'assistant', content: choice.message.content },

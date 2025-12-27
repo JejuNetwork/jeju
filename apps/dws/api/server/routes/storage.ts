@@ -220,14 +220,14 @@ export function createStorageRouter(backend?: BackendManager) {
         })
 
         const metadata = result.metadata
-        const contentType = metadata?.contentType ?? 'application/octet-stream'
+        const contentType = metadata.contentType ?? 'application/octet-stream'
 
         set.headers['Content-Type'] = contentType
         set.headers['Content-Length'] = String(result.content.length)
         set.headers['X-Backend'] = result.backend
         set.headers['X-Latency-Ms'] = String(result.latencyMs)
         set.headers['X-From-Cache'] = String(result.fromCache)
-        if (metadata?.tier) {
+        if (metadata.tier) {
           set.headers['X-Content-Tier'] = metadata.tier
         }
 
@@ -369,7 +369,7 @@ export function createStorageRouter(backend?: BackendManager) {
         }
 
         const contentType =
-          result.metadata?.contentType ?? 'application/octet-stream'
+          result.metadata.contentType ?? 'application/octet-stream'
 
         set.headers['Content-Type'] = contentType
         set.headers['X-Arweave-Tx'] = txId
@@ -439,7 +439,7 @@ export function createStorageRouter(backend?: BackendManager) {
         }
 
         const contentType =
-          result.metadata?.contentType ?? 'application/octet-stream'
+          result.metadata.contentType ?? 'application/octet-stream'
 
         set.headers['Content-Type'] = contentType
         set.headers['X-Ipfs-Path'] = `/ipfs/${cid}`
