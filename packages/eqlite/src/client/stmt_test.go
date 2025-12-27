@@ -6,12 +6,16 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"os"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestStmt(t *testing.T) {
+	if os.Getenv("EQLITE_INTEGRATION_TEST") != "1" {
+		t.Skip("Skipping integration test: set EQLITE_INTEGRATION_TEST=1 to run")
+	}
 	Convey("test statement", t, func() {
 		var stopTestService func()
 		var err error

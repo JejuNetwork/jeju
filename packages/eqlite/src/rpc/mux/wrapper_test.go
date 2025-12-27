@@ -28,6 +28,12 @@ const (
 	RPCCount       = 100
 )
 
+var (
+	testBaseDir        = utils.GetProjectSrcDir()
+	testConfFile       = filepath.Join(testBaseDir, "test/node_standalone/config.yaml")
+	testPrivateKeyPath = filepath.Join(testBaseDir, "test/node_standalone/private.key")
+)
+
 func TestCaller_CallNode(t *testing.T) {
 	log.SetLevel(log.FatalLevel)
 	utils.RemoveAll(PubKeyStorePath + "*")
@@ -35,9 +41,8 @@ func TestCaller_CallNode(t *testing.T) {
 	utils.RemoveAll(publicKeyStore + "*")
 	defer utils.RemoveAll(publicKeyStore + "*")
 
-	_, testFile, _, _ := runtime.Caller(0)
-	confFile := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/config.yaml")
-	privateKeyPath := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/private.key")
+	confFile := testConfFile
+	privateKeyPath := testPrivateKeyPath
 
 	conf.GConf, _ = conf.LoadConfig(confFile)
 	log.Debugf("GConf: %#v", conf.GConf)
@@ -163,13 +168,11 @@ func TestNewPersistentCaller(t *testing.T) {
 	}
 
 	// init conf
-	_, testFile, _, _ := runtime.Caller(0)
 	dupConfFile := filepath.Join(d, "config.yaml")
-	confFile := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/config.yaml")
-	if err = utils.DupConf(confFile, dupConfFile); err != nil {
+	if err = utils.DupConf(testConfFile, dupConfFile); err != nil {
 		return
 	}
-	privateKeyPath := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/private.key")
+	privateKeyPath := testPrivateKeyPath
 
 	conf.GConf, _ = conf.LoadConfig(dupConfFile)
 	log.Debugf("GConf: %#v", conf.GConf)
@@ -314,9 +317,8 @@ func BenchmarkPersistentCaller_CallBftRaftLog(b *testing.B) {
 		log.Fatalf("wait for port ready timeout: %v", err)
 	}
 
-	_, testFile, _, _ := runtime.Caller(0)
-	confFile := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/config.yaml")
-	privateKeyPath := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/private.key")
+	confFile := testConfFile
+	privateKeyPath := testPrivateKeyPath
 
 	conf.GConf, _ = conf.LoadConfig(confFile)
 	log.Debugf("GConf: %#v", conf.GConf)
@@ -391,9 +393,8 @@ func BenchmarkPersistentCaller_Call(b *testing.B) {
 		log.Fatalf("wait for port ready timeout: %v", err)
 	}
 
-	_, testFile, _, _ := runtime.Caller(0)
-	confFile := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/config.yaml")
-	privateKeyPath := filepath.Join(filepath.Dir(testFile), "../../test/node_standalone/private.key")
+	confFile := testConfFile
+	privateKeyPath := testPrivateKeyPath
 
 	conf.GConf, _ = conf.LoadConfig(confFile)
 	log.Debugf("GConf: %#v", conf.GConf)

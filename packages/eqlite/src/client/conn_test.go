@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"database/sql"
+	"os"
 	"sync"
 	"testing"
 
@@ -13,6 +14,9 @@ import (
 )
 
 func TestConn(t *testing.T) {
+	if os.Getenv("EQLITE_INTEGRATION_TEST") != "1" {
+		t.Skip("Skipping integration test: set EQLITE_INTEGRATION_TEST=1 to run")
+	}
 	log.SetLevel(log.DebugLevel)
 	Convey("test connection", t, func() {
 		var (

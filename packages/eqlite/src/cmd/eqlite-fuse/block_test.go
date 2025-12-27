@@ -32,6 +32,10 @@ var nodeCmds []*utils.CMD
 var FJ = filepath.Join
 
 func TestMain(m *testing.M) {
+	if os.Getenv("EQLITE_INTEGRATION_TEST") != "1" {
+		// Skip integration tests
+		os.Exit(0)
+	}
 	os.Exit(func() int {
 		var stop func()
 		db, stop = initTestDB()

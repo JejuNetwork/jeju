@@ -240,6 +240,7 @@ func TestJSONRPCService(t *testing.T) {
 	// log.SetLevel(log.DebugLevel)
 	go api.Serve(":8546", testdb)
 	defer api.StopService()
+	time.Sleep(100 * time.Millisecond) // Wait for server to start
 
 	var (
 		addr        = "ws://localhost:8546"

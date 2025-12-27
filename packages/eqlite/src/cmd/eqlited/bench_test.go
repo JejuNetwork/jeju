@@ -113,6 +113,9 @@ func stopNodes() {
 }
 
 func TestStartBP_CallRPC(t *testing.T) {
+	if os.Getenv("EQLITE_INTEGRATION_TEST") != "1" {
+		t.Skip("Skipping integration test: set EQLITE_INTEGRATION_TEST=1 to run")
+	}
 	log.SetLevel(log.DebugLevel)
 
 	var err error

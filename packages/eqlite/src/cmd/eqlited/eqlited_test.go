@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"syscall"
 	"testing"
 	"time"
@@ -22,6 +23,9 @@ import (
 )
 
 func TestEQLiteD(t *testing.T) {
+	if os.Getenv("EQLITE_INTEGRATION_TEST") != "1" {
+		t.Skip("Skipping integration test: set EQLITE_INTEGRATION_TEST=1 to run")
+	}
 	Convey("Test eqlited 3BPs", t, func() {
 		var (
 			ctx1, ctx2 context.Context
