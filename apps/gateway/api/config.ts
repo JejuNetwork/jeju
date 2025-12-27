@@ -43,7 +43,7 @@ export interface GatewayConfig {
   vaultEncryptionSecret?: string
 
   // Leaderboard
-  leaderboardCqlDatabaseId: string
+  leaderboardEqliteDatabaseId: string
   leaderboardDebug: boolean
   attestationOraclePrivateKey?: string
   leaderboardDomain: string
