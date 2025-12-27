@@ -301,7 +301,7 @@ export class NodeRegistry {
     })
 
     // Extract agentId from Transfer event (ERC-721)
-    const agentId = BigInt(receipt.logs[0]?.topics[3] ?? 0)
+    const agentId = BigInt(receipt.logs[0].topics[3] ?? 0)
 
     // Set endpoint
     await this.setEndpoint(agentId, params.endpoint)
@@ -707,8 +707,8 @@ export class NodeRegistry {
 
     const latencyMs = Date.now() - start
     return {
-      online: response?.ok ?? false,
-      latencyMs: response?.ok ? latencyMs : Infinity,
+      online: response.ok ?? false,
+      latencyMs: response.ok ? latencyMs : Infinity,
     }
   }
 

@@ -18,21 +18,24 @@ if (!ZodObjectProto.loose) {
 // Add returns() method to ZodFunction for synpress compatibility
 // In Zod 3, z.function().args().returns() was the API
 // In Zod 4, z.function() returns a different type
-const zodFunction = z.function as unknown as {
-  (...args: unknown[]): { returns?: (schema: unknown) => unknown }
+const _zodFunction = z.function as unknown as (...args: unknown[]) => {
+  returns?: (schema: unknown) => unknown
 }
 
 // Patch the function result prototype
 if (typeof z.function === 'function') {
   const originalFunction = z.function
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(z as any).function = function (...args: unknown[]) {
-    const result = originalFunction.apply(this, args as Parameters<typeof originalFunction>)
+  ;(z as Record<string, unknown>).function = function (...args: unknown[]) {
+    const result = originalFunction.apply(
+      this,
+      args as Parameters<typeof originalFunction>,
+    )
     if (result && typeof result === 'object' && !('returns' in result)) {
       // Add returns method that does nothing (Zod 4 infers return type differently)
-      ;(result as { returns?: (schema: unknown) => unknown }).returns = function (schema: unknown) {
-        return this
-      }
+      ;(result as { returns?: (schema: unknown) => unknown }).returns =
+        function (_schema: unknown) {
+          return this
+        }
     }
     return result
   }

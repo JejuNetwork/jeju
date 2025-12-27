@@ -5,7 +5,7 @@
  * that require blockchain authentication.
  */
 
-import { test, expect, type Page, type BrowserContext } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4031', 10)
 const BASE_URL = `http://localhost:${DWS_PORT}`
@@ -23,16 +23,20 @@ test.describe('DWS - Wallet Integration', () => {
     await page.goto(BASE_URL)
 
     // Look for wallet connection UI
-    const walletButton = page.locator(
-      'button:has-text(/connect/i), [data-testid*="connect"], [aria-label*="wallet" i]',
-    ).first()
+    const walletButton = page
+      .locator(
+        'button:has-text(/connect/i), [data-testid*="connect"], [aria-label*="wallet" i]',
+      )
+      .first()
 
     const hasWallet = (await walletButton.count()) > 0
 
     if (hasWallet) {
       await expect(walletButton).toBeVisible()
     } else {
-      console.log('Note: DWS may not require wallet connection for all features')
+      console.log(
+        'Note: DWS may not require wallet connection for all features',
+      )
     }
   })
 
@@ -81,29 +85,49 @@ test.describe('DWS - Authenticated Features', () => {
     await page.goto(`${BASE_URL}/storage`)
 
     // Either shows login prompt or storage content
-    const needsAuth = await page.locator('button:has-text(/connect|sign in/i)').isVisible()
-    const hasContent = await page.locator('[data-testid*="storage"], .storage-list').isVisible()
+    const needsAuth = await page
+      .locator('button:has-text(/connect|sign in/i)')
+      .isVisible()
+    const hasContent = await page
+      .locator('[data-testid*="storage"], .storage-list')
+      .isVisible()
 
     // Should have one or the other
-    expect(needsAuth || hasContent, 'Should show auth prompt or storage content').toBe(true)
+    expect(
+      needsAuth || hasContent,
+      'Should show auth prompt or storage content',
+    ).toBe(true)
   })
 
   test('should require auth for compute jobs', async ({ page }) => {
     await page.goto(`${BASE_URL}/compute`)
 
-    const needsAuth = await page.locator('button:has-text(/connect|sign in/i)').isVisible()
-    const hasContent = await page.locator('[data-testid*="compute"], .compute-list').isVisible()
+    const needsAuth = await page
+      .locator('button:has-text(/connect|sign in/i)')
+      .isVisible()
+    const hasContent = await page
+      .locator('[data-testid*="compute"], .compute-list')
+      .isVisible()
 
-    expect(needsAuth || hasContent, 'Should show auth prompt or compute content').toBe(true)
+    expect(
+      needsAuth || hasContent,
+      'Should show auth prompt or compute content',
+    ).toBe(true)
   })
 
   test('should require auth for git operations', async ({ page }) => {
     await page.goto(`${BASE_URL}/git`)
 
-    const needsAuth = await page.locator('button:has-text(/connect|sign in/i)').isVisible()
-    const hasContent = await page.locator('[data-testid*="repo"], .repo-list').isVisible()
+    const needsAuth = await page
+      .locator('button:has-text(/connect|sign in/i)')
+      .isVisible()
+    const hasContent = await page
+      .locator('[data-testid*="repo"], .repo-list')
+      .isVisible()
 
-    expect(needsAuth || hasContent, 'Should show auth prompt or repo content').toBe(true)
+    expect(
+      needsAuth || hasContent,
+      'Should show auth prompt or repo content',
+    ).toBe(true)
   })
 })
-

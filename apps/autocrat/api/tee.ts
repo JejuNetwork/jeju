@@ -109,16 +109,32 @@ function getTEEPlatform(): TEEPlatform {
 
 function getDerivedKey(): Uint8Array {
   const secret = process.env.TEE_ENCRYPTION_SECRET
+  const network = getCurrentNetwork()
+
   if (!secret) {
-    const network = getCurrentNetwork()
-    if (network === 'mainnet') {
-      throw new Error('TEE_ENCRYPTION_SECRET is required in production')
+    // Require proper secret for mainnet AND testnet - both handle real/valuable data
+    if (network === 'mainnet' || network === 'testnet') {
+      throw new Error(
+        `TEE_ENCRYPTION_SECRET is required for ${network}. Set a strong, random secret.`,
+      )
     }
-    // Dev/test mode - use derived key
-    const devSecret = `council-${network}-key`
-    const hash = keccak256(stringToHex(devSecret))
+    // Localnet only: use ephemeral key (changes each process restart)
+    // This ensures local dev works but data isn't recoverable across restarts
+    console.warn(
+      '[TEE] No TEE_ENCRYPTION_SECRET set. Using ephemeral key for localnet development only.',
+    )
+    const ephemeralSecret = `ephemeral-${Date.now()}-${Math.random()}`
+    const hash = keccak256(stringToHex(ephemeralSecret))
     return fromHex(hash.slice(0, 66))
   }
+
+  // Validate secret strength
+  if (secret.length < 32) {
+    throw new Error(
+      'TEE_ENCRYPTION_SECRET must be at least 32 characters for adequate security',
+    )
+  }
+
   const hash = keccak256(stringToHex(secret))
   return fromHex(hash.slice(0, 66))
 }

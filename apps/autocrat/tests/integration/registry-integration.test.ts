@@ -59,8 +59,13 @@ describe('RegistryIntegrationClient', () => {
 
     it('should calculate voting power with default multipliers', async () => {
       if (skip()) return
-      const testAddress: `0x${string}` = '0x1234567890123456789012345678901234567890'
-      const power = await client.getVotingPower(testAddress, 0n, 1000000000000000000n)
+      const testAddress: `0x${string}` =
+        '0x1234567890123456789012345678901234567890'
+      const power = await client.getVotingPower(
+        testAddress,
+        0n,
+        1000000000000000000n,
+      )
       expect(power.baseVotes).toBe(1000000000000000000n)
       expect(power.reputationMultiplier).toBe(100)
       expect(power.stakeMultiplier).toBe(100)
@@ -190,7 +195,10 @@ describe('Composite Score Calculation', () => {
     const penaltyScore = 100
 
     const composite = Math.round(
-      stakeScore * 0.3 + repScore * 0.4 + activityScore * 0.15 + penaltyScore * 0.15,
+      stakeScore * 0.3 +
+        repScore * 0.4 +
+        activityScore * 0.15 +
+        penaltyScore * 0.15,
     )
     expect(composite).toBe(90)
   })

@@ -95,32 +95,6 @@ api:
           name: subsquid-db-secret
           key: password
 
-nginx:
-  enabled: true
-  replicaCount: 2
-
-  image:
-    repository: nginx
-    tag: "1.25-alpine"
-
-  resources:
-    requests:
-      memory: "128Mi"
-      cpu: "100m"
-    limits:
-      memory: "256Mi"
-      cpu: "200m"
-
-  service:
-    type: LoadBalancer
-    port: 80
-    targetPort: 80
-
-  rateLimiting:
-    enabled: true
-    requestsPerMinute: 100
-    burstSize: 20
-
 postgres:
   enabled: true
   image:
@@ -170,13 +144,12 @@ securityContext:
   readOnlyRootFilesystem: true
 
 ingress:
+  # Note: Primary access should be through DWS proxy which handles rate limiting
+  # This ingress is for direct cluster access only
   enabled: true
   className: "nginx"
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/limit-rps: "10"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
   hosts:
     - host: indexer.jejunetwork.org
       paths:

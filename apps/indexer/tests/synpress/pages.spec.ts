@@ -5,8 +5,8 @@
  * Covers blockchain explorer, transaction history, and analytics.
  */
 
-import { test, expect } from '@playwright/test'
 import { runFullAppCrawl } from '@jejunetwork/tests/e2e/full-app-crawler'
+import { expect, test } from '@playwright/test'
 
 const INDEXER_PORT = parseInt(process.env.INDEXER_PORT || '4001', 10)
 const BASE_URL = `http://localhost:${INDEXER_PORT}`
@@ -36,19 +36,25 @@ test.describe('Indexer - Full Page Coverage', () => {
 
     console.log('Indexer Crawl Summary:')
     console.log(`  Pages: ${result.coverage.totalPages}`)
-    console.log(`  Buttons: ${result.coverage.buttonsClicked}/${result.coverage.totalButtons}`)
+    console.log(
+      `  Buttons: ${result.coverage.buttonsClicked}/${result.coverage.totalButtons}`,
+    )
     console.log(`  Errors: ${result.errors.length}`)
 
-    expect(result.coverage.totalPages, 'Should discover pages').toBeGreaterThan(0)
+    expect(result.coverage.totalPages, 'Should discover pages').toBeGreaterThan(
+      0,
+    )
   })
 
   test('should have functional search', async ({ page }) => {
     await page.goto(BASE_URL)
 
     // Look for search input
-    const searchInput = page.locator(
-      'input[type="search"], input[placeholder*="search" i], [data-testid*="search"]',
-    ).first()
+    const searchInput = page
+      .locator(
+        'input[type="search"], input[placeholder*="search" i], [data-testid*="search"]',
+      )
+      .first()
 
     if (await searchInput.isVisible()) {
       // Test search functionality
@@ -107,8 +113,11 @@ test.describe('Indexer - Full Page Coverage', () => {
     await expect(page.locator('body')).toBeVisible()
 
     // Look for error handling
-    const errorMessage = page.locator('[role="alert"], .error, [data-testid*="error"]')
-    const redirectedHome = page.url() === BASE_URL || page.url() === `${BASE_URL}/`
+    const errorMessage = page.locator(
+      '[role="alert"], .error, [data-testid*="error"]',
+    )
+    const redirectedHome =
+      page.url() === BASE_URL || page.url() === `${BASE_URL}/`
 
     expect(
       (await errorMessage.count()) > 0 || redirectedHome,
@@ -138,7 +147,10 @@ test.describe('Indexer - Full Page Coverage', () => {
       (e) => !e.includes('favicon') && !e.includes('net::ERR'),
     )
 
-    expect(criticalErrors.length, 'Should have minimal console errors').toBeLessThan(3)
+    expect(
+      criticalErrors.length,
+      'Should have minimal console errors',
+    ).toBeLessThan(3)
   })
 })
 
@@ -151,9 +163,11 @@ test.describe('Indexer - GraphQL Playground', () => {
       '.graphiql, [data-testid*="graphql"], textarea, .CodeMirror',
     )
 
-    await expect(playground.first()).toBeVisible({ timeout: 10000 }).catch(() => {
-      console.log('GraphQL playground may be at different route')
-    })
+    await expect(playground.first())
+      .toBeVisible({ timeout: 10000 })
+      .catch(() => {
+        console.log('GraphQL playground may be at different route')
+      })
   })
 
   test('should execute basic query', async ({ page }) => {
@@ -163,9 +177,11 @@ test.describe('Indexer - GraphQL Playground', () => {
     await page.waitForTimeout(2000)
 
     // Look for execute button
-    const executeButton = page.locator(
-      'button[aria-label*="execute" i], button:has-text(/run|execute/i), .execute-button',
-    ).first()
+    const executeButton = page
+      .locator(
+        'button[aria-label*="execute" i], button:has-text(/run|execute/i), .execute-button',
+      )
+      .first()
 
     if (await executeButton.isVisible()) {
       await executeButton.click()
@@ -176,4 +192,3 @@ test.describe('Indexer - GraphQL Playground', () => {
     await expect(page.locator('body')).toBeVisible()
   })
 })
-

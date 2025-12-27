@@ -6,10 +6,13 @@
  * - JNS domain routing
  * - TLS termination with auto-certificates
  * - Load balancing across nodes
- * - Rate limiting and DDoS protection
+ * - Distributed rate limiting via CQL
+ * - DDoS protection
  * - Geo-routing for low latency
  */
 
+import { CQLRateLimitStore } from '@jejunetwork/api'
+import { type CQLClient, getCQL } from '@jejunetwork/db'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 
@@ -380,11 +383,47 @@ export class IngressController {
     }
   }
 
+  // Distributed rate limiting via CQL
   private rateWindowMs = 60_000 // 1 minute window
-  private rateLimitRequests = new Map<
+  private distributedStore: CQLRateLimitStore | null = null
+  private cqlClient: CQLClient | null = null
+  private static readonly RATE_LIMIT_DB = 'dws_rate_limits'
+
+  // Fallback in-memory store for when CQL is unavailable
+  private localRateLimitRequests = new Map<
     string,
     { count: number; resetAt: number }
   >()
+
+  private async getDistributedStore(): Promise<CQLRateLimitStore | null> {
+    if (this.distributedStore) return this.distributedStore
+
+    try {
+      if (!this.cqlClient) {
+        this.cqlClient = getCQL({
+          databaseId: IngressController.RATE_LIMIT_DB,
+          timeout: 5000,
+          debug: false,
+        })
+      }
+
+      this.distributedStore = new CQLRateLimitStore({
+        client: this.cqlClient,
+        databaseId: IngressController.RATE_LIMIT_DB,
+        keyPrefix: 'ingress',
+        cleanupIntervalMs: 5 * 60 * 1000, // 5 minutes
+      })
+
+      console.log('[Ingress] Distributed rate limiting initialized via CQL')
+      return this.distributedStore
+    } catch (err) {
+      console.warn(
+        '[Ingress] CQL unavailable, using local rate limiting:',
+        err instanceof Error ? err.message : String(err),
+      )
+      return null
+    }
+  }
 
   private async checkRateLimit(
     request: Request,
@@ -393,31 +432,60 @@ export class IngressController {
     const clientId =
       request.headers.get('x-real-ip') ??
       request.headers.get('cf-connecting-ip') ??
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
       'unknown'
+
+    const maxRequests = config.requestsPerSecond * 60 // Per minute
+
+    // Try distributed store first
+    const store = await this.getDistributedStore()
+    if (store) {
+      try {
+        const result = await store.increment(clientId, this.rateWindowMs)
+        return result.count <= maxRequests
+      } catch (err) {
+        console.warn(
+          '[Ingress] Distributed rate limit check failed, falling back to local:',
+          err instanceof Error ? err.message : String(err),
+        )
+      }
+    }
+
+    // Fallback to local in-memory rate limiting
     const now = Date.now()
     const windowKey = `${clientId}:${Math.floor(now / this.rateWindowMs)}`
 
-    const entry = this.rateLimitRequests.get(windowKey)
+    const entry = this.localRateLimitRequests.get(windowKey)
     if (!entry) {
-      this.rateLimitRequests.set(windowKey, {
+      this.localRateLimitRequests.set(windowKey, {
         count: 1,
         resetAt: now + this.rateWindowMs,
       })
       return true
     }
 
-    if (entry.count >= config.requestsPerSecond * 60) {
+    if (entry.count >= maxRequests) {
       return false
     }
 
     entry.count++
     // Cleanup old entries periodically
-    if (this.rateLimitRequests.size > 10000) {
-      for (const [key, val] of this.rateLimitRequests) {
-        if (val.resetAt < now) this.rateLimitRequests.delete(key)
+    if (this.localRateLimitRequests.size > 10000) {
+      for (const [key, val] of this.localRateLimitRequests) {
+        if (val.resetAt < now) this.localRateLimitRequests.delete(key)
       }
     }
     return true
+  }
+
+  /**
+   * Shutdown the ingress controller and cleanup resources
+   */
+  shutdown(): void {
+    if (this.distributedStore) {
+      this.distributedStore.stop()
+      this.distributedStore = null
+    }
   }
 
   private async checkAuth(

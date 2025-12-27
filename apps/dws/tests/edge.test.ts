@@ -1,13 +1,10 @@
 /**
  * Edge Coordination Tests
  * Tests for the wallet/node edge coordination service
- *
- * Requires: CQL database for node storage
  */
 
 import { describe, expect, test } from 'bun:test'
-import { dwsRequest } from './setup'
-import { SKIP } from './infra-check'
+import { app } from '../api/server'
 
 // Test response types
 interface EdgeNode {
@@ -76,12 +73,12 @@ interface SuccessResponse {
   success: boolean
 }
 
-describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
+describe('Edge Coordination', () => {
   let testNodeId: string
 
   describe('Health', () => {
     test('health endpoint returns stats', async () => {
-      const response = await dwsRequest('/edge/health')
+      const response = await app.request('/edge/health')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as EdgeHealthResponse
@@ -95,7 +92,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
 
   describe('Node Registration', () => {
     test('register wallet edge node', async () => {
-      const response = await dwsRequest('/edge/register', {
+      const response = await app.request('/edge/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,7 +120,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
     })
 
     test('register full node', async () => {
-      const response = await dwsRequest('/edge/register', {
+      const response = await app.request('/edge/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +147,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
 
   describe('Node Management', () => {
     test('list all nodes', async () => {
-      const response = await dwsRequest('/edge/nodes')
+      const response = await app.request('/edge/nodes')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodesListResponse
@@ -159,7 +156,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
     })
 
     test('list nodes by region', async () => {
-      const response = await dwsRequest('/edge/nodes?region=us-west')
+      const response = await app.request('/edge/nodes?region=us-west')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodesRegionResponse
@@ -169,7 +166,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
     })
 
     test('list nodes by type', async () => {
-      const response = await dwsRequest('/edge/nodes?type=wallet-edge')
+      const response = await app.request('/edge/nodes?type=wallet-edge')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodesTypeResponse
@@ -179,7 +176,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
     })
 
     test('get node details', async () => {
-      const response = await dwsRequest(`/edge/nodes/${testNodeId}`)
+      const response = await app.request(`/edge/nodes/${testNodeId}`)
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodeDetailsResponse
@@ -191,7 +188,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
 
   describe('Cache Management', () => {
     test('request content caching', async () => {
-      const response = await dwsRequest('/edge/cache', {
+      const response = await app.request('/edge/cache', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -209,7 +206,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
     })
 
     test('check cache status', async () => {
-      const response = await dwsRequest('/edge/cache/QmTestContent123')
+      const response = await app.request('/edge/cache/QmTestContent123')
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as CidResponse
@@ -219,7 +216,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
 
   describe('Content Routing', () => {
     test('get route for content', async () => {
-      const response = await dwsRequest('/edge/route/QmTestContent123', {
+      const response = await app.request('/edge/route/QmTestContent123', {
         headers: { 'x-jeju-region': 'us-west' },
       })
 
@@ -234,7 +231,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
 
   describe('Earnings', () => {
     test('get node earnings', async () => {
-      const response = await dwsRequest(`/edge/earnings/${testNodeId}`)
+      const response = await app.request(`/edge/earnings/${testNodeId}`)
       expect(response.ok).toBe(true)
 
       const data = (await response.json()) as NodeEarnings
@@ -245,7 +242,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
 
     test('earnings for non-existent node returns 404', async () => {
       // Use a valid UUID format that doesn't exist
-      const response = await dwsRequest(
+      const response = await app.request(
         '/edge/earnings/00000000-0000-0000-0000-000000000000',
       )
       expect(response.status).toBe(404)
@@ -254,7 +251,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
 
   describe('Node Cleanup', () => {
     test('unregister node', async () => {
-      const response = await dwsRequest(`/edge/nodes/${testNodeId}`, {
+      const response = await app.request(`/edge/nodes/${testNodeId}`, {
         method: 'DELETE',
       })
       expect(response.ok).toBe(true)
@@ -264,7 +261,7 @@ describe.skipIf(SKIP.NO_INFRA)('Edge Coordination', () => {
     })
 
     test('get deleted node returns 404', async () => {
-      const response = await dwsRequest(`/edge/nodes/${testNodeId}`)
+      const response = await app.request(`/edge/nodes/${testNodeId}`)
       expect(response.status).toBe(404)
     })
   })

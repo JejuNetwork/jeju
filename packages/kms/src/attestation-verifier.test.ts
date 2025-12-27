@@ -409,12 +409,13 @@ describe('AttestationVerifier', () => {
       expect(result.valid).toBe(false)
     })
 
-    test('accepts any measurement when no trusted list configured', async () => {
-      // This is intentional behavior for development/testing
+    test('local mode trusts all measurements for development convenience', async () => {
+      // Local mode is explicitly designed for development/testing
+      // and trusts all measurements regardless of trusted list configuration
       const verifier = createAttestationVerifier({
         teeType: 'local',
         allowLocalMode: true,
-        trustedMeasurements: [], // Empty list
+        trustedMeasurements: [], // Empty list, but local mode overrides
       })
 
       const attestation: TEEAttestation = {
@@ -426,8 +427,35 @@ describe('AttestationVerifier', () => {
 
       const result = await verifier.verify(attestation)
 
-      // When no measurements configured, accepts any
+      // Local mode explicitly trusts all measurements for development
       expect(result.measurementTrusted).toBe(true)
+    })
+
+    test('SGX mode rejects all measurements when no trusted list configured', async () => {
+      // SECURITY: Empty trusted measurements list rejects all for security
+      // This prevents accepting arbitrary enclave code in production
+      const verifier = createAttestationVerifier({
+        teeType: 'sgx',
+        trustedMeasurements: [], // Empty list = reject all in production modes
+      })
+
+      // Create a minimal valid SGX quote (432+ bytes with version 2)
+      const sgxQuote = new Uint8Array(500)
+      sgxQuote[0] = 2 // Version 2 (EPID)
+      const quoteHex = `0x${Buffer.from(sgxQuote).toString('hex')}` as Hex
+
+      const attestation: TEEAttestation = {
+        quote: quoteHex,
+        measurement: keccak256(toBytes('any-measurement')) as Hex,
+        timestamp: Date.now(),
+        verified: true,
+      }
+
+      const result = await verifier.verify(attestation)
+
+      // When no measurements configured in production modes, rejects all for security
+      expect(result.measurementTrusted).toBe(false)
+      expect(result.valid).toBe(false) // Invalid because measurement not trusted
     })
   })
 

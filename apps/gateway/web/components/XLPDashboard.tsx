@@ -468,7 +468,7 @@ export default function XLPDashboard() {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {supportedChains?.map((chainId: number) => {
+                {supportedChains.map((chainId: number) => {
                   const chain = SUPPORTED_CHAINS.find((c) => c.id === chainId)
                   return chain ? (
                     <span

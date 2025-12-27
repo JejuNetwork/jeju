@@ -183,7 +183,7 @@ describe('TrajectoryStore', () => {
 
     const loaded = await store.loadRewards(cid)
     expect(loaded.length).toBe(2)
-    expect(loaded[0]?.score).toBe(0.8)
+    expect(loaded[0].score).toBe(0.8)
   })
 })
 
@@ -243,9 +243,9 @@ describe('RulerScorer', () => {
     const scores = await scorer.scoreTrajectories(trajectories, rubric)
 
     expect(scores.length).toBe(2)
-    expect(scores[0]?.score).toBeGreaterThan(0)
-    expect(scores[0]?.score).toBeLessThanOrEqual(1)
-    expect(scores[0]?.rubricId).toBe('test-rubric')
+    expect(scores[0].score).toBeGreaterThan(0)
+    expect(scores[0].score).toBeLessThanOrEqual(1)
+    expect(scores[0].rubricId).toBe('test-rubric')
   })
 
   test('should return empty for insufficient trajectories', async () => {
@@ -392,8 +392,8 @@ describe('Trajectory Format', () => {
       },
     }
 
-    expect(trajectory.steps[0]?.llmCalls?.length).toBe(1)
-    expect(trajectory.steps[0]?.llmCalls?.[0]?.purpose).toBe('reasoning')
+    expect(trajectory.steps[0].llmCalls?.length).toBe(1)
+    expect(trajectory.steps[0].llmCalls?.[0]?.purpose).toBe('reasoning')
     expect(trajectory.metadata.archetype).toBe('trader')
     expect(trajectory.metadata.finalPnL).toBe(100)
   })

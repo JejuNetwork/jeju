@@ -94,7 +94,7 @@ export function hasNFTMarketplace(chainId: number): boolean {
 
 export function getMarketplaceAddress(chainId: number): Address | undefined {
   const contracts = NFT_CONTRACTS[chainId]
-  if (!contracts?.marketplace || !isValidAddress(contracts.marketplace)) {
+  if (!contracts.marketplace || !isValidAddress(contracts.marketplace)) {
     return undefined
   }
   return contracts.marketplace

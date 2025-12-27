@@ -627,7 +627,7 @@ export class FederationManager {
       parts[key.trim()] = valueParts.join('=').replace(/^"|"$/g, '')
     }
 
-    const signedHeaders = parts.headers?.split(' ') ?? []
+    const signedHeaders = parts.headers.split(' ') ?? []
     const signingLines: string[] = []
 
     for (const header of signedHeaders) {

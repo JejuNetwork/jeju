@@ -7,9 +7,25 @@ import type {
 } from '@jejunetwork/shared'
 import { expectValid, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
-import { createPublicClient, hashMessage, http, recoverAddress } from 'viem'
-import { X402PaymentProofSchema } from '../../../lib/validation'
+import {
+  createPublicClient,
+  hashMessage,
+  http,
+  keccak256,
+  recoverAddress,
+  toHex,
+} from 'viem'
+import {
+  type X402PaymentProof,
+  X402PaymentProofSchema,
+} from '../../../lib/validation'
 import { initializeState, x402State } from '../../services/state'
+
+/**
+ * SECURITY: Track processed transaction hashes to prevent replay attacks
+ * A user cannot claim credits twice using the same transaction
+ */
+const processedTxHashes = new Set<string>()
 
 export type {
   X402Network,
@@ -81,7 +97,7 @@ export async function verifyX402Payment(
   if (BigInt(payment.amount) < expectedAmount)
     return { valid: false, error: 'Insufficient payment' }
 
-  const proof = expectValid(
+  const proof: X402PaymentProof = expectValid(
     X402PaymentProofSchema,
     JSON.parse(payment.payload),
     'x402 payment proof',
@@ -190,11 +206,39 @@ interface CreditPurchaseResult {
  * 2. Transaction was sent by the claimed address
  * 3. CreditsPurchased event was emitted with matching amount
  */
+/**
+ * SECURITY: keccak256 hash of "CreditsPurchased(address,uint256,bytes32)"
+ * Pre-computed for performance (event signature never changes)
+ */
+const CREDITS_PURCHASED_EVENT_TOPIC = keccak256(
+  toHex('CreditsPurchased(address,uint256,bytes32)'),
+)
+
 export async function purchaseCredits(
   addr: string,
   txHash: Hex,
   expectedAmount: bigint,
 ): Promise<CreditPurchaseResult> {
+  const normalizedTxHash = txHash.toLowerCase()
+
+  // SECURITY: Check for transaction replay attack
+  if (processedTxHashes.has(normalizedTxHash)) {
+    return {
+      success: false,
+      newBalance: await getCredits(addr),
+      error: 'Transaction already processed',
+    }
+  }
+
+  // Also check persistent state to prevent replay across restarts
+  if (await x402State.isNonceUsed(`tx:${normalizedTxHash}`)) {
+    return {
+      success: false,
+      newBalance: await getCredits(addr),
+      error: 'Transaction already processed',
+    }
+  }
+
   const client = createPublicClient({
     transport: http(RPC_URL),
   })
@@ -223,13 +267,10 @@ export async function purchaseCredits(
   // Parse logs to find CreditsPurchased event
   let purchasedAmount: bigint | null = null
   for (const log of receipt.logs) {
-    // Check for CreditsPurchased event signature
-    const eventSignature =
-      '0x' +
-      Buffer.from('CreditsPurchased(address,uint256,bytes32)').toString('hex')
-    if (log.topics[0]?.startsWith(eventSignature.slice(0, 10))) {
-      // Decode the amount from the log data
-      const amountHex = log.data.slice(0, 66) // First 32 bytes
+    // SECURITY: Use correct keccak256 hash of event signature
+    if (log.topics[0] === CREDITS_PURCHASED_EVENT_TOPIC) {
+      // Decode the amount from the log data (first 32 bytes = amount)
+      const amountHex = log.data.slice(0, 66)
       purchasedAmount = BigInt(amountHex)
       break
     }
@@ -255,6 +296,10 @@ export async function purchaseCredits(
       error: `Insufficient amount: got ${purchasedAmount}, expected ${expectedAmount}`,
     }
   }
+
+  // SECURITY: Mark transaction as processed before adding credits
+  processedTxHashes.add(normalizedTxHash)
+  await x402State.markNonceUsed(`tx:${normalizedTxHash}`)
 
   // All checks passed - add credits
   const newBalance = await addCredits(addr, purchasedAmount)

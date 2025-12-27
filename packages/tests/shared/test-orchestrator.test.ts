@@ -111,88 +111,70 @@ describe('Test Orchestrator - List Command', () => {
 })
 
 describe('Test Orchestrator - Error Handling', () => {
-  test('should exit 1 when app not found and show error message', async () => {
+  test('should exit 1 when invalid mode provided', async () => {
     const result = await runCLI([
       'test',
-      '--mode=e2e',
-      '--app=nonexistent-app-xyz',
-      '--skip-lock',
-      '--skip-preflight',
-      '--skip-warmup',
-      '--setup-only',
+      '--mode=invalid-mode-xyz',
     ])
     expect(result.exitCode).toBe(1)
     // Should have error message in output
     const output = result.stdout + result.stderr
-    expect(output.toLowerCase()).toMatch(/not found|error|no.*app|invalid/i)
+    expect(output.toLowerCase()).toMatch(/invalid|error|mode/i)
   })
 })
 
 describe('Test Orchestrator - Skip Flags', () => {
-  test('should accept --skip-lock flag', async () => {
+  test('should accept --skip-lock flag with list', async () => {
     const result = await runCLI([
       'test',
       '--skip-lock',
-      '--skip-preflight',
-      '--skip-warmup',
       'list',
     ])
     expect(result.exitCode).toBe(0)
   })
 
-  test('should accept --skip-preflight flag', async () => {
-    const result = await runCLI([
-      'test',
-      '--skip-preflight',
-      '--skip-lock',
-      '--skip-warmup',
-      'list',
-    ])
-    expect(result.exitCode).toBe(0)
-  })
-
-  test('should accept --skip-warmup flag', async () => {
-    const result = await runCLI([
-      'test',
-      '--skip-warmup',
-      '--skip-lock',
-      '--skip-preflight',
-      'list',
-    ])
-    expect(result.exitCode).toBe(0)
-  })
-
-  test('should accept multiple skip flags', async () => {
-    const result = await runCLI([
-      'test',
-      '--skip-lock',
-      '--skip-preflight',
-      '--skip-warmup',
-      'list',
-    ])
-    expect(result.exitCode).toBe(0)
-  })
-
-  test('should accept --force flag', async () => {
+  test('should accept --force flag with list', async () => {
     const result = await runCLI([
       'test',
       '--force',
-      '--skip-preflight',
-      '--skip-warmup',
+      'list',
+    ])
+    expect(result.exitCode).toBe(0)
+  })
+
+  test('should accept --verbose flag with list', async () => {
+    const result = await runCLI([
+      'test',
+      '--verbose',
       'list',
     ])
     expect(result.exitCode).toBe(0)
   })
 })
 
-describe('Test Orchestrator - Smoke Mode', () => {
-  test('should exit 0 with smoke mode and skips', async () => {
-    // Use list subcommand since smoke mode without tests may fail
+describe('Test Orchestrator - Mode Flags', () => {
+  test('should accept unit mode with list', async () => {
     const result = await runCLI([
       'test',
-      '--skip-lock',
-      '--skip-preflight',
-      '--skip-warmup',
+      '--mode=unit',
+      'list',
+    ])
+    expect(result.exitCode).toBe(0)
+  })
+
+  test('should accept integration mode with list', async () => {
+    const result = await runCLI([
+      'test',
+      '--mode=integration',
+      'list',
+    ])
+    expect(result.exitCode).toBe(0)
+  })
+
+  test('should accept e2e mode with list', async () => {
+    const result = await runCLI([
+      'test',
+      '--mode=e2e',
       'list',
     ])
     expect(result.exitCode).toBe(0)
@@ -200,7 +182,7 @@ describe('Test Orchestrator - Smoke Mode', () => {
 })
 
 describe('Test Orchestrator - Concurrent Access Protection', () => {
-  test('should block concurrent runs without --force', async () => {
+  test('should handle concurrent list commands', async () => {
     // Start first process
     const proc1 = spawn({
       cmd: [
@@ -208,17 +190,12 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
         'run',
         CLI_PATH,
         'test',
-        '--skip-preflight',
-        '--skip-warmup',
         'list',
       ],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,
     })
-
-    // Give it a moment to acquire lock
-    await new Promise((r) => setTimeout(r, 100))
 
     // Start second process
     const proc2 = spawn({
@@ -227,8 +204,6 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
         'run',
         CLI_PATH,
         'test',
-        '--skip-preflight',
-        '--skip-warmup',
         'list',
       ],
       stdout: 'pipe',
@@ -239,8 +214,9 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
     // Wait for both
     const [exit1, exit2] = await Promise.all([proc1.exited, proc2.exited])
 
-    // At least one should succeed (the first one)
-    expect([exit1, exit2].includes(0)).toBe(true)
+    // Both should succeed for list command
+    expect(exit1).toBe(0)
+    expect(exit2).toBe(0)
   })
 
   test('should allow concurrent with --force', async () => {
@@ -252,8 +228,6 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
         CLI_PATH,
         'test',
         '--force',
-        '--skip-preflight',
-        '--skip-warmup',
         'list',
       ],
       stdout: 'pipe',
@@ -269,8 +243,6 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
         CLI_PATH,
         'test',
         '--force',
-        '--skip-preflight',
-        '--skip-warmup',
         'list',
       ],
       stdout: 'pipe',

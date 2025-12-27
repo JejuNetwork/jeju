@@ -398,6 +398,27 @@ export class JejuPkgSDK {
     const rawData: unknown = await response.json()
     const manifest = PackageManifestResponseSchema.parse(rawData)
 
+    // Fetch download count from npm-stat or registry API
+    let downloadCount = 0
+    try {
+      const downloadsResponse = await fetch(
+        `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(name)}`,
+      )
+      if (downloadsResponse.ok) {
+        const downloadsData: unknown = await downloadsResponse.json()
+        if (
+          typeof downloadsData === 'object' &&
+          downloadsData !== null &&
+          'downloads' in downloadsData &&
+          typeof downloadsData.downloads === 'number'
+        ) {
+          downloadCount = downloadsData.downloads
+        }
+      }
+    } catch {
+      // Download count is optional, continue with 0
+    }
+
     return {
       name: manifest.name,
       scope: manifest.name.startsWith('@')
@@ -412,7 +433,7 @@ export class JejuPkgSDK {
       license: manifest.license,
       repository: manifest.repository,
       keywords: manifest.keywords,
-      downloadCount: 0, // Would need to query registry API
+      downloadCount,
       verified: false,
       deprecated: false,
       createdAt: manifest.time?.created ?? new Date().toISOString(),

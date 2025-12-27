@@ -100,8 +100,35 @@ export class TEEProvider implements KMSProvider {
           `Remote TEE endpoint unavailable: ${this.config.endpoint}`,
         )
       }
-      if (data.attestation) this.attestation = data.attestation
-      if (data.enclaveKey) this.enclaveKey = toBytes(data.enclaveKey)
+
+      // SECURITY: Verify attestation BEFORE accepting enclave key
+      if (data.attestation) {
+        const attestationValid = await this.attestationVerifier.verify(
+          data.attestation,
+        )
+        if (!attestationValid.valid) {
+          throw new Error(
+            `Remote TEE attestation verification failed: ${attestationValid.error ?? 'unknown error'}`,
+          )
+        }
+        this.attestation = data.attestation
+        log.info('Remote TEE attestation verified', {
+          teeType: attestationValid.teeType,
+          measurementTrusted: attestationValid.measurementTrusted,
+        })
+      } else {
+        // SECURITY: Require attestation for remote TEE connections
+        throw new Error(
+          'Remote TEE did not provide attestation - connection rejected',
+        )
+      }
+
+      // Only accept enclave key AFTER attestation is verified
+      if (data.enclaveKey) {
+        this.enclaveKey = toBytes(data.enclaveKey)
+        log.info('Accepted enclave key from verified remote TEE')
+      }
+
       log.info('Connected to remote TEE', {
         endpoint: this.config.endpoint,
       })

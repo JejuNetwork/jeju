@@ -561,15 +561,67 @@ export class CertificateManager {
     return daysUntilExpiry < this.config.renewalDays
   }
 
-  private parseExpiryFromCert(_certPem: string): number {
-    // In production, parse the actual certificate
-    // For now, return 90 days from now
-    return Date.now() + 90 * 24 * 60 * 60 * 1000
+  private parseExpiryFromCert(certPem: string): number {
+    // Parse X.509 certificate to extract expiry date
+    // Look for the "Not After" field in the certificate
+    const notAfterMatch = certPem.match(
+      /Not After\s*:\s*(\w+\s+\d+\s+[\d:]+\s+\d+\s+\w+)/i,
+    )
+
+    if (notAfterMatch) {
+      const expiryDate = new Date(notAfterMatch[1])
+      if (!Number.isNaN(expiryDate.getTime())) {
+        return expiryDate.getTime()
+      }
+    }
+
+    // Try to parse ASN.1 DER format if PEM parsing fails
+    // Look for validity period in base64 decoded cert
+    const base64Match = certPem.match(
+      /-----BEGIN CERTIFICATE-----\s*([\s\S]*?)\s*-----END CERTIFICATE-----/,
+    )
+
+    if (base64Match) {
+      // For proper parsing, we'd use a full ASN.1 parser
+      // For now, log warning and use a conservative 30-day default
+      console.warn(
+        '[CertManager] Could not parse certificate expiry - using conservative 30-day estimate',
+      )
+      return Date.now() + 30 * 24 * 60 * 60 * 1000
+    }
+
+    // Invalid certificate format
+    console.error(
+      '[CertManager] Invalid certificate format - cannot determine expiry',
+    )
+    return Date.now() // Treat as expired to force renewal
   }
 
   private getThumbprint(): string {
-    // In production, compute JWK thumbprint of account key
-    return Buffer.from(randomBytes(32)).toString('base64url')
+    // Compute JWK thumbprint of account key per RFC 7638
+    // The thumbprint MUST be deterministic for ACME to work
+    if (!this.acmeAccount?.accountKey) {
+      throw new Error(
+        '[CertManager] ACME account not initialized - cannot compute thumbprint',
+      )
+    }
+
+    // For development mode with 'dev-key', generate deterministic thumbprint
+    // In production, this should use the actual ECDSA key material
+    if (this.acmeAccount.accountKey === 'dev-key') {
+      // Development-only: deterministic thumbprint based on email
+      const devData = `dev:${this.config.acmeEmail}`
+      const hash = keccak256(new TextEncoder().encode(devData))
+      return Buffer.from(hash.slice(2), 'hex')
+        .toString('base64url')
+        .slice(0, 43)
+    }
+
+    // Production: compute actual JWK thumbprint from stored key
+    // This requires proper key parsing - for now throw if we get here
+    throw new Error(
+      '[CertManager] Production ACME requires full JWK implementation. Use acme-client package.',
+    )
   }
 
   private async encrypt(data: string): Promise<string> {

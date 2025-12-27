@@ -4,7 +4,7 @@
  */
 
 import type { Address, Hex, PublicClient, WalletClient } from 'viem'
-import { parseEther } from 'viem'
+import { encodeFunctionData, parseAbi, parseEther } from 'viem'
 import type { CrucibleConfig } from '../../lib/types'
 import type { AgentSDK } from '../sdk/agent'
 import { createLogger } from '../sdk/logger'
@@ -22,6 +22,40 @@ import type {
 } from './trading-bot'
 
 const log = createLogger('BotInitializer')
+
+// Standard DEX Router ABIs for actual swaps
+const UNISWAP_V2_ROUTER_ABI = parseAbi([
+  'function swapExactETHForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external payable returns (uint256[] memory amounts)',
+  'function swapExactTokensForETH(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external returns (uint256[] memory amounts)',
+  'function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external returns (uint256[] memory amounts)',
+  'function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts)',
+])
+
+const ERC20_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function allowance(address owner, address spender) external view returns (uint256)',
+])
+
+// Known DEX router addresses by chain
+const DEX_ROUTERS: Record<number, Address> = {
+  1: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // Ethereum Mainnet - Uniswap V2
+  42161: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', // Arbitrum - SushiSwap
+  8453: '0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24', // Base - Aerodrome
+  10: '0x9c12939390052919aF3155f41Bf4160Fd3666A6f', // Optimism - Velodrome
+  420691: '0x0000000000000000000000000000000000000000', // Jeju Network - placeholder
+  31337: '0x0000000000000000000000000000000000000000', // Local Anvil
+}
+
+// WETH addresses by chain
+const WETH_ADDRESSES: Record<number, Address> = {
+  1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+  42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+  8453: '0x4200000000000000000000000000000000000006',
+  10: '0x4200000000000000000000000000000000000006',
+  420691: '0x0000000000000000000000000000000000000000',
+  31337: '0x0000000000000000000000000000000000000000',
+}
 
 export interface BotInitializerConfig {
   crucibleConfig: CrucibleConfig
@@ -197,36 +231,149 @@ class TradingBotImpl implements TradingBot {
       )
     }
 
-    this.state.totalTrades++
-    this.state.lastTradeTimestamp = Date.now()
-
-    // Execute actual trade via wallet client
-    const txData = this.buildTradeTransaction(token, amount, isBuy)
     const account = this.walletClient.account
     if (!account) {
       throw new Error('Wallet client account not available')
     }
 
-    const txHash = await this.walletClient.sendTransaction({
-      to: token,
-      data: txData,
-      value: isBuy ? amount : 0n,
-      account,
-      chain: this.options.chains[0]
-        ? {
-            id: this.options.chains[0].chainId,
-            name: this.options.chains[0].name,
-            nativeCurrency: {
-              name: this.options.chains[0].nativeSymbol,
-              symbol: this.options.chains[0].nativeSymbol,
-              decimals: 18,
-            },
-            rpcUrls: {
-              default: { http: [this.options.chains[0].rpcUrl] },
-            },
-          }
-        : undefined,
-    })
+    const chainId = this.options.chains[0]?.chainId ?? 1
+    const routerAddress = DEX_ROUTERS[chainId]
+    const wethAddress = WETH_ADDRESSES[chainId]
+
+    if (
+      !routerAddress ||
+      routerAddress === '0x0000000000000000000000000000000000000000'
+    ) {
+      throw new Error(`No DEX router configured for chain ${chainId}`)
+    }
+
+    if (
+      !wethAddress ||
+      wethAddress === '0x0000000000000000000000000000000000000000'
+    ) {
+      throw new Error(`No WETH address configured for chain ${chainId}`)
+    }
+
+    this.state.totalTrades++
+    this.state.lastTradeTimestamp = Date.now()
+
+    const chain = this.options.chains[0]
+      ? {
+          id: this.options.chains[0].chainId,
+          name: this.options.chains[0].name,
+          nativeCurrency: {
+            name: this.options.chains[0].nativeSymbol,
+            symbol: this.options.chains[0].nativeSymbol,
+            decimals: 18,
+          },
+          rpcUrls: {
+            default: { http: [this.options.chains[0].rpcUrl] },
+          },
+        }
+      : undefined
+
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800) // 30 minutes
+    const recipient = this.options.treasuryAddress ?? account.address
+    const slippageBps = BigInt(this.config.maxSlippageBps)
+
+    let txHash: Hex
+
+    if (isBuy) {
+      // Buy: Swap ETH for tokens using swapExactETHForTokens
+      // Calculate minimum output with slippage
+      const amountOutMin = (amount * (10000n - slippageBps)) / 10000n
+
+      const swapData = encodeFunctionData({
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: 'swapExactETHForTokens',
+        args: [
+          amountOutMin,
+          [wethAddress, token] as readonly Address[],
+          recipient,
+          deadline,
+        ],
+      })
+
+      log.info('Executing buy swap', {
+        botId: this.id.toString(),
+        token,
+        amountIn: amount.toString(),
+        amountOutMin: amountOutMin.toString(),
+        router: routerAddress,
+      })
+
+      txHash = await this.walletClient.sendTransaction({
+        to: routerAddress,
+        data: swapData,
+        value: amount,
+        account,
+        chain,
+      })
+    } else {
+      // Sell: Swap tokens for ETH using swapExactTokensForETH
+      // First approve the router to spend tokens
+      const currentAllowance = await this.publicClient.readContract({
+        address: token,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [account.address, routerAddress],
+      })
+
+      if (currentAllowance < amount) {
+        log.info('Approving router for token spend', {
+          token,
+          amount: amount.toString(),
+          router: routerAddress,
+        })
+
+        const approveData = encodeFunctionData({
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [routerAddress, amount],
+        })
+
+        const approveTxHash = await this.walletClient.sendTransaction({
+          to: token,
+          data: approveData,
+          account,
+          chain,
+        })
+
+        await this.publicClient.waitForTransactionReceipt({
+          hash: approveTxHash,
+        })
+      }
+
+      // Calculate minimum output with slippage
+      const amountOutMin = (amount * (10000n - slippageBps)) / 10000n
+
+      const swapData = encodeFunctionData({
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: 'swapExactTokensForETH',
+        args: [
+          amount,
+          amountOutMin,
+          [token, wethAddress] as readonly Address[],
+          recipient,
+          deadline,
+        ],
+      })
+
+      log.info('Executing sell swap', {
+        botId: this.id.toString(),
+        token,
+        amountIn: amount.toString(),
+        amountOutMin: amountOutMin.toString(),
+        router: routerAddress,
+      })
+
+      txHash = await this.walletClient.sendTransaction({
+        to: routerAddress,
+        data: swapData,
+        account,
+        chain,
+      })
+    }
 
     // Wait for confirmation
     const receipt = await this.publicClient.waitForTransactionReceipt({
@@ -261,29 +408,6 @@ class TradingBotImpl implements TradingBot {
     }
 
     return txHash
-  }
-
-  private buildTradeTransaction(
-    token: Address,
-    amount: bigint,
-    isBuy: boolean,
-  ): Hex {
-    // ERC20 transfer function selector
-    const TRANSFER_SELECTOR = '0xa9059cbb'
-    const APPROVE_SELECTOR = '0x095ea7b3'
-
-    if (isBuy) {
-      // For buys, we typically need to approve and swap
-      // This is a simplified version - real implementation would use DEX routers
-      return `${APPROVE_SELECTOR}${token.slice(2).padStart(64, '0')}${amount.toString(16).padStart(64, '0')}` as Hex
-    }
-    // For sells, transfer tokens
-    const treasuryOrSelf =
-      this.options.treasuryAddress ?? this.walletClient.account?.address
-    if (!treasuryOrSelf) {
-      throw new Error('No treasury or wallet address available')
-    }
-    return `${TRANSFER_SELECTOR}${treasuryOrSelf.slice(2).padStart(64, '0')}${amount.toString(16).padStart(64, '0')}` as Hex
   }
 
   async updateState(): Promise<void> {
@@ -355,7 +479,7 @@ export class BotInitializer {
         id: `trading-bot-${Date.now()}-${index}`,
         name: botConfig.name,
         description: botConfig.description,
-        system: `You are a ${botConfig.name} trading bot that executes ${botConfig.strategies[0]?.type} strategies.`,
+        system: `You are a ${botConfig.name} trading bot that executes ${botConfig.strategies[0].type} strategies.`,
         bio: [botConfig.description],
         messageExamples: [],
         topics: ['trading', 'defi', 'arbitrage', 'mev'],
@@ -379,12 +503,12 @@ export class BotInitializer {
     const tradingConfig: TradingBotConfig = {
       id: agentResult.agentId,
       name: botConfig.name,
-      strategy: this.mapStrategyType(botConfig.strategies[0]?.type),
+      strategy: this.mapStrategyType(botConfig.strategies[0].type),
       enabled: true,
       maxPositionSize: parseEther('10'),
       minTradeSize: parseEther('0.01'),
-      maxSlippageBps: botConfig.strategies[0]?.maxSlippageBps ?? 50,
-      cooldownMs: botConfig.strategies[0]?.cooldownMs ?? 60000,
+      maxSlippageBps: botConfig.strategies[0].maxSlippageBps ?? 50,
+      cooldownMs: botConfig.strategies[0].cooldownMs ?? 60000,
       targetTokens: [],
       excludedTokens: [],
     }

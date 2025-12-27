@@ -132,7 +132,8 @@ export function getOAuth3Service(): OAuth3Service {
     const rpcUrl = getRpcUrl()
     const jnsGateway = getGatewayApiEndpoint()
     const storageEndpoint = getStorageApiEndpoint()
-    const teeAgentUrl = process.env.OAUTH3_TEE_AGENT_URL ?? 'http://localhost:8004'
+    const teeAgentUrl =
+      process.env.OAUTH3_TEE_AGENT_URL ?? 'http://localhost:8004'
 
     oauth3Service = new OAuth3ServiceImpl({
       appId,

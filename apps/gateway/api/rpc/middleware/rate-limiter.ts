@@ -8,6 +8,16 @@ import { type Address, type Chain, createPublicClient, http } from 'viem'
 
 export { RATE_LIMITS, type RateTier }
 
+/**
+ * SECURITY: Validate IP address format to prevent header injection
+ */
+function isValidIpAddress(ip: string): boolean {
+  const ipv4Regex =
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$/
+  return ipv4Regex.test(ip) || ipv6Regex.test(ip)
+}
+
 export function isPrivateIp(ip: string): boolean {
   if (
     ip.startsWith('10.') ||
@@ -37,24 +47,40 @@ export function isPrivateIp(ip: string): boolean {
   return false
 }
 
-function getClientIp(request: Request): string {
-  const realIp = request.headers.get('X-Real-IP')
-  if (realIp) {
-    return realIp.trim()
-  }
+/**
+ * SECURITY: Only trust proxy headers in development or when explicitly configured
+ * In production, set TRUST_PROXY_HEADERS=true if behind a trusted reverse proxy
+ */
+const TRUST_PROXY_HEADERS =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.TRUST_PROXY_HEADERS === 'true'
 
-  const forwardedFor = request.headers.get('X-Forwarded-For')
-  if (forwardedFor) {
-    const ips = forwardedFor
-      .split(',')
-      .map((ip) => ip.trim())
-      .reverse()
-    for (const ip of ips) {
-      if (ip && !isPrivateIp(ip)) {
-        return ip
+function getClientIp(request: Request): string {
+  // SECURITY: Only trust proxy headers if explicitly configured
+  if (TRUST_PROXY_HEADERS) {
+    const realIp = request.headers.get('X-Real-IP')
+    if (realIp) {
+      const trimmedIp = realIp.trim()
+      // SECURITY: Validate IP format to prevent header injection
+      if (isValidIpAddress(trimmedIp)) {
+        return trimmedIp
       }
     }
-    if (ips[0]) return ips[0]
+
+    const forwardedFor = request.headers.get('X-Forwarded-For')
+    if (forwardedFor) {
+      const ips = forwardedFor
+        .split(',')
+        .map((ip) => ip.trim())
+        .filter(isValidIpAddress)
+        .reverse()
+      for (const ip of ips) {
+        if (ip && !isPrivateIp(ip)) {
+          return ip
+        }
+      }
+      if (ips[0]) return ips[0]
+    }
   }
 
   return 'unknown'
@@ -139,8 +165,28 @@ const getContractRateLimit = async (addr: Address): Promise<number> => {
   return Number(result)
 }
 
+/**
+ * SECURITY: Check if address has access via staking contract
+ * If staking contract is not configured, allow access but log warning in production
+ */
+let stakingWarningLogged = false
 const checkAccess = async (addr: Address): Promise<boolean> => {
-  if (!STAKING_ADDR) return true
+  if (!STAKING_ADDR) {
+    // SECURITY: Log warning in production if staking is expected but not configured
+    if (
+      process.env.NODE_ENV === 'production' &&
+      process.env.REQUIRE_STAKING === 'true'
+    ) {
+      if (!stakingWarningLogged) {
+        console.warn(
+          '[RPC Gateway] SECURITY WARNING: REQUIRE_STAKING=true but RPC_STAKING_ADDRESS not configured',
+        )
+        stakingWarningLogged = true
+      }
+      return false // Deny access if staking is required but not configured
+    }
+    return true // Allow access in development or when staking not required
+  }
   return readContract(client, {
     address: STAKING_ADDR,
     abi: RPC_STAKING_ABI,

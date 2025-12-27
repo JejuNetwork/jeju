@@ -13,7 +13,11 @@ import type {
   VectorSearchResult,
   VectorType,
 } from './types.js'
-import { validateSQLIdentifier, validateSQLIdentifiers } from './utils.js'
+import {
+  validateMetadataFilter,
+  validateSQLIdentifier,
+  validateSQLIdentifiers,
+} from './utils.js'
 
 // Vector Serialization
 
@@ -279,14 +283,16 @@ FROM ${tableName} AS e
 WHERE e.embedding MATCH ?
   AND k = ${k}`
 
-  // Add partition filter
+  // Add partition filter - uses fixed column name 'partition_key'
+  // The partitionValue is passed as a parameter, not interpolated
   if (partitionValue !== undefined) {
-    sql += `\n  AND e.${request.partitionValue} = ?`
+    sql += '\n  AND e.partition_key = ?'
   }
 
-  // Add metadata filter - callers must use parameters for filter values
+  // Validate and add metadata filter
   if (metadataFilter) {
-    sql += `\n  AND ${metadataFilter}`
+    const safeFilter = validateMetadataFilter(metadataFilter)
+    sql += `\n  AND ${safeFilter}`
   }
 
   sql += '\nORDER BY distance'

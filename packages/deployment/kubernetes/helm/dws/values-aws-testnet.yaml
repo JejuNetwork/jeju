@@ -1,0 +1,124 @@
+# DWS Helm Values - AWS Testnet
+# AWS-specific configuration for DWS deployment
+# Note: Image repository and certificate ARN are set via helmfile
+
+replicaCount: 3
+
+image:
+  # Repository is set via helmfile: .Values.ecr_registry/dws
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+config:
+  chainId: "420690"  # AWS testnet chain ID
+  rpcUrl: "https://testnet-rpc.jejunetwork.org"
+  dwsEndpoint: "https://dws.testnet.jejunetwork.org"
+  environment: "testnet"
+
+# AWS-specific resource allocations
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Persistence using AWS EBS
+persistence:
+  enabled: true
+  storageClass: "gp3"  # AWS GP3 storage class
+  size: 100Gi
+
+# TEE Configuration
+tee:
+  enabled: true
+  provider: intel_tdx
+  attestationRequired: true
+  attestationEndpoint: "https://attestation.testnet.jejunetwork.org"
+
+# External chain provisioning via DWS
+externalChains:
+  ethereum:
+    enabled: true
+    mode: reth
+    teeRequired: false
+  arbitrum:
+    enabled: true
+    mode: nitro
+    teeRequired: false
+  optimism:
+    enabled: true
+    mode: op_reth
+    teeRequired: false
+  base:
+    enabled: true
+    mode: op_reth
+    teeRequired: false
+  solana:
+    enabled: true
+    mode: solana_validator
+    teeRequired: false
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 4030
+
+# Ingress for AWS (using ALB)
+# Certificate ARN is set via helmfile or terraform output
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    # Certificate ARN set via: --set ingress.annotations."alb\.ingress\.kubernetes\.io/certificate-arn"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+  hosts:
+    - host: dws.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Pod autoscaling
+autoscaling:
+  enabled: false  # Fixed replicas for testnet
+
+# Node selector for AWS nodes
+nodeSelector:
+  eks.amazonaws.com/nodegroup: "general"
+
+# Tolerations
+tolerations: []
+
+# Affinity for HA distribution
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - dws
+          topologyKey: "kubernetes.io/hostname"
+
+# Environment variables from secrets
+env:
+  - name: DEPLOYER_PRIVATE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: dws-secrets
+        key: deployer-private-key
+        optional: true
+  - name: TEE_REGISTRY_ADDRESS
+    valueFrom:
+      configMapKeyRef:
+        name: dws-config
+        key: tee-registry-address
+        optional: true

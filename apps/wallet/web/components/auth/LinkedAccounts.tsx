@@ -203,7 +203,7 @@ export function LinkedAccounts() {
               const Icon = info.icon
               const isActive =
                 activeAction?.provider === linked.provider &&
-                activeAction?.action === 'unlink'
+                activeAction.action === 'unlink'
 
               return (
                 <div
@@ -267,7 +267,7 @@ export function LinkedAccounts() {
               const Icon = info.icon
               const isActive =
                 activeAction?.provider === provider &&
-                activeAction?.action === 'link'
+                activeAction.action === 'link'
 
               return (
                 <button

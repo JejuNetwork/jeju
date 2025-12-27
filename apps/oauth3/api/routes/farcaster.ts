@@ -7,7 +7,52 @@ import QRCode from 'qrcode'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig } from '../../lib/types'
-import { authCodeState, sessionState } from '../services/state'
+import { authCodeState, clientState, sessionState } from '../services/state'
+
+/**
+ * HTML escape to prevent XSS in rendered templates.
+ */
+function _escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+/**
+ * JS string escape for template literals.
+ */
+function escapeJsString(unsafe: string): string {
+  return unsafe
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/`/g, '\\`')
+    .replace(/\$/g, '\\$')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+}
+
+/**
+ * Validate redirect URI against client's registered patterns.
+ */
+function validateRedirectUri(
+  redirectUri: string,
+  allowedPatterns: string[],
+): boolean {
+  for (const pattern of allowedPatterns) {
+    const regexPattern = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+    const regex = new RegExp(`^${regexPattern}$`)
+    if (regex.test(redirectUri)) {
+      return true
+    }
+  }
+  return false
+}
 
 const InitQuerySchema = t.Object({
   client_id: t.String(),
@@ -50,8 +95,20 @@ export function createFarcasterRouter(_config: AuthConfig) {
   return new Elysia({ name: 'farcaster', prefix: '/farcaster' })
     .get(
       '/init',
-      async ({ query }) => {
+      async ({ query, set }) => {
         const { client_id: clientId, redirect_uri: redirectUri, state } = query
+
+        // Validate client exists and redirect URI is allowed
+        const client = await clientState.get(clientId)
+        if (!client || !client.active) {
+          set.status = 400
+          return { error: 'invalid_client' }
+        }
+
+        if (!validateRedirectUri(redirectUri, client.redirectUris)) {
+          set.status = 400
+          return { error: 'invalid_redirect_uri' }
+        }
 
         const nonce = crypto.randomUUID()
         const domain = 'auth.jejunetwork.org'
@@ -193,8 +250,8 @@ export function createFarcasterRouter(_config: AuthConfig) {
   </div>
 
   <script>
-    const nonce = '${nonce}';
-    const domain = '${domain}';
+    const nonce = '${escapeJsString(nonce)}';
+    const domain = '${escapeJsString(domain)}';
     
     document.getElementById('showManual').addEventListener('click', () => {
       document.getElementById('manualInput').classList.toggle('show');
@@ -245,7 +302,7 @@ Resources:
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            nonce: '${nonce}',
+            nonce: '${escapeJsString(nonce)}',
             message,
             signature,
             fid: parseInt(fid, 10),
@@ -305,6 +362,22 @@ Resources:
           return { error: 'expired_challenge' }
         }
 
+        // Validate message content matches expected values
+        const messageValidation = validateFarcasterMessage(
+          body.message,
+          challenge.domain,
+          custody,
+          body.nonce,
+          body.fid,
+        )
+        if (!messageValidation.valid) {
+          set.status = 400
+          return {
+            error: 'invalid_message',
+            error_description: messageValidation.error,
+          }
+        }
+
         // Verify signature
         const valid = await verifyMessage({
           address: custody,
@@ -359,6 +432,60 @@ Resources:
       },
       { body: VerifyBodySchema },
     )
+}
+
+/**
+ * Validate the Farcaster SIWE message contains expected values.
+ * This prevents attackers from using signed messages with wrong domain/nonce/fid.
+ */
+function validateFarcasterMessage(
+  message: string,
+  expectedDomain: string,
+  expectedAddress: Address,
+  expectedNonce: string,
+  expectedFid: number,
+): { valid: boolean; error?: string } {
+  // Check domain
+  if (
+    !message.startsWith(
+      `${expectedDomain} wants you to sign in with your Ethereum account:`,
+    )
+  ) {
+    return { valid: false, error: 'invalid_domain' }
+  }
+
+  // Check address is in message
+  if (!message.includes(expectedAddress)) {
+    return { valid: false, error: 'invalid_address' }
+  }
+
+  // Check nonce
+  if (!message.includes(`Nonce: ${expectedNonce}`)) {
+    return { valid: false, error: 'invalid_nonce' }
+  }
+
+  // Check FID resource
+  if (!message.includes(`farcaster://fid/${expectedFid}`)) {
+    return { valid: false, error: 'invalid_fid' }
+  }
+
+  // Check issued at is recent (within 10 minutes)
+  const issuedAtMatch = message.match(
+    /Issued At: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/,
+  )
+  if (!issuedAtMatch) {
+    return { valid: false, error: 'missing_issued_at' }
+  }
+
+  const issuedAt = new Date(issuedAtMatch[1]).getTime()
+  if (
+    Number.isNaN(issuedAt) ||
+    Math.abs(Date.now() - issuedAt) > 10 * 60 * 1000
+  ) {
+    return { valid: false, error: 'message_too_old' }
+  }
+
+  return { valid: true }
 }
 
 /**

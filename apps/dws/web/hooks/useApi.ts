@@ -721,7 +721,8 @@ export function useUserAccount() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['user-account', address],
-    queryFn: () => fetchApi<UserAccount>('/api-marketplace/account', { address }),
+    queryFn: () =>
+      fetchApi<UserAccount>('/api-marketplace/account', { address }),
     enabled: !!address,
   })
 }

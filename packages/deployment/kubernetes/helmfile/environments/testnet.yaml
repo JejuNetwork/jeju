@@ -159,8 +159,11 @@ l1_chain_id: "11155111"
 l2_chain_id: "420690"
 
 # Domains
+domain_name: jejunetwork.org
 rpc_domain: testnet-rpc.jejunetwork.org
 ws_domain: testnet-ws.jejunetwork.org
+dws_domain: dws.testnet.jejunetwork.org
+jeju_rpc_url: https://testnet-rpc.jejunetwork.org
 
 # Rate limiting (relaxed for testnet)
 rate_limit:
@@ -172,8 +175,51 @@ rate_limit:
 
 # AWS settings
 aws_region: us-east-1
+ecr_registry: ""  # Set via CI/CD or terraform output
 acm_certificate_arn: ""  # Let cert-manager handle it
 waf_enabled: false       # No WAF for testnet
 shield_enabled: false    # No Shield for testnet
+
+# DWS Configuration
+dws:
+  replicas: 3
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  persistence:
+    size: 100Gi
+  
+  # TEE Configuration for testnet
+  tee:
+    enabled: true
+    provider: intel_tdx
+    attestation_required: true
+  
+  # External chain nodes provisioned via DWS
+  external_chains:
+    ethereum:
+      enabled: true
+      mode: reth  # Use reth for archive node
+      tee_required: false
+    arbitrum:
+      enabled: true
+      mode: nitro
+      tee_required: false
+    optimism:
+      enabled: true
+      mode: op_reth
+      tee_required: false
+    base:
+      enabled: true
+      mode: op_reth
+      tee_required: false
+    solana:
+      enabled: true
+      mode: solana_validator
+      tee_required: false
 
 

@@ -394,7 +394,7 @@ async function processVoucherFulfilled(
     }
 
     // Update transfer
-    const requestId = voucher.request?.id
+    const requestId = voucher.request.id
     if (requestId) {
       const transferId = `${requestId}-transfer`
       const transfer =

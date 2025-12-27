@@ -214,14 +214,14 @@ Return JSON:
       projectId: project.projectId,
       projectName: project.name,
       recommendedWeight: Math.min(
-        parsed?.recommendedWeight ?? 1000,
+        parsed.recommendedWeight ?? 1000,
         knobs.maxCEOWeight,
       ),
-      reasoning: parsed?.reasoning ?? 'AI analysis',
-      alignmentScore: parsed?.alignmentScore ?? 50,
-      impactScore: parsed?.impactScore ?? 50,
-      riskScore: parsed?.riskScore ?? 50,
-      confidence: parsed?.confidence ?? 70,
+      reasoning: parsed.reasoning ?? 'AI analysis',
+      alignmentScore: parsed.alignmentScore ?? 50,
+      impactScore: parsed.impactScore ?? 50,
+      riskScore: parsed.riskScore ?? 50,
+      confidence: parsed.confidence ?? 70,
     }
   }
 
@@ -301,8 +301,8 @@ Return JSON:
     )
 
     return {
-      strategy: parsed?.strategy ?? 'Balanced funding approach.',
-      priorities: parsed?.priorities ?? ['Core development', 'Community'],
+      strategy: parsed.strategy ?? 'Balanced funding approach.',
+      priorities: parsed.priorities ?? ['Core development', 'Community'],
     }
   }
   calculateQuadraticAllocation(

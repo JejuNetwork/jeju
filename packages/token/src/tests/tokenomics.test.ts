@@ -549,7 +549,7 @@ describe('calculateVestingSchedule - Edge Cases', () => {
     const result = calculateVestingSchedule(schedule, 0n)
 
     // TGE of 0 should not add an entry
-    expect(result[0]?.unlocked ?? 0n).toBe(0n)
+    expect(result[0].unlocked ?? 0n).toBe(0n)
   })
 
   test('100% TGE with vesting period (all unlocked at TGE)', () => {

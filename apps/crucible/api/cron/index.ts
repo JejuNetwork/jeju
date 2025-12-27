@@ -141,14 +141,27 @@ let warnedAboutMissingSecret = false
  */
 function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
   const cronSecret = process.env.CRON_SECRET
+  const network = process.env.NETWORK ?? 'localnet'
+
   if (!cronSecret) {
+    // SECURITY: Only allow unauthenticated cron access in localnet
+    if (network !== 'localnet') {
+      if (!warnedAboutMissingSecret) {
+        log.error(
+          'CRON_SECRET not set in production - cron endpoints are BLOCKED. Set CRON_SECRET to enable.',
+        )
+        warnedAboutMissingSecret = true
+      }
+      return false // Block in production/testnet without secret
+    }
+
     if (!warnedAboutMissingSecret) {
       log.warn(
-        'CRON_SECRET not set - cron endpoints are unprotected. Set CRON_SECRET in production.',
+        'CRON_SECRET not set - cron endpoints are unprotected (localnet only).',
       )
       warnedAboutMissingSecret = true
     }
-    return true // Allow in development
+    return true // Allow in localnet development
   }
 
   const authHeader = headers.authorization

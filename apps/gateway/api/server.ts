@@ -20,8 +20,19 @@ const PORT = Number(process.env.GATEWAY_API_PORT) || 4013
 
 const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/)
 
+// SECURITY: Restrict CORS origins in production
+const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
+
 const app = new Elysia()
-  .use(cors())
+  .use(
+    cors({
+      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type'],
+      maxAge: 86400,
+    }),
+  )
   .get('/health', () => ({ status: 'ok', service: 'gateway' }))
 
   // Faucet routes
@@ -43,7 +54,9 @@ const app = new Elysia()
     if (!bodyParsed.success) {
       return { success: false, error: 'Invalid address format' }
     }
-    const result = await claimFromFaucet(bodyParsed.data.address as `0x${string}`)
+    const result = await claimFromFaucet(
+      bodyParsed.data.address as `0x${string}`,
+    )
     return result
   })
 

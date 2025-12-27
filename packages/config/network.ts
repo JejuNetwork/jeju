@@ -7,9 +7,15 @@
  */
 
 // Direct JSON imports for deployment data
-import localnetDeployment from '../contracts/deployments/localnet/deployment.json' with { type: 'json' }
-import mainnetDeployment from '../contracts/deployments/mainnet/deployment.json' with { type: 'json' }
-import testnetDeployment from '../contracts/deployments/testnet/deployment.json' with { type: 'json' }
+import localnetDeployment from '../contracts/deployments/localnet/deployment.json' with {
+  type: 'json',
+}
+import mainnetDeployment from '../contracts/deployments/mainnet/deployment.json' with {
+  type: 'json',
+}
+import testnetDeployment from '../contracts/deployments/testnet/deployment.json' with {
+  type: 'json',
+}
 import { NetworkSchema, type NetworkType, RpcHexResultSchema } from './schemas'
 
 // Types

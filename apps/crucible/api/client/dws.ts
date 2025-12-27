@@ -115,7 +115,7 @@ export class DWSClient {
     const { schema, ...fetchInit } = init ?? {}
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...fetchInit,
-      headers: { ...this.headers, ...fetchInit?.headers },
+      headers: { ...this.headers, ...fetchInit.headers },
       signal: AbortSignal.timeout(this.timeout),
     })
 
@@ -338,7 +338,12 @@ export function getSharedDWSClient(): DWSClient {
  */
 export async function checkDWSHealth(): Promise<boolean> {
   const client = getSharedDWSClient()
-  const health = await client.health().catch(() => null)
+  const health = await client.health().catch((err) => {
+    // DWS being unavailable is expected during startup or in local dev
+    // Log at debug level to help with troubleshooting without noise
+    console.debug(`[DWS] Health check failed: ${err}`)
+    return null
+  })
   return health?.status === 'healthy'
 }
 

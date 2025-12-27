@@ -48,7 +48,7 @@ let proxyEnabled = false
 
 export const devCommand = new Command('dev')
   .description(
-    'Start development environment (bootstraps contracts + deploys apps on-chain)',
+    'Start development environment with HMR (bootstraps contracts + deploys apps)',
   )
   .option('--minimal', 'Localnet only (no apps)')
   .option(
@@ -96,11 +96,12 @@ async function startDev(options: {
   seed?: boolean
 }): Promise<void> {
   logger.header('JEJU DEV')
+  logger.info('Development mode with HMR\n')
 
   const rootDir = process.cwd()
   setupSignalHandlers()
 
-  // Step 1: Ensure all infrastructure is running (Docker, services, localnet)
+  // Start infrastructure (CQL, Docker services, localnet) - parallelized for speed
   infrastructureService = createInfrastructureService(rootDir)
   const infraReady = await infrastructureService.ensureRunning()
 
@@ -324,7 +325,9 @@ async function deployAppsOnchain(
   const startedBackends = backendStartTasks.filter(Boolean)
   for (const backend of startedBackends) {
     if (backend) {
-      logger.success(`  ${backend.name} backend started on port ${backend.port}`)
+      logger.success(
+        `  ${backend.name} backend started on port ${backend.port}`,
+      )
     }
   }
 
@@ -543,12 +546,7 @@ async function printReady(
         value: `http://127.0.0.1:${DEFAULT_PORTS.ipfs}`,
         status: 'ok' as const,
       },
-      { label: 'Cache', value: 'http://127.0.0.1:4115', status: 'ok' as const },
-      {
-        label: 'DA Server',
-        value: 'http://127.0.0.1:4010',
-        status: 'ok' as const,
-      },
+      { label: 'DWS', value: 'http://127.0.0.1:4030', status: 'ok' as const },
     ])
   }
 
@@ -567,7 +565,11 @@ async function printReady(
   ]
   if (proxyEnabled) {
     // Build RPC URL dynamically with actual port (omit :80)
-    const rpcDomainUrl = formatLocalUrl('rpc', DOMAIN_CONFIG.localDomain, displayPort)
+    const rpcDomainUrl = formatLocalUrl(
+      'rpc',
+      DOMAIN_CONFIG.localDomain,
+      displayPort,
+    )
     chainRows.push({
       label: 'L2 RPC (domain)',
       value: rpcDomainUrl,
@@ -593,7 +595,11 @@ async function printReady(
 
       const displayName = app.displayName || app.name
       const slug = app.name.toLowerCase().replace(/\s+/g, '-')
-      const localUrl = formatLocalUrl(slug, DOMAIN_CONFIG.localDomain, displayPort)
+      const localUrl = formatLocalUrl(
+        slug,
+        DOMAIN_CONFIG.localDomain,
+        displayPort,
+      )
       logger.table([
         {
           label: displayName,
@@ -614,7 +620,11 @@ async function printReady(
       const domainName = svc.name.toLowerCase().replace(/\s+/g, '-')
 
       if (proxyEnabled && port) {
-        const localUrl = formatLocalUrl(domainName, DOMAIN_CONFIG.localDomain, displayPort)
+        const localUrl = formatLocalUrl(
+          domainName,
+          DOMAIN_CONFIG.localDomain,
+          displayPort,
+        )
         logger.table([
           {
             label: svc.name,

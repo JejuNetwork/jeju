@@ -50,11 +50,13 @@ export class CISecretsStore {
           'CRITICAL: CI_ENCRYPTION_SECRET must be set in production. CI secrets cannot be secured without it.',
         )
       }
+      // Development only: use distinct dev key that won't match any production key
       console.warn(
-        '[CISecretsStore] WARNING: CI_ENCRYPTION_SECRET not set. Secrets are NOT properly secured.',
+        '[CISecretsStore] WARNING: CI_ENCRYPTION_SECRET not set. Using dev-only key.',
       )
+      return hash256(`DEV_ONLY_INSECURE_KEY_DO_NOT_USE_IN_PROD:${secretId}`)
     }
-    return hash256(`${serverSecret ?? 'INSECURE_CI_SECRET'}:${secretId}`)
+    return hash256(`${serverSecret}:${secretId}`)
   }
 
   /**

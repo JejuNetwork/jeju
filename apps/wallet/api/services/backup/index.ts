@@ -75,9 +75,7 @@ class BackupService {
     const words = mnemonic.split(' ')
 
     for (const response of responses) {
-      if (
-        words[response.index]?.toLowerCase() !== response.word.toLowerCase()
-      ) {
+      if (words[response.index].toLowerCase() !== response.word.toLowerCase()) {
         return false
       }
     }

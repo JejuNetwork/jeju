@@ -98,11 +98,15 @@ export interface BotMetrics {
 // Bot Configurations
 // ============================================================================
 
-const DEFAULT_BOT_CONFIGS: Record<BotType, Omit<BotConfig, 'initialFunding'>> = {
+const DEFAULT_BOT_CONFIGS: Record<
+  BotType,
+  Omit<BotConfig, 'initialFunding'>
+> = {
   DEX_ARBITRAGE: {
     type: 'DEX_ARBITRAGE',
     name: 'DEX Arbitrage Bot',
-    description: 'Detects and executes DEX arbitrage opportunities across pools',
+    description:
+      'Detects and executes DEX arbitrage opportunities across pools',
     enabled: true,
     chains: [1, 42161, 10, 8453], // ETH, ARB, OP, BASE
     strategies: [
@@ -150,7 +154,8 @@ const DEFAULT_BOT_CONFIGS: Record<BotType, Omit<BotConfig, 'initialFunding'>> = 
   LIQUIDATION: {
     type: 'LIQUIDATION',
     name: 'Liquidation Bot',
-    description: 'Liquidates undercollateralized positions on lending protocols',
+    description:
+      'Liquidates undercollateralized positions on lending protocols',
     enabled: true,
     chains: [1, 42161, 10, 8453],
     strategies: [
@@ -293,7 +298,9 @@ export class BotDeploymentService {
     // Verify RPC nodes are available
     const rpcService = getExternalRPCNodeService()
     if (!rpcService.areEVMNodesReady()) {
-      throw new Error('EVM RPC nodes not ready. Cannot deploy bot without price feeds.')
+      throw new Error(
+        'EVM RPC nodes not ready. Cannot deploy bot without price feeds.',
+      )
     }
 
     const defaultConfig = DEFAULT_BOT_CONFIGS[type]
@@ -366,7 +373,7 @@ export class BotDeploymentService {
     // Get RPC endpoints for bot
     const rpcService = getExternalRPCNodeService()
     const rpcEndpoints: Record<string, string> = {}
-    
+
     for (const chainId of bot.config.chains) {
       const endpoint = rpcService.getRpcEndpointByChainId(chainId)
       if (endpoint) {
@@ -409,10 +416,18 @@ export class BotDeploymentService {
     // Command
     args.push('bun', 'run', 'bot', '--type', bot.type.toLowerCase())
 
-    console.log(`[BotDeployment] Starting container: docker ${args.slice(0, 10).join(' ')}...`)
+    console.log(
+      `[BotDeployment] Starting container: docker ${args.slice(0, 10).join(' ')}...`,
+    )
 
     // Check if container exists first
-    const checkProc = spawn(['docker', 'ps', '-aq', '-f', `name=${bot.containerId}`])
+    const checkProc = spawn([
+      'docker',
+      'ps',
+      '-aq',
+      '-f',
+      `name=${bot.containerId}`,
+    ])
     const checkOutput = await new Response(checkProc.stdout).text()
 
     if (checkOutput.trim()) {
@@ -457,7 +472,9 @@ export class BotDeploymentService {
     }
 
     bot.status = 'error'
-    throw new Error(`Bot ${bot.type} failed to become ready within ${timeoutMs}ms`)
+    throw new Error(
+      `Bot ${bot.type} failed to become ready within ${timeoutMs}ms`,
+    )
   }
 
   /**
@@ -465,11 +482,17 @@ export class BotDeploymentService {
    */
   private async checkBotHealth(bot: BotInstance): Promise<boolean> {
     const { spawn } = await import('bun')
-    
+
     // Check if container is running
-    const proc = spawn(['docker', 'inspect', '-f', '{{.State.Running}}', bot.containerId])
+    const proc = spawn([
+      'docker',
+      'inspect',
+      '-f',
+      '{{.State.Running}}',
+      bot.containerId,
+    ])
     const output = await new Response(proc.stdout).text()
-    
+
     return output.trim() === 'true'
   }
 

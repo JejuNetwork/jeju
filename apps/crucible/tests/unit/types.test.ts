@@ -37,7 +37,6 @@ import type {
   TradingBotConfig,
   TradingBotMetrics,
   TradingBotOpportunity,
-  TradingBotState,
   TradingBotStrategy,
   VaultTransaction,
 } from '../../lib/types'
@@ -123,7 +122,13 @@ describe('Agent Types', () => {
 describe('Room Types', () => {
   it('Room types are valid string unions', () => {
     const roomTypes = ['collaboration', 'adversarial', 'debate', 'council']
-    const roles = ['participant', 'moderator', 'red_team', 'blue_team', 'observer']
+    const roles = [
+      'participant',
+      'moderator',
+      'red_team',
+      'blue_team',
+      'observer',
+    ]
     const phases = ['setup', 'active', 'paused', 'completed', 'archived']
 
     roomTypes.forEach((type) => {
@@ -264,7 +269,9 @@ describe('Execution Types', () => {
     }
 
     expect(result.cost.total).toBe(1000000000000000n)
-    expect(result.cost.inference + result.cost.storage + result.cost.executionFee).toBe(result.cost.total)
+    expect(
+      result.cost.inference + result.cost.storage + result.cost.executionFee,
+    ).toBe(result.cost.total)
     expect(result.metadata.latencyMs).toBe(5000)
   })
 })
@@ -471,7 +478,9 @@ describe('Trading Bot Types', () => {
       },
     }
 
-    expect(metrics.opportunitiesExecuted).toBeLessThanOrEqual(metrics.opportunitiesDetected)
+    expect(metrics.opportunitiesExecuted).toBeLessThanOrEqual(
+      metrics.opportunitiesDetected,
+    )
     expect(metrics.uptime).toBeGreaterThan(0)
   })
 
@@ -485,7 +494,9 @@ describe('Trading Bot Types', () => {
       status: 'DETECTED',
     }
 
-    expect(['DETECTED', 'EXECUTING', 'COMPLETED', 'FAILED']).toContain(opportunity.status)
+    expect(['DETECTED', 'EXECUTING', 'COMPLETED', 'FAILED']).toContain(
+      opportunity.status,
+    )
   })
 
   it('TradingBotConfig combines strategies and chains', () => {

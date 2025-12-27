@@ -5,7 +5,13 @@
  * Creates full-coverage.spec.ts files for apps that don't have them.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 interface AppManifest {
@@ -22,7 +28,10 @@ interface AppManifest {
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -73,7 +82,9 @@ function generateE2ETests(appName: string, displayName: string, _port: number, t
   // Use Playwright's baseURL from config instead of hardcoded values
 
   // Determine app-specific pages based on tags
-  const pages: Array<{ path: string; name: string }> = [{ path: '/', name: 'Home' }]
+  const pages: Array<{ path: string; name: string }> = [
+    { path: '/', name: 'Home' },
+  ]
 
   if (tags.includes('defi') || tags.includes('swap')) {
     pages.push({ path: '/swap', name: 'Swap' })
@@ -285,7 +296,9 @@ async function main() {
 
     if (!existsSync(manifestPath)) continue
 
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest
+    const manifest = JSON.parse(
+      readFileSync(manifestPath, 'utf-8'),
+    ) as AppManifest
 
     // Skip storage-only apps
     if (manifest.type === 'storage') continue
@@ -310,12 +323,18 @@ async function main() {
 
     // Generate playwright config if missing
     if (!existsSync(playwrightConfigPath)) {
-      writeFileSync(playwrightConfigPath, generatePlaywrightConfig(entry.name, port))
+      writeFileSync(
+        playwrightConfigPath,
+        generatePlaywrightConfig(entry.name, port),
+      )
       console.log(`  ✓ ${entry.name}: created playwright.config.ts`)
     }
 
     // Generate E2E tests
-    writeFileSync(coverageTestPath, generateE2ETests(entry.name, displayName, port, tags))
+    writeFileSync(
+      coverageTestPath,
+      generateE2ETests(entry.name, displayName, port, tags),
+    )
     console.log(`  ✓ ${entry.name}: created full-coverage.spec.ts`)
     generated++
   }
@@ -324,4 +343,3 @@ async function main() {
 }
 
 main().catch(console.error)
-

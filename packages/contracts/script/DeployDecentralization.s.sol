@@ -228,6 +228,12 @@ contract DeployDecentralization is Script {
         // ============================================================
         console.log("--- Forced Inclusion ---");
         
+        // Skip contract check on localnet/devnet (batchInbox may not be deployed)
+        bool skipContractCheck = (chainId == 31337 || chainId == 1337);
+        if (skipContractCheck) {
+            console.log("  Skipping batchInbox contract check (localnet mode)");
+        }
+        
         // Deploy ForcedInclusion contract
         // Security Council is set to deployer initially, should be updated to multisig
         ForcedInclusion forcedInclusion = new ForcedInclusion(
@@ -235,7 +241,7 @@ contract DeployDecentralization is Script {
             address(sequencerRegistry),
             deployer, // securityCouncil - update to multisig after deployment
             deployer,
-            false // skipContractCheck - validate batchInbox is contract in production
+            skipContractCheck
         );
         console.log("ForcedInclusion deployed:", address(forcedInclusion));
         console.log("  - Inclusion window: 50 blocks");

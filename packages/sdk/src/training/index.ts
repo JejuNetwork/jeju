@@ -9,9 +9,20 @@
  */
 
 import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex } from 'viem'
+import { type Address, encodeFunctionData, type Hex, parseAbiItem } from 'viem'
 import { requireContract } from '../config'
 import type { JejuWallet } from '../wallet'
+
+// Event signatures for querying logs
+const RUN_CREATED_EVENT = parseAbiItem(
+  'event RunCreated(bytes32 indexed runId, address indexed creator, uint8 privacyMode)',
+)
+const CLIENT_JOINED_EVENT = parseAbiItem(
+  'event ClientJoined(bytes32 indexed runId, address indexed client, bytes32 nodeId)',
+)
+const CLIENT_LEFT_EVENT = parseAbiItem(
+  'event ClientLeft(bytes32 indexed runId, address indexed client)',
+)
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -254,6 +265,16 @@ const TRAINING_COORDINATOR_ABI = [
       { name: 'epochStartDataIndex', type: 'uint64' },
     ],
   },
+  {
+    name: 'submitHealthCheck',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'runId', type: 'bytes32' },
+      { name: 'checkData', type: 'bytes' },
+    ],
+    outputs: [],
+  },
 ] as const
 
 const TRAINING_REWARDS_ABI = [
@@ -371,13 +392,53 @@ export function createTrainingModule(
     },
 
     async listActiveRuns() {
-      // Would fetch from API or iterate contract
-      return []
+      const runs: TrainingRun[] = []
+
+      // Query RunCreated events
+      const logs = await wallet.publicClient.getLogs({
+        address: coordinatorAddress,
+        event: RUN_CREATED_EVENT,
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Get run details for each and filter to active states
+      for (const log of logs.slice(-100)) {
+        // Limit to last 100 runs
+        const run = await this.getRun(log.args.runId)
+        if (
+          run &&
+          run.state !== RunState.FINISHED &&
+          run.state !== RunState.UNINITIALIZED
+        ) {
+          runs.push(run)
+        }
+      }
+
+      return runs
     },
 
     async listMyRuns() {
-      // Would fetch runs where creator = wallet.address
-      return []
+      const runs: TrainingRun[] = []
+
+      // Query RunCreated events filtered by creator
+      const logs = await wallet.publicClient.getLogs({
+        address: coordinatorAddress,
+        event: RUN_CREATED_EVENT,
+        args: { creator: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Get full run details for each
+      for (const log of logs) {
+        const run = await this.getRun(log.args.runId)
+        if (run) {
+          runs.push(run)
+        }
+      }
+
+      return runs
     },
 
     async pauseRun(runId) {
@@ -425,13 +486,107 @@ export function createTrainingModule(
       return wallet.sendTransaction({ to: coordinatorAddress, data })
     },
 
-    async getClients(_runId) {
-      // Would enumerate clients from contract
-      return []
+    async getClients(runId) {
+      const clients: Client[] = []
+      const activeClients = new Set<string>()
+
+      // Query ClientJoined events for this run
+      const joinLogs = await wallet.publicClient.getLogs({
+        address: coordinatorAddress,
+        event: CLIENT_JOINED_EVENT,
+        args: { runId },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      // Query ClientLeft events to track who has left
+      const leftLogs = await wallet.publicClient.getLogs({
+        address: coordinatorAddress,
+        event: CLIENT_LEFT_EVENT,
+        args: { runId },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      const leftAddresses = new Set(
+        leftLogs.map((log) => log.args.client.toLowerCase()),
+      )
+
+      // Build client list from join events
+      for (const log of joinLogs) {
+        const clientAddress = log.args.client
+        if (leftAddresses.has(clientAddress.toLowerCase())) {
+          continue // Skip clients who have left
+        }
+
+        // Check if still active via contract
+        const isActive = await wallet.publicClient.readContract({
+          address: coordinatorAddress,
+          abi: TRAINING_COORDINATOR_ABI,
+          functionName: 'isClient',
+          args: [runId, clientAddress],
+        })
+
+        if (isActive && !activeClients.has(clientAddress.toLowerCase())) {
+          activeClients.add(clientAddress.toLowerCase())
+
+          const block = await wallet.publicClient.getBlock({
+            blockHash: log.blockHash,
+          })
+
+          clients.push({
+            clientAddress,
+            nodeId: log.args.nodeId,
+            joinedAt: block.timestamp,
+            lastActive: block.timestamp, // Would need separate tracking
+            isActive: true,
+            contribution: 0n, // Would need separate tracking
+          })
+        }
+      }
+
+      return clients
     },
 
-    async getMyClientStatus(_runId) {
-      return null
+    async getMyClientStatus(runId) {
+      // Check if wallet is a client
+      const isActive = await wallet.publicClient.readContract({
+        address: coordinatorAddress,
+        abi: TRAINING_COORDINATOR_ABI,
+        functionName: 'isClient',
+        args: [runId, wallet.address],
+      })
+
+      if (!isActive) {
+        return null
+      }
+
+      // Query when we joined
+      const joinLogs = await wallet.publicClient.getLogs({
+        address: coordinatorAddress,
+        event: CLIENT_JOINED_EVENT,
+        args: { runId, client: wallet.address },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      })
+
+      if (joinLogs.length === 0) {
+        return null
+      }
+
+      const joinLog = joinLogs[joinLogs.length - 1] // Most recent join
+      const block = await wallet.publicClient.getBlock({
+        blockHash: joinLog.blockHash,
+      })
+
+      return {
+        clientAddress: wallet.address,
+        nodeId: joinLog.args.nodeId,
+        joinedAt: block.timestamp,
+        lastActive: block.timestamp,
+        isActive: true,
+        contribution: 0n,
+      }
     },
 
     async isClientActive(runId, client) {
@@ -461,8 +616,13 @@ export function createTrainingModule(
       return wallet.sendTransaction({ to: coordinatorAddress, data })
     },
 
-    async submitHealthCheck(_runId, _checkData) {
-      throw new Error('Not implemented')
+    async submitHealthCheck(runId, checkData) {
+      const data = encodeFunctionData({
+        abi: TRAINING_COORDINATOR_ABI,
+        functionName: 'submitHealthCheck',
+        args: [runId, checkData],
+      })
+      return wallet.sendTransaction({ to: coordinatorAddress, data })
     },
 
     async claimRewards(runId) {

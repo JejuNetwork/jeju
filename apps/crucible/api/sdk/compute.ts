@@ -219,7 +219,7 @@ export class CrucibleCompute {
     if (!choice) {
       throw new Error('DWS inference returned no choices')
     }
-    const content = choice.message?.content ?? ''
+    const content = choice.message.content ?? ''
     const usage = result.usage ?? { prompt_tokens: 0, completion_tokens: 0 }
 
     return {

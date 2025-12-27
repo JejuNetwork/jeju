@@ -410,8 +410,8 @@ export async function processStorageEvents(
     await ctx.store.upsert([stats])
   }
 
-  const startBlock = ctx.blocks[0]?.header.height
-  const endBlock = ctx.blocks[ctx.blocks.length - 1]?.header.height
+  const startBlock = ctx.blocks[0].header.height
+  const endBlock = ctx.blocks[ctx.blocks.length - 1].header.height
 
   if (providers.size > 0 || deals.size > 0) {
     ctx.log.info(

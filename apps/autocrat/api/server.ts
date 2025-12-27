@@ -6,7 +6,11 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { CORE_PORTS, getNetworkName } from '@jejunetwork/config'
+import {
+  CORE_PORTS,
+  getCurrentNetwork,
+  getNetworkName,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { autocratAgentRuntime } from './agents/runtime'
@@ -35,6 +39,7 @@ import { registryRoutes } from './routes/registry'
 import { researchRoutes } from './routes/research'
 import { rlaifRoutes } from './routes/rlaif'
 import { triggersRoutes } from './routes/triggers'
+import { securityMiddleware } from './security'
 import {
   blockchain,
   config,
@@ -45,10 +50,32 @@ import {
 import { getTEEMode } from './tee'
 
 const PORT = CORE_PORTS.AUTOCRAT_API.get()
-const isDev = process.env.NODE_ENV !== 'production'
+const network = getCurrentNetwork()
+
+// Network-aware CORS - strict in production, flexible in development
+const ALLOWED_ORIGINS =
+  network === 'mainnet'
+    ? ['https://autocrat.jejunetwork.org', 'https://jeju.network']
+    : network === 'testnet'
+      ? [
+          'https://testnet.autocrat.jejunetwork.org',
+          'https://testnet.jeju.network',
+          'http://localhost:3000',
+          'http://localhost:5173',
+        ]
+      : true // localnet allows all origins for development
 
 const app = new Elysia()
-  .use(cors({ origin: isDev ? '*' : 'https://autocrat.jejunetwork.org' }))
+  .use(
+    cors({
+      origin: ALLOWED_ORIGINS,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+      credentials: true,
+    }),
+  )
+  // Security middleware: rate limiting, API key validation, audit logging, security headers
+  .use(securityMiddleware)
   // Mount all routes
   .use(healthRoutes)
   .use(proposalsRoutes)

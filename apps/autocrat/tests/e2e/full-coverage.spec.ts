@@ -5,7 +5,7 @@
  * Uses baseURL from playwright.config.ts (configured via @jejunetwork/config/ports)
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Autocrat - Full Coverage', () => {
   test.beforeEach(async ({ page }) => {
@@ -38,7 +38,9 @@ test.describe('Autocrat - Full Coverage', () => {
   })
 
   test('should have proper meta tags', async ({ page }) => {
-    const viewport = await page.locator('meta[name="viewport"]').getAttribute('content')
+    const viewport = await page
+      .locator('meta[name="viewport"]')
+      .getAttribute('content')
     expect(viewport).toBeTruthy()
   })
 
@@ -65,24 +67,23 @@ test.describe('Autocrat - Full Coverage', () => {
 })
 
 test.describe('Autocrat - Navigation', () => {
+  test('should navigate to Home', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Home', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Proposals', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/proposals`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
-    test('should navigate to Proposals', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/proposals`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
-
-    test('should navigate to Voting', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/voting`)
-      await page.waitForLoadState('domcontentloaded')
-      await expect(page.locator('body')).toBeVisible()
-    })
+  test('should navigate to Voting', async ({ page, baseURL }) => {
+    await page.goto(`${baseURL}/voting`)
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('body')).toBeVisible()
+  })
 
   test('should navigate via links', async ({ page }) => {
     await page.goto('/')
@@ -138,7 +139,9 @@ test.describe('Autocrat - Form Interactions', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    const inputs = await page.locator('input:visible:not([type="hidden"])').all()
+    const inputs = await page
+      .locator('input:visible:not([type="hidden"])')
+      .all()
 
     for (const input of inputs.slice(0, 5)) {
       const type = await input.getAttribute('type')

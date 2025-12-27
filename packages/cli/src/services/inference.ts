@@ -418,7 +418,7 @@ class LocalInferenceServer {
         headers,
         body: {
           model: request.model,
-          message: lastMessage?.content ?? '',
+          message: lastMessage.content ?? '',
           chat_history: chatHistory,
           ...(systemMessage && { preamble: systemMessage.content }),
           ...(request.max_tokens && { max_tokens: request.max_tokens }),
@@ -461,7 +461,7 @@ class LocalInferenceServer {
             {
               message: {
                 role: 'assistant',
-                content: data.content[0]?.text ?? '',
+                content: data.content[0].text ?? '',
               },
               finish_reason:
                 data.stop_reason === 'end_turn' ? 'stop' : data.stop_reason,

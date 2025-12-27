@@ -473,8 +473,12 @@ async function verifyQuoteSignature(quote: TEEQuote): Promise<boolean> {
     return isValid
   }
 
-  console.warn('[PoC] No certificate chain, cannot cryptographically verify')
-  return true
+  // SECURITY: Without a certificate chain, we cannot verify the quote signature
+  // This MUST fail in production - unverified quotes cannot be trusted
+  console.error(
+    '[PoC] CRITICAL: No certificate chain provided - quote cannot be verified',
+  )
+  return false
 }
 
 function checkTCBStatus(

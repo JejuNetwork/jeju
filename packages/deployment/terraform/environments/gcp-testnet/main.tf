@@ -307,6 +307,132 @@ module "farcaster_hub" {
 }
 
 # ============================================================
+# Module: CovenantSQL (GCP - Parity with AWS)
+# ============================================================
+module "covenantsql" {
+  source = "../../modules/covenantsql-gcp"
+
+  project_id          = var.project_id
+  environment         = local.environment
+  region              = var.region
+  vpc_name            = module.network.vpc_name
+  subnet_name         = module.network.private_subnet_name
+  node_count          = 1
+  machine_type        = "e2-standard-2"
+  disk_size_gb        = 100
+  allowed_cidr_blocks = ["10.1.0.0/16"]
+
+  depends_on = [module.network]
+}
+
+# ============================================================
+# Cloud DNS Records for DWS Services (Parity with AWS Route53)
+# ============================================================
+resource "google_dns_record_set" "dws" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "dws.testnet.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+resource "google_dns_record_set" "storage" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "storage.testnet.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+resource "google_dns_record_set" "git" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "git.testnet.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+resource "google_dns_record_set" "jns" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "jns.testnet.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+resource "google_dns_record_set" "jns_wildcard" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "*.jns.testnet.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+resource "google_dns_record_set" "indexer" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "indexer.testnet.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+resource "google_dns_record_set" "rpc" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "testnet-rpc.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+resource "google_dns_record_set" "ws" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = "testnet-ws.${var.domain_name}."
+  type         = "A"
+  ttl          = 300
+  managed_zone = module.cloud_dns.zone_name
+
+  rrdatas = [module.gke.ingress_ip]
+
+  depends_on = [module.cloud_dns, module.gke]
+}
+
+# ============================================================
 # Outputs
 # ============================================================
 output "vpc_id" {
@@ -357,12 +483,18 @@ output "kms_key_id" {
 output "testnet_urls" {
   description = "Testnet service URLs"
   value = {
-    rpc     = "https://testnet-rpc.${var.domain_name}"
-    ws      = "wss://testnet-ws.${var.domain_name}"
-    api     = "https://api.testnet.${var.domain_name}"
-    gateway = "https://gateway.testnet.${var.domain_name}"
-    bazaar  = "https://bazaar.testnet.${var.domain_name}"
-    hub     = module.farcaster_hub.hub_http_url
+    rpc         = "https://testnet-rpc.${var.domain_name}"
+    ws          = "wss://testnet-ws.${var.domain_name}"
+    api         = "https://api.testnet.${var.domain_name}"
+    gateway     = "https://gateway.testnet.${var.domain_name}"
+    bazaar      = "https://bazaar.testnet.${var.domain_name}"
+    hub         = module.farcaster_hub.hub_http_url
+    dws         = "https://dws.testnet.${var.domain_name}"
+    storage     = "https://storage.testnet.${var.domain_name}"
+    git         = "https://git.testnet.${var.domain_name}"
+    jns         = "https://jns.testnet.${var.domain_name}"
+    indexer     = "https://indexer.testnet.${var.domain_name}"
+    covenantsql = module.covenantsql.http_endpoint
   }
 }
 

@@ -46,14 +46,14 @@ beforeAll(async () => {
     })
 
     // Check if SDK is fully initialized
-    sdkReady = !!(service?.sdk?.payments && service?.sdk?.storage)
+    sdkReady = !!(service.sdk.payments && service.sdk.storage)
 
     // Fund test user from deployer
     if (sdkReady && deployer) {
-      const balance = await service?.sdk.getBalance()
+      const balance = await service.sdk.getBalance()
       if (balance < parseEther('1')) {
         await deployer.sendTransaction({
-          to: service?.sdk.address,
+          to: service.sdk.address,
           value: parseEther('10'),
         })
       }

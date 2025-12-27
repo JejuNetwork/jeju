@@ -9,6 +9,7 @@ import { toError } from '@jejunetwork/types'
 import type { CQLClient } from './client.js'
 import type { Migration, MigrationResult } from './types.js'
 import {
+  validateColumnType,
   validateSQLDefault,
   validateSQLIdentifier,
   validateSQLIdentifiers,
@@ -110,7 +111,7 @@ export class MigrationManager {
         const versionResult = await tx.query<{ version: number | null }>(
           `SELECT MAX(version) as version FROM ${this.tableName}`,
         )
-        const currentVersion = versionResult.rows[0]?.version ?? 0
+        const currentVersion = versionResult.rows[0].version ?? 0
 
         // Skip if migration already applied
         if (migration.version <= currentVersion) {
@@ -255,14 +256,18 @@ export function createTable(
   const safeTableName = validateSQLIdentifier(tableName, 'table')
 
   const columnDefs = columns.map((col) => {
-    // Validate column name
+    // Validate column name and type
     const safeColName = validateSQLIdentifier(col.name, 'column')
-    let def = `${safeColName} ${col.type}`
+    const safeColType = validateColumnType(col.type)
+    let def = `${safeColName} ${safeColType}`
     if (col.primaryKey) def += ' PRIMARY KEY'
     if (col.autoIncrement) def += ' AUTOINCREMENT'
     if (col.notNull) def += ' NOT NULL'
     if (col.unique) def += ' UNIQUE'
-    if (col.default !== undefined) def += ` DEFAULT ${col.default}`
+    if (col.default !== undefined) {
+      const safeDefault = validateSQLDefault(col.default)
+      def += ` DEFAULT ${safeDefault}`
+    }
     if (col.references) {
       // Validate foreign key references
       const safeRefTable = validateSQLIdentifier(col.references.table, 'table')
@@ -287,11 +292,12 @@ export function addColumn(
   columnType: string,
   options?: { notNull?: boolean; default?: string },
 ): { up: string; down: string } {
-  // Validate identifiers to prevent SQL injection
+  // Validate identifiers and type to prevent SQL injection
   const safeTableName = validateSQLIdentifier(tableName, 'table')
   const safeColumnName = validateSQLIdentifier(columnName, 'column')
+  const safeColumnType = validateColumnType(columnType)
 
-  let up = `ALTER TABLE ${safeTableName} ADD COLUMN ${safeColumnName} ${columnType}`
+  let up = `ALTER TABLE ${safeTableName} ADD COLUMN ${safeColumnName} ${safeColumnType}`
   if (options?.notNull) up += ' NOT NULL'
   if (options?.default !== undefined) {
     // Validate DEFAULT value to prevent SQL injection
@@ -360,16 +366,16 @@ export function createTableMigration(
 
   const columnDefs = schema.columns.map((col) => {
     const safeColName = validateSQLIdentifier(col.name, 'column')
-    let def = `${safeColName} ${col.type}`
+    const safeColType = validateColumnType(col.type)
+    let def = `${safeColName} ${safeColType}`
     if (!col.nullable) def += ' NOT NULL'
     if (col.unique) def += ' UNIQUE'
-    if (col.default !== undefined) {
-      if (typeof col.default === 'string') {
-        const escapedDefault = col.default.replace(/'/g, "''")
-        def += ` DEFAULT '${escapedDefault}'`
-      } else {
-        def += ` DEFAULT ${col.default}`
-      }
+    if (col.default !== undefined && col.default !== null) {
+      // Convert to string and validate
+      const defaultStr =
+        typeof col.default === 'string' ? col.default : String(col.default)
+      const safeDefault = validateSQLDefault(defaultStr)
+      def += ` DEFAULT ${safeDefault}`
     }
     if (col.references) {
       const safeRefTable = validateSQLIdentifier(col.references.table, 'table')

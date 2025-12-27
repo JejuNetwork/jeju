@@ -16,8 +16,14 @@ describe('Auth API', () => {
     expect(data.service).toBe('auth')
   })
 
-  test('root returns service info', async () => {
+  test('root returns HTML landing page', async () => {
     const response = await fetch(BASE_URL)
+    expect(response.ok).toBe(true)
+    expect(response.headers.get('content-type')).toContain('text/html')
+  })
+
+  test('/api returns service info', async () => {
+    const response = await fetch(`${BASE_URL}/api`)
     expect(response.ok).toBe(true)
 
     const data = await response.json()

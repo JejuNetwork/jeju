@@ -400,7 +400,7 @@ async function setupKeepalive(
     hash: registerHash,
   })
 
-  const keepaliveId = receipt.logs[0]?.topics[1] ?? ('0x' as Hex)
+  const keepaliveId = receipt.logs[0].topics[1] ?? ('0x' as Hex)
   console.log(`✅ Keepalive: ${keepaliveId.slice(0, 10)}...`)
 
   const { request: addResourceRequest } = await publicClient.simulateContract({

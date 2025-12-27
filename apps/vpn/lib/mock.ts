@@ -309,7 +309,7 @@ const handlers: Record<string, MockHandler> = {
 
     const requestedNodeId = validated.nodeId ?? null
     const targetNodeId =
-      requestedNodeId ?? mockState.selectedNodeId ?? mockNodes[0]?.node_id
+      requestedNodeId ?? mockState.selectedNodeId ?? mockNodes[0].node_id
 
     if (!targetNodeId) {
       throw new Error('No nodes available')

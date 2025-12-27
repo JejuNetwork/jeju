@@ -79,17 +79,17 @@ export async function getContractAddresses(): Promise<ContractAddresses> {
   const client = getPublicClient()
 
   // Use config for all addresses
-  const tokenRegistryAddr = (config.registry?.TokenRegistry ||
+  const tokenRegistryAddr = (config.registry.TokenRegistry ||
     deployed.tokenRegistry ||
     deployed.validationRegistry) as `0x${string}` | undefined
-  const paymasterFactoryAddr = (config.payments?.PaymasterFactory ||
+  const paymasterFactoryAddr = (config.payments.PaymasterFactory ||
     deployed.paymasterFactory) as `0x${string}` | undefined
-  const priceOracleAddr = (config.payments?.PriceOracle ||
+  const priceOracleAddr = (config.payments.PriceOracle ||
     deployed.priceOracle) as `0x${string}` | undefined
-  const nodeStakingManagerAddr = config.nodeStaking?.NodeStakingManager as
+  const nodeStakingManagerAddr = config.nodeStaking.NodeStakingManager as
     | `0x${string}`
     | undefined
-  const identityRegistryAddr = (config.registry?.IdentityRegistry ||
+  const identityRegistryAddr = (config.registry.IdentityRegistry ||
     deployed.identityRegistry) as `0x${string}` | undefined
 
   return {
@@ -116,8 +116,8 @@ export async function getContractAddresses(): Promise<ContractAddresses> {
       (await isContractDeployed(client, identityRegistryAddr))
         ? identityRegistryAddr
         : undefined,
-    jeju: (config.tokens?.JEJU || deployed.jeju) as `0x${string}` | undefined,
-    entryPoint: (config.payments?.EntryPoint || deployed.entryPoint) as
+    jeju: (config.tokens.JEJU || deployed.jeju) as `0x${string}` | undefined,
+    entryPoint: (config.payments.EntryPoint || deployed.entryPoint) as
       | `0x${string}`
       | undefined,
     paymaster: undefined,

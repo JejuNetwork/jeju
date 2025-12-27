@@ -226,7 +226,9 @@ describe('FROSTCoordinator', () => {
       expect(result).toBeDefined()
       expect(result.r.startsWith('0x')).toBe(true)
       expect(result.s.startsWith('0x')).toBe(true)
-      expect(result.v).toBe(27) // Default v value
+      // v is 27 or 28 depending on R.y parity
+      expect(result.v).toBeGreaterThanOrEqual(27)
+      expect(result.v).toBeLessThanOrEqual(28)
     })
 
     test('handles single share (degenerate case)', () => {

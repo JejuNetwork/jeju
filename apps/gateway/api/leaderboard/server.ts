@@ -98,6 +98,70 @@ function timingSafeCompare(a: string | undefined | null, b: string): boolean {
   return constantTimeEqual(aBuf, bBuf)
 }
 
+/**
+ * SECURITY: Validate internal service requests using HMAC signature
+ * Requires SERVICE_AUTH_SECRET env var to be set in production
+ */
+const SERVICE_AUTH_SECRET = process.env.SERVICE_AUTH_SECRET
+const SERVICE_AUTH_ENABLED =
+  process.env.NODE_ENV === 'production' || Boolean(SERVICE_AUTH_SECRET)
+
+async function validateServiceAuth(
+  request: Request,
+  expectedService: string,
+): Promise<{ valid: boolean; error?: string }> {
+  const service = request.headers.get('x-jeju-service')
+  if (!timingSafeCompare(service, expectedService)) {
+    return { valid: false, error: 'Invalid service header' }
+  }
+
+  // In production, require HMAC signature
+  if (SERVICE_AUTH_ENABLED) {
+    if (!SERVICE_AUTH_SECRET) {
+      return {
+        valid: false,
+        error: 'SERVICE_AUTH_SECRET not configured',
+      }
+    }
+
+    const signature = request.headers.get('x-jeju-signature')
+    const timestamp = request.headers.get('x-jeju-timestamp')
+
+    if (!signature || !timestamp) {
+      return { valid: false, error: 'Missing auth headers' }
+    }
+
+    // Reject stale requests (5 minute window)
+    const timestampMs = parseInt(timestamp, 10)
+    if (Number.isNaN(timestampMs) || Date.now() - timestampMs > 300000) {
+      return { valid: false, error: 'Request expired' }
+    }
+
+    // Compute expected HMAC
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(SERVICE_AUTH_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    )
+
+    const message = `${expectedService}:${timestamp}`
+    const signatureBytes = await crypto.subtle.sign(
+      'HMAC',
+      key,
+      new TextEncoder().encode(message),
+    )
+
+    const expectedSignature = Buffer.from(signatureBytes).toString('hex')
+    if (!timingSafeCompare(signature, expectedSignature)) {
+      return { valid: false, error: 'Invalid signature' }
+    }
+  }
+
+  return { valid: true }
+}
+
 let dbInitialized = false
 async function ensureDbInitialized() {
   if (!dbInitialized) {
@@ -964,10 +1028,10 @@ const app = new Elysia()
   })
 
   .post('/api/contributions/jeju-git', async ({ body, request, set }) => {
-    const service = request.headers.get('x-jeju-service')
-    if (!timingSafeCompare(service, 'dws-git')) {
+    const authResult = await validateServiceAuth(request, 'dws-git')
+    if (!authResult.valid) {
       set.status = 401
-      return { error: 'Invalid service header' }
+      return { error: authResult.error }
     }
 
     const typedBody = validateOrThrow(
@@ -1025,10 +1089,10 @@ const app = new Elysia()
         username,
         date,
         totalScore,
-        (typedBody.scores?.prs ?? 0) * 50,
-        (typedBody.scores?.issues ?? 0) * 20,
-        (typedBody.scores?.reviews ?? 0) * 30,
-        (typedBody.scores?.commits ?? 0) * 5,
+        (typedBody.scores.prs ?? 0) * 50,
+        (typedBody.scores.issues ?? 0) * 20,
+        (typedBody.scores.reviews ?? 0) * 30,
+        (typedBody.scores.commits ?? 0) * 5,
         JSON.stringify({
           contributions: typedBody.contributions.length,
           source: 'jeju-git',
@@ -1042,10 +1106,10 @@ const app = new Elysia()
   })
 
   .post('/api/contributions/jeju-npm', async ({ body, request, set }) => {
-    const service = request.headers.get('x-jeju-service')
-    if (!timingSafeCompare(service, 'dws-npm')) {
+    const authResult = await validateServiceAuth(request, 'dws-npm')
+    if (!authResult.valid) {
       set.status = 401
-      return { error: 'Invalid service header' }
+      return { error: authResult.error }
     }
 
     const typedBody = validateOrThrow(
@@ -1091,10 +1155,10 @@ const app = new Elysia()
   })
 
   .post('/api/packages/downloads', async ({ body, request, set }) => {
-    const service = request.headers.get('x-jeju-service')
-    if (!timingSafeCompare(service, 'dws-npm')) {
+    const authResult = await validateServiceAuth(request, 'dws-npm')
+    if (!authResult.valid) {
       set.status = 401
-      return { error: 'Invalid service header' }
+      return { error: authResult.error }
     }
 
     const typedBody = validateOrThrow(

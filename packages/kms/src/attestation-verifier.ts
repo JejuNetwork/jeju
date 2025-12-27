@@ -12,9 +12,30 @@
  * 3. Attestation freshness (timestamp)
  */
 
+import { secp256k1 } from '@noble/curves/secp256k1'
+import { sha256 } from '@noble/hashes/sha256'
 import { type Hex, keccak256, toBytes } from 'viem'
 import { teeLogger as log } from './logger.js'
 import type { TEEAttestation } from './types.js'
+
+/**
+ * Trusted verifier public keys for attestation signature verification.
+ * In production, these should be loaded from secure configuration or on-chain registry.
+ */
+const TRUSTED_VERIFIER_PUBLIC_KEYS: Hex[] = []
+
+/**
+ * Add a trusted verifier public key at runtime.
+ * Call this during initialization with your attestation service's public keys.
+ */
+export function addTrustedVerifierPublicKey(publicKey: Hex): void {
+  if (!TRUSTED_VERIFIER_PUBLIC_KEYS.includes(publicKey)) {
+    TRUSTED_VERIFIER_PUBLIC_KEYS.push(publicKey)
+    log.info('Added trusted verifier public key', {
+      keyPrefix: publicKey.slice(0, 20),
+    })
+  }
+}
 
 /**
  * Known enclave measurements for verification
@@ -206,13 +227,22 @@ export class AttestationVerifier {
 
   /**
    * Verify with Intel Attestation Service (IAS)
+   *
+   * SECURITY: This function MUST NOT return valid: true if IAS verification cannot be performed.
+   * If the API key is not configured, verification fails - this prevents bypass attacks.
    */
   private async verifySGXWithIAS(
     quote: Hex,
   ): Promise<{ valid: boolean; error?: string }> {
     if (!this.config.iasApiKey) {
-      log.warn('IAS API key not configured, skipping IAS verification')
-      return { valid: true }
+      log.error(
+        'IAS API key not configured - SGX EPID attestation cannot be verified',
+      )
+      return {
+        valid: false,
+        error:
+          'IAS API key not configured - cannot verify SGX EPID attestation',
+      }
     }
 
     try {
@@ -382,9 +412,20 @@ export class AttestationVerifier {
 
   /**
    * Check if measurement is trusted
+   *
+   * SECURITY: Rejects ALL measurements if no trusted measurements are configured.
+   * This prevents accepting arbitrary enclave code in production.
    */
   private checkMeasurement(measurement: Hex): boolean {
     const now = Date.now()
+
+    // SECURITY: Reject if no trusted measurements configured - prevents accepting arbitrary code
+    if (this.config.trustedMeasurements.length === 0) {
+      log.error(
+        'No trusted measurements configured - rejecting all measurements for security',
+      )
+      return false
+    }
 
     for (const trusted of this.config.trustedMeasurements) {
       if (
@@ -396,20 +437,31 @@ export class AttestationVerifier {
       }
     }
 
-    // If no trusted measurements configured, log warning but allow
-    if (this.config.trustedMeasurements.length === 0) {
-      log.warn('No trusted measurements configured, accepting any measurement')
-      return true
-    }
-
+    log.warn('Measurement not in trusted list', {
+      measurement: measurement.slice(0, 20),
+    })
     return false
   }
 
   /**
    * Verify verifier signature on attestation
+   *
+   * SECURITY: Cryptographically verifies the signature against trusted verifier public keys.
+   * Returns false if no trusted verifiers are configured or signature is invalid.
    */
   private verifySignature(attestation: TEEAttestation): boolean {
-    if (!attestation.verifierSignature) return false
+    if (!attestation.verifierSignature) {
+      log.warn('No verifier signature provided')
+      return false
+    }
+
+    // SECURITY: Reject if no trusted verifier keys configured
+    if (TRUSTED_VERIFIER_PUBLIC_KEYS.length === 0) {
+      log.error(
+        'No trusted verifier public keys configured - cannot verify attestation signature',
+      )
+      return false
+    }
 
     // Reconstruct the signed data
     const dataToVerify = keccak256(
@@ -417,17 +469,41 @@ export class AttestationVerifier {
         `${attestation.quote}:${attestation.measurement}:${attestation.timestamp}`,
       ),
     )
+    const messageHash = sha256(toBytes(dataToVerify))
 
-    // In production, this would verify the signature against known verifier public keys
-    // For now, we just check that the signature exists and has valid format
     const sigBytes = toBytes(attestation.verifierSignature)
     if (sigBytes.length !== 65) {
+      log.warn('Invalid signature length', { length: sigBytes.length })
       return false
     }
 
-    // TODO: Implement actual signature verification against trusted verifier keys
-    log.info('Attestation signature format valid', { dataHash: dataToVerify })
-    return true
+    // Extract r, s, v from signature (Ethereum format: 32 bytes r + 32 bytes s + 1 byte v)
+    const r = sigBytes.slice(0, 32)
+    const s = sigBytes.slice(32, 64)
+
+    // Try verification against all trusted public keys
+    for (const trustedPubKey of TRUSTED_VERIFIER_PUBLIC_KEYS) {
+      try {
+        const pubKeyBytes = toBytes(trustedPubKey)
+        const signature = new secp256k1.Signature(
+          BigInt(`0x${Buffer.from(r).toString('hex')}`),
+          BigInt(`0x${Buffer.from(s).toString('hex')}`),
+        )
+
+        const isValid = secp256k1.verify(signature, messageHash, pubKeyBytes)
+        if (isValid) {
+          log.info('Attestation signature verified', {
+            verifierKey: trustedPubKey.slice(0, 20),
+          })
+          return true
+        }
+      } catch (_error) {}
+    }
+
+    log.warn(
+      'Attestation signature verification failed against all trusted keys',
+    )
+    return false
   }
 
   /**

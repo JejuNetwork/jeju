@@ -2,9 +2,10 @@
  * MCP Tests - Model Context Protocol tools and resources
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_URL = 'http://localhost:8010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
 
 interface MCPTool {
   name: string

@@ -262,12 +262,12 @@ export {
 // ============================================================================
 
 export {
-  createAppCrawler,
-  generateCrawlReport,
-  runFullAppCrawl,
+  type CoverageSummary,
   type CrawlConfig,
   type CrawlError,
   type CrawlResult,
-  type CoverageSummary,
+  createAppCrawler,
+  generateCrawlReport,
   type PageState,
+  runFullAppCrawl,
 } from '../e2e/full-app-crawler'

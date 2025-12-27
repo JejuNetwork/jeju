@@ -5,9 +5,7 @@
  * Tests against the server directly for unit/integration,
  * or against a running instance for full e2e.
  *
- * Requires: Full infrastructure (CQL, IPFS, Anvil, optionally K8s)
- *
- * Run with: jeju test --target-app dws --mode integration
+ * Run with: bun test tests/integration.test.ts
  * For full e2e: E2E_MODE=true DWS_URL=http://localhost:4030 bun test tests/integration.test.ts
  */
 
@@ -21,13 +19,9 @@ import {
 } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http } from 'viem'
-import { SKIP } from './infra-check'
-import { getApp } from './setup'
+import { app } from '../api/server'
 
 setDefaultTimeout(30000)
-
-// Skip if infrastructure not available
-const skipAll = SKIP.NO_INFRA
 
 // Configuration
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
@@ -176,8 +170,17 @@ async function dwsRequest(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const url = E2E_MODE ? `${DWS_URL}${path}` : `http://localhost${path}`
-  const request = new Request(url, {
+  if (E2E_MODE) {
+    return fetch(`${DWS_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': TEST_ADDRESS,
+        ...options.headers,
+      },
+    })
+  }
+  return app.request(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -185,11 +188,6 @@ async function dwsRequest(
       ...options.headers,
     },
   })
-  if (E2E_MODE) {
-    return fetch(request)
-  }
-  const app = await getApp()
-  return app.handle(request)
 }
 
 async function checkChainRunning(): Promise<boolean> {
@@ -204,7 +202,7 @@ async function checkChainRunning(): Promise<boolean> {
 
 // Core Health Tests
 
-describe.skipIf(skipAll)('Core Health', () => {
+describe('Core Health', () => {
   test('main health check returns healthy', async () => {
     const res = await dwsRequest('/health')
     expect(res.status).toBe(200)
@@ -228,8 +226,7 @@ describe.skipIf(skipAll)('Core Health', () => {
 
     for (const endpoint of endpoints) {
       const res = await dwsRequest(endpoint)
-      // Services may not be available in test mode
-      expect([200, 404, 500, 503]).toContain(res.status)
+      expect(res.status).toBe(200)
     }
   })
 
@@ -248,9 +245,8 @@ describe.skipIf(skipAll)('Core Health', () => {
 
 // Storage Tests
 
-describe.skipIf(skipAll)('Storage', () => {
+describe('Storage', () => {
   let uploadedCid: string
-  let storageAvailable = true
 
   test('upload file returns CID', async () => {
     const testData = `Integration test data ${Date.now()}`
@@ -264,13 +260,6 @@ describe.skipIf(skipAll)('Storage', () => {
       body: testData,
     })
 
-    // Storage may not be available in test mode
-    if (res.status === 500) {
-      storageAvailable = false
-      expect([200, 500]).toContain(res.status)
-      return
-    }
-
     expect(res.status).toBe(200)
     const body = (await res.json()) as CidResponse
     expect(body.cid).toBeDefined()
@@ -278,7 +267,7 @@ describe.skipIf(skipAll)('Storage', () => {
   })
 
   test('download file returns original content', async () => {
-    if (!uploadedCid || !storageAvailable) return
+    if (!uploadedCid) return
 
     const res = await dwsRequest(`/storage/download/${uploadedCid}`)
     expect(res.status).toBe(200)
@@ -288,7 +277,7 @@ describe.skipIf(skipAll)('Storage', () => {
   })
 
   test('check file exists', async () => {
-    if (!uploadedCid || !storageAvailable) return
+    if (!uploadedCid) return
 
     const res = await dwsRequest(`/storage/exists/${uploadedCid}`)
     expect(res.status).toBe(200)
@@ -299,15 +288,12 @@ describe.skipIf(skipAll)('Storage', () => {
   })
 
   test('S3 compatible operations', async () => {
-    if (!storageAvailable) return
-
     const bucket = `integration-test-${Date.now()}`
     const key = 'test-object.txt'
     const content = 'S3 compatible integration test'
 
     // Create bucket
     const createRes = await dwsRequest(`/s3/${bucket}`, { method: 'PUT' })
-    if (createRes.status === 500) return // S3 not available
     expect(createRes.status).toBe(200)
 
     // Put object
@@ -336,14 +322,13 @@ describe.skipIf(skipAll)('Storage', () => {
 
 // Compute Tests
 
-describe.skipIf(skipAll)('Compute Jobs', () => {
+describe('Compute Jobs', () => {
   test('submit job requires authentication', async () => {
-    const request = new Request('http://localhost/compute/jobs', {
+    const res = await app.request('/compute/jobs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command: 'echo hello' }),
     })
-    const res = await app.handle(request)
     expect(res.status).toBe(401)
   })
 
@@ -361,11 +346,6 @@ describe.skipIf(skipAll)('Compute Jobs', () => {
       body: JSON.stringify({ command: 'echo "integration test"' }),
     })
 
-    // Compute may not be available
-    if (submitRes.status !== 201) {
-      expect([201, 404, 500]).toContain(submitRes.status)
-      return
-    }
     expect(submitRes.status).toBe(201)
     const { jobId } = (await submitRes.json()) as JobResponse
 
@@ -392,8 +372,7 @@ describe.skipIf(skipAll)('Compute Jobs', () => {
         env: { MY_VAR: 'integration_value' },
       }),
     })
-    // Compute may not be available
-    expect([201, 404, 500]).toContain(res.status)
+    expect(res.status).toBe(201)
   })
 
   test('cancel job', async () => {
@@ -401,12 +380,6 @@ describe.skipIf(skipAll)('Compute Jobs', () => {
       method: 'POST',
       body: JSON.stringify({ command: 'sleep 60' }),
     })
-
-    // Compute may not be available
-    if (submitRes.status !== 201) {
-      expect([201, 404, 500]).toContain(submitRes.status)
-      return
-    }
 
     const { jobId } = (await submitRes.json()) as JobResponse
 
@@ -452,7 +425,7 @@ describe.skipIf(!hasInferenceKey)('Inference', () => {
 
 // CDN Tests
 
-describe.skipIf(skipAll)('CDN', () => {
+describe('CDN', () => {
   test('cache stats available', async () => {
     const res = await dwsRequest('/cdn/stats')
     expect(res.status).toBe(200)
@@ -480,7 +453,7 @@ describe.skipIf(skipAll)('CDN', () => {
 
 // KMS Tests
 
-describe.skipIf(skipAll)('KMS', () => {
+describe('KMS', () => {
   test('generate key', async () => {
     const res = await dwsRequest('/kms/keys', {
       method: 'POST',
@@ -534,7 +507,7 @@ describe.skipIf(skipAll)('KMS', () => {
 
 // Workers Tests
 
-describe.skipIf(skipAll)('Workers', () => {
+describe('Workers', () => {
   test('list workers', async () => {
     const res = await dwsRequest('/workers')
     expect(res.status).toBe(200)
@@ -544,19 +517,18 @@ describe.skipIf(skipAll)('Workers', () => {
   })
 
   test('worker deployment requires auth', async () => {
-    const request = new Request('http://localhost/workers', {
+    const res = await app.request('/workers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'test-worker', code: 'export default {}' }),
     })
-    const res = await app.handle(request)
     expect(res.status).toBe(401)
   })
 })
 
 // Workerd Tests
 
-describe.skipIf(skipAll)('Workerd', () => {
+describe('Workerd', () => {
   test('workerd health', async () => {
     const res = await dwsRequest('/workerd/health')
     expect(res.status).toBe(200)
@@ -578,7 +550,7 @@ describe.skipIf(skipAll)('Workerd', () => {
 
 // Git Tests
 
-describe.skipIf(skipAll)('Git', () => {
+describe('Git', () => {
   test('git health', async () => {
     const res = await dwsRequest('/git/health')
     expect(res.status).toBe(200)
@@ -586,14 +558,14 @@ describe.skipIf(skipAll)('Git', () => {
 
   test('list repositories', async () => {
     const res = await dwsRequest('/git/repos')
-    // May return various error codes if git routes not available or chain connection fails
-    expect([200, 400, 404, 500]).toContain(res.status)
+    // May return 500 if chain connection fails (expected without localnet)
+    expect([200, 500]).toContain(res.status)
   })
 })
 
 // RPC Tests
 
-describe.skipIf(skipAll)('RPC', () => {
+describe('RPC', () => {
   test('list supported chains', async () => {
     const res = await dwsRequest('/rpc/chains')
     expect(res.status).toBe(200)
@@ -615,7 +587,7 @@ describe.skipIf(skipAll)('RPC', () => {
 
 // VPN Tests
 
-describe.skipIf(skipAll)('VPN', () => {
+describe('VPN', () => {
   test('vpn health', async () => {
     const res = await dwsRequest('/vpn/health')
     expect(res.status).toBe(200)
@@ -633,7 +605,7 @@ describe.skipIf(skipAll)('VPN', () => {
 
 // Scraping Tests
 
-describe.skipIf(skipAll)('Scraping', () => {
+describe('Scraping', () => {
   test('scraping health', async () => {
     const res = await dwsRequest('/scraping/health')
     expect(res.status).toBe(200)
@@ -650,7 +622,7 @@ describe.skipIf(skipAll)('Scraping', () => {
 
 // A2A / MCP Tests
 
-describe.skipIf(skipAll)('A2A / MCP', () => {
+describe('A2A / MCP', () => {
   test('a2a capabilities', async () => {
     const res = await dwsRequest('/a2a/capabilities')
     expect(res.status).toBe(200)
@@ -689,7 +661,7 @@ describe.skipIf(skipAll)('A2A / MCP', () => {
 
 // CI Tests
 
-describe.skipIf(skipAll)('CI', () => {
+describe('CI', () => {
   test('ci health', async () => {
     const res = await dwsRequest('/ci/health')
     // May return 500 if chain not running
@@ -699,7 +671,7 @@ describe.skipIf(skipAll)('CI', () => {
 
 // Agent Discovery
 
-describe.skipIf(skipAll)('Agent Discovery', () => {
+describe('Agent Discovery', () => {
   test('agent card available', async () => {
     const res = await dwsRequest('/.well-known/agent-card.json')
     expect(res.status).toBe(200)

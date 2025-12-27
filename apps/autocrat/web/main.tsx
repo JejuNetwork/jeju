@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { WagmiProvider, createConfig, http } from 'wagmi'
+import { createConfig, http, WagmiProvider } from 'wagmi'
 import { base, baseSepolia, mainnet, sepolia } from 'wagmi/chains'
 import { Layout } from './components/Layout'
 import AgentEditPage from './pages/AgentEdit'
@@ -52,8 +52,14 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<DAOListPage />} />
               <Route path="/dao/:daoId" element={<DAODetailPage />} />
-              <Route path="/dao/:daoId/agent/:agentId" element={<AgentEditPage />} />
-              <Route path="/dao/:daoId/proposal/:proposalId" element={<ProposalPage />} />
+              <Route
+                path="/dao/:daoId/agent/:agentId"
+                element={<AgentEditPage />}
+              />
+              <Route
+                path="/dao/:daoId/proposal/:proposalId"
+                element={<ProposalPage />}
+              />
               <Route path="/my-daos" element={<DAOListPage />} />
             </Route>
           </Routes>

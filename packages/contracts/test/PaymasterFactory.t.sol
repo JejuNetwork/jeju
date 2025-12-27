@@ -280,7 +280,7 @@ contract PaymasterFactoryTest is Test {
         registry.registerToken{value: 0.1 ether}(address(tokenA), address(oracle), 0, 200);
 
         vm.prank(projectA);
-        vm.expectRevert(abi.encodeWithSelector(PaymasterFactory.InvalidOperator.selector, address(0)));
+        vm.expectRevert(PaymasterFactory.InvalidOperator.selector);
         factory.deployPaymaster(address(tokenA), 100, address(0));
     }
 

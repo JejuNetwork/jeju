@@ -34,8 +34,8 @@ import {
 } from '../constants/agent'
 import { useAgent, useUpdateAgent } from '../hooks/useDAO'
 import {
-  BOARD_ROLE_PRESETS,
   type AgentConnector,
+  BOARD_ROLE_PRESETS,
   type CommunicationTone,
   type ConnectorType,
   type DAOAgent,
@@ -139,12 +139,19 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
+              <label
+                htmlFor="channel-url"
+                className="block text-xs text-slate-500 mb-1"
+              >
                 Channel URL
               </label>
               <input
+                id="channel-url"
                 type="text"
-                value={(connector.config as FarcasterConnectorConfig).channelUrl ?? ''}
+                value={
+                  (connector.config as FarcasterConnectorConfig).channelUrl ??
+                  ''
+                }
                 onChange={(e) =>
                   onChange({
                     ...connector,
@@ -156,8 +163,14 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">FID</label>
+              <label
+                htmlFor="fid"
+                className="block text-xs text-slate-500 mb-1"
+              >
+                FID
+              </label>
               <input
+                id="fid"
                 type="number"
                 value={(connector.config as FarcasterConnectorConfig).fid ?? ''}
                 onChange={(e) =>
@@ -165,7 +178,7 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
                     ...connector,
                     config: {
                       ...connector.config,
-                      fid: Number.parseInt(e.target.value),
+                      fid: Number.parseInt(e.target.value, 10),
                     },
                   })
                 }
@@ -179,7 +192,8 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               <input
                 type="checkbox"
                 checked={
-                  (connector.config as FarcasterConnectorConfig).autoPost ?? false
+                  (connector.config as FarcasterConnectorConfig).autoPost ??
+                  false
                 }
                 onChange={(e) =>
                   onChange({
@@ -195,8 +209,8 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               <input
                 type="checkbox"
                 checked={
-                  (connector.config as FarcasterConnectorConfig).monitorMentions ??
-                  false
+                  (connector.config as FarcasterConnectorConfig)
+                    .monitorMentions ?? false
                 }
                 onChange={(e) =>
                   onChange({
@@ -215,8 +229,8 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
               <input
                 type="checkbox"
                 checked={
-                  (connector.config as FarcasterConnectorConfig).postDecisions ??
-                  false
+                  (connector.config as FarcasterConnectorConfig)
+                    .postDecisions ?? false
                 }
                 onChange={(e) =>
                   onChange({
@@ -239,10 +253,14 @@ function ConnectorForm({ connector, onChange, onRemove }: ConnectorFormProps) {
       {connector.type === 'github' && (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">
+            <label
+              htmlFor="repo-url"
+              className="block text-xs text-slate-500 mb-1"
+            >
               Repository URL
             </label>
             <input
+              id="repo-url"
               type="text"
               value={(connector.config as GitHubConnectorConfig).repoUrl ?? ''}
               onChange={(e) =>
@@ -415,7 +433,9 @@ export default function AgentEditPage() {
         navigate(`/dao/${daoId}?tab=agents`)
       },
       onError: (err) => {
-        setSaveError(err instanceof Error ? err.message : 'Failed to save agent')
+        setSaveError(
+          err instanceof Error ? err.message : 'Failed to save agent',
+        )
       },
     })
   }
@@ -538,7 +558,9 @@ export default function AgentEditPage() {
             Failed to load agent
           </h2>
           <p className="text-slate-500 mb-4">
-            {error instanceof Error ? error.message : 'An unknown error occurred'}
+            {error instanceof Error
+              ? error.message
+              : 'An unknown error occurred'}
           </p>
           <div className="flex gap-3 justify-center">
             <button
@@ -608,7 +630,9 @@ export default function AgentEditPage() {
                   )}
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-white">{agent.persona.name}</h1>
+                  <h1 className="text-xl font-bold text-white">
+                    {agent.persona.name}
+                  </h1>
                   <p className="text-sm text-slate-500">
                     {isCEO ? 'CEO' : BOARD_ROLE_PRESETS[agent.role].name}
                   </p>
@@ -648,13 +672,21 @@ export default function AgentEditPage() {
       {/* Content */}
       <div className="container mx-auto px-4 py-8 max-w-3xl space-y-6">
         {/* Persona Section */}
-        <Section title="Persona" description="Identity and personality" icon={Brain}>
+        <Section
+          title="Persona"
+          description="Identity and personality"
+          icon={Brain}
+        >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-name"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Name
               </label>
               <input
+                id="agent-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -662,10 +694,14 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-bio"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Bio
               </label>
               <textarea
+                id="agent-bio"
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 rows={2}
@@ -673,10 +709,14 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-personality"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Personality
               </label>
               <textarea
+                id="agent-personality"
                 value={personality}
                 onChange={(e) => setPersonality(e.target.value)}
                 rows={2}
@@ -684,10 +724,14 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-voice-style"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Voice Style
               </label>
               <input
+                id="agent-voice-style"
                 type="text"
                 value={voiceStyle}
                 onChange={(e) => setVoiceStyle(e.target.value)}
@@ -696,10 +740,14 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="agent-tone"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Communication Tone
               </label>
               <select
+                id="agent-tone"
                 value={tone}
                 onChange={(e) => setTone(e.target.value as CommunicationTone)}
                 className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
@@ -712,9 +760,9 @@ export default function AgentEditPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <span className="block text-sm font-medium text-slate-300 mb-2">
                 Traits
-              </label>
+              </span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {traits.map((trait) => (
                   <span
@@ -751,9 +799,9 @@ export default function AgentEditPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <span className="block text-sm font-medium text-slate-300 mb-2">
                 Specialties
-              </label>
+              </span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {specialties.map((specialty) => (
                   <span
@@ -793,12 +841,16 @@ export default function AgentEditPage() {
         </Section>
 
         {/* AI Model Section */}
-        <Section title="AI Model" description="Model and decision settings" icon={Bot}>
+        <Section
+          title="AI Model"
+          description="Model and decision settings"
+          icon={Bot}
+        >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <span className="block text-sm font-medium text-slate-300 mb-2">
                 Model
-              </label>
+              </span>
               <div className="grid grid-cols-2 gap-2">
                 {MODEL_OPTIONS.map((model) => {
                   const isSelected = modelId === model.id
@@ -827,9 +879,9 @@ export default function AgentEditPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <span className="block text-sm font-medium text-slate-300 mb-2">
                 Decision Style
-              </label>
+              </span>
               <div className="flex gap-2">
                 {DECISION_STYLE_OPTIONS.map((style) => {
                   const isSelected = decisionStyle === style.value
@@ -859,16 +911,22 @@ export default function AgentEditPage() {
             </div>
             {!isCEO && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label
+                  htmlFor="voting-weight"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
                   Voting Weight ({weight}%)
                 </label>
                 <input
+                  id="voting-weight"
                   type="range"
                   min="5"
                   max="50"
                   step="5"
                   value={weight}
-                  onChange={(e) => setWeight(Number.parseInt(e.target.value))}
+                  onChange={(e) =>
+                    setWeight(Number.parseInt(e.target.value, 10))
+                  }
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-slate-500">
@@ -881,7 +939,11 @@ export default function AgentEditPage() {
         </Section>
 
         {/* Values Section */}
-        <Section title="Values & Alignment" description="Core values and principles" icon={Heart}>
+        <Section
+          title="Values & Alignment"
+          description="Core values and principles"
+          icon={Heart}
+        >
           <div className="space-y-2">
             {values.map((value, index) => (
               <div key={index} className="flex gap-2">
@@ -915,7 +977,11 @@ export default function AgentEditPage() {
         </Section>
 
         {/* Connectors Section */}
-        <Section title="Connectors" description="External integrations" icon={Zap}>
+        <Section
+          title="Connectors"
+          description="External integrations"
+          icon={Zap}
+        >
           <div className="space-y-4">
             {connectors.length > 0 && (
               <div className="space-y-3">
@@ -962,10 +1028,14 @@ export default function AgentEditPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="custom-instructions"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Custom Instructions
               </label>
               <textarea
+                id="custom-instructions"
                 value={customInstructions}
                 onChange={(e) => setCustomInstructions(e.target.value)}
                 placeholder="Additional instructions for the agent..."
@@ -974,9 +1044,9 @@ export default function AgentEditPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <span className="block text-sm font-medium text-slate-300 mb-2">
                 Linked Repositories
-              </label>
+              </span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {linkedRepos.map((repo) => (
                   <span
@@ -1014,9 +1084,9 @@ export default function AgentEditPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <span className="block text-sm font-medium text-slate-300 mb-2">
                 Linked Packages
-              </label>
+              </span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {linkedPackages.map((pkg) => (
                   <span
@@ -1062,10 +1132,12 @@ export default function AgentEditPage() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-medium text-red-300">Remove Board Member</h4>
+                <h4 className="font-medium text-red-300">
+                  Remove Board Member
+                </h4>
                 <p className="text-sm text-red-200/70 mt-1">
-                  Removing a board member will delete all their voting history and
-                  configuration. This action requires CEO approval.
+                  Removing a board member will delete all their voting history
+                  and configuration. This action requires CEO approval.
                 </p>
                 <button
                   type="button"
@@ -1078,7 +1150,6 @@ export default function AgentEditPage() {
           </div>
         )}
       </div>
-
     </div>
   )
 }

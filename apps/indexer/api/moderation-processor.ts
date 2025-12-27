@@ -214,19 +214,21 @@ interface ModerationContracts {
 function getContracts(): ModerationContracts {
   const config = getNetworkConfig()
   const c = config.contracts
-  
+
   if (!c.banManager || !c.reportingSystem || !c.reputationLabelManager) {
     throw new Error(
       `Moderation contracts not configured for ${config.network}. ` +
-      `Missing: ${[
-        !c.banManager && 'banManager',
-        !c.reportingSystem && 'reportingSystem',
-        !c.reputationLabelManager && 'reputationLabelManager'
-      ].filter(Boolean).join(', ')}. ` +
-      `Add them to packages/config/contracts.json`
+        `Missing: ${[
+          !c.banManager && 'banManager',
+          !c.reportingSystem && 'reportingSystem',
+          !c.reputationLabelManager && 'reputationLabelManager',
+        ]
+          .filter(Boolean)
+          .join(', ')}. ` +
+        `Add them to packages/config/contracts.json`,
     )
   }
-  
+
   return {
     banManager: c.banManager as Address,
     reportingSystem: c.reportingSystem as Address,
@@ -441,26 +443,26 @@ export async function processModerationEvent(
   txHash: string,
 ): Promise<void> {
   const contracts = getContracts()
-  const address = log.address?.toLowerCase()
+  const address = log.address.toLowerCase()
 
   // Route to appropriate handler based on contract address
   if (address === contracts.banManager.toLowerCase()) {
     const topic0 = log.topics[0]
 
     // Match by topic signature
-    if (topic0?.includes('NetworkBanApplied')) {
+    if (topic0.includes('NetworkBanApplied')) {
       await processNetworkBanApplied(log, store, blockNumber, timestamp, txHash)
-    } else if (topic0?.includes('NetworkBanRemoved')) {
+    } else if (topic0.includes('NetworkBanRemoved')) {
       await processNetworkBanRemoved(log, store, blockNumber, timestamp, txHash)
-    } else if (topic0?.includes('AppBanApplied')) {
+    } else if (topic0.includes('AppBanApplied')) {
       await processAppBanApplied(log, store, blockNumber, timestamp, txHash)
     }
   } else if (address === contracts.reportingSystem.toLowerCase()) {
     const topic0 = log.topics[0]
 
-    if (topic0?.includes('ReportSubmitted')) {
+    if (topic0.includes('ReportSubmitted')) {
       await processReportSubmitted(log, store, blockNumber, timestamp, txHash)
-    } else if (topic0?.includes('ReportResolved')) {
+    } else if (topic0.includes('ReportResolved')) {
       await processReportResolved(log, store, blockNumber, timestamp, txHash)
     }
   }

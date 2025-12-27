@@ -230,7 +230,7 @@ const proposalDetailProvider: Provider = {
     _state: State,
   ): Promise<ProviderResult> => {
     // Extract proposal ID from message content
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalIdMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (!proposalIdMatch) {

@@ -98,7 +98,9 @@ describe('Server Health', () => {
 
     const info = await response.json()
     // These may or may not be present depending on configuration
-    expect(Array.isArray(info.services) || info.services === undefined).toBe(true)
+    expect(Array.isArray(info.services) || info.services === undefined).toBe(
+      true,
+    )
   })
 })
 

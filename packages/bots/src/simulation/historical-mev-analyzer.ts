@@ -698,7 +698,7 @@ async function main() {
   console.log('  ANALYSIS COMPLETE')
   console.log('═'.repeat(70))
   console.log(`  Total MEV: $${result.totalMEVExtracted.toFixed(0)}`)
-  console.log(`  Top Strategy: ${result.topStrategies[0]?.name ?? 'N/A'}`)
+  console.log(`  Top Strategy: ${result.topStrategies[0].name ?? 'N/A'}`)
   console.log(`${'═'.repeat(70)}\n`)
 }
 

@@ -3,9 +3,9 @@
  * Deploys app frontends and backends through DWS contracts
  */
 
-import { execSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { existsSync, readdirSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import type { Address, Hex } from 'viem'
 import {
   createWalletClient,
@@ -216,12 +216,49 @@ export async function deployAppOnchain(
   return result
 }
 
+/**
+ * Allowed build commands to prevent command injection from malicious manifests
+ */
+const ALLOWED_BUILD_COMMANDS = [
+  'bun run build',
+  'npm run build',
+  'pnpm run build',
+  'yarn build',
+  'bun build',
+] as const
+
 async function buildApp(appDir: string, manifest: AppManifest): Promise<void> {
   const buildCmd = manifest.commands?.build ?? 'bun run build'
   logger.debug(`Building ${manifest.name}: ${buildCmd}`)
 
+  // SECURITY: Validate build command to prevent command injection
+  // Only allow known safe build commands
+  const isAllowed = ALLOWED_BUILD_COMMANDS.some(
+    (allowed) => buildCmd === allowed || buildCmd.startsWith(`${allowed} `),
+  )
+
+  if (!isAllowed) {
+    // For custom commands, use spawnSync with shell: false to prevent injection
+    // and only allow specific patterns
+    const safeBuildPattern = /^(bun|npm|pnpm|yarn)\s+run\s+[a-zA-Z0-9_-]+$/
+    if (!safeBuildPattern.test(buildCmd)) {
+      throw new Error(
+        `Unsafe build command: ${buildCmd}. Use 'bun run build' or similar standard commands.`,
+      )
+    }
+  }
+
   try {
-    execSync(buildCmd, { cwd: appDir, stdio: 'pipe' })
+    // Use spawnSync with shell:true only for validated commands
+    const proc = spawnSync('sh', ['-c', buildCmd], {
+      cwd: appDir,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+    })
+
+    if (proc.status !== 0) {
+      throw new Error(proc.stderr || 'Build failed')
+    }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     throw new Error(`Build failed for ${manifest.name}: ${errorMsg}`)
@@ -237,7 +274,7 @@ async function deployFrontend(
 ): Promise<{ cid: string; uploadId: Hex }> {
   const frontend = manifest.architecture?.frontend
   const outputDir =
-    (typeof frontend === 'object' && frontend?.outputDir) || 'dist/static'
+    (typeof frontend === 'object' && frontend.outputDir) || 'dist/static'
   const frontendPath = join(appDir, outputDir)
 
   if (!existsSync(frontendPath)) {
@@ -299,7 +336,7 @@ async function deployWorker(
 ): Promise<{ cid: string; workerId: Hex }> {
   const backend = manifest.architecture?.backend
   const outputDir =
-    (typeof backend === 'object' && backend?.outputDir) || 'dist/worker'
+    (typeof backend === 'object' && backend.outputDir) || 'dist/worker'
   const workerPath = join(appDir, outputDir)
 
   if (!existsSync(workerPath)) {
@@ -499,67 +536,128 @@ async function createCDNSite(
 
 // Helper functions
 
-function uploadToIPFS(path: string, apiUrl: string): string {
-  // For directory uploads, we need to add each file recursively with proper structure
-  // First check if it's a directory
-  const statResult = execSync(
-    `test -d "${path}" && echo "dir" || echo "file"`,
-    { encoding: 'utf-8' },
-  ).trim()
+/**
+ * Recursively collect all files in a directory
+ */
+function collectFiles(
+  dir: string,
+  baseDir: string,
+): Array<{ path: string; relativePath: string }> {
+  const files: Array<{ path: string; relativePath: string }> = []
+  const entries = readdirSync(dir, { withFileTypes: true })
 
-  if (statResult === 'dir') {
-    // Build multipart form data with all files at once to maintain directory structure
-    // Find all files and create curl -F arguments for each with proper paths
-    const filesOutput = execSync(`find "${path}" -type f`, {
-      encoding: 'utf-8',
-    }).trim()
-
-    if (!filesOutput) {
-      throw new Error(`No files found in directory: ${path}`)
-    }
-
-    const files = filesOutput.split('\n')
-    const formArgs = files
-      .map((file) => {
-        // Get relative path from the base directory
-        const relativePath = file.replace(`${path}/`, '')
-        return `-F "file=@${file};filename=${relativePath}"`
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...collectFiles(fullPath, baseDir))
+    } else if (entry.isFile()) {
+      files.push({
+        path: fullPath,
+        relativePath: relative(baseDir, fullPath),
       })
-      .join(' ')
-
-    const result = execSync(
-      `curl -s -X POST ${formArgs} "${apiUrl}/api/v0/add?wrap-with-directory=true&pin=true" | tail -1 | jq -r '.Hash'`,
-      { encoding: 'utf-8', shell: '/bin/bash', maxBuffer: 50 * 1024 * 1024 },
-    ).trim()
-
-    if (!result || result === 'null' || result === '') {
-      throw new Error(`Failed to upload directory to IPFS: ${path}`)
     }
-
-    return result
   }
 
-  // Single file upload
-  const result = execSync(
-    `curl -s -X POST -F "file=@${path}" "${apiUrl}/api/v0/add?pin=true" | jq -r '.Hash'`,
-    { encoding: 'utf-8' },
-  ).trim()
-
-  if (!result || result === 'null') {
-    throw new Error(`Failed to upload to IPFS: ${path}`)
-  }
-
-  return result
+  return files
 }
 
-function getDirectorySize(path: string): number {
-  // Use stat to get file sizes (works on both Linux and macOS)
-  // For directories, we sum up file sizes using find
-  const result = execSync(
-    `find "${path}" -type f -exec stat -f%z {} + 2>/dev/null | awk '{s+=$1} END {print s+0}' || find "${path}" -type f -exec stat --format=%s {} + 2>/dev/null | awk '{s+=$1} END {print s+0}'`,
-    { encoding: 'utf-8', shell: '/bin/bash' },
-  ).trim()
-  return parseInt(result, 10) || 1024 // Default to 1KB if parsing fails
+function uploadToIPFS(targetPath: string, apiUrl: string): string {
+  // Use native fs to check if path is directory (prevents command injection)
+  const stat = statSync(targetPath)
+
+  if (stat.isDirectory()) {
+    // Collect all files recursively using native fs
+    const files = collectFiles(targetPath, targetPath)
+
+    if (files.length === 0) {
+      throw new Error(`No files found in directory: ${targetPath}`)
+    }
+
+    // Build curl arguments array (prevents shell injection)
+    const args = ['-s', '-X', 'POST']
+    for (const file of files) {
+      args.push('-F', `file=@${file.path};filename=${file.relativePath}`)
+    }
+    args.push(`${apiUrl}/api/v0/add?wrap-with-directory=true&pin=true`)
+
+    const proc = spawnSync('curl', args, {
+      encoding: 'utf-8',
+      maxBuffer: 50 * 1024 * 1024,
+    })
+
+    if (proc.error) {
+      throw new Error(`IPFS upload failed: ${proc.error.message}`)
+    }
+
+    if (proc.status !== 0) {
+      throw new Error(`IPFS upload failed: ${proc.stderr}`)
+    }
+
+    // Parse the last line of ndjson output for the directory hash
+    const lines = proc.stdout.trim().split('\n')
+    const lastLine = lines[lines.length - 1]
+
+    const parsed = JSON.parse(lastLine)
+    if (!parsed.Hash) {
+      throw new Error(`Failed to upload directory to IPFS: ${targetPath}`)
+    }
+
+    return parsed.Hash
+  }
+
+  // Single file upload using spawnSync (prevents shell injection)
+  const proc = spawnSync(
+    'curl',
+    [
+      '-s',
+      '-X',
+      'POST',
+      '-F',
+      `file=@${targetPath}`,
+      `${apiUrl}/api/v0/add?pin=true`,
+    ],
+    { encoding: 'utf-8' },
+  )
+
+  if (proc.error) {
+    throw new Error(`IPFS upload failed: ${proc.error.message}`)
+  }
+
+  if (proc.status !== 0) {
+    throw new Error(`IPFS upload failed: ${proc.stderr}`)
+  }
+
+  const parsed = JSON.parse(proc.stdout)
+  if (!parsed.Hash) {
+    throw new Error(`Failed to upload to IPFS: ${targetPath}`)
+  }
+
+  return parsed.Hash
+}
+
+/**
+ * Calculate total size of files in a directory using native fs (prevents command injection)
+ */
+function getDirectorySize(targetPath: string): number {
+  const stat = statSync(targetPath)
+
+  if (!stat.isDirectory()) {
+    return stat.size
+  }
+
+  let totalSize = 0
+  const entries = readdirSync(targetPath, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const fullPath = join(targetPath, entry.name)
+    if (entry.isDirectory()) {
+      totalSize += getDirectorySize(fullPath)
+    } else if (entry.isFile()) {
+      totalSize += statSync(fullPath).size
+    }
+  }
+
+  return totalSize || 1024 // Default to 1KB if empty
 }
 
 function encodeIPFSContenthash(cid: string): Hex {

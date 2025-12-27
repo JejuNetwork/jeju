@@ -8,9 +8,10 @@
  * - Interaction flows
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3010'
+const BASE_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_WEB.get()}`
 const CEO_URL = `${BASE_URL}/ceo`
 
 test.describe('CEO Dashboard Page', () => {

@@ -187,10 +187,10 @@ describe('TicTacToeEnv', () => {
       const step = trajectory.steps[0]
 
       expect(step).toBeDefined()
-      expect(step?.observation).toBeDefined()
-      expect(step?.action).toBeDefined()
-      expect(step?.action.type).toBe('move')
-      expect(typeof step?.action.parameters.position).toBe('number')
+      expect(step.observation).toBeDefined()
+      expect(step.action).toBeDefined()
+      expect(step.action.type).toBe('move')
+      expect(typeof step.action.parameters.position).toBe('number')
     })
 
     it('should include reasoning in steps', () => {
@@ -214,10 +214,10 @@ describe('TicTacToeEnv', () => {
         'agent-1',
         'agent-2',
       ])
-      expect(trajectories[0]?.agentId).toBe('agent-1')
-      expect(trajectories[1]?.agentId).toBe('agent-2')
-      expect(trajectories[2]?.agentId).toBe('agent-1')
-      expect(trajectories[3]?.agentId).toBe('agent-2')
+      expect(trajectories[0].agentId).toBe('agent-1')
+      expect(trajectories[1].agentId).toBe('agent-2')
+      expect(trajectories[2].agentId).toBe('agent-1')
+      expect(trajectories[3].agentId).toBe('agent-2')
     })
   })
 

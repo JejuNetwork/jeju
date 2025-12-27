@@ -194,6 +194,43 @@ type TokenBalance @entity {
   lastUpdated: DateTime! @index
 }
 
+# ============ Token Approvals ============
+
+"""
+ERC20 token approval event - tracks allowances granted to spenders
+"""
+type TokenApprovalEvent @entity {
+  id: ID!
+  owner: Account!
+  spender: Account!
+  token: Contract!
+  value: BigInt!
+  isRevoke: Boolean!
+  block: Block!
+  transaction: Transaction!
+  timestamp: DateTime! @index
+  chainId: Int! @index
+}
+
+"""
+NFT approval event - tracks approvals for ERC721/ERC1155 tokens
+Covers both single token approvals and ApprovalForAll
+"""
+type NFTApprovalEvent @entity {
+  id: ID!
+  owner: Account!
+  operator: Account!
+  token: Contract!
+  tokenId: String
+  approved: Boolean!
+  isApprovalForAll: Boolean!
+  tokenStandard: TokenStandard! @index
+  block: Block!
+  transaction: Transaction!
+  timestamp: DateTime! @index
+  chainId: Int! @index
+}
+
 # ============ DEX Trading & Token Market Data ============
 
 """

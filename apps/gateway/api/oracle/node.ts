@@ -325,23 +325,26 @@ export class OracleNode {
   }
 }
 
-/** Default private key for local development (Anvil account 0) */
-const DEFAULT_OPERATOR_KEY: Hex =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-/** Default private key for local development (Anvil account 1) */
-const DEFAULT_WORKER_KEY: Hex =
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+/**
+ * SECURITY: Private keys MUST be provided via environment variables.
+ * Hardcoded test keys removed to prevent accidental production use.
+ */
+function getRequiredPrivateKey(envVar: string): `0x${string}` {
+  const key = process.env[envVar]
+  if (!key) {
+    throw new Error(
+      `${envVar} is required. Set this environment variable with a valid private key.`,
+    )
+  }
+  return expectHex(key)
+}
 
 export function createNodeConfig(): OracleNodeConfig {
   return {
     rpcUrl: getRpcUrl(),
     chainId: getChainId(),
-    operatorPrivateKey: expectHex(
-      process.env.OPERATOR_PRIVATE_KEY || DEFAULT_OPERATOR_KEY,
-    ),
-    workerPrivateKey: expectHex(
-      process.env.WORKER_PRIVATE_KEY || DEFAULT_WORKER_KEY,
-    ),
+    operatorPrivateKey: getRequiredPrivateKey('OPERATOR_PRIVATE_KEY'),
+    workerPrivateKey: getRequiredPrivateKey('WORKER_PRIVATE_KEY'),
 
     feedRegistry: parseEnvAddress(
       process.env.FEED_REGISTRY_ADDRESS,

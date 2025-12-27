@@ -311,7 +311,7 @@ const app = new Elysia()
     // Validate OAuth3 health check result with Zod
     const oauth3Health = validateOrNull(OAuth3HealthSchema, oauth3Check.result)
     const oauth3Healthy =
-      oauth3Health?.jns && oauth3Health?.storage && oauth3Health?.teeNode
+      oauth3Health?.jns && oauth3Health.storage && oauth3Health.teeNode
     services.push({
       name: 'OAuth3 Infrastructure',
       status: oauth3Healthy ? 'healthy' : 'degraded',

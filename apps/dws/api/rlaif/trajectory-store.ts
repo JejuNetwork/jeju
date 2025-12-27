@@ -70,8 +70,8 @@ export class TrajectoryStore {
       cid: '',
       trajectoryCIDs,
       totalCount: trajectories.length,
-      environmentId: trajectories[0]?.environmentId ?? '',
-      policyModelCID: trajectories[0]?.policyModelCID ?? '',
+      environmentId: trajectories[0].environmentId ?? '',
+      policyModelCID: trajectories[0].policyModelCID ?? '',
       createdAt: Date.now(),
       merkleRoot,
     }

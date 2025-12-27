@@ -2,9 +2,10 @@
  * RLAIF Tests - Training run and trajectory management
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_URL = 'http://localhost:8010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
 
 test.describe('RLAIF Endpoints', () => {
   test.describe('Health', () => {

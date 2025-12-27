@@ -306,7 +306,7 @@ describe('ElizaOS Worker', () => {
 
     // Simulate buildSystemPrompt logic
     const parts = [char.system]
-    if (char.bio?.length) {
+    if (char.bio.length) {
       parts.push('\n\nBackground:', char.bio.join('\n'))
     }
     if (char.style?.all?.length) {

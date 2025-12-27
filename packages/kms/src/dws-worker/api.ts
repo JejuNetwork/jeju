@@ -15,12 +15,16 @@
  * - It discovers MPC parties from on-chain registry
  * - It orchestrates the protocol rounds
  * - Returns aggregated results to callers
+ *
+ * SECURITY NOTE: Encryption keys are derived from a server-side secret,
+ * NOT from public keys. This ensures only this API can decrypt data.
  */
 
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, verifyMessage } from 'viem'
 import { z } from 'zod'
+import { deriveEncryptionKey } from '../crypto.js'
 import { createMPCClient, MPCPartyDiscovery } from './mpc-discovery'
 
 // Request body schemas
@@ -71,6 +75,12 @@ export interface KMSAPIConfig {
   identityRegistryAddress: Address
   rpcUrl: string
   minRequiredParties?: number
+  /**
+   * Server-side encryption secret for deriving encryption keys.
+   * SECURITY: This MUST be a secret value, NOT derived from public keys.
+   * If not provided, encryption endpoints will be disabled.
+   */
+  encryptionSecret?: string
 }
 
 interface ManagedKey {
@@ -121,6 +131,15 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
 
   // Signing requests
   const signingRequests = new Map<string, SigningRequest>()
+
+  /**
+   * Server-side master key for encryption operations.
+   * SECURITY: This is derived from a secret config value, NOT public keys.
+   * If no encryption secret is configured, encryption endpoints will fail.
+   */
+  const masterEncryptionKey: Uint8Array | null = config.encryptionSecret
+    ? toBytes(keccak256(toBytes(config.encryptionSecret)))
+    : null
 
   // ============ Helpers ============
 
@@ -580,23 +599,35 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
       .post('/encrypt', async ({ body }) => {
         const params = EncryptBodySchema.parse(body)
 
+        // SECURITY: Require server-side encryption secret
+        if (!masterEncryptionKey) {
+          throw new Error(
+            'Encryption not available: server encryption secret not configured',
+          )
+        }
+
         const key = keys.get(params.keyId)
         if (!key) {
           throw new Error('Key not found')
         }
 
-        // Derive encryption key from group public key
-        const encryptionKey = keccak256(toBytes(key.groupPublicKey))
+        // SECURITY: Derive key-specific encryption key from server secret + keyId
+        // This ensures only this server can decrypt, NOT anyone with the public key
+        const salt = toBytes(keccak256(toBytes(`encrypt:${params.keyId}`)))
+        const derivedKey = await deriveEncryptionKey(
+          masterEncryptionKey,
+          salt,
+          'kms-api-encrypt',
+        )
 
         // Generate random nonce
         const nonceBytes = crypto.getRandomValues(new Uint8Array(12))
         const nonce = Buffer.from(nonceBytes).toString('base64')
 
         // Encrypt using AES-256-GCM (via Web Crypto)
-        const keyBytes = toBytes(encryptionKey)
         const keyMaterial = await crypto.subtle.importKey(
           'raw',
-          new Uint8Array(keyBytes),
+          derivedKey,
           'AES-GCM',
           false,
           ['encrypt'],
@@ -609,6 +640,9 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
           plainBytes,
         )
 
+        // Zero derived key after use
+        derivedKey.fill(0)
+
         return {
           keyId: params.keyId,
           ciphertext: Buffer.from(ciphertext).toString('base64'),
@@ -619,6 +653,13 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
 
       .post('/decrypt', async ({ body, request }) => {
         const params = DecryptBodySchema.parse(body)
+
+        // SECURITY: Require server-side encryption secret
+        if (!masterEncryptionKey) {
+          throw new Error(
+            'Decryption not available: server encryption secret not configured',
+          )
+        }
 
         const requesterSignature = request.headers.get(
           'x-jeju-signature',
@@ -640,13 +681,18 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
           throw new Error('Key not found')
         }
 
-        // Derive encryption key from group public key
-        const encryptionKey = keccak256(toBytes(key.groupPublicKey))
+        // SECURITY: Derive key-specific encryption key from server secret + keyId
+        // Must use same derivation as encrypt endpoint
+        const salt = toBytes(keccak256(toBytes(`encrypt:${params.keyId}`)))
+        const derivedKey = await deriveEncryptionKey(
+          masterEncryptionKey,
+          salt,
+          'kms-api-encrypt',
+        )
 
-        const decryptKeyBytes = toBytes(encryptionKey)
         const keyMaterial = await crypto.subtle.importKey(
           'raw',
-          decryptKeyBytes.slice() as Uint8Array<ArrayBuffer>,
+          derivedKey,
           'AES-GCM',
           false,
           ['decrypt'],
@@ -660,6 +706,9 @@ export function createKMSAPIWorker(config: KMSAPIConfig) {
           keyMaterial,
           cipherBytes,
         )
+
+        // Zero derived key after use
+        derivedKey.fill(0)
 
         return {
           keyId: params.keyId,

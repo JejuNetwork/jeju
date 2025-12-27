@@ -117,6 +117,15 @@ export async function runDistributedCeremony(
   providers: TeeProvider[],
   threshold: number,
 ): Promise<DistributedCeremonyResult> {
+  // SECURITY: Never allow simulated ceremony for mainnet
+  if (network === 'mainnet' && process.env.CEREMONY_SIMULATION === 'true') {
+    throw new Error(
+      'SECURITY ERROR: Simulated distributed ceremony is NOT allowed for mainnet.\n' +
+        'Mainnet keys MUST be derived from real TEE hardware.\n' +
+        'Remove CEREMONY_SIMULATION=true and ensure all providers are real TEEs.',
+    )
+  }
+
   const n = providers.length
   const k = threshold
 

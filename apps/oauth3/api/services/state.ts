@@ -1,5 +1,6 @@
 /**
  * OAuth3 State Service - Database-backed storage for sessions, clients, and auth codes
+ * REQUIRES CQL - no in-memory fallback
  */
 
 import { type CQLClient, getCQL } from '@jejunetwork/db'
@@ -11,9 +12,8 @@ import type {
 } from '../../lib/types'
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'oauth3'
-const isDev = process.env.NODE_ENV !== 'production'
 
-// Simple in-memory cache for OAuth3 (doesn't need DWS cache service)
+// Simple in-memory cache for performance (not for persistence)
 interface SimpleCacheClient {
   get(key: string): Promise<string | null>
   set(key: string, value: string, ttlSeconds?: number): Promise<void>
@@ -46,69 +46,21 @@ function createSimpleCacheClient(): SimpleCacheClient {
 let cqlClient: CQLClient | null = null
 let cacheClient: SimpleCacheClient | null = null
 let initialized = false
-let usingInMemoryFallback = false
 
-// In-memory fallback for dev when CQL is not available
-const inMemoryStore = {
-  sessions: new Map<string, AuthSession>(),
-  clients: new Map<string, RegisteredClient>(),
-  authCodes: new Map<
-    string,
-    {
-      clientId: string
-      redirectUri: string
-      userId: string
-      scope: string[]
-      expiresAt: number
-      codeChallenge?: string
-      codeChallengeMethod?: string
-    }
-  >(),
-  refreshTokens: new Map<
-    string,
-    {
-      sessionId: string
-      clientId: string
-      userId: string
-      expiresAt: number
-      revoked: boolean
-    }
-  >(),
-  oauthStates: new Map<
-    string,
-    {
-      nonce: string
-      provider: string
-      clientId: string
-      redirectUri: string
-      codeVerifier?: string
-      expiresAt: number
-    }
-  >(),
-}
-
-async function getCQLClient(): Promise<CQLClient | null> {
-  if (usingInMemoryFallback) return null
-
+async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
     cqlClient = getCQL({
       databaseId: CQL_DATABASE_ID,
       timeout: 30000,
-      debug: isDev,
+      debug: process.env.NODE_ENV !== 'production',
     })
 
     const healthy = await cqlClient.isHealthy()
     if (!healthy) {
-      if (isDev) {
-        console.log(
-          '[OAuth3] CQL not available, using in-memory fallback for development',
-        )
-        usingInMemoryFallback = true
-        return null
-      }
       throw new Error(
-        'OAuth3 requires CovenantSQL for decentralized state.\n' +
-          'Ensure CQL is running: docker compose up -d cql',
+        'OAuth3 requires CovenantSQL for state persistence.\n' +
+          'Start CQL with: docker compose up -d cql\n' +
+          'Or run: bun run start (which starts all dependencies)',
       )
     }
 
@@ -152,7 +104,22 @@ async function ensureTablesExist(): Promise<void> {
       allowed_providers TEXT NOT NULL,
       owner TEXT NOT NULL,
       created_at INTEGER NOT NULL,
-      active INTEGER NOT NULL DEFAULT 1
+      active INTEGER NOT NULL DEFAULT 1,
+      stake TEXT,
+      reputation TEXT,
+      moderation TEXT
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS client_reports (
+      report_id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      reporter_address TEXT NOT NULL,
+      category TEXT NOT NULL,
+      evidence TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      resolved_at INTEGER,
+      resolution TEXT
     )`,
 
     `CREATE TABLE IF NOT EXISTS auth_codes (
@@ -206,14 +173,8 @@ async function ensureTablesExist(): Promise<void> {
 export const sessionState = {
   async save(session: AuthSession): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      // In-memory fallback
-      inMemoryStore.sessions.set(session.sessionId, session)
-      return
-    }
-
     const cache = getCache()
+
     await client.exec(
       `INSERT INTO sessions (session_id, user_id, provider, address, fid, email, created_at, expires_at, metadata)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -241,22 +202,13 @@ export const sessionState = {
   },
 
   async get(sessionId: string): Promise<AuthSession | null> {
-    const client = await getCQLClient()
-
-    if (!client) {
-      // In-memory fallback
-      const session = inMemoryStore.sessions.get(sessionId)
-      if (session && session.expiresAt > Date.now()) return session
-      if (session) inMemoryStore.sessions.delete(sessionId)
-      return null
-    }
-
     const cache = getCache()
     const cached = await cache.get(`session:${sessionId}`)
     if (cached) {
       return JSON.parse(cached) as AuthSession
     }
 
+    const client = await getCQLClient()
     const result = await client.query<SessionRow>(
       'SELECT * FROM sessions WHERE session_id = ? AND expires_at > ?',
       [sessionId, Date.now()],
@@ -277,13 +229,8 @@ export const sessionState = {
 
   async delete(sessionId: string): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      inMemoryStore.sessions.delete(sessionId)
-      return
-    }
-
     const cache = getCache()
+
     await client.exec(
       'DELETE FROM sessions WHERE session_id = ?',
       [sessionId],
@@ -295,14 +242,6 @@ export const sessionState = {
 
   async findByUserId(userId: string): Promise<AuthSession[]> {
     const client = await getCQLClient()
-
-    if (!client) {
-      const now = Date.now()
-      return Array.from(inMemoryStore.sessions.values()).filter(
-        (s) => s.userId === userId && s.expiresAt > now,
-      )
-    }
-
     const result = await client.query<SessionRow>(
       'SELECT * FROM sessions WHERE user_id = ? AND expires_at > ?',
       [userId, Date.now()],
@@ -314,17 +253,8 @@ export const sessionState = {
 
   async updateExpiry(sessionId: string, newExpiry: number): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      const session = inMemoryStore.sessions.get(sessionId)
-      if (session) {
-        session.expiresAt = newExpiry
-        inMemoryStore.sessions.set(sessionId, session)
-      }
-      return
-    }
-
     const cache = getCache()
+
     await client.exec(
       'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
       [newExpiry, sessionId],
@@ -339,19 +269,15 @@ export const sessionState = {
 export const clientState = {
   async save(client: RegisteredClient): Promise<void> {
     const db = await getCQLClient()
-
-    if (!db) {
-      inMemoryStore.clients.set(client.clientId, client)
-      return
-    }
-
     const cache = getCache()
+
     await db.exec(
-      `INSERT INTO clients (client_id, client_secret, name, redirect_uris, allowed_providers, owner, created_at, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO clients (client_id, client_secret, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(client_id) DO UPDATE SET
        name = excluded.name, redirect_uris = excluded.redirect_uris,
-       allowed_providers = excluded.allowed_providers, active = excluded.active`,
+       allowed_providers = excluded.allowed_providers, active = excluded.active,
+       stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation`,
       [
         client.clientId,
         client.clientSecret ?? null,
@@ -361,6 +287,9 @@ export const clientState = {
         client.owner,
         client.createdAt,
         client.active ? 1 : 0,
+        client.stake ? JSON.stringify(client.stake) : null,
+        client.reputation ? JSON.stringify(client.reputation) : null,
+        client.moderation ? JSON.stringify(client.moderation) : null,
       ],
       CQL_DATABASE_ID,
     )
@@ -369,18 +298,13 @@ export const clientState = {
   },
 
   async get(clientId: string): Promise<RegisteredClient | null> {
-    const db = await getCQLClient()
-
-    if (!db) {
-      return inMemoryStore.clients.get(clientId) ?? null
-    }
-
     const cache = getCache()
     const cached = await cache.get(`client:${clientId}`)
     if (cached) {
       return JSON.parse(cached) as RegisteredClient
     }
 
+    const db = await getCQLClient()
     const result = await db.query<ClientRow>(
       'SELECT * FROM clients WHERE client_id = ?',
       [clientId],
@@ -397,13 +321,8 @@ export const clientState = {
 
   async delete(clientId: string): Promise<void> {
     const db = await getCQLClient()
-
-    if (!db) {
-      inMemoryStore.clients.delete(clientId)
-      return
-    }
-
     const cache = getCache()
+
     await db.exec(
       'DELETE FROM clients WHERE client_id = ?',
       [clientId],
@@ -429,11 +348,6 @@ export const authCodeState = {
     },
   ): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      inMemoryStore.authCodes.set(code, data)
-      return
-    }
 
     await client.exec(
       `INSERT INTO auth_codes (code, client_id, redirect_uri, user_id, scope, expires_at, code_challenge, code_challenge_method)
@@ -462,14 +376,6 @@ export const authCodeState = {
     codeChallengeMethod?: string
   } | null> {
     const client = await getCQLClient()
-
-    if (!client) {
-      const data = inMemoryStore.authCodes.get(code)
-      if (data && data.expiresAt > Date.now()) return data
-      if (data) inMemoryStore.authCodes.delete(code)
-      return null
-    }
-
     const result = await client.query<AuthCodeRow>(
       'SELECT * FROM auth_codes WHERE code = ? AND expires_at > ?',
       [code, Date.now()],
@@ -492,12 +398,6 @@ export const authCodeState = {
 
   async delete(code: string): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      inMemoryStore.authCodes.delete(code)
-      return
-    }
-
     await client.exec(
       'DELETE FROM auth_codes WHERE code = ?',
       [code],
@@ -518,11 +418,6 @@ export const refreshTokenState = {
     },
   ): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      inMemoryStore.refreshTokens.set(token, { ...data, revoked: false })
-      return
-    }
 
     await client.exec(
       `INSERT INTO refresh_tokens (token, session_id, client_id, user_id, created_at, expires_at, revoked)
@@ -547,11 +442,6 @@ export const refreshTokenState = {
     revoked: boolean
   } | null> {
     const client = await getCQLClient()
-
-    if (!client) {
-      return inMemoryStore.refreshTokens.get(token) ?? null
-    }
-
     const result = await client.query<RefreshTokenRow>(
       'SELECT * FROM refresh_tokens WHERE token = ?',
       [token],
@@ -572,16 +462,6 @@ export const refreshTokenState = {
 
   async revoke(token: string): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      const data = inMemoryStore.refreshTokens.get(token)
-      if (data) {
-        data.revoked = true
-        inMemoryStore.refreshTokens.set(token, data)
-      }
-      return
-    }
-
     await client.exec(
       'UPDATE refresh_tokens SET revoked = 1 WHERE token = ?',
       [token],
@@ -591,17 +471,6 @@ export const refreshTokenState = {
 
   async revokeAllForSession(sessionId: string): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      for (const [token, data] of inMemoryStore.refreshTokens) {
-        if (data.sessionId === sessionId) {
-          data.revoked = true
-          inMemoryStore.refreshTokens.set(token, data)
-        }
-      }
-      return
-    }
-
     await client.exec(
       'UPDATE refresh_tokens SET revoked = 1 WHERE session_id = ?',
       [sessionId],
@@ -624,11 +493,6 @@ export const oauthStateStore = {
     },
   ): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      inMemoryStore.oauthStates.set(state, data)
-      return
-    }
 
     await client.exec(
       `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
@@ -655,22 +519,6 @@ export const oauthStateStore = {
     codeVerifier?: string
   } | null> {
     const client = await getCQLClient()
-
-    if (!client) {
-      const data = inMemoryStore.oauthStates.get(state)
-      if (data && data.expiresAt > Date.now()) {
-        return {
-          nonce: data.nonce,
-          provider: data.provider,
-          clientId: data.clientId,
-          redirectUri: data.redirectUri,
-          codeVerifier: data.codeVerifier,
-        }
-      }
-      if (data) inMemoryStore.oauthStates.delete(state)
-      return null
-    }
-
     const result = await client.query<OAuthStateRow>(
       'SELECT * FROM oauth_states WHERE state = ? AND expires_at > ?',
       [state, Date.now()],
@@ -691,12 +539,6 @@ export const oauthStateStore = {
 
   async delete(state: string): Promise<void> {
     const client = await getCQLClient()
-
-    if (!client) {
-      inMemoryStore.oauthStates.delete(state)
-      return
-    }
-
     await client.exec(
       'DELETE FROM oauth_states WHERE state = ?',
       [state],
@@ -705,13 +547,9 @@ export const oauthStateStore = {
   },
 }
 
-// Initialize with default client
+// Initialize database and default client
 export async function initializeState(): Promise<void> {
-  const client = await getCQLClient()
-
-  if (client) {
-    await ensureTablesExist()
-  }
+  await ensureTablesExist()
 
   // Ensure default client exists
   const defaultClient = await clientState.get('jeju-default')
@@ -735,6 +573,7 @@ export async function initializeState(): Promise<void> {
       createdAt: Date.now(),
       active: true,
     })
+    console.log('[OAuth3] Default client created')
   }
 }
 
@@ -760,6 +599,9 @@ interface ClientRow {
   owner: string
   created_at: number
   active: number
+  stake: string | null
+  reputation: string | null
+  moderation: string | null
 }
 
 interface AuthCodeRow {
@@ -819,7 +661,182 @@ function rowToClient(row: ClientRow): RegisteredClient {
     owner: row.owner as Address,
     createdAt: row.created_at,
     active: row.active === 1,
+    stake: row.stake
+      ? (JSON.parse(row.stake) as RegisteredClient['stake'])
+      : undefined,
+    reputation: row.reputation
+      ? (JSON.parse(row.reputation) as RegisteredClient['reputation'])
+      : undefined,
+    moderation: row.moderation
+      ? (JSON.parse(row.moderation) as RegisteredClient['moderation'])
+      : undefined,
   }
+}
+
+// Client Report State
+interface ClientReport {
+  reportId: string
+  clientId: string
+  reporterAddress: string
+  category: string
+  evidence: string
+  status: 'pending' | 'resolved' | 'dismissed'
+  createdAt: number
+  resolvedAt?: number
+  resolution?: string
+}
+
+export const clientReportState = {
+  async save(report: ClientReport): Promise<void> {
+    const db = await getCQLClient()
+
+    await db.exec(
+      `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(report_id) DO UPDATE SET
+       status = excluded.status, resolved_at = excluded.resolved_at, resolution = excluded.resolution`,
+      [
+        report.reportId,
+        report.clientId,
+        report.reporterAddress,
+        report.category,
+        report.evidence,
+        report.status,
+        report.createdAt,
+        report.resolvedAt ?? null,
+        report.resolution ?? null,
+      ],
+      CQL_DATABASE_ID,
+    )
+  },
+
+  async get(reportId: string): Promise<ClientReport | null> {
+    const db = await getCQLClient()
+    const result = await db.query<{
+      report_id: string
+      client_id: string
+      reporter_address: string
+      category: string
+      evidence: string
+      status: string
+      created_at: number
+      resolved_at: number | null
+      resolution: string | null
+    }>(
+      'SELECT * FROM client_reports WHERE report_id = ?',
+      [reportId],
+      CQL_DATABASE_ID,
+    )
+
+    if (!result.rows[0]) return null
+    const row = result.rows[0]
+
+    return {
+      reportId: row.report_id,
+      clientId: row.client_id,
+      reporterAddress: row.reporter_address,
+      category: row.category,
+      evidence: row.evidence,
+      status: row.status as ClientReport['status'],
+      createdAt: row.created_at,
+      resolvedAt: row.resolved_at ?? undefined,
+      resolution: row.resolution ?? undefined,
+    }
+  },
+
+  async getByClient(clientId: string): Promise<ClientReport[]> {
+    const db = await getCQLClient()
+    const result = await db.query<{
+      report_id: string
+      client_id: string
+      reporter_address: string
+      category: string
+      evidence: string
+      status: string
+      created_at: number
+      resolved_at: number | null
+      resolution: string | null
+    }>(
+      'SELECT * FROM client_reports WHERE client_id = ? ORDER BY created_at DESC',
+      [clientId],
+      CQL_DATABASE_ID,
+    )
+
+    return result.rows.map((row) => ({
+      reportId: row.report_id,
+      clientId: row.client_id,
+      reporterAddress: row.reporter_address,
+      category: row.category,
+      evidence: row.evidence,
+      status: row.status as ClientReport['status'],
+      createdAt: row.created_at,
+      resolvedAt: row.resolved_at ?? undefined,
+      resolution: row.resolution ?? undefined,
+    }))
+  },
+
+  async hasReportedRecently(
+    clientId: string,
+    reporterAddress: string,
+    withinMs: number = 24 * 60 * 60 * 1000,
+  ): Promise<boolean> {
+    const db = await getCQLClient()
+    const cutoff = Date.now() - withinMs
+
+    const result = await db.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM client_reports WHERE client_id = ? AND reporter_address = ? AND created_at > ?',
+      [clientId, reporterAddress.toLowerCase(), cutoff],
+      CQL_DATABASE_ID,
+    )
+
+    return (result.rows[0]?.count ?? 0) > 0
+  },
+}
+
+/**
+ * Verify client secret using constant-time comparison to prevent timing attacks.
+ * Returns true if the client exists, is active, and the secret matches.
+ */
+export async function verifyClientSecret(
+  clientId: string,
+  clientSecret: string | undefined,
+): Promise<{ valid: boolean; error?: string }> {
+  const client = await clientState.get(clientId)
+
+  if (!client) {
+    return { valid: false, error: 'invalid_client' }
+  }
+
+  if (!client.active) {
+    return { valid: false, error: 'client_disabled' }
+  }
+
+  // Public clients (no secret) - allow for PKCE flows
+  if (!client.clientSecret) {
+    return { valid: true }
+  }
+
+  // Confidential clients must provide valid secret
+  if (!clientSecret) {
+    return { valid: false, error: 'client_secret_required' }
+  }
+
+  // Constant-time comparison to prevent timing attacks
+  const storedSecret = client.clientSecret
+  if (storedSecret.length !== clientSecret.length) {
+    return { valid: false, error: 'invalid_client_secret' }
+  }
+
+  let result = 0
+  for (let i = 0; i < storedSecret.length; i++) {
+    result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
+  }
+
+  if (result !== 0) {
+    return { valid: false, error: 'invalid_client_secret' }
+  }
+
+  return { valid: true }
 }
 
 export { getCQLClient, getCache }

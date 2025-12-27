@@ -337,7 +337,7 @@ async function checkDuplicate(hash: string): Promise<string | null> {
     [hash],
     CQL_DATABASE_ID,
   )
-  return result.rows[0]?.submission_id ?? null
+  return result.rows[0].submission_id ?? null
 }
 interface EncryptedReport {
   cid: string

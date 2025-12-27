@@ -517,7 +517,7 @@ export class ArbitrageDetector {
       },
     }
 
-    const tokenAddress = TOKEN_ADDRESSES[token]?.[chainId]
+    const tokenAddress = TOKEN_ADDRESSES[token][chainId]
     const usdcAddress = TOKEN_ADDRESSES.USDC[chainId]
 
     if (!tokenAddress || !usdcAddress) {

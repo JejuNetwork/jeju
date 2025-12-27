@@ -235,7 +235,7 @@ async function registerXLP(
     transport: http(sepoliaChain.rpc),
   })
 
-  const l1StakeManager = deployments[11155111]?.contracts.l1StakeManager
+  const l1StakeManager = deployments[11155111].contracts.l1StakeManager
   if (!l1StakeManager || l1StakeManager === zeroAddress) {
     error('L1StakeManager not deployed yet')
     return
@@ -281,7 +281,7 @@ async function depositXLPLiquidity(
 
   for (const chain of TESTNET_CHAINS.filter((c) => c.type === 'l2')) {
     const deployment = deployments[chain.chainId]
-    if (!deployment?.contracts.crossChainPaymaster) {
+    if (!deployment.contracts.crossChainPaymaster) {
       log(`Skipping ${chain.name} - no paymaster deployed`)
       continue
     }

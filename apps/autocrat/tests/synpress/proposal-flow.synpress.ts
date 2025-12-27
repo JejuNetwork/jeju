@@ -8,11 +8,12 @@
  * 4. Submit step - final review and submission
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import { connectAndVerify, test, walletPassword } from '@jejunetwork/tests'
 import { expect } from '@playwright/test'
 import { MetaMask } from '@synthetixio/synpress/playwright'
 
-const AUTOCRAT_URL = process.env.BASE_URL || 'http://localhost:3010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_WEB.get()}`
 
 // Sample proposal data
 const GOOD_PROPOSAL = {

@@ -220,7 +220,7 @@ function isNodeEnvironment(): boolean {
   return (
     typeof window === 'undefined' &&
     typeof globalThis.process !== 'undefined' &&
-    globalThis.process.versions?.node !== undefined
+    globalThis.process.versions.node !== undefined
   )
 }
 

@@ -271,7 +271,7 @@ describe('MLS Group', () => {
 
     const messages = await group.getMessages({ limit: 1 })
     expect(messages.length).toBe(1)
-    expect(messages[0]?.content).toBe('Hello, World!')
+    expect(messages[0].content).toBe('Hello, World!')
   })
 
   test('sends rich content', async () => {
@@ -352,7 +352,7 @@ describe('MLS Group', () => {
 
     const secondPage = await group.getMessages({
       limit: 2,
-      after: firstPage[1]?.id,
+      after: firstPage[1].id,
     })
     expect(secondPage.length).toBe(2)
   })

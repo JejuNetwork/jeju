@@ -562,11 +562,11 @@ export function createAtroposServer() {
       }
 
       const total = state.envs
-        .filter((x): x is EnvConfig => x?.connected)
+        .filter((x): x is EnvConfig => x.connected)
         .reduce((sum, x) => sum + x.max_context_len * Math.max(0, x.weight), 0)
 
       const currentEnv = state.envs[envId]
-      let envGroupSize = currentEnv?.group_size ?? 1
+      let envGroupSize = currentEnv.group_size ?? 1
       let envWeight =
         total > 0 && currentEnv
           ? (currentEnv.max_context_len * currentEnv.weight) / total

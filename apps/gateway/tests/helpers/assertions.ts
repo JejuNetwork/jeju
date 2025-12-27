@@ -61,10 +61,9 @@ export async function assertInfoMessage(page: Page, message: string) {
  */
 export async function waitForTransaction(page: Page, timeout: number = 30000) {
   // Wait for loading state to disappear
-  await page.waitForFunction(
-    () => !document.body.textContent?.includes('...'),
-    { timeout },
-  )
+  await page.waitForFunction(() => !document.body.textContent.includes('...'), {
+    timeout,
+  })
 }
 
 /**

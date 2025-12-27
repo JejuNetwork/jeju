@@ -4,7 +4,7 @@
  * Fetches perpetual market and position data from the blockchain
  */
 
-import { type Address, type PublicClient, createPublicClient, http } from 'viem'
+import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { getL2RpcUrl, PERPETUAL_MARKET_ADDRESS } from '../config'
 
 // Minimal ABI for reading PerpetualMarket contract
@@ -212,32 +212,33 @@ export async function fetchPerpsMarkets(): Promise<PerpsMarket[]> {
     if (!marketData[12]) continue // Skip inactive markets
 
     // Get prices and OI
-    const [markPrice, indexPrice, fundingRate, openInterest] = await Promise.all([
-      client.readContract({
-        address: PERPETUAL_MARKET_ADDRESS,
-        abi: perpetualMarketAbi,
-        functionName: 'getMarkPrice',
-        args: [marketId],
-      }) as Promise<bigint>,
-      client.readContract({
-        address: PERPETUAL_MARKET_ADDRESS,
-        abi: perpetualMarketAbi,
-        functionName: 'getIndexPrice',
-        args: [marketId],
-      }) as Promise<bigint>,
-      client.readContract({
-        address: PERPETUAL_MARKET_ADDRESS,
-        abi: perpetualMarketAbi,
-        functionName: 'getFundingRate',
-        args: [marketId],
-      }) as Promise<bigint>,
-      client.readContract({
-        address: PERPETUAL_MARKET_ADDRESS,
-        abi: perpetualMarketAbi,
-        functionName: 'getMarketOpenInterest',
-        args: [marketId],
-      }) as Promise<readonly [bigint, bigint]>,
-    ])
+    const [markPrice, indexPrice, fundingRate, openInterest] =
+      await Promise.all([
+        client.readContract({
+          address: PERPETUAL_MARKET_ADDRESS,
+          abi: perpetualMarketAbi,
+          functionName: 'getMarkPrice',
+          args: [marketId],
+        }) as Promise<bigint>,
+        client.readContract({
+          address: PERPETUAL_MARKET_ADDRESS,
+          abi: perpetualMarketAbi,
+          functionName: 'getIndexPrice',
+          args: [marketId],
+        }) as Promise<bigint>,
+        client.readContract({
+          address: PERPETUAL_MARKET_ADDRESS,
+          abi: perpetualMarketAbi,
+          functionName: 'getFundingRate',
+          args: [marketId],
+        }) as Promise<bigint>,
+        client.readContract({
+          address: PERPETUAL_MARKET_ADDRESS,
+          abi: perpetualMarketAbi,
+          functionName: 'getMarketOpenInterest',
+          args: [marketId],
+        }) as Promise<readonly [bigint, bigint]>,
+      ])
 
     markets.push({
       marketId,
@@ -264,7 +265,9 @@ export async function fetchPerpsMarkets(): Promise<PerpsMarket[]> {
 /**
  * Fetch trader's open positions
  */
-export async function fetchTraderPositions(trader: Address): Promise<PerpsPosition[]> {
+export async function fetchTraderPositions(
+  trader: Address,
+): Promise<PerpsPosition[]> {
   // Skip if no contract address configured
   if (
     !PERPETUAL_MARKET_ADDRESS ||

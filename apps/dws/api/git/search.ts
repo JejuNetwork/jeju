@@ -503,7 +503,7 @@ export class SearchManager {
         // Name contains query
         else if (repo.name.toLowerCase().includes(query)) score += 50
         // Description contains query
-        if (repo.description?.toLowerCase().includes(query)) score += 25
+        if (repo.description.toLowerCase().includes(query)) score += 25
       }
 
       // Factor in popularity

@@ -234,7 +234,7 @@ export class ExecutorSDK {
         BigInt(request.input.roomId),
         request.agentId,
         inferenceResult.content,
-        actions[0]?.type,
+        actions[0].type,
       )
       roomMessages.push(message)
     }
@@ -458,7 +458,7 @@ export class ExecutorSDK {
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
     })
-    const triggerId = receipt.logs[0]?.topics[1]
+    const triggerId = receipt.logs[0].topics[1]
     if (!triggerId) {
       throw new Error('Failed to extract trigger ID from transaction receipt')
     }
@@ -591,39 +591,117 @@ export class ExecutorSDK {
     return Promise.all(
       actions.map(async (action) => {
         const result = { ...action }
-        if (
-          action.type === 'POST_TO_ROOM' &&
-          roomId &&
-          action.params?.content
-        ) {
+        try {
+          const executed = await this.executeAction(agentId, action, roomId)
+          result.success = executed
+          if (!executed) {
+            this.log.warn('Action not executed - no handler found', {
+              action: action.type,
+              agentId: agentId.toString(),
+            })
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          this.log.error('Action execution failed', {
+            action: action.type,
+            error: errorMessage,
+          })
+          result.success = false
+        }
+        return result
+      }),
+    )
+  }
+
+  /**
+   * Execute a single action - handles built-in actions and routes others to plugins
+   */
+  private async executeAction(
+    agentId: bigint,
+    action: AgentAction,
+    roomId?: string,
+  ): Promise<boolean> {
+    const type = action.type.toUpperCase()
+
+    // Built-in crucible actions
+    switch (type) {
+      case 'POST_TO_ROOM':
+        if (roomId && action.params?.content) {
           await this.roomSdk.postMessage(
             BigInt(roomId),
             agentId,
             String(action.params.content),
           )
-          result.success = true
-        } else if (action.type === 'REMEMBER' && action.params?.content) {
+          return true
+        }
+        return false
+
+      case 'REMEMBER':
+        if (action.params?.content) {
           await this.agentSdk.addMemory(
             agentId,
             String(action.params.content),
-            { importance: 0.7 },
+            { importance: Number(action.params.importance ?? 0.7) },
           )
-          result.success = true
-        } else if (
-          action.type === 'UPDATE_SCORE' &&
-          roomId &&
-          action.params?.delta
-        ) {
+          return true
+        }
+        return false
+
+      case 'UPDATE_SCORE':
+        if (roomId && action.params?.delta) {
           await this.roomSdk.updateScore(
             BigInt(roomId),
             agentId,
             Number(action.params.delta),
           )
-          result.success = true
+          return true
         }
-        return result
-      }),
-    )
+        return false
+
+      case 'JOIN_ROOM':
+        if (action.params?.roomId) {
+          await this.roomSdk.joinRoom(BigInt(action.params.roomId), agentId)
+          return true
+        }
+        return false
+
+      case 'LEAVE_ROOM':
+        if (action.params?.roomId) {
+          await this.roomSdk.leaveRoom(BigInt(action.params.roomId), agentId)
+          return true
+        }
+        return false
+
+      case 'SET_PHASE':
+        if (roomId && action.params?.phase) {
+          await this.roomSdk.setPhase(
+            BigInt(roomId),
+            String(action.params.phase) as
+              | 'setup'
+              | 'active'
+              | 'paused'
+              | 'completed',
+          )
+          return true
+        }
+        return false
+
+      case 'FUND_VAULT':
+        if (action.params?.amount) {
+          await this.agentSdk.fundVault(agentId, BigInt(action.params.amount))
+          return true
+        }
+        return false
+
+      default:
+        // Action not handled - log it but don't fail silently
+        this.log.debug('Unhandled action type', {
+          type,
+          params: action.params,
+          hint: 'This action may need to be routed to the Jeju plugin runtime',
+        })
+        return false
+    }
   }
 
   private estimateCost(maxTokens: number = 2048): bigint {

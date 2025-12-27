@@ -28,82 +28,68 @@ async function _isDockerAvailable(): Promise<boolean> {
 
 const SKIP_DOCKER_TESTS = !process.env.CONTAINER_REGISTRY_ADDRESS
 
-// Types
-import type {
-  ComputeNode,
-  ContainerResources,
-  ExecutionRequest,
-} from '../api/containers/types'
-
-// Executor
 import {
-  calculateCost,
-  executeContainer,
-  executeBatch,
-  estimateCost,
-  getExecutorStats,
-  cleanup as cleanupExecutor,
-} from '../api/containers/executor'
-
-// Image Cache
-import {
+  acquireWarmInstance,
+  addInstance,
   analyzeDeduplication,
+  type ComputeNode,
+  // Types
+  type ContainerResources,
   cacheLayer,
+  calculateCost,
+  cleanupAllPools,
+  cleanupExecutor,
+  cleanupPool,
   clearCache,
+  type ExecutionRequest,
+  estimateCost,
+  executeBatch,
+  // Executor
+  executeContainer,
+  findNearestRegion,
+  // Image Cache
   getCachedLayer,
   getCacheStats,
-  invalidateLayer,
-  recordCacheHit,
-  recordCacheMiss,
-} from '../api/containers/image-cache'
-
-// Scheduler
-import {
-  findNearestRegion,
+  getExecutorStats,
+  getInstance,
   getNode,
   getNodesByRegion,
+  // Warm Pool
+  getOrCreatePool,
+  getPoolStats,
   getSchedulerStats,
+  invalidateLayer,
+  onContainerEvent,
+  recordCacheHit,
+  recordCacheMiss,
+  // Scheduler
   registerNode,
+  releaseInstance,
   releaseReservation,
   removeNode,
   reserveResources,
   scheduleExecution,
-  updateNodeResources,
-} from '../api/containers/scheduler'
-
-// Warm Pool
-import {
-  acquireWarmInstance,
-  addInstance,
-  cleanupAllPools,
-  cleanupPool,
-  getInstance,
-  getOrCreatePool,
-  getPoolStats,
-  onContainerEvent,
-  releaseInstance,
   updateInstanceState,
-} from '../api/containers/warm-pool'
+  updateNodeResources,
+} from '../api/containers'
 
 const TEST_USER: Address = '0x1234567890123456789012345678901234567890'
 const TEST_IMAGE_DIGEST = 'sha256:abc123def456789'
 
-// Image Cache Tests (require CQL tables)
-// Skip these tests if CQL isn't properly configured with tables
-const CQL_CONFIGURED = process.env.CQL_TABLES_READY === 'true'
+// Image Cache Tests
 
-describe.skipIf(!CQL_CONFIGURED)('Image Cache', () => {
-  beforeEach(async () => {
-    await clearCache()
+describe('Image Cache', () => {
+  beforeEach(() => {
+    clearCache()
   })
 
-  test('should cache and retrieve layers', async () => {
+  test('should cache and retrieve layers', () => {
     const digest = 'sha256:layer1'
     const cid = 'QmTestCid123'
     const size = 50 * 1024 * 1024 // 50MB
     const path = '/var/cache/layers/layer1'
 
-    const cached = await cacheLayer(digest, cid, size, path)
+    const cached = cacheLayer(digest, cid, size, path)
 
     expect(cached.digest).toBe(digest)
     expect(cached.cid).toBe(cid)
@@ -111,39 +97,39 @@ describe.skipIf(!CQL_CONFIGURED)('Image Cache', () => {
     expect(cached.hitCount).toBe(0)
 
     // Retrieve
-    const retrieved = await getCachedLayer(digest)
+    const retrieved = getCachedLayer(digest)
     expect(retrieved).toBeDefined()
     expect(retrieved?.hitCount).toBe(1)
   })
 
-  test('should track cache hits and misses', async () => {
-    await recordCacheHit()
-    await recordCacheHit()
-    await recordCacheMiss()
+  test('should track cache hits and misses', () => {
+    recordCacheHit()
+    recordCacheHit()
+    recordCacheMiss()
 
-    const stats = await getCacheStats()
+    const stats = getCacheStats()
     expect(stats.totalHits).toBe(2)
     expect(stats.totalMisses).toBe(1)
     expect(stats.hitRate).toBe(66.67)
   })
 
-  test('should invalidate layers', async () => {
+  test('should invalidate layers', () => {
     const digest = 'sha256:todelete'
-    await cacheLayer(digest, 'QmTest', 1024, '/path')
+    cacheLayer(digest, 'QmTest', 1024, '/path')
 
-    expect(await getCachedLayer(digest)).toBeDefined()
+    expect(getCachedLayer(digest)).toBeDefined()
 
-    const removed = await invalidateLayer(digest)
+    const removed = invalidateLayer(digest)
     expect(removed).toBe(true)
-    expect(await getCachedLayer(digest)).toBeNull()
+    expect(getCachedLayer(digest)).toBeNull()
   })
 
-  test('should analyze deduplication', async () => {
+  test('should analyze deduplication', () => {
     // Cache some layers
-    await cacheLayer('sha256:base', 'QmBase', 100 * 1024 * 1024, '/base')
-    await cacheLayer('sha256:app', 'QmApp', 50 * 1024 * 1024, '/app')
+    cacheLayer('sha256:base', 'QmBase', 100 * 1024 * 1024, '/base')
+    cacheLayer('sha256:app', 'QmApp', 50 * 1024 * 1024, '/app')
 
-    const analysis = await analyzeDeduplication()
+    const analysis = analyzeDeduplication()
     expect(analysis).toBeDefined()
     expect(analysis.deduplicationRatio).toBeGreaterThanOrEqual(0)
   })
@@ -375,8 +361,8 @@ describe('Executor', () => {
     expect(costWithCold).toBeGreaterThan(costWarm)
   })
 
-  test('should get executor stats', async () => {
-    const stats = await getExecutorStats()
+  test('should get executor stats', () => {
+    const stats = getExecutorStats()
 
     expect(stats).toBeDefined()
     expect(stats.pendingExecutions).toBeGreaterThanOrEqual(0)

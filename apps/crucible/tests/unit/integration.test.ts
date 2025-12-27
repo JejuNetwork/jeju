@@ -210,8 +210,8 @@ describe.skipIf(SKIP)('Integration Tests', () => {
       expect(cid).toMatch(/^Qm|^bafy/)
 
       const loaded = await storage.loadCharacter(cid)
-      expect(loaded.id).toBe(character?.id)
-      expect(loaded.name).toBe(character?.name)
+      expect(loaded.id).toBe(character.id)
+      expect(loaded.name).toBe(character.name)
     })
 
     test('should store and retrieve agent state from IPFS', async () => {

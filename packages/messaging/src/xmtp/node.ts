@@ -581,7 +581,7 @@ export class JejuXMTPNode {
       envelope.id &&
       envelope.sender &&
       envelope.recipients.length &&
-      envelope.ciphertext?.length
+      envelope.ciphertext.length
     )
   }
 

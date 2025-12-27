@@ -331,7 +331,7 @@ export function ChatInterface({
   // Handle action confirmation
   const handleConfirm = useCallback(
     (message: Message) => {
-      if (message.metadata?.actionType && message.metadata?.actionData) {
+      if (message.metadata?.actionType && message.metadata.actionData) {
         onActionConfirmed?.(
           message.metadata.actionType,
           message.metadata.actionData,

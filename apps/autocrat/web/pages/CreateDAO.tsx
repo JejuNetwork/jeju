@@ -109,7 +109,12 @@ interface AgentFormProps {
   onRemove?: () => void
 }
 
-function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps) {
+function AgentForm({
+  agent,
+  onChange,
+  isCEO = false,
+  onRemove,
+}: AgentFormProps) {
   const [expanded, setExpanded] = useState(true)
   const preset = BOARD_ROLE_PRESETS[agent.role]
 
@@ -131,13 +136,13 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
     onChange({ ...agent, values: agent.values.filter((_, i) => i !== index) })
   }
 
-  const addTrait = (trait: string) => {
+  const _addTrait = (trait: string) => {
     if (trait && !agent.persona.traits.includes(trait)) {
       updatePersona({ traits: [...agent.persona.traits, trait] })
     }
   }
 
-  const removeTrait = (trait: string) => {
+  const _removeTrait = (trait: string) => {
     updatePersona({ traits: agent.persona.traits.filter((t) => t !== trait) })
   }
 
@@ -199,10 +204,14 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
           {/* Role Selection (for non-CEO) */}
           {!isCEO && (
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor={`role-${agent.persona.name}`}
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Role
               </label>
               <select
+                id={`role-${agent.persona.name}`}
                 value={agent.role}
                 onChange={(e) => {
                   const newRole = e.target.value as AgentRole
@@ -241,24 +250,34 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`agent-name-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Agent Name
             </label>
             <input
+              id={`agent-name-${isCEO ? 'ceo' : 'board'}`}
               type="text"
               value={agent.persona.name}
               onChange={(e) => updatePersona({ name: e.target.value })}
-              placeholder={isCEO ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`}
+              placeholder={
+                isCEO ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`
+              }
               className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
             />
           </div>
 
           {/* Bio */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`agent-bio-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Bio
             </label>
             <textarea
+              id={`agent-bio-${isCEO ? 'ceo' : 'board'}`}
               value={agent.persona.bio}
               onChange={(e) => updatePersona({ bio: e.target.value })}
               placeholder="Brief description of this agent's purpose and focus"
@@ -269,10 +288,14 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
 
           {/* Personality */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`agent-personality-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Personality
             </label>
             <textarea
+              id={`agent-personality-${isCEO ? 'ceo' : 'board'}`}
               value={agent.persona.personality}
               onChange={(e) => updatePersona({ personality: e.target.value })}
               placeholder="Describe the agent's personality traits and approach"
@@ -283,9 +306,9 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
 
           {/* Model */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <span className="block text-sm font-medium text-slate-300 mb-2">
               AI Model
-            </label>
+            </span>
             <div className="grid grid-cols-2 gap-2">
               {MODEL_OPTIONS.map((model) => {
                 const isSelected = agent.modelId === model.id
@@ -314,9 +337,9 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
 
           {/* Decision Style */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <span className="block text-sm font-medium text-slate-300 mb-2">
               Decision Style
-            </label>
+            </span>
             <div className="flex gap-2">
               {DECISION_STYLE_OPTIONS.map((style) => {
                 const isSelected = agent.decisionStyle === style.value
@@ -349,10 +372,14 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
 
           {/* Communication Tone */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor={`comm-tone-${isCEO ? 'ceo' : 'board'}`}
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Communication Tone
             </label>
             <select
+              id={`comm-tone-${isCEO ? 'ceo' : 'board'}`}
               value={agent.persona.communicationTone}
               onChange={(e) =>
                 updatePersona({
@@ -371,10 +398,10 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
 
           {/* Values */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <span className="block text-sm font-medium text-slate-300 mb-2">
               <Heart className="w-4 h-4 inline mr-1" />
               Core Values
-            </label>
+            </span>
             <div className="space-y-2">
               {agent.values.map((value, index) => (
                 <div key={index} className="flex gap-2">
@@ -410,17 +437,24 @@ function AgentForm({ agent, onChange, isCEO = false, onRemove }: AgentFormProps)
           {/* Weight (for non-CEO) */}
           {!isCEO && (
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor={`weight-${agent.persona.name}`}
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Voting Weight ({agent.weight}%)
               </label>
               <input
+                id={`weight-${agent.persona.name}`}
                 type="range"
                 min="5"
                 max="50"
                 step="5"
                 value={agent.weight}
                 onChange={(e) =>
-                  onChange({ ...agent, weight: Number.parseInt(e.target.value) })
+                  onChange({
+                    ...agent,
+                    weight: Number.parseInt(e.target.value, 10),
+                  })
                 }
                 className="w-full"
               />
@@ -539,7 +573,10 @@ export default function CreateDAOPage() {
       case 'ceo':
         return ceo.persona.name.trim().length >= 2
       case 'board':
-        return board.length >= 3 && board.every((b) => b.persona.name.trim().length >= 2)
+        return (
+          board.length >= 3 &&
+          board.every((b) => b.persona.name.trim().length >= 2)
+        )
       case 'governance':
         return true
       case 'review':
@@ -617,23 +654,27 @@ export default function CreateDAOPage() {
         {step === 'basics' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                DAO Basics
-              </h2>
+              <h2 className="text-2xl font-bold text-white mb-2">DAO Basics</h2>
               <p className="text-slate-400">
                 Set up the fundamental identity of your DAO.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-slug"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Slug / Username
               </label>
               <input
+                id="dao-slug"
                 type="text"
                 value={name}
                 onChange={(e) =>
-                  setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
+                  setName(
+                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                  )
                 }
                 placeholder="my-dao"
                 className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500"
@@ -644,10 +685,14 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-display-name"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Display Name
               </label>
               <input
+                id="dao-display-name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -657,10 +702,14 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-description"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Description
               </label>
               <textarea
+                id="dao-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What does your DAO do? What is its mission?"
@@ -670,11 +719,15 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="dao-farcaster"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 <MessageSquare className="w-4 h-4 inline mr-1" />
                 Farcaster Channel (optional)
               </label>
               <input
+                id="dao-farcaster"
                 type="text"
                 value={farcasterChannel}
                 onChange={(e) => setFarcasterChannel(e.target.value)}
@@ -687,9 +740,9 @@ export default function CreateDAOPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <span className="block text-sm font-medium text-slate-300 mb-2">
                 Tags
-              </label>
+              </span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {tags.map((tag) => (
                   <span
@@ -736,8 +789,8 @@ export default function CreateDAOPage() {
                 Configure CEO
               </h2>
               <p className="text-slate-400">
-                The CEO is the final decision maker for your DAO. Configure their
-                personality, values, and decision-making style.
+                The CEO is the final decision maker for your DAO. Configure
+                their personality, values, and decision-making style.
               </p>
             </div>
 
@@ -765,7 +818,9 @@ export default function CreateDAOPage() {
                   agent={agent}
                   onChange={(a) => updateBoardMember(index, a)}
                   onRemove={
-                    board.length > 3 ? () => removeBoardMember(index) : undefined
+                    board.length > 3
+                      ? () => removeBoardMember(index)
+                      : undefined
                   }
                 />
               ))}
@@ -797,10 +852,14 @@ export default function CreateDAOPage() {
             <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="min-quality-score"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Min Quality Score
                   </label>
                   <input
+                    id="min-quality-score"
                     type="number"
                     min="0"
                     max="100"
@@ -808,17 +867,21 @@ export default function CreateDAOPage() {
                     onChange={(e) =>
                       setGovernanceParams({
                         ...governanceParams,
-                        minQualityScore: Number.parseInt(e.target.value),
+                        minQualityScore: Number.parseInt(e.target.value, 10),
                       })
                     }
                     className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="min-board-approvals"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Min Board Approvals
                   </label>
                   <input
+                    id="min-board-approvals"
                     type="number"
                     min="1"
                     max={board.length}
@@ -826,17 +889,21 @@ export default function CreateDAOPage() {
                     onChange={(e) =>
                       setGovernanceParams({
                         ...governanceParams,
-                        minBoardApprovals: Number.parseInt(e.target.value),
+                        minBoardApprovals: Number.parseInt(e.target.value, 10),
                       })
                     }
                     className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="voting-period"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Voting Period (days)
                   </label>
                   <input
+                    id="voting-period"
                     type="number"
                     min="1"
                     max="30"
@@ -845,17 +912,21 @@ export default function CreateDAOPage() {
                       setGovernanceParams({
                         ...governanceParams,
                         councilVotingPeriod:
-                          Number.parseInt(e.target.value) * 86400,
+                          Number.parseInt(e.target.value, 10) * 86400,
                       })
                     }
                     className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-violet-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="min-proposal-stake"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Min Proposal Stake (ETH)
                   </label>
                   <input
+                    id="min-proposal-stake"
                     type="text"
                     value={governanceParams.minProposalStake}
                     onChange={(e) =>
@@ -956,11 +1027,8 @@ export default function CreateDAOPage() {
                       {ceo.persona.name}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {
-                        MODEL_OPTIONS.find((m) => m.id === ceo.modelId)
-                          ?.name
-                      }{' '}
-                      • {ceo.decisionStyle}
+                      {MODEL_OPTIONS.find((m) => m.id === ceo.modelId)?.name} •{' '}
+                      {ceo.decisionStyle}
                     </p>
                   </div>
                 </div>

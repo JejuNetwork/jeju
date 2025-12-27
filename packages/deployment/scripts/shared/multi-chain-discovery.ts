@@ -418,7 +418,7 @@ export class MultiChainDiscovery {
 
     for (const [symbol, balances] of all.byToken) {
       const totalBalance = balances.reduce((sum, b) => sum + b.balance, 0n)
-      const decimals = balances[0]?.decimals ?? 18
+      const decimals = balances[0].decimals ?? 18
 
       topTokens.push({
         symbol,

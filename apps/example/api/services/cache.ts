@@ -4,7 +4,11 @@
  * Uses the DWS serverless cache service for distributed caching.
  */
 
-import { getCacheNamespace, getDwsCacheEndpoint, getDWSUrl } from '@jejunetwork/config'
+import {
+  getCacheNamespace,
+  getDWSUrl,
+  getDwsCacheEndpoint,
+} from '@jejunetwork/config'
 
 const DWS_CACHE_ENDPOINT = getDwsCacheEndpoint() ?? `${getDWSUrl()}/cache`
 const CACHE_NAMESPACE = getCacheNamespace()

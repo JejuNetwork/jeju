@@ -66,7 +66,9 @@ const CHAINS = (
     if (!rpcUrl) return null
     return { chainId: id, name: getChainName(id), rpcUrl }
   })
-  .filter((c): c is { chainId: number; name: string; rpcUrl: string } => c !== null)
+  .filter(
+    (c): c is { chainId: number; name: string; rpcUrl: string } => c !== null,
+  )
 
 const CONFIG = {
   chains: CHAINS,

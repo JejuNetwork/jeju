@@ -83,7 +83,7 @@ function getDatabase(env: BazaarEnv): CQLClient {
   if (dbClient) return dbClient
 
   const blockProducerEndpoint =
-    env.COVENANTSQL_NODES?.split(',')[0] || getCQLBlockProducerUrl()
+    env.COVENANTSQL_NODES.split(',')[0] || getCQLBlockProducerUrl()
   const databaseId = env.COVENANTSQL_DATABASE_ID
 
   dbClient = getCQL({

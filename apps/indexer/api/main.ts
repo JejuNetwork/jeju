@@ -13,6 +13,8 @@ import {
   ContractType,
   DecodedEvent,
   Log as LogEntity,
+  NFTApprovalEvent,
+  TokenApprovalEvent,
   TokenBalance,
   TokenStandard,
   TokenTransfer,
@@ -23,7 +25,9 @@ import {
 } from '../src/model'
 import { processComputeEvents } from './compute-processor'
 import {
+  ERC20_APPROVAL,
   ERC20_TRANSFER,
+  ERC721_APPROVAL_FOR_ALL,
   ERC1155_TRANSFER_BATCH,
   ERC1155_TRANSFER_SINGLE,
   getEventCategory,
@@ -73,6 +77,8 @@ processor.run(
     const logs: LogEntity[] = []
     const decodedEvents: DecodedEvent[] = []
     const tokenTransfers: TokenTransfer[] = []
+    const tokenApprovals: TokenApprovalEvent[] = []
+    const nftApprovals: NFTApprovalEvent[] = []
     const traces: TraceEntity[] = []
     const accounts = new Map<string, Account>()
     const contracts = new Map<string, Contract>()
@@ -492,6 +498,120 @@ processor.run(
               timestamp: blockEntity.timestamp,
             }),
           )
+        } else if (eventSig === ERC20_APPROVAL && log.data) {
+          // ERC20 Approval(owner, spender, value)
+          if (log.topics.length === 3) {
+            const ownerAddr = `0x${log.topics[1].slice(26)}`
+            const spenderAddr = `0x${log.topics[2].slice(26)}`
+            const value = BigInt(log.data)
+
+            const ownerAcc = getOrCreateAccount(
+              ownerAddr,
+              header.height,
+              blockTimestamp,
+            )
+            const spenderAcc = getOrCreateAccount(
+              spenderAddr,
+              header.height,
+              blockTimestamp,
+            )
+
+            tokenApprovals.push(
+              new TokenApprovalEvent({
+                id: logEntity.id,
+                owner: ownerAcc,
+                spender: spenderAcc,
+                token: contractEntity,
+                value,
+                isRevoke: value === 0n,
+                block: blockEntity,
+                transaction: txEntity,
+                timestamp: blockTimestamp,
+                chainId: parseInt(process.env.CHAIN_ID ?? '420691', 10),
+              }),
+            )
+
+            decodedEvents.push(
+              new DecodedEvent({
+                id: logEntity.id,
+                log: logEntity,
+                block: blockEntity,
+                transaction: txEntity,
+                address: addressAccount,
+                eventSignature: eventSig,
+                eventName: 'Approval',
+                args: {
+                  owner: ownerAddr,
+                  spender: spenderAddr,
+                  value: value.toString(),
+                },
+                timestamp: blockEntity.timestamp,
+              }),
+            )
+          }
+        } else if (eventSig === ERC721_APPROVAL_FOR_ALL) {
+          // ERC721/ERC1155 ApprovalForAll(owner, operator, approved)
+          if (log.topics.length === 3 && log.data) {
+            const ownerAddr = `0x${log.topics[1].slice(26)}`
+            const operatorAddr = `0x${log.topics[2].slice(26)}`
+            const approved = log.data.slice(-1) === '1'
+
+            const ownerAcc = getOrCreateAccount(
+              ownerAddr,
+              header.height,
+              blockTimestamp,
+            )
+            const operatorAcc = getOrCreateAccount(
+              operatorAddr,
+              header.height,
+              blockTimestamp,
+            )
+
+            // Determine if this is ERC721 or ERC1155 based on contract
+            const tokenStandard = contractEntity.isERC1155
+              ? TokenStandard.ERC1155
+              : TokenStandard.ERC721
+
+            if (!contractEntity.isERC1155) {
+              contractEntity.isERC721 = true
+              contractEntity.contractType = ContractType.ERC721
+            }
+
+            nftApprovals.push(
+              new NFTApprovalEvent({
+                id: logEntity.id,
+                owner: ownerAcc,
+                operator: operatorAcc,
+                token: contractEntity,
+                tokenId: null,
+                approved,
+                isApprovalForAll: true,
+                tokenStandard,
+                block: blockEntity,
+                transaction: txEntity,
+                timestamp: blockTimestamp,
+                chainId: parseInt(process.env.CHAIN_ID ?? '420691', 10),
+              }),
+            )
+
+            decodedEvents.push(
+              new DecodedEvent({
+                id: logEntity.id,
+                log: logEntity,
+                block: blockEntity,
+                transaction: txEntity,
+                address: addressAccount,
+                eventSignature: eventSig,
+                eventName: 'ApprovalForAll',
+                args: {
+                  owner: ownerAddr,
+                  operator: operatorAddr,
+                  approved: approved.toString(),
+                },
+                timestamp: blockEntity.timestamp,
+              }),
+            )
+          }
         } else if (eventCategory) {
           const args: Record<string, string> = {
             category: eventCategory.category,
@@ -601,12 +721,13 @@ processor.run(
       }
     }
 
-    const startBlock = ctx.blocks[0]?.header.height
-    const endBlock = ctx.blocks[ctx.blocks.length - 1]?.header.height
+    const startBlock = ctx.blocks[0].header.height
+    const endBlock = ctx.blocks[ctx.blocks.length - 1].header.height
     ctx.log.info(
       `Processed blocks ${startBlock}-${endBlock}: ` +
         `${blocks.length} blocks, ${transactions.length} txs, ${logs.length} logs, ` +
-        `${tokenTransfers.length} transfers, ${decodedEvents.length} decoded events, ` +
+        `${tokenTransfers.length} transfers, ${tokenApprovals.length} token approvals, ` +
+        `${nftApprovals.length} NFT approvals, ${decodedEvents.length} decoded events, ` +
         `${contracts.size} contracts, ${accounts.size} accounts, ${traces.length} traces, ` +
         `${tokenBalances.size} balances`,
     )
@@ -618,6 +739,8 @@ processor.run(
     await ctx.store.insert(logs)
     await ctx.store.insert(decodedEvents)
     await ctx.store.insert(tokenTransfers)
+    await ctx.store.insert(tokenApprovals)
+    await ctx.store.insert(nftApprovals)
     await ctx.store.upsert([...tokenBalances.values()])
     await ctx.store.insert(traces)
 

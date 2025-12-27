@@ -32,7 +32,7 @@ export async function waitForTxAndParseLog<T>(
         // Event args can be array (positional) or object (named)
         // Convert to record for consistent handling
         const args: Record<string, unknown> = Array.isArray(decoded.args)
-          ? decoded.args.reduce((acc, val, idx) => ({ ...acc, [idx]: val }), {})
+          ? Object.fromEntries(decoded.args.map((val, idx) => [idx, val]))
           : (decoded.args ?? {})
         return {
           receipt,

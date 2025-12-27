@@ -86,7 +86,7 @@ class JNSServiceImpl implements JNSService {
     if (error)
       throw new JNSError(`JNS availability check failed: ${error}`, 500)
     expectValid(jnsAvailableResponseSchema, data, 'JNS available response')
-    return data?.available ?? false
+    return data.available ?? false
   }
 
   async register(
@@ -194,7 +194,7 @@ class JNSServiceImpl implements JNSService {
     if (error) throw new JNSError(`JNS price check failed: ${error}`, 500)
 
     expectValid(jnsPriceResponseSchema, data, 'JNS price response')
-    return BigInt(data?.price ?? '0')
+    return BigInt(data.price ?? '0')
   }
 }
 

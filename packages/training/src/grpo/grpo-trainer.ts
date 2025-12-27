@@ -130,7 +130,7 @@ function padToGoodOffset(
 
     if (item.overrides) {
       for (let i = 0; i < item.overrides.length; i++) {
-        if (item.overrides[i]?.set_advantage_to_zero) {
+        if (item.overrides[i].set_advantage_to_zero) {
           scores[i] = 0
         }
       }
@@ -321,16 +321,24 @@ export class GRPOTrainer {
     }
   }
 
-  async saveCheckpoint(step: number): Promise<string> {
+  /**
+   * Save checkpoint metadata marker.
+   *
+   * NOTE: This only saves metadata about the checkpoint step.
+   * Actual model weights are saved by the Python trainer via vLLM.
+   * The Python trainer should be configured to save to the same checkpointPath.
+   */
+  async saveCheckpointMarker(step: number): Promise<string> {
     const checkpointPath = `${this.config.savePath}/step_${step}`
-    console.log(`[GRPO] Saving checkpoint to ${checkpointPath}`)
+    console.log(`[GRPO] Saving checkpoint marker to ${checkpointPath}`)
 
     await Bun.write(
-      `${checkpointPath}/checkpoint.json`,
+      `${checkpointPath}/checkpoint_marker.json`,
       JSON.stringify({
         step,
         modelName: this.config.modelName,
         timestamp: Date.now(),
+        note: 'Model weights saved by Python trainer',
       }),
     )
 
@@ -468,7 +476,7 @@ export class GRPOTrainer {
         (step + 1) % this.config.vllmRestartInterval === 0 ||
         step === this.config.trainingSteps - 1
       ) {
-        const checkpointPath = await this.saveCheckpoint(step + 1)
+        const checkpointPath = await this.saveCheckpointMarker(step + 1)
         await this.startVllm(checkpointPath)
       }
 

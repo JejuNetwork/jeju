@@ -2,10 +2,11 @@
  * Council Agents Tests - Council operations and agent functionality
  */
 
+import { CORE_PORTS } from '@jejunetwork/config'
 import type { JsonObject, JsonValue } from '@jejunetwork/types'
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_URL = 'http://localhost:8010'
+const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
 
 interface A2ADataPart {
   kind: 'data'

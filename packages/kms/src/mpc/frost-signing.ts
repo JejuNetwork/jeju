@@ -460,4 +460,29 @@ export class FROSTCoordinator {
   getAddress(): Address {
     return this.cluster.groupAddress
   }
+
+  /**
+   * Securely clean up all sensitive data.
+   * SECURITY: Should be called before the coordinator is garbage collected.
+   */
+  shutdown(): void {
+    // Zero out secret shares (bigint is immutable, but we can overwrite the map entries)
+    for (const [index, share] of this.keyShares) {
+      // Create a zeroed share to overwrite
+      this.keyShares.set(index, {
+        ...share,
+        secretShare: 0n,
+      })
+    }
+    this.keyShares.clear()
+
+    // Clear cluster parties
+    for (const party of this.cluster.parties) {
+      party.keyShare = {
+        ...party.keyShare,
+        secretShare: 0n,
+      }
+    }
+    this.cluster.parties = []
+  }
 }

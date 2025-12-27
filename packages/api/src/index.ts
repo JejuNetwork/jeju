@@ -96,6 +96,11 @@ export {
   resetRateLimiter,
 } from './rate-limiting/core.js'
 export {
+  CQLRateLimitStore,
+  type CQLRateLimitStoreConfig,
+  createCQLRateLimitStore,
+} from './rate-limiting/cql-store.js'
+export {
   type RateLimitContext,
   type RateLimitPluginConfig,
   rateLimitPlugin,

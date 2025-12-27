@@ -24,9 +24,7 @@ import {
   Network,
   Package,
   Radio,
-  Rocket,
   Search,
-  Server,
   Settings,
   Shield,
   Sparkles,
@@ -59,40 +57,6 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: 'Apps',
-    items: [
-      {
-        id: 'deployments',
-        label: 'Deployments',
-        icon: <Rocket size={20} />,
-        path: '/apps/deployments',
-      },
-      {
-        id: 'domains',
-        label: 'Domains',
-        icon: <Globe size={20} />,
-        path: '/domains',
-      },
-      {
-        id: 'functions',
-        label: 'Edge Functions',
-        icon: <Zap size={20} />,
-        path: '/functions',
-      },
-    ],
-  },
-  {
-    title: 'Infrastructure',
-    items: [
-      {
-        id: 'nodes',
-        label: 'Nodes',
-        icon: <Server size={20} />,
-        path: '/nodes',
-      },
-    ],
-  },
-  {
     title: 'Compute',
     items: [
       {
@@ -104,7 +68,7 @@ const NAV_SECTIONS: NavSection[] = [
       {
         id: 'workers',
         label: 'Workers',
-        icon: <Cpu size={20} />,
+        icon: <Zap size={20} />,
         path: '/compute/workers',
       },
       {
@@ -278,12 +242,6 @@ const NAV_SECTIONS: NavSection[] = [
         label: 'Browse APIs',
         icon: <Store size={20} />,
         path: '/marketplace/browse',
-      },
-      {
-        id: 'marketplace-jobs',
-        label: 'Compute Jobs',
-        icon: <Cpu size={20} />,
-        path: '/marketplace/jobs',
       },
       {
         id: 'listings',

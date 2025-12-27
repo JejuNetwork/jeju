@@ -10,6 +10,7 @@
  * - IPFS storage for credentials
  */
 
+import { HexSchema } from '@jejunetwork/types'
 import { type Address, type Hex, toHex } from 'viem'
 import { z } from 'zod'
 
@@ -116,6 +117,19 @@ export interface LinkOptions {
 export interface SignMessageOptions {
   message: string | Uint8Array
   useSessionKey?: boolean
+}
+
+export interface SignTypedDataOptions {
+  domain: {
+    name?: string
+    version?: string
+    chainId?: number
+    verifyingContract?: Address
+    salt?: Hex
+  }
+  types: Record<string, Array<{ name: string; type: string }>>
+  primaryType: string
+  message: Record<string, unknown>
 }
 
 export interface TransactionOptions {
@@ -328,7 +342,7 @@ export class OAuth3Client {
     // If discovery fails (missing contracts, unregistered app), fall back to centralized mode
     if (this.discovery && !this.currentNode && !this.config.teeAgentUrl) {
       try {
-      await this.initialize()
+        await this.initialize()
       } catch (err) {
         console.debug(
           '[OAuth3] Decentralized discovery failed, falling back to centralized mode:',
@@ -632,6 +646,84 @@ export class OAuth3Client {
       'sign response',
     )
     return signature
+  }
+
+  /**
+   * Sign EIP-712 typed data
+   */
+  async signTypedData(options: SignTypedDataOptions): Promise<Hex> {
+    if (!this.session) {
+      throw new Error('Not logged in')
+    }
+
+    const teeAgentUrl = this.getTeeAgentUrl()
+
+    const response = await fetch(`${teeAgentUrl}/sign/typed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: this.session.sessionId,
+        domain: options.domain,
+        types: options.types,
+        primaryType: options.primaryType,
+        message: options.message,
+      }),
+    })
+
+    if (!response.ok) {
+      // Try failover
+      if (this.discovery) {
+        await this.failoverToNextNode()
+        return this.signTypedData(options)
+      }
+      throw new Error(`Typed data signing failed: ${response.status}`)
+    }
+
+    const { signature } = validateResponse(
+      SignResponseSchema,
+      await response.json(),
+      'typed data sign response',
+    )
+    return signature
+  }
+
+  /**
+   * Send a transaction via the smart account
+   */
+  async sendTransaction(options: TransactionOptions): Promise<Hex> {
+    if (!this.session) {
+      throw new Error('Not logged in')
+    }
+
+    const teeAgentUrl = this.getTeeAgentUrl()
+
+    const response = await fetch(`${teeAgentUrl}/transaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: this.session.sessionId,
+        to: options.to,
+        value: options.value?.toString(),
+        data: options.data,
+        gasLimit: options.gasLimit?.toString(),
+      }),
+    })
+
+    if (!response.ok) {
+      // Try failover
+      if (this.discovery) {
+        await this.failoverToNextNode()
+        return this.sendTransaction(options)
+      }
+      throw new Error(`Transaction failed: ${response.status}`)
+    }
+
+    const result = validateResponse(
+      z.object({ txHash: HexSchema }),
+      await response.json(),
+      'transaction response',
+    )
+    return result.txHash
   }
 
   async issueCredential(

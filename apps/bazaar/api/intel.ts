@@ -158,7 +158,7 @@ Return ONLY a valid JSON array with objects having these fields:
   const data = (await response.json()) as {
     choices: Array<{ message: { content: string } }>
   }
-  const content = data.choices[0]?.message?.content
+  const content = data.choices[0].message.content
   if (!content) {
     logger.warn('[Intel] AI returned empty content')
     return generateRuleBasedInsights(context)
@@ -236,7 +236,7 @@ function generateRuleBasedInsights(context: InsightContext): MarketInsight[] {
   }
 
   const topGainer = context.gainers[0]
-  if (topGainer?.priceChange24h && topGainer.priceChange24h > 10) {
+  if (topGainer.priceChange24h && topGainer.priceChange24h > 10) {
     insights.push({
       id: `gainer-${now}`,
       type: 'opportunity',
@@ -249,7 +249,7 @@ function generateRuleBasedInsights(context: InsightContext): MarketInsight[] {
   }
 
   const topLoser = context.losers[0]
-  if (topLoser?.priceChange24h && topLoser.priceChange24h < -15) {
+  if (topLoser.priceChange24h && topLoser.priceChange24h < -15) {
     insights.push({
       id: `loser-${now}`,
       type: 'alert',

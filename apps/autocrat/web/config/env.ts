@@ -43,5 +43,5 @@ export const WALLETCONNECT_PROJECT_ID =
   NETWORK === 'localnet'
     ? ''
     : (typeof process !== 'undefined' &&
-        process.env?.PUBLIC_WALLETCONNECT_PROJECT_ID) ||
+        process.env.PUBLIC_WALLETCONNECT_PROJECT_ID) ||
       ''

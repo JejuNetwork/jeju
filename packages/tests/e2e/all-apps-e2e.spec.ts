@@ -15,10 +15,10 @@
  *   jeju test e2e --mode full
  */
 
-import { test, expect } from '@playwright/test'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { runFullAppCrawl, type CrawlResult } from './full-app-crawler'
+import { expect, test } from '@playwright/test'
+import { type CrawlResult, runFullAppCrawl } from './full-app-crawler'
 
 // App manifest schema for type safety
 interface AppManifest {
@@ -39,7 +39,9 @@ interface AppManifest {
 }
 
 // Discover all apps
-function discoverApps(rootDir: string): Array<{ name: string; port: number; manifest: AppManifest }> {
+function discoverApps(
+  rootDir: string,
+): Array<{ name: string; port: number; manifest: AppManifest }> {
   const appsDir = join(rootDir, 'apps')
   const apps: Array<{ name: string; port: number; manifest: AppManifest }> = []
 
@@ -54,7 +56,9 @@ function discoverApps(rootDir: string): Array<{ name: string; port: number; mani
     const manifestPath = join(appsDir, entry.name, 'jeju-manifest.json')
     if (!existsSync(manifestPath)) continue
 
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest
+    const manifest = JSON.parse(
+      readFileSync(manifestPath, 'utf-8'),
+    ) as AppManifest
 
     // Skip disabled apps
     if (manifest.enabled === false) continue
@@ -78,7 +82,10 @@ function discoverApps(rootDir: string): Array<{ name: string; port: number; mani
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -96,7 +103,7 @@ test.describe('Full App E2E Coverage', () => {
 
   test.afterAll(async () => {
     // Print summary of all app crawls
-    console.log('\n' + '='.repeat(60))
+    console.log(`\n${'='.repeat(60)}`)
     console.log('FULL E2E COVERAGE SUMMARY')
     console.log('='.repeat(60))
 
@@ -111,13 +118,19 @@ test.describe('Full App E2E Coverage', () => {
 
       console.log(`\n${appName}:`)
       console.log(`  Pages: ${result.coverage.totalPages}`)
-      console.log(`  Buttons tested: ${result.coverage.buttonsClicked}/${result.coverage.totalButtons}`)
-      console.log(`  Forms tested: ${result.coverage.formsSubmitted}/${result.coverage.totalForms}`)
+      console.log(
+        `  Buttons tested: ${result.coverage.buttonsClicked}/${result.coverage.totalButtons}`,
+      )
+      console.log(
+        `  Forms tested: ${result.coverage.formsSubmitted}/${result.coverage.totalForms}`,
+      )
       console.log(`  Errors: ${result.errors.length}`)
     }
 
-    console.log('\n' + '-'.repeat(60))
-    console.log(`TOTAL: ${totalPages} pages, ${totalButtons} buttons, ${totalErrors} errors`)
+    console.log(`\n${'-'.repeat(60)}`)
+    console.log(
+      `TOTAL: ${totalPages} pages, ${totalButtons} buttons, ${totalErrors} errors`,
+    )
     console.log('='.repeat(60))
   })
 
@@ -150,7 +163,10 @@ test.describe('Full App E2E Coverage', () => {
         allResults.set(app.name, result)
 
         // Assertions
-        expect(result.coverage.totalPages, `${app.name} should have discoverable pages`).toBeGreaterThan(0)
+        expect(
+          result.coverage.totalPages,
+          `${app.name} should have discoverable pages`,
+        ).toBeGreaterThan(0)
 
         // Allow some navigation errors but not too many
         const criticalErrors = result.errors.filter(
@@ -200,7 +216,10 @@ test.describe('Full App E2E Coverage', () => {
         }
 
         // Allow minimal errors
-        expect(jsErrors.length, `${app.name} should have minimal JS errors`).toBeLessThan(5)
+        expect(
+          jsErrors.length,
+          `${app.name} should have minimal JS errors`,
+        ).toBeLessThan(5)
       })
 
       test('should render correctly on mobile viewport', async ({ page }) => {
@@ -216,7 +235,9 @@ test.describe('Full App E2E Coverage', () => {
         }
 
         // Check for viewport meta tag
-        const viewport = await page.locator('meta[name="viewport"]').getAttribute('content')
+        const viewport = await page
+          .locator('meta[name="viewport"]')
+          .getAttribute('content')
         expect(viewport, 'Should have viewport meta tag').toBeTruthy()
 
         // Check that content is not overflowing horizontally
@@ -251,14 +272,16 @@ test.describe('Full App E2E Coverage', () => {
           return (
             root.classList.contains('dark') ||
             root.getAttribute('data-theme') === 'dark' ||
-            style.getPropertyValue('--background')?.includes('dark') ||
-            style.colorScheme?.includes('dark')
+            style.getPropertyValue('--background').includes('dark') ||
+            style.colorScheme.includes('dark')
           )
         })
 
         // Dark mode is optional, just log if not present
         if (!hasDarkMode) {
-          console.log(`${app.name}: No explicit dark mode support detected (optional)`)
+          console.log(
+            `${app.name}: No explicit dark mode support detected (optional)`,
+          )
         }
 
         // Just verify page still renders
@@ -277,13 +300,18 @@ test.describe('Full App E2E Coverage', () => {
           }
 
           // Look for wallet connect buttons
-          const walletButton = page.locator(
-            '[data-testid*="connect"], button:has-text(/connect/i), [aria-label*="wallet" i]',
-          ).first()
+          const walletButton = page
+            .locator(
+              '[data-testid*="connect"], button:has-text(/connect/i), [aria-label*="wallet" i]',
+            )
+            .first()
 
           // Wallet connection should be available
           const hasWallet = (await walletButton.count()) > 0
-          expect(hasWallet, `${app.name} should have wallet connection option`).toBe(true)
+          expect(
+            hasWallet,
+            `${app.name} should have wallet connection option`,
+          ).toBe(true)
         })
       }
     })
@@ -317,7 +345,10 @@ test.describe('Full App E2E Coverage', () => {
     // Assertions - should have tested at least some apps
     // Skip if running in isolation
     if (testedApps > 0) {
-      expect(totalPages, 'Should have visited pages across apps').toBeGreaterThan(0)
+      expect(
+        totalPages,
+        'Should have visited pages across apps',
+      ).toBeGreaterThan(0)
     }
   })
 })
@@ -328,7 +359,9 @@ test.describe('Authentication State Coverage', () => {
   const apps = discoverApps(rootDir)
 
   // Filter to apps with wallet requirements
-  const walletApps = apps.filter((app) => app.manifest.testing?.e2e?.requiresWallet)
+  const walletApps = apps.filter(
+    (app) => app.manifest.testing?.e2e?.requiresWallet,
+  )
 
   for (const app of walletApps) {
     const baseUrl = `http://localhost:${app.port}`
@@ -343,8 +376,12 @@ test.describe('Authentication State Coverage', () => {
         }
 
         // Should see connect wallet prompts or logged-out content
-        const connectOptions = await page.locator('button:has-text(/connect/i)').all()
-        const loggedOutContent = await page.locator('[data-testid*="logged-out"], [data-testid*="guest"]').all()
+        const connectOptions = await page
+          .locator('button:has-text(/connect/i)')
+          .all()
+        const loggedOutContent = await page
+          .locator('[data-testid*="logged-out"], [data-testid*="guest"]')
+          .all()
 
         // Just verify the page loads properly in logged-out state
         await expect(page.locator('body')).toBeVisible()
@@ -372,9 +409,11 @@ test.describe('Authentication State Coverage', () => {
           skipPatterns: [/\/dashboard/, /\/settings/, /\/profile/, /\/admin/],
         })
 
-        expect(result.coverage.totalPages, 'Should have public pages').toBeGreaterThan(0)
+        expect(
+          result.coverage.totalPages,
+          'Should have public pages',
+        ).toBeGreaterThan(0)
       })
     })
   }
 })
-

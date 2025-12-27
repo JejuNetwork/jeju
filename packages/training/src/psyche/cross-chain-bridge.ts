@@ -1,4 +1,3 @@
-// @ts-nocheck - Type inference issues, needs refactoring
 /**
  * Cross-Chain Training Bridge
  *
@@ -22,8 +21,10 @@ import {
   http,
   keccak256,
   type Log,
+  type PublicClient,
+  type WalletClient,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import type { CoordinatorState, PsycheClient } from './psyche-client'
 
@@ -119,6 +120,13 @@ const BRIDGE_CONTRACT_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'clientCount',
+    outputs: [{ type: 'uint32' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const
 
 // Types
@@ -169,9 +177,9 @@ export interface CheckpointData {
 // Cross-Chain Bridge
 
 export class CrossChainTrainingBridge {
-  private evmPublicClient
-  private evmWalletClient
-  private evmAccount
+  private evmPublicClient: PublicClient
+  private evmWalletClient: WalletClient | null = null
+  private evmAccount: PrivateKeyAccount | null = null
   private solanaKeypair: Keypair | null = null
   private config: BridgeConfig
   private psycheClient: PsycheClient | null = null
@@ -238,12 +246,12 @@ export class CrossChainTrainingBridge {
     const runIdBytes =
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
 
-    const evmResult = await this.evmPublicClient.readContract({
+    const evmResult = (await this.evmPublicClient.readContract({
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'getRunState',
       args: [runIdBytes],
-    })
+    })) as [number, bigint, number, number, bigint]
 
     state.evmState = {
       epoch: evmResult[0],
@@ -291,7 +299,7 @@ export class CrossChainTrainingBridge {
     runId: string,
     solanaState: CoordinatorState,
   ): Promise<Hash> {
-    if (!this.evmWalletClient) {
+    if (!this.evmWalletClient || !this.evmAccount) {
       throw new Error('EVM wallet required for bridging')
     }
     if (!this.solanaKeypair) {
@@ -336,7 +344,7 @@ export class CrossChainTrainingBridge {
     runId: string,
     checkpoint: CheckpointData,
   ): Promise<Hash> {
-    if (!this.evmWalletClient) {
+    if (!this.evmWalletClient || !this.evmAccount) {
       throw new Error('EVM wallet required for checkpoint submission')
     }
 
@@ -364,7 +372,7 @@ export class CrossChainTrainingBridge {
   }
 
   async registerClient(registration: ClientRegistration): Promise<number> {
-    if (!this.evmWalletClient) {
+    if (!this.evmWalletClient || !this.evmAccount) {
       throw new Error('EVM wallet required for client registration')
     }
 
@@ -408,19 +416,11 @@ export class CrossChainTrainingBridge {
     }
 
     // Fallback: query the contract for the client count
-    const clientCount = await this.evmPublicClient.readContract({
+    const clientCount = (await this.evmPublicClient.readContract({
       address: this.config.bridgeContractAddress,
-      abi: [
-        {
-          inputs: [],
-          name: 'clientCount',
-          outputs: [{ type: 'uint32' }],
-          stateMutability: 'view',
-          type: 'function',
-        },
-      ] as const,
+      abi: BRIDGE_CONTRACT_ABI,
       functionName: 'clientCount',
-    })
+    })) as number
 
     return clientCount - 1
   }
@@ -431,7 +431,7 @@ export class CrossChainTrainingBridge {
     rewards: RewardDistribution[],
     merkleProof: Hex[],
   ): Promise<Hash> {
-    if (!this.evmWalletClient) {
+    if (!this.evmWalletClient || !this.evmAccount) {
       throw new Error('EVM wallet required for reward distribution')
     }
 
@@ -569,12 +569,12 @@ export class CrossChainTrainingBridge {
     stepsContributed: bigint
     rewardsClaimed: bigint
   }> {
-    const result = await this.evmPublicClient.readContract({
+    const result = (await this.evmPublicClient.readContract({
       address: this.config.bridgeContractAddress,
       abi: BRIDGE_CONTRACT_ABI,
       functionName: 'getClientInfo',
       args: [clientId],
-    })
+    })) as [Address, Hex, string, number, number, bigint, bigint]
 
     return {
       evmAddress: result[0],

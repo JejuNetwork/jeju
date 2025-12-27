@@ -100,7 +100,18 @@ export async function runTeeCeremony(
   passwordHash: string,
 ): Promise<TeeCeremonyResult> {
   if (process.env.DSTACK_SIMULATOR_ENDPOINT) {
+    // SECURITY: Never allow simulated ceremony for mainnet
+    if (network === 'mainnet') {
+      throw new Error(
+        'SECURITY ERROR: Simulated TEE ceremony is NOT allowed for mainnet.\n' +
+          'Mainnet keys MUST be derived from real TEE hardware.\n' +
+          'Remove DSTACK_SIMULATOR_ENDPOINT and run in actual TEE environment.',
+      )
+    }
     console.log('[TEE-SIM] Running in simulator mode')
+    console.log(
+      '[TEE-SIM] WARNING: This is for TESTNET ONLY - keys are NOT secure',
+    )
     return runSimulatedCeremony(network, passwordHash)
   }
 
@@ -253,8 +264,13 @@ async function runSimulatedCeremony(
   network: 'testnet' | 'mainnet',
   passwordHash: string,
 ): Promise<TeeCeremonyResult> {
+  // SECURITY: Double-check - simulated ceremony must never run for mainnet
+  if (network === 'mainnet') {
+    throw new Error('SECURITY: Simulated ceremony cannot be used for mainnet')
+  }
+
   console.log('[TEE-SIM] WARNING: Running simulated ceremony')
-  console.log('[TEE-SIM] This is for testing only - NOT FOR PRODUCTION')
+  console.log('[TEE-SIM] This is for TESTNET ONLY - NOT FOR PRODUCTION')
 
   const keys: TeeKeyConfig[] = []
   const addresses: Record<string, string> = {}

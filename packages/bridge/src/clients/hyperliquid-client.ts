@@ -290,10 +290,10 @@ export class HyperliquidClient {
       throw new Error('Orderbook not available - insufficient levels')
     }
 
-    const bidLevel = book.levels[0]?.[0]
-    const askLevel = book.levels[1]?.[0]
+    const bidLevel = book.levels[0][0]
+    const askLevel = book.levels[1][0]
 
-    if (!bidLevel?.px || !askLevel?.px) {
+    if (!bidLevel.px || !askLevel.px) {
       throw new Error('Orderbook has no bid or ask prices')
     }
 

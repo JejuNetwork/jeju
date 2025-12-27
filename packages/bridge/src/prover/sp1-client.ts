@@ -50,7 +50,7 @@ async function loadNodeModules(): Promise<{
 }
 
 function isNodeEnvironment(): boolean {
-  return typeof process !== 'undefined' && process.versions?.node !== undefined
+  return typeof process !== 'undefined' && process.versions.node !== undefined
 }
 
 /** Type for proof data parsed from JSON */

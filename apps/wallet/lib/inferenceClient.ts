@@ -256,8 +256,8 @@ class InferenceClient {
         const latencyMs = Date.now() - startTime
 
         // Extract response content
-        const choice = data.choices?.[0]
-        const assistantContent = choice?.message?.content ?? ''
+        const choice = data.choices[0]
+        const assistantContent = choice.message.content ?? ''
 
         // Add assistant response to history
         this.conversationHistory.push({
@@ -279,9 +279,9 @@ class InferenceClient {
           model: data.model ?? model,
           content: assistantContent,
           tokensUsed: {
-            input: data.usage?.prompt_tokens ?? 0,
-            output: data.usage?.completion_tokens ?? 0,
-            total: data.usage?.total_tokens ?? 0,
+            input: data.usage.prompt_tokens ?? 0,
+            output: data.usage.completion_tokens ?? 0,
+            total: data.usage.total_tokens ?? 0,
           },
           cost: data.cost
             ? {
@@ -397,7 +397,7 @@ class InferenceClient {
 
               const parsed = expectJson(data, ChunkSchema, 'stream chunk')
               const deltaChoice = parsed.choices[0]
-              const content = deltaChoice?.delta.content ?? ''
+              const content = deltaChoice.delta.content ?? ''
               if (content) {
                 fullContent += content
                 yield {

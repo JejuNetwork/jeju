@@ -90,7 +90,7 @@ export function generateRandomDID(network: DIDNetwork = 'localnet'): DID {
 }
 
 export function didEquals(a: DID | string, b: DID | string): boolean {
-  return a?.toLowerCase() === b?.toLowerCase()
+  return a.toLowerCase() === b.toLowerCase()
 }
 
 export function getNetwork(did: DID): DIDNetwork {
@@ -110,7 +110,7 @@ export function isLocalnet(did: DID): boolean {
 }
 
 export function extractAddressFromDID(did: string): Address | null {
-  if (!did?.startsWith('did:')) return null
+  if (!did.startsWith('did:')) return null
   const parts = did.split(':')
   const part3 = parts[3]
   const part4 = parts[4]

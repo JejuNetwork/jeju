@@ -27,7 +27,7 @@ const predictionMarketAddress = getContract(
 const INFRASTRUCTURE_READY =
   predictionMarketAddress &&
   predictionMarketAddress !== ZERO_ADDRESS &&
-  services.indexer?.graphql
+  services.indexer.graphql
 
 test.describe('Complete Trading Journey', () => {
   test.skip(!INFRASTRUCTURE_READY, 'Infrastructure not deployed')

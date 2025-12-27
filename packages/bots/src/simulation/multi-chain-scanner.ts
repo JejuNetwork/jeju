@@ -298,7 +298,7 @@ export class MultiChainScanner {
     _client: AnyPublicClient,
   ): Promise<ChainPrice[]> {
     const prices: ChainPrice[] = []
-    const tokenAddress = TOKEN_ADDRESSES[chainId]?.[token]
+    const tokenAddress = TOKEN_ADDRESSES[chainId][token]
     if (!tokenAddress) return prices
 
     const dexes = DEX_ROUTERS[chainId]
@@ -355,7 +355,7 @@ export class MultiChainScanner {
           )
           if (parseResult.success) {
             const tokenId = this.getSolanaTokenId(token)
-            const price = parseResult.data.data?.[tokenId]?.price
+            const price = parseResult.data.data[tokenId].price
 
             if (price) {
               prices.push({

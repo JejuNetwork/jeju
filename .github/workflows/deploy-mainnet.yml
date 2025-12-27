@@ -44,6 +44,11 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Run security checks (CRITICAL for mainnet)
+        env:
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+        run: bun run packages/deployment/scripts/verify/security-checks.ts mainnet
+
       - name: Validate configurations
         run: bun run infra:validate
 

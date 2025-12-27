@@ -167,7 +167,7 @@ describe('Network KMS Encryption', () => {
   test('accessControlConditions reference proposal', async () => {
     const encrypted = await encryption.encryptDecision(makeDecision('test-acl'))
     const hasProposalRef = encrypted.accessControlConditions.some((c) =>
-      c.parameters?.includes('test-acl'),
+      c.parameters.includes('test-acl'),
     )
     expect(hasProposalRef).toBe(true)
     console.log('✅ Access control references proposal')

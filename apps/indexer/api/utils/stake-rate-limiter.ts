@@ -1,3 +1,4 @@
+import { getChainlinkFeed, hasChainlinkSupport } from '@jejunetwork/config'
 import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
@@ -26,7 +27,27 @@ export type RateTier = keyof typeof RATE_LIMITS
 const TIER_THRESHOLDS = { BASIC: 10, PRO: 100, UNLIMITED: 1000 } // USD thresholds
 const CACHE_TTL = 60_000
 const WINDOW_MS = 60_000
-const ETH_USD_PRICE = Number(process.env.ETH_USD_PRICE) || 2000
+const PRICE_CACHE_TTL = 5 * 60_000 // 5 minutes for price cache
+
+// Chainlink AggregatorV3 ABI for price fetching
+const CHAINLINK_AGGREGATOR_ABI = [
+  {
+    type: 'function',
+    name: 'latestRoundData',
+    inputs: [],
+    outputs: [
+      { name: 'roundId', type: 'uint80' },
+      { name: 'answer', type: 'int256' },
+      { name: 'startedAt', type: 'uint256' },
+      { name: 'updatedAt', type: 'uint256' },
+      { name: 'answeredInRound', type: 'uint80' },
+    ],
+    stateMutability: 'view',
+  },
+] as const
+
+// Price cache
+let priceCache: { price: number; expiresAt: number } | null = null
 
 const rateLimitStore = new Map<
   string,
@@ -67,6 +88,7 @@ const STAKING_ABI = [
 
 let contracts: {
   publicClient: ViemPublicClient
+  chainId: number
   identityAddress: Address | null
   banAddress: Address | null
   stakingAddress: Address | null
@@ -86,12 +108,104 @@ function getContracts() {
 
   contracts = {
     publicClient,
+    chainId: config.chainId,
     identityAddress:
       identityRegistry && isAddress(identityRegistry) ? identityRegistry : null,
     banAddress: banManager && isAddress(banManager) ? banManager : null,
     stakingAddress: stakingAddr && isAddress(stakingAddr) ? stakingAddr : null,
   }
   return contracts
+}
+
+/**
+ * Fetch ETH/USD price from on-chain Chainlink oracle
+ * Caches price for 5 minutes to avoid excessive RPC calls
+ * Falls back to cached/env price if oracle is unavailable
+ */
+async function getEthUsdPrice(): Promise<number> {
+  // Return cached price if valid
+  if (priceCache && priceCache.expiresAt > Date.now()) {
+    return priceCache.price
+  }
+
+  const { publicClient, chainId } = getContracts()
+  const fallbackPrice = Number(process.env.ETH_USD_PRICE) || 2000
+
+  // Check if Chainlink is supported on this chain
+  if (!hasChainlinkSupport(chainId)) {
+    console.warn(
+      `[RateLimiter] Chain ${chainId} has no Chainlink support, using fallback price: $${fallbackPrice}`,
+    )
+    priceCache = {
+      price: fallbackPrice,
+      expiresAt: Date.now() + PRICE_CACHE_TTL,
+    }
+    return fallbackPrice
+  }
+
+  // Get feed address from config
+  const feed = getChainlinkFeed(chainId, 'ETH/USD')
+
+  // Fetch from Chainlink with error handling
+  let answer: bigint
+  let updatedAt: bigint
+  try {
+    const result = await publicClient.readContract({
+      address: feed.address as Address,
+      abi: CHAINLINK_AGGREGATOR_ABI,
+      functionName: 'latestRoundData',
+    })
+    answer = result[1]
+    updatedAt = result[3]
+  } catch (err) {
+    // If oracle call fails, use cached price or fallback
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    console.error(`[RateLimiter] Chainlink oracle call failed: ${errorMsg}`)
+
+    // Use stale cache if available (better than nothing)
+    if (priceCache) {
+      console.warn(
+        `[RateLimiter] Using stale cached price: $${priceCache.price.toFixed(2)}`,
+      )
+      return priceCache.price
+    }
+
+    console.warn(`[RateLimiter] Using fallback price: $${fallbackPrice}`)
+    priceCache = { price: fallbackPrice, expiresAt: Date.now() + 60_000 } // Short TTL for fallback
+    return fallbackPrice
+  }
+
+  // Check staleness (heartbeat + 10% buffer)
+  const maxStaleness = feed.heartbeatSeconds * 1.1
+  const staleness = Date.now() / 1000 - Number(updatedAt)
+  if (staleness > maxStaleness) {
+    console.warn(
+      `[RateLimiter] Chainlink price stale (${Math.round(staleness)}s old), using fallback`,
+    )
+    // Use stale cache or fallback instead of throwing
+    if (priceCache) return priceCache.price
+    priceCache = { price: fallbackPrice, expiresAt: Date.now() + 60_000 }
+    return fallbackPrice
+  }
+
+  if (answer <= 0n) {
+    console.error(
+      '[RateLimiter] Chainlink returned invalid price, using fallback',
+    )
+    if (priceCache) return priceCache.price
+    priceCache = { price: fallbackPrice, expiresAt: Date.now() + 60_000 }
+    return fallbackPrice
+  }
+
+  // Convert from Chainlink decimals (typically 8) to USD
+  const price = Number(answer) / 10 ** feed.decimals
+
+  console.log(
+    `[RateLimiter] ETH/USD from Chainlink: $${price.toFixed(2)} (chain ${chainId})`,
+  )
+
+  priceCache = { price, expiresAt: Date.now() + PRICE_CACHE_TTL }
+  return price
 }
 
 async function getStakeTier(address: string): Promise<RateTier> {
@@ -135,7 +249,8 @@ async function getStakeTier(address: string): Promise<RateTier> {
       functionName: 'getStake',
       args: [address as Address],
     })
-    const stakeUsd = (Number(stakeWei) / 1e18) * ETH_USD_PRICE
+    const ethUsdPrice = await getEthUsdPrice()
+    const stakeUsd = (Number(stakeWei) / 1e18) * ethUsdPrice
     tier =
       stakeUsd >= TIER_THRESHOLDS.UNLIMITED
         ? 'UNLIMITED'
@@ -298,4 +413,10 @@ export function getRateLimitStats() {
   return { totalTracked: rateLimitStore.size, byTier }
 }
 
-export { getStakeTier, stakeCache, rateLimitStore, getClientKeyFromHeaders }
+export {
+  getStakeTier,
+  getEthUsdPrice,
+  stakeCache,
+  rateLimitStore,
+  getClientKeyFromHeaders,
+}

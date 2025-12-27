@@ -40,7 +40,7 @@ export function detectBrowser(): BrowserType {
   if (typeof navigator === 'undefined') return 'unknown'
 
   const ua = navigator.userAgent.toLowerCase()
-  const vendor = navigator.vendor?.toLowerCase() ?? ''
+  const vendor = navigator.vendor.toLowerCase() ?? ''
 
   // Brave has a specific detection method
   if (

@@ -58,6 +58,7 @@ import {
 import servicesJsonRaw from './services.json' with { type: 'json' }
 import vendorAppsJsonRaw from './vendor-apps.json' with { type: 'json' }
 
+export * from './cdn'
 export * from './dev-proxy'
 // Network utilities
 // Note: Some of these use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo)
@@ -146,7 +147,7 @@ export function getCurrentNetwork(): NetworkType {
 
   // Node.js check
   const envNetwork =
-    typeof process !== 'undefined' ? process.env?.JEJU_NETWORK : undefined
+    typeof process !== 'undefined' ? process.env.JEJU_NETWORK : undefined
   if (!envNetwork) return 'localnet'
 
   const result = NetworkSchema.safeParse(envNetwork)

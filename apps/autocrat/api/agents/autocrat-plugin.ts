@@ -102,7 +102,7 @@ const discoverServicesAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
     return (
       content.includes('service') ||
       content.includes('discover') ||
@@ -121,13 +121,13 @@ const discoverServicesAction: Action = {
       { name: 'Autocrat A2A', url: getA2AEndpoint(), type: 'a2a' },
       {
         name: 'CEO A2A',
-        url: `${getCoreAppUrl('AUTOCRAT_CEO')}/a2a`,
+        url: `${getCoreAppUrl('AUTOCRAT_AGENT')}/a2a`,
         type: 'a2a',
       },
       { name: 'Autocrat MCP', url: getMCPEndpoint(), type: 'mcp' },
       {
         name: 'CEO MCP',
-        url: `${getCoreAppUrl('AUTOCRAT_CEO')}/mcp`,
+        url: `${getCoreAppUrl('AUTOCRAT_AGENT')}/mcp`,
         type: 'mcp',
       },
     ]
@@ -175,7 +175,7 @@ const castVoteAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
     return (
       content.includes('vote') ||
       content.includes('approve') ||
@@ -190,7 +190,7 @@ const castVoteAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (!proposalMatch) {
@@ -211,7 +211,7 @@ const castVoteAction: Action = {
         : 'APPROVE'
 
     const role =
-      runtime.character.name?.replace(' Agent', '').toUpperCase() ?? 'UNKNOWN'
+      runtime.character.name.replace(' Agent', '').toUpperCase() ?? 'UNKNOWN'
 
     const result = await callA2A<SubmitVoteResult>('submit-vote', {
       proposalId,
@@ -251,7 +251,7 @@ const requestResearchAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
     return content.includes('research') || content.includes('investigate')
   },
 
@@ -262,7 +262,7 @@ const requestResearchAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
     const proposalMatch = content.match(/0x[a-fA-F0-9]{64}/)
 
     if (callback) {
@@ -297,7 +297,7 @@ const queryA2AAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
     return (
       content.includes('query') ||
       content.includes('skill') ||
@@ -312,7 +312,7 @@ const queryA2AAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
 
     // Try to parse skill from message
     const skillMatch = content.match(/skill[:\s]+(\S+)/i)
@@ -347,7 +347,7 @@ const callMCPToolAction: Action = {
     _runtime: IAgentRuntime,
     message: Memory,
   ): Promise<boolean> => {
-    const content = message.content?.text?.toLowerCase() ?? ''
+    const content = message.content.text?.toLowerCase() ?? ''
     return content.includes('mcp') || content.includes('tool')
   },
 
@@ -358,7 +358,7 @@ const callMCPToolAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const content = message.content?.text ?? ''
+    const content = message.content.text ?? ''
 
     // Try to parse tool name from message
     const toolMatch = content.match(/tool[:\s]+(\S+)/i)
@@ -383,7 +383,7 @@ const callMCPToolAction: Action = {
 
 Tool: ${toolName}
 Response:
-${result.content[0]?.text ?? 'No content returned'}`,
+${result.content[0].text ?? 'No content returned'}`,
         action: 'CALL_MCP_TOOL',
       })
     }

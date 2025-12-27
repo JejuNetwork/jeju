@@ -150,7 +150,7 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
       ? [imageRef.split(':')[0], imageRef.split(':')[1]]
       : [imageRef, 'latest']
 
-  const [namespace, name] = namespaceAndName?.includes('/')
+  const [namespace, name] = namespaceAndName.includes('/')
     ? [
         namespaceAndName.split('/')[0],
         namespaceAndName.split('/').slice(1).join('/'),
@@ -158,7 +158,7 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
     : ['library', namespaceAndName]
 
   // Check cache first
-  const isDigest = tagOrDigest?.startsWith('sha256:')
+  const isDigest = tagOrDigest.startsWith('sha256:')
   const cacheKey = isDigest
     ? tagOrDigest
     : `${namespace}/${name}:${tagOrDigest}`
@@ -331,12 +331,23 @@ async function dockerRequest(
   return fetch(url, options)
 }
 
+// SECURITY: Allowlist of environment variable prefixes users can set
+const ALLOWED_ENV_PREFIXES = ['DWS_APP_', 'APP_', 'NODE_ENV', 'TZ']
+
+function filterUserEnv(env: Record<string, string>): string[] {
+  return Object.entries(env)
+    .filter(([key]) =>
+      ALLOWED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix)),
+    )
+    .map(([k, v]) => `${k}=${v}`)
+}
+
 const runtime: ContainerRuntime = {
   async create(instance, image, request) {
     const containerConfig = {
       Image: `${image.namespace}/${image.name}:${image.tag}`,
       Cmd: request.command ?? [],
-      Env: Object.entries(request.env ?? {}).map(([k, v]) => `${k}=${v}`),
+      Env: filterUserEnv(request.env ?? {}),
       HostConfig: {
         Memory: instance.resources.memoryMb * 1024 * 1024,
         NanoCpus: instance.resources.cpuCores * 1e9,
@@ -392,7 +403,7 @@ const runtime: ContainerRuntime = {
     ) as DockerNetworkSettings
 
     const portBindings = inspectData.NetworkSettings.Ports['8080/tcp']
-    if (!portBindings?.[0]) {
+    if (!portBindings[0]) {
       throw new Error('Container port binding not found')
     }
     const hostPort = parseInt(portBindings[0].HostPort, 10)

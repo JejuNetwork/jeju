@@ -11,7 +11,6 @@ import {
   Clock,
   Crown,
   DollarSign,
-  ExternalLink,
   FileCode2,
   FileText,
   GitBranch,
@@ -75,18 +74,19 @@ const PROPOSAL_TYPE_CONFIG: Record<
   },
 }
 
-const STATUS_CONFIG: Record<
-  ProposalStatus,
-  { label: string; color: string }
-> = {
-  draft: { label: 'Draft', color: 'text-slate-400 bg-slate-500/20' },
-  pending: { label: 'Pending', color: 'text-yellow-400 bg-yellow-500/20' },
-  active: { label: 'Active', color: 'text-blue-400 bg-blue-500/20' },
-  approved: { label: 'Approved', color: 'text-green-400 bg-green-500/20' },
-  rejected: { label: 'Rejected', color: 'text-red-400 bg-red-500/20' },
-  executed: { label: 'Executed', color: 'text-emerald-400 bg-emerald-500/20' },
-  cancelled: { label: 'Cancelled', color: 'text-slate-400 bg-slate-500/20' },
-}
+const STATUS_CONFIG: Record<ProposalStatus, { label: string; color: string }> =
+  {
+    draft: { label: 'Draft', color: 'text-slate-400 bg-slate-500/20' },
+    pending: { label: 'Pending', color: 'text-yellow-400 bg-yellow-500/20' },
+    active: { label: 'Active', color: 'text-blue-400 bg-blue-500/20' },
+    approved: { label: 'Approved', color: 'text-green-400 bg-green-500/20' },
+    rejected: { label: 'Rejected', color: 'text-red-400 bg-red-500/20' },
+    executed: {
+      label: 'Executed',
+      color: 'text-emerald-400 bg-emerald-500/20',
+    },
+    cancelled: { label: 'Cancelled', color: 'text-slate-400 bg-slate-500/20' },
+  }
 
 const SEVERITY_CONFIG: Record<
   BountySeverity,
@@ -206,14 +206,20 @@ function ProposalView({
   daoId: string
   proposal: ProposalDetail
 }) {
-  const typeConfig = PROPOSAL_TYPE_CONFIG[proposal.proposalType] ?? PROPOSAL_TYPE_CONFIG.general
+  const typeConfig =
+    PROPOSAL_TYPE_CONFIG[proposal.proposalType] ?? PROPOSAL_TYPE_CONFIG.general
   const statusConfig = STATUS_CONFIG[proposal.status] ?? STATUS_CONFIG.draft
   const TypeIcon = typeConfig.icon
 
-  const approveCount = proposal.boardVotes.filter((v) => v.vote === 'approve').length
-  const rejectCount = proposal.boardVotes.filter((v) => v.vote === 'reject').length
+  const approveCount = proposal.boardVotes.filter(
+    (v) => v.vote === 'approve',
+  ).length
+  const _rejectCount = proposal.boardVotes.filter(
+    (v) => v.vote === 'reject',
+  ).length
   const totalVotes = proposal.boardVotes.length
-  const approvalPercent = totalVotes > 0 ? Math.round((approveCount / totalVotes) * 100) : 0
+  const approvalPercent =
+    totalVotes > 0 ? Math.round((approveCount / totalVotes) * 100) : 0
 
   return (
     <div className="min-h-screen bg-slate-950 pb-24">
@@ -260,7 +266,7 @@ function ProposalView({
                   if (line.startsWith('## ')) {
                     return (
                       <h2
-                        key={i}
+                        key={`line-${i}`}
                         className="text-lg font-semibold text-slate-200 mt-4 mb-2"
                       >
                         {line.replace('## ', '')}
@@ -269,13 +275,13 @@ function ProposalView({
                   }
                   if (line.startsWith('1. ') || line.startsWith('- ')) {
                     return (
-                      <p key={i} className="text-slate-400 ml-4">
+                      <p key={`line-${i}`} className="text-slate-400 ml-4">
                         {line}
                       </p>
                     )
                   }
                   return line ? (
-                    <p key={i} className="text-slate-400">
+                    <p key={`line-${i}`} className="text-slate-400">
                       {line}
                     </p>
                   ) : null
@@ -360,7 +366,9 @@ function ProposalView({
                   {proposal.ceoDecision && (
                     <div
                       className={`h-full rounded-full ${
-                        proposal.ceoDecision.approved ? 'bg-green-500' : 'bg-red-500'
+                        proposal.ceoDecision.approved
+                          ? 'bg-green-500'
+                          : 'bg-red-500'
                       }`}
                       style={{ width: '100%' }}
                     />
@@ -464,7 +472,10 @@ function CreateProposalForm({
   }
 
   const addComponent = () => {
-    if (componentInput.trim() && !affectedComponents.includes(componentInput.trim())) {
+    if (
+      componentInput.trim() &&
+      !affectedComponents.includes(componentInput.trim())
+    ) {
       setAffectedComponents([...affectedComponents, componentInput.trim()])
       setComponentInput('')
     }
@@ -521,13 +532,19 @@ function CreateProposalForm({
         `## Vulnerability Details`,
         `**Severity:** ${severity}`,
         `**Type:** ${vulnType}`,
-        affectedComponents.length > 0 ? `**Affected Components:** ${affectedComponents.join(', ')}` : '',
+        affectedComponents.length > 0
+          ? `**Affected Components:** ${affectedComponents.join(', ')}`
+          : '',
         '',
         `## Steps to Reproduce`,
-        ...stepsToReproduce.filter(s => s.trim()).map((step, i) => `${i + 1}. ${step}`),
+        ...stepsToReproduce
+          .filter((s) => s.trim())
+          .map((step, i) => `${i + 1}. ${step}`),
         poc ? `\n## Proof of Concept\n\`\`\`\n${poc}\n\`\`\`` : '',
         suggestedFix ? `\n## Suggested Fix\n${suggestedFix}` : '',
-      ].filter(Boolean).join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
 
       proposalData.description = `${description}\n\n${bugDetails}`
     }
@@ -537,7 +554,9 @@ function CreateProposalForm({
         navigate(`/dao/${daoId}/proposal/${newProposal.proposalId}`)
       },
       onError: (err) => {
-        setSubmitError(err instanceof Error ? err.message : 'Failed to create proposal')
+        setSubmitError(
+          err instanceof Error ? err.message : 'Failed to create proposal',
+        )
       },
     })
   }
@@ -579,7 +598,11 @@ function CreateProposalForm({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={createProposalMutation.isPending || !title.trim() || !description.trim()}
+                disabled={
+                  createProposalMutation.isPending ||
+                  !title.trim() ||
+                  !description.trim()
+                }
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
               >
                 {createProposalMutation.isPending ? (
@@ -604,10 +627,14 @@ function CreateProposalForm({
         {/* Basic Info */}
         <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor="proposal-title"
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Title *
             </label>
             <input
+              id="proposal-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -616,10 +643,14 @@ function CreateProposalForm({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label
+              htmlFor="proposal-description"
+              className="block text-sm font-medium text-slate-300 mb-2"
+            >
               Description *
             </label>
             <textarea
+              id="proposal-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={
@@ -630,9 +661,7 @@ function CreateProposalForm({
               rows={8}
               className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 resize-none"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Markdown supported
-            </p>
+            <p className="text-xs text-slate-500 mt-1">Markdown supported</p>
           </div>
         </div>
 
@@ -645,9 +674,9 @@ function CreateProposalForm({
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <span className="block text-sm font-medium text-slate-300 mb-2">
                     Severity *
-                  </label>
+                  </span>
                   <div className="space-y-2">
                     {(
                       Object.entries(SEVERITY_CONFIG) as [
@@ -676,10 +705,14 @@ function CreateProposalForm({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label
+                    htmlFor="vuln-type"
+                    className="block text-sm font-medium text-slate-300 mb-2"
+                  >
                     Vulnerability Type *
                   </label>
                   <select
+                    id="vuln-type"
                     value={vulnType}
                     onChange={(e) =>
                       setVulnType(e.target.value as VulnerabilityType)
@@ -695,9 +728,9 @@ function CreateProposalForm({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <span className="block text-sm font-medium text-slate-300 mb-2">
                   Affected Components
-                </label>
+                </span>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {affectedComponents.map((c) => (
                     <span
@@ -807,11 +840,15 @@ function CreateProposalForm({
             <h3 className="font-semibold text-slate-200">Funding Details</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label
+                  htmlFor="funding-amount"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
                   Amount *
                 </label>
                 <div className="flex">
                   <input
+                    id="funding-amount"
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -830,10 +867,14 @@ function CreateProposalForm({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label
+                  htmlFor="recipient-address"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
                   Recipient Address *
                 </label>
                 <input
+                  id="recipient-address"
                   type="text"
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
@@ -922,7 +963,10 @@ export default function ProposalPage() {
     isLoading: loading,
     error,
     refetch,
-  } = useProposal(isCreate ? undefined : daoId, isCreate ? undefined : proposalId)
+  } = useProposal(
+    isCreate ? undefined : daoId,
+    isCreate ? undefined : proposalId,
+  )
 
   if (!daoId) {
     return (
@@ -955,7 +999,9 @@ export default function ProposalPage() {
             Failed to load proposal
           </h2>
           <p className="text-slate-500 mb-4">
-            {error instanceof Error ? error.message : 'An unknown error occurred'}
+            {error instanceof Error
+              ? error.message
+              : 'An unknown error occurred'}
           </p>
           <div className="flex gap-3 justify-center">
             <button

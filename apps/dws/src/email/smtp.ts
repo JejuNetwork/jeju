@@ -302,7 +302,7 @@ export class SMTPServer {
       }
 
       case 'AUTH': {
-        const mechanism = args[0]?.toUpperCase()
+        const mechanism = args[0].toUpperCase()
         const credentials = args.slice(1).join(' ')
 
         const result = await this.handleAuth(sessionId, mechanism, credentials)

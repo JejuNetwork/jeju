@@ -31,7 +31,7 @@ export class CIEventBus {
     handlers.add(handler)
 
     return () => {
-      handlers?.delete(handler)
+      handlers.delete(handler)
     }
   }
 

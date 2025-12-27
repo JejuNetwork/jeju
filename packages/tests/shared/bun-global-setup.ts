@@ -278,7 +278,7 @@ export async function setup(): Promise<void> {
     .filter(([, running]) => !running)
     .map(
       ([key]) =>
-        DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]?.name ?? key,
+        DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ?? key,
     )
 
   if (dockerMissing.length > 0) {
@@ -298,7 +298,7 @@ export async function setup(): Promise<void> {
       .filter(([, running]) => !running)
       .map(
         ([key]) =>
-          DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]?.name ?? key,
+          DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ?? key,
       )
 
     if (stillMissing.length > 0) {
@@ -312,7 +312,7 @@ export async function setup(): Promise<void> {
 
   for (const [key, running] of Object.entries(status.docker)) {
     const name =
-      DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]?.name ?? key
+      DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ?? key
     console.log(`  ${running ? '✅' : '❌'} ${name}`)
   }
 

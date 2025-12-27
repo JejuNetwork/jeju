@@ -366,8 +366,8 @@ IPFS:        ${this.ipfsGateway}
     })
 
     return {
-      accessible: response?.ok ?? false,
-      error: response?.ok ? undefined : `Status ${response.status}`,
+      accessible: response.ok ?? false,
+      error: response.ok ? undefined : `Status ${response.status}`,
     }
   }
 

@@ -87,10 +87,8 @@ export interface FaucetInfo {
 }
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
-  if (process.env.NODE_ENV === 'test') {
-    return true
-  }
-
+  // SECURITY: No test bypasses - always check registry in production
+  // Use test fixtures/mocking instead of env var bypasses
   if (FAUCET_CONFIG.identityRegistryAddress === ZERO_ADDRESS) {
     return false
   }

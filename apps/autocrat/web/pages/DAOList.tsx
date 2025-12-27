@@ -262,7 +262,9 @@ export default function DAOListPage() {
               Failed to load DAOs
             </h3>
             <p className="text-slate-500 mb-6 max-w-md mx-auto">
-              {error instanceof Error ? error.message : 'An unknown error occurred'}
+              {error instanceof Error
+                ? error.message
+                : 'An unknown error occurred'}
             </p>
             <button
               type="button"

@@ -22,7 +22,7 @@ const PRIVATE_KEY = (process.env.PRIVATE_KEY ||
 
 // Check if RPC and private key are available
 let servicesAvailable = false
-if (PRIVATE_KEY?.startsWith('0x')) {
+if (PRIVATE_KEY.startsWith('0x')) {
   try {
     const res = await fetch(RPC_URL, {
       method: 'POST',

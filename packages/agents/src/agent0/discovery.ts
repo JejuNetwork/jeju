@@ -78,12 +78,12 @@ export class AgentDiscoveryService {
     const filtered = localAgents.filter((a) => {
       if (
         filter.strategies?.length &&
-        !filter.strategies.some((s) => a.capabilities?.strategies?.includes(s))
+        !filter.strategies.some((s) => a.capabilities.strategies.includes(s))
       )
         return false
       if (
         filter.skills?.length &&
-        !filter.skills.some((s) => a.capabilities?.skills?.includes(s))
+        !filter.skills.some((s) => a.capabilities.skills.includes(s))
       )
         return false
       if (
@@ -94,7 +94,7 @@ export class AgentDiscoveryService {
         return false
       if (
         filter.x402Support !== undefined &&
-        (a.capabilities?.x402Support ?? false) !== filter.x402Support
+        (a.capabilities.x402Support ?? false) !== filter.x402Support
       )
         return false
       return true
@@ -192,7 +192,7 @@ export class AgentDiscoveryService {
       address: agent.onChainData?.serverWallet ?? '',
       name: agent.name,
       endpoint:
-        agent.capabilities?.a2aEndpoint ??
+        agent.capabilities.a2aEndpoint ??
         agent.discoveryMetadata?.endpoints?.a2a ??
         agent.discoveryMetadata?.endpoints?.mcp ??
         '',

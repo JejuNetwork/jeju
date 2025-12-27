@@ -378,8 +378,8 @@ export class UpstreamProxy {
     return {
       metadataCacheSize: this.metadataCache.size,
       tarballCacheSize: this.tarballCache.size,
-      packageRecordsCount: pkgCount.rows[0]?.count ?? 0,
-      tarballRecordsCount: tarballCount.rows[0]?.count ?? 0,
+      packageRecordsCount: pkgCount.rows[0].count ?? 0,
+      tarballRecordsCount: tarballCount.rows[0].count ?? 0,
     }
   }
 

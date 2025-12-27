@@ -7,19 +7,24 @@
 import type { Address, Hex } from 'viem'
 
 export interface TEEKeyConfig {
-  /** KMS service endpoint */
+  /** KMS service endpoint (required for real TEE mode) */
   kmsEndpoint: string
   /** TEE enclave ID */
   enclaveId: string
   /** Require attestation for operations */
   attestationRequired: boolean
-  /** Network for on-chain operations */
-  network?: 'mainnet' | 'testnet'
+  /**
+   * Network environment.
+   * - 'local': Local development (mockMode allowed)
+   * - 'testnet': Test network (requires real TEE)
+   * - 'mainnet': Production (requires real TEE)
+   */
+  network: 'local' | 'testnet' | 'mainnet'
   /**
    * Enable mock mode for development/testing.
    * When true, keys are stored in-memory instead of real TEE hardware.
-   * MUST be false in production to use actual TEE infrastructure.
-   * @default false
+   * ONLY allowed when network is 'local'.
+   * MUST be false for testnet/mainnet deployments.
    */
   mockMode: boolean
 }

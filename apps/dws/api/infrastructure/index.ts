@@ -79,6 +79,23 @@ export {
   type PathRule,
 } from './ingress'
 export { createK3sRouter } from './k3s-provider'
+// Kubernetes Bridge (K8s/Helm to DWS)
+export {
+  createKubernetesBridgeRouter,
+  getKubernetesBridge,
+  KubernetesBridge,
+} from './kubernetes-bridge'
+// Machine Provisioner
+export {
+  getMachineProvisioner,
+  initializeMachineProvisioner,
+  type MachineAllocation,
+  type MachineCapabilities,
+  type MachinePromise,
+  MachineProvisioner,
+  type MachineSpecs,
+  type ProvisionerEnvironment,
+} from './machine-provisioner'
 export { NodeRegistry } from './node-registry'
 // Service Mesh
 export {

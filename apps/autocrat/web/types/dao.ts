@@ -456,8 +456,7 @@ export const BOARD_ROLE_PRESETS: Record<
   CEO: {
     name: 'CEO',
     description: 'Final decision maker for the DAO',
-    defaultPersonality:
-      'Decisive, strategic, mission-focused, fair but firm',
+    defaultPersonality: 'Decisive, strategic, mission-focused, fair but firm',
   },
   TREASURY: {
     name: 'Treasury Guardian',

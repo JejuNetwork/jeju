@@ -26,7 +26,9 @@ interface FetchDAOsParams {
 
 async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
   const endpoint =
-    params.status === 'active' ? `${API_BASE}/dao/active` : `${API_BASE}/dao/list`
+    params.status === 'active'
+      ? `${API_BASE}/dao/active`
+      : `${API_BASE}/dao/list`
 
   const response = await fetch(endpoint)
   if (!response.ok) {
@@ -42,7 +44,7 @@ async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
       const matchesSearch =
         dao.name.toLowerCase().includes(searchLower) ||
         dao.displayName.toLowerCase().includes(searchLower) ||
-        (dao.description?.toLowerCase().includes(searchLower) ?? false)
+        (dao.description.toLowerCase().includes(searchLower) ?? false)
       if (!matchesSearch) return false
     }
     if (params.networkOnly && !dao.isNetworkDAO) return false
@@ -106,7 +108,10 @@ async function createDAO(draft: CreateDAODraft): Promise<DAODetail> {
   return response.json()
 }
 
-async function updateDAO(daoId: string, updates: Partial<DAODetail>): Promise<DAODetail> {
+async function updateDAO(
+  daoId: string,
+  updates: Partial<DAODetail>,
+): Promise<DAODetail> {
   const response = await fetch(`${API_BASE}/dao/${daoId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -119,7 +124,10 @@ async function updateDAO(daoId: string, updates: Partial<DAODetail>): Promise<DA
   return response.json()
 }
 
-async function updateGovernanceParams(daoId: string, params: GovernanceParams): Promise<DAODetail> {
+async function updateGovernanceParams(
+  daoId: string,
+  params: GovernanceParams,
+): Promise<DAODetail> {
   const response = await fetch(`${API_BASE}/dao/${daoId}/governance`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -158,7 +166,8 @@ export function useUpdateDAO(daoId: string) {
 export function useUpdateGovernanceParams(daoId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (params: GovernanceParams) => updateGovernanceParams(daoId, params),
+    mutationFn: (params: GovernanceParams) =>
+      updateGovernanceParams(daoId, params),
     onSuccess: (updatedDAO) => {
       queryClient.setQueryData(['dao', daoId], updatedDAO)
     },
@@ -173,7 +182,10 @@ async function fetchAgent(daoId: string, agentId: string): Promise<DAOAgent> {
   return response.json()
 }
 
-export function useAgent(daoId: string | undefined, agentId: string | undefined) {
+export function useAgent(
+  daoId: string | undefined,
+  agentId: string | undefined,
+) {
   return useQuery({
     queryKey: ['agent', daoId, agentId],
     queryFn: () => fetchAgent(daoId as string, agentId as string),
@@ -182,7 +194,10 @@ export function useAgent(daoId: string | undefined, agentId: string | undefined)
   })
 }
 
-async function createAgent(daoId: string, agent: CreateAgentDraft): Promise<DAOAgent> {
+async function createAgent(
+  daoId: string,
+  agent: CreateAgentDraft,
+): Promise<DAOAgent> {
   const response = await fetch(`${API_BASE}/dao/${daoId}/agents`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -195,7 +210,11 @@ async function createAgent(daoId: string, agent: CreateAgentDraft): Promise<DAOA
   return response.json()
 }
 
-async function updateAgent(daoId: string, agentId: string, updates: Partial<DAOAgent>): Promise<DAOAgent> {
+async function updateAgent(
+  daoId: string,
+  agentId: string,
+  updates: Partial<DAOAgent>,
+): Promise<DAOAgent> {
   const response = await fetch(`${API_BASE}/dao/${daoId}/agents/${agentId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -231,7 +250,8 @@ export function useCreateAgent(daoId: string) {
 export function useUpdateAgent(daoId: string, agentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (updates: Partial<DAOAgent>) => updateAgent(daoId, agentId, updates),
+    mutationFn: (updates: Partial<DAOAgent>) =>
+      updateAgent(daoId, agentId, updates),
     onSuccess: (updatedAgent) => {
       queryClient.setQueryData(['agent', daoId, agentId], updatedAgent)
       queryClient.invalidateQueries({ queryKey: ['dao', daoId] })
@@ -258,23 +278,34 @@ interface FetchProposalsParams {
   offset?: number
 }
 
-async function fetchProposals(params: FetchProposalsParams): Promise<ProposalListItem[]> {
+async function fetchProposals(
+  params: FetchProposalsParams,
+): Promise<ProposalListItem[]> {
   const searchParams = new URLSearchParams()
-  if (params.status && params.status !== 'all') searchParams.set('status', params.status)
-  if (params.type && params.type !== 'all') searchParams.set('type', params.type)
+  if (params.status && params.status !== 'all')
+    searchParams.set('status', params.status)
+  if (params.type && params.type !== 'all')
+    searchParams.set('type', params.type)
   if (params.search) searchParams.set('search', params.search)
   if (params.limit) searchParams.set('limit', params.limit.toString())
   if (params.offset) searchParams.set('offset', params.offset.toString())
 
-  const response = await fetch(`${API_BASE}/dao/${params.daoId}/proposals?${searchParams.toString()}`)
+  const response = await fetch(
+    `${API_BASE}/dao/${params.daoId}/proposals?${searchParams.toString()}`,
+  )
   if (!response.ok) {
     throw new Error(`Failed to fetch proposals: ${response.statusText}`)
   }
   return response.json()
 }
 
-async function fetchProposal(daoId: string, proposalId: string): Promise<ProposalDetail> {
-  const response = await fetch(`${API_BASE}/dao/${daoId}/proposals/${proposalId}`)
+async function fetchProposal(
+  daoId: string,
+  proposalId: string,
+): Promise<ProposalDetail> {
+  const response = await fetch(
+    `${API_BASE}/dao/${daoId}/proposals/${proposalId}`,
+  )
   if (!response.ok) {
     throw new Error(`Failed to fetch proposal: ${response.statusText}`)
   }
@@ -290,7 +321,10 @@ export function useProposals(params: FetchProposalsParams) {
   })
 }
 
-export function useProposal(daoId: string | undefined, proposalId: string | undefined) {
+export function useProposal(
+  daoId: string | undefined,
+  proposalId: string | undefined,
+) {
   return useQuery({
     queryKey: ['proposal', daoId, proposalId],
     queryFn: () => fetchProposal(daoId as string, proposalId as string),
@@ -310,7 +344,10 @@ interface CreateProposalParams {
   value?: string
 }
 
-async function createProposal(daoId: string, proposal: CreateProposalParams): Promise<ProposalDetail> {
+async function createProposal(
+  daoId: string,
+  proposal: CreateProposalParams,
+): Promise<ProposalDetail> {
   const response = await fetch(`${API_BASE}/dao/${daoId}/proposals`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -326,7 +363,8 @@ async function createProposal(daoId: string, proposal: CreateProposalParams): Pr
 export function useCreateProposal(daoId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (proposal: CreateProposalParams) => createProposal(daoId, proposal),
+    mutationFn: (proposal: CreateProposalParams) =>
+      createProposal(daoId, proposal),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals', { daoId }] })
       queryClient.invalidateQueries({ queryKey: ['dao', daoId] })

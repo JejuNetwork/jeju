@@ -171,7 +171,7 @@ export async function getDataSource(): Promise<DataSource | null> {
 
   const entities = Object.values(models).filter(
     (v): boolean =>
-      typeof v === 'function' && v.prototype?.constructor !== undefined,
+      typeof v === 'function' && v.prototype.constructor !== undefined,
   ) as (new (
     ...args: never[]
   ) => object)[]

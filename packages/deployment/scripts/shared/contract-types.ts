@@ -101,7 +101,7 @@ export function isValidArtifact(
   return (
     Array.isArray(artifact.abi) &&
     typeof artifact.bytecode === 'object' &&
-    typeof artifact.bytecode?.object === 'string' &&
+    typeof artifact.bytecode.object === 'string' &&
     artifact.bytecode.object.startsWith('0x')
   )
 }

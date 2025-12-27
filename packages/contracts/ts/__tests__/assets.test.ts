@@ -420,15 +420,15 @@ describe('caip/assets.ts - CAIP-19 Asset Identification', () => {
       const key = 'eip155:1/erc20:0xdAC17F958D2ee523a2206206994597C13D831ec7'
       const asset = KNOWN_ASSETS[key]
       expect(asset).toBeDefined()
-      expect(asset?.symbol).toBe('USDT')
-      expect(asset?.decimals).toBe(6)
+      expect(asset.symbol).toBe('USDT')
+      expect(asset.decimals).toBe(6)
     })
 
     test('includes USDC on Ethereum', () => {
       const key = 'eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
       const asset = KNOWN_ASSETS[key]
       expect(asset).toBeDefined()
-      expect(asset?.symbol).toBe('USDC')
+      expect(asset.symbol).toBe('USDC')
     })
   })
 

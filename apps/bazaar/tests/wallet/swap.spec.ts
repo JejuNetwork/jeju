@@ -231,7 +231,7 @@ test.describe('Cross-Chain Swap', () => {
 
     if (await enableCrossChain(page)) {
       const body = await page.textContent('body')
-      expect(body?.includes('From') && body?.includes('To')).toBe(true)
+      expect(body?.includes('From') && body.includes('To')).toBe(true)
     }
   })
 

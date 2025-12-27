@@ -239,7 +239,7 @@ export class FlashLoanTester {
       console.log(`   Premium: ${Number(premium) / 100}%`)
 
       // Test flash loan with WETH
-      const weth = TEST_TOKENS[this.config.chainId]?.WETH
+      const weth = TEST_TOKENS[this.config.chainId].WETH
       if (!weth) {
         throw new Error('WETH not available on this chain')
       }
@@ -317,7 +317,7 @@ export class FlashLoanTester {
       console.log(`   Vault: ${balancerVault}`)
       console.log(`   Fee: 0% (most tokens)`)
 
-      const weth = TEST_TOKENS[this.config.chainId]?.WETH
+      const weth = TEST_TOKENS[this.config.chainId].WETH
       if (!weth) {
         throw new Error('WETH not available on this chain')
       }

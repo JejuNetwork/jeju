@@ -20,10 +20,31 @@ import { join } from 'node:path'
 // Configuration
 const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546'
 
-// Anvil default deployer
-const DEPLOYER_KEY =
-  process.env.PRIVATE_KEY ||
+// Anvil default key - ONLY for local development
+const ANVIL_DEFAULT_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
+/**
+ * Get deployer key with safety checks.
+ * Anvil default key only allowed for local RPCs.
+ */
+function getDeployerKey(): string {
+  const envKey = process.env.PRIVATE_KEY
+  if (envKey) return envKey
+
+  const isLocalRpc =
+    RPC_URL.includes('127.0.0.1') || RPC_URL.includes('localhost')
+  if (!isLocalRpc) {
+    throw new Error(
+      'PRIVATE_KEY environment variable required for non-local deployments. ' +
+        'The Anvil default key is only allowed for local development.',
+    )
+  }
+
+  return ANVIL_DEFAULT_KEY
+}
+
+const DEPLOYER_KEY = getDeployerKey()
 
 const CONTRACTS_DIR = join(import.meta.dirname, '../../../packages/contracts')
 

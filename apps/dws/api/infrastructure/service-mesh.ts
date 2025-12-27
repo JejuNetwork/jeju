@@ -823,7 +823,7 @@ export function createServiceMeshRouter(mesh: ServiceMesh) {
     )
     .get('/services', async ({ query }) => {
       const namespace = query.namespace
-      const tags = query.tags?.split(',')
+      const tags = query.tags.split(',')
 
       const serviceList = await mesh.listServices({
         namespace,

@@ -555,9 +555,14 @@ async function main() {
     return
   }
 
-  if (!identityRegistryAddress || !mpcRegistryAddress || !stakeTokenAddress) {
+  if (
+    !identityRegistryAddress ||
+    !mpcRegistryAddress ||
+    !stakeTokenAddress ||
+    !privateKey
+  ) {
     console.error(
-      'IDENTITY_REGISTRY_ADDRESS, MPC_REGISTRY_ADDRESS, and STAKE_TOKEN_ADDRESS required',
+      'IDENTITY_REGISTRY_ADDRESS, MPC_REGISTRY_ADDRESS, STAKE_TOKEN_ADDRESS, and DEPLOYER_PRIVATE_KEY required',
     )
     process.exit(1)
   }
@@ -570,12 +575,12 @@ async function main() {
 
   for (let i = 0; i < partyCount; i++) {
     const agentId = await registerParty(
-      privateKey!,
+      privateKey,
       networkConfig.rpcUrl,
       networkConfig.chain,
-      identityRegistryAddress!,
-      mpcRegistryAddress!,
-      stakeTokenAddress!,
+      identityRegistryAddress,
+      mpcRegistryAddress,
+      stakeTokenAddress,
       i + 1,
       partyEndpoints[i],
       stakeAmount,
@@ -585,10 +590,10 @@ async function main() {
 
   // Create cluster
   const clusterId = await createCluster(
-    privateKey!,
+    privateKey,
     networkConfig.rpcUrl,
     networkConfig.chain,
-    mpcRegistryAddress!,
+    mpcRegistryAddress,
     partyAgentIds,
     threshold,
   )
@@ -615,10 +620,10 @@ async function main() {
     groupAddress = result.groupAddress
 
     await registerClusterKey(
-      privateKey!,
+      privateKey,
       networkConfig.rpcUrl,
       networkConfig.chain,
-      mpcRegistryAddress!,
+      mpcRegistryAddress,
       clusterId,
       groupPublicKey,
       groupAddress,
@@ -627,10 +632,10 @@ async function main() {
     // Authorize default services
     const serviceAgentIds = [1n, 2n, 3n, 4n]
     await authorizeServices(
-      privateKey!,
+      privateKey,
       networkConfig.rpcUrl,
       networkConfig.chain,
-      mpcRegistryAddress!,
+      mpcRegistryAddress,
       serviceAgentIds,
     )
   }

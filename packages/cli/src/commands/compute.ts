@@ -554,7 +554,7 @@ async function runInference(
 
     logger.subheader('Response')
     const choice = result.choices[0]
-    console.log(choice?.message?.content ?? 'No response')
+    console.log(choice.message.content ?? 'No response')
     logger.newline()
     logger.keyValue(
       'Tokens',

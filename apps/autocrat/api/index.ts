@@ -19,7 +19,7 @@
  *
  * 5. Service ports:
  *    - Council API: PORT (default: 8010)
- *    - CEO Server: CEO_PORT (default: 8004, separate process)
+ *    - CEO Server: AUTOCRAT_AGENT_PORT (default: 8004, separate process)
  */
 
 import { cors } from '@elysiajs/cors'

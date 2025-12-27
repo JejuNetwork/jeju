@@ -59,12 +59,22 @@ export class LocalDeployOrchestrator {
 
     const contractsDir = join(this.config.rootDir, 'packages/contracts')
 
-    const cmd = `cd ${contractsDir} && ARBISCAN_API_KEY=dummy BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/DeployDWS.s.sol:DeployDWS --rpc-url ${this.config.rpcUrl} --private-key ${this.config.privateKey} --broadcast`
+    // SECURITY: Pass private key via environment variable instead of command line
+    // Command line args are visible in 'ps' output and system audit logs
+    const cmd = `forge script script/DeployDWS.s.sol:DeployDWS --rpc-url ${this.config.rpcUrl} --private-key $DEPLOYER_PRIVATE_KEY --broadcast`
 
     try {
       const output = execSync(cmd, {
+        cwd: contractsDir,
         encoding: 'utf-8',
         maxBuffer: 50 * 1024 * 1024,
+        env: {
+          ...process.env,
+          DEPLOYER_PRIVATE_KEY: this.config.privateKey,
+          ARBISCAN_API_KEY: 'dummy',
+          BASESCAN_API_KEY: 'dummy',
+          ETHERSCAN_API_KEY: 'dummy',
+        },
       })
 
       const addresses = this.parseDeploymentOutput(output)

@@ -54,6 +54,10 @@ interface BootstrapResult {
     identityRegistry?: string
     reputationRegistry?: string
     validationRegistry?: string
+    // ZK Bridge (Solana ↔ EVM)
+    zkVerifier?: string
+    zkBridge?: string
+    solanaLightClient?: string
     // Node Staking
     nodeStakingManager?: string
     nodePerformanceOracle?: string
@@ -193,6 +197,15 @@ class CompleteBootstrapper {
     result.contracts.identityRegistry = registries.identity
     result.contracts.reputationRegistry = registries.reputation
     result.contracts.validationRegistry = registries.validation
+    console.log('')
+
+    // Step 2.6: Deploy ZK Bridge Infrastructure
+    console.log('🔐 STEP 2.6: Deploying ZK Bridge Infrastructure')
+    console.log('-'.repeat(70))
+    const zkBridge = await this.deployZKBridge(result.contracts)
+    result.contracts.zkVerifier = zkBridge.verifier
+    result.contracts.zkBridge = zkBridge.bridge
+    result.contracts.solanaLightClient = zkBridge.lightClient
     console.log('')
 
     // Step 3: Deploy CreditManager (uses JEJU after it's deployed in Step 5.6)
@@ -560,6 +573,255 @@ class CompleteBootstrapper {
     )
 
     return { identity, reputation, validation }
+  }
+
+  /**
+   * Check if SP1 toolchain is installed
+   */
+  private checkSP1Installed(): boolean {
+    // Check if cargo-prove is in PATH
+    try {
+      execSync('which cargo-prove', { stdio: 'ignore' })
+      return true
+    } catch {
+      // Check in common SP1 installation paths
+      const sp1Paths = [
+        `${process.env.HOME}/.sp1/bin/cargo-prove`,
+        `${process.env.HOME}/.cargo/bin/cargo-prove`,
+      ]
+
+      for (const p of sp1Paths) {
+        if (existsSync(p)) {
+          return true
+        }
+      }
+
+      return false
+    }
+  }
+
+  /**
+   * Get the path to cargo-prove binary
+   */
+  private getCargoProvePath(): string {
+    // Check PATH first
+    try {
+      const result = execSync('which cargo-prove', { stdio: 'pipe' })
+        .toString()
+        .trim()
+      if (result) return result
+    } catch {
+      // Not in PATH
+    }
+
+    // Check common installation paths
+    const paths = [
+      `${process.env.HOME}/.sp1/bin/cargo-prove`,
+      `${process.env.HOME}/.cargo/bin/cargo-prove`,
+    ]
+
+    for (const p of paths) {
+      if (existsSync(p)) return p
+    }
+
+    return 'cargo-prove' // Fall back to PATH lookup
+  }
+
+  /**
+   * Build SP1 circuits and generate verification keys
+   * @returns true if successful
+   */
+  private buildSP1Circuits(): boolean {
+    const circuitsDir = join(process.cwd(), 'packages/bridge/circuits')
+
+    if (!existsSync(circuitsDir)) {
+      console.log('     Circuits directory not found')
+      return false
+    }
+
+    const cargoProve = this.getCargoProvePath()
+    console.log(`     Using: ${cargoProve}`)
+
+    try {
+      console.log('     Building SP1 circuits (this may take a few minutes)...')
+
+      // Build ethereum circuit
+      execSync(`${cargoProve} build`, {
+        cwd: join(circuitsDir, 'ethereum'),
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          RUSTUP_TOOLCHAIN: 'succinct',
+          PATH: `${process.env.HOME}/.sp1/bin:${process.env.HOME}/.cargo/bin:${process.env.PATH}`,
+        },
+      })
+      console.log('     ✅ Ethereum circuit built')
+
+      // Build solana-consensus circuit
+      execSync(`${cargoProve} build`, {
+        cwd: join(circuitsDir, 'solana-consensus'),
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          RUSTUP_TOOLCHAIN: 'succinct',
+          PATH: `${process.env.HOME}/.sp1/bin:${process.env.HOME}/.cargo/bin:${process.env.PATH}`,
+        },
+      })
+      console.log('     ✅ Solana consensus circuit built')
+
+      return true
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.log('     ⚠️  Circuit build failed:', msg)
+      return false
+    }
+  }
+
+  /**
+   * Deploy ZK Bridge infrastructure for Solana ↔ EVM bridging
+   *
+   * Deployment priority:
+   * 1. SP1Groth16Verifier (real) - if SP1 toolchain is installed and circuits build
+   * 2. MockGroth16Verifier (fallback) - for development without SP1
+   */
+  private async deployZKBridge(
+    contracts: Partial<BootstrapResult['contracts']>,
+  ): Promise<{
+    verifier: string
+    lightClient: string
+    bridge: string
+  }> {
+    try {
+      let verifier: string
+      let isMock = true
+
+      // Check if SP1 is available
+      const sp1Installed = this.checkSP1Installed()
+
+      if (sp1Installed) {
+        console.log('  🔧 SP1 toolchain detected - building real verifier')
+
+        // Build circuits
+        const circuitsBuilt = this.buildSP1Circuits()
+
+        if (circuitsBuilt) {
+          // Deploy real SP1 Groth16 Verifier
+          try {
+            verifier = this.deployContractFromPackages(
+              'src/bridge/zk/SP1Groth16Verifier.sol:SP1Groth16Verifier',
+              [],
+              'SP1Groth16Verifier (real ZK proofs)',
+            )
+            isMock = false
+            console.log('  ✅ Real Groth16 verifier deployed')
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            console.log('     ⚠️  Real verifier deployment failed:', msg)
+            console.log('     Falling back to mock verifier...')
+            verifier = this.deployContractFromPackages(
+              'src/bridge/zk/MockGroth16Verifier.sol:MockGroth16Verifier',
+              [],
+              'MockGroth16Verifier (fallback)',
+            )
+          }
+        } else {
+          console.log('     Using mock verifier (circuits not built)')
+          verifier = this.deployContractFromPackages(
+            'src/bridge/zk/MockGroth16Verifier.sol:MockGroth16Verifier',
+            [],
+            'MockGroth16Verifier (circuits unavailable)',
+          )
+        }
+      } else {
+        console.log('  📦 SP1 not installed - using mock verifier')
+        console.log(
+          '     Install SP1: curl -L https://sp1.succinct.xyz | bash && sp1up',
+        )
+        verifier = this.deployContractFromPackages(
+          'src/bridge/zk/MockGroth16Verifier.sol:MockGroth16Verifier',
+          [],
+          'MockGroth16Verifier (SP1 not installed)',
+        )
+      }
+
+      // Deploy Solana Light Client
+      const lightClient = this.deployContractFromPackages(
+        'src/bridge/zk/SolanaLightClient.sol:SolanaLightClient',
+        [verifier],
+        'SolanaLightClient',
+      )
+
+      // Deploy ZK Bridge
+      // Constructor: (lightClient, identityRegistry, verifier, baseFee, feePerByte)
+      const bridge = this.deployContractFromPackages(
+        'src/bridge/zk/ZKBridge.sol:ZKBridge',
+        [
+          lightClient,
+          contracts.identityRegistry || this.deployerAddress,
+          verifier,
+          '1000000000000000', // 0.001 ETH base fee
+          '1000000000000', // 0.000001 ETH per byte
+        ],
+        'ZKBridge (Solana ↔ EVM)',
+      )
+
+      // Save deployment to zk-bridge file
+      this.saveZKBridgeDeployment(verifier, lightClient, bridge, isMock)
+
+      console.log('  ✅ ZK Bridge infrastructure deployed')
+      if (isMock) {
+        console.log(
+          '     ⚠️  Using mock verifier - install SP1 for real ZK proofs',
+        )
+      } else {
+        console.log('     🔐 Real SP1 Groth16 verifier active')
+      }
+      return { verifier, lightClient, bridge }
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e)
+      console.log('  ⚠️  ZK Bridge deployment skipped')
+      console.log('     Error:', errorMsg)
+      return {
+        verifier: '0x0000000000000000000000000000000000000000',
+        lightClient: '0x0000000000000000000000000000000000000000',
+        bridge: '0x0000000000000000000000000000000000000000',
+      }
+    }
+  }
+
+  private saveZKBridgeDeployment(
+    verifier: string,
+    lightClient: string,
+    bridge: string,
+    isMock: boolean,
+  ): void {
+    const deploymentsDir = join(process.cwd(), 'packages/contracts/deployments')
+    if (!existsSync(deploymentsDir)) {
+      mkdirSync(deploymentsDir, { recursive: true })
+    }
+
+    const deployment: Record<string, string | number | boolean> = {
+      groth16Verifier: verifier,
+      verifier: verifier,
+      solanaLightClient: lightClient,
+      zkBridge: bridge,
+      chainId: 31337,
+      network: 'localnet',
+      isMock,
+      deployedAt: new Date().toISOString(),
+    }
+
+    if (isMock) {
+      deployment.warning = 'Mock verifier - DO NOT USE IN PRODUCTION'
+    } else {
+      deployment.note = 'Real SP1 Groth16 verifier'
+    }
+
+    writeFileSync(
+      join(deploymentsDir, 'zk-bridge-31337.json'),
+      JSON.stringify(deployment, null, 2),
+    )
+    console.log('  📁 Saved to zk-bridge-31337.json')
   }
 
   private async deployPaymasterSystem(
@@ -1515,7 +1777,7 @@ class CompleteBootstrapper {
               listing.price,
               '604800', // 7 days
             ],
-            `  Listed #${listing.tokenId} for ${parseInt(listing.price) / 1e18} ETH`,
+            `  Listed #${listing.tokenId} for ${parseInt(listing.price, 10) / 1e18} ETH`,
           )
         }
         console.log('  ✅ Sample listings created')
@@ -2145,6 +2407,7 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('   ✅ All services authorized')
     console.log('   ✅ Banned users cannot transfer JEJU')
     console.log('   ✅ DWS (JNS, Storage, Workers, CDN)')
+    console.log('   ✅ ZK Bridge (Solana ↔ EVM with mock verifier)')
     console.log('')
     if (result.contracts.jnsRegistry) {
       console.log('🌐 DWS Contracts:')

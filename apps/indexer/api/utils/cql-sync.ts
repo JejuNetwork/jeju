@@ -166,7 +166,9 @@ export class CQLSyncService {
     const primaryColumns = meta.primaryColumns.map((c) => c.databaseName)
 
     if (primaryColumns.length === 0) {
-      throw new Error(`[CQLSync] Table ${tableName} has no primary key - cannot sync`)
+      throw new Error(
+        `[CQLSync] Table ${tableName} has no primary key - cannot sync`,
+      )
     }
 
     const state = syncStates.get(tableName) ?? {

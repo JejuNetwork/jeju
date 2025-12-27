@@ -334,7 +334,7 @@ async function createDAO(
 
   // Extract DAO ID from logs
   const firstLog = receipt.logs[0]
-  const daoId = firstLog?.topics[1] ?? 'unknown'
+  const daoId = firstLog.topics[1] ?? 'unknown'
   console.log(`DAO ID: ${daoId}`)
 }
 

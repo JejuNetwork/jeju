@@ -42,7 +42,7 @@ describe('DeFi E2E Tests', () => {
 
   describe('Uniswap v4', () => {
     test('should have PoolManager deployed', async () => {
-      if (!deployment.uniswapV4?.PoolManager) {
+      if (!deployment.uniswapV4.PoolManager) {
         console.warn('Uniswap v4 not deployed, skipping')
         return
       }
@@ -55,7 +55,7 @@ describe('DeFi E2E Tests', () => {
     })
 
     test('should execute a swap', async () => {
-      if (!deployment.uniswapV4?.SwapRouter) {
+      if (!deployment.uniswapV4.SwapRouter) {
         console.warn('Uniswap v4 SwapRouter not deployed, skipping')
         return
       }
@@ -76,7 +76,7 @@ describe('DeFi E2E Tests', () => {
 
   describe('Synthetix v3', () => {
     test('should have CoreProxy deployed with code', async () => {
-      if (!deployment.synthetixV3?.CoreProxy) {
+      if (!deployment.synthetixV3.CoreProxy) {
         console.warn('Synthetix V3 not found in deployment, skipping test.')
         return
       }
@@ -90,7 +90,7 @@ describe('DeFi E2E Tests', () => {
 
   describe('Compound v3', () => {
     test('should have Comet deployed with code', async () => {
-      if (!deployment.compoundV3?.Comet) {
+      if (!deployment.compoundV3.Comet) {
         console.warn('Compound V3 not found in deployment, skipping test.')
         return
       }

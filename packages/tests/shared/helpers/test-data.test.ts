@@ -290,7 +290,8 @@ describe('generateTestId - ID Generation', () => {
     const after = Date.now()
 
     const parts = id.split('-')
-    const timestamp = Number.parseInt(parts[1]!, 10)
+    expect(parts[1]).toBeDefined()
+    const timestamp = Number.parseInt(parts[1], 10)
 
     expect(timestamp).toBeGreaterThanOrEqual(before)
     expect(timestamp).toBeLessThanOrEqual(after)
@@ -300,7 +301,7 @@ describe('generateTestId - ID Generation', () => {
     const id = generateTestId()
     const suffix = id.split('-')[2]
     expect(suffix).toMatch(/^[a-z0-9]+$/)
-    expect(suffix?.length).toBeGreaterThanOrEqual(6)
+    expect(suffix.length).toBeGreaterThanOrEqual(6)
   })
 
   test('handles empty prefix', () => {
@@ -379,8 +380,8 @@ describe('generateTestUsername - Username Generation', () => {
   test('username suffix is reasonable length', () => {
     const username = generateTestUsername()
     const suffix = username.split('_')[1]
-    expect(suffix?.length).toBeGreaterThanOrEqual(4)
-    expect(suffix?.length).toBeLessThanOrEqual(10)
+    expect(suffix.length).toBeGreaterThanOrEqual(4)
+    expect(suffix.length).toBeLessThanOrEqual(10)
   })
 })
 

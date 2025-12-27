@@ -54,12 +54,12 @@ USER autocrat
 
 WORKDIR /app/apps/autocrat
 
-# Expose ports (API, A2A, MCP)
-EXPOSE 8010 8011
+# Expose ports (API: 4040, Web: 4042, Agent: 4041)
+EXPOSE 4040 4041 4042
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8010/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:4040/health || exit 1
 
 # Default command
 CMD ["bun", "run", "start"]

@@ -484,5 +484,5 @@ export function getStablecoinAddress(
   id: ChainId | number,
   token: 'usdc' | 'usdt',
 ): Address | string | undefined {
-  return CHAIN_CONFIGS[id]?.stablecoins[token]
+  return CHAIN_CONFIGS[id].stablecoins[token]
 }

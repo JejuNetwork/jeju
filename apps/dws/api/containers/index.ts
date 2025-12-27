@@ -20,6 +20,22 @@ export {
   type CacheStats,
   getCacheStats,
 } from './image-cache'
+
+// Provisioner - Heroku-like container deployment
+export {
+  type ContainerDeployConfig,
+  ContainerProvisioner,
+  type GPUType,
+  getContainerProvisioner,
+  type HardwareSpec,
+  type MachineType,
+  type NodeAllocation,
+  type ProvisionedContainer,
+  type ProvisionedContainerStatus,
+  type TEEAttestation,
+  type TEEPlatform,
+} from './provisioner'
+
 // Scheduler - public API
 export {
   getAllNodes,

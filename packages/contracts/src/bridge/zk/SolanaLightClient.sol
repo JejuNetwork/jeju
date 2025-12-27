@@ -3,6 +3,7 @@ pragma solidity ^0.8.33;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ISolanaLightClient.sol";
+import "./interfaces/IZKVerifier.sol";
 
 /**
  * @title SolanaLightClient
@@ -37,7 +38,7 @@ contract SolanaLightClient is ISolanaLightClient, Ownable {
     }
 
     /// @notice Groth16 verifier for consensus proofs
-    address public verifier;
+    IZKVerifier public immutable verifier;
 
     /// @notice Latest verified slot
     uint64 public latestSlot;
@@ -77,7 +78,8 @@ contract SolanaLightClient is ISolanaLightClient, Ownable {
     // ============ Constructor ============
 
     constructor(address _verifier) Ownable(msg.sender) {
-        verifier = _verifier;
+        require(_verifier != address(0), "Verifier address required");
+        verifier = IZKVerifier(_verifier);
         isRelayer[msg.sender] = true;
     }
 
@@ -147,10 +149,6 @@ contract SolanaLightClient is ISolanaLightClient, Ownable {
         emit RelayerUpdated(relayer, authorized);
     }
 
-    function setVerifier(address _verifier) external onlyOwner {
-        verifier = _verifier;
-    }
-
     // ============ Internal Functions ============
 
     function _verifyConsensusProof(
@@ -159,18 +157,13 @@ contract SolanaLightClient is ISolanaLightClient, Ownable {
         uint64 slot,
         bytes32 bankHash
     ) internal view returns (bool) {
-        // Basic validation
+        // Validate public inputs match expected values
         if (publicInputs.length < 4) return false;
-
-        // Verify public inputs match
         if (publicInputs[0] != slot) return false;
         if (bytes32(publicInputs[1]) != bankHash) return false;
 
-        // In production, call the actual verifier
-        // For now, basic proof structure check
-        if (proof[0] == 0 && proof[1] == 0) return false;
-
-        return true;
+        // Delegate cryptographic verification to the Groth16 verifier
+        return verifier.verifyProof(proof, publicInputs);
     }
 }
 

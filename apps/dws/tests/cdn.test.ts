@@ -1,28 +1,11 @@
 /**
  * CDN Service Tests
  * Comprehensive tests for CDN caching, routing, and edge functionality
- *
- * Requires: DWS server infrastructure
- * Run with: jeju test --target-app dws --mode integration
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-
-// Skip all tests if INFRA_READY is not set
-const SKIP_ALL = process.env.INFRA_READY !== 'true'
-
-// Only import heavy modules if we're going to run tests
-let app: Awaited<typeof import('../api/server')>['app']
-let getEdgeCache: typeof import('../api/cdn').getEdgeCache
-let resetEdgeCache: typeof import('../api/cdn').resetEdgeCache
-type EdgeCache = import('../api/cdn').EdgeCache
-
-if (!SKIP_ALL) {
-  app = (await import('../api/server')).app
-  const cdn = await import('../api/cdn')
-  getEdgeCache = cdn.getEdgeCache
-  resetEdgeCache = cdn.resetEdgeCache
-}
+import { type EdgeCache, getEdgeCache, resetEdgeCache } from '../api/cdn'
+import { app } from '../api/server'
 
 // Response types for JNS resolution
 interface JnsResolveResponse {
@@ -39,7 +22,6 @@ async function request(
     body?: string
   },
 ): Promise<Response> {
-  if (SKIP_ALL) throw new Error('Tests should be skipped')
   const url = `http://localhost${path}`
   const req = new Request(url, {
     method: options?.method ?? 'GET',
@@ -49,7 +31,7 @@ async function request(
   return app.handle(req)
 }
 
-describe.skipIf(SKIP_ALL)('CDN Service', () => {
+describe('CDN Service', () => {
   describe('Health Check', () => {
     test('GET /cdn/health should return healthy', async () => {
       const res = await request('/cdn/health')
@@ -150,7 +132,7 @@ describe.skipIf(SKIP_ALL)('CDN Service', () => {
   })
 })
 
-describe.skipIf(SKIP_ALL)('EdgeCache Unit Tests', () => {
+describe('EdgeCache Unit Tests', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -424,7 +406,7 @@ describe.skipIf(SKIP_ALL)('EdgeCache Unit Tests', () => {
   })
 })
 
-describe.skipIf(SKIP_ALL)('EdgeCache Edge Cases', () => {
+describe('EdgeCache Edge Cases', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -497,7 +479,7 @@ describe.skipIf(SKIP_ALL)('EdgeCache Edge Cases', () => {
   })
 })
 
-describe.skipIf(SKIP_ALL)('CDN Server Integration', () => {
+describe('CDN Server Integration', () => {
   test('DWS health should include cdn service', async () => {
     const res = await request('/health')
     expect(res.status).toBe(200)
@@ -519,7 +501,7 @@ describe.skipIf(SKIP_ALL)('CDN Server Integration', () => {
 
 // ============ Cache Eviction and Size Limit Tests ============
 
-describe.skipIf(SKIP_ALL)('EdgeCache Eviction', () => {
+describe('EdgeCache Eviction', () => {
   test('should evict oldest entries when max entries exceeded', () => {
     resetEdgeCache()
     // Create cache with very small max entries
@@ -543,6 +525,7 @@ describe.skipIf(SKIP_ALL)('EdgeCache Eviction', () => {
     expect(smallCache.getStats().entries).toBeLessThanOrEqual(5)
 
     // Oldest entry should be evicted (entry-0 was accessed first)
+    smallCache.get('entry-0') // Access entry-0 to see if it was evicted
     const { status: status5 } = smallCache.get('entry-5')
     expect(status5).toBe('HIT')
     // entry-0 may or may not be evicted depending on access pattern
@@ -591,7 +574,7 @@ describe.skipIf(SKIP_ALL)('EdgeCache Eviction', () => {
 
 // ============ Invalid Input Handling Tests ============
 
-describe.skipIf(SKIP_ALL)('EdgeCache Invalid Inputs', () => {
+describe('EdgeCache Invalid Inputs', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -651,7 +634,7 @@ describe.skipIf(SKIP_ALL)('EdgeCache Invalid Inputs', () => {
 
 // ============ TTL Expiration Behavior Tests ============
 
-describe.skipIf(SKIP_ALL)('EdgeCache TTL Behavior', () => {
+describe('EdgeCache TTL Behavior', () => {
   let cache: EdgeCache
 
   beforeEach(() => {
@@ -723,7 +706,7 @@ describe.skipIf(SKIP_ALL)('EdgeCache TTL Behavior', () => {
 
 // ============ Hit Rate Calculation Tests ============
 
-describe.skipIf(SKIP_ALL)('EdgeCache Hit Rate Accuracy', () => {
+describe('EdgeCache Hit Rate Accuracy', () => {
   let cache: EdgeCache
 
   beforeEach(() => {

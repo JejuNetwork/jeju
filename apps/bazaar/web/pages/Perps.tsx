@@ -8,7 +8,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { formatUnits } from 'viem'
 import { useAccount } from 'wagmi'
-import { fetchPerpsMarkets, fetchTraderPositions, type PerpsMarket, type PerpsPosition } from '../../lib/perps-client'
+import {
+  fetchPerpsMarkets,
+  fetchTraderPositions,
+  type PerpsMarket,
+  type PerpsPosition,
+} from '../../lib/perps-client'
 import { AuthButton } from '../components/auth/AuthButton'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
@@ -36,7 +41,8 @@ export default function PerpsPage() {
   // Fetch user positions
   const { data: positions, isLoading: positionsLoading } = useQuery({
     queryKey: ['perps-positions', address],
-    queryFn: () => (address ? fetchTraderPositions(address) : Promise.resolve([])),
+    queryFn: () =>
+      address ? fetchTraderPositions(address) : Promise.resolve([]),
     enabled: Boolean(address),
     refetchInterval: 10000,
   })
@@ -50,7 +56,7 @@ export default function PerpsPage() {
     return `$${Number(formatUnits(price, 8)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  function formatPnl(pnl: bigint): string {
+  function _formatPnl(pnl: bigint): string {
     const value = Number(formatUnits(pnl, 18))
     const sign = value >= 0 ? '+' : ''
     return `${sign}$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -105,7 +111,10 @@ export default function PerpsPage() {
             </p>
             <code
               className="block p-3 rounded-lg text-sm"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }}
             >
               cd apps/bazaar && bun run scripts/bootstrap-perps.ts
             </code>
@@ -146,7 +155,10 @@ export default function PerpsPage() {
                       : 'hover:bg-[var(--bg-secondary)]'
                   }`}
                   style={{
-                    color: selectedMarket?.marketId === market.marketId ? undefined : 'var(--text-secondary)',
+                    color:
+                      selectedMarket?.marketId === market.marketId
+                        ? undefined
+                        : 'var(--text-secondary)',
                   }}
                 >
                   {market.symbol}
@@ -160,18 +172,30 @@ export default function PerpsPage() {
             <div className="card p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  <h2
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {selectedMarket.symbol}
                   </h2>
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
                     Max {selectedMarket.maxLeverage}x Leverage
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  <p
+                    className="text-3xl font-bold"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {formatPrice(selectedMarket.markPrice)}
                   </p>
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
                     Mark Price
                   </p>
                 </div>
@@ -179,27 +203,64 @@ export default function PerpsPage() {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Index Price</p>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <p
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Index Price
+                  </p>
+                  <p
+                    className="font-medium"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {formatPrice(selectedMarket.indexPrice)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Funding Rate</p>
-                  <p className={`font-medium ${selectedMarket.fundingRate >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <p
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Funding Rate
+                  </p>
+                  <p
+                    className={`font-medium ${selectedMarket.fundingRate >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                  >
                     {(Number(selectedMarket.fundingRate) / 100).toFixed(4)}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Long OI</p>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    ${Number(formatUnits(selectedMarket.longOI, 18)).toLocaleString()}
+                  <p
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Long OI
+                  </p>
+                  <p
+                    className="font-medium"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    $
+                    {Number(
+                      formatUnits(selectedMarket.longOI, 18),
+                    ).toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Short OI</p>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    ${Number(formatUnits(selectedMarket.shortOI, 18)).toLocaleString()}
+                  <p
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Short OI
+                  </p>
+                  <p
+                    className="font-medium"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    $
+                    {Number(
+                      formatUnits(selectedMarket.shortOI, 18),
+                    ).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -208,13 +269,19 @@ export default function PerpsPage() {
 
           {/* Positions */}
           <div className="card p-4">
-            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              className="font-semibold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Your Positions
             </h3>
 
             {!isConnected ? (
               <div className="text-center py-8">
-                <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                <p
+                  className="text-sm mb-4"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   Connect wallet to view positions
                 </p>
                 <AuthButton />
@@ -225,7 +292,10 @@ export default function PerpsPage() {
               </div>
             ) : !positions || positions.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                <p
+                  className="text-sm"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   No open positions
                 </p>
               </div>
@@ -256,13 +326,19 @@ export default function PerpsPage() {
 
         {/* Trading Panel */}
         <div className="card p-4 h-fit">
-          <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          <h3
+            className="font-semibold mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Open Position
           </h3>
 
           {!isConnected ? (
             <div className="text-center py-8">
-              <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              <p
+                className="text-sm mb-4"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 Connect wallet to trade
               </p>
               <AuthButton className="w-full" />
@@ -304,14 +380,22 @@ export default function PerpsPage() {
               {/* Leverage */}
               <div>
                 <div className="flex justify-between mb-2">
-                  <label className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <label
+                    htmlFor="leverage-slider"
+                    className="text-sm"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
                     Leverage
                   </label>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {leverage}x
                   </span>
                 </div>
                 <input
+                  id="leverage-slider"
                   type="range"
                   min="1"
                   max={selectedMarket.maxLeverage}
@@ -319,7 +403,10 @@ export default function PerpsPage() {
                   onChange={(e) => setLeverage(Number(e.target.value))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                <div
+                  className="flex justify-between text-xs mt-1"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   <span>1x</span>
                   <span>{selectedMarket.maxLeverage}x</span>
                 </div>
@@ -327,10 +414,15 @@ export default function PerpsPage() {
 
               {/* Margin Amount */}
               <div>
-                <label className="text-sm block mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                <label
+                  htmlFor="margin-amount"
+                  className="text-sm block mb-2"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   Margin (USDC)
                 </label>
                 <input
+                  id="margin-amount"
                   type="number"
                   placeholder="100"
                   value={marginAmount}
@@ -343,10 +435,15 @@ export default function PerpsPage() {
 
               {/* Position Size */}
               <div>
-                <label className="text-sm block mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                <label
+                  htmlFor="position-size"
+                  className="text-sm block mb-2"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   Position Size
                 </label>
                 <input
+                  id="position-size"
                   type="text"
                   value={`$${calculatePositionSize()}`}
                   readOnly
@@ -356,27 +453,45 @@ export default function PerpsPage() {
               </div>
 
               {/* Summary */}
-              <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div
+                className="space-y-2 pt-2 border-t"
+                style={{ borderColor: 'var(--border)' }}
+              >
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--text-tertiary)' }}>Entry Price</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    Entry Price
+                  </span>
                   <span style={{ color: 'var(--text-primary)' }}>
                     {formatPrice(selectedMarket.markPrice)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--text-tertiary)' }}>Liquidation Price</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    Liquidation Price
+                  </span>
                   <span style={{ color: 'var(--text-primary)' }}>
-                    {marginAmount ? '~' + formatPrice(
-                      side === 'long'
-                        ? selectedMarket.markPrice - (selectedMarket.markPrice * BigInt(100 - leverage)) / 100n
-                        : selectedMarket.markPrice + (selectedMarket.markPrice * BigInt(100 - leverage)) / 100n
-                    ) : '-'}
+                    {marginAmount
+                      ? '~' +
+                        formatPrice(
+                          side === 'long'
+                            ? selectedMarket.markPrice -
+                                (selectedMarket.markPrice *
+                                  BigInt(100 - leverage)) /
+                                  100n
+                            : selectedMarket.markPrice +
+                                (selectedMarket.markPrice *
+                                  BigInt(100 - leverage)) /
+                                  100n,
+                        )
+                      : '-'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span style={{ color: 'var(--text-tertiary)' }}>Fee</span>
                   <span style={{ color: 'var(--text-primary)' }}>
-                    {marginAmount ? `$${(Number(marginAmount) * leverage * 0.0005).toFixed(2)}` : '-'}
+                    {marginAmount
+                      ? `$${(Number(marginAmount) * leverage * 0.0005).toFixed(2)}`
+                      : '-'}
                   </span>
                 </div>
               </div>
@@ -425,10 +540,15 @@ function PositionRow({ position }: { position: PerpsPosition }) {
       <td className="py-3 text-right" style={{ color: 'var(--text-primary)' }}>
         ${Number(formatUnits(position.margin, 18)).toLocaleString()}
       </td>
-      <td className={`py-3 text-right ${isProfitable ? 'text-green-400' : 'text-red-400'}`}>
+      <td
+        className={`py-3 text-right ${isProfitable ? 'text-green-400' : 'text-red-400'}`}
+      >
         {isProfitable ? '+' : ''}${pnlValue.toFixed(2)}
       </td>
-      <td className="py-3 text-right" style={{ color: 'var(--text-secondary)' }}>
+      <td
+        className="py-3 text-right"
+        style={{ color: 'var(--text-secondary)' }}
+      >
         ${Number(formatUnits(position.liquidationPrice, 8)).toLocaleString()}
       </td>
     </tr>

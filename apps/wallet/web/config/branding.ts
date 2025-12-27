@@ -48,9 +48,8 @@ const URLS: UrlsBranding = {
     testnet: getRpcUrl('testnet'),
     localnet: getRpcUrl('localnet'),
   },
-  gateway: mainnetServices.gateway?.api || 'https://compute.jejunetwork.org',
-  indexer:
-    mainnetServices.indexer?.graphql || 'https://indexer.jejunetwork.org',
+  gateway: mainnetServices.gateway.api || 'https://compute.jejunetwork.org',
+  indexer: mainnetServices.indexer.graphql || 'https://indexer.jejunetwork.org',
   explorer: {
     mainnet: mainnetServices.explorer || 'https://explorer.jejunetwork.org',
     testnet:

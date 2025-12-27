@@ -745,7 +745,9 @@ testCommand
 
 testCommand
   .command('crawl')
-  .description('Crawl a single app to discover and test all pages and interactions')
+  .description(
+    'Crawl a single app to discover and test all pages and interactions',
+  )
   .requiredOption('-a, --app <app>', 'App to crawl')
   .option('--max-pages <n>', 'Maximum pages to crawl', '50')
   .option('--verbose', 'Verbose output')
@@ -757,7 +759,8 @@ testCommand
     const apps = discoverApps(rootDir, true)
     const app = apps.find(
       (a) =>
-        (a._folderName ?? a.slug ?? a.name) === options.app || a.name === options.app,
+        (a._folderName ?? a.slug ?? a.name) === options.app ||
+        a.name === options.app,
     )
 
     if (!app) {

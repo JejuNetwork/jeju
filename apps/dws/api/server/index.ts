@@ -17,8 +17,6 @@ import {
   getCQLBlockProducerUrl,
   getCurrentNetwork,
   getRpcUrl,
-  isProductionEnv,
-  isTestMode,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -70,7 +68,7 @@ import type { ServiceHealth } from '../types'
 import { WorkerdExecutor } from '../workers/workerd/executor'
 import { createA2ARouter } from './routes/a2a'
 import { createAPIMarketplaceRouter } from './routes/api-marketplace'
-import { createCDNRouter } from './routes/cdn'
+import { createCDNRouter, shutdownHybridCDN } from './routes/cdn'
 import { createCIRouter } from './routes/ci'
 import { createComputeRouter } from './routes/compute'
 import { createContainerRouter } from './routes/containers'
@@ -85,9 +83,9 @@ import {
   createLoadBalancerRouter,
   shutdownLoadBalancer,
 } from './routes/load-balancer'
-import { seedInfrastructure } from '../infrastructure/seed'
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
+import { createNodeRouter } from './routes/node'
 import { createOAuth3Router } from './routes/oauth3'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
@@ -97,10 +95,10 @@ import {
   type SubscribableWebSocket,
   SubscriptionMessageSchema,
 } from './routes/prices'
+import { createProxyRouter } from './routes/proxy'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
-import { createNodeRouter } from './routes/node'
 import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
@@ -119,7 +117,7 @@ interface RateLimitEntry {
 
 const rateLimitStore = new Map<string, RateLimitEntry>()
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
-const RATE_LIMIT_MAX = isTestMode() ? 100000 : 1000
+const RATE_LIMIT_MAX = process.env.NODE_ENV === 'test' ? 100000 : 1000
 const SKIP_RATE_LIMIT_PATHS = ['/health', '/.well-known/']
 
 function rateLimiter() {
@@ -236,7 +234,7 @@ const app = new Elysia()
 const backendManager = createBackendManager()
 
 // Environment validation - require addresses in production
-const isProduction = isProductionEnv()
+const isProduction = process.env.NODE_ENV === 'production'
 const NETWORK = getCurrentNetwork()
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address
 
@@ -412,48 +410,77 @@ app
     }
   })
 
-  // Serve frontend HTML at root
-  .get('/', async ({ request }) => {
-    // Check Accept header - serve JSON for API clients, HTML for browsers
-    const accept = request.headers.get('accept') ?? ''
-    if (accept.includes('application/json') && !accept.includes('text/html')) {
-      return {
-        name: 'DWS',
-        description: 'Decentralized Web Services',
-        version: '1.0.0',
-        services: ['storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 'api-marketplace', 'containers', 's3', 'workers', 'workerd', 'kms', 'vpn', 'scraping', 'rpc', 'edge', 'da', 'funding', 'registry', 'k8s', 'helm', 'terraform', 'mesh', 'cache', 'email', 'lb', 'faucet', 'deploy'],
-        endpoints: { storage: '/storage/*', compute: '/compute/*', cdn: '/cdn/*', git: '/git/*', pkg: '/pkg/*', ci: '/ci/*', oauth3: '/oauth3/*', api: '/api/*', containers: '/containers/*', a2a: '/a2a/*', mcp: '/mcp/*', s3: '/s3/*', workers: '/workers/*', workerd: '/workerd/*', kms: '/kms/*', vpn: '/vpn/*', scraping: '/scraping/*', rpc: '/rpc/*', edge: '/edge/*', da: '/da/*', funding: '/funding/*', registry: '/registry/*', k3s: '/k3s/*', helm: '/helm/*', terraform: '/terraform/*', ingress: '/ingress/*', mesh: '/mesh/*', cache: '/cache/*', email: '/email/*', lb: '/lb/*', indexer: '/indexer/*', faucet: '/faucet/*', deploy: '/deploy/*' },
-      }
-    }
-    // Serve SPA index.html
-    const indexFile = Bun.file('./dist/web/index.html')
-    if (await indexFile.exists()) {
-      return new Response(await indexFile.text(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-    }
-    // Fallback for development - read from index.html source
-    const srcFile = Bun.file('./index.html')
-    if (await srcFile.exists()) {
-      // Rewrite asset paths for development
-      let html = await srcFile.text()
-      html = html.replace('src="/web/main.tsx"', 'src="/cdn/apps/dws/web/main.6rc1xxks.js"')
-      html = html.replace('<link rel="stylesheet" href="/web/main.dgt5097t.css">', '<link rel="stylesheet" href="/cdn/apps/dws/web/main.dgt5097t.css">')
-      return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-    }
-    return new Response('DWS frontend not built', { status: 500 })
-  })
-
-  // Serve frontend static assets at /web/*
-  .get('/web/*', async ({ params, set }) => {
-    const path = params['*']
-    const file = Bun.file(`./dist/web/${path}`)
-    if (await file.exists()) {
-      const ext = path.split('.').pop() ?? ''
-      const types: Record<string, string> = { js: 'application/javascript', css: 'text/css', map: 'application/json' }
-      return new Response(await file.arrayBuffer(), { headers: { 'Content-Type': types[ext] ?? 'application/octet-stream' } })
-    }
-    set.status = 404
-    return { error: 'NOT_FOUND' }
-  })
+  .get('/', () => ({
+    name: 'DWS',
+    description: 'Decentralized Web Services',
+    version: '1.0.0',
+    services: [
+      'storage',
+      'compute',
+      'cdn',
+      'git',
+      'pkg',
+      'ci',
+      'oauth3',
+      'api-marketplace',
+      'containers',
+      's3',
+      'workers',
+      'workerd',
+      'kms',
+      'vpn',
+      'scraping',
+      'rpc',
+      'edge',
+      'da',
+      'funding',
+      'registry',
+      'k8s',
+      'helm',
+      'terraform',
+      'mesh',
+      'cache',
+      'email',
+      'lb',
+      'faucet',
+      'deploy',
+    ],
+    endpoints: {
+      storage: '/storage/*',
+      compute: '/compute/*',
+      cdn: '/cdn/*',
+      git: '/git/*',
+      pkg: '/pkg/*',
+      ci: '/ci/*',
+      oauth3: '/oauth3/*',
+      api: '/api/*',
+      containers: '/containers/*',
+      a2a: '/a2a/*',
+      mcp: '/mcp/*',
+      s3: '/s3/*',
+      workers: '/workers/*',
+      workerd: '/workerd/*',
+      kms: '/kms/*',
+      vpn: '/vpn/*',
+      scraping: '/scraping/*',
+      rpc: '/rpc/*',
+      edge: '/edge/*',
+      da: '/da/*',
+      funding: '/funding/*',
+      registry: '/registry/*',
+      k3s: '/k3s/*',
+      helm: '/helm/*',
+      terraform: '/terraform/*',
+      ingress: '/ingress/*',
+      mesh: '/mesh/*',
+      cache: '/cache/*',
+      email: '/email/*',
+      lb: '/lb/*',
+      indexer: '/indexer/*',
+      faucet: '/faucet/*',
+      deploy: '/deploy/*',
+    },
+  }))
 
 // Route mounting - these routers need to be Elysia instances
 app.use(createStorageRouter())
@@ -708,6 +735,9 @@ app.use(createCacheRoutes())
 // Node operator routes
 app.use(createNodeRouter())
 
+// Reverse proxy for all Jeju services (indexer, monitoring, etc.)
+app.use(createProxyRouter())
+
 // Root-level /stats endpoint for vendor app compatibility
 // Returns cache stats in standard format
 app.get('/stats', () => {
@@ -774,6 +804,8 @@ function shutdown(signal: string) {
   console.log('[DWS] Indexer proxy stopped')
   stopKeepaliveService()
   console.log('[DWS] Keepalive service stopped')
+  shutdownHybridCDN().catch(() => {})
+  console.log('[DWS] Hybrid CDN stopped')
   if (p2pCoordinator) {
     p2pCoordinator.stop()
     console.log('[DWS] P2P coordinator stopped')
@@ -788,13 +820,21 @@ function shutdown(signal: string) {
 if (import.meta.main) {
   const baseUrl = process.env.DWS_BASE_URL || `http://localhost:${PORT}`
 
-  // Warn about default passwords in production
+  // Validate required secrets in production
   if (isProduction) {
-    if (!process.env.DEFAULT_POSTGRES_PASSWORD) {
-      console.warn('[DWS] WARNING: Using default postgres password. Set DEFAULT_POSTGRES_PASSWORD in production.')
-    }
-    if (!process.env.DEFAULT_MINIO_PASSWORD) {
-      console.warn('[DWS] WARNING: Using default minio password. Set DEFAULT_MINIO_PASSWORD in production.')
+    const requiredSecrets = [
+      'DEFAULT_POSTGRES_PASSWORD',
+      'DEFAULT_MINIO_PASSWORD',
+      'VAULT_ENCRYPTION_SECRET',
+      'API_KEY_ENCRYPTION_SECRET',
+      'CI_ENCRYPTION_SECRET',
+    ]
+    const missing = requiredSecrets.filter((s) => !process.env[s])
+    if (missing.length > 0) {
+      console.error(
+        `[DWS] CRITICAL: Missing required secrets in production: ${missing.join(', ')}`,
+      )
+      process.exit(1)
     }
   }
 
@@ -1010,21 +1050,6 @@ if (import.meta.main) {
       console.log('[DWS] Database keepalive service started')
     })
     .catch(console.error)
-
-  // Seed infrastructure (external chain nodes + bots)
-  // Runs automatically - provisions RPC nodes and deploys Crucible bots
-  const treasuryAddress = getContractOrZero('treasury', 'autocrat')
-  if (treasuryAddress !== ZERO_ADDR) {
-    seedInfrastructure(treasuryAddress)
-      .then((result) => {
-        console.log(`[DWS] Infrastructure seeded: ${result.nodesReady} nodes, ${result.botsRunning} bots`)
-      })
-      .catch((err) => {
-        console.warn('[DWS] Infrastructure seed failed:', err.message)
-      })
-  } else {
-    console.log('[DWS] Skipping infrastructure seed - no treasury contract')
-  }
 
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))

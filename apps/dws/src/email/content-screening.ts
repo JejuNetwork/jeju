@@ -398,7 +398,7 @@ export class ContentScreeningPipeline {
     const text = [
       content.subject,
       content.bodyText,
-      ...(content.attachments?.map((a) => a.filename) ?? []),
+      ...(content.attachments.map((a) => a.filename) ?? []),
     ].join('\n')
 
     const response = await fetch(this.config.aiModelEndpoint, {
@@ -525,7 +525,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
       [normalizedAddress],
       EMAIL_SCREENING_DATABASE_ID,
     )
-    const emailCount = statsResult.rows[0]?.email_count ?? 0
+    const emailCount = statsResult.rows[0].email_count ?? 0
 
     if (emailCount < this.config.minEmailsForReview) {
       return false
@@ -649,7 +649,7 @@ Return ONLY valid JSON:
 
         if (dataResult.success) {
           const firstChoice = dataResult.data.choices[0]
-          const content = firstChoice?.message.content ?? ''
+          const content = firstChoice.message.content ?? ''
           const jsonMatch = content.match(/\{[\s\S]*\}/)
 
           if (jsonMatch) {
@@ -1135,7 +1135,7 @@ Return ONLY valid JSON:
       EMAIL_SCREENING_DATABASE_ID,
     )
 
-    return result.rows[0]?.email_count ?? 0
+    return result.rows[0].email_count ?? 0
   }
 }
 

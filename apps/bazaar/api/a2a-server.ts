@@ -1,10 +1,12 @@
-import { type ContractCategory, getContract } from '@jejunetwork/config'
+import '@jejunetwork/config'
 import {
   expect,
   getOptionalString,
   getString,
   validateOrThrow,
+  ZERO_ADDRESS,
 } from '@jejunetwork/types'
+import { type Address, encodeFunctionData, parseEther } from 'viem'
 import { z } from 'zod'
 
 const SkillIdSchema = z
@@ -14,22 +16,113 @@ const SkillIdSchema = z
   .passthrough()
 
 import { CONTRACTS, NETWORK_NAME } from '../config'
+import { JEJU_CHAIN_ID } from '../config/chains'
+import { getV4Contracts } from '../config/contracts'
+import {
+  fetchMarketStats,
+  fetchNewTokens,
+  fetchPredictionMarkets,
+  fetchTokenDetails,
+  fetchTokensWithMarketData,
+  fetchTopGainers,
+  fetchTopLosers,
+  fetchTrendingTokens,
+  type Token,
+} from '../lib/data-client'
+import type { A2ARequest as A2ARequestType } from '../schemas/api'
+import {
+  checkBanStatus,
+  getModerationCase,
+  getModerationCases,
+  getModerationStats,
+  getModeratorStats,
+  prepareChallengeTransaction,
+  prepareReportTransaction,
+  prepareStakeTransaction,
+  prepareVoteTransaction,
+} from './moderation-api'
 
-// Helper to get contract address for mock data
-const getContractAddr = (category: ContractCategory, name: string): string => {
-  try {
-    return getContract(category, name)
-  } catch {
-    return '0x0000000000000000000000000000000000000000'
-  }
+// ABIs for transaction encoding
+const SWAP_ROUTER_ABI = [
+  {
+    inputs: [
+      {
+        components: [
+          { name: 'tokenIn', type: 'address' },
+          { name: 'tokenOut', type: 'address' },
+          { name: 'fee', type: 'uint24' },
+          { name: 'recipient', type: 'address' },
+          { name: 'amountIn', type: 'uint256' },
+          { name: 'amountOutMinimum', type: 'uint256' },
+          { name: 'sqrtPriceLimitX96', type: 'uint160' },
+        ],
+        name: 'params',
+        type: 'tuple',
+      },
+    ],
+    name: 'exactInputSingle',
+    outputs: [{ name: 'amountOut', type: 'uint256' }],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+] as const
+
+const NFT_MARKETPLACE_ABI = [
+  {
+    inputs: [{ name: 'listingId', type: 'uint256' }],
+    name: 'buyListing',
+    outputs: [],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'nftContract', type: 'address' },
+      { name: 'tokenId', type: 'uint256' },
+      { name: 'price', type: 'uint256' },
+      { name: 'duration', type: 'uint256' },
+    ],
+    name: 'createListing',
+    outputs: [{ name: 'listingId', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const
+
+const PREDICTION_MARKET_ABI = [
+  {
+    inputs: [
+      { name: 'sessionId', type: 'bytes32' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'buyYes', type: 'bool' },
+    ],
+    name: 'buy',
+    outputs: [{ name: 'shares', type: 'uint256' }],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+] as const
+
+// SkillResult type - use unknown to allow any structured data
+export interface SkillResult {
+  message: string
+  data: unknown
 }
 
-import type { A2ARequest as A2ARequestType } from '../schemas/api'
-
-// SkillResult type (defined locally to avoid importing @jejunetwork/shared which uses fs)
-export interface SkillResult<T = Record<string, unknown>> {
-  message: string
-  data: T
+// Helper to format token for response
+function formatTokenResponse(token: Token) {
+  return {
+    address: token.address,
+    name: token.name,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    priceUSD: token.priceUSD,
+    priceChange24h: token.priceChange24h,
+    volume24h: token.volume24h?.toString(),
+    liquidityUSD: token.liquidityUSD,
+    verified: token.verified,
+    createdAt: token.createdAt.toISOString(),
+  }
 }
 
 function createAgentCard(options: {
@@ -66,113 +159,68 @@ function createAgentCard(options: {
   }
 }
 
-// Using A2ARequestType from schemas instead of local interface
-// Using SkillResult from @jejunetwork/shared
-
 const BAZAAR_SKILLS = [
-  // Token Launch Skills
+  // Token Query Skills
   {
-    id: 'list-launches',
-    name: 'List Token Launches',
-    description: 'Get all active and upcoming token launches',
-    tags: ['query', 'launches'],
+    id: 'list-tokens',
+    name: 'List Tokens',
+    description: 'Get list of tokens with market data',
+    tags: ['query', 'tokens'],
   },
   {
-    id: 'get-launch',
-    name: 'Get Launch Details',
-    description: 'Get details of a specific token launch',
-    tags: ['query', 'launch'],
+    id: 'get-token',
+    name: 'Get Token Details',
+    description: 'Get details of a specific token',
+    tags: ['query', 'tokens'],
   },
   {
-    id: 'get-launch-stats',
-    name: 'Get Launch Statistics',
-    description: 'Get participation statistics for a launch',
+    id: 'get-trending',
+    name: 'Get Trending Tokens',
+    description: 'Get trending tokens by volume',
+    tags: ['query', 'tokens', 'trending'],
+  },
+  {
+    id: 'get-gainers',
+    name: 'Get Top Gainers',
+    description: 'Get tokens with highest 24h gains',
+    tags: ['query', 'tokens'],
+  },
+  {
+    id: 'get-losers',
+    name: 'Get Top Losers',
+    description: 'Get tokens with highest 24h losses',
+    tags: ['query', 'tokens'],
+  },
+  {
+    id: 'get-new-tokens',
+    name: 'Get New Tokens',
+    description: 'Get recently launched tokens',
+    tags: ['query', 'tokens'],
+  },
+
+  // Market Stats
+  {
+    id: 'get-market-stats',
+    name: 'Get Market Stats',
+    description: 'Get overall marketplace statistics',
     tags: ['query', 'stats'],
   },
-  {
-    id: 'prepare-participate',
-    name: 'Prepare Participation',
-    description: 'Prepare transaction for participating in a launch',
-    tags: ['action', 'participate'],
-  },
-  {
-    id: 'check-eligibility',
-    name: 'Check Eligibility',
-    description: 'Check if an address is eligible to participate',
-    tags: ['query', 'eligibility'],
-  },
 
-  // ICO Skills
+  // Prediction Markets
   {
-    id: 'get-ico-tiers',
-    name: 'Get ICO Tiers',
-    description: 'Get available ICO participation tiers',
-    tags: ['query', 'ico'],
+    id: 'list-prediction-markets',
+    name: 'List Prediction Markets',
+    description: 'Get active prediction markets',
+    tags: ['query', 'predictions'],
   },
   {
-    id: 'get-ico-allocation',
-    name: 'Get ICO Allocation',
-    description: 'Get allocation for an address in an ICO',
-    tags: ['query', 'allocation'],
-  },
-  {
-    id: 'prepare-ico-commit',
-    name: 'Prepare ICO Commit',
-    description: 'Prepare transaction to commit to an ICO tier',
-    tags: ['action', 'ico'],
-  },
-  {
-    id: 'prepare-ico-claim',
-    name: 'Prepare ICO Claim',
-    description: 'Prepare transaction to claim ICO tokens',
-    tags: ['action', 'claim'],
-  },
-
-  // NFT Marketplace Skills
-  {
-    id: 'list-collections',
-    name: 'List NFT Collections',
-    description: 'Get all NFT collections on the marketplace',
-    tags: ['query', 'nft'],
-  },
-  {
-    id: 'get-collection',
-    name: 'Get Collection Details',
-    description: 'Get details of an NFT collection',
-    tags: ['query', 'collection'],
-  },
-  {
-    id: 'list-nfts',
-    name: 'List NFTs',
-    description: 'List NFTs in a collection or by owner',
-    tags: ['query', 'nft'],
-  },
-  {
-    id: 'get-nft',
-    name: 'Get NFT Details',
-    description: 'Get details of a specific NFT',
-    tags: ['query', 'nft'],
-  },
-  {
-    id: 'prepare-list-nft',
-    name: 'Prepare NFT Listing',
-    description: 'Prepare transaction to list an NFT for sale',
-    tags: ['action', 'list'],
-  },
-  {
-    id: 'prepare-buy-nft',
-    name: 'Prepare NFT Purchase',
-    description: 'Prepare transaction to buy an NFT',
-    tags: ['action', 'buy'],
+    id: 'prepare-prediction-buy',
+    name: 'Prepare Prediction Buy',
+    description: 'Prepare transaction to buy prediction shares',
+    tags: ['action', 'predictions'],
   },
 
   // Token Swap Skills
-  {
-    id: 'get-swap-quote',
-    name: 'Get Swap Quote',
-    description: 'Get quote for token swap',
-    tags: ['query', 'swap'],
-  },
   {
     id: 'prepare-swap',
     name: 'Prepare Swap',
@@ -180,128 +228,74 @@ const BAZAAR_SKILLS = [
     tags: ['action', 'swap'],
   },
 
-  // Portfolio Skills
+  // NFT Marketplace Skills
   {
-    id: 'get-portfolio',
-    name: 'Get Portfolio',
-    description: 'Get portfolio holdings for an address',
-    tags: ['query', 'portfolio'],
+    id: 'prepare-list-nft',
+    name: 'Prepare NFT Listing',
+    description: 'Prepare transaction to list an NFT for sale',
+    tags: ['action', 'nft'],
   },
   {
-    id: 'get-activity',
-    name: 'Get Activity',
-    description: 'Get transaction activity for an address',
-    tags: ['query', 'activity'],
-  },
-
-  // Analytics Skills
-  {
-    id: 'get-market-stats',
-    name: 'Get Market Stats',
-    description: 'Get overall marketplace statistics',
-    tags: ['query', 'stats'],
-  },
-  {
-    id: 'get-trending',
-    name: 'Get Trending',
-    description: 'Get trending tokens and collections',
-    tags: ['query', 'trending'],
+    id: 'prepare-buy-nft',
+    name: 'Prepare NFT Purchase',
+    description: 'Prepare transaction to buy an NFT',
+    tags: ['action', 'nft'],
   },
 
-  // TFMM / Smart Pool Skills
+  // Moderation Skills
   {
-    id: 'list-tfmm-pools',
-    name: 'List Smart Pools',
-    description: 'Get all TFMM auto-rebalancing pools',
-    tags: ['query', 'tfmm', 'pools'],
+    id: 'check-ban-status',
+    name: 'Check Ban Status',
+    description: 'Check if an address is banned',
+    tags: ['query', 'moderation'],
   },
   {
-    id: 'get-tfmm-pool',
-    name: 'Get Smart Pool Details',
-    description: 'Get details of a specific TFMM pool',
-    tags: ['query', 'tfmm'],
+    id: 'get-moderator-stats',
+    name: 'Get Moderator Stats',
+    description: 'Get stats for a moderator address',
+    tags: ['query', 'moderation'],
   },
   {
-    id: 'get-tfmm-strategies',
-    name: 'Get TFMM Strategies',
-    description: 'Get available rebalancing strategies',
-    tags: ['query', 'tfmm', 'strategies'],
+    id: 'get-moderation-cases',
+    name: 'Get Moderation Cases',
+    description: 'Get list of moderation cases',
+    tags: ['query', 'moderation'],
   },
   {
-    id: 'get-tfmm-oracles',
-    name: 'Get Oracle Status',
-    description: 'Get status of price oracles (Pyth, Chainlink, TWAP)',
-    tags: ['query', 'tfmm', 'oracles'],
+    id: 'get-moderation-case',
+    name: 'Get Moderation Case',
+    description: 'Get details of a specific case',
+    tags: ['query', 'moderation'],
   },
   {
-    id: 'prepare-tfmm-deposit',
-    name: 'Prepare Smart Pool Deposit',
-    description: 'Prepare transaction to deposit into a TFMM pool',
-    tags: ['action', 'tfmm', 'deposit'],
+    id: 'get-moderation-stats',
+    name: 'Get Moderation Stats',
+    description: 'Get overall moderation statistics',
+    tags: ['query', 'moderation'],
   },
   {
-    id: 'prepare-tfmm-withdraw',
-    name: 'Prepare Smart Pool Withdraw',
-    description: 'Prepare transaction to withdraw from a TFMM pool',
-    tags: ['action', 'tfmm', 'withdraw'],
+    id: 'prepare-moderation-stake',
+    name: 'Prepare Moderation Stake',
+    description: 'Prepare transaction to stake as moderator',
+    tags: ['action', 'moderation'],
   },
   {
-    id: 'get-tfmm-performance',
-    name: 'Get Pool Performance',
-    description: 'Get historical performance metrics for a TFMM pool',
-    tags: ['query', 'tfmm', 'performance'],
-  },
-
-  // Perpetuals Skills
-  {
-    id: 'list-perp-markets',
-    name: 'List Perp Markets',
-    description: 'Get all perpetual futures markets',
-    tags: ['query', 'perps'],
+    id: 'prepare-report-user',
+    name: 'Prepare Report User',
+    description: 'Prepare transaction to report a user',
+    tags: ['action', 'moderation'],
   },
   {
-    id: 'get-perp-market',
-    name: 'Get Perp Market',
-    description: 'Get details of a perpetual market',
-    tags: ['query', 'perps'],
+    id: 'prepare-vote-on-case',
+    name: 'Prepare Vote',
+    description: 'Prepare transaction to vote on a case',
+    tags: ['action', 'moderation'],
   },
   {
-    id: 'get-perp-position',
-    name: 'Get Position',
-    description: 'Get details of a perpetual position',
-    tags: ['query', 'perps', 'position'],
-  },
-  {
-    id: 'prepare-perp-open',
-    name: 'Prepare Open Position',
-    description: 'Prepare transaction to open a perpetual position',
-    tags: ['action', 'perps'],
-  },
-  {
-    id: 'prepare-perp-close',
-    name: 'Prepare Close Position',
-    description: 'Prepare transaction to close a perpetual position',
-    tags: ['action', 'perps'],
-  },
-  {
-    id: 'get-perp-funding',
-    name: 'Get Funding Rate',
-    description: 'Get current funding rate for a market',
-    tags: ['query', 'perps', 'funding'],
-  },
-
-  // Charts & Analytics
-  {
-    id: 'get-token-chart',
-    name: 'Get Token Chart',
-    description: 'Get price chart data for a token',
-    tags: ['query', 'charts'],
-  },
-  {
-    id: 'get-top-tokens',
-    name: 'Get Top Tokens',
-    description: 'Get top tokens by volume or market cap',
-    tags: ['query', 'analytics'],
+    id: 'prepare-challenge-ban',
+    name: 'Prepare Challenge',
+    description: 'Prepare transaction to challenge a ban',
+    tags: ['action', 'moderation'],
   },
 ]
 
@@ -317,691 +311,345 @@ async function executeSkill(
   params: Record<string, unknown>,
 ): Promise<SkillResult> {
   switch (skillId) {
-    // Token Launch Skills
-    case 'list-launches': {
+    // Token Query Skills - Real Data
+    case 'list-tokens': {
+      const limit = params.limit ? Number(params.limit) : 50
+      const tokens = await fetchTokensWithMarketData({ limit })
       return {
-        message: 'Active token launches available',
+        message: `Found ${tokens.length} tokens`,
         data: {
-          launches: [
-            {
-              id: 'jeju-main',
-              name: 'JEJU Token',
-              symbol: 'JEJU',
-              status: 'active',
-              raised: '2500000',
-              target: '5000000',
-              participants: 1250,
-              endsAt: new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000,
-              ).toISOString(),
-            },
-          ],
+          tokens: tokens.map(formatTokenResponse),
+          count: tokens.length,
         },
       }
     }
 
-    case 'get-launch': {
-      const launchId = expect(
-        getOptionalString(params, 'launchId'),
-        'Launch ID required',
-      )
+    case 'get-token': {
+      const address = getString(params, 'address') as Address
+      const token = await fetchTokenDetails(address)
       return {
-        message: `Launch details for ${launchId}`,
+        message: `Token details for ${token.symbol}`,
+        data: formatTokenResponse(token),
+      }
+    }
+
+    case 'get-trending': {
+      const limit = params.limit ? Number(params.limit) : 10
+      const tokens = await fetchTrendingTokens({ limit })
+      return {
+        message: `Top ${tokens.length} trending tokens`,
         data: {
-          id: launchId,
-          name: 'JEJU Token',
-          symbol: 'JEJU',
-          description: 'Governance and utility token for the Network',
-          totalSupply: '100000000',
-          price: '0.05',
-          currency: 'USDC',
-          minContribution: '10',
-          maxContribution: '10000',
-          vestingPeriod: '12 months',
-          cliffPeriod: '3 months',
+          tokens: tokens.map(formatTokenResponse),
         },
       }
     }
 
-    case 'get-launch-stats': {
-      const launchId = getString(params, 'launchId')
+    case 'get-gainers': {
+      const limit = params.limit ? Number(params.limit) : 10
+      const tokens = await fetchTopGainers({ limit })
       return {
-        message: `Statistics for launch ${launchId}`,
+        message: `Top ${tokens.length} gainers`,
         data: {
-          totalRaised: '2500000',
-          participants: 1250,
-          averageContribution: '2000',
-          largestContribution: '10000',
-          timeRemaining: 604800,
-          percentComplete: 50,
+          tokens: tokens.map(formatTokenResponse),
         },
       }
     }
 
-    case 'prepare-participate': {
-      const launchId = getString(params, 'launchId')
+    case 'get-losers': {
+      const limit = params.limit ? Number(params.limit) : 10
+      const tokens = await fetchTopLosers({ limit })
+      return {
+        message: `Top ${tokens.length} losers`,
+        data: {
+          tokens: tokens.map(formatTokenResponse),
+        },
+      }
+    }
+
+    case 'get-new-tokens': {
+      const limit = params.limit ? Number(params.limit) : 20
+      const hours = params.hours ? Number(params.hours) : 24
+      const tokens = await fetchNewTokens({ limit, hours })
+      return {
+        message: `${tokens.length} new tokens in last ${hours}h`,
+        data: {
+          tokens: tokens.map(formatTokenResponse),
+        },
+      }
+    }
+
+    // Market Stats - Real Data
+    case 'get-market-stats': {
+      const stats = await fetchMarketStats()
+      return {
+        message: 'Market statistics',
+        data: {
+          totalTokens: stats.totalTokens,
+          activeTokens24h: stats.activeTokens24h,
+          totalPools: stats.totalPools,
+          totalVolumeUSD24h: stats.totalVolumeUSD24h,
+          totalLiquidityUSD: stats.totalLiquidityUSD,
+          totalSwaps24h: stats.totalSwaps24h,
+        },
+      }
+    }
+
+    // Prediction Markets - Real Data
+    case 'list-prediction-markets': {
+      const limit = params.limit ? Number(params.limit) : 20
+      const markets = await fetchPredictionMarkets({ limit })
+      return {
+        message: `Found ${markets.length} prediction markets`,
+        data: {
+          markets: markets.map((m) => ({
+            id: m.id,
+            question: m.question,
+            yesPrice: m.yesPrice,
+            noPrice: m.noPrice,
+            totalVolume: m.totalVolume.toString(),
+            liquidity: m.liquidity.toString(),
+            resolved: m.resolved,
+            outcome: m.outcome,
+            createdAt: m.createdAt.toISOString(),
+          })),
+        },
+      }
+    }
+
+    case 'prepare-prediction-buy': {
+      const marketId = getString(params, 'marketId')
       const amount = getString(params, 'amount')
-      getString(params, 'address') // Required param but not used in mock
+      const buyYes = params.buyYes === true
+
+      const calldata = encodeFunctionData({
+        abi: PREDICTION_MARKET_ABI,
+        functionName: 'buy',
+        args: [marketId as `0x${string}`, parseEther(amount), buyYes],
+      })
+
       return {
-        message: `Prepare participation in ${launchId}`,
+        message: `Prepare ${buyYes ? 'YES' : 'NO'} buy for ${amount} ETH`,
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: getContractAddr('tokens', 'launchpad'),
-            data: `0x...`, // Would be actual calldata
+            to: CONTRACTS.predictionMarket,
+            data: calldata,
+            value: parseEther(amount).toString(),
+          },
+        },
+      }
+    }
+
+    // Swap - Real Calldata
+    case 'prepare-swap': {
+      const tokenIn = getString(params, 'tokenIn') as Address
+      const tokenOut = getString(params, 'tokenOut') as Address
+      const amountIn = getString(params, 'amountIn')
+      const recipient = getOptionalString(params, 'recipient') as
+        | Address
+        | undefined
+
+      const v4Contracts = getV4Contracts(JEJU_CHAIN_ID)
+      const swapRouter = expect(
+        v4Contracts.swapRouter,
+        'Swap router not deployed',
+      )
+
+      const calldata = encodeFunctionData({
+        abi: SWAP_ROUTER_ABI,
+        functionName: 'exactInputSingle',
+        args: [
+          {
+            tokenIn,
+            tokenOut,
+            fee: 3000, // 0.3%
+            recipient: recipient ?? (ZERO_ADDRESS as Address),
+            amountIn: parseEther(amountIn),
+            amountOutMinimum: 0n,
+            sqrtPriceLimitX96: 0n,
+          },
+        ],
+      })
+
+      const isNativeInput = tokenIn.toLowerCase() === ZERO_ADDRESS.toLowerCase()
+
+      return {
+        message: 'Swap transaction prepared',
+        data: {
+          action: 'sign-and-send',
+          transaction: {
+            to: swapRouter,
+            data: calldata,
+            value: isNativeInput ? parseEther(amountIn).toString() : '0',
+          },
+          approvalRequired: !isNativeInput,
+          approvalToken: isNativeInput ? undefined : tokenIn,
+          approvalAmount: isNativeInput ? undefined : amountIn,
+        },
+      }
+    }
+
+    // NFT Marketplace - Real Calldata
+    case 'prepare-list-nft': {
+      const nftContract = getString(params, 'nftContract') as Address
+      const tokenId = getString(params, 'tokenId')
+      const price = getString(params, 'price')
+      const durationDays = params.durationDays ? Number(params.durationDays) : 7
+
+      const marketplace = expect(
+        CONTRACTS.nftMarketplace,
+        'NFT marketplace not deployed',
+      )
+
+      const calldata = encodeFunctionData({
+        abi: NFT_MARKETPLACE_ABI,
+        functionName: 'createListing',
+        args: [
+          nftContract,
+          BigInt(tokenId),
+          parseEther(price),
+          BigInt(durationDays * 24 * 60 * 60),
+        ],
+      })
+
+      return {
+        message: `Prepare listing for token ${tokenId}`,
+        data: {
+          action: 'sign-and-send',
+          transaction: {
+            to: marketplace,
+            data: calldata,
             value: '0',
           },
           approvalRequired: true,
-          approvalToken: getContractAddr('tokens', 'usdc'),
-          approvalAmount: amount,
-        },
-      }
-    }
-
-    case 'check-eligibility': {
-      const address = getString(params, 'address')
-      return {
-        message: `Eligibility for ${address}`,
-        data: {
-          eligible: true,
-          tier: 'standard',
-          maxAllocation: '10000',
-          kycRequired: false,
-          reasons: [],
-        },
-      }
-    }
-
-    // ICO Skills
-    case 'get-ico-tiers': {
-      return {
-        message: 'Available ICO tiers',
-        data: {
-          tiers: [
-            {
-              name: 'Community',
-              minCommit: '10',
-              maxCommit: '1000',
-              discount: 0,
-              vestingMonths: 12,
-            },
-            {
-              name: 'Supporter',
-              minCommit: '1000',
-              maxCommit: '5000',
-              discount: 5,
-              vestingMonths: 12,
-            },
-            {
-              name: 'Backer',
-              minCommit: '5000',
-              maxCommit: '25000',
-              discount: 10,
-              vestingMonths: 12,
-            },
-            {
-              name: 'Builder',
-              minCommit: '25000',
-              maxCommit: '100000',
-              discount: 15,
-              vestingMonths: 12,
-            },
-          ],
-        },
-      }
-    }
-
-    case 'get-ico-allocation': {
-      const address = getString(params, 'address')
-      return {
-        message: `Allocation for ${address}`,
-        data: {
-          committed: '5000',
-          tier: 'Supporter',
-          tokens: '105000',
-          claimable: '0',
-          claimed: '0',
-          nextVestingDate: null,
-        },
-      }
-    }
-
-    // NFT Skills
-    case 'list-collections': {
-      return {
-        message: 'NFT collections on Bazaar',
-        data: {
-          collections: [
-            {
-              id: 'jeju-genesis',
-              name: 'Jeju Genesis',
-              items: 10000,
-              floorPrice: '0.1',
-            },
-            {
-              id: 'jeju-agents',
-              name: 'Jeju Agents',
-              items: 5000,
-              floorPrice: '0.5',
-            },
-          ],
-        },
-      }
-    }
-
-    case 'get-collection': {
-      const collectionId = getString(params, 'collectionId')
-      return {
-        message: `Collection ${collectionId} details`,
-        data: {
-          id: collectionId,
-          name: 'Jeju Genesis',
-          description: 'Genesis NFT collection for early supporters',
-          totalItems: 10000,
-          owners: 3500,
-          floorPrice: '0.1',
-          volume24h: '150',
-          volumeTotal: '5000',
-        },
-      }
-    }
-
-    case 'list-nfts': {
-      return {
-        message: 'NFT listings',
-        data: {
-          nfts: [
-            {
-              id: '1',
-              name: 'Genesis #1',
-              price: '0.15',
-              owner: '0x...',
-              listed: true,
-            },
-            {
-              id: '2',
-              name: 'Genesis #2',
-              price: '0.12',
-              owner: '0x...',
-              listed: true,
-            },
-          ],
-          total: 500,
-          hasMore: true,
+          approvalContract: nftContract,
+          approvalTokenId: tokenId,
         },
       }
     }
 
     case 'prepare-buy-nft': {
-      const nftId = getString(params, 'nftId')
+      const listingId = getString(params, 'listingId')
       const price = getString(params, 'price')
+
+      const marketplace = expect(
+        CONTRACTS.nftMarketplace,
+        'NFT marketplace not deployed',
+      )
+
+      const calldata = encodeFunctionData({
+        abi: NFT_MARKETPLACE_ABI,
+        functionName: 'buyListing',
+        args: [BigInt(listingId)],
+      })
+
       return {
-        message: `Prepare purchase of NFT ${nftId}`,
+        message: `Prepare purchase of listing ${listingId}`,
         data: {
           action: 'sign-and-send',
           transaction: {
-            to: CONTRACTS.nftMarketplace,
-            data: `0x...`,
-            value: price,
+            to: marketplace,
+            data: calldata,
+            value: parseEther(price).toString(),
           },
         },
       }
     }
 
-    // Swap Skills
-    case 'get-swap-quote': {
-      const tokenIn = getString(params, 'tokenIn')
-      const tokenOut = getString(params, 'tokenOut')
-      const amountIn = getString(params, 'amountIn')
+    // Moderation - Real Data
+    case 'check-ban-status': {
+      const address = getString(params, 'address') as Address
+      const status = await checkBanStatus(address)
       return {
-        message: `Swap quote: ${amountIn} ${tokenIn} to ${tokenOut}`,
-        data: {
-          amountIn,
-          amountOut: '100.5',
-          priceImpact: 0.5,
-          route: ['JEJU', 'WETH', tokenOut],
-          estimatedGas: '150000',
-        },
+        message: status.isBanned
+          ? `Address is ${status.isOnNotice ? 'on notice' : 'banned'}`
+          : 'Address is not banned',
+        data: status,
       }
     }
 
-    case 'prepare-swap': {
-      const tokenIn = getString(params, 'tokenIn')
-      getString(params, 'tokenOut') // Required param
-      const amountIn = getString(params, 'amountIn')
+    case 'get-moderator-stats': {
+      const address = getString(params, 'address') as Address
+      const stats = await getModeratorStats(address)
+      const validatedStats = expect(stats, 'Could not fetch moderator stats')
       return {
-        message: 'Prepare swap transaction',
-        data: {
-          action: 'sign-and-send',
-          transaction: {
-            to: getContractAddr('defi', 'router'),
-            data: `0x...`,
-            value: tokenIn === 'ETH' ? amountIn : '0',
-          },
-          approvalRequired: tokenIn !== 'ETH',
-        },
+        message: validatedStats.isStaked
+          ? `${validatedStats.tier} moderator`
+          : 'Not a staked moderator',
+        data: validatedStats,
       }
     }
 
-    // Portfolio Skills
-    case 'get-portfolio': {
-      const address = getString(params, 'address')
+    case 'get-moderation-cases': {
+      const activeOnly = params.activeOnly === true
+      const resolvedOnly = params.resolvedOnly === true
+      const limit = params.limit ? Number(params.limit) : 20
+      const cases = await getModerationCases({
+        activeOnly,
+        resolvedOnly,
+        limit,
+      })
       return {
-        message: `Portfolio for ${address}`,
-        data: {
-          tokens: [
-            { symbol: 'JEJU', balance: '10000', value: '500' },
-            { symbol: 'ETH', balance: '2.5', value: '5000' },
-          ],
-          nfts: [{ collection: 'Genesis', count: 3, floorValue: '0.3' }],
-          totalValue: '5500',
-        },
+        message: `Found ${cases.length} moderation cases`,
+        data: { cases, count: cases.length },
       }
     }
 
-    case 'get-activity': {
-      const address = getString(params, 'address')
+    case 'get-moderation-case': {
+      const caseId = getString(params, 'caseId')
+      const caseData = await getModerationCase(caseId)
+      const validatedCase = expect(caseData, 'Case not found')
       return {
-        message: `Activity for ${address}`,
-        data: {
-          transactions: [
-            {
-              type: 'swap',
-              token: 'JEJU',
-              amount: '1000',
-              timestamp: new Date().toISOString(),
-            },
-            {
-              type: 'buy_nft',
-              collection: 'Genesis',
-              id: '42',
-              price: '0.1',
-              timestamp: new Date().toISOString(),
-            },
-          ],
-        },
+        message: `Case ${validatedCase.status}`,
+        data: validatedCase,
       }
     }
 
-    // Analytics Skills
-    case 'get-market-stats': {
+    case 'get-moderation-stats': {
+      const stats = await getModerationStats()
       return {
-        message: 'Market statistics',
-        data: {
-          totalVolume24h: '1500000',
-          totalVolume7d: '8500000',
-          activeUsers24h: 2500,
-          launches: { active: 3, completed: 15, upcoming: 5 },
-          nftVolume24h: '150000',
-        },
+        message: `Total: ${stats.totalCases}, Active: ${stats.activeCases}`,
+        data: stats,
       }
     }
 
-    case 'get-trending': {
+    case 'prepare-moderation-stake': {
+      const amount = getString(params, 'amount')
+      const tx = prepareStakeTransaction(amount)
       return {
-        message: 'Trending on Bazaar',
-        data: {
-          tokens: [{ symbol: 'JEJU', change24h: 15.5 }],
-          collections: [{ name: 'Jeju Agents', volumeChange: 250 }],
-        },
+        message: 'Stake transaction prepared',
+        data: { action: 'sign-and-send', transaction: tx },
       }
     }
 
-    // TFMM / Smart Pool Skills
-    case 'list-tfmm-pools': {
+    case 'prepare-report-user': {
+      const target = getString(params, 'target')
+      const reason = getString(params, 'reason')
+      const evidenceHash = getString(params, 'evidenceHash')
+      const tx = prepareReportTransaction(target, reason, evidenceHash)
       return {
-        message: 'Available TFMM Smart Pools',
-        data: {
-          pools: [
-            {
-              address: '0x1234...5678',
-              name: 'Momentum ETH/BTC',
-              strategy: 'momentum',
-              tokens: ['ETH', 'BTC'],
-              tvl: '2400000',
-              apy: 12.5,
-              volume24h: '890000',
-            },
-            {
-              address: '0x2345...6789',
-              name: 'Mean Reversion Stables',
-              strategy: 'mean_reversion',
-              tokens: ['USDC', 'USDT', 'DAI'],
-              tvl: '1200000',
-              apy: 8.2,
-              volume24h: '450000',
-            },
-          ],
-          totalTvl: '4180000',
-          totalPools: 3,
-        },
+        message: 'Report transaction prepared',
+        data: { action: 'sign-and-send', transaction: tx },
       }
     }
 
-    case 'get-tfmm-pool': {
-      const poolAddress = getString(params, 'poolAddress')
+    case 'prepare-vote-on-case': {
+      const caseId = getString(params, 'caseId')
+      const voteYes = params.voteYes === true
+      const tx = prepareVoteTransaction(caseId, voteYes)
       return {
-        message: `Smart Pool details for ${poolAddress}`,
-        data: {
-          address: poolAddress,
-          name: 'Momentum ETH/BTC',
-          strategy: 'momentum',
-          tokens: [
-            { symbol: 'ETH', weight: 60, targetWeight: 65 },
-            { symbol: 'BTC', weight: 40, targetWeight: 35 },
-          ],
-          tvl: '2400000',
-          apy: 12.5,
-          volume24h: '890000',
-          performance: {
-            return7d: 3.2,
-            return30d: 8.5,
-            sharpe: 1.8,
-            maxDrawdown: -12.3,
-          },
-        },
+        message: `Vote ${voteYes ? 'BAN' : 'CLEAR'} transaction prepared`,
+        data: { action: 'sign-and-send', transaction: tx },
       }
     }
 
-    case 'get-tfmm-strategies': {
+    case 'prepare-challenge-ban': {
+      const caseId = getString(params, 'caseId')
+      const stakeAmount = getString(params, 'stakeAmount')
+      const tx = prepareChallengeTransaction(caseId, stakeAmount)
       return {
-        message: 'Available TFMM strategies',
-        data: {
-          strategies: [
-            {
-              type: 'momentum',
-              name: 'Momentum',
-              description:
-                'Allocates more to assets with positive price momentum',
-              performance: { return30d: 8.5, sharpe: 1.8 },
-            },
-            {
-              type: 'mean_reversion',
-              name: 'Mean Reversion',
-              description:
-                'Rebalances when assets deviate from historical averages',
-              performance: { return30d: 5.2, sharpe: 2.1 },
-            },
-            {
-              type: 'trend_following',
-              name: 'Trend Following',
-              description:
-                'Follows medium-term price trends using moving averages',
-              performance: { return30d: 12.1, sharpe: 1.5 },
-            },
-          ],
-        },
-      }
-    }
-
-    case 'get-tfmm-oracles': {
-      return {
-        message: 'Oracle status (Pyth > Chainlink > TWAP)',
-        data: {
-          priority: ['pyth', 'chainlink', 'twap'],
-          tokens: {
-            ETH: {
-              source: 'pyth',
-              price: '3450.00',
-              lastUpdate: Date.now() - 5000,
-              healthy: true,
-            },
-            BTC: {
-              source: 'pyth',
-              price: '97500.00',
-              lastUpdate: Date.now() - 3000,
-              healthy: true,
-            },
-            USDC: {
-              source: 'chainlink',
-              price: '1.00',
-              lastUpdate: Date.now() - 10000,
-              healthy: true,
-            },
-          },
-        },
-      }
-    }
-
-    case 'prepare-tfmm-deposit': {
-      const poolAddress = getString(params, 'poolAddress')
-      return {
-        message: `Prepare deposit to Smart Pool ${poolAddress}`,
-        data: {
-          action: 'sign-and-send',
-          transaction: {
-            to: poolAddress,
-            data: '0x...',
-            value: '0',
-          },
-          approvalRequired: true,
-          estimatedShares: '1000.00',
-        },
-      }
-    }
-
-    case 'prepare-tfmm-withdraw': {
-      const poolAddress = getString(params, 'poolAddress')
-      return {
-        message: `Prepare withdrawal from Smart Pool ${poolAddress}`,
-        data: {
-          action: 'sign-and-send',
-          transaction: {
-            to: poolAddress,
-            data: '0x...',
-            value: '0',
-          },
-          estimatedAmounts: { ETH: '0.5', BTC: '0.008' },
-        },
-      }
-    }
-
-    case 'get-tfmm-performance': {
-      const poolAddress = getString(params, 'poolAddress')
-      return {
-        message: `Performance metrics for ${poolAddress}`,
-        data: {
-          returns: {
-            '1d': 0.5,
-            '7d': 3.2,
-            '30d': 8.5,
-            '90d': 22.1,
-          },
-          risk: {
-            sharpe: 1.8,
-            sortino: 2.1,
-            maxDrawdown: -12.3,
-            volatility: 15.2,
-          },
-          rebalances: {
-            count30d: 12,
-            avgGas: '0.002',
-            lastRebalance: Date.now() - 86400000,
-          },
-        },
-      }
-    }
-
-    // Perpetuals Skills
-    case 'list-perp-markets': {
-      return {
-        message: 'Available perpetual markets',
-        data: {
-          markets: [
-            {
-              marketId: 'BTC-PERP',
-              symbol: 'BTC-PERP',
-              markPrice: '97500.00',
-              fundingRate: 0.01,
-              openInterest: '25400000',
-              maxLeverage: 50,
-            },
-            {
-              marketId: 'ETH-PERP',
-              symbol: 'ETH-PERP',
-              markPrice: '3450.00',
-              fundingRate: 0.0085,
-              openInterest: '12300000',
-              maxLeverage: 50,
-            },
-          ],
-        },
-      }
-    }
-
-    case 'get-perp-market': {
-      const marketId = getString(params, 'marketId')
-      return {
-        message: `Market details for ${marketId}`,
-        data: {
-          marketId,
-          symbol: marketId,
-          markPrice: '97500.00',
-          indexPrice: '97480.00',
-          fundingRate: 0.01,
-          nextFunding: Date.now() + 1800000,
-          openInterest: { long: '15000000', short: '10400000' },
-          volume24h: '125000000',
-          takerFee: 0.0005,
-          makerFee: 0.0002,
-        },
-      }
-    }
-
-    case 'get-perp-position': {
-      const positionId = getOptionalString(params, 'positionId')
-      return {
-        message: 'Position details',
-        data: {
-          positionId: positionId ?? '0x...',
-          market: 'BTC-PERP',
-          side: 'long',
-          size: '0.5',
-          entryPrice: '96500.00',
-          markPrice: '97500.00',
-          margin: '1000.00',
-          leverage: 48.25,
-          unrealizedPnl: '500.00',
-          liquidationPrice: '94520.00',
-        },
-      }
-    }
-
-    case 'prepare-perp-open': {
-      const marketId = getString(params, 'marketId')
-      const side = getString(params, 'side')
-      getString(params, 'size') // Required param
-      return {
-        message: `Prepare ${side} position on ${marketId}`,
-        data: {
-          action: 'sign-and-send',
-          transaction: {
-            to: CONTRACTS.perpetualMarket,
-            data: '0x...',
-            value: '0',
-          },
-          approvalRequired: true,
-          estimatedEntry: '97500.00',
-          estimatedLiquidation: side === 'long' ? '95000.00' : '100000.00',
-        },
-      }
-    }
-
-    case 'prepare-perp-close': {
-      const positionId = getString(params, 'positionId')
-      return {
-        message: `Prepare close position ${positionId}`,
-        data: {
-          action: 'sign-and-send',
-          transaction: {
-            to: CONTRACTS.perpetualMarket,
-            data: '0x...',
-            value: '0',
-          },
-          estimatedPnl: '500.00',
-          estimatedFee: '24.38',
-        },
-      }
-    }
-
-    case 'get-perp-funding': {
-      const marketId = getString(params, 'marketId')
-      return {
-        message: `Funding rate for ${marketId}`,
-        data: {
-          marketId,
-          currentRate: 0.01,
-          predictedRate: 0.012,
-          nextFundingTime: Date.now() + 1800000,
-          history: [
-            { time: Date.now() - 3600000, rate: 0.008 },
-            { time: Date.now() - 7200000, rate: 0.009 },
-            { time: Date.now() - 10800000, rate: 0.007 },
-          ],
-        },
-      }
-    }
-
-    // Charts & Analytics
-    case 'get-token-chart': {
-      const tokenAddress = getString(params, 'tokenAddress')
-      const interval = getOptionalString(params, 'interval')
-      return {
-        message: `Chart data for ${tokenAddress}`,
-        data: {
-          token: tokenAddress,
-          interval: interval ?? '1h',
-          candles: [
-            {
-              time: Date.now() - 3600000,
-              open: 100,
-              high: 105,
-              low: 98,
-              close: 103,
-              volume: '50000',
-            },
-            {
-              time: Date.now() - 7200000,
-              open: 98,
-              high: 102,
-              low: 96,
-              close: 100,
-              volume: '45000',
-            },
-          ],
-          currentPrice: 103,
-          change24h: 5.2,
-        },
-      }
-    }
-
-    case 'get-top-tokens': {
-      const sortBy = getOptionalString(params, 'sortBy')
-      return {
-        message: 'Top tokens',
-        data: {
-          tokens: [
-            {
-              symbol: 'ETH',
-              price: '3450.00',
-              volume24h: '5000000000',
-              change24h: 2.5,
-            },
-            {
-              symbol: 'BTC',
-              price: '97500.00',
-              volume24h: '15000000000',
-              change24h: 1.8,
-            },
-            {
-              symbol: 'JEJU',
-              price: '0.05',
-              volume24h: '2500000',
-              change24h: 15.5,
-            },
-          ],
-          sortedBy: sortBy ?? 'volume',
-        },
+        message: 'Challenge transaction prepared',
+        data: { action: 'sign-and-send', transaction: tx },
       }
     }
 
@@ -1009,7 +657,7 @@ async function executeSkill(
       return {
         message: 'Unknown skill',
         data: {
-          error: 'Skill not found',
+          error: `Skill '${skillId}' not found`,
           availableSkills: BAZAAR_AGENT_CARD.skills.map((s) => s.id),
         },
       }

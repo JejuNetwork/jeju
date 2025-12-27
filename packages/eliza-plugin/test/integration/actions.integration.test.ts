@@ -76,7 +76,7 @@ describe('Eliza Plugin Actions Integration', () => {
         smartAccount: false,
       })
       // Check if client is fully initialized with all modules
-      clientReady = !!(client?.payments && client?.storage && client?.defi)
+      clientReady = !!(client.payments && client.storage && client.defi)
     } catch (e) {
       console.log(
         '⚠️ Client creation failed (contracts may not be deployed):',
@@ -188,13 +188,13 @@ describe('Eliza Plugin Actions Integration', () => {
   describe('Identity Actions', () => {
     test('get my agent returns null or agent', async () => {
       if (!chainRunning || !clientReady) return
-      const agent = await client?.identity.getAgent(client?.address)
+      const agent = await client?.identity.getAgent(client.address)
       expect(agent === null || typeof agent === 'object').toBe(true)
     })
 
     test('check ban status', async () => {
       if (!chainRunning || !clientReady) return
-      const banned = await client?.identity.isBanned(client?.address)
+      const banned = await client?.identity.isBanned(client.address)
       expect(typeof banned).toBe('boolean')
     })
   })

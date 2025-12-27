@@ -302,7 +302,7 @@ export class ArbitrageExecutor {
     }
 
     const solanaToken = SOLANA_MINTS[token]
-    const evmToken = TOKEN_ADDRESSES[token]?.[evmChainId]
+    const evmToken = TOKEN_ADDRESSES[token][evmChainId]
 
     if (!solanaToken || !evmToken) {
       return {
@@ -444,7 +444,7 @@ export class ArbitrageExecutor {
       return { success: false, error: 'Solana not configured' }
     }
 
-    const evmToken = TOKEN_ADDRESSES[token]?.[evmChainId]
+    const evmToken = TOKEN_ADDRESSES[token][evmChainId]
     const solanaToken = SOLANA_MINTS[token]
 
     if (!evmToken || !solanaToken) {
@@ -549,7 +549,7 @@ export class ArbitrageExecutor {
         return { success: false, error: `Chain ${evmChainId} not configured` }
       }
 
-      const evmToken = TOKEN_ADDRESSES[token]?.[evmChainId]
+      const evmToken = TOKEN_ADDRESSES[token][evmChainId]
       const usdcAddress = TOKEN_ADDRESSES.USDC[evmChainId]
 
       if (!evmToken || !usdcAddress) {
@@ -606,8 +606,8 @@ export class ArbitrageExecutor {
       return { success: false, error: 'EVM clients not configured for chains' }
     }
 
-    const buyToken = TOKEN_ADDRESSES[token]?.[buyChainId]
-    const sellToken = TOKEN_ADDRESSES[token]?.[sellChainId]
+    const buyToken = TOKEN_ADDRESSES[token][buyChainId]
+    const sellToken = TOKEN_ADDRESSES[token][sellChainId]
     const buyUsdc = TOKEN_ADDRESSES.USDC[buyChainId]
 
     if (!buyToken || !sellToken || !buyUsdc) {
@@ -697,7 +697,7 @@ export class ArbitrageExecutor {
     const parsed = JupiterSwapResponseSchema.safeParse(json)
     if (!parsed.success) {
       throw new Error(
-        `Invalid Jupiter swap response: ${parsed.error.issues[0]?.message}`,
+        `Invalid Jupiter swap response: ${parsed.error.issues[0].message}`,
       )
     }
     const { swapTransaction } = parsed.data
@@ -1065,7 +1065,7 @@ export class ArbitrageExecutor {
     const parsed = BridgeTransferResponseSchema.safeParse(json)
     if (!parsed.success) {
       throw new Error(
-        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+        `Invalid bridge response: ${parsed.error.issues[0].message}`,
       )
     }
     return parsed.data.transferId
@@ -1119,7 +1119,7 @@ export class ArbitrageExecutor {
     const parsed = BridgeTransferResponseSchema.safeParse(json)
     if (!parsed.success) {
       throw new Error(
-        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+        `Invalid bridge response: ${parsed.error.issues[0].message}`,
       )
     }
     return parsed.data.transferId
@@ -1157,7 +1157,7 @@ export class ArbitrageExecutor {
     const parsed = BridgeTxResponseSchema.safeParse(json)
     if (!parsed.success) {
       throw new Error(
-        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+        `Invalid bridge response: ${parsed.error.issues[0].message}`,
       )
     }
     return parsed.data.txHash
@@ -1436,7 +1436,7 @@ export class ArbitrageExecutor {
     const parsed = JupiterPriceSchema.safeParse(json)
     if (!parsed.success) return null
 
-    return parsed.data.data[solanaToken.mint]?.price ?? null
+    return parsed.data.data[solanaToken.mint].price ?? null
   }
 
   private async getHyperliquidPrice(token: string): Promise<number | null> {
@@ -1484,7 +1484,7 @@ export class ArbitrageExecutor {
       },
     }
 
-    const feedAddress = CHAINLINK_FEEDS[token]?.[chainId]
+    const feedAddress = CHAINLINK_FEEDS[token][chainId]
     if (!feedAddress) return null
 
     const CHAINLINK_ABI = parseAbi([

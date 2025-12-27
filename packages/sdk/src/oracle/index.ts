@@ -281,6 +281,54 @@ const ORACLE_REGISTRY_ABI = [
     inputs: [],
     outputs: [{ type: 'address[]' }],
   },
+  {
+    name: 'updateOracleHeartbeat',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'oracleAddress', type: 'address' },
+      { name: 'heartbeat', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'submitPrice',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'feedId', type: 'bytes32' },
+      { name: 'price', type: 'int256' },
+      { name: 'timestamp', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'submitBatchPrices',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'updates',
+        type: 'tuple[]',
+        components: [
+          { name: 'feedId', type: 'bytes32' },
+          { name: 'price', type: 'int256' },
+          { name: 'timestamp', type: 'uint256' },
+        ],
+      },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'getTWAP',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'poolAddress', type: 'address' },
+      { name: 'period', type: 'uint32' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
 ] as const
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -381,9 +429,13 @@ export function createOracleModule(
       return rounds
     },
 
-    async getTWAP(_poolAddress, _period) {
-      // Would need to query TWAP oracle
-      return 0n
+    async getTWAP(poolAddress, period) {
+      return wallet.publicClient.readContract({
+        address: oracleRegistryAddress,
+        abi: ORACLE_REGISTRY_ABI,
+        functionName: 'getTWAP',
+        args: [poolAddress, Number(period)],
+      })
     },
 
     async getTWAPObservations(poolAddress, count) {
@@ -513,16 +565,43 @@ export function createOracleModule(
       return configs
     },
 
-    async updateOracleHeartbeat(_oracleAddress, _heartbeat) {
-      throw new Error('Not implemented')
+    async updateOracleHeartbeat(oracleAddress, heartbeat) {
+      const data = encodeFunctionData({
+        abi: ORACLE_REGISTRY_ABI,
+        functionName: 'updateOracleHeartbeat',
+        args: [oracleAddress, heartbeat],
+      })
+
+      return wallet.sendTransaction({
+        to: oracleRegistryAddress,
+        data,
+      })
     },
 
-    async submitPrice(_feedId, _price, _timestamp) {
-      throw new Error('Not implemented - use authorized submitter')
+    async submitPrice(feedId, price, timestamp) {
+      const data = encodeFunctionData({
+        abi: ORACLE_REGISTRY_ABI,
+        functionName: 'submitPrice',
+        args: [feedId, price, timestamp],
+      })
+
+      return wallet.sendTransaction({
+        to: oracleRegistryAddress,
+        data,
+      })
     },
 
-    async submitBatchPrices(_updates) {
-      throw new Error('Not implemented - use authorized submitter')
+    async submitBatchPrices(updates) {
+      const data = encodeFunctionData({
+        abi: ORACLE_REGISTRY_ABI,
+        functionName: 'submitBatchPrices',
+        args: [updates],
+      })
+
+      return wallet.sendTransaction({
+        to: oracleRegistryAddress,
+        data,
+      })
     },
 
     async isPriceStale(feedAddress) {

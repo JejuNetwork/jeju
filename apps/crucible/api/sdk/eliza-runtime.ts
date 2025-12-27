@@ -21,15 +21,18 @@ import {
 } from '../client/dws'
 import { createLogger, type Logger } from './logger'
 
-// Jeju plugin action interface
+// Store the original Eliza action handlers
+type ElizaActionHandler = Action['handler']
+
+// Jeju plugin action interface with actual handler
 interface JejuAction {
   name: string
   description: string
   similes?: string[]
-  handler?: (
-    runtime: CrucibleAgentRuntime,
-    params: Record<string, string | number | boolean | null>,
-  ) => Promise<string | number | boolean | null | object>
+  /** Original Eliza handler from plugin */
+  elizaHandler?: ElizaActionHandler
+  /** Whether this action has a real executable handler */
+  hasHandler: boolean
 }
 
 // Loaded jeju plugin
@@ -82,7 +85,7 @@ async function generateResponse(
   if (!choice) {
     throw new Error('DWS inference returned no choices')
   }
-  return choice.message?.content ?? ''
+  return choice.message.content ?? ''
 }
 
 /**
@@ -140,7 +143,7 @@ export class CrucibleAgentRuntime {
   }
 
   /**
-   * Load jeju plugin and extract actions
+   * Load jeju plugin and extract actions WITH their handlers
    */
   private async loadJejuPlugin(): Promise<void> {
     try {
@@ -149,20 +152,40 @@ export class CrucibleAgentRuntime {
       jejuPlugin = pluginModule.jejuPlugin
 
       if (jejuPlugin?.actions) {
-        jejuActions = (jejuPlugin.actions as Action[]).map((action) => ({
+        const actions = jejuPlugin.actions as Action[]
+        jejuActions = actions.map((action) => ({
           name: action.name,
           description:
             typeof action.description === 'string' ? action.description : '',
           similes: Array.isArray(action.similes) ? action.similes : undefined,
+          // Store the actual handler function from the plugin
+          elizaHandler: action.handler,
+          hasHandler: typeof action.handler === 'function',
         }))
+
+        const withHandlers = jejuActions.filter((a) => a.hasHandler).length
+        const withoutHandlers = jejuActions.filter((a) => !a.hasHandler).length
+
         this.log.info('Jeju plugin loaded', {
-          actions: jejuActions.length,
+          totalActions: jejuActions.length,
+          withHandlers,
+          withoutHandlers,
           actionNames: jejuActions.slice(0, 10).map((a) => a.name),
         })
+
+        if (withoutHandlers > 0) {
+          this.log.warn('Some actions have no handlers', {
+            count: withoutHandlers,
+            actions: jejuActions
+              .filter((a) => !a.hasHandler)
+              .slice(0, 5)
+              .map((a) => a.name),
+          })
+        }
       }
       jejuPluginLoaded = true
     } catch (e) {
-      this.log.warn('Jeju plugin not available', { error: String(e) })
+      this.log.error('Failed to load Jeju plugin', { error: String(e) })
       jejuPluginLoaded = true // Mark as attempted
     }
   }
@@ -188,17 +211,17 @@ export class CrucibleAgentRuntime {
     }
 
     // Topics
-    if (char.topics?.length) {
+    if (char.topics.length) {
       parts.push(`You are knowledgeable about: ${char.topics.join(', ')}.`)
     }
 
     // Adjectives
-    if (char.adjectives?.length) {
+    if (char.adjectives.length) {
       parts.push(`Your personality traits: ${char.adjectives.join(', ')}.`)
     }
 
     // Style
-    if (char.style?.all?.length) {
+    if (char.style.all.length) {
       parts.push(`Communication style: ${char.style.all.join(' ')}`)
     }
 
@@ -410,7 +433,7 @@ export class CrucibleAgentRuntime {
       return { success: false, error: `Action not found: ${actionName}` }
     }
 
-    if (!action.handler) {
+    if (!action.hasHandler || !action.elizaHandler) {
       this.log.warn('Action has no handler', { actionName })
       return { success: false, error: `Action has no handler: ${actionName}` }
     }
@@ -418,29 +441,52 @@ export class CrucibleAgentRuntime {
     this.log.info('Executing action', { actionName, params })
 
     try {
-      // Convert params to the expected format
-      const typedParams: Record<string, string | number | boolean | null> = {}
-      for (const [key, value] of Object.entries(params)) {
-        // Try to convert numeric strings
-        const numVal = Number(value)
-        if (!Number.isNaN(numVal) && value === String(numVal)) {
-          typedParams[key] = numVal
-        } else if (value === 'true') {
-          typedParams[key] = true
-        } else if (value === 'false') {
-          typedParams[key] = false
-        } else if (value === 'null') {
-          typedParams[key] = null
-        } else {
-          typedParams[key] = value
-        }
+      // Build a minimal runtime context for Eliza action handlers
+      // The Eliza handler expects (runtime, message, state, options, callback)
+      // We create mock objects that provide what most handlers need
+
+      const mockMessage = {
+        content: { text: JSON.stringify(params) },
+        userId: this.config.agentId,
+        roomId: 'crucible-runtime',
       }
 
-      const rawResult = await action.handler(this, typedParams)
-      // Cast to JsonValue - handlers should return JSON-serializable values
-      const result = rawResult as JsonValue
-      this.log.info('Action executed successfully', { actionName, result })
-      return { success: true, result }
+      const mockState = {
+        agentId: this.config.agentId,
+        roomId: 'crucible-runtime',
+      }
+
+      // Eliza handlers return a boolean and call the callback with results
+      let callbackResult: JsonValue = null
+
+      const callback = async (response: {
+        text?: string
+        content?: { text?: string }
+      }): Promise<void> => {
+        // Capture the response from the handler
+        const text = response.text ?? response.content?.text ?? ''
+        callbackResult = { response: text }
+      }
+
+      // Execute the Eliza action handler
+      const handlerResult = await action.elizaHandler(
+        this as unknown as Parameters<ElizaActionHandler>[0], // IAgentRuntime - we implement enough of the interface
+        mockMessage as Parameters<ElizaActionHandler>[1],
+        mockState as Parameters<ElizaActionHandler>[2],
+        { actionParams: params } as Parameters<ElizaActionHandler>[3],
+        callback as Parameters<ElizaActionHandler>[4],
+      )
+
+      this.log.info('Action executed', {
+        actionName,
+        handlerResult,
+        callbackResult,
+      })
+
+      return {
+        success: handlerResult === true,
+        result: callbackResult ?? { executed: handlerResult },
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       this.log.error('Action execution failed', {
@@ -449,6 +495,19 @@ export class CrucibleAgentRuntime {
       })
       return { success: false, error: errorMessage }
     }
+  }
+
+  /** Check if a specific action has a handler */
+  actionHasHandler(actionName: string): boolean {
+    const action = jejuActions.find(
+      (a) => a.name.toUpperCase() === actionName.toUpperCase(),
+    )
+    return action?.hasHandler ?? false
+  }
+
+  /** Get all actions that have executable handlers */
+  getExecutableActions(): string[] {
+    return jejuActions.filter((a) => a.hasHandler).map((a) => a.name)
   }
 }
 

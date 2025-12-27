@@ -139,13 +139,26 @@ class ApprovalService {
         (a) => a.riskLevel === 'high',
       ).length
 
+      // Fetch NFT approvals from indexer
+      const indexedNFTApprovals = await jeju.getNFTApprovals(owner)
+
+      const nftApprovals: NFTApproval[] = indexedNFTApprovals.map((a) => ({
+        contractAddress: a.contractAddress as Address,
+        contractName: a.contractName,
+        spender: a.operator as Address,
+        spenderName: KNOWN_SPENDERS[a.operator.toLowerCase()],
+        tokenId: a.tokenId ? BigInt(a.tokenId) : undefined,
+        isApprovedForAll: a.isApprovalForAll,
+        chainId: a.chainId,
+      }))
+
       return {
         totalTokenApprovals: tokenApprovals.length,
-        totalNFTApprovals: 0, // NFT approvals from indexer when available
+        totalNFTApprovals: nftApprovals.length,
         unlimitedApprovals,
         highRiskApprovals,
         tokenApprovals,
-        nftApprovals: [],
+        nftApprovals,
       }
     } catch (error) {
       // Re-throw with context - approval data is critical for security

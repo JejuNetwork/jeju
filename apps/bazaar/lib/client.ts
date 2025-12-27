@@ -6,7 +6,7 @@ import type { Address } from 'viem'
 import type { z } from 'zod'
 
 function requireEnv(key: string): string {
-  if (typeof import.meta?.env === 'object') {
+  if (typeof import.meta.env === 'object') {
     const value = import.meta.env[key] as string | undefined
     if (value) return value
   }
