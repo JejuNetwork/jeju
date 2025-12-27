@@ -107,7 +107,6 @@ export async function checkReputation(
 
   const client = getPublicClient()
   let aggregatedScore = 5000 // Default 50% for new addresses
-  let _isBanned = false
 
   // Check moderation status first
   if (moderationAddress) {
@@ -118,7 +117,6 @@ export async function checkReputation(
         functionName: 'isBanned',
         args: [address],
       })
-      _isBanned = banned
 
       if (banned) {
         return {
@@ -130,15 +128,17 @@ export async function checkReputation(
         }
       }
 
-      // Get moderation reputation
-      const modRep = await client.readContract({
+      // Get moderation reputation - returns tuple, index 4 is reputationScore
+      const modRepTuple = await client.readContract({
         address: moderationAddress,
         abi: MODERATION_ABI,
         functionName: 'moderatorReputation',
         args: [address],
       })
-      if (modRep.reputationScore > 0) {
-        aggregatedScore = Number(modRep.reputationScore)
+      // moderatorReputation returns: (successfulBans, unsuccessfulBans, totalSlashedFrom, totalSlashedOthers, reputationScore, ...)
+      const reputationScore = modRepTuple[4]
+      if (reputationScore > 0n) {
+        aggregatedScore = Number(reputationScore)
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
@@ -156,17 +156,19 @@ export async function checkReputation(
   // Get aggregated reputation if registry is configured
   if (reputationAddress) {
     try {
-      const reputation = await client.readContract({
+      // getAggregatedReputation returns: (score, scores[], weights[], providerCount, isValid)
+      const reputationTuple = await client.readContract({
         address: reputationAddress,
         abi: REPUTATION_REGISTRY_ABI,
         functionName: 'getAggregatedReputation',
         args: [address],
       })
+      const [score, , , , isValid] = reputationTuple
 
-      if (reputation.isValid && reputation.score > 0) {
+      if (isValid && score > 0n) {
         // Combine with moderation score (weighted average: 40% moderation, 60% reputation)
         aggregatedScore = Math.floor(
-          (aggregatedScore * 4000 + Number(reputation.score) * 6000) / 10000,
+          (aggregatedScore * 4000 + Number(score) * 6000) / 10000,
         )
       }
     } catch (err) {

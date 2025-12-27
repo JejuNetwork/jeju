@@ -339,14 +339,34 @@ export class OracleNode {
 // Default config from environment
 export function createNodeConfig(): OracleNodeConfig {
   const zeroAddress = '0x0000000000000000000000000000000000000000' as Address
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  // SECURITY: Private keys MUST be set in production - no test key fallbacks
+  const operatorKey = process.env.OPERATOR_PRIVATE_KEY
+  const workerKey = process.env.WORKER_PRIVATE_KEY
+
+  if (!operatorKey || !workerKey) {
+    if (isProduction) {
+      throw new Error(
+        'CRITICAL: OPERATOR_PRIVATE_KEY and WORKER_PRIVATE_KEY must be set in production',
+      )
+    }
+    console.warn(
+      '[Oracle] WARNING: Using dev-only test keys. Set OPERATOR_PRIVATE_KEY and WORKER_PRIVATE_KEY for production.',
+    )
+  }
+
+  // Anvil test keys - ONLY for local development
+  const DEV_OPERATOR_KEY =
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
+  const DEV_WORKER_KEY =
+    '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex
 
   return {
     rpcUrl: getRpcUrl(),
     chainId: getChainId(),
-    operatorPrivateKey: (process.env.OPERATOR_PRIVATE_KEY ||
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex,
-    workerPrivateKey: (process.env.WORKER_PRIVATE_KEY ||
-      '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d') as Hex,
+    operatorPrivateKey: (operatorKey ?? DEV_OPERATOR_KEY) as Hex,
+    workerPrivateKey: (workerKey ?? DEV_WORKER_KEY) as Hex,
 
     feedRegistry: (process.env.FEED_REGISTRY_ADDRESS || zeroAddress) as Address,
     reportVerifier: (process.env.REPORT_VERIFIER_ADDRESS ||

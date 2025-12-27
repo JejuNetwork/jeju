@@ -6,6 +6,7 @@ import { cors } from '@elysiajs/cors'
 import { validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { security } from './utils/security'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -540,6 +541,7 @@ export function createIndexerA2AServer() {
         ? cors({ origin: CORS_ORIGINS, credentials: true })
         : cors(),
     )
+    .use(security({ service: 'indexer-a2a' }))
     .onError(({ error, set }) => {
       const errorMessage =
         error instanceof Error ? error.message : String(error)

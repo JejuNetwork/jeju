@@ -819,7 +819,7 @@ export async function fetchTopGainers(options: {
     { limit: options.limit ?? 10 },
   )
 
-  return data.tokens.map(mapToken) ?? []
+  return data.tokens.map(mapToken)
 }
 
 /**
@@ -847,7 +847,7 @@ export async function fetchTopLosers(options: {
     { limit: options.limit ?? 10 },
   )
 
-  return data.tokens.map(mapToken) ?? []
+  return data.tokens.map(mapToken)
 }
 
 /**
@@ -879,7 +879,7 @@ export async function fetchNewTokens(options: {
     { limit: options.limit ?? 20 },
   )
 
-  return data.tokens.map(mapToken) ?? []
+  return data.tokens.map(mapToken)
 }
 
 /**
@@ -943,20 +943,18 @@ export async function fetchTokenPools(
     { tokenId, limit: options?.limit ?? 20 },
   )
 
-  return (
-    data.dexPools.map((p) => ({
-      id: p.id,
-      address: p.address,
-      dex: p.dex.name,
-      token0: p.token0,
-      token1: p.token1,
-      reserve0: BigInt(p.reserve0),
-      reserve1: BigInt(p.reserve1),
-      liquidityUSD: parseFloat(p.liquidityUSD),
-      volumeUSD: parseFloat(p.volumeUSD),
-      fee: p.fee,
-    })) ?? []
-  )
+  return data.dexPools.map((p) => ({
+    id: p.id,
+    address: p.address,
+    dex: p.dex.name,
+    token0: p.token0,
+    token1: p.token1,
+    reserve0: BigInt(p.reserve0),
+    reserve1: BigInt(p.reserve1),
+    liquidityUSD: parseFloat(p.liquidityUSD),
+    volumeUSD: parseFloat(p.volumeUSD),
+    fee: p.fee,
+  }))
 }
 
 /**
@@ -1002,12 +1000,23 @@ export async function fetchMarketStats(chainId?: number): Promise<{
   `)
 
   const stats = data.tokenMarketStats[0]
+  if (!stats) {
+    return {
+      totalTokens: 0,
+      activeTokens24h: 0,
+      totalPools: 0,
+      totalVolumeUSD24h: 0,
+      totalLiquidityUSD: 0,
+      totalSwaps24h: 0,
+    }
+  }
+
   return {
-    totalTokens: stats.totalTokens ?? 0,
-    activeTokens24h: stats.activeTokens24h ?? 0,
-    totalPools: stats.totalPools ?? 0,
-    totalVolumeUSD24h: stats ? parseFloat(stats.totalVolumeUSD24h) : 0,
-    totalLiquidityUSD: stats ? parseFloat(stats.totalLiquidityUSD) : 0,
-    totalSwaps24h: stats.totalSwaps24h ?? 0,
+    totalTokens: stats.totalTokens,
+    activeTokens24h: stats.activeTokens24h,
+    totalPools: stats.totalPools,
+    totalVolumeUSD24h: parseFloat(stats.totalVolumeUSD24h),
+    totalLiquidityUSD: parseFloat(stats.totalLiquidityUSD),
+    totalSwaps24h: stats.totalSwaps24h,
   }
 }

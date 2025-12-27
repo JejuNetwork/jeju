@@ -1184,7 +1184,14 @@ const app = new Elysia()
     return { success: true }
   })
 
-  .get('/api/wallet-mappings', async () => {
+  .get('/api/wallet-mappings', async ({ request, set }) => {
+    // SECURITY: Restrict to internal service calls only
+    const authResult = await validateServiceAuth(request, 'dws-internal')
+    if (!authResult.valid) {
+      set.status = 401
+      return { error: authResult.error }
+    }
+
     const mappings = await query<{ wallet_address: string; username: string }>(
       'SELECT wallet_address, username FROM wallet_mappings',
     )

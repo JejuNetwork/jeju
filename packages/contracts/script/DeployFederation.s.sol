@@ -34,8 +34,9 @@ contract DeployFederation is Script {
     FederatedSolver public federatedSolver;
 
     function run() external {
-        uint256 deployerKey =
-            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
         address deployer = vm.addr(deployerKey);
 
         address verificationAuthority = vm.envOr("VERIFICATION_AUTHORITY", deployer);
@@ -115,8 +116,9 @@ contract DeployFederation is Script {
  */
 contract RegisterJejuNetwork is Script {
     function run() external {
-        uint256 deployerKey =
-            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
         address networkRegistryAddr = vm.envAddress("NETWORK_REGISTRY");
 
         NetworkRegistry registry = NetworkRegistry(payable(networkRegistryAddr));

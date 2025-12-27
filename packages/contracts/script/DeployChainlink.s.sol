@@ -29,8 +29,9 @@ contract DeployChainlink is Script {
     ChainlinkGovernance public chainlinkGovernance;
 
     function run() external {
-        uint256 deployerKey =
-            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
         address deployer = vm.addr(deployerKey);
 
         address linkToken = vm.envOr("LINK_TOKEN", address(0));
@@ -144,8 +145,9 @@ contract DeployChainlink is Script {
  */
 contract ConfigureChainlinkOracles is Script {
     function run() external {
-        uint256 deployerKey =
-            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
 
         address chainlinkGovernanceAddr = vm.envAddress("CHAINLINK_GOVERNANCE");
 
@@ -191,8 +193,9 @@ contract ConfigureChainlinkOracles is Script {
  */
 contract CreateVRFSubscription is Script {
     function run() external {
-        uint256 deployerKey =
-            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
         address vrfCoordinatorAddr = vm.envAddress("VRF_COORDINATOR");
         address consumer = vm.envOr("VRF_CONSUMER", address(0));
 
@@ -228,8 +231,9 @@ contract CreateVRFSubscription is Script {
  */
 contract RegisterAutomationUpkeep is Script {
     function run() external {
-        uint256 deployerKey =
-            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        // SECURITY: Private key must be explicitly provided - no fallbacks to test keys
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        require(deployerKey != 0, "PRIVATE_KEY environment variable is required");
         address automationRegistryAddr = vm.envAddress("AUTOMATION_REGISTRY");
         address target = vm.envAddress("UPKEEP_TARGET");
         uint32 gasLimit = uint32(vm.envOr("UPKEEP_GAS_LIMIT", uint256(500000)));

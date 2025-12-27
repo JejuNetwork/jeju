@@ -10,18 +10,6 @@ import type { AuthConfig } from '../../lib/types'
 import { authCodeState, clientState, sessionState } from '../services/state'
 
 /**
- * HTML escape to prevent XSS in rendered templates.
- */
-function _escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
-/**
  * JS string escape for template literals.
  */
 function escapeJsString(unsafe: string): string {
