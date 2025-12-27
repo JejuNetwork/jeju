@@ -4,17 +4,15 @@
  * Live integration tests for DatabaseManager class.
  * Requires CQL or mock-cql-server to be running.
  *
- * Run with live CQL: CQL_AVAILABLE=true bun test manager.test.ts
- * Run with mock server: bun run mock-cql-server & bun test manager.test.ts
+ * Set CQL_AVAILABLE=true to force running, or tests auto-detect CQL availability.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { DatabaseManager, type DatabaseManagerConfig } from './manager'
 import { getCQL, resetCQL } from './client.js'
 
-// Skip tests if CQL is not available
+// CQL endpoint
 const CQL_ENDPOINT = process.env.CQL_ENDPOINT ?? 'http://localhost:4661'
-const SKIP_LIVE = process.env.CQL_AVAILABLE !== 'true'
 
 // Helper to check if CQL is reachable
 async function isCQLAvailable(): Promise<boolean> {
@@ -28,7 +26,11 @@ async function isCQLAvailable(): Promise<boolean> {
   }
 }
 
-describe.skipIf(SKIP_LIVE)('DatabaseManager (Live Integration)', () => {
+// Auto-detect CQL availability at test load time
+const CQL_RUNNING = process.env.CQL_AVAILABLE === 'true' ||
+  await isCQLAvailable().catch(() => false)
+
+describe.skipIf(!CQL_RUNNING)('DatabaseManager (Live Integration)', () => {
   let manager: DatabaseManager
   const testDbId = `test-manager-${Date.now()}`
 

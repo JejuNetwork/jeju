@@ -116,6 +116,45 @@ bun run test             # Run tests
 bun run clean            # Stop and clean
 ```
 
+## E2E Testing
+
+Every app with a frontend has comprehensive E2E tests with AI visual verification.
+
+### Run E2E Tests
+
+```bash
+# Run E2E tests for a specific app
+cd apps/dws
+SKIP_WEBSERVER=1 ANTHROPIC_API_KEY=... bunx playwright test tests/e2e/
+
+# Run via jeju CLI
+bun run jeju test --mode e2e --app dws
+```
+
+### E2E Test Features
+
+- **All routes tested** - Every page from App.tsx
+- **AI visual verification** - Claude/OpenAI analyzes screenshots
+- **Caching** - Same screenshots reuse AI results
+- **Fail-fast** - Crashes immediately on errors
+- **Screenshots** - Saved to `test-results/screenshots/`
+
+### Required Environment Variables
+
+```bash
+# In .env - for AI visual verification
+ANTHROPIC_API_KEY=sk-ant-...  # Claude (preferred)
+# OR
+OPENAI_API_KEY=sk-...         # GPT-4 Vision
+```
+
+### Creating E2E Tests for New Apps
+
+1. Copy `packages/tests/e2e/comprehensive-template.ts` to `apps/<app>/tests/e2e/comprehensive.spec.ts`
+2. Extract routes from your `App.tsx`
+3. Fill in the `APP_ROUTES` array with path, name, expectedContent, description
+4. Run tests: `bunx playwright test tests/e2e/`
+
 ## Test Account
 
 ```

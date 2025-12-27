@@ -286,6 +286,100 @@ export const VPN_THEME: AppTheme = {
   },
 }
 
+export const MONITORING_THEME: AppTheme = {
+  name: 'Monitoring',
+  storageKey: 'jeju-monitoring-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap',
+    sans: 'Outfit',
+    display: 'Space Grotesk',
+    mono: 'JetBrains Mono',
+  },
+  colors: {
+    primary: '#FF6B35',
+    primaryDark: '#E85A2A',
+    primaryLight: '#FF8F66',
+    accent: '#00D9C0',
+    accentDark: '#00B8A3',
+    accentLight: '#4AEADB',
+    purple: '#7C3AED',
+    purpleDark: '#6D28D9',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#FFFBF7',
+    bgSecondary: '#FFF5ED',
+    bgTertiary: '#FFEDE0',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#FFE4D4',
+    borderStrong: '#FFD0B8',
+    text: '#1A1523',
+    textSecondary: '#635E69',
+    textTertiary: '#9D97A5',
+  },
+  dark: {
+    bg: '#0D0B14',
+    bgSecondary: '#161222',
+    bgTertiary: '#1E1830',
+    surface: '#1E1830',
+    surfaceElevated: '#2A2440',
+    border: '#3D3558',
+    borderStrong: '#4D4570',
+    text: '#FAFAFA',
+    textSecondary: '#B8B4C0',
+    textTertiary: '#7D7888',
+  },
+}
+
+export const WALLET_THEME: AppTheme = {
+  name: 'Wallet',
+  storageKey: 'wallet-theme',
+  fonts: {
+    google:
+      'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
+    sans: 'Space Grotesk',
+    display: 'Space Grotesk',
+    mono: 'JetBrains Mono',
+  },
+  colors: {
+    primary: '#22c55e',
+    primaryDark: '#16a34a',
+    primaryLight: '#4ade80',
+    accent: '#22c55e',
+    accentDark: '#16a34a',
+    accentLight: '#4ade80',
+    purple: '#8B5CF6',
+    purpleDark: '#7C3AED',
+    purpleLight: '#A78BFA',
+  },
+  light: {
+    bg: '#FAFAFA',
+    bgSecondary: '#F4F4F5',
+    bgTertiary: '#E4E4E7',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
+    border: '#E4E4E7',
+    borderStrong: '#D4D4D8',
+    text: '#18181B',
+    textSecondary: '#52525B',
+    textTertiary: '#A1A1AA',
+  },
+  dark: {
+    bg: '#0f0f0f',
+    bgSecondary: '#1a1a1a',
+    bgTertiary: '#242424',
+    surface: '#1a1a1a',
+    surfaceElevated: '#242424',
+    border: '#2e2e2e',
+    borderStrong: '#3f3f3f',
+    text: '#fafafa',
+    textSecondary: '#a1a1aa',
+    textTertiary: '#71717a',
+  },
+}
+
 export const THEMES = {
   crucible: CRUCIBLE_THEME,
   bazaar: BAZAAR_THEME,
@@ -293,6 +387,8 @@ export const THEMES = {
   gateway: GATEWAY_THEME,
   dws: DWS_THEME,
   vpn: VPN_THEME,
+  monitoring: MONITORING_THEME,
+  wallet: WALLET_THEME,
 } as const
 
 export type ThemeName = keyof typeof THEMES

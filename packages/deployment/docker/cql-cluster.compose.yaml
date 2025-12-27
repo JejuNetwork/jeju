@@ -23,9 +23,8 @@ services:
     container_name: cql-block-producer
     hostname: cql-bp
     command:
-      - cqld
       - -config
-      - /config/bp.yaml
+      - /home/cql/.cql/config.yaml
       - -role
       - blockproducer
     ports:
@@ -33,7 +32,7 @@ services:
       - "8546:8546"  # HTTP API
       - "9100:9100"  # Metrics
     volumes:
-      - ./covenantsql/config/bp.yaml:/config/bp.yaml:ro
+      - ./covenantsql/config/bp.yaml:/home/cql/.cql/config.yaml:ro
       - cql-bp-data:/data
       - cql-bp-logs:/logs
     environment:
@@ -61,8 +60,8 @@ services:
       dockerfile: Dockerfile
     container_name: cql-miner-1
     hostname: cql-miner-1
+    entrypoint: ["cql-minerd"]
     command:
-      - cql-minerd
       - -config
       - /config/miner.yaml
     depends_on:
@@ -96,8 +95,8 @@ services:
       dockerfile: Dockerfile
     container_name: cql-miner-2
     hostname: cql-miner-2
+    entrypoint: ["cql-minerd"]
     command:
-      - cql-minerd
       - -config
       - /config/miner.yaml
     depends_on:
@@ -131,8 +130,8 @@ services:
       dockerfile: Dockerfile
     container_name: cql-miner-3
     hostname: cql-miner-3
+    entrypoint: ["cql-minerd"]
     command:
-      - cql-minerd
       - -config
       - /config/miner.yaml
     depends_on:

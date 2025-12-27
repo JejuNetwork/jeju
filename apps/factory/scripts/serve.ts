@@ -1,13 +1,15 @@
 /**
- * Crucible Production Server
+ * Factory Production Server
  *
- * Serves the built static files from dist/web/
- * and proxies API requests to the worker or standalone API server.
+ * Serves the built static files from dist/client/
+ * and proxies API requests to the standalone API server.
  */
 
-const PORT = Number(process.env.PORT) || 4020
-const API_PORT = Number(process.env.API_PORT) || 4021
-const STATIC_DIR = './dist/web'
+import { CORE_PORTS } from '@jejunetwork/config'
+
+const PORT = CORE_PORTS.FACTORY.get()
+const API_PORT = CORE_PORTS.FACTORY_API.get()
+const STATIC_DIR = './dist/client'
 
 Bun.serve({
   port: PORT,
@@ -16,7 +18,7 @@ Bun.serve({
     let path = url.pathname
 
     // API proxy
-    if (path.startsWith('/api/') || path.startsWith('/health') || path.startsWith('/.well-known/')) {
+    if (path.startsWith('/api/') || path.startsWith('/health') || path.startsWith('/.well-known/') || path.startsWith('/swagger') || path.startsWith('/a2a') || path.startsWith('/mcp')) {
       return fetch(`http://localhost:${API_PORT}${path}${url.search}`, {
         method: req.method,
         headers: req.headers,
@@ -94,6 +96,7 @@ function getCacheControl(path: string): string {
   return 'public, max-age=3600'
 }
 
-console.log(`Crucible serving on http://localhost:${PORT}`)
+console.log(`Factory serving on http://localhost:${PORT}`)
 console.log(`  API: http://localhost:${API_PORT}`)
 console.log(`  Static: ${STATIC_DIR}`)
+

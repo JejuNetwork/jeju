@@ -12,6 +12,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./dev-server": {
+      "bun": "./src/dev-server/index.ts",
+      "types": "./dist/dev-server/index.d.ts",
+      "import": "./dist/dev-server/index.js"
+    },
     "./protocols/middleware": {
       "bun": "./src/protocols/middleware.ts",
       "types": "./dist/protocols/middleware.d.ts",

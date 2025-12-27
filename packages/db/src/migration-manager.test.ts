@@ -3,8 +3,7 @@
  *
  * Tests the actual MigrationManager class behavior against live CQL.
  *
- * Run with live CQL: CQL_AVAILABLE=true bun test migration-manager.test.ts
- * Run with mock server: bun run mock-cql-server & bun test migration-manager.test.ts
+ * Set CQL_AVAILABLE=true to force running, or tests auto-detect CQL availability.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
@@ -17,9 +16,8 @@ import {
   MigrationManager,
 } from './migration.js'
 
-// Skip tests if CQL is not available
+// CQL endpoint
 const CQL_ENDPOINT = process.env.CQL_ENDPOINT ?? 'http://localhost:4661'
-const SKIP_LIVE = process.env.CQL_AVAILABLE !== 'true'
 
 // Helper to check if CQL is reachable
 async function isCQLAvailable(): Promise<boolean> {
@@ -33,7 +31,11 @@ async function isCQLAvailable(): Promise<boolean> {
   }
 }
 
-describe.skipIf(SKIP_LIVE)('MigrationManager (Live Integration)', () => {
+// Auto-detect CQL availability at test load time
+const CQL_RUNNING = process.env.CQL_AVAILABLE === 'true' ||
+  await isCQLAvailable().catch(() => false)
+
+describe.skipIf(!CQL_RUNNING)('MigrationManager (Live Integration)', () => {
   let client: CQLClient
   let manager: MigrationManager
   const testDbId = `test-migrations-${Date.now()}`

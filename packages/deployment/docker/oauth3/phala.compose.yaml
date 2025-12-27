@@ -22,10 +22,7 @@ x-oauth-env: &oauth-env
   FARCASTER_HUB_URL: ${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
 
 x-phala-base: &phala-base
-  image: ghcr.io/jeju-network/oauth3-agent:v1.0.0
-  build:
-    context: ..
-    dockerfile: docker/Dockerfile
+  image: ghcr.io/jeju-network/oauth3-agent:latest
   networks:
     - oauth3-phala-network
 

@@ -347,6 +347,27 @@ export const CORE_PORTS = {
     ENV_VAR: 'EXAMPLE_PORT',
     get: () => safeParsePort(process.env.EXAMPLE_PORT, 4500),
   },
+
+  /** Bridge Relayer - Cross-chain transfer orchestration */
+  BRIDGE_RELAYER: {
+    DEFAULT: 8081,
+    ENV_VAR: 'BRIDGE_RELAYER_PORT',
+    get: () => safeParsePort(process.env.BRIDGE_RELAYER_PORT, 8081),
+  },
+
+  /** Bridge Prover - ZK proof generation service */
+  BRIDGE_PROVER: {
+    DEFAULT: 8082,
+    ENV_VAR: 'BRIDGE_PROVER_PORT',
+    get: () => safeParsePort(process.env.BRIDGE_PROVER_PORT, 8082),
+  },
+
+  /** Bridge Health - Health monitoring service */
+  BRIDGE_HEALTH: {
+    DEFAULT: 8083,
+    ENV_VAR: 'BRIDGE_HEALTH_PORT',
+    get: () => safeParsePort(process.env.BRIDGE_HEALTH_PORT, 8083),
+  },
 } as const
 
 // Vendor Apps (5000-5999 range)
@@ -667,6 +688,39 @@ export function getL2WsUrl(): string {
  * Alias for getL2RpcUrl - the "default" Jeju RPC
  */
 export const getJejuRpcUrl = getL2RpcUrl
+
+/**
+ * Get the Bridge Relayer URL
+ * Respects environment variable overrides: BRIDGE_RELAYER_URL, then BRIDGE_RELAYER_PORT
+ */
+export function getBridgeRelayerUrl(): string {
+  if (process.env.BRIDGE_RELAYER_URL) return process.env.BRIDGE_RELAYER_URL
+  const port = CORE_PORTS.BRIDGE_RELAYER.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the Bridge Prover URL
+ * Respects environment variable overrides: BRIDGE_PROVER_URL, then BRIDGE_PROVER_PORT
+ */
+export function getBridgeProverUrl(): string {
+  if (process.env.BRIDGE_PROVER_URL) return process.env.BRIDGE_PROVER_URL
+  const port = CORE_PORTS.BRIDGE_PROVER.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the Bridge Health monitoring URL
+ * Respects environment variable overrides: BRIDGE_HEALTH_URL, then BRIDGE_HEALTH_PORT
+ */
+export function getBridgeHealthUrl(): string {
+  if (process.env.BRIDGE_HEALTH_URL) return process.env.BRIDGE_HEALTH_URL
+  const port = CORE_PORTS.BRIDGE_HEALTH.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
 
 /**
  * Get the IPFS API URL (Kubo daemon HTTP API)

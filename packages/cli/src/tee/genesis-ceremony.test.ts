@@ -436,19 +436,14 @@ describe('TEE Genesis Ceremony', () => {
       expect(uniquePaths.size).toBe(keys.length)
     })
 
-    test('derivation paths include network', async () => {
+    test('testnet derivation paths include network', async () => {
       const password = 'TestPassword123!'
       const passwordHash = createHash('sha256').update(password).digestHex()
 
       const testnetResult = await runTeeCeremony('testnet', passwordHash)
-      const mainnetResult = await runTeeCeremony('mainnet', passwordHash)
 
       const testnetKeys = await decryptCeremonyKeys(
         testnetResult.encryptedKeys,
-        password,
-      )
-      const mainnetKeys = await decryptCeremonyKeys(
-        mainnetResult.encryptedKeys,
         password,
       )
 
@@ -456,10 +451,17 @@ describe('TEE Genesis Ceremony', () => {
       for (const key of testnetKeys) {
         expect(key.derivationPath).toContain('testnet')
       }
+    })
 
-      // All mainnet paths should contain 'mainnet'
-      for (const key of mainnetKeys) {
-        expect(key.derivationPath).toContain('mainnet')
+    test('mainnet ceremony blocked in simulation mode', async () => {
+      // When DSTACK_SIMULATOR_ENDPOINT is set, mainnet is blocked for security
+      if (process.env.DSTACK_SIMULATOR_ENDPOINT) {
+        const password = 'TestPassword123!'
+        const passwordHash = createHash('sha256').update(password).digestHex()
+
+        await expect(runTeeCeremony('mainnet', passwordHash)).rejects.toThrow(
+          'SECURITY ERROR: Simulated TEE ceremony is NOT allowed for mainnet',
+        )
       }
     })
   })

@@ -11,7 +11,7 @@
 # Build multi-arch and push:
 #   docker buildx build --platform linux/amd64,linux/arm64 -t $ECR_REPO:latest --push .
 
-ARG GO_VERSION=1.21
+ARG GO_VERSION=1.23
 ARG SQLITE_VEC_VERSION=v0.1.6
 
 # Build stage - use Debian for glibc compatibility (required for sqlite3)

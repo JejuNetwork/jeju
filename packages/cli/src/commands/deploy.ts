@@ -1568,36 +1568,6 @@ deployCommand
   })
 
 deployCommand
-  .command('gateway-test-token')
-  .description('Deploy test ERC20 token for Gateway integration testing')
-  .option('--rpc-url <url>', 'RPC URL', 'http://localhost:6546')
-  .action(async (options) => {
-    const rootDir = findMonorepoRoot()
-    const scriptPath = join(
-      rootDir,
-      'apps/gateway/scripts/deploy-test-token.ts',
-    )
-
-    if (!existsSync(scriptPath)) {
-      logger.error('Gateway test token deploy script not found')
-      return
-    }
-
-    logger.header('GATEWAY TEST TOKEN DEPLOYMENT')
-    logger.keyValue('RPC', options.rpcUrl)
-    logger.newline()
-
-    await execa('bun', ['run', scriptPath], {
-      cwd: join(rootDir, 'apps/gateway'),
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        RPC_URL: options.rpcUrl,
-      },
-    })
-  })
-
-deployCommand
   .command('dws-services')
   .description('Deploy decentralized services to DWS (OAuth3, KMS, Messaging)')
   .option(

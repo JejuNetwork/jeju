@@ -382,6 +382,25 @@ async function startZKBridge(options: {
   relayerOnly?: boolean
   proverOnly?: boolean
 }) {
+  // Import dynamically to avoid circular dependencies
+  const { loadBridgeConfig } = await import('@jejunetwork/config')
+
+  const mode = options.mode as 'local' | 'testnet' | 'mainnet'
+  if (mode !== 'local' && mode !== 'testnet' && mode !== 'mainnet') {
+    logger.error(`Invalid mode: ${mode}. Must be local, testnet, or mainnet.`)
+    return
+  }
+
+  // Load and validate config upfront
+  let config
+  try {
+    config = await loadBridgeConfig(mode)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    logger.error(`Failed to load bridge config: ${message}`)
+    return
+  }
+
   const rootDir = findMonorepoRoot()
   const scriptPath = join(rootDir, 'packages/bridge/scripts/orchestrator.ts')
 
@@ -391,17 +410,23 @@ async function startZKBridge(options: {
   }
 
   logger.header('ZKBRIDGE ORCHESTRATOR')
-  logger.info(`Mode: ${options.mode}`)
+  logger.info(`Mode: ${config.mode}`)
+  logger.info(`Chains: ${config.chains.evm.map(c => c.name).join(', ')}, Solana`)
+  logger.info(`Components: ${Object.entries(config.components).filter(([_, v]) => v).map(([k]) => k).join(', ')}`)
   if (options.relayerOnly) logger.info('Starting relayer only')
   if (options.proverOnly) logger.info('Starting prover only')
   logger.newline()
 
-  const args: string[] = ['--mode', options.mode]
+  // Set BRIDGE_MODE env var so orchestrator uses same config
+  const env: Record<string, string> = {
+    ...process.env,
+    BRIDGE_MODE: mode,
+  }
 
   const proc = spawn({
-    cmd: ['bun', 'run', scriptPath, ...args],
+    cmd: ['bun', 'run', scriptPath],
     cwd: rootDir,
-    env: process.env,
+    env,
     stdout: 'inherit',
     stderr: 'inherit',
   })
@@ -409,6 +434,10 @@ async function startZKBridge(options: {
   runningServices.set('zkbridge', proc)
 
   logger.success('ZK bridge orchestrator started')
+  logger.info(`Relayer:  http://127.0.0.1:${config.ports.relayer}`)
+  logger.info(`Prover:   http://127.0.0.1:${config.ports.prover}`)
+  logger.info(`Health:   http://127.0.0.1:${config.ports.health}/monitoring/health`)
+  logger.newline()
   logger.info('Press Ctrl+C to stop')
 
   process.on('SIGINT', () => {
