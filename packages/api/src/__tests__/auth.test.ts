@@ -32,13 +32,6 @@ import {
   type OAuth3Config,
   type WalletSignatureConfig,
 } from '../auth/types'
-<<<<<<< HEAD
-import {
-  describeWithInfra,
-  hasInfra,
-} from '@jejunetwork/tests'
-=======
->>>>>>> 17ff846a3f7bd8b486043013e1d9d7c122b06553
 
 // Check if OAuth3 TEE service is available for live tests
 const OAUTH3_AVAILABLE = await hasInfra(['gateway'])
