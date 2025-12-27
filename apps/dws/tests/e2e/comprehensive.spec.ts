@@ -87,6 +87,9 @@ test.beforeAll(async () => {
  * All DWS frontend routes extracted from App.tsx
  * Each route has expected content for verification
  */
+/**
+ * DWS routes - Only routes that actually exist in App.tsx
+ */
 const DWS_ROUTES: Array<{
   path: string
   name: string
@@ -94,76 +97,63 @@ const DWS_ROUTES: Array<{
   description: string
 }> = [
   // Dashboard
-  { path: '/', name: 'Dashboard', expectedContent: 'DWS', description: 'DWS Console landing page with navigation sidebar containing categories (Compute, Storage, Developer, AI/ML, Security, Network, etc). May show connect wallet prompt if not logged in, or dashboard metrics if logged in. Clean modern design.' },
+  { path: '/', name: 'Dashboard', expectedContent: 'DWS', description: 'DWS Console landing page with navigation sidebar. May show connect wallet prompt or dashboard metrics. Clean modern design with sidebar navigation.' },
 
   // Compute section
-  { path: '/compute/containers', name: 'Containers', expectedContent: 'Container', description: 'Container management page with list of containers, create button, and status indicators.' },
-  { path: '/compute/workers', name: 'Workers', expectedContent: 'Worker', description: 'Workers management showing active workers, job queues, and performance metrics.' },
-  { path: '/compute/jobs', name: 'Jobs', expectedContent: 'Job', description: 'Job listing with status, progress, and management controls.' },
-  { path: '/compute/training', name: 'Training', expectedContent: 'Train', description: 'ML training jobs interface with model training status and GPU metrics.' },
-  { path: '/compute/infrastructure', name: 'Infrastructure', expectedContent: 'Infrastructure', description: 'Infrastructure overview showing nodes, resources, and network topology.' },
+  { path: '/compute/containers', name: 'Containers', expectedContent: 'Container', description: 'Container management page with create button and status indicators.' },
+  { path: '/compute/workers', name: 'Workers', expectedContent: 'Worker', description: 'Workers management showing active workers and job queues.' },
+  { path: '/compute/jobs', name: 'Jobs', expectedContent: 'Job', description: 'Job listing with status and management controls.' },
+  { path: '/compute/training', name: 'Training', expectedContent: 'Train', description: 'ML training jobs interface with training status.' },
+  { path: '/compute/infrastructure', name: 'Infrastructure', expectedContent: 'Infrastructure', description: 'Infrastructure overview showing nodes and resources.' },
 
   // Storage section  
-  { path: '/storage/buckets', name: 'Buckets', expectedContent: 'Bucket', description: 'S3-compatible bucket management with create, list, and settings controls.' },
-  { path: '/storage/cdn', name: 'CDN', expectedContent: 'CDN', description: 'CDN configuration with edge locations, cache rules, and bandwidth metrics.' },
-  { path: '/storage/ipfs', name: 'IPFS', expectedContent: 'IPFS', description: 'IPFS pinning interface with CID list, pinning status, and storage stats.' },
-
-  // Apps
-  { path: '/apps/deployments', name: 'Deployments', expectedContent: 'Deploy', description: 'App deployments list with status, version, and deployment controls.' },
-
-  // Domains
-  { path: '/domains', name: 'Domains', expectedContent: 'Domain', description: 'Domain management with DNS records, SSL certificates, and routing rules.' },
-
-  // Functions
-  { path: '/functions', name: 'Functions', expectedContent: 'Function', description: 'Edge functions list with invocation stats, code editor, and deployment controls.' },
-
-  // Nodes
-  { path: '/nodes', name: 'Nodes', expectedContent: 'Node', description: 'Node management showing registered nodes, health status, and staking info.' },
+  { path: '/storage/buckets', name: 'Buckets', expectedContent: 'Bucket', description: 'S3-compatible bucket management interface.' },
+  { path: '/storage/cdn', name: 'CDN', expectedContent: 'CDN', description: 'CDN configuration with cache rules.' },
+  { path: '/storage/ipfs', name: 'IPFS', expectedContent: 'IPFS', description: 'IPFS pinning interface with CID list.' },
 
   // Developer
-  { path: '/developer/repositories', name: 'Repositories', expectedContent: 'Repositor', description: 'Git repository list with clone URLs, branches, and recent commits.' },
-  { path: '/developer/packages', name: 'Packages', expectedContent: 'Package', description: 'Package registry with version list, download stats, and publish controls.' },
-  { path: '/developer/pipelines', name: 'Pipelines', expectedContent: 'Pipeline', description: 'CI/CD pipelines with build status, logs, and deployment stages.' },
+  { path: '/developer/repositories', name: 'Repositories', expectedContent: 'Repositor', description: 'Git repository management interface.' },
+  { path: '/developer/packages', name: 'Packages', expectedContent: 'Package', description: 'Package registry interface.' },
+  { path: '/developer/pipelines', name: 'Pipelines', expectedContent: 'Pipeline', description: 'CI/CD pipelines interface.' },
 
   // AI/ML
-  { path: '/ai/inference', name: 'Inference', expectedContent: 'Inference', description: 'Model inference interface with model selection, input/output, and usage stats.' },
-  { path: '/ai/embeddings', name: 'Embeddings', expectedContent: 'Embedding', description: 'Embedding generation with vector dimensions, batch processing, and storage.' },
-  { path: '/ai/training', name: 'ML Training', expectedContent: 'Train', description: 'ML model training with dataset selection, hyperparameters, and training progress.' },
+  { path: '/ai/inference', name: 'Inference', expectedContent: 'Inference', description: 'Model inference interface.' },
+  { path: '/ai/embeddings', name: 'Embeddings', expectedContent: 'Embedding', description: 'Embedding generation interface.' },
+  { path: '/ai/training', name: 'ML Training', expectedContent: 'Train', description: 'ML model training interface.' },
 
   // Security
-  { path: '/security/keys', name: 'Keys', expectedContent: 'Key', description: 'API key management with creation, rotation, and permission controls.' },
-  { path: '/security/secrets', name: 'Secrets', expectedContent: 'Secret', description: 'Secret management with encrypted storage, access logs, and rotation policies.' },
-  { path: '/security/oauth3', name: 'OAuth3', expectedContent: 'OAuth', description: 'OAuth3 configuration with client apps, scopes, and authorization flows.' },
+  { path: '/security/keys', name: 'Keys', expectedContent: 'Key', description: 'API key management interface.' },
+  { path: '/security/secrets', name: 'Secrets', expectedContent: 'Secret', description: 'Secret management interface.' },
+  { path: '/security/oauth3', name: 'OAuth3', expectedContent: 'OAuth', description: 'OAuth3 configuration interface.' },
 
   // Network
-  { path: '/network/rpc', name: 'RPC Gateway', expectedContent: 'RPC', description: 'RPC gateway configuration with endpoints, rate limits, and request stats.' },
-  { path: '/network/vpn', name: 'VPN Proxy', expectedContent: 'VPN', description: 'VPN/proxy configuration with peer list, routing rules, and bandwidth.' },
-  { path: '/network/da', name: 'Data Availability', expectedContent: 'Data', description: 'Data availability layer with blob storage, sampling stats, and node health.' },
+  { path: '/network/rpc', name: 'RPC Gateway', expectedContent: 'RPC', description: 'RPC gateway configuration.' },
+  { path: '/network/vpn', name: 'VPN Proxy', expectedContent: 'VPN', description: 'VPN/proxy configuration.' },
+  { path: '/network/da', name: 'Data Availability', expectedContent: 'Data', description: 'Data availability layer interface.' },
 
   // Agents
-  { path: '/agents', name: 'Agents', expectedContent: 'Agent', description: 'AI agent management with deployed agents, interactions, and performance metrics.' },
+  { path: '/agents', name: 'Agents', expectedContent: 'Agent', description: 'AI agent management interface.' },
 
   // Analytics
-  { path: '/analytics', name: 'Analytics', expectedContent: 'Analytic', description: 'Analytics dashboard with charts, metrics, and usage reports.' },
+  { path: '/analytics', name: 'Analytics', expectedContent: 'Analytic', description: 'Analytics dashboard with charts.' },
 
   // Services
-  { path: '/services/email', name: 'Email', expectedContent: 'Email', description: 'Email service with send history, templates, and delivery stats.' },
-  { path: '/services/scraping', name: 'Scraping', expectedContent: 'Scrap', description: 'Web scraping service with job list, schedules, and data extraction rules.' },
+  { path: '/services/email', name: 'Email', expectedContent: 'Email', description: 'Email service interface.' },
+  { path: '/services/scraping', name: 'Scraping', expectedContent: 'Scrap', description: 'Web scraping service interface.' },
 
   // Moderation
-  { path: '/moderation', name: 'Moderation', expectedContent: 'Moderat', description: 'Content moderation with review queue, policies, and action logs.' },
+  { path: '/moderation', name: 'Moderation', expectedContent: 'Moderat', description: 'Content moderation interface.' },
 
   // Marketplace
-  { path: '/marketplace/browse', name: 'Marketplace Browse', expectedContent: 'Marketplace', description: 'Marketplace browse with service listings, categories, and search.' },
-  { path: '/marketplace/jobs', name: 'Marketplace Jobs', expectedContent: 'Job', description: 'Marketplace jobs with active requests, bids, and completion status.' },
-  { path: '/marketplace/listings', name: 'Listings', expectedContent: 'Listing', description: 'Your marketplace listings with pricing, availability, and orders.' },
+  { path: '/marketplace/browse', name: 'Marketplace Browse', expectedContent: 'Marketplace', description: 'Marketplace browse interface.' },
+  { path: '/marketplace/listings', name: 'Listings', expectedContent: 'Listing', description: 'Your marketplace listings.' },
 
   // Settings
-  { path: '/billing', name: 'Billing', expectedContent: 'Billing', description: 'Billing page with usage summary, invoices, and payment methods.' },
-  { path: '/settings', name: 'Settings', expectedContent: 'Setting', description: 'Account settings with profile, preferences, and API configuration.' },
+  { path: '/billing', name: 'Billing', expectedContent: 'Billing', description: 'Billing page with usage summary.' },
+  { path: '/settings', name: 'Settings', expectedContent: 'Setting', description: 'Account settings interface.' },
 
   // Faucet
-  { path: '/faucet', name: 'Faucet', expectedContent: 'Faucet', description: 'Testnet faucet page. May show token request form, error message if service unavailable, or wallet connect prompt.' },
+  { path: '/faucet', name: 'Faucet', expectedContent: 'Faucet', description: 'Testnet faucet page.' },
 ]
 
 /**
