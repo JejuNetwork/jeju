@@ -5,7 +5,6 @@ import {
   createWalletClient,
   http,
   parseEther,
-  formatEther,
 } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
 import { mainnet, optimism, optimismSepolia } from 'viem/chains'

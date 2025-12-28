@@ -9,8 +9,13 @@
 
 import { treaty } from '@elysiajs/eden'
 import {
+  CORE_PORTS,
   getCurrentNetwork,
+  getIndexerGraphqlUrl,
+  getIndexerRestUrl,
   getLocalhostHost,
+  getL2RpcUrl,
+  getRpcGatewayUrl,
   getServicesConfig,
 } from '@jejunetwork/config'
 import { z } from 'zod'
