@@ -60,21 +60,6 @@ interface WorkflowConfig {
   >
 }
 
-interface WorkflowRun {
-  runId: string
-  workflowId: Hex
-  status: string
-  conclusion?: string
-  jobs: Array<{ jobId: string; status: string }>
-}
-
-interface RunnerInfo {
-  runnerId: string
-  name: string
-  labels: string[]
-  status: string
-}
-
 // Response types
 interface GitRepoResponse {
   id: string
@@ -84,18 +69,6 @@ interface GitRepoResponse {
 
 interface GitReposListResponse {
   repositories: GitRepoResponse[]
-}
-
-export interface WorkflowsListResponse {
-  workflows: Array<{ workflowId: string; name: string }>
-}
-
-export interface RunsListResponse {
-  runs: WorkflowRun[]
-}
-
-export interface RunnersListResponse {
-  runners: RunnerInfo[]
 }
 
 describe('Git Workflow E2E', () => {

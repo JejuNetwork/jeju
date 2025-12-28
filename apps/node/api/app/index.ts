@@ -8,6 +8,7 @@ import { parseArgs } from 'node:util'
 import {
   getChainId,
   getCurrentNetwork,
+  getEnvVar,
   getEQLiteMinerUrl,
   getEQLiteUrl,
   getRpcUrl,
@@ -17,6 +18,7 @@ import chalk from 'chalk'
 import { formatEther } from 'viem'
 import { z } from 'zod'
 import { JsonRpcResultResponseSchema } from '../../lib/validation'
+import { configureNode } from '../config'
 import { createSecureNodeClient } from '../lib/contracts'
 import type { ServiceRequirements } from '../lib/hardware'
 import {

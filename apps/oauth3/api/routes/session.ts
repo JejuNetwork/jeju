@@ -275,6 +275,57 @@ export function createSessionRouter(config: AuthConfig) {
       }
     })
 
+    // Test session creation (only in development)
+    .post('/create', async ({ body, set }) => {
+      if (process.env.NODE_ENV === 'production') {
+        set.status = 403
+        return { error: 'not_available_in_production' }
+      }
+
+      const { provider, userId, address, fid, email } = body as {
+        provider: string
+        userId: string
+        address?: string
+        fid?: string
+        email?: string
+      }
+
+      if (!provider || !userId) {
+        set.status = 400
+        return { error: 'provider and userId required' }
+      }
+
+      const sessionId = crypto.randomUUID()
+      const ephemeralKey = await getEphemeralKey(sessionId)
+
+      const session: AuthSession = {
+        sessionId,
+        userId,
+        provider,
+        address,
+        fid,
+        email,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + config.sessionDuration,
+        metadata: {},
+        ephemeralKeyId: ephemeralKey.keyId,
+      }
+
+      await sessionState.save(session)
+
+      return {
+        success: true,
+        access_token: sessionId,
+        token: sessionId,
+        session: {
+          sessionId,
+          userId,
+          provider,
+          expiresAt: session.expiresAt,
+        },
+      }
+    })
+
     .get('/list', async ({ headers, set }) => {
       const authHeader = headers.authorization
       if (!authHeader) {

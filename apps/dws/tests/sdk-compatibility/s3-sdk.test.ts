@@ -40,24 +40,6 @@ interface S3ObjectListResponse {
   KeyCount?: number
 }
 
-export interface S3PutResponse {
-  ETag: string
-  VersionId?: string
-}
-
-export interface S3HeadResponse {
-  ContentLength: number
-  ContentType: string
-  ETag: string
-  LastModified?: string
-}
-
-export interface S3MultipartInitResponse {
-  UploadId: string
-  Bucket: string
-  Key: string
-}
-
 describe('AWS S3 SDK Compatibility', () => {
   let s3Backend: S3Backend
 

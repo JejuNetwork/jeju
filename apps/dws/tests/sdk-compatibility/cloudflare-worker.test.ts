@@ -27,17 +27,7 @@ setDefaultTimeout(60000)
 const TEST_DIR = '/tmp/dws-cf-worker-test'
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
-// Worker types (exported for documentation)
-export interface WorkerDeployRequest {
-  name: string
-  code: string // base64 encoded
-  bindings?: Array<{ name: string; type: string; value: string }>
-  routes?: string[]
-  memoryMb?: number
-  timeoutMs?: number
-  teeRequired?: boolean
-}
-
+// Worker types
 interface WorkerDeployResponse {
   workerId: string
   name: string
@@ -62,14 +52,6 @@ interface WorkerListResponse {
     workerId: string
     name: string
     status: string
-  }>
-}
-
-export interface WorkerLogsResponse {
-  logs: Array<{
-    timestamp: string
-    level: string
-    message: string
   }>
 }
 

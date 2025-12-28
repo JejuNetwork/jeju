@@ -234,11 +234,11 @@ export class SoftwareHSMProvider implements HSMProvider {
       {
         name: 'AES-GCM',
         iv,
-        additionalData: options?.aad,
+        additionalData: options?.aad ? new Uint8Array(options.aad) : undefined,
         tagLength: 128,
       },
       stored.cryptoKey,
-      plaintext,
+      new Uint8Array(plaintext),
     )
 
     const ciphertext = new Uint8Array(encrypted)
@@ -277,8 +277,8 @@ export class SoftwareHSMProvider implements HSMProvider {
     const decrypted = await crypto.subtle.decrypt(
       {
         name: 'AES-GCM',
-        iv,
-        additionalData: options?.aad,
+        iv: new Uint8Array(iv),
+        additionalData: options?.aad ? new Uint8Array(options.aad) : undefined,
         tagLength: 128,
       },
       stored.cryptoKey,
@@ -301,7 +301,7 @@ export class SoftwareHSMProvider implements HSMProvider {
     const signature = await crypto.subtle.sign(
       { name: 'ECDSA', hash: 'SHA-256' },
       stored.cryptoKey,
-      data,
+      new Uint8Array(data),
     )
 
     return {
@@ -390,7 +390,7 @@ export class SoftwareHSMProvider implements HSMProvider {
     // Import as new key
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      rawKey,
+      new Uint8Array(rawKey),
       { name: 'AES-GCM' },
       false,
       ['encrypt', 'decrypt'],

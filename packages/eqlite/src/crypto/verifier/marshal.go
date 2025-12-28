@@ -27,3 +27,4 @@ func (i *DefaultHashSignVerifierImpl) MarshalHash() ([]byte, error) {
 // Msgsize returns the estimated size for msgpack encoding
 func (i *DefaultHashSignVerifierImpl) Msgsize() int { return 256 }
 
+

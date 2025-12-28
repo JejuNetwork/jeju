@@ -505,12 +505,17 @@ export class DistributedKMSService {
 
     // Build attestations list
     const attestations: PartyAttestation[] = commitments
-      .filter((c) => c.attestation)
+      .filter(
+        (
+          c,
+        ): c is typeof c & { attestation: NonNullable<typeof c.attestation> } =>
+          c.attestation !== undefined,
+      )
       .map((c) => ({
         partyId: c.partyId,
-        quote: c.attestation?.quote,
-        measurement: c.attestation?.measurement,
-        timestamp: c.attestation?.timestamp,
+        quote: c.attestation.quote,
+        measurement: c.attestation.measurement,
+        timestamp: c.attestation.timestamp,
         verified: true,
         teeType: this.parties.get(c.partyId)?.teeType ?? 'unknown',
       }))

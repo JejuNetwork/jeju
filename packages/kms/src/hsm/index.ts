@@ -258,7 +258,7 @@ export class SoftHSMProvider implements HSMProvider {
     const iv = crypto.getRandomValues(new Uint8Array(12))
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      entry.material,
+      new Uint8Array(entry.material),
       { name: 'AES-GCM' },
       false,
       ['encrypt'],
@@ -267,7 +267,7 @@ export class SoftHSMProvider implements HSMProvider {
     const ciphertext = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv },
       cryptoKey,
-      plaintext,
+      new Uint8Array(plaintext),
     )
 
     return {
@@ -290,16 +290,16 @@ export class SoftHSMProvider implements HSMProvider {
 
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      entry.material,
+      new Uint8Array(entry.material),
       { name: 'AES-GCM' },
       false,
       ['decrypt'],
     )
 
     const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv: new Uint8Array(iv) },
       cryptoKey,
-      ciphertext,
+      new Uint8Array(ciphertext),
     )
 
     return new Uint8Array(plaintext)
@@ -346,7 +346,7 @@ export class SoftHSMProvider implements HSMProvider {
 
     const baseKey = await crypto.subtle.importKey(
       'raw',
-      entry.material,
+      new Uint8Array(entry.material),
       { name: 'HKDF' },
       false,
       ['deriveBits'],
@@ -356,7 +356,7 @@ export class SoftHSMProvider implements HSMProvider {
     const derivedBits = await crypto.subtle.deriveBits(
       {
         name: 'HKDF',
-        salt,
+        salt: new Uint8Array(salt),
         info: infoBytes,
         hash: 'SHA-256',
       },
