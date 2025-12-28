@@ -77,7 +77,7 @@ export interface BotInitializerConfig {
 /**
  * Trading Bot Implementation
  * Real implementation with actual trading logic
- * 
+ *
  * SECURITY: Uses KMS-backed signing in production.
  * Private keys are NEVER stored in this class.
  */
@@ -494,13 +494,17 @@ export class BotInitializer {
     const hasKMS = this.config.kmsSigner?.isInitialized()
     const hasWallet = !!this.config.walletClient
     if (!hasKMS && !hasWallet) {
-      log.warn('No signer configured (KMS or wallet), skipping bot initialization')
+      log.warn(
+        'No signer configured (KMS or wallet), skipping bot initialization',
+      )
       return this.bots
     }
     if (hasKMS) {
       log.info('Using KMS-backed signing for trading bots')
     } else {
-      log.warn('Using in-memory wallet for trading bots - DO NOT USE IN PRODUCTION')
+      log.warn(
+        'Using in-memory wallet for trading bots - DO NOT USE IN PRODUCTION',
+      )
     }
 
     const network = this.config.crucibleConfig.network

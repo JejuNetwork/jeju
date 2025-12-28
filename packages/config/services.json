@@ -50,8 +50,8 @@
       "bots": "http://127.0.0.1:4022"
     },
     "eqlite": {
-      "blockProducer": "http://127.0.0.1:8546",
-      "miner": "http://127.0.0.1:8546"
+      "blockProducer": "http://127.0.0.1:4661",
+      "miner": "http://127.0.0.1:4661"
     },
     "dws": {
       "api": "http://127.0.0.1:4030",

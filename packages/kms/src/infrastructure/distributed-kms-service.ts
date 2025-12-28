@@ -140,11 +140,13 @@ const CommitmentResponseSchema = z.object({
   commitment: z.string().transform((s) => s as Hex),
   D: z.string().transform((s) => s as Hex),
   E: z.string().transform((s) => s as Hex),
-  attestation: z.object({
-    quote: z.string().transform((s) => s as Hex),
-    measurement: z.string().transform((s) => s as Hex),
-    timestamp: z.number(),
-  }).optional(),
+  attestation: z
+    .object({
+      quote: z.string().transform((s) => s as Hex),
+      measurement: z.string().transform((s) => s as Hex),
+      timestamp: z.number(),
+    })
+    .optional(),
 })
 
 const ShareResponseSchema = z.object({
@@ -174,7 +176,7 @@ export class DistributedKMSService {
     if (parties.length < 3) {
       throw new Error(
         'SECURITY: Distributed KMS requires at least 3 parties. ' +
-        'Using fewer parties compromises threshold security.',
+          'Using fewer parties compromises threshold security.',
       )
     }
 
@@ -183,7 +185,7 @@ export class DistributedKMSService {
     if (providers.size < 2) {
       log.warn(
         'SECURITY WARNING: All parties are on the same provider. ' +
-        'For maximum security, distribute parties across multiple providers.',
+          'For maximum security, distribute parties across multiple providers.',
       )
     }
 
@@ -192,7 +194,7 @@ export class DistributedKMSService {
     if (regions.size < 2) {
       log.warn(
         'SECURITY WARNING: All parties are in the same region. ' +
-        'For maximum availability, distribute parties across multiple regions.',
+          'For maximum availability, distribute parties across multiple regions.',
       )
     }
 
@@ -201,7 +203,7 @@ export class DistributedKMSService {
     if (hosts.size < parties.length) {
       throw new Error(
         'SECURITY BLOCK: Multiple parties have the same endpoint hostname. ' +
-        'Each party MUST run on separate physical hardware.',
+          'Each party MUST run on separate physical hardware.',
       )
     }
 
@@ -314,7 +316,7 @@ export class DistributedKMSService {
         return false
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         quote: string
         measurement: string
         timestamp: number
@@ -334,7 +336,8 @@ export class DistributedKMSService {
 
       // Verify measurement against trusted list
       const trustedMeasurements =
-        this.config.attestationConfig.trustedMeasurements.get(party.teeType) ?? []
+        this.config.attestationConfig.trustedMeasurements.get(party.teeType) ??
+        []
 
       const measurement = data.measurement as Hex
       if (
@@ -382,7 +385,8 @@ export class DistributedKMSService {
    * 3. Aggregates signatures without reconstructing private key
    */
   async sign(request: SignRequest): Promise<SignResult> {
-    const threshold = request.requiredThreshold ?? Math.ceil(this.parties.size / 2) + 1
+    const threshold =
+      request.requiredThreshold ?? Math.ceil(this.parties.size / 2) + 1
     const timeoutMs = request.timeoutMs ?? 30000
 
     // Get healthy parties
@@ -404,7 +408,7 @@ export class DistributedKMSService {
       this.alertThresholdNotMet(parties.length, threshold)
       throw new Error(
         `SECURITY: Not enough healthy parties for threshold signing. ` +
-        `Have ${parties.length}, need ${threshold}.`,
+          `Have ${parties.length}, need ${threshold}.`,
       )
     }
 
@@ -499,14 +503,19 @@ export class DistributedKMSService {
       shares,
     )
 
-    // Build attestations list
+    // Build attestations list - filter to only commitments with attestations
     const attestations: PartyAttestation[] = commitments
-      .filter((c) => c.attestation)
+      .filter(
+        (
+          c,
+        ): c is typeof c & { attestation: NonNullable<typeof c.attestation> } =>
+          c.attestation !== undefined,
+      )
       .map((c) => ({
         partyId: c.partyId,
-        quote: c.attestation!.quote,
-        measurement: c.attestation!.measurement,
-        timestamp: c.attestation!.timestamp,
+        quote: c.attestation.quote,
+        measurement: c.attestation.measurement,
+        timestamp: c.attestation.timestamp,
         verified: true,
         teeType: this.parties.get(c.partyId)?.teeType ?? 'unknown',
       }))
@@ -550,7 +559,7 @@ export class DistributedKMSService {
       const d = BigInt(c.D)
       const e = BigInt(c.E)
       const rho = BigInt(keccak256(toBytes(`${c.partyIndex}`))) % CURVE_ORDER
-      const contribution = (d + (rho * e) % CURVE_ORDER) % CURVE_ORDER
+      const contribution = (d + ((rho * e) % CURVE_ORDER)) % CURVE_ORDER
       rValue = (rValue + contribution) % CURVE_ORDER
     }
 
@@ -573,7 +582,8 @@ export class DistributedKMSService {
     // Compute v (recovery id)
     const v = 27 // Simplified - real implementation would compute from R.y parity
 
-    const signature = `${r}${s.slice(2)}${v.toString(16).padStart(2, '0')}` as Hex
+    const signature =
+      `${r}${s.slice(2)}${v.toString(16).padStart(2, '0')}` as Hex
 
     return { signature, r, s, v }
   }
@@ -586,7 +596,7 @@ export class DistributedKMSService {
     const headers: Record<string, string> = {}
 
     if (partyConfig?.apiKey) {
-      headers['Authorization'] = `Bearer ${partyConfig.apiKey}`
+      headers.Authorization = `Bearer ${partyConfig.apiKey}`
     }
 
     return headers
@@ -678,4 +688,3 @@ export function createDistributedKMSService(
 ): DistributedKMSService {
   return new DistributedKMSService(config)
 }
-

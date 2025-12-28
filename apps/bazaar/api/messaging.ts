@@ -20,7 +20,7 @@ import type { Address, Hex } from 'viem'
 import { config } from './config'
 
 const HUB_URL = config.farcasterHubUrl
-const MPC_SIGNER_URL = config.mpcSignerUrl ?? ''
+const MPC_SIGNER_URL = config.mpcSignerUrl
 
 /**
  * Result from posting to Farcaster via KMS
@@ -230,7 +230,9 @@ class BazaarMessagingService {
     if (params.text) searchParams.set('text', params.text)
     if (params.channelUrl) searchParams.set('channelUrl', params.channelUrl)
     if (params.embeds?.length) {
-      params.embeds.forEach((url) => searchParams.append('embeds[]', url))
+      for (const url of params.embeds) {
+        searchParams.append('embeds[]', url)
+      }
     }
     return `${baseUrl}?${searchParams.toString()}`
   }

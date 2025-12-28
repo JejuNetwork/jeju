@@ -167,7 +167,7 @@ function isJejuComputeAvailable(): boolean {
  */
 function resolveModel(model: string): string {
   const aliases = MODEL_ALIASES[model.toLowerCase()]
-  if (aliases[0]) {
+  if (aliases && aliases[0]) {
     return aliases[0]
   }
   return model
@@ -346,10 +346,10 @@ export class LLMInferenceService {
       'Qwen/Qwen2.5-14B-Instruct': { input: 0.15, output: 0.2 },
     }
 
-    const modelPricing = pricing[model] ?? pricing['llama-3.1-8b-instant']
+    const modelPricing = pricing[model] ?? pricing['llama-3.1-8b-instant'] ?? { input: 0.05, output: 0.08 }
 
-    const inputCost = (promptTokens / 1000) * (modelPricing.input ?? 0.05)
-    const outputCost = (completionTokens / 1000) * (modelPricing.output ?? 0.08)
+    const inputCost = (promptTokens / 1000) * modelPricing.input
+    const outputCost = (completionTokens / 1000) * modelPricing.output
 
     return (inputCost + outputCost) / 100 // Convert cents to dollars
   }

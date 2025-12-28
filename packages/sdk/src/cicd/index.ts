@@ -11,7 +11,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { z } from 'zod'
 import { getServicesConfig } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // API response schemas for validation
 const JobStepSchema = z.object({
@@ -321,7 +321,7 @@ export interface CICDModule {
 }
 
 export function createCICDModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): CICDModule {
   const services = getServicesConfig(network)

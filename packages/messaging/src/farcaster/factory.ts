@@ -21,22 +21,25 @@ import {
   validateSecurityConfig,
 } from '../security'
 import { DirectCastClient } from './dc/client'
-import type { DCClientConfig } from './dc/types'
 import {
-  KMSDirectCastClient,
   type DCKMSEncryptionProvider,
   type DCKMSSigner,
   type KMSDCClientConfig,
+  KMSDirectCastClient,
 } from './dc/kms-client'
-import { FarcasterPoster, type FarcasterPosterConfig } from './hub/poster'
-import { KMSFarcasterPoster } from './hub/kms-poster'
+import type { DCClientConfig } from './dc/types'
 import type { KMSPosterSigner } from './hub/kms-poster'
-import { FarcasterSignerManager, type SignerManagerConfig } from './signer/manager'
+import { KMSFarcasterPoster } from './hub/kms-poster'
+import { FarcasterPoster, type FarcasterPosterConfig } from './hub/poster'
 import {
   KMSFarcasterSignerManager,
   type KMSProvider,
   type KMSSignerManagerConfig,
 } from './signer/kms-manager'
+import {
+  FarcasterSignerManager,
+  type SignerManagerConfig,
+} from './signer/manager'
 
 const log = createLogger('farcaster-factory')
 
@@ -118,9 +121,9 @@ export async function createDirectCastClient(
 
   throw new Error(
     'No key configuration provided. ' +
-    (env === 'production' || env === 'staging'
-      ? 'Provide kmsSigner and kmsEncryption for production.'
-      : 'Provide either KMS configuration or signerPrivateKey.')
+      (env === 'production' || env === 'staging'
+        ? 'Provide kmsSigner and kmsEncryption for production.'
+        : 'Provide either KMS configuration or signerPrivateKey.'),
   )
 }
 
@@ -138,10 +141,13 @@ export function createFarcasterPoster(
   if (config.kmsSigner) {
     log.info('Creating KMS-backed FarcasterPoster', { fid: config.fid, env })
 
+    // Capture kmsSigner to avoid closure narrowing issues
+    const kmsSigner = config.kmsSigner
+
     // The KMSPosterSigner interface is compatible with DCKMSSigner
     const posterSigner: KMSPosterSigner = {
-      publicKey: config.kmsSigner.publicKey,
-      sign: (message: Uint8Array) => config.kmsSigner!.sign(message),
+      publicKey: kmsSigner.publicKey,
+      sign: (message: Uint8Array) => kmsSigner.sign(message),
     }
 
     return new KMSFarcasterPoster({
@@ -173,9 +179,9 @@ export function createFarcasterPoster(
 
   throw new Error(
     'No key configuration provided. ' +
-    (env === 'production' || env === 'staging'
-      ? 'Provide kmsSigner for production.'
-      : 'Provide either KMS configuration or signerPrivateKey.')
+      (env === 'production' || env === 'staging'
+        ? 'Provide kmsSigner for production.'
+        : 'Provide either KMS configuration or signerPrivateKey.'),
   )
 }
 
@@ -266,7 +272,12 @@ export async function createFarcasterClient(
  * Quick setup for production (requires KMS)
  */
 export async function createProductionFarcasterClient(
-  config: Required<Pick<FarcasterClientConfig, 'fid' | 'hubUrl' | 'kmsSigner' | 'kmsEncryption' | 'kmsProvider'>> &
+  config: Required<
+    Pick<
+      FarcasterClientConfig,
+      'fid' | 'hubUrl' | 'kmsSigner' | 'kmsEncryption' | 'kmsProvider'
+    >
+  > &
     Partial<FarcasterClientConfig>,
 ): Promise<FarcasterClientBundle> {
   return createFarcasterClient({
@@ -279,7 +290,9 @@ export async function createProductionFarcasterClient(
  * Quick setup for development (local keys, with security warnings)
  */
 export async function createDevFarcasterClient(
-  config: Required<Pick<FarcasterClientConfig, 'fid' | 'hubUrl' | 'signerPrivateKey'>> &
+  config: Required<
+    Pick<FarcasterClientConfig, 'fid' | 'hubUrl' | 'signerPrivateKey'>
+  > &
     Partial<FarcasterClientConfig>,
 ): Promise<FarcasterClientBundle> {
   return createFarcasterClient({

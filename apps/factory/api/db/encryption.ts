@@ -113,7 +113,9 @@ export function isFileEncrypted(filePath: string): boolean {
   return header.equals(ENCRYPTED_HEADER)
 }
 
-export async function loadEncryptedDatabase(filePath: string): Promise<Buffer | null> {
+export async function loadEncryptedDatabase(
+  filePath: string,
+): Promise<Buffer | null> {
   const key = getEncryptionKey()
   if (!existsSync(filePath)) return null
   if (key.length === 0) return readFileSync(filePath)
@@ -123,7 +125,10 @@ export async function loadEncryptedDatabase(filePath: string): Promise<Buffer | 
   return decryptBuffer(encrypted, key)
 }
 
-export async function saveEncryptedDatabase(data: Buffer, filePath: string): Promise<void> {
+export async function saveEncryptedDatabase(
+  data: Buffer,
+  filePath: string,
+): Promise<void> {
   const key = getEncryptionKey()
   if (key.length === 0) {
     writeFileSync(filePath, data)
@@ -166,7 +171,10 @@ export async function decryptField(encrypted: string): Promise<string> {
   const decipher = createDecipheriv(ALGORITHM, key, iv)
   decipher.setAuthTag(authTag)
 
-  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
+  return Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]).toString('utf8')
 }
 
 export async function initializeEncryption(): Promise<boolean> {

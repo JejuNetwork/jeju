@@ -28,7 +28,10 @@ import {
   initializeRemoteKMSEd25519Signer,
   type KMSSolanaClient,
 } from '../clients/kms-solana-client.js'
-import { createSolanaClient, type SolanaClient } from '../clients/solana-client.js'
+import {
+  createSolanaClient,
+  type SolanaClient,
+} from '../clients/solana-client.js'
 import { createTEEBatcher } from '../tee/batcher.js'
 import type {
   ChainId,
@@ -255,16 +258,17 @@ export class RelayerService {
     await this.batcher.initialize()
 
     // SECURITY CHECK: Production must use KMS
-    const hasAnyKmsConfig = this.config.evmChains.some((c) => c.kmsConfig) ||
+    const hasAnyKmsConfig =
+      this.config.evmChains.some((c) => c.kmsConfig) ||
       this.config.solanaConfig.kmsConfig
 
     if (isProduction && !hasAnyKmsConfig) {
       throw new Error(
         'SECURITY BLOCK: Production relayer MUST use KMS-backed signing.\n\n' +
-        'Using privateKey or keypairPath in production exposes keys to TEE side-channel attacks.\n\n' +
-        'Configure kmsConfig for each chain:\n' +
-        '  evmChains: [{ kmsConfig: { endpoint, keyId, apiKey? } }]\n' +
-        '  solanaConfig: { kmsConfig: { endpoint, keyId, apiKey? } }',
+          'Using privateKey or keypairPath in production exposes keys to TEE side-channel attacks.\n\n' +
+          'Configure kmsConfig for each chain:\n' +
+          '  evmChains: [{ kmsConfig: { endpoint, keyId, apiKey? } }]\n' +
+          '  solanaConfig: { kmsConfig: { endpoint, keyId, apiKey? } }',
       )
     }
 
@@ -300,13 +304,12 @@ export class RelayerService {
         if (isProduction) {
           throw new Error(
             `SECURITY BLOCK: Chain ${chainConfig.chainId} uses privateKey in production.\n` +
-            'Switch to kmsConfig for production deployments.',
+              'Switch to kmsConfig for production deployments.',
           )
         }
-        log.warn(
-          'Using direct privateKey - INSECURE, development only',
-          { chainId: chainConfig.chainId },
-        )
+        log.warn('Using direct privateKey - INSECURE, development only', {
+          chainId: chainConfig.chainId,
+        })
         client = createEVMClient({
           chainId: chainConfig.chainId,
           rpcUrl: chainConfig.rpcUrl,
@@ -345,7 +348,9 @@ export class RelayerService {
       this.solanaClient = createKMSSolanaClient({
         rpcUrl: this.config.solanaConfig.rpcUrl,
         commitment: 'confirmed',
-        bridgeProgramId: new PublicKey(this.config.solanaConfig.bridgeProgramId),
+        bridgeProgramId: new PublicKey(
+          this.config.solanaConfig.bridgeProgramId,
+        ),
         evmLightClientProgramId: new PublicKey(
           this.config.solanaConfig.evmLightClientProgramId,
         ),
@@ -357,7 +362,7 @@ export class RelayerService {
       if (isProduction) {
         throw new Error(
           'SECURITY BLOCK: Solana config uses keypairPath in production.\n' +
-          'Switch to kmsConfig for production deployments.',
+            'Switch to kmsConfig for production deployments.',
         )
       }
       log.warn('Using direct keypair - INSECURE, development only')
@@ -366,7 +371,9 @@ export class RelayerService {
         rpcUrl: this.config.solanaConfig.rpcUrl,
         commitment: 'confirmed',
         keypair,
-        bridgeProgramId: new PublicKey(this.config.solanaConfig.bridgeProgramId),
+        bridgeProgramId: new PublicKey(
+          this.config.solanaConfig.bridgeProgramId,
+        ),
         evmLightClientProgramId: new PublicKey(
           this.config.solanaConfig.evmLightClientProgramId,
         ),

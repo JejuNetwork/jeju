@@ -1,61 +1,56 @@
 /**
- * KMS-Backed Signing Service
+ * Wallet KMS-Backed Signing Service
  *
- * Provides signing operations through KMS/MPC without ever holding
- * private keys locally. This is the side-channel resistant path for
- * signing operations.
+ * This module provides wallet-specific KMS signing operations.
+ * For general KMS signing, use @jejunetwork/kms directly.
  *
- * SECURITY GUARANTEES:
- * - Private keys are never reconstructed on this server
- * - All signing happens via threshold MPC (FROST) or remote TEE
- * - Signature requests are logged for audit trail
- * - Rate limiting prevents abuse
- *
- * Use Cases:
- * - Smart wallet operations (gasless transactions)
- * - DAO governance actions
- * - Treasury operations
- * - Any high-security signing requirement
+ * Wallet-specific features:
+ * - Key registration/management per user
+ * - Typed data signing (EIP-712)
+ * - Personal message signing (EIP-191)
+ * - Transaction hash signing
  */
 
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
-// KMS client configuration
-interface KMSSignerConfig {
-  /** KMS endpoint URL (uses KMS_ENDPOINT env var if not provided) */
+// Re-export canonical KMS for general usage
+export {
+  createKMSSigner,
+  getKMSSigner as getCanonicalKMSSigner,
+  type KMSKeyInfo,
+  KMSSigner as CanonicalKMSSigner,
+  type KMSSignerConfig as CanonicalKMSSignerConfig,
+  type SigningMode,
+  type SignResult as CanonicalSignResult,
+  type TransactionSignResult,
+  validateSecureSigning,
+} from '@jejunetwork/kms'
+
+// ════════════════════════════════════════════════════════════════════════════
+//                     WALLET-SPECIFIC KMS SIGNER
+// ════════════════════════════════════════════════════════════════════════════
+
+interface WalletKMSSignerConfig {
   endpoint?: string
-  /** API key for KMS authentication */
   apiKey?: string
-  /** Enable MPC signing (requires MPC_THRESHOLD and MPC_TOTAL_PARTIES) */
   useMPC: boolean
-  /** Minimum threshold for MPC signing (default: 2) */
   threshold?: number
-  /** Total parties for MPC signing (default: 3) */
   totalParties?: number
 }
 
 interface SignRequest {
-  /** Key ID in KMS (must be registered first) */
   keyId: string
-  /** Message to sign (raw bytes or string) */
   message: Uint8Array | string
-  /** Hash algorithm (default: keccak256) */
   hashAlgorithm?: 'keccak256' | 'sha256' | 'none'
-  /** Requester address for audit */
   requester: Address
 }
 
 interface SignResult {
-  /** The signature (65 bytes: r + s + v) */
   signature: Hex
-  /** Recovery ID */
   recoveryId: number
-  /** Key ID used */
   keyId: string
-  /** Timestamp */
   signedAt: number
-  /** MPC participants (if MPC signing) */
   participants?: string[]
 }
 
@@ -74,7 +69,6 @@ interface TypedDataRequest {
   requester: Address
 }
 
-// Zod schemas for validation
 const KMSSignResponseSchema = z.object({
   signature: z.string(),
   recoveryId: z.number().optional(),
@@ -99,20 +93,17 @@ const KMSKeyInfoSchema = z.object({
     .optional(),
 })
 
-type KMSKeyInfo = z.infer<typeof KMSKeyInfoSchema>
+type WalletKMSKeyInfo = z.infer<typeof KMSKeyInfoSchema>
 
 /**
- * KMS-backed signer that never holds private keys locally.
- *
- * All signing operations are delegated to the KMS service which uses
- * either TEE-protected signing or MPC threshold signing.
+ * Wallet-specific KMS signer with key registration and advanced signing.
  */
-export class KMSSigner {
-  private config: Required<KMSSignerConfig>
-  private keyCache = new Map<string, KMSKeyInfo>()
+export class WalletKMSSigner {
+  private config: Required<WalletKMSSignerConfig>
+  private keyCache = new Map<string, WalletKMSKeyInfo>()
   private initialized = false
 
-  constructor(config: KMSSignerConfig) {
+  constructor(config: WalletKMSSignerConfig) {
     this.config = {
       endpoint: config.endpoint ?? process.env.KMS_ENDPOINT ?? '',
       apiKey: config.apiKey ?? process.env.KMS_API_KEY ?? '',
@@ -128,9 +119,6 @@ export class KMSSigner {
     }
   }
 
-  /**
-   * Initialize connection to KMS and verify availability.
-   */
   async initialize(): Promise<void> {
     if (this.initialized) return
 
@@ -145,10 +133,7 @@ export class KMSSigner {
     this.initialized = true
   }
 
-  /**
-   * Get key info from KMS.
-   */
-  async getKey(keyId: string): Promise<KMSKeyInfo> {
+  async getKey(keyId: string): Promise<WalletKMSKeyInfo> {
     await this.ensureInitialized()
 
     const cached = this.keyCache.get(keyId)
@@ -163,18 +148,12 @@ export class KMSSigner {
       throw new Error(`Key not found: ${keyId}`)
     }
 
-    const raw = await response.json()
+    const raw: unknown = await response.json()
     const keyInfo = KMSKeyInfoSchema.parse(raw)
     this.keyCache.set(keyId, keyInfo)
     return keyInfo
   }
 
-  /**
-   * Sign a message using KMS.
-   *
-   * SECURITY: The private key never exists on this server.
-   * Signing happens entirely within the KMS (TEE or MPC).
-   */
   async sign(request: SignRequest): Promise<SignResult> {
     await this.ensureInitialized()
 
@@ -207,7 +186,7 @@ export class KMSSigner {
       throw new Error(`Signing failed: ${error}`)
     }
 
-    const raw = await response.json()
+    const raw: unknown = await response.json()
     const result = KMSSignResponseSchema.parse(raw)
 
     return {
@@ -219,9 +198,6 @@ export class KMSSigner {
     }
   }
 
-  /**
-   * Sign a personal message (EIP-191).
-   */
   async signPersonalMessage(
     keyId: string,
     message: string,
@@ -238,9 +214,6 @@ export class KMSSigner {
     })
   }
 
-  /**
-   * Sign typed data (EIP-712).
-   */
   async signTypedData(request: TypedDataRequest): Promise<SignResult> {
     await this.ensureInitialized()
 
@@ -264,7 +237,7 @@ export class KMSSigner {
       throw new Error(`Typed data signing failed: ${error}`)
     }
 
-    const raw = await response.json()
+    const raw: unknown = await response.json()
     const result = KMSSignResponseSchema.parse(raw)
 
     return {
@@ -276,18 +249,11 @@ export class KMSSigner {
     }
   }
 
-  /**
-   * Sign a transaction hash.
-   *
-   * Use this for signing transaction hashes for smart contract wallets
-   * or gasless transactions. The transaction is NOT broadcast by KMS.
-   */
   async signTransactionHash(
     keyId: string,
     txHash: Hex,
     requester: Address,
   ): Promise<SignResult> {
-    // Validate tx hash format
     if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
       throw new Error('Invalid transaction hash format')
     }
@@ -295,15 +261,11 @@ export class KMSSigner {
     return this.sign({
       keyId,
       message: txHash,
-      hashAlgorithm: 'none', // Already hashed
+      hashAlgorithm: 'none',
       requester,
     })
   }
 
-  /**
-   * Register a new key in KMS for this user.
-   * Returns the key ID and public address.
-   */
   async registerKey(
     owner: Address,
     options?: { name?: string; useMPC?: boolean },
@@ -320,14 +282,14 @@ export class KMSSigner {
         curve: 'secp256k1',
         useMPC: options?.useMPC ?? this.config.useMPC,
         mpcOptions:
-          options?.useMPC ?? this.config.useMPC
+          (options?.useMPC ?? this.config.useMPC)
             ? {
                 threshold: this.config.threshold,
                 totalParties: this.config.totalParties,
               }
             : undefined,
       }),
-      signal: AbortSignal.timeout(60000), // Key generation can take longer
+      signal: AbortSignal.timeout(60000),
     })
 
     if (!response.ok) {
@@ -335,10 +297,9 @@ export class KMSSigner {
       throw new Error(`Key registration failed: ${error}`)
     }
 
-    const raw = await response.json()
+    const raw: unknown = await response.json()
     const keyInfo = KMSKeyInfoSchema.parse(raw)
 
-    // Cache the new key
     this.keyCache.set(keyInfo.keyId, keyInfo)
 
     return {
@@ -365,31 +326,35 @@ export class KMSSigner {
   }
 }
 
-// Singleton instance
-let kmsSigner: KMSSigner | undefined
+// Singleton
+let walletKmsSigner: WalletKMSSigner | undefined
 
-/**
- * Get the KMS signer instance.
- *
- * This is the recommended way to get a signer that never holds
- * private keys locally.
- */
-export function getKMSSigner(config?: Partial<KMSSignerConfig>): KMSSigner {
-  if (!kmsSigner) {
-    kmsSigner = new KMSSigner({
+export function getWalletKMSSigner(
+  config?: Partial<WalletKMSSignerConfig>,
+): WalletKMSSigner {
+  if (!walletKmsSigner) {
+    walletKmsSigner = new WalletKMSSigner({
       useMPC: config?.useMPC ?? process.env.KMS_USE_MPC === 'true',
       ...config,
     })
   }
-  return kmsSigner
+  return walletKmsSigner
 }
 
-/**
- * Reset the KMS signer instance.
- */
-export function resetKMSSigner(): void {
-  kmsSigner = undefined
+export function resetWalletKMSSigner(): void {
+  walletKmsSigner = undefined
 }
 
-export type { KMSSignerConfig, SignRequest, SignResult, TypedDataRequest }
+// Legacy aliases for backward compatibility
+export {
+  WalletKMSSigner as KMSSigner,
+  getWalletKMSSigner as getKMSSigner,
+  resetWalletKMSSigner as resetKMSSigner,
+}
 
+export type {
+  WalletKMSSignerConfig as KMSSignerConfig,
+  SignRequest,
+  SignResult,
+  TypedDataRequest,
+}

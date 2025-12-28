@@ -12,11 +12,7 @@ import {
   generateNonce,
   generateReportData,
 } from '../../../src/tee'
-import {
-  createKMSWalletClient,
-  isKMSAvailable,
-  type KMSWalletClient,
-} from '../../shared/kms-wallet'
+import { createKMSWalletClient, isKMSAvailable } from '../../shared/kms-wallet'
 
 // Get contract address from config
 const TDX_VERIFIER_ADDRESS = (process.env.TDX_ATTESTATION_VERIFIER_ADDRESS ||
@@ -116,7 +112,7 @@ async function getVerifierService(): Promise<AttestationVerifierService> {
   if (!verifierService) {
     const isProduction = process.env.NODE_ENV === 'production'
 
-    let walletClient
+    let walletClient: ReturnType<typeof createWalletClient> | undefined
 
     // Option 1: KMS-backed signing (FROST threshold cryptography)
     if (TEE_VERIFIER_KMS_KEY_ID && TEE_VERIFIER_OWNER_ADDRESS) {
@@ -126,7 +122,7 @@ async function getVerifierService(): Promise<AttestationVerifierService> {
         try {
           // Create a minimal chain config for the KMS wallet
           const chain: Chain = {
-            id: parseInt(process.env.CHAIN_ID ?? '1'),
+            id: parseInt(process.env.CHAIN_ID ?? '1', 10),
             name: 'Ethereum',
             nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
             rpcUrls: { default: { http: [RPC_URL] } },

@@ -122,7 +122,14 @@ export class SolverAgent {
     }
 
     for (const chain of this.config.chains) {
-      const chainDef = getChain(chain.chainId)
+      const maybeChainDef = getChain(chain.chainId)
+      if (!maybeChainDef) {
+        throw new Error(
+          `Chain definition not found for chainId: ${chain.chainId}`,
+        )
+      }
+      const chainDef = maybeChainDef
+
       const pub = createPublicClient({
         chain: chainDef,
         transport: http(chain.rpcUrl),

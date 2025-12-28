@@ -494,11 +494,12 @@ export class AgentService {
       [agentId],
     )
 
-    if (result.rows.length === 0) {
+    const firstRow = result.rows[0]
+    if (!firstRow) {
       throw new Error(`Agent ${agentId} not found`)
     }
 
-    const currentBalance = result.rows[0].points_balance
+    const currentBalance = firstRow.points_balance
     if (currentBalance < amount) {
       throw new Error(`Insufficient points: ${currentBalance} < ${amount}`)
     }
@@ -538,11 +539,11 @@ export class AgentService {
       agentId,
     ])
 
-    if (result.rows.length === 0) {
+    const row = result.rows[0]
+    if (!row) {
       throw new Error(`Agent ${agentId} not found`)
     }
 
-    const row = result.rows[0]
     const profitableTrades = Math.round(row.total_trades * row.win_rate)
 
     return {

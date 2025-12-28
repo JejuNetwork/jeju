@@ -96,7 +96,10 @@ export class EncryptionProvider implements KMSProvider {
 
   constructor(_config: EncryptionConfig) {
     // Check if async derivation is enabled (recommended for production)
-    this.useAsyncDerivation = getEnvBoolean('KMS_USE_ASYNC_KEY_DERIVATION', false)
+    this.useAsyncDerivation = getEnvBoolean(
+      'KMS_USE_ASYNC_KEY_DERIVATION',
+      false,
+    )
 
     if (!this.useAsyncDerivation) {
       // Legacy synchronous derivation (fast but less secure)
@@ -117,7 +120,10 @@ export class EncryptionProvider implements KMSProvider {
 
     this.initPromise = (async () => {
       const secret = requireEnv('KMS_ENCRYPTION_SECRET')
-      this.masterKey = await deriveKeyFromSecretAsync(secret, 'jeju:kms:encryption:v1')
+      this.masterKey = await deriveKeyFromSecretAsync(
+        secret,
+        'jeju:kms:encryption:v1',
+      )
       log.info('Master key derived using PBKDF2 (100k iterations)')
     })()
 
@@ -325,7 +331,10 @@ export class EncryptionProvider implements KMSProvider {
     const key = this.keys.get(request.keyId)
     if (!key) throw new Error(`Key ${request.keyId} not found`)
 
-    const keyBytes = await unsealWithMasterKey(key.encryptedKey, this.getMasterKey())
+    const keyBytes = await unsealWithMasterKey(
+      key.encryptedKey,
+      this.getMasterKey(),
+    )
     const account = privateKeyToAccount(toHex(keyBytes) as `0x${string}`)
     keyBytes.fill(0)
 
@@ -408,7 +417,10 @@ export class EncryptionProvider implements KMSProvider {
 
     const newKeyBytes = crypto.getRandomValues(new Uint8Array(32))
     const account = privateKeyToAccount(toHex(newKeyBytes) as `0x${string}`)
-    const encryptedNewKey = await sealWithMasterKey(newKeyBytes, this.getMasterKey())
+    const encryptedNewKey = await sealWithMasterKey(
+      newKeyBytes,
+      this.getMasterKey(),
+    )
     newKeyBytes.fill(0)
 
     const newVersion = existingKey.version + 1

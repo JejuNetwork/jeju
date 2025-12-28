@@ -9,17 +9,18 @@
  */
 
 import {
-  type CQLClient,
-  type CQLConfig,
   type DatabaseInfo,
+  type EQLiteClient,
+  type EQLiteConfig,
   type ExecResult,
-  getCQL,
+  getEQLite,
+  type QueryParam,
   type QueryResult,
 } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { DATABASE_PROVIDER_ABI } from '../abis'
-import { getChain, type NodeClient } from '../contracts'
+import type { NodeClient } from '../contracts'
 import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 // Configuration schema
@@ -113,7 +114,7 @@ export function validateDatabaseStats(data: unknown): DatabaseStats {
  */
 export class DatabaseService {
   private nodeClient: NodeClient
-  private cqlClient: CQLClient | null = null
+  private cqlClient: EQLiteClient | null = null
   private config: DatabaseServiceConfig | null = null
   private signer: SecureSigner | null = null
   private isRunning = false
@@ -139,14 +140,14 @@ export class DatabaseService {
     // CQL client uses KMS for signing via secure signer
     // The CQL package should be updated to accept a signer interface
     // For now, we pass the keyId and let CQL handle KMS integration
-    const cqlConfig: CQLConfig = {
+    const cqlConfig: EQLiteConfig = {
       blockProducerEndpoint: this.config.blockProducerEndpoint,
       minerEndpoint: this.config.minerEndpoint,
       keyId: this.config.keyId, // KMS key ID instead of raw private key
       timeout: this.config.queryTimeoutMs,
     }
 
-    this.cqlClient = getCQL(cqlConfig)
+    this.cqlClient = getEQLite(cqlConfig)
   }
 
   /**
@@ -481,7 +482,7 @@ export class DatabaseService {
   /**
    * Get the CQL client for direct operations
    */
-  getCQLClient(): CQLClient | null {
+  getCQLClient(): EQLiteClient | null {
     return this.cqlClient
   }
 }

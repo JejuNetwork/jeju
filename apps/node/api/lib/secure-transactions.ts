@@ -10,7 +10,7 @@
  * - TEE attestation required for production
  */
 
-import type { Address, Hex, PublicClient } from 'viem'
+import type { Abi, Address, Hex, PublicClient } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { createSecureSigner, type SecureSigner } from './secure-signer'
 
@@ -25,16 +25,18 @@ export interface SecureTransactionConfig {
  *
  * Use this instead of direct walletClient.writeContract calls
  */
-export function createSecureTransactionExecutor(config: SecureTransactionConfig) {
+export function createSecureTransactionExecutor(
+  config: SecureTransactionConfig,
+) {
   const signer = createSecureSigner(config.keyId)
 
   return {
     /**
      * Execute a contract call with KMS-backed signing
      */
-    async writeContract<TAbi extends readonly unknown[]>(params: {
+    async writeContract(params: {
       address: Address
-      abi: TAbi
+      abi: Abi
       functionName: string
       args?: readonly unknown[]
       value?: bigint
@@ -43,7 +45,7 @@ export function createSecureTransactionExecutor(config: SecureTransactionConfig)
         abi: params.abi,
         functionName: params.functionName,
         args: params.args ?? [],
-      }) as Hex
+      } as Parameters<typeof encodeFunctionData>[0]) as Hex
 
       const { signedTransaction, hash } = await signer.signTransaction({
         to: params.address,
@@ -102,4 +104,3 @@ export function wrapWithSecureTransactions(
     publicClient,
   })
 }
-

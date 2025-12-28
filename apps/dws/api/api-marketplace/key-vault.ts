@@ -15,9 +15,9 @@ import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
+import { getHSMKDF, isHSMAvailable } from '../shared/hsm-kdf'
 import { PROVIDERS_BY_ID } from './providers'
 import type { VaultDecryptRequest, VaultKey } from './types'
-import { getHSMKDF, isHSMAvailable } from '../shared/hsm-kdf'
 
 // EQLite-backed storage - no in-memory state for serverless compatibility
 
@@ -151,7 +151,7 @@ function deriveKey(keyId: string): Uint8Array {
  * Derive encryption key using HSM (async version)
  * When HSM is available, this should be used instead of deriveKey()
  */
-async function deriveKeyWithHSM(
+export async function deriveKeyWithHSM(
   keyId: string,
 ): Promise<{ key: Uint8Array; hsmKeyId?: string }> {
   const hsmKdf = getHSMKDF()

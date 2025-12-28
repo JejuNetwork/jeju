@@ -12,7 +12,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { getServicesConfig, requireContract } from '../config'
 import { NodesListSchema, StakingStatsResponseSchema } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -407,7 +407,7 @@ const RPC_PROVIDER_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createStakingModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): StakingModule {
   const services = getServicesConfig(network)

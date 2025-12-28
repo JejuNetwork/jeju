@@ -57,6 +57,8 @@ export * from './feed'
 export * from './git'
 export * from './governance'
 export * from './identity'
+// KMS-backed secure wallet (recommended for production/TEE environments)
+export * from './kms-wallet'
 export * from './launchpad'
 export * from './liquidity'
 // MCP (Model Context Protocol)
@@ -84,6 +86,4 @@ export * from './vpn'
 export * from './vpn-module'
 // Wallet utilities
 export * from './wallet'
-// KMS-backed secure wallet (recommended for production/TEE environments)
-export * from './kms-wallet'
 export * from './work'

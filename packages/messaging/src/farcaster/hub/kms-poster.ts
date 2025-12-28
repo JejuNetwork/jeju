@@ -25,7 +25,11 @@ import {
   ReactionType,
   UserDataType,
 } from './message-builder'
-import { FailoverHubSubmitter, type HubEndpoint, HubSubmitter } from './submitter'
+import {
+  FailoverHubSubmitter,
+  type HubEndpoint,
+  HubSubmitter,
+} from './submitter'
 
 const log = createLogger('kms-poster')
 
@@ -167,7 +171,10 @@ export class KMSFarcasterPoster {
       mentions: options?.mentions ?? [],
       mentionsPositions: options?.mentionsPositions ?? [],
       parentCastId: options?.replyTo
-        ? { fid: options.replyTo.fid, hash: this.hexToBytes(options.replyTo.hash) }
+        ? {
+            fid: options.replyTo.fid,
+            hash: this.hexToBytes(options.replyTo.hash),
+          }
         : undefined,
       parentUrl: options?.channelUrl,
     }
@@ -459,7 +466,7 @@ export class RemoteKMSPosterSigner implements KMSPosterSigner {
         'Content-Type': 'application/json',
       }
       if (this.apiKey) {
-        headers['Authorization'] = `Bearer ${this.apiKey}`
+        headers.Authorization = `Bearer ${this.apiKey}`
       }
 
       const response = await fetch(`${this.endpoint}/sign`, {
@@ -484,4 +491,3 @@ export class RemoteKMSPosterSigner implements KMSPosterSigner {
     }
   }
 }
-

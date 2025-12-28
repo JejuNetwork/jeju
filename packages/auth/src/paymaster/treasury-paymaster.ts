@@ -18,16 +18,20 @@ import {
   concat,
   createPublicClient,
   createWalletClient,
-  custom,
   encodeAbiParameters,
   type Hex,
   http,
   keccak256,
   pad,
   parseAbiParameters,
+  type SignableMessage,
+  serializeTransaction,
+  type TransactionSerializable,
+  type TypedDataDefinition,
   toBytes,
   toHex,
 } from 'viem'
+import { toAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry, mainnet, sepolia } from 'viem/chains'
 import type { DID } from '../did/index.js'
 import type {
@@ -430,63 +434,80 @@ export class TreasuryPaymaster {
    */
   async fundUser(userAddress: Address, amount: bigint): Promise<Hex> {
     const chain = getChain(this.chainId)
-    const publicClient = createPublicClient({
-      chain,
-      transport: http(this.rpcUrl),
+
+    // Create MPC-backed account using viem's toAccount helper
+    const mpcAccount = toAccount({
+      address: this.operatorAddress,
+      signMessage: async ({ message }: { message: SignableMessage }) => {
+        const msgBytes =
+          typeof message === 'string'
+            ? toBytes(message)
+            : 'raw' in message
+              ? message.raw
+              : toBytes(message as string)
+        const result = await this.signingService.sign({
+          keyId: this.operatorKeyId,
+          message: msgBytes,
+        })
+        return result.signature
+      },
+      signTransaction: async (tx: TransactionSerializable) => {
+        // Serialize the transaction to get the hash
+        const serialized = serializeTransaction(tx)
+        const txHash = keccak256(serialized)
+        const signResult = await this.signingService.sign({
+          keyId: this.operatorKeyId,
+          message: '',
+          messageHash: txHash,
+        })
+        // Return serialized transaction with signature
+        return serializeTransaction(tx, {
+          r: signResult.r,
+          s: signResult.s,
+          v: BigInt(signResult.v),
+        })
+      },
+      signTypedData: async <
+        const TTypedData extends
+          | Record<string, readonly { name: string; type: string }[]>
+          | Record<string, unknown>,
+        TPrimaryType extends
+          | keyof TTypedData
+          | 'EIP712Domain' = keyof TTypedData,
+      >(
+        typedData: TypedDataDefinition<TTypedData, TPrimaryType>,
+      ) => {
+        const result = await this.signingService.signTypedData({
+          keyId: this.operatorKeyId,
+          domain: typedData.domain as Parameters<
+            typeof this.signingService.signTypedData
+          >[0]['domain'],
+          types: Object.fromEntries(
+            Object.entries(typedData.types ?? {}).map(([key, value]) => [
+              key,
+              (value as readonly { name: string; type: string }[]).map((v) => ({
+                name: v.name,
+                type: v.type,
+              })),
+            ]),
+          ) as Record<string, Array<{ name: string; type: string }>>,
+          primaryType: typedData.primaryType as string,
+          message: typedData.message as Record<string, unknown>,
+        })
+        return result.signature
+      },
     })
 
     // Create wallet client with MPC-backed signing
     const walletClient = createWalletClient({
-      account: {
-        address: this.operatorAddress,
-        type: 'local',
-        publicKey: '0x', // Not needed for transaction signing
-        signMessage: async ({ message }) => {
-          const msgBytes =
-            typeof message === 'string'
-              ? toBytes(message)
-              : 'raw' in message
-                ? message.raw
-                : toBytes(message as string)
-          const result = await this.signingService.sign({
-            keyId: this.operatorKeyId,
-            message: msgBytes,
-          })
-          return result.signature
-        },
-        signTransaction: async (tx) => {
-          // Serialize and sign the transaction
-          const serialized = await publicClient.prepareTransactionRequest(tx)
-          const txHash = keccak256(toBytes(JSON.stringify(serialized)))
-          const result = await this.signingService.sign({
-            keyId: this.operatorKeyId,
-            message: '',
-            messageHash: txHash,
-          })
-          return result.signature
-        },
-        signTypedData: async (typedData) => {
-          const result = await this.signingService.signTypedData({
-            keyId: this.operatorKeyId,
-            domain: typedData.domain as Parameters<
-              typeof this.signingService.signTypedData
-            >[0]['domain'],
-            types: typedData.types as Record<
-              string,
-              Array<{ name: string; type: string }>
-            >,
-            primaryType: typedData.primaryType,
-            message: typedData.message as Record<string, unknown>,
-          })
-          return result.signature
-        },
-      },
+      account: mpcAccount,
       chain,
       transport: http(this.rpcUrl),
     })
 
     // Withdraw from treasury
     await walletClient.writeContract({
+      account: mpcAccount,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'withdraw',
@@ -495,6 +516,7 @@ export class TreasuryPaymaster {
 
     // Send to user
     return walletClient.sendTransaction({
+      account: mpcAccount,
       to: userAddress,
       value: amount,
     })

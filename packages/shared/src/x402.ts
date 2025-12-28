@@ -436,7 +436,9 @@ export async function signPaymentPayload(
 /**
  * Compute EIP-712 struct hash for payment message
  */
-function computePaymentStructHash(payload: Omit<PaymentPayload, 'signature'>): Hex {
+function computePaymentStructHash(
+  payload: Omit<PaymentPayload, 'signature'>,
+): Hex {
   const typeHash = keccak256(
     toBytes(
       'Payment(string scheme,string network,address asset,address payTo,uint256 amount,string resource,string nonce,uint256 timestamp)',

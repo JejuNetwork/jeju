@@ -86,7 +86,9 @@ async function getFacilitatorSigner(): Promise<KMSSigner> {
     facilitatorSigner = getKMSSigner(serviceId)
     await facilitatorSigner.initialize()
     facilitatorAddress = await facilitatorSigner.getAddress()
-    console.log(`[Settler] Facilitator signer initialized: ${facilitatorAddress}`)
+    console.log(
+      `[Settler] Facilitator signer initialized: ${facilitatorAddress}`,
+    )
     console.log(`[Settler] Signing mode: ${facilitatorSigner.getMode()}`)
   }
   return facilitatorSigner
@@ -102,9 +104,7 @@ async function getFacilitatorAddress(): Promise<Address> {
   return facilitatorAddress
 }
 
-export async function createClients(
-  network: string,
-): Promise<{
+export async function createClients(network: string): Promise<{
   publicClient: PublicClient
   chain: Chain
   rpcUrl: string
@@ -509,23 +509,16 @@ export async function settlePayment(
   publicClient: PublicClient,
 ): Promise<SettlementResult> {
   const { chain, rpcUrl } = await createClients(network)
-  return executeSettlement(
-    payment,
-    publicClient,
-    chain,
-    rpcUrl,
-    'settle',
-    [
-      payment.payer,
-      payment.recipient,
-      payment.token,
-      payment.amount,
-      payment.resource,
-      payment.nonce,
-      BigInt(payment.timestamp),
-      payment.signature,
-    ],
-  )
+  return executeSettlement(payment, publicClient, chain, rpcUrl, 'settle', [
+    payment.payer,
+    payment.recipient,
+    payment.token,
+    payment.amount,
+    payment.resource,
+    payment.nonce,
+    BigInt(payment.timestamp),
+    payment.signature,
+  ])
 }
 
 export async function settleGaslessPayment(

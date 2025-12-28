@@ -15,7 +15,7 @@ import {
   SolversListSchema,
   XLPsListSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export type SupportedChain =
   | 'jeju'
@@ -154,7 +154,7 @@ const CHAIN_IDS: Record<SupportedChain, number> = {
 }
 
 export function createCrossChainModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): CrossChainModule {
   const xlpStakeManagerAddress = requireContract(

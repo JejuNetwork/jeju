@@ -15,13 +15,24 @@ interface PrometheusMetric {
   value: number
 }
 
+/** Minimal config required for metrics exporter */
+type MetricsConfig = Pick<
+  OracleNodeConfig,
+  | 'rpcUrl'
+  | 'chainId'
+  | 'metricsPort'
+  | 'feedRegistry'
+  | 'reportVerifier'
+  | 'committeeManager'
+>
+
 export class MetricsExporter {
-  private config: OracleNodeConfig
+  private config: MetricsConfig
   private client: ReturnType<typeof createPublicClient>
   private nodeMetrics: NodeMetrics | null = null
   private server: ReturnType<typeof Bun.serve> | null = null
 
-  constructor(config: OracleNodeConfig) {
+  constructor(config: MetricsConfig) {
     this.config = config
     this.client = createPublicClient({
       transport: http(config.rpcUrl),

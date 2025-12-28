@@ -1,119 +1,96 @@
 /**
  * KMS-based Signer for Autocrat
  *
- * Provides secure signing using the Jeju KMS service instead of raw private keys.
- * In production, uses MPC threshold signing where no single party has the full key.
- * In development, falls back to KMS dev mode.
- *
- * SECURITY: This replaces direct privateKeyToAccount usage to prevent
- * side-channel attacks in TEE environments.
+ * @deprecated Use @jejunetwork/kms directly:
+ * ```typescript
+ * import { createKMSSigner, KMSSigner } from '@jejunetwork/kms'
+ * ```
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
+import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import {
-  getCurrentNetwork,
-  getKmsServiceUrl,
-  isProductionEnv,
-} from '@jejunetwork/config'
-import {
-  createThresholdSigner,
-  type ThresholdSignerConfig,
-} from '@jejunetwork/kms'
-import {
-  type Account,
   type Address,
   type Chain,
-  type Hash,
+  createWalletClient,
   type Hex,
+  http,
   type LocalAccount,
   type SignableMessage,
   type TransactionSerializable,
-  type TypedDataDefinition,
-  createWalletClient,
-  hashMessage,
-  hashTypedData,
-  http,
-  keccak256,
-  serializeTransaction,
-  type WalletClient,
   type Transport,
+  type TypedDataDefinition,
+  type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { toHex } from '../lib'
 
-// ============================================================================
-// Types
-// ============================================================================
+// Re-export canonical types
+export {
+  createKMSSigner,
+  getKMSSigner,
+  type KMSKeyInfo,
+  KMSSigner,
+  type KMSSignerConfig,
+  type SigningMode,
+  type SignResult,
+  type TransactionSignResult,
+  validateSecureSigning,
+} from '@jejunetwork/kms'
 
-export interface KMSSignerConfig {
-  /** Address of the signer (for key lookup in KMS) */
+// ════════════════════════════════════════════════════════════════════════════
+//                     AUTOCRAT-SPECIFIC TYPES
+// ════════════════════════════════════════════════════════════════════════════
+
+export interface AutocratKMSConfig {
   address: Address
-  /** Optional: Use local development key if KMS unavailable */
   fallbackKey?: Hex
-  /** Force production mode even in dev environment */
   forceProduction?: boolean
 }
 
 export interface KMSAccount {
   address: Address
   type: 'kms' | 'local'
+  publicKey: Hex
+  source: 'custom'
   sign: (message: Hex) => Promise<Hex>
   signMessage: (message: SignableMessage) => Promise<Hex>
   signTransaction: (tx: TransactionSerializable) => Promise<Hex>
   signTypedData: (typedData: TypedDataDefinition) => Promise<Hex>
 }
 
-// ============================================================================
-// KMS Signer Service
-// ============================================================================
-
-let kmsInitialized = false
-let kmsAvailable = false
-
-async function checkKMSAvailable(): Promise<boolean> {
-  if (kmsInitialized) return kmsAvailable
-
-  const endpoint = getKmsServiceUrl()
-
-  try {
-    const response = await fetch(`${endpoint}/health`, {
-      signal: AbortSignal.timeout(2000),
-    })
-    kmsAvailable = response.ok
-  } catch {
-    kmsAvailable = false
-  }
-
-  kmsInitialized = true
-  return kmsAvailable
-}
+// ════════════════════════════════════════════════════════════════════════════
+//                     KMS ACCOUNT FACTORY
+// ════════════════════════════════════════════════════════════════════════════
 
 /**
  * Create a KMS-backed account that can be used with viem
- *
- * In production: Uses MPC threshold signing via KMS
- * In development: Falls back to local key if KMS unavailable
- *
- * @throws Error if in production and KMS is unavailable
  */
 export async function createKMSAccount(
-  config: KMSSignerConfig,
+  config: AutocratKMSConfig,
 ): Promise<KMSAccount> {
   const isProduction = isProductionEnv() || config.forceProduction
-  const kmsUp = await checkKMSAvailable()
 
-  // Production requires KMS
-  if (isProduction && !kmsUp) {
+  // Create KMS signer
+  const signer = createKMSSigner({
+    serviceId: `autocrat-${config.address.toLowerCase()}`,
+    allowLocalDev: !isProduction,
+  })
+
+  // Check health
+  const health = await signer.checkHealth()
+
+  if (isProduction && !health.available) {
     throw new Error(
       'KMS service unavailable in production. MPC signing required for security.',
     )
   }
 
-  // Development with KMS available - use KMS
-  if (kmsUp) {
-    return createKMSBackedAccount(config.address)
+  if (health.available) {
+    await signer.initialize()
+    return createKMSBackedAccount(signer)
   }
 
-  // Development without KMS - warn and use fallback
+  // Development fallback
   if (config.fallbackKey) {
     console.warn(
       '[KMS] Development mode: Using local key. Set up KMS for production.',
@@ -128,47 +105,41 @@ export async function createKMSAccount(
 }
 
 /**
- * Create a KMS-backed account using threshold signing
+ * Create a KMS-backed account from an initialized signer
  */
-async function createKMSBackedAccount(address: Address): Promise<KMSAccount> {
-  const signer = createThresholdSigner(address)
-  await signer.initialize()
-
-  const signWithKMS = async (messageHash: Hex): Promise<Hex> => {
-    const result = await signer.signMessage(messageHash)
-    return result.signature
-  }
+function createKMSBackedAccount(signer: KMSSigner): KMSAccount {
+  const address = signer.getAddress()
+  const viemAccount = signer.getViemAccount()
 
   return {
     address,
     type: 'kms',
+    publicKey: '0x' as Hex, // Not exposed by KMS for security
+    source: 'custom' as const,
 
-    sign: signWithKMS,
+    sign: async (messageHash: Hex): Promise<Hex> => {
+      const result = await signer.sign(messageHash)
+      return result.signature
+    },
 
     signMessage: async (message: SignableMessage): Promise<Hex> => {
-      const hash = hashMessage(message)
-      return signWithKMS(hash)
+      return viemAccount.signMessage({ message })
     },
 
     signTransaction: async (tx: TransactionSerializable): Promise<Hex> => {
-      const serialized = serializeTransaction(tx)
-      const hash = keccak256(serialized)
-      return signWithKMS(hash)
+      return viemAccount.signTransaction(tx)
     },
 
     signTypedData: async (typedData: TypedDataDefinition): Promise<Hex> => {
-      const hash = hashTypedData(typedData)
-      return signWithKMS(hash)
+      return viemAccount.signTypedData(typedData)
     },
   }
 }
 
 /**
  * Create a local fallback account (development only)
- * Logs warning about insecure key handling
  */
 function createLocalFallbackAccount(privateKey: Hex): KMSAccount {
-  // Validate key format
   if (!privateKey.startsWith('0x') || privateKey.length !== 66) {
     throw new Error('Invalid private key format. Must be 0x-prefixed 32 bytes.')
   }
@@ -176,15 +147,17 @@ function createLocalFallbackAccount(privateKey: Hex): KMSAccount {
   const account = privateKeyToAccount(privateKey)
 
   console.warn(
-    '[KMS] ⚠️  Using local private key. This is NOT secure for production.',
+    '[KMS] Using local private key. This is NOT secure for production.',
   )
 
   return {
     address: account.address,
     type: 'local',
+    publicKey: account.publicKey,
+    source: 'custom' as const,
 
-    sign: async (message: Hex): Promise<Hex> => {
-      return account.signMessage({ message: { raw: message } })
+    sign: async (messageHash: Hex): Promise<Hex> => {
+      return account.sign({ hash: messageHash })
     },
 
     signMessage: async (message: SignableMessage): Promise<Hex> => {
@@ -201,120 +174,41 @@ function createLocalFallbackAccount(privateKey: Hex): KMSAccount {
   }
 }
 
-// ============================================================================
-// Wallet Client Factory
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
+//                     WALLET CLIENT FACTORY
+// ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Create a viem WalletClient backed by KMS
- *
- * Use this instead of creating a wallet client with a raw private key.
- */
-export async function createKMSWalletClient(
-  config: KMSSignerConfig,
-  chain: Chain,
-  rpcUrl: string,
-): Promise<{
-  client: WalletClient<Transport, Chain>
-  account: KMSAccount
-}> {
+export async function createKMSWalletClient<TTransport extends Transport>(
+  config: AutocratKMSConfig & { chain: Chain; transport: TTransport },
+): Promise<WalletClient<TTransport, Chain, LocalAccount>> {
   const kmsAccount = await createKMSAccount(config)
 
-  // Create a custom account adapter for viem
-  const viemAccount: LocalAccount = {
+  // Convert KMSAccount to LocalAccount for viem
+  const localAccount: LocalAccount = {
     address: kmsAccount.address,
     type: 'local',
     source: 'custom',
-    publicKey: '0x', // Not available from KMS
+    publicKey: kmsAccount.publicKey,
     signMessage: async ({ message }) => kmsAccount.signMessage(message),
     signTransaction: async (tx) => kmsAccount.signTransaction(tx),
     signTypedData: async (typedData) => kmsAccount.signTypedData(typedData),
   }
 
-  const client = createWalletClient({
-    account: viemAccount,
-    chain,
-    transport: http(rpcUrl),
-  }) as WalletClient<Transport, Chain>
-
-  return { client, account: kmsAccount }
-}
-
-// ============================================================================
-// Migration Helper
-// ============================================================================
-
-/**
- * Get the operator key config for KMS
- *
- * Reads OPERATOR_KEY from env and configures KMS appropriately.
- * In production, the key is used as the address for KMS lookup.
- * In development, it can be used as a fallback for local signing.
- */
-export function getOperatorConfig(): KMSSignerConfig | null {
-  const operatorKey = process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY
-
-  if (!operatorKey) {
-    return null
-  }
-
-  // If it's a hex private key, derive the address
-  if (operatorKey.startsWith('0x') && operatorKey.length === 66) {
-    const account = privateKeyToAccount(operatorKey as Hex)
-    return {
-      address: account.address,
-      fallbackKey: operatorKey as Hex,
-    }
-  }
-
-  // If it's just an address (for KMS lookup)
-  if (operatorKey.startsWith('0x') && operatorKey.length === 42) {
-    return {
-      address: operatorKey as Address,
-    }
-  }
-
-  throw new Error(
-    'OPERATOR_KEY must be either a hex private key (0x + 64 chars) ' +
-      'or an address (0x + 40 chars) for KMS lookup.',
-  )
+  return createWalletClient({
+    account: localAccount,
+    chain: config.chain,
+    transport: config.transport,
+  })
 }
 
 /**
- * Check if KMS is properly configured
+ * Create a KMS wallet client with HTTP transport
  */
-export async function validateKMSSetup(): Promise<{
-  available: boolean
-  mode: 'production' | 'development'
-  warnings: string[]
-}> {
-  const warnings: string[] = []
-  const isProduction = isProductionEnv()
-  const kmsUp = await checkKMSAvailable()
-
-  if (isProduction && !kmsUp) {
-    warnings.push('CRITICAL: KMS unavailable in production environment')
-  }
-
-  const operatorKey = process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY
-  if (operatorKey && operatorKey.length === 66) {
-    if (isProduction) {
-      warnings.push(
-        'WARNING: Raw private key in env vars. Use KMS key ID instead.',
-      )
-    }
-  }
-
-  return {
-    available: kmsUp,
-    mode: isProduction ? 'production' : 'development',
-    warnings,
-  }
+export async function createKMSHttpWalletClient(
+  config: AutocratKMSConfig & { chain: Chain; rpcUrl: string },
+): Promise<WalletClient> {
+  return createKMSWalletClient({
+    ...config,
+    transport: http(config.rpcUrl),
+  })
 }
-
-// ============================================================================
-// Exports
-// ============================================================================
-
-export { createThresholdSigner, type ThresholdSignerConfig }
-

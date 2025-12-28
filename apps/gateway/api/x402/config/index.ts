@@ -8,9 +8,9 @@
 
 import { getServiceName } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Address, Hex } from 'viem'
-import { config as gatewayConfig } from '../../config'
+import type { Address } from 'viem'
 import { getKMSSigner } from '../../../lib/kms-signer'
+import { config as gatewayConfig } from '../../config'
 import { getPrimaryChainConfig } from '../lib/chains'
 import { clearClientCache } from '../services/settler'
 
@@ -78,8 +78,7 @@ export function getConfig(): FacilitatorConfig {
     serviceVersion: '1.0.0',
     serviceUrl: gatewayConfig.facilitatorUrl,
     // KMS service ID for signing
-    kmsServiceId:
-      process.env.X402_FACILITATOR_SERVICE_ID ?? 'x402-facilitator',
+    kmsServiceId: process.env.X402_FACILITATOR_SERVICE_ID ?? 'x402-facilitator',
   }
 }
 

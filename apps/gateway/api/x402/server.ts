@@ -1,6 +1,6 @@
 import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
-import { config, getPrivateKeyFromKMS, validateConfig } from './config'
+import { config, getConfigStatus, validateConfig } from './config'
 import healthRoutes from './routes/health'
 import metricsRoutes from './routes/metrics'
 import settleRoutes from './routes/settle'
@@ -98,11 +98,8 @@ export async function startServer(): Promise<void> {
   await initDistributedNonceManager()
   startNonceCleanup()
 
-  let keySource = 'env'
-  if (cfg.kmsEnabled) {
-    const kmsKey = await getPrivateKeyFromKMS()
-    keySource = kmsKey ? 'kms' : cfg.privateKey ? 'env' : 'none'
-  }
+  const configStatus = await getConfigStatus()
+  const keySource = configStatus.kmsAvailable ? 'kms' : configStatus.signingMode
 
   console.log(
     `[Facilitator] ${cfg.network} (${cfg.chainId}) | ${cfg.environment} | key:${keySource}`,

@@ -14,10 +14,7 @@
 
 import { createLogger } from '@jejunetwork/shared'
 import type { Hex } from 'viem'
-import {
-  enforceNoLocalKeysInProduction,
-  securityAudit,
-} from '../../security'
+import { enforceNoLocalKeysInProduction, securityAudit } from '../../security'
 import { CastBuilder, type CastOptions } from './cast-builder'
 import {
   buildMessage,
@@ -83,7 +80,9 @@ export class FarcasterPoster {
     // Security check - prevent local key usage in production
     enforceNoLocalKeysInProduction('FarcasterPoster constructor')
 
-    log.warn('Using local FarcasterPoster - private key in memory. Use KMSFarcasterPoster for production.')
+    log.warn(
+      'Using local FarcasterPoster - private key in memory. Use KMSFarcasterPoster for production.',
+    )
 
     securityAudit.log({
       operation: 'farcaster-poster:init',

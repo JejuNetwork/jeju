@@ -498,13 +498,6 @@ export {
 } from './retry'
 // Schema Types
 export { type IPFSUploadResponse, IPFSUploadResponseSchema } from './schemas'
-// Security Middleware
-export {
-  type RateLimitConfig,
-  rateLimitMiddleware,
-  type SecurityConfig,
-  securityMiddleware,
-} from './security-middleware'
 // Key Security Validation (TEE/KMS enforcement)
 export {
   enforceKeySecurityAtStartup,
@@ -513,6 +506,13 @@ export {
   shouldUseKMS,
   validateKeySecurityConfig,
 } from './security/key-validation'
+// Security Middleware
+export {
+  type RateLimitConfig,
+  rateLimitMiddleware,
+  type SecurityConfig,
+  securityMiddleware,
+} from './security-middleware'
 // Service Worker
 export {
   cacheUrls,

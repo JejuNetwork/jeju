@@ -4,6 +4,7 @@
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
+  type Account,
   type Address,
   type Chain,
   createPublicClient,
@@ -16,7 +17,6 @@ import {
   type Transport,
   type WalletClient,
 } from 'viem'
-import { createKMSAccount, getOperatorConfig, type KMSAccount } from './kms-signer'
 import {
   readContract,
   waitForTransactionReceipt,
@@ -26,8 +26,12 @@ import { base, baseSepolia, localhost } from 'viem/chains'
 import { type CEOPersona, toHex } from '../lib'
 import type { DAOFull, FundingProject } from '../lib/types'
 import type { AutocratBlockchain } from './blockchain'
-import { config } from './config'
 import { createDAOService, type DAOService } from './dao-service'
+import {
+  createKMSAccount,
+  getOperatorConfig,
+  type KMSAccount,
+} from './kms-signer'
 
 // Config type for orchestrator - accepts CouncilConfig or minimal config
 export interface AutocratConfig {
@@ -493,7 +497,7 @@ export class AutocratOrchestrator {
               voteValue,
               keccak256(stringToHex(reasoningHash)),
             ],
-            account: this.account,
+            account: this.account as unknown as Account,
             chain: inferChain(this.config.rpcUrl),
           })
           await waitForTransactionReceipt(this.client, { hash })
@@ -508,7 +512,7 @@ export class AutocratOrchestrator {
         abi: COUNCIL_WRITE_ABI,
         functionName: 'finalizeAutocratVote',
         args: [toHex(proposalId)],
-        account: this.account,
+        account: this.account as unknown as Account,
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
@@ -543,7 +547,7 @@ export class AutocratOrchestrator {
         abi: COUNCIL_WRITE_ABI,
         functionName: 'recordResearch',
         args: [toHex(proposalId), keccak256(stringToHex(report.requestHash))],
-        account: this.account,
+        account: this.account as unknown as Account,
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
@@ -566,7 +570,7 @@ export class AutocratOrchestrator {
         abi: COUNCIL_WRITE_ABI,
         functionName: 'advanceToCEO',
         args: [toHex(proposalId)],
-        account: this.account,
+        account: this.account as unknown as Account,
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
@@ -668,7 +672,7 @@ export class AutocratOrchestrator {
           BigInt(teeDecision.confidenceScore),
           BigInt(teeDecision.alignmentScore),
         ],
-        account: this.account,
+        account: this.account as unknown as Account,
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })
@@ -694,7 +698,7 @@ export class AutocratOrchestrator {
         abi: COUNCIL_WRITE_ABI,
         functionName: 'executeProposal',
         args: [toHex(proposalId)],
-        account: this.account,
+        account: this.account as unknown as Account,
         chain: inferChain(this.config.rpcUrl),
       })
       await waitForTransactionReceipt(this.client, { hash })

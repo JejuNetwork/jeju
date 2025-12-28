@@ -183,7 +183,9 @@ export class FROSTCoordinator {
    */
   getAddress(): Address {
     if (!this.groupAddress) {
-      throw new Error('Cluster not initialized - call initializeCluster() first')
+      throw new Error(
+        'Cluster not initialized - call initializeCluster() first',
+      )
     }
     return this.groupAddress
   }
@@ -193,7 +195,9 @@ export class FROSTCoordinator {
    */
   getCluster(): FROSTCluster {
     if (!this.groupPublicKey || !this.groupAddress) {
-      throw new Error('Cluster not initialized - call initializeCluster() first')
+      throw new Error(
+        'Cluster not initialized - call initializeCluster() first',
+      )
     }
     return {
       keyId: this.keyId,
@@ -211,7 +215,9 @@ export class FROSTCoordinator {
    */
   async sign(messageHash: Hex): Promise<{ r: Hex; s: Hex; v: number }> {
     if (!this.groupPublicKey) {
-      throw new Error('Cluster not initialized - call initializeCluster() first')
+      throw new Error(
+        'Cluster not initialized - call initializeCluster() first',
+      )
     }
 
     // Generate commitments from t parties

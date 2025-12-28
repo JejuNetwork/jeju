@@ -50,7 +50,9 @@ async function migrateClientSecrets() {
 
       // Skip if no secret (public client)
       if (!client.clientSecret) {
-        console.log(`○ ${client.clientId} (${client.name}) - Public client, no secret`)
+        console.log(
+          `○ ${client.clientId} (${client.name}) - Public client, no secret`,
+        )
         skippedCount++
         continue
       }
@@ -156,4 +158,3 @@ migrateClientSecrets()
     console.error('Migration failed:', err)
     process.exit(1)
   })
-

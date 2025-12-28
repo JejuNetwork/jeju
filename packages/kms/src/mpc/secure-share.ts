@@ -11,8 +11,8 @@
  * - No logging of secret material
  */
 
-import { keccak256, toBytes, toHex } from 'viem'
 import type { Hex } from 'viem'
+import { keccak256, toBytes, toHex } from 'viem'
 
 /** Fixed size for secret shares (32 bytes = 256 bits) */
 const SHARE_SIZE = 32
@@ -75,6 +75,24 @@ export class SecureShare {
   }
 
   /**
+   * Securely zero the share data.
+   *
+   * After calling this, the share cannot be used.
+   */
+  zero(): void {
+    if (this.isZeroed) return
+
+    // Fill with zeros
+    this.data.fill(0)
+    // Fill with random to prevent optimization from skipping
+    crypto.getRandomValues(this.data)
+    // Fill with zeros again
+    this.data.fill(0)
+
+    this.isZeroed = true
+  }
+
+  /**
    * Get the share as a BigInt for arithmetic operations.
    *
    * WARNING: The returned BigInt cannot be zeroed. Use sparingly and
@@ -133,24 +151,6 @@ export class SecureShare {
     this.ensureNotZeroed()
     const result = (this.toBigInt() * scalar) % modulus
     return SecureShare.fromBigInt(result)
-  }
-
-  /**
-   * Securely zero the share data.
-   *
-   * After calling this, the share cannot be used.
-   */
-  zero(): void {
-    if (this.isZeroed) return
-
-    // Fill with zeros
-    this.data.fill(0)
-    // Fill with random to prevent optimization from skipping
-    crypto.getRandomValues(this.data)
-    // Fill with zeros again
-    this.data.fill(0)
-
-    this.isZeroed = true
   }
 
   /**
@@ -292,4 +292,3 @@ export function zeroPolynomial(coefficients: SecureShare[]): void {
     coeff.zero()
   }
 }
-

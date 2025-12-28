@@ -164,8 +164,9 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         if (teeMode === 'simulated') {
           // In simulated mode, return a mock attestation for testing
           const timestamp = Date.now()
-          const mockMeasurement = '0x0000000000000000000000000000000000000000000000000000000000000000' as const
-          
+          const mockMeasurement =
+            '0x0000000000000000000000000000000000000000000000000000000000000000' as const
+
           return {
             attestation: {
               quote: `0x${Buffer.from('simulated-quote').toString('hex')}`,
@@ -182,13 +183,14 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         // In real TEE mode, we would fetch the actual attestation from the TEE provider
         // This requires integration with SGX DCAP or AWS Nitro attestation endpoints
         const platform = env?.TEE_PLATFORM ?? 'unknown'
-        
+
         // For now, indicate that real attestation needs to be fetched from TEE
         return {
           attestation: null,
           mode: 'real',
           platform,
-          message: 'Real attestation must be fetched from TEE attestation endpoint',
+          message:
+            'Real attestation must be fetched from TEE attestation endpoint',
           attestationEndpoint: '/api/tee/quote',
         }
       })

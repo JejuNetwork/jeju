@@ -14,7 +14,7 @@ import { encodeFunctionData } from 'viem'
 import { z } from 'zod'
 import { getContractAddresses } from '../config'
 import { parseIdFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Contract return type schemas
 const ModelDataSchema = z.object({
@@ -291,7 +291,7 @@ export interface ModelsModule {
 }
 
 export function createModelsModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): ModelsModule {
   const contracts = getContractAddresses(network)

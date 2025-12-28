@@ -11,7 +11,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseAbiItem } from 'viem'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Event signatures for querying logs
 const RUN_CREATED_EVENT = parseAbiItem(
@@ -347,7 +347,7 @@ const TRAINING_REWARDS_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createTrainingModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): TrainingModule {
   const coordinatorAddress = requireContract(

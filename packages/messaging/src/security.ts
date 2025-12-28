@@ -228,7 +228,9 @@ export const securityAudit = new SecurityAuditLog()
  *
  * Wraps a function to log its execution to the security audit log.
  */
-export function auditSecurityOperation<T extends (...args: unknown[]) => Promise<unknown>>(
+export function auditSecurityOperation<
+  T extends (...args: unknown[]) => Promise<unknown>,
+>(
   operation: string,
   fn: T,
   getKeyId?: (...args: Parameters<T>) => string | undefined,
@@ -348,4 +350,3 @@ export function getRecommendedSecurityConfig(): SecurityConfig {
     auditEnabled: false,
   }
 }
-

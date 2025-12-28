@@ -74,10 +74,25 @@ interface AccessControlPolicy {
 // KMS module interface - actual implementation loaded dynamically if available
 interface KMSModule {
   getKMS: () => KMS
-  issueToken: (claims: Omit<TokenClaims, 'iat' | 'jti'>, options?: { keyId?: string; expiresInSeconds?: number }) => Promise<SignedToken>
-  verifyToken: (token: string, options?: { issuer?: string; expectedSigner?: Address }) => Promise<TokenVerifyResult>
-  aesGcmEncrypt: (data: Uint8Array, key: Uint8Array, iv: Uint8Array) => Promise<{ ciphertext: ArrayBuffer; tag: Uint8Array }>
-  aesGcmDecrypt: (ciphertext: Uint8Array, key: Uint8Array, iv: Uint8Array, tag: Uint8Array) => Promise<Uint8Array>
+  issueToken: (
+    claims: Omit<TokenClaims, 'iat' | 'jti'>,
+    options?: { keyId?: string; expiresInSeconds?: number },
+  ) => Promise<SignedToken>
+  verifyToken: (
+    token: string,
+    options?: { issuer?: string; expectedSigner?: Address },
+  ) => Promise<TokenVerifyResult>
+  aesGcmEncrypt: (
+    data: Uint8Array,
+    key: Uint8Array,
+    iv: Uint8Array,
+  ) => Promise<{ ciphertext: ArrayBuffer; tag: Uint8Array }>
+  aesGcmDecrypt: (
+    ciphertext: Uint8Array,
+    key: Uint8Array,
+    iv: Uint8Array,
+    tag: Uint8Array,
+  ) => Promise<Uint8Array>
   deriveKeyFromSecret: (secret: string, context: string) => Promise<Uint8Array>
 }
 
@@ -553,7 +568,9 @@ const KEY_EXPIRY = 60 * 60 * 1000 // 1 hour
  * - Historical tokens signed with rotated keys are still valid
  * - New tokens use fresh keys
  */
-export async function getEphemeralKey(sessionId: string): Promise<EphemeralKey> {
+export async function getEphemeralKey(
+  sessionId: string,
+): Promise<EphemeralKey> {
   const existing = ephemeralKeys.get(sessionId)
   const now = Date.now()
 
@@ -810,4 +827,3 @@ async function decryptAesGcmFallback(
 
 // Export config type
 export type { OAuth3KMSConfig }
-

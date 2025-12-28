@@ -14,7 +14,7 @@ import {
   NameInfoSchema,
   NameRecordsSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface NameInfo {
   name: string
@@ -197,7 +197,7 @@ function getLabel(name: string): string {
 }
 
 export function createNamesModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): NamesModule {
   const registrarAddress = requireContract('jns', 'registrar', network)

@@ -12,7 +12,7 @@
  */
 
 import type { TEEAttestation } from '@jejunetwork/types'
-import { keccak256, toBytes, type Hex } from 'viem'
+import { type Hex, keccak256, toBytes } from 'viem'
 
 /**
  * Expected measurement for production Bazaar worker
@@ -20,7 +20,8 @@ import { keccak256, toBytes, type Hex } from 'viem'
  */
 export const PRODUCTION_MEASUREMENTS: Record<string, Hex> = {
   // Update these when building new worker versions
-  'bazaar-api-v1.0.0': '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+  'bazaar-api-v1.0.0':
+    '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
 }
 
 /**
@@ -68,7 +69,7 @@ export async function fetchBazaarAttestation(
     throw new Error(`Failed to fetch attestation: ${response.status}`)
   }
 
-  const data = await response.json() as { attestation: TEEAttestation }
+  const data = (await response.json()) as { attestation: TEEAttestation }
   return data.attestation
 }
 
@@ -188,7 +189,7 @@ export function verifyBazaarAttestation(
     error: valid ? undefined : 'Attestation verification failed',
     details: {
       platform: attestation.platform ?? 'unknown',
-      measurement: attestation.measurement.slice(0, 20) + '...',
+      measurement: `${attestation.measurement.slice(0, 20)}...`,
     },
   }
 }
@@ -233,7 +234,7 @@ export async function getBazaarTEEInfo(
     throw new Error(`Failed to fetch TEE info: ${response.status}`)
   }
 
-  const health = await response.json() as {
+  const health = (await response.json()) as {
     teeMode?: 'real' | 'simulated'
     teePlatform?: string
     teeRegion?: string
@@ -246,4 +247,3 @@ export async function getBazaarTEEInfo(
     attestationAvailable: health.teeMode === 'real',
   }
 }
-

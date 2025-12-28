@@ -11,6 +11,7 @@ export interface BazaarConfig {
 
   // Messaging
   farcasterHubUrl: string
+  mpcSignerUrl: string
 
   // EQLite Database
   eqliteDatabaseId: string
@@ -20,6 +21,7 @@ export interface BazaarConfig {
 const { config, configure: setBazaarConfig } = createAppConfig<BazaarConfig>({
   bazaarApiUrl: getEnvVar('BAZAAR_API_URL') ?? getCoreAppUrl('BAZAAR_API'),
   farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL') ?? 'https://hub.pinata.cloud',
+  mpcSignerUrl: getEnvVar('MPC_SIGNER_URL') ?? '',
   eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID') ?? '',
   eqlitePrivateKey: getEnvVar('EQLITE_PRIVATE_KEY'),
 })

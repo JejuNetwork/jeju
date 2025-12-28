@@ -422,8 +422,7 @@ program
     console.log(`  Rate: ${options.rate} ETH/hour`)
     console.log()
 
-    const validKey = keyValidation.data
-    const client = createNodeClient(rpcUrl, chainId, validKey)
+    const client = createNodeClient(rpcUrl, chainId)
     const services = createNodeServices(client)
 
     services.compute.setHardware(hardware)

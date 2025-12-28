@@ -70,10 +70,7 @@ export interface KMSProvider {
    * Sign a message using a key in the KMS.
    * The private key never leaves the secure enclave.
    */
-  sign(params: {
-    keyId: string
-    message: Uint8Array
-  }): Promise<{
+  sign(params: { keyId: string; message: Uint8Array }): Promise<{
     signature: Uint8Array
     signedAt: number
   }>
@@ -174,7 +171,7 @@ export class KMSFarcasterSignerManager {
 
     log.info('Created KMS-backed signer', {
       signerId,
-      publicKey: signer.publicKey.slice(0, 20) + '...',
+      publicKey: `${signer.publicKey.slice(0, 20)}...`,
     })
 
     return signer
@@ -192,7 +189,9 @@ export class KMSFarcasterSignerManager {
     }
 
     if (signer.status !== 'active') {
-      throw new Error(`Signer not active: ${signerId} (status: ${signer.status})`)
+      throw new Error(
+        `Signer not active: ${signerId} (status: ${signer.status})`,
+      )
     }
 
     // Delegate to KMS - private key never leaves secure enclave
@@ -369,7 +368,9 @@ export class MPCKMSProvider implements KMSProvider {
 
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`KMS key generation failed: ${response.status} - ${error}`)
+      throw new Error(
+        `KMS key generation failed: ${response.status} - ${error}`,
+      )
     }
 
     const result = (await response.json()) as {
@@ -381,10 +382,7 @@ export class MPCKMSProvider implements KMSProvider {
     return result
   }
 
-  async sign(params: {
-    keyId: string
-    message: Uint8Array
-  }): Promise<{
+  async sign(params: { keyId: string; message: Uint8Array }): Promise<{
     signature: Uint8Array
     signedAt: number
   }> {
@@ -424,7 +422,9 @@ export class MPCKMSProvider implements KMSProvider {
 
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`KMS key revocation failed: ${response.status} - ${error}`)
+      throw new Error(
+        `KMS key revocation failed: ${response.status} - ${error}`,
+      )
     }
   }
 
@@ -445,7 +445,7 @@ export class MPCKMSProvider implements KMSProvider {
       'Content-Type': 'application/json',
     }
     if (this.apiKey) {
-      headers['Authorization'] = `Bearer ${this.apiKey}`
+      headers.Authorization = `Bearer ${this.apiKey}`
     }
     return headers
   }
@@ -467,4 +467,3 @@ export class MPCKMSProvider implements KMSProvider {
     }
   }
 }
-

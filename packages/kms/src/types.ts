@@ -49,6 +49,7 @@ export {
   TEENodeInfoSchema,
   TEEPlatformSchema,
 } from '@jejunetwork/types'
+
 // Re-export TEEPlatform const (value export requires import + re-export pattern)
 import { TEEPlatform as TEEPlatformConst } from '@jejunetwork/types'
 export { TEEPlatformConst as TEEPlatformEnum }

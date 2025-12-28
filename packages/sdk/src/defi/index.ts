@@ -17,7 +17,7 @@ import {
   PositionsResponseSchema,
   SwapQuoteResponseSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface Token {
   address: Address
@@ -215,7 +215,7 @@ const ERC20_FACTORY_ABI = [
 ] as const
 
 export function createDefiModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): DefiModule {
   const maybeSwapRouterAddress = safeGetContract('defi', 'swapRouter', network)

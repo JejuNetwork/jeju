@@ -14,7 +14,7 @@ import type { Address, Hex } from 'viem'
 import { encodeFunctionData, parseEther } from 'viem'
 import { getContractAddresses } from '../config'
 import { parseAddressFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Types
 
@@ -415,7 +415,7 @@ export interface LaunchpadModule {
 }
 
 export function createLaunchpadModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): LaunchpadModule {
   const addresses = getContractAddresses(network)

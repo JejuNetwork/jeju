@@ -14,7 +14,7 @@ import {
   StorageStatsSchema,
   UploadResultSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export * from './enhanced'
 
@@ -94,7 +94,7 @@ const STORAGE_PRICING = {
 }
 
 export function createStorageModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): StorageModule {
   const services = getServicesConfig(network)

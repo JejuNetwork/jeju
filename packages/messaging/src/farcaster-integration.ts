@@ -301,30 +301,33 @@ export class UnifiedMessagingService {
     )
 
     // Decrypt messages using the messaging client's keys
-    return stored.map((msg) => {
-      let content: string
-      try {
-        content = this.messagingClient.decryptContent(
-          msg.encryptedContent,
-          msg.ephemeralPublicKey,
-          msg.nonce,
-        )
-      } catch {
-        // If decryption fails (e.g., message for different recipient), mark as unreadable
-        content = '[unable to decrypt]'
-      }
+    const decryptedMessages = await Promise.all(
+      stored.map(async (msg) => {
+        let content: string
+        try {
+          content = await this.messagingClient.decryptContent(
+            msg.encryptedContent,
+            msg.ephemeralPublicKey,
+            msg.nonce,
+          )
+        } catch {
+          // If decryption fails (e.g., message for different recipient), mark as unreadable
+          content = '[unable to decrypt]'
+        }
 
-      return {
-        id: msg.id,
-        conversationId: msg.conversationId,
-        sender: msg.sender,
-        recipient: msg.recipient,
-        content,
-        timestamp: msg.timestamp,
-        messageType: 'wallet' as const,
-        deliveryStatus: msg.deliveryStatus,
-      }
-    })
+        return {
+          id: msg.id,
+          conversationId: msg.conversationId,
+          sender: msg.sender,
+          recipient: msg.recipient,
+          content,
+          timestamp: msg.timestamp,
+          messageType: 'wallet' as const,
+          deliveryStatus: msg.deliveryStatus,
+        }
+      }),
+    )
+    return decryptedMessages
   }
 
   private getWalletConversationId(recipient: Address): string {

@@ -22,13 +22,13 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import { z } from 'zod'
+import { parseQuote, verifyQuote } from '../poc/quote-parser'
 import {
   createKMSWalletClient,
   isKMSAvailable,
   type KMSWalletClient,
 } from '../shared/kms-wallet'
-import { z } from 'zod'
-import { parseQuote, verifyQuote } from '../poc/quote-parser'
 import type {
   InfraEvent,
   InfraEventHandler,
@@ -279,7 +279,10 @@ export class NodeRegistry {
   /**
    * Initialize KMS-backed signing
    */
-  private async initKMS(kmsKeyId: string, ownerAddress: Address): Promise<void> {
+  private async initKMS(
+    kmsKeyId: string,
+    ownerAddress: Address,
+  ): Promise<void> {
     if (this.initialized) return
 
     const kmsAvailable = await isKMSAvailable()

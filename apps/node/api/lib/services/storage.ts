@@ -129,14 +129,14 @@ export class StorageService {
     return hash
   }
   async startSeeding(
-    privateKey: string,
+    keyId: string,
     contentRegistryAddress: Address,
   ): Promise<void> {
     if (this.torrent) return
 
     this.torrent = getHybridTorrentService({
       rpcUrl: this.client.publicClient.transport.url ?? 'http://127.0.0.1:6546',
-      privateKey,
+      keyId,
       contentRegistryAddress,
     })
 

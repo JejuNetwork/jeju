@@ -5,7 +5,6 @@
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/contracts'
 import {
-  type Account,
   type Address,
   type Chain,
   createPublicClient,
@@ -18,7 +17,7 @@ import {
   toBytes,
   type WalletClient,
 } from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
 import {
   createKMSWalletClient,
@@ -140,7 +139,7 @@ export class PoCVerifier {
   private readonly config: VerifierConfig
   private readonly publicClient
   private walletClient: WalletClient | KMSWalletClient
-  private account: PrivateKeyAccount | Account
+  private account: LocalAccount
   private readonly registryClient: PoCRegistryClient | null
   private readonly eventListeners = new Set<PoCEventListener>()
   private initialized = false

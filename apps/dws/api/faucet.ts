@@ -228,7 +228,9 @@ async function getWalletClient(): Promise<WalletClient | KMSWalletClient> {
   }
 
   if (process.env.NODE_ENV === 'production') {
-    console.warn('[Faucet] Using direct key in production - set FAUCET_KMS_KEY_ID')
+    console.warn(
+      '[Faucet] Using direct key in production - set FAUCET_KMS_KEY_ID',
+    )
   }
 
   const account = privateKeyToAccount(privateKey)
@@ -417,12 +419,17 @@ export async function claimFromFaucet(
   }
 
   // Execute transfer
-  const walletClient = getWalletClient()
+  const walletClient = await getWalletClient()
+  if (!walletClient.account) {
+    throw new Error('Wallet client has no account configured')
+  }
   const hash = await walletClient.writeContract({
     address: FAUCET_CONFIG.jejuTokenAddress,
     abi: erc20Abi,
     functionName: 'transfer',
     args: [validated, FAUCET_CONFIG.amountPerClaim],
+    account: walletClient.account,
+    chain,
   })
 
   // Record successful claim

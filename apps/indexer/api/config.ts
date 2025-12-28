@@ -72,7 +72,7 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
 
   // Server
   port: getEnvNumber('PORT') ?? 4000,
-  restPort: getEnvNumber('REST_PORT') ?? 4001,
+  restPort: getEnvNumber('REST_PORT') ?? 4004,
   mcpPort: getEnvNumber('MCP_PORT') ?? 4002,
   a2aPort: getEnvNumber('A2A_PORT') ?? 4003,
   isProduction: isProductionEnv(),

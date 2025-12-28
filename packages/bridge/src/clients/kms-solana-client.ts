@@ -17,8 +17,8 @@ import {
   Connection,
   PublicKey,
   Transaction,
-  TransactionInstruction,
-  VersionedTransaction,
+  type TransactionInstruction,
+  type VersionedTransaction,
 } from '@solana/web3.js'
 import { createLogger } from '../utils/logger.js'
 
@@ -70,7 +70,10 @@ export class KMSSolanaClient {
 
   constructor(config: KMSSolanaClientConfig) {
     this.config = config
-    this.connection = new Connection(config.rpcUrl, config.commitment ?? 'confirmed')
+    this.connection = new Connection(
+      config.rpcUrl,
+      config.commitment ?? 'confirmed',
+    )
     this.publicKey = new PublicKey(config.kmsSigner.publicKey)
 
     log.info('KMS Solana client initialized', {
@@ -155,7 +158,10 @@ export class KMSSolanaClient {
       { skipPreflight: false, maxRetries: 3 },
     )
 
-    await this.connection.confirmTransaction(signature, this.config.commitment ?? 'confirmed')
+    await this.connection.confirmTransaction(
+      signature,
+      this.config.commitment ?? 'confirmed',
+    )
 
     return signature
   }
@@ -175,7 +181,10 @@ export class KMSSolanaClient {
       { skipPreflight: false, maxRetries: 3 },
     )
 
-    await this.connection.confirmTransaction(signature, this.config.commitment ?? 'confirmed')
+    await this.connection.confirmTransaction(
+      signature,
+      this.config.commitment ?? 'confirmed',
+    )
 
     return signature
   }
@@ -238,7 +247,7 @@ export function createRemoteKMSEd25519Signer(
           'Content-Type': 'application/json',
         }
         if (apiKey) {
-          headers['Authorization'] = `Bearer ${apiKey}`
+          headers.Authorization = `Bearer ${apiKey}`
         }
 
         const response = await fetch(`${endpoint}/sign-ed25519`, {
@@ -253,7 +262,9 @@ export function createRemoteKMSEd25519Signer(
 
         if (!response.ok) {
           const error = await response.text()
-          throw new Error(`KMS Ed25519 signing failed: ${response.status} - ${error}`)
+          throw new Error(
+            `KMS Ed25519 signing failed: ${response.status} - ${error}`,
+          )
         }
 
         const result = (await response.json()) as { signature: string }
@@ -283,7 +294,7 @@ export async function initializeRemoteKMSEd25519Signer(
       'Content-Type': 'application/json',
     }
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`
+      headers.Authorization = `Bearer ${apiKey}`
     }
 
     // Try to get existing key
@@ -308,7 +319,9 @@ export async function initializeRemoteKMSEd25519Signer(
 
         if (!createResponse.ok) {
           const error = await createResponse.text()
-          throw new Error(`KMS Ed25519 key creation failed: ${createResponse.status} - ${error}`)
+          throw new Error(
+            `KMS Ed25519 key creation failed: ${createResponse.status} - ${error}`,
+          )
         }
 
         const keyInfo = (await createResponse.json()) as {
@@ -316,12 +329,16 @@ export async function initializeRemoteKMSEd25519Signer(
           publicKey: string
         }
 
-        const publicKey = new Uint8Array(Buffer.from(keyInfo.publicKey, 'base64'))
+        const publicKey = new Uint8Array(
+          Buffer.from(keyInfo.publicKey, 'base64'),
+        )
         return createRemoteKMSEd25519Signer(config, keyId, publicKey)
       }
 
       const error = await response.text()
-      throw new Error(`KMS Ed25519 key lookup failed: ${response.status} - ${error}`)
+      throw new Error(
+        `KMS Ed25519 key lookup failed: ${response.status} - ${error}`,
+      )
     }
 
     const keyInfo = (await response.json()) as {
@@ -336,7 +353,8 @@ export async function initializeRemoteKMSEd25519Signer(
   }
 }
 
-export function createKMSSolanaClient(config: KMSSolanaClientConfig): KMSSolanaClient {
+export function createKMSSolanaClient(
+  config: KMSSolanaClientConfig,
+): KMSSolanaClient {
   return new KMSSolanaClient(config)
 }
-

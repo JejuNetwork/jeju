@@ -20,7 +20,7 @@ import {
   TRIGGER_REGISTRY_ABI,
 } from '../contracts'
 import { InferenceResponseSchema } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Contract return type schemas for type-safe parsing
 const ProviderInfoSchema = z.object({
@@ -236,7 +236,7 @@ export interface ComputeModule {
 }
 
 export function createComputeModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): ComputeModule {
   const maybeRegistryAddress = safeGetContract('compute', 'registry', network)

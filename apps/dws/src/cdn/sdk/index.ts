@@ -259,7 +259,10 @@ export class CDNClient {
     }
 
     // SECURITY: Block raw private keys in production (strict mode)
-    if (process.env.NODE_ENV === 'production' && process.env.CDN_STRICT_SECURITY === 'true') {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      process.env.CDN_STRICT_SECURITY === 'true'
+    ) {
       throw new Error(
         'SECURITY: Raw private keys are not allowed in production with CDN_STRICT_SECURITY=true. ' +
           'Waiting for KMS integration.',

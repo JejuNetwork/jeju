@@ -15,7 +15,7 @@ import {
   toHex,
 } from 'viem'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface ValidationRequest {
   requestHash: Hex
@@ -188,7 +188,7 @@ function stringToBytes32(str: string): Hex {
 }
 
 export function createValidationModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
   publicClient?: PublicClient,
 ): ValidationModule {

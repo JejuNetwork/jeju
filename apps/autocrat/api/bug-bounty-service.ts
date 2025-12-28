@@ -21,18 +21,12 @@ import { expectDefined, expectValid } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
-  createWalletClient,
   http,
   isAddress,
   isHex,
   keccak256,
   stringToHex,
 } from 'viem'
-import {
-  createKMSWalletClient,
-  getOperatorConfig,
-  type KMSAccount,
-} from './kms-signer'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
   type BountyAssessment,
@@ -64,8 +58,8 @@ import {
   VulnerabilityTypeName,
   VulnerabilityTypeSchema,
 } from '../lib'
-
 import { config } from './config'
+import { createKMSWalletClient, getOperatorConfig } from './kms-signer'
 
 const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
@@ -263,7 +257,11 @@ async function getKMSWalletClientInstance() {
         'OPERATOR_KEY or OPERATOR_PRIVATE_KEY required for contract operations',
       )
     }
-    kmsWalletClient = await createKMSWalletClient(config, getChain(), getRpcUrl())
+    kmsWalletClient = await createKMSWalletClient(
+      config,
+      getChain(),
+      getRpcUrl(),
+    )
   }
   return kmsWalletClient
 }
@@ -600,7 +598,7 @@ export async function submitBounty(
 
   // Submit to smart contract - fail if contract is required
   const contractAddr = getContractAddressOrThrow()
-  const { client: walletClient } = await getKMSWalletClientInstance()
+  const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   // Convert CID and keyId to bytes32-compatible hex (padded to 32 bytes)
@@ -617,6 +615,7 @@ export async function submitBounty(
     functionName: 'submitVulnerability',
     args: [submission.severity, submission.vulnType, cidHex, keyIdHex, pocHash],
     value: stake,
+    account: account.address,
   })
 
   await publicClient.waitForTransactionReceipt({ hash })
@@ -780,7 +779,7 @@ export async function completeValidation(
 
   // Update on-chain
   const contractAddr = getContractAddressOrThrow()
-  const { client: walletClient } = await getKMSWalletClientInstance()
+  const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const txHash = await walletClient.writeContract({
@@ -788,6 +787,7 @@ export async function completeValidation(
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'completeValidation',
     args: [toHex(submissionId), result, notes],
+    account: account.address,
   })
 
   await publicClient.waitForTransactionReceipt({ hash: txHash })
@@ -855,7 +855,7 @@ export async function submitGuardianVote(
 
   // Update on-chain
   const contractAddr = getContractAddressOrThrow()
-  const { client: walletClient } = await getKMSWalletClientInstance()
+  const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const guardianHash = await walletClient.writeContract({
@@ -863,6 +863,7 @@ export async function submitGuardianVote(
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'submitGuardianVote',
     args: [toHex(submissionId), approved, suggestedReward, feedback],
+    account: account.address,
   })
 
   await publicClient.waitForTransactionReceipt({ hash: guardianHash })
@@ -930,7 +931,7 @@ export async function ceoDecision(
 
   // Update on-chain
   const contractAddr = getContractAddressOrThrow()
-  const { client: walletClient } = await getKMSWalletClientInstance()
+  const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const ceoHash = await walletClient.writeContract({
@@ -938,6 +939,7 @@ export async function ceoDecision(
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'ceoDecision',
     args: [toHex(submissionId), approved, rewardAmount, reasoning],
+    account: account.address,
   })
 
   await publicClient.waitForTransactionReceipt({ hash: ceoHash })
@@ -977,7 +979,7 @@ export async function payReward(
 
   // Execute on-chain payout
   const contractAddr = getContractAddressOrThrow()
-  const { client: walletClient } = await getKMSWalletClientInstance()
+  const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
   const payoutHash = await walletClient.writeContract({
@@ -985,6 +987,7 @@ export async function payReward(
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'payReward',
     args: [toHex(submissionId)],
+    account: account.address,
   })
 
   await publicClient.waitForTransactionReceipt({ hash: payoutHash })

@@ -9,8 +9,13 @@
  */
 
 import { isProductionEnv } from '@jejunetwork/config'
-import { type Address, type Hex, encodePacked, keccak256, stringToHex } from 'viem'
-import { createKMSAccount, type KMSAccount } from './kms-signer'
+import {
+  type Address,
+  encodePacked,
+  type Hex,
+  keccak256,
+  stringToHex,
+} from 'viem'
 import {
   type CasualProposalCategory,
   type CEOPersona,
@@ -21,6 +26,7 @@ import {
   toHex,
 } from '../lib'
 import { checkDWSCompute, dwsGenerate } from './agents/runtime'
+import { createKMSAccount, type KMSAccount } from './kms-signer'
 import { findSimilarProposals, indexProposal } from './local-services'
 export interface ProposalDraft {
   title: string

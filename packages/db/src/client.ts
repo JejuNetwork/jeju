@@ -950,11 +950,11 @@ WHERE embedding MATCH ?
       undefined,
       dbId,
     )
-    const count = result.rows[0].count
-    if (typeof count !== 'number') {
+    const firstRow = result.rows[0]
+    if (!firstRow || typeof firstRow.count !== 'number') {
       throw new Error('Unexpected COUNT(*) result structure')
     }
-    return count
+    return firstRow.count
   }
 
   /**

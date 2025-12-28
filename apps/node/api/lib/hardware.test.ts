@@ -191,6 +191,7 @@ describe('Requirements Checking', () => {
         hasAmdSev: false,
         hasNvidiaCc: false,
         attestationAvailable: false,
+        vendor: 'none',
       },
       docker: {
         available: true,
@@ -244,6 +245,7 @@ describe('Requirements Checking', () => {
         hasAmdSev: false,
         hasNvidiaCc: false,
         attestationAvailable: false,
+        vendor: 'none',
       },
       docker: {
         available: true,
@@ -297,6 +299,7 @@ describe('Requirements Checking', () => {
         hasAmdSev: false,
         hasNvidiaCc: false,
         attestationAvailable: false,
+        vendor: 'none',
       },
       docker: {
         available: true,
@@ -366,6 +369,7 @@ describe('Requirements Checking', () => {
         hasAmdSev: false,
         hasNvidiaCc: false,
         attestationAvailable: false,
+        vendor: 'none',
       },
       docker: {
         available: true,
@@ -420,6 +424,7 @@ describe('Requirements Checking', () => {
         hasAmdSev: false,
         hasNvidiaCc: false,
         attestationAvailable: false,
+        vendor: 'none',
       },
       docker: {
         available: true,
@@ -473,6 +478,7 @@ describe('Requirements Checking', () => {
         hasAmdSev: false,
         hasNvidiaCc: false,
         attestationAvailable: false,
+        vendor: 'none',
       },
       docker: {
         available: false,

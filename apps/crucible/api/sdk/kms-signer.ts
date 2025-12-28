@@ -1,8 +1,16 @@
 /**
  * KMS-Backed Signer for Crucible
  *
- * Provides threshold signing via DWS KMS instead of holding private keys in memory.
- * No single party (including this server) ever has access to the full private key.
+ * NOTE: For standard KMS signing, use the canonical signer from @jejunetwork/kms:
+ * ```typescript
+ * import { createKMSSigner, KMSSigner } from '@jejunetwork/kms'
+ * ```
+ *
+ * This module provides Crucible-specific KMS features:
+ * - HSM integration for key share storage
+ * - TEE attestation verification
+ * - Key rotation
+ * - Detailed status reporting
  *
  * SECURITY ARCHITECTURE:
  * 1. Key generation happens across MPC parties (threshold = 2, total = 3+)
@@ -12,6 +20,19 @@
  * 5. Access control via on-chain policies
  */
 
+// Re-export canonical KMS signer for standard usage
+export {
+  createKMSSigner as createCanonicalKMSSigner,
+  getKMSSigner as getCanonicalKMSSigner,
+  type KMSKeyInfo as CanonicalKMSKeyInfo,
+  KMSSigner as CanonicalKMSSigner,
+  type KMSSignerConfig as CanonicalKMSSignerConfig,
+  type SigningMode,
+  type SignResult as CanonicalSignResult,
+  type TransactionSignResult,
+  validateSecureSigning,
+} from '@jejunetwork/kms'
+
 import {
   checkHSMAvailability,
   getCurrentNetwork,
@@ -19,7 +40,6 @@ import {
   getKmsServiceUrl,
   getKmsThresholdConfig,
   type HSMConfig,
-  isProductionEnv,
 } from '@jejunetwork/config'
 import type { Address, Hex, TransactionRequest } from 'viem'
 import {
@@ -97,7 +117,7 @@ const AttestationResponseSchema = z.object({
   platform: z.enum(['AWS_NITRO', 'INTEL_SGX', 'AMD_SEV', 'AZURE_SNP', 'NONE']),
   attestation: z.string().optional(),
   verified: z.boolean(),
-  pcrs: z.record(z.string()).optional(),
+  pcrs: z.record(z.string(), z.string()).optional(),
 })
 
 // ============================================================================
@@ -106,7 +126,7 @@ const AttestationResponseSchema = z.object({
 
 /**
  * KMS-backed signer that uses threshold signatures.
- * 
+ *
  * The private key is NEVER held by this service:
  * - Key generation distributes shares across MPC parties
  * - Signing requires threshold collaboration
@@ -162,10 +182,12 @@ export class KMSSigner {
         networkId: this.config.networkId,
         keyType: 'secp256k1',
         // Include HSM config for key share storage
-        hsm: this.config.hsm ? {
-          provider: this.config.hsm.provider,
-          keyWrapAlgorithm: this.config.hsm.keyWrapAlgorithm,
-        } : undefined,
+        hsm: this.config.hsm
+          ? {
+              provider: this.config.hsm.provider,
+              keyWrapAlgorithm: this.config.hsm.keyWrapAlgorithm,
+            }
+          : undefined,
       }),
       signal: AbortSignal.timeout(this.config.timeout),
     })
@@ -192,12 +214,12 @@ export class KMSSigner {
 
   /**
    * Verify TEE attestation of the KMS service.
-   * 
+   *
    * SECURITY: This is critical for production. Attestation proves:
    * 1. KMS is running in a genuine TEE (Intel SGX, AWS Nitro, AMD SEV, etc.)
    * 2. The enclave code hash matches expected values
    * 3. PCRs (Platform Configuration Registers) are valid
-   * 
+   *
    * On failure, logs CRITICAL alerts for monitoring systems.
    */
   private async verifyKMSAttestation(): Promise<void> {
@@ -205,10 +227,9 @@ export class KMSSigner {
     if (!this.config.allowDevMode) {
       let response: Response
       try {
-        response = await fetch(
-          `${this.config.endpoint}/kms/attestation`,
-          { signal: AbortSignal.timeout(this.config.timeout) },
-        )
+        response = await fetch(`${this.config.endpoint}/kms/attestation`, {
+          signal: AbortSignal.timeout(this.config.timeout),
+        })
       } catch (fetchError) {
         // CRITICAL: Cannot reach KMS for attestation
         this.emitAttestationAlert('KMS_UNREACHABLE', {
@@ -242,7 +263,7 @@ export class KMSSigner {
           endpoint: this.config.endpoint,
           platform: attestation.platform,
           network: this.config.networkId,
-          pcrs: attestation.pcrs,
+          pcrs: attestation.pcrs as Record<string, string> | undefined,
         })
         throw new Error(
           'CRITICAL: KMS TEE attestation verification failed - possible compromise',
@@ -265,15 +286,13 @@ export class KMSSigner {
         verified: attestation.verified,
       })
     } else {
-      log.warn(
-        'Skipping KMS attestation verification (development mode)',
-      )
+      log.warn('Skipping KMS attestation verification (development mode)')
     }
   }
 
   /**
    * Verify HSM availability for key share storage.
-   * 
+   *
    * SECURITY: HSM backing ensures key shares are hardware-protected:
    * 1. Key shares generated inside HSM
    * 2. Shares never leave HSM in plaintext
@@ -300,7 +319,7 @@ export class KMSSigner {
       } else {
         log.warn('HSM unavailable, falling back to software key storage', {
           provider: this.config.hsm.provider,
-          error: hsmStatus.error,
+          error: hsmStatus.error ?? 'unknown error',
         })
       }
     } else {
@@ -477,7 +496,7 @@ export class KMSSigner {
 
   /**
    * Emit attestation alert for monitoring systems.
-   * 
+   *
    * Logs at CRITICAL level and can be integrated with:
    * - Prometheus metrics
    * - PagerDuty/OpsGenie alerts
@@ -485,7 +504,10 @@ export class KMSSigner {
    */
   private emitAttestationAlert(
     alertType: string,
-    details: Record<string, string | number | Record<string, string> | undefined>,
+    details: Record<
+      string,
+      string | number | Record<string, string> | undefined
+    >,
   ): void {
     // Log at critical level for log aggregation (Loki, CloudWatch, etc.)
     log.error(`[CRITICAL] KMS Attestation Alert: ${alertType}`, {
@@ -523,13 +545,13 @@ export class KMSSigner {
 
   /**
    * Rotate the MPC key shares.
-   * 
+   *
    * SECURITY: Key rotation replaces existing key shares with new ones
    * while preserving the same public key/address. This is critical for:
    * 1. Regular security hygiene (e.g., monthly rotation)
    * 2. Party compromise recovery (replacing compromised shares)
    * 3. Threshold changes (e.g., upgrading from 2-of-3 to 3-of-5)
-   * 
+   *
    * @param newThreshold New threshold (if changing)
    * @param newTotalParties New total parties (if changing)
    */
@@ -544,8 +566,8 @@ export class KMSSigner {
     log.info('Initiating MPC key rotation', {
       keyId: this.keyId,
       currentThreshold: this.config.threshold,
-      newThreshold: options?.newThreshold,
-      newTotalParties: options?.newTotalParties,
+      newThreshold: options?.newThreshold ?? null,
+      newTotalParties: options?.newTotalParties ?? null,
     })
 
     // Verify attestation before rotation (security check)
@@ -624,7 +646,9 @@ export class KMSSigner {
     return {
       keyId: this.keyId,
       publicKey: this.publicKey ?? ('0x' as Hex),
-      address: this.address ?? ('0x0000000000000000000000000000000000000000' as Address),
+      address:
+        this.address ??
+        ('0x0000000000000000000000000000000000000000' as Address),
       threshold: json.threshold ?? this.config.threshold,
       totalParties: json.totalParties ?? this.config.totalParties,
       createdAt: json.createdAt ?? 0,
@@ -635,10 +659,12 @@ export class KMSSigner {
 
   /**
    * Schedule automatic key rotation
-   * 
+   *
    * @param intervalMs Rotation interval in milliseconds (default: 30 days)
    */
-  scheduleRotation(intervalMs: number = 30 * 24 * 60 * 60 * 1000): NodeJS.Timeout {
+  scheduleRotation(
+    intervalMs: number = 30 * 24 * 60 * 60 * 1000,
+  ): NodeJS.Timeout {
     log.info('Scheduling automatic key rotation', {
       intervalMs,
       intervalDays: intervalMs / (24 * 60 * 60 * 1000),
@@ -663,7 +689,7 @@ export class KMSSigner {
 
 /**
  * Create a KMS signer from environment configuration.
- * 
+ *
  * Uses network-specific threshold and HSM configuration:
  * - Localnet: 1-of-1 (dev mode, software keys)
  * - Testnet: 2-of-3 (attestation recommended, HSM optional)
@@ -703,9 +729,7 @@ export function createKMSSigner(
       throw new Error('Mainnet cannot run in development mode')
     }
     if (!fullConfig.hsm || fullConfig.hsm.provider === 'software') {
-      throw new Error(
-        'Mainnet requires HSM-backed key storage (not software)',
-      )
+      throw new Error('Mainnet requires HSM-backed key storage (not software)')
     }
   }
 
@@ -720,9 +744,7 @@ export function createKMSSigner(
  * Create a viem-compatible account that uses KMS for signing.
  * This allows dropping KMS into existing code that uses walletClient.
  */
-export async function createKMSAccount(
-  kmsSigner: KMSSigner,
-): Promise<{
+export async function createKMSAccount(kmsSigner: KMSSigner): Promise<{
   address: Address
   signMessage: (args: { message: string }) => Promise<Hex>
   signTransaction: (tx: TransactionRequest) => Promise<Hex>
@@ -745,4 +767,3 @@ export async function createKMSAccount(
     },
   }
 }
-

@@ -11,8 +11,19 @@
  * 2. Legacy Mode (development only): Direct key signing (insecure, for local dev)
  */
 
-import { getKmsServiceUrl, getRpcUrl, isProductionEnv } from '@jejunetwork/config'
-import { type Chain, createPublicClient, http, type Address, type Hex, isAddress } from 'viem'
+import {
+  getKmsServiceUrl,
+  getRpcUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  type Hex,
+  http,
+  isAddress,
+} from 'viem'
 import { z } from 'zod'
 
 function inferChainFromRpcUrl(rpcUrl: string): Chain {
@@ -79,7 +90,9 @@ const IS_PRODUCTION = isProductionEnv()
 
 if (IS_PRODUCTION) {
   if (!OPERATOR_ADDRESS) {
-    throw new Error('OPERATOR_ADDRESS environment variable is required in production')
+    throw new Error(
+      'OPERATOR_ADDRESS environment variable is required in production',
+    )
   }
   if (!isAddress(OPERATOR_ADDRESS)) {
     throw new Error('OPERATOR_ADDRESS must be a valid Ethereum address')
@@ -88,7 +101,9 @@ if (IS_PRODUCTION) {
     throw new Error('KMS_KEY_ID environment variable is required in production')
   }
   if (!KMS_ENDPOINT) {
-    throw new Error('KMS_ENDPOINT environment variable is required in production')
+    throw new Error(
+      'KMS_ENDPOINT environment variable is required in production',
+    )
   }
 }
 
@@ -180,11 +195,17 @@ async function signWithLocalKey(message: string): Promise<Hex> {
     throw new Error('OPERATOR_PRIVATE_KEY required for development mode')
   }
   if (!isHex(key) || key.length !== 66) {
-    throw new Error('OPERATOR_PRIVATE_KEY must be a 64-char hex string with 0x prefix')
+    throw new Error(
+      'OPERATOR_PRIVATE_KEY must be a 64-char hex string with 0x prefix',
+    )
   }
 
-  console.warn('⚠️  SECURITY WARNING: Using insecure local signing (development only)')
-  console.warn('⚠️  Private key is exposed in memory - vulnerable to side-channel attacks')
+  console.warn(
+    '⚠️  SECURITY WARNING: Using insecure local signing (development only)',
+  )
+  console.warn(
+    '⚠️  Private key is exposed in memory - vulnerable to side-channel attacks',
+  )
 
   const account = privateKeyToAccount(key as `0x${string}`)
   const signature = await account.signMessage({ message })

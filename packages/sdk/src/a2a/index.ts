@@ -12,7 +12,7 @@ import {
   AppsListResponseSchema,
   JNSRecordsResponseSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface AgentCard {
   protocolVersion: string
@@ -111,7 +111,7 @@ export interface A2AModule {
 const MAX_STREAM_BUFFER_SIZE = 1024 * 1024
 
 export function createA2AModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   _network: NetworkType,
   services: ServicesConfig,
 ): A2AModule {

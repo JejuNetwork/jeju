@@ -383,7 +383,10 @@ export class EncryptedEQLiteClient {
     if (!columnMatches) return params
 
     const table = columnMatches[1]
-    const columns = columnMatches[2].split(',').map((c) => c.trim())
+    const columnsMatch = columnMatches[2]
+    if (!table || !columnsMatch) return params
+
+    const columns = columnsMatch.split(',').map((c) => c.trim())
 
     const encryptedParams: (string | number | boolean | null)[] = []
 
@@ -391,7 +394,9 @@ export class EncryptedEQLiteClient {
       const param = params[i]
       const column = columns[i]
 
-      if (
+      if (param === undefined) {
+        encryptedParams.push(null)
+      } else if (
         column &&
         shouldEncrypt(table, column, Array.from(this.encryptedColumns)) &&
         typeof param === 'string'

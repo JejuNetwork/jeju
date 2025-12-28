@@ -26,10 +26,7 @@ import type { Hex } from 'viem'
 
 const log = createLogger('dc-client')
 
-import {
-  enforceNoLocalKeysInProduction,
-  securityAudit,
-} from '../../security'
+import { enforceNoLocalKeysInProduction, securityAudit } from '../../security'
 
 /**
  * SECURITY WARNING: Log when local key operations are used.
@@ -38,7 +35,9 @@ function warnLocalKeyOperation(operation: string): void {
   // In production, this will throw - local keys not allowed
   enforceNoLocalKeysInProduction(operation)
 
-  log.warn(`SECURITY: Local key operation "${operation}" - private key in memory. Use KMSDirectCastClient for production.`)
+  log.warn(
+    `SECURITY: Local key operation "${operation}" - private key in memory. Use KMSDirectCastClient for production.`,
+  )
 
   securityAudit.log({
     operation: `dc-client:${operation}`,

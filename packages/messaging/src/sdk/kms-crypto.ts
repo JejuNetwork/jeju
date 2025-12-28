@@ -68,24 +68,21 @@ export class RemoteKMSSigner implements KMSSigner {
    * The private key remains in the secure enclave.
    */
   async sign(message: Uint8Array): Promise<Uint8Array> {
-    const response = await this.fetchWithTimeout(
-      `${this.endpoint}/sign`,
-      {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          keyId: this.keyId,
-          message: Buffer.from(message).toString('base64'),
-        }),
-      },
-    )
+    const response = await this.fetchWithTimeout(`${this.endpoint}/sign`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        keyId: this.keyId,
+        message: Buffer.from(message).toString('base64'),
+      }),
+    })
 
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`KMS signing failed: ${response.status} - ${error}`)
     }
 
-    const result = await response.json() as { signature: string }
+    const result = (await response.json()) as { signature: string }
     return Buffer.from(result.signature, 'base64')
   }
 
@@ -94,24 +91,21 @@ export class RemoteKMSSigner implements KMSSigner {
    * Returns only the derived shared secret.
    */
   async ecdh(theirPublicKey: Uint8Array): Promise<Uint8Array> {
-    const response = await this.fetchWithTimeout(
-      `${this.endpoint}/ecdh`,
-      {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          keyId: this.keyId,
-          theirPublicKey: Buffer.from(theirPublicKey).toString('base64'),
-        }),
-      },
-    )
+    const response = await this.fetchWithTimeout(`${this.endpoint}/ecdh`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        keyId: this.keyId,
+        theirPublicKey: Buffer.from(theirPublicKey).toString('base64'),
+      }),
+    })
 
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`KMS ECDH failed: ${response.status} - ${error}`)
     }
 
-    const result = await response.json() as { sharedSecret: string }
+    const result = (await response.json()) as { sharedSecret: string }
     return Buffer.from(result.sharedSecret, 'base64')
   }
 
@@ -120,7 +114,7 @@ export class RemoteKMSSigner implements KMSSigner {
       'Content-Type': 'application/json',
     }
     if (this.apiKey) {
-      headers['Authorization'] = `Bearer ${this.apiKey}`
+      headers.Authorization = `Bearer ${this.apiKey}`
     }
     return headers
   }
@@ -183,25 +177,22 @@ export class RemoteKMSEncryptionProvider implements KMSEncryptionProvider {
     nonce: Uint8Array
     ephemeralPublicKey: Uint8Array
   }> {
-    const response = await this.fetchWithTimeout(
-      `${this.endpoint}/encrypt`,
-      {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          keyId: this.keyId,
-          plaintext: Buffer.from(plaintext).toString('base64'),
-          recipientPublicKey: Buffer.from(recipientPublicKey).toString('base64'),
-        }),
-      },
-    )
+    const response = await this.fetchWithTimeout(`${this.endpoint}/encrypt`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        keyId: this.keyId,
+        plaintext: Buffer.from(plaintext).toString('base64'),
+        recipientPublicKey: Buffer.from(recipientPublicKey).toString('base64'),
+      }),
+    })
 
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`KMS encryption failed: ${response.status} - ${error}`)
     }
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       ciphertext: string
       nonce: string
       ephemeralPublicKey: string
@@ -223,26 +214,23 @@ export class RemoteKMSEncryptionProvider implements KMSEncryptionProvider {
     nonce: Uint8Array,
     ephemeralPublicKey: Uint8Array,
   ): Promise<Uint8Array> {
-    const response = await this.fetchWithTimeout(
-      `${this.endpoint}/decrypt`,
-      {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          keyId: this.keyId,
-          ciphertext: Buffer.from(ciphertext).toString('base64'),
-          nonce: Buffer.from(nonce).toString('base64'),
-          ephemeralPublicKey: Buffer.from(ephemeralPublicKey).toString('base64'),
-        }),
-      },
-    )
+    const response = await this.fetchWithTimeout(`${this.endpoint}/decrypt`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        keyId: this.keyId,
+        ciphertext: Buffer.from(ciphertext).toString('base64'),
+        nonce: Buffer.from(nonce).toString('base64'),
+        ephemeralPublicKey: Buffer.from(ephemeralPublicKey).toString('base64'),
+      }),
+    })
 
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`KMS decryption failed: ${response.status} - ${error}`)
     }
 
-    const result = await response.json() as { plaintext: string }
+    const result = (await response.json()) as { plaintext: string }
     return Buffer.from(result.plaintext, 'base64')
   }
 
@@ -251,7 +239,7 @@ export class RemoteKMSEncryptionProvider implements KMSEncryptionProvider {
       'Content-Type': 'application/json',
     }
     if (this.apiKey) {
-      headers['Authorization'] = `Bearer ${this.apiKey}`
+      headers.Authorization = `Bearer ${this.apiKey}`
     }
     return headers
   }
@@ -296,7 +284,7 @@ export async function initializeKMSKeys(
     'Content-Type': 'application/json',
   }
   if (config.apiKey) {
-    headers['Authorization'] = `Bearer ${config.apiKey}`
+    headers.Authorization = `Bearer ${config.apiKey}`
   }
 
   // Request key initialization from KMS
@@ -314,7 +302,7 @@ export async function initializeKMSKeys(
     throw new Error(`KMS initialization failed: ${response.status} - ${error}`)
   }
 
-  const result = await response.json() as {
+  const result = (await response.json()) as {
     signingKeyId: string
     signingPublicKey: string
     encryptionKeyId: string
@@ -340,10 +328,7 @@ export async function initializeKMSKeys(
   return { signer, encryption }
 }
 
-import {
-  enforceNoLocalKeysInProduction,
-  securityAudit,
-} from '../security'
+import { enforceNoLocalKeysInProduction, securityAudit } from '../security'
 
 /**
  * Security Warning Helper
@@ -357,8 +342,8 @@ export function warnLocalKeyUsage(operation: string): void {
 
   console.warn(
     `⚠️  SECURITY WARNING: Using local key for "${operation}" operation.\n` +
-    `   Private keys in application memory are vulnerable to side-channel attacks.\n` +
-    `   Use KMS-backed operations (kmsSigner/kmsEncryption) for production security.`
+      `   Private keys in application memory are vulnerable to side-channel attacks.\n` +
+      `   Use KMS-backed operations (kmsSigner/kmsEncryption) for production security.`,
   )
 
   securityAudit.log({
@@ -367,4 +352,3 @@ export function warnLocalKeyUsage(operation: string): void {
     metadata: { mode: 'local', warning: 'local-key-operation' },
   })
 }
-

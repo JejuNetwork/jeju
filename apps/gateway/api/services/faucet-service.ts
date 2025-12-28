@@ -14,7 +14,6 @@ import {
   createPublicClient,
   encodeFunctionData,
   formatEther,
-  type Hex,
   http,
   parseEther,
 } from 'viem'

@@ -34,12 +34,12 @@ import {
   http as viemHttp,
 } from 'viem'
 import { z } from 'zod'
-import { createSecureSigner, type SecureSigner } from '../secure-signer'
 import {
   type OracleAttestation,
   OracleAttestationSchema,
 } from '../../../lib/validation'
 import { config as nodeConfig } from '../../config'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 // Configuration Schema
 

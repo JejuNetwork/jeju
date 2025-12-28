@@ -5,26 +5,12 @@
  * These tests verify the interface and mock the KMS backend.
  */
 
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 import {
   createSecureSigner,
   registerNodeWithKMS,
   SecureSigner,
 } from './secure-signer'
-
-// Mock fetch for KMS endpoints
-const mockFetch = mock(() =>
-  Promise.resolve({
-    ok: true,
-    json: () =>
-      Promise.resolve({
-        signature: '0x' + '12'.repeat(65),
-        v: 28,
-        r: '0x' + 'ab'.repeat(32),
-        s: '0x' + 'cd'.repeat(32),
-      }),
-  }),
-)
 
 describe('SecureSigner', () => {
   test('should create signer with valid keyId', () => {
@@ -90,7 +76,7 @@ describe('SecureSigner Security Properties', () => {
     // signTransaction needs chainId - this should fail
     await expect(
       signer.signTransaction({
-        to: '0x' + '00'.repeat(20) as `0x${string}`,
+        to: `0x${'00'.repeat(20)}` as `0x${string}`,
         chainId: 0, // Invalid chainId
       }),
     ).rejects.toBeDefined()
@@ -100,7 +86,7 @@ describe('SecureSigner Security Properties', () => {
 describe('registerNodeWithKMS', () => {
   test('should require operator address', () => {
     expect(
-      registerNodeWithKMS('0x' + '00'.repeat(20) as `0x${string}`, {
+      registerNodeWithKMS(`0x${'00'.repeat(20)}` as `0x${string}`, {
         nodeId: 'test-node',
         region: 'us-east-1',
         services: ['compute'],
@@ -120,10 +106,12 @@ describe('registerNodeWithKMS', () => {
 
     // This will fail without KMS, but validates the interface
     try {
-      await registerNodeWithKMS('0x' + '11'.repeat(20) as `0x${string}`, metadata)
+      await registerNodeWithKMS(
+        `0x${'11'.repeat(20)}` as `0x${string}`,
+        metadata,
+      )
     } catch {
       // Expected to fail without real KMS
     }
   })
 })
-

@@ -109,7 +109,11 @@ export interface HSMProvider {
   /** Encrypt data using HSM key */
   encrypt(keyId: string, plaintext: Uint8Array): Promise<HSMEncryptResult>
   /** Decrypt data using HSM key */
-  decrypt(keyId: string, ciphertext: Uint8Array, iv: Uint8Array): Promise<Uint8Array>
+  decrypt(
+    keyId: string,
+    ciphertext: Uint8Array,
+    iv: Uint8Array,
+  ): Promise<Uint8Array>
   /** Sign data using HSM key */
   sign(keyId: string, data: Uint8Array): Promise<HSMSignResult>
   /** Verify signature using HSM key */
@@ -205,9 +209,10 @@ export class SoftHSMProvider implements HSMProvider {
       label,
       type,
       extractable,
-      usage: type === 'aes-256' 
-        ? ['encrypt', 'decrypt', 'derive']
-        : ['sign', 'verify'],
+      usage:
+        type === 'aes-256'
+          ? ['encrypt', 'decrypt', 'derive']
+          : ['sign', 'verify'],
       createdAt: Date.now(),
     }
 
@@ -240,7 +245,10 @@ export class SoftHSMProvider implements HSMProvider {
     }
   }
 
-  async encrypt(keyId: string, plaintext: Uint8Array): Promise<HSMEncryptResult> {
+  async encrypt(
+    keyId: string,
+    plaintext: Uint8Array,
+  ): Promise<HSMEncryptResult> {
     this.ensureConnected()
     const entry = this.keys.get(keyId)
     if (!entry || entry.ref.type !== 'aes-256') {
@@ -250,7 +258,7 @@ export class SoftHSMProvider implements HSMProvider {
     const iv = crypto.getRandomValues(new Uint8Array(12))
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      entry.material,
+      entry.material.slice(),
       { name: 'AES-GCM' },
       false,
       ['encrypt'],
@@ -259,7 +267,7 @@ export class SoftHSMProvider implements HSMProvider {
     const ciphertext = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv },
       cryptoKey,
-      plaintext,
+      plaintext.slice(),
     )
 
     return {
@@ -282,16 +290,16 @@ export class SoftHSMProvider implements HSMProvider {
 
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      entry.material,
+      entry.material.slice(),
       { name: 'AES-GCM' },
       false,
       ['decrypt'],
     )
 
     const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv: iv.slice() },
       cryptoKey,
-      ciphertext,
+      ciphertext.slice(),
     )
 
     return new Uint8Array(plaintext)
@@ -314,7 +322,11 @@ export class SoftHSMProvider implements HSMProvider {
     }
   }
 
-  async verify(keyId: string, data: Uint8Array, signature: Hex): Promise<boolean> {
+  async verify(
+    keyId: string,
+    data: Uint8Array,
+    signature: Hex,
+  ): Promise<boolean> {
     this.ensureConnected()
     const result = await this.sign(keyId, data)
     return result.signature === signature
@@ -334,7 +346,7 @@ export class SoftHSMProvider implements HSMProvider {
 
     const baseKey = await crypto.subtle.importKey(
       'raw',
-      entry.material,
+      entry.material.slice(),
       { name: 'HKDF' },
       false,
       ['deriveBits'],
@@ -344,7 +356,7 @@ export class SoftHSMProvider implements HSMProvider {
     const derivedBits = await crypto.subtle.deriveBits(
       {
         name: 'HKDF',
-        salt,
+        salt: salt.slice(),
         info: infoBytes,
         hash: 'SHA-256',
       },
@@ -368,30 +380,28 @@ export class SoftHSMProvider implements HSMProvider {
  * SECURITY: On mainnet, only hardware HSM providers are allowed.
  */
 export function createHSMProvider(config: HSMConfig): HSMProvider {
+  // Dynamic imports to avoid loading unused HSM libraries
   switch (config.type) {
     case 'softhsm':
       return new SoftHSMProvider(config)
 
-    case 'aws-cloudhsm':
-      // TODO: Implement AWS CloudHSM provider
-      throw new Error(
-        'AWS CloudHSM not yet implemented. ' +
-          'Use HSM_TYPE=softhsm for development.',
-      )
+    case 'aws-cloudhsm': {
+      // Lazy import AWS CloudHSM provider
+      const { AWSCloudHSMProvider } = require('./aws-cloudhsm.js')
+      return new AWSCloudHSMProvider(config)
+    }
 
-    case 'azure-hsm':
-      // TODO: Implement Azure HSM provider
-      throw new Error(
-        'Azure HSM not yet implemented. ' +
-          'Use HSM_TYPE=softhsm for development.',
-      )
+    case 'azure-hsm': {
+      // Lazy import Azure HSM provider
+      const { AzureHSMProvider } = require('./azure-hsm.js')
+      return new AzureHSMProvider(config)
+    }
 
-    case 'gcloud-hsm':
-      // TODO: Implement Google Cloud HSM provider
-      throw new Error(
-        'Google Cloud HSM not yet implemented. ' +
-          'Use HSM_TYPE=softhsm for development.',
-      )
+    case 'gcloud-hsm': {
+      // Lazy import Google Cloud HSM provider
+      const { GCloudHSMProvider } = require('./gcloud-hsm.js')
+      return new GCloudHSMProvider(config)
+    }
 
     case 'yubihsm':
       // TODO: Implement YubiHSM provider

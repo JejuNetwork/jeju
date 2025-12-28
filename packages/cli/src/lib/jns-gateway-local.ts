@@ -70,6 +70,7 @@ const LOCAL_WORKER_ENDPOINTS: Record<string, string> = {
   wallet: 'http://localhost:4015', // Wallet main port
   vpn: 'http://localhost:4021', // VPN API port
   node: 'http://localhost:1420', // Node main port (from manifest)
+  babylon: 'http://localhost:5009', // Babylon API server
 }
 
 // App name aliases - maps subdomain to actual app folder name

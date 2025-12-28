@@ -14,7 +14,7 @@
 
 import { createLogger } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
-import { createPublicClient, http, parseAbi } from 'viem'
+import { createPublicClient, http } from 'viem'
 import { base, mainnet, sepolia } from 'viem/chains'
 import {
   createFROSTKeyRotationManager,
@@ -57,12 +57,56 @@ export interface RotationEvent {
 
 // ============ On-chain ABI (for reference when querying registry) ============
 
-const _MPC_KEY_REGISTRY_ABI = parseAbi([
-  'event KeyRotated(bytes32 indexed clusterId, uint256 epoch, bytes32 newGroupPublicKeyHash)',
-  'function getClusterInfo(bytes32 clusterId) view returns (uint256 partyCount, uint256 threshold, uint256 epoch, bytes32 groupPublicKeyHash)',
-  'function getPartyEndpoints(bytes32 clusterId) view returns (tuple(address operator, string endpoint, bytes32 pubKeyHash)[])',
-  'function recordRotation(bytes32 clusterId, uint256 newEpoch, bytes32 newGroupPublicKeyHash) external',
-])
+const _MPC_KEY_REGISTRY_ABI = [
+  {
+    type: 'event',
+    name: 'KeyRotated',
+    inputs: [
+      { type: 'bytes32', name: 'clusterId', indexed: true },
+      { type: 'uint256', name: 'epoch' },
+      { type: 'bytes32', name: 'newGroupPublicKeyHash' },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'getClusterInfo',
+    stateMutability: 'view',
+    inputs: [{ type: 'bytes32', name: 'clusterId' }],
+    outputs: [
+      { type: 'uint256', name: 'partyCount' },
+      { type: 'uint256', name: 'threshold' },
+      { type: 'uint256', name: 'epoch' },
+      { type: 'bytes32', name: 'groupPublicKeyHash' },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'getPartyEndpoints',
+    stateMutability: 'view',
+    inputs: [{ type: 'bytes32', name: 'clusterId' }],
+    outputs: [
+      {
+        type: 'tuple[]',
+        components: [
+          { type: 'address', name: 'operator' },
+          { type: 'string', name: 'endpoint' },
+          { type: 'bytes32', name: 'pubKeyHash' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'recordRotation',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { type: 'bytes32', name: 'clusterId' },
+      { type: 'uint256', name: 'newEpoch' },
+      { type: 'bytes32', name: 'newGroupPublicKeyHash' },
+    ],
+    outputs: [],
+  },
+] as const
 void _MPC_KEY_REGISTRY_ABI // Reference for documentation
 
 // ============ Key Rotation Scheduler ============
@@ -182,7 +226,10 @@ export class KeyRotationScheduler {
       minPartiesForRotation: threshold,
     }
 
-    const manager = createFROSTKeyRotationManager(rotationConfig, this.config.partyIndex)
+    const manager = createFROSTKeyRotationManager(
+      rotationConfig,
+      this.config.partyIndex,
+    )
     manager.setCurrentShare(currentShare, currentEpoch)
 
     this.rotationManagers.set(clusterId, manager)
@@ -300,7 +347,11 @@ export class KeyRotationScheduler {
       })
 
       // Record on-chain
-      await this.recordRotationOnChain(clusterId, refreshedShare.epoch, refreshedShare.verificationPoint)
+      await this.recordRotationOnChain(
+        clusterId,
+        refreshedShare.epoch,
+        refreshedShare.verificationPoint,
+      )
 
       log.info('Key rotation completed', {
         clusterId,
@@ -328,7 +379,9 @@ export class KeyRotationScheduler {
 
       // Send alert if too many failures
       if (state.consecutiveFailures >= this.config.maxConsecutiveFailures) {
-        await this.sendAlert(`Cluster ${clusterId} has ${state.consecutiveFailures} consecutive rotation failures`)
+        await this.sendAlert(
+          `Cluster ${clusterId} has ${state.consecutiveFailures} consecutive rotation failures`,
+        )
       }
 
       // Retry sooner on failure
@@ -382,7 +435,7 @@ export class KeyRotationScheduler {
     log.debug('Recording rotation on-chain', {
       clusterId,
       epoch,
-      verificationPoint: verificationPoint.slice(0, 18) + '...',
+      verificationPoint: `${verificationPoint.slice(0, 18)}...`,
     })
 
     // The actual transaction would be signed using the group key
@@ -405,7 +458,7 @@ export class KeyRotationScheduler {
    * Send an alert
    */
   private async sendAlert(message: string): Promise<void> {
-    log.error('ALERT: ' + message)
+    log.error(`ALERT: ${message}`)
 
     if (this.config.alertWebhook) {
       try {
@@ -466,4 +519,3 @@ export function createKeyRotationScheduler(
 ): KeyRotationScheduler {
   return new KeyRotationScheduler(config)
 }
-

@@ -365,7 +365,12 @@ export class EQLiteNodeManager {
       }
     }
 
-    return paths[0] // Return first path even if not found (for error message)
+    // Return first path even if not found (for error message)
+    const firstPath = paths[0]
+    if (!firstPath) {
+      throw new Error('No EQLite binary paths configured')
+    }
+    return firstPath
   }
 
   /**

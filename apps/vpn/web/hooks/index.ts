@@ -1,4 +1,5 @@
 export { useContribution } from './useContribution'
+export { useResidentialProxy } from './useResidentialProxy'
 export { useVPNConnection } from './useVPNConnection'
 export { useVPNNodes } from './useVPNNodes'
 export { useVPNStatus } from './useVPNStatus'

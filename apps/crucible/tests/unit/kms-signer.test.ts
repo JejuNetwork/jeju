@@ -5,7 +5,7 @@
  * Note: Actual signing tests require infrastructure (DWS/KMS running).
  */
 
-import { beforeEach, describe, expect, test, mock, afterEach } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { KMSSignerConfig } from '../../api/sdk/kms-signer'
 
 // Mock the config module
@@ -134,7 +134,9 @@ describe('KMS Signer Configuration', () => {
 
     test('should use testnet threshold config', async () => {
       mockGetCurrentNetwork.mockImplementation(() => 'testnet')
-      mockGetKmsServiceUrl.mockImplementation(() => 'https://kms.testnet.jejunetwork.org')
+      mockGetKmsServiceUrl.mockImplementation(
+        () => 'https://kms.testnet.jejunetwork.org',
+      )
       mockGetKmsThresholdConfig.mockImplementation(() => ({
         threshold: 2,
         totalParties: 3,
@@ -151,13 +153,18 @@ describe('KMS Signer Configuration', () => {
 
       // Force re-import to pick up new mocks
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
-      const signer = createKMSSigner('https://rpc.testnet.jejunetwork.org', 420691)
+      const signer = createKMSSigner(
+        'https://rpc.testnet.jejunetwork.org',
+        420691,
+      )
       expect(signer).toBeDefined()
     })
 
     test('should enforce mainnet minimum threshold', async () => {
       mockGetCurrentNetwork.mockImplementation(() => 'mainnet')
-      mockGetKmsServiceUrl.mockImplementation(() => 'https://kms.jejunetwork.org')
+      mockGetKmsServiceUrl.mockImplementation(
+        () => 'https://kms.jejunetwork.org',
+      )
       mockGetKmsThresholdConfig.mockImplementation(() => ({
         threshold: 2, // Below mainnet minimum of 3
         totalParties: 3,
@@ -174,9 +181,9 @@ describe('KMS Signer Configuration', () => {
 
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
 
-      expect(() => createKMSSigner('https://rpc.jejunetwork.org', 420691)).toThrow(
-        'Mainnet requires minimum threshold of 3',
-      )
+      expect(() =>
+        createKMSSigner('https://rpc.jejunetwork.org', 420691),
+      ).toThrow('Mainnet requires minimum threshold of 3')
     })
 
     test('should reject dev mode on mainnet', async () => {
@@ -197,9 +204,9 @@ describe('KMS Signer Configuration', () => {
 
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
 
-      expect(() => createKMSSigner('https://rpc.jejunetwork.org', 420691)).toThrow(
-        'Mainnet cannot run in development mode',
-      )
+      expect(() =>
+        createKMSSigner('https://rpc.jejunetwork.org', 420691),
+      ).toThrow('Mainnet cannot run in development mode')
     })
 
     test('should require HSM on mainnet', async () => {
@@ -220,9 +227,9 @@ describe('KMS Signer Configuration', () => {
 
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
 
-      expect(() => createKMSSigner('https://rpc.jejunetwork.org', 420691)).toThrow(
-        'Mainnet requires HSM-backed key storage',
-      )
+      expect(() =>
+        createKMSSigner('https://rpc.jejunetwork.org', 420691),
+      ).toThrow('Mainnet requires HSM-backed key storage')
     })
   })
 
@@ -282,4 +289,3 @@ describe('KMS Signer Configuration', () => {
     })
   })
 })
-

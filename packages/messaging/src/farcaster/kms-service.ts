@@ -41,18 +41,18 @@ import {
   createKMSDirectCastClient,
   type DCKMSEncryptionProvider,
   type DCKMSSigner,
-  KMSDirectCastClient,
+  type KMSDirectCastClient,
 } from './dc/kms-client'
 import {
   createKMSPoster,
-  KMSFarcasterPoster,
+  type KMSFarcasterPoster,
   type KMSPosterSigner,
   RemoteKMSPosterSigner,
 } from './hub/kms-poster'
 import {
   createKMSSignerManager,
   type KMSFarcasterSigner,
-  KMSFarcasterSignerManager,
+  type KMSFarcasterSignerManager,
   type KMSProvider,
   MPCKMSProvider,
 } from './signer/kms-manager'
@@ -301,7 +301,8 @@ export class FarcasterKMSService {
           body: JSON.stringify({
             keyId: result.keyId,
             plaintext: Buffer.from(plaintext).toString('base64'),
-            recipientPublicKey: Buffer.from(recipientPublicKey).toString('base64'),
+            recipientPublicKey:
+              Buffer.from(recipientPublicKey).toString('base64'),
           }),
         })
 
@@ -318,7 +319,10 @@ export class FarcasterKMSService {
         return {
           ciphertext: Buffer.from(encResult.ciphertext, 'base64'),
           nonce: Buffer.from(encResult.nonce, 'base64'),
-          ephemeralPublicKey: Buffer.from(encResult.ephemeralPublicKey, 'base64'),
+          ephemeralPublicKey: Buffer.from(
+            encResult.ephemeralPublicKey,
+            'base64',
+          ),
         }
       },
 
@@ -334,7 +338,8 @@ export class FarcasterKMSService {
             keyId: result.keyId,
             ciphertext: Buffer.from(ciphertext).toString('base64'),
             nonce: Buffer.from(nonce).toString('base64'),
-            ephemeralPublicKey: Buffer.from(ephemeralPublicKey).toString('base64'),
+            ephemeralPublicKey:
+              Buffer.from(ephemeralPublicKey).toString('base64'),
           }),
         })
 
@@ -353,7 +358,7 @@ export class FarcasterKMSService {
       'Content-Type': 'application/json',
     }
     if (this.config.apiKey) {
-      headers['Authorization'] = `Bearer ${this.config.apiKey}`
+      headers.Authorization = `Bearer ${this.config.apiKey}`
     }
     return headers
   }
@@ -412,4 +417,3 @@ export type {
   KMSSignerManagerConfig,
   SignerEvent,
 } from './signer/kms-manager'
-

@@ -11,7 +11,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -306,7 +306,7 @@ const MESSAGING_KEY_REGISTRY_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createMessagingModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): MessagingModule {
   const nodeRegistryAddress = requireContract(

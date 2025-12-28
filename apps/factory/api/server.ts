@@ -7,16 +7,8 @@ import { openapi } from '@elysiajs/openapi'
 import { CORE_PORTS, getEnvNumber, getEnvVar } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { configureFactory, getFactoryConfig } from './config'
-import { a2aRoutes } from './routes/a2a'
 import { closeDB, initDB } from './db/client'
-import {
-  checkRateLimit,
-  getClientIdentifier,
-  getRateLimitHeaders,
-  getRateLimitTier,
-  shutdownRateLimiter,
-} from './validation/rate-limiter'
-import { shutdownNonceStore } from './validation/nonce-store'
+import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
 import { bountiesRoutes } from './routes/bounties'
 import { ciRoutes } from './routes/ci'
@@ -38,6 +30,14 @@ import { packagesRoutes } from './routes/packages'
 import { projectsRoutes } from './routes/projects'
 import { pullsRoutes } from './routes/pulls'
 import { repoSettingsRoutes } from './routes/repo-settings'
+import { shutdownNonceStore } from './validation/nonce-store'
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  getRateLimitHeaders,
+  getRateLimitTier,
+  shutdownRateLimiter,
+} from './validation/rate-limiter'
 
 const config = getFactoryConfig()
 // When running with frontend dev server, API uses port + 1 (frontend proxies to us)
@@ -79,7 +79,10 @@ function createApp() {
     .onRequest(({ request, set }): Response | undefined => {
       const url = new URL(request.url)
       // Skip rate limiting for health and docs
-      if (url.pathname === '/api/health' || url.pathname.startsWith('/swagger')) {
+      if (
+        url.pathname === '/api/health' ||
+        url.pathname.startsWith('/swagger')
+      ) {
         return undefined
       }
       const headers: Record<string, string | undefined> = {}
@@ -101,7 +104,13 @@ function createApp() {
             message: `Rate limit exceeded. Retry after ${result.retryAfter}s`,
             retryAfter: result.retryAfter,
           }),
-          { status: 429, headers: { 'Content-Type': 'application/json', ...rateLimitHeaders } },
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              ...rateLimitHeaders,
+            },
+          },
         )
       }
       return undefined

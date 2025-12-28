@@ -25,7 +25,7 @@ import {
   ProvenanceResponseSchema,
   WrappedNFTInfoResponseSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 export type NFTAssetType = 'ERC721' | 'ERC1155'
 
 export interface NFTInfo {
@@ -387,7 +387,7 @@ const CHAIN_DOMAINS: Record<SupportedChain, number> = {
 const NFT_TRANSFER_ORDER_TYPE = keccak256(toHex('NFTTransfer'))
 
 export function createNFTModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): NFTModule {
   const services = getServicesConfig(network)
