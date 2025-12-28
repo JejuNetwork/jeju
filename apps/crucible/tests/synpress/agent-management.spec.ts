@@ -1,10 +1,3 @@
-/**
- * Agent Management Tests
- *
- * Tests agent registration, funding, state management, and basic UI functionality.
- * Includes smoke tests to verify the UI loads correctly.
- */
-
 import { basicSetup } from '@jejunetwork/tests'
 // Must import zod-compat before synpress for Zod 4 compatibility
 import '@jejunetwork/tests/zod-compat'

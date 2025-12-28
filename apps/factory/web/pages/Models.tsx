@@ -1,9 +1,3 @@
-/**
- * Models Page
- *
- * Browse and filter AI models with responsive design.
- */
-
 import { clsx } from 'clsx'
 import { Brain, Download, Play, Plus, Shield } from 'lucide-react'
 import { useMemo, useState } from 'react'

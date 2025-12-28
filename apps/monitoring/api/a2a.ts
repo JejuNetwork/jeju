@@ -1,5 +1,3 @@
-/** A2A server exposing Prometheus metrics via the A2A protocol. */
-
 import { cors } from '@elysiajs/cors'
 import { getNetworkName } from '@jejunetwork/config'
 import { isRecord } from '@jejunetwork/types'

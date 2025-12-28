@@ -2,7 +2,7 @@
  * Tests for Free Tier Management System
  */
 
-import { describe, test, expect, beforeEach, mock } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { Address } from 'viem'
 
 // Mock EQLite before importing
@@ -80,33 +80,39 @@ describe('Free Tier Service', () => {
       expect(status.tier).toBe('free')
       expect(status.limits).toEqual(TIER_LIMITS.free)
       expect(status.usage.cpuHoursUsed).toBe(0)
-      expect(status.sponsoredGasRemaining).toBe(TIER_LIMITS.free.sponsoredGasLimitWei)
+      expect(status.sponsoredGasRemaining).toBe(
+        TIER_LIMITS.free.sponsoredGasLimitWei,
+      )
     })
 
     test('returns existing user status', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          tier: 'hobby',
-          is_verified: 1,
-          linked_identity_type: 'github',
-          linked_identity_verified_at: now,
-          quota_reset_at: now + 86400000,
-          sponsored_gas_used: '0',
-          created_at: now - 86400000,
-          updated_at: now,
-        }],
+        rows: [
+          {
+            tier: 'hobby',
+            is_verified: 1,
+            linked_identity_type: 'github',
+            linked_identity_verified_at: now,
+            quota_reset_at: now + 86400000,
+            sponsored_gas_used: '0',
+            created_at: now - 86400000,
+            updated_at: now,
+          },
+        ],
       })
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          cpu_hours_used: 50,
-          function_invocations: 10000,
-          storage_gb_used: 2.5,
-          bandwidth_gb_used: 25,
-          cache_memory_used: 128,
-          deployment_count: 5,
-          last_updated: now,
-        }],
+        rows: [
+          {
+            cpu_hours_used: 50,
+            function_invocations: 10000,
+            storage_gb_used: 2.5,
+            bandwidth_gb_used: 25,
+            cache_memory_used: 128,
+            deployment_count: 5,
+            last_updated: now,
+          },
+        ],
       })
 
       const status = await service.getUserStatus(testAddress)
@@ -133,27 +139,31 @@ describe('Free Tier Service', () => {
     test('denies usage exceeding limits', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          tier: 'free',
-          is_verified: 0,
-          linked_identity_type: null,
-          linked_identity_verified_at: null,
-          quota_reset_at: now + 86400000,
-          sponsored_gas_used: '0',
-          created_at: now - 86400000,
-          updated_at: now,
-        }],
+        rows: [
+          {
+            tier: 'free',
+            is_verified: 0,
+            linked_identity_type: null,
+            linked_identity_verified_at: null,
+            quota_reset_at: now + 86400000,
+            sponsored_gas_used: '0',
+            created_at: now - 86400000,
+            updated_at: now,
+          },
+        ],
       })
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          cpu_hours_used: 95,
-          function_invocations: 0,
-          storage_gb_used: 0,
-          bandwidth_gb_used: 0,
-          cache_memory_used: 0,
-          deployment_count: 0,
-          last_updated: now,
-        }],
+        rows: [
+          {
+            cpu_hours_used: 95,
+            function_invocations: 0,
+            storage_gb_used: 0,
+            bandwidth_gb_used: 0,
+            cache_memory_used: 0,
+            deployment_count: 0,
+            last_updated: now,
+          },
+        ],
       })
 
       const result = await service.checkQuota(testAddress, 'cpu_hours', 10)
@@ -166,27 +176,31 @@ describe('Free Tier Service', () => {
     test('unlimited tier always allows', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          tier: 'enterprise',
-          is_verified: 1,
-          linked_identity_type: null,
-          linked_identity_verified_at: null,
-          quota_reset_at: now + 86400000,
-          sponsored_gas_used: '0',
-          created_at: now - 86400000,
-          updated_at: now,
-        }],
+        rows: [
+          {
+            tier: 'enterprise',
+            is_verified: 1,
+            linked_identity_type: null,
+            linked_identity_verified_at: null,
+            quota_reset_at: now + 86400000,
+            sponsored_gas_used: '0',
+            created_at: now - 86400000,
+            updated_at: now,
+          },
+        ],
       })
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          cpu_hours_used: 100000,
-          function_invocations: 0,
-          storage_gb_used: 0,
-          bandwidth_gb_used: 0,
-          cache_memory_used: 0,
-          deployment_count: 0,
-          last_updated: now,
-        }],
+        rows: [
+          {
+            cpu_hours_used: 100000,
+            function_invocations: 0,
+            storage_gb_used: 0,
+            bandwidth_gb_used: 0,
+            cache_memory_used: 0,
+            deployment_count: 0,
+            last_updated: now,
+          },
+        ],
       })
 
       const result = await service.checkQuota(testAddress, 'cpu_hours', 50000)
@@ -221,7 +235,7 @@ describe('Free Tier Service', () => {
         testAddress,
         '0xabc',
         1000000n,
-        1000000n
+        1000000n,
       )
 
       expect(result.allowed).toBe(true)
@@ -230,16 +244,18 @@ describe('Free Tier Service', () => {
     test('denies sponsored gas exceeding limits', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          tier: 'free',
-          is_verified: 0,
-          linked_identity_type: null,
-          linked_identity_verified_at: null,
-          quota_reset_at: now + 86400000,
-          sponsored_gas_used: '9900000000000000', // 0.0099 ETH
-          created_at: now - 86400000,
-          updated_at: now,
-        }],
+        rows: [
+          {
+            tier: 'free',
+            is_verified: 0,
+            linked_identity_type: null,
+            linked_identity_verified_at: null,
+            quota_reset_at: now + 86400000,
+            sponsored_gas_used: '9900000000000000', // 0.0099 ETH
+            created_at: now - 86400000,
+            updated_at: now,
+          },
+        ],
       })
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
@@ -247,7 +263,7 @@ describe('Free Tier Service', () => {
         testAddress,
         '0xabc',
         200000000000000n, // 0.0002 ETH
-        200000000000000n
+        200000000000000n,
       )
 
       expect(result.allowed).toBe(false)
@@ -280,7 +296,7 @@ describe('checkQuotaMiddleware', () => {
     const result = await checkQuotaMiddleware(
       '0x1234567890123456789012345678901234567890' as Address,
       'cpu_hours',
-      10
+      10,
     )
 
     expect(result.ok).toBe(true)
@@ -292,7 +308,7 @@ describe('recordUsageMiddleware', () => {
     await recordUsageMiddleware(
       '0x1234567890123456789012345678901234567890' as Address,
       'cpu_hours',
-      10
+      10,
     )
 
     expect(mockExec).toHaveBeenCalled()

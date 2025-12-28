@@ -1,16 +1,3 @@
-/**
- * Wallet KMS-Backed Signing Service
- *
- * This module provides wallet-specific KMS signing operations.
- * For general KMS signing, use @jejunetwork/kms directly.
- *
- * Wallet-specific features:
- * - Key registration/management per user
- * - Typed data signing (EIP-712)
- * - Personal message signing (EIP-191)
- * - Transaction hash signing
- */
-
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 

@@ -1,10 +1,3 @@
-/**
- * Blue Team Character
- *
- * Defensive agent for protecting systems, validating arguments,
- * and maintaining security posture.
- */
-
 import type { AgentCharacter } from '../../lib/types'
 
 export const blueTeamCharacter: AgentCharacter = {

@@ -13,7 +13,6 @@ import {
   encodeFunctionData,
   type Hex,
   http,
-  keccak256,
   type PublicClient,
 } from 'viem'
 import { optimism } from 'viem/chains'

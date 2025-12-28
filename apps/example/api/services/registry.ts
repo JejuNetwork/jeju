@@ -190,7 +190,7 @@ class RegistryServiceImpl implements RegistryService {
     const network = getCurrentNetwork()
     const host = getLocalhostHost()
     const teeAgentUrl =
-      process.env.OAUTH3_TEE_AGENT_URL || 
+      process.env.OAUTH3_TEE_AGENT_URL ||
       (network === 'localnet' ? `http://${host}:8004` : getOAuth3Url(network))
     const mockAttestation: TEEAttestation = {
       quote: MOCK_HEX_ZERO,

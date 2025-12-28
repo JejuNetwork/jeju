@@ -1,9 +1,3 @@
-/**
- * Layout Component
- *
- * Main layout wrapper with responsive sidebar and proper accessibility.
- */
-
 import type { ReactNode } from 'react'
 import { MobileNav } from './MobileNav'
 import { Navigation } from './Navigation'

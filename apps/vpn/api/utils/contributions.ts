@@ -1,5 +1,3 @@
-/** Contribution calculation utilities */
-
 import { expectTrue } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import type { ContributionState } from '../schemas'

@@ -1,18 +1,5 @@
-/**
- * Free Tier Management System
- *
- * Implements Vercel-like free tier with:
- * - Resource limits per user/project
- * - Usage tracking and enforcement
- * - Graduated upgrade prompts
- * - Sponsored gas via ERC-4337 paymaster
- * - Abuse prevention via rate limiting
- */
-
-import { getEQLite, type EQLiteClient } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address } from 'viem'
-
-// ============ Types ============
 
 export type TierType = 'free' | 'hobby' | 'pro' | 'enterprise'
 
@@ -290,7 +277,7 @@ export class FreeTierService {
     }>(
       'SELECT * FROM user_tiers WHERE address = ?',
       [address.toLowerCase()],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     // Get usage metrics
@@ -305,7 +292,7 @@ export class FreeTierService {
     }>(
       'SELECT * FROM usage_metrics WHERE address = ?',
       [address.toLowerCase()],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     const now = Date.now()
@@ -417,7 +404,7 @@ export class FreeTierService {
       | 'bandwidth_gb'
       | 'deployments'
       | 'cache_memory',
-    requestedAmount: number = 1
+    requestedAmount: number = 1,
   ): Promise<QuotaCheckResult> {
     const status = await this.getUserStatus(address)
 
@@ -497,7 +484,7 @@ export class FreeTierService {
       | 'deployments'
       | 'cache_memory',
     amount: number,
-    metadata?: Record<string, string>
+    metadata?: Record<string, string>,
   ): Promise<void> {
     const client = await getEQLiteClient()
     const now = Date.now()
@@ -515,7 +502,7 @@ export class FreeTierService {
         metadata ? JSON.stringify(metadata) : null,
         now,
       ],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     // Update aggregated metrics
@@ -537,7 +524,7 @@ export class FreeTierService {
          ${column} = usage_metrics.${column} + ?,
          last_updated = ?`,
       [address.toLowerCase(), amount, now, amount, now],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
   }
 
@@ -548,7 +535,7 @@ export class FreeTierService {
     address: Address,
     txHash: string,
     gasAmount: bigint,
-    sponsoredAmount: bigint
+    sponsoredAmount: bigint,
   ): Promise<{
     allowed: boolean
     remaining: bigint
@@ -588,7 +575,7 @@ export class FreeTierService {
         sponsoredAmount.toString(),
         now,
       ],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     // Update user's sponsored gas used
@@ -596,7 +583,7 @@ export class FreeTierService {
     await client.exec(
       `UPDATE user_tiers SET sponsored_gas_used = ?, updated_at = ? WHERE address = ?`,
       [newTotal.toString(), now, address.toLowerCase()],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     return {
@@ -610,7 +597,7 @@ export class FreeTierService {
    */
   async canSponsorGas(
     address: Address,
-    estimatedGas: bigint
+    estimatedGas: bigint,
   ): Promise<{
     canSponsor: boolean
     remaining: bigint
@@ -646,7 +633,7 @@ export class FreeTierService {
   async upgradeTier(
     address: Address,
     newTier: TierType,
-    paymentTxHash?: string
+    paymentTxHash?: string,
   ): Promise<void> {
     const client = await getEQLiteClient()
     const now = Date.now()
@@ -656,7 +643,7 @@ export class FreeTierService {
        SET tier = ?, updated_at = ?
        WHERE address = ?`,
       [newTier, now, address.toLowerCase()],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     // Log upgrade event
@@ -670,7 +657,7 @@ export class FreeTierService {
         JSON.stringify({ newTier, paymentTxHash }),
         now,
       ],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     console.log(`[FreeTier] Upgraded ${address} to ${newTier}`)
@@ -681,7 +668,7 @@ export class FreeTierService {
    */
   async verifyIdentity(
     address: Address,
-    identityType: 'github' | 'google' | 'email'
+    identityType: 'github' | 'google' | 'email',
   ): Promise<void> {
     const client = await getEQLiteClient()
     const now = Date.now()
@@ -694,7 +681,7 @@ export class FreeTierService {
            updated_at = ?
        WHERE address = ?`,
       [identityType, now, now, address.toLowerCase()],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     console.log(`[FreeTier] Verified ${address} via ${identityType}`)
@@ -705,7 +692,7 @@ export class FreeTierService {
    */
   async getUsageReport(
     address: Address,
-    daysBack: number = 30
+    daysBack: number = 30,
   ): Promise<{
     daily: Array<{
       date: string
@@ -733,7 +720,7 @@ export class FreeTierService {
        WHERE address = ? AND created_at >= ?
        ORDER BY created_at ASC`,
       [address.toLowerCase(), startTime],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     // Aggregate by day
@@ -809,14 +796,14 @@ export class FreeTierService {
       `INSERT INTO user_tiers (address, tier, quota_reset_at, sponsored_gas_used, created_at, updated_at)
        VALUES (?, 'free', ?, '0', ?, ?)`,
       [address.toLowerCase(), this.getNextMonthStart(), now, now],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     await client.exec(
       `INSERT INTO usage_metrics (address, last_updated)
        VALUES (?, ?)`,
       [address.toLowerCase(), now],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
   }
 
@@ -834,7 +821,7 @@ export class FreeTierService {
            last_updated = ?
        WHERE address = ?`,
       [now, address.toLowerCase()],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     // Reset sponsored gas
@@ -845,7 +832,7 @@ export class FreeTierService {
            updated_at = ?
        WHERE address = ?`,
       [this.getNextMonthStart(), now, address.toLowerCase()],
-      FREE_TIER_DATABASE_ID
+      FREE_TIER_DATABASE_ID,
     )
 
     console.log(`[FreeTier] Reset monthly usage for ${address}`)
@@ -895,7 +882,7 @@ export async function checkQuotaMiddleware(
     | 'bandwidth_gb'
     | 'deployments'
     | 'cache_memory',
-  amount: number = 1
+  amount: number = 1,
 ): Promise<
   | { ok: true }
   | {
@@ -945,7 +932,7 @@ export async function recordUsageMiddleware(
     | 'deployments'
     | 'cache_memory',
   amount: number,
-  metadata?: Record<string, string>
+  metadata?: Record<string, string>,
 ): Promise<void> {
   const service = getFreeTierService()
   await service.recordUsage(address, resource, amount, metadata)

@@ -1,8 +1,3 @@
-/**
- * Launchpad Service - Token Creation & Bonding Curves
- * Launch tokens, buy/sell on bonding curves, ICO presales
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,

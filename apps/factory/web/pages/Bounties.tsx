@@ -1,9 +1,3 @@
-/**
- * Bounties Page
- *
- * Browse and filter bounties with responsive design.
- */
-
 import { clsx } from 'clsx'
 import { Clock, DollarSign, Plus, Tag, Users } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'

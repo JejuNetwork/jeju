@@ -1,7 +1,3 @@
-/**
- * Cross-platform Storage Adapter
- */
-
 import { expectJson } from '@jejunetwork/types'
 import type { z } from 'zod'
 import { getPlatformInfo } from './detection'

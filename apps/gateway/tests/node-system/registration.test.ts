@@ -24,27 +24,19 @@ const JEJU_TOKEN = (getContract('tokens', 'jeju', 'localnet') ||
 
 describe('Node Registration - On-Chain Validation', () => {
   test('should validate node registration requirements', () => {
-    // Validate registration logic requirements
-    console.log('✅ Node Registration Requirements:')
-    console.log('   - Staking token must be registered')
-    console.log('   - Reward token must be registered')
-    console.log('   - Both tokens must have paymasters')
-    console.log('   - Stake must meet $1000 USD minimum')
-    console.log('   - Operator must have < 5 nodes')
-    console.log('   - Operator ownership < network limit')
-
     // Validate contract addresses are configured
     const hasNodeManager =
       NODE_STAKING_MANAGER !== '0x0000000000000000000000000000000000000000'
     const hasJeju = JEJU_TOKEN !== '0x0000000000000000000000000000000000000000'
 
-    console.log(
-      `   Contract configured: ${hasNodeManager ? '✅' : 'ℹ️  needs .env'}`,
-    )
-    console.log(`   Token configured: ${hasJeju ? '✅' : 'ℹ️  needs .env'}`)
+    console.log('Node Registration Requirements:')
+    console.log(`   Contract configured: ${hasNodeManager ? 'OK' : 'needs .env'}`)
+    console.log(`   Token configured: ${hasJeju ? 'OK' : 'needs .env'}`)
 
-    // Test passes - validates requirements
-    expect(true).toBe(true)
+    // Validate that contract addresses are either properly configured or explicitly zero
+    // This ensures config is loading correctly
+    expect(NODE_STAKING_MANAGER).toMatch(/^0x[a-fA-F0-9]{40}$/)
+    expect(JEJU_TOKEN).toMatch(/^0x[a-fA-F0-9]{40}$/)
   })
 
   test('should validate minimum stake requirement', async () => {

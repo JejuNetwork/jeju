@@ -1,23 +1,6 @@
-/**
- * Compliance and Audit Logging
- *
- * Implements comprehensive audit logging for compliance:
- * - Immutable audit trail
- * - User activity tracking
- * - Resource access logging
- * - Security event logging
- * - Compliance reporting (SOC2, GDPR, etc.)
- * - Log retention and archival
- * - Search and export
- */
-
 import { createHash, createHmac } from 'node:crypto'
 import type { Address } from 'viem'
 import { z } from 'zod'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type AuditCategory =
   | 'auth'

@@ -1,10 +1,3 @@
-/**
- * Autocrat Messaging Service
- *
- * Provides Farcaster feed integration for the Autocrat governance platform.
- * Uses the /autocrat channel for governance proposals, votes, and updates.
- */
-
 import {
   type FarcasterCast,
   FarcasterClient,

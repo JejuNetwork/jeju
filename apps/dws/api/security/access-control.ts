@@ -1,23 +1,6 @@
-/**
- * Fine-Grained Access Control
- *
- * Implements comprehensive access control beyond wallet auth:
- * - Role-Based Access Control (RBAC)
- * - Attribute-Based Access Control (ABAC)
- * - Resource-level permissions
- * - Team/Organization management
- * - API key management
- * - Session management
- * - OAuth2/OIDC integration
- */
-
 import { createHash, randomBytes } from 'node:crypto'
 import type { Address } from 'viem'
 import { z } from 'zod'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type Permission =
   | 'create'

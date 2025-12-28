@@ -1,10 +1,3 @@
-/**
- * Moderator Character
- *
- * Blue team agent that monitors for scams, phishing, and malicious behavior.
- * Uses pattern recognition and the moderation SDK to flag and handle threats.
- */
-
 import type { AgentCharacter } from '../../../lib/types'
 
 export const moderatorCharacter: AgentCharacter = {

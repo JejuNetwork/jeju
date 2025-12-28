@@ -1,8 +1,3 @@
-/**
- * Network Wallet Services
- * Core services using the network infrastructure
- */
-
 export type {
   PaymasterData,
   SmartAccount,
@@ -11,10 +6,8 @@ export type {
 } from './account-abstraction'
 export { AccountAbstractionService, aaService } from './account-abstraction'
 export * from './approval'
-// Seed Phrase Backup
 export { BackupService, backupService } from './backup'
 export type { CollectionInfo, CreateListingParams, Listing } from './bazaar'
-// Bazaar NFT Marketplace
 export {
   AssetType,
   BazaarService,
@@ -22,26 +15,20 @@ export {
   ListingStatus,
 } from './bazaar'
 export type { Contact } from './contacts'
-// Contact Book
 export { ContactsService, contactsService } from './contacts'
 export type { CustomChain, CustomRPC } from './custom-rpc'
-// Custom RPC Management
 export { CustomRPCService, customRPCService } from './custom-rpc'
 export type { CachedAsset, EdgeConfig, EdgeStats } from './edge'
-// Wallet Edge (micro edge node)
 export { getEdgeService, resetEdgeService, WalletEdgeService } from './edge'
 export type {
   HardwareAccount as HWAccount,
   HardwareDevice,
   HardwareWalletType,
 } from './hardware'
-// Hardware Wallets (Ledger, Trezor) - keyrings are lazy-loaded
 export { HardwareWalletService, hardwareWalletService } from './hardware'
-// For Ledger/Trezor-specific types, import from ./hardware/ledger or ./hardware/trezor
 export type { LedgerAccount, LedgerKeyring } from './hardware/ledger'
 export type { TrezorAccount, TrezorKeyring } from './hardware/trezor'
 export * from './history'
-// Network infrastructure (indexer, bundler, graphql)
 export * as jeju from './jeju'
 export type {
   JNSName,
@@ -50,7 +37,6 @@ export type {
   JNSResolution,
   JNSResolverSettings,
 } from './jns'
-// JNS Name Service
 export { JNSResolver, JNSService, jnsResolver, jnsService } from './jns'
 export type {
   Account,
@@ -61,7 +47,6 @@ export type {
   SmartWalletAccount,
   WatchAccount,
 } from './keyring'
-// Keyring Service (explicit names to avoid conflicts with Account type above)
 export { KeyringService, keyringService } from './keyring'
 export type {
   BondingCurveInfo,
@@ -70,12 +55,9 @@ export type {
   LaunchICOParams,
   PresaleInfo,
 } from './launchpad'
-// Token Launchpad
 export { LaunchpadService, LaunchType, launchpadService } from './launchpad'
 export type { LockType } from './lock'
-// Wallet Lock & Security
 export { LockService, lockService } from './lock'
-// Unified Messaging (Farcaster + XMTP)
 export type {
   Conversation,
   FarcasterAccount,
@@ -93,7 +75,6 @@ export type {
   PerpMarket,
   PerpPosition,
 } from './perps'
-// Perpetual Futures Trading
 export {
   MARKET_IDS,
   MarginType,
@@ -108,9 +89,7 @@ export type {
   V2Position,
   V3Position,
 } from './pools'
-// Liquidity Pools (XLP V2/V3)
 export { PoolsService, poolsService } from './pools'
-// Core services
 export * from './rpc'
 export type {
   SafeConfirmation,
@@ -118,7 +97,6 @@ export type {
   SafeTransaction,
   SafeTransactionData,
 } from './safe'
-// Gnosis Safe / Multisig
 export { SafeService, safeService } from './safe'
 export * from './security'
 export type {
@@ -128,7 +106,6 @@ export type {
   TokenChange,
   TransactionToSimulate,
 } from './simulation'
-// Transaction Simulation
 export { SimulationService, simulationService } from './simulation'
 export * from './swap'
 export type {
@@ -137,5 +114,4 @@ export type {
   UpdateListener,
   UpdateState,
 } from './updater'
-// Auto-Updater
 export { getUpdateService, resetUpdateService, UpdateService } from './updater'

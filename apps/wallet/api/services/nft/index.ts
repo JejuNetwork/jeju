@@ -1,8 +1,3 @@
-/**
- * NFT Service
- * Uses network indexer for NFT data
- */
-
 import type { Address, Hex } from 'viem'
 import * as jeju from '../jeju'
 import type { SupportedChainId } from '../rpc'

@@ -1,8 +1,3 @@
-/**
- * Bot Initializer
- * Sets up and manages trading bots for the Crucible
- */
-
 import type { Address, Hex, PublicClient } from 'viem'
 import { encodeFunctionData, parseAbi, parseEther } from 'viem'
 import type { CrucibleConfig } from '../../lib/types'

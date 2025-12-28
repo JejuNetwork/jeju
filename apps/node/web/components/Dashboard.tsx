@@ -2,7 +2,6 @@ import { formatDuration, formatUsd } from '@jejunetwork/shared'
 import { motion } from 'framer-motion'
 import {
   Activity,
-  ArrowUpRight,
   Bot,
   Clock,
   Cpu,
@@ -43,7 +42,6 @@ export function Dashboard() {
     {
       label: "Today's Earnings",
       value: isLoading ? null : formatUsd(earnings?.earnings_today_usd ?? 0),
-      change: '+12%',
       icon: <DollarSign size={20} />,
       color: 'text-jeju-400',
       bgColor: 'bg-jeju-500/10',
@@ -122,13 +120,7 @@ export function Dashboard() {
                     <span className="inline-block w-20 h-8 bg-volcanic-700 rounded-lg animate-pulse" />
                   )}
                 </p>
-                {stat.change && (
-                  <p className="text-sm text-jeju-400 mt-2 flex items-center gap-1">
-                    <ArrowUpRight size={14} />
-                    {stat.change} this week
-                  </p>
-                )}
-                {stat.subtitle && !stat.change && (
+                {stat.subtitle && (
                   <p className="text-xs text-volcanic-500 mt-2">
                     {stat.subtitle}
                   </p>

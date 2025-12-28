@@ -1,16 +1,8 @@
-/**
- * Bootstrap utilities for Bazaar development environment
- *
- * Consolidated from bootstrap-perps.ts and bootstrap-prediction-markets.ts
- * Used by seed.ts to deploy contracts and create test data
- */
-
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isLocalnet } from '@jejunetwork/config'
+import { isLocalnet } from '@jejunetwork/config/ports'
 
-// Anvil default key - ONLY for local development
 const ANVIL_DEFAULT_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 

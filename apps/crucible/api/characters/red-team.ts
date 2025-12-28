@@ -1,10 +1,3 @@
-/**
- * Red Team Character
- *
- * Adversarial agent for security testing, stress testing,
- * and finding vulnerabilities in systems and arguments.
- */
-
 import type { AgentCharacter } from '../../lib/types'
 
 export const redTeamCharacter: AgentCharacter = {

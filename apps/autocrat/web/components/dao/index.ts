@@ -1,7 +1,3 @@
-/**
- * DAO Component Exports
- */
-
 export { AgentDetailModal } from './AgentDetailModal'
 export { AgentsTab } from './AgentsTab'
 export { GovernanceTab } from './GovernanceTab'

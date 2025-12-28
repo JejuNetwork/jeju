@@ -4,7 +4,6 @@
  */
 
 import {
-  getContract,
   getCurrentNetwork,
   getDWSUrl,
   getLocalhostHost,

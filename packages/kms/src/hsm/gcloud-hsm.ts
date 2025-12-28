@@ -60,7 +60,6 @@ interface GCloudCryptoKeyVersion {
  * Google Cloud HSM Provider
  */
 export class GCloudHSMProvider implements HSMProvider {
-  private config: HSMConfig
   private projectId: string
   private location: string
   private keyRing: string
@@ -100,7 +99,9 @@ export class GCloudHSMProvider implements HSMProvider {
       })
     } catch (error) {
       log.error('GCloud HSM connection failed', { error })
-      throw new Error(`GCloud HSM connection failed: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(
+        `GCloud HSM connection failed: ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   }
 
@@ -171,7 +172,7 @@ export class GCloudHSMProvider implements HSMProvider {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -182,16 +183,17 @@ export class GCloudHSMProvider implements HSMProvider {
       throw new Error(`Failed to create key: ${error}`)
     }
 
-    const keyData = await response.json() as GCloudCryptoKey
+    const keyData = (await response.json()) as GCloudCryptoKey
 
     const ref: HSMKeyRef = {
       keyId,
       label,
       type,
       extractable,
-      usage: type === 'aes-256'
-        ? ['encrypt', 'decrypt', 'derive']
-        : ['sign', 'verify'],
+      usage:
+        type === 'aes-256'
+          ? ['encrypt', 'decrypt', 'derive']
+          : ['sign', 'verify'],
       createdAt: new Date(keyData.createTime).getTime(),
     }
 
@@ -215,7 +217,7 @@ export class GCloudHSMProvider implements HSMProvider {
       const keyPath = `${this.getKeyRingPath()}/cryptoKeys/${keyId}`
       const response = await fetch(`${KMS_API_BASE}/${keyPath}`, {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
       })
 
@@ -226,7 +228,7 @@ export class GCloudHSMProvider implements HSMProvider {
         throw new Error(`Failed to get key: ${await response.text()}`)
       }
 
-      const keyData = await response.json() as GCloudCryptoKey
+      const keyData = (await response.json()) as GCloudCryptoKey
       const labels = keyData.labels ?? {}
 
       const ref: HSMKeyRef = {
@@ -262,7 +264,7 @@ export class GCloudHSMProvider implements HSMProvider {
 
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
       })
 
@@ -270,7 +272,7 @@ export class GCloudHSMProvider implements HSMProvider {
         throw new Error(`Failed to list keys: ${await response.text()}`)
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         cryptoKeys?: GCloudCryptoKey[]
         nextPageToken?: string
       }
@@ -308,9 +310,9 @@ export class GCloudHSMProvider implements HSMProvider {
       `${KMS_API_BASE}/${keyPath}/cryptoKeyVersions`,
       {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
-      }
+      },
     )
 
     if (!versionsResponse.ok) {
@@ -318,10 +320,12 @@ export class GCloudHSMProvider implements HSMProvider {
         this.keyCache.delete(keyId)
         return
       }
-      throw new Error(`Failed to list key versions: ${await versionsResponse.text()}`)
+      throw new Error(
+        `Failed to list key versions: ${await versionsResponse.text()}`,
+      )
     }
 
-    const versionsData = await versionsResponse.json() as {
+    const versionsData = (await versionsResponse.json()) as {
       cryptoKeyVersions?: GCloudCryptoKeyVersion[]
     }
 
@@ -330,7 +334,7 @@ export class GCloudHSMProvider implements HSMProvider {
         await fetch(`${KMS_API_BASE}/${version.name}:destroy`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${this.accessToken}`,
           },
         })
       }
@@ -340,7 +344,10 @@ export class GCloudHSMProvider implements HSMProvider {
     log.info('GCloud HSM key scheduled for destruction', { keyId })
   }
 
-  async encrypt(keyId: string, plaintext: Uint8Array): Promise<HSMEncryptResult> {
+  async encrypt(
+    keyId: string,
+    plaintext: Uint8Array,
+  ): Promise<HSMEncryptResult> {
     this.ensureConnected()
     await this.ensureValidToken()
 
@@ -350,7 +357,7 @@ export class GCloudHSMProvider implements HSMProvider {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -362,7 +369,7 @@ export class GCloudHSMProvider implements HSMProvider {
       throw new Error(`Encryption failed: ${await response.text()}`)
     }
 
-    const result = await response.json() as { ciphertext: string }
+    const result = (await response.json()) as { ciphertext: string }
 
     // GCloud symmetric encryption includes the IV in the ciphertext
     // We extract first 12 bytes as IV convention
@@ -394,7 +401,7 @@ export class GCloudHSMProvider implements HSMProvider {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -406,7 +413,7 @@ export class GCloudHSMProvider implements HSMProvider {
       throw new Error(`Decryption failed: ${await response.text()}`)
     }
 
-    const result = await response.json() as { plaintext: string }
+    const result = (await response.json()) as { plaintext: string }
     return this.base64ToArray(result.plaintext)
   }
 
@@ -425,7 +432,7 @@ export class GCloudHSMProvider implements HSMProvider {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -439,7 +446,7 @@ export class GCloudHSMProvider implements HSMProvider {
       throw new Error(`Signing failed: ${await response.text()}`)
     }
 
-    const result = await response.json() as { signature: string }
+    const result = (await response.json()) as { signature: string }
     const signatureBytes = this.base64ToArray(result.signature)
 
     return {
@@ -448,7 +455,11 @@ export class GCloudHSMProvider implements HSMProvider {
     }
   }
 
-  async verify(keyId: string, data: Uint8Array, signature: Hex): Promise<boolean> {
+  async verify(
+    keyId: string,
+    data: Uint8Array,
+    signature: Hex,
+  ): Promise<boolean> {
     this.ensureConnected()
     await this.ensureValidToken()
 
@@ -462,7 +473,7 @@ export class GCloudHSMProvider implements HSMProvider {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -478,7 +489,7 @@ export class GCloudHSMProvider implements HSMProvider {
       return false
     }
 
-    const result = await response.json() as { success: boolean }
+    const result = (await response.json()) as { success: boolean }
     return result.success
   }
 
@@ -517,7 +528,7 @@ export class GCloudHSMProvider implements HSMProvider {
 
       const block = await crypto.subtle.digest(
         'SHA-256',
-        new Uint8Array([...new Uint8Array(hash), ...counterBytes])
+        new Uint8Array([...new Uint8Array(hash), ...counterBytes]),
       )
 
       const blockArray = new Uint8Array(block)
@@ -553,11 +564,11 @@ export class GCloudHSMProvider implements HSMProvider {
           headers: {
             'Metadata-Flavor': 'Google',
           },
-        }
+        },
       )
 
       if (metadataResponse.ok) {
-        const data = await metadataResponse.json() as {
+        const data = (await metadataResponse.json()) as {
           access_token: string
           expires_in: number
         }
@@ -573,7 +584,7 @@ export class GCloudHSMProvider implements HSMProvider {
     const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
     if (!credentialsPath) {
       throw new Error(
-        'GCP credentials required. Set GOOGLE_APPLICATION_CREDENTIALS or run on GCP'
+        'GCP credentials required. Set GOOGLE_APPLICATION_CREDENTIALS or run on GCP',
       )
     }
 
@@ -608,8 +619,12 @@ export class GCloudHSMProvider implements HSMProvider {
       exp: now + 3600,
     }
 
-    const headerB64 = this.arrayToBase64Url(new TextEncoder().encode(JSON.stringify(header)))
-    const payloadB64 = this.arrayToBase64Url(new TextEncoder().encode(JSON.stringify(payload)))
+    const headerB64 = this.arrayToBase64Url(
+      new TextEncoder().encode(JSON.stringify(header)),
+    )
+    const payloadB64 = this.arrayToBase64Url(
+      new TextEncoder().encode(JSON.stringify(payload)),
+    )
     const toSign = `${headerB64}.${payloadB64}`
 
     // Sign with service account private key
@@ -623,13 +638,13 @@ export class GCloudHSMProvider implements HSMProvider {
       this.base64ToArray(keyData),
       { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       false,
-      ['sign']
+      ['sign'],
     )
 
     const signature = await crypto.subtle.sign(
       'RSASSA-PKCS1-v1_5',
       key,
-      new TextEncoder().encode(toSign)
+      new TextEncoder().encode(toSign),
     )
 
     const signatureB64 = this.arrayToBase64Url(new Uint8Array(signature))
@@ -651,7 +666,10 @@ export class GCloudHSMProvider implements HSMProvider {
       throw new Error(`Token exchange failed: ${await response.text()}`)
     }
 
-    return response.json() as Promise<{ access_token: string; expires_in: number }>
+    return response.json() as Promise<{
+      access_token: string
+      expires_in: number
+    }>
   }
 
   private async ensureValidToken(): Promise<void> {
@@ -666,7 +684,7 @@ export class GCloudHSMProvider implements HSMProvider {
     // Check if key ring exists
     const checkResponse = await fetch(`${KMS_API_BASE}/${keyRingPath}`, {
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.accessToken}`,
       },
     })
 
@@ -685,15 +703,17 @@ export class GCloudHSMProvider implements HSMProvider {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: '{}',
-      }
+      },
     )
 
     if (!createResponse.ok) {
-      throw new Error(`Failed to create key ring: ${await createResponse.text()}`)
+      throw new Error(
+        `Failed to create key ring: ${await createResponse.text()}`,
+      )
     }
 
     log.info('Created GCloud KMS key ring', { keyRing: this.keyRing })

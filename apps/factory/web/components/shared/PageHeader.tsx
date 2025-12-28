@@ -1,10 +1,3 @@
-/**
- * PageHeader Component
- *
- * Consistent page header with title, description, icon, and action button.
- * Includes proper a11y landmarks and responsive design.
- */
-
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 

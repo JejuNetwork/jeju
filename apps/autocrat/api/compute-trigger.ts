@@ -1,7 +1,3 @@
-/**
- * Autocrat Compute Trigger Integration
- */
-
 import { getAutocratUrl, getDWSComputeUrl } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'

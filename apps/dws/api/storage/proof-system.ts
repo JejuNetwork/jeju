@@ -13,13 +13,12 @@
  * reconstructed or held in memory.
  */
 
+import { createHash, randomBytes } from 'node:crypto'
 import {
   getCurrentNetwork,
-  getLocalhostHost,
   getRpcUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { createHash, randomBytes } from 'node:crypto'
 import type { Address } from 'viem'
 import {
   createWalletClient,

@@ -1,32 +1,8 @@
-/**
- * DWS Bot Deployment Service
- *
- * Provides permissionless deployment of MEV/arbitrage bots via DWS.
- * Integrates with Crucible's bot definitions and deploys them as DWS workers.
- *
- * Architecture:
- * - Bots are deployed as containers via DWS container executor
- * - Each bot gets isolated execution environment
- * - Bot code is fetched from IPFS/container registry
- * - Jeju treasury pays for compute, profits from x402 payments
- *
- * Bot Types:
- * - DEX Arbitrage: Cross-pool arbitrage
- * - Sandwich: MEV extraction (mempool monitoring)
- * - Liquidation: Protocol liquidations
- * - Oracle Keeper: Chainlink/price oracle updates
- * - Cross-chain Arbitrage: Bridge arbitrage
- */
-
 import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 import { getExternalRPCNodeService } from '../external-chains'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export const BotTypeSchema = z.enum([
   'DEX_ARBITRAGE',

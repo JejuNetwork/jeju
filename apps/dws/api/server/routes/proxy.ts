@@ -143,7 +143,9 @@ function getProxyTargets(): ProxyTarget[] {
     },
     {
       name: 'gateway',
-      upstream: proxyConfig.gatewayUrl ?? `http://${localhostHost}:${CORE_PORTS.GATEWAY.get()}`,
+      upstream:
+        proxyConfig.gatewayUrl ??
+        `http://${localhostHost}:${CORE_PORTS.GATEWAY.get()}`,
       pathPrefix: '/gateway',
       stripPrefix: true,
       healthPath: '/health',

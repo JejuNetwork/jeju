@@ -16,7 +16,6 @@ export default function RegistryTab() {
   )
   const [selectedAppId, setSelectedAppId] = useState<bigint | null>(null)
 
-  // Listen for navigation events from other components (e.g., FaucetTab)
   useEffect(() => {
     const handleNavigateToRegister = () => setActiveSection('register')
     window.addEventListener('navigate-to-register', handleNavigateToRegister)

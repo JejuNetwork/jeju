@@ -41,7 +41,6 @@ function App() {
     }
   }, [vpnStatus.status, disconnect, connect, selectedNode])
 
-  // Sync tray state with VPN status
   useEffect(() => {
     if (!isTauri()) return
 
@@ -58,7 +57,6 @@ function App() {
     })
   }, [isConnected, selectedNode])
 
-  // Listen for tray events
   useEffect(() => {
     if (!isTauri()) return
 
@@ -109,7 +107,6 @@ function App() {
 
   return (
     <div className="h-full flex flex-col bg-surface">
-      {/* Header */}
       <header className="flex items-center justify-between px-5 py-4 border-b border-border safe-area-top">
         <div className="flex items-center gap-3">
           <div
@@ -128,7 +125,6 @@ function App() {
         {getStatusBadge()}
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         {activeTab === 'vpn' && (
           <div className="p-5 space-y-6">
@@ -149,7 +145,6 @@ function App() {
               <ConnectionStats connection={vpnStatus.connection} />
             )}
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-3 gap-3">
               <div className="card text-center hover:border-accent/20 transition-colors">
                 <Globe className="w-5 h-5 mx-auto mb-2 text-accent" />
@@ -172,7 +167,6 @@ function App() {
               </div>
             </div>
 
-            {/* Community message */}
             {!isConnected && (
               <div className="flex items-center gap-3 p-4 bg-accent/5 border border-accent/20 rounded-xl">
                 <Heart className="w-5 h-5 text-accent flex-shrink-0" />
@@ -188,7 +182,6 @@ function App() {
         {activeTab === 'settings' && <SettingsPanel />}
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="flex items-center justify-around border-t border-border py-2 safe-area-bottom bg-surface">
         <button
           type="button"

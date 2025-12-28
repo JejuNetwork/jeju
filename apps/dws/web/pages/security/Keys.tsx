@@ -250,70 +250,6 @@ export default function KeysPage() {
         )}
       </div>
 
-      <div className="card" style={{ marginTop: '1.5rem' }}>
-        <div className="card-header">
-          <h3 className="card-title">
-            <Shield size={18} /> Security Features
-          </h3>
-        </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          <div
-            style={{
-              padding: '1rem',
-              background: 'var(--bg-tertiary)',
-              borderRadius: 'var(--radius-md)',
-            }}
-          >
-            <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-              TEE Protection
-            </div>
-            <div
-              style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
-            >
-              Key shares are stored in Trusted Execution Environments (Intel
-              SGX, AMD SEV)
-            </div>
-          </div>
-          <div
-            style={{
-              padding: '1rem',
-              background: 'var(--bg-tertiary)',
-              borderRadius: 'var(--radius-md)',
-            }}
-          >
-            <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-              Threshold Signing
-            </div>
-            <div
-              style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
-            >
-              Require M-of-N parties to sign transactions (e.g., 2-of-3, 3-of-5)
-            </div>
-          </div>
-          <div
-            style={{
-              padding: '1rem',
-              background: 'var(--bg-tertiary)',
-              borderRadius: 'var(--radius-md)',
-            }}
-          >
-            <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-              Key Rotation
-            </div>
-            <div
-              style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
-            >
-              Rotate key shares without changing the public key or address
-            </div>
-          </div>
-        </div>
-      </div>
 
       {showModal && (
         <div className="modal-overlay">
@@ -347,26 +283,6 @@ export default function KeysPage() {
             </div>
             <form onSubmit={handleCreate}>
               <div className="modal-body">
-                <div
-                  style={{
-                    padding: '1rem',
-                    background: 'var(--bg-tertiary)',
-                    borderRadius: 'var(--radius-md)',
-                    marginBottom: '1rem',
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: '0.9rem',
-                      color: 'var(--text-secondary)',
-                      margin: 0,
-                    }}
-                  >
-                    Create a threshold signing key where {formData.threshold}{' '}
-                    out of {formData.totalParties} parties must agree to sign a
-                    transaction.
-                  </p>
-                </div>
                 <div
                   style={{
                     display: 'grid',

@@ -28,9 +28,6 @@ export default function MarketplacePage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">API Marketplace</h1>
-        <p className="page-subtitle">
-          Discover and subscribe to decentralized API services
-        </p>
       </div>
 
       <div

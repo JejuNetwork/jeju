@@ -1,13 +1,13 @@
 import { cors } from '@elysiajs/cors'
 import {
-  getContract,
-  getCurrentNetwork,
-  isProductionEnv,
   RPC_CHAINS as CHAINS,
   getRpcChain as getChain,
+  getContract,
+  getCurrentNetwork,
   getRpcMainnetChains as getMainnetChains,
   getRpcTestnetChains as getTestnetChains,
   isRpcChainSupported as isChainSupported,
+  isProductionEnv,
 } from '@jejunetwork/config'
 import {
   expectValid as expect,
@@ -706,33 +706,39 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       })
       .get('/stake', () => {
         const network = getCurrentNetwork()
-        const stakingAddress = getContract('rpc', 'staking', network) || 'Not deployed'
+        const stakingAddress =
+          getContract('rpc', 'staking', network) || 'Not deployed'
         return {
           contract: stakingAddress,
           pricing: 'USD-denominated (dynamic based on JEJU price)',
           tiers: {
-            FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
+            FREE: {
+              minUsd: 0,
+              rateLimit: 10,
+              description: '10 requests/minute',
+            },
             BASIC: {
               minUsd: 10,
               rateLimit: 100,
               description: '100 requests/minute',
+            },
+            PRO: {
+              minUsd: 100,
+              rateLimit: 1000,
+              description: '1,000 requests/minute',
+            },
+            UNLIMITED: {
+              minUsd: 1000,
+              rateLimit: 'unlimited',
+              description: 'Unlimited requests',
+            },
           },
-          PRO: {
-            minUsd: 100,
-            rateLimit: 1000,
-            description: '1,000 requests/minute',
-          },
-          UNLIMITED: {
-            minUsd: 1000,
-            rateLimit: 'unlimited',
-            description: 'Unlimited requests',
-          },
-        },
-        unbondingPeriod: '7 days',
-        reputationDiscount:
-          'Up to 50% effective stake multiplier for high-reputation users',
-        priceOracle: 'Chainlink-compatible, with $0.10 fallback',
-      }))
+          unbondingPeriod: '7 days',
+          reputationDiscount:
+            'Up to 50% effective stake multiplier for high-reputation users',
+          priceOracle: 'Chainlink-compatible, with $0.10 fallback',
+        }
+      })
       .get('/payments', () => {
         const info = getPaymentInfo()
         return {
@@ -747,7 +753,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           description: 'Pay-per-request pricing for RPC access without staking',
         }
       })
-      .get('/payments/credits', async ({ request, set }) => {
+      .get('/payments/credits', async (request, set) => {
         const address = getValidatedAddress(request)
         if (!address) {
           set.status = 401
@@ -760,7 +766,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           creditsFormatted: `${Number(balance) / 1e18} JEJU`,
         }
       })
-      .post('/payments/credits', async ({ body, request, set }) => {
+      .post('/payments/credits', async (body, request, set) => {
         const address = getValidatedAddress(request)
         if (!address) {
           set.status = 401
@@ -783,7 +789,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           message: 'Credits added to your account',
         }
       })
-      .get('/payments/requirement', ({ query, set }) => {
+      .get('/payments/requirement', (query, set) => {
         const validated = validateQuery(
           PaymentRequirementQuerySchema,
           query,
@@ -798,7 +804,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
 
 export type RpcApp = typeof rpcApp
 
-export function startRpcServer(port = 4004, host = '0.0.0.0') {
+export function _startRpcServer(port = 4004, host = '0.0.0.0') {
   console.log(`🌐 RPC Gateway starting on http://${host}:${port}`)
   console.log(`   Supported chains: ${Object.keys(CHAINS).length}`)
   console.log(`   MCP endpoint: http://${host}:${port}/mcp`)

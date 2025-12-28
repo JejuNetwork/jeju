@@ -1,5 +1,3 @@
-/** Shared utility functions for VPN app */
-
 import type { VPNNode } from './schemas'
 
 export function formatBytes(bytes: number): string {

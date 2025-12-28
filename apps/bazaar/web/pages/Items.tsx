@@ -1,7 +1,3 @@
-/**
- * Items/Collectibles Marketplace Page
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { gql, request } from 'graphql-request'
 import { useMemo, useState } from 'react'

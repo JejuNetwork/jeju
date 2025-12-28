@@ -8,7 +8,7 @@
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
-    "start": "bun run start"
+    "start": "bun run serve"
   },
   "ports": {
     "main": 4031,

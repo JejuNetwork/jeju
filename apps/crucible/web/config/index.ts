@@ -1,7 +1,3 @@
-/**
- * Crucible Web Config
- */
-
 import {
   CORE_PORTS,
   getCurrentNetwork,

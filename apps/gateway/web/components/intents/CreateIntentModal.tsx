@@ -85,7 +85,6 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
     isSuccess: isConfirmed,
   } = useTypedWriteContract()
 
-  // Update status when transaction confirms
   useEffect(() => {
     if (isConfirming) setTxStatus('confirming')
     if (isConfirmed) {
@@ -143,7 +142,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
       nonce,
     }
 
-    setTxStatus('pending')
+      setTxStatus('pending')
     try {
       await writeContractAsync({
         address: inputSettlerAddress,
@@ -152,7 +151,6 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
         args: [order],
         value: token === ZERO_ADDRESS ? amountWei : undefined,
       })
-      // Status updates handled by useEffect watching isConfirming/isConfirmed
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Transaction failed')
       setTxStatus('error')

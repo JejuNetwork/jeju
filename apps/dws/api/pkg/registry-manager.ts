@@ -1,8 +1,3 @@
-/**
- * Package Registry Manager (JejuPkg)
- * Manages packages with on-chain registry integration
- */
-
 import { getDWSUrl } from '@jejunetwork/config'
 import { bytesToHex, hash512 } from '@jejunetwork/shared'
 import { expectJson } from '@jejunetwork/types'

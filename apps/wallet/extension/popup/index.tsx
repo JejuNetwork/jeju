@@ -1,12 +1,3 @@
-/**
- * Extension Popup Entry Point
- *
- * Renders the wallet UI in the extension popup window.
- * Uses the same React app as web/mobile with extension-specific adaptations.
- *
- * Fully permissionless - uses Network RPC infrastructure, no external API keys.
- */
-
 import { getRpcGatewayUrl } from '@jejunetwork/config'
 import { expectJson } from '@jejunetwork/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

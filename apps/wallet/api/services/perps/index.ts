@@ -1,8 +1,3 @@
-/**
- * Perps Service - Perpetual Futures Trading
- * Open/close positions, manage margin, view PnL
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import { asTuple } from '@jejunetwork/types'
 import {

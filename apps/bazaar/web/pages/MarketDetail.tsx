@@ -1,30 +1,24 @@
-/**
- * Market Detail Page
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { formatUnits } from 'viem'
-import {
-  fetchPredictionMarkets,
-  type PredictionMarket,
-} from '../../lib/data-client'
+import { toast } from 'sonner'
+import { formatUnits, parseEther, parseAbi } from 'viem'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { PREDICTION_MARKET_ADDRESS } from '../../config'
+import { fetchPredictionMarkets, type PredictionMarket } from '../../lib/data-client'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+
+const PREDICTION_MARKET_ABI = parseAbi([
+  'function buyShares(bytes32 sessionId, bool isYes, uint256 amount) payable',
+])
 
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [selectedOutcome, setSelectedOutcome] = useState<'yes' | 'no' | null>(
-    null,
-  )
+  const { address, isConnected } = useAccount()
+  const [selectedOutcome, setSelectedOutcome] = useState<'yes' | 'no' | null>(null)
   const [amount, setAmount] = useState('')
 
-  // Fetch all markets and find the one matching our ID
-  const {
-    data: market,
-    isLoading,
-    error,
-  } = useQuery<PredictionMarket | undefined>({
+  const { data: market, isLoading, error } = useQuery<PredictionMarket | undefined>({
     queryKey: ['prediction-market', id],
     queryFn: async () => {
       const markets = await fetchPredictionMarkets({ limit: 100 })
@@ -34,6 +28,49 @@ export default function MarketDetailPage() {
     refetchInterval: 15000,
     staleTime: 10000,
   })
+
+  const { writeContract, data: txHash, isPending } = useWriteContract()
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
+
+  if (isSuccess) {
+    toast.success('Shares purchased successfully.')
+  }
+
+  const handleBuy = () => {
+    if (!isConnected || !address) {
+      toast.error('Connect your wallet first')
+      return
+    }
+
+    if (!selectedOutcome) {
+      toast.error('Select an outcome')
+      return
+    }
+
+    const amountNum = parseFloat(amount)
+    if (Number.isNaN(amountNum) || amountNum <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+
+    if (!PREDICTION_MARKET_ADDRESS || PREDICTION_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000') {
+      toast.error('Prediction market not deployed')
+      return
+    }
+
+    writeContract({
+      address: PREDICTION_MARKET_ADDRESS,
+      abi: PREDICTION_MARKET_ABI,
+      functionName: 'buyShares',
+      args: [id as `0x${string}`, selectedOutcome === 'yes', parseEther(amount)],
+      value: parseEther(amount),
+    })
+  }
+
+  const isBuying = isPending || isConfirming
 
   if (isLoading) {
     return (
@@ -200,12 +237,17 @@ export default function MarketDetailPage() {
 
               <button
                 type="button"
-                className="btn-primary w-full py-3"
-                disabled={!selectedOutcome || !amount || Number(amount) <= 0}
+                onClick={handleBuy}
+                className="btn-primary w-full py-3 disabled:opacity-50"
+                disabled={!selectedOutcome || !amount || Number(amount) <= 0 || isBuying || !isConnected}
               >
-                {selectedOutcome
-                  ? `Buy ${selectedOutcome.toUpperCase()} for $${amount || '0'}`
-                  : 'Select an outcome'}
+                {!isConnected
+                  ? 'Connect Wallet'
+                  : isBuying
+                    ? 'Buying...'
+                    : selectedOutcome
+                      ? `Buy ${selectedOutcome.toUpperCase()} for $${amount || '0'}`
+                      : 'Select an outcome'}
               </button>
             </div>
           </>

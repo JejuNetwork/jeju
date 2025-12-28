@@ -1,13 +1,3 @@
-/**
- * Proposal Assistant - AI-powered proposal drafting and improvement
- *
- * Supports both formal proposals and casual submissions:
- * - Opinions, suggestions, applications
- * - Package/repo funding requests
- * - Multi-DAO context awareness
- * - Quality gatekeeping with helpful guidance
- */
-
 import { isProductionEnv } from '@jejunetwork/config'
 import {
   type Address,

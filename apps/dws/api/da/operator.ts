@@ -1,13 +1,3 @@
-/**
- * DA Operator Node
- *
- * Implements DA operator functionality:
- * - Store assigned chunks
- * - Respond to sampling queries
- * - Sign attestations
- * - Integrate with TEE for data integrity
- */
-
 import { isProductionEnv } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'

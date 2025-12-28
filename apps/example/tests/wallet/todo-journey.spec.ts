@@ -41,11 +41,9 @@ async function createTodo(
   await page.locator('#priority-select').selectOption(priority)
   await page.locator('button[type="submit"]').click()
 
-  // Sign the message in MetaMask
   await page.waitForTimeout(500)
   await metamask.confirmSignature()
 
-  // Wait for todo to appear
   await expect(page.getByText(title)).toBeVisible({ timeout: 15000 })
 }
 
@@ -66,10 +64,7 @@ test.describe('Create Todo', () => {
     const todoTitle = `Test Todo ${Date.now()}`
     await createTodo(page, metamask, todoTitle)
 
-    // Verify todo appears in list
     await expect(page.getByText(todoTitle)).toBeVisible()
-
-    // Verify priority badge shows "medium" (default)
     await expect(page.getByText('medium').first()).toBeVisible()
   })
 
@@ -129,7 +124,6 @@ test.describe('Create Todo', () => {
     const todoTitle = `Clear Input Test ${Date.now()}`
     await createTodo(page, metamask, todoTitle)
 
-    // Input should be cleared after submit
     await expect(page.locator('#todo-input')).toHaveValue('')
   })
 })
@@ -151,16 +145,13 @@ test.describe('Toggle Todo Completion', () => {
     const todoTitle = `Toggle Test ${Date.now()}`
     await createTodo(page, metamask, todoTitle)
 
-    // Find the checkbox for this todo
     const todoItem = page.locator('li').filter({ hasText: todoTitle })
     const checkbox = todoItem.locator('input[type="checkbox"]')
 
-    // Click to complete
     await checkbox.click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
 
-    // Verify checkbox is checked after reload
     await page.waitForTimeout(2000)
     await expect(checkbox).toBeChecked()
   })
@@ -184,7 +175,6 @@ test.describe('Toggle Todo Completion', () => {
     const todoItem = page.locator('li').filter({ hasText: todoTitle })
     const checkbox = todoItem.locator('input[type="checkbox"]')
 
-    // Complete then uncomplete
     await checkbox.click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
@@ -213,27 +203,23 @@ test.describe('Filter Todos', () => {
       extensionId,
     )
 
-    // Create two todos
     const pendingTodo = `Pending Filter ${Date.now()}`
     const completedTodo = `Completed Filter ${Date.now()}`
 
     await createTodo(page, metamask, pendingTodo)
     await createTodo(page, metamask, completedTodo)
 
-    // Complete one todo
     const completedItem = page.locator('li').filter({ hasText: completedTodo })
     await completedItem.locator('input[type="checkbox"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
 
-    // Click "Pending" filter
-    await page.getByRole('button', { name: 'Pending' }).click()
+    await page.locator('[data-filter="pending"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
 
-    // Only pending todo should be visible
     await expect(page.getByText(pendingTodo)).toBeVisible()
     await expect(page.getByText(completedTodo)).not.toBeVisible()
   })
@@ -254,20 +240,17 @@ test.describe('Filter Todos', () => {
     const completedTodo = `Completed Only ${Date.now()}`
     await createTodo(page, metamask, completedTodo)
 
-    // Complete the todo
     const todoItem = page.locator('li').filter({ hasText: completedTodo })
     await todoItem.locator('input[type="checkbox"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
 
-    // Click "Completed" filter
-    await page.getByRole('button', { name: 'Completed' }).click()
+    await page.locator('[data-filter="completed"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
 
-    // Completed todo should be visible
     await expect(page.getByText(completedTodo)).toBeVisible()
   })
 
@@ -290,13 +273,11 @@ test.describe('Filter Todos', () => {
     await createTodo(page, metamask, todo1)
     await createTodo(page, metamask, todo2)
 
-    // Click "All" filter
-    await page.getByRole('button', { name: 'All' }).click()
+    await page.locator('[data-filter="all"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
 
-    // Both should be visible
     await expect(page.getByText(todo1)).toBeVisible()
     await expect(page.getByText(todo2)).toBeVisible()
   })
@@ -319,17 +300,14 @@ test.describe('Delete Todo', () => {
     const todoTitle = `Delete Test ${Date.now()}`
     await createTodo(page, metamask, todoTitle)
 
-    // Verify todo exists
     await expect(page.getByText(todoTitle)).toBeVisible()
 
-    // Click delete button
     const todoItem = page.locator('li').filter({ hasText: todoTitle })
     await todoItem.locator('[data-delete]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
 
-    // Todo should be gone
     await expect(page.getByText(todoTitle)).not.toBeVisible()
   })
 })
@@ -351,17 +329,13 @@ test.describe('Encrypt Todo', () => {
     const todoTitle = `Encrypt Test ${Date.now()}`
     await createTodo(page, metamask, todoTitle)
 
-    // Click encrypt button
     const todoItem = page.locator('li').filter({ hasText: todoTitle })
     await todoItem.locator('[data-encrypt]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
 
-    // Should show encrypted indicator
     await expect(todoItem.getByText('Encrypted')).toBeVisible()
-
-    // Encrypt button should no longer be visible
     await expect(todoItem.locator('[data-encrypt]')).not.toBeVisible()
   })
 })
@@ -380,48 +354,36 @@ test.describe('Full User Journey', () => {
       extensionId,
     )
 
-    // Step 1: Create a todo
     const todoTitle = `Journey ${Date.now()}`
     await createTodo(page, metamask, todoTitle, 'high')
     await expect(page.getByText(todoTitle)).toBeVisible()
-    console.log('Step 1: Created todo')
 
-    // Step 2: Mark as complete
     const todoItem = page.locator('li').filter({ hasText: todoTitle })
     await todoItem.locator('input[type="checkbox"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
     await expect(todoItem.locator('input[type="checkbox"]')).toBeChecked()
-    console.log('Step 2: Marked as complete')
 
-    // Step 3: Filter to completed
-    await page.getByRole('button', { name: 'Completed' }).click()
+    await page.locator('[data-filter="completed"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
     await expect(page.getByText(todoTitle)).toBeVisible()
-    console.log('Step 3: Filtered to completed')
 
-    // Step 4: Switch back to All
-    await page.getByRole('button', { name: 'All' }).click()
+    await page.locator('[data-filter="all"]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
     await expect(page.getByText(todoTitle)).toBeVisible()
-    console.log('Step 4: Switched to All filter')
 
-    // Step 5: Delete the todo
     await todoItem.locator('[data-delete]').click()
     await page.waitForTimeout(500)
     await metamask.confirmSignature()
     await page.waitForTimeout(2000)
     await expect(page.getByText(todoTitle)).not.toBeVisible()
-    console.log('Step 5: Deleted todo')
 
-    // Step 6: Disconnect wallet
     await page.locator('#disconnect').click()
     await expect(page.locator('#connect')).toBeVisible()
-    console.log('Step 6: Disconnected wallet')
   })
 })

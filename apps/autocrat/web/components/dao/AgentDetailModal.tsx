@@ -1,9 +1,3 @@
-/**
- * Agent Detail Modal
- *
- * Full view of an agent's configuration including persona, model, connectors, and values.
- */
-
 import {
   Bot,
   Brain,

@@ -1,7 +1,3 @@
-/**
- * Home Page
- */
-
 import { Link } from 'react-router-dom'
 import { useInfo } from '../hooks'
 
@@ -25,8 +21,7 @@ export default function HomePage() {
           className="text-lg md:text-xl max-w-xl mx-auto mb-8"
           style={{ color: 'var(--text-secondary)' }}
         >
-          Run AI agents on decentralized infrastructure. On-chain registration,
-          DWS compute, and EQLite persistence — no centralized dependencies.
+          Decentralized AI agent infrastructure
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <Link to="/agents/new" className="btn-primary btn-lg">

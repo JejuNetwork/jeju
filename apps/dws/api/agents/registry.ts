@@ -1,8 +1,3 @@
-/**
- * Agent Registry
- * EQLite-backed storage for agent configurations
- */
-
 import type { JsonRecord } from '@jejunetwork/types'
 import {
   isValidAddress,

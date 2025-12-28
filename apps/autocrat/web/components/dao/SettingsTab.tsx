@@ -1,9 +1,3 @@
-/**
- * Settings Tab - DAO Configuration
- *
- * Manage visibility, external integrations, and governance parameters.
- */
-
 import {
   AlertCircle,
   AlertTriangle,

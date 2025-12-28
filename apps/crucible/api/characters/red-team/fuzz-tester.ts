@@ -1,10 +1,3 @@
-/**
- * Fuzz Tester Character
- *
- * Red team agent that uses fuzzing and random input generation to find
- * edge cases, crashes, and unexpected behavior in systems.
- */
-
 import type { AgentCharacter } from '../../../lib/types'
 
 export const fuzzTesterCharacter: AgentCharacter = {

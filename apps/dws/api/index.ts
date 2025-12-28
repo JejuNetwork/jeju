@@ -1,15 +1,4 @@
-/**
- * DWS API - Decentralized Web Services
- *
- * Complete replacement for centralized cloud services:
- * - Vercel: Preview deployments, serverless workers, CI/CD
- * - Cloudflare: CDN, WAF, DDoS protection, workers
- * - AWS: Managed databases, container orchestration, autoscaling
- */
-
-// ============================================================================
-// Database Services (Managed EQLite + PostgreSQL)
-// ============================================================================
+// Database Services
 
 export {
   type Backup,
@@ -29,10 +18,7 @@ export {
 
 export { createDatabaseRoutes } from './database/routes'
 
-// ============================================================================
 // Git & Deployments
-// ============================================================================
-
 export {
   configureDeployHook,
   type DeployHookConfig,
@@ -53,10 +39,7 @@ export {
   type PreviewType,
 } from './git/preview-deployments'
 
-// ============================================================================
 // CI/CD
-// ============================================================================
-
 export {
   BuildCacheManager,
   type CacheEntry,
@@ -77,10 +60,7 @@ export {
   type WorkflowEngineConfig,
 } from './ci/workflow-engine'
 
-// ============================================================================
 // Workers & Serverless
-// ============================================================================
-
 export {
   type CronEvent,
   type CronExecution,
@@ -121,10 +101,7 @@ export {
   streamWithProgress,
 } from './workers/streaming'
 
-// ============================================================================
 // Security
-// ============================================================================
-
 export {
   AccessControlManager,
   type AccessDecision,
@@ -187,10 +164,7 @@ export {
   WebApplicationFirewall,
 } from './security/waf'
 
-// ============================================================================
 // Infrastructure
-// ============================================================================
-
 export {
   ClusterAutoscaler,
   getClusterAutoscaler,
@@ -217,10 +191,7 @@ export {
   type TrafficPolicy,
 } from './infrastructure/service-mesh'
 
-// ============================================================================
 // Observability
-// ============================================================================
-
 export {
   type Alert,
   AlertManager,

@@ -1,5 +1,3 @@
-/** Leaderboard Routes */
-
 import { Elysia } from 'elysia'
 import {
   getLeaderboard as dbGetLeaderboard,

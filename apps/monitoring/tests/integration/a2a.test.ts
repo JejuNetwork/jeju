@@ -1,4 +1,11 @@
-/** A2A server tests for Prometheus metrics interface. */
+/**
+ * A2A server tests for Prometheus metrics interface.
+ *
+ * These tests REQUIRE the A2A server and Prometheus to be running.
+ * They will FAIL if services are unavailable.
+ *
+ * Run with: jeju test --mode integration --app monitoring
+ */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type ChildProcess, spawn } from 'node:child_process'
@@ -14,20 +21,16 @@ const A2A_PORT = 9091
 const A2A_URL = `http://localhost:${A2A_PORT}`
 
 let serverProcess: ChildProcess | null = null
-let serverAvailable = false
+let serverStartedByTests = false
 
 async function checkServerAvailable(): Promise<boolean> {
   try {
     const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`, {
       signal: AbortSignal.timeout(2000),
     })
-    if (!response.ok) {
-      return false
-    }
+    if (!response.ok) return false
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      return false
-    }
+    if (!text || text.trim() === '') return false
     const parsed = AgentCardSchema.safeParse(JSON.parse(text))
     return parsed.success
   } catch {
@@ -35,12 +38,9 @@ async function checkServerAvailable(): Promise<boolean> {
   }
 }
 
-beforeAll(async () => {
-  console.log('🚀 Starting A2A server...')
-
-  serverAvailable = await checkServerAvailable()
-  if (serverAvailable) {
-    console.log('✅ A2A server already running')
+async function requireA2AServer(): Promise<void> {
+  if (await checkServerAvailable()) {
+    console.log('A2A server already running')
     return
   }
 
@@ -48,81 +48,68 @@ beforeAll(async () => {
   const serverPath = join(monitoringDir, 'api', 'a2a.ts')
 
   if (!existsSync(serverPath)) {
-    console.log(`⚠️  A2A server file not found at ${serverPath}`)
-    return
-  }
-
-  try {
-    serverProcess = spawn('bun', [serverPath], {
-      cwd: monitoringDir,
-      env: { ...process.env, PROMETHEUS_URL: 'http://localhost:9090' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-
-    let stderrBuffer = ''
-    if (serverProcess.stderr) {
-      serverProcess.stderr.on('data', (data: Buffer) => {
-        stderrBuffer += data.toString()
-      })
-    }
-
-    let retries = 5
-    while (retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-      serverAvailable = await checkServerAvailable()
-      if (serverAvailable) {
-        console.log('✅ A2A server started successfully')
-        return
-      }
-      retries--
-    }
-
-    if (serverProcess && !serverProcess.killed) {
-      if (stderrBuffer) {
-        console.error(
-          '❌ A2A server startup error:',
-          stderrBuffer.substring(0, 500),
-        )
-      }
-      const exitCode = serverProcess.exitCode
-      if (exitCode !== null && exitCode !== 0) {
-        console.error(`❌ A2A server exited with code ${exitCode}`)
-      }
-    }
-  } catch (error) {
-    console.error(
-      `❌ Failed to start A2A server: ${error instanceof Error ? error.message : String(error)}`,
+    throw new Error(
+      `FATAL: A2A server file not found at ${serverPath}`,
     )
   }
 
-  if (!serverAvailable) {
-    console.log('⚠️ A2A server not available - tests will be skipped')
-    console.log('   Make sure Prometheus is running on http://localhost:9090')
+  console.log('Starting A2A server...')
+  serverProcess = spawn('bun', [serverPath], {
+    cwd: monitoringDir,
+    env: { ...process.env, PROMETHEUS_URL: 'http://localhost:9090' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+
+  let stderrBuffer = ''
+  if (serverProcess.stderr) {
+    serverProcess.stderr.on('data', (data: Buffer) => {
+      stderrBuffer += data.toString()
+    })
   }
-})
+
+  for (let retries = 10; retries > 0; retries--) {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    if (await checkServerAvailable()) {
+      console.log('A2A server started successfully')
+      serverStartedByTests = true
+      return
+    }
+  }
+
+  if (serverProcess && !serverProcess.killed) {
+    serverProcess.kill()
+    if (stderrBuffer) {
+      throw new Error(
+        `FATAL: A2A server failed to start: ${stderrBuffer.substring(0, 500)}`,
+      )
+    }
+  }
+
+  throw new Error(
+    `FATAL: A2A server failed to start within 5 seconds. ` +
+      `Make sure Prometheus is running on http://localhost:9090`,
+  )
+}
+
+beforeAll(async () => {
+  await requireA2AServer()
+}, 30000)
 
 afterAll(() => {
-  if (serverProcess) {
-    console.log('🛑 Stopping A2A server...')
+  if (serverProcess && serverStartedByTests) {
+    console.log('Stopping A2A server...')
     serverProcess.kill()
   }
 })
 
 describe('A2A Monitoring Server', () => {
   test('should serve agent card', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true) // Mark as passed but skipped
-      return
-    }
-
     const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`)
     expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      throw new Error('Empty response from agent card endpoint')
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const card = AgentCardSchema.parse(JSON.parse(text))
     expect(card.protocolVersion).toBe('0.3.0')
     expect(card.name).toBe('Jeju Monitoring')
@@ -140,12 +127,6 @@ describe('A2A Monitoring Server', () => {
   })
 
   test('should handle query-metrics skill', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const payload = {
       jsonrpc: '2.0',
       method: 'message/send',
@@ -169,9 +150,8 @@ describe('A2A Monitoring Server', () => {
     expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint')
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const result = A2AResponseSchema.parse(JSON.parse(text))
     expect(result.jsonrpc).toBe('2.0')
     expect(result.id).toBe('1')
@@ -181,12 +161,6 @@ describe('A2A Monitoring Server', () => {
   })
 
   test('should handle get-alerts skill', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const payload = {
       jsonrpc: '2.0',
       method: 'message/send',
@@ -208,21 +182,14 @@ describe('A2A Monitoring Server', () => {
     expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint')
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const result = A2AResponseSchema.parse(JSON.parse(text))
     expect(result.jsonrpc).toBe('2.0')
     expect(result.result).toBeDefined()
   })
 
   test('should handle get-targets skill', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const payload = {
       jsonrpc: '2.0',
       method: 'message/send',
@@ -248,12 +215,6 @@ describe('A2A Monitoring Server', () => {
   })
 
   test('should handle missing query parameter', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const payload = {
       jsonrpc: '2.0',
       method: 'message/send',
@@ -275,21 +236,14 @@ describe('A2A Monitoring Server', () => {
     expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint')
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const result = A2AResponseSchema.parse(JSON.parse(text))
     const textPart = result.result?.parts.find((p) => p.kind === 'text')
     expect(textPart?.text).toBe('Missing PromQL query')
   })
 
   test('should handle unknown skill', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const payload = {
       jsonrpc: '2.0',
       method: 'message/send',
@@ -311,21 +265,14 @@ describe('A2A Monitoring Server', () => {
     expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint')
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const result = A2AResponseSchema.parse(JSON.parse(text))
     const textPart = result.result?.parts.find((p) => p.kind === 'text')
     expect(textPart?.text).toBe('Unknown skill')
   })
 
   test('should handle unknown method', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const payload = {
       jsonrpc: '2.0',
       method: 'unknown/method',
@@ -342,9 +289,8 @@ describe('A2A Monitoring Server', () => {
     expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      throw new Error('Empty response from A2A endpoint')
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const result = A2AResponseSchema.parse(JSON.parse(text))
     expect(result.error).toBeDefined()
     expect(result.error?.code).toBe(-32601)
@@ -354,17 +300,10 @@ describe('A2A Monitoring Server', () => {
 
 describe('A2A Monitoring Server - Integration', () => {
   test('should provide useful examples in agent card', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`)
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      throw new Error('Empty response from agent card endpoint')
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const card = AgentCardSchema.parse(JSON.parse(text))
 
     const queryMetrics = card.skills.find((s) => s.id === 'query-metrics')
@@ -373,24 +312,12 @@ describe('A2A Monitoring Server - Integration', () => {
   })
 
   test('should have correct CORS headers', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`)
     const corsHeader = response.headers.get('access-control-allow-origin')
     expect(corsHeader).toBeDefined()
   })
 
   test('should handle concurrent requests', async () => {
-    if (!serverAvailable) {
-      console.log('⚠️ Skipping - server not available')
-      expect(true).toBe(true)
-      return
-    }
-
     const requests = Array.from({ length: 5 }, (_, i) => ({
       jsonrpc: '2.0',
       method: 'message/send',
@@ -418,9 +345,7 @@ describe('A2A Monitoring Server - Integration', () => {
     const results = await Promise.all(
       responses.map(async (r) => {
         const text = await r.text()
-        if (!text || text.trim() === '') {
-          throw new Error('Empty response from A2A endpoint')
-        }
+        expect(text.length).toBeGreaterThan(0)
         return A2AResponseSchema.parse(JSON.parse(text))
       }),
     )

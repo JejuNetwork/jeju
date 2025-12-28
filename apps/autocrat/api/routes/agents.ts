@@ -1,7 +1,3 @@
-/**
- * ERC-8004 Agent Registry Routes
- */
-
 import { getContract } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'

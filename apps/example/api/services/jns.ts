@@ -1,8 +1,5 @@
 import { treaty } from '@elysiajs/eden'
-import {
-  getGatewayApiEndpoint,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getGatewayApiEndpoint, getLocalhostHost } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import type { JNSRecords } from '../../lib/schemas'

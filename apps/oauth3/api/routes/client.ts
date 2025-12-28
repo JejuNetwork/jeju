@@ -1,12 +1,3 @@
-/**
- * Client registration routes with staking, reputation, and moderation
- *
- * SECURITY: Client secrets are hashed before storage.
- * - Plaintext secret returned only ONCE at registration
- * - Stored as hash + salt (argon2id/PBKDF2)
- * - Verification via constant-time comparison
- */
-
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress, toHex, verifyMessage } from 'viem'

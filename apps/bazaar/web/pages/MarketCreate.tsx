@@ -1,8 +1,3 @@
-/**
- * Market Create Page
- * Form for creating a new prediction market
- */
-
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'

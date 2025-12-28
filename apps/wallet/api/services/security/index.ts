@@ -1,9 +1,3 @@
-/**
- * Network Security Engine
- * Transaction risk analysis and security checks
- * Ported from Rabby's security engine
- */
-
 import type { Address, Hex } from 'viem'
 import { API_URLS, fetchApi } from '../../../lib/eden'
 import { rpcService, type SupportedChainId } from '../rpc'

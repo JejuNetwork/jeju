@@ -1,10 +1,3 @@
-/**
- * Crucible Production Server
- *
- * Serves the built static files from dist/web/
- * and proxies API requests to the worker or standalone API server.
- */
-
 const PORT = Number(process.env.PORT) || 4020
 const API_PORT = Number(process.env.API_PORT) || 4021
 const STATIC_DIR = './dist/web'

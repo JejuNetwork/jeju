@@ -1,7 +1,3 @@
-/**
- * Research Agent Routes
- */
-
 import { Elysia, t } from 'elysia'
 import { getResearchAgent, type ResearchRequest } from '../research-agent'
 

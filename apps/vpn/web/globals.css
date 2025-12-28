@@ -114,7 +114,6 @@
   }
 }
 
-/* Animations */
 @keyframes pulse-glow {
   0%, 100% {
     box-shadow: 0 0 20px var(--accent-glow);
@@ -159,7 +158,6 @@
 .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
 .animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
 
-/* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse-glow,
   .animate-spin-slow,
@@ -175,14 +173,12 @@
   }
 }
 
-/* Touch device optimizations */
 @media (hover: none) {
   .card-hover:hover {
     @apply border-border bg-surface-elevated;
   }
 }
 
-/* Safe area insets for mobile */
 @supports (padding: env(safe-area-inset-bottom)) {
   .is-ios nav {
     padding-bottom: env(safe-area-inset-bottom);

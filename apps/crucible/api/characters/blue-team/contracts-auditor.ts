@@ -1,10 +1,3 @@
-/**
- * Contracts Auditor Character
- *
- * Blue team agent that reviews and validates smart contracts,
- * ensuring safety before deployment or interaction.
- */
-
 import type { AgentCharacter } from '../../../lib/types'
 
 export const contractsAuditorCharacter: AgentCharacter = {

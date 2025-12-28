@@ -1,11 +1,4 @@
-/**
- * DWS Database Module
- *
- * Secure database provisioning and access control for apps.
- * EQLite runs as a DWS-managed service, not a separate deployment.
- */
-
-// EQLite service management (runs ON DWS)
+// EQLite service management
 export {
   ensureEQLiteService,
   getDatabaseConnectionInfo,

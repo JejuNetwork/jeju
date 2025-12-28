@@ -2,10 +2,7 @@
  * Otto Configuration
  */
 
-import {
-  getApiKey,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getApiKey, getLocalhostHost } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type OttoConfig, OttoConfigSchema } from '../lib'
 

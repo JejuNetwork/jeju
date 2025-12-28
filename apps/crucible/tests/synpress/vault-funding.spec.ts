@@ -1,9 +1,3 @@
-/**
- * Vault Funding Tests
- *
- * Tests agent vault funding and balance management.
- */
-
 import { basicSetup } from '@jejunetwork/tests'
 // Must import zod-compat before synpress for Zod 4 compatibility
 import '@jejunetwork/tests/zod-compat'

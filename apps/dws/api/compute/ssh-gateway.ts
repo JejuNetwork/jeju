@@ -25,13 +25,13 @@
  * @limitation Key rotation is not fully implemented - rotateExpiredKeys() only logs
  */
 
-import { Elysia } from 'elysia'
-import { spawn, type Subprocess } from 'bun'
+import { randomBytes } from 'node:crypto'
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { ServerWebSocket } from 'bun'
-import { randomBytes } from 'crypto'
+import { type Subprocess, spawn } from 'bun'
+import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
-import { getLocalhostHost } from '@jejunetwork/config'
 
 // ============ Types ============
 
@@ -152,9 +152,12 @@ export class SSHGateway {
     }, 60000) // Every minute
 
     // Key rotation check
-    this.keyRotationInterval = setInterval(() => {
-      this.rotateExpiredKeys()
-    }, 60 * 60 * 1000) // Every hour
+    this.keyRotationInterval = setInterval(
+      () => {
+        this.rotateExpiredKeys()
+      },
+      60 * 60 * 1000,
+    ) // Every hour
 
     console.log('[SSHGateway] Started')
   }
@@ -218,9 +221,17 @@ export class SSHGateway {
     credentials.set(id, credential)
     credentialsByCompute.set(params.computeId, id)
 
-    this.audit('credential_registered', '', params.owner, params.computeId, `Registered SSH credentials for ${params.host}`)
+    this.audit(
+      'credential_registered',
+      '',
+      params.owner,
+      params.computeId,
+      `Registered SSH credentials for ${params.host}`,
+    )
 
-    console.log(`[SSHGateway] Registered credentials ${id} for compute ${params.computeId}`)
+    console.log(
+      `[SSHGateway] Registered credentials ${id} for compute ${params.computeId}`,
+    )
     return id
   }
 
@@ -242,7 +253,13 @@ export class SSHGateway {
     credential.fingerprint = await this.calculateFingerprint(newPrivateKey)
     credential.rotatedAt = Date.now()
 
-    this.audit('key_rotated', '', credential.owner, computeId, 'SSH key rotated')
+    this.audit(
+      'key_rotated',
+      '',
+      credential.owner,
+      computeId,
+      'SSH key rotated',
+    )
     console.log(`[SSHGateway] Rotated key for compute ${computeId}`)
   }
 
@@ -254,7 +271,13 @@ export class SSHGateway {
     if (credentialId) {
       const credential = credentials.get(credentialId)
       if (credential) {
-        this.audit('credential_removed', '', credential.owner, computeId, 'Credentials removed')
+        this.audit(
+          'credential_removed',
+          '',
+          credential.owner,
+          computeId,
+          'Credentials removed',
+        )
       }
       credentials.delete(credentialId)
       credentialsByCompute.delete(computeId)
@@ -291,7 +314,7 @@ export class SSHGateway {
     }
 
     const timestamp = parseInt(params.message.slice(expectedPrefix.length), 10)
-    if (isNaN(timestamp) || Date.now() - timestamp > 300000) {
+    if (Number.isNaN(timestamp) || Date.now() - timestamp > 300000) {
       throw new Error('Message expired')
     }
 
@@ -312,7 +335,10 @@ export class SSHGateway {
 
     // Check session limits
     const userSessionSet = userSessions.get(params.owner)
-    if (userSessionSet && userSessionSet.size >= this.config.maxSessionsPerUser) {
+    if (
+      userSessionSet &&
+      userSessionSet.size >= this.config.maxSessionsPerUser
+    ) {
       throw new Error('Session limit reached')
     }
 
@@ -329,7 +355,13 @@ export class SSHGateway {
       used: false,
     })
 
-    this.audit('token_generated', '', params.owner, params.computeId, 'Access token generated')
+    this.audit(
+      'token_generated',
+      '',
+      params.owner,
+      params.computeId,
+      'Access token generated',
+    )
 
     return token
   }
@@ -414,7 +446,13 @@ export class SSHGateway {
     // Update credential usage
     credential.lastUsedAt = now
 
-    this.audit('session_started', sessionId, accessToken.owner, accessToken.computeId, `Session started from ${params.clientIp}`)
+    this.audit(
+      'session_started',
+      sessionId,
+      accessToken.owner,
+      accessToken.computeId,
+      `Session started from ${params.clientIp}`,
+    )
 
     return session
   }
@@ -443,8 +481,16 @@ export class SSHGateway {
       sshProcesses.delete(sessionId)
     }
 
-    this.audit('session_ended', sessionId, session.owner, session.computeId, reason ?? 'Session closed')
-    console.log(`[SSHGateway] Session ${sessionId} ended: ${reason ?? 'closed'}`)
+    this.audit(
+      'session_ended',
+      sessionId,
+      session.owner,
+      session.computeId,
+      reason ?? 'Session closed',
+    )
+    console.log(
+      `[SSHGateway] Session ${sessionId} ended: ${reason ?? 'closed'}`,
+    )
   }
 
   /**
@@ -477,12 +523,12 @@ export class SSHGateway {
 
     // Decrypt key and write to secure temp file
     const keyContent = await this.decryptKey(credential.privateKey)
-    
+
     // Use a more secure temp directory with random suffix
     const randomSuffix = randomBytes(16).toString('hex')
     const keyFile = `/tmp/.ssh-key-${sessionId}-${randomSuffix}`
     await Bun.write(keyFile, keyContent, { mode: 0o600 })
-    
+
     // Double-ensure permissions (Bun.write mode may not always work)
     await Bun.spawn(['chmod', '600', keyFile]).exited
 
@@ -490,13 +536,20 @@ export class SSHGateway {
     const sshProcess = spawn({
       cmd: [
         'ssh',
-        '-o', 'StrictHostKeyChecking=no',
-        '-o', 'UserKnownHostsFile=/dev/null',
-        '-o', `ConnectTimeout=${Math.floor(this.config.sshTimeout / 1000)}`,
-        '-o', 'ServerAliveInterval=30',
-        '-o', 'ServerAliveCountMax=3',
-        '-i', keyFile,
-        '-p', credential.port.toString(),
+        '-o',
+        'StrictHostKeyChecking=no',
+        '-o',
+        'UserKnownHostsFile=/dev/null',
+        '-o',
+        `ConnectTimeout=${Math.floor(this.config.sshTimeout / 1000)}`,
+        '-o',
+        'ServerAliveInterval=30',
+        '-o',
+        'ServerAliveCountMax=3',
+        '-i',
+        keyFile,
+        '-p',
+        credential.port.toString(),
         '-tt', // Force pseudo-terminal
         `${credential.username}@${credential.host}`,
       ],
@@ -571,7 +624,13 @@ export class SSHGateway {
         cb(code ?? 0)
       }
 
-      this.audit('ssh_disconnected', sessionId, session.owner, session.computeId, `Exit code: ${code}`)
+      this.audit(
+        'ssh_disconnected',
+        sessionId,
+        session.owner,
+        session.computeId,
+        `Exit code: ${code}`,
+      )
     })
 
     // Store current terminal size for the session
@@ -601,7 +660,9 @@ export class SSHGateway {
           // SSH OpenSSH client supports ~. escape sequences for some operations
           // but resize requires actual SIGWINCH or pty
           // Log the resize request for debugging
-          console.log(`[SSHGateway] Resize requested: ${cols}x${rows} (requires PTY for full support)`)
+          console.log(
+            `[SSHGateway] Resize requested: ${cols}x${rows} (requires PTY for full support)`,
+          )
         } catch {
           // Resize not supported without PTY
         }
@@ -638,7 +699,10 @@ export class SSHGateway {
 
     // Handle SSH close
     ssh.onClose((code) => {
-      const msg: TerminalMessage = { type: 'close', data: `Connection closed (${code})` }
+      const msg: TerminalMessage = {
+        type: 'close',
+        data: `Connection closed (${code})`,
+      }
       ws.send(JSON.stringify(msg))
       ws.close(1000, 'SSH connection closed')
     })
@@ -726,13 +790,16 @@ export class SSHGateway {
       // Idle timeout
       if (now - session.lastActivityAt > this.config.idleTimeoutMs) {
         this.endSession(sessionId, 'Idle timeout')
-        continue
       }
     }
 
     // Clean old closed sessions from tracking (keep for 24h)
     for (const [sessionId, session] of sessions) {
-      if (session.status === 'closed' && session.endedAt && now - session.endedAt > 24 * 60 * 60 * 1000) {
+      if (
+        session.status === 'closed' &&
+        session.endedAt &&
+        now - session.endedAt > 24 * 60 * 60 * 1000
+      ) {
         sessions.delete(sessionId)
         const userSessionSet = userSessions.get(session.owner)
         userSessionSet?.delete(sessionId)
@@ -752,7 +819,9 @@ export class SSHGateway {
         // 3. Update the stored credential with new private key
         // 4. Verify connectivity with new key
         // 5. Remove old key from instance
-        console.warn(`[SSHGateway] Key rotation overdue for ${credential.computeId} - rotation not implemented`)
+        console.warn(
+          `[SSHGateway] Key rotation overdue for ${credential.computeId} - rotation not implemented`,
+        )
       }
     }
   }
@@ -766,23 +835,29 @@ export class SSHGateway {
    */
   private getVaultKey(): string {
     const key = process.env.DWS_VAULT_KEY
-    
+
     if (key && key.length >= 32) {
       return key
     }
-    
+
     // In production, fail hard
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.JEJU_NETWORK === 'mainnet'
+    const isProduction =
+      process.env.NODE_ENV === 'production' ||
+      process.env.JEJU_NETWORK === 'mainnet'
     if (isProduction) {
-      throw new Error('CRITICAL: DWS_VAULT_KEY must be set for SSH key encryption in production')
+      throw new Error(
+        'CRITICAL: DWS_VAULT_KEY must be set for SSH key encryption in production',
+      )
     }
-    
+
     // In development, use fallback but warn
     if (!SSHGateway.vaultKeyWarned) {
-      console.warn('⚠️  WARNING: DWS_VAULT_KEY not set - SSH keys using insecure dev encryption')
+      console.warn(
+        '⚠️  WARNING: DWS_VAULT_KEY not set - SSH keys using insecure dev encryption',
+      )
       SSHGateway.vaultKeyWarned = true
     }
-    
+
     return SSHGateway.DEV_VAULT_KEY
   }
 
@@ -793,7 +868,7 @@ export class SSHGateway {
     const vaultKey = this.getVaultKey()
 
     // Derive encryption key
-    const keyMaterial = new TextEncoder().encode(vaultKey + ':ssh-key-vault')
+    const keyMaterial = new TextEncoder().encode(`${vaultKey}:ssh-key-vault`)
     const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
     const derivedKey = new Uint8Array(hashBuffer)
 
@@ -832,7 +907,7 @@ export class SSHGateway {
     const vaultKey = this.getVaultKey()
 
     // Derive encryption key
-    const keyMaterial = new TextEncoder().encode(vaultKey + ':ssh-key-vault')
+    const keyMaterial = new TextEncoder().encode(`${vaultKey}:ssh-key-vault`)
     const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
     const derivedKey = new Uint8Array(hashBuffer)
 
@@ -879,7 +954,13 @@ export class SSHGateway {
     return `SHA256:${base64}`
   }
 
-  private audit(action: string, sessionId: string, owner: Address, computeId: string, details: string): void {
+  private audit(
+    action: string,
+    sessionId: string,
+    owner: Address,
+    computeId: string,
+    details: string,
+  ): void {
     auditLog.push({
       timestamp: Date.now(),
       action,
@@ -898,11 +979,17 @@ export class SSHGateway {
   /**
    * Get audit log
    */
-  getAuditLog(filter?: { owner?: Address; computeId?: string; limit?: number }): typeof auditLog {
+  getAuditLog(filter?: {
+    owner?: Address
+    computeId?: string
+    limit?: number
+  }): typeof auditLog {
     let log = auditLog
 
     if (filter?.owner) {
-      log = log.filter((e) => e.owner.toLowerCase() === filter.owner?.toLowerCase())
+      log = log.filter(
+        (e) => e.owner.toLowerCase() === filter.owner?.toLowerCase(),
+      )
     }
 
     if (filter?.computeId) {
@@ -922,10 +1009,13 @@ export class SSHGateway {
     pendingTokens: number
   } {
     return {
-      activeSessions: Array.from(sessions.values()).filter((s) => s.status === 'active').length,
+      activeSessions: Array.from(sessions.values()).filter(
+        (s) => s.status === 'active',
+      ).length,
       totalSessions: sessions.size,
       totalCredentials: credentials.size,
-      pendingTokens: Array.from(accessTokens.values()).filter((t) => !t.used).length,
+      pendingTokens: Array.from(accessTokens.values()).filter((t) => !t.used)
+        .length,
     }
   }
 }
@@ -944,14 +1034,22 @@ export function createSSHGatewayRouter(gateway: SSHGateway) {
       message: string
     }
 
-    const token = await gateway.generateAccessToken({ computeId, owner, signature, message })
+    const token = await gateway.generateAccessToken({
+      computeId,
+      owner,
+      signature,
+      message,
+    })
     return { token }
   })
 
   // Start session
   router.post('/session', async ({ body, request }) => {
     const { token } = body as { token: string }
-    const clientIp = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? getLocalhostHost()
+    const clientIp =
+      request.headers.get('x-forwarded-for') ??
+      request.headers.get('x-real-ip') ??
+      getLocalhostHost()
 
     const session = await gateway.startSession({ token, clientIp })
     return { sessionId: session.id }

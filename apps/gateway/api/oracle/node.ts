@@ -435,11 +435,13 @@ export function createNodeConfig(): SecureOracleNodeConfig {
 
     feedRegistry: parseEnvAddress(
       process.env.FEED_REGISTRY_ADDRESS,
-      (getContract('oracle', 'feedRegistry', network) || ZERO_ADDRESS) as Address,
+      (getContract('oracle', 'feedRegistry', network) ||
+        ZERO_ADDRESS) as Address,
     ),
     reportVerifier: parseEnvAddress(
       process.env.REPORT_VERIFIER_ADDRESS,
-      (getContract('oracle', 'reportVerifier', network) || ZERO_ADDRESS) as Address,
+      (getContract('oracle', 'reportVerifier', network) ||
+        ZERO_ADDRESS) as Address,
     ),
     committeeManager: parseEnvAddress(
       process.env.COMMITTEE_MANAGER_ADDRESS,
@@ -461,4 +463,3 @@ export function createNodeConfig(): SecureOracleNodeConfig {
     priceSources: [],
   }
 }
-

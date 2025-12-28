@@ -1,11 +1,3 @@
-/**
- * Crucible API Server
- * REST API for agent management, room coordination, and execution.
- *
- * All AI inference goes through DWS compute network.
- * Uses @jejunetwork/eliza-plugin for 60+ network actions.
- */
-
 import { cors } from '@elysiajs/cors'
 import {
   extractAuthHeaders,

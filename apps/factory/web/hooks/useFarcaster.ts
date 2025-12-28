@@ -1,16 +1,6 @@
-/**
- * Farcaster Hooks
- *
- * React hooks for Farcaster feed, user profiles, and cast operations.
- */
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
 import { API_BASE, apiDelete, apiFetch, apiPost, getHeaders } from '../lib/api'
-
-// ============================================================================
-// TYPES
-// ============================================================================
 
 export interface FarcasterUser {
   fid: number
@@ -97,10 +87,6 @@ export interface QuickConnectResult {
     signerPublicKey: string
   } | null
 }
-
-// ============================================================================
-// CONNECTION HOOKS
-// ============================================================================
 
 export function useFarcasterStatus() {
   const { address } = useAccount()
@@ -203,10 +189,6 @@ export function useQuickConnect() {
   })
 }
 
-// ============================================================================
-// FEED HOOKS
-// ============================================================================
-
 export function useFeed(options?: {
   channel?: string
   feedType?: 'channel' | 'trending' | 'user'
@@ -264,10 +246,6 @@ export function useTrendingFeed() {
     staleTime: 30_000,
   })
 }
-
-// ============================================================================
-// CAST MUTATIONS
-// ============================================================================
 
 export function usePublishCast() {
   const { address } = useAccount()
@@ -373,10 +351,6 @@ export function useUnfollowUser() {
   })
 }
 
-// ============================================================================
-// USER PROFILE HOOKS
-// ============================================================================
-
 export function useFarcasterUser(fid: number) {
   return useQuery({
     queryKey: ['farcaster', 'user', fid],
@@ -397,10 +371,6 @@ export function useFarcasterUserByUsername(username: string) {
     staleTime: 60_000,
   })
 }
-
-// ============================================================================
-// FEED STATUS
-// ============================================================================
 
 export function useFeedStatus() {
   return useQuery({

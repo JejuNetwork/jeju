@@ -1,7 +1,3 @@
-/**
- * Pools View - Liquidity pool management
- */
-
 import {
   DollarSign,
   Droplets,
@@ -308,10 +304,6 @@ export function PoolsView({ address }: PoolsViewProps) {
                 Add Liquidity
               </button>
             </div>
-
-            <p className="text-xs text-muted-foreground mt-4 text-center">
-              Or use the chat: "Add 0.5 ETH to ETH/USDC pool"
-            </p>
           </div>
         )}
 
@@ -320,11 +312,7 @@ export function PoolsView({ address }: PoolsViewProps) {
             <Minus className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold">Remove Liquidity</h3>
             <p className="text-muted-foreground mt-2">
-              Select a position from "My Positions" to remove liquidity, or use
-              the chat:
-            </p>
-            <p className="text-sm text-blue-400 mt-2">
-              "Remove 50% of my ETH/USDC liquidity"
+              Select a position from "My Positions" to remove liquidity
             </p>
           </div>
         )}

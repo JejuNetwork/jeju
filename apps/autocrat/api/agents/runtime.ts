@@ -1,10 +1,3 @@
-/**
- * Autocrat Agent Runtime Manager - Multi-tenant DAO governance
- *
- * Uses character-based agents with DWS for decentralized AI inference.
- * ElizaOS characters define agent personalities, DWS provides compute.
- */
-
 import {
   AgentRuntime,
   type Character,

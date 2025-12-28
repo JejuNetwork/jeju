@@ -1,14 +1,3 @@
-/**
- * SSL/ACME Certificate Manager
- *
- * Automatic SSL certificate provisioning and renewal:
- * - ACME (Let's Encrypt) integration
- * - Custom certificate upload
- * - Automatic renewal before expiry
- * - Wildcard certificate support
- * - Certificate storage with encryption
- */
-
 import {
   createCipheriv,
   createDecipheriv,
@@ -17,10 +6,6 @@ import {
 } from 'node:crypto'
 import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type CertificateStatus =
   | 'pending'

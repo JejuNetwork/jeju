@@ -1,7 +1,3 @@
-/**
- * Crucible Shared Constants
- */
-
 export const BOT_TYPE_CONFIG = {
   ai_agent: {
     label: 'AI Agent',

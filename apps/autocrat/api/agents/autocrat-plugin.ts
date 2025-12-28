@@ -1,13 +1,3 @@
-/**
- * Autocrat Agent Plugin
- *
- * ElizaOS plugin that provides autocrat agents with:
- * - Service discovery (A2A, MCP)
- * - Governance data providers
- * - Deliberation actions
- * - Cross-agent communication
- */
-
 import type {
   Action,
   HandlerCallback,

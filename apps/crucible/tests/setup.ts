@@ -1,15 +1,3 @@
-/**
- * Crucible Test Setup
- *
- * Provides beforeAll/afterAll hooks that ensure infrastructure is running.
- * Works in two modes:
- * 1. When run via `jeju test` - infrastructure is already up
- * 2. When run standalone - starts required services
- *
- * Note: We import bun-global-setup directly to avoid loading synpress fixtures
- * which cause Zod version conflicts with Zod 4.
- */
-
 import { afterAll, beforeAll } from 'bun:test'
 import { getServicesConfig } from '@jejunetwork/config'
 

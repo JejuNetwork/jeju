@@ -1,9 +1,3 @@
-/**
- * Loading Spinner Component
- *
- * Animated loading indicator with multiple sizes
- */
-
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg'
   className?: string

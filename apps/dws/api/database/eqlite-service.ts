@@ -1,15 +1,3 @@
-/**
- * EQLite Service Manager for DWS
- *
- * Manages EQLite as a DWS-native service:
- * - Auto-provisions EQLite cluster on DWS startup
- * - Uses DWS storage for data persistence
- * - Integrates with KMS for encryption
- * - Provides database provisioning API for apps
- *
- * EQLite runs ON DWS, not as a separate deployment.
- */
-
 import {
   getEQLiteBlockProducerUrl,
   getLocalhostHost,

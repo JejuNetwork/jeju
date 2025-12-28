@@ -1,12 +1,3 @@
-/**
- * Validation Utilities
- *
- * Framework-agnostic validation helpers that wrap shared validation from @jejunetwork/types.
- * Uses fail-fast expect/throw patterns - validation errors expose bugs immediately.
- *
- * These work with Elysia by accepting raw data (body, query, params) directly.
- */
-
 import {
   expectAddress as baseExpectAddress,
   expectBigInt,

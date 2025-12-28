@@ -1,7 +1,3 @@
-/**
- * Council A2A Server
- */
-
 import cors from '@elysiajs/cors'
 import {
   getNetworkName,

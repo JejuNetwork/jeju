@@ -347,8 +347,8 @@ export async function waitForService(
 
 import {
   getChainId as getConfigChainId,
-  getL1RpcUrl,
   getRpcUrl as getConfigRpcUrl,
+  getL1RpcUrl,
   getServiceUrl,
 } from '@jejunetwork/config'
 

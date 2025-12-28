@@ -1,9 +1,3 @@
-/**
- * Pools Page
- *
- * Display liquidity pools with metrics and management
- */
-
 import { ArrowUpDown, Droplets, Search, TrendingUp } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'

@@ -1,13 +1,3 @@
-/**
- * Decentralized Inference Client
- *
- * Connects to the network compute network for AI inference.
- * - Discovers models from on-chain registry
- * - Routes requests to decentralized providers
- * - Pays via X402 or multi-token paymaster
- * - Supports TEE for private inference
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import { type ChatMessage, expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'

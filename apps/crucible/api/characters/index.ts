@@ -1,13 +1,4 @@
-/**
- * Crucible Agent Characters
- *
- * Pre-built character definitions for common agent types.
- * Organized into red team (adversarial) and blue team (defensive).
- */
-
 import type { AgentCharacter } from '../../lib/types'
-
-// Character imports
 import { blueTeamCharacter } from './blue-team'
 import {
   contractsAuditorCharacter,
@@ -27,32 +18,23 @@ import {
 } from './red-team/index'
 import { socialMediaManagerCharacter } from './social-media-manager'
 
-/**
- * All available characters by ID
- */
 export const characters: Record<string, AgentCharacter> = {
-  // General purpose agents
   'project-manager': projectManagerCharacter,
   'community-manager': communityManagerCharacter,
   devrel: devRelCharacter,
   liaison: liaisonCharacter,
   'social-media-manager': socialMediaManagerCharacter,
-
-  // Red Team (adversarial security testing)
   'red-team': redTeamCharacter,
   scammer: scammerCharacter,
   'security-researcher': securityResearcherCharacter,
   'contracts-expert': contractsExpertCharacter,
   'fuzz-tester': fuzzTesterCharacter,
-
-  // Blue Team (defensive protection)
   'blue-team': blueTeamCharacter,
   moderator: moderatorCharacter,
   'network-guardian': networkGuardianCharacter,
   'contracts-auditor': contractsAuditorCharacter,
 }
 
-// Red team character IDs (for adversarial testing)
 export const RED_TEAM_CHARACTERS = [
   'red-team',
   'scammer',
@@ -61,7 +43,6 @@ export const RED_TEAM_CHARACTERS = [
   'fuzz-tester',
 ] as const
 
-// Blue team character IDs (for defense/moderation)
 export const BLUE_TEAM_CHARACTERS = [
   'blue-team',
   'moderator',
@@ -69,35 +50,23 @@ export const BLUE_TEAM_CHARACTERS = [
   'contracts-auditor',
 ] as const
 
-/**
- * Load all blue team characters
- */
 export async function loadBlueTeamCharacters(): Promise<AgentCharacter[]> {
   return BLUE_TEAM_CHARACTERS.map((id) => characters[id]).filter(
     (c): c is AgentCharacter => c !== undefined,
   )
 }
 
-/**
- * Load all red team characters
- */
 export async function loadRedTeamCharacters(): Promise<AgentCharacter[]> {
   return RED_TEAM_CHARACTERS.map((id) => characters[id]).filter(
     (c): c is AgentCharacter => c !== undefined,
   )
 }
 
-/**
- * Get character by ID
- */
 export function getCharacter(id: string): AgentCharacter | null {
   const character = characters[id]
   return character !== undefined ? character : null
 }
 
-/**
- * List all character IDs
- */
 export function listCharacters(): string[] {
   return Object.keys(characters)
 }

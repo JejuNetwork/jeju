@@ -1,5 +1,3 @@
-/** DWS Client */
-
 import { getContract } from '@jejunetwork/config'
 import { identityRegistryAbi } from '@jejunetwork/contracts'
 import { type Address, createPublicClient, http } from 'viem'

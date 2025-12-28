@@ -1,10 +1,3 @@
-/**
- * TFMM Smart Pools Page
- *
- * TFMM pools are not yet deployed. This page shows available strategies
- * and indicates that pool deployment is pending.
- */
-
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 

@@ -1,7 +1,3 @@
-/**
- * Proof-of-Cloud Monitor - Continuous monitoring for TEE verification status
- */
-
 import { getCurrentNetwork, getPoCConfig } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/contracts'
 import {

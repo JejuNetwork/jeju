@@ -15,12 +15,8 @@
 import { afterAll, beforeAll } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
-import {
-  getL2RpcUrl,
-  getLocalhostHost,
-  getDWSUrl,
-} from '@jejunetwork/config'
 
 // Configuration
 const ANVIL_PORT = parseInt(process.env.ANVIL_PORT ?? '9545', 10)
@@ -34,8 +30,7 @@ const RPC_URL =
   `http://${getLocalhostHost()}:${ANVIL_PORT}`
 const DWS_URL = process.env.DWS_URL || getDWSUrl()
 const INFERENCE_URL =
-  process.env.INFERENCE_URL ||
-  `http://${getLocalhostHost()}:${INFERENCE_PORT}`
+  process.env.INFERENCE_URL || `http://${getLocalhostHost()}:${INFERENCE_PORT}`
 
 // Process management
 let _anvilProcess: Subprocess | null = null

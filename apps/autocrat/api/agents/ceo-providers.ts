@@ -1,14 +1,3 @@
-/**
- * CEO Agent Data Providers
- *
- * ElizaOS providers that give the AI CEO access to:
- * - On-chain governance data (proposals, votes, treasury)
- * - Council deliberation results
- * - Research reports
- * - Historical decisions
- * - Network state (via A2A/MCP)
- */
-
 import type {
   IAgentRuntime,
   Memory,

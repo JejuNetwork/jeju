@@ -512,11 +512,8 @@ interface PortConfig {
 
 /**
  * Get the localhost host address for building local service URLs
- * Uses getLocalhostHost from config/index.ts for consistency
  */
-function getLocalhostHost(): string {
-  // Import here to avoid circular dependency
-  // This matches the implementation in config/index.ts
+export function getLocalhostHost(): string {
   return (
     process.env.HOST ||
     process.env.RPC_HOST ||

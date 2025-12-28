@@ -1,8 +1,3 @@
-/**
- * NFT Gallery Component
- * Displays user's NFTs across all chains
- */
-
 import { ExternalLink, Grid, List, RefreshCw, Send } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { Address } from 'viem'

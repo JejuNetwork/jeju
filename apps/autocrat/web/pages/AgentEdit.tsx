@@ -1,9 +1,3 @@
-/**
- * Agent Edit Page
- *
- * Full configuration page for editing a DAO agent (CEO or board member).
- */
-
 import {
   AlertCircle,
   AlertTriangle,

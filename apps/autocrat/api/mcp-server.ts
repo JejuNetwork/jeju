@@ -1,7 +1,3 @@
-/**
- * Autocrat MCP Server
- */
-
 import cors from '@elysiajs/cors'
 import {
   expect,

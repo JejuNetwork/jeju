@@ -1,10 +1,3 @@
-/**
- * Community Manager Character (Eli5)
- *
- * Friendly community manager for welcoming members,
- * moderation, and community support.
- */
-
 import type { AgentCharacter } from '../../lib/types'
 
 export const communityManagerCharacter: AgentCharacter = {

@@ -1,7 +1,3 @@
-/**
- * Orchestrator Routes - DAO orchestration
- */
-
 import { Elysia, t } from 'elysia'
 import { createOrchestrator } from '../orchestrator'
 import {

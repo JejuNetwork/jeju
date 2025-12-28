@@ -177,7 +177,6 @@ export default function FaucetTab() {
 
   return (
     <div>
-      {/* Hero Section */}
       <div
         style={{
           position: 'relative',
@@ -189,7 +188,6 @@ export default function FaucetTab() {
           overflow: 'hidden',
         }}
       >
-        {/* Decorative elements */}
         <div
           style={{
             position: 'absolute',
@@ -256,7 +254,6 @@ export default function FaucetTab() {
             </div>
           </div>
 
-          {/* Stats */}
           <div
             style={{
               display: 'grid',
@@ -355,9 +352,7 @@ export default function FaucetTab() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="card" style={{ padding: '1.5rem' }}>
-        {/* Status Section - only show when connected */}
         {isConnected && (
           <div style={{ marginBottom: '1.5rem' }}>
             <div
@@ -396,7 +391,6 @@ export default function FaucetTab() {
               </button>
             </div>
 
-            {/* Status Cards */}
             <div
               style={{
                 display: 'grid',
@@ -404,7 +398,6 @@ export default function FaucetTab() {
                 gap: '0.75rem',
               }}
             >
-              {/* Registration Status */}
               <div
                 style={{
                   padding: '1rem 1.25rem',
@@ -471,7 +464,6 @@ export default function FaucetTab() {
                 </div>
               </div>
 
-              {/* Cooldown Status */}
               <div
                 style={{
                   padding: '1rem 1.25rem',
@@ -540,7 +532,6 @@ export default function FaucetTab() {
           </div>
         )}
 
-        {/* Registration CTA */}
         {isConnected && !loading && !isRegistered && (
           <div
             style={{
@@ -623,7 +614,6 @@ export default function FaucetTab() {
           </div>
         )}
 
-        {/* Error State */}
         {error && (
           <div
             style={{
@@ -644,7 +634,6 @@ export default function FaucetTab() {
           </div>
         )}
 
-        {/* Claim Button */}
         {isConnected ? (
           <button
             type="button"
@@ -711,7 +700,6 @@ export default function FaucetTab() {
           </div>
         )}
 
-        {/* Claim Result */}
         {claimResult && (
           <div
             style={{
@@ -828,7 +816,6 @@ export default function FaucetTab() {
         )}
       </div>
 
-      {/* Developer API Card */}
       <div
         className="card"
         style={{ marginTop: '1rem', padding: '1rem 1.25rem' }}

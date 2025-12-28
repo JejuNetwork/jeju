@@ -1,8 +1,3 @@
-/**
- * Shared State Module
- * Avoids circular imports between server.ts and routes
- */
-
 import { getContract, getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'

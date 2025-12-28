@@ -1,19 +1,3 @@
-/**
- * Preview Deployments for Branches and Pull Requests
- *
- * Creates ephemeral preview environments for:
- * - Feature branches (branch-name.app.jns.domain)
- * - Pull requests (pr-123.app.jns.domain)
- * - Commit previews (abc123.app.jns.domain)
- *
- * Features:
- * - Automatic cleanup after merge/close
- * - Environment variable isolation
- * - Database branching support
- * - Access control (team only, public)
- * - Deployment comments on PRs
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
@@ -29,10 +13,6 @@ import { foundry } from 'viem/chains'
 import { z } from 'zod'
 import type { ManagedDatabaseService } from '../database/managed-service'
 import type { BackendManager } from '../storage/backends'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type PreviewType = 'branch' | 'pr' | 'commit'
 

@@ -306,34 +306,9 @@ function constantTimeCompare(a: string, b: string): boolean {
 }
 
 async function main() {
-  console.log('========================================')
-  console.log('       Otto Trading Agent')
-  console.log('         ElizaOS Runtime')
-  console.log('========================================')
-  console.log('')
   const port = config.port
   const host = getLocalhostHost()
-
-  console.log(`HTTP server: http://${host}:${port}`)
-  console.log(`   Health: http://${host}:${port}/health`)
-  console.log(`   Status: http://${host}:${port}/status`)
-  console.log('')
-  console.log('Miniapps:')
-  console.log(`   Web:       http://${host}:${port}/miniapp/`)
-  console.log(`   Telegram:  http://${host}:${port}/miniapp/telegram`)
-  console.log(`   Farcaster: http://${host}:${port}/miniapp/farcaster`)
-  console.log('')
-  console.log(`Frame: http://${host}:${port}/frame`)
-  console.log(`API:   http://${host}:${port}/api/chat`)
-  console.log('')
-  console.log('ElizaOS Plugin: ottoPlugin')
-  console.log('ElizaOS Character: ottoCharacter')
-  console.log('')
-  console.log('To use with ElizaOS:')
-  console.log('  import { ottoPlugin, ottoCharacter } from "@jejunetwork/otto"')
-  console.log('')
-  console.log('========================================')
-
+  console.log(`[Otto] http://${host}:${port}`)
   app.listen(port)
 }
 

@@ -83,7 +83,16 @@ export interface CredentialCreateRequest {
 }
 
 export const CredentialCreateSchema = z.object({
-  provider: z.enum(['aws', 'gcp', 'azure', 'hetzner', 'ovh', 'digitalocean', 'vultr', 'linode']),
+  provider: z.enum([
+    'aws',
+    'gcp',
+    'azure',
+    'hetzner',
+    'ovh',
+    'digitalocean',
+    'vultr',
+    'linode',
+  ]),
   name: z.string().min(1).max(100),
   apiKey: z.string().min(1),
   apiSecret: z.string().optional(),
@@ -97,7 +106,7 @@ export const CredentialCreateSchema = z.object({
 
 /**
  * AES-256-GCM encryption for credential storage
- * 
+ *
  * Security properties:
  * - 256-bit AES encryption
  * - GCM mode provides authenticated encryption
@@ -111,24 +120,30 @@ let vaultKeyWarningLogged = false
 
 function getVaultKey(): string {
   const key = process.env.DWS_VAULT_KEY
-  
+
   if (key && key.length >= 32) {
     return key
   }
-  
+
   // In production, fail hard
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.JEJU_NETWORK === 'mainnet'
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    process.env.JEJU_NETWORK === 'mainnet'
   if (isProduction) {
-    throw new Error('CRITICAL: DWS_VAULT_KEY must be set and at least 32 characters in production')
+    throw new Error(
+      'CRITICAL: DWS_VAULT_KEY must be set and at least 32 characters in production',
+    )
   }
-  
+
   // In development, use fallback but warn loudly (once)
   if (!vaultKeyWarningLogged) {
-    console.warn('⚠️  WARNING: DWS_VAULT_KEY not set - using insecure development key')
+    console.warn(
+      '⚠️  WARNING: DWS_VAULT_KEY not set - using insecure development key',
+    )
     console.warn('⚠️  Set DWS_VAULT_KEY in .env for production use')
     vaultKeyWarningLogged = true
   }
-  
+
   return DEV_VAULT_KEY
 }
 
@@ -143,14 +158,14 @@ function deriveKey(owner: Address): Uint8Array {
 
 async function encrypt(plaintext: string, owner: Address): Promise<string> {
   const key = deriveKey(owner)
-  
+
   // Generate random 12-byte IV for GCM
   const iv = crypto.getRandomValues(new Uint8Array(12))
-  
+
   // Import key for Web Crypto - ensure ArrayBuffer type
   const keyBuffer = new ArrayBuffer(key.length)
   new Uint8Array(keyBuffer).set(key)
-  
+
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     keyBuffer,
@@ -158,7 +173,7 @@ async function encrypt(plaintext: string, owner: Address): Promise<string> {
     false,
     ['encrypt'],
   )
-  
+
   // Encrypt with AES-256-GCM
   const plaintextBytes = new TextEncoder().encode(plaintext)
   const ciphertext = await crypto.subtle.encrypt(
@@ -166,32 +181,32 @@ async function encrypt(plaintext: string, owner: Address): Promise<string> {
     cryptoKey,
     plaintextBytes,
   )
-  
+
   // Combine IV + ciphertext for storage
   // Format: base64(iv || ciphertext)
   const combined = new Uint8Array(iv.length + ciphertext.byteLength)
   combined.set(iv, 0)
   combined.set(new Uint8Array(ciphertext), iv.length)
-  
+
   return Buffer.from(combined).toString('base64')
 }
 
 async function decrypt(ciphertext: string, owner: Address): Promise<string> {
   const key = deriveKey(owner)
-  
+
   // Decode and split IV + ciphertext
   const combined = Buffer.from(ciphertext, 'base64')
   if (combined.length < 13) {
     throw new Error('Invalid ciphertext: too short')
   }
-  
+
   const iv = new Uint8Array(combined.subarray(0, 12))
   const encrypted = new Uint8Array(combined.subarray(12))
-  
+
   // Import key for Web Crypto - ensure ArrayBuffer type
   const keyBuffer = new ArrayBuffer(key.length)
   new Uint8Array(keyBuffer).set(key)
-  
+
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     keyBuffer,
@@ -199,14 +214,14 @@ async function decrypt(ciphertext: string, owner: Address): Promise<string> {
     false,
     ['decrypt'],
   )
-  
+
   // Decrypt
   const plaintext = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
     encrypted,
   )
-  
+
   return new TextDecoder().decode(plaintext)
 }
 
@@ -229,7 +244,10 @@ export class CredentialVault {
   /**
    * Store a new credential
    */
-  async storeCredential(owner: Address, request: CredentialCreateRequest): Promise<string> {
+  async storeCredential(
+    owner: Address,
+    request: CredentialCreateRequest,
+  ): Promise<string> {
     const validated = CredentialCreateSchema.parse(request)
 
     const id = `cred-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -237,8 +255,12 @@ export class CredentialVault {
 
     // Encrypt sensitive fields
     const encryptedApiKey = await encrypt(validated.apiKey, owner)
-    const encryptedApiSecret = validated.apiSecret ? await encrypt(validated.apiSecret, owner) : null
-    const encryptedProjectId = validated.projectId ? await encrypt(validated.projectId, owner) : null
+    const encryptedApiSecret = validated.apiSecret
+      ? await encrypt(validated.apiSecret, owner)
+      : null
+    const encryptedProjectId = validated.projectId
+      ? await encrypt(validated.projectId, owner)
+      : null
 
     const credential: ProviderCredential = {
       id,
@@ -261,7 +283,11 @@ export class CredentialVault {
 
     // Verify credential works before storing (unless explicitly skipped for testing)
     if (!request.skipVerification) {
-      const verifyResult = await this.verifyCredential(validated.provider, validated.apiKey, validated.apiSecret)
+      const verifyResult = await this.verifyCredential(
+        validated.provider,
+        validated.apiKey,
+        validated.apiSecret,
+      )
       if (!verifyResult.valid) {
         throw new Error(`Credential verification failed: ${verifyResult.error}`)
       }
@@ -274,7 +300,12 @@ export class CredentialVault {
     ownerCredentials.set(owner, ownerCreds)
 
     // Audit
-    this.audit('create', id, owner, `Created ${validated.provider} credential: ${validated.name}`)
+    this.audit(
+      'create',
+      id,
+      owner,
+      `Created ${validated.provider} credential: ${validated.name}`,
+    )
 
     console.log(`[CredentialVault] Stored credential ${id} for ${owner}`)
     return id
@@ -298,7 +329,9 @@ export class CredentialVault {
     // Check ownership
     if (credential.owner.toLowerCase() !== requester.toLowerCase()) {
       this.audit('use', credentialId, requester, 'Unauthorized access attempt')
-      console.warn(`[CredentialVault] Unauthorized access to ${credentialId} by ${requester}`)
+      console.warn(
+        `[CredentialVault] Unauthorized access to ${credentialId} by ${requester}`,
+      )
       return null
     }
 
@@ -318,7 +351,12 @@ export class CredentialVault {
     credential.usageCount++
 
     // Audit
-    this.audit('use', credentialId, requester, `Used for ${credential.provider}`)
+    this.audit(
+      'use',
+      credentialId,
+      requester,
+      `Used for ${credential.provider}`,
+    )
 
     // Decrypt and return
     const apiKey = await decrypt(credential.encryptedApiKey, credential.owner)
@@ -335,7 +373,14 @@ export class CredentialVault {
   /**
    * List credentials for an owner (metadata only, no secrets)
    */
-  listCredentials(owner: Address): Array<Omit<ProviderCredential, 'encryptedApiKey' | 'encryptedApiSecret' | 'encryptedProjectId'>> {
+  listCredentials(
+    owner: Address,
+  ): Array<
+    Omit<
+      ProviderCredential,
+      'encryptedApiKey' | 'encryptedApiSecret' | 'encryptedProjectId'
+    >
+  > {
     const ownerCreds = ownerCredentials.get(owner)
     if (!ownerCreds) return []
 
@@ -362,7 +407,10 @@ export class CredentialVault {
   /**
    * Revoke a credential
    */
-  async revokeCredential(credentialId: string, owner: Address): Promise<boolean> {
+  async revokeCredential(
+    credentialId: string,
+    owner: Address,
+  ): Promise<boolean> {
     const credential = credentials.get(credentialId)
     if (!credential) return false
 
@@ -380,7 +428,10 @@ export class CredentialVault {
   /**
    * Delete a credential
    */
-  async deleteCredential(credentialId: string, owner: Address): Promise<boolean> {
+  async deleteCredential(
+    credentialId: string,
+    owner: Address,
+  ): Promise<boolean> {
     const credential = credentials.get(credentialId)
     if (!credential) return false
 
@@ -433,29 +484,47 @@ export class CredentialVault {
 
     switch (provider) {
       case 'hetzner': {
-        const response = await fetch('https://api.hetzner.cloud/v1/datacenters', {
-          headers: { Authorization: `Bearer ${apiKey}` },
-          signal: AbortSignal.timeout(timeout),
-        })
+        const response = await fetch(
+          'https://api.hetzner.cloud/v1/datacenters',
+          {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(timeout),
+          },
+        )
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'Hetzner: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'Hetzner: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `Hetzner API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `Hetzner API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
 
       case 'digitalocean': {
-        const response = await fetch('https://api.digitalocean.com/v2/account', {
-          headers: { Authorization: `Bearer ${apiKey}` },
-          signal: AbortSignal.timeout(timeout),
-        })
+        const response = await fetch(
+          'https://api.digitalocean.com/v2/account',
+          {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(timeout),
+          },
+        )
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'DigitalOcean: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'DigitalOcean: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `DigitalOcean API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `DigitalOcean API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
@@ -466,10 +535,16 @@ export class CredentialVault {
           signal: AbortSignal.timeout(timeout),
         })
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'Vultr: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'Vultr: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `Vultr API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `Vultr API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
@@ -480,10 +555,16 @@ export class CredentialVault {
           signal: AbortSignal.timeout(timeout),
         })
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'Linode: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'Linode: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `Linode API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `Linode API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
@@ -492,14 +573,23 @@ export class CredentialVault {
         // AWS requires proper signature (SigV4)
         // Validate format and require both keys
         if (!apiKey.match(/^(AKIA|ASIA)[A-Z0-9]{16}$/)) {
-          return { valid: false, error: 'AWS: Invalid access key format (must be AKIA/ASIA + 16 alphanumeric chars)' }
+          return {
+            valid: false,
+            error:
+              'AWS: Invalid access key format (must be AKIA/ASIA + 16 alphanumeric chars)',
+          }
         }
         if (!apiSecret || apiSecret.length !== 40) {
-          return { valid: false, error: 'AWS: Secret key must be exactly 40 characters' }
+          return {
+            valid: false,
+            error: 'AWS: Secret key must be exactly 40 characters',
+          }
         }
         // To fully verify, would need to make STS GetCallerIdentity call
         // For now, format validation is the best we can do without SDK
-        console.log('[CredentialVault] AWS credential format validated (full verification requires SDK)')
+        console.log(
+          '[CredentialVault] AWS credential format validated (full verification requires SDK)',
+        )
         return { valid: true }
       }
 
@@ -511,19 +601,31 @@ export class CredentialVault {
         } catch {
           return { valid: false, error: 'GCP: Invalid JSON format' }
         }
-        
+
         // Validate required fields in service account JSON
-        const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
+        const requiredFields = [
+          'type',
+          'project_id',
+          'private_key_id',
+          'private_key',
+          'client_email',
+        ]
         for (const field of requiredFields) {
           if (!parsed[field]) {
-            return { valid: false, error: `GCP: Missing required field '${field}' in service account JSON` }
+            return {
+              valid: false,
+              error: `GCP: Missing required field '${field}' in service account JSON`,
+            }
           }
         }
-        
+
         if (parsed.type !== 'service_account') {
-          return { valid: false, error: 'GCP: Credential type must be "service_account"' }
+          return {
+            valid: false,
+            error: 'GCP: Credential type must be "service_account"',
+          }
         }
-        
+
         console.log('[CredentialVault] GCP service account JSON validated')
         return { valid: true }
       }

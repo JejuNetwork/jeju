@@ -1,13 +1,3 @@
-/**
- * Node Operator Dashboard
- *
- * Comprehensive dashboard for node operators to:
- * - View their nodes and status
- * - Monitor earnings and pending rewards
- * - Track performance metrics
- * - See network statistics
- */
-
 import { WalletButton } from '@jejunetwork/ui'
 import {
   Activity,

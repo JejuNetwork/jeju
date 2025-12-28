@@ -1,13 +1,3 @@
-/**
- * CEO Agent Plugin
- *
- * ElizaOS plugin that provides the AI CEO with:
- * - Governance data providers
- * - Decision-making actions
- * - On-chain integration
- * - A2A/MCP access
- */
-
 import type {
   Action,
   HandlerCallback,

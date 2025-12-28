@@ -2,10 +2,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  getFarcasterHubUrl,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getFarcasterHubUrl, getLocalhostHost } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import {
   type Address,
@@ -156,9 +153,12 @@ async function fetchRealPrices(): Promise<
 
 async function isPortInUse(port: number): Promise<boolean> {
   try {
-    const response = await fetch(`http://${getLocalhostHost()}:${port}/health`, {
-      signal: AbortSignal.timeout(1000),
-    })
+    const response = await fetch(
+      `http://${getLocalhostHost()}:${port}/health`,
+      {
+        signal: AbortSignal.timeout(1000),
+      },
+    )
     return response.ok
   } catch {
     try {

@@ -242,13 +242,10 @@ export function Targets() {
   )
 }
 
-// Validate URL to prevent XSS via javascript:, data:, or other dangerous protocols
 function getSafeHref(url: string): string | null {
-  // Only allow http and https protocols
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     return null
   }
-  // Basic URL validation
   try {
     new URL(url)
     return url

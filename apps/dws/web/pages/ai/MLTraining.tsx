@@ -223,82 +223,16 @@ export default function MLTrainingPage() {
               <Upload size={18} /> Quick Start
             </h3>
           </div>
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-                Fine-tune LLM
-              </div>
-              <div
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--text-secondary)',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                Fine-tune a language model with your custom dataset using LoRA
-                or full fine-tuning.
-              </div>
-              <button type="button" className="btn btn-secondary btn-sm">
-                <Play size={14} /> Start
-              </button>
-            </div>
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-                Train Embeddings
-              </div>
-              <div
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--text-secondary)',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                Train custom embedding models for your specific domain or use
-                case.
-              </div>
-              <button type="button" className="btn btn-secondary btn-sm">
-                <Play size={14} /> Start
-              </button>
-            </div>
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-                RLHF/DPO
-              </div>
-              <div
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--text-secondary)',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                Align models using Reinforcement Learning from Human Feedback or
-                DPO.
-              </div>
-              <button type="button" className="btn btn-secondary btn-sm">
-                <Play size={14} /> Start
-              </button>
-            </div>
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            <button type="button" className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+              <Play size={14} /> Fine-tune LLM
+            </button>
+            <button type="button" className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+              <Play size={14} /> Train Embeddings
+            </button>
+            <button type="button" className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+              <Play size={14} /> RLHF/DPO
+            </button>
           </div>
         </div>
       </div>

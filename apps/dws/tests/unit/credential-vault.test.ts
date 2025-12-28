@@ -2,9 +2,12 @@
  * Tests for credential vault encryption/decryption
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { CredentialVault, getCredentialVault } from '../../api/compute/credential-vault'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
+import {
+  type CredentialVault,
+  getCredentialVault,
+} from '../../api/compute/credential-vault'
 
 describe('CredentialVault', () => {
   const testOwner = '0x1234567890123456789012345678901234567890' as Address
@@ -39,7 +42,10 @@ describe('CredentialVault', () => {
     expect(credentialId).toStartWith('cred-')
 
     // Retrieve the credential
-    const decrypted = await vault.getDecryptedCredential(credentialId, testOwner)
+    const decrypted = await vault.getDecryptedCredential(
+      credentialId,
+      testOwner,
+    )
     expect(decrypted).not.toBeNull()
     expect(decrypted?.apiKey).toBe('test-api-key-12345')
   })
@@ -67,10 +73,10 @@ describe('CredentialVault', () => {
     })
 
     const list = vault.listCredentials(testOwner)
-    
+
     // Should have credentials
     expect(list.length).toBeGreaterThan(0)
-    
+
     // Should not expose encrypted fields
     for (const cred of list) {
       expect(cred).not.toHaveProperty('encryptedApiKey')

@@ -1,9 +1,3 @@
-/**
- * Chat Interface Component
- *
- * Real-time chat interface with an AI agent
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { type ChatResponse, useChat } from '../hooks'
 import { LoadingSpinner } from './LoadingSpinner'
@@ -33,7 +27,6 @@ export function ChatInterface({
   const inputRef = useRef<HTMLInputElement>(null)
   const chat = useChat()
 
-  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -42,7 +35,6 @@ export function ChatInterface({
     scrollToBottom()
   }, [scrollToBottom])
 
-  // Clear messages when switching characters
   useEffect(() => {
     setMessages([])
     setInput('')

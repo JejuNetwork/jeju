@@ -15,7 +15,6 @@ import {
 } from '../hooks/useRegistry'
 import GitHubReputationPanel from './GitHubReputationPanel'
 
-// Fix for Lucide React 19 type compatibility
 const XIcon = X as ComponentType<LucideProps>
 const ExternalLinkIcon = ExternalLink as ComponentType<LucideProps>
 const Trash2Icon = Trash2 as ComponentType<LucideProps>
@@ -309,7 +308,6 @@ export default function AppDetailModal({
               </code>
             </div>
 
-            {/* GitHub Developer Reputation */}
             <div style={{ marginBottom: '1.5rem' }}>
               <h3
                 style={{

@@ -60,12 +60,9 @@ const predictionMarketAbi = [
   },
 ] as const
 
-// In browser, use the proxy endpoint to avoid CORS issues
-// The browser can't reach 127.0.0.1 from a different hostname like bazaar.local.jejunetwork.org
 const INDEXER_URL =
   typeof window !== 'undefined' ? '/api/graphql' : CONFIG_INDEXER_URL
 
-// GraphQL response schema for runtime validation
 const GraphQLResponseSchema = z.object({
   data: JsonValueSchema.optional(),
   errors: z
@@ -78,7 +75,6 @@ const GraphQLResponseSchema = z.object({
 })
 type GraphQLResponse<T> = { data?: T; errors?: Array<{ message: string }> }
 
-/** Token data from indexer/RPC - full market data */
 export interface Token {
   address: Address
   chainId: number
@@ -106,7 +102,6 @@ export interface Token {
   lastSwapAt?: Date
 }
 
-/** Prediction market data from indexer */
 export interface PredictionMarket {
   id: string
   question: string
@@ -120,7 +115,6 @@ export interface PredictionMarket {
   resolutionTime?: Date
 }
 
-/** OHLCV price candle data */
 export interface PriceCandle {
   timestamp: number
   open: number
@@ -133,14 +127,12 @@ export interface PriceCandle {
 let rpcClient: PublicClient | null = null
 const getRpcClient = (): PublicClient => {
   if (!rpcClient) {
-    // In browser, use the RPC proxy to avoid CORS issues
-    const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
+  const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
     rpcClient = createPublicClient({ transport: http(rpcUrl) })
   }
   return rpcClient
 }
 
-// Security: Maximum limits to prevent DoS via large responses
 const MAX_LIMIT = 500
 const DEFAULT_LIMIT = 50
 
@@ -265,8 +257,7 @@ const mapToken = (c: RawTokenData): Token => {
     createdAt: new Date(c.createdAt ?? c.firstSeenAt ?? Date.now()),
     verified: c.verified,
     logoUrl: c.logoUrl,
-    // Market data
-    priceUSD: c.priceUSD ? parseFloat(c.priceUSD) : undefined,
+priceUSD: c.priceUSD ? parseFloat(c.priceUSD) : undefined,
     priceETH: c.priceETH ? parseFloat(c.priceETH) : undefined,
     priceChange1h: c.priceChange1h,
     priceChange24h: c.priceChange24h,
@@ -293,10 +284,6 @@ const TOKEN_ORDER_BY_MAP = {
 
 export type TokenOrderBy = keyof typeof TOKEN_ORDER_BY_MAP
 
-/**
- * Fetch tokens with full market data from the Token entity
- * Uses DEX-indexed price/volume data
- */
 export async function fetchTokensWithMarketData(options: {
   limit?: number
   offset?: number
@@ -310,8 +297,7 @@ export async function fetchTokensWithMarketData(options: {
 
   expectTrue(await checkIndexerHealth(), 'Indexer unavailable')
 
-  // Build where clause
-  const whereConditions: string[] = []
+const whereConditions: string[] = []
   if (chainId) whereConditions.push(`chainId_eq: ${chainId}`)
   if (options.verified !== undefined)
     whereConditions.push(`verified_eq: ${options.verified}`)
@@ -429,10 +415,6 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
   }
 }
 
-/**
- * Fetch prediction markets directly from the blockchain (RPC fallback)
- * Used when the indexer is unavailable
- */
 async function fetchPredictionMarketsFromRPC(options: {
   limit?: number
   offset?: number
@@ -441,8 +423,7 @@ async function fetchPredictionMarketsFromRPC(options: {
   const { offset = 0, resolved } = options
   const limit = sanitizeLimit(options.limit)
 
-  // No prediction market address configured - return empty (not an error)
-  if (
+if (
     !PREDICTION_MARKET_ADDRESS ||
     PREDICTION_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000'
   ) {
@@ -453,8 +434,7 @@ async function fetchPredictionMarketsFromRPC(options: {
   const client = getRpcClient()
   const markets: PredictionMarket[] = []
 
-  // Get total market count - let errors propagate (fail-fast)
-  const marketCount = (await client.readContract({
+const marketCount = (await client.readContract({
     address: PREDICTION_MARKET_ADDRESS,
     abi: predictionMarketAbi,
     functionName: 'getMarketCount',
@@ -463,12 +443,10 @@ async function fetchPredictionMarketsFromRPC(options: {
   const totalCount = Number(marketCount)
   if (totalCount === 0) return []
 
-  // Calculate range to fetch (most recent first)
-  const startIndex = Math.max(0, totalCount - offset - limit)
+const startIndex = Math.max(0, totalCount - offset - limit)
   const endIndex = Math.max(0, totalCount - offset)
 
-  // Fetch market IDs
-  const marketIds: `0x${string}`[] = []
+const marketIds: `0x${string}`[] = []
   for (let i = endIndex - 1; i >= startIndex; i--) {
     const sessionId = (await client.readContract({
       address: PREDICTION_MARKET_ADDRESS,
@@ -479,8 +457,7 @@ async function fetchPredictionMarketsFromRPC(options: {
     marketIds.push(sessionId)
   }
 
-  // Fetch market details for each ID
-  for (const sessionId of marketIds) {
+for (const sessionId of marketIds) {
     const marketData = (await client.readContract({
       address: PREDICTION_MARKET_ADDRESS,
       abi: predictionMarketAbi,
@@ -504,8 +481,7 @@ async function fetchPredictionMarketsFromRPC(options: {
       bigint, // twapEndTime
     ]
 
-    // Filter by resolved status if specified
-    const isResolved = marketData[7]
+const isResolved = marketData[7]
     if (resolved !== undefined && isResolved !== resolved) {
       continue
     }
@@ -514,8 +490,7 @@ async function fetchPredictionMarketsFromRPC(options: {
     const noShares = Number(marketData[3])
     const b = Number(marketData[4]) || 1
 
-    // Calculate LMSR prices
-    const yesExp = Math.exp(yesShares / b)
+const yesExp = Math.exp(yesShares / b)
     const noExp = Math.exp(noShares / b)
     const total = yesExp + noExp
 
@@ -544,8 +519,7 @@ export async function fetchPredictionMarkets(options: {
   const { offset = 0, resolved } = options
   const limit = sanitizeLimit(options.limit)
 
-  // First try the indexer
-  const indexerHealthy = await checkIndexerHealth()
+const indexerHealthy = await checkIndexerHealth()
 
   if (indexerHealthy) {
     const whereClause =
@@ -598,9 +572,7 @@ export async function fetchPredictionMarkets(options: {
           }
         })
       }
-      // Indexer returned no markets, fall through to RPC
-    } catch (indexerError) {
-      // Indexer failed (schema mismatch, etc) - fall through to RPC
+} catch (indexerError) {
       console.log(
         '[data-client] Indexer query failed, trying RPC fallback:',
         indexerError,
@@ -608,12 +580,10 @@ export async function fetchPredictionMarkets(options: {
     }
   }
 
-  // Fallback to direct RPC when indexer is unavailable or returns no data
-  console.log('[data-client] Using RPC fallback for prediction markets')
+console.log('[data-client] Using RPC fallback for prediction markets')
   return fetchPredictionMarketsFromRPC(options)
 }
 
-// Map interval string to GraphQL enum
 const INTERVAL_MAP: Record<string, string> = {
   '1m': 'MINUTE_1',
   '5m': 'MINUTE_5',
@@ -644,8 +614,7 @@ export async function fetchPriceHistory(
   const tokenId = `${chainId}-${validatedAddress.toLowerCase()}`
   const graphqlInterval = INTERVAL_MAP[interval]
 
-  // Try new TokenCandle entity first
-  const data = await gql<{
+const data = await gql<{
     tokenCandles: Array<{
       periodStart: string
       open: string
@@ -730,8 +699,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
   const chainId = 420691 // Default to Jeju
   const tokenId = `${chainId}-${validatedAddress.toLowerCase()}`
 
-  // Try new Token entity first
-  const tokenData = await gql<{
+const tokenData = await gql<{
     tokens: Array<{
       volume24h: string
       txCount24h: number
@@ -750,8 +718,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
 
   if (tokenData.tokens[0]) {
     const t = tokenData.tokens[0]
-    // Get high/low from daily candle
-    const candleData = await gql<{
+const candleData = await gql<{
       tokenCandles: Array<{ high: string; low: string }>
     }>(
       `
@@ -777,9 +744,6 @@ export async function fetchToken24hStats(address: Address): Promise<{
   return { volume: 0n, trades: 0, priceChange: 0, high: 0, low: 0 }
 }
 
-/**
- * Get trending tokens by volume and transaction count
- */
 export async function fetchTrendingTokens(options: {
   limit?: number
   chainId?: number
@@ -794,9 +758,6 @@ export async function fetchTrendingTokens(options: {
   })
 }
 
-/**
- * Get top gainers (tokens with highest 24h price increase)
- */
 export async function fetchTopGainers(options: {
   limit?: number
   chainId?: number
@@ -822,9 +783,6 @@ export async function fetchTopGainers(options: {
   return data.tokens.map(mapToken)
 }
 
-/**
- * Get top losers (tokens with highest 24h price decrease)
- */
 export async function fetchTopLosers(options: {
   limit?: number
   chainId?: number
@@ -850,9 +808,6 @@ export async function fetchTopLosers(options: {
   return data.tokens.map(mapToken)
 }
 
-/**
- * Get recently listed tokens
- */
 export async function fetchNewTokens(options: {
   limit?: number
   chainId?: number
@@ -882,9 +837,6 @@ export async function fetchNewTokens(options: {
   return data.tokens.map(mapToken)
 }
 
-/**
- * Get DEX pools for a token
- */
 export async function fetchTokenPools(
   tokenAddress: Address,
   options?: {
@@ -957,9 +909,6 @@ export async function fetchTokenPools(
   }))
 }
 
-/**
- * Get global market stats
- */
 export async function fetchMarketStats(chainId?: number): Promise<{
   totalTokens: number
   activeTokens24h: number

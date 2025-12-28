@@ -1,25 +1,7 @@
-/**
- * External Chain RPC Node Service
- *
- * Manages external blockchain RPC nodes (Ethereum, Arbitrum, Optimism, Base, Solana)
- * deployed via DWS. Nodes are provisioned as containers and registered on-chain.
- *
- * Network Modes:
- * - localnet: Anvil forks mainnet (real Chainlink feeds, fast startup)
- * - testnet: DWS-provisioned nodes, uses ExternalChainProvider contract
- * - mainnet: DWS-provisioned full archive nodes, TEE required
- *
- * No fallback to external RPCs - fully permissionless.
- */
-
 import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export const ChainTypeSchema = z.enum([
   'ethereum',

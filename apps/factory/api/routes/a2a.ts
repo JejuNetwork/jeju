@@ -1,5 +1,3 @@
-/** A2A Routes */
-
 import type { JsonRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'

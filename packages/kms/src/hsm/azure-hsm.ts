@@ -62,7 +62,6 @@ interface AzureKeyVaultOperation {
  * Azure Managed HSM Provider
  */
 export class AzureHSMProvider implements HSMProvider {
-  private config: HSMConfig
   private vaultUrl: string
   private accessToken: string | null = null
   private tokenExpiry: number = 0
@@ -83,12 +82,14 @@ export class AzureHSMProvider implements HSMProvider {
     this.clientSecret = process.env.AZURE_CLIENT_SECRET ?? ''
 
     if (!this.vaultUrl) {
-      throw new Error('Azure HSM vault URL is required. Set AZURE_HSM_VAULT_URL')
+      throw new Error(
+        'Azure HSM vault URL is required. Set AZURE_HSM_VAULT_URL',
+      )
     }
 
     if (!this.tenantId || !this.clientId || !this.clientSecret) {
       throw new Error(
-        'Azure credentials required. Set AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET'
+        'Azure credentials required. Set AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET',
       )
     }
 
@@ -109,7 +110,9 @@ export class AzureHSMProvider implements HSMProvider {
       log.info('Azure Managed HSM connected', { vaultUrl: this.vaultUrl })
     } catch (error) {
       log.error('Azure HSM connection failed', { error })
-      throw new Error(`Azure HSM connection failed: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(
+        `Azure HSM connection failed: ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   }
 
@@ -164,7 +167,10 @@ export class AzureHSMProvider implements HSMProvider {
         throw new Error(`Unknown key type: ${type}`)
     }
 
-    const body: Record<string, string | number | string[] | Record<string, boolean | string>> = {
+    const body: Record<
+      string,
+      string | number | string[] | Record<string, boolean | string>
+    > = {
       kty,
       key_ops: keyOps,
       attributes: {
@@ -190,11 +196,11 @@ export class AzureHSMProvider implements HSMProvider {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-      }
+      },
     )
 
     if (!response.ok) {
@@ -202,16 +208,17 @@ export class AzureHSMProvider implements HSMProvider {
       throw new Error(`Failed to create key: ${error}`)
     }
 
-    const keyData = await response.json() as AzureKeyVaultKey
+    const keyData = (await response.json()) as AzureKeyVaultKey
 
     const ref: HSMKeyRef = {
       keyId: keyName,
       label,
       type,
       extractable,
-      usage: type === 'aes-256'
-        ? ['encrypt', 'decrypt', 'derive']
-        : ['sign', 'verify'],
+      usage:
+        type === 'aes-256'
+          ? ['encrypt', 'decrypt', 'derive']
+          : ['sign', 'verify'],
       createdAt: keyData.attributes.created * 1000,
     }
 
@@ -236,9 +243,9 @@ export class AzureHSMProvider implements HSMProvider {
         `${this.vaultUrl}keys/${keyId}?api-version=${API_VERSION}`,
         {
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${this.accessToken}`,
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -248,7 +255,7 @@ export class AzureHSMProvider implements HSMProvider {
         throw new Error(`Failed to get key: ${await response.text()}`)
       }
 
-      const keyData = await response.json() as AzureKeyVaultKey
+      const keyData = (await response.json()) as AzureKeyVaultKey
       const tags = keyData.tags ?? {}
 
       const ref: HSMKeyRef = {
@@ -273,12 +280,13 @@ export class AzureHSMProvider implements HSMProvider {
     await this.ensureValidToken()
 
     const keys: HSMKeyRef[] = []
-    let nextLink: string | null = `${this.vaultUrl}keys?api-version=${API_VERSION}`
+    let nextLink: string | null =
+      `${this.vaultUrl}keys?api-version=${API_VERSION}`
 
     while (nextLink) {
       const response = await fetch(nextLink, {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
       })
 
@@ -286,8 +294,11 @@ export class AzureHSMProvider implements HSMProvider {
         throw new Error(`Failed to list keys: ${await response.text()}`)
       }
 
-      const data = await response.json() as {
-        value: Array<{ kid: string; attributes: { enabled: boolean; created: number } }>
+      const data = (await response.json()) as {
+        value: Array<{
+          kid: string
+          attributes: { enabled: boolean; created: number }
+        }>
         nextLink?: string
       }
 
@@ -317,9 +328,9 @@ export class AzureHSMProvider implements HSMProvider {
       {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
-      }
+      },
     )
 
     if (!response.ok && response.status !== 404) {
@@ -330,7 +341,10 @@ export class AzureHSMProvider implements HSMProvider {
     log.info('Azure HSM key deleted', { keyId })
   }
 
-  async encrypt(keyId: string, plaintext: Uint8Array): Promise<HSMEncryptResult> {
+  async encrypt(
+    keyId: string,
+    plaintext: Uint8Array,
+  ): Promise<HSMEncryptResult> {
     this.ensureConnected()
     await this.ensureValidToken()
 
@@ -341,21 +355,21 @@ export class AzureHSMProvider implements HSMProvider {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           alg: 'A256GCM',
           value: this.arrayToBase64Url(plaintext),
         }),
-      }
+      },
     )
 
     if (!response.ok) {
       throw new Error(`Encryption failed: ${await response.text()}`)
     }
 
-    const result = await response.json() as { value: string; iv?: string }
+    const result = (await response.json()) as { value: string; iv?: string }
 
     // Generate IV if not returned (some operations include it)
     const iv = result.iv
@@ -382,7 +396,7 @@ export class AzureHSMProvider implements HSMProvider {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -390,14 +404,14 @@ export class AzureHSMProvider implements HSMProvider {
           value: this.arrayToBase64Url(ciphertext),
           iv: this.arrayToBase64Url(iv),
         }),
-      }
+      },
     )
 
     if (!response.ok) {
       throw new Error(`Decryption failed: ${await response.text()}`)
     }
 
-    const result = await response.json() as { value: string }
+    const result = (await response.json()) as { value: string }
     return this.base64UrlToArray(result.value)
   }
 
@@ -414,21 +428,21 @@ export class AzureHSMProvider implements HSMProvider {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           alg: 'ES256K', // For secp256k1
           value: this.arrayToBase64Url(hashBytes),
         }),
-      }
+      },
     )
 
     if (!response.ok) {
       throw new Error(`Signing failed: ${await response.text()}`)
     }
 
-    const result = await response.json() as AzureKeyVaultOperation
+    const result = (await response.json()) as AzureKeyVaultOperation
     const signatureBytes = this.base64UrlToArray(result.value)
 
     return {
@@ -437,7 +451,11 @@ export class AzureHSMProvider implements HSMProvider {
     }
   }
 
-  async verify(keyId: string, data: Uint8Array, signature: Hex): Promise<boolean> {
+  async verify(
+    keyId: string,
+    data: Uint8Array,
+    signature: Hex,
+  ): Promise<boolean> {
     this.ensureConnected()
     await this.ensureValidToken()
 
@@ -450,7 +468,7 @@ export class AzureHSMProvider implements HSMProvider {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -458,7 +476,7 @@ export class AzureHSMProvider implements HSMProvider {
           digest: this.arrayToBase64Url(hashBytes),
           value: this.arrayToBase64Url(signatureBytes),
         }),
-      }
+      },
     )
 
     if (!response.ok) {
@@ -467,7 +485,7 @@ export class AzureHSMProvider implements HSMProvider {
       return false
     }
 
-    const result = await response.json() as { value: boolean }
+    const result = (await response.json()) as { value: boolean }
     return result.value
   }
 
@@ -489,7 +507,10 @@ export class AzureHSMProvider implements HSMProvider {
     const signResult = await this.sign(masterKeyId, input)
 
     // Hash the signature to get desired output length
-    const hash = await crypto.subtle.digest('SHA-256', this.hexToBytes(signResult.signature))
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      this.hexToBytes(signResult.signature),
+    )
 
     // If we need more bytes, chain hashes
     if (outputLength <= 32) {
@@ -506,7 +527,7 @@ export class AzureHSMProvider implements HSMProvider {
 
       const block = await crypto.subtle.digest(
         'SHA-256',
-        new Uint8Array([...new Uint8Array(hash), ...counterBytes])
+        new Uint8Array([...new Uint8Array(hash), ...counterBytes]),
       )
 
       const blockArray = new Uint8Array(block)
@@ -551,7 +572,7 @@ export class AzureHSMProvider implements HSMProvider {
       throw new Error(`Token acquisition failed: ${await response.text()}`)
     }
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       access_token: string
       expires_in: number
     }
@@ -588,7 +609,8 @@ export class AzureHSMProvider implements HSMProvider {
     if (ops.includes('decrypt')) usage.push('decrypt')
     if (ops.includes('sign')) usage.push('sign')
     if (ops.includes('verify')) usage.push('verify')
-    if (ops.includes('wrapKey') || ops.includes('unwrapKey')) usage.push('derive')
+    if (ops.includes('wrapKey') || ops.includes('unwrapKey'))
+      usage.push('derive')
     return usage
   }
 

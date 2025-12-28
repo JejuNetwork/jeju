@@ -1,25 +1,3 @@
-/**
- * KMS-Backed Signer for Crucible
- *
- * NOTE: For standard KMS signing, use the canonical signer from @jejunetwork/kms:
- * ```typescript
- * import { createKMSSigner, KMSSigner } from '@jejunetwork/kms'
- * ```
- *
- * This module provides Crucible-specific KMS features:
- * - HSM integration for key share storage
- * - TEE attestation verification
- * - Key rotation
- * - Detailed status reporting
- *
- * SECURITY ARCHITECTURE:
- * 1. Key generation happens across MPC parties (threshold = 2, total = 3+)
- * 2. Each party only holds a key share, not the full key
- * 3. Signatures require threshold parties to collaborate
- * 4. TEE attestation verifies the signing environment
- * 5. Access control via on-chain policies
- */
-
 // Re-export canonical KMS signer for standard usage
 export {
   createKMSSigner as createCanonicalKMSSigner,
@@ -33,14 +11,7 @@ export {
   validateSecureSigning,
 } from '@jejunetwork/kms'
 
-import {
-  checkHSMAvailability,
-  getCurrentNetwork,
-  getHSMConfig,
-  getKmsServiceUrl,
-  getKmsThresholdConfig,
-  type HSMConfig,
-} from '@jejunetwork/config'
+import { getCurrentNetwork, getKmsServiceUrl } from '@jejunetwork/config'
 import type { Address, Hex, TransactionRequest } from 'viem'
 import {
   createPublicClient,
@@ -55,28 +26,66 @@ import { createLogger } from './logger'
 
 const log = createLogger('KMSSigner')
 
-// ============================================================================
-// Types
-// ============================================================================
+interface HSMConfig {
+  enabled: boolean
+  provider: 'aws' | 'azure' | 'gcp' | 'softhsm' | 'none'
+  slotId?: number
+  pin?: string
+}
+
+interface ThresholdConfig {
+  threshold: number
+  totalParties: number
+  signingTimeoutMs: number
+  requireAttestation: boolean
+}
+
+function getKmsThresholdConfig(network: string): ThresholdConfig {
+  switch (network) {
+    case 'mainnet':
+      return {
+        threshold: 3,
+        totalParties: 5,
+        signingTimeoutMs: 10000,
+        requireAttestation: true,
+      }
+    case 'testnet':
+      return {
+        threshold: 2,
+        totalParties: 3,
+        signingTimeoutMs: 15000,
+        requireAttestation: false,
+      }
+    default:
+      return {
+        threshold: 1,
+        totalParties: 2,
+        signingTimeoutMs: 30000,
+        requireAttestation: false,
+      }
+  }
+}
+
+function getHSMConfig(network: string): HSMConfig | undefined {
+  if (network === 'mainnet') {
+    return { enabled: true, provider: 'aws' }
+  }
+  return undefined
+}
+
+function checkHSMAvailability(): { available: boolean; provider?: string } {
+  return { available: false }
+}
 
 export interface KMSSignerConfig {
-  /** KMS service endpoint */
   endpoint: string
-  /** Network ID for key derivation */
   networkId: string
-  /** Threshold for MPC signing (e.g., 2-of-3) */
   threshold: number
-  /** Total MPC parties */
   totalParties: number
-  /** Request timeout in ms */
   timeout: number
-  /** Allow development mode (single-party signing for localnet) */
   allowDevMode: boolean
-  /** RPC URL for chain operations */
   rpcUrl: string
-  /** Chain ID */
   chainId: number
-  /** HSM configuration for key share storage */
   hsm?: HSMConfig
 }
 
@@ -728,8 +737,12 @@ export function createKMSSigner(
     if (fullConfig.allowDevMode) {
       throw new Error('Mainnet cannot run in development mode')
     }
-    if (!fullConfig.hsm || fullConfig.hsm.provider === 'software') {
-      throw new Error('Mainnet requires HSM-backed key storage (not software)')
+    if (
+      !fullConfig.hsm ||
+      fullConfig.hsm.provider === 'softhsm' ||
+      fullConfig.hsm.provider === 'none'
+    ) {
+      throw new Error('Mainnet requires HSM-backed key storage')
     }
   }
 

@@ -1,9 +1,14 @@
+import { invoke } from '@tauri-apps/api/core'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Clock, ExternalLink, Shield } from 'lucide-react'
+import { useState } from 'react'
 import { useAppStore } from '../context/AppContext'
 
 export function BanWarning() {
-  const { banStatus } = useAppStore()
+  const { banStatus, fetchBanStatus } = useAppStore()
+  const [appealReason, setAppealReason] = useState('')
+  const [showAppealForm, setShowAppealForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   if (!banStatus?.is_banned && !banStatus?.is_on_notice) return null
 
@@ -78,23 +83,64 @@ export function BanWarning() {
             </div>
           )}
 
-          <div className="flex gap-3 mt-4">
-            {canAppeal && !banStatus.appeal_status && (
-              <button type="button" className="btn-primary text-sm">
-                Submit Appeal
-              </button>
-            )}
+          {showAppealForm && canAppeal && !banStatus.appeal_status ? (
+            <div className="mt-4 space-y-3">
+              <textarea
+                value={appealReason}
+                onChange={(e) => setAppealReason(e.target.value)}
+                placeholder="Explain why your ban should be lifted..."
+                className="w-full p-3 bg-volcanic-800 border border-volcanic-700 rounded-lg text-sm text-volcanic-100 placeholder:text-volcanic-500"
+                rows={3}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!appealReason.trim()) return
+                    setSubmitting(true)
+                    await invoke('submit_ban_appeal', { reason: appealReason })
+                    await fetchBanStatus()
+                    setShowAppealForm(false)
+                    setAppealReason('')
+                    setSubmitting(false)
+                  }}
+                  disabled={submitting || !appealReason.trim()}
+                  className="btn-primary text-sm"
+                >
+                  {submitting ? 'Submitting...' : 'Submit Appeal'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAppealForm(false)}
+                  className="btn-ghost text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-3 mt-4">
+              {canAppeal && !banStatus.appeal_status && (
+                <button
+                  type="button"
+                  onClick={() => setShowAppealForm(true)}
+                  className="btn-primary text-sm"
+                >
+                  Submit Appeal
+                </button>
+              )}
 
-            <a
-              href="https://gateway.jejunetwork.org/moderation"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-secondary text-sm flex items-center gap-2"
-            >
-              View on Gateway
-              <ExternalLink size={14} />
-            </a>
-          </div>
+              <a
+                href="https://gateway.jejunetwork.org/moderation"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                View on Gateway
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          )}
 
           {isPermanent && (
             <p className="text-xs text-red-300/70 mt-3">

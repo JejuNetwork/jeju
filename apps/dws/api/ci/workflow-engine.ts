@@ -1,8 +1,3 @@
-/**
- * Workflow Engine for Jeju CI/CD
- * Executes workflows triggered by git events
- */
-
 import { getDWSUrl } from '@jejunetwork/config'
 import {
   type Address,

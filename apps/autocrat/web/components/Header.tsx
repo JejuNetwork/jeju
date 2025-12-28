@@ -1,9 +1,3 @@
-/**
- * Autocrat Header Component
- *
- * Bright, accessible navigation header with mobile-friendly design.
- */
-
 import { Building2, Menu, Plus, Sparkles, User, Wallet, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'

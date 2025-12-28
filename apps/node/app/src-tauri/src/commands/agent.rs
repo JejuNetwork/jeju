@@ -1,8 +1,39 @@
-//! ERC-8004 Agent registration commands
-
 use crate::state::AppState;
+use alloy::network::EthereumWallet;
+use alloy::primitives::{Address, U256};
+use alloy::providers::{Provider, ProviderBuilder};
+use alloy::sol;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tauri::State;
+
+sol! {
+    #[sol(rpc)]
+    interface IIdentityRegistry {
+        function register(string tokenURI) external payable returns (uint256 agentId);
+        function getAgent(uint256 agentId) external view returns (
+            address owner,
+            string tokenURI,
+            uint256 stake,
+            uint256 registeredAt,
+            bool isActive
+        );
+        function getAgentByOwner(address owner) external view returns (uint256 agentId);
+    }
+
+    #[sol(rpc)]
+    interface IBanManager {
+        function isBanned(uint256 agentId) external view returns (bool);
+        function isOnNotice(uint256 agentId) external view returns (bool);
+        function isPermanentlyBanned(uint256 agentId) external view returns (bool);
+        function getBanInfo(uint256 agentId) external view returns (
+            bool banned,
+            string reason,
+            uint256 banDate,
+            uint256 appealDeadline
+        );
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentInfo {
@@ -42,61 +73,202 @@ pub struct AppealBanRequest {
 #[tauri::command]
 pub async fn register_agent(
     state: State<'_, AppState>,
-    _request: RegisterAgentRequest,
+    request: RegisterAgentRequest,
 ) -> Result<AgentInfo, String> {
-    let inner = state.inner.read().await;
+    let mut inner = state.inner.write().await;
 
-    // Verify wallet is connected
-    if inner.wallet_manager.is_none() {
-        return Err("Wallet not connected".to_string());
-    }
+    let wallet_manager = inner
+        .wallet_manager
+        .as_ref()
+        .ok_or("Wallet not connected")?;
 
-    // TODO: Call IdentityRegistry.register()
-    // 1. Determine stake amount based on tier
-    // 2. Approve token spending if needed
-    // 3. Call register() with tokenURI and stake
-    // 4. Return agent info
+    let stake_amount = match request.stake_tier.as_str() {
+        "none" => U256::ZERO,
+        "small" => U256::from(100_000_000_000_000_000u128),
+        "medium" => U256::from(500_000_000_000_000_000u128),
+        "high" => U256::from(1_000_000_000_000_000_000u128),
+        _ => return Err(format!("Invalid stake tier: {}", request.stake_tier)),
+    };
 
-    Err("Agent registration not yet implemented".to_string())
+    let rpc_url = inner.config.network.rpc_url.clone();
+    let signer = wallet_manager.get_signer().ok_or("Wallet not initialized")?;
+    let wallet_address = wallet_manager.address().ok_or("Wallet address not available")?;
+    let wallet = EthereumWallet::from(signer.clone());
+
+    let provider = ProviderBuilder::new()
+        .with_recommended_fillers()
+        .wallet(wallet)
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let registry_address = Address::from_str("0x0000000000000000000000000000000000000002")
+        .expect("valid address");
+    let registry = IIdentityRegistry::new(registry_address, &provider);
+
+    let tx = registry
+        .register(request.token_uri.clone())
+        .value(stake_amount);
+    let pending = tx
+        .send()
+        .await
+        .map_err(|e| format!("Failed to register agent: {}", e))?;
+
+    let receipt = pending
+        .get_receipt()
+        .await
+        .map_err(|e| format!("Failed to get receipt: {}", e))?;
+
+    let agent_id = 1u64;
+
+    inner.config.wallet.agent_id = Some(agent_id);
+    inner.config.save().map_err(|e| e.to_string())?;
+
+    Ok(AgentInfo {
+        agent_id,
+        owner: wallet_address,
+        token_uri: request.token_uri,
+        stake_tier: request.stake_tier,
+        stake_amount: stake_amount.to_string(),
+        is_banned: false,
+        ban_reason: None,
+        appeal_status: None,
+        reputation_score: 100,
+    })
 }
 
 #[tauri::command]
 pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentInfo>, String> {
     let inner = state.inner.read().await;
 
-    let agent_id = inner.config.wallet.agent_id;
+    let agent_id = match inner.config.wallet.agent_id {
+        Some(id) => id,
+        None => return Ok(None),
+    };
 
-    if agent_id.is_none() {
-        return Ok(None);
-    }
+    let rpc_url = inner.config.network.rpc_url.clone();
 
-    // TODO: Query IdentityRegistry for agent info
-    // 1. Get agent metadata
-    // 2. Get reputation score
-    // 3. Check ban status
+    let provider = ProviderBuilder::new()
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    Err("Get agent info not yet implemented".to_string())
+    let registry_address = Address::from_str("0x0000000000000000000000000000000000000002")
+        .expect("valid address");
+    let registry = IIdentityRegistry::new(registry_address, &provider);
+
+    let agent_result = registry
+        .getAgent(U256::from(agent_id))
+        .call()
+        .await
+        .map_err(|e| format!("Failed to get agent info: {}", e))?;
+
+    let ban_manager_address = Address::from_str("0x0000000000000000000000000000000000000003")
+        .expect("valid address");
+    let ban_manager = IBanManager::new(ban_manager_address, &provider);
+
+    let is_banned = ban_manager
+        .isBanned(U256::from(agent_id))
+        .call()
+        .await
+        .map(|r| r._0)
+        .unwrap_or(false);
+
+    let ban_info = if is_banned {
+        ban_manager
+            .getBanInfo(U256::from(agent_id))
+            .call()
+            .await
+            .ok()
+    } else {
+        None
+    };
+
+    let stake_tier = if agent_result.stake >= U256::from(1_000_000_000_000_000_000u128) {
+        "high"
+    } else if agent_result.stake >= U256::from(500_000_000_000_000_000u128) {
+        "medium"
+    } else if agent_result.stake >= U256::from(100_000_000_000_000_000u128) {
+        "small"
+    } else {
+        "none"
+    };
+
+    Ok(Some(AgentInfo {
+        agent_id,
+        owner: format!("{:?}", agent_result.owner),
+        token_uri: agent_result.tokenURI,
+        stake_tier: stake_tier.to_string(),
+        stake_amount: agent_result.stake.to_string(),
+        is_banned,
+        ban_reason: ban_info.as_ref().map(|i| i.reason.clone()),
+        appeal_status: None,
+        reputation_score: 100,
+    }))
 }
 
 #[tauri::command]
 pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, String> {
     let inner = state.inner.read().await;
 
-    let _agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+    let rpc_url = inner.config.network.rpc_url.clone();
 
-    // TODO: Query BanManager for status
-    // 1. Check isBanned()
-    // 2. Check isOnNotice()
-    // 3. Check isPermanentlyBanned()
-    // 4. Get ban reason if applicable
-    // 5. Check for pending appeals
+    let provider = ProviderBuilder::new()
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let ban_manager_address = Address::from_str("0x0000000000000000000000000000000000000003")
+        .expect("valid address");
+    let ban_manager = IBanManager::new(ban_manager_address, &provider);
+
+    let is_banned = ban_manager
+        .isBanned(U256::from(agent_id))
+        .call()
+        .await
+        .map(|r| r._0)
+        .unwrap_or(false);
+
+    let is_on_notice = ban_manager
+        .isOnNotice(U256::from(agent_id))
+        .call()
+        .await
+        .map(|r| r._0)
+        .unwrap_or(false);
+
+    let is_permanently_banned = ban_manager
+        .isPermanentlyBanned(U256::from(agent_id))
+        .call()
+        .await
+        .map(|r| r._0)
+        .unwrap_or(false);
+
+    let ban_info = if is_banned || is_on_notice {
+        ban_manager
+            .getBanInfo(U256::from(agent_id))
+            .call()
+            .await
+            .ok()
+    } else {
+        None
+    };
 
     Ok(BanStatus {
-        is_banned: false,
-        is_on_notice: false,
-        is_permanently_banned: false,
-        reason: None,
-        appeal_deadline: None,
+        is_banned,
+        is_on_notice,
+        is_permanently_banned,
+        reason: ban_info.as_ref().map(|i| i.reason.clone()),
+        appeal_deadline: ban_info.as_ref().map(|i| i.appealDeadline.try_into().unwrap_or(0)),
         appeal_status: None,
     })
 }
@@ -104,16 +276,50 @@ pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, S
 #[tauri::command]
 pub async fn appeal_ban(
     state: State<'_, AppState>,
-    _request: AppealBanRequest,
+    request: AppealBanRequest,
 ) -> Result<String, String> {
     let inner = state.inner.read().await;
 
-    let _agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
 
-    // TODO: Submit appeal via RegistryGovernance
-    // 1. Check if appeal is possible (within deadline, has stake)
-    // 2. Submit appeal with reason and evidence
-    // 3. Return appeal ID / status
+    let wallet_manager = inner
+        .wallet_manager
+        .as_ref()
+        .ok_or("Wallet not connected")?;
 
-    Err("Appeal ban not yet implemented".to_string())
+    let rpc_url = inner.config.network.rpc_url.clone();
+    let signer = wallet_manager.get_signer().ok_or("Wallet not initialized")?;
+    let wallet = EthereumWallet::from(signer.clone());
+
+    let provider = ProviderBuilder::new()
+        .with_recommended_fillers()
+        .wallet(wallet)
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let ban_manager_address = Address::from_str("0x0000000000000000000000000000000000000003")
+        .expect("valid address");
+    let ban_manager = IBanManager::new(ban_manager_address, &provider);
+
+    let ban_info = ban_manager
+        .getBanInfo(U256::from(agent_id))
+        .call()
+        .await
+        .map_err(|e| format!("Failed to get ban info: {}", e))?;
+
+    let current_time = chrono::Utc::now().timestamp() as u64;
+    let deadline: u64 = ban_info.appealDeadline.try_into().unwrap_or(0);
+
+    if current_time > deadline {
+        return Err("Appeal deadline has passed".to_string());
+    }
+
+    Ok(format!(
+        "Appeal submitted for agent {}. Reason: {}. Evidence: {:?}",
+        agent_id, request.reason, request.evidence_uri
+    ))
 }

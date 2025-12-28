@@ -1,25 +1,8 @@
-/**
- * KMS-Backed Wallet Client
- *
- * Provides a viem-compatible wallet interface that routes all signing
- * through KMS with FROST threshold cryptography.
- *
- * SECURITY: The full private key is NEVER reconstructed or held in memory.
- * Signing requires threshold agreement from multiple parties.
- *
- * Usage:
- *   const wallet = await createKMSWalletClient({
- *     chain: base,
- *     transport: http(rpcUrl),
- *     kmsKeyId: 'uuid',
- *     ownerAddress: '0x...',
- *   })
- *
- *   // Use like a normal wallet client
- *   const hash = await wallet.sendTransaction({ to, value })
- *   const sig = await wallet.signMessage({ message: 'hello' })
- */
-
+import {
+  getCurrentNetwork,
+  getKMSUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type {
   Address,
   Chain,
@@ -41,12 +24,10 @@ import {
   toHex,
 } from 'viem'
 
-import { getKmsUrl, getCurrentNetwork, isProductionEnv } from '@jejunetwork/config'
-
 // KMS endpoint - env override takes precedence, then config
 const KMS_ENDPOINT =
   (typeof process !== 'undefined' ? process.env.KMS_ENDPOINT : undefined) ??
-  getKmsUrl(getCurrentNetwork())
+  getKMSUrl(getCurrentNetwork())
 
 interface KMSSignResult {
   signature: Hex

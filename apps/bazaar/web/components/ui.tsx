@@ -1,9 +1,3 @@
-/**
- * Shared UI Components
- *
- * Reusable, accessible components for consistent design across Bazaar
- */
-
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'

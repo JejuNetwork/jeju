@@ -309,12 +309,21 @@ function getConfig(): FundingConfig {
   const contracts = {
     daoRegistry: (tryGetContract('governance', 'daoRegistry', network) ||
       '0x0000000000000000000000000000000000000000') as Address,
-    contributorRegistry: (tryGetContract('governance', 'contributorRegistry', network) ||
-      '0x0000000000000000000000000000000000000000') as Address,
-    paymentRequestRegistry: (tryGetContract('governance', 'paymentRequestRegistry', network) ||
-      '0x0000000000000000000000000000000000000000') as Address,
-    deepFundingDistributor: (tryGetContract('governance', 'deepFundingDistributor', network) ||
-      '0x0000000000000000000000000000000000000000') as Address,
+    contributorRegistry: (tryGetContract(
+      'governance',
+      'contributorRegistry',
+      network,
+    ) || '0x0000000000000000000000000000000000000000') as Address,
+    paymentRequestRegistry: (tryGetContract(
+      'governance',
+      'paymentRequestRegistry',
+      network,
+    ) || '0x0000000000000000000000000000000000000000') as Address,
+    deepFundingDistributor: (tryGetContract(
+      'governance',
+      'deepFundingDistributor',
+      network,
+    ) || '0x0000000000000000000000000000000000000000') as Address,
   }
 
   return {

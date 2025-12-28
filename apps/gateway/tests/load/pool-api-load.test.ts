@@ -142,8 +142,7 @@ test('Load Test: GET /api/pools', async () => {
 
 test('Load Test: POST /api/pools/quote', async () => {
   if (SKIP_LOAD_TESTS || !serverAvailable) {
-    console.log('⏭️  Skipping load test (server not available)')
-    expect(true).toBe(true)
+    console.log('Skipping load test (server not available)')
     return
   }
 
@@ -212,8 +211,7 @@ test('Load Test: POST /api/pools/quote', async () => {
 
 test('Load Test: Concurrent Mixed Endpoints', async () => {
   if (SKIP_LOAD_TESTS || !serverAvailable) {
-    console.log('⏭️  Skipping load test (server not available)')
-    expect(true).toBe(true)
+    console.log('Skipping load test (server not available)')
     return
   }
 

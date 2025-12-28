@@ -13,13 +13,12 @@
  * reconstructed or held in memory.
  */
 
+import { randomBytes } from 'node:crypto'
 import {
   getCurrentNetwork,
-  getLocalhostHost,
   getRpcUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { randomBytes } from 'node:crypto'
 import type { Address, Hex } from 'viem'
 import { keccak256, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'

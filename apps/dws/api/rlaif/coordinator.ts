@@ -1,19 +1,3 @@
-/**
- * RLAIF Coordinator for Jeju DWS
- *
- * Orchestrates the complete RLAIF training loop:
- * 1. Collect rollouts from environment
- * 2. Score trajectories with LLM judge (RULER)
- * 3. Train policy with RL algorithm (GRPO/PPO)
- * 4. Evaluate and gate promotion
- *
- * Integrates with:
- * - Jeju Compute Marketplace for GPU jobs
- * - Jeju Storage for CID-first artifacts
- * - On-chain TrainingCoordinator for state management
- * - Optional Psyche for distributed training
- */
-
 import { getApiKey, isProductionEnv } from '@jejunetwork/config'
 import { writeContract } from '@jejunetwork/contracts'
 import { expectValid } from '@jejunetwork/types'

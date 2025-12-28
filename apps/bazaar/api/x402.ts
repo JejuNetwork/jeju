@@ -1,8 +1,3 @@
-/**
- * x402 Payment Protocol for Bazaar
- * Provides Bazaar-specific payment tiers and helpers
- */
-
 import { createX402PaymentRequirement } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { parseEther } from 'viem'
@@ -55,9 +50,6 @@ export const PAYMENT_TIERS = {
   HISTORICAL_DATA: parseEther('0.05'),
 } as const
 
-/**
- * Create payment requirement with Bazaar defaults
- */
 export function createPaymentRequirement(
   resource: string,
   amount: bigint,

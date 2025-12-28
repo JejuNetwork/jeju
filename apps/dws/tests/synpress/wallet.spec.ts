@@ -1,133 +1,185 @@
 /**
- * DWS Wallet Integration Tests
+ * DWS Wallet Integration Tests with Synpress
  *
  * Tests wallet connection, signing, and transactions for DWS features
  * that require blockchain authentication.
  */
 
-import { expect, test } from '@playwright/test'
+// Must import zod-compat before synpress for Zod 4 compatibility
+import '@jejunetwork/tests/zod-compat'
+import { testWithSynpress } from '@synthetixio/synpress'
+import '@jejunetwork/tests/zod-compat'
+import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
+import '@jejunetwork/tests/zod-compat'
+import { basicSetup } from '../../synpress.config'
+
+const test = testWithSynpress(metaMaskFixtures(basicSetup))
+const { expect } = test
 
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4031', 10)
 const BASE_URL = `http://localhost:${DWS_PORT}`
 
-test.describe('DWS - Wallet Integration', () => {
-  test.beforeEach(async ({ page }) => {
-    try {
-      await page.goto(BASE_URL, { timeout: 10000 })
-    } catch {
-      test.skip(true, 'DWS not running')
-    }
+test.describe('DWS - Wallet Connection', () => {
+  test('displays connect button before connection', async ({ page }) => {
+    await page.goto(BASE_URL)
+    await page.waitForLoadState('networkidle')
+
+    // DWS should show a connect wallet option
+    const connectBtn = page.locator('button:has-text(/connect/i)').first()
+    await expect(connectBtn).toBeVisible({ timeout: 10000 })
+
+    await page.screenshot({
+      path: 'test-results/screenshots/dws-before-connect.png',
+      fullPage: true,
+    })
   })
 
-  test('should show wallet connect option', async ({ page }) => {
-    await page.goto(BASE_URL)
-
-    // Look for wallet connection UI
-    const walletButton = page
-      .locator(
-        'button:has-text(/connect/i), [data-testid*="connect"], [aria-label*="wallet" i]',
-      )
-      .first()
-
-    const hasWallet = (await walletButton.count()) > 0
-
-    if (hasWallet) {
-      await expect(walletButton).toBeVisible()
-    } else {
-      console.log(
-        'Note: DWS may not require wallet connection for all features',
-      )
-    }
-  })
-
-  test('should display login/auth options', async ({ page }) => {
-    await page.goto(BASE_URL)
-
-    // Look for any auth-related UI
-    const authUI = page.locator(
-      'button:has-text(/sign in|login|connect/i), [data-testid*="auth"], [data-testid*="login"]',
+  test('connects MetaMask wallet', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
     )
 
-    const hasAuth = (await authUI.count()) > 0
+    await page.goto(BASE_URL)
+    await page.waitForLoadState('networkidle')
 
-    // Just verify the page loads - auth is optional for some views
-    await expect(page.locator('body')).toBeVisible()
+    // Click connect button
+    const connectBtn = page.locator('button:has-text(/connect/i)').first()
+    await connectBtn.click()
+    await page.waitForTimeout(1000)
 
-    if (hasAuth) {
-      console.log('Found auth UI elements')
+    // Connect MetaMask
+    await metamask.connectToDapp()
+
+    // Verify wallet address is shown
+    await expect(page.locator('button:has-text(/0x/)')).toBeVisible({
+      timeout: 15000,
+    })
+
+    await page.screenshot({
+      path: 'test-results/screenshots/dws-connected.png',
+      fullPage: true,
+    })
+  })
+})
+
+test.describe('DWS - Authenticated Navigation', () => {
+  test('can navigate compute pages with wallet connected', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
+    )
+
+    await page.goto(BASE_URL)
+
+    // Connect wallet first
+    const connectBtn = page.locator('button:has-text(/connect/i)').first()
+    if (await connectBtn.isVisible()) {
+      await connectBtn.click()
+      await page.waitForTimeout(1000)
+      await metamask.connectToDapp()
+    }
+
+    // Navigate to compute pages
+    const computePaths = [
+      '/compute/containers',
+      '/compute/workers',
+      '/compute/jobs',
+    ]
+
+    for (const path of computePaths) {
+      await page.goto(`${BASE_URL}${path}`)
+      await page.waitForLoadState('domcontentloaded')
+      await expect(page.locator('body')).toBeVisible()
+
+      // Wallet should remain connected
+      await expect(page.locator('button:has-text(/0x/)')).toBeVisible()
     }
   })
 
-  test('should handle wallet rejection gracefully', async ({ page }) => {
+  test('can navigate storage pages with wallet connected', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
+    )
+
     await page.goto(BASE_URL)
 
-    // If connect button exists, clicking it should show wallet options
-    const connectButton = page.locator('button:has-text(/connect/i)').first()
-
-    if (await connectButton.isVisible()) {
-      await connectButton.click()
-
-      // Should show wallet options modal or similar
+    // Connect wallet first
+    const connectBtn = page.locator('button:has-text(/connect/i)').first()
+    if (await connectBtn.isVisible()) {
+      await connectBtn.click()
       await page.waitForTimeout(1000)
+      await metamask.connectToDapp()
+    }
 
-      // Close any modal
-      await page.keyboard.press('Escape')
+    // Navigate to storage pages
+    const storagePaths = ['/storage/buckets', '/storage/cdn', '/storage/ipfs']
 
-      // Page should still be functional
+    for (const path of storagePaths) {
+      await page.goto(`${BASE_URL}${path}`)
+      await page.waitForLoadState('domcontentloaded')
       await expect(page.locator('body')).toBeVisible()
+
+      // Wallet should remain connected
+      await expect(page.locator('button:has-text(/0x/)')).toBeVisible()
     }
   })
 })
 
-test.describe('DWS - Authenticated Features', () => {
-  // These tests verify that authenticated features are properly gated
-  test('should require auth for storage management', async ({ page }) => {
-    await page.goto(`${BASE_URL}/storage`)
+test.describe('DWS - Faucet Integration', () => {
+  test('can request testnet tokens from faucet', async ({
+    context,
+    page,
+    metamaskPage,
+    extensionId,
+  }) => {
+    const metamask = new MetaMask(
+      context,
+      metamaskPage,
+      basicSetup.walletPassword,
+      extensionId,
+    )
 
-    // Either shows login prompt or storage content
-    const needsAuth = await page
-      .locator('button:has-text(/connect|sign in/i)')
-      .isVisible()
-    const hasContent = await page
-      .locator('[data-testid*="storage"], .storage-list')
-      .isVisible()
+    await page.goto(`${BASE_URL}/faucet`)
 
-    // Should have one or the other
-    expect(
-      needsAuth || hasContent,
-      'Should show auth prompt or storage content',
-    ).toBe(true)
-  })
+    // Connect wallet first
+    const connectBtn = page.locator('button:has-text(/connect/i)').first()
+    if (await connectBtn.isVisible()) {
+      await connectBtn.click()
+      await page.waitForTimeout(1000)
+      await metamask.connectToDapp()
+    }
 
-  test('should require auth for compute jobs', async ({ page }) => {
-    await page.goto(`${BASE_URL}/compute`)
+    await page.waitForTimeout(2000)
 
-    const needsAuth = await page
-      .locator('button:has-text(/connect|sign in/i)')
-      .isVisible()
-    const hasContent = await page
-      .locator('[data-testid*="compute"], .compute-list')
-      .isVisible()
+    // Check faucet page has expected content
+    await expect(page.locator('text=/faucet/i')).toBeVisible()
 
-    expect(
-      needsAuth || hasContent,
-      'Should show auth prompt or compute content',
-    ).toBe(true)
-  })
-
-  test('should require auth for git operations', async ({ page }) => {
-    await page.goto(`${BASE_URL}/git`)
-
-    const needsAuth = await page
-      .locator('button:has-text(/connect|sign in/i)')
-      .isVisible()
-    const hasContent = await page
-      .locator('[data-testid*="repo"], .repo-list')
-      .isVisible()
-
-    expect(
-      needsAuth || hasContent,
-      'Should show auth prompt or repo content',
-    ).toBe(true)
+    await page.screenshot({
+      path: 'test-results/screenshots/dws-faucet.png',
+      fullPage: true,
+    })
   })
 })

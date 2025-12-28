@@ -1,10 +1,3 @@
-/**
- * Trajectory Store for Jeju DWS
- *
- * CID-first storage for trajectories, rewards, and training artifacts.
- * Uses Jeju Storage (IPFS) for decentralized persistence.
- */
-
 import { expectValid } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import { keccak256, toHex } from 'viem'

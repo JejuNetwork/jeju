@@ -1,7 +1,3 @@
-// ============================================================
-// Type Definitions
-// ============================================================
-
 type EthereumRequestMethod =
   | 'eth_requestAccounts'
   | 'personal_sign'
@@ -63,10 +59,6 @@ interface ApiErrorResponse {
   code?: string
 }
 
-// ============================================================
-// Type Guards
-// ============================================================
-
 function hasEthereumProvider(
   win: Window,
 ): win is Window & { ethereum: EthereumProvider } {
@@ -105,10 +97,6 @@ function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
 function isValidPriority(value: string): value is 'low' | 'medium' | 'high' {
   return value === 'low' || value === 'medium' || value === 'high'
 }
-
-// ============================================================
-// API Client
-// ============================================================
 
 const API_URL = ''
 
@@ -182,10 +170,6 @@ class ApiClient {
   }
 }
 
-// ============================================================
-// State Management
-// ============================================================
-
 const state: AppState = {
   address: null,
   todos: [],
@@ -205,10 +189,6 @@ function clearError(): void {
     setState({ error: null })
   }
 }
-
-// ============================================================
-// Authentication Helpers
-// ============================================================
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const ethereum = getEthereumProvider()
@@ -236,10 +216,6 @@ async function getAuthenticatedClient(): Promise<ApiClient> {
   return new ApiClient(API_URL, headers)
 }
 
-// ============================================================
-// Validation
-// ============================================================
-
 function validateTitle(title: string): string {
   const trimmed = title.trim()
   if (trimmed.length === 0) {
@@ -257,10 +233,6 @@ function validatePriority(priority: string): 'low' | 'medium' | 'high' {
   }
   return priority
 }
-
-// ============================================================
-// Todo Operations
-// ============================================================
 
 async function fetchTodos(): Promise<void> {
   setState({ loading: true, error: null })
@@ -322,10 +294,6 @@ async function encryptTodo(id: string): Promise<void> {
   await fetchTodos()
 }
 
-// ============================================================
-// Wallet Connection
-// ============================================================
-
 async function connectWallet(): Promise<void> {
   const ethereum = getEthereumProvider()
   if (!ethereum) {
@@ -364,10 +332,6 @@ function disconnectWallet(): void {
   setState({ address: null, todos: [], error: null })
 }
 
-// ============================================================
-// Utility Functions
-// ============================================================
-
 function escapeHtml(text: string): string {
   const div = document.createElement('div')
   div.textContent = text
@@ -383,10 +347,6 @@ function getStats(): { total: number; completed: number; pending: number } {
   const completed = state.todos.filter((t) => t.completed).length
   return { total, completed, pending: total - completed }
 }
-
-// ============================================================
-// Render Functions
-// ============================================================
 
 function render(): void {
   const app = document.getElementById('app')
@@ -748,10 +708,6 @@ function renderFooter(): string {
   `
 }
 
-// ============================================================
-// Event Handling
-// ============================================================
-
 function attachEventListeners(): void {
   // Connect wallet
   document.getElementById('connect')?.addEventListener('click', async () => {
@@ -861,10 +817,6 @@ function attachEventListeners(): void {
   })
 }
 
-// ============================================================
-// Wallet Account Change Listener
-// ============================================================
-
 const ethereumProvider = getEthereumProvider()
 if (ethereumProvider) {
   ethereumProvider.on('accountsChanged', (accounts: string[]) => {
@@ -876,10 +828,6 @@ if (ethereumProvider) {
     }
   })
 }
-
-// ============================================================
-// Initialize App
-// ============================================================
 
 render()
 

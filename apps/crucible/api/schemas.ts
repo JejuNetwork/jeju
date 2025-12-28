@@ -1,10 +1,3 @@
-/**
- * Crucible API Schemas
- *
- * Zod validation schemas for crucible API requests and responses.
- * Uses fail-fast validation pattern.
- */
-
 import {
   AddressSchema,
   expect as baseExpect,

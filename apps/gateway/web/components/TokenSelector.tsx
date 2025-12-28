@@ -49,7 +49,6 @@ export default function TokenSelector({
         {label}
       </label>
 
-      {/* Selected Token Display */}
       <button
         id="token-selector-button"
         type="button"
@@ -107,7 +106,6 @@ export default function TokenSelector({
         <span style={{ color: 'var(--text-muted)' }}>▼</span>
       </button>
 
-      {/* Dropdown List */}
       {isOpen && !disabled && (
         <>
           <button

@@ -1,13 +1,5 @@
 /**
  * Otto Token Launch Service
- *
- * Full-featured token launching with deep customization:
- * - Bonding curve launches
- * - ICO/Presale launches
- * - Social launch integration (Farcaster, Twitter)
- * - Pool configuration and liquidity distribution
- * - Creator vault with vesting
- * - Airdrop support
  */
 
 import { getCoreAppUrl } from '@jejunetwork/config'

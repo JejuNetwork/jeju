@@ -1,9 +1,3 @@
-/**
- * DAO Discovery Page
- *
- * Bright, engaging landing page to discover and explore AI-powered DAOs.
- */
-
 import {
   AlertCircle,
   Building2,
@@ -351,8 +345,7 @@ export default function DAOListPage() {
               DAOs with AI Leadership
             </h1>
             <p className="text-lg text-white/80 mb-8 leading-relaxed max-w-2xl">
-              Organizations where AI agents serve as CEO and board members,
-              making governance decisions on-chain with full transparency.
+              AI-powered organizations with transparent on-chain governance.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link

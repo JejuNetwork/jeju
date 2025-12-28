@@ -1,106 +1,66 @@
-/**
- * Crucible Types
- *
- * Core type definitions for the decentralized agent orchestration platform.
- * This is the shared library - api/ and web/ should import from here.
- */
-
 import type { ExecutionStatus, JsonObject, JsonValue } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-/** Last execution tracking stored in agent context */
 export interface LastExecutionInfo {
   executionId: string
   timestamp: number
   triggerId?: string | null
 }
 
-/** Agent context stores execution history and user-defined data */
 export interface AgentContext {
-  /** Last execution info, set by executor */
   lastExecution?: LastExecutionInfo | null
-  /** Additional context data - can be any JSON-serializable value */
   [key: string]: JsonValue | LastExecutionInfo | null | undefined
 }
 
-// Action Types
-
-/** Parameters passed to an agent action */
 export interface ActionParams {
-  /** Target content for POST_TO_ROOM, etc */
   content?: string
-  /** Target address for transfers, etc */
   target?: string
-  /** Amount for financial operations */
   amount?: string
-  /** Additional action-specific parameters */
   [key: string]: JsonValue | undefined
 }
 
-/** Result of an action execution - can be transaction hash or structured result */
 export type ActionResult =
-  | string // Transaction hash
-  | { txHash: string; success?: boolean } // Transaction result
-  | { success: boolean; error?: string } // Simple result
-  | JsonObject // Complex structured result
+  | string
+  | { txHash: string; success?: boolean }
+  | { success: boolean; error?: string }
+  | JsonObject
 
-/** State updates from agent execution */
 export interface StateUpdates {
-  /** Last inference response */
   lastResponse?: string
-  /** Results of executed actions */
   lastActions?: AgentAction[]
-  /** Success rate of actions (0-1) */
   actionSuccessRate?: number
 }
 
-// Room Metadata Types
-
-/** Metadata for room state */
 export interface RoomStateMetadata {
-  /** Topic or subject of the room */
   topic?: string | null
-  /** Rules for the room */
   rules?: string[] | null
-  /** Custom metadata */
   [key: string]: JsonValue | null | undefined
 }
 
-/** Metadata for individual messages */
 export interface MessageMetadata {
-  /** Source of the message (discord, api, etc) */
   source?: string | null
-  /** Reference to parent message */
   replyTo?: string | null
-  /** Attachments */
   attachments?: string[] | null
-  /** Custom metadata */
   [key: string]: JsonValue | null | undefined
 }
 
 export type BotType = 'ai_agent' | 'trading_bot' | 'org_tool'
-
-// Agent Types
 
 export interface AgentDefinition {
   agentId: bigint
   owner: Address
   name: string
   botType: BotType
-  characterCid?: string // Optional for trading bots
+  characterCid?: string
   stateCid: string
   vaultAddress: Address
   active: boolean
   registeredAt: number
   lastExecutedAt: number
   executionCount: number
-
-  // Trading bot specific fields
   strategies?: TradingBotStrategy[]
   chains?: TradingBotChain[]
   treasuryAddress?: Address
-
-  // Org tool specific fields
   orgId?: string
   capabilities?: string[]
 }
@@ -388,8 +348,7 @@ export interface SearchResult<T> {
 
 export interface CrucibleConfig {
   rpcUrl: string
-  /** KMS key ID for threshold signing */
-  kmsKeyId: string
+  privateKey?: `0x${string}`
   contracts: {
     agentVault: Address
     roomRegistry: Address
@@ -405,7 +364,6 @@ export interface CrucibleConfig {
     indexerGraphql: string
     eqliteEndpoint?: string
     dexCacheUrl?: string
-    kmsEndpoint?: string
   }
   network: 'localnet' | 'testnet' | 'mainnet'
 }

@@ -1,8 +1,3 @@
-/**
- * Auth initialization routes for programmatic auth flow initiation
- * This allows clients to initialize auth flows via API calls
- */
-
 import {
   getCurrentNetwork,
   getLocalhostHost,
@@ -10,6 +5,7 @@ import {
   isProductionEnv,
 } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
+import type { Address } from 'viem'
 import type { AuthConfig } from '../../lib/types'
 import { clientState } from '../services/state'
 
@@ -42,7 +38,8 @@ function validateRedirectUri(
 export function createAuthInitRouter(_config: AuthConfig) {
   const network = getCurrentNetwork()
   const host = getLocalhostHost()
-  const baseUrl = process.env.BASE_URL ?? 
+  const baseUrl =
+    process.env.BASE_URL ??
     (network === 'localnet' ? `http://${host}:4200` : getOAuth3Url(network))
 
   return new Elysia({ name: 'auth-init', prefix: '/auth' })
@@ -67,14 +64,16 @@ export function createAuthInitRouter(_config: AuthConfig) {
               `[OAuth3] Auto-registering development client: ${appId}`,
             )
             await clientState.save({
-              id: appId,
+              clientId: appId,
               name: appId,
               redirectUris: [
                 'http://localhost:*',
                 'http://127.0.0.1:*',
                 'https://*.jejunetwork.org/*',
               ],
+              allowedProviders: ['wallet', 'farcaster', 'github', 'google'],
               allowedScopes: ['openid', 'profile', 'email'],
+              owner: '0x0000000000000000000000000000000000000000' as Address,
               active: true,
               requireSecret: false,
               createdAt: Date.now(),

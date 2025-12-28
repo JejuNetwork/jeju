@@ -1,8 +1,3 @@
-/**
- * Network Infrastructure Integration
- * Single source of truth for all network services
- */
-
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'

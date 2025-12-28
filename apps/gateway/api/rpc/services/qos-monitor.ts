@@ -13,16 +13,16 @@
  */
 
 import {
+  type Account,
   type Address,
   createWalletClient,
   decodeFunctionResult,
   encodeFunctionData,
   http,
-  type Account,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { RPC_URLS, JEJU_CHAIN_ID } from '../../../lib/config/networks'
-import { jejuTestnet, jejuMainnet } from '../../../lib/chains'
+import { jejuMainnet, jejuTestnet } from '../../../lib/chains'
+import { JEJU_CHAIN_ID, RPC_URLS } from '../../../lib/config/networks'
 
 // Contract ABI fragments for MultiChainRPCRegistry
 const MULTI_CHAIN_RPC_REGISTRY_ABI = [
@@ -527,10 +527,11 @@ export class QoSMonitorService {
    * Report all aggregated metrics to the contract
    */
   async reportAll(): Promise<void> {
-    if (!this.walletClient || !this.walletAddress) {
+    if (!this.walletClient || !this.walletAddress || !this.walletAccount) {
       console.warn('[QoS] No wallet configured, skipping report')
       return
     }
+    const walletAccount = this.walletAccount
 
     console.log('[QoS] Reporting metrics to contract...')
 
@@ -604,7 +605,7 @@ export class QoSMonitorService {
         })
 
         const hash = await this.walletClient.sendTransaction({
-          account: this.walletAccount!,
+          account: walletAccount,
           chain: CHAIN,
           to: this.registryAddress,
           data: callData,

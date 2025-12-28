@@ -1,20 +1,5 @@
-/**
- * Observability Stack
- *
- * Comprehensive observability for DWS infrastructure:
- * - Structured logging (JSON, queryable)
- * - Metrics collection (Prometheus-compatible)
- * - Distributed tracing (OpenTelemetry-compatible)
- * - Health checks
- * - Alerting
- */
-
 import { createHash } from 'node:crypto'
 import type { Address } from 'viem'
-
-// ============================================================================
-// Types - Logging
-// ============================================================================
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
 
@@ -50,10 +35,6 @@ export interface LogQuery {
   limit?: number
 }
 
-// ============================================================================
-// Types - Metrics
-// ============================================================================
-
 export type MetricType = 'counter' | 'gauge' | 'histogram' | 'summary'
 
 export interface MetricDefinition {
@@ -78,10 +59,6 @@ export interface HistogramValue {
   count: number
   timestamp: number
 }
-
-// ============================================================================
-// Types - Tracing
-// ============================================================================
 
 export type SpanKind =
   | 'internal'
@@ -135,10 +112,6 @@ export interface TraceQuery {
   limit?: number
 }
 
-// ============================================================================
-// Types - Alerts
-// ============================================================================
-
 export type AlertSeverity = 'info' | 'warning' | 'critical'
 
 export type AlertState = 'pending' | 'firing' | 'resolved'
@@ -176,10 +149,6 @@ export interface Alert {
   acknowledgedAt?: number
   acknowledgedBy?: Address
 }
-
-// ============================================================================
-// Logger
-// ============================================================================
 
 export class Logger {
   private entries: LogEntry[] = []
@@ -330,10 +299,6 @@ export class Logger {
     return child
   }
 }
-
-// ============================================================================
-// Metrics Registry
-// ============================================================================
 
 export class MetricsRegistry {
   private definitions = new Map<string, MetricDefinition>()
@@ -487,10 +452,6 @@ export class MetricsRegistry {
   }
 }
 
-// ============================================================================
-// Tracer
-// ============================================================================
-
 export class Tracer {
   private spans = new Map<string, Span>()
   private spansByTrace = new Map<string, string[]>()
@@ -642,10 +603,6 @@ export class Tracer {
   }
 }
 
-// ============================================================================
-// Alert Manager
-// ============================================================================
-
 export class AlertManager {
   private rules = new Map<string, AlertRule>()
   private alerts = new Map<string, Alert>()
@@ -752,10 +709,6 @@ export class AlertManager {
   }
 }
 
-// ============================================================================
-// Health Checker
-// ============================================================================
-
 export interface HealthCheck {
   name: string
   check: () => Promise<{ healthy: boolean; message?: string }>
@@ -815,10 +768,6 @@ export class HealthChecker {
     }
   }
 }
-
-// ============================================================================
-// Factory
-// ============================================================================
 
 const loggers = new Map<string, Logger>()
 const tracers = new Map<string, Tracer>()

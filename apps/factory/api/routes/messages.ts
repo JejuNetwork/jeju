@@ -1,10 +1,3 @@
-/**
- * Messages Routes
- *
- * Direct Cast (encrypted DM) endpoints for Factory.
- * Provides private messaging between Farcaster users.
- */
-
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import * as dcService from '../services/direct-cast'

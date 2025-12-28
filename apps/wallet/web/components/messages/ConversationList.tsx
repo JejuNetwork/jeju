@@ -1,9 +1,3 @@
-/**
- * Conversation List Component
- *
- * Displays list of messaging conversations (Farcaster DC + XMTP)
- */
-
 import {
   AtSign,
   MessageCircle,

@@ -1,9 +1,7 @@
 import {
-  ChevronRight,
   ExternalLink,
   Gauge,
   Globe,
-  Heart,
   Info,
   Power,
   Shield,
@@ -88,9 +86,17 @@ function SettingRow({
   )
 }
 
+type DNSProvider = 'cloudflare' | 'google'
+
+const DNS_SERVERS: Record<DNSProvider, string[]> = {
+  cloudflare: ['1.1.1.1', '1.0.0.1'],
+  google: ['8.8.8.8', '8.8.4.4'],
+}
+
 export function SettingsPanel() {
   const [config, setConfig] = useState<VPNConfig | null>(null)
   const [dwsEnabled, setDwsEnabled] = useState(true)
+  const [selectedDNS, setSelectedDNS] = useState<DNSProvider>('cloudflare')
 
   useEffect(() => {
     invoke('get_settings', {}, VPNConfigSchema).then(setConfig)
@@ -131,7 +137,6 @@ export function SettingsPanel() {
     <div className="p-5 space-y-5 pb-safe">
       <h2 className="text-xl font-semibold">Settings</h2>
 
-      {/* Connection Settings */}
       <div className="card space-y-4">
         <h3 className="font-medium flex items-center gap-2">
           <Shield className="w-4 h-4 text-accent" />
@@ -156,7 +161,6 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      {/* Startup Settings */}
       <div className="card space-y-4">
         <h3 className="font-medium flex items-center gap-2">
           <Power className="w-4 h-4 text-accent-secondary" />
@@ -185,39 +189,20 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      {/* Protocol Settings */}
       <div className="card space-y-4">
         <h3 className="font-medium flex items-center gap-2">
           <Zap className="w-4 h-4 text-accent-secondary" />
           Protocol
         </h3>
 
-        <div className="space-y-2">
-          <button
-            type="button"
-            className="w-full flex items-center justify-between p-3 bg-accent/10 border border-accent/30 rounded-xl"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-accent rounded-full" />
-              <span className="font-medium">WireGuard</span>
-            </div>
-            <span className="text-xs text-accent font-medium">Recommended</span>
-          </button>
-          <button
-            type="button"
-            className="w-full flex items-center justify-between p-3 bg-surface-elevated rounded-xl opacity-50 cursor-not-allowed"
-            disabled
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-muted rounded-full" />
-              <span>SOCKS5 Proxy</span>
-            </div>
-            <span className="text-xs text-muted">Coming soon</span>
-          </button>
+        <div className="flex items-center justify-between p-3 bg-accent/10 border border-accent/30 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-accent rounded-full" />
+            <span className="font-medium">WireGuard</span>
+          </div>
         </div>
       </div>
 
-      {/* Bandwidth Settings */}
       <div className="card space-y-4">
         <h3 className="font-medium flex items-center gap-2">
           <Gauge className="w-4 h-4 text-accent-tertiary" />
@@ -240,38 +225,54 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      {/* DNS Settings */}
       <div className="card space-y-4">
         <h3 className="font-medium flex items-center gap-2">
           <Globe className="w-4 h-4 text-muted" />
-          DNS Servers
+          DNS
         </h3>
 
         <div className="space-y-2">
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-accent/10 border border-accent/30 rounded-xl"
+            onClick={() => {
+              setSelectedDNS('cloudflare')
+              updateConfig({ dns_servers: DNS_SERVERS.cloudflare })
+            }}
+            className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
+              selectedDNS === 'cloudflare'
+                ? 'bg-accent/10 border border-accent/30'
+                : 'bg-surface-elevated hover:bg-surface-hover'
+            }`}
           >
-            <span className="font-medium">Cloudflare (1.1.1.1)</span>
-            <div className="w-2 h-2 bg-accent rounded-full" />
+            <span className={selectedDNS === 'cloudflare' ? 'font-medium' : ''}>
+              Cloudflare (1.1.1.1)
+            </span>
+            {selectedDNS === 'cloudflare' && (
+              <div className="w-2 h-2 bg-accent rounded-full" />
+            )}
           </button>
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-surface-elevated rounded-xl hover:bg-surface-hover transition-colors"
+            onClick={() => {
+              setSelectedDNS('google')
+              updateConfig({ dns_servers: DNS_SERVERS.google })
+            }}
+            className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
+              selectedDNS === 'google'
+                ? 'bg-accent/10 border border-accent/30'
+                : 'bg-surface-elevated hover:bg-surface-hover'
+            }`}
           >
-            <span>Google (8.8.8.8)</span>
-          </button>
-          <button
-            type="button"
-            className="w-full flex items-center justify-between p-3 bg-surface-elevated rounded-xl hover:bg-surface-hover transition-colors"
-          >
-            <span>Custom DNS</span>
-            <ChevronRight className="w-4 h-4 text-muted" />
+            <span className={selectedDNS === 'google' ? 'font-medium' : ''}>
+              Google (8.8.8.8)
+            </span>
+            {selectedDNS === 'google' && (
+              <div className="w-2 h-2 bg-accent rounded-full" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* About Section */}
       <div className="card space-y-4">
         <h3 className="font-medium flex items-center gap-2">
           <Info className="w-4 h-4 text-muted" />
@@ -299,16 +300,6 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      {/* Community Message */}
-      <div className="flex items-center gap-3 p-4 bg-accent/5 border border-accent/20 rounded-xl">
-        <Heart className="w-5 h-5 text-accent flex-shrink-0" />
-        <p className="text-sm text-muted-light">
-          <span className="text-white font-medium">
-            You're helping the network.
-          </span>{' '}
-          Thanks for using Jeju VPN.
-        </p>
-      </div>
     </div>
   )
 }

@@ -187,18 +187,18 @@ export {
   createBackupCodesManager,
 } from './mfa/backup-codes.js'
 export {
-  createKeyBackupManager,
-  KeyBackupManager,
-  KeyBackupSchema,
-  type KeyBackup,
-  type BackupOptions,
-} from './mfa/key-backup.js'
-export {
   type MFAChallenge,
   type MFAChallengeMetadata,
   MFAMethod,
   type MFAStatus,
 } from './mfa/index.js'
+export {
+  type BackupOptions,
+  createKeyBackupManager,
+  type KeyBackup,
+  KeyBackupManager,
+  KeyBackupSchema,
+} from './mfa/key-backup.js'
 // Multi-Factor Authentication (MFA)
 export {
   createPasskeyManager,

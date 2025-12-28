@@ -6,6 +6,7 @@
  * MPC-backed signing where keys never exist in memory.
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import type { NetworkType } from '@jejunetwork/types'
 import {
   createSmartAccountClient,
@@ -29,8 +30,6 @@ import {
   privateKeyToAccount,
 } from 'viem/accounts'
 import { getChainConfig, getContract, getServicesConfig } from './config'
-
-import { getCurrentNetwork } from '@jejunetwork/config'
 
 /**
  * Check if running in a production environment where local keys are dangerous

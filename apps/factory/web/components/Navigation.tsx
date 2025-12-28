@@ -1,10 +1,3 @@
-/**
- * Navigation Component
- *
- * Desktop sidebar navigation with collapsible sections.
- * Accessible with proper ARIA landmarks and keyboard navigation.
- */
-
 import { clsx } from 'clsx'
 import {
   Bell,

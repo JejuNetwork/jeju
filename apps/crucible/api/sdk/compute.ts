@@ -1,9 +1,3 @@
-/**
- * Compute SDK - Handles inference through DWS (Decentralized Workstation Service)
- *
- * Uses the same DWS infrastructure as Autocrat and Otto for unified AI inference.
- */
-
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { AgentCharacter, ExecutionOptions } from '../../lib/types'
 import { createDWSClient, type DWSClient, getDWSEndpoint } from '../client/dws'

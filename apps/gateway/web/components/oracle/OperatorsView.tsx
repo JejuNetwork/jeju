@@ -56,7 +56,6 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Operator Status Card */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold flex items-center gap-2">
@@ -99,7 +98,6 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
               </div>
             </div>
 
-            {/* Assigned Feeds List */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <div className="text-sm font-medium mb-2">
                 Your Committee Assignments
@@ -139,7 +137,6 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
         )}
       </div>
 
-      {/* Registration Form */}
       {showRegistration && (
         <OperatorRegistrationForm
           onClose={() => setShowRegistration(false)}
@@ -151,10 +148,8 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
         />
       )}
 
-      {/* Performance Metrics (if registered) */}
       {assignedFeeds.length > 0 && <PerformanceMetrics />}
 
-      {/* Requirements Card */}
       <OperatorRequirements />
     </div>
   )
@@ -248,7 +243,6 @@ function OperatorRegistrationForm({
       </div>
 
       <div className="space-y-4">
-        {/* Worker Key */}
         <div>
           <label
             htmlFor="worker-key"
@@ -270,7 +264,6 @@ function OperatorRegistrationForm({
           </p>
         </div>
 
-        {/* Staking Oracle ID (optional) */}
         <div>
           <label
             htmlFor="staking-oracle-id-display"
@@ -288,7 +281,6 @@ function OperatorRegistrationForm({
           />
         </div>
 
-        {/* Agent ID (optional) */}
         <div>
           <label htmlFor="agent-id" className="block text-sm font-medium mb-1">
             ERC-8004 Agent ID <span className="text-gray-400">(optional)</span>
@@ -303,7 +295,6 @@ function OperatorRegistrationForm({
           />
         </div>
 
-        {/* Info Box */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <div className="flex items-start gap-2">
             <AlertCircleIcon size={16} className="text-blue-500 mt-0.5" />
@@ -320,14 +311,12 @@ function OperatorRegistrationForm({
           </div>
         </div>
 
-        {/* Error Display */}
         {error && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400 text-sm">
             {error}
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex gap-2 justify-end pt-4">
           <button
             type="button"

@@ -1,13 +1,3 @@
-/**
- * Multi-Backend Storage Manager
- *
- * Unified interface for multi-backend decentralized storage:
- * - Content tiering (System, Popular, Private)
- * - Intelligent backend selection
- * - KMS integration for private content
- * - Popularity tracking and regional caching
- */
-
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import { keccak256 } from 'viem'

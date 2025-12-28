@@ -1,13 +1,3 @@
-/**
- * ElizaOS API Client
- * Handles communication with the ElizaOS agent server
- *
- * The Network Wallet agent is an ElizaOS agent that can be run locally
- * or connected to a remote ElizaOS server.
- *
- * This client is compatible with the @elizaos/api-client pattern used in otaku.
- */
-
 import { getEnvOrDefault, isDev } from './env'
 
 const API_BASE_URL = getEnvOrDefault(

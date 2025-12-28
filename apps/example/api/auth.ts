@@ -233,7 +233,9 @@ export function createAuthRoutes() {
       const expectedOrigin =
         process.env.OAUTH3_REDIRECT_ORIGIN ||
         process.env.OAUTH3_REDIRECT_URI?.replace(/\/[^/]*$/, '') ||
-        (network === 'localnet' ? `http://${getLocalhostHost()}:4501` : getOAuth3Url(network))
+        (network === 'localnet'
+          ? `http://${getLocalhostHost()}:4501`
+          : getOAuth3Url(network))
 
       const postMessageOriginScript = expectedOrigin
         ? `'${escapeForJson(expectedOrigin)}'`

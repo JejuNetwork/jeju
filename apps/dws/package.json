@@ -17,6 +17,7 @@
     "build": "bun build api/index.ts --outdir dist --target bun && bun build.web.ts",
     "build:web": "bun build.web.ts",
     "start": "bun run api/server/index.ts",
+    "serve": "bun run scripts/serve.ts",
     "test": "jeju test --app=dws",
     "test:unit": "bun test tests/",
     "typecheck": "tsc --noEmit"

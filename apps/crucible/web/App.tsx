@@ -1,9 +1,3 @@
-/**
- * Crucible App Component
- *
- * Main application component with routing and providers
- */
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { lazy, Suspense, useMemo } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'

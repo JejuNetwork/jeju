@@ -1,12 +1,3 @@
-/**
- * Session management routes
- *
- * SECURITY: Sessions use ephemeral keys that are:
- * - Short-lived (15 minute rotation)
- * - Invalidated on logout
- * - Unique per session
- */
-
 import { Elysia, t } from 'elysia'
 import type { AuthConfig, AuthSession } from '../../lib/types'
 import { getEphemeralKey, invalidateEphemeralKey } from '../services/kms'
@@ -31,338 +22,340 @@ function getSessionId(
 }
 
 export function createSessionRouter(config: AuthConfig) {
-  return new Elysia({ name: 'session', prefix: '/session' })
-    .get('/', async ({ headers, set, cookie }) => {
-      const sessionId = getSessionId(cookie, headers.authorization)
+  return (
+    new Elysia({ name: 'session', prefix: '/session' })
+      .get('/', async ({ headers, set, cookie }) => {
+        const sessionId = getSessionId(cookie, headers.authorization)
 
-      if (!sessionId) {
-        set.status = 401
-        return { error: 'no_session', authenticated: false }
-      }
-
-      const session = await sessionState.get(sessionId)
-      if (!session) {
-        set.status = 401
-        return { error: 'session_expired', authenticated: false }
-      }
-
-      return {
-        authenticated: true,
-        session: {
-          sessionId: session.sessionId,
-          userId: session.userId,
-          provider: session.provider,
-          address: session.address,
-          fid: session.fid,
-          email: session.email,
-          createdAt: session.createdAt,
-          expiresAt: session.expiresAt,
-        },
-      }
-    })
-
-    .get(
-      '/verify',
-      async ({ query, set }) => {
-        if (!query.token) {
-          set.status = 400
-          return { valid: false, error: 'missing_token' }
+        if (!sessionId) {
+          set.status = 401
+          return { error: 'no_session', authenticated: false }
         }
 
-        const session = await sessionState.get(query.token)
+        const session = await sessionState.get(sessionId)
         if (!session) {
-          return { valid: false, error: 'invalid_or_expired' }
+          set.status = 401
+          return { error: 'session_expired', authenticated: false }
         }
 
         return {
-          valid: true,
-          userId: session.userId,
-          provider: session.provider,
-          address: session.address,
-          fid: session.fid,
-          expiresAt: session.expiresAt,
+          authenticated: true,
+          session: {
+            sessionId: session.sessionId,
+            userId: session.userId,
+            provider: session.provider,
+            address: session.address,
+            fid: session.fid,
+            email: session.email,
+            createdAt: session.createdAt,
+            expiresAt: session.expiresAt,
+          },
         }
-      },
-      { query: VerifyQuerySchema },
-    )
+      })
 
-    .delete('/', async ({ headers, set, cookie }) => {
-      const sessionId = getSessionId(cookie, headers.authorization)
+      .get(
+        '/verify',
+        async ({ query, set }) => {
+          if (!query.token) {
+            set.status = 400
+            return { valid: false, error: 'missing_token' }
+          }
 
-      if (!sessionId) {
-        set.status = 400
-        return { error: 'no_session' }
-      }
+          const session = await sessionState.get(query.token)
+          if (!session) {
+            return { valid: false, error: 'invalid_or_expired' }
+          }
 
-      // Revoke all refresh tokens for this session
-      await refreshTokenState.revokeAllForSession(sessionId)
-
-      // Invalidate ephemeral key for this session
-      invalidateEphemeralKey(sessionId)
-
-      // Delete session
-      await sessionState.delete(sessionId)
-
-      // Clear cookie
-      if (cookie.jeju_session) {
-        cookie.jeju_session.set({
-          value: '',
-          maxAge: 0,
-          path: '/',
-        })
-      }
-
-      return { success: true, message: 'Logged out' }
-    })
-
-    .post('/refresh', async ({ headers, set, cookie }) => {
-      const sessionId = getSessionId(cookie, headers.authorization)
-
-      if (!sessionId) {
-        set.status = 401
-        return { error: 'no_session' }
-      }
-
-      const session = await sessionState.get(sessionId)
-      if (!session) {
-        set.status = 401
-        return { error: 'session_not_found' }
-      }
-
-      // Create new session with extended expiry and fresh ephemeral key
-      const newSessionId = crypto.randomUUID()
-
-      // Invalidate old ephemeral key
-      invalidateEphemeralKey(sessionId)
-
-      // Get new ephemeral key
-      const newEphemeralKey = await getEphemeralKey(newSessionId)
-
-      const newSession: AuthSession = {
-        ...session,
-        sessionId: newSessionId,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + config.sessionDuration,
-        ephemeralKeyId: newEphemeralKey.keyId,
-      }
-
-      // Delete old, add new
-      await sessionState.delete(sessionId)
-      await sessionState.save(newSession)
-
-      // Update cookie
-      if (cookie.jeju_session) {
-        cookie.jeju_session.set({
-          value: newSessionId,
-          maxAge: config.sessionDuration / 1000,
-          path: '/',
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-        })
-      }
-
-      return {
-        success: true,
-        session: {
-          sessionId: newSession.sessionId,
-          expiresAt: newSession.expiresAt,
+          return {
+            valid: true,
+            userId: session.userId,
+            provider: session.provider,
+            address: session.address,
+            fid: session.fid,
+            expiresAt: session.expiresAt,
+          }
         },
-      }
-    })
+        { query: VerifyQuerySchema },
+      )
 
-    .get('/:sessionId', async ({ params, headers, set, cookie }) => {
-      // Require authentication - user can only view their own sessions
-      const currentSessionId = getSessionId(cookie, headers.authorization)
-      if (!currentSessionId) {
-        set.status = 401
-        return { error: 'unauthorized' }
-      }
+      .delete('/', async ({ headers, set, cookie }) => {
+        const sessionId = getSessionId(cookie, headers.authorization)
 
-      const currentSession = await sessionState.get(currentSessionId)
-      if (!currentSession) {
-        set.status = 401
-        return { error: 'session_expired' }
-      }
+        if (!sessionId) {
+          set.status = 400
+          return { error: 'no_session' }
+        }
 
-      const targetSession = await sessionState.get(params.sessionId)
-      if (!targetSession) {
-        set.status = 404
-        return { error: 'session_not_found' }
-      }
+        // Revoke all refresh tokens for this session
+        await refreshTokenState.revokeAllForSession(sessionId)
 
-      // Only allow viewing sessions that belong to the same user
-      if (targetSession.userId !== currentSession.userId) {
-        set.status = 403
-        return { error: 'not_authorized' }
-      }
+        // Invalidate ephemeral key for this session
+        invalidateEphemeralKey(sessionId)
 
-      return {
-        sessionId: targetSession.sessionId,
-        userId: targetSession.userId,
-        provider: targetSession.provider,
-        address: targetSession.address,
-        fid: targetSession.fid,
-        createdAt: targetSession.createdAt,
-        expiresAt: targetSession.expiresAt,
-      }
-    })
+        // Delete session
+        await sessionState.delete(sessionId)
 
-    .delete('/:sessionId', async ({ params, headers, set, cookie }) => {
-      // Require authentication - user can only delete their own sessions
-      const currentSessionId = getSessionId(cookie, headers.authorization)
-      if (!currentSessionId) {
-        set.status = 401
-        return { error: 'unauthorized' }
-      }
+        // Clear cookie
+        if (cookie.jeju_session) {
+          cookie.jeju_session.set({
+            value: '',
+            maxAge: 0,
+            path: '/',
+          })
+        }
 
-      const currentSession = await sessionState.get(currentSessionId)
-      if (!currentSession) {
-        set.status = 401
-        return { error: 'session_expired' }
-      }
+        return { success: true, message: 'Logged out' }
+      })
 
-      const targetSession = await sessionState.get(params.sessionId)
-      if (!targetSession) {
-        set.status = 404
-        return { error: 'session_not_found' }
-      }
+      .post('/refresh', async ({ headers, set, cookie }) => {
+        const sessionId = getSessionId(cookie, headers.authorization)
 
-      // Only allow deleting sessions that belong to the same user
-      if (targetSession.userId !== currentSession.userId) {
-        set.status = 403
-        return { error: 'not_authorized' }
-      }
+        if (!sessionId) {
+          set.status = 401
+          return { error: 'no_session' }
+        }
 
-      await refreshTokenState.revokeAllForSession(params.sessionId)
-      await sessionState.delete(params.sessionId)
-      return { success: true }
-    })
+        const session = await sessionState.get(sessionId)
+        if (!session) {
+          set.status = 401
+          return { error: 'session_not_found' }
+        }
 
-    .post('/:sessionId/refresh', async ({ params, headers, set, cookie }) => {
-      // Require authentication - user can only refresh their own sessions
-      const currentSessionId = getSessionId(cookie, headers.authorization)
-      if (!currentSessionId) {
-        set.status = 401
-        return { error: 'unauthorized' }
-      }
+        // Create new session with extended expiry and fresh ephemeral key
+        const newSessionId = crypto.randomUUID()
 
-      const currentSession = await sessionState.get(currentSessionId)
-      if (!currentSession) {
-        set.status = 401
-        return { error: 'session_expired' }
-      }
+        // Invalidate old ephemeral key
+        invalidateEphemeralKey(sessionId)
 
-      const targetSession = await sessionState.get(params.sessionId)
-      if (!targetSession) {
-        set.status = 404
-        return { error: 'session_not_found' }
-      }
+        // Get new ephemeral key
+        const newEphemeralKey = await getEphemeralKey(newSessionId)
 
-      // Only allow refreshing sessions that belong to the same user
-      if (targetSession.userId !== currentSession.userId) {
-        set.status = 403
-        return { error: 'not_authorized' }
-      }
+        const newSession: AuthSession = {
+          ...session,
+          sessionId: newSessionId,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + config.sessionDuration,
+          ephemeralKeyId: newEphemeralKey.keyId,
+        }
 
-      // Extend session
-      const newExpiry = Date.now() + config.sessionDuration
-      await sessionState.updateExpiry(params.sessionId, newExpiry)
+        // Delete old, add new
+        await sessionState.delete(sessionId)
+        await sessionState.save(newSession)
 
-      return {
-        sessionId: targetSession.sessionId,
-        expiresAt: newExpiry,
-      }
-    })
+        // Update cookie
+        if (cookie.jeju_session) {
+          cookie.jeju_session.set({
+            value: newSessionId,
+            maxAge: config.sessionDuration / 1000,
+            path: '/',
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+          })
+        }
 
-    // Test session creation (only in development)
-    .post('/create', async ({ body, set }) => {
-      if (process.env.NODE_ENV === 'production') {
-        set.status = 403
-        return { error: 'not_available_in_production' }
-      }
+        return {
+          success: true,
+          session: {
+            sessionId: newSession.sessionId,
+            expiresAt: newSession.expiresAt,
+          },
+        }
+      })
 
-      const { provider, userId, address, fid, email } = body as {
-        provider: string
-        userId: string
-        address?: string
-        fid?: string
-        email?: string
-      }
+      .get('/:sessionId', async ({ params, headers, set, cookie }) => {
+        // Require authentication - user can only view their own sessions
+        const currentSessionId = getSessionId(cookie, headers.authorization)
+        if (!currentSessionId) {
+          set.status = 401
+          return { error: 'unauthorized' }
+        }
 
-      if (!provider || !userId) {
-        set.status = 400
-        return { error: 'provider and userId required' }
-      }
+        const currentSession = await sessionState.get(currentSessionId)
+        if (!currentSession) {
+          set.status = 401
+          return { error: 'session_expired' }
+        }
 
-      const sessionId = crypto.randomUUID()
-      const ephemeralKey = await getEphemeralKey(sessionId)
+        const targetSession = await sessionState.get(params.sessionId)
+        if (!targetSession) {
+          set.status = 404
+          return { error: 'session_not_found' }
+        }
 
-      const session: AuthSession = {
-        sessionId,
-        userId,
-        provider,
-        address,
-        fid,
-        email,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + config.sessionDuration,
-        metadata: {},
-        ephemeralKeyId: ephemeralKey.keyId,
-      }
+        // Only allow viewing sessions that belong to the same user
+        if (targetSession.userId !== currentSession.userId) {
+          set.status = 403
+          return { error: 'not_authorized' }
+        }
 
-      await sessionState.save(session)
+        return {
+          sessionId: targetSession.sessionId,
+          userId: targetSession.userId,
+          provider: targetSession.provider,
+          address: targetSession.address,
+          fid: targetSession.fid,
+          createdAt: targetSession.createdAt,
+          expiresAt: targetSession.expiresAt,
+        }
+      })
 
-      return {
-        success: true,
-        access_token: sessionId,
-        token: sessionId,
-        session: {
+      .delete('/:sessionId', async ({ params, headers, set, cookie }) => {
+        // Require authentication - user can only delete their own sessions
+        const currentSessionId = getSessionId(cookie, headers.authorization)
+        if (!currentSessionId) {
+          set.status = 401
+          return { error: 'unauthorized' }
+        }
+
+        const currentSession = await sessionState.get(currentSessionId)
+        if (!currentSession) {
+          set.status = 401
+          return { error: 'session_expired' }
+        }
+
+        const targetSession = await sessionState.get(params.sessionId)
+        if (!targetSession) {
+          set.status = 404
+          return { error: 'session_not_found' }
+        }
+
+        // Only allow deleting sessions that belong to the same user
+        if (targetSession.userId !== currentSession.userId) {
+          set.status = 403
+          return { error: 'not_authorized' }
+        }
+
+        await refreshTokenState.revokeAllForSession(params.sessionId)
+        await sessionState.delete(params.sessionId)
+        return { success: true }
+      })
+
+      .post('/:sessionId/refresh', async ({ params, headers, set, cookie }) => {
+        // Require authentication - user can only refresh their own sessions
+        const currentSessionId = getSessionId(cookie, headers.authorization)
+        if (!currentSessionId) {
+          set.status = 401
+          return { error: 'unauthorized' }
+        }
+
+        const currentSession = await sessionState.get(currentSessionId)
+        if (!currentSession) {
+          set.status = 401
+          return { error: 'session_expired' }
+        }
+
+        const targetSession = await sessionState.get(params.sessionId)
+        if (!targetSession) {
+          set.status = 404
+          return { error: 'session_not_found' }
+        }
+
+        // Only allow refreshing sessions that belong to the same user
+        if (targetSession.userId !== currentSession.userId) {
+          set.status = 403
+          return { error: 'not_authorized' }
+        }
+
+        // Extend session
+        const newExpiry = Date.now() + config.sessionDuration
+        await sessionState.updateExpiry(params.sessionId, newExpiry)
+
+        return {
+          sessionId: targetSession.sessionId,
+          expiresAt: newExpiry,
+        }
+      })
+
+      // Test session creation (only in development)
+      .post('/create', async ({ body, set }) => {
+        if (process.env.NODE_ENV === 'production') {
+          set.status = 403
+          return { error: 'not_available_in_production' }
+        }
+
+        const { provider, userId, address, fid, email } = body as {
+          provider: string
+          userId: string
+          address?: string
+          fid?: number
+          email?: string
+        }
+
+        if (!provider || !userId) {
+          set.status = 400
+          return { error: 'provider and userId required' }
+        }
+
+        const sessionId = crypto.randomUUID()
+        const ephemeralKey = await getEphemeralKey(sessionId)
+
+        const session: AuthSession = {
           sessionId,
           userId,
           provider,
-          expiresAt: session.expiresAt,
-        },
-      }
-    })
+          address: address as `0x${string}` | undefined,
+          fid,
+          email,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + config.sessionDuration,
+          metadata: {},
+          ephemeralKeyId: ephemeralKey.keyId,
+        }
 
-    .get('/list', async ({ headers, set }) => {
-      const authHeader = headers.authorization
-      if (!authHeader) {
-        set.status = 401
-        return { error: 'unauthorized' }
-      }
+        await sessionState.save(session)
 
-      const sessionId = extractBearerToken(authHeader)
-      if (!sessionId) {
-        set.status = 401
-        return { error: 'invalid_auth' }
-      }
+        return {
+          success: true,
+          access_token: sessionId,
+          token: sessionId,
+          session: {
+            sessionId,
+            userId,
+            provider,
+            expiresAt: session.expiresAt,
+          },
+        }
+      })
 
-      const currentSession = await sessionState.get(sessionId)
-      if (!currentSession) {
-        set.status = 401
-        return { error: 'session_not_found' }
-      }
+      .get('/list', async ({ headers, set }) => {
+        const authHeader = headers.authorization
+        if (!authHeader) {
+          set.status = 401
+          return { error: 'unauthorized' }
+        }
 
-      // Find all sessions for this user
-      const userSessions = await sessionState.findByUserId(
-        currentSession.userId,
-      )
-      const sessionList = userSessions.map((s) => ({
-        sessionId: s.sessionId,
-        provider: s.provider,
-        createdAt: s.createdAt,
-        expiresAt: s.expiresAt,
-        isCurrent: s.sessionId === sessionId,
-      }))
+        const sessionId = extractBearerToken(authHeader)
+        if (!sessionId) {
+          set.status = 401
+          return { error: 'invalid_auth' }
+        }
 
-      return {
-        userId: currentSession.userId,
-        sessions: sessionList,
-        count: sessionList.length,
-      }
-    })
+        const currentSession = await sessionState.get(sessionId)
+        if (!currentSession) {
+          set.status = 401
+          return { error: 'session_not_found' }
+        }
+
+        // Find all sessions for this user
+        const userSessions = await sessionState.findByUserId(
+          currentSession.userId,
+        )
+        const sessionList = userSessions.map((s) => ({
+          sessionId: s.sessionId,
+          provider: s.provider,
+          createdAt: s.createdAt,
+          expiresAt: s.expiresAt,
+          isCurrent: s.sessionId === sessionId,
+        }))
+
+        return {
+          userId: currentSession.userId,
+          sessions: sessionList,
+          count: sessionList.length,
+        }
+      })
+  )
 }
 
 function extractBearerToken(

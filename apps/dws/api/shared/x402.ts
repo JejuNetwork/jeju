@@ -1,9 +1,8 @@
-/**
- * x402 Payment Middleware
- * Shared payment handling for Git and Pkg services
- */
-
-import { getCurrentNetwork, getRpcUrl, isProductionEnv } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http, isAddress } from 'viem'

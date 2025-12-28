@@ -1,16 +1,3 @@
-/**
- * DWS Infrastructure Services
- * Persistent service provisioning for databases, caches, message queues, etc.
- *
- * Unlike serverless containers, infrastructure services:
- * - Run persistently (not ephemeral)
- * - Have volume mounts for data persistence
- * - Have health checks and auto-restart
- * - Are billed based on uptime, not execution time
- *
- * Service registry is persisted to EQLite for recovery across DWS restarts.
- */
-
 import { isProductionEnv } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { Elysia } from 'elysia'

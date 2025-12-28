@@ -1,7 +1,3 @@
-/**
- * Registry Integration Routes - Deep AI DAO integration
- */
-
 import { getContract } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import { toAddress } from '../../lib'

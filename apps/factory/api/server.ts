@@ -1,5 +1,3 @@
-/** Factory API Server */
-
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { cors } from '@elysiajs/cors'
@@ -222,7 +220,6 @@ if (import.meta.main) {
   process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
   // Serve static files if dist/client exists
-  // Note: This is registered after API routes so API routes take precedence
   if (hasStaticFiles) {
     // Catch-all for static files and SPA routes
     // Elysia registers routes in order, API routes are already registered above

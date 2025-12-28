@@ -1,8 +1,3 @@
-/**
- * Transaction History Service
- * Uses network indexer for transaction data
- */
-
 import type { TransactionStatus } from '@jejunetwork/types'
 import {
   expectAddress,

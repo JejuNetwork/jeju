@@ -85,39 +85,108 @@ pub struct EarningsHistoryRequest {
 }
 
 #[tauri::command]
-pub async fn get_earnings_summary(_state: State<'_, AppState>) -> Result<EarningsSummary, String> {
-    // TODO: Aggregate earnings from:
-    // 1. On-chain claims history
-    // 2. Pending rewards from staking contracts
-    // 3. Bot profits from trading history
-    // 4. Local earnings tracker cache
+pub async fn get_earnings_summary(state: State<'_, AppState>) -> Result<EarningsSummary, String> {
+    let inner = state.inner.read().await;
+    let stats = inner.earnings_tracker.get_stats();
+
+    let today_wei = inner.earnings_tracker.get_total_today();
+    let total_wei: u128 = stats.total_wei.parse().unwrap_or(0);
+    let today_wei_val: u128 = today_wei.parse().unwrap_or(0);
+
+    let mut earnings_by_service = vec![];
+    for (service_id, amount_wei) in &stats.by_service {
+        let amount: u128 = amount_wei.parse().unwrap_or(0);
+        earnings_by_service.push(ServiceEarnings {
+            service_id: service_id.clone(),
+            service_name: service_id.clone(),
+            total_wei: amount_wei.clone(),
+            total_usd: (amount as f64) / 1e18 * 2000.0,
+            today_wei: "0".to_string(),
+            today_usd: 0.0,
+            requests_served: 0,
+            uptime_percent: 100.0,
+        });
+    }
+
+    let mut earnings_by_bot = vec![];
+    for (bot_id, status) in &inner.bot_status {
+        let gross: u128 = status.total_profit_wei.parse().unwrap_or(0);
+        let treasury: u128 = status.treasury_share_wei.parse().unwrap_or(0);
+        let net = gross.saturating_sub(treasury);
+        earnings_by_bot.push(BotEarnings {
+            bot_id: bot_id.clone(),
+            bot_name: status.name.clone(),
+            gross_profit_wei: status.total_profit_wei.clone(),
+            treasury_share_wei: status.treasury_share_wei.clone(),
+            net_profit_wei: net.to_string(),
+            net_profit_usd: (net as f64) / 1e18 * 2000.0,
+            opportunities_executed: status.opportunities_executed,
+            success_rate_percent: if status.opportunities_found > 0 {
+                (status.opportunities_executed as f64 / status.opportunities_found as f64) * 100.0
+            } else {
+                0.0
+            },
+        });
+    }
+
+    let avg_hourly_rate_usd = if !stats.by_day.is_empty() {
+        let total_usd = (total_wei as f64) / 1e18 * 2000.0;
+        total_usd / (stats.by_day.len() as f64 * 24.0)
+    } else {
+        0.0
+    };
 
     Ok(EarningsSummary {
-        total_earnings_wei: "0".to_string(),
-        total_earnings_usd: 0.0,
-        earnings_today_wei: "0".to_string(),
-        earnings_today_usd: 0.0,
+        total_earnings_wei: stats.total_wei.clone(),
+        total_earnings_usd: (total_wei as f64) / 1e18 * 2000.0,
+        earnings_today_wei: today_wei.clone(),
+        earnings_today_usd: (today_wei_val as f64) / 1e18 * 2000.0,
         earnings_this_week_wei: "0".to_string(),
         earnings_this_week_usd: 0.0,
         earnings_this_month_wei: "0".to_string(),
         earnings_this_month_usd: 0.0,
-        earnings_by_service: vec![],
-        earnings_by_bot: vec![],
-        avg_hourly_rate_usd: 0.0,
-        projected_monthly_usd: 0.0,
+        earnings_by_service,
+        earnings_by_bot,
+        avg_hourly_rate_usd,
+        projected_monthly_usd: avg_hourly_rate_usd * 24.0 * 30.0,
     })
 }
 
 #[tauri::command]
 pub async fn get_earnings_history(
-    _state: State<'_, AppState>,
-    _request: EarningsHistoryRequest,
+    state: State<'_, AppState>,
+    request: EarningsHistoryRequest,
 ) -> Result<Vec<EarningsHistoryEntry>, String> {
-    // TODO: Query earnings history from:
-    // 1. Local database
-    // 2. On-chain events if needed
+    let inner = state.inner.read().await;
 
-    Ok(vec![])
+    let entries = inner.earnings_tracker.get_entries(
+        request.service_id.as_deref(),
+        request.start_timestamp,
+        request.end_timestamp,
+        request.limit.map(|l| l as usize),
+    );
+
+    let result = entries
+        .into_iter()
+        .map(|e| {
+            let date = chrono::DateTime::from_timestamp(e.timestamp, 0)
+                .map(|dt| dt.format("%Y-%m-%d").to_string())
+                .unwrap_or_default();
+            let amount: u128 = e.amount_wei.parse().unwrap_or(0);
+
+            EarningsHistoryEntry {
+                timestamp: e.timestamp,
+                date,
+                service_id: e.service_id.clone(),
+                amount_wei: e.amount_wei.clone(),
+                amount_usd: (amount as f64) / 1e18 * 2000.0,
+                tx_hash: e.tx_hash.clone(),
+                event_type: format!("{:?}", e.event_type).to_lowercase(),
+            }
+        })
+        .collect();
+
+    Ok(result)
 }
 
 #[tauri::command]
@@ -212,16 +281,81 @@ pub async fn get_projected_earnings(
 
 #[tauri::command]
 pub async fn export_earnings(
-    _state: State<'_, AppState>,
-    _format: String, // "csv" or "json"
-    _start_timestamp: Option<i64>,
-    _end_timestamp: Option<i64>,
+    state: State<'_, AppState>,
+    format: String,
+    start_timestamp: Option<i64>,
+    end_timestamp: Option<i64>,
 ) -> Result<String, String> {
-    // TODO: Export earnings data to file
-    // 1. Query all earnings history
-    // 2. Format as CSV or JSON
-    // 3. Write to file in data directory
-    // 4. Return file path
+    let inner = state.inner.read().await;
 
-    Err("Export not yet implemented".to_string())
+    let entries = inner.earnings_tracker.get_entries(
+        None,
+        start_timestamp,
+        end_timestamp,
+        None,
+    );
+
+    let data_dir = crate::config::NodeConfig::data_dir()
+        .map_err(|e| format!("Failed to get data directory: {}", e))?;
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("Failed to create data directory: {}", e))?;
+
+    let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+
+    match format.as_str() {
+        "csv" => {
+            let file_path = data_dir.join(format!("earnings_{}.csv", timestamp));
+            let mut csv_content = "timestamp,date,service_id,amount_wei,amount_usd,tx_hash,event_type\n".to_string();
+
+            for e in entries {
+                let date = chrono::DateTime::from_timestamp(e.timestamp, 0)
+                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                    .unwrap_or_default();
+                let amount: u128 = e.amount_wei.parse().unwrap_or(0);
+                let amount_usd = (amount as f64) / 1e18 * 2000.0;
+                let tx_hash = e.tx_hash.clone().unwrap_or_default();
+
+                csv_content.push_str(&format!(
+                    "{},{},{},{},{:.2},{},{:?}\n",
+                    e.timestamp, date, e.service_id, e.amount_wei, amount_usd, tx_hash, e.event_type
+                ));
+            }
+
+            std::fs::write(&file_path, csv_content)
+                .map_err(|e| format!("Failed to write CSV file: {}", e))?;
+
+            Ok(file_path.to_string_lossy().to_string())
+        }
+        "json" => {
+            let file_path = data_dir.join(format!("earnings_{}.json", timestamp));
+            let json_entries: Vec<_> = entries
+                .into_iter()
+                .map(|e| {
+                    let date = chrono::DateTime::from_timestamp(e.timestamp, 0)
+                        .map(|dt| dt.format("%Y-%m-%d").to_string())
+                        .unwrap_or_default();
+                    let amount: u128 = e.amount_wei.parse().unwrap_or(0);
+
+                    EarningsHistoryEntry {
+                        timestamp: e.timestamp,
+                        date,
+                        service_id: e.service_id.clone(),
+                        amount_wei: e.amount_wei.clone(),
+                        amount_usd: (amount as f64) / 1e18 * 2000.0,
+                        tx_hash: e.tx_hash.clone(),
+                        event_type: format!("{:?}", e.event_type).to_lowercase(),
+                    }
+                })
+                .collect();
+
+            let json = serde_json::to_string_pretty(&json_entries)
+                .map_err(|e| format!("Failed to serialize earnings: {}", e))?;
+
+            std::fs::write(&file_path, json)
+                .map_err(|e| format!("Failed to write JSON file: {}", e))?;
+
+            Ok(file_path.to_string_lossy().to_string())
+        }
+        _ => Err(format!("Unsupported format: {}. Use 'csv' or 'json'", format)),
+    }
 }

@@ -1,5 +1,3 @@
-/** Zod schemas for VPN frontend API validation */
-
 import { z } from 'zod'
 
 export const VPNNodeCapabilitiesSchema = z
@@ -210,7 +208,13 @@ export type ContributionStats = z.infer<typeof ContributionStatsSchema>
 export type ContributionSettings = z.infer<typeof ContributionSettingsSchema>
 export type BandwidthState = z.infer<typeof BandwidthStateSchema>
 export type DWSState = z.infer<typeof DWSStateSchema>
-export type ResidentialProxyNodeType = z.infer<typeof ResidentialProxyNodeTypeSchema>
-export type ResidentialProxySettings = z.infer<typeof ResidentialProxySettingsSchema>
-export type ResidentialProxyStatus = z.infer<typeof ResidentialProxyStatusSchema>
+export type ResidentialProxyNodeType = z.infer<
+  typeof ResidentialProxyNodeTypeSchema
+>
+export type ResidentialProxySettings = z.infer<
+  typeof ResidentialProxySettingsSchema
+>
+export type ResidentialProxyStatus = z.infer<
+  typeof ResidentialProxyStatusSchema
+>
 export type ResidentialProxyStats = z.infer<typeof ResidentialProxyStatsSchema>

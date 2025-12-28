@@ -145,4 +145,3 @@ export async function getConfigStatus(): Promise<{
     facilitatorConfigured: cfg.facilitatorAddress !== ZERO_ADDRESS,
   }
 }
-

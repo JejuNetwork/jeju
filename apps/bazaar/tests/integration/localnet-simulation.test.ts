@@ -4,7 +4,9 @@
  * Comprehensive tests against real deployed contracts on Anvil localnet.
  * Tests liquidity pools, swaps, swap fees, NFT marketplace, prediction markets, etc.
  *
- * Run with: bun test tests/integration/localnet-simulation.test.ts
+ * These tests REQUIRE localnet to be running - they will FAIL if unavailable.
+ *
+ * Run with: jeju test --mode integration --app bazaar
  *
  * Prerequisites:
  *   - Anvil running on port 6546
@@ -29,17 +31,13 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 
 // CONFIGURATION - from centralized config
-
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
 const DEPLOYER_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
 const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
-
-// Second test account (for balance checks)
 const USER_ADDRESS = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address
 
-// Chain definition
 const localnet = {
   id: CHAIN_ID,
   name: 'Anvil',
@@ -48,7 +46,6 @@ const localnet = {
 }
 
 // ABIS
-
 const NFT_MARKETPLACE_ABI = parseAbi([
   'function buyListing(uint256 listingId) payable',
   'function cancelListing(uint256 listingId)',
@@ -67,7 +64,6 @@ function isDeployed(address: string | undefined): address is Address {
 }
 
 // DEPLOYMENT LOADING
-
 interface Deployments {
   v4: {
     poolManager?: Address
@@ -103,14 +99,22 @@ function loadDeployments(): Deployments {
 }
 
 // TEST SETUP
-
 let publicClient: PublicClient
 let deployerWallet: WalletClient
 let deployments: Deployments
-let skipTests = false
+
+async function requireLocalnet(): Promise<void> {
+  const blockNumber = await publicClient.getBlockNumber().catch(() => null)
+  if (blockNumber === null) {
+    throw new Error(
+      `FATAL: Cannot connect to localnet at ${RPC_URL}. ` +
+        `Start anvil: anvil --port 6546 --chain-id 31337`,
+    )
+  }
+  console.log(`Connected to localnet at block ${blockNumber}`)
+}
 
 beforeAll(async () => {
-  // Create clients
   publicClient = createPublicClient({
     chain: localnet,
     transport: http(RPC_URL),
@@ -124,79 +128,48 @@ beforeAll(async () => {
     transport: http(RPC_URL),
   })
 
-  const blockNumber = await publicClient.getBlockNumber().catch(() => null)
-  if (blockNumber === null) {
-    console.error(`\n❌ Cannot connect to localnet at ${RPC_URL}`)
-    console.error('   Please start anvil: anvil --port 6546 --chain-id 31337')
-    skipTests = true
-    return
-  }
-  console.log(`\n✅ Connected to localnet at ${RPC_URL}`)
-  console.log(`   Block number: ${blockNumber}`)
+  await requireLocalnet()
 
-  // Load deployments
   deployments = loadDeployments()
 
-  console.log('\n📋 Loaded deployments:')
-  console.log(
-    `   V4 PoolManager: ${deployments.v4.poolManager || 'NOT DEPLOYED'}`,
-  )
-  console.log(
-    `   V4 SwapRouter: ${deployments.v4.swapRouter || 'NOT DEPLOYED'}`,
-  )
-  console.log(
-    `   V4 PositionManager: ${deployments.v4.positionManager || 'NOT DEPLOYED'}`,
-  )
-  console.log(
-    `   NFT Marketplace: ${deployments.marketplace.at || deployments.marketplace.marketplace || 'NOT DEPLOYED'}`,
-  )
-  console.log(
-    `   Token Factory: ${deployments.factory.at || deployments.factory.factory || 'NOT DEPLOYED'}`,
-  )
-  console.log('')
+  console.log('Loaded deployments:')
+  console.log(`  V4 PoolManager: ${deployments.v4.poolManager || 'NOT DEPLOYED'}`)
+  console.log(`  V4 SwapRouter: ${deployments.v4.swapRouter || 'NOT DEPLOYED'}`)
+  console.log(`  V4 PositionManager: ${deployments.v4.positionManager || 'NOT DEPLOYED'}`)
+  console.log(`  NFT Marketplace: ${deployments.marketplace.at || deployments.marketplace.marketplace || 'NOT DEPLOYED'}`)
+  console.log(`  Token Factory: ${deployments.factory.at || deployments.factory.factory || 'NOT DEPLOYED'}`)
 })
 
 // TEST: BLOCKCHAIN HEALTH
-
 describe('Blockchain Health', () => {
   test('should be connected to localnet', async () => {
-    if (skipTests) return
-
     const chainId = await publicClient.getChainId()
     expect(chainId).toBe(CHAIN_ID)
   })
 
   test('should have blocks being produced', async () => {
-    if (skipTests) return
-
     const blockNumber = await publicClient.getBlockNumber()
     expect(blockNumber).toBeGreaterThan(0n)
   })
 
   test('deployer should have ETH balance', async () => {
-    if (skipTests) return
-
     const balance = await publicClient.getBalance({ address: DEPLOYER_ADDRESS })
     expect(balance).toBeGreaterThan(parseEther('1'))
-    console.log(`   Deployer balance: ${formatEther(balance)} ETH`)
+    console.log(`Deployer balance: ${formatEther(balance)} ETH`)
   })
 
   test('user account should have ETH balance', async () => {
-    if (skipTests) return
-
     const balance = await publicClient.getBalance({ address: USER_ADDRESS })
     expect(balance).toBeGreaterThan(parseEther('1'))
-    console.log(`   User balance: ${formatEther(balance)} ETH`)
+    console.log(`User balance: ${formatEther(balance)} ETH`)
   })
 })
 
 // TEST: CONTRACT DEPLOYMENT VERIFICATION
-
 describe('Contract Deployment Verification', () => {
   test('V4 PoolManager should be deployed', async () => {
-    if (skipTests) return
     if (!isDeployed(deployments.v4.poolManager)) {
-      console.log('   ⚠️ PoolManager not deployed')
+      console.log('PoolManager not deployed - expected on fresh localnet')
       return
     }
 
@@ -204,13 +177,12 @@ describe('Contract Deployment Verification', () => {
       address: deployments.v4.poolManager,
     })
     expect(code).not.toBe('0x')
-    console.log(`   ✅ PoolManager at ${deployments.v4.poolManager}`)
+    console.log(`PoolManager at ${deployments.v4.poolManager}`)
   })
 
   test('V4 SwapRouter should be deployed', async () => {
-    if (skipTests) return
     if (!isDeployed(deployments.v4.swapRouter)) {
-      console.log('   ⚠️ SwapRouter not deployed')
+      console.log('SwapRouter not deployed - expected on fresh localnet')
       return
     }
 
@@ -218,13 +190,12 @@ describe('Contract Deployment Verification', () => {
       address: deployments.v4.swapRouter,
     })
     expect(code).not.toBe('0x')
-    console.log(`   ✅ SwapRouter at ${deployments.v4.swapRouter}`)
+    console.log(`SwapRouter at ${deployments.v4.swapRouter}`)
   })
 
   test('V4 PositionManager should be deployed', async () => {
-    if (skipTests) return
     if (!isDeployed(deployments.v4.positionManager)) {
-      console.log('   ⚠️ PositionManager not deployed')
+      console.log('PositionManager not deployed - expected on fresh localnet')
       return
     }
 
@@ -232,15 +203,14 @@ describe('Contract Deployment Verification', () => {
       address: deployments.v4.positionManager,
     })
     expect(code).not.toBe('0x')
-    console.log(`   ✅ PositionManager at ${deployments.v4.positionManager}`)
+    console.log(`PositionManager at ${deployments.v4.positionManager}`)
   })
 
   test('NFT Marketplace should be deployed', async () => {
-    if (skipTests) return
     const marketplaceAddress =
       deployments.marketplace.at || deployments.marketplace.marketplace
     if (!marketplaceAddress) {
-      console.log('   ⚠️ Marketplace not deployed')
+      console.log('Marketplace not deployed - expected on fresh localnet')
       return
     }
 
@@ -248,14 +218,13 @@ describe('Contract Deployment Verification', () => {
       address: marketplaceAddress as Address,
     })
     expect(code).not.toBe('0x')
-    console.log(`   ✅ Marketplace at ${marketplaceAddress}`)
+    console.log(`Marketplace at ${marketplaceAddress}`)
   })
 
   test('Token Factory should be deployed', async () => {
-    if (skipTests) return
     const factoryAddress = deployments.factory.at || deployments.factory.factory
     if (!factoryAddress) {
-      console.log('   ⚠️ Token Factory not deployed')
+      console.log('Token Factory not deployed - expected on fresh localnet')
       return
     }
 
@@ -263,19 +232,17 @@ describe('Contract Deployment Verification', () => {
       address: factoryAddress as Address,
     })
     expect(code).not.toBe('0x')
-    console.log(`   ✅ Token Factory at ${factoryAddress}`)
+    console.log(`Token Factory at ${factoryAddress}`)
   })
 })
 
 // TEST: TOKEN FACTORY
-
 describe('Token Factory', () => {
   test('should create a new ERC20 token', async () => {
-    if (skipTests) return
     const factoryAddress = (deployments.factory.at ||
       deployments.factory.factory) as Address
     if (!isDeployed(factoryAddress)) {
-      console.log('   ⚠️ Skipping: Token Factory not deployed')
+      console.log('Token Factory not deployed')
       return
     }
 
@@ -284,7 +251,6 @@ describe('Token Factory', () => {
     const decimals = 18
     const initialSupply = parseEther('1000000')
 
-    // Create token (owner is msg.sender)
     const hash = await deployerWallet.writeContract({
       address: factoryAddress,
       abi: TOKEN_FACTORY_ABI,
@@ -294,28 +260,25 @@ describe('Token Factory', () => {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
     expect(receipt.status).toBe('success')
-    console.log(`   ✅ Token created in tx: ${hash.slice(0, 18)}...`)
+    console.log(`Token created in tx: ${hash.slice(0, 18)}...`)
 
-    // Get token count
     const count = await publicClient.readContract({
       address: factoryAddress,
       abi: TOKEN_FACTORY_ABI,
       functionName: 'tokenCount',
     })
     expect(count).toBeGreaterThan(0n)
-    console.log(`   Token count: ${count}`)
+    console.log(`Token count: ${count}`)
   })
 
   test('should list created tokens', async () => {
-    if (skipTests) return
     const factoryAddress = (deployments.factory.at ||
       deployments.factory.factory) as Address
     if (!isDeployed(factoryAddress)) {
-      console.log('   ⚠️ Skipping: Token Factory not deployed')
+      console.log('Token Factory not deployed')
       return
     }
 
-    // Get creator's tokens
     const tokens = await publicClient.readContract({
       address: factoryAddress,
       abi: TOKEN_FACTORY_ABI,
@@ -323,84 +286,72 @@ describe('Token Factory', () => {
       args: [DEPLOYER_ADDRESS],
     })
 
-    console.log(`   Found ${tokens.length} tokens created by deployer`)
+    console.log(`Found ${tokens.length} tokens created by deployer`)
   })
 })
 
 // TEST: UNISWAP V4 LIQUIDITY
-
 describe('Uniswap V4 Liquidity', () => {
   test('should add liquidity to a pool', async () => {
-    if (skipTests) return
     if (!isDeployed(deployments.v4.positionManager)) {
-      console.log('   ⚠️ Skipping: PositionManager not deployed')
+      console.log('PositionManager not deployed')
       return
     }
 
-    console.log('   📊 Liquidity provision test')
-    console.log(`   PositionManager: ${deployments.v4.positionManager}`)
+    console.log(`PositionManager: ${deployments.v4.positionManager}`)
 
-    // This would require a token pair to be set up
-    // For now, just verify the contract is callable
     const code = await publicClient.getCode({
       address: deployments.v4.positionManager,
     })
     expect(code).not.toBe('0x')
-    console.log('   ✅ PositionManager contract verified')
+    console.log('PositionManager contract verified')
   })
 })
 
 // TEST: UNISWAP V4 SWAPS
-
 describe('Uniswap V4 Swaps', () => {
   test('should verify swap router is ready', async () => {
-    if (skipTests) return
     if (!isDeployed(deployments.v4.swapRouter)) {
-      console.log('   ⚠️ Skipping: SwapRouter not deployed')
+      console.log('SwapRouter not deployed')
       return
     }
 
-    console.log('   🔄 Swap test')
-    console.log(`   SwapRouter: ${deployments.v4.swapRouter}`)
+    console.log(`SwapRouter: ${deployments.v4.swapRouter}`)
 
     const code = await publicClient.getCode({
       address: deployments.v4.swapRouter,
     })
     expect(code).not.toBe('0x')
-    console.log('   ✅ SwapRouter contract verified')
+    console.log('SwapRouter contract verified')
   })
 
   test('should calculate swap quote', async () => {
-    if (skipTests) return
     if (!isDeployed(deployments.v4.quoterV4)) {
-      console.log('   ⚠️ Skipping: QuoterV4 not deployed')
+      console.log('QuoterV4 not deployed')
       return
     }
 
-    console.log(`   QuoterV4: ${deployments.v4.quoterV4}`)
+    console.log(`QuoterV4: ${deployments.v4.quoterV4}`)
 
     const code = await publicClient.getCode({
       address: deployments.v4.quoterV4,
     })
     expect(code).not.toBe('0x')
-    console.log('   ✅ QuoterV4 contract verified')
+    console.log('QuoterV4 contract verified')
   })
 })
 
 // TEST: NFT MARKETPLACE
-
 describe('NFT Marketplace', () => {
   test('should read marketplace version', async () => {
-    if (skipTests) return
     const marketplaceAddress = (deployments.marketplace.at ||
       deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplaceAddress)) {
-      console.log('   ⚠️ Skipping: Marketplace not deployed')
+      console.log('Marketplace not deployed')
       return
     }
 
-    console.log('   🖼️ NFT Marketplace test')
-    console.log(`   Marketplace: ${marketplaceAddress}`)
+    console.log(`Marketplace: ${marketplaceAddress}`)
 
     const version = await publicClient.readContract({
       address: marketplaceAddress,
@@ -408,133 +359,81 @@ describe('NFT Marketplace', () => {
       functionName: 'version',
     })
 
-    console.log(`   Marketplace version: ${version}`)
+    console.log(`Marketplace version: ${version}`)
     expect(version).toBe('1.0.0')
   })
 
   test('should create and buy NFT listing', async () => {
-    if (skipTests) return
     const marketplaceAddress = (deployments.marketplace.at ||
       deployments.marketplace.marketplace) as Address
     const nftAddress = deployments.marketplace.Token as Address
 
     if (!isDeployed(marketplaceAddress) || !isDeployed(nftAddress)) {
-      console.log('   ⚠️ Skipping: Marketplace or NFT not deployed')
+      console.log('Marketplace or NFT not deployed')
       return
     }
 
-    // Get initial balance
     const initialBalance = await publicClient.getBalance({
       address: DEPLOYER_ADDRESS,
     })
-    console.log(`   Initial balance: ${formatEther(initialBalance)} ETH`)
-
-    console.log('   ✅ Marketplace ready for NFT trading')
+    console.log(`Initial balance: ${formatEther(initialBalance)} ETH`)
+    console.log('Marketplace ready for NFT trading')
   })
 })
 
 // TEST: SWAP FEES
-
 describe('Swap Fee Verification', () => {
   test('should verify pool fee structure', async () => {
-    if (skipTests) return
     if (!isDeployed(deployments.v4.poolManager)) {
-      console.log('   ⚠️ Skipping: PoolManager not deployed')
+      console.log('PoolManager not deployed')
       return
     }
 
-    console.log('   💰 Fee structure verification')
-    console.log(`   PoolManager: ${deployments.v4.poolManager}`)
-
-    // Standard Uniswap V4 fee tiers:
-    // 100 = 0.01% (stable pairs)
-    // 500 = 0.05% (stable-like)
-    // 3000 = 0.30% (standard)
-    // 10000 = 1.00% (volatile)
-
-    console.log('   Standard fee tiers:')
-    console.log('     - 100 bps (0.01%) for stable pairs')
-    console.log('     - 500 bps (0.05%) for stable-like')
-    console.log('     - 3000 bps (0.30%) for standard')
-    console.log('     - 10000 bps (1.00%) for volatile')
-    console.log('   ✅ Fee structure verified')
+    console.log(`PoolManager: ${deployments.v4.poolManager}`)
+    console.log('Standard fee tiers:')
+    console.log('  - 100 bps (0.01%) for stable pairs')
+    console.log('  - 500 bps (0.05%) for stable-like')
+    console.log('  - 3000 bps (0.30%) for standard')
+    console.log('  - 10000 bps (1.00%) for volatile')
+    console.log('Fee structure verified')
   })
 })
 
 // TEST: END-TO-END FLOW
-
 describe('End-to-End Flow', () => {
   test('complete user journey: create token -> add liquidity -> swap', async () => {
-    if (skipTests) return
+    console.log('End-to-end flow test')
 
-    console.log('   🎯 End-to-end flow test')
-    console.log('')
-
-    // Step 1: Check factory
     const factoryAddress = (deployments.factory.at ||
       deployments.factory.factory) as Address
-    if (factoryAddress) {
-      console.log('   Step 1: Token Factory ✅')
-    } else {
-      console.log('   Step 1: Token Factory ⚠️ Not deployed')
-    }
+    console.log(`Step 1: Token Factory ${factoryAddress ? 'OK' : 'NOT DEPLOYED'}`)
+    console.log(`Step 2: V4 PoolManager ${deployments.v4.poolManager ? 'OK' : 'NOT DEPLOYED'}`)
+    console.log(`Step 3: SwapRouter ${deployments.v4.swapRouter ? 'OK' : 'NOT DEPLOYED'}`)
 
-    // Step 2: Check V4
-    if (deployments.v4.poolManager) {
-      console.log('   Step 2: V4 PoolManager ✅')
-    } else {
-      console.log('   Step 2: V4 PoolManager ⚠️ Not deployed')
-    }
-
-    // Step 3: Check SwapRouter
-    if (deployments.v4.swapRouter) {
-      console.log('   Step 3: SwapRouter ✅')
-    } else {
-      console.log('   Step 3: SwapRouter ⚠️ Not deployed')
-    }
-
-    // Step 4: Check Marketplace
     const marketplaceAddress =
       deployments.marketplace.at || deployments.marketplace.marketplace
-    if (marketplaceAddress) {
-      console.log('   Step 4: NFT Marketplace ✅')
-    } else {
-      console.log('   Step 4: NFT Marketplace ⚠️ Not deployed')
-    }
+    console.log(`Step 4: NFT Marketplace ${marketplaceAddress ? 'OK' : 'NOT DEPLOYED'}`)
 
-    console.log('')
-    console.log('   🎉 Infrastructure verification complete')
+    console.log('Infrastructure verification complete')
   })
 })
 
 // TEST SUMMARY
-
 describe('Simulation Summary', () => {
-  test('print final summary', async () => {
-    if (skipTests) {
-      console.log('\n⚠️ Tests skipped - localnet not running')
-      return
-    }
-
+  test('print final summary', () => {
     console.log('')
-    console.log('═══════════════════════════════════════════════════════')
+    console.log('===================================================')
     console.log('           LOCALNET SIMULATION SUMMARY')
-    console.log('═══════════════════════════════════════════════════════')
+    console.log('===================================================')
     console.log('')
     console.log('Contracts Verified:')
-    console.log(`  ${deployments.v4.poolManager ? '✅' : '❌'} V4 PoolManager`)
-    console.log(`  ${deployments.v4.swapRouter ? '✅' : '❌'} V4 SwapRouter`)
-    console.log(
-      `  ${deployments.v4.positionManager ? '✅' : '❌'} V4 PositionManager`,
-    )
-    console.log(`  ${deployments.v4.quoterV4 ? '✅' : '❌'} V4 Quoter`)
-    console.log(
-      `  ${deployments.marketplace.at || deployments.marketplace.marketplace ? '✅' : '❌'} NFT Marketplace`,
-    )
-    console.log(
-      `  ${deployments.factory.at || deployments.factory.factory ? '✅' : '❌'} Token Factory`,
-    )
+    console.log(`  ${deployments.v4.poolManager ? 'OK' : 'MISSING'} V4 PoolManager`)
+    console.log(`  ${deployments.v4.swapRouter ? 'OK' : 'MISSING'} V4 SwapRouter`)
+    console.log(`  ${deployments.v4.positionManager ? 'OK' : 'MISSING'} V4 PositionManager`)
+    console.log(`  ${deployments.v4.quoterV4 ? 'OK' : 'MISSING'} V4 Quoter`)
+    console.log(`  ${deployments.marketplace.at || deployments.marketplace.marketplace ? 'OK' : 'MISSING'} NFT Marketplace`)
+    console.log(`  ${deployments.factory.at || deployments.factory.factory ? 'OK' : 'MISSING'} Token Factory`)
     console.log('')
-    console.log('═══════════════════════════════════════════════════════')
+    console.log('===================================================')
   })
 })

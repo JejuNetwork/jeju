@@ -1,21 +1,5 @@
-/**
- * Cluster Autoscaler
- *
- * Implements automatic scaling for DWS infrastructure:
- * - Pod/Worker horizontal autoscaling
- * - Node pool autoscaling
- * - Scheduled scaling
- * - Custom metrics scaling
- * - Scale-to-zero support
- * - Cost optimization
- */
-
 import { createHash } from 'node:crypto'
 import type { Address } from 'viem'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type ScalingDirection = 'up' | 'down' | 'none'
 

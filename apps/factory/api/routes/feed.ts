@@ -1,18 +1,7 @@
-/**
- * Feed Routes
- *
- * Farcaster feed endpoints for Factory.
- * Supports channel feeds, user feeds, trending, and cast operations.
- */
-
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { CreateCastBodySchema, expectValid } from '../schemas'
 import * as farcasterService from '../services/farcaster'
-
-// ============================================================================
-// SCHEMAS
-// ============================================================================
 
 const CastReactionBodySchema = t.Object({
   castHash: t.String({ minLength: 3 }),
@@ -34,11 +23,6 @@ const PaginationQuerySchema = t.Object({
   limit: t.Optional(t.String()),
 })
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-/** Extract viewer FID from authorization header */
 function getViewerFid(
   headers: Record<string, string | undefined>,
 ): number | undefined {
@@ -50,7 +34,6 @@ function getViewerFid(
   return link?.fid
 }
 
-/** Parse pagination params from query */
 function getPagination(query: { cursor?: string; limit?: string }) {
   return {
     limit: query.limit ? parseInt(query.limit, 10) : 20,
@@ -58,7 +41,6 @@ function getPagination(query: { cursor?: string; limit?: string }) {
   }
 }
 
-/** Require wallet address from headers, throw 401 if missing */
 function requireWalletAddress(
   headers: Record<string, string | undefined>,
 ): Address {
@@ -68,10 +50,6 @@ function requireWalletAddress(
   }
   return address
 }
-
-// ============================================================================
-// ROUTES
-// ============================================================================
 
 export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   // Get feed (channel, trending, or user)

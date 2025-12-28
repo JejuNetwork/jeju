@@ -1,19 +1,3 @@
-/**
- * TUS Resumable Upload Protocol Implementation
- *
- * Implements the TUS protocol (https://tus.io/) for resumable uploads
- *
- * Features:
- * - Resumable file uploads with chunk-based transfer
- * - Support for parallel chunk uploads
- * - Automatic retry on failure
- * - Upload progress tracking
- * - Concatenation for multi-part uploads
- * - Metadata support
- *
- * Workerd compatible: Uses exec API for file operations.
- */
-
 import { createHash, randomBytes } from 'node:crypto'
 import type { Address } from 'viem'
 

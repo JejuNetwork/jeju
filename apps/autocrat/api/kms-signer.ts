@@ -1,9 +1,3 @@
-/**
- * KMS-based Signer for Autocrat
- *
- * Uses @jejunetwork/kms for all signing operations.
- */
-
 import { isProductionEnv } from '@jejunetwork/config'
 import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import {
@@ -209,5 +203,3 @@ export async function createKMSHttpWalletClient(
     transport: http(config.rpcUrl),
   })
 }
-
-

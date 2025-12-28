@@ -1,8 +1,3 @@
-/**
- * Trending Tag Page
- * Converted from Next.js to React Router
- */
-
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useEffect, useMemo } from 'react'

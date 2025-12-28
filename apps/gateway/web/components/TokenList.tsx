@@ -55,66 +55,6 @@ function TokenCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
               margin: 0,
             }}
           >
-            Fee Range
-          </p>
-          <p
-            style={{
-              fontSize: '0.875rem',
-              fontWeight: '600',
-              margin: '0.125rem 0',
-            }}
-          >
-            0.1% - 5%
-          </p>
-        </div>
-        <div>
-          <p
-            style={{
-              fontSize: '0.6875rem',
-              color: 'var(--text-muted)',
-              margin: 0,
-            }}
-          >
-            Total Volume
-          </p>
-          <p
-            style={{
-              fontSize: '0.875rem',
-              fontWeight: '600',
-              margin: '0.125rem 0',
-            }}
-          >
-            — ETH
-          </p>
-        </div>
-        <div>
-          <p
-            style={{
-              fontSize: '0.6875rem',
-              color: 'var(--text-muted)',
-              margin: 0,
-            }}
-          >
-            Transactions
-          </p>
-          <p
-            style={{
-              fontSize: '0.875rem',
-              fontWeight: '600',
-              margin: '0.125rem 0',
-            }}
-          >
-            —
-          </p>
-        </div>
-        <div>
-          <p
-            style={{
-              fontSize: '0.6875rem',
-              color: 'var(--text-muted)',
-              margin: 0,
-            }}
-          >
             Paymaster
           </p>
           <p

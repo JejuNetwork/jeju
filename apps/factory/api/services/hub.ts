@@ -1,10 +1,3 @@
-/**
- * Farcaster Hub Service
- *
- * Direct hub client for reading Farcaster data.
- * Provides type-safe access to casts, profiles, reactions, and links.
- */
-
 import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
   type CastFilter,

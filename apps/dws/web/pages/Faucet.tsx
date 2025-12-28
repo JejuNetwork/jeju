@@ -1,8 +1,3 @@
-/**
- * Faucet Page for DWS
- * Testnet-only JEJU token faucet.
- */
-
 import { Droplets, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'

@@ -1,7 +1,3 @@
-/**
- * Proof-of-Cloud Verifier Service
- */
-
 import {
   getCurrentNetwork,
   getPoCConfig,

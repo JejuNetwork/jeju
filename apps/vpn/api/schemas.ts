@@ -1,5 +1,3 @@
-/** Zod schemas for VPN server validation */
-
 import {
   AddressSchema,
   HexSchema,
@@ -38,10 +36,6 @@ export const VPNNodeStateSchema = z
   })
   .strict()
 
-/**
- * Validate and parse a protocol string, returning a typed protocol value.
- * Defaults to 'wireguard' if the input is not a string.
- */
 export function parseProtocol(value: unknown): VPNProtocol {
   if (typeof value !== 'string') {
     return 'wireguard'
@@ -53,7 +47,6 @@ export function parseProtocol(value: unknown): VPNProtocol {
   return result.data
 }
 
-// VPNSessionState schema - BigInt fields accept bigint or numeric strings
 export const VPNSessionStateSchema = z
   .object({
     sessionId: z.string().min(1, 'Session ID required'),
@@ -101,7 +94,6 @@ export const VPNSessionStateSchema = z
   })
   .strict()
 
-// BigInt fields accept bigint or numeric strings
 export const ContributionStateSchema = z
   .object({
     address: AddressSchema,

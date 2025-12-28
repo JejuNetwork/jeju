@@ -1,10 +1,3 @@
-/**
- * Decentralized State Management for DWS
- *
- * Persists compute jobs, storage pins, git repos, and package registrations to EQLite.
- * EQLite is required. Run infrastructure before starting DWS.
- */
-
 import {
   getCurrentNetwork,
   getEQLiteMinerUrl,

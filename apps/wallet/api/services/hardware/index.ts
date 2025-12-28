@@ -1,11 +1,3 @@
-/**
- * Hardware Wallet Service
- * Unified interface for Ledger and Trezor hardware wallets
- *
- * Uses lazy loading to avoid loading Node.js-specific polyfills (Buffer)
- * until the hardware wallet features are actually used.
- */
-
 import type { Address, Hex } from 'viem'
 import type {
   LedgerAccount,

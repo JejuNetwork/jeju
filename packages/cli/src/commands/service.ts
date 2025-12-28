@@ -1,8 +1,8 @@
 /** Manage long-running network services */
 
-import { getLocalhostHost } from '@jejunetwork/config'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { spawn } from 'bun'
 import { Command } from 'commander'
 import { logger } from '../lib/logger'

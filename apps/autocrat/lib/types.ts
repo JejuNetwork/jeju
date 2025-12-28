@@ -1,7 +1,3 @@
-/**
- * Council DAO Types - Multi-tenant Version
- */
-
 import type { Address } from 'viem'
 
 export const DAOStatus = {

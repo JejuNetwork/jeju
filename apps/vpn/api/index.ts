@@ -1,5 +1,3 @@
-/** VPN Server - REST, x402, A2A, and MCP protocols */
-
 import { cors } from '@elysiajs/cors'
 import { parseEnvAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'

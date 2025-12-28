@@ -1,5 +1,3 @@
-/** Health Routes */
-
 import { Elysia } from 'elysia'
 import { getFactoryConfig } from '../config'
 

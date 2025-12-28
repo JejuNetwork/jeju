@@ -1,10 +1,3 @@
-/**
- * Swap Page
- *
- * Token swaps require oracle integration for price discovery.
- * Currently only same-token swaps (ETH to ETH cross-chain) are supported.
- */
-
 import { SUPPORTED_CHAINS } from '@jejunetwork/shared'
 import { useState } from 'react'
 import { toast } from 'sonner'

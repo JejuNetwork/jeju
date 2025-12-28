@@ -321,52 +321,6 @@ export default function BillingPage({ viewMode }: BillingProps) {
                 borderRadius: 'var(--radius-md)',
               }}
             >
-              <div
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--text-secondary)',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                x402 enables micropayments per API request. Credits are deducted
-                automatically when you make requests.
-              </div>
-            </div>
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-              }}
-            >
-              <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-                How it works:
-              </div>
-              <ol
-                style={{
-                  fontSize: '0.9rem',
-                  color: 'var(--text-secondary)',
-                  paddingLeft: '1.25rem',
-                  display: 'grid',
-                  gap: '0.5rem',
-                }}
-              >
-                <li>Deposit ETH to your x402 balance</li>
-                <li>Make API requests with x402 header</li>
-                <li>Credits deducted per request</li>
-                <li>No monthly minimums or commitments</li>
-              </ol>
-            </div>
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-              }}
-            >
-              <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-                Example header:
-              </div>
               <code
                 style={{
                   display: 'block',

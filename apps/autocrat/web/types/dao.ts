@@ -1,10 +1,3 @@
-/**
- * Autocrat DAO Types - Frontend types for DAO management
- *
- * Extended types for the DAO-centric UI including agent connectors,
- * context configuration, and enhanced persona management.
- */
-
 import type { Address } from 'viem'
 
 // Agent connector types for external integrations

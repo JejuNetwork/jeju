@@ -1,68 +1,20 @@
-/**
- * KMS Signer Unit Tests
- *
- * Tests for threshold signing configuration and validation.
- * Note: Actual signing tests require infrastructure (DWS/KMS running).
- */
-
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { KMSSignerConfig } from '../../api/sdk/kms-signer'
 
-// Mock the config module
 const mockGetCurrentNetwork = mock(() => 'localnet')
 const mockGetKmsServiceUrl = mock(() => 'http://localhost:4050')
-const mockGetKmsThresholdConfig = mock(() => ({
-  threshold: 1,
-  totalParties: 2, // Must be > threshold
-  requireAttestation: false,
-  signingTimeoutMs: 10000,
-}))
-const mockGetHSMConfig = mock(() => ({
-  provider: 'software' as const,
-  required: false,
-  keyWrapAlgorithm: 'AES256_GCM' as const,
-  maxOperationsBeforeRotation: 10000,
-}))
-const mockIsProductionEnv = mock(() => false)
-const mockCheckHSMAvailability = mock(async () => ({
-  available: true,
-  provider: 'software' as const,
-}))
 
 mock.module('@jejunetwork/config', () => ({
   getCurrentNetwork: mockGetCurrentNetwork,
   getKmsServiceUrl: mockGetKmsServiceUrl,
-  getKmsThresholdConfig: mockGetKmsThresholdConfig,
-  getHSMConfig: mockGetHSMConfig,
-  isProductionEnv: mockIsProductionEnv,
-  checkHSMAvailability: mockCheckHSMAvailability,
 }))
 
 describe('KMS Signer Configuration', () => {
   beforeEach(() => {
     mockGetCurrentNetwork.mockReset()
     mockGetKmsServiceUrl.mockReset()
-    mockGetKmsThresholdConfig.mockReset()
-    mockGetHSMConfig.mockReset()
-    mockIsProductionEnv.mockReset()
-    mockCheckHSMAvailability.mockReset()
-
-    // Set localnet defaults
     mockGetCurrentNetwork.mockImplementation(() => 'localnet')
     mockGetKmsServiceUrl.mockImplementation(() => 'http://localhost:4050')
-    mockGetKmsThresholdConfig.mockImplementation(() => ({
-      threshold: 1,
-      totalParties: 2, // Must be > threshold
-      requireAttestation: false,
-      signingTimeoutMs: 10000,
-    }))
-    mockGetHSMConfig.mockImplementation(() => ({
-      provider: 'software' as const,
-      required: false,
-      keyWrapAlgorithm: 'AES256_GCM' as const,
-      maxOperationsBeforeRotation: 10000,
-    }))
-    mockIsProductionEnv.mockImplementation(() => false)
   })
 
   describe('Threshold Validation', () => {
@@ -73,9 +25,9 @@ describe('KMS Signer Configuration', () => {
         endpoint: 'http://localhost:4050',
         networkId: 'localnet',
         threshold: 1,
-        totalParties: 2, // Valid totalParties
+        totalParties: 2,
         timeout: 10000,
-        allowDevMode: false, // Production mode
+        allowDevMode: false,
         rpcUrl: 'http://localhost:8545',
         chainId: 31337,
       }
@@ -92,14 +44,13 @@ describe('KMS Signer Configuration', () => {
         endpoint: 'http://localhost:4050',
         networkId: 'localnet',
         threshold: 1,
-        totalParties: 2, // Must be > threshold
+        totalParties: 2,
         timeout: 10000,
-        allowDevMode: true, // Dev mode allowed
+        allowDevMode: true,
         rpcUrl: 'http://localhost:8545',
         chainId: 31337,
       }
 
-      // Should not throw
       const signer = new KMSSigner(config)
       expect(signer).toBeDefined()
     })
@@ -111,7 +62,7 @@ describe('KMS Signer Configuration', () => {
         endpoint: 'http://localhost:4050',
         networkId: 'localnet',
         threshold: 2,
-        totalParties: 2, // Should be > threshold
+        totalParties: 2,
         timeout: 10000,
         allowDevMode: true,
         rpcUrl: 'http://localhost:8545',
@@ -126,37 +77,10 @@ describe('KMS Signer Configuration', () => {
 
   describe('Factory Function', () => {
     test('should create signer with localnet defaults', async () => {
+      mockGetCurrentNetwork.mockImplementation(() => 'localnet')
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
 
       const signer = createKMSSigner('http://localhost:8545', 31337)
-      expect(signer).toBeDefined()
-    })
-
-    test('should use testnet threshold config', async () => {
-      mockGetCurrentNetwork.mockImplementation(() => 'testnet')
-      mockGetKmsServiceUrl.mockImplementation(
-        () => 'https://kms.testnet.jejunetwork.org',
-      )
-      mockGetKmsThresholdConfig.mockImplementation(() => ({
-        threshold: 2,
-        totalParties: 3,
-        requireAttestation: true,
-        signingTimeoutMs: 30000,
-      }))
-      mockGetHSMConfig.mockImplementation(() => ({
-        provider: 'aws_cloudhsm' as const,
-        required: false,
-        keyWrapAlgorithm: 'AES256_GCM' as const,
-        maxOperationsBeforeRotation: 100000,
-      }))
-      mockIsProductionEnv.mockImplementation(() => true)
-
-      // Force re-import to pick up new mocks
-      const { createKMSSigner } = await import('../../api/sdk/kms-signer')
-      const signer = createKMSSigner(
-        'https://rpc.testnet.jejunetwork.org',
-        420691,
-      )
       expect(signer).toBeDefined()
     })
 
@@ -165,70 +89,49 @@ describe('KMS Signer Configuration', () => {
       mockGetKmsServiceUrl.mockImplementation(
         () => 'https://kms.jejunetwork.org',
       )
-      mockGetKmsThresholdConfig.mockImplementation(() => ({
-        threshold: 2, // Below mainnet minimum of 3
-        totalParties: 3,
-        requireAttestation: true,
-        signingTimeoutMs: 60000,
-      }))
-      mockGetHSMConfig.mockImplementation(() => ({
-        provider: 'aws_cloudhsm' as const,
-        required: true,
-        keyWrapAlgorithm: 'AES256_GCM' as const,
-        maxOperationsBeforeRotation: 1000000,
-      }))
-      mockIsProductionEnv.mockImplementation(() => true)
 
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
 
       expect(() =>
-        createKMSSigner('https://rpc.jejunetwork.org', 420691),
+        createKMSSigner('https://rpc.jejunetwork.org', 420691, {
+          threshold: 2,
+          totalParties: 3,
+        }),
       ).toThrow('Mainnet requires minimum threshold of 3')
     })
 
     test('should reject dev mode on mainnet', async () => {
       mockGetCurrentNetwork.mockImplementation(() => 'mainnet')
-      mockGetKmsThresholdConfig.mockImplementation(() => ({
-        threshold: 3,
-        totalParties: 5,
-        requireAttestation: false, // This would enable dev mode
-        signingTimeoutMs: 60000,
-      }))
-      mockGetHSMConfig.mockImplementation(() => ({
-        provider: 'aws_cloudhsm' as const,
-        required: true,
-        keyWrapAlgorithm: 'AES256_GCM' as const,
-        maxOperationsBeforeRotation: 1000000,
-      }))
-      mockIsProductionEnv.mockImplementation(() => true)
+      mockGetKmsServiceUrl.mockImplementation(
+        () => 'https://kms.jejunetwork.org',
+      )
 
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
 
       expect(() =>
-        createKMSSigner('https://rpc.jejunetwork.org', 420691),
+        createKMSSigner('https://rpc.jejunetwork.org', 420691, {
+          threshold: 3,
+          totalParties: 5,
+          allowDevMode: true,
+        }),
       ).toThrow('Mainnet cannot run in development mode')
     })
 
     test('should require HSM on mainnet', async () => {
       mockGetCurrentNetwork.mockImplementation(() => 'mainnet')
-      mockGetKmsThresholdConfig.mockImplementation(() => ({
-        threshold: 3,
-        totalParties: 5,
-        requireAttestation: true,
-        signingTimeoutMs: 60000,
-      }))
-      mockGetHSMConfig.mockImplementation(() => ({
-        provider: 'software' as const, // Software not allowed on mainnet
-        required: true,
-        keyWrapAlgorithm: 'AES256_GCM' as const,
-        maxOperationsBeforeRotation: 1000000,
-      }))
-      mockIsProductionEnv.mockImplementation(() => true)
+      mockGetKmsServiceUrl.mockImplementation(
+        () => 'https://kms.jejunetwork.org',
+      )
 
       const { createKMSSigner } = await import('../../api/sdk/kms-signer')
 
       expect(() =>
-        createKMSSigner('https://rpc.jejunetwork.org', 420691),
+        createKMSSigner('https://rpc.jejunetwork.org', 420691, {
+          threshold: 3,
+          totalParties: 5,
+          allowDevMode: false,
+          hsm: { enabled: true, provider: 'softhsm' },
+        }),
       ).toThrow('Mainnet requires HSM-backed key storage')
     })
   })

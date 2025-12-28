@@ -4,10 +4,10 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   CORE_PORTS,
-  getLocalhostHost,
+  getIpfsApiUrl,
   getL1RpcUrl,
   getL2RpcUrl,
-  getIpfsApiUrl,
+  getLocalhostHost,
 } from '@jejunetwork/config'
 import { execa } from 'execa'
 import { logger } from '../lib/logger'

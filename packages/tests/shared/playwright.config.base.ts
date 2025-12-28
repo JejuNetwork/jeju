@@ -63,11 +63,8 @@ export function createAppConfig(
       timeout: DEFAULT_TIMEOUTS.expect,
     },
 
-    reporter: [
-      ['list'],
-      ['html', { outputFolder: `playwright-report-${name}` }],
-      ['json', { outputFile: `test-results-${name}.json` }],
-    ],
+    // Console-only reporters - no HTML reports
+    reporter: [['list'], ['line']],
 
     use: {
       baseURL,

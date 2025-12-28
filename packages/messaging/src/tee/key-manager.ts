@@ -16,11 +16,9 @@ import type {
   KeyType,
 } from '@jejunetwork/kms'
 import {
-  bytesToHex,
   createLogger,
   decryptAesGcm,
   deriveKeyScrypt,
-  encryptAesGcm,
   fromHex,
   hmacSha256,
   randomBytes,

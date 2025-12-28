@@ -97,51 +97,42 @@ pub async fn get_wallet_info(state: State<'_, AppState>) -> Result<Option<Wallet
 pub async fn get_balance(state: State<'_, AppState>) -> Result<BalanceInfo, String> {
     let inner = state.inner.read().await;
 
-    let _manager = inner
+    let manager = inner
         .wallet_manager
         .as_ref()
         .ok_or("Wallet not initialized")?;
 
-    // Clone manager for async operation
-    drop(inner);
-
-    // TODO: Implement actual balance fetching
-    Ok(BalanceInfo {
-        eth: "0".to_string(),
-        jeju: "0".to_string(),
-        staked: "0".to_string(),
-        pending_rewards: "0".to_string(),
-    })
+    manager.get_balance().await
 }
 
 #[tauri::command]
 pub async fn sign_message(
     state: State<'_, AppState>,
-    _request: SignMessageRequest,
+    request: SignMessageRequest,
 ) -> Result<String, String> {
     let inner = state.inner.read().await;
 
-    let _manager = inner
+    let manager = inner
         .wallet_manager
         .as_ref()
         .ok_or("Wallet not initialized")?;
 
-    // TODO: Implement actual signing
-    Err("Sign message not yet implemented".to_string())
+    manager.sign_message(&request.message).await
 }
 
 #[tauri::command]
 pub async fn send_transaction(
     state: State<'_, AppState>,
-    _request: SendTransactionRequest,
+    request: SendTransactionRequest,
 ) -> Result<TransactionResult, String> {
     let inner = state.inner.read().await;
 
-    let _manager = inner
+    let manager = inner
         .wallet_manager
         .as_ref()
         .ok_or("Wallet not initialized")?;
 
-    // TODO: Implement actual transaction sending
-    Err("Send transaction not yet implemented".to_string())
+    manager
+        .send_transaction(&request.to, &request.value, request.data.as_deref())
+        .await
 }

@@ -4,7 +4,7 @@
  * This allows routing via *.local.jejunetwork.org subdomains
  */
 
-import { getRpcUrl, getPortEnv } from '@jejunetwork/config'
+import { getPortEnv, getRpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { startLocalJNSGateway } from '../src/lib/jns-gateway-local'
 import { findMonorepoRoot } from '../src/lib/system'
@@ -27,7 +27,7 @@ console.log(`  IPFS Gateway Port: ${ipfsPort}`)
 await startLocalJNSGateway(rpcUrl, dummyRegistry, port, ipfsPort, rootDir)
 
 console.log(`JNS Gateway running on port ${port}`)
-console.log('Access apps via: http://<app>.local.jejunetwork.org:${port}/')
+console.log(`Access apps via: http://<app>.local.jejunetwork.org:${port}/`)
 console.log('  - babylon.local.jejunetwork.org')
 console.log('  - gateway.local.jejunetwork.org')
 console.log('  - bazaar.local.jejunetwork.org')

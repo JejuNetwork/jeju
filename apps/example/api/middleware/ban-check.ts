@@ -1,8 +1,4 @@
-import {
-  getCurrentNetwork,
-  getLocalhostHost,
-  getRpcUrl,
-} from '@jejunetwork/config'
+import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import {
   type BanCheckConfig,
   BanChecker,

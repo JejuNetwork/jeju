@@ -291,15 +291,31 @@ export interface SecureNodeClient {
   stake?: bigint
 }
 
+export interface NodeClient {
+  publicClient: PublicClient
+  walletClient: null
+  addresses: ContractAddresses
+  chainId: number
+  chain: Chain
+}
 
-/**
- * Create a secure node client with KMS-backed signing
- *
- * SECURITY PROPERTIES:
- * - No private keys in memory
- * - All signing via KMS MPC (threshold signatures)
- * - TEE attestation required for signing operations
- */
+export function createNodeClient(rpcUrl: string, chainId: number): NodeClient {
+  const chain = getChain(chainId)
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  })
+  const addresses = getContractAddresses(chainId)
+
+  return {
+    publicClient,
+    walletClient: null,
+    addresses,
+    chainId,
+    chain,
+  }
+}
+
 export function createSecureNodeClient(
   rpcUrl: string,
   chainId: number,
@@ -325,4 +341,3 @@ export function createSecureNodeClient(
     walletAddress: null, // Populated lazily via signer.getAddress()
   }
 }
-

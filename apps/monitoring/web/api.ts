@@ -1,5 +1,3 @@
-/** Typed client for A2A monitoring server using JSON-RPC. */
-
 import { z } from 'zod'
 import {
   A2AResponseSchema,

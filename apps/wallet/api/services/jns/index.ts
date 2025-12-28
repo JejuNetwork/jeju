@@ -1,8 +1,3 @@
-/**
- * JNS (Network Name Service) - ENS-compatible naming
- * Register .jeju names, resolve addresses, reverse lookup
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,

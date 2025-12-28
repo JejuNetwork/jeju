@@ -14,11 +14,8 @@
  * 3. Periodic re-verification
  */
 
-import {
-  getDWSComputeUrl,
-  getIpfsGatewayUrl,
-} from '@jejunetwork/config'
-import { getEQLite, type EQLiteClient } from '@jejunetwork/db'
+import { getDWSComputeUrl, getIpfsGatewayUrl } from '@jejunetwork/config'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -106,10 +103,16 @@ const AIClassificationResponseSchema = z.object({
       category: z.string(),
       confidence: z.number().min(0).max(1),
       reasoning: z.string(),
-    })
+    }),
   ),
   overallAssessment: z.string(),
-  recommendedAction: z.enum(['allow', 'review', 'block', 'quarantine', 'report']),
+  recommendedAction: z.enum([
+    'allow',
+    'review',
+    'block',
+    'quarantine',
+    'report',
+  ]),
   riskScore: z.number().min(0).max(100),
 })
 
@@ -119,7 +122,7 @@ const ChatCompletionResponseSchema = z.object({
       message: z.object({
         content: z.string(),
       }),
-    })
+    }),
   ),
 })
 
@@ -268,10 +271,12 @@ export class DeploymentModerationService {
   /**
    * Scan a deployment before it goes live
    */
-  async scanDeployment(request: DeploymentScanRequest): Promise<ModerationResult> {
+  async scanDeployment(
+    request: DeploymentScanRequest,
+  ): Promise<ModerationResult> {
     const startTime = Date.now()
     console.log(
-      `[DeploymentModeration] Scanning deployment ${request.deploymentId} for ${request.owner}`
+      `[DeploymentModeration] Scanning deployment ${request.deploymentId} for ${request.owner}`,
     )
 
     const categories: ModerationResult['categories'] = []
@@ -279,11 +284,15 @@ export class DeploymentModerationService {
 
     // Get user reputation
     const reputation = await this.getReputation(request.owner)
-    const skipDetailedScan = reputation.tier === 'verified' || reputation.tier === 'high'
+    const skipDetailedScan =
+      reputation.tier === 'verified' || reputation.tier === 'high'
 
     // 1. Check container image against blocklist
     if (request.image && this.config.enableImageScanning) {
-      const imageResult = await this.scanContainerImage(request.image, skipDetailedScan)
+      const imageResult = await this.scanContainerImage(
+        request.image,
+        skipDetailedScan,
+      )
       categories.push(...imageResult.categories)
       blockedReasons.push(...imageResult.blockedReasons)
     }
@@ -305,7 +314,9 @@ export class DeploymentModerationService {
     // 4. AI-powered deep analysis for suspicious or untrusted users
     if (
       !skipDetailedScan &&
-      (reputation.tier === 'untrusted' || reputation.tier === 'low' || categories.some((c) => c.confidence > 0.5))
+      (reputation.tier === 'untrusted' ||
+        reputation.tier === 'low' ||
+        categories.some((c) => c.confidence > 0.5))
     ) {
       const aiResult = await this.runAIAnalysis(request)
       categories.push(...aiResult.categories)
@@ -329,7 +340,7 @@ export class DeploymentModerationService {
       categories: categories.map((c) => c.category),
     }
     const attestationHash = keccak256(
-      toBytes(JSON.stringify(attestationData))
+      toBytes(JSON.stringify(attestationData)),
     ) as Hex
 
     const result: ModerationResult = {
@@ -356,7 +367,7 @@ export class DeploymentModerationService {
     }
 
     console.log(
-      `[DeploymentModeration] Scan complete for ${request.deploymentId}: action=${action}, score=${overallScore}, duration=${result.scanDurationMs}ms`
+      `[DeploymentModeration] Scan complete for ${request.deploymentId}: action=${action}, score=${overallScore}, duration=${result.scanDurationMs}ms`,
     )
 
     return result
@@ -381,7 +392,7 @@ export class DeploymentModerationService {
     }>(
       'SELECT * FROM deployment_reputation WHERE address = ?',
       [address.toLowerCase()],
-      MODERATION_DATABASE_ID
+      MODERATION_DATABASE_ID,
     )
 
     if (result.rows.length === 0) {
@@ -426,7 +437,7 @@ export class DeploymentModerationService {
     identity: {
       type: 'github' | 'google' | 'twitter'
       accountAge: number
-    }
+    },
   ): Promise<void> {
     const client = await getEQLiteClient()
     const now = Date.now()
@@ -445,25 +456,19 @@ export class DeploymentModerationService {
         END,
         reputation_score = deployment_reputation.reputation_score + 1000,
         updated_at = excluded.updated_at`,
-      [
-        address.toLowerCase(),
-        identity.type,
-        now,
-        identity.accountAge,
-        now,
-      ],
-      MODERATION_DATABASE_ID
+      [address.toLowerCase(), identity.type, now, identity.accountAge, now],
+      MODERATION_DATABASE_ID,
     )
 
-    console.log(`[DeploymentModeration] Linked ${identity.type} identity for ${address}`)
+    console.log(
+      `[DeploymentModeration] Linked ${identity.type} identity for ${address}`,
+    )
   }
 
   /**
    * Get pending review queue
    */
-  async getPendingReviews(
-    limit = 50
-  ): Promise<
+  async getPendingReviews(limit = 50): Promise<
     Array<{
       id: string
       deploymentId: string
@@ -489,7 +494,7 @@ export class DeploymentModerationService {
          created_at ASC
        LIMIT ?`,
       [limit],
-      MODERATION_DATABASE_ID
+      MODERATION_DATABASE_ID,
     )
 
     return result.rows.map((row) => ({
@@ -508,7 +513,7 @@ export class DeploymentModerationService {
   async resolveReview(
     reviewId: string,
     action: 'approve' | 'reject',
-    reviewerAddress: Address
+    reviewerAddress: Address,
   ): Promise<void> {
     const client = await getEQLiteClient()
 
@@ -516,8 +521,13 @@ export class DeploymentModerationService {
       `UPDATE moderation_queue 
        SET status = ?, assigned_to = ?, resolved_at = ?
        WHERE id = ?`,
-      [action === 'approve' ? 'approved' : 'rejected', reviewerAddress.toLowerCase(), Date.now(), reviewId],
-      MODERATION_DATABASE_ID
+      [
+        action === 'approve' ? 'approved' : 'rejected',
+        reviewerAddress.toLowerCase(),
+        Date.now(),
+        reviewId,
+      ],
+      MODERATION_DATABASE_ID,
     )
 
     console.log(`[DeploymentModeration] Review ${reviewId} resolved: ${action}`)
@@ -527,7 +537,7 @@ export class DeploymentModerationService {
 
   private async scanContainerImage(
     image: string,
-    skipDetailed: boolean
+    skipDetailed: boolean,
   ): Promise<{
     categories: ModerationResult['categories']
     blockedReasons: string[]
@@ -579,7 +589,7 @@ export class DeploymentModerationService {
 
   private async scanCode(
     codeCid: string,
-    skipDetailed: boolean
+    skipDetailed: boolean,
   ): Promise<{
     categories: ModerationResult['categories']
     blockedReasons: string[]
@@ -643,10 +653,7 @@ export class DeploymentModerationService {
           details: `Code matches ${isCryptominer ? 'cryptominer' : 'malware'} pattern: ${pattern.source.slice(0, 50)}...`,
         })
 
-        if (
-          isCryptominer &&
-          0.85 >= this.config.cryptominerThreshold
-        ) {
+        if (isCryptominer && 0.85 >= this.config.cryptominerThreshold) {
           blockedReasons.push('Detected cryptocurrency mining code')
         } else if (0.85 >= this.config.malwareThreshold) {
           blockedReasons.push('Detected malware patterns')
@@ -682,7 +689,7 @@ export class DeploymentModerationService {
               details: `Potential secret exposure in environment variable: ${key}`,
             })
             blockedReasons.push(
-              `Sensitive data detected in environment: ${key}`
+              `Sensitive data detected in environment: ${key}`,
             )
           }
         }
@@ -770,7 +777,7 @@ Return JSON:
 
                 if (classification.confidence > 0.85 && category !== 'clean') {
                   blockedReasons.push(
-                    `AI detected ${category}: ${classification.reasoning}`
+                    `AI detected ${category}: ${classification.reasoning}`,
                   )
                 }
               }
@@ -805,7 +812,7 @@ Return JSON:
   }
 
   private calculateOverallScore(
-    categories: ModerationResult['categories']
+    categories: ModerationResult['categories'],
   ): number {
     if (categories.length === 0) return 100
 
@@ -846,7 +853,7 @@ Return JSON:
   private determineAction(
     categories: ModerationResult['categories'],
     score: number,
-    reputation: DeploymentReputationData
+    reputation: DeploymentReputationData,
   ): ModerationAction {
     // CSAM = immediate report and block
     if (categories.some((c) => c.category === 'csam' && c.confidence > 0.5)) {
@@ -858,7 +865,7 @@ Return JSON:
       categories.some(
         (c) =>
           (c.category === 'malware' || c.category === 'cryptominer') &&
-          c.confidence > this.config.malwareThreshold
+          c.confidence > this.config.malwareThreshold,
       )
     ) {
       return 'block'
@@ -890,7 +897,7 @@ Return JSON:
 
   private async storeScanResult(
     request: DeploymentScanRequest,
-    result: ModerationResult
+    result: ModerationResult,
   ): Promise<void> {
     const client = await getEQLiteClient()
     const scanId = `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -912,13 +919,13 @@ Return JSON:
         result.timestamp,
         result.scanDurationMs,
       ],
-      MODERATION_DATABASE_ID
+      MODERATION_DATABASE_ID,
     )
   }
 
   private async updateReputation(
     address: Address,
-    result: ModerationResult
+    result: ModerationResult,
   ): Promise<void> {
     const client = await getEQLiteClient()
     const now = Date.now()
@@ -970,27 +977,26 @@ Return JSON:
         now,
         now,
       ],
-      MODERATION_DATABASE_ID
+      MODERATION_DATABASE_ID,
     )
   }
 
   private async queueForReview(
     request: DeploymentScanRequest,
-    result: ModerationResult
+    result: ModerationResult,
   ): Promise<void> {
     const client = await getEQLiteClient()
     const reviewId = `review-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-    const priority =
-      result.categories.some(
-        (c) =>
-          c.category === 'csam' ||
-          (c.category === 'malware' && c.confidence > 0.9)
-      )
-        ? 'critical'
-        : result.overallScore < 50
-          ? 'high'
-          : 'normal'
+    const priority = result.categories.some(
+      (c) =>
+        c.category === 'csam' ||
+        (c.category === 'malware' && c.confidence > 0.9),
+    )
+      ? 'critical'
+      : result.overallScore < 50
+        ? 'high'
+        : 'normal'
 
     await client.exec(
       `INSERT INTO moderation_queue (id, deployment_id, owner, reason, priority, status, created_at)
@@ -1003,11 +1009,11 @@ Return JSON:
         priority,
         Date.now(),
       ],
-      MODERATION_DATABASE_ID
+      MODERATION_DATABASE_ID,
     )
 
     console.log(
-      `[DeploymentModeration] Queued ${reviewId} for review (priority: ${priority})`
+      `[DeploymentModeration] Queued ${reviewId} for review (priority: ${priority})`,
     )
   }
 }
@@ -1024,7 +1030,7 @@ export function getDeploymentModerationService(): DeploymentModerationService {
 }
 
 export function createDeploymentModerationService(
-  config?: Partial<ModerationConfig>
+  config?: Partial<ModerationConfig>,
 ): DeploymentModerationService {
   moderationService = new DeploymentModerationService(config)
   return moderationService

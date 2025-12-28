@@ -1,10 +1,3 @@
-/**
- * Security Researcher Character
- *
- * Red team agent that systematically probes for vulnerabilities in systems,
- * APIs, and protocols. Follows responsible disclosure practices.
- */
-
 import type { AgentCharacter } from '../../../lib/types'
 
 export const securityResearcherCharacter: AgentCharacter = {

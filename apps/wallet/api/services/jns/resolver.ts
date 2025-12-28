@@ -1,10 +1,3 @@
-/**
- * JNS Gateway Resolver
- *
- * Resolves .jeju domains via HTTP gateways (local DWS node or public gateway).
- * This complements the on-chain JNS resolution with off-chain content lookups.
- */
-
 import { z } from 'zod'
 import { storage } from '../../../web/platform/storage'
 

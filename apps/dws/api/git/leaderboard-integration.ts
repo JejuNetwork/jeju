@@ -1,8 +1,3 @@
-/**
- * Leaderboard Integration for Jeju Git
- * Syncs git contributions to the leaderboard system
- */
-
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'

@@ -1,12 +1,3 @@
-/**
- * OAuth3 routes - main authentication flows
- *
- * SECURITY: This module uses KMS-backed signing for JWT tokens.
- * - No JWT secrets in memory (MPC threshold signing)
- * - OAuth provider secrets are sealed to TEE attestation
- * - Short-lived tokens with ephemeral keys
- */
-
 import {
   createOAuthProvider,
   type OAuthConfig,
@@ -690,23 +681,15 @@ export async function createOAuthRouter(config: AuthConfig) {
   )
 }
 
-/**
- * SHA-256 hash with Base64URL encoding for PKCE (RFC 7636).
- * This is the standard S256 code_challenge_method.
- */
 async function sha256Base64Url(input: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(input)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
   const hashArray = new Uint8Array(hashBuffer)
 
-  // Convert to base64url (RFC 4648 Section 5)
   let binary = ''
   for (const byte of hashArray) {
     binary += String.fromCharCode(byte)
   }
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
-
-// Note: JWT signing/verification is now handled by KMS service
-// See api/services/kms.ts for secure MPC-backed implementation

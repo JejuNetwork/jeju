@@ -1,15 +1,3 @@
-/**
- * Managed Database Service
- *
- * Provides unified API for managing EQLite and PostgreSQL databases:
- * - Instance lifecycle management
- * - Connection pooling (PgBouncer for PostgreSQL)
- * - Automatic backups to IPFS/Arweave
- * - Read replicas for PostgreSQL
- * - Point-in-time recovery
- * - Metrics and monitoring
- */
-
 import { getContract, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
@@ -24,10 +12,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type DatabaseEngine =
   | 'eqlite'
@@ -156,10 +140,6 @@ export interface EQLiteConnection {
   nodes: string[]
 }
 
-// ============================================================================
-// Schemas
-// ============================================================================
-
 export const CreateDatabaseSchema = z.object({
   name: z
     .string()
@@ -194,10 +174,6 @@ export const UpdateDatabaseSchema = z.object({
   maxConnections: z.number().min(10).max(10000).optional(),
   connectionPoolSize: z.number().min(5).max(1000).optional(),
 })
-
-// ============================================================================
-// Connection Pool Manager (PgBouncer-like)
-// ============================================================================
 
 interface PooledConnection {
   id: string
@@ -335,10 +311,6 @@ class ConnectionPoolManager {
     this.waitQueue.delete(instanceId)
   }
 }
-
-// ============================================================================
-// Database Provisioner
-// ============================================================================
 
 interface ProvisioningJob {
   instanceId: string
@@ -509,10 +481,6 @@ class DatabaseProvisioner {
     return this.jobs.get(instanceId)
   }
 }
-
-// ============================================================================
-// Backup Manager
-// ============================================================================
 
 interface BackupJob {
   backupId: string
@@ -830,10 +798,6 @@ class BackupManager {
   }
 }
 
-// ============================================================================
-// Managed Database Service
-// ============================================================================
-
 export class ManagedDatabaseService {
   private instances = new Map<string, DatabaseInstance>()
   private connections = new Map<string, PostgresConnection | EQLiteConnection>()
@@ -887,10 +851,6 @@ export class ManagedDatabaseService {
       registryAddress: this.registryAddress,
     }
   }
-
-  // =========================================================================
-  // Instance Lifecycle
-  // =========================================================================
 
   async createDatabase(
     owner: Address,
@@ -1084,10 +1044,6 @@ export class ManagedDatabaseService {
     // Keep instance record for audit
   }
 
-  // =========================================================================
-  // Connections
-  // =========================================================================
-
   async getConnection(
     instanceId: string,
     owner: Address,
@@ -1128,10 +1084,6 @@ export class ManagedDatabaseService {
   } {
     return this.poolManager.getStats(instanceId)
   }
-
-  // =========================================================================
-  // Backups
-  // =========================================================================
 
   async createBackup(instanceId: string, owner: Address): Promise<Backup> {
     const instance = this.instances.get(instanceId)
@@ -1215,10 +1167,6 @@ export class ManagedDatabaseService {
     instance.updatedAt = Date.now()
   }
 
-  // =========================================================================
-  // Replicas (PostgreSQL)
-  // =========================================================================
-
   async createReplica(
     instanceId: string,
     owner: Address,
@@ -1257,10 +1205,6 @@ export class ManagedDatabaseService {
     // In production: initiate failover with Patroni
   }
 
-  // =========================================================================
-  // Queries
-  // =========================================================================
-
   getInstance(instanceId: string): DatabaseInstance | undefined {
     return this.instances.get(instanceId)
   }
@@ -1284,10 +1228,6 @@ export class ManagedDatabaseService {
     return creds
   }
 }
-
-// ============================================================================
-// Factory
-// ============================================================================
 
 let managedDatabaseService: ManagedDatabaseService | null = null
 

@@ -1,10 +1,3 @@
-/**
- * Extension Content Script
- *
- * Injected into every page to provide the window.ethereum provider.
- * Bridges communication between dApps and the extension background.
- */
-
 import type {
   BackgroundEventMessage,
   PageRequest,

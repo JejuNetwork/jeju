@@ -1,9 +1,3 @@
-/**
- * Default Trading Bots Configuration
- *
- * Pre-configured MEV/arbitrage bots that initialize automatically.
- */
-
 import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { TradingBotChain, TradingBotStrategy } from '../../lib/types'

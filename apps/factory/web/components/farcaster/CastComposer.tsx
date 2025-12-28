@@ -1,11 +1,5 @@
-/**
- * Cast Composer Component
- *
- * Form for composing and publishing new Farcaster casts.
- */
-
 import { clsx } from 'clsx'
-import { AtSign, Image, Link2, Loader2, Send, X } from 'lucide-react'
+import { Link2, Loader2, Send, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type Cast,
@@ -204,24 +198,6 @@ export function CastComposer({
                 aria-label="Add link"
               >
                 <Link2 className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-lg text-surface-500 opacity-50 cursor-not-allowed"
-                title="Add image (coming soon)"
-                disabled
-                aria-label="Add image (coming soon)"
-              >
-                <Image className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-lg text-surface-500 opacity-50 cursor-not-allowed"
-                title="Mention user (coming soon)"
-                disabled
-                aria-label="Mention user (coming soon)"
-              >
-                <AtSign className="w-5 h-5" />
               </button>
             </div>
 

@@ -1,14 +1,3 @@
-/**
- * DWS Server
- * Decentralized Web Services - Storage, Compute, CDN, and Git
- *
- * Architecture:
- * - Frontend served from IPFS/CDN
- * - Node discovery via on-chain registry
- * - P2P coordination between nodes
- * - Distributed rate limiting
- */
-
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { cors } from '@elysiajs/cors'
@@ -168,8 +157,8 @@ interface RateLimitEntry {
 const rateLimitStore = new Map<string, RateLimitEntry>()
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const RATE_LIMIT_MAX =
-  (serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development')) ===
-  'test'
+  (serverConfig.nodeEnv ??
+    (isProductionEnv() ? 'production' : 'development')) === 'test'
     ? 100000
     : 1000
 const SKIP_RATE_LIMIT_PATHS = ['/health', '/.well-known/']
@@ -288,7 +277,8 @@ const app = new Elysia()
 const backendManager = createBackendManager()
 
 // Environment validation - require addresses in production
-const nodeEnv = serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development')
+const nodeEnv =
+  serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development')
 const isProduction = nodeEnv === 'production'
 const NETWORK = getCurrentNetwork()
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address
@@ -1035,17 +1025,43 @@ if (import.meta.main) {
     isDevnet: isLocalnet(NETWORK) || serverConfig.devnet,
     jejuAppsDir:
       typeof process !== 'undefined' ? process.env.JEJU_APPS_DIR : undefined,
-    nodeEnv: serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development'),
+    nodeEnv:
+      serverConfig.nodeEnv ??
+      (isProductionEnv() ? 'production' : 'development'),
   })
 
   configureOAuth3RouterConfig({
     agentUrl: serverConfig.oauth3AgentUrl ?? getOAuth3Url(NETWORK),
   })
 
+  // For E2E tests, allow env vars to override service URLs
+  const indexerApi =
+    process.env.INDEXER_API_URL ||
+    ((): string => {
+      try {
+        return getServiceUrl('indexer', 'api', NETWORK)
+      } catch {
+        return getServiceUrl('indexer', 'graphql', NETWORK).replace(
+          '/graphql',
+          '',
+        )
+      }
+    })()
+
+  const monitoringApi =
+    process.env.MONITORING_API_URL ||
+    ((): string => {
+      try {
+        return getServiceUrl('monitoring', 'api', NETWORK)
+      } catch {
+        return 'http://127.0.0.1:4060'
+      }
+    })()
+
   configureProxyRouterConfig({
-    indexerUrl: getServiceUrl('indexer', 'api', NETWORK),
+    indexerUrl: indexerApi,
     indexerGraphqlUrl: getServiceUrl('indexer', 'graphql', NETWORK),
-    monitoringUrl: getServiceUrl('monitoring', 'api', NETWORK),
+    monitoringUrl: monitoringApi,
     prometheusUrl: getServiceUrl('monitoring', 'prometheus', NETWORK),
     gatewayUrl: getServiceUrl('gateway', 'api', NETWORK),
   })

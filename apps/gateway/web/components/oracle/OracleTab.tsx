@@ -36,7 +36,6 @@ export function OracleTab() {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
       <div
         style={{
           display: 'flex',
@@ -86,7 +85,6 @@ export function OracleTab() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div
         style={{
           display: 'grid',
@@ -129,7 +127,6 @@ export function OracleTab() {
         />
       </div>
 
-      {/* Sub-navigation */}
       <div
         style={{
           display: 'flex',
@@ -161,7 +158,6 @@ export function OracleTab() {
         />
       </div>
 
-      {/* Content */}
       <div className="animate-fade-in">
         {activeSubTab === 'feeds' && <FeedsView feedIds={activeFeedIds} />}
         {activeSubTab === 'subscriptions' && <SubscriptionsView />}

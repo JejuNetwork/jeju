@@ -1,12 +1,3 @@
-/**
- * Crucible Live Agent Tests
- *
- * E2E tests that verify agents work with ElizaOS + @jejunetwork/eliza-plugin.
- * These tests require ElizaOS and DWS inference to be available.
- *
- * These tests are skipped if infrastructure is not available.
- */
-
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { getCharacter } from '../../api/characters'
 import {

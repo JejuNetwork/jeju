@@ -1,15 +1,4 @@
 #!/usr/bin/env bun
-/**
- * Migration script for OAuth3 client secrets
- *
- * This script migrates legacy plaintext client secrets to hashed format.
- * Run this once after updating to the new KMS-based security model.
- *
- * Usage:
- *   bun run scripts/migrate-secrets.ts
- *   bun run scripts/migrate-secrets.ts --dry-run
- */
-
 import { hashClientSecret } from '../api/services/kms'
 import { clientState, initializeState } from '../api/services/state'
 import type { RegisteredClient } from '../lib/types'
@@ -98,8 +87,6 @@ async function migrateClientSecrets() {
 }
 
 async function getAllClients(): Promise<RegisteredClient[]> {
-  // Since clientState.list() might not exist, we need to query directly
-  // This is a simplified version - in production, implement proper pagination
   const { getEQLiteClient } = await import('../api/services/state')
 
   interface ClientRow {
@@ -112,6 +99,7 @@ async function getAllClients(): Promise<RegisteredClient[]> {
     owner: string
     created_at: number
     active: number
+    require_secret: number
     stake: string | null
     reputation: string | null
     moderation: string | null
@@ -119,34 +107,30 @@ async function getAllClients(): Promise<RegisteredClient[]> {
 
   const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
 
-  try {
-    const db = await getEQLiteClient()
-    const result = await db.query<ClientRow>(
-      'SELECT * FROM clients WHERE active = 1',
-      [],
-      EQLITE_DATABASE_ID,
-    )
+  const db = await getEQLiteClient()
+  const result = await db.query<ClientRow>(
+    'SELECT * FROM clients WHERE active = 1',
+    [],
+    EQLITE_DATABASE_ID,
+  )
 
-    return result.rows.map((row) => ({
-      clientId: row.client_id,
-      clientSecret: row.client_secret as `0x${string}` | undefined,
-      clientSecretHash: row.client_secret_hash
-        ? JSON.parse(row.client_secret_hash)
-        : undefined,
-      name: row.name,
-      redirectUris: JSON.parse(row.redirect_uris),
-      allowedProviders: JSON.parse(row.allowed_providers),
-      owner: row.owner as `0x${string}`,
-      createdAt: row.created_at,
-      active: row.active === 1,
-      stake: row.stake ? JSON.parse(row.stake) : undefined,
-      reputation: row.reputation ? JSON.parse(row.reputation) : undefined,
-      moderation: row.moderation ? JSON.parse(row.moderation) : undefined,
-    }))
-  } catch (err) {
-    console.error('Failed to fetch clients:', err)
-    return []
-  }
+  return result.rows.map((row) => ({
+    clientId: row.client_id,
+    clientSecret: row.client_secret as `0x${string}` | undefined,
+    clientSecretHash: row.client_secret_hash
+      ? JSON.parse(row.client_secret_hash)
+      : undefined,
+    name: row.name,
+    redirectUris: JSON.parse(row.redirect_uris),
+    allowedProviders: JSON.parse(row.allowed_providers),
+    owner: row.owner as `0x${string}`,
+    createdAt: row.created_at,
+    active: row.active === 1,
+    requireSecret: row.require_secret === 1,
+    stake: row.stake ? JSON.parse(row.stake) : undefined,
+    reputation: row.reputation ? JSON.parse(row.reputation) : undefined,
+    moderation: row.moderation ? JSON.parse(row.moderation) : undefined,
+  }))
 }
 
 // Run migration

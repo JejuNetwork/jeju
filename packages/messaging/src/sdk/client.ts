@@ -38,9 +38,7 @@ import {
   deserializeEncryptedMessage,
   encryptMessage,
   KEY_DERIVATION_MESSAGE,
-  type KeyPair,
   publicKeyToBytes32,
-  type SigningKeyPair,
   serializeEncryptedMessage,
   signPreKey,
 } from './crypto'

@@ -146,11 +146,7 @@ export default function ContainersPage() {
         ) : containers.length === 0 ? (
           <div className="empty-state">
             <Box size={48} />
-            <h3>Ready to launch</h3>
-            <p>
-              Run Docker containers on decentralized infrastructure with just a
-              few clicks
-            </p>
+            <h3>No containers</h3>
             <button
               type="button"
               className="btn btn-primary"

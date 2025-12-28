@@ -1,12 +1,3 @@
-/**
- * Crucible Agent Runtime Tests
- *
- * Tests character-based runtime with jeju plugin actions.
- * Requires: DWS and jeju services running (jeju dev)
- *
- * Tests that require inference are skipped if infrastructure is not available.
- */
-
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { getCharacter, listCharacters } from '../../api/characters'
 import {

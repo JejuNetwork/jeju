@@ -1,10 +1,3 @@
-/**
- * Zod Schemas for Autocrat App
- *
- * Comprehensive validation schemas for all types, routes, and endpoints.
- * Uses shared base schemas from @jejunetwork/types.
- */
-
 import {
   AddressSchema,
   BigIntSchema,

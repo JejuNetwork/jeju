@@ -235,8 +235,8 @@ export class WalletService {
     return user
   }
 
-  private findUserByWallet(_walletAddress: Address): OttoUser | null {
-    return null
+  private findUserByWallet(walletAddress: Address): OttoUser | null {
+    return this.stateManager.getUserByWallet(walletAddress)
   }
 
   async disconnect(

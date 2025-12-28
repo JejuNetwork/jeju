@@ -1,14 +1,3 @@
-/**
- * Typed Eden Treaty Client for Autocrat API
- *
- * Provides full type inference from the Elysia server.
- *
- * NOTE: The `import type { App }` from api/server is an intentional exception
- * to the lib/api/web hierarchy. Eden Treaty requires the server's App type
- * for compile-time type inference. This is a type-only import (no runtime
- * dependency) and is the standard pattern for type-safe API clients.
- */
-
 import { treaty } from '@elysiajs/eden'
 import { isPlainObject, validateOrNull } from '@jejunetwork/types'
 import { z } from 'zod'

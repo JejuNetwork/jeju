@@ -3,6 +3,10 @@
  *
  * Verifies that deployed contracts on localnet are callable and return expected values.
  * These tests interact with REAL deployed contracts.
+ *
+ * These tests REQUIRE localnet to be running - they will FAIL if unavailable.
+ *
+ * Run with: jeju test --mode integration --app bazaar
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -23,7 +27,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 
 // CONFIGURATION - from centralized config
-
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
 const DEPLOYER_KEY =
@@ -42,7 +45,6 @@ const localnet = {
 }
 
 // ABIs
-
 const MOCK_SWAP_ROUTER_ABI = parseAbi([
   'function poolManager() view returns (address)',
   'function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, address recipient) returns (uint256 amountOut)',
@@ -85,7 +87,6 @@ const ERC20_ABI = parseAbi([
 ])
 
 // SETUP
-
 interface Deployments {
   v4: {
     swapRouter?: Address
@@ -105,24 +106,26 @@ interface Deployments {
 let publicClient: PublicClient
 let walletClient: WalletClient
 let deployments: Deployments
-let skipTests = false
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
-      string,
-      string
-    >,
-    'bazaar-marketplace-31337.json':
-      rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<
-      string,
-      string
-    >,
-    'multi-token-system-31337.json':
-      rawDeployments.multiTokenSystem1337 as Record<string, string>,
+    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<string, string>,
+    'bazaar-marketplace-31337.json': rawDeployments.bazaarMarketplace1337 as Record<string, string>,
+    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<string, string>,
+    'multi-token-system-31337.json': rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] ?? {}
+}
+
+async function requireLocalnet(): Promise<void> {
+  const blockNumber = await publicClient.getBlockNumber().catch(() => null)
+  if (blockNumber === null) {
+    throw new Error(
+      `FATAL: Cannot connect to localnet at ${RPC_URL}. ` +
+        `Start anvil: anvil --port 6546 --chain-id 31337`,
+    )
+  }
+  console.log(`Connected to localnet at block ${blockNumber}`)
 }
 
 beforeAll(async () => {
@@ -138,14 +141,7 @@ beforeAll(async () => {
     transport: http(RPC_URL),
   })
 
-  try {
-    await publicClient.getBlockNumber()
-    console.log(`\n✅ Connected to localnet at ${RPC_URL}`)
-  } catch {
-    console.error(`\n❌ Cannot connect to localnet`)
-    skipTests = true
-    return
-  }
+  await requireLocalnet()
 
   deployments = {
     v4: loadDeployment('uniswap-v4-31337.json'),
@@ -155,21 +151,17 @@ beforeAll(async () => {
 })
 
 // TESTS: V4 PERIPHERY CONTRACTS
-
 describe('V4 Periphery Contracts', () => {
   test('SwapRouter should be callable', async () => {
-    if (skipTests) return
     const swapRouter = deployments.v4.swapRouter as Address
     if (!isDeployed(swapRouter)) {
-      console.log('   ⚠️ SwapRouter not deployed')
+      console.log('SwapRouter not deployed')
       return
     }
 
-    // Verify contract exists
     const code = await publicClient.getCode({ address: swapRouter })
     expect(code).not.toBe('0x')
 
-    // Call poolManager() to verify contract works
     const poolManager = await publicClient.readContract({
       address: swapRouter,
       abi: MOCK_SWAP_ROUTER_ABI,
@@ -177,16 +169,14 @@ describe('V4 Periphery Contracts', () => {
     })
 
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
-    console.log(`   SwapRouter: ${swapRouter}`)
-    console.log(`   PoolManager: ${poolManager}`)
-    console.log(`   ✅ SwapRouter is callable`)
+    console.log(`SwapRouter: ${swapRouter}`)
+    console.log(`PoolManager: ${poolManager}`)
   })
 
   test('PositionManager should be callable', async () => {
-    if (skipTests) return
     const positionManager = deployments.v4.positionManager as Address
     if (!isDeployed(positionManager)) {
-      console.log('   ⚠️ PositionManager not deployed')
+      console.log('PositionManager not deployed')
       return
     }
 
@@ -200,15 +190,13 @@ describe('V4 Periphery Contracts', () => {
     })
 
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
-    console.log(`   PositionManager: ${positionManager}`)
-    console.log(`   ✅ PositionManager is callable`)
+    console.log(`PositionManager: ${positionManager}`)
   })
 
   test('Quoter should be callable', async () => {
-    if (skipTests) return
     const quoter = deployments.v4.quoterV4 as Address
     if (!isDeployed(quoter)) {
-      console.log('   ⚠️ Quoter not deployed')
+      console.log('Quoter not deployed')
       return
     }
 
@@ -222,15 +210,13 @@ describe('V4 Periphery Contracts', () => {
     })
 
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
-    console.log(`   Quoter: ${quoter}`)
-    console.log(`   ✅ Quoter is callable`)
+    console.log(`Quoter: ${quoter}`)
   })
 
   test('StateView should be callable', async () => {
-    if (skipTests) return
     const stateView = deployments.v4.stateView as Address
     if (!isDeployed(stateView)) {
-      console.log('   ⚠️ StateView not deployed')
+      console.log('StateView not deployed')
       return
     }
 
@@ -244,20 +230,17 @@ describe('V4 Periphery Contracts', () => {
     })
 
     expect(poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
-    console.log(`   StateView: ${stateView}`)
-    console.log(`   ✅ StateView is callable`)
+    console.log(`StateView: ${stateView}`)
   })
 })
 
 // TESTS: BAZAAR MARKETPLACE
-
 describe('Bazaar Marketplace Contract', () => {
   test('should read marketplace version', async () => {
-    if (skipTests) return
     const marketplace = (deployments.marketplace.at ||
       deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplace)) {
-      console.log('   ⚠️ Marketplace not deployed')
+      console.log('Marketplace not deployed')
       return
     }
 
@@ -268,17 +251,15 @@ describe('Bazaar Marketplace Contract', () => {
     })
 
     expect(version).toBe('1.0.0')
-    console.log(`   Marketplace: ${marketplace}`)
-    console.log(`   Version: ${version}`)
-    console.log(`   ✅ Marketplace version verified`)
+    console.log(`Marketplace: ${marketplace}`)
+    console.log(`Version: ${version}`)
   })
 
   test('should read platform fee', async () => {
-    if (skipTests) return
     const marketplace = (deployments.marketplace.at ||
       deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplace)) {
-      console.log('   ⚠️ Marketplace not deployed')
+      console.log('Marketplace not deployed')
       return
     }
 
@@ -288,20 +269,16 @@ describe('Bazaar Marketplace Contract', () => {
       functionName: 'platformFeeBps',
     })
 
-    // Fee should be between 0 and 1000 (0% to 10%)
     expect(Number(feeBps)).toBeGreaterThanOrEqual(0)
     expect(Number(feeBps)).toBeLessThanOrEqual(1000)
-
-    console.log(`   Platform fee: ${Number(feeBps) / 100}%`)
-    console.log(`   ✅ Platform fee is valid`)
+    console.log(`Platform fee: ${Number(feeBps) / 100}%`)
   })
 
   test('should read fee recipient', async () => {
-    if (skipTests) return
     const marketplace = (deployments.marketplace.at ||
       deployments.marketplace.marketplace) as Address
     if (!isDeployed(marketplace)) {
-      console.log('   ⚠️ Marketplace not deployed')
+      console.log('Marketplace not deployed')
       return
     }
 
@@ -312,19 +289,16 @@ describe('Bazaar Marketplace Contract', () => {
     })
 
     expect(feeRecipient).toMatch(/^0x[a-fA-F0-9]{40}$/)
-    console.log(`   Fee recipient: ${feeRecipient}`)
-    console.log(`   ✅ Fee recipient is set`)
+    console.log(`Fee recipient: ${feeRecipient}`)
   })
 })
 
 // TESTS: TOKEN FACTORY
-
 describe('Token Factory Contract', () => {
   test('should read token count', async () => {
-    if (skipTests) return
     const factory = deployments.factory.at as Address
     if (!isDeployed(factory)) {
-      console.log('   ⚠️ Factory not deployed')
+      console.log('Factory not deployed')
       return
     }
 
@@ -334,27 +308,23 @@ describe('Token Factory Contract', () => {
       functionName: 'tokenCount',
     })
 
-    console.log(`   Factory: ${factory}`)
-    console.log(`   Token count: ${count}`)
-    console.log(`   ✅ Token count readable`)
+    console.log(`Factory: ${factory}`)
+    console.log(`Token count: ${count}`)
   })
 
   test('should create a new token', async () => {
-    if (skipTests) return
     const factory = deployments.factory.at as Address
     if (!isDeployed(factory)) {
-      console.log('   ⚠️ Factory not deployed')
+      console.log('Factory not deployed')
       return
     }
 
-    // Get initial count
     const initialCount = await publicClient.readContract({
       address: factory,
       abi: TOKEN_FACTORY_ABI,
       functionName: 'tokenCount',
     })
 
-    // Create a new token
     const tokenName = `TestToken${Date.now()}`
     const tokenSymbol = `TT${Date.now().toString().slice(-4)}`
 
@@ -368,7 +338,6 @@ describe('Token Factory Contract', () => {
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
     expect(receipt.status).toBe('success')
 
-    // Verify count increased
     const newCount = await publicClient.readContract({
       address: factory,
       abi: TOKEN_FACTORY_ABI,
@@ -376,16 +345,14 @@ describe('Token Factory Contract', () => {
     })
 
     expect(newCount).toBe(initialCount + 1n)
-    console.log(`   Created token: ${tokenName} (${tokenSymbol})`)
-    console.log(`   Token count: ${initialCount} → ${newCount}`)
-    console.log(`   ✅ Token creation works`)
+    console.log(`Created token: ${tokenName} (${tokenSymbol})`)
+    console.log(`Token count: ${initialCount} -> ${newCount}`)
   })
 
   test('should list creator tokens', async () => {
-    if (skipTests) return
     const factory = deployments.factory.at as Address
     if (!isDeployed(factory)) {
-      console.log('   ⚠️ Factory not deployed')
+      console.log('Factory not deployed')
       return
     }
 
@@ -396,39 +363,33 @@ describe('Token Factory Contract', () => {
       args: [DEPLOYER_ADDRESS],
     })
 
-    console.log(`   Creator: ${DEPLOYER_ADDRESS}`)
-    console.log(`   Tokens created: ${tokens.length}`)
+    console.log(`Creator: ${DEPLOYER_ADDRESS}`)
+    console.log(`Tokens created: ${tokens.length}`)
 
-    // Verify each token is a valid ERC20
     for (const token of tokens.slice(0, 3)) {
       const name = await publicClient.readContract({
         address: token,
         abi: ERC20_ABI,
         functionName: 'name',
       })
-      console.log(`     - ${name}: ${token}`)
+      console.log(`  - ${name}: ${token}`)
     }
 
     if (tokens.length > 3) {
-      console.log(`     ... and ${tokens.length - 3} more`)
+      console.log(`  ... and ${tokens.length - 3} more`)
     }
-
-    console.log(`   ✅ Creator tokens listed`)
   })
 })
 
 // TESTS: TOKEN VERIFICATION
-
 describe('Created Token Verification', () => {
   test('should verify created token is valid ERC20', async () => {
-    if (skipTests) return
     const factory = deployments.factory.at as Address
     if (!isDeployed(factory)) {
-      console.log('   ⚠️ Factory not deployed')
+      console.log('Factory not deployed')
       return
     }
 
-    // Get first token from creator
     const tokens = await publicClient.readContract({
       address: factory,
       abi: TOKEN_FACTORY_ABI,
@@ -437,13 +398,12 @@ describe('Created Token Verification', () => {
     })
 
     if (tokens.length === 0) {
-      console.log('   ⚠️ No tokens created yet')
+      console.log('No tokens created yet')
       return
     }
 
     const tokenAddress = tokens[0]
 
-    // Verify ERC20 interface
     const name = await publicClient.readContract({
       address: tokenAddress,
       abi: ERC20_ABI,
@@ -475,61 +435,43 @@ describe('Created Token Verification', () => {
       args: [DEPLOYER_ADDRESS],
     })
 
-    console.log(`   Token: ${name} (${symbol})`)
-    console.log(`   Address: ${tokenAddress}`)
-    console.log(`   Decimals: ${decimals}`)
-    console.log(`   Total supply: ${formatEther(totalSupply)}`)
-    console.log(`   Creator balance: ${formatEther(balance)}`)
+    console.log(`Token: ${name} (${symbol})`)
+    console.log(`Address: ${tokenAddress}`)
+    console.log(`Decimals: ${decimals}`)
+    console.log(`Total supply: ${formatEther(totalSupply)}`)
+    console.log(`Creator balance: ${formatEther(balance)}`)
 
     expect(decimals).toBe(18)
     expect(totalSupply).toBeGreaterThan(0n)
-    expect(balance).toBe(totalSupply) // Creator gets all initial supply
-
-    console.log(`   ✅ Token is valid ERC20`)
+    expect(balance).toBe(totalSupply)
   })
 })
 
 // SUMMARY
-
 describe('Contract Verification Summary', () => {
-  test('print summary', async () => {
-    if (skipTests || !deployments) {
-      console.log('   ⚠️ Skipped: Localnet not running')
-      return
-    }
-
+  test('print summary', () => {
     console.log('')
-    console.log('═══════════════════════════════════════════════════════')
+    console.log('===================================================')
     console.log('       CONTRACT VERIFICATION SUMMARY')
-    console.log('═══════════════════════════════════════════════════════')
+    console.log('===================================================')
     console.log('')
     console.log('V4 Periphery:')
-    console.log(
-      `  ${isDeployed(deployments.v4.swapRouter) ? '✅' : '❌'} SwapRouter`,
-    )
-    console.log(
-      `  ${isDeployed(deployments.v4.positionManager) ? '✅' : '❌'} PositionManager`,
-    )
-    console.log(`  ${isDeployed(deployments.v4.quoterV4) ? '✅' : '❌'} Quoter`)
-    console.log(
-      `  ${isDeployed(deployments.v4.stateView) ? '✅' : '❌'} StateView`,
-    )
+    console.log(`  ${isDeployed(deployments.v4.swapRouter) ? 'OK' : 'MISSING'} SwapRouter`)
+    console.log(`  ${isDeployed(deployments.v4.positionManager) ? 'OK' : 'MISSING'} PositionManager`)
+    console.log(`  ${isDeployed(deployments.v4.quoterV4) ? 'OK' : 'MISSING'} Quoter`)
+    console.log(`  ${isDeployed(deployments.v4.stateView) ? 'OK' : 'MISSING'} StateView`)
     console.log('')
     console.log('Marketplace:')
-    console.log(
-      `  ${isDeployed(deployments.marketplace.at || deployments.marketplace.marketplace) ? '✅' : '❌'} Bazaar Marketplace`,
-    )
+    console.log(`  ${isDeployed(deployments.marketplace.at || deployments.marketplace.marketplace) ? 'OK' : 'MISSING'} Bazaar Marketplace`)
     console.log('')
     console.log('Token Factory:')
-    console.log(
-      `  ${isDeployed(deployments.factory.at) ? '✅' : '❌'} ERC20 Factory`,
-    )
+    console.log(`  ${isDeployed(deployments.factory.at) ? 'OK' : 'MISSING'} ERC20 Factory`)
     console.log('')
-    console.log('═══════════════════════════════════════════════════════')
+    console.log('===================================================')
     console.log('')
-    console.log('⚠️  NOTE: V4 periphery contracts are MOCK implementations')
-    console.log('         For production, deploy official Uniswap V4 contracts')
+    console.log('NOTE: V4 periphery contracts are MOCK implementations')
+    console.log('      For production, deploy official Uniswap V4 contracts')
     console.log('')
-    console.log('═══════════════════════════════════════════════════════')
+    console.log('===================================================')
   })
 })

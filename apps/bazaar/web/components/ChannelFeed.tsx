@@ -1,10 +1,3 @@
-/**
- * Channel Feed Component
- *
- * Reusable component for displaying and posting to Farcaster channels.
- * Used for coin, item, perp, and prediction feeds.
- */
-
 import {
   ExternalLink,
   MessageCircle,
@@ -121,12 +114,7 @@ function ComposeBox({ channel, onSuccess }: ComposeBoxProps) {
       return
     }
 
-    // Posting requires a signer key - redirect to Warpcast
-    // When signer integration is complete, this will post directly:
-    // postMutation.mutate({ text: text.trim(), fid: profile.fid, signerPrivateKey }, {
-    //   onSuccess: () => { setText(''); onSuccess?.(); }
-    // })
-    window.open(
+window.open(
       `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&channelKey=${encodeURIComponent(channel.url)}`,
       '_blank',
     )

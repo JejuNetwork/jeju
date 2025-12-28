@@ -1,5 +1,3 @@
-/** Rate limiting utilities */
-
 interface RateLimitEntry {
   count: number
   windowStart: number

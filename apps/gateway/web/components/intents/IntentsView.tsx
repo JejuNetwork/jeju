@@ -140,7 +140,6 @@ function IntentCard({ intent }: { intent: Intent }) {
   return (
     <div className="card" style={{ padding: '1rem', marginBottom: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {/* Top row: Status + ID */}
         <div
           style={{
             display: 'flex',
@@ -214,7 +213,6 @@ function IntentCard({ intent }: { intent: Intent }) {
           </button>
         </div>
 
-        {/* Route */}
         <div
           style={{
             display: 'flex',
@@ -232,7 +230,6 @@ function IntentCard({ intent }: { intent: Intent }) {
           <ChainBadge name={destChain} amount={outputAmount} />
         </div>
 
-        {/* Solver info */}
         {intent.solver && (
           <div
             style={{

@@ -39,10 +39,6 @@ export default function TrainingPage() {
       >
         <div>
           <h1 className="page-title">Distributed Training</h1>
-          <p className="page-subtitle">
-            Train machine learning models across the decentralized compute
-            network
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -127,10 +123,6 @@ export default function TrainingPage() {
             <div className="empty-state">
               <Gauge size={48} />
               <h3>No training runs</h3>
-              <p>
-                Start a distributed training job to train models across the
-                network
-              </p>
             </div>
           ) : (
             <div className="table-container">

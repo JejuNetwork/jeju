@@ -241,6 +241,7 @@ export const ServicesNetworkConfigSchema = z.object({
   }),
   explorer: UrlString,
   indexer: z.object({
+    api: UrlString.optional(),
     graphql: UrlString,
     websocket: UrlString,
     rest: UrlString.optional(),
@@ -271,6 +272,7 @@ export const ServicesNetworkConfigSchema = z.object({
     ui: UrlString,
   }),
   monitoring: z.object({
+    api: UrlString.optional(),
     prometheus: UrlString,
     grafana: UrlString,
   }),

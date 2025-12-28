@@ -1,5 +1,3 @@
-/** React Query hooks for monitoring data with caching and auto-refetch. */
-
 import { useQuery } from '@tanstack/react-query'
 import {
   type Alert,

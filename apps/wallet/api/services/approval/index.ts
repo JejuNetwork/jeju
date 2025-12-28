@@ -1,8 +1,3 @@
-/**
- * Token Approval Service
- * Uses network indexer for approval data
- */
-
 import {
   type Address,
   encodeFunctionData,

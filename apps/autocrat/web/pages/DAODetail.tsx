@@ -1,9 +1,3 @@
-/**
- * DAO Detail Page
- *
- * Comprehensive view of a single DAO with tabs for Agents, Governance, Treasury, and Settings.
- */
-
 import {
   AlertCircle,
   ArrowLeft,

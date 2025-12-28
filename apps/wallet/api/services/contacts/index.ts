@@ -1,8 +1,3 @@
-/**
- * Contact Book Service
- * Save addresses with labels for easy access
- */
-
 import { type Address, getAddress } from 'viem'
 import { z } from 'zod'
 import { storage } from '../../../web/platform/storage'

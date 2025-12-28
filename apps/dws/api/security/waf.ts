@@ -1,24 +1,4 @@
-/**
- * Web Application Firewall (WAF) and DDoS Protection
- *
- * Implements security features:
- * - Rate limiting (per IP, per user)
- * - DDoS detection and mitigation
- * - SQL injection protection
- * - XSS protection
- * - Path traversal protection
- * - Bot detection
- * - Geo-blocking
- * - IP reputation
- * - Request validation
- */
-
 import { createHash } from 'node:crypto'
-// Note: Address type would be used when integrating with blockchain-based reputation
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type ThreatType =
   | 'sqli'
@@ -129,10 +109,6 @@ export interface SecurityEvent {
   blocked: boolean
 }
 
-// ============================================================================
-// Pattern Matchers
-// ============================================================================
-
 // SQL Injection patterns
 const SQLI_PATTERNS = [
   /(%27)|(')|(--)|(%23)|(#)/i,
@@ -198,10 +174,6 @@ const BOT_PATTERNS = [
   /scrapy/i,
   /httpclient/i,
 ]
-
-// ============================================================================
-// Rate Limiter
-// ============================================================================
 
 interface RateLimitBucket {
   tokens: number
@@ -290,10 +262,6 @@ class RateLimiter {
   }
 }
 
-// ============================================================================
-// DDoS Detector
-// ============================================================================
-
 interface DDoSStats {
   requestsPerSecond: number
   uniqueIPs: number
@@ -358,10 +326,6 @@ class DDoSDetector {
     return this.underAttack
   }
 }
-
-// ============================================================================
-// WAF
-// ============================================================================
 
 export class WebApplicationFirewall {
   private rules = new Map<string, WAFRule>()
@@ -432,10 +396,6 @@ export class WebApplicationFirewall {
       action: 'block',
     })
   }
-
-  // =========================================================================
-  // Request Analysis
-  // =========================================================================
 
   async analyze(request: Request): Promise<WAFDecision> {
     const ip = this.getClientIP(request)
@@ -799,10 +759,6 @@ export class WebApplicationFirewall {
     )
   }
 
-  // =========================================================================
-  // IP Management
-  // =========================================================================
-
   blockIP(ip: string, duration?: number): void {
     if (duration) {
       const entry = this.ipReputation.get(ip) ?? {
@@ -870,10 +826,6 @@ export class WebApplicationFirewall {
     this.ipReputation.set(ip, entry)
   }
 
-  // =========================================================================
-  // Rules
-  // =========================================================================
-
   addRule(
     rule: Omit<WAFRule, 'ruleId' | 'matchCount' | 'lastMatchAt'>,
   ): WAFRule {
@@ -901,10 +853,6 @@ export class WebApplicationFirewall {
     const rule = this.rules.get(ruleId)
     if (rule) rule.enabled = false
   }
-
-  // =========================================================================
-  // Events
-  // =========================================================================
 
   private recordEvent(
     ip: string,
@@ -970,10 +918,6 @@ export class WebApplicationFirewall {
     return events.slice(-(options?.limit ?? 100))
   }
 
-  // =========================================================================
-  // Stats
-  // =========================================================================
-
   getStats(): {
     blockedRequests: number
     threatsByType: Record<ThreatType, number>
@@ -1026,10 +970,6 @@ export class WebApplicationFirewall {
     return this.ipReputation.get(ip)
   }
 }
-
-// ============================================================================
-// Factory
-// ============================================================================
 
 let waf: WebApplicationFirewall | null = null
 

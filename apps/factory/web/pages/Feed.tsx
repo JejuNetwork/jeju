@@ -1,10 +1,3 @@
-/**
- * Feed Page
- *
- * Farcaster-powered community feed for Factory.
- * Supports the Factory channel, trending, and user feeds.
- */
-
 import { clsx } from 'clsx'
 import {
   Hash,
@@ -198,11 +191,7 @@ export function FeedPage() {
                 replyTo={replyingTo}
                 onClearReply={() => setReplyingTo(null)}
                 onSuccess={handleRefresh}
-                placeholder={
-                  feedType === 'factory'
-                    ? 'Share an update...'
-                    : 'Share an update...'
-                }
+                placeholder="Share an update..."
               />
             </div>
           )}

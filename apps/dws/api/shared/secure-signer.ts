@@ -1,14 +1,3 @@
-/**
- * Secure Signer - Routes all signing through KMS with threshold cryptography
- *
- * This module provides backward-compatible wrapper around @jejunetwork/kms.
- * For new code, import directly from '@jejunetwork/kms' instead:
- *
- * ```typescript
- * import { createKMSSigner, KMSSigner } from '@jejunetwork/kms'
- * ```
- */
-
 import {
   createKMSSigner,
   getKMSSigner,

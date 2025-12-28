@@ -1,20 +1,5 @@
-/**
- * DWS GitHub Integration - Vercel-like CI/CD for DWS
- *
- * Handles:
- * - GitHub webhook events
- * - Preview deployments for PRs
- * - Production deployments on merge
- * - Deployment status updates
- * - Build caching
- */
-
 import { randomUUID } from 'node:crypto'
 import { Elysia, t } from 'elysia'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 type DeploymentState = 'QUEUED' | 'BUILDING' | 'READY' | 'ERROR' | 'CANCELED'
 type DeploymentTarget = 'production' | 'preview'

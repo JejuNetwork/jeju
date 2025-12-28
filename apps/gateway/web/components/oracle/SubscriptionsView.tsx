@@ -45,7 +45,6 @@ export function SubscriptionsView() {
 
   return (
     <div className="space-y-4">
-      {/* Fee Info */}
       {feeConfig && (
         <div className="card p-4 bg-purple-50 dark:bg-purple-900/20">
           <div className="flex items-center justify-between">
@@ -68,7 +67,6 @@ export function SubscriptionsView() {
         </div>
       )}
 
-      {/* New Subscription Form */}
       {showNewSubscription && (
         <NewSubscriptionForm
           onClose={() => setShowNewSubscription(false)}
@@ -77,7 +75,6 @@ export function SubscriptionsView() {
         />
       )}
 
-      {/* Subscription List */}
       {subscriptionIds.length === 0 ? (
         <div className="card p-8 text-center">
           <DollarSignIcon size={48} className="mx-auto text-gray-400 mb-4" />
@@ -165,7 +162,6 @@ function SubscriptionCard({ subscriptionId }: SubscriptionCardProps) {
         </div>
       </div>
 
-      {/* Feed IDs */}
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
         <div className="text-xs text-gray-500 mb-2">Subscribed Feeds:</div>
         <div className="flex flex-wrap gap-2">
@@ -230,7 +226,6 @@ function NewSubscriptionForm({
         </button>
       </div>
 
-      {/* Feed Selection */}
       <div className="mb-4">
         <span className="block text-sm font-medium mb-2">Select Feeds</span>
         <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
@@ -263,7 +258,6 @@ function NewSubscriptionForm({
         </div>
       </div>
 
-      {/* Duration */}
       <div className="mb-4">
         <label
           htmlFor="subscription-duration"
@@ -285,7 +279,6 @@ function NewSubscriptionForm({
         </select>
       </div>
 
-      {/* Price */}
       <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-500">Total Price</span>
@@ -295,7 +288,6 @@ function NewSubscriptionForm({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-2 justify-end">
         <button
           type="button"

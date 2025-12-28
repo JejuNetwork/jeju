@@ -227,18 +227,22 @@ describe('GasAbstractionService', () => {
   })
 
   describe('setConfig', () => {
-    it('should update configuration', () => {
+    it('should update configuration without throwing', () => {
       const newConfig: Partial<GasConfig> = {
         preferredMode: 'native',
         maxGasPriceGwei: 50,
         autoBridge: false,
       }
 
-      service.setConfig(newConfig)
+      // setConfig should complete without throwing
+      expect(() => service.setConfig(newConfig)).not.toThrow()
+    })
 
-      // Config is private, but behavior should change
-      // No direct way to verify, but shouldn't throw
-      expect(true).toBe(true)
+    it('should accept partial configuration updates', () => {
+      // Updating just one property should work
+      expect(() => service.setConfig({ preferredMode: 'sponsored' })).not.toThrow()
+      expect(() => service.setConfig({ maxGasPriceGwei: 200 })).not.toThrow()
+      expect(() => service.setConfig({ autoBridge: true })).not.toThrow()
     })
   })
 

@@ -1,9 +1,3 @@
-/**
- * Not Found Page (404)
- *
- * Friendly error page for missing routes
- */
-
 import { Link } from 'react-router-dom'
 
 export default function NotFoundPage() {

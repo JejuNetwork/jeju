@@ -1,16 +1,3 @@
-/**
- * DWS App Deployer
- *
- * Heroku/EKS-like deployment experience for Jeju apps.
- * Reads jeju-manifest.json and provisions all required infrastructure through DWS.
- *
- * Features:
- * - Reads app manifest and provisions databases, caches, queues
- * - Integrates with dstack for TEE (simulator or real hardware)
- * - Manages container lifecycle (Docker locally, k8s in production)
- * - Provides unified deployment API
- */
-
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -23,10 +10,6 @@ import {
   type ServiceInstance,
   type ServiceType,
 } from '../services'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface AppManifest {
   name: string

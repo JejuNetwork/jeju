@@ -1,8 +1,9 @@
-/**
- * Agents Hook
- */
-
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { API_URL } from '../config'
 
 interface Agent {
@@ -51,31 +52,67 @@ interface RegisterAgentResponse {
   stateCid: string
 }
 
+interface ExecuteAgentRequest {
+  agentId: string
+  input?: {
+    message?: string
+    roomId?: string
+    userId?: string
+  }
+}
+
+interface ExecuteAgentResponse {
+  executionId: string
+  status: string
+  output?: { response?: string }
+}
+
+interface FundVaultRequest {
+  agentId: string
+  amount: string
+}
+
+interface FundVaultResponse {
+  txHash: string
+}
+
+const PAGE_SIZE = 20
+
 export function useAgents(filters?: {
   name?: string
   owner?: string
   active?: boolean
   limit?: number
 }) {
-  const params = new URLSearchParams()
-  if (filters?.name) params.set('name', filters.name)
-  if (filters?.owner) params.set('owner', filters.owner)
-  if (filters?.active !== undefined)
-    params.set('active', String(filters.active))
-  if (filters?.limit) params.set('limit', String(filters.limit))
+  const limit = filters?.limit ?? PAGE_SIZE
 
-  const queryString = params.toString()
-  const url = queryString
-    ? `/api/v1/search/agents?${queryString}`
-    : '/api/v1/search/agents'
-
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['agents', filters],
-    queryFn: async (): Promise<AgentsSearchResponse> => {
-      const response = await fetch(`${API_URL}${url}`)
+    queryFn: async ({ pageParam = 0 }): Promise<AgentsSearchResponse> => {
+      const params = new URLSearchParams()
+      if (filters?.name) params.set('name', filters.name)
+      if (filters?.owner) params.set('owner', filters.owner)
+      if (filters?.active !== undefined)
+        params.set('active', String(filters.active))
+      params.set('limit', String(limit))
+      params.set('offset', String(pageParam))
+
+      const response = await fetch(
+        `${API_URL}/api/v1/search/agents?${params.toString()}`,
+      )
       if (!response.ok) throw new Error('Failed to fetch agents')
       return response.json()
     },
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) return undefined
+      return allPages.length * limit
+    },
+    initialPageParam: 0,
+    select: (data) => ({
+      agents: data.pages.flatMap((page) => page.agents),
+      total: data.pages[0]?.total ?? 0,
+      hasMore: data.pages[data.pages.length - 1]?.hasMore ?? false,
+    }),
   })
 }
 
@@ -128,6 +165,63 @@ export function useRegisterAgent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] })
+    },
+  })
+}
+
+export function useExecuteAgent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (
+      request: ExecuteAgentRequest,
+    ): Promise<ExecuteAgentResponse> => {
+      const response = await fetch(`${API_URL}/api/v1/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: request.agentId,
+          input: request.input ?? {},
+        }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error ?? 'Execution failed')
+      }
+      const data = await response.json()
+      return data.result
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['agent', variables.agentId] })
+    },
+  })
+}
+
+export function useFundVault() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (
+      request: FundVaultRequest,
+    ): Promise<FundVaultResponse> => {
+      const response = await fetch(
+        `${API_URL}/api/v1/agents/${request.agentId}/fund`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: request.amount }),
+        },
+      )
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error ?? 'Failed to fund vault')
+      }
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['agent-balance', variables.agentId],
+      })
     },
   })
 }

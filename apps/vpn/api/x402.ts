@@ -1,5 +1,3 @@
-/** x402 Payment Integration for VPN */
-
 import { Elysia } from 'elysia'
 import { type Address, getAddress, type Hex, recoverMessageAddress } from 'viem'
 import {

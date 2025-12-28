@@ -1,9 +1,3 @@
-/**
- * Autocrat Application Entry Point
- *
- * AI-powered DAO management platform.
- */
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -15,6 +9,7 @@ import AgentEditPage from './pages/AgentEdit'
 import CreateDAOPage from './pages/CreateDAO'
 import DAODetailPage from './pages/DAODetail'
 import DAOListPage from './pages/DAOList'
+import MyDAOsPage from './pages/MyDAOs'
 import ProposalPage from './pages/Proposal'
 import './app/globals.css'
 
@@ -60,7 +55,7 @@ function App() {
                 path="/dao/:daoId/proposal/:proposalId"
                 element={<ProposalPage />}
               />
-              <Route path="/my-daos" element={<DAOListPage />} />
+              <Route path="/my-daos" element={<MyDAOsPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

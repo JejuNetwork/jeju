@@ -68,7 +68,6 @@ export function Services() {
     pricePerHour: '0.01',
   })
 
-  // Check TEE availability
   const hasCpuTee =
     hardware?.tee.attestation_available &&
     (hardware.tee.has_intel_tdx ||
@@ -105,7 +104,6 @@ export function Services() {
         return
       }
 
-      // Handle compute service with TEE check
       if (service.metadata.id === 'compute') {
         if (isNonTeeCompute(computeConfig.type)) {
           setPendingComputeConfig(computeConfig)
@@ -125,7 +123,6 @@ export function Services() {
   const handleAcceptNonTee = async () => {
     setShowPrivacyWarning(false)
     if (pendingComputeConfig) {
-      // Start compute service with non-TEE config
       const service = services.find((s) => s.metadata.id === 'compute')
       if (service) {
         const stakeAmount =
@@ -147,7 +144,6 @@ export function Services() {
     setConfirmingSequencer(false)
   }
 
-  // Separate compute service for special handling
   const computeService = services.find((s) => s.metadata.id === 'compute')
   const otherServices = services.filter((s) => s.metadata.id !== 'compute')
 

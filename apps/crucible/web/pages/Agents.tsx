@@ -1,9 +1,3 @@
-/**
- * Agents Page
- *
- * Browse and manage deployed AI agents
- */
-
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AgentCard } from '../components/AgentCard'
@@ -12,10 +6,10 @@ import { useAgents } from '../hooks'
 
 export default function AgentsPage() {
   const [showActiveOnly, setShowActiveOnly] = useState(false)
-  const { data, isLoading, error } = useAgents({
-    active: showActiveOnly ? true : undefined,
-    limit: 50,
-  })
+  const { data, isLoading, error, fetchNextPage, isFetchingNextPage } =
+    useAgents({
+      active: showActiveOnly ? true : undefined,
+    })
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -28,9 +22,6 @@ export default function AgentsPage() {
           >
             Agents
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Registered agents and their vaults
-          </p>
         </div>
         <Link to="/agents/new" className="btn-primary">
           Deploy Agent
@@ -126,14 +117,6 @@ export default function AgentsPage() {
           >
             {showActiveOnly ? 'No active agents' : 'No agents registered'}
           </h2>
-          <p
-            className="mb-6 max-w-md mx-auto"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            {showActiveOnly
-              ? 'No agents are currently active. Deploy a new one or check the full list.'
-              : 'Deploy an agent to register it on-chain and create its vault.'}
-          </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link to="/agents/new" className="btn-primary">
               Deploy Agent
@@ -165,11 +148,15 @@ export default function AgentsPage() {
         </ul>
       )}
 
-      {/* Load More */}
       {data?.hasMore && (
         <div className="text-center mt-10">
-          <button type="button" className="btn-secondary">
-            Load More
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="btn-secondary"
+          >
+            {isFetchingNextPage ? <LoadingSpinner size="sm" /> : 'Load More'}
           </button>
         </div>
       )}

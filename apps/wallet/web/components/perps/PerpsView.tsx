@@ -1,7 +1,3 @@
-/**
- * Perps View - Perpetual futures trading
- */
-
 import {
   Activity,
   AlertTriangle,
@@ -261,11 +257,6 @@ export function PerpsView({ address }: PerpsViewProps) {
               >
                 {side === 'long' ? 'Long' : 'Short'} {selectedMarket}
               </button>
-
-              <p className="text-xs text-muted-foreground mt-4 text-center bg-secondary/50 rounded-lg py-2 px-3">
-                💬 Or use chat: "{side === 'long' ? 'Long' : 'Short'}{' '}
-                {selectedMarket.replace('-PERP', '')} {leverage}x with 100 USDC"
-              </p>
             </div>
 
             {/* Market Info */}

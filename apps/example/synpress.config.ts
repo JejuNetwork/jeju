@@ -1,7 +1,3 @@
-/**
- * Example App Synpress Configuration
- * Uses shared config from @jejunetwork/tests
- */
 import {
   createSynpressConfig,
   createWalletSetup,

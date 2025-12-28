@@ -18,12 +18,9 @@
  * - Audit logging of all key operations
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { keccak256 } from 'viem'
-import {
-  getCurrentNetwork,
-  getHSMConfig,
-} from '@jejunetwork/config'
 import { kmsLogger as log } from '../logger.js'
 
 /**

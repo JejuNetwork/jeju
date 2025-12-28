@@ -1,8 +1,3 @@
-/**
- * Profile Detail Page
- * Converted from Next.js to React Router
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useEffect } from 'react'

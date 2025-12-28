@@ -1,10 +1,3 @@
-/**
- * Monitoring Development Server
- *
- * Uses shared dev server infrastructure with custom HTML template.
- * Frontend (5173) + Elysia API (9091).
- */
-
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import {
@@ -15,7 +8,6 @@ import {
 const FRONTEND_PORT = Number(process.env.PORT) || 5173
 const API_PORT = Number(process.env.API_PORT) || 9091
 
-// Additional browser externals for monitoring
 const EXTERNALS = [
   ...DEFAULT_BROWSER_EXTERNALS,
   'pg',
@@ -59,7 +51,6 @@ async function buildFrontend(): Promise<void> {
   console.log(`[Monitoring] Frontend rebuilt in ${Date.now() - startTime}ms`)
 }
 
-// Custom HTML with monitoring-specific styles
 function createDevHtml(): string {
   const theme = MONITORING_THEME
   return `<!DOCTYPE html>

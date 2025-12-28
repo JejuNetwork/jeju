@@ -1,8 +1,3 @@
-/**
- * Launchpad business logic and utilities
- * Handles bonding curve calculations, ICO logic, and related pure functions
- */
-
 import { AddressSchema } from '@jejunetwork/types'
 import { formatEther } from 'viem'
 import { z } from 'zod'

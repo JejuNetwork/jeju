@@ -174,11 +174,7 @@ export default function AgentsPage() {
           ) : agents.length === 0 ? (
             <div className="empty-state">
               <Bot size={48} />
-              <h3>Ready for agents</h3>
-              <p>
-                Register your first agent to start building collaborative AI
-                workflows
-              </p>
+              <h3>No agents</h3>
               <button
                 type="button"
                 className="btn btn-primary"

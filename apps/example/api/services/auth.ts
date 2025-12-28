@@ -133,15 +133,17 @@ export function getOAuth3Service(): OAuth3Service {
     const host = getLocalhostHost()
     const redirectUri =
       process.env.OAUTH3_REDIRECT_URI ??
-      (networkType === 'localnet' 
+      (networkType === 'localnet'
         ? `http://${host}:${frontendPort}/oauth3/callback`
         : `${getOAuth3Url(networkType)}/callback`)
     const rpcUrl = getRpcUrl()
     const jnsGateway = getGatewayApiEndpoint()
     const storageEndpoint = getStorageApiEndpoint()
     const teeAgentUrl =
-      process.env.OAUTH3_TEE_AGENT_URL ?? 
-      (networkType === 'localnet' ? `http://${host}:8004` : getOAuth3Url(networkType))
+      process.env.OAUTH3_TEE_AGENT_URL ??
+      (networkType === 'localnet'
+        ? `http://${host}:8004`
+        : getOAuth3Url(networkType))
 
     oauth3Service = new OAuth3ServiceImpl({
       appId,

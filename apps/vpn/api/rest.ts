@@ -1,5 +1,3 @@
-/** REST API for VPN operations */
-
 import { Elysia } from 'elysia'
 import { verifyAuth } from './auth'
 import {
@@ -408,8 +406,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       }
     })
 
-    // Residential Proxy / Bandwidth Sharing Endpoints
-
     .get('/residential-proxy/status', async ({ request }) => {
       const auth = await verifyAuth(request)
       expect(auth.valid, auth.error ?? 'Authentication required')
@@ -491,8 +487,7 @@ export function createRESTRouter(ctx: VPNServiceContext) {
           settings.max_concurrent_connections ??
           existing?.max_concurrent_connections ??
           50,
-        allowed_ports:
-          settings.allowed_ports ??
+        allowed_ports: settings.allowed_ports ??
           existing?.allowed_ports ?? [80, 443, 8080, 8443],
         blocked_domains:
           settings.blocked_domains ?? existing?.blocked_domains ?? [],

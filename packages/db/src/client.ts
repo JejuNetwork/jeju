@@ -67,15 +67,27 @@ const AddressSchema = z.custom<Address>(
 
 const QueryResponseSchema = z
   .object({
-    rows: z.array(
-      z.record(
-        z.string(),
-        z.union([z.string(), z.number(), z.boolean(), z.null()]),
+    rows: z.preprocess(
+      (val) => (Array.isArray(val) ? val : []),
+      z.array(
+        z.record(
+          z.string(),
+          z.union([z.string(), z.number(), z.boolean(), z.null()]),
+        ),
       ),
     ),
-    rowCount: z.number().int().nonnegative(),
-    columns: z.array(z.string()),
-    blockHeight: z.number().int().nonnegative(),
+    rowCount: z.preprocess(
+      (val) => (typeof val === 'number' ? val : 0),
+      z.number().int().nonnegative(),
+    ),
+    columns: z.preprocess(
+      (val) => (Array.isArray(val) ? val : []),
+      z.array(z.string()),
+    ),
+    blockHeight: z.preprocess(
+      (val) => (typeof val === 'number' ? val : 0),
+      z.number().int().nonnegative(),
+    ),
     executionTime: z.number().int().nonnegative().optional(),
     success: z.boolean().optional(),
   })
@@ -411,7 +423,27 @@ class EQLiteConnectionImpl implements EQLiteConnection {
     }
 
     if (type === 'query') {
-      const result = QueryResponseSchema.parse(rawResult)
+      // Handle response wrapped in 'data' or 'result' field
+      const responseData =
+        typeof rawResult === 'object' && rawResult !== null
+          ? 'data' in rawResult && typeof rawResult.data === 'object'
+            ? rawResult.data
+            : 'result' in rawResult && typeof rawResult.result === 'object'
+              ? rawResult.result
+              : rawResult
+          : rawResult
+      const parseResult = QueryResponseSchema.safeParse(responseData)
+      if (!parseResult.success && this.debug) {
+        console.error(
+          `[EQLite] Query response validation failed:`,
+          parseResult.error.issues,
+          `\nRaw response:`,
+          JSON.stringify(rawResult).slice(0, 500),
+        )
+      }
+      const result = parseResult.success
+        ? parseResult.data
+        : { rows: [], rowCount: 0, columns: [], blockHeight: 0 }
       return {
         rows: result.rows,
         rowCount: result.rowCount,

@@ -20,7 +20,7 @@ import {
   encodeFunctionData,
   http,
 } from 'viem'
-import { RPC_URLS, JEJU_CHAIN_ID } from '../../../lib/config/networks'
+import { JEJU_CHAIN_ID, RPC_URLS } from '../../../lib/config/networks'
 
 // Contract ABI fragments for MultiChainRPCRegistry
 const MULTI_CHAIN_RPC_REGISTRY_ABI = [
@@ -157,7 +157,8 @@ export class DecentralizedNodeSelector {
     this.client = createPublicClient({
       transport: http(rpcUrl ?? JEJU_RPC_URL),
     })
-    this.enabled = registryAddress !== '0x0000000000000000000000000000000000000000'
+    this.enabled =
+      registryAddress !== '0x0000000000000000000000000000000000000000'
   }
 
   /**
@@ -330,9 +331,7 @@ export class DecentralizedNodeSelector {
   /**
    * Get node info (region, etc)
    */
-  private async getNodeInfo(
-    node: Address,
-  ): Promise<{ region: string } | null> {
+  private async getNodeInfo(node: Address): Promise<{ region: string } | null> {
     const callData = encodeFunctionData({
       abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
       functionName: 'getNode',
@@ -428,7 +427,11 @@ export class DecentralizedNodeSelector {
   /**
    * Report node latency (for adaptive selection)
    */
-  reportLatency(chainId: number, nodeAddress: Address, latencyMs: number): void {
+  reportLatency(
+    chainId: number,
+    nodeAddress: Address,
+    latencyMs: number,
+  ): void {
     const nodes = cache.nodes.get(chainId)
     if (!nodes) return
 
@@ -438,7 +441,9 @@ export class DecentralizedNodeSelector {
     if (node) {
       // Exponential moving average
       node.latencyMs =
-        node.latencyMs === 0 ? latencyMs : node.latencyMs * 0.7 + latencyMs * 0.3
+        node.latencyMs === 0
+          ? latencyMs
+          : node.latencyMs * 0.7 + latencyMs * 0.3
     }
   }
 
@@ -500,7 +505,9 @@ export class DecentralizedNodeSelector {
 
     // Exclude specified nodes
     if (criteria.excludeNodes.length > 0) {
-      const excludeSet = new Set(criteria.excludeNodes.map((a) => a.toLowerCase()))
+      const excludeSet = new Set(
+        criteria.excludeNodes.map((a) => a.toLowerCase()),
+      )
       filtered = filtered.filter(
         (n) => !excludeSet.has(n.address.toLowerCase()),
       )
@@ -525,13 +532,16 @@ export class DecentralizedNodeSelector {
 
     // Filter by max latency
     if (criteria.maxLatencyMs !== undefined) {
+      const maxLatencyMs = criteria.maxLatencyMs
       filtered = filtered.filter(
-        (n) => n.latencyMs === 0 || n.latencyMs <= criteria.maxLatencyMs!,
+        (n) => n.latencyMs === 0 || n.latencyMs <= maxLatencyMs,
       )
     }
 
     // Sort by score (descending)
-    filtered.sort((a, b) => (b.score > a.score ? 1 : b.score < a.score ? -1 : 0))
+    filtered.sort((a, b) =>
+      b.score > a.score ? 1 : b.score < a.score ? -1 : 0,
+    )
 
     // Limit results
     const limited = filtered.slice(0, criteria.maxNodes)

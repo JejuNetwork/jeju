@@ -1,10 +1,3 @@
-/**
- * Liaison Character (Ruby)
- *
- * Cross-platform liaison for information sharing
- * and coordination between different communities.
- */
-
 import type { AgentCharacter } from '../../lib/types'
 
 export const liaisonCharacter: AgentCharacter = {

@@ -1,9 +1,3 @@
-/**
- * StatsGrid Component
- *
- * Responsive grid of stat cards with loading states and animations.
- */
-
 import { clsx } from 'clsx'
 import { Loader2 } from 'lucide-react'
 

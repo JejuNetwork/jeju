@@ -1,10 +1,4 @@
 #!/usr/bin/env bun
-/**
- * Deploy DWS Contracts for Local Development
- *
- * Deploys all necessary contracts to localnet and updates the config.
- * Run automatically on `bun run dev` or manually with `bun run scripts/deploy-contracts.ts`
- */
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'

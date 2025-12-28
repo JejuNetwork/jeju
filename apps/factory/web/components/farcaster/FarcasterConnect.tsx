@@ -1,9 +1,3 @@
-/**
- * Farcaster Connect Component
- *
- * Onboarding flow for connecting Farcaster to Factory.
- */
-
 import { clsx } from 'clsx'
 import {
   AlertCircle,

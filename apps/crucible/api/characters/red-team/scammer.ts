@@ -1,13 +1,3 @@
-/**
- * Scammer Character
- *
- * Red team agent that simulates social engineering attacks, phishing attempts,
- * and deceptive behavior patterns. Used to test moderation systems.
- *
- * IMPORTANT: This agent is ONLY for security testing in controlled environments.
- * Its goal is to expose vulnerabilities in moderation and detection systems.
- */
-
 import type { AgentCharacter } from '../../../lib/types'
 
 export const scammerCharacter: AgentCharacter = {

@@ -1,7 +1,3 @@
-/**
- * Moderation Routes
- */
-
 import { Elysia, t } from 'elysia'
 import { toAddress } from '../../lib'
 import { expectFlagType, getModerationSystem } from '../moderation'

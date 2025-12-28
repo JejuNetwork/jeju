@@ -1,14 +1,3 @@
-/**
- * WebTorrent Backend - P2P Content Distribution
- *
- * Provides BitTorrent/WebTorrent-based content distribution:
- * - System content: All nodes seed core apps (free, capped bandwidth)
- * - Popular content: Incentivized seeding for hot content
- * - Private content: Encrypted, access-controlled seeding
- *
- * Workerd compatible: Uses S3-compatible DWS storage backend.
- */
-
 import { WorkerdEventEmitter } from '../utils/event-emitter'
 import type { BackendManager } from './backends'
 import { S3Backend } from './s3-backend'

@@ -112,7 +112,6 @@ function RouteCard({ route }: { route: IntentRoute }) {
         backdropFilter: 'blur(8px)',
       }}
     >
-      {/* Route Header */}
       <div
         style={{
           display: 'flex',
@@ -163,7 +162,6 @@ function RouteCard({ route }: { route: IntentRoute }) {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div
         style={{
           display: 'grid',
@@ -189,7 +187,6 @@ function RouteCard({ route }: { route: IntentRoute }) {
         />
       </div>
 
-      {/* Additional Info */}
       <div
         style={{
           display: 'flex',

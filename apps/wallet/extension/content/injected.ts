@@ -1,10 +1,3 @@
-/**
- * Injected Provider Script
- *
- * Provides window.jeju EIP-1193 compatible provider for dApps.
- * This script runs in the page context, not the extension context.
- */
-
 import type { Address, Hex } from 'viem'
 
 type EIP1193Param =

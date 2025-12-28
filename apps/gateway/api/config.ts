@@ -83,11 +83,9 @@ const { config, configure: setGatewayConfig } = createAppConfig<GatewayConfig>({
 
   // URLs
   prometheusUrl:
-    getEnvVar('PROMETHEUS_URL') ??
-    `http://${getLocalhostHost()}:9090`,
+    getEnvVar('PROMETHEUS_URL') ?? `http://${getLocalhostHost()}:9090`,
   oifAggregatorUrl:
-    getEnvVar('OIF_AGGREGATOR_URL') ??
-    `http://${getLocalhostHost()}:4010`,
+    getEnvVar('OIF_AGGREGATOR_URL') ?? `http://${getLocalhostHost()}:4010`,
 
   // A2A / Monitoring
   a2aPort: getEnvNumber('A2A_PORT') ?? 9091,
@@ -135,8 +133,7 @@ const { config, configure: setGatewayConfig } = createAppConfig<GatewayConfig>({
   githubToken: getEnvVar('GITHUB_TOKEN'),
   leaderboardRepositories:
     getEnvVar('LEADERBOARD_REPOSITORIES') ?? 'jejunetwork/jeju',
-  dwsApiUrl:
-    getEnvVar('DWS_API_URL') ?? `http://${getLocalhostHost()}:4030`,
+  dwsApiUrl: getEnvVar('DWS_API_URL') ?? `http://${getLocalhostHost()}:4030`,
   leaderboardDataDir: getEnvVar('LEADERBOARD_DATA_DIR') ?? './data/leaderboard',
   openrouterApiKey: getEnvVar('OPENROUTER_API_KEY'),
   leaderboardLlmModel:

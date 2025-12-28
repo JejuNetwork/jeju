@@ -1,16 +1,3 @@
-/**
- * Real Infrastructure E2E Tests
- *
- * These tests REQUIRE real infrastructure to be running and will FAIL if not available.
- * This ensures that these tests are never silently skipped in CI.
- *
- * Prerequisites:
- *   - DWS running: cd apps/dws && bun run dev
- *   - Inference available: at least one inference node registered
- *
- * Run with: bun test tests/e2e/real-infrastructure.test.ts
- */
-
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { getCharacter } from '../../api/characters'
 import {

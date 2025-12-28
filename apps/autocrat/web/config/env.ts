@@ -1,11 +1,3 @@
-/**
- * Autocrat Environment Configuration
- *
- * Uses @jejunetwork/config for centralized configuration.
- * For production: build with Bun.build define option to override values.
- *
- * Note: Import from here instead of accessing env vars directly.
- */
 import {
   getApiKey,
   getChainId,

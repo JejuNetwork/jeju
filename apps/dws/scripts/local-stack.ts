@@ -16,11 +16,7 @@
 
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import {
-  getContract,
-  getLocalhostHost,
-  getRpcUrl,
-} from '@jejunetwork/config'
+import { getContract, getLocalhostHost, getRpcUrl } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import { JEJU_APPS, type JejuAppName } from '../api/workers/app-sdk'
 import { getRegionConfig } from '../api/workers/tee/regions'

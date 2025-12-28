@@ -1,8 +1,3 @@
-/**
- * Account Abstraction Service
- * Uses network paymaster contracts and bundler
- */
-
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import {

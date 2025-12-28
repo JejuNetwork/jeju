@@ -1,8 +1,3 @@
-/**
- * Node App Configuration
- * Centralized config injection for workerd compatibility
- */
-
 import {
   createAppConfig,
   getEnvVar,
@@ -11,35 +6,29 @@ import {
 } from '@jejunetwork/config'
 
 export interface NodeConfig {
-  // Network
   rpcUrl: string
   network: 'mainnet' | 'testnet' | 'localnet'
 
-  // Wallet
   privateKey?: string
   jejuPrivateKey?: string
   evmPrivateKey?: string
   solanaPrivateKey?: string
 
-  // Services
   proxyRegion: string
   dwsExecUrl: string
   seedingOracleUrl?: string
   externalIp?: string
 
-  // RPC URLs
-  rpcUrl1?: string // Ethereum
-  rpcUrl42161?: string // Arbitrum
-  rpcUrl10?: string // Optimism
-  rpcUrl8453?: string // Base
+  rpcUrl1?: string
+  rpcUrl42161?: string
+  rpcUrl10?: string
+  rpcUrl8453?: string
   solanaRpcUrl?: string
 
-  // Bridge
   zkBridgeEndpoint?: string
   zkProverEndpoint?: string
   oneInchApiKey?: string
 
-  // Environment
   isProduction: boolean
 }
 

@@ -1,14 +1,3 @@
-/**
- * EQLite Node Service
- *
- * Integrates EQLite nodes with DWS infrastructure.
- * Handles:
- * - Node registration (on-chain EQLiteRegistry + DWS node registry)
- * - Node lifecycle management
- * - TEE attestation for EQLite nodes
- * - Database provisioning
- */
-
 import {
   createEQLiteNode,
   type EQLiteNodeConfig,
@@ -37,10 +26,6 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
 import { NodeRegistry } from './node-registry'
 import type { NetworkConfig, NodeCapability } from './types'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface EQLiteNodeServiceConfig {
   networkConfig: NetworkConfig

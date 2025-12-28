@@ -6,11 +6,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import {
-  getCoreAppUrl,
-  getL2RpcUrl,
-  getRpcUrl,
-} from '@jejunetwork/config'
+import { getCoreAppUrl, getRpcUrl } from '@jejunetwork/config'
 import { createJejuClient, type JejuClient } from '@jejunetwork/sdk'
 import { privateKeyToAccount } from 'viem/accounts'
 

@@ -1,8 +1,3 @@
-/**
- * RPC Gateway Server
- * Multi-chain RPC proxy with stake-based rate limiting and X402 payments
- */
-
 import { cors } from '@elysiajs/cors'
 import {
   RPC_CHAINS as CHAINS,

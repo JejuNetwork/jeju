@@ -1,5 +1,3 @@
-/** Projects Routes */
-
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type { Project, ProjectTask } from '../../lib/types'

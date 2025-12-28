@@ -132,11 +132,8 @@ export function createSynpressConfig(
       timeout: 30000,
     },
 
-    reporter: [
-      ['list'],
-      ['html', { outputFolder: `test-results/synpress-report-${appName}` }],
-      ['json', { outputFile: `test-results/synpress-results-${appName}.json` }],
-    ],
+    // Console-only reporters - no HTML reports
+    reporter: [['list'], ['line']],
 
     use: {
       baseURL,

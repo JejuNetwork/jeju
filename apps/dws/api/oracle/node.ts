@@ -448,9 +448,12 @@ export function createNodeConfig(): OracleNodeConfig {
     operatorPrivateKey: (operatorKey ?? DEV_OPERATOR_KEY) as Hex,
     workerPrivateKey: (workerKey ?? DEV_WORKER_KEY) as Hex,
 
-    feedRegistry: (process.env.FEED_REGISTRY_ADDRESS || getContract('oracle', 'feedRegistry', network) || zeroAddress) as Address,
+    feedRegistry: (process.env.FEED_REGISTRY_ADDRESS ||
+      getContract('oracle', 'feedRegistry', network) ||
+      zeroAddress) as Address,
     reportVerifier: (process.env.REPORT_VERIFIER_ADDRESS ||
-      getContract('oracle', 'reportVerifier', network) || zeroAddress) as Address,
+      getContract('oracle', 'reportVerifier', network) ||
+      zeroAddress) as Address,
     committeeManager: (process.env.COMMITTEE_MANAGER_ADDRESS ||
       zeroAddress) as Address,
     feeRouter: (process.env.FEE_ROUTER_ADDRESS || zeroAddress) as Address,

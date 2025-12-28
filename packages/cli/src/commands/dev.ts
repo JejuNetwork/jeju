@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getDwsUrl,
+  getDWSUrl,
   getEQLiteBlockProducerUrl,
   getFarcasterHubUrl,
   getIpfsGatewayUrl,
@@ -30,12 +30,7 @@ import {
   createOrchestrator,
   type ServicesOrchestrator,
 } from '../services/orchestrator'
-import {
-  type AppManifest,
-  DEFAULT_PORTS,
-  DOMAIN_CONFIG,
-  WELL_KNOWN_KEYS,
-} from '../types'
+import { type AppManifest, DOMAIN_CONFIG, WELL_KNOWN_KEYS } from '../types'
 
 interface RunningService {
   name: string
@@ -551,7 +546,7 @@ async function printReady(
         value: getIpfsGatewayUrl(),
         status: 'ok' as const,
       },
-      { label: 'DWS', value: getDwsUrl(), status: 'ok' as const },
+      { label: 'DWS', value: getDWSUrl(), status: 'ok' as const },
     ])
   }
 
@@ -640,7 +635,11 @@ async function printReady(
       } else if (port) {
         const localhost = getLocalhostHost()
         logger.table([
-          { label: svc.name, value: `http://${localhost}:${port}`, status: 'ok' },
+          {
+            label: svc.name,
+            value: `http://${localhost}:${port}`,
+            status: 'ok',
+          },
         ])
       } else {
         logger.table([{ label: svc.name, value: 'running', status: 'ok' }])

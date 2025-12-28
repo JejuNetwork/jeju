@@ -1,16 +1,3 @@
-/**
- * Email Content Screening Pipeline
- *
- * Multi-tier content moderation for email:
- * 1. Hash-based detection (PhotoDNA-style for CSAM)
- * 2. ML classifiers for spam/scam/phishing
- * 3. LLM review for flagged content
- * 4. Full account review for repeat offenders
- *
- * All screening happens in TEE when available.
- * Content is NEVER stored if flagged as CSAM.
- */
-
 import { getDWSComputeUrl, getDWSUrl } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'

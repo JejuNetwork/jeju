@@ -1,10 +1,3 @@
-/**
- * Sandbox Executor
- *
- * Secure container execution for proof-of-concept validation
- * Isolates exploit code from production systems
- */
-
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { keccak256, stringToHex } from 'viem'

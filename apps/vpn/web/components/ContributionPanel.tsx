@@ -1,5 +1,4 @@
 import {
-  Activity,
   ArrowUpDown,
   Coins,
   Database,
@@ -215,21 +214,6 @@ export function ContributionPanel() {
         </button>
       </div>
 
-      <div className="bg-[#00ff88]/5 border border-[#00ff88]/20 rounded-2xl p-4">
-        <div className="flex gap-3">
-          <Activity className="w-5 h-5 text-[#00ff88] flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="text-[#00ff88] font-medium mb-1">
-              How Fair Sharing Works
-            </p>
-            <p className="text-[#a0a0b0]">
-              You get free, unlimited VPN. In exchange, you contribute up to 3x
-              what you use (capped at 10% of your bandwidth). This powers the
-              network for everyone.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

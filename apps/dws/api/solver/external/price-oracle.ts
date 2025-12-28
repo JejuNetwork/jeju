@@ -1,10 +1,3 @@
-/**
- * On-Chain Price Oracle Integration
- *
- * Permissionless price feeds from Chainlink.
- * All reads are on-chain calls - no API keys required.
- */
-
 import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient } from 'viem'
 

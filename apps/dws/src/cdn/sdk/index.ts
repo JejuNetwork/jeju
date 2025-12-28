@@ -1,34 +1,3 @@
-/**
- * CDN SDK
- *
- * Easy-to-use SDK for deploying frontends to the decentralized CDN.
- * Similar to Vercel's deploy experience but fully decentralized.
- *
- * Usage:
- * ```typescript
- * import { CDNClient } from '@jejunetwork/dws';
- *
- * const cdn = new CDNClient({ privateKey, rpcUrl });
- *
- * // Deploy a frontend
- * const deployment = await cdn.deploy({
- *   domain: 'myapp.jns.eth',
- *   buildDir: './dist',
- *   framework: 'bun',
- * });
- *
- * // Invalidate cache
- * await cdn.invalidate(deployment.siteId, ['/', '/api/*']);
- *
- * // Get stats
- * const stats = await cdn.getStats(deployment.siteId);
- * ```
- */
-
-// Workerd-compatible: Uses DWS exec API for file operations
-// Note: This SDK is typically used in CLI/build contexts, but made workerd-compatible for worker deployments
-
-// DWS Exec API for file operations
 interface ExecResult {
   exitCode: number
   stdout: string
@@ -149,10 +118,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface CDNClientConfig {
   /**
    * Private key for signing transactions.
@@ -199,10 +164,6 @@ export interface FileUpload {
   hash: string
 }
 
-// ============================================================================
-// ABIs
-// ============================================================================
-
 const CDN_REGISTRY_ABI = parseAbi([
   'function createSite(string domain, string origin) returns (bytes32)',
   'function updateSiteContent(bytes32 siteId, bytes32 contentHash)',
@@ -217,10 +178,6 @@ const CDN_BILLING_ABI = parseAbi([
   'function getBalance(address user) view returns (uint256)',
   'function withdraw(uint256 amount)',
 ])
-
-// ============================================================================
-// CDN Client
-// ============================================================================
 
 // Define specific chain for local development
 const localChain = {
@@ -319,13 +276,6 @@ export class CDNClient {
     return this.ipfsGateway
   }
 
-  // ============================================================================
-  // Deployment
-  // ============================================================================
-
-  /**
-   * Deploy a frontend to the CDN
-   */
   async deploy(options: DeployOptions): Promise<DeployResult> {
     console.log(`[CDN] Deploying ${options.buildDir} to ${options.domain}...`)
 
@@ -395,10 +345,6 @@ export class CDNClient {
     }
   }
 
-  /**
-   * Collect all files from build directory
-   * Uses DWS exec API for workerd compatibility
-   */
   private async collectFiles(dir: string): Promise<FileUpload[]> {
     const files: FileUpload[] = []
 
@@ -432,9 +378,6 @@ export class CDNClient {
     return files
   }
 
-  /**
-   * Upload files to IPFS via DWS storage
-   */
   private async uploadFiles(
     files: FileUpload[],
     buildDir: string,
@@ -505,18 +448,12 @@ export class CDNClient {
     }
   }
 
-  /**
-   * Calculate content hash from files
-   */
   private calculateContentHash(files: FileUpload[]): string {
     const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path))
     const combined = sorted.map((f) => `${f.path}:${f.hash}`).join('|')
     return bytesToHex(hash256(combined))
   }
 
-  /**
-   * Register or get existing site
-   */
   private async registerSite(domain: string, origin: string): Promise<string> {
     // Check if site already exists
     const existingSites = await this.registryContract.read.getOwnerSites([
@@ -545,9 +482,6 @@ export class CDNClient {
     throw new Error('Failed to extract siteId from transaction')
   }
 
-  /**
-   * Get content type from filename
-   */
   private getContentType(filename: string): string {
     const ext = filename.split('.').pop()?.toLowerCase()
     const types: Record<string, string> = {
@@ -575,13 +509,6 @@ export class CDNClient {
     return types[ext ?? ''] ?? 'application/octet-stream'
   }
 
-  // ============================================================================
-  // Cache Management
-  // ============================================================================
-
-  /**
-   * Invalidate cache paths
-   */
   async invalidate(
     siteId: string,
     paths: string[],
@@ -611,9 +538,6 @@ export class CDNClient {
     return this.waitForInvalidation(result.requestId)
   }
 
-  /**
-   * Wait for invalidation to complete
-   */
   private async waitForInvalidation(
     requestId: string,
     timeout = 30000,
@@ -636,9 +560,6 @@ export class CDNClient {
     throw new Error('Invalidation timed out')
   }
 
-  /**
-   * Warmup cache with URLs
-   */
   async warmup(request: WarmupRequest): Promise<WarmupResult> {
     const response = await fetch(`${this.coordinatorUrl}/warmup`, {
       method: 'POST',
@@ -661,13 +582,6 @@ export class CDNClient {
     return response.json() as Promise<WarmupResult>
   }
 
-  // ============================================================================
-  // Statistics
-  // ============================================================================
-
-  /**
-   * Get site statistics
-   */
   async getStats(
     siteId: string,
     options?: Partial<CDNStatsRequest>,
@@ -688,9 +602,6 @@ export class CDNClient {
     return response.json() as Promise<CDNStatsResponse>
   }
 
-  /**
-   * Get site info
-   */
   async getSite(siteId: string): Promise<CDNSiteConfig | null> {
     const site = await this.registryContract.read.getSite([
       siteId as `0x${string}`,
@@ -749,9 +660,6 @@ export class CDNClient {
     }
   }
 
-  /**
-   * List all sites for the connected wallet
-   */
   async listSites(): Promise<`0x${string}`[]> {
     const sites = await this.registryContract.read.getOwnerSites([
       this.account.address,
@@ -759,46 +667,23 @@ export class CDNClient {
     return [...sites]
   }
 
-  // ============================================================================
-  // Billing
-  // ============================================================================
-
-  /**
-   * Deposit funds for CDN usage
-   */
   async deposit(amount: bigint): Promise<`0x${string}`> {
     return this.billingContract.write.deposit({ value: amount })
   }
 
-  /**
-   * Get current balance
-   */
   async getBalance(): Promise<bigint> {
     return this.billingContract.read.getBalance([this.account.address])
   }
 
-  /**
-   * Withdraw unused balance
-   */
   async withdraw(amount: bigint): Promise<`0x${string}`> {
     return this.billingContract.write.withdraw([amount])
   }
 }
 
-// ============================================================================
-// Factory
-// ============================================================================
-
 export function createCDNClient(config: CDNClientConfig): CDNClient {
   return new CDNClient(config)
 }
 
-/**
- * Create CDN client from environment variables
- *
- * SECURITY: Prefers KMS_SERVICE_ID over PRIVATE_KEY when available.
- * Set KMS_SERVICE_ID for production deployments.
- */
 export function createCDNClientFromEnv(): CDNClient {
   const kmsServiceId = process.env.KMS_SERVICE_ID
   const privateKey = process.env.PRIVATE_KEY

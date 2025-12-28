@@ -1,15 +1,3 @@
-/**
- * Sealed OAuth Provider Secrets
- *
- * Manages OAuth provider credentials (GitHub, Google, etc.) using sealed secrets.
- * Secrets are encrypted to TEE attestation and can only be decrypted inside verified TEE.
- *
- * SECURITY: Mitigates side-channel attacks by:
- * - Never storing plaintext secrets in memory
- * - Requiring valid TEE attestation for decryption
- * - Short-lived decryption with immediate cleanup
- */
-
 import type {
   AuthProvider,
   SealedOAuthProvider,

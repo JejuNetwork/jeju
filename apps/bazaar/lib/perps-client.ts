@@ -1,9 +1,3 @@
-/**
- * Perpetuals Trading Data Client
- *
- * Fetches perpetual market and position data from the blockchain
- */
-
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { getL2RpcUrl, PERPETUAL_MARKET_ADDRESS } from '../config'
 

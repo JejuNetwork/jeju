@@ -1,9 +1,3 @@
-/**
- * Packages Page
- *
- * Browse and search packages with responsive design.
- */
-
 import { Download, Package, Plus, Shield } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'

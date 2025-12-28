@@ -2,13 +2,7 @@
  * Local Development Configuration for ZK Bridge
  */
 
-import {
-  getL1RpcUrl,
-  getL2RpcUrl,
-  getLocalhostHost,
-  getSolanaRpcUrl,
-  getSolanaWsUrl,
-} from '@jejunetwork/config'
+import { getL1RpcUrl } from '@jejunetwork/config'
 import type {
   BridgeConfig,
   ChainId,

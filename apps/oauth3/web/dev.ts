@@ -1,7 +1,3 @@
-/**
- * Development server for auth frontend
- */
-
 const server = Bun.serve({
   port: 4201,
   async fetch(req) {

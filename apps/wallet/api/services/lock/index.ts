@@ -1,8 +1,3 @@
-/**
- * Wallet Lock Service
- * Password/PIN protection with auto-lock timeout
- */
-
 import { expectJson } from '@jejunetwork/types'
 import { secureStorage } from '../../../web/platform/secure-storage'
 import { LockConfigSchema, LockStateSchema } from '../../plugin/schemas'

@@ -117,7 +117,9 @@ export const LLMCallJSONLRecordSchema = z.object({
 })
 
 // Type alias for inferred schema type
-export type LLMCallJSONLRecordSchemaType = z.infer<typeof LLMCallJSONLRecordSchema>
+export type LLMCallJSONLRecordSchemaType = z.infer<
+  typeof LLMCallJSONLRecordSchema
+>
 
 const StepSchema = z.object({
   stepId: z.string().optional(),

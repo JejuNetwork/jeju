@@ -242,11 +242,23 @@ pub async fn start_bot(
 
     inner.config.save().map_err(|e| e.to_string())?;
 
-    // TODO: Actually start the trading bot
-    // This would integrate with the Crucible trading bot engine
+    let bot_id = request.bot_id.clone();
+    inner.bot_status.insert(
+        bot_id.clone(),
+        crate::state::BotStatus {
+            id: bot_id.clone(),
+            name: bot_id.clone(),
+            running: true,
+            strategy: bot_id.clone(),
+            opportunities_found: 0,
+            opportunities_executed: 0,
+            total_profit_wei: "0".to_string(),
+            treasury_share_wei: "0".to_string(),
+        },
+    );
 
     Ok(BotStatus {
-        id: request.bot_id,
+        id: bot_id,
         running: true,
         uptime_seconds: 0,
         opportunities_detected: 0,
@@ -264,27 +276,35 @@ pub async fn start_bot(
 pub async fn stop_bot(state: State<'_, AppState>, bot_id: String) -> Result<BotStatus, String> {
     let mut inner = state.inner.write().await;
 
-    // Update config
     if let Some(config) = inner.config.bots.get_mut(&bot_id) {
         config.enabled = false;
     }
     inner.config.save().map_err(|e| e.to_string())?;
 
-    // TODO: Actually stop the trading bot
+    if let Some(status) = inner.bot_status.get_mut(&bot_id) {
+        status.running = false;
+    }
 
-    Ok(BotStatus {
-        id: bot_id,
-        running: false,
-        uptime_seconds: 0,
-        opportunities_detected: 0,
-        opportunities_executed: 0,
-        opportunities_failed: 0,
-        gross_profit_wei: "0".to_string(),
-        treasury_share_wei: "0".to_string(),
-        net_profit_wei: "0".to_string(),
-        last_opportunity: None,
-        health: "stopped".to_string(),
-    })
+    let status = inner
+        .bot_status
+        .get(&bot_id)
+        .cloned()
+        .map(BotStatus::from)
+        .unwrap_or(BotStatus {
+            id: bot_id,
+            running: false,
+            uptime_seconds: 0,
+            opportunities_detected: 0,
+            opportunities_executed: 0,
+            opportunities_failed: 0,
+            gross_profit_wei: "0".to_string(),
+            treasury_share_wei: "0".to_string(),
+            net_profit_wei: "0".to_string(),
+            last_opportunity: None,
+            health: "stopped".to_string(),
+        });
+
+    Ok(status)
 }
 
 #[tauri::command]
@@ -317,27 +337,54 @@ pub async fn get_bot_status(
 
 #[tauri::command]
 pub async fn get_bot_earnings(
-    _state: State<'_, AppState>,
-    _bot_id: String,
-    _days: Option<u32>,
+    state: State<'_, AppState>,
+    bot_id: String,
+    days: Option<u32>,
 ) -> Result<Vec<OpportunityInfo>, String> {
-    // TODO: Query bot earnings history
+    let inner = state.inner.read().await;
 
-    Ok(vec![])
+    let start_time = days.map(|d| {
+        chrono::Utc::now().timestamp() - (d as i64 * 24 * 60 * 60)
+    });
+
+    let entries = inner.earnings_tracker.get_entries(
+        Some(&format!("bot_{}", bot_id)),
+        start_time,
+        None,
+        Some(100),
+    );
+
+    let opportunities: Vec<OpportunityInfo> = entries
+        .into_iter()
+        .map(|e| OpportunityInfo {
+            timestamp: e.timestamp,
+            opportunity_type: format!("{:?}", e.event_type),
+            estimated_profit_wei: e.amount_wei.clone(),
+            actual_profit_wei: Some(e.amount_wei.clone()),
+            tx_hash: e.tx_hash.clone(),
+            status: "executed".to_string(),
+        })
+        .collect();
+
+    Ok(opportunities)
 }
 
 impl From<crate::state::BotStatus> for BotStatus {
     fn from(status: crate::state::BotStatus) -> Self {
+        let gross: u128 = status.total_profit_wei.parse().unwrap_or(0);
+        let treasury: u128 = status.treasury_share_wei.parse().unwrap_or(0);
+        let net = gross.saturating_sub(treasury);
+
         BotStatus {
             id: status.id,
             running: status.running,
-            uptime_seconds: 0, // TODO
+            uptime_seconds: 0,
             opportunities_detected: status.opportunities_found,
             opportunities_executed: status.opportunities_executed,
             opportunities_failed: 0,
             gross_profit_wei: status.total_profit_wei,
             treasury_share_wei: status.treasury_share_wei,
-            net_profit_wei: "0".to_string(), // Calculate
+            net_profit_wei: net.to_string(),
             last_opportunity: None,
             health: if status.running {
                 "healthy".to_string()

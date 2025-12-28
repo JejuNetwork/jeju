@@ -1,9 +1,3 @@
-/**
- * Portfolio Page
- *
- * View your tokens, collectibles, and activity
- */
-
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { EmptyState, Grid, StatCard } from '../components/ui'

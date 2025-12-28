@@ -1,9 +1,3 @@
-/**
- * Agents Page
- *
- * Browse and filter AI agents with responsive design.
- */
-
 import { clsx } from 'clsx'
 import { Bot, Plus, Zap } from 'lucide-react'
 import { useMemo, useState } from 'react'

@@ -21,7 +21,6 @@ export default function DeployPaymaster({
 
   const { tokens } = useProtocolTokens()
 
-  // Map protocol tokens to TokenOption format
   const tokenOptions = tokens.map((t) => ({
     symbol: t.symbol,
     name: t.name,

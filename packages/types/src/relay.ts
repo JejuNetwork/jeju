@@ -7,8 +7,8 @@
  * - QoS monitoring validates claims
  */
 
-import { z } from 'zod'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import { AddressSchema } from './validation'
 
 // ============ Multi-Chain RPC Types ============
@@ -64,8 +64,8 @@ export type RPCNode = z.infer<typeof RPCNodeSchema>
  * Node performance metrics
  */
 export const NodePerformanceSchema = z.object({
-  uptimeScore: z.number().min(0).max(10000),   // Basis points
-  successRate: z.number().min(0).max(10000),   // Basis points
+  uptimeScore: z.number().min(0).max(10000), // Basis points
+  successRate: z.number().min(0).max(10000), // Basis points
   avgLatencyMs: z.number(),
   lastUpdated: z.number(),
 })
@@ -153,7 +153,9 @@ export const PendingBandwidthRewardSchema = z.object({
   calculatedReward: z.string(),
   claimed: z.boolean(),
 })
-export type PendingBandwidthReward = z.infer<typeof PendingBandwidthRewardSchema>
+export type PendingBandwidthReward = z.infer<
+  typeof PendingBandwidthRewardSchema
+>
 
 /**
  * Bandwidth sharing configuration

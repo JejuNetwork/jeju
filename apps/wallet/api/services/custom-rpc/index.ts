@@ -1,8 +1,3 @@
-/**
- * Custom RPC Management Service
- * Add and manage custom RPC endpoints for supported chains
- */
-
 import { ChainIdSchema, expectValid } from '@jejunetwork/types'
 import { createPublicClient, http, type PublicClient } from 'viem'
 import { z } from 'zod'

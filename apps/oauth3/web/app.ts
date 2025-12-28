@@ -1,8 +1,3 @@
-/**
- * OAuth3 Frontend Application
- * Handles session management and UI state transitions
- */
-
 interface Session {
   sessionId: string
   userId: string

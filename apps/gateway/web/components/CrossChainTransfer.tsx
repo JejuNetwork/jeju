@@ -49,7 +49,6 @@ export default function CrossChainTransfer() {
   const { executeCrossChainSwap, isLoading, isSuccess, hash } =
     useCrossChainSwap(crossChainPaymaster)
 
-  // Update step based on transaction status
   useEffect(() => {
     if (isLoading) {
       setStep('processing')
@@ -70,9 +69,9 @@ export default function CrossChainTransfer() {
 
     await executeCrossChainSwap({
       sourceToken: selectedToken.address as Address,
-      destinationToken: selectedToken.address as Address, // Same token on destination
+      destinationToken: selectedToken.address as Address,
       amount: amountBigInt,
-      sourceChainId: 420691, // Network mainnet
+      sourceChainId: 420691,
       destinationChainId,
       recipient: recipientAddress,
     })

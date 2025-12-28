@@ -1,11 +1,3 @@
-/**
- * Shared formatting utilities for Factory
- * Centralized date, number, and text formatting functions
- */
-
-/**
- * Format a timestamp to relative time (e.g., "2 days ago", "Just now")
- */
 export function formatRelativeTime(timestamp: number): string {
   const now = Date.now()
   const diff = now - timestamp
@@ -27,9 +19,6 @@ export function formatRelativeTime(timestamp: number): string {
   })
 }
 
-/**
- * Format a timestamp to short relative time (e.g., "2d", "5m")
- */
 export function formatShortRelativeTime(timestamp: number): string {
   const now = Date.now()
   const diff = now - timestamp
@@ -48,9 +37,6 @@ export function formatShortRelativeTime(timestamp: number): string {
   })
 }
 
-/**
- * Format a future timestamp to countdown (e.g., "3 days left", "Expired")
- */
 export function formatDeadline(timestamp: number): string {
   const now = Date.now()
   const diff = timestamp - now
@@ -67,9 +53,6 @@ export function formatDeadline(timestamp: number): string {
   })
 }
 
-/**
- * Format large numbers with K/M/B suffixes
- */
 export function formatCompactNumber(count: number): string {
   if (count >= 1_000_000_000) return `${(count / 1_000_000_000).toFixed(1)}B`
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`
@@ -77,16 +60,10 @@ export function formatCompactNumber(count: number): string {
   return count.toString()
 }
 
-/**
- * Format a number with locale-aware thousand separators
- */
 export function formatNumber(count: number): string {
   return count.toLocaleString()
 }
 
-/**
- * Format currency with symbol and locale
- */
 export function formatCurrency(
   amount: number,
   currency = 'USD',
@@ -100,9 +77,6 @@ export function formatCurrency(
   }).format(amount)
 }
 
-/**
- * Format file/storage size in human-readable format
- */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
 
@@ -113,9 +87,6 @@ export function formatFileSize(bytes: number): string {
   return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${units[i]}`
 }
 
-/**
- * Format duration in seconds to human-readable format
- */
 export function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
 
@@ -132,17 +103,11 @@ export function formatDuration(seconds: number): string {
   return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`
 }
 
-/**
- * Truncate text with ellipsis
- */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return `${text.slice(0, maxLength)}...`
 }
 
-/**
- * Format an address to short form (0x1234...5678)
- */
 export function formatAddress(address: string, chars = 4): string {
   if (address.length <= chars * 2 + 2) return address
   return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`

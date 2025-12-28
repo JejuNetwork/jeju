@@ -1,8 +1,3 @@
-/**
- * Seed Phrase Backup & Verification Service
- * Ensures users properly backup their recovery phrase
- */
-
 import { expectJson } from '@jejunetwork/types'
 import { generateMnemonic, validateMnemonic } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'

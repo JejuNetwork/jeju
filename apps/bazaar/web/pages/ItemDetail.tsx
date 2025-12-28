@@ -1,9 +1,3 @@
-/**
- * Item Detail Page
- *
- * Shows NFT item details with integrated Farcaster channel feed.
- */
-
 import { Link, useParams } from 'react-router-dom'
 import type { Address } from 'viem'
 import { ChannelFeed } from '../components/ChannelFeed'

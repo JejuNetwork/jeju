@@ -2,8 +2,9 @@
  * SWAP SIMULATION TESTS
  *
  * Real swap execution and fee verification on localnet.
+ * These tests REQUIRE localnet to be running - they will FAIL if unavailable.
  *
- * Run with: bun test tests/integration/swap-simulation.test.ts
+ * Run with: jeju test --mode integration --app bazaar
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -23,7 +24,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 
 // CONFIGURATION - from centralized config
-
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
 const DEPLOYER_KEY =
@@ -40,7 +40,6 @@ const localnet = {
 }
 
 // ABIS
-
 const WETH_ABI = parseAbi([
   'function deposit() payable',
   'function withdraw(uint256 amount)',
@@ -49,15 +48,12 @@ const WETH_ABI = parseAbi([
 ])
 
 // SETUP
-
 let publicClient: PublicClient
 let walletClient: WalletClient
 let swapRouter: Address | null = null
 let positionManager: Address | null = null
-let skipTests = false
 
 function loadDeployment(filename: string): Record<string, string> {
-  // Map filename to rawDeployments key
   const deploymentMap: Record<string, Record<string, string>> = {
     'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
       string,
@@ -75,6 +71,17 @@ function loadDeployment(filename: string): Record<string, string> {
   return deploymentMap[filename] ?? {}
 }
 
+async function requireLocalnet(): Promise<void> {
+  const blockNumber = await publicClient.getBlockNumber().catch(() => null)
+  if (blockNumber === null) {
+    throw new Error(
+      `FATAL: Cannot connect to localnet at ${RPC_URL}. ` +
+        `Run 'jeju start' to start infrastructure.`,
+    )
+  }
+  console.log(`Connected to localnet at block ${blockNumber}`)
+}
+
 beforeAll(async () => {
   publicClient = createPublicClient({
     chain: localnet,
@@ -88,55 +95,41 @@ beforeAll(async () => {
     transport: http(RPC_URL),
   })
 
-  const blockNumber = await publicClient.getBlockNumber().catch(() => null)
-  if (blockNumber === null) {
-    console.error(`\n❌ Cannot connect to localnet at ${RPC_URL}`)
-    skipTests = true
-    return
-  }
-  console.log(`\n✅ Connected to localnet`)
+  await requireLocalnet()
 
   const v4Deployment = loadDeployment('uniswap-v4-31337.json')
   swapRouter = v4Deployment.swapRouter as Address
   positionManager = v4Deployment.positionManager as Address
 
-  console.log(`   SwapRouter: ${swapRouter || 'NOT DEPLOYED'}`)
-  console.log(`   PositionManager: ${positionManager || 'NOT DEPLOYED'}`)
+  console.log(`SwapRouter: ${swapRouter || 'NOT DEPLOYED'}`)
+  console.log(`PositionManager: ${positionManager || 'NOT DEPLOYED'}`)
 })
 
 // TESTS: WETH OPERATIONS
-
 describe('WETH Operations', () => {
   test('should verify WETH contract exists', async () => {
-    if (skipTests) return
-
-    // Check if WETH contract is deployed
     const code = await publicClient.getCode({ address: WETH_ADDRESS })
 
+    // WETH may not be deployed on fresh Anvil - this is an OP Stack predeploy
     if (code === '0x' || !code) {
-      console.log(`   ⚠️ WETH not deployed at ${WETH_ADDRESS}`)
-      console.log(
-        `   This is expected on fresh Anvil - WETH is OP Stack predeploy`,
-      )
+      console.log(`WETH not deployed at ${WETH_ADDRESS} - expected on fresh Anvil`)
+      // Skip remaining WETH tests if not deployed
       return
     }
 
-    console.log(`   ✅ WETH contract exists at ${WETH_ADDRESS}`)
+    console.log(`WETH contract exists at ${WETH_ADDRESS}`)
+    expect(code.length).toBeGreaterThan(2)
   })
 
   test('should deposit ETH to WETH if contract exists', async () => {
-    if (skipTests) return
-
-    // Check if WETH is deployed
     const code = await publicClient.getCode({ address: WETH_ADDRESS })
     if (!code || code === '0x') {
-      console.log(`   ⚠️ Skipping: WETH not deployed`)
+      console.log('WETH not deployed - skipping deposit test')
       return
     }
 
     const depositAmount = parseEther('1')
 
-    // Get initial WETH balance
     const initialBalance = await publicClient.readContract({
       address: WETH_ADDRESS,
       abi: WETH_ABI,
@@ -144,7 +137,6 @@ describe('WETH Operations', () => {
       args: [DEPLOYER_ADDRESS],
     })
 
-    // Deposit ETH
     const hash = await walletClient.writeContract({
       address: WETH_ADDRESS,
       abi: WETH_ABI,
@@ -154,7 +146,6 @@ describe('WETH Operations', () => {
 
     await publicClient.waitForTransactionReceipt({ hash })
 
-    // Check new balance
     const newBalance = await publicClient.readContract({
       address: WETH_ADDRESS,
       abi: WETH_ABI,
@@ -163,12 +154,21 @@ describe('WETH Operations', () => {
     })
 
     expect(newBalance).toBe(initialBalance + depositAmount)
-    console.log(`   ✅ Deposited ${formatEther(depositAmount)} ETH to WETH`)
-    console.log(`   WETH balance: ${formatEther(newBalance)}`)
+    console.log(`Deposited ${formatEther(depositAmount)} ETH to WETH`)
+    console.log(`WETH balance: ${formatEther(newBalance)}`)
   })
 
   test('should approve WETH for SwapRouter', async () => {
-    if (skipTests || !swapRouter) return
+    if (!swapRouter) {
+      console.log('SwapRouter not deployed')
+      return
+    }
+
+    const code = await publicClient.getCode({ address: WETH_ADDRESS })
+    if (!code || code === '0x') {
+      console.log('WETH not deployed')
+      return
+    }
 
     const approveAmount = parseEther('1000000')
 
@@ -180,27 +180,24 @@ describe('WETH Operations', () => {
     })
 
     await publicClient.waitForTransactionReceipt({ hash })
-    console.log(`   ✅ Approved WETH for SwapRouter`)
+    console.log('Approved WETH for SwapRouter')
   })
 })
 
 // TESTS: SWAP EXECUTION
-
 describe('Swap Execution', () => {
   test('should verify swap router is callable', async () => {
-    if (skipTests || !swapRouter) {
-      console.log('   ⚠️ SwapRouter not deployed')
+    if (!swapRouter) {
+      console.log('SwapRouter not deployed - checking for deployment')
       return
     }
 
     const code = await publicClient.getCode({ address: swapRouter })
     expect(code).not.toBe('0x')
-    console.log(`   ✅ SwapRouter contract verified at ${swapRouter}`)
+    console.log(`SwapRouter contract verified at ${swapRouter}`)
   })
 
   test('should calculate expected swap output', async () => {
-    if (skipTests) return
-
     // Simulate swap calculation
     // For a 0.3% fee pool:
     // Input: 1 ETH
@@ -212,75 +209,70 @@ describe('Swap Execution', () => {
     const fee = (inputAmount * BigInt(Math.floor(feeRate * 1000))) / 1000n
     const netInput = inputAmount - fee
 
-    console.log(`   Input: ${formatEther(inputAmount)} ETH`)
-    console.log(`   Fee (0.3%): ${formatEther(fee)} ETH`)
-    console.log(`   Net input: ${formatEther(netInput)} ETH`)
+    console.log(`Input: ${formatEther(inputAmount)} ETH`)
+    console.log(`Fee (0.3%): ${formatEther(fee)} ETH`)
+    console.log(`Net input: ${formatEther(netInput)} ETH`)
 
     expect(fee).toBe(parseEther('0.003'))
-    console.log(`   ✅ Fee calculation verified`)
+    console.log('Fee calculation verified')
   })
 })
 
 // TESTS: FEE VERIFICATION
-
 describe('Fee Verification', () => {
-  test('should verify 0.3% fee tier', async () => {
+  test('should verify 0.3% fee tier', () => {
     const fee = 3000 // 0.3% in basis points
     const inputAmount = parseEther('100')
 
-    // Calculate fee
     const feeAmount = (inputAmount * BigInt(fee)) / 1000000n
 
     expect(feeAmount).toBe(parseEther('0.3'))
-    console.log(`   0.3% fee on 100 ETH = ${formatEther(feeAmount)} ETH ✅`)
+    console.log(`0.3% fee on 100 ETH = ${formatEther(feeAmount)} ETH`)
   })
 
-  test('should verify 0.05% fee tier', async () => {
+  test('should verify 0.05% fee tier', () => {
     const fee = 500 // 0.05% in basis points
     const inputAmount = parseEther('100')
 
     const feeAmount = (inputAmount * BigInt(fee)) / 1000000n
 
     expect(feeAmount).toBe(parseEther('0.05'))
-    console.log(`   0.05% fee on 100 ETH = ${formatEther(feeAmount)} ETH ✅`)
+    console.log(`0.05% fee on 100 ETH = ${formatEther(feeAmount)} ETH`)
   })
 
-  test('should verify 1% fee tier', async () => {
+  test('should verify 1% fee tier', () => {
     const fee = 10000 // 1% in basis points
     const inputAmount = parseEther('100')
 
     const feeAmount = (inputAmount * BigInt(fee)) / 1000000n
 
     expect(feeAmount).toBe(parseEther('1'))
-    console.log(`   1% fee on 100 ETH = ${formatEther(feeAmount)} ETH ✅`)
+    console.log(`1% fee on 100 ETH = ${formatEther(feeAmount)} ETH`)
   })
 
-  test('should calculate LP fee share', async () => {
+  test('should calculate LP fee share', () => {
     // In V4, fees can be split between LPs and protocol
     // Default: 100% to LPs, 0% to protocol
-    // Can be configured with hooks
-
-    const totalFee = parseEther('0.3') // From a 100 ETH swap at 0.3%
-    const protocolFeeRate = 0 // 0% protocol fee by default
+    const totalFee = parseEther('0.3')
+    const protocolFeeRate = 0
     const lpFeeRate = 1 - protocolFeeRate
 
     const lpFee = (totalFee * BigInt(Math.floor(lpFeeRate * 100))) / 100n
     const protocolFee = totalFee - lpFee
 
-    console.log(`   Total fee: ${formatEther(totalFee)} ETH`)
-    console.log(`   LP fee (100%): ${formatEther(lpFee)} ETH`)
-    console.log(`   Protocol fee (0%): ${formatEther(protocolFee)} ETH`)
+    console.log(`Total fee: ${formatEther(totalFee)} ETH`)
+    console.log(`LP fee (100%): ${formatEther(lpFee)} ETH`)
+    console.log(`Protocol fee (0%): ${formatEther(protocolFee)} ETH`)
 
     expect(lpFee).toBe(totalFee)
     expect(protocolFee).toBe(0n)
-    console.log(`   ✅ Fee distribution verified`)
+    console.log('Fee distribution verified')
   })
 })
 
 // TESTS: SLIPPAGE PROTECTION
-
 describe('Slippage Protection', () => {
-  test('should calculate minimum output with 0.5% slippage', async () => {
+  test('should calculate minimum output with 0.5% slippage', () => {
     const expectedOutput = parseEther('10')
     const slippageTolerance = 0.005 // 0.5%
 
@@ -288,15 +280,15 @@ describe('Slippage Protection', () => {
       expectedOutput -
       (expectedOutput * BigInt(Math.floor(slippageTolerance * 10000))) / 10000n
 
-    console.log(`   Expected output: ${formatEther(expectedOutput)} ETH`)
-    console.log(`   Slippage tolerance: ${slippageTolerance * 100}%`)
-    console.log(`   Minimum output: ${formatEther(minOutput)} ETH`)
+    console.log(`Expected output: ${formatEther(expectedOutput)} ETH`)
+    console.log(`Slippage tolerance: ${slippageTolerance * 100}%`)
+    console.log(`Minimum output: ${formatEther(minOutput)} ETH`)
 
     expect(minOutput).toBe(parseEther('9.95'))
-    console.log(`   ✅ Slippage calculation verified`)
+    console.log('Slippage calculation verified')
   })
 
-  test('should calculate minimum output with 1% slippage', async () => {
+  test('should calculate minimum output with 1% slippage', () => {
     const expectedOutput = parseEther('10')
     const slippageTolerance = 0.01 // 1%
 
@@ -305,65 +297,39 @@ describe('Slippage Protection', () => {
       (expectedOutput * BigInt(Math.floor(slippageTolerance * 10000))) / 10000n
 
     expect(minOutput).toBe(parseEther('9.9'))
-    console.log(`   ✅ 1% slippage: min output = ${formatEther(minOutput)} ETH`)
+    console.log(`1% slippage: min output = ${formatEther(minOutput)} ETH`)
   })
 })
 
 // TESTS: PRICE IMPACT
-
 describe('Price Impact', () => {
-  test('should estimate price impact for small trade', async () => {
-    // Small trade = low price impact
-    const tradeSize = parseEther('1') // 1 ETH
-    const poolLiquidity = parseEther('1000') // 1000 ETH in pool
+  test('should estimate price impact for small trade', () => {
+    const tradeSize = parseEther('1')
+    const poolLiquidity = parseEther('1000')
 
     // Simplified price impact estimation
-    // Price impact ≈ trade size / (2 * liquidity)
-    const priceImpact = (tradeSize * 10000n) / (poolLiquidity * 2n) // in basis points
+    const priceImpact = (tradeSize * 10000n) / (poolLiquidity * 2n)
 
-    console.log(`   Trade size: ${formatEther(tradeSize)} ETH`)
-    console.log(`   Pool liquidity: ${formatEther(poolLiquidity)} ETH`)
-    console.log(`   Estimated price impact: ${Number(priceImpact) / 100}%`)
+    console.log(`Trade size: ${formatEther(tradeSize)} ETH`)
+    console.log(`Pool liquidity: ${formatEther(poolLiquidity)} ETH`)
+    console.log(`Estimated price impact: ${Number(priceImpact) / 100}%`)
 
-    expect(priceImpact).toBeLessThan(100n) // Less than 1%
-    console.log(`   ✅ Small trade has low price impact`)
+    expect(priceImpact).toBeLessThan(100n)
+    console.log('Small trade has low price impact')
   })
 
-  test('should estimate price impact for large trade', async () => {
-    const tradeSize = parseEther('100') // 100 ETH
-    const poolLiquidity = parseEther('1000') // 1000 ETH in pool
+  test('should estimate price impact for large trade', () => {
+    const tradeSize = parseEther('100')
+    const poolLiquidity = parseEther('1000')
 
     const priceImpact = (tradeSize * 10000n) / (poolLiquidity * 2n)
 
-    console.log(`   Trade size: ${formatEther(tradeSize)} ETH`)
-    console.log(`   Pool liquidity: ${formatEther(poolLiquidity)} ETH`)
-    console.log(`   Estimated price impact: ${Number(priceImpact) / 100}%`)
+    console.log(`Trade size: ${formatEther(tradeSize)} ETH`)
+    console.log(`Pool liquidity: ${formatEther(poolLiquidity)} ETH`)
+    console.log(`Estimated price impact: ${Number(priceImpact) / 100}%`)
 
-    expect(priceImpact).toBeGreaterThan(100n) // More than 1%
-    console.log(`   ⚠️ Large trade has high price impact`)
+    expect(priceImpact).toBeGreaterThan(100n)
+    console.log('Large trade has high price impact')
   })
 })
 
-// SUMMARY
-
-describe('Swap Simulation Summary', () => {
-  test('print summary', async () => {
-    console.log('')
-    console.log('═══════════════════════════════════════════════════════')
-    console.log('           SWAP SIMULATION SUMMARY')
-    console.log('═══════════════════════════════════════════════════════')
-    console.log('')
-    console.log('Fee Tiers Verified:')
-    console.log('  ✅ 0.05% (500 bps) - Stable pairs')
-    console.log('  ✅ 0.30% (3000 bps) - Standard pairs')
-    console.log('  ✅ 1.00% (10000 bps) - Volatile pairs')
-    console.log('')
-    console.log('Calculations Verified:')
-    console.log('  ✅ Fee deduction from input')
-    console.log('  ✅ LP fee share (100% by default)')
-    console.log('  ✅ Slippage tolerance (0.5%, 1%)')
-    console.log('  ✅ Price impact estimation')
-    console.log('')
-    console.log('═══════════════════════════════════════════════════════')
-  })
-})

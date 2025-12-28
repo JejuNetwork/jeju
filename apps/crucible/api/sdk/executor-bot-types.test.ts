@@ -1,14 +1,3 @@
-/**
- * Executor Bot Type Routing Tests
- *
- * Tests for executor's bot type routing including:
- * - AI agent execution
- * - Trading bot execution
- * - Org tool execution
- * - Error handling
- * - Edge cases
- */
-
 import { describe, expect, test } from 'bun:test'
 
 describe('ExecutorSDK Bot Type Routing Logic', () => {

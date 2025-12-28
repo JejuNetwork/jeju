@@ -1,7 +1,3 @@
-/**
- * A2A (Agent-to-Agent) Protocol Routes
- */
-
 import { Elysia } from 'elysia'
 import { createAutocratA2AServer } from '../a2a-server'
 import { blockchain, config } from '../shared-state'

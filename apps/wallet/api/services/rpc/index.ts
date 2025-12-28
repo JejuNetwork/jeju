@@ -1,10 +1,3 @@
-/**
- * Network RPC Service
- * All RPC calls go through the network infrastructure
- *
- * Uses @jejunetwork/config for defaults with PUBLIC_ env overrides.
- */
-
 import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,

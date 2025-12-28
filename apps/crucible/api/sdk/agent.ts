@@ -1,7 +1,3 @@
-/**
- * Agent SDK - Manages agent lifecycle: creation, state, execution, and funding.
- */
-
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,

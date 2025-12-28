@@ -1,17 +1,3 @@
-/**
- * Media Optimizer - On-the-fly image and video processing
- *
- * Features:
- * - Image resizing, cropping, format conversion
- * - Video transcoding to multiple qualities
- * - Thumbnail generation
- * - CDN cache integration
- * - WebP/AVIF modern format support
- * - Responsive image generation
- *
- * Workerd compatible: Uses exec API for file operations and processes.
- */
-
 import { createHash } from 'node:crypto'
 import sharp from 'sharp'
 

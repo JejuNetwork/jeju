@@ -1,8 +1,3 @@
-/**
- * Storage Backends for DWS
- * Supports local storage and IPFS with extensible backend system
- */
-
 import { expectJson } from '@jejunetwork/types'
 import { keccak256 } from 'viem'
 import { z } from 'zod'

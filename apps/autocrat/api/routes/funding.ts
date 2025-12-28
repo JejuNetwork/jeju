@@ -1,7 +1,3 @@
-/**
- * Deep Funding Routes
- */
-
 import { getChainId } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'

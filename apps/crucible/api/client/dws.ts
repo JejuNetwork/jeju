@@ -1,10 +1,3 @@
-/**
- * DWS Client
- *
- * Typed client for Decentralized Web Services API.
- * Uses a typed fetch wrapper with zod schema validation for response types.
- */
-
 import { getDWSUrl, getServiceUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import { expect, expectTrue, StorageUploadResponseSchema } from '../schemas'

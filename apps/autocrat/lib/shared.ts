@@ -1,7 +1,3 @@
-/**
- * Shared constants and utilities for Council
- */
-
 import { expectValid } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { z } from 'zod'

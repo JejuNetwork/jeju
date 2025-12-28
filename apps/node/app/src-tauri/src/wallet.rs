@@ -1,8 +1,6 @@
-//! Wallet management - embedded and external wallet support
-//!
-//! Uses alloy (the Rust equivalent of viem) for wallet operations.
-
+use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, Bytes, U256};
+use alloy::providers::{Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::signers::Signer;
 use serde::{Deserialize, Serialize};
@@ -38,16 +36,16 @@ pub struct TransactionResult {
 /// Wallet manager handles both embedded and external wallets
 pub struct WalletManager {
     signer: Option<PrivateKeySigner>,
-    _chain_id: u64,
-    _rpc_url: String,
+    chain_id: u64,
+    rpc_url: String,
 }
 
 impl WalletManager {
     pub fn new(rpc_url: &str, chain_id: u64) -> Self {
         Self {
             signer: None,
-            _chain_id: chain_id,
-            _rpc_url: rpc_url.to_string(),
+            chain_id,
+            rpc_url: rpc_url.to_string(),
         }
     }
 
@@ -152,18 +150,31 @@ impl WalletManager {
     }
 
     /// Get wallet address
-    #[allow(dead_code)]
     pub fn address(&self) -> Option<String> {
         self.signer.as_ref().map(|s| format!("{:?}", s.address()))
     }
 
+    /// Get signer for contract interactions
+    pub fn get_signer(&self) -> Option<&PrivateKeySigner> {
+        self.signer.as_ref()
+    }
+
     /// Get balances
-    #[allow(dead_code)]
     pub async fn get_balance(&self) -> Result<BalanceInfo, String> {
-        // TODO: Use alloy provider to fetch balance
-        // For now return placeholder
+        let signer = self.signer.as_ref().ok_or("Wallet not initialized")?;
+        let address = signer.address();
+
+        let provider = ProviderBuilder::new()
+            .on_http(self.rpc_url.parse().map_err(|e| format!("Invalid RPC URL: {}", e))?)
+            .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+        let eth_balance = provider
+            .get_balance(address)
+            .await
+            .map_err(|e| format!("Failed to fetch balance: {}", e))?;
+
         Ok(BalanceInfo {
-            eth: "0".to_string(),
+            eth: eth_balance.to_string(),
             jeju: "0".to_string(),
             staked: "0".to_string(),
             pending_rewards: "0".to_string(),
@@ -171,7 +182,6 @@ impl WalletManager {
     }
 
     /// Sign a message
-    #[allow(dead_code)]
     pub async fn sign_message(&self, message: &str) -> Result<String, String> {
         let signer = self.signer.as_ref().ok_or("Wallet not initialized")?;
 
@@ -184,19 +194,21 @@ impl WalletManager {
     }
 
     /// Send a transaction
-    #[allow(dead_code)]
     pub async fn send_transaction(
         &self,
         to: &str,
         value: &str,
         data: Option<&str>,
     ) -> Result<TransactionResult, String> {
-        let _signer = self.signer.as_ref().ok_or("Wallet not initialized")?;
+        use alloy::rpc::types::TransactionRequest;
 
-        let _to_address = Address::from_str(to).map_err(|e| format!("Invalid address: {}", e))?;
-        let _value_wei = U256::from_str(value).map_err(|e| format!("Invalid value: {}", e))?;
+        let signer = self.signer.as_ref().ok_or("Wallet not initialized")?;
+        let wallet = EthereumWallet::from(signer.clone());
 
-        let _tx_data: Option<Bytes> = if let Some(d) = data {
+        let to_address = Address::from_str(to).map_err(|e| format!("Invalid address: {}", e))?;
+        let value_wei = U256::from_str(value).map_err(|e| format!("Invalid value: {}", e))?;
+
+        let tx_data: Option<Bytes> = if let Some(d) = data {
             let bytes = hex::decode(d.trim_start_matches("0x"))
                 .map_err(|e| format!("Invalid data: {}", e))?;
             Some(Bytes::from(bytes))
@@ -204,11 +216,29 @@ impl WalletManager {
             None
         };
 
-        // TODO: Implement actual transaction sending with alloy provider
-        // This requires setting up the provider and building a proper transaction
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(self.rpc_url.parse().map_err(|e| format!("Invalid RPC URL: {}", e))?)
+            .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+        let mut tx = TransactionRequest::default()
+            .with_to(to_address)
+            .with_value(value_wei);
+
+        if let Some(input) = tx_data {
+            tx = tx.with_input(input);
+        }
+
+        let pending = provider
+            .send_transaction(tx)
+            .await
+            .map_err(|e| format!("Failed to send transaction: {}", e))?;
+
+        let tx_hash = pending.tx_hash();
 
         Ok(TransactionResult {
-            hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            hash: format!("{:?}", tx_hash),
             status: "pending".to_string(),
             block_number: None,
             gas_used: None,

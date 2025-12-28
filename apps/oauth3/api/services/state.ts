@@ -1,18 +1,76 @@
-/**
- * OAuth3 State Service - Database-backed storage for sessions, clients, and auth codes
- * Set USE_MEMORY_STATE=true to use in-memory storage for development/testing
- */
-
 import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import type { EQLiteClient } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import type {
   AuthProvider,
   AuthSession,
+  ClientStakeInfo,
+  ClientTier,
   RegisteredClient,
 } from '../../lib/types'
 
 const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
+
+interface SerializedStakeInfo {
+  amount: string
+  tier: number
+  verifiedAt: number
+  stakeTxHash?: string
+}
+
+function serializeStake(stake: ClientStakeInfo): string {
+  const serialized: SerializedStakeInfo = {
+    amount: stake.amount.toString(),
+    tier: stake.tier,
+    verifiedAt: stake.verifiedAt,
+    stakeTxHash: stake.stakeTxHash,
+  }
+  return JSON.stringify(serialized)
+}
+
+function deserializeStake(json: string): ClientStakeInfo {
+  const parsed = JSON.parse(json) as SerializedStakeInfo
+  return {
+    amount: BigInt(parsed.amount),
+    tier: parsed.tier as ClientTier,
+    verifiedAt: parsed.verifiedAt,
+    stakeTxHash: parsed.stakeTxHash as Hex | undefined,
+  }
+}
+
+interface SerializedClient extends Omit<RegisteredClient, 'stake'> {
+  stake?: SerializedStakeInfo
+}
+
+function serializeClient(client: RegisteredClient): string {
+  const serialized: SerializedClient = {
+    ...client,
+    stake: client.stake
+      ? {
+          amount: client.stake.amount.toString(),
+          tier: client.stake.tier,
+          verifiedAt: client.stake.verifiedAt,
+          stakeTxHash: client.stake.stakeTxHash,
+        }
+      : undefined,
+  }
+  return JSON.stringify(serialized)
+}
+
+function deserializeClient(json: string): RegisteredClient {
+  const parsed = JSON.parse(json) as SerializedClient
+  return {
+    ...parsed,
+    stake: parsed.stake
+      ? {
+          amount: BigInt(parsed.stake.amount),
+          tier: parsed.stake.tier as ClientTier,
+          verifiedAt: parsed.stake.verifiedAt,
+          stakeTxHash: parsed.stake.stakeTxHash as Hex | undefined,
+        }
+      : undefined,
+  }
+}
 
 // Simple in-memory cache for performance (not for persistence)
 interface SimpleCacheClient {
@@ -65,7 +123,7 @@ async function getEQLiteClient(): Promise<EQLiteClient> {
     await ensureTablesExist()
   }
 
-  if(!eqliteClient) {
+  if (!eqliteClient) {
     throw new Error('EQLite client not available')
   }
 
@@ -105,12 +163,14 @@ async function ensureTablesExist(): Promise<void> {
     `CREATE TABLE IF NOT EXISTS clients (
       client_id TEXT PRIMARY KEY,
       client_secret TEXT,
+      client_secret_hash TEXT,
       name TEXT NOT NULL,
       redirect_uris TEXT NOT NULL,
       allowed_providers TEXT NOT NULL,
       owner TEXT NOT NULL,
       created_at INTEGER NOT NULL,
       active INTEGER NOT NULL DEFAULT 1,
+      require_secret INTEGER NOT NULL DEFAULT 0,
       stake TEXT,
       reputation TEXT,
       moderation TEXT
@@ -278,38 +338,44 @@ export const clientState = {
   async save(client: RegisteredClient): Promise<void> {
     const db = await getEQLiteClient()
     const cache = getCache()
-    
+
     await db.exec(
-      `INSERT INTO clients (client_id, client_secret, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO clients (client_id, client_secret, client_secret_hash, name, redirect_uris, allowed_providers, owner, created_at, active, require_secret, stake, reputation, moderation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(client_id) DO UPDATE SET
+        client_secret = excluded.client_secret, client_secret_hash = excluded.client_secret_hash,
         name = excluded.name, redirect_uris = excluded.redirect_uris,
         allowed_providers = excluded.allowed_providers, active = excluded.active,
-        stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation`,
+        require_secret = excluded.require_secret, stake = excluded.stake,
+        reputation = excluded.reputation, moderation = excluded.moderation`,
       [
         client.clientId,
         client.clientSecret ?? null,
+        client.clientSecretHash
+          ? JSON.stringify(client.clientSecretHash)
+          : null,
         client.name,
         JSON.stringify(client.redirectUris),
         JSON.stringify(client.allowedProviders),
         client.owner,
         client.createdAt,
         client.active ? 1 : 0,
-        client.stake ? JSON.stringify(client.stake) : null,
+        client.requireSecret ? 1 : 0,
+        client.stake ? serializeStake(client.stake) : null,
         client.reputation ? JSON.stringify(client.reputation) : null,
         client.moderation ? JSON.stringify(client.moderation) : null,
       ],
       EQLITE_DATABASE_ID,
     )
 
-    await cache.set(`client:${client.clientId}`, JSON.stringify(client), 3600)
+    await cache.set(`client:${client.clientId}`, serializeClient(client), 3600)
   },
 
   async get(clientId: string): Promise<RegisteredClient | null> {
     const cache = getCache()
     const cached = await cache.get(`client:${clientId}`)
     if (cached) {
-      return JSON.parse(cached) as RegisteredClient
+      return deserializeClient(cached)
     }
 
     const db = await getEQLiteClient()
@@ -323,7 +389,7 @@ export const clientState = {
     if (!result.rows[0]) return null
 
     const client = rowToClient(result.rows[0])
-    await cache.set(`client:${clientId}`, JSON.stringify(client), 3600)
+    await cache.set(`client:${clientId}`, serializeClient(client), 3600)
 
     return client
   },
@@ -332,11 +398,11 @@ export const clientState = {
     const db = await getEQLiteClient()
     const cache = getCache()
 
-      await db.exec(
-        'DELETE FROM clients WHERE client_id = ?',
-        [clientId],
-        EQLITE_DATABASE_ID,
-      )
+    await db.exec(
+      'DELETE FROM clients WHERE client_id = ?',
+      [clientId],
+      EQLITE_DATABASE_ID,
+    )
 
     await cache.delete(`client:${clientId}`)
   },
@@ -505,21 +571,21 @@ export const oauthStateStore = {
   ): Promise<void> {
     const client = await getEQLiteClient()
 
-      await client.exec(
-        `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
+    await client.exec(
+      `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          state,
-          data.nonce,
-          data.provider,
-          data.clientId,
-          data.redirectUri,
-          data.codeVerifier ?? null,
-          Date.now(),
-          data.expiresAt,
-        ],
-        EQLITE_DATABASE_ID,
-      )
+      [
+        state,
+        data.nonce,
+        data.provider,
+        data.clientId,
+        data.redirectUri,
+        data.codeVerifier ?? null,
+        Date.now(),
+        data.expiresAt,
+      ],
+      EQLITE_DATABASE_ID,
+    )
   },
 
   async get(state: string): Promise<{
@@ -551,11 +617,11 @@ export const oauthStateStore = {
 
   async delete(state: string): Promise<void> {
     const client = await getEQLiteClient()
-      await client.exec(
-        'DELETE FROM oauth_states WHERE state = ?',
-        [state],
-        EQLITE_DATABASE_ID,
-      )
+    await client.exec(
+      'DELETE FROM oauth_states WHERE state = ?',
+      [state],
+      EQLITE_DATABASE_ID,
+    )
   },
 }
 
@@ -636,12 +702,14 @@ interface SessionRow {
 interface ClientRow {
   client_id: string
   client_secret: string | null
+  client_secret_hash: string | null
   name: string
   redirect_uris: string
   allowed_providers: string
   owner: string
   created_at: number
   active: number
+  require_secret: number
   stake: string | null
   reputation: string | null
   moderation: string | null
@@ -698,15 +766,19 @@ function rowToClient(row: ClientRow): RegisteredClient {
   return {
     clientId: row.client_id,
     clientSecret: row.client_secret as Hex | undefined,
+    clientSecretHash: row.client_secret_hash
+      ? (JSON.parse(
+          row.client_secret_hash,
+        ) as RegisteredClient['clientSecretHash'])
+      : undefined,
     name: row.name,
     redirectUris: JSON.parse(row.redirect_uris) as string[],
     allowedProviders: JSON.parse(row.allowed_providers) as AuthProvider[],
     owner: row.owner as Address,
     createdAt: row.created_at,
     active: row.active === 1,
-    stake: row.stake
-      ? (JSON.parse(row.stake) as RegisteredClient['stake'])
-      : undefined,
+    requireSecret: row.require_secret === 1,
+    stake: row.stake ? deserializeStake(row.stake) : undefined,
     reputation: row.reputation
       ? (JSON.parse(row.reputation) as RegisteredClient['reputation'])
       : undefined,
@@ -733,24 +805,24 @@ export const clientReportState = {
   async save(report: ClientReport): Promise<void> {
     const db = await getEQLiteClient()
 
-      await db.exec(
-        `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
+    await db.exec(
+      `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(report_id) DO UPDATE SET
          status = excluded.status, resolved_at = excluded.resolved_at, resolution = excluded.resolution`,
-        [
-          report.reportId,
-          report.clientId,
-          report.reporterAddress,
-          report.category,
-          report.evidence,
-          report.status,
-          report.createdAt,
-          report.resolvedAt ?? null,
-          report.resolution ?? null,
-        ],
-        EQLITE_DATABASE_ID,
-      )
+      [
+        report.reportId,
+        report.clientId,
+        report.reporterAddress,
+        report.category,
+        report.evidence,
+        report.status,
+        report.createdAt,
+        report.resolvedAt ?? null,
+        report.resolution ?? null,
+      ],
+      EQLITE_DATABASE_ID,
+    )
   },
 
   async get(reportId: string): Promise<ClientReport | null> {
@@ -838,10 +910,6 @@ export const clientReportState = {
   },
 }
 
-/**
- * Verify client secret using constant-time comparison to prevent timing attacks.
- * Returns true if the client exists, is active, and the secret matches.
- */
 export async function verifyClientSecret(
   clientId: string,
   clientSecret: string | undefined,
@@ -856,8 +924,12 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_disabled' }
   }
 
-  // Public clients (no secret) - allow for PKCE flows
-  if (!client.clientSecret) {
+  // Public clients (no secret required) - allow for PKCE flows
+  if (
+    !client.clientSecret &&
+    !client.clientSecretHash &&
+    !client.requireSecret
+  ) {
     return { valid: true }
   }
 
@@ -866,22 +938,38 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_secret_required' }
   }
 
-  // Constant-time comparison to prevent timing attacks
-  const storedSecret = client.clientSecret
-  if (storedSecret.length !== clientSecret.length) {
-    return { valid: false, error: 'invalid_client_secret' }
+  // If we have a hashed secret, use the KMS verifier
+  if (client.clientSecretHash) {
+    const { verifyClientSecretHash } = await import('./kms')
+    const hashValid = await verifyClientSecretHash(
+      clientSecret,
+      client.clientSecretHash,
+    )
+    return hashValid
+      ? { valid: true }
+      : { valid: false, error: 'invalid_client_secret' }
   }
 
-  let result = 0
-  for (let i = 0; i < storedSecret.length; i++) {
-    result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
+  // Legacy plaintext comparison (constant-time)
+  if (client.clientSecret) {
+    const storedSecret = client.clientSecret
+    if (storedSecret.length !== clientSecret.length) {
+      return { valid: false, error: 'invalid_client_secret' }
+    }
+
+    let result = 0
+    for (let i = 0; i < storedSecret.length; i++) {
+      result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
+    }
+
+    if (result !== 0) {
+      return { valid: false, error: 'invalid_client_secret' }
+    }
+
+    return { valid: true }
   }
 
-  if (result !== 0) {
-    return { valid: false, error: 'invalid_client_secret' }
-  }
-
-  return { valid: true }
+  return { valid: false, error: 'client_secret_required' }
 }
 
 export { getEQLiteClient, getCache }

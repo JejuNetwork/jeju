@@ -1,9 +1,3 @@
-/**
- * Browser-compatible implementations for Bazaar
- *
- * Uses @jejunetwork/config for all configuration.
- */
-
 import {
   getContractsConfig,
   getCurrentNetwork,
@@ -39,7 +33,6 @@ export interface BanStatus {
   error: string | null
 }
 
-// Contract Configuration from @jejunetwork/config
 const network = getCurrentNetwork()
 const contracts = getContractsConfig(network)
 const isMainnet = network === 'mainnet'
@@ -66,11 +59,6 @@ const GET_BAN_FRAGMENT = parseAbiItem(
   'function getAddressBan(address) view returns (bool isBanned, uint8 banType, string reason, bytes32 caseId)',
 )
 
-// Ban Status Hook
-
-/**
- * Hook to check user's ban status from on-chain contracts
- */
 export function useBanStatus(address: Address | undefined): BanStatus {
   const [status, setStatus] = useState<BanStatus>({
     isBanned: false,
@@ -91,8 +79,7 @@ export function useBanStatus(address: Address | undefined): BanStatus {
 
     const config = getNetworkConfig()
 
-    // If no ban manager configured, user is not banned
-    if (!config.banManager) {
+if (!config.banManager) {
       setStatus({
         isBanned: false,
         isOnNotice: false,
@@ -134,8 +121,7 @@ export function useBanStatus(address: Address | undefined): BanStatus {
         args: [address],
       })
 
-      // Result is tuple: [isBanned, banType, reason, caseId]
-      const result = asTuple<readonly [boolean, number, string, Hex]>(ban, 4)
+const result = asTuple<readonly [boolean, number, string, Hex]>(ban, 4)
       const banTypeNum = result[1]
       const reason = result[2]
       const caseId = result[3]
@@ -158,8 +144,7 @@ export function useBanStatus(address: Address | undefined): BanStatus {
       return
     }
 
-    // User is not banned
-    setStatus({
+setStatus({
       isBanned: false,
       isOnNotice: false,
       banType: BanType.NONE,
@@ -174,17 +159,13 @@ export function useBanStatus(address: Address | undefined): BanStatus {
   useEffect(() => {
     checkBanStatus()
 
-    // Re-check every 30 seconds
-    const interval = setInterval(checkBanStatus, 30000)
+const interval = setInterval(checkBanStatus, 30000)
     return () => clearInterval(interval)
   }, [checkBanStatus])
 
   return status
 }
 
-/**
- * Get human-readable ban type label
- */
 export function getBanTypeLabel(banType: BanType): string {
   switch (banType) {
     case BanType.NONE:
@@ -199,8 +180,6 @@ export function getBanTypeLabel(banType: BanType): string {
       return 'Unknown'
   }
 }
-
-// OAuth3 Types
 
 export interface OAuth3Config {
   appId: string
@@ -225,8 +204,6 @@ export interface OAuth3ContextValue {
   login: () => Promise<void>
   logout: () => Promise<void>
 }
-
-// IPFS Client
 
 export interface IPFSClient {
   upload: (file: File, options?: { durationMonths?: number }) => Promise<string>

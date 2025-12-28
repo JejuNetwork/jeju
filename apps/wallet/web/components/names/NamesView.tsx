@@ -1,7 +1,3 @@
-/**
- * Names View - JNS Name Service
- */
-
 import {
   AtSign,
   CheckCircle,
@@ -280,11 +276,6 @@ export function NamesView({ address }: NamesViewProps) {
                     >
                       Register {searchResult.name}.jeju
                     </button>
-
-                    <p className="text-xs text-muted-foreground mt-4 text-center">
-                      Or use chat: "Register {searchResult.name}.jeju for{' '}
-                      {years} year{years > 1 ? 's' : ''}"
-                    </p>
                   </>
                 )}
               </div>

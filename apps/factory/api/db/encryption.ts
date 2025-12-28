@@ -1,10 +1,3 @@
-/**
- * Database Encryption at Rest
- *
- * Production-grade encryption for SQLite database files.
- * Uses AES-256-GCM for authenticated encryption.
- */
-
 import {
   createCipheriv,
   createDecipheriv,

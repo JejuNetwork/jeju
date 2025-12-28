@@ -1,5 +1,3 @@
-/** MCP Routes */
-
 import type { JsonRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {

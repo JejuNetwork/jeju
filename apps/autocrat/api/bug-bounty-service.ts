@@ -1,13 +1,3 @@
-/**
- * Bug Bounty Service - Decentralized Security Vulnerability Management
- *
- * Fully integrated with:
- * - EQLite for persistent state
- * - SecurityBountyRegistry smart contract for on-chain operations
- * - DWS compute for sandbox validation
- * - dstack TEE for secure execution (simulator in local dev)
- */
-
 import {
   getCurrentNetwork,
   getDWSComputeUrl,

@@ -1,6 +1,6 @@
 import { formatUsd } from '@jejunetwork/shared'
 import clsx from 'clsx'
-import { ArrowUpRight, Bot, Download, Server, TrendingUp } from 'lucide-react'
+import { Bot, Download, Server, TrendingUp } from 'lucide-react'
 import { useState } from 'react'
 import { useAppStore } from '../context/AppContext'
 import { formatEther } from '../utils'
@@ -43,13 +43,7 @@ export function Earnings() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-volcanic-400">Today</p>
-            <div className="flex items-center text-jeju-400 text-sm">
-              <ArrowUpRight size={14} />
-              +12%
-            </div>
-          </div>
+          <p className="text-sm text-volcanic-400">Today</p>
           <p className="text-2xl font-bold mt-2">
             {isLoading ? (
               <span className="inline-block w-20 h-7 bg-volcanic-700 rounded animate-pulse" />
@@ -67,13 +61,7 @@ export function Earnings() {
         </div>
 
         <div className="card">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-volcanic-400">This Week</p>
-            <div className="flex items-center text-jeju-400 text-sm">
-              <ArrowUpRight size={14} />
-              +8%
-            </div>
-          </div>
+          <p className="text-sm text-volcanic-400">This Week</p>
           <p className="text-2xl font-bold mt-2">
             {isLoading ? (
               <span className="inline-block w-20 h-7 bg-volcanic-700 rounded animate-pulse" />

@@ -37,7 +37,6 @@ export default function NetworkStatsCard() {
 
   return (
     <div>
-      {/* Network Stats */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>
           Network Overview
@@ -145,7 +144,6 @@ export default function NetworkStatsCard() {
         </div>
       </div>
 
-      {/* Your Stats */}
       {operatorStats && Number(operatorStats.totalNodesActive) > 0 && (
         <div className="card">
           <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
@@ -198,7 +196,6 @@ export default function NetworkStatsCard() {
             </div>
           </div>
 
-          {/* Ownership Meter */}
           <div>
             <div
               style={{

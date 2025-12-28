@@ -1,27 +1,3 @@
-/**
- * Network Council - AI DAO Governance
- *
- * DECENTRALIZED ARCHITECTURE:
- * 1. EQLite (EQLite) required for state persistence
- *    - Set EQLITE_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d
- *
- * 2. DWS Compute required for AI inference
- *    - Automatically configured per network (JEJU_NETWORK=localnet|testnet|mainnet)
- *
- * 3. Contract deployment is OPTIONAL:
- *    - ERC8004 registries (identity, reputation, validation) return empty when not deployed
- *    - Futarchy (council, predictionMarket) returns empty arrays when not deployed
- *    - Set addresses to 0x0 to explicitly disable
- *
- * 4. Security:
- *    - OPERATOR_KEY or PRIVATE_KEY required for blockchain transactions
- *    - TEE mode determined by environment (disabled/simulation/hardware)
- *
- * 5. Service ports:
- *    - Council API: PORT (default: 8010)
- *    - CEO Server: AUTOCRAT_AGENT_PORT (default: 8004, separate process)
- */
-
 import { cors } from '@elysiajs/cors'
 import {
   CORE_PORTS,

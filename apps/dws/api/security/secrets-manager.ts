@@ -1,15 +1,3 @@
-/**
- * MPC-Backed Secrets Manager
- *
- * Secure secrets management using Multi-Party Computation:
- * - Secret sharing across multiple nodes
- * - Threshold reconstruction
- * - Encryption at rest
- * - Audit logging
- * - Secret rotation
- * - Environment variable injection
- */
-
 import {
   createCipheriv,
   createDecipheriv,
@@ -18,10 +6,6 @@ import {
 } from 'node:crypto'
 import type { Address } from 'viem'
 import { z } from 'zod'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type SecretScope = 'user' | 'project' | 'environment' | 'global'
 

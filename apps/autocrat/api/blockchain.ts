@@ -1,7 +1,3 @@
-/**
- * Blockchain client for Autocrat
- */
-
 import {
   type Address,
   createPublicClient,

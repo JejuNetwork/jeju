@@ -1,16 +1,3 @@
-/**
- * Service Mesh with mTLS
- *
- * Implements service-to-service communication:
- * - Mutual TLS (mTLS) for all internal traffic
- * - Service discovery
- * - Load balancing (round-robin, least-connections)
- * - Circuit breaker pattern
- * - Retry policies
- * - Rate limiting
- * - Traffic policies
- */
-
 import {
   createHash,
   createSign,
@@ -19,10 +6,6 @@ import {
   randomBytes,
 } from 'node:crypto'
 import type { Address } from 'viem'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type ServiceStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
 

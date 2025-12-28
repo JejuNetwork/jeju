@@ -11,6 +11,7 @@
     },
     "explorer": "http://127.0.0.1:4000",
     "indexer": {
+      "api": "http://127.0.0.1:4350",
       "graphql": "http://127.0.0.1:4350/graphql",
       "websocket": "ws://127.0.0.1:4350/graphql",
       "rest": "http://127.0.0.1:4352",
@@ -41,6 +42,7 @@
       "ui": "http://127.0.0.1:4005"
     },
     "monitoring": {
+      "api": "http://127.0.0.1:4060",
       "prometheus": "http://127.0.0.1:9090",
       "grafana": "http://127.0.0.1:3000"
     },
@@ -133,6 +135,7 @@
     },
     "explorer": "https://explorer.testnet.jejunetwork.org",
     "indexer": {
+      "api": "https://indexer.testnet.jejunetwork.org",
       "graphql": "https://indexer.testnet.jejunetwork.org/graphql",
       "websocket": "wss://indexer.testnet.jejunetwork.org/graphql",
       "rest": "https://indexer.testnet.jejunetwork.org/rest",
@@ -163,6 +166,7 @@
       "ui": "https://leaderboard.testnet.jejunetwork.org"
     },
     "monitoring": {
+      "api": "https://monitoring.testnet.jejunetwork.org",
       "prometheus": "https://prometheus.testnet.jejunetwork.org",
       "grafana": "https://grafana.testnet.jejunetwork.org"
     },
@@ -257,6 +261,7 @@
     },
     "explorer": "https://explorer.jejunetwork.org",
     "indexer": {
+      "api": "https://indexer.jejunetwork.org",
       "graphql": "https://indexer.jejunetwork.org/graphql",
       "websocket": "wss://indexer.jejunetwork.org/graphql",
       "rest": "https://indexer.jejunetwork.org/rest",
@@ -287,6 +292,7 @@
       "ui": "https://leaderboard.jejunetwork.org"
     },
     "monitoring": {
+      "api": "https://monitoring.jejunetwork.org",
       "prometheus": "https://prometheus.jejunetwork.org",
       "grafana": "https://grafana.jejunetwork.org"
     },

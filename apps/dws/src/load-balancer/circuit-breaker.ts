@@ -1,8 +1,3 @@
-/**
- * Circuit Breaker using cockatiel
- * https://github.com/connor4312/cockatiel
- */
-
 import {
   BrokenCircuitError,
   type CircuitBreakerPolicy,

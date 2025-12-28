@@ -1,9 +1,3 @@
-/**
- * Cast Card Component
- *
- * Displays a single Farcaster cast with author info, reactions, and actions.
- */
-
 import { clsx } from 'clsx'
 import {
   Copy,

@@ -112,8 +112,12 @@ export const BenchmarkResultSchema = z.object({
 export type CPUBenchmarkResult = z.infer<typeof CPUBenchmarkResultSchema>
 export type MemoryBenchmarkResult = z.infer<typeof MemoryBenchmarkResultSchema>
 export type GPUBenchmarkResult = z.infer<typeof GPUBenchmarkResultSchema>
-export type NetworkBenchmarkResult = z.infer<typeof NetworkBenchmarkResultSchema>
-export type StorageBenchmarkResult = z.infer<typeof StorageBenchmarkResultSchema>
+export type NetworkBenchmarkResult = z.infer<
+  typeof NetworkBenchmarkResultSchema
+>
+export type StorageBenchmarkResult = z.infer<
+  typeof StorageBenchmarkResultSchema
+>
 export type TEEBenchmarkResult = z.infer<typeof TEEBenchmarkResultSchema>
 export type BenchmarkResult = z.infer<typeof BenchmarkResultSchema>
 
@@ -216,7 +220,7 @@ async function benchmarkCPU(durationMs: number): Promise<CPUBenchmarkResult> {
 
   // Calculate scores normalized to duration
   const normalizedSingleCore = Math.round(
-    (singleCoreOps / actualDuration) * 1000 * 100
+    (singleCoreOps / actualDuration) * 1000 * 100,
   )
   const normalizedMultiCore = normalizedSingleCore * cpuInfo.coreCount // Estimate
 
@@ -231,7 +235,7 @@ async function benchmarkCPU(durationMs: number): Promise<CPUBenchmarkResult> {
     model: cpuInfo.model,
     cryptoHashRate: Math.round((cryptoOps / actualDuration) * 1000),
     compressionRate: Math.round(
-      ((compressionOps * 16) / 1024 / actualDuration) * 1000
+      ((compressionOps * 16) / 1024 / actualDuration) * 1000,
     ), // MB/sec
     floatOpsPerSec:
       Math.round((singleCoreOps * cpuInfo.coreCount) / actualDuration) / 1000, // GFLOPS estimate
@@ -252,8 +256,8 @@ function detectCPUInfo(): {
       ? navigator.hardwareConcurrency || 4
       : // In Bun/Node we can use os module
         (globalThis as Record<string, unknown>).Bun
-          ? 8
-          : 4
+        ? 8
+        : 4
 
   const arch = process.arch || 'x64'
   const platform = process.platform || 'linux'
@@ -270,7 +274,9 @@ function detectCPUInfo(): {
 
 // Memory Benchmark Implementation
 
-async function benchmarkMemory(testSizeMb: number): Promise<MemoryBenchmarkResult> {
+async function benchmarkMemory(
+  testSizeMb: number,
+): Promise<MemoryBenchmarkResult> {
   const testSizeBytes = testSizeMb * 1024 * 1024
 
   // Allocate test buffer
@@ -287,9 +293,9 @@ async function benchmarkMemory(testSizeMb: number): Promise<MemoryBenchmarkResul
 
   // Read test
   const readStart = performance.now()
-  let checksum = 0
+  let _checksum = 0
   for (let i = 0; i < view.length; i++) {
-    checksum += view[i]
+    _checksum += view[i]
   }
   const readDuration = performance.now() - readStart
   const readBandwidth = testSizeMb / (readDuration / 1000)
@@ -299,7 +305,7 @@ async function benchmarkMemory(testSizeMb: number): Promise<MemoryBenchmarkResul
   const latencyStart = performance.now()
   for (let i = 0; i < latencyIterations; i++) {
     const idx = Math.floor(Math.random() * view.length)
-    checksum += view[idx]
+    _checksum += view[idx]
   }
   const latencyDuration = performance.now() - latencyStart
   const latencyNs = (latencyDuration / latencyIterations) * 1_000_000
@@ -323,9 +329,7 @@ function getMemoryInfo(): { total: number; available: number } {
     const usage = process.memoryUsage()
     return {
       total: Math.round(usage.heapTotal / (1024 * 1024)),
-      available: Math.round(
-        (usage.heapTotal - usage.heapUsed) / (1024 * 1024)
-      ),
+      available: Math.round((usage.heapTotal - usage.heapUsed) / (1024 * 1024)),
     }
   }
   return { total: 8192, available: 4096 } // Default
@@ -334,7 +338,7 @@ function getMemoryInfo(): { total: number; available: number } {
 // Network Benchmark Implementation
 
 async function benchmarkNetwork(
-  testServers: string[]
+  testServers: string[],
 ): Promise<NetworkBenchmarkResult> {
   const latencies: number[] = []
   let downloadSpeed = 0
@@ -365,10 +369,8 @@ async function benchmarkNetwork(
   const jitter =
     latencies.length > 1
       ? Math.sqrt(
-          latencies.reduce(
-            (acc, l) => acc + Math.pow(l - avgLatency, 2),
-            0
-          ) / latencies.length
+          latencies.reduce((acc, l) => acc + (l - avgLatency) ** 2, 0) /
+            latencies.length,
         )
       : 0
 
@@ -402,7 +404,9 @@ async function benchmarkNetwork(
 
 // Storage Benchmark Implementation
 
-async function benchmarkStorage(testSizeMb: number): Promise<StorageBenchmarkResult> {
+async function benchmarkStorage(
+  testSizeMb: number,
+): Promise<StorageBenchmarkResult> {
   // In a real implementation, this would write to disk
   // For now, we simulate with memory operations
 
@@ -423,10 +427,10 @@ async function benchmarkStorage(testSizeMb: number): Promise<StorageBenchmarkRes
 
   // Simulate sequential read
   const seqReadStart = performance.now()
-  let checksum = 0
+  let _checksum = 0
   for (let i = 0; i < seqView.length; i += blockSize) {
     for (let j = 0; j < blockSize && i + j < seqView.length; j++) {
-      checksum += seqView[i + j]
+      _checksum += seqView[i + j]
     }
   }
   const seqReadDuration = (performance.now() - seqReadStart) / 1000
@@ -437,7 +441,7 @@ async function benchmarkStorage(testSizeMb: number): Promise<StorageBenchmarkRes
   const randomReadStart = performance.now()
   for (let i = 0; i < randomOps; i++) {
     const offset = Math.floor(Math.random() * seqView.length)
-    checksum += seqView[offset]
+    _checksum += seqView[offset]
   }
   const randomReadDuration = (performance.now() - randomReadStart) / 1000
   const randomReadIops = randomOps / randomReadDuration
@@ -458,7 +462,7 @@ async function benchmarkStorage(testSizeMb: number): Promise<StorageBenchmarkRes
     sequentialWriteMbps: Math.round(seqWriteSpeed),
     randomReadIops: Math.round(randomReadIops),
     randomWriteIops: Math.round(randomWriteIops),
-    latencyUs: Math.round(1000 / randomReadIops * 1000), // Derived from IOPS
+    latencyUs: Math.round((1000 / randomReadIops) * 1000), // Derived from IOPS
   }
 }
 
@@ -540,10 +544,10 @@ async function detectTEEPlatform(): Promise<
   // Check for SGX
   try {
     const { execSync } = await import('node:child_process')
-    const sgxCheck = execSync(
-      'grep -q sgx /proc/cpuinfo && echo "sgx"',
-      { encoding: 'utf8', timeout: 1000 }
-    ).trim()
+    const sgxCheck = execSync('grep -q sgx /proc/cpuinfo && echo "sgx"', {
+      encoding: 'utf8',
+      timeout: 1000,
+    }).trim()
     if (sgxCheck === 'sgx') return 'intel_sgx'
   } catch {
     // SGX not available
@@ -552,10 +556,10 @@ async function detectTEEPlatform(): Promise<
   // Check for AMD SEV
   try {
     const { execSync } = await import('node:child_process')
-    const sevCheck = execSync(
-      'dmesg | grep -q "SEV supported" && echo "sev"',
-      { encoding: 'utf8', timeout: 1000 }
-    ).trim()
+    const sevCheck = execSync('dmesg | grep -q "SEV supported" && echo "sev"', {
+      encoding: 'utf8',
+      timeout: 1000,
+    }).trim()
     if (sevCheck === 'sev') return 'amd_sev'
   } catch {
     // SEV not available
@@ -565,7 +569,7 @@ async function detectTEEPlatform(): Promise<
 }
 
 async function generateAttestation(
-  _platform: string
+  _platform: string,
 ): Promise<{ valid: boolean; quote?: string; measurement?: string }> {
   // In production, this would generate actual attestation quotes
   return { valid: false }
@@ -573,33 +577,35 @@ async function generateAttestation(
 
 // Calculate Overall Score
 
-function calculateOverallScore(result: Omit<BenchmarkResult, 'overallScore' | 'attestationHash'>): number {
+function calculateOverallScore(
+  result: Omit<BenchmarkResult, 'overallScore' | 'attestationHash'>,
+): number {
   // Weights for different components
   const weights = {
     cpu: 0.25,
     memory: 0.15,
-    gpu: 0.20,
+    gpu: 0.2,
     network: 0.15,
     storage: 0.15,
-    tee: 0.10,
+    tee: 0.1,
   }
 
   // Normalize each component to 0-10000 scale
   const cpuScore = Math.min(10000, result.cpu.multiCoreScore / 100)
   const memoryScore = Math.min(
     10000,
-    (result.memory.readBandwidthMbps / 10000) * 10000
+    (result.memory.readBandwidthMbps / 10000) * 10000,
   )
   const gpuScore = result.gpu?.supported
     ? Math.min(10000, result.gpu.mlInferenceScore)
     : 0
   const networkScore = Math.min(
     10000,
-    (result.network.downloadMbps / 1000) * 10000
+    (result.network.downloadMbps / 1000) * 10000,
   )
   const storageScore = Math.min(
     10000,
-    (result.storage.randomReadIops / 100000) * 10000
+    (result.storage.randomReadIops / 100000) * 10000,
   )
   const teeScore = result.tee.supported
     ? result.tee.attestationValid
@@ -643,7 +649,7 @@ export class ComputeBenchmarkService {
    */
   async runFullBenchmark(
     nodeId: string,
-    nodeAddress: Address
+    nodeAddress: Address,
   ): Promise<BenchmarkResult> {
     console.log(`[Benchmark] Starting full benchmark for node ${nodeId}`)
 
@@ -698,7 +704,7 @@ export class ComputeBenchmarkService {
     }
 
     console.log(
-      `[Benchmark] Completed for node ${nodeId}: score=${overallScore}, duration=${Date.now() - startTime}ms`
+      `[Benchmark] Completed for node ${nodeId}: score=${overallScore}, duration=${Date.now() - startTime}ms`,
     )
 
     // Update provider profile
@@ -712,7 +718,7 @@ export class ComputeBenchmarkService {
    */
   async runQuickBenchmark(
     nodeId: string,
-    nodeAddress: Address
+    nodeAddress: Address,
   ): Promise<Partial<BenchmarkResult>> {
     console.log(`[Benchmark] Running quick benchmark for node ${nodeId}`)
 
@@ -724,7 +730,7 @@ export class ComputeBenchmarkService {
 
     // Quick network test
     const network = await benchmarkNetwork(
-      this.config.networkTestServers.slice(0, 1)
+      this.config.networkTestServers.slice(0, 1),
     )
 
     return {
@@ -743,7 +749,7 @@ export class ComputeBenchmarkService {
    */
   verifySpecs(
     result: BenchmarkResult,
-    claimedSpecs: ProviderProfile['claimedSpecs']
+    claimedSpecs: ProviderProfile['claimedSpecs'],
   ): { valid: boolean; deviation: number; issues: string[] } {
     const issues: string[] = []
     let totalDeviation = 0
@@ -751,11 +757,11 @@ export class ComputeBenchmarkService {
 
     // Check CPU cores
     const cpuDeviation = Math.abs(
-      (result.cpu.coreCount - claimedSpecs.cpuCores) / claimedSpecs.cpuCores
+      (result.cpu.coreCount - claimedSpecs.cpuCores) / claimedSpecs.cpuCores,
     )
     if (cpuDeviation > this.config.maxSpecsDeviation) {
       issues.push(
-        `CPU cores mismatch: claimed ${claimedSpecs.cpuCores}, actual ${result.cpu.coreCount}`
+        `CPU cores mismatch: claimed ${claimedSpecs.cpuCores}, actual ${result.cpu.coreCount}`,
       )
     }
     totalDeviation += cpuDeviation
@@ -763,11 +769,11 @@ export class ComputeBenchmarkService {
 
     // Check memory
     const memDeviation = Math.abs(
-      (result.memory.totalMb - claimedSpecs.memoryMb) / claimedSpecs.memoryMb
+      (result.memory.totalMb - claimedSpecs.memoryMb) / claimedSpecs.memoryMb,
     )
     if (memDeviation > this.config.maxSpecsDeviation) {
       issues.push(
-        `Memory mismatch: claimed ${claimedSpecs.memoryMb}MB, actual ${result.memory.totalMb}MB`
+        `Memory mismatch: claimed ${claimedSpecs.memoryMb}MB, actual ${result.memory.totalMb}MB`,
       )
     }
     totalDeviation += memDeviation
@@ -779,11 +785,10 @@ export class ComputeBenchmarkService {
         issues.push(`GPU claimed but not detected`)
         totalDeviation += 1
       } else if (
-        result.gpu.model.toLowerCase() !==
-        claimedSpecs.gpuType.toLowerCase()
+        result.gpu.model.toLowerCase() !== claimedSpecs.gpuType.toLowerCase()
       ) {
         issues.push(
-          `GPU type mismatch: claimed ${claimedSpecs.gpuType}, actual ${result.gpu.model}`
+          `GPU type mismatch: claimed ${claimedSpecs.gpuType}, actual ${result.gpu.model}`,
         )
         totalDeviation += 0.5
       }
@@ -809,15 +814,13 @@ export class ComputeBenchmarkService {
   /**
    * Get provider ranking by cost-efficiency
    */
-  getRankedProviders(
-    requirements?: {
-      minCpuCores?: number
-      minMemoryMb?: number
-      gpuRequired?: boolean
-      teeRequired?: boolean
-      maxLatencyMs?: number
-    }
-  ): ProviderProfile[] {
+  getRankedProviders(requirements?: {
+    minCpuCores?: number
+    minMemoryMb?: number
+    gpuRequired?: boolean
+    teeRequired?: boolean
+    maxLatencyMs?: number
+  }): ProviderProfile[] {
     let providers = Array.from(this.profiles.values())
 
     // Filter by requirements
@@ -860,18 +863,16 @@ export class ComputeBenchmarkService {
   /**
    * Select the optimal provider for a workload
    */
-  selectOptimalProvider(
-    requirements: {
-      minCpuCores: number
-      minMemoryMb: number
-      gpuRequired?: boolean
-      gpuType?: string
-      teeRequired?: boolean
-      maxLatencyMs?: number
-      maxCostPerHour?: bigint
-      region?: string
-    }
-  ): ProviderProfile | null {
+  selectOptimalProvider(requirements: {
+    minCpuCores: number
+    minMemoryMb: number
+    gpuRequired?: boolean
+    gpuType?: string
+    teeRequired?: boolean
+    maxLatencyMs?: number
+    maxCostPerHour?: bigint
+    region?: string
+  }): ProviderProfile | null {
     const candidates = this.getRankedProviders({
       minCpuCores: requirements.minCpuCores,
       minMemoryMb: requirements.minMemoryMb,
@@ -927,7 +928,7 @@ export class ComputeBenchmarkService {
   private updateProfile(
     nodeId: string,
     address: Address,
-    result: BenchmarkResult
+    result: BenchmarkResult,
   ): void {
     const existing = this.profiles.get(nodeId)
 
@@ -992,14 +993,16 @@ export class ComputeBenchmarkService {
    */
   setClaimedSpecs(
     nodeId: string,
-    specs: ProviderProfile['claimedSpecs']
+    specs: ProviderProfile['claimedSpecs'],
   ): void {
     const profile = this.profiles.get(nodeId)
     if (profile) {
       profile.claimedSpecs = specs
       const verification = this.verifySpecs(profile.lastBenchmark, specs)
       profile.specsDeviation = verification.deviation
-      profile.verificationStatus = verification.valid ? 'verified' : 'suspicious'
+      profile.verificationStatus = verification.valid
+        ? 'verified'
+        : 'suspicious'
     }
   }
 }
@@ -1016,7 +1019,7 @@ export function getBenchmarkService(): ComputeBenchmarkService {
 }
 
 export function createBenchmarkService(
-  config?: Partial<BenchmarkConfig>
+  config?: Partial<BenchmarkConfig>,
 ): ComputeBenchmarkService {
   benchmarkService = new ComputeBenchmarkService(config)
   return benchmarkService

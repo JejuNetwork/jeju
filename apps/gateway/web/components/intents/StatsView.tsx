@@ -53,7 +53,6 @@ export function StatsView() {
         </p>
       </div>
 
-      {/* Main Stats */}
       <div
         style={{
           display: 'grid',
@@ -92,7 +91,6 @@ export function StatsView() {
         />
       </div>
 
-      {/* Secondary Stats */}
       <div
         style={{
           display: 'grid',
@@ -123,7 +121,6 @@ export function StatsView() {
         />
       </div>
 
-      {/* Chain Breakdown */}
       <ChainVolumeBreakdown
         totalVolume={parseFloat(stats?.totalVolumeUsd ?? '0')}
       />

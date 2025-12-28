@@ -1,7 +1,3 @@
-/**
- * Futarchy Routes - Prediction market governance
- */
-
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { toAddress } from '../../lib'

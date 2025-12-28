@@ -1,13 +1,3 @@
-/**
- * Bazaar Messaging Hooks
- *
- * React hooks for Farcaster channel feeds in the Bazaar app.
- * Each entity (coin, item, perp, prediction) has its own channel.
- *
- * SECURITY: Posting is done via Warpcast redirect (client-side signing).
- * Server-side posting would require KMS integration for TEE safety.
- */
-
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
@@ -33,9 +23,6 @@ export {
   getPredictionChannel,
 }
 
-/**
- * Hook for fetching a channel feed by URL
- */
 export function useChannelFeed(
   channelUrl: string,
   options?: { limit?: number; enabled?: boolean },
@@ -50,9 +37,6 @@ export function useChannelFeed(
   })
 }
 
-/**
- * Hook for fetching an entity channel feed
- */
 export function useEntityFeed(
   type: BazaarChannelType,
   id: string,
@@ -68,9 +52,6 @@ export function useEntityFeed(
   })
 }
 
-/**
- * Hook for coin channel feed
- */
 export function useCoinFeed(
   chainId: number,
   address: Address,
@@ -80,9 +61,6 @@ export function useCoinFeed(
   return useChannelFeed(channel.url, options)
 }
 
-/**
- * Hook for item channel feed
- */
 export function useItemFeed(
   collectionAddress: Address,
   tokenId: string,
@@ -92,9 +70,6 @@ export function useItemFeed(
   return useChannelFeed(channel.url, options)
 }
 
-/**
- * Hook for collection channel feed
- */
 export function useCollectionFeed(
   address: Address,
   options?: { limit?: number; enabled?: boolean },
@@ -103,9 +78,6 @@ export function useCollectionFeed(
   return useChannelFeed(channel.url, options)
 }
 
-/**
- * Hook for perp channel feed
- */
 export function usePerpFeed(
   ticker: string,
   options?: { limit?: number; enabled?: boolean },
@@ -114,9 +86,6 @@ export function usePerpFeed(
   return useChannelFeed(channel.url, options)
 }
 
-/**
- * Hook for prediction market channel feed
- */
 export function usePredictionFeed(
   marketId: string,
   options?: { limit?: number; enabled?: boolean },
@@ -125,21 +94,12 @@ export function usePredictionFeed(
   return useChannelFeed(channel.url, options)
 }
 
-/**
- * Hook for the main Bazaar channel feed
- */
 const BAZAAR_CHANNEL_URL = 'https://warpcast.com/~/channel/bazaar'
 
 export function useBazaarFeed(options?: { limit?: number; enabled?: boolean }) {
   return useChannelFeed(BAZAAR_CHANNEL_URL, options)
 }
 
-/**
- * Hook for getting Warpcast compose URL (safe posting via redirect)
- *
- * SECURITY: Uses client-side Warpcast for signing.
- * Server-side posting would require KMS-backed Farcaster signer.
- */
 export function useComposeUrl(channelUrl: string) {
   return {
     getComposeUrl: (params?: { text?: string; embeds?: string[] }) =>
@@ -151,9 +111,6 @@ export function useComposeUrl(channelUrl: string) {
   }
 }
 
-/**
- * Hook for getting Warpcast compose URL for entity channel
- */
 export function useEntityComposeUrl(type: BazaarChannelType, id: string) {
   return {
     getComposeUrl: (params?: { text?: string; embeds?: string[] }) =>
@@ -166,9 +123,6 @@ export function useEntityComposeUrl(type: BazaarChannelType, id: string) {
   }
 }
 
-/**
- * Hook for fetching user's FID from their address
- */
 export function useFarcasterProfile() {
   const { address } = useAccount()
 
@@ -192,9 +146,6 @@ export function useFarcasterProfile() {
   })
 }
 
-/**
- * Hook for getting FID by address (for posting)
- */
 export function useFarcasterFid() {
   const { address } = useAccount()
 

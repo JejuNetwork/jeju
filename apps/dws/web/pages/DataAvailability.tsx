@@ -94,10 +94,6 @@ export default function DataAvailabilityPage() {
       >
         <div>
           <h1 className="page-title">Data Availability</h1>
-          <p className="page-subtitle">
-            Decentralized data availability layer with erasure coding and
-            sampling
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -554,23 +550,6 @@ export default function DataAvailabilityPage() {
                     value={namespace}
                     onChange={(e) => setNamespace(e.target.value)}
                   />
-                </div>
-                <div
-                  style={{
-                    padding: '1rem',
-                    background: 'var(--bg-tertiary)',
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: '0.85rem',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
-                    Blobs are erasure coded and distributed across DA operators.
-                    Data is retrievable via sampling proofs for verification.
-                  </div>
                 </div>
               </div>
               <div className="modal-footer">

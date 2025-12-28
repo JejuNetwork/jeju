@@ -1,13 +1,3 @@
-/**
- * AuthButton - Universal Authentication for Autocrat
- *
- * Supports:
- * - Wallet (MetaMask, WalletConnect) with SIWE
- * - Farcaster (SIWF)
- * - Passkeys (WebAuthn)
- * - Social OAuth (Google, GitHub, Twitter, Discord)
- */
-
 import { Chrome, Fingerprint, Github, Loader2, Wallet, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'

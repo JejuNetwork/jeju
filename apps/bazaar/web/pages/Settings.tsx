@@ -1,12 +1,7 @@
-/**
- * Settings Page
- *
- * User profile and preferences
- */
-
 import { ArrowLeft, Palette, User } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
 import { AuthButton } from '../components/auth/AuthButton'
 import { LoadingSpinner } from '../components/LoadingSpinner'
@@ -24,22 +19,14 @@ const THEME_OPTIONS: Array<{
   label: string
   description: string
 }> = [
-  {
-    value: 'light',
-    label: 'Light',
-    description: 'Light background with dark text',
-  },
-  {
-    value: 'dark',
-    label: 'Dark',
-    description: 'Dark background with light text',
-  },
-  {
-    value: 'system',
-    label: 'System',
-    description: 'Match your device settings',
-  },
+  { value: 'light', label: 'Light', description: 'Light background with dark text' },
+  { value: 'dark', label: 'Dark', description: 'Dark background with light text' },
+  { value: 'system', label: 'System', description: 'Match your device settings' },
 ]
+
+function getProfileKey(address: string): string {
+  return `bazaar-profile-${address.toLowerCase()}`
+}
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -53,14 +40,21 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setMounted(true)
-    // Load saved theme preference
-    const savedTheme = localStorage.getItem(
-      'bazaar-theme',
-    ) as ThemeOption | null
+    const savedTheme = localStorage.getItem('bazaar-theme') as ThemeOption | null
     if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
       setTheme(savedTheme)
     }
   }, [])
+
+  useEffect(() => {
+    if (!address) return
+    const saved = localStorage.getItem(getProfileKey(address))
+    if (saved) {
+      const profile = JSON.parse(saved) as { displayName?: string; bio?: string }
+      setDisplayName(profile.displayName ?? '')
+      setBio(profile.bio ?? '')
+    }
+  }, [address])
 
   const handleThemeChange = useCallback((newTheme: ThemeOption) => {
     setTheme(newTheme)
@@ -76,12 +70,13 @@ export default function SettingsPage() {
     }
   }, [])
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(() => {
     if (!address) return
     setIsSaving(true)
-    // Profile update would go here
-    setTimeout(() => setIsSaving(false), 1000)
-  }, [address])
+    localStorage.setItem(getProfileKey(address), JSON.stringify({ displayName, bio }))
+    setIsSaving(false)
+    toast.success('Profile saved')
+  }, [address, displayName, bio])
 
   if (!isConnected) {
     return (

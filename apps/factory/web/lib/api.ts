@@ -1,10 +1,3 @@
-/**
- * API Client Utilities
- *
- * Shared helpers for API requests in frontend hooks.
- */
-
-/** Get API base URL based on environment */
 export function getApiBase(): string {
   if (typeof window === 'undefined') {
     return 'http://localhost:4009'

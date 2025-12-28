@@ -1,9 +1,3 @@
-/**
- * Research Agent - Deep analysis for DAO proposals
- *
- * Supports compute marketplace for deep research
- */
-
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { keccak256, stringToHex } from 'viem'

@@ -1,7 +1,3 @@
-/**
- * Character Definition Tests
- */
-
 import { describe, expect, it } from 'bun:test'
 import {
   blueTeamCharacter,

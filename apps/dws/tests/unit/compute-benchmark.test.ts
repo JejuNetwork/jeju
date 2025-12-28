@@ -2,7 +2,7 @@
  * Tests for Compute Benchmark Service
  */
 
-import { describe, test, expect, beforeEach, mock } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 
 // Mock EQLite before importing
 const mockQuery = mock(() => Promise.resolve({ rows: [] }))
@@ -16,7 +16,9 @@ mock.module('@jejunetwork/db', () => ({
 }))
 
 // Import after mocking
-const { ComputeBenchmarkService } = await import('../../api/compute/benchmark-service')
+const { ComputeBenchmarkService } = await import(
+  '../../api/compute/benchmark-service'
+)
 
 describe('Compute Benchmark Service', () => {
   let service: ComputeBenchmarkService
@@ -176,24 +178,26 @@ describe('Compute Benchmark Service', () => {
     test('returns benchmark result from database', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          node_id: 'node-1',
-          cpu_single_thread_score: 1000,
-          cpu_multi_thread_score: 8000,
-          cpu_compression_score: 500,
-          memory_read_bandwidth_mbps: 50000,
-          memory_write_bandwidth_mbps: 40000,
-          memory_latency_ns: 80,
-          disk_seq_read_mbps: 3000,
-          disk_seq_write_mbps: 2500,
-          disk_rand_read_iops: 100000,
-          disk_rand_write_iops: 80000,
-          network_download_mbps: 10000,
-          network_upload_mbps: 10000,
-          network_latency_ms: 5,
-          overall_score: 85,
-          timestamp: now,
-        }],
+        rows: [
+          {
+            node_id: 'node-1',
+            cpu_single_thread_score: 1000,
+            cpu_multi_thread_score: 8000,
+            cpu_compression_score: 500,
+            memory_read_bandwidth_mbps: 50000,
+            memory_write_bandwidth_mbps: 40000,
+            memory_latency_ns: 80,
+            disk_seq_read_mbps: 3000,
+            disk_seq_write_mbps: 2500,
+            disk_rand_read_iops: 100000,
+            disk_rand_write_iops: 80000,
+            network_download_mbps: 10000,
+            network_upload_mbps: 10000,
+            network_latency_ms: 5,
+            overall_score: 85,
+            timestamp: now,
+          },
+        ],
       })
 
       const result = await service.getBenchmarkResult('node-1')
@@ -250,7 +254,11 @@ describe('Compute Benchmark Service', () => {
     test('returns nodes with TEE capability', async () => {
       mockQuery.mockResolvedValueOnce({
         rows: [
-          { node_id: 'node-1', tee_type: 'IntelSGX', attestation_hash: '0x123' },
+          {
+            node_id: 'node-1',
+            tee_type: 'IntelSGX',
+            attestation_hash: '0x123',
+          },
           { node_id: 'node-2', tee_type: 'AMDSEV', attestation_hash: '0x456' },
         ],
       })

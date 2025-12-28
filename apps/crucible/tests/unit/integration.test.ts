@@ -1,14 +1,3 @@
-/**
- * Integration Tests - Runs against localnet with deployed contracts.
- *
- * Prerequisites:
- * - Run `jeju dev` to start all services (chain, DWS, indexer)
- * - Or manually start services and set environment variables
- *
- * Run with: bun test src/tests/integration.test.ts
- * (No INTEGRATION flag needed when jeju dev is running)
- */
-
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { getServicesConfig } from '@jejunetwork/config'
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem'

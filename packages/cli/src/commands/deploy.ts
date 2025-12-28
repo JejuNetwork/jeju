@@ -2,12 +2,12 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getL2RpcUrl } from '@jejunetwork/config'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import prompts from 'prompts'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
-import { getL2RpcUrl } from '@jejunetwork/config'
 import { checkRpcHealth, getAccountBalance } from '../lib/chain'
 import { hasKeys, resolvePrivateKey } from '../lib/keys'
 import { logger } from '../lib/logger'

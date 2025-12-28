@@ -1,10 +1,3 @@
-/**
- * Crucible Messaging Hooks
- *
- * React hooks for Farcaster feed in the Crucible app
- * Uses the messaging package directly to fetch from Farcaster Hub
- */
-
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
 import { type CrucibleFeedCast, crucibleMessaging } from '../../api/messaging'

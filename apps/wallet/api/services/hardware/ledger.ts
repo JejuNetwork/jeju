@@ -1,8 +1,3 @@
-/**
- * Ledger Hardware Wallet Integration
- * Based on Rabby's implementation with @ledgerhq/hw-app-eth
- */
-
 import LedgerEth from '@ledgerhq/hw-app-eth'
 import type Transport from '@ledgerhq/hw-transport'
 import TransportWebHID from '@ledgerhq/hw-transport-webhid'

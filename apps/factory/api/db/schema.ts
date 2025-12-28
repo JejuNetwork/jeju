@@ -1,10 +1,3 @@
-/**
- * Factory Database Schema
- *
- * SQLite schema for Factory's persistent data storage.
- * Uses packages/db SecureEQLiteClient for DWS integration in production.
- */
-
 export const FACTORY_SCHEMA = `
 -- Bounties table
 CREATE TABLE IF NOT EXISTS bounties (
