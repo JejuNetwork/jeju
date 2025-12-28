@@ -1,3 +1,12 @@
+import {
+  getCurrentNetwork,
+  getIpfsApiUrl,
+  getIpfsGatewayUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
+
+import { getIpfsApiUrlEnv, getIpfsGatewayUrlEnv, getLocalhostHost } from '@jejunetwork/config'
+
 export interface CacheConfig {
   maxSizeBytes: number
   maxEntries: number
@@ -353,10 +362,18 @@ class IPFSOriginFetcher implements OriginFetcher {
   private ipfsApiUrl: string
 
   constructor(
-    ipfsGateway = process.env.IPFS_GATEWAY_URL || 'http://localhost:8080',
-    arweaveGateway = process.env.ARWEAVE_GATEWAY_URL || 'https://arweave.net',
-    ipfsApiUrl = process.env.IPFS_API_URL || 'http://localhost:5001',
+    ipfsGateway?: string,
+    arweaveGateway?: string,
+    ipfsApiUrl?: string,
   ) {
+    const network = getCurrentNetwork()
+    const host = getLocalhostHost()
+    this.ipfsGateway = ipfsGateway ?? 
+      ((typeof process !== 'undefined' ? process.env.IPFS_GATEWAY_URL : undefined) ?? getIpfsGatewayUrl(network))
+    this.arweaveGateway = arweaveGateway ?? 
+      ((typeof process !== 'undefined' ? process.env.ARWEAVE_GATEWAY_URL : undefined) ?? 'https://arweave.net')
+    this.ipfsApiUrl = ipfsApiUrl ?? 
+      ((typeof process !== 'undefined' ? process.env.IPFS_API_URL : undefined) ?? getIpfsApiUrl(network))
     this.ipfsGateway = ipfsGateway
     this.arweaveGateway = arweaveGateway
     this.ipfsApiUrl = ipfsApiUrl

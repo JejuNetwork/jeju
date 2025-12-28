@@ -21,7 +21,7 @@ import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { DATABASE_PROVIDER_ABI } from '../abis'
-import type { NodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 
 // Configuration schema
 const DatabaseServiceConfigSchema = z.object({

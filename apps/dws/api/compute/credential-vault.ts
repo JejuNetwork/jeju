@@ -1,32 +1,7 @@
 /**
- * Credential Vault
- *
- * Secure storage and management of cloud provider credentials:
- * - AWS, GCP, Azure, Hetzner, OVH, DigitalOcean API keys
- * - Encrypted at rest using AES-256-GCM
- * - Never exposed to users or logs
- * - Scoped access per provisioner
- *
- * Security Model:
- * - Credentials stored encrypted in secure storage (HSM-backed in production)
- * - Only provisioner service can decrypt credentials
- * - Credentials never returned in API responses
- * - All access is audited
- *
- * @environment DWS_VAULT_KEY - Master encryption key (required in production)
- *   - Must be at least 32 characters
- *   - Used to derive per-owner encryption keys
- *   - In development: Falls back to insecure dev key with warning
- *   - In production (isProductionEnv() or getCurrentNetwork() === 'mainnet'): Required, will throw if not set
- *
- * @example
- * ```bash
- * # Generate a secure vault key
- * openssl rand -base64 32
- *
- * # Set in .env
- * DWS_VAULT_KEY=your-generated-key-at-least-32-chars
- * ```
+ * Credential Vault - Encrypted storage for cloud provider API keys
+ * 
+ * @environment DWS_VAULT_KEY - Required in production (32+ chars). Use `openssl rand -base64 32` to generate.
  */
 
 import {
@@ -99,17 +74,7 @@ export const CredentialCreateSchema = z.object({
 
 // ============ Encryption ============
 
-/**
- * AES-256-GCM encryption for credential storage
- * 
- * Security properties:
- * - 256-bit AES encryption
- * - GCM mode provides authenticated encryption
- * - Unique IV per encryption
- * - Key derived from master key + owner address using HKDF-like derivation
- */
-
-// Development fallback key - NEVER use in production
+// Dev fallback key - throws in production
 const DEV_VAULT_KEY = 'dev-only-key-do-not-use-in-prod-32chars'
 let vaultKeyWarningLogged = false
 
@@ -137,12 +102,9 @@ function getVaultKey(): string {
 }
 
 function deriveKey(owner: Address): Uint8Array {
-  // Derive a unique key per owner using HKDF-like construction
-  // Hash: VAULT_KEY || owner || "credential-vault-v1"
   const vaultKey = getVaultKey()
   const material = `${vaultKey}:${owner.toLowerCase()}:credential-vault-v1`
-  const hash = keccak256(toBytes(material))
-  return toBytes(hash) // 32 bytes = 256 bits
+  return toBytes(keccak256(toBytes(material)))
 }
 
 async function encrypt(plaintext: string, owner: Address): Promise<string> {
@@ -163,11 +125,9 @@ async function encrypt(plaintext: string, owner: Address): Promise<string> {
     new TextEncoder().encode(plaintext),
   )
   
-  // Format: base64(iv || ciphertext)
   const combined = new Uint8Array(iv.length + ciphertext.byteLength)
   combined.set(iv, 0)
   combined.set(new Uint8Array(ciphertext), iv.length)
-  
   return Buffer.from(combined).toString('base64')
 }
 

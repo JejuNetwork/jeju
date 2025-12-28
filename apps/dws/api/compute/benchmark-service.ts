@@ -318,34 +318,22 @@ async function benchmarkMemory(testSizeMb: number): Promise<MemoryBenchmarkResul
 }
 
 function getMemoryInfo(): { total: number; available: number } {
-  // Try Bun's os module first for system memory
   try {
     const os = require('os')
-    const totalMem = os.totalmem()
-    const freeMem = os.freemem()
-    if (totalMem > 0) {
-      return {
-        total: Math.round(totalMem / (1024 * 1024)),
-        available: Math.round(freeMem / (1024 * 1024)),
-      }
+    return {
+      total: Math.round(os.totalmem() / (1024 * 1024)),
+      available: Math.round(os.freemem() / (1024 * 1024)),
     }
   } catch {
-    // os module not available
-  }
-
-  // Fallback to process memory (heap only, not system memory)
-  if (typeof process !== 'undefined' && process.memoryUsage) {
-    const usage = process.memoryUsage()
-    return {
-      total: Math.round(usage.heapTotal / (1024 * 1024)),
-      available: Math.round(
-        (usage.heapTotal - usage.heapUsed) / (1024 * 1024)
-      ),
+    if (typeof process !== 'undefined' && process.memoryUsage) {
+      const usage = process.memoryUsage()
+      return {
+        total: Math.round(usage.heapTotal / (1024 * 1024)),
+        available: Math.round((usage.heapTotal - usage.heapUsed) / (1024 * 1024)),
+      }
     }
+    throw new Error('Unable to detect system memory')
   }
-
-  // Cannot detect memory - throw rather than return fake data
-  throw new Error('Unable to detect system memory - os module and process.memoryUsage unavailable')
 }
 
 // Network Benchmark Implementation
@@ -602,26 +590,11 @@ async function detectTEEPlatform(): Promise<
   return 'none'
 }
 
-/**
- * Generate TEE attestation quote
- * 
- * LIMITATION: This is a stub. Real attestation requires:
- * - Intel SGX: dcap_quoteprov library + Intel Attestation Service
- * - AMD SEV: /dev/sev device access + VCEK certificate chain
- * - AWS Nitro: /dev/nsm device (only works in Nitro enclaves)
- * 
- * For production use, deploy with @jejunetwork/tee-attestation package
- * which provides platform-specific attestation generation.
- * 
- * @returns { valid: false } - Always returns invalid until real attestation is implemented
- */
+// Stub - real attestation requires platform-specific libraries
 async function generateAttestation(
   platform: string
 ): Promise<{ valid: boolean; quote?: string; measurement?: string }> {
-  console.warn(
-    `[Benchmark] TEE attestation not implemented for platform: ${platform}. ` +
-    'Install @jejunetwork/tee-attestation for production attestation support.'
-  )
+  console.warn(`[Benchmark] TEE attestation not implemented for ${platform}`)
   return { valid: false }
 }
 

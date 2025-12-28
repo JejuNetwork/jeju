@@ -10,6 +10,8 @@
  * Workerd-compatible: Uses DWS exec/storage APIs instead of Node.js fs
  */
 
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
+
 // DWS Exec API
 interface ExecResult {
   exitCode: number
@@ -17,7 +19,7 @@ interface ExecResult {
   stderr: string
 }
 
-let execUrl = 'http://localhost:4020/exec'
+let execUrl = `${getDWSUrl() ?? `http://${getLocalhostHost()}:4020`}/exec`
 
 export function configureLocalCDN(config: { execUrl?: string }): void {
   if (config.execUrl) execUrl = config.execUrl

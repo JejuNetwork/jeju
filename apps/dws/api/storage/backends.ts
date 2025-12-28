@@ -166,8 +166,9 @@ class BackendManagerImpl implements BackendManager {
     this.localBackend = new LocalBackend()
     this.backends.set('local', this.localBackend)
 
-    const ipfsApiUrl = process.env.IPFS_API_URL
-    const ipfsGatewayUrl = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io'
+    const network = getCurrentNetwork()
+    const ipfsApiUrl = (typeof process !== 'undefined' ? process.env.IPFS_API_URL : undefined) ?? getIpfsApiUrl(network)
+    const ipfsGatewayUrl = (typeof process !== 'undefined' ? process.env.IPFS_GATEWAY_URL : undefined) ?? getIpfsGatewayUrl(network)
     if (ipfsApiUrl) {
       this.backends.set('ipfs', new IPFSBackend(ipfsApiUrl, ipfsGatewayUrl))
     }

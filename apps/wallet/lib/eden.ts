@@ -8,7 +8,11 @@
  */
 
 import { treaty } from '@elysiajs/eden'
-import { getCurrentNetwork, getServicesConfig } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import { z } from 'zod'
 import { getEnv } from './env'
 

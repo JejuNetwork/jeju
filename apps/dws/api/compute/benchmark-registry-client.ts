@@ -736,23 +736,9 @@ export class BenchmarkRegistryClient {
     return hash
   }
 
-  /**
-   * Submit a dispute for a provider's benchmark
-   * 
-   * NOTE: On-chain dispute mechanism not yet implemented in ComputeBenchmarkRegistry contract.
-   * This logs the dispute for manual review. Future versions will add:
-   * - Slashing mechanism via staking contract
-   * - Dispute resolution via governance
-   * 
-   * @returns Empty tx hash (0x0) since this is logged only
-   */
+  /** Dispute a provider's benchmark (logs only - on-chain slashing not yet implemented) */
   async disputeBenchmark(provider: Address, reason: string): Promise<Hex> {
-    // Log dispute for manual review (on-chain mechanism pending)
-    console.error(`[BenchmarkRegistry] DISPUTE: Provider ${provider}`)
-    console.error(`[BenchmarkRegistry] Reason: ${reason}`)
-    console.error(`[BenchmarkRegistry] Action: Manual review required - on-chain dispute not yet implemented`)
-    
-    // Return empty hash - no on-chain tx yet
+    console.error(`[BenchmarkRegistry] DISPUTE: ${provider} - ${reason}`)
     return '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
   }
 

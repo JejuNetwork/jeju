@@ -1,35 +1,7 @@
 /**
- * SSH Terminal Gateway
- *
- * Provides secure SSH access to compute instances:
- * - SSH proxy without exposing instance credentials to users
- * - WebSocket-based terminal for web UI
- * - Key management and rotation
- * - Session management and audit logging
- * - Rate limiting and access control
- *
- * Security Model:
- * - Users authenticate via wallet signature
- * - Gateway holds the actual SSH keys (never exposed)
- * - All sessions are logged for audit
- * - Automatic key rotation
- * - Connection timeouts and idle disconnect
- *
- * @environment DWS_VAULT_KEY - Encryption key for SSH private keys (required in production)
- *   - Must be at least 32 characters
- *   - SSH keys are encrypted with AES-256-GCM using this key
- *   - In development: Falls back to insecure dev key with warning
- *   - In production (NODE_ENV=production or JEJU_NETWORK=mainnet): Required
- *
- * @limitation Terminal resize requires node-pty for full functionality
+ * SSH Terminal Gateway - WebSocket-based SSH proxy with wallet auth
  * 
- * Key rotation is fully implemented and will:
- * 1. Generate new ed25519 keypair using ssh-keygen
- * 2. Connect to instance with existing key
- * 3. Add new public key to authorized_keys
- * 4. Verify new key works
- * 5. Update encrypted credential in memory
- * 6. Remove old key from authorized_keys
+ * @environment DWS_VAULT_KEY - Required in production (32+ chars)
  */
 
 import { Elysia } from 'elysia'

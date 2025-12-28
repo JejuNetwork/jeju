@@ -20,7 +20,7 @@ import { WebSocket } from 'ws'
 import { z } from 'zod'
 import { PROXY_REGISTRY_ABI } from '../abis'
 import { config as nodeConfig } from '../config'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 /** Type for proxy node from contract */
 interface ProxyNodeResult {

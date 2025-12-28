@@ -51,7 +51,7 @@ import { expectAddress, isPlainObject } from '@jejunetwork/types'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 /** VPN node data from contract */
 interface VPNNodeData {

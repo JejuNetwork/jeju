@@ -19,7 +19,7 @@ interface ExecResult {
   stderr: string
 }
 
-let execUrl = 'http://localhost:4020/exec'
+let execUrl = `http://${getLocalhostHost()}:4020/exec`
 
 export function configureAppRegistry(config: { execUrl?: string }): void {
   if (config.execUrl) execUrl = config.execUrl

@@ -15,7 +15,7 @@
  * registerDatabase({
  *   appName: 'gateway',
  *   databaseId: 'gateway-db',
- *   endpoint: 'http://localhost:4041',
+ *   endpoint: `http://${getLocalhostHost()}:4041`,
  * })
  *
  * // Start the service
@@ -23,6 +23,7 @@
  * ```
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import pino from 'pino'
 

@@ -1,15 +1,3 @@
-/**
- * QoS Monitoring Service
- *
- * Monitors RPC node health and reports metrics to the blockchain.
- * Validates node claims and provides data for reputation calculation.
- *
- * - Periodic health checks to all registered nodes
- * - Block height verification
- * - Latency measurement and error tracking
- * - Aggregate and report to MultiChainRPCRegistry
- */
-
 import {
   type Address,
   createWalletClient,
@@ -22,7 +10,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { RPC_URLS, JEJU_CHAIN_ID } from '../../../lib/config/networks'
 import { jejuTestnet, jejuMainnet } from '../../../lib/chains'
 
-const MULTI_CHAIN_RPC_REGISTRY_ABI = [
+const REGISTRY_ABI = [
   {
     type: 'function',
     name: 'getSupportedChains',
@@ -89,13 +77,8 @@ interface QoSCheckResult {
 }
 
 interface ChainEndpoint {
-  chainId: bigint
   endpoint: string
   isActive: boolean
-  isArchive: boolean
-  isWebSocket: boolean
-  blockHeight: bigint
-  lastUpdated: bigint
 }
 
 interface NodeStats {
@@ -114,15 +97,14 @@ interface MonitorConfig {
   minChecksForReport: number
 }
 
-/** Make an eth_call to the registry contract */
 async function callRegistry<T>(
   registryAddress: Address,
-  functionName: string,
+  functionName: 'getSupportedChains' | 'getProvidersForChain' | 'getChainEndpoint',
   args: readonly unknown[] = [],
 ): Promise<T | null> {
   const callData = encodeFunctionData({
-    abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-    functionName: functionName as 'getSupportedChains' | 'getProvidersForChain' | 'getChainEndpoint',
+    abi: REGISTRY_ABI,
+    functionName,
     args: args as never,
   })
 
@@ -138,14 +120,11 @@ async function callRegistry<T>(
   })
 
   const result = (await response.json()) as { result?: string; error?: { message: string } }
-
-  if (result.error || !result.result || result.result === '0x') {
-    return null
-  }
+  if (result.error || !result.result || result.result === '0x') return null
 
   return decodeFunctionResult({
-    abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-    functionName: functionName as 'getSupportedChains' | 'getProvidersForChain' | 'getChainEndpoint',
+    abi: REGISTRY_ABI,
+    functionName,
     data: result.result as `0x${string}`,
   }) as T
 }
@@ -161,11 +140,7 @@ export class QoSMonitorService {
   private reportInterval: ReturnType<typeof setInterval> | null = null
   private nodeStats = new Map<string, NodeStats>()
 
-  constructor(
-    registryAddress: Address,
-    config?: Partial<MonitorConfig>,
-    privateKey?: string,
-  ) {
+  constructor(registryAddress: Address, config?: Partial<MonitorConfig>, privateKey?: string) {
     this.registryAddress = registryAddress
 
     if (privateKey) {
@@ -188,16 +163,12 @@ export class QoSMonitorService {
   }
 
   async start(): Promise<void> {
-    if (this.running) {
-      console.warn('[QoS] Already running')
-      return
-    }
+    if (this.running) return
 
     this.running = true
     console.log(`[QoS] Starting (registry: ${this.registryAddress}, reporter: ${this.walletAddress ?? 'read-only'})`)
 
     await this.runChecks()
-
     this.checkInterval = setInterval(() => this.runChecks(), this.config.checkIntervalMs)
     this.reportInterval = setInterval(() => this.reportAll(), this.config.reportIntervalMs)
   }
@@ -216,14 +187,13 @@ export class QoSMonitorService {
 
     const chains = await this.getSupportedChains()
     await Promise.all(chains.map((chainId) => this.checkChainNodes(Number(chainId))))
-
     console.log(`[QoS] Checked ${chains.length} chains`)
   }
 
   private async getSupportedChains(): Promise<bigint[]> {
     const result = await callRegistry<bigint[]>(this.registryAddress, 'getSupportedChains')
-    if (!result || result.length === 0) {
-      console.warn('[QoS] No supported chains found in registry - is the contract deployed?')
+    if (!result?.length) {
+      console.warn('[QoS] No supported chains found')
       return []
     }
     return result
@@ -235,19 +205,13 @@ export class QoSMonitorService {
       'getProvidersForChain',
       [BigInt(chainId)],
     )
-
     if (providers?.length) {
       await Promise.all(providers.map((node) => this.checkNode(node, chainId)))
     }
   }
 
   async checkNode(node: Address, chainId: number): Promise<QoSCheckResult> {
-    const result: QoSCheckResult = {
-      node,
-      timestamp: Date.now(),
-      isReachable: false,
-      chainId,
-    }
+    const result: QoSCheckResult = { node, timestamp: Date.now(), isReachable: false, chainId }
 
     const endpoint = await callRegistry<ChainEndpoint>(
       this.registryAddress,
@@ -269,12 +233,7 @@ export class QoSMonitorService {
       const response = await fetch(endpoint.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_blockNumber',
-          params: [],
-          id: 1,
-        }),
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
         signal: controller.signal,
       })
 
@@ -287,7 +246,6 @@ export class QoSMonitorService {
       }
 
       const data = (await response.json()) as { result?: string; error?: { message: string } }
-
       if (data.error) {
         result.errorMessage = data.error.message
         this.recordCheck(node, chainId, result)
@@ -311,14 +269,7 @@ export class QoSMonitorService {
     let stats = this.nodeStats.get(key)
 
     if (!stats) {
-      stats = {
-        checks: [],
-        totalChecks: 0,
-        successfulChecks: 0,
-        totalLatency: 0,
-        minLatency: Infinity,
-        maxLatency: 0,
-      }
+      stats = { checks: [], totalChecks: 0, successfulChecks: 0, totalLatency: 0, minLatency: Infinity, maxLatency: 0 }
       this.nodeStats.set(key, stats)
     }
 
@@ -332,7 +283,6 @@ export class QoSMonitorService {
       stats.maxLatency = Math.max(stats.maxLatency, result.latencyMs)
     }
 
-    // Keep only last 100 checks
     if (stats.checks.length > 100) {
       const removed = stats.checks.shift()
       if (removed) {
@@ -346,9 +296,7 @@ export class QoSMonitorService {
   }
 
   getAggregatedQoS(node: Address, chainId: number) {
-    const key = `${node.toLowerCase()}-${chainId}`
-    const stats = this.nodeStats.get(key)
-
+    const stats = this.nodeStats.get(`${node.toLowerCase()}-${chainId}`)
     if (!stats || stats.totalChecks === 0) return null
 
     return {
@@ -370,38 +318,30 @@ export class QoSMonitorService {
       return
     }
 
-    // Aggregate reports by node (best performance across chains)
-    const nodeReports = new Map<Address, { uptime: number; successRate: number; latency: number }>()
+    const nodeReports = new Map<Address, { uptime: number; latency: number }>()
 
     for (const [key, stats] of Array.from(this.nodeStats.entries())) {
       if (stats.totalChecks < this.config.minChecksForReport) continue
 
       const [node] = key.split('-')
       const uptimeScore = Math.round((stats.successfulChecks / stats.totalChecks) * 10000)
-      const avgLatency = Math.round(
-        stats.successfulChecks > 0 ? stats.totalLatency / stats.successfulChecks : 9999,
-      )
+      const avgLatency = Math.round(stats.successfulChecks > 0 ? stats.totalLatency / stats.successfulChecks : 9999)
 
       const existing = nodeReports.get(node as Address)
       if (!existing || uptimeScore > existing.uptime || (uptimeScore === existing.uptime && avgLatency < existing.latency)) {
-        nodeReports.set(node as Address, {
-          uptime: uptimeScore,
-          successRate: uptimeScore,
-          latency: avgLatency,
-        })
+        nodeReports.set(node as Address, { uptime: uptimeScore, latency: avgLatency })
       }
     }
 
-    // Submit reports
     for (const [node, metrics] of Array.from(nodeReports.entries())) {
       try {
         const hash = await this.walletClient.writeContract({
           account: this.walletAccount,
           chain: CHAIN,
           address: this.registryAddress,
-          abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
+          abi: REGISTRY_ABI,
           functionName: 'reportPerformance',
-          args: [node, BigInt(metrics.uptime), BigInt(metrics.successRate), BigInt(metrics.latency)],
+          args: [node, BigInt(metrics.uptime), BigInt(metrics.uptime), BigInt(metrics.latency)],
         })
         console.log(`[QoS] Reported ${node}: uptime=${metrics.uptime}, latency=${metrics.latency}, tx=${hash}`)
       } catch (error) {
@@ -420,9 +360,7 @@ export class QoSMonitorService {
     for (const stats of Array.from(this.nodeStats.values())) {
       totalNodes++
       totalChecks += stats.totalChecks
-      if (stats.totalChecks > 0) {
-        totalUptime += stats.successfulChecks / stats.totalChecks
-      }
+      if (stats.totalChecks > 0) totalUptime += stats.successfulChecks / stats.totalChecks
     }
 
     return {
@@ -433,7 +371,6 @@ export class QoSMonitorService {
   }
 }
 
-// Singleton
 let monitorInstance: QoSMonitorService | null = null
 
 export function getQoSMonitor(): QoSMonitorService | null {
