@@ -517,6 +517,62 @@ export class TEEXMTPKeyManager {
   }
 
   /**
+   * Export key as encrypted backup
+   * @param keyId - Key ID to export
+   * @param password - Password to encrypt the backup
+   */
+  async exportEncrypted(keyId: string, password: string): Promise<EncryptedBackup> {
+    if (!this.config.mockMode) {
+      throw new Error(
+        'Direct key export not supported in TEE mode. Use TEE provider export mechanisms.',
+      )
+    }
+
+    const stored = this.mockKeyStore.get(keyId)
+    if (!stored) {
+      throw new Error(`Key not found: ${keyId}`)
+    }
+
+    // Generate random salt for key derivation
+    const salt = randomBytes(32)
+
+    // Derive encryption key using strong scrypt parameters
+    const encryptionKey = await deriveKeyScrypt(password, salt, {
+      N: SCRYPT_N,
+      r: SCRYPT_R,
+      p: SCRYPT_P,
+      dkLen: SCRYPT_KEYLEN,
+    })
+
+    // Encrypt using AES-GCM
+    const iv = randomBytes(12)
+    const { ciphertext: encrypted, tag } = await encryptAesGcm(
+      stored.privateKey,
+      encryptionKey,
+      iv,
+    )
+
+    // Combine iv + tag + ciphertext
+    const combined = new Uint8Array(iv.length + tag.length + encrypted.length)
+    combined.set(iv, 0)
+    combined.set(tag, 12)
+    combined.set(encrypted, 28)
+
+    return {
+      ciphertext: toHex(combined),
+      metadata: {
+        keyId,
+        algorithm: 'aes-256-gcm',
+        kdfParams: {
+          salt: toHex(salt),
+          iterations: SCRYPT_N,
+        },
+      },
+      createdAt: Date.now(),
+    }
+  }
+
+  /**
    * Get TEE attestation for key
    */
   async getAttestation(keyId: string): Promise<TEEAttestation> {

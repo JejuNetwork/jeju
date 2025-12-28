@@ -3,7 +3,7 @@
  * Manages git repositories with on-chain registry integration
  */
 
-import { getDWSUrl } from '@jejunetwork/config'
+import { getDWSUrl, getCurrentNetwork } from '@jejunetwork/config'
 import type { TransactionLog } from '@jejunetwork/types'
 import {
   type Abi,

@@ -337,7 +337,6 @@ class TradingBotImpl implements TradingBot {
         to: routerAddress,
         data: swapData,
         value: amount,
-        chain,
       })
     } else {
       // Sell: Swap tokens for ETH using swapExactTokensForETH
@@ -365,7 +364,6 @@ class TradingBotImpl implements TradingBot {
         const approveTxHash = await this.executeTransaction({
           to: token,
           data: approveData,
-          chain,
         })
 
         await this.publicClient.waitForTransactionReceipt({
@@ -399,7 +397,6 @@ class TradingBotImpl implements TradingBot {
       txHash = await this.executeTransaction({
         to: routerAddress,
         data: swapData,
-        chain,
       })
     }
 
@@ -463,22 +460,12 @@ export class BotInitializer {
   }
 
   async initializeDefaultBots(): Promise<Map<bigint, TradingBot>> {
-    // Skip if no signer configured (KMS or wallet)
-    const hasKMS = this.config.kmsSigner?.isInitialized()
-    const hasWallet = !!this.config.walletClient
-    if (!hasKMS && !hasWallet) {
-      log.warn(
-        'No signer configured (KMS or wallet), skipping bot initialization',
-      )
+    // Skip if no KMS signer configured
+    if (!this.config.kmsSigner?.isInitialized()) {
+      log.warn('No KMS signer configured, skipping bot initialization')
       return this.bots
     }
-    if (hasKMS) {
-      log.info('Using KMS-backed signing for trading bots')
-    } else {
-      log.warn(
-        'Using in-memory wallet for trading bots - DO NOT USE IN PRODUCTION',
-      )
-    }
+    log.info('Using KMS-backed signing for trading bots')
 
     const network = this.config.crucibleConfig.network
     const botConfigs = getDefaultBotsForNetwork(network)
@@ -507,11 +494,9 @@ export class BotInitializer {
     botConfig: DefaultBotConfig,
     index: number,
   ): Promise<TradingBot> {
-    // Verify we have a signer (KMS preferred)
-    const hasKMS = this.config.kmsSigner?.isInitialized()
-    const hasWallet = !!this.config.walletClient
-    if (!hasKMS && !hasWallet) {
-      throw new Error('Signer required for bot initialization (KMS or wallet)')
+    // Verify we have a KMS signer
+    if (!this.config.kmsSigner?.isInitialized()) {
+      throw new Error('KMS signer required for bot initialization')
     }
 
     // Register the bot as an agent
@@ -533,13 +518,10 @@ export class BotInitializer {
       },
     )
 
-    // Create options WITHOUT privateKey - signing is handled by KMS or walletClient
-    // Note: TradingBotOptions.privateKey is deprecated
+    // Create options - signing is handled by KMS
     const options = createTradingBotOptions(
       botConfig,
       agentResult.agentId,
-      // Pass a placeholder - actual signing uses KMS/wallet
-      '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
       this.config.crucibleConfig.network,
       this.config.treasuryAddress,
     )
@@ -561,7 +543,6 @@ export class BotInitializer {
       tradingConfig,
       options,
       this.config.publicClient,
-      this.config.walletClient,
       this.config.kmsSigner,
     )
 
@@ -598,11 +579,9 @@ export class BotInitializer {
   }
 
   async initializeBot(config: TradingBotConfig): Promise<TradingBot> {
-    // Verify we have a signer (KMS preferred)
-    const hasKMS = this.config.kmsSigner?.isInitialized()
-    const hasWallet = !!this.config.walletClient
-    if (!hasKMS && !hasWallet) {
-      throw new Error('Signer required for bot initialization (KMS or wallet)')
+    // Verify we have a KMS signer
+    if (!this.config.kmsSigner?.isInitialized()) {
+      throw new Error('KMS signer required for bot initialization')
     }
 
     const options: TradingBotOptions = {
@@ -619,9 +598,6 @@ export class BotInitializer {
         },
       ],
       chains: [],
-      // Pass placeholder - actual signing uses KMS/wallet
-      privateKey:
-        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
       maxConcurrentExecutions: 5,
       useFlashbots: this.config.crucibleConfig.network !== 'localnet',
     }
@@ -630,7 +606,6 @@ export class BotInitializer {
       config,
       options,
       this.config.publicClient,
-      this.config.walletClient,
       this.config.kmsSigner,
     )
 

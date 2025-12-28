@@ -32,9 +32,17 @@ async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
     return null
   }
 
+  const keyId = process.env.EQLITE_KEY_ID
+  if (!keyId) {
+    log.warn(
+      'EQLITE_KEY_ID not set - trajectory batches will not be persisted to database',
+    )
+    return null
+  }
+
   // Import dynamically to avoid circular deps
   const { EQLiteClient } = await import('@jejunetwork/db')
-  const client = new EQLiteClient({ blockProducerEndpoint: dbEndpoint })
+  const client = new EQLiteClient({ blockProducerEndpoint: dbEndpoint, keyId })
   dbPersistence = new TrainingDbPersistence(client)
   return dbPersistence
 }

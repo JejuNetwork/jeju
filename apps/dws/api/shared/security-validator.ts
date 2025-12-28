@@ -11,6 +11,7 @@
  * - Proper secrets configuration
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { isHSMAvailable } from './hsm-kdf'
 import { isKMSAvailable } from './kms-wallet'
 
@@ -33,7 +34,7 @@ interface SecurityCheck {
  * Validate security configuration for TEE side-channel protection
  */
 export async function validateSecurityConfiguration(): Promise<SecurityValidationResult> {
-  const isProduction = process.env.NODE_ENV === 'production'
+  const isProduction = isProductionEnv()
   const warnings: string[] = []
   const errors: string[] = []
   const recommendations: string[] = []
@@ -272,7 +273,7 @@ export async function validateSecurityConfiguration(): Promise<SecurityValidatio
 export async function enforceSecurityAtStartup(
   serviceName: string,
 ): Promise<void> {
-  const isProduction = process.env.NODE_ENV === 'production'
+  const isProduction = isProductionEnv()
 
   console.log(`[${serviceName}] Validating security configuration...`)
 

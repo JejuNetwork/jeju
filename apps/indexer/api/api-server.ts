@@ -4,6 +4,7 @@
  * Modes: postgres (full), eqlite-only (read), degraded (minimal)
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import { startA2AServer } from './a2a-server'
 import { config } from './config'
 import { startMCPServer } from './mcp-server'
@@ -61,15 +62,16 @@ async function main(): Promise<void> {
       ? 'postgres'
       : 'postgres (no schema)'
     : 'degraded'
+  const host = getLocalhostHost()
   console.log(`
 ┌──────────────────────────────────────────┐
 │   Indexer API Servers Running    │
 ├──────────────────────────────────────────┤
 │  Mode:    ${currentMode.padEnd(30)}│
-│  GraphQL: http://localhost:4350/graphql  │
-│  REST:    http://localhost:4352          │
-│  A2A:     http://localhost:4351          │
-│  MCP:     http://localhost:4353          │
+│  GraphQL: http://${host}:4350/graphql  │
+│  REST:    http://${host}:4352          │
+│  A2A:     http://${host}:4351          │
+│  MCP:     http://${host}:4353          │
 └──────────────────────────────────────────┘`)
 }
 

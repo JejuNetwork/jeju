@@ -136,6 +136,14 @@ const offerings = new Map<string, JejuOffering>()
 const provisionedCompute = new Map<string, ProvisionedCompute>()
 const userCompute = new Map<Address, Set<string>>()
 
+// Track SSH keys uploaded per owner for cleanup
+interface UploadedSSHKey {
+  provider: string
+  keyId: string
+  keyName: string
+}
+const sshKeysByOwner = new Map<Address, UploadedSSHKey[]>()
+
 // Cloud provider instances (initialized lazily)
 const cloudProviders = new Map<CloudProviderType, CloudProvider>()
 
@@ -418,12 +426,19 @@ export class JejuProvisioner {
     provider: CloudProvider,
     request: ProvisionRequest,
   ): Promise<void> {
+    // Upload SSH key if provided
+    let sshKeyId: string | undefined
+    if (request.sshPublicKey) {
+      sshKeyId = await this.ensureSSHKey(provider, request.sshPublicKey, request.owner)
+      console.log(`[JejuProvisioner] Using SSH key ${sshKeyId} for ${compute.id}`)
+    }
+
     // Create instance on cloud provider
     const instance = await provider.createInstance({
       instanceType: offering.instanceType,
       region: request.region,
       name: `jeju-${compute.id}`,
-      sshKeyId: request.sshPublicKey, // Would need to upload key first
+      sshKeyId,
       userData: request.userData ?? this.getDefaultUserData(compute.id),
       tags: {
         ...request.tags,
@@ -542,6 +557,56 @@ write_files:
 
 final_message: "Jeju DWS node setup complete for ${computeId}"
 `
+  }
+
+  /**
+   * Ensure SSH key exists on the provider, upload if needed
+   * Returns the key ID to use for instance creation
+   */
+  private async ensureSSHKey(
+    provider: CloudProvider,
+    publicKey: string,
+    owner: Address,
+  ): Promise<string> {
+    // Generate a deterministic key name based on owner and key fingerprint
+    const keyFingerprint = await this.calculateSSHKeyFingerprint(publicKey)
+    const keyName = `jeju-${owner.slice(0, 10)}-${keyFingerprint.slice(0, 8)}`
+
+    // Check if key already exists on provider
+    const existingKeys = await provider.listSSHKeys()
+    const existing = existingKeys.find(
+      (k) => k.name === keyName || k.fingerprint === keyFingerprint,
+    )
+
+    if (existing) {
+      console.log(`[JejuProvisioner] Found existing SSH key ${existing.id}`)
+      return existing.id
+    }
+
+    // Upload new key
+    console.log(`[JejuProvisioner] Uploading SSH key ${keyName}`)
+    const keyId = await provider.createSSHKey(keyName, publicKey)
+
+    // Track key for cleanup
+    const ownerKeys = sshKeysByOwner.get(owner) ?? []
+    ownerKeys.push({ provider: provider.type, keyId, keyName })
+    sshKeysByOwner.set(owner, ownerKeys)
+
+    return keyId
+  }
+
+  /**
+   * Calculate SSH public key fingerprint (SHA-256)
+   */
+  private async calculateSSHKeyFingerprint(publicKey: string): Promise<string> {
+    const parts = publicKey.trim().split(/\s+/)
+    // OpenSSH format: "ssh-rsa BASE64DATA comment" or raw base64
+    const keyData = parts.length >= 2 && parts[0].startsWith('ssh-')
+      ? parts[1]
+      : publicKey.replace(/[^A-Za-z0-9+/=]/g, '')
+
+    const hash = await crypto.subtle.digest('SHA-256', Buffer.from(keyData, 'base64'))
+    return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join(':')
   }
 
   /**

@@ -7,13 +7,17 @@
  * Usage: bun run server
  */
 
+import {
+  getEqlitePort,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import { Database } from 'bun:sqlite'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { Elysia, t } from 'elysia'
 
-const PORT = parseInt(process.env.EQLITE_PORT ?? process.env.PORT ?? '4661', 10)
+const PORT = getEqlitePort()
 const DATA_DIR =
   process.env.EQLITE_DATA_DIR ?? join(process.cwd(), '.data/eqlite')
 
@@ -306,12 +310,13 @@ const app = new Elysia()
 
 // Start server
 app.listen(PORT, () => {
+  const host = getLocalhostHost()
   console.log(
-    `EQLite Server (SQLite-compat) running on http://localhost:${PORT}`,
+    `EQLite Server (SQLite-compat) running on http://${host}:${PORT}`,
   )
   console.log(`  Data directory: ${DATA_DIR}`)
   console.log(`  Mode: local development`)
-  console.log(`  Health: http://localhost:${PORT}/health`)
+  console.log(`  Health: http://${host}:${PORT}/health`)
 })
 
 export { app }

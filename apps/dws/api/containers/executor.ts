@@ -3,7 +3,13 @@
  * Supports both serverless (ephemeral) and dedicated (persistent) modes
  */
 
-import { getDWSUrl, getRpcUrl, getServiceUrl } from '@jejunetwork/config'
+import {
+  getDWSUrl,
+  getLocalhostHost,
+  getRpcUrl,
+  getServiceUrl,
+  getCurrentNetwork,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address, PublicClient } from 'viem'
 import { createPublicClient, http } from 'viem'
@@ -31,10 +37,14 @@ import type {
 import * as warmPool from './warm-pool'
 
 // Contract configuration
-const CONTAINER_REGISTRY_ADDRESS = process.env.CONTAINER_REGISTRY_ADDRESS as
-  | Address
-  | undefined
-const RPC_URL = process.env.RPC_URL || getRpcUrl()
+const network = getCurrentNetwork()
+const CONTAINER_REGISTRY_ADDRESS =
+  typeof process !== 'undefined'
+    ? (process.env.CONTAINER_REGISTRY_ADDRESS as Address | undefined)
+    : undefined
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+  getRpcUrl(network)
 
 // Container Registry ABI (minimal)
 const CONTAINER_REGISTRY_ABI = [
@@ -250,9 +260,9 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
 // Image Pulling
 
 const STORAGE_ENDPOINT =
-  process.env.DWS_STORAGE_URL ||
-  getServiceUrl('storage', 'api') ||
-  `${getDWSUrl()}/storage`
+  (typeof process !== 'undefined' ? process.env.DWS_STORAGE_URL : undefined) ||
+  getServiceUrl('storage', 'api', getCurrentNetwork()) ||
+  `${getDWSUrl(getCurrentNetwork())}/storage`
 
 async function pullImage(image: ContainerImage): Promise<number> {
   const startTime = Date.now()
@@ -409,7 +419,7 @@ const runtime: ContainerRuntime = {
     const hostPort = parseInt(portBindings[0].HostPort, 10)
 
     return {
-      endpoint: `http://localhost:${hostPort}`,
+      endpoint: `http://${getLocalhostHost()}:${hostPort}`,
       port: hostPort,
     }
   },

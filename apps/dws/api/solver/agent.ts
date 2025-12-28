@@ -1,3 +1,4 @@
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -98,7 +99,7 @@ export class SolverAgent {
     const pk = process.env.SOLVER_PRIVATE_KEY
     const kmsKeyId = process.env.SOLVER_KMS_KEY_ID
     const ownerAddress = process.env.SOLVER_OWNER_ADDRESS as Address | undefined
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     // Determine if we should use KMS
     let useKMS = false

@@ -11,6 +11,7 @@ import {
   getDWSUrl,
   getEnvVar,
   getL2RpcUrl,
+  getLocalhostHost,
 } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
@@ -39,7 +40,8 @@ const { config, configure } = createAppConfig<FactoryConfig>({
       : '/tmp/factory-data'),
   signerEncryptionKey: getEnvVar('SIGNER_ENCRYPTION_KEY'),
   factoryChannelId: getEnvVar('FACTORY_CHANNEL_ID') || 'factory',
-  dcRelayUrl: getEnvVar('DC_RELAY_URL') || 'http://localhost:3300',
+  dcRelayUrl:
+    getEnvVar('DC_RELAY_URL') || `http://${getLocalhostHost()}:3300`,
 })
 
 export function configureFactory(configUpdates: Partial<FactoryConfig>): void {

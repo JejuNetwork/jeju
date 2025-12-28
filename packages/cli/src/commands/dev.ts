@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getDwsUrl,
+  getDWSUrl,
   getEQLiteBlockProducerUrl,
   getFarcasterHubUrl,
   getIpfsGatewayUrl,
@@ -551,7 +551,7 @@ async function printReady(
         value: getIpfsGatewayUrl(),
         status: 'ok' as const,
       },
-      { label: 'DWS', value: getDwsUrl(), status: 'ok' as const },
+      { label: 'DWS', value: getDWSUrl(), status: 'ok' as const },
     ])
   }
 

@@ -41,12 +41,12 @@ import {
   toHex,
 } from 'viem'
 
-import { getKmsUrl, getCurrentNetwork, isProductionEnv } from '@jejunetwork/config'
+import { getKMSUrl, getCurrentNetwork, isProductionEnv } from '@jejunetwork/config'
 
 // KMS endpoint - env override takes precedence, then config
 const KMS_ENDPOINT =
   (typeof process !== 'undefined' ? process.env.KMS_ENDPOINT : undefined) ??
-  getKmsUrl(getCurrentNetwork())
+  getKMSUrl(getCurrentNetwork())
 
 interface KMSSignResult {
   signature: Hex

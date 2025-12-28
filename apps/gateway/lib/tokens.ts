@@ -1,3 +1,4 @@
+import { isTestMode } from '@jejunetwork/config'
 import { getTokenConfigs, type TokenConfig } from './config/contracts'
 
 export interface TokenOption {
@@ -52,9 +53,7 @@ export function getProtocolTokens(): ProtocolToken[] {
     hasBanEnforcement: t.hasBanEnforcement,
   }))
 
-  const isTest =
-    typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
-  if (isTest) return tokens
+  if (isTestMode()) return tokens
 
   return tokens.filter((t) => t.address !== ZERO_ADDRESS)
 }

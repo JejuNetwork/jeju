@@ -291,6 +291,15 @@ export interface SecureNodeClient {
   stake?: bigint
 }
 
+/**
+ * @deprecated Use SecureNodeClient instead - it uses KMS for secure signing
+ */
+export interface NodeClient {
+  publicClient: PublicClient
+  addresses: ContractAddresses
+  chainId: number
+  stake?: bigint
+}
 
 /**
  * Create a secure node client with KMS-backed signing
@@ -326,3 +335,23 @@ export function createSecureNodeClient(
   }
 }
 
+/**
+ * @deprecated Use createSecureNodeClient instead
+ * This function is kept for backwards compatibility during migration
+ */
+export function createNodeClient(rpcUrl: string, chainId: number): NodeClient {
+  const chain = getChain(chainId)
+
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  })
+
+  const addresses = getContractAddresses(chainId)
+
+  return {
+    publicClient,
+    addresses,
+    chainId,
+  }
+}

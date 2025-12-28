@@ -265,7 +265,6 @@ const CHAIN_ID_TO_KEY: Record<number, keyof typeof DEFAULT_CHAINS> = {
 export function createTradingBotOptions(
   config: DefaultBotConfig,
   agentId: bigint,
-  privateKey: `0x${string}`,
   network: 'localnet' | 'testnet' | 'mainnet',
   treasuryAddress?: Address,
 ): TradingBotOptions {
@@ -282,7 +281,6 @@ export function createTradingBotOptions(
     strategies: config.strategies,
     chains,
     treasuryAddress,
-    privateKey,
     maxConcurrentExecutions: 5,
     useFlashbots: network !== 'localnet',
   }

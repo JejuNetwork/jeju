@@ -6,6 +6,7 @@ import type * as http from 'node:http'
 // Import net for CONNECT tunneling (available on DWS node)
 import type * as net from 'node:net'
 import type { Duplex } from 'node:stream'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import {
   expectAddress,
@@ -238,7 +239,7 @@ export class ResidentialProxyService {
     const regionHash = `0x${bytesToHex(hash256(region))}` as Hex
 
     // Get endpoint URL for callback
-    const endpoint = `http://localhost:${this.config.localPort}`
+    const endpoint = `http://${getLocalhostHost()}:${this.config.localPort}`
 
     const hash = await this.client.walletClient.writeContract({
       chain: getChain(this.client.chainId),

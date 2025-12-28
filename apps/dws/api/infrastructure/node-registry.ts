@@ -6,6 +6,7 @@
  * Users discover nodes via on-chain queries and P2P gossip.
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { expectJson } from '@jejunetwork/types'
 import {
   type Address,
@@ -294,7 +295,7 @@ export class NodeRegistry {
         ownerAddress,
       })
       console.log('[NodeRegistry] Using KMS-backed signing')
-    } else if (process.env.NODE_ENV === 'production') {
+    } else if (isProductionEnv()) {
       throw new Error('KMS not available for node registry in production')
     }
 

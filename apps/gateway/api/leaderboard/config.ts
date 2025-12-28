@@ -5,7 +5,7 @@
  * Oracle signing is delegated to the KMS service (MPC or TEE).
  */
 
-import { getDWSUrl, getEQLiteUrl } from '@jejunetwork/config'
+import { getDWSUrl, getEQLiteUrl, getLocalhostHost } from '@jejunetwork/config'
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../../lib/config'
 import { CHAIN_IDS } from '../../lib/config/networks'
 import { config } from '../config'
@@ -64,7 +64,7 @@ function getDomainDefault(): string {
     case 'testnet':
       return 'testnet-leaderboard.jejunetwork.org'
     default:
-      return 'localhost:4013'
+      return `${getLocalhostHost()}:4013`
   }
 }
 

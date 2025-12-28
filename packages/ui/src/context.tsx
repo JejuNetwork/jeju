@@ -85,8 +85,6 @@ export function NetworkProvider({
 
       const config: JejuClientConfig = {
         network: validatedConfig.network,
-        privateKey: validatedConfig.privateKey,
-        mnemonic: validatedConfig.mnemonic,
         account,
         smartAccount: validatedConfig.smartAccount,
         rpcUrl: validatedConfig.rpcUrl,

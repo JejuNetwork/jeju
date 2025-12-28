@@ -1,4 +1,7 @@
-import { getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type {
@@ -36,7 +39,7 @@ async function getEQLiteClient(): Promise<EQLiteClient> {
     eqliteClient = getEQLite({
       databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !isProductionEnv(),
     })
 
     const healthy = await eqliteClient.isHealthy()

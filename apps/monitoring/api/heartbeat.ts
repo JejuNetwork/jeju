@@ -119,7 +119,9 @@ if (IS_PRODUCTION) {
 
 const network = getCurrentNetwork()
 const NODE_EXPLORER_API =
-  process.env.NODE_EXPLORER_API ?? getServiceUrl('gateway', 'api', network) ?? 'https://nodes.jejunetwork.org/api'
+  (typeof process !== 'undefined' ? process.env.NODE_EXPLORER_API : undefined) ??
+  getServiceUrl('gateway', 'api', network) ??
+  'https://nodes.jejunetwork.org/api'
 const RPC_URL =
   (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
   getRpcUrl(network)

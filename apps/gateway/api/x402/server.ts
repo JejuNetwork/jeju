@@ -1,4 +1,5 @@
 import { cors } from '@elysiajs/cors'
+import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { config, getConfigStatus, validateConfig } from './config'
 import healthRoutes from './routes/health'
@@ -15,7 +16,7 @@ import {
 const MAX_BODY_SIZE = 256 * 1024
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-const isProduction = process.env.NODE_ENV === 'production'
+const isProduction = isProductionEnv()
 
 const app = new Elysia()
   .use(
@@ -58,7 +59,7 @@ const app = new Elysia()
     console.error('[Facilitator] Error:', error)
 
     // SECURITY: Never expose internal error details to clients in production
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error'
     const safeMessage = isProduction ? 'Internal server error' : errorMessage

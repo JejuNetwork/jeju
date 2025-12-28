@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, normalize, relative, resolve } from 'node:path'
+import { getLocalhostHost } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { execa } from 'execa'
@@ -302,13 +303,14 @@ Examples:
       console.log(chalk.bold('\nTo deploy:\n'))
       console.log(`  ${chalk.cyan('bun run deploy')}   # Deploy to network`)
 
+      const host = getLocalhostHost()
       console.log(chalk.bold('\nEndpoints:\n'))
-      console.log(`  REST API:   http://localhost:4500/api/v1`)
-      console.log(`  A2A:        http://localhost:4500/a2a`)
-      console.log(`  MCP:        http://localhost:4500/mcp`)
-      console.log(`  x402:       http://localhost:4500/x402`)
-      console.log(`  Auth:       http://localhost:4500/auth`)
-      console.log(`  Health:     http://localhost:4500/health`)
+      console.log(`  REST API:   http://${host}:4500/api/v1`)
+      console.log(`  A2A:        http://${host}:4500/a2a`)
+      console.log(`  MCP:        http://${host}:4500/mcp`)
+      console.log(`  x402:       http://${host}:4500/x402`)
+      console.log(`  Auth:       http://${host}:4500/auth`)
+      console.log(`  Health:     http://${host}:4500/health`)
 
       console.log(
         chalk.dim(`\nDocumentation: https://docs.jejunetwork.org/templates\n`),
@@ -438,6 +440,7 @@ async function generateCustomFiles(config: InitConfig): Promise<void> {
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
 
   // Generate .env.example
+  const host = getLocalhostHost()
   const envContent = `# ${config.displayName} Configuration
 
 # Server
@@ -447,19 +450,19 @@ APP_NAME="${config.displayName}"
 
 # Network
 NETWORK=localnet
-L2_RPC_URL=http://localhost:6546
+L2_RPC_URL=http://${host}:6546
 
 # Services
-EQLITE_BLOCK_PRODUCER_ENDPOINT=http://localhost:4661
+EQLITE_BLOCK_PRODUCER_ENDPOINT=http://${host}:4661
 EQLITE_DATABASE_ID=${config.databaseId}
-COMPUTE_CACHE_ENDPOINT=http://localhost:4200/cache
-KMS_ENDPOINT=http://localhost:4400
-DWS_URL=http://localhost:4030
-STORAGE_API_ENDPOINT=http://localhost:4030/storage
-IPFS_GATEWAY=http://localhost:4030/ipfs
-CRON_ENDPOINT=http://localhost:4030/compute/cron
-WEBHOOK_BASE=http://localhost:4500
-JNS_GATEWAY_URL=http://localhost:4022
+COMPUTE_CACHE_ENDPOINT=http://${host}:4200/cache
+KMS_ENDPOINT=http://${host}:4400
+DWS_URL=http://${host}:4030
+STORAGE_API_ENDPOINT=http://${host}:4030/storage
+IPFS_GATEWAY=http://${host}:4030/ipfs
+CRON_ENDPOINT=http://${host}:4030/compute/cron
+WEBHOOK_BASE=http://${host}:4500
+JNS_GATEWAY_URL=http://${host}:4022
 
 # x402 Payments
 X402_ENABLED=${config.x402Enabled}
@@ -468,8 +471,8 @@ X402_PAYMENT_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 # OAuth3 Authentication
 OAUTH3_ENABLED=${config.oauth3Enabled}
 OAUTH3_APP_ID=${config.oauth3AppId || `${config.name}.oauth3.jeju`}
-OAUTH3_TEE_AGENT_URL=http://localhost:8004
-OAUTH3_REDIRECT_URI=http://localhost:4501/auth/callback
+OAUTH3_TEE_AGENT_URL=http://${host}:8004
+OAUTH3_REDIRECT_URI=http://${host}:4501/auth/callback
 
 # Deployment
 DEPLOYER_PRIVATE_KEY=
@@ -512,12 +515,12 @@ bun run dev
 
 | Endpoint | URL |
 |----------|-----|
-| REST API | http://localhost:4500/api/v1 |
-| A2A | http://localhost:4500/a2a |
-| MCP | http://localhost:4500/mcp |
-| x402 | http://localhost:4500/x402 |
-| Auth | http://localhost:4500/auth |
-| Health | http://localhost:4500/health |
+| REST API | http://${host}:4500/api/v1 |
+| A2A | http://${host}:4500/a2a |
+| MCP | http://${host}:4500/mcp |
+| x402 | http://${host}:4500/x402 |
+| Auth | http://${host}:4500/auth |
+| Health | http://${host}:4500/health |
 
 ## Authentication
 
@@ -528,10 +531,10 @@ This app supports OAuth3 decentralized authentication:
 
 \`\`\`bash
 # Check available providers
-curl http://localhost:4500/auth/providers
+curl http://${host}:4500/auth/providers
 
 # Get session info
-curl -H "x-oauth3-session: <session-id>" http://localhost:4500/auth/session
+curl -H "x-oauth3-session: <session-id>" http://${host}:4500/auth/session
 \`\`\`
 
 ## Testing

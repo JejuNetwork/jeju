@@ -23,34 +23,12 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import {
-  type LocalAccount,
-  mnemonicToAccount,
-  privateKeyToAccount,
-} from 'viem/accounts'
+import { type LocalAccount } from 'viem/accounts'
 import { getChainConfig, getContract, getServicesConfig } from './config'
 
-import { getCurrentNetwork } from '@jejunetwork/config'
-
-/**
- * Check if running in a production environment where local keys are dangerous
- */
-function isProductionEnvironment(): boolean {
-  const env = process.env.NODE_ENV
-  const network = getCurrentNetwork()
-  return (
-    env === 'production' ||
-    network === 'mainnet' ||
-    network === 'testnet' ||
-    process.env.TEE_PLATFORM === 'intel_tdx' ||
-    process.env.TEE_PLATFORM === 'amd_sev'
-  )
-}
-
 export interface WalletConfig {
-  privateKey?: Hex
-  mnemonic?: string
-  account?: LocalAccount
+  /** Pre-configured account (for testing) */
+  account: LocalAccount
   smartAccount?: boolean
   network: NetworkType
 }
@@ -115,38 +93,13 @@ function getNetworkChain(network: NetworkType): Chain {
 }
 
 /**
- * Create a wallet from a private key, mnemonic, or pre-configured account.
- * For production use, prefer createKMSWallet() for secure signing.
+ * Create a wallet from a pre-configured account.
+ * For production use, prefer createKMSWallet() for secure MPC-backed signing.
  */
 export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
   const chain = getNetworkChain(config.network)
   const services = getServicesConfig(config.network)
-
-  // SECURITY: Warn about private key usage in production
-  if (
-    isProductionEnvironment() &&
-    (config.privateKey || config.mnemonic) &&
-    !process.env.ALLOW_INSECURE_LOCAL_KEYS
-  ) {
-    console.warn(
-      '\n⚠️  SECURITY WARNING: Using private keys in production environment.\n' +
-        '   Private keys in memory are vulnerable to side-channel attacks.\n' +
-        '   Consider using createKMSWallet() for MPC-backed signing.\n' +
-        '   Set ALLOW_INSECURE_LOCAL_KEYS=true to suppress this warning.\n',
-    )
-  }
-
-  // Create account from private key or mnemonic
-  let account: LocalAccount
-  if (config.account) {
-    account = config.account
-  } else if (config.privateKey) {
-    account = privateKeyToAccount(config.privateKey)
-  } else if (config.mnemonic) {
-    account = mnemonicToAccount(config.mnemonic)
-  } else {
-    throw new Error('Wallet requires privateKey, mnemonic, or account')
-  }
+  const account = config.account
 
   const publicClient = createPublicClient({
     chain,

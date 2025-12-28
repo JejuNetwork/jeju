@@ -1,4 +1,8 @@
-import { getChainId, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getRpcUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/shared'
 import { RATE_LIMITS, type RateTier } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -52,7 +56,7 @@ export function isPrivateIp(ip: string): boolean {
  * In production, set TRUST_PROXY_HEADERS=true if behind a trusted reverse proxy
  */
 const TRUST_PROXY_HEADERS =
-  process.env.NODE_ENV !== 'production' ||
+  !isProductionEnv() ||
   process.env.TRUST_PROXY_HEADERS === 'true'
 
 function getClientIp(request: Request): string {
@@ -174,7 +178,7 @@ const checkAccess = async (addr: Address): Promise<boolean> => {
   if (!STAKING_ADDR) {
     // SECURITY: Log warning in production if staking is expected but not configured
     if (
-      process.env.NODE_ENV === 'production' &&
+      isProductionEnv() &&
       process.env.REQUIRE_STAKING === 'true'
     ) {
       if (!stakingWarningLogged) {

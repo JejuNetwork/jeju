@@ -10,7 +10,7 @@
  * - Metrics and monitoring
  */
 
-import { getContract, getRpcUrl } from '@jejunetwork/config'
+import { getContract, getRpcUrl, getCurrentNetwork } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -1295,10 +1295,15 @@ export function getManagedDatabaseService(
   backend: BackendManager,
 ): ManagedDatabaseService {
   if (!managedDatabaseService) {
-    const rpcUrl = getRpcUrl()
-    const registryAddress = (getContract('dws', 'managedDatabaseRegistry') ??
+    const network = getCurrentNetwork()
+    const rpcUrl = getRpcUrl(network)
+    const registryAddress = (getContract('dws', 'managedDatabaseRegistry', network) ??
       '0x0000000000000000000000000000000000000000') as Address
-    const privateKey = process.env.DWS_OPERATOR_KEY as Hex | undefined
+    // Private key is a secret - keep as env var
+    const privateKey =
+      typeof process !== 'undefined'
+        ? (process.env.DWS_OPERATOR_KEY as Hex | undefined)
+        : undefined
 
     managedDatabaseService = new ManagedDatabaseService(backend, {
       rpcUrl,

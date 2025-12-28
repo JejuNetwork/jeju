@@ -47,7 +47,6 @@ describe('Contract Client', () => {
     const client = createNodeClient('http://127.0.0.1:6546', 31337)
 
     expect(client.publicClient).toBeDefined()
-    expect(client.walletClient).toBeNull()
     expect(client.chainId).toBe(31337)
     expect(client.addresses).toBeDefined()
   })

@@ -10,7 +10,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { isProductionEnv } from '@jejunetwork/config'
+import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -33,14 +33,17 @@ import {
 export { configureX402, skillError, skillRequiresPayment, skillSuccess }
 
 // Default allowed origins for CORS
-const DEFAULT_ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:4000',
-  'http://localhost:5173',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:4000',
-  'http://127.0.0.1:5173',
-]
+const getDefaultAllowedOrigins = (): string[] => {
+  const host = getLocalhostHost()
+  return [
+    `http://${host}:3000`,
+    `http://${host}:4000`,
+    `http://${host}:5173`,
+    'http://localhost:3000',
+    'http://localhost:4000',
+    'http://localhost:5173',
+  ]
+}
 
 // Zod schema for recursive ProtocolValue type
 const ProtocolValueSchema: z.ZodType<ProtocolValue> = z.lazy(() =>
@@ -221,7 +224,7 @@ export function createServer(config: ServerConfig) {
   // Determine allowed origins
   const allowedOrigins =
     config.security?.allowedOrigins ??
-    (isProductionEnv() ? [] : DEFAULT_ALLOWED_ORIGINS)
+    (isProductionEnv() ? [] : getDefaultAllowedOrigins())
 
   const app = new Elysia()
     // Security middleware (headers, rate limiting)
@@ -247,8 +250,8 @@ export function createServer(config: ServerConfig) {
           // In development, also allow any localhost
           if (
             !isProductionEnv() &&
-            (origin.startsWith('http://localhost:') ||
-              origin.startsWith('http://127.0.0.1:'))
+            (origin.startsWith(`http://localhost:`) ||
+              origin.startsWith(`http://${getLocalhostHost()}:`))
           ) {
             return true
           }
@@ -607,7 +610,8 @@ export async function startServer(
 
   const server = app.listen(port)
 
-  const url = `http://localhost:${port}`
+  const host = getLocalhostHost()
+  const url = `http://${host}:${port}`
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗

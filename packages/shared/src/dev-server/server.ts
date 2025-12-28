@@ -4,6 +4,7 @@
  * Shared development server for Jeju apps with hot reload.
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { generateDevHtml } from './html'
@@ -59,7 +60,7 @@ export async function createDevServer(
       define: {
         'process.env.NODE_ENV': JSON.stringify('development'),
         'process.env.PUBLIC_API_URL': JSON.stringify(
-          apiUrl ?? `http://localhost:${apiPort}`,
+          apiUrl ?? `http://${getLocalhostHost()}:${apiPort}`,
         ),
       },
     })
@@ -84,7 +85,8 @@ export async function createDevServer(
     await mkdir('./dist/dev', { recursive: true })
     await buildFrontend()
 
-    const targetApiUrl = apiUrl ?? `http://localhost:${apiPort}`
+    const host = getLocalhostHost()
+    const targetApiUrl = apiUrl ?? `http://${host}:${apiPort}`
 
     Bun.serve({
       port: frontendPort,
@@ -169,7 +171,7 @@ export async function createDevServer(
       },
     })
 
-    console.log(`[${name}] Frontend: http://localhost:${frontendPort}`)
+    console.log(`[${name}] Frontend: http://${host}:${frontendPort}`)
 
     // Watch for changes and rebuild
     for (const dir of watchDirs) {
@@ -190,8 +192,9 @@ export async function createDevServer(
   console.log(`Starting ${name} frontend server...\n`)
   await startFrontendServer()
   console.log(`\n${name} frontend server ready.`)
-  console.log(`   Frontend: http://localhost:${frontendPort}`)
-  console.log(`   API (proxied to): ${apiUrl ?? `http://localhost:${apiPort}`}`)
+  const host = getLocalhostHost()
+  console.log(`   Frontend: http://${host}:${frontendPort}`)
+  console.log(`   API (proxied to): ${apiUrl ?? `http://${host}:${apiPort}`}`)
 }
 
 function getContentType(path: string): string {

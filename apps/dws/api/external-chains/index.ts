@@ -12,7 +12,12 @@
  * No fallback to external RPCs - fully permissionless.
  */
 
-import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getDWSUrl,
+  getLocalhostHost,
+  type NetworkType,
+} from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -165,11 +170,15 @@ const NODE_CONFIGS: Record<ChainType, NodeConfig> = {
 }
 
 // DWS endpoints by network (for testnet/mainnet)
-const DWS_ENDPOINTS: Record<NetworkType, string> = {
-  localnet: 'http://localhost:4010',
-  testnet: 'https://dws.testnet.jejunetwork.org',
-  mainnet: 'https://dws.jejunetwork.org',
+const getDWSEndpoints = (): Record<NetworkType, string> => {
+  const host = getLocalhostHost()
+  return {
+    localnet: getDWSUrl() || `http://${host}:4010`,
+    testnet: 'https://dws.testnet.jejunetwork.org',
+    mainnet: 'https://dws.jejunetwork.org',
+  }
 }
+const DWS_ENDPOINTS = getDWSEndpoints()
 
 // ============================================================================
 // External RPC Node Service
@@ -241,8 +250,8 @@ export class ExternalRPCNodeService {
       chain,
       chainId: config.chainId,
       status: 'provisioning',
-      rpcEndpoint: `http://localhost:${config.rpcPort}`,
-      wsEndpoint: config.wsPort ? `ws://localhost:${config.wsPort}` : '',
+      rpcEndpoint: `http://${getLocalhostHost()}:${config.rpcPort}`,
+      wsEndpoint: config.wsPort ? `ws://${getLocalhostHost()}:${config.wsPort}` : '',
       containerId: containerName,
       provisionedAt: Date.now(),
       lastHeartbeat: Date.now(),

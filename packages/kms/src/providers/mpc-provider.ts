@@ -2,11 +2,13 @@
  * MPC Provider - Threshold ECDSA (2-of-3 testnet, 3-of-5 mainnet)
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import { getEnv, getEnvNumber, requireEnv } from '@jejunetwork/shared'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import {
   decryptFromPayload,
   deriveKeyFromSecret,
+  deriveKeyFromSecretAsync,
   encryptToPayload,
   extractRecoveryId,
   generateKeyId,
@@ -50,7 +52,9 @@ export class MPCProvider implements KMSProvider {
   private coordinator: MPCCoordinator
   private connected = false
   private keys = new Map<string, MPCKey>()
-  private encryptionKey: Uint8Array
+  private encryptionKey: Uint8Array | null = null
+
+  private encryptionKeyPromise?: Promise<void>
 
   constructor(config: MPCConfig) {
     this.config = config
@@ -58,8 +62,33 @@ export class MPCProvider implements KMSProvider {
       threshold: config.threshold,
       totalParties: config.totalParties,
     })
-    const secret = requireEnv('MPC_ENCRYPTION_SECRET')
-    this.encryptionKey = deriveKeyFromSecret(secret)
+    // Optionally derive synchronously if secret is available
+    const secret = getEnv('MPC_ENCRYPTION_SECRET')
+    if (secret) {
+      this.encryptionKey = deriveKeyFromSecret(secret, 'jeju:kms:mpc:v1')
+    }
+  }
+
+  private getEncryptionKey(): Uint8Array {
+    if (!this.encryptionKey) {
+      throw new Error('Encryption key not initialized. Call connect() first.')
+    }
+    return this.encryptionKey
+  }
+
+  private async ensureEncryptionKey(): Promise<void> {
+    if (this.encryptionKey) return
+    if (this.encryptionKeyPromise) return this.encryptionKeyPromise
+    
+    this.encryptionKeyPromise = (async () => {
+      const secret = requireEnv('MPC_ENCRYPTION_SECRET')
+      this.encryptionKey = await deriveKeyFromSecretAsync(
+        secret,
+        'jeju:kms:mpc:v1',
+      )
+    })()
+    
+    return this.encryptionKeyPromise
   }
 
   async isAvailable(): Promise<boolean> {
@@ -83,7 +112,7 @@ export class MPCProvider implements KMSProvider {
         this.coordinator.registerParty({
           id: `party-${i + 1}`,
           index: i + 1,
-          endpoint: `http://localhost:${4100 + i}`,
+          endpoint: `http://${getLocalhostHost()}:${4100 + i}`,
           publicKey: toHex(partyKey),
           address: `0x${toHex(partyKey).slice(2, 42)}` as Address,
           stake: BigInt(1e18),
@@ -95,7 +124,10 @@ export class MPCProvider implements KMSProvider {
   }
 
   async disconnect(): Promise<void> {
-    this.encryptionKey.fill(0)
+    if (this.encryptionKey) {
+      this.encryptionKey.fill(0)
+      this.encryptionKey = null
+    }
     this.keys.clear()
     this.connected = false
   }
@@ -182,7 +214,7 @@ export class MPCProvider implements KMSProvider {
       if (coordKey) version = coordKey.version
     }
 
-    const ciphertext = await encryptToPayload(dataStr, this.encryptionKey, {
+    const ciphertext = await encryptToPayload(dataStr, this.getEncryptionKey(), {
       version,
       mpc: true,
     })
@@ -205,7 +237,7 @@ export class MPCProvider implements KMSProvider {
 
   async decrypt(request: DecryptRequest): Promise<string> {
     await this.ensureConnected()
-    return decryptFromPayload(request.payload.ciphertext, this.encryptionKey)
+    return decryptFromPayload(request.payload.ciphertext, this.getEncryptionKey())
   }
 
   async sign(request: SignRequest): Promise<SignedMessage> {

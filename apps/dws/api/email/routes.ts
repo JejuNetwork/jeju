@@ -11,7 +11,11 @@
  * - Encryption
  */
 
-import { getEQLiteMinerUrl, getEQLiteUrl } from '@jejunetwork/config'
+import {
+  getEQLiteMinerUrl,
+  getEQLiteUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { getEQLite, resetEQLite } from '@jejunetwork/db'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
@@ -35,7 +39,7 @@ async function getEQLiteClient() {
       minerEndpoint,
       databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !isProductionEnv(),
     })
 
     await ensureTablesExist()

@@ -77,6 +77,7 @@ export {
 } from './network'
 export * from './ports'
 export * from './rpc-chains'
+import { getBridgeRelayerUrl } from './ports'
 export * from './schemas'
 
 // Types from schemas.ts
@@ -252,7 +253,7 @@ export function getContract(
  * Try to get contract address, returns empty string if not found
  * Useful for optional contracts that may not be deployed
  */
-function tryGetContract(
+export function tryGetContract(
   category: ContractCategoryName,
   name: string,
   network?: NetworkType,
@@ -1412,19 +1413,19 @@ function getDefaultBridgeConfig(mode: BridgeMode): unknown {
           {
             chainId: 31337,
             name: 'Local EVM (Anvil)',
-            rpcUrl: 'http://127.0.0.1:6545',
+            rpcUrl: getL1RpcUrl(),
             bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
             lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
           },
         ],
         solana: {
-          rpcUrl: 'http://127.0.0.1:8899',
+          rpcUrl: getSolanaRpcUrl() || 'http://127.0.0.1:8899',
           bridgeProgramId: 'TokenBridge11111111111111111111111111111111',
           evmLightClientProgramId: 'EVMLightClient1111111111111111111111111111',
         },
       },
       tee: {
-        endpoint: 'http://127.0.0.1:8080',
+        endpoint: `http://${getLocalhostHost()}:8080`,
         maxBatchSize: 10,
         batchTimeoutMs: 30000,
       },
@@ -1671,17 +1672,17 @@ export function getBeaconUrl(): string | undefined {
 
 /** Get beacon RPC URL */
 export function getBeaconRpcUrl(): string {
-  return process.env.BEACON_RPC_URL ?? 'http://localhost:5052'
+  return process.env.BEACON_RPC_URL ?? `http://${getLocalhostHost()}:5052`
 }
 
 /** Get execution RPC URL */
 export function getExecutionRpcUrl(): string {
-  return process.env.EXECUTION_RPC_URL ?? 'http://localhost:6545'
+  return process.env.EXECUTION_RPC_URL ?? getL1RpcUrl()
 }
 
 /** Get relayer endpoint */
 export function getRelayerEndpoint(): string {
-  return process.env.RELAYER_ENDPOINT ?? 'http://localhost:8081'
+  return process.env.RELAYER_ENDPOINT ?? getBridgeRelayerUrl()
 }
 
 /** Get Solana RPC URL */
@@ -1852,7 +1853,7 @@ export function getDeployerAddress(): string | undefined {
 
 /** Get training endpoint */
 export function getTrainingEndpoint(): string {
-  return process.env.TRAINING_ENDPOINT ?? 'http://localhost:8001/train_step'
+  return process.env.TRAINING_ENDPOINT ?? `http://${getLocalhostHost()}:8001/train_step`
 }
 
 /** Get model name */
@@ -1882,7 +1883,7 @@ export function getRunGroup(): string | undefined {
 
 /** Get Atropos URL */
 export function getAtroposLocalUrl(): string {
-  return process.env.ATROPOS_URL ?? 'http://localhost:8000'
+  return process.env.ATROPOS_URL ?? `http://${getLocalhostHost()}:8000`
 }
 
 /** Get Atropos port */
@@ -1904,7 +1905,7 @@ export function getDwsApiKey(): string | undefined {
 
 /** Get DWS gateway URL */
 export function getDwsGatewayUrl(): string {
-  return process.env.DWS_GATEWAY_URL ?? 'http://localhost:3000/api/marketplace'
+  return process.env.DWS_GATEWAY_URL ?? `http://${getLocalhostHost()}:3000/api/marketplace`
 }
 
 /** Get DWS cache endpoint */
@@ -1990,7 +1991,7 @@ export function getJejuKeyRegistryAddress(): string | undefined {
 
 /** Get relay node URL */
 export function getRelayNodeUrl(): string {
-  return process.env.RELAY_NODE_URL ?? 'http://localhost:3400'
+  return process.env.RELAY_NODE_URL ?? `http://${getLocalhostHost()}:3400`
 }
 
 /** Get cache namespace */
@@ -2038,7 +2039,7 @@ export function getHsmProvider(): string {
 
 /** Get HSM endpoint */
 export function getHsmEndpoint(): string {
-  return process.env.HSM_ENDPOINT ?? 'http://localhost:8080'
+  return process.env.HSM_ENDPOINT ?? `http://${getLocalhostHost()}:8080`
 }
 
 /** Get HSM API key (secret - env var only) */
@@ -2079,9 +2080,9 @@ export function getLogLevel(): string {
   return process.env.LOG_LEVEL ?? 'info'
 }
 
-/** Get EQLite private key (secret - env var only) */
-export function getEqlitePrivateKey(): string | undefined {
-  return process.env.EQLITE_PRIVATE_KEY
+/** Get EQLite KMS key ID for signing */
+export function getEqliteKeyId(): string | undefined {
+  return process.env.EQLITE_KEY_ID
 }
 
 /** Get EQLite database ID */
@@ -2203,7 +2204,7 @@ export function getNeynarApiKey(): string {
 
 /** Get IPFS API URL (for IPNS) */
 export function getIpfsApiUrlEnv(): string {
-  return process.env.IPFS_API_URL ?? 'http://localhost:5001'
+  return process.env.IPFS_API_URL ?? getIpfsApiUrl()
 }
 
 /** Get KMS endpoint */

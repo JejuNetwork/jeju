@@ -15,10 +15,13 @@
 
 import { parseArgs } from 'node:util'
 import {
+  getBridgeRelayerUrl,
   type BridgeConfig,
   type BridgeMode,
   getBridgeMode,
   getBridgePrivateKey,
+  getBridgeProverUrl,
+  getLocalhostHost,
   loadBridgeConfig,
 } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
@@ -104,8 +107,8 @@ class Orchestrator {
       ),
       solanaRpcUrl: this.config.chains.solana.rpcUrl,
       beaconRpcUrl: evmChain.beaconUrl ?? '',
-      proverEndpoint: `http://127.0.0.1:${this.config.ports.prover}`,
-      relayerEndpoint: `http://127.0.0.1:${this.config.ports.relayer}`,
+      proverEndpoint: getBridgeProverUrl(),
+      relayerEndpoint: getBridgeRelayerUrl(),
       checkIntervalMs: 30000,
     }
 
@@ -138,7 +141,7 @@ class Orchestrator {
 
     // Wait for prover to be ready
     await this.waitForService(
-      `http://127.0.0.1:${this.config.ports.prover}/health`,
+      `${getBridgeProverUrl()}/health`,
       10,
     )
 
@@ -168,7 +171,7 @@ class Orchestrator {
           this.config.chains.solana.evmLightClientProgramId,
         keypairPath: process.env.SOLANA_KEYPAIR ?? '~/.config/solana/id.json',
       },
-      proverEndpoint: `http://127.0.0.1:${this.config.ports.prover}`,
+      proverEndpoint: getBridgeProverUrl(),
       teeEndpoint: this.config.tee.endpoint,
       batchSize: this.config.tee.maxBatchSize,
       batchTimeoutMs: this.config.tee.batchTimeoutMs,
@@ -200,7 +203,7 @@ class Orchestrator {
         ...process.env,
         BEACON_RPC_URL: beaconUrl,
         EXECUTION_RPC_URL: this.config.chains.evm[0].rpcUrl,
-        RELAYER_ENDPOINT: `http://127.0.0.1:${this.config.ports.relayer}`,
+        RELAYER_ENDPOINT: getBridgeRelayerUrl(),
       },
       stdout: 'pipe',
       stderr: 'pipe',
@@ -227,15 +230,16 @@ class Orchestrator {
   }
 
   private printStatus(): void {
+    const host = getLocalhostHost()
     console.log('Components:')
     console.log(
-      `  Relayer:        http://127.0.0.1:${this.config.ports.relayer}`,
+      `  Relayer:        ${getBridgeRelayerUrl()}`,
     )
     console.log(
-      `  Prover:         http://127.0.0.1:${this.config.ports.prover}`,
+      `  Prover:         ${getBridgeProverUrl()}`,
     )
     console.log(
-      `  Health:         http://127.0.0.1:${this.config.ports.health}/monitoring/health`,
+      `  Health:         http://${host}:${this.config.ports.health}/monitoring/health`,
     )
     console.log('')
     console.log('Chains:')

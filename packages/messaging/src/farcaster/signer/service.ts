@@ -6,6 +6,7 @@
  */
 
 import type { Address, Hex, WalletClient } from 'viem'
+import { hexToBytes } from '@noble/hashes/utils'
 import { optimism } from 'viem/chains'
 import { FarcasterPoster } from '../hub/poster'
 import { FarcasterSignerManager, type SignerInfo } from './manager'
@@ -135,8 +136,11 @@ export class FarcasterSignerService {
     const signer = await this.manager.getActiveSignerForFid(fid)
     if (!signer) return null
 
-    const privateKey = await this.manager.getSignerPrivateKey(signer.keyId)
-    if (!privateKey) return null
+    const privateKeyHex = await this.manager.getSignerPrivateKey(signer.keyId)
+    if (!privateKeyHex) return null
+
+    // Convert hex to Uint8Array
+    const privateKey = hexToBytes(privateKeyHex.slice(2))
 
     return new FarcasterPoster({
       fid,

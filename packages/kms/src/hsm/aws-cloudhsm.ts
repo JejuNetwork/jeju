@@ -17,7 +17,7 @@
  */
 
 import type { Hex } from 'viem'
-import { keccak256, toHex } from 'viem'
+import { toHex } from 'viem'
 import { kmsLogger as log } from '../logger.js'
 import type {
   HSMConfig,
@@ -44,8 +44,8 @@ const CKA_DERIVE = 0x0000010cn
 const CKA_EXTRACTABLE = 0x00000162n
 const CKA_VALUE_LEN = 0x00000161n
 const CKA_EC_PARAMS = 0x00000180n
-const CKK_AES = 0x0000001fn
-const CKK_EC = 0x00000003n
+const _CKK_AES = 0x0000001fn
+const _CKK_EC = 0x00000003n
 const CKO_SECRET_KEY = 0x00000004n
 const CKO_PUBLIC_KEY = 0x00000002n
 const CKO_PRIVATE_KEY = 0x00000003n
@@ -129,7 +129,7 @@ export class AWSCloudHSMProvider implements HSMProvider {
 
       log.info('AWS CloudHSM connected', { slotId })
     } catch (error) {
-      log.error('AWS CloudHSM connection failed', { error })
+      log.error('AWS CloudHSM connection failed', { error: error instanceof Error ? error.message : String(error) })
       throw new Error(`CloudHSM connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -150,7 +150,7 @@ export class AWSCloudHSMProvider implements HSMProvider {
 
       log.info('AWS CloudHSM disconnected')
     } catch (error) {
-      log.error('AWS CloudHSM disconnect error', { error })
+      log.error('AWS CloudHSM disconnect error', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -463,7 +463,7 @@ export class AWSCloudHSMProvider implements HSMProvider {
     }
 
     // Hash the data first (secp256k1 typically signs the hash)
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer)
     const hashBytes = new Uint8Array(hash)
 
     const mechanism = { mechanism: CKM_ECDSA }
@@ -496,7 +496,7 @@ export class AWSCloudHSMProvider implements HSMProvider {
       throw new Error(`Public key not found: ${keyId}`)
     }
 
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer)
     const hashBytes = new Uint8Array(hash)
 
     const signatureBytes = this.hexToBytes(signature)

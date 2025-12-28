@@ -10,6 +10,10 @@
  */
 
 import {
+  getLocalhostHost,
+  INFRA_PORTS,
+} from '@jejunetwork/config'
+import {
   createEQLiteNode,
   type EQLiteNodeConfig,
   type EQLiteNodeManager,
@@ -59,6 +63,7 @@ export interface EQLiteNodeInfo {
   dwsAgentId?: bigint
   registryNodeId?: Hex
   databaseCount: number
+  totalQueries: number
   mrEnclave?: string
 }
 
@@ -261,7 +266,8 @@ export class EQLiteNodeService {
     const state = this.nodeManager.getState()
 
     // 3. Register on EQLite Registry (on-chain)
-    const endpoint = `http://localhost:${params.rpcPort ?? 4661}`
+    const host = getLocalhostHost()
+    const endpoint = `http://${host}:${params.rpcPort ?? INFRA_PORTS.EQLite.get()}`
 
     await this.registerOnChain(
       nodeId,
@@ -342,8 +348,9 @@ export class EQLiteNodeService {
     const state = this.nodeManager.getState()
 
     const config = this.nodeManager.getConfig()
-    const rpcPort = config.rpcAddr?.split(':')[1] ?? '4661'
-    const endpoint = `http://localhost:${rpcPort}`
+    const rpcPort = config.rpcAddr?.split(':')[1] ?? String(INFRA_PORTS.EQLite.get())
+    const host = getLocalhostHost()
+    const endpoint = `http://${host}:${rpcPort}`
     return {
       nodeId: state.nodeId as Hex,
       role: state.role,

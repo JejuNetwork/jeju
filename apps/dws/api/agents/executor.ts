@@ -90,7 +90,7 @@ export class AgentExecutor {
     this.workerd = workerd
     const network = getCurrentNetwork()
     const dwsBaseUrl = getDWSUrl(network)
-    const kmsBaseUrl = getKMSEndpoint(network)
+    const kmsBaseUrl = getKMSEndpoint()
     this.config = {
       inferenceUrl:
         config.inferenceUrl ??
@@ -103,7 +103,7 @@ export class AgentExecutor {
       eqliteUrl:
         config.eqliteUrl ??
         (typeof process !== 'undefined' ? process.env.DWS_EQLITE_URL : undefined) ??
-        getEQLiteBlockProducerUrl(network),
+        getEQLiteBlockProducerUrl(),
       warmPool: config.warmPool ?? DEFAULT_WARM_POOL_CONFIG,
       elizaWorkerCid: config.elizaWorkerCid ?? DEFAULT_ELIZA_WORKER_CID,
     }

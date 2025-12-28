@@ -13,6 +13,11 @@ import {
   type PlatformMessage,
   PlatformMessageSchema,
 } from '../../lib'
+import {
+  getDWSUrl,
+  getLocalhostHost,
+  isDevelopmentEnv,
+} from '@jejunetwork/config'
 import { DEFAULT_CHAIN_ID, getChainId, PENDING_ACTION_TTL } from '../config'
 import {
   getLaunchService,
@@ -33,16 +38,16 @@ import {
 function getDwsBaseUrl(): string {
   const url = process.env.DWS_SERVER_URL
   if (url) return url
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:4030'
+  if (isDevelopmentEnv()) {
+    return `http://${getLocalhostHost()}:4030`
   }
-  throw new Error('DWS_SERVER_URL environment variable is required')
+  return getDWSUrl()
 }
 
 function getAiModel(): string {
   const model = process.env.AI_MODEL
   if (model) return model
-  if (process.env.NODE_ENV === 'development') {
+  if (isDevelopmentEnv()) {
     return 'llama-3.1-8b-instant'
   }
   throw new Error('AI_MODEL environment variable is required')
@@ -713,7 +718,7 @@ async function callAI(
   ]
 
   const dwsUrl = process.env.DWS_SERVER_URL
-  if (dwsUrl || process.env.NODE_ENV === 'development') {
+  if (dwsUrl || isDevelopmentEnv()) {
     const response = await fetch(
       `${getDwsBaseUrl()}/compute/chat/completions`,
       {

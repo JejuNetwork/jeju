@@ -60,12 +60,10 @@ describe('Deployment Moderation Service', () => {
 
       const result = await service.scanDeployment({
         deploymentId: 'dep-123',
-        userAddress: testAddress,
-        contentType: 'container',
-        files: [
-          { path: 'Dockerfile', content: 'FROM node:18\nCOPY . .\nRUN npm install' },
-          { path: 'index.js', content: 'console.log("Hello")' },
-        ],
+        owner: testAddress,
+        type: 'container',
+        image: 'node:18',
+        codeCid: 'QmTest123',
       })
 
       expect(result.approved).toBe(true)
@@ -91,11 +89,10 @@ describe('Deployment Moderation Service', () => {
 
       const result = await service.scanDeployment({
         deploymentId: 'dep-124',
-        userAddress: testAddress,
-        contentType: 'container',
-        files: [
-          { path: 'miner.py', content: 'import cryptominer\ncryptominer.start()' },
-        ],
+        owner: testAddress,
+        type: 'container',
+        image: 'cryptominer:latest',
+        codeCid: 'QmMiner789',
       })
 
       expect(result.approved).toBe(false)
@@ -121,11 +118,9 @@ describe('Deployment Moderation Service', () => {
 
       const result = await service.scanDeployment({
         deploymentId: 'dep-125',
-        userAddress: testAddress,
-        contentType: 'worker',
-        files: [
-          { path: 'script.js', content: 'complex obfuscated code...' },
-        ],
+        owner: testAddress,
+        type: 'worker',
+        codeCid: 'QmObfuscated456',
       })
 
       expect(result.approved).toBe(false)

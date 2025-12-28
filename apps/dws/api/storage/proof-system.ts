@@ -15,7 +15,6 @@
 
 import {
   getCurrentNetwork,
-  getLocalhostHost,
   getRpcUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
@@ -159,9 +158,16 @@ const DEFAULT_PROOF_CONFIG: StorageProofConfig = {
   challengeRewardWei: 1000000000000000n, // 0.001 ETH
   slashAmountWei: 10000000000000000n, // 0.01 ETH
   proofContractAddress: '0x0000000000000000000000000000000000000000',
-  rpcUrl: process.env.RPC_URL ?? getRpcUrl(getCurrentNetwork()),
-  kmsKeyId: process.env.STORAGE_PROOF_KMS_KEY_ID,
-  ownerAddress: process.env.STORAGE_PROOF_OWNER_ADDRESS as Address | undefined,
+  rpcUrl:
+    (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+    getRpcUrl(getCurrentNetwork()),
+  // KMS key ID is a secret - keep as env var
+  kmsKeyId:
+    typeof process !== 'undefined' ? process.env.STORAGE_PROOF_KMS_KEY_ID : undefined,
+  ownerAddress:
+    typeof process !== 'undefined'
+      ? (process.env.STORAGE_PROOF_OWNER_ADDRESS as Address | undefined)
+      : undefined,
   // Only use privateKey in development - not set by default
   privateKey: undefined,
 }
@@ -312,7 +318,7 @@ export class StorageProofManager {
       console.log(
         '[StorageProofManager] Using KMS-based secure signing (FROST)',
       )
-    } else if (process.env.NODE_ENV === 'production') {
+    } else if (isProductionEnv()) {
       throw new Error(
         'STORAGE_PROOF_KMS_KEY_ID and STORAGE_PROOF_OWNER_ADDRESS required in production',
       )
@@ -670,7 +676,7 @@ export class StorageProofManager {
   ): Promise<void> {
     // SECURITY: In production, on-chain transactions should use a separate
     // transaction relay service that holds keys in HSM, not this server
-    if (process.env.NODE_ENV === 'production') {
+    if (isProductionEnv()) {
       console.warn(
         '[StorageProofManager] On-chain challenge submission should use transaction relay in production',
       )
@@ -876,7 +882,7 @@ export class StorageProofManager {
     }
 
     // Development fallback - only allowed in non-production
-    if (process.env.NODE_ENV === 'production') {
+    if (isProductionEnv()) {
       throw new Error(
         'KMS-based signing required in production. Call initializeSecureSigning() first.',
       )

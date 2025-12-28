@@ -1,5 +1,5 @@
 import { cors } from '@elysiajs/cors'
-import { CORE_PORTS, getNetworkName } from '@jejunetwork/config'
+import { CORE_PORTS, getLocalhostHost, getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
@@ -45,12 +45,15 @@ setInterval(() => {
   }
 }, RATE_LIMIT_WINDOW_MS)
 
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') || [
-  `http://localhost:${CORE_PORTS.DOCUMENTATION.DEFAULT}`,
-  'http://localhost:3000',
-  'https://docs.jejunetwork.org',
-  'https://jejunetwork.org',
-]
+const ALLOWED_ORIGINS = (() => {
+  const host = getLocalhostHost()
+  return process.env.ALLOWED_ORIGINS?.split(',') || [
+    `http://${host}:${CORE_PORTS.DOCUMENTATION.DEFAULT}`,
+    `http://${host}:3000`,
+    'https://docs.jejunetwork.org',
+    'https://jejunetwork.org',
+  ]
+})()
 
 const SkillParamsSchema = z.record(z.string(), z.string())
 
@@ -90,7 +93,7 @@ const AGENT_CARD = {
   protocolVersion: '0.3.0',
   name: `${getNetworkName()} Documentation`,
   description: 'Search and query the network documentation programmatically',
-  url: `http://localhost:${PORT}/api/a2a`,
+  url: `http://${getLocalhostHost()}:${PORT}/api/a2a`,
   preferredTransport: 'http',
   provider: { organization: 'the network', url: 'https://jejunetwork.org' },
   version: '1.0.0',

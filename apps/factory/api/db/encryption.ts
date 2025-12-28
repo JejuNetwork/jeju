@@ -5,6 +5,7 @@
  * Uses AES-256-GCM for authenticated encryption.
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   createCipheriv,
   createDecipheriv,
@@ -32,7 +33,7 @@ function getEncryptionKey(): Buffer {
 
   const masterKey = process.env[DB_ENCRYPTION_KEY_ENV]
   if (!masterKey) {
-    if (process.env.NODE_ENV === 'production') {
+    if (isProductionEnv()) {
       throw new Error(`${DB_ENCRYPTION_KEY_ENV} must be set in production`)
     }
     return Buffer.alloc(0)

@@ -23,7 +23,6 @@ import {
   constantTimeCompare,
   decryptFromPayload,
   deriveKeyForEncryption,
-  deriveKeyFromSecret,
   deriveKeyFromSecretAsync,
   encryptToPayload,
   extractRecoveryId,
@@ -92,20 +91,9 @@ export class EncryptionProvider implements KMSProvider {
   private keyVersions = new Map<string, KeyVersionRecord[]>()
   private sessions = new Map<string, Session>()
   private initPromise: Promise<void> | null = null
-  private useAsyncDerivation: boolean
 
   constructor(_config: EncryptionConfig) {
-    // Check if async derivation is enabled (recommended for production)
-    this.useAsyncDerivation = getEnvBoolean(
-      'KMS_USE_ASYNC_KEY_DERIVATION',
-      false,
-    )
-
-    if (!this.useAsyncDerivation) {
-      // Legacy synchronous derivation (fast but less secure)
-      const secret = requireEnv('KMS_ENCRYPTION_SECRET')
-      this.masterKey = deriveKeyFromSecret(secret)
-    }
+    // Master key is derived asynchronously via initializeMasterKey()
   }
 
   /**
@@ -136,14 +124,9 @@ export class EncryptionProvider implements KMSProvider {
 
   async connect(): Promise<void> {
     if (this.connected) return
-    // Initialize master key with async derivation if enabled
-    if (this.useAsyncDerivation) {
-      await this.initializeMasterKey()
-    }
+    await this.initializeMasterKey()
     this.connected = true
-    log.info('Encryption provider initialized', {
-      asyncDerivation: this.useAsyncDerivation,
-    })
+    log.info('Encryption provider initialized')
   }
 
   async disconnect(): Promise<void> {

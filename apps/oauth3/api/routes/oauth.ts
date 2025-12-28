@@ -12,7 +12,12 @@ import {
   type OAuthConfig,
   type OAuthState,
 } from '@jejunetwork/auth/providers'
-import { getLocalhostHost } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getOAuth3Url,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
 import { toHex } from 'viem'
@@ -178,14 +183,16 @@ export async function createOAuthRouter(config: AuthConfig) {
       ('0x0000000000000000000000000000000000000000' as `0x${string}`),
     serviceAgentId: config.serviceAgentId,
     chainId: config.chainId ?? 'eip155:420691',
-    devMode: config.devMode ?? process.env.NODE_ENV !== 'production',
+    devMode: config.devMode ?? !isProductionEnv(),
   })
 
   // Load sealed OAuth provider secrets
   await loadSealedProviders()
 
+  const network = getCurrentNetwork()
   const host = getLocalhostHost()
-  const baseUrl = process.env.BASE_URL ?? `http://${host}:4200`
+  const baseUrl = process.env.BASE_URL ?? 
+    (network === 'localnet' ? `http://${host}:4200` : getOAuth3Url(network))
 
   return (
     new Elysia({ name: 'oauth', prefix: '/oauth' })

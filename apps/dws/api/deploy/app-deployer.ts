@@ -11,6 +11,7 @@
  * - Provides unified deployment API
  */
 
+import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -184,7 +185,7 @@ async function initializeTEE(config: DWSConfig['tee']): Promise<{
   if (
     config.required &&
     !status.available &&
-    process.env.NODE_ENV === 'production'
+    isProductionEnv()
   ) {
     throw new Error('TEE required but not available')
   }
@@ -334,8 +335,8 @@ export class AppDeployer {
       return {
         type: 'postgres',
         name: dbName,
-        connectionString: `postgres://postgres:postgres@localhost:${port}/${appName.replace(/-/g, '_')}`,
-        host: 'localhost',
+        connectionString: `postgres://postgres:postgres@${getLocalhostHost()}:${port}/${appName.replace(/-/g, '_')}`,
+        host: getLocalhostHost(),
         port,
       }
     }
@@ -523,8 +524,8 @@ export function createAppDeployerRouter() {
       return {
         ...status,
         mode:
-          process.env.NODE_ENV === 'production' ? 'production' : 'development',
-        simulatorAllowed: process.env.NODE_ENV !== 'production',
+          isProductionEnv() ? 'production' : 'development',
+        simulatorAllowed: !isProductionEnv(),
       }
     })
 }

@@ -200,6 +200,8 @@ export class NDJSONWriter {
   private encoder = new TextEncoder()
   private controller: ReadableStreamDefaultController<Uint8Array> | null = null
   private closed = false
+  bytesWritten = 0
+  messagesWritten = 0
 
   createStream(): ReadableStream<Uint8Array> {
     const self = this
@@ -261,6 +263,7 @@ export class ChunkedWriter {
   private buffer: Uint8Array[] = []
   private bufferSize = 0
   private maxBufferSize: number
+  bytesWritten = 0
 
   constructor(maxBufferSize = 16384) {
     this.maxBufferSize = maxBufferSize

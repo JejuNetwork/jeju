@@ -1,4 +1,8 @@
-import { getRpcUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
@@ -175,10 +179,12 @@ async function getAuthenticatedUser(request: Request): Promise<{
     }
   }
 
-  const rpcUrl = getRpcUrl()
-  const registryAddress = process.env.EMAIL_REGISTRY_ADDRESS as
+  const network = getCurrentNetwork()
+  const rpcUrl = getRpcUrl(network)
+  // Email registry contract is configured via env var (not in contracts config yet)
+  const registryAddress = (typeof process !== 'undefined' ? process.env.EMAIL_REGISTRY_ADDRESS : undefined) as
     | Address
-    | undefined
+    | undefined ?? tryGetContract('dws', 'emailRegistry', network) as Address | undefined
 
   let tier: EmailTier = 'free'
   const email = `${address.slice(0, 8).toLowerCase()}@jeju.mail`

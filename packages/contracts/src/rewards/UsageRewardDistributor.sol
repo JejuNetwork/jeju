@@ -52,6 +52,7 @@ contract UsageRewardDistributor is Ownable, Pausable, ReentrancyGuard {
         uint256 pendingRewards;
         uint256 lastClaimTime;
         uint256 lastUsageRecorded;
+        uint256 lastClaimedEpoch;  // Last epoch claimed (prevents double-claim)
     }
 
     struct EpochConfig {
@@ -336,13 +337,17 @@ contract UsageRewardDistributor is Ownable, Pausable, ReentrancyGuard {
      * @param serviceType Service type to claim for
      */
     function claimRewards(ServiceType serviceType) external nonReentrant {
-        uint256 totalReward = _calculatePendingRewards(serviceType, msg.sender);
+        ProviderRewards storage rewards = providerRewards[serviceType][msg.sender];
+        uint256 lastClaimed = rewards.lastClaimedEpoch;
+        uint256 current = currentEpoch[serviceType];
+        
+        uint256 totalReward = _calculatePendingRewardsSinceEpoch(serviceType, msg.sender, lastClaimed);
         if (totalReward == 0) revert NothingToClaim();
 
-        ProviderRewards storage rewards = providerRewards[serviceType][msg.sender];
         rewards.pendingRewards = 0;
         rewards.totalClaimed += totalReward;
         rewards.lastClaimTime = block.timestamp;
+        rewards.lastClaimedEpoch = current;  // Mark all epochs as claimed
 
         // Deduct protocol fee
         uint256 fee = (totalReward * protocolFeeBps) / BPS;
@@ -372,11 +377,20 @@ contract UsageRewardDistributor is Ownable, Pausable, ReentrancyGuard {
     }
 
     function _calculatePendingRewards(ServiceType serviceType, address provider) internal view returns (uint256) {
+        uint256 lastClaimed = providerRewards[serviceType][provider].lastClaimedEpoch;
+        return _calculatePendingRewardsSinceEpoch(serviceType, provider, lastClaimed);
+    }
+
+    function _calculatePendingRewardsSinceEpoch(
+        ServiceType serviceType,
+        address provider,
+        uint256 sinceEpoch
+    ) internal view returns (uint256) {
         uint256 total = providerRewards[serviceType][provider].pendingRewards;
         uint256 current = currentEpoch[serviceType];
 
         // Calculate rewards for all finalized epochs since last claim
-        for (uint256 epoch = 1; epoch <= current; epoch++) {
+        for (uint256 epoch = sinceEpoch + 1; epoch <= current; epoch++) {
             EpochConfig storage epochConfig = epochs[serviceType][epoch];
             if (!epochConfig.finalized) continue;
             if (epochConfig.totalWeightedUsage == 0) continue;
@@ -405,7 +419,8 @@ contract UsageRewardDistributor is Ownable, Pausable, ReentrancyGuard {
             uint256 totalClaimed,
             uint256 pendingRewards,
             uint256 lastClaimTime,
-            uint256 lastUsageRecorded
+            uint256 lastUsageRecorded,
+            uint256 lastClaimedEpoch
         )
     {
         ProviderRewards storage rewards = providerRewards[serviceType][provider];
@@ -413,7 +428,8 @@ contract UsageRewardDistributor is Ownable, Pausable, ReentrancyGuard {
             rewards.totalClaimed,
             _calculatePendingRewards(serviceType, provider),
             rewards.lastClaimTime,
-            rewards.lastUsageRecorded
+            rewards.lastUsageRecorded,
+            rewards.lastClaimedEpoch
         );
     }
 

@@ -1,4 +1,7 @@
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import {
+  getEQLiteBlockProducerUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { expectAddress } from '@jejunetwork/types'
 import type { Address } from 'viem'
@@ -21,7 +24,7 @@ export function getDatabase(): EQLiteClient {
         getEQLiteBlockProducerUrl(),
       databaseId: DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !isProductionEnv(),
     })
   }
   return dbClient

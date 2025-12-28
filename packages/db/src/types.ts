@@ -40,7 +40,9 @@ export interface EQLiteConfig {
   /** Miner node endpoint (for direct queries) */
   minerEndpoint?: string
   /** KMS key ID for secure signing (uses threshold signatures via KMS MPC) */
-  keyId: string
+  keyId?: string
+  /** Private key for local development (NOT for production - use keyId with KMS instead) */
+  privateKey?: `0x${string}`
   /** Database ID (hex hash) */
   databaseId?: string
   /** Connection timeout in ms */

@@ -21,8 +21,15 @@
  *   - In development: Falls back to insecure dev key with warning
  *   - In production (NODE_ENV=production or JEJU_NETWORK=mainnet): Required
  *
- * @limitation Terminal resize requires PTY support - resize() has limited functionality
- * @limitation Key rotation is not fully implemented - rotateExpiredKeys() only logs
+ * @limitation Terminal resize requires node-pty for full functionality
+ * 
+ * Key rotation is fully implemented and will:
+ * 1. Generate new ed25519 keypair using ssh-keygen
+ * 2. Connect to instance with existing key
+ * 3. Add new public key to authorized_keys
+ * 4. Verify new key works
+ * 5. Update encrypted credential in memory
+ * 6. Remove old key from authorized_keys
  */
 
 import { Elysia } from 'elysia'
@@ -31,7 +38,11 @@ import type { ServerWebSocket } from 'bun'
 import { randomBytes } from 'crypto'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
-import { getLocalhostHost } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  isProductionEnv,
+} from '@jejunetwork/config'
 
 // ============ Types ============
 
@@ -745,16 +756,134 @@ export class SSHGateway {
 
     for (const credential of credentials.values()) {
       if (now - credential.rotatedAt > this.config.keyRotationIntervalMs) {
-        // Key rotation is not implemented - just log for now
-        // In a full implementation, this would:
-        // 1. Generate new SSH keypair
-        // 2. Deploy public key to the compute instance via cloud-init or SSH
-        // 3. Update the stored credential with new private key
-        // 4. Verify connectivity with new key
-        // 5. Remove old key from instance
-        console.warn(`[SSHGateway] Key rotation overdue for ${credential.computeId} - rotation not implemented`)
+        // Queue automatic key rotation (don't await in the cleanup loop)
+        this.autoRotateKey(credential.computeId).catch((err) => {
+          console.error(`[SSHGateway] Key rotation failed for ${credential.computeId}:`, err)
+        })
       }
     }
+  }
+
+  /**
+   * Execute SSH command on remote host
+   */
+  private async execSSH(
+    keyPath: string,
+    host: string,
+    port: number,
+    username: string,
+    command: string,
+  ): Promise<number> {
+    const proc = Bun.spawn([
+      'ssh',
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'UserKnownHostsFile=/dev/null',
+      '-o', 'ConnectTimeout=30',
+      '-i', keyPath,
+      '-p', port.toString(),
+      `${username}@${host}`,
+      command,
+    ])
+    return proc.exited
+  }
+
+  /**
+   * Securely delete temp file
+   */
+  private async secureDelete(path: string): Promise<void> {
+    await Bun.spawn(['shred', '-u', path]).exited
+  }
+
+  /**
+   * Write SSH key to temp file with secure permissions
+   */
+  private async writeTempKey(computeId: string, key: string, suffix: string): Promise<string> {
+    const path = `/tmp/ssh-${suffix}-${computeId}-${randomBytes(4).toString('hex')}`
+    await Bun.write(path, key)
+    await Bun.spawn(['chmod', '600', path]).exited
+    return path
+  }
+
+  /**
+   * Auto-rotate SSH key for a compute instance
+   */
+  private async autoRotateKey(computeId: string): Promise<void> {
+    const credential = credentials.get(computeId)
+    if (!credential) {
+      console.warn(`[SSHGateway] Cannot rotate key - credential not found for ${computeId}`)
+      return
+    }
+
+    const now = Date.now()
+    if (now - credential.rotatedAt < this.config.keyRotationIntervalMs / 2) {
+      return // Recently rotated, skip
+    }
+
+    console.log(`[SSHGateway] Starting key rotation for ${computeId}`)
+
+    // Generate new ed25519 keypair
+    const keyPath = `/tmp/ssh-keygen-${computeId}-${randomBytes(4).toString('hex')}`
+    const keygen = await Bun.spawn([
+      'ssh-keygen', '-t', 'ed25519', '-f', keyPath,
+      '-N', '', '-C', `jeju-${computeId}@${new Date().toISOString()}`,
+    ]).exited
+
+    if (keygen !== 0) {
+      throw new Error(`ssh-keygen failed: ${keygen}`)
+    }
+
+    const newPrivateKey = await Bun.file(keyPath).text()
+    const newPublicKey = await Bun.file(`${keyPath}.pub`).text()
+    await this.secureDelete(keyPath)
+    await Bun.spawn(['rm', '-f', `${keyPath}.pub`]).exited
+
+    // Write keys to temp files
+    const currentKeyPath = await this.writeTempKey(computeId, await this.decryptKey(credential.privateKey), 'current')
+    const newKeyPath = await this.writeTempKey(computeId, newPrivateKey, 'new')
+    const { host, port, username } = credential
+
+    // Add new key to authorized_keys
+    const addKeyExit = await this.execSSH(
+      currentKeyPath, host, port, username,
+      `echo '${newPublicKey.trim()}' >> ~/.ssh/authorized_keys`,
+    )
+    if (addKeyExit !== 0) {
+      await this.secureDelete(currentKeyPath)
+      await this.secureDelete(newKeyPath)
+      throw new Error(`Failed to add new key: ${addKeyExit}`)
+    }
+
+    // Verify new key works
+    const verifyExit = await this.execSSH(
+      newKeyPath, host, port, username, 'echo ok',
+    )
+    if (verifyExit !== 0) {
+      // Rollback: remove new key
+      const keyPrefix = newPublicKey.trim().split(' ').slice(0, 2).join(' ')
+      await this.execSSH(
+        currentKeyPath, host, port, username,
+        `grep -v '${keyPrefix}' ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys`,
+      )
+      await this.secureDelete(currentKeyPath)
+      await this.secureDelete(newKeyPath)
+      throw new Error('New key verification failed')
+    }
+
+    // Update credential
+    credential.privateKey = await this.encryptKey(newPrivateKey)
+    credential.rotatedAt = now
+    credential.fingerprint = await this.calculateFingerprint(newPublicKey)
+
+    // Remove old keys from authorized_keys (keep only new)
+    const keyPrefix = newPublicKey.trim().split(' ').slice(0, 2).join(' ')
+    await this.execSSH(
+      newKeyPath, host, port, username,
+      `grep '${keyPrefix}' ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys`,
+    )
+
+    await this.secureDelete(currentKeyPath)
+    await this.secureDelete(newKeyPath)
+    console.log(`[SSHGateway] Key rotation complete for ${computeId}`)
   }
 
   // Development fallback key constant
@@ -772,7 +901,7 @@ export class SSHGateway {
     }
     
     // In production, fail hard
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.JEJU_NETWORK === 'mainnet'
+    const isProduction = isProductionEnv() || getCurrentNetwork() === 'mainnet'
     if (isProduction) {
       throw new Error('CRITICAL: DWS_VAULT_KEY must be set for SSH key encryption in production')
     }

@@ -347,9 +347,13 @@ export async function waitForService(
 
 import {
   getChainId as getConfigChainId,
+  getIndexerGraphqlUrl,
   getL1RpcUrl,
+  getLocalhostHost,
+  getOracleUrl,
   getRpcUrl as getConfigRpcUrl,
   getServiceUrl,
+  getSolanaRpcUrl,
 } from '@jejunetwork/config'
 
 /**
@@ -390,18 +394,19 @@ export function getTestEnv(): Record<string, string> {
       CHAIN_ID: String(getConfigChainId()),
       INDEXER_GRAPHQL_URL: getServiceUrl('indexer', 'graphql'),
       ORACLE_URL: getServiceUrl('oracle'),
-      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899',
+      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? getSolanaRpcUrl() ?? `http://${getLocalhostHost()}:8899`,
     }
   } catch {
+    const host = getLocalhostHost()
     return {
-      L1_RPC_URL: process.env.L1_RPC_URL ?? 'http://127.0.0.1:6545',
-      L2_RPC_URL: process.env.L2_RPC_URL ?? 'http://127.0.0.1:6546',
-      JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
+      L1_RPC_URL: process.env.L1_RPC_URL ?? `http://${host}:6545`,
+      L2_RPC_URL: process.env.L2_RPC_URL ?? `http://${host}:6546`,
+      JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? `http://${host}:6546`,
       CHAIN_ID: process.env.CHAIN_ID ?? '31337',
       INDEXER_GRAPHQL_URL:
-        process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
-      ORACLE_URL: process.env.ORACLE_URL ?? 'http://127.0.0.1:4301',
-      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899',
+        process.env.INDEXER_GRAPHQL_URL ?? `http://${host}:4350/graphql`,
+      ORACLE_URL: process.env.ORACLE_URL ?? `http://${host}:4301`,
+      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? `http://${host}:8899`,
     }
   }
 }

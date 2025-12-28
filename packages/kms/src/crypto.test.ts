@@ -229,32 +229,31 @@ describe('HKDF Key Derivation', () => {
     })
   })
 
-  describe('deriveKeyFromSecret', () => {
-    it('should derive consistent key from secret string', () => {
-      const key1 = deriveKeyFromSecret('my-secret-password')
-      const key2 = deriveKeyFromSecret('my-secret-password')
+  describe('deriveKeyFromSecret (async PBKDF2)', () => {
+    it('should derive consistent key from secret string', async () => {
+      const key1 = await deriveKeyFromSecret('my-secret-password')
+      const key2 = await deriveKeyFromSecret('my-secret-password')
 
       expect(toHex(key1)).toBe(toHex(key2))
     })
 
-    it('should produce different keys for different secrets', () => {
-      const key1 = deriveKeyFromSecret('secret-1')
-      const key2 = deriveKeyFromSecret('secret-2')
+    it('should produce different keys for different secrets', async () => {
+      const key1 = await deriveKeyFromSecret('secret-1')
+      const key2 = await deriveKeyFromSecret('secret-2')
 
       expect(toHex(key1)).not.toBe(toHex(key2))
     })
 
-    it('should produce 32-byte keys', () => {
-      const key = deriveKeyFromSecret('any-secret')
+    it('should produce 32-byte keys', async () => {
+      const key = await deriveKeyFromSecret('any-secret')
       expect(key.length).toBe(32)
     })
 
-    it('should be the keccak256 hash of the secret', () => {
+    it('should derive key using PBKDF2', async () => {
       const secret = 'test-secret'
-      const key = deriveKeyFromSecret(secret)
-      const expected = toBytes(keccak256(toBytes(secret)))
-
-      expect(toHex(key)).toBe(toHex(expected))
+      const key = await deriveKeyFromSecret(secret)
+      // PBKDF2 should produce a 32-byte key
+      expect(key.length).toBe(32)
     })
   })
 

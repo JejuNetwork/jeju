@@ -1,3 +1,4 @@
+import { isProductionEnv } from '@jejunetwork/config'
 import { type TokenClaims, verifyToken } from '@jejunetwork/kms'
 import { LRUCache } from 'lru-cache'
 import type { Address, Hex } from 'viem'
@@ -93,7 +94,7 @@ function isValidIpAddress(ip: string): boolean {
  * SECURITY: Only trust proxy headers in development or when explicitly configured
  */
 const TRUST_PROXY_HEADERS =
-  process.env.NODE_ENV !== 'production' ||
+  !isProductionEnv() ||
   process.env.TRUST_PROXY_HEADERS === 'true'
 
 export function getClientId(request: Request): string {
@@ -305,14 +306,14 @@ export function generateNonce(username: string): string {
 const ALLOWED_CORS_ORIGINS = new Set(
   (process.env.LEADERBOARD_CORS_ORIGINS ?? '').split(',').filter(Boolean),
 )
-const isProductionEnv = process.env.NODE_ENV === 'production'
+const isProduction = isProductionEnv()
 
 export function getCorsHeaders(request: Request): Record<string, string> {
   const requestOrigin = request.headers.get('origin')
 
   // SECURITY: In production, validate origin against allowlist
   let allowedOrigin: string
-  if (isProductionEnv) {
+  if (isProduction) {
     if (requestOrigin && ALLOWED_CORS_ORIGINS.has(requestOrigin)) {
       allowedOrigin = requestOrigin
     } else {

@@ -595,7 +595,9 @@ export class DeploymentModerationService {
     // Fetch code from IPFS
     let code: string
     try {
-      const ipfsGateway = process.env.IPFS_GATEWAY ?? getIpfsGatewayUrl()
+      const ipfsGateway =
+        (typeof process !== 'undefined' ? process.env.IPFS_GATEWAY : undefined) ??
+        getIpfsGatewayUrl()
       const response = await fetch(`${ipfsGateway}/ipfs/${codeCid}`, {
         signal: AbortSignal.timeout(this.config.scanTimeoutMs),
       })

@@ -17,7 +17,7 @@
  *   - Must be at least 32 characters
  *   - Used to derive per-owner encryption keys
  *   - In development: Falls back to insecure dev key with warning
- *   - In production (NODE_ENV=production or JEJU_NETWORK=mainnet): Required, will throw if not set
+ *   - In production (isProductionEnv() or getCurrentNetwork() === 'mainnet'): Required, will throw if not set
  *
  * @example
  * ```bash
@@ -29,6 +29,10 @@
  * ```
  */
 
+import {
+  getCurrentNetwork,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -117,7 +121,7 @@ function getVaultKey(): string {
   }
   
   // In production, fail hard
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.JEJU_NETWORK === 'mainnet'
+  const isProduction = isProductionEnv() || getCurrentNetwork() === 'mainnet'
   if (isProduction) {
     throw new Error('CRITICAL: DWS_VAULT_KEY must be set and at least 32 characters in production')
   }
@@ -143,31 +147,22 @@ function deriveKey(owner: Address): Uint8Array {
 
 async function encrypt(plaintext: string, owner: Address): Promise<string> {
   const key = deriveKey(owner)
-  
-  // Generate random 12-byte IV for GCM
   const iv = crypto.getRandomValues(new Uint8Array(12))
-  
-  // Import key for Web Crypto - ensure ArrayBuffer type
-  const keyBuffer = new ArrayBuffer(key.length)
-  new Uint8Array(keyBuffer).set(key)
   
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keyBuffer,
+    new Uint8Array(key).buffer,
     { name: 'AES-GCM' },
     false,
     ['encrypt'],
   )
   
-  // Encrypt with AES-256-GCM
-  const plaintextBytes = new TextEncoder().encode(plaintext)
   const ciphertext = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
-    plaintextBytes,
+    new TextEncoder().encode(plaintext),
   )
   
-  // Combine IV + ciphertext for storage
   // Format: base64(iv || ciphertext)
   const combined = new Uint8Array(iv.length + ciphertext.byteLength)
   combined.set(iv, 0)
@@ -178,33 +173,24 @@ async function encrypt(plaintext: string, owner: Address): Promise<string> {
 
 async function decrypt(ciphertext: string, owner: Address): Promise<string> {
   const key = deriveKey(owner)
-  
-  // Decode and split IV + ciphertext
   const combined = Buffer.from(ciphertext, 'base64')
+  
   if (combined.length < 13) {
     throw new Error('Invalid ciphertext: too short')
   }
   
-  const iv = new Uint8Array(combined.subarray(0, 12))
-  const encrypted = new Uint8Array(combined.subarray(12))
-  
-  // Import key for Web Crypto - ensure ArrayBuffer type
-  const keyBuffer = new ArrayBuffer(key.length)
-  new Uint8Array(keyBuffer).set(key)
-  
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keyBuffer,
+    new Uint8Array(key).buffer,
     { name: 'AES-GCM' },
     false,
     ['decrypt'],
   )
   
-  // Decrypt
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: new Uint8Array(combined.subarray(0, 12)) },
     cryptoKey,
-    encrypted,
+    new Uint8Array(combined.subarray(12)),
   )
   
   return new TextDecoder().decode(plaintext)

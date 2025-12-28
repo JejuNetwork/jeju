@@ -70,8 +70,8 @@ export function createAuthInitRouter(_config: AuthConfig) {
               id: appId,
               name: appId,
               redirectUris: [
-                'http://localhost:*',
-                'http://127.0.0.1:*',
+                `http://localhost:*`,
+                `http://${getLocalhostHost()}:*`,
                 'https://*.jejunetwork.org/*',
               ],
               allowedScopes: ['openid', 'profile', 'email'],
@@ -92,7 +92,7 @@ export function createAuthInitRouter(_config: AuthConfig) {
         }
 
         // Validate redirect URI (relaxed for development)
-        const isDev = process.env.NODE_ENV !== 'production'
+        const isDev = !isProductionEnv()
         if (!isDev && !validateRedirectUri(redirectUri, client.redirectUris)) {
           set.status = 400
           return {

@@ -18,7 +18,7 @@
  * Container Runtime ← DWS container/worker deployment
  */
 
-import { getRpcUrl } from '@jejunetwork/config'
+import { getLocalhostHost, getRpcUrl } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { parseEther } from 'viem'
 import { z } from 'zod'
@@ -191,38 +191,43 @@ export interface ProvisionerConfig {
   allocationTimeoutMs: number
 }
 
-const DEFAULT_CONFIGS: Record<ProvisionerEnvironment, ProvisionerConfig> = {
-  local: {
-    environment: 'local',
-    rpcUrl: 'http://localhost:8545',
-    registryContract: null,
-    privateKey: null,
-    minStakeWei: 0n,
-    maxMachinesPerOperator: 100,
-    heartbeatIntervalMs: 30000,
-    allocationTimeoutMs: 300000, // 5 minutes
-  },
-  testnet: {
-    environment: 'testnet',
-    rpcUrl: getRpcUrl(),
-    registryContract: null,
-    privateKey: null,
-    minStakeWei: parseEther('0.1'),
-    maxMachinesPerOperator: 50,
-    heartbeatIntervalMs: 60000,
-    allocationTimeoutMs: 600000, // 10 minutes
-  },
-  mainnet: {
-    environment: 'mainnet',
-    rpcUrl: getRpcUrl(),
-    registryContract: null,
-    privateKey: null,
-    minStakeWei: parseEther('10'),
-    maxMachinesPerOperator: 100,
-    heartbeatIntervalMs: 60000,
-    allocationTimeoutMs: 900000, // 15 minutes
-  },
+const getDefaultConfigs = (): Record<ProvisionerEnvironment, ProvisionerConfig> => {
+  const host = getLocalhostHost()
+  return {
+    local: {
+      environment: 'local',
+      rpcUrl: `http://${host}:8545`,
+      registryContract: null,
+      privateKey: null,
+      minStakeWei: 0n,
+      maxMachinesPerOperator: 100,
+      heartbeatIntervalMs: 30000,
+      allocationTimeoutMs: 300000, // 5 minutes
+    },
+    testnet: {
+      environment: 'testnet',
+      rpcUrl: getRpcUrl(),
+      registryContract: null,
+      privateKey: null,
+      minStakeWei: parseEther('0.1'),
+      maxMachinesPerOperator: 50,
+      heartbeatIntervalMs: 60000,
+      allocationTimeoutMs: 600000, // 10 minutes
+    },
+    mainnet: {
+      environment: 'mainnet',
+      rpcUrl: getRpcUrl(),
+      registryContract: null,
+      privateKey: null,
+      minStakeWei: parseEther('10'),
+      maxMachinesPerOperator: 100,
+      heartbeatIntervalMs: 60000,
+      allocationTimeoutMs: 900000, // 15 minutes
+    },
+  }
 }
+
+const DEFAULT_CONFIGS = getDefaultConfigs()
 
 // Machine Provisioner Class
 

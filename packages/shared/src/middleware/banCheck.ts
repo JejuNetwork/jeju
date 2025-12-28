@@ -6,6 +6,7 @@
  */
 
 import { banManagerAbi, readContract } from '@jejunetwork/contracts'
+import { getL1RpcUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address, Chain, Hex, PublicClient, Transport } from 'viem'
 import { createPublicClient, http } from 'viem'
@@ -68,7 +69,7 @@ export class BanChecker {
         ? 'https://mainnet.base.org'
         : network === 'testnet'
           ? 'https://sepolia.base.org'
-          : 'http://localhost:6545'
+          : getL1RpcUrl()
 
     this.config = {
       banManagerAddress: config.banManagerAddress,

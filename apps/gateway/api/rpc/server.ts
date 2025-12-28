@@ -716,23 +716,24 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
               minUsd: 10,
               rateLimit: 100,
               description: '100 requests/minute',
+            },
+            PRO: {
+              minUsd: 100,
+              rateLimit: 1000,
+              description: '1,000 requests/minute',
+            },
+            UNLIMITED: {
+              minUsd: 1000,
+              rateLimit: 'unlimited',
+              description: 'Unlimited requests',
+            },
           },
-          PRO: {
-            minUsd: 100,
-            rateLimit: 1000,
-            description: '1,000 requests/minute',
-          },
-          UNLIMITED: {
-            minUsd: 1000,
-            rateLimit: 'unlimited',
-            description: 'Unlimited requests',
-          },
-        },
-        unbondingPeriod: '7 days',
-        reputationDiscount:
-          'Up to 50% effective stake multiplier for high-reputation users',
-        priceOracle: 'Chainlink-compatible, with $0.10 fallback',
-      }))
+          unbondingPeriod: '7 days',
+          reputationDiscount:
+            'Up to 50% effective stake multiplier for high-reputation users',
+          priceOracle: 'Chainlink-compatible, with $0.10 fallback',
+        }
+      })
       .get('/payments', () => {
         const info = getPaymentInfo()
         return {

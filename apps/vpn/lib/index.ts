@@ -8,6 +8,7 @@
  * The `isTauri()` function detects the environment and routes accordingly.
  */
 
+import { isDevelopmentEnv } from '@jejunetwork/config'
 import type { z } from 'zod'
 import { isTauri, mockInvoke } from './mock'
 import { expectValid } from './validation'
@@ -40,7 +41,7 @@ export async function invoke<T>(
   } else {
     // Development mode: use mock handlers
     // Console warning in dev to make it clear mocks are active
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopmentEnv()) {
       console.debug(`[Mock] ${cmd}`, args)
     }
     result = await mockInvoke<T>(cmd, args)

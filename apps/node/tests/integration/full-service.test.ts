@@ -23,7 +23,9 @@ import { createNodeServices, type NodeServices } from '../../api/lib/services'
  * 3. TEE attestation for signing
  */
 
-const RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
+
+const RPC_URL = process.env.JEJU_RPC_URL ?? getL2RpcUrl()
 const CHAIN_ID = 31337
 const TEST_KEY_ID = 'test-key-id-for-integration-tests'
 
@@ -115,7 +117,8 @@ describe('Wallet & Signing (KMS-backed)', () => {
   test('client creation without signer', () => {
     const client = createNodeClient(RPC_URL, CHAIN_ID)
     expect(client.publicClient).toBeDefined()
-    expect(client.walletClient).toBeNull()
+    expect(client.addresses).toBeDefined()
+    expect(client.chainId).toBe(CHAIN_ID)
   })
 
   test('secure client creation with KMS keyId', () => {
@@ -214,7 +217,7 @@ describe('Compute Service', () => {
     const hash = await services.compute
       .registerService({
         modelId: 'test-model-v1',
-        endpoint: 'http://localhost:8080/inference',
+        endpoint: `http://${getLocalhostHost()}:8080/inference`,
         pricePerInputToken: 1000n,
         pricePerOutputToken: 2000n,
         stakeAmount: parseEther('0.1'),
@@ -356,7 +359,7 @@ describe('Storage Service', () => {
 
     const hash = await services.storage
       .register({
-        endpoint: 'http://localhost:9000/storage',
+        endpoint: `http://${getLocalhostHost()}:9000/storage`,
         capacityGB: 100,
         pricePerGBMonth: parseEther('0.001'),
         stakeAmount: parseEther('0.5'),
@@ -493,7 +496,7 @@ describe('Service Factory & Lifecycle', () => {
 
     await expect(
       services.storage.register({
-        endpoint: 'http://localhost:9000',
+        endpoint: `http://${getLocalhostHost()}:9000`,
         capacityGB: 1,
         pricePerGBMonth: 1n,
         stakeAmount: 1n,

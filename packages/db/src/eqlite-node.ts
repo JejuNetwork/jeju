@@ -22,8 +22,11 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  getEQLiteBlockProducerUrl,
   getEQLiteUrl,
+  getLocalhostHost,
   getNetworkName,
+  INFRA_PORTS,
   isProductionEnv,
 } from '@jejunetwork/config'
 
@@ -246,9 +249,10 @@ export class EQLiteNodeManager {
     healthy: boolean
     details: Record<string, unknown>
   }> {
+    const host = getLocalhostHost()
     const endpoint =
       getEQLiteUrl() ??
-      `http://localhost:${this.config.httpAddr?.split(':')[1] ?? '8546'}`
+      `http://${host}:${this.config.httpAddr?.split(':')[1] ?? String(INFRA_PORTS.EQLite.get())}`
 
     try {
       const response = await fetch(`${endpoint}/v1/status`, {
@@ -433,7 +437,7 @@ export async function createEQLiteNode(
  * Check if EQLite is available (via internal packages/eqlite or external)
  */
 export async function isEQLiteAvailable(endpoint?: string): Promise<boolean> {
-  const url = endpoint ?? getEQLiteUrl() ?? 'http://localhost:4661'
+  const url = endpoint ?? getEQLiteUrl() ?? getEQLiteBlockProducerUrl()
 
   // Try multiple health endpoints
   const endpoints = [`${url}/v1/status`, `${url}/status`, `${url}/health`]

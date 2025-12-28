@@ -11,7 +11,7 @@
  * Service registry is persisted to EQLite for recovery across DWS restarts.
  */
 
-import { isProductionEnv } from '@jejunetwork/config'
+import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -286,7 +286,7 @@ const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
       { container: 8546 }, // HTTP API
     ],
     healthCheck: {
-      command: ['curl', '-sf', 'http://localhost:8546/v1/status'],
+      command: ['curl', '-sf', `http://${getLocalhostHost()}:8546/v1/status`],
       interval: 10000,
       timeout: 5000,
       retries: 5,

@@ -18,7 +18,7 @@ import { type Address, keccak256, toBytes } from 'viem'
 import {
   decryptFromPayload,
   deriveEncryptionKey,
-  deriveKeyFromSecret,
+  deriveKeyFromSecretAsync,
   encryptToPayload,
   generateKeyId,
 } from '../crypto.js'
@@ -85,17 +85,34 @@ export class SecretVault {
   private versions = new Map<string, SecretVersion[]>()
   private policies = new Map<string, SecretPolicy>()
   private accessLogs: SecretAccessLog[] = []
-  private encryptionKey: Uint8Array
+  private encryptionKey?: Uint8Array
   private initialized = false
+  private encryptionKeyPromise?: Promise<void>
 
   constructor(config: Partial<VaultConfig> = {}) {
     this.config = { auditLogging: true, ...config }
-    const secret = requireEnv('VAULT_ENCRYPTION_SECRET')
-    this.encryptionKey = deriveKeyFromSecret(secret)
+  }
+
+  private async ensureEncryptionKey(): Promise<Uint8Array> {
+    if (this.encryptionKey) return this.encryptionKey
+    
+    if (!this.encryptionKeyPromise) {
+      this.encryptionKeyPromise = (async () => {
+        const secret = requireEnv('VAULT_ENCRYPTION_SECRET')
+        this.encryptionKey = await deriveKeyFromSecretAsync(
+          secret,
+          'jeju:kms:vault:v1',
+        )
+      })()
+    }
+    
+    await this.encryptionKeyPromise
+    return this.encryptionKey!
   }
 
   async initialize(): Promise<void> {
     if (this.initialized) return
+    await this.ensureEncryptionKey()
     if (this.config.daEndpoint) await this.loadFromDA()
     this.initialized = true
     log.info('SecretVault initialized')
@@ -374,11 +391,12 @@ export class SecretVault {
   }
 
   private async encryptValue(value: string, keyId: string): Promise<string> {
+    const encryptionKey = await this.ensureEncryptionKey()
     // Use keyId with a fixed domain separator for salt derivation
     // Never include the encryption key in derivation input - use HKDF properly
     const salt = toBytes(keccak256(toBytes(`vault:salt:${keyId}`)))
     const keyMaterial = await deriveEncryptionKey(
-      this.encryptionKey,
+      encryptionKey,
       salt,
       'vault-encrypt',
     )
@@ -392,11 +410,12 @@ export class SecretVault {
     encryptedValue: string,
     keyId: string,
   ): Promise<string> {
+    const encryptionKey = await this.ensureEncryptionKey()
     // Use keyId with a fixed domain separator for salt derivation
     // Never include the encryption key in derivation input - use HKDF properly
     const salt = toBytes(keccak256(toBytes(`vault:salt:${keyId}`)))
     const keyMaterial = await deriveEncryptionKey(
-      this.encryptionKey,
+      encryptionKey,
       salt,
       'vault-encrypt',
     )
@@ -509,8 +528,10 @@ export class SecretVault {
    * to ensure the master encryption key is zeroed from memory.
    */
   shutdown(): void {
-    // Zero the master encryption key
-    this.encryptionKey.fill(0)
+    // Zero the master encryption key if initialized
+    if (this.encryptionKey) {
+      this.encryptionKey.fill(0)
+    }
 
     // Clear all secrets
     this.secrets.clear()

@@ -1,7 +1,7 @@
 /** OpenAI-compatible inference proxy with multi-provider routing */
 
 import { cors } from '@elysiajs/cors'
-import { getDWSUrl } from '@jejunetwork/config'
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { logger } from '../lib/logger'
 
@@ -635,7 +635,8 @@ Any model works - the system routes by pattern or explicit prefix.`
       .filter(([_, v]) => process.env[v])
       .map(([p]) => p)
 
-    logger.success(`Inference server running on http://localhost:${this.port}`)
+    const host = getLocalhostHost()
+    logger.success(`Inference server running on http://${host}:${this.port}`)
     logger.info(`Default provider: ${this.defaultProvider}`)
     logger.info(
       `Configured: ${configured.join(', ') ?? 'none (set any *_API_KEY)'}`,

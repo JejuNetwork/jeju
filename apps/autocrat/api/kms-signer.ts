@@ -20,19 +20,7 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-
-// Re-export canonical types
-export {
-  createKMSSigner,
-  getKMSSigner,
-  type KMSKeyInfo,
-  KMSSigner,
-  type KMSSignerConfig,
-  type SigningMode,
-  type SignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-} from '@jejunetwork/kms'
+import { config as autocratConfig } from './config'
 
 // ════════════════════════════════════════════════════════════════════════════
 //                     AUTOCRAT-SPECIFIC TYPES
@@ -208,6 +196,25 @@ export async function createKMSHttpWalletClient(
     ...config,
     transport: http(config.rpcUrl),
   })
+}
+
+/**
+ * Get operator configuration for KMS signing
+ * Derives address from operator key if available
+ */
+export function getOperatorConfig(): AutocratKMSConfig | null {
+  const operatorKey = autocratConfig.operatorKey ?? autocratConfig.privateKey
+  if (!operatorKey) {
+    return null
+  }
+
+  // Derive address from private key
+  const account = privateKeyToAccount(operatorKey as Hex)
+  return {
+    address: account.address,
+    fallbackKey: operatorKey as Hex,
+    forceProduction: isProductionEnv(),
+  }
 }
 
 

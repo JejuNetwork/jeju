@@ -1,3 +1,4 @@
+import { getL2RpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { STORAGE_MARKET_ABI } from '../abis'
@@ -135,7 +136,7 @@ export class StorageService {
     if (this.torrent) return
 
     this.torrent = getHybridTorrentService({
-      rpcUrl: this.client.publicClient.transport.url ?? 'http://127.0.0.1:6546',
+      rpcUrl: this.client.publicClient.transport.url ?? getL2RpcUrl(),
       keyId,
       contentRegistryAddress,
     })

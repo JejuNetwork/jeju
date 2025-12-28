@@ -186,7 +186,7 @@ async function startDWSServer(contracts: DeployedContracts): Promise<void> {
   const timeout = Date.now() + 30000
   while (Date.now() < timeout) {
     try {
-      const res = await fetch(`http://localhost:${DWS_PORT}/health`)
+      const res = await fetch(`http://${host}:${DWS_PORT}/health`)
       if (res.ok) {
         console.log(`[E2E Setup] DWS server running on port ${DWS_PORT}`)
         return
@@ -211,7 +211,7 @@ async function registerTestNodes(): Promise<void> {
 
     try {
       const res = await fetch(
-        `http://localhost:${DWS_PORT}/edge/nodes/register`,
+        `http://${host}:${DWS_PORT}/edge/nodes/register`,
         {
           method: 'POST',
           headers: {
@@ -219,7 +219,7 @@ async function registerTestNodes(): Promise<void> {
             'x-jeju-address': await getAddress(account.key),
           },
           body: JSON.stringify({
-            endpoint: `http://localhost:${nodePort}`,
+            endpoint: `http://${host}:${nodePort}`,
             capabilities: ['compute', 'storage'],
             specs: {
               cpuCores: 4,
@@ -275,7 +275,7 @@ async function runE2ETests(): Promise<boolean> {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      DWS_URL: `http://localhost:${DWS_PORT}`,
+      DWS_URL: `http://${host}:${DWS_PORT}`,
       RPC_URL: JEJU_L2_RPC,
       NETWORK: 'localnet',
       E2E_MODE: 'true',
@@ -310,7 +310,7 @@ async function main(): Promise<void> {
 ║                                                               ║
 ║  This script runs REAL E2E tests against Jeju localnet       ║
 ║  L2 RPC: ${JEJU_L2_RPC.padEnd(40)}     ║
-║  DWS: http://localhost:${String(DWS_PORT).padEnd(38)} ║
+║  DWS: http://${host}:${String(DWS_PORT).padEnd(38)} ║
 ╚══════════════════════════════════════════════════════════════╝
 `)
 

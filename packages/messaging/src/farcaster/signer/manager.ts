@@ -271,6 +271,43 @@ export class FarcasterSignerManager {
   }
 
   /**
+   * Sign a message with the signer's private key
+   */
+  async sign(keyId: string, message: Uint8Array): Promise<Uint8Array> {
+    const stored = this.signers.get(keyId)
+    if (!stored) {
+      throw new Error(`Signer not found: ${keyId}`)
+    }
+
+    if (stored.info.status !== 'active') {
+      throw new Error(`Signer ${keyId} is not active (status: ${stored.info.status})`)
+    }
+
+    return ed25519.sign(message, stored.privateKey)
+  }
+
+  /**
+   * Get signer private key.
+   * 
+   * SECURITY WARNING: This method returns the raw private key.
+   * Only use this for legacy integrations that require direct key access.
+   * Prefer using the sign() method instead.
+   */
+  async getSignerPrivateKey(keyId: string): Promise<Hex | null> {
+    const stored = this.signers.get(keyId)
+    if (!stored) {
+      return null
+    }
+
+    log.warn('🚨 SECURITY WARNING: Accessing raw private key', {
+      keyId,
+      warning: 'Prefer using sign() method instead of direct key access',
+    })
+
+    return `0x${bytesToHex(stored.privateKey)}` as Hex
+  }
+
+  /**
    * List all signers
    */
   async listSigners(): Promise<SignerInfo[]> {

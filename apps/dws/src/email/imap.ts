@@ -14,6 +14,7 @@
  * Workerd-compatible: All file operations via DWS exec API.
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { activeSessions, authAttemptsTotal } from './metrics'
 import { getMailboxStorage } from './storage'
@@ -27,7 +28,7 @@ interface ExecResult {
   pid?: number
 }
 
-let execUrl = 'http://localhost:4020/exec'
+let execUrl = `http://${getLocalhostHost()}:4020/exec`
 
 export function configureIMAPServer(config: { execUrl?: string }): void {
   if (config.execUrl) execUrl = config.execUrl

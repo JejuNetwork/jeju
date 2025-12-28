@@ -40,8 +40,10 @@ export interface CDNSDKConfig {
   execUrl: string
 }
 
+import { getLocalhostHost } from '@jejunetwork/config'
+
 let sdkConfig: CDNSDKConfig = {
-  execUrl: 'http://localhost:4020/exec',
+  execUrl: `http://${getLocalhostHost()}:4020/exec`,
 }
 
 export function configureCDNSDK(config: Partial<CDNSDKConfig>): void {
@@ -125,6 +127,7 @@ import {
   getRpcUrl,
   getStorageApiEndpoint,
 } from '@jejunetwork/config'
+import { isProductionEnv } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import type {
   CacheConfig,
@@ -223,11 +226,13 @@ const CDN_BILLING_ABI = parseAbi([
 // ============================================================================
 
 // Define specific chain for local development
+import { getL1RpcUrl } from '@jejunetwork/config'
+
 const localChain = {
   id: 31337,
   name: 'local',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['http://localhost:6545'] } },
+  rpcUrls: { default: { http: [getL1RpcUrl()] } },
 } as const satisfies Chain
 
 export class CDNClient {
@@ -260,7 +265,7 @@ export class CDNClient {
 
     // SECURITY: Block raw private keys in production (strict mode)
     if (
-      process.env.NODE_ENV === 'production' &&
+      isProductionEnv() &&
       process.env.CDN_STRICT_SECURITY === 'true'
     ) {
       throw new Error(
@@ -269,7 +274,7 @@ export class CDNClient {
       )
     }
 
-    if (process.env.NODE_ENV === 'production') {
+    if (isProductionEnv()) {
       console.warn(
         '[CDN SDK] ⚠️  Using local private key in production. ' +
           'This is a security risk. KMS integration coming soon.',
@@ -310,7 +315,7 @@ export class CDNClient {
       client: this.walletClient,
     })
 
-    this.coordinatorUrl = config.coordinatorUrl ?? 'http://localhost:4021'
+    this.coordinatorUrl = config.coordinatorUrl ?? `http://${getLocalhostHost()}:4021`
     this.ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io'
   }
 
@@ -811,7 +816,7 @@ export function createCDNClientFromEnv(): CDNClient {
   }
 
   // Warn if using private key in production
-  if (privateKey && !kmsServiceId && process.env.NODE_ENV === 'production') {
+  if (privateKey && !kmsServiceId && isProductionEnv()) {
     console.warn(
       '[CDN SDK] ⚠️  Using PRIVATE_KEY in production. ' +
         'Set KMS_SERVICE_ID for secure threshold signing.',

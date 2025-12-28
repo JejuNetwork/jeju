@@ -1,4 +1,8 @@
-import { isProductionEnv } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type {
   X402Network,
   X402PaymentHeader,
@@ -219,7 +223,8 @@ export async function purchaseCredits(
 
   // In production, verify the transaction on-chain
   if (isProductionEnv()) {
-    const rpcUrl = process.env.RPC_URL
+    const network = getCurrentNetwork()
+    const rpcUrl = (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ?? getRpcUrl(network)
     if (!rpcUrl) {
       return { success: false, error: 'RPC_URL not configured' }
     }

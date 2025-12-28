@@ -13,6 +13,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import { getLocalhostHost } from '@jejunetwork/config'
 import sharp from 'sharp'
 
 // Config injection for workerd compatibility
@@ -22,7 +23,7 @@ interface MediaOptimizerEnvConfig {
 }
 
 let envConfig: MediaOptimizerEnvConfig = {
-  execUrl: 'http://localhost:4020/exec',
+  execUrl: `http://${getLocalhostHost()}:4020/exec`,
   cacheDir: '/tmp/dws-media-cache',
 }
 

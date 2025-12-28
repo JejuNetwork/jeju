@@ -4,6 +4,12 @@
  * REQUIRES staking contract - no fallback.
  */
 
+import {
+  getContract,
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { createPublicClient, http, parseAbi } from 'viem'
 import { foundry, mainnet, sepolia } from 'viem/chains'
@@ -21,25 +27,30 @@ const STAKING_ABI = parseAbi([
   'function getEffectiveUsdValue(address) view returns (uint256)',
 ])
 
-// Get RPC URL from environment - REQUIRED
-function getRpcUrl(): string {
-  const rpcUrl = process.env.RPC_URL
-  if (!rpcUrl) {
-    throw new Error(
-      'RPC_URL environment variable is required.\n' +
-        'For local development with anvil: RPC_URL=http://localhost:8545\n' +
-        'Use `bun run start` to start all dependencies including anvil.',
-    )
-  }
-  return rpcUrl
+// Get RPC URL from config with env override
+function getRpcUrlForStaking(): string {
+  const network = getCurrentNetwork()
+  return (
+    (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+    getRpcUrl(network)
+  )
 }
 
-// Get staking contract address from env or localnet deployment
+// Get staking contract address from config with env override
 function getStakingContractAddress(): Address {
-  // First check environment variable
-  const envAddress = process.env.STAKING_CONTRACT_ADDRESS
+  const network = getCurrentNetwork()
+  // First check environment variable override
+  const envAddress =
+    typeof process !== 'undefined'
+      ? process.env.STAKING_CONTRACT_ADDRESS
+      : undefined
   if (envAddress) {
     return envAddress as Address
+  }
+  // Then check config
+  const configAddress = tryGetContract('staking', 'staking', network)
+  if (configAddress) {
+    return configAddress as Address
   }
 
   // Try to load from localnet bootstrap output
@@ -91,8 +102,8 @@ function getStakingContractAddress(): Address {
 
 // Create public client for on-chain reads
 function getPublicClient() {
-  const rpcUrl = getRpcUrl()
-  const network = process.env.NETWORK ?? 'localnet'
+  const network = getCurrentNetwork()
+  const rpcUrl = getRpcUrlForStaking()
 
   // Determine chain based on network
   let chain: typeof mainnet | typeof sepolia | typeof foundry

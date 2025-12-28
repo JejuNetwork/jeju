@@ -88,6 +88,10 @@ export class MessagingClient {
   // Track if we're using secure KMS mode
   private readonly useKMSMode: boolean
 
+  // Local key pairs (development only - not for production)
+  private keyPair?: KeyPair
+  private signingKeyPair?: SigningKeyPair
+
   constructor(config: MessagingClientConfig | SecureMessagingClientConfig) {
     // Validate the JSON-serializable portion of config
     MessagingClientConfigBaseSchema.parse(config)

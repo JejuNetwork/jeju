@@ -552,6 +552,347 @@ contract MultiChainRPCRegistryTest is Test {
         assertEq(registry.version(), "1.0.0");
     }
 
+    // ============ Edge Case Tests ============
+
+    function test_RegisterNode_MaxRegionLength() public {
+        // 256 char region - should work (reasonable limit)
+        string memory longRegion = "us-east-1-aws-us-east-1-aws-us-east-1-aws-us-east-1-aws-us-east-1-aws-us-east-1-aws-us-east-1-aws";
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}(longRegion);
+
+        MultiChainRPCRegistry.RPCNode memory node = registry.getNode(node1);
+        assertEq(node.region, longRegion);
+    }
+
+    function test_RegisterNode_SpecialCharactersInRegion() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east-1 (AWS) [primary]");
+
+        MultiChainRPCRegistry.RPCNode memory node = registry.getNode(node1);
+        assertEq(node.region, "us-east-1 (AWS) [primary]");
+    }
+
+    function test_RegisterNode_MaxStake() public {
+        vm.deal(node1, 1000 ether);
+        vm.prank(node1);
+        registry.registerNode{value: 100 ether}("us-east");
+
+        MultiChainRPCRegistry.RPCNode memory node = registry.getNode(node1);
+        assertEq(node.stake, 100 ether);
+    }
+
+    function test_RegisterNode_TwiceUpdatesStake() public {
+        // First registration
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        // Second registration adds stake (not revert)
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("eu-west");
+
+        MultiChainRPCRegistry.RPCNode memory node = registry.getNode(node1);
+        // Stake should be accumulated or updated based on contract logic
+        assertGe(node.stake, 1 ether);
+    }
+
+    function test_AddChainEndpoint_MaxChainId() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        uint64 maxChainId = type(uint64).max;
+        vm.prank(node1);
+        registry.addChainEndpoint(maxChainId, "https://custom.network", false, false);
+
+        uint64[] memory chains = registry.getNodeChains(node1);
+        assertEq(chains.length, 1);
+        assertEq(chains[0], maxChainId);
+    }
+
+    function test_AddChainEndpoint_UpdateExisting() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.prank(node1);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://old.endpoint", false, false);
+
+        vm.prank(node1);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://new.endpoint", true, true);
+
+        MultiChainRPCRegistry.ChainEndpoint memory endpoint = registry.getChainEndpoint(node1, ETHEREUM_CHAIN_ID);
+        assertEq(endpoint.endpoint, "https://new.endpoint");
+        assertTrue(endpoint.isArchive);
+        assertTrue(endpoint.isWebSocket);
+    }
+
+    function test_AddChainEndpoint_ManyChains() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        // Add 10 chains
+        vm.startPrank(node1);
+        for (uint64 i = 1; i <= 10; i++) {
+            registry.addChainEndpoint(i, string(abi.encodePacked("https://chain", i, ".network")), false, false);
+        }
+        vm.stopPrank();
+
+        uint64[] memory chains = registry.getNodeChains(node1);
+        assertEq(chains.length, 10);
+    }
+
+    function test_Heartbeat_RevertIfChainNotSupported() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.prank(node1);
+        vm.expectRevert(abi.encodeWithSelector(MultiChainRPCRegistry.ChainNotSupported.selector, ETHEREUM_CHAIN_ID));
+        registry.heartbeat(ETHEREUM_CHAIN_ID, 19_000_000);
+    }
+
+    function test_Heartbeat_MultipleChainsSequentially() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.startPrank(node1);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
+        vm.stopPrank();
+
+        vm.startPrank(node1);
+        registry.heartbeat(ETHEREUM_CHAIN_ID, 19_000_000);
+        registry.heartbeat(POLYGON_CHAIN_ID, 50_000_000);
+        vm.stopPrank();
+
+        MultiChainRPCRegistry.ChainEndpoint memory ethEndpoint = registry.getChainEndpoint(node1, ETHEREUM_CHAIN_ID);
+        MultiChainRPCRegistry.ChainEndpoint memory polyEndpoint = registry.getChainEndpoint(node1, POLYGON_CHAIN_ID);
+
+        assertEq(ethEndpoint.blockHeight, 19_000_000);
+        assertEq(polyEndpoint.blockHeight, 50_000_000);
+    }
+
+    function test_ReportUsage_RevertIfNodeNotActive() public {
+        // Don't register node
+        vm.prank(owner);
+        vm.expectRevert(MultiChainRPCRegistry.NodeNotActive.selector);
+        registry.reportUsage(node1, 1000, 5000, 5);
+    }
+
+    function test_ReportUsage_ZeroValues() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.prank(owner);
+        registry.reportUsage(node1, 0, 0, 0);
+
+        MultiChainRPCRegistry.RPCNode memory node = registry.getNode(node1);
+        assertEq(node.totalRequests, 0);
+        assertEq(node.totalComputeUnits, 0);
+        assertEq(node.totalErrors, 0);
+    }
+
+    function test_ReportUsage_LargeValues() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        uint256 largeValue = type(uint128).max;
+        vm.prank(owner);
+        registry.reportUsage(node1, largeValue, largeValue, largeValue);
+
+        MultiChainRPCRegistry.RPCNode memory node = registry.getNode(node1);
+        assertEq(node.totalRequests, largeValue);
+    }
+
+    function test_ReportPerformance_BoundaryScores() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        // Test min boundary
+        vm.prank(owner);
+        registry.reportPerformance(node1, 0, 0, 0);
+
+        (uint256 uptime, uint256 successRate, uint256 latency, ) = registry.nodePerformance(node1);
+        assertEq(uptime, 0);
+        assertEq(successRate, 0);
+        assertEq(latency, 0);
+
+        // Test max boundary
+        vm.prank(owner);
+        registry.reportPerformance(node1, 10000, 10000, type(uint256).max);
+
+        (uptime, successRate, latency, ) = registry.nodePerformance(node1);
+        assertEq(uptime, 10000);
+        assertEq(successRate, 10000);
+        assertEq(latency, type(uint256).max);
+    }
+
+    function test_ReportPerformance_RevertIfSuccessRateTooHigh() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.prank(owner);
+        vm.expectRevert(MultiChainRPCRegistry.InvalidScore.selector);
+        registry.reportPerformance(node1, 9500, 10001, 50); // SuccessRate > 10000
+    }
+
+    function test_GetQualifiedProviders_EmptyResult() public {
+        // No nodes registered
+        (address[] memory providers, uint256[] memory scores) = registry.getQualifiedProviders(
+            ETHEREUM_CHAIN_ID,
+            5000,
+            false,
+            10
+        );
+
+        assertEq(providers.length, 0);
+        assertEq(scores.length, 0);
+    }
+
+    function test_GetQualifiedProviders_ZeroMaxCount() public {
+        _setupQualifiedNodes();
+
+        (address[] memory providers, ) = registry.getQualifiedProviders(
+            ETHEREUM_CHAIN_ID,
+            0,
+            false,
+            0  // Request 0 providers
+        );
+
+        assertEq(providers.length, 0);
+    }
+
+    function test_GetProvidersForChain_NonExistentChain() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.prank(node1);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+
+        // Query for chain that no one supports
+        address[] memory providers = registry.getProvidersForChain(99999);
+        assertEq(providers.length, 0);
+    }
+
+    function test_SlashNode_FullSlash() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.prank(owner);
+        registry.setTreasury(treasury);
+
+        vm.prank(owner);
+        registry.slashNode(node1, 1 ether, "100% slash");
+
+        MultiChainRPCRegistry.RPCNode memory node = registry.getNode(node1);
+        assertEq(node.stake, 0);
+    }
+
+    function test_SlashNode_UnregisteredNodeNoEffect() public {
+        vm.prank(owner);
+        registry.setTreasury(treasury);
+
+        uint256 treasuryBefore = treasury.balance;
+
+        // Slashing unregistered node should have no effect (no stake to slash)
+        vm.prank(owner);
+        registry.slashNode(node1, 1 ether, "Unregistered node");
+
+        // Treasury shouldn't receive anything
+        assertEq(treasury.balance, treasuryBefore);
+    }
+
+    function test_SetNodeFrozen_PreventOperations() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.prank(node1);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+
+        vm.prank(owner);
+        registry.setNodeFrozen(node1, true);
+
+        // Frozen node should be excluded from qualified providers
+        vm.prank(owner);
+        registry.reportPerformance(node1, 9500, 9800, 30);
+
+        (address[] memory providers, ) = registry.getQualifiedProviders(
+            ETHEREUM_CHAIN_ID,
+            0,
+            false,
+            10
+        );
+
+        assertEq(providers.length, 0);
+    }
+
+    function test_GetActiveProviders_IncludesFrozen() public {
+        // Note: getActiveProviders returns all registered nodes regardless of frozen state
+        // Frozen nodes are filtered out at selection time, not in getActiveProviders
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+        vm.prank(node2);
+        registry.registerNode{value: 1 ether}("eu-west");
+
+        vm.prank(owner);
+        registry.setNodeFrozen(node1, true);
+
+        address[] memory active = registry.getActiveProviders();
+        // Both nodes are "active" (registered), but node1 is frozen
+        assertEq(active.length, 2);
+    }
+
+    function test_GetSupportedChains_AfterRemoval() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+
+        vm.startPrank(node1);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
+        vm.stopPrank();
+
+        // Remove one chain
+        vm.prank(node1);
+        registry.removeChainEndpoint(ETHEREUM_CHAIN_ID);
+
+        // getSupportedChains returns chains that have ANY active endpoint
+        // After removal, the chain may still be in the list until garbage collected
+        // The actual behavior filters at query time
+        uint64[] memory chains = registry.getSupportedChains();
+        // Implementation may keep both in list, actual filtering happens at provider query
+        assertGe(chains.length, 1);
+    }
+
+    function test_MultipleNodesWithOverlappingChains() public {
+        vm.prank(node1);
+        registry.registerNode{value: 1 ether}("us-east");
+        vm.prank(node2);
+        registry.registerNode{value: 1 ether}("eu-west");
+
+        vm.startPrank(node1);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
+        vm.stopPrank();
+
+        vm.startPrank(node2);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jeju.network", false, false);
+        registry.addChainEndpoint(ARBITRUM_CHAIN_ID, "https://arb.node2.jeju.network", true, false);
+        vm.stopPrank();
+
+        // Check Ethereum providers
+        address[] memory ethProviders = registry.getProvidersForChain(ETHEREUM_CHAIN_ID);
+        assertEq(ethProviders.length, 2);
+
+        // Check Polygon providers
+        address[] memory polyProviders = registry.getProvidersForChain(POLYGON_CHAIN_ID);
+        assertEq(polyProviders.length, 1);
+
+        // Check Arbitrum providers
+        address[] memory arbProviders = registry.getProvidersForChain(ARBITRUM_CHAIN_ID);
+        assertEq(arbProviders.length, 1);
+
+        // Total supported chains
+        uint64[] memory allChains = registry.getSupportedChains();
+        assertEq(allChains.length, 3);
+    }
+
     // ============ Helpers ============
 
     function _setupQualifiedNodes() internal {

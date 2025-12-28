@@ -7,6 +7,7 @@
  * - Unique per session
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { AuthConfig, AuthSession } from '../../lib/types'
 import { getEphemeralKey, invalidateEphemeralKey } from '../services/kms'
@@ -157,7 +158,7 @@ export function createSessionRouter(config: AuthConfig) {
           maxAge: config.sessionDuration / 1000,
           path: '/',
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: isProductionEnv(),
           sameSite: 'lax',
         })
       }
@@ -277,7 +278,7 @@ export function createSessionRouter(config: AuthConfig) {
 
     // Test session creation (only in development)
     .post('/create', async ({ body, set }) => {
-      if (process.env.NODE_ENV === 'production') {
+      if (isProductionEnv()) {
         set.status = 403
         return { error: 'not_available_in_production' }
       }

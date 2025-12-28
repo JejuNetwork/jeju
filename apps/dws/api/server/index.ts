@@ -19,6 +19,7 @@ import {
   getContract,
   getCurrentNetwork,
   getDWSComputeUrl,
+  getDWSUrl,
   getEQLiteBlockProducerUrl,
   getIpfsGatewayUrl,
   getKMSUrl,
@@ -692,7 +693,7 @@ const daConfig = {
     serverConfig.daOperatorEndpoint ??
     serverConfig.baseUrl ??
     (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ??
-    getServiceUrl('dws', 'api', NETWORK) ??
+    getDWSUrl(NETWORK) ??
     `http://${getLocalhostHost()}:${PORT}`,
   operatorRegion:
     serverConfig.daOperatorRegion ??
@@ -837,7 +838,7 @@ app.get('/.well-known/agent-card.json', () => {
   const baseUrl =
     serverConfig.baseUrl ??
     (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ??
-    getServiceUrl('dws', 'api', NETWORK) ??
+    getDWSUrl(NETWORK) ??
     `http://${host}:${PORT}`
   return {
     name: 'DWS',
@@ -1042,11 +1043,19 @@ if (import.meta.main) {
     agentUrl: serverConfig.oauth3AgentUrl ?? getOAuth3Url(NETWORK),
   })
 
+  // Monitoring service doesn't have a getServiceUrl helper, so construct URLs manually
+  const monitoringHost = isLocalnet(NETWORK) ? getLocalhostHost() : 'monitoring.jejunetwork.org'
+  const monitoringPort = isLocalnet(NETWORK) ? CORE_PORTS.MONITORING.get() : 443
+  const monitoringProtocol = isLocalnet(NETWORK) ? 'http' : 'https'
+  const monitoringBaseUrl = isLocalnet(NETWORK) 
+    ? `${monitoringProtocol}://${monitoringHost}:${monitoringPort}` 
+    : `${monitoringProtocol}://${monitoringHost}`
+
   configureProxyRouterConfig({
     indexerUrl: getServiceUrl('indexer', 'api', NETWORK),
     indexerGraphqlUrl: getServiceUrl('indexer', 'graphql', NETWORK),
-    monitoringUrl: getServiceUrl('monitoring', 'api', NETWORK),
-    prometheusUrl: getServiceUrl('monitoring', 'prometheus', NETWORK),
+    monitoringUrl: `${monitoringBaseUrl}/api`,
+    prometheusUrl: `${monitoringBaseUrl}/prometheus`,
     gatewayUrl: getServiceUrl('gateway', 'api', NETWORK),
   })
 

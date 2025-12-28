@@ -571,8 +571,8 @@ export async function initializeState(): Promise<void> {
       name: 'Jeju Network Apps',
       redirectUris: [
         'https://*.jejunetwork.org/*',
-        'http://localhost:*/*',
-        'http://127.0.0.1:*/*',
+        `http://localhost:*/*`,
+        `http://${getLocalhostHost()}:*/*`,
       ],
       allowedProviders: [
         'wallet',
@@ -601,8 +601,6 @@ export async function initializeState(): Promise<void> {
         'https://*.elizaos.ai/*',
         `http://${getLocalhostHost()}:3000/*`,
         `http://${getLocalhostHost()}:3001/*`,
-        'http://127.0.0.1:3000/*',
-        'http://127.0.0.1:3001/*',
       ],
       allowedProviders: [
         'wallet',

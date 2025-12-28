@@ -400,7 +400,7 @@ export class AgentSDK {
   }
 
   async fundVault(agentId: bigint, amount: bigint): Promise<string> {
-    if (!this.walletClient) throw new Error('Wallet client required')
+    if (!this.canWrite()) throw new Error('KMS signer required')
 
     this.log.info('Funding vault', {
       agentId: agentId.toString(),

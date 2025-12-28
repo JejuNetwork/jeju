@@ -253,7 +253,7 @@ export class RoomSDK {
     agentId: bigint,
     role: AgentRole,
   ): Promise<void> {
-    expect(this.walletClient, 'Wallet client required')
+    if (!this.canWrite()) throw new Error('KMS signer required')
     expectTrue(roomId > 0n, 'Room ID must be greater than 0')
     expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
     expect(role, 'Role is required')

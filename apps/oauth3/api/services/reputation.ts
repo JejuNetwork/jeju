@@ -29,22 +29,29 @@ const MODERATION_ABI = parseAbi([
 // Get RPC URL from config with env override
 function getRpcUrlFromConfig(): string {
   const network = getCurrentNetwork()
-  return process.env.RPC_URL ?? getRpcUrl(network)
+  return (
+    (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+    getRpcUrl(network)
+  )
 }
 
 // Get reputation registry contract address (optional - can use only moderation)
 function getReputationRegistryAddress(): Address | null {
   const network = getCurrentNetwork()
-  const address = process.env.REPUTATION_REGISTRY_ADDRESS ??
-    tryGetContract('reputation', 'registry', network)
+  const address =
+    (typeof process !== 'undefined'
+      ? process.env.REPUTATION_REGISTRY_ADDRESS
+      : undefined) ?? tryGetContract('reputation', 'registry', network)
   return address ? (address as Address) : null
 }
 
 // Get moderation contract address (optional - can use only reputation registry)
 function getModerationAddress(): Address | null {
   const network = getCurrentNetwork()
-  const address = process.env.MODERATION_CONTRACT_ADDRESS ??
-    tryGetContract('moderation', 'marketplace', network)
+  const address =
+    (typeof process !== 'undefined'
+      ? process.env.MODERATION_CONTRACT_ADDRESS
+      : undefined) ?? tryGetContract('moderation', 'marketplace', network)
   return address ? (address as Address) : null
 }
 
