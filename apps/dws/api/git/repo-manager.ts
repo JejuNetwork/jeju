@@ -469,7 +469,9 @@ export class GitRepoManager {
     }
     const repoId = repoIdValue as Hex
 
-    const baseUrl = process.env.DWS_BASE_URL || getDWSUrl()
+    const baseUrl =
+      (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ||
+      getDWSUrl(getCurrentNetwork())
     return {
       repoId,
       name: request.name,

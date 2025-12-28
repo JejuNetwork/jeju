@@ -125,7 +125,7 @@ export const LOCAL_TEE_CONFIG: TEEBatchingConfig = {
   maxBatchWaitMs: 5000,
   minBatchSize: 1,
   targetCostPerItem: BigInt(1000000000000000),
-  teeEndpoint: 'http://127.0.0.1:8080/tee',
+  teeEndpoint: `http://${host}:8080/tee`,
 }
 
 export const LOCAL_PROVER_CONFIG: ProverConfig = {

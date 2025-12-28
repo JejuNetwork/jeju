@@ -4,9 +4,12 @@
 
 import { cors } from '@elysiajs/cors'
 import {
+  getBridgeProverUrl,
   getEvmChainId,
   getHomeDir,
+  getLocalhostHost,
   getRelayerPort,
+  getSolanaRpcUrl,
   isProduction as isProductionMode,
 } from '@jejunetwork/config'
 import {
@@ -1311,7 +1314,7 @@ if (import.meta.main) {
       },
     ],
     solanaConfig: {
-      rpcUrl: requireEnv('SOLANA_RPC_URL', 'http://127.0.0.1:8899'),
+      rpcUrl: requireEnv('SOLANA_RPC_URL', getSolanaRpcUrl() || 'http://127.0.0.1:8899'),
       bridgeProgramId: requireEnv('BRIDGE_PROGRAM_ID'),
       evmLightClientProgramId: requireEnv('EVM_LIGHT_CLIENT_PROGRAM_ID'),
       keypairPath: requireEnv('SOLANA_KEYPAIR', '~/.config/solana/id.json'),

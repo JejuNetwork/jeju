@@ -1,5 +1,10 @@
 import { AuthProvider } from '@jejunetwork/auth'
-import { getLocalhostHost, getNetworkName } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getNetworkName,
+  getOAuth3Url,
+} from '@jejunetwork/config'
 import { isValidAddress } from '@jejunetwork/types'
 import { type Context, Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -193,7 +198,9 @@ export function createAuthRoutes() {
           appId,
           redirectUri:
             process.env.OAUTH3_REDIRECT_URI ||
-            `http://${getLocalhostHost()}:4501/auth/callback`,
+            (getCurrentNetwork() === 'localnet'
+              ? `http://${getLocalhostHost()}:4501/auth/callback`
+              : `${getOAuth3Url(getCurrentNetwork())}/callback`),
         },
       }
     })
@@ -222,10 +229,11 @@ export function createAuthRoutes() {
           .replace(/\r/g, '\\r')
       }
 
+      const network = getCurrentNetwork()
       const expectedOrigin =
         process.env.OAUTH3_REDIRECT_ORIGIN ||
         process.env.OAUTH3_REDIRECT_URI?.replace(/\/[^/]*$/, '') ||
-        ''
+        (network === 'localnet' ? `http://${getLocalhostHost()}:4501` : getOAuth3Url(network))
 
       const postMessageOriginScript = expectedOrigin
         ? `'${escapeForJson(expectedOrigin)}'`

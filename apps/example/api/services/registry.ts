@@ -5,7 +5,13 @@ import {
   type TEENodeInfo,
   TEEProvider,
 } from '@jejunetwork/auth'
-import { getLocalhostHost, getNetworkName, getRpcUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getNetworkName,
+  getOAuth3Url,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { AddressSchema, expectAddress, expectHex } from '@jejunetwork/types'
 import {
   type Address,

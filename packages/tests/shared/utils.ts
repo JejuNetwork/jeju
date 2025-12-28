@@ -4,6 +4,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { getLocalhostHost } from '@jejunetwork/config'
 import {
   parseBlockNumberResponse,
   parseChainIdResponse,
@@ -19,7 +20,7 @@ export const TEST_WALLET_ADDRESS =
   '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const
 
 export const JEJU_CHAIN_ID = 31337
-export const JEJU_RPC_URL = 'http://127.0.0.1:6546'
+export const JEJU_RPC_URL = `http://${getLocalhostHost()}:6546`
 
 export const TEST_ACCOUNTS = {
   deployer: {

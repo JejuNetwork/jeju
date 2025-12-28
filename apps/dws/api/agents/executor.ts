@@ -7,6 +7,7 @@ import {
   getEQLiteBlockProducerUrl,
   getDWSUrl,
   getKMSEndpoint,
+  getCurrentNetwork,
 } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/types'
 import { z } from 'zod'
@@ -87,21 +88,22 @@ export class AgentExecutor {
 
   constructor(workerd: IWorkerdExecutor, config: Partial<ExecutorConfig> = {}) {
     this.workerd = workerd
-    const dwsBaseUrl = getDWSUrl()
-    const kmsBaseUrl = getKMSEndpoint()
+    const network = getCurrentNetwork()
+    const dwsBaseUrl = getDWSUrl(network)
+    const kmsBaseUrl = getKMSEndpoint(network)
     this.config = {
       inferenceUrl:
         config.inferenceUrl ??
-        process.env.DWS_INFERENCE_URL ??
+        (typeof process !== 'undefined' ? process.env.DWS_INFERENCE_URL : undefined) ??
         `${dwsBaseUrl}/compute`,
       kmsUrl:
         config.kmsUrl ??
-        process.env.DWS_KMS_URL ??
+        (typeof process !== 'undefined' ? process.env.DWS_KMS_URL : undefined) ??
         `${kmsBaseUrl}/kms`,
       eqliteUrl:
         config.eqliteUrl ??
-        process.env.DWS_EQLITE_URL ??
-        getEQLiteBlockProducerUrl(),
+        (typeof process !== 'undefined' ? process.env.DWS_EQLITE_URL : undefined) ??
+        getEQLiteBlockProducerUrl(network),
       warmPool: config.warmPool ?? DEFAULT_WARM_POOL_CONFIG,
       elizaWorkerCid: config.elizaWorkerCid ?? DEFAULT_ELIZA_WORKER_CID,
     }
