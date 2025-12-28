@@ -364,7 +364,8 @@ export function getRpcUrl(): string {
   try {
     return getConfigRpcUrl()
   } catch {
-    return process.env.L2_RPC_URL ?? process.env.JEJU_RPC_URL ?? JEJU_RPC_URL
+    // Fallback to default if config fails
+    return JEJU_RPC_URL
   }
 }
 
@@ -376,8 +377,8 @@ export function getChainId(): number {
   try {
     return getConfigChainId()
   } catch {
-    const envChainId = process.env.CHAIN_ID
-    return envChainId ? parseInt(envChainId, 10) : JEJU_CHAIN_ID
+    // Fallback to default if config fails
+    return JEJU_CHAIN_ID
   }
 }
 

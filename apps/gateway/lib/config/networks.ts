@@ -82,7 +82,7 @@ export const SERVICES = {
   rpcGateway: getCoreAppUrl('RPC_GATEWAY'),
   indexer:
     (typeof process !== 'undefined' ? process.env.INDEXER_URL : undefined) ||
-    `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
+    getServiceUrl('indexer', 'graphql', getCurrentNetwork()),
   ipfsApi: getCoreAppUrl('IPFS'),
   ipfsGateway: getCoreAppUrl('IPFS'),
 } as const

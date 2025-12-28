@@ -7,7 +7,7 @@ import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { LRUCache } from 'lru-cache'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import { z } from 'zod'
-import type { NodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 import {
   getHybridTorrentService,
   type HybridTorrentService,

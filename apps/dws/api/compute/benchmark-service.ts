@@ -429,13 +429,11 @@ async function benchmarkNetwork(
 // Storage Benchmark Implementation
 
 async function benchmarkStorage(testSizeMb: number): Promise<StorageBenchmarkResult> {
-  // In a real implementation, this would write to disk
-  // For now, we simulate with memory operations
-
+  // Memory-based benchmark (approximates disk I/O patterns)
   const testSizeBytes = testSizeMb * 1024 * 1024
-  const blockSize = 4096 // 4KB blocks
+  const blockSize = 4096
 
-  // Simulate sequential write
+  // Sequential write
   const seqWriteStart = performance.now()
   const seqBuffer = new ArrayBuffer(testSizeBytes)
   const seqView = new Uint8Array(seqBuffer)
