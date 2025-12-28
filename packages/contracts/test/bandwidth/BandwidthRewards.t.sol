@@ -747,13 +747,12 @@ contract BandwidthRewardsTest is Test {
         uint256 balance2 = jejuToken.balanceOf(node1);
         uint256 claim1 = balance2 - balance1;
 
-        // Second contribution - warp MORE time to avoid ClaimTooSoon
-        vm.warp(block.timestamp + 3 hours); // Need to wait claim period again
-
+        // Second contribution - report bandwidth first, then warp
         vm.prank(owner);
         rewards.reportBandwidth(node1, 3 * GB, 75);
 
-        vm.warp(block.timestamp + 2 hours); // Wait for second claim period
+        // Wait full claim period from first claim
+        vm.warp(block.timestamp + 2 hours);
 
         vm.prank(node1);
         rewards.claimRewards();

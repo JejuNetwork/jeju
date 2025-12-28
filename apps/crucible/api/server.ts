@@ -277,6 +277,7 @@ const LOCALNET_DEFAULTS = {
 
 const config: CrucibleConfig = {
   rpcUrl: getRequiredEnv('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
+  kmsKeyId: getRequiredEnv('KMS_KEY_ID', 'default'),
   contracts: {
     agentVault: getOptionalAddress(
       'AGENT_VAULT_ADDRESS',

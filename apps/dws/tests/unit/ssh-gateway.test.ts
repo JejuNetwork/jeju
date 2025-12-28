@@ -73,7 +73,7 @@ describe('SSHGateway', () => {
       // Check audit log
       const audit = gateway.getAuditLog({ computeId, limit: 10 })
       const removeEntry = audit.find(
-        a => a.action === 'unregister' && a.computeId === computeId
+        a => a.action === 'credential_removed' && a.computeId === computeId
       )
       expect(removeEntry).toBeDefined()
     })

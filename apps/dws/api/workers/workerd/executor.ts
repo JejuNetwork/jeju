@@ -514,7 +514,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 100)
-      await fetch(`http://127.0.0.1:${port}`, {
+      const host = getLocalhostHost()
+      await fetch(`http://${host}:${port}`, {
         method: 'GET',
         signal: controller.signal,
       })
