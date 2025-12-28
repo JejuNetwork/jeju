@@ -21,7 +21,7 @@ import {
 } from 'viem'
 import { requireContract, safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Event signatures for querying logs
 const DEPOSIT_EVENT = parseAbiItem(
@@ -576,7 +576,7 @@ const NFT_BRIDGE_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createBridgeModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): BridgeModule {
   const optimismPortalAddress = requireContract(

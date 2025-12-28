@@ -79,8 +79,8 @@ export {
   createKMSDirectCastClient,
   type DCKMSEncryptionProvider,
   type DCKMSSigner,
-  KMSDirectCastClient,
   type KMSDCClientConfig,
+  KMSDirectCastClient,
 } from './farcaster/dc/kms-client'
 export type {
   DCAuthFailedResponse,
@@ -151,6 +151,14 @@ export {
   HubError,
   type HubEvent,
 } from './farcaster/hub/client'
+// KMS-backed Farcaster Poster (secure - keys never in memory)
+export {
+  createKMSPoster,
+  KMSFarcasterPoster,
+  type KMSPosterConfig,
+  type KMSPosterSigner,
+  RemoteKMSPosterSigner,
+} from './farcaster/hub/kms-poster'
 export {
   buildMessage,
   type CastAddBody,
@@ -192,14 +200,6 @@ export {
   type ReactionTarget,
   type UserDataUpdate,
 } from './farcaster/hub/poster'
-// KMS-backed Farcaster Poster (secure - keys never in memory)
-export {
-  createKMSPoster,
-  KMSFarcasterPoster,
-  type KMSPosterConfig,
-  type KMSPosterSigner,
-  RemoteKMSPosterSigner,
-} from './farcaster/hub/kms-poster'
 // Farcaster schemas (for validation)
 export {
   CastsResponseSchema,
@@ -255,13 +255,12 @@ export {
   verifyAddressCanLink,
   verifyLinkProof,
 } from './farcaster/identity/link'
-// Farcaster Signer Management
+// Unified KMS Service for Farcaster (secure - keys never in memory)
 export {
-  FarcasterSignerManager,
-  type SignerInfo,
-  type SignerManagerConfig,
-  type SignerStatus,
-} from './farcaster/signer/manager'
+  createFarcasterKMSService,
+  FarcasterKMSService,
+  type FarcasterKMSServiceConfig,
+} from './farcaster/kms-service'
 // KMS-backed Farcaster Signer (secure - keys never in memory)
 export {
   createKMSSignerManager,
@@ -272,6 +271,13 @@ export {
   MPCKMSProvider,
   type SignerEvent,
 } from './farcaster/signer/kms-manager'
+// Farcaster Signer Management
+export {
+  FarcasterSignerManager,
+  type SignerInfo,
+  type SignerManagerConfig,
+  type SignerStatus,
+} from './farcaster/signer/manager'
 export {
   FARCASTER_CONTRACTS,
   generateDeadline,
@@ -295,29 +301,6 @@ export {
   type UnifiedMessagingConfig,
   UnifiedMessagingService,
 } from './farcaster-integration'
-// Unified KMS Service for Farcaster (secure - keys never in memory)
-export {
-  createFarcasterKMSService,
-  FarcasterKMSService,
-  type FarcasterKMSServiceConfig,
-} from './farcaster/kms-service'
-// Security utilities
-export {
-  auditSecurityOperation,
-  detectEnvironment,
-  enforceNoKeyExportInProduction,
-  enforceNoLocalKeysInProduction,
-  enforceNoMockModeInProduction,
-  type Environment,
-  getRecommendedSecurityConfig,
-  isLocalKeyOperationAllowed,
-  type SecurityAuditEntry,
-  securityAudit,
-  type SecurityConfig,
-  type SecurityViolationType,
-  SecurityViolationError,
-  validateSecurityConfig,
-} from './security'
 // MLS (Message Layer Security) for group messaging
 // Exclude MessageEvent which conflicts with sdk/types
 export {
@@ -372,6 +355,23 @@ export {
 } from './mls'
 // SDK (browser-compatible)
 export * from './sdk'
+// Security utilities
+export {
+  auditSecurityOperation,
+  detectEnvironment,
+  type Environment,
+  enforceNoKeyExportInProduction,
+  enforceNoLocalKeysInProduction,
+  enforceNoMockModeInProduction,
+  getRecommendedSecurityConfig,
+  isLocalKeyOperationAllowed,
+  type SecurityAuditEntry,
+  type SecurityConfig,
+  SecurityViolationError,
+  type SecurityViolationType,
+  securityAudit,
+  validateSecurityConfig,
+} from './security'
 // Storage adapters
 export {
   type ConsistencyLevel,

@@ -25,8 +25,8 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import type { StorageBackendType } from './types'
 import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
+import type { StorageBackendType } from './types'
 
 // ============ Types ============
 
@@ -303,7 +303,9 @@ export class StorageProofManager {
         this.config.ownerAddress,
         this.config.kmsKeyId,
       )
-      console.log('[StorageProofManager] Using KMS-based secure signing (FROST)')
+      console.log(
+        '[StorageProofManager] Using KMS-based secure signing (FROST)',
+      )
     } else if (process.env.NODE_ENV === 'production') {
       throw new Error(
         'STORAGE_PROOF_KMS_KEY_ID and STORAGE_PROOF_OWNER_ADDRESS required in production',

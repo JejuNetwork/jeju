@@ -302,7 +302,8 @@ export class OAuth3Client {
     }
     // Fall back to first MPC endpoint if available
     if (this.config.mpcEndpoints?.length) {
-      return this.config.mpcEndpoints[0]
+      const endpoint = this.config.mpcEndpoints[0]
+      if (endpoint) return endpoint
     }
     throw new Error(
       'No TEE agent URL configured. Provide teeAgentUrl or mpcEndpoints in config, or ensure decentralized discovery succeeds.',

@@ -19,7 +19,7 @@ import {
 } from 'viem'
 import { z } from 'zod'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Event signatures for order tracking
 const ORDER_PLACED_EVENT = parseAbiItem(
@@ -536,7 +536,7 @@ const PERPS_MARKET_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createPerpsModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): PerpsModule {
   const perpsMarketAddress = requireContract(

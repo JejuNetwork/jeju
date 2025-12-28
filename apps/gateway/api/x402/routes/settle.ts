@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import type { Hex, PublicClient, WalletClient } from 'viem'
+import type { Hex, PublicClient } from 'viem'
 import { config } from '../config'
 import {
   buildSettleErrorResponse,
@@ -30,13 +30,11 @@ type StandardSettleFn = (
   payment: DecodedPayment,
   network: string,
   publicClient: PublicClient,
-  walletClient: WalletClient,
 ) => Promise<SettlementResult>
 type GaslessSettleFn = (
   payment: DecodedPayment,
   network: string,
   publicClient: PublicClient,
-  walletClient: WalletClient,
   authParams: AuthParams,
 ) => Promise<SettlementResult>
 
@@ -67,7 +65,7 @@ async function processSettlement(
     network,
   }
 
-  const { publicClient, walletClient } = await createClients(network)
+  const { publicClient, signerAddress } = await createClients(network)
   const verifyResult = await verifyPayment(
     body.paymentHeader,
     requirements,
@@ -97,12 +95,12 @@ async function processSettlement(
   const payment = verifyResult.decodedPayment
   const amountInfo = formatAmount(payment.amount, network, payment.token)
 
-  if (!walletClient) {
+  if (!signerAddress) {
     return {
       status: 503,
       response: buildSettleErrorResponse(
         network,
-        'Settlement wallet not configured',
+        'Settlement signer not configured',
         payment.payer,
         payment.recipient,
         amountInfo,
@@ -117,15 +115,9 @@ async function processSettlement(
         payment,
         network,
         publicClient,
-        walletClient,
         authParams,
       )
-    : await (settlementFn as StandardSettleFn)(
-        payment,
-        network,
-        publicClient,
-        walletClient,
-      )
+    : await (settlementFn as StandardSettleFn)(payment, network, publicClient)
 
   if (!settlementResult.success) {
     return {

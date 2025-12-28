@@ -12,7 +12,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -397,7 +397,7 @@ const CDN_REGISTRY_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createCDNModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): CDNModule {
   const cdnRegistryAddress = requireContract('cdn', 'CDNRegistry', network)

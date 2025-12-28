@@ -1,11 +1,11 @@
 /** ERC-8004 Agent Identity & Reputation */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   identityRegistryAbi,
   reputationRegistryAbi,
   validationRegistryAbi,
 } from '@jejunetwork/contracts'
-import { isProductionEnv } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -21,11 +21,11 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { privateKeyToAccount, type LocalAccount } from 'viem/accounts'
-import { createKMSWalletClient } from './kms-signer'
+import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { z } from 'zod'
 import { toAddress, toHex } from '../lib'
+import { createKMSWalletClient } from './kms-signer'
 
 // Schema for tokenURI JSON
 const TokenURIDataSchema = z.object({

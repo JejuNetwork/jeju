@@ -18,7 +18,7 @@ import {
 } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface BanRecord {
   isBanned: boolean
@@ -775,7 +775,7 @@ const REPORTING_SYSTEM_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createModerationModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): ModerationModule {
   const evidenceRegistryAddress = requireContract(

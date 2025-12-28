@@ -18,7 +18,7 @@ import {
   DatasetUploadResponseSchema,
   JsonRecordSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Contract return type schemas
 const DatasetSchema = z.object({
@@ -273,7 +273,7 @@ const DATASET_REGISTRY_ABI = [
 ] as const
 
 export function createDatasetsModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): DatasetsModule {
   const services = getServicesConfig(network)

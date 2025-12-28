@@ -5,8 +5,7 @@ import { type Address, encodeFunctionData } from 'viem'
 import { z } from 'zod'
 import type { HardwareInfo } from '../../../lib/types'
 import { COMPUTE_STAKING_ABI, INFERENCE_SERVING_ABI } from '../abis'
-import { type NodeClient, type SecureNodeClient } from '../contracts'
-import { createSecureSigner, type SecureSigner } from '../secure-signer'
+import type { NodeClient, SecureNodeClient } from '../contracts'
 import {
   type ComputeCapabilities,
   type ComputeMode,
@@ -17,6 +16,7 @@ import {
   type HardwareInfo as HardwareInfoCamel,
   NON_TEE_WARNING,
 } from '../hardware'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 export type { ComputeMode, ComputeType }
 
@@ -137,7 +137,8 @@ export class ComputeService {
   constructor(client: NodeClient | SecureNodeClient, keyId?: string) {
     this.client = client
     // Get keyId from client or constructor
-    const resolvedKeyId = keyId ?? ('keyId' in client ? client.keyId : undefined)
+    const resolvedKeyId =
+      keyId ?? ('keyId' in client ? client.keyId : undefined)
     if (resolvedKeyId) {
       this.signer = createSecureSigner(resolvedKeyId)
     }
@@ -392,15 +393,23 @@ export class ComputeService {
     ComputeOffer,
     'provider' | 'isOnline' | 'jobsCompleted' | 'reputation'
   > | null {
-    if (
-      !this.hardware ||
-      !this.capabilities ||
-      !this.client.walletClient?.account
-    ) {
+    if (!this.hardware || !this.capabilities) {
       return null
     }
 
-    const address = this.client.walletClient.account.address
+    // Get address from either SecureNodeClient.walletAddress or NodeClient.walletClient
+    let address: Address | null = null
+    if ('walletAddress' in this.client && this.client.walletAddress) {
+      address = this.client.walletAddress
+    } else if (
+      'walletClient' in this.client &&
+      this.client.walletClient?.account
+    ) {
+      address = this.client.walletClient.account.address
+    }
+    if (!address) {
+      return null
+    }
     const teeType = this.hardware.tee.has_intel_tdx
       ? 'Intel TDX'
       : this.hardware.tee.has_intel_sgx

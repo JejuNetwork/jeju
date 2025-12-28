@@ -391,12 +391,18 @@ async function updateJNS(
   const node = namehash(name)
   const contenthash = encodeIPFSContenthash(cid)
 
+  if (!walletClient.account) {
+    console.error('[DeployHook] Wallet client has no account configured')
+    return null
+  }
+
   try {
     const hash = await walletClient.writeContract({
       address: jnsResolver,
       abi: JNS_RESOLVER_ABI,
       functionName: 'setContenthash',
       args: [node, contenthash],
+      account: walletClient.account,
       chain,
     })
 

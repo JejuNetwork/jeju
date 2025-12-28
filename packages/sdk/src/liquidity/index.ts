@@ -10,7 +10,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { safeGetContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -276,7 +276,7 @@ const LIQUIDITY_ROUTER_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createLiquidityModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): LiquidityModule {
   // Contract addresses from config - undefined if not deployed

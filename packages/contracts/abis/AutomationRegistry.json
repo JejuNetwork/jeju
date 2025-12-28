@@ -1133,6 +1133,11 @@
     },
     {
       "type": "error",
+      "name": "ETHTransferFailed",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "EnforcedPause",
       "inputs": []
     },

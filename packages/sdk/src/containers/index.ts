@@ -13,7 +13,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData, keccak256, toHex } from 'viem'
 import { getContractAddresses } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Types
 
@@ -335,7 +335,7 @@ export interface ContainersModule {
 }
 
 export function createContainersModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): ContainersModule {
   const addresses = getContractAddresses(network)

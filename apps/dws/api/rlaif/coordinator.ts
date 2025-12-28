@@ -177,6 +177,34 @@ export class RLAIFCoordinator {
   private activeRuns: Map<string, RLAIFRun> = new Map()
   private initialized = false
 
+  private isKMSWallet(
+    client: WalletClient | KMSWalletClient,
+  ): client is KMSWalletClient {
+    return 'getAddress' in client && typeof client.getAddress === 'function'
+  }
+
+  private async executeWriteContract(args: {
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args?: readonly unknown[]
+    value?: bigint
+  }): Promise<Hex> {
+    if (!this.walletClient || !this.account) {
+      throw new Error('Wallet client required')
+    }
+
+    if (this.isKMSWallet(this.walletClient)) {
+      return this.walletClient.writeContract(args)
+    }
+
+    return writeContract(this.walletClient as WalletClient, {
+      chain: this.chain,
+      account: this.account,
+      ...args,
+    })
+  }
+
   constructor(config: RLAIFCoordinatorConfig) {
     this.config = config
 
@@ -239,9 +267,7 @@ export class RLAIFCoordinator {
 
     const runIdBytes = this.generateRunId(runConfig)
 
-    await writeContract(this.walletClient, {
-      chain: this.chain,
-      account: this.account,
+    await this.executeWriteContract({
       address: this.config.coordinatorAddress,
       abi: RLAIF_COORDINATOR_ABI,
       functionName: 'createRun',
@@ -667,9 +693,7 @@ export class RLAIFCoordinator {
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
 
     if (iteration.trajectoryManifestCID) {
-      await writeContract(this.walletClient, {
-        chain: this.chain,
-        account: this.account,
+      await this.executeWriteContract({
         address: this.config.coordinatorAddress,
         abi: RLAIF_COORDINATOR_ABI,
         functionName: 'submitRollouts',
@@ -682,9 +706,7 @@ export class RLAIFCoordinator {
     }
 
     if (iteration.rewardsManifestCID) {
-      await writeContract(this.walletClient, {
-        chain: this.chain,
-        account: this.account,
+      await this.executeWriteContract({
         address: this.config.coordinatorAddress,
         abi: RLAIF_COORDINATOR_ABI,
         functionName: 'submitJudgingResults',
@@ -693,9 +715,7 @@ export class RLAIFCoordinator {
     }
 
     if (iteration.updatedPolicyCID) {
-      await writeContract(this.walletClient, {
-        chain: this.chain,
-        account: this.account,
+      await this.executeWriteContract({
         address: this.config.coordinatorAddress,
         abi: RLAIF_COORDINATOR_ABI,
         functionName: 'submitTrainingResult',
@@ -711,9 +731,7 @@ export class RLAIFCoordinator {
       const scoreScaled = BigInt(
         Math.floor((iteration.metrics?.evalScore ?? 0) * 1e18),
       )
-      await writeContract(this.walletClient, {
-        chain: this.chain,
-        account: this.account,
+      await this.executeWriteContract({
         address: this.config.coordinatorAddress,
         abi: RLAIF_COORDINATOR_ABI,
         functionName: 'submitEvaluation',

@@ -10,7 +10,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseAbiItem } from 'viem'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Event signatures for tracking
 const TOKEN_REGISTERED_EVENT = parseAbiItem(
@@ -399,7 +399,7 @@ const OTC_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createOTCModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): OTCModule {
   const otcAddress = requireContract('otc', 'OTC', network)

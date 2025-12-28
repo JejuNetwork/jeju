@@ -17,7 +17,7 @@ import {
   parseEther,
 } from 'viem'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Event signatures for tracking positions
 const SHARES_BOUGHT_EVENT = parseAbiItem(
@@ -303,7 +303,7 @@ const PREDICTION_MARKET_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createPredictionModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): PredictionModule {
   const predictionMarketAddress = requireContract(

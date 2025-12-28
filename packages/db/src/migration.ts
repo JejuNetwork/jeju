@@ -111,7 +111,7 @@ export class MigrationManager {
         const versionResult = await tx.query<{ version: number | null }>(
           `SELECT MAX(version) as version FROM ${this.tableName}`,
         )
-        const currentVersion = versionResult.rows[0].version ?? 0
+        const currentVersion = versionResult.rows[0]?.version ?? 0
 
         // Skip if migration already applied
         if (migration.version <= currentVersion) {

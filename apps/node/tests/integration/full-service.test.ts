@@ -144,10 +144,10 @@ describe('Wallet & Signing (KMS-backed)', () => {
     if (skipIfNoLocalnet()) return
 
     const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
-    
+
     // Note: This will fail without a real KMS service running
     // In production, the signer.signTransaction() calls KMS MPC
-    const { signedTransaction, hash } = await client.signer.signTransaction({
+    const { hash } = await client.signer.signTransaction({
       to: TEST_ACCOUNTS[0].address,
       value: parseEther('0.001'),
       chainId: CHAIN_ID,
@@ -170,7 +170,9 @@ describe('Compute Service', () => {
     // Skip: Requires deployed contracts on localnet
     if (skipIfNoLocalnet()) return
 
-    const state = await services.compute.getState(TEST_ACCOUNTS[0].address as `0x${string}`)
+    const state = await services.compute.getState(
+      TEST_ACCOUNTS[0].address as `0x${string}`,
+    )
     expect(state).toBeDefined()
     expect(typeof state.isRegistered).toBe('boolean')
     expect(typeof state.isStaked).toBe('boolean')
@@ -270,7 +272,9 @@ describe('Oracle Service', () => {
     // Skip: Requires deployed contracts on localnet
     if (skipIfNoLocalnet()) return
 
-    const state = await services.oracle.getState(TEST_ACCOUNTS[1].address as `0x${string}`)
+    const state = await services.oracle.getState(
+      TEST_ACCOUNTS[1].address as `0x${string}`,
+    )
     expect(state).toBeDefined()
     expect(typeof state.isRegistered).toBe('boolean')
   })
@@ -306,7 +310,9 @@ describe('Oracle Service', () => {
     // Skip: Requires deployed contracts and running oracle
     if (skipIfNoLocalnet()) return
 
-    const state = await services.oracle.getState(TEST_ACCOUNTS[1].address as `0x${string}`)
+    const state = await services.oracle.getState(
+      TEST_ACCOUNTS[1].address as `0x${string}`,
+    )
     if (!state.isRegistered) {
       console.log('SKIPPED: Oracle not registered')
       return
@@ -340,7 +346,9 @@ describe('Storage Service', () => {
     // Skip: Requires deployed contracts on localnet
     if (skipIfNoLocalnet()) return
 
-    const state = await services.storage.getState(TEST_ACCOUNTS[2].address as `0x${string}`)
+    const state = await services.storage.getState(
+      TEST_ACCOUNTS[2].address as `0x${string}`,
+    )
     expect(state).toBeDefined()
     expect(typeof state.isRegistered).toBe('boolean')
   })

@@ -32,10 +32,7 @@ const INSECURE_KEY_VARS = [
 ] as const
 
 // Required KMS configuration for production
-const REQUIRED_KMS_VARS = [
-  'KMS_ENDPOINT',
-  'KMS_KEY_ID',
-] as const
+const REQUIRED_KMS_VARS = ['KMS_ENDPOINT', 'KMS_KEY_ID'] as const
 
 // Optional but recommended KMS configuration
 const RECOMMENDED_KMS_VARS = [
@@ -75,7 +72,9 @@ export function validateKeySecurityConfig(): KeySecurityValidationResult {
   const hasKmsConfig = missingKmsVars.length === 0
 
   // Check for recommended KMS configuration
-  const missingRecommendedVars = RECOMMENDED_KMS_VARS.filter((v) => !process.env[v])
+  const missingRecommendedVars = RECOMMENDED_KMS_VARS.filter(
+    (v) => !process.env[v],
+  )
 
   if (isProduction) {
     // Production: Strict enforcement
@@ -83,22 +82,22 @@ export function validateKeySecurityConfig(): KeySecurityValidationResult {
     if (foundInsecureKeys.length > 0) {
       errors.push(
         `CRITICAL: Direct private key environment variables found in production: ${foundInsecureKeys.join(', ')}. ` +
-        'These MUST be removed and replaced with KMS key IDs. ' +
-        'Direct keys in memory are vulnerable to side-channel attacks.'
+          'These MUST be removed and replaced with KMS key IDs. ' +
+          'Direct keys in memory are vulnerable to side-channel attacks.',
       )
     }
 
     if (!hasKmsConfig) {
       errors.push(
         `CRITICAL: Missing required KMS configuration: ${missingKmsVars.join(', ')}. ` +
-        'Production MUST use KMS for all signing operations.'
+          'Production MUST use KMS for all signing operations.',
       )
     }
 
     if (missingRecommendedVars.length > 0) {
       warnings.push(
         `WARNING: Missing recommended security configuration: ${missingRecommendedVars.join(', ')}. ` +
-        'Consider adding TEE/MPC configuration for enhanced security.'
+          'Consider adding TEE/MPC configuration for enhanced security.',
       )
     }
 
@@ -106,7 +105,7 @@ export function validateKeySecurityConfig(): KeySecurityValidationResult {
     if (!process.env.TEE_ENDPOINT && !process.env.MPC_COORDINATOR_ENDPOINT) {
       warnings.push(
         'WARNING: No TEE or MPC endpoint configured. ' +
-        'Production should use hardware-backed key protection.'
+          'Production should use hardware-backed key protection.',
       )
     }
 
@@ -121,7 +120,7 @@ export function validateKeySecurityConfig(): KeySecurityValidationResult {
   if (foundInsecureKeys.length > 0) {
     warnings.push(
       `Development mode: Using direct private keys: ${foundInsecureKeys.join(', ')}. ` +
-      'This is INSECURE and must not be used in production.'
+        'This is INSECURE and must not be used in production.',
     )
 
     if (!hasKmsConfig) {
@@ -161,8 +160,8 @@ export function enforceKeySecurityAtStartup(serviceName: string): void {
     }
     throw new Error(
       `[${serviceName}] Key security validation failed. ` +
-      'Cannot start service with insecure key configuration in production. ' +
-      `Errors: ${result.errors.join('; ')}`
+        'Cannot start service with insecure key configuration in production. ' +
+        `Errors: ${result.errors.join('; ')}`,
     )
   }
 
@@ -170,8 +169,9 @@ export function enforceKeySecurityAtStartup(serviceName: string): void {
   const modeMessages: Record<typeof result.mode, string> = {
     'production-kms': '🔐 Running in production mode with KMS (secure)',
     'development-kms': '🔐 Running in development mode with KMS (recommended)',
-    'development-local': '⚠️  Running in development mode with local keys (INSECURE)',
-    'invalid': '❌ Invalid configuration',
+    'development-local':
+      '⚠️  Running in development mode with local keys (INSECURE)',
+    invalid: '❌ Invalid configuration',
   }
   console.log(`[${serviceName}] ${modeMessages[result.mode]}`)
 }
@@ -206,7 +206,7 @@ export function getKMSConfig(): {
     if (isProductionEnv()) {
       throw new Error(
         'KMS configuration required in production. ' +
-        'Set KMS_ENDPOINT and KMS_KEY_ID environment variables.'
+          'Set KMS_ENDPOINT and KMS_KEY_ID environment variables.',
       )
     }
     throw new Error('KMS not configured')
@@ -219,4 +219,3 @@ export function getKMSConfig(): {
     mpcEndpoint: process.env.MPC_COORDINATOR_ENDPOINT,
   }
 }
-

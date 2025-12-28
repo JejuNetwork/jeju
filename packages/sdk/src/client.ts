@@ -34,6 +34,7 @@ import {
 import { createFeedModule, type FeedModule } from './feed'
 import { createGovernanceModule, type GovernanceModule } from './governance'
 import { createIdentityModule, type IdentityModule } from './identity'
+import { createKMSWallet } from './kms-wallet'
 import { createLaunchpadModule, type LaunchpadModule } from './launchpad'
 import { createMCPModule, type MCPModule } from './mcp'
 import { createMessagingModule, type MessagingModule } from './messaging'
@@ -52,8 +53,7 @@ import { createStorageModule, type StorageModule } from './storage'
 import { createTrainingModule, type TrainingModule } from './training'
 import { createValidationModule, type ValidationModule } from './validation'
 import { createVPNModule, type VPNModule } from './vpn-module'
-import { createKMSWallet, type KMSWallet } from './kms-wallet'
-import { createWallet, type JejuWallet } from './wallet'
+import { type BaseWallet, createWallet } from './wallet'
 import { createWorkModule, type WorkModule } from './work'
 
 export interface JejuClientConfig {
@@ -111,8 +111,8 @@ export interface JejuClient {
   readonly address: Address
   /** Whether using smart account */
   readonly isSmartAccount: boolean
-  /** Wallet instance */
-  readonly wallet: JejuWallet
+  /** Wallet instance (BaseWallet - works with both JejuWallet and KMSWallet) */
+  readonly wallet: BaseWallet
 
   /** Compute marketplace - GPU/CPU rentals, inference, triggers */
   readonly compute: ComputeModule
@@ -201,11 +201,16 @@ export async function createJejuClient(
   config: JejuClientConfig,
 ): Promise<JejuClient> {
   // Check for KMS mode first (recommended for production)
-  const isKMSMode = config.kmsEndpoint && config.kmsKeyId && config.kmsAddress
-  const isLocalKeyMode =
-    config.privateKey || config.mnemonic || config.account
+  const hasKMSConfig =
+    config.kmsEndpoint !== undefined &&
+    config.kmsKeyId !== undefined &&
+    config.kmsAddress !== undefined
+  const hasLocalKeyConfig =
+    config.privateKey !== undefined ||
+    config.mnemonic !== undefined ||
+    config.account !== undefined
 
-  if (!isKMSMode && !isLocalKeyMode) {
+  if (!hasKMSConfig && !hasLocalKeyConfig) {
     throw new Error(
       `${getNetworkName()}Client requires either:\n` +
         '  - KMS configuration (kmsEndpoint, kmsKeyId, kmsAddress) for secure signing, or\n' +
@@ -218,9 +223,20 @@ export async function createJejuClient(
   const servicesConfig = getServicesConfig(network)
 
   // Create wallet (KMS-backed or local)
-  let wallet: JejuWallet | KMSWallet
+  let wallet: BaseWallet
 
-  if (isKMSMode) {
+  if (hasKMSConfig) {
+    // Validate KMS config - all fields are required
+    if (!config.kmsAddress) {
+      throw new Error('KMS mode requires kmsAddress')
+    }
+    if (!config.kmsEndpoint) {
+      throw new Error('KMS mode requires kmsEndpoint')
+    }
+    if (!config.kmsKeyId) {
+      throw new Error('KMS mode requires kmsKeyId')
+    }
+
     // Use KMS-backed wallet (recommended for production/TEE)
     wallet = await createKMSWallet({
       address: config.kmsAddress,

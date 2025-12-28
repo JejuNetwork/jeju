@@ -11,8 +11,8 @@
  * - Proper secrets configuration
  */
 
-import { isKMSAvailable } from './kms-wallet'
 import { isHSMAvailable } from './hsm-kdf'
+import { isKMSAvailable } from './kms-wallet'
 
 export interface SecurityValidationResult {
   valid: boolean
@@ -319,7 +319,9 @@ export async function enforceSecurityAtStartup(
     console.log(`[${serviceName}]    - All secrets properly configured`)
   } else if (result.mode === 'development') {
     console.log(`[${serviceName}] ⚠️  Security configuration: DEVELOPMENT`)
-    console.log(`[${serviceName}]    Some security features disabled for development`)
+    console.log(
+      `[${serviceName}]    Some security features disabled for development`,
+    )
   } else {
     console.error(`[${serviceName}] ❌ Security configuration: INSECURE`)
   }
@@ -371,4 +373,3 @@ export async function getSecurityStatus(): Promise<{
     configured: kmsKeyVars.filter((v) => process.env[v]),
   }
 }
-

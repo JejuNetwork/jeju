@@ -16,7 +16,7 @@
  */
 
 import { type Address, encodeFunctionData, formatEther, type Hex } from 'viem'
-import { type NodeClient, type SecureNodeClient } from '../contracts'
+import type { NodeClient, SecureNodeClient } from '../contracts'
 import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 // Contract ABI for DelegatedNodeStaking

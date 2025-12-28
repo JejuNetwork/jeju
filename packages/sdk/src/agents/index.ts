@@ -14,7 +14,7 @@ import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { z } from 'zod'
 import { requireContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Contract return type schemas
 const RoomSchema = z.object({
@@ -370,7 +370,7 @@ const ROOM_REGISTRY_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createAgentsModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): AgentsModule {
   const agentVaultAddress = requireContract('agents', 'AgentVault', network)

@@ -236,7 +236,7 @@ export class MPCCoordinator {
       const shareBytes = bigintToBytes32(aggregatedShare)
       // Zero the aggregatedShare (though bigint reference will be GC'd)
       aggregatedShare = 0n
-      
+
       partyShares.set(receiverId, {
         partyId: receiverId,
         commitment: keccak256(shareBytes),

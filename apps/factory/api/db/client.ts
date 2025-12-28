@@ -6,12 +6,11 @@
  */
 
 import { Database } from 'bun:sqlite'
+import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { getFactoryConfig } from '../config'
-import FACTORY_SCHEMA from './schema'
 import {
   clearEncryptionKey,
   isEncryptionEnabled,
@@ -19,6 +18,7 @@ import {
   loadEncryptedDatabase,
   saveEncryptedDatabase,
 } from './encryption'
+import FACTORY_SCHEMA from './schema'
 
 // Schemas for row validation
 const BountyRowSchema = z.object({
@@ -289,7 +289,11 @@ export async function initDB(): Promise<Database> {
   ensureDataDir()
 
   // Handle encrypted database file
-  if (isEncryptionEnabled() && existsSync(DB_PATH) && isFileEncrypted(DB_PATH)) {
+  if (
+    isEncryptionEnabled() &&
+    existsSync(DB_PATH) &&
+    isFileEncrypted(DB_PATH)
+  ) {
     const decrypted = await loadEncryptedDatabase(DB_PATH)
     if (decrypted) {
       writeFileSync(DB_TEMP_PATH, decrypted)

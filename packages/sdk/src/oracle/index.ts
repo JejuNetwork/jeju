@@ -12,7 +12,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { z } from 'zod'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Contract return type schema
 const OracleConfigSchema = z.object({
@@ -336,7 +336,7 @@ const ORACLE_REGISTRY_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createOracleModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): OracleModule {
   const oracleRegistryAddress = requireContract(

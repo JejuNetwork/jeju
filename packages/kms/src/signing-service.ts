@@ -105,7 +105,10 @@ export interface KeyGenResult {
 const SignRequestSchema = z.object({
   keyId: z.string().min(1),
   message: z.union([z.string(), z.instanceof(Uint8Array)]),
-  messageHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).optional(),
+  messageHash: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/)
+    .optional(),
 })
 
 const SignTypedDataRequestSchema = z.object({
@@ -114,10 +117,19 @@ const SignTypedDataRequestSchema = z.object({
     name: z.string().optional(),
     version: z.string().optional(),
     chainId: z.number().optional(),
-    verifyingContract: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
-    salt: z.string().regex(/^0x[0-9a-fA-F]*$/).optional(),
+    verifyingContract: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{40}$/)
+      .optional(),
+    salt: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]*$/)
+      .optional(),
   }),
-  types: z.record(z.string(), z.array(z.object({ name: z.string(), type: z.string() }))),
+  types: z.record(
+    z.string(),
+    z.array(z.object({ name: z.string(), type: z.string() })),
+  ),
   primaryType: z.string(),
   message: z.record(z.string(), z.unknown()),
 })
@@ -139,7 +151,10 @@ export class SecureSigningService {
   private totalParties: number
   private network: 'mainnet' | 'testnet' | 'localnet'
   private productionConfig: ProductionConfig
-  private keyRotationIntervals = new Map<string, ReturnType<typeof setInterval>>()
+  private keyRotationIntervals = new Map<
+    string,
+    ReturnType<typeof setInterval>
+  >()
 
   constructor(
     options: {
@@ -150,15 +165,20 @@ export class SecureSigningService {
     } = {},
   ) {
     // Determine network from options or environment
-    this.network = options.network ?? (getEnv('NETWORK') as 'mainnet' | 'testnet') ?? 'localnet'
+    this.network =
+      options.network ??
+      (getEnv('NETWORK') as 'mainnet' | 'testnet') ??
+      'localnet'
     this.productionConfig = options.productionConfig ?? {}
 
     // Get threshold requirements for this network
     const requirements = THRESHOLD_REQUIREMENTS[this.network]
 
     // Apply thresholds with network-enforced minimums
-    const requestedThreshold = options.threshold ?? getEnvNumber('MPC_THRESHOLD', 2)
-    const requestedParties = options.totalParties ?? getEnvNumber('MPC_TOTAL_PARTIES', 3)
+    const requestedThreshold =
+      options.threshold ?? getEnvNumber('MPC_THRESHOLD', 2)
+    const requestedParties =
+      options.totalParties ?? getEnvNumber('MPC_TOTAL_PARTIES', 3)
 
     // Enforce minimum thresholds for production networks
     if (this.network === 'mainnet' || this.network === 'testnet') {
@@ -186,7 +206,8 @@ export class SecureSigningService {
       network: this.network,
       threshold: this.threshold,
       totalParties: this.totalParties,
-      requireDistributedDeployment: this.productionConfig.requireDistributedDeployment,
+      requireDistributedDeployment:
+        this.productionConfig.requireDistributedDeployment,
       requireAttestation: this.productionConfig.requireAttestation,
     })
   }
@@ -205,11 +226,15 @@ export class SecureSigningService {
     }
 
     if (this.productionConfig.requireDistributedDeployment) {
-      log.info('Distributed deployment validation enabled - parties must be on separate hardware')
+      log.info(
+        'Distributed deployment validation enabled - parties must be on separate hardware',
+      )
     }
 
     if (this.productionConfig.requireAttestation) {
-      log.info('Attestation validation enabled - all parties must have fresh attestation')
+      log.info(
+        'Attestation validation enabled - all parties must have fresh attestation',
+      )
     }
   }
 
@@ -338,9 +363,9 @@ export class SecureSigningService {
    * Get or create a key for the given keyId
    */
   async getOrCreateKey(keyId: string): Promise<KeyGenResult> {
-    if (this.coordinators.has(keyId)) {
-      const coordinator = this.coordinators.get(keyId)!
-      const cluster = coordinator.getCluster()
+    const existingCoordinator = this.coordinators.get(keyId)
+    if (existingCoordinator) {
+      const cluster = existingCoordinator.getCluster()
       return {
         keyId,
         publicKey: cluster.groupPublicKey,
@@ -366,7 +391,9 @@ export class SecureSigningService {
 
     const coordinator = this.coordinators.get(keyId)
     if (!coordinator) {
-      throw new Error(`Key ${keyId} not found. Generate it first with generateKey().`)
+      throw new Error(
+        `Key ${keyId} not found. Generate it first with generateKey().`,
+      )
     }
 
     // Compute message hash if not provided
@@ -382,7 +409,8 @@ export class SecureSigningService {
     // Sign using FROST - private key is NEVER reconstructed
     const signature = await coordinator.sign(messageHash)
 
-    const fullSignature = `${signature.r}${signature.s.slice(2)}${signature.v.toString(16).padStart(2, '0')}` as Hex
+    const fullSignature =
+      `${signature.r}${signature.s.slice(2)}${signature.v.toString(16).padStart(2, '0')}` as Hex
 
     log.debug('Message signed with FROST', { keyId })
 
@@ -410,7 +438,9 @@ export class SecureSigningService {
       name: validated.domain.name,
       version: validated.domain.version,
       chainId: validated.domain.chainId,
-      verifyingContract: validated.domain.verifyingContract as Address | undefined,
+      verifyingContract: validated.domain.verifyingContract as
+        | Address
+        | undefined,
       salt: validated.domain.salt as Hex | undefined,
     }
 
@@ -419,7 +449,11 @@ export class SecureSigningService {
 
     // Compute EIP-712 hash
     const domainSeparator = this.computeDomainSeparator(domain)
-    const structHash = this.computeStructHash(types, primaryType, message as Record<string, unknown>)
+    const structHash = this.computeStructHash(
+      types,
+      primaryType,
+      message as Record<string, unknown>,
+    )
     const messageHash = keccak256(
       toBytes(`0x1901${domainSeparator.slice(2)}${structHash.slice(2)}`),
     )
@@ -488,13 +522,20 @@ export class SecureSigningService {
    */
   private computeDomainSeparator(domain: SignTypedDataRequest['domain']): Hex {
     const typeHash = keccak256(
-      toBytes('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+      toBytes(
+        'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)',
+      ),
     )
 
-    const nameHash = domain.name ? keccak256(toBytes(domain.name)) : keccak256(toBytes(''))
-    const versionHash = domain.version ? keccak256(toBytes(domain.version)) : keccak256(toBytes(''))
+    const nameHash = domain.name
+      ? keccak256(toBytes(domain.name))
+      : keccak256(toBytes(''))
+    const versionHash = domain.version
+      ? keccak256(toBytes(domain.version))
+      : keccak256(toBytes(''))
     const chainId = domain.chainId ?? 1
-    const verifyingContract = domain.verifyingContract ?? '0x0000000000000000000000000000000000000000'
+    const verifyingContract =
+      domain.verifyingContract ?? '0x0000000000000000000000000000000000000000'
 
     // Encode and hash
     const encoded = `${typeHash}${nameHash.slice(2)}${versionHash.slice(2)}${BigInt(chainId).toString(16).padStart(64, '0')}${verifyingContract.slice(2).padStart(64, '0')}`
@@ -528,8 +569,13 @@ export class SecureSigningService {
         encoded += keccak256(value as Uint8Array).slice(2)
       } else if (field.type === 'address') {
         encoded += (value as string).slice(2).padStart(64, '0')
-      } else if (field.type.startsWith('uint') || field.type.startsWith('int')) {
-        encoded += BigInt(value as string | number).toString(16).padStart(64, '0')
+      } else if (
+        field.type.startsWith('uint') ||
+        field.type.startsWith('int')
+      ) {
+        encoded += BigInt(value as string | number)
+          .toString(16)
+          .padStart(64, '0')
       } else if (field.type === 'bool') {
         encoded += (value ? '1' : '0').padStart(64, '0')
       } else if (field.type.startsWith('bytes')) {
@@ -595,4 +641,3 @@ export function resetSecureSigningService(): void {
     signingServiceInstance = null
   }
 }
-

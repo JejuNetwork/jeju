@@ -78,8 +78,8 @@ export class TEEProvider implements KMSProvider {
     if (isProduction && !this.remoteMode) {
       throw new Error(
         'Production requires remote TEE with hardware attestation. ' +
-        'Set TEE_ENDPOINT to a hardware TEE endpoint. ' +
-        'Local encrypted mode is vulnerable to side-channel attacks.',
+          'Set TEE_ENDPOINT to a hardware TEE endpoint. ' +
+          'Local encrypted mode is vulnerable to side-channel attacks.',
       )
     }
 
@@ -98,9 +98,9 @@ export class TEEProvider implements KMSProvider {
     const teeType = this.remoteMode
       ? ((getEnv('TEE_TYPE') as 'sgx' | 'nitro') ?? 'sgx')
       : 'local'
-    const allowLocalFallback = !isProduction && (
-      !this.remoteMode || getEnvBoolean('TEE_ALLOW_LOCAL', false)
-    )
+    const allowLocalFallback =
+      !isProduction &&
+      (!this.remoteMode || getEnvBoolean('TEE_ALLOW_LOCAL', false))
     this.attestationVerifier = createAttestationVerifier({
       teeType,
       allowLocalMode: allowLocalFallback,
@@ -117,7 +117,7 @@ export class TEEProvider implements KMSProvider {
     } else if (!this.remoteMode) {
       log.warn(
         'TEE Provider running in LOCAL ENCRYPTED mode (development only). ' +
-        'This is INSECURE and vulnerable to side-channel attacks.'
+          'This is INSECURE and vulnerable to side-channel attacks.',
       )
     }
   }

@@ -20,7 +20,7 @@ import {
   MCPToolResultSchema,
   MCPToolsListResponseSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface MCPServer {
   name: string
@@ -163,7 +163,7 @@ export interface MCPModule {
 }
 
 export function createMCPModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): MCPModule {
   const services = getServicesConfig(network)

@@ -113,7 +113,7 @@ export function createRemoteKMSSigner(
           'Content-Type': 'application/json',
         }
         if (apiKey) {
-          headers['Authorization'] = `Bearer ${apiKey}`
+          headers.Authorization = `Bearer ${apiKey}`
         }
 
         const response = await fetch(`${endpoint}/sign`, {
@@ -180,14 +180,17 @@ export async function initializeRemoteKMSSigner(
       'Content-Type': 'application/json',
     }
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`
+      headers.Authorization = `Bearer ${apiKey}`
     }
 
-    const response = await fetch(`${endpoint}/keys/${encodeURIComponent(keyId)}`, {
-      method: 'GET',
-      headers,
-      signal: controller.signal,
-    })
+    const response = await fetch(
+      `${endpoint}/keys/${encodeURIComponent(keyId)}`,
+      {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      },
+    )
 
     if (!response.ok) {
       // Key doesn't exist, create it
@@ -201,7 +204,9 @@ export async function initializeRemoteKMSSigner(
 
         if (!createResponse.ok) {
           const error = await createResponse.text()
-          throw new Error(`KMS key creation failed: ${createResponse.status} - ${error}`)
+          throw new Error(
+            `KMS key creation failed: ${createResponse.status} - ${error}`,
+          )
         }
 
         const keyInfo = (await createResponse.json()) as {
@@ -226,4 +231,3 @@ export async function initializeRemoteKMSSigner(
     clearTimeout(timeoutId)
   }
 }
-

@@ -152,7 +152,10 @@ export class MessagingClient {
         }
 
         warnLocalKeyUsage('key derivation from wallet signature')
-        const keyPairs = deriveKeyPairsFromWallet(this.config.address, signature)
+        const keyPairs = deriveKeyPairsFromWallet(
+          this.config.address,
+          signature,
+        )
         this.keyPair = keyPairs.encryption
         this.signingKeyPair = keyPairs.signing
       }
@@ -575,7 +578,9 @@ export class MessagingClient {
       case 'message':
         this.handleIncomingMessage(wsMessage.data as MessageEnvelope).catch(
           (err: Error) => {
-            log.error('Failed to handle incoming message', { error: err.message })
+            log.error('Failed to handle incoming message', {
+              error: err.message,
+            })
           },
         )
         break
@@ -609,7 +614,9 @@ export class MessagingClient {
     }
   }
 
-  private async handleIncomingMessage(envelope: MessageEnvelope): Promise<void> {
+  private async handleIncomingMessage(
+    envelope: MessageEnvelope,
+  ): Promise<void> {
     // Check we have decryption capability
     if (!this.kmsEncryption && !this.keyPair) {
       log.error('Cannot decrypt message - no decryption capability')
@@ -704,7 +711,11 @@ export class MessagingClient {
     }
 
     // 2. Encrypt message (prefer KMS if available)
-    let encrypted: { ciphertext: Uint8Array; nonce: Uint8Array; ephemeralPublicKey: Uint8Array }
+    let encrypted: {
+      ciphertext: Uint8Array
+      nonce: Uint8Array
+      ephemeralPublicKey: Uint8Array
+    }
 
     if (this.kmsEncryption) {
       // Secure path: encryption happens in KMS

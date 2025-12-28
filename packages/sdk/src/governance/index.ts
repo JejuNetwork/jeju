@@ -55,7 +55,7 @@ import {
   ProposalInfoSchema,
   ProposalsListSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface ProposalInfo {
   proposalId: Hex
@@ -227,7 +227,7 @@ const DELEGATION_ABI = [
 ] as const
 
 export function createGovernanceModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): GovernanceModule {
   const councilAddress = requireContract('governance', 'council', network)

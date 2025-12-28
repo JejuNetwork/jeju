@@ -167,7 +167,11 @@ export class SoftwareHSMProvider implements HSMProvider {
 
     // Generate new key with same parameters
     const newVersion = stored.info.version + 1
-    const newInfo = { ...stored.info, version: newVersion, createdAt: Date.now() }
+    const newInfo = {
+      ...stored.info,
+      version: newVersion,
+      createdAt: Date.now(),
+    }
 
     // For symmetric keys, generate new key material
     if (stored.info.algorithm === 'AES-256') {
@@ -188,7 +192,11 @@ export class SoftwareHSMProvider implements HSMProvider {
         newRawKey = new Uint8Array(exported)
       }
 
-      this.keys.set(keyId, { info: newInfo, cryptoKey: newCryptoKey, rawKey: newRawKey })
+      this.keys.set(keyId, {
+        info: newInfo,
+        cryptoKey: newCryptoKey,
+        rawKey: newRawKey,
+      })
     } else {
       // For asymmetric keys, keep the same key (rotation would change public key)
       // In real HSM, you'd create a new key version
@@ -226,11 +234,11 @@ export class SoftwareHSMProvider implements HSMProvider {
       {
         name: 'AES-GCM',
         iv,
-        additionalData: options?.aad,
+        additionalData: options?.aad?.slice(),
         tagLength: 128,
       },
       stored.cryptoKey,
-      plaintext,
+      plaintext.slice(),
     )
 
     const ciphertext = new Uint8Array(encrypted)
@@ -269,8 +277,8 @@ export class SoftwareHSMProvider implements HSMProvider {
     const decrypted = await crypto.subtle.decrypt(
       {
         name: 'AES-GCM',
-        iv,
-        additionalData: options?.aad,
+        iv: iv.slice(),
+        additionalData: options?.aad?.slice(),
         tagLength: 128,
       },
       stored.cryptoKey,
@@ -293,7 +301,7 @@ export class SoftwareHSMProvider implements HSMProvider {
     const signature = await crypto.subtle.sign(
       { name: 'ECDSA', hash: 'SHA-256' },
       stored.cryptoKey,
-      data,
+      data.slice(),
     )
 
     return {
@@ -302,7 +310,11 @@ export class SoftwareHSMProvider implements HSMProvider {
     }
   }
 
-  async verify(keyId: string, _data: Uint8Array, _signature: Hex): Promise<boolean> {
+  async verify(
+    keyId: string,
+    _data: Uint8Array,
+    _signature: Hex,
+  ): Promise<boolean> {
     const stored = this.keys.get(keyId)
     if (!stored) {
       throw new Error(`Key ${keyId} not found`)
@@ -321,7 +333,10 @@ export class SoftwareHSMProvider implements HSMProvider {
     return true
   }
 
-  async wrapKey(keyIdToWrap: string, wrappingKeyId: string): Promise<Uint8Array> {
+  async wrapKey(
+    keyIdToWrap: string,
+    wrappingKeyId: string,
+  ): Promise<Uint8Array> {
     const keyToWrap = this.keys.get(keyIdToWrap)
     const wrappingKey = this.keys.get(wrappingKeyId)
 
@@ -375,7 +390,7 @@ export class SoftwareHSMProvider implements HSMProvider {
     // Import as new key
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      rawKey,
+      rawKey.slice(),
       { name: 'AES-GCM' },
       false,
       ['encrypt', 'decrypt'],
@@ -403,13 +418,18 @@ export class SoftwareHSMProvider implements HSMProvider {
       throw new Error(`Key ${keyId} not found`)
     }
 
-    if (!stored.info.algorithm.startsWith('ECDSA') && !stored.info.algorithm.startsWith('RSA')) {
+    if (
+      !stored.info.algorithm.startsWith('ECDSA') &&
+      !stored.info.algorithm.startsWith('RSA')
+    ) {
       throw new Error(`Key ${keyId} is not an asymmetric key`)
     }
 
     // For software HSM, we can't easily get public key from CryptoKey
     // Real HSM implementations will return the actual public key
-    throw new Error('getPublicKey not implemented in software HSM - use real HSM')
+    throw new Error(
+      'getPublicKey not implemented in software HSM - use real HSM',
+    )
   }
 }
 
@@ -433,4 +453,3 @@ export function createHSMProvider(config: HSMConfig): HSMProvider {
       throw new Error(`Unknown HSM provider: ${config.provider}`)
   }
 }
-

@@ -12,7 +12,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -349,7 +349,7 @@ const SLASHING_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createSequencerModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): SequencerModule {
   const sequencerRegistryAddress = requireContract(

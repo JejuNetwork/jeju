@@ -10,7 +10,11 @@
  * - Short-lived decryption with immediate cleanup
  */
 
-import type { AuthProvider, SealedOAuthProvider, SealedSecret } from '../../lib/types'
+import type {
+  AuthProvider,
+  SealedOAuthProvider,
+  SealedSecret,
+} from '../../lib/types'
 import { sealSecret, unsealSecret } from './kms'
 
 // Cache for decrypted secrets (very short-lived)
@@ -57,13 +61,16 @@ export async function loadSealedProviders(): Promise<void> {
         })
         console.log(`[SealedOAuth] Loaded sealed config for ${name}`)
       } catch (err) {
-        console.error(`[SealedOAuth] Failed to parse sealed secret for ${name}:`, err)
+        console.error(
+          `[SealedOAuth] Failed to parse sealed secret for ${name}:`,
+          err,
+        )
       }
     } else if (clientId && process.env[`${envPrefix}_CLIENT_SECRET`]) {
       // Legacy plaintext secret - warn but allow for migration
       console.warn(
         `[SealedOAuth] WARNING: ${name} is using plaintext secret. ` +
-        `Run 'jeju oauth seal-secrets' to migrate to sealed secrets.`
+          `Run 'jeju oauth seal-secrets' to migrate to sealed secrets.`,
       )
     }
   }
@@ -90,7 +97,7 @@ export async function getOAuthConfig(
     // Check cache first
     const cacheKey = `${provider}:secret`
     const cached = secretCache.get(cacheKey)
-    
+
     if (cached && Date.now() - cached.decryptedAt < CACHE_TTL) {
       return {
         clientId: sealed.clientId,
@@ -103,7 +110,7 @@ export async function getOAuthConfig(
     // Decrypt sealed secret
     try {
       const clientSecret = await unsealSecret(sealed.sealedSecret)
-      
+
       // Cache briefly
       secretCache.set(cacheKey, {
         secret: clientSecret,
@@ -122,7 +129,10 @@ export async function getOAuthConfig(
         scopes: sealed.scopes,
       }
     } catch (err) {
-      console.error(`[SealedOAuth] Failed to unseal secret for ${provider}:`, err)
+      console.error(
+        `[SealedOAuth] Failed to unseal secret for ${provider}:`,
+        err,
+      )
       return null
     }
   }
@@ -138,7 +148,7 @@ export async function getOAuthConfig(
 
   console.warn(
     `[SealedOAuth] Using plaintext secret for ${provider}. ` +
-    `This is insecure - migrate to sealed secrets.`
+      `This is insecure - migrate to sealed secrets.`,
   )
 
   return {
@@ -160,7 +170,7 @@ export function isProviderConfigured(provider: AuthProvider): boolean {
   const envPrefix = provider.toUpperCase()
   return Boolean(
     process.env[`${envPrefix}_CLIENT_ID`] &&
-    process.env[`${envPrefix}_CLIENT_SECRET`]
+      process.env[`${envPrefix}_CLIENT_SECRET`],
   )
 }
 
@@ -219,4 +229,3 @@ setInterval(() => {
     }
   }
 }, CACHE_TTL)
-

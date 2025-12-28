@@ -44,7 +44,10 @@ export interface BridgeServiceConfig {
 
   // Operator settings
   operatorAddress: Address
+  /** @deprecated Use evmKeyId instead */
   privateKey?: Hex
+  /** KMS key ID for EVM signing */
+  evmKeyId?: string
 
   // Service options
   enableRelayer: boolean
@@ -287,9 +290,10 @@ class BridgeServiceImpl implements BridgeService {
   }
 
   private async initArbExecutor(): Promise<void> {
+    const cfg = nodeConfig
     if (
       this.arbExecutor ||
-      !this.config.privateKey ||
+      !this.config.evmKeyId ||
       !this.config.enableArbitrage
     )
       return
@@ -298,18 +302,17 @@ class BridgeServiceImpl implements BridgeService {
       return
     }
 
-    // Capture privateKey in local const for type narrowing in async closure
-    const privateKey = this.config.privateKey
+    // Capture evmKeyId in local const for type narrowing in async closure
+    const evmKeyId = this.config.evmKeyId
 
     this.arbExecutorInitPromise = (async () => {
-      // Validate private key format before using
-      const privateKeyRegex = /^0x[a-fA-F0-9]{64}$/
-      if (!privateKeyRegex.test(privateKey)) {
-        throw new Error('Invalid EVM private key format in bridge config')
+      // Validate key ID format
+      if (evmKeyId.length < 8) {
+        throw new Error('Invalid EVM key ID format in bridge config')
       }
 
       // Validate Solana key if provided
-      const solanaKey = nodeConfig.solanaPrivateKey
+      const solanaKey = cfg.solanaPrivateKey
       if (solanaKey) {
         const decoded = Buffer.from(solanaKey, 'base64')
         if (decoded.length !== 64) {
@@ -321,12 +324,12 @@ class BridgeServiceImpl implements BridgeService {
 
       const { createArbitrageExecutor } = await getArbitrageExecutorModule()
       this.arbExecutor = createArbitrageExecutor({
-        evmPrivateKey: privateKey,
+        evmKeyId,
         solanaPrivateKey: solanaKey,
         evmRpcUrls: this.config.evmRpcUrls,
         solanaRpcUrl: this.config.solanaRpcUrl,
-        zkBridgeEndpoint: nodeConfig.zkBridgeEndpoint,
-        oneInchApiKey: nodeConfig.oneInchApiKey,
+        zkBridgeEndpoint: cfg.zkBridgeEndpoint,
+        oneInchApiKey: cfg.oneInchApiKey,
         maxSlippageBps: 50,
         jitoTipLamports: this.config.jitoTipLamports ?? BigInt(10000),
       })

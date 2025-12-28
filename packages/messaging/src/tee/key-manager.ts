@@ -459,10 +459,14 @@ export class TEEXMTPKeyManager {
       )
     }
 
-    log.warn('🚨 SECURITY WARNING: Exporting key material - this is dangerous', {
-      keyId,
-      warning: 'Even encrypted exports expose key material to potential attacks',
-    })
+    log.warn(
+      '🚨 SECURITY WARNING: Exporting key material - this is dangerous',
+      {
+        keyId,
+        warning:
+          'Even encrypted exports expose key material to potential attacks',
+      },
+    )
 
     const keyStore = this.mockKeyStore.get(keyId)
     if (!keyStore) {

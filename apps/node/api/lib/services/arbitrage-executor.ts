@@ -15,6 +15,7 @@ import {
 } from 'viem'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 import { z } from 'zod'
+import { config as nodeConfig } from '../../config'
 import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 /**
@@ -221,7 +222,9 @@ export class ArbitrageExecutor {
    */
   async initialize(): Promise<void> {
     this.evmAddress = await this.evmSigner.getAddress()
-    console.log(`[ArbitrageExecutor] Initialized with address: ${this.evmAddress}`)
+    console.log(
+      `[ArbitrageExecutor] Initialized with address: ${this.evmAddress}`,
+    )
   }
 
   /**
@@ -957,7 +960,6 @@ export class ArbitrageExecutor {
 
     if (quote.txData) {
       // Use 1inch tx data - sign via KMS and broadcast
-      const chainId = chainConfig?.chain.id ?? 1
       const { signedTransaction, hash } = await this.evmSigner.signTransaction({
         to: ONEINCH_ROUTER,
         data: quote.txData,
@@ -1011,7 +1013,7 @@ export class ArbitrageExecutor {
       await this.evmSigner.signTransaction({
         to: quote.inputToken,
         data: approveData,
-        chainId: chainConfig?.chain.id ?? 1,
+        chainId,
       })
     await clients.public.sendRawTransaction({
       serializedTransaction: signedApprove,
@@ -1042,7 +1044,7 @@ export class ArbitrageExecutor {
     const { signedTransaction, hash } = await this.evmSigner.signTransaction({
       to: routerAddress,
       data: swapData,
-      chainId: chainConfig?.chain.id ?? 1,
+      chainId,
     })
     await clients.public.sendRawTransaction({
       serializedTransaction: signedTransaction,
@@ -1558,34 +1560,33 @@ export class ArbitrageExecutor {
 }
 
 /** Validates that a string is a valid EVM private key format */
-function validateEvmPrivateKey(key: string | undefined, source: string): Hex {
-  if (!key) {
+function validateEvmKeyId(keyId: string | undefined, source: string): string {
+  if (!keyId) {
     throw new Error(
-      `EVM private key required. Set ${source} environment variable or provide in config.`,
+      `EVM KMS key ID required. Set ${source} environment variable or provide in config.`,
     )
   }
-  if (!/^0x[a-fA-F0-9]{64}$/.test(key)) {
+  if (keyId.length < 8) {
     throw new Error(
-      `Invalid EVM private key format from ${source}. Must be 0x followed by 64 hex characters.`,
+      `Invalid EVM key ID format from ${source}. Key ID must be at least 8 characters.`,
     )
   }
-  return expectHex(key, source)
+  return keyId
 }
 
 export function createArbitrageExecutor(
   config: Partial<ExecutorConfig>,
 ): ArbitrageExecutor {
-  // Validate EVM private key - required for operation
-  const evmPrivateKey = validateEvmPrivateKey(
-    config.evmPrivateKey ||
-      nodeConfig.evmPrivateKey ||
-      nodeConfig.jejuPrivateKey,
-    'EVM_PRIVATE_KEY or JEJU_PRIVATE_KEY',
+  const cfg = nodeConfig
+
+  // Validate EVM KMS key ID - required for operation
+  const evmKeyId = validateEvmKeyId(
+    config.evmKeyId,
+    'EVM_KEY_ID or configure via KMS',
   )
 
   // Solana private key is optional but validated if provided
-  const solanaPrivateKey =
-    config.solanaPrivateKey || nodeConfig.solanaPrivateKey
+  const solanaPrivateKey = config.solanaPrivateKey ?? cfg.solanaPrivateKey
   if (solanaPrivateKey) {
     // Validate base64 format (Solana keys are 64 bytes base64 encoded)
     const decoded = Buffer.from(solanaPrivateKey, 'base64')
@@ -1597,17 +1598,17 @@ export function createArbitrageExecutor(
   }
 
   const fullConfig: ExecutorConfig = {
-    evmPrivateKey,
+    evmKeyId,
     solanaPrivateKey,
-    evmRpcUrls: config.evmRpcUrls || {
-      1: nodeConfig.rpcUrl1 || getExternalRpc('ethereum'),
-      42161: nodeConfig.rpcUrl42161 || getExternalRpc('arbitrum'),
-      10: nodeConfig.rpcUrl10 || getExternalRpc('optimism'),
-      8453: nodeConfig.rpcUrl8453 || getExternalRpc('base'),
+    evmRpcUrls: config.evmRpcUrls ?? {
+      1: cfg.rpcUrl1 ?? getExternalRpc('ethereum'),
+      42161: cfg.rpcUrl42161 ?? getExternalRpc('arbitrum'),
+      10: cfg.rpcUrl10 ?? getExternalRpc('optimism'),
+      8453: cfg.rpcUrl8453 ?? getExternalRpc('base'),
     },
-    solanaRpcUrl: config.solanaRpcUrl ?? nodeConfig.solanaRpcUrl,
-    zkBridgeEndpoint: config.zkBridgeEndpoint ?? nodeConfig.zkBridgeEndpoint,
-    oneInchApiKey: config.oneInchApiKey ?? nodeConfig.oneInchApiKey,
+    solanaRpcUrl: config.solanaRpcUrl ?? cfg.solanaRpcUrl,
+    zkBridgeEndpoint: config.zkBridgeEndpoint ?? cfg.zkBridgeEndpoint,
+    oneInchApiKey: config.oneInchApiKey ?? cfg.oneInchApiKey,
     maxSlippageBps: config.maxSlippageBps ?? 50,
     jitoTipLamports: config.jitoTipLamports ?? BigInt(10000),
   }

@@ -63,21 +63,42 @@ export interface WalletConfig {
   network: NetworkType
 }
 
-export interface JejuWallet {
-  address: Address
-  account: LocalAccount
-  publicClient: PublicClient
-  walletClient: WalletClient
-  smartAccountClient?: SmartAccountClient
-  isSmartAccount: boolean
-  chain: Chain
+/**
+ * Base wallet interface shared by JejuWallet and KMSWallet
+ * Use this type for functions that accept either wallet type
+ */
+export interface BaseWallet {
+  /** Wallet address */
+  readonly address: Address
+  /** Public client for read operations */
+  readonly publicClient: PublicClient
+  /** Smart account client (if enabled) */
+  readonly smartAccountClient?: SmartAccountClient
+  /** Whether using smart account */
+  readonly isSmartAccount: boolean
+  /** Chain configuration */
+  readonly chain: Chain
+  /** Send a transaction */
   sendTransaction: (params: {
     to: Address
     value?: bigint
     data?: Hex
   }) => Promise<Hex>
+  /** Sign a message */
   signMessage: (message: string) => Promise<Hex>
+  /** Get native token balance */
   getBalance: () => Promise<bigint>
+}
+
+/**
+ * Full wallet with local account access
+ * Extends BaseWallet with account and walletClient for local key operations
+ */
+export interface JejuWallet extends BaseWallet {
+  /** Local account (only available for local key wallets) */
+  account: LocalAccount
+  /** Wallet client for signing operations */
+  walletClient: WalletClient
 }
 
 function getNetworkChain(network: NetworkType): Chain {

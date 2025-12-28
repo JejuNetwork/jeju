@@ -41,7 +41,13 @@ export interface RotationSession {
   totalParties: number
   initiatedAt: number
   completedAt?: number
-  status: 'pending' | 'collecting' | 'distributing' | 'finalizing' | 'complete' | 'failed'
+  status:
+    | 'pending'
+    | 'collecting'
+    | 'distributing'
+    | 'finalizing'
+    | 'complete'
+    | 'failed'
   participatingParties: string[]
   contributions: Map<string, RotationContribution>
 }
@@ -138,7 +144,7 @@ export class FROSTKeyRotationManager {
     log.info('Current share set', {
       partyIndex: this.partyIndex,
       epoch,
-      verificationPoint: this.currentVerificationPoint.slice(0, 18) + '...',
+      verificationPoint: `${this.currentVerificationPoint.slice(0, 18)}...`,
     })
   }
 
@@ -209,7 +215,9 @@ export class FROSTKeyRotationManager {
   /**
    * Broadcast rotation start to all parties
    */
-  private async broadcastRotationStart(session: RotationSession): Promise<void> {
+  private async broadcastRotationStart(
+    session: RotationSession,
+  ): Promise<void> {
     const notifications = [...this.config.partyEndpoints.entries()].map(
       async ([partyId, endpoint]) => {
         try {
@@ -241,7 +249,9 @@ export class FROSTKeyRotationManager {
     await Promise.all(notifications)
 
     // Check if we have enough parties
-    if (session.participatingParties.length < this.config.minPartiesForRotation) {
+    if (
+      session.participatingParties.length < this.config.minPartiesForRotation
+    ) {
       session.status = 'failed'
       log.error('Not enough parties for rotation', {
         sessionId: session.sessionId,
@@ -448,7 +458,7 @@ export class FROSTKeyRotationManager {
     log.info('Rotation complete', {
       sessionId,
       newEpoch: session.epoch,
-      newVerificationPoint: newVerificationPoint.slice(0, 18) + '...',
+      newVerificationPoint: `${newVerificationPoint.slice(0, 18)}...`,
     })
   }
 
@@ -540,4 +550,3 @@ export function createDefaultRotationConfig(
     minPartiesForRotation: threshold,
   }
 }
-

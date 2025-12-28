@@ -3,6 +3,7 @@
  * Handles all DAO operations including creation, configuration, and state management
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   expectTrue as expect,
   expectDefined,
@@ -10,7 +11,6 @@ import {
   isPlainObject,
   toBigInt,
 } from '@jejunetwork/types'
-import { isProductionEnv } from '@jejunetwork/config'
 import {
   type Account,
   type Address,
@@ -22,7 +22,6 @@ import {
   http,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { createKMSWalletClient } from './kms-signer'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
   type CEOPersona,
@@ -33,13 +32,13 @@ import {
   type GovernanceParams,
   toHex,
 } from '../lib'
-
 import type {
   DAO,
   DAOFull,
   FundingAllocation,
   FundingProject,
 } from '../lib/types'
+import { createKMSWalletClient } from './kms-signer'
 
 // Types FundingEpoch is local to this service (not in lib/types.ts)
 export interface FundingEpoch {
@@ -1076,7 +1075,7 @@ export class DAOService {
       this.chain,
       this.config.rpcUrl,
     )
-    this.walletClient = result.client
+    this.walletClient = result.client as ViemWalletClient
     console.log(
       `[DAOService] KMS initialized for ${operatorAddress} (${result.account.type})`,
     )

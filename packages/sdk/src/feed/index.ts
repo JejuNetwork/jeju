@@ -12,7 +12,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { getServicesConfig } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // API response schemas for validation
 const FeedUserSchema = z.object({
@@ -298,7 +298,7 @@ export interface FeedModule {
 }
 
 export function createFeedModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): FeedModule {
   const services = getServicesConfig(network)

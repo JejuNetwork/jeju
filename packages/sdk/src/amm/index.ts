@@ -12,7 +12,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { requireContract, safeGetContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -665,7 +665,7 @@ const V3_POSITION_MANAGER_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createAMMModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): AMMModule {
   const routerAddress = requireContract('amm', 'XLPRouter', network)

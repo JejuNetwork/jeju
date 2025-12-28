@@ -9,7 +9,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData, parseAbiItem } from 'viem'
 import { getContractAddresses } from './config'
-import type { JejuWallet } from './wallet'
+import type { BaseWallet } from './wallet'
 
 // Event signatures for session tracking
 const SESSION_STARTED_EVENT = parseAbiItem(
@@ -127,7 +127,7 @@ const VPN_REGISTRY_ABI = [
 ] as const
 
 export function createVPNModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): VPNModule {
   const contracts = getContractAddresses(network)

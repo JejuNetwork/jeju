@@ -1379,6 +1379,11 @@
     },
     {
       "type": "error",
+      "name": "ETHTransferFailed",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "InsufficientBalance",
       "inputs": []
     },

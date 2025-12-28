@@ -8,7 +8,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -572,7 +572,7 @@ const GUARDIAN_REGISTRY_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createWorkModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): WorkModule {
   const bountyRegistryAddress = requireContract(

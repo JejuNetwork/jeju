@@ -18,7 +18,7 @@ import {
   BanInfoSchema,
   ReputationScoreSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 export interface AgentInfo {
   agentId: bigint
@@ -166,7 +166,7 @@ const REPORTING_ABI = [
 ] as const
 
 export function createIdentityModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): IdentityModule {
   const identityAddress = requireContract('registry', 'identity', network)

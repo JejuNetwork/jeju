@@ -21,14 +21,14 @@
  */
 
 import type {
-  Account,
   Address,
   Chain,
   Hash,
   Hex,
+  LocalAccount,
   PublicClient,
-  SendTransactionParameters,
   SignableMessage,
+  TransactionSerializable,
   Transport,
   TypedDataDefinition,
 } from 'viem'
@@ -40,7 +40,6 @@ import {
   serializeTransaction,
   toHex,
 } from 'viem'
-import { toAccount } from 'viem/accounts'
 
 // KMS endpoint
 const KMS_ENDPOINT = process.env.KMS_ENDPOINT ?? 'http://localhost:4030/kms'
@@ -58,6 +57,13 @@ interface KMSKeyInfo {
   publicKey: Hex
 }
 
+interface SendTransactionArgs {
+  to: Address
+  data?: Hex
+  value?: bigint
+  gas?: bigint
+}
+
 interface KMSWalletConfig {
   chain: Chain
   transport?: Transport
@@ -67,40 +73,48 @@ interface KMSWalletConfig {
 }
 
 /**
- * KMS Account - viem Account that routes signing through KMS
+ * KMS Account - viem LocalAccount that routes signing through KMS
  */
 async function createKMSAccount(
   kmsKeyId: string,
   ownerAddress: Address,
-): Promise<Account> {
+): Promise<LocalAccount> {
   // Get key info from KMS
   const keyInfo = await getKMSKeyInfo(kmsKeyId, ownerAddress)
 
-  return toAccount({
+  async function signMessage({
+    message,
+  }: {
+    message: SignableMessage
+  }): Promise<Hex> {
+    const messageHash = hashMessage(message)
+    return requestKMSSignature(kmsKeyId, messageHash, ownerAddress)
+  }
+
+  async function signTransaction(
+    transaction: TransactionSerializable,
+  ): Promise<Hex> {
+    // Serialize and hash the transaction
+    const serialized = serializeTransaction(transaction)
+    const hash = keccak256(serialized)
+    return requestKMSSignature(kmsKeyId, hash, ownerAddress)
+  }
+
+  async function signTypedData(): Promise<Hex> {
+    throw new Error(
+      'signTypedData not yet implemented for KMS wallet - use signMessage with pre-hashed EIP-712 data',
+    )
+  }
+
+  return {
     address: keyInfo.address,
-
-    async signMessage({
-      message,
-    }: {
-      message: SignableMessage
-    }): Promise<Hex> {
-      const messageHash = hashMessage(message)
-      return requestKMSSignature(kmsKeyId, messageHash, ownerAddress)
-    },
-
-    async signTransaction(transaction): Promise<Hex> {
-      // Serialize and hash the transaction
-      const serialized = serializeTransaction(transaction)
-      const hash = keccak256(serialized)
-      return requestKMSSignature(kmsKeyId, hash, ownerAddress)
-    },
-
-    async signTypedData(typedData: TypedDataDefinition): Promise<Hex> {
-      // Compute EIP-712 hash
-      const hash = hashTypedData(typedData)
-      return requestKMSSignature(kmsKeyId, hash, ownerAddress)
-    },
-  })
+    type: 'local',
+    publicKey: keyInfo.publicKey,
+    source: 'custom' as const,
+    signMessage,
+    signTransaction,
+    signTypedData,
+  }
 }
 
 /**
@@ -120,20 +134,6 @@ function hashMessage(message: SignableMessage): Hex {
     return keccak256(toHex(raw))
   }
   return keccak256(toHex(message))
-}
-
-/**
- * Hash typed data (EIP-712)
- */
-function hashTypedData(typedData: TypedDataDefinition): Hex {
-  // Simplified - in production use full EIP-712 implementation
-  const data = JSON.stringify({
-    domain: typedData.domain,
-    types: typedData.types,
-    primaryType: typedData.primaryType,
-    message: typedData.message,
-  })
-  return keccak256(toHex(data))
 }
 
 /**
@@ -191,17 +191,17 @@ async function requestKMSSignature(
  * KMS Wallet Client - Full wallet client with KMS-backed signing
  */
 export interface KMSWalletClient {
-  account: Account
+  account: LocalAccount
   chain: Chain
   publicClient: PublicClient
 
   // Core signing methods
   signMessage(args: { message: SignableMessage }): Promise<Hex>
   signTypedData(typedData: TypedDataDefinition): Promise<Hex>
-  signTransaction(transaction: SendTransactionParameters): Promise<Hex>
+  signTransaction(transaction: TransactionSerializable): Promise<Hex>
 
   // Transaction methods
-  sendTransaction(args: SendTransactionParameters): Promise<Hash>
+  sendTransaction(args: SendTransactionArgs): Promise<Hash>
   writeContract(args: {
     address: Address
     abi: readonly unknown[]
@@ -236,6 +236,47 @@ export async function createKMSWalletClient(
     transport,
   })
 
+  async function sendTransaction(args: SendTransactionArgs): Promise<Hash> {
+    // Get nonce
+    const nonce = await publicClient.getTransactionCount({
+      address: account.address,
+    })
+
+    // Get gas estimate
+    const gas =
+      args.gas ??
+      (await publicClient.estimateGas({
+        account: account.address,
+        to: args.to,
+        value: args.value,
+        data: args.data,
+      }))
+
+    // Get gas price
+    const gasPrice = await publicClient.getGasPrice()
+
+    // Build transaction
+    const tx: TransactionSerializable = {
+      to: args.to,
+      value: args.value ?? 0n,
+      data: args.data,
+      nonce,
+      gas,
+      gasPrice,
+      chainId: chain.id,
+    }
+
+    // Sign transaction via KMS
+    const signedTx = await account.signTransaction(tx)
+
+    // Send raw transaction
+    const hash = await publicClient.sendRawTransaction({
+      serializedTransaction: signedTx,
+    })
+
+    return hash
+  }
+
   return {
     account,
     chain,
@@ -250,49 +291,18 @@ export async function createKMSWalletClient(
     },
 
     async signTransaction(transaction) {
-      return account.signTransaction(transaction as Parameters<typeof account.signTransaction>[0])
-    },
-
-    async sendTransaction(args) {
-      // Get nonce
-      const nonce = await publicClient.getTransactionCount({
-        address: account.address,
-      })
-
-      // Get gas estimate
-      const gas =
-        args.gas ??
-        (await publicClient.estimateGas({
-          account: account.address,
-          to: args.to,
-          value: args.value,
-          data: args.data,
-        }))
-
-      // Get gas price
-      const gasPrice = await publicClient.getGasPrice()
-
-      // Build transaction
-      const tx = {
-        to: args.to,
-        value: args.value ?? 0n,
-        data: args.data,
-        nonce,
-        gas,
-        gasPrice,
+      const tx: TransactionSerializable = {
+        to: transaction.to,
+        value: transaction.value ?? 0n,
+        data: transaction.data,
+        nonce: transaction.nonce,
+        gas: transaction.gas,
         chainId: chain.id,
       }
-
-      // Sign transaction via KMS
-      const signedTx = await account.signTransaction(tx)
-
-      // Send raw transaction
-      const hash = await publicClient.sendRawTransaction({
-        serializedTransaction: signedTx,
-      })
-
-      return hash
+      return account.signTransaction(tx)
     },
+
+    sendTransaction,
 
     async writeContract(args) {
       // Encode function call
@@ -303,12 +313,12 @@ export async function createKMSWalletClient(
       })
 
       // Send transaction
-      return this.sendTransaction({
+      return sendTransaction({
         to: args.address,
         data,
         value: args.value,
         gas: args.gas,
-      } as SendTransactionParameters)
+      })
     },
 
     getAddress() {
@@ -380,4 +390,3 @@ export async function isKMSAvailable(): Promise<boolean> {
     return false
   }
 }
-

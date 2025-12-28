@@ -106,7 +106,10 @@ export class AttestationVerifier {
           'SECURITY: allowLocalMode is ignored on mainnet - hardware TEE required',
         )
       }
-      if (!config.trustedMeasurements || config.trustedMeasurements.length === 0) {
+      if (
+        !config.trustedMeasurements ||
+        config.trustedMeasurements.length === 0
+      ) {
         throw new Error(
           'SECURITY: Trusted measurements MUST be configured on mainnet. ' +
             'Add known enclave measurements to prevent arbitrary code execution.',
@@ -128,7 +131,8 @@ export class AttestationVerifier {
       trustedMeasurements: config.trustedMeasurements ?? [],
       iasUrl: config.iasUrl ?? 'https://api.trustedservices.intel.com/sgx',
       iasApiKey: config.iasApiKey ?? '',
-      allowLocalMode: network === 'mainnet' ? false : (config.allowLocalMode ?? false),
+      allowLocalMode:
+        network === 'mainnet' ? false : (config.allowLocalMode ?? false),
       network,
     }
 

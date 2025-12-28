@@ -15,9 +15,8 @@
  * Encryption/decryption operations are performed remotely.
  */
 
-import type { Hex } from 'viem'
-import { keccak256, toHex } from 'viem'
 import { hash256 } from '@jejunetwork/shared'
+import { keccak256, toHex } from 'viem'
 
 // HSM endpoint configuration
 const HSM_ENDPOINT = process.env.HSM_ENDPOINT
@@ -114,7 +113,9 @@ export class HSMKDF {
         if (isProduction) {
           throw new Error('HSM health check failed in production')
         }
-        console.warn('[HSM-KDF] HSM health check failed, falling back to local mode')
+        console.warn(
+          '[HSM-KDF] HSM health check failed, falling back to local mode',
+        )
         this.localMode = true
       } else {
         console.log(`[HSM-KDF] Connected to ${this.config?.provider} HSM`)
@@ -242,18 +243,18 @@ export class HSMKDF {
     return result.data.ciphertext
   }
 
-  private async awsDeriveKey(context: string): Promise<string> {
+  private async awsDeriveKey(_context: string): Promise<string> {
     // AWS KMS GenerateDataKeyWithoutPlaintext
     // Would use AWS SDK in real implementation
     throw new Error('AWS KMS key derivation not yet implemented')
   }
 
-  private async azureDeriveKey(context: string): Promise<string> {
+  private async azureDeriveKey(_context: string): Promise<string> {
     // Azure Key Vault key derivation
     throw new Error('Azure Key Vault key derivation not yet implemented')
   }
 
-  private async gcpDeriveKey(context: string): Promise<string> {
+  private async gcpDeriveKey(_context: string): Promise<string> {
     // GCP Cloud KMS key derivation
     throw new Error('GCP Cloud KMS key derivation not yet implemented')
   }
@@ -279,15 +280,15 @@ export class HSMKDF {
       const iv = crypto.getRandomValues(new Uint8Array(12))
       const key = await crypto.subtle.importKey(
         'raw',
-        localKey,
+        localKey.slice(),
         { name: 'AES-GCM' },
         false,
         ['encrypt'],
       )
       const encrypted = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
+        { name: 'AES-GCM', iv: iv.slice() },
         key,
-        plaintext,
+        plaintext.slice(),
       )
 
       return {
@@ -311,7 +312,9 @@ export class HSMKDF {
       case 'vault':
         return this.vaultEncrypt(plaintext, context)
       default:
-        throw new Error(`HSM encryption not implemented for ${this.config.provider}`)
+        throw new Error(
+          `HSM encryption not implemented for ${this.config.provider}`,
+        )
     }
   }
 
@@ -346,7 +349,10 @@ export class HSMKDF {
 
     // Vault returns the ciphertext with embedded IV
     const ciphertextB64 = result.data.ciphertext
-    const ciphertextBytes = Buffer.from(ciphertextB64.split(':')[2] ?? '', 'base64')
+    const ciphertextBytes = Buffer.from(
+      ciphertextB64.split(':')[2] ?? '',
+      'base64',
+    )
 
     return {
       ciphertext: new Uint8Array(ciphertextBytes),
@@ -373,15 +379,15 @@ export class HSMKDF {
 
       const key = await crypto.subtle.importKey(
         'raw',
-        localKey,
+        localKey.slice(),
         { name: 'AES-GCM' },
         false,
         ['decrypt'],
       )
       const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
+        { name: 'AES-GCM', iv: iv.slice() },
         key,
-        ciphertext,
+        ciphertext.slice(),
       )
 
       return { plaintext: new Uint8Array(decrypted) }
@@ -402,7 +408,9 @@ export class HSMKDF {
       case 'vault':
         return this.vaultDecrypt(ciphertext, context)
       default:
-        throw new Error(`HSM decryption not implemented for ${this.config.provider}`)
+        throw new Error(
+          `HSM decryption not implemented for ${this.config.provider}`,
+        )
     }
   }
 
@@ -476,4 +484,3 @@ export async function isHSMAvailable(): Promise<boolean> {
   await kdf.initialize()
   return kdf.isHSMMode()
 }
-

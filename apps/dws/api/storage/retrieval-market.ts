@@ -17,8 +17,8 @@ import { randomBytes } from 'node:crypto'
 import type { Address, Hex } from 'viem'
 import { keccak256, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { StorageBackendType } from './types'
 import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
+import type { StorageBackendType } from './types'
 
 // ============ Types ============
 

@@ -117,8 +117,14 @@ export class HSMRootKeyManager {
 
       case 'azure-dedicated-hsm':
       case 'azure-keyvault':
-        if (!credentials.tenantId || !credentials.clientId || !credentials.keyVaultUrl) {
-          throw new Error('Azure HSM requires tenantId, clientId, and keyVaultUrl')
+        if (
+          !credentials.tenantId ||
+          !credentials.clientId ||
+          !credentials.keyVaultUrl
+        ) {
+          throw new Error(
+            'Azure HSM requires tenantId, clientId, and keyVaultUrl',
+          )
         }
         break
 
@@ -188,7 +194,8 @@ export class HSMRootKeyManager {
    * Connect to Azure Key Vault
    */
   private async connectAzureKeyVault(): Promise<void> {
-    const { keyVaultUrl, tenantId, clientId, clientSecret } = this.config.credentials
+    const { keyVaultUrl, tenantId, clientId, clientSecret } =
+      this.config.credentials
 
     if (!keyVaultUrl || !tenantId || !clientId || !clientSecret) {
       throw new Error('Azure Key Vault credentials incomplete')
@@ -211,7 +218,9 @@ export class HSMRootKeyManager {
       )
 
       if (!tokenResponse.ok) {
-        throw new Error(`Azure AD authentication failed: ${tokenResponse.status}`)
+        throw new Error(
+          `Azure AD authentication failed: ${tokenResponse.status}`,
+        )
       }
 
       log.info('Azure Key Vault connection initialized', { keyVaultUrl })
@@ -225,11 +234,14 @@ export class HSMRootKeyManager {
    */
   private async connectHashiCorpVault(): Promise<void> {
     const { vaultToken, vaultNamespace } = this.config.credentials
+    if (!vaultToken) {
+      throw new Error('Vault token is required')
+    }
     const endpoint = this.config.primaryEndpoint
 
     try {
       const headers: Record<string, string> = {
-        'X-Vault-Token': vaultToken!,
+        'X-Vault-Token': vaultToken,
       }
       if (vaultNamespace) {
         headers['X-Vault-Namespace'] = vaultNamespace
@@ -266,7 +278,9 @@ export class HSMRootKeyManager {
         throw new Error(`YubiHSM connector not available: ${response.status}`)
       }
 
-      log.info('YubiHSM connection initialized', { connectorUrl: connectorUrl ?? 'unknown' })
+      log.info('YubiHSM connection initialized', {
+        connectorUrl: connectorUrl ?? 'unknown',
+      })
     } catch (error) {
       throw new Error(`Failed to connect to YubiHSM: ${error}`)
     }
@@ -364,7 +378,9 @@ export class HSMRootKeyManager {
     }
   }
 
-  private async unwrapKeyAWSCloudHSM(_wrappedKey: WrappedKey): Promise<Uint8Array> {
+  private async unwrapKeyAWSCloudHSM(
+    _wrappedKey: WrappedKey,
+  ): Promise<Uint8Array> {
     // Real implementation would use PKCS#11 interface
     // Placeholder
     return new Uint8Array(32)
@@ -372,8 +388,17 @@ export class HSMRootKeyManager {
 
   // ============ Azure Key Vault Implementation ============
 
-  private async wrapKeyAzureKeyVault(keyToWrap: Uint8Array): Promise<WrappedKey> {
-    const { keyVaultUrl, clientId, clientSecret, tenantId } = this.config.credentials
+  private async wrapKeyAzureKeyVault(
+    keyToWrap: Uint8Array,
+  ): Promise<WrappedKey> {
+    const { keyVaultUrl, clientId, clientSecret, tenantId } =
+      this.config.credentials
+    if (!clientId) {
+      throw new Error('Azure client ID is required')
+    }
+    if (!clientSecret) {
+      throw new Error('Azure client secret is required')
+    }
 
     // Get access token
     const tokenResponse = await fetch(
@@ -382,15 +407,17 @@ export class HSMRootKeyManager {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: clientId!,
-          client_secret: clientSecret!,
+          client_id: clientId,
+          client_secret: clientSecret,
           scope: 'https://vault.azure.net/.default',
           grant_type: 'client_credentials',
         }),
       },
     )
 
-    const { access_token } = await tokenResponse.json() as { access_token: string }
+    const { access_token } = (await tokenResponse.json()) as {
+      access_token: string
+    }
 
     // Wrap key using Key Vault API
     const wrapResponse = await fetch(
@@ -398,7 +425,7 @@ export class HSMRootKeyManager {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${access_token}`,
+          Authorization: `Bearer ${access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -412,7 +439,10 @@ export class HSMRootKeyManager {
       throw new Error(`Azure Key Vault wrap failed: ${wrapResponse.status}`)
     }
 
-    const { value, kid } = await wrapResponse.json() as { value: string; kid: string }
+    const { value, kid } = (await wrapResponse.json()) as {
+      value: string
+      kid: string
+    }
 
     return {
       keyId: crypto.randomUUID(),
@@ -424,8 +454,17 @@ export class HSMRootKeyManager {
     }
   }
 
-  private async unwrapKeyAzureKeyVault(wrappedKey: WrappedKey): Promise<Uint8Array> {
-    const { keyVaultUrl, clientId, clientSecret, tenantId } = this.config.credentials
+  private async unwrapKeyAzureKeyVault(
+    wrappedKey: WrappedKey,
+  ): Promise<Uint8Array> {
+    const { keyVaultUrl, clientId, clientSecret, tenantId } =
+      this.config.credentials
+    if (!clientId) {
+      throw new Error('Azure client ID is required')
+    }
+    if (!clientSecret) {
+      throw new Error('Azure client secret is required')
+    }
 
     // Get access token
     const tokenResponse = await fetch(
@@ -434,15 +473,17 @@ export class HSMRootKeyManager {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: clientId!,
-          client_secret: clientSecret!,
+          client_id: clientId,
+          client_secret: clientSecret,
           scope: 'https://vault.azure.net/.default',
           grant_type: 'client_credentials',
         }),
       },
     )
 
-    const { access_token } = await tokenResponse.json() as { access_token: string }
+    const { access_token } = (await tokenResponse.json()) as {
+      access_token: string
+    }
 
     // Unwrap key using Key Vault API
     const unwrapResponse = await fetch(
@@ -450,7 +491,7 @@ export class HSMRootKeyManager {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${access_token}`,
+          Authorization: `Bearer ${access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -464,18 +505,23 @@ export class HSMRootKeyManager {
       throw new Error(`Azure Key Vault unwrap failed: ${unwrapResponse.status}`)
     }
 
-    const { value } = await unwrapResponse.json() as { value: string }
+    const { value } = (await unwrapResponse.json()) as { value: string }
     return new Uint8Array(Buffer.from(value, 'base64url'))
   }
 
   // ============ HashiCorp Vault Implementation ============
 
-  private async wrapKeyHashiCorpVault(keyToWrap: Uint8Array): Promise<WrappedKey> {
+  private async wrapKeyHashiCorpVault(
+    keyToWrap: Uint8Array,
+  ): Promise<WrappedKey> {
     const { vaultToken, vaultNamespace } = this.config.credentials
+    if (!vaultToken) {
+      throw new Error('Vault token is required')
+    }
     const endpoint = this.config.primaryEndpoint
 
     const headers: Record<string, string> = {
-      'X-Vault-Token': vaultToken!,
+      'X-Vault-Token': vaultToken,
       'Content-Type': 'application/json',
     }
     if (vaultNamespace) {
@@ -498,7 +544,9 @@ export class HSMRootKeyManager {
       throw new Error(`Vault encryption failed: ${response.status}`)
     }
 
-    const { data } = await response.json() as { data: { ciphertext: string; key_version: number } }
+    const { data } = (await response.json()) as {
+      data: { ciphertext: string; key_version: number }
+    }
 
     // Parse Vault's ciphertext format: vault:v1:base64data
     const parts = data.ciphertext.split(':')
@@ -514,12 +562,17 @@ export class HSMRootKeyManager {
     }
   }
 
-  private async unwrapKeyHashiCorpVault(wrappedKey: WrappedKey): Promise<Uint8Array> {
+  private async unwrapKeyHashiCorpVault(
+    wrappedKey: WrappedKey,
+  ): Promise<Uint8Array> {
     const { vaultToken, vaultNamespace } = this.config.credentials
+    if (!vaultToken) {
+      throw new Error('Vault token is required')
+    }
     const endpoint = this.config.primaryEndpoint
 
     const headers: Record<string, string> = {
-      'X-Vault-Token': vaultToken!,
+      'X-Vault-Token': vaultToken,
       'Content-Type': 'application/json',
     }
     if (vaultNamespace) {
@@ -542,7 +595,7 @@ export class HSMRootKeyManager {
       throw new Error(`Vault decryption failed: ${response.status}`)
     }
 
-    const { data } = await response.json() as { data: { plaintext: string } }
+    const { data } = (await response.json()) as { data: { plaintext: string } }
     return new Uint8Array(Buffer.from(data.plaintext, 'base64'))
   }
 
@@ -599,12 +652,21 @@ export class HSMRootKeyManager {
         return this.rotateHashiCorpVault()
 
       default:
-        throw new Error(`Key rotation not implemented for ${this.config.provider}`)
+        throw new Error(
+          `Key rotation not implemented for ${this.config.provider}`,
+        )
     }
   }
 
   private async rotateAzureKeyVault(): Promise<KeyVersion> {
-    const { keyVaultUrl, clientId, clientSecret, tenantId } = this.config.credentials
+    const { keyVaultUrl, clientId, clientSecret, tenantId } =
+      this.config.credentials
+    if (!clientId) {
+      throw new Error('Azure client ID is required')
+    }
+    if (!clientSecret) {
+      throw new Error('Azure client secret is required')
+    }
 
     // Get access token
     const tokenResponse = await fetch(
@@ -613,33 +675,41 @@ export class HSMRootKeyManager {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: clientId!,
-          client_secret: clientSecret!,
+          client_id: clientId,
+          client_secret: clientSecret,
           scope: 'https://vault.azure.net/.default',
           grant_type: 'client_credentials',
         }),
       },
     )
 
-    const { access_token } = await tokenResponse.json() as { access_token: string }
+    const { access_token } = (await tokenResponse.json()) as {
+      access_token: string
+    }
 
     // Rotate key
     const rotateResponse = await fetch(
       `${keyVaultUrl}/keys/${this.config.keyConfig.keyId}/rotate?api-version=7.4`,
       {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${access_token}` },
+        headers: { Authorization: `Bearer ${access_token}` },
       },
     )
 
     if (!rotateResponse.ok) {
-      throw new Error(`Azure Key Vault rotation failed: ${rotateResponse.status}`)
+      throw new Error(
+        `Azure Key Vault rotation failed: ${rotateResponse.status}`,
+      )
     }
 
-    const { key } = await rotateResponse.json() as { key: { kid: string } }
+    const { key } = (await rotateResponse.json()) as { key: { kid: string } }
+    const versionPart = key.kid.split('/').pop()
+    if (!versionPart) {
+      throw new Error('Key version should exist in kid')
+    }
 
     const newVersion: KeyVersion = {
-      version: key.kid.split('/').pop()!,
+      version: versionPart,
       createdAt: Date.now(),
       state: 'active',
     }
@@ -652,10 +722,13 @@ export class HSMRootKeyManager {
 
   private async rotateHashiCorpVault(): Promise<KeyVersion> {
     const { vaultToken, vaultNamespace } = this.config.credentials
+    if (!vaultToken) {
+      throw new Error('Vault token is required')
+    }
     const endpoint = this.config.primaryEndpoint
 
     const headers: Record<string, string> = {
-      'X-Vault-Token': vaultToken!,
+      'X-Vault-Token': vaultToken,
     }
     if (vaultNamespace) {
       headers['X-Vault-Namespace'] = vaultNamespace
@@ -682,7 +755,7 @@ export class HSMRootKeyManager {
       },
     )
 
-    const { data } = await infoResponse.json() as {
+    const { data } = (await infoResponse.json()) as {
       data: { latest_version: number }
     }
 
@@ -731,4 +804,3 @@ export function createHSMRootKeyManager(
 ): HSMRootKeyManager {
   return new HSMRootKeyManager(config)
 }
-

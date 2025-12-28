@@ -22,21 +22,21 @@ import {
 import { toSimpleSmartAccount } from 'permissionless/accounts'
 import { createPimlicoClient } from 'permissionless/clients/pimlico'
 import {
-  type Account,
   type Address,
   type Chain,
   createPublicClient,
   type Hex,
   http,
   keccak256,
-  type PublicClient,
-  serializeTransaction,
+  type LocalAccount,
   type SignableMessage,
-  toBytes,
+  serializeTransaction,
   type TransactionSerializable,
+  toBytes,
 } from 'viem'
 import { z } from 'zod'
 import { getChainConfig, getContract, getServicesConfig } from './config'
+import type { BaseWallet } from './wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                         KMS CONFIGURATION
@@ -81,40 +81,9 @@ const KMSHealthResponseSchema = z.object({
 //                         KMS WALLET INTERFACE
 // ═══════════════════════════════════════════════════════════════════════════
 
-export interface KMSWallet {
-  /** Wallet address (derived from KMS key, never from local key) */
-  readonly address: Address
-  /** Public client for read operations */
-  readonly publicClient: PublicClient
-  /** Smart account client (if enabled) */
-  readonly smartAccountClient?: SmartAccountClient
-  /** Whether using smart account */
-  readonly isSmartAccount: boolean
-  /** Chain configuration */
-  readonly chain: Chain
+export interface KMSWallet extends BaseWallet {
   /** KMS key ID */
   readonly keyId: string
-
-  /**
-   * Send a transaction (signed via KMS)
-   * SECURITY: Transaction is serialized locally, signature comes from KMS
-   */
-  sendTransaction: (params: {
-    to: Address
-    value?: bigint
-    data?: Hex
-  }) => Promise<Hex>
-
-  /**
-   * Sign a message (via KMS)
-   * SECURITY: Message hash is sent to KMS, signature returned
-   */
-  signMessage: (message: string) => Promise<Hex>
-
-  /**
-   * Get native token balance
-   */
-  getBalance: () => Promise<bigint>
 
   /**
    * Check KMS health and party status
@@ -166,7 +135,7 @@ async function requestKMSSignature(
     'Content-Type': 'application/json',
   }
   if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`
+    headers.Authorization = `Bearer ${authToken}`
   }
 
   const response = await fetch(`${kmsEndpoint}/sign`, {
@@ -197,8 +166,8 @@ async function requestKMSSignature(
 }
 
 /**
- * Create a viem Account that delegates signing to KMS
- * SECURITY: This account has no signTransaction or signTypedData with local keys
+ * Create a viem LocalAccount that delegates signing to KMS
+ * SECURITY: This account never handles private keys, all signing is via KMS
  */
 function createKMSAccount(
   address: Address,
@@ -206,77 +175,84 @@ function createKMSAccount(
   keyId: string,
   authToken?: string,
   timeout = 30000,
-): Account {
+): LocalAccount {
+  // Sign a message via KMS
+  async function signMessage({
+    message,
+  }: {
+    message: SignableMessage
+  }): Promise<Hex> {
+    let messageBytes: Uint8Array
+    if (typeof message === 'string') {
+      messageBytes = toBytes(message)
+    } else if ('raw' in message) {
+      messageBytes =
+        typeof message.raw === 'string' ? toBytes(message.raw) : message.raw
+    } else {
+      messageBytes = toBytes(message)
+    }
+
+    // Ethereum signed message prefix
+    const prefix = `\x19Ethereum Signed Message:\n${messageBytes.length}`
+    const prefixedMessage = new Uint8Array([
+      ...toBytes(prefix),
+      ...messageBytes,
+    ])
+    const messageHash = keccak256(prefixedMessage)
+
+    const { signature } = await requestKMSSignature(
+      kmsEndpoint,
+      keyId,
+      messageHash,
+      authToken,
+      timeout,
+    )
+    return signature
+  }
+
+  // Sign a transaction via KMS
+  async function signTransaction(
+    transaction: TransactionSerializable,
+  ): Promise<Hex> {
+    const serialized = serializeTransaction(transaction)
+    const txHash = keccak256(serialized)
+
+    const { v, r, s } = await requestKMSSignature(
+      kmsEndpoint,
+      keyId,
+      txHash,
+      authToken,
+      timeout,
+    )
+
+    // Append signature to serialized transaction
+    // For EIP-1559/EIP-2930 transactions, we use the signature components
+    const signedTx = serializeTransaction(transaction, {
+      r,
+      s,
+      v: BigInt(v),
+    })
+
+    return signedTx
+  }
+
+  // Sign typed data via KMS
+  async function signTypedData(): Promise<Hex> {
+    throw new Error(
+      'signTypedData not yet implemented for KMS wallet - use signMessage with pre-hashed EIP-712 data',
+    )
+  }
+
   return {
     address,
-    type: 'local', // viem expects this, but we override signing
-
-    // Sign a message via KMS
-    async signMessage({
-      message,
-    }: {
-      message: SignableMessage
-    }): Promise<Hex> {
-      let messageBytes: Uint8Array
-      if (typeof message === 'string') {
-        messageBytes = toBytes(message)
-      } else if ('raw' in message) {
-        messageBytes =
-          typeof message.raw === 'string' ? toBytes(message.raw) : message.raw
-      } else {
-        messageBytes = toBytes(message)
-      }
-
-      // Ethereum signed message prefix
-      const prefix = `\x19Ethereum Signed Message:\n${messageBytes.length}`
-      const prefixedMessage = new Uint8Array([
-        ...toBytes(prefix),
-        ...messageBytes,
-      ])
-      const messageHash = keccak256(prefixedMessage)
-
-      const { signature } = await requestKMSSignature(
-        kmsEndpoint,
-        keyId,
-        messageHash,
-        authToken,
-        timeout,
-      )
-      return signature
-    },
-
-    // Sign a transaction via KMS
-    async signTransaction(
-      transaction: TransactionSerializable,
-    ): Promise<Hex> {
-      const serialized = serializeTransaction(transaction)
-      const txHash = keccak256(serialized)
-
-      const { signature, v, r, s } = await requestKMSSignature(
-        kmsEndpoint,
-        keyId,
-        txHash,
-        authToken,
-        timeout,
-      )
-
-      // Append signature to serialized transaction
-      // For EIP-1559/EIP-2930 transactions, we use the signature components
-      const signedTx = serializeTransaction(transaction, {
-        r,
-        s,
-        v: BigInt(v),
-      })
-
-      return signedTx
-    },
-
-    // Sign typed data via KMS
-    async signTypedData(): Promise<Hex> {
-      throw new Error(
-        'signTypedData not yet implemented for KMS wallet - use signMessage with pre-hashed EIP-712 data',
-      )
-    },
+    type: 'local',
+    // KMS accounts don't expose their public key locally - it's managed by KMS
+    // This is a placeholder that signals KMS-backed signing
+    publicKey: `0x04${'0'.repeat(128)}` as Hex,
+    source: 'custom' as const,
+    signMessage,
+    signTransaction,
+    signTypedData,
   }
 }
 
@@ -443,7 +419,7 @@ export async function createKMSWallet(
         'Content-Type': 'application/json',
       }
       if (config.authToken) {
-        headers['Authorization'] = `Bearer ${config.authToken}`
+        headers.Authorization = `Bearer ${config.authToken}`
       }
 
       const response = await fetch(`${config.kmsEndpoint}/health`, {
@@ -517,4 +493,3 @@ export async function isSecureTEEEnvironment(): Promise<boolean> {
 
   return false
 }
-

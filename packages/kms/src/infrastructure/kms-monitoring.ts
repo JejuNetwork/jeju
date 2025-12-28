@@ -285,7 +285,8 @@ export class KMSMonitor {
           type: 'attestation_failure',
           severity: rule.severity,
           title: 'TEE Attestation Failure',
-          message: `Party ${event.partyId} has failed attestation ${count} consecutive times. ` +
+          message:
+            `Party ${event.partyId} has failed attestation ${count} consecutive times. ` +
             'This may indicate a compromised TEE or configuration issue.',
           metadata: {
             partyId: event.partyId,
@@ -320,7 +321,8 @@ export class KMSMonitor {
           type: 'rotation_failure',
           severity: rule.severity,
           title: 'Key Rotation Failure',
-          message: `Cluster ${event.clusterId} has failed key rotation ${count} consecutive times. ` +
+          message:
+            `Cluster ${event.clusterId} has failed key rotation ${count} consecutive times. ` +
             'Old key shares may be at risk.',
           metadata: {
             clusterId: event.clusterId,
@@ -362,7 +364,8 @@ export class KMSMonitor {
             type: 'unusual_activity',
             severity: rule.severity,
             title: 'Unusual KMS Activity Detected',
-            message: `High rate of ${event.type} requests detected: ` +
+            message:
+              `High rate of ${event.type} requests detected: ` +
               `${recentCounts.length} in the last ${rule.condition.windowMs / 1000}s. ` +
               'This may indicate automation abuse or an attack.',
             metadata: {
@@ -393,7 +396,8 @@ export class KMSMonitor {
         type: 'party_offline',
         severity: rule.severity,
         title: 'MPC Party Offline',
-        message: `Party ${partyId} is offline. ` +
+        message:
+          `Party ${partyId} is offline. ` +
           'If more parties go offline, signing threshold may not be met.',
         metadata: {
           partyId,
@@ -489,7 +493,10 @@ export class KMSMonitor {
     }
 
     // Send to PagerDuty for critical/emergency
-    if (this.config.pagerDutyKey && ['critical', 'emergency'].includes(alert.severity)) {
+    if (
+      this.config.pagerDutyKey &&
+      ['critical', 'emergency'].includes(alert.severity)
+    ) {
       await this.sendPagerDuty(alert)
     }
   }
@@ -697,4 +704,3 @@ export function createKMSMonitor(
     ...config,
   })
 }
-

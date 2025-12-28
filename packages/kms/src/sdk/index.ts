@@ -53,3 +53,47 @@ export {
   type TokenVerifyResult,
   verifyToken,
 } from './tokens.js'
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         KMS SIGNER (CANONICAL)
+// ═══════════════════════════════════════════════════════════════════════════
+// Use these exports for all signing operations. This is the single source
+// of truth for KMS-backed signing across all Jeju apps.
+
+export {
+  createKMSSigner,
+  getKMSSigner,
+  type KMSKeyInfo,
+  KMSSigner,
+  type KMSSignerConfig,
+  requiresKMSSigning,
+  resetKMSSigners,
+  type SigningMode,
+  type SignResult,
+  type TransactionSignResult,
+  validateSecureSigning,
+} from './signer.js'
+
+export {
+  createKMSClients,
+  createKMSWalletClient,
+  ExtendedKMSWalletClient,
+  getKMSSignerAddress,
+  type KMSWalletClientConfig,
+  type KMSWalletClientResult,
+} from './wallet-client.js'
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                    MIGRATION UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+// Use these during the migration from raw private keys to KMS.
+
+export {
+  auditPrivateKeyUsage,
+  createMigrationWalletClient,
+  enforceKMSSigningOnStartup,
+  logSecurityAudit,
+  type MigrationWalletConfig,
+  type MigrationWalletResult,
+  type PrivateKeyUsageAudit,
+} from './migration.js'

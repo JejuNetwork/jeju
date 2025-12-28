@@ -26,10 +26,7 @@ import type { Hex } from 'viem'
 
 const log = createLogger('signer-manager')
 
-import {
-  enforceNoLocalKeysInProduction,
-  securityAudit,
-} from '../../security'
+import { enforceNoLocalKeysInProduction, securityAudit } from '../../security'
 
 /**
  * SECURITY WARNING: Local key operations are vulnerable to side-channel attacks.
@@ -39,7 +36,9 @@ function warnLocalKeyOperation(operation: string): void {
   // In production, this will throw - local keys not allowed
   enforceNoLocalKeysInProduction(operation)
 
-  log.warn(`SECURITY: Local key operation "${operation}" - consider using KMS-backed signer for production`)
+  log.warn(
+    `SECURITY: Local key operation "${operation}" - consider using KMS-backed signer for production`,
+  )
 
   securityAudit.log({
     operation: `farcaster-signer:${operation}`,
@@ -353,7 +352,8 @@ export class FarcasterSignerManager {
 
     log.warn('🚨 CRITICAL SECURITY WARNING: Exporting private key', {
       keyId,
-      warning: 'Private key exposure - use MPC-backed DWS worker for production',
+      warning:
+        'Private key exposure - use MPC-backed DWS worker for production',
     })
 
     return {

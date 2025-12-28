@@ -14,7 +14,7 @@ import {
   REPORT_VERIFIER_ABI,
   readContract,
 } from '@jejunetwork/shared'
-import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
+import type { NodeMetrics, PriceSourceConfig } from '@jejunetwork/types'
 import { parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -27,7 +27,6 @@ import {
   http,
   isHex,
   keccak256,
-  toBytes,
 } from 'viem'
 import { base, baseSepolia, foundry } from 'viem/chains'
 import { getKMSSigner, type KMSSigner } from '../../lib/kms-signer'
@@ -57,7 +56,7 @@ export interface SecureOracleNodeConfig {
   pollIntervalMs: number
   heartbeatIntervalMs: number
   metricsPort: number
-  priceSources: string[]
+  priceSources: PriceSourceConfig[]
 }
 
 export class OracleNode {

@@ -26,12 +26,12 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
-import { type PriceData, PriceFetcher } from './price-fetcher'
 import {
   createKMSWalletClient,
   isKMSAvailable,
   type KMSWalletClient,
 } from '../shared/kms-wallet'
+import { type PriceData, PriceFetcher } from './price-fetcher'
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const
@@ -49,7 +49,6 @@ export class OracleNode {
   private heartbeatInterval?: Timer
   private metrics: NodeMetrics
   private startTime: number
-  private useKMS = false
   private initialized = false
 
   constructor(config: OracleNodeConfig) {
@@ -357,7 +356,6 @@ export class OracleNode {
           })
           this.account = this.kmsWallet.account
           this.walletClient = this.kmsWallet as unknown as WalletClient
-          this.useKMS = true
           console.log(
             '[OracleNode] Using KMS-backed signing (FROST threshold cryptography)',
           )

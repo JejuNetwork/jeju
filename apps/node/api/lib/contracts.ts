@@ -12,6 +12,7 @@ import {
   http,
   isAddress,
   type PublicClient,
+  type WalletClient,
 } from 'viem'
 import { createSecureSigner, type SecureSigner } from './secure-signer'
 
@@ -297,7 +298,7 @@ export interface SecureNodeClient {
 export interface NodeClient {
   publicClient: PublicClient
   /** @deprecated walletClient exposes private keys - use SecureNodeClient.signer instead */
-  walletClient: null
+  walletClient: WalletClient | null
   addresses: ContractAddresses
   chainId: number
   stake?: bigint
@@ -341,10 +342,7 @@ export function createSecureNodeClient(
  * @deprecated Use createSecureNodeClient instead
  * This function is kept for backwards compatibility during migration
  */
-export function createNodeClient(
-  rpcUrl: string,
-  chainId: number,
-): NodeClient {
+export function createNodeClient(rpcUrl: string, chainId: number): NodeClient {
   const chain = getChain(chainId)
 
   const publicClient = createPublicClient({

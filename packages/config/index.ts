@@ -2218,15 +2218,17 @@ export interface KMSThresholdConfig {
 
 /**
  * Get KMS threshold configuration for a network.
- * 
+ *
  * SECURITY: Mainnet requires higher thresholds and mandatory attestation.
  * - Localnet: 1-of-1 (development mode, no attestation)
  * - Testnet: 2-of-3 (production-like, attestation recommended)
  * - Mainnet: 3-of-5 (high security, attestation required)
  */
-export function getKmsThresholdConfig(network?: NetworkType): KMSThresholdConfig {
+export function getKmsThresholdConfig(
+  network?: NetworkType,
+): KMSThresholdConfig {
   const resolvedNetwork = network ?? getCurrentNetwork()
-  
+
   switch (resolvedNetwork) {
     case 'mainnet':
       return {
@@ -2242,7 +2244,6 @@ export function getKmsThresholdConfig(network?: NetworkType): KMSThresholdConfig
         requireAttestation: true, // Recommended but may fallback
         signingTimeoutMs: 30000,
       }
-    case 'localnet':
     default:
       return {
         threshold: 1,
@@ -2254,13 +2255,13 @@ export function getKmsThresholdConfig(network?: NetworkType): KMSThresholdConfig
 }
 
 /** HSM provider type for MPC party key shares */
-export type HSMProviderType = 
-  | 'software'      // Software-only (localnet/testing)
-  | 'aws_cloudhsm'  // AWS CloudHSM
-  | 'gcp_kms'       // Google Cloud KMS
-  | 'azure_hsm'     // Azure Dedicated HSM
-  | 'yubihsm'       // YubiHSM 2
-  | 'nitrokey'      // Nitrokey HSM 2
+export type HSMProviderType =
+  | 'software' // Software-only (localnet/testing)
+  | 'aws_cloudhsm' // AWS CloudHSM
+  | 'gcp_kms' // Google Cloud KMS
+  | 'azure_hsm' // Azure Dedicated HSM
+  | 'yubihsm' // YubiHSM 2
+  | 'nitrokey' // Nitrokey HSM 2
   | 'hashicorp_vault' // HashiCorp Vault with HSM backend
 
 /** HSM configuration for MPC key shares */
@@ -2281,13 +2282,13 @@ export interface HSMConfig {
 
 /**
  * Get HSM configuration for MPC party key shares.
- * 
- * SECURITY: HSM backing ensures that even TEE compromise cannot 
+ *
+ * SECURITY: HSM backing ensures that even TEE compromise cannot
  * extract the raw key shares. Key shares are:
  * 1. Generated inside the HSM
  * 2. Never leave the HSM in plaintext
  * 3. Used for signing via HSM APIs
- * 
+ *
  * Environment variables:
  * - HSM_PROVIDER: Override provider type
  * - HSM_ENDPOINT: Override HSM endpoint
@@ -2295,12 +2296,12 @@ export interface HSMConfig {
  */
 export function getHSMConfig(network?: NetworkType): HSMConfig {
   const resolvedNetwork = network ?? getCurrentNetwork()
-  
+
   // Environment overrides
   const envProvider = process.env.HSM_PROVIDER as HSMProviderType | undefined
   const envEndpoint = process.env.HSM_ENDPOINT
   const envRegion = process.env.HSM_REGION
-  
+
   switch (resolvedNetwork) {
     case 'mainnet':
       return {
@@ -2320,7 +2321,6 @@ export function getHSMConfig(network?: NetworkType): HSMConfig {
         keyWrapAlgorithm: 'AES256_GCM',
         maxOperationsBeforeRotation: 100000,
       }
-    case 'localnet':
     default:
       return {
         provider: envProvider ?? 'software',
@@ -2341,11 +2341,11 @@ export async function checkHSMAvailability(
   network?: NetworkType,
 ): Promise<{ available: boolean; provider: HSMProviderType; error?: string }> {
   const config = getHSMConfig(network)
-  
+
   if (config.provider === 'software') {
     return { available: true, provider: 'software' }
   }
-  
+
   // For cloud HSMs, we'd check connectivity here
   // This is a placeholder that would be implemented with actual HSM SDKs
   try {

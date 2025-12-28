@@ -44,6 +44,7 @@ export interface TeeCapabilities {
   hasAmdSev: boolean
   hasNvidiaCc: boolean
   attestationAvailable: boolean
+  vendor: 'intel' | 'amd' | 'nvidia' | 'none'
 }
 
 export interface DockerInfo {
@@ -134,6 +135,14 @@ export function convertHardwareToCamelCase(
       hasAmdSev: hw.tee.has_amd_sev,
       hasNvidiaCc: hw.tee.has_nvidia_cc,
       attestationAvailable: hw.tee.attestation_available,
+      vendor:
+        hw.tee.has_intel_tdx || hw.tee.has_intel_sgx
+          ? 'intel'
+          : hw.tee.has_amd_sev
+            ? 'amd'
+            : hw.tee.has_nvidia_cc
+              ? 'nvidia'
+              : 'none',
     },
     docker: {
       available: hw.docker.available,
@@ -380,6 +389,7 @@ export function detectTee(): TeeCapabilities {
     hasAmdSev: false,
     hasNvidiaCc: false,
     attestationAvailable: false,
+    vendor: 'none',
   }
 
   if (os.platform() !== 'linux') {
@@ -389,16 +399,19 @@ export function detectTee(): TeeCapabilities {
   if (existsSync('/dev/tdx_guest') || existsSync('/dev/tdx-guest')) {
     caps.hasIntelTdx = true
     caps.attestationAvailable = true
+    caps.vendor = 'intel'
   }
 
   if (existsSync('/dev/sgx_enclave') || existsSync('/dev/isgx')) {
     caps.hasIntelSgx = true
     caps.attestationAvailable = true
+    caps.vendor = 'intel'
   }
 
   if (existsSync('/dev/sev') || existsSync('/dev/sev-guest')) {
     caps.hasAmdSev = true
     caps.attestationAvailable = true
+    caps.vendor = 'amd'
   }
 
   const nvCcCheck = execCommand(
@@ -407,6 +420,7 @@ export function detectTee(): TeeCapabilities {
   if (nvCcCheck?.includes('on')) {
     caps.hasNvidiaCc = true
     caps.attestationAvailable = true
+    caps.vendor = 'nvidia'
   }
 
   return caps

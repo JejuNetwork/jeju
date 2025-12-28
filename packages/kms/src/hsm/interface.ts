@@ -23,7 +23,12 @@ export type HSMKeyType = 'master' | 'signing' | 'encryption' | 'wrapping'
 /**
  * HSM key algorithm
  */
-export type HSMKeyAlgorithm = 'AES-256' | 'ECDSA-P256' | 'ECDSA-SECP256K1' | 'RSA-2048' | 'RSA-4096'
+export type HSMKeyAlgorithm =
+  | 'AES-256'
+  | 'ECDSA-P256'
+  | 'ECDSA-SECP256K1'
+  | 'RSA-2048'
+  | 'RSA-4096'
 
 /**
  * Key metadata stored in HSM
@@ -201,7 +206,13 @@ export interface HSMProvider {
  */
 export interface HSMConfig {
   /** HSM provider type */
-  provider: 'software' | 'aws-cloudhsm' | 'azure-hsm' | 'gcp-hsm' | 'yubihsm' | 'thales-luna'
+  provider:
+    | 'software'
+    | 'aws-cloudhsm'
+    | 'azure-hsm'
+    | 'gcp-hsm'
+    | 'yubihsm'
+    | 'thales-luna'
 
   /** Connection configuration (provider-specific) */
   connection?: {
@@ -243,4 +254,3 @@ export interface HSMConfig {
     rotationIntervalDays?: number
   }
 }
-

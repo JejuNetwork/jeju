@@ -20,7 +20,7 @@ import {
   validateMnemonic,
 } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
-import { type Address, type Hex, isHex, keccak256, toBytes, toHex } from 'viem'
+import { type Address, type Hex, isHex, keccak256, toBytes } from 'viem'
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { bytesToHex } from '../../../lib/buffer'
@@ -116,12 +116,6 @@ class KeyringService {
   private walletSalt: Uint8Array | null = null // Per-wallet random salt for key derivation
   private unlockInProgress: Promise<boolean> | null = null // Prevent concurrent unlock calls
   private static readonly SALT_KEY = 'jeju_keyring_salt'
-  
-  /**
-   * Whether to prefer KMS signing when available.
-   * When true, signing operations will attempt KMS first before falling back to local.
-   */
-  private preferKMSSigning = process.env.PREFER_KMS_SIGNING === 'true'
 
   // Initialize keyring - must be called with password
   async unlock(password: string): Promise<boolean> {
@@ -348,10 +342,7 @@ class KeyringService {
   /**
    * Link an existing KMS key to this wallet.
    */
-  async linkKMSAccount(
-    keyId: string,
-    name?: string,
-  ): Promise<KMSAccount> {
+  async linkKMSAccount(keyId: string, name?: string): Promise<KMSAccount> {
     const signer = this.getOrCreateKMSSigner()
     await signer.initialize()
 

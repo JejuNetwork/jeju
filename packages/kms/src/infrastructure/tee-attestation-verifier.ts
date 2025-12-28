@@ -26,13 +26,7 @@ const log = createLogger('tee-attestation')
 
 // ============ Types ============
 
-export type TEEType =
-  | 'sgx'
-  | 'nitro'
-  | 'sev-snp'
-  | 'tdx'
-  | 'phala'
-  | 'mock' // For development only
+export type TEEType = 'sgx' | 'nitro' | 'sev-snp' | 'tdx' | 'phala' | 'mock' // For development only
 
 export interface Attestation {
   type: TEEType
@@ -161,7 +155,8 @@ export class TEEAttestationVerifier {
 
     // Check measurement against trusted list
     const trustedForType = this.trustedMeasurements.get(attestation.type)
-    const measurementTrusted = trustedForType?.has(attestation.measurement) ?? false
+    const measurementTrusted =
+      trustedForType?.has(attestation.measurement) ?? false
 
     if (!measurementTrusted && trustedForType && trustedForType.size > 0) {
       log.warn('Attestation measurement not in trusted list', {
@@ -180,7 +175,11 @@ export class TEEAttestationVerifier {
     }
 
     // Verify based on TEE type
-    let typeVerification: { valid: boolean; error?: string; certificateValid?: boolean }
+    let typeVerification: {
+      valid: boolean
+      error?: string
+      certificateValid?: boolean
+    }
 
     switch (attestation.type) {
       case 'sgx':
@@ -243,7 +242,7 @@ export class TEEAttestationVerifier {
 
     log.debug('Attestation verified', {
       type: attestation.type,
-      measurement: attestation.measurement.slice(0, 18) + '...',
+      measurement: `${attestation.measurement.slice(0, 18)}...`,
       ageMs: age,
     })
 
@@ -285,7 +284,10 @@ export class TEEAttestationVerifier {
           'Ocp-Apim-Subscription-Key': this.config.iasApiKey,
         },
         body: JSON.stringify({
-          isvEnclaveQuote: Buffer.from(attestation.quote.slice(2), 'hex').toString('base64'),
+          isvEnclaveQuote: Buffer.from(
+            attestation.quote.slice(2),
+            'hex',
+          ).toString('base64'),
         }),
       })
 
@@ -296,7 +298,7 @@ export class TEEAttestationVerifier {
         }
       }
 
-      const report = await response.json() as {
+      const report = (await response.json()) as {
         isvEnclaveQuoteStatus: string
         isvEnclaveQuoteBody: string
       }
@@ -344,10 +346,16 @@ export class TEEAttestationVerifier {
       })
 
       if (!response.ok) {
-        return { valid: false, error: `DCAP verification failed: ${response.status}` }
+        return {
+          valid: false,
+          error: `DCAP verification failed: ${response.status}`,
+        }
       }
 
-      const result = await response.json() as { verified: boolean; status: string }
+      const result = (await response.json()) as {
+        verified: boolean
+        status: string
+      }
       return {
         valid: result.verified,
         error: result.verified ? undefined : `DCAP status: ${result.status}`,
@@ -381,7 +389,8 @@ export class TEEAttestationVerifier {
       // Check if we have certificate chain
       if (
         this.config.requireCertificateChain &&
-        (!attestation.certificateChain || attestation.certificateChain.length === 0)
+        (!attestation.certificateChain ||
+          attestation.certificateChain.length === 0)
       ) {
         return {
           valid: false,
@@ -427,7 +436,10 @@ export class TEEAttestationVerifier {
     // Simplified: Check if last cert matches root issuer
     // Real implementation would do full chain verification
     const lastCert = chain[chain.length - 1]
-    if (!lastCert.includes('aws.nitro-enclaves') && !rootCert.includes('aws.nitro-enclaves')) {
+    if (
+      !lastCert.includes('aws.nitro-enclaves') &&
+      !rootCert.includes('aws.nitro-enclaves')
+    ) {
       log.warn('Certificate chain does not trace to AWS root')
       return false
     }
@@ -479,7 +491,9 @@ export class TEEAttestationVerifier {
 
       // Extract measurement
       const measurementOffset = 144 + 64 // After report data
-      const reportMeasurement = toHex(quoteBytes.slice(measurementOffset, measurementOffset + 48))
+      const reportMeasurement = toHex(
+        quoteBytes.slice(measurementOffset, measurementOffset + 48),
+      )
 
       // Verify measurement matches
       if (reportMeasurement !== attestation.measurement) {
@@ -548,19 +562,25 @@ export class TEEAttestationVerifier {
     }
 
     try {
-      const response = await fetch(`${this.config.phalaEndpoint}/prpc/PhactoryAPI.GetRuntimeInfo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          decode_from: 'scale',
-        }),
-      })
+      const response = await fetch(
+        `${this.config.phalaEndpoint}/prpc/PhactoryAPI.GetRuntimeInfo`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decode_from: 'scale',
+          }),
+        },
+      )
 
       if (!response.ok) {
-        return { valid: false, error: `Phala verification failed: ${response.status}` }
+        return {
+          valid: false,
+          error: `Phala verification failed: ${response.status}`,
+        }
       }
 
-      const info = await response.json() as {
+      const info = (await response.json()) as {
         measurement: string
         public_key: string
         genesis_block_hash: string
@@ -581,7 +601,10 @@ export class TEEAttestationVerifier {
   /**
    * Add a trusted measurement
    */
-  addTrustedMeasurement(teeType: TEEType, measurement: TrustedMeasurement): void {
+  addTrustedMeasurement(
+    teeType: TEEType,
+    measurement: TrustedMeasurement,
+  ): void {
     let measurementSet = this.trustedMeasurements.get(teeType)
     if (!measurementSet) {
       measurementSet = new Set()
@@ -592,7 +615,7 @@ export class TEEAttestationVerifier {
     log.info('Added trusted measurement', {
       teeType,
       version: measurement.version,
-      measurement: measurement.measurement.slice(0, 18) + '...',
+      measurement: `${measurement.measurement.slice(0, 18)}...`,
     })
   }
 
@@ -605,7 +628,7 @@ export class TEEAttestationVerifier {
       measurementSet.delete(measurement)
       log.info('Removed trusted measurement', {
         teeType,
-        measurement: measurement.slice(0, 18) + '...',
+        measurement: `${measurement.slice(0, 18)}...`,
       })
     }
   }
@@ -652,4 +675,3 @@ export function createProductionConfig(
     allowMockInDevelopment: false,
   }
 }
-

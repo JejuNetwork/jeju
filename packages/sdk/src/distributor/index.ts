@@ -12,7 +12,7 @@ import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { requireContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -320,7 +320,7 @@ const STAKING_REWARD_DISTRIBUTOR_ABI = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createDistributorModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): DistributorModule {
   const airdropManagerAddress = requireContract(

@@ -24,10 +24,10 @@ import {
   keccak256,
   type PublicClient,
   parseAbi,
-  serializeTransaction,
   type SignableMessage,
-  toBytes,
+  serializeTransaction,
   type TransactionSerializable,
+  toBytes,
   type WalletClient,
 } from 'viem'
 import { z } from 'zod'
@@ -114,11 +114,7 @@ function createKMSAccount(kmsSigner: KMSSigner): Account {
     publicKey: '0x' as Hex, // Not used - all signing goes to KMS
     source: 'custom' as const,
 
-    async signMessage({
-      message,
-    }: {
-      message: SignableMessage
-    }): Promise<Hex> {
+    async signMessage({ message }: { message: SignableMessage }): Promise<Hex> {
       let messageBytes: Uint8Array
       if (typeof message === 'string') {
         messageBytes = toBytes(message)
@@ -141,9 +137,7 @@ function createKMSAccount(kmsSigner: KMSSigner): Account {
       return signature
     },
 
-    async signTransaction(
-      transaction: TransactionSerializable,
-    ): Promise<Hex> {
+    async signTransaction(transaction: TransactionSerializable): Promise<Hex> {
       const serialized = serializeTransaction(transaction)
       const txHash = keccak256(serialized)
 
@@ -549,4 +543,3 @@ export class KMSEVMClient {
 export function createKMSEVMClient(config: KMSEVMClientConfig): KMSEVMClient {
   return new KMSEVMClient(config)
 }
-

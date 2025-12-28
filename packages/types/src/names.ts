@@ -289,7 +289,7 @@ export function validateJNSName(name: string): {
   if (!result.success) {
     return {
       valid: false,
-      error: result.error.issues[0].message ?? 'Invalid name',
+      error: result.error.issues[0]?.message ?? 'Invalid name',
     }
   }
   return { valid: true }

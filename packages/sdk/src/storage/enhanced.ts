@@ -22,7 +22,7 @@ import {
   MultiBackendUploadResultSchema,
   TorrentInfoSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // Types
 
@@ -173,7 +173,7 @@ const STORAGE_PRICING = {
 }
 
 export function createMultiBackendStorageModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): MultiBackendStorageModule {
   const services = getServicesConfig(network)

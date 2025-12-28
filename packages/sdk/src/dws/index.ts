@@ -26,7 +26,7 @@ import {
   WorkflowSchema,
   WorkflowsListSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -264,7 +264,7 @@ export interface DWSModule {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function createDWSModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): DWSModule {
   const services = getServicesConfig(network)

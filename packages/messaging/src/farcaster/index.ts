@@ -10,10 +10,26 @@
  * KMS-backed implementations. See {@link ./factory.ts}
  */
 
+// Direct Casts (encrypted DMs)
+export * from './dc/api'
+export * from './dc/client'
+export {
+  type DCKMSEncryptionProvider,
+  type DCKMSSigner,
+  type KMSDCClientConfig,
+  KMSDirectCastClient,
+} from './dc/kms-client'
+export * from './dc/types'
+// DWS Worker (decentralized deployment)
+export {
+  createFarcasterWorker,
+  type FarcasterWorker,
+  type FarcasterWorkerConfig,
+} from './dws-worker/index.js'
 // Factory (recommended entry point)
 export {
-  createDirectCastClient as createDCClient,
   createDevFarcasterClient,
+  createDirectCastClient as createDCClient,
   createFarcasterClient,
   createFarcasterPoster as createPoster,
   createProductionFarcasterClient,
@@ -22,31 +38,17 @@ export {
   type FarcasterClientConfig,
 } from './factory'
 
-// Direct Casts (encrypted DMs)
-export * from './dc/api'
-export * from './dc/client'
-export {
-  KMSDirectCastClient,
-  type DCKMSEncryptionProvider,
-  type DCKMSSigner,
-  type KMSDCClientConfig,
-} from './dc/kms-client'
-export * from './dc/types'
-
-// DWS Worker (decentralized deployment)
-export {
-  createFarcasterWorker,
-  type FarcasterWorker,
-  type FarcasterWorkerConfig,
-} from './dws-worker/index.js'
-
 // Frames
 export * from './frames/types'
 
 // Hub client (read operations)
 export * from './hub/cast-builder'
 export * from './hub/client'
-
+export {
+  KMSFarcasterPoster,
+  type KMSPosterConfig,
+  type KMSPosterSigner,
+} from './hub/kms-poster'
 // Hub posting (write operations)
 export * from './hub/message-builder'
 export {
@@ -56,32 +58,25 @@ export {
   type ReactionTarget,
   type UserDataUpdate,
 } from './hub/poster'
-export {
-  KMSFarcasterPoster,
-  type KMSPosterConfig,
-  type KMSPosterSigner,
-} from './hub/kms-poster'
 export * from './hub/schemas'
 export * from './hub/submitter'
 export * from './hub/types'
 
 // Identity
 export * from './identity/link'
-
-// Signer management
-export * from './signer/manager'
+// Unified KMS service
 export {
-  KMSFarcasterSignerManager,
+  createFarcasterKMSService,
+  FarcasterKMSService,
+  type FarcasterKMSServiceConfig,
+} from './kms-service'
+export {
   type KMSFarcasterSigner,
+  KMSFarcasterSignerManager,
   type KMSProvider,
   type KMSSignerManagerConfig,
 } from './signer/kms-manager'
+// Signer management
+export * from './signer/manager'
 export * from './signer/registration'
 export * from './signer/service'
-
-// Unified KMS service
-export {
-  FarcasterKMSService,
-  type FarcasterKMSServiceConfig,
-  createFarcasterKMSService,
-} from './kms-service'

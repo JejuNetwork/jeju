@@ -45,7 +45,7 @@ const healthRoutes = new Elysia()
         supported: 'GET /supported',
         stats: 'GET /stats',
       },
-      kms: configStatus.kmsEnabled ? configStatus.keySource : 'disabled',
+      kms: configStatus.kmsAvailable ? configStatus.signingMode : 'disabled',
       distributed: nonceStats.distributed,
       timestamp: Date.now(),
     }
@@ -88,7 +88,7 @@ const healthRoutes = new Elysia()
     const configStatus = await getConfigStatus()
 
     const ready =
-      configStatus.keySource !== 'none' &&
+      configStatus.signingMode !== 'none' &&
       cfg.facilitatorAddress !== ZERO_ADDRESS
     set.status = ready ? 200 : 503
     return { status: ready ? 'ready' : 'not_ready', timestamp: Date.now() }

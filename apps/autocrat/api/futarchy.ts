@@ -15,11 +15,11 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import { privateKeyToAccount, type LocalAccount } from 'viem/accounts'
-import { createKMSWalletClient } from './kms-signer'
+import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { toAddress, toHex } from '../lib'
+import { createKMSWalletClient } from './kms-signer'
 
 function inferChainFromRpcUrl(rpcUrl: string) {
   if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {

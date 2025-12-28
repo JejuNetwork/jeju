@@ -124,19 +124,37 @@ export class ExecutorSDK {
   }): Promise<`0x${string}`> {
     // Prefer KMS signer if available
     if (this.kmsSigner?.isInitialized()) {
-      this.log.debug('Executing write via KMS', { functionName: params.functionName })
+      this.log.debug('Executing write via KMS', {
+        functionName: params.functionName,
+      })
       return this.kmsSigner.signContractWrite(params)
     }
 
     // Fallback to wallet client (localnet only)
     if (this.walletClient) {
-      this.log.debug('Executing write via wallet', { functionName: params.functionName })
-      const account = expect(this.walletClient.account, 'Wallet account required')
-      const { request } = await this.publicClient.simulateContract({
-        ...params,
-        account,
+      this.log.debug('Executing write via wallet', {
+        functionName: params.functionName,
       })
-      return this.walletClient.writeContract(request)
+      const account = expect(
+        this.walletClient.account,
+        'Wallet account required',
+      )
+      const simulateParams = {
+        address: params.address,
+        abi: params.abi,
+        functionName: params.functionName,
+        args: params.args,
+        account,
+        ...(params.value !== undefined ? { value: params.value } : {}),
+      }
+      const { request } = await this.publicClient.simulateContract(
+        simulateParams as Parameters<
+          typeof this.publicClient.simulateContract
+        >[0],
+      )
+      return this.walletClient.writeContract(
+        request as Parameters<typeof this.walletClient.writeContract>[0],
+      )
     }
 
     throw new Error('No signer available - configure KMS or wallet')

@@ -8,12 +8,12 @@
  * - Integrate with TEE for data integrity
  */
 
-import type { Account, Address, Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
 import { verifyProof } from './commitment'
 import { SampleVerifier } from './sampling'
-import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
 import type {
   BlobCommitment,
   Chunk,
@@ -101,25 +101,16 @@ export class DAOperator {
       this.secureSigner = await createSecureSigner(ownerAddress, kmsKeyId)
       console.log('[DA Operator] Using KMS-backed signing (FROST threshold)')
     } else if (isProduction && !this.account) {
-      throw new Error('DA operator requires kmsKeyId or privateKey in production')
+      throw new Error(
+        'DA operator requires kmsKeyId or privateKey in production',
+      )
     } else if (isProduction) {
-      console.warn('[DA Operator] Using direct key in production - set kmsKeyId for security')
+      console.warn(
+        '[DA Operator] Using direct key in production - set kmsKeyId for security',
+      )
     }
 
     this.initialized = true
-  }
-
-  /**
-   * Sign a message using secure signer or account
-   */
-  private async signMessage(message: string): Promise<Hex> {
-    if (this.secureSigner) {
-      return this.secureSigner.signMessage(message)
-    }
-    if (this.account) {
-      return this.account.signMessage({ message })
-    }
-    throw new Error('No signer available')
   }
 
   /**
@@ -292,6 +283,9 @@ export class DAOperator {
     )
 
     // Sign with operator key
+    if (!this.account) {
+      throw new Error('No account available for signing')
+    }
     const signature = await this.account.signMessage({
       message: { raw: toBytes(message) },
     })
@@ -304,6 +298,9 @@ export class DAOperator {
    */
   getInfo(): DAOperatorInfo {
     // Stats available for future use: this.verifier.getStats()
+    if (!this.account) {
+      throw new Error('Operator not initialized')
+    }
     return {
       address: this.account.address,
       agentId: 0n, // Set when registered on-chain
@@ -338,13 +335,6 @@ export class DAOperator {
       totalDataStored: this.bytesStored,
       activeBlobCount: stats.blobCount,
     }
-  }
-
-  /**
-   * Get operator address
-   */
-  getAddress(): Address {
-    return this.account.address
   }
 
   /**
@@ -394,6 +384,10 @@ export class DAOperator {
   // Private Methods
 
   private signResponse(request: SampleRequest): Hex {
+    if (!this.account) {
+      throw new Error('No account available for signing')
+    }
+
     // Create deterministic message for signing
     const message = keccak256(
       toBytes(`sample:${request.blobId}:${request.nonce}:${request.timestamp}`),
@@ -402,10 +396,9 @@ export class DAOperator {
     // Create signature by signing the message hash
     // Use signMessage async in production, but for sync response handling
     // we create a deterministic signature commitment
+    const keyFragment = this.config.privateKey?.slice(0, 10) ?? 'secure'
     const signaturePreimage = keccak256(
-      toBytes(
-        `${message}:${this.account.address}:${this.config.privateKey.slice(0, 10)}`,
-      ),
+      toBytes(`${message}:${this.account.address}:${keyFragment}`),
     )
 
     // Return commitment that can be verified by knowing operator address

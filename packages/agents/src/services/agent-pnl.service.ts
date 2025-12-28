@@ -231,7 +231,7 @@ export class AgentPnLService {
     let currentDay = ''
 
     for (const trade of trades) {
-      const tradeDay = trade.created_at.split('T')[0]
+      const tradeDay = trade.created_at.split('T')[0] ?? ''
       if (tradeDay !== currentDay) {
         if (currentDay) {
           dailyReturns.push(dayPnL)

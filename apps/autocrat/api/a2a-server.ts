@@ -3,7 +3,11 @@
  */
 
 import cors from '@elysiajs/cors'
-import { getNetworkName, getWebsiteUrl, isProductionEnv } from '@jejunetwork/config'
+import {
+  getNetworkName,
+  getWebsiteUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import {
   expect,
@@ -117,7 +121,8 @@ export class AutocratA2AServer {
 
   private setupRoutes(): void {
     // SECURITY: Restrict CORS origins in production
-    const A2A_CORS_ORIGINS = process.env.A2A_CORS_ORIGINS?.split(',').filter(Boolean)
+    const A2A_CORS_ORIGINS =
+      process.env.A2A_CORS_ORIGINS?.split(',').filter(Boolean)
     const isProduction = isProductionEnv()
 
     this.app.use(

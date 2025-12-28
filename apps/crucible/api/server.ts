@@ -26,7 +26,6 @@ import { isHexString, isValidAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { createKMSSigner, type KMSSigner } from './sdk/kms-signer'
 import { localhost, mainnet, sepolia } from 'viem/chains'
 import { z } from 'zod'
 import type {
@@ -65,6 +64,7 @@ import { createAgentSDK } from './sdk/agent'
 import { createCompute } from './sdk/compute'
 import { type RuntimeMessage, runtimeManager } from './sdk/eliza-runtime'
 import { createExecutorSDK } from './sdk/executor'
+import { createKMSSigner, type KMSSigner } from './sdk/kms-signer'
 import { createLogger } from './sdk/logger'
 import { createRoomSDK } from './sdk/room'
 import { createStorage } from './sdk/storage'
@@ -385,8 +385,8 @@ if (shouldUseKMS()) {
     .initialize()
     .then(() => {
       log.info('KMS signer initialized', {
-        address: kmsSigner?.getAddress(),
-        keyId: kmsSigner?.getKeyId(),
+        address: kmsSigner?.getAddress() ?? null,
+        keyId: kmsSigner?.getKeyId() ?? null,
       })
     })
     .catch((err) => {
@@ -1163,8 +1163,7 @@ app.post('/api/v1/execute', async ({ body }) => {
     : account?.address
 
   if (!executorAddress) {
-    set.status = 500
-    return { error: 'No signer configured (KMS or wallet)' }
+    throw new Error('No signer configured (KMS or wallet)')
   }
 
   const executorSdk = createExecutorSDK({

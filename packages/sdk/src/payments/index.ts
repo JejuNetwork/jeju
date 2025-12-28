@@ -18,7 +18,7 @@ import {
   PaymasterDetailSchema,
   PaymasterInfoResponseSchema,
 } from '../shared/schemas'
-import type { JejuWallet } from '../wallet'
+import type { BaseWallet } from '../wallet'
 
 /**
  * Service type schema for credit system
@@ -183,7 +183,7 @@ const SERVICE_IDS = {
 } as const
 
 export function createPaymentsModule(
-  wallet: JejuWallet,
+  wallet: BaseWallet,
   network: NetworkType,
 ): PaymentsModule {
   const paymasterFactoryAddress = requireContract(

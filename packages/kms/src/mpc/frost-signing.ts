@@ -404,27 +404,32 @@ export class FROSTCoordinator {
     },
   ) {
     // Determine network from options or environment
-    const envNetwork = (typeof process !== 'undefined' && process.env?.NETWORK) ?? 'localnet'
-    this.network = options?.network ?? (envNetwork as 'localnet' | 'testnet' | 'mainnet')
+    const envNetwork =
+      (typeof process !== 'undefined' && process.env?.NETWORK) ?? 'localnet'
+    this.network =
+      options?.network ?? (envNetwork as 'localnet' | 'testnet' | 'mainnet')
 
     // SECURITY BLOCK: Prevent centralized coordinator on production networks
     if (this.network === 'mainnet') {
       throw new Error(
         'SECURITY BLOCK: FROSTCoordinator cannot be used on mainnet.\n\n' +
-        'This centralized coordinator stores ALL key shares in a single process.\n' +
-        'A TEE side-channel attack would expose the complete private key.\n\n' +
-        'For mainnet, you MUST use DistributedFROSTCoordinator with parties\n' +
-        'deployed on SEPARATE physical TEE hardware.\n\n' +
-        'See: packages/kms/src/dws-worker/frost-coordinator.ts for the distributed version.',
+          'This centralized coordinator stores ALL key shares in a single process.\n' +
+          'A TEE side-channel attack would expose the complete private key.\n\n' +
+          'For mainnet, you MUST use DistributedFROSTCoordinator with parties\n' +
+          'deployed on SEPARATE physical TEE hardware.\n\n' +
+          'See: packages/kms/src/dws-worker/frost-coordinator.ts for the distributed version.',
       )
     }
 
-    if (this.network === 'testnet' && !options?.acknowledgeInsecureCentralized) {
+    if (
+      this.network === 'testnet' &&
+      !options?.acknowledgeInsecureCentralized
+    ) {
       throw new Error(
         'SECURITY WARNING: FROSTCoordinator is insecure for testnet.\n\n' +
-        'This centralized coordinator stores ALL key shares in a single process.\n' +
-        'For testnet with real value, use DistributedFROSTCoordinator.\n\n' +
-        'To proceed anyway (testing only), set acknowledgeInsecureCentralized: true',
+          'This centralized coordinator stores ALL key shares in a single process.\n' +
+          'For testnet with real value, use DistributedFROSTCoordinator.\n\n' +
+          'To proceed anyway (testing only), set acknowledgeInsecureCentralized: true',
       )
     }
 

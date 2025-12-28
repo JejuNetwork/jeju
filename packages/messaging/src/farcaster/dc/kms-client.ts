@@ -167,7 +167,9 @@ export class KMSDirectCastClient {
       throw new Error('Message text cannot be empty')
     }
     if (params.text.length > MAX_DC_TEXT_LENGTH) {
-      throw new Error(`Message text exceeds maximum length of ${MAX_DC_TEXT_LENGTH}`)
+      throw new Error(
+        `Message text exceeds maximum length of ${MAX_DC_TEXT_LENGTH}`,
+      )
     }
     if (!Number.isInteger(params.recipientFid) || params.recipientFid <= 0) {
       throw new Error('Invalid recipient FID')
@@ -178,7 +180,9 @@ export class KMSDirectCastClient {
     const id = `dc-${this.config.fid}-${timestamp}-${crypto.randomUUID().slice(0, 8)}`
 
     // Get recipient's encryption public key
-    const recipientKey = await this.getRecipientEncryptionKey(params.recipientFid)
+    const recipientKey = await this.getRecipientEncryptionKey(
+      params.recipientFid,
+    )
 
     // Encrypt message in KMS - private key never exposed
     const plaintext = new TextEncoder().encode(params.text)
@@ -204,7 +208,8 @@ export class KMSDirectCastClient {
     const encryptedDC: EncryptedDirectCast = {
       ciphertext: `0x${bytesToHex(encrypted.ciphertext)}` as Hex,
       nonce: `0x${bytesToHex(encrypted.nonce)}` as Hex,
-      ephemeralPublicKey: `0x${bytesToHex(encrypted.ephemeralPublicKey)}` as Hex,
+      ephemeralPublicKey:
+        `0x${bytesToHex(encrypted.ephemeralPublicKey)}` as Hex,
       senderFid: this.config.fid,
       recipientFid: params.recipientFid,
       timestamp,
@@ -478,10 +483,10 @@ export class KMSDirectCastClient {
     if (!this.config.relayUrl) return
 
     return new Promise((resolve, reject) => {
-      const wsUrl = this.config.relayUrl!
-        .replace(/^http:/, 'ws:')
+      const wsUrl = `${this.config.relayUrl
+        ?.replace(/^http:/, 'ws:')
         .replace(/^https:/, 'wss:')
-        .replace(/\/$/, '') + '/dc'
+        .replace(/\/$/, '')}/dc`
 
       log.info('Connecting to relay', { wsUrl })
 
@@ -498,11 +503,13 @@ export class KMSDirectCastClient {
         log.info('Connected to relay')
 
         // Authenticate
-        ws.send(JSON.stringify({
-          type: 'auth',
-          fid: this.config.fid,
-          publicKey: bytesToHex(this.config.kmsEncryption.publicKey),
-        }))
+        ws.send(
+          JSON.stringify({
+            type: 'auth',
+            fid: this.config.fid,
+            publicKey: bytesToHex(this.config.kmsEncryption.publicKey),
+          }),
+        )
 
         resolve()
       }
@@ -555,10 +562,12 @@ export class KMSDirectCastClient {
 
     // Try WebSocket first
     if (this.relayConnection?.readyState === WebSocket.OPEN) {
-      this.relayConnection.send(JSON.stringify({
-        type: 'send',
-        payload: encrypted,
-      }))
+      this.relayConnection.send(
+        JSON.stringify({
+          type: 'send',
+          payload: encrypted,
+        }),
+      )
       return
     }
 
@@ -608,10 +617,14 @@ export class KMSDirectCastClient {
 
     await Bun.write(
       this.config.persistencePath,
-      JSON.stringify({
-        conversations: Array.from(this.conversations.values()),
-        messages: Object.fromEntries(this.messages),
-      }, null, 2),
+      JSON.stringify(
+        {
+          conversations: Array.from(this.conversations.values()),
+          messages: Object.fromEntries(this.messages),
+        },
+        null,
+        2,
+      ),
     )
   }
 
@@ -632,4 +645,3 @@ export async function createKMSDirectCastClient(
   await client.initialize()
   return client
 }
-
