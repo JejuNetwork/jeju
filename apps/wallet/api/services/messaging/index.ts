@@ -1,8 +1,6 @@
 import { getFarcasterHubUrl, getRpcUrl } from '@jejunetwork/config'
 import {
   createDirectCastClient,
-  createMessagingClient,
-  createUnifiedMessagingService,
   type DCClientConfig,
   type DirectCast,
   type DirectCastClient,
@@ -10,14 +8,14 @@ import {
   type FarcasterProfile,
   FarcasterSignerService,
   lookupFidByAddress,
-  type MessagingClient,
-  type MessagingClientConfig,
-  type UnifiedMessage,
-  type UnifiedMessagingService,
+  XMTPClient,
+  type XMTPSigner,
 } from '@jejunetwork/messaging'
+import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import { createLogger } from '@jejunetwork/shared'
-import { type Address, type Hex, hexToBytes } from 'viem'
+import { type Address, type Hex, hexToBytes, toBytes } from 'viem'
 import { z } from 'zod'
+import { createHash } from 'crypto'
 import { storage } from '../../../web/platform/storage'
 import { config } from '../../config'
 
@@ -144,7 +142,7 @@ export const DEFAULT_PREFERENCES: MessagingPreferences = {
 }
 
 const HUB_URL = config.farcasterHubUrl || getFarcasterHubUrl()
-const RELAY_URL = config.xmtpRelayUrl
+const XMTP_ENV = (process.env.XMTP_ENV ?? 'dev') as 'local' | 'dev' | 'production'
 
 function extractEmbeds(
   embeds: Array<{ url?: string; castId?: { fid: number; hash: string } }>,
@@ -154,14 +152,40 @@ function extractEmbeds(
     .map((e) => ({ url: e.url }))
 }
 
+/**
+ * Create XMTP signer from KMS
+ */
+function createXMTPKMSSigner(kmsSigner: KMSSigner, address: Address): XMTPSigner {
+  return {
+    type: 'EOA',
+    getIdentifier: () => ({
+      identifier: address.toLowerCase(),
+      identifierKind: 'Ethereum' as const,
+    }),
+    signMessage: async (message: string): Promise<Uint8Array> => {
+      const result = await kmsSigner.signMessage(message)
+      return toBytes(result.signature)
+    },
+  }
+}
+
+/**
+ * Get DB encryption key from KMS
+ */
+async function getDbEncryptionKey(kmsSigner: KMSSigner): Promise<Uint8Array> {
+  const result = await kmsSigner.signMessage('XMTP_DB_ENCRYPTION_KEY_V1')
+  const hash = createHash('sha256').update(toBytes(result.signature)).digest()
+  return new Uint8Array(hash)
+}
+
 class WalletMessagingService {
   private address: Address | null = null
   private farcasterAccount: FarcasterAccount | null = null
   private preferences: MessagingPreferences = DEFAULT_PREFERENCES
   private hubClient: FarcasterClient | null = null
   private dcClient: DirectCastClient | null = null
-  private xmtpClient: MessagingClient | null = null
-  private unifiedService: UnifiedMessagingService | null = null
+  private xmtpClient: XMTPClient | null = null
+  private kmsSigner: KMSSigner | null = null
   private signerService: FarcasterSignerService | null = null
   private initialized = false
 
@@ -180,7 +204,7 @@ class WalletMessagingService {
     return this.xmtpClient !== null
   }
 
-  async initialize(address: Address, signature?: string): Promise<void> {
+  async initialize(address: Address): Promise<void> {
     if (this.initialized && this.address === address) return
 
     log.info('Initializing messaging service', { address })
@@ -197,9 +221,10 @@ class WalletMessagingService {
       })
       await this.initializeDCClient()
     }
-    if (this.preferences.enableXMTP && signature) {
+
+    if (this.preferences.enableXMTP) {
       log.debug('Initializing XMTP client')
-      await this.initializeXMTPClient(signature)
+      await this.initializeXMTPClient()
     }
 
     log.info('Messaging service initialized', {
@@ -223,35 +248,33 @@ class WalletMessagingService {
     this.dcClient = await createDirectCastClient(config)
   }
 
-  private async initializeXMTPClient(signature: string): Promise<void> {
+  private async initializeXMTPClient(): Promise<void> {
     if (!this.address) return
-    if (!RELAY_URL) {
-      throw new MessagingError(
-        'XMTP_RELAY_URL not configured',
-        'MISSING_CONFIG',
-      )
-    }
 
-    const config: MessagingClientConfig = {
+    // Create KMS signer
+    this.kmsSigner = createKMSSigner({
+      serviceId: `xmtp-wallet-${this.address.toLowerCase()}`,
+      allowLocalDev: true,
+    })
+    await this.kmsSigner.initialize()
+
+    // Create XMTP signer wrapper
+    const xmtpSigner = createXMTPKMSSigner(this.kmsSigner, this.address)
+
+    // Get DB encryption key from KMS
+    const dbEncryptionKey = await getDbEncryptionKey(this.kmsSigner)
+
+    // Create real XMTP client
+    this.xmtpClient = await XMTPClient.create(xmtpSigner, {
+      env: XMTP_ENV,
+      dbPath: `./data/xmtp/${this.address.toLowerCase()}.db3`,
+      dbEncryptionKey,
+    })
+
+    log.info('XMTP client initialized', {
       address: this.address,
-      rpcUrl: getRpcUrl(),
-      relayUrl: RELAY_URL,
-    }
-
-    this.xmtpClient = createMessagingClient(config)
-    await this.xmtpClient.initialize(signature)
-
-    if (this.farcasterAccount && this.dcClient) {
-      this.unifiedService = createUnifiedMessagingService({
-        messaging: config,
-        farcaster: {
-          fid: this.farcasterAccount.fid,
-          signerPrivateKey: hexToBytes(this.farcasterAccount.signerPrivateKey),
-          hubUrl: HUB_URL,
-        },
-      })
-      await this.unifiedService.initialize(signature)
-    }
+      inboxId: this.xmtpClient.inboxId,
+    })
   }
 
   hasFarcasterAccount(): boolean {
@@ -384,27 +407,19 @@ class WalletMessagingService {
       }
     }
 
-    if (this.unifiedService) {
-      const unifiedConvs = await this.unifiedService.getConversations()
-      for (const conv of unifiedConvs) {
-        if (conv.type === 'wallet') {
-          const addr = conv.participants.find(
-            (p) => typeof p === 'string' && p !== this.address,
-          ) as Address | undefined
-          if (addr) {
-            conversations.set(`xmtp-${conv.id}`, {
-              id: `xmtp-${conv.id}`,
-              type: 'xmtp',
-              recipientAddress: addr,
-              recipientName: `${addr.slice(0, 6)}...${addr.slice(-4)}`,
-              unreadCount: conv.unreadCount,
-              isMuted: this.preferences.mutedConversations.includes(
-                `xmtp-${conv.id}`,
-              ),
-              updatedAt: conv.updatedAt,
-            })
-          }
-        }
+    if (this.xmtpClient) {
+      await this.xmtpClient.conversations.sync()
+      const dms = this.xmtpClient.conversations.listDms()
+
+      for (const dm of dms) {
+        conversations.set(`xmtp-${dm.id}`, {
+          id: `xmtp-${dm.id}`,
+          type: 'xmtp',
+          recipientName: dm.peerInboxId.slice(0, 10) + '...',
+          unreadCount: 0, // TODO: Track unread
+          isMuted: this.preferences.mutedConversations.includes(`xmtp-${dm.id}`),
+          updatedAt: dm.createdAt.getTime(),
+        })
       }
     }
 
@@ -458,18 +473,26 @@ class WalletMessagingService {
       }))
     }
 
-    if (protocol === 'xmtp' && this.unifiedService) {
-      const messages = await this.unifiedService.getMessages(id, options)
-      return messages.map((m: UnifiedMessage) => ({
+    if (protocol === 'xmtp' && this.xmtpClient) {
+      const conversation = await this.xmtpClient.conversations.getConversationById(id)
+      if (!conversation) {
+        throw new MessagingError(
+          'Conversation not found',
+          'CONVERSATION_NOT_FOUND',
+          { conversationId },
+        )
+      }
+
+      await conversation.sync()
+      const xmtpMessages = await conversation.messages({ limit: options?.limit ?? 50 })
+
+      return xmtpMessages.map((m) => ({
         id: m.id,
         conversationId,
-        text: m.content,
-        timestamp: m.timestamp,
-        isFromMe: m.sender === this.address,
-        status:
-          m.deliveryStatus === 'read'
-            ? ('read' as const)
-            : ('delivered' as const),
+        text: String(m.content),
+        timestamp: m.sentAt.getTime(),
+        isFromMe: m.senderInboxId === this.xmtpClient?.inboxId,
+        status: 'delivered' as const,
         protocol: 'xmtp' as const,
       }))
     }
@@ -514,17 +537,19 @@ class WalletMessagingService {
       return message
     }
 
-    if (params.recipientAddress && this.unifiedService) {
-      const msg = await this.unifiedService.sendMessage(
-        params.recipientAddress,
-        params.text,
-      )
+    if (params.recipientAddress && this.xmtpClient) {
+      const dm = await this.xmtpClient.conversations.newDmWithIdentifier({
+        identifier: params.recipientAddress.toLowerCase(),
+        identifierKind: 'Ethereum',
+      })
+
+      const messageId = await dm.send(params.text)
 
       const message: Message = {
-        id: msg.id,
-        conversationId: `xmtp-${msg.conversationId}`,
-        text: msg.content,
-        timestamp: msg.timestamp,
+        id: messageId,
+        conversationId: `xmtp-${dm.id}`,
+        text: params.text,
+        timestamp: Date.now(),
         isFromMe: true,
         status: 'sent',
         protocol: 'xmtp',
@@ -538,7 +563,7 @@ class WalletMessagingService {
       hasRecipientAddress: !!params.recipientAddress,
       hasRecipientFid: !!params.recipientFid,
       hasDcClient: !!this.dcClient,
-      hasUnifiedService: !!this.unifiedService,
+      hasXmtpClient: !!this.xmtpClient,
     })
     throw new MessagingError(
       'No recipient or messaging not initialized',
@@ -564,6 +589,7 @@ class WalletMessagingService {
       }
       await this.dcClient.markAsRead(peerFid)
     }
+    // XMTP read receipts are handled automatically
   }
 
   async setConversationMuted(
@@ -763,7 +789,7 @@ class WalletMessagingService {
     this.hubClient = null
     this.dcClient = null
     this.xmtpClient = null
-    this.unifiedService = null
+    this.kmsSigner = null
     this.initialized = false
   }
 }
