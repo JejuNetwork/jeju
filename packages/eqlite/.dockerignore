@@ -1,4 +1,0 @@
-test/
-bin/eqlite*
-conf/testnet*/*.keystore
-*.cover.out
