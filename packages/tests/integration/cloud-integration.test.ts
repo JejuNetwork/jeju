@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getL1RpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -21,7 +22,10 @@ import { Logger } from '../../../packages/deployment/scripts/shared/logger'
 import { L1_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
 // Check if localnet is available (L1 for cloud integration)
-const rpcUrl = process.env.RPC_URL || L1_LOCALNET.rpcUrl
+const rpcUrl =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+  getL1RpcUrl() ||
+  L1_LOCALNET.rpcUrl
 let localnetAvailable = false
 try {
   const chain = inferChainFromRpcUrl(rpcUrl)
@@ -45,7 +49,7 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
     // Setup test environment
     const chain = inferChainFromRpcUrl(rpcUrl)
     const account = privateKeyToAccount(
-      (process.env.PRIVATE_KEY ||
+      ((typeof process !== 'undefined' ? process.env.PRIVATE_KEY : undefined) ||
         TEST_WALLETS.deployer.privateKey) as `0x${string}`,
     )
     publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
@@ -58,20 +62,25 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
     // Load deployment addresses
     const addresses = {
       identityRegistryAddress:
-        process.env.IDENTITY_REGISTRY ||
-        '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+        (typeof process !== 'undefined'
+          ? process.env.IDENTITY_REGISTRY
+          : undefined) || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       reputationRegistryAddress:
-        process.env.REPUTATION_REGISTRY ||
-        '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+        (typeof process !== 'undefined'
+          ? process.env.REPUTATION_REGISTRY
+          : undefined) || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
       cloudReputationProviderAddress:
-        process.env.CLOUD_REPUTATION_PROVIDER ||
-        '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+        (typeof process !== 'undefined'
+          ? process.env.CLOUD_REPUTATION_PROVIDER
+          : undefined) || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
       serviceRegistryAddress:
-        process.env.SERVICE_REGISTRY ||
-        '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+        (typeof process !== 'undefined'
+          ? process.env.SERVICE_REGISTRY
+          : undefined) || '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
       creditManagerAddress:
-        process.env.CREDIT_MANAGER ||
-        '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+        (typeof process !== 'undefined'
+          ? process.env.CREDIT_MANAGER
+          : undefined) || '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
     }
 
     const config: CloudConfig = {

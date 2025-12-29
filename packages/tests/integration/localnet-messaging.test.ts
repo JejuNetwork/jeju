@@ -11,6 +11,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { getL1RpcUrl, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -32,20 +33,37 @@ import {
 } from '../shared/schemas'
 
 // Jeju localnet ports (from packages/config/ports.ts)
-const L1_RPC_PORT = parseInt(process.env.L1_RPC_PORT ?? '6545', 10)
-const L2_RPC_PORT = parseInt(process.env.L2_RPC_PORT ?? '6546', 10)
-const _L2_WS_PORT = parseInt(process.env.L2_WS_PORT ?? '6547', 10)
+const host = getLocalhostHost()
+const _L1_RPC_PORT = parseInt(
+  (typeof process !== 'undefined' ? process.env.L1_RPC_PORT : undefined) ??
+    '6545',
+  10,
+)
+const _L2_RPC_PORT = parseInt(
+  (typeof process !== 'undefined' ? process.env.L2_RPC_PORT : undefined) ??
+    '6546',
+  10,
+)
+const _L2_WS_PORT = parseInt(
+  (typeof process !== 'undefined' ? process.env.L2_WS_PORT : undefined) ??
+    '6547',
+  10,
+)
 
 // Service ports
 const RELAY_PORT = 3320
 const HUB_PORT = 3321
 
 // RPC URLs
-const L1_RPC_URL = process.env.L1_RPC_URL ?? `http://127.0.0.1:${L1_RPC_PORT}`
+const L1_RPC_URL =
+  (typeof process !== 'undefined' ? process.env.L1_RPC_URL : undefined) ??
+  getL1RpcUrl() ??
+  `http://${host}:${_L1_RPC_PORT}`
 const L2_RPC_URL =
-  process.env.L2_RPC_URL ??
-  process.env.JEJU_RPC_URL ??
-  `http://127.0.0.1:${L2_RPC_PORT}`
+  (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ??
+  (typeof process !== 'undefined' ? process.env.JEJU_RPC_URL : undefined) ??
+  getL2RpcUrl() ??
+  `http://${host}:${_L2_RPC_PORT}`
 
 // Anvil default accounts
 const TEST_ACCOUNTS = {

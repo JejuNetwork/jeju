@@ -6,6 +6,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getL1RpcUrl, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { createPublicClient, http, parseEther } from 'viem'
 import { z } from 'zod'
 
@@ -14,8 +15,15 @@ const JsonRpcResultSchema = z.object({
   result: z.string(),
 })
 
-const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
-const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
+const host = getLocalhostHost()
+const L1_RPC =
+  (typeof process !== 'undefined' ? process.env.L1_RPC_URL : undefined) ||
+  getL1RpcUrl() ||
+  `http://${host}:6545`
+const L2_RPC =
+  (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ||
+  getL2RpcUrl() ||
+  `http://${host}:6546`
 
 const TEST_ACCOUNT = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 

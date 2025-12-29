@@ -18,6 +18,82 @@
 import { JNSResolver, type JNSResolverConfig } from './jns-resolver'
 import type { JNSResolution, MirrorTarget } from './types'
 
+// AWS SDK types (optional - loaded dynamically)
+interface ResourceRecordSet {
+  Name?: string
+  Type?: string
+  TTL?: number
+  ResourceRecords?: Array<{ Value?: string }>
+}
+
+interface Route53ClientConstructor {
+  new (config: {
+    region: string
+    credentials?: { accessKeyId: string; secretAccessKey: string }
+  }): Route53ClientInstance
+}
+
+interface Route53ClientInstance {
+  send(command: Route53Command): Promise<Route53Response>
+}
+
+type Route53Command = object
+
+interface Route53Response {
+  ResourceRecordSets?: ResourceRecordSet[]
+}
+
+interface ChangeResourceRecordSetsCommandConstructor {
+  new (input: {
+    HostedZoneId: string
+    ChangeBatch: {
+      Changes: Array<{
+        Action: 'UPSERT' | 'DELETE' | 'CREATE'
+        ResourceRecordSet: {
+          Name: string
+          Type: string
+          TTL: number
+          ResourceRecords: Array<{ Value: string }>
+        }
+      }>
+    }
+  }): Route53Command
+}
+
+interface ListResourceRecordSetsCommandConstructor {
+  new (input: { HostedZoneId: string }): Route53Command
+}
+
+// Dynamic SDK storage
+let Route53ClientClass: Route53ClientConstructor | null = null
+let ChangeResourceRecordSetsCommandClass: ChangeResourceRecordSetsCommandConstructor | null =
+  null
+let ListResourceRecordSetsCommandClass: ListResourceRecordSetsCommandConstructor | null =
+  null
+
+const AWS_SDK_MODULE = '@aws-sdk/client-route-53'
+
+interface AWSSDKModule {
+  Route53Client: Route53ClientConstructor
+  ChangeResourceRecordSetsCommand: ChangeResourceRecordSetsCommandConstructor
+  ListResourceRecordSetsCommand: ListResourceRecordSetsCommandConstructor
+}
+
+// Conditional import: AWS SDK is optional - only loaded if Route53 provider is configured
+async function loadAWSSDK(): Promise<boolean> {
+  if (Route53ClientClass) return true
+  try {
+    const aws = (await import(AWS_SDK_MODULE)) as AWSSDKModule
+    Route53ClientClass = aws.Route53Client
+    ChangeResourceRecordSetsCommandClass = aws.ChangeResourceRecordSetsCommand
+    ListResourceRecordSetsCommandClass = aws.ListResourceRecordSetsCommand
+    return true
+  } catch {
+    console.warn('[DNSMirror] AWS SDK not available - Route53 sync disabled')
+    return false
+  }
+}
+
 export interface MirrorProvider {
   name: string
   syncRecords(
@@ -236,21 +312,45 @@ class CloudflareMirrorProvider implements MirrorProvider {
 
 /**
  * AWS Route 53 provider
+ * Uses dynamic import for AWS SDK to keep it optional
  */
 class Route53MirrorProvider implements MirrorProvider {
   name = 'route53'
-  private _accessKeyId: string
-  private _secretAccessKey: string
-  private _hostedZoneId: string
+  private accessKeyId: string
+  private secretAccessKey: string
+  private hostedZoneId: string
+  private client: Route53ClientInstance | null = null
+  private initialized = false
 
   constructor(
     accessKeyId: string,
     secretAccessKey: string,
     hostedZoneId: string,
   ) {
-    this._accessKeyId = accessKeyId
-    this._secretAccessKey = secretAccessKey
-    this._hostedZoneId = hostedZoneId
+    this.accessKeyId = accessKeyId
+    this.secretAccessKey = secretAccessKey
+    this.hostedZoneId = hostedZoneId
+  }
+
+  private async ensureClient(): Promise<boolean> {
+    if (this.client) return true
+    if (this.initialized) return false
+
+    this.initialized = true
+    const loaded = await loadAWSSDK()
+    if (!loaded || !Route53ClientClass) {
+      console.error('[Route53] AWS SDK not available')
+      return false
+    }
+
+    this.client = new Route53ClientClass({
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: this.accessKeyId,
+        secretAccessKey: this.secretAccessKey,
+      },
+    })
+    return true
   }
 
   async syncRecords(records: DNSRecordSet[]): Promise<{
@@ -258,36 +358,140 @@ class Route53MirrorProvider implements MirrorProvider {
     synced: number
     errors: string[]
   }> {
+    if (
+      !(await this.ensureClient()) ||
+      !this.client ||
+      !ChangeResourceRecordSetsCommandClass
+    ) {
+      return {
+        success: false,
+        synced: 0,
+        errors: ['AWS SDK not available'],
+      }
+    }
+
+    const errors: string[] = []
+    let synced = 0
+
     // Route 53 requires batched changes
-    const changes = records.map((record) => ({
-      Action: 'UPSERT',
-      ResourceRecordSet: {
-        Name: record.name,
-        Type: record.type,
-        TTL: record.ttl,
-        ResourceRecords: record.values.map((v) => ({ Value: v })),
-      },
-    }))
+    const changes = records
+      .filter((r) => r.values.length > 0)
+      .map((record) => ({
+        Action: 'UPSERT' as const,
+        ResourceRecordSet: {
+          Name: record.name,
+          Type: record.type,
+          TTL: record.ttl,
+          ResourceRecords: record.values.map((v) => ({ Value: v })),
+        },
+      }))
 
-    // TODO: Implement actual Route 53 API call with AWS4 signing
-    // For now, return placeholder
-    void this._accessKeyId
-    void this._secretAccessKey
-    void this._hostedZoneId
-    console.log('[Route53] Would sync records:', changes.length)
+    if (changes.length === 0) {
+      return { success: true, synced: 0, errors: [] }
+    }
 
-    return { success: true, synced: records.length, errors: [] }
+    try {
+      const command = new ChangeResourceRecordSetsCommandClass({
+        HostedZoneId: this.hostedZoneId,
+        ChangeBatch: { Changes: changes },
+      })
+
+      await this.client.send(command)
+      synced = changes.length
+      console.log(`[Route53] Synced ${synced} records`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      errors.push(message)
+      console.error('[Route53] Sync error:', message)
+    }
+
+    return { success: errors.length === 0, synced, errors }
   }
 
   async getZoneRecords(): Promise<DNSRecordSet[]> {
-    // TODO: Implement Route 53 ListResourceRecordSets
-    return []
+    if (
+      !(await this.ensureClient()) ||
+      !this.client ||
+      !ListResourceRecordSetsCommandClass
+    ) {
+      return []
+    }
+
+    try {
+      const command = new ListResourceRecordSetsCommandClass({
+        HostedZoneId: this.hostedZoneId,
+      })
+
+      const response = (await this.client.send(command)) as Route53Response
+      const records: DNSRecordSet[] = []
+
+      for (const rrs of response.ResourceRecordSets ?? []) {
+        const type = rrs.Type as DNSRecordSet['type'] | undefined
+        if (
+          type === 'A' ||
+          type === 'AAAA' ||
+          type === 'CNAME' ||
+          type === 'TXT'
+        ) {
+          records.push({
+            name: rrs.Name ?? '',
+            type,
+            ttl: rrs.TTL ?? 300,
+            values: rrs.ResourceRecords?.map((r) => r.Value ?? '') ?? [],
+          })
+        }
+      }
+
+      return records
+    } catch (error) {
+      console.error('[Route53] Failed to get zone records:', error)
+      return []
+    }
   }
 
   async deleteRecord(name: string, type: string): Promise<boolean> {
-    // TODO: Implement Route 53 DELETE
-    console.log(`[Route53] Would delete: ${name} ${type}`)
-    return true
+    if (
+      !(await this.ensureClient()) ||
+      !this.client ||
+      !ChangeResourceRecordSetsCommandClass
+    ) {
+      return false
+    }
+
+    try {
+      // First get current record to know TTL and values
+      const records = await this.getZoneRecords()
+      const existing = records.find((r) => r.name === name && r.type === type)
+
+      if (!existing) {
+        console.log(`[Route53] Record not found: ${name} ${type}`)
+        return true // Already doesn't exist
+      }
+
+      const command = new ChangeResourceRecordSetsCommandClass({
+        HostedZoneId: this.hostedZoneId,
+        ChangeBatch: {
+          Changes: [
+            {
+              Action: 'DELETE',
+              ResourceRecordSet: {
+                Name: name,
+                Type: type,
+                TTL: existing.ttl,
+                ResourceRecords: existing.values.map((v) => ({ Value: v })),
+              },
+            },
+          ],
+        },
+      })
+
+      await this.client.send(command)
+      console.log(`[Route53] Deleted: ${name} ${type}`)
+      return true
+    } catch (error) {
+      console.error(`[Route53] Failed to delete ${name} ${type}:`, error)
+      return false
+    }
   }
 }
 

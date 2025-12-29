@@ -21,6 +21,7 @@ import {
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
+import { externalChainNodeState, getStateMode } from '../state'
 
 // ============================================================================
 // Types
@@ -267,6 +268,9 @@ export class ExternalRPCNodeService {
     await this.waitForNodeReady(node)
     this.startHeartbeat(node)
 
+    // Persist to EQLite
+    await this.saveNodeState(node)
+
     return node
   }
 
@@ -331,6 +335,9 @@ export class ExternalRPCNodeService {
     // Wait for node to sync
     await this.waitForDWSNodeReady(node, dwsEndpoint)
     this.startHeartbeat(node)
+
+    // Persist to EQLite
+    await this.saveNodeState(node)
 
     return node
   }
@@ -589,6 +596,9 @@ export class ExternalRPCNodeService {
         node.status = 'unhealthy'
         console.warn(`[ExternalRPCNodes] ${node.chain} became unhealthy`)
       }
+
+      // Persist heartbeat to EQLite
+      await this.saveNodeState(node)
     }, 30_000)
 
     this.heartbeatIntervals.set(node.chain, interval)
@@ -614,6 +624,7 @@ export class ExternalRPCNodeService {
     }
 
     node.status = 'stopped'
+    await this.saveNodeState(node)
     console.log(`[ExternalRPCNodes] Stopped ${chain}`)
   }
 
@@ -676,8 +687,86 @@ export class ExternalRPCNodeService {
     return keccak256(toBytes(`${chain}:${this.network}:${Date.now()}`))
   }
 
+  /**
+   * Load node state from persistent storage (EQLite)
+   */
   private async loadNodeState(): Promise<void> {
-    // TODO: Load from EQLite or on-chain registry for testnet/mainnet
+    if (getStateMode() === 'memory') {
+      console.log(
+        '[ExternalRPCNodes] Running in memory mode - skipping state load',
+      )
+      return
+    }
+
+    try {
+      const rows = await externalChainNodeState.listAll()
+      console.log(`[ExternalRPCNodes] Loading ${rows.length} nodes from EQLite`)
+
+      for (const row of rows) {
+        const node: ExternalChainNode = {
+          nodeId: row.node_id as Hex,
+          chain: row.chain as ChainType,
+          chainId: row.chain_id,
+          status: row.status as NodeStatus,
+          rpcEndpoint: row.endpoint,
+          wsEndpoint: '',
+          containerId: row.chain,
+          provisionedAt: row.registered_at,
+          lastHeartbeat: row.last_heartbeat,
+          syncProgress: row.sync_status === 'synced' ? 100 : 0,
+          teeEnabled: false,
+        }
+
+        this.nodes.set(node.chain, node)
+
+        // Verify node is still running and restart heartbeat if active
+        if (node.status === 'active') {
+          const healthy = await this.checkNodeHealth(node)
+          if (healthy) {
+            this.startHeartbeat(node)
+          } else {
+            node.status = 'unhealthy'
+            await this.saveNodeState(node)
+            console.warn(
+              `[ExternalRPCNodes] Node ${node.chain} is not responding`,
+            )
+          }
+        }
+      }
+
+      console.log(`[ExternalRPCNodes] Loaded ${this.nodes.size} nodes`)
+    } catch (error) {
+      console.warn('[ExternalRPCNodes] Failed to load node state:', error)
+    }
+  }
+
+  /**
+   * Save node state to persistent storage (EQLite)
+   */
+  private async saveNodeState(node: ExternalChainNode): Promise<void> {
+    if (getStateMode() === 'memory') return
+
+    try {
+      await externalChainNodeState.save({
+        chain: node.chain,
+        nodeId: node.nodeId,
+        status: node.status,
+        endpoint: node.rpcEndpoint,
+        chainId: node.chainId,
+        syncStatus: node.syncProgress >= 100 ? 'synced' : 'syncing',
+        blockHeight: 0,
+        lastBlockTime: null,
+        peers: 0,
+        registeredAt: node.provisionedAt,
+        lastHeartbeat: node.lastHeartbeat,
+        isActive: node.status === 'active',
+      })
+    } catch (error) {
+      console.warn(
+        `[ExternalRPCNodes] Failed to save node ${node.chain}:`,
+        error,
+      )
+    }
   }
 
   async shutdown(): Promise<void> {

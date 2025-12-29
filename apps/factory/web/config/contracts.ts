@@ -85,7 +85,7 @@ export function getDwsUrl(): string {
   }
   if (
     hostname === 'factory.jejunetwork.org' ||
-    hostname === 'factory.jeju.network'
+    hostname === 'factory.jejunetwork.org'
   ) {
     return DWS_URLS.mainnet
   }
@@ -98,7 +98,7 @@ function getNetwork(): NetworkType {
   if (hostname.includes('testnet')) return 'testnet'
   if (
     hostname === 'factory.jejunetwork.org' ||
-    hostname === 'factory.jeju.network'
+    hostname === 'factory.jejunetwork.org'
   )
     return 'mainnet'
   return 'localnet'

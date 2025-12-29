@@ -158,19 +158,6 @@ export function createNodeServices(
   // Services will validate and error if operator address is required for specific operations
   const operatorAddress = bridgeConfig?.operatorAddress ?? ZERO_ADDRESS
 
-  const fullBridgeConfig: BridgeServiceConfig = {
-    ...getDefaultBridgeConfig(operatorAddress),
-    operatorAddress,
-    enableRelayer: bridgeConfig?.enableRelayer ?? true,
-    enableXLP: bridgeConfig?.enableXLP ?? true,
-    enableSolver: bridgeConfig?.enableSolver ?? true,
-    enableMEV: bridgeConfig?.enableMEV ?? false,
-    enableArbitrage: bridgeConfig?.enableArbitrage ?? false,
-    evmRpcUrls: bridgeConfig?.evmRpcUrls ?? {},
-    contracts: bridgeConfig?.contracts ?? {},
-    ...bridgeConfig,
-  }
-
   // Get keyId from config or SecureNodeClient
   const resolvedKeyId =
     keyId ?? ('keyId' in client ? client.keyId : undefined) ?? ''
@@ -179,6 +166,20 @@ export function createNodeServices(
     console.warn(
       '[NodeServices] No KMS keyId provided - services requiring signing will fail',
     )
+  }
+
+  const fullBridgeConfig: BridgeServiceConfig = {
+    ...getDefaultBridgeConfig(operatorAddress),
+    operatorAddress,
+    evmKeyId: bridgeConfig?.evmKeyId ?? resolvedKeyId,
+    enableRelayer: bridgeConfig?.enableRelayer ?? true,
+    enableXLP: bridgeConfig?.enableXLP ?? true,
+    enableSolver: bridgeConfig?.enableSolver ?? true,
+    enableMEV: bridgeConfig?.enableMEV ?? false,
+    enableArbitrage: bridgeConfig?.enableArbitrage ?? false,
+    evmRpcUrls: bridgeConfig?.evmRpcUrls ?? {},
+    contracts: bridgeConfig?.contracts ?? {},
+    ...bridgeConfig,
   }
 
   const fullEdgeConfig: EdgeCoordinatorConfig = {

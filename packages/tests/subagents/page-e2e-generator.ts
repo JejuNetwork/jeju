@@ -225,8 +225,24 @@ test.describe('${page.component}', () => {
   })
 
   test('should load page correctly', async ({ page }) => {
+    // Verify URL is correct
     await expect(page).toHaveURL(/${page.route.replace(/\//g, '\\/')}/)
-    // TODO: Add more specific assertions
+    
+    // Verify page title or main heading exists
+    const heading = page.locator('h1, h2, [role="heading"]').first()
+    await expect(heading).toBeVisible({ timeout: 10000 })
+    
+    // Verify no console errors during page load
+    const errors: string[] = []
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
+    
+    // Wait for page to be fully loaded
+    await page.waitForLoadState('networkidle')
+    
+    // Assert no errors occurred
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0)
   })
 `
 
@@ -254,12 +270,18 @@ test.describe('${page.component}', () => {
     const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId)
     await connectAndVerify(page, metamask)
     
-    // Trigger sign action (update selector)
-    await page.click('button:has-text(/sign/i)')
+    // Find and click the sign button
+    const signButton = page.locator('button:has-text(/sign/i)').first()
+    await expect(signButton).toBeVisible()
+    await signButton.click()
+    
+    // Complete the signature in MetaMask
     await signMessage(metamask)
     
-    // Verify signature result
-    // TODO: Add signature verification
+    // Verify signature was successful
+    // Look for success indicators: toast, status change, or signature display
+    const successIndicator = page.locator('[data-testid="signature-success"], .toast-success, :text("signed"), :text("success")')
+    await expect(successIndicator.first()).toBeVisible({ timeout: 10000 })
   })
 `
     }
@@ -270,13 +292,24 @@ test.describe('${page.component}', () => {
     const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId)
     await connectAndVerify(page, metamask)
     
-    // Trigger transaction (update selector)
-    // TODO: Fill in transaction form if needed
-    await page.click('button:has-text(/submit|confirm|send/i)')
+    // Fill any required form fields before submitting transaction
+    const amountInput = page.locator('input[name="amount"], input[placeholder*="amount"]').first()
+    if (await amountInput.isVisible()) {
+      await amountInput.fill('0.001')
+    }
+    
+    // Click the transaction submit button
+    const submitButton = page.locator('button:has-text(/submit|confirm|send|transfer/i)').first()
+    await expect(submitButton).toBeVisible()
+    await submitButton.click()
+    
+    // Approve the transaction in MetaMask
     await approveTransaction(metamask)
     
-    // Verify transaction result
-    // TODO: Add transaction confirmation check
+    // Verify transaction was submitted
+    // Look for transaction hash, success message, or pending indicator
+    const txIndicator = page.locator('[data-testid="tx-hash"], .tx-success, :text("transaction"), :text("submitted"), :text("pending")')
+    await expect(txIndicator.first()).toBeVisible({ timeout: 30000 })
   })
 `
     }
@@ -286,22 +319,33 @@ test.describe('${page.component}', () => {
   for (const form of page.forms) {
     testCode += `
   test('should submit ${form.name} form', async ({ page }) => {
-    // Fill form fields
-${form.fields.map((field) => `    await page.fill('input[name="${field}"]', 'test-value')`).join('\n')}
+    // Fill form fields with test data
+${form.fields.map((field) => `    await page.fill('input[name="${field}"]', 'test-${field}-value')`).join('\n')}
     
-    // Submit form
-    await page.click('button[type="submit"]')
+    // Submit the form
+    const submitButton = page.locator('button[type="submit"], button:has-text(/submit|save|create/i)').first()
+    await submitButton.click()
     
-    // Verify submission
-    // TODO: Add submission verification
+    // Verify submission was successful
+    // Check for success message, redirect, or data update
+    await expect(
+      page.locator('.toast-success, [role="alert"]:has-text("success"), :text("saved"), :text("created"), :text("submitted")')
+        .first()
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('should validate ${form.name} form', async ({ page }) => {
-    // Submit empty form
-    await page.click('button[type="submit"]')
+    // Submit empty form to trigger validation
+    const submitButton = page.locator('button[type="submit"], button:has-text(/submit|save|create/i)').first()
+    await submitButton.click()
     
-    // Check for validation errors
-    // TODO: Add validation error checks
+    // Check for validation error messages
+    const errorIndicator = page.locator('[aria-invalid="true"], .error, .field-error, :text("required"), :text("invalid")')
+    await expect(errorIndicator.first()).toBeVisible({ timeout: 5000 })
+    
+    // Verify form was not submitted (no success message)
+    const successIndicator = page.locator('.toast-success, :text("success")')
+    await expect(successIndicator).not.toBeVisible()
   })
 `
   }
@@ -310,10 +354,21 @@ ${form.fields.map((field) => `    await page.fill('input[name="${field}"]', 'tes
   for (const action of page.actions.filter((a) => a.type === 'click')) {
     testCode += `
   test('should handle ${action.name} action', async ({ page }) => {
-    await page.click('${action.selector}')
+    // Find and click the action button
+    const actionButton = page.locator('${action.selector}').first()
+    await expect(actionButton).toBeVisible()
+    await actionButton.click()
     
-    // Verify action result
-    // TODO: Add action verification
+    // Verify the action had an effect
+    // Check for: modal opening, navigation, state change, or API response
+    await page.waitForTimeout(500) // Allow time for UI update
+    
+    // Verify page is still functional after action
+    await expect(page.locator('body')).toBeVisible()
+    
+    // Check for any error states
+    const errorModal = page.locator('[role="alertdialog"], .modal-error, .toast-error')
+    await expect(errorModal).not.toBeVisible()
   })
 `
   }

@@ -496,7 +496,7 @@ function base58Decode(str: string): Uint8Array {
  */
 async function deployWorker(
   repoPath: string,
-  _appName: string,
+  appName: string,
 ): Promise<boolean> {
   // Check for jeju-manifest.json
   const manifestPath = joinPath(repoPath, 'jeju-manifest.json')
@@ -521,11 +521,74 @@ async function deployWorker(
     }
   }
 
-  // TODO: Deploy to worker runtime
-  // This would register the worker with the compute registry
-  // and deploy to available nodes
+  // Read manifest for worker config
+  const manifestContent = await readFile(manifestPath)
+  const manifest = JSON.parse(manifestContent) as {
+    name: string
+    worker?: {
+      entrypoint: string
+      env?: Record<string, string>
+    }
+  }
 
-  return true
+  if (!manifest.worker) {
+    console.log(`[Deploy] No worker config in manifest`)
+    return false
+  }
+
+  // Upload worker code to IPFS
+  const workerPath = joinPath(repoPath, manifest.worker.entrypoint)
+  const workerExists = await fileExists(workerPath)
+  if (!workerExists) {
+    console.error(`[Deploy] Worker entrypoint not found: ${workerPath}`)
+    return false
+  }
+
+  const workerCid = await uploadToIPFS(workerPath)
+  if (!workerCid) {
+    console.error(`[Deploy] Failed to upload worker to IPFS`)
+    return false
+  }
+
+  // Deploy to worker runtime via DWS API
+  const localhost = getLocalhostHost()
+  const deployUrl = `http://${localhost}:4010/api/workers/deploy`
+
+  try {
+    const response = await fetch(deployUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: appName,
+        code: {
+          cid: workerCid,
+        },
+        env: manifest.worker.env,
+        requirements: {
+          minInstances: 1,
+          maxInstances: 3,
+          teeRequired: false,
+        },
+        payment: {
+          model: 'x402',
+          maxPricePerRequest: 1000000n.toString(), // 0.001 USDC
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error(`[Deploy] Worker deployment failed: ${error}`)
+      return false
+    }
+
+    const result = (await response.json()) as { workerId: string }
+    console.log(`[Deploy] Worker deployed: ${result.workerId}`)
+    return true
+  } catch (error) {
+    console.error(`[Deploy] Worker deployment error:`, error)
+    return false
+  }
 }
 
 /**
@@ -611,10 +674,15 @@ export async function runDeployHook(
 
 /**
  * Git post-receive hook handler
+ *
+ * @param repoPath - Path to the repository
+ * @param refs - Array of ref updates from the push
+ * @param owner - Owner address from authenticated session (required for JNS updates)
  */
 export async function handlePostReceive(
   repoPath: string,
   refs: Array<{ oldRev: string; newRev: string; refName: string }>,
+  owner?: Address,
 ): Promise<DeploymentResult[]> {
   const results: DeploymentResult[] = []
 
@@ -627,12 +695,16 @@ export async function handlePostReceive(
     const branch = ref.refName.split('/').pop() ?? 'main'
     const appName = repoPath.split('/').pop() ?? 'unknown'
 
+    // Use provided owner or default (anonymous deploy)
+    const deployOwner =
+      owner ?? ('0x0000000000000000000000000000000000000000' as Address)
+
     const result = await runDeployHook({
       repoPath,
       appName,
       branch,
       commitHash: ref.newRev,
-      owner: '0x0000000000000000000000000000000000000000' as Address, // TODO: Get from auth
+      owner: deployOwner,
       network: getCurrentNetwork(),
     })
 

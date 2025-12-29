@@ -279,7 +279,7 @@ export class JejuGroup {
   }
 
   getInviteLink(invite: GroupInvite): string {
-    return `https://jeju.network/group/join?id=${invite.groupId}&code=${invite.code}`
+    return `https://jejunetwork.org/group/join?id=${invite.groupId}&code=${invite.code}`
   }
 
   async updateMetadata(updates: Partial<GroupMetadata>): Promise<void> {

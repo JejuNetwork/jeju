@@ -293,7 +293,8 @@ async function main() {
     },
   })
 
-  console.log(`[DWS Frontend] http://localhost:${PORT}`)
+  const host = getLocalhostHost()
+  console.log(`[DWS Frontend] http://${host}:${PORT}`)
   console.log(`[DWS Frontend] API proxy: ${API_URL}`)
 
   // Watch for changes

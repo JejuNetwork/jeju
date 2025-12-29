@@ -270,7 +270,7 @@ function createKMSAccount(
  * ```typescript
  * const wallet = await createKMSWallet({
  *   address: '0x...', // Your wallet address (from KMS key generation)
- *   kmsEndpoint: 'https://kms.jeju.network',
+ *   kmsEndpoint: 'https://kms.jejunetwork.org',
  *   keyId: 'key-abc123',
  *   network: 'mainnet',
  * });

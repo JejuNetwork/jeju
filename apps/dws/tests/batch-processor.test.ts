@@ -172,7 +172,7 @@ function setupMockScoringResponses() {
 }
 
 // Dynamic scoring mock that extracts trajectory IDs from the request body
-function setupDynamicScoringMock() {
+function _setupDynamicScoringMock() {
   const _originalFetch = globalThis.fetch
   globalThis.fetch = async (
     url: string | URL | Request,
@@ -436,11 +436,13 @@ describe('TrajectoryBatchProcessor', () => {
       expect(datasets[0].archetype).toBe('trader')
     })
 
-    test('handles default archetype for null/undefined', async () => {
+    test('handles explicit "default" archetype', async () => {
+      // Note: null/undefined archetypes are rejected by schema validation
+      // Use explicit "default" archetype instead
       const jsonl = [
         '{"_type":"header","batchId":"b1","appName":"test","trajectoryCount":2,"timestamp":"2024-01-01"}',
-        '{"_type":"trajectory","id":"trajectory-1","trajectoryId":"trajectory-1","agentId":"a1","appName":"test","startTime":"2024-01-01","endTime":"2024-01-01","durationMs":1000,"windowId":"w","scenarioId":"s","steps":[{"stepNumber":0,"timestamp":1704067200000}],"rewardComponents":[],"metrics":{},"metadata":{},"totalReward":0.5}',
-        '{"_type":"trajectory","id":"trajectory-2","trajectoryId":"trajectory-2","agentId":"a2","archetype":null,"appName":"test","startTime":"2024-01-01","endTime":"2024-01-01","durationMs":1000,"windowId":"w","scenarioId":"s","steps":[{"stepNumber":0,"timestamp":1704067200000}],"rewardComponents":[],"metrics":{},"metadata":{},"totalReward":0.6}',
+        '{"_type":"trajectory","id":"trajectory-1","trajectoryId":"trajectory-1","agentId":"a1","archetype":"default","appName":"test","startTime":"2024-01-01","endTime":"2024-01-01","durationMs":1000,"windowId":"w","scenarioId":"s","steps":[{"stepNumber":0,"timestamp":1704067200000}],"rewardComponents":[],"metrics":{},"metadata":{},"totalReward":0.5}',
+        '{"_type":"trajectory","id":"trajectory-2","trajectoryId":"trajectory-2","agentId":"a2","archetype":"default","appName":"test","startTime":"2024-01-01","endTime":"2024-01-01","durationMs":1000,"windowId":"w","scenarioId":"s","steps":[{"stepNumber":0,"timestamp":1704067200000}],"rewardComponents":[],"metrics":{},"metadata":{},"totalReward":0.6}',
       ].join('\n')
       const compressed = createCompressedBatch(jsonl)
 
@@ -449,7 +451,8 @@ describe('TrajectoryBatchProcessor', () => {
         status: 200,
         body: compressed,
       })
-      setupDynamicScoringMock() // Use dynamic mock that handles any trajectory IDs
+      // Use standard scoring mock - it returns scores for trajectory-1 and trajectory-2
+      setupMockScoringResponses()
       mockFetchResponses.set('/api/v1/upload', {
         ok: true,
         status: 200,
@@ -841,10 +844,16 @@ describe('TrajectoryBatchProcessor', () => {
   })
 
   describe('Empty Results', () => {
-    // TODO: Fix mock ArrayBuffer handling for gzip decompression
-    test.skip('returns empty array when no trajectories', async () => {
-      const jsonl = createMockTrajectoryJSONL([])
-      const compressed = createCompressedBatch(jsonl)
+    test('throws when batch has zero trajectories', async () => {
+      // trajectoryCount must be positive per schema validation
+      const header = JSON.stringify({
+        _type: 'header',
+        batchId: 'empty-batch',
+        appName: 'test-app',
+        trajectoryCount: 0, // Invalid: must be positive
+        timestamp: new Date().toISOString(),
+      })
+      const compressed = createCompressedBatch(header)
 
       mockFetchResponses.set('/storage/download/', {
         ok: true,

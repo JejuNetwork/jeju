@@ -52,14 +52,14 @@ contract VPNRegistryTest is Test {
     function test_RegisterNode() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         VPNRegistry.VPNNode memory node = registry.getNode(operator1);
 
         assertEq(node.operator, operator1);
         assertEq(node.countryCode, US);
-        assertEq(node.endpoint, "vpn1.jeju.network:51820");
+        assertEq(node.endpoint, "vpn1.jejunetwork.org:51820");
         assertEq(node.wireguardPubKey, "WgPubKey123ABC");
         assertEq(node.stake, 0.1 ether);
         assertTrue(node.active);
@@ -68,13 +68,13 @@ contract VPNRegistryTest is Test {
     function test_RegisterNode_RevertIfAlreadyRegistered() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(operator1);
         vm.expectRevert(VPNRegistry.NodeAlreadyRegistered.selector);
         registry.register{value: 0.1 ether}(
-            NL, keccak256("eu-west-1"), "vpn2.jeju.network:51820", "WgPubKey456DEF", _getDefaultCapabilities()
+            NL, keccak256("eu-west-1"), "vpn2.jejunetwork.org:51820", "WgPubKey456DEF", _getDefaultCapabilities()
         );
     }
 
@@ -82,7 +82,7 @@ contract VPNRegistryTest is Test {
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(VPNRegistry.InsufficientStake.selector, 0.005 ether, 0.01 ether));
         registry.register{value: 0.005 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
     }
 
@@ -99,22 +99,22 @@ contract VPNRegistryTest is Test {
     function test_UpdateNode() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(operator1);
-        registry.updateNode("vpn-new.jeju.network:51820", "NewWgPubKey", _getDefaultCapabilities());
+        registry.updateNode("vpn-new.jejunetwork.org:51820", "NewWgPubKey", _getDefaultCapabilities());
 
         VPNRegistry.VPNNode memory node = registry.getNode(operator1);
 
-        assertEq(node.endpoint, "vpn-new.jeju.network:51820");
+        assertEq(node.endpoint, "vpn-new.jejunetwork.org:51820");
         assertEq(node.wireguardPubKey, "NewWgPubKey");
     }
 
     function test_UpdateNode_RevertIfNotRegistered() public {
         vm.prank(operator1);
         vm.expectRevert(VPNRegistry.NodeNotRegistered.selector);
-        registry.updateNode("vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities());
+        registry.updateNode("vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities());
     }
 
     // ============ Stake Management Tests ============
@@ -122,7 +122,7 @@ contract VPNRegistryTest is Test {
     function test_AddStake() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(operator1);
@@ -135,7 +135,7 @@ contract VPNRegistryTest is Test {
     function test_WithdrawStake() public {
         vm.prank(operator1);
         registry.register{value: 1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         uint256 balanceBefore = operator1.balance;
@@ -151,7 +151,7 @@ contract VPNRegistryTest is Test {
     function test_WithdrawStake_RevertIfBreachesMinimum() public {
         vm.prank(operator1);
         registry.register{value: 0.05 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(operator1);
@@ -164,7 +164,7 @@ contract VPNRegistryTest is Test {
     function test_DeactivateAndReactivateNode() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(operator1);
@@ -185,7 +185,7 @@ contract VPNRegistryTest is Test {
     function test_RecordSession() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(coordinator);
@@ -200,7 +200,7 @@ contract VPNRegistryTest is Test {
     function test_RecordSession_Failed() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(coordinator);
@@ -229,7 +229,7 @@ contract VPNRegistryTest is Test {
     function test_Slash() public {
         vm.prank(operator1);
         registry.register{value: 1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         uint256 treasuryBalanceBefore = treasury.balance;
@@ -245,7 +245,7 @@ contract VPNRegistryTest is Test {
     function test_Slash_RevertIfExceedsStake() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(owner);
@@ -278,12 +278,12 @@ contract VPNRegistryTest is Test {
     function test_GetNodeCount() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(operator2);
         registry.register{value: 0.1 ether}(
-            NL, keccak256("eu-west-1"), "vpn2.jeju.network:51820", "WgPubKey456DEF", _getDefaultCapabilities()
+            NL, keccak256("eu-west-1"), "vpn2.jejunetwork.org:51820", "WgPubKey456DEF", _getDefaultCapabilities()
         );
 
         assertEq(registry.getNodeCount(), 2);
@@ -292,12 +292,12 @@ contract VPNRegistryTest is Test {
     function test_GetNodesByCountry() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(operator2);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-west-1"), "vpn2.jeju.network:51820", "WgPubKey456DEF", _getDefaultCapabilities()
+            US, keccak256("us-west-1"), "vpn2.jejunetwork.org:51820", "WgPubKey456DEF", _getDefaultCapabilities()
         );
 
         address[] memory usNodes = registry.getNodesByCountry(US);
@@ -307,7 +307,7 @@ contract VPNRegistryTest is Test {
     function test_IsActive() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         assertTrue(registry.isActive(operator1));
@@ -337,7 +337,7 @@ contract VPNRegistryTest is Test {
         vm.prank(operator1);
         vm.expectRevert();
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         vm.prank(owner);
@@ -345,7 +345,7 @@ contract VPNRegistryTest is Test {
 
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         assertEq(registry.getNodeCount(), 1);
@@ -354,7 +354,7 @@ contract VPNRegistryTest is Test {
     function test_Heartbeat() public {
         vm.prank(operator1);
         registry.register{value: 0.1 ether}(
-            US, keccak256("us-east-1"), "vpn1.jeju.network:51820", "WgPubKey123ABC", _getDefaultCapabilities()
+            US, keccak256("us-east-1"), "vpn1.jejunetwork.org:51820", "WgPubKey123ABC", _getDefaultCapabilities()
         );
 
         VPNRegistry.VPNNode memory nodeBefore = registry.getNode(operator1);

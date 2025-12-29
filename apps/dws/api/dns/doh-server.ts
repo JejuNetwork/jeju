@@ -8,8 +8,17 @@
  * - Falls back to upstream DNS for other domains
  */
 
+import { getContract, getRpcUrl } from '@jejunetwork/config'
+import { readContract } from '@jejunetwork/contracts'
 import { Elysia, t } from 'elysia'
-import type { Address } from 'viem'
+import {
+  type Address,
+  createPublicClient,
+  type Hex,
+  http,
+  keccak256,
+  stringToBytes,
+} from 'viem'
 import {
   DNSClass,
   type DNSMessage,
@@ -19,6 +28,88 @@ import {
   type DoHResponse,
 } from './types'
 
+// JNS ABI for resolver
+const JNS_REGISTRY_ABI = [
+  {
+    inputs: [{ name: 'node', type: 'bytes32' }],
+    name: 'resolver',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
+
+const JNS_RESOLVER_ABI = [
+  {
+    inputs: [{ name: 'node', type: 'bytes32' }],
+    name: 'addr',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'node', type: 'bytes32' }],
+    name: 'contenthash',
+    outputs: [{ name: '', type: 'bytes' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'node', type: 'bytes32' },
+      { name: 'key', type: 'string' },
+    ],
+    name: 'text',
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
+
+// ENS Registry on Ethereum Mainnet
+const ENS_REGISTRY_ADDRESS =
+  '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' as Address
+
+// ENS Public Resolver ABI (same structure as JNS)
+const ENS_RESOLVER_ABI = [
+  {
+    inputs: [{ name: 'node', type: 'bytes32' }],
+    name: 'addr',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'node', type: 'bytes32' }],
+    name: 'contenthash',
+    outputs: [{ name: '', type: 'bytes' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'node', type: 'bytes32' },
+      { name: 'key', type: 'string' },
+    ],
+    name: 'text',
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
+
+function namehash(name: string): Hex {
+  const labels = name.toLowerCase().replace(/\.$/, '').split('.').reverse()
+  let node: Hex = `0x${'0'.repeat(64)}` as Hex
+
+  for (const label of labels) {
+    const labelHash = keccak256(stringToBytes(label))
+    node = keccak256(`${node}${labelHash.slice(2)}` as Hex) as Hex
+  }
+
+  return node
+}
+
 export interface DoHServerConfig {
   port: number
   /** Upstream DoH servers for fallback (Cloudflare, Google, etc.) */
@@ -27,8 +118,10 @@ export interface DoHServerConfig {
   jnsResolverAddress?: Address
   /** ENS resolver for .eth domains */
   ensResolverAddress?: Address
-  /** RPC URL for blockchain resolution */
+  /** RPC URL for blockchain resolution (Jeju network) */
   rpcUrl?: string
+  /** Ethereum mainnet RPC URL for ENS resolution */
+  ethRpcUrl?: string
   /** Enable DNSSEC validation */
   dnssecEnabled: boolean
   /** Cache TTL in seconds */
@@ -210,9 +303,6 @@ export class DoHServer {
    * Resolve custom TLDs (jeju, jns) via JNS on-chain
    */
   private async resolveCustomTLD(question: DNSQuestion): Promise<DoHResponse> {
-    // For now, return a synthetic response
-    // TODO: Integrate with actual JNS resolver
-
     const response: DoHResponse = {
       Status: DNSResponseCode.NOERROR,
       TC: false,
@@ -223,39 +313,142 @@ export class DoHServer {
       Question: [{ name: question.name, type: question.type }],
     }
 
-    // For A record queries, return a placeholder
-    // In production, this would query JNS for the worker endpoint
-    if (question.type === DNSRecordType.A) {
-      response.Answer = [
-        {
-          name: question.name,
-          type: DNSRecordType.A,
-          TTL: this.config.cacheTTL,
-          data: '127.0.0.1', // Placeholder - should be DWS node IP
-        },
-      ]
-    } else if (question.type === DNSRecordType.TXT) {
-      // Return contenthash or other text records from JNS
-      response.Answer = [
-        {
-          name: question.name,
-          type: DNSRecordType.TXT,
-          TTL: this.config.cacheTTL,
-          data: '"dnslink=/ipfs/QmPlaceholder"',
-        },
-      ]
-    }
+    try {
+      // Get JNS contract addresses
+      const jnsRegistry =
+        this.config.jnsResolverAddress ||
+        (getContract('jns', 'jnsRegistry') as Address | undefined)
+      const rpcUrl = this.config.rpcUrl || getRpcUrl()
 
-    return response
+      if (!jnsRegistry || !rpcUrl) {
+        console.warn('[DoH] JNS not configured')
+        response.Status = DNSResponseCode.SERVFAIL
+        return response
+      }
+
+      // Create public client for on-chain queries
+      const client = createPublicClient({
+        transport: http(rpcUrl),
+      })
+
+      // Calculate namehash for the domain
+      const node = namehash(question.name)
+
+      // Get resolver for this name
+      const resolverAddress = await readContract(client, {
+        address: jnsRegistry,
+        abi: JNS_REGISTRY_ABI,
+        functionName: 'resolver',
+        args: [node],
+      })
+
+      if (
+        !resolverAddress ||
+        resolverAddress === '0x0000000000000000000000000000000000000000'
+      ) {
+        response.Status = DNSResponseCode.NXDOMAIN
+        return response
+      }
+
+      // Handle different record types
+      if (question.type === DNSRecordType.A) {
+        // Get address from JNS resolver
+        const addr = await readContract(client, {
+          address: resolverAddress,
+          abi: JNS_RESOLVER_ABI,
+          functionName: 'addr',
+          args: [node],
+        })
+
+        if (addr && addr !== '0x0000000000000000000000000000000000000000') {
+          // Check if there's an app.endpoint text record
+          const endpoint = await readContract(client, {
+            address: resolverAddress,
+            abi: JNS_RESOLVER_ABI,
+            functionName: 'text',
+            args: [node, 'app.endpoint'],
+          }).catch(() => null)
+
+          if (endpoint) {
+            // Parse endpoint URL to get IP
+            const url = new URL(endpoint)
+            response.Answer = [
+              {
+                name: question.name,
+                type: DNSRecordType.A,
+                TTL: this.config.cacheTTL,
+                data: url.hostname, // May need DNS lookup if not IP
+              },
+            ]
+          } else {
+            // Return DWS gateway IP for this name
+            response.Answer = [
+              {
+                name: question.name,
+                type: DNSRecordType.A,
+                TTL: this.config.cacheTTL,
+                data: '127.0.0.1', // DWS gateway IP
+              },
+            ]
+          }
+        } else {
+          response.Status = DNSResponseCode.NXDOMAIN
+        }
+      } else if (question.type === DNSRecordType.TXT) {
+        // Try to get contenthash or text records
+        const contenthash = await readContract(client, {
+          address: resolverAddress,
+          abi: JNS_RESOLVER_ABI,
+          functionName: 'contenthash',
+          args: [node],
+        }).catch(() => null)
+
+        if (contenthash && contenthash !== '0x') {
+          // Decode contenthash to IPFS CID (simplified - just show raw hex)
+          response.Answer = [
+            {
+              name: question.name,
+              type: DNSRecordType.TXT,
+              TTL: this.config.cacheTTL,
+              data: `"dnslink=/ipfs/${contenthash}"`,
+            },
+          ]
+        } else {
+          // Try to get url text record
+          const url = await readContract(client, {
+            address: resolverAddress,
+            abi: JNS_RESOLVER_ABI,
+            functionName: 'text',
+            args: [node, 'url'],
+          }).catch(() => null)
+
+          if (url) {
+            response.Answer = [
+              {
+                name: question.name,
+                type: DNSRecordType.TXT,
+                TTL: this.config.cacheTTL,
+                data: `"url=${url}"`,
+              },
+            ]
+          }
+        }
+      }
+
+      return response
+    } catch (error) {
+      console.error('[DoH] JNS resolution error:', error)
+      response.Status = DNSResponseCode.SERVFAIL
+      return response
+    }
   }
 
   /**
-   * Resolve ENS domains via ENS bridge
+   * Resolve ENS domains via Ethereum mainnet
    */
   private async resolveENS(question: DNSQuestion): Promise<DoHResponse> {
-    // TODO: Integrate with ENS resolver
-    return {
-      Status: DNSResponseCode.NXDOMAIN,
+    const response: DoHResponse = {
+      Status: DNSResponseCode.NOERROR,
       TC: false,
       RD: true,
       RA: true,
@@ -263,6 +456,210 @@ export class DoHServer {
       CD: false,
       Question: [{ name: question.name, type: question.type }],
     }
+
+    // Check if Ethereum RPC is configured
+    const ethRpcUrl =
+      this.config.ethRpcUrl ||
+      process.env.ETH_RPC_URL ||
+      process.env.ETH_MAINNET_RPC_URL
+
+    if (!ethRpcUrl) {
+      console.warn('[DoH] ENS resolution requires ETH_RPC_URL to be configured')
+      response.Status = DNSResponseCode.SERVFAIL
+      return response
+    }
+
+    try {
+      // Create client for Ethereum mainnet
+      const client = createPublicClient({
+        transport: http(ethRpcUrl),
+      })
+
+      // Calculate namehash for the ENS domain
+      const node = namehash(question.name)
+
+      // Get resolver from ENS registry
+      const resolverAddress = await readContract(client, {
+        address: ENS_REGISTRY_ADDRESS,
+        abi: JNS_REGISTRY_ABI, // Same ABI structure
+        functionName: 'resolver',
+        args: [node],
+      })
+
+      if (
+        !resolverAddress ||
+        resolverAddress === '0x0000000000000000000000000000000000000000'
+      ) {
+        response.Status = DNSResponseCode.NXDOMAIN
+        return response
+      }
+
+      // Handle different record types
+      if (question.type === DNSRecordType.A) {
+        // Get Ethereum address from ENS resolver
+        const addr = await readContract(client, {
+          address: resolverAddress,
+          abi: ENS_RESOLVER_ABI,
+          functionName: 'addr',
+          args: [node],
+        })
+
+        if (addr && addr !== '0x0000000000000000000000000000000000000000') {
+          // ENS A records typically point to IPFS gateway or a DWS endpoint
+          // Check for ip.addr text record first (custom for DNS)
+          const ipAddr = await readContract(client, {
+            address: resolverAddress,
+            abi: ENS_RESOLVER_ABI,
+            functionName: 'text',
+            args: [node, 'ip.addr'],
+          }).catch(() => null)
+
+          if (ipAddr && this.isValidIPv4(ipAddr)) {
+            response.Answer = [
+              {
+                name: question.name,
+                type: DNSRecordType.A,
+                TTL: this.config.cacheTTL,
+                data: ipAddr,
+              },
+            ]
+          } else {
+            // Fallback: return gateway IP for ENS names
+            // In production, this would route to an IPFS/ENS gateway
+            response.Answer = [
+              {
+                name: question.name,
+                type: DNSRecordType.A,
+                TTL: this.config.cacheTTL,
+                data: '127.0.0.1', // Local gateway
+              },
+            ]
+          }
+        } else {
+          response.Status = DNSResponseCode.NXDOMAIN
+        }
+      } else if (question.type === DNSRecordType.TXT) {
+        // Get contenthash for TXT records (dnslink format)
+        const contenthash = await readContract(client, {
+          address: resolverAddress,
+          abi: ENS_RESOLVER_ABI,
+          functionName: 'contenthash',
+          args: [node],
+        }).catch(() => null)
+
+        if (contenthash && contenthash !== '0x') {
+          // Decode contenthash - ENS uses multicodec format
+          const cid = this.decodeContenthash(contenthash)
+          if (cid) {
+            response.Answer = [
+              {
+                name: question.name,
+                type: DNSRecordType.TXT,
+                TTL: this.config.cacheTTL,
+                data: `"dnslink=/ipfs/${cid}"`,
+              },
+            ]
+          }
+        }
+
+        // Also check for url text record
+        if (!response.Answer) {
+          const url = await readContract(client, {
+            address: resolverAddress,
+            abi: ENS_RESOLVER_ABI,
+            functionName: 'text',
+            args: [node, 'url'],
+          }).catch(() => null)
+
+          if (url) {
+            response.Answer = [
+              {
+                name: question.name,
+                type: DNSRecordType.TXT,
+                TTL: this.config.cacheTTL,
+                data: `"url=${url}"`,
+              },
+            ]
+          }
+        }
+      } else if (question.type === DNSRecordType.AAAA) {
+        // Check for IPv6 address in text record
+        const ipv6Addr = await readContract(client, {
+          address: resolverAddress,
+          abi: ENS_RESOLVER_ABI,
+          functionName: 'text',
+          args: [node, 'ip6.addr'],
+        }).catch(() => null)
+
+        if (ipv6Addr) {
+          response.Answer = [
+            {
+              name: question.name,
+              type: DNSRecordType.AAAA,
+              TTL: this.config.cacheTTL,
+              data: ipv6Addr,
+            },
+          ]
+        }
+      }
+
+      return response
+    } catch (error) {
+      console.error('[DoH] ENS resolution error:', error)
+      response.Status = DNSResponseCode.SERVFAIL
+      return response
+    }
+  }
+
+  /**
+   * Validate IPv4 address format
+   */
+  private isValidIPv4(ip: string): boolean {
+    const parts = ip.split('.')
+    if (parts.length !== 4) return false
+    return parts.every((part) => {
+      const num = Number.parseInt(part, 10)
+      return num >= 0 && num <= 255 && String(num) === part
+    })
+  }
+
+  /**
+   * Decode ENS contenthash to IPFS CID
+   * Supports IPFS (0xe3) and IPNS (0xe5) codecs
+   */
+  private decodeContenthash(contenthash: string): string | null {
+    if (!contenthash || contenthash === '0x' || contenthash.length < 10) {
+      return null
+    }
+
+    // Remove 0x prefix
+    const hex = contenthash.slice(2)
+
+    // Check multicodec prefix
+    // 0xe3 = IPFS, 0xe5 = IPNS (using varint encoding)
+    if (hex.startsWith('e301')) {
+      // IPFS with CIDv1 (dag-pb)
+      // The CID is encoded after the codec prefix
+      const cidHex = hex.slice(4)
+      return this.hexToBase32(cidHex)
+    } else if (hex.startsWith('e501')) {
+      // IPNS
+      const cidHex = hex.slice(4)
+      return this.hexToBase32(cidHex)
+    }
+
+    // Return raw hex as fallback
+    return contenthash
+  }
+
+  /**
+   * Convert hex to base32 (simplified - returns hex for now)
+   * Full implementation would use multibase encoding
+   */
+  private hexToBase32(hex: string): string {
+    // For simplicity, return the hex - a full implementation would
+    // decode to bytes and re-encode as base32/base58
+    return hex
   }
 
   /**

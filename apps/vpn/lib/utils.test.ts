@@ -8,7 +8,7 @@ function createTestVPNNode(overrides: Partial<VPNNode> = {}): VPNNode {
     operator: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
     country_code: 'US',
     region: 'us-east-1',
-    endpoint: 'vpn1.jeju.network:51820',
+    endpoint: 'vpn1.jejunetwork.org:51820',
     wireguard_pubkey: 'abc123pubkey',
     latency_ms: 25,
     load: 50,

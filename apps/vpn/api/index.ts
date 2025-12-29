@@ -60,7 +60,7 @@ export function createVPNServer(serverConfig: VPNServerConfig) {
         credentials: true,
       }),
     )
-    .onBeforeHandle(({ request, set }) => {
+    .onBeforeHandle(async ({ request, set }) => {
       const forwardedFor = request.headers.get('x-forwarded-for')
       const realIp = request.headers.get('x-real-ip')
       const jejuAddress = request.headers.get('x-jeju-address')
@@ -80,7 +80,7 @@ export function createVPNServer(serverConfig: VPNServerConfig) {
         type = 'auth'
       }
 
-      const result = checkRateLimit(type, identifier)
+      const result = await checkRateLimit(type, identifier)
       set.headers['X-RateLimit-Remaining'] = result.remaining.toString()
       set.headers['X-RateLimit-Reset'] = result.resetAt.toString()
 

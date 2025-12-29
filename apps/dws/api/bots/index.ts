@@ -23,6 +23,7 @@ import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 import { getExternalRPCNodeService } from '../external-chains'
+import { botDeploymentState, getStateMode } from '../state'
 
 // ============================================================================
 // Types
@@ -361,6 +362,9 @@ export class BotDeploymentService {
     // Start heartbeat
     this.startHeartbeat(bot)
 
+    // Persist to EQLite
+    await this.saveBotState(bot)
+
     return bot
   }
 
@@ -516,6 +520,9 @@ export class BotDeploymentService {
       if (healthy) {
         bot.metrics.uptime = Date.now() - bot.deployedAt
       }
+
+      // Persist heartbeat update to EQLite
+      await this.saveBotState(bot)
     }, 30_000) // Every 30 seconds
 
     this.heartbeatIntervals.set(bot.botId, interval)
@@ -541,6 +548,7 @@ export class BotDeploymentService {
     await proc.exited
 
     bot.status = 'stopped'
+    await this.saveBotState(bot)
     console.log(`[BotDeployment] Stopped ${bot.type} bot`)
   }
 
@@ -556,6 +564,7 @@ export class BotDeploymentService {
     await proc.exited
 
     bot.status = 'paused'
+    await this.saveBotState(bot)
     console.log(`[BotDeployment] Paused ${bot.type} bot`)
   }
 
@@ -571,6 +580,7 @@ export class BotDeploymentService {
     await proc.exited
 
     bot.status = 'running'
+    await this.saveBotState(bot)
     console.log(`[BotDeployment] Resumed ${bot.type} bot`)
   }
 
@@ -633,11 +643,85 @@ export class BotDeploymentService {
   }
 
   /**
-   * Load bot state from persistent storage
+   * Load bot state from persistent storage (EQLite)
    */
   private async loadBotState(): Promise<void> {
-    // TODO: Load from EQLite or on-chain registry
-    // For now, bots are ephemeral
+    if (getStateMode() === 'memory') {
+      console.log(
+        '[BotDeployment] Running in memory mode - skipping state load',
+      )
+      return
+    }
+
+    try {
+      const rows = await botDeploymentState.listAll()
+      console.log(`[BotDeployment] Loading ${rows.length} bots from EQLite`)
+
+      for (const row of rows) {
+        const bot: BotInstance = {
+          botId: row.bot_id as Hex,
+          type: row.bot_type as BotType,
+          name: row.name,
+          status: row.status as BotStatus,
+          containerId: row.container_id,
+          owner: row.owner as Address,
+          walletAddress: row.wallet_address as Address,
+          deployedAt: row.deployed_at,
+          lastHeartbeat: row.last_heartbeat,
+          config: JSON.parse(row.config) as BotConfig,
+          metrics: JSON.parse(row.metrics) as BotMetrics,
+        }
+
+        this.bots.set(bot.botId, bot)
+
+        // Verify container is still running and restart heartbeat if active
+        if (bot.status === 'running' || bot.status === 'paused') {
+          const healthy = await this.checkBotHealth(bot)
+          if (healthy) {
+            this.startHeartbeat(bot)
+          } else {
+            bot.status = 'error'
+            await this.saveBotState(bot)
+            console.warn(`[BotDeployment] Bot ${bot.name} container not found`)
+          }
+        }
+      }
+
+      console.log(`[BotDeployment] Loaded ${this.bots.size} bots`)
+    } catch (error) {
+      console.warn('[BotDeployment] Failed to load bot state:', error)
+    }
+  }
+
+  /**
+   * Save bot state to persistent storage (EQLite)
+   */
+  private async saveBotState(bot: BotInstance): Promise<void> {
+    if (getStateMode() === 'memory') return
+
+    try {
+      await botDeploymentState.save({
+        botId: bot.botId,
+        botType: bot.type,
+        name: bot.name,
+        status: bot.status,
+        containerId: bot.containerId,
+        owner: bot.owner,
+        walletAddress: bot.walletAddress,
+        deployedAt: bot.deployedAt,
+        lastHeartbeat: bot.lastHeartbeat,
+        config: JSON.parse(JSON.stringify(bot.config)) as Record<
+          string,
+          unknown
+        >,
+        metrics: JSON.parse(JSON.stringify(bot.metrics)) as Record<
+          string,
+          unknown
+        >,
+      })
+    } catch (error) {
+      console.warn(`[BotDeployment] Failed to save bot ${bot.botId}:`, error)
+    }
   }
 
   /**

@@ -10,7 +10,11 @@
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { app } from '../api/server'
 
@@ -54,7 +58,11 @@ interface PeersResponse {
 
 // Check environment
 const isLocalnet = getCurrentNetwork() === 'localnet'
-const hasAnvil = process.env.RPC_URL?.includes('localhost:6545') || isLocalnet
+const rpcUrl =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+  getL2RpcUrl() ||
+  `http://${getLocalhostHost()}:6546`
+const hasAnvil = rpcUrl.includes(`${getLocalhostHost()}:6545`) || isLocalnet
 
 describe('Decentralized Infrastructure', () => {
   // Health Checks

@@ -11,6 +11,14 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  CORE_PORTS,
+  getDWSComputeUrl,
+  getDWSUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
+  getStorageApiEndpoint,
+} from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
 import {
   checkContractsDeployed as checkContracts,
@@ -20,7 +28,7 @@ import {
 } from './utils'
 
 const LOCALNET_PORT = 9545
-const DWS_PORT = 4030
+const DWS_PORT = CORE_PORTS.DWS_API.get()
 
 let localnetProcess: Subprocess | null = null
 let dwsProcess: Subprocess | null = null
@@ -78,8 +86,14 @@ async function bootstrapContractsLocal(rootDir: string): Promise<boolean> {
     stderr: 'inherit',
     env: {
       ...process.env,
-      L2_RPC_URL: rpcUrl,
-      JEJU_RPC_URL: rpcUrl,
+      L2_RPC_URL:
+        rpcUrl ||
+        getL2RpcUrl() ||
+        `http://${getLocalhostHost()}:${LOCALNET_PORT}`,
+      JEJU_RPC_URL:
+        rpcUrl ||
+        getL2RpcUrl() ||
+        `http://${getLocalhostHost()}:${LOCALNET_PORT}`,
     },
   })
 
@@ -108,8 +122,10 @@ async function startDws(rootDir: string): Promise<boolean> {
     env: {
       ...process.env,
       PORT: String(DWS_PORT),
-      L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
-      JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
+      L2_RPC_URL:
+        getL2RpcUrl() || `http://${getLocalhostHost()}:${LOCALNET_PORT}`,
+      JEJU_RPC_URL:
+        getL2RpcUrl() || `http://${getLocalhostHost()}:${LOCALNET_PORT}`,
     },
   })
 
@@ -126,13 +142,20 @@ async function startDws(rootDir: string): Promise<boolean> {
 }
 
 function setEnvVars(): void {
-  process.env.L2_RPC_URL = `http://127.0.0.1:${LOCALNET_PORT}`
-  process.env.JEJU_RPC_URL = `http://127.0.0.1:${LOCALNET_PORT}`
-  process.env.DWS_URL = `http://127.0.0.1:${DWS_PORT}`
-  process.env.STORAGE_API_URL = `http://127.0.0.1:${DWS_PORT}/storage`
-  process.env.COMPUTE_MARKETPLACE_URL = `http://127.0.0.1:${DWS_PORT}/compute`
-  process.env.IPFS_GATEWAY = `http://127.0.0.1:${DWS_PORT}/cdn`
-  process.env.CDN_URL = `http://127.0.0.1:${DWS_PORT}/cdn`
+  const host = getLocalhostHost()
+  const rpcUrl = getL2RpcUrl() || `http://${host}:${LOCALNET_PORT}`
+  const dwsUrl = getDWSUrl() || `http://${host}:${DWS_PORT}`
+  const network = 'localnet'
+
+  // Set env vars for child processes
+  process.env.L2_RPC_URL = rpcUrl
+  process.env.JEJU_RPC_URL = rpcUrl
+  process.env.DWS_URL = dwsUrl
+  process.env.STORAGE_API_URL = getStorageApiEndpoint() || `${dwsUrl}/storage`
+  process.env.COMPUTE_MARKETPLACE_URL =
+    getDWSComputeUrl(network) || `${dwsUrl}/compute`
+  process.env.IPFS_GATEWAY = `${dwsUrl}/cdn`
+  process.env.CDN_URL = `${dwsUrl}/cdn`
 }
 
 export async function ensureInfra(): Promise<{

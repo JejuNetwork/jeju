@@ -1,7 +1,7 @@
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { TRIGGER_REGISTRY_ABI } from '../abis'
-import { getChain, type SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 
 const AddressSchema = z.custom<Address>(
   (val): val is Address =>
@@ -166,10 +166,6 @@ export class CronService {
   async executeTrigger(
     triggerId: bigint,
   ): Promise<{ success: boolean; txHash: string }> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
     // Get trigger info
     const triggers = await this.getActiveTriggers()
     const trigger = triggers.find((t) => t.id === triggerId)
@@ -188,10 +184,8 @@ export class CronService {
     })
     const success = response.ok
 
-    // Record execution on-chain
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    // Record execution on-chain via KMS-backed signing
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.triggerRegistry,
       abi: TRIGGER_REGISTRY_ABI,
       functionName: 'recordExecution',

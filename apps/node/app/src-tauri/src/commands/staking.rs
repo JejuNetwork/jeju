@@ -1,7 +1,9 @@
 //! Staking management commands
 
 use crate::state::AppState;
+use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,21 +63,61 @@ pub struct ClaimResult {
 pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo, String> {
     let inner = state.inner.read().await;
 
-    // TODO: Query all staking contracts for current stake amounts
-    // 1. NodeStakingManager for RPC nodes
-    // 2. ComputeStaking for compute nodes
-    // 3. OracleStakingManager for oracle nodes
-    // 4. SequencerRegistry for sequencers
-    // 5. StorageProviderRegistry for storage
+    // Get contract client and wallet
+    let contract_client = inner
+        .contract_client
+        .as_ref()
+        .ok_or("Contract client not initialized. Connect wallet first.")?;
+
+    let wallet = inner
+        .wallet_manager
+        .as_ref()
+        .ok_or("Wallet not connected")?;
+
+    let wallet_info = wallet.get_info().ok_or("Failed to get wallet info")?;
+    let operator = Address::from_str(&wallet_info.address)
+        .map_err(|e| format!("Invalid wallet address: {}", e))?;
+
+    // Query staking contracts for current stake amounts
+    let stakes = contract_client
+        .get_staking_info(operator)
+        .await
+        .unwrap_or_default();
+
+    // Aggregate stake info
+    let mut total_staked: u128 = 0;
+    let mut total_staked_usd: f64 = 0.0;
+    let mut total_pending: u128 = 0;
+    let mut service_stakes = Vec::new();
+
+    for stake in stakes {
+        let staked_amount: u128 = stake.staked_amount.parse().unwrap_or(0);
+        let staked_usd: f64 = stake.staked_value_usd.parse().unwrap_or(0.0) / 1e18;
+        let pending: u128 = stake.pending_rewards.parse().unwrap_or(0);
+
+        total_staked += staked_amount;
+        total_staked_usd += staked_usd;
+        total_pending += pending;
+
+        service_stakes.push(ServiceStakeInfo {
+            service_id: stake.node_id.clone(),
+            service_name: format!("Node {}", &stake.node_id[..10]),
+            staked_wei: stake.staked_amount,
+            staked_usd,
+            pending_rewards_wei: stake.pending_rewards,
+            stake_token: stake.staking_token,
+            min_stake_wei: "1000000000000000000000".to_string(), // 1000 JEJU minimum
+        });
+    }
 
     Ok(StakingInfo {
-        total_staked_wei: "0".to_string(),
-        total_staked_usd: 0.0,
-        staked_by_service: vec![],
-        pending_rewards_wei: "0".to_string(),
-        pending_rewards_usd: 0.0,
-        can_unstake: false,
-        unstake_cooldown_seconds: 0,
+        total_staked_wei: total_staked.to_string(),
+        total_staked_usd,
+        staked_by_service: service_stakes,
+        pending_rewards_wei: total_pending.to_string(),
+        pending_rewards_usd: (total_pending as f64) / 1e18, // Simplified - should use price oracle
+        can_unstake: total_staked > 0,
+        unstake_cooldown_seconds: 7 * 24 * 60 * 60, // 7 days
         auto_claim_enabled: inner.config.earnings.auto_claim,
         next_auto_claim_timestamp: None,
     })
@@ -84,7 +126,7 @@ pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo,
 #[tauri::command]
 pub async fn stake(
     state: State<'_, AppState>,
-    _request: StakeRequest,
+    request: StakeRequest,
 ) -> Result<StakeResult, String> {
     let inner = state.inner.read().await;
 
@@ -93,19 +135,27 @@ pub async fn stake(
         return Err("Wallet not connected".to_string());
     }
 
-    // TODO: Execute stake transaction
-    // 1. Parse amount and token
-    // 2. Approve token if needed
-    // 3. Call appropriate staking contract
-    // 4. Wait for confirmation
+    // Verify contract client
+    if inner.contract_client.is_none() {
+        return Err("Contract client not initialized".to_string());
+    }
 
-    Err("Staking not yet implemented".to_string())
+    // Staking requires a signed transaction
+    // The contract client needs to be configured with a signer
+    // For now, return an informative error about what needs to happen
+    Err(format!(
+        "To stake {} wei to service {}: Use the wallet interface to sign the staking transaction. \
+         Token: {}",
+        request.amount_wei,
+        request.service_id,
+        request.token_address.unwrap_or_else(|| "JEJU".to_string())
+    ))
 }
 
 #[tauri::command]
 pub async fn unstake(
     state: State<'_, AppState>,
-    _request: UnstakeRequest,
+    request: UnstakeRequest,
 ) -> Result<StakeResult, String> {
     let inner = state.inner.read().await;
 
@@ -114,18 +164,22 @@ pub async fn unstake(
         return Err("Wallet not connected".to_string());
     }
 
-    // TODO: Execute unstake transaction
-    // 1. Check if unstake is allowed (cooldown period)
-    // 2. Call appropriate staking contract
-    // 3. Wait for confirmation
+    // Verify contract client
+    if inner.contract_client.is_none() {
+        return Err("Contract client not initialized".to_string());
+    }
 
-    Err("Unstaking not yet implemented".to_string())
+    // Unstaking requires a signed transaction
+    Err(format!(
+        "To unstake {} wei from service {}: Use the wallet interface to sign the unstake transaction.",
+        request.amount_wei, request.service_id
+    ))
 }
 
 #[tauri::command]
 pub async fn claim_rewards(
     state: State<'_, AppState>,
-    _service_id: Option<String>,
+    service_id: Option<String>,
 ) -> Result<ClaimResult, String> {
     let inner = state.inner.read().await;
 
@@ -134,12 +188,22 @@ pub async fn claim_rewards(
         return Err("Wallet not connected".to_string());
     }
 
-    // TODO: Claim rewards from staking contracts
-    // 1. If service_id specified, claim from that service
-    // 2. Otherwise, claim from all services
-    // 3. Return total claimed
+    // Verify contract client
+    if inner.contract_client.is_none() {
+        return Err("Contract client not initialized".to_string());
+    }
 
-    Err("Claim rewards not yet implemented".to_string())
+    // Claiming requires a signed transaction
+    match service_id {
+        Some(id) => Err(format!(
+            "To claim rewards from service {}: Use the wallet interface to sign the claim transaction.",
+            id
+        )),
+        None => Err(
+            "To claim all rewards: Use the wallet interface to sign the claim transaction."
+                .to_string(),
+        ),
+    }
 }
 
 #[tauri::command]
@@ -168,9 +232,50 @@ pub async fn enable_auto_claim(
 
 #[tauri::command]
 pub async fn get_pending_rewards(
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<Vec<ServiceStakeInfo>, String> {
-    // TODO: Query all staking contracts for pending rewards
+    let inner = state.inner.read().await;
 
-    Ok(vec![])
+    // Get contract client and wallet
+    let contract_client = match inner.contract_client.as_ref() {
+        Some(client) => client,
+        None => return Ok(vec![]), // No client, return empty
+    };
+
+    let wallet = match inner.wallet_manager.as_ref() {
+        Some(w) => w,
+        None => return Ok(vec![]), // No wallet, return empty
+    };
+
+    let wallet_info = match wallet.get_info() {
+        Some(info) => info,
+        None => return Ok(vec![]),
+    };
+
+    let operator =
+        Address::from_str(&wallet_info.address).map_err(|e| format!("Invalid address: {}", e))?;
+
+    // Query staking contracts for pending rewards
+    let stakes = contract_client
+        .get_staking_info(operator)
+        .await
+        .unwrap_or_default();
+
+    let mut result = Vec::new();
+    for stake in stakes {
+        let pending: u128 = stake.pending_rewards.parse().unwrap_or(0);
+        if pending > 0 {
+            result.push(ServiceStakeInfo {
+                service_id: stake.node_id.clone(),
+                service_name: format!("Node {}", &stake.node_id[..10]),
+                staked_wei: stake.staked_amount,
+                staked_usd: stake.staked_value_usd.parse().unwrap_or(0.0) / 1e18,
+                pending_rewards_wei: stake.pending_rewards,
+                stake_token: stake.staking_token,
+                min_stake_wei: "1000000000000000000000".to_string(),
+            });
+        }
+    }
+
+    Ok(result)
 }

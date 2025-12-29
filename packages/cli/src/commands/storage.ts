@@ -454,7 +454,8 @@ async function createSignedUrl(
     .digest('base64url')
 
   const token = `${payloadBase64}.${hmac}`
-  const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4020'
+  const dwsUrl =
+    process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
   const signedUrl = `${dwsUrl}/storage/signed/${token}`
 
   logger.info('Signed URL created:')
@@ -471,7 +472,8 @@ async function verifyStorageProof(
 ): Promise<void> {
   logger.info(`Verifying storage proof for ${cid}...`)
 
-  const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4020'
+  const dwsUrl =
+    process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
 
   // Get proof from node
   const proofUrl = options.node
@@ -502,7 +504,8 @@ async function listStorageProviders(options: {
 }): Promise<void> {
   logger.info('Fetching storage providers...')
 
-  const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4020'
+  const dwsUrl =
+    process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
   const params = new URLSearchParams()
   if (options.backend) params.set('backend', options.backend)
   if (options.region) params.set('region', options.region)
@@ -545,7 +548,8 @@ async function estimateStorageCost(
   logger.info(`  Duration: ${durationDays} days`)
   logger.info(`  Replicas: ${replicas}`)
 
-  const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4020'
+  const dwsUrl =
+    process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
 
   if (options.backend === 'filecoin') {
     const response = await fetch(`${dwsUrl}/storage/filecoin/estimate`, {
@@ -664,7 +668,8 @@ async function uploadManifestContent(
   manifest: SystemContentManifest,
   rootDir: string,
 ): Promise<void> {
-  const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4020'
+  const dwsUrl =
+    process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
 
   for (const app of manifest.apps) {
     const buildDir = join(rootDir, 'apps', app.name, app.buildDir)
@@ -747,9 +752,11 @@ async function registerManifestOnChain(
 function getRpcUrl(network: string): string {
   switch (network) {
     case 'mainnet':
-      return process.env.MAINNET_RPC_URL ?? 'https://rpc.jeju.network'
+      return process.env.MAINNET_RPC_URL ?? 'https://rpc.jejunetwork.org'
     case 'testnet':
-      return process.env.TESTNET_RPC_URL ?? 'https://testnet-rpc.jeju.network'
+      return (
+        process.env.TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org'
+      )
     default:
       return process.env.LOCALNET_RPC_URL ?? getL1RpcUrl()
   }
@@ -779,7 +786,8 @@ async function loadRegistryAddress(network: string): Promise<Address | null> {
 }
 
 async function checkContentExists(cid: string): Promise<boolean> {
-  const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4020'
+  const dwsUrl =
+    process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
   const response = await fetch(`${dwsUrl}/ipfs/${cid}`, { method: 'HEAD' })
   return response.ok
 }

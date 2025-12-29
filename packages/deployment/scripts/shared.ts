@@ -4,6 +4,7 @@
  * Centralizes common patterns: network validation, AWS operations, command parsing
  */
 
+import { getL2RpcUrl } from '@jejunetwork/config'
 import { NetworkSchema, type NetworkType } from '@jejunetwork/types'
 import { $ } from 'bun'
 import { z } from 'zod'
@@ -127,7 +128,7 @@ export const NETWORK_RPC_CONFIGS: Record<NetworkType, NetworkRpcConfig> = {
     rpcUrlEnvVar: 'JEJU_LOCALNET_RPC_URL',
     chainId: 31337,
     name: 'Localnet',
-    defaultLocalnet: 'http://localhost:6546',
+    defaultLocalnet: getL2RpcUrl(),
   },
 }
 

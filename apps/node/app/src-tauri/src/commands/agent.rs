@@ -1,7 +1,9 @@
 //! ERC-8004 Agent registration commands
 
 use crate::state::AppState;
+use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,61 +44,153 @@ pub struct AppealBanRequest {
 #[tauri::command]
 pub async fn register_agent(
     state: State<'_, AppState>,
-    _request: RegisterAgentRequest,
+    request: RegisterAgentRequest,
 ) -> Result<AgentInfo, String> {
     let inner = state.inner.read().await;
 
     // Verify wallet is connected
-    if inner.wallet_manager.is_none() {
-        return Err("Wallet not connected".to_string());
+    let wallet = inner
+        .wallet_manager
+        .as_ref()
+        .ok_or("Wallet not connected")?;
+
+    // Verify contract client
+    if inner.contract_client.is_none() {
+        return Err("Contract client not initialized".to_string());
     }
 
-    // TODO: Call IdentityRegistry.register()
-    // 1. Determine stake amount based on tier
-    // 2. Approve token spending if needed
-    // 3. Call register() with tokenURI and stake
-    // 4. Return agent info
+    let _wallet_info = wallet.get_info().ok_or("Failed to get wallet info")?;
 
-    Err("Agent registration not yet implemented".to_string())
+    // Calculate stake amount based on tier
+    let _stake_amount = match request.stake_tier.as_str() {
+        "none" => "0",
+        "small" => "100000000000000000000",   // 100 JEJU
+        "medium" => "1000000000000000000000", // 1000 JEJU
+        "high" => "10000000000000000000000",  // 10000 JEJU
+        _ => return Err("Invalid stake tier".to_string()),
+    };
+
+    // Registration requires a signed transaction
+    // Return info about what the user needs to do
+    Err(format!(
+        "To register agent with tokenURI '{}' and {} JEJU stake: \
+         Use the wallet interface to sign the registration transaction on the IdentityRegistry contract.",
+        request.token_uri,
+        match request.stake_tier.as_str() {
+            "none" => "0",
+            "small" => "100",
+            "medium" => "1000",
+            "high" => "10000",
+            _ => "0",
+        }
+    ))
 }
 
 #[tauri::command]
 pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentInfo>, String> {
     let inner = state.inner.read().await;
 
-    let agent_id = inner.config.wallet.agent_id;
+    // Check if we have a stored agent ID
+    let stored_agent_id = inner.config.wallet.agent_id;
 
-    if agent_id.is_none() {
-        return Ok(None);
-    }
+    // Get contract client
+    let contract_client = inner
+        .contract_client
+        .as_ref()
+        .ok_or("Contract client not initialized")?;
 
-    // TODO: Query IdentityRegistry for agent info
-    // 1. Get agent metadata
-    // 2. Get reputation score
-    // 3. Check ban status
+    // If no stored agent ID, try to look up by wallet address
+    let agent_id = if let Some(id) = stored_agent_id {
+        id
+    } else {
+        // Try to get agent by owner address
+        let wallet = match inner.wallet_manager.as_ref() {
+            Some(w) => w,
+            None => return Ok(None),
+        };
 
-    Err("Get agent info not yet implemented".to_string())
+        let wallet_info = match wallet.get_info() {
+            Some(info) => info,
+            None => return Ok(None),
+        };
+
+        let owner = Address::from_str(&wallet_info.address)
+            .map_err(|e| format!("Invalid address: {}", e))?;
+
+        match contract_client.get_agent_by_owner(owner).await {
+            Ok(Some(id)) => id,
+            Ok(None) => return Ok(None),
+            Err(e) => return Err(format!("Failed to get agent by owner: {}", e)),
+        }
+    };
+
+    // Query IdentityRegistry for agent info
+    let info = contract_client
+        .get_agent_info(agent_id)
+        .await
+        .map_err(|e| format!("Failed to get agent info: {}", e))?;
+
+    // Determine stake tier from reputation
+    let reputation: u128 = info.reputation.parse().unwrap_or(0);
+    let stake_tier = if reputation >= 10000 {
+        "high"
+    } else if reputation >= 1000 {
+        "medium"
+    } else if reputation >= 100 {
+        "small"
+    } else {
+        "none"
+    };
+
+    Ok(Some(AgentInfo {
+        agent_id,
+        owner: info.owner,
+        token_uri: info.token_uri,
+        stake_tier: stake_tier.to_string(),
+        stake_amount: info.reputation.clone(),
+        is_banned: info.is_banned,
+        ban_reason: if info.is_banned {
+            Some(info.ban_reason)
+        } else {
+            None
+        },
+        appeal_status: None,
+        reputation_score: reputation as u32,
+    }))
 }
 
 #[tauri::command]
 pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, String> {
     let inner = state.inner.read().await;
 
-    let _agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
 
-    // TODO: Query BanManager for status
-    // 1. Check isBanned()
-    // 2. Check isOnNotice()
-    // 3. Check isPermanentlyBanned()
-    // 4. Get ban reason if applicable
-    // 5. Check for pending appeals
+    // Get contract client
+    let contract_client = inner
+        .contract_client
+        .as_ref()
+        .ok_or("Contract client not initialized")?;
+
+    // Query BanManager for status
+    let ban_status = contract_client
+        .get_ban_status(agent_id)
+        .await
+        .map_err(|e| format!("Failed to get ban status: {}", e))?;
 
     Ok(BanStatus {
-        is_banned: false,
-        is_on_notice: false,
-        is_permanently_banned: false,
-        reason: None,
-        appeal_deadline: None,
+        is_banned: ban_status.is_banned,
+        is_on_notice: ban_status.is_on_notice,
+        is_permanently_banned: ban_status.is_permanent,
+        reason: if ban_status.is_banned {
+            Some(ban_status.reason)
+        } else {
+            None
+        },
+        appeal_deadline: if ban_status.can_appeal {
+            Some(ban_status.expiry)
+        } else {
+            None
+        },
         appeal_status: None,
     })
 }
@@ -104,16 +198,28 @@ pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, S
 #[tauri::command]
 pub async fn appeal_ban(
     state: State<'_, AppState>,
-    _request: AppealBanRequest,
+    request: AppealBanRequest,
 ) -> Result<String, String> {
     let inner = state.inner.read().await;
 
-    let _agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
 
-    // TODO: Submit appeal via RegistryGovernance
-    // 1. Check if appeal is possible (within deadline, has stake)
-    // 2. Submit appeal with reason and evidence
-    // 3. Return appeal ID / status
+    // Verify wallet
+    if inner.wallet_manager.is_none() {
+        return Err("Wallet not connected".to_string());
+    }
 
-    Err("Appeal ban not yet implemented".to_string())
+    // Verify contract client
+    if inner.contract_client.is_none() {
+        return Err("Contract client not initialized".to_string());
+    }
+
+    // Appeal requires a signed transaction
+    Err(format!(
+        "To appeal ban for agent {}: Submit appeal with reason '{}' {} \
+         Use the wallet interface to sign the appeal transaction on the RegistryGovernance contract.",
+        agent_id,
+        request.reason,
+        request.evidence_uri.map_or(String::new(), |uri| format!("and evidence at '{}'.", uri))
+    ))
 }

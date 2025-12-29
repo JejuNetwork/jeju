@@ -389,6 +389,3 @@ export class JNSService {
 }
 
 export const jnsService = new JNSService()
-
-// Import directly from './resolver':
-// import { JNSResolution, JNSResolver, JNSResolverSettings, jnsResolver } from './resolver'

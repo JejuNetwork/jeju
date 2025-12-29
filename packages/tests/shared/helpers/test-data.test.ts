@@ -349,8 +349,8 @@ describe('generateTestEmail - Email Generation', () => {
   test('email domain is consistent', () => {
     const email1 = generateTestEmail('a')
     const email2 = generateTestEmail('b')
-    expect(email1.split('@')[1]).toBe('test.jeju.network')
-    expect(email2.split('@')[1]).toBe('test.jeju.network')
+    expect(email1.split('@')[1]).toBe('test.jejunetwork.org')
+    expect(email2.split('@')[1]).toBe('test.jejunetwork.org')
   })
 })
 

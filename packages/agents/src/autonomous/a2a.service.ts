@@ -119,7 +119,7 @@ export class AutonomousA2AService {
     this.cardGenerator = new AgentCardGenerator({
       baseUrl: agentsConfig.api,
       organization: 'Jeju Network',
-      organizationUrl: 'https://jeju.network',
+      organizationUrl: 'https://jejunetwork.org',
     })
   }
 

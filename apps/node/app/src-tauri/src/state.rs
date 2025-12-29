@@ -7,6 +7,7 @@ use tauri::AppHandle;
 use tokio::sync::RwLock;
 
 use crate::config::NodeConfig;
+use crate::contracts::ContractClient;
 use crate::earnings::EarningsTracker;
 use crate::services::ServiceManager;
 use crate::wallet::WalletManager;
@@ -61,6 +62,7 @@ pub struct NetworkInfo {
 pub struct AppStateInner {
     pub config: NodeConfig,
     pub wallet_manager: Option<WalletManager>,
+    pub contract_client: Option<ContractClient>,
     pub service_manager: ServiceManager,
     pub earnings_tracker: EarningsTracker,
     pub _service_status: HashMap<String, ServiceStatus>,
@@ -80,6 +82,7 @@ impl AppState {
             inner: Arc::new(RwLock::new(AppStateInner {
                 config: NodeConfig::default(),
                 wallet_manager: None,
+                contract_client: None,
                 service_manager: ServiceManager::new(),
                 earnings_tracker: EarningsTracker::new(),
                 _service_status: HashMap::new(),

@@ -56,13 +56,13 @@ const network = getCurrentNetwork()
 // Network-aware CORS - strict in production, flexible in development
 const ALLOWED_ORIGINS =
   network === 'mainnet'
-    ? ['https://autocrat.jejunetwork.org', 'https://jeju.network']
+    ? ['https://autocrat.jejunetwork.org', 'https://jejunetwork.org']
     : network === 'testnet'
       ? (() => {
           const host = getLocalhostHost()
           return [
             'https://testnet.autocrat.jejunetwork.org',
-            'https://testnet.jeju.network',
+            'https://testnet.jejunetwork.org',
             `http://${host}:3000`,
             `http://${host}:5173`,
           ]

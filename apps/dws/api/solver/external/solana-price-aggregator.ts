@@ -15,6 +15,7 @@
  * - Multi-hop routing for exotic pairs
  */
 
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import * as BufferLayout from '@solana/buffer-layout'
 import {
   type AccountInfo,
@@ -260,17 +261,21 @@ const RaydiumPoolLayout = struct<{
   publicKey('owner'),
   u64('lpReserve'),
 ])
+// Distributed cache for price data
+let priceCache: CacheClient | null = null
+
+function getPriceCache(): CacheClient {
+  if (!priceCache) {
+    priceCache = getCacheClient('solana-price')
+  }
+  return priceCache
+}
+
 export class SolanaPriceAggregator {
   private connection: Connection
-  private priceCache: Map<
-    string,
-    { price: SolanaTokenPrice; expires: number }
-  > = new Map()
-  private solPrice: number = 0
-  private solPriceExpiry: number = 0
 
-  private readonly CACHE_TTL = 30_000 // 30 seconds
-  private readonly SOL_CACHE_TTL = 60_000 // 1 minute for SOL price
+  private readonly CACHE_TTL_SECONDS = 30 // 30 seconds
+  private readonly SOL_CACHE_TTL_SECONDS = 60 // 1 minute for SOL price
 
   constructor(rpcUrl: string) {
     this.connection = new Connection(rpcUrl, 'confirmed')
@@ -280,8 +285,10 @@ export class SolanaPriceAggregator {
    * Get SOL price in USD from Raydium SOL/USDC pool
    */
   async getSOLPrice(): Promise<number> {
-    if (this.solPrice > 0 && Date.now() < this.solPriceExpiry) {
-      return this.solPrice
+    const cache = getPriceCache()
+    const cached = await cache.get('sol-usd-price')
+    if (cached) {
+      return parseFloat(cached)
     }
 
     // Fetch SOL/USDC pool reserves
@@ -290,7 +297,8 @@ export class SolanaPriceAggregator {
 
     if (!poolState) {
       console.warn('Failed to fetch SOL/USDC pool state')
-      return this.solPrice ?? 0
+      const fallback = await cache.get('sol-usd-price-fallback')
+      return fallback ? parseFloat(fallback) : 0
     }
 
     // Calculate price from reserves
@@ -301,22 +309,31 @@ export class SolanaPriceAggregator {
     const baseReserve = Number(poolState.baseReserve) / 10 ** baseDecimals
     const quoteReserve = Number(poolState.quoteReserve) / 10 ** quoteDecimals
 
-    this.solPrice = quoteReserve / baseReserve
-    this.solPriceExpiry = Date.now() + this.SOL_CACHE_TTL
+    const solPrice = quoteReserve / baseReserve
 
-    return this.solPrice
+    // Cache with TTL
+    await cache.set(
+      'sol-usd-price',
+      solPrice.toString(),
+      this.SOL_CACHE_TTL_SECONDS,
+    )
+    // Keep a fallback value longer in case of RPC issues
+    await cache.set('sol-usd-price-fallback', solPrice.toString(), 300) // 5 minutes
+
+    return solPrice
   }
 
   /**
    * Get token price in USD
    */
   async getPrice(mint: string): Promise<SolanaTokenPrice | null> {
-    const cacheKey = mint
+    const cache = getPriceCache()
+    const cacheKey = `token:${mint}`
 
     // Check cache
-    const cached = this.priceCache.get(cacheKey)
-    if (cached && Date.now() < cached.expires) {
-      return cached.price
+    const cached = await cache.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached) as SolanaTokenPrice
     }
 
     const tokenInfo = KNOWN_TOKENS[mint] ?? {
@@ -345,10 +362,7 @@ export class SolanaPriceAggregator {
         timestamp: Date.now(),
         liquidityUSD: 0,
       }
-      this.priceCache.set(cacheKey, {
-        price,
-        expires: Date.now() + this.CACHE_TTL,
-      })
+      await cache.set(cacheKey, JSON.stringify(price), this.CACHE_TTL_SECONDS)
       return price
     }
 
@@ -373,10 +387,7 @@ export class SolanaPriceAggregator {
         timestamp: Date.now(),
         liquidityUSD: 0,
       }
-      this.priceCache.set(cacheKey, {
-        price,
-        expires: Date.now() + this.CACHE_TTL,
-      })
+      await cache.set(cacheKey, JSON.stringify(price), this.CACHE_TTL_SECONDS)
       return price
     }
 
@@ -407,10 +418,7 @@ export class SolanaPriceAggregator {
       liquidityUSD: totalLiquidity,
     }
 
-    this.priceCache.set(cacheKey, {
-      price,
-      expires: Date.now() + this.CACHE_TTL,
-    })
+    await cache.set(cacheKey, JSON.stringify(price), this.CACHE_TTL_SECONDS)
     return price
   }
 
@@ -599,22 +607,25 @@ export class SolanaPriceAggregator {
   /**
    * Clear cache
    */
-  clearCache(): void {
-    this.priceCache.clear()
-    this.solPrice = 0
-    this.solPriceExpiry = 0
+  async clearCache(): Promise<void> {
+    const cache = getPriceCache()
+    await cache.clear()
   }
 }
 let solanaAggregatorInstance: SolanaPriceAggregator | null = null
+
+import { getSolanaRpcUrl } from '@jejunetwork/config'
 
 export function getSolanaPriceAggregator(
   rpcUrl?: string,
 ): SolanaPriceAggregator {
   if (!solanaAggregatorInstance) {
-    const url =
-      rpcUrl ??
-      process.env.SOLANA_RPC_URL ??
-      'https://api.mainnet-beta.solana.com'
+    const url = rpcUrl ?? getSolanaRpcUrl()
+    if (!url) {
+      throw new Error(
+        'Solana RPC URL required: set SOLANA_RPC environment variable',
+      )
+    }
     solanaAggregatorInstance = new SolanaPriceAggregator(url)
   }
   return solanaAggregatorInstance

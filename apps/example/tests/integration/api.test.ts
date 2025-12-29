@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 
-const API_URL = process.env.API_URL || 'http://localhost:4500'
+const host = getLocalhostHost()
+const API_URL =
+  (typeof process !== 'undefined' ? process.env.API_URL : undefined) ||
+  `http://${host}:4500`
 const TEST_WALLET = privateKeyToAccount(generatePrivateKey())
 
 let serverRunning = false

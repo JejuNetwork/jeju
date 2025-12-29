@@ -17,6 +17,7 @@ import {
   setDefaultTimeout,
   test,
 } from 'bun:test'
+import { getDWSUrl, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http } from 'viem'
 import { app } from '../api/server'
@@ -28,17 +29,29 @@ const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 const _TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 
-const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030'
-const RPC_URL = process.env.RPC_URL ?? 'http://127.0.0.1:6546'
-const E2E_MODE = process.env.E2E_MODE === 'true'
+const host = getLocalhostHost()
+const DWS_URL =
+  (typeof process !== 'undefined' ? process.env.DWS_URL : undefined) ??
+  getDWSUrl() ??
+  `http://${host}:4030`
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  getL2RpcUrl() ??
+  `http://${host}:6546`
+const E2E_MODE =
+  (typeof process !== 'undefined' ? process.env.E2E_MODE : undefined) === 'true'
 
-// Environment detection
+// Environment detection - these are secrets, keep as env vars
 const hasInferenceKey = !!(
-  process.env.GROQ_API_KEY ||
-  process.env.OPENAI_API_KEY ||
-  process.env.OPENROUTER_API_KEY ||
-  process.env.ANTHROPIC_API_KEY ||
-  process.env.TOGETHER_API_KEY
+  (typeof process !== 'undefined' ? process.env.GROQ_API_KEY : undefined) ||
+  (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined) ||
+  (typeof process !== 'undefined'
+    ? process.env.OPENROUTER_API_KEY
+    : undefined) ||
+  (typeof process !== 'undefined'
+    ? process.env.ANTHROPIC_API_KEY
+    : undefined) ||
+  (typeof process !== 'undefined' ? process.env.TOGETHER_API_KEY : undefined)
 )
 
 // Response type interfaces

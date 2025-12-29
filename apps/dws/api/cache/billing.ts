@@ -131,7 +131,7 @@ const DEFAULT_PAYMENT_CONFIG: CachePaymentConfig = {
   networkId: 420690,
   assetAddress: ZERO_ADDRESS,
   platformFeeBps: 500,
-  baseUrl: 'https://cache.dws.jeju.network',
+  baseUrl: 'https://cache.dws.jejunetwork.org',
   trustPaymentProofs: false, // Production default: require on-chain verification
 }
 

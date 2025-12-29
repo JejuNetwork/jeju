@@ -18,8 +18,10 @@ const HealthCheckSchema = z.object({
  */
 
 const API_URL =
-  process.env.NODE_EXPLORER_API_URL ||
-  process.env.API_URL ||
+  (typeof process !== 'undefined'
+    ? process.env.NODE_EXPLORER_API_URL
+    : undefined) ||
+  (typeof process !== 'undefined' ? process.env.API_URL : undefined) ||
   getCoreAppUrl('NODE_EXPLORER_API')
 
 // Check if API is available

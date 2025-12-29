@@ -97,7 +97,7 @@ export interface NetworkInfo {
   network: NetworkType
   contracts: DeployedContracts
   chainId: number
-  l1ChainId: number
+  l1ChainId?: number
   isAvailable: boolean
   rpcReachable: boolean
   hasBalance: boolean
@@ -110,7 +110,7 @@ type ContractCategory = Record<string, string | null>
 interface DeploymentJson {
   network: string
   chainId: number
-  l1ChainId: number
+  l1ChainId?: number
   tokens?: ContractCategory
   bridge?: ContractCategory
   infrastructure?: ContractCategory

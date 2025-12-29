@@ -38,6 +38,7 @@ import {
   type ChainConfig,
   ChainConfigSchema,
   type ContractCategory,
+  type ContractCategoryValue,
   type ContractsConfig,
   ContractsConfigSchema,
   type EILChainConfig,
@@ -238,7 +239,11 @@ export function getContract(
   if (!netContracts) {
     throw new Error(`No contracts configured for network: ${net}`)
   }
-  const categoryContracts = netContracts[category]
+  // NetworkContracts has chainId (number) mixed with category fields (records)
+  // Cast to access dynamic category - ContractCategoryValue handles optional categories
+  const categoryContracts = netContracts[category] as
+    | ContractCategoryValue
+    | undefined
   if (!categoryContracts) {
     throw new Error(`Contract category ${category} not found for ${net}`)
   }
@@ -557,7 +562,8 @@ export function getServiceUrl(
     | 'leaderboard'
     | 'rpcGateway'
     | 'bazaar'
-    | 'explorer',
+    | 'explorer'
+    | 'monitoring',
   subService?: string,
   network?: NetworkType,
 ): string {

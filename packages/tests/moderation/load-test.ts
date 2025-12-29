@@ -4,6 +4,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { createPublicClient, getContract, http, keccak256, toBytes } from 'viem'
 
 describe('Moderation Load Tests', () => {
@@ -11,10 +12,16 @@ describe('Moderation Load Tests', () => {
   let banManagerAddress: `0x${string}`
 
   beforeAll(() => {
+    const rpcUrl =
+      (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+      getL2RpcUrl() ||
+      `http://${getLocalhostHost()}:6546`
     publicClient = createPublicClient({
-      transport: http(process.env.RPC_URL || 'http://localhost:6546'),
+      transport: http(rpcUrl),
     })
-    banManagerAddress = (process.env.BAN_MANAGER_ADDRESS ||
+    banManagerAddress = ((typeof process !== 'undefined'
+      ? process.env.BAN_MANAGER_ADDRESS
+      : undefined) ||
       '0x0000000000000000000000000000000000000000') as `0x${string}`
   })
 

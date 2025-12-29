@@ -18,6 +18,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import {
+  getChainId,
   getContract,
   getDWSUrl,
   getLocalhostHost,
@@ -271,7 +272,7 @@ async function updateJNS(
 
   logger.step(`Updating JNS: ${name} -> ipfs://${cid}`)
 
-  const chainId = 31337 // TODO: get from network
+  const chainId = getChainId(network)
   const chain = {
     id: chainId,
     name: network,

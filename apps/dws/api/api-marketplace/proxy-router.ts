@@ -177,7 +177,7 @@ export async function proxyRequest(
   }
 
   // 3. Check access control
-  const accessCheck = checkAccess(
+  const accessCheck = await checkAccess(
     options.userAddress,
     listing,
     request.endpoint,
@@ -297,7 +297,7 @@ export async function proxyRequest(
     }
 
     await recordRequest(listing.id, listing.pricePerRequest)
-    incrementRateLimit(options.userAddress, listing.id)
+    await incrementRateLimit(options.userAddress, listing.id)
 
     return {
       status: response.status,
@@ -428,7 +428,7 @@ export async function* proxyStreamingRequest(
     return
   }
 
-  const accessCheck = checkAccess(
+  const accessCheck = await checkAccess(
     options.userAddress,
     listing,
     request.endpoint,
@@ -492,7 +492,7 @@ export async function* proxyStreamingRequest(
     // Charge after successful connection
     await chargeUser(options.userAddress, listing.pricePerRequest)
     await recordRequest(listing.id, listing.pricePerRequest)
-    incrementRateLimit(options.userAddress, listing.id)
+    await incrementRateLimit(options.userAddress, listing.id)
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()

@@ -14,7 +14,7 @@
  */
 
 import { type Hex, keccak256, toBytes } from 'viem'
-import { getChain, type SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 
 // Contract ABIs - minimal interfaces for sequencer operations
 const SEQUENCER_REGISTRY_ABI = [
@@ -173,12 +173,6 @@ export function createSequencerService(
       return
     }
 
-    if (!client.walletClient) {
-      throw new Error(
-        '[Sequencer] Wallet client required for sequencer operations',
-      )
-    }
-
     console.log('[Sequencer] Starting sequencer service...')
 
     // Verify stake
@@ -227,20 +221,19 @@ export function createSequencerService(
     registered: boolean
     stake: bigint
   }> {
-    if (!client.walletClient?.account) {
-      return { registered: false, stake: 0n }
-    }
-
     const sequencerRegistry = client.addresses.sequencerRegistry
     if (sequencerRegistry === '0x0000000000000000000000000000000000000000') {
       return { registered: false, stake: 0n }
     }
 
+    // Get address from KMS signer
+    const address = await client.txExecutor.getAddress()
+
     const isRegistered = await client.publicClient.readContract({
       address: sequencerRegistry,
       abi: SEQUENCER_REGISTRY_ABI,
       functionName: 'isSequencer',
-      args: [client.walletClient.account.address],
+      args: [address],
     })
 
     const stake = await getStake()
@@ -274,20 +267,14 @@ export function createSequencerService(
   }
 
   async function registerAsSequencer(): Promise<Hex> {
-    if (!client.walletClient?.account) {
-      throw new Error('Wallet client required')
-    }
-
     const sequencerRegistry = client.addresses.sequencerRegistry
     if (sequencerRegistry === '0x0000000000000000000000000000000000000000') {
       throw new Error('SequencerRegistry not deployed')
     }
 
-    console.log('[Sequencer] Registering as sequencer...')
+    console.log('[Sequencer] Registering as sequencer via KMS...')
 
-    const hash = await client.walletClient.writeContract({
-      chain: getChain(client.chainId),
-      account: client.walletClient.account,
+    const hash = await client.txExecutor.writeContract({
       address: sequencerRegistry,
       abi: SEQUENCER_REGISTRY_ABI,
       functionName: 'register',
@@ -301,32 +288,25 @@ export function createSequencerService(
     console.log(`[Sequencer] Registered in tx: ${receipt.transactionHash}`)
 
     // Derive sequencer ID from registration
+    const address = await client.txExecutor.getAddress()
     state.sequencerId = keccak256(
-      toBytes(
-        `${client.walletClient.account.address}${fullConfig.endpoint}${receipt.blockNumber}`,
-      ),
+      toBytes(`${address}${fullConfig.endpoint}${receipt.blockNumber}`),
     )
 
     return receipt.transactionHash
   }
 
   async function deregisterSequencer(): Promise<Hex> {
-    if (!client.walletClient?.account) {
-      throw new Error('Wallet client required')
-    }
-
     const sequencerRegistry = client.addresses.sequencerRegistry
     if (sequencerRegistry === '0x0000000000000000000000000000000000000000') {
       throw new Error('SequencerRegistry not deployed')
     }
 
-    console.log('[Sequencer] Deregistering sequencer...')
+    console.log('[Sequencer] Deregistering sequencer via KMS...')
 
     await stop()
 
-    const hash = await client.walletClient.writeContract({
-      chain: getChain(client.chainId),
-      account: client.walletClient.account,
+    const hash = await client.txExecutor.writeContract({
       address: sequencerRegistry,
       abi: SEQUENCER_REGISTRY_ABI,
       functionName: 'deregister',

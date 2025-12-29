@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { getL1RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { z } from 'zod'
 import {
   ChatMessageSchema,
@@ -108,7 +109,7 @@ describe('ServiceHealthResponseSchema', () => {
       version: '1.0.0',
       uptime: 3600,
       mode: 'production',
-      rpcUrl: 'http://localhost:6545',
+      rpcUrl: getL1RpcUrl() || `http://${getLocalhostHost()}:6545`,
       services: {
         database: { status: 'ok' },
         cache: { status: 'degraded' },

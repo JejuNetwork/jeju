@@ -337,7 +337,7 @@ describe('Factory DB Client', () => {
       const updated = updateContainerInstanceStatus(
         instance.id,
         'running',
-        'https://test.jeju.network',
+        'https://test.jejunetwork.org',
       )
       expect(updated).toBe(true)
     })

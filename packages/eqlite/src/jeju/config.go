@@ -88,16 +88,16 @@ var DefaultEndpoints = map[Network]NetworkEndpoints{
 		L2RPCEndpoint:         "http://localhost:9545",
 	},
 	Testnet: {
-		BlockProducerEndpoint: "https://eqlite-bp.testnet.jeju.network",
-		MinerEndpoint:         "https://eqlite-miner.testnet.jeju.network",
+		BlockProducerEndpoint: "https://eqlite-bp.testnet.jejunetwork.org",
+		MinerEndpoint:         "https://eqlite-miner.testnet.jejunetwork.org",
 		RegistryAddress:       "", // To be deployed
-		L2RPCEndpoint:         "https://rpc.testnet.jeju.network",
+		L2RPCEndpoint:         "https://rpc.testnet.jejunetwork.org",
 	},
 	Mainnet: {
-		BlockProducerEndpoint: "https://eqlite-bp.jeju.network",
-		MinerEndpoint:         "https://eqlite-miner.jeju.network",
+		BlockProducerEndpoint: "https://eqlite-bp.jejunetwork.org",
+		MinerEndpoint:         "https://eqlite-miner.jejunetwork.org",
 		RegistryAddress:       "", // To be deployed
-		L2RPCEndpoint:         "https://rpc.jeju.network",
+		L2RPCEndpoint:         "https://rpc.jejunetwork.org",
 	},
 }
 

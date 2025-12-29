@@ -300,7 +300,7 @@ describe('MLS Group Edge Cases', () => {
     const invite = await group.createInvite(24)
     const link = group.getInviteLink(invite)
 
-    expect(link).toContain('jeju.network/group/join')
+    expect(link).toContain('jejunetwork.org/group/join')
     expect(link).toContain(invite.groupId)
     expect(link).toContain(invite.code)
   })
