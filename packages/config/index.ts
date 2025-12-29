@@ -602,6 +602,8 @@ export function getServicesConfig(
             config.agents.agent0,
         }
       : undefined,
+    // XMTP config - always enabled, no env overrides needed
+    xmtp: config.xmtp ?? { env: 'dev' as const, dbPath: './data/xmtp' },
   }
 }
 
@@ -1272,6 +1274,34 @@ export function getAgentsApiUrl(network?: NetworkType): string {
 /** Get Agent0 API URL */
 export function getAgent0ApiUrl(network?: NetworkType): string | undefined {
   return getAgentsConfig(network).agent0
+}
+
+// XMTP Configuration
+
+/** XMTP environment type */
+export type XMTPEnv = 'local' | 'dev' | 'production'
+
+/** XMTP service configuration */
+export interface XMTPConfig {
+  env: XMTPEnv
+  dbPath: string
+}
+
+/** Get XMTP configuration */
+export function getXMTPConfig(network?: NetworkType): XMTPConfig {
+  const config = getServicesConfig(network)
+  // XMTP always has a default config
+  return config.xmtp ?? { env: 'dev', dbPath: './data/xmtp' }
+}
+
+/** Get XMTP environment (local, dev, or production) */
+export function getXMTPEnv(network?: NetworkType): XMTPEnv {
+  return getXMTPConfig(network).env
+}
+
+/** Get XMTP database path */
+export function getXMTPDbPath(network?: NetworkType): string {
+  return getXMTPConfig(network).dbPath
 }
 
 // Agent0 Environment Configuration

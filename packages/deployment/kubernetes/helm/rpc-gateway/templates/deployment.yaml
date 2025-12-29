@@ -63,8 +63,6 @@ spec:
           mountPath: /var/run
         - name: logs
           mountPath: /var/log/nginx
-        - name: tmp
-          mountPath: /tmp
       {{- if .Values.monitoring.enabled }}
       - name: nginx-exporter
         image: nginx/nginx-prometheus-exporter:0.11
@@ -91,8 +89,6 @@ spec:
       - name: run
         emptyDir: {}
       - name: logs
-        emptyDir: {}
-      - name: tmp
         emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
