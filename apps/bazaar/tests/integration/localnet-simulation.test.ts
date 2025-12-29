@@ -133,11 +133,19 @@ beforeAll(async () => {
   deployments = loadDeployments()
 
   console.log('Loaded deployments:')
-  console.log(`  V4 PoolManager: ${deployments.v4.poolManager || 'NOT DEPLOYED'}`)
+  console.log(
+    `  V4 PoolManager: ${deployments.v4.poolManager || 'NOT DEPLOYED'}`,
+  )
   console.log(`  V4 SwapRouter: ${deployments.v4.swapRouter || 'NOT DEPLOYED'}`)
-  console.log(`  V4 PositionManager: ${deployments.v4.positionManager || 'NOT DEPLOYED'}`)
-  console.log(`  NFT Marketplace: ${deployments.marketplace.at || deployments.marketplace.marketplace || 'NOT DEPLOYED'}`)
-  console.log(`  Token Factory: ${deployments.factory.at || deployments.factory.factory || 'NOT DEPLOYED'}`)
+  console.log(
+    `  V4 PositionManager: ${deployments.v4.positionManager || 'NOT DEPLOYED'}`,
+  )
+  console.log(
+    `  NFT Marketplace: ${deployments.marketplace.at || deployments.marketplace.marketplace || 'NOT DEPLOYED'}`,
+  )
+  console.log(
+    `  Token Factory: ${deployments.factory.at || deployments.factory.factory || 'NOT DEPLOYED'}`,
+  )
 })
 
 // TEST: BLOCKCHAIN HEALTH
@@ -406,13 +414,21 @@ describe('End-to-End Flow', () => {
 
     const factoryAddress = (deployments.factory.at ||
       deployments.factory.factory) as Address
-    console.log(`Step 1: Token Factory ${factoryAddress ? 'OK' : 'NOT DEPLOYED'}`)
-    console.log(`Step 2: V4 PoolManager ${deployments.v4.poolManager ? 'OK' : 'NOT DEPLOYED'}`)
-    console.log(`Step 3: SwapRouter ${deployments.v4.swapRouter ? 'OK' : 'NOT DEPLOYED'}`)
+    console.log(
+      `Step 1: Token Factory ${factoryAddress ? 'OK' : 'NOT DEPLOYED'}`,
+    )
+    console.log(
+      `Step 2: V4 PoolManager ${deployments.v4.poolManager ? 'OK' : 'NOT DEPLOYED'}`,
+    )
+    console.log(
+      `Step 3: SwapRouter ${deployments.v4.swapRouter ? 'OK' : 'NOT DEPLOYED'}`,
+    )
 
     const marketplaceAddress =
       deployments.marketplace.at || deployments.marketplace.marketplace
-    console.log(`Step 4: NFT Marketplace ${marketplaceAddress ? 'OK' : 'NOT DEPLOYED'}`)
+    console.log(
+      `Step 4: NFT Marketplace ${marketplaceAddress ? 'OK' : 'NOT DEPLOYED'}`,
+    )
 
     console.log('Infrastructure verification complete')
   })
@@ -427,12 +443,22 @@ describe('Simulation Summary', () => {
     console.log('===================================================')
     console.log('')
     console.log('Contracts Verified:')
-    console.log(`  ${deployments.v4.poolManager ? 'OK' : 'MISSING'} V4 PoolManager`)
-    console.log(`  ${deployments.v4.swapRouter ? 'OK' : 'MISSING'} V4 SwapRouter`)
-    console.log(`  ${deployments.v4.positionManager ? 'OK' : 'MISSING'} V4 PositionManager`)
+    console.log(
+      `  ${deployments.v4.poolManager ? 'OK' : 'MISSING'} V4 PoolManager`,
+    )
+    console.log(
+      `  ${deployments.v4.swapRouter ? 'OK' : 'MISSING'} V4 SwapRouter`,
+    )
+    console.log(
+      `  ${deployments.v4.positionManager ? 'OK' : 'MISSING'} V4 PositionManager`,
+    )
     console.log(`  ${deployments.v4.quoterV4 ? 'OK' : 'MISSING'} V4 Quoter`)
-    console.log(`  ${deployments.marketplace.at || deployments.marketplace.marketplace ? 'OK' : 'MISSING'} NFT Marketplace`)
-    console.log(`  ${deployments.factory.at || deployments.factory.factory ? 'OK' : 'MISSING'} Token Factory`)
+    console.log(
+      `  ${deployments.marketplace.at || deployments.marketplace.marketplace ? 'OK' : 'MISSING'} NFT Marketplace`,
+    )
+    console.log(
+      `  ${deployments.factory.at || deployments.factory.factory ? 'OK' : 'MISSING'} Token Factory`,
+    )
     console.log('')
     console.log('===================================================')
   })

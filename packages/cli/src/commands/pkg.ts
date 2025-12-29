@@ -59,11 +59,7 @@ function getRegistryUrl(): string {
 }
 
 function loadPkgConfig(): PkgConfig {
-  const configPath = join(
-    process.env.HOME ?? '~',
-    '.jeju',
-    'pkg-config.json',
-  )
+  const configPath = join(process.env.HOME ?? '~', '.jeju', 'pkg-config.json')
 
   if (existsSync(configPath)) {
     const raw = JSON.parse(readFileSync(configPath, 'utf-8'))
@@ -110,8 +106,9 @@ function computeIntegrity(data: Buffer): string {
   return `sha512-${hash}`
 }
 
-export const pkgCommand = new Command('pkg')
-  .description('JejuPkg - Decentralized package registry (npm compatible)')
+export const pkgCommand = new Command('pkg').description(
+  'JejuPkg - Decentralized package registry (npm compatible)',
+)
 
 // Login/configure
 pkgCommand
@@ -289,7 +286,11 @@ pkgCommand
       process.exit(1)
     }
 
-    const result = (await res.json()) as { ok: boolean; id: string; rev: string }
+    const result = (await res.json()) as {
+      ok: boolean
+      id: string
+      rev: string
+    }
     logger.success(`Published ${pkgJson.name}@${pkgJson.version}`)
     logger.keyValue('Package ID', result.id)
     logger.keyValue('Revision', result.rev)
@@ -321,7 +322,10 @@ pkgCommand
       }
     }
 
-    const body = (await res.json()) as { objects: SearchObject[]; total: number }
+    const body = (await res.json()) as {
+      objects: SearchObject[]
+      total: number
+    }
 
     logger.header('SEARCH RESULTS')
     logger.keyValue('Query', query)
@@ -561,4 +565,3 @@ pkgCommand
       logger.info(configRecord[key] ?? 'not set')
     }
   })
-

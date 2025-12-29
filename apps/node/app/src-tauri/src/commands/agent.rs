@@ -91,8 +91,12 @@ pub async fn register_agent(
     };
 
     let rpc_url = inner.config.network.rpc_url.clone();
-    let signer = wallet_manager.get_signer().ok_or("Wallet not initialized")?;
-    let wallet_address = wallet_manager.address().ok_or("Wallet address not available")?;
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
+    let wallet_address = wallet_manager
+        .address()
+        .ok_or("Wallet address not available")?;
     let wallet = EthereumWallet::from(signer.clone());
 
     let provider = ProviderBuilder::new()
@@ -105,8 +109,8 @@ pub async fn register_agent(
         )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    let registry_address = Address::from_str("0x0000000000000000000000000000000000000002")
-        .expect("valid address");
+    let registry_address =
+        Address::from_str("0x0000000000000000000000000000000000000002").expect("valid address");
     let registry = IIdentityRegistry::new(registry_address, &provider);
 
     let tx = registry
@@ -159,8 +163,8 @@ pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentIn
         )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    let registry_address = Address::from_str("0x0000000000000000000000000000000000000002")
-        .expect("valid address");
+    let registry_address =
+        Address::from_str("0x0000000000000000000000000000000000000002").expect("valid address");
     let registry = IIdentityRegistry::new(registry_address, &provider);
 
     let agent_result = registry
@@ -169,8 +173,8 @@ pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentIn
         .await
         .map_err(|e| format!("Failed to get agent info: {}", e))?;
 
-    let ban_manager_address = Address::from_str("0x0000000000000000000000000000000000000003")
-        .expect("valid address");
+    let ban_manager_address =
+        Address::from_str("0x0000000000000000000000000000000000000003").expect("valid address");
     let ban_manager = IBanManager::new(ban_manager_address, &provider);
 
     let is_banned = ban_manager
@@ -228,8 +232,8 @@ pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, S
         )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    let ban_manager_address = Address::from_str("0x0000000000000000000000000000000000000003")
-        .expect("valid address");
+    let ban_manager_address =
+        Address::from_str("0x0000000000000000000000000000000000000003").expect("valid address");
     let ban_manager = IBanManager::new(ban_manager_address, &provider);
 
     let is_banned = ban_manager
@@ -268,7 +272,9 @@ pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, S
         is_on_notice,
         is_permanently_banned,
         reason: ban_info.as_ref().map(|i| i.reason.clone()),
-        appeal_deadline: ban_info.as_ref().map(|i| i.appealDeadline.try_into().unwrap_or(0)),
+        appeal_deadline: ban_info
+            .as_ref()
+            .map(|i| i.appealDeadline.try_into().unwrap_or(0)),
         appeal_status: None,
     })
 }
@@ -288,7 +294,9 @@ pub async fn appeal_ban(
         .ok_or("Wallet not connected")?;
 
     let rpc_url = inner.config.network.rpc_url.clone();
-    let signer = wallet_manager.get_signer().ok_or("Wallet not initialized")?;
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
     let wallet = EthereumWallet::from(signer.clone());
 
     let provider = ProviderBuilder::new()
@@ -301,8 +309,8 @@ pub async fn appeal_ban(
         )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    let ban_manager_address = Address::from_str("0x0000000000000000000000000000000000000003")
-        .expect("valid address");
+    let ban_manager_address =
+        Address::from_str("0x0000000000000000000000000000000000000003").expect("valid address");
     let ban_manager = IBanManager::new(ban_manager_address, &provider);
 
     let ban_info = ban_manager

@@ -29,9 +29,21 @@ export default function HomePage() {
   })
 
   const quickStats = [
-    { label: 'Total Volume', value: stats ? formatVolume(stats.totalVolumeUSD24h) : '—', icon: '📊' },
-    { label: '24h Swaps', value: stats?.totalSwaps24h?.toLocaleString() ?? '—', icon: '🔄' },
-    { label: 'Tokens', value: stats?.totalTokens?.toLocaleString() ?? '—', icon: '🪙' },
+    {
+      label: 'Total Volume',
+      value: stats ? formatVolume(stats.totalVolumeUSD24h) : '—',
+      icon: '📊',
+    },
+    {
+      label: '24h Swaps',
+      value: stats?.totalSwaps24h?.toLocaleString() ?? '—',
+      icon: '🔄',
+    },
+    {
+      label: 'Tokens',
+      value: stats?.totalTokens?.toLocaleString() ?? '—',
+      icon: '🪙',
+    },
   ]
 
   return (

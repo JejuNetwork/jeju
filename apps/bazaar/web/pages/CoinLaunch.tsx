@@ -2,16 +2,22 @@ import { getContract } from '@jejunetwork/config'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { parseEther, parseAbi } from 'viem'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { BackLink, InfoCard } from '../components/ui'
+import { parseAbi, parseEther } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { NETWORK } from '../../config'
+import { BackLink, InfoCard } from '../components/ui'
 
 const TOKEN_FACTORY_ABI = parseAbi([
   'function createToken(string name, string symbol, uint8 decimals, uint256 initialSupply) returns (address)',
 ])
 
-const TOKEN_FACTORY_ADDRESS = getContract('tokens', 'factory', NETWORK) as `0x${string}` | undefined
+const TOKEN_FACTORY_ADDRESS = getContract('tokens', 'factory', NETWORK) as
+  | `0x${string}`
+  | undefined
 
 export default function CoinLaunchPage() {
   const navigate = useNavigate()
@@ -85,7 +91,8 @@ export default function CoinLaunchPage() {
 
       {!TOKEN_FACTORY_ADDRESS && (
         <InfoCard variant="warning" className="mb-6">
-          Token factory not deployed. Run the bootstrap script to deploy contracts.
+          Token factory not deployed. Run the bootstrap script to deploy
+          contracts.
         </InfoCard>
       )}
 
@@ -93,7 +100,8 @@ export default function CoinLaunchPage() {
         <InfoCard variant="info" className="mb-6">
           <p className="font-medium mb-1">How it works</p>
           <p className="text-sm opacity-80">
-            Create an ERC20 token with a fixed initial supply. Tokens will be minted to your wallet.
+            Create an ERC20 token with a fixed initial supply. Tokens will be
+            minted to your wallet.
           </p>
         </InfoCard>
       )}

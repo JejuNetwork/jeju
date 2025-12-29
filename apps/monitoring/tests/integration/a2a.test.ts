@@ -48,9 +48,7 @@ async function requireA2AServer(): Promise<void> {
   const serverPath = join(monitoringDir, 'api', 'a2a.ts')
 
   if (!existsSync(serverPath)) {
-    throw new Error(
-      `FATAL: A2A server file not found at ${serverPath}`,
-    )
+    throw new Error(`FATAL: A2A server file not found at ${serverPath}`)
   }
 
   console.log('Starting A2A server...')

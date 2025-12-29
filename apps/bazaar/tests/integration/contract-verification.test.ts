@@ -109,10 +109,18 @@ let deployments: Deployments
 
 function loadDeployment(filename: string): Record<string, string> {
   const deploymentMap: Record<string, Record<string, string>> = {
-    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<string, string>,
-    'bazaar-marketplace-31337.json': rawDeployments.bazaarMarketplace1337 as Record<string, string>,
-    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<string, string>,
-    'multi-token-system-31337.json': rawDeployments.multiTokenSystem1337 as Record<string, string>,
+    'uniswap-v4-31337.json': rawDeployments.uniswapV4_1337 as Record<
+      string,
+      string
+    >,
+    'bazaar-marketplace-31337.json':
+      rawDeployments.bazaarMarketplace1337 as Record<string, string>,
+    'erc20-factory-31337.json': rawDeployments.erc20Factory1337 as Record<
+      string,
+      string
+    >,
+    'multi-token-system-31337.json':
+      rawDeployments.multiTokenSystem1337 as Record<string, string>,
   }
   return deploymentMap[filename] ?? {}
 }
@@ -456,16 +464,28 @@ describe('Contract Verification Summary', () => {
     console.log('===================================================')
     console.log('')
     console.log('V4 Periphery:')
-    console.log(`  ${isDeployed(deployments.v4.swapRouter) ? 'OK' : 'MISSING'} SwapRouter`)
-    console.log(`  ${isDeployed(deployments.v4.positionManager) ? 'OK' : 'MISSING'} PositionManager`)
-    console.log(`  ${isDeployed(deployments.v4.quoterV4) ? 'OK' : 'MISSING'} Quoter`)
-    console.log(`  ${isDeployed(deployments.v4.stateView) ? 'OK' : 'MISSING'} StateView`)
+    console.log(
+      `  ${isDeployed(deployments.v4.swapRouter) ? 'OK' : 'MISSING'} SwapRouter`,
+    )
+    console.log(
+      `  ${isDeployed(deployments.v4.positionManager) ? 'OK' : 'MISSING'} PositionManager`,
+    )
+    console.log(
+      `  ${isDeployed(deployments.v4.quoterV4) ? 'OK' : 'MISSING'} Quoter`,
+    )
+    console.log(
+      `  ${isDeployed(deployments.v4.stateView) ? 'OK' : 'MISSING'} StateView`,
+    )
     console.log('')
     console.log('Marketplace:')
-    console.log(`  ${isDeployed(deployments.marketplace.at || deployments.marketplace.marketplace) ? 'OK' : 'MISSING'} Bazaar Marketplace`)
+    console.log(
+      `  ${isDeployed(deployments.marketplace.at || deployments.marketplace.marketplace) ? 'OK' : 'MISSING'} Bazaar Marketplace`,
+    )
     console.log('')
     console.log('Token Factory:')
-    console.log(`  ${isDeployed(deployments.factory.at) ? 'OK' : 'MISSING'} ERC20 Factory`)
+    console.log(
+      `  ${isDeployed(deployments.factory.at) ? 'OK' : 'MISSING'} ERC20 Factory`,
+    )
     console.log('')
     console.log('===================================================')
     console.log('')

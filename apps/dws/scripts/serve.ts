@@ -1,5 +1,5 @@
-import { spawn } from 'bun'
 import type { Subprocess } from 'bun'
+import { spawn } from 'bun'
 
 const DWS_DIR = import.meta.dir.replace('/scripts', '')
 
@@ -130,5 +130,3 @@ main().catch((error) => {
   cleanup()
   process.exit(1)
 })
-
-

@@ -1,10 +1,17 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { type Address, parseEther, formatUnits } from 'viem'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { type Address, formatUnits, parseEther } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { InfoCard } from '../components/ui'
-import { useTFMMPoolState, useTFMMUserBalance } from '../hooks/tfmm/useTFMMPools'
+import {
+  useTFMMPoolState,
+  useTFMMUserBalance,
+} from '../hooks/tfmm/useTFMMPools'
 
 const TFMM_POOL_ABI = [
   {
@@ -30,7 +37,9 @@ export default function LiquidityPage() {
   const { balance: userBalance } = useTFMMUserBalance(poolAddress)
 
   const { writeContract, data: txHash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
 
   if (isSuccess) {
     toast.success('Liquidity added successfully.')
@@ -49,7 +58,12 @@ export default function LiquidityPage() {
 
     const amount0 = parseFloat(token0Amount)
     const amount1 = parseFloat(token1Amount)
-    if (Number.isNaN(amount0) || Number.isNaN(amount1) || amount0 <= 0 || amount1 <= 0) {
+    if (
+      Number.isNaN(amount0) ||
+      Number.isNaN(amount1) ||
+      amount0 <= 0 ||
+      amount1 <= 0
+    ) {
       toast.error('Enter valid amounts')
       return
     }
@@ -66,17 +80,28 @@ export default function LiquidityPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <Link to="/pools" className="text-sm mb-4 inline-block" style={{ color: 'var(--text-secondary)' }}>
+      <Link
+        to="/pools"
+        className="text-sm mb-4 inline-block"
+        style={{ color: 'var(--text-secondary)' }}
+      >
         ← Back to Pools
       </Link>
 
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+      <h1
+        className="text-2xl sm:text-3xl font-bold mb-6"
+        style={{ color: 'var(--text-primary)' }}
+      >
         💧 Add Liquidity
       </h1>
 
       {!poolAddress && (
         <InfoCard variant="warning" className="mb-6">
-          No pool selected. Go to <Link to="/pools" className="underline">Pools</Link> and select a pool to add liquidity.
+          No pool selected. Go to{' '}
+          <Link to="/pools" className="underline">
+            Pools
+          </Link>{' '}
+          and select a pool to add liquidity.
         </InfoCard>
       )}
 
@@ -89,7 +114,11 @@ export default function LiquidityPage() {
       <div className="card p-6">
         <div className="space-y-4">
           <div>
-            <label htmlFor="token0-amount" className="text-sm block mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+            <label
+              htmlFor="token0-amount"
+              className="text-sm block mb-1.5"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               Token 1
             </label>
             <input
@@ -103,11 +132,20 @@ export default function LiquidityPage() {
           </div>
 
           <div className="flex justify-center">
-            <div className="p-2 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>+</div>
+            <div
+              className="p-2 rounded-xl"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              +
+            </div>
           </div>
 
           <div>
-            <label htmlFor="token1-amount" className="text-sm block mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+            <label
+              htmlFor="token1-amount"
+              className="text-sm block mb-1.5"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               Token 2
             </label>
             <input
@@ -121,14 +159,23 @@ export default function LiquidityPage() {
           </div>
 
           {poolState && (
-            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div
+              className="p-4 rounded-xl"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
               <div className="flex justify-between text-sm mb-2">
                 <span style={{ color: 'var(--text-tertiary)' }}>Fee Tier</span>
-                <span style={{ color: 'var(--text-primary)' }}>{(Number(formatUnits(poolState.swapFee, 16))).toFixed(2)}%</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {Number(formatUnits(poolState.swapFee, 16)).toFixed(2)}%
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span style={{ color: 'var(--text-tertiary)' }}>Your LP Balance</span>
-                <span style={{ color: 'var(--text-primary)' }}>{Number(formatUnits(userBalance, 18)).toFixed(4)}</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>
+                  Your LP Balance
+                </span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {Number(formatUnits(userBalance, 18)).toFixed(4)}
+                </span>
               </div>
             </div>
           )}
@@ -136,7 +183,13 @@ export default function LiquidityPage() {
           <button
             type="button"
             onClick={handleAddLiquidity}
-            disabled={isSubmitting || !isConnected || !poolAddress || !token0Amount || !token1Amount}
+            disabled={
+              isSubmitting ||
+              !isConnected ||
+              !poolAddress ||
+              !token0Amount ||
+              !token1Amount
+            }
             className="btn-primary w-full py-3 disabled:opacity-50"
           >
             {!isConnected

@@ -40,9 +40,9 @@ import {
   KEY_DERIVATION_MESSAGE,
   type KeyPair,
   publicKeyToBytes32,
+  type SigningKeyPair,
   serializeEncryptedMessage,
   signPreKey,
-  type SigningKeyPair,
 } from './crypto'
 import { warnLocalKeyUsage } from './kms-crypto'
 import {

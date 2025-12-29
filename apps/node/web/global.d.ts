@@ -1,6 +1,8 @@
 type JsonRpcValue = string | number | boolean | null
 type JsonRpcArray = JsonRpcValue[] | JsonRpcObject[]
-type JsonRpcObject = { [key: string]: JsonRpcValue | JsonRpcArray | JsonRpcObject }
+type JsonRpcObject = {
+  [key: string]: JsonRpcValue | JsonRpcArray | JsonRpcObject
+}
 type JsonRpcParams = JsonRpcValue | JsonRpcArray | JsonRpcObject
 
 interface TransactionReceipt {
@@ -41,11 +43,17 @@ interface EIP1193MethodMap {
   eth_getBalance: { params: [string, string]; result: string }
   eth_getTransactionCount: { params: [string, string]; result: string }
   eth_sendTransaction: { params: [TransactionParams]; result: string }
-  eth_getTransactionReceipt: { params: [string]; result: TransactionReceipt | null }
+  eth_getTransactionReceipt: {
+    params: [string]
+    result: TransactionReceipt | null
+  }
   personal_sign: { params: [string, string]; result: string }
   eth_signTypedData_v4: { params: [string, string]; result: string }
   eth_call: { params: [{ to: string; data: string }, string]; result: string }
-  eth_estimateGas: { params: [{ from?: string; to?: string; value?: string; data?: string }]; result: string }
+  eth_estimateGas: {
+    params: [{ from?: string; to?: string; value?: string; data?: string }]
+    result: string
+  }
   eth_blockNumber: { params: never; result: string }
   eth_getBlockByNumber: { params: [string, boolean]; result: BlockData | null }
   eth_gasPrice: { params: never; result: string }
@@ -78,7 +86,10 @@ interface EIP1193Provider {
   }): Promise<JsonRpcValue | JsonRpcArray | JsonRpcObject | null>
 
   on<E extends EIP1193Event>(event: E, handler: EIP1193EventMap[E]): void
-  removeListener<E extends EIP1193Event>(event: E, handler: EIP1193EventMap[E]): void
+  removeListener<E extends EIP1193Event>(
+    event: E,
+    handler: EIP1193EventMap[E],
+  ): void
 }
 
 type TauriInvokeArg =

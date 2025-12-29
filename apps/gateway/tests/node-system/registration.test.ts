@@ -30,7 +30,9 @@ describe('Node Registration - On-Chain Validation', () => {
     const hasJeju = JEJU_TOKEN !== '0x0000000000000000000000000000000000000000'
 
     console.log('Node Registration Requirements:')
-    console.log(`   Contract configured: ${hasNodeManager ? 'OK' : 'needs .env'}`)
+    console.log(
+      `   Contract configured: ${hasNodeManager ? 'OK' : 'needs .env'}`,
+    )
     console.log(`   Token configured: ${hasJeju ? 'OK' : 'needs .env'}`)
 
     // Validate that contract addresses are either properly configured or explicitly zero

@@ -343,9 +343,7 @@ pub async fn get_bot_earnings(
 ) -> Result<Vec<OpportunityInfo>, String> {
     let inner = state.inner.read().await;
 
-    let start_time = days.map(|d| {
-        chrono::Utc::now().timestamp() - (d as i64 * 24 * 60 * 60)
-    });
+    let start_time = days.map(|d| chrono::Utc::now().timestamp() - (d as i64 * 24 * 60 * 60));
 
     let entries = inner.earnings_tracker.get_entries(
         Some(&format!("bot_{}", bot_id)),

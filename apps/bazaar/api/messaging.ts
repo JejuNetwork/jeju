@@ -131,7 +131,7 @@ class BazaarMessagingService {
     this.hubClient = new FarcasterClient({ hubUrl: HUB_URL })
   }
 
-async getChannelFeed(
+  async getChannelFeed(
     channelUrl: string,
     options?: {
       limit?: number
@@ -151,7 +151,7 @@ async getChannelFeed(
     }
   }
 
-async getEntityFeed(
+  async getEntityFeed(
     type: BazaarChannelType,
     id: string,
     options?: {
@@ -163,7 +163,7 @@ async getEntityFeed(
     return this.getChannelFeed(channelUrl, options)
   }
 
-getComposeUrl(params: {
+  getComposeUrl(params: {
     channelUrl: string
     text?: string
     embeds?: string[]
@@ -180,7 +180,7 @@ getComposeUrl(params: {
     return `${baseUrl}?${searchParams.toString()}`
   }
 
-getEntityComposeUrl(params: {
+  getEntityComposeUrl(params: {
     type: BazaarChannelType
     id: string
     text?: string
@@ -194,7 +194,7 @@ getEntityComposeUrl(params: {
     })
   }
 
-async getProfile(fid: number): Promise<FarcasterProfile | null> {
+  async getProfile(fid: number): Promise<FarcasterProfile | null> {
     const cached = profileCache.get(fid)
     if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
       return cached.profile
@@ -207,12 +207,12 @@ async getProfile(fid: number): Promise<FarcasterProfile | null> {
     return profile
   }
 
-async getFidByAddress(address: Address): Promise<number | null> {
+  async getFidByAddress(address: Address): Promise<number | null> {
     const profile = await this.hubClient.getProfileByVerifiedAddress(address)
     return profile?.fid ?? null
   }
 
-private async enrichCasts(casts: FarcasterCast[]): Promise<BazaarFeedCast[]> {
+  private async enrichCasts(casts: FarcasterCast[]): Promise<BazaarFeedCast[]> {
     const fids = [...new Set(casts.map((c) => c.fid))]
     const profiles = await Promise.all(fids.map((fid) => this.getProfile(fid)))
     const profileMap = new Map<number, FarcasterProfile>()
@@ -243,7 +243,7 @@ private async enrichCasts(casts: FarcasterCast[]): Promise<BazaarFeedCast[]> {
     })
   }
 
-createNotification(
+  createNotification(
     payload: MarketplaceNotification,
     channel: BazaarChannel,
   ): {
@@ -264,7 +264,7 @@ createNotification(
     }
   }
 
-listingSoldNotification(params: {
+  listingSoldNotification(params: {
     nftName: string
     price: string
     buyer: string
@@ -283,7 +283,7 @@ listingSoldNotification(params: {
     }
   }
 
-bidReceivedNotification(params: {
+  bidReceivedNotification(params: {
     nftName: string
     bidAmount: string
     bidder: string
@@ -300,7 +300,7 @@ bidReceivedNotification(params: {
     }
   }
 
-auctionEndedNotification(params: {
+  auctionEndedNotification(params: {
     nftName: string
     winner: string
     finalPrice: string
@@ -317,7 +317,7 @@ auctionEndedNotification(params: {
     }
   }
 
-collectionTrendingNotification(params: {
+  collectionTrendingNotification(params: {
     collectionName: string
     volumeChange: string
     floorChange: string
@@ -334,7 +334,7 @@ collectionTrendingNotification(params: {
     }
   }
 
-async postToChannelWithKMS(params: {
+  async postToChannelWithKMS(params: {
     signerId: string
     text: string
     channelUrl: string
@@ -366,7 +366,7 @@ async postToChannelWithKMS(params: {
     return result
   }
 
-async postToEntityChannelWithKMS(params: {
+  async postToEntityChannelWithKMS(params: {
     signerId: string
     type: BazaarChannelType
     id: string
@@ -382,7 +382,7 @@ async postToEntityChannelWithKMS(params: {
     })
   }
 
-isKMSPostingAvailable(): boolean {
+  isKMSPostingAvailable(): boolean {
     return Boolean(MPC_SIGNER_URL)
   }
 }

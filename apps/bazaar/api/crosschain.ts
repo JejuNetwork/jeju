@@ -122,7 +122,7 @@ export async function getBestQuote(
 
   if (quotes.length === 0) return null
 
-quotes.sort((a, b) => {
+  quotes.sort((a, b) => {
     const outputDiff = BigInt(b.outputAmount) - BigInt(a.outputAmount)
     if (outputDiff !== 0n) return Number(outputDiff)
     return a.estimatedTimeSeconds - b.estimatedTimeSeconds

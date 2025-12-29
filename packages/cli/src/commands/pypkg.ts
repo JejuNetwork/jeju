@@ -5,7 +5,7 @@
 
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { basename, join } from 'node:path'
 import { getDWSUrl } from '@jejunetwork/config'
 import { Command } from 'commander'
 import { z } from 'zod'
@@ -51,8 +51,9 @@ function computeSha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex')
 }
 
-export const pypkgCommand = new Command('pypkg')
-  .description('JejuPyPkg - Decentralized Python package registry (pip compatible)')
+export const pypkgCommand = new Command('pypkg').description(
+  'JejuPyPkg - Decentralized Python package registry (pip compatible)',
+)
 
 // Login/configure
 pypkgCommand
@@ -196,7 +197,9 @@ pypkgCommand
   .action(async (query) => {
     const config = loadPyPkgConfig()
 
-    const res = await fetch(`${config.registry}/search?q=${encodeURIComponent(query)}`)
+    const res = await fetch(
+      `${config.registry}/search?q=${encodeURIComponent(query)}`,
+    )
 
     if (!res.ok) {
       logger.error('Search failed')
@@ -209,7 +212,10 @@ pypkgCommand
       summary: string
     }
 
-    const body = (await res.json()) as { results: SearchResult[]; total: number }
+    const body = (await res.json()) as {
+      results: SearchResult[]
+      total: number
+    }
 
     logger.header('SEARCH RESULTS')
     logger.keyValue('Query', query)
@@ -338,14 +344,19 @@ pypkgCommand
       versions: string[]
     }
 
-    const body = (await res.json()) as { packages: PackageListItem[]; total: number }
+    const body = (await res.json()) as {
+      packages: PackageListItem[]
+      total: number
+    }
 
     logger.header('PACKAGES')
     logger.keyValue('Total', String(body.total))
     logger.newline()
 
     for (const pkg of body.packages) {
-      logger.info(`${pkg.name}==${pkg.latestVersion} (${pkg.versions.length} versions)`)
+      logger.info(
+        `${pkg.name}==${pkg.latestVersion} (${pkg.versions.length} versions)`,
+      )
     }
   })
 
@@ -378,4 +389,3 @@ pypkgCommand
       logger.info(configRecord[key] ?? 'not set')
     }
   })
-

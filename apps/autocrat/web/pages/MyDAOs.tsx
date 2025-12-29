@@ -218,7 +218,10 @@ function EmptyState() {
           border: '1px solid var(--border)',
         }}
       >
-        <Building2 className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
+        <Building2
+          className="w-10 h-10"
+          style={{ color: 'var(--text-tertiary)' }}
+        />
       </div>
       <h3
         className="text-lg font-semibold mb-2"
@@ -270,7 +273,10 @@ function ConnectWalletState() {
           border: '1px solid var(--border)',
         }}
       >
-        <Wallet className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
+        <Wallet
+          className="w-10 h-10"
+          style={{ color: 'var(--text-tertiary)' }}
+        />
       </div>
       <h3
         className="text-lg font-semibold mb-2"
@@ -323,7 +329,10 @@ export default function MyDAOsPage() {
     <div style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="container mx-auto py-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <h1
+            className="text-2xl font-bold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             My Organizations
           </h1>
           <Link
@@ -344,7 +353,10 @@ export default function MyDAOsPage() {
           <EmptyState />
         ) : (
           <>
-            <p className="text-sm mb-6" style={{ color: 'var(--text-tertiary)' }}>
+            <p
+              className="text-sm mb-6"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               {daos.length} organization{daos.length !== 1 ? 's' : ''}
             </p>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -358,5 +370,3 @@ export default function MyDAOsPage() {
     </div>
   )
 }
-
-

@@ -279,12 +279,11 @@ export class GitRepoManager {
   private objectStores: Map<string, GitObjectStore> = new Map() // repoId -> store
   private backend: BackendManager
   private contributionQueue: ContributionEvent[] = []
-  
+
   // In-memory fallback when registry address is zero
   private inMemoryMode: boolean
   private inMemoryRepos: Map<Hex, Repository> = new Map()
   private inMemoryBranches: Map<Hex, Branch[]> = new Map()
-  private inMemoryRepoCounter = 0
 
   constructor(config: RepoManagerConfig, backend: BackendManager) {
     this.backend = backend
@@ -510,11 +509,14 @@ export class GitRepoManager {
   ): CreateRepoResponse {
     // Generate a deterministic repoId from owner + name
     const repoIdInput = `${signer.toLowerCase()}-${request.name}`
-    const repoId = `0x${Buffer.from(repoIdInput).toString('hex').padEnd(64, '0').slice(0, 64)}` as Hex
-    
+    const repoId =
+      `0x${Buffer.from(repoIdInput).toString('hex').padEnd(64, '0').slice(0, 64)}` as Hex
+
     // Check if repo already exists
     if (this.inMemoryRepos.has(repoId)) {
-      throw new Error(`Repository ${request.name} already exists for this owner`)
+      throw new Error(
+        `Repository ${request.name} already exists for this owner`,
+      )
     }
 
     const now = BigInt(Date.now())
@@ -524,16 +526,20 @@ export class GitRepoManager {
       agentId: 0n,
       name: request.name,
       description: request.description ?? '',
-      jnsNode: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
-      headCommitCid: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
-      metadataCid: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      jnsNode:
+        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      headCommitCid:
+        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      metadataCid:
+        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
       createdAt: now,
       updatedAt: now,
       visibility,
       archived: false,
       starCount: 0n,
       forkCount: 0n,
-      forkedFrom: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      forkedFrom:
+        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
     }
 
     this.inMemoryRepos.set(repoId, repo)
@@ -544,7 +550,9 @@ export class GitRepoManager {
       (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ||
       getDWSUrl(getCurrentNetwork())
 
-    console.log(`[Git] Created repository ${request.name} (in-memory): ${repoId}`)
+    console.log(
+      `[Git] Created repository ${request.name} (in-memory): ${repoId}`,
+    )
 
     return {
       repoId,
@@ -594,7 +602,10 @@ export class GitRepoManager {
     // In-memory mode
     if (this.inMemoryMode) {
       for (const repo of this.inMemoryRepos.values()) {
-        if (repo.owner.toLowerCase() === owner.toLowerCase() && repo.name === name) {
+        if (
+          repo.owner.toLowerCase() === owner.toLowerCase() &&
+          repo.name === name
+        ) {
           return repo
         }
       }
@@ -654,7 +665,7 @@ export class GitRepoManager {
     // In-memory mode
     if (this.inMemoryMode) {
       const branches = this.inMemoryBranches.get(repoId) ?? []
-      return branches.find(b => b.name === branchName) ?? null
+      return branches.find((b) => b.name === branchName) ?? null
     }
 
     const result = await this.readRepoContract<ContractBranchData>(
@@ -821,10 +832,10 @@ export class GitRepoManager {
       if (!repo) {
         throw new Error(`Repository not found: ${repoId}`)
       }
-      
+
       let branches = this.inMemoryBranches.get(repoId) ?? []
-      const existingBranchIdx = branches.findIndex(b => b.name === branch)
-      
+      const existingBranchIdx = branches.findIndex((b) => b.name === branch)
+
       const branchData: Branch = {
         repoId,
         name: branch,
@@ -833,20 +844,22 @@ export class GitRepoManager {
         updatedAt: BigInt(Date.now()),
         protected: false,
       }
-      
+
       if (existingBranchIdx >= 0) {
         branches[existingBranchIdx] = branchData
       } else {
         branches = [...branches, branchData]
       }
-      
+
       this.inMemoryBranches.set(repoId, branches)
-      
+
       // Update repo head commit
       repo.headCommitCid = newCommitCid
       repo.updatedAt = BigInt(Date.now())
-      
-      console.log(`[Git] Pushed ${commitCount} commits to ${branch} (in-memory): ${newCommitOid}`)
+
+      console.log(
+        `[Git] Pushed ${commitCount} commits to ${branch} (in-memory): ${newCommitOid}`,
+      )
       return
     }
 

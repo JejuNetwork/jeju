@@ -140,7 +140,7 @@ export function AuthButton({
   const { disconnectAsync } = useDisconnect()
   const { signMessageAsync } = useSignMessage()
 
-useState(() => {
+  useState(() => {
     isPlatformAuthenticatorAvailable().then(setHasPasskeys)
   })
 
@@ -160,7 +160,7 @@ useState(() => {
       const result = await connectAsync({ connector })
       const walletAddress = result.accounts[0]
 
-const message = createSIWEMessage({
+      const message = createSIWEMessage({
         domain: window.location.host,
         address: walletAddress as `0x${string}`,
         uri: window.location.origin,
@@ -196,7 +196,7 @@ const message = createSIWEMessage({
     setError(null)
 
     try {
-const redirectUri = `${window.location.origin}/auth/callback`
+      const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
         method: 'POST',
@@ -228,7 +228,7 @@ const redirectUri = `${window.location.origin}/auth/callback`
     setError(null)
 
     try {
-const credential = await navigator.credentials.get({
+      const credential = await navigator.credentials.get({
         publicKey: {
           challenge: crypto.getRandomValues(new Uint8Array(32)),
           rpId: window.location.hostname,
@@ -239,7 +239,7 @@ const credential = await navigator.credentials.get({
 
       if (!credential) throw new Error('Passkey authentication cancelled')
 
-const session: AuthSession = {
+      const session: AuthSession = {
         address: `passkey:${credential.id.slice(0, 20)}`,
         method: 'passkey',
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
@@ -297,7 +297,7 @@ const session: AuthSession = {
     localStorage.removeItem('bazaar_session')
   }
 
-if (isConnected && address) {
+  if (isConnected && address) {
     return (
       <div className="relative">
         <button

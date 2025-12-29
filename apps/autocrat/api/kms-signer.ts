@@ -208,7 +208,11 @@ export async function createKMSWalletClient<_TTransport extends Transport>(
 export async function createKMSHttpWalletClient(
   config: AutocratKMSConfig & { chain: Chain; rpcUrl: string },
 ): Promise<WalletClient> {
-  const result = await createKMSWalletClient(config, config.chain, config.rpcUrl)
+  const result = await createKMSWalletClient(
+    config,
+    config.chain,
+    config.rpcUrl,
+  )
   return result.client
 }
 

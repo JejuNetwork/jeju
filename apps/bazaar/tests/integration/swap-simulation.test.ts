@@ -112,7 +112,9 @@ describe('WETH Operations', () => {
 
     // WETH may not be deployed on fresh Anvil - this is an OP Stack predeploy
     if (code === '0x' || !code) {
-      console.log(`WETH not deployed at ${WETH_ADDRESS} - expected on fresh Anvil`)
+      console.log(
+        `WETH not deployed at ${WETH_ADDRESS} - expected on fresh Anvil`,
+      )
       // Skip remaining WETH tests if not deployed
       return
     }
@@ -332,4 +334,3 @@ describe('Price Impact', () => {
     console.log('Large trade has high price impact')
   })
 })
-

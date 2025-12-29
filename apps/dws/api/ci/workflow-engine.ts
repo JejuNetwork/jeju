@@ -22,6 +22,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { parse as parseYaml } from 'yaml'
 import { z } from 'zod'
+import { decodeBytes32ToOid } from '../git/oid-utils'
 import type { GitRepoManager } from '../git/repo-manager'
 import {
   createKMSWalletClient,
@@ -199,45 +200,61 @@ export class WorkflowEngine {
       return []
     }
 
-    // Decode the bytes32 CID to OID format
-    const headOid = repo.headCommitCid.slice(2) // Remove 0x prefix for git OID
+    // Decode the bytes32 CID to OID format (40-char hex string)
+    const headOid = decodeBytes32ToOid(repo.headCommitCid)
     const commit = await objectStore.getCommit(headOid)
     if (!commit) return []
 
     const tree = await objectStore.getTree(commit.tree)
     if (!tree) return []
 
-    // Look for .jeju/workflows directory
-    const jejuDir = tree.entries.find(
-      (e) => e.name === '.jeju' && e.type === 'tree',
-    )
-    if (!jejuDir) return []
-
-    const jejuTree = await objectStore.getTree(jejuDir.oid)
-    if (!jejuTree) return []
-
-    const workflowsDir = jejuTree.entries.find(
-      (e) => e.name === 'workflows' && e.type === 'tree',
-    )
-    if (!workflowsDir) return []
-
-    const workflowsTree = await objectStore.getTree(workflowsDir.oid)
-    if (!workflowsTree) return []
-
     const workflows: Workflow[] = []
 
-    for (const entry of workflowsTree.entries) {
-      if (entry.type !== 'blob' || !entry.name.endsWith('.yml')) continue
+    // Helper to load workflows from a directory
+    const loadFromDir = async (
+      parentDir: string,
+      source: 'jeju' | 'github',
+    ) => {
+      const dir = tree.entries.find(
+        (e) => e.name === parentDir && e.type === 'tree',
+      )
+      if (!dir) return
 
-      const blob = await objectStore.getBlob(entry.oid)
-      if (!blob) continue
+      const dirTree = await objectStore.getTree(dir.oid)
+      if (!dirTree) return
 
-      const config = this.parseWorkflowConfig(blob.content.toString('utf8'))
-      const workflow = this.configToWorkflow(repoId, entry.name, config)
-      workflows.push(workflow)
+      const workflowsDir = dirTree.entries.find(
+        (e) => e.name === 'workflows' && e.type === 'tree',
+      )
+      if (!workflowsDir) return
 
-      this.workflows.set(workflow.workflowId, workflow)
+      const workflowsTree = await objectStore.getTree(workflowsDir.oid)
+      if (!workflowsTree) return
+
+      for (const entry of workflowsTree.entries) {
+        if (entry.type !== 'blob') continue
+        if (!entry.name.endsWith('.yml') && !entry.name.endsWith('.yaml'))
+          continue
+
+        const blob = await objectStore.getBlob(entry.oid)
+        if (!blob) continue
+
+        try {
+          const config = this.parseWorkflowConfig(blob.content.toString('utf8'))
+          const workflow = this.configToWorkflow(repoId, entry.name, config)
+          workflow.source = source
+          workflows.push(workflow)
+          this.workflows.set(workflow.workflowId, workflow)
+        } catch (err) {
+          console.warn(`[CI] Failed to parse workflow ${entry.name}: ${err}`)
+        }
+      }
     }
+
+    // Load from both .jeju/workflows and .github/workflows
+    // .jeju/workflows takes precedence (loaded first)
+    await loadFromDir('.jeju', 'jeju')
+    await loadFromDir('.github', 'github')
 
     return workflows
   }

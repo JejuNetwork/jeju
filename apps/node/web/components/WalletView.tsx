@@ -378,13 +378,19 @@ export function WalletView() {
                           setLoading(true)
                           setError(null)
                           if (!window.ethereum) {
-                            setError('No wallet extension found. Install MetaMask or Rabby.')
+                            setError(
+                              'No wallet extension found. Install MetaMask or Rabby.',
+                            )
                             setLoading(false)
                             return
                           }
-                          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+                          const accounts = await window.ethereum.request({
+                            method: 'eth_requestAccounts',
+                          })
                           if (accounts.length > 0) {
-                            await invoke('connect_external_wallet', { address: accounts[0] })
+                            await invoke('connect_external_wallet', {
+                              address: accounts[0],
+                            })
                             await fetchWallet()
                             await fetchBalance()
                             setAction(null)
@@ -399,7 +405,9 @@ export function WalletView() {
                         </div>
                         <div className="text-left">
                           <p className="font-medium">Browser Wallet</p>
-                          <p className="text-xs text-volcanic-400">MetaMask, Rabby, etc.</p>
+                          <p className="text-xs text-volcanic-400">
+                            MetaMask, Rabby, etc.
+                          </p>
                         </div>
                       </button>
                     </div>
@@ -427,7 +435,8 @@ export function WalletView() {
                     )}
 
                     <p className="text-volcanic-400 mb-4">
-                      Connect using your Network Wallet for enhanced security and seamless integration.
+                      Connect using your Network Wallet for enhanced security
+                      and seamless integration.
                     </p>
 
                     <button
@@ -625,7 +634,9 @@ export function WalletView() {
                 onClick={async () => {
                   const pwd = prompt('Enter your wallet password to export:')
                   if (!pwd) return
-                  const key = await invoke<string>('export_private_key', { password: pwd })
+                  const key = await invoke<string>('export_private_key', {
+                    password: pwd,
+                  })
                   navigator.clipboard.writeText(key)
                   alert('Private key copied to clipboard. Store it safely.')
                 }}
@@ -644,7 +655,10 @@ export function WalletView() {
                     alert('Password must be at least 8 characters')
                     return
                   }
-                  await invoke('change_wallet_password', { old_password: oldPwd, new_password: newPwd })
+                  await invoke('change_wallet_password', {
+                    old_password: oldPwd,
+                    new_password: newPwd,
+                  })
                   alert('Password changed.')
                 }}
                 className="btn-secondary w-full text-left flex items-center justify-between"
@@ -657,7 +671,12 @@ export function WalletView() {
           <button
             type="button"
             onClick={async () => {
-              if (!confirm('Disconnect wallet? You will need to reconnect to use services.')) return
+              if (
+                !confirm(
+                  'Disconnect wallet? You will need to reconnect to use services.',
+                )
+              )
+                return
               await invoke('disconnect_wallet')
               await fetchWallet()
             }}

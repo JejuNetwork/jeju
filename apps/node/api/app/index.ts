@@ -704,7 +704,11 @@ async function cmdEarnings(): Promise<void> {
     return
   }
 
-  const client = createSecureNodeClient(config.rpcUrl, config.chainId, config.keyId)
+  const client = createSecureNodeClient(
+    config.rpcUrl,
+    config.chainId,
+    config.keyId,
+  )
   const walletAddr = expectAddress(config.walletAddress, 'config.walletAddress')
 
   const balance = await client.publicClient.getBalance({ address: walletAddr })

@@ -130,33 +130,82 @@ export function createPkgRouter(ctx: PkgContext) {
       .get(
         '/-/v1/search',
         async ({ query }) => {
-          const text = query.text || ''
-          const size = parseInt(query.size || '20', 10)
-          const from = parseInt(query.from || '0', 10)
+          const text = (query.text ?? '').toLowerCase()
+          const size = parseInt(query.size ?? '20', 10)
+          const from = parseInt(query.from ?? '0', 10)
 
-          const localPackages = await registryManager.searchPackages(
-            text,
-            from,
-            size,
-          )
+          // Search in-memory packages first
+          const inMemoryResults: Array<{
+            name: string
+            scope: string
+            version: string
+            description: string
+            owner: string
+            updatedAt: Date
+          }> = []
+
+          for (const [fullName, pkg] of localPackages) {
+            if (text === '' || fullName.toLowerCase().includes(text) || 
+                pkg.description.toLowerCase().includes(text)) {
+              inMemoryResults.push({
+                name: pkg.name,
+                scope: pkg.scope,
+                version: pkg.latestVersion,
+                description: pkg.description,
+                owner: pkg.owner,
+                updatedAt: pkg.updatedAt,
+              })
+            }
+          }
+
+          // Try on-chain search (may fail if contract not deployed)
+          let onChainPackages: Array<{
+            name: string
+            scope: string
+            version: string
+            description: string
+            owner: string
+            updatedAt: bigint
+          }> = []
+          try {
+            onChainPackages = await registryManager.searchPackages(text, from, size)
+          } catch {
+            // Contract not deployed, use in-memory only
+          }
+
+          // Combine results
+          const allPackages = [
+            ...inMemoryResults.map(pkg => ({
+              name: getFullName(pkg.name, pkg.scope),
+              scope: pkg.scope || undefined,
+              version: pkg.version,
+              description: pkg.description,
+              date: pkg.updatedAt.toISOString(),
+              publisher: { username: pkg.owner },
+            })),
+            ...onChainPackages.map(pkg => ({
+              name: registryManager.getFullName(pkg.name, pkg.scope),
+              scope: pkg.scope || undefined,
+              version: pkg.version,
+              description: pkg.description,
+              date: new Date(Number(pkg.updatedAt) * 1000).toISOString(),
+              publisher: { username: pkg.owner },
+            })),
+          ]
+
+          // Apply pagination
+          const paginated = allPackages.slice(from, from + size)
 
           const result: PkgSearchResult = {
-            objects: localPackages.map((pkg) => ({
-              package: {
-                name: registryManager.getFullName(pkg.name, pkg.scope),
-                scope: pkg.scope || undefined,
-                version: '0.0.0',
-                description: pkg.description,
-                date: new Date(Number(pkg.updatedAt) * 1000).toISOString(),
-                publisher: { username: pkg.owner },
-              },
+            objects: paginated.map((pkg) => ({
+              package: pkg,
               score: {
                 final: 1,
                 detail: { quality: 1, popularity: 1, maintenance: 1 },
               },
               searchScore: 1,
             })),
-            total: localPackages.length,
+            total: allPackages.length,
             time: new Date().toISOString(),
           }
 
@@ -271,7 +320,12 @@ export function createPkgRouter(ctx: PkgContext) {
             const ver = inMemoryPkg.versions.get(version)
             if (ver) {
               if (user) {
-                recordPackageDownload(user, inMemoryPkg.packageId, fullName, version)
+                recordPackageDownload(
+                  user,
+                  inMemoryPkg.packageId,
+                  fullName,
+                  version,
+                )
               }
               return new Response(new Uint8Array(ver.tarball), {
                 headers: {
@@ -288,11 +342,19 @@ export function createPkgRouter(ctx: PkgContext) {
           try {
             const localPkg = await registryManager.getPackageByName(fullName)
             if (localPkg) {
-              const ver = await registryManager.getVersion(localPkg.packageId, version)
+              const ver = await registryManager.getVersion(
+                localPkg.packageId,
+                version,
+              )
               if (ver) {
                 const tarball = await backend.download(ver.tarballCid)
                 if (user) {
-                  recordPackageDownload(user, localPkg.packageId, fullName, version)
+                  recordPackageDownload(
+                    user,
+                    localPkg.packageId,
+                    fullName,
+                    version,
+                  )
                 }
                 return new Response(new Uint8Array(tarball.content), {
                   headers: {
@@ -308,7 +370,10 @@ export function createPkgRouter(ctx: PkgContext) {
           }
 
           // Try upstream
-          const upstreamTarball = await upstreamProxy.getTarball(fullName, version)
+          const upstreamTarball = await upstreamProxy.getTarball(
+            fullName,
+            version,
+          )
           if (upstreamTarball) {
             return new Response(new Uint8Array(upstreamTarball), {
               headers: {
@@ -585,16 +650,23 @@ export function createPkgRouter(ctx: PkgContext) {
             }
           } catch (error) {
             // Fall back to in-memory storage for local development
-            const errorMsg = error instanceof Error ? error.message : String(error)
-            if (errorMsg.includes('0x0000000000000000000000000000000000000000') ||
-                errorMsg.includes('returned no data') ||
-                errorMsg.includes('Wallet not configured')) {
-              console.log('[PkgRouter] Using in-memory storage (contract not deployed)')
-              
+            const errorMsg =
+              error instanceof Error ? error.message : String(error)
+            if (
+              errorMsg.includes('0x0000000000000000000000000000000000000000') ||
+              errorMsg.includes('returned no data') ||
+              errorMsg.includes('Wallet not configured')
+            ) {
+              console.log(
+                '[PkgRouter] Using in-memory storage (contract not deployed)',
+              )
+
               const { name, scope } = parsePackageName(fullName)
               const packageId = keccak256(toBytes(`${scope}/${name}`))
-              const versionId = keccak256(toBytes(`${fullName}@${manifest.version}`))
-              
+              const versionId = keccak256(
+                toBytes(`${fullName}@${manifest.version}`),
+              )
+
               let pkg = localPackages.get(fullName)
               if (!pkg) {
                 pkg = {
@@ -611,12 +683,12 @@ export function createPkgRouter(ctx: PkgContext) {
                 }
                 localPackages.set(fullName, pkg)
               }
-              
+
               // Check for duplicate version
               if (pkg.versions.has(manifest.version)) {
                 throw new Error(`Version ${manifest.version} already exists`)
               }
-              
+
               // Store version
               pkg.versions.set(manifest.version, {
                 version: manifest.version,
@@ -629,14 +701,14 @@ export function createPkgRouter(ctx: PkgContext) {
               })
               pkg.latestVersion = manifest.version
               pkg.updatedAt = new Date()
-              
+
               recordPackagePublish(
                 publisher as Address,
                 packageId,
                 fullName,
                 manifest.version,
               )
-              
+
               return {
                 ok: true,
                 id: fullName,
@@ -799,22 +871,25 @@ export function createPkgRouter(ctx: PkgContext) {
  */
 function buildLocalPkgMetadata(pkg: LocalPackage): PkgPackageMetadata {
   const fullName = getFullName(pkg.name, pkg.scope)
-  const versionRecords: Record<string, {
-    name: string
-    version: string
-    description?: string
-    main?: string
-    types?: string
-    dependencies?: Record<string, string>
-    devDependencies?: Record<string, string>
-    dist: {
-      tarball: string
-      shasum: string
-      integrity: string
+  const versionRecords: Record<
+    string,
+    {
+      name: string
+      version: string
+      description?: string
+      main?: string
+      types?: string
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
+      dist: {
+        tarball: string
+        shasum: string
+        integrity: string
+      }
+      _id: string
+      _npmUser: { name: string }
     }
-    _id: string
-    _npmUser: { name: string }
-  }> = {}
+  > = {}
   const timeRecords: Record<string, string> = {
     created: pkg.createdAt.toISOString(),
     modified: pkg.updatedAt.toISOString(),

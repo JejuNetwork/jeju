@@ -19,9 +19,21 @@ const THEME_OPTIONS: Array<{
   label: string
   description: string
 }> = [
-  { value: 'light', label: 'Light', description: 'Light background with dark text' },
-  { value: 'dark', label: 'Dark', description: 'Dark background with light text' },
-  { value: 'system', label: 'System', description: 'Match your device settings' },
+  {
+    value: 'light',
+    label: 'Light',
+    description: 'Light background with dark text',
+  },
+  {
+    value: 'dark',
+    label: 'Dark',
+    description: 'Dark background with light text',
+  },
+  {
+    value: 'system',
+    label: 'System',
+    description: 'Match your device settings',
+  },
 ]
 
 function getProfileKey(address: string): string {
@@ -40,7 +52,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setMounted(true)
-    const savedTheme = localStorage.getItem('bazaar-theme') as ThemeOption | null
+    const savedTheme = localStorage.getItem(
+      'bazaar-theme',
+    ) as ThemeOption | null
     if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
       setTheme(savedTheme)
     }
@@ -50,7 +64,10 @@ export default function SettingsPage() {
     if (!address) return
     const saved = localStorage.getItem(getProfileKey(address))
     if (saved) {
-      const profile = JSON.parse(saved) as { displayName?: string; bio?: string }
+      const profile = JSON.parse(saved) as {
+        displayName?: string
+        bio?: string
+      }
       setDisplayName(profile.displayName ?? '')
       setBio(profile.bio ?? '')
     }
@@ -73,7 +90,10 @@ export default function SettingsPage() {
   const handleSave = useCallback(() => {
     if (!address) return
     setIsSaving(true)
-    localStorage.setItem(getProfileKey(address), JSON.stringify({ displayName, bio }))
+    localStorage.setItem(
+      getProfileKey(address),
+      JSON.stringify({ displayName, bio }),
+    )
     setIsSaving(false)
     toast.success('Profile saved')
   }, [address, displayName, bio])
