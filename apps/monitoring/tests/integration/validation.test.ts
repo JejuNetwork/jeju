@@ -1,12 +1,12 @@
 /** On-chain validation tests against indexer data. */
 
 import { describe, expect, test } from 'bun:test'
+import { getIndexerGraphqlUrl, getRpcUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import type { JsonRpcParams } from '../../lib/types'
 
-const INDEXER_GRAPHQL_URL =
-  process.env.INDEXER_GRAPHQL_URL || 'http://localhost:4350/graphql'
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
+const INDEXER_GRAPHQL_URL = getIndexerGraphqlUrl()
+const RPC_URL = getRpcUrl()
 
 function GraphQLResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return z.object({

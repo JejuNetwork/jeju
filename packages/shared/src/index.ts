@@ -153,7 +153,6 @@ export {
 // Duplicate Detection
 export {
   checkDuplicate,
-  cleanupDuplicates,
   clearAllDuplicates,
   clearDuplicates,
   DUPLICATE_DETECTION_CONFIGS,

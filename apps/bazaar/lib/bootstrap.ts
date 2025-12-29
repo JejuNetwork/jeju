@@ -8,7 +8,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isLocalnet } from '@jejunetwork/config'
+import { isLocalnet } from '@jejunetwork/config/ports'
 
 // Anvil default key - ONLY for local development
 const ANVIL_DEFAULT_KEY =

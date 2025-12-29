@@ -21,7 +21,15 @@
  */
 
 import { parseArgs } from 'node:util'
-import { getCurrentNetwork, getDwsApiUrl } from '@jejunetwork/config'
+import {
+  CORE_PORTS,
+  getCurrentNetwork,
+  getDwsApiUrl,
+  getIndexerGraphqlUrl,
+  getIndexerRestUrl,
+  getLocalhostHost,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import { z } from 'zod'
 
 // ============================================================================
@@ -65,42 +73,50 @@ const ProxyHealthResponseSchema = z.object({
 })
 
 // Default service configurations
-const DEFAULT_SERVICES: ProxyTarget[] = [
-  {
-    name: 'indexer',
-    upstream: 'http://127.0.0.1:4352',
-    pathPrefix: '/indexer',
-    healthPath: '/health',
-    rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
-  },
-  {
-    name: 'indexer-graphql',
-    upstream: 'http://127.0.0.1:4350',
-    pathPrefix: '/graphql',
-    healthPath: '/',
-    rateLimit: { requestsPerMinute: 500, burstSize: 50 },
-  },
-  {
-    name: 'monitoring',
-    upstream: 'http://127.0.0.1:9091',
-    pathPrefix: '/monitoring',
-    healthPath: '/.well-known/agent-card.json',
-    rateLimit: { requestsPerMinute: 500, burstSize: 50 },
-  },
-  {
-    name: 'gateway',
-    upstream: 'http://127.0.0.1:4200',
-    pathPrefix: '/gateway',
-    healthPath: '/health',
-    rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
-  },
-]
+function _getDefaultServices(): ProxyTarget[] {
+  const network = getCurrentNetwork()
+  const services = getServicesConfig(network)
+  const host = getLocalhostHost()
+
+  return [
+    {
+      name: 'indexer',
+      upstream: getIndexerRestUrl() ?? `http://${host}:4352`,
+      pathPrefix: '/indexer',
+      healthPath: '/health',
+      rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
+    },
+    {
+      name: 'indexer-graphql',
+      upstream:
+        getIndexerGraphqlUrl()?.replace('/graphql', '') ??
+        `http://${host}:4350`,
+      pathPrefix: '/graphql',
+      healthPath: '/',
+      rateLimit: { requestsPerMinute: 500, burstSize: 50 },
+    },
+    {
+      name: 'monitoring',
+      upstream: `http://${host}:${CORE_PORTS.MONITORING.DEFAULT}`,
+      pathPrefix: '/monitoring',
+      healthPath: '/.well-known/agent-card.json',
+      rateLimit: { requestsPerMinute: 500, burstSize: 50 },
+    },
+    {
+      name: 'gateway',
+      upstream: services.gateway?.api ?? `http://${host}:4200`,
+      pathPrefix: '/gateway',
+      healthPath: '/health',
+      rateLimit: { requestsPerMinute: 1000, burstSize: 100 },
+    },
+  ]
+}
 
 // ============================================================================
 // Provisioner
 // ============================================================================
 
-class DWSProxyProvisioner {
+export class DWSProxyProvisioner {
   private dwsUrl: string
   private network: string
   private services: ProxyTarget[]
@@ -108,7 +124,7 @@ class DWSProxyProvisioner {
   constructor(dwsUrl: string, network: string, services?: ProxyTarget[]) {
     this.dwsUrl = dwsUrl
     this.network = network
-    this.services = services ?? DEFAULT_SERVICES
+    this.services = services ?? _getDefaultServices()
   }
 
   async provision(): Promise<DeploymentResult> {
@@ -290,7 +306,7 @@ Usage: bun run scripts/deploy/provision-dws-proxy.ts [options]
 
 Options:
   --network <network>   Network to deploy to (testnet, mainnet, devnet)
-  --dws-url <url>       DWS endpoint URL (default: http://localhost:4030)
+  --dws-url <url>       DWS endpoint URL (default: from config)
   -h, --help            Show this help message
 
 Examples:
@@ -322,4 +338,4 @@ main().catch((err) => {
   process.exit(1)
 })
 
-export { DWSProxyProvisioner, type DeploymentResult, type ProxyTarget }
+export type { DeploymentResult, ProxyTarget }

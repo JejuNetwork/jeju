@@ -2,17 +2,24 @@
  * API Marketplace Tests
  *
  * Comprehensive test suite for the decentralized API marketplace
- * Note: Some tests require EQLite. They will be skipped when EQLite is not available.
+ * EQLite is REQUIRED - tests will fail with instructions if not available.
  */
 
-import { describe, expect, test } from 'bun:test'
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import {
+  detectEnvironment,
+  requireDependency,
+  SETUP_INSTRUCTIONS,
+} from './test-environment'
 
-// Check if EQLite is available
-const EQLITE_AVAILABLE =
-  !!(typeof process !== 'undefined'
-    ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
-    : undefined) || !!getEQLiteBlockProducerUrl()
+// EQLite is required - will throw error with instructions if not available
+let EQLITE_AVAILABLE = false
+
+beforeAll(async () => {
+  const env = await detectEnvironment()
+  EQLITE_AVAILABLE = env.eqlite
+  requireDependency('EQLite', env.eqlite, SETUP_INSTRUCTIONS.eqlite)
+})
 
 import type { Address } from 'viem'
 
@@ -127,7 +134,7 @@ describe('Providers', () => {
 
 // Registry Tests (require EQLite)
 
-describe.skipIf(!EQLITE_AVAILABLE)('Registry', () => {
+describe('Registry', () => {
   const testApiKey = 'sk-test-key-12345678901234567890'
 
   test('should create a listing', async () => {
@@ -226,7 +233,7 @@ describe.skipIf(!EQLITE_AVAILABLE)('Registry', () => {
 
 // Account Tests (require EQLite)
 
-describe.skipIf(!EQLITE_AVAILABLE)('Accounts', () => {
+describe('Accounts', () => {
   // Use unique addresses per test run to avoid accumulation issues
   const testId = Date.now().toString(16).slice(-8)
 
@@ -673,7 +680,7 @@ describe('Payments', () => {
     expect(proof?.amount).toBe(1000000000000000n)
   })
 
-  test.skipIf(!EQLITE_AVAILABLE)('should process deposit', async () => {
+  test('should process deposit', async () => {
     const testId = Date.now().toString(16).slice(-8)
     const depositor = `0x${testId}222222222222222222222222222222` as Address
 
@@ -715,7 +722,7 @@ describe('Payments', () => {
 
 // Integration Tests (require EQLite)
 
-describe.skipIf(!EQLITE_AVAILABLE)('Integration', () => {
+describe('Integration', () => {
   test('should perform full listing creation flow', async () => {
     const seller = '0x3333333333333333333333333333333333333333' as Address
     const apiKey = 'sk-integration-test-key-123456789'

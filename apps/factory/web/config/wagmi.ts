@@ -51,7 +51,7 @@ function detectNetwork(): NetworkType {
     return 'testnet'
   if (
     hostname === 'factory.jejunetwork.org' ||
-    hostname === 'factory.jeju.network'
+    hostname === 'factory.jejunetwork.org'
   )
     return 'mainnet'
   return 'localnet'

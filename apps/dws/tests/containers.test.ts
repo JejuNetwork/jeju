@@ -2,31 +2,33 @@
  * Container Execution Tests
  * Tests for serverless container execution with warmth management
  *
- * Executor tests require:
+ * Requires:
  * - Docker daemon running
  * - CONTAINER_REGISTRY_ADDRESS set (or deployed contracts)
  *
- * Run integration tests with: SKIP_INTEGRATION=false bun test tests/containers.test.ts
+ * Tests NEVER skip - they fail with clear instructions if dependencies missing.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
+import { requireDependency, SETUP_INSTRUCTIONS, detectEnvironment } from './test-environment'
 
-// Check if Docker is available
-async function _isDockerAvailable(): Promise<boolean> {
-  const dockerHost = process.env.DOCKER_HOST || 'unix:///var/run/docker.sock'
-  const url = dockerHost.startsWith('unix://') ? 'http://localhost' : dockerHost
+// Require Docker - fail with instructions if not available
+beforeAll(async () => {
+  const env = await detectEnvironment()
+  requireDependency('Docker', env.docker, SETUP_INSTRUCTIONS.docker)
+  
+  if (!process.env.CONTAINER_REGISTRY_ADDRESS) {
+    requireDependency(
+      'CONTAINER_REGISTRY_ADDRESS',
+      false,
+      'Set CONTAINER_REGISTRY_ADDRESS environment variable to deployed registry contract address.\n' +
+      'Deploy contracts: bun run jeju deploy contracts'
+    )
+  }
+})
 
-  const response = await fetch(`${url}/v1.44/version`, {
-    unix: dockerHost.startsWith('unix://')
-      ? dockerHost.replace('unix://', '')
-      : undefined,
-  } as RequestInit).catch(() => null)
-
-  return response?.ok ?? false
-}
-
-const SKIP_DOCKER_TESTS = !process.env.CONTAINER_REGISTRY_ADDRESS
+const SKIP_DOCKER_TESTS = false // Never skip - fail instead
 
 import {
   acquireWarmInstance,
@@ -274,7 +276,7 @@ describe('Executor', () => {
     cleanupExecutor()
   })
 
-  test.skipIf(SKIP_DOCKER_TESTS)('should execute container', async () => {
+  test('should execute container', async () => {
     const request: ExecutionRequest = {
       imageRef: 'jeju/test:latest',
       command: ['/bin/echo', 'hello'],
@@ -294,7 +296,7 @@ describe('Executor', () => {
     expect(result.metrics.totalTimeMs).toBeGreaterThan(0)
   })
 
-  test.skipIf(SKIP_DOCKER_TESTS)('should track cold starts', async () => {
+  test('should track cold starts', async () => {
     const request: ExecutionRequest = {
       imageRef: `jeju/cold-test-${Date.now()}:v1`,
       resources: { cpuCores: 1, memoryMb: 256, storageMb: 512 },
@@ -308,7 +310,7 @@ describe('Executor', () => {
     expect(result.metrics.wasColdStart).toBe(true)
   })
 
-  test.skipIf(SKIP_DOCKER_TESTS)('should execute batch', async () => {
+  test('should execute batch', async () => {
     const requests: ExecutionRequest[] = Array(3)
       .fill(null)
       .map((_, i) => ({
@@ -545,7 +547,7 @@ describe('Scheduler', () => {
 
 // Integration Tests
 
-describe.skipIf(SKIP_DOCKER_TESTS)('Integration', () => {
+describe('Integration', () => {
   afterEach(() => {
     cleanupExecutor()
     cleanupAllPools()

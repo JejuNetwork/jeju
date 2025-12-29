@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
@@ -205,7 +206,7 @@ describe('DA Operator', () => {
   beforeEach(() => {
     operator = new DAOperator({
       privateKey,
-      endpoint: 'http://localhost:3000',
+      endpoint: `http://${getLocalhostHost()}:3000`,
       capacityGB: 100,
       region: 'us-east-1',
     })
@@ -321,7 +322,7 @@ describe('Disperser', () => {
       address: '0x1234567890123456789012345678901234567890' as Address,
       agentId: 1n,
       stake: 1000n,
-      endpoint: 'http://localhost:3001',
+      endpoint: `http://${getLocalhostHost()}:3001`,
       teeAttestation: '0x' as Hex,
       region: 'us-east-1',
       capacityGB: 100,

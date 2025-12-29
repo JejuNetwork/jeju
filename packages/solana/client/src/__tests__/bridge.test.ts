@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import { getL1RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 
 // Token bridge message
 interface BridgeMessage {
@@ -105,7 +106,7 @@ describe('BridgeConfig', () => {
   it('validates devnet config', () => {
     const config: BridgeConfig = {
       solanaRpc: 'https://api.devnet.solana.com',
-      evmRpc: 'http://localhost:8545',
+      evmRpc: getL1RpcUrl() || `http://${getLocalhostHost()}:8545`,
       bridgeProgramId: 'DevBridgeProgramId111111111111111111111111',
       evmBridgeContract: '0xDevBridgeContract123456789012345678901',
       minConfirmations: 1,

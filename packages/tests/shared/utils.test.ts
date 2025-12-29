@@ -19,7 +19,6 @@ import {
   checkServiceHealth,
   findJejuWorkspaceRoot,
   getChainId,
-  getRpcUrl,
   getTestEnv,
   isRpcAvailable,
   isServiceAvailable,
@@ -265,8 +264,10 @@ describe('findJejuWorkspaceRoot - Real Workspace', () => {
 
 // RPC Health Check Tests
 
+import { getRpcUrl } from '@jejunetwork/config'
+
 const FAKE_RPC = 'http://localhost:59999'
-const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
+const REAL_RPC = getRpcUrl()
 
 describe('checkRpcHealth - Error Handling', () => {
   test('should return unavailable for unreachable RPC', async () => {

@@ -334,7 +334,7 @@ describe('Deep Funding Integration', () => {
   describe('GitHub Verification Flow', () => {
     test('generates valid OAuth URL', () => {
       const clientId = 'test-client-id'
-      const redirectUri = 'https://app.jeju.network/oauth/callback'
+      const redirectUri = 'https://app.jejunetwork.org/oauth/callback'
       const state = crypto.randomUUID()
 
       const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=read:user,repo`

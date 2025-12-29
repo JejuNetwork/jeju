@@ -683,7 +683,6 @@ export class InfrastructureService {
    * Get environment variables for running services
    */
   getEnvVars(): Record<string, string> {
-    const _host = getLocalhostHost()
     const dwsUrl = getDWSUrl()
     return {
       L2_RPC_URL: getL2RpcUrl(),

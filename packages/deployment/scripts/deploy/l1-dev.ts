@@ -17,7 +17,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getL1RpcUrl } from '@jejunetwork/config'
 
 const ROOT = join(import.meta.dir, '../..')
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments')
@@ -36,7 +36,7 @@ async function main() {
   console.log('='.repeat(70))
   console.log('')
 
-  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
+  const rpcUrl = getL1RpcUrl()
   const deployerKey = process.env.PRIVATE_KEY
   if (!deployerKey) {
     console.error('❌ PRIVATE_KEY environment variable required')

@@ -101,9 +101,9 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
         },
         labels: {
           'node-role.kubernetes.io/control-plane': 'true',
-          'jeju.network/sequencer': 'true',
-          'jeju.network/dws': 'true',
-          'jeju.network/gpu': 'true',
+          'jejunetwork.org/sequencer': 'true',
+          'jejunetwork.org/dws': 'true',
+          'jejunetwork.org/gpu': 'true',
         },
         taints: [],
       },
@@ -157,7 +157,7 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
         },
         labels: {
           'node-role.kubernetes.io/control-plane': 'true',
-          'jeju.network/sequencer': 'true',
+          'jejunetwork.org/sequencer': 'true',
         },
         taints: ['node-role.kubernetes.io/control-plane:NoSchedule'],
       },
@@ -175,8 +175,8 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
           networkBandwidthGbps: 10,
         },
         labels: {
-          'jeju.network/dws': 'true',
-          'jeju.network/rpc': 'true',
+          'jejunetwork.org/dws': 'true',
+          'jejunetwork.org/rpc': 'true',
         },
         taints: [],
       },
@@ -194,8 +194,8 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
           networkBandwidthGbps: 10,
         },
         labels: {
-          'jeju.network/dws': 'true',
-          'jeju.network/ipfs': 'true',
+          'jejunetwork.org/dws': 'true',
+          'jejunetwork.org/ipfs': 'true',
         },
         taints: [],
       },
@@ -266,8 +266,8 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
           networkBandwidthGbps: 25,
         },
         labels: {
-          'jeju.network/sequencer': 'true',
-          'jeju.network/rpc': 'true',
+          'jejunetwork.org/sequencer': 'true',
+          'jejunetwork.org/rpc': 'true',
         },
         taints: [],
       },
@@ -285,7 +285,7 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
           networkBandwidthGbps: 25,
         },
         labels: {
-          'jeju.network/dws': 'true',
+          'jejunetwork.org/dws': 'true',
         },
         taints: [],
       },
@@ -303,8 +303,8 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
           networkBandwidthGbps: 100,
         },
         labels: {
-          'jeju.network/gpu': 'true',
-          'jeju.network/tee': 'true',
+          'jejunetwork.org/gpu': 'true',
+          'jejunetwork.org/tee': 'true',
           'nvidia.com/gpu': 'true',
         },
         taints: ['nvidia.com/gpu:NoSchedule'],
@@ -323,9 +323,9 @@ const HARDWARE_CONFIGS: Record<string, ClusterConfig> = {
           networkBandwidthGbps: 25,
         },
         labels: {
-          'jeju.network/storage': 'true',
-          'jeju.network/ipfs': 'true',
-          'jeju.network/archive': 'true',
+          'jejunetwork.org/storage': 'true',
+          'jejunetwork.org/ipfs': 'true',
+          'jejunetwork.org/archive': 'true',
         },
         taints: [],
       },
@@ -599,17 +599,17 @@ ingress_class: nginx
 # Node selectors for component placement
 node_selectors:
   sequencer:
-    jeju.network/sequencer: "true"
+    jejunetwork.org/sequencer: "true"
   rpc:
-    jeju.network/rpc: "true"
+    jejunetwork.org/rpc: "true"
   dws:
-    jeju.network/dws: "true"
+    jejunetwork.org/dws: "true"
   ipfs:
-    jeju.network/ipfs: "true"
+    jejunetwork.org/ipfs: "true"
   gpu:
-    jeju.network/gpu: "true"
+    jejunetwork.org/gpu: "true"
   storage:
-    jeju.network/storage: "true"
+    jejunetwork.org/storage: "true"
 
 # Replicas based on available nodes
 replicas:
@@ -690,7 +690,7 @@ rate_limit:
 # DWS Configuration
 dws:
   enabled: ${config.jeju.dwsEnabled}
-  replicas: ${Math.min(config.nodes.filter((n) => n.labels['jeju.network/dws'] === 'true').length, 3)}
+  replicas: ${Math.min(config.nodes.filter((n) => n.labels['jejunetwork.org/dws'] === 'true').length, 3)}
   resources:
     limits:
       cpu: 2000m
@@ -733,7 +733,7 @@ dws:
 # IPFS Configuration
 ipfs:
   enabled: ${config.jeju.ipfsEnabled}
-  replicas: ${Math.min(config.nodes.filter((n) => n.labels['jeju.network/ipfs'] === 'true').length, 2)}
+  replicas: ${Math.min(config.nodes.filter((n) => n.labels['jejunetwork.org/ipfs'] === 'true').length, 2)}
   storage:
     size: 500Gi
 

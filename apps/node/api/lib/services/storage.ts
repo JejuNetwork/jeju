@@ -2,7 +2,7 @@ import { getL2RpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { STORAGE_MARKET_ABI } from '../abis'
-import { getChain, type SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 import {
   getHybridTorrentService,
   type HybridTorrentService,
@@ -106,16 +106,10 @@ export class StorageService {
   async register(config: StorageServiceConfig): Promise<string> {
     const validatedConfig = validateStorageServiceConfig(config)
 
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
     const capacityBytes =
       BigInt(validatedConfig.capacityGB) * 1024n * 1024n * 1024n
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.storageMarket,
       abi: STORAGE_MARKET_ABI,
       functionName: 'registerProvider',

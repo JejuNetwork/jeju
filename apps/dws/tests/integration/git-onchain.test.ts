@@ -7,6 +7,7 @@
  */
 
 import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { type Address, createPublicClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
@@ -15,10 +16,18 @@ import { createBackendManager } from '../../api/storage/backends'
 
 setDefaultTimeout(30000)
 
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
-const PRIVATE_KEY = (process.env.DWS_PRIVATE_KEY ||
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+  getL2RpcUrl() ||
+  `http://${getLocalhostHost()}:6546`
+const PRIVATE_KEY = ((typeof process !== 'undefined'
+  ? process.env.DWS_PRIVATE_KEY
+  : undefined) ||
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex
-const SKIP = process.env.SKIP_INTEGRATION === 'true'
+const SKIP =
+  (typeof process !== 'undefined'
+    ? process.env.SKIP_INTEGRATION
+    : undefined) === 'true'
 
 describe.skipIf(SKIP)('Git Registry On-Chain Integration', () => {
   let publicClient: ReturnType<typeof createPublicClient>
@@ -43,8 +52,9 @@ describe.skipIf(SKIP)('Git Registry On-Chain Integration', () => {
     })
 
     // Get repo registry address from env or use a test address
-    repoRegistryAddress = (process.env.REPO_REGISTRY_ADDRESS ||
-      '0x0000000000000000000000000000000000000000') as Address
+    repoRegistryAddress = ((typeof process !== 'undefined'
+      ? process.env.REPO_REGISTRY_ADDRESS
+      : undefined) || '0x0000000000000000000000000000000000000000') as Address
 
     if (repoRegistryAddress === '0x0000000000000000000000000000000000000000') {
       console.warn(

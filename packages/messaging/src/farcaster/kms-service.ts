@@ -13,7 +13,7 @@
  * Usage:
  * ```typescript
  * const kmsService = await createFarcasterKMSService({
- *   endpoint: 'https://kms.jeju.network',
+ *   endpoint: 'https://kms.jejunetwork.org',
  *   apiKey: process.env.KMS_API_KEY,
  * })
  *

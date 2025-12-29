@@ -1,4 +1,4 @@
-import { isLocalnet } from '@jejunetwork/config'
+import { isLocalnet } from '@jejunetwork/config/ports'
 import type { Chain } from 'viem'
 
 export function inferChainFromRpcUrl(rpcUrl: string): Chain {

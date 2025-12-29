@@ -5,57 +5,15 @@
  * scores with RULER, and uploads to Arweave for permanent storage.
  */
 
-// Use Web CompressionStream API instead of node:zlib for workerd compatibility
+import { gunzipSync, gzipSync } from 'node:zlib'
+
+// Use node:zlib for compression - works in both Bun and Workerd
 async function gunzip(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new DecompressionStream('gzip')
-  const writer = stream.writable.getWriter()
-  const reader = stream.readable.getReader()
-
-  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
-  writer.write(data.slice())
-  writer.close()
-
-  const chunks: Uint8Array[] = []
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-  }
-
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-  const result = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    result.set(chunk, offset)
-    offset += chunk.length
-  }
-  return result
+  return new Uint8Array(gunzipSync(Buffer.from(data)))
 }
 
 async function gzip(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new CompressionStream('gzip')
-  const writer = stream.writable.getWriter()
-  const reader = stream.readable.getReader()
-
-  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
-  writer.write(data.slice())
-  writer.close()
-
-  const chunks: Uint8Array[] = []
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-  }
-
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-  const result = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    result.set(chunk, offset)
-    offset += chunk.length
-  }
-  return result
+  return new Uint8Array(gzipSync(Buffer.from(data)))
 }
 
 import { getServicesConfig } from '@jejunetwork/config'

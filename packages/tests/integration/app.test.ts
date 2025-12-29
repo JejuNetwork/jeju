@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { getIpfsApiUrl } from '@jejunetwork/config'
+import {
+  getIpfsApiUrl,
+  getL1RpcUrl,
+  getLocalhostHost,
+  getRpcGatewayUrl,
+} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -13,18 +18,29 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { localhost } from 'viem/chains'
 import { APP_PORTS, L1_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
-const HOST = process.env.HOST || '127.0.0.1'
+const host = getLocalhostHost()
 
 // Test configuration
-const RPC_URL = process.env.RPC_URL ?? L1_LOCALNET.rpcUrl
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  getL1RpcUrl() ??
+  L1_LOCALNET.rpcUrl
 const IPFS_API_URL = getIpfsApiUrl()
 const JNS_GATEWAY_URL =
-  process.env.JNS_GATEWAY_URL ?? `http://${HOST}:${APP_PORTS.predictionMarket}`
+  (typeof process !== 'undefined' ? process.env.JNS_GATEWAY_URL : undefined) ??
+  getRpcGatewayUrl() ??
+  `http://${host}:${APP_PORTS.predictionMarket}`
 
 // Contract addresses (from deployment)
-const JNS_REGISTRAR = (process.env.JNS_REGISTRAR ?? '0x0') as Address
-const JNS_RESOLVER = (process.env.JNS_RESOLVER ?? '0x0') as Address
-const KEEPALIVE_REGISTRY = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address
+const JNS_REGISTRAR = ((typeof process !== 'undefined'
+  ? process.env.JNS_REGISTRAR
+  : undefined) ?? '0x0') as Address
+const JNS_RESOLVER = ((typeof process !== 'undefined'
+  ? process.env.JNS_RESOLVER
+  : undefined) ?? '0x0') as Address
+const KEEPALIVE_REGISTRY = ((typeof process !== 'undefined'
+  ? process.env.KEEPALIVE_REGISTRY
+  : undefined) ?? '0x0') as Address
 
 // Test wallet
 const TEST_PRIVATE_KEY = TEST_WALLETS.deployer.privateKey as Hex

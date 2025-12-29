@@ -158,10 +158,12 @@ impl WalletManager {
     }
 
     /// Get balances
+    /// Note: Balance fetching is now done through ContractClient in commands/wallet.rs
+    /// This method is kept for compatibility but delegates to a simpler implementation
     #[allow(dead_code)]
     pub async fn get_balance(&self) -> Result<BalanceInfo, String> {
-        // TODO: Use alloy provider to fetch balance
-        // For now return placeholder
+        // Balance fetching is now done through ContractClient
+        // This returns empty balances - use ContractClient for actual balances
         Ok(BalanceInfo {
             eth: "0".to_string(),
             jeju: "0".to_string(),

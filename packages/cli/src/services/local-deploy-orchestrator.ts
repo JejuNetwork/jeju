@@ -3,6 +3,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getIpfsApiUrlEnv, getLocalhostHost } from '@jejunetwork/config'
 import { AddressSchema, validateOrNull, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
@@ -258,6 +259,6 @@ export function createLocalDeployOrchestrator(
     rpcUrl,
     privateKey,
     dwsPort: 4030,
-    ipfsApiUrl: 'http://localhost:5001',
+    ipfsApiUrl: getIpfsApiUrlEnv() ?? `http://${getLocalhostHost()}:5001`,
   })
 }

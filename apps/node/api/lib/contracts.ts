@@ -12,10 +12,12 @@ import {
   http,
   isAddress,
   type PublicClient,
-  type WalletClient,
 } from 'viem'
-import type { PrivateKeyAccount } from 'viem/accounts'
 import { createSecureSigner, type SecureSigner } from './secure-signer'
+import {
+  createSecureTransactionExecutor,
+  type SecureTransactionExecutor,
+} from './secure-transactions'
 
 /** Safely get contract address from config, with env var override */
 function safeGetAddress(
@@ -282,6 +284,8 @@ export function getChain(chainId: number): Chain {
 export interface SecureNodeClient {
   publicClient: PublicClient
   signer: SecureSigner
+  /** Secure transaction executor for contract interactions */
+  txExecutor: SecureTransactionExecutor
   addresses: ContractAddresses
   chainId: number
   chain: Chain
@@ -289,12 +293,6 @@ export interface SecureNodeClient {
   keyId: string
   /** Wallet address derived from KMS key */
   walletAddress: Address | null
-  /**
-   * @deprecated Use signer for KMS-backed signing. This field exists only
-   * for legacy compatibility and will be removed in a future version.
-   * Wallet client with account for direct transaction signing (INSECURE).
-   */
-  walletClient?: WalletClient & { account?: PrivateKeyAccount }
   // Optional stake tracking for sequencer eligibility
   stake?: bigint
 }
@@ -320,11 +318,17 @@ export function createSecureNodeClient(
   })
 
   const signer = createSecureSigner(keyId)
+  const txExecutor = createSecureTransactionExecutor({
+    keyId,
+    chainId,
+    publicClient,
+  })
   const addresses = getContractAddresses(chainId)
 
   return {
     publicClient,
     signer,
+    txExecutor,
     addresses,
     chainId,
     chain,

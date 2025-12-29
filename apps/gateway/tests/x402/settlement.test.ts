@@ -32,16 +32,23 @@ async function request(
   return server.handle(new Request(url, options))
 }
 
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 // Use environment variables for test configuration
-const ANVIL_RPC = process.env.JEJU_RPC_URL || 'http://127.0.0.1:8548'
-const FACILITATOR_ADDRESS = process.env.X402_FACILITATOR_ADDRESS as
-  | Address
-  | undefined
-const EIP3009_TOKEN_ADDRESS = process.env.EIP3009_TOKEN_ADDRESS as
-  | Address
-  | undefined
+const host = getLocalhostHost()
+const ANVIL_RPC =
+  (typeof process !== 'undefined' ? process.env.JEJU_RPC_URL : undefined) ||
+  getL2RpcUrl() ||
+  `http://${host}:8548`
+const FACILITATOR_ADDRESS =
+  typeof process !== 'undefined'
+    ? (process.env.X402_FACILITATOR_ADDRESS as Address | undefined)
+    : undefined
+const EIP3009_TOKEN_ADDRESS =
+  typeof process !== 'undefined'
+    ? (process.env.EIP3009_TOKEN_ADDRESS as Address | undefined)
+    : undefined
 
 const PAYER_KEY =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const

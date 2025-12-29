@@ -135,6 +135,7 @@ export type ContractCategory =
   | 'sequencer'
   | 'staking'
   | 'training'
+  | 'vpn'
   | 'work'
 
 const NetworkContractsSchema = z.object({
@@ -172,6 +173,7 @@ const NetworkContractsSchema = z.object({
   sequencer: ContractCategorySchema.optional(),
   staking: ContractCategorySchema.optional(),
   training: ContractCategorySchema.optional(),
+  vpn: ContractCategorySchema.optional(),
   work: ContractCategorySchema.optional(),
 })
 export type NetworkContracts = z.infer<typeof NetworkContractsSchema>

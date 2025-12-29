@@ -21,7 +21,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getL1RpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -186,8 +186,7 @@ async function main(): Promise<void> {
   console.log('🔐 Security Council Safe Deployment\n')
 
   const network = getCurrentNetwork()
-  const rpcUrl =
-    process.env.RPC_URL || process.env.L1_RPC_URL || 'http://127.0.0.1:6546'
+  const rpcUrl = getL1RpcUrl()
 
   // Check if we're on a testnet/mainnet where Safe is deployed
   const chain = inferChainFromRpcUrl(rpcUrl)

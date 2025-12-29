@@ -33,12 +33,12 @@ contract CDNRegistryTest is Test {
     function test_RegisterProvider() public {
         vm.prank(provider1);
         registry.registerProvider{value: 0.1 ether}(
-            "Provider 1", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 1", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         ICDNTypes.Provider memory provider = registry.getProvider(provider1);
         assertEq(provider.name, "Provider 1");
-        assertEq(provider.endpoint, "https://cdn1.jeju.network");
+        assertEq(provider.endpoint, "https://cdn1.jejunetwork.org");
         assertEq(provider.stake, 0.1 ether);
         assertTrue(provider.active);
     }
@@ -47,7 +47,7 @@ contract CDNRegistryTest is Test {
         vm.prank(provider1);
         vm.expectRevert(CDNRegistry.InvalidName.selector);
         registry.registerProvider{value: 0.1 ether}(
-            "", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
     }
 
@@ -62,12 +62,12 @@ contract CDNRegistryTest is Test {
     function test_RegisterEdgeNode() public {
         vm.prank(provider1);
         bytes32 nodeId = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         ICDNTypes.EdgeNode memory node = registry.getEdgeNode(nodeId);
         assertEq(node.operator, provider1);
-        assertEq(node.endpoint, "edge1.jeju.network:443");
+        assertEq(node.endpoint, "edge1.jejunetwork.org:443");
         assertEq(uint8(node.region), uint8(ICDNTypes.Region.US_EAST_1));
         assertEq(node.stake, 0.01 ether);
         assertEq(uint8(node.status), uint8(ICDNTypes.NodeStatus.HEALTHY));
@@ -77,14 +77,14 @@ contract CDNRegistryTest is Test {
         vm.prank(provider1);
         vm.expectRevert();
         registry.registerEdgeNode{value: 0.0001 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
     }
 
     function test_UpdateNodeStatus() public {
         vm.prank(provider1);
         bytes32 nodeId = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         vm.prank(provider1);
@@ -97,7 +97,7 @@ contract CDNRegistryTest is Test {
     function test_ReportNodeMetrics() public {
         vm.prank(provider1);
         bytes32 nodeId = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         vm.prank(provider1);
@@ -121,7 +121,7 @@ contract CDNRegistryTest is Test {
     function test_DeactivateNode() public {
         vm.prank(provider1);
         bytes32 nodeId = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         vm.prank(provider1);
@@ -210,7 +210,7 @@ contract CDNRegistryTest is Test {
 
         vm.prank(provider1);
         bytes32 nodeId = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         uint256 periodStart = block.timestamp - 1 hours;
@@ -246,7 +246,7 @@ contract CDNRegistryTest is Test {
     function test_AddProviderStake() public {
         vm.prank(provider1);
         registry.registerProvider{value: 0.1 ether}(
-            "Provider 1", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 1", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         vm.prank(provider1);
@@ -259,7 +259,7 @@ contract CDNRegistryTest is Test {
     function test_WithdrawProviderStake() public {
         vm.prank(provider1);
         registry.registerProvider{value: 0.5 ether}(
-            "Provider 1", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 1", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         uint256 balanceBefore = provider1.balance;
@@ -275,7 +275,7 @@ contract CDNRegistryTest is Test {
     function test_AddNodeStake() public {
         vm.prank(provider1);
         bytes32 nodeId = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         vm.prank(provider1);
@@ -290,7 +290,7 @@ contract CDNRegistryTest is Test {
     function test_DeactivateAndReactivateProvider() public {
         vm.prank(provider1);
         registry.registerProvider{value: 0.1 ether}(
-            "Provider 1", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 1", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         vm.prank(provider1);
@@ -311,12 +311,12 @@ contract CDNRegistryTest is Test {
     function test_GetActiveProviders() public {
         vm.prank(provider1);
         registry.registerProvider{value: 0.1 ether}(
-            "Provider 1", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 1", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         vm.prank(provider2);
         registry.registerProvider{value: 0.1 ether}(
-            "Provider 2", "https://cdn2.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 2", "https://cdn2.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         address[] memory active = registry.getActiveProviders();
@@ -326,17 +326,17 @@ contract CDNRegistryTest is Test {
     function test_GetNodesInRegion() public {
         vm.prank(provider1);
         registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.us-east.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.us-east.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         vm.prank(provider1);
         registry.registerEdgeNode{value: 0.01 ether}(
-            "edge2.us-east.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge2.us-east.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         vm.prank(provider2);
         registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.eu-west.jeju.network:443", ICDNTypes.Region.EU_WEST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.eu-west.jejunetwork.org:443", ICDNTypes.Region.EU_WEST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         bytes32[] memory usEastNodes = registry.getNodesInRegion(ICDNTypes.Region.US_EAST_1);
@@ -349,11 +349,11 @@ contract CDNRegistryTest is Test {
     function test_GetOperatorNodes() public {
         vm.startPrank(provider1);
         bytes32 node1 = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge1.jeju.network:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge1.jejunetwork.org:443", ICDNTypes.Region.US_EAST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
 
         bytes32 node2 = registry.registerEdgeNode{value: 0.01 ether}(
-            "edge2.jeju.network:443", ICDNTypes.Region.US_WEST_1, ICDNTypes.ProviderType.DECENTRALIZED
+            "edge2.jejunetwork.org:443", ICDNTypes.Region.US_WEST_1, ICDNTypes.ProviderType.DECENTRALIZED
         );
         vm.stopPrank();
 
@@ -368,7 +368,7 @@ contract CDNRegistryTest is Test {
     function test_VerifyProvider() public {
         vm.prank(provider1);
         registry.registerProvider{value: 0.1 ether}(
-            "Provider 1", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 1", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         vm.prank(owner);
@@ -381,7 +381,7 @@ contract CDNRegistryTest is Test {
     function test_SlashProvider() public {
         vm.prank(provider1);
         registry.registerProvider{value: 1 ether}(
-            "Provider 1", "https://cdn1.jeju.network", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
+            "Provider 1", "https://cdn1.jejunetwork.org", ICDNTypes.ProviderType.DECENTRALIZED, bytes32(0)
         );
 
         uint256 ownerBalanceBefore = owner.balance;

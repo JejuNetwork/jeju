@@ -1,107 +1,18 @@
 {
   "network": "testnet",
   "chainId": 420690,
-  "l1ChainId": 11155111,
-  "deployedAt": null,
-  "deployer": null,
-  
-  "tokens": {
-    "weth": "0x4200000000000000000000000000000000000006",
-    "jeju": null,
-    "usdc": null
-  },
-  
-  "bridge": {
-    "l2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
-    "l2StandardBridge": "0x4200000000000000000000000000000000000010",
-    "l2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
-    "l2ERC721Bridge": "0x4200000000000000000000000000000000000014",
-    "optimismPortal": "0x0F80836afff3f0b18D767643c6A5f83d027b00e8",
-    "l1StandardBridge": "0x12FA61c9d77AEd9BeDA0FF4bF2E900F31bdBdc45"
-  },
-  
-  "decentralization": {
-    "sequencerRegistry": null,
-    "governanceTimelock": null,
-    "disputeGameFactory": null,
-    "cannonProver": null,
-    "thresholdBatchSubmitter": null,
-    "forcedInclusion": null,
-    "l2OutputOracleAdapter": null,
-    "optimismPortalAdapter": null,
-    "securityCouncil": null,
-    "_note": "Stage 2 decentralization contracts - deploy with: bun run packages/deployment/scripts/deploy/decentralization.ts"
-  },
-  
-  "infrastructure": {
-    "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-    "priceOracle": null,
-    "serviceRegistry": null,
-    "creditManager": null
-  },
-  
-  "paymaster": {
-    "tokenRegistry": null,
-    "paymasterFactory": null,
-    "liquidityPaymaster": null,
-    "multiTokenPaymaster": null
-  },
-  
-  "registry": {
-    "identityRegistry": null,
-    "reputationRegistry": null,
-    "validationRegistry": null,
-    "registryGovernance": null
-  },
-  
-  "defi": {
-    "liquidityVault": null,
-    "feeDistributor": null,
-    "poolManager": null,
-    "swapRouter": null,
-    "positionManager": null,
-    "quoterV4": null,
-    "stateView": null
-  },
-  
-  "nodeStaking": {
-    "nodeStakingManager": null,
-    "nodePerformanceOracle": null,
-    "autoSlasher": null,
-    "multiOracleConsensus": null
-  },
-  
-  "moderation": {
-    "banManager": null,
-    "reputationLabelManager": null,
-    "reportingSystem": null
-  },
-  
-  "compute": {
-    "computeRegistry": null,
-    "computeRental": null,
-    "ledgerManager": null,
-    "inferenceServing": null,
-    "computeStaking": null
-  },
-  
-  "oif": {
-    "solverRegistry": null,
-    "inputSettler": null,
-    "outputSettler": null,
-    "oracle": null
-  },
-  
-  "games": {
-    "bazaarMarketplace": null,
-    "goldToken": null,
-    "itemsNFT": null
-  },
-  
-  "bazaar": {
-    "predictionMarket": null
-  },
-  
-  "_note": "null values indicate not yet deployed. Run deploy script to populate."
+  "deployedAt": "2025-12-29T01:10:39.325Z",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "contracts": {
+    "deployer": "0x2e988A386a799F506693793c6A5AF6B54dfAaBfB",
+    "contracts.deployer": "0x2e988A386a799F506693793c6A5AF6B54dfAaBfB",
+    "contracts.contracts.tokens.weth": "0x4200000000000000000000000000000000000006",
+    "contracts.contracts.bridge.l2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
+    "contracts.contracts.bridge.l2StandardBridge": "0x4200000000000000000000000000000000000010",
+    "contracts.contracts.bridge.l2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
+    "contracts.contracts.bridge.l2ERC721Bridge": "0x4200000000000000000000000000000000000014",
+    "contracts.contracts.bridge.optimismPortal": "0x0F80836afff3f0b18D767643c6A5f83d027b00e8",
+    "contracts.contracts.bridge.l1StandardBridge": "0x12FA61c9d77AEd9BeDA0FF4bF2E900F31bdBdc45",
+    "contracts.contracts.infrastructure.entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
+  }
 }
-

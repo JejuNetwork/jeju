@@ -2,13 +2,14 @@
  * Factory Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
+import { CORE_PORTS } from '@jejunetwork/config'
 import {
   createSynpressConfig,
   createWalletSetup,
   PASSWORD,
 } from '@jejunetwork/tests/playwright-only'
 
-const FACTORY_PORT = parseInt(process.env.PORT || '4009', 10)
+const FACTORY_PORT = CORE_PORTS.FACTORY.get()
 
 export default createSynpressConfig({
   appName: 'factory',

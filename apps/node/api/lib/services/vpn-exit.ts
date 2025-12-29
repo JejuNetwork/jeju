@@ -51,7 +51,7 @@ import { expectAddress, isPlainObject } from '@jejunetwork/types'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
-import { getChain, type SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 
 /** VPN node data from contract */
 interface VPNNodeData {
@@ -1523,25 +1523,18 @@ export class VPNExitService {
     })
     this.config = parsedConfig
 
-    // Generate or decode keys
-    // TODO: Integrate with KMS for X25519 key derivation
-    // For now, if kmsKeyId is provided, we should derive keys from KMS
-    // This is a security placeholder until full KMS X25519 support
+    // Store KMS key ID for async initialization
+    this.kmsKeyId = config.kmsKeyId ?? null
+
+    // Initialize keys - either synchronously or mark for async init
     if (config.kmsKeyId) {
-      console.warn(
-        '[VPNExit] KMS X25519 key derivation not yet implemented. ' +
-          'Using derived key from ID for now. ' +
-          'TODO: Implement proper KMS X25519 integration.',
+      // KMS key derivation requires async initialization
+      // Set placeholder keys until start() is called
+      this.privateKey = new Uint8Array(32)
+      this.publicKey = new Uint8Array(32)
+      console.log(
+        '[VPNExit] KMS key ID configured. Keys will be derived during start().',
       )
-      // Derive a deterministic key from the KMS key ID for now
-      // This should be replaced with actual KMS X25519 key derivation
-      const keyIdHash = BLAKE2s.hash(
-        new TextEncoder().encode(`vpn-x25519:${config.kmsKeyId}`),
-      )
-      keyIdHash[0] &= 248
-      keyIdHash[31] &= 127
-      keyIdHash[31] |= 64
-      this.privateKey = keyIdHash
     } else if (config.privateKey) {
       console.warn(
         '[VPNExit] WARNING: Using legacy in-memory private key. ' +
@@ -1549,14 +1542,23 @@ export class VPNExitService {
           'Use kmsKeyId instead.',
       )
       this.privateKey = new Uint8Array(Buffer.from(config.privateKey, 'base64'))
+      this.publicKey = X25519.getPublicKey(this.privateKey)
+      this.keysInitialized = true
     } else {
       console.warn(
         '[VPNExit] WARNING: Generating ephemeral X25519 key in memory. ' +
           'This is a security risk. Configure kmsKeyId for production.',
       )
       this.privateKey = X25519.generatePrivateKey()
+      this.publicKey = X25519.getPublicKey(this.privateKey)
+      this.keysInitialized = true
     }
-    this.publicKey = X25519.getPublicKey(this.privateKey)
+
+    if (this.keysInitialized) {
+      console.log(
+        `[VPNExit] Initialized with public key: ${Buffer.from(this.publicKey).toString('base64')}`,
+      )
+    }
 
     // Initialize IP pool
     const [baseIP] = this.config.tunnelSubnet.split('/')
@@ -1629,10 +1631,6 @@ export class VPNExitService {
   }
 
   async register(): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
     if (
       !this.client.addresses.vpnRegistry ||
       this.client.addresses.vpnRegistry ===
@@ -1669,11 +1667,33 @@ export class VPNExitService {
       isVPNExit: true,
     }
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.vpnRegistry,
-      abi: VPN_REGISTRY_ABI,
+      abi: [
+        {
+          name: 'register',
+          type: 'function',
+          inputs: [
+            { name: 'countryCode', type: 'bytes2' },
+            { name: 'regionHash', type: 'bytes32' },
+            { name: 'endpoint', type: 'string' },
+            { name: 'wireguardPubKey', type: 'string' },
+            {
+              name: 'capabilities',
+              type: 'tuple',
+              components: [
+                { name: 'supportsWireGuard', type: 'bool' },
+                { name: 'supportsSOCKS5', type: 'bool' },
+                { name: 'supportsHTTPConnect', type: 'bool' },
+                { name: 'servesCDN', type: 'bool' },
+                { name: 'isVPNExit', type: 'bool' },
+              ],
+            },
+          ],
+          outputs: [],
+          stateMutability: 'payable',
+        },
+      ],
       functionName: 'register',
       args: [
         countryBytes,
@@ -1765,6 +1785,17 @@ export class VPNExitService {
     if (this.metricsInterval) clearInterval(this.metricsInterval)
     if (this.dosResetInterval) clearInterval(this.dosResetInterval)
     if (this.udpSocket) this.udpSocket.close()
+
+    // Disconnect HSM provider
+    if (this.hsmProvider) {
+      await this.hsmProvider.disconnect()
+      this.hsmProvider = null
+    }
+
+    // Securely zero private key
+    this.privateKey.fill(0)
+    crypto.getRandomValues(this.privateKey)
+    this.privateKey.fill(0)
 
     console.log('[VPNExit] Stopped')
   }
@@ -2384,10 +2415,13 @@ export class VPNExitService {
     this.clients.set(clientId, client)
     vpnClientsTotal.set(this.clients.size)
 
+    // Get node address from KMS signer
+    const nodeAddress = this.client.walletAddress ?? 'unknown'
+
     const session: VPNSession = {
       sessionId: bytesToHex(randomBytes(16)),
       clientId,
-      nodeId: this.client.walletClient?.account?.address ?? 'unknown',
+      nodeId: nodeAddress,
       startTime: Date.now(),
       bytesUp: 0n,
       bytesDown: 0n,
@@ -2438,10 +2472,13 @@ export class VPNExitService {
     this.clients.set(clientId, client)
     vpnClientsTotal.set(this.clients.size)
 
+    // Get node address from KMS signer
+    const nodeAddress = this.client.walletAddress ?? 'unknown'
+
     const session: VPNSession = {
       sessionId: bytesToHex(randomBytes(16)),
       clientId,
-      nodeId: this.client.walletClient?.account?.address ?? 'unknown',
+      nodeId: nodeAddress,
       startTime: Date.now(),
       bytesUp: 0n,
       bytesDown: 0n,
@@ -2521,7 +2558,7 @@ export class VPNExitService {
   // Heartbeat and Metrics
 
   private async sendHeartbeat(): Promise<void> {
-    if (!this.running || !this.client.walletClient?.account) return
+    if (!this.running) return
     if (
       !this.client.addresses.vpnRegistry ||
       this.client.addresses.vpnRegistry ===
@@ -2529,11 +2566,17 @@ export class VPNExitService {
     )
       return
 
-    await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    await this.client.txExecutor.writeContract({
       address: this.client.addresses.vpnRegistry,
-      abi: VPN_REGISTRY_ABI,
+      abi: [
+        {
+          name: 'heartbeat',
+          type: 'function',
+          inputs: [],
+          outputs: [],
+          stateMutability: 'nonpayable',
+        },
+      ],
       functionName: 'heartbeat',
       args: [],
     })

@@ -127,7 +127,7 @@ export function generateTestId(prefix = 'test'): string {
 }
 
 export function generateTestEmail(prefix = 'test'): string {
-  return `${generateTestId(prefix)}@test.jeju.network`
+  return `${generateTestId(prefix)}@test.jejunetwork.org`
 }
 
 export function generateTestUsername(prefix = 'testuser'): string {

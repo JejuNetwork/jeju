@@ -149,6 +149,9 @@ module "acm" {
   domain_name = var.domain_name
   zone_id     = module.route53.zone_id
 
+  # Use existing certificate for jejunetwork.org (already validated and issued)
+  existing_certificate_arn = "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
+
   # Set to false on first deploy, true after nameservers are updated at registrar
   wait_for_validation = var.wait_for_acm_validation
 

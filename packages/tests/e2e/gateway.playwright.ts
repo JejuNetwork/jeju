@@ -8,7 +8,9 @@
 import { getCoreAppUrl } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('GATEWAY')
+const GATEWAY_URL =
+  (typeof process !== 'undefined' ? process.env.GATEWAY_URL : undefined) ||
+  getCoreAppUrl('GATEWAY')
 
 test.describe('Gateway', () => {
   test.beforeEach(async ({ page: _page }) => {

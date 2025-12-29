@@ -18,6 +18,7 @@ import {
   expect,
   it,
 } from 'bun:test'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { assertNotNull } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import Redis from 'ioredis'
@@ -804,7 +805,8 @@ describe('Upstash REST API Compatibility', () => {
       .listen(0) // Use random port
 
     const port = app.server?.port
-    client = new UpstashStyleClient(`http://localhost:${port}`)
+    const host = getLocalhostHost()
+    client = new UpstashStyleClient(`http://${host}:${port}`)
   })
 
   afterAll(async () => {

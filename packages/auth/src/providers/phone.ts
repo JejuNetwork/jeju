@@ -18,6 +18,7 @@ import {
   isDevMode,
   isTestMode,
 } from '@jejunetwork/config'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { keccak256, toBytes } from 'viem'
 import {
   generateOTP,
@@ -78,16 +79,37 @@ const DEFAULT_OTP_EXPIRY = 5 // minutes
 const DEFAULT_OTP_LENGTH = 6
 const MAX_OTP_ATTEMPTS = 3
 const DEFAULT_MAX_DAILY_ATTEMPTS = 5
-const RATE_LIMIT_WINDOW = 24 * 60 * 60 * 1000 // 24 hours
-const MAX_PENDING_OTPS = 10000 // Maximum pending OTPs before cleanup
-const CLEANUP_INTERVAL = 60000 // Run cleanup every minute
+const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000 // 24 hours
+const RATE_LIMIT_TTL_SECONDS = 24 * 60 * 60 // 24 hours
+
+// Distributed caches for phone auth state
+let otpCache: CacheClient | null = null
+let userCache: CacheClient | null = null
+let rateLimitCache: CacheClient | null = null
+
+function getOtpCache(): CacheClient {
+  if (!otpCache) {
+    otpCache = getCacheClient('phone-auth-otp')
+  }
+  return otpCache
+}
+
+function getUserCache(): CacheClient {
+  if (!userCache) {
+    userCache = getCacheClient('phone-auth-users')
+  }
+  return userCache
+}
+
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('phone-auth-ratelimit')
+  }
+  return rateLimitCache
+}
 
 export class PhoneProvider {
   private config: PhoneAuthConfig
-  private pendingOTPs = new Map<string, PhoneOTP>()
-  private users = new Map<string, PhoneUser>()
-  private rateLimits = new Map<string, PhoneRateLimit>()
-  private cleanupInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: PhoneAuthConfig = {}) {
     this.config = {
@@ -97,64 +119,13 @@ export class PhoneProvider {
       maxDailyAttempts: config.maxDailyAttempts ?? DEFAULT_MAX_DAILY_ATTEMPTS,
       smsProvider: config.smsProvider ?? 'twilio',
     }
-
-    // SECURITY: Start periodic cleanup to prevent unbounded memory growth (DoS)
-    this.startCleanup()
   }
 
   /**
-   * Start periodic cleanup of expired tokens
-   * SECURITY: Prevents unbounded memory growth from abandoned auth flows
-   */
-  private startCleanup(): void {
-    if (this.cleanupInterval) return
-
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpiredTokens()
-    }, CLEANUP_INTERVAL)
-  }
-
-  /**
-   * Clean up expired tokens and enforce size limits
-   * SECURITY: Prevents DoS via memory exhaustion
-   */
-  private cleanupExpiredTokens(): void {
-    const now = Date.now()
-
-    // Clean expired OTPs
-    for (const [phone, data] of this.pendingOTPs.entries()) {
-      if (now > data.expiresAt) {
-        this.pendingOTPs.delete(phone)
-      }
-    }
-
-    // Clean expired rate limits (older than window)
-    for (const [phone, data] of this.rateLimits.entries()) {
-      if (now - data.lastAttempt > RATE_LIMIT_WINDOW) {
-        this.rateLimits.delete(phone)
-      }
-    }
-
-    // Enforce size limits - remove oldest entries if over limit
-    if (this.pendingOTPs.size > MAX_PENDING_OTPS) {
-      const entries = Array.from(this.pendingOTPs.entries()).sort(
-        (a, b) => a[1].createdAt - b[1].createdAt,
-      )
-      const toRemove = entries.slice(0, entries.length - MAX_PENDING_OTPS)
-      for (const [phone] of toRemove) {
-        this.pendingOTPs.delete(phone)
-      }
-    }
-  }
-
-  /**
-   * Stop cleanup interval (for testing/cleanup)
+   * Stop cleanup interval (for testing/cleanup) - no-op with distributed cache
    */
   destroy(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval)
-      this.cleanupInterval = null
-    }
+    // Distributed cache handles TTL automatically
   }
 
   /**
@@ -165,16 +136,15 @@ export class PhoneProvider {
     this.validatePhone(normalizedPhone)
 
     // Check rate limits
-    const rateLimitCheck = this.checkRateLimit(normalizedPhone)
+    const rateLimitCheck = await this.checkRateLimit(normalizedPhone)
     if (!rateLimitCheck.allowed) {
       throw new Error(rateLimitCheck.reason ?? 'Rate limit exceeded')
     }
 
     const otpLength = this.config.otpLength ?? DEFAULT_OTP_LENGTH
     const code = generateOTP(otpLength)
-    const expiresAt =
-      Date.now() +
-      (this.config.otpExpiryMinutes ?? DEFAULT_OTP_EXPIRY) * 60 * 1000
+    const otpExpiryMinutes = this.config.otpExpiryMinutes ?? DEFAULT_OTP_EXPIRY
+    const expiresAt = Date.now() + otpExpiryMinutes * 60 * 1000
 
     const otp: PhoneOTP = {
       code,
@@ -185,8 +155,14 @@ export class PhoneProvider {
       createdAt: Date.now(),
     }
 
-    this.pendingOTPs.set(normalizedPhone, otp)
-    this.updateRateLimit(normalizedPhone)
+    // Store OTP in distributed cache with TTL
+    const cache = getOtpCache()
+    await cache.set(
+      `otp:${normalizedPhone}`,
+      JSON.stringify(otp),
+      otpExpiryMinutes * 60,
+    )
+    await this.updateRateLimit(normalizedPhone)
 
     // Send SMS
     await this.sendSMS(normalizedPhone, `Your verification code is: ${code}`)
@@ -214,29 +190,37 @@ export class PhoneProvider {
    */
   async verifyOTP(phone: string, code: string): Promise<PhoneAuthResult> {
     const normalizedPhone = this.normalizePhone(phone)
-    const otp = this.pendingOTPs.get(normalizedPhone)
+    const cache = getOtpCache()
+    const cacheKey = `otp:${normalizedPhone}`
+    const cached = await cache.get(cacheKey)
 
-    if (!otp) {
+    if (!cached) {
       return {
         success: false,
         error: 'No pending verification for this phone number',
       }
     }
 
+    const otp: PhoneOTP = JSON.parse(cached)
+
     if (Date.now() > otp.expiresAt) {
-      this.pendingOTPs.delete(normalizedPhone)
+      await cache.delete(cacheKey)
       return { success: false, error: 'Verification code expired' }
     }
 
     otp.attempts++
 
     if (otp.attempts > otp.maxAttempts) {
-      this.pendingOTPs.delete(normalizedPhone)
+      await cache.delete(cacheKey)
       return {
         success: false,
         error: 'Too many attempts. Please request a new code.',
       }
     }
+
+    // Update attempts in cache
+    const remainingTtl = Math.ceil((otp.expiresAt - Date.now()) / 1000)
+    await cache.set(cacheKey, JSON.stringify(otp), remainingTtl)
 
     // SECURITY: Use timing-safe comparison to prevent timing attacks
     if (!this.timingSafeCompare(otp.code, code)) {
@@ -248,8 +232,10 @@ export class PhoneProvider {
     user.phoneVerified = true
     user.lastLoginAt = Date.now()
 
-    // Clean up
-    this.pendingOTPs.delete(normalizedPhone)
+    // Clean up and save user
+    await cache.delete(cacheKey)
+    const userCacheInstance = getUserCache()
+    await userCacheInstance.set(`user:${normalizedPhone}`, JSON.stringify(user))
 
     return { success: true, user }
   }
@@ -257,35 +243,48 @@ export class PhoneProvider {
   /**
    * Get user by phone
    */
-  getUser(phone: string): PhoneUser | null {
-    return this.users.get(this.normalizePhone(phone)) ?? null
+  async getUser(phone: string): Promise<PhoneUser | null> {
+    const cache = getUserCache()
+    const cached = await cache.get(`user:${this.normalizePhone(phone)}`)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+    return null
   }
 
   /**
    * Get user by ID
    */
-  getUserById(id: string): PhoneUser | null {
-    for (const user of this.users.values()) {
-      if (user.id === id) return user
+  async getUserById(id: string): Promise<PhoneUser | null> {
+    const cache = getUserCache()
+    const cached = await cache.get(`user-by-id:${id}`)
+    if (cached) {
+      return JSON.parse(cached)
     }
     return null
   }
 
   private async getOrCreateUser(phone: string): Promise<PhoneUser> {
-    let user = this.users.get(phone)
+    const cache = getUserCache()
+    const cached = await cache.get(`user:${phone}`)
 
-    if (!user) {
-      const parsed = this.parsePhone(phone)
-      user = {
-        id: this.generateUserId(phone),
-        phone,
-        phoneVerified: false,
-        countryCode: parsed.countryCode,
-        createdAt: Date.now(),
-        lastLoginAt: Date.now(),
-      }
-      this.users.set(phone, user)
+    if (cached) {
+      return JSON.parse(cached)
     }
+
+    const parsed = this.parsePhone(phone)
+    const user: PhoneUser = {
+      id: this.generateUserId(phone),
+      phone,
+      phoneVerified: false,
+      countryCode: parsed.countryCode,
+      createdAt: Date.now(),
+      lastLoginAt: Date.now(),
+    }
+
+    // Store user by phone and by ID for lookups
+    await cache.set(`user:${phone}`, JSON.stringify(user))
+    await cache.set(`user-by-id:${user.id}`, JSON.stringify(user))
 
     return user
   }
@@ -350,12 +349,18 @@ export class PhoneProvider {
     }
   }
 
-  private checkRateLimit(phone: string): { allowed: boolean; reason?: string } {
-    const limit = this.rateLimits.get(phone)
+  private async checkRateLimit(
+    phone: string,
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    const cache = getRateLimitCache()
+    const cacheKey = `ratelimit:${phone}`
+    const cached = await cache.get(cacheKey)
 
-    if (!limit) {
+    if (!cached) {
       return { allowed: true }
     }
+
+    const limit: PhoneRateLimit = JSON.parse(cached)
 
     // Check if blocked
     if (limit.blockedUntil && Date.now() < limit.blockedUntil) {
@@ -369,8 +374,8 @@ export class PhoneProvider {
     }
 
     // Reset if window has passed
-    if (Date.now() - limit.lastAttempt > RATE_LIMIT_WINDOW) {
-      this.rateLimits.delete(phone)
+    if (Date.now() - limit.lastAttempt > RATE_LIMIT_WINDOW_MS) {
+      await cache.delete(cacheKey)
       return { allowed: true }
     }
 
@@ -378,7 +383,8 @@ export class PhoneProvider {
     const maxAttempts =
       this.config.maxDailyAttempts ?? DEFAULT_MAX_DAILY_ATTEMPTS
     if (limit.dailyAttempts >= maxAttempts) {
-      limit.blockedUntil = limit.lastAttempt + RATE_LIMIT_WINDOW
+      limit.blockedUntil = limit.lastAttempt + RATE_LIMIT_WINDOW_MS
+      await cache.set(cacheKey, JSON.stringify(limit), RATE_LIMIT_TTL_SECONDS)
       return {
         allowed: false,
         reason: 'Daily SMS limit reached. Please try again tomorrow.',
@@ -388,21 +394,29 @@ export class PhoneProvider {
     return { allowed: true }
   }
 
-  private updateRateLimit(phone: string): void {
-    const limit = this.rateLimits.get(phone) ?? {
-      phone,
-      dailyAttempts: 0,
-      lastAttempt: Date.now(),
-    }
+  private async updateRateLimit(phone: string): Promise<void> {
+    const cache = getRateLimitCache()
+    const cacheKey = `ratelimit:${phone}`
+    const cached = await cache.get(cacheKey)
 
-    // Reset if window has passed
-    if (Date.now() - limit.lastAttempt > RATE_LIMIT_WINDOW) {
-      limit.dailyAttempts = 0
+    let limit: PhoneRateLimit
+    if (cached) {
+      limit = JSON.parse(cached)
+      // Reset if window has passed
+      if (Date.now() - limit.lastAttempt > RATE_LIMIT_WINDOW_MS) {
+        limit.dailyAttempts = 0
+      }
+    } else {
+      limit = {
+        phone,
+        dailyAttempts: 0,
+        lastAttempt: Date.now(),
+      }
     }
 
     limit.dailyAttempts++
     limit.lastAttempt = Date.now()
-    this.rateLimits.set(phone, limit)
+    await cache.set(cacheKey, JSON.stringify(limit), RATE_LIMIT_TTL_SECONDS)
   }
 
   private async sendSMS(phone: string, message: string): Promise<void> {

@@ -86,7 +86,7 @@ const createMinimalConfig = (): ClusterConfig => ({
       },
       labels: {
         'node-role.kubernetes.io/control-plane': 'true',
-        'jeju.network/sequencer': 'true',
+        'jejunetwork.org/sequencer': 'true',
       },
       taints: [],
     },
@@ -613,7 +613,7 @@ describe('Jeju Component Configuration', () => {
   it('should calculate replica counts from available nodes', () => {
     const config = createMinimalConfig()
     const dwsNodes = config.nodes.filter(
-      (n) => n.labels['jeju.network/dws'] === 'true',
+      (n) => n.labels['jejunetwork.org/dws'] === 'true',
     )
     const maxReplicas = Math.min(dwsNodes.length || 1, 3)
 

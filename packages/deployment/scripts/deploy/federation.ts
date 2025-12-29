@@ -518,8 +518,51 @@ Environment:
 
     case 'sync': {
       console.log('Syncing validator sets...')
-      // TODO: Implement validator sync
-      console.log('Validator sync not yet implemented')
+      const config = loadConfig()
+
+      if (!config.bridgeContracts.aws || !config.bridgeContracts.gcp) {
+        console.error('Bridge contracts not deployed. Run deploy first.')
+        process.exit(1)
+      }
+
+      // Create clients for both chains
+      const awsClient = createPublicClient({
+        transport: http(config.awsChain.rpcUrl),
+      })
+      const gcpClient = createPublicClient({
+        transport: http(config.gcpChain.rpcUrl),
+      })
+
+      // Get current validators from both bridges
+      const [awsValidators, gcpValidators] = await Promise.all([
+        awsClient.readContract({
+          address: config.bridgeContracts.aws,
+          abi: FEDERATION_BRIDGE_ABI,
+          functionName: 'getValidators',
+        }),
+        gcpClient.readContract({
+          address: config.bridgeContracts.gcp,
+          abi: FEDERATION_BRIDGE_ABI,
+          functionName: 'getValidators',
+        }),
+      ])
+
+      console.log('\n  Current Validator Sets:')
+      console.log(`  AWS Chain: ${awsValidators.length} validators`)
+      for (let i = 0; i < awsValidators.length; i++) {
+        console.log(`    ${i + 1}. ${awsValidators[i]}`)
+      }
+      console.log(`  GCP Chain: ${gcpValidators.length} validators`)
+      for (let i = 0; i < gcpValidators.length; i++) {
+        console.log(`    ${i + 1}. ${gcpValidators[i]}`)
+      }
+
+      // Update config with current validators
+      config.validators.aws = [...awsValidators]
+      config.validators.gcp = [...gcpValidators]
+      saveConfig(config)
+
+      console.log('\n  Validator sets synced to config.')
       break
     }
 

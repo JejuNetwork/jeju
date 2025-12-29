@@ -1,16 +1,10 @@
-/**
- * SECURITY TODO: Migrate to SecureTransactionExecutor for KMS-backed signing
- * Current implementation uses walletClient.writeContract which requires
- * private keys in memory. Should use createSecureTransactionExecutor()
- * from '../secure-transactions' for TEE-safe operations.
- */
 import { getRpcUrl } from '@jejunetwork/config'
 import type { CDNRegion } from '@jejunetwork/types'
 import { expectAddress, expectHex, toBigInt } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import { CDN_REGISTRY_ABI } from '../abis'
-import { getChain, type SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 
 /** Type for CDN edge node as returned by getEdgeNode contract call */
 interface CDNEdgeNodeResult {
@@ -302,20 +296,13 @@ export class CDNService {
   }
 
   /**
-   * Register as CDN edge node
+   * Register as CDN edge node via KMS-backed signing
    */
   async register(config: CDNServiceConfig): Promise<string> {
     const validatedConfig = validateCDNServiceConfig(config)
-
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
     const regionIndex = this.getRegionIndex(validatedConfig.region)
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'registerEdgeNode',
@@ -327,7 +314,7 @@ export class CDNService {
   }
 
   /**
-   * Start the edge node process
+   * Start the edge node process with KMS key ID
    */
   async startEdgeNode(
     nodeId: string,
@@ -342,9 +329,7 @@ export class CDNService {
       return
     }
 
-    const privateKey = await this.getPrivateKey()
-
-    // Start edge node as subprocess
+    // Start edge node as subprocess with KMS key ID (no private keys)
     this.edgeNodeProcess = Bun.spawn({
       cmd: ['bun', 'run', '-w', '@jejunetwork/dws', 'cdn:edge'],
       env: {
@@ -352,7 +337,7 @@ export class CDNService {
         CDN_NODE_ID: nodeId,
         CDN_PORT: config.port.toString(),
         CDN_CACHE_SIZE_MB: config.maxCacheSizeMB.toString(),
-        PRIVATE_KEY: privateKey,
+        KMS_KEY_ID: this.client.keyId,
         CDN_REGISTRY_ADDRESS: this.client.addresses.cdnRegistry,
         CDN_BILLING_ADDRESS: this.client.addresses.cdnBilling,
         RPC_URL: process.env.RPC_URL ?? getRpcUrl(),
@@ -476,18 +461,20 @@ export class CDNService {
   }
 
   /**
-   * Withdraw earnings
+   * Withdraw earnings via KMS-backed signing
    */
   async withdrawEarnings(): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.cdnBilling,
-      abi: ['function providerWithdraw() external'],
+      abi: [
+        {
+          name: 'providerWithdraw',
+          type: 'function',
+          inputs: [],
+          outputs: [],
+          stateMutability: 'nonpayable',
+        },
+      ],
       functionName: 'providerWithdraw',
       args: [],
     })
@@ -496,16 +483,10 @@ export class CDNService {
   }
 
   /**
-   * Add stake to node
+   * Add stake to node via KMS-backed signing
    */
   async addStake(nodeId: `0x${string}`, amount: bigint): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'addNodeStake',
@@ -517,16 +498,12 @@ export class CDNService {
   }
 
   /**
-   * Update node status
+   * Update node status via KMS-backed signing
    */
   async updateStatus(
     nodeId: `0x${string}`,
     status: CDNServiceState['status'],
   ): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
     const statusMap: Record<CDNServiceState['status'], number> = {
       healthy: 0,
       degraded: 1,
@@ -535,9 +512,7 @@ export class CDNService {
       offline: 4,
     }
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'updateNodeStatus',
@@ -569,28 +544,6 @@ export class CDNService {
       'global',
     ]
     return regions.indexOf(region)
-  }
-
-  private async getPrivateKey(): Promise<string> {
-    // Priority order for private key retrieval:
-    // 1. PRIVATE_KEY environment variable (for CLI/daemon mode)
-    // 2. JEJU_PRIVATE_KEY environment variable (alternate name)
-    // The Tauri desktop app uses secure OS keychain storage instead
-    const key = process.env.PRIVATE_KEY ?? process.env.JEJU_PRIVATE_KEY
-    if (!key) {
-      throw new Error(
-        'Private key not available. Set PRIVATE_KEY or JEJU_PRIVATE_KEY environment variable.',
-      )
-    }
-
-    // Validate key format
-    if (!/^0x[a-fA-F0-9]{64}$/.test(key)) {
-      throw new Error(
-        'Invalid private key format. Must be 0x followed by 64 hex characters.',
-      )
-    }
-
-    return key
   }
 }
 

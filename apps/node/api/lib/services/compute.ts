@@ -397,16 +397,8 @@ export class ComputeService {
       return null
     }
 
-    // Get address from either SecureNodeClient.walletAddress or SecureNodeClient.walletClient
-    let address: Address | null = null
-    if ('walletAddress' in this.client && this.client.walletAddress) {
-      address = this.client.walletAddress
-    } else if (
-      'walletClient' in this.client &&
-      this.client.walletClient?.account
-    ) {
-      address = this.client.walletClient.account.address
-    }
+    // Get address from SecureNodeClient.walletAddress
+    const address = this.client.walletAddress
     if (!address) {
       return null
     }

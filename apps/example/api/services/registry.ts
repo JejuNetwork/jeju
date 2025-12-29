@@ -1,7 +1,6 @@
 import {
   AuthProvider,
   type OAuth3App,
-  type TEEAttestation,
   type TEENodeInfo,
   TEEProvider,
 } from '@jejunetwork/auth'
@@ -12,7 +11,12 @@ import {
   getOAuth3Url,
   getRpcUrl,
 } from '@jejunetwork/config'
-import { AddressSchema, expectAddress, expectHex } from '@jejunetwork/types'
+import {
+  AddressSchema,
+  expectAddress,
+  expectHex,
+  type TEEAttestation,
+} from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,

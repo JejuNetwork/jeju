@@ -9,14 +9,16 @@ import { afterAll, beforeAll } from 'bun:test'
 import { getTestEnv, setup, teardown } from './setup'
 
 // Set test environment
-process.env.BUN_TEST = 'true'
+if (typeof process !== 'undefined') {
+  process.env.BUN_TEST = 'true'
 
-// Set up environment variables
-const env = getTestEnv()
-process.env.L2_RPC_URL = env.rpcUrl
-process.env.JEJU_RPC_URL = env.rpcUrl
-process.env.DWS_URL = env.dwsUrl
-process.env.INFERENCE_URL = env.inferenceUrl
+  // Set up environment variables for child processes
+  const env = getTestEnv()
+  process.env.L2_RPC_URL = env.rpcUrl
+  process.env.JEJU_RPC_URL = env.rpcUrl
+  process.env.DWS_URL = env.dwsUrl
+  process.env.INFERENCE_URL = env.inferenceUrl
+}
 
 // Global setup/teardown
 beforeAll(async () => {

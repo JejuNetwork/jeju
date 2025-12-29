@@ -270,7 +270,7 @@ export class JNSGateway {
     ): Promise<Response | string | object | null> => {
       const host = request.headers.get('host') ?? ''
       // Match various JNS patterns:
-      // - name.jeju.network, name.jeju.io, name.jeju.local
+      // - name.jejunetwork.org, name.jeju.io, name.jeju.local
       // - name.local.jejunetwork.org (local development)
       // - name.jejunetwork.org (production)
       const jnsMatch =

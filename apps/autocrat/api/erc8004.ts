@@ -71,7 +71,7 @@ export interface ERC8004Config {
 
 export class ERC8004Client {
   private readonly client: PublicClient<Transport, Chain>
-  private walletClient: WalletClient<Transport, Chain>
+  private walletClient: WalletClient
   private account: LocalAccount | null
   private readonly chain: ReturnType<typeof inferChainFromRpcUrl>
   private readonly rpcUrl: string

@@ -14,15 +14,10 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import {
-  getCurrentNetwork,
-  getRpcUrl,
-  isProductionEnv,
-} from '@jejunetwork/config'
+import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import type { Address, Hex } from 'viem'
 import { keccak256, parseEther } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { createSecureSigner, type SecureSigner } from '../shared/secure-signer'
 import type { StorageBackendType } from './types'
 
 // ============ Types ============
@@ -178,16 +173,16 @@ export interface RetrievalMarketConfig {
   paymentChannelContractAddress: Address
   marketContractAddress: Address
   rpcUrl: string
-  // SECURITY: In production, use kmsKeyId instead of privateKey
-  kmsKeyId?: string
+  /** KMS key ID for FROST threshold signing (required) */
+  kmsKeyId: string
   ownerAddress?: Address
-  // DEPRECATED: privateKey is only for development/testing
-  privateKey?: Hex
 }
 
 // ============ Default Configuration ============
 
-const DEFAULT_MARKET_CONFIG: RetrievalMarketConfig = {
+const DEFAULT_MARKET_CONFIG: Omit<RetrievalMarketConfig, 'kmsKeyId'> & {
+  kmsKeyId?: string
+} = {
   defaultPricePerGb: parseEther('0.0001'), // 0.0001 ETH per GB
   maxPricePerGb: parseEther('0.01'), // 0.01 ETH per GB max
   minProviderStake: parseEther('0.1'), // 0.1 ETH minimum stake
@@ -206,7 +201,6 @@ const DEFAULT_MARKET_CONFIG: RetrievalMarketConfig = {
   ownerAddress: (typeof process !== 'undefined'
     ? process.env.RETRIEVAL_MARKET_OWNER_ADDRESS
     : undefined) as Address | undefined,
-  privateKey: undefined, // Not set by default
 }
 
 // ============ Retrieval Market Manager ============
@@ -219,43 +213,39 @@ export class RetrievalMarketManager {
   private deals: Map<string, RetrievalDeal> = new Map()
   private paymentChannels: Map<string, PaymentChannel> = new Map()
   private receipts: Map<string, RetrievalReceipt> = new Map()
-  private secureSigner: SecureSigner | null = null
-  private signerInitialized = false
+  private kmsSigner: KMSSigner
+  private initialized = false
 
-  constructor(_providerId: string, config?: Partial<RetrievalMarketConfig>) {
-    this.config = { ...DEFAULT_MARKET_CONFIG, ...config }
+  constructor(
+    providerId: string,
+    config: Partial<RetrievalMarketConfig> & { kmsKeyId: string },
+  ) {
+    this.config = {
+      ...DEFAULT_MARKET_CONFIG,
+      ...config,
+    } as RetrievalMarketConfig
 
-    // SECURITY: Warn if using deprecated privateKey in production
-    const isProduction = isProductionEnv()
-    if (isProduction && this.config.privateKey && !this.config.kmsKeyId) {
-      console.error(
-        '[RetrievalMarketManager] CRITICAL: Using privateKey in production is insecure. ' +
-          'Set RETRIEVAL_MARKET_KMS_KEY_ID and RETRIEVAL_MARKET_OWNER_ADDRESS to use KMS-based signing.',
-      )
-    }
+    // Create KMS-backed signer (initialized lazily)
+    const serviceId = `retrieval-market-${providerId}-${config.kmsKeyId}`
+    this.kmsSigner = createKMSSigner({ serviceId })
+    console.log(
+      '[RetrievalMarketManager] Using KMS-based secure signing (FROST)',
+    )
   }
 
-  /**
-   * Initialize KMS-based secure signing
-   */
-  async initializeSecureSigning(): Promise<void> {
-    if (this.signerInitialized) return
+  /** Initialize the signer - call before any signing operations */
+  async initialize(): Promise<void> {
+    if (this.initialized) return
+    await this.kmsSigner.initialize()
+    this.initialized = true
+  }
 
-    if (this.config.kmsKeyId && this.config.ownerAddress) {
-      this.secureSigner = await createSecureSigner(
-        this.config.ownerAddress,
-        this.config.kmsKeyId,
-      )
-      console.log(
-        '[RetrievalMarketManager] Using KMS-based secure signing (FROST)',
-      )
-    } else if (isProductionEnv()) {
+  private ensureInitialized(): void {
+    if (!this.initialized) {
       throw new Error(
-        'RETRIEVAL_MARKET_KMS_KEY_ID and RETRIEVAL_MARKET_OWNER_ADDRESS required in production',
+        'RetrievalMarketManager not initialized. Call initialize() first.',
       )
     }
-
-    this.signerInitialized = true
   }
 
   // ============ Provider Management ============
@@ -845,43 +835,14 @@ export class RetrievalMarketManager {
   // ============ Helper Methods ============
 
   private async getAddress(): Promise<Address> {
-    // SECURITY: Use KMS-based address if available (production)
-    if (this.secureSigner) {
-      return this.secureSigner.getAddress()
-    }
-
-    // Development fallback
-    if (!this.config.privateKey) {
-      return '0x0000000000000000000000000000000000000000'
-    }
-
-    const account = privateKeyToAccount(this.config.privateKey)
-    return account.address
+    this.ensureInitialized()
+    return this.kmsSigner.getAddress()
   }
 
   private async signMessage(message: Hex): Promise<Hex> {
-    // SECURITY: Use KMS-based signing if available (production)
-    if (this.secureSigner) {
-      return this.secureSigner.signHash(message)
-    }
-
-    // Development fallback - only allowed in non-production
-    if (isProductionEnv()) {
-      throw new Error(
-        'KMS-based signing required in production. Call initializeSecureSigning() first.',
-      )
-    }
-
-    if (!this.config.privateKey) {
-      return keccak256(message)
-    }
-
-    // DEPRECATED: Direct key signing - only for development
-    console.warn(
-      '[RetrievalMarketManager] Using deprecated direct key signing. Use KMS in production.',
-    )
-    const account = privateKeyToAccount(this.config.privateKey)
-    return account.signMessage({ message })
+    this.ensureInitialized()
+    const result = await this.kmsSigner.signMessage(message)
+    return result.signature
   }
 }
 
@@ -890,14 +851,11 @@ export class RetrievalMarketManager {
 let marketManager: RetrievalMarketManager | null = null
 
 export function getRetrievalMarketManager(
-  providerId?: string,
-  config?: Partial<RetrievalMarketConfig>,
+  providerId: string,
+  config: Partial<RetrievalMarketConfig> & { kmsKeyId: string },
 ): RetrievalMarketManager {
   if (!marketManager) {
-    marketManager = new RetrievalMarketManager(
-      providerId ?? `provider_${randomBytes(8).toString('hex')}`,
-      config,
-    )
+    marketManager = new RetrievalMarketManager(providerId, config)
   }
   return marketManager
 }

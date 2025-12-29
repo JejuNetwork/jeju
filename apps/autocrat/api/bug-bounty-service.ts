@@ -64,8 +64,10 @@ import { createKMSHttpWalletClient, getOperatorConfig } from './kms-signer'
 
 const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
-// KMS wallet client instance (initialized lazily)
-let kmsWalletClient: Awaited<ReturnType<typeof createKMSWalletClient>> | null = null
+// KMS wallet client result (initialized lazily)
+let kmsWalletClientResult: Awaited<
+  ReturnType<typeof createKMSWalletClient>
+> | null = null
 
 // Config handles env overrides
 function getDWSEndpoint(): string {
@@ -250,16 +252,20 @@ function getPublicClient() {
 }
 
 async function getKMSWalletClientInstance() {
-  if (!kmsWalletClient) {
+  if (!kmsWalletClientResult) {
     const operatorConfig = getOperatorConfig()
     if (!operatorConfig) {
       throw new Error(
         'OPERATOR_KEY or OPERATOR_PRIVATE_KEY required for contract operations',
       )
     }
-kmsWalletClient = await createKMSWalletClient(operatorConfig, getChain(), getRpcUrl())
+    kmsWalletClientResult = await createKMSWalletClient(
+      operatorConfig,
+      getChain(),
+      getRpcUrl(),
+    )
   }
-  return kmsWalletClient
+  return kmsWalletClientResult
 }
 
 function getContractAddressOrThrow(): Address {
@@ -615,6 +621,7 @@ export async function submitBounty(
     args: [submission.severity, submission.vulnType, cidHex, keyIdHex, pocHash],
     value: stake,
     account,
+    chain: getChain(),
   })
 
   await publicClient.waitForTransactionReceipt({ hash })
@@ -790,6 +797,7 @@ export async function completeValidation(
     functionName: 'completeValidation',
     args: [toHex(submissionId), result, notes],
     account,
+    chain: getChain(),
   })
 
   await publicClient.waitForTransactionReceipt({ hash: txHash })
@@ -869,6 +877,7 @@ export async function submitGuardianVote(
     functionName: 'submitGuardianVote',
     args: [toHex(submissionId), approved, suggestedReward, feedback],
     account,
+    chain: getChain(),
   })
 
   await publicClient.waitForTransactionReceipt({ hash: guardianHash })
@@ -948,6 +957,7 @@ export async function ceoDecision(
     functionName: 'ceoDecision',
     args: [toHex(submissionId), approved, rewardAmount, reasoning],
     account,
+    chain: getChain(),
   })
 
   await publicClient.waitForTransactionReceipt({ hash: ceoHash })
@@ -999,6 +1009,7 @@ export async function payReward(
     functionName: 'payReward',
     args: [toHex(submissionId)],
     account,
+    chain: getChain(),
   })
 
   await publicClient.waitForTransactionReceipt({ hash: payoutHash })

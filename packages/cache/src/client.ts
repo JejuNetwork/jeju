@@ -15,7 +15,7 @@
  * import { CacheClient } from '@jejunetwork/cache'
  *
  * const cache = new CacheClient({
- *   serverUrl: 'https://dws.jeju.network',
+ *   serverUrl: 'https://dws.jejunetwork.org',
  *   namespace: 'my-app',
  * })
  *

@@ -2,7 +2,10 @@
  * Local Development Configuration for ZK Bridge
  */
 
-import { getL1RpcUrl } from '@jejunetwork/config'
+import { getL1RpcUrl, getLocalhostHost } from '@jejunetwork/config'
+
+const host = getLocalhostHost()
+
 import type {
   BridgeConfig,
   ChainId,

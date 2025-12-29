@@ -822,7 +822,7 @@ describe('TusUploadManager', () => {
     expect(postResult.headers.Location).toBeDefined()
     expect(postResult.upload.uploadId).toBeDefined()
 
-    const headResult = handleTusHead(postResult.upload.uploadId)
+    const headResult = await handleTusHead(postResult.upload.uploadId)
     expect(headResult.status).toBe(200)
     expect(headResult.headers['Upload-Offset']).toBe('0')
     expect(headResult.headers['Upload-Length']).toBe('1024')

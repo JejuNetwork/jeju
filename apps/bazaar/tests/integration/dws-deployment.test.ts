@@ -239,7 +239,8 @@ describe('Worker Module', () => {
     }
 
     // Test health endpoint via worker
-    const healthRequest = new Request('http://localhost/health')
+    const host = getLocalhostHost()
+    const healthRequest = new Request(`http://${host}/health`)
     const healthResponse = await worker.fetch(healthRequest, mockEnv, mockCtx)
     expect(healthResponse.ok).toBe(true)
 

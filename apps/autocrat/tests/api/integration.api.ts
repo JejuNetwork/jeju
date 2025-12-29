@@ -2,12 +2,16 @@
  * Integration Tests - Full workflows with real dependencies
  */
 
-import { CORE_PORTS } from '@jejunetwork/config'
+import { CORE_PORTS, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
 import { expect, test } from '@playwright/test'
 
-const AUTOCRAT_URL = `http://localhost:${CORE_PORTS.AUTOCRAT_API.get()}`
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
+const host = getLocalhostHost()
+const AUTOCRAT_URL = `http://${host}:${CORE_PORTS.AUTOCRAT_API.get()}`
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  getL2RpcUrl() ??
+  `http://${host}:6546`
 
 interface A2ADataPart {
   kind: 'data'

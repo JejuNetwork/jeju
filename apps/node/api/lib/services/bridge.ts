@@ -1,13 +1,6 @@
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
-import {
-  createPublicClient,
-  createWalletClient,
-  encodeFunctionData,
-  http,
-  parseAbi,
-} from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { createPublicClient, encodeFunctionData, http, parseAbi } from 'viem'
 import {
   HyperliquidPricesResponseSchema,
   JitoBundleResponseSchema,
@@ -16,6 +9,7 @@ import {
   JupiterPriceResponseSchema,
 } from '../../../lib/validation'
 import { config as nodeConfig } from '../../config'
+import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 // Dynamic import: Lazy load to avoid native module issues with @solana/web3.js
 type ArbitrageExecutorModule = typeof import('./arbitrage-executor')
@@ -44,13 +38,8 @@ export interface BridgeServiceConfig {
 
   // Operator settings
   operatorAddress: Address
-  /** KMS key ID for EVM signing */
-  evmKeyId?: string
-  /**
-   * @deprecated Use evmKeyId for KMS-backed signing. This field exists only
-   * for legacy compatibility and will be removed in a future version.
-   */
-  privateKey?: Hex
+  /** KMS key ID for EVM signing (required for KMS-backed signing) */
+  evmKeyId: string
 
   // Service options
   enableRelayer: boolean
@@ -208,6 +197,7 @@ export interface BridgeService {
 
 class BridgeServiceImpl implements BridgeService {
   private config: BridgeServiceConfig
+  private signer: SecureSigner
   private running = false
   private arbEnabled = false
   private stats: BridgeStats = {
@@ -265,7 +255,35 @@ class BridgeServiceImpl implements BridgeService {
 
   constructor(config: BridgeServiceConfig) {
     this.config = config
+    this.signer = createSecureSigner(config.evmKeyId)
     this.arbEnabled = config.enableArbitrage ?? false
+  }
+
+  /**
+   * Execute a transaction via KMS-backed signing
+   */
+  private async executeTransaction(
+    chainId: number,
+    to: Address,
+    data: Hex,
+    value?: bigint,
+  ): Promise<Hex> {
+    const rpcUrl = this.config.evmRpcUrls[chainId]
+    if (!rpcUrl) throw new Error(`No RPC URL configured for chain ${chainId}`)
+
+    const publicClient = createPublicClient({ transport: http(rpcUrl) })
+    const { signedTransaction, hash } = await this.signer.signTransaction({
+      to,
+      data,
+      value,
+      chainId,
+    })
+
+    await publicClient.sendRawTransaction({
+      serializedTransaction: signedTransaction,
+    })
+
+    return hash
   }
 
   /** Remove expired arbitrage opportunities and enforce size limit to prevent memory leaks */
@@ -426,18 +444,10 @@ class BridgeServiceImpl implements BridgeService {
     if (!this.config.contracts.federatedLiquidity) {
       throw new Error('FederatedLiquidity contract not configured')
     }
-    if (!this.config.privateKey) {
-      throw new Error('Private key required for transactions')
-    }
 
     console.log(`[Bridge] Depositing ${amount} of ${token} to chain ${chainId}`)
 
-    const account = privateKeyToAccount(this.config.privateKey)
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
-    const walletClient = createWalletClient({
-      account,
-      transport: http(rpcUrl),
-    })
 
     // First approve the token
     const approveData = encodeFunctionData({
@@ -453,12 +463,11 @@ class BridgeServiceImpl implements BridgeService {
       args: [this.config.contracts.federatedLiquidity, amount],
     })
 
-    const approveHash = await walletClient.sendTransaction({
-      account,
-      chain: null,
-      to: token,
-      data: approveData,
-    })
+    const approveHash = await this.executeTransaction(
+      chainId,
+      token,
+      approveData as Hex,
+    )
     await publicClient.waitForTransactionReceipt({ hash: approveHash })
 
     // Then deposit
@@ -475,12 +484,11 @@ class BridgeServiceImpl implements BridgeService {
       args: [token, amount],
     })
 
-    const hash = await walletClient.sendTransaction({
-      account,
-      chain: null,
-      to: this.config.contracts.federatedLiquidity,
-      data: depositData,
-    })
+    const hash = await this.executeTransaction(
+      chainId,
+      this.config.contracts.federatedLiquidity,
+      depositData as Hex,
+    )
 
     console.log(`[Bridge] Deposit tx: ${hash}`)
     return hash
@@ -491,24 +499,13 @@ class BridgeServiceImpl implements BridgeService {
     token: Address,
     amount: bigint,
   ): Promise<Hex> {
-    const rpcUrl = this.config.evmRpcUrls[chainId]
-    if (!rpcUrl) throw new Error(`No RPC URL configured for chain ${chainId}`)
     if (!this.config.contracts.federatedLiquidity) {
       throw new Error('FederatedLiquidity contract not configured')
-    }
-    if (!this.config.privateKey) {
-      throw new Error('Private key required for transactions')
     }
 
     console.log(
       `[Bridge] Withdrawing ${amount} of ${token} from chain ${chainId}`,
     )
-
-    const account = privateKeyToAccount(this.config.privateKey)
-    const walletClient = createWalletClient({
-      account,
-      transport: http(rpcUrl),
-    })
 
     const data = encodeFunctionData({
       abi: [
@@ -523,12 +520,11 @@ class BridgeServiceImpl implements BridgeService {
       args: [token, amount],
     })
 
-    const hash = await walletClient.sendTransaction({
-      account,
-      chain: null,
-      to: this.config.contracts.federatedLiquidity,
-      data,
-    })
+    const hash = await this.executeTransaction(
+      chainId,
+      this.config.contracts.federatedLiquidity,
+      data as Hex,
+    )
 
     console.log(`[Bridge] Withdraw tx: ${hash}`)
     return hash
@@ -566,23 +562,14 @@ class BridgeServiceImpl implements BridgeService {
     if (!this.config.contracts.solverRegistry) {
       throw new Error('SolverRegistry contract not configured')
     }
-    if (!this.config.privateKey) {
-      throw new Error('Private key required for transactions')
-    }
 
     console.log(
       `[Bridge] Registering as solver: ${name} for chains ${supportedChains}`,
     )
 
-    const chainId = Object.keys(this.config.evmRpcUrls)[0]
-    const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
-    if (!rpcUrl) throw new Error('No RPC URL configured')
-
-    const account = privateKeyToAccount(this.config.privateKey)
-    const walletClient = createWalletClient({
-      account,
-      transport: http(rpcUrl),
-    })
+    const chainId = Number(Object.keys(this.config.evmRpcUrls)[0])
+    if (!this.config.evmRpcUrls[chainId])
+      throw new Error('No RPC URL configured')
 
     const data = encodeFunctionData({
       abi: [
@@ -597,12 +584,11 @@ class BridgeServiceImpl implements BridgeService {
       args: [name, supportedChains.map((c) => BigInt(c))],
     })
 
-    const hash = await walletClient.sendTransaction({
-      account,
-      chain: null,
-      to: this.config.contracts.solverRegistry,
-      data,
-    })
+    const hash = await this.executeTransaction(
+      chainId,
+      this.config.contracts.solverRegistry,
+      data as Hex,
+    )
 
     console.log(`[Bridge] Register solver tx: ${hash}`)
     return hash
@@ -612,21 +598,12 @@ class BridgeServiceImpl implements BridgeService {
     if (!this.config.contracts.solverRegistry) {
       throw new Error('SolverRegistry contract not configured')
     }
-    if (!this.config.privateKey) {
-      throw new Error('Private key required for transactions')
-    }
 
     console.log('[Bridge] Deactivating solver')
 
-    const chainId = Object.keys(this.config.evmRpcUrls)[0]
-    const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
-    if (!rpcUrl) throw new Error('No RPC URL configured')
-
-    const account = privateKeyToAccount(this.config.privateKey)
-    const walletClient = createWalletClient({
-      account,
-      transport: http(rpcUrl),
-    })
+    const chainId = Number(Object.keys(this.config.evmRpcUrls)[0])
+    if (!this.config.evmRpcUrls[chainId])
+      throw new Error('No RPC URL configured')
 
     const data = encodeFunctionData({
       abi: [
@@ -636,12 +613,11 @@ class BridgeServiceImpl implements BridgeService {
       args: [],
     })
 
-    const hash = await walletClient.sendTransaction({
-      account,
-      chain: null,
-      to: this.config.contracts.solverRegistry,
-      data,
-    })
+    const hash = await this.executeTransaction(
+      chainId,
+      this.config.contracts.solverRegistry,
+      data as Hex,
+    )
 
     console.log(`[Bridge] Deactivate solver tx: ${hash}`)
     return hash
@@ -654,12 +630,12 @@ class BridgeServiceImpl implements BridgeService {
     pendingIntents: number
   }> {
     // If solver registry is configured, fetch on-chain stats
-    if (this.config.contracts.solverRegistry && this.config.privateKey) {
+    if (this.config.contracts.solverRegistry) {
       const chainId = Object.keys(this.config.evmRpcUrls)[0]
       const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
       if (rpcUrl) {
         const publicClient = createPublicClient({ transport: http(rpcUrl) })
-        const account = privateKeyToAccount(this.config.privateKey)
+        const address = await this.signer.getAddress()
 
         const SOLVER_ABI = parseAbi([
           'function getSolverStats(address solver) external view returns (uint256 totalFills, uint256 successfulFills, uint256 failedFills)',
@@ -669,7 +645,7 @@ class BridgeServiceImpl implements BridgeService {
           address: this.config.contracts.solverRegistry,
           abi: SOLVER_ABI,
           functionName: 'getSolverStats',
-          args: [account.address],
+          args: [address],
         })
 
         // Update local stats with on-chain data
@@ -871,14 +847,12 @@ class BridgeServiceImpl implements BridgeService {
   }
 
   private async processPendingTransfers(): Promise<void> {
-    if (!this.config.contracts.zkBridge || !this.config.privateKey) return
+    if (!this.config.contracts.zkBridge) return
 
     const ZK_BRIDGE_ABI = parseAbi([
       'function getTransfer(bytes32 transferId) external view returns (address sender, uint256 srcChainId, uint256 destChainId, address token, uint256 amount, uint256 timestamp, uint8 status)',
       'function submitProof(bytes32 transferId, bytes calldata proof) external',
     ])
-
-    const account = privateKeyToAccount(this.config.privateKey)
 
     for (const transferId of this.pendingTransferIds) {
       // Fetch transfer details from the first configured chain
@@ -952,19 +926,17 @@ class BridgeServiceImpl implements BridgeService {
         continue
       }
 
-      const walletClient = createWalletClient({
-        account,
-        transport: http(destRpcUrl),
-      })
-
-      const hash = await walletClient.writeContract({
-        address: this.config.contracts.zkBridge,
+      const proofData = encodeFunctionData({
         abi: ZK_BRIDGE_ABI,
         functionName: 'submitProof',
         args: [transferId as `0x${string}`, proof],
-        chain: null,
-        account,
       })
+
+      const hash = await this.executeTransaction(
+        Number(destChainId),
+        this.config.contracts.zkBridge,
+        proofData as Hex,
+      )
 
       console.log(`[Bridge] Proof submitted for ${transferId}: ${hash}`)
 
@@ -999,10 +971,6 @@ class BridgeServiceImpl implements BridgeService {
       )
       return
     }
-    if (!this.config.privateKey) {
-      console.warn('[Bridge] Private key not configured, XLP disabled')
-      return
-    }
 
     const LIQUIDITY_ABI = parseAbi([
       'event LiquidityRequest(bytes32 indexed requestId, address token, uint256 amount, uint256 destChainId)',
@@ -1016,35 +984,29 @@ class BridgeServiceImpl implements BridgeService {
     if (!rpcUrl) return
 
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
-    const account = privateKeyToAccount(this.config.privateKey)
+    const address = await this.signer.getAddress()
 
     // Check if already registered
     const isRegistered = await publicClient.readContract({
       address: this.config.contracts.federatedLiquidity,
       abi: LIQUIDITY_ABI,
       functionName: 'isXLPRegistered',
-      args: [account.address],
+      args: [address],
     })
 
     if (!isRegistered && this.config.xlpChains) {
-      // Register as XLP
-      const walletClient = createWalletClient({
-        account,
-        transport: http(rpcUrl),
-      })
-
+      // Register as XLP via KMS
       const data = encodeFunctionData({
         abi: LIQUIDITY_ABI,
         functionName: 'registerAsXLP',
         args: [this.config.xlpChains.map((c) => BigInt(c))],
       })
 
-      const hash = await walletClient.sendTransaction({
-        account,
-        chain: null,
-        to: this.config.contracts.federatedLiquidity,
-        data,
-      })
+      const hash = await this.executeTransaction(
+        Number(chainId),
+        this.config.contracts.federatedLiquidity,
+        data as Hex,
+      )
       await publicClient.waitForTransactionReceipt({ hash })
       console.log(`[Bridge] Registered as XLP: ${hash}`)
     }
@@ -1076,8 +1038,7 @@ class BridgeServiceImpl implements BridgeService {
     token: Address,
     amount: bigint,
   ): Promise<void> {
-    if (!this.config.contracts.federatedLiquidity || !this.config.privateKey)
-      return
+    if (!this.config.contracts.federatedLiquidity) return
 
     // Check minimum liquidity threshold
     const minLiquidity = this.config.minLiquidity ?? 0n
@@ -1097,21 +1058,19 @@ class BridgeServiceImpl implements BridgeService {
         'function fulfillRequest(bytes32 requestId, uint256 amount) external',
       ])
 
-      const account = privateKeyToAccount(this.config.privateKey)
       const publicClient = createPublicClient({ transport: http(rpcUrl) })
-      const walletClient = createWalletClient({
-        account,
-        transport: http(rpcUrl),
-      })
 
-      const hash = await walletClient.writeContract({
-        address: this.config.contracts.federatedLiquidity,
+      const fulfillData = encodeFunctionData({
         abi: FULFILL_ABI,
         functionName: 'fulfillRequest',
         args: [requestId, amount],
-        chain: null,
-        account,
       })
+
+      const hash = await this.executeTransaction(
+        Number(chainId),
+        this.config.contracts.federatedLiquidity,
+        fulfillData as Hex,
+      )
 
       await publicClient.waitForTransactionReceipt({ hash })
       console.log(`[Bridge] Fulfilled request ${requestId}: ${hash}`)
@@ -1131,10 +1090,6 @@ class BridgeServiceImpl implements BridgeService {
       )
       return
     }
-    if (!this.config.privateKey) {
-      console.warn('[Bridge] Private key not configured, solver disabled')
-      return
-    }
 
     const SOLVER_ABI = parseAbi([
       'event IntentCreated(bytes32 indexed intentId, address sender, address inputToken, uint256 inputAmount, address outputToken, uint256 minOutputAmount, uint256 deadline)',
@@ -1148,14 +1103,14 @@ class BridgeServiceImpl implements BridgeService {
     if (!rpcUrl) return
 
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
-    const account = privateKeyToAccount(this.config.privateKey)
+    const address = await this.signer.getAddress()
 
     // Check if already registered
     const isRegistered = await publicClient.readContract({
       address: this.config.contracts.solverRegistry,
       abi: SOLVER_ABI,
       functionName: 'isSolverRegistered',
-      args: [account.address],
+      args: [address],
     })
 
     if (!isRegistered) {
@@ -1204,7 +1159,7 @@ class BridgeServiceImpl implements BridgeService {
     minOutputAmount: bigint,
     deadline: bigint,
   ): Promise<void> {
-    if (!this.config.contracts.solverRegistry || !this.config.privateKey) return
+    if (!this.config.contracts.solverRegistry) return
 
     // Check deadline
     const nowSeconds = BigInt(Math.floor(Date.now() / 1000))
@@ -1252,28 +1207,26 @@ class BridgeServiceImpl implements BridgeService {
 
     console.log(`[Bridge] Intent ${intentId} is profitable, filling...`)
 
-    // Execute the fill
+    // Execute the fill via KMS
     const FILL_ABI = parseAbi([
       'function fillIntent(bytes32 intentId, uint256 outputAmount) external',
     ])
 
-    const account = privateKeyToAccount(this.config.privateKey)
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
-    const walletClient = createWalletClient({
-      account,
-      transport: http(rpcUrl),
-    })
 
     this.solverStats.totalFills++
 
-    const hash = await walletClient.writeContract({
-      address: this.config.contracts.solverRegistry,
+    const fillData = encodeFunctionData({
       abi: FILL_ABI,
       functionName: 'fillIntent',
       args: [intentId, estimatedOutput],
-      chain: null,
-      account,
     })
+
+    const hash = await this.executeTransaction(
+      Number(chainId),
+      this.config.contracts.solverRegistry,
+      fillData as Hex,
+    )
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
 

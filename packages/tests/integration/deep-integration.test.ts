@@ -13,12 +13,14 @@
  */
 
 import { afterAll, beforeAll, describe, it } from 'bun:test'
+import { getRpcUrl } from '@jejunetwork/config'
 import { createPublicClient, http } from 'viem'
-import { APP_URLS, JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
+import { APP_URLS, TEST_WALLETS } from '../shared/constants'
 
-const RPC_URL = process.env.RPC_URL || JEJU_LOCALNET.rpcUrl
-const PRIVATE_KEY = (process.env.PRIVATE_KEY ||
-  TEST_WALLETS.deployer.privateKey) as `0x${string}`
+const RPC_URL = getRpcUrl()
+const PRIVATE_KEY = ((typeof process !== 'undefined'
+  ? process.env.PRIVATE_KEY
+  : undefined) || TEST_WALLETS.deployer.privateKey) as `0x${string}`
 
 // Check if RPC and private key are available
 let servicesAvailable = false
@@ -60,7 +62,9 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log(
       '📝 Using IdentityRegistry from IDENTITY_REGISTRY_ADDRESS env...',
     )
-    registryAddress = (process.env.IDENTITY_REGISTRY_ADDRESS ??
+    registryAddress = ((typeof process !== 'undefined'
+      ? process.env.IDENTITY_REGISTRY_ADDRESS
+      : undefined) ??
       '0x0000000000000000000000000000000000000000') as `0x${string}`
     console.log(`✅ Registry address: ${registryAddress}\n`)
   })

@@ -688,8 +688,8 @@ async function startDatabaseService(
     )
 
     // Periodically log stats
-    setInterval(() => {
-      const stats = databaseService.getStats()
+    setInterval(async () => {
+      const stats = await databaseService.getStats()
       if (stats.queriesPerSecond > 0) {
         log(
           'debug',

@@ -5,6 +5,7 @@
  */
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
@@ -91,14 +92,16 @@ export interface FactCheckResult {
   sources?: string[]
 }
 
-// Bounded LRU cache - evicts oldest when full
-const CACHE_MAX = 1000
-const cache = new Map<string, ResearchReport>()
-const evictOldest = () => {
-  if (cache.size >= CACHE_MAX) {
-    const first = cache.keys().next().value
-    if (first) cache.delete(first)
+// Distributed cache for research reports (1 hour TTL)
+const CACHE_TTL_SECONDS = 3600
+
+let researchCache: CacheClient | null = null
+
+function getResearchCache(): CacheClient {
+  if (!researchCache) {
+    researchCache = getCacheClient('autocrat-research')
   }
+  return researchCache
 }
 
 import { config } from './config'
@@ -169,8 +172,14 @@ async function checkComputeMarketplace(): Promise<boolean> {
 export class ResearchAgent {
   async conductResearch(request: ResearchRequest): Promise<ResearchReport> {
     const requestHash = keccak256(stringToHex(JSON.stringify(request)))
-    const cachedReport = cache.get(requestHash)
-    if (cachedReport) return cachedReport
+    const cache = getResearchCache()
+    const cacheKey = `research:${requestHash}`
+
+    // Check distributed cache
+    const cached = await cache.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached) as ResearchReport
+    }
 
     const startedAt = Date.now()
     const depth = request.depth ?? 'standard'
@@ -186,8 +195,7 @@ export class ResearchAgent {
           requestHash,
           startedAt,
         )
-        evictOldest()
-        cache.set(requestHash, report)
+        await cache.set(cacheKey, JSON.stringify(report), CACHE_TTL_SECONDS)
         return report
       }
     }
@@ -207,8 +215,7 @@ export class ResearchAgent {
       depth,
     )
 
-    evictOldest()
-    cache.set(requestHash, report)
+    await cache.set(cacheKey, JSON.stringify(report), CACHE_TTL_SECONDS)
     return report
   }
 

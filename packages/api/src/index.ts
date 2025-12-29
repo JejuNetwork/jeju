@@ -88,9 +88,9 @@ export {
 export {
   createRateLimitHeaders,
   createRateLimitKey,
+  DistributedRateLimitStore,
   extractClientIp,
   getRateLimiter,
-  InMemoryRateLimitStore,
   initRateLimiter,
   RateLimiter,
   resetRateLimiter,

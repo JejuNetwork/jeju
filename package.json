@@ -100,6 +100,7 @@
     "framer-motion": "^12.23.26",
     "merkletreejs": "^0.6.0",
     "mime": "^3.0.0",
+    "obscenity": "^0.4.5",
     "pino": "^10.1.0",
     "prom-client": "^15.1.3",
     "viem": "2.43.3",

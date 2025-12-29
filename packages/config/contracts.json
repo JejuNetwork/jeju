@@ -1,6 +1,6 @@
 {
   "version": "1.1.0",
-  "lastUpdated": "2025-12-22",
+  "lastUpdated": "2025-12-29",
   "description": "All contract addresses for Jeju networks. Env overrides use VITE_/PUBLIC_ + name (e.g., VITE_BAN_MANAGER_ADDRESS)",
   "constants": {
     "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
