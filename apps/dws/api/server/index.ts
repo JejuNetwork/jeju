@@ -1237,6 +1237,8 @@ if (import.meta.main) {
 
   server = Bun.serve({
     port: PORT,
+    // Allow 500MB uploads for deployment artifacts
+    maxRequestBodySize: 500 * 1024 * 1024,
     fetch(req, server) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
