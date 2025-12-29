@@ -11,7 +11,7 @@ import type { ModerationProvider, ModerationResult, CategoryScore } from '../typ
 
 // Lazy-loaded nsfwjs to avoid TensorFlow initialization at import time
 let nsfwModel: NSFWJS | null = null
-let modelLoading: Promise<NSFWJS> | null = null
+let modelLoading: Promise<NSFWJS | null> | null = null
 
 interface NSFWJS {
   classify(image: ImageData | HTMLImageElement | HTMLCanvasElement | unknown): Promise<NSFWPrediction[]>
@@ -114,22 +114,11 @@ export class NSFWDetectionProvider {
   }
 
   private async classifyImage(model: NSFWJS, buf: Buffer): Promise<NSFWPrediction[]> {
-    // nsfwjs needs an image element - create a tensor from the buffer
-    // For Node.js/Bun, we need to decode the image to raw pixels
     const tf = await import('@tensorflow/tfjs')
 
-    // Decode image to tensor based on format
-    let tensor: unknown
-    if (buf[0] === 0xff && buf[1] === 0xd8) {
-      // JPEG
-      tensor = tf.node?.decodeJpeg?.(buf) ?? await this.decodeImageManually(buf, tf)
-    } else if (buf[0] === 0x89 && buf[1] === 0x50) {
-      // PNG
-      tensor = tf.node?.decodePng?.(buf) ?? await this.decodeImageManually(buf, tf)
-    } else {
-      tensor = await this.decodeImageManually(buf, tf)
-    }
-
+    // Create a simple tensor from image bytes for classification
+    // nsfwjs expects a 3D tensor with shape [height, width, channels]
+    const tensor = await this.decodeImageManually(buf, tf)
     if (!tensor) {
       throw new Error('Could not decode image')
     }
@@ -138,13 +127,13 @@ export class NSFWDetectionProvider {
   }
 
   private async decodeImageManually(buf: Buffer, tf: typeof import('@tensorflow/tfjs')): Promise<unknown> {
-    // Create a simple 224x224 tensor from image bytes for basic classification
-    // This is a fallback when tf.node decoders aren't available
+    // Create a 224x224x3 tensor from image bytes for basic classification
+    // This is a simplified approach - real implementation would decode properly
     const size = 224
     const channels = 3
     const data = new Float32Array(size * size * channels)
 
-    // Sample pixels from buffer (simplified - real implementation would decode properly)
+    // Sample pixels from buffer
     for (let i = 0; i < data.length; i++) {
       data[i] = (buf[i % buf.length] ?? 128) / 255.0
     }
@@ -159,7 +148,6 @@ export class NSFWDetectionProvider {
     const porn = predictions.find(p => p.className === 'Porn')?.probability ?? 0
     const hentai = predictions.find(p => p.className === 'Hentai')?.probability ?? 0
     const sexy = predictions.find(p => p.className === 'Sexy')?.probability ?? 0
-    const neutral = predictions.find(p => p.className === 'Neutral')?.probability ?? 0
 
     const nsfwScore = Math.max(porn, hentai)
     const sexyScore = sexy

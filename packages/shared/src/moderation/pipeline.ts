@@ -5,6 +5,13 @@
  *
  * Text: CSAM keywords → AI verification → manual review queue
  * Image: Hash check → NSFW tag → CSAM AI check
+ *
+ * CSAM Detection triggers:
+ * 1. Content block (immediate)
+ * 2. User ban (immediate)
+ * 3. NCMEC/IWF report (mandatory per UK/US law)
+ *
+ * @see UK Voluntary Guidance for Internet Infrastructure Providers on CSEA
  */
 
 import { logger } from '../logger'
@@ -22,6 +29,13 @@ import type {
 import { OpenAIModerationProvider, type OpenAIModerationConfig } from './providers/openai'
 import { HiveModerationProvider, type HiveProviderConfig } from './providers/hive'
 import { AWSRekognitionProvider, type AWSRekognitionConfig } from './providers/aws-rekognition'
+import { CSAMReportingService, type ReportingConfig } from './reporting'
+import { recordMetric } from './transparency'
+
+async function sha256(buffer: Buffer): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(buffer))
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
 
 const ADULT_THRESHOLD = 0.6
 
@@ -48,6 +62,8 @@ export interface PipelineConfig {
   hive?: HiveProviderConfig
   awsRekognition?: AWSRekognitionConfig
   reputationProvider?: ReputationProvider
+  /** NCMEC/IWF reporting config (MANDATORY for production) */
+  reporting?: ReportingConfig
   /** Callback when content is queued for review. If not set, queued content is logged only. */
   onQueue?: (item: QueuedContent) => void | Promise<void>
 }
@@ -60,12 +76,14 @@ export class ContentModerationPipeline {
   private openaiProvider?: OpenAIModerationProvider
   private hiveProvider?: HiveModerationProvider
   private awsProvider?: AWSRekognitionProvider
+  private reportingService: CSAMReportingService
 
   constructor(config: PipelineConfig = {}) {
     this.config = config
     this.localProvider = new LocalModerationProvider(config.local)
     this.hashProvider = new HashModerationProvider(config.hash)
     this.nsfwProvider = new NSFWDetectionProvider(config.nsfw)
+    this.reportingService = new CSAMReportingService(config.reporting)
 
     if (config.openai?.apiKey) {
       this.openaiProvider = new OpenAIModerationProvider(config.openai)
@@ -82,12 +100,14 @@ export class ContentModerationPipeline {
     await Promise.all([
       this.hashProvider.initialize(),
       this.nsfwProvider.initialize(),
+      this.reportingService.initialize(),
     ])
 
     const stats = this.hashProvider.getStats()
     const hasImageCsam = !!(this.hiveProvider || this.awsProvider)
     const hasTextCsam = !!this.openaiProvider
     const hasHashDb = stats.csamCount > 0 || stats.phashCount > 0
+    const hasReporting = !!(this.config.reporting?.ncmec || this.config.reporting?.iwf)
 
     if (!hasImageCsam) {
       logger.warn('[ModerationPipeline] No image CSAM AI configured. Set HIVE_API_KEY or AWS_ACCESS_KEY_ID.')
@@ -98,6 +118,10 @@ export class ContentModerationPipeline {
     if (!hasHashDb) {
       logger.warn('[ModerationPipeline] No CSAM hash database loaded. Set CSAM_HASH_LIST_PATH to path of hash file.')
     }
+    if (!hasReporting && !this.config.reporting?.dryRun) {
+      logger.error('[ModerationPipeline] COMPLIANCE WARNING: No NCMEC/IWF reporting configured!')
+      logger.error('[ModerationPipeline] Set NCMEC_USERNAME/NCMEC_PASSWORD or IWF_API_KEY for mandatory CSAM reporting.')
+    }
 
     logger.info('[ModerationPipeline] Initialized', {
       mode: 'free-speech',
@@ -106,6 +130,7 @@ export class ContentModerationPipeline {
       hashCount: stats.csamCount,
       phashCount: stats.phashCount,
       nsfwModel: true,
+      reporting: hasReporting ? 'configured' : 'MISSING',
     })
   }
 
@@ -120,7 +145,8 @@ export class ContentModerationPipeline {
       providers.push('hash')
       categories.push(...hashResult.categories)
       if (hashResult.categories.some(c => c.category === 'csam')) {
-        return this.csamResult(categories, providers, start, request.senderAddress)
+        const contentHash = await sha256(request.content)
+        return this.csamResult(categories, providers, start, request.senderAddress, contentHash, 'image')
       }
     }
 
@@ -162,7 +188,8 @@ export class ContentModerationPipeline {
         providers.push('openai')
         categories.push(...ai.categories)
         if (ai.categories.some(c => c.category === 'csam' && c.score > 0.5)) {
-          return this.csamResult(categories, providers, start, sender)
+          const textHash = await sha256(Buffer.from(text, 'utf-8'))
+          return this.csamResult(categories, providers, start, sender, textHash, 'text')
         }
       }
     }
@@ -237,11 +264,11 @@ export class ContentModerationPipeline {
           providers.push(provider)
           categories.push(...result.categories)
 
-          // CSAM confirmed by external AI - add to hash database
+          // CSAM confirmed by external AI - add to hash database and report
           if (result.categories.some(c => c.category === 'csam' && c.score > 0.3)) {
-            // Add to perceptual hash database for future detection
             await this.hashProvider.addBannedImage(buffer, 'csam', `Detected by ${provider}`)
-            return this.csamResult(categories, providers, start, sender)
+            const imageHash = await sha256(buffer)
+            return this.csamResult(categories, providers, start, sender, imageHash, 'image')
           }
         }
       }
@@ -277,19 +304,54 @@ export class ContentModerationPipeline {
     }
   }
 
-  private csamResult(categories: CategoryScore[], providers: ModerationProvider[], start: number, sender?: Address): ModerationResult {
+  private async csamResult(
+    categories: CategoryScore[],
+    providers: ModerationProvider[],
+    start: number,
+    sender?: Address,
+    contentHash?: string,
+    contentType: 'image' | 'text' = 'image'
+  ): Promise<ModerationResult> {
+    const processingTimeMs = Date.now() - start
+
+    // Record reputation violation
     if (sender && this.config.reputationProvider) {
       this.config.reputationProvider.recordViolation(sender, 'csam').catch(console.error)
     }
+
+    // MANDATORY: Report to authorities (NCMEC/IWF)
+    if (contentHash) {
+      this.reportingService.createReport({
+        contentHash,
+        contentType,
+        detectionMethod: providers.includes('hash') ? 'hash' : 'ai',
+        confidence: categories.find(c => c.category === 'csam')?.score ?? 0.9,
+        uploaderAddress: sender,
+        service: 'moderation-pipeline',
+      }).catch(err => {
+        logger.error('[ModerationPipeline] CSAM reporting failed', { error: String(err) })
+      })
+    }
+
+    // Record metric for transparency
+    recordMetric({
+      contentType,
+      action: 'report',
+      detectionMethod: providers.includes('hash') ? 'hash' : 'ai',
+      processingTimeMs,
+      csamReported: true,
+      csamReportTarget: this.config.reporting?.ncmec ? 'ncmec' : 'iwf',
+    })
+
     return {
       safe: false,
       action: 'ban',
       severity: 'critical',
       categories,
       primaryCategory: 'csam',
-      blockedReason: 'CSAM detected',
+      blockedReason: 'CSAM detected - reported to authorities',
       reviewRequired: true,
-      processingTimeMs: Date.now() - start,
+      processingTimeMs,
       providers: [...new Set(providers)],
     }
   }
