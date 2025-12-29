@@ -10,8 +10,14 @@
  * - Process in memory only
  * - Results discarded after decision
  *
- * This provider detects faces and estimates ages to determine
- * if content should be routed to the restricted review queue.
+ * This provider uses skin-tone detection as a conservative filter.
+ * When combined with NSFW detection, it routes potentially concerning
+ * content to the restricted review queue.
+ *
+ * The approach is INTENTIONALLY conservative:
+ * - If skin tones detected + NSFW detected → youth ambiguity flag
+ * - All processing is in-memory
+ * - No ML face recognition (avoids face embeddings)
  */
 
 import { logger } from '../../logger'
@@ -36,6 +42,8 @@ export interface FaceAgeResult {
   minAgeEstimate: number
   minAgeConfidence: number
   hasYouthAmbiguity: boolean
+  hasSkinTones: boolean
+  skinToneRatio: number
   processingTimeMs: number
 }
 
@@ -46,23 +54,26 @@ export interface FaceAgeProviderConfig {
   ageBuffer?: number
   /** Minimum confidence to consider age estimate reliable (default: 0.85) */
   minConfidence?: number
+  /** Skin tone ratio threshold (default: 0.05) */
+  skinThreshold?: number
 }
 
 const DEFAULT_CONFIG = {
   adultAgeThreshold: 18,
-  ageBuffer: 3, // Conservative: treat anyone appearing under 21 as ambiguous
+  ageBuffer: 3,
   minConfidence: 0.85,
+  skinThreshold: 0.05,
 }
 
 /**
  * Face/Age Detection Provider
  *
- * Currently uses simple heuristics. Will be enhanced with:
- * - RetinaFace / SCRFD for face detection
- * - DEX (Deep EXpectation) for age estimation
+ * Uses conservative skin-tone detection to flag potentially concerning content.
+ * This is NOT ML-based face detection - it's a color-space heuristic that
+ * intentionally over-flags to ensure no concerning content slips through.
  *
- * CRITICAL: All processing is in-memory.
- * No embeddings or crops are stored.
+ * When skin tones are detected in an image that also has NSFW content,
+ * the policy engine will route it to the restricted review queue.
  */
 export class FaceAgeProvider {
   private config: typeof DEFAULT_CONFIG
@@ -73,162 +84,202 @@ export class FaceAgeProvider {
       adultAgeThreshold: config.adultAgeThreshold ?? DEFAULT_CONFIG.adultAgeThreshold,
       ageBuffer: config.ageBuffer ?? DEFAULT_CONFIG.ageBuffer,
       minConfidence: config.minConfidence ?? DEFAULT_CONFIG.minConfidence,
+      skinThreshold: config.skinThreshold ?? DEFAULT_CONFIG.skinThreshold,
     }
   }
 
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    // TODO: Load face detection and age estimation models
-    // For now, using skin detection heuristics
-
     logger.info('[FaceAgeProvider] Initialized', {
-      mode: 'heuristic', // Will be 'ml' when models are loaded
-      adultThreshold: this.config.adultAgeThreshold + this.config.ageBuffer,
+      mode: 'skin-detection',
+      skinThreshold: this.config.skinThreshold,
+      effectiveAdultAge: this.config.adultAgeThreshold + this.config.ageBuffer,
     })
 
     this.initialized = true
   }
 
   /**
-   * Analyze image for faces and estimate ages
+   * Analyze image for potential human content
    *
-   * Conservative approach:
-   * - If ANY face appears potentially under 21, mark as youth-ambiguous
-   * - If confidence is low, mark as youth-ambiguous
-   * - When in doubt, quarantine
+   * Conservative approach using skin-tone detection:
+   * - Scans image for pixels in skin-tone color ranges
+   * - If significant skin tones found, flags for further review
+   * - Age cannot be determined from color alone → always ambiguous
+   *
+   * This means: skin detected + NSFW detected = restricted review queue
    */
   async analyze(buffer: Buffer): Promise<FaceAgeResult> {
     const start = Date.now()
 
-    // Basic validation
     if (!buffer || buffer.length < 100) {
-      return this.emptyResult(start)
+      return this.noSkinResult(start)
     }
 
-    // Detect skin/person presence first
-    const hasSkin = this.detectSkinPresence(buffer)
-    if (!hasSkin) {
-      return this.emptyResult(start)
+    const skinAnalysis = this.analyzeSkinTones(buffer)
+    
+    if (!skinAnalysis.hasSkin) {
+      return this.noSkinResult(start)
     }
 
-    // For now, use conservative heuristics
-    // Any image with detected skin should be checked for CSAM
-    // We mark as potentially having faces to trigger the NSFW check
-    const result: FaceAgeResult = {
-      faceCount: 1, // Assume potential face if skin detected
-      faces: [{
-        detection: {
-          boundingBox: [0, 0, 0, 0], // Placeholder
-          confidence: 0.5,
-        },
-        age: {
-          minAge: 0, // Unknown - conservative
-          maxAge: 100,
-          confidence: 0.1, // Low confidence triggers ambiguity
-        },
-      }],
-      minAgeEstimate: 0,
-      minAgeConfidence: 0.1,
-      hasYouthAmbiguity: true, // Conservative: if skin detected, assume potential minor
+    // Skin detected - we cannot determine age, so we're conservative
+    return {
+      faceCount: 0, // We don't detect faces, only skin tones
+      faces: [],
+      minAgeEstimate: 0, // Unknown age = must assume worst case
+      minAgeConfidence: 0, // Zero confidence = triggers ambiguity
+      hasYouthAmbiguity: true, // CONSERVATIVE: skin + NSFW = quarantine
+      hasSkinTones: true,
+      skinToneRatio: skinAnalysis.ratio,
       processingTimeMs: Date.now() - start,
     }
-
-    return result
   }
 
   /**
-   * Quick check: does image likely contain a person?
+   * Analyze buffer for skin-tone pixels
    *
-   * Used for early-exit optimization.
-   * If no person detected, skip age estimation.
+   * Samples pixels throughout the image and checks against
+   * multiple skin-tone color ranges to be inclusive of all skin types.
    */
-  async quickPersonCheck(buffer: Buffer): Promise<boolean> {
-    return this.detectSkinPresence(buffer)
-  }
+  private analyzeSkinTones(buffer: Buffer): { hasSkin: boolean; ratio: number } {
+    // Skip file headers - sample from image data
+    const headerSize = Math.min(100, Math.floor(buffer.length * 0.05))
+    const dataBuffer = buffer.subarray(headerSize)
+    
+    if (dataBuffer.length < 300) {
+      return { hasSkin: false, ratio: 0 }
+    }
 
-  /**
-   * Detect skin-like colors in image
-   *
-   * Simple heuristic: look for pixels in skin-tone ranges.
-   * This is intentionally conservative - false positives are acceptable.
-   */
-  private detectSkinPresence(buffer: Buffer): boolean {
-    // Sample pixels from raw buffer
-    // This is a very rough heuristic - will be replaced with proper detection
     let skinPixels = 0
-    const sampleSize = Math.min(1000, Math.floor(buffer.length / 3))
+    const sampleCount = Math.min(3000, Math.floor(dataBuffer.length / 3))
+    const step = Math.max(1, Math.floor(dataBuffer.length / (sampleCount * 3)))
 
-    for (let i = 0; i < sampleSize; i++) {
-      const offset = i * 3
-      const r = buffer[offset] ?? 0
-      const g = buffer[offset + 1] ?? 0
-      const b = buffer[offset + 2] ?? 0
+    for (let i = 0; i < sampleCount; i++) {
+      const offset = i * step * 3
+      if (offset + 2 >= dataBuffer.length) break
+      
+      const r = dataBuffer[offset]!
+      const g = dataBuffer[offset + 1]!
+      const b = dataBuffer[offset + 2]!
 
-      // Rough skin detection in RGB space
-      // Very permissive to catch all potential skin tones
-      if (this.isSkinColor(r, g, b)) {
+      if (this.isSkinTone(r, g, b)) {
         skinPixels++
       }
     }
 
-    // If more than 5% of sampled pixels are skin-like, flag for review
-    const skinRatio = skinPixels / sampleSize
-    return skinRatio > 0.05
+    const ratio = skinPixels / sampleCount
+    return {
+      hasSkin: ratio > this.config.skinThreshold,
+      ratio,
+    }
   }
 
   /**
-   * Check if RGB values could be skin
+   * Check if RGB values fall within skin-tone ranges
    *
-   * Very permissive - better to have false positives than miss anything
+   * Uses multiple detection rules to be inclusive of all skin types:
+   * 1. RGB ratio rules (light to medium skin)
+   * 2. YCbCr color space rules (works across skin types)
+   * 3. HSV rules for darker skin tones
    */
-  private isSkinColor(r: number, g: number, b: number): boolean {
-    // Minimum brightness
-    if (r + g + b < 100) return false
+  private isSkinTone(r: number, g: number, b: number): boolean {
+    // Rule 1: Basic RGB ratios (light to medium skin)
+    const rgbRule = (
+      r > 95 && g > 40 && b > 20 &&
+      r > g && r > b &&
+      Math.abs(r - g) > 15 &&
+      r - b > 15
+    )
+    
+    if (rgbRule) return true
 
-    // R should be highest or close
-    if (r < g - 20 || r < b - 20) return false
+    // Rule 2: YCbCr color space (good for diverse skin tones)
+    const y = 0.299 * r + 0.587 * g + 0.114 * b
+    const cb = 128 - 0.169 * r - 0.331 * g + 0.500 * b
+    const cr = 128 + 0.500 * r - 0.419 * g - 0.081 * b
+    
+    const ycbcrRule = (
+      y > 80 &&
+      cb > 77 && cb < 127 &&
+      cr > 133 && cr < 173
+    )
+    
+    if (ycbcrRule) return true
 
-    // Not too saturated
+    // Rule 3: HSV for darker skin tones
     const max = Math.max(r, g, b)
     const min = Math.min(r, g, b)
-    if (max - min > 150) return false
-
-    // Common skin ranges
-    if (r > 95 && g > 40 && b > 20 && r > g && r > b) {
-      return true
+    const delta = max - min
+    
+    if (max === 0 || delta === 0) return false
+    
+    const s = delta / max
+    const v = max / 255
+    
+    let h = 0
+    if (max === r) {
+      h = 60 * (((g - b) / delta) % 6)
+    } else if (max === g) {
+      h = 60 * ((b - r) / delta + 2)
+    } else {
+      h = 60 * ((r - g) / delta + 4)
     }
+    if (h < 0) h += 360
 
-    return false
+    const hsvRule = (
+      h >= 0 && h <= 50 &&
+      s >= 0.1 && s <= 0.7 &&
+      v >= 0.2
+    )
+    
+    return hsvRule
   }
 
-  private emptyResult(start: number): FaceAgeResult {
+  private noSkinResult(start: number): FaceAgeResult {
     return {
       faceCount: 0,
       faces: [],
-      minAgeEstimate: 100, // No face = assume adult content
+      minAgeEstimate: 100,
       minAgeConfidence: 1.0,
       hasYouthAmbiguity: false,
+      hasSkinTones: false,
+      skinToneRatio: 0,
       processingTimeMs: Date.now() - start,
     }
   }
 
   /**
-   * Determine if content should be quarantined based on age analysis
+   * Quick check: does image likely contain human skin?
+   */
+  async quickPersonCheck(buffer: Buffer): Promise<boolean> {
+    const analysis = this.analyzeSkinTones(buffer)
+    return analysis.hasSkin
+  }
+
+  /**
+   * Determine if content should be quarantined based on analysis
+   *
+   * Quarantine when:
+   * - Has nudity AND has skin tones (can't determine age)
+   * - Has nudity AND low age confidence
+   * - Has nudity AND age estimate below threshold
    */
   shouldQuarantine(result: FaceAgeResult, hasNudity: boolean): boolean {
-    // No faces, no quarantine needed for age reasons
-    if (result.faceCount === 0) return false
-
-    // If there's nudity AND any youth ambiguity, quarantine
-    if (hasNudity && result.hasYouthAmbiguity) return true
-
-    // Conservative: low confidence on age + any nudity = quarantine
-    if (hasNudity && result.minAgeConfidence < this.config.minConfidence) return true
-
-    // Age estimate below threshold + buffer
+    if (!hasNudity) return false
+    
+    // Skin detected + nudity = quarantine (we can't verify age)
+    if (result.hasSkinTones) return true
+    
+    // Youth ambiguity flag set = quarantine
+    if (result.hasYouthAmbiguity) return true
+    
+    // Low confidence on age = quarantine
+    if (result.minAgeConfidence < this.config.minConfidence) return true
+    
+    // Age below threshold = quarantine
     const effectiveThreshold = this.config.adultAgeThreshold + this.config.ageBuffer
-    if (hasNudity && result.minAgeEstimate < effectiveThreshold) return true
+    if (result.minAgeEstimate < effectiveThreshold) return true
 
     return false
   }
@@ -242,5 +293,9 @@ export function getFaceAgeProvider(config?: FaceAgeProviderConfig): FaceAgeProvi
     instance = new FaceAgeProvider(config)
   }
   return instance
+}
+
+export function resetFaceAgeProvider(): void {
+  instance = null
 }
 

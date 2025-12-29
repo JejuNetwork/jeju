@@ -203,7 +203,7 @@ export class PolicyEngine {
       perceptualHash: decision.computePerceptualHash,
       evidence: decision.storeEvidence,
       ncmec: decision.reportNCMEC,
-      queue: decision.queue,
+      queue: decision.queue ?? 'none',
     })
   }
 

@@ -52,7 +52,6 @@ async function sha256(buffer: Buffer): Promise<string> {
 export class CSAMHashProvider {
   private arachnidApiKey?: string
   private arachnidBaseUrl: string
-  private neuralHashSession: unknown = null
   private initialized = false
 
   constructor(config: CSAMHashProviderConfig = {}) {
@@ -162,7 +161,7 @@ export class CSAMHashProvider {
           'Content-Type': 'application/octet-stream',
           'X-Content-Hash': contentHash,
         },
-        body: buffer,
+        body: new Uint8Array(buffer),
       })
 
       if (!response.ok) {
@@ -176,7 +175,7 @@ export class CSAMHashProvider {
         logger.warn('[CSAMHashProvider] MATCH: Arachnid Shield', {
           hash: contentHash.slice(0, 16),
           confidence: result.confidence,
-          matchId: result.matchId,
+          matchId: result.matchId ?? 'unknown',
         })
         return {
           matched: true,

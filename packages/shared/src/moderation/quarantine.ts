@@ -15,6 +15,14 @@
 
 import { logger } from '../logger'
 import type { Address } from 'viem'
+import {
+  saveQuarantineItem,
+  getQuarantineItem as getPersistedQuarantineItem,
+  getQuarantineItems as getPersistedQuarantineItems,
+  saveEvidenceBundle,
+  getEvidenceBundle as getPersistedEvidenceBundle,
+  getPersistenceMode,
+} from './persistence'
 
 export interface QuarantineItem {
   id: string
@@ -188,13 +196,20 @@ export class QuarantineManager {
       ttlExpiresAt: now + this.config.defaultTtlMs,
     }
 
+    // Store in memory for fast access
     quarantineStore.set(id, item)
+
+    // Persist to database
+    await saveQuarantineItem(item).catch(err => {
+      logger.error('[QuarantineManager] Failed to persist quarantine item', { id, error: String(err) })
+    })
 
     logger.info('[QuarantineManager] Content quarantined', {
       id,
       reason: params.reason,
       source: params.detectionSource,
       confidence: params.confidence,
+      persistence: getPersistenceMode(),
     })
 
     return item
@@ -257,13 +272,23 @@ export class QuarantineManager {
     item.legalHoldUntil = bundle.legalHoldUntil
     item.status = 'decided_csam'
 
+    // Store in memory
     evidenceStore.set(id, bundle)
     quarantineStore.set(params.quarantineItemId, item)
+
+    // Persist to database
+    await Promise.all([
+      saveEvidenceBundle(bundle),
+      saveQuarantineItem(item),
+    ]).catch(err => {
+      logger.error('[QuarantineManager] Failed to persist evidence bundle', { id, error: String(err) })
+    })
 
     logger.info('[QuarantineManager] Evidence bundle created', {
       bundleId: id,
       quarantineId: params.quarantineItemId,
       legalHoldDays,
+      persistence: getPersistenceMode(),
     })
 
     return bundle
@@ -302,6 +327,7 @@ export class QuarantineManager {
    * - Time-limited access
    */
   async getPendingReview(limit: number = 10): Promise<QuarantineItem[]> {
+    // Try memory first
     const pending: QuarantineItem[] = []
     for (const item of quarantineStore.values()) {
       if (item.status === 'pending_review') {
@@ -309,6 +335,19 @@ export class QuarantineManager {
         if (pending.length >= limit) break
       }
     }
+
+    // If not enough in memory, try persistence
+    if (pending.length < limit) {
+      const persisted = await getPersistedQuarantineItems({ status: 'pending_review', limit })
+      for (const item of persisted) {
+        if (!quarantineStore.has(item.id)) {
+          quarantineStore.set(item.id, item) // Cache in memory
+          pending.push(item)
+          if (pending.length >= limit) break
+        }
+      }
+    }
+
     return pending
   }
 
@@ -316,7 +355,7 @@ export class QuarantineManager {
    * Assign item to reviewer
    */
   async assignReviewer(itemId: string, reviewerId: string): Promise<void> {
-    const item = quarantineStore.get(itemId)
+    let item = quarantineStore.get(itemId) ?? await getPersistedQuarantineItem(itemId)
     if (!item) {
       throw new Error(`Quarantine item not found: ${itemId}`)
     }
@@ -326,6 +365,10 @@ export class QuarantineManager {
     item.status = 'under_review'
     quarantineStore.set(itemId, item)
 
+    await saveQuarantineItem(item).catch(err => {
+      logger.error('[QuarantineManager] Failed to persist reviewer assignment', { itemId, error: String(err) })
+    })
+
     logger.info('[QuarantineManager] Reviewer assigned', { itemId, reviewerId })
   }
 
@@ -333,7 +376,7 @@ export class QuarantineManager {
    * Record decision on quarantine item
    */
   async recordDecision(itemId: string, decision: QuarantineDecision, decidedBy: string): Promise<void> {
-    const item = quarantineStore.get(itemId)
+    let item = quarantineStore.get(itemId) ?? await getPersistedQuarantineItem(itemId)
     if (!item) {
       throw new Error(`Quarantine item not found: ${itemId}`)
     }
@@ -359,6 +402,10 @@ export class QuarantineManager {
 
     quarantineStore.set(itemId, item)
 
+    await saveQuarantineItem(item).catch(err => {
+      logger.error('[QuarantineManager] Failed to persist decision', { itemId, error: String(err) })
+    })
+
     logger.info('[QuarantineManager] Decision recorded', {
       itemId,
       outcome: decision.outcome,
@@ -370,14 +417,32 @@ export class QuarantineManager {
    * Get quarantine item by ID
    */
   async getItem(id: string): Promise<QuarantineItem | null> {
-    return quarantineStore.get(id) ?? null
+    // Check memory first
+    let item = quarantineStore.get(id)
+    if (item) return item
+
+    // Try persistence
+    item = await getPersistedQuarantineItem(id)
+    if (item) {
+      quarantineStore.set(id, item) // Cache in memory
+    }
+    return item ?? null
   }
 
   /**
    * Get evidence bundle by ID
    */
   async getEvidenceBundle(id: string): Promise<EvidenceBundle | null> {
-    return evidenceStore.get(id) ?? null
+    // Check memory first
+    let bundle = evidenceStore.get(id)
+    if (bundle) return bundle
+
+    // Try persistence
+    bundle = await getPersistedEvidenceBundle(id)
+    if (bundle) {
+      evidenceStore.set(id, bundle) // Cache in memory
+    }
+    return bundle ?? null
   }
 
   /**

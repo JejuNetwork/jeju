@@ -32,6 +32,7 @@ export { OpenAIModerationProvider, type OpenAIModerationConfig } from './provide
 export { HiveModerationProvider, type HiveProviderConfig } from './providers/hive'
 export { AWSRekognitionProvider, type AWSRekognitionConfig } from './providers/aws-rekognition'
 export { CloudflareModerationProvider, type CloudflareProviderConfig } from './providers/cloudflare'
+export { MalwareProvider, getMalwareProvider, resetMalwareProvider, type MalwareScanResult, type MalwareProviderConfig } from './providers/malware'
 
 // Name Moderation
 export { canRegisterName, moderateName, type NameModerationResult } from './name-filter'
@@ -82,6 +83,18 @@ export {
   listTrustedFlaggers,
   isPersistenceInitialized,
   getPersistenceMode,
+  // New persistence functions
+  saveQuarantineItem,
+  getQuarantineItem,
+  getQuarantineItems,
+  saveEvidenceBundle,
+  getEvidenceBundle,
+  saveWalletState,
+  getWalletState,
+  getWalletsByStatus,
+  saveContentStatus,
+  getContentStatus,
+  getContentByPerceptualHash,
   type PersistedMetricEntry,
 } from './persistence'
 
@@ -176,3 +189,35 @@ export {
   type ContentStatusType,
   type ContentCacheConfig,
 } from './content-cache'
+
+// Sanctions Screening (OFAC / Chainalysis / Elliptic)
+export {
+  SanctionsScreener,
+  getSanctionsScreener,
+  resetSanctionsScreener,
+  type SanctionsCheckResult,
+  type SanctionsScreenerConfig,
+} from './sanctions'
+
+// On-Chain Moderation Signals (BanManager integration)
+export {
+  OnChainSignalsService,
+  getOnChainSignalsService,
+  resetOnChainSignalsService,
+  type OnChainSignalsConfig,
+  type OnChainBanRecord,
+  type ModerationSignal,
+  type BanType,
+} from './on-chain-signals'
+
+// Upload Gateway with PoW Challenge
+export {
+  UploadGateway,
+  getUploadGateway,
+  resetUploadGateway,
+  type PoWChallenge,
+  type PoWSolution,
+  type UploadRequest,
+  type UploadResult,
+  type UploadGatewayConfig,
+} from './upload-gateway'

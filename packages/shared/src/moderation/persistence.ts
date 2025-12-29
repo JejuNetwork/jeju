@@ -11,6 +11,9 @@
 import { logger } from '../logger'
 import type { Address } from 'viem'
 import type { CSAMReport, TrustedFlagger, UserReport } from './reporting'
+import type { QuarantineItem, EvidenceBundle } from './quarantine'
+import type { WalletEnforcementState, Violation, WalletStatus } from './wallet-enforcement'
+import type { ContentStatus, ContentStatusType } from './content-cache'
 
 // Metric entry for transparency reporting
 export interface PersistedMetricEntry {
@@ -30,6 +33,10 @@ const inMemoryReports: CSAMReport[] = []
 const inMemoryMetrics: PersistedMetricEntry[] = []
 const inMemoryUserReports: UserReport[] = []
 const inMemoryTrustedFlaggers = new Map<string, TrustedFlagger>()
+const inMemoryQuarantineItems = new Map<string, QuarantineItem>()
+const inMemoryEvidenceBundles = new Map<string, EvidenceBundle>()
+const inMemoryWalletStates = new Map<Address, WalletEnforcementState>()
+const inMemoryContentCache = new Map<string, ContentStatus>()
 
 let db: {
   run: (sql: string, params?: unknown[]) => Promise<void>
@@ -125,11 +132,102 @@ async function createTables(): Promise<void> {
     )
   `)
 
+  // Quarantine items table
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS quarantine_items (
+      id TEXT PRIMARY KEY,
+      sha256 TEXT NOT NULL,
+      encrypted_ref TEXT NOT NULL,
+      encryption_key_id TEXT NOT NULL,
+      detected_at INTEGER NOT NULL,
+      detection_reason TEXT NOT NULL,
+      detection_source TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      uploader_address TEXT,
+      uploader_ip TEXT,
+      provider_address TEXT,
+      status TEXT NOT NULL,
+      ttl_expires_at INTEGER,
+      legal_hold_until INTEGER,
+      assigned_reviewer_id TEXT,
+      review_started_at INTEGER,
+      decision_outcome TEXT,
+      decision_action TEXT,
+      decision_reason TEXT,
+      decided_at INTEGER,
+      decided_by TEXT
+    )
+  `)
+
+  // Evidence bundles table
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS evidence_bundles (
+      id TEXT PRIMARY KEY,
+      quarantine_item_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      md5 TEXT,
+      match_source TEXT,
+      match_id TEXT,
+      match_confidence REAL,
+      wallets TEXT NOT NULL,
+      providers TEXT NOT NULL,
+      ips TEXT NOT NULL,
+      tx_hashes TEXT NOT NULL,
+      uploaded_at INTEGER NOT NULL,
+      detected_at INTEGER NOT NULL,
+      quarantined_at INTEGER NOT NULL,
+      reported_at INTEGER,
+      ncmec_report_id TEXT,
+      legal_hold_until INTEGER,
+      access_log TEXT NOT NULL
+    )
+  `)
+
+  // Wallet enforcement states table
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS wallet_enforcement (
+      address TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      status_changed_at INTEGER NOT NULL,
+      violations TEXT NOT NULL,
+      warnings_issued INTEGER NOT NULL,
+      wallet_age INTEGER NOT NULL,
+      stake_amount TEXT NOT NULL,
+      transaction_count INTEGER NOT NULL,
+      ofac_match INTEGER NOT NULL,
+      taint_score REAL NOT NULL,
+      pow_difficulty INTEGER NOT NULL,
+      rate_limit INTEGER NOT NULL
+    )
+  `)
+
+  // Content cache table
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS content_cache (
+      sha256 TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      policy_class TEXT,
+      first_seen INTEGER NOT NULL,
+      last_seen INTEGER NOT NULL,
+      seen_count INTEGER NOT NULL,
+      wallets TEXT NOT NULL,
+      providers TEXT NOT NULL,
+      perceptual_hash TEXT,
+      ban_reason TEXT,
+      banned_at INTEGER
+    )
+  `)
+
   // Create indexes
   await db.run('CREATE INDEX IF NOT EXISTS idx_csam_reports_status ON csam_reports(status)')
   await db.run('CREATE INDEX IF NOT EXISTS idx_csam_reports_detected ON csam_reports(detected_at)')
   await db.run('CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON moderation_metrics(timestamp)')
   await db.run('CREATE INDEX IF NOT EXISTS idx_user_reports_status ON user_reports(status)')
+  await db.run('CREATE INDEX IF NOT EXISTS idx_quarantine_status ON quarantine_items(status)')
+  await db.run('CREATE INDEX IF NOT EXISTS idx_wallet_status ON wallet_enforcement(status)')
+  await db.run('CREATE INDEX IF NOT EXISTS idx_content_status ON content_cache(status)')
+  await db.run('CREATE INDEX IF NOT EXISTS idx_content_phash ON content_cache(perceptual_hash)')
 
   logger.info('[ModerationPersistence] Database tables created')
 }
@@ -691,6 +789,480 @@ export async function listTrustedFlaggers(): Promise<Omit<TrustedFlagger, 'apiKe
     priority: row.priority as TrustedFlagger['priority'],
     contactEmail: row.contact_email,
     jurisdiction: row.jurisdiction ? JSON.parse(row.jurisdiction) : undefined,
+  }))
+}
+
+// ============ Quarantine Items ============
+
+export async function saveQuarantineItem(item: QuarantineItem): Promise<void> {
+  if (!db) {
+    inMemoryQuarantineItems.set(item.id, item)
+    return
+  }
+
+  await db.run(`
+    INSERT OR REPLACE INTO quarantine_items (
+      id, sha256, encrypted_ref, encryption_key_id, detected_at,
+      detection_reason, detection_source, confidence, uploader_address,
+      uploader_ip, provider_address, status, ttl_expires_at, legal_hold_until,
+      assigned_reviewer_id, review_started_at, decision_outcome, decision_action,
+      decision_reason, decided_at, decided_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    item.id,
+    item.sha256,
+    item.encryptedRef,
+    item.encryptionKeyId,
+    item.detectedAt,
+    item.detectionReason,
+    item.detectionSource,
+    item.confidence,
+    item.uploaderAddress ?? null,
+    item.uploaderIp ?? null,
+    item.providerAddress ?? null,
+    item.status,
+    item.ttlExpiresAt ?? null,
+    item.legalHoldUntil ?? null,
+    item.assignedReviewerId ?? null,
+    item.reviewStartedAt ?? null,
+    item.decision?.outcome ?? null,
+    item.decision?.action ?? null,
+    (item.decision as { reason?: string })?.reason ?? null,
+    item.decidedAt ?? null,
+    item.decidedBy ?? null,
+  ])
+}
+
+export async function getQuarantineItem(id: string): Promise<QuarantineItem | undefined> {
+  if (!db) {
+    return inMemoryQuarantineItems.get(id)
+  }
+
+  const row = await db.get<{
+    id: string
+    sha256: string
+    encrypted_ref: string
+    encryption_key_id: string
+    detected_at: number
+    detection_reason: string
+    detection_source: string
+    confidence: number
+    uploader_address: string | null
+    uploader_ip: string | null
+    provider_address: string | null
+    status: string
+    ttl_expires_at: number | null
+    legal_hold_until: number | null
+    assigned_reviewer_id: string | null
+    review_started_at: number | null
+    decision_outcome: string | null
+    decision_action: string | null
+    decision_reason: string | null
+    decided_at: number | null
+    decided_by: string | null
+  }>('SELECT * FROM quarantine_items WHERE id = ?', [id])
+
+  if (!row) return undefined
+
+  return mapQuarantineRow(row)
+}
+
+export async function getQuarantineItems(filter?: {
+  status?: string
+  limit?: number
+}): Promise<QuarantineItem[]> {
+  if (!db) {
+    let items = Array.from(inMemoryQuarantineItems.values())
+    if (filter?.status) items = items.filter(i => i.status === filter.status)
+    if (filter?.limit) items = items.slice(0, filter.limit)
+    return items
+  }
+
+  let sql = 'SELECT * FROM quarantine_items WHERE 1=1'
+  const params: unknown[] = []
+
+  if (filter?.status) {
+    sql += ' AND status = ?'
+    params.push(filter.status)
+  }
+
+  sql += ' ORDER BY detected_at DESC'
+
+  if (filter?.limit) {
+    sql += ' LIMIT ?'
+    params.push(filter.limit)
+  }
+
+  const rows = await db.all<{
+    id: string
+    sha256: string
+    encrypted_ref: string
+    encryption_key_id: string
+    detected_at: number
+    detection_reason: string
+    detection_source: string
+    confidence: number
+    uploader_address: string | null
+    uploader_ip: string | null
+    provider_address: string | null
+    status: string
+    ttl_expires_at: number | null
+    legal_hold_until: number | null
+    assigned_reviewer_id: string | null
+    review_started_at: number | null
+    decision_outcome: string | null
+    decision_action: string | null
+    decision_reason: string | null
+    decided_at: number | null
+    decided_by: string | null
+  }>(sql, params)
+
+  return rows.map(mapQuarantineRow)
+}
+
+function mapQuarantineRow(row: {
+  id: string
+  sha256: string
+  encrypted_ref: string
+  encryption_key_id: string
+  detected_at: number
+  detection_reason: string
+  detection_source: string
+  confidence: number
+  uploader_address: string | null
+  uploader_ip: string | null
+  provider_address: string | null
+  status: string
+  ttl_expires_at: number | null
+  legal_hold_until: number | null
+  assigned_reviewer_id: string | null
+  review_started_at: number | null
+  decision_outcome: string | null
+  decision_action: string | null
+  decision_reason: string | null
+  decided_at: number | null
+  decided_by: string | null
+}): QuarantineItem {
+  let decision: QuarantineItem['decision'] = undefined
+  if (row.decision_outcome && row.decision_action) {
+    decision = {
+      outcome: row.decision_outcome,
+      action: row.decision_action,
+      ...(row.decision_reason ? { reason: row.decision_reason } : {}),
+    } as QuarantineItem['decision']
+  }
+
+  return {
+    id: row.id,
+    sha256: row.sha256,
+    encryptedRef: row.encrypted_ref,
+    encryptionKeyId: row.encryption_key_id,
+    detectedAt: row.detected_at,
+    detectionReason: row.detection_reason as QuarantineItem['detectionReason'],
+    detectionSource: row.detection_source,
+    confidence: row.confidence,
+    uploaderAddress: row.uploader_address as Address | undefined,
+    uploaderIp: row.uploader_ip ?? undefined,
+    providerAddress: row.provider_address as Address | undefined,
+    status: row.status as QuarantineItem['status'],
+    ttlExpiresAt: row.ttl_expires_at ?? undefined,
+    legalHoldUntil: row.legal_hold_until ?? undefined,
+    assignedReviewerId: row.assigned_reviewer_id ?? undefined,
+    reviewStartedAt: row.review_started_at ?? undefined,
+    decision,
+    decidedAt: row.decided_at ?? undefined,
+    decidedBy: row.decided_by ?? undefined,
+  }
+}
+
+// ============ Evidence Bundles ============
+
+export async function saveEvidenceBundle(bundle: EvidenceBundle): Promise<void> {
+  if (!db) {
+    inMemoryEvidenceBundles.set(bundle.id, bundle)
+    return
+  }
+
+  await db.run(`
+    INSERT OR REPLACE INTO evidence_bundles (
+      id, quarantine_item_id, created_at, sha256, md5,
+      match_source, match_id, match_confidence, wallets, providers,
+      ips, tx_hashes, uploaded_at, detected_at, quarantined_at,
+      reported_at, ncmec_report_id, legal_hold_until, access_log
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    bundle.id,
+    bundle.quarantineItemId,
+    bundle.createdAt,
+    bundle.contentHash.sha256,
+    bundle.contentHash.md5,
+    bundle.matchSource ?? null,
+    bundle.matchId ?? null,
+    bundle.matchConfidence ?? null,
+    JSON.stringify(bundle.wallets),
+    JSON.stringify(bundle.providers),
+    JSON.stringify(bundle.ips),
+    JSON.stringify(bundle.txHashes),
+    bundle.uploadedAt,
+    bundle.detectedAt,
+    bundle.quarantinedAt,
+    bundle.reportedAt ?? null,
+    bundle.ncmecReportId ?? null,
+    bundle.legalHoldUntil ?? null,
+    JSON.stringify(bundle.accessLog),
+  ])
+}
+
+export async function getEvidenceBundle(id: string): Promise<EvidenceBundle | undefined> {
+  if (!db) {
+    return inMemoryEvidenceBundles.get(id)
+  }
+
+  const row = await db.get<{
+    id: string
+    quarantine_item_id: string
+    created_at: number
+    sha256: string
+    md5: string
+    match_source: string | null
+    match_id: string | null
+    match_confidence: number | null
+    wallets: string
+    providers: string
+    ips: string
+    tx_hashes: string
+    uploaded_at: number
+    detected_at: number
+    quarantined_at: number
+    reported_at: number | null
+    ncmec_report_id: string | null
+    legal_hold_until: number | null
+    access_log: string
+  }>('SELECT * FROM evidence_bundles WHERE id = ?', [id])
+
+  if (!row) return undefined
+
+  return {
+    id: row.id,
+    quarantineItemId: row.quarantine_item_id,
+    createdAt: row.created_at,
+    contentHash: { sha256: row.sha256, md5: row.md5 },
+    matchSource: row.match_source ?? undefined,
+    matchId: row.match_id ?? undefined,
+    matchConfidence: row.match_confidence ?? undefined,
+    wallets: JSON.parse(row.wallets),
+    providers: JSON.parse(row.providers),
+    ips: JSON.parse(row.ips),
+    txHashes: JSON.parse(row.tx_hashes),
+    uploadedAt: row.uploaded_at,
+    detectedAt: row.detected_at,
+    quarantinedAt: row.quarantined_at,
+    reportedAt: row.reported_at ?? undefined,
+    ncmecReportId: row.ncmec_report_id ?? undefined,
+    legalHoldUntil: row.legal_hold_until ?? undefined,
+    accessLog: JSON.parse(row.access_log),
+  }
+}
+
+// ============ Wallet Enforcement ============
+
+export async function saveWalletState(state: WalletEnforcementState): Promise<void> {
+  if (!db) {
+    inMemoryWalletStates.set(state.address, state)
+    return
+  }
+
+  await db.run(`
+    INSERT OR REPLACE INTO wallet_enforcement (
+      address, status, status_changed_at, violations, warnings_issued,
+      wallet_age, stake_amount, transaction_count, ofac_match, taint_score,
+      pow_difficulty, rate_limit
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    state.address,
+    state.status,
+    state.statusChangedAt,
+    JSON.stringify(state.violations),
+    state.warningsIssued,
+    state.walletAge,
+    state.stakeAmount.toString(),
+    state.transactionCount,
+    state.ofacMatch ? 1 : 0,
+    state.taintScore,
+    state.powDifficulty,
+    state.rateLimit,
+  ])
+}
+
+export async function getWalletState(address: Address): Promise<WalletEnforcementState | undefined> {
+  if (!db) {
+    return inMemoryWalletStates.get(address)
+  }
+
+  const row = await db.get<{
+    address: string
+    status: string
+    status_changed_at: number
+    violations: string
+    warnings_issued: number
+    wallet_age: number
+    stake_amount: string
+    transaction_count: number
+    ofac_match: number
+    taint_score: number
+    pow_difficulty: number
+    rate_limit: number
+  }>('SELECT * FROM wallet_enforcement WHERE address = ?', [address])
+
+  if (!row) return undefined
+
+  return {
+    address: row.address as Address,
+    status: row.status as WalletStatus,
+    statusChangedAt: row.status_changed_at,
+    violations: JSON.parse(row.violations) as Violation[],
+    warningsIssued: row.warnings_issued,
+    walletAge: row.wallet_age,
+    stakeAmount: BigInt(row.stake_amount),
+    transactionCount: row.transaction_count,
+    ofacMatch: row.ofac_match === 1,
+    taintScore: row.taint_score,
+    powDifficulty: row.pow_difficulty,
+    rateLimit: row.rate_limit,
+  }
+}
+
+export async function getWalletsByStatus(status: WalletStatus): Promise<WalletEnforcementState[]> {
+  if (!db) {
+    return Array.from(inMemoryWalletStates.values()).filter(w => w.status === status)
+  }
+
+  const rows = await db.all<{
+    address: string
+    status: string
+    status_changed_at: number
+    violations: string
+    warnings_issued: number
+    wallet_age: number
+    stake_amount: string
+    transaction_count: number
+    ofac_match: number
+    taint_score: number
+    pow_difficulty: number
+    rate_limit: number
+  }>('SELECT * FROM wallet_enforcement WHERE status = ?', [status])
+
+  return rows.map(row => ({
+    address: row.address as Address,
+    status: row.status as WalletStatus,
+    statusChangedAt: row.status_changed_at,
+    violations: JSON.parse(row.violations) as Violation[],
+    warningsIssued: row.warnings_issued,
+    walletAge: row.wallet_age,
+    stakeAmount: BigInt(row.stake_amount),
+    transactionCount: row.transaction_count,
+    ofacMatch: row.ofac_match === 1,
+    taintScore: row.taint_score,
+    powDifficulty: row.pow_difficulty,
+    rateLimit: row.rate_limit,
+  }))
+}
+
+// ============ Content Cache ============
+
+export async function saveContentStatus(status: ContentStatus): Promise<void> {
+  if (!db) {
+    inMemoryContentCache.set(status.sha256, status)
+    return
+  }
+
+  await db.run(`
+    INSERT OR REPLACE INTO content_cache (
+      sha256, status, policy_class, first_seen, last_seen, seen_count,
+      wallets, providers, perceptual_hash, ban_reason, banned_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    status.sha256,
+    status.status,
+    status.policyClass ?? null,
+    status.firstSeen,
+    status.lastSeen,
+    status.seenCount,
+    JSON.stringify(status.wallets),
+    JSON.stringify(status.providers),
+    status.perceptualHash ?? null,
+    status.banReason ?? null,
+    status.bannedAt ?? null,
+  ])
+}
+
+export async function getContentStatus(sha256: string): Promise<ContentStatus | undefined> {
+  if (!db) {
+    return inMemoryContentCache.get(sha256)
+  }
+
+  const row = await db.get<{
+    sha256: string
+    status: string
+    policy_class: string | null
+    first_seen: number
+    last_seen: number
+    seen_count: number
+    wallets: string
+    providers: string
+    perceptual_hash: string | null
+    ban_reason: string | null
+    banned_at: number | null
+  }>('SELECT * FROM content_cache WHERE sha256 = ?', [sha256])
+
+  if (!row) return undefined
+
+  return {
+    sha256: row.sha256,
+    status: row.status as ContentStatusType,
+    policyClass: row.policy_class ?? undefined,
+    firstSeen: row.first_seen,
+    lastSeen: row.last_seen,
+    seenCount: row.seen_count,
+    wallets: JSON.parse(row.wallets) as Address[],
+    providers: JSON.parse(row.providers) as string[],
+    perceptualHash: row.perceptual_hash ?? undefined,
+    banReason: row.ban_reason ?? undefined,
+    bannedAt: row.banned_at ?? undefined,
+  }
+}
+
+export async function getContentByPerceptualHash(pHash: string): Promise<ContentStatus[]> {
+  if (!db) {
+    return Array.from(inMemoryContentCache.values()).filter(c => c.perceptualHash === pHash)
+  }
+
+  const rows = await db.all<{
+    sha256: string
+    status: string
+    policy_class: string | null
+    first_seen: number
+    last_seen: number
+    seen_count: number
+    wallets: string
+    providers: string
+    perceptual_hash: string | null
+    ban_reason: string | null
+    banned_at: number | null
+  }>('SELECT * FROM content_cache WHERE perceptual_hash = ?', [pHash])
+
+  return rows.map(row => ({
+    sha256: row.sha256,
+    status: row.status as ContentStatusType,
+    policyClass: row.policy_class ?? undefined,
+    firstSeen: row.first_seen,
+    lastSeen: row.last_seen,
+    seenCount: row.seen_count,
+    wallets: JSON.parse(row.wallets) as Address[],
+    providers: JSON.parse(row.providers) as string[],
+    perceptualHash: row.perceptual_hash ?? undefined,
+    banReason: row.ban_reason ?? undefined,
+    bannedAt: row.banned_at ?? undefined,
   }))
 }
 

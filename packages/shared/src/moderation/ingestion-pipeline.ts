@@ -23,12 +23,17 @@ import { logger } from '../logger'
 import type { Address } from 'viem'
 import { CSAMHashProvider, getCSAMHashProvider, type HashMatchResult } from './providers/csam-hash'
 import { FaceAgeProvider, getFaceAgeProvider, type FaceAgeResult } from './providers/face-age'
-import { NSFWDetectionProvider, needsCsamVerification, getNsfwScore } from './providers/nsfw'
+import { NSFWDetectionProvider, getNsfwScore } from './providers/nsfw'
 import { PolicyEngine, getPolicyEngine, type RoutingDecision, type NudityResult } from './policy-engine'
 import { QuarantineManager, getQuarantineManager } from './quarantine'
 import { WalletEnforcementManager, getWalletEnforcementManager } from './wallet-enforcement'
 import { CSAMReportingService, type ReportingConfig } from './reporting'
 import { recordMetric } from './transparency'
+import { HiveModerationProvider, type HiveProviderConfig } from './providers/hive'
+import { AWSRekognitionProvider, type AWSRekognitionConfig } from './providers/aws-rekognition'
+import { OpenAIModerationProvider, type OpenAIModerationConfig } from './providers/openai'
+import { SanctionsScreener, getSanctionsScreener, type SanctionsScreenerConfig } from './sanctions'
+import { OnChainSignalsService, getOnChainSignalsService, type OnChainSignalsConfig } from './on-chain-signals'
 
 async function sha256(buffer: Buffer): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(buffer))
@@ -82,6 +87,20 @@ export interface IngestionPipelineConfig {
   defaultTtlMs?: number
   /** Enable perceptual hashing for allowed content (default: true) */
   enablePerceptualHash?: boolean
+  /** Enable sanctions screening (default: true) */
+  enableSanctionsCheck?: boolean
+  /** Enable on-chain signals (default: true in production) */
+  enableOnChainSignals?: boolean
+  /** Sanctions screener config */
+  sanctions?: SanctionsScreenerConfig
+  /** On-chain signals config */
+  onChainSignals?: OnChainSignalsConfig
+  /** Hive AI config for external image moderation */
+  hive?: HiveProviderConfig
+  /** AWS Rekognition config for external image moderation */
+  awsRekognition?: AWSRekognitionConfig
+  /** OpenAI config for external text/image moderation */
+  openai?: OpenAIModerationConfig
 }
 
 /**
@@ -90,7 +109,12 @@ export interface IngestionPipelineConfig {
  * Processes all incoming content through a single deterministic flow.
  */
 export class IngestionPipeline {
-  private config: Required<IngestionPipelineConfig>
+  private config: IngestionPipelineConfig & {
+    defaultTtlMs: number
+    enablePerceptualHash: boolean
+    enableSanctionsCheck: boolean
+    enableOnChainSignals: boolean
+  }
   private csamHashProvider: CSAMHashProvider
   private faceAgeProvider: FaceAgeProvider
   private nsfwProvider: NSFWDetectionProvider
@@ -98,13 +122,20 @@ export class IngestionPipeline {
   private quarantineManager: QuarantineManager
   private walletEnforcement: WalletEnforcementManager
   private reportingService: CSAMReportingService
+  private sanctionsScreener: SanctionsScreener
+  private onChainSignals: OnChainSignalsService
+  private hiveProvider?: HiveModerationProvider
+  private awsProvider?: AWSRekognitionProvider
+  private openaiProvider?: OpenAIModerationProvider
   private initialized = false
 
   constructor(config: IngestionPipelineConfig = {}) {
     this.config = {
-      reporting: config.reporting ?? {},
+      ...config,
       defaultTtlMs: config.defaultTtlMs ?? 30 * 60 * 1000,
       enablePerceptualHash: config.enablePerceptualHash ?? true,
+      enableSanctionsCheck: config.enableSanctionsCheck ?? true,
+      enableOnChainSignals: config.enableOnChainSignals ?? true,
     }
 
     this.csamHashProvider = getCSAMHashProvider()
@@ -113,7 +144,20 @@ export class IngestionPipeline {
     this.policyEngine = getPolicyEngine()
     this.quarantineManager = getQuarantineManager()
     this.walletEnforcement = getWalletEnforcementManager()
-    this.reportingService = new CSAMReportingService(this.config.reporting)
+    this.reportingService = new CSAMReportingService(this.config.reporting ?? {})
+    this.sanctionsScreener = getSanctionsScreener(this.config.sanctions)
+    this.onChainSignals = getOnChainSignalsService(this.config.onChainSignals)
+
+    // Initialize external AI providers if configured
+    if (config.hive?.apiKey) {
+      this.hiveProvider = new HiveModerationProvider(config.hive)
+    }
+    if (config.awsRekognition?.accessKeyId) {
+      this.awsProvider = new AWSRekognitionProvider(config.awsRekognition)
+    }
+    if (config.openai?.apiKey) {
+      this.openaiProvider = new OpenAIModerationProvider(config.openai)
+    }
   }
 
   async initialize(): Promise<void> {
@@ -126,11 +170,15 @@ export class IngestionPipeline {
       this.quarantineManager.initialize(),
       this.walletEnforcement.initialize(),
       this.reportingService.initialize(),
+      this.sanctionsScreener.initialize(),
+      this.onChainSignals.initialize(),
     ])
 
     logger.info('[IngestionPipeline] Initialized', {
       csamHash: this.csamHashProvider.getStats(),
-      reporting: !!this.config.reporting.ncmec || !!this.config.reporting.iwf,
+      sanctions: this.sanctionsScreener.getStats(),
+      onChainSignals: this.onChainSignals.getStats(),
+      reporting: !!(this.config.reporting?.ncmec || this.config.reporting?.iwf),
     })
 
     this.initialized = true
@@ -156,6 +204,23 @@ export class IngestionPipeline {
       receivedAt: Date.now(),
       ttlMs: this.config.defaultTtlMs,
       ...context,
+    }
+
+    // STEP 0: Sanctions check (if wallet provided)
+    if (this.config.enableSanctionsCheck && intake.uploaderAddress) {
+      const sanctionsResult = await this.sanctionsScreener.checkAddress(intake.uploaderAddress)
+      if (sanctionsResult.isSanctioned) {
+        logger.warn('[IngestionPipeline] Sanctioned wallet blocked', {
+          address: intake.uploaderAddress,
+          source: sanctionsResult.source,
+          list: sanctionsResult.matchedList,
+        })
+
+        // Block sanctioned wallet from uploading
+        return this.buildResult('block', contentHash, start, {
+          blockedReason: `Sanctioned wallet: ${sanctionsResult.source} - ${sanctionsResult.matchedList ?? 'Unknown list'}`,
+        })
+      }
     }
 
     // STEP 1: CSAM hash check (MANDATORY FIRST)
@@ -229,7 +294,7 @@ export class IngestionPipeline {
    * Handle CSAM hash match - IMMEDIATE block + report
    */
   private async handleCSAMMatch(
-    buffer: Buffer,
+    _buffer: Buffer, // Not used - content is quarantined by reference
     intake: IntakeContext,
     hashResult: HashMatchResult,
     start: number
@@ -237,7 +302,7 @@ export class IngestionPipeline {
     logger.warn('[IngestionPipeline] CSAM hash match detected', {
       hash: intake.sha256.slice(0, 16),
       source: hashResult.source,
-      matchId: hashResult.matchId,
+      matchId: hashResult.matchId ?? 'unknown',
     })
 
     // 1. Quarantine immediately
@@ -276,11 +341,11 @@ export class IngestionPipeline {
     })
 
     // 4. Record NCMEC report ID on evidence
-    if (report.ncmecReportId) {
-      await this.quarantineManager.recordNCMECReport(evidenceBundle.id, report.ncmecReportId)
+    if (report.authorityReportId) {
+      await this.quarantineManager.recordNCMECReport(evidenceBundle.id, report.authorityReportId)
     }
 
-    // 5. Block wallet
+    // 5. Block wallet (off-chain enforcement)
     if (intake.uploaderAddress) {
       await this.walletEnforcement.recordViolation(intake.uploaderAddress, {
         type: 'csam_upload',
@@ -289,6 +354,17 @@ export class IngestionPipeline {
         description: `CSAM hash match from ${hashResult.source}`,
         evidenceBundleId: evidenceBundle.id,
       })
+
+      // 5b. Emit on-chain ban signal
+      if (this.config.enableOnChainSignals) {
+        await this.onChainSignals.applyBan({
+          target: intake.uploaderAddress,
+          reason: `CSAM hash match (${hashResult.source})`,
+          caseId: evidenceBundle.id,
+          evidenceBundleId: evidenceBundle.id,
+          contentHash: intake.sha256,
+        })
+      }
     }
 
     // 6. Record metric
@@ -305,7 +381,7 @@ export class IngestionPipeline {
       hashMatch: hashResult,
       quarantineId: quarantineItem.id,
       evidenceBundleId: evidenceBundle.id,
-      ncmecReportId: report.ncmecReportId,
+      ncmecReportId: report.authorityReportId,
       blockedReason: `CSAM hash match from ${hashResult.source}`,
     })
   }
@@ -357,6 +433,13 @@ export class IngestionPipeline {
 
   /**
    * Handle adult NSFW content - run external AI check
+   *
+   * Only runs for content that:
+   * 1. Has NSFW detected locally
+   * 2. Has NO youth ambiguity (confirmed adult)
+   *
+   * External AI providers verify the content is legal adult content,
+   * not anything else that should be blocked.
    */
   private async handleExternalCheck(
     buffer: Buffer,
@@ -369,15 +452,60 @@ export class IngestionPipeline {
       routing: RoutingDecision
     }
   ): Promise<IngestionResult> {
-    // TODO: Run OpenAI/Hive/AWS for adult content verification
-    // For now, tag as adult and allow
-
-    logger.info('[IngestionPipeline] Adult content tagged', {
+    logger.info('[IngestionPipeline] Running external AI verification', {
       hash: intake.sha256.slice(0, 16),
-      nudityScore: details.nudity?.nudityScore,
+      nudityScore: details.nudity?.nudityScore ?? 0,
+      hasHive: !!this.hiveProvider,
+      hasAWS: !!this.awsProvider,
     })
 
-    // Compute perceptual hash (OK for adult content)
+    // Run external AI checks (if configured)
+    const externalResults = await this.runExternalAIChecks(buffer)
+
+    // Check if any external provider flagged CSAM
+    for (const result of externalResults) {
+      if (result.csamDetected) {
+        logger.warn('[IngestionPipeline] External AI detected potential CSAM', {
+          hash: intake.sha256.slice(0, 16),
+          provider: result.provider,
+          confidence: result.confidence,
+        })
+
+        // Quarantine immediately - this should not happen for adult-routed content
+        // but we check anyway for safety
+        const quarantineItem = await this.quarantineManager.quarantine({
+          contentHash: intake.sha256,
+          contentRef: intake.encryptedRef,
+          reason: 'ai_csam_detection',
+          detectionSource: result.provider,
+          confidence: result.confidence,
+          uploaderAddress: intake.uploaderAddress,
+          uploaderIp: intake.uploaderIp,
+        })
+
+        recordMetric({
+          contentType: 'image',
+          action: 'queue',
+          detectionMethod: 'ai',
+          processingTimeMs: Date.now() - start,
+        })
+
+        return this.buildResult('quarantine', intake.sha256, start, {
+          ...details,
+          quarantineId: quarantineItem.id,
+          blockedReason: `External AI (${result.provider}) flagged potential illegal content`,
+        })
+      }
+    }
+
+    // All checks passed - tag as adult content
+    logger.info('[IngestionPipeline] Adult content verified and tagged', {
+      hash: intake.sha256.slice(0, 16),
+      nudityScore: details.nudity?.nudityScore ?? 0,
+      externalChecks: externalResults.length,
+    })
+
+    // Compute perceptual hash (OK for verified adult content)
     let perceptualHash: string | undefined
     if (this.config.enablePerceptualHash) {
       perceptualHash = await this.computePerceptualHash(buffer)
@@ -394,6 +522,60 @@ export class IngestionPipeline {
       ...details,
       perceptualHash,
     })
+  }
+
+  /**
+   * Run external AI checks on image content
+   *
+   * Returns array of results from each configured provider.
+   * Used for adult content verification only.
+   */
+  private async runExternalAIChecks(buffer: Buffer): Promise<Array<{
+    provider: string
+    csamDetected: boolean
+    confidence: number
+    categories: string[]
+  }>> {
+    const results: Array<{
+      provider: string
+      csamDetected: boolean
+      confidence: number
+      categories: string[]
+    }> = []
+
+    // Run Hive AI check
+    if (this.hiveProvider) {
+      try {
+        const hiveResult = await this.hiveProvider.moderateImage(buffer)
+        const csamCategory = hiveResult.categories.find(c => c.category === 'csam')
+        results.push({
+          provider: 'hive',
+          csamDetected: csamCategory !== undefined && csamCategory.score > 0.3,
+          confidence: csamCategory?.score ?? 0,
+          categories: hiveResult.categories.map(c => c.category),
+        })
+      } catch (err) {
+        logger.warn('[IngestionPipeline] Hive AI check failed', { error: String(err) })
+      }
+    }
+
+    // Run AWS Rekognition check
+    if (this.awsProvider) {
+      try {
+        const awsResult = await this.awsProvider.moderateImage(buffer)
+        const csamCategory = awsResult.categories.find(c => c.category === 'csam')
+        results.push({
+          provider: 'aws-rekognition',
+          csamDetected: csamCategory !== undefined && csamCategory.score > 0.3,
+          confidence: csamCategory?.score ?? 0,
+          categories: awsResult.categories.map(c => c.category),
+        })
+      } catch (err) {
+        logger.warn('[IngestionPipeline] AWS Rekognition check failed', { error: String(err) })
+      }
+    }
+
+    return results
   }
 
   /**
@@ -419,7 +601,7 @@ export class IngestionPipeline {
     recordMetric({
       contentType: 'image',
       action: 'allow',
-      detectionMethod: 'local',
+      detectionMethod: 'ai', // Local ML detection (nsfwjs)
       processingTimeMs: Date.now() - start,
     })
 
@@ -461,9 +643,23 @@ export class IngestionPipeline {
   getStats() {
     return {
       csamHash: this.csamHashProvider.getStats(),
+      sanctions: this.sanctionsScreener.getStats(),
+      onChainSignals: this.onChainSignals.getStats(),
       quarantine: this.quarantineManager.getStats(),
       walletEnforcement: this.walletEnforcement.getStats(),
+      externalProviders: {
+        hive: !!this.hiveProvider,
+        aws: !!this.awsProvider,
+        openai: !!this.openaiProvider,
+      },
     }
+  }
+
+  /**
+   * Get sanctions screener for direct address checks
+   */
+  getSanctionsScreener(): SanctionsScreener {
+    return this.sanctionsScreener
   }
 }
 
@@ -472,7 +668,20 @@ let instance: IngestionPipeline | null = null
 
 export function getIngestionPipeline(config?: IngestionPipelineConfig): IngestionPipeline {
   if (!instance) {
-    instance = new IngestionPipeline(config)
+    // Use environment variables for external providers if not explicitly configured
+    const finalConfig: IngestionPipelineConfig = {
+      ...config,
+      hive: config?.hive ?? (process.env.HIVE_API_KEY ? { apiKey: process.env.HIVE_API_KEY } : undefined),
+      awsRekognition: config?.awsRekognition ?? (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+        ? {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            region: process.env.AWS_REGION ?? 'us-east-1',
+          }
+        : undefined),
+      openai: config?.openai ?? (process.env.OPENAI_API_KEY ? { apiKey: process.env.OPENAI_API_KEY } : undefined),
+    }
+    instance = new IngestionPipeline(finalConfig)
   }
   return instance
 }
