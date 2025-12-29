@@ -5,8 +5,8 @@
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import {
-  calculateMinOutput,
   CROSS_CHAIN_TOKENS,
+  calculateMinOutput,
   formatCrossChainAmount,
   getChainInfo,
   getTokenAddress,
@@ -229,4 +229,3 @@ describe('calculateMinOutput', () => {
     expect(minOutput).toBe('0')
   })
 })
-

@@ -35,10 +35,15 @@ async function request(
 
 // Use environment variables for test configuration
 const ANVIL_RPC = process.env.JEJU_RPC_URL || 'http://127.0.0.1:8548'
-const FACILITATOR_ADDRESS = process.env.X402_FACILITATOR_ADDRESS as Address | undefined
-const EIP3009_TOKEN_ADDRESS = process.env.EIP3009_TOKEN_ADDRESS as Address | undefined
+const FACILITATOR_ADDRESS = process.env.X402_FACILITATOR_ADDRESS as
+  | Address
+  | undefined
+const EIP3009_TOKEN_ADDRESS = process.env.EIP3009_TOKEN_ADDRESS as
+  | Address
+  | undefined
 
-const PAYER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const
+const PAYER_KEY =
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const
 const payer = privateKeyToAccount(PAYER_KEY)
 const RECIPIENT: Address = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
 const USDC: Address = '0x0165878A594ca255338adfa4d48449f69242Eb8F'
@@ -49,7 +54,8 @@ async function createSignedPayment(overrides?: {
   timestamp?: number
   asset?: Address
 }): Promise<{ header: string; payload: Record<string, unknown> }> {
-  const nonce = overrides?.nonce || crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+  const nonce =
+    overrides?.nonce || crypto.randomUUID().replace(/-/g, '').slice(0, 16)
   const timestamp = overrides?.timestamp || Math.floor(Date.now() / 1000)
   const asset = overrides?.asset || USDC
 

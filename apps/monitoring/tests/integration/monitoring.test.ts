@@ -73,9 +73,7 @@ async function requireMonitoringStack(): Promise<void> {
         `FATAL: docker-compose not found. Install docker-compose or run tests in a Docker environment.`,
       )
     }
-    throw new Error(
-      `FATAL: Failed to start monitoring stack: ${msg}`,
-    )
+    throw new Error(`FATAL: Failed to start monitoring stack: ${msg}`)
   }
   console.log('Waiting for services to start...')
 

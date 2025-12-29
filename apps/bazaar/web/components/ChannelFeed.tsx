@@ -114,7 +114,7 @@ function ComposeBox({ channel, onSuccess }: ComposeBoxProps) {
       return
     }
 
-window.open(
+    window.open(
       `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&channelKey=${encodeURIComponent(channel.url)}`,
       '_blank',
     )

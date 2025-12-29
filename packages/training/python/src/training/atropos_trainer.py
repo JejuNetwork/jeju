@@ -133,6 +133,7 @@ class JejuAtroposTrainer:
 
     def __init__(self, config: AtroposTrainingConfig):
         from typing import Any
+
         self.config = config
         self.model: Any = None
         self.tokenizer: Any = None

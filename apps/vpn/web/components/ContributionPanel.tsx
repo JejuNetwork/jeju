@@ -213,7 +213,6 @@ export function ContributionPanel() {
           )}
         </button>
       </div>
-
     </div>
   )
 }

@@ -127,8 +127,8 @@ pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo,
     let mut total_pending = U256::ZERO;
     let mut staked_by_service = vec![];
 
-    let compute_staking_address = Address::from_str("0x0000000000000000000000000000000000000001")
-        .expect("valid address");
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
     let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
 
     if let Ok(stake_result) = compute_contract.getStake(address).call().await {
@@ -176,11 +176,13 @@ pub async fn stake(
         .as_ref()
         .ok_or("Wallet not connected")?;
 
-    let amount = U256::from_str(&request.amount_wei)
-        .map_err(|e| format!("Invalid amount: {}", e))?;
+    let amount =
+        U256::from_str(&request.amount_wei).map_err(|e| format!("Invalid amount: {}", e))?;
 
     let rpc_url = inner.config.network.rpc_url.clone();
-    let signer = wallet_manager.get_signer().ok_or("Wallet not initialized")?;
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
     let wallet = EthereumWallet::from(signer.clone());
 
     let provider = ProviderBuilder::new()
@@ -193,8 +195,8 @@ pub async fn stake(
         )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    let compute_staking_address = Address::from_str("0x0000000000000000000000000000000000000001")
-        .expect("valid address");
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
     let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
 
     let tx = compute_contract.stakeAsProvider().value(amount);
@@ -226,7 +228,9 @@ pub async fn unstake(
         .ok_or("Wallet not connected")?;
 
     let rpc_url = inner.config.network.rpc_url.clone();
-    let signer = wallet_manager.get_signer().ok_or("Wallet not initialized")?;
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
     let wallet = EthereumWallet::from(signer.clone());
 
     let provider = ProviderBuilder::new()
@@ -239,8 +243,8 @@ pub async fn unstake(
         )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    let compute_staking_address = Address::from_str("0x0000000000000000000000000000000000000001")
-        .expect("valid address");
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
     let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
 
     let tx = compute_contract.unstake();
@@ -272,7 +276,9 @@ pub async fn claim_rewards(
         .ok_or("Wallet not connected")?;
 
     let rpc_url = inner.config.network.rpc_url.clone();
-    let signer = wallet_manager.get_signer().ok_or("Wallet not initialized")?;
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
     let wallet = EthereumWallet::from(signer.clone());
 
     let provider = ProviderBuilder::new()
@@ -285,8 +291,8 @@ pub async fn claim_rewards(
         )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
-    let compute_staking_address = Address::from_str("0x0000000000000000000000000000000000000001")
-        .expect("valid address");
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
     let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
 
     let tx = compute_contract.claimRewards();
@@ -341,17 +347,24 @@ pub async fn get_pending_rewards(
     };
 
     let rpc_url = inner.config.network.rpc_url.clone();
-    let wallet_address = wallet_manager.address().ok_or("Wallet address not available")?;
-    let address = Address::from_str(&wallet_address).map_err(|e| format!("Invalid address: {}", e))?;
+    let wallet_address = wallet_manager
+        .address()
+        .ok_or("Wallet address not available")?;
+    let address =
+        Address::from_str(&wallet_address).map_err(|e| format!("Invalid address: {}", e))?;
 
     let provider = ProviderBuilder::new()
-        .on_http(rpc_url.parse().map_err(|e| format!("Invalid RPC URL: {}", e))?)
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
         .map_err(|e| format!("Failed to create provider: {}", e))?;
 
     let mut results = vec![];
 
-    let compute_staking_address = Address::from_str("0x0000000000000000000000000000000000000001")
-        .expect("valid address");
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
     let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
 
     if let Ok(pending) = compute_contract.pendingRewards(address).call().await {

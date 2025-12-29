@@ -18,7 +18,11 @@ function formatNumber(num: number | bigint): string {
 export default function CoinDetailPage() {
   const { chainId, address } = useParams<{ chainId: string; address: string }>()
 
-  const { data: token, isLoading, error } = useQuery({
+  const {
+    data: token,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['token-details', address],
     queryFn: () => fetchTokenDetails(address as Address),
     enabled: Boolean(address),
@@ -44,7 +48,11 @@ export default function CoinDetailPage() {
   if (error || !token) {
     return (
       <div className="max-w-4xl mx-auto">
-        <Link to="/coins" className="text-sm mb-4 inline-block" style={{ color: 'var(--text-secondary)' }}>
+        <Link
+          to="/coins"
+          className="text-sm mb-4 inline-block"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           ← Back to Coins
         </Link>
         <div className="card p-6 border-red-500/30 bg-red-500/10">
@@ -58,11 +66,17 @@ export default function CoinDetailPage() {
   const channel = getCoinChannel(chainIdNum, address as Address, token.name)
 
   const initials = token.symbol.slice(0, 2).toUpperCase()
-  const supplyFormatted = formatNumber(Number(formatUnits(token.totalSupply, token.decimals)))
+  const supplyFormatted = formatNumber(
+    Number(formatUnits(token.totalSupply, token.decimals)),
+  )
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Link to="/coins" className="text-sm mb-4 inline-block" style={{ color: 'var(--text-secondary)' }}>
+      <Link
+        to="/coins"
+        className="text-sm mb-4 inline-block"
+        style={{ color: 'var(--text-secondary)' }}
+      >
         ← Back to Coins
       </Link>
 
@@ -77,37 +91,83 @@ export default function CoinDetailPage() {
           )}
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              <h1
+                className="text-2xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {token.name}
               </h1>
-              {token.verified && <span className="text-blue-400 text-sm" title="Verified">✓</span>}
+              {token.verified && (
+                <span className="text-blue-400 text-sm" title="Verified">
+                  ✓
+                </span>
+              )}
             </div>
-            <p className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
+            <p
+              className="text-sm font-mono"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               ${token.symbol} • {address.slice(0, 10)}...{address.slice(-8)}
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Supply</p>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{supplyFormatted}</p>
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Supply
+            </p>
+            <p
+              className="text-xl font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {supplyFormatted}
+            </p>
           </div>
-          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Price</p>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Price
+            </p>
+            <p
+              className="text-xl font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {token.priceUSD ? `$${token.priceUSD.toFixed(6)}` : '—'}
             </p>
           </div>
-          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>24h Volume</p>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {token.volumeUSD24h ? `$${formatNumber(token.volumeUSD24h)}` : '—'}
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              24h Volume
+            </p>
+            <p
+              className="text-xl font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {token.volumeUSD24h
+                ? `$${formatNumber(token.volumeUSD24h)}`
+                : '—'}
             </p>
           </div>
-          <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Holders</p>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Holders
+            </p>
+            <p
+              className="text-xl font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {token.holders?.toLocaleString() ?? '—'}
             </p>
           </div>

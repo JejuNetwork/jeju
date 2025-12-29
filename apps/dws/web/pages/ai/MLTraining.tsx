@@ -224,13 +224,25 @@ export default function MLTrainingPage() {
             </h3>
           </div>
           <div style={{ display: 'grid', gap: '0.5rem' }}>
-            <button type="button" className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start' }}
+            >
               <Play size={14} /> Fine-tune LLM
             </button>
-            <button type="button" className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start' }}
+            >
               <Play size={14} /> Train Embeddings
             </button>
-            <button type="button" className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start' }}
+            >
               <Play size={14} /> RLHF/DPO
             </button>
           </div>

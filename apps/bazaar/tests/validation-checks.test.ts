@@ -151,5 +151,4 @@ describe('Marketplace Validation - Code Analysis', () => {
     console.log('✅ NFT Marketplace ABI: All required functions PRESENT')
     console.log(`   Total functions: ${functionNames.length}`)
   })
-
 })

@@ -165,7 +165,11 @@ impl WalletManager {
         let address = signer.address();
 
         let provider = ProviderBuilder::new()
-            .on_http(self.rpc_url.parse().map_err(|e| format!("Invalid RPC URL: {}", e))?)
+            .on_http(
+                self.rpc_url
+                    .parse()
+                    .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+            )
             .map_err(|e| format!("Failed to create provider: {}", e))?;
 
         let eth_balance = provider
@@ -219,7 +223,11 @@ impl WalletManager {
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(self.rpc_url.parse().map_err(|e| format!("Invalid RPC URL: {}", e))?)
+            .on_http(
+                self.rpc_url
+                    .parse()
+                    .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+            )
             .map_err(|e| format!("Failed to create provider: {}", e))?;
 
         let mut tx = TransactionRequest::default()

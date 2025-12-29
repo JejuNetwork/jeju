@@ -127,7 +127,7 @@ export interface PriceCandle {
 let rpcClient: PublicClient | null = null
 const getRpcClient = (): PublicClient => {
   if (!rpcClient) {
-  const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
+    const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
     rpcClient = createPublicClient({ transport: http(rpcUrl) })
   }
   return rpcClient
@@ -257,7 +257,7 @@ const mapToken = (c: RawTokenData): Token => {
     createdAt: new Date(c.createdAt ?? c.firstSeenAt ?? Date.now()),
     verified: c.verified,
     logoUrl: c.logoUrl,
-priceUSD: c.priceUSD ? parseFloat(c.priceUSD) : undefined,
+    priceUSD: c.priceUSD ? parseFloat(c.priceUSD) : undefined,
     priceETH: c.priceETH ? parseFloat(c.priceETH) : undefined,
     priceChange1h: c.priceChange1h,
     priceChange24h: c.priceChange24h,
@@ -297,7 +297,7 @@ export async function fetchTokensWithMarketData(options: {
 
   expectTrue(await checkIndexerHealth(), 'Indexer unavailable')
 
-const whereConditions: string[] = []
+  const whereConditions: string[] = []
   if (chainId) whereConditions.push(`chainId_eq: ${chainId}`)
   if (options.verified !== undefined)
     whereConditions.push(`verified_eq: ${options.verified}`)
@@ -423,7 +423,7 @@ async function fetchPredictionMarketsFromRPC(options: {
   const { offset = 0, resolved } = options
   const limit = sanitizeLimit(options.limit)
 
-if (
+  if (
     !PREDICTION_MARKET_ADDRESS ||
     PREDICTION_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000'
   ) {
@@ -434,7 +434,7 @@ if (
   const client = getRpcClient()
   const markets: PredictionMarket[] = []
 
-const marketCount = (await client.readContract({
+  const marketCount = (await client.readContract({
     address: PREDICTION_MARKET_ADDRESS,
     abi: predictionMarketAbi,
     functionName: 'getMarketCount',
@@ -443,10 +443,10 @@ const marketCount = (await client.readContract({
   const totalCount = Number(marketCount)
   if (totalCount === 0) return []
 
-const startIndex = Math.max(0, totalCount - offset - limit)
+  const startIndex = Math.max(0, totalCount - offset - limit)
   const endIndex = Math.max(0, totalCount - offset)
 
-const marketIds: `0x${string}`[] = []
+  const marketIds: `0x${string}`[] = []
   for (let i = endIndex - 1; i >= startIndex; i--) {
     const sessionId = (await client.readContract({
       address: PREDICTION_MARKET_ADDRESS,
@@ -457,7 +457,7 @@ const marketIds: `0x${string}`[] = []
     marketIds.push(sessionId)
   }
 
-for (const sessionId of marketIds) {
+  for (const sessionId of marketIds) {
     const marketData = (await client.readContract({
       address: PREDICTION_MARKET_ADDRESS,
       abi: predictionMarketAbi,
@@ -481,7 +481,7 @@ for (const sessionId of marketIds) {
       bigint, // twapEndTime
     ]
 
-const isResolved = marketData[7]
+    const isResolved = marketData[7]
     if (resolved !== undefined && isResolved !== resolved) {
       continue
     }
@@ -490,7 +490,7 @@ const isResolved = marketData[7]
     const noShares = Number(marketData[3])
     const b = Number(marketData[4]) || 1
 
-const yesExp = Math.exp(yesShares / b)
+    const yesExp = Math.exp(yesShares / b)
     const noExp = Math.exp(noShares / b)
     const total = yesExp + noExp
 
@@ -519,7 +519,7 @@ export async function fetchPredictionMarkets(options: {
   const { offset = 0, resolved } = options
   const limit = sanitizeLimit(options.limit)
 
-const indexerHealthy = await checkIndexerHealth()
+  const indexerHealthy = await checkIndexerHealth()
 
   if (indexerHealthy) {
     const whereClause =
@@ -572,7 +572,7 @@ const indexerHealthy = await checkIndexerHealth()
           }
         })
       }
-} catch (indexerError) {
+    } catch (indexerError) {
       console.log(
         '[data-client] Indexer query failed, trying RPC fallback:',
         indexerError,
@@ -580,7 +580,7 @@ const indexerHealthy = await checkIndexerHealth()
     }
   }
 
-console.log('[data-client] Using RPC fallback for prediction markets')
+  console.log('[data-client] Using RPC fallback for prediction markets')
   return fetchPredictionMarketsFromRPC(options)
 }
 
@@ -614,7 +614,7 @@ export async function fetchPriceHistory(
   const tokenId = `${chainId}-${validatedAddress.toLowerCase()}`
   const graphqlInterval = INTERVAL_MAP[interval]
 
-const data = await gql<{
+  const data = await gql<{
     tokenCandles: Array<{
       periodStart: string
       open: string
@@ -699,7 +699,7 @@ export async function fetchToken24hStats(address: Address): Promise<{
   const chainId = 420691 // Default to Jeju
   const tokenId = `${chainId}-${validatedAddress.toLowerCase()}`
 
-const tokenData = await gql<{
+  const tokenData = await gql<{
     tokens: Array<{
       volume24h: string
       txCount24h: number
@@ -718,7 +718,7 @@ const tokenData = await gql<{
 
   if (tokenData.tokens[0]) {
     const t = tokenData.tokens[0]
-const candleData = await gql<{
+    const candleData = await gql<{
       tokenCandles: Array<{ high: string; low: string }>
     }>(
       `

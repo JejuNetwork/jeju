@@ -555,7 +555,7 @@ async function requireGrafana(): Promise<void> {
     if (!response.ok) {
       throw new Error(`Grafana health check failed: ${response.status}`)
     }
-  } catch (error) {
+  } catch (_error) {
     throw new Error(
       `FATAL: Grafana not available at ${GRAFANA_URL}. ` +
         `Run 'docker compose up -d' in the monitoring app directory.`,

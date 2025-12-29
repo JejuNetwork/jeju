@@ -115,7 +115,6 @@ export function VPNToggle({
               : 'Secure your connection'}
         </p>
       </div>
-
     </div>
   )
 }

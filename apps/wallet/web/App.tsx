@@ -568,7 +568,6 @@ function PortfolioView({
             </div>
           )}
         </div>
-
       </div>
     </div>
   )

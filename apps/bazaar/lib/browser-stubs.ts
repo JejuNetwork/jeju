@@ -79,7 +79,7 @@ export function useBanStatus(address: Address | undefined): BanStatus {
 
     const config = getNetworkConfig()
 
-if (!config.banManager) {
+    if (!config.banManager) {
       setStatus({
         isBanned: false,
         isOnNotice: false,
@@ -121,7 +121,7 @@ if (!config.banManager) {
         args: [address],
       })
 
-const result = asTuple<readonly [boolean, number, string, Hex]>(ban, 4)
+      const result = asTuple<readonly [boolean, number, string, Hex]>(ban, 4)
       const banTypeNum = result[1]
       const reason = result[2]
       const caseId = result[3]
@@ -144,7 +144,7 @@ const result = asTuple<readonly [boolean, number, string, Hex]>(ban, 4)
       return
     }
 
-setStatus({
+    setStatus({
       isBanned: false,
       isOnNotice: false,
       banType: BanType.NONE,
@@ -159,7 +159,7 @@ setStatus({
   useEffect(() => {
     checkBanStatus()
 
-const interval = setInterval(checkBanStatus, 30000)
+    const interval = setInterval(checkBanStatus, 30000)
     return () => clearInterval(interval)
   }, [checkBanStatus])
 

@@ -240,7 +240,9 @@ describe('GasAbstractionService', () => {
 
     it('should accept partial configuration updates', () => {
       // Updating just one property should work
-      expect(() => service.setConfig({ preferredMode: 'sponsored' })).not.toThrow()
+      expect(() =>
+        service.setConfig({ preferredMode: 'sponsored' }),
+      ).not.toThrow()
       expect(() => service.setConfig({ maxGasPriceGwei: 200 })).not.toThrow()
       expect(() => service.setConfig({ autoBridge: true })).not.toThrow()
     })

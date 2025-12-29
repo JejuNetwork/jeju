@@ -387,8 +387,8 @@ export const jnsService = new JNSService()
 
 // Re-export from resolver
 export {
-  JNSResolver,
-  jnsResolver,
   type JNSResolution,
+  JNSResolver,
   type JNSResolverSettings,
+  jnsResolver,
 } from './resolver'

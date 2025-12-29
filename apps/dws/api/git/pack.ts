@@ -4,7 +4,10 @@
  */
 
 import { promisify } from 'node:util'
-import { deflate as deflateCallback, inflate as inflateCallback } from 'node:zlib'
+import {
+  deflate as deflateCallback,
+  inflate as inflateCallback,
+} from 'node:zlib'
 import { createHash } from '@jejunetwork/shared'
 import type { GitObjectStore } from './object-store'
 import type { GitObjectType, PackedObject } from './types'
@@ -343,4 +346,39 @@ export function createFlushPkt(): Buffer {
 export function createPktLines(lines: string[]): Buffer {
   const parts = lines.map((line) => createPktLine(line))
   return Buffer.concat([...parts, createFlushPkt()])
+}
+
+/**
+ * Create a sideband pkt-line (for side-band-64k protocol)
+ * Band 1 = data, Band 2 = progress, Band 3 = error
+ */
+export function createSidebandPktLine(
+  data: Buffer,
+  band: 1 | 2 | 3 = 1,
+): Buffer {
+  // Length includes: 4-byte hex length + 1-byte band + data
+  const length = 4 + 1 + data.length
+  const lengthHex = length.toString(16).padStart(4, '0')
+  return Buffer.concat([Buffer.from(lengthHex), Buffer.from([band]), data])
+}
+
+/**
+ * Create a sideband response for receive-pack report-status
+ */
+export function createReceivePackResponse(lines: string[]): Buffer {
+  const parts: Buffer[] = []
+
+  for (const line of lines) {
+    // Each line is sent as a sideband-1 message containing a pkt-line
+    const pktLine = createPktLine(line)
+    parts.push(createSidebandPktLine(pktLine, 1))
+  }
+
+  // Send flush pkt inside sideband
+  parts.push(createSidebandPktLine(createFlushPkt(), 1))
+
+  // End with flush
+  parts.push(createFlushPkt())
+
+  return Buffer.concat(parts)
 }

@@ -2,10 +2,17 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { formatUnits, parseEther, parseAbi } from 'viem'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { formatUnits, parseAbi, parseEther } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 import { PREDICTION_MARKET_ADDRESS } from '../../config'
-import { fetchPredictionMarkets, type PredictionMarket } from '../../lib/data-client'
+import {
+  fetchPredictionMarkets,
+  type PredictionMarket,
+} from '../../lib/data-client'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
 const PREDICTION_MARKET_ABI = parseAbi([
@@ -15,10 +22,16 @@ const PREDICTION_MARKET_ABI = parseAbi([
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { address, isConnected } = useAccount()
-  const [selectedOutcome, setSelectedOutcome] = useState<'yes' | 'no' | null>(null)
+  const [selectedOutcome, setSelectedOutcome] = useState<'yes' | 'no' | null>(
+    null,
+  )
   const [amount, setAmount] = useState('')
 
-  const { data: market, isLoading, error } = useQuery<PredictionMarket | undefined>({
+  const {
+    data: market,
+    isLoading,
+    error,
+  } = useQuery<PredictionMarket | undefined>({
     queryKey: ['prediction-market', id],
     queryFn: async () => {
       const markets = await fetchPredictionMarkets({ limit: 100 })
@@ -56,7 +69,10 @@ export default function MarketDetailPage() {
       return
     }
 
-    if (!PREDICTION_MARKET_ADDRESS || PREDICTION_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000') {
+    if (
+      !PREDICTION_MARKET_ADDRESS ||
+      PREDICTION_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000'
+    ) {
       toast.error('Prediction market not deployed')
       return
     }
@@ -65,7 +81,11 @@ export default function MarketDetailPage() {
       address: PREDICTION_MARKET_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'buyShares',
-      args: [id as `0x${string}`, selectedOutcome === 'yes', parseEther(amount)],
+      args: [
+        id as `0x${string}`,
+        selectedOutcome === 'yes',
+        parseEther(amount),
+      ],
       value: parseEther(amount),
     })
   }
@@ -239,7 +259,13 @@ export default function MarketDetailPage() {
                 type="button"
                 onClick={handleBuy}
                 className="btn-primary w-full py-3 disabled:opacity-50"
-                disabled={!selectedOutcome || !amount || Number(amount) <= 0 || isBuying || !isConnected}
+                disabled={
+                  !selectedOutcome ||
+                  !amount ||
+                  Number(amount) <= 0 ||
+                  isBuying ||
+                  !isConnected
+                }
               >
                 {!isConnected
                   ? 'Connect Wallet'

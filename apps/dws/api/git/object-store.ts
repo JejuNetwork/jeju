@@ -78,6 +78,11 @@ export class GitObjectStore {
   private objectIndex: Map<string, StoredGitObject> = new Map() // oid -> stored object
   private cidToOid: Map<string, string> = new Map() // cid -> oid
 
+  /** Get the number of objects in the store */
+  getObjectCount(): number {
+    return this.objectIndex.size
+  }
+
   constructor(backend: BackendManager) {
     this.backend = backend
   }
@@ -162,18 +167,19 @@ export class GitObjectStore {
           : new Uint8Array(result.content)
     const decompressed = await inflateAsync(contentUint8)
 
-    // Parse header
-    const nullIndex = decompressed.indexOf(0)
-    const header = decompressed.subarray(0, nullIndex).toString()
+    // Parse header - convert to Buffer for proper string decoding
+    const decompressedBuf = Buffer.from(decompressed)
+    const nullIndex = decompressedBuf.indexOf(0)
+    const header = decompressedBuf.subarray(0, nullIndex).toString('utf8')
     const [type, sizeStr] = header.split(' ')
     const size = parseInt(sizeStr, 10)
-    const content = decompressed.subarray(nullIndex + 1)
+    const content = decompressedBuf.subarray(nullIndex + 1)
 
     return {
       type: type as GitObjectType,
       oid,
       size,
-      content: Buffer.from(content),
+      content,
     }
   }
 

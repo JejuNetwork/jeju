@@ -464,7 +464,6 @@ export function ChatInterface({
                 ))}
               </div>
             )}
-
           </div>
         )}
 

@@ -142,7 +142,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
       nonce,
     }
 
-      setTxStatus('pending')
+    setTxStatus('pending')
     try {
       await writeContractAsync({
         address: inputSettlerAddress,

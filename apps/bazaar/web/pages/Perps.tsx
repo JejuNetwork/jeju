@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { formatUnits, parseEther, parseAbi } from 'viem'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { PERPETUAL_MARKET_ADDRESS, CONTRACTS } from '../../config'
+import { formatUnits, parseAbi, parseEther } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { CONTRACTS, PERPETUAL_MARKET_ADDRESS } from '../../config'
 import {
   fetchPerpsMarkets,
   fetchTraderPositions,
@@ -26,7 +30,11 @@ export default function PerpsPage() {
   const [leverage, setLeverage] = useState(10)
   const [marginAmount, setMarginAmount] = useState('')
 
-  const { data: markets, isLoading: marketsLoading, error: marketsError } = useQuery({
+  const {
+    data: markets,
+    isLoading: marketsLoading,
+    error: marketsError,
+  } = useQuery({
     queryKey: ['perps-markets'],
     queryFn: fetchPerpsMarkets,
     refetchInterval: 10000,
@@ -35,13 +43,16 @@ export default function PerpsPage() {
 
   const { data: positions, isLoading: positionsLoading } = useQuery({
     queryKey: ['perps-positions', address],
-    queryFn: () => address ? fetchTraderPositions(address) : Promise.resolve([]),
+    queryFn: () =>
+      address ? fetchTraderPositions(address) : Promise.resolve([]),
     enabled: Boolean(address),
     refetchInterval: 10000,
   })
 
   const { writeContract, data: txHash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
 
   if (isSuccess) {
     toast.success('Position opened successfully.')
@@ -65,7 +76,10 @@ export default function PerpsPage() {
       return
     }
 
-    if (!PERPETUAL_MARKET_ADDRESS || PERPETUAL_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000') {
+    if (
+      !PERPETUAL_MARKET_ADDRESS ||
+      PERPETUAL_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000'
+    ) {
       toast.error('Perpetual market not deployed')
       return
     }
@@ -536,7 +550,9 @@ export default function PerpsPage() {
               <button
                 type="button"
                 onClick={handleOpenPosition}
-                disabled={!marginAmount || Number(marginAmount) <= 0 || isSubmitting}
+                disabled={
+                  !marginAmount || Number(marginAmount) <= 0 || isSubmitting
+                }
                 className={`w-full py-3 rounded-lg font-medium transition-colors ${
                   side === 'long'
                     ? 'bg-green-500 hover:bg-green-600 disabled:bg-green-500/50'

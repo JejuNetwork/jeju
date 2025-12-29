@@ -288,12 +288,9 @@ pub async fn export_earnings(
 ) -> Result<String, String> {
     let inner = state.inner.read().await;
 
-    let entries = inner.earnings_tracker.get_entries(
-        None,
-        start_timestamp,
-        end_timestamp,
-        None,
-    );
+    let entries = inner
+        .earnings_tracker
+        .get_entries(None, start_timestamp, end_timestamp, None);
 
     let data_dir = crate::config::NodeConfig::data_dir()
         .map_err(|e| format!("Failed to get data directory: {}", e))?;
@@ -305,7 +302,8 @@ pub async fn export_earnings(
     match format.as_str() {
         "csv" => {
             let file_path = data_dir.join(format!("earnings_{}.csv", timestamp));
-            let mut csv_content = "timestamp,date,service_id,amount_wei,amount_usd,tx_hash,event_type\n".to_string();
+            let mut csv_content =
+                "timestamp,date,service_id,amount_wei,amount_usd,tx_hash,event_type\n".to_string();
 
             for e in entries {
                 let date = chrono::DateTime::from_timestamp(e.timestamp, 0)
@@ -317,7 +315,13 @@ pub async fn export_earnings(
 
                 csv_content.push_str(&format!(
                     "{},{},{},{},{:.2},{},{:?}\n",
-                    e.timestamp, date, e.service_id, e.amount_wei, amount_usd, tx_hash, e.event_type
+                    e.timestamp,
+                    date,
+                    e.service_id,
+                    e.amount_wei,
+                    amount_usd,
+                    tx_hash,
+                    e.event_type
                 ));
             }
 
@@ -356,6 +360,9 @@ pub async fn export_earnings(
 
             Ok(file_path.to_string_lossy().to_string())
         }
-        _ => Err(format!("Unsupported format: {}. Use 'csv' or 'json'", format)),
+        _ => Err(format!(
+            "Unsupported format: {}. Use 'csv' or 'json'",
+            format
+        )),
     }
 }
