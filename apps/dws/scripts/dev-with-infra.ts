@@ -120,7 +120,6 @@ async function startAnvil(): Promise<boolean> {
 async function deployContracts(): Promise<boolean> {
   console.log('[Dev] Deploying contracts...')
 
-  const host = getLocalhostHost()
   const proc = Bun.spawn(['bun', 'run', 'scripts/deploy-contracts.ts'], {
     cwd: DWS_DIR,
     stdout: 'inherit',

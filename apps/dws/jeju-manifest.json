@@ -70,60 +70,6 @@
     "x402Support": true,
     "jnsName": "dws.jeju"
   },
-  "governance": {
-    "enabled": true,
-    "daoName": "dws.jeju",
-    "scope": "fees",
-    "director": {
-      "name": "DWS Director",
-      "description": "AI Director for DWS infrastructure services",
-      "personality": "Technical, efficiency-focused, infrastructure optimization expert",
-      "communicationTone": "professional",
-      "isHuman": false,
-      "decisionFallbackDays": 7
-    },
-    "board": [
-      {
-        "role": "Infrastructure",
-        "description": "Infrastructure and scaling decisions",
-        "isHuman": false
-      },
-      {
-        "role": "Pricing",
-        "description": "Service pricing and fee structure",
-        "isHuman": false
-      },
-      {
-        "role": "Security",
-        "description": "Security and TEE verification",
-        "isHuman": false
-      },
-      {
-        "role": "NodeOperators",
-        "description": "Node operator representative (multisig)",
-        "isHuman": true,
-        "note": "Multisig of top node operators by stake"
-      }
-    ],
-    "feeOverrides": {
-      "storage.perGbMonth": 50000000,
-      "storage.upload": 100000,
-      "storage.retrieval": 50000,
-      "compute.perSecond": 1000000,
-      "compute.inference": 500000,
-      "cdn.perRequest": 100,
-      "cdn.bandwidth": 10000
-    },
-    "treasuryConfig": {
-      "dailyLimit": "10000000000000000000000",
-      "profitDistribution": {
-        "protocolBps": 3000,
-        "stakersBps": 4000,
-        "nodeOperatorsBps": 2000,
-        "insuranceBps": 1000
-      }
-    }
-  },
   "deployment": {
     "testnet": {
       "network": "jeju-testnet",
