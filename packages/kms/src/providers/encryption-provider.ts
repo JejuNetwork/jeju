@@ -91,9 +91,10 @@ export class EncryptionProvider implements KMSProvider {
   private keyVersions = new Map<string, KeyVersionRecord[]>()
   private sessions = new Map<string, Session>()
   private initPromise: Promise<void> | null = null
+  private debug: boolean
 
-  constructor(_config: EncryptionConfig) {
-    // Master key is derived asynchronously via initializeMasterKey()
+  constructor(config?: { debug?: boolean }) {
+    this.debug = config?.debug ?? false
   }
 
   /**

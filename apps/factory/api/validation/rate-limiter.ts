@@ -5,9 +5,11 @@
  * - Per-IP rate limiting for unauthenticated requests
  * - Per-address rate limiting for authenticated requests
  * - Configurable limits per endpoint type
- * - Automatic cleanup of expired entries
+ * - Distributed storage via shared cache
  * - DDoS protection with global limits
  */
+
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 
 // Simple logger
 const log = {
@@ -28,10 +30,10 @@ const log = {
 interface RateLimitConfig {
   /** Maximum requests per window */
   maxRequests: number
-  /** Window size in milliseconds */
-  windowMs: number
-  /** Block duration when limit exceeded (ms) */
-  blockDurationMs: number
+  /** Window size in seconds */
+  windowSeconds: number
+  /** Block duration when limit exceeded (seconds) */
+  blockDurationSeconds: number
 }
 
 /** Rate limit tiers for different operation types */
@@ -39,173 +41,139 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitConfig> = {
   // Read operations - more permissive
   read: {
     maxRequests: 100,
-    windowMs: 60_000, // 1 minute
-    blockDurationMs: 60_000, // 1 minute block
+    windowSeconds: 60, // 1 minute
+    blockDurationSeconds: 60, // 1 minute block
   },
   // Write operations - more restrictive
   write: {
     maxRequests: 20,
-    windowMs: 60_000, // 1 minute
-    blockDurationMs: 300_000, // 5 minute block
+    windowSeconds: 60, // 1 minute
+    blockDurationSeconds: 300, // 5 minute block
   },
   // Authentication operations - very restrictive to prevent brute force
   auth: {
     maxRequests: 5,
-    windowMs: 60_000, // 1 minute
-    blockDurationMs: 900_000, // 15 minute block
+    windowSeconds: 60, // 1 minute
+    blockDurationSeconds: 900, // 15 minute block
   },
   // Sensitive operations (signer creation, etc.)
   sensitive: {
     maxRequests: 3,
-    windowMs: 60_000, // 1 minute
-    blockDurationMs: 1_800_000, // 30 minute block
+    windowSeconds: 60, // 1 minute
+    blockDurationSeconds: 1800, // 30 minute block
   },
 }
 
 /** Global rate limit to prevent DDoS */
 const GLOBAL_RATE_LIMIT: RateLimitConfig = {
   maxRequests: 10_000,
-  windowMs: 60_000,
-  blockDurationMs: 60_000,
+  windowSeconds: 60,
+  blockDurationSeconds: 60,
 }
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface RateLimitEntry {
-  /** Number of requests in current window */
-  count: number
-  /** Window start timestamp */
-  windowStart: number
-  /** If blocked, when the block expires */
-  blockedUntil: number | null
-}
-
 type RateLimitTier = keyof typeof RATE_LIMIT_TIERS
 
 // ============================================================================
-// RATE LIMIT STORE
+// DISTRIBUTED RATE LIMIT STORE
 // ============================================================================
 
-/**
- * In-memory rate limit store with automatic cleanup
- * For production with multiple instances, use Redis instead
- */
-class RateLimitStore {
-  private store = new Map<string, RateLimitEntry>()
-  private globalEntry: RateLimitEntry = {
-    count: 0,
-    windowStart: Date.now(),
-    blockedUntil: null,
+let rateLimitCache: CacheClient | null = null
+
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('factory-ratelimit')
   }
-  private cleanupInterval: ReturnType<typeof setInterval>
-
-  constructor() {
-    // Clean up expired entries every minute
-    this.cleanupInterval = setInterval(() => this.cleanup(), 60_000)
-  }
-
-  private cleanup(): void {
-    const now = Date.now()
-    let cleaned = 0
-
-    for (const [key, entry] of this.store.entries()) {
-      // Remove entries with expired windows and no active block
-      const windowExpired = now - entry.windowStart > 300_000 // 5 minutes
-      const blockExpired = !entry.blockedUntil || entry.blockedUntil < now
-
-      if (windowExpired && blockExpired) {
-        this.store.delete(key)
-        cleaned++
-      }
-    }
-
-    if (cleaned > 0) {
-      log.debug('Rate limit cleanup', { entriesRemoved: cleaned })
-    }
-  }
-
-  get(key: string): RateLimitEntry {
-    let entry = this.store.get(key)
-    if (!entry) {
-      entry = {
-        count: 0,
-        windowStart: Date.now(),
-        blockedUntil: null,
-      }
-      this.store.set(key, entry)
-    }
-    return entry
-  }
-
-  getGlobal(): RateLimitEntry {
-    return this.globalEntry
-  }
-
-  increment(key: string, config: RateLimitConfig): RateLimitEntry {
-    const entry = this.get(key)
-    const now = Date.now()
-
-    // Check if window has expired
-    if (now - entry.windowStart > config.windowMs) {
-      entry.count = 1
-      entry.windowStart = now
-    } else {
-      entry.count++
-    }
-
-    // Check if limit exceeded
-    if (entry.count > config.maxRequests && !entry.blockedUntil) {
-      entry.blockedUntil = now + config.blockDurationMs
-      log.warn('Rate limit exceeded', {
-        key: `${key.slice(0, 20)}...`,
-        count: entry.count,
-        blockedUntil: new Date(entry.blockedUntil).toISOString(),
-      })
-    }
-
-    return entry
-  }
-
-  incrementGlobal(): RateLimitEntry {
-    const now = Date.now()
-
-    if (now - this.globalEntry.windowStart > GLOBAL_RATE_LIMIT.windowMs) {
-      this.globalEntry.count = 1
-      this.globalEntry.windowStart = now
-    } else {
-      this.globalEntry.count++
-    }
-
-    if (
-      this.globalEntry.count > GLOBAL_RATE_LIMIT.maxRequests &&
-      !this.globalEntry.blockedUntil
-    ) {
-      this.globalEntry.blockedUntil = now + GLOBAL_RATE_LIMIT.blockDurationMs
-      log.error('GLOBAL RATE LIMIT EXCEEDED - Possible DDoS', {
-        count: this.globalEntry.count,
-      })
-    }
-
-    return this.globalEntry
-  }
-
-  shutdown(): void {
-    clearInterval(this.cleanupInterval)
-  }
-
-  /** Get current stats for monitoring */
-  getStats(): { totalEntries: number; globalCount: number } {
-    return {
-      totalEntries: this.store.size,
-      globalCount: this.globalEntry.count,
-    }
-  }
+  return rateLimitCache
 }
 
-// Singleton store instance
-const store = new RateLimitStore()
+async function incrementAndCheck(
+  key: string,
+  config: RateLimitConfig,
+): Promise<{
+  count: number
+  blocked: boolean
+  blockedUntil: number | null
+}> {
+  const cache = getRateLimitCache()
+  const countKey = `ratelimit:count:${key}`
+  const blockKey = `ratelimit:block:${key}`
+  const now = Date.now()
+
+  // Check if blocked
+  const blockedUntilStr = await cache.get(blockKey)
+  if (blockedUntilStr) {
+    const blockedUntil = parseInt(blockedUntilStr, 10)
+    if (blockedUntil > now) {
+      return { count: config.maxRequests + 1, blocked: true, blockedUntil }
+    }
+  }
+
+  // Increment count
+  const currentStr = await cache.get(countKey)
+  const count = currentStr ? parseInt(currentStr, 10) + 1 : 1
+  await cache.set(countKey, String(count), config.windowSeconds)
+
+  // Check if limit exceeded
+  if (count > config.maxRequests) {
+    const blockedUntil = now + config.blockDurationSeconds * 1000
+    await cache.set(blockKey, String(blockedUntil), config.blockDurationSeconds)
+    log.warn('Rate limit exceeded', {
+      key: `${key.slice(0, 20)}...`,
+      count,
+      blockedUntil: new Date(blockedUntil).toISOString(),
+    })
+    return { count, blocked: true, blockedUntil }
+  }
+
+  return { count, blocked: false, blockedUntil: null }
+}
+
+async function incrementGlobal(): Promise<{
+  count: number
+  blocked: boolean
+  blockedUntil: number | null
+}> {
+  const cache = getRateLimitCache()
+  const countKey = 'ratelimit:global:count'
+  const blockKey = 'ratelimit:global:block'
+  const now = Date.now()
+
+  // Check if blocked
+  const blockedUntilStr = await cache.get(blockKey)
+  if (blockedUntilStr) {
+    const blockedUntil = parseInt(blockedUntilStr, 10)
+    if (blockedUntil > now) {
+      return {
+        count: GLOBAL_RATE_LIMIT.maxRequests + 1,
+        blocked: true,
+        blockedUntil,
+      }
+    }
+  }
+
+  // Increment count
+  const currentStr = await cache.get(countKey)
+  const count = currentStr ? parseInt(currentStr, 10) + 1 : 1
+  await cache.set(countKey, String(count), GLOBAL_RATE_LIMIT.windowSeconds)
+
+  // Check if limit exceeded
+  if (count > GLOBAL_RATE_LIMIT.maxRequests) {
+    const blockedUntil = now + GLOBAL_RATE_LIMIT.blockDurationSeconds * 1000
+    await cache.set(
+      blockKey,
+      String(blockedUntil),
+      GLOBAL_RATE_LIMIT.blockDurationSeconds,
+    )
+    log.error('GLOBAL RATE LIMIT EXCEEDED - Possible DDoS', { count })
+    return { count, blocked: true, blockedUntil }
+  }
+
+  return { count, blocked: false, blockedUntil: null }
+}
 
 // ============================================================================
 // PUBLIC API
@@ -225,52 +193,41 @@ export interface RateLimitResult {
  * @param tier - Rate limit tier (read, write, auth, sensitive)
  * @returns Whether the request is allowed and rate limit info
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   identifier: string,
   tier: RateLimitTier = 'read',
-): RateLimitResult {
+): Promise<RateLimitResult> {
   const config = RATE_LIMIT_TIERS[tier]
   const now = Date.now()
 
   // Check global rate limit first
-  const globalEntry = store.incrementGlobal()
-  if (globalEntry.blockedUntil && globalEntry.blockedUntil > now) {
+  const globalResult = await incrementGlobal()
+  if (globalResult.blocked && globalResult.blockedUntil) {
     return {
       allowed: false,
       remaining: 0,
-      resetAt: globalEntry.blockedUntil,
-      retryAfter: Math.ceil((globalEntry.blockedUntil - now) / 1000),
+      resetAt: globalResult.blockedUntil,
+      retryAfter: Math.ceil((globalResult.blockedUntil - now) / 1000),
     }
   }
 
   // Check per-identifier rate limit
   const key = `${tier}:${identifier}`
-  const entry = store.increment(key, config)
+  const result = await incrementAndCheck(key, config)
 
-  // If blocked
-  if (entry.blockedUntil && entry.blockedUntil > now) {
+  if (result.blocked && result.blockedUntil) {
     return {
       allowed: false,
       remaining: 0,
-      resetAt: entry.blockedUntil,
-      retryAfter: Math.ceil((entry.blockedUntil - now) / 1000),
-    }
-  }
-
-  // If over limit but not yet blocked (shouldn't happen with current logic)
-  if (entry.count > config.maxRequests) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: entry.windowStart + config.windowMs,
-      retryAfter: Math.ceil((entry.windowStart + config.windowMs - now) / 1000),
+      resetAt: result.blockedUntil,
+      retryAfter: Math.ceil((result.blockedUntil - now) / 1000),
     }
   }
 
   return {
     allowed: true,
-    remaining: config.maxRequests - entry.count,
-    resetAt: entry.windowStart + config.windowMs,
+    remaining: config.maxRequests - result.count,
+    resetAt: now + config.windowSeconds * 1000,
   }
 }
 
@@ -356,16 +313,21 @@ export function getRateLimitHeaders(
 /**
  * Get rate limiter stats for health checks
  */
-export function getRateLimiterStats(): {
+export async function getRateLimiterStats(): Promise<{
   totalEntries: number
   globalCount: number
-} {
-  return store.getStats()
+}> {
+  const cache = getRateLimitCache()
+  const globalCountStr = await cache.get('ratelimit:global:count')
+  return {
+    totalEntries: 0, // Not trackable in distributed mode
+    globalCount: globalCountStr ? parseInt(globalCountStr, 10) : 0,
+  }
 }
 
 /**
- * Shutdown rate limiter (cleanup intervals)
+ * Shutdown rate limiter (no-op for distributed cache)
  */
 export function shutdownRateLimiter(): void {
-  store.shutdown()
+  log.info('Rate limiter shutdown')
 }

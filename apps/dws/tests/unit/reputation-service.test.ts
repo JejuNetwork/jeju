@@ -2,7 +2,7 @@
  * Tests for Reputation-Based Trust Service
  */
 
-import { describe, test, expect, beforeEach, mock } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { Address } from 'viem'
 
 // Mock EQLite before importing
@@ -17,11 +17,8 @@ mock.module('@jejunetwork/db', () => ({
 }))
 
 // Import after mocking
-const {
-  ReputationService,
-  shouldModerateDeployment,
-  applyModerationResult,
-} = await import('../../api/moderation/reputation-service')
+const { ReputationService, shouldModerateDeployment, applyModerationResult } =
+  await import('../../api/moderation/reputation-service')
 
 describe('Reputation Service', () => {
   let service: ReputationService
@@ -49,18 +46,20 @@ describe('Reputation Service', () => {
     test('returns existing user reputation', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          total_score: 750,
-          account_age_days: 90,
-          successful_deployments: 50,
-          staked_tokens: '1000000000000000000', // 1 ETH
-          identity_verified: 1,
-          community_vouches: 3,
-          violations: 1,
-          violation_severity: 50,
-          last_updated: now,
-          created_at: now - 90 * 86400000,
-        }],
+        rows: [
+          {
+            total_score: 750,
+            account_age_days: 90,
+            successful_deployments: 50,
+            staked_tokens: '1000000000000000000', // 1 ETH
+            identity_verified: 1,
+            community_vouches: 3,
+            violations: 1,
+            violation_severity: 50,
+            last_updated: now,
+            created_at: now - 90 * 86400000,
+          },
+        ],
       })
 
       const reputation = await service.getReputation(testAddress)
@@ -76,18 +75,20 @@ describe('Reputation Service', () => {
     test('calculates scores correctly', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          total_score: 0, // Will be recalculated
-          account_age_days: 365, // Max 365 points
-          successful_deployments: 200, // Max 1000 points
-          staked_tokens: '20000000000000000000', // 20 ETH = max 2000 points
-          identity_verified: 1, // 500 points
-          community_vouches: 10, // Max 500 points
-          violations: 0,
-          violation_severity: 0,
-          last_updated: now,
-          created_at: now - 365 * 86400000,
-        }],
+        rows: [
+          {
+            total_score: 0, // Will be recalculated
+            account_age_days: 365, // Max 365 points
+            successful_deployments: 200, // Max 1000 points
+            staked_tokens: '20000000000000000000', // 20 ETH = max 2000 points
+            identity_verified: 1, // 500 points
+            community_vouches: 10, // Max 500 points
+            violations: 0,
+            violation_severity: 0,
+            last_updated: now,
+            created_at: now - 365 * 86400000,
+          },
+        ],
       })
 
       const reputation = await service.getReputation(testAddress)
@@ -117,18 +118,20 @@ describe('Reputation Service', () => {
     test('trusted users get reduced moderation', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          total_score: 600,
-          account_age_days: 100,
-          successful_deployments: 80,
-          staked_tokens: '0',
-          identity_verified: 0,
-          community_vouches: 2,
-          violations: 0,
-          violation_severity: 0,
-          last_updated: now,
-          created_at: now - 100 * 86400000,
-        }],
+        rows: [
+          {
+            total_score: 600,
+            account_age_days: 100,
+            successful_deployments: 80,
+            staked_tokens: '0',
+            identity_verified: 0,
+            community_vouches: 2,
+            violations: 0,
+            violation_severity: 0,
+            last_updated: now,
+            created_at: now - 100 * 86400000,
+          },
+        ],
       })
 
       const intensity = await service.getModerationIntensity(testAddress)
@@ -143,18 +146,20 @@ describe('Reputation Service', () => {
     test('elite users bypass most checks', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          total_score: 5500,
-          account_age_days: 365,
-          successful_deployments: 500,
-          staked_tokens: '30000000000000000000',
-          identity_verified: 1,
-          community_vouches: 10,
-          violations: 0,
-          violation_severity: 0,
-          last_updated: now,
-          created_at: now - 365 * 86400000,
-        }],
+        rows: [
+          {
+            total_score: 5500,
+            account_age_days: 365,
+            successful_deployments: 500,
+            staked_tokens: '30000000000000000000',
+            identity_verified: 1,
+            community_vouches: 10,
+            violations: 0,
+            violation_severity: 0,
+            last_updated: now,
+            created_at: now - 365 * 86400000,
+          },
+        ],
       })
 
       const intensity = await service.getModerationIntensity(testAddress)
@@ -174,19 +179,14 @@ describe('Reputation Service', () => {
         'dep-123',
         'success',
         'basic',
-        'AI scan passed'
+        'AI scan passed',
       )
 
       expect(mockExec).toHaveBeenCalled()
     })
 
     test('records failed deployment', async () => {
-      await service.recordDeployment(
-        testAddress,
-        'dep-124',
-        'failed',
-        'new'
-      )
+      await service.recordDeployment(testAddress, 'dep-124', 'failed', 'new')
 
       expect(mockExec).toHaveBeenCalled()
     })
@@ -199,7 +199,7 @@ describe('Reputation Service', () => {
         'content',
         'medium',
         'Prohibited content detected',
-        'hash://evidence123'
+        'hash://evidence123',
       )
 
       expect(violation.type).toBe('content')
@@ -214,7 +214,7 @@ describe('Reputation Service', () => {
         'fraud',
         'critical',
         'Fraudulent activity',
-        'hash://evidence456'
+        'hash://evidence456',
       )
 
       expect(violation.penaltyApplied).toBe(2000)
@@ -222,31 +222,39 @@ describe('Reputation Service', () => {
   })
 
   describe('addVouch', () => {
-    const voucherAddress = '0x2222222222222222222222222222222222222222' as Address
-    const voucheeAddress = '0x3333333333333333333333333333333333333333' as Address
+    const voucherAddress =
+      '0x2222222222222222222222222222222222222222' as Address
+    const voucheeAddress =
+      '0x3333333333333333333333333333333333333333' as Address
 
     test('adds vouch from trusted user', async () => {
       // Mock voucher reputation
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          total_score: 600,
-          account_age_days: 100,
-          successful_deployments: 80,
-          staked_tokens: '0',
-          identity_verified: 0,
-          community_vouches: 2,
-          violations: 0,
-          violation_severity: 0,
-          last_updated: now,
-          created_at: now - 100 * 86400000,
-        }],
+        rows: [
+          {
+            total_score: 600,
+            account_age_days: 100,
+            successful_deployments: 80,
+            staked_tokens: '0',
+            identity_verified: 0,
+            community_vouches: 2,
+            violations: 0,
+            violation_severity: 0,
+            last_updated: now,
+            created_at: now - 100 * 86400000,
+          },
+        ],
       })
 
       // Mock existing vouch check
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
-      const vouch = await service.addVouch(voucherAddress, voucheeAddress, 'Good person')
+      const vouch = await service.addVouch(
+        voucherAddress,
+        voucheeAddress,
+        'Good person',
+      )
 
       expect(vouch.voucher).toBe(voucherAddress)
       expect(vouch.vouchee).toBe(voucheeAddress)
@@ -258,29 +266,31 @@ describe('Reputation Service', () => {
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
       await expect(
-        service.addVouch(voucherAddress, voucheeAddress, 'Test')
+        service.addVouch(voucherAddress, voucheeAddress, 'Test'),
       ).rejects.toThrow('at least trusted')
     })
 
     test('rejects self-vouch', async () => {
       const now = Date.now()
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          total_score: 600,
-          account_age_days: 100,
-          successful_deployments: 80,
-          staked_tokens: '0',
-          identity_verified: 0,
-          community_vouches: 2,
-          violations: 0,
-          violation_severity: 0,
-          last_updated: now,
-          created_at: now - 100 * 86400000,
-        }],
+        rows: [
+          {
+            total_score: 600,
+            account_age_days: 100,
+            successful_deployments: 80,
+            staked_tokens: '0',
+            identity_verified: 0,
+            community_vouches: 2,
+            violations: 0,
+            violation_severity: 0,
+            last_updated: now,
+            created_at: now - 100 * 86400000,
+          },
+        ],
       })
 
       await expect(
-        service.addVouch(voucherAddress, voucherAddress, 'Self vouch')
+        service.addVouch(voucherAddress, voucherAddress, 'Self vouch'),
       ).rejects.toThrow('yourself')
     })
   })
@@ -289,7 +299,7 @@ describe('Reputation Service', () => {
     test('revokes existing vouch', async () => {
       await service.revokeVouch(
         '0x2222222222222222222222222222222222222222' as Address,
-        '0x3333333333333333333333333333333333333333' as Address
+        '0x3333333333333333333333333333333333333333' as Address,
       )
 
       expect(mockExec).toHaveBeenCalled()
@@ -343,10 +353,12 @@ describe('Reputation Service', () => {
   describe('appealViolation', () => {
     test('appeals violation', async () => {
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          id: 'vio-1',
-          address: testAddress.toLowerCase(),
-        }],
+        rows: [
+          {
+            id: 'vio-1',
+            address: testAddress.toLowerCase(),
+          },
+        ],
       })
 
       await service.appealViolation(testAddress, 'vio-1')
@@ -358,7 +370,7 @@ describe('Reputation Service', () => {
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
       await expect(
-        service.appealViolation(testAddress, 'vio-999')
+        service.appealViolation(testAddress, 'vio-999'),
       ).rejects.toThrow('not found')
     })
   })
@@ -366,10 +378,12 @@ describe('Reputation Service', () => {
   describe('resolveAppeal', () => {
     test('approves appeal and removes penalty', async () => {
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          address: testAddress.toLowerCase(),
-          penalty_applied: 200,
-        }],
+        rows: [
+          {
+            address: testAddress.toLowerCase(),
+            penalty_applied: 200,
+          },
+        ],
       })
 
       await service.resolveAppeal('vio-1', true)
@@ -379,10 +393,12 @@ describe('Reputation Service', () => {
 
     test('denies appeal', async () => {
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          address: testAddress.toLowerCase(),
-          penalty_applied: 200,
-        }],
+        rows: [
+          {
+            address: testAddress.toLowerCase(),
+            penalty_applied: 200,
+          },
+        ],
       })
 
       await service.resolveAppeal('vio-1', false)
@@ -398,7 +414,7 @@ describe('shouldModerateDeployment', () => {
     mockQuery.mockResolvedValueOnce({ rows: [] })
 
     const result = await shouldModerateDeployment(
-      '0x1234567890123456789012345678901234567890' as Address
+      '0x1234567890123456789012345678901234567890' as Address,
     )
 
     expect(result.shouldModerate).toBe(true)
@@ -414,7 +430,7 @@ describe('applyModerationResult', () => {
       'dep-123',
       true,
       'basic',
-      'AI scan passed'
+      'AI scan passed',
     )
 
     expect(mockExec).toHaveBeenCalled()
@@ -432,7 +448,7 @@ describe('applyModerationResult', () => {
         severity: 'high',
         description: 'Prohibited content',
         evidence: 'hash://evidence',
-      }
+      },
     )
 
     expect(mockExec).toHaveBeenCalled()

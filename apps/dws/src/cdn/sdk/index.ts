@@ -123,11 +123,13 @@ function relative(from: string, to: string): string {
 }
 
 import {
+  getCurrentNetwork,
   getIpfsGatewayEnv,
   getRpcUrl,
   getStorageApiEndpoint,
+  isProductionEnv,
+  tryGetContract,
 } from '@jejunetwork/config'
-import { isProductionEnv } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import type {
   CacheConfig,
@@ -264,10 +266,7 @@ export class CDNClient {
     }
 
     // SECURITY: Block raw private keys in production (strict mode)
-    if (
-      isProductionEnv() &&
-      process.env.CDN_STRICT_SECURITY === 'true'
-    ) {
+    if (isProductionEnv() && process.env.CDN_STRICT_SECURITY === 'true') {
       throw new Error(
         'SECURITY: Raw private keys are not allowed in production with CDN_STRICT_SECURITY=true. ' +
           'Waiting for KMS integration.',
@@ -315,7 +314,8 @@ export class CDNClient {
       client: this.walletClient,
     })
 
-    this.coordinatorUrl = config.coordinatorUrl ?? `http://${getLocalhostHost()}:4021`
+    this.coordinatorUrl =
+      config.coordinatorUrl ?? `http://${getLocalhostHost()}:4021`
     this.ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io'
   }
 
@@ -823,13 +823,25 @@ export function createCDNClientFromEnv(): CDNClient {
     )
   }
 
+  const network = getCurrentNetwork()
   return new CDNClient({
     kmsServiceId,
     privateKey,
-    rpcUrl: getRpcUrl(),
-    registryAddress: process.env.CDN_REGISTRY_ADDRESS as Address | undefined,
-    billingAddress: process.env.CDN_BILLING_ADDRESS as Address | undefined,
-    coordinatorUrl: process.env.CDN_COORDINATOR_URL,
+    rpcUrl: getRpcUrl(network),
+    registryAddress:
+      ((typeof process !== 'undefined'
+        ? process.env.CDN_REGISTRY_ADDRESS
+        : undefined) as Address | undefined) ??
+      (tryGetContract('cdn', 'registry', network) as Address | undefined),
+    billingAddress:
+      ((typeof process !== 'undefined'
+        ? process.env.CDN_BILLING_ADDRESS
+        : undefined) as Address | undefined) ??
+      (tryGetContract('cdn', 'billing', network) as Address | undefined),
+    coordinatorUrl:
+      typeof process !== 'undefined'
+        ? process.env.CDN_COORDINATOR_URL
+        : undefined,
     ipfsGateway: getIpfsGatewayEnv(),
   })
 }

@@ -11,7 +11,7 @@ import {
 } from '@jejunetwork/sdk'
 import type { NetworkType } from '@jejunetwork/types'
 import type { Hex } from 'viem'
-import { privateKeyToAccount, mnemonicToAccount } from 'viem/accounts'
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 
 const networkName = getNetworkName()
 const networkNameLower = networkName.toLowerCase()
@@ -68,7 +68,7 @@ export class JejuService extends Service {
     }
 
     // Create account from private key or mnemonic
-    const account = privateKey 
+    const account = privateKey
       ? privateKeyToAccount(privateKey)
       : mnemonicToAccount(mnemonic as string)
 

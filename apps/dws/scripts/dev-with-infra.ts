@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * DWS Development Server with Full Infrastructure
  *
@@ -10,8 +11,8 @@
  * 5. Starts the frontend dev server
  */
 
-import { getLocalhostHost } from '@jejunetwork/config'
 import { join } from 'node:path'
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
 
 const _ROOT_DIR = join(import.meta.dir, '../../..')

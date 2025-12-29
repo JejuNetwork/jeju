@@ -191,7 +191,10 @@ export interface ProvisionerConfig {
   allocationTimeoutMs: number
 }
 
-const getDefaultConfigs = (): Record<ProvisionerEnvironment, ProvisionerConfig> => {
+const getDefaultConfigs = (): Record<
+  ProvisionerEnvironment,
+  ProvisionerConfig
+> => {
   const host = getLocalhostHost()
   return {
     local: {

@@ -7,6 +7,7 @@ import {
   getBridgeProverUrl,
   getEvmChainId,
   getHomeDir,
+  getL1RpcUrl,
   getLocalhostHost,
   getRelayerPort,
   getSolanaRpcUrl,
@@ -1307,20 +1308,26 @@ if (import.meta.main) {
     evmChains: [
       {
         chainId: getEvmChainId() as ChainId,
-        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:6545'),
+        rpcUrl: requireEnv('EVM_RPC_URL', getL1RpcUrl()),
         bridgeAddress: requireEnv('BRIDGE_ADDRESS'),
         lightClientAddress: requireEnv('LIGHT_CLIENT_ADDRESS'),
         privateKey: requireEnvSecret('PRIVATE_KEY'),
       },
     ],
     solanaConfig: {
-      rpcUrl: requireEnv('SOLANA_RPC_URL', getSolanaRpcUrl() || 'http://127.0.0.1:8899'),
+      rpcUrl: requireEnv(
+        'SOLANA_RPC_URL',
+        getSolanaRpcUrl() || `http://${getLocalhostHost()}:8899`,
+      ),
       bridgeProgramId: requireEnv('BRIDGE_PROGRAM_ID'),
       evmLightClientProgramId: requireEnv('EVM_LIGHT_CLIENT_PROGRAM_ID'),
       keypairPath: requireEnv('SOLANA_KEYPAIR', '~/.config/solana/id.json'),
     },
     proverEndpoint: requireEnv('PROVER_ENDPOINT', getBridgeProverUrl()),
-    teeEndpoint: requireEnv('TEE_ENDPOINT', `http://${getLocalhostHost()}:8080`),
+    teeEndpoint: requireEnv(
+      'TEE_ENDPOINT',
+      `http://${getLocalhostHost()}:8080`,
+    ),
     batchSize: 10,
     batchTimeoutMs: 30000,
     retryAttempts: 3,

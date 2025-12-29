@@ -1,13 +1,13 @@
 import { cors } from '@elysiajs/cors'
 import {
-  getContract,
-  getCurrentNetwork,
-  isProductionEnv,
   RPC_CHAINS as CHAINS,
   getRpcChain as getChain,
+  getContract,
+  getCurrentNetwork,
   getRpcMainnetChains as getMainnetChains,
   getRpcTestnetChains as getTestnetChains,
   isRpcChainSupported as isChainSupported,
+  isProductionEnv,
 } from '@jejunetwork/config'
 import {
   expectValid as expect,
@@ -706,12 +706,17 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       })
       .get('/stake', () => {
         const network = getCurrentNetwork()
-        const stakingAddress = getContract('rpc', 'staking', network) || 'Not deployed'
+        const stakingAddress =
+          getContract('rpc', 'staking', network) || 'Not deployed'
         return {
           contract: stakingAddress,
           pricing: 'USD-denominated (dynamic based on JEJU price)',
           tiers: {
-            FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
+            FREE: {
+              minUsd: 0,
+              rateLimit: 10,
+              description: '10 requests/minute',
+            },
             BASIC: {
               minUsd: 10,
               rateLimit: 100,

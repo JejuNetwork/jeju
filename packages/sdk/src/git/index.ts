@@ -8,6 +8,7 @@
  * - On-chain registry interaction
  */
 
+import { getDWSUrl, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { getEnv, getEnvOrDefault } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { createWalletClient, http } from 'viem'
@@ -806,8 +807,11 @@ export function createJejuGitSDK(config: GitSDKConfig): JejuGitSDK {
 // Convenience function for default config
 export function createDefaultGitSDK(): JejuGitSDK {
   return new JejuGitSDK({
-    rpcUrl: getEnvOrDefault('JEJU_RPC_URL', 'http://127.0.0.1:6546'),
-    gitServerUrl: getEnvOrDefault('JEJUGIT_URL', 'http://localhost:4030/git'),
+    rpcUrl: getEnvOrDefault('JEJU_RPC_URL', getL2RpcUrl()),
+    gitServerUrl: getEnvOrDefault(
+      'JEJUGIT_URL',
+      `${getDWSUrl() ?? `http://${getLocalhostHost()}:4030`}/git`,
+    ),
     registryAddress: getEnv('GIT_REGISTRY_ADDRESS') as Address | undefined,
   })
 }

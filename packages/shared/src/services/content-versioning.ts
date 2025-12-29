@@ -24,6 +24,7 @@ import {
   getIpfsApiUrlEnv,
   getIpfsGatewayUrlEnv,
   getJnsResolverAddressEnv,
+  getLocalhostHost,
   isDeployPreview,
   isDeployStaging,
   isDevMode,
@@ -418,7 +419,7 @@ export class ContentVersioningService {
     }
 
     const port = defaultPorts[this.config.appName] ?? 4000
-    return `http://localhost:${port}`
+    return `http://${getLocalhostHost()}:${port}`
   }
 
   /**
@@ -466,7 +467,7 @@ export function createContentVersioningService(
       ipfsGatewayUrl:
         options.ipfsGatewayUrl ??
         getIpfsGatewayUrlEnv() ??
-        'http://localhost:4180',
+        `http://${getLocalhostHost()}:4180`,
     },
     options.publicClient,
     options.walletClient,

@@ -20,7 +20,7 @@ import { WebSocket } from 'ws'
 import { z } from 'zod'
 import { PROXY_REGISTRY_ABI } from '../abis'
 import { config as nodeConfig } from '../config'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 /** Type for proxy node from contract */
 interface ProxyNodeResult {
@@ -158,7 +158,7 @@ class CircuitBreaker {
 // Residential Proxy Service
 
 export class ResidentialProxyService {
-  private client: NodeClient
+  private client: SecureNodeClient
   private config: ProxyConfig
   private ws: WebSocket | null = null
   private server: http.Server | null = null
@@ -175,7 +175,7 @@ export class ResidentialProxyService {
   private coordinatorBreaker = new CircuitBreaker(5, 30000)
   private validTokens = new Map<string, number>() // requestId -> expiry
 
-  constructor(client: NodeClient, config: Partial<ProxyConfig>) {
+  constructor(client: SecureNodeClient, config: Partial<ProxyConfig>) {
     this.client = client
 
     // Validate config
@@ -588,7 +588,7 @@ export class ResidentialProxyService {
 // Factory
 
 export function createResidentialProxyService(
-  client: NodeClient,
+  client: SecureNodeClient,
   config?: Partial<ProxyConfig>,
 ): ResidentialProxyService {
   return new ResidentialProxyService(client, config ?? {})

@@ -2,13 +2,14 @@
  * Example App Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
+import { CORE_PORTS } from '@jejunetwork/config'
 import {
   createSynpressConfig,
   createWalletSetup,
   PASSWORD,
 } from '@jejunetwork/tests/playwright-only'
 
-const EXAMPLE_PORT = parseInt(process.env.PORT || '4500', 10)
+const EXAMPLE_PORT = CORE_PORTS.EXAMPLE.get()
 
 export default createSynpressConfig({
   appName: 'example',

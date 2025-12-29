@@ -5,6 +5,7 @@
  * Enables RLAIF (Reinforcement Learning from AI Feedback) for Eliza agents.
  */
 
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { JobsListResponseSchemaExternal } from '../schemas'
 
@@ -90,8 +91,10 @@ export class CrucibleTrainingClient {
       crucibleApiUrl?: string
     } = {},
   ) {
-    this.dwsApiUrl = config.dwsApiUrl ?? 'http://localhost:4030'
-    this.crucibleApiUrl = config.crucibleApiUrl ?? 'http://localhost:8080'
+    this.dwsApiUrl =
+      config.dwsApiUrl ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4030`
+    this.crucibleApiUrl =
+      config.crucibleApiUrl ?? `http://${getLocalhostHost()}:8080`
   }
 
   async registerTrainingAgents(agents: TrainingAgentConfig[]): Promise<void> {

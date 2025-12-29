@@ -3,13 +3,14 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { getRpcUrl } from '@jejunetwork/config'
 import { createPublicClient, http } from 'viem'
 import { quickHealthCheck, runPreflightChecks, waitForChain } from './preflight'
 import { isRpcAvailable } from './utils'
 
 // Test against non-existent RPC to verify error handling
 const FAKE_RPC = 'http://localhost:59999'
-const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
+const REAL_RPC = getRpcUrl()
 
 // Auto-detect chain availability and chain ID
 let CHAIN_AVAILABLE = false

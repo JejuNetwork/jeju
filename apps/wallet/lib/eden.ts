@@ -8,7 +8,11 @@
  */
 
 import { treaty } from '@elysiajs/eden'
-import { getCurrentNetwork, getServicesConfig } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import { z } from 'zod'
 import { getEnv } from './env'
 
@@ -30,38 +34,50 @@ export const API_URLS = {
   gateway:
     getEnv('PUBLIC_JEJU_GATEWAY_URL') ||
     services.gateway.api ||
-    (isLocalDev ? 'http://localhost:4001' : 'https://gateway.jejunetwork.org'),
+    (isLocalDev
+      ? `http://${getLocalhostHost()}:4001`
+      : 'https://gateway.jejunetwork.org'),
   dws:
     getEnv('PUBLIC_JEJU_DWS_URL') ||
     services.dws.api ||
-    (isLocalDev ? 'http://localhost:4010' : 'https://dws.jejunetwork.org'),
+    (isLocalDev
+      ? `http://${getLocalhostHost()}:4010`
+      : 'https://dws.jejunetwork.org'),
   indexer:
     getEnv('PUBLIC_JEJU_INDEXER_URL') ||
     services.indexer.rest ||
-    (isLocalDev ? 'http://localhost:4352' : 'https://indexer.jejunetwork.org'),
+    (isLocalDev
+      ? `http://${getLocalhostHost()}:4352`
+      : 'https://indexer.jejunetwork.org'),
   graphql:
     getEnv('PUBLIC_JEJU_GRAPHQL_URL') ||
     services.indexer.graphql ||
     (isLocalDev
-      ? 'http://localhost:4350/graphql'
+      ? `http://${getLocalhostHost()}:4350/graphql`
       : 'https://indexer.jejunetwork.org/graphql'),
   bundler:
     getEnv('PUBLIC_JEJU_BUNDLER_URL') ||
-    (isLocalDev ? 'http://localhost:4337' : 'https://bundler.jejunetwork.org'),
+    (isLocalDev
+      ? `http://${getLocalhostHost()}:4337`
+      : 'https://bundler.jejunetwork.org'),
   solver:
     getEnv('PUBLIC_JEJU_SOLVER_URL') ||
     services.oif.aggregator ||
     (isLocalDev
-      ? 'http://localhost:4010/solver'
+      ? `http://${getLocalhostHost()}:4010/solver`
       : 'https://solver.jejunetwork.org'),
   compute:
     getEnv('PUBLIC_JEJU_COMPUTE_URL') ||
     services.compute.marketplace ||
-    (isLocalDev ? 'http://localhost:4100' : 'https://compute.jejunetwork.org'),
+    (isLocalDev
+      ? `http://${getLocalhostHost()}:4100`
+      : 'https://compute.jejunetwork.org'),
   rpc:
     getEnv('PUBLIC_JEJU_RPC_URL') ||
     services.rpc.l2 ||
-    (isLocalDev ? 'http://localhost:4012' : 'https://rpc.jejunetwork.org'),
+    (isLocalDev
+      ? `http://${getLocalhostHost()}:4012`
+      : 'https://rpc.jejunetwork.org'),
 }
 
 export class APIError extends Error {

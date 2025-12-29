@@ -27,7 +27,7 @@ export {
 // Providers
 export { LocalModerationProvider, type LocalProviderConfig } from './providers/local'
 export { HashModerationProvider, type HashProviderConfig, type HashEntry, type HashDatabaseConfig } from './providers/hash'
-export { NSFWDetectionProvider, type NSFWProviderConfig, needsCsamVerification } from './providers/nsfw'
+export { NSFWDetectionProvider, type NSFWProviderConfig, needsCsamVerification, getNsfwScore } from './providers/nsfw'
 export { OpenAIModerationProvider, type OpenAIModerationConfig } from './providers/openai'
 export { HiveModerationProvider, type HiveProviderConfig } from './providers/hive'
 export { AWSRekognitionProvider, type AWSRekognitionConfig } from './providers/aws-rekognition'

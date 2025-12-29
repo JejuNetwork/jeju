@@ -30,6 +30,7 @@ import {
   getServiceUrl,
   isLocalnet,
   isProductionEnv,
+  tryGetContract,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -158,29 +159,58 @@ export function configureDWSServer(config: Partial<DWSServerConfig>): void {
 // Server port - from centralized config (env override via CORE_PORTS)
 const PORT = CORE_PORTS.DWS_API.get()
 
-// Rate limiter store
-// NOTE: This is an in-memory rate limiter suitable for single-instance deployments.
-// For multi-instance deployments, use Redis or a shared store.
-interface RateLimitEntry {
-  count: number
-  resetAt: number
-}
+// Distributed rate limiter using shared cache
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 
-const rateLimitStore = new Map<string, RateLimitEntry>()
-const RATE_LIMIT_WINDOW_MS = 60 * 1000
+const RATE_LIMIT_WINDOW_SECONDS = 60
 const RATE_LIMIT_MAX =
-  (serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development')) ===
-  'test'
+  (serverConfig.nodeEnv ??
+    (isProductionEnv() ? 'production' : 'development')) === 'test'
     ? 100000
     : 1000
 const SKIP_RATE_LIMIT_PATHS = ['/health', '/.well-known/']
 
+let rateLimitCache: CacheClient | null = null
+
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('dws-ratelimit')
+  }
+  return rateLimitCache
+}
+
+async function checkRateLimitAsync(
+  clientIp: string,
+): Promise<{ allowed: boolean; count: number; resetAt: number }> {
+  const cache = getRateLimitCache()
+  const cacheKey = `ratelimit:${clientIp}`
+  const now = Date.now()
+  const resetAt = now + RATE_LIMIT_WINDOW_SECONDS * 1000
+
+  const current = await cache.get(cacheKey)
+  if (!current) {
+    await cache.set(cacheKey, '1', RATE_LIMIT_WINDOW_SECONDS)
+    return { allowed: true, count: 1, resetAt }
+  }
+
+  const count = parseInt(current, 10) + 1
+  await cache.set(cacheKey, String(count), RATE_LIMIT_WINDOW_SECONDS)
+
+  return {
+    allowed: count <= RATE_LIMIT_MAX,
+    count,
+    resetAt,
+  }
+}
+
 function rateLimiter() {
   return new Elysia({ name: 'rate-limiter' }).onBeforeHandle(
-    ({
+    async ({
       request,
       set,
-    }): { error: string; message: string; retryAfter: number } | undefined => {
+    }): Promise<
+      { error: string; message: string; retryAfter: number } | undefined
+    > => {
       const url = new URL(request.url)
       const path = url.pathname
       if (SKIP_RATE_LIMIT_PATHS.some((p) => path.startsWith(p))) {
@@ -188,36 +218,27 @@ function rateLimiter() {
       }
 
       // Get client IP from proxy headers
-      // Note: In production, ensure reverse proxy sets x-forwarded-for or x-real-ip
-      // x-forwarded-for can be comma-separated; take the first (original client)
       const forwardedFor = request.headers.get('x-forwarded-for')
       const clientIp =
         forwardedFor?.split(',')[0]?.trim() ||
         request.headers.get('x-real-ip') ||
-        request.headers.get('cf-connecting-ip') || // Cloudflare
-        'local' // Fallback for local dev without proxy
-      const now = Date.now()
+        request.headers.get('cf-connecting-ip') ||
+        'local'
 
-      let entry = rateLimitStore.get(clientIp)
-      if (!entry || now > entry.resetAt) {
-        entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS }
-        rateLimitStore.set(clientIp, entry)
-      }
-
-      entry.count++
+      const { allowed, count, resetAt } = await checkRateLimitAsync(clientIp)
 
       set.headers['X-RateLimit-Limit'] = String(RATE_LIMIT_MAX)
       set.headers['X-RateLimit-Remaining'] = String(
-        Math.max(0, RATE_LIMIT_MAX - entry.count),
+        Math.max(0, RATE_LIMIT_MAX - count),
       )
-      set.headers['X-RateLimit-Reset'] = String(Math.ceil(entry.resetAt / 1000))
+      set.headers['X-RateLimit-Reset'] = String(Math.ceil(resetAt / 1000))
 
-      if (entry.count > RATE_LIMIT_MAX) {
+      if (!allowed) {
         set.status = 429
         return {
           error: 'Too Many Requests',
           message: 'Rate limit exceeded',
-          retryAfter: Math.ceil((entry.resetAt - now) / 1000),
+          retryAfter: Math.ceil((resetAt - Date.now()) / 1000),
         }
       }
 
@@ -225,16 +246,6 @@ function rateLimiter() {
     },
   )
 }
-
-// Cleanup stale rate limit entries periodically
-const rateLimitCleanupInterval = setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of rateLimitStore) {
-    if (now > entry.resetAt) {
-      rateLimitStore.delete(key)
-    }
-  }
-}, RATE_LIMIT_WINDOW_MS)
 
 const app = new Elysia()
   // Global error handler - converts validation errors to proper HTTP status codes
@@ -289,7 +300,8 @@ const app = new Elysia()
 const backendManager = createBackendManager()
 
 // Environment validation - require addresses in production
-const nodeEnv = serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development')
+const nodeEnv =
+  serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development')
 const isProduction = nodeEnv === 'production'
 const NETWORK = getCurrentNetwork()
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address
@@ -474,7 +486,9 @@ app
         oauth3: await (async () => {
           const oauth3Url =
             serverConfig.oauth3AgentUrl ??
-            process.env.OAUTH3_AGENT_URL ??
+            (typeof process !== 'undefined'
+              ? process.env.OAUTH3_AGENT_URL
+              : undefined) ??
             getOAuth3Url(NETWORK)
           try {
             const response = await fetch(`${oauth3Url}/health`, {
@@ -709,9 +723,13 @@ const daConfig = {
   // DA contract address - not yet in centralized config
   daContractAddress:
     (serverConfig.daContractAddress as Address | undefined) ??
-    (typeof process !== 'undefined'
-      ? ((process.env.DA_CONTRACT_ADDRESS || ZERO_ADDR) as Address)
-      : ZERO_ADDR),
+    ((typeof process !== 'undefined'
+      ? process.env.DA_CONTRACT_ADDRESS
+      : undefined) as Address | undefined) ??
+    (tryGetContract('dws', 'dataAvailability', NETWORK) as
+      | Address
+      | undefined) ??
+    ZERO_ADDR,
   rpcUrl: getRpcUrl(NETWORK),
 }
 
@@ -971,7 +989,6 @@ let server: ReturnType<typeof Bun.serve> | null = null
 
 function shutdown(signal: string) {
   console.log(`[DWS] Received ${signal}, shutting down gracefully...`)
-  clearInterval(rateLimitCleanupInterval)
   shutdownDA()
   console.log('[DWS] DA layer stopped')
   shutdownLoadBalancer()
@@ -1036,7 +1053,9 @@ if (import.meta.main) {
     isDevnet: isLocalnet(NETWORK) || serverConfig.devnet,
     jejuAppsDir:
       typeof process !== 'undefined' ? process.env.JEJU_APPS_DIR : undefined,
-    nodeEnv: serverConfig.nodeEnv ?? (isProductionEnv() ? 'production' : 'development'),
+    nodeEnv:
+      serverConfig.nodeEnv ??
+      (isProductionEnv() ? 'production' : 'development'),
   })
 
   configureOAuth3RouterConfig({
@@ -1044,11 +1063,13 @@ if (import.meta.main) {
   })
 
   // Monitoring service doesn't have a getServiceUrl helper, so construct URLs manually
-  const monitoringHost = isLocalnet(NETWORK) ? getLocalhostHost() : 'monitoring.jejunetwork.org'
+  const monitoringHost = isLocalnet(NETWORK)
+    ? getLocalhostHost()
+    : 'monitoring.jejunetwork.org'
   const monitoringPort = isLocalnet(NETWORK) ? CORE_PORTS.MONITORING.get() : 443
   const monitoringProtocol = isLocalnet(NETWORK) ? 'http' : 'https'
-  const monitoringBaseUrl = isLocalnet(NETWORK) 
-    ? `${monitoringProtocol}://${monitoringHost}:${monitoringPort}` 
+  const monitoringBaseUrl = isLocalnet(NETWORK)
+    ? `${monitoringProtocol}://${monitoringHost}:${monitoringPort}`
     : `${monitoringProtocol}://${monitoringHost}`
 
   configureProxyRouterConfig({

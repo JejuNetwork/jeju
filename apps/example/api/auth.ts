@@ -197,7 +197,9 @@ export function createAuthRoutes() {
           provider: validatedProvider,
           appId,
           redirectUri:
-            process.env.OAUTH3_REDIRECT_URI ||
+            (typeof process !== 'undefined'
+              ? process.env.OAUTH3_REDIRECT_URI
+              : undefined) ||
             (getCurrentNetwork() === 'localnet'
               ? `http://${getLocalhostHost()}:4501/auth/callback`
               : `${getOAuth3Url(getCurrentNetwork())}/callback`),
@@ -231,9 +233,15 @@ export function createAuthRoutes() {
 
       const network = getCurrentNetwork()
       const expectedOrigin =
-        process.env.OAUTH3_REDIRECT_ORIGIN ||
-        process.env.OAUTH3_REDIRECT_URI?.replace(/\/[^/]*$/, '') ||
-        (network === 'localnet' ? `http://${getLocalhostHost()}:4501` : getOAuth3Url(network))
+        (typeof process !== 'undefined'
+          ? process.env.OAUTH3_REDIRECT_ORIGIN
+          : undefined) ||
+        (typeof process !== 'undefined'
+          ? process.env.OAUTH3_REDIRECT_URI?.replace(/\/[^/]*$/, '')
+          : undefined) ||
+        (network === 'localnet'
+          ? `http://${getLocalhostHost()}:4501`
+          : getOAuth3Url(network))
 
       const postMessageOriginScript = expectedOrigin
         ? `'${escapeForJson(expectedOrigin)}'`

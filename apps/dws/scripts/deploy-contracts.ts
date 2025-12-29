@@ -8,7 +8,7 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { getLocalhostHost } from '@jejunetwork/config'
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -27,7 +27,8 @@ const CONFIG_PATH = join(ROOT_DIR, 'packages/config/contracts.json')
 // Default anvil private key (account 0)
 const DEFAULT_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
-const RPC_URL = process.env.RPC_URL || `http://${getLocalhostHost()}:6546`
+
+const RPC_URL = getRpcUrl()
 
 interface DeployedContract {
   name: string

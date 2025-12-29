@@ -163,10 +163,7 @@ export const RPC_CHAINS: Record<number, RpcChainConfig> = {
     chainId: 31337,
     name: 'Localnet',
     shortName: 'LOCAL',
-    rpcUrl: getEnv(
-      'LOCALNET_RPC_URL',
-      `http://${getLocalhostHost()}:6546`,
-    ),
+    rpcUrl: getEnv('LOCALNET_RPC_URL', `http://${getLocalhostHost()}:6546`),
     fallbackRpcs: [],
     explorerUrl: `http://${getLocalhostHost()}:4000`,
     isTestnet: true,

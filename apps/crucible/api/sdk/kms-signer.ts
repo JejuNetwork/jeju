@@ -20,19 +20,6 @@
  * 5. Access control via on-chain policies
  */
 
-// Re-export canonical KMS signer for standard usage
-export {
-  createKMSSigner as createCanonicalKMSSigner,
-  getKMSSigner as getCanonicalKMSSigner,
-  type KMSKeyInfo as CanonicalKMSKeyInfo,
-  KMSSigner as CanonicalKMSSigner,
-  type KMSSignerConfig as CanonicalKMSSignerConfig,
-  type SigningMode,
-  type SignResult as CanonicalSignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-} from '@jejunetwork/kms'
-
 import {
   checkHSMAvailability,
   getCurrentNetwork,

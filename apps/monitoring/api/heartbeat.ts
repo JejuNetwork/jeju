@@ -12,10 +12,10 @@
  */
 
 import {
+  getCurrentNetwork,
   getKmsServiceUrl,
   getRpcUrl,
   getServiceUrl,
-  getCurrentNetwork,
   isProductionEnv,
 } from '@jejunetwork/config'
 import {
@@ -78,8 +78,7 @@ type EthSyncingResult = z.infer<typeof EthSyncingResponseSchema>['result']
 // Configuration
 // ============================================================================
 
-const NODE_ID =
-  typeof process !== 'undefined' ? process.env.NODE_ID : undefined
+const NODE_ID = typeof process !== 'undefined' ? process.env.NODE_ID : undefined
 const OPERATOR_ADDRESS =
   typeof process !== 'undefined'
     ? (process.env.OPERATOR_ADDRESS as Address | undefined)
@@ -119,7 +118,9 @@ if (IS_PRODUCTION) {
 
 const network = getCurrentNetwork()
 const NODE_EXPLORER_API =
-  (typeof process !== 'undefined' ? process.env.NODE_EXPLORER_API : undefined) ??
+  (typeof process !== 'undefined'
+    ? process.env.NODE_EXPLORER_API
+    : undefined) ??
   getServiceUrl('gateway', 'api', network) ??
   'https://nodes.jejunetwork.org/api'
 const RPC_URL =

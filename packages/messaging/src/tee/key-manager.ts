@@ -16,7 +16,6 @@ import type {
   KeyType,
 } from '@jejunetwork/kms'
 import {
-  bytesToHex,
   createLogger,
   decryptAesGcm,
   deriveKeyScrypt,
@@ -521,7 +520,10 @@ export class TEEXMTPKeyManager {
    * @param keyId - Key ID to export
    * @param password - Password to encrypt the backup
    */
-  async exportEncrypted(keyId: string, password: string): Promise<EncryptedBackup> {
+  async exportEncrypted(
+    keyId: string,
+    password: string,
+  ): Promise<EncryptedBackup> {
     if (!this.config.mockMode) {
       throw new Error(
         'Direct key export not supported in TEE mode. Use TEE provider export mechanisms.',

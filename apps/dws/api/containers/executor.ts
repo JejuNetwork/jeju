@@ -4,11 +4,12 @@
  */
 
 import {
+  getCurrentNetwork,
   getDWSUrl,
   getLocalhostHost,
   getRpcUrl,
   getServiceUrl,
-  getCurrentNetwork,
+  tryGetContract,
 } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address, PublicClient } from 'viem'
@@ -39,9 +40,10 @@ import * as warmPool from './warm-pool'
 // Contract configuration
 const network = getCurrentNetwork()
 const CONTAINER_REGISTRY_ADDRESS =
-  typeof process !== 'undefined'
+  (typeof process !== 'undefined'
     ? (process.env.CONTAINER_REGISTRY_ADDRESS as Address | undefined)
-    : undefined
+    : undefined) ??
+  (tryGetContract('dws', 'containerRegistry', network) as Address | undefined)
 const RPC_URL =
   (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
   getRpcUrl(network)

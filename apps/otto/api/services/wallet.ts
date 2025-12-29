@@ -2,6 +2,11 @@
  * Otto Wallet Service
  */
 
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getOAuth3Url,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex, verifyMessage } from 'viem'
 import {
@@ -15,13 +20,7 @@ import {
   type UserSettings,
   UserSettingsSchema,
 } from '../../lib'
-import {
-  getCurrentNetwork,
-  getLocalhostHost,
-  getOAuth3Url,
-} from '@jejunetwork/config'
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS } from '../config'
-import { getRequiredEnv } from '../utils/validation'
 import { getStateManager } from './state'
 
 const getOAuth3BaseUrl = () => {

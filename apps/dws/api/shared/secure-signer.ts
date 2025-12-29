@@ -9,31 +9,8 @@
  * ```
  */
 
-import {
-  createKMSSigner,
-  getKMSSigner,
-  type KMSKeyInfo,
-  KMSSigner,
-  type KMSSignerConfig,
-  type SigningMode,
-  type SignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-} from '@jejunetwork/kms'
+import { createKMSSigner } from '@jejunetwork/kms'
 import type { Address, Hex } from 'viem'
-
-// Re-export canonical types
-export {
-  createKMSSigner,
-  getKMSSigner,
-  type KMSKeyInfo,
-  KMSSigner,
-  type KMSSignerConfig,
-  type SigningMode,
-  type SignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-}
 
 /**
  * SecureSigner interface for backward compatibility with DWS code

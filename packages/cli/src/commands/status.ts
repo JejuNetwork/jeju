@@ -1,9 +1,6 @@
 /** System status and diagnostics */
 
-import {
-  getL2RpcUrl,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import { getAccountBalance, getChainStatus } from '../lib/chain'
 import { getDevKeys, hasKeys } from '../lib/keys'

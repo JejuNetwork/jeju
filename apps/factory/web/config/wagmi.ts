@@ -5,6 +5,7 @@
  * centralized dependencies. No project IDs or external services required.
  */
 
+import { getL2RpcUrl } from '@jejunetwork/config'
 import {
   type ChainConfig,
   createDecentralizedWagmiConfig,
@@ -15,7 +16,7 @@ const NETWORK_CONFIGS: Record<string, ChainConfig> = {
   localnet: {
     id: 31337,
     name: 'Jeju Localnet',
-    rpcUrl: 'http://127.0.0.1:6546',
+    rpcUrl: getL2RpcUrl(),
     testnet: true,
   },
   testnet: {

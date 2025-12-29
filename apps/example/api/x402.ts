@@ -1,7 +1,4 @@
-import {
-  getCurrentNetwork,
-  tryGetContract,
-} from '@jejunetwork/config'
+import { getCurrentNetwork, tryGetContract } from '@jejunetwork/config'
 import { expectAddress, isValidAddress } from '@jejunetwork/types'
 import { type Context, Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
@@ -59,7 +56,10 @@ const DEV_PAYMENT_ADDRESS = expectAddress(
 // In production, X402_PAYMENT_ADDRESS is required
 const getPaymentAddress = (): Address => {
   const network = getCurrentNetwork()
-  const configuredAddress = typeof process !== 'undefined' ? process.env.X402_PAYMENT_ADDRESS : undefined
+  const configuredAddress =
+    typeof process !== 'undefined'
+      ? process.env.X402_PAYMENT_ADDRESS
+      : undefined
   if (configuredAddress) {
     if (isValidAddress(configuredAddress)) {
       return configuredAddress

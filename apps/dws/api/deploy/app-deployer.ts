@@ -182,11 +182,7 @@ async function initializeTEE(config: DWSConfig['tee']): Promise<{
   const status = await checkDStackStatus()
 
   // In production, if TEE is required but not available, fail
-  if (
-    config.required &&
-    !status.available &&
-    isProductionEnv()
-  ) {
+  if (config.required && !status.available && isProductionEnv()) {
     throw new Error('TEE required but not available')
   }
 
@@ -523,8 +519,7 @@ export function createAppDeployerRouter() {
       const status = await checkDStackStatus()
       return {
         ...status,
-        mode:
-          isProductionEnv() ? 'production' : 'development',
+        mode: isProductionEnv() ? 'production' : 'development',
         simulatorAllowed: !isProductionEnv(),
       }
     })

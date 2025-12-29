@@ -5,8 +5,8 @@
  * Combines signer manager and registration for a complete workflow.
  */
 
-import type { Address, Hex, WalletClient } from 'viem'
 import { hexToBytes } from '@noble/hashes/utils'
+import type { Address, Hex, WalletClient } from 'viem'
 import { optimism } from 'viem/chains'
 import { FarcasterPoster } from '../hub/poster'
 import { FarcasterSignerManager, type SignerInfo } from './manager'

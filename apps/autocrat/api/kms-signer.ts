@@ -163,10 +163,20 @@ function createLocalFallbackAccount(privateKey: Hex): KMSAccount {
 //                     WALLET CLIENT FACTORY
 // ════════════════════════════════════════════════════════════════════════════
 
-export async function createKMSWalletClient<TTransport extends Transport>(
-  config: AutocratKMSConfig & { chain: Chain; transport: TTransport },
-): Promise<WalletClient<TTransport, Chain, LocalAccount>> {
-  const kmsAccount = await createKMSAccount(config)
+export async function createKMSWalletClient<_TTransport extends Transport>(
+  configOrAddress: AutocratKMSConfig | { address: Address },
+  chain?: Chain,
+  rpcUrl?: string,
+): Promise<{ client: WalletClient; account: KMSAccount }> {
+  let kmsConfig: AutocratKMSConfig
+
+  if ('address' in configOrAddress) {
+    kmsConfig = configOrAddress as AutocratKMSConfig
+  } else {
+    kmsConfig = configOrAddress
+  }
+
+  const kmsAccount = await createKMSAccount(kmsConfig)
 
   // Convert KMSAccount to LocalAccount for viem
   const localAccount: LocalAccount = {
@@ -180,11 +190,16 @@ export async function createKMSWalletClient<TTransport extends Transport>(
       kmsAccount.signTypedData(typedData as Parameters<typeof kmsAccount.signTypedData>[0]),
   }
 
-  return createWalletClient({
+  const transport = rpcUrl ? http(rpcUrl) : http()
+  const chainToUse = chain ?? (await import('viem/chains')).localhost
+
+  const client = createWalletClient({
     account: localAccount,
-    chain: config.chain,
-    transport: config.transport,
+    chain: chainToUse,
+    transport,
   })
+
+  return { client, account: kmsAccount }
 }
 
 /**
@@ -217,6 +232,3 @@ export function getOperatorConfig(): AutocratKMSConfig | null {
     forceProduction: isProductionEnv(),
   }
 }
-
-
-

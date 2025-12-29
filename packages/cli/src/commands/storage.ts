@@ -18,6 +18,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, join, relative } from 'node:path'
+import { getDWSUrl, getL1RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { createPublicClient, createWalletClient, http, parseAbi } from 'viem'
@@ -336,7 +337,8 @@ async function verifyManifest(
 
   // Load manifest from file or fetch by CID
   if (manifestPath.startsWith('bafy') || manifestPath.startsWith('Qm')) {
-    const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4020'
+    const dwsUrl =
+      process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
     const response = await fetch(`${dwsUrl}/ipfs/${manifestPath}`)
     if (!response.ok) {
       throw new Error(`Failed to fetch manifest: ${response.statusText}`)
@@ -749,7 +751,7 @@ function getRpcUrl(network: string): string {
     case 'testnet':
       return process.env.TESTNET_RPC_URL ?? 'https://testnet-rpc.jeju.network'
     default:
-      return process.env.LOCALNET_RPC_URL ?? 'http://localhost:8545'
+      return process.env.LOCALNET_RPC_URL ?? getL1RpcUrl()
   }
 }
 

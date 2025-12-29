@@ -58,11 +58,7 @@ const getAllowedOrigins = (): string | string[] => {
   }
   if (isLocalnet) {
     const host = getLocalhostHost()
-    return [
-      `http://${host}:4500`,
-      `http://${host}:4501`,
-      `http://${host}:3000`,
-    ]
+    return [`http://${host}:4500`, `http://${host}:4501`, `http://${host}:3000`]
   }
   return []
 }

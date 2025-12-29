@@ -3,12 +3,11 @@
  */
 
 import { getLocalhostHost } from '@jejunetwork/config'
-import { getEnv, getEnvNumber, requireEnv } from '@jejunetwork/shared'
+import { getEnv, getEnvNumber } from '@jejunetwork/shared'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import {
   decryptFromPayload,
   deriveKeyFromSecret,
-  deriveKeyFromSecretAsync,
   encryptToPayload,
   extractRecoveryId,
   generateKeyId,
@@ -54,8 +53,6 @@ export class MPCProvider implements KMSProvider {
   private keys = new Map<string, MPCKey>()
   private encryptionKey: Uint8Array | null = null
 
-  private encryptionKeyPromise?: Promise<void>
-
   constructor(config: MPCConfig) {
     this.config = config
     this.coordinator = getMPCCoordinator({
@@ -74,21 +71,6 @@ export class MPCProvider implements KMSProvider {
       throw new Error('Encryption key not initialized. Call connect() first.')
     }
     return this.encryptionKey
-  }
-
-  private async ensureEncryptionKey(): Promise<void> {
-    if (this.encryptionKey) return
-    if (this.encryptionKeyPromise) return this.encryptionKeyPromise
-    
-    this.encryptionKeyPromise = (async () => {
-      const secret = requireEnv('MPC_ENCRYPTION_SECRET')
-      this.encryptionKey = await deriveKeyFromSecretAsync(
-        secret,
-        'jeju:kms:mpc:v1',
-      )
-    })()
-    
-    return this.encryptionKeyPromise
   }
 
   async isAvailable(): Promise<boolean> {
@@ -214,10 +196,14 @@ export class MPCProvider implements KMSProvider {
       if (coordKey) version = coordKey.version
     }
 
-    const ciphertext = await encryptToPayload(dataStr, this.getEncryptionKey(), {
-      version,
-      mpc: true,
-    })
+    const ciphertext = await encryptToPayload(
+      dataStr,
+      this.getEncryptionKey(),
+      {
+        version,
+        mpc: true,
+      },
+    )
 
     return {
       ciphertext,
@@ -237,7 +223,10 @@ export class MPCProvider implements KMSProvider {
 
   async decrypt(request: DecryptRequest): Promise<string> {
     await this.ensureConnected()
-    return decryptFromPayload(request.payload.ciphertext, this.getEncryptionKey())
+    return decryptFromPayload(
+      request.payload.ciphertext,
+      this.getEncryptionKey(),
+    )
   }
 
   async sign(request: SignRequest): Promise<SignedMessage> {

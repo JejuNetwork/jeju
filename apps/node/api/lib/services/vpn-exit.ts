@@ -51,7 +51,7 @@ import { expectAddress, isPlainObject } from '@jejunetwork/types'
 import { Counter, Gauge, Histogram, Registry } from 'prom-client'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 /** VPN node data from contract */
 interface VPNNodeData {
@@ -1464,7 +1464,7 @@ class NoiseIKpsk2 {
 // VPN Exit Service
 
 export class VPNExitService {
-  private client: NodeClient
+  private client: SecureNodeClient
   private config: VPNExitConfig
   private running = false
   private clients = new Map<string, VPNClient>()
@@ -1496,7 +1496,7 @@ export class VPNExitService {
   private dosState: DoSState
   private dosResetInterval: ReturnType<typeof setInterval> | null = null
 
-  constructor(client: NodeClient, config: Partial<VPNExitConfig>) {
+  constructor(client: SecureNodeClient, config: Partial<VPNExitConfig>) {
     this.client = client
 
     const parsedConfig = VPNExitConfigSchema.parse({
@@ -2551,7 +2551,7 @@ export class VPNExitService {
 // Factory
 
 export function createVPNExitService(
-  client: NodeClient,
+  client: SecureNodeClient,
   config?: Partial<VPNExitConfig>,
 ): VPNExitService {
   return new VPNExitService(client, config ?? {})

@@ -7,11 +7,15 @@
 import { existsSync, watch } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { getDWSUrl } from '@jejunetwork/config'
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import type { BunPlugin } from 'bun'
 
-const PORT = Number(process.env.PORT) || 4031
-const API_URL = process.env.API_URL || getDWSUrl()
+const PORT =
+  Number(typeof process !== 'undefined' ? process.env.PORT : undefined) || 4031
+const API_URL =
+  (typeof process !== 'undefined' ? process.env.API_URL : undefined) ||
+  getDWSUrl() ||
+  `http://${getLocalhostHost()}:4030`
 
 // Resolve paths for React and ReactDOM to ensure a single instance
 const reactPath = require.resolve('react')

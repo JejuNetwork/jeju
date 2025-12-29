@@ -102,10 +102,8 @@ async function createApp(env: Env) {
     ),
     serviceAgentId: env.SERVICE_AGENT_ID ?? 'auth.jeju',
     jwtSecret: env.JWT_SECRET ?? 'dev-secret-change-in-production', // Legacy
-    jwtSigningKeyId: env.JWT_SIGNING_KEY_ID,
-    jwtSignerAddress: env.JWT_SIGNER_ADDRESS
-      ? parseAddress(env.JWT_SIGNER_ADDRESS, ZERO_ADDRESS)
-      : undefined,
+    jwtSigningKeyId: env.JWT_SIGNING_KEY_ID ?? 'oauth3-jwt-signing',
+    jwtSignerAddress: parseAddress(env.JWT_SIGNER_ADDRESS, ZERO_ADDRESS),
     chainId: env.CHAIN_ID ?? 'eip155:420691',
     sessionDuration: 24 * 60 * 60 * 1000, // 24 hours
     allowedOrigins: (env.ALLOWED_ORIGINS ?? '*').split(','),

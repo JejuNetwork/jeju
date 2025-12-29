@@ -42,7 +42,8 @@ function validateRedirectUri(
 export function createAuthInitRouter(_config: AuthConfig) {
   const network = getCurrentNetwork()
   const host = getLocalhostHost()
-  const baseUrl = process.env.BASE_URL ?? 
+  const baseUrl =
+    (typeof process !== 'undefined' ? process.env.BASE_URL : undefined) ??
     (network === 'localnet' ? `http://${host}:4200` : getOAuth3Url(network))
 
   return new Elysia({ name: 'auth-init', prefix: '/auth' })
@@ -67,16 +68,23 @@ export function createAuthInitRouter(_config: AuthConfig) {
               `[OAuth3] Auto-registering development client: ${appId}`,
             )
             await clientState.save({
-              id: appId,
+              clientId: appId,
+              clientSecretHash: {
+                hash: '',
+                salt: '',
+                algorithm: 'pbkdf2',
+                version: 1,
+              },
               name: appId,
               redirectUris: [
                 `http://localhost:*`,
                 `http://${getLocalhostHost()}:*`,
                 'https://*.jejunetwork.org/*',
               ],
-              allowedScopes: ['openid', 'profile', 'email'],
+              allowedProviders: ['wallet', 'farcaster', 'github', 'google'],
+              owner:
+                '0x0000000000000000000000000000000000000000' as `0x${string}`,
               active: true,
-              requireSecret: false,
               createdAt: Date.now(),
             })
             client = await clientState.get(appId)

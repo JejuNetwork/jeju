@@ -109,10 +109,12 @@ const HYPERLIQUID_API = 'https://api.hyperliquid.xyz'
 export interface ExecutorConfig {
   /** KMS key ID for EVM signing (secure, no local private keys) */
   evmKeyId: string
+  /** KMS key ID for Solana signing */
+  solanaKeyId?: string
   /**
-   * @deprecated Solana private key - SECURITY RISK
-   * TODO: Replace with Solana KMS integration (Fireblocks/AWS KMS)
-   * Should be disabled in production TEE environments
+   * @deprecated Use solanaKeyId for KMS-backed signing. This field exists only
+   * for legacy compatibility and will be removed in a future version.
+   * Base64-encoded Solana private key (INSECURE - avoid in production).
    */
   solanaPrivateKey?: string
   evmRpcUrls: Record<number, string>
@@ -163,8 +165,7 @@ export class ArbitrageExecutor {
   private evmSigner: SecureSigner
   private evmAddress: Address | null = null // Derived from KMS on init
   /**
-   * @deprecated Solana keypair in memory - SECURITY RISK
-   * TODO: Replace with Solana KMS integration
+   * @deprecated Solana keypair is a legacy fallback. Use solanaKeyId for KMS-backed signing.
    */
   private solanaKeypair: Keypair | null = null
   private solanaConnection: Connection | null = null
@@ -957,7 +958,6 @@ export class ArbitrageExecutor {
 
     if (quote.txData) {
       // Use 1inch tx data - sign via KMS and broadcast
-      const chainId = chainConfig?.chain.id ?? 1
       const { signedTransaction, hash } = await this.evmSigner.signTransaction({
         to: ONEINCH_ROUTER,
         data: quote.txData,
@@ -1011,7 +1011,7 @@ export class ArbitrageExecutor {
       await this.evmSigner.signTransaction({
         to: quote.inputToken,
         data: approveData,
-        chainId: chainConfig?.chain.id ?? 1,
+        chainId,
       })
     await clients.public.sendRawTransaction({
       serializedTransaction: signedApprove,
@@ -1042,7 +1042,7 @@ export class ArbitrageExecutor {
     const { signedTransaction, hash } = await this.evmSigner.signTransaction({
       to: routerAddress,
       data: swapData,
-      chainId: chainConfig?.chain.id ?? 1,
+      chainId,
     })
     await clients.public.sendRawTransaction({
       serializedTransaction: signedTransaction,
@@ -1557,35 +1557,19 @@ export class ArbitrageExecutor {
   }
 }
 
-/** Validates that a string is a valid EVM private key format */
-function validateEvmPrivateKey(key: string | undefined, source: string): Hex {
-  if (!key) {
-    throw new Error(
-      `EVM private key required. Set ${source} environment variable or provide in config.`,
-    )
-  }
-  if (!/^0x[a-fA-F0-9]{64}$/.test(key)) {
-    throw new Error(
-      `Invalid EVM private key format from ${source}. Must be 0x followed by 64 hex characters.`,
-    )
-  }
-  return expectHex(key, source)
-}
-
 export function createArbitrageExecutor(
   config: Partial<ExecutorConfig>,
 ): ArbitrageExecutor {
-  // Validate EVM private key - required for operation
-  const evmPrivateKey = validateEvmPrivateKey(
-    config.evmPrivateKey ||
-      process.env.EVM_PRIVATE_KEY ||
-      process.env.JEJU_PRIVATE_KEY,
-    'EVM_PRIVATE_KEY or JEJU_PRIVATE_KEY',
-  )
+  const evmKeyId = config.evmKeyId ?? process.env.EVM_KMS_KEY_ID
+  if (!evmKeyId) {
+    throw new Error(
+      'EVM KMS key ID required. Set EVM_KMS_KEY_ID environment variable or provide evmKeyId in config.',
+    )
+  }
 
   // Solana private key is optional but validated if provided
   const solanaPrivateKey =
-    config.solanaPrivateKey || process.env.SOLANA_PRIVATE_KEY
+    config.solanaPrivateKey ?? process.env.SOLANA_PRIVATE_KEY
   if (solanaPrivateKey) {
     // Validate base64 format (Solana keys are 64 bytes base64 encoded)
     const decoded = Buffer.from(solanaPrivateKey, 'base64')
@@ -1597,13 +1581,14 @@ export function createArbitrageExecutor(
   }
 
   const fullConfig: ExecutorConfig = {
-    evmPrivateKey,
+    evmKeyId,
+    solanaKeyId: config.solanaKeyId ?? process.env.SOLANA_KMS_KEY_ID,
     solanaPrivateKey,
-    evmRpcUrls: config.evmRpcUrls || {
-      1: process.env.RPC_URL_1 || getExternalRpc('ethereum'),
-      42161: process.env.RPC_URL_42161 || getExternalRpc('arbitrum'),
-      10: process.env.RPC_URL_10 || getExternalRpc('optimism'),
-      8453: process.env.RPC_URL_8453 || getExternalRpc('base'),
+    evmRpcUrls: config.evmRpcUrls ?? {
+      1: process.env.RPC_URL_1 ?? getExternalRpc('ethereum'),
+      42161: process.env.RPC_URL_42161 ?? getExternalRpc('arbitrum'),
+      10: process.env.RPC_URL_10 ?? getExternalRpc('optimism'),
+      8453: process.env.RPC_URL_8453 ?? getExternalRpc('base'),
     },
     solanaRpcUrl: config.solanaRpcUrl ?? process.env.SOLANA_RPC_URL,
     zkBridgeEndpoint: config.zkBridgeEndpoint ?? process.env.ZK_BRIDGE_ENDPOINT,

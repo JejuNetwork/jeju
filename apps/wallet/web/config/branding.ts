@@ -4,7 +4,12 @@
  * Uses @jejunetwork/config for all configuration.
  */
 
-import { getChainId, getRpcUrl, getServicesConfig } from '@jejunetwork/config'
+import {
+  getChainId,
+  getLocalhostHost,
+  getRpcUrl,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import type { Chain } from 'viem'
 
 // Network name constant
@@ -121,7 +126,10 @@ export function getLocalnetChain(): Chain {
       default: { http: [URLS.rpc.localnet] },
     },
     blockExplorers: {
-      default: { name: 'Local Explorer', url: 'http://localhost:4000' },
+      default: {
+        name: 'Local Explorer',
+        url: `http://${getLocalhostHost()}:4000`,
+      },
     },
   }
 }

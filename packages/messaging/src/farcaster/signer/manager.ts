@@ -280,7 +280,9 @@ export class FarcasterSignerManager {
     }
 
     if (stored.info.status !== 'active') {
-      throw new Error(`Signer ${keyId} is not active (status: ${stored.info.status})`)
+      throw new Error(
+        `Signer ${keyId} is not active (status: ${stored.info.status})`,
+      )
     }
 
     return ed25519.sign(message, stored.privateKey)
@@ -288,7 +290,7 @@ export class FarcasterSignerManager {
 
   /**
    * Get signer private key.
-   * 
+   *
    * SECURITY WARNING: This method returns the raw private key.
    * Only use this for legacy integrations that require direct key access.
    * Prefer using the sign() method instead.

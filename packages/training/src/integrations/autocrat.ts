@@ -5,7 +5,7 @@
  * Model deployments require DAO approval.
  */
 
-import { getDeployerAddress } from '@jejunetwork/config'
+import { getDeployerAddress, getLocalhostHost } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import {
@@ -53,7 +53,8 @@ export class AutocratTrainingClient {
       dwsApiUrl?: string
     } = {},
   ) {
-    this.autocratApiUrl = config.autocratApiUrl ?? 'http://localhost:8010'
+    this.autocratApiUrl =
+      config.autocratApiUrl ?? `http://${getLocalhostHost()}:8010`
   }
 
   async submitTrainingProposal(proposal: {

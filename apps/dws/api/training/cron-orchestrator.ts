@@ -9,10 +9,10 @@
  */
 
 import {
+  getCurrentNetwork,
   getDWSUrl,
   getLocalhostHost,
   getServiceUrl,
-  getCurrentNetwork,
 } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { Cron } from 'croner'

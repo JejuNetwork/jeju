@@ -95,7 +95,9 @@ export interface CloudProvider {
   getInstanceType(id: string): Promise<InstanceType | null>
 
   // Regions
-  listRegions(): Promise<Array<{ id: string; name: string; available: boolean }>>
+  listRegions(): Promise<
+    Array<{ id: string; name: string; available: boolean }>
+  >
 
   // Provisioning
   createInstance(request: ProvisionRequest): Promise<ProvisionedInstance>
@@ -106,7 +108,9 @@ export interface CloudProvider {
   stopInstance(id: string): Promise<boolean>
 
   // SSH Keys
-  listSSHKeys(): Promise<Array<{ id: string; name: string; fingerprint: string }>>
+  listSSHKeys(): Promise<
+    Array<{ id: string; name: string; fingerprint: string }>
+  >
   createSSHKey(name: string, publicKey: string): Promise<string>
   deleteSSHKey(id: string): Promise<boolean>
 
@@ -200,7 +204,9 @@ export class HetznerProvider implements CloudProvider {
     return types.find((t) => t.id === id) ?? null
   }
 
-  async listRegions(): Promise<Array<{ id: string; name: string; available: boolean }>> {
+  async listRegions(): Promise<
+    Array<{ id: string; name: string; available: boolean }>
+  > {
     const response = await this.fetch('/locations')
     if (!response.ok) {
       throw new Error(`Failed to list locations: ${response.status}`)
@@ -223,7 +229,9 @@ export class HetznerProvider implements CloudProvider {
     }))
   }
 
-  async createInstance(request: ProvisionRequest): Promise<ProvisionedInstance> {
+  async createInstance(
+    request: ProvisionRequest,
+  ): Promise<ProvisionedInstance> {
     const response = await this.fetch('/servers', {
       method: 'POST',
       body: JSON.stringify({
@@ -363,7 +371,9 @@ export class HetznerProvider implements CloudProvider {
     return response.ok
   }
 
-  async listSSHKeys(): Promise<Array<{ id: string; name: string; fingerprint: string }>> {
+  async listSSHKeys(): Promise<
+    Array<{ id: string; name: string; fingerprint: string }>
+  > {
     const response = await this.fetch('/ssh_keys')
     if (!response.ok) {
       throw new Error(`Failed to list SSH keys: ${response.status}`)
@@ -417,10 +427,7 @@ export class HetznerProvider implements CloudProvider {
     return type ? type.pricePerMonthUsd * count : 0
   }
 
-  private async fetch(
-    path: string,
-    options?: RequestInit
-  ): Promise<Response> {
+  private async fetch(path: string, options?: RequestInit): Promise<Response> {
     if (!this.apiKey) {
       throw new Error('Hetzner provider not initialized')
     }
@@ -435,9 +442,7 @@ export class HetznerProvider implements CloudProvider {
     })
   }
 
-  private mapStatus(
-    status: string
-  ): ProvisionedInstance['status'] {
+  private mapStatus(status: string): ProvisionedInstance['status'] {
     switch (status) {
       case 'initializing':
       case 'starting':
@@ -537,7 +542,9 @@ export class DigitalOceanProvider implements CloudProvider {
     return types.find((t) => t.id === id) ?? null
   }
 
-  async listRegions(): Promise<Array<{ id: string; name: string; available: boolean }>> {
+  async listRegions(): Promise<
+    Array<{ id: string; name: string; available: boolean }>
+  > {
     const response = await this.fetch('/regions')
     if (!response.ok) {
       throw new Error(`Failed to list regions: ${response.status}`)
@@ -558,7 +565,9 @@ export class DigitalOceanProvider implements CloudProvider {
     }))
   }
 
-  async createInstance(request: ProvisionRequest): Promise<ProvisionedInstance> {
+  async createInstance(
+    request: ProvisionRequest,
+  ): Promise<ProvisionedInstance> {
     const response = await this.fetch('/droplets', {
       method: 'POST',
       body: JSON.stringify({
@@ -593,10 +602,10 @@ export class DigitalOceanProvider implements CloudProvider {
     }
 
     const publicNetwork = data.droplet.networks.v4.find(
-      (n) => n.type === 'public'
+      (n) => n.type === 'public',
     )
     const privateNetwork = data.droplet.networks.v4.find(
-      (n) => n.type === 'private'
+      (n) => n.type === 'private',
     )
 
     return {
@@ -609,7 +618,7 @@ export class DigitalOceanProvider implements CloudProvider {
       status: this.mapStatus(data.droplet.status),
       createdAt: new Date(data.droplet.created_at).getTime(),
       metadata: Object.fromEntries(
-        data.droplet.tags.map((t, i) => [i.toString(), t])
+        data.droplet.tags.map((t, i) => [i.toString(), t]),
       ),
     }
   }
@@ -637,10 +646,10 @@ export class DigitalOceanProvider implements CloudProvider {
     }
 
     const publicNetwork = data.droplet.networks.v4.find(
-      (n) => n.type === 'public'
+      (n) => n.type === 'public',
     )
     const privateNetwork = data.droplet.networks.v4.find(
-      (n) => n.type === 'private'
+      (n) => n.type === 'private',
     )
 
     return {
@@ -653,7 +662,7 @@ export class DigitalOceanProvider implements CloudProvider {
       status: this.mapStatus(data.droplet.status),
       createdAt: new Date(data.droplet.created_at).getTime(),
       metadata: Object.fromEntries(
-        data.droplet.tags.map((t, i) => [i.toString(), t])
+        data.droplet.tags.map((t, i) => [i.toString(), t]),
       ),
     }
   }
@@ -682,7 +691,7 @@ export class DigitalOceanProvider implements CloudProvider {
     return data.droplets.map((droplet) => {
       const publicNetwork = droplet.networks.v4.find((n) => n.type === 'public')
       const privateNetwork = droplet.networks.v4.find(
-        (n) => n.type === 'private'
+        (n) => n.type === 'private',
       )
 
       return {
@@ -695,7 +704,7 @@ export class DigitalOceanProvider implements CloudProvider {
         status: this.mapStatus(droplet.status),
         createdAt: new Date(droplet.created_at).getTime(),
         metadata: Object.fromEntries(
-          droplet.tags.map((t, i) => [i.toString(), t])
+          droplet.tags.map((t, i) => [i.toString(), t]),
         ),
       }
     })
@@ -722,7 +731,9 @@ export class DigitalOceanProvider implements CloudProvider {
     return response.ok
   }
 
-  async listSSHKeys(): Promise<Array<{ id: string; name: string; fingerprint: string }>> {
+  async listSSHKeys(): Promise<
+    Array<{ id: string; name: string; fingerprint: string }>
+  > {
     const response = await this.fetch('/account/keys')
     if (!response.ok) {
       throw new Error(`Failed to list SSH keys: ${response.status}`)
@@ -872,7 +883,7 @@ export class VultrProvider implements CloudProvider {
       memoryMb: plan.ram,
       storageMb: plan.disk * 1024 * plan.disk_count,
       storageType: plan.type === 'vhp' ? 'nvme' : 'ssd',
-      networkMbps: Math.round(plan.bandwidth / 30 / 24 * 8), // Convert to Mbps estimate
+      networkMbps: Math.round((plan.bandwidth / 30 / 24) * 8), // Convert to Mbps estimate
       pricePerHourUsd: plan.monthly_cost / 720,
       pricePerMonthUsd: plan.monthly_cost,
       gpuType: plan.gpu_type,
@@ -894,7 +905,9 @@ export class VultrProvider implements CloudProvider {
     return types.find((t) => t.id === id) ?? null
   }
 
-  async listRegions(): Promise<Array<{ id: string; name: string; available: boolean }>> {
+  async listRegions(): Promise<
+    Array<{ id: string; name: string; available: boolean }>
+  > {
     const response = await this.fetch('/regions')
     if (!response.ok) {
       throw new Error(`Failed to list regions: ${response.status}`)
@@ -915,7 +928,9 @@ export class VultrProvider implements CloudProvider {
     }))
   }
 
-  async createInstance(request: ProvisionRequest): Promise<ProvisionedInstance> {
+  async createInstance(
+    request: ProvisionRequest,
+  ): Promise<ProvisionedInstance> {
     const response = await this.fetch('/instances', {
       method: 'POST',
       body: JSON.stringify({
@@ -958,7 +973,7 @@ export class VultrProvider implements CloudProvider {
       status: this.mapStatus(data.instance.status),
       createdAt: new Date(data.instance.date_created).getTime(),
       metadata: Object.fromEntries(
-        data.instance.tags.map((t, i) => [i.toString(), t])
+        data.instance.tags.map((t, i) => [i.toString(), t]),
       ),
     }
   }
@@ -994,7 +1009,7 @@ export class VultrProvider implements CloudProvider {
       status: this.mapStatus(data.instance.status),
       createdAt: new Date(data.instance.date_created).getTime(),
       metadata: Object.fromEntries(
-        data.instance.tags.map((t, i) => [i.toString(), t])
+        data.instance.tags.map((t, i) => [i.toString(), t]),
       ),
     }
   }
@@ -1029,7 +1044,7 @@ export class VultrProvider implements CloudProvider {
       status: this.mapStatus(instance.status),
       createdAt: new Date(instance.date_created).getTime(),
       metadata: Object.fromEntries(
-        instance.tags.map((t, i) => [i.toString(), t])
+        instance.tags.map((t, i) => [i.toString(), t]),
       ),
     }))
   }
@@ -1053,7 +1068,9 @@ export class VultrProvider implements CloudProvider {
     return response.ok
   }
 
-  async listSSHKeys(): Promise<Array<{ id: string; name: string; fingerprint: string }>> {
+  async listSSHKeys(): Promise<
+    Array<{ id: string; name: string; fingerprint: string }>
+  > {
     const response = await this.fetch('/ssh-keys')
     if (!response.ok) {
       throw new Error(`Failed to list SSH keys: ${response.status}`)
@@ -1184,7 +1201,7 @@ export class OVHProvider implements CloudProvider {
       throw new Error(`OVH authentication failed: ${response.status}`)
     }
 
-    const projects = await response.json() as string[]
+    const projects = (await response.json()) as string[]
     if (projects.length > 0 && !this.projectId) {
       this.projectId = projects[0]
     }
@@ -1222,7 +1239,7 @@ export class OVHProvider implements CloudProvider {
       planCodes: { hourly: string; monthly: string }
     }
 
-    const flavors = await response.json() as OVHFlavor[]
+    const flavors = (await response.json()) as OVHFlavor[]
     const regionMap = new Map<string, InstanceType>()
 
     for (const flavor of flavors) {
@@ -1235,26 +1252,30 @@ export class OVHProvider implements CloudProvider {
       }
 
       // Get pricing - try catalog first, fall back to estimation
-      let pricePerHour = this.estimatePrice({
+      const pricePerHour = this.estimatePrice({
         vcpus: flavor.vcpus,
         ram: flavor.ram,
         disk: flavor.disk,
         planCodes: flavor.planCodes,
       })
-      
+
       // Try to get actual price from catalog (async, but we'll update cache later)
       if (flavor.planCodes?.hourly) {
-        this.getPriceFromCatalog(flavor.planCodes.hourly).then((catalogPrice) => {
-          if (catalogPrice && this.instanceTypesCache) {
-            const cached = this.instanceTypesCache.find((t) => t.id === flavor.name)
-            if (cached) {
-              cached.pricePerHourUsd = catalogPrice
-              cached.pricePerMonthUsd = catalogPrice * 720
+        this.getPriceFromCatalog(flavor.planCodes.hourly)
+          .then((catalogPrice) => {
+            if (catalogPrice && this.instanceTypesCache) {
+              const cached = this.instanceTypesCache.find(
+                (t) => t.id === flavor.name,
+              )
+              if (cached) {
+                cached.pricePerHourUsd = catalogPrice
+                cached.pricePerMonthUsd = catalogPrice * 720
+              }
             }
-          }
-        }).catch(() => {
-          // Catalog lookup failed, stick with estimate
-        })
+          })
+          .catch(() => {
+            // Catalog lookup failed, stick with estimate
+          })
       }
 
       const instanceType: InstanceType = {
@@ -1287,13 +1308,15 @@ export class OVHProvider implements CloudProvider {
     return types.find((t) => t.id === id) ?? null
   }
 
-  async listRegions(): Promise<Array<{ id: string; name: string; available: boolean }>> {
+  async listRegions(): Promise<
+    Array<{ id: string; name: string; available: boolean }>
+  > {
     const response = await this.fetch(`/cloud/project/${this.projectId}/region`)
     if (!response.ok) {
       return []
     }
 
-    const regions = await response.json() as Array<{
+    const regions = (await response.json()) as Array<{
       name: string
       status: string
       services: Array<{ name: string; status: string }>
@@ -1310,13 +1333,18 @@ export class OVHProvider implements CloudProvider {
    * Resolve Ubuntu image ID for a region
    * OVH uses unique IDs per region, so we need to look them up
    */
-  private async resolveImageId(region: string, osName = 'Ubuntu 22.04'): Promise<string> {
+  private async resolveImageId(
+    region: string,
+    osName = 'Ubuntu 22.04',
+  ): Promise<string> {
     const cacheKey = `${region}:${osName}`
     if (this.imageCache.has(cacheKey)) {
       return this.imageCache.get(cacheKey) as string
     }
 
-    const response = await this.fetch(`/cloud/project/${this.projectId}/image?region=${region}`)
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/image?region=${region}`,
+    )
     if (!response.ok) {
       throw new Error(`Failed to list OVH images: ${response.status}`)
     }
@@ -1334,21 +1362,25 @@ export class OVHProvider implements CloudProvider {
       user: string
     }
 
-    const images = await response.json() as OVHImage[]
-    
+    const images = (await response.json()) as OVHImage[]
+
     // Find matching image - prefer exact match, then partial match
     let imageId: string | null = null
-    
+
     // First try exact match
     const exactMatch = images.find(
-      (img) => img.name.toLowerCase() === osName.toLowerCase() && img.status === 'active',
+      (img) =>
+        img.name.toLowerCase() === osName.toLowerCase() &&
+        img.status === 'active',
     )
     if (exactMatch) {
       imageId = exactMatch.id
     } else {
       // Try partial match (e.g., "Ubuntu 22.04" matches "Ubuntu 22.04 LTS")
       const partialMatch = images.find(
-        (img) => img.name.toLowerCase().includes(osName.toLowerCase()) && img.status === 'active',
+        (img) =>
+          img.name.toLowerCase().includes(osName.toLowerCase()) &&
+          img.status === 'active',
       )
       if (partialMatch) {
         imageId = partialMatch.id
@@ -1358,16 +1390,21 @@ export class OVHProvider implements CloudProvider {
     if (!imageId) {
       // Fallback to any Ubuntu image
       const ubuntuImage = images.find(
-        (img) => img.name.toLowerCase().includes('ubuntu') && img.status === 'active',
+        (img) =>
+          img.name.toLowerCase().includes('ubuntu') && img.status === 'active',
       )
       if (ubuntuImage) {
         imageId = ubuntuImage.id
-        console.warn(`[OVHProvider] Using fallback image ${ubuntuImage.name} for region ${region}`)
+        console.warn(
+          `[OVHProvider] Using fallback image ${ubuntuImage.name} for region ${region}`,
+        )
       }
     }
 
     if (!imageId) {
-      throw new Error(`No suitable image found for ${osName} in region ${region}`)
+      throw new Error(
+        `No suitable image found for ${osName} in region ${region}`,
+      )
     }
 
     // Cache for future use
@@ -1375,9 +1412,14 @@ export class OVHProvider implements CloudProvider {
     return imageId
   }
 
-  async createInstance(request: ProvisionRequest): Promise<ProvisionedInstance> {
+  async createInstance(
+    request: ProvisionRequest,
+  ): Promise<ProvisionedInstance> {
     // Resolve image ID from OS name
-    const imageId = await this.resolveImageId(request.region, request.image ?? 'Ubuntu 22.04')
+    const imageId = await this.resolveImageId(
+      request.region,
+      request.image ?? 'Ubuntu 22.04',
+    )
 
     const body = {
       name: request.name,
@@ -1385,20 +1427,25 @@ export class OVHProvider implements CloudProvider {
       region: request.region,
       imageId,
       sshKeyId: request.sshKeyId,
-      userData: request.userData ? Buffer.from(request.userData).toString('base64') : undefined,
+      userData: request.userData
+        ? Buffer.from(request.userData).toString('base64')
+        : undefined,
     }
 
-    const response = await this.fetch(`/cloud/project/${this.projectId}/instance`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    })
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/instance`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    )
 
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`Failed to create OVH instance: ${error}`)
     }
 
-    const instance = await response.json() as {
+    const instance = (await response.json()) as {
       id: string
       name: string
       status: string
@@ -1421,10 +1468,12 @@ export class OVHProvider implements CloudProvider {
   }
 
   async getInstance(id: string): Promise<ProvisionedInstance | null> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/instance/${id}`)
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/instance/${id}`,
+    )
     if (!response.ok) return null
 
-    const instance = await response.json() as {
+    const instance = (await response.json()) as {
       id: string
       name: string
       status: string
@@ -1448,10 +1497,12 @@ export class OVHProvider implements CloudProvider {
   }
 
   async listInstances(): Promise<ProvisionedInstance[]> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/instance`)
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/instance`,
+    )
     if (!response.ok) return []
 
-    const instances = await response.json() as Array<{
+    const instances = (await response.json()) as Array<{
       id: string
       name: string
       status: string
@@ -1475,31 +1526,42 @@ export class OVHProvider implements CloudProvider {
   }
 
   async deleteInstance(id: string): Promise<boolean> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/instance/${id}`, {
-      method: 'DELETE',
-    })
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/instance/${id}`,
+      {
+        method: 'DELETE',
+      },
+    )
     return response.ok
   }
 
   async startInstance(id: string): Promise<boolean> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/instance/${id}/start`, {
-      method: 'POST',
-    })
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/instance/${id}/start`,
+      {
+        method: 'POST',
+      },
+    )
     return response.ok
   }
 
   async stopInstance(id: string): Promise<boolean> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/instance/${id}/stop`, {
-      method: 'POST',
-    })
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/instance/${id}/stop`,
+      {
+        method: 'POST',
+      },
+    )
     return response.ok
   }
 
-  async listSSHKeys(): Promise<Array<{ id: string; name: string; fingerprint: string }>> {
+  async listSSHKeys(): Promise<
+    Array<{ id: string; name: string; fingerprint: string }>
+  > {
     const response = await this.fetch(`/cloud/project/${this.projectId}/sshkey`)
     if (!response.ok) return []
 
-    const keys = await response.json() as Array<{
+    const keys = (await response.json()) as Array<{
       id: string
       name: string
       fingerprint: string
@@ -1513,23 +1575,29 @@ export class OVHProvider implements CloudProvider {
   }
 
   async createSSHKey(name: string, publicKey: string): Promise<string> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/sshkey`, {
-      method: 'POST',
-      body: JSON.stringify({ name, publicKey }),
-    })
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/sshkey`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ name, publicKey }),
+      },
+    )
 
     if (!response.ok) {
       throw new Error(`Failed to create SSH key: ${response.status}`)
     }
 
-    const key = await response.json() as { id: string }
+    const key = (await response.json()) as { id: string }
     return key.id
   }
 
   async deleteSSHKey(id: string): Promise<boolean> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/sshkey/${id}`, {
-      method: 'DELETE',
-    })
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/sshkey/${id}`,
+      {
+        method: 'DELETE',
+      },
+    )
     return response.ok
   }
 
@@ -1552,7 +1620,9 @@ export class OVHProvider implements CloudProvider {
    * Uses the planCodes from flavors to look up actual prices
    */
   private async getPriceFromCatalog(planCode: string): Promise<number | null> {
-    const response = await this.fetch(`/cloud/project/${this.projectId}/catalog`)
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/catalog`,
+    )
     if (!response.ok) {
       return null
     }
@@ -1570,7 +1640,7 @@ export class OVHProvider implements CloudProvider {
       addons: OVHCatalogPrice[]
     }
 
-    const catalog = await response.json() as OVHCatalog
+    const catalog = (await response.json()) as OVHCatalog
 
     // Find the plan in catalog
     const plan = catalog.addons.find((p) => p.planCode === planCode)
@@ -1582,18 +1652,23 @@ export class OVHProvider implements CloudProvider {
 
     // Convert to USD (OVH catalog is in EUR)
     // Use a rough EUR to USD conversion rate
-    const eurToUsd = 1.10
-    return hourlyPrice.price.value / 100000000 * eurToUsd // OVH prices are in micro-cents
+    const eurToUsd = 1.1
+    return (hourlyPrice.price.value / 100000000) * eurToUsd // OVH prices are in micro-cents
   }
 
-  private estimatePrice(flavor: { vcpus: number; ram: number; disk: number; planCodes?: { hourly: string } }): number {
+  private estimatePrice(flavor: {
+    vcpus: number
+    ram: number
+    disk: number
+    planCodes?: { hourly: string }
+  }): number {
     // OVH pricing tiers based on flavor type (2024 prices)
     // These are closer to actual OVH public cloud pricing
-    
+
     // Detect flavor tier from specs
     let cpuPriceMultiplier = 0.008 // base price per vCPU/hour
     let ramPriceMultiplier = 0.004 // base price per GB RAM/hour
-    let diskPriceMultiplier = 0.0001 // base price per GB disk/hour
+    const diskPriceMultiplier = 0.0001 // base price per GB disk/hour
 
     // Adjust for high-performance flavors (detected by high RAM/CPU ratio)
     const ramPerCpu = flavor.ram / (flavor.vcpus * 1024) // GB per vCPU
@@ -1609,7 +1684,7 @@ export class OVHProvider implements CloudProvider {
 
     // GPU instances (detected by name convention or very high price expectation)
     // This is an estimate - real GPU pricing should come from catalog
-    if (flavor.vcpus >= 16 && (flavor.ram / 1024) >= 60) {
+    if (flavor.vcpus >= 16 && flavor.ram / 1024 >= 60) {
       // Likely GPU instance
       cpuPriceMultiplier = 0.05
       ramPriceMultiplier = 0.01
@@ -1630,20 +1705,20 @@ export class OVHProvider implements CloudProvider {
     const timestamp = Math.floor(Date.now() / 1000)
     const method = options?.method ?? 'GET'
     const body = options?.body ?? ''
-    
+
     // OVH requires signed requests
     // Signature: SHA1($applicationSecret + "+" + $consumerKey + "+" + $method + "+" + $url + "+" + $body + "+" + $timestamp)
     const url = `${this.baseUrl}${path}`
     const toSign = `${this.applicationSecret}+${this.consumerKey}+${method}+${url}+${body}+${timestamp}`
-    
+
     // Create SHA1 signature
     const encoder = new TextEncoder()
     const data = encoder.encode(toSign)
     const hashBuffer = await crypto.subtle.digest('SHA-1', data)
     const hashArray = new Uint8Array(hashBuffer)
-    const signature = '$1$' + Array.from(hashArray)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
+    const signature = `$1$${Array.from(hashArray)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')}`
 
     return fetch(url, {
       ...options,
@@ -1678,9 +1753,7 @@ export class OVHProvider implements CloudProvider {
 
 // Provider Factory
 
-export function createCloudProvider(
-  type: CloudProviderType
-): CloudProvider {
+export function createCloudProvider(type: CloudProviderType): CloudProvider {
   switch (type) {
     case 'hetzner':
       return new HetznerProvider()
@@ -1702,7 +1775,7 @@ export class MultiCloudManager {
 
   async addProvider(
     type: CloudProviderType,
-    credentials: CloudCredentials
+    credentials: CloudCredentials,
   ): Promise<void> {
     const provider = createCloudProvider(type)
     await provider.initialize(credentials)
@@ -1791,7 +1864,7 @@ export class MultiCloudManager {
    */
   async getPricingComparison(
     cpuCores: number,
-    memoryMb: number
+    memoryMb: number,
   ): Promise<
     Array<{
       provider: CloudProviderType

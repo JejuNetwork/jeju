@@ -1,13 +1,8 @@
 /** Chain management utilities */
 
-import {
-  getEQLiteBlockProducerUrl,
-  getL1RpcUrl,
-  getL2RpcUrl,
-  getLocalhostHost,
-} from '@jejunetwork/config'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { execa } from 'execa'
 import type { Chain } from 'viem'
 import { createPublicClient, formatEther, http } from 'viem'

@@ -14,30 +14,23 @@ import { afterAll } from 'bun:test'
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getDWSUrl, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { createPublicClient, http } from 'viem'
 import { localhost } from 'viem/chains'
-import {
-  getL2RpcUrl,
-  getLocalhostHost,
-  getDWSUrl,
-  getAutocratUrl,
-} from '@jejunetwork/config'
 
 // Default ports - Kurtosis L2 where contracts are deployed
-const L2_RPC_PORT = 6546
+const _L2_RPC_PORT = 6546
 const API_PORT = parseInt(process.env.API_PORT || '8010', 10)
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4030', 10)
 
 // Service URLs - use config functions for consistency
-const RPC_URL =
-  process.env.RPC_URL ||
-  process.env.L2_RPC_URL ||
-  process.env.JEJU_RPC_URL ||
-  getL2RpcUrl()
+const RPC_URL = getL2RpcUrl()
 const API_URL =
-  process.env.API_URL ||
+  (typeof process !== 'undefined' ? process.env.API_URL : undefined) ||
   `http://${getLocalhostHost()}:${API_PORT}`
-const DWS_URL = process.env.DWS_URL || getDWSUrl()
+const DWS_URL =
+  (typeof process !== 'undefined' ? process.env.DWS_URL : undefined) ||
+  getDWSUrl()
 
 // Track managed processes for cleanup
 const managedProcesses: ChildProcess[] = []

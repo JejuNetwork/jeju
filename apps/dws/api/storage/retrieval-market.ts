@@ -13,12 +13,12 @@
  * reconstructed or held in memory.
  */
 
+import { randomBytes } from 'node:crypto'
 import {
   getCurrentNetwork,
   getRpcUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { randomBytes } from 'node:crypto'
 import type { Address, Hex } from 'viem'
 import { keccak256, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -199,10 +199,13 @@ const DEFAULT_MARKET_CONFIG: RetrievalMarketConfig = {
   rpcUrl:
     (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
     getRpcUrl(getCurrentNetwork()),
-  kmsKeyId: process.env.RETRIEVAL_MARKET_KMS_KEY_ID,
-  ownerAddress: process.env.RETRIEVAL_MARKET_OWNER_ADDRESS as
-    | Address
-    | undefined,
+  kmsKeyId:
+    typeof process !== 'undefined'
+      ? process.env.RETRIEVAL_MARKET_KMS_KEY_ID
+      : undefined,
+  ownerAddress: (typeof process !== 'undefined'
+    ? process.env.RETRIEVAL_MARKET_OWNER_ADDRESS
+    : undefined) as Address | undefined,
   privateKey: undefined, // Not set by default
 }
 

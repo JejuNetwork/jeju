@@ -4,15 +4,17 @@
  * Shared helpers for API requests in frontend hooks.
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
+
 /** Get API base URL based on environment */
 export function getApiBase(): string {
   if (typeof window === 'undefined') {
-    return 'http://localhost:4009'
+    return `http://${getLocalhostHost()}:4009`
   }
   const { hostname, port } = window.location
   // In development, frontend runs on different port than API
   if (hostname === 'localhost' && port !== '4009') {
-    return 'http://localhost:4009'
+    return `http://${getLocalhostHost()}:4009`
   }
   return ''
 }

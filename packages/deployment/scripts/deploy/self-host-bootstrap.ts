@@ -16,6 +16,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { getDWSUrl, getIpfsGatewayUrl, getRpcUrl } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import {
   type Address,
@@ -1097,21 +1098,15 @@ async function main() {
     }
   }
 
+  const networkType = network === 'mainnet' ? 'mainnet' : 'testnet'
   const config: DeploymentConfig = {
     network,
-    rpcUrl:
-      network === 'mainnet'
-        ? process.env.MAINNET_RPC_URL || 'https://mainnet.base.org'
-        : process.env.TESTNET_RPC_URL || 'https://sepolia.base.org',
+    rpcUrl: getRpcUrl(networkType),
     privateKey: privateKey as Hex,
     contracts,
-    dwsEndpoint:
-      process.env.DWS_ENDPOINT ||
-      (network === 'mainnet'
-        ? 'https://dws.jejunetwork.org'
-        : 'https://dws.testnet.jejunetwork.org'),
+    dwsEndpoint: getDWSUrl(networkType),
     ipfsGateway:
-      process.env.IPFS_GATEWAY ||
+      getIpfsGatewayUrl(networkType) ??
       (network === 'mainnet'
         ? 'https://ipfs.jejunetwork.org'
         : 'https://ipfs.testnet.jejunetwork.org'),

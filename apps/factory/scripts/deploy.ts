@@ -12,10 +12,17 @@
  */
 
 import { existsSync, rmSync } from 'node:fs'
-import { getCoreAppUrl, getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getCoreAppUrl,
+  getCurrentNetwork,
+  getDWSUrl,
+} from '@jejunetwork/config'
 import { z } from 'zod'
 
-const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
+const DWS_URL =
+  (typeof process !== 'undefined' ? process.env.DWS_URL : undefined) ||
+  getCoreAppUrl('DWS_API') ||
+  getDWSUrl()
 const NETWORK = getCurrentNetwork()
 
 const UploadResponseSchema = z.object({ cid: z.string() })

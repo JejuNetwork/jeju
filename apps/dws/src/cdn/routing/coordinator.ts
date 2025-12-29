@@ -412,10 +412,14 @@ export async function startCoordinator(): Promise<CDNCoordinator> {
   const network = getCurrentNetwork()
   const config: CoordinatorConfig = {
     port: parseInt(process.env.CDN_COORDINATOR_PORT ?? '4021', 10),
-    registryAddress: ((typeof process !== 'undefined' ? process.env.CDN_REGISTRY_ADDRESS : undefined) ??
+    registryAddress: ((typeof process !== 'undefined'
+      ? process.env.CDN_REGISTRY_ADDRESS
+      : undefined) ??
       tryGetContract('cdn', 'registry', network) ??
       '0x0000000000000000000000000000000000000000') as Address,
-    billingAddress: ((typeof process !== 'undefined' ? process.env.CDN_BILLING_ADDRESS : undefined) ??
+    billingAddress: ((typeof process !== 'undefined'
+      ? process.env.CDN_BILLING_ADDRESS
+      : undefined) ??
       tryGetContract('cdn', 'billing', network) ??
       '0x0000000000000000000000000000000000000000') as Address,
     rpcUrl: getRpcUrl(network),

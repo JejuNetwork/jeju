@@ -2,12 +2,13 @@
  * Test Data and Constants for Gateway Synpress Tests
  */
 
+import { getCoreAppUrl, getRpcUrl } from '@jejunetwork/config'
 import { isValidAddress } from '@jejunetwork/types'
 
 export { isValidAddress }
 
-export const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001'
-export const RPC_URL = 'http://127.0.0.1:6546'
+export const GATEWAY_URL = getCoreAppUrl('GATEWAY')
+export const RPC_URL = getRpcUrl()
 
 /**
  * Test wallet (Anvil default account #0)

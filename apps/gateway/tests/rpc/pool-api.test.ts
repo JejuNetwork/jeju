@@ -6,15 +6,13 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getCoreAppUrl, getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-// Use URLs from test infrastructure env vars
-const _RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546'
-const BASE_URL =
-  process.env.GATEWAY_URL ??
-  process.env.GATEWAY_A2A_URL ??
-  'http://localhost:3001'
+// Use URLs from config
+const _RPC_URL = getRpcUrl()
+const BASE_URL = getCoreAppUrl('GATEWAY')
 const TEST_TOKEN_1 = '0x1111111111111111111111111111111111111111' as Address
 const TEST_TOKEN_2 = '0x2222222222222222222222222222222222222222' as Address
 

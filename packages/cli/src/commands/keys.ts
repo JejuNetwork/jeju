@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import { getL2RpcUrl } from '@jejunetwork/config'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { bytesToHex, hash256, hash512, randomBytes } from '@jejunetwork/shared'
 import { Command } from 'commander'
 import { execa } from 'execa'
@@ -263,7 +263,7 @@ async function runTeeGenesis(network: NetworkType, endpoint?: string) {
       process.env.DSTACK_ENDPOINT = customEndpoint
     } else {
       logger.warn('\nUsing simulator - NOT FOR PRODUCTION')
-      process.env.DSTACK_SIMULATOR_ENDPOINT = 'http://localhost:8090'
+      process.env.DSTACK_SIMULATOR_ENDPOINT = `http://${getLocalhostHost()}:8090`
     }
   }
 
@@ -522,7 +522,7 @@ async function runDistributedCeremony(options: DistributedCeremonyOptions) {
         initial:
           providerType === 'phala'
             ? 'https://your-app.phala.network'
-            : 'http://localhost:8090',
+            : `http://${getLocalhostHost()}:8090`,
       })
 
       const { name } = await prompts({

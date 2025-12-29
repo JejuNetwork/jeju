@@ -10,7 +10,7 @@ import { expectAddress, expectHex, toBigInt } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import { CDN_REGISTRY_ABI } from '../abis'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 /** Type for CDN edge node as returned by getEdgeNode contract call */
 interface CDNEdgeNodeResult {
@@ -210,10 +210,10 @@ export function validateCDNEarnings(data: unknown): CDNEarnings {
 // CDN Service
 
 export class CDNService {
-  private client: NodeClient
+  private client: SecureNodeClient
   private edgeNodeProcess: ChildProcess | null = null
 
-  constructor(client: NodeClient) {
+  constructor(client: SecureNodeClient) {
     this.client = client
   }
 
@@ -602,6 +602,6 @@ interface ChildProcess {
 
 // Factory
 
-export function createCDNService(client: NodeClient): CDNService {
+export function createCDNService(client: SecureNodeClient): CDNService {
   return new CDNService(client)
 }

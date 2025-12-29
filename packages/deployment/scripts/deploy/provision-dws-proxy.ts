@@ -21,7 +21,7 @@
  */
 
 import { parseArgs } from 'node:util'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getDwsApiUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 
 // ============================================================================
@@ -302,8 +302,7 @@ Examples:
   }
 
   const network = values.network ?? getCurrentNetwork()
-  const dwsUrl =
-    values['dws-url'] ?? process.env.DWS_URL ?? 'http://localhost:4030'
+  const dwsUrl = values['dws-url'] ?? getDwsApiUrl()
 
   const provisioner = new DWSProxyProvisioner(dwsUrl, network)
   const result = await provisioner.provision()

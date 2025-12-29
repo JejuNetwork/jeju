@@ -328,3 +328,73 @@ groups:
           summary: "Edge coordinator gossip stalled"
           description: "No gossip messages in 2 minutes. Network may be partitioned."
 
+  # ============================================================================
+  # Decentralized RPC Alerts
+  # Metrics exported by QoS monitor (apps/gateway/api/rpc/services/qos-monitor.ts)
+  # ============================================================================
+  - name: decentralized-rpc
+    rules:
+      - alert: RPCNodeCountLow
+        expr: rpc_registered_nodes < 3
+        for: 10m
+        labels:
+          severity: warning
+          service: rpc
+        annotations:
+          summary: "Fewer than 3 RPC nodes being monitored"
+          description: "Only {{ $value }} nodes tracked."
+
+      - alert: RPCQoSChecksFailing
+        expr: |
+          sum(rate(rpc_qos_checks_failed_total[5m])) /
+          sum(rate(rpc_qos_checks_total[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: rpc
+        annotations:
+          summary: "RPC QoS checks failing at over 20 percent"
+          description: "{{ $value | humanizePercentage }} of QoS checks failing."
+
+      - alert: RPCNodeLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(rpc_node_latency_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: rpc
+        annotations:
+          summary: "RPC node p95 latency above 1 second"
+          description: "p95 latency is {{ $value | humanizeDuration }}."
+
+      - alert: RPCNodeUptimeLow
+        expr: rpc_node_uptime_score < 5000
+        for: 30m
+        labels:
+          severity: warning
+          service: rpc
+        annotations:
+          summary: "RPC node {{ $labels.node }} uptime below 50 percent"
+          description: "Node has {{ $value }} basis points uptime."
+
+      - alert: RPCReportsFailing
+        expr: |
+          sum(rate(rpc_reports_failed_total[5m])) /
+          sum(rate(rpc_reports_submitted_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: rpc
+        annotations:
+          summary: "RPC on-chain reports failing over 10 percent"
+          description: "{{ $value | humanizePercentage }} of reports failing."
+
+      - alert: RPCMonitorDown
+        expr: absent(rpc_monitor_uptime_seconds) or rpc_monitor_uptime_seconds == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: rpc
+        annotations:
+          summary: "RPC QoS monitor is down"
+          description: "Node reputation will not update."

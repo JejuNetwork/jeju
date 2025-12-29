@@ -9,7 +9,8 @@
  * - Cost-per-performance queries
  */
 
-import type { Address, Hex, PublicClient, WalletClient, Account } from 'viem'
+import { getL1RpcUrl } from '@jejunetwork/config'
+import type { Account, Address, Hex, PublicClient, WalletClient } from 'viem'
 import {
   createPublicClient,
   createWalletClient,
@@ -18,7 +19,6 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, foundry } from 'viem/chains'
-import { getL1RpcUrl } from '@jejunetwork/config'
 
 import type { BenchmarkResults } from './benchmark-orchestrator'
 
@@ -298,6 +298,46 @@ const BENCHMARK_REGISTRY_ABI = [
     type: 'function',
     inputs: [],
     outputs: [{ name: '', type: 'uint64' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'disputeBenchmark',
+    type: 'function',
+    inputs: [
+      { name: 'provider', type: 'address' },
+      { name: 'reason', type: 'string' },
+    ],
+    outputs: [{ name: 'disputeIndex', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'resolveDispute',
+    type: 'function',
+    inputs: [
+      { name: 'provider', type: 'address' },
+      { name: 'disputeIndex', type: 'uint256' },
+      { name: 'upheld', type: 'bool' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'getDisputes',
+    type: 'function',
+    inputs: [{ name: 'provider', type: 'address' }],
+    outputs: [
+      {
+        name: 'disputes',
+        type: 'tuple[]',
+        components: [
+          { name: 'disputer', type: 'address' },
+          { name: 'timestamp', type: 'uint64' },
+          { name: 'reason', type: 'string' },
+          { name: 'resolved', type: 'bool' },
+          { name: 'upheld', type: 'bool' },
+        ],
+      },
+    ],
     stateMutability: 'view',
   },
 ] as const
@@ -588,7 +628,10 @@ export class BenchmarkRegistryClient {
 
     // Derive thread count from model if not explicitly provided
     // Most modern CPUs have SMT/HT, but some (like ARM) may not
-    const estimatedThreads = this.estimateThreadCount(results.cpuModel, results.cpuCores)
+    const estimatedThreads = this.estimateThreadCount(
+      results.cpuModel,
+      results.cpuCores,
+    )
 
     // Compression score is derived from multi-core performance
     // since compression is typically parallelizable
@@ -607,7 +650,7 @@ export class BenchmarkRegistryClient {
     // Derive memory type from bandwidth characteristics
     // DDR4: ~20-25 GB/s, DDR5: ~40-50 GB/s per channel
     const memoryType = this.inferMemoryType(results.memoryBandwidthMbps)
-    
+
     // Write bandwidth is typically ~90% of read bandwidth
     const writeBandwidth = Math.floor(results.memoryBandwidthMbps * 0.9)
 
@@ -625,7 +668,12 @@ export class BenchmarkRegistryClient {
       seqWriteMbps: BigInt(results.sequentialWriteMbps),
       randReadIops: results.randomReadIops,
       randWriteIops: results.randomWriteIops,
-      diskType: results.storageType === 'nvme' ? 'NVMe SSD' : results.storageType === 'ssd' ? 'SATA SSD' : 'HDD',
+      diskType:
+        results.storageType === 'nvme'
+          ? 'NVMe SSD'
+          : results.storageType === 'ssd'
+            ? 'SATA SSD'
+            : 'HDD',
     }
 
     // Derive upload bandwidth from download (typically 80-100% depending on connection)
@@ -635,20 +683,22 @@ export class BenchmarkRegistryClient {
       bandwidthMbps: BigInt(results.networkBandwidthMbps),
       latencyMs: Math.floor(results.networkLatencyMs),
       uploadMbps: BigInt(uploadBandwidth),
-      region: 'auto-detected', // Would be detected from IP geolocation
-      ipv6Supported: true, // Conservative default, would test in benchmark
+      region: results.region ?? 'unknown', // From BenchmarkResults if available
+      ipv6Supported: results.ipv6Supported ?? false,
     }
 
     // For GPU, use actual values where available
     const gpuFp32 = results.gpuFp32Tflops ?? 0
     const gpuFp16 = gpuFp32 * 2 // FP16 is typically 2x FP32 for modern GPUs
-    
+
     const gpu = {
       model: results.gpuModel ?? '',
       vramMb: BigInt(results.gpuMemoryMb ?? 0),
       fp32Tflops: BigInt(Math.floor(gpuFp32 * 100)), // 0.01 TFLOPS precision
       fp16Tflops: BigInt(Math.floor(gpuFp16 * 100)),
-      memoryBandwidthGbps: BigInt(this.estimateGpuMemoryBandwidth(results.gpuModel)),
+      memoryBandwidthGbps: BigInt(
+        this.estimateGpuMemoryBandwidth(results.gpuModel),
+      ),
       inferenceLatencyMs: BigInt(results.gpuInferenceScore ?? 0),
       cudaCores: this.estimateCudaCores(results.gpuModel),
       tensorCores: this.estimateTensorCores(results.gpuModel),
@@ -657,10 +707,13 @@ export class BenchmarkRegistryClient {
     const teeType = this.mapTeePlatform(results.teePlatform)
     const tee = {
       teeType,
-      attestationHash: (results.teeAttestationHash ?? '0x0000000000000000000000000000000000000000000000000000000000000000') as Hex,
+      attestationHash: (results.teeAttestationHash ??
+        '0x0000000000000000000000000000000000000000000000000000000000000000') as Hex,
       maxEnclaveMemoryMb: BigInt(0),
       remoteAttestationSupported: results.teeDetected,
-      lastAttestationTimestamp: results.teeDetected ? BigInt(results.timestamp) : BigInt(0),
+      lastAttestationTimestamp: results.teeDetected
+        ? BigInt(results.timestamp)
+        : BigInt(0),
       attestationQuote: '0x' as Hex,
     }
 
@@ -687,7 +740,10 @@ export class BenchmarkRegistryClient {
   /**
    * Verify a provider's benchmark (verifier only)
    */
-  async verifyBenchmark(provider: Address, status: VerificationStatus): Promise<Hex> {
+  async verifyBenchmark(
+    provider: Address,
+    status: VerificationStatus,
+  ): Promise<Hex> {
     if (!this.walletClient || !this.account) {
       throw new Error('Wallet not initialized')
     }
@@ -736,6 +792,66 @@ export class BenchmarkRegistryClient {
     return hash
   }
 
+  /**
+   * Dispute a provider's benchmark as potentially fraudulent
+   * @param provider Provider address
+   * @param reason Reason for the dispute
+   * @returns Transaction hash
+   */
+  async disputeBenchmark(provider: Address, reason: string): Promise<Hex> {
+    if (!this.walletClient || !this.account) {
+      throw new Error('Wallet not initialized')
+    }
+
+    console.log(
+      `[BenchmarkRegistry] Disputing benchmark for ${provider}: ${reason}`,
+    )
+
+    const data = encodeFunctionData({
+      abi: BENCHMARK_REGISTRY_ABI,
+      functionName: 'disputeBenchmark',
+      args: [provider, reason],
+    })
+
+    const hash = await this.walletClient.sendTransaction({
+      account: this.account,
+      to: this.contractAddress,
+      data,
+      chain: this.getChain(),
+    })
+
+    console.log(`[BenchmarkRegistry] Dispute submitted: ${hash}`)
+    return hash
+  }
+
+  /**
+   * Get disputes for a provider
+   */
+  async getDisputes(provider: Address): Promise<
+    Array<{
+      disputer: Address
+      timestamp: bigint
+      reason: string
+      resolved: boolean
+      upheld: boolean
+    }>
+  > {
+    const result = await this.publicClient.readContract({
+      address: this.contractAddress,
+      abi: BENCHMARK_REGISTRY_ABI,
+      functionName: 'getDisputes',
+      args: [provider],
+    })
+
+    return result as Array<{
+      disputer: Address
+      timestamp: bigint
+      reason: string
+      resolved: boolean
+      upheld: boolean
+    }>
+  }
+
   // ============ Helpers ============
 
   private mapTeePlatform(platform: string | null): TEEType {
@@ -765,23 +881,36 @@ export class BenchmarkRegistryClient {
    */
   private estimateThreadCount(cpuModel: string, cores: number): number {
     const model = cpuModel.toLowerCase()
-    
+
     // AMD Ryzen and EPYC typically have SMT (2 threads per core)
-    if (model.includes('ryzen') || model.includes('epyc') || model.includes('threadripper')) {
+    if (
+      model.includes('ryzen') ||
+      model.includes('epyc') ||
+      model.includes('threadripper')
+    ) {
       return cores * 2
     }
-    
+
     // Intel with hyperthreading
-    if (model.includes('xeon') || model.includes('core i') || model.includes('i5') || 
-        model.includes('i7') || model.includes('i9')) {
+    if (
+      model.includes('xeon') ||
+      model.includes('core i') ||
+      model.includes('i5') ||
+      model.includes('i7') ||
+      model.includes('i9')
+    ) {
       return cores * 2
     }
-    
+
     // ARM typically no SMT
-    if (model.includes('arm') || model.includes('graviton') || model.includes('ampere')) {
+    if (
+      model.includes('arm') ||
+      model.includes('graviton') ||
+      model.includes('ampere')
+    ) {
       return cores
     }
-    
+
     // Default: assume hyperthreading for x86
     return cores * 2
   }
@@ -791,7 +920,7 @@ export class BenchmarkRegistryClient {
    */
   private inferMemoryType(bandwidthMbps: number): string {
     const bandwidthGBps = bandwidthMbps / 1000
-    
+
     if (bandwidthGBps > 200) return 'HBM2e' // High bandwidth memory
     if (bandwidthGBps > 100) return 'DDR5-6400'
     if (bandwidthGBps > 60) return 'DDR5-4800'
@@ -806,9 +935,9 @@ export class BenchmarkRegistryClient {
    */
   private estimateGpuMemoryBandwidth(gpuModel: string | null): number {
     if (!gpuModel) return 0
-    
+
     const model = gpuModel.toLowerCase()
-    
+
     // NVIDIA GPUs
     if (model.includes('h100')) return 3350 // GB/s
     if (model.includes('a100')) return 2039
@@ -819,12 +948,12 @@ export class BenchmarkRegistryClient {
     if (model.includes('rtx 3080')) return 760
     if (model.includes('v100')) return 900
     if (model.includes('t4')) return 320
-    
+
     // AMD GPUs
     if (model.includes('mi300')) return 5300
     if (model.includes('mi250')) return 3200
     if (model.includes('mi100')) return 1228
-    
+
     return 0
   }
 
@@ -833,9 +962,9 @@ export class BenchmarkRegistryClient {
    */
   private estimateCudaCores(gpuModel: string | null): number {
     if (!gpuModel) return 0
-    
+
     const model = gpuModel.toLowerCase()
-    
+
     if (model.includes('h100')) return 16896
     if (model.includes('a100')) return 6912
     if (model.includes('l40')) return 18176
@@ -845,7 +974,7 @@ export class BenchmarkRegistryClient {
     if (model.includes('rtx 3080')) return 8704
     if (model.includes('v100')) return 5120
     if (model.includes('t4')) return 2560
-    
+
     return 0
   }
 
@@ -854,9 +983,9 @@ export class BenchmarkRegistryClient {
    */
   private estimateTensorCores(gpuModel: string | null): number {
     if (!gpuModel) return 0
-    
+
     const model = gpuModel.toLowerCase()
-    
+
     if (model.includes('h100')) return 528
     if (model.includes('a100')) return 432
     if (model.includes('l40')) return 568
@@ -866,7 +995,7 @@ export class BenchmarkRegistryClient {
     if (model.includes('rtx 3080')) return 272
     if (model.includes('v100')) return 640
     if (model.includes('t4')) return 320
-    
+
     return 0
   }
 
@@ -889,13 +1018,19 @@ export class BenchmarkRegistryClient {
       memoryBandwidthMbps: Number(onChain.memory_.bandwidthMbps),
       memoryLatencyNs: onChain.memory_.latencyNs,
       storageMb: Number(onChain.disk.capacityGb) * 1024,
-      storageType: onChain.disk.diskType.includes('NVMe') ? 'nvme' : onChain.disk.diskType.includes('SSD') ? 'ssd' : 'hdd',
+      storageType: onChain.disk.diskType.includes('NVMe')
+        ? 'nvme'
+        : onChain.disk.diskType.includes('SSD')
+          ? 'ssd'
+          : 'hdd',
       sequentialReadMbps: Number(onChain.disk.seqReadMbps),
       sequentialWriteMbps: Number(onChain.disk.seqWriteMbps),
       randomReadIops: onChain.disk.randReadIops,
       randomWriteIops: onChain.disk.randWriteIops,
       networkBandwidthMbps: Number(onChain.network.bandwidthMbps),
       networkLatencyMs: onChain.network.latencyMs,
+      region: onChain.network.region,
+      ipv6Supported: onChain.network.ipv6Supported,
       gpuDetected: hasGpu,
       gpuModel: hasGpu ? onChain.gpu.model : null,
       gpuMemoryMb: hasGpu ? gpuMemory : null,

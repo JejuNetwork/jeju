@@ -24,7 +24,7 @@ import { type Address, type Hex, isHex, keccak256, toBytes } from 'viem'
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { bytesToHex } from '../../../lib/buffer'
-import { getKMSSigner, type KMSSigner } from '../kms-signer'
+import { getWalletKMSSigner, type WalletKMSSigner } from '../kms-signer'
 
 // Convert bytes to Hex type with proper typing
 function toHexString(bytes: Uint8Array): Hex {
@@ -110,7 +110,7 @@ class KeyringService {
   private hdAccountToWallet: Map<Address, string> = new Map() // address -> walletId for HD accounts
   private encryptedPrivateKeys: Map<Address, string> = new Map()
   private kmsAccounts: Map<Address, KMSAccount> = new Map() // KMS-backed accounts
-  private kmsSigner: KMSSigner | null = null // Lazy-loaded KMS signer
+  private kmsSigner: WalletKMSSigner | null = null // Lazy-loaded KMS signer
   private isLocked = true
   private sessionKey: CryptoKey | null = null
   private walletSalt: Uint8Array | null = null // Per-wallet random salt for key derivation
@@ -369,9 +369,9 @@ class KeyringService {
     return kmsAccount
   }
 
-  private getOrCreateKMSSigner(): KMSSigner {
+  private getOrCreateKMSSigner(): WalletKMSSigner {
     if (!this.kmsSigner) {
-      this.kmsSigner = getKMSSigner({ useMPC: true })
+      this.kmsSigner = getWalletKMSSigner({ useMPC: true })
     }
     return this.kmsSigner
   }

@@ -23,7 +23,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { type LocalAccount } from 'viem/accounts'
+import type { LocalAccount } from 'viem/accounts'
 import { getChainConfig, getContract, getServicesConfig } from './config'
 
 export interface WalletConfig {

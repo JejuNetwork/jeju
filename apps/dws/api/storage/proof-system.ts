@@ -13,12 +13,12 @@
  * reconstructed or held in memory.
  */
 
+import { createHash, randomBytes } from 'node:crypto'
 import {
   getCurrentNetwork,
   getRpcUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { createHash, randomBytes } from 'node:crypto'
 import type { Address } from 'viem'
 import {
   createWalletClient,
@@ -163,7 +163,9 @@ const DEFAULT_PROOF_CONFIG: StorageProofConfig = {
     getRpcUrl(getCurrentNetwork()),
   // KMS key ID is a secret - keep as env var
   kmsKeyId:
-    typeof process !== 'undefined' ? process.env.STORAGE_PROOF_KMS_KEY_ID : undefined,
+    typeof process !== 'undefined'
+      ? process.env.STORAGE_PROOF_KMS_KEY_ID
+      : undefined,
   ownerAddress:
     typeof process !== 'undefined'
       ? (process.env.STORAGE_PROOF_OWNER_ADDRESS as Address | undefined)
@@ -732,7 +734,7 @@ export class StorageProofManager {
   async submitProofOnChain(proof: StorageProof): Promise<Hex> {
     // SECURITY: In production, on-chain transactions should use a separate
     // transaction relay service that holds keys in HSM, not this server
-    if (process.env.NODE_ENV === 'production' && !this.config.privateKey) {
+    if (isProductionEnv() && !this.config.privateKey) {
       throw new Error(
         'On-chain proof submission requires transaction relay service in production. ' +
           'Configure TX_RELAY_URL or provide privateKey for development only.',

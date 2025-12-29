@@ -20,10 +20,9 @@ import {
   getRpcUrl,
   getServicesConfig,
   getServiceUrl,
-  isProductionEnv,
 } from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
-import { isHexString, isValidAddress } from '@jejunetwork/types'
+import { isValidAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { createPublicClient, http } from 'viem'
 import { localhost, mainnet, sepolia } from 'viem/chains'
@@ -64,7 +63,7 @@ import { createAgentSDK } from './sdk/agent'
 import { createCompute } from './sdk/compute'
 import { type RuntimeMessage, runtimeManager } from './sdk/eliza-runtime'
 import { createExecutorSDK } from './sdk/executor'
-import { createKMSSigner, type KMSSigner } from './sdk/kms-signer'
+import { createKMSSigner } from './sdk/kms-signer'
 import { createLogger } from './sdk/logger'
 import { createRoomSDK } from './sdk/room'
 import { createStorage } from './sdk/storage'
@@ -181,10 +180,20 @@ const metrics = {
   startTime: Date.now(),
 }
 
-// Rate limiting configuration
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+// Rate limiting configuration - uses distributed cache
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+
 const RATE_LIMIT_WINDOW_MS = 60_000 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = crucibleConfig.rateLimitMaxRequests
+
+// Distributed cache for rate limiting
+let rateLimitCache: CacheClient | null = null
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('crucible-ratelimit')
+  }
+  return rateLimitCache
+}
 
 // CORS configuration - restrict to allowed origins
 const ALLOWED_ORIGINS = crucibleConfig.corsAllowedOrigins
@@ -273,7 +282,6 @@ const LOCALNET_DEFAULTS = {
   ipfsGateway: string
   indexerGraphql: string
 }
-
 
 const config: CrucibleConfig = {
   rpcUrl: getRequiredEnv('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
@@ -387,26 +395,16 @@ let tradingBots: Map<bigint, TradingBot> = new Map()
 // Seed DWS infrastructure (external chain nodes + bots) on startup
 async function seedDWSInfrastructure(): Promise<void> {
   // Use treasury address from config, fallback to KMS signer address
-  const signerAddress = kmsSigner.isInitialized() ? kmsSigner.getAddress() : null
+  const signerAddress = kmsSigner.isInitialized()
+    ? kmsSigner.getAddress()
+    : null
   const treasuryAddress =
     config.contracts.autocratTreasury ??
     signerAddress ??
     '0x0000000000000000000000000000000000000001'
 
-  try {
-    // Dynamic import to avoid circular dependency
-    const dws = await import('@jejunetwork/dws')
-    const result = await dws.seedInfrastructure(
-      treasuryAddress as `0x${string}`,
-    )
-    log.info('DWS infrastructure seeded', {
-      nodesReady: result.nodesReady,
-      botsRunning: result.botsRunning,
-    })
-  } catch (err) {
-    // Log but don't fail - infrastructure seeding is optional
-    log.warn('DWS infrastructure seeding failed', { error: String(err) })
-  }
+  // DWS infrastructure seeding deferred - seedInfrastructure is not exported from @jejunetwork/dws
+  log.info('DWS infrastructure seeding skipped', { treasuryAddress })
 }
 
 // Initialize bot handler if KMS is configured
@@ -488,31 +486,27 @@ app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
   const key = clientIp || walletAddress || 'unknown'
 
   const now = Date.now()
+  const cache = getRateLimitCache()
+  const cacheKey = `crucible-rl:${key}`
 
-  // Clean up old entries periodically (limit cleanup frequency)
-  if (rateLimitStore.size > 10000) {
-    const keysToDelete: string[] = []
-    for (const [k, v] of rateLimitStore) {
-      if (v.resetAt < now) keysToDelete.push(k)
-      if (keysToDelete.length >= 5000) break // Limit cleanup batch size
-    }
-    for (const k of keysToDelete) {
-      rateLimitStore.delete(k)
-    }
-  }
-
-  // Atomic check-and-increment pattern
-  let record = rateLimitStore.get(key)
+  // Get rate limit record from distributed cache
+  const cached = await cache.get(cacheKey)
+  let record: { count: number; resetAt: number } | null = cached
+    ? JSON.parse(cached)
+    : null
 
   if (!record || record.resetAt < now) {
-    // Create new record atomically
+    // Create new record
     record = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
-    rateLimitStore.set(key, record)
   } else {
-    // Increment count atomically before checking limit
+    // Increment count before checking limit
     record.count++
 
     if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+      // Store the updated record
+      const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+      await cache.set(cacheKey, JSON.stringify(record), ttl)
+
       set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
       set.headers['X-RateLimit-Remaining'] = '0'
       set.headers['X-RateLimit-Reset'] = Math.ceil(
@@ -522,6 +516,10 @@ app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
       return { error: 'Rate limit exceeded' }
     }
   }
+
+  // Store updated record with TTL
+  const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+  await cache.set(cacheKey, JSON.stringify(record), ttl)
 
   set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
   set.headers['X-RateLimit-Remaining'] = Math.max(
@@ -1198,7 +1196,7 @@ app.post('/api/v1/bots/:botId/stop', async ({ params, request, set }) => {
     agentId,
     request,
     agentSdk,
-    account ?? null,
+    kmsSigner.isInitialized() ? { address: kmsSigner.getAddress() } : null,
   )
   if (!authResult.authorized) {
     set.status = 403
@@ -1227,7 +1225,7 @@ app.post('/api/v1/bots/:botId/start', async ({ params, request, set }) => {
     agentId,
     request,
     agentSdk,
-    account ?? null,
+    kmsSigner.isInitialized() ? { address: kmsSigner.getAddress() } : null,
   )
   if (!authResult.authorized) {
     set.status = 403

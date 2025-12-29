@@ -1,3 +1,4 @@
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import {
   type RateLimitEntry,
   type RateLimiterConfig,
@@ -8,69 +9,38 @@ import {
   RateLimitTiers,
 } from './types.js'
 
-const DEFAULT_MAX_CACHE_SIZE = 100000
+/**
+ * Distributed rate limit store using shared cache
+ * Supports horizontal scaling across multiple instances
+ */
+export class DistributedRateLimitStore implements RateLimitStore {
+  private cache: CacheClient
+  private keyPrefix: string
 
-export class InMemoryRateLimitStore implements RateLimitStore {
-  private store = new Map<string, RateLimitEntry>()
-  private maxSize: number
-
-  constructor(maxSize: number = DEFAULT_MAX_CACHE_SIZE) {
-    this.maxSize = maxSize
+  constructor(serviceId: string = 'api-ratelimit', keyPrefix: string = 'rl') {
+    this.cache = getCacheClient(serviceId)
+    this.keyPrefix = keyPrefix
   }
 
   async get(key: string): Promise<RateLimitEntry | undefined> {
-    return this.store.get(key)
+    const cached = await this.cache.get(`${this.keyPrefix}:${key}`)
+    if (cached) {
+      return JSON.parse(cached) as RateLimitEntry
+    }
+    return undefined
   }
 
   async set(key: string, entry: RateLimitEntry): Promise<void> {
-    if (this.store.size >= this.maxSize && !this.store.has(key)) {
-      this.evictOldest()
-    }
-    this.store.set(key, entry)
+    const ttl = Math.max(1, Math.ceil((entry.resetAt - Date.now()) / 1000))
+    await this.cache.set(`${this.keyPrefix}:${key}`, JSON.stringify(entry), ttl)
   }
 
   async delete(key: string): Promise<void> {
-    this.store.delete(key)
+    await this.cache.delete(`${this.keyPrefix}:${key}`)
   }
 
   async clear(): Promise<void> {
-    this.store.clear()
-  }
-
-  private evictOldest(): void {
-    const now = Date.now()
-
-    for (const [key, entry] of this.store) {
-      if (entry.resetAt < now) {
-        this.store.delete(key)
-      }
-    }
-
-    if (this.store.size >= this.maxSize) {
-      const entries = Array.from(this.store.entries()).sort(
-        (a, b) => a[1].resetAt - b[1].resetAt,
-      )
-      const toRemove = Math.ceil(entries.length * 0.1)
-      for (let i = 0; i < toRemove; i++) {
-        this.store.delete(entries[i][0])
-      }
-    }
-  }
-
-  cleanup(): number {
-    const now = Date.now()
-    let removed = 0
-    for (const [key, entry] of this.store) {
-      if (entry.resetAt < now) {
-        this.store.delete(key)
-        removed++
-      }
-    }
-    return removed
-  }
-
-  get size(): number {
-    return this.store.size
+    // Distributed stores don't support bulk clear - entries expire via TTL
   }
 }
 
@@ -79,28 +49,21 @@ export class RateLimiter {
     tiers: Record<string, RateLimitTier>
   }
   private store: RateLimitStore
-  private cleanupInterval?: ReturnType<typeof setInterval>
 
   constructor(config: RateLimiterConfig, store?: RateLimitStore) {
     this.config = {
       defaultTier: config.defaultTier,
       tiers: config.tiers ?? { ...RateLimitTiers },
-      maxCacheSize: config.maxCacheSize ?? DEFAULT_MAX_CACHE_SIZE,
+      maxCacheSize: config.maxCacheSize ?? 100000,
       keyPrefix: config.keyPrefix ?? 'rl',
       skipIps: config.skipIps ?? [],
       skipPaths: config.skipPaths ?? [],
     }
 
-    this.store = store ?? new InMemoryRateLimitStore(this.config.maxCacheSize)
-
-    if (this.store instanceof InMemoryRateLimitStore) {
-      this.cleanupInterval = setInterval(
-        () => {
-          ;(this.store as InMemoryRateLimitStore).cleanup()
-        },
-        60000, // Cleanup every minute
-      )
-    }
+    // Use distributed store by default for horizontal scaling
+    this.store =
+      store ??
+      new DistributedRateLimitStore('api-ratelimit', this.config.keyPrefix)
   }
 
   async check(
@@ -202,9 +165,7 @@ export class RateLimiter {
   }
 
   stop(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval)
-    }
+    // No cleanup needed - distributed cache handles TTL expiration
   }
 }
 

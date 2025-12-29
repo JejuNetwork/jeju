@@ -1,7 +1,6 @@
 import { watch } from 'node:fs'
 import { join, resolve } from 'node:path'
 import {
-  CORE_PORTS,
   getChainId,
   getIndexerGraphqlUrl,
   getIpfsApiUrl,
@@ -99,9 +98,7 @@ async function build() {
       'import.meta.env.PUBLIC_RPC_GATEWAY_URL': JSON.stringify(
         getRpcGatewayUrl(),
       ),
-      'import.meta.env.PUBLIC_OAUTH3_AGENT_URL': JSON.stringify(
-        getOAuth3Url(),
-      ),
+      'import.meta.env.PUBLIC_OAUTH3_AGENT_URL': JSON.stringify(getOAuth3Url()),
       'import.meta.env.PUBLIC_WALLETCONNECT_PROJECT_ID':
         JSON.stringify('YOUR_PROJECT_ID'),
       'import.meta.env.MODE': JSON.stringify('development'),

@@ -18,7 +18,7 @@ export * from './updater'
 // export * from './vpn-exit'
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { NodeClient, SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 import {
   type BridgeService,
   type BridgeServiceConfig,
@@ -75,7 +75,7 @@ type ResidentialProxyService = {
   stop: () => Promise<void>
 }
 function createResidentialProxyService(
-  _client: NodeClient,
+  _client: SecureNodeClient,
 ): ResidentialProxyService {
   return { start: async () => {}, stop: async () => {} }
 }
@@ -106,7 +106,7 @@ import { createStorageService, type StorageService } from './storage'
 type VPNExitConfig = Record<string, never>
 type VPNExitService = { start: () => Promise<void>; stop: () => Promise<void> }
 function createVPNExitService(
-  _client: NodeClient,
+  _client: SecureNodeClient,
   _config?: Partial<VPNExitConfig>,
 ): VPNExitService {
   return { start: async () => {}, stop: async () => {} }
@@ -141,7 +141,7 @@ export interface NodeServicesConfig {
 }
 
 export function createNodeServices(
-  client: NodeClient | SecureNodeClient,
+  client: SecureNodeClient | SecureNodeClient,
   config: NodeServicesConfig = {},
 ): NodeServices {
   const {
@@ -198,9 +198,9 @@ export function createNodeServices(
     ...edgeConfig,
   }
 
-  // Cast to NodeClient for backwards compatibility with services
+  // Cast to SecureNodeClient for backwards compatibility with services
   // Services should be migrated to use SecureNodeClient
-  const legacyClient = client as NodeClient
+  const legacyClient = client as SecureNodeClient
 
   return {
     compute: createComputeService(legacyClient),

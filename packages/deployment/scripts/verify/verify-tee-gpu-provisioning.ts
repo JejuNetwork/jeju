@@ -10,7 +10,7 @@
  * 5. Verify on-chain state
  */
 
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getDwsApiUrl, getRpcUrl } from '@jejunetwork/config'
 import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia, localhost } from 'viem/chains'
@@ -72,10 +72,8 @@ async function runTest(
 // Setup
 
 const network = getCurrentNetwork()
-const rpcUrl =
-  process.env.RPC_URL ??
-  (network === 'localnet' ? 'http://localhost:6546' : undefined)
-const dwsEndpoint = process.env.DWS_ENDPOINT ?? 'http://localhost:4030'
+const rpcUrl = getRpcUrl()
+const dwsEndpoint = getDwsApiUrl()
 const privateKey = process.env.DEPLOYER_PRIVATE_KEY as Hex
 
 if (!privateKey) {

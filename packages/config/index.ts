@@ -87,7 +87,9 @@ export {
 } from './network'
 export * from './ports'
 export * from './rpc-chains'
+
 import { getBridgeRelayerUrl } from './ports'
+
 export * from './schemas'
 
 // Types from schemas.ts
@@ -188,7 +190,7 @@ export function getChainId(network?: NetworkType): number {
  * Get the localhost host address for building local service URLs
  * Respects environment variables: HOST, RPC_HOST, LOCALHOST_HOST
  * Defaults to '127.0.0.1' for consistency with existing codebase
- * 
+ *
  * @example
  * ```ts
  * const host = getLocalhostHost() // '127.0.0.1' or env override
@@ -1473,7 +1475,7 @@ function getDefaultBridgeConfig(mode: BridgeMode): unknown {
           },
         ],
         solana: {
-          rpcUrl: getSolanaRpcUrl() || 'http://127.0.0.1:8899',
+          rpcUrl: getSolanaRpcUrl() || `http://${getLocalhostHost()}:8899`,
           bridgeProgramId: 'TokenBridge11111111111111111111111111111111',
           evmLightClientProgramId: 'EVMLightClient1111111111111111111111111111',
         },
@@ -1907,7 +1909,10 @@ export function getDeployerAddress(): string | undefined {
 
 /** Get training endpoint */
 export function getTrainingEndpoint(): string {
-  return process.env.TRAINING_ENDPOINT ?? `http://${getLocalhostHost()}:8001/train_step`
+  return (
+    process.env.TRAINING_ENDPOINT ??
+    `http://${getLocalhostHost()}:8001/train_step`
+  )
 }
 
 /** Get model name */
@@ -1959,7 +1964,10 @@ export function getDwsApiKey(): string | undefined {
 
 /** Get DWS gateway URL */
 export function getDwsGatewayUrl(): string {
-  return process.env.DWS_GATEWAY_URL ?? `http://${getLocalhostHost()}:3000/api/marketplace`
+  return (
+    process.env.DWS_GATEWAY_URL ??
+    `http://${getLocalhostHost()}:3000/api/marketplace`
+  )
 }
 
 /** Get DWS cache endpoint */

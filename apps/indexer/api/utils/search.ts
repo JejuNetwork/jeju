@@ -1,3 +1,4 @@
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { type DataSource, IsNull, Not } from 'typeorm'
 import {
   ComputeProvider,
@@ -18,12 +19,20 @@ function escapeLikePattern(input: string): string {
   return input.replace(/[%_\\]/g, (char) => `\\${char}`)
 }
 
-const searchCache = new Map<string, { data: SearchResult; expiresAt: number }>()
-const CACHE_TTL = 30_000
-const MAX_CACHE_ENTRIES = 1000
+const CACHE_TTL_SECONDS = 30
+
+// Distributed cache for search results
+let searchCache: CacheClient | null = null
+
+function getSearchCache(): CacheClient {
+  if (!searchCache) {
+    searchCache = getCacheClient('indexer-search')
+  }
+  return searchCache
+}
 
 function hashParams(params: SearchParams): string {
-  return JSON.stringify(params)
+  return `search:${JSON.stringify(params)}`
 }
 
 function mapAgentToResult(
@@ -76,9 +85,11 @@ export async function search(
   const offset = validated.offset ?? 0
 
   const cacheKey = hashParams(validated)
-  const cached = searchCache.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) {
-    return { ...cached.data, took: Date.now() - startTime }
+  const cache = getSearchCache()
+  const cached = await cache.get(cacheKey)
+  if (cached) {
+    const data: SearchResult = JSON.parse(cached)
+    return { ...data, took: Date.now() - startTime }
   }
 
   const agentRepo = dataSource.getRepository(RegisteredAgent)
@@ -254,17 +265,8 @@ export async function search(
     took: Date.now() - startTime,
   }
 
-  // Enforce cache size limit to prevent DoS via unbounded cache growth
-  if (searchCache.size >= MAX_CACHE_ENTRIES) {
-    // Evict oldest entries (first 10% of cache)
-    const entriesToEvict = Math.max(1, Math.floor(MAX_CACHE_ENTRIES * 0.1))
-    const iterator = searchCache.keys()
-    for (let i = 0; i < entriesToEvict; i++) {
-      const key = iterator.next().value
-      if (key) searchCache.delete(key)
-    }
-  }
-  searchCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL })
+  // Store in distributed cache with TTL (no need for manual eviction - TTL handles it)
+  await cache.set(cacheKey, JSON.stringify(result), CACHE_TTL_SECONDS)
   return result
 }
 
@@ -313,6 +315,7 @@ export async function getPopularTags(
   return tags.map((t) => ({ tag: t.tag, count: t.agentCount }))
 }
 
-export function invalidateSearchCache(): void {
-  searchCache.clear()
+export async function invalidateSearchCache(): Promise<void> {
+  const cache = getSearchCache()
+  await cache.clear()
 }

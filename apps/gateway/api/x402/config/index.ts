@@ -6,10 +6,10 @@
  * The facilitator service ID is used to identify the signer.
  */
 
+import { getKMSSigner } from '@jejunetwork/kms'
 import { getServiceName } from '@jejunetwork/shared'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
-import { getKMSSigner } from '../../../lib/kms-signer'
 import { config as gatewayConfig } from '../../config'
 import { getPrimaryChainConfig } from '../lib/chains'
 import { clearClientCache } from '../services/settler'
@@ -145,4 +145,3 @@ export async function getConfigStatus(): Promise<{
     facilitatorConfigured: cfg.facilitatorAddress !== ZERO_ADDRESS,
   }
 }
-

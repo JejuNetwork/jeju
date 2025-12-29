@@ -251,7 +251,9 @@ export class ExternalRPCNodeService {
       chainId: config.chainId,
       status: 'provisioning',
       rpcEndpoint: `http://${getLocalhostHost()}:${config.rpcPort}`,
-      wsEndpoint: config.wsPort ? `ws://${getLocalhostHost()}:${config.wsPort}` : '',
+      wsEndpoint: config.wsPort
+        ? `ws://${getLocalhostHost()}:${config.wsPort}`
+        : '',
       containerId: containerName,
       provisionedAt: Date.now(),
       lastHeartbeat: Date.now(),

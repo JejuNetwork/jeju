@@ -17,6 +17,7 @@
  * - Must maintain valid TEE attestation
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
@@ -157,14 +158,17 @@ export function createMPCPartyWorker(config: MPCPartyConfig) {
 
     // Real TEE attestation via platform-specific API
     // This would call the TEE runtime to generate a quote
-    const response = await fetch(`http://localhost:8080/attestation/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        partyId: config.partyId,
-        userData: config.partyId,
-      }),
-    })
+    const response = await fetch(
+      `http://${getLocalhostHost()}:8080/attestation/generate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partyId: config.partyId,
+          userData: config.partyId,
+        }),
+      },
+    )
 
     if (!response.ok) {
       throw new Error(`Failed to generate attestation: ${response.status}`)

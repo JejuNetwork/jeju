@@ -37,21 +37,19 @@ function getRpcUrlFromConfig(): string {
 
 // Get reputation registry contract address (optional - can use only moderation)
 function getReputationRegistryAddress(): Address | null {
-  const network = getCurrentNetwork()
   const address =
     (typeof process !== 'undefined'
       ? process.env.REPUTATION_REGISTRY_ADDRESS
-      : undefined) ?? tryGetContract('reputation', 'registry', network)
+      : undefined) ?? tryGetContract('registry', 'reputation')
   return address ? (address as Address) : null
 }
 
 // Get moderation contract address (optional - can use only reputation registry)
 function getModerationAddress(): Address | null {
-  const network = getCurrentNetwork()
   const address =
     (typeof process !== 'undefined'
       ? process.env.MODERATION_CONTRACT_ADDRESS
-      : undefined) ?? tryGetContract('moderation', 'marketplace', network)
+      : undefined) ?? tryGetContract('moderation', 'marketplace')
   return address ? (address as Address) : null
 }
 
@@ -64,7 +62,6 @@ function getPublicClient() {
     case 'mainnet':
       chain = mainnet
       break
-    case 'sepolia':
     case 'testnet':
       chain = sepolia
       break

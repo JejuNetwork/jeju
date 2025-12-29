@@ -14,11 +14,12 @@ import { z } from 'zod'
 import type { ContributionEvent, ContributionType } from './types'
 
 const network = getCurrentNetwork()
-const GATEWAY_URL = typeof process !== 'undefined' && process.env.GATEWAY_URL 
-  ? process.env.GATEWAY_URL
-  : network === 'localnet'
-    ? `http://${getLocalhostHost()}:4000`
-    : getServiceUrl('gateway', 'api', network)
+const GATEWAY_URL =
+  typeof process !== 'undefined' && process.env.GATEWAY_URL
+    ? process.env.GATEWAY_URL
+    : network === 'localnet'
+      ? `http://${getLocalhostHost()}:4000`
+      : getServiceUrl('gateway', 'api', network)
 const SYNC_INTERVAL = 60000
 
 interface GitContribution {

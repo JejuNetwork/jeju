@@ -9,6 +9,7 @@
  * Workerd-compatible: Uses DWS exec API instead of Node.js fs
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { CacheRule } from '@jejunetwork/types'
 
 // DWS Exec API - runs commands on the DWS node
@@ -18,7 +19,7 @@ interface ExecResult {
   stderr: string
 }
 
-let execUrl = 'http://localhost:4020/exec'
+let execUrl = `http://${getLocalhostHost()}:4020/exec`
 
 export function configureAppRegistry(config: { execUrl?: string }): void {
   if (config.execUrl) execUrl = config.execUrl

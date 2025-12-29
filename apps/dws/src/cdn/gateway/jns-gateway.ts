@@ -11,7 +11,13 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getRpcUrl, isProductionEnv } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getIpfsGatewayUrl,
+  getRpcUrl,
+  isProductionEnv,
+  tryGetContract,
+} from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -511,15 +517,28 @@ export class JNSGateway {
 // ============================================================================
 
 export async function startJNSGateway(): Promise<JNSGateway> {
+  const network = getCurrentNetwork()
   const config: JNSGatewayConfig = {
     port: parseInt(process.env.JNS_GATEWAY_PORT ?? '4022', 10),
-    rpcUrl: getRpcUrl(),
-    jnsRegistryAddress: (process.env.JNS_REGISTRY_ADDRESS ??
+    rpcUrl: getRpcUrl(network),
+    jnsRegistryAddress: ((typeof process !== 'undefined'
+      ? process.env.JNS_REGISTRY_ADDRESS
+      : undefined) ??
+      tryGetContract('jns', 'registry', network) ??
       '0x0000000000000000000000000000000000000000') as Address,
-    jnsResolverAddress: (process.env.JNS_RESOLVER_ADDRESS ??
+    jnsResolverAddress: ((typeof process !== 'undefined'
+      ? process.env.JNS_RESOLVER_ADDRESS
+      : undefined) ??
+      tryGetContract('jns', 'resolver', network) ??
       '0x0000000000000000000000000000000000000000') as Address,
-    ipfsGateway: process.env.IPFS_GATEWAY_URL ?? 'https://ipfs.io',
-    arweaveGateway: process.env.ARWEAVE_GATEWAY_URL ?? 'https://arweave.net',
+    ipfsGateway:
+      (typeof process !== 'undefined'
+        ? process.env.IPFS_GATEWAY_URL
+        : undefined) ?? getIpfsGatewayUrl(network),
+    arweaveGateway:
+      (typeof process !== 'undefined'
+        ? process.env.ARWEAVE_GATEWAY_URL
+        : undefined) ?? 'https://arweave.net',
     domain: process.env.JNS_DOMAIN ?? 'jejunetwork.org',
   }
 

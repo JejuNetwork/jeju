@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { keccak256, toBytes, toHex } from 'viem'
+import { toHex } from 'viem'
 import {
   type AESGCMPayload,
   aesGcmDecrypt,

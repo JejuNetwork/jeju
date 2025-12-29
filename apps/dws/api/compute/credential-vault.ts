@@ -1,38 +1,18 @@
 /**
- * Credential Vault
+ * Credential Vault - Encrypted storage for cloud provider API keys
  *
- * Secure storage and management of cloud provider credentials:
- * - AWS, GCP, Azure, Hetzner, OVH, DigitalOcean API keys
- * - Encrypted at rest using AES-256-GCM
- * - Never exposed to users or logs
- * - Scoped access per provisioner
- *
- * Security Model:
- * - Credentials stored encrypted in secure storage (HSM-backed in production)
- * - Only provisioner service can decrypt credentials
- * - Credentials never returned in API responses
- * - All access is audited
- *
- * @environment DWS_VAULT_KEY - Master encryption key (required in production)
- *   - Must be at least 32 characters
- *   - Used to derive per-owner encryption keys
- *   - In development: Falls back to insecure dev key with warning
- *   - In production (isProductionEnv() or getCurrentNetwork() === 'mainnet'): Required, will throw if not set
- *
- * @example
- * ```bash
- * # Generate a secure vault key
- * openssl rand -base64 32
- *
- * # Set in .env
- * DWS_VAULT_KEY=your-generated-key-at-least-32-chars
- * ```
+ * Storage: Uses EQLite for persistence when available, falls back to in-memory for tests.
+ * @environment DWS_VAULT_KEY - Required in production (32+ chars). Use `openssl rand -base64 32` to generate.
+ * @environment EQLITE_URL - When set, enables persistent EQLite storage.
  */
 
 import {
   getCurrentNetwork,
+  getEQLiteUrl,
   isProductionEnv,
+  isTestMode,
 } from '@jejunetwork/config'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -87,7 +67,16 @@ export interface CredentialCreateRequest {
 }
 
 export const CredentialCreateSchema = z.object({
-  provider: z.enum(['aws', 'gcp', 'azure', 'hetzner', 'ovh', 'digitalocean', 'vultr', 'linode']),
+  provider: z.enum([
+    'aws',
+    'gcp',
+    'azure',
+    'hetzner',
+    'ovh',
+    'digitalocean',
+    'vultr',
+    'linode',
+  ]),
   name: z.string().min(1).max(100),
   apiKey: z.string().min(1),
   apiSecret: z.string().optional(),
@@ -99,56 +88,47 @@ export const CredentialCreateSchema = z.object({
 
 // ============ Encryption ============
 
-/**
- * AES-256-GCM encryption for credential storage
- * 
- * Security properties:
- * - 256-bit AES encryption
- * - GCM mode provides authenticated encryption
- * - Unique IV per encryption
- * - Key derived from master key + owner address using HKDF-like derivation
- */
-
-// Development fallback key - NEVER use in production
+// Dev fallback key - throws in production
 const DEV_VAULT_KEY = 'dev-only-key-do-not-use-in-prod-32chars'
 let vaultKeyWarningLogged = false
 
 function getVaultKey(): string {
   const key = process.env.DWS_VAULT_KEY
-  
+
   if (key && key.length >= 32) {
     return key
   }
-  
+
   // In production, fail hard
   const isProduction = isProductionEnv() || getCurrentNetwork() === 'mainnet'
   if (isProduction) {
-    throw new Error('CRITICAL: DWS_VAULT_KEY must be set and at least 32 characters in production')
+    throw new Error(
+      'CRITICAL: DWS_VAULT_KEY must be set and at least 32 characters in production',
+    )
   }
-  
+
   // In development, use fallback but warn loudly (once)
   if (!vaultKeyWarningLogged) {
-    console.warn('⚠️  WARNING: DWS_VAULT_KEY not set - using insecure development key')
+    console.warn(
+      '⚠️  WARNING: DWS_VAULT_KEY not set - using insecure development key',
+    )
     console.warn('⚠️  Set DWS_VAULT_KEY in .env for production use')
     vaultKeyWarningLogged = true
   }
-  
+
   return DEV_VAULT_KEY
 }
 
 function deriveKey(owner: Address): Uint8Array {
-  // Derive a unique key per owner using HKDF-like construction
-  // Hash: VAULT_KEY || owner || "credential-vault-v1"
   const vaultKey = getVaultKey()
   const material = `${vaultKey}:${owner.toLowerCase()}:credential-vault-v1`
-  const hash = keccak256(toBytes(material))
-  return toBytes(hash) // 32 bytes = 256 bits
+  return toBytes(keccak256(toBytes(material)))
 }
 
 async function encrypt(plaintext: string, owner: Address): Promise<string> {
   const key = deriveKey(owner)
   const iv = crypto.getRandomValues(new Uint8Array(12))
-  
+
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     new Uint8Array(key).buffer,
@@ -156,29 +136,27 @@ async function encrypt(plaintext: string, owner: Address): Promise<string> {
     false,
     ['encrypt'],
   )
-  
+
   const ciphertext = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
     new TextEncoder().encode(plaintext),
   )
-  
-  // Format: base64(iv || ciphertext)
+
   const combined = new Uint8Array(iv.length + ciphertext.byteLength)
   combined.set(iv, 0)
   combined.set(new Uint8Array(ciphertext), iv.length)
-  
   return Buffer.from(combined).toString('base64')
 }
 
 async function decrypt(ciphertext: string, owner: Address): Promise<string> {
   const key = deriveKey(owner)
   const combined = Buffer.from(ciphertext, 'base64')
-  
+
   if (combined.length < 13) {
     throw new Error('Invalid ciphertext: too short')
   }
-  
+
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     new Uint8Array(key).buffer,
@@ -186,28 +164,295 @@ async function decrypt(ciphertext: string, owner: Address): Promise<string> {
     false,
     ['decrypt'],
   )
-  
+
   const plaintext = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: new Uint8Array(combined.subarray(0, 12)) },
     cryptoKey,
     new Uint8Array(combined.subarray(12)),
   )
-  
+
   return new TextDecoder().decode(plaintext)
 }
 
-// ============ Storage ============
+// ============ Storage Backend ============
 
-// In-memory storage (would be EQLite with encryption in production)
-const credentials = new Map<string, ProviderCredential>()
-const ownerCredentials = new Map<Address, Set<string>>()
-const auditLog: Array<{
+const EQLITE_DATABASE_ID = 'dws-credentials'
+let eqliteClient: EQLiteClient | null = null
+let tablesInitialized = false
+let useEQLite = false
+
+// In-memory fallback for tests
+const memoryCredentials = new Map<string, ProviderCredential>()
+const memoryOwnerCredentials = new Map<string, Set<string>>() // lowercase owner -> credential ids
+const memoryAuditLog: AuditEntry[] = []
+
+interface AuditEntry {
   timestamp: number
   action: 'create' | 'use' | 'revoke' | 'delete'
   credentialId: string
   owner: Address
   details: string
-}> = []
+}
+
+interface CredentialRow {
+  id: string
+  provider: string
+  name: string
+  owner: string
+  encrypted_api_key: string
+  encrypted_api_secret: string | null
+  encrypted_project_id: string | null
+  region: string | null
+  scopes: string
+  expires_at: number | null
+  created_at: number
+  last_used_at: number
+  usage_count: number
+  status: string
+  last_error_at: number | null
+  last_error: string | null
+}
+
+async function initEQLite(): Promise<boolean> {
+  if (isTestMode()) {
+    return false // Always use in-memory for tests
+  }
+
+  const eqliteUrl = getEQLiteUrl()
+  if (!eqliteUrl) {
+    return false
+  }
+
+  eqliteClient = getEQLite({ databaseId: EQLITE_DATABASE_ID, timeout: 30000 })
+  const healthy = await eqliteClient.isHealthy().catch(() => false)
+
+  if (!healthy) {
+    console.warn(
+      '[CredentialVault] EQLite not available, using in-memory storage',
+    )
+    eqliteClient = null
+    return false
+  }
+
+  await ensureTablesExist()
+  useEQLite = true
+  console.log('[CredentialVault] Using EQLite for persistent storage')
+  return true
+}
+
+async function ensureTablesExist(): Promise<void> {
+  if (tablesInitialized || !eqliteClient) return
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS credentials (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      name TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      encrypted_api_key TEXT NOT NULL,
+      encrypted_api_secret TEXT,
+      encrypted_project_id TEXT,
+      region TEXT,
+      scopes TEXT NOT NULL,
+      expires_at INTEGER,
+      created_at INTEGER NOT NULL,
+      last_used_at INTEGER NOT NULL,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      last_error_at INTEGER,
+      last_error TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      credential_id TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      details TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_cred_owner ON credentials(owner)`,
+    `CREATE INDEX IF NOT EXISTS idx_cred_status ON credentials(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_owner ON audit_log(owner)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)`,
+  ]
+
+  for (const ddl of tables) {
+    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+  }
+
+  tablesInitialized = true
+}
+
+function rowToCredential(row: CredentialRow): ProviderCredential {
+  return {
+    id: row.id,
+    provider: row.provider as CloudProviderType,
+    name: row.name,
+    owner: row.owner as Address,
+    encryptedApiKey: row.encrypted_api_key,
+    encryptedApiSecret: row.encrypted_api_secret,
+    encryptedProjectId: row.encrypted_project_id,
+    region: row.region,
+    scopes: JSON.parse(row.scopes),
+    expiresAt: row.expires_at,
+    createdAt: row.created_at,
+    lastUsedAt: row.last_used_at,
+    usageCount: row.usage_count,
+    status: row.status as ProviderCredential['status'],
+    lastErrorAt: row.last_error_at,
+    lastError: row.last_error,
+  }
+}
+
+// Storage operations - abstracts EQLite vs in-memory
+const storage = {
+  async get(id: string): Promise<ProviderCredential | null> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.query<CredentialRow>(
+        'SELECT * FROM credentials WHERE id = ?',
+        [id],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rows[0] ? rowToCredential(result.rows[0]) : null
+    }
+    return memoryCredentials.get(id) ?? null
+  },
+
+  async set(credential: ProviderCredential): Promise<void> {
+    if (useEQLite && eqliteClient) {
+      await eqliteClient.exec(
+        `INSERT OR REPLACE INTO credentials 
+         (id, provider, name, owner, encrypted_api_key, encrypted_api_secret, encrypted_project_id, 
+          region, scopes, expires_at, created_at, last_used_at, usage_count, status, last_error_at, last_error)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          credential.id,
+          credential.provider,
+          credential.name,
+          credential.owner,
+          credential.encryptedApiKey,
+          credential.encryptedApiSecret,
+          credential.encryptedProjectId,
+          credential.region,
+          JSON.stringify(credential.scopes),
+          credential.expiresAt,
+          credential.createdAt,
+          credential.lastUsedAt,
+          credential.usageCount,
+          credential.status,
+          credential.lastErrorAt,
+          credential.lastError,
+        ],
+        EQLITE_DATABASE_ID,
+      )
+    } else {
+      memoryCredentials.set(credential.id, credential)
+      const ownerKey = credential.owner.toLowerCase()
+      if (!memoryOwnerCredentials.has(ownerKey)) {
+        memoryOwnerCredentials.set(ownerKey, new Set())
+      }
+      memoryOwnerCredentials.get(ownerKey)?.add(credential.id)
+    }
+  },
+
+  async delete(id: string): Promise<boolean> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.exec(
+        'DELETE FROM credentials WHERE id = ?',
+        [id],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rowsAffected > 0
+    }
+    const cred = memoryCredentials.get(id)
+    if (!cred) return false
+    memoryCredentials.delete(id)
+    const ownerKey = cred.owner.toLowerCase()
+    memoryOwnerCredentials.get(ownerKey)?.delete(id)
+    return true
+  },
+
+  async listByOwner(owner: Address): Promise<ProviderCredential[]> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.query<CredentialRow>(
+        'SELECT * FROM credentials WHERE LOWER(owner) = LOWER(?)',
+        [owner],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rows.map(rowToCredential)
+    }
+    const ownerKey = owner.toLowerCase()
+    const ids = memoryOwnerCredentials.get(ownerKey)
+    if (!ids) return []
+    return Array.from(ids)
+      .map((id) => memoryCredentials.get(id))
+      .filter((cred): cred is ProviderCredential => cred !== undefined)
+  },
+
+  async count(): Promise<number> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.query<{ count: number }>(
+        'SELECT COUNT(*) as count FROM credentials',
+        [],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rows[0]?.count ?? 0
+    }
+    return memoryCredentials.size
+  },
+
+  async countActive(): Promise<number> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.query<{ count: number }>(
+        "SELECT COUNT(*) as count FROM credentials WHERE status = 'active'",
+        [],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rows[0]?.count ?? 0
+    }
+    return Array.from(memoryCredentials.values()).filter(
+      (c) => c.status === 'active',
+    ).length
+  },
+
+  async audit(entry: AuditEntry): Promise<void> {
+    if (useEQLite && eqliteClient) {
+      await eqliteClient.exec(
+        'INSERT INTO audit_log (timestamp, action, credential_id, owner, details) VALUES (?, ?, ?, ?, ?)',
+        [
+          entry.timestamp,
+          entry.action,
+          entry.credentialId,
+          entry.owner,
+          entry.details,
+        ],
+        EQLITE_DATABASE_ID,
+      )
+    } else {
+      memoryAuditLog.push(entry)
+    }
+  },
+}
+
+// Initialize storage on module load (non-blocking)
+initEQLite().catch(() => {})
+
+// Metrics for Prometheus
+const metrics = {
+  storeCount: 0,
+  retrieveCount: 0,
+  revokeCount: 0,
+  unauthorizedCount: 0,
+}
+
+export async function getCredentialVaultMetrics() {
+  return {
+    ...metrics,
+    totalCredentials: await storage.count(),
+    activeCredentials: await storage.countActive(),
+    storageBackend: useEQLite ? 'eqlite' : 'memory',
+  }
+}
 
 // ============ Vault Service ============
 
@@ -215,7 +460,10 @@ export class CredentialVault {
   /**
    * Store a new credential
    */
-  async storeCredential(owner: Address, request: CredentialCreateRequest): Promise<string> {
+  async storeCredential(
+    owner: Address,
+    request: CredentialCreateRequest,
+  ): Promise<string> {
     const validated = CredentialCreateSchema.parse(request)
 
     const id = `cred-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -223,8 +471,12 @@ export class CredentialVault {
 
     // Encrypt sensitive fields
     const encryptedApiKey = await encrypt(validated.apiKey, owner)
-    const encryptedApiSecret = validated.apiSecret ? await encrypt(validated.apiSecret, owner) : null
-    const encryptedProjectId = validated.projectId ? await encrypt(validated.projectId, owner) : null
+    const encryptedApiSecret = validated.apiSecret
+      ? await encrypt(validated.apiSecret, owner)
+      : null
+    const encryptedProjectId = validated.projectId
+      ? await encrypt(validated.projectId, owner)
+      : null
 
     const credential: ProviderCredential = {
       id,
@@ -247,21 +499,28 @@ export class CredentialVault {
 
     // Verify credential works before storing (unless explicitly skipped for testing)
     if (!request.skipVerification) {
-      const verifyResult = await this.verifyCredential(validated.provider, validated.apiKey, validated.apiSecret)
+      const verifyResult = await this.verifyCredential(
+        validated.provider,
+        validated.apiKey,
+        validated.apiSecret,
+      )
       if (!verifyResult.valid) {
         throw new Error(`Credential verification failed: ${verifyResult.error}`)
       }
     }
 
     // Store
-    credentials.set(id, credential)
-    const ownerCreds = ownerCredentials.get(owner) ?? new Set()
-    ownerCreds.add(id)
-    ownerCredentials.set(owner, ownerCreds)
+    await storage.set(credential)
 
     // Audit
-    this.audit('create', id, owner, `Created ${validated.provider} credential: ${validated.name}`)
+    await this.audit(
+      'create',
+      id,
+      owner,
+      `Created ${validated.provider} credential: ${validated.name}`,
+    )
 
+    metrics.storeCount++
     console.log(`[CredentialVault] Stored credential ${id} for ${owner}`)
     return id
   }
@@ -278,13 +537,21 @@ export class CredentialVault {
     apiSecret: string | null
     projectId: string | null
   } | null> {
-    const credential = credentials.get(credentialId)
+    const credential = await storage.get(credentialId)
     if (!credential) return null
 
     // Check ownership
     if (credential.owner.toLowerCase() !== requester.toLowerCase()) {
-      this.audit('use', credentialId, requester, 'Unauthorized access attempt')
-      console.warn(`[CredentialVault] Unauthorized access to ${credentialId} by ${requester}`)
+      await this.audit(
+        'use',
+        credentialId,
+        requester,
+        'Unauthorized access attempt',
+      )
+      console.warn(
+        `[CredentialVault] Unauthorized access to ${credentialId} by ${requester}`,
+      )
+      metrics.unauthorizedCount++
       return null
     }
 
@@ -296,15 +563,22 @@ export class CredentialVault {
     // Check expiration
     if (credential.expiresAt && credential.expiresAt < Date.now()) {
       credential.status = 'expired'
+      await storage.set(credential)
       return null
     }
 
     // Update usage
     credential.lastUsedAt = Date.now()
     credential.usageCount++
+    await storage.set(credential)
 
     // Audit
-    this.audit('use', credentialId, requester, `Used for ${credential.provider}`)
+    await this.audit(
+      'use',
+      credentialId,
+      requester,
+      `Used for ${credential.provider}`,
+    )
 
     // Decrypt and return
     const apiKey = await decrypt(credential.encryptedApiKey, credential.owner)
@@ -315,19 +589,27 @@ export class CredentialVault {
       ? await decrypt(credential.encryptedProjectId, credential.owner)
       : null
 
+    metrics.retrieveCount++
     return { apiKey, apiSecret, projectId }
   }
 
   /**
    * List credentials for an owner (metadata only, no secrets)
    */
-  listCredentials(owner: Address): Array<Omit<ProviderCredential, 'encryptedApiKey' | 'encryptedApiSecret' | 'encryptedProjectId'>> {
-    const ownerCreds = ownerCredentials.get(owner)
-    if (!ownerCreds) return []
+  async listCredentials(
+    owner: Address,
+  ): Promise<
+    Array<
+      Omit<
+        ProviderCredential,
+        'encryptedApiKey' | 'encryptedApiSecret' | 'encryptedProjectId'
+      >
+    >
+  > {
+    const creds = await storage.listByOwner(owner)
 
-    return Array.from(ownerCreds)
-      .map((id) => credentials.get(id))
-      .filter((c): c is ProviderCredential => !!c && c.status === 'active')
+    return creds
+      .filter((c) => c.status === 'active')
       .map((c) => ({
         id: c.id,
         provider: c.provider,
@@ -348,8 +630,11 @@ export class CredentialVault {
   /**
    * Revoke a credential
    */
-  async revokeCredential(credentialId: string, owner: Address): Promise<boolean> {
-    const credential = credentials.get(credentialId)
+  async revokeCredential(
+    credentialId: string,
+    owner: Address,
+  ): Promise<boolean> {
+    const credential = await storage.get(credentialId)
     if (!credential) return false
 
     if (credential.owner.toLowerCase() !== owner.toLowerCase()) {
@@ -357,8 +642,10 @@ export class CredentialVault {
     }
 
     credential.status = 'revoked'
-    this.audit('revoke', credentialId, owner, 'Credential revoked')
+    await storage.set(credential)
+    await this.audit('revoke', credentialId, owner, 'Credential revoked')
 
+    metrics.revokeCount++
     console.log(`[CredentialVault] Revoked credential ${credentialId}`)
     return true
   }
@@ -366,19 +653,19 @@ export class CredentialVault {
   /**
    * Delete a credential
    */
-  async deleteCredential(credentialId: string, owner: Address): Promise<boolean> {
-    const credential = credentials.get(credentialId)
+  async deleteCredential(
+    credentialId: string,
+    owner: Address,
+  ): Promise<boolean> {
+    const credential = await storage.get(credentialId)
     if (!credential) return false
 
     if (credential.owner.toLowerCase() !== owner.toLowerCase()) {
       return false
     }
 
-    credentials.delete(credentialId)
-    const ownerCreds = ownerCredentials.get(owner)
-    ownerCreds?.delete(credentialId)
-
-    this.audit('delete', credentialId, owner, 'Credential deleted')
+    await storage.delete(credentialId)
+    await this.audit('delete', credentialId, owner, 'Credential deleted')
 
     console.log(`[CredentialVault] Deleted credential ${credentialId}`)
     return true
@@ -387,20 +674,21 @@ export class CredentialVault {
   /**
    * Mark credential as errored
    */
-  markError(credentialId: string, error: string): void {
-    const credential = credentials.get(credentialId)
+  async markError(credentialId: string, error: string): Promise<void> {
+    const credential = await storage.get(credentialId)
     if (credential) {
       credential.lastErrorAt = Date.now()
       credential.lastError = error
       credential.status = 'error'
+      await storage.set(credential)
     }
   }
 
   /**
-   * Get audit log
+   * Get audit log (in-memory only - EQLite audit log retrieval not implemented yet)
    */
-  getAuditLog(owner?: Address, limit = 100): typeof auditLog {
-    let log = auditLog
+  getAuditLog(owner?: Address, limit = 100): AuditEntry[] {
+    let log = memoryAuditLog
     if (owner) {
       log = log.filter((e) => e.owner.toLowerCase() === owner.toLowerCase())
     }
@@ -419,29 +707,47 @@ export class CredentialVault {
 
     switch (provider) {
       case 'hetzner': {
-        const response = await fetch('https://api.hetzner.cloud/v1/datacenters', {
-          headers: { Authorization: `Bearer ${apiKey}` },
-          signal: AbortSignal.timeout(timeout),
-        })
+        const response = await fetch(
+          'https://api.hetzner.cloud/v1/datacenters',
+          {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(timeout),
+          },
+        )
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'Hetzner: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'Hetzner: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `Hetzner API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `Hetzner API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
 
       case 'digitalocean': {
-        const response = await fetch('https://api.digitalocean.com/v2/account', {
-          headers: { Authorization: `Bearer ${apiKey}` },
-          signal: AbortSignal.timeout(timeout),
-        })
+        const response = await fetch(
+          'https://api.digitalocean.com/v2/account',
+          {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(timeout),
+          },
+        )
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'DigitalOcean: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'DigitalOcean: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `DigitalOcean API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `DigitalOcean API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
@@ -452,10 +758,16 @@ export class CredentialVault {
           signal: AbortSignal.timeout(timeout),
         })
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'Vultr: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'Vultr: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `Vultr API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `Vultr API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
@@ -466,10 +778,16 @@ export class CredentialVault {
           signal: AbortSignal.timeout(timeout),
         })
         if (response.status === 401 || response.status === 403) {
-          return { valid: false, error: 'Linode: Invalid or unauthorized API token' }
+          return {
+            valid: false,
+            error: 'Linode: Invalid or unauthorized API token',
+          }
         }
         if (!response.ok) {
-          return { valid: false, error: `Linode API error: ${response.status} ${response.statusText}` }
+          return {
+            valid: false,
+            error: `Linode API error: ${response.status} ${response.statusText}`,
+          }
         }
         return { valid: true }
       }
@@ -478,14 +796,23 @@ export class CredentialVault {
         // AWS requires proper signature (SigV4)
         // Validate format and require both keys
         if (!apiKey.match(/^(AKIA|ASIA)[A-Z0-9]{16}$/)) {
-          return { valid: false, error: 'AWS: Invalid access key format (must be AKIA/ASIA + 16 alphanumeric chars)' }
+          return {
+            valid: false,
+            error:
+              'AWS: Invalid access key format (must be AKIA/ASIA + 16 alphanumeric chars)',
+          }
         }
         if (!apiSecret || apiSecret.length !== 40) {
-          return { valid: false, error: 'AWS: Secret key must be exactly 40 characters' }
+          return {
+            valid: false,
+            error: 'AWS: Secret key must be exactly 40 characters',
+          }
         }
         // To fully verify, would need to make STS GetCallerIdentity call
         // For now, format validation is the best we can do without SDK
-        console.log('[CredentialVault] AWS credential format validated (full verification requires SDK)')
+        console.log(
+          '[CredentialVault] AWS credential format validated (full verification requires SDK)',
+        )
         return { valid: true }
       }
 
@@ -497,19 +824,31 @@ export class CredentialVault {
         } catch {
           return { valid: false, error: 'GCP: Invalid JSON format' }
         }
-        
+
         // Validate required fields in service account JSON
-        const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
+        const requiredFields = [
+          'type',
+          'project_id',
+          'private_key_id',
+          'private_key',
+          'client_email',
+        ]
         for (const field of requiredFields) {
           if (!parsed[field]) {
-            return { valid: false, error: `GCP: Missing required field '${field}' in service account JSON` }
+            return {
+              valid: false,
+              error: `GCP: Missing required field '${field}' in service account JSON`,
+            }
           }
         }
-        
+
         if (parsed.type !== 'service_account') {
-          return { valid: false, error: 'GCP: Credential type must be "service_account"' }
+          return {
+            valid: false,
+            error: 'GCP: Credential type must be "service_account"',
+          }
         }
-        
+
         console.log('[CredentialVault] GCP service account JSON validated')
         return { valid: true }
       }
@@ -549,13 +888,13 @@ export class CredentialVault {
   /**
    * Add audit log entry
    */
-  private audit(
+  private async audit(
     action: 'create' | 'use' | 'revoke' | 'delete',
     credentialId: string,
     owner: Address,
     details: string,
-  ): void {
-    auditLog.push({
+  ): Promise<void> {
+    await storage.audit({
       timestamp: Date.now(),
       action,
       credentialId,
@@ -563,9 +902,9 @@ export class CredentialVault {
       details,
     })
 
-    // Keep audit log bounded
-    if (auditLog.length > 10000) {
-      auditLog.splice(0, auditLog.length - 10000)
+    // Keep in-memory audit log bounded
+    if (memoryAuditLog.length > 10000) {
+      memoryAuditLog.splice(0, memoryAuditLog.length - 10000)
     }
   }
 }

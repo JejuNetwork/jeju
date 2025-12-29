@@ -5,6 +5,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getRpcUrl as getConfigRpcUrl,
+  getEQLiteBlockProducerUrl,
+  getLocalhostHost,
   type NetworkType,
 } from '@jejunetwork/config'
 import { Command } from 'commander'
@@ -332,9 +334,10 @@ async function startClusterMode(
       const status = await getClusterStatus()
       if (status.healthy) {
         logger.success('EQLite cluster is healthy')
-        logger.keyValue('Block Producer', 'http://localhost:8546')
-        logger.keyValue('Client Endpoint', 'http://localhost:4661')
-        logger.keyValue('Stats UI', 'http://localhost:8547/stats')
+        const host = getLocalhostHost()
+        logger.keyValue('Block Producer', `http://${host}:8546`)
+        logger.keyValue('Client Endpoint', getEQLiteBlockProducerUrl())
+        logger.keyValue('Stats UI', `http://${host}:8547/stats`)
         return
       }
     }
@@ -375,21 +378,23 @@ async function connectTestnet(): Promise<void> {
 }
 
 async function getClusterStatus(): Promise<ClusterStatus> {
+  const host = getLocalhostHost()
+  const eqliteUrl = getEQLiteBlockProducerUrl()
   // Check cluster mode
-  const bpHealthy = await checkEndpoint('http://localhost:8546/v1/health')
-  const lbHealthy = await checkEndpoint('http://localhost:4661/health')
+  const bpHealthy = await checkEndpoint(`http://${host}:8546/v1/health`)
+  const lbHealthy = await checkEndpoint(`${eqliteUrl}/health`)
 
   if (bpHealthy || lbHealthy) {
     // Check individual miners
     const miners = await Promise.all([
-      checkMiner('miner-1', 'http://localhost:4661'),
-      checkMiner('miner-2', 'http://localhost:4662'),
-      checkMiner('miner-3', 'http://localhost:4663'),
+      checkMiner('miner-1', eqliteUrl),
+      checkMiner('miner-2', `http://${host}:4662`),
+      checkMiner('miner-3', `http://${host}:4663`),
     ])
 
     return {
       mode: 'cluster',
-      blockProducer: { running: bpHealthy, endpoint: 'http://localhost:8546' },
+      blockProducer: { running: bpHealthy, endpoint: `http://${host}:8546` },
       miners,
       healthy: bpHealthy && miners.some((m) => m.running),
     }

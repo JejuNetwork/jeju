@@ -7,7 +7,11 @@
  * - Regional coordinator (for routing decisions)
  */
 
-import { getRpcUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -225,9 +229,12 @@ export class NodeStatsReporter {
       statsContractAddress:
         config.statsContractAddress ??
         reporterConfig.statsContractAddress ??
-        (typeof process !== 'undefined'
+        ((typeof process !== 'undefined'
           ? process.env.CDN_STATS_CONTRACT
-          : undefined),
+          : undefined) as Address | undefined) ??
+        (tryGetContract('cdn', 'stats', getCurrentNetwork()) as
+          | Address
+          | undefined),
       reportIntervalMs: config.reportIntervalMs ?? 3600000, // 1 hour
       metricsPort: config.metricsPort,
     }

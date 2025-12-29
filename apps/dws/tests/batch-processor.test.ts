@@ -134,8 +134,28 @@ function restoreFetch() {
 }
 
 // Mock scoring service responses - returns RULER format (array of scores)
-// Note: scoring service expects trajectory-1, trajectory-2, etc. in responses
+// Dynamically generates scores for any trajectory IDs based on request
 function setupMockScoringResponses() {
+  // Default static responses for tests that expect specific IDs
+  const defaultScores = [
+    { trajectory_id: 'trajectory-1', explanation: 'Good strategy', score: 0.8 },
+    {
+      trajectory_id: 'trajectory-2',
+      explanation: 'Average performance',
+      score: 0.6,
+    },
+    {
+      trajectory_id: 'trajectory-3',
+      explanation: 'Needs improvement',
+      score: 0.4,
+    },
+    {
+      trajectory_id: 'trajectory-4',
+      explanation: 'Solid execution',
+      score: 0.7,
+    },
+  ]
+
   mockFetchResponses.set('/v1/chat/completions', {
     ok: true,
     status: 200,
@@ -143,35 +163,91 @@ function setupMockScoringResponses() {
       choices: [
         {
           message: {
-            content: JSON.stringify({
-              scores: [
-                {
-                  trajectory_id: 'trajectory-1',
-                  explanation: 'Good strategy',
-                  score: 0.8,
-                },
-                {
-                  trajectory_id: 'trajectory-2',
-                  explanation: 'Average performance',
-                  score: 0.6,
-                },
-                {
-                  trajectory_id: 'trajectory-3',
-                  explanation: 'Needs improvement',
-                  score: 0.4,
-                },
-                {
-                  trajectory_id: 'trajectory-4',
-                  explanation: 'Solid execution',
-                  score: 0.7,
-                },
-              ],
-            }),
+            content: JSON.stringify({ scores: defaultScores }),
           },
         },
       ],
     },
   })
+}
+
+// Dynamic scoring mock that extracts trajectory IDs from the request body
+function setupDynamicScoringMock() {
+  const _originalFetch = globalThis.fetch
+  globalThis.fetch = async (
+    url: string | URL | Request,
+    options?: RequestInit,
+  ) => {
+    const urlString = url.toString()
+
+    if (urlString.includes('/v1/chat/completions') && options?.body) {
+      const body =
+        typeof options.body === 'string'
+          ? JSON.parse(options.body)
+          : options.body
+      const prompt = body.messages?.[0]?.content || ''
+
+      // Extract trajectory IDs from the prompt
+      const idMatches = prompt.match(/trajectory[_-]\w+|t\d+/gi) || [
+        'trajectory-1',
+      ]
+      const uniqueIds = [...new Set(idMatches)]
+
+      const scores = uniqueIds.map((id: string, idx: number) => ({
+        trajectory_id: id,
+        explanation: `Score for ${id}`,
+        score: 0.5 + ((idx * 0.1) % 0.5), // Varying scores 0.5-1.0
+      }))
+
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify({ scores }) } }],
+          }),
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify({ scores }) } }],
+        }),
+        arrayBuffer: async () =>
+          new TextEncoder().encode(
+            JSON.stringify({
+              choices: [{ message: { content: JSON.stringify({ scores }) } }],
+            }),
+          ).buffer,
+      } as Response
+    }
+
+    // Fall back to other mocks
+    for (const [pattern, response] of mockFetchResponses) {
+      if (urlString.includes(pattern)) {
+        return {
+          ok: response.ok,
+          status: response.status,
+          text: async () =>
+            typeof response.body === 'string'
+              ? response.body
+              : response.body instanceof ArrayBuffer
+                ? new TextDecoder().decode(response.body)
+                : JSON.stringify(response.body),
+          json: async () =>
+            response.body instanceof ArrayBuffer
+              ? JSON.parse(new TextDecoder().decode(response.body))
+              : response.body,
+          arrayBuffer: async () =>
+            response.body instanceof ArrayBuffer
+              ? response.body
+              : new TextEncoder().encode(
+                  typeof response.body === 'string'
+                    ? response.body
+                    : JSON.stringify(response.body),
+                ).buffer,
+        } as Response
+      }
+    }
+
+    throw new Error(`No mock response for: ${urlString}`)
+  }
 }
 
 // Test Suite
@@ -360,8 +436,7 @@ describe('TrajectoryBatchProcessor', () => {
       expect(datasets[0].archetype).toBe('trader')
     })
 
-    // TODO: Fix mock response alignment - scoring service returns different IDs than test data
-    test.skip('handles default archetype for null/undefined', async () => {
+    test('handles default archetype for null/undefined', async () => {
       const jsonl = [
         '{"_type":"header","batchId":"b1","appName":"test","trajectoryCount":2,"timestamp":"2024-01-01"}',
         '{"_type":"trajectory","id":"trajectory-1","trajectoryId":"trajectory-1","agentId":"a1","appName":"test","startTime":"2024-01-01","endTime":"2024-01-01","durationMs":1000,"windowId":"w","scenarioId":"s","steps":[{"stepNumber":0,"timestamp":1704067200000}],"rewardComponents":[],"metrics":{},"metadata":{},"totalReward":0.5}',
@@ -374,7 +449,7 @@ describe('TrajectoryBatchProcessor', () => {
         status: 200,
         body: compressed,
       })
-      setupMockScoringResponses()
+      setupDynamicScoringMock() // Use dynamic mock that handles any trajectory IDs
       mockFetchResponses.set('/api/v1/upload', {
         ok: true,
         status: 200,

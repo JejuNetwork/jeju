@@ -14,7 +14,7 @@
  */
 
 import { type Hex, keccak256, toBytes } from 'viem'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 // Contract ABIs - minimal interfaces for sequencer operations
 const SEQUENCER_REGISTRY_ABI = [
@@ -148,7 +148,7 @@ const DEFAULT_CONFIG: SequencerConfig = {
 }
 
 export function createSequencerService(
-  client: NodeClient,
+  client: SecureNodeClient,
   config: Partial<SequencerConfig> = {},
 ): SequencerService {
   const fullConfig: SequencerConfig = { ...DEFAULT_CONFIG, ...config }

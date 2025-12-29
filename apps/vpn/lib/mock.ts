@@ -599,7 +599,9 @@ const handlers: Record<string, MockHandler> = {
   set_residential_proxy_settings: async (
     args: Record<string, unknown>,
   ): Promise<null> => {
-    const settings = args.settings as Partial<typeof mockResidentialProxyState.settings>
+    const settings = args.settings as Partial<
+      typeof mockResidentialProxyState.settings
+    >
     mockResidentialProxyState.settings = {
       ...mockResidentialProxyState.settings,
       ...settings,
@@ -607,16 +609,18 @@ const handlers: Record<string, MockHandler> = {
     return null
   },
 
-  register_residential_proxy: async (
-    args: Record<string, unknown>,
-  ) => {
+  register_residential_proxy: async (args: Record<string, unknown>) => {
     const stakeAmount = args.stake_amount as string
     mockResidentialProxyState.status = {
       ...mockResidentialProxyState.status,
       is_registered: true,
       stake_amount: stakeAmount,
     }
-    return { success: true, node_address: '0x1234...', stake_amount: stakeAmount }
+    return {
+      success: true,
+      node_address: '0x1234...',
+      stake_amount: stakeAmount,
+    }
   },
 
   claim_residential_proxy_rewards: async () => {
@@ -625,7 +629,8 @@ const handlers: Record<string, MockHandler> = {
       ...mockResidentialProxyState.status,
       pending_rewards: '0',
       total_earnings: (
-        BigInt(mockResidentialProxyState.status.total_earnings) + BigInt(pending)
+        BigInt(mockResidentialProxyState.status.total_earnings) +
+        BigInt(pending)
       ).toString(),
     }
     return { success: true, claimed_amount: pending }

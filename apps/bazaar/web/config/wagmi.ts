@@ -1,4 +1,9 @@
-import { getChainId, getRpcUrl, getServicesConfig } from '@jejunetwork/config'
+import {
+  getChainId,
+  getLocalhostHost,
+  getRpcUrl,
+  getServicesConfig,
+} from '@jejunetwork/config'
 import { defineChain } from 'viem'
 import { createConfig, http } from 'wagmi'
 import { injected } from 'wagmi/connectors'
@@ -22,7 +27,7 @@ const localnet = defineChain({
   blockExplorers: {
     default: {
       name: `${NETWORK_NAME} Explorer`,
-      url: services.explorer || 'http://localhost:4000',
+      url: services.explorer || `http://${getLocalhostHost()}:4000`,
     },
   },
   testnet: true,

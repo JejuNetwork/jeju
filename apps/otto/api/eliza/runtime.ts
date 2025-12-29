@@ -2,6 +2,11 @@
  * Otto AI Runtime
  */
 
+import {
+  getDWSUrl,
+  getLocalhostHost,
+  isDevelopmentEnv,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
 import {
@@ -13,11 +18,6 @@ import {
   type PlatformMessage,
   PlatformMessageSchema,
 } from '../../lib'
-import {
-  getDWSUrl,
-  getLocalhostHost,
-  isDevelopmentEnv,
-} from '@jejunetwork/config'
 import { DEFAULT_CHAIN_ID, getChainId, PENDING_ACTION_TTL } from '../config'
 import {
   getLaunchService,
@@ -36,7 +36,8 @@ import {
 } from '../utils/parsing'
 
 function getDwsBaseUrl(): string {
-  const url = process.env.DWS_SERVER_URL
+  const url =
+    typeof process !== 'undefined' ? process.env.DWS_SERVER_URL : undefined
   if (url) return url
   if (isDevelopmentEnv()) {
     return `http://${getLocalhostHost()}:4030`
@@ -717,7 +718,8 @@ async function callAI(
     { role: 'user', content: userMessage },
   ]
 
-  const dwsUrl = process.env.DWS_SERVER_URL
+  const dwsUrl =
+    typeof process !== 'undefined' ? process.env.DWS_SERVER_URL : undefined
   if (dwsUrl || isDevelopmentEnv()) {
     const response = await fetch(
       `${getDwsBaseUrl()}/compute/chat/completions`,

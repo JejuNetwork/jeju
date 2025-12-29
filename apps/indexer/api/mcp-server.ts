@@ -265,18 +265,20 @@ const PROMPTS = [
   },
 ]
 
-const MAX_BODY_SIZE = 1024 * 1024
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 
-const mcpRateLimitStore = new Map<string, { count: number; resetAt: number }>()
+const MAX_BODY_SIZE = 1024 * 1024
 const MCP_RATE_LIMIT = 100
 const MCP_RATE_WINDOW = 60_000
 
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, { resetAt }] of mcpRateLimitStore) {
-    if (now > resetAt) mcpRateLimitStore.delete(key)
+// Distributed cache for rate limiting
+let mcpRateLimitCache: CacheClient | null = null
+function getMCPRateLimitCache(): CacheClient {
+  if (!mcpRateLimitCache) {
+    mcpRateLimitCache = getCacheClient('indexer-mcp-ratelimit')
   }
-}, 60_000).unref()
+  return mcpRateLimitCache
+}
 
 export function createIndexerMCPServer() {
   const CORS_ORIGINS = config.corsOrigins
@@ -314,7 +316,7 @@ export function createIndexerMCPServer() {
       set.status = 500
       return { error: 'Internal server error' }
     })
-    .onBeforeHandle(({ request, set, path }) => {
+    .onBeforeHandle(async ({ request, set, path }) => {
       const contentLength = request.headers.get('content-length')
       if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
         set.status = 413
@@ -333,12 +335,22 @@ export function createIndexerMCPServer() {
         : `ip:${forwarded ?? 'unknown'}`
 
       const now = Date.now()
-      let record = mcpRateLimitStore.get(clientKey)
+      const cache = getMCPRateLimitCache()
+      const cacheKey = `mcp-rl:${clientKey}`
+
+      const cached = await cache.get(cacheKey)
+      let record: { count: number; resetAt: number } | null = cached
+        ? JSON.parse(cached)
+        : null
+
       if (!record || now > record.resetAt) {
         record = { count: 0, resetAt: now + MCP_RATE_WINDOW }
-        mcpRateLimitStore.set(clientKey, record)
       }
       record.count++
+
+      // Store updated record with TTL
+      const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+      await cache.set(cacheKey, JSON.stringify(record), ttl)
 
       set.headers['X-RateLimit-Limit'] = String(MCP_RATE_LIMIT)
       set.headers['X-RateLimit-Remaining'] = String(

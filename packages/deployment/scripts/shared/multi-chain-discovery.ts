@@ -13,8 +13,8 @@
  * - Network Testnet (420690)
  */
 
-import { readContract } from '@jejunetwork/shared'
 import { getRpcUrl } from '@jejunetwork/config'
+import { readContract } from '@jejunetwork/shared'
 import {
   type Address,
   createPublicClient,

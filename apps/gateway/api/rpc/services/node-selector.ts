@@ -1,24 +1,7 @@
-/**
- * Decentralized RPC Node Selector
- *
- * Selects RPC nodes from the MultiChainRPCRegistry based on:
- * - Reputation scores (uptime, success rate, latency)
- * - Geographic proximity
- * - Chain support
- * - Archive/WebSocket requirements
- *
- * Uses weighted random selection to distribute load while
- * preferring higher-reputation nodes.
- */
+import { type Address, decodeFunctionResult, encodeFunctionData } from 'viem'
+import { JEJU_CHAIN_ID, RPC_URLS } from '../../../lib/config/networks'
 
-import {
-  type Address,
-  decodeFunctionResult,
-  encodeFunctionData,
-} from 'viem'
-import { RPC_URLS, JEJU_CHAIN_ID } from '../../../lib/config/networks'
-
-const MULTI_CHAIN_RPC_REGISTRY_ABI = [
+const REGISTRY_ABI = [
   {
     type: 'function',
     name: 'getQualifiedProviders',
@@ -94,7 +77,6 @@ interface NodeSelectionCriteria {
   minUptime: number
   maxLatencyMs?: number
   requireArchive: boolean
-  requireWebSocket: boolean
   preferRegion?: string
   excludeNodes: Address[]
   maxNodes: number
@@ -108,7 +90,7 @@ interface SelectedNode {
   latencyMs?: number
 }
 
-interface NodeWithScore {
+interface CachedNode {
   address: Address
   endpoint: string
   region: string
@@ -116,20 +98,27 @@ interface NodeWithScore {
   latencyMs: number
 }
 
-// Module-level cache
-const nodeCache = new Map<number, NodeWithScore[]>()
+const nodeCache = new Map<number, CachedNode[]>()
 const cacheTimestamps = new Map<number, number>()
 
-/** Make an eth_call to the registry contract */
+// Metrics for Prometheus export
+const selectorMetrics = {
+  selectionsTotal: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  failuresReported: 0,
+  latencyReports: 0,
+}
+
 async function callRegistry<T>(
   registryAddress: Address,
   rpcUrl: string,
-  functionName: string,
+  functionName: 'getQualifiedProviders' | 'getNode' | 'getChainEndpoint',
   args: readonly unknown[],
 ): Promise<T | null> {
   const callData = encodeFunctionData({
-    abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-    functionName: functionName as 'getQualifiedProviders' | 'getNode' | 'getChainEndpoint',
+    abi: REGISTRY_ABI,
+    functionName,
     args: args as never,
   })
 
@@ -144,15 +133,15 @@ async function callRegistry<T>(
     }),
   })
 
-  const result = (await response.json()) as { result?: string; error?: { message: string } }
-
-  if (result.error || !result.result || result.result === '0x') {
-    return null
+  const result = (await response.json()) as {
+    result?: string
+    error?: { message: string }
   }
+  if (result.error || !result.result || result.result === '0x') return null
 
   return decodeFunctionResult({
-    abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-    functionName: functionName as 'getQualifiedProviders' | 'getNode' | 'getChainEndpoint',
+    abi: REGISTRY_ABI,
+    functionName,
     data: result.result as `0x${string}`,
   }) as T
 }
@@ -165,25 +154,32 @@ export class DecentralizedNodeSelector {
   constructor(registryAddress: Address, rpcUrl?: string) {
     this.registryAddress = registryAddress
     this.rpcUrl = rpcUrl ?? JEJU_RPC_URL
-    this.enabled = registryAddress !== '0x0000000000000000000000000000000000000000'
+    this.enabled =
+      registryAddress !== '0x0000000000000000000000000000000000000000'
   }
 
   async selectNodes(criteria: NodeSelectionCriteria): Promise<SelectedNode[]> {
     if (!this.enabled) return []
 
+    selectorMetrics.selectionsTotal++
     const { chainId, minUptime, requireArchive, maxNodes } = criteria
-
-    // Check cache
     const lastUpdated = cacheTimestamps.get(chainId) ?? 0
+
     if (Date.now() - lastUpdated < CACHE_TTL_MS) {
       const cached = nodeCache.get(chainId)
-      if (cached?.length) return this.filterAndRank(cached, criteria)
+      if (cached?.length) {
+        selectorMetrics.cacheHits++
+        return this.filterAndRank(cached, criteria)
+      }
     }
 
-    // Fetch from contract
-    const nodes = await this.fetchProviders(chainId, minUptime, requireArchive, maxNodes)
-
-    // Cache results
+    selectorMetrics.cacheMisses++
+    const nodes = await this.fetchProviders(
+      chainId,
+      minUptime,
+      requireArchive,
+      maxNodes,
+    )
     nodeCache.set(chainId, nodes)
     cacheTimestamps.set(chainId, Date.now())
 
@@ -195,7 +191,7 @@ export class DecentralizedNodeSelector {
     minUptime: number,
     requireArchive: boolean,
     maxNodes: number,
-  ): Promise<NodeWithScore[]> {
+  ): Promise<CachedNode[]> {
     const result = await callRegistry<[Address[], bigint[]]>(
       this.registryAddress,
       this.rpcUrl,
@@ -204,28 +200,23 @@ export class DecentralizedNodeSelector {
     )
 
     if (!result) return []
-
     const [providers, scores] = result
     if (!providers?.length) return []
 
-    // Fetch details for each provider
-    const nodes: NodeWithScore[] = []
-
+    const nodes: CachedNode[] = []
     for (let i = 0; i < providers.length; i++) {
       const address = providers[i]
-      const score = scores[i]
-
-      const [endpoint, nodeInfo] = await Promise.all([
+      const [endpoint, region] = await Promise.all([
         this.getEndpoint(address, chainId),
         this.getNodeRegion(address),
       ])
 
-      if (endpoint && nodeInfo) {
+      if (endpoint && region) {
         nodes.push({
           address,
           endpoint,
-          region: nodeInfo,
-          score,
+          region,
+          score: scores[i],
           latencyMs: 0,
         })
       }
@@ -234,58 +225,37 @@ export class DecentralizedNodeSelector {
     return nodes
   }
 
-  private async getEndpoint(node: Address, chainId: number): Promise<string | null> {
-    type EndpointResult = {
-      chainId: bigint
-      endpoint: string
-      isActive: boolean
-      isArchive: boolean
-      isWebSocket: boolean
-      blockHeight: bigint
-      lastUpdated: bigint
-    }
-
-    const result = await callRegistry<EndpointResult>(
+  private async getEndpoint(
+    node: Address,
+    chainId: number,
+  ): Promise<string | null> {
+    type Result = { endpoint: string; isActive: boolean }
+    const result = await callRegistry<Result>(
       this.registryAddress,
       this.rpcUrl,
       'getChainEndpoint',
       [node, BigInt(chainId)],
     )
-
     return result?.isActive && result.endpoint ? result.endpoint : null
   }
 
   private async getNodeRegion(node: Address): Promise<string | null> {
-    type NodeResult = {
-      operator: Address
-      region: string
-      stake: bigint
-      jejuStake: bigint
-      registeredAt: bigint
-      agentId: bigint
-      isActive: boolean
-      isFrozen: boolean
-      totalRequests: bigint
-      totalComputeUnits: bigint
-      totalErrors: bigint
-      lastSeen: bigint
-    }
-
-    const result = await callRegistry<NodeResult>(
+    type Result = { region: string; isActive: boolean; isFrozen: boolean }
+    const result = await callRegistry<Result>(
       this.registryAddress,
       this.rpcUrl,
       'getNode',
       [node],
     )
-
     return result?.isActive && !result.isFrozen ? result.region : null
   }
 
-  async selectBestNode(criteria: NodeSelectionCriteria): Promise<SelectedNode | null> {
+  async selectBestNode(
+    criteria: NodeSelectionCriteria,
+  ): Promise<SelectedNode | null> {
     const nodes = await this.selectNodes(criteria)
     if (!nodes.length) return null
 
-    // Weighted random selection
     const totalWeight = nodes.reduce((sum, n) => sum + n.reputationScore, 0)
     const random = Math.random() * totalWeight
 
@@ -294,7 +264,6 @@ export class DecentralizedNodeSelector {
       cumulative += node.reputationScore
       if (random <= cumulative) return node
     }
-
     return nodes[0]
   }
 
@@ -303,25 +272,34 @@ export class DecentralizedNodeSelector {
       chainId,
       minUptime: 5000,
       requireArchive: false,
-      requireWebSocket: false,
       maxNodes: 20,
       excludeNodes: [],
     })
     return nodes.map((n) => n.endpoint)
   }
 
-  reportLatency(chainId: number, nodeAddress: Address, latencyMs: number): void {
-    const nodes = nodeCache.get(chainId)
-    const node = nodes?.find((n) => n.address.toLowerCase() === nodeAddress.toLowerCase())
+  reportLatency(
+    chainId: number,
+    nodeAddress: Address,
+    latencyMs: number,
+  ): void {
+    selectorMetrics.latencyReports++
+    const node = nodeCache
+      .get(chainId)
+      ?.find((n) => n.address.toLowerCase() === nodeAddress.toLowerCase())
     if (node) {
-      // Exponential moving average
-      node.latencyMs = node.latencyMs === 0 ? latencyMs : node.latencyMs * 0.7 + latencyMs * 0.3
+      node.latencyMs =
+        node.latencyMs === 0
+          ? latencyMs
+          : node.latencyMs * 0.7 + latencyMs * 0.3
     }
   }
 
   reportFailure(chainId: number, nodeAddress: Address): void {
-    const nodes = nodeCache.get(chainId)
-    const node = nodes?.find((n) => n.address.toLowerCase() === nodeAddress.toLowerCase())
+    selectorMetrics.failuresReported++
+    const node = nodeCache
+      .get(chainId)
+      ?.find((n) => n.address.toLowerCase() === nodeAddress.toLowerCase())
     if (node) {
       node.score = (node.score * BigInt(80)) / BigInt(100)
     }
@@ -345,16 +323,21 @@ export class DecentralizedNodeSelector {
     return this.enabled
   }
 
-  private filterAndRank(nodes: NodeWithScore[], criteria: NodeSelectionCriteria): SelectedNode[] {
+  private filterAndRank(
+    nodes: CachedNode[],
+    criteria: NodeSelectionCriteria,
+  ): SelectedNode[] {
     let filtered = nodes
 
-    // Exclude specified nodes
     if (criteria.excludeNodes.length) {
-      const excludeSet = new Set(criteria.excludeNodes.map((a) => a.toLowerCase()))
-      filtered = filtered.filter((n) => !excludeSet.has(n.address.toLowerCase()))
+      const excludeSet = new Set(
+        criteria.excludeNodes.map((a) => a.toLowerCase()),
+      )
+      filtered = filtered.filter(
+        (n) => !excludeSet.has(n.address.toLowerCase()),
+      )
     }
 
-    // Boost preferred region
     if (criteria.preferRegion) {
       const region = criteria.preferRegion.toLowerCase()
       filtered = filtered.map((n) => ({
@@ -365,15 +348,16 @@ export class DecentralizedNodeSelector {
       }))
     }
 
-    // Filter by max latency
     if (criteria.maxLatencyMs !== undefined) {
+      const maxLatency = criteria.maxLatencyMs
       filtered = filtered.filter(
-        (n) => n.latencyMs === 0 || n.latencyMs <= criteria.maxLatencyMs!,
+        (n) => n.latencyMs === 0 || n.latencyMs <= maxLatency,
       )
     }
 
-    // Sort by score descending and limit
-    filtered.sort((a, b) => (b.score > a.score ? 1 : b.score < a.score ? -1 : 0))
+    filtered.sort((a, b) =>
+      b.score > a.score ? 1 : b.score < a.score ? -1 : 0,
+    )
 
     return filtered.slice(0, criteria.maxNodes).map((n) => ({
       address: n.address,
@@ -385,7 +369,6 @@ export class DecentralizedNodeSelector {
   }
 }
 
-// Singleton
 let selectorInstance: DecentralizedNodeSelector | null = null
 
 export function getNodeSelector(): DecentralizedNodeSelector {
@@ -393,8 +376,7 @@ export function getNodeSelector(): DecentralizedNodeSelector {
     const registryAddress =
       (typeof process !== 'undefined'
         ? (process.env.MULTI_CHAIN_RPC_REGISTRY as Address | undefined)
-        : undefined) ??
-      '0x0000000000000000000000000000000000000000'
+        : undefined) ?? '0x0000000000000000000000000000000000000000'
     selectorInstance = new DecentralizedNodeSelector(registryAddress)
   }
   return selectorInstance
@@ -406,4 +388,51 @@ export function initNodeSelector(
 ): DecentralizedNodeSelector {
   selectorInstance = new DecentralizedNodeSelector(registryAddress, rpcUrl)
   return selectorInstance
+}
+
+export function getNodeSelectorMetrics(): string {
+  const lines: string[] = []
+  const cachedChains = nodeCache.size
+  let totalCachedNodes = 0
+  for (const nodes of nodeCache.values()) {
+    totalCachedNodes += nodes.length
+  }
+
+  lines.push('# HELP rpc_node_selections_total Total node selection requests')
+  lines.push('# TYPE rpc_node_selections_total counter')
+  lines.push(`rpc_node_selections_total ${selectorMetrics.selectionsTotal}`)
+
+  lines.push('# HELP rpc_node_cache_hits_total Cache hits for node selection')
+  lines.push('# TYPE rpc_node_cache_hits_total counter')
+  lines.push(`rpc_node_cache_hits_total ${selectorMetrics.cacheHits}`)
+
+  lines.push(
+    '# HELP rpc_node_cache_misses_total Cache misses for node selection',
+  )
+  lines.push('# TYPE rpc_node_cache_misses_total counter')
+  lines.push(`rpc_node_cache_misses_total ${selectorMetrics.cacheMisses}`)
+
+  lines.push('# HELP rpc_node_failures_reported_total Node failures reported')
+  lines.push('# TYPE rpc_node_failures_reported_total counter')
+  lines.push(
+    `rpc_node_failures_reported_total ${selectorMetrics.failuresReported}`,
+  )
+
+  lines.push(
+    '# HELP rpc_node_latency_reports_total Latency observations reported',
+  )
+  lines.push('# TYPE rpc_node_latency_reports_total counter')
+  lines.push(`rpc_node_latency_reports_total ${selectorMetrics.latencyReports}`)
+
+  lines.push('# HELP rpc_node_cached_chains Number of chains in cache')
+  lines.push('# TYPE rpc_node_cached_chains gauge')
+  lines.push(`rpc_node_cached_chains ${cachedChains}`)
+
+  lines.push(
+    '# HELP rpc_node_cached_nodes Total cached nodes across all chains',
+  )
+  lines.push('# TYPE rpc_node_cached_nodes gauge')
+  lines.push(`rpc_node_cached_nodes ${totalCachedNodes}`)
+
+  return `${lines.join('\n')}\n`
 }

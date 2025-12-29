@@ -10,6 +10,7 @@
  */
 
 import { createHmac, randomBytes } from 'node:crypto'
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
 // ============ Types ============
@@ -99,7 +100,7 @@ export interface SignedUrlConfig {
 const DEFAULT_CONFIG: SignedUrlConfig = {
   signingSecret:
     process.env.SIGNED_URL_SECRET ?? 'dev-secret-change-in-production',
-  baseUrl: process.env.DWS_BASE_URL ?? 'http://localhost:3100',
+  baseUrl: process.env.DWS_BASE_URL ?? `http://${getLocalhostHost()}:3100`,
   defaultExpirySeconds: 3600, // 1 hour
   maxExpirySeconds: 86400 * 7, // 7 days
   defaultMaxUses: 100,

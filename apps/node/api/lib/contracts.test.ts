@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { getL2RpcUrl } from '@jejunetwork/config'
 import {
-  createNodeClient,
   createSecureNodeClient,
   getChain,
   getContractAddresses,
@@ -43,17 +43,9 @@ describe('Contract Client', () => {
     expect(addresses.nodeStakingManager).toBeDefined()
   })
 
-  test('createNodeClient creates client without wallet', () => {
-    const client = createNodeClient('http://127.0.0.1:6546', 31337)
-
-    expect(client.publicClient).toBeDefined()
-    expect(client.chainId).toBe(31337)
-    expect(client.addresses).toBeDefined()
-  })
-
   test('createSecureNodeClient creates client with KMS signer', () => {
     const keyId = 'test-key-id-12345'
-    const client = createSecureNodeClient('http://127.0.0.1:6546', 31337, keyId)
+    const client = createSecureNodeClient(getL2RpcUrl(), 31337, keyId)
 
     expect(client.publicClient).toBeDefined()
     expect(client.signer).toBeDefined()

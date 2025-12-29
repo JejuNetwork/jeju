@@ -11,7 +11,7 @@ import {
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { z } from 'zod'
-import { createNodeClient } from './lib/contracts'
+import { createSecureNodeClient } from './lib/contracts'
 import {
   detectHardware,
   getComputeCapabilities,
@@ -422,7 +422,14 @@ program
     console.log(`  Rate: ${options.rate} ETH/hour`)
     console.log()
 
-    const client = createNodeClient(rpcUrl, chainId)
+    const keyId = process.env.KMS_KEY_ID
+    if (!keyId) {
+      console.log(
+        chalk.red('\n  Error: KMS_KEY_ID environment variable required\n'),
+      )
+      process.exit(1)
+    }
+    const client = createSecureNodeClient(rpcUrl, chainId, keyId)
     const services = createNodeServices(client)
 
     services.compute.setHardware(hardware)

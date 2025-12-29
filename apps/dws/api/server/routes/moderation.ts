@@ -43,15 +43,20 @@ const getConfig = (): ModerationConfig => {
   return {
     rpcUrl: getRpcUrl(network),
     chainId: getChainId(network),
-    moderationMarketplaceAddress: 
-      ((typeof process !== 'undefined' ? process.env.MODERATION_MARKETPLACE_ADDRESS : undefined) ??
+    moderationMarketplaceAddress: ((typeof process !== 'undefined'
+      ? process.env.MODERATION_MARKETPLACE_ADDRESS
+      : undefined) ??
       tryGetContract('moderation', 'marketplace', network) ??
       '0x0') as Address,
-    banManagerAddress: 
-      ((typeof process !== 'undefined' ? process.env.BAN_MANAGER_ADDRESS : undefined) ??
+    banManagerAddress: ((typeof process !== 'undefined'
+      ? process.env.BAN_MANAGER_ADDRESS
+      : undefined) ??
       tryGetContract('moderation', 'banManager', network) ??
       '0x0') as Address,
-    operatorPrivateKey: typeof process !== 'undefined' ? process.env.OPERATOR_PRIVATE_KEY as Hex | undefined : undefined,
+    operatorPrivateKey:
+      typeof process !== 'undefined'
+        ? (process.env.OPERATOR_PRIVATE_KEY as Hex | undefined)
+        : undefined,
   }
 }
 const BAN_MANAGER_ABI = [

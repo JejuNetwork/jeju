@@ -28,12 +28,8 @@ import {
 } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
+import { getDWSUrl, getIpfsApiUrl, getRpcUrl } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
-import {
-  getDWSUrl,
-  getIpfsApiUrl,
-  getRpcUrl,
-} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,

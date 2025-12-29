@@ -1,8 +1,8 @@
 /** Fund development accounts */
 
-import { getL2RpcUrl } from '@jejunetwork/config'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { getL2RpcUrl } from '@jejunetwork/config'
 import { toError } from '@jejunetwork/types'
 import { Command } from 'commander'
 import { execa } from 'execa'
@@ -18,7 +18,7 @@ import { checkRpcHealth } from '../lib/chain'
 import { logger } from '../lib/logger'
 import { sanitizeErrorMessage, validateAddress } from '../lib/security'
 import { findMonorepoRoot } from '../lib/system'
-import { DEFAULT_PORTS, WELL_KNOWN_KEYS } from '../types'
+import { WELL_KNOWN_KEYS } from '../types'
 
 const localnetChain = {
   id: 31337,

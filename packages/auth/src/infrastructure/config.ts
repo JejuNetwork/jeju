@@ -7,7 +7,12 @@
  * - mainnet: Jeju Mainnet for production (chain 420692)
  */
 
-import { getContract } from '@jejunetwork/config'
+import {
+  getContract,
+  getDWSUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import { getEnv } from '@jejunetwork/shared'
 import { type NetworkType, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
@@ -37,7 +42,7 @@ export const CHAIN_IDS = {
 } as const
 
 export const RPC_URLS: Record<NetworkType, string> = {
-  localnet: 'http://localhost:6546',
+  localnet: getL2RpcUrl(),
   testnet: 'https://testnet.jejunetwork.org',
   mainnet: 'https://mainnet.jejunetwork.org',
 } as const
@@ -51,9 +56,9 @@ export const DWS_ENDPOINTS: Record<
   { base: string; api: string; gateway: string }
 > = {
   localnet: {
-    base: 'http://localhost:4030',
-    api: 'http://localhost:4030/storage/api/v0',
-    gateway: 'http://localhost:4030/storage/ipfs',
+    base: getDWSUrl() ?? `http://${getLocalhostHost()}:4030`,
+    api: `${getDWSUrl() ?? `http://${getLocalhostHost()}:4030`}/storage/api/v0`,
+    gateway: `${getDWSUrl() ?? `http://${getLocalhostHost()}:4030`}/storage/ipfs`,
   },
   testnet: {
     base: 'https://dws.testnet.jejunetwork.org',

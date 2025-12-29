@@ -95,6 +95,7 @@
     "@noble/curves": "1.9.7",
     "@noble/hashes": "1.8.0",
     "@solana/web3.js": "^1.98.4",
+    "@tensorflow/tfjs": "^4.22.0",
     "agent0-sdk": "^0.31.0",
     "framer-motion": "^12.23.26",
     "merkletreejs": "^0.6.0",

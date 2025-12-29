@@ -1,4 +1,5 @@
 import { OAuth3Provider, type OAuth3ProviderProps } from '@jejunetwork/auth'
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { ReactNode } from 'react'
 import { CHAIN_ID, OAUTH3_AGENT_URL, RPC_URL } from './config'
 
@@ -11,7 +12,7 @@ const oauth3Config: OAuth3ProviderProps['config'] = {
   redirectUri:
     typeof window !== 'undefined'
       ? `${window.location.origin}/auth/callback`
-      : 'http://localhost:5173/auth/callback',
+      : `http://${getLocalhostHost()}:5173/auth/callback`,
   chainId: CHAIN_ID,
   rpcUrl: RPC_URL,
   teeAgentUrl: OAUTH3_AGENT_URL,

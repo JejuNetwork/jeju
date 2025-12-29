@@ -1,5 +1,6 @@
 import {
   getEQLiteBlockProducerUrl,
+  getEQLiteUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
@@ -20,8 +21,11 @@ export function getDatabase(): EQLiteClient {
   if (!dbClient) {
     dbClient = getEQLite({
       blockProducerEndpoint:
-        process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT ||
-        getEQLiteBlockProducerUrl(),
+        (typeof process !== 'undefined'
+          ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+          : undefined) ||
+        getEQLiteBlockProducerUrl() ||
+        getEQLiteUrl(),
       databaseId: DATABASE_ID,
       timeout: 30000,
       debug: !isProductionEnv(),

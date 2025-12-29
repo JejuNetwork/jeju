@@ -5,7 +5,6 @@
  */
 
 import {
-  getContract,
   getCurrentNetwork,
   getRpcUrl,
   tryGetContract,
@@ -111,7 +110,6 @@ function getPublicClient() {
     case 'mainnet':
       chain = mainnet
       break
-    case 'sepolia':
     case 'testnet':
       chain = sepolia
       break

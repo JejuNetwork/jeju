@@ -94,8 +94,7 @@ function isValidIpAddress(ip: string): boolean {
  * SECURITY: Only trust proxy headers in development or when explicitly configured
  */
 const TRUST_PROXY_HEADERS =
-  !isProductionEnv() ||
-  process.env.TRUST_PROXY_HEADERS === 'true'
+  !isProductionEnv() || process.env.TRUST_PROXY_HEADERS === 'true'
 
 export function getClientId(request: Request): string {
   // SECURITY: Only trust proxy headers if explicitly configured

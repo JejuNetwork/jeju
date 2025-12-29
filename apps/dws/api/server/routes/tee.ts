@@ -24,13 +24,11 @@ import { createKMSWalletClient, isKMSAvailable } from '../../shared/kms-wallet'
 
 // Get contract address from config
 const network = getCurrentNetwork()
-const TDX_VERIFIER_ADDRESS = (
-  (typeof process !== 'undefined'
-    ? process.env.TDX_ATTESTATION_VERIFIER_ADDRESS
-    : undefined) ||
+const TDX_VERIFIER_ADDRESS = ((typeof process !== 'undefined'
+  ? process.env.TDX_ATTESTATION_VERIFIER_ADDRESS
+  : undefined) ||
   tryGetContract('compute', 'attestationVerifier', network) ||
-  '0x0000000000000000000000000000000000000000'
-) as Address
+  '0x0000000000000000000000000000000000000000') as Address
 const RPC_URL =
   (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
   getRpcUrl(network)
@@ -47,7 +45,9 @@ const DSTACK_ENDPOINT =
 
 // KMS configuration for TEE verifier key (secrets - keep as env vars)
 const TEE_VERIFIER_KMS_KEY_ID =
-  typeof process !== 'undefined' ? process.env.TEE_VERIFIER_KMS_KEY_ID : undefined
+  typeof process !== 'undefined'
+    ? process.env.TEE_VERIFIER_KMS_KEY_ID
+    : undefined
 const TEE_VERIFIER_OWNER_ADDRESS =
   typeof process !== 'undefined'
     ? (process.env.TEE_VERIFIER_OWNER_ADDRESS as Address | undefined)

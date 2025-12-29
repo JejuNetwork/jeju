@@ -5,12 +5,13 @@
  * Provides Elysia plugins and generic functions.
  */
 
-import { banManagerAbi, readContract } from '@jejunetwork/contracts'
 import { getL1RpcUrl } from '@jejunetwork/config'
+import { banManagerAbi, readContract } from '@jejunetwork/contracts'
 import { Elysia } from 'elysia'
 import type { Address, Chain, Hex, PublicClient, Transport } from 'viem'
 import { createPublicClient, http } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
+import { type CacheClient, getCacheClient } from '../cache'
 
 export interface BanCheckConfig {
   banManagerAddress: Address
@@ -41,21 +42,14 @@ interface CacheEntry {
   timestamp: number
 }
 
-const MAX_CACHE_SIZE = 10000
-const cache = new Map<string, CacheEntry>()
+// Distributed cache for ban status
+let banCache: CacheClient | null = null
 
-function setCacheEntry(key: string, entry: CacheEntry): void {
-  if (cache.size >= MAX_CACHE_SIZE) {
-    const entries = Array.from(cache.entries()).sort(
-      (a, b) => a[1].timestamp - b[1].timestamp,
-    )
-    const toRemove = Math.ceil(entries.length * 0.1)
-    for (let i = 0; i < toRemove && i < entries.length; i++) {
-      const entry = entries[i]
-      if (entry) cache.delete(entry[0])
-    }
+function getBanCache(): CacheClient {
+  if (!banCache) {
+    banCache = getCacheClient('ban-status')
   }
-  cache.set(key, entry)
+  return banCache
 }
 
 export class BanChecker {
@@ -89,11 +83,16 @@ export class BanChecker {
   }
 
   async checkBan(address: Address): Promise<BanCheckResult> {
-    const cacheKey = address.toLowerCase()
+    const cacheKey = `ban:${address.toLowerCase()}`
+    const cache = getBanCache()
 
-    const cached = cache.get(cacheKey)
-    if (cached && Date.now() - cached.timestamp < this.config.cacheTtlMs) {
-      return cached.result
+    // Check distributed cache
+    const cached = await cache.get(cacheKey)
+    if (cached) {
+      const entry: CacheEntry = JSON.parse(cached)
+      if (Date.now() - entry.timestamp < this.config.cacheTtlMs) {
+        return entry.result
+      }
     }
 
     try {
@@ -133,7 +132,11 @@ export class BanChecker {
         status,
       }
 
-      setCacheEntry(cacheKey, { result, timestamp: Date.now() })
+      // Store in distributed cache with TTL
+      const entry: CacheEntry = { result, timestamp: Date.now() }
+      const ttlSeconds = Math.ceil(this.config.cacheTtlMs / 1000)
+      await cache.set(cacheKey, JSON.stringify(entry), ttlSeconds)
+
       return result
     } catch (error) {
       const errorMessage =
@@ -153,11 +156,12 @@ export class BanChecker {
     }
   }
 
-  clearCache(address?: Address): void {
+  async clearCache(address?: Address): Promise<void> {
+    const cache = getBanCache()
     if (address) {
-      cache.delete(address.toLowerCase())
+      await cache.delete(`ban:${address.toLowerCase()}`)
     } else {
-      cache.clear()
+      await cache.clear()
     }
   }
 }

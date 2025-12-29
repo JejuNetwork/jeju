@@ -398,7 +398,7 @@ export function createFarcasterKMSService(
   return new FarcasterKMSService(config)
 }
 
-// Re-export types for convenience
+// Export types for convenience
 export type {
   DCKMSEncryptionProvider,
   DCKMSSigner,

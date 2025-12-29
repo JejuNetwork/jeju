@@ -79,12 +79,15 @@ export class ContentModerationPipeline {
   }
 
   async initialize(): Promise<void> {
-    await this.hashProvider.initialize()
+    await Promise.all([
+      this.hashProvider.initialize(),
+      this.nsfwProvider.initialize(),
+    ])
 
     const stats = this.hashProvider.getStats()
     const hasImageCsam = !!(this.hiveProvider || this.awsProvider)
     const hasTextCsam = !!this.openaiProvider
-    const hasHashDb = stats.csamCount > 0
+    const hasHashDb = stats.csamCount > 0 || stats.phashCount > 0
 
     if (!hasImageCsam) {
       logger.warn('[ModerationPipeline] No image CSAM AI configured. Set HIVE_API_KEY or AWS_ACCESS_KEY_ID.')
@@ -101,6 +104,8 @@ export class ContentModerationPipeline {
       imageCsam: hasImageCsam,
       textCsam: hasTextCsam,
       hashCount: stats.csamCount,
+      phashCount: stats.phashCount,
+      nsfwModel: true,
     })
   }
 
@@ -205,12 +210,20 @@ export class ContentModerationPipeline {
     start: number,
     sender?: Address
   ): Promise<ModerationResult> {
+    // Local NSFW detection using nsfwjs
     const nsfw = await this.nsfwProvider.moderateImage(buffer)
     providers.push('nsfw_local')
     categories.push(...nsfw.categories)
 
-    if (needsCsamVerification(nsfw)) {
-      // AI CSAM check
+    // If NSFW detected locally, flag for further handling
+    const nsfwDetected = nsfw.categories.some(c => c.category === 'adult' && c.score > 0.5)
+    if (nsfwDetected) {
+      const adultScore = nsfw.categories.find(c => c.category === 'adult')?.score ?? 0
+      logger.info('[ModerationPipeline] NSFW detected locally', { score: adultScore })
+    }
+
+    // CSAM verification via external AI (Hive/AWS)
+    if (needsCsamVerification(nsfw) || nsfwDetected) {
       for (const [provider, api] of [
         ['hive', this.hiveProvider] as const,
         ['aws-rekognition', this.awsProvider] as const,
@@ -223,7 +236,11 @@ export class ContentModerationPipeline {
         if (result) {
           providers.push(provider)
           categories.push(...result.categories)
+
+          // CSAM confirmed by external AI - add to hash database
           if (result.categories.some(c => c.category === 'csam' && c.score > 0.3)) {
+            // Add to perceptual hash database for future detection
+            await this.hashProvider.addBannedImage(buffer, 'csam', `Detected by ${provider}`)
             return this.csamResult(categories, providers, start, sender)
           }
         }

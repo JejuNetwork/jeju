@@ -28,6 +28,8 @@
  * const router = createPaymentRouter({ chainId: 420691 });
  * const options = await router.getAllPaymentOptions(request, userTokens);
  * ```
+
+import { getRpcUrl } from '@jejunetwork/config'
  */
 
 import { readContract } from '@jejunetwork/shared'
@@ -747,8 +749,7 @@ export function createTokenPaymentRouter(
 ): TokenPaymentRouter {
   const fullConfig: PaymentRouterConfig = {
     chainId: config.chainId ?? 420691,
-    rpcUrl:
-      config.rpcUrl ?? process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
+    rpcUrl: config.rpcUrl ?? getRpcUrl(),
     crossChainPaymaster: (config.crossChainPaymaster ??
       process.env.CROSS_CHAIN_PAYMASTER_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,

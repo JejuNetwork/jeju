@@ -24,6 +24,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { getChainId, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 
 interface AppManifest {
@@ -191,7 +192,8 @@ async function startApp(
 
   while (Date.now() - startTime < timeout) {
     try {
-      const response = await fetch(`http://localhost:${port}`, {
+      const host = getLocalhostHost()
+      const response = await fetch(`http://${host}:${port}`, {
         signal: AbortSignal.timeout(2000),
       })
       if (response.ok || response.status < 500) {
@@ -343,12 +345,14 @@ async function main() {
   const runningApps: Map<string, Subprocess> = new Map()
 
   // Setup environment
+  const _host = getLocalhostHost()
+  const rpcUrl = getL2RpcUrl()
   const env: Record<string, string> = {
     NODE_ENV: 'test',
     CI: options.headless ? 'true' : '',
-    L2_RPC_URL: process.env.L2_RPC_URL || 'http://127.0.0.1:6546',
-    JEJU_RPC_URL: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-    CHAIN_ID: '31337',
+    L2_RPC_URL: rpcUrl,
+    JEJU_RPC_URL: rpcUrl,
+    CHAIN_ID: String(getChainId()),
   }
 
   // Cleanup function

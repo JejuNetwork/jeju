@@ -5,9 +5,9 @@
 
 import { cors } from '@elysiajs/cors'
 import {
-  getCurrentNetwork,
   RPC_CHAINS as CHAINS,
   getRpcChain as getChain,
+  getCurrentNetwork,
   getRpcMainnetChains as getMainnetChains,
   getRpcTestnetChains as getTestnetChains,
   isRpcChainSupported as isChainSupported,
@@ -242,9 +242,9 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     },
   }))
 
-  .get('/health', () => {
+  .get('/health', async () => {
     const chainStats = getChainStats()
-    const rateLimitStats = getRateLimitStats()
+    const rateLimitStats = await getRateLimitStats()
     const apiKeyStats = getApiKeyStats()
     const endpointHealth = getEndpointHealth()
     const unhealthyEndpoints = Object.entries(endpointHealth)
@@ -543,11 +543,20 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     const network = getCurrentNetwork()
     const stakingAddress = tryGetContract('rpc', 'staking', network)
     return {
-      contract: (typeof process !== 'undefined' ? process.env.RPC_STAKING_ADDRESS : undefined) ?? stakingAddress ?? 'Not deployed',
+      contract:
+        (typeof process !== 'undefined'
+          ? process.env.RPC_STAKING_ADDRESS
+          : undefined) ??
+        stakingAddress ??
+        'Not deployed',
       pricing: 'USD-denominated (dynamic based on JEJU price)',
       tiers: {
         FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
-        BASIC: { minUsd: 10, rateLimit: 100, description: '100 requests/minute' },
+        BASIC: {
+          minUsd: 10,
+          rateLimit: 100,
+          description: '100 requests/minute',
+        },
         PRO: {
           minUsd: 100,
           rateLimit: 1000,

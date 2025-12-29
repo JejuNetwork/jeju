@@ -344,8 +344,13 @@ export class OracleNode {
     if (this.initialized) return
 
     const isProduction = isProductionEnv()
-    const kmsKeyId = process.env.ORACLE_KMS_KEY_ID
-    const ownerAddress = process.env.ORACLE_OWNER_ADDRESS as Address | undefined
+    const kmsKeyId =
+      typeof process !== 'undefined' ? process.env.ORACLE_KMS_KEY_ID : undefined
+    const ownerAddress = (
+      typeof process !== 'undefined'
+        ? process.env.ORACLE_OWNER_ADDRESS
+        : undefined
+    ) as Address | undefined
 
     // Check if KMS is available and configured
     if (kmsKeyId && ownerAddress) {
@@ -448,14 +453,25 @@ export function createNodeConfig(): OracleNodeConfig {
     operatorPrivateKey: (operatorKey ?? DEV_OPERATOR_KEY) as Hex,
     workerPrivateKey: (workerKey ?? DEV_WORKER_KEY) as Hex,
 
-    feedRegistry: (process.env.FEED_REGISTRY_ADDRESS || getContract('oracle', 'feedRegistry', network) || zeroAddress) as Address,
-    reportVerifier: (process.env.REPORT_VERIFIER_ADDRESS ||
-      getContract('oracle', 'reportVerifier', network) || zeroAddress) as Address,
-    committeeManager: (process.env.COMMITTEE_MANAGER_ADDRESS ||
+    feedRegistry: ((typeof process !== 'undefined'
+      ? process.env.FEED_REGISTRY_ADDRESS
+      : undefined) ||
+      getContract('oracle', 'feedRegistry', network) ||
       zeroAddress) as Address,
-    feeRouter: (process.env.FEE_ROUTER_ADDRESS || zeroAddress) as Address,
-    networkConnector: (process.env.NETWORK_CONNECTOR_ADDRESS ||
+    reportVerifier: ((typeof process !== 'undefined'
+      ? process.env.REPORT_VERIFIER_ADDRESS
+      : undefined) ||
+      getContract('oracle', 'reportVerifier', network) ||
       zeroAddress) as Address,
+    committeeManager: ((typeof process !== 'undefined'
+      ? process.env.COMMITTEE_MANAGER_ADDRESS
+      : undefined) || zeroAddress) as Address,
+    feeRouter: ((typeof process !== 'undefined'
+      ? process.env.FEE_ROUTER_ADDRESS
+      : undefined) || zeroAddress) as Address,
+    networkConnector: ((typeof process !== 'undefined'
+      ? process.env.NETWORK_CONNECTOR_ADDRESS
+      : undefined) || zeroAddress) as Address,
 
     pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || '60000', 10),
     heartbeatIntervalMs: parseInt(

@@ -13,6 +13,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { getL2RpcUrl, getRpcUrl } from '@jejunetwork/config'
 import { type Address, createPublicClient, http } from 'viem'
 
 const CONTRACTS_DIR = path.join(import.meta.dirname, '../packages/contracts')
@@ -101,9 +102,9 @@ const CHAINS: Record<number, ChainConfig> = {
   420691: {
     chainId: 420691,
     name: 'Mainnet',
-    rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
+    rpcUrl: getRpcUrl(),
   },
-  31337: { chainId: 31337, name: 'Anvil', rpcUrl: 'http://localhost:6546' },
+  31337: { chainId: 31337, name: 'Anvil', rpcUrl: getL2RpcUrl() },
 }
 
 async function verifyContract(

@@ -11,13 +11,10 @@
  *   jeju test --mode integration --package cli
  */
 
-import {
-  getChainId,
-  getL2RpcUrl,
-} from '@jejunetwork/config'
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { getChainId, getL2RpcUrl } from '@jejunetwork/config'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)

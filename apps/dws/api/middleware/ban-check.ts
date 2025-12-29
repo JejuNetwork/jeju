@@ -24,14 +24,21 @@ const AddressFieldsSchema = z.object({
 
 // Get config from environment with config fallbacks
 const NETWORK = getCurrentNetwork()
-const BAN_MANAGER_ADDRESS = 
-  (typeof process !== 'undefined' ? process.env.BAN_MANAGER_ADDRESS : undefined) as Address | undefined ??
-  tryGetContract('moderation', 'banManager', NETWORK) as Address | undefined
-const MODERATION_MARKETPLACE_ADDRESS = 
-  (typeof process !== 'undefined' ? process.env.MODERATION_MARKETPLACE_ADDRESS : undefined) as Address | undefined ??
-  tryGetContract('moderation', 'marketplace', NETWORK) as Address | undefined
-const RPC_URL = (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ?? 
-  (NETWORK === 'localnet' ? `http://${getLocalhostHost()}:6545` : getRpcUrl(NETWORK))
+const BAN_MANAGER_ADDRESS =
+  ((typeof process !== 'undefined'
+    ? process.env.BAN_MANAGER_ADDRESS
+    : undefined) as Address | undefined) ??
+  (tryGetContract('moderation', 'banManager', NETWORK) as Address | undefined)
+const MODERATION_MARKETPLACE_ADDRESS =
+  ((typeof process !== 'undefined'
+    ? process.env.MODERATION_MARKETPLACE_ADDRESS
+    : undefined) as Address | undefined) ??
+  (tryGetContract('moderation', 'marketplace', NETWORK) as Address | undefined)
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  (NETWORK === 'localnet'
+    ? `http://${getLocalhostHost()}:6545`
+    : getRpcUrl(NETWORK))
 
 // Skip paths that don't need ban checking (public endpoints)
 const SKIP_PATHS = [

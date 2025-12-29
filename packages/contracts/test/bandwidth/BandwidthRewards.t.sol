@@ -729,6 +729,8 @@ contract BandwidthRewardsTest is Test {
     }
 
     function test_ClaimRewards_MultipleClaims() public {
+        uint256 startTime = block.timestamp;
+        
         vm.prank(node1);
         rewards.registerNode{value: 0.1 ether}(
             BandwidthRewards.NodeType.Residential,
@@ -739,7 +741,8 @@ contract BandwidthRewardsTest is Test {
         vm.prank(owner);
         rewards.reportBandwidth(node1, 2 * GB, 50);
 
-        vm.warp(block.timestamp + 2 hours);
+        // Warp to 2 hours after start
+        vm.warp(startTime + 2 hours);
 
         uint256 balance1 = jejuToken.balanceOf(node1);
         vm.prank(node1);
@@ -747,12 +750,12 @@ contract BandwidthRewardsTest is Test {
         uint256 balance2 = jejuToken.balanceOf(node1);
         uint256 claim1 = balance2 - balance1;
 
-        // Second contribution - report bandwidth first, then warp
+        // Second contribution
         vm.prank(owner);
         rewards.reportBandwidth(node1, 3 * GB, 75);
 
-        // Wait full claim period from first claim
-        vm.warp(block.timestamp + 2 hours);
+        // Warp to 4 hours after start (2 hours after first claim)
+        vm.warp(startTime + 4 hours);
 
         vm.prank(node1);
         rewards.claimRewards();

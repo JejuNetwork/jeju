@@ -3,6 +3,7 @@
  * Resolves JNS names to content hashes and serves content from IPFS/Arweave
  */
 
+import { getCurrentNetwork, getIpfsApiUrl } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   createPublicClient,
@@ -192,7 +193,8 @@ export class JNSGateway {
    */
   private async fetchIPFS(cid: string, path: string): Promise<Response> {
     // Use IPFS API for reliable retrieval
-    const ipfsApiUrl = process.env.IPFS_API_URL || 'http://localhost:5001'
+    const network = getCurrentNetwork()
+    const ipfsApiUrl = getIpfsApiUrl(network)
     const fullPath = path === '/' ? '' : path
 
     try {

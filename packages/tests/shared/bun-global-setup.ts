@@ -22,8 +22,12 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   CORE_PORTS,
+  getDWSComputeUrl,
+  getDwsApiUrl,
   getEQLiteBlockProducerUrl,
   getIpfsApiUrl,
+  getServiceUrl,
+  getStorageApiEndpoint,
   INFRA_PORTS,
 } from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
@@ -64,7 +68,7 @@ const DOCKER_SERVICES = {
 
 // Environment URLs
 const RPC_URL = getRpcUrl()
-const DWS_URL = process.env.DWS_URL ?? `http://127.0.0.1:${DWS_PORT}`
+const DWS_URL = getDwsApiUrl()
 
 async function checkDockerService(
   port: number,
@@ -371,18 +375,27 @@ export async function setup(): Promise<void> {
 }
 
 function setEnvVars(status: InfraStatus): void {
+  // Set RPC URLs for child processes
   process.env.L2_RPC_URL = status.rpcUrl
   process.env.JEJU_RPC_URL = status.rpcUrl
   process.env.DWS_URL = status.dwsUrl
-  process.env.STORAGE_API_URL = `${status.dwsUrl}/storage`
-  process.env.COMPUTE_MARKETPLACE_URL = `${status.dwsUrl}/compute`
-  process.env.IPFS_GATEWAY = `${status.dwsUrl}/cdn`
+
+  // Use config helpers for service URLs, fallback to DWS URLs
+  process.env.STORAGE_API_URL =
+    getStorageApiEndpoint() || `${status.dwsUrl}/storage`
+  process.env.COMPUTE_MARKETPLACE_URL =
+    getDWSComputeUrl() ||
+    getServiceUrl('compute', 'marketplace') ||
+    `${status.dwsUrl}/compute`
+  process.env.IPFS_GATEWAY =
+    getServiceUrl('storage', 'ipfsGateway') || `${status.dwsUrl}/cdn`
   process.env.CDN_URL = `${status.dwsUrl}/cdn`
 
-  // Docker service URLs
-  process.env.EQLITE_URL = getEQLiteBlockProducerUrl()
-  process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT = getEQLiteBlockProducerUrl()
-  process.env.IPFS_API_URL = getIpfsApiUrl()
+  // Docker service URLs - use config helpers
+  const eqliteUrl = getEQLiteBlockProducerUrl()
+  process.env.EQLITE_URL = eqliteUrl
+  process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT = eqliteUrl
+  process.env.IPFS_API_URL = getIpfsApiUrl() || 'http://127.0.0.1:5001'
   process.env.DA_URL = 'http://127.0.0.1:4010'
   process.env.CACHE_URL = 'http://127.0.0.1:4115'
 }

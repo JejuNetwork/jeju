@@ -233,20 +233,20 @@ describe('OAuth3 JNS Integration', () => {
   beforeEach(() => {
     resetOAuth3JNSService()
     jns = createOAuth3JNSService({
-      rpcUrl: 'http://localhost:6546',
+      rpcUrl: getL2RpcUrl(),
       chainId: 420691,
     })
   })
 
   describe('singleton behavior', () => {
     it('should return same instance on repeated calls', () => {
-      const jns2 = createOAuth3JNSService({ rpcUrl: 'http://localhost:6546' })
+      const jns2 = createOAuth3JNSService({ rpcUrl: getL2RpcUrl() })
       expect(jns).toBe(jns2)
     })
 
     it('should create new instance after reset', () => {
       resetOAuth3JNSService()
-      const jns2 = createOAuth3JNSService({ rpcUrl: 'http://localhost:6546' })
+      const jns2 = createOAuth3JNSService({ rpcUrl: getL2RpcUrl() })
       expect(jns).not.toBe(jns2)
     })
   })
@@ -331,7 +331,11 @@ describe('OAuth3 JNS Integration', () => {
   })
 })
 
-import { getIpfsApiUrl } from '@jejunetwork/config'
+import {
+  getIpfsApiUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 
 // IPFS API port from centralized config
 const IPFS_API_URL = getIpfsApiUrl()
@@ -345,7 +349,8 @@ describe('OAuth3 Decentralized Storage', () => {
   beforeEach(() => {
     resetOAuth3StorageService()
     storage = createOAuth3StorageService({
-      ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
+      ipfsApiEndpoint:
+        getIpfsApiUrl() || `http://${getLocalhostHost()}:${IPFS_PORT}/api/v0`,
       encryptionKey: testKey,
     })
   })
@@ -377,7 +382,8 @@ describe('OAuth3 Decentralized Storage', () => {
     it('should throw when storing session without encryption key', async () => {
       resetOAuth3StorageService()
       const noKeyStorage = createOAuth3StorageService({
-        ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
+        ipfsApiEndpoint:
+          getIpfsApiUrl() || `http://${getLocalhostHost()}:${IPFS_PORT}/api/v0`,
       })
 
       await expect(
@@ -508,7 +514,7 @@ describe('OAuth3 Compute Integration', () => {
   beforeEach(() => {
     resetOAuth3ComputeService()
     compute = createOAuth3ComputeService({
-      rpcUrl: 'http://localhost:6546',
+      rpcUrl: getL2RpcUrl(),
       chainId: 420691,
     })
   })
@@ -609,9 +615,10 @@ describe('OAuth3 Decentralized Discovery', () => {
     resetOAuth3StorageService()
     resetOAuth3ComputeService()
     discovery = createDecentralizedDiscovery({
-      rpcUrl: 'http://localhost:6546',
+      rpcUrl: getL2RpcUrl(),
       chainId: 420691,
-      ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
+      ipfsApiEndpoint:
+        getIpfsApiUrl() || `http://${getLocalhostHost()}:${IPFS_PORT}/api/v0`,
     })
   })
 
@@ -913,7 +920,7 @@ describe('Concurrent Operations', () => {
 
   it('should handle parallel JNS lookups', async () => {
     const jns = createOAuth3JNSService({
-      rpcUrl: 'http://localhost:6546',
+      rpcUrl: getL2RpcUrl(),
       chainId: 420691,
     })
 
@@ -990,14 +997,19 @@ describe('Edge Cases and Error Handling', () => {
     it('should use DEFAULT_RPC when no rpcUrl provided', () => {
       resetOAuth3JNSService()
       // Clear env var if set
-      const original = process.env.JEJU_RPC_URL
-      delete process.env.JEJU_RPC_URL
+      const original =
+        typeof process !== 'undefined' ? process.env.JEJU_RPC_URL : undefined
+      if (typeof process !== 'undefined') {
+        delete process.env.JEJU_RPC_URL
+      }
 
       const jns = createOAuth3JNSService({})
       expect(jns.getClient()).toBeTruthy()
 
       // Restore
-      if (original) process.env.JEJU_RPC_URL = original
+      if (original && typeof process !== 'undefined') {
+        process.env.JEJU_RPC_URL = original
+      }
     })
   })
 
@@ -1024,7 +1036,8 @@ describe('Storage Index Operations', () => {
   beforeEach(() => {
     resetOAuth3StorageService()
     storage = createOAuth3StorageService({
-      ipfsApiEndpoint: `http://localhost:${IPFS_PORT}/api/v0`,
+      ipfsApiEndpoint:
+        getIpfsApiUrl() || `http://${getLocalhostHost()}:${IPFS_PORT}/api/v0`,
       encryptionKey: testKey,
     })
   })
@@ -1071,7 +1084,7 @@ describe('Compute Node Resources', () => {
   beforeEach(() => {
     resetOAuth3ComputeService()
     compute = createOAuth3ComputeService({
-      rpcUrl: 'http://localhost:6546',
+      rpcUrl: getL2RpcUrl(),
       chainId: 420691,
     })
   })

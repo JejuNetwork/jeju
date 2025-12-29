@@ -25,6 +25,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { getIpfsApiUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   createPublicClient,
   createWalletClient,
@@ -516,10 +517,15 @@ async function main() {
   const mpcRegistryAddress = process.env.MPC_REGISTRY_ADDRESS as
     | `0x${string}`
     | undefined
-  const stakeTokenAddress = process.env.STAKE_TOKEN_ADDRESS as
-    | `0x${string}`
-    | undefined
-  const ipfsUrl = process.env.IPFS_URL ?? 'http://localhost:5001'
+
+  const stakeTokenAddress =
+    typeof process !== 'undefined'
+      ? (process.env.STAKE_TOKEN_ADDRESS as `0x${string}` | undefined)
+      : undefined
+  const ipfsUrl =
+    (typeof process !== 'undefined' ? process.env.IPFS_URL : undefined) ??
+    getIpfsApiUrl() ??
+    `http://${getLocalhostHost()}:5001`
 
   if (threshold > partyCount) {
     console.error('Threshold cannot exceed party count')

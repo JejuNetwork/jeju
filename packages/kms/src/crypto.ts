@@ -250,7 +250,6 @@ export function constantTimeCompare(a: Hex, b: Hex): boolean {
   return result === 0
 }
 
-
 /**
  * Derive a master key from a secret string using PBKDF2.
  *

@@ -4,9 +4,9 @@
  * Shared development server for Jeju apps with hot reload.
  */
 
-import { getLocalhostHost } from '@jejunetwork/config'
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { generateDevHtml } from './html'
 import type { DevServerConfig } from './types'
 import {

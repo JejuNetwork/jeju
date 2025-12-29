@@ -5,7 +5,12 @@
  * This ensures all apps use consistent, configurable chain names.
  */
 
-import { type BrandingConfig, getBranding } from '@jejunetwork/config'
+import {
+  type BrandingConfig,
+  getBranding,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import type { Chain } from 'viem'
 
 let brandingCache: BrandingConfig | null = null
@@ -33,10 +38,13 @@ export function getLocalnetChain(): Chain {
       decimals: 18,
     },
     rpcUrls: {
-      default: { http: ['http://localhost:6546'] },
+      default: { http: [getL2RpcUrl()] },
     },
     blockExplorers: {
-      default: { name: 'Local Explorer', url: 'http://localhost:4000' },
+      default: {
+        name: 'Local Explorer',
+        url: `http://${getLocalhostHost()}:4000`,
+      },
     },
   }
 }

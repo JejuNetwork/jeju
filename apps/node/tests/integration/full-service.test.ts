@@ -25,7 +25,7 @@ import { createNodeServices, type NodeServices } from '../../api/lib/services'
 
 import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 
-const RPC_URL = process.env.JEJU_RPC_URL ?? getL2RpcUrl()
+const RPC_URL = getL2RpcUrl()
 const CHAIN_ID = 31337
 const TEST_KEY_ID = 'test-key-id-for-integration-tests'
 

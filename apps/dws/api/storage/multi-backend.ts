@@ -8,6 +8,11 @@
  * - Popularity tracking and regional caching
  */
 
+import {
+  getCurrentNetwork,
+  getIpfsApiUrl,
+  getIpfsGatewayUrl,
+} from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import { keccak256 } from 'viem'
@@ -155,8 +160,14 @@ export class MultiBackendManager {
     })
 
     // IPFS backend
-    const ipfsApiUrl = process.env.IPFS_API_URL
-    const ipfsGatewayUrl = process.env.IPFS_GATEWAY_URL ?? 'https://ipfs.io'
+    const network = getCurrentNetwork()
+    const ipfsApiUrl =
+      (typeof process !== 'undefined' ? process.env.IPFS_API_URL : undefined) ??
+      getIpfsApiUrl(network)
+    const ipfsGatewayUrl =
+      (typeof process !== 'undefined'
+        ? process.env.IPFS_GATEWAY_URL
+        : undefined) ?? getIpfsGatewayUrl(network)
 
     if (ipfsApiUrl) {
       this.backends.set('ipfs', {

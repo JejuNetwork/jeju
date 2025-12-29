@@ -1,15 +1,5 @@
 /**
- * Jeju Centralized Provisioner
- *
- * Official Jeju Network compute provisioner that:
- * - Provisions compute on Hetzner, OVH, DigitalOcean, etc.
- * - Offers at cost + 2.5% margin (transparent pricing)
- * - Handles cold start and instance management
- * - Provides gateway proxy to instances
- * - Integrates with benchmark orchestrator
- *
- * This is the "official" provisioner that bootstraps the network.
- * Community provisioners can offer competitive alternatives.
+ * Jeju Centralized Provisioner - Official compute offering at cost + 2.5%
  */
 
 import type { Address } from 'viem'
@@ -20,10 +10,10 @@ import type {
   InstanceType,
 } from '../infrastructure/cloud-providers'
 import {
-  HetznerProvider,
   DigitalOceanProvider,
-  VultrProvider,
+  HetznerProvider,
   OVHProvider,
+  VultrProvider,
 } from '../infrastructure/cloud-providers'
 import { getCredentialVault } from './credential-vault'
 
@@ -81,7 +71,13 @@ export interface ProvisionedCompute {
   id: string
   offeringId: string
   owner: Address
-  status: 'provisioning' | 'running' | 'stopping' | 'stopped' | 'terminated' | 'error'
+  status:
+    | 'provisioning'
+    | 'running'
+    | 'stopping'
+    | 'stopped'
+    | 'terminated'
+    | 'error'
 
   // Instance details
   publicIp: string | null
@@ -181,7 +177,10 @@ export class JejuProvisioner {
       })
 
       const provider = new HetznerProvider()
-      await provider.initialize({ provider: 'hetzner', apiKey: credentials.hetzner })
+      await provider.initialize({
+        provider: 'hetzner',
+        apiKey: credentials.hetzner,
+      })
       cloudProviders.set('hetzner', provider)
 
       // Load offerings
@@ -196,7 +195,10 @@ export class JejuProvisioner {
       })
 
       const provider = new DigitalOceanProvider()
-      await provider.initialize({ provider: 'digitalocean', apiKey: credentials.digitalocean })
+      await provider.initialize({
+        provider: 'digitalocean',
+        apiKey: credentials.digitalocean,
+      })
       cloudProviders.set('digitalocean', provider)
 
       await this.loadProviderOfferings('digitalocean', provider)
@@ -210,7 +212,10 @@ export class JejuProvisioner {
       })
 
       const provider = new VultrProvider()
-      await provider.initialize({ provider: 'vultr', apiKey: credentials.vultr })
+      await provider.initialize({
+        provider: 'vultr',
+        apiKey: credentials.vultr,
+      })
       cloudProviders.set('vultr', provider)
 
       await this.loadProviderOfferings('vultr', provider)
@@ -230,7 +235,9 @@ export class JejuProvisioner {
       await this.loadProviderOfferings('ovh', provider)
     }
 
-    console.log(`[JejuProvisioner] Initialized with ${cloudProviders.size} providers, ${offerings.size} offerings`)
+    console.log(
+      `[JejuProvisioner] Initialized with ${cloudProviders.size} providers, ${offerings.size} offerings`,
+    )
   }
 
   /**
@@ -249,7 +256,9 @@ export class JejuProvisioner {
       offerings.set(offering.id, offering)
     }
 
-    console.log(`[JejuProvisioner] Loaded ${instanceTypes.filter((t) => t.available).length} offerings from ${providerType}`)
+    console.log(
+      `[JejuProvisioner] Loaded ${instanceTypes.filter((t) => t.available).length} offerings from ${providerType}`,
+    )
   }
 
   /**
@@ -368,8 +377,13 @@ export class JejuProvisioner {
 
     // Check user limits
     const userInstances = userCompute.get(request.owner)
-    if (userInstances && userInstances.size >= this.config.maxInstancesPerUser) {
-      throw new Error(`User has reached maximum instance limit: ${this.config.maxInstancesPerUser}`)
+    if (
+      userInstances &&
+      userInstances.size >= this.config.maxInstancesPerUser
+    ) {
+      throw new Error(
+        `User has reached maximum instance limit: ${this.config.maxInstancesPerUser}`,
+      )
     }
 
     // Get the cloud provider
@@ -429,8 +443,14 @@ export class JejuProvisioner {
     // Upload SSH key if provided
     let sshKeyId: string | undefined
     if (request.sshPublicKey) {
-      sshKeyId = await this.ensureSSHKey(provider, request.sshPublicKey, request.owner)
-      console.log(`[JejuProvisioner] Using SSH key ${sshKeyId} for ${compute.id}`)
+      sshKeyId = await this.ensureSSHKey(
+        provider,
+        request.sshPublicKey,
+        request.owner,
+      )
+      console.log(
+        `[JejuProvisioner] Using SSH key ${sshKeyId} for ${compute.id}`,
+      )
     }
 
     // Create instance on cloud provider
@@ -484,11 +504,15 @@ export class JejuProvisioner {
     compute.provisionedAt = Date.now()
     compute.startedBillingAt = Date.now()
 
-    console.log(`[JejuProvisioner] Provisioned ${compute.id} at ${compute.publicIp}`)
+    console.log(
+      `[JejuProvisioner] Provisioned ${compute.id} at ${compute.publicIp}`,
+    )
 
     // Trigger initial benchmark if not yet benchmarked
     if (!offering.benchmarked) {
-      console.log(`[JejuProvisioner] Triggering initial benchmark for offering ${offering.id}`)
+      console.log(
+        `[JejuProvisioner] Triggering initial benchmark for offering ${offering.id}`,
+      )
       // The benchmark orchestrator will handle this
       // We'd need to integrate with MachineProvisioner here
     }
@@ -601,12 +625,18 @@ final_message: "Jeju DWS node setup complete for ${computeId}"
   private async calculateSSHKeyFingerprint(publicKey: string): Promise<string> {
     const parts = publicKey.trim().split(/\s+/)
     // OpenSSH format: "ssh-rsa BASE64DATA comment" or raw base64
-    const keyData = parts.length >= 2 && parts[0].startsWith('ssh-')
-      ? parts[1]
-      : publicKey.replace(/[^A-Za-z0-9+/=]/g, '')
+    const keyData =
+      parts.length >= 2 && parts[0].startsWith('ssh-')
+        ? parts[1]
+        : publicKey.replace(/[^A-Za-z0-9+/=]/g, '')
 
-    const hash = await crypto.subtle.digest('SHA-256', Buffer.from(keyData, 'base64'))
-    return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join(':')
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      Buffer.from(keyData, 'base64'),
+    )
+    return [...new Uint8Array(hash)]
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join(':')
   }
 
   /**
@@ -644,11 +674,14 @@ final_message: "Jeju DWS node setup complete for ${computeId}"
       const hours = (Date.now() - compute.startedBillingAt) / (1000 * 60 * 60)
       const offering = offerings.get(compute.offeringId)
       if (offering) {
-        compute.totalCostUsd = Math.round(hours * offering.pricePerHour * 10000) / 10000
+        compute.totalCostUsd =
+          Math.round(hours * offering.pricePerHour * 10000) / 10000
       }
     }
 
-    console.log(`[JejuProvisioner] Terminated ${computeId}, total cost: $${compute.totalCostUsd}`)
+    console.log(
+      `[JejuProvisioner] Terminated ${computeId}, total cost: $${compute.totalCostUsd}`,
+    )
     return true
   }
 
@@ -674,7 +707,10 @@ final_message: "Jeju DWS node setup complete for ${computeId}"
   /**
    * Get pricing breakdown
    */
-  getPricingBreakdown(offeringId: string, hours: number): {
+  getPricingBreakdown(
+    offeringId: string,
+    hours: number,
+  ): {
     baseCost: number
     margin: number
     marginPercent: number
@@ -701,7 +737,9 @@ final_message: "Jeju DWS node setup complete for ${computeId}"
     for (const [providerType, provider] of cloudProviders) {
       await this.loadProviderOfferings(providerType, provider)
     }
-    console.log(`[JejuProvisioner] Refreshed offerings, now ${offerings.size} total`)
+    console.log(
+      `[JejuProvisioner] Refreshed offerings, now ${offerings.size} total`,
+    )
   }
 
   /**

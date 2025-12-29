@@ -1,6 +1,6 @@
 /**
  * Comprehensive tests for credential vault encryption/decryption
- * 
+ *
  * Coverage:
  * - Happy path: store, retrieve, list, revoke
  * - Edge cases: empty strings, unicode, large payloads
@@ -9,9 +9,13 @@
  * - Concurrent operations
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'bun:test'
-import { CredentialVault, getCredentialVault } from '../../api/compute/credential-vault'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
+import {
+  type CredentialVault,
+  getCredentialVault,
+  getCredentialVaultMetrics,
+} from '../../api/compute/credential-vault'
 
 describe('CredentialVault', () => {
   const testOwner = '0x1234567890123456789012345678901234567890' as Address
@@ -47,7 +51,10 @@ describe('CredentialVault', () => {
       expect(credentialId).toStartWith('cred-')
       expect(credentialId.length).toBeGreaterThan(10)
 
-      const decrypted = await vault.getDecryptedCredential(credentialId, testOwner)
+      const decrypted = await vault.getDecryptedCredential(
+        credentialId,
+        testOwner,
+      )
       expect(decrypted).not.toBeNull()
       expect(decrypted?.apiKey).toBe('test-api-key-12345')
       expect(decrypted?.apiSecret).toBeNull()
@@ -66,9 +73,14 @@ describe('CredentialVault', () => {
         skipVerification: true,
       })
 
-      const decrypted = await vault.getDecryptedCredential(credentialId, testOwner)
+      const decrypted = await vault.getDecryptedCredential(
+        credentialId,
+        testOwner,
+      )
       expect(decrypted?.apiKey).toBe('AKIAIOSFODNN7EXAMPLE')
-      expect(decrypted?.apiSecret).toBe('wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
+      expect(decrypted?.apiSecret).toBe(
+        'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+      )
       expect(decrypted?.projectId).toBe('my-aws-account-123456789')
     })
 
@@ -80,7 +92,7 @@ describe('CredentialVault', () => {
         skipVerification: true,
       })
 
-      const list = vault.listCredentials(testOwner)
+      const list = await vault.listCredentials(testOwner)
       expect(list.length).toBeGreaterThan(0)
 
       for (const cred of list) {
@@ -93,11 +105,11 @@ describe('CredentialVault', () => {
         expect(cred).not.toHaveProperty('encryptedApiKey')
         expect(cred).not.toHaveProperty('encryptedApiSecret')
         expect(cred).not.toHaveProperty('encryptedProjectId')
-        
+
         // Type assertion to check raw object
         const raw = cred as Record<string, unknown>
-        expect(raw['apiKey']).toBeUndefined()
-        expect(raw['apiSecret']).toBeUndefined()
+        expect(raw.apiKey).toBeUndefined()
+        expect(raw.apiSecret).toBeUndefined()
       }
     })
 
@@ -154,15 +166,18 @@ describe('CredentialVault', () => {
       expect(result?.apiKey).toBe('auth-test-key')
     })
 
-    test('returns empty list for owner with no credentials', () => {
-      const unknownOwner = '0x9999999999999999999999999999999999999999' as Address
-      const list = vault.listCredentials(unknownOwner)
+    test('returns empty list for owner with no credentials', async () => {
+      const unknownOwner =
+        '0x9999999999999999999999999999999999999999' as Address
+      const list = await vault.listCredentials(unknownOwner)
       expect(list).toEqual([])
     })
 
     test('case-insensitive owner address comparison', async () => {
-      const mixedCaseOwner = '0xAbCdEf1234567890AbCdEf1234567890AbCdEf12' as Address
-      const lowerCaseOwner = '0xabcdef1234567890abcdef1234567890abcdef12' as Address
+      const mixedCaseOwner =
+        '0xAbCdEf1234567890AbCdEf1234567890AbCdEf12' as Address
+      const lowerCaseOwner =
+        '0xabcdef1234567890abcdef1234567890abcdef12' as Address
 
       const credentialId = await vault.storeCredential(mixedCaseOwner, {
         provider: 'hetzner',
@@ -172,7 +187,10 @@ describe('CredentialVault', () => {
       })
 
       // Should work with different case
-      const result = await vault.getDecryptedCredential(credentialId, lowerCaseOwner)
+      const result = await vault.getDecryptedCredential(
+        credentialId,
+        lowerCaseOwner,
+      )
       expect(result?.apiKey).toBe('case-test-key')
     })
   })
@@ -187,7 +205,7 @@ describe('CredentialVault', () => {
           name: 'Empty Key',
           apiKey: '',
           skipVerification: true,
-        })
+        }),
       ).rejects.toThrow()
     })
 
@@ -199,8 +217,8 @@ describe('CredentialVault', () => {
         skipVerification: true,
       })
 
-      const list = vault.listCredentials(testOwner)
-      const found = list.find(c => c.id === credentialId)
+      const list = await vault.listCredentials(testOwner)
+      const found = list.find((c) => c.id === credentialId)
       expect(found?.name).toBe('Test 日本語 🚀 émojis')
     })
 
@@ -213,13 +231,17 @@ describe('CredentialVault', () => {
         skipVerification: true,
       })
 
-      const decrypted = await vault.getDecryptedCredential(credentialId, testOwner)
+      const decrypted = await vault.getDecryptedCredential(
+        credentialId,
+        testOwner,
+      )
       expect(decrypted?.apiKey).toBe(longKey)
       expect(decrypted?.apiKey.length).toBe(4096)
     })
 
     test('handles special characters in API key', async () => {
-      const specialKey = 'key+with/special=chars&more!@#$%^*()[]{}|\\:";\'<>,.?/'
+      const specialKey =
+        'key+with/special=chars&more!@#$%^*()[]{}|\\:";\'<>,.?/'
       const credentialId = await vault.storeCredential(testOwner, {
         provider: 'vultr',
         name: 'Special Chars',
@@ -227,17 +249,26 @@ describe('CredentialVault', () => {
         skipVerification: true,
       })
 
-      const decrypted = await vault.getDecryptedCredential(credentialId, testOwner)
+      const decrypted = await vault.getDecryptedCredential(
+        credentialId,
+        testOwner,
+      )
       expect(decrypted?.apiKey).toBe(specialKey)
     })
 
     test('handles non-existent credential ID', async () => {
-      const result = await vault.getDecryptedCredential('cred-nonexistent-12345', testOwner)
+      const result = await vault.getDecryptedCredential(
+        'cred-nonexistent-12345',
+        testOwner,
+      )
       expect(result).toBeNull()
     })
 
     test('revoke returns false for non-existent credential', async () => {
-      const result = await vault.revokeCredential('cred-does-not-exist', testOwner)
+      const result = await vault.revokeCredential(
+        'cred-does-not-exist',
+        testOwner,
+      )
       expect(result).toBe(false)
     })
   })
@@ -247,7 +278,7 @@ describe('CredentialVault', () => {
   describe('encryption security', () => {
     test('generates unique IVs for identical plaintext', async () => {
       const sameKey = 'identical-api-key-value'
-      
+
       const id1 = await vault.storeCredential(testOwner, {
         provider: 'linode',
         name: 'IV Test 1',
@@ -294,7 +325,7 @@ describe('CredentialVault', () => {
       // Each can only access their own
       const dec1 = await vault.getDecryptedCredential(id1, owner1)
       const dec2 = await vault.getDecryptedCredential(id2, owner2)
-      
+
       expect(dec1?.apiKey).toBe(sameApiKey)
       expect(dec2?.apiKey).toBe(sameApiKey)
 
@@ -314,14 +345,14 @@ describe('CredentialVault', () => {
           name: `Concurrent ${i}`,
           apiKey: `concurrent-key-${i}`,
           skipVerification: true,
-        })
+        }),
       )
 
       const ids = await Promise.all(promises)
-      
+
       // All should succeed with unique IDs
       expect(new Set(ids).size).toBe(10)
-      
+
       // All should be retrievable
       for (let i = 0; i < 10; i++) {
         const dec = await vault.getDecryptedCredential(ids[i], testOwner)
@@ -338,11 +369,11 @@ describe('CredentialVault', () => {
       })
 
       const promises = Array.from({ length: 20 }, () =>
-        vault.getDecryptedCredential(credentialId, testOwner)
+        vault.getDecryptedCredential(credentialId, testOwner),
       )
 
       const results = await Promise.all(promises)
-      
+
       // All should succeed with same value
       for (const result of results) {
         expect(result?.apiKey).toBe('retrieve-test-key')
@@ -354,7 +385,16 @@ describe('CredentialVault', () => {
 
   describe('provider validation', () => {
     test('accepts all supported providers', async () => {
-      const providers = ['hetzner', 'digitalocean', 'vultr', 'linode', 'aws', 'gcp', 'azure', 'ovh'] as const
+      const providers = [
+        'hetzner',
+        'digitalocean',
+        'vultr',
+        'linode',
+        'aws',
+        'gcp',
+        'azure',
+        'ovh',
+      ] as const
 
       for (const provider of providers) {
         const id = await vault.storeCredential(testOwner, {
@@ -374,7 +414,7 @@ describe('CredentialVault', () => {
           name: 'Invalid',
           apiKey: 'key',
           skipVerification: true,
-        })
+        }),
       ).rejects.toThrow()
     })
   })
@@ -406,6 +446,65 @@ describe('CredentialVault', () => {
 
       const result = await vault.getDecryptedCredential(credentialId, testOwner)
       expect(result?.apiKey).toBe('valid-key')
+    })
+  })
+
+  // ============ Metrics Tests ============
+
+  describe('metrics', () => {
+    test('returns metrics with expected shape', async () => {
+      const metrics = await getCredentialVaultMetrics()
+
+      expect(metrics).toHaveProperty('storeCount')
+      expect(metrics).toHaveProperty('retrieveCount')
+      expect(metrics).toHaveProperty('revokeCount')
+      expect(metrics).toHaveProperty('unauthorizedCount')
+      expect(metrics).toHaveProperty('totalCredentials')
+      expect(metrics).toHaveProperty('activeCredentials')
+    })
+
+    test('increments storeCount on store', async () => {
+      const before = await getCredentialVaultMetrics()
+
+      await vault.storeCredential(testOwner, {
+        provider: 'hetzner',
+        name: 'Metrics Test',
+        apiKey: 'metrics-test-key',
+        skipVerification: true,
+      })
+
+      const after = await getCredentialVaultMetrics()
+      expect(after.storeCount).toBe(before.storeCount + 1)
+    })
+
+    test('increments retrieveCount on retrieve', async () => {
+      const credentialId = await vault.storeCredential(testOwner, {
+        provider: 'hetzner',
+        name: 'Retrieve Test',
+        apiKey: 'retrieve-test-key',
+        skipVerification: true,
+      })
+
+      const before = await getCredentialVaultMetrics()
+      await vault.getDecryptedCredential(credentialId, testOwner)
+      const after = await getCredentialVaultMetrics()
+
+      expect(after.retrieveCount).toBe(before.retrieveCount + 1)
+    })
+
+    test('increments unauthorizedCount on unauthorized access', async () => {
+      const credentialId = await vault.storeCredential(testOwner, {
+        provider: 'hetzner',
+        name: 'Unauthorized Test',
+        apiKey: 'unauthorized-test-key',
+        skipVerification: true,
+      })
+
+      const before = await getCredentialVaultMetrics()
+      await vault.getDecryptedCredential(credentialId, altOwner)
+      const after = await getCredentialVaultMetrics()
+
+      expect(after.unauthorizedCount).toBe(before.unauthorizedCount + 1)
     })
   })
 })

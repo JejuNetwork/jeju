@@ -1,7 +1,4 @@
-import {
-  getCurrentNetwork,
-  isProductionEnv,
-} from '@jejunetwork/config'
+import { getCurrentNetwork, isProductionEnv } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type {

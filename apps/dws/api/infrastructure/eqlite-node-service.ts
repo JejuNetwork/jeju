@@ -9,10 +9,7 @@
  * - Database provisioning
  */
 
-import {
-  getLocalhostHost,
-  INFRA_PORTS,
-} from '@jejunetwork/config'
+import { getLocalhostHost, INFRA_PORTS } from '@jejunetwork/config'
 import {
   createEQLiteNode,
   type EQLiteNodeConfig,
@@ -348,7 +345,8 @@ export class EQLiteNodeService {
     const state = this.nodeManager.getState()
 
     const config = this.nodeManager.getConfig()
-    const rpcPort = config.rpcAddr?.split(':')[1] ?? String(INFRA_PORTS.EQLite.get())
+    const rpcPort =
+      config.rpcAddr?.split(':')[1] ?? String(INFRA_PORTS.EQLite.get())
     const host = getLocalhostHost()
     const endpoint = `http://${host}:${rpcPort}`
     return {

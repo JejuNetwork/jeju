@@ -197,7 +197,9 @@ export async function verifyContractEvent(
 
   if (eventSignature) {
     const topic = keccak256(toBytes(eventSignature))
-    logs = logs.filter((l) => l.topics[0]?.toLowerCase() === topic.toLowerCase())
+    logs = logs.filter(
+      (l) => l.topics[0]?.toLowerCase() === topic.toLowerCase(),
+    )
   }
 
   if (expectedTopics?.length) {

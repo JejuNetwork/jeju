@@ -194,7 +194,10 @@ const EQLiteConfigSchema = z
     blockProducerEndpoint: z.string().url(),
     minerEndpoint: z.string().url().optional(),
     keyId: z.string().min(1).optional(),
-    privateKey: z.string().regex(/^0x[a-fA-F0-9]+$/).optional(),
+    privateKey: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]+$/)
+      .optional(),
     databaseId: z.string().min(1).optional(),
     timeout: z.number().int().positive().max(600000).optional(),
     debug: z.boolean().optional(),
@@ -992,7 +995,9 @@ export function getEQLite(config?: Partial<EQLiteConfig>): EQLiteClient {
 
     // Support either KMS keyId (production) or privateKey (local development)
     const keyId = config?.keyId ?? getEqliteKeyId()
-    const privateKey = config?.privateKey ?? (process.env.EQLITE_PRIVATE_KEY as `0x${string}` | undefined)
+    const privateKey =
+      config?.privateKey ??
+      (process.env.EQLITE_PRIVATE_KEY as `0x${string}` | undefined)
 
     if (!keyId && !privateKey) {
       throw new Error(

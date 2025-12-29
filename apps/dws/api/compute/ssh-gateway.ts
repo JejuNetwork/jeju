@@ -1,48 +1,24 @@
 /**
- * SSH Terminal Gateway
+ * SSH Terminal Gateway - WebSocket-based SSH proxy with wallet auth
  *
- * Provides secure SSH access to compute instances:
- * - SSH proxy without exposing instance credentials to users
- * - WebSocket-based terminal for web UI
- * - Key management and rotation
- * - Session management and audit logging
- * - Rate limiting and access control
- *
- * Security Model:
- * - Users authenticate via wallet signature
- * - Gateway holds the actual SSH keys (never exposed)
- * - All sessions are logged for audit
- * - Automatic key rotation
- * - Connection timeouts and idle disconnect
- *
- * @environment DWS_VAULT_KEY - Encryption key for SSH private keys (required in production)
- *   - Must be at least 32 characters
- *   - SSH keys are encrypted with AES-256-GCM using this key
- *   - In development: Falls back to insecure dev key with warning
- *   - In production (NODE_ENV=production or JEJU_NETWORK=mainnet): Required
- *
- * @limitation Terminal resize requires node-pty for full functionality
- * 
- * Key rotation is fully implemented and will:
- * 1. Generate new ed25519 keypair using ssh-keygen
- * 2. Connect to instance with existing key
- * 3. Add new public key to authorized_keys
- * 4. Verify new key works
- * 5. Update encrypted credential in memory
- * 6. Remove old key from authorized_keys
+ * Storage: Credentials persisted to EQLite; sessions/tokens are in-memory (ephemeral by design).
+ * @environment DWS_VAULT_KEY - Required in production (32+ chars)
  */
 
-import { Elysia } from 'elysia'
-import { spawn, type Subprocess } from 'bun'
-import type { ServerWebSocket } from 'bun'
-import { randomBytes } from 'crypto'
-import type { Address, Hex } from 'viem'
-import { verifyMessage } from 'viem'
+import { randomBytes } from 'node:crypto'
 import {
   getCurrentNetwork,
+  getEQLiteUrl,
   getLocalhostHost,
   isProductionEnv,
+  isTestMode,
 } from '@jejunetwork/config'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import type { ServerWebSocket } from 'bun'
+import { type Subprocess, spawn } from 'bun'
+import { Elysia } from 'elysia'
+import type { Address, Hex } from 'viem'
+import { verifyMessage } from 'viem'
 
 // ============ Types ============
 
@@ -125,22 +101,219 @@ const DEFAULT_CONFIG: SSHGatewayConfig = {
 
 // ============ State ============
 
-const credentials = new Map<string, SSHCredentials>()
-const credentialsByCompute = new Map<string, string>() // computeId -> credentialId
+// EQLite persistence for credentials
+const EQLITE_DATABASE_ID = 'dws-ssh-gateway'
+let eqliteClient: EQLiteClient | null = null
+let tablesInitialized = false
+let useEQLite = false
+
+// In-memory storage for credentials (fallback for tests)
+const memoryCredentials = new Map<string, SSHCredentials>()
+
+// Ephemeral state (sessions/tokens are lost on restart by design)
 const sessions = new Map<string, SSHSession>()
-const userSessions = new Map<Address, Set<string>>()
+const userSessions = new Map<string, Set<string>>() // lowercase owner -> session ids
 const accessTokens = new Map<string, AccessToken>()
-const auditLog: Array<{
+const auditLog: AuditEntry[] = []
+const sshProcesses = new Map<string, Subprocess>()
+
+interface AuditEntry {
   timestamp: number
   action: string
   sessionId: string
   owner: Address
   computeId: string
   details: string
-}> = []
+}
 
-// Active SSH processes
-const sshProcesses = new Map<string, Subprocess>()
+interface CredentialRow {
+  id: string
+  compute_id: string
+  owner: string
+  host: string
+  port: number
+  username: string
+  private_key: string
+  fingerprint: string
+  created_at: number
+  last_used_at: number
+  rotated_at: number
+}
+
+async function initEQLite(): Promise<boolean> {
+  if (isTestMode()) {
+    return false
+  }
+
+  const eqliteUrl = getEQLiteUrl()
+  if (!eqliteUrl) {
+    return false
+  }
+
+  eqliteClient = getEQLite({ databaseId: EQLITE_DATABASE_ID, timeout: 30000 })
+  const healthy = await eqliteClient.isHealthy().catch(() => false)
+
+  if (!healthy) {
+    console.warn('[SSHGateway] EQLite not available, using in-memory storage')
+    eqliteClient = null
+    return false
+  }
+
+  await ensureTablesExist()
+  useEQLite = true
+  console.log('[SSHGateway] Using EQLite for credential persistence')
+  return true
+}
+
+async function ensureTablesExist(): Promise<void> {
+  if (tablesInitialized || !eqliteClient) return
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS ssh_credentials (
+      id TEXT PRIMARY KEY,
+      compute_id TEXT NOT NULL UNIQUE,
+      owner TEXT NOT NULL,
+      host TEXT NOT NULL,
+      port INTEGER NOT NULL,
+      username TEXT NOT NULL,
+      private_key TEXT NOT NULL,
+      fingerprint TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      last_used_at INTEGER NOT NULL,
+      rotated_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_ssh_cred_owner ON ssh_credentials(owner)`,
+    `CREATE INDEX IF NOT EXISTS idx_ssh_cred_compute ON ssh_credentials(compute_id)`,
+  ]
+
+  for (const ddl of tables) {
+    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+  }
+
+  tablesInitialized = true
+}
+
+function rowToCredential(row: CredentialRow): SSHCredentials {
+  return {
+    id: row.id,
+    computeId: row.compute_id,
+    owner: row.owner as Address,
+    host: row.host,
+    port: row.port,
+    username: row.username,
+    privateKey: row.private_key,
+    fingerprint: row.fingerprint,
+    createdAt: row.created_at,
+    lastUsedAt: row.last_used_at,
+    rotatedAt: row.rotated_at,
+  }
+}
+
+// Storage operations for credentials
+const credentialStorage = {
+  async get(id: string): Promise<SSHCredentials | null> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.query<CredentialRow>(
+        'SELECT * FROM ssh_credentials WHERE id = ?',
+        [id],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rows[0] ? rowToCredential(result.rows[0]) : null
+    }
+    return memoryCredentials.get(id) ?? null
+  },
+
+  async getByComputeId(computeId: string): Promise<SSHCredentials | null> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.query<CredentialRow>(
+        'SELECT * FROM ssh_credentials WHERE compute_id = ?',
+        [computeId],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rows[0] ? rowToCredential(result.rows[0]) : null
+    }
+    for (const cred of memoryCredentials.values()) {
+      if (cred.computeId === computeId) return cred
+    }
+    return null
+  },
+
+  async set(credential: SSHCredentials): Promise<void> {
+    if (useEQLite && eqliteClient) {
+      await eqliteClient.exec(
+        `INSERT OR REPLACE INTO ssh_credentials 
+         (id, compute_id, owner, host, port, username, private_key, fingerprint, created_at, last_used_at, rotated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          credential.id,
+          credential.computeId,
+          credential.owner,
+          credential.host,
+          credential.port,
+          credential.username,
+          credential.privateKey,
+          credential.fingerprint,
+          credential.createdAt,
+          credential.lastUsedAt,
+          credential.rotatedAt,
+        ],
+        EQLITE_DATABASE_ID,
+      )
+    } else {
+      memoryCredentials.set(credential.id, credential)
+    }
+  },
+
+  async delete(id: string): Promise<boolean> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.exec(
+        'DELETE FROM ssh_credentials WHERE id = ?',
+        [id],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rowsAffected > 0
+    }
+    return memoryCredentials.delete(id)
+  },
+
+  async count(): Promise<number> {
+    if (useEQLite && eqliteClient) {
+      const result = await eqliteClient.query<{ count: number }>(
+        'SELECT COUNT(*) as count FROM ssh_credentials',
+        [],
+        EQLITE_DATABASE_ID,
+      )
+      return result.rows[0]?.count ?? 0
+    }
+    return memoryCredentials.size
+  },
+}
+
+// Initialize storage on module load
+initEQLite().catch(() => {})
+
+// Metrics for Prometheus
+const gatewayMetrics = {
+  sessionsStarted: 0,
+  sessionsEnded: 0,
+  authFailures: 0,
+  connectionErrors: 0,
+  totalBytesIn: 0,
+  totalBytesOut: 0,
+}
+
+export async function getSSHGatewayMetrics() {
+  return {
+    ...gatewayMetrics,
+    activeSessions: Array.from(sessions.values()).filter(
+      (s) => s.status === 'active',
+    ).length,
+    registeredCredentials: await credentialStorage.count(),
+    pendingTokens: Array.from(accessTokens.values()).filter((t) => !t.used)
+      .length,
+    storageBackend: useEQLite ? 'eqlite' : 'memory',
+  }
+}
 
 // ============ Main Gateway ============
 
@@ -163,9 +336,12 @@ export class SSHGateway {
     }, 60000) // Every minute
 
     // Key rotation check
-    this.keyRotationInterval = setInterval(() => {
-      this.rotateExpiredKeys()
-    }, 60 * 60 * 1000) // Every hour
+    this.keyRotationInterval = setInterval(
+      () => {
+        this.rotateExpiredKeys()
+      },
+      60 * 60 * 1000,
+    ) // Every hour
 
     console.log('[SSHGateway] Started')
   }
@@ -226,12 +402,19 @@ export class SSHGateway {
       rotatedAt: now,
     }
 
-    credentials.set(id, credential)
-    credentialsByCompute.set(params.computeId, id)
+    await credentialStorage.set(credential)
 
-    this.audit('credential_registered', '', params.owner, params.computeId, `Registered SSH credentials for ${params.host}`)
+    this.audit(
+      'credential_registered',
+      '',
+      params.owner,
+      params.computeId,
+      `Registered SSH credentials for ${params.host}`,
+    )
 
-    console.log(`[SSHGateway] Registered credentials ${id} for compute ${params.computeId}`)
+    console.log(
+      `[SSHGateway] Registered credentials ${id} for compute ${params.computeId}`,
+    )
     return id
   }
 
@@ -239,36 +422,40 @@ export class SSHGateway {
    * Rotate SSH key for a compute instance
    */
   async rotateKey(computeId: string, newPrivateKey: string): Promise<void> {
-    const credentialId = credentialsByCompute.get(computeId)
-    if (!credentialId) {
-      throw new Error(`No credentials found for compute: ${computeId}`)
-    }
-
-    const credential = credentials.get(credentialId)
+    const credential = await credentialStorage.getByComputeId(computeId)
     if (!credential) {
-      throw new Error(`Credential not found: ${credentialId}`)
+      throw new Error(`No credentials found for compute: ${computeId}`)
     }
 
     credential.privateKey = await this.encryptKey(newPrivateKey)
     credential.fingerprint = await this.calculateFingerprint(newPrivateKey)
     credential.rotatedAt = Date.now()
+    await credentialStorage.set(credential)
 
-    this.audit('key_rotated', '', credential.owner, computeId, 'SSH key rotated')
+    this.audit(
+      'key_rotated',
+      '',
+      credential.owner,
+      computeId,
+      'SSH key rotated',
+    )
     console.log(`[SSHGateway] Rotated key for compute ${computeId}`)
   }
 
   /**
    * Remove credentials
    */
-  removeCredentials(computeId: string): void {
-    const credentialId = credentialsByCompute.get(computeId)
-    if (credentialId) {
-      const credential = credentials.get(credentialId)
-      if (credential) {
-        this.audit('credential_removed', '', credential.owner, computeId, 'Credentials removed')
-      }
-      credentials.delete(credentialId)
-      credentialsByCompute.delete(computeId)
+  async removeCredentials(computeId: string): Promise<void> {
+    const credential = await credentialStorage.getByComputeId(computeId)
+    if (credential) {
+      this.audit(
+        'credential_removed',
+        '',
+        credential.owner,
+        computeId,
+        'Credentials removed',
+      )
+      await credentialStorage.delete(credential.id)
     }
   }
 
@@ -292,6 +479,7 @@ export class SSHGateway {
     })
 
     if (!isValid) {
+      gatewayMetrics.authFailures++
       throw new Error('Invalid signature')
     }
 
@@ -302,28 +490,28 @@ export class SSHGateway {
     }
 
     const timestamp = parseInt(params.message.slice(expectedPrefix.length), 10)
-    if (isNaN(timestamp) || Date.now() - timestamp > 300000) {
+    if (Number.isNaN(timestamp) || Date.now() - timestamp > 300000) {
       throw new Error('Message expired')
     }
 
     // Check credential exists and owner matches
-    const credentialId = credentialsByCompute.get(params.computeId)
-    if (!credentialId) {
+    const credential = await credentialStorage.getByComputeId(params.computeId)
+    if (!credential) {
       throw new Error('No credentials for compute')
     }
 
-    const credential = credentials.get(credentialId)
-    if (!credential) {
-      throw new Error('Credential not found')
-    }
-
     if (credential.owner.toLowerCase() !== params.owner.toLowerCase()) {
+      gatewayMetrics.authFailures++
       throw new Error('Not authorized')
     }
 
     // Check session limits
-    const userSessionSet = userSessions.get(params.owner)
-    if (userSessionSet && userSessionSet.size >= this.config.maxSessionsPerUser) {
+    const ownerKey = params.owner.toLowerCase()
+    const userSessionSet = userSessions.get(ownerKey)
+    if (
+      userSessionSet &&
+      userSessionSet.size >= this.config.maxSessionsPerUser
+    ) {
       throw new Error('Session limit reached')
     }
 
@@ -340,7 +528,13 @@ export class SSHGateway {
       used: false,
     })
 
-    this.audit('token_generated', '', params.owner, params.computeId, 'Access token generated')
+    this.audit(
+      'token_generated',
+      '',
+      params.owner,
+      params.computeId,
+      'Access token generated',
+    )
 
     return token
   }
@@ -352,15 +546,18 @@ export class SSHGateway {
     const accessToken = accessTokens.get(token)
 
     if (!accessToken) {
+      gatewayMetrics.authFailures++
       throw new Error('Invalid token')
     }
 
     if (accessToken.used) {
+      gatewayMetrics.authFailures++
       throw new Error('Token already used')
     }
 
     if (Date.now() > accessToken.expiresAt) {
       accessTokens.delete(token)
+      gatewayMetrics.authFailures++
       throw new Error('Token expired')
     }
 
@@ -383,14 +580,11 @@ export class SSHGateway {
     const accessToken = this.validateToken(params.token)
 
     // Get credentials
-    const credentialId = credentialsByCompute.get(accessToken.computeId)
-    if (!credentialId) {
-      throw new Error('No credentials')
-    }
-
-    const credential = credentials.get(credentialId)
+    const credential = await credentialStorage.getByComputeId(
+      accessToken.computeId,
+    )
     if (!credential) {
-      throw new Error('Credential not found')
+      throw new Error('No credentials')
     }
 
     // Check concurrent session limit
@@ -405,7 +599,7 @@ export class SSHGateway {
       id: sessionId,
       computeId: accessToken.computeId,
       owner: accessToken.owner,
-      credentialId,
+      credentialId: credential.id,
       startedAt: now,
       endedAt: null,
       clientIp: params.clientIp,
@@ -418,14 +612,23 @@ export class SSHGateway {
 
     sessions.set(sessionId, session)
 
-    const userSessionSet = userSessions.get(accessToken.owner) ?? new Set()
+    const ownerKey = accessToken.owner.toLowerCase()
+    const userSessionSet = userSessions.get(ownerKey) ?? new Set()
     userSessionSet.add(sessionId)
-    userSessions.set(accessToken.owner, userSessionSet)
+    userSessions.set(ownerKey, userSessionSet)
 
     // Update credential usage
     credential.lastUsedAt = now
+    await credentialStorage.set(credential)
 
-    this.audit('session_started', sessionId, accessToken.owner, accessToken.computeId, `Session started from ${params.clientIp}`)
+    this.audit(
+      'session_started',
+      sessionId,
+      accessToken.owner,
+      accessToken.computeId,
+      `Session started from ${params.clientIp}`,
+    )
+    gatewayMetrics.sessionsStarted++
 
     return session
   }
@@ -454,15 +657,27 @@ export class SSHGateway {
       sshProcesses.delete(sessionId)
     }
 
-    this.audit('session_ended', sessionId, session.owner, session.computeId, reason ?? 'Session closed')
-    console.log(`[SSHGateway] Session ${sessionId} ended: ${reason ?? 'closed'}`)
+    this.audit(
+      'session_ended',
+      sessionId,
+      session.owner,
+      session.computeId,
+      reason ?? 'Session closed',
+    )
+    gatewayMetrics.sessionsEnded++
+    gatewayMetrics.totalBytesIn += session.bytesIn
+    gatewayMetrics.totalBytesOut += session.bytesOut
+    console.log(
+      `[SSHGateway] Session ${sessionId} ended: ${reason ?? 'closed'}`,
+    )
   }
 
   /**
    * Get user's active sessions
    */
   getUserSessions(owner: Address): SSHSession[] {
-    const sessionIds = userSessions.get(owner)
+    const ownerKey = owner.toLowerCase()
+    const sessionIds = userSessions.get(ownerKey)
     if (!sessionIds) return []
 
     return Array.from(sessionIds)
@@ -481,19 +696,19 @@ export class SSHGateway {
       throw new Error('Session not found')
     }
 
-    const credential = credentials.get(session.credentialId)
+    const credential = await credentialStorage.get(session.credentialId)
     if (!credential) {
       throw new Error('Credential not found')
     }
 
     // Decrypt key and write to secure temp file
     const keyContent = await this.decryptKey(credential.privateKey)
-    
+
     // Use a more secure temp directory with random suffix
     const randomSuffix = randomBytes(16).toString('hex')
     const keyFile = `/tmp/.ssh-key-${sessionId}-${randomSuffix}`
     await Bun.write(keyFile, keyContent, { mode: 0o600 })
-    
+
     // Double-ensure permissions (Bun.write mode may not always work)
     await Bun.spawn(['chmod', '600', keyFile]).exited
 
@@ -501,13 +716,20 @@ export class SSHGateway {
     const sshProcess = spawn({
       cmd: [
         'ssh',
-        '-o', 'StrictHostKeyChecking=no',
-        '-o', 'UserKnownHostsFile=/dev/null',
-        '-o', `ConnectTimeout=${Math.floor(this.config.sshTimeout / 1000)}`,
-        '-o', 'ServerAliveInterval=30',
-        '-o', 'ServerAliveCountMax=3',
-        '-i', keyFile,
-        '-p', credential.port.toString(),
+        '-o',
+        'StrictHostKeyChecking=no',
+        '-o',
+        'UserKnownHostsFile=/dev/null',
+        '-o',
+        `ConnectTimeout=${Math.floor(this.config.sshTimeout / 1000)}`,
+        '-o',
+        'ServerAliveInterval=30',
+        '-o',
+        'ServerAliveCountMax=3',
+        '-i',
+        keyFile,
+        '-p',
+        credential.port.toString(),
         '-tt', // Force pseudo-terminal
         `${credential.username}@${credential.host}`,
       ],
@@ -522,7 +744,6 @@ export class SSHGateway {
     const dataCallbacks: Array<(data: string) => void> = []
     const closeCallbacks: Array<(code: number) => void> = []
 
-    // Read stdout
     const readOutput = async () => {
       const reader = sshProcess.stdout.getReader()
       const decoder = new TextDecoder()
@@ -541,7 +762,6 @@ export class SSHGateway {
       }
     }
 
-    // Read stderr (merge with stdout)
     const readStderr = async () => {
       const reader = sshProcess.stderr.getReader()
       const decoder = new TextDecoder()
@@ -578,11 +798,23 @@ export class SSHGateway {
       session.endedAt = Date.now()
       sshProcesses.delete(sessionId)
 
+      // Track connection errors (non-zero exit that isn't user-initiated)
+      if (code && code !== 0 && code !== 130) {
+        // 130 = SIGINT (Ctrl+C)
+        gatewayMetrics.connectionErrors++
+      }
+
       for (const cb of closeCallbacks) {
         cb(code ?? 0)
       }
 
-      this.audit('ssh_disconnected', sessionId, session.owner, session.computeId, `Exit code: ${code}`)
+      this.audit(
+        'ssh_disconnected',
+        sessionId,
+        session.owner,
+        session.computeId,
+        `Exit code: ${code}`,
+      )
     })
 
     // Store current terminal size for the session
@@ -612,7 +844,9 @@ export class SSHGateway {
           // SSH OpenSSH client supports ~. escape sequences for some operations
           // but resize requires actual SIGWINCH or pty
           // Log the resize request for debugging
-          console.log(`[SSHGateway] Resize requested: ${cols}x${rows} (requires PTY for full support)`)
+          console.log(
+            `[SSHGateway] Resize requested: ${cols}x${rows} (requires PTY for full support)`,
+          )
         } catch {
           // Resize not supported without PTY
         }
@@ -649,7 +883,10 @@ export class SSHGateway {
 
     // Handle SSH close
     ssh.onClose((code) => {
-      const msg: TerminalMessage = { type: 'close', data: `Connection closed (${code})` }
+      const msg: TerminalMessage = {
+        type: 'close',
+        data: `Connection closed (${code})`,
+      }
       ws.send(JSON.stringify(msg))
       ws.close(1000, 'SSH connection closed')
     })
@@ -737,15 +974,19 @@ export class SSHGateway {
       // Idle timeout
       if (now - session.lastActivityAt > this.config.idleTimeoutMs) {
         this.endSession(sessionId, 'Idle timeout')
-        continue
       }
     }
 
     // Clean old closed sessions from tracking (keep for 24h)
     for (const [sessionId, session] of sessions) {
-      if (session.status === 'closed' && session.endedAt && now - session.endedAt > 24 * 60 * 60 * 1000) {
+      if (
+        session.status === 'closed' &&
+        session.endedAt &&
+        now - session.endedAt > 24 * 60 * 60 * 1000
+      ) {
         sessions.delete(sessionId)
-        const userSessionSet = userSessions.get(session.owner)
+        const ownerKey = session.owner.toLowerCase()
+        const userSessionSet = userSessions.get(ownerKey)
         userSessionSet?.delete(sessionId)
       }
     }
@@ -754,11 +995,14 @@ export class SSHGateway {
   private rotateExpiredKeys(): void {
     const now = Date.now()
 
-    for (const credential of credentials.values()) {
+    for (const credential of memoryCredentials.values()) {
       if (now - credential.rotatedAt > this.config.keyRotationIntervalMs) {
         // Queue automatic key rotation (don't await in the cleanup loop)
         this.autoRotateKey(credential.computeId).catch((err) => {
-          console.error(`[SSHGateway] Key rotation failed for ${credential.computeId}:`, err)
+          console.error(
+            `[SSHGateway] Key rotation failed for ${credential.computeId}:`,
+            err,
+          )
         })
       }
     }
@@ -776,11 +1020,16 @@ export class SSHGateway {
   ): Promise<number> {
     const proc = Bun.spawn([
       'ssh',
-      '-o', 'StrictHostKeyChecking=no',
-      '-o', 'UserKnownHostsFile=/dev/null',
-      '-o', 'ConnectTimeout=30',
-      '-i', keyPath,
-      '-p', port.toString(),
+      '-o',
+      'StrictHostKeyChecking=no',
+      '-o',
+      'UserKnownHostsFile=/dev/null',
+      '-o',
+      'ConnectTimeout=30',
+      '-i',
+      keyPath,
+      '-p',
+      port.toString(),
       `${username}@${host}`,
       command,
     ])
@@ -797,7 +1046,11 @@ export class SSHGateway {
   /**
    * Write SSH key to temp file with secure permissions
    */
-  private async writeTempKey(computeId: string, key: string, suffix: string): Promise<string> {
+  private async writeTempKey(
+    computeId: string,
+    key: string,
+    suffix: string,
+  ): Promise<string> {
     const path = `/tmp/ssh-${suffix}-${computeId}-${randomBytes(4).toString('hex')}`
     await Bun.write(path, key)
     await Bun.spawn(['chmod', '600', path]).exited
@@ -808,9 +1061,11 @@ export class SSHGateway {
    * Auto-rotate SSH key for a compute instance
    */
   private async autoRotateKey(computeId: string): Promise<void> {
-    const credential = credentials.get(computeId)
+    const credential = await credentialStorage.getByComputeId(computeId)
     if (!credential) {
-      console.warn(`[SSHGateway] Cannot rotate key - credential not found for ${computeId}`)
+      console.warn(
+        `[SSHGateway] Cannot rotate key - credential not found for ${computeId}`,
+      )
       return
     }
 
@@ -824,8 +1079,15 @@ export class SSHGateway {
     // Generate new ed25519 keypair
     const keyPath = `/tmp/ssh-keygen-${computeId}-${randomBytes(4).toString('hex')}`
     const keygen = await Bun.spawn([
-      'ssh-keygen', '-t', 'ed25519', '-f', keyPath,
-      '-N', '', '-C', `jeju-${computeId}@${new Date().toISOString()}`,
+      'ssh-keygen',
+      '-t',
+      'ed25519',
+      '-f',
+      keyPath,
+      '-N',
+      '',
+      '-C',
+      `jeju-${computeId}@${new Date().toISOString()}`,
     ]).exited
 
     if (keygen !== 0) {
@@ -838,13 +1100,20 @@ export class SSHGateway {
     await Bun.spawn(['rm', '-f', `${keyPath}.pub`]).exited
 
     // Write keys to temp files
-    const currentKeyPath = await this.writeTempKey(computeId, await this.decryptKey(credential.privateKey), 'current')
+    const currentKeyPath = await this.writeTempKey(
+      computeId,
+      await this.decryptKey(credential.privateKey),
+      'current',
+    )
     const newKeyPath = await this.writeTempKey(computeId, newPrivateKey, 'new')
     const { host, port, username } = credential
 
     // Add new key to authorized_keys
     const addKeyExit = await this.execSSH(
-      currentKeyPath, host, port, username,
+      currentKeyPath,
+      host,
+      port,
+      username,
       `echo '${newPublicKey.trim()}' >> ~/.ssh/authorized_keys`,
     )
     if (addKeyExit !== 0) {
@@ -855,13 +1124,20 @@ export class SSHGateway {
 
     // Verify new key works
     const verifyExit = await this.execSSH(
-      newKeyPath, host, port, username, 'echo ok',
+      newKeyPath,
+      host,
+      port,
+      username,
+      'echo ok',
     )
     if (verifyExit !== 0) {
       // Rollback: remove new key
       const keyPrefix = newPublicKey.trim().split(' ').slice(0, 2).join(' ')
       await this.execSSH(
-        currentKeyPath, host, port, username,
+        currentKeyPath,
+        host,
+        port,
+        username,
         `grep -v '${keyPrefix}' ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys`,
       )
       await this.secureDelete(currentKeyPath)
@@ -873,11 +1149,15 @@ export class SSHGateway {
     credential.privateKey = await this.encryptKey(newPrivateKey)
     credential.rotatedAt = now
     credential.fingerprint = await this.calculateFingerprint(newPublicKey)
+    await credentialStorage.set(credential)
 
     // Remove old keys from authorized_keys (keep only new)
     const keyPrefix = newPublicKey.trim().split(' ').slice(0, 2).join(' ')
     await this.execSSH(
-      newKeyPath, host, port, username,
+      newKeyPath,
+      host,
+      port,
+      username,
       `grep '${keyPrefix}' ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys`,
     )
 
@@ -895,23 +1175,27 @@ export class SSHGateway {
    */
   private getVaultKey(): string {
     const key = process.env.DWS_VAULT_KEY
-    
+
     if (key && key.length >= 32) {
       return key
     }
-    
+
     // In production, fail hard
     const isProduction = isProductionEnv() || getCurrentNetwork() === 'mainnet'
     if (isProduction) {
-      throw new Error('CRITICAL: DWS_VAULT_KEY must be set for SSH key encryption in production')
+      throw new Error(
+        'CRITICAL: DWS_VAULT_KEY must be set for SSH key encryption in production',
+      )
     }
-    
+
     // In development, use fallback but warn
     if (!SSHGateway.vaultKeyWarned) {
-      console.warn('⚠️  WARNING: DWS_VAULT_KEY not set - SSH keys using insecure dev encryption')
+      console.warn(
+        '⚠️  WARNING: DWS_VAULT_KEY not set - SSH keys using insecure dev encryption',
+      )
       SSHGateway.vaultKeyWarned = true
     }
-    
+
     return SSHGateway.DEV_VAULT_KEY
   }
 
@@ -922,7 +1206,7 @@ export class SSHGateway {
     const vaultKey = this.getVaultKey()
 
     // Derive encryption key
-    const keyMaterial = new TextEncoder().encode(vaultKey + ':ssh-key-vault')
+    const keyMaterial = new TextEncoder().encode(`${vaultKey}:ssh-key-vault`)
     const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
     const derivedKey = new Uint8Array(hashBuffer)
 
@@ -961,7 +1245,7 @@ export class SSHGateway {
     const vaultKey = this.getVaultKey()
 
     // Derive encryption key
-    const keyMaterial = new TextEncoder().encode(vaultKey + ':ssh-key-vault')
+    const keyMaterial = new TextEncoder().encode(`${vaultKey}:ssh-key-vault`)
     const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
     const derivedKey = new Uint8Array(hashBuffer)
 
@@ -1008,7 +1292,13 @@ export class SSHGateway {
     return `SHA256:${base64}`
   }
 
-  private audit(action: string, sessionId: string, owner: Address, computeId: string, details: string): void {
+  private audit(
+    action: string,
+    sessionId: string,
+    owner: Address,
+    computeId: string,
+    details: string,
+  ): void {
     auditLog.push({
       timestamp: Date.now(),
       action,
@@ -1027,11 +1317,17 @@ export class SSHGateway {
   /**
    * Get audit log
    */
-  getAuditLog(filter?: { owner?: Address; computeId?: string; limit?: number }): typeof auditLog {
+  getAuditLog(filter?: {
+    owner?: Address
+    computeId?: string
+    limit?: number
+  }): typeof auditLog {
     let log = auditLog
 
     if (filter?.owner) {
-      log = log.filter((e) => e.owner.toLowerCase() === filter.owner?.toLowerCase())
+      log = log.filter(
+        (e) => e.owner.toLowerCase() === filter.owner?.toLowerCase(),
+      )
     }
 
     if (filter?.computeId) {
@@ -1044,17 +1340,20 @@ export class SSHGateway {
   /**
    * Get gateway statistics
    */
-  getStats(): {
+  async getStats(): Promise<{
     activeSessions: number
     totalSessions: number
     totalCredentials: number
     pendingTokens: number
-  } {
+  }> {
     return {
-      activeSessions: Array.from(sessions.values()).filter((s) => s.status === 'active').length,
+      activeSessions: Array.from(sessions.values()).filter(
+        (s) => s.status === 'active',
+      ).length,
       totalSessions: sessions.size,
-      totalCredentials: credentials.size,
-      pendingTokens: Array.from(accessTokens.values()).filter((t) => !t.used).length,
+      totalCredentials: await credentialStorage.count(),
+      pendingTokens: Array.from(accessTokens.values()).filter((t) => !t.used)
+        .length,
     }
   }
 }
@@ -1073,14 +1372,22 @@ export function createSSHGatewayRouter(gateway: SSHGateway) {
       message: string
     }
 
-    const token = await gateway.generateAccessToken({ computeId, owner, signature, message })
+    const token = await gateway.generateAccessToken({
+      computeId,
+      owner,
+      signature,
+      message,
+    })
     return { token }
   })
 
   // Start session
   router.post('/session', async ({ body, request }) => {
     const { token } = body as { token: string }
-    const clientIp = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? getLocalhostHost()
+    const clientIp =
+      request.headers.get('x-forwarded-for') ??
+      request.headers.get('x-real-ip') ??
+      getLocalhostHost()
 
     const session = await gateway.startSession({ token, clientIp })
     return { sessionId: session.id }

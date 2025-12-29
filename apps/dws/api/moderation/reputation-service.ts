@@ -20,7 +20,7 @@
  * 5. Elite (5000+): Bypass most AI checks
  */
 
-import { getEQLite, type EQLiteClient } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address } from 'viem'
 
 // ============ Types ============
@@ -106,8 +106,18 @@ const MODERATION_CONFIG: Record<TrustLevel, ModerationIntensity> = {
     manualReviewRequired: true,
     deploymentDelay: 300, // 5 minutes
     bandwidthLimit: 10, // 10 MB/s
-    allowedContentTypes: ['text/html', 'text/css', 'text/javascript', 'image/*'],
-    blockedFeatures: ['websockets', 'outbound-http', 'crypto-mining', 'tor-exit'],
+    allowedContentTypes: [
+      'text/html',
+      'text/css',
+      'text/javascript',
+      'image/*',
+    ],
+    blockedFeatures: [
+      'websockets',
+      'outbound-http',
+      'crypto-mining',
+      'tor-exit',
+    ],
   },
   basic: {
     level: 'basic',
@@ -278,7 +288,7 @@ export class ReputationService {
     }>(
       'SELECT * FROM reputation_scores WHERE address = ?',
       [address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     const now = Date.now()
@@ -313,26 +323,36 @@ export class ReputationService {
     }
 
     const row = result.rows[0]
-    const ageScore = Math.min(row.account_age_days * SCORE_WEIGHTS.agePerDay, SCORE_WEIGHTS.ageMax)
+    const ageScore = Math.min(
+      row.account_age_days * SCORE_WEIGHTS.agePerDay,
+      SCORE_WEIGHTS.ageMax,
+    )
     const deploymentScore = Math.min(
       row.successful_deployments * SCORE_WEIGHTS.deploymentSuccess,
-      SCORE_WEIGHTS.deploymentMax
+      SCORE_WEIGHTS.deploymentMax,
     )
     const stakedTokens = BigInt(row.staked_tokens)
     const stakeScore = Math.min(
       Number(stakedTokens / BigInt(1e18)) * SCORE_WEIGHTS.stakedPerEth,
-      SCORE_WEIGHTS.stakeMax
+      SCORE_WEIGHTS.stakeMax,
     )
-    const identityScore = row.identity_verified ? SCORE_WEIGHTS.identityVerified : 0
+    const identityScore = row.identity_verified
+      ? SCORE_WEIGHTS.identityVerified
+      : 0
     const vouchScore = Math.min(
       row.community_vouches * SCORE_WEIGHTS.vouchPerVouch,
-      SCORE_WEIGHTS.vouchMax
+      SCORE_WEIGHTS.vouchMax,
     )
     const violationPenalty = row.violation_severity
 
     const totalScore = Math.max(
       0,
-      ageScore + deploymentScore + stakeScore + identityScore + vouchScore - violationPenalty
+      ageScore +
+        deploymentScore +
+        stakeScore +
+        identityScore +
+        vouchScore -
+        violationPenalty,
     )
 
     return {
@@ -381,7 +401,7 @@ export class ReputationService {
     deploymentId: string,
     status: 'success' | 'failed' | 'rejected',
     moderationLevel: TrustLevel,
-    aiScanResult?: string
+    aiScanResult?: string,
   ): Promise<void> {
     const client = await getEQLiteClient()
     const now = Date.now()
@@ -391,8 +411,16 @@ export class ReputationService {
     await client.exec(
       `INSERT INTO deployment_history (id, address, deployment_id, status, moderation_level, ai_scan_result, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, address.toLowerCase(), deploymentId, status, moderationLevel, aiScanResult ?? null, now],
-      REPUTATION_DATABASE_ID
+      [
+        id,
+        address.toLowerCase(),
+        deploymentId,
+        status,
+        moderationLevel,
+        aiScanResult ?? null,
+        now,
+      ],
+      REPUTATION_DATABASE_ID,
     )
 
     // Update successful deployments count
@@ -403,7 +431,7 @@ export class ReputationService {
              last_updated = ?
          WHERE address = ?`,
         [now, address.toLowerCase()],
-        REPUTATION_DATABASE_ID
+        REPUTATION_DATABASE_ID,
       )
       await this.recalculateScore(address)
     }
@@ -417,7 +445,7 @@ export class ReputationService {
     type: Violation['type'],
     severity: Violation['severity'],
     description: string,
-    evidence: string
+    evidence: string,
   ): Promise<Violation> {
     const client = await getEQLiteClient()
     const now = Date.now()
@@ -428,8 +456,17 @@ export class ReputationService {
     await client.exec(
       `INSERT INTO violations (id, address, type, severity, description, evidence, penalty_applied, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, address.toLowerCase(), type, severity, description, evidence, penalty, now],
-      REPUTATION_DATABASE_ID
+      [
+        id,
+        address.toLowerCase(),
+        type,
+        severity,
+        description,
+        evidence,
+        penalty,
+        now,
+      ],
+      REPUTATION_DATABASE_ID,
     )
 
     // Update violation counts
@@ -440,7 +477,7 @@ export class ReputationService {
            last_updated = ?
        WHERE address = ?`,
       [penalty, now, address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     await this.recalculateScore(address)
@@ -463,7 +500,7 @@ export class ReputationService {
   async addVouch(
     voucher: Address,
     vouchee: Address,
-    message: string
+    message: string,
   ): Promise<CommunityVouch> {
     // Voucher must have at least 'trusted' level
     const voucherRep = await this.getReputation(voucher)
@@ -485,7 +522,7 @@ export class ReputationService {
       `SELECT id FROM community_vouches 
        WHERE voucher = ? AND vouchee = ? AND revoked_at IS NULL`,
       [voucher.toLowerCase(), vouchee.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     if (existing.rows.length > 0) {
@@ -499,7 +536,7 @@ export class ReputationService {
       `INSERT INTO community_vouches (id, voucher, vouchee, weight, message, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [id, voucher.toLowerCase(), vouchee.toLowerCase(), weight, message, now],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     // Update vouchee's vouch count
@@ -509,7 +546,7 @@ export class ReputationService {
            last_updated = ?
        WHERE address = ?`,
       [now, vouchee.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     await this.recalculateScore(vouchee)
@@ -536,7 +573,7 @@ export class ReputationService {
        SET revoked_at = ?
        WHERE voucher = ? AND vouchee = ? AND revoked_at IS NULL`,
       [now, voucher.toLowerCase(), vouchee.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     // Update vouchee's vouch count
@@ -546,7 +583,7 @@ export class ReputationService {
            last_updated = ?
        WHERE address = ?`,
       [now, vouchee.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     await this.recalculateScore(vouchee)
@@ -565,7 +602,7 @@ export class ReputationService {
            last_updated = ?
        WHERE address = ?`,
       [amount.toString(), now, address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     await this.recalculateScore(address)
@@ -584,7 +621,7 @@ export class ReputationService {
            last_updated = ?
        WHERE address = ?`,
       [now, address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     await this.recalculateScore(address)
@@ -610,7 +647,7 @@ export class ReputationService {
     }>(
       'SELECT * FROM violations WHERE address = ? ORDER BY created_at DESC',
       [address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     return result.rows.map((row) => ({
@@ -630,17 +667,14 @@ export class ReputationService {
   /**
    * Appeal a violation
    */
-  async appealViolation(
-    address: Address,
-    violationId: string
-  ): Promise<void> {
+  async appealViolation(address: Address, violationId: string): Promise<void> {
     const client = await getEQLiteClient()
 
     // Verify violation belongs to address
     const result = await client.query(
       'SELECT * FROM violations WHERE id = ? AND address = ?',
       [violationId, address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     if (result.rows.length === 0) {
@@ -650,17 +684,14 @@ export class ReputationService {
     await client.exec(
       `UPDATE violations SET appeal_status = 'pending' WHERE id = ?`,
       [violationId],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
   }
 
   /**
    * Resolve appeal
    */
-  async resolveAppeal(
-    violationId: string,
-    approved: boolean
-  ): Promise<void> {
+  async resolveAppeal(violationId: string, approved: boolean): Promise<void> {
     const client = await getEQLiteClient()
     const now = Date.now()
 
@@ -670,7 +701,7 @@ export class ReputationService {
     }>(
       'SELECT address, penalty_applied FROM violations WHERE id = ?',
       [violationId],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     if (result.rows.length === 0) {
@@ -685,7 +716,7 @@ export class ReputationService {
            resolved_at = CASE WHEN ? THEN ? ELSE resolved_at END
        WHERE id = ?`,
       [approved ? 'approved' : 'denied', approved ? 1 : 0, now, violationId],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     // If approved, remove penalty
@@ -697,7 +728,7 @@ export class ReputationService {
              last_updated = ?
          WHERE address = ?`,
         [penalty_applied, penalty_applied, now, address],
-        REPUTATION_DATABASE_ID
+        REPUTATION_DATABASE_ID,
       )
 
       await this.recalculateScore(address as Address)
@@ -716,7 +747,7 @@ export class ReputationService {
        SET account_age_days = (? - created_at) / 86400000,
            last_updated = ?`,
       [now, now],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
   }
 
@@ -731,7 +762,7 @@ export class ReputationService {
        VALUES (?, ?, ?)
        ON CONFLICT(address) DO NOTHING`,
       [address.toLowerCase(), now, now],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
   }
 
@@ -749,36 +780,47 @@ export class ReputationService {
     }>(
       'SELECT * FROM reputation_scores WHERE address = ?',
       [address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
 
     if (result.rows.length === 0) return
 
     const row = result.rows[0]
-    const ageScore = Math.min(row.account_age_days * SCORE_WEIGHTS.agePerDay, SCORE_WEIGHTS.ageMax)
+    const ageScore = Math.min(
+      row.account_age_days * SCORE_WEIGHTS.agePerDay,
+      SCORE_WEIGHTS.ageMax,
+    )
     const deploymentScore = Math.min(
       row.successful_deployments * SCORE_WEIGHTS.deploymentSuccess,
-      SCORE_WEIGHTS.deploymentMax
+      SCORE_WEIGHTS.deploymentMax,
     )
     const stakeScore = Math.min(
-      Number(BigInt(row.staked_tokens) / BigInt(1e18)) * SCORE_WEIGHTS.stakedPerEth,
-      SCORE_WEIGHTS.stakeMax
+      Number(BigInt(row.staked_tokens) / BigInt(1e18)) *
+        SCORE_WEIGHTS.stakedPerEth,
+      SCORE_WEIGHTS.stakeMax,
     )
-    const identityScore = row.identity_verified ? SCORE_WEIGHTS.identityVerified : 0
+    const identityScore = row.identity_verified
+      ? SCORE_WEIGHTS.identityVerified
+      : 0
     const vouchScore = Math.min(
       row.community_vouches * SCORE_WEIGHTS.vouchPerVouch,
-      SCORE_WEIGHTS.vouchMax
+      SCORE_WEIGHTS.vouchMax,
     )
 
     const totalScore = Math.max(
       0,
-      ageScore + deploymentScore + stakeScore + identityScore + vouchScore - row.violation_severity
+      ageScore +
+        deploymentScore +
+        stakeScore +
+        identityScore +
+        vouchScore -
+        row.violation_severity,
     )
 
     await client.exec(
       `UPDATE reputation_scores SET total_score = ?, last_updated = ? WHERE address = ?`,
       [totalScore, now, address.toLowerCase()],
-      REPUTATION_DATABASE_ID
+      REPUTATION_DATABASE_ID,
     )
   }
 
@@ -807,9 +849,7 @@ export function getReputationService(): ReputationService {
 /**
  * Determine if deployment should be moderated and how
  */
-export async function shouldModerateDeployment(
-  address: Address
-): Promise<{
+export async function shouldModerateDeployment(address: Address): Promise<{
   shouldModerate: boolean
   intensity: ModerationIntensity
   reputation: ReputationScore
@@ -839,7 +879,7 @@ export async function applyModerationResult(
     severity: Violation['severity']
     description: string
     evidence: string
-  }
+  },
 ): Promise<void> {
   const service = getReputationService()
 
@@ -848,7 +888,7 @@ export async function applyModerationResult(
     deploymentId,
     passed ? 'success' : 'rejected',
     moderationLevel,
-    aiScanResult
+    aiScanResult,
   )
 
   if (!passed && violation) {
@@ -857,7 +897,7 @@ export async function applyModerationResult(
       violation.type,
       violation.severity,
       violation.description,
-      violation.evidence
+      violation.evidence,
     )
   }
 }

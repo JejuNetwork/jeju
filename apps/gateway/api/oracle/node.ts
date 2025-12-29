@@ -12,6 +12,7 @@ import {
   getCurrentNetwork,
   getRpcUrl,
 } from '@jejunetwork/config'
+import { getKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import {
   COMMITTEE_MANAGER_ABI,
   FEED_REGISTRY_ABI,
@@ -34,7 +35,6 @@ import {
   keccak256,
 } from 'viem'
 import { base, baseSepolia, foundry } from 'viem/chains'
-import { getKMSSigner, type KMSSigner } from '../../lib/kms-signer'
 import { type PriceData, PriceFetcher } from './price-fetcher'
 import type { PriceReport } from './types'
 
@@ -434,20 +434,35 @@ export function createNodeConfig(): SecureOracleNodeConfig {
     workerServiceId: process.env.ORACLE_WORKER_SERVICE_ID ?? 'oracle-worker',
 
     feedRegistry: parseEnvAddress(
-      process.env.FEED_REGISTRY_ADDRESS,
-      (getContract('oracle', 'feedRegistry', network) || ZERO_ADDRESS) as Address,
+      typeof process !== 'undefined'
+        ? process.env.FEED_REGISTRY_ADDRESS
+        : undefined,
+      (getContract('oracle', 'feedRegistry', network) ||
+        ZERO_ADDRESS) as Address,
     ),
     reportVerifier: parseEnvAddress(
-      process.env.REPORT_VERIFIER_ADDRESS,
-      (getContract('oracle', 'reportVerifier', network) || ZERO_ADDRESS) as Address,
+      typeof process !== 'undefined'
+        ? process.env.REPORT_VERIFIER_ADDRESS
+        : undefined,
+      (getContract('oracle', 'reportVerifier', network) ||
+        ZERO_ADDRESS) as Address,
     ),
     committeeManager: parseEnvAddress(
-      process.env.COMMITTEE_MANAGER_ADDRESS,
+      typeof process !== 'undefined'
+        ? process.env.COMMITTEE_MANAGER_ADDRESS
+        : undefined,
       ZERO_ADDRESS,
     ),
-    feeRouter: parseEnvAddress(process.env.FEE_ROUTER_ADDRESS, ZERO_ADDRESS),
+    feeRouter: parseEnvAddress(
+      typeof process !== 'undefined'
+        ? process.env.FEE_ROUTER_ADDRESS
+        : undefined,
+      ZERO_ADDRESS,
+    ),
     networkConnector: parseEnvAddress(
-      process.env.NETWORK_CONNECTOR_ADDRESS,
+      typeof process !== 'undefined'
+        ? process.env.NETWORK_CONNECTOR_ADDRESS
+        : undefined,
       ZERO_ADDRESS,
     ),
 
@@ -461,4 +476,3 @@ export function createNodeConfig(): SecureOracleNodeConfig {
     priceSources: [],
   }
 }
-

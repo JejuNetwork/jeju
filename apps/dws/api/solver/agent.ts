@@ -96,9 +96,17 @@ export class SolverAgent {
 
   async start(): Promise<void> {
     console.log('📡 Connecting to chains...')
-    const pk = process.env.SOLVER_PRIVATE_KEY
-    const kmsKeyId = process.env.SOLVER_KMS_KEY_ID
-    const ownerAddress = process.env.SOLVER_OWNER_ADDRESS as Address | undefined
+    const pk =
+      typeof process !== 'undefined'
+        ? process.env.SOLVER_PRIVATE_KEY
+        : undefined
+    const kmsKeyId =
+      typeof process !== 'undefined' ? process.env.SOLVER_KMS_KEY_ID : undefined
+    const ownerAddress = (
+      typeof process !== 'undefined'
+        ? process.env.SOLVER_OWNER_ADDRESS
+        : undefined
+    ) as Address | undefined
     const isProduction = isProductionEnv()
 
     // Determine if we should use KMS

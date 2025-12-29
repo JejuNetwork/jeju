@@ -224,7 +224,9 @@ export async function purchaseCredits(
   // In production, verify the transaction on-chain
   if (isProductionEnv()) {
     const network = getCurrentNetwork()
-    const rpcUrl = (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ?? getRpcUrl(network)
+    const rpcUrl =
+      (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+      getRpcUrl(network)
     if (!rpcUrl) {
       return { success: false, error: 'RPC_URL not configured' }
     }

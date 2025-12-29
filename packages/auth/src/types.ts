@@ -5,14 +5,8 @@
  * threshold MPC signing, and W3C Verifiable Credentials.
  */
 
-import type { TEEAttestation as SharedTEEAttestation } from '@jejunetwork/types'
+import type { TEEAttestation } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
-
-// Re-export TEEAttestation from shared types
-export type { TEEAttestation } from '@jejunetwork/types'
-
-// Local type alias for use in this file
-type TEEAttestation = SharedTEEAttestation
 
 /** Generic JSON record type for OAuth state */
 export type JsonRecord = Record<string, unknown>

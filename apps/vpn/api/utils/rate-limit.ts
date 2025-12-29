@@ -1,4 +1,6 @@
-/** Rate limiting utilities */
+/** Rate limiting utilities using distributed cache */
+
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 
 interface RateLimitEntry {
   count: number
@@ -17,55 +19,36 @@ const DEFAULT_CONFIGS: Record<string, RateLimitConfig> = {
   default: { windowMs: 60 * 1000, maxRequests: 60 },
 }
 
-const MAX_ENTRIES = 50000
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+// Distributed cache for rate limiting
+let rateCache: CacheClient | null = null
 
-const rateLimitStore = new Map<string, RateLimitEntry>()
-
-function cleanupExpired(): void {
-  const now = Date.now()
-  let _cleanedCount = 0
-
-  for (const [key, entry] of rateLimitStore.entries()) {
-    const type = key.split(':')[0]
-    const config = DEFAULT_CONFIGS[type] ?? DEFAULT_CONFIGS.default
-
-    if (now - entry.windowStart > config.windowMs) {
-      rateLimitStore.delete(key)
-      _cleanedCount++
-    }
+function getRateCache(): CacheClient {
+  if (!rateCache) {
+    rateCache = getCacheClient('vpn-ratelimit')
   }
+  return rateCache
 }
 
-setInterval(cleanupExpired, CLEANUP_INTERVAL_MS)
-
-export function checkRateLimit(
+export async function checkRateLimit(
   type: string,
   identifier: string,
   config?: RateLimitConfig,
-): { allowed: boolean; remaining: number; resetAt: number } {
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   const effectiveConfig =
     config ?? DEFAULT_CONFIGS[type] ?? DEFAULT_CONFIGS.default
-  const key = `${type}:${identifier}`
+  const key = `vpn-rl:${type}:${identifier}`
   const now = Date.now()
+  const cache = getRateCache()
 
-  if (rateLimitStore.size >= MAX_ENTRIES * 0.9) {
-    cleanupExpired()
-  }
-
-  if (rateLimitStore.size >= MAX_ENTRIES) {
-    console.error('Rate limit storage full - possible DoS attack')
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: now + effectiveConfig.windowMs,
-    }
-  }
-
-  const entry = rateLimitStore.get(key)
+  // Get current entry from cache
+  const cached = await cache.get(key)
+  let entry: RateLimitEntry | null = cached ? JSON.parse(cached) : null
 
   if (!entry || now - entry.windowStart > effectiveConfig.windowMs) {
-    rateLimitStore.set(key, { count: 1, windowStart: now })
+    // New window
+    entry = { count: 1, windowStart: now }
+    const ttl = Math.ceil(effectiveConfig.windowMs / 1000)
+    await cache.set(key, JSON.stringify(entry), ttl)
     return {
       allowed: true,
       remaining: effectiveConfig.maxRequests - 1,
@@ -75,6 +58,11 @@ export function checkRateLimit(
 
   if (entry.count < effectiveConfig.maxRequests) {
     entry.count++
+    const ttl = Math.max(
+      1,
+      Math.ceil((entry.windowStart + effectiveConfig.windowMs - now) / 1000),
+    )
+    await cache.set(key, JSON.stringify(entry), ttl)
     return {
       allowed: true,
       remaining: effectiveConfig.maxRequests - entry.count,
@@ -93,7 +81,13 @@ export function createRateLimitMiddleware(
   type: string,
   config?: RateLimitConfig,
 ) {
-  return ({ request, set }: { request: Request; set: { status: number } }) => {
+  return async ({
+    request,
+    set,
+  }: {
+    request: Request
+    set: { status: number }
+  }) => {
     const forwardedFor = request.headers.get('x-forwarded-for')
     const realIp = request.headers.get('x-real-ip')
     const jejuAddress = request.headers.get('x-jeju-address')
@@ -101,7 +95,7 @@ export function createRateLimitMiddleware(
     const identifier =
       jejuAddress ?? forwardedFor?.split(',')[0]?.trim() ?? realIp ?? 'unknown'
 
-    const result = checkRateLimit(type, identifier, config)
+    const result = await checkRateLimit(type, identifier, config)
 
     if (!result.allowed) {
       set.status = 429

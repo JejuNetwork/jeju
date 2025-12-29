@@ -87,5 +87,3 @@ export function createSecureTransactionExecutor(
 export type SecureTransactionExecutor = ReturnType<
   typeof createSecureTransactionExecutor
 >
-
-

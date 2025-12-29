@@ -17,7 +17,13 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { getContract, getRpcUrl, type NetworkType } from '@jejunetwork/config'
+import {
+  getContract,
+  getDWSUrl,
+  getLocalhostHost,
+  getRpcUrl,
+  type NetworkType,
+} from '@jejunetwork/config'
 import { Command } from 'commander'
 import {
   type Address,
@@ -414,7 +420,8 @@ export const deploySimpleCommand = new Command('deploy')
     }
 
     // Upload to IPFS
-    const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4030'
+    const dwsUrl =
+      process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4030`
     const cid = await uploadToIPFS(outputPath, dwsUrl)
 
     if (!cid) {

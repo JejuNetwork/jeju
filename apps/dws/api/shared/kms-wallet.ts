@@ -20,6 +20,11 @@
  *   const sig = await wallet.signMessage({ message: 'hello' })
  */
 
+import {
+  getCurrentNetwork,
+  getKMSUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type {
   Address,
   Chain,
@@ -40,8 +45,6 @@ import {
   serializeTransaction,
   toHex,
 } from 'viem'
-
-import { getKMSUrl, getCurrentNetwork, isProductionEnv } from '@jejunetwork/config'
 
 // KMS endpoint - env override takes precedence, then config
 const KMS_ENDPOINT =

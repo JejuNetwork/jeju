@@ -137,7 +137,7 @@ export async function createApiKey(
 
   // Cache for fast lookup
   localKeyCache.set(key, id)
-  registerApiKey(key, address, tier)
+  await registerApiKey(key, address, tier)
 
   return { key, record }
 }
@@ -215,7 +215,7 @@ export async function revokeApiKeyById(
     // Find and revoke from rate limiter cache
     for (const [key, cachedId] of localKeyCache) {
       if (cachedId === id) {
-        revokeApiKey(key)
+        await revokeApiKey(key)
         localKeyCache.delete(key)
         break
       }

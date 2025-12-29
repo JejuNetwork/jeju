@@ -10,6 +10,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
+import { getDWSUrl } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -85,11 +86,8 @@ class FrontendUploader {
 
   constructor(network: 'testnet' | 'mainnet' = 'testnet') {
     this.network = network
-    this.dwsEndpoint =
-      process.env.DWS_ENDPOINT ||
-      (network === 'mainnet'
-        ? 'https://dws.jejunetwork.org'
-        : 'https://dws.testnet.jejunetwork.org')
+    const networkType = network === 'mainnet' ? 'mainnet' : 'testnet'
+    this.dwsEndpoint = getDWSUrl(networkType)
 
     this.privateKey = process.env.DEPLOYER_PRIVATE_KEY as Hex
     if (!this.privateKey) {

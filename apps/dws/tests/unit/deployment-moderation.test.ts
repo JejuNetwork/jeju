@@ -2,7 +2,7 @@
  * Tests for Deployment Moderation Service
  */
 
-import { describe, test, expect, beforeEach, mock } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { Address } from 'viem'
 
 // Mock EQLite before importing
@@ -17,17 +17,28 @@ mock.module('@jejunetwork/db', () => ({
 }))
 
 // Mock fetch for AI API calls
-const mockFetch = mock(() => Promise.resolve({
-  ok: true,
-  json: () => Promise.resolve({
-    choices: [{ message: { content: JSON.stringify({ safe: true, confidence: 0.95 }) } }],
+const mockFetch = mock(() =>
+  Promise.resolve({
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ safe: true, confidence: 0.95 }),
+            },
+          },
+        ],
+      }),
   }),
-}))
+)
 
 globalThis.fetch = mockFetch as typeof fetch
 
 // Import after mocking
-const { DeploymentModerationService } = await import('../../api/containers/deployment-moderation')
+const { DeploymentModerationService } = await import(
+  '../../api/containers/deployment-moderation'
+)
 
 describe('Deployment Moderation Service', () => {
   let service: DeploymentModerationService
@@ -44,18 +55,21 @@ describe('Deployment Moderation Service', () => {
     test('scans and approves clean deployment', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                safe: true,
-                confidence: 0.98,
-                categories: [],
-                explanation: 'Content appears safe',
-              }),
-            },
-          }],
-        }),
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    safe: true,
+                    confidence: 0.98,
+                    categories: [],
+                    explanation: 'Content appears safe',
+                  }),
+                },
+              },
+            ],
+          }),
       } as Response)
 
       const result = await service.scanDeployment({
@@ -73,18 +87,21 @@ describe('Deployment Moderation Service', () => {
     test('rejects deployment with prohibited content', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                safe: false,
-                confidence: 0.95,
-                categories: ['malware', 'crypto-mining'],
-                explanation: 'Detected cryptocurrency mining code',
-              }),
-            },
-          }],
-        }),
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    safe: false,
+                    confidence: 0.95,
+                    categories: ['malware', 'crypto-mining'],
+                    explanation: 'Detected cryptocurrency mining code',
+                  }),
+                },
+              },
+            ],
+          }),
       } as Response)
 
       const result = await service.scanDeployment({
@@ -102,18 +119,21 @@ describe('Deployment Moderation Service', () => {
     test('flags low confidence results for review', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                safe: true,
-                confidence: 0.65,
-                categories: ['unclear'],
-                explanation: 'Uncertain about some content',
-              }),
-            },
-          }],
-        }),
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    safe: true,
+                    confidence: 0.65,
+                    categories: ['unclear'],
+                    explanation: 'Uncertain about some content',
+                  }),
+                },
+              },
+            ],
+          }),
       } as Response)
 
       const result = await service.scanDeployment({
@@ -132,18 +152,21 @@ describe('Deployment Moderation Service', () => {
     test('scans container image', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                safe: true,
-                confidence: 0.92,
-                vulnerabilities: [],
-                malwareDetected: false,
-              }),
-            },
-          }],
-        }),
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    safe: true,
+                    confidence: 0.92,
+                    vulnerabilities: [],
+                    malwareDetected: false,
+                  }),
+                },
+              },
+            ],
+          }),
       } as Response)
 
       const result = await service.scanImage({
@@ -160,20 +183,27 @@ describe('Deployment Moderation Service', () => {
     test('detects vulnerabilities in image', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                safe: false,
-                confidence: 0.88,
-                vulnerabilities: [
-                  { id: 'CVE-2024-1234', severity: 'high', package: 'openssl' },
-                ],
-                malwareDetected: false,
-              }),
-            },
-          }],
-        }),
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    safe: false,
+                    confidence: 0.88,
+                    vulnerabilities: [
+                      {
+                        id: 'CVE-2024-1234',
+                        severity: 'high',
+                        package: 'openssl',
+                      },
+                    ],
+                    malwareDetected: false,
+                  }),
+                },
+              },
+            ],
+          }),
       } as Response)
 
       const result = await service.scanImage({
@@ -269,11 +299,13 @@ describe('Deployment Moderation Service', () => {
   describe('submitReviewDecision', () => {
     test('approves deployment after manual review', async () => {
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          id: 'rev-1',
-          deployment_id: 'dep-126',
-          status: 'pending',
-        }],
+        rows: [
+          {
+            id: 'rev-1',
+            deployment_id: 'dep-126',
+            status: 'pending',
+          },
+        ],
       })
 
       await service.submitReviewDecision({
@@ -288,11 +320,13 @@ describe('Deployment Moderation Service', () => {
 
     test('rejects deployment after manual review', async () => {
       mockQuery.mockResolvedValueOnce({
-        rows: [{
-          id: 'rev-2',
-          deployment_id: 'dep-127',
-          status: 'pending',
-        }],
+        rows: [
+          {
+            id: 'rev-2',
+            deployment_id: 'dep-127',
+            status: 'pending',
+          },
+        ],
       })
 
       await service.submitReviewDecision({
@@ -359,7 +393,7 @@ describe('Deployment Moderation Service', () => {
         userAddress: testAddress,
         deploymentId: 'dep-129',
         violationType: 'spam',
-        confidence: 0.70,
+        confidence: 0.7,
         evidence: 'Possible spam content',
       })
 

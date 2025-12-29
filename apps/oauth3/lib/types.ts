@@ -36,8 +36,14 @@ export interface AuthSession {
   sessionId: string
   userId: string
   provider: AuthProvider
-  /** Encrypted PII (address, email, fid) */
-  encryptedPII: EncryptedSessionPII
+  /** User wallet address (if wallet auth) */
+  address?: `0x${string}`
+  /** Farcaster ID (if farcaster auth) */
+  fid?: number
+  /** User email (if social auth with email scope) */
+  email?: string
+  /** Encrypted PII (address, email, fid) - for enhanced security mode */
+  encryptedPII?: EncryptedSessionPII
   createdAt: number
   expiresAt: number
   metadata: Record<string, string>
@@ -264,4 +270,8 @@ export interface AuthConfig {
   allowedOrigins: string[]
   /** Chain ID for KMS access policies */
   chainId?: string
+  /** JWT secret for token signing (dev mode fallback) */
+  jwtSecret?: string
+  /** Enable development mode (disables MPC, uses local signing) */
+  devMode?: boolean
 }

@@ -25,7 +25,7 @@
  * ```
  */
 
-import type { TCPSocketListener, Socket } from 'bun'
+import type { Socket, TCPSocketListener } from 'bun'
 import type { CacheEngine } from './engine'
 
 // RESP Protocol Constants

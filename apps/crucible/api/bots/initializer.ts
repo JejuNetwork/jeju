@@ -288,7 +288,7 @@ class TradingBotImpl implements TradingBot {
     this.state.totalTrades++
     this.state.lastTradeTimestamp = Date.now()
 
-    const chain = this.options.chains[0]
+    const _chain = this.options.chains[0]
       ? {
           id: this.options.chains[0].chainId,
           name: this.options.chains[0].name,

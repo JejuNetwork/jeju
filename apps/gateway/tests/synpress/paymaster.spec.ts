@@ -12,12 +12,14 @@ import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 // Must import zod-compat before synpress for Zod 4 compatibility
 import '@jejunetwork/tests/zod-compat'
+
+import { getCoreAppUrl } from '@jejunetwork/config'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001'
+const GATEWAY_URL = getCoreAppUrl('GATEWAY')
 
 async function connectAndNavigateToPaymaster(
   page: ReturnType<typeof test.extend>['page'] extends Promise<infer P>

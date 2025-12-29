@@ -5,12 +5,16 @@
 export { EdgeNodeServer } from './server'
 
 import {
+  getCurrentNetwork,
   getEnvBool,
   getEnvNumber,
   getEnvVar,
   getIpfsGatewayEnv,
+  getLocalhostHost,
   getRpcUrl,
+  tryGetContract,
 } from '@jejunetwork/config'
+import type { Address } from 'viem'
 import type { EdgeNodeConfig } from '../types'
 import { EdgeNodeServer } from './server'
 
@@ -72,7 +76,7 @@ export async function startEdgeNode(): Promise<EdgeNodeServer> {
       edgeNodeConfig.endpoint ??
       getEnvVar('CDN_ENDPOINT') ??
       (typeof process !== 'undefined' ? process.env.CDN_ENDPOINT : undefined) ??
-      `http://localhost:${
+      `http://${getLocalhostHost()}:${
         edgeNodeConfig.port ??
         getEnvNumber('CDN_PORT') ??
         (
@@ -95,15 +99,17 @@ export async function startEdgeNode(): Promise<EdgeNodeServer> {
       'us-east-1') as EdgeNodeConfig['region'],
     registryAddress: (edgeNodeConfig.registryAddress ??
       getEnvVar('CDN_REGISTRY_ADDRESS') ??
-      (typeof process !== 'undefined'
+      ((typeof process !== 'undefined'
         ? process.env.CDN_REGISTRY_ADDRESS
-        : undefined) ??
+        : undefined) as Address | undefined) ??
+      tryGetContract('cdn', 'registry', getCurrentNetwork()) ??
       '0x0000000000000000000000000000000000000000') as `0x${string}`,
     billingAddress: (edgeNodeConfig.billingAddress ??
       getEnvVar('CDN_BILLING_ADDRESS') ??
-      (typeof process !== 'undefined'
+      ((typeof process !== 'undefined'
         ? process.env.CDN_BILLING_ADDRESS
-        : undefined) ??
+        : undefined) as Address | undefined) ??
+      tryGetContract('cdn', 'billing', getCurrentNetwork()) ??
       '0x0000000000000000000000000000000000000000') as `0x${string}`,
     rpcUrl: getRpcUrl(),
 

@@ -104,8 +104,7 @@ function timingSafeCompare(a: string | undefined | null, b: string): boolean {
  * Requires SERVICE_AUTH_SECRET env var to be set in production
  */
 const SERVICE_AUTH_SECRET = process.env.SERVICE_AUTH_SECRET
-const SERVICE_AUTH_ENABLED =
-      isProductionEnv() || Boolean(SERVICE_AUTH_SECRET)
+const SERVICE_AUTH_ENABLED = isProductionEnv() || Boolean(SERVICE_AUTH_SECRET)
 
 async function validateServiceAuth(
   request: Request,

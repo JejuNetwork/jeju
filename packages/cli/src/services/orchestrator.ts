@@ -2,10 +2,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  getFarcasterHubUrl,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getFarcasterHubUrl, getLocalhostHost } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import {
   type Address,
@@ -156,9 +153,12 @@ async function fetchRealPrices(): Promise<
 
 async function isPortInUse(port: number): Promise<boolean> {
   try {
-    const response = await fetch(`http://${getLocalhostHost()}:${port}/health`, {
-      signal: AbortSignal.timeout(1000),
-    })
+    const response = await fetch(
+      `http://${getLocalhostHost()}:${port}/health`,
+      {
+        signal: AbortSignal.timeout(1000),
+      },
+    )
     return response.ok
   } catch {
     try {
@@ -264,7 +264,8 @@ class ServicesOrchestrator {
     if (await isPortInUse(port)) {
       // Check if EQLite is responding
       try {
-        const response = await fetch(`http://localhost:${port}/v1/status`, {
+        const host = getLocalhostHost()
+        const response = await fetch(`http://${host}:${port}/v1/status`, {
           signal: AbortSignal.timeout(2000),
         })
         if (response.ok) {
@@ -315,7 +316,8 @@ class ServicesOrchestrator {
     while (Date.now() - startTime < timeout) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
       try {
-        const response = await fetch(`http://localhost:${port}/v1/status`, {
+        const host = getLocalhostHost()
+        const response = await fetch(`http://${host}:${port}/v1/status`, {
           signal: AbortSignal.timeout(2000),
         })
         if (response.ok) {
@@ -368,7 +370,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server,
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -936,7 +938,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server: { stop: async () => server.stop() },
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1387,7 +1389,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server,
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
     logger.success(
@@ -1679,7 +1681,7 @@ class ServicesOrchestrator {
       type: 'process',
       port,
       process: proc,
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1764,7 +1766,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server: { stop: async () => server.stop() },
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1938,7 +1940,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server: { stop: async () => server.stop() },
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1957,7 +1959,7 @@ class ServicesOrchestrator {
       name: 'JejuGit',
       type: 'server',
       port: dwsPort,
-      url: `http://localhost:${dwsPort}/git`,
+      url: `http://${getLocalhostHost()}:${dwsPort}/git`,
       // No health check - DWS sub-route
     })
   }
@@ -1974,7 +1976,7 @@ class ServicesOrchestrator {
       name: 'JejuPkg',
       type: 'server',
       port: dwsPort,
-      url: `http://localhost:${dwsPort}/pkg`,
+      url: `http://${getLocalhostHost()}:${dwsPort}/pkg`,
       // No health check - DWS sub-route
     })
   }

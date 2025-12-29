@@ -1,8 +1,4 @@
-import {
-  getCurrentNetwork,
-  getLocalhostHost,
-  getRpcUrl,
-} from '@jejunetwork/config'
+import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import {
   type BanCheckConfig,
   BanChecker,
@@ -22,7 +18,7 @@ const BAN_MANAGER_ADDRESS = getOptionalAddress(process.env.BAN_MANAGER_ADDRESS)
 const MODERATION_MARKETPLACE_ADDRESS = getOptionalAddress(
   process.env.MODERATION_MARKETPLACE_ADDRESS,
 )
-const RPC_URL = process.env.RPC_URL || getRpcUrl(getCurrentNetwork())
+const RPC_URL = getRpcUrl()
 const NETWORK = getCurrentNetwork()
 
 // Skip paths that don't need ban checking

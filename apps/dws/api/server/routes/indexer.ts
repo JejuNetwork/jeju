@@ -11,6 +11,7 @@
 import {
   getCurrentNetwork,
   getIndexerGraphqlUrl,
+  getLocalhostHost,
   getServicesConfig,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
@@ -77,7 +78,7 @@ function initializeEndpoints(): void {
     })
 
     indexerEndpoints.set('local-rest', {
-      url: 'http://127.0.0.1:4352',
+      url: `http://${getLocalhostHost()}:4352`,
       type: 'rest',
       healthy: true,
       lastCheck: 0,

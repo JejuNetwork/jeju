@@ -5,7 +5,6 @@
  * Uses AES-256-GCM for authenticated encryption.
  */
 
-import { isProductionEnv } from '@jejunetwork/config'
 import {
   createCipheriv,
   createDecipheriv,
@@ -14,6 +13,7 @@ import {
   scryptSync,
 } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { isProductionEnv } from '@jejunetwork/config'
 
 // Configuration
 const DB_ENCRYPTION_KEY_ENV = 'FACTORY_DB_ENCRYPTION_KEY'

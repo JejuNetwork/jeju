@@ -9,7 +9,7 @@
  * - Budget constraints
  */
 
-import { getEQLite, type EQLiteClient } from '@jejunetwork/db'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 
 // ============ Types ============
 
@@ -121,29 +121,38 @@ export class CostPerformanceOptimizer {
    */
   async rankProviders(
     providers: ProviderSpec[],
-    requirements: RequirementFilter = {}
+    requirements: RequirementFilter = {},
   ): Promise<RankedProvider[]> {
     // Filter providers by requirements
-    let filtered = providers.filter((p) => {
+    const filtered = providers.filter((p) => {
       if (requirements.minCpuCores && p.cpuCores < requirements.minCpuCores) {
         return false
       }
       if (requirements.minMemoryMb && p.memoryMb < requirements.minMemoryMb) {
         return false
       }
-      if (requirements.minBenchmarkScore && p.benchmarkScore < requirements.minBenchmarkScore) {
+      if (
+        requirements.minBenchmarkScore &&
+        p.benchmarkScore < requirements.minBenchmarkScore
+      ) {
         return false
       }
       if (requirements.requireGpu && !p.hasGpu) {
         return false
       }
-      if (requirements.minGpuVramMb && (!p.gpuVramMb || p.gpuVramMb < requirements.minGpuVramMb)) {
+      if (
+        requirements.minGpuVramMb &&
+        (!p.gpuVramMb || p.gpuVramMb < requirements.minGpuVramMb)
+      ) {
         return false
       }
       if (requirements.requireTee && !p.hasTee) {
         return false
       }
-      if (requirements.maxPricePerHour && p.pricePerHour > requirements.maxPricePerHour) {
+      if (
+        requirements.maxPricePerHour &&
+        p.pricePerHour > requirements.maxPricePerHour
+      ) {
         return false
       }
       if (requirements.region && p.region !== requirements.region) {
@@ -195,7 +204,7 @@ export class CostPerformanceOptimizer {
    * Find the optimal provider from the database
    */
   async findOptimalProvider(
-    requirements: RequirementFilter
+    requirements: RequirementFilter,
   ): Promise<ProviderSpec | null> {
     const client = await getEQLiteClient()
 
@@ -216,7 +225,7 @@ export class CostPerformanceOptimizer {
     }>(
       'SELECT * FROM provider_specs ORDER BY (price_per_hour / benchmark_score) ASC',
       [],
-      OPTIMIZER_DATABASE_ID
+      OPTIMIZER_DATABASE_ID,
     )
 
     const providers: ProviderSpec[] = result.rows.map((row) => ({
@@ -246,7 +255,10 @@ export class CostPerformanceOptimizer {
   /**
    * Estimate cost for a duration
    */
-  estimateCost(params: { pricePerHour: number; durationHours: number }): number {
+  estimateCost(params: {
+    pricePerHour: number
+    durationHours: number
+  }): number {
     return params.pricePerHour * params.durationHours
   }
 
@@ -259,7 +271,7 @@ export class CostPerformanceOptimizer {
       pricePerHour: number
       benchmarkScore: number
     }>,
-    durationHours: number
+    durationHours: number,
   ): CostComparison[] {
     return providers.map((p) => ({
       id: p.id,
@@ -280,7 +292,12 @@ export class CostPerformanceOptimizer {
    * Get a recommendation for a workload type
    */
   async getRecommendation(params: {
-    workloadType: 'web-hosting' | 'ml-inference' | 'ml-training' | 'database' | 'general'
+    workloadType:
+      | 'web-hosting'
+      | 'ml-inference'
+      | 'ml-training'
+      | 'database'
+      | 'general'
     expectedDurationHours: number
     budget: number
   }): Promise<Recommendation | null> {
@@ -296,14 +313,20 @@ export class CostPerformanceOptimizer {
         sortColumn = 'benchmark_score DESC'
         break
       case 'ml-training':
-        requirements = { requireGpu: true, minGpuVramMb: 16000, minBenchmarkScore: 70 }
+        requirements = {
+          requireGpu: true,
+          minGpuVramMb: 16000,
+          minBenchmarkScore: 70,
+        }
         sortColumn = 'benchmark_score DESC'
         break
       case 'database':
         requirements = { minMemoryMb: 8192, minCpuCores: 4 }
         break
       case 'web-hosting':
-        requirements = { maxPricePerHour: params.budget / params.expectedDurationHours }
+        requirements = {
+          maxPricePerHour: params.budget / params.expectedDurationHours,
+        }
         break
       default:
         break
@@ -320,7 +343,7 @@ export class CostPerformanceOptimizer {
     }>(
       `SELECT * FROM provider_specs ORDER BY ${sortColumn} LIMIT 10`,
       [],
-      OPTIMIZER_DATABASE_ID
+      OPTIMIZER_DATABASE_ID,
     )
 
     const providers: ProviderSpec[] = result.rows.map((row) => ({
@@ -347,7 +370,8 @@ export class CostPerformanceOptimizer {
         // Calculate match score
         let matchScore = 50 // Base score
         if (provider.benchmarkScore >= 80) matchScore += 20
-        if (provider.hasGpu && params.workloadType.includes('ml')) matchScore += 20
+        if (provider.hasGpu && params.workloadType.includes('ml'))
+          matchScore += 20
         if (estimatedCost < params.budget * 0.5) matchScore += 10
 
         return {
@@ -408,7 +432,7 @@ export class CostPerformanceOptimizer {
         spec.provider ?? null,
         now,
       ],
-      OPTIMIZER_DATABASE_ID
+      OPTIMIZER_DATABASE_ID,
     )
   }
 
@@ -432,11 +456,7 @@ export class CostPerformanceOptimizer {
       tee_type: string | null
       region: string | null
       provider: string | null
-    }>(
-      'SELECT * FROM provider_specs',
-      [],
-      OPTIMIZER_DATABASE_ID
-    )
+    }>('SELECT * FROM provider_specs', [], OPTIMIZER_DATABASE_ID)
 
     return result.rows.map((row) => ({
       id: row.id,

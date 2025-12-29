@@ -1,33 +1,18 @@
 /**
- * Benchmark Orchestrator
+ * Benchmark Orchestrator - Coordinates compute benchmarking with reputation-linked frequency
  *
- * Coordinates benchmarking across the DWS network:
- * - Initial benchmark on first machine activation
- * - Random re-verification (reputation-linked frequency)
- * - On-chain result storage via ComputeBenchmarkRegistry
- * - Cost-efficient scheduling to avoid wasting resources
- *
- * Architecture:
- *
- * 1. Machine activates → Initial benchmark runs
- * 2. Benchmark container deployed to machine
- * 3. Results collected and verified against claimed specs
- * 4. Results published to on-chain registry
- * 5. Deviation triggers review/slashing
- *
- * Reputation-Based Frequency:
- * - New machines: Always benchmark on first activation
- * - Low reputation (<30): Verify every 7 days
- * - Medium reputation (30-70): Verify every 30 days
- * - High reputation (>70): Verify every 90 days
- * - Random spot checks: 1% of all machines daily
+ * Frequency: New=always, Low(<30)=7d, Medium(30-70)=30d, High(>70)=90d, Random=1%/day
  */
 
 import { Cron } from 'croner'
 import type { Hex } from 'viem'
 import { z } from 'zod'
 
-import type { MachineAllocation, MachinePromise, MachineSpecs } from '../infrastructure/machine-provisioner'
+import type {
+  MachineAllocation,
+  MachinePromise,
+  MachineSpecs,
+} from '../infrastructure/machine-provisioner'
 import { getMachineProvisioner } from '../infrastructure/machine-provisioner'
 import { getPoCNodeVerifier, type PoCNodeVerifier } from '../infrastructure/poc-node-verifier'
 import type { BenchmarkRegistryClient } from './benchmark-registry-client'
@@ -69,6 +54,8 @@ export interface BenchmarkResults {
   // Network
   networkBandwidthMbps: number
   networkLatencyMs: number
+  region: string // Geographic region (e.g., "us-east-1", "eu-west-1")
+  ipv6Supported: boolean
 
   // GPU (optional)
   gpuDetected: boolean
@@ -117,6 +104,8 @@ export const BenchmarkResultsSchema = z.object({
   randomWriteIops: z.number().min(0),
   networkBandwidthMbps: z.number().min(0),
   networkLatencyMs: z.number().min(0),
+  region: z.string(),
+  ipv6Supported: z.boolean(),
   gpuDetected: z.boolean(),
   gpuModel: z.string().nullable(),
   gpuMemoryMb: z.number().nullable(),
@@ -124,7 +113,10 @@ export const BenchmarkResultsSchema = z.object({
   gpuInferenceScore: z.number().nullable(),
   teeDetected: z.boolean(),
   teePlatform: z.string().nullable(),
-  teeAttestationHash: z.string().regex(HEX_REGEX, 'Must be a valid hex string').nullable(),
+  teeAttestationHash: z
+    .string()
+    .regex(HEX_REGEX, 'Must be a valid hex string')
+    .nullable(),
   teeAttestationValid: z.boolean(),
   // PoC fields (may not be present in older benchmark responses)
   pocVerified: z.boolean().optional().default(false),
@@ -245,7 +237,9 @@ export class BenchmarkOrchestrator {
     })
 
     this.running = true
-    console.log('[BenchmarkOrchestrator] Started - checking hourly for machines needing benchmarks')
+    console.log(
+      '[BenchmarkOrchestrator] Started - checking hourly for machines needing benchmarks',
+    )
   }
 
   /**
@@ -270,7 +264,9 @@ export class BenchmarkOrchestrator {
     claimedSpecs: MachineSpecs,
     agentId?: bigint,
   ): Promise<BenchmarkJob> {
-    console.log(`[BenchmarkOrchestrator] Initial benchmark for machine ${machineId}`)
+    console.log(
+      `[BenchmarkOrchestrator] Initial benchmark for machine ${machineId}`,
+    )
 
     return this.runBenchmark(machineId, 'initial', allocation, claimedSpecs, agentId)
   }
@@ -283,10 +279,13 @@ export class BenchmarkOrchestrator {
     const now = Date.now()
     const machines = provisioner.listAvailableMachines()
 
-    console.log(`[BenchmarkOrchestrator] Checking ${machines.length} machines for scheduled benchmarks`)
+    console.log(
+      `[BenchmarkOrchestrator] Checking ${machines.length} machines for scheduled benchmarks`,
+    )
 
     let scheduled = 0
-    const maxToSchedule = this.config.maxConcurrentBenchmarks - pendingBenchmarks.size
+    const maxToSchedule =
+      this.config.maxConcurrentBenchmarks - pendingBenchmarks.size
 
     for (const machine of machines) {
       if (scheduled >= maxToSchedule) break
@@ -296,7 +295,9 @@ export class BenchmarkOrchestrator {
       const shouldBenchmark = this.shouldBenchmark(reputation, now)
 
       if (shouldBenchmark.needed) {
-        console.log(`[BenchmarkOrchestrator] Scheduling ${shouldBenchmark.type} benchmark for ${machine.id}`)
+        console.log(
+          `[BenchmarkOrchestrator] Scheduling ${shouldBenchmark.type} benchmark for ${machine.id}`,
+        )
 
         // We need to allocate the machine to benchmark it
         // The provisioner pays for this - it's cost of being listed
@@ -315,7 +316,8 @@ export class BenchmarkOrchestrator {
     reputation: MachineReputation,
     now: number,
   ): { needed: boolean; type: 'scheduled' | 'random' } {
-    const daysSinceLastBenchmark = (now - reputation.lastBenchmarkAt) / (1000 * 60 * 60 * 24)
+    const daysSinceLastBenchmark =
+      (now - reputation.lastBenchmarkAt) / (1000 * 60 * 60 * 24)
 
     // Never benchmarked
     if (reputation.benchmarkCount === 0) {
@@ -444,18 +446,39 @@ export class BenchmarkOrchestrator {
     history.push(results)
     benchmarkHistory.set(machine.id, history.slice(-10)) // Keep last 10
 
-    // Check deviation thresholds
+    // Check deviation thresholds and take action
     if (deviation > this.config.slashDeviationPercent) {
-      console.warn(`[BenchmarkOrchestrator] SLASH: Machine ${machine.id} deviation ${deviation.toFixed(1)}% exceeds threshold`)
-      // Would trigger on-chain slashing here
+      console.error(
+        `[BenchmarkOrchestrator] SLASH: Machine ${machine.id} deviation ${deviation.toFixed(1)}% exceeds threshold`,
+      )
+      // Flag for slashing via dispute mechanism
+      if (this.registryClient) {
+        await this.registryClient
+          .disputeBenchmark(
+            machine.operator,
+            `Benchmark deviation ${deviation.toFixed(1)}% exceeds ${this.config.slashDeviationPercent}% threshold`,
+          )
+          .catch((err) => {
+            console.error(
+              `[BenchmarkOrchestrator] Failed to submit dispute:`,
+              err,
+            )
+          })
+      }
     } else if (deviation > this.config.failDeviationPercent) {
-      console.warn(`[BenchmarkOrchestrator] FAIL: Machine ${machine.id} deviation ${deviation.toFixed(1)}%`)
+      console.warn(
+        `[BenchmarkOrchestrator] FAIL: Machine ${machine.id} deviation ${deviation.toFixed(1)}%`,
+      )
     } else if (deviation > this.config.warnDeviationPercent) {
-      console.warn(`[BenchmarkOrchestrator] WARN: Machine ${machine.id} deviation ${deviation.toFixed(1)}%`)
+      console.warn(
+        `[BenchmarkOrchestrator] WARN: Machine ${machine.id} deviation ${deviation.toFixed(1)}%`,
+      )
     }
 
     pendingBenchmarks.delete(machine.id)
-    console.log(`[BenchmarkOrchestrator] Completed benchmark for ${machine.id} - score: ${results.overallScore}, deviation: ${deviation.toFixed(1)}%`)
+    console.log(
+      `[BenchmarkOrchestrator] Completed benchmark for ${machine.id} - score: ${results.overallScore}, deviation: ${deviation.toFixed(1)}%`,
+    )
 
     // Publish results on-chain
     if (this.registryClient) {
@@ -489,13 +512,18 @@ export class BenchmarkOrchestrator {
   /**
    * Publish benchmark results to on-chain registry
    */
-  private async publishToChain(results: BenchmarkResults, deviation: number): Promise<void> {
+  private async publishToChain(
+    results: BenchmarkResults,
+    deviation: number,
+  ): Promise<void> {
     if (!this.registryClient) return
 
     console.log(`[BenchmarkOrchestrator] Publishing results on-chain...`)
 
     const txHash = await this.registryClient.submitBenchmark(results)
-    console.log(`[BenchmarkOrchestrator] Published benchmark on-chain: ${txHash}`)
+    console.log(
+      `[BenchmarkOrchestrator] Published benchmark on-chain: ${txHash}`,
+    )
 
     // If deviation is low, auto-verify (self-reported becomes verified)
     if (deviation < this.config.warnDeviationPercent) {
@@ -584,7 +612,9 @@ export class BenchmarkOrchestrator {
    * Transform Zod-parsed results to typed BenchmarkResults
    * Zod validates hex format, so cast is safe
    */
-  private transformParsedResults(parsed: z.infer<typeof BenchmarkResultsSchema>): BenchmarkResults {
+  private transformParsedResults(
+    parsed: z.infer<typeof BenchmarkResultsSchema>,
+  ): BenchmarkResults {
     return {
       cpuSingleCore: parsed.cpuSingleCore,
       cpuMultiCore: parsed.cpuMultiCore,
@@ -602,6 +632,8 @@ export class BenchmarkOrchestrator {
       randomWriteIops: parsed.randomWriteIops,
       networkBandwidthMbps: parsed.networkBandwidthMbps,
       networkLatencyMs: parsed.networkLatencyMs,
+      region: parsed.region,
+      ipv6Supported: parsed.ipv6Supported,
       gpuDetected: parsed.gpuDetected,
       gpuModel: parsed.gpuModel,
       gpuMemoryMb: parsed.gpuMemoryMb,
@@ -627,30 +659,38 @@ export class BenchmarkOrchestrator {
   /**
    * Calculate deviation between claimed specs and actual benchmark results
    */
-  private calculateDeviation(claimed: MachineSpecs, actual: BenchmarkResults): number {
+  private calculateDeviation(
+    claimed: MachineSpecs,
+    actual: BenchmarkResults,
+  ): number {
     const deviations: number[] = []
 
     // CPU cores
     if (claimed.cpuCores > 0) {
-      const cpuDeviation = Math.abs(claimed.cpuCores - actual.cpuCores) / claimed.cpuCores
+      const cpuDeviation =
+        Math.abs(claimed.cpuCores - actual.cpuCores) / claimed.cpuCores
       deviations.push(cpuDeviation)
     }
 
     // Memory
     if (claimed.memoryMb > 0) {
-      const memDeviation = Math.abs(claimed.memoryMb - actual.memoryMb) / claimed.memoryMb
+      const memDeviation =
+        Math.abs(claimed.memoryMb - actual.memoryMb) / claimed.memoryMb
       deviations.push(memDeviation)
     }
 
     // Storage
     if (claimed.storageMb > 0) {
-      const storageDeviation = Math.abs(claimed.storageMb - actual.storageMb) / claimed.storageMb
+      const storageDeviation =
+        Math.abs(claimed.storageMb - actual.storageMb) / claimed.storageMb
       deviations.push(storageDeviation)
     }
 
     // Network bandwidth
     if (claimed.networkBandwidthMbps > 0) {
-      const netDeviation = Math.abs(claimed.networkBandwidthMbps - actual.networkBandwidthMbps) / claimed.networkBandwidthMbps
+      const netDeviation =
+        Math.abs(claimed.networkBandwidthMbps - actual.networkBandwidthMbps) /
+        claimed.networkBandwidthMbps
       deviations.push(netDeviation)
     }
 
@@ -659,7 +699,9 @@ export class BenchmarkOrchestrator {
       if (!actual.gpuDetected) {
         deviations.push(1.0) // 100% deviation - GPU missing
       } else if (claimed.gpuMemoryMb > 0 && actual.gpuMemoryMb) {
-        const gpuMemDeviation = Math.abs(claimed.gpuMemoryMb - actual.gpuMemoryMb) / claimed.gpuMemoryMb
+        const gpuMemDeviation =
+          Math.abs(claimed.gpuMemoryMb - actual.gpuMemoryMb) /
+          claimed.gpuMemoryMb
         deviations.push(gpuMemDeviation)
       }
     }
@@ -719,7 +761,9 @@ export class BenchmarkOrchestrator {
       // Fail - significant decrease
       reputation.failCount++
       reputation.score = Math.max(0, reputation.score - 15)
-      reputation.flags.push(`deviation_${deviationPercent.toFixed(0)}%_at_${Date.now()}`)
+      reputation.flags.push(
+        `deviation_${deviationPercent.toFixed(0)}%_at_${Date.now()}`,
+      )
     }
 
     // Apply PoC reputation delta (cloud alliance bonus/penalty)
@@ -743,16 +787,18 @@ export class BenchmarkOrchestrator {
    * Get machine reputation
    */
   getReputation(machineId: string): MachineReputation {
-    return machineReputations.get(machineId) ?? {
-      machineId,
-      score: 50,
-      benchmarkCount: 0,
-      passCount: 0,
-      failCount: 0,
-      lastBenchmarkAt: 0,
-      lastDeviationPercent: 0,
-      flags: [],
-    }
+    return (
+      machineReputations.get(machineId) ?? {
+        machineId,
+        score: 50,
+        benchmarkCount: 0,
+        passCount: 0,
+        failCount: 0,
+        lastBenchmarkAt: 0,
+        lastDeviationPercent: 0,
+        flags: [],
+      }
+    )
   }
 
   /**

@@ -5,47 +5,19 @@
 
 import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import type { EQLiteClient } from '@jejunetwork/db'
-import type { Address, Hex } from 'viem'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import type { Address } from 'viem'
 import type {
   AuthProvider,
   AuthSession,
+  HashedClientSecret,
   RegisteredClient,
 } from '../../lib/types'
 
 const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
 
-// Simple in-memory cache for performance (not for persistence)
-interface SimpleCacheClient {
-  get(key: string): Promise<string | null>
-  set(key: string, value: string, ttlSeconds?: number): Promise<void>
-  delete(key: string): Promise<void>
-}
-
-const memoryCache = new Map<string, { value: string; expiresAt: number }>()
-
-function createSimpleCacheClient(): SimpleCacheClient {
-  return {
-    async get(key: string): Promise<string | null> {
-      const entry = memoryCache.get(key)
-      if (!entry) return null
-      if (entry.expiresAt > 0 && Date.now() > entry.expiresAt) {
-        memoryCache.delete(key)
-        return null
-      }
-      return entry.value
-    },
-    async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-      const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : 0
-      memoryCache.set(key, { value, expiresAt })
-    },
-    async delete(key: string): Promise<void> {
-      memoryCache.delete(key)
-    },
-  }
-}
-
 let eqliteClient: EQLiteClient | null = null
-let cacheClient: SimpleCacheClient | null = null
+let cacheClient: CacheClient | null = null
 let initialized = false
 
 async function getEQLiteClient(): Promise<EQLiteClient> {
@@ -65,16 +37,16 @@ async function getEQLiteClient(): Promise<EQLiteClient> {
     await ensureTablesExist()
   }
 
-  if(!eqliteClient) {
+  if (!eqliteClient) {
     throw new Error('EQLite client not available')
   }
 
   return eqliteClient
 }
 
-function getCache(): SimpleCacheClient {
+function getCache(): CacheClient {
   if (!cacheClient) {
-    cacheClient = createSimpleCacheClient()
+    cacheClient = getCacheClient('oauth3')
   }
   return cacheClient
 }
@@ -105,6 +77,7 @@ async function ensureTablesExist(): Promise<void> {
     `CREATE TABLE IF NOT EXISTS clients (
       client_id TEXT PRIMARY KEY,
       client_secret TEXT,
+      client_secret_hash TEXT,
       name TEXT NOT NULL,
       redirect_uris TEXT NOT NULL,
       allowed_providers TEXT NOT NULL,
@@ -278,17 +251,18 @@ export const clientState = {
   async save(client: RegisteredClient): Promise<void> {
     const db = await getEQLiteClient()
     const cache = getCache()
-    
+
     await db.exec(
-      `INSERT INTO clients (client_id, client_secret, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
+      `INSERT INTO clients (client_id, client_secret_hash, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(client_id) DO UPDATE SET
+        client_secret_hash = excluded.client_secret_hash,
         name = excluded.name, redirect_uris = excluded.redirect_uris,
         allowed_providers = excluded.allowed_providers, active = excluded.active,
         stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation`,
       [
         client.clientId,
-        client.clientSecret ?? null,
+        JSON.stringify(client.clientSecretHash),
         client.name,
         JSON.stringify(client.redirectUris),
         JSON.stringify(client.allowedProviders),
@@ -332,11 +306,11 @@ export const clientState = {
     const db = await getEQLiteClient()
     const cache = getCache()
 
-      await db.exec(
-        'DELETE FROM clients WHERE client_id = ?',
-        [clientId],
-        EQLITE_DATABASE_ID,
-      )
+    await db.exec(
+      'DELETE FROM clients WHERE client_id = ?',
+      [clientId],
+      EQLITE_DATABASE_ID,
+    )
 
     await cache.delete(`client:${clientId}`)
   },
@@ -505,21 +479,21 @@ export const oauthStateStore = {
   ): Promise<void> {
     const client = await getEQLiteClient()
 
-      await client.exec(
-        `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
+    await client.exec(
+      `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          state,
-          data.nonce,
-          data.provider,
-          data.clientId,
-          data.redirectUri,
-          data.codeVerifier ?? null,
-          Date.now(),
-          data.expiresAt,
-        ],
-        EQLITE_DATABASE_ID,
-      )
+      [
+        state,
+        data.nonce,
+        data.provider,
+        data.clientId,
+        data.redirectUri,
+        data.codeVerifier ?? null,
+        Date.now(),
+        data.expiresAt,
+      ],
+      EQLITE_DATABASE_ID,
+    )
   },
 
   async get(state: string): Promise<{
@@ -551,11 +525,11 @@ export const oauthStateStore = {
 
   async delete(state: string): Promise<void> {
     const client = await getEQLiteClient()
-      await client.exec(
-        'DELETE FROM oauth_states WHERE state = ?',
-        [state],
-        EQLITE_DATABASE_ID,
-      )
+    await client.exec(
+      'DELETE FROM oauth_states WHERE state = ?',
+      [state],
+      EQLITE_DATABASE_ID,
+    )
   },
 }
 
@@ -563,11 +537,20 @@ export const oauthStateStore = {
 export async function initializeState(): Promise<void> {
   await ensureTablesExist()
 
+  // Empty hash for public clients (no secret required, supports PKCE flows)
+  const publicClientSecretHash: HashedClientSecret = {
+    hash: '',
+    salt: '',
+    algorithm: 'pbkdf2',
+    version: 1,
+  }
+
   // Ensure default client exists
   const defaultClient = await clientState.get('jeju-default')
   if (!defaultClient) {
     await clientState.save({
       clientId: 'jeju-default',
+      clientSecretHash: publicClientSecretHash,
       name: 'Jeju Network Apps',
       redirectUris: [
         'https://*.jejunetwork.org/*',
@@ -594,6 +577,7 @@ export async function initializeState(): Promise<void> {
   if (!elizaCloudClient) {
     await clientState.save({
       clientId: 'eliza-cloud',
+      clientSecretHash: publicClientSecretHash,
       name: 'Eliza Cloud',
       redirectUris: [
         'https://cloud.elizaos.com/*',
@@ -633,7 +617,7 @@ interface SessionRow {
 
 interface ClientRow {
   client_id: string
-  client_secret: string | null
+  client_secret_hash: string | null
   name: string
   redirect_uris: string
   allowed_providers: string
@@ -693,9 +677,13 @@ function rowToSession(row: SessionRow): AuthSession {
 }
 
 function rowToClient(row: ClientRow): RegisteredClient {
+  const clientSecretHash = row.client_secret_hash
+    ? (JSON.parse(row.client_secret_hash) as HashedClientSecret)
+    : { hash: '', salt: '', algorithm: 'pbkdf2' as const, version: 1 }
+
   return {
     clientId: row.client_id,
-    clientSecret: row.client_secret as Hex | undefined,
+    clientSecretHash,
     name: row.name,
     redirectUris: JSON.parse(row.redirect_uris) as string[],
     allowedProviders: JSON.parse(row.allowed_providers) as AuthProvider[],
@@ -731,24 +719,24 @@ export const clientReportState = {
   async save(report: ClientReport): Promise<void> {
     const db = await getEQLiteClient()
 
-      await db.exec(
-        `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
+    await db.exec(
+      `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(report_id) DO UPDATE SET
          status = excluded.status, resolved_at = excluded.resolved_at, resolution = excluded.resolution`,
-        [
-          report.reportId,
-          report.clientId,
-          report.reporterAddress,
-          report.category,
-          report.evidence,
-          report.status,
-          report.createdAt,
-          report.resolvedAt ?? null,
-          report.resolution ?? null,
-        ],
-        EQLITE_DATABASE_ID,
-      )
+      [
+        report.reportId,
+        report.clientId,
+        report.reporterAddress,
+        report.category,
+        report.evidence,
+        report.status,
+        report.createdAt,
+        report.resolvedAt ?? null,
+        report.resolution ?? null,
+      ],
+      EQLITE_DATABASE_ID,
+    )
   },
 
   async get(reportId: string): Promise<ClientReport | null> {
@@ -837,7 +825,7 @@ export const clientReportState = {
 }
 
 /**
- * Verify client secret using constant-time comparison to prevent timing attacks.
+ * Verify client secret using PBKDF2 hash comparison to prevent timing attacks.
  * Returns true if the client exists, is active, and the secret matches.
  */
 export async function verifyClientSecret(
@@ -854,8 +842,8 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_disabled' }
   }
 
-  // Public clients (no secret) - allow for PKCE flows
-  if (!client.clientSecret) {
+  // Public clients (empty hash) - allow for PKCE flows
+  if (!client.clientSecretHash.hash) {
     return { valid: true }
   }
 
@@ -864,18 +852,14 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_secret_required' }
   }
 
-  // Constant-time comparison to prevent timing attacks
-  const storedSecret = client.clientSecret
-  if (storedSecret.length !== clientSecret.length) {
-    return { valid: false, error: 'invalid_client_secret' }
-  }
+  // Verify using PBKDF2 hash comparison (constant-time via the hash algorithm)
+  const { verifyClientSecretHash } = await import('./kms')
+  const isValid = await verifyClientSecretHash(
+    clientSecret,
+    client.clientSecretHash,
+  )
 
-  let result = 0
-  for (let i = 0; i < storedSecret.length; i++) {
-    result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
-  }
-
-  if (result !== 0) {
+  if (!isValid) {
     return { valid: false, error: 'invalid_client_secret' }
   }
 

@@ -5,12 +5,12 @@ import { platform } from 'node:os'
 import { join } from 'node:path'
 import {
   CORE_PORTS,
+  getDWSUrl,
   getEQLiteBlockProducerUrl,
   getFarcasterHubUrl,
-  getLocalhostHost,
-  getL2RpcUrl,
-  getDWSUrl,
   getIpfsApiUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
   INFRA_PORTS,
 } from '@jejunetwork/config'
 import { execa, type ResultPromise } from 'execa'
@@ -144,7 +144,10 @@ export class InfrastructureService {
       await this.sleep(250)
       if (await this.isEQLiteRunning()) {
         logger.success(`EQLite SQLite server running on port ${EQLITE_PORT}`)
-        logger.keyValue('  API Endpoint', `http://${getLocalhostHost()}:${EQLITE_PORT}`)
+        logger.keyValue(
+          '  API Endpoint',
+          `http://${getLocalhostHost()}:${EQLITE_PORT}`,
+        )
         logger.info('  Mode: SQLite-compatible (local development)')
         return true
       }
@@ -191,9 +194,12 @@ export class InfrastructureService {
 
   async isDAServerRunning(): Promise<boolean> {
     try {
-      const response = await fetch(`http://${getLocalhostHost()}:${DWS_PORT}/da/health`, {
-        signal: AbortSignal.timeout(2000),
-      })
+      const response = await fetch(
+        `http://${getLocalhostHost()}:${DWS_PORT}/da/health`,
+        {
+          signal: AbortSignal.timeout(2000),
+        },
+      )
       return response.ok
     } catch {
       return false
@@ -421,17 +427,20 @@ export class InfrastructureService {
 
   async isLocalnetRunning(): Promise<boolean> {
     try {
-      const response = await fetch(`http://${getLocalhostHost()}:${LOCALNET_PORT}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_chainId',
-          params: [],
-          id: 1,
-        }),
-        signal: AbortSignal.timeout(2000),
-      })
+      const response = await fetch(
+        `http://${getLocalhostHost()}:${LOCALNET_PORT}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_chainId',
+            params: [],
+            id: 1,
+          }),
+          signal: AbortSignal.timeout(2000),
+        },
+      )
       return response.ok
     } catch {
       return false
@@ -632,7 +641,9 @@ export class InfrastructureService {
     logger.table([
       {
         label: 'EQLite (native)',
-        value: status.eqlite ? `http://${getLocalhostHost()}:${EQLITE_PORT}` : 'stopped',
+        value: status.eqlite
+          ? `http://${getLocalhostHost()}:${EQLITE_PORT}`
+          : 'stopped',
         status: status.eqlite ? 'ok' : 'error',
       },
     ])
@@ -672,7 +683,7 @@ export class InfrastructureService {
    * Get environment variables for running services
    */
   getEnvVars(): Record<string, string> {
-    const host = getLocalhostHost()
+    const _host = getLocalhostHost()
     const dwsUrl = getDWSUrl()
     return {
       L2_RPC_URL: getL2RpcUrl(),

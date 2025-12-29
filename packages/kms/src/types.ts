@@ -34,25 +34,8 @@
 import type { TEEAttestation as TEEAttestationType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 
-// Re-export TEE types from shared types package
-export type {
-  TEEAttestation,
-  TEEAttestationVerificationResult,
-  TEEKeyInfo,
-  TEENodeInfo,
-  TEEPlatform,
-} from '@jejunetwork/types'
-export {
-  TEEAttestationSchema,
-  TEEAttestationVerificationResultSchema,
-  TEEKeyInfoSchema,
-  TEENodeInfoSchema,
-  TEEPlatformSchema,
-} from '@jejunetwork/types'
-
-// Re-export TEEPlatform const (value export requires import + re-export pattern)
-import { TEEPlatform as TEEPlatformConst } from '@jejunetwork/types'
-export { TEEPlatformConst as TEEPlatformEnum }
+// Import directly from @jejunetwork/types:
+// import { TEEAttestation, TEEAttestationVerificationResult, TEEKeyInfo, TEENodeInfo, TEEPlatform, TEEPlatform as TEEPlatformEnum } from '@jejunetwork/types'
 
 export const KMSProviderType = {
   ENCRYPTION: 'encryption',

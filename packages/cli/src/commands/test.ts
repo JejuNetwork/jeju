@@ -1093,15 +1093,12 @@ async function runCrossChainTests(
     const host = getLocalhostHost()
     const solanaUrl =
       env.SOLANA_RPC_URL || getSolanaRpcUrl() || `http://${host}:8899`
-    const response = await fetch(
-      solanaUrl,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'getVersion', id: 1 }),
-        signal: AbortSignal.timeout(3000),
-      },
-    )
+    const response = await fetch(solanaUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'getVersion', id: 1 }),
+      signal: AbortSignal.timeout(3000),
+    })
     if (!response.ok) {
       logger.warn('Solana not available, skipping cross-chain tests')
       return { name: 'cross-chain', passed: true, duration: 0, skipped: true }

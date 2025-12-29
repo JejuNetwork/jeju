@@ -95,7 +95,7 @@ export class SecretVault {
 
   private async ensureEncryptionKey(): Promise<Uint8Array> {
     if (this.encryptionKey) return this.encryptionKey
-    
+
     if (!this.encryptionKeyPromise) {
       this.encryptionKeyPromise = (async () => {
         const secret = requireEnv('VAULT_ENCRYPTION_SECRET')
@@ -105,9 +105,12 @@ export class SecretVault {
         )
       })()
     }
-    
+
     await this.encryptionKeyPromise
-    return this.encryptionKey!
+    if (!this.encryptionKey) {
+      throw new Error('Encryption key not initialized')
+    }
+    return this.encryptionKey
   }
 
   async initialize(): Promise<void> {

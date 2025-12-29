@@ -1,4 +1,8 @@
-import { getLocalhostHost } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getDWSCacheUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/contracts'
 import { validateOrNull, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, PublicClient } from 'viem'
@@ -15,7 +19,13 @@ const CacheGetResponseSchema = z.object({
   value: z.string().optional(),
 })
 
-const CACHE_URL = process.env.CACHE_SERVICE_URL ?? `http://${getLocalhostHost()}:4015`
+const network = getCurrentNetwork()
+const CACHE_URL =
+  (typeof process !== 'undefined'
+    ? process.env.CACHE_SERVICE_URL
+    : undefined) ??
+  getDWSCacheUrl(network) ??
+  `http://${getLocalhostHost()}:4015`
 const CACHE_NS = process.env.NONCE_CACHE_NAMESPACE ?? 'facilitator-nonces'
 const NONCE_TTL = 24 * 60 * 60
 

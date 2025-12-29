@@ -65,3 +65,10 @@ scrape_configs:
     static_configs:
       - targets: ['farcaster-hubble:2281']
     metrics_path: /metrics
+
+  # Decentralized RPC Infrastructure
+  # QoS monitor must be started with metricsPort config to export metrics
+  - job_name: 'rpc-qos-monitor'
+    static_configs:
+      - targets: ['qos-monitor:9090']
+    metrics_path: /metrics

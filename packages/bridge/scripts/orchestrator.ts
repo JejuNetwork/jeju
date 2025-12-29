@@ -15,12 +15,12 @@
 
 import { parseArgs } from 'node:util'
 import {
-  getBridgeRelayerUrl,
   type BridgeConfig,
   type BridgeMode,
   getBridgeMode,
   getBridgePrivateKey,
   getBridgeProverUrl,
+  getBridgeRelayerUrl,
   getLocalhostHost,
   loadBridgeConfig,
 } from '@jejunetwork/config'
@@ -140,10 +140,7 @@ class Orchestrator {
     this.processes.set('prover', proc)
 
     // Wait for prover to be ready
-    await this.waitForService(
-      `${getBridgeProverUrl()}/health`,
-      10,
-    )
+    await this.waitForService(`${getBridgeProverUrl()}/health`, 10)
 
     console.log(
       `   ✅ Prover service started on port ${this.config.ports.prover}`,
@@ -232,12 +229,8 @@ class Orchestrator {
   private printStatus(): void {
     const host = getLocalhostHost()
     console.log('Components:')
-    console.log(
-      `  Relayer:        ${getBridgeRelayerUrl()}`,
-    )
-    console.log(
-      `  Prover:         ${getBridgeProverUrl()}`,
-    )
+    console.log(`  Relayer:        ${getBridgeRelayerUrl()}`)
+    console.log(`  Prover:         ${getBridgeProverUrl()}`)
     console.log(
       `  Health:         http://${host}:${this.config.ports.health}/monitoring/health`,
     )

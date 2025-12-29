@@ -1,9 +1,7 @@
 import { beforeAll, expect, test } from 'bun:test'
+import { getCoreAppUrl } from '@jejunetwork/config'
 
-const BASE_URL =
-  process.env.GATEWAY_URL ||
-  process.env.GATEWAY_A2A_URL ||
-  'http://localhost:3001'
+const BASE_URL = getCoreAppUrl('GATEWAY')
 const SKIP_LOAD_TESTS = process.env.SKIP_LOAD_TESTS === 'true'
 const CONCURRENT_REQUESTS = parseInt(
   process.env.LOAD_TEST_CONCURRENT || '10',
