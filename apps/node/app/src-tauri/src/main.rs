@@ -10,6 +10,7 @@
 
 mod commands;
 mod config;
+mod contracts;
 mod earnings;
 mod hardware;
 mod services;

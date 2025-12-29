@@ -47,10 +47,10 @@ describe('Static Asset Configuration', () => {
       const config = {
         cachePath: './cache/assets',
         maxCacheSizeMb: 2048,
-        manifestUrl: 'https://assets.jeju.network/manifest.json',
+        manifestUrl: 'https://assets.jejunetwork.org/manifest.json',
         cdnEndpoints: [
-          'https://cdn1.jeju.network',
-          'https://cdn2.jeju.network',
+          'https://cdn1.jejunetwork.org',
+          'https://cdn2.jejunetwork.org',
         ],
         listenPort: 8080,
         metricsPort: 9090,

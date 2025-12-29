@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Address,
@@ -32,13 +33,17 @@ beforeEach(() => {
   clearClientCache()
 })
 
-const FAKE_RPC = 'http://localhost:59999'
-const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
+const host = getLocalhostHost()
+const FAKE_RPC = `http://${host}:59999`
+const REAL_RPC =
+  (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ||
+  getL2RpcUrl() ||
+  `http://${host}:6546`
 
 // Auto-detect chain availability
 const CHAIN_AVAILABLE =
-  process.env.CHAIN_AVAILABLE === 'true' ||
-  (await isRpcAvailable(REAL_RPC).catch(() => false))
+  (typeof process !== 'undefined' ? process.env.CHAIN_AVAILABLE : undefined) ===
+    'true' || (await isRpcAvailable(REAL_RPC).catch(() => false))
 
 // Well-known test addresses
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address

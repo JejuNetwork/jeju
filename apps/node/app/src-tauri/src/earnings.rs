@@ -172,6 +172,38 @@ impl EarningsTracker {
             .cloned()
             .unwrap_or_else(|| "0".to_string())
     }
+
+    /// Get earnings entries for a specific bot within the given number of days
+    pub fn get_bot_earnings(&self, bot_id: &str, days: u32) -> Vec<BotEarningsEntry> {
+        let now = chrono::Utc::now().timestamp();
+        let start_time = now - (days as i64 * 24 * 60 * 60);
+
+        self.entries
+            .iter()
+            .filter(|e| {
+                e.service_id == bot_id
+                    && matches!(e.event_type, EarningsEventType::BotProfit)
+                    && e.timestamp >= start_time
+            })
+            .map(|e| BotEarningsEntry {
+                id: e.id.clone(),
+                timestamp: e.timestamp,
+                amount_wei: e.amount_wei.clone(),
+                tx_hash: e.tx_hash.clone(),
+                category: "bot_profit".to_string(),
+            })
+            .collect()
+    }
+}
+
+/// Bot earnings entry for external consumption
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BotEarningsEntry {
+    pub id: String,
+    pub timestamp: i64,
+    pub amount_wei: String,
+    pub tx_hash: Option<String>,
+    pub category: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -7,6 +7,8 @@
  * @module @jejunetwork/shared/dedup
  */
 
+import type { CacheClient } from '../cache'
+import { getCacheClient } from '../cache'
 import { bytesToHex, hash256 } from '../crypto/universal'
 import { logger } from '../logger'
 
@@ -15,9 +17,15 @@ interface DuplicateRecord {
   timestamp: number
 }
 
-// In-memory store for duplicate detection
-// In production, you might want to use Redis
-const duplicateStore = new Map<string, DuplicateRecord[]>()
+// Distributed cache for duplicate detection
+let dedupCache: CacheClient | null = null
+
+function getDedupCache(): CacheClient {
+  if (!dedupCache) {
+    dedupCache = getCacheClient('dedup')
+  }
+  return dedupCache
+}
 
 /**
  * Duplicate detection configurations
@@ -70,7 +78,7 @@ function hashContent(content: string): string {
  *
  * @example
  * ```typescript
- * const result = checkDuplicate(
+ * const result = await checkDuplicate(
  *   userId,
  *   postContent,
  *   DUPLICATE_DETECTION_CONFIGS.POST
@@ -80,26 +88,24 @@ function hashContent(content: string): string {
  * }
  * ```
  */
-export function checkDuplicate(
+export async function checkDuplicate(
   userId: string,
   content: string,
   config: DuplicateConfig,
-): DuplicateCheckResult {
-  const key = `${userId}:${config.actionType}`
+): Promise<DuplicateCheckResult> {
+  const cache = getDedupCache()
+  const cacheKey = `dedup:${userId}:${config.actionType}`
   const contentHash = hashContent(content)
   const now = Date.now()
+  const ttlSeconds = Math.ceil((config.windowMs * 2) / 1000)
 
-  let records = duplicateStore.get(key)
-
-  if (!records) {
-    records = []
-    duplicateStore.set(key, records)
-  }
+  // Get existing records from cache
+  const cached = await cache.get(cacheKey)
+  let records: DuplicateRecord[] = cached ? JSON.parse(cached) : []
 
   // Remove old records outside the window
   const windowStart = now - config.windowMs
   records = records.filter((record) => record.timestamp > windowStart)
-  duplicateStore.set(key, records)
 
   // Check for duplicate
   const duplicate = records.find((record) => record.contentHash === contentHash)
@@ -124,6 +130,9 @@ export function checkDuplicate(
     timestamp: now,
   })
 
+  // Save updated records
+  await cache.set(cacheKey, JSON.stringify(records), ttlSeconds)
+
   logger.debug('Content uniqueness check passed', {
     userId,
     actionType: config.actionType,
@@ -138,74 +147,44 @@ export function checkDuplicate(
 /**
  * Clear duplicate records for a user and action type
  */
-export function clearDuplicates(userId: string, actionType: string): void {
-  const key = `${userId}:${actionType}`
-  duplicateStore.delete(key)
+export async function clearDuplicates(
+  userId: string,
+  actionType: string,
+): Promise<void> {
+  const cache = getDedupCache()
+  const cacheKey = `dedup:${userId}:${actionType}`
+  await cache.delete(cacheKey)
   logger.info('Duplicate records cleared', { userId, actionType })
 }
 
 /**
  * Clear all duplicate records
  */
-export function clearAllDuplicates(): void {
-  duplicateStore.clear()
+export async function clearAllDuplicates(): Promise<void> {
+  const cache = getDedupCache()
+  await cache.clear()
   logger.info('All duplicate records cleared')
 }
 
-/**
- * Cleanup old duplicate records periodically
- */
-export function cleanupDuplicates(): void {
-  const now = Date.now()
-  const maxAge = 10 * 60 * 1000 // 10 minutes (longer than any window)
-
-  let cleanedCount = 0
-
-  for (const [key, records] of duplicateStore.entries()) {
-    const validRecords = records.filter(
-      (record) => now - record.timestamp < maxAge,
-    )
-
-    if (validRecords.length === 0) {
-      duplicateStore.delete(key)
-      cleanedCount++
-    } else if (validRecords.length < records.length) {
-      duplicateStore.set(key, validRecords)
-    }
-  }
-
-  if (cleanedCount > 0) {
-    logger.info('Cleaned up old duplicate records', {
-      cleanedCount,
-      totalRemaining: duplicateStore.size,
-    })
-  }
-}
+// Cleanup handled by distributed cache TTL - no periodic cleanup needed
 
 /**
  * Get statistics about duplicate detection
+ * Note: Returns estimated stats based on cache keys
  */
-export function getDuplicateStats(): {
+export async function getDuplicateStats(): Promise<{
   totalUsers: number
   totalRecords: number
   recordsByType: Record<string, number>
-} {
-  const stats: {
-    totalUsers: number
-    totalRecords: number
-    recordsByType: Record<string, number>
-  } = {
-    totalUsers: duplicateStore.size,
-    totalRecords: 0,
-    recordsByType: {},
-  }
+}> {
+  const cache = getDedupCache()
+  const keys = await cache.keys('dedup:*')
+  const size = keys.length
 
-  for (const [key, records] of duplicateStore.entries()) {
-    const actionType = key.split(':')[1] ?? 'unknown'
-    stats.totalRecords += records.length
-    stats.recordsByType[actionType] =
-      (stats.recordsByType[actionType] ?? 0) + records.length
+  // Cache stores per-user-per-action entries, so size approximates users
+  return {
+    totalUsers: size,
+    totalRecords: size, // Each entry contains records for one user/action combo
+    recordsByType: {}, // Type breakdown not available without iterating all keys
   }
-
-  return stats
 }

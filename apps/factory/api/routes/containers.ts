@@ -168,7 +168,7 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
       })
 
       // Simulate endpoint assignment on creation
-      const endpoint = `https://${validated.name}.containers.jeju.network`
+      const endpoint = `https://${validated.name}.containers.jejunetwork.org`
       updateContainerInstanceStatus(row.id, 'running', endpoint)
 
       set.status = 201

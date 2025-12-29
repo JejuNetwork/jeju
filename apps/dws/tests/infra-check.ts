@@ -37,8 +37,12 @@ async function checkAnvil(): Promise<boolean> {
   }
 }
 
+import { getIpfsApiUrl } from '@jejunetwork/config'
+
 async function checkIPFS(): Promise<boolean> {
-  const ipfsApiUrl = process.env.IPFS_API_URL
+  const ipfsApiUrl =
+    (typeof process !== 'undefined' ? process.env.IPFS_API_URL : undefined) ||
+    getIpfsApiUrl()
   if (!ipfsApiUrl) return false
   try {
     const response = await fetch(`${ipfsApiUrl}/api/v0/id`, {
@@ -91,7 +95,10 @@ export let SKIP: SkipFlags = {
   INFERENCE: false,
   IPFS: false,
   STORAGE: false,
-  INTEGRATION: process.env.SKIP_INTEGRATION === 'true',
+  INTEGRATION:
+    (typeof process !== 'undefined'
+      ? process.env.SKIP_INTEGRATION
+      : undefined) === 'true',
 }
 
 // Update flags asynchronously

@@ -1,386 +1,276 @@
 /**
  * Tests for Cost-Performance Optimizer
+ *
+ * Tests the actual CostPerformanceOptimizer API:
+ * - rankProviders() - ranks providers by cost-efficiency or benchmark score
+ * - calculateCostPerformanceScore() - calculates price/performance ratio
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test'
-
-// Mock EQLite before importing
-const mockQuery = mock(() => Promise.resolve({ rows: [] }))
-const mockExec = mock(() => Promise.resolve())
-
-mock.module('@jejunetwork/db', () => ({
-  getEQLite: () => ({
-    query: mockQuery,
-    exec: mockExec,
-  }),
-}))
-
-// Import after mocking
-const { CostPerformanceOptimizer } = await import(
-  '../../api/compute/cost-performance-optimizer'
-)
+import { describe, expect, test } from 'bun:test'
+import {
+  CostPerformanceOptimizer,
+  type ProviderSpec,
+} from '../../api/compute/cost-performance-optimizer'
 
 describe('Cost-Performance Optimizer', () => {
-  let optimizer: CostPerformanceOptimizer
+  const optimizer = new CostPerformanceOptimizer()
 
-  beforeEach(() => {
-    optimizer = new CostPerformanceOptimizer()
-    mockQuery.mockClear()
-    mockExec.mockClear()
-  })
+  const testProviders: ProviderSpec[] = [
+    {
+      id: 'provider-1',
+      name: 'Budget Provider',
+      region: 'us-east-1',
+      cpuCores: 4,
+      memoryMb: 8192,
+      storageMb: 50000,
+      pricePerHour: 0.05,
+      benchmarkScore: 60,
+      hasGpu: false,
+      hasTee: false,
+    },
+    {
+      id: 'provider-2',
+      name: 'Mid-Range Provider',
+      region: 'us-east-1',
+      cpuCores: 8,
+      memoryMb: 16384,
+      storageMb: 100000,
+      pricePerHour: 0.15,
+      benchmarkScore: 75,
+      hasGpu: false,
+      hasTee: false,
+    },
+    {
+      id: 'provider-3',
+      name: 'High Performance',
+      region: 'eu-west-1',
+      cpuCores: 16,
+      memoryMb: 32768,
+      storageMb: 200000,
+      pricePerHour: 0.4,
+      benchmarkScore: 95,
+      hasGpu: true,
+      gpuVramMb: 24576,
+      hasTee: true,
+    },
+    {
+      id: 'provider-4',
+      name: 'GPU Specialist',
+      region: 'us-west-2',
+      cpuCores: 8,
+      memoryMb: 65536,
+      storageMb: 500000,
+      pricePerHour: 1.2,
+      benchmarkScore: 90,
+      hasGpu: true,
+      gpuVramMb: 81920,
+      hasTee: false,
+    },
+  ]
 
   describe('rankProviders', () => {
-    test('ranks providers by cost efficiency', async () => {
-      const providers = [
-        {
-          id: 'provider-1',
-          name: 'High Cost',
-          pricePerHour: 0.5,
-          benchmarkScore: 80,
-          cpuCores: 4,
-          memoryMb: 8192,
-          hasGpu: false,
-          hasTee: false,
-        },
-        {
-          id: 'provider-2',
-          name: 'Best Value',
-          pricePerHour: 0.2,
-          benchmarkScore: 85,
-          cpuCores: 4,
-          memoryMb: 8192,
-          hasGpu: false,
-          hasTee: false,
-        },
-        {
-          id: 'provider-3',
-          name: 'Budget Option',
-          pricePerHour: 0.1,
-          benchmarkScore: 60,
-          cpuCores: 2,
-          memoryMb: 4096,
-          hasGpu: false,
-          hasTee: false,
-        },
-      ]
+    test('ranks providers by benchmark score by default', async () => {
+      const ranked = await optimizer.rankProviders(testProviders)
 
-      const ranked = await optimizer.rankProviders(providers, {
-        minCpuCores: 2,
-        minMemoryMb: 4096,
+      expect(ranked.length).toBe(4)
+      // Default sort is by benchmark score (higher is better)
+      for (let i = 1; i < ranked.length; i++) {
+        expect(ranked[i - 1].benchmarkScore).toBeGreaterThanOrEqual(
+          ranked[i].benchmarkScore,
+        )
+      }
+    })
+
+    test('ranks providers by cost-efficiency when preferCostEfficiency is true', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
         preferCostEfficiency: true,
       })
 
-      expect(ranked).toHaveLength(3)
-      // Best value should be ranked first (best score per dollar)
-      expect(ranked[0].id).toBe('provider-2')
+      expect(ranked.length).toBe(4)
+      // Cost-performance score: lower is better (price/performance)
+      for (let i = 1; i < ranked.length; i++) {
+        expect(ranked[i - 1].costPerformanceScore).toBeLessThanOrEqual(
+          ranked[i].costPerformanceScore,
+        )
+      }
     })
 
-    test('filters by minimum requirements', async () => {
-      const providers = [
-        {
-          id: 'provider-1',
-          name: 'Small',
-          pricePerHour: 0.1,
-          benchmarkScore: 50,
-          cpuCores: 1,
-          memoryMb: 1024,
-          hasGpu: false,
-          hasTee: false,
-        },
-        {
-          id: 'provider-2',
-          name: 'Medium',
-          pricePerHour: 0.2,
-          benchmarkScore: 70,
-          cpuCores: 4,
-          memoryMb: 8192,
-          hasGpu: false,
-          hasTee: false,
-        },
-      ]
-
-      const ranked = await optimizer.rankProviders(providers, {
-        minCpuCores: 4,
-        minMemoryMb: 8192,
+    test('filters by minimum CPU cores', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        minCpuCores: 8,
       })
 
-      expect(ranked).toHaveLength(1)
-      expect(ranked[0].id).toBe('provider-2')
+      expect(ranked.length).toBe(3)
+      for (const p of ranked) {
+        expect(p.cpuCores).toBeGreaterThanOrEqual(8)
+      }
+    })
+
+    test('filters by minimum memory', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        minMemoryMb: 20000,
+      })
+
+      expect(ranked.length).toBe(2)
+      for (const p of ranked) {
+        expect(p.memoryMb).toBeGreaterThanOrEqual(20000)
+      }
     })
 
     test('filters by GPU requirement', async () => {
-      const providers = [
-        {
-          id: 'provider-1',
-          name: 'No GPU',
-          pricePerHour: 0.2,
-          benchmarkScore: 80,
-          cpuCores: 4,
-          memoryMb: 8192,
-          hasGpu: false,
-          hasTee: false,
-        },
-        {
-          id: 'provider-2',
-          name: 'With GPU',
-          pricePerHour: 1.0,
-          benchmarkScore: 95,
-          cpuCores: 8,
-          memoryMb: 32768,
-          hasGpu: true,
-          gpuModel: 'NVIDIA A100',
-          gpuVramMb: 40960,
-          hasTee: false,
-        },
-      ]
-
-      const ranked = await optimizer.rankProviders(providers, {
+      const ranked = await optimizer.rankProviders(testProviders, {
         requireGpu: true,
-        minGpuVramMb: 40000,
       })
 
-      expect(ranked).toHaveLength(1)
-      expect(ranked[0].id).toBe('provider-2')
+      expect(ranked.length).toBe(2)
+      for (const p of ranked) {
+        expect(p.hasGpu).toBe(true)
+      }
+    })
+
+    test('filters by minimum GPU VRAM', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        requireGpu: true,
+        minGpuVramMb: 50000,
+      })
+
+      expect(ranked.length).toBe(1)
+      expect(ranked[0].id).toBe('provider-4')
     })
 
     test('filters by TEE requirement', async () => {
-      const providers = [
-        {
-          id: 'provider-1',
-          name: 'No TEE',
-          pricePerHour: 0.2,
-          benchmarkScore: 80,
-          cpuCores: 4,
-          memoryMb: 8192,
-          hasGpu: false,
-          hasTee: false,
-        },
-        {
-          id: 'provider-2',
-          name: 'With TEE',
-          pricePerHour: 0.3,
-          benchmarkScore: 75,
-          cpuCores: 4,
-          memoryMb: 8192,
-          hasGpu: false,
-          hasTee: true,
-          teeType: 'IntelSGX',
-        },
-      ]
-
-      const ranked = await optimizer.rankProviders(providers, {
+      const ranked = await optimizer.rankProviders(testProviders, {
         requireTee: true,
       })
 
-      expect(ranked).toHaveLength(1)
-      expect(ranked[0].id).toBe('provider-2')
+      expect(ranked.length).toBe(1)
+      expect(ranked[0].id).toBe('provider-3')
+    })
+
+    test('filters by maximum price', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        maxPricePerHour: 0.2,
+      })
+
+      expect(ranked.length).toBe(2)
+      for (const p of ranked) {
+        expect(p.pricePerHour).toBeLessThanOrEqual(0.2)
+      }
+    })
+
+    test('filters by region', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        region: 'us-east-1',
+      })
+
+      expect(ranked.length).toBe(2)
+      for (const p of ranked) {
+        expect(p.region).toBe('us-east-1')
+      }
+    })
+
+    test('filters by minimum benchmark score', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        minBenchmarkScore: 80,
+      })
+
+      expect(ranked.length).toBe(2)
+      for (const p of ranked) {
+        expect(p.benchmarkScore).toBeGreaterThanOrEqual(80)
+      }
+    })
+
+    test('combines multiple filters', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        minCpuCores: 8,
+        requireGpu: true,
+        minBenchmarkScore: 85,
+      })
+
+      expect(ranked.length).toBe(2)
+      expect(ranked[0].hasGpu).toBe(true)
+    })
+
+    test('returns empty array when no providers match', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        minCpuCores: 100,
+      })
+
+      expect(ranked.length).toBe(0)
+    })
+
+    test('assigns rank numbers to providers', async () => {
+      const ranked = await optimizer.rankProviders(testProviders)
+
+      ranked.forEach((p, i) => {
+        expect(p.rank).toBe(i + 1)
+      })
     })
   })
 
   describe('calculateCostPerformanceScore', () => {
-    test('calculates cost per performance unit', () => {
+    test('calculates price/performance ratio', () => {
       const score = optimizer.calculateCostPerformanceScore({
-        pricePerHour: 0.5,
+        pricePerHour: 0.1,
         benchmarkScore: 100,
       })
 
-      expect(score).toBe(0.005) // $0.50 / 100 = $0.005 per score unit
+      expect(score).toBe(0.001) // 0.1 / 100
     })
 
-    test('handles zero benchmark score', () => {
+    test('returns Infinity for zero benchmark score', () => {
       const score = optimizer.calculateCostPerformanceScore({
-        pricePerHour: 0.5,
+        pricePerHour: 0.1,
         benchmarkScore: 0,
       })
 
       expect(score).toBe(Infinity)
     })
-  })
 
-  describe('findOptimalProvider', () => {
-    test('finds the most cost-efficient provider meeting requirements', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'provider-1',
-            name: 'Expensive',
-            price_per_hour: 1.0,
-            benchmark_score: 90,
-            cpu_cores: 8,
-            memory_mb: 16384,
-            has_gpu: 0,
-            has_tee: 0,
-          },
-          {
-            id: 'provider-2',
-            name: 'Best',
-            price_per_hour: 0.25,
-            benchmark_score: 85,
-            cpu_cores: 4,
-            memory_mb: 8192,
-            has_gpu: 0,
-            has_tee: 0,
-          },
-          {
-            id: 'provider-3',
-            name: 'Cheap',
-            price_per_hour: 0.1,
-            benchmark_score: 40,
-            cpu_cores: 2,
-            memory_mb: 4096,
-            has_gpu: 0,
-            has_tee: 0,
-          },
-        ],
+    test('lower price improves score (lower is better)', () => {
+      const cheapScore = optimizer.calculateCostPerformanceScore({
+        pricePerHour: 0.05,
+        benchmarkScore: 80,
       })
 
-      const optimal = await optimizer.findOptimalProvider({
-        minCpuCores: 4,
-        minMemoryMb: 8192,
-        minBenchmarkScore: 80,
-      })
-
-      expect(optimal).not.toBeNull()
-      expect(optimal?.id).toBe('provider-2')
-    })
-
-    test('returns null when no provider meets requirements', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'provider-1',
-            name: 'Small',
-            price_per_hour: 0.1,
-            benchmark_score: 50,
-            cpu_cores: 2,
-            memory_mb: 4096,
-            has_gpu: 0,
-            has_tee: 0,
-          },
-        ],
-      })
-
-      const optimal = await optimizer.findOptimalProvider({
-        minCpuCores: 8,
-        minMemoryMb: 32768,
-        minBenchmarkScore: 90,
-      })
-
-      expect(optimal).toBeNull()
-    })
-  })
-
-  describe('estimateCost', () => {
-    test('estimates hourly cost', () => {
-      const cost = optimizer.estimateCost({
+      const expensiveScore = optimizer.calculateCostPerformanceScore({
         pricePerHour: 0.5,
-        durationHours: 24,
+        benchmarkScore: 80,
       })
 
-      expect(cost).toBe(12.0)
+      expect(cheapScore).toBeLessThan(expensiveScore)
     })
 
-    test('estimates monthly cost', () => {
-      const cost = optimizer.estimateCost({
-        pricePerHour: 0.5,
-        durationHours: 24 * 30,
+    test('higher benchmark improves score (lower is better)', () => {
+      const highBenchScore = optimizer.calculateCostPerformanceScore({
+        pricePerHour: 0.1,
+        benchmarkScore: 90,
       })
 
-      expect(cost).toBe(360.0)
-    })
-  })
+      const lowBenchScore = optimizer.calculateCostPerformanceScore({
+        pricePerHour: 0.1,
+        benchmarkScore: 50,
+      })
 
-  describe('compareCosts', () => {
-    test('compares costs between providers', () => {
-      const comparison = optimizer.compareCosts(
-        [
-          { id: 'provider-1', pricePerHour: 0.5, benchmarkScore: 80 },
-          { id: 'provider-2', pricePerHour: 0.3, benchmarkScore: 75 },
-          { id: 'provider-3', pricePerHour: 0.2, benchmarkScore: 60 },
-        ],
-        720,
-      ) // 30 days
-
-      expect(comparison).toHaveLength(3)
-      expect(comparison[0].totalCost).toBe(360)
-      expect(comparison[1].totalCost).toBe(216)
-      expect(comparison[2].totalCost).toBe(144)
+      expect(highBenchScore).toBeLessThan(lowBenchScore)
     })
   })
 
-  describe('getRecommendation', () => {
-    test('recommends best provider for workload type', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'gpu-provider',
-            name: 'GPU Instance',
-            price_per_hour: 2.0,
-            benchmark_score: 95,
-            cpu_cores: 8,
-            memory_mb: 32768,
-            has_gpu: 1,
-            gpu_model: 'NVIDIA A100',
-            has_tee: 0,
-          },
-          {
-            id: 'cpu-provider',
-            name: 'CPU Instance',
-            price_per_hour: 0.3,
-            benchmark_score: 80,
-            cpu_cores: 8,
-            memory_mb: 16384,
-            has_gpu: 0,
-            has_tee: 0,
-          },
-        ],
+  describe('cost-efficiency ranking', () => {
+    test('ranks budget provider first when preferring cost efficiency', async () => {
+      const ranked = await optimizer.rankProviders(testProviders, {
+        preferCostEfficiency: true,
       })
 
-      const recommendation = await optimizer.getRecommendation({
-        workloadType: 'ml-inference',
-        expectedDurationHours: 24,
-        budget: 100,
-      })
-
-      expect(recommendation).not.toBeNull()
-      expect(recommendation?.providerId).toBe('gpu-provider')
+      // Budget provider (provider-1) has best cost/performance: 0.05/60 = 0.00083
+      expect(ranked[0].id).toBe('provider-1')
     })
 
-    test('recommends cheapest option for simple workloads', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'expensive',
-            name: 'Large',
-            price_per_hour: 1.0,
-            benchmark_score: 90,
-            cpu_cores: 16,
-            memory_mb: 65536,
-            has_gpu: 0,
-            has_tee: 0,
-          },
-          {
-            id: 'budget',
-            name: 'Small',
-            price_per_hour: 0.05,
-            benchmark_score: 50,
-            cpu_cores: 1,
-            memory_mb: 1024,
-            has_gpu: 0,
-            has_tee: 0,
-          },
-        ],
-      })
+    test('ranks high performance first when not preferring cost efficiency', async () => {
+      const ranked = await optimizer.rankProviders(testProviders)
 
-      const recommendation = await optimizer.getRecommendation({
-        workloadType: 'web-hosting',
-        expectedDurationHours: 720,
-        budget: 50,
-      })
-
-      expect(recommendation).not.toBeNull()
-      expect(recommendation?.providerId).toBe('budget')
-      expect(recommendation?.estimatedCost).toBe(36) // 0.05 * 720
+      // High performance (provider-3) has highest benchmark: 95
+      expect(ranked[0].id).toBe('provider-3')
     })
   })
 })

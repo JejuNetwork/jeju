@@ -26,6 +26,7 @@ import {
   getDwsApiUrl,
   getEQLiteBlockProducerUrl,
   getIpfsApiUrl,
+  getLocalhostHost,
   getServiceUrl,
   getStorageApiEndpoint,
   INFRA_PORTS,
@@ -74,7 +75,8 @@ async function checkDockerService(
   port: number,
   healthPath: string,
 ): Promise<boolean> {
-  const url = `http://127.0.0.1:${port}${healthPath}`
+  const host = getLocalhostHost()
+  const url = `http://${host}:${port}${healthPath}`
   return isServiceAvailable(url, 3000)
 }
 
@@ -122,7 +124,8 @@ async function startLocalnet(rootDir: string): Promise<void> {
 
   // Wait for localnet to be ready
   for (let i = 0; i < 30; i++) {
-    if (await isRpcAvailable(`http://127.0.0.1:${LOCALNET_PORT}`)) {
+    const host = getLocalhostHost()
+    if (await isRpcAvailable(`http://${host}:${LOCALNET_PORT}`)) {
       console.log('Localnet ready')
       return
     }
@@ -140,6 +143,7 @@ async function startDws(rootDir: string): Promise<void> {
     throw new Error('DWS app not found')
   }
 
+  const host = getLocalhostHost()
   dwsProcess = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: dwsPath,
     stdout: 'pipe',
@@ -147,14 +151,14 @@ async function startDws(rootDir: string): Promise<void> {
     env: {
       ...process.env,
       PORT: String(DWS_PORT),
-      L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
-      JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
+      L2_RPC_URL: `http://${host}:${LOCALNET_PORT}`,
+      JEJU_RPC_URL: `http://${host}:${LOCALNET_PORT}`,
     },
   })
 
   // Wait for DWS to be ready
   for (let i = 0; i < 30; i++) {
-    if (await isServiceAvailable(`http://127.0.0.1:${DWS_PORT}/health`)) {
+    if (await isServiceAvailable(`http://${host}:${DWS_PORT}/health`)) {
       console.log('DWS ready')
       return
     }
@@ -165,7 +169,8 @@ async function startDws(rootDir: string): Promise<void> {
 }
 
 async function bootstrapContracts(rootDir: string): Promise<boolean> {
-  const rpcUrl = `http://127.0.0.1:${LOCALNET_PORT}`
+  const host = getLocalhostHost()
+  const rpcUrl = `http://${host}:${LOCALNET_PORT}`
 
   // Check if contracts are already deployed
   if (await checkContractsDeployed(rpcUrl)) {
@@ -395,9 +400,10 @@ function setEnvVars(status: InfraStatus): void {
   const eqliteUrl = getEQLiteBlockProducerUrl()
   process.env.EQLITE_URL = eqliteUrl
   process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT = eqliteUrl
-  process.env.IPFS_API_URL = getIpfsApiUrl() || 'http://127.0.0.1:5001'
-  process.env.DA_URL = 'http://127.0.0.1:4010'
-  process.env.CACHE_URL = 'http://127.0.0.1:4115'
+  const host = getLocalhostHost()
+  process.env.IPFS_API_URL = getIpfsApiUrl() || `http://${host}:5001`
+  process.env.DA_URL = `http://${host}:4010`
+  process.env.CACHE_URL = `http://${host}:4115`
 }
 
 /**

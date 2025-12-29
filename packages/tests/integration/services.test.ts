@@ -6,12 +6,14 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getIpfsApiUrl } from '@jejunetwork/config'
+import { getIpfsApiUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Client } from 'pg'
 import { IpfsAddResponseSchema, IpfsIdResponseSchema } from '../shared/schemas'
 
+const host = getLocalhostHost()
 const POSTGRES_URL =
-  process.env.DATABASE_URL || 'postgresql://jeju:jeju@127.0.0.1:5432/jeju'
+  (typeof process !== 'undefined' ? process.env.DATABASE_URL : undefined) ||
+  `postgresql://jeju:jeju@${host}:5432/jeju`
 const IPFS_API = getIpfsApiUrl()
 
 async function isServiceRunning(

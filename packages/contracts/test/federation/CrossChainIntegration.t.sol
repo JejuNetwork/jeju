@@ -217,7 +217,7 @@ contract CrossChainIntegrationTest is Test {
         vm.startPrank(operator1);
 
         registryHub.registerChain{value: 1 ether}(
-            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jeju.network"
+            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jejunetwork.org"
         );
 
         RegistryHub.ChainInfo memory chain = registryHub.getChain(JEJU_DOMAIN);
@@ -233,7 +233,7 @@ contract CrossChainIntegrationTest is Test {
         vm.startPrank(operator1);
 
         registryHub.registerChain{value: 10 ether}(
-            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jeju.network"
+            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jejunetwork.org"
         );
 
         RegistryHub.ChainInfo memory chain = registryHub.getChain(JEJU_DOMAIN);
@@ -246,7 +246,7 @@ contract CrossChainIntegrationTest is Test {
         // First register the chain
         vm.prank(operator1);
         registryHub.registerChain{value: 1 ether}(
-            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jeju.network"
+            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jejunetwork.org"
         );
 
         // Register a registry on that chain
@@ -335,9 +335,9 @@ contract CrossChainIntegrationTest is Test {
         networkRegistry.registerNetwork{value: 1 ether}(
             JEJU_DOMAIN,
             "Jeju Network",
-            "https://rpc.jeju.network",
-            "https://explorer.jeju.network",
-            "wss://rpc.jeju.network",
+            "https://rpc.jejunetwork.org",
+            "https://explorer.jejunetwork.org",
+            "wss://rpc.jejunetwork.org",
             contracts,
             bytes32(0)
         );
@@ -580,13 +580,13 @@ contract CrossChainIntegrationTest is Test {
         vm.prank(operator1);
         NetworkRegistry.NetworkContracts memory contracts;
         networkRegistry.registerNetwork{value: 10 ether}(
-            JEJU_DOMAIN, "Jeju", "https://rpc.jeju.network", "", "", contracts, bytes32(0)
+            JEJU_DOMAIN, "Jeju", "https://rpc.jejunetwork.org", "", "", contracts, bytes32(0)
         );
 
         // 2. Register Jeju chain in RegistryHub
         vm.prank(operator1);
         registryHub.registerChain{value: 10 ether}(
-            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jeju.network"
+            JEJU_DOMAIN, RegistryHub.ChainType.EVM, "Jeju Network", "https://rpc.jejunetwork.org"
         );
 
         // 3. Register IdentityRegistry in RegistryHub

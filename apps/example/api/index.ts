@@ -63,23 +63,30 @@ const getAllowedOrigins = (): string | string[] => {
   return []
 }
 
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+
 const RATE_LIMIT_WINDOW_MS = 60000
+const RATE_LIMIT_TTL_SECONDS = Math.ceil(RATE_LIMIT_WINDOW_MS / 1000) * 2
 
 const RATE_LIMIT_MAX_REQUESTS = parseInt(
   process.env.RATE_LIMIT_MAX_REQUESTS || '100',
   10,
 )
-const rateLimitStore: Map<string, { count: number; resetAt: number }> =
-  new Map()
 
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of rateLimitStore.entries()) {
-    if (entry.resetAt < now) {
-      rateLimitStore.delete(key)
-    }
+// Distributed rate limit cache
+let rateLimitCache: CacheClient | null = null
+
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('example-ratelimit')
   }
-}, RATE_LIMIT_WINDOW_MS)
+  return rateLimitCache
+}
+
+interface RateLimitEntry {
+  count: number
+  resetAt: number
+}
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET
 if (!WEBHOOK_SECRET && !isLocalnet) {
@@ -155,11 +162,13 @@ const app = new Elysia()
     set.headers['X-Request-Id'] = requestId
   })
   .onBeforeHandle(
-    ({
+    async ({
       path,
       request,
       set,
-    }): { error: string; code: string; retryAfter: number } | undefined => {
+    }): Promise<
+      { error: string; code: string; retryAfter: number } | undefined
+    > => {
       if (path === '/health' || path === '/docs' || path === '/') {
         return undefined
       }
@@ -168,17 +177,28 @@ const app = new Elysia()
         request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
         request.headers.get('x-real-ip') ||
         'unknown'
-      const rateLimitKey = `ip:${clientIp}`
+      const rateLimitKey = `ratelimit:ip:${clientIp}`
+      const cache = getRateLimitCache()
 
       const now = Date.now()
-      let entry = rateLimitStore.get(rateLimitKey)
+      const cached = await cache.get(rateLimitKey)
+      let entry: RateLimitEntry
 
-      if (!entry || entry.resetAt < now) {
+      if (cached) {
+        entry = JSON.parse(cached)
+        if (entry.resetAt < now) {
+          entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS }
+        }
+      } else {
         entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS }
-        rateLimitStore.set(rateLimitKey, entry)
       }
 
       entry.count++
+      await cache.set(
+        rateLimitKey,
+        JSON.stringify(entry),
+        RATE_LIMIT_TTL_SECONDS,
+      )
 
       set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
       set.headers['X-RateLimit-Remaining'] = Math.max(

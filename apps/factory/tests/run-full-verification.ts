@@ -131,9 +131,10 @@ async function startDevServer(): Promise<void> {
   for (let i = 0; i < 30; i++) {
     await new Promise<void>((resolve) => setTimeout(resolve, 1000))
 
-    const result = await execAsync('curl -s http://localhost:3000').catch(
-      () => ({ stdout: '' }),
-    )
+    const host = getLocalhostHost()
+    const result = await execAsync(`curl -s http://${host}:3000`).catch(() => ({
+      stdout: '',
+    }))
     if (result.stdout.includes('<!DOCTYPE html>')) {
       ready = true
       break

@@ -12,10 +12,14 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
 // Check if EQLite is available
-const EQLITE_AVAILABLE = !!process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+const EQLITE_AVAILABLE =
+  !!(typeof process !== 'undefined'
+    ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+    : undefined) || !!getEQLiteBlockProducerUrl()
 
 import {
   type AccessControl,

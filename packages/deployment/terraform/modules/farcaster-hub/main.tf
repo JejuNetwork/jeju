@@ -150,10 +150,6 @@ resource "aws_route53_record" "hub" {
   type    = "CNAME"
   ttl     = 300
   records = ["${var.eks_cluster_name}-hub.${var.domain_name}"]
-
-  tags = merge(var.tags, {
-    Name = "${local.name_prefix}-hub-dns"
-  })
 }
 
 # ============================================================

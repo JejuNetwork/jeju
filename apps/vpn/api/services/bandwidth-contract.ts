@@ -1,4 +1,10 @@
 import {
+  getChainId,
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
+import {
   type Address,
   type Chain,
   createPublicClient,
@@ -290,11 +296,12 @@ export class BandwidthContractService {
 }
 
 export function createBandwidthContractService(): BandwidthContractService | null {
-  const contractAddress = process.env.BANDWIDTH_REWARDS_CONTRACT as
+  const network = getCurrentNetwork()
+  const contractAddress = tryGetContract('vpn', 'bandwidthRewards', network) as
     | Address
     | undefined
-  const rpcUrl = process.env.JEJU_RPC_URL ?? process.env.RPC_URL
-  const chainId = parseInt(process.env.CHAIN_ID ?? '10', 10)
+  const rpcUrl = getRpcUrl(network)
+  const chainId = getChainId(network)
 
   if (
     !contractAddress ||

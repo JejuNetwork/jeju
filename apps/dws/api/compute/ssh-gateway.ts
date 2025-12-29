@@ -14,6 +14,7 @@ import {
   isTestMode,
 } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { ServerWebSocket } from 'bun'
 import { type Subprocess, spawn } from 'bun'
 import { Elysia } from 'elysia'
@@ -110,12 +111,21 @@ let useEQLite = false
 // In-memory storage for credentials (fallback for tests)
 const memoryCredentials = new Map<string, SSHCredentials>()
 
-// Ephemeral state (sessions/tokens are lost on restart by design)
+// Session state - tied to local SSH processes (cannot be distributed)
 const sessions = new Map<string, SSHSession>()
 const userSessions = new Map<string, Set<string>>() // lowercase owner -> session ids
-const accessTokens = new Map<string, AccessToken>()
-const auditLog: AuditEntry[] = []
 const sshProcesses = new Map<string, Subprocess>()
+const auditLog: AuditEntry[] = []
+
+// Distributed cache for access tokens (enables multi-server deployments)
+let tokenCache: CacheClient | null = null
+
+function getTokenCache(): CacheClient {
+  if (!tokenCache) {
+    tokenCache = getCacheClient('ssh-access-tokens')
+  }
+  return tokenCache
+}
 
 interface AuditEntry {
   timestamp: number
@@ -309,9 +319,9 @@ export async function getSSHGatewayMetrics() {
       (s) => s.status === 'active',
     ).length,
     registeredCredentials: await credentialStorage.count(),
-    pendingTokens: Array.from(accessTokens.values()).filter((t) => !t.used)
-      .length,
+    pendingTokens: 0, // Token count not available from distributed cache
     storageBackend: useEQLite ? 'eqlite' : 'memory',
+    tokenStorage: 'distributed',
   }
 }
 
@@ -519,14 +529,19 @@ export class SSHGateway {
     const token = randomBytes(32).toString('hex')
     const now = Date.now()
 
-    accessTokens.set(token, {
+    const accessToken: AccessToken = {
       token,
       computeId: params.computeId,
       owner: params.owner,
       createdAt: now,
       expiresAt: now + this.config.tokenValidityMs,
       used: false,
-    })
+    }
+
+    // Store in distributed cache with TTL
+    const cache = getTokenCache()
+    const ttlSeconds = Math.ceil(this.config.tokenValidityMs / 1000)
+    await cache.set(`token:${token}`, JSON.stringify(accessToken), ttlSeconds)
 
     this.audit(
       'token_generated',
@@ -542,13 +557,16 @@ export class SSHGateway {
   /**
    * Validate and consume an access token
    */
-  validateToken(token: string): AccessToken {
-    const accessToken = accessTokens.get(token)
+  async validateToken(token: string): Promise<AccessToken> {
+    const cache = getTokenCache()
+    const cached = await cache.get(`token:${token}`)
 
-    if (!accessToken) {
+    if (!cached) {
       gatewayMetrics.authFailures++
       throw new Error('Invalid token')
     }
+
+    const accessToken = JSON.parse(cached) as AccessToken
 
     if (accessToken.used) {
       gatewayMetrics.authFailures++
@@ -556,13 +574,14 @@ export class SSHGateway {
     }
 
     if (Date.now() > accessToken.expiresAt) {
-      accessTokens.delete(token)
+      await cache.delete(`token:${token}`)
       gatewayMetrics.authFailures++
       throw new Error('Token expired')
     }
 
-    // Mark as used
+    // Mark as used and update in cache
     accessToken.used = true
+    await cache.set(`token:${token}`, JSON.stringify(accessToken), 60) // Keep for 60s after use
 
     return accessToken
   }
@@ -577,7 +596,7 @@ export class SSHGateway {
     clientIp: string
   }): Promise<SSHSession> {
     // Validate token
-    const accessToken = this.validateToken(params.token)
+    const accessToken = await this.validateToken(params.token)
 
     // Get credentials
     const credential = await credentialStorage.getByComputeId(
@@ -954,12 +973,7 @@ export class SSHGateway {
   private cleanup(): void {
     const now = Date.now()
 
-    // Clean expired tokens
-    for (const [token, accessToken] of accessTokens) {
-      if (now > accessToken.expiresAt || accessToken.used) {
-        accessTokens.delete(token)
-      }
-    }
+    // Tokens are now managed by distributed cache with TTL - no cleanup needed
 
     // Clean expired/idle sessions
     for (const [sessionId, session] of sessions) {
@@ -1279,17 +1293,102 @@ export class SSHGateway {
 
   /**
    * Calculate SSH key fingerprint using SHA-256
+   *
+   * Supported key formats:
+   * - OpenSSH format (-----BEGIN OPENSSH PRIVATE KEY-----) - full support
+   * - PEM format (-----BEGIN RSA PRIVATE KEY-----) - requires ssh-keygen
+   *
+   * @requires ssh-keygen must be installed for PEM format keys
    */
   private async calculateFingerprint(privateKey: string): Promise<string> {
-    // Extract public key from private key
-    // The fingerprint is SHA256 hash of the public key bytes
-    // For proper implementation, would need ssh-keygen or a crypto library
-    // Using SHA-256 of private key as proxy (should extract public key in production)
+    // Write private key to temp file for ssh-keygen
+    const tempKeyFile = `/tmp/.ssh-key-fp-${Date.now()}-${randomBytes(8).toString('hex')}`
+
+    try {
+      await Bun.write(tempKeyFile, privateKey, { mode: 0o600 })
+
+      // Use ssh-keygen to calculate fingerprint (works for both OpenSSH and PEM formats)
+      const result = Bun.spawn(['ssh-keygen', '-l', '-f', tempKeyFile], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      })
+
+      const output = await new Response(result.stdout).text()
+      const exitCode = await result.exited
+
+      if (exitCode === 0 && output.includes('SHA256:')) {
+        // ssh-keygen output format: "256 SHA256:xxx comment (type)"
+        const match = output.match(/SHA256:([A-Za-z0-9+/=_-]+)/)
+        if (match) {
+          return `SHA256:${match[1]}`
+        }
+      }
+    } catch {
+      // ssh-keygen not available
+    } finally {
+      // Securely delete temp file - try shred first, fall back to unlink
+      await this.secureDeleteFile(tempKeyFile)
+    }
+
+    // Fallback for OpenSSH format only: extract embedded public key
+    // Note: PEM format keys do NOT contain the public key, so this fallback won't work for them
+    const publicKeyMatch = privateKey.match(/ssh-(rsa|ed25519|ecdsa)[^\n]+/)
+    if (publicKeyMatch) {
+      const publicKeyData = publicKeyMatch[0].split(/\s+/)[1]
+      if (publicKeyData) {
+        const keyBytes = Buffer.from(publicKeyData, 'base64')
+        const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes)
+        const hashArray = new Uint8Array(hashBuffer)
+        const base64 = Buffer.from(hashArray)
+          .toString('base64')
+          .replace(/=+$/, '')
+        return `SHA256:${base64}`
+      }
+    }
+
+    // PEM format without ssh-keygen: cannot extract public key
+    if (
+      privateKey.includes('BEGIN RSA PRIVATE KEY') ||
+      privateKey.includes('BEGIN EC PRIVATE KEY') ||
+      privateKey.includes('BEGIN DSA PRIVATE KEY')
+    ) {
+      console.error(
+        '[SSHGateway] PEM format key requires ssh-keygen for fingerprint calculation',
+      )
+      throw new Error('ssh-keygen required for PEM format keys')
+    }
+
+    // Unknown format
+    console.warn(
+      '[SSHGateway] Unknown key format, using key hash as fingerprint',
+    )
     const keyBytes = new TextEncoder().encode(privateKey)
     const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes)
     const hashArray = new Uint8Array(hashBuffer)
     const base64 = Buffer.from(hashArray).toString('base64').replace(/=+$/, '')
     return `SHA256:${base64}`
+  }
+
+  /**
+   * Securely delete a file - try shred first, fall back to unlink
+   */
+  private async secureDeleteFile(path: string): Promise<void> {
+    const { unlink } = await import('node:fs/promises')
+
+    try {
+      // Try shred -u (secure overwrite and delete)
+      const result = Bun.spawn(['shred', '-u', path], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      })
+      const exitCode = await result.exited
+      if (exitCode === 0) return
+    } catch {
+      // shred not available
+    }
+
+    // Fall back to regular unlink
+    await unlink(path).catch(() => {})
   }
 
   private audit(
@@ -1344,7 +1443,6 @@ export class SSHGateway {
     activeSessions: number
     totalSessions: number
     totalCredentials: number
-    pendingTokens: number
   }> {
     return {
       activeSessions: Array.from(sessions.values()).filter(
@@ -1352,8 +1450,6 @@ export class SSHGateway {
       ).length,
       totalSessions: sessions.size,
       totalCredentials: await credentialStorage.count(),
-      pendingTokens: Array.from(accessTokens.values()).filter((t) => !t.used)
-        .length,
     }
   }
 }

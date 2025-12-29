@@ -18,7 +18,7 @@ const TEST_CONFIG: CachePaymentConfig = {
   paymentRecipient: '0x1234567890123456789012345678901234567890' as Address,
   networkId: 420690,
   assetAddress: '0x0000000000000000000000000000000000000000' as Address,
-  baseUrl: 'https://cache.test.jeju.network',
+  baseUrl: 'https://cache.test.jejunetwork.org',
   platformFeeBps: 500,
   // Trust payment proofs in tests - no on-chain verification
   trustPaymentProofs: true,

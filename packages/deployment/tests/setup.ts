@@ -6,6 +6,7 @@
  */
 
 import { type ChildProcess, spawn } from 'node:child_process'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   type Address,
   type Chain,
@@ -18,7 +19,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 export const TEST_CHAIN_ID = 31337
-export const TEST_RPC_URL = 'http://127.0.0.1:6546'
+export const TEST_RPC_URL = getL2RpcUrl() || `http://${getLocalhostHost()}:6546`
 
 // Anvil default accounts
 export const TEST_ACCOUNTS = {

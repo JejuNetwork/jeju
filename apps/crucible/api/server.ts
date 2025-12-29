@@ -110,7 +110,7 @@ function constantTimeCompare(a: string, b: string): boolean {
 
 // Wallet signature config for ownership verification
 const walletSignatureConfig: WalletSignatureConfig = {
-  domain: 'crucible.jeju.network',
+  domain: 'crucible.jejunetwork.org',
   validityWindowMs: 5 * 60 * 1000, // 5 minutes
 }
 
@@ -467,68 +467,72 @@ app.use(
 )
 
 // Rate limiting middleware with atomic increment pattern
-app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
-  const url = new URL(request.url)
-  const path = url.pathname
+app.onBeforeHandle(
+  async ({ request, set }): Promise<{ error: string } | undefined> => {
+    const url = new URL(request.url)
+    const path = url.pathname
 
-  // Skip rate limiting for exempt paths
-  if (RATE_LIMIT_EXEMPT_PATHS.some((p) => path.startsWith(p))) {
-    return undefined
-  }
-
-  // Use IP or wallet address as rate limit key
-  // Note: wallet address is not verified here (would be expensive), IP is primary
-  const clientIp =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    request.headers.get('x-real-ip') ??
-    'unknown'
-  const walletAddress = request.headers.get('x-jeju-address') ?? ''
-  const key = clientIp || walletAddress || 'unknown'
-
-  const now = Date.now()
-  const cache = getRateLimitCache()
-  const cacheKey = `crucible-rl:${key}`
-
-  // Get rate limit record from distributed cache
-  const cached = await cache.get(cacheKey)
-  let record: { count: number; resetAt: number } | null = cached
-    ? JSON.parse(cached)
-    : null
-
-  if (!record || record.resetAt < now) {
-    // Create new record
-    record = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
-  } else {
-    // Increment count before checking limit
-    record.count++
-
-    if (record.count > RATE_LIMIT_MAX_REQUESTS) {
-      // Store the updated record
-      const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
-      await cache.set(cacheKey, JSON.stringify(record), ttl)
-
-      set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
-      set.headers['X-RateLimit-Remaining'] = '0'
-      set.headers['X-RateLimit-Reset'] = Math.ceil(
-        record.resetAt / 1000,
-      ).toString()
-      set.status = 429
-      return { error: 'Rate limit exceeded' }
+    // Skip rate limiting for exempt paths
+    if (RATE_LIMIT_EXEMPT_PATHS.some((p) => path.startsWith(p))) {
+      return undefined
     }
-  }
 
-  // Store updated record with TTL
-  const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
-  await cache.set(cacheKey, JSON.stringify(record), ttl)
+    // Use IP or wallet address as rate limit key
+    // Note: wallet address is not verified here (would be expensive), IP is primary
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-real-ip') ??
+      'unknown'
+    const walletAddress = request.headers.get('x-jeju-address') ?? ''
+    const key = clientIp || walletAddress || 'unknown'
 
-  set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
-  set.headers['X-RateLimit-Remaining'] = Math.max(
-    0,
-    RATE_LIMIT_MAX_REQUESTS - record.count,
-  ).toString()
-  set.headers['X-RateLimit-Reset'] = Math.ceil(record.resetAt / 1000).toString()
-  return undefined
-})
+    const now = Date.now()
+    const cache = getRateLimitCache()
+    const cacheKey = `crucible-rl:${key}`
+
+    // Get rate limit record from distributed cache
+    const cached = await cache.get(cacheKey)
+    let record: { count: number; resetAt: number } | null = cached
+      ? JSON.parse(cached)
+      : null
+
+    if (!record || record.resetAt < now) {
+      // Create new record
+      record = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
+    } else {
+      // Increment count before checking limit
+      record.count++
+
+      if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+        // Store the updated record
+        const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+        await cache.set(cacheKey, JSON.stringify(record), ttl)
+
+        set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
+        set.headers['X-RateLimit-Remaining'] = '0'
+        set.headers['X-RateLimit-Reset'] = Math.ceil(
+          record.resetAt / 1000,
+        ).toString()
+        set.status = 429
+        return { error: 'Rate limit exceeded' }
+      }
+    }
+
+    // Store updated record with TTL
+    const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+    await cache.set(cacheKey, JSON.stringify(record), ttl)
+
+    set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
+    set.headers['X-RateLimit-Remaining'] = Math.max(
+      0,
+      RATE_LIMIT_MAX_REQUESTS - record.count,
+    ).toString()
+    set.headers['X-RateLimit-Reset'] = Math.ceil(
+      record.resetAt / 1000,
+    ).toString()
+    return undefined
+  },
+)
 
 // API Key authentication middleware (when enabled)
 app.onBeforeHandle(({ request, set }): { error: string } | undefined => {

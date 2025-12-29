@@ -1,5 +1,6 @@
 /** x402 Payment Integration for VPN */
 
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { type Address, getAddress, type Hex, recoverMessageAddress } from 'viem'
 import {
@@ -34,50 +35,30 @@ export interface X402Receipt {
   verified: boolean
 }
 
-const usedNonces = new Map<string, number>()
+// Distributed cache for nonce tracking (prevents replay attacks across instances)
 const NONCE_EXPIRATION_SECONDS = 600
-const NONCE_CLEANUP_INTERVAL_MS = 60 * 1000
-const MAX_NONCES = 100000
-const NONCE_WARNING_THRESHOLD = 80000
 
-function cleanupExpiredNonces(): void {
-  const now = Math.floor(Date.now() / 1000)
-  let _cleanedCount = 0
+let nonceCache: CacheClient | null = null
 
-  for (const [nonce, expiration] of usedNonces.entries()) {
-    if (now > expiration) {
-      usedNonces.delete(nonce)
-      _cleanedCount++
-    }
+function getNonceCache(): CacheClient {
+  if (!nonceCache) {
+    nonceCache = getCacheClient('vpn-x402-nonces')
   }
-
-  if (usedNonces.size > NONCE_WARNING_THRESHOLD) {
-    console.error(
-      `Nonce storage at ${usedNonces.size}/${MAX_NONCES} - possible replay attack`,
-    )
-  }
+  return nonceCache
 }
 
-setInterval(cleanupExpiredNonces, NONCE_CLEANUP_INTERVAL_MS)
+async function checkAndUseNonce(nonce: string): Promise<boolean> {
+  const cache = getNonceCache()
+  const cacheKey = `nonce:${nonce}`
 
-function checkAndUseNonce(nonce: string): boolean {
-  if (usedNonces.size >= MAX_NONCES * 0.9) {
-    cleanupExpiredNonces()
+  // Check if nonce exists
+  const existing = await cache.get(cacheKey)
+  if (existing) {
+    return true // Nonce already used
   }
 
-  if (usedNonces.size >= MAX_NONCES) {
-    console.error('Nonce storage full - rejecting request')
-    return true
-  }
-
-  const existingExpiration = usedNonces.get(nonce)
-  const now = Math.floor(Date.now() / 1000)
-
-  if (existingExpiration !== undefined && now <= existingExpiration) {
-    return true
-  }
-
-  usedNonces.set(nonce, now + NONCE_EXPIRATION_SECONDS)
+  // Mark nonce as used with TTL
+  await cache.set(cacheKey, '1', NONCE_EXPIRATION_SECONDS)
   return false
 }
 
@@ -273,7 +254,7 @@ export async function verifyX402Payment(
     }
   }
 
-  if (checkAndUseNonce(payload.nonce)) {
+  if (await checkAndUseNonce(payload.nonce)) {
     return { valid: false, error: 'Nonce already used' }
   }
 

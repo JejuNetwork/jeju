@@ -4,6 +4,7 @@
  * Domain and endpoint allowlisting/blacklisting for API listings
  */
 
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import type { AccessControl, APIListing, UsageLimits } from './types'
 
@@ -28,26 +29,20 @@ interface RateLimitState {
   minute: { count: number; reset: number }
   day: { count: number; reset: number }
   month: { count: number; reset: number }
-  lastAccess: number // Track last access time for cleanup
+  lastAccess: number
 }
 
-const rateLimits = new Map<string, RateLimitState>()
+// Distributed rate limit cache - TTL based on longest window (month ~30 days)
+const RATE_LIMIT_TTL_SECONDS = 30 * 24 * 60 * 60 // 30 days
 
-// Memory safety: max entries and cleanup interval
-const MAX_RATE_LIMIT_ENTRIES = 100000
-const RATE_LIMIT_CLEANUP_INTERVAL_MS = 60_000 // 1 minute
-const RATE_LIMIT_STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000 // 24 hours
+let rateLimitCache: CacheClient | null = null
 
-// Cleanup stale rate limit entries periodically
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, state] of rateLimits) {
-    // Remove entries that haven't been accessed in 24 hours
-    if (now - state.lastAccess > RATE_LIMIT_STALE_THRESHOLD_MS) {
-      rateLimits.delete(key)
-    }
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('api-marketplace-ratelimit')
   }
-}, RATE_LIMIT_CLEANUP_INTERVAL_MS)
+  return rateLimitCache
+}
 
 // Pattern Matching
 
@@ -174,30 +169,19 @@ function getRateLimitKey(userAddress: Address, listingId: string): string {
 }
 
 /**
- * Get current rate limit state
- * Includes bounds checking to prevent memory exhaustion
+ * Get current rate limit state from distributed cache
  */
-function getRateLimitState(key: string): RateLimitState {
+async function getRateLimitState(key: string): Promise<RateLimitState> {
+  const cache = getRateLimitCache()
+  const cacheKey = `marketplace-ratelimit:${key}`
   const now = Date.now()
-  let state = rateLimits.get(key)
 
-  if (!state) {
-    // Prevent memory exhaustion - evict oldest entries if at limit
-    if (rateLimits.size >= MAX_RATE_LIMIT_ENTRIES) {
-      // Find and remove the oldest entry (by lastAccess)
-      let oldestKey: string | null = null
-      let oldestAccess = Infinity
-      for (const [k, s] of rateLimits) {
-        if (s.lastAccess < oldestAccess) {
-          oldestAccess = s.lastAccess
-          oldestKey = k
-        }
-      }
-      if (oldestKey) {
-        rateLimits.delete(oldestKey)
-      }
-    }
+  const cached = await cache.get(cacheKey)
+  let state: RateLimitState
 
+  if (cached) {
+    state = JSON.parse(cached)
+  } else {
     state = {
       second: { count: 0, reset: now + 1000 },
       minute: { count: 0, reset: now + 60000 },
@@ -205,7 +189,6 @@ function getRateLimitState(key: string): RateLimitState {
       month: { count: 0, reset: now + 2592000000 },
       lastAccess: now,
     }
-    rateLimits.set(key, state)
   }
 
   // Update last access time
@@ -229,15 +212,27 @@ function getRateLimitState(key: string): RateLimitState {
 }
 
 /**
+ * Save rate limit state to distributed cache
+ */
+async function saveRateLimitState(
+  key: string,
+  state: RateLimitState,
+): Promise<void> {
+  const cache = getRateLimitCache()
+  const cacheKey = `marketplace-ratelimit:${key}`
+  await cache.set(cacheKey, JSON.stringify(state), RATE_LIMIT_TTL_SECONDS)
+}
+
+/**
  * Check if request is within rate limits
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   userAddress: Address,
   listingId: string,
   limits: UsageLimits,
-): { allowed: boolean; reason?: string; retryAfter?: number } {
+): Promise<{ allowed: boolean; reason?: string; retryAfter?: number }> {
   const key = getRateLimitKey(userAddress, listingId)
-  const state = getRateLimitState(key)
+  const state = await getRateLimitState(key)
   const now = Date.now()
 
   // Check each limit
@@ -279,34 +274,36 @@ export function checkRateLimit(
 /**
  * Increment rate limit counters after successful request
  */
-export function incrementRateLimit(
+export async function incrementRateLimit(
   userAddress: Address,
   listingId: string,
-): void {
+): Promise<void> {
   const key = getRateLimitKey(userAddress, listingId)
-  const state = getRateLimitState(key)
+  const state = await getRateLimitState(key)
 
   state.second.count++
   state.minute.count++
   state.day.count++
   state.month.count++
+
+  await saveRateLimitState(key, state)
 }
 
 /**
  * Get current rate limit usage
  */
-export function getRateLimitUsage(
+export async function getRateLimitUsage(
   userAddress: Address,
   listingId: string,
   limits: UsageLimits,
-): {
+): Promise<{
   second: { used: number; limit: number; reset: number }
   minute: { used: number; limit: number; reset: number }
   day: { used: number; limit: number; reset: number }
   month: { used: number; limit: number; reset: number }
-} {
+}> {
   const key = getRateLimitKey(userAddress, listingId)
-  const state = getRateLimitState(key)
+  const state = await getRateLimitState(key)
 
   return {
     second: {
@@ -343,13 +340,13 @@ export interface AccessCheckResult {
 /**
  * Perform full access control check
  */
-export function checkAccess(
+export async function checkAccess(
   userAddress: Address,
   listing: APIListing,
   endpoint: string,
   method: string,
   originDomain?: string,
-): AccessCheckResult {
+): Promise<AccessCheckResult> {
   // Check if listing is active
   if (!listing.active) {
     return { allowed: false, reason: 'Listing is not active' }
@@ -376,7 +373,11 @@ export function checkAccess(
   }
 
   // Check rate limits
-  const rateLimitCheck = checkRateLimit(userAddress, listing.id, listing.limits)
+  const rateLimitCheck = await checkRateLimit(
+    userAddress,
+    listing.id,
+    listing.limits,
+  )
   if (!rateLimitCheck.allowed) {
     return rateLimitCheck
   }

@@ -1,7 +1,7 @@
 import { type Address, keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 import { ORACLE_STAKING_MANAGER_ABI } from '../abis'
-import { getChain, type SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 
 const OracleServiceConfigSchema = z.object({
   agentId: z.bigint(),
@@ -91,13 +91,7 @@ export class OracleService {
   async register(config: OracleServiceConfig): Promise<string> {
     const validatedConfig = validateOracleServiceConfig(config)
 
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.oracleStakingManager,
       abi: ORACLE_STAKING_MANAGER_ABI,
       functionName: 'registerOracle',
@@ -109,15 +103,9 @@ export class OracleService {
   }
 
   async submitPrice(market: string, price: bigint): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
     const marketHash = keccak256(toBytes(market))
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.oracleStakingManager,
       abi: ORACLE_STAKING_MANAGER_ABI,
       functionName: 'submitPrice',

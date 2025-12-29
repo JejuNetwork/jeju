@@ -121,7 +121,7 @@ interface JejuProvisionerConfig {
 const DEFAULT_CONFIG: JejuProvisionerConfig = {
   marginPercent: DEFAULT_MARGIN_PERCENT,
   sshUser: 'jeju',
-  gatewayDomain: 'compute.jeju.network',
+  gatewayDomain: 'compute.jejunetwork.org',
   maxInstancesPerUser: 10,
   instanceTimeoutMs: 300000, // 5 minute provision timeout
 }

@@ -27,7 +27,8 @@ export const CACHE_PROVIDERS: APIProvider[] = [
     id: 'jeju-cache-standard',
     name: 'Jeju Cache Standard',
     description: 'Serverless Redis-compatible cache - shared multi-tenant',
-    baseUrl: process.env.DWS_CACHE_ENDPOINT ?? 'https://cache.dws.jeju.network',
+    baseUrl:
+      process.env.DWS_CACHE_ENDPOINT ?? 'https://cache.dws.jejunetwork.org',
     authType: 'bearer',
     authConfig: { headerName: 'Authorization', prefix: 'Bearer ' },
     schemaType: 'rest',
@@ -61,7 +62,8 @@ export const CACHE_PROVIDERS: APIProvider[] = [
     name: 'Jeju Cache Premium',
     description:
       'Serverless Redis-compatible cache - dedicated resources with SLA',
-    baseUrl: process.env.DWS_CACHE_ENDPOINT ?? 'https://cache.dws.jeju.network',
+    baseUrl:
+      process.env.DWS_CACHE_ENDPOINT ?? 'https://cache.dws.jejunetwork.org',
     authType: 'bearer',
     authConfig: { headerName: 'Authorization', prefix: 'Bearer ' },
     schemaType: 'rest',
@@ -94,7 +96,8 @@ export const CACHE_PROVIDERS: APIProvider[] = [
     id: 'jeju-cache-tee',
     name: 'Jeju Cache TEE Secure',
     description: 'TEE-backed cache with memory encryption and attestation',
-    baseUrl: process.env.DWS_CACHE_ENDPOINT ?? 'https://cache.dws.jeju.network',
+    baseUrl:
+      process.env.DWS_CACHE_ENDPOINT ?? 'https://cache.dws.jejunetwork.org',
     authType: 'bearer',
     authConfig: { headerName: 'Authorization', prefix: 'Bearer ' },
     schemaType: 'rest',

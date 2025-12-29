@@ -83,6 +83,7 @@ type DatabaseInfo struct {
 type RegistryClient struct {
 	client          *ethclient.Client
 	registryAddress common.Address
+	registry        *EQLiteRegistry
 }
 
 // NewRegistryClient creates a new registry client.
@@ -92,9 +93,17 @@ func NewRegistryClient(rpcEndpoint string, registryAddress string) (*RegistryCli
 		return nil, fmt.Errorf("failed to connect to ETH RPC: %w", err)
 	}
 
+	addr := common.HexToAddress(registryAddress)
+	registry, err := NewEQLiteRegistry(addr, client)
+	if err != nil {
+		client.Close()
+		return nil, fmt.Errorf("failed to bind to EQLiteRegistry: %w", err)
+	}
+
 	return &RegistryClient{
 		client:          client,
-		registryAddress: common.HexToAddress(registryAddress),
+		registryAddress: addr,
+		registry:        registry,
 	}, nil
 }
 
@@ -105,44 +114,42 @@ func (r *RegistryClient) Close() {
 
 // GetNode retrieves node information from the registry.
 func (r *RegistryClient) GetNode(ctx context.Context, nodeID [32]byte) (*EQLiteNode, error) {
-	// Call the getNode function on the contract
-	// This is a placeholder - actual implementation would use generated bindings
 	log.WithField("nodeID", common.Bytes2Hex(nodeID[:])).Debug("getting node from registry")
 
-	// TODO: Implement actual contract call using generated bindings
-	return nil, fmt.Errorf("not implemented - requires contract bindings")
+	opts := &bind.CallOpts{Context: ctx}
+	return r.registry.GetNode(opts, nodeID)
 }
 
 // IsNodeHealthy checks if a node is healthy based on heartbeat.
 func (r *RegistryClient) IsNodeHealthy(ctx context.Context, nodeID [32]byte) (bool, error) {
 	log.WithField("nodeID", common.Bytes2Hex(nodeID[:])).Debug("checking node health")
 
-	// TODO: Implement actual contract call
-	return false, fmt.Errorf("not implemented - requires contract bindings")
+	opts := &bind.CallOpts{Context: ctx}
+	return r.registry.IsNodeHealthy(opts, nodeID)
 }
 
 // GetActiveMiners returns all active miner node IDs.
 func (r *RegistryClient) GetActiveMiners(ctx context.Context) ([][32]byte, error) {
 	log.Debug("getting active miners from registry")
 
-	// TODO: Implement actual contract call
-	return nil, fmt.Errorf("not implemented - requires contract bindings")
+	opts := &bind.CallOpts{Context: ctx}
+	return r.registry.GetActiveMiners(opts)
 }
 
 // GetActiveBlockProducers returns all active block producer node IDs.
 func (r *RegistryClient) GetActiveBlockProducers(ctx context.Context) ([][32]byte, error) {
 	log.Debug("getting active block producers from registry")
 
-	// TODO: Implement actual contract call
-	return nil, fmt.Errorf("not implemented - requires contract bindings")
+	opts := &bind.CallOpts{Context: ctx}
+	return r.registry.GetActiveBlockProducers(opts)
 }
 
 // GetDatabaseInfo retrieves database information from the registry.
 func (r *RegistryClient) GetDatabaseInfo(ctx context.Context, databaseID [32]byte) (*DatabaseInfo, error) {
 	log.WithField("databaseID", common.Bytes2Hex(databaseID[:])).Debug("getting database info from registry")
 
-	// TODO: Implement actual contract call
-	return nil, fmt.Errorf("not implemented - requires contract bindings")
+	opts := &bind.CallOpts{Context: ctx}
+	return r.registry.GetDatabaseInfo(opts, databaseID)
 }
 
 // RegisterNode registers a new node with the registry.
@@ -161,8 +168,9 @@ func (r *RegistryClient) RegisterNode(
 		"stakeAmount": stakeAmount.String(),
 	}).Info("registering node with registry")
 
-	// TODO: Implement actual contract call
-	return fmt.Errorf("not implemented - requires contract bindings")
+	opts.Context = ctx
+	_, err := r.registry.RegisterNode(opts, nodeID, uint8(role), endpoint, stakeAmount)
+	return err
 }
 
 // SubmitAttestation submits TEE attestation to activate a node.
@@ -175,8 +183,9 @@ func (r *RegistryClient) SubmitAttestation(
 ) error {
 	log.WithField("nodeID", common.Bytes2Hex(nodeID[:])).Info("submitting attestation")
 
-	// TODO: Implement actual contract call
-	return fmt.Errorf("not implemented - requires contract bindings")
+	opts.Context = ctx
+	_, err := r.registry.SubmitAttestation(opts, nodeID, attestation, mrEnclave)
+	return err
 }
 
 // Heartbeat sends a heartbeat to prove node is online.
@@ -191,8 +200,9 @@ func (r *RegistryClient) Heartbeat(
 		"queryCount": queryCount.String(),
 	}).Debug("sending heartbeat")
 
-	// TODO: Implement actual contract call
-	return fmt.Errorf("not implemented - requires contract bindings")
+	opts.Context = ctx
+	_, err := r.registry.Heartbeat(opts, nodeID, queryCount)
+	return err
 }
 
 // CreateDatabase creates a new database in the registry.
@@ -207,8 +217,9 @@ func (r *RegistryClient) CreateDatabase(
 		"minerCount": len(minerNodeIDs),
 	}).Info("creating database in registry")
 
-	// TODO: Implement actual contract call
-	return fmt.Errorf("not implemented - requires contract bindings")
+	opts.Context = ctx
+	_, err := r.registry.CreateDatabase(opts, databaseID, minerNodeIDs)
+	return err
 }
 
 // NodeIDToBytes32 converts a proto.NodeID to [32]byte.

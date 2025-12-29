@@ -12,10 +12,12 @@
  * - Metadata support
  *
  * Workerd compatible: Uses exec API for file operations.
+ * State persistence: Uses EQLite for distributed upload state tracking.
  */
 
 import { createHash, randomBytes } from 'node:crypto'
 import { getLocalhostHost } from '@jejunetwork/config'
+import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address } from 'viem'
 
 // Config injection for workerd compatibility
@@ -199,14 +201,201 @@ const TUS_EXTENSIONS = [
   'expiration',
 ]
 
+// ============ EQLite State Storage ============
+
+const TUS_DB_ID = process.env.EQLITE_DATABASE_ID ?? 'dws-tus-uploads'
+
+let eqliteClient: EQLiteClient | null = null
+let tablesInitialized = false
+
+async function getTusEQLiteClient(): Promise<EQLiteClient> {
+  if (!eqliteClient) {
+    eqliteClient = getEQLite({
+      databaseId: TUS_DB_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    })
+  }
+  return eqliteClient
+}
+
+async function ensureTusTables(): Promise<void> {
+  if (tablesInitialized) return
+
+  const client = await getTusEQLiteClient()
+
+  await client.exec(
+    `CREATE TABLE IF NOT EXISTS tus_uploads (
+      upload_id TEXT PRIMARY KEY,
+      upload_url TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      upload_offset INTEGER NOT NULL,
+      metadata TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      chunks TEXT NOT NULL,
+      owner TEXT,
+      final_cid TEXT,
+      final_url TEXT,
+      error_message TEXT
+    )`,
+    [],
+    TUS_DB_ID,
+  )
+
+  await client.exec(
+    `CREATE INDEX IF NOT EXISTS idx_tus_status ON tus_uploads(status)`,
+    [],
+    TUS_DB_ID,
+  )
+  await client.exec(
+    `CREATE INDEX IF NOT EXISTS idx_tus_expires ON tus_uploads(expires_at)`,
+    [],
+    TUS_DB_ID,
+  )
+
+  tablesInitialized = true
+}
+
+interface TusUploadRow {
+  upload_id: string
+  upload_url: string
+  file_size: number
+  upload_offset: number
+  metadata: string
+  status: string
+  created_at: number
+  updated_at: number
+  expires_at: number
+  chunks: string
+  owner: string | null
+  final_cid: string | null
+  final_url: string | null
+  error_message: string | null
+}
+
+function rowToUpload(row: TusUploadRow): TusUpload {
+  return {
+    uploadId: row.upload_id,
+    uploadUrl: row.upload_url,
+    fileSize: row.file_size,
+    uploadOffset: row.upload_offset,
+    metadata: JSON.parse(row.metadata),
+    status: row.status as UploadStatus,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    expiresAt: row.expires_at,
+    chunks: JSON.parse(row.chunks),
+    owner: row.owner as Address | undefined,
+    finalCid: row.final_cid ?? undefined,
+    finalUrl: row.final_url ?? undefined,
+    errorMessage: row.error_message ?? undefined,
+  }
+}
+
+const tusState = {
+  async saveUpload(upload: TusUpload): Promise<void> {
+    await ensureTusTables()
+    const client = await getTusEQLiteClient()
+    await client.exec(
+      `INSERT INTO tus_uploads (upload_id, upload_url, file_size, upload_offset, metadata, status, created_at, updated_at, expires_at, chunks, owner, final_cid, final_url, error_message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(upload_id) DO UPDATE SET
+         upload_offset = excluded.upload_offset,
+         metadata = excluded.metadata,
+         status = excluded.status,
+         updated_at = excluded.updated_at,
+         expires_at = excluded.expires_at,
+         chunks = excluded.chunks,
+         final_cid = excluded.final_cid,
+         final_url = excluded.final_url,
+         error_message = excluded.error_message`,
+      [
+        upload.uploadId,
+        upload.uploadUrl,
+        upload.fileSize,
+        upload.uploadOffset,
+        JSON.stringify(upload.metadata),
+        upload.status,
+        upload.createdAt,
+        upload.updatedAt,
+        upload.expiresAt,
+        JSON.stringify(upload.chunks),
+        upload.owner ?? null,
+        upload.finalCid ?? null,
+        upload.finalUrl ?? null,
+        upload.errorMessage ?? null,
+      ],
+      TUS_DB_ID,
+    )
+  },
+
+  async getUpload(uploadId: string): Promise<TusUpload | null> {
+    await ensureTusTables()
+    const client = await getTusEQLiteClient()
+    const result = await client.query<TusUploadRow>(
+      `SELECT * FROM tus_uploads WHERE upload_id = ?`,
+      [uploadId],
+      TUS_DB_ID,
+    )
+    const row = result.rows[0]
+    return row ? rowToUpload(row) : null
+  },
+
+  async deleteUpload(uploadId: string): Promise<void> {
+    await ensureTusTables()
+    const client = await getTusEQLiteClient()
+    await client.exec(
+      `DELETE FROM tus_uploads WHERE upload_id = ?`,
+      [uploadId],
+      TUS_DB_ID,
+    )
+  },
+
+  async getAllUploads(): Promise<TusUpload[]> {
+    await ensureTusTables()
+    const client = await getTusEQLiteClient()
+    const result = await client.query<TusUploadRow>(
+      `SELECT * FROM tus_uploads`,
+      [],
+      TUS_DB_ID,
+    )
+    return result.rows.map(rowToUpload)
+  },
+
+  async getActiveUploads(): Promise<TusUpload[]> {
+    await ensureTusTables()
+    const client = await getTusEQLiteClient()
+    const result = await client.query<TusUploadRow>(
+      `SELECT * FROM tus_uploads WHERE status IN ('created', 'uploading', 'paused', 'finalizing')`,
+      [],
+      TUS_DB_ID,
+    )
+    return result.rows.map(rowToUpload)
+  },
+
+  async getExpiredUploads(now: number): Promise<TusUpload[]> {
+    await ensureTusTables()
+    const client = await getTusEQLiteClient()
+    const result = await client.query<TusUploadRow>(
+      `SELECT * FROM tus_uploads WHERE expires_at < ? AND status NOT IN ('completed', 'expired')`,
+      [now],
+      TUS_DB_ID,
+    )
+    return result.rows.map(rowToUpload)
+  },
+}
+
 // ============ TUS Upload Manager ============
 
 export class TusUploadManager {
   private config: TusConfig
-  private uploads: Map<string, TusUpload> = new Map()
   private initialized = false
   private testMode = false
-  private testChunks: Map<string, Buffer> = new Map() // In-memory storage for test mode
+  private testChunks: Map<string, Buffer> = new Map() // In-memory storage for test mode only
+  private testUploads: Map<string, TusUpload> = new Map() // In-memory for test mode only
 
   constructor(config?: Partial<TusConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -214,6 +403,7 @@ export class TusUploadManager {
 
   async initialize(): Promise<void> {
     if (this.initialized) return
+    await ensureTusTables()
     await this.ensureUploadDir()
     this.startCleanupInterval()
     this.initialized = true
@@ -304,12 +494,13 @@ export class TusUploadManager {
 
       // Save upload metadata
       await this.saveUploadMetadata(upload)
+      await tusState.saveUpload(upload)
     } else {
-      // In test mode, initialize empty buffer
+      // In test mode, initialize empty buffer and use in-memory storage
       this.testChunks.set(uploadId, Buffer.alloc(0))
+      this.testUploads.set(uploadId, upload)
     }
 
-    this.uploads.set(uploadId, upload)
     return upload
   }
 
@@ -367,7 +558,7 @@ export class TusUploadManager {
     uploadId: string,
     request: TusUploadPatchRequest,
   ): Promise<TusUpload> {
-    const upload = this.uploads.get(uploadId)
+    const upload = await this.getUpload(uploadId)
     if (!upload) {
       throw new Error('Upload not found')
     }
@@ -435,6 +626,9 @@ export class TusUploadManager {
 
     if (!this.testMode) {
       await this.saveUploadMetadata(upload)
+      await tusState.saveUpload(upload)
+    } else {
+      this.testUploads.set(uploadId, upload)
     }
     return upload
   }
@@ -474,44 +668,20 @@ export class TusUploadManager {
 
   // ============ Upload Status ============
 
-  getUpload(uploadId: string): TusUpload | undefined {
-    // Check in-memory cache only (synchronous)
-    const upload = this.uploads.get(uploadId)
-
-    // Check for expiration
-    if (
-      upload &&
-      Date.now() > upload.expiresAt &&
-      upload.status !== 'completed'
-    ) {
-      upload.status = 'expired'
-      // Note: saveUploadMetadata is async but we don't await here for backwards compat
-      this.saveUploadMetadata(upload).catch(console.error)
+  async getUpload(uploadId: string): Promise<TusUpload | undefined> {
+    // In test mode, use in-memory storage
+    if (this.testMode) {
+      return this.testUploads.get(uploadId)
     }
 
-    return upload
-  }
-
-  async getUploadAsync(uploadId: string): Promise<TusUpload | undefined> {
-    // First check in-memory cache
-    let upload = this.uploads.get(uploadId)
-
-    if (!upload) {
-      // Try to load from disk
-      upload = await this.loadUploadMetadata(uploadId)
-      if (upload) {
-        this.uploads.set(uploadId, upload)
-      }
-    }
+    // Get from EQLite
+    const upload = await tusState.getUpload(uploadId)
+    if (!upload) return undefined
 
     // Check for expiration
-    if (
-      upload &&
-      Date.now() > upload.expiresAt &&
-      upload.status !== 'completed'
-    ) {
+    if (Date.now() > upload.expiresAt && upload.status !== 'completed') {
       upload.status = 'expired'
-      await this.saveUploadMetadata(upload)
+      await tusState.saveUpload(upload)
     }
 
     return upload
@@ -564,7 +734,7 @@ export class TusUploadManager {
   // ============ Upload Termination ============
 
   async terminateUpload(uploadId: string): Promise<boolean> {
-    const upload = this.uploads.get(uploadId)
+    const upload = await tusState.getUpload(uploadId)
     if (!upload) {
       return false
     }
@@ -583,12 +753,13 @@ export class TusUploadManager {
       if (metaExists) {
         await rmFile(metadataPath)
       }
+      await tusState.deleteUpload(uploadId)
     } else {
       // In test mode, just remove from memory
       this.testChunks.delete(uploadId)
+      this.testUploads.delete(uploadId)
     }
 
-    this.uploads.delete(uploadId)
     return true
   }
 
@@ -599,16 +770,17 @@ export class TusUploadManager {
     metadata?: TusMetadata,
     owner?: Address,
   ): Promise<TusUpload> {
-    const uploads = uploadIds.map((id) => {
-      const upload = this.getUpload(id)
+    const uploads: TusUpload[] = []
+    for (const id of uploadIds) {
+      const upload = await this.getUpload(id)
       if (!upload) {
         throw new Error(`Upload ${id} not found`)
       }
       if (upload.status !== 'completed') {
         throw new Error(`Upload ${id} is not completed`)
       }
-      return upload
-    })
+      uploads.push(upload)
+    }
 
     // Calculate total size
     const totalSize = uploads.reduce((sum, u) => sum + u.fileSize, 0)
@@ -648,10 +820,10 @@ export class TusUploadManager {
 
   // ============ Parallel Chunk Upload Support ============
 
-  getChunkUploadUrls(
+  async getChunkUploadUrls(
     uploadId: string,
-  ): Array<{ url: string; offset: number; size: number }> {
-    const upload = this.getUpload(uploadId)
+  ): Promise<Array<{ url: string; offset: number; size: number }>> {
+    const upload = await this.getUpload(uploadId)
     if (!upload) {
       throw new Error('Upload not found')
     }
@@ -675,14 +847,14 @@ export class TusUploadManager {
 
   // ============ Progress and Stats ============
 
-  getUploadProgress(uploadId: string): {
+  async getUploadProgress(uploadId: string): Promise<{
     percent: number
     uploadedBytes: number
     totalBytes: number
     chunksUploaded: number
     estimatedTimeRemaining?: number
-  } {
-    const upload = this.getUpload(uploadId)
+  }> {
+    const upload = await this.getUpload(uploadId)
     if (!upload) {
       throw new Error('Upload not found')
     }
@@ -715,10 +887,13 @@ export class TusUploadManager {
     }
   }
 
-  getActiveUploads(): TusUpload[] {
-    return Array.from(this.uploads.values()).filter(
-      (u) => u.status === 'created' || u.status === 'uploading',
-    )
+  async getActiveUploads(): Promise<TusUpload[]> {
+    if (this.testMode) {
+      return Array.from(this.testUploads.values()).filter(
+        (u) => u.status === 'created' || u.status === 'uploading',
+      )
+    }
+    return await tusState.getActiveUploads()
   }
 
   // ============ Cleanup ============
@@ -727,9 +902,17 @@ export class TusUploadManager {
     const now = Date.now()
     let cleaned = 0
 
-    for (const [uploadId, upload] of this.uploads) {
-      if (now > upload.expiresAt && upload.status !== 'completed') {
-        await this.terminateUpload(uploadId)
+    if (this.testMode) {
+      for (const [uploadId, upload] of this.testUploads) {
+        if (now > upload.expiresAt && upload.status !== 'completed') {
+          await this.terminateUpload(uploadId)
+          cleaned++
+        }
+      }
+    } else {
+      const uploads = await tusState.getExpiredUploads(now)
+      for (const upload of uploads) {
+        await this.terminateUpload(upload.uploadId)
         cleaned++
       }
     }
@@ -738,7 +921,7 @@ export class TusUploadManager {
   }
 
   async cleanupCompletedUpload(uploadId: string): Promise<boolean> {
-    const upload = this.getUpload(uploadId)
+    const upload = await this.getUpload(uploadId)
     if (!upload || upload.status !== 'completed') {
       return false
     }
@@ -764,7 +947,7 @@ export class TusUploadManager {
   }
 
   async getCompletedFilePath(uploadId: string): Promise<string | undefined> {
-    const upload = this.getUpload(uploadId)
+    const upload = await this.getUpload(uploadId)
     if (!upload || upload.status !== 'completed') {
       return undefined
     }
@@ -786,19 +969,6 @@ export class TusUploadManager {
     const metadataPath = this.getMetadataPath(upload.uploadId)
     const content = Buffer.from(JSON.stringify(upload, null, 2), 'utf-8')
     await writeFileAsync(metadataPath, content)
-  }
-
-  private async loadUploadMetadata(
-    uploadId: string,
-  ): Promise<TusUpload | undefined> {
-    const metadataPath = this.getMetadataPath(uploadId)
-    const exists = await fileExists(metadataPath)
-    if (!exists) {
-      return undefined
-    }
-
-    const data = await readFileAsync(metadataPath)
-    return JSON.parse(data.toString('utf-8')) as TusUpload
   }
 
   // ============ Checksum Utilities ============
@@ -893,13 +1063,13 @@ export async function handleTusPost(
   }
 }
 
-export function handleTusHead(uploadId: string): {
+export async function handleTusHead(uploadId: string): Promise<{
   status: number
   headers: Record<string, string>
   upload?: TusUpload
-} {
+}> {
   const manager = getTusUploadManager()
-  const upload = manager.getUpload(uploadId)
+  const upload = await manager.getUpload(uploadId)
 
   if (!upload) {
     return { status: 404, headers: {} }

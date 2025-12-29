@@ -101,14 +101,14 @@ contract MultiChainRPCRegistryTest is Test {
         vm.prank(node1);
         registry.addChainEndpoint(
             ETHEREUM_CHAIN_ID,
-            "https://eth.node1.jeju.network",
+            "https://eth.node1.jejunetwork.org",
             true, // archive
             true  // websocket
         );
 
         MultiChainRPCRegistry.ChainEndpoint memory endpoint = registry.getChainEndpoint(node1, ETHEREUM_CHAIN_ID);
         assertEq(endpoint.chainId, ETHEREUM_CHAIN_ID);
-        assertEq(endpoint.endpoint, "https://eth.node1.jeju.network");
+        assertEq(endpoint.endpoint, "https://eth.node1.jejunetwork.org");
         assertTrue(endpoint.isActive);
         assertTrue(endpoint.isArchive);
         assertTrue(endpoint.isWebSocket);
@@ -117,7 +117,7 @@ contract MultiChainRPCRegistryTest is Test {
     function test_AddChainEndpoint_RevertIfNotRegistered() public {
         vm.prank(node1);
         vm.expectRevert(MultiChainRPCRegistry.NodeNotActive.selector);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", false, false);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", false, false);
     }
 
     function test_AddChainEndpoint_RevertIfEmptyEndpoint() public {
@@ -134,9 +134,9 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.startPrank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
-        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
-        registry.addChainEndpoint(ARBITRUM_CHAIN_ID, "https://arb.node1.jeju.network", true, false);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jejunetwork.org", false, true);
+        registry.addChainEndpoint(ARBITRUM_CHAIN_ID, "https://arb.node1.jejunetwork.org", true, false);
         vm.stopPrank();
 
         uint64[] memory chains = registry.getNodeChains(node1);
@@ -148,7 +148,7 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
 
         vm.prank(node1);
         registry.removeChainEndpoint(ETHEREUM_CHAIN_ID);
@@ -173,7 +173,7 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
 
         uint64 blockHeight = 19_000_000;
         vm.prank(node1);
@@ -188,7 +188,7 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
 
         // Warp time
         vm.warp(block.timestamp + 1 hours);
@@ -302,9 +302,9 @@ contract MultiChainRPCRegistryTest is Test {
 
         // Both support Ethereum
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
         vm.prank(node2);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jeju.network", false, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jejunetwork.org", false, true);
 
         address[] memory providers = registry.getProvidersForChain(ETHEREUM_CHAIN_ID);
         assertEq(providers.length, 2);
@@ -317,9 +317,9 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("eu-west");
 
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
         vm.prank(node2);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jeju.network", false, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jejunetwork.org", false, true);
 
         // Remove node2's endpoint
         vm.prank(node2);
@@ -540,8 +540,8 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.startPrank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
-        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jejunetwork.org", false, true);
         vm.stopPrank();
 
         uint64[] memory chains = registry.getSupportedChains();
@@ -653,8 +653,8 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.startPrank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
-        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jejunetwork.org", false, true);
         vm.stopPrank();
 
         vm.startPrank(node1);
@@ -764,7 +764,7 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
 
         // Query for chain that no one supports
         address[] memory providers = registry.getProvidersForChain(99999);
@@ -804,7 +804,7 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
 
         vm.prank(owner);
         registry.setNodeFrozen(node1, true);
@@ -844,8 +844,8 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("us-east");
 
         vm.startPrank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
-        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jejunetwork.org", false, true);
         vm.stopPrank();
 
         // Remove one chain
@@ -867,13 +867,13 @@ contract MultiChainRPCRegistryTest is Test {
         registry.registerNode{value: 1 ether}("eu-west");
 
         vm.startPrank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
-        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jeju.network", false, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
+        registry.addChainEndpoint(POLYGON_CHAIN_ID, "https://polygon.node1.jejunetwork.org", false, true);
         vm.stopPrank();
 
         vm.startPrank(node2);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jeju.network", false, false);
-        registry.addChainEndpoint(ARBITRUM_CHAIN_ID, "https://arb.node2.jeju.network", true, false);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jejunetwork.org", false, false);
+        registry.addChainEndpoint(ARBITRUM_CHAIN_ID, "https://arb.node2.jejunetwork.org", true, false);
         vm.stopPrank();
 
         // Check Ethereum providers
@@ -900,13 +900,13 @@ contract MultiChainRPCRegistryTest is Test {
         vm.prank(node1);
         registry.registerNode{value: 1 ether}("us-east");
         vm.prank(node1);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jeju.network", true, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node1.jejunetwork.org", true, true);
 
         // Register and setup node2
         vm.prank(node2);
         registry.registerNode{value: 1 ether}("eu-west");
         vm.prank(node2);
-        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jeju.network", false, true);
+        registry.addChainEndpoint(ETHEREUM_CHAIN_ID, "https://eth.node2.jejunetwork.org", false, true);
 
         // Report performance
         vm.startPrank(owner);

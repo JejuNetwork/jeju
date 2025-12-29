@@ -8,12 +8,19 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
+import { getCoreAppUrl, getDWSUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 
-const FACTORY_API_URL = process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
-const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
-const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
+const FACTORY_API_URL =
+  (typeof process !== 'undefined' ? process.env.FACTORY_API_URL : undefined) ||
+  getCoreAppUrl('FACTORY')
+const DWS_URL =
+  (typeof process !== 'undefined' ? process.env.DWS_URL : undefined) ||
+  getCoreAppUrl('DWS_API') ||
+  getDWSUrl()
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+  getL2RpcUrl()
 
 // Track service availability
 let factoryAvailable = false

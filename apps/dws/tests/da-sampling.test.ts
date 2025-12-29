@@ -8,6 +8,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { getLocalhostHost, getTeeEndpoint } from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import {
@@ -302,7 +303,7 @@ describe('DASampler', () => {
       {
         address: TEST_ADDRESS,
         status: 'active' as const,
-        endpoint: 'http://localhost:8080',
+        endpoint: getTeeEndpoint() || `http://${getLocalhostHost()}:8080`,
         reputation: 100,
       },
     ]

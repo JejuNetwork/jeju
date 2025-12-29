@@ -43,7 +43,7 @@ describe('Residential Proxy Configuration', () => {
       const config: ProxyConfig = {
         listenPort: 8080,
         metricsPort: 9090,
-        coordinatorUrl: 'wss://coordinator.jeju.network',
+        coordinatorUrl: 'wss://coordinator.jejunetwork.org',
         regionCode: 'US-CA',
         maxConnections: 1000,
         connectionTimeoutMs: 30000,
@@ -57,7 +57,7 @@ describe('Residential Proxy Configuration', () => {
     test('validates config without optional fields', () => {
       const config: ProxyConfig = {
         listenPort: 8080,
-        coordinatorUrl: 'wss://coordinator.jeju.network',
+        coordinatorUrl: 'wss://coordinator.jejunetwork.org',
         maxConnections: 100,
         connectionTimeoutMs: 30000,
       }
@@ -70,7 +70,7 @@ describe('Residential Proxy Configuration', () => {
     test('rejects invalid listen port', () => {
       const config = {
         listenPort: 80, // Below 1024
-        coordinatorUrl: 'wss://coordinator.jeju.network',
+        coordinatorUrl: 'wss://coordinator.jejunetwork.org',
         maxConnections: 100,
         connectionTimeoutMs: 30000,
       }
@@ -92,7 +92,7 @@ describe('Residential Proxy Configuration', () => {
     test('rejects zero max connections', () => {
       const config = {
         listenPort: 8080,
-        coordinatorUrl: 'wss://coordinator.jeju.network',
+        coordinatorUrl: 'wss://coordinator.jejunetwork.org',
         maxConnections: 0,
         connectionTimeoutMs: 30000,
       }
@@ -103,7 +103,7 @@ describe('Residential Proxy Configuration', () => {
     test('rejects negative timeout', () => {
       const config = {
         listenPort: 8080,
-        coordinatorUrl: 'wss://coordinator.jeju.network',
+        coordinatorUrl: 'wss://coordinator.jejunetwork.org',
         maxConnections: 100,
         connectionTimeoutMs: -1,
       }

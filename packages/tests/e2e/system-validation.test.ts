@@ -11,6 +11,7 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getChainId, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   createPublicClient,
   formatEther,
@@ -30,9 +31,17 @@ import {
 import { TEST_ACCOUNTS } from '../shared/utils'
 
 // Test configuration
+const host = getLocalhostHost()
 const TEST_CONFIG = {
-  rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
-  chainId: parseInt(process.env.CHAIN_ID || '31337', 10),
+  rpcUrl:
+    (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+    getL2RpcUrl() ||
+    `http://${host}:6546`,
+  chainId: parseInt(
+    (typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined) ??
+      String(getChainId() ?? 31337),
+    10,
+  ),
   testTimeout: 30000,
 }
 

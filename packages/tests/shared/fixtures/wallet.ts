@@ -24,11 +24,21 @@ export const JEJU_TEST_WALLET = {
   privateKey: TEST_ACCOUNTS.deployer.privateKey,
 } as const
 
+import { getChainId, getL2RpcUrl } from '@jejunetwork/config'
+
 export const JEJU_NETWORK = {
   name: JEJU_CHAIN.name,
   networkName: JEJU_CHAIN.name,
-  rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || JEJU_RPC_URL,
-  chainId: parseInt(process.env.CHAIN_ID || String(JEJU_CHAIN_ID), 10),
+  rpcUrl:
+    (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ||
+    (typeof process !== 'undefined' ? process.env.JEJU_RPC_URL : undefined) ||
+    getL2RpcUrl() ||
+    JEJU_RPC_URL,
+  chainId: parseInt(
+    (typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined) ??
+      String(getChainId() ?? JEJU_CHAIN_ID),
+    10,
+  ),
   symbol: JEJU_CHAIN.symbol,
 } as const
 

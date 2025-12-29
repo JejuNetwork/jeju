@@ -63,10 +63,10 @@ describe('Edge Coordinator Configuration', () => {
         listenPort: 8545,
         region: 'us-east-1',
         bootstrapNodes: [
-          'wss://boot1.jeju.network',
-          'wss://boot2.jeju.network',
+          'wss://boot1.jejunetwork.org',
+          'wss://boot2.jejunetwork.org',
         ],
-        rpcUrl: 'https://rpc.jeju.network',
+        rpcUrl: 'https://rpc.jejunetwork.org',
         nodeRegistryAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
       }
 

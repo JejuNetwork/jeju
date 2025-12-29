@@ -4,6 +4,7 @@ import {
   getChainId,
   getIndexerGraphqlUrl,
   getIpfsApiUrl,
+  getIpfsGatewayUrl,
   getLocalhostHost,
   getOAuth3Url,
   getRpcGatewayUrl,

@@ -28,6 +28,12 @@ variable "wait_for_validation" {
   default     = true
 }
 
+variable "existing_certificate_arn" {
+  description = "Use an existing certificate ARN instead of creating a new one"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
@@ -35,6 +41,9 @@ variable "tags" {
 }
 
 locals {
+  # Whether to use an existing certificate
+  use_existing = var.existing_certificate_arn != ""
+
   # Build list of all domains to include in certificate
   all_domains = concat(
     [var.domain_name],
@@ -52,7 +61,10 @@ locals {
 }
 
 # Request ACM certificate (must be in us-east-1 for CloudFront)
+# Only created if not using an existing certificate
 resource "aws_acm_certificate" "main" {
+  count = local.use_existing ? 0 : 1
+
   domain_name               = var.domain_name
   subject_alternative_names = local.unique_sans
   validation_method         = "DNS"
@@ -71,9 +83,10 @@ resource "aws_acm_certificate" "main" {
 }
 
 # Create DNS validation records in Route53
+# Only created if not using an existing certificate
 resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.main.domain_validation_options : dvo.domain_name => {
+  for_each = local.use_existing ? {} : {
+    for dvo in aws_acm_certificate.main[0].domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
@@ -90,9 +103,9 @@ resource "aws_route53_record" "cert_validation" {
 
 # Wait for certificate validation (optional - can skip on initial deploy)
 resource "aws_acm_certificate_validation" "main" {
-  count = var.wait_for_validation ? 1 : 0
+  count = local.use_existing ? 0 : (var.wait_for_validation ? 1 : 0)
 
-  certificate_arn         = aws_acm_certificate.main.arn
+  certificate_arn         = aws_acm_certificate.main[0].arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 
   timeouts {
@@ -103,22 +116,22 @@ resource "aws_acm_certificate_validation" "main" {
 # Outputs
 output "certificate_arn" {
   description = "ARN of the ACM certificate"
-  # Return validated ARN if waiting, otherwise unvalidated
-  value = var.wait_for_validation ? aws_acm_certificate_validation.main[0].certificate_arn : aws_acm_certificate.main.arn
+  value = local.use_existing ? var.existing_certificate_arn : (
+    var.wait_for_validation ? aws_acm_certificate_validation.main[0].certificate_arn : aws_acm_certificate.main[0].arn
+  )
 }
 
 output "certificate_domain_name" {
   description = "Primary domain name of the certificate"
-  value       = aws_acm_certificate.main.domain_name
+  value       = local.use_existing ? var.domain_name : aws_acm_certificate.main[0].domain_name
 }
 
 output "certificate_status" {
   description = "Status of the certificate"
-  value       = aws_acm_certificate.main.status
+  value       = local.use_existing ? "ISSUED" : aws_acm_certificate.main[0].status
 }
 
 output "domain_validation_options" {
   description = "Domain validation options (for debugging)"
-  value       = aws_acm_certificate.main.domain_validation_options
+  value       = local.use_existing ? [] : aws_acm_certificate.main[0].domain_validation_options
 }
-

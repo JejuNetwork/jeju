@@ -7,10 +7,14 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
 // Check if EQLite is available for state operations
-const EQLITE_AVAILABLE = !!process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+const EQLITE_AVAILABLE =
+  !!(typeof process !== 'undefined'
+    ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+    : undefined) || !!getEQLiteBlockProducerUrl()
 
 import {
   ALL_PROVIDERS,
@@ -39,12 +43,13 @@ beforeAll(async () => {
 describe('Provider Connectivity', () => {
   test('should list all configured providers', () => {
     const configuredCount = ALL_PROVIDERS.filter(
-      (p) => process.env[p.envVar],
+      (p) => typeof process !== 'undefined' && process.env[p.envVar],
     ).length
     console.log(`[Live Test] ${configuredCount} providers configured`)
 
     for (const provider of ALL_PROVIDERS) {
-      const configured = !!process.env[provider.envVar]
+      const configured =
+        typeof process !== 'undefined' && !!process.env[provider.envVar]
       if (configured) {
         console.log(`  ✓ ${provider.name} (${provider.id})`)
       }

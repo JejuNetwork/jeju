@@ -404,12 +404,11 @@ export function createHSMProvider(config: HSMConfig): HSMProvider {
       return new GCloudHSMProvider(config)
     }
 
-    case 'yubihsm':
-      // TODO: Implement YubiHSM provider
-      throw new Error(
-        'YubiHSM not yet implemented. ' +
-          'Use HSM_TYPE=softhsm for development.',
-      )
+    case 'yubihsm': {
+      // Lazy import YubiHSM provider
+      const { YubiHSMProvider } = require('./yubihsm.js')
+      return new YubiHSMProvider(config)
+    }
 
     default:
       throw new Error(`Unknown HSM type: ${config.type}`)

@@ -10,7 +10,7 @@ import {
   type JNSResolution,
   type JNSResolverSettings,
   jnsResolver,
-} from '../../api/services/jns'
+} from '../../api/services/jns/resolver'
 
 interface JNSGatewayStatus {
   localDws: 'online' | 'offline'

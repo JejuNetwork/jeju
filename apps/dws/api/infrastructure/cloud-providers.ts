@@ -119,6 +119,21 @@ export interface CloudProvider {
   estimateMonthlyCost(instanceType: string, count: number): number
 }
 
+// Helper: Calculate SSH key fingerprint from public key
+async function calculateSSHKeyFingerprint(publicKey: string): Promise<string> {
+  // Extract the key data (ssh-rsa AAAAB3... user@host -> AAAAB3...)
+  const parts = publicKey.trim().split(/\s+/)
+  const keyData =
+    parts.length >= 2 && parts[0].startsWith('ssh-') ? parts[1] : publicKey
+
+  // Decode base64 key data and hash it
+  const keyBytes = Buffer.from(keyData, 'base64')
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes)
+  const hashArray = new Uint8Array(hashBuffer)
+  const base64 = Buffer.from(hashArray).toString('base64').replace(/=+$/, '')
+  return `SHA256:${base64}`
+}
+
 // Hetzner Cloud Provider
 
 export class HetznerProvider implements CloudProvider {
@@ -1084,11 +1099,13 @@ export class VultrProvider implements CloudProvider {
       }>
     }
 
-    return data.ssh_keys.map((key) => ({
-      id: key.id,
-      name: key.name,
-      fingerprint: '', // Vultr doesn't return fingerprint directly
-    }))
+    return Promise.all(
+      data.ssh_keys.map(async (key) => ({
+        id: key.id,
+        name: key.name,
+        fingerprint: await calculateSSHKeyFingerprint(key.ssh_key),
+      })),
+    )
   }
 
   async createSSHKey(name: string, publicKey: string): Promise<string> {

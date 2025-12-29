@@ -139,7 +139,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         ? true
         : [
             'https://bazaar.jejunetwork.org',
-            'https://jeju.network',
+            'https://jejunetwork.org',
             getCoreAppUrl('BAZAAR'),
           ],
       credentials: true,

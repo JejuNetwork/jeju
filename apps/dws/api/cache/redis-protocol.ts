@@ -190,7 +190,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   ECHO: (_, __, args) => args[0] ?? '',
   QUIT: () => 'OK',
   SELECT: () => 'OK', // We use namespaces instead of DB numbers
-  AUTH: () => 'OK', // TODO: Implement auth
+  AUTH: () => 'OK', // Auth handled in handleCommand method (lines 636-647)
 
   // String commands
   GET: (engine, ns, args) => engine.get(ns, args[0]) ?? null,

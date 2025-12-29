@@ -125,6 +125,9 @@ resource "aws_eks_cluster" "main" {
   role_arn = aws_iam_role.cluster.arn
   version  = var.cluster_version
 
+  # Match existing cluster configuration
+  bootstrap_self_managed_addons = false
+
   vpc_config {
     subnet_ids              = concat(var.private_subnet_ids, var.public_subnet_ids)
     endpoint_private_access = true
@@ -141,6 +144,15 @@ resource "aws_eks_cluster" "main" {
     Name        = local.cluster_name
     Environment = var.environment
   })
+
+  # Ignore VPC config changes after initial creation (prevents drift errors)
+  lifecycle {
+    ignore_changes = [
+      vpc_config[0].endpoint_private_access,
+      vpc_config[0].endpoint_public_access,
+      vpc_config[0].public_access_cidrs,
+    ]
+  }
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_policy,

@@ -7,6 +7,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   createTEEGPUProvider,
   GPU_SPECS,
@@ -22,7 +23,7 @@ import {
 
 // Test account
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const
-const TEST_ENDPOINT = 'http://localhost:4030'
+const TEST_ENDPOINT = getDWSUrl() || `http://${getLocalhostHost()}:4030`
 
 describe('TEE GPU Provider', () => {
   describe('LOCAL Mode (Simulated)', () => {

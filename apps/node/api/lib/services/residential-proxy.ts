@@ -20,7 +20,7 @@ import { WebSocket } from 'ws'
 import { z } from 'zod'
 import { PROXY_REGISTRY_ABI } from '../abis'
 import { config as nodeConfig } from '../config'
-import { getChain, type SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 
 /** Type for proxy node from contract */
 interface ProxyNodeResult {
@@ -230,10 +230,6 @@ export class ResidentialProxyService {
   }
 
   async register(regionCode?: string): Promise<string> {
-    if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
     // Hash region code (e.g., "US" -> keccak256("US"))
     const region = regionCode ?? nodeConfig.proxyRegion ?? 'GLOBAL'
     const regionHash = `0x${bytesToHex(hash256(region))}` as Hex
@@ -241,9 +237,7 @@ export class ResidentialProxyService {
     // Get endpoint URL for callback
     const endpoint = `http://${getLocalhostHost()}:${this.config.localPort}`
 
-    const hash = await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
+    const hash = await this.client.txExecutor.writeContract({
       address: this.client.addresses.proxyRegistry,
       abi: PROXY_REGISTRY_ABI,
       functionName: 'register',
@@ -263,8 +257,8 @@ export class ResidentialProxyService {
     this.running = true
     this.draining = false
 
-    // Get node ID
-    const address = this.client.walletClient?.account?.address
+    // Get node ID from KMS-derived address
+    const address = await this.client.txExecutor.getAddress()
     if (address) {
       const state = await this.getState(address)
       if (state) {
@@ -472,16 +466,17 @@ export class ResidentialProxyService {
       await this.coordinatorBreaker.execute(async () => {
         const ws = new WebSocket(this.config.coordinatorWsUrl)
 
-        ws.on('open', () => {
+        ws.on('open', async () => {
           console.log('[Proxy] Connected to coordinator')
           proxyCoordinatorConnected.set(1)
 
-          // Register
+          // Register with KMS-derived address
+          const signerAddress = await this.client.txExecutor.getAddress()
           ws.send(
             JSON.stringify({
               type: 'register',
               nodeId: this.nodeId,
-              address: this.client.walletClient?.account?.address,
+              address: signerAddress,
               capabilities: {
                 maxConnections: this.config.maxConcurrentRequests,
                 bandwidthMbps: this.config.bandwidthLimitMbps,

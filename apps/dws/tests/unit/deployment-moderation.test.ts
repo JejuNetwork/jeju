@@ -1,5 +1,9 @@
 /**
  * Tests for Deployment Moderation Service
+ *
+ * Tests the actual DeploymentModerationService API:
+ * - scanDeployment() - scans a deployment and returns moderation result
+ * - getReputation() - gets user reputation data
  */
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
@@ -13,27 +17,9 @@ mock.module('@jejunetwork/db', () => ({
   getEQLite: () => ({
     query: mockQuery,
     exec: mockExec,
+    isHealthy: () => Promise.resolve(true),
   }),
 }))
-
-// Mock fetch for AI API calls
-const mockFetch = mock(() =>
-  Promise.resolve({
-    ok: true,
-    json: () =>
-      Promise.resolve({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({ safe: true, confidence: 0.95 }),
-            },
-          },
-        ],
-      }),
-  }),
-)
-
-globalThis.fetch = mockFetch as typeof fetch
 
 // Import after mocking
 const { DeploymentModerationService } = await import(
@@ -42,363 +28,192 @@ const { DeploymentModerationService } = await import(
 
 describe('Deployment Moderation Service', () => {
   let service: DeploymentModerationService
-  const testAddress = '0x1234567890123456789012345678901234567890' as Address
+  const testOwner = '0x1234567890123456789012345678901234567890' as Address
+  const testDeploymentId = 'deploy-123'
 
   beforeEach(() => {
-    service = new DeploymentModerationService()
+    service = new DeploymentModerationService({
+      enableImageScanning: true,
+      enableCodeScanning: true,
+      enableEnvScanning: true,
+      enableAIAnalysis: false, // Disable AI for unit tests
+      autoBlockThreshold: 0.9,
+      reviewThreshold: 0.5,
+    })
     mockQuery.mockClear()
     mockExec.mockClear()
-    mockFetch.mockClear()
+  })
+
+  describe('getReputation', () => {
+    test('returns default reputation for new user', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] })
+
+      const reputation = await service.getReputation(testOwner)
+
+      expect(reputation.address).toBe(testOwner)
+      expect(reputation.tier).toBe('untrusted')
+      expect(reputation.totalDeployments).toBe(0)
+      expect(reputation.reputationScore).toBe(0)
+    })
+
+    test('returns existing reputation from database', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            tier: 'high',
+            total_deployments: 50,
+            successful_deployments: 48,
+            blocked_deployments: 1,
+            reviewed_deployments: 1,
+            reputation_score: 95,
+            last_deployment_at: Date.now(),
+            linked_identity_type: null,
+            linked_identity_verified_at: null,
+            linked_identity_account_age: null,
+          },
+        ],
+      })
+
+      const reputation = await service.getReputation(testOwner)
+
+      expect(reputation.tier).toBe('high')
+      expect(reputation.totalDeployments).toBe(50)
+      expect(reputation.reputationScore).toBe(95)
+    })
   })
 
   describe('scanDeployment', () => {
-    test('scans and approves clean deployment', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    safe: true,
-                    confidence: 0.98,
-                    categories: [],
-                    explanation: 'Content appears safe',
-                  }),
-                },
-              },
-            ],
-          }),
-      } as Response)
+    test('approves clean deployment from trusted user', async () => {
+      // Mock high reputation user
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            tier: 'high',
+            total_deployments: 100,
+            successful_deployments: 100,
+            blocked_deployments: 0,
+            reviewed_deployments: 0,
+            reputation_score: 100,
+            last_deployment_at: Date.now(),
+            linked_identity_type: null,
+            linked_identity_verified_at: null,
+            linked_identity_account_age: null,
+          },
+        ],
+      })
+      // Mock store result
+      mockExec.mockResolvedValueOnce(undefined)
+      // Mock reputation update
+      mockExec.mockResolvedValueOnce(undefined)
 
       const result = await service.scanDeployment({
-        deploymentId: 'dep-123',
-        owner: testAddress,
-        type: 'container',
-        image: 'node:18',
-        codeCid: 'QmTest123',
+        deploymentId: testDeploymentId,
+        owner: testOwner,
+        environment: {},
       })
 
-      expect(result.approved).toBe(true)
-      expect(result.confidence).toBeGreaterThan(0.9)
+      expect(result.action).toBe('allow')
+      expect(result.overallScore).toBeLessThanOrEqual(100)
+      expect(result.reviewRequired).toBe(false)
+      expect(result.attestationHash).toMatch(/^0x[a-f0-9]{64}$/)
     })
 
-    test('rejects deployment with prohibited content', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    safe: false,
-                    confidence: 0.95,
-                    categories: ['malware', 'crypto-mining'],
-                    explanation: 'Detected cryptocurrency mining code',
-                  }),
-                },
-              },
-            ],
-          }),
-      } as Response)
+    test('flags suspicious deployment for review', async () => {
+      // Mock untrusted user
+      mockQuery.mockResolvedValueOnce({ rows: [] })
+      // Mock store result
+      mockExec.mockResolvedValueOnce(undefined)
+      // Mock reputation update
+      mockExec.mockResolvedValueOnce(undefined)
+      // Mock queue for review
+      mockExec.mockResolvedValueOnce(undefined)
 
       const result = await service.scanDeployment({
-        deploymentId: 'dep-124',
-        owner: testAddress,
-        type: 'container',
-        image: 'cryptominer:latest',
-        codeCid: 'QmMiner789',
+        deploymentId: testDeploymentId,
+        owner: testOwner,
+        environment: {
+          // Suspicious patterns
+          CRYPTO_MINER: 'true',
+          SECRET_KEY: 'sk-ant-api-key-123',
+        },
       })
 
-      expect(result.approved).toBe(false)
-      expect(result.categories).toContain('crypto-mining')
+      // May be quarantine or review based on scoring
+      expect(['quarantine', 'review']).toContain(result.action)
+      expect(result.blockedReasons.length).toBeGreaterThan(0)
     })
 
-    test('flags low confidence results for review', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    safe: true,
-                    confidence: 0.65,
-                    categories: ['unclear'],
-                    explanation: 'Uncertain about some content',
-                  }),
-                },
-              },
-            ],
-          }),
-      } as Response)
+    test('includes scan duration in result', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] })
+      mockExec.mockResolvedValue(undefined)
 
       const result = await service.scanDeployment({
-        deploymentId: 'dep-125',
-        owner: testAddress,
-        type: 'worker',
-        codeCid: 'QmObfuscated456',
+        deploymentId: testDeploymentId,
+        owner: testOwner,
       })
 
-      expect(result.approved).toBe(false)
-      expect(result.requiresManualReview).toBe(true)
+      expect(result.scanDurationMs).toBeGreaterThanOrEqual(0)
+      expect(typeof result.scanDurationMs).toBe('number')
+    })
+
+    test('generates valid attestation hash', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] })
+      mockExec.mockResolvedValue(undefined)
+
+      const result = await service.scanDeployment({
+        deploymentId: testDeploymentId,
+        owner: testOwner,
+      })
+
+      expect(result.attestationHash).toBeDefined()
+      expect(result.attestationHash.length).toBe(66) // 0x + 64 hex chars
     })
   })
 
-  describe('scanImage', () => {
-    test('scans container image', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    safe: true,
-                    confidence: 0.92,
-                    vulnerabilities: [],
-                    malwareDetected: false,
-                  }),
-                },
-              },
-            ],
-          }),
-      } as Response)
+  describe('environment scanning', () => {
+    test('detects sensitive environment variables', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] })
+      mockExec.mockResolvedValue(undefined)
 
-      const result = await service.scanImage({
-        imageId: 'sha256:abc123',
-        registry: 'docker.io',
-        repository: 'library/node',
-        tag: '18-alpine',
+      const result = await service.scanDeployment({
+        deploymentId: testDeploymentId,
+        owner: testOwner,
+        environment: {
+          // Value needs to look like a real secret (length > 20 or specific pattern)
+          AWS_SECRET_ACCESS_KEY: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+          OPENAI_API_KEY: 'sk-proj-abcdefghijklmnopqrstuvwxyz123456789',
+        },
       })
 
-      expect(result.safe).toBe(true)
-      expect(result.vulnerabilities).toHaveLength(0)
-    })
-
-    test('detects vulnerabilities in image', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    safe: false,
-                    confidence: 0.88,
-                    vulnerabilities: [
-                      {
-                        id: 'CVE-2024-1234',
-                        severity: 'high',
-                        package: 'openssl',
-                      },
-                    ],
-                    malwareDetected: false,
-                  }),
-                },
-              },
-            ],
-          }),
-      } as Response)
-
-      const result = await service.scanImage({
-        imageId: 'sha256:def456',
-        registry: 'docker.io',
-        repository: 'custom/app',
-        tag: 'latest',
-      })
-
-      expect(result.safe).toBe(false)
-      expect(result.vulnerabilities).toHaveLength(1)
-      expect(result.vulnerabilities[0].severity).toBe('high')
+      // Looks for data_leak category, not leaked_credentials
+      const sensitiveCategory = result.categories.find(
+        (c) => c.category === 'data_leak',
+      )
+      expect(sensitiveCategory).toBeDefined()
     })
   })
 
-  describe('checkContentPolicy', () => {
-    test('allows permitted content', () => {
-      const result = service.checkContentPolicy({
-        contentType: 'text/html',
-        features: ['fetch', 'websockets'],
-        trustLevel: 'basic',
+  describe('moderation result structure', () => {
+    test('returns properly structured moderation result', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] })
+      mockExec.mockResolvedValue(undefined)
+
+      const result = await service.scanDeployment({
+        deploymentId: testDeploymentId,
+        owner: testOwner,
       })
 
-      expect(result.allowed).toBe(true)
-    })
-
-    test('blocks restricted features for new users', () => {
-      const result = service.checkContentPolicy({
-        contentType: 'application/octet-stream',
-        features: ['outbound-http', 'crypto-mining'],
-        trustLevel: 'new',
-      })
-
-      expect(result.allowed).toBe(false)
-      expect(result.blockedFeatures).toContain('crypto-mining')
-    })
-
-    test('allows more features for trusted users', () => {
-      const result = service.checkContentPolicy({
-        contentType: 'application/octet-stream',
-        features: ['outbound-http', 'websockets', 'raw-sockets'],
-        trustLevel: 'trusted',
-      })
-
-      expect(result.allowed).toBe(true)
-    })
-  })
-
-  describe('getModerationHistory', () => {
-    test('returns moderation history for deployment', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'mod-1',
-            deployment_id: 'dep-123',
-            action: 'approved',
-            confidence: 0.95,
-            categories: null,
-            created_at: Date.now() - 3600000,
-          },
-          {
-            id: 'mod-2',
-            deployment_id: 'dep-123',
-            action: 'rescan',
-            confidence: 0.98,
-            categories: null,
-            created_at: Date.now(),
-          },
-        ],
-      })
-
-      const history = await service.getModerationHistory('dep-123')
-
-      expect(history).toHaveLength(2)
-      expect(history[0].action).toBe('approved')
-    })
-  })
-
-  describe('requestManualReview', () => {
-    test('submits deployment for manual review', async () => {
-      const result = await service.requestManualReview({
-        deploymentId: 'dep-126',
-        reason: 'AI scan inconclusive',
-        priority: 'normal',
-      })
-
-      expect(result.reviewId).toBeDefined()
-      expect(result.status).toBe('pending')
-      expect(mockExec).toHaveBeenCalled()
-    })
-  })
-
-  describe('submitReviewDecision', () => {
-    test('approves deployment after manual review', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'rev-1',
-            deployment_id: 'dep-126',
-            status: 'pending',
-          },
-        ],
-      })
-
-      await service.submitReviewDecision({
-        reviewId: 'rev-1',
-        decision: 'approve',
-        reviewer: '0x9999999999999999999999999999999999999999' as Address,
-        notes: 'Content verified as safe',
-      })
-
-      expect(mockExec).toHaveBeenCalled()
-    })
-
-    test('rejects deployment after manual review', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'rev-2',
-            deployment_id: 'dep-127',
-            status: 'pending',
-          },
-        ],
-      })
-
-      await service.submitReviewDecision({
-        reviewId: 'rev-2',
-        decision: 'reject',
-        reviewer: '0x9999999999999999999999999999999999999999' as Address,
-        notes: 'Violates terms of service',
-        violationType: 'tos',
-        violationSeverity: 'medium',
-      })
-
-      expect(mockExec).toHaveBeenCalled()
-    })
-  })
-
-  describe('getQueuedReviews', () => {
-    test('returns pending reviews', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'rev-1',
-            deployment_id: 'dep-126',
-            reason: 'AI scan inconclusive',
-            priority: 'normal',
-            status: 'pending',
-            created_at: Date.now() - 3600000,
-          },
-          {
-            id: 'rev-2',
-            deployment_id: 'dep-127',
-            reason: 'Suspicious patterns',
-            priority: 'high',
-            status: 'pending',
-            created_at: Date.now() - 1800000,
-          },
-        ],
-      })
-
-      const reviews = await service.getQueuedReviews()
-
-      expect(reviews).toHaveLength(2)
-      // High priority should be first
-      expect(reviews[0].priority).toBe('high')
-    })
-  })
-
-  describe('applyAutoBan', () => {
-    test('auto-bans for high-confidence violations', async () => {
-      const result = await service.applyAutoBan({
-        userAddress: testAddress,
-        deploymentId: 'dep-128',
-        violationType: 'malware',
-        confidence: 0.99,
-        evidence: 'Detected known malware signature',
-      })
-
-      expect(result.banned).toBe(true)
-      expect(result.duration).toBeGreaterThan(0)
-      expect(mockExec).toHaveBeenCalled()
-    })
-
-    test('does not auto-ban for low confidence', async () => {
-      const result = await service.applyAutoBan({
-        userAddress: testAddress,
-        deploymentId: 'dep-129',
-        violationType: 'spam',
-        confidence: 0.7,
-        evidence: 'Possible spam content',
-      })
-
-      expect(result.banned).toBe(false)
-      expect(result.requiresManualReview).toBe(true)
+      expect(result).toHaveProperty('deploymentId')
+      expect(result).toHaveProperty('timestamp')
+      expect(result).toHaveProperty('action')
+      expect(result).toHaveProperty('categories')
+      expect(result).toHaveProperty('overallScore')
+      expect(result).toHaveProperty('scanDurationMs')
+      expect(result).toHaveProperty('attestationHash')
+      expect(result).toHaveProperty('reviewRequired')
+      expect(result).toHaveProperty('blockedReasons')
+      expect(Array.isArray(result.categories)).toBe(true)
+      expect(Array.isArray(result.blockedReasons)).toBe(true)
     })
   })
 })

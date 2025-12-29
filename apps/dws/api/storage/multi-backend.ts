@@ -343,7 +343,7 @@ export class MultiBackendManager {
         // Set type-specific addresses
         if (backendType === 'webtorrent') {
           const wt = await this.getWebTorrent()
-          const torrent = wt?.getTorrent(result.cid)
+          const torrent = wt ? await wt.getTorrent(result.cid) : null
           addresses.magnetUri = torrent?.magnetUri
         } else if (backendType === 'arweave') {
           addresses.arweaveTxId = result.cid
@@ -574,14 +574,19 @@ export class MultiBackendManager {
       metadata.regionalStats[region].lastAccessed = now
     }
 
-    // Update popularity score
-    this.updatePopularityScore(cid)
+    // Update popularity score (fire-and-forget)
+    this.updatePopularityScore(cid).catch((err: Error) => {
+      console.warn(
+        `[MultiBackend] Failed to update popularity score for ${cid}:`,
+        err.message,
+      )
+    })
   }
 
   /**
    * Update popularity score for content
    */
-  private updatePopularityScore(cid: string): void {
+  private async updatePopularityScore(cid: string): Promise<void> {
     const now = Date.now()
     const day = 24 * 60 * 60 * 1000
 
@@ -598,7 +603,7 @@ export class MultiBackendManager {
     let seederCount = 0
     const wt = this.webtorrentBackend
     if (wt) {
-      const torrent = wt.getTorrent(cid)
+      const torrent = await wt.getTorrent(cid)
       seederCount = torrent
         ? (wt.getTorrentStats(torrent.infoHash)?.seeds ?? 0)
         : 0

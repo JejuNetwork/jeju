@@ -143,7 +143,7 @@ describe('Update Info Validation', () => {
       version: '1.1.0',
       releaseDate: new Date().toISOString(),
       downloadUrl:
-        'https://releases.jeju.network/node/1.1.0/jeju-node-linux-x64.tar.gz',
+        'https://releases.jejunetwork.org/node/1.1.0/jeju-node-linux-x64.tar.gz',
       checksum: 'a'.repeat(64),
       releaseNotes: 'Bug fixes and performance improvements',
       mandatory: false,
@@ -159,7 +159,7 @@ describe('Update Info Validation', () => {
       version: '2.0.0',
       releaseDate: new Date().toISOString(),
       downloadUrl:
-        'https://releases.jeju.network/node/2.0.0/jeju-node-linux-x64.tar.gz',
+        'https://releases.jejunetwork.org/node/2.0.0/jeju-node-linux-x64.tar.gz',
       checksum: 'b'.repeat(64),
       releaseNotes: 'Breaking changes - mandatory update',
       mandatory: true,
@@ -175,7 +175,7 @@ describe('Update Info Validation', () => {
     const info = {
       version: 'v1.0.0', // Invalid format
       releaseDate: new Date().toISOString(),
-      downloadUrl: 'https://releases.jeju.network/node/1.0.0/file.tar.gz',
+      downloadUrl: 'https://releases.jejunetwork.org/node/1.0.0/file.tar.gz',
       checksum: 'a'.repeat(64),
       releaseNotes: 'Test',
       mandatory: false,
@@ -188,7 +188,7 @@ describe('Update Info Validation', () => {
     const info = {
       version: '1.0.0',
       releaseDate: new Date().toISOString(),
-      downloadUrl: 'https://releases.jeju.network/node/1.0.0/file.tar.gz',
+      downloadUrl: 'https://releases.jejunetwork.org/node/1.0.0/file.tar.gz',
       checksum: 'not-a-valid-checksum',
       releaseNotes: 'Test',
       mandatory: false,

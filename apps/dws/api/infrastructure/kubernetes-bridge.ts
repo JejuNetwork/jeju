@@ -746,7 +746,7 @@ export class KubernetesBridge {
 
     // Check for TEE requirements
     const nodeSelector = manifest.spec.template.spec.nodeSelector ?? {}
-    if (nodeSelector['dws.jeju.network/tee'] === 'true') {
+    if (nodeSelector['dws.jejunetwork.org/tee'] === 'true') {
       hardware.teePlatform = 'intel-tdx'
     }
 

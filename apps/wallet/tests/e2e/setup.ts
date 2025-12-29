@@ -10,6 +10,7 @@
  * 3. Run tests: bun run test:e2e
  */
 
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { createPublicClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { TEST_ACCOUNTS, TEST_NETWORKS } from '../fixtures/accounts'
@@ -24,10 +25,16 @@ export const JEJU_PORTS = {
 } as const
 
 // Test configuration
+const host = getLocalhostHost()
 export const TEST_CONFIG = {
-  rpcUrl: process.env.JEJU_RPC_URL || TEST_NETWORKS.jeju.rpcUrl,
+  rpcUrl:
+    (typeof process !== 'undefined' ? process.env.JEJU_RPC_URL : undefined) ||
+    getL2RpcUrl() ||
+    TEST_NETWORKS.jeju.rpcUrl,
   chainId: TEST_NETWORKS.jeju.chainId,
-  walletUrl: process.env.BASE_URL || `http://localhost:${JEJU_PORTS.wallet}`,
+  walletUrl:
+    (typeof process !== 'undefined' ? process.env.BASE_URL : undefined) ||
+    `http://${host}:${JEJU_PORTS.wallet}`,
   testAccount: TEST_ACCOUNTS.primary,
   rpcTimeout: 5000,
 } as const

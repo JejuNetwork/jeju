@@ -14,12 +14,22 @@
     "deploy": "bun run scripts/serverless/deploy.ts",
     "deploy:testnet": "bun run scripts/serverless/deploy.ts --testnet",
     "deploy:mainnet": "bun run scripts/serverless/deploy.ts --mainnet",
+    "deploy:testnet-babylon": "NETWORK=testnet bun run scripts/deploy/testnet-babylon-full.ts",
+    "deploy:full": "bun run scripts/deploy/full-deployment.ts",
     "verify": "bun run scripts/serverless/deploy.ts --verify",
+    "verify:testnet": "NETWORK=testnet bun run scripts/deploy/verify-testnet-babylon.ts",
+    "verify:testnet-verbose": "NETWORK=testnet bun run scripts/deploy/verify-testnet-babylon.ts --verbose",
+    "preflight:testnet": "bun run scripts/deploy/testnet-preflight.ts",
+    "update-contracts": "bun run scripts/deploy/update-testnet-contracts.ts",
+    "deploy:contracts": "bun run scripts/deploy/deploy-testnet-contracts.ts",
+    "deploy:contracts-dry": "bun run scripts/deploy/deploy-testnet-contracts.ts --dry-run",
     "localnet:start": "bun run scripts/localnet-start.ts",
     "localnet:stop": "bun run scripts/localnet-stop.ts",
     "localnet:reset": "bun run scripts/localnet-reset.ts",
     "infra:plan": "bun run scripts/terraform.ts plan",
-    "infra:apply": "bun run scripts/terraform.ts apply"
+    "infra:apply": "bun run scripts/terraform.ts apply",
+    "k8s:deploy": "bun run scripts/helmfile.ts sync",
+    "k8s:diff": "bun run scripts/helmfile.ts diff"
   },
   "dependencies": {
     "@jejunetwork/dws": "workspace:*",

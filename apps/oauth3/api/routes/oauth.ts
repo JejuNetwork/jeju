@@ -192,7 +192,7 @@ export async function createOAuthRouter(config: AuthConfig) {
   const network = getCurrentNetwork()
   const host = getLocalhostHost()
   const baseUrl =
-    process.env.BASE_URL ??
+    (typeof process !== 'undefined' ? process.env.BASE_URL : undefined) ??
     (network === 'localnet' ? `http://${host}:4200` : getOAuth3Url(network))
 
   return (

@@ -5,7 +5,7 @@
  * Run with: bun test tests/compute.test.ts
  * Or via: bun run test:integration
  *
- * For unit tests, use: bun run test
+ * Tests NEVER skip - they fail with clear instructions if dependencies missing.
  */
 
 import {
@@ -22,16 +22,22 @@ import {
   unregisterNode,
 } from '../api/compute/inference-node'
 import { dwsRequest } from './setup'
+import { requireDependency, SETUP_INSTRUCTIONS, detectEnvironment } from './test-environment'
 
 setDefaultTimeout(10000)
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
-// Skip integration tests when running from root (parallel execution causes issues)
-// Only skip if explicitly requested, not by default in CI
-const SKIP = process.env.SKIP_INTEGRATION === 'true'
+// Integration tests require DWS server - fail hard if SKIP_INTEGRATION is set
+if (process.env.SKIP_INTEGRATION === 'true') {
+  throw new Error(
+    'SKIP_INTEGRATION=true is not allowed. Tests must always run.\n' +
+    'Start the DWS server: bun run dev\n' +
+    'Then run tests: bun test tests/compute.test.ts'
+  )
+}
 
-describe.skipIf(SKIP)('Compute Service', () => {
+describe('Compute Service', () => {
   // Set up mock inference node for tests
   beforeAll(async () => {
     // Clear any existing nodes

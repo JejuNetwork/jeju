@@ -17,6 +17,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getDWSUrl, getL1RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { execa } from 'execa'
 import {
   type Address,
@@ -194,7 +195,7 @@ export class DWSLocalProvisioner {
   private rootDir: string
   private cacheDir: string
   private state: CachedState
-  private rpcUrl = 'http://127.0.0.1:8545'
+  private rpcUrl = getL1RpcUrl()
   private privateKey: Hex
 
   constructor(rootDir: string) {
@@ -409,7 +410,7 @@ export class DWSLocalProvisioner {
         supportedChains,
         supportedNodes,
         supportedNetworks,
-        'http://localhost:4030',
+        getDWSUrl() ?? `http://${getLocalhostHost()}:4030`,
         `0x${'0'.repeat(64)}` as Hex, // No TEE for local
       ],
       value: parseEther('1'),

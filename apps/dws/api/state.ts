@@ -216,6 +216,34 @@ async function ensureTablesExist(): Promise<void> {
       last_heartbeat INTEGER,
       created_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS bot_deployments (
+      bot_id TEXT PRIMARY KEY,
+      bot_type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      container_id TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      wallet_address TEXT NOT NULL,
+      deployed_at INTEGER NOT NULL,
+      last_heartbeat INTEGER NOT NULL,
+      config TEXT NOT NULL,
+      metrics TEXT NOT NULL DEFAULT '{}',
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS external_chain_nodes (
+      chain TEXT PRIMARY KEY,
+      node_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      endpoint TEXT NOT NULL,
+      chain_id INTEGER NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'unknown',
+      block_height INTEGER NOT NULL DEFAULT 0,
+      last_block_time INTEGER,
+      peers INTEGER NOT NULL DEFAULT 0,
+      registered_at INTEGER NOT NULL,
+      last_heartbeat INTEGER NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1
+    )`,
   ]
 
   const indexes = [
@@ -232,6 +260,9 @@ async function ensureTablesExist(): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)',
     'CREATE INDEX IF NOT EXISTS idx_training_runs_state ON training_runs(state)',
     'CREATE INDEX IF NOT EXISTS idx_training_nodes_active ON training_nodes(is_active)',
+    'CREATE INDEX IF NOT EXISTS idx_bot_deployments_owner ON bot_deployments(owner)',
+    'CREATE INDEX IF NOT EXISTS idx_bot_deployments_status ON bot_deployments(status)',
+    'CREATE INDEX IF NOT EXISTS idx_external_nodes_active ON external_chain_nodes(is_active)',
   ]
 
   for (const ddl of tables) {
@@ -1255,6 +1286,280 @@ export const x402State = {
       [nonceKey, Date.now()],
       EQLITE_DATABASE_ID,
     )
+  },
+}
+
+// Bot Deployment Row Type
+interface BotDeploymentRow {
+  bot_id: string
+  bot_type: string
+  name: string
+  status: string
+  container_id: string
+  owner: string
+  wallet_address: string
+  deployed_at: number
+  last_heartbeat: number
+  config: string
+  metrics: string
+  created_at: number
+}
+
+// Bot Deployment State Operations
+export const botDeploymentState = {
+  async save(bot: {
+    botId: string
+    botType: string
+    name: string
+    status: string
+    containerId: string
+    owner: Address
+    walletAddress: Address
+    deployedAt: number
+    lastHeartbeat: number
+    config: Record<string, unknown>
+    metrics: Record<string, unknown>
+  }): Promise<void> {
+    const client = await getEQLiteClient()
+    const now = Date.now()
+    await client.exec(
+      `INSERT INTO bot_deployments (bot_id, bot_type, name, status, container_id, owner, wallet_address, deployed_at, last_heartbeat, config, metrics, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(bot_id) DO UPDATE SET
+       status = ?, last_heartbeat = ?, metrics = ?`,
+      [
+        bot.botId,
+        bot.botType,
+        bot.name,
+        bot.status,
+        bot.containerId,
+        bot.owner.toLowerCase(),
+        bot.walletAddress.toLowerCase(),
+        bot.deployedAt,
+        bot.lastHeartbeat,
+        JSON.stringify(bot.config),
+        JSON.stringify(bot.metrics),
+        now,
+        bot.status,
+        bot.lastHeartbeat,
+        JSON.stringify(bot.metrics),
+      ],
+      EQLITE_DATABASE_ID,
+    )
+  },
+
+  async get(botId: string): Promise<BotDeploymentRow | null> {
+    const client = await getEQLiteClient()
+    const result = await client.query<BotDeploymentRow>(
+      'SELECT * FROM bot_deployments WHERE bot_id = ?',
+      [botId],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rows[0] ?? null
+  },
+
+  async listByOwner(owner: Address): Promise<BotDeploymentRow[]> {
+    const client = await getEQLiteClient()
+    const result = await client.query<BotDeploymentRow>(
+      'SELECT * FROM bot_deployments WHERE owner = ? ORDER BY created_at DESC',
+      [owner.toLowerCase()],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rows
+  },
+
+  async listAll(limit = 100): Promise<BotDeploymentRow[]> {
+    const client = await getEQLiteClient()
+    const result = await client.query<BotDeploymentRow>(
+      'SELECT * FROM bot_deployments ORDER BY created_at DESC LIMIT ?',
+      [limit],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rows
+  },
+
+  async listByStatus(status: string): Promise<BotDeploymentRow[]> {
+    const client = await getEQLiteClient()
+    const result = await client.query<BotDeploymentRow>(
+      'SELECT * FROM bot_deployments WHERE status = ? ORDER BY created_at DESC',
+      [status],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rows
+  },
+
+  async updateStatus(botId: string, status: string): Promise<boolean> {
+    const client = await getEQLiteClient()
+    const result = await client.exec(
+      'UPDATE bot_deployments SET status = ?, last_heartbeat = ? WHERE bot_id = ?',
+      [status, Date.now(), botId],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+
+  async updateHeartbeat(botId: string): Promise<boolean> {
+    const client = await getEQLiteClient()
+    const result = await client.exec(
+      'UPDATE bot_deployments SET last_heartbeat = ? WHERE bot_id = ?',
+      [Date.now(), botId],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+
+  async updateMetrics(
+    botId: string,
+    metrics: Record<string, unknown>,
+  ): Promise<boolean> {
+    const client = await getEQLiteClient()
+    const result = await client.exec(
+      'UPDATE bot_deployments SET metrics = ?, last_heartbeat = ? WHERE bot_id = ?',
+      [JSON.stringify(metrics), Date.now(), botId],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+
+  async delete(botId: string): Promise<boolean> {
+    const client = await getEQLiteClient()
+    const result = await client.exec(
+      'DELETE FROM bot_deployments WHERE bot_id = ?',
+      [botId],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+}
+
+// External Chain Node Row Type
+interface ExternalChainNodeRow {
+  chain: string
+  node_id: string
+  status: string
+  endpoint: string
+  chain_id: number
+  sync_status: string
+  block_height: number
+  last_block_time: number | null
+  peers: number
+  registered_at: number
+  last_heartbeat: number
+  is_active: number
+}
+
+// External Chain Node State Operations
+export const externalChainNodeState = {
+  async save(node: {
+    chain: string
+    nodeId: string
+    status: string
+    endpoint: string
+    chainId: number
+    syncStatus: string
+    blockHeight: number
+    lastBlockTime: number | null
+    peers: number
+    registeredAt: number
+    lastHeartbeat: number
+    isActive: boolean
+  }): Promise<void> {
+    const client = await getEQLiteClient()
+    await client.exec(
+      `INSERT INTO external_chain_nodes (chain, node_id, status, endpoint, chain_id, sync_status, block_height, last_block_time, peers, registered_at, last_heartbeat, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(chain) DO UPDATE SET
+       status = ?, endpoint = ?, sync_status = ?, block_height = ?, last_block_time = ?, peers = ?, last_heartbeat = ?, is_active = ?`,
+      [
+        node.chain,
+        node.nodeId,
+        node.status,
+        node.endpoint,
+        node.chainId,
+        node.syncStatus,
+        node.blockHeight,
+        node.lastBlockTime,
+        node.peers,
+        node.registeredAt,
+        node.lastHeartbeat,
+        node.isActive ? 1 : 0,
+        node.status,
+        node.endpoint,
+        node.syncStatus,
+        node.blockHeight,
+        node.lastBlockTime,
+        node.peers,
+        node.lastHeartbeat,
+        node.isActive ? 1 : 0,
+      ],
+      EQLITE_DATABASE_ID,
+    )
+  },
+
+  async get(chain: string): Promise<ExternalChainNodeRow | null> {
+    const client = await getEQLiteClient()
+    const result = await client.query<ExternalChainNodeRow>(
+      'SELECT * FROM external_chain_nodes WHERE chain = ?',
+      [chain],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rows[0] ?? null
+  },
+
+  async listAll(): Promise<ExternalChainNodeRow[]> {
+    const client = await getEQLiteClient()
+    const result = await client.query<ExternalChainNodeRow>(
+      'SELECT * FROM external_chain_nodes ORDER BY chain',
+      [],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rows
+  },
+
+  async listActive(): Promise<ExternalChainNodeRow[]> {
+    const client = await getEQLiteClient()
+    const result = await client.query<ExternalChainNodeRow>(
+      'SELECT * FROM external_chain_nodes WHERE is_active = 1 ORDER BY chain',
+      [],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rows
+  },
+
+  async updateStatus(chain: string, status: string): Promise<boolean> {
+    const client = await getEQLiteClient()
+    const result = await client.exec(
+      'UPDATE external_chain_nodes SET status = ?, last_heartbeat = ? WHERE chain = ?',
+      [status, Date.now(), chain],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+
+  async updateSyncStatus(
+    chain: string,
+    syncStatus: string,
+    blockHeight: number,
+    lastBlockTime: number,
+    peers: number,
+  ): Promise<boolean> {
+    const client = await getEQLiteClient()
+    const result = await client.exec(
+      'UPDATE external_chain_nodes SET sync_status = ?, block_height = ?, last_block_time = ?, peers = ?, last_heartbeat = ? WHERE chain = ?',
+      [syncStatus, blockHeight, lastBlockTime, peers, Date.now(), chain],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+
+  async delete(chain: string): Promise<boolean> {
+    const client = await getEQLiteClient()
+    const result = await client.exec(
+      'DELETE FROM external_chain_nodes WHERE chain = ?',
+      [chain],
+      EQLITE_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
   },
 }
 

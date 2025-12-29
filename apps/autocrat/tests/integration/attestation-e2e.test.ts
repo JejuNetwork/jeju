@@ -32,12 +32,17 @@ async function _readContract(
   )
 }
 
+import { getChainId, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
+const host = getLocalhostHost()
 const RPC_URL =
-  process.env.RPC_URL ?? process.env.L2_RPC_URL ?? 'http://localhost:6546'
-const CHAIN_ID = 31337
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ??
+  getL2RpcUrl() ??
+  `http://${host}:6546`
+const CHAIN_ID = getChainId() ?? 31337
 const DEPLOYER_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
 const USER_KEY =
