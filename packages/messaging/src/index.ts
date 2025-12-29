@@ -10,26 +10,15 @@
  * - Frames support
  *
  * ## Private Messaging (XMTP)
- * - End-to-end encryption (X25519 + AES-256-GCM)
- * - Decentralized relay network with economic incentives
- * - On-chain key registry for public keys
- * - IPFS storage for message persistence
- * - MLS group messaging
- * - x402 micropayments for message delivery
+ * - Real XMTP SDK with KMS-backed signing
+ * - End-to-end encryption via MLS
+ * - Compatible with all XMTP clients (MetaMask, Coinbase, etc.)
+ * - Private keys never leave KMS enclave
  *
  * @example
  * ```typescript
- * // Private messaging
- * import { createMessagingClient } from '@jejunetwork/messaging';
- *
- * const client = createMessagingClient({
- *   rpcUrl: 'http://localhost:6546',
- *   address: '0x...',
- *   relayUrl: 'http://localhost:3200',
- * });
- *
- * await client.initialize(signature);
- * await client.sendMessage({ to: '0xRecipient...', content: 'Hello' });
+ * // Private messaging via XMTP (see @xmtp/node-sdk)
+ * import { Client } from '@xmtp/node-sdk';
  *
  * // Farcaster public messaging
  * import { FarcasterClient, DirectCastClient } from '@jejunetwork/messaging';
@@ -302,7 +291,6 @@ export {
   UnifiedMessagingService,
 } from './farcaster-integration'
 // MLS (Message Layer Security) for group messaging
-// Exclude MessageEvent which conflicts with sdk/types
 export {
   type AgentActionContent,
   agentAction,
@@ -330,7 +318,6 @@ export {
   JejuMLSClient,
   type MemberEvent,
   type MessageContent,
-  // Export MessageEvent from MLS as MLSMessageEvent
   type MessageEvent as MLSMessageEvent,
   type MLSClientConfig,
   type MLSClientEvents,
@@ -353,8 +340,7 @@ export {
   validateImage,
   validateTransaction,
 } from './mls'
-// SDK (browser-compatible)
-export * from './sdk'
+
 // Security utilities
 export {
   auditSecurityOperation,
@@ -386,46 +372,20 @@ export {
 } from './storage/eqlite-storage'
 // TEE-backed key management
 export * from './tee'
-// XMTP node and router (excluding RelayNode)
-export {
-  createXMTPNode,
-  JejuXMTPNode,
-  type MessageHandler,
-  type NodeConnectionState,
-} from './xmtp/node'
-// Router (RelayNode renamed to XMTPRelayNode to avoid conflict)
-export {
-  createRouter,
-  type RelayNode as XMTPRelayNode,
-  type RouterStats,
-  XMTPMessageRouter,
-} from './xmtp/router'
-export {
-  createSyncService,
-  type SyncEvent,
-  type SyncPeer,
-  type SyncServiceConfig,
-  XMTPSyncService,
-} from './xmtp/sync'
-// XMTP types (excluding RelayNode which conflicts with SDK)
-export type {
-  ConsentEntry,
-  ConsentState,
-  ContentType,
-  ConversationContext,
-  GroupMemberUpdate,
-  RouteConfig,
-  RouteResult,
-  SyncOptions,
-  SyncState,
-  XMTPConversation,
-  XMTPEnvelope,
-  XMTPGroup,
-  XMTPIdentity,
-  XMTPKeyBundle,
-  XMTPMessage,
-  XMTPNodeConfig,
-  XMTPNodeStats,
-} from './xmtp/types'
 
-// Node-only exports (relay server) available via '@jejunetwork/messaging/node'
+// ============================================================================
+// XMTP - Real SDK Re-exports
+// ============================================================================
+// Use the official @xmtp/node-sdk directly for XMTP functionality.
+// The server's xmtp-messaging.ts service wraps it with KMS signing.
+export {
+  Client as XMTPClient,
+  type ClientOptions as XMTPClientOptions,
+  type Signer as XMTPSigner,
+  type Dm as XMTPDm,
+  type Group as XMTPGroup,
+  type DecodedMessage as XMTPDecodedMessage,
+  type Conversation as XMTPConversation,
+  type Conversations as XMTPConversations,
+  ApiUrls as XMTPApiUrls,
+} from '@xmtp/node-sdk'
