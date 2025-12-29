@@ -34,27 +34,31 @@ spec:
           {{- toYaml .Values.securityContext | nindent 12 }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - stackup-bundler
         args:
-        - run
-        - --entryPoint={{ .Values.config.entryPoint }}
+        - start
+        - --mode={{ .Values.config.userOpMempool }}
+        - --network={{ .Values.config.network }}
+        - --rpc-url={{ .Values.config.rpcUrl }}
+        - --entry-point={{ .Values.config.entryPoint }}
+        - --private-key=/secrets/private-key
         - --beneficiary={{ .Values.config.beneficiary }}
-        - --signerPrivateKeys=$(SIGNER_PRIVATE_KEY)
-        - --utilityPrivateKey=$(UTILITY_PRIVATE_KEY)
-        - --minBalance={{ .Values.config.minBalance }}
-        - --rpcUrl={{ .Values.config.rpcUrl }}
+        - --min-balance={{ .Values.config.minBalance }}
+        - --max-batch-size={{ .Values.config.maxBatchSize }}
+        - --max-ops-per-batch={{ .Values.config.maxOpsPerBatch }}
         - --port={{ .Values.config.port }}
-        - --networkName={{ .Values.config.network }}
-        env:
-        - name: SIGNER_PRIVATE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "bundler.fullname" . }}-secrets
-              key: signer-private-key
-        - name: UTILITY_PRIVATE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "bundler.fullname" . }}-secrets
-              key: utility-private-key
+        - --metrics-port={{ .Values.config.metricsPort }}
+        {{- if .Values.config.debugMode }}
+        - --debug
+        {{- end }}
+        {{- if .Values.config.p2p.enabled }}
+        - --p2p-enabled
+        - --p2p-port={{ .Values.config.p2p.port }}
+        {{- range .Values.config.p2p.bootnodes }}
+        - --p2p-bootnode={{ . }}
+        {{- end }}
+        {{- end }}
         ports:
         - name: rpc
           containerPort: {{ .Values.config.port }}
@@ -85,6 +89,14 @@ spec:
           failureThreshold: 3
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+        - name: secrets
+          mountPath: /secrets
+          readOnly: true
+      volumes:
+      - name: secrets
+        secret:
+          secretName: {{ include "bundler.fullname" . }}-secrets
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

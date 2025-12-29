@@ -1,4 +1,4 @@
-import { getFarcasterHubUrl, getRpcUrl } from '@jejunetwork/config'
+import { getFarcasterHubUrl, getRpcUrl, getXMTPConfig } from '@jejunetwork/config'
 import {
   createDirectCastClient,
   type DCClientConfig,
@@ -143,7 +143,9 @@ export const DEFAULT_PREFERENCES: MessagingPreferences = {
 }
 
 const HUB_URL = config.farcasterHubUrl || getFarcasterHubUrl()
-const XMTP_ENV = (process.env.XMTP_ENV ?? 'dev') as 'local' | 'dev' | 'production'
+const xmtpConfig = getXMTPConfig()
+const XMTP_ENV = xmtpConfig.env
+const XMTP_DB_PATH = xmtpConfig.dbPath
 
 function extractEmbeds(
   embeds: Array<{ url?: string; castId?: { fid: number; hash: string } }>,
@@ -268,7 +270,7 @@ class WalletMessagingService {
     // Create real XMTP client
     this.xmtpClient = await XMTPClient.create(xmtpSigner, {
       env: XMTP_ENV,
-      dbPath: `./data/xmtp/${this.address.toLowerCase()}.db3`,
+      dbPath: `${XMTP_DB_PATH}/${this.address.toLowerCase()}.db3`,
       dbEncryptionKey,
     })
 

@@ -23,7 +23,7 @@ const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
 const CONFIG_DIR = join(ROOT, 'packages/config')
 
 // Jeju Testnet configuration
-const TESTNET_RPC = process.env.RPC_URL || 'https://testnet-rpc.jejunetwork.org'
+const TESTNET_RPC = 'https://testnet-rpc.jejunetwork.org'
 const TESTNET_CHAIN_ID = 420690
 
 interface DeploymentPhase {
