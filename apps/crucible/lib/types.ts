@@ -349,6 +349,7 @@ export interface SearchResult<T> {
 export interface CrucibleConfig {
   rpcUrl: string
   privateKey?: `0x${string}`
+  kmsKeyId?: string
   contracts: {
     agentVault: Address
     roomRegistry: Address

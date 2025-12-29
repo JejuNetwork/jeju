@@ -19,6 +19,7 @@ import {
   createLogger,
   decryptAesGcm,
   deriveKeyScrypt,
+  encryptAesGcm,
   fromHex,
   hmacSha256,
   randomBytes,

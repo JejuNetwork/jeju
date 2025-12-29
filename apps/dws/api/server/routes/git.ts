@@ -1016,8 +1016,20 @@ export function createGitRouter(ctx: GitContext) {
 
         const body = Buffer.from(await request.arrayBuffer())
         const packStart = body.indexOf(Buffer.from('PACK'))
+        
+        if (packStart === -1) {
+          console.log('[Git] No PACK data found in push request')
+          const pktData = createPktLines(['unpack ok'])
+          return new Response(
+            new Uint8Array(pktData),
+            { headers: { 'Content-Type': 'application/x-git-receive-pack-result' } }
+          )
+        }
+        
         const commandData = body.subarray(0, packStart)
         const packData = body.subarray(packStart)
+        
+        console.log(`[Git] Receive-pack: ${body.length} bytes, pack at ${packStart}, pack size ${packData.length}`)
 
         const lines = parsePktLines(commandData)
         const updates: Array<{
@@ -1037,9 +1049,23 @@ export function createGitRouter(ctx: GitContext) {
             })
           }
         }
+        
+        console.log(`[Git] Processing ${updates.length} ref updates`)
 
         const objectStore = repoManager.getObjectStore(repo.repoId)
-        await extractPackfile(objectStore, packData)
+        
+        let extractedOids: string[] = []
+        try {
+          extractedOids = await extractPackfile(objectStore, packData)
+          console.log(`[Git] Extracted ${extractedOids.length} objects from pack`)
+        } catch (packError) {
+          console.error('[Git] Pack extraction failed:', packError)
+          const errorPktData = createPktLines(['unpack error: pack extraction failed'])
+          return new Response(
+            new Uint8Array(errorPktData),
+            { status: 500, headers: { 'Content-Type': 'application/x-git-receive-pack-result' } }
+          )
+        }
 
         const results: Array<{
           ref: string
@@ -1074,7 +1100,7 @@ export function createGitRouter(ctx: GitContext) {
           trackGitContribution(user, repo.repoId as Hex, name, 'commit', {
             branch: branchName,
             commitCount: commits.length,
-            message: commits[0].message.split('\n')[0] ?? 'Push',
+            message: commits[0]?.message.split('\n')[0] ?? 'Push',
           })
 
           results.push({ ref: update.refName, success: true })

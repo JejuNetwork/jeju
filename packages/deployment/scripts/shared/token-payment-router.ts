@@ -29,9 +29,9 @@
  * const options = await router.getAllPaymentOptions(request, userTokens);
  * ```
 
-import { getRpcUrl } from '@jejunetwork/config'
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/shared'
 import {
   type Address,

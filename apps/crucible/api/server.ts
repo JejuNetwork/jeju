@@ -459,7 +459,7 @@ app.use(
 )
 
 // Rate limiting middleware with atomic increment pattern
-app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
+app.onBeforeHandle(async ({ request, set }): Promise<{ error: string } | undefined> => {
   const url = new URL(request.url)
   const path = url.pathname
 

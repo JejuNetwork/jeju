@@ -186,7 +186,8 @@ export async function createKMSWalletClient<_TTransport extends Transport>(
     publicKey: kmsAccount.publicKey,
     signMessage: async ({ message }) => kmsAccount.signMessage(message),
     signTransaction: async (tx) => kmsAccount.signTransaction(tx),
-    signTypedData: async (typedData) => kmsAccount.signTypedData(typedData),
+    signTypedData: async (typedData) =>
+      kmsAccount.signTypedData(typedData as TypedDataDefinition),
   }
 
   const transport = rpcUrl ? http(rpcUrl) : http()
@@ -207,10 +208,8 @@ export async function createKMSWalletClient<_TTransport extends Transport>(
 export async function createKMSHttpWalletClient(
   config: AutocratKMSConfig & { chain: Chain; rpcUrl: string },
 ): Promise<WalletClient> {
-  return createKMSWalletClient({
-    ...config,
-    transport: http(config.rpcUrl),
-  })
+  const result = await createKMSWalletClient(config, config.chain, config.rpcUrl)
+  return result.client
 }
 
 /**

@@ -123,11 +123,13 @@ export interface EVMChainConfig {
   bridgeAddress: string
   lightClientAddress: string
   /** KMS configuration for secure signing */
-  kmsConfig: {
+  kmsConfig?: {
     endpoint: string
     keyId: string
     apiKey?: string
   }
+  /** Direct private key (LOCAL DEVELOPMENT ONLY - NEVER use in production) */
+  privateKey?: string
 }
 
 /**
@@ -138,11 +140,13 @@ export interface SolanaChainConfig {
   bridgeProgramId: string
   evmLightClientProgramId: string
   /** KMS configuration for secure signing */
-  kmsConfig: {
+  kmsConfig?: {
     endpoint: string
     keyId: string
     apiKey?: string
   }
+  /** Direct keypair path (LOCAL DEVELOPMENT ONLY - NEVER use in production) */
+  keypairPath?: string
 }
 
 interface ConsensusSnapshot {

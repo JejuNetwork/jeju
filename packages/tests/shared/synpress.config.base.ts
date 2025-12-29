@@ -110,7 +110,7 @@ export function createSynpressConfig(
   options: SynpressConfigOptions,
 ): PlaywrightTestConfig {
   const {
-    appName,
+    appName: _appName,
     port,
     testDir = './tests/synpress',
     timeout = 300000,
@@ -118,6 +118,7 @@ export function createSynpressConfig(
     webServer,
     overrides = {},
   } = options
+  void _appName // Reserved for future use
 
   return defineConfig({
     testDir,

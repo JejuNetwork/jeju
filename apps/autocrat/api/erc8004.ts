@@ -166,12 +166,15 @@ export class ERC8004Client {
    * Call this in production before any write operations
    */
   async initializeKMS(operatorAddress: Address): Promise<void> {
+    if (!this.chain) {
+      throw new Error('Chain not configured - cannot initialize KMS')
+    }
     const result = await createKMSWalletClient(
       { address: operatorAddress },
       this.chain,
       this.rpcUrl,
     )
-    this.walletClient = result.client
+    this.walletClient = result.client as WalletClient<Transport, Chain>
     console.log(
       `[ERC8004Client] KMS initialized for ${operatorAddress} (${result.account.type})`,
     )

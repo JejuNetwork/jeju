@@ -763,7 +763,7 @@ async function createRepo(
       body: JSON.stringify({
         name,
         description: options.description ?? '',
-        visibility: options.private ? 1 : 0,
+        visibility: options.private ? 'private' : 'public',
       }),
       signal: AbortSignal.timeout(30000),
     })

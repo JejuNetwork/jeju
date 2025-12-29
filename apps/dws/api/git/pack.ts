@@ -3,61 +3,29 @@
  * Handles pack/unpack of git objects for network transfer
  */
 
-// Use Web CompressionStream API instead of node:zlib for workerd compatibility
+import { promisify } from 'node:util'
+import { deflate as deflateCallback, inflate as inflateCallback } from 'node:zlib'
 import { createHash } from '@jejunetwork/shared'
 import type { GitObjectStore } from './object-store'
 import type { GitObjectType, PackedObject } from './types'
 
-async function inflateAsync(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new DecompressionStream('deflate')
-  const writer = stream.writable.getWriter()
-  const reader = stream.readable.getReader()
+const inflate = promisify(inflateCallback)
+const deflate = promisify(deflateCallback)
 
-  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
-  writer.write(data.slice())
-  writer.close()
-
-  const chunks: Uint8Array[] = []
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
+async function inflateAsync(data: Uint8Array): Promise<Uint8Array | null> {
+  try {
+    // Git packfiles use zlib format (deflate with header)
+    const result = await inflate(Buffer.from(data))
+    return new Uint8Array(result)
+  } catch {
+    return null
   }
-
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-  const result = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    result.set(chunk, offset)
-    offset += chunk.length
-  }
-  return result
 }
 
 async function deflateAsync(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new CompressionStream('deflate')
-  const writer = stream.writable.getWriter()
-  const reader = stream.readable.getReader()
-
-  // Create a copy with a fresh ArrayBuffer to satisfy BufferSource type
-  writer.write(data.slice())
-  writer.close()
-
-  const chunks: Uint8Array[] = []
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-  }
-
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-  const result = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    result.set(chunk, offset)
-    offset += chunk.length
-  }
-  return result
+  // Git packfiles use zlib format (deflate with header)
+  const result = await deflate(Buffer.from(data))
+  return new Uint8Array(result)
 }
 
 const PACK_SIGNATURE = Buffer.from('PACK')
@@ -257,13 +225,13 @@ export class PackfileReader {
 
   private async readCompressedData(): Promise<Buffer> {
     // Find the end of compressed data by trying to inflate
-    // This is inefficient but correct
-    let endOffset = this.offset + 2 // Minimum zlib size
+    // This is inefficient but works for finding deflate stream boundaries
+    let endOffset = this.offset + 2 // Minimum deflate size
 
     while (endOffset <= this.buffer.length) {
       const compressed = this.buffer.subarray(this.offset, endOffset)
       const inflated = await inflateAsync(new Uint8Array(compressed))
-      if (inflated) {
+      if (inflated !== null) {
         this.offset = endOffset
         return Buffer.from(inflated)
       }

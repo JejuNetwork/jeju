@@ -34,9 +34,11 @@ import { fundCommand } from './commands/fund'
 import { infraCommand } from './commands/infra'
 import { initCommand } from './commands/init'
 import { keysCommand } from './commands/keys'
+import { pkgCommand } from './commands/pkg'
 import { portsCommand } from './commands/ports'
 import { proxyCommand } from './commands/proxy'
 import { publishCommand } from './commands/publish'
+import { pypkgCommand } from './commands/pypkg'
 import { seedCommand } from './commands/seed'
 import { serviceCommand } from './commands/service'
 import { setupCommand } from './commands/setup'
@@ -117,6 +119,8 @@ program.addCommand(serviceCommand)
 program.addCommand(setupCommand)
 program.addCommand(seedCommand)
 program.addCommand(publishCommand)
+program.addCommand(pkgCommand)
+program.addCommand(pypkgCommand)
 program.addCommand(infraCommand)
 program.addCommand(eqliteCommand)
 program.addCommand(tokenCommand)

@@ -270,6 +270,8 @@ export interface RepoManagerConfig {
   privateKey?: Hex
 }
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+
 export class GitRepoManager {
   private publicClient
   private walletClient: WalletClient | null = null
@@ -277,10 +279,21 @@ export class GitRepoManager {
   private objectStores: Map<string, GitObjectStore> = new Map() // repoId -> store
   private backend: BackendManager
   private contributionQueue: ContributionEvent[] = []
+  
+  // In-memory fallback when registry address is zero
+  private inMemoryMode: boolean
+  private inMemoryRepos: Map<Hex, Repository> = new Map()
+  private inMemoryBranches: Map<Hex, Branch[]> = new Map()
+  private inMemoryRepoCounter = 0
 
   constructor(config: RepoManagerConfig, backend: BackendManager) {
     this.backend = backend
     this.repoRegistryAddress = config.repoRegistryAddress
+    this.inMemoryMode = config.repoRegistryAddress === ZERO_ADDRESS
+
+    if (this.inMemoryMode) {
+      console.log('[Git] Running in memory-only mode (no on-chain registry)')
+    }
 
     this.publicClient = createPublicClient({
       chain: foundry,
@@ -333,10 +346,6 @@ export class GitRepoManager {
     signer: Address,
   ): Promise<CreateRepoResponse> {
     // Input validation
-    if (!this.walletClient) {
-      throw new Error('Wallet not configured for write operations')
-    }
-
     if (
       !signer ||
       typeof signer !== 'string' ||
@@ -369,6 +378,17 @@ export class GitRepoManager {
     }
 
     const visibility = request.visibility === 'private' ? 1 : 0
+
+    // In-memory mode: create repository locally without on-chain registry
+    if (this.inMemoryMode) {
+      return this.createRepositoryInMemory(request, signer, visibility)
+    }
+
+    // On-chain mode: requires wallet
+    if (!this.walletClient) {
+      throw new Error('Wallet not configured for write operations')
+    }
+
     const agentId = request.agentId ? BigInt(request.agentId) : 0n
 
     let hash: Hex
@@ -481,9 +501,68 @@ export class GitRepoManager {
   }
 
   /**
+   * Create repository in memory (no on-chain registry)
+   */
+  private createRepositoryInMemory(
+    request: CreateRepoRequest,
+    signer: Address,
+    visibility: 0 | 1,
+  ): CreateRepoResponse {
+    // Generate a deterministic repoId from owner + name
+    const repoIdInput = `${signer.toLowerCase()}-${request.name}`
+    const repoId = `0x${Buffer.from(repoIdInput).toString('hex').padEnd(64, '0').slice(0, 64)}` as Hex
+    
+    // Check if repo already exists
+    if (this.inMemoryRepos.has(repoId)) {
+      throw new Error(`Repository ${request.name} already exists for this owner`)
+    }
+
+    const now = BigInt(Date.now())
+    const repo: Repository = {
+      repoId,
+      owner: signer,
+      agentId: 0n,
+      name: request.name,
+      description: request.description ?? '',
+      jnsNode: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      headCommitCid: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      metadataCid: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      createdAt: now,
+      updatedAt: now,
+      visibility,
+      archived: false,
+      starCount: 0n,
+      forkCount: 0n,
+      forkedFrom: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+    }
+
+    this.inMemoryRepos.set(repoId, repo)
+    this.inMemoryBranches.set(repoId, [])
+    this.inMemoryRepoCounter++
+
+    const baseUrl =
+      (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ||
+      getDWSUrl(getCurrentNetwork())
+
+    console.log(`[Git] Created repository ${request.name} (in-memory): ${repoId}`)
+
+    return {
+      repoId,
+      name: request.name,
+      owner: signer,
+      cloneUrl: `${baseUrl}/git/${signer}/${request.name}`,
+    }
+  }
+
+  /**
    * Get repository by ID
    */
   async getRepository(repoId: Hex): Promise<Repository | null> {
+    // In-memory mode
+    if (this.inMemoryMode) {
+      return this.inMemoryRepos.get(repoId) ?? null
+    }
+
     let result: ContractRepoData | null = null
     try {
       result = await this.readRepoContract<ContractRepoData>('getRepository', [
@@ -512,6 +591,16 @@ export class GitRepoManager {
     owner: Address,
     name: string,
   ): Promise<Repository | null> {
+    // In-memory mode
+    if (this.inMemoryMode) {
+      for (const repo of this.inMemoryRepos.values()) {
+        if (repo.owner.toLowerCase() === owner.toLowerCase() && repo.name === name) {
+          return repo
+        }
+      }
+      return null
+    }
+
     let result: ContractRepoData | null = null
     try {
       result = await this.readRepoContract<ContractRepoData>(
@@ -538,6 +627,11 @@ export class GitRepoManager {
    * Get branches for a repository
    */
   async getBranches(repoId: Hex): Promise<Branch[]> {
+    // In-memory mode
+    if (this.inMemoryMode) {
+      return this.inMemoryBranches.get(repoId) ?? []
+    }
+
     const result = await this.readRepoContract<ContractBranchData[]>(
       'getBranches',
       [repoId],
@@ -557,6 +651,12 @@ export class GitRepoManager {
    * Get a specific branch
    */
   async getBranch(repoId: Hex, branchName: string): Promise<Branch | null> {
+    // In-memory mode
+    if (this.inMemoryMode) {
+      const branches = this.inMemoryBranches.get(repoId) ?? []
+      return branches.find(b => b.name === branchName) ?? null
+    }
+
     const result = await this.readRepoContract<ContractBranchData>(
       'getBranch',
       [repoId, branchName],
@@ -580,6 +680,13 @@ export class GitRepoManager {
    * Check if user has write access
    */
   async hasWriteAccess(repoId: Hex, user: Address): Promise<boolean> {
+    // In-memory mode: owner always has write access
+    if (this.inMemoryMode) {
+      const repo = this.inMemoryRepos.get(repoId)
+      if (!repo) return false
+      return repo.owner.toLowerCase() === user.toLowerCase()
+    }
+
     return this.readRepoContract<boolean>('hasWriteAccess', [repoId, user])
   }
 
@@ -616,6 +723,12 @@ export class GitRepoManager {
     offset: number,
     limit: number,
   ): Promise<Repository[]> {
+    // In-memory mode
+    if (this.inMemoryMode) {
+      const allRepos = Array.from(this.inMemoryRepos.values())
+      return allRepos.slice(offset, offset + limit)
+    }
+
     const result = await this.readRepoContract<ContractRepoData[]>(
       'getAllRepositories',
       [BigInt(offset), BigInt(limit)],
@@ -628,6 +741,11 @@ export class GitRepoManager {
    * Get total repository count
    */
   async getRepositoryCount(): Promise<number> {
+    // In-memory mode
+    if (this.inMemoryMode) {
+      return this.inMemoryRepos.size
+    }
+
     const count = await this.readRepoContract<bigint>('getRepositoryCount', [])
 
     return Number(count)
@@ -645,10 +763,6 @@ export class GitRepoManager {
     pusher: Address,
   ): Promise<void> {
     // Input validation
-    if (!this.walletClient) {
-      throw new Error('Wallet not configured for write operations')
-    }
-
     if (
       !repoId ||
       typeof repoId !== 'string' ||
@@ -700,6 +814,46 @@ export class GitRepoManager {
     const oldCommitCid = oldCommitOid
       ? encodeOidToBytes32(oldCommitOid)
       : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)
+
+    // In-memory mode: update branch locally
+    if (this.inMemoryMode) {
+      const repo = this.inMemoryRepos.get(repoId)
+      if (!repo) {
+        throw new Error(`Repository not found: ${repoId}`)
+      }
+      
+      let branches = this.inMemoryBranches.get(repoId) ?? []
+      const existingBranchIdx = branches.findIndex(b => b.name === branch)
+      
+      const branchData: Branch = {
+        repoId,
+        name: branch,
+        tipCommitCid: newCommitCid,
+        lastPusher: pusher,
+        updatedAt: BigInt(Date.now()),
+        protected: false,
+      }
+      
+      if (existingBranchIdx >= 0) {
+        branches[existingBranchIdx] = branchData
+      } else {
+        branches = [...branches, branchData]
+      }
+      
+      this.inMemoryBranches.set(repoId, branches)
+      
+      // Update repo head commit
+      repo.headCommitCid = newCommitCid
+      repo.updatedAt = BigInt(Date.now())
+      
+      console.log(`[Git] Pushed ${commitCount} commits to ${branch} (in-memory): ${newCommitOid}`)
+      return
+    }
+
+    // On-chain mode: requires wallet
+    if (!this.walletClient) {
+      throw new Error('Wallet not configured for write operations')
+    }
 
     let hash: Hex
     try {

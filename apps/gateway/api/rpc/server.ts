@@ -753,7 +753,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           description: 'Pay-per-request pricing for RPC access without staking',
         }
       })
-      .get('/payments/credits', async (request, set) => {
+      .get('/payments/credits', async ({ request, set }) => {
         const address = getValidatedAddress(request)
         if (!address) {
           set.status = 401
@@ -766,7 +766,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           creditsFormatted: `${Number(balance) / 1e18} JEJU`,
         }
       })
-      .post('/payments/credits', async (body, request, set) => {
+      .post('/payments/credits', async ({ body, request, set }) => {
         const address = getValidatedAddress(request)
         if (!address) {
           set.status = 401
@@ -789,7 +789,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
           message: 'Credits added to your account',
         }
       })
-      .get('/payments/requirement', (query, set) => {
+      .get('/payments/requirement', ({ query, set }) => {
         const validated = validateQuery(
           PaymentRequirementQuerySchema,
           query,

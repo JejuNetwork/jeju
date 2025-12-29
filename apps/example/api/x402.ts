@@ -67,7 +67,7 @@ const getPaymentAddress = (): Address => {
     console.warn('[x402] Invalid X402_PAYMENT_ADDRESS format')
   }
   // Try config fallback
-  const configAddress = tryGetContract('x402', 'payment', network)
+  const configAddress = tryGetContract('payments', 'x402', network)
   if (configAddress) {
     return configAddress as Address
   }

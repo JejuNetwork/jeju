@@ -41,7 +41,7 @@ export function createAppConfig(
   options: AppConfigOptions,
 ): PlaywrightTestConfig {
   const {
-    name,
+    name: _name,
     port,
     testDir = './tests/e2e',
     timeout = DEFAULT_TIMEOUTS.test,
@@ -50,6 +50,7 @@ export function createAppConfig(
     baseURL = `http://localhost:${port}`,
     webServer,
   } = options
+  void _name // Reserved for future use
 
   return defineConfig({
     testDir,

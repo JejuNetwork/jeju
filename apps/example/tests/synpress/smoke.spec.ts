@@ -1,5 +1,4 @@
 import {
-  approveTransaction,
   connectAndVerify,
   expect,
   test,

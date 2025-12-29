@@ -38,9 +38,11 @@ import {
   deserializeEncryptedMessage,
   encryptMessage,
   KEY_DERIVATION_MESSAGE,
+  type KeyPair,
   publicKeyToBytes32,
   serializeEncryptedMessage,
   signPreKey,
+  type SigningKeyPair,
 } from './crypto'
 import { warnLocalKeyUsage } from './kms-crypto'
 import {

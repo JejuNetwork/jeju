@@ -29,13 +29,14 @@
  * });
  * ```
 
+ */
+
 import {
   CORE_PORTS,
   getL2RpcUrl,
   getLocalhostHost,
+  getRpcUrl,
 } from '@jejunetwork/config'
- */
-
 import { readContract } from '@jejunetwork/shared'
 import {
   type Account,
