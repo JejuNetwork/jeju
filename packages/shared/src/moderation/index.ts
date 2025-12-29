@@ -47,3 +47,30 @@ export {
   type MessagingConfig,
   type MessageScreeningResult,
 } from './messaging'
+
+// Reporting (NCMEC/IWF)
+export {
+  CSAMReportingService,
+  DETERRENCE_MESSAGES,
+  registerTrustedFlagger,
+  getTrustedFlagger,
+  type CSAMReport,
+  type NCMECConfig,
+  type IWFConfig,
+  type ReportingConfig,
+  type UserReport,
+  type TrustedFlagger,
+} from './reporting'
+
+// Transparency
+export {
+  recordMetric,
+  generateTransparencyReport,
+  formatTransparencyReportMarkdown,
+  getCurrentMetricsSummary,
+  type TransparencyReport,
+  type TransparencyPeriod,
+  type ContentActionStats,
+  type DetectionStats,
+  type ResponseTimeStats,
+} from './transparency'
