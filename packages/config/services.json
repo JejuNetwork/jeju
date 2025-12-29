@@ -111,6 +111,10 @@
       "api": "http://127.0.0.1:4060",
       "agent0": "http://127.0.0.1:4061"
     },
+    "xmtp": {
+      "env": "dev",
+      "dbPath": "./data/xmtp"
+    },
     "externalRpcs": {
       "ethereum": "http://127.0.0.1:6545",
       "base": "http://127.0.0.1:6545",
@@ -235,6 +239,10 @@
     "agents": {
       "api": "https://agents.testnet.jejunetwork.org",
       "agent0": "https://agent0.testnet.jejunetwork.org"
+    },
+    "xmtp": {
+      "env": "dev",
+      "dbPath": "./data/xmtp"
     },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
@@ -361,6 +369,10 @@
     "agents": {
       "api": "https://agents.jejunetwork.org",
       "agent0": "https://agent0.jejunetwork.org"
+    },
+    "xmtp": {
+      "env": "production",
+      "dbPath": "./data/xmtp"
     },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",

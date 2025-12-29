@@ -356,6 +356,12 @@ export const ServicesNetworkConfigSchema = z.object({
       agent0: UrlString.optional(),
     })
     .optional(),
+  xmtp: z
+    .object({
+      env: z.enum(['local', 'dev', 'production']),
+      dbPath: z.string().min(1),
+    })
+    .optional(),
   externalRpcs: z.record(z.string().min(1), UrlString).optional(),
   external: z
     .object({

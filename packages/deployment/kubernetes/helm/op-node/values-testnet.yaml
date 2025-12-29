@@ -24,14 +24,14 @@ config:
   l1ChainId: 11155111
   l2ChainId: 420690
   l1:
-    # DRPC Sepolia RPC - better rate limits
-    rpcUrl: "https://sepolia.drpc.org"
+    # Public Sepolia RPC
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com"
     rpcKind: "standard"
     trustrpc: false
     rpcMaxBatchSize: 20
     beacon:
-      # Lodestar Sepolia beacon node
-      url: "https://lodestar-sepolia.chainsafe.io"
+      # Public Sepolia beacon node
+      url: "https://ethereum-sepolia-beacon-api.publicnode.com"
   l2:
     engineRpc: "http://reth-sequencer.execution.svc.cluster.local:8551"
     engineJwtSecret: "/secrets/jwt-secret.txt"
