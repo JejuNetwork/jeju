@@ -1,11 +1,3 @@
-/**
- * Wallet Edge Service
- *
- * Makes the wallet act as a micro edge node for the Jeju network.
- * Desktop and extension platforms run full capabilities,
- * mobile platforms run lightweight versions.
- */
-
 import { expectJson } from '@jejunetwork/types'
 import { AppManifestResponseSchema } from '../../../lib/api-responses'
 import { API_URLS, fetchApi } from '../../../lib/eden'

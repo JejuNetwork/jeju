@@ -1,8 +1,3 @@
-/** Proxy URL validation to prevent SSRF attacks
- *
- * Workerd-compatible: Uses fetch for DNS resolution instead of node:dns
- */
-
 function isPrivateIPv4(ip: string): boolean {
   const match = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
   if (!match) return false
@@ -171,11 +166,8 @@ export async function validateProxyUrlWithDNS(
     return { url, resolvedIP: ipv6 }
   }
 
-  // Workerd-compatible DNS resolution using fetch
-  // Try to resolve via DNS-over-HTTPS or use DWS exec API
   let addresses: string[]
   try {
-    // Use DNS-over-HTTPS for workerd compatibility
     const dohUrl = `https://cloudflare-dns.com/dns-query?name=${hostname}&type=A&type=AAAA`
     const response = await fetch(dohUrl, {
       headers: { Accept: 'application/dns-json' },

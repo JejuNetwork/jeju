@@ -9,10 +9,6 @@ interface ConnectPromptProps {
   action?: string
 }
 
-/**
- * A compact prompt shown when a user needs to connect their wallet to perform an action.
- * Used inline within components instead of blocking entire pages.
- */
 export function ConnectPrompt({
   message = 'Connect your wallet to continue',
   action,
@@ -66,9 +62,6 @@ export function ConnectPrompt({
   )
 }
 
-/**
- * A smaller inline connect button for use in forms or action areas.
- */
 export function ConnectButtonInline({
   label = 'Connect Wallet',
 }: {

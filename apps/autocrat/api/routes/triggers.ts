@@ -1,7 +1,3 @@
-/**
- * DWS Compute Trigger Routes
- */
-
 import { Elysia, t } from 'elysia'
 import { getComputeTriggerClient } from '../compute-trigger'
 import { runOrchestratorCycle } from '../shared-state'

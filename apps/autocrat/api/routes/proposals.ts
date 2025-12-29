@@ -1,7 +1,3 @@
-/**
- * Proposal Routes
- */
-
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import {

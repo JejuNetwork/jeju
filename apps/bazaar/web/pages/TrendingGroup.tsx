@@ -1,8 +1,3 @@
-/**
- * Grouped Trending Page
- * Converted from Next.js to React Router
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'

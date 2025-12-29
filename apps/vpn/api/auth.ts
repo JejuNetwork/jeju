@@ -1,5 +1,3 @@
-/** Authentication helpers for VPN server */
-
 import { expect, expectValid } from '@jejunetwork/types'
 import { type Address, getAddress, verifyMessage } from 'viem'
 import { AuthHeadersSchema } from './schemas'

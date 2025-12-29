@@ -153,16 +153,6 @@ export default function RPCGatewayPage() {
             </button>
           </div>
         </div>
-        <div
-          style={{
-            marginTop: '1rem',
-            fontSize: '0.9rem',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          Include your API key in the <code>X-API-Key</code> header for higher
-          rate limits. Payments via x402 for premium access.
-        </div>
       </div>
 
       <div className="tabs" style={{ marginBottom: '0' }}>

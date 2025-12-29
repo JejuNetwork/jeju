@@ -1,5 +1,3 @@
-/** VPN Server Types */
-
 import type { Address } from 'viem'
 import type {
   ContributionState,
@@ -15,7 +13,6 @@ export type {
   ContributionState,
 }
 
-/** Per-user contribution settings stored server-side */
 export interface UserContributionSettings {
   address: Address
   enabled: boolean
@@ -26,7 +23,6 @@ export interface UserContributionSettings {
   updatedAt: number
 }
 
-/** Residential proxy / bandwidth sharing status */
 export interface BandwidthStatus {
   is_registered: boolean
   is_active: boolean
@@ -42,7 +38,6 @@ export interface BandwidthStatus {
   coordinator_connected: boolean
 }
 
-/** Residential proxy / bandwidth sharing settings */
 export interface BandwidthSettings {
   enabled: boolean
   node_type: string
@@ -55,7 +50,6 @@ export interface BandwidthSettings {
   schedule_end_hour?: number
 }
 
-/** Residential proxy / bandwidth sharing stats */
 export interface BandwidthStats {
   bytes_shared_today: string
   bytes_shared_week: string
@@ -75,7 +69,6 @@ export interface VPNServiceContext {
   sessions: Map<string, VPNSessionState>
   contributions: Map<string, ContributionState>
   contributionSettings: Map<string, UserContributionSettings>
-  // Bandwidth sharing (Grass-style)
   bandwidthStatus?: Map<string, BandwidthStatus>
   bandwidthSettings?: Map<string, BandwidthSettings>
   bandwidthStats?: Map<string, BandwidthStats>

@@ -1,9 +1,3 @@
-/**
- * Agent Card Component
- *
- * Displays an agent summary card in the agents list
- */
-
 import { Link } from 'react-router-dom'
 import type { Agent } from '../hooks'
 import { getBotTypeConfig } from '../lib/constants'

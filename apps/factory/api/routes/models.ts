@@ -1,5 +1,3 @@
-/** Models Routes */
-
 import { Elysia } from 'elysia'
 import {
   createModel as dbCreateModel,

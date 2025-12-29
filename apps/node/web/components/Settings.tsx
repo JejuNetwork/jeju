@@ -31,7 +31,6 @@ export function Settings() {
     if (!config) return
     setError(null)
 
-    // Validate inputs
     if (localConfig.auto_claim) {
       if (!/^\d+(\.\d+)?$/.test(localConfig.auto_claim_threshold)) {
         setError('Invalid claim threshold')
@@ -381,20 +380,65 @@ export function Settings() {
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
+            onClick={() => {
+              if (!config) return
+              const blob = new Blob([JSON.stringify(config, null, 2)], {
+                type: 'application/json',
+              })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = 'jeju-node-config.json'
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
             className="btn-secondary flex items-center gap-2"
           >
             <Download size={16} />
             Export Config
           </button>
-          <button
-            type="button"
-            className="btn-secondary flex items-center gap-2"
-          >
+          <label className="btn-secondary flex items-center gap-2 cursor-pointer">
             <Upload size={16} />
             Import Config
-          </button>
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const text = await file.text()
+                const parsed = JSON.parse(text)
+                await updateConfig(parsed)
+                e.target.value = ''
+              }}
+            />
+          </label>
           <button
             type="button"
+            onClick={async () => {
+              if (!confirm('Reset all settings to defaults?')) return
+              await updateConfig({
+                start_minimized: false,
+                start_on_boot: false,
+                notifications_enabled: true,
+                earnings: {
+                  auto_claim: true,
+                  auto_claim_threshold_wei: '100000000000000000',
+                  auto_claim_interval_hours: 24,
+                  auto_compound: false,
+                  auto_stake_earnings: false,
+                },
+              })
+              setLocalConfig({
+                start_minimized: false,
+                start_on_boot: false,
+                notifications_enabled: true,
+                auto_claim: true,
+                auto_claim_threshold: '0.1',
+                auto_claim_interval: 24,
+              })
+            }}
             className="btn-ghost flex items-center gap-2 text-red-400 hover:text-red-300"
           >
             <RotateCcw size={16} />

@@ -1,5 +1,3 @@
-/** MCP Protocol Handler for VPN */
-
 import type { VPNConnectionResult } from '@jejunetwork/sdk'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -324,8 +322,6 @@ const MCP_PROMPTS: MCPPrompt[] = [
     ],
   },
 ]
-
-// Router
 
 export function createMCPRouter(ctx: VPNServiceContext) {
   const router = new Elysia({ prefix: '/mcp' })

@@ -159,6 +159,20 @@ class StateManager {
     return this.users.get(userId) ?? null
   }
 
+  getUserByWallet(walletAddress: Address): OttoUser | null {
+    const lowerAddress = walletAddress.toLowerCase()
+    for (const user of this.users.values()) {
+      if (
+        user.primaryWallet.toLowerCase() === lowerAddress ||
+        (user.smartAccountAddress &&
+          user.smartAccountAddress.toLowerCase() === lowerAddress)
+      ) {
+        return user
+      }
+    }
+    return null
+  }
+
   setUser(user: OttoUser): void {
     const validatedUser = expectValid(OttoUserSchema, user, 'setUser')
     this.users.set(validatedUser.id, validatedUser)

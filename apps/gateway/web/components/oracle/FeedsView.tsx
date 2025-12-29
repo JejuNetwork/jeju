@@ -44,7 +44,6 @@ export function FeedsView({ feedIds }: FeedsViewProps) {
 
   return (
     <div className="space-y-4">
-      {/* Feed List */}
       <div className="grid gap-3">
         {feedIds.map((feedId) => (
           <FeedCard
@@ -58,7 +57,6 @@ export function FeedsView({ feedIds }: FeedsViewProps) {
         ))}
       </div>
 
-      {/* Selected Feed Details */}
       {selectedFeed && (
         <FeedDetailsPanel
           feedId={selectedFeed}
@@ -111,7 +109,6 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {/* Symbol & Category */}
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold">{feedSpec.symbol}</span>
@@ -126,7 +123,6 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
           </div>
         </div>
 
-        {/* Price Display */}
         <div className="text-right">
           {price !== undefined && price > 0n ? (
             <>
@@ -159,7 +155,6 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
           )}
         </div>
 
-        {/* Refresh Button */}
         <button
           type="button"
           className="ml-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

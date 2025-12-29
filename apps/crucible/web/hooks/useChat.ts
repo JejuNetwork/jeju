@@ -1,7 +1,3 @@
-/**
- * Chat Hook
- */
-
 import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import { useMutation } from '@tanstack/react-query'
 import { API_URL } from '../config'

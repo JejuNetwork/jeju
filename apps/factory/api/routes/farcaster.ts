@@ -1,10 +1,3 @@
-/**
- * Farcaster Routes
- *
- * Signer management and Farcaster account linking endpoints.
- * Handles the onboarding flow for connecting Farcaster to Factory.
- */
-
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { deleteFidLink, getFidLink } from '../db/client'

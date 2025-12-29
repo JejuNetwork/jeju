@@ -1,5 +1,3 @@
-/** Bounties Routes */
-
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import {

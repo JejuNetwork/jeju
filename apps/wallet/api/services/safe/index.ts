@@ -1,8 +1,3 @@
-/**
- * Gnosis Safe / Multisig Support
- * Create and manage Safe wallets, propose and execute transactions
- */
-
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'

@@ -1,13 +1,3 @@
-/**
- * Trading Bot Tests
- *
- * Comprehensive tests for TradingBot including:
- * - Boundary conditions and edge cases
- * - Error handling and invalid inputs
- * - Concurrent/async behavior
- * - Integration with real dependencies (where possible)
- */
-
 import { describe, expect, test } from 'bun:test'
 import type { DefaultBotConfig } from '../../../api/bots/default-bots'
 import {

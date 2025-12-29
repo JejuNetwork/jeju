@@ -1,4 +1,11 @@
-/** Monitoring stack tests for Prometheus and Grafana. */
+/**
+ * Monitoring stack integration tests for Prometheus and Grafana.
+ *
+ * These tests REQUIRE the monitoring stack to be running.
+ * They will FAIL (not skip) if services are unavailable.
+ *
+ * Run with: jeju test --mode integration --app monitoring
+ */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import * as fs from 'node:fs'
@@ -18,8 +25,6 @@ const __dirname = path.dirname(__filename)
 const GRAFANA_PORT = parseInt(process.env.GRAFANA_PORT || '4010', 10)
 const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090', 10)
 
-let grafanaAvailable = false
-let prometheusAvailable = false
 let monitoringStarted = false
 
 async function checkService(url: string, timeout = 2000): Promise<boolean> {
@@ -34,15 +39,15 @@ async function checkService(url: string, timeout = 2000): Promise<boolean> {
   }
 }
 
-async function startMonitoringStack(): Promise<void> {
+async function requireMonitoringStack(): Promise<void> {
   const monitoringDir = path.resolve(__dirname, '../..')
   const dockerComposePath = path.join(monitoringDir, 'docker-compose.yml')
 
   if (!fs.existsSync(dockerComposePath)) {
-    console.log(
-      `⚠️  docker-compose.yml not found at ${dockerComposePath}, skipping monitoring stack startup`,
+    throw new Error(
+      `FATAL: docker-compose.yml not found at ${dockerComposePath}. ` +
+        `Cannot run monitoring integration tests without docker-compose configuration.`,
     )
-    return
   }
 
   const grafanaRunning = await checkService(
@@ -53,192 +58,109 @@ async function startMonitoringStack(): Promise<void> {
   )
 
   if (grafanaRunning && prometheusRunning) {
-    console.log('✅ Monitoring stack already running')
-    grafanaAvailable = true
-    prometheusAvailable = true
+    console.log('Monitoring stack already running')
     return
   }
 
-  console.log('🚀 Starting monitoring stack (Prometheus & Grafana)...')
+  console.log('Starting monitoring stack (Prometheus & Grafana)...')
 
   try {
-    await $`cd ${monitoringDir} && docker-compose up -d`.quiet()
-    console.log('⏳ Waiting for services to start...')
-    for (let i = 0; i < 20; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      grafanaAvailable = await checkService(
-        `http://localhost:${GRAFANA_PORT}/api/health`,
-      )
-      prometheusAvailable = await checkService(
-        `http://localhost:${PROMETHEUS_PORT}/api/v1/targets`,
-      )
-
-      if (grafanaAvailable && prometheusAvailable) {
-        console.log('✅ Monitoring stack started successfully')
-        monitoringStarted = true
-        return
-      }
-    }
-
-    console.log('⚠️  Monitoring stack did not start in time')
+    await $`cd ${monitoringDir} && docker compose up -d`.quiet()
   } catch (error) {
-    console.log(
-      `⚠️  Failed to start monitoring stack: ${error instanceof Error ? error.message : String(error)}`,
-    )
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('command not found') || msg.includes('not found')) {
+      throw new Error(
+        `FATAL: docker-compose not found. Install docker-compose or run tests in a Docker environment.`,
+      )
+    }
+    throw new Error(`FATAL: Failed to start monitoring stack: ${msg}`)
   }
+  console.log('Waiting for services to start...')
+
+  for (let i = 0; i < 30; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    const grafanaReady = await checkService(
+      `http://localhost:${GRAFANA_PORT}/api/health`,
+    )
+    const prometheusReady = await checkService(
+      `http://localhost:${PROMETHEUS_PORT}/api/v1/targets`,
+    )
+
+    if (grafanaReady && prometheusReady) {
+      console.log('Monitoring stack started successfully')
+      monitoringStarted = true
+      return
+    }
+  }
+
+  throw new Error(
+    `FATAL: Monitoring stack did not start within 30 seconds. ` +
+      `Grafana: http://localhost:${GRAFANA_PORT}, ` +
+      `Prometheus: http://localhost:${PROMETHEUS_PORT}. ` +
+      `Check docker logs for errors.`,
+  )
 }
 
 beforeAll(async () => {
-  await startMonitoringStack()
-
-  for (let i = 0; i < 5; i++) {
-    if (!grafanaAvailable) {
-      const grafanaRes = await fetch(
-        `http://localhost:${GRAFANA_PORT}/api/health`,
-      ).catch(() => null)
-      grafanaAvailable = grafanaRes?.ok ?? false
-    }
-
-    if (!prometheusAvailable) {
-      const promRes = await fetch(
-        `http://localhost:${PROMETHEUS_PORT}/api/v1/targets`,
-      ).catch(() => null)
-      prometheusAvailable = promRes?.ok ?? false
-    }
-
-    if (grafanaAvailable && prometheusAvailable) {
-      break
-    }
-
-    if (i < 4) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
-  }
-
-  if (!grafanaAvailable || !prometheusAvailable) {
-    console.log(
-      '⚠️  Monitoring stack not fully available - some tests will be skipped',
-    )
-  }
-})
+  await requireMonitoringStack()
+}, 60000)
 
 afterAll(async () => {
   if (monitoringStarted && process.env.CI !== 'true') {
-    console.log('🛑 Stopping monitoring stack...')
-    try {
-      const monitoringDir = path.join(__dirname, '../..')
-      await $`cd ${monitoringDir} && docker-compose down`.quiet()
-    } catch {}
+    console.log('Stopping monitoring stack...')
+    const monitoringDir = path.join(__dirname, '../..')
+    await $`cd ${monitoringDir} && docker compose down`.quiet()
   }
 })
 
 describe('Monitoring Stack', () => {
   test('should access Grafana login page', async () => {
-    if (!grafanaAvailable) {
-      console.log('⚠️  Grafana not running, skipping test')
-      expect(true).toBe(true)
-      return
-    }
-
     const response = await fetch(`http://localhost:${GRAFANA_PORT}/login`)
-    if (!response.ok) {
-      console.log(`⚠️  Grafana login page returned ${response.status}`)
-      expect(true).toBe(true)
-      return
-    }
+    expect(response.ok).toBe(true)
+
     const html = await response.text()
-    if (!html || html.trim() === '') {
-      console.log('⚠️  Empty response from Grafana')
-      expect(true).toBe(true)
-      return
-    }
+    expect(html.length).toBeGreaterThan(0)
     expect(html).toContain('Grafana')
   })
 
   test('should access Prometheus targets page', async () => {
-    if (!prometheusAvailable) {
-      console.log('⚠️  Prometheus not running, skipping test')
-      expect(true).toBe(true)
-      return
-    }
-
     const response = await fetch(
       `http://localhost:${PROMETHEUS_PORT}/api/v1/targets`,
     )
-    if (!response.ok) {
-      console.log(`⚠️  Prometheus returned ${response.status}`)
-      expect(true).toBe(true)
-      return
-    }
+    expect(response.ok).toBe(true)
+
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      console.log('⚠️  Empty response from Prometheus')
-      expect(true).toBe(true)
-      return
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const data = PrometheusTargetsResponseSchema.parse(JSON.parse(text))
     expect(data.status).toBe('success')
     expect(data.data).toBeDefined()
   })
 
   test('should verify Prometheus is scraping some targets', async () => {
-    if (!prometheusAvailable) {
-      console.log('⚠️  Prometheus not running, skipping test')
-      expect(true).toBe(true)
-      return
-    }
-
     const response = await fetch(
       `http://localhost:${PROMETHEUS_PORT}/api/v1/targets`,
     )
-    if (!response.ok) {
-      console.log(`⚠️  Prometheus returned ${response.status}`)
-      expect(true).toBe(true)
-      return
-    }
+    expect(response.ok).toBe(true)
+
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      console.log('⚠️  Empty response from Prometheus')
-      expect(true).toBe(true)
-      return
-    }
     const data = PrometheusTargetsResponseSchema.parse(JSON.parse(text))
 
-    console.log(`   📊 Found ${data.data.activeTargets.length} active targets`)
+    console.log(`Found ${data.data.activeTargets.length} active targets`)
     expect(Array.isArray(data.data.activeTargets)).toBe(true)
   })
 
   test('should access Grafana API health', async () => {
-    if (!grafanaAvailable) {
-      console.log('⚠️  Grafana not running, skipping test')
-      expect(true).toBe(true)
-      return
-    }
-
     const response = await fetch(`http://localhost:${GRAFANA_PORT}/api/health`)
-    if (!response.ok) {
-      console.log(`⚠️  Grafana health returned ${response.status}`)
-      expect(true).toBe(true)
-      return
-    }
+    expect(response.ok).toBe(true)
+
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      console.log('⚠️  Empty response from Grafana')
-      expect(true).toBe(true)
-      return
-    }
     const health = GrafanaHealthSchema.parse(JSON.parse(text))
     expect(health.database).toBe('ok')
   })
 
   test('should list Grafana datasources', async () => {
-    if (!grafanaAvailable) {
-      console.log('⚠️  Grafana not running, skipping test')
-      expect(true).toBe(true)
-      return
-    }
-
     const auth = Buffer.from('admin:admin').toString('base64')
     const response = await fetch(
       `http://localhost:${GRAFANA_PORT}/api/datasources`,
@@ -246,45 +168,24 @@ describe('Monitoring Stack', () => {
         headers: { Authorization: `Basic ${auth}` },
       },
     )
-
-    if (!response.ok) {
-      console.log(
-        `⚠️  Grafana auth failed (${response.status}), skipping datasource check`,
-      )
-      expect(true).toBe(true)
-      return
-    }
+    expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      console.log('⚠️  Empty response from Grafana')
-      expect(true).toBe(true)
-      return
-    }
     const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text))
     expect(Array.isArray(datasources)).toBe(true)
-    console.log(`   📊 Found ${datasources.length} datasources`)
-
-    const hasPrometheus = datasources.some((ds) => ds.type === 'prometheus')
-    const hasPostgres = datasources.some((ds) => ds.type === 'postgres')
-
-    if (hasPrometheus) console.log('   ✅ Prometheus datasource configured')
-    if (hasPostgres) console.log('   ✅ PostgreSQL datasource configured')
+    console.log(`Found ${datasources.length} datasources`)
   })
 
   test('should verify dashboard files exist', () => {
     const monitoringDir = path.join(__dirname, '../..')
     const dashboardDir = path.join(monitoringDir, 'config/grafana/dashboards')
 
-    if (!fs.existsSync(dashboardDir)) {
-      console.log(`⚠️  Dashboard directory not found at: ${dashboardDir}`)
-      return
-    }
+    expect(fs.existsSync(dashboardDir)).toBe(true)
 
     const dashboards = fs
       .readdirSync(dashboardDir)
       .filter((f: string) => f.endsWith('.json'))
-    console.log(`   📊 Found ${dashboards.length} dashboard files`)
+    console.log(`Found ${dashboards.length} dashboard files`)
     expect(dashboards.length).toBeGreaterThan(0)
 
     for (const dashboard of dashboards) {
@@ -294,6 +195,6 @@ describe('Monitoring Stack', () => {
       )
       expect(() => JSON.parse(content)).not.toThrow()
     }
-    console.log('   ✅ All dashboards have valid JSON')
+    console.log('All dashboards have valid JSON')
   })
 })

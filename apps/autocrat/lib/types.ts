@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 /**
  * Autocrat DAO Types - Multi-tenant Version
  *
@@ -6,6 +8,7 @@
  * - Board: The advisory/oversight body (formerly Council)
  */
 
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 import type { Address } from 'viem'
 
 export const DAOStatus = {

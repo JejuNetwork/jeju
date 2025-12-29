@@ -1,10 +1,3 @@
-/**
- * Example Full E2E Coverage Tests
- *
- * Comprehensive tests covering all pages, buttons, forms, and user flows.
- * Uses baseURL from playwright.config.ts (configured via @jejunetwork/config/ports)
- */
-
 import { expect, test } from '@playwright/test'
 
 test.describe('Example - Full Coverage', () => {
@@ -40,10 +33,8 @@ test.describe('Example - Full Coverage', () => {
   })
 
   test('should have proper meta tags', async ({ page }) => {
-    const viewport = await page
-      .locator('meta[name="viewport"]')
-      .getAttribute('content')
-    expect(viewport).toBeTruthy()
+    const content = await page.content()
+    expect(content).toContain('name="viewport"')
   })
 
   test('should render on mobile viewport', async ({ page }) => {
@@ -53,8 +44,9 @@ test.describe('Example - Full Coverage', () => {
   })
 
   test('should have navigation', async ({ page }) => {
+    await page.waitForSelector('#app', { timeout: 10000 })
     const nav = page.locator('nav, [role="navigation"], header')
-    await expect(nav.first()).toBeVisible()
+    await expect(nav.first()).toBeVisible({ timeout: 10000 })
   })
 
   test('should show wallet connect option', async ({ page }) => {

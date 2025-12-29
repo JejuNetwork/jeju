@@ -50,6 +50,10 @@ export class AppOrchestrator {
       await this.startApp(app)
     }
 
+    // Wait for all apps to be ready
+    const timeout = options.timeout ?? 60000
+    await this.waitForAppsReady(timeout)
+
     logger.success(`Started ${appsToStart.length} app(s)`)
   }
 
@@ -60,9 +64,11 @@ export class AppOrchestrator {
       return
     }
 
-    const devCommand = app.commands?.dev
-    if (!devCommand) {
-      logger.debug(`No dev command for ${app.name}`)
+    // For tests, prefer 'start' command which assumes infrastructure is already running
+    // Fall back to 'dev' which manages its own infrastructure
+    const command = app.commands?.start ?? app.commands?.dev
+    if (!command) {
+      logger.debug(`No start/dev command for ${app.name}`)
       return
     }
 
@@ -86,7 +92,7 @@ export class AppOrchestrator {
       appEnv.PUBLIC_PORT = String(mainPort)
     }
 
-    const [cmd, ...args] = devCommand.split(' ')
+    const [cmd, ...args] = command.split(' ')
     const proc = spawn({
       cmd: [cmd, ...args],
       cwd: appDir,
@@ -106,6 +112,47 @@ export class AppOrchestrator {
       }
       this.runningApps.delete(app.name)
     })
+  }
+
+  private async waitForAppsReady(timeout: number): Promise<void> {
+    const startTime = Date.now()
+
+    for (const [name, app] of this.appManifests) {
+      const port = app.ports?.main ?? app.ports?.frontend
+      if (!port) {
+        logger.debug(`No port configured for ${name}, skipping wait`)
+        continue
+      }
+
+      const url = `http://127.0.0.1:${port}`
+      logger.debug(`Waiting for ${name} at ${url}...`)
+
+      let ready = false
+      while (Date.now() - startTime < timeout) {
+        try {
+          const response = await fetch(url, {
+            signal: AbortSignal.timeout(3000),
+          })
+          // Accept any response - app is serving
+          if (response.status < 500) {
+            ready = true
+            break
+          }
+        } catch {
+          // App not ready yet
+        }
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+
+      if (!ready) {
+        throw new Error(
+          `FATAL: App ${name} not ready at ${url} after ${timeout / 1000}s. ` +
+            'The app failed to start or is not serving on the expected port.',
+        )
+      }
+
+      logger.debug(`${name} is ready at ${url}`)
+    }
   }
 
   async warmup(options: AppOrchestratorOptions = {}): Promise<void> {

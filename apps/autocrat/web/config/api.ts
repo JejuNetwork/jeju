@@ -1,9 +1,3 @@
-/**
- * Autocrat API Client - Eden Treaty
- *
- * End-to-end type-safe API calls using Eden Treaty
- */
-
 import { api, extractData, extractDataOrDefault } from '../lib/client'
 import { AUTOCRAT_API_URL } from './env'
 

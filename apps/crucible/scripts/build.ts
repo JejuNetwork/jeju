@@ -1,14 +1,3 @@
-/**
- * Crucible Production Build
- *
- * Builds frontend and API for deployment.
- * CSS is processed inline using Tailwind CLI.
- *
- * Usage:
- *   bun run scripts/build.ts
- *   jeju build --app crucible
- */
-
 import { existsSync } from 'node:fs'
 import { cp, mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'

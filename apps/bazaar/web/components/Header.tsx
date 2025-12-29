@@ -1,10 +1,3 @@
-/**
- * Header Component
- *
- * Main navigation header with responsive mobile menu and theme toggle.
- * Follows WCAG 2.1 AA accessibility guidelines.
- */
-
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAccount, useDisconnect } from 'wagmi'

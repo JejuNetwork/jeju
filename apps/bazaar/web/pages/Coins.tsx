@@ -1,9 +1,3 @@
-/**
- * Coins Page
- *
- * Browse and trade ERC-20 tokens on the network
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'

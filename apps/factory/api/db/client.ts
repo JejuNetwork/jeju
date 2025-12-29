@@ -1,10 +1,3 @@
-/**
- * Factory Database Client
- *
- * Local SQLite database for development, EQLite for production.
- * Provides type-safe query methods for all Factory entities.
- */
-
 import { Database } from 'bun:sqlite'
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'

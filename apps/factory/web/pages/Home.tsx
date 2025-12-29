@@ -1,10 +1,3 @@
-/**
- * Home Page
- *
- * Landing page with stats overview, featured bounties, and quick actions.
- * Designed to be vibrant, engaging, and production-ready.
- */
-
 import {
   ArrowRight,
   Brain,

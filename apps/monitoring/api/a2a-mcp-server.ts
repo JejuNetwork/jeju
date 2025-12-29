@@ -1,5 +1,3 @@
-/** A2A and MCP server for monitoring and alerting. */
-
 import { cors } from '@elysiajs/cors'
 import {
   getCurrentNetwork,
@@ -914,7 +912,6 @@ export function createMonitoringMCPServer() {
             }
           }
 
-          // Validate metric and target names to prevent PromQL injection
           const validName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
           if (!validName.test(args.metric)) {
             return {

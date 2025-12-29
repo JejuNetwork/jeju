@@ -1,8 +1,3 @@
-/**
- * Bazaar Service - NFT Marketplace
- * List, buy, sell NFTs with multi-currency support
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {

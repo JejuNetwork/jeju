@@ -1,9 +1,3 @@
-/**
- * Agents Tab - CEO and Board Management
- *
- * Visual display and management of the CEO and board members for a DAO.
- */
-
 import {
   Activity,
   Bot,

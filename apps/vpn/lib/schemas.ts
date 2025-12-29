@@ -1,5 +1,3 @@
-/** Zod schemas for VPN frontend API validation */
-
 import { z } from 'zod'
 
 export const VPNNodeCapabilitiesSchema = z

@@ -1,9 +1,3 @@
-/**
- * Autocrat Layout Component
- *
- * Main layout wrapper with header and responsive structure.
- */
-
 import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
 

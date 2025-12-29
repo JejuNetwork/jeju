@@ -28,3 +28,4 @@ func (i *DefaultHashSignVerifierImpl) MarshalHash() ([]byte, error) {
 func (i *DefaultHashSignVerifierImpl) Msgsize() int { return 256 }
 
 
+

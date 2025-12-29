@@ -1,9 +1,3 @@
-/**
- * Share Referral Page
- * Converted from Next.js to React Router
- * Fetches referral code and redirects to home with ref param
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'

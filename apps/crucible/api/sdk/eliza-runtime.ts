@@ -1,14 +1,3 @@
-/**
- * Crucible Agent Runtime
- *
- * Fully decentralized agent runtime using DWS for inference.
- * Integrates jeju plugin actions for network capabilities.
- *
- * All inference goes through DWS compute network - no centralized fallbacks.
- * For local development, run the DWS inference node:
- *   cd apps/dws && bun run inference
- */
-
 import type { Action, Plugin } from '@elizaos/core'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { JsonValue } from '@jejunetwork/types'

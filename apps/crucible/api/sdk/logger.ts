@@ -1,12 +1,6 @@
 import type { JsonRecord } from '@jejunetwork/types'
 import { getLogLevelEnv, type LogLevel } from '@jejunetwork/types'
 
-/**
- * Crucible Logger
- *
- * Simple structured logging for Crucible components.
- */
-
 export type { LogLevel }
 
 export interface Logger {

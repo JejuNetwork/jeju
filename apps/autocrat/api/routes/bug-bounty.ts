@@ -1,9 +1,3 @@
-/**
- * Bug Bounty Routes - Elysia
- *
- * Security vulnerability submission and bounty management
- */
-
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import {

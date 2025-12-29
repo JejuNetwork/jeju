@@ -1,12 +1,3 @@
-/**
- * Just-in-Time (JIT) Liquidity Provider
- *
- * Optimizes liquidity provision by:
- * 1. Monitoring pending orders/intents
- * 2. Calculating optimal liquidity positions
- * 3. Providing concentrated liquidity just before settlement
- */
-
 import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient, WalletClient } from 'viem'
 import { WorkerdEventEmitter } from '../../utils/event-emitter'

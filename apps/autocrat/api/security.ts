@@ -1,16 +1,3 @@
-/**
- * Security Middleware for Autocrat API
- *
- * Provides:
- * - API key authentication for operator/admin endpoints
- * - Wallet signature verification for user actions
- * - Rate limiting per IP/address
- * - Request validation and sanitization
- * - Audit logging for sensitive operations (persisted to EQLite)
- */
-
-// Use Web Crypto API for workerd compatibility
-// Note: timingSafeEqual is implemented using constant-time comparison
 import { getCurrentNetwork } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'

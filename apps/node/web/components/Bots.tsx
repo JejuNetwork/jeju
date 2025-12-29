@@ -67,7 +67,6 @@ export function Bots() {
   const handleConfirmStart = async () => {
     if (!startingBot) return
 
-    // Validate capital amount
     if (!/^\d+(\.\d+)?$/.test(capitalAmount)) {
       setError('Invalid amount')
       return

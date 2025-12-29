@@ -1,9 +1,3 @@
-/**
- * Rewards Page
- *
- * Earn points by referring friends and completing tasks
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { Check, Copy, TrendingUp, Users } from 'lucide-react'
 import { useState } from 'react'

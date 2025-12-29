@@ -92,7 +92,7 @@ class TodoServiceImpl implements TodoService {
     const validatedTodos = todos.map((todo) =>
       expectValid(todoSchema, todo, `Todo ${todo.id}`),
     )
-    await this.cache.set(cacheKey, validatedTodos, 60000) // 1 minute TTL
+    this.cache.set(cacheKey, validatedTodos, 60000).catch(() => {})
     return validatedTodos
   }
 
@@ -116,7 +116,7 @@ class TodoServiceImpl implements TodoService {
     const todo = await this.repository.getById(id, owner)
     if (todo) {
       const validatedTodo = expectValid(todoSchema, todo, `Todo ${id}`)
-      await this.cache.set(cacheKey, validatedTodo, 60000)
+      this.cache.set(cacheKey, validatedTodo, 60000).catch(() => {})
       return validatedTodo
     }
     return null
@@ -192,7 +192,7 @@ class TodoServiceImpl implements TodoService {
     const validatedTodo = expectValid(todoSchema, todo, `Updated todo ${id}`)
 
     // Invalidate caches
-    await this.cache.delete(cacheKeys.todoItem(id))
+    this.cache.delete(cacheKeys.todoItem(id))
     await this.invalidateOwnerCache(owner)
 
     return validatedTodo
@@ -204,7 +204,7 @@ class TodoServiceImpl implements TodoService {
 
     const deleted = await this.repository.delete(id, owner)
     if (deleted) {
-      await this.cache.delete(cacheKeys.todoItem(id))
+      this.cache.delete(cacheKeys.todoItem(id))
       await this.invalidateOwnerCache(owner)
     }
     return deleted
@@ -225,7 +225,7 @@ class TodoServiceImpl implements TodoService {
     await this.repository.setEncryptedData(id, owner, encrypted)
 
     // Invalidate cache
-    await this.cache.delete(cacheKeys.todoItem(id))
+    this.cache.delete(cacheKeys.todoItem(id))
     await this.invalidateOwnerCache(owner)
 
     return this.repository.getById(id, owner)
@@ -267,7 +267,7 @@ class TodoServiceImpl implements TodoService {
     await this.repository.setAttachmentCid(id, owner, cid)
 
     // Invalidate cache
-    await this.cache.delete(cacheKeys.todoItem(id))
+    this.cache.delete(cacheKeys.todoItem(id))
     await this.invalidateOwnerCache(owner)
 
     return this.repository.getById(id, owner)
@@ -290,7 +290,7 @@ class TodoServiceImpl implements TodoService {
 
     const stats = await this.repository.getStats(owner)
     const validatedStats = expectValid(todoStatsSchema, stats, 'Todo stats')
-    await this.cache.set(cacheKey, validatedStats, 30000) // 30 second TTL
+    this.cache.set(cacheKey, validatedStats, 30000).catch(() => {})
     return validatedStats
   }
 
@@ -311,7 +311,7 @@ class TodoServiceImpl implements TodoService {
 
     await this.invalidateOwnerCache(owner)
     for (const id of ids) {
-      await this.cache.delete(cacheKeys.todoItem(id))
+      this.cache.delete(cacheKeys.todoItem(id))
     }
     return validatedTodos
   }
@@ -329,14 +329,14 @@ class TodoServiceImpl implements TodoService {
     const count = await this.repository.bulkDelete(ids, owner)
     await this.invalidateOwnerCache(owner)
     for (const id of ids) {
-      await this.cache.delete(cacheKeys.todoItem(id))
+      this.cache.delete(cacheKeys.todoItem(id))
     }
     return count
   }
 
   private async invalidateOwnerCache(owner: Address): Promise<void> {
-    await this.cache.delete(cacheKeys.todoList(owner))
-    await this.cache.delete(cacheKeys.todoStats(owner))
+    this.cache.delete(cacheKeys.todoList(owner))
+    this.cache.delete(cacheKeys.todoStats(owner))
   }
 }
 

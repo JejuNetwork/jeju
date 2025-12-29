@@ -145,10 +145,7 @@ export default function CDNPage() {
         {endpoints.length === 0 ? (
           <div className="empty-state">
             <Cloud size={48} />
-            <h3>Ready to accelerate</h3>
-            <p>
-              Set up a CDN endpoint to serve content globally with low latency
-            </p>
+            <h3>No endpoints</h3>
             <button
               type="button"
               className="btn btn-primary"
@@ -355,9 +352,6 @@ export default function CDNPage() {
                     }
                     required
                   />
-                  <div className="form-hint">
-                    The origin server to cache content from
-                  </div>
                 </div>
                 <div className="form-group">
                   <label htmlFor="cdn-domain" className="form-label">

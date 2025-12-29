@@ -1,15 +1,3 @@
-/**
- * TEE Service for Council CEO Decisions
- *
- * Provides encrypted AI decision-making with:
- * - dstack TEE (hardware or simulator mode)
- * - Jeju KMS for encryption
- * - DA layer backup for persistence
- *
- * In local development, uses dstack in simulator mode.
- * In production, requires hardware TEE (Intel TDX or AMD SEV).
- */
-
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
 import {
   bytesToHex,

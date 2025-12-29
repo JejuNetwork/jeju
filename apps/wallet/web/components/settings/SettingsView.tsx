@@ -1,8 +1,3 @@
-/**
- * Settings View
- * Wallet settings and security options
- */
-
 import { toError } from '@jejunetwork/types'
 import {
   AlertCircle,
@@ -448,9 +443,8 @@ export function SettingsView() {
       </div>
 
       <div className="pt-6 border-t border-border">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Network Wallet v0.1.0</span>
-          <span>Powered by the network</span>
+        <div className="text-sm text-muted-foreground">
+          <span>v0.1.0</span>
         </div>
       </div>
     </div>

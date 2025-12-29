@@ -1,8 +1,3 @@
-/**
- * Approvals View Component
- * Wrapper for ApprovalManager that fetches approvals
- */
-
 import type React from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import type { Address } from 'viem'
@@ -61,11 +56,6 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
 
   const handleRevoke = async (approval: (typeof approvals)[0]) => {
     buildRevokeTransaction(approval.token.address, approval.spender.address)
-
-    // In a real app, this would use the transaction service
-    // Revoking approval with { to, data }
-
-    // Refresh after revoke
     await fetchApprovals()
   }
 

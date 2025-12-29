@@ -1,10 +1,3 @@
-/**
- * Decentralized State Management for Autocrat
- *
- * Persists governance state (proposals, votes, research) to EQLite.
- * EQLite is REQUIRED - automatically configured per network.
- */
-
 import { getCurrentNetwork } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite, type QueryParam } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'

@@ -1,16 +1,6 @@
-/**
- * Direct Messages Hooks
- *
- * React hooks for Direct Cast (encrypted DM) functionality.
- */
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
 import { API_BASE, apiFetch, apiPost, getHeaders } from '../lib/api'
-
-// ============================================================================
-// TYPES
-// ============================================================================
 
 export interface ConversationUser {
   fid: number
@@ -57,10 +47,6 @@ export interface MessagingStatus {
   fid?: number
 }
 
-// ============================================================================
-// STATUS & CONVERSATIONS
-// ============================================================================
-
 export function useMessagingStatus() {
   const { address } = useAccount()
 
@@ -104,10 +90,6 @@ export function useConversation(recipientFid: number) {
     staleTime: 30_000,
   })
 }
-
-// ============================================================================
-// MESSAGES
-// ============================================================================
 
 export function useMessages(
   recipientFid: number,
@@ -155,10 +137,6 @@ export function useSendMessage() {
     },
   })
 }
-
-// ============================================================================
-// CONVERSATION ACTIONS
-// ============================================================================
 
 export function useMarkAsRead() {
   const { address } = useAccount()
@@ -225,10 +203,6 @@ export function useReconnect() {
   })
 }
 
-// ============================================================================
-// USER SEARCH
-// ============================================================================
-
 export function useSearchUsers(query: string) {
   const { address } = useAccount()
 
@@ -243,10 +217,6 @@ export function useSearchUsers(query: string) {
     staleTime: 60_000,
   })
 }
-
-// ============================================================================
-// ENCRYPTION
-// ============================================================================
 
 export function useEncryptionKey() {
   const { address } = useAccount()

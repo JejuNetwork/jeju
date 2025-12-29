@@ -1,9 +1,3 @@
-/**
- * Perps Detail Page
- *
- * Shows perpetual market details with integrated Farcaster channel feed.
- */
-
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,

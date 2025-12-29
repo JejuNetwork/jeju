@@ -1,24 +1,3 @@
-/**
- * @module CEOFeeActions
- * @description CEO-controlled fee management for the entire Jeju network
- *
- * The AI CEO has the authority to:
- * - Execute fee changes proposed by the council
- * - Make emergency fee adjustments (with timelock for increases)
- * - Set token-specific fee overrides
- * - Configure service pricing across all network components
- *
- * Fee Categories:
- * - Distribution: App/LP/Contributor splits
- * - Compute: Inference, rental, trigger fees
- * - Storage: Upload, retrieval, pinning fees
- * - DeFi: Swap, bridge, cross-chain margins
- * - Infrastructure: Sequencer, oracle, RPC fees
- * - Marketplace: Bazaar, launchpad, x402 fees
- * - Names: JNS registration and renewal
- * - Token: XLP rewards, protocol share, burn, bridge fees
- */
-
 import { feeConfigAbi } from '@jejunetwork/contracts'
 import { toBigInt } from '@jejunetwork/types'
 import type {

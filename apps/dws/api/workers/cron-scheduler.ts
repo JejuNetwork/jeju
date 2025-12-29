@@ -1,21 +1,6 @@
-/**
- * Cron Scheduler for Workers
- *
- * Implements scheduled triggers for serverless workers:
- * - Cron expression parsing
- * - Distributed scheduling across DWS nodes
- * - Retry and failure handling
- * - Execution history and metrics
- * - Timezone support
- */
-
 import { createHash } from 'node:crypto'
 import type { Address } from 'viem'
 import { z } from 'zod'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type ScheduleStatus = 'active' | 'paused' | 'disabled' | 'error'
 

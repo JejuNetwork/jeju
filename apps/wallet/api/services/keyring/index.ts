@@ -1,17 +1,3 @@
-/**
- * Network Keyring Service
- * Secure key management for wallet accounts
- * Supports: HD wallets, private key import, watch-only, hardware wallets, KMS-backed
- *
- * SECURITY PRIORITY:
- * 1. KMS-backed accounts (keys never leave KMS)
- * 2. Hardware accounts (keys on secure element)
- * 3. HD/Imported accounts (local encrypted storage)
- *
- * For high-security operations, use createKMSAccount() which ensures
- * private keys never exist on this device.
- */
-
 import { expectJson } from '@jejunetwork/types'
 import { HDKey } from '@scure/bip32'
 import {

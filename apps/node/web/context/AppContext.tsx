@@ -41,8 +41,6 @@ import {
   validateWalletInfo,
 } from '../../lib/validation'
 
-// State Types
-
 interface AppState {
   currentView: ViewType
   isLoading: boolean
@@ -62,8 +60,6 @@ interface AppState {
   error: string | null
 }
 
-// Action Types
-
 type AppAction =
   | { type: 'SET_VIEW'; payload: ViewType }
   | { type: 'SET_LOADING'; payload: { isLoading: boolean; message: string } }
@@ -81,8 +77,6 @@ type AppAction =
   | { type: 'SET_CONFIG'; payload: AppConfig | null }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'CLEAR_ERROR' }
-
-// Initial State
 
 const initialState: AppState = {
   currentView: 'dashboard',
@@ -102,8 +96,6 @@ const initialState: AppState = {
   config: null,
   error: null,
 }
-
-// Reducer
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -148,8 +140,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
   }
 }
 
-// Context Types
-
 interface AppContextValue extends AppState {
   setCurrentView: (view: ViewType) => void
   setLoading: (loading: boolean, message?: string) => void
@@ -177,11 +167,7 @@ interface AppContextValue extends AppState {
   initialize: () => Promise<void>
 }
 
-// Context
-
 const AppContext = createContext<AppContextValue | null>(null)
-
-// Provider
 
 interface AppProviderProps {
   children: ReactNode
@@ -190,11 +176,9 @@ interface AppProviderProps {
 export function AppProvider({ children }: AppProviderProps) {
   const [state, dispatch] = useReducer(appReducer, initialState)
 
-  // Use ref to track pending operation (avoids React 18 Strict Mode issues)
   const pendingOperationRef = useRef<string | null>(null)
   const initializingRef = useRef(false)
 
-  // Helper to execute operations with locking
   const withOperationLock = useCallback(
     async <T,>(
       operationName: string,
@@ -230,7 +214,6 @@ export function AppProvider({ children }: AppProviderProps) {
     [],
   )
 
-  // Navigation
   const setCurrentView = useCallback((view: ViewType) => {
     const validatedView = validateViewType(view)
     dispatch({ type: 'SET_VIEW', payload: validatedView })
@@ -243,14 +226,12 @@ export function AppProvider({ children }: AppProviderProps) {
     })
   }, [])
 
-  // Hardware
   const fetchHardware = useCallback(async () => {
     const raw = await invoke('detect_hardware')
     const hardware = validateHardwareInfo(raw)
     dispatch({ type: 'SET_HARDWARE', payload: hardware })
   }, [])
 
-  // Wallet
   const fetchWallet = useCallback(async () => {
     const raw = await invoke('get_wallet_info')
     if (raw === null) {
@@ -267,7 +248,6 @@ export function AppProvider({ children }: AppProviderProps) {
     dispatch({ type: 'SET_BALANCE', payload: balance })
   }, [])
 
-  // Agent
   const fetchAgent = useCallback(async () => {
     const raw = await invoke('get_agent_info')
     if (raw === null) {
@@ -284,7 +264,6 @@ export function AppProvider({ children }: AppProviderProps) {
     dispatch({ type: 'SET_BAN_STATUS', payload: banStatus })
   }, [])
 
-  // Services
   const fetchServices = useCallback(async () => {
     const raw = await invoke('get_available_services')
     const services = validateServiceWithStatusArray(raw)
@@ -335,7 +314,6 @@ export function AppProvider({ children }: AppProviderProps) {
     [withOperationLock, fetchServices],
   )
 
-  // Bots
   const fetchBots = useCallback(async () => {
     const raw = await invoke('get_available_bots')
     const bots = validateBotWithStatusArray(raw)
@@ -375,7 +353,6 @@ export function AppProvider({ children }: AppProviderProps) {
     [withOperationLock, fetchBots],
   )
 
-  // Earnings
   const fetchEarnings = useCallback(async () => {
     const raw = await invoke('get_earnings_summary')
     const earnings = validateEarningsSummary(raw)
@@ -388,7 +365,6 @@ export function AppProvider({ children }: AppProviderProps) {
     dispatch({ type: 'SET_PROJECTED_EARNINGS', payload: projectedEarnings })
   }, [])
 
-  // Staking
   const fetchStaking = useCallback(async () => {
     const raw = await invoke('get_staking_info')
     const staking = validateStakingInfo(raw)
@@ -437,7 +413,6 @@ export function AppProvider({ children }: AppProviderProps) {
     [withOperationLock, fetchStaking, fetchEarnings],
   )
 
-  // Config
   const fetchConfig = useCallback(async () => {
     const raw = await invoke('get_config')
     const config = validateAppConfig(raw)
@@ -468,14 +443,11 @@ export function AppProvider({ children }: AppProviderProps) {
     [withOperationLock, fetchConfig],
   )
 
-  // Error handling
   const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' })
   }, [])
 
-  // Initialize (with guard against React 18 Strict Mode double-invoke)
   const initialize = useCallback(async () => {
-    // Skip if already initializing (handles React 18 double-invoke)
     if (initializingRef.current) return
     initializingRef.current = true
 
@@ -488,7 +460,6 @@ export function AppProvider({ children }: AppProviderProps) {
         await fetchBots()
         await fetchProjectedEarnings()
 
-        // Fetch wallet-dependent data after wallet is loaded
         const raw = await invoke('get_wallet_info')
         if (raw !== null) {
           await fetchBalance()
@@ -575,8 +546,6 @@ export function AppProvider({ children }: AppProviderProps) {
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }
-
-// Hook
 
 export function useAppStore(): AppContextValue {
   const context = useContext(AppContext)

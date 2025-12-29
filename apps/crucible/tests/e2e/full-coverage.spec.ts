@@ -1,10 +1,3 @@
-/**
- * Crucible Full E2E Coverage Tests
- *
- * Comprehensive tests covering all pages, buttons, forms, and user flows.
- * Uses baseURL from playwright.config.ts (configured via @jejunetwork/config/ports)
- */
-
 import { expect, test } from '@playwright/test'
 
 test.describe('Crucible - Full Coverage', () => {

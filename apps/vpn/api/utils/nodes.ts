@@ -1,5 +1,3 @@
-/** Node selection and filtering utilities */
-
 import { expectTrue } from '@jejunetwork/types'
 import type { VPNNodeState, VPNServiceContext } from '../types'
 

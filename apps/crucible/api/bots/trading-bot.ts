@@ -1,8 +1,3 @@
-/**
- * Trading Bot Interface
- * Defines the structure for automated trading agents
- */
-
 import type { Address } from 'viem'
 import type { AgentCharacter } from '../../lib/types'
 

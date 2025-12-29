@@ -1,8 +1,3 @@
-/**
- * Autonomous Agent Types
- * Configuration and types for autonomous agent execution
- */
-
 import type { JsonValue } from '@jejunetwork/types'
 import type { AgentCharacter } from '../../lib/types'
 

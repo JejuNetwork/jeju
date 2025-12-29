@@ -1,13 +1,3 @@
-/**
- * Funding Oracle - Deep funding calculations and CEO weight recommendations
- *
- * Implements Ethereum Foundation-inspired deep funding:
- * - Quadratic funding with community stakes
- * - CEO weight recommendations via AI analysis
- * - Model delegation aggregation
- * - Epoch management and distribution calculation
- */
-
 import { type Address, formatEther, parseEther } from 'viem'
 import type {
   CEOPersona,

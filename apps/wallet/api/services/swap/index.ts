@@ -1,8 +1,3 @@
-/**
- * Network Swap Service
- * Token swaps via the network solver network
- */
-
 import {
   expectAddress,
   expectHex,

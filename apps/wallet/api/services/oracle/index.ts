@@ -1,8 +1,3 @@
-/**
- * Oracle Service
- * Uses Oracle Network (JON) for price data
- */
-
 import * as jeju from '../jeju'
 import type { SupportedChainId } from '../rpc'
 

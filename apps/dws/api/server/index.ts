@@ -113,6 +113,7 @@ import { createModerationRouter } from './routes/moderation'
 import { createOAuth3Router } from './routes/oauth3'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
+import { createPyPkgRouter } from './routes/pypkg'
 import {
   createPricesRouter,
   getPriceService,
@@ -633,6 +634,7 @@ app.use(createComputeRouter())
 app.use(createCDNRouter())
 app.use(createGitRouter({ repoManager, backend: backendManager }))
 app.use(createPkgRouter({ registryManager, backend: backendManager }))
+app.use(createPyPkgRouter({ registryManager, backend: backendManager }))
 app.use(
   createCIRouter({ workflowEngine, repoManager, backend: backendManager }),
 )

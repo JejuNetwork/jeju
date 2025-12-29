@@ -1,10 +1,3 @@
-/**
- * Crucible Messaging Service
- *
- * Provides Farcaster feed integration for the Crucible agent platform.
- * Uses the /crucible channel for agent updates, community discussions, etc.
- */
-
 import {
   type FarcasterCast,
   FarcasterClient,

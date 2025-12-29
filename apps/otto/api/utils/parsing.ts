@@ -1,7 +1,5 @@
 /**
- * Otto Trading Command Parsing Utilities
- *
- * Parses natural language trading commands into structured parameters.
+ * Otto Trading Command Parsing
  */
 
 export interface SwapParams {

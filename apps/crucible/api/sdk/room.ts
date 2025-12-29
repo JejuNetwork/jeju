@@ -1,7 +1,3 @@
-/**
- * Room SDK - Manages multi-agent coordination rooms.
- */
-
 import {
   type Address,
   encodeAbiParameters,

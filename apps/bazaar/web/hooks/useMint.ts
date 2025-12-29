@@ -1,8 +1,3 @@
-/**
- * Minting Hook
- * Contract interactions for minting collectibles
- */
-
 import { type ChainId, getSimpleCollectible } from '@jejunetwork/contracts'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
@@ -210,7 +205,6 @@ export function useMintItem() {
   }
 }
 
-// Combined hook for minting state
 export function useMint() {
   const { address, isConnected } = useAccount()
   const { data: collectibleAddress, isLoading: isLoadingAddress } =

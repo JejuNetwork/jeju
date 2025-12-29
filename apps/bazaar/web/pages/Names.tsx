@@ -1,7 +1,3 @@
-/**
- * JNS Names Page
- */
-
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 

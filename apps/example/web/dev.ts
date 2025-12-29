@@ -1,8 +1,3 @@
-/**
- * Development server for example app frontend
- * Serves static files, transpiles TypeScript, and proxies API requests to the backend
- */
-
 const FRONTEND_PORT = 4501
 const API_PORT = 4500
 

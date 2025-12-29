@@ -1,10 +1,3 @@
-/**
- * MobileNav Component
- *
- * Mobile-first navigation with slide-out menu.
- * Accessible with proper focus management and ARIA.
- */
-
 import { clsx } from 'clsx'
 import {
   Bot,

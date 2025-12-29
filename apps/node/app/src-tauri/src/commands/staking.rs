@@ -1,10 +1,42 @@
-//! Staking management commands
-
 use crate::state::AppState;
+<<<<<<< HEAD
+use alloy::network::EthereumWallet;
+use alloy::primitives::{Address, U256};
+use alloy::providers::{Provider, ProviderBuilder};
+use alloy::sol;
+=======
 use alloy::primitives::Address;
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use tauri::State;
+
+sol! {
+    #[sol(rpc)]
+    interface IComputeStaking {
+        function stakeAsProvider() external payable;
+        function getStake(address staker) external view returns (uint256 amount, uint8 stakeType, uint256 stakedAt);
+        function unstake() external;
+        function pendingRewards(address staker) external view returns (uint256);
+        function claimRewards() external returns (uint256);
+    }
+
+    #[sol(rpc)]
+    interface INodeStakingManager {
+        function getNodeInfo(address operator) external view returns (
+            address stakeToken,
+            uint256 stakeAmount,
+            address rewardToken,
+            string rpcUrl,
+            string region,
+            uint256 registeredAt,
+            uint256 uptime,
+            uint256 requestsServed
+        );
+        function pendingRewards(address operator) external view returns (uint256);
+        function claimRewards() external returns (uint256);
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StakingInfo {
@@ -63,6 +95,66 @@ pub struct ClaimResult {
 pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo, String> {
     let inner = state.inner.read().await;
 
+<<<<<<< HEAD
+    let wallet_manager = match &inner.wallet_manager {
+        Some(m) => m,
+        None => {
+            return Ok(StakingInfo {
+                total_staked_wei: "0".to_string(),
+                total_staked_usd: 0.0,
+                staked_by_service: vec![],
+                pending_rewards_wei: "0".to_string(),
+                pending_rewards_usd: 0.0,
+                can_unstake: false,
+                unstake_cooldown_seconds: 0,
+                auto_claim_enabled: inner.config.earnings.auto_claim,
+                next_auto_claim_timestamp: None,
+            });
+        }
+    };
+
+    let rpc_url = inner.config.network.rpc_url.clone();
+    let wallet_address = wallet_manager
+        .address()
+        .ok_or("Wallet address not available")?;
+    let address =
+        Address::from_str(&wallet_address).map_err(|e| format!("Invalid address: {}", e))?;
+
+    let provider = ProviderBuilder::new()
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let mut total_staked = U256::ZERO;
+    let mut total_pending = U256::ZERO;
+    let mut staked_by_service = vec![];
+
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
+    let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
+
+    if let Ok(stake_result) = compute_contract.getStake(address).call().await {
+        let stake_amount = stake_result.amount;
+        if stake_amount > U256::ZERO {
+            total_staked += stake_amount;
+            staked_by_service.push(ServiceStakeInfo {
+                service_id: "compute".to_string(),
+                service_name: "Compute Provider".to_string(),
+                staked_wei: stake_amount.to_string(),
+                staked_usd: 0.0,
+                pending_rewards_wei: "0".to_string(),
+                stake_token: "ETH".to_string(),
+                min_stake_wei: "100000000000000000".to_string(),
+            });
+        }
+    }
+
+    if let Ok(pending) = compute_contract.pendingRewards(address).call().await {
+        total_pending += pending._0;
+=======
     // Get contract client and wallet
     let contract_client = inner
         .contract_client
@@ -108,16 +200,26 @@ pub async fn get_staking_info(state: State<'_, AppState>) -> Result<StakingInfo,
             stake_token: stake.staking_token,
             min_stake_wei: "1000000000000000000000".to_string(), // 1000 JEJU minimum
         });
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
     }
 
     Ok(StakingInfo {
         total_staked_wei: total_staked.to_string(),
+<<<<<<< HEAD
+        total_staked_usd: 0.0,
+        staked_by_service,
+        pending_rewards_wei: total_pending.to_string(),
+        pending_rewards_usd: 0.0,
+        can_unstake: total_staked > U256::ZERO,
+        unstake_cooldown_seconds: 0,
+=======
         total_staked_usd,
         staked_by_service: service_stakes,
         pending_rewards_wei: total_pending.to_string(),
         pending_rewards_usd: (total_pending as f64) / 1e18, // Simplified - should use price oracle
         can_unstake: total_staked > 0,
         unstake_cooldown_seconds: 7 * 24 * 60 * 60, // 7 days
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
         auto_claim_enabled: inner.config.earnings.auto_claim,
         next_auto_claim_timestamp: None,
     })
@@ -130,11 +232,50 @@ pub async fn stake(
 ) -> Result<StakeResult, String> {
     let inner = state.inner.read().await;
 
-    // Verify wallet
-    if inner.wallet_manager.is_none() {
-        return Err("Wallet not connected".to_string());
-    }
+    let wallet_manager = inner
+        .wallet_manager
+        .as_ref()
+        .ok_or("Wallet not connected")?;
 
+<<<<<<< HEAD
+    let amount =
+        U256::from_str(&request.amount_wei).map_err(|e| format!("Invalid amount: {}", e))?;
+
+    let rpc_url = inner.config.network.rpc_url.clone();
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
+    let wallet = EthereumWallet::from(signer.clone());
+
+    let provider = ProviderBuilder::new()
+        .with_recommended_fillers()
+        .wallet(wallet)
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
+    let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
+
+    let tx = compute_contract.stakeAsProvider().value(amount);
+    let pending = tx
+        .send()
+        .await
+        .map_err(|e| format!("Failed to send stake transaction: {}", e))?;
+
+    let tx_hash = pending.tx_hash();
+
+    Ok(StakeResult {
+        success: true,
+        tx_hash: Some(format!("{:?}", tx_hash)),
+        new_stake_wei: request.amount_wei,
+        error: None,
+    })
+=======
     // Verify contract client
     if inner.contract_client.is_none() {
         return Err("Contract client not initialized".to_string());
@@ -150,6 +291,7 @@ pub async fn stake(
         request.service_id,
         request.token_address.unwrap_or_else(|| "JEJU".to_string())
     ))
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 }
 
 #[tauri::command]
@@ -159,11 +301,47 @@ pub async fn unstake(
 ) -> Result<StakeResult, String> {
     let inner = state.inner.read().await;
 
-    // Verify wallet
-    if inner.wallet_manager.is_none() {
-        return Err("Wallet not connected".to_string());
-    }
+    let wallet_manager = inner
+        .wallet_manager
+        .as_ref()
+        .ok_or("Wallet not connected")?;
 
+<<<<<<< HEAD
+    let rpc_url = inner.config.network.rpc_url.clone();
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
+    let wallet = EthereumWallet::from(signer.clone());
+
+    let provider = ProviderBuilder::new()
+        .with_recommended_fillers()
+        .wallet(wallet)
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
+    let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
+
+    let tx = compute_contract.unstake();
+    let pending = tx
+        .send()
+        .await
+        .map_err(|e| format!("Failed to send unstake transaction: {}", e))?;
+
+    let tx_hash = pending.tx_hash();
+
+    Ok(StakeResult {
+        success: true,
+        tx_hash: Some(format!("{:?}", tx_hash)),
+        new_stake_wei: "0".to_string(),
+        error: None,
+    })
+=======
     // Verify contract client
     if inner.contract_client.is_none() {
         return Err("Contract client not initialized".to_string());
@@ -174,6 +352,7 @@ pub async fn unstake(
         "To unstake {} wei from service {}: Use the wallet interface to sign the unstake transaction.",
         request.amount_wei, request.service_id
     ))
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 }
 
 #[tauri::command]
@@ -183,11 +362,47 @@ pub async fn claim_rewards(
 ) -> Result<ClaimResult, String> {
     let inner = state.inner.read().await;
 
-    // Verify wallet
-    if inner.wallet_manager.is_none() {
-        return Err("Wallet not connected".to_string());
-    }
+    let wallet_manager = inner
+        .wallet_manager
+        .as_ref()
+        .ok_or("Wallet not connected")?;
 
+<<<<<<< HEAD
+    let rpc_url = inner.config.network.rpc_url.clone();
+    let signer = wallet_manager
+        .get_signer()
+        .ok_or("Wallet not initialized")?;
+    let wallet = EthereumWallet::from(signer.clone());
+
+    let provider = ProviderBuilder::new()
+        .with_recommended_fillers()
+        .wallet(wallet)
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
+    let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
+
+    let tx = compute_contract.claimRewards();
+    let pending = tx
+        .send()
+        .await
+        .map_err(|e| format!("Failed to claim rewards: {}", e))?;
+
+    let tx_hash = pending.tx_hash();
+
+    Ok(ClaimResult {
+        success: true,
+        tx_hash: Some(format!("{:?}", tx_hash)),
+        amount_claimed_wei: "0".to_string(),
+        error: None,
+    })
+=======
     // Verify contract client
     if inner.contract_client.is_none() {
         return Err("Contract client not initialized".to_string());
@@ -204,6 +419,7 @@ pub async fn claim_rewards(
                 .to_string(),
         ),
     }
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 }
 
 #[tauri::command]
@@ -236,6 +452,44 @@ pub async fn get_pending_rewards(
 ) -> Result<Vec<ServiceStakeInfo>, String> {
     let inner = state.inner.read().await;
 
+<<<<<<< HEAD
+    let wallet_manager = match &inner.wallet_manager {
+        Some(m) => m,
+        None => return Ok(vec![]),
+    };
+
+    let rpc_url = inner.config.network.rpc_url.clone();
+    let wallet_address = wallet_manager
+        .address()
+        .ok_or("Wallet address not available")?;
+    let address =
+        Address::from_str(&wallet_address).map_err(|e| format!("Invalid address: {}", e))?;
+
+    let provider = ProviderBuilder::new()
+        .on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        )
+        .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+    let mut results = vec![];
+
+    let compute_staking_address =
+        Address::from_str("0x0000000000000000000000000000000000000001").expect("valid address");
+    let compute_contract = IComputeStaking::new(compute_staking_address, &provider);
+
+    if let Ok(pending) = compute_contract.pendingRewards(address).call().await {
+        if pending._0 > U256::ZERO {
+            results.push(ServiceStakeInfo {
+                service_id: "compute".to_string(),
+                service_name: "Compute Provider".to_string(),
+                staked_wei: "0".to_string(),
+                staked_usd: 0.0,
+                pending_rewards_wei: pending._0.to_string(),
+                stake_token: "ETH".to_string(),
+                min_stake_wei: "100000000000000000".to_string(),
+=======
     // Get contract client and wallet
     let contract_client = match inner.contract_client.as_ref() {
         Some(client) => client,
@@ -273,9 +527,14 @@ pub async fn get_pending_rewards(
                 pending_rewards_wei: stake.pending_rewards,
                 stake_token: stake.staking_token,
                 min_stake_wei: "1000000000000000000000".to_string(),
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
             });
         }
     }
 
+<<<<<<< HEAD
+    Ok(results)
+=======
     Ok(result)
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 }

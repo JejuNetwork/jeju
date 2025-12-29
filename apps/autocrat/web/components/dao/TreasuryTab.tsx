@@ -1,9 +1,3 @@
-/**
- * Treasury Tab - Financial Overview
- *
- * Display token balances, transactions, and funding configuration.
- */
-
 import {
   AlertCircle,
   ArrowDownLeft,

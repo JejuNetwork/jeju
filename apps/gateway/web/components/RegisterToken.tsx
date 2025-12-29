@@ -20,7 +20,6 @@ export default function RegisterToken() {
     e.preventDefault()
     setError('')
 
-    // Validation
     if (
       !tokenAddress ||
       !tokenAddress.startsWith('0x') ||

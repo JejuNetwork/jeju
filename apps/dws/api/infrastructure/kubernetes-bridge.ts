@@ -1,16 +1,3 @@
-/**
- * Kubernetes/Helm to DWS Bridge
- *
- * Allows deploying standard Kubernetes workloads to DWS:
- * - Accepts Kubernetes manifests and Helm charts
- * - Translates to DWS container/worker configurations
- * - Deploys to decentralized node network
- * - Provides kubectl-compatible API
- *
- * This enables developers to use familiar tools (kubectl, helm)
- * while deploying to a permissionless compute network.
- */
-
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'

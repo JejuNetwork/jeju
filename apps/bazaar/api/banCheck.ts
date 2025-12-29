@@ -1,8 +1,3 @@
-/**
- * Ban Check for Bazaar
- * Uses shared ModerationAPI with bazaar-specific extensions
- */
-
 import {
   BanType,
   createModerationAPI,
@@ -46,10 +41,8 @@ const config: ModerationConfig = {
     : CONTRACTS.reputationLabelManager,
 }
 
-// Create singleton API instance
 const moderationAPI = createModerationAPI(config)
 
-// Public client for JEJU token checks
 const publicClient = createPublicClient({
   chain: jeju,
   transport: http(RPC_URL),
@@ -78,12 +71,10 @@ interface CacheEntry {
   cachedAt: number
 }
 
-// Security: Bounded cache size to prevent memory exhaustion
 const MAX_CACHE_SIZE = 10000
 const banCache = new Map<string, CacheEntry>()
 const CACHE_TTL = 10000 // 10 seconds
 
-// Race condition protection: Track in-flight requests
 const inFlightRequests = new Map<string, Promise<BanCheckResult>>()
 
 export async function checkUserBan(

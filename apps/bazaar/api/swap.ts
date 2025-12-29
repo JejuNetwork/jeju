@@ -1,11 +1,3 @@
-/**
- * Swap business logic
- * Pure functions for swap calculations, validation, and quote generation
- *
- * Note: Token addresses and pricing are loaded from config.
- * Price rates should come from on-chain oracles when available.
- */
-
 import { type Address, formatEther, parseEther } from 'viem'
 import type {
   SwapFeeEstimate,

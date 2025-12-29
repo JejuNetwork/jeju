@@ -1,21 +1,6 @@
-/**
- * KMS Service for OAuth3 - Secure key management with MPC threshold signing
- *
- * SECURITY: This service ensures no single party (including TEE) has access to:
- * - JWT signing keys (distributed via MPC)
- * - OAuth provider secrets (sealed to attestation)
- * - Client secrets (stored as hashes)
- *
- * Side-channel attack mitigation:
- * - MPC threshold signing (2-of-3) - no single key holder
- * - Sealed secrets require valid TEE attestation
- * - Short-lived ephemeral session keys
- */
-
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 
-// Types for KMS integration (actual KMS package provides these)
 interface KMS {
   initialize(): Promise<void>
   encrypt(request: EncryptRequest): Promise<EncryptedPayload>
@@ -71,7 +56,6 @@ interface AccessControlPolicy {
   operator: 'and' | 'or'
 }
 
-// KMS module interface - actual implementation loaded dynamically if available
 interface KMSModule {
   getKMS: () => KMS
   issueToken: (
@@ -96,46 +80,26 @@ interface KMSModule {
   deriveKeyFromSecret: (secret: string, context: string) => Promise<Uint8Array>
 }
 
-// Note: KMS module is loaded dynamically at runtime if available
-// This function always returns null as the package may not be installed
-// In production, the @jejunetwork/kms package should be installed
-// When @jejunetwork/kms is available, replace this with dynamic import
 function getKmsModule(): KMSModule | null {
-  // Always use dev fallbacks for now
-  // Dynamic import implementation:
-  // const mod = await import('@jejunetwork/kms')
-  // return mod as KMSModule
   return null
 }
 
-// Service configuration
 interface OAuth3KMSConfig {
-  /** MPC key ID for JWT signing (distributed across MPC nodes) */
   jwtSigningKeyId: string
-  /** MPC key address for JWT verification */
   jwtSignerAddress: Address
-  /** Service agent ID for access policies */
   serviceAgentId: string
-  /** Chain ID for access control */
   chainId: string
-  /** Whether running in development mode (no MPC available) */
   devMode?: boolean
 }
 
 let kmsInstance: KMS | null = null
 let kmsConfig: OAuth3KMSConfig | null = null
 
-/**
- * Initialize KMS with MPC provider for threshold signing.
- */
 export async function initializeKMS(config: OAuth3KMSConfig): Promise<void> {
   kmsConfig = config
 
-  // In dev mode without MPC, use fallback
   if (config.devMode) {
-    console.warn(
-      '[KMS] Running in dev mode - using local signing (NOT SECURE FOR PRODUCTION)',
-    )
+    console.log('[KMS] Dev mode')
     return
   }
 
@@ -143,29 +107,18 @@ export async function initializeKMS(config: OAuth3KMSConfig): Promise<void> {
   if (kms) {
     kmsInstance = kms.getKMS()
     await kmsInstance.initialize()
-    console.log('[KMS] Initialized with MPC threshold signing')
+    console.log('[KMS] Initialized')
   } else {
-    console.warn('[KMS] KMS package not available, using dev mode fallbacks')
     kmsConfig.devMode = true
   }
 }
 
-/**
- * Get the initialized KMS instance.
- * Throws if not initialized.
- */
 function getKMSInstance(): KMS {
   if (!kmsInstance) {
-    throw new Error(
-      'KMS not initialized. Call initializeKMS() first.\n' +
-        'For production: Ensure MPC nodes are running.\n' +
-        'For development: Set devMode: true in config.',
-    )
+    throw new Error('KMS not initialized')
   }
   return kmsInstance
 }
-
-// ============ JWT Token Signing (MPC-backed) ============
 
 export interface JWTPayload {
   sub: string
@@ -176,15 +129,6 @@ export interface JWTPayload {
   aud?: string
 }
 
-/**
- * Generate a JWT token using MPC threshold signing.
- * The signing key is distributed across MPC nodes - no single party has full key.
- *
- * SECURITY: Side-channel safe because:
- * - Signing key never exists in full form
- * - Each MPC party only holds a share
- * - Threshold (2-of-3) required for signing
- */
 export async function generateSecureToken(
   userId: string,
   options?: {
@@ -227,16 +171,11 @@ export async function generateSecureToken(
   return signedToken.token
 }
 
-/**
- * Verify a JWT token signed by MPC.
- * Returns the user ID (subject) if valid, null if invalid.
- */
 export async function verifySecureToken(token: string): Promise<string | null> {
   if (!kmsConfig) {
     throw new Error('KMS not configured')
   }
 
-  // In dev mode, use local verification
   if (kmsConfig.devMode) {
     return verifyDevToken(token)
   }
@@ -258,8 +197,6 @@ export async function verifySecureToken(token: string): Promise<string | null> {
   return result.claims.sub
 }
 
-// ============ Sealed Secrets (TEE Attestation) ============
-
 interface SealedSecret {
   ciphertext: string
   iv: string
@@ -267,13 +204,6 @@ interface SealedSecret {
   sealedAt: number
 }
 
-/**
- * Seal a secret so it can only be decrypted inside a verified TEE.
- * Uses attestation-bound encryption.
- *
- * SECURITY: Even if memory is read via side-channel, the encrypted
- * secret cannot be decrypted without valid TEE attestation.
- */
 export async function sealSecret(
   secret: string,
   attestationBinding?: string,
@@ -282,7 +212,6 @@ export async function sealSecret(
     throw new Error('KMS not configured')
   }
 
-  // Derive key from attestation binding (or service ID in dev)
   const binding = attestationBinding ?? kmsConfig.serviceAgentId
 
   const kms = getKmsModule()
@@ -303,8 +232,6 @@ export async function sealSecret(
     }
   }
 
-  // Dev fallback - AES-GCM encryption
-  console.warn('[KMS] Using dev fallback for sealSecret')
   const key = await deriveKeyFallback(binding)
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const encrypted = await encryptAesGcmFallback(
@@ -321,10 +248,6 @@ export async function sealSecret(
   }
 }
 
-/**
- * Unseal a secret inside verified TEE.
- * Requires matching attestation binding.
- */
 export async function unsealSecret(
   sealed: SealedSecret,
   attestationBinding?: string,
@@ -345,13 +268,10 @@ export async function unsealSecret(
     return new TextDecoder().decode(decrypted)
   }
 
-  // Dev fallback
   const key = await deriveKeyFallback(binding)
   const decrypted = await decryptAesGcmFallback(ciphertext, key, iv, tag)
   return new TextDecoder().decode(decrypted)
 }
-
-// ============ Client Secret Hashing ============
 
 export interface HashedClientSecret {
   hash: string
@@ -360,18 +280,6 @@ export interface HashedClientSecret {
   version: number
 }
 
-/**
- * Hash a client secret using PBKDF2.
- * Store the hash, never the plaintext secret.
- *
- * SECURITY: Even if hash is leaked via side-channel:
- * - PBKDF2 is computationally expensive (resistant to brute force)
- * - Salt is unique per client
- * - Original secret cannot be recovered
- *
- * Note: Argon2id would be preferred but isn't available in Web Crypto.
- * Consider using native Argon2 implementation in production.
- */
 export async function hashClientSecret(
   secret: string,
 ): Promise<HashedClientSecret> {
@@ -389,7 +297,7 @@ export async function hashClientSecret(
     {
       name: 'PBKDF2',
       salt,
-      iterations: 100000, // High iteration count for security
+      iterations: 100000,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -404,10 +312,6 @@ export async function hashClientSecret(
   }
 }
 
-/**
- * Verify a client secret against its hash.
- * Uses constant-time comparison to prevent timing attacks.
- */
 export async function verifyClientSecretHash(
   secret: string,
   hashed: HashedClientSecret,
@@ -435,7 +339,6 @@ export async function verifyClientSecretHash(
 
   const computedHash = toHex(new Uint8Array(hashBuffer))
 
-  // Constant-time comparison
   if (computedHash.length !== hashed.hash.length) {
     return false
   }
@@ -448,8 +351,6 @@ export async function verifyClientSecretHash(
   return result === 0
 }
 
-// ============ Session Data Encryption ============
-
 export interface EncryptedSessionData {
   ciphertext: string
   iv: string
@@ -457,12 +358,6 @@ export interface EncryptedSessionData {
   encryptedAt: number
 }
 
-/**
- * Encrypt sensitive session data (PII like address, email, FID).
- *
- * SECURITY: Even if database is compromised, PII remains encrypted.
- * Key is managed by KMS with access policy.
- */
 export async function encryptSessionData(
   data: Record<string, string | number | undefined>,
 ): Promise<EncryptedSessionData> {
@@ -472,7 +367,6 @@ export async function encryptSessionData(
 
   const plaintext = JSON.stringify(data)
 
-  // In dev mode, use simple encryption
   if (kmsConfig.devMode) {
     return encryptWithDevKey(plaintext)
   }
@@ -485,7 +379,7 @@ export async function encryptSessionData(
         type: 'timestamp',
         chain: kmsConfig.chainId,
         comparator: '>=',
-        value: 0, // Always accessible (service manages access)
+        value: 0,
       },
     ],
     operator: 'and',
@@ -498,15 +392,12 @@ export async function encryptSessionData(
 
   return {
     ciphertext: encrypted.ciphertext,
-    iv: '', // Managed by KMS
+    iv: '',
     keyId: encrypted.keyId,
     encryptedAt: encrypted.encryptedAt,
   }
 }
 
-/**
- * Decrypt session data.
- */
 export async function decryptSessionData(
   encrypted: EncryptedSessionData,
 ): Promise<Record<string, string | number | undefined>> {
@@ -514,7 +405,6 @@ export async function decryptSessionData(
     throw new Error('KMS not configured')
   }
 
-  // In dev mode, use simple decryption
   if (kmsConfig.devMode) {
     return decryptWithDevKey(encrypted)
   }
@@ -545,8 +435,6 @@ export async function decryptSessionData(
   return JSON.parse(decrypted) as Record<string, string | number | undefined>
 }
 
-// ============ Ephemeral Session Keys ============
-
 export interface EphemeralKey {
   keyId: string
   publicKey: Hex
@@ -556,30 +444,19 @@ export interface EphemeralKey {
 }
 
 const ephemeralKeys = new Map<string, EphemeralKey>()
-const KEY_ROTATION_INTERVAL = 15 * 60 * 1000 // 15 minutes
-const KEY_EXPIRY = 60 * 60 * 1000 // 1 hour
+const KEY_ROTATION_INTERVAL = 15 * 60 * 1000
+const KEY_EXPIRY = 60 * 60 * 1000
 
-/**
- * Get or create an ephemeral session key.
- * Keys are short-lived and rotated frequently to limit exposure.
- *
- * SECURITY: Even if a key is compromised via side-channel:
- * - Exposure window is limited to 15 minutes
- * - Historical tokens signed with rotated keys are still valid
- * - New tokens use fresh keys
- */
 export async function getEphemeralKey(
   sessionId: string,
 ): Promise<EphemeralKey> {
   const existing = ephemeralKeys.get(sessionId)
   const now = Date.now()
 
-  // Check if key needs rotation
   if (existing && now - existing.createdAt < KEY_ROTATION_INTERVAL) {
     return existing
   }
 
-  // Generate new ephemeral key
   const keyId = `ephemeral:${sessionId}:${now}`
   const keyBytes = crypto.getRandomValues(new Uint8Array(32))
 
@@ -592,16 +469,11 @@ export async function getEphemeralKey(
   }
 
   ephemeralKeys.set(sessionId, newKey)
-
-  // Clean up expired keys
   cleanupExpiredKeys()
 
   return newKey
 }
 
-/**
- * Invalidate an ephemeral key (on logout).
- */
 export function invalidateEphemeralKey(sessionId: string): void {
   ephemeralKeys.delete(sessionId)
 }
@@ -614,8 +486,6 @@ function cleanupExpiredKeys(): void {
     }
   }
 }
-
-// ============ Dev Mode Fallbacks (NOT SECURE) ============
 
 const DEV_SECRET = 'dev-mode-not-for-production-use'
 
@@ -641,7 +511,6 @@ function generateDevToken(
     .replace(/\//g, '_')
     .replace(/=+$/, '')
 
-  // Simple HMAC for dev only
   const sig = keccak256(toBytes(`${header}.${payload}.${DEV_SECRET}`))
     .slice(2, 66)
     .replace(/\+/g, '-')
@@ -659,10 +528,9 @@ function verifyDevToken(token: string): string | null {
       atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')),
     ) as { sub: string; exp: number; dev?: boolean }
 
-    if (!payload.dev) return null // Not a dev token
+    if (!payload.dev) return null
     if (payload.exp < Math.floor(Date.now() / 1000)) return null
 
-    // Verify signature
     const expectedSig = keccak256(
       toBytes(`${parts[0]}.${parts[1]}.${DEV_SECRET}`),
     )
@@ -689,7 +557,6 @@ async function encryptWithDevKey(
     iv,
   )
 
-  // Combine ciphertext and tag for storage
   const combined = new Uint8Array(
     new Uint8Array(encrypted.ciphertext).length + encrypted.tag.length,
   )
@@ -711,7 +578,6 @@ async function decryptWithDevKey(
   const iv = hexToBytes(encrypted.iv)
   const combined = hexToBytes(encrypted.ciphertext)
 
-  // Extract tag from end of combined data (last 16 bytes)
   const tag = combined.slice(-16)
   const ciphertext = combined.slice(0, -16)
 
@@ -722,8 +588,6 @@ async function decryptWithDevKey(
   >
 }
 
-// ============ Utility Functions ============
-
 function hexToBytes(hex: string): Uint8Array {
   const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex
   const bytes = new Uint8Array(cleanHex.length / 2)
@@ -732,8 +596,6 @@ function hexToBytes(hex: string): Uint8Array {
   }
   return bytes
 }
-
-// ============ Fallback Encryption (Dev Mode Only) ============
 
 async function deriveKeyFallback(secret: string): Promise<Uint8Array> {
   const encoder = new TextEncoder()
@@ -785,7 +647,6 @@ async function encryptAesGcmFallback(
     data.buffer as ArrayBuffer,
   )
 
-  // Last 16 bytes are the auth tag
   const encryptedArray = new Uint8Array(encrypted)
   const ciphertext = encryptedArray.slice(0, -16)
   const tag = encryptedArray.slice(-16)
@@ -807,7 +668,6 @@ async function decryptAesGcmFallback(
     ['decrypt'],
   )
 
-  // Combine ciphertext and tag
   const combined = new Uint8Array(ciphertext.length + tag.length)
   combined.set(ciphertext)
   combined.set(tag, ciphertext.length)
@@ -825,5 +685,4 @@ async function decryptAesGcmFallback(
   return new Uint8Array(decrypted)
 }
 
-// Export config type
 export type { OAuth3KMSConfig }

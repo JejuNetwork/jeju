@@ -1,7 +1,3 @@
-/**
- * Autocrat Orchestrator - Multi-tenant DAO proposal lifecycle management
- */
-
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   type Account,

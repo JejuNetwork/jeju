@@ -804,7 +804,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
 
 export type RpcApp = typeof rpcApp
 
-export function startRpcServer(port = 4004, host = '0.0.0.0') {
+export function _startRpcServer(port = 4004, host = '0.0.0.0') {
   console.log(`🌐 RPC Gateway starting on http://${host}:${port}`)
   console.log(`   Supported chains: ${Object.keys(CHAINS).length}`)
   console.log(`   MCP endpoint: http://${host}:${port}/mcp`)

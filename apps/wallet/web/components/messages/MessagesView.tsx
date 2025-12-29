@@ -1,9 +1,3 @@
-/**
- * Messages View Component
- *
- * Main messaging interface combining conversation list and message thread
- */
-
 import { Mail, Plus } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import type { Address } from 'viem'

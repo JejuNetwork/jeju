@@ -1,9 +1,3 @@
-/**
- * Decentralized Services - storage and inference for council
- * Uses EQLite for storage and DWS for compute
- * Automatically configured per network from @jejunetwork/config
- */
-
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import type { AutocratVote, StoredObject } from '../lib'

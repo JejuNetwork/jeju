@@ -1,8 +1,3 @@
-/**
- * JNS (Network Name Service) - ENS-compatible naming
- * Register .jeju names, resolve addresses, reverse lookup
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
@@ -389,3 +384,14 @@ export class JNSService {
 }
 
 export const jnsService = new JNSService()
+<<<<<<< HEAD
+
+// Re-export from resolver
+export {
+  type JNSResolution,
+  JNSResolver,
+  type JNSResolverSettings,
+  jnsResolver,
+} from './resolver'
+=======
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf

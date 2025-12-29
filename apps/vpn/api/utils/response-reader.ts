@@ -1,5 +1,3 @@
-/** Response body reader with size limits */
-
 export async function readResponseBody(
   response: Response,
   maxSize: number,

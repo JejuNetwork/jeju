@@ -1,7 +1,3 @@
-/**
- * Launchpad View - Token creation and bonding curves
- */
-
 import {
   DollarSign,
   Plus,
@@ -321,10 +317,6 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
                 </button>
               </div>
             </div>
-
-            <p className="text-xs text-muted-foreground mt-6 text-center">
-              Or use chat: "Launch MEME token with bonding curve"
-            </p>
           </div>
         )}
 

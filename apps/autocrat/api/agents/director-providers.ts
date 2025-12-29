@@ -1,3 +1,5 @@
+<<<<<<< HEAD:apps/autocrat/api/agents/ceo-providers.ts
+=======
 /**
  * Director Agent Data Providers
  *
@@ -9,6 +11,7 @@
  * - Network state (via A2A/MCP)
  */
 
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf:apps/autocrat/api/agents/director-providers.ts
 import type {
   IAgentRuntime,
   Memory,

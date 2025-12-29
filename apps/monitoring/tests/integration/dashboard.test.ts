@@ -547,130 +547,75 @@ describe('Subsquid Indexer Dashboard', () => {
   })
 })
 
-let grafanaAvailable = false
-
-async function checkGrafanaAvailable(): Promise<boolean> {
+async function requireGrafana(): Promise<void> {
   try {
     const response = await fetch(`${GRAFANA_URL}/api/health`, {
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(5000),
     })
-    return response.ok
-  } catch {
-    return false
+    if (!response.ok) {
+      throw new Error(`Grafana health check failed: ${response.status}`)
+    }
+  } catch (_error) {
+    throw new Error(
+      `FATAL: Grafana not available at ${GRAFANA_URL}. ` +
+        `Run 'docker compose up -d' in the monitoring app directory.`,
+    )
   }
 }
 
-beforeAll(async () => {
-  grafanaAvailable = await checkGrafanaAvailable()
-  if (!grafanaAvailable) {
-    console.log('⚠️  Grafana not running - API validation tests will be skipped')
-  }
-})
-
 describe('Grafana API Validation', () => {
+  beforeAll(async () => {
+    await requireGrafana()
+  })
+
   test('should be accessible', async () => {
-    if (!grafanaAvailable) {
-      console.log('⚠️  Skipping - Grafana not available')
-      expect(true).toBe(true)
-      return
-    }
-    const response = await grafanaRequest('/api/health').catch(() => null)
-    if (!response) {
-      console.log('⚠️ Grafana not running - skipping API tests')
-      expect(true).toBe(true)
-      return
-    }
+    const response = await grafanaRequest('/api/health')
     expect(response.ok).toBe(true)
   })
 
   test('should have Prometheus datasource configured', async () => {
-    if (!grafanaAvailable) {
-      console.log('⚠️  Skipping - Grafana not available')
-      expect(true).toBe(true)
-      return
-    }
-    const response = await grafanaRequest('/api/datasources').catch(() => null)
-    if (!response?.ok) {
-      console.log('⚠️ Grafana not accessible')
-      expect(true).toBe(true)
-      return
-    }
+    const response = await grafanaRequest('/api/datasources')
+    expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      console.log('⚠️  Empty response from Grafana')
-      expect(true).toBe(true)
-      return
-    }
+    expect(text.length).toBeGreaterThan(0)
+
     const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text))
+    expect(Array.isArray(datasources)).toBe(true)
+
     const prometheus = datasources.find((ds) => ds.type === 'prometheus')
     if (prometheus) {
       expect(prometheus.uid).toBe('prometheus')
-    } else {
-      console.log('⚠️  Prometheus datasource not found (may need provisioning)')
     }
-    expect(Array.isArray(datasources)).toBe(true)
   })
 
   test('should have PostgreSQL datasource configured', async () => {
-    if (!grafanaAvailable) {
-      console.log('⚠️  Skipping - Grafana not available')
-      expect(true).toBe(true)
-      return
-    }
-    const response = await grafanaRequest('/api/datasources').catch(() => null)
-    if (!response?.ok) {
-      console.log('⚠️ Grafana not accessible')
-      expect(true).toBe(true)
-      return
-    }
+    const response = await grafanaRequest('/api/datasources')
+    expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      console.log('⚠️  Empty response from Grafana')
-      expect(true).toBe(true)
-      return
-    }
     const datasources = z.array(GrafanaDataSourceSchema).parse(JSON.parse(text))
+
     const postgres = datasources.find((ds) => ds.type === 'postgres')
     if (postgres) {
       expect(postgres.uid).toBe('postgres-indexer')
-    } else {
-      console.log('⚠️  PostgreSQL datasource not found (may need provisioning)')
     }
-    expect(Array.isArray(datasources)).toBe(true)
   })
 
   test('should have all 11 dashboards provisioned', async () => {
-    if (!grafanaAvailable) {
-      console.log('⚠️  Skipping - Grafana not available')
-      expect(true).toBe(true)
-      return
-    }
-    const response = await grafanaRequest('/api/search?type=dash-db').catch(
-      () => null,
-    )
-    if (!response?.ok) {
-      console.log('⚠️ Grafana not accessible')
-      expect(true).toBe(true)
-      return
-    }
+    const response = await grafanaRequest('/api/search?type=dash-db')
+    expect(response.ok).toBe(true)
 
     const text = await response.text()
-    if (!text || text.trim() === '') {
-      console.log('⚠️  Empty response from Grafana')
-      expect(true).toBe(true)
-      return
-    }
     const dashboards = z
       .array(z.object({ title: z.string() }))
       .parse(JSON.parse(text))
-    console.log(`📊 Found ${dashboards.length} provisioned dashboards`)
-    const dashboardFiles = fs
+
+    console.log(`Found ${dashboards.length} provisioned dashboards`)
+    const dashboardFileCount = fs
       .readdirSync(DASHBOARD_DIR)
-      .filter((f) => f.endsWith('.json'))
-    expect(dashboardFiles.length).toBeGreaterThanOrEqual(11)
-    expect(Array.isArray(dashboards)).toBe(true)
+      .filter((f) => f.endsWith('.json')).length
+    expect(dashboardFileCount).toBeGreaterThanOrEqual(11)
   })
 })
 

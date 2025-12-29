@@ -75,9 +75,6 @@ export default function InfrastructurePage() {
       >
         <div>
           <h1 className="page-title">Infrastructure</h1>
-          <p className="page-subtitle">
-            Manage Kubernetes clusters, Helm deployments, and V8 isolate workers
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -229,7 +226,6 @@ function ClustersTab({
       <div className="empty-state">
         <Cloud size={48} />
         <h3>No clusters</h3>
-        <p>Create a K3s/K3d cluster to get started</p>
       </div>
     )
   }
@@ -313,7 +309,6 @@ function HelmTab({
       <div className="empty-state">
         <Layers size={48} />
         <h3>No Helm deployments</h3>
-        <p>Deploy Kubernetes manifests via the Helm provider</p>
       </div>
     )
   }
@@ -393,7 +388,6 @@ function WorkerdTab({
       <div className="empty-state">
         <Box size={48} />
         <h3>No workerd workers</h3>
-        <p>Deploy V8 isolate workers (Cloudflare Workers compatible)</p>
       </div>
     )
   }
@@ -496,7 +490,6 @@ function MeshTab({
         <div className="empty-state">
           <Network size={48} />
           <h3>No mesh services</h3>
-          <p>Register services to enable mesh routing</p>
         </div>
       ) : (
         <div className="table-container">

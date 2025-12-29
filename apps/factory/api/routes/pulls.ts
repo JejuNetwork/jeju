@@ -1,5 +1,3 @@
-/** Pull Requests Routes */
-
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {

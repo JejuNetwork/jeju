@@ -41,7 +41,7 @@ export function createAppConfig(
   options: AppConfigOptions,
 ): PlaywrightTestConfig {
   const {
-    name,
+    name: _name,
     port,
     testDir = './tests/e2e',
     timeout = DEFAULT_TIMEOUTS.test,
@@ -50,6 +50,7 @@ export function createAppConfig(
     baseURL = `http://localhost:${port}`,
     webServer,
   } = options
+  void _name // Reserved for future use
 
   return defineConfig({
     testDir,
@@ -63,11 +64,8 @@ export function createAppConfig(
       timeout: DEFAULT_TIMEOUTS.expect,
     },
 
-    reporter: [
-      ['list'],
-      ['html', { outputFolder: `playwright-report-${name}` }],
-      ['json', { outputFile: `test-results-${name}.json` }],
-    ],
+    // Console-only reporters - no HTML reports
+    reporter: [['list'], ['line']],
 
     use: {
       baseURL,

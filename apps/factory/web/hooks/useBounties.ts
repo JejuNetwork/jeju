@@ -32,7 +32,6 @@ export interface BountyStats {
   avgPayout: string
 }
 
-/** Custom ABI fragment for legacy bounty hook interface */
 const bountyRegistryAbi = [
   {
     type: 'function',

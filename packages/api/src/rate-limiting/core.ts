@@ -44,6 +44,44 @@ export class DistributedRateLimitStore implements RateLimitStore {
   }
 }
 
+/**
+ * In-memory rate limit store for testing and single-instance deployments
+ */
+export class InMemoryRateLimitStore implements RateLimitStore {
+  private cache = new Map<string, RateLimitEntry>()
+  private maxSize: number
+
+  constructor(maxSize: number = 10000) {
+    this.maxSize = maxSize
+  }
+
+  async get(key: string): Promise<RateLimitEntry | undefined> {
+    const entry = this.cache.get(key)
+    if (entry && entry.resetAt < Date.now()) {
+      this.cache.delete(key)
+      return undefined
+    }
+    return entry
+  }
+
+  async set(key: string, entry: RateLimitEntry): Promise<void> {
+    // Evict oldest entries if at capacity
+    if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
+      const firstKey = this.cache.keys().next().value
+      if (firstKey) this.cache.delete(firstKey)
+    }
+    this.cache.set(key, entry)
+  }
+
+  async delete(key: string): Promise<void> {
+    this.cache.delete(key)
+  }
+
+  async clear(): Promise<void> {
+    this.cache.clear()
+  }
+}
+
 export class RateLimiter {
   private config: Required<Omit<RateLimiterConfig, 'tiers'>> & {
     tiers: Record<string, RateLimitTier>

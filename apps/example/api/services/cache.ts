@@ -1,9 +1,3 @@
-/**
- * Cache Service for Example App
- *
- * Uses the DWS serverless cache service for distributed caching.
- */
-
 import {
   getCacheNamespace,
   getDWSUrl,
@@ -12,7 +6,7 @@ import {
 
 const DWS_CACHE_ENDPOINT = getDwsCacheEndpoint() ?? `${getDWSUrl()}/cache`
 const CACHE_NAMESPACE = getCacheNamespace()
-const CACHE_TIMEOUT = 5000
+const CACHE_TIMEOUT = 1000
 
 type CacheValue =
   | string
@@ -63,58 +57,73 @@ class DWSCacheService implements CacheService {
   }
 
   async get(key: string): Promise<CacheValue | null> {
-    const params = new URLSearchParams({
-      key,
-      namespace: CACHE_NAMESPACE,
-    })
-    const result = await this.fetch<{ value: string | null; found: boolean }>(
-      `/get?${params}`,
-    )
+    try {
+      const params = new URLSearchParams({
+        key,
+        namespace: CACHE_NAMESPACE,
+      })
+      const result = await this.fetch<{ value: string | null; found: boolean }>(
+        `/get?${params}`,
+      )
 
-    if (!result.found || result.value === null) {
+      if (!result.found || result.value === null) {
+        return null
+      }
+
+      if (typeof result.value === 'string') {
+        try {
+          return JSON.parse(result.value) as CacheValue
+        } catch {
+          return result.value
+        }
+      }
+
+      return result.value
+    } catch {
       return null
     }
-
-    // Parse JSON if stored as JSON string
-    if (typeof result.value === 'string') {
-      try {
-        return JSON.parse(result.value) as CacheValue
-      } catch {
-        return result.value
-      }
-    }
-
-    return result.value
   }
 
   async set(key: string, value: CacheValue, ttlMs = 300000): Promise<void> {
-    const ttlSeconds = Math.ceil(ttlMs / 1000)
-    const stringValue =
-      typeof value === 'string' ? value : JSON.stringify(value)
+    try {
+      const ttlSeconds = Math.ceil(ttlMs / 1000)
+      const stringValue =
+        typeof value === 'string' ? value : JSON.stringify(value)
 
-    await this.fetch<{ success: boolean }>('/set', {
-      method: 'POST',
-      body: JSON.stringify({
-        key,
-        value: stringValue,
-        ttl: ttlSeconds,
-        namespace: CACHE_NAMESPACE,
-      }),
-    })
+      await this.fetch<{ success: boolean }>('/set', {
+        method: 'POST',
+        body: JSON.stringify({
+          key,
+          value: stringValue,
+          ttl: ttlSeconds,
+          namespace: CACHE_NAMESPACE,
+        }),
+      })
+    } catch {
+      // Cache failures are non-fatal
+    }
   }
 
   async delete(key: string): Promise<void> {
-    await this.fetch<{ success: boolean }>(
-      `/delete?key=${encodeURIComponent(key)}&namespace=${CACHE_NAMESPACE}`,
-      { method: 'DELETE' },
-    )
+    try {
+      await this.fetch<{ success: boolean }>(
+        `/delete?key=${encodeURIComponent(key)}&namespace=${CACHE_NAMESPACE}`,
+        { method: 'DELETE' },
+      )
+    } catch {
+      // Cache failures are non-fatal
+    }
   }
 
   async clear(): Promise<void> {
-    await this.fetch<{ success: boolean }>(
-      `/clear?namespace=${CACHE_NAMESPACE}`,
-      { method: 'DELETE' },
-    )
+    try {
+      await this.fetch<{ success: boolean }>(
+        `/clear?namespace=${CACHE_NAMESPACE}`,
+        { method: 'DELETE' },
+      )
+    } catch {
+      // Cache failures are non-fatal
+    }
   }
 
   async isHealthy(): Promise<boolean> {

@@ -1,19 +1,3 @@
-/**
- * Git Push Auto-Deployment Hook
- *
- * Automatically deploys apps when pushed to the DWS git server:
- * - Detects framework and builds
- * - Uploads to IPFS
- * - Updates JNS contenthash
- * - Triggers worker deployment if API detected
- *
- * Usage:
- *   git remote add dws https://dws.jejunetwork.org/git/myapp
- *   git push dws main
- *
- * Workerd compatible: Uses exec API for file operations.
- */
-
 import {
   getContract,
   getCurrentNetwork,

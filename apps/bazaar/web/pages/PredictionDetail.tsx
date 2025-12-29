@@ -1,9 +1,3 @@
-/**
- * Prediction Detail Page
- *
- * Shows prediction market details with integrated Farcaster channel feed.
- */
-
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,

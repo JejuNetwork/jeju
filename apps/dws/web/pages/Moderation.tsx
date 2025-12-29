@@ -117,9 +117,6 @@ export default function ModerationPage() {
       >
         <div>
           <h1 className="page-title">Moderation</h1>
-          <p className="page-subtitle">
-            Decentralized content moderation and ban management
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button

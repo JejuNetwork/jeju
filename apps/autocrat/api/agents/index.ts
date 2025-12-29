@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 /**
  * Autocrat Agents Module
  *
@@ -10,6 +12,7 @@
  * - ./templates
  */
 
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 export * from './autocrat-plugin'
 export * from './autocrat-providers'
 export * from './director-plugin'

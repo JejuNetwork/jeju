@@ -1,13 +1,3 @@
-/**
- * Decentralized Infrastructure Types
- *
- * DWS is a fully decentralized compute network where:
- * - Anyone can run a node and register on-chain
- * - Users pay with crypto (x402, staking) to deploy workers
- * - TEE/PoC ensures nodes execute honestly
- * - No centralized cloud provider is required
- */
-
 import {
   getIpfsApiUrl,
   getIpfsGatewayUrl,

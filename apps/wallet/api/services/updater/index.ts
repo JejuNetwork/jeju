@@ -1,10 +1,3 @@
-/**
- * Auto-Update Service
- *
- * Handles automatic updates for the wallet app.
- * Pulls from the Jeju package registry and DWS for decentralized updates.
- */
-
 import { UpdateManifestResponseSchema } from '../../../lib/api-responses'
 import { API_URLS, fetchApi } from '../../../lib/eden'
 import { getPlatformInfo, isDesktop } from '../../../web/platform/detection'

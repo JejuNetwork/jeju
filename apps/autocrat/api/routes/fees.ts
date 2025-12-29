@@ -1,10 +1,3 @@
-/**
- * Fee Management Routes
- *
- * API endpoints for the AI CEO to manage network-wide fees.
- * All fee changes are recorded on-chain for transparency.
- */
-
 import { Elysia, t } from 'elysia'
 import {
   ceoFeeSkills,

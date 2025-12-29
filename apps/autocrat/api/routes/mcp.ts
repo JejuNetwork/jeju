@@ -1,7 +1,3 @@
-/**
- * MCP (Model Context Protocol) Routes
- */
-
 import { Elysia } from 'elysia'
 import { createAutocratMCPServer } from '../mcp-server'
 import { blockchain, config } from '../shared-state'

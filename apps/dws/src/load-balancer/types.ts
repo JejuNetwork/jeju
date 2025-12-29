@@ -1,8 +1,3 @@
-/**
- * Load Balancer Types
- * Scale-to-zero architecture like Vast.ai/Akash
- */
-
 import type { Address } from 'viem'
 
 export type InstanceStatus =

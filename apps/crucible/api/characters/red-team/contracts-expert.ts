@@ -1,10 +1,3 @@
-/**
- * Contracts Expert Character
- *
- * Red team agent specializing in smart contract vulnerabilities.
- * Deep knowledge of Solidity, EVM, and common exploit patterns.
- */
-
 import type { AgentCharacter } from '../../../lib/types'
 
 export const contractsExpertCharacter: AgentCharacter = {

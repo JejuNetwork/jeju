@@ -1,8 +1,3 @@
-/**
- * Pools Service - XLP V2/V3 Liquidity Pool Management
- * Add/remove liquidity, view positions, collect fees
- */
-
 import { getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {

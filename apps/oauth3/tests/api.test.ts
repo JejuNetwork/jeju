@@ -1,7 +1,3 @@
-/**
- * Auth API tests
- */
-
 import { describe, expect, test } from 'bun:test'
 
 const BASE_URL = 'http://localhost:4200'

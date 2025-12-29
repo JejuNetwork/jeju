@@ -1,5 +1,3 @@
-/** CI Routes */
-
 import { Elysia } from 'elysia'
 import {
   type CIRunRow,

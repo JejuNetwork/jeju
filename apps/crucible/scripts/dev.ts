@@ -1,14 +1,3 @@
-/**
- * Crucible Development Server
- *
- * Builds frontend with HMR, serves static files, proxies API requests.
- * Has custom plugins for pino and React that require custom script.
- *
- * Usage:
- *   bun run dev                    # Frontend + API
- *   bun run scripts/dev.ts         # Frontend only
- */
-
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'

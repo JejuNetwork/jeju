@@ -54,7 +54,6 @@ function NodeCard({ nodeId }: NodeCardProps) {
 
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
-      {/* Header */}
       <div
         style={{
           display: 'flex',
@@ -84,7 +83,6 @@ function NodeCard({ nodeId }: NodeCardProps) {
         )}
       </div>
 
-      {/* Staking Info */}
       <div className="grid grid-2" style={{ marginBottom: '1rem' }}>
         <div>
           <p
@@ -156,7 +154,6 @@ function NodeCard({ nodeId }: NodeCardProps) {
         </div>
       </div>
 
-      {/* Performance */}
       <div
         className="grid grid-3"
         style={{ marginBottom: '1rem', gap: '0.75rem' }}
@@ -211,7 +208,6 @@ function NodeCard({ nodeId }: NodeCardProps) {
         </div>
       </div>
 
-      {/* Location */}
       <p
         style={{
           fontSize: '0.875rem',
@@ -238,7 +234,6 @@ function NodeCard({ nodeId }: NodeCardProps) {
         </div>
       )}
 
-      {/* Actions */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button
           type="button"

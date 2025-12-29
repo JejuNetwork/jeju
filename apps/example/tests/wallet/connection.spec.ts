@@ -35,14 +35,9 @@ test.describe('Wallet Connection', () => {
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 
-    // Should show "Connect Your Wallet" heading
-    await expect(page.getByText('Connect Your Wallet')).toBeVisible()
-
-    // Should show connect button
+    await expect(page.getByText('Connect your wallet')).toBeVisible()
     await expect(page.locator('#connect')).toBeVisible()
     await expect(page.locator('#connect')).toHaveText('Connect Wallet')
-
-    // Should not show main todo form yet
     await expect(page.locator('#todo-form')).not.toBeVisible()
   })
 
@@ -62,20 +57,12 @@ test.describe('Wallet Connection', () => {
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 
-    // Click connect button
     await page.locator('#connect').click()
     await page.waitForTimeout(1000)
-
-    // Approve connection in MetaMask
     await metamask.connectToDapp()
 
-    // Should show truncated address
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
-
-    // Should show disconnect button
     await expect(page.locator('#disconnect')).toBeVisible()
-
-    // Connect screen should be gone
     await expect(page.locator('#connect')).not.toBeVisible()
   })
 
@@ -87,7 +74,6 @@ test.describe('Wallet Connection', () => {
   }) => {
     await connectWallet(page, context, metamaskPage, extensionId)
 
-    // Address should be truncated like 0xf39F...2266
     await expect(page.getByText(/0xf39F.*2266/i)).toBeVisible()
   })
 
@@ -99,10 +85,7 @@ test.describe('Wallet Connection', () => {
   }) => {
     await connectWallet(page, context, metamaskPage, extensionId)
 
-    // Todo form should now be visible
     await expect(page.locator('#todo-form')).toBeVisible({ timeout: 15000 })
-
-    // Input and buttons should be visible
     await expect(page.locator('#todo-input')).toBeVisible()
     await expect(page.locator('#priority-select')).toBeVisible()
     await expect(page.locator('button[type="submit"]')).toBeVisible()
@@ -116,10 +99,9 @@ test.describe('Wallet Connection', () => {
   }) => {
     await connectWallet(page, context, metamaskPage, extensionId)
 
-    // Filter buttons should be visible
-    await expect(page.getByRole('button', { name: 'All' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Pending' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Completed' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /All/i })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /To Do/i })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Done/i })).toBeVisible()
   })
 
   test('disconnects wallet successfully', async ({
@@ -130,28 +112,21 @@ test.describe('Wallet Connection', () => {
   }) => {
     await connectWallet(page, context, metamaskPage, extensionId)
 
-    // Verify connected state
     await expect(page.locator('#disconnect')).toBeVisible()
-
-    // Click disconnect
     await page.locator('#disconnect').click()
 
-    // Should return to connect screen
     await expect(page.locator('#connect')).toBeVisible()
-    await expect(page.getByText('Connect Your Wallet')).toBeVisible()
-
-    // Address should no longer be visible
+    await expect(page.getByText('Connect your wallet')).toBeVisible()
     await expect(page.getByText(/0xf39F/i)).not.toBeVisible()
   })
 })
 
 test.describe('Page Header', () => {
-  test('shows app title and subtitle', async ({ page }) => {
+  test('shows app title', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.getByText('Example')).toBeVisible()
-    await expect(page.getByText(/Powered by Jeju Network/i)).toBeVisible()
+    await expect(page.getByText('Jeju Tasks')).toBeVisible()
   })
 
   test('header persists after wallet connection', async ({
@@ -162,7 +137,6 @@ test.describe('Page Header', () => {
   }) => {
     await connectWallet(page, context, metamaskPage, extensionId)
 
-    await expect(page.getByText('Example')).toBeVisible()
-    await expect(page.getByText(/Powered by Jeju Network/i)).toBeVisible()
+    await expect(page.getByText('Jeju Tasks')).toBeVisible()
   })
 })

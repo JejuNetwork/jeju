@@ -16,6 +16,8 @@ export {
   createPackfile,
   createPktLine,
   createPktLines,
+  createReceivePackResponse,
+  createSidebandPktLine,
   extractPackfile,
   PackfileReader,
   PackfileWriter,

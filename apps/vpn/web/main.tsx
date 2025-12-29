@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './globals.css'
 
-// Platform detection context
 interface PlatformInfo {
   isMobile: boolean
   isIOS: boolean
@@ -59,7 +58,6 @@ function PlatformProvider({ children }: { children: React.ReactNode }) {
   const [platform, setPlatform] = useState<PlatformInfo>(detectPlatform)
 
   useEffect(() => {
-    // Re-detect on resize (for responsive testing)
     const handleResize = () => {
       setPlatform(detectPlatform())
     }
@@ -68,7 +66,6 @@ function PlatformProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Add platform-specific classes to document
   useEffect(() => {
     const classes: string[] = []
     if (platform.isMobile) classes.push('is-mobile')

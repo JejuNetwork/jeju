@@ -38,7 +38,6 @@ export function BanBanner({
   return (
     <div className={`border-l-4 p-4 mb-4 rounded-r-lg ${colorScheme}`}>
       <div className="flex items-start gap-3">
-        {/* Warning Icon */}
         <div className={`flex-shrink-0 ${iconColor}`}>
           <svg
             className="h-6 w-6"
@@ -54,7 +53,6 @@ export function BanBanner({
           </svg>
         </div>
 
-        {/* Content */}
         <div className="flex-1">
           <h3 className="font-semibold text-lg">
             {isOnNotice
@@ -74,7 +72,6 @@ export function BanBanner({
 
           {showDetails && (
             <>
-              {/* Status Badge */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span
                   className={`px-2 py-1 rounded text-xs font-medium ${
@@ -95,14 +92,12 @@ export function BanBanner({
                 )}
               </div>
 
-              {/* Reason */}
               {banStatus.reason && (
                 <div className="mt-3 p-2 bg-black/5 rounded text-sm">
                   <strong>Reason:</strong> {banStatus.reason}
                 </div>
               )}
 
-              {/* Actions */}
               <div className="mt-4 flex gap-3">
                 {banStatus.canAppeal && (
                   <a
@@ -190,7 +185,6 @@ export function BanOverlay({
   return (
     <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-        {/* Red shield icon */}
         <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
           <svg
             className="h-8 w-8 text-red-500"

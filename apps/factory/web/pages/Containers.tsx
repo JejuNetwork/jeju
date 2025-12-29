@@ -1,9 +1,3 @@
-/**
- * Containers Page
- *
- * Browse and search container images with responsive design.
- */
-
 import { Box, Download, HardDrive, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'

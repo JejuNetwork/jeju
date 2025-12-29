@@ -15,7 +15,6 @@ import {
 import { type ComponentType, useEffect, useState } from 'react'
 import { INDEXER_URL } from '../../lib/config'
 
-// Icon aliases for React 19 compatibility
 const SearchIcon = Search as ComponentType<LucideProps>
 const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>
 const SparklesIcon = Sparkles as ComponentType<LucideProps>
@@ -49,7 +48,6 @@ interface RegisteredApp {
   active?: boolean
 }
 
-/** Raw GraphQL response for registered agent */
 interface GraphQLAgentResponse {
   id?: string
   agentId?: string
@@ -181,7 +179,6 @@ async function fetchAgentsFromIndexer(
   }
 
   return agents.map((agent) => {
-    // Validate required fields
     const agentId = agent.agentId ?? agent.id
     if (!agentId) {
       throw new Error('Agent missing required agentId')
@@ -243,7 +240,6 @@ export default function RegisteredAppsList({
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300)
     return () => clearTimeout(timer)

@@ -1,9 +1,3 @@
-/**
- * Git Repositories Page
- *
- * Browse and search repositories with responsive design.
- */
-
 import { GitBranch, GitFork, Lock, Plus, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'

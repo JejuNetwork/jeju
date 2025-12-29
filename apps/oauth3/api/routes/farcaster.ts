@@ -1,9 +1,3 @@
-/**
- * Farcaster authentication routes
- *
- * SECURITY: Sessions use ephemeral keys and encrypted PII storage.
- */
-
 import { Elysia, t } from 'elysia'
 import QRCode from 'qrcode'
 import type { Address, Hex } from 'viem'

@@ -1,20 +1,3 @@
-/**
- * HSM Key Derivation Function
- *
- * Provides secure key derivation via external HSM (Hardware Security Module).
- * In production, encryption keys are derived inside the HSM and never exposed
- * to the TEE memory, protecting against side-channel attacks.
- *
- * Supported HSM backends:
- * - AWS CloudHSM
- * - Azure Dedicated HSM
- * - GCP Cloud HSM
- * - HashiCorp Vault Transit
- *
- * SECURITY: The derived key material is only available inside the HSM.
- * Encryption/decryption operations are performed remotely.
- */
-
 import { isProductionEnv } from '@jejunetwork/config'
 import { hash256 } from '@jejunetwork/shared'
 import { keccak256, toHex } from 'viem'

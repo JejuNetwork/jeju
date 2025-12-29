@@ -1,9 +1,3 @@
-/**
- * API Marketplace
- *
- * Decentralized API key marketplace with TEE-backed secure key vault
- */
-
 // Access Control
 export {
   accessControl,

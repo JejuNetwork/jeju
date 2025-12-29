@@ -1,19 +1,7 @@
-/**
- * AuthButton - Universal Authentication Button
- *
- * Provides a single button for all authentication methods:
- * - Wallet (MetaMask, WalletConnect, etc.) with SIWE
- * - Farcaster (SIWF)
- * - Passkeys (WebAuthn)
- * - Social (Google, Apple, Twitter, GitHub, Discord)
- */
-
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
-
-// SIWE (Sign-In With Ethereum) Implementation
 
 interface SIWEMessage {
   domain: string
@@ -92,8 +80,6 @@ function formatSIWEMessage(message: SIWEMessage): string {
   return lines.join('\n')
 }
 
-// Passkey (WebAuthn) Helpers
-
 async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   if (typeof window === 'undefined' || !window.PublicKeyCredential) {
     return false
@@ -154,7 +140,6 @@ export function AuthButton({
   const { disconnectAsync } = useDisconnect()
   const { signMessageAsync } = useSignMessage()
 
-  // Check passkey availability
   useState(() => {
     isPlatformAuthenticatorAvailable().then(setHasPasskeys)
   })
@@ -175,7 +160,6 @@ export function AuthButton({
       const result = await connectAsync({ connector })
       const walletAddress = result.accounts[0]
 
-      // Create and sign SIWE message
       const message = createSIWEMessage({
         domain: window.location.host,
         address: walletAddress as `0x${string}`,
@@ -212,7 +196,6 @@ export function AuthButton({
     setError(null)
 
     try {
-      // Redirect to Farcaster auth flow via OAuth3
       const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
@@ -245,7 +228,6 @@ export function AuthButton({
     setError(null)
 
     try {
-      // WebAuthn authentication
       const credential = await navigator.credentials.get({
         publicKey: {
           challenge: crypto.getRandomValues(new Uint8Array(32)),
@@ -257,7 +239,6 @@ export function AuthButton({
 
       if (!credential) throw new Error('Passkey authentication cancelled')
 
-      // Create session from passkey
       const session: AuthSession = {
         address: `passkey:${credential.id.slice(0, 20)}`,
         method: 'passkey',
@@ -316,7 +297,6 @@ export function AuthButton({
     localStorage.removeItem('bazaar_session')
   }
 
-  // Already connected - show account
   if (isConnected && address) {
     return (
       <div className="relative">

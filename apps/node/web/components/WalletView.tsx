@@ -359,25 +359,109 @@ export function WalletView() {
                   </>
                 )}
 
-                {(action === 'external' || action === 'jeju') && (
+                {action === 'external' && (
                   <>
                     <h2 className="text-xl font-bold mb-4">
-                      {action === 'external'
-                        ? 'Connect External Wallet'
-                        : 'Connect Network Wallet'}
+                      Connect External Wallet
                     </h2>
 
-                    <p className="text-volcanic-400 mb-4">
-                      This feature requires browser wallet extension support.
-                      Coming soon.
-                    </p>
+                    {error && (
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-400">
+                        {error}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setLoading(true)
+                          setError(null)
+                          if (!window.ethereum) {
+                            setError(
+                              'No wallet extension found. Install MetaMask or Rabby.',
+                            )
+                            setLoading(false)
+                            return
+                          }
+                          const accounts = await window.ethereum.request({
+                            method: 'eth_requestAccounts',
+                          })
+                          if (accounts.length > 0) {
+                            await invoke('connect_external_wallet', {
+                              address: accounts[0],
+                            })
+                            await fetchWallet()
+                            await fetchBalance()
+                            setAction(null)
+                          }
+                          setLoading(false)
+                        }}
+                        disabled={loading}
+                        className="w-full p-4 bg-volcanic-800 hover:bg-volcanic-700 rounded-xl flex items-center gap-3 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                          <Wallet size={20} className="text-orange-400" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-medium">Browser Wallet</p>
+                          <p className="text-xs text-volcanic-400">
+                            MetaMask, Rabby, etc.
+                          </p>
+                        </div>
+                      </button>
+                    </div>
 
                     <button
                       type="button"
                       onClick={() => setAction(null)}
-                      className="btn-secondary w-full"
+                      className="btn-secondary w-full mt-4"
                     >
-                      Close
+                      Cancel
+                    </button>
+                  </>
+                )}
+
+                {action === 'jeju' && (
+                  <>
+                    <h2 className="text-xl font-bold mb-4">
+                      Connect Network Wallet
+                    </h2>
+
+                    {error && (
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-400">
+                        {error}
+                      </div>
+                    )}
+
+                    <p className="text-volcanic-400 mb-4">
+                      Connect using your Network Wallet for enhanced security
+                      and seamless integration.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLoading(true)
+                        setError(null)
+                        await invoke('connect_jeju_wallet')
+                        await fetchWallet()
+                        await fetchBalance()
+                        setAction(null)
+                        setLoading(false)
+                      }}
+                      disabled={loading}
+                      className="btn-primary w-full"
+                    >
+                      {loading ? 'Connecting...' : 'Connect Network Wallet'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAction(null)}
+                      className="btn-secondary w-full mt-3"
+                    >
+                      Cancel
                     </button>
                   </>
                 )}
@@ -517,8 +601,19 @@ export function WalletView() {
             <p className="text-volcanic-400 mb-4">
               Register an ERC-8004 agent to participate in the network
             </p>
-            <button type="button" className="btn-primary">
-              Register Agent
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true)
+                setError(null)
+                await invoke('register_agent', { stake_tier: 'small' })
+                await fetchWallet()
+                setLoading(false)
+              }}
+              disabled={loading}
+              className="btn-primary"
+            >
+              {loading ? 'Registering...' : 'Register Agent'}
             </button>
           </div>
         )}
@@ -532,22 +627,59 @@ export function WalletView() {
         </h2>
 
         <div className="space-y-3">
+          {wallet.wallet_type === 'embedded' && (
+            <>
+              <button
+                type="button"
+                onClick={async () => {
+                  const pwd = prompt('Enter your wallet password to export:')
+                  if (!pwd) return
+                  const key = await invoke<string>('export_private_key', {
+                    password: pwd,
+                  })
+                  navigator.clipboard.writeText(key)
+                  alert('Private key copied to clipboard. Store it safely.')
+                }}
+                className="btn-secondary w-full text-left flex items-center justify-between"
+              >
+                <span>Export Private Key</span>
+                <ExternalLink size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const oldPwd = prompt('Current password:')
+                  if (!oldPwd) return
+                  const newPwd = prompt('New password (min 8 chars):')
+                  if (!newPwd || newPwd.length < 8) {
+                    alert('Password must be at least 8 characters')
+                    return
+                  }
+                  await invoke('change_wallet_password', {
+                    old_password: oldPwd,
+                    new_password: newPwd,
+                  })
+                  alert('Password changed.')
+                }}
+                className="btn-secondary w-full text-left flex items-center justify-between"
+              >
+                <span>Change Password</span>
+                <Key size={16} />
+              </button>
+            </>
+          )}
           <button
             type="button"
-            className="btn-secondary w-full text-left flex items-center justify-between"
-          >
-            <span>Export Private Key</span>
-            <ExternalLink size={16} />
-          </button>
-          <button
-            type="button"
-            className="btn-secondary w-full text-left flex items-center justify-between"
-          >
-            <span>Change Password</span>
-            <Key size={16} />
-          </button>
-          <button
-            type="button"
+            onClick={async () => {
+              if (
+                !confirm(
+                  'Disconnect wallet? You will need to reconnect to use services.',
+                )
+              )
+                return
+              await invoke('disconnect_wallet')
+              await fetchWallet()
+            }}
             className="btn-ghost w-full text-left text-red-400 hover:text-red-300 flex items-center justify-between"
           >
             <span>Disconnect Wallet</span>

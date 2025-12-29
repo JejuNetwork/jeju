@@ -1,7 +1,3 @@
-/**
- * DWS Types
- */
-
 import type { Address } from 'viem'
 
 export interface DWSConfig {

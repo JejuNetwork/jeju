@@ -1,9 +1,3 @@
-/**
- * Prediction Markets Page
- *
- * Browse and participate in prediction markets
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'

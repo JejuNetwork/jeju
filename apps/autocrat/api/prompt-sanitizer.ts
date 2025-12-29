@@ -1,13 +1,3 @@
-/**
- * Prompt Sanitizer - Prevents prompt injection attacks in AI-powered features
- *
- * User input embedded in AI prompts must be sanitized to prevent injection of:
- * - System prompt overrides
- * - Role manipulation
- * - Delimiter abuse
- * - Instruction hijacking
- */
-
 import { getCurrentNetwork } from '@jejunetwork/config'
 
 /**

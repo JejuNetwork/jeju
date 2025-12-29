@@ -1,7 +1,3 @@
-/**
- * Health and Metrics Routes
- */
-
 import { getContract } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia } from 'elysia'

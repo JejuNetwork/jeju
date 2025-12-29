@@ -1,9 +1,3 @@
-/**
- * CI/CD Page
- *
- * Browse and filter CI runs with responsive design.
- */
-
 import { clsx } from 'clsx'
 import {
   CheckCircle,

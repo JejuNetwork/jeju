@@ -1,13 +1,3 @@
-/**
- * Integration Tests for Trading Bots
- *
- * Tests integration points with real dependencies where possible:
- * - Strategy initialization with real chain configs
- * - Opportunity detection logic
- * - Metrics tracking
- * - Error recovery
- */
-
 import { describe, expect, test } from 'bun:test'
 import type { ChainId } from '../../api/bots/autocrat-types-source'
 import {

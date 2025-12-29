@@ -2,9 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Theme Variables - Light Mode (default) */
 :root {
-  /* Brand Colors */
   --color-primary: #FF6B35;
   --color-primary-dark: #E85A2A;
   --color-primary-light: #FF8F66;
@@ -15,7 +13,6 @@
   --color-purple-dark: #6D28D9;
   --color-purple-light: #A78BFA;
   
-  /* Light Mode Surfaces */
   --bg-primary: #FFFBF7;
   --bg-secondary: #FFF5ED;
   --bg-tertiary: #FFEDE0;
@@ -27,17 +24,14 @@
   --text-secondary: #635E69;
   --text-tertiary: #9D97A5;
   
-  /* Status */
   --color-success: #10B981;
   --color-error: #EF4444;
   --color-warning: #F59E0B;
   --color-info: #3B82F6;
   
-  /* Shadows */
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
   --shadow-card-hover: 0 8px 30px rgba(255, 107, 53, 0.15);
   
-  /* Mesh gradient */
   --mesh-gradient: 
     radial-gradient(at 40% 20%, rgba(255, 107, 53, 0.12) 0px, transparent 50%),
     radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.08) 0px, transparent 50%),
@@ -45,13 +39,11 @@
     radial-gradient(at 80% 50%, rgba(255, 107, 53, 0.06) 0px, transparent 50%),
     radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.06) 0px, transparent 50%);
   
-  /* Fonts */
   --font-outfit: 'Outfit', system-ui, sans-serif;
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Dark Mode */
 .dark {
   --bg-primary: #0D0B14;
   --bg-secondary: #161222;
@@ -75,7 +67,6 @@
     radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.08) 0px, transparent 50%);
 }
 
-/* Base Styles */
 * {
   box-sizing: border-box;
   padding: 0;
@@ -101,7 +92,6 @@ body {
   min-height: 100vh;
 }
 
-/* Background Mesh */
 body::before {
   content: '';
   position: fixed;
@@ -111,7 +101,6 @@ body::before {
   pointer-events: none;
 }
 
-/* Typography */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -123,7 +112,6 @@ code, pre {
   font-family: var(--font-mono);
 }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -144,15 +132,12 @@ code, pre {
   background: var(--color-primary);
 }
 
-/* Selection */
 ::selection {
   background-color: var(--color-primary);
   color: white;
 }
 
-/* Component Layer */
 @layer components {
-  /* Card Base */
   .card {
     @apply rounded-2xl border transition-all duration-300;
     background-color: var(--surface);
@@ -172,7 +157,6 @@ code, pre {
     box-shadow: var(--shadow-card);
   }
   
-  /* Button Base */
   .btn {
     @apply px-6 py-3 rounded-xl font-semibold transition-all duration-200;
     @apply active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2;
@@ -221,7 +205,6 @@ code, pre {
     color: var(--text-primary);
   }
   
-  /* Input Base */
   .input {
     @apply w-full px-4 py-3 rounded-xl transition-all duration-200;
     @apply focus:outline-none focus:ring-2 focus:ring-offset-0;
@@ -239,7 +222,6 @@ code, pre {
     --tw-ring-color: rgba(255, 107, 53, 0.2);
   }
   
-  /* Badge */
   .badge {
     @apply px-3 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1;
   }
@@ -280,7 +262,6 @@ code, pre {
     color: var(--color-purple);
   }
   
-  /* Gradient Text */
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(135deg, var(--color-primary) 0%, var(--color-purple) 50%, var(--color-accent) 100%);
@@ -291,7 +272,6 @@ code, pre {
     background-image: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   }
   
-  /* Stats Card */
   .stat-card {
     @apply card-static p-4 md:p-6;
   }
@@ -306,7 +286,6 @@ code, pre {
     color: var(--text-primary);
   }
   
-  /* Status Indicator */
   .status-dot {
     @apply w-2.5 h-2.5 rounded-full;
   }
@@ -330,7 +309,6 @@ code, pre {
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
   }
   
-  /* Progress bar */
   .progress-bar {
     @apply h-2 rounded-full overflow-hidden;
     background-color: var(--bg-tertiary);
@@ -352,7 +330,6 @@ code, pre {
     background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
   }
   
-  /* Shimmer loading effect */
   .shimmer {
     @apply relative overflow-hidden;
     background: linear-gradient(
@@ -370,7 +347,6 @@ code, pre {
     100% { background-position: -200% 0; }
   }
   
-  /* Pulse ring animation */
   .pulse-ring {
     animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
@@ -386,7 +362,6 @@ code, pre {
     }
   }
   
-  /* Mobile Touch Improvements */
   @media (max-width: 768px) {
     .btn {
       @apply py-4 text-base;
@@ -403,7 +378,6 @@ code, pre {
     }
   }
   
-  /* Safe area insets for mobile notches */
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -413,7 +387,6 @@ code, pre {
   }
 }
 
-/* Animate elements on scroll */
 @media (prefers-reduced-motion: no-preference) {
   .animate-on-scroll {
     opacity: 0;
@@ -427,18 +400,15 @@ code, pre {
   }
 }
 
-/* Responsive utilities */
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
   
-  /* Container */
   .container-app {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
   
-  /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -448,7 +418,6 @@ code, pre {
     display: none;
   }
   
-  /* Touch manipulation for smooth scrolling on mobile */
   .touch-pan-y {
     touch-action: pan-y;
   }
@@ -457,4 +426,3 @@ code, pre {
     touch-action: pan-x;
   }
 }
-

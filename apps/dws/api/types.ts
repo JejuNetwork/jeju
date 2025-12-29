@@ -1,13 +1,5 @@
-/**
- * DWS Types
- */
-
 import type { Address, Hash, Hex } from 'viem'
 import { z } from 'zod'
-
-// ============================================================================
-// Common JSON Response Types
-// ============================================================================
 
 /** Basic CID response from storage upload */
 export interface CidResponse {

@@ -1,10 +1,3 @@
-/**
- * Faucet Service for DWS
- * Provides JEJU tokens for testnet development and testing only.
- *
- * IMPORTANT: This is TESTNET ONLY - mainnet faucet is disabled.
- */
-
 import {
   getContractsConfig,
   getCurrentNetwork,

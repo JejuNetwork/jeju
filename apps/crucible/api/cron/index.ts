@@ -1,7 +1,3 @@
-/**
- * Crucible Cron Routes - Agent ticks, trajectory flushing, health checks
- */
-
 import { constantTimeCompare } from '@jejunetwork/api'
 import {
   getStaticTrajectoryStorage,

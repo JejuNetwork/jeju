@@ -1,7 +1,3 @@
-/**
- * Base API Hook
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { API_URL } from '../config'
 

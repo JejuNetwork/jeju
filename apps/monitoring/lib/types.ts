@@ -1,10 +1,4 @@
-/** Shared types for monitoring module. */
-
 import { z } from 'zod'
-
-// =====================================================================
-// FETCH UTILITIES
-// =====================================================================
 
 export interface SafeFetchResponse {
   ok: boolean
@@ -216,7 +210,7 @@ const A2AResponseDataSchema = z.union([
     ),
   }),
   z.object({ success: z.boolean() }),
-  z.object({ skillId: z.string() }), // Request data
+  z.object({ skillId: z.string() }),
 ])
 
 export const A2AResponseSchema = z.object({
@@ -418,7 +412,6 @@ export interface SkillResult {
   data: SkillResultData
 }
 
-// MCP tool arguments types
 export type CheckServiceArgs = { service: string; includeMetrics?: boolean }
 export type QueryLogsArgs = {
   service?: string
@@ -576,7 +569,6 @@ export interface ValidationResult {
   queries: { query: string; result: string }[]
 }
 
-/** Safely format large token amounts using BigInt to avoid precision loss. */
 export function formatVolume(amount: string): string {
   if (!/^-?\d+$/.test(amount)) {
     return '0.0000'
@@ -593,7 +585,6 @@ export function formatVolume(amount: string): string {
   return value.toFixed(4)
 }
 
-/** Format a number with K/M suffixes for display. */
 export function formatNumber(value: string | number): string {
   if (typeof value === 'string') {
     return formatVolume(value)

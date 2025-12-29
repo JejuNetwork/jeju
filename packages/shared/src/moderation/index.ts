@@ -97,3 +97,82 @@ export {
   type DetectionStats,
   type ResponseTimeStats,
 } from './transparency'
+
+// New Unified Ingestion Pipeline (Design Axiom Compliant)
+export {
+  IngestionPipeline,
+  getIngestionPipeline,
+  resetIngestionPipeline,
+  type IngestionResult,
+  type IngestionAction,
+  type IntakeContext,
+  type IngestionPipelineConfig,
+} from './ingestion-pipeline'
+
+// CSAM Hash Provider (Authoritative Hash Matching)
+export {
+  CSAMHashProvider,
+  getCSAMHashProvider,
+  type HashMatchResult,
+  type CSAMHashProviderConfig,
+} from './providers/csam-hash'
+
+// Face/Age Detection (Conservative Youth Handling)
+export {
+  FaceAgeProvider,
+  getFaceAgeProvider,
+  type FaceAgeResult,
+  type FaceDetection,
+  type AgeEstimate,
+  type FaceAgeProviderConfig,
+} from './providers/face-age'
+
+// Policy Engine (Deterministic Routing)
+export {
+  PolicyEngine,
+  getPolicyEngine,
+  type RoutingDecision,
+  type RoutingCase,
+  type NudityResult,
+  type PolicyEngineConfig,
+} from './policy-engine'
+
+// Quarantine Manager (Evidence Preservation)
+export {
+  QuarantineManager,
+  getQuarantineManager,
+  type QuarantineItem,
+  type QuarantineReason,
+  type QuarantineStatus,
+  type QuarantineDecision,
+  type EvidenceBundle,
+  type QuarantineManagerConfig,
+} from './quarantine'
+
+// Wallet Enforcement (Graduated Response)
+export {
+  WalletEnforcementManager,
+  getWalletEnforcementManager,
+  type WalletStatus,
+  type ViolationType,
+  type Violation,
+  type WalletEnforcementState,
+  type WalletEnforcementConfig,
+} from './wallet-enforcement'
+
+// Image Processing (Standardization + Hashing)
+export {
+  ImageProcessor,
+  getImageProcessor,
+  type StandardImage,
+  type ImageProcessorConfig,
+} from './image-processor'
+
+// Content Cache (Deduplication + Retroactive Enforcement)
+export {
+  ContentCache,
+  getContentCache,
+  type ContentStatus,
+  type ContentStatusType,
+  type ContentCacheConfig,
+} from './content-cache'

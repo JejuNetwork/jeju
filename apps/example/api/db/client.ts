@@ -15,7 +15,39 @@ import {
 
 const DATABASE_ID = process.env.EQLITE_DATABASE_ID || 'todo-experimental'
 
+const TODOS_SCHEMA = `
+CREATE TABLE IF NOT EXISTS todos (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  completed INTEGER DEFAULT 0,
+  priority TEXT DEFAULT 'medium',
+  due_date INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  owner TEXT NOT NULL,
+  encrypted_data TEXT,
+  attachment_cid TEXT
+)`
+
+const TODOS_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_todos_owner ON todos(owner)',
+  'CREATE INDEX IF NOT EXISTS idx_todos_created ON todos(created_at DESC)',
+]
+
 let dbClient: EQLiteClient | null = null
+let schemaInitialized = false
+
+async function initializeSchema(client: EQLiteClient): Promise<void> {
+  if (schemaInitialized) return
+
+  await client.exec(TODOS_SCHEMA, [], DATABASE_ID)
+  for (const index of TODOS_INDEXES) {
+    await client.exec(index, [], DATABASE_ID)
+  }
+  schemaInitialized = true
+  console.log('[DB] Schema initialized')
+}
 
 export function getDatabase(): EQLiteClient {
   if (!dbClient) {
@@ -29,6 +61,9 @@ export function getDatabase(): EQLiteClient {
       databaseId: DATABASE_ID,
       timeout: 30000,
       debug: !isProductionEnv(),
+    })
+    initializeSchema(dbClient).catch((err) => {
+      console.error('[DB] Schema initialization failed:', err)
     })
   }
   return dbClient

@@ -1,8 +1,3 @@
-/**
- * @fileoverview Cross-chain swap integration via OIF
- * Enables Bazaar users to swap tokens across chains using intents
- */
-
 import { expect, expectTrue } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
@@ -75,7 +70,6 @@ export function isSolanaChain(chainId: number): boolean {
   return chainId === 101 || chainId === 102
 }
 
-// Common tokens across chains
 export const CROSS_CHAIN_TOKENS: Record<number, Record<string, Address>> = {
   1: {
     ETH: '0x0000000000000000000000000000000000000000',
@@ -96,9 +90,7 @@ export const CROSS_CHAIN_TOKENS: Record<number, Record<string, Address>> = {
     ETH: '0x0000000000000000000000000000000000000000',
   },
 }
-/**
- * Get quotes from OIF aggregator for a cross-chain swap
- */
+
 export async function getCrossChainQuotes(
   params: CreateIntentParams,
 ): Promise<CrossChainQuote[]> {
@@ -130,7 +122,6 @@ export async function getBestQuote(
 
   if (quotes.length === 0) return null
 
-  // Sort by output amount (highest first), then by time (fastest first)
   quotes.sort((a, b) => {
     const outputDiff = BigInt(b.outputAmount) - BigInt(a.outputAmount)
     if (outputDiff !== 0n) return Number(outputDiff)
@@ -140,9 +131,6 @@ export async function getBestQuote(
   return quotes[0]
 }
 
-/**
- * Get available routes between chains
- */
 export async function getRoutes(
   sourceChainId?: number,
   destChainId?: number,
@@ -172,9 +160,6 @@ export async function hasRoute(
   return routes.length > 0
 }
 
-/**
- * Get intent status
- */
 export async function getIntentStatus(intentId: string): Promise<IntentResult> {
   const validatedAggregatorUrl = expect(
     AGGREGATOR_URL,
@@ -222,9 +207,7 @@ export async function createIntent(
 
   return response.json()
 }
-/**
- * Get chain info by ID
- */
+
 export function getChainInfo(chainId: number) {
   return SUPPORTED_CHAINS.find((c) => c.chainId === chainId)
 }
@@ -233,12 +216,11 @@ export function getTokenAddress(
   chainId: number,
   symbol: string,
 ): Address | undefined {
-  return CROSS_CHAIN_TOKENS[chainId][symbol]
+  const chainTokens = CROSS_CHAIN_TOKENS[chainId]
+  if (!chainTokens) return undefined
+  return chainTokens[symbol]
 }
 
-/**
- * Check if token is supported on chain
- */
 export function isTokenSupported(
   chainId: number,
   tokenAddress: Address,
@@ -259,9 +241,6 @@ export function formatCrossChainAmount(
   return value.toFixed(6)
 }
 
-/**
- * Calculate minimum output with slippage
- */
 export function calculateMinOutput(
   outputAmount: string,
   slippageBps: number,

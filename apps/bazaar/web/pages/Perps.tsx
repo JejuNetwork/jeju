@@ -1,13 +1,13 @@
-/**
- * Perpetuals Trading Page
- *
- * Trade perpetual futures with up to 50x leverage
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { formatUnits } from 'viem'
-import { useAccount } from 'wagmi'
+import { toast } from 'sonner'
+import { formatUnits, parseAbi, parseEther } from 'viem'
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { CONTRACTS, PERPETUAL_MARKET_ADDRESS } from '../../config'
 import {
   fetchPerpsMarkets,
   fetchTraderPositions,
@@ -16,6 +16,10 @@ import {
 } from '../../lib/perps-client'
 import { AuthButton } from '../components/auth/AuthButton'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+
+const PERPS_ABI = parseAbi([
+  'function openPosition(bytes32 marketId, address marginToken, uint256 marginAmount, uint256 size, uint8 side, uint256 leverage) returns (bytes32 positionId, uint256 executionPrice, uint256 fee, int256 realizedPnl, int256 fundingPaid)',
+])
 
 type PositionSide = 'long' | 'short'
 
@@ -26,7 +30,6 @@ export default function PerpsPage() {
   const [leverage, setLeverage] = useState(10)
   const [marginAmount, setMarginAmount] = useState('')
 
-  // Fetch markets
   const {
     data: markets,
     isLoading: marketsLoading,
@@ -38,7 +41,6 @@ export default function PerpsPage() {
     staleTime: 5000,
   })
 
-  // Fetch user positions
   const { data: positions, isLoading: positionsLoading } = useQuery({
     queryKey: ['perps-positions', address],
     queryFn: () =>
@@ -47,7 +49,62 @@ export default function PerpsPage() {
     refetchInterval: 10000,
   })
 
-  // Auto-select first market
+  const { writeContract, data: txHash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
+
+  if (isSuccess) {
+    toast.success('Position opened successfully.')
+    setMarginAmount('')
+  }
+
+  const handleOpenPosition = () => {
+    if (!isConnected || !address) {
+      toast.error('Connect your wallet first')
+      return
+    }
+
+    if (!selectedMarket) {
+      toast.error('Select a market')
+      return
+    }
+
+    const margin = parseFloat(marginAmount)
+    if (Number.isNaN(margin) || margin <= 0) {
+      toast.error('Enter a valid margin amount')
+      return
+    }
+
+    if (
+      !PERPETUAL_MARKET_ADDRESS ||
+      PERPETUAL_MARKET_ADDRESS === '0x0000000000000000000000000000000000000000'
+    ) {
+      toast.error('Perpetual market not deployed')
+      return
+    }
+
+    const positionSize = parseEther(String(margin * leverage))
+    const marginWei = parseEther(marginAmount)
+    const sideValue = side === 'long' ? 0 : 1
+
+    writeContract({
+      address: PERPETUAL_MARKET_ADDRESS,
+      abi: PERPS_ABI,
+      functionName: 'openPosition',
+      args: [
+        selectedMarket.marketId as `0x${string}`,
+        CONTRACTS.jeju,
+        marginWei,
+        positionSize,
+        sideValue,
+        BigInt(leverage),
+      ],
+    })
+  }
+
+  const isSubmitting = isPending || isConfirming
+
   if (markets && markets.length > 0 && !selectedMarket) {
     setSelectedMarket(markets[0])
   }
@@ -490,17 +547,23 @@ export default function PerpsPage() {
                 </div>
               </div>
 
-              {/* Submit Button */}
               <button
                 type="button"
-                disabled={!marginAmount || Number(marginAmount) <= 0}
+                onClick={handleOpenPosition}
+                disabled={
+                  !marginAmount || Number(marginAmount) <= 0 || isSubmitting
+                }
                 className={`w-full py-3 rounded-lg font-medium transition-colors ${
                   side === 'long'
                     ? 'bg-green-500 hover:bg-green-600 disabled:bg-green-500/50'
                     : 'bg-red-500 hover:bg-red-600 disabled:bg-red-500/50'
                 } text-white disabled:cursor-not-allowed`}
               >
-                {side === 'long' ? 'Open Long' : 'Open Short'}
+                {isSubmitting
+                  ? 'Opening Position...'
+                  : side === 'long'
+                    ? 'Open Long'
+                    : 'Open Short'}
               </button>
             </div>
           )}

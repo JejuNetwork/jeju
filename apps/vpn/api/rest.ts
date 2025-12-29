@@ -1,5 +1,3 @@
-/** REST API for VPN operations */
-
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -414,8 +412,6 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         settings: updatedSettings,
       }
     })
-
-    // Residential Proxy / Bandwidth Sharing Endpoints
 
     .get('/residential-proxy/status', async ({ request }) => {
       const auth = await verifyAuth(request)

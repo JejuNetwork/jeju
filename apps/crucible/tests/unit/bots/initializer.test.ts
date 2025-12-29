@@ -1,13 +1,3 @@
-/**
- * Bot Initializer Tests
- *
- * Tests for bot initialization including:
- * - Network-specific configurations
- * - Error handling and recovery
- * - Concurrent initialization
- * - Edge cases
- */
-
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
 import type { PublicClient, WalletClient } from 'viem'

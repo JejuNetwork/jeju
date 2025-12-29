@@ -1,7 +1,3 @@
-/**
- * Utility Functions
- */
-
 export function formatDistanceToNow(timestamp: number): string {
   const now = Date.now()
   const diffMs = now - timestamp * 1000 // Convert seconds to milliseconds if needed

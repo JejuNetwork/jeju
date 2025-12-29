@@ -496,6 +496,7 @@ export function getServicesConfig(
       getEnvService('JEJU_EXPLORER_URL') ??
       config.explorer,
     indexer: {
+      api: getEnvService('INDEXER_API_URL') ?? config.indexer.api,
       graphql:
         getEnvService('INDEXER_URL') ??
         getEnvService('INDEXER_GRAPHQL_URL') ??

@@ -1,10 +1,3 @@
-/**
- * Auth App - OAuth3 Authentication Gateway
- *
- * Provides decentralized authentication for Jeju Network.
- * Acts as a passthrough for other apps to use OAuth3.
- */
-
 import { cors } from '@elysiajs/cors'
 import { getLocalhostHost } from '@jejunetwork/config'
 import { Elysia } from 'elysia'

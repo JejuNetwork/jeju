@@ -1,9 +1,3 @@
-/**
- * Governance Tab - Proposals and Voting
- *
- * Display and filter proposals with quick actions for creating new ones.
- */
-
 import {
   AlertCircle,
   Bug,

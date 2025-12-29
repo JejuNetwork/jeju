@@ -1,8 +1,3 @@
-/**
- * Mint Item Page
- * Full minting interface for SimpleCollectible contract
- */
-
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'

@@ -19,7 +19,6 @@ const REPUTATION_MANAGER_ABI = parseAbi([
 ])
 
 const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
-// CONTRACTS already returns ZERO_ADDRESS when env var is not set
 const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry
 const BAN_MANAGER_ADDRESS = CONTRACTS.banManager
 const REPUTATION_MANAGER_ADDRESS = CONTRACTS.reputationLabelManager

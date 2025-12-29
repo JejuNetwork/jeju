@@ -1,5 +1,3 @@
-/** Jobs Routes */
-
 import { Elysia } from 'elysia'
 import type { Job, JobSalary } from '../../lib/types'
 import {

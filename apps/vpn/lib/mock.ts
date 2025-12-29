@@ -1,19 +1,6 @@
-/**
- * Mock Tauri API for web development ONLY.
- *
- * This module provides fake implementations of Tauri commands for developing
- * and testing the frontend without the full Rust backend. All data is simulated.
- *
- * IMPORTANT: This code ONLY runs when not in Tauri (isTauri() returns false).
- * In production Tauri builds, the real Rust backend handles all commands.
- *
- * @module mock
- */
-
 import { z } from 'zod'
 import type { VPNConnection, VPNNode, VPNStatus } from './schemas'
 
-// Input validation schemas for mock handlers
 const GetNodesInputSchema = z
   .object({
     countryCode: z.string().length(2).nullable().optional(),
@@ -82,7 +69,6 @@ const SetAutostartInputSchema = z
   })
   .strict()
 
-/** Mock state interface with proper types */
 interface MockState {
   vpnStatus: VPNStatus['status']
   connection: VPNConnection | null
@@ -113,7 +99,6 @@ const mockState: MockState = {
   autoStart: false,
 }
 
-// Residential proxy mock state
 const mockResidentialProxyState = {
   status: {
     is_registered: false,
@@ -245,7 +230,6 @@ function stopTrafficSimulation() {
   }
 }
 
-/** Handler result types for type-safe mock invoke */
 type HandlerResult =
   | VPNStatus
   | VPNNode[]
@@ -579,11 +563,9 @@ const handlers: Record<string, MockHandler> = {
   },
 
   get_public_key: async (): Promise<string> => {
-    // Mock WireGuard public key (base64 encoded 32 bytes)
     return 'dGVzdC1wdWJsaWMta2V5LWZvci1kZXZlbG9wbWVudA=='
   },
 
-  // Residential Proxy / Bandwidth Sharing Mock Handlers
   get_residential_proxy_status: async () => {
     return mockResidentialProxyState.status
   },

@@ -1,12 +1,3 @@
-/**
- * Dws Playwright Configuration
- *
- * DWS runs on two ports:
- * - 4030: API server (backend routes)
- * - 4031: Frontend (React SPA)
- *
- * E2E tests target the frontend on 4031
- */
 import { defineConfig, devices } from '@playwright/test'
 
 const FRONTEND_PORT = 4031
@@ -17,7 +8,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  // Console-only reporters - no HTML reports
+  reporter: [['list'], ['line']],
   timeout: 120000,
 
   use: {

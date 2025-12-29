@@ -568,32 +568,6 @@ function PortfolioView({
             </div>
           )}
         </div>
-
-        {/* Features */}
-        <div className="rounded-2xl bg-card border border-border p-6">
-          <h3 className="font-semibold mb-4">Why Use This Wallet?</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              {
-                emoji: '⚡',
-                title: 'Bridgeless',
-                desc: 'Move tokens instantly',
-              },
-              { emoji: '🔗', title: 'Multi-Chain', desc: 'One unified view' },
-              { emoji: '🤖', title: 'AI Agent', desc: 'Just ask for it' },
-              { emoji: '🛡️', title: 'Secure', desc: 'Preview before signing' },
-            ].map(({ emoji, title, desc }) => (
-              <div
-                key={title}
-                className="text-center p-4 rounded-xl bg-secondary/30"
-              >
-                <div className="text-2xl mb-2">{emoji}</div>
-                <p className="text-sm font-medium">{title}</p>
-                <p className="text-xs text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   )

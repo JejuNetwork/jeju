@@ -712,7 +712,26 @@ async function cmdEarnings(): Promise<void> {
     return
   }
 
-  console.log(`  ${chalk.dim('Coming soon: earnings tracking and history')}\n`)
+  const client = createSecureNodeClient(
+    config.rpcUrl,
+    config.chainId,
+    config.keyId,
+  )
+  const walletAddr = expectAddress(config.walletAddress, 'config.walletAddress')
+
+  const balance = await client.publicClient.getBalance({ address: walletAddr })
+
+  console.log(`  ${chalk.bold('Wallet Balance')}`)
+  console.log(`    ${formatEther(balance)} ETH\n`)
+
+  console.log(`  ${chalk.bold('Services Enabled')}`)
+  const enabled = Object.entries(config.services)
+    .filter(([_, v]) => v)
+    .map(([k]) => k)
+  console.log(`    ${enabled.length > 0 ? enabled.join(', ') : 'None'}\n`)
+
+  console.log(`  ${chalk.bold('Bots')}`)
+  console.log(`    ${config.bots.enabled ? 'Enabled' : 'Disabled'}\n`)
 }
 
 type ConfigValue = string | number | boolean | string[] | number[]

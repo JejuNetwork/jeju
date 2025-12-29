@@ -1,19 +1,4 @@
-/**
- * Streaming Response Handler for Workers
- *
- * Implements streaming responses for serverless workers:
- * - Server-Sent Events (SSE)
- * - Chunked transfer encoding
- * - ReadableStream support
- * - Backpressure handling
- * - Connection management
- */
-
 import { createHash } from 'node:crypto'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type StreamType = 'sse' | 'ndjson' | 'chunked' | 'raw'
 

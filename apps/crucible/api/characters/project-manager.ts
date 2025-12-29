@@ -1,10 +1,3 @@
-/**
- * Project Manager Character (Jimmy)
- *
- * Professional project manager for team coordination,
- * check-ins, todos, and reporting.
- */
-
 import type { AgentCharacter } from '../../lib/types'
 
 export const projectManagerCharacter: AgentCharacter = {

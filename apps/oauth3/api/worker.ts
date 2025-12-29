@@ -1,10 +1,3 @@
-/**
- * OAuth3 Worker - DWS/Cloudflare Workers deployment
- *
- * This is the entry point for decentralized deployment via DWS.
- * Uses workerd runtime with nodejs_compat for maximum compatibility.
- */
-
 import { cors } from '@elysiajs/cors'
 import { getLocalhostHost } from '@jejunetwork/config'
 import { Elysia } from 'elysia'

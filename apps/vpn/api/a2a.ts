@@ -1,5 +1,3 @@
-/** A2A Protocol Handler for VPN */
-
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type { z } from 'zod'
@@ -61,7 +59,6 @@ export function createA2ARouter(ctx: VPNServiceContext) {
 
       const a2aRequest = expectValid(A2ARequestSchema, body, 'A2A request')
 
-      // Route based on method
       switch (a2aRequest.method) {
         case 'message/send':
           return handleMessage(request, ctx, a2aRequest, address)

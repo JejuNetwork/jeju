@@ -1,7 +1,3 @@
-/**
- * Rooms Hook
- */
-
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_URL } from '../config'
 

@@ -1,9 +1,3 @@
-/**
- * Proposal Page
- *
- * View proposal details or create a new proposal.
- */
-
 import {
   AlertCircle,
   ArrowLeft,

@@ -1,21 +1,6 @@
-/**
- * Build Cache System
- *
- * Implements remote build caching for CI/CD pipelines:
- * - Content-addressable caching (by hash)
- * - Layer-based caching for Docker builds
- * - Dependency caching (node_modules, cargo, etc.)
- * - Distributed cache across DWS nodes
- * - LRU eviction with size limits
- */
-
 import { createHash } from 'node:crypto'
 import { keccak256, stringToBytes } from 'viem'
 import type { BackendManager } from '../storage/backends'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type CacheScope = 'project' | 'organization' | 'global'
 

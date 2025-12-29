@@ -1,9 +1,3 @@
-/**
- * ErrorState Component
- *
- * Error state with icon, message, and retry option.
- */
-
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface ErrorStateProps {

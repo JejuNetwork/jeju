@@ -1,10 +1,3 @@
-/**
- * Farcaster Signer Service
- *
- * Manages Ed25519 signers for Farcaster posting.
- * Handles key generation, encryption, storage, and on-chain registration.
- */
-
 import { getFarcasterHubUrl } from '@jejunetwork/config'
 import { FarcasterPoster } from '@jejunetwork/messaging'
 import { createLogger } from '@jejunetwork/shared'

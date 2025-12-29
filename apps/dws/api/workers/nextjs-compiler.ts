@@ -1,19 +1,4 @@
-/**
- * Next.js API Routes Compiler for Workerd
- *
- * Compiles Next.js API routes and server actions to workerd-compatible format:
- * - Pages Router API routes (pages/api/...)
- * - App Router route handlers (app/.../route.ts)
- * - Server Actions
- * - Middleware
- * - Edge Runtime support
- */
-
 import { createHash } from 'node:crypto'
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type RouteType =
   | 'api-route' // pages/api/...

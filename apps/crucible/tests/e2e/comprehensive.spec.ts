@@ -1,16 +1,3 @@
-/**
- * Crucible Comprehensive E2E Tests
- *
- * Tests ALL pages, components, buttons, and features with:
- * - Page load verification
- * - AI visual verification with caching
- * - Interactive element testing
- * - Chat functionality
- * - Agent creation flow
- * - Room management
- * - FAIL-FAST on any errors
- */
-
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

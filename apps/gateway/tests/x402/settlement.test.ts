@@ -1,7 +1,8 @@
 /**
  * Settlement Integration Tests
  *
- * These tests require a running Anvil instance with deployed contracts.
+ * These tests REQUIRE a running Anvil instance with deployed contracts.
+ * They will FAIL if the chain is not running.
  *
  * Setup:
  *   1. Start Anvil: anvil --port 8548 --chain-id 420691
@@ -12,8 +13,7 @@
  *   3. Set env: JEJU_RPC_URL=http://127.0.0.1:8548 X402_FACILITATOR_ADDRESS=<deployed>
  *   4. Run: bun test tests/settlement.test.ts
  *
- * The Foundry tests in packages/contracts/test/X402Facilitator.t.sol provide
- * comprehensive contract-level testing. These tests verify HTTP API integration.
+ * Run with: jeju test --mode integration --app gateway
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
@@ -21,6 +21,7 @@ import { type Address, createPublicClient, type Hex, http, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
 import { createServer, type X402App } from '../../api/x402/server'
+import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 // Helper to make requests to the app (wraps Elysia .handle method)
 async function request(
@@ -32,9 +33,12 @@ async function request(
   return server.handle(new Request(url, options))
 }
 
+<<<<<<< HEAD
+=======
 import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 // Use environment variables for test configuration
 const host = getLocalhostHost()
 const ANVIL_RPC =
@@ -188,34 +192,32 @@ async function createEIP3009Authorization(
   return { validAfter, validBefore, authNonce, authSignature }
 }
 
-async function isAnvilAvailable(): Promise<boolean> {
-  try {
-    const client = createPublicClient({ transport: http(ANVIL_RPC) })
-    await client.getChainId()
-    return true
-  } catch {
-    return false
+async function requireAnvil(): Promise<void> {
+  const client = createPublicClient({ transport: http(ANVIL_RPC) })
+  const chainId = await client.getChainId().catch(() => null)
+  if (chainId === null) {
+    throw new Error(
+      `FATAL: Anvil not running at ${ANVIL_RPC}. ` +
+        `Start with: anvil --port 8548 --chain-id 420691`,
+    )
   }
+  if (!FACILITATOR_ADDRESS) {
+    throw new Error(
+      `FATAL: X402_FACILITATOR_ADDRESS not set. ` +
+        `Deploy contracts and set the env var.`,
+    )
+  }
+  console.log(`Connected to Anvil (chain ID: ${chainId})`)
 }
 
 describe('Settlement Integration', () => {
-  let skipTests = false
   let skipGaslessTests = false
 
   beforeAll(async () => {
-    const anvilUp = await isAnvilAvailable()
-    if (!anvilUp || !FACILITATOR_ADDRESS) {
-      console.log('\n⚠️  Skipping settlement integration tests:')
-      if (!anvilUp) console.log('   - Anvil not running at', ANVIL_RPC)
-      if (!FACILITATOR_ADDRESS)
-        console.log('   - X402_FACILITATOR_ADDRESS not set')
-      console.log('   See test file header for setup instructions.\n')
-      skipTests = true
-      return
-    }
+    await requireAnvil()
 
     if (!EIP3009_TOKEN_ADDRESS) {
-      console.log('\n⚠️  Gasless tests disabled: EIP3009_TOKEN_ADDRESS not set')
+      console.log('Gasless tests disabled: EIP3009_TOKEN_ADDRESS not set')
       skipGaslessTests = true
     }
 
@@ -231,8 +233,6 @@ describe('Settlement Integration', () => {
   })
 
   test('should verify payment with on-chain nonce check', async () => {
-    if (skipTests) return
-
     const app = createServer()
     const { header, payload } = await createSignedPayment()
 
@@ -259,8 +259,6 @@ describe('Settlement Integration', () => {
   })
 
   test('should report stats from on-chain contract', async () => {
-    if (skipTests) return
-
     const app = createServer()
     const res = await request(app, '/stats')
     const body = await res.json()
@@ -271,18 +269,12 @@ describe('Settlement Integration', () => {
   })
 
   test('should check token support on-chain', async () => {
-    if (skipTests) return
-
     const app = createServer()
     const res = await request(app, '/supported')
     const body = await res.json()
 
     expect(body.kinds).toBeArray()
     expect(body.kinds.length).toBeGreaterThan(0)
-  })
-
-  test('placeholder passes when anvil not available', () => {
-    expect(true).toBe(true)
   })
 
   test('POST /settle/gasless returns 400 without authParams', async () => {
@@ -303,11 +295,9 @@ describe('Settlement Integration', () => {
           asset: USDC,
           resource: '/api/test',
         },
-        // Missing authParams
       }),
     })
 
-    // Server may return 400 or 200 with success=false
     const body = await res.json()
     if (res.status === 400) {
       expect(body.error).toBeDefined()
@@ -339,18 +329,16 @@ describe('Settlement Integration', () => {
           validAfter: getTimestamp(-60),
           validBefore: getTimestamp(300),
           authNonce: generateAuthNonce(),
-          authSignature: `0x${'0'.repeat(130)}`, // Dummy signature
+          authSignature: `0x${'0'.repeat(130)}`,
         },
       }),
     })
 
-    // Should not return 400 (bad request) since authParams structure is valid
-    // May return 503 (wallet not configured) or 200 with error (settlement failed)
     expect(res.status).not.toBe(400)
   })
 
   test('POST /settle/gasless with full EIP-3009 params', async () => {
-    if (skipTests || skipGaslessTests) {
+    if (skipGaslessTests) {
       console.log('Skipping gasless test - requires EIP3009_TOKEN_ADDRESS')
       return
     }
@@ -361,19 +349,18 @@ describe('Settlement Integration', () => {
     }
 
     const app = createServer()
-    const amount = '1000000' // 1 USDC
+    const amount = '1000000'
     const { header, payload } = await createSignedPayment({
       amount,
       asset: EIP3009_TOKEN_ADDRESS,
     })
 
-    // Create EIP-3009 authorization
     const authParams = await createEIP3009Authorization(
       EIP3009_TOKEN_ADDRESS,
-      'USD Coin', // Token name for domain
-      420691, // Chain ID
+      'USD Coin',
+      420691,
       payer.address,
-      FACILITATOR_ADDRESS, // Transfer to facilitator
+      FACILITATOR_ADDRESS,
       BigInt(amount),
     )
 
@@ -397,10 +384,8 @@ describe('Settlement Integration', () => {
 
     const body = await res.json()
 
-    // The request should be processed (may fail due to balance/approval issues in test env)
     expect(res.status).toBeLessThanOrEqual(500)
 
-    // If successful, should have transaction hash
     if (body.success) {
       expect(body.txHash).toBeDefined()
       expect(body.paymentId).toBeDefined()

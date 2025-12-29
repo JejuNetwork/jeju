@@ -1,9 +1,3 @@
-/**
- * Research Agent - Deep analysis for DAO proposals
- *
- * Supports compute marketplace for deep research
- */
-
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'

@@ -1,12 +1,3 @@
-/**
- * Default Bots Configuration Tests
- *
- * Tests for default bot configurations including:
- * - Network-specific filtering
- * - Chain configuration mapping
- * - Edge cases
- */
-
 import { describe, expect, test } from 'bun:test'
 import type { DefaultBotConfig } from '../../../api/bots/default-bots'
 import {

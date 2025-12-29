@@ -1,13 +1,3 @@
-/**
- * DEX Aggregator
- *
- * Permissionless routing through major DEXes:
- * - Uniswap V2 & V3
- * - Balancer V2
- *
- * All operations are on-chain reads (quoter) or swaps.
- */
-
 import { readContract } from '@jejunetwork/contracts'
 import type { Address, PublicClient } from 'viem'
 

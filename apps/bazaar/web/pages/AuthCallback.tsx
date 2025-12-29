@@ -1,7 +1,3 @@
-/**
- * OAuth3 Auth Callback Page
- */
-
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LoadingSpinner } from '../components/LoadingSpinner'

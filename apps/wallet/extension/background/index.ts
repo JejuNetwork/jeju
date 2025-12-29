@@ -1,13 +1,3 @@
-/**
- * Extension Background Script (Service Worker for MV3)
- *
- * Handles:
- * - Wallet state management
- * - Transaction signing
- * - Provider requests from dApps
- * - Cross-chain operations via EIL/OIF
- */
-
 import { expectAddress, expectHex } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { z } from 'zod'

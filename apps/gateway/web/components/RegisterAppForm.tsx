@@ -109,7 +109,6 @@ export default function RegisterAppForm() {
 
   return (
     <div>
-      {/* Info Banner */}
       <div
         className="card"
         style={{
@@ -212,7 +211,6 @@ export default function RegisterAppForm() {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Name */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label htmlFor="app-name" className="input-label">
               Name <span style={{ color: 'var(--error)' }}>*</span>
@@ -237,7 +235,6 @@ export default function RegisterAppForm() {
             </p>
           </div>
 
-          {/* Description */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label htmlFor="app-description-display" className="input-label">
               Description{' '}
@@ -262,7 +259,6 @@ export default function RegisterAppForm() {
             />
           </div>
 
-          {/* A2A Endpoint */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label htmlFor="app-a2a-endpoint-display" className="input-label">
               A2A Endpoint URL
@@ -313,7 +309,6 @@ export default function RegisterAppForm() {
             </div>
           </div>
 
-          {/* Stake Token Selection */}
           <div style={{ marginBottom: '1.5rem' }}>
             <span className="input-label">
               Stake Token <span style={{ color: 'var(--error)' }}>*</span>
@@ -334,7 +329,6 @@ export default function RegisterAppForm() {
             />
           </div>
 
-          {/* Required Stake Display */}
           {selectedToken && requiredStake && (
             <div
               style={{
@@ -364,19 +358,9 @@ export default function RegisterAppForm() {
                 {formatTokenAmount(requiredStake, selectedToken.decimals, 6)}{' '}
                 {selectedToken.symbol}
               </p>
-              <p
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  marginTop: '0.25rem',
-                }}
-              >
-                ≈ $3.50 USD
-              </p>
             </div>
           )}
 
-          {/* Submit Button */}
           <button
             type="submit"
             className="button"

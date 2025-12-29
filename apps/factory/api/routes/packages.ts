@@ -1,5 +1,3 @@
-/** Packages Routes */
-
 import { Elysia } from 'elysia'
 import {
   CreatePackageBodySchema,

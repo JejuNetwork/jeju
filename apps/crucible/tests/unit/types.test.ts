@@ -1,10 +1,3 @@
-/**
- * Crucible Types Validation Tests
- *
- * Tests that type definitions work correctly with actual data.
- * Uses imports from production code to validate type contracts.
- */
-
 import { describe, expect, it } from 'bun:test'
 import {
   getCoreAppUrl,

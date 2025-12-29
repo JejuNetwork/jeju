@@ -1,10 +1,3 @@
-/**
- * Messages Page
- *
- * Direct Cast (encrypted DM) interface for Factory.
- * End-to-end encrypted messaging between Farcaster users.
- */
-
 import { clsx } from 'clsx'
 import {
   Archive,

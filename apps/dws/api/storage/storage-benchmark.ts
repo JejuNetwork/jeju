@@ -1,25 +1,8 @@
-/**
- * Storage Benchmark Service
- *
- * Comprehensive benchmarking for storage providers:
- * - IOPS (random read/write operations per second)
- * - Throughput (sequential read/write MB/s)
- * - Latency (time to first byte, average latency)
- * - Durability (data integrity verification)
- * - IPFS-specific metrics (retrieval time, pinning speed)
- *
- * Similar to compute benchmarking:
- * - Runs on first provider registration
- * - Reputation-based re-verification
- * - Results published on-chain
- */
-
 import { Cron } from 'croner'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 
-// Helper to convert Buffer to Blob for fetch compatibility
 function bufferToBlob(buffer: Buffer): Blob {
   const uint8 = new Uint8Array(
     buffer.buffer,
@@ -28,8 +11,6 @@ function bufferToBlob(buffer: Buffer): Blob {
   )
   return new Blob([uint8 as BlobPart])
 }
-
-// ============ Types ============
 
 export interface StorageBenchmarkResults {
   providerId: string

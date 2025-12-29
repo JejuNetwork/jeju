@@ -9,7 +9,6 @@ const ShieldIcon = Shield as ComponentType<LucideProps>
 const ZapIcon = Zap as ComponentType<LucideProps>
 const FlameIcon = Flame as ComponentType<LucideProps>
 
-// Risk tier const object matching the contract
 const RiskTier = {
   CONSERVATIVE: 0,
   BALANCED: 1,
@@ -435,7 +434,6 @@ export default function RiskAllocationDashboard() {
   const { riskSleeve } = useEILConfig()
   const [expandedTier, setExpandedTier] = useState<RiskTier | null>(null)
 
-  // Fetch user positions for each tier (getUserPosition returns: deposited, pendingYield, depositDuration)
   const { data: conservativePositionData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
@@ -463,7 +461,6 @@ export default function RiskAllocationDashboard() {
   })
   const aggressiveDeposit = aggressivePositionData?.[0] ?? 0n
 
-  // Fetch sleeve stats for each tier (getSleeveStats returns: deposited, utilized, available, utilizationBps, yieldBps)
   const { data: conservativeSleeveData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
@@ -471,7 +468,7 @@ export default function RiskAllocationDashboard() {
     args: [RiskTier.CONSERVATIVE],
     query: { enabled: !!riskSleeve },
   })
-  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n // deposited is first element
+  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n
 
   const { data: balancedSleeveData } = useReadContract({
     address: riskSleeve,
@@ -480,7 +477,7 @@ export default function RiskAllocationDashboard() {
     args: [RiskTier.BALANCED],
     query: { enabled: !!riskSleeve },
   })
-  const balancedTotal = balancedSleeveData?.[0] ?? 0n // deposited is first element
+  const balancedTotal = balancedSleeveData?.[0] ?? 0n
 
   const { data: aggressiveSleeveData } = useReadContract({
     address: riskSleeve,
@@ -489,7 +486,7 @@ export default function RiskAllocationDashboard() {
     args: [RiskTier.AGGRESSIVE],
     query: { enabled: !!riskSleeve },
   })
-  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n // deposited is first element
+  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n
 
   const deposits: Record<RiskTier, bigint> = {
     [RiskTier.CONSERVATIVE]: conservativeDeposit,

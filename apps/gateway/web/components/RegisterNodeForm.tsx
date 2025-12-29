@@ -35,7 +35,6 @@ export default function RegisterNodeForm() {
     logoUrl: t.logoUrl,
   }))
 
-  // Calculate USD value of stake
   const stakeValueUSD = useMemo(() => {
     if (!stakingToken || !stakeAmount) return 0
     const amount = parseTokenAmount(stakeAmount, stakingToken.decimals)
@@ -46,7 +45,6 @@ export default function RegisterNodeForm() {
     )
   }, [stakingToken, stakeAmount])
 
-  // Estimate monthly rewards
   const estimatedMonthlyUSD = useMemo(() => {
     if (!rewardToken) return 0n
     const baseReward = parseEther('100') // $100 base
@@ -58,7 +56,6 @@ export default function RegisterNodeForm() {
     )
   }, [rewardToken, region])
 
-  // Validation
   const minStakeUSD = 1000
   const isValid =
     stakeValueUSD >= minStakeUSD &&
@@ -107,7 +104,6 @@ export default function RegisterNodeForm() {
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* Staking Token */}
         <div style={{ marginBottom: '1.5rem' }}>
           <TokenSelector
             tokens={tokenOptions}
@@ -120,7 +116,6 @@ export default function RegisterNodeForm() {
           />
         </div>
 
-        {/* Amount */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label
             htmlFor="stake-amount"
@@ -159,7 +154,6 @@ export default function RegisterNodeForm() {
           )}
         </div>
 
-        {/* Reward Token */}
         <div style={{ marginBottom: '1.5rem' }}>
           <TokenSelector
             tokens={tokenOptions}
@@ -190,7 +184,6 @@ export default function RegisterNodeForm() {
           )}
         </div>
 
-        {/* RPC URL */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label
             htmlFor="rpc-url"
@@ -222,7 +215,6 @@ export default function RegisterNodeForm() {
           </p>
         </div>
 
-        {/* Region */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label
             htmlFor="region"
@@ -261,7 +253,6 @@ export default function RegisterNodeForm() {
           </p>
         </div>
 
-        {/* Info Box */}
         <div
           style={{
             padding: '1rem',

@@ -1,8 +1,3 @@
-/**
- * Perpetual trading business logic
- * Pure functions for perp calculations, formatting, and validation
- */
-
 import { isHexString } from '@jejunetwork/types'
 import type { Hash } from 'viem'
 

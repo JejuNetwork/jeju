@@ -1,8 +1,3 @@
-/**
- * Approval Management Component
- * View and revoke token approvals
- */
-
 import type React from 'react'
 import { useState } from 'react'
 import type { Address, Hex } from 'viem'
@@ -380,9 +375,6 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
   )
 }
 
-/**
- * Build revoke transaction data
- */
 export function buildRevokeTransaction(
   tokenAddress: Address,
   spenderAddress: Address,

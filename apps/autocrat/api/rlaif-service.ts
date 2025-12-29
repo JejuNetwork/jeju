@@ -1,10 +1,3 @@
-/**
- * RLAIF (Reinforcement Learning from AI Feedback) Service
- *
- * Manages training runs, trajectories, and job coordination for DWS integration.
- * Stores data locally and queues jobs for distributed training.
- */
-
 // Types
 
 export const RunStatus = {

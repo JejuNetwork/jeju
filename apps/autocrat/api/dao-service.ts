@@ -1,8 +1,3 @@
-/**
- * DAO Service - Multi-tenant DAO Management
- * Handles all DAO operations including creation, configuration, and state management
- */
-
 import { isProductionEnv } from '@jejunetwork/config'
 import {
   expectTrue as expect,

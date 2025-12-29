@@ -1,15 +1,3 @@
-/**
- * Bazaar Messaging Service
- *
- * Provides Farcaster feed integration for the Bazaar marketplace.
- * Each entity type (coin, item, collection, perp, prediction) has its own channel.
- *
- * SECURITY (TEE Side-Channel Resistance):
- * - Private keys NEVER enter this service
- * - Server-side posting uses MPC signer (DWS worker)
- * - Client-side posting uses Warpcast redirect
- */
-
 import {
   type FarcasterCast,
   FarcasterClient,
@@ -22,9 +10,6 @@ import { config } from './config'
 const HUB_URL = config.farcasterHubUrl
 const MPC_SIGNER_URL = config.mpcSignerUrl
 
-/**
- * Result from posting to Farcaster via KMS
- */
 export interface KMSPostResult {
   hash: Hex
   fid: number
@@ -32,9 +17,6 @@ export interface KMSPostResult {
   timestamp: number
 }
 
-/**
- * Channel types for different Bazaar entities
- */
 export type BazaarChannelType =
   | 'coin'
   | 'item'
@@ -42,9 +24,6 @@ export type BazaarChannelType =
   | 'perp'
   | 'prediction'
 
-/**
- * Channel identifier for a specific entity
- */
 export interface BazaarChannel {
   type: BazaarChannelType
   id: string
@@ -53,18 +32,11 @@ export interface BazaarChannel {
   warpcastUrl: string
 }
 
-/**
- * Generate channel URL for a Bazaar entity
- * Channels follow the format: https://warpcast.com/~/channel/bazaar-{type}-{id}
- */
 export function getChannelUrl(type: BazaarChannelType, id: string): string {
   const channelId = `bazaar-${type}-${id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
   return `https://warpcast.com/~/channel/${channelId}`
 }
 
-/**
- * Generate channel info for a Bazaar entity
- */
 export function getChannel(
   type: BazaarChannelType,
   id: string,
@@ -80,9 +52,6 @@ export function getChannel(
   }
 }
 
-/**
- * Get channel for a coin by chain ID and address
- */
 export function getCoinChannel(
   chainId: number,
   address: Address,
@@ -91,9 +60,6 @@ export function getCoinChannel(
   return getChannel('coin', `${chainId}-${address.slice(0, 10)}`, name)
 }
 
-/**
- * Get channel for an NFT item
- */
 export function getItemChannel(
   collectionAddress: Address,
   tokenId: string,
@@ -106,9 +72,6 @@ export function getItemChannel(
   )
 }
 
-/**
- * Get channel for an NFT collection
- */
 export function getCollectionChannel(
   address: Address,
   name: string,
@@ -116,16 +79,10 @@ export function getCollectionChannel(
   return getChannel('collection', address.slice(0, 10), name)
 }
 
-/**
- * Get channel for a perp market
- */
 export function getPerpChannel(ticker: string): BazaarChannel {
   return getChannel('perp', ticker.toLowerCase(), `$${ticker} Perp`)
 }
 
-/**
- * Get channel for a prediction market
- */
 export function getPredictionChannel(
   marketId: string,
   question: string,
@@ -135,7 +92,6 @@ export function getPredictionChannel(
   return getChannel('prediction', marketId, shortQuestion)
 }
 
-// Cache for profiles
 const profileCache = new Map<
   number,
   { profile: FarcasterProfile; cachedAt: number }
@@ -175,9 +131,6 @@ class BazaarMessagingService {
     this.hubClient = new FarcasterClient({ hubUrl: HUB_URL })
   }
 
-  /**
-   * Get feed for a specific channel
-   */
   async getChannelFeed(
     channelUrl: string,
     options?: {
@@ -198,9 +151,6 @@ class BazaarMessagingService {
     }
   }
 
-  /**
-   * Get feed for a Bazaar entity channel
-   */
   async getEntityFeed(
     type: BazaarChannelType,
     id: string,
@@ -213,13 +163,6 @@ class BazaarMessagingService {
     return this.getChannelFeed(channelUrl, options)
   }
 
-  /**
-   * Get Warpcast compose URL for posting to a channel
-   *
-   * SECURITY: Server-side posting requires KMS integration for TEE safety.
-   * Until KMS-backed Farcaster signing is implemented, use client-side
-   * posting via Warpcast redirect.
-   */
   getComposeUrl(params: {
     channelUrl: string
     text?: string
@@ -237,9 +180,6 @@ class BazaarMessagingService {
     return `${baseUrl}?${searchParams.toString()}`
   }
 
-  /**
-   * Get Warpcast compose URL for a Bazaar entity channel
-   */
   getEntityComposeUrl(params: {
     type: BazaarChannelType
     id: string
@@ -254,9 +194,6 @@ class BazaarMessagingService {
     })
   }
 
-  /**
-   * Get a user's profile
-   */
   async getProfile(fid: number): Promise<FarcasterProfile | null> {
     const cached = profileCache.get(fid)
     if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
@@ -270,17 +207,11 @@ class BazaarMessagingService {
     return profile
   }
 
-  /**
-   * Lookup FID by verified address
-   */
   async getFidByAddress(address: Address): Promise<number | null> {
     const profile = await this.hubClient.getProfileByVerifiedAddress(address)
     return profile?.fid ?? null
   }
 
-  /**
-   * Enrich casts with profile data
-   */
   private async enrichCasts(casts: FarcasterCast[]): Promise<BazaarFeedCast[]> {
     const fids = [...new Set(casts.map((c) => c.fid))]
     const profiles = await Promise.all(fids.map((fid) => this.getProfile(fid)))
@@ -312,9 +243,6 @@ class BazaarMessagingService {
     })
   }
 
-  /**
-   * Create marketplace notification
-   */
   createNotification(
     payload: MarketplaceNotification,
     channel: BazaarChannel,
@@ -336,9 +264,6 @@ class BazaarMessagingService {
     }
   }
 
-  /**
-   * Generate NFT sale notification
-   */
   listingSoldNotification(params: {
     nftName: string
     price: string
@@ -358,9 +283,6 @@ class BazaarMessagingService {
     }
   }
 
-  /**
-   * Generate bid received notification
-   */
   bidReceivedNotification(params: {
     nftName: string
     bidAmount: string
@@ -378,9 +300,6 @@ class BazaarMessagingService {
     }
   }
 
-  /**
-   * Generate auction ended notification
-   */
   auctionEndedNotification(params: {
     nftName: string
     winner: string
@@ -398,9 +317,6 @@ class BazaarMessagingService {
     }
   }
 
-  /**
-   * Generate collection trending notification
-   */
   collectionTrendingNotification(params: {
     collectionName: string
     volumeChange: string
@@ -418,17 +334,6 @@ class BazaarMessagingService {
     }
   }
 
-  /**
-   * Post to a channel using KMS/MPC signing (TEE-safe)
-   *
-   * Uses the MPC signer service to sign Farcaster messages without
-   * exposing private keys to the Bazaar API.
-   *
-   * @param params.signerId - MPC signer ID (from createSigner flow)
-   * @param params.text - Cast text content
-   * @param params.channelUrl - Target channel URL
-   * @param params.embeds - Optional embed URLs
-   */
   async postToChannelWithKMS(params: {
     signerId: string
     text: string
@@ -461,9 +366,6 @@ class BazaarMessagingService {
     return result
   }
 
-  /**
-   * Post to an entity channel using KMS/MPC signing (TEE-safe)
-   */
   async postToEntityChannelWithKMS(params: {
     signerId: string
     type: BazaarChannelType
@@ -480,9 +382,6 @@ class BazaarMessagingService {
     })
   }
 
-  /**
-   * Check if KMS/MPC posting is available
-   */
   isKMSPostingAvailable(): boolean {
     return Boolean(MPC_SIGNER_URL)
   }

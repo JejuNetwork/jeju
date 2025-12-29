@@ -85,10 +85,7 @@ export default function AnalyticsPage() {
         }}
       >
         <div>
-          <h1 className="page-title">Analytics & Monitoring</h1>
-          <p className="page-subtitle">
-            Monitor usage, performance, and costs across all DWS services
-          </p>
+          <h1 className="page-title">Analytics</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <div

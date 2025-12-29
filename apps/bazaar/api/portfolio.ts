@@ -1,18 +1,9 @@
-/**
- * Portfolio business logic
- * Handles aggregate portfolio calculations, position analysis, and P&L tracking
- */
-
 import { z } from 'zod'
 import type { Position } from '../schemas/markets'
 import { PositionSchema } from '../schemas/markets'
 
-// Input schema for position array
 export const PositionsArraySchema = z.array(PositionSchema)
 
-/**
- * Portfolio statistics result
- */
 export interface PortfolioStats {
   totalValue: bigint
   totalPnL: bigint
@@ -22,10 +13,6 @@ export interface PortfolioStats {
   totalNoShares: bigint
 }
 
-/**
- * Calculate total portfolio value across all positions
- * Value = sum of all shares (YES + NO) for each position
- */
 export function calculateTotalValue(positions: Position[]): bigint {
   let total = 0n
   for (const pos of positions) {
@@ -34,10 +21,6 @@ export function calculateTotalValue(positions: Position[]): bigint {
   return total
 }
 
-/**
- * Calculate total unrealized P&L across all positions
- * P&L = current value + received - spent
- */
 export function calculateTotalPnL(positions: Position[]): bigint {
   let total = 0n
   for (const pos of positions) {
@@ -47,11 +30,6 @@ export function calculateTotalPnL(positions: Position[]): bigint {
   return total
 }
 
-/**
- * Calculate the current value of a single position
- * For resolved markets: only winning side counts
- * For active markets: both sides count
- */
 export function calculatePositionCurrentValue(position: Position): bigint {
   if (position.market.resolved) {
     return position.market.outcome ? position.yesShares : position.noShares
@@ -59,16 +37,10 @@ export function calculatePositionCurrentValue(position: Position): bigint {
   return position.yesShares + position.noShares
 }
 
-/**
- * Calculate P&L for a single position
- */
 export function calculatePositionPnL(position: Position): bigint {
   return position.totalReceived - position.totalSpent
 }
 
-/**
- * Count active (unresolved) positions
- */
 export function countActivePositions(positions: Position[]): number {
   let count = 0
   for (const pos of positions) {
@@ -77,9 +49,6 @@ export function countActivePositions(positions: Position[]): number {
   return count
 }
 
-/**
- * Filter positions that are claimable (resolved, not claimed, has winning shares)
- */
 export function filterClaimablePositions(positions: Position[]): Position[] {
   return positions.filter((pos) => {
     if (pos.hasClaimed || !pos.market.resolved) return false
@@ -89,16 +58,10 @@ export function filterClaimablePositions(positions: Position[]): Position[] {
   })
 }
 
-/**
- * Filter active (unresolved) positions
- */
 export function filterActivePositions(positions: Position[]): Position[] {
   return positions.filter((pos) => !pos.market.resolved)
 }
 
-/**
- * Filter winning positions in resolved markets
- */
 export function filterWinningPositions(positions: Position[]): Position[] {
   return positions.filter((pos) => {
     if (!pos.market.resolved) return false
@@ -108,9 +71,6 @@ export function filterWinningPositions(positions: Position[]): Position[] {
   })
 }
 
-/**
- * Calculate aggregate portfolio statistics
- */
 export function calculatePortfolioStats(positions: Position[]): PortfolioStats {
   let totalValue = 0n
   let totalPnL = 0n
@@ -146,9 +106,6 @@ export function calculatePortfolioStats(positions: Position[]): PortfolioStats {
   }
 }
 
-/**
- * Format value in wei to ETH string
- */
 export function formatEthValue(value: bigint, decimals: number = 2): string {
   const ethValue = Number(value) / 1e18
   return ethValue.toLocaleString(undefined, {
@@ -157,9 +114,6 @@ export function formatEthValue(value: bigint, decimals: number = 2): string {
   })
 }
 
-/**
- * Format P&L with sign prefix for portfolio display
- */
 export function formatPortfolioPnL(pnl: bigint, decimals: number = 2): string {
   const prefix = pnl >= 0n ? '+' : ''
   return `${prefix}${formatEthValue(pnl, decimals)}`

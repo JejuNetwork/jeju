@@ -1,16 +1,6 @@
-/**
- * Ban Check Wrapper for Bazaar (Browser-compatible)
- *
- * Shows banner for users on notice, full overlay for permanently banned users.
- * Uses browser-compatible stubs when server packages are not available.
- */
-
 import { useAccount } from 'wagmi'
 import { BanType, useBanStatus } from '../../lib/browser-stubs'
 
-/**
- * Ban overlay for permanently banned users
- */
 function BanOverlay({
   isBanned,
   reason,
@@ -44,9 +34,6 @@ function BanOverlay({
   )
 }
 
-/**
- * Warning banner for users on notice
- */
 function BanBanner({
   isOnNotice,
   reason,
@@ -76,9 +63,6 @@ function BanBanner({
   )
 }
 
-/**
- * Ban check wrapper component
- */
 export function BanCheckWrapper({ children }: { children: React.ReactNode }) {
   const { address } = useAccount()
   const banStatus = useBanStatus(address)

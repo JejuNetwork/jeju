@@ -15,7 +15,6 @@ import {
   useGitHubReputation,
 } from '../hooks/useGitHubReputation'
 
-// Fix for Lucide React 19 type compatibility
 const GithubIcon = Github as ComponentType<LucideProps>
 const ShieldIcon = Shield as ComponentType<LucideProps>
 const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
@@ -60,14 +59,12 @@ export default function GitHubReputationPanel({
     isConfigured: isContractConfigured,
   } = useAgentReputation(agentId)
 
-  // Fetch reputation on mount
   useEffect(() => {
     if (isConnected && address) {
       fetchLeaderboardReputation()
     }
   }, [isConnected, address, fetchLeaderboardReputation])
 
-  // Notify parent when tx completes
   useEffect(() => {
     if (txReceipt && onReputationUpdate) {
       onReputationUpdate()
@@ -99,7 +96,7 @@ export default function GitHubReputationPanel({
     const attestation = leaderboardData.attestation
 
     if (!attestation.signature) {
-      return // Button should be disabled anyway
+      return
     }
 
     await submitAttestationOnChain(
@@ -147,7 +144,6 @@ export default function GitHubReputationPanel({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GithubIcon size={24} className="text-gray-700" />
@@ -163,7 +159,6 @@ export default function GitHubReputationPanel({
         </button>
       </div>
 
-      {/* Error display */}
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
           <AlertCircleIcon size={18} className="text-red-500 mt-0.5" />
@@ -171,7 +166,6 @@ export default function GitHubReputationPanel({
         </div>
       )}
 
-      {/* Not linked state */}
       {!leaderboardData && !loading && (
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
           <p className="text-gray-600">
@@ -231,10 +225,8 @@ export default function GitHubReputationPanel({
         </div>
       )}
 
-      {/* Linked profile */}
       {leaderboardData && (
         <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-          {/* Profile header */}
           <div className="p-4 bg-gradient-to-r from-gray-900 to-gray-700 text-white">
             <div className="flex items-center gap-3">
               {leaderboardData.avatarUrl && (
@@ -267,7 +259,6 @@ export default function GitHubReputationPanel({
             </div>
           </div>
 
-          {/* Reputation scores */}
           <div className="p-4 space-y-4">
             <div className="grid grid-2">
               <div className="text-center p-3 bg-gray-50 rounded-lg">
@@ -296,7 +287,6 @@ export default function GitHubReputationPanel({
               </div>
             </div>
 
-            {/* On-chain status */}
             {Boolean(isContractConfigured && onChainReputation) && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">
@@ -318,7 +308,6 @@ export default function GitHubReputationPanel({
               </div>
             )}
 
-            {/* Contract not configured warning */}
             {Boolean(!isContractConfigured && agentId) && (
               <div className="border-t pt-4">
                 <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
@@ -332,7 +321,6 @@ export default function GitHubReputationPanel({
               </div>
             )}
 
-            {/* Agent-specific reputation */}
             {Boolean(
               agentId && isContractConfigured && agentReputationData,
             ) && (
@@ -351,7 +339,6 @@ export default function GitHubReputationPanel({
               </div>
             )}
 
-            {/* Actions */}
             <div className="border-t pt-4 space-y-2">
               {!leaderboardData.attestation && (
                 <button
@@ -406,7 +393,6 @@ export default function GitHubReputationPanel({
                 )}
             </div>
 
-            {/* Attestation details */}
             {leaderboardData.attestation && (
               <div className="border-t pt-4 text-xs text-gray-500 space-y-1">
                 <div className="flex justify-between">
@@ -442,7 +428,6 @@ export default function GitHubReputationPanel({
         </div>
       )}
 
-      {/* Loading state */}
       {loading && !leaderboardData && (
         <div className="rounded-lg border border-gray-200 bg-white p-8 flex items-center justify-center">
           <RefreshCwIcon size={24} className="animate-spin text-gray-400" />

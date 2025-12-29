@@ -1,9 +1,3 @@
-/**
- * Crucible Client Entry Point
- *
- * This is the main entry point for the client-side React application
- */
-
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'

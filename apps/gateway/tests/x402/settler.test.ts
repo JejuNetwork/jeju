@@ -56,7 +56,9 @@ describe('Retry Configuration', () => {
       process.env.SETTLEMENT_GAS_MULTIPLIER = originalGasMultiplier
     else delete process.env.SETTLEMENT_GAS_MULTIPLIER
 
-    expect(true).toBe(true) // Config system works
+    // Verify env vars were restored correctly
+    expect(process.env.SETTLEMENT_MAX_RETRIES).toBe(originalMaxRetries)
+    expect(process.env.SETTLEMENT_GAS_MULTIPLIER).toBe(originalGasMultiplier)
   })
 })
 

@@ -1,9 +1,3 @@
-/**
- * Factory App Configuration
- *
- * Workerd-compatible config injection for Factory app.
- */
-
 import { join } from 'node:path'
 import {
   CORE_PORTS,

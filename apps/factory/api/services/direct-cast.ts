@@ -1,10 +1,3 @@
-/**
- * Direct Cast Service
- *
- * Handles encrypted direct messages between Farcaster users.
- * Uses X25519 + AES-GCM for end-to-end encryption.
- */
-
 import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
   createDirectCastClient,

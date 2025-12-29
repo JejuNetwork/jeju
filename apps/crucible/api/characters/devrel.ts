@@ -1,10 +1,3 @@
-/**
- * DevRel Character (Eddy)
- *
- * Developer relations specialist for technical support,
- * documentation, and developer community engagement.
- */
-
 import type { AgentCharacter } from '../../lib/types'
 
 export const devRelCharacter: AgentCharacter = {

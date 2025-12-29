@@ -1,12 +1,3 @@
-/**
- * Farcaster Service
- *
- * Unified Farcaster service combining:
- * - Neynar API for rich feed data (reactions, replies, etc.)
- * - Hub client for direct operations
- * - Local cache for user reactions
- */
-
 import { getFarcasterApiUrl, getNeynarApiKey } from '@jejunetwork/config'
 import type { PostedCast } from '@jejunetwork/messaging'
 import type { Address, Hex } from 'viem'
@@ -218,8 +209,6 @@ export async function getChannelFeed(
 ): Promise<FeedResponse> {
   const headers = getNeynarHeaders()
 
-  // Fall back to hub if Neynar not configured
-  // Note: Hub fallback temporarily disabled due to schema validation issues in messaging package
   if (!headers) {
     return { casts: [] }
   }
@@ -261,7 +250,6 @@ export async function getUserFeed(
 ): Promise<FeedResponse> {
   const headers = getNeynarHeaders()
 
-  // Note: Hub fallback temporarily disabled due to schema validation issues in messaging package
   if (!headers) {
     return { casts: [] }
   }

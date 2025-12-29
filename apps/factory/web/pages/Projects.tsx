@@ -1,9 +1,3 @@
-/**
- * Projects Page
- *
- * Browse and filter projects with responsive design.
- */
-
 import { clsx } from 'clsx'
 import { CheckCircle, Clock, LayoutDashboard, Plus, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'

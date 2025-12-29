@@ -1,9 +1,3 @@
-/**
- * Create Agent Page
- *
- * Step-by-step wizard to create and deploy a new agent
- */
-
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LoadingSpinner } from '../components/LoadingSpinner'
@@ -78,9 +72,6 @@ export default function CreateAgentPage() {
         >
           Deploy Agent
         </h1>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Select a character and register it on-chain
-        </p>
       </header>
 
       {/* Progress Indicator */}
@@ -224,13 +215,6 @@ export default function CreateAgentPage() {
                   ETH
                 </span>
               </div>
-              <p
-                id="funding-hint"
-                className="text-xs mt-2"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                Funds the agent vault for on-chain operations
-              </p>
             </div>
 
             {/* Deploy Button */}
@@ -244,12 +228,6 @@ export default function CreateAgentPage() {
                   style={{ color: 'var(--text-primary)' }}
                 >
                   {selectedCharacter?.name}
-                </p>
-                <p
-                  className="text-sm"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
-                  Registers on-chain and creates vault
                 </p>
               </div>
               <button

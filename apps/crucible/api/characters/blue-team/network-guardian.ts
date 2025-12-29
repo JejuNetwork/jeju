@@ -1,10 +1,3 @@
-/**
- * Network Guardian Character
- *
- * Blue team agent that monitors network health, detects anomalies,
- * and responds to infrastructure-level threats.
- */
-
 import type { AgentCharacter } from '../../../lib/types'
 
 export const networkGuardianCharacter: AgentCharacter = {

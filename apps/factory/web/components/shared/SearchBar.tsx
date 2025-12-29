@@ -1,10 +1,3 @@
-/**
- * SearchBar Component
- *
- * Search input with icon and optional filter chips.
- * Fully accessible with proper labels and keyboard support.
- */
-
 import { clsx } from 'clsx'
 import { Search, X } from 'lucide-react'
 

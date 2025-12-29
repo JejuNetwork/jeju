@@ -1,9 +1,3 @@
-/**
- * LoadingState Component
- *
- * Consistent loading spinner with optional text.
- */
-
 import { Loader2 } from 'lucide-react'
 
 interface LoadingStateProps {

@@ -1,12 +1,13 @@
-/**
- * Agent Detail Page
- *
- * Detailed view of a single agent with stats, vault info, and actions
- */
-
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import { useAgent, useAgentBalance } from '../hooks'
+import {
+  useAgent,
+  useAgentBalance,
+  useExecuteAgent,
+  useFundVault,
+} from '../hooks'
 import { getBotTypeConfig } from '../lib/constants'
 import { formatDistanceToNow } from '../lib/utils'
 
@@ -14,6 +15,34 @@ export default function AgentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: agent, isLoading, error } = useAgent(id ?? '')
   const { data: balance } = useAgentBalance(id ?? '')
+  const executeAgent = useExecuteAgent()
+  const fundVault = useFundVault()
+  const [showFundModal, setShowFundModal] = useState(false)
+  const [fundAmount, setFundAmount] = useState('')
+
+  const handleExecute = async () => {
+    if (!id) return
+    try {
+      await executeAgent.mutateAsync({ agentId: id })
+      toast.success('Agent executed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Execution failed')
+    }
+  }
+
+  const handleFund = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!id || !fundAmount) return
+    try {
+      const amountWei = (Number(fundAmount) * 1e18).toString()
+      await fundVault.mutateAsync({ agentId: id, amount: amountWei })
+      toast.success('Vault funded')
+      setShowFundModal(false)
+      setFundAmount('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Funding failed')
+    }
+  }
 
   if (isLoading) {
     return (
@@ -94,8 +123,13 @@ export default function AgentDetailPage() {
           <Link to={`/chat?character=${id}`} className="btn-secondary">
             Chat
           </Link>
-          <button type="button" className="btn-primary">
-            Execute
+          <button
+            type="button"
+            onClick={handleExecute}
+            disabled={executeAgent.isPending}
+            className="btn-primary"
+          >
+            {executeAgent.isPending ? <LoadingSpinner size="sm" /> : 'Execute'}
           </button>
         </div>
       </header>
@@ -171,12 +205,85 @@ export default function AgentDetailPage() {
                 {balanceEth} <span className="text-base font-normal">ETH</span>
               </p>
             </div>
-            <button type="button" className="btn-secondary w-full">
+            <button
+              type="button"
+              onClick={() => setShowFundModal(true)}
+              className="btn-secondary w-full"
+            >
               Fund Vault
             </button>
           </div>
         </section>
       </div>
+
+      {showFundModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowFundModal(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setShowFundModal(false)}
+        >
+          <div
+            role="document"
+            className="card-static p-6 w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <h3
+              className="text-lg font-bold mb-4 font-display"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Fund Vault
+            </h3>
+            <form onSubmit={handleFund} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="fund-amount"
+                  className="block text-sm mb-2"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Amount
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="fund-amount"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={fundAmount}
+                    onChange={(e) => setFundAmount(e.target.value)}
+                    className="input flex-1"
+                    required
+                  />
+                  <span
+                    className="text-sm font-mono"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    ETH
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowFundModal(false)}
+                  className="btn-ghost flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!fundAmount || fundVault.isPending}
+                  className="btn-primary flex-1"
+                >
+                  {fundVault.isPending ? <LoadingSpinner size="sm" /> : 'Fund'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Addresses Card */}
       <section className="card-static p-6" aria-labelledby="addresses-heading">

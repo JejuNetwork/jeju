@@ -1,10 +1,3 @@
-/**
- * Validation Utilities
- *
- * Wallet-specific wrapper functions for validation.
- * For base validation functions and schemas, import directly from @jejunetwork/types.
- */
-
 import {
   expectNonEmptyString,
   expectValid,

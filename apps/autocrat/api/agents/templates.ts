@@ -1,7 +1,3 @@
-/**
- * Autocrat Agent Templates - ElizaOS character configs
- */
-
 import type { Character } from '@elizaos/core'
 
 export interface AutocratAgentTemplate {

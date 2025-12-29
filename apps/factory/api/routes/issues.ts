@@ -1,5 +1,3 @@
-/** Issues Routes */
-
 import { Elysia } from 'elysia'
 import {
   createIssueComment as dbCreateComment,

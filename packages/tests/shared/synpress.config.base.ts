@@ -110,7 +110,7 @@ export function createSynpressConfig(
   options: SynpressConfigOptions,
 ): PlaywrightTestConfig {
   const {
-    appName,
+    appName: _appName,
     port,
     testDir = './tests/synpress',
     timeout = 300000,
@@ -118,6 +118,7 @@ export function createSynpressConfig(
     webServer,
     overrides = {},
   } = options
+  void _appName // Reserved for future use
 
   return defineConfig({
     testDir,
@@ -132,11 +133,8 @@ export function createSynpressConfig(
       timeout: 30000,
     },
 
-    reporter: [
-      ['list'],
-      ['html', { outputFolder: `test-results/synpress-report-${appName}` }],
-      ['json', { outputFile: `test-results/synpress-results-${appName}.json` }],
-    ],
+    // Console-only reporters - no HTML reports
+    reporter: [['list'], ['line']],
 
     use: {
       baseURL,

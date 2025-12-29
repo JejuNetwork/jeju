@@ -1,24 +1,3 @@
-/**
- * Multi-Chain Price Aggregator
- *
- * Aggregates token prices across all supported chains using DWS-provisioned RPC nodes.
- * No external APIs or fallback RPCs - fully permissionless architecture.
- *
- * Price Sources:
- * 1. DEX Pool States (Uniswap V2/V3, Balancer, etc.)
- * 2. Chainlink Price Feeds (on-chain oracles)
- * 3. Cross-chain routing through stablecoins
- *
- * Features:
- * - Multi-DEX price aggregation
- * - TWAP calculation from recent swaps
- * - Price confidence scoring
- * - Cross-chain price normalization
- *
- * IMPORTANT: Returns null for prices if RPC nodes are not provisioned.
- * No fallback to external RPCs - ensures fully decentralized operation.
- */
-
 import { getCurrentNetwork } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/contracts'
 import {

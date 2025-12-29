@@ -1,8 +1,3 @@
-/**
- * Crucible App Configuration
- * Centralized config injection for workerd compatibility
- */
-
 import {
   createAppConfig,
   getCurrentNetwork,

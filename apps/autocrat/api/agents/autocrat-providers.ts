@@ -1,14 +1,3 @@
-/**
- * Autocrat Agent Data Providers
- *
- * ElizaOS providers that give autocrat agents access to:
- * - A2A service discovery
- * - MCP tools and resources
- * - On-chain governance data
- * - Other autocrat agent votes
- * - CEO status and decisions
- */
-
 import type {
   IAgentRuntime,
   Memory,

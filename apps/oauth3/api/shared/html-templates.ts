@@ -1,11 +1,3 @@
-/**
- * Shared HTML templates and styles for OAuth3 pages
- * DRY approach to consistent styling across all auth pages
- */
-
-/**
- * HTML escape to prevent XSS in rendered templates.
- */
 export function escapeHtml(unsafe: string): string {
   return unsafe
     .replace(/&/g, '&amp;')

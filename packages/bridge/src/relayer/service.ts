@@ -128,7 +128,11 @@ export interface EVMChainConfig {
     keyId: string
     apiKey?: string
   }
+<<<<<<< HEAD
+  /** Direct private key (LOCAL DEVELOPMENT ONLY - NEVER use in production) */
+=======
   /** Direct private key - DEVELOPMENT ONLY, never use in production */
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
   privateKey?: string
 }
 
@@ -145,7 +149,11 @@ export interface SolanaChainConfig {
     keyId: string
     apiKey?: string
   }
+<<<<<<< HEAD
+  /** Direct keypair path (LOCAL DEVELOPMENT ONLY - NEVER use in production) */
+=======
   /** Keypair file path - DEVELOPMENT ONLY, never use in production */
+>>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
   keypairPath?: string
 }
 

@@ -1,5 +1,3 @@
-/** Git Routes */
-
 import { Elysia } from 'elysia'
 import {
   CreateRepoBodySchema,

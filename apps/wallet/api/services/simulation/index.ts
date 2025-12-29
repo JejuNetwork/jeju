@@ -1,8 +1,3 @@
-/**
- * Transaction Simulation Service
- * Simulates transactions and shows expected state changes
- */
-
 import { expectAddress, toError } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { API_URLS, fetchApi } from '../../../lib/eden'

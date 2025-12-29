@@ -1,8 +1,3 @@
-/**
- * Marketplace Hook
- * Contract interactions for listing, buying, and selling collectibles
- */
-
 import {
   type ChainId,
   getBazaarMarketplace,
@@ -28,7 +23,6 @@ import {
 import marketplaceABI from '../../api/abis/NFTMarketplace.json'
 import { JEJU_CHAIN_ID } from '../config/chains'
 
-// Enums from contract
 export const AssetType = {
   ERC721: 0,
   ERC1155: 1,
@@ -485,7 +479,6 @@ export function useCancelListing() {
   }
 }
 
-// Hook to check if user is banned/blocked
 export function useMarketplaceAccess(targetSeller?: Address) {
   const { address } = useAccount()
   const marketplaceAddress = getBazaarMarketplace(JEJU_CHAIN_ID as ChainId)
@@ -517,7 +510,6 @@ export function useMarketplaceAccess(targetSeller?: Address) {
   }
 }
 
-// Combined marketplace state hook
 export function useMarketplace() {
   const { address, isConnected } = useAccount()
   const { data: marketplaceAddress, isLoading: isLoadingAddress } =

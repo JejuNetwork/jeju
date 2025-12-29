@@ -1,15 +1,3 @@
-/**
- * Council Encryption - CEO Decision Encryption using the network KMS
- *
- * Uses AES-256-GCM encryption with policy-based access control.
- * Decryption requires:
- * 1. Proposal status is COMPLETED, or
- * 2. 30 days have passed since decision
- *
- * This ensures CEO reasoning remains private during deliberation
- * but becomes transparent after execution or timeout.
- */
-
 import {
   getChainId,
   getContract,

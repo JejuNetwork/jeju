@@ -1,16 +1,3 @@
-/**
- * Across Protocol Solver Integration
- *
- * Across (across.to) is a cross-chain bridge using intents.
- * We can act as a relayer to fill deposits and earn fees.
- *
- * Flow:
- * 1. User deposits on source chain via SpokePool
- * 2. We see FundsDeposited event
- * 3. We fill on destination chain via SpokePool.fillRelay()
- * 4. Earn relayer fee (typically 5-15 bps)
- */
-
 import { expectValid, HexSchema } from '@jejunetwork/types'
 import {
   type Address,

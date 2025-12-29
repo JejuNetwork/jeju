@@ -1,9 +1,3 @@
-/**
- * Share PnL Page
- * Converted from Next.js to React Router
- * Redirects to user profile
- */
-
 import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { LoadingSpinner } from '../components/LoadingSpinner'

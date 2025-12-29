@@ -1,5 +1,3 @@
-/** Session management utilities */
-
 import type { Address } from 'viem'
 import type { VPNSessionState } from '../schemas'
 import { expect, expectExists } from '../schemas'

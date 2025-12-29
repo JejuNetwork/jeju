@@ -1,7 +1,3 @@
-/**
- * Executor SDK Tests - Action Parsing and Execution Logic
- */
-
 import { describe, expect, it } from 'bun:test'
 
 describe('Executor Logic', () => {

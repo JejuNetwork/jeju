@@ -1,15 +1,3 @@
-/**
- * DWS Inference Node System
- *
- * All inference goes through registered DWS nodes via on-chain ComputeRegistry.
- *
- * Architecture:
- * - Nodes register on-chain with ComputeRegistry specifying their capabilities
- * - DWS syncs the on-chain registry and routes requests to active nodes
- * - Local cache is kept in sync with on-chain state
- * - Nodes must stake to register and maintain active status
- */
-
 import { getContract, getRpcUrl } from '@jejunetwork/config'
 import type { Address, Hex, PublicClient } from 'viem'
 import { createPublicClient, http, keccak256, toBytes } from 'viem'

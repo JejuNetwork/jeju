@@ -1,10 +1,3 @@
-/**
- * Social Media Manager Character (Laura)
- *
- * Social media manager for content creation,
- * scheduling, and engagement.
- */
-
 import type { AgentCharacter } from '../../lib/types'
 
 export const socialMediaManagerCharacter: AgentCharacter = {

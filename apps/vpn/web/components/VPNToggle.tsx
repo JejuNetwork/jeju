@@ -25,9 +25,7 @@ export function VPNToggle({
 
   return (
     <div className="flex flex-col items-center py-6 sm:py-8">
-      {/* Toggle Button Container */}
       <div className="relative">
-        {/* Background ring animation when connected */}
         <div
           className={`absolute inset-0 rounded-full transition-all duration-500 ${
             isConnected ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
@@ -36,7 +34,6 @@ export function VPNToggle({
           <div className="absolute inset-[-8px] rounded-full bg-gradient-to-r from-accent/20 via-accent-secondary/10 to-accent/20 animate-spin-slow" />
         </div>
 
-        {/* Ripple effect on connection */}
         {showRipple && (
           <>
             <div className="absolute inset-[-20px] rounded-full border-2 border-accent/50 animate-ripple" />
@@ -44,12 +41,10 @@ export function VPNToggle({
           </>
         )}
 
-        {/* Pulse glow when connected */}
         {isConnected && (
           <div className="absolute inset-[-4px] rounded-full animate-pulse-glow bg-accent/10" />
         )}
 
-        {/* Main toggle button */}
         <button
           type="button"
           onClick={onToggle}
@@ -69,7 +64,6 @@ export function VPNToggle({
             disabled:cursor-wait
           `}
         >
-          {/* Inner glow ring */}
           <div
             className={`absolute inset-2 rounded-full transition-all duration-300 ${
               isConnected
@@ -78,7 +72,6 @@ export function VPNToggle({
             }`}
           />
 
-          {/* Icon */}
           {isLoading ? (
             <Loader2
               className={`w-12 h-12 sm:w-14 sm:h-14 animate-spin ${
@@ -93,7 +86,6 @@ export function VPNToggle({
         </button>
       </div>
 
-      {/* Status text */}
       <div className="mt-6 sm:mt-8 text-center px-4">
         <div className="flex items-center justify-center gap-2 mb-2">
           {isConnected && !isLoading && (
@@ -122,14 +114,6 @@ export function VPNToggle({
               ? 'Traffic encrypted'
               : 'Secure your connection'}
         </p>
-      </div>
-
-      {/* Keyboard shortcut hint */}
-      <div className="mt-4 text-xs text-muted hidden sm:block">
-        <kbd className="px-2 py-1 bg-surface-elevated rounded-md border border-border font-mono text-muted-light">
-          {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Shift+V
-        </kbd>
-        <span className="ml-2">to toggle</span>
       </div>
     </div>
   )

@@ -23,6 +23,8 @@ import {
   createPackfile,
   createPktLine,
   createPktLines,
+  createReceivePackResponse,
+  createSidebandPktLine,
   extractPackfile,
   parsePktLines,
 } from '../../git/pack'
@@ -984,7 +986,23 @@ export function createGitRouter(ctx: GitContext) {
         }
 
         const packfile = await createPackfile(objectStore, neededOids)
-        const response = Buffer.concat([createPktLine('NAK'), packfile])
+
+        // For stateless-rpc with side-band-64k, wrap packfile in sideband
+        const parts: Buffer[] = []
+        parts.push(createPktLine('NAK'))
+
+        // Send packfile data through sideband channel 1 in chunks
+        const CHUNK_SIZE = 65515 // 65535 - 4 (length) - 1 (band) - 15 (margin)
+        for (let i = 0; i < packfile.length; i += CHUNK_SIZE) {
+          const chunk = packfile.subarray(
+            i,
+            Math.min(i + CHUNK_SIZE, packfile.length),
+          )
+          parts.push(createSidebandPktLine(chunk, 1))
+        }
+        parts.push(createFlushPkt())
+
+        const response = Buffer.concat(parts)
 
         return new Response(response, {
           headers: {
@@ -1016,6 +1034,17 @@ export function createGitRouter(ctx: GitContext) {
 
         const body = Buffer.from(await request.arrayBuffer())
         const packStart = body.indexOf(Buffer.from('PACK'))
+
+        if (packStart === -1) {
+          console.log('[Git] No PACK data found in push request')
+          const pktData = createPktLines(['unpack ok'])
+          return new Response(new Uint8Array(pktData), {
+            headers: {
+              'Content-Type': 'application/x-git-receive-pack-result',
+            },
+          })
+        }
+
         const commandData = body.subarray(0, packStart)
         const packData = body.subarray(packStart)
 
@@ -1039,7 +1068,21 @@ export function createGitRouter(ctx: GitContext) {
         }
 
         const objectStore = repoManager.getObjectStore(repo.repoId)
-        await extractPackfile(objectStore, packData)
+
+        try {
+          await extractPackfile(objectStore, packData)
+        } catch (packError) {
+          console.error('[Git] Pack extraction failed:', packError)
+          const errorPktData = createPktLines([
+            'unpack error: pack extraction failed',
+          ])
+          return new Response(new Uint8Array(errorPktData), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/x-git-receive-pack-result',
+            },
+          })
+        }
 
         const results: Array<{
           ref: string
@@ -1074,7 +1117,7 @@ export function createGitRouter(ctx: GitContext) {
           trackGitContribution(user, repo.repoId as Hex, name, 'commit', {
             branch: branchName,
             commitCount: commits.length,
-            message: commits[0].message.split('\n')[0] ?? 'Push',
+            message: commits[0]?.message.split('\n')[0] ?? 'Push',
           })
 
           results.push({ ref: update.refName, success: true })
@@ -1086,16 +1129,13 @@ export function createGitRouter(ctx: GitContext) {
             r.success ? `ok ${r.ref}` : `ng ${r.ref} ${r.error}`,
           ),
         ]
-        const pktLines = createPktLines(responseLines)
-        return new Response(
-          typeof pktLines === 'string' ? pktLines : new Uint8Array(pktLines),
-          {
-            headers: {
-              'Content-Type': 'application/x-git-receive-pack-result',
-              'Cache-Control': 'no-cache',
-            },
+        const responseData = createReceivePackResponse(responseLines)
+        return new Response(responseData, {
+          headers: {
+            'Content-Type': 'application/x-git-receive-pack-result',
+            'Cache-Control': 'no-cache',
           },
-        )
+        })
       },
       { params: t.Object({ owner: t.String(), name: t.String() }) },
     )

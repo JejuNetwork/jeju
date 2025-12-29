@@ -1,8 +1,3 @@
-/**
- * Trezor Hardware Wallet Integration
- * Based on Rabby's implementation with @trezor/connect-web
- */
-
 import TrezorConnect from '@trezor/connect-web'
 import {
   type Address,

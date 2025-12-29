@@ -1,9 +1,3 @@
-/**
- * Jobs Page
- *
- * Browse and filter job listings with responsive design.
- */
-
 import { clsx } from 'clsx'
 import { Briefcase, Building2, MapPin, Plus } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'

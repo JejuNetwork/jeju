@@ -1,9 +1,3 @@
-/**
- * Bazaar App Configuration
- *
- * Uses @jejunetwork/config for all configuration.
- */
-
 import {
   getApiKey,
   getChainId,

@@ -1,9 +1,4 @@
-/**
- * Container Execution Module
- * Decentralized serverless container execution with warmth management
- */
-
-// Executor - public API
+// Executor
 export {
   cancelExecution,
   type ExecutorStats,

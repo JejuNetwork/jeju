@@ -1,9 +1,3 @@
-/**
- * LoadingSpinner Component
- *
- * Accessible loading indicator with size variants
- */
-
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg'
   label?: string

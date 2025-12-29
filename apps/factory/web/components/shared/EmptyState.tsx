@@ -1,10 +1,3 @@
-/**
- * EmptyState Component
- *
- * Engaging empty state with icon, title, description, and optional action.
- * Provides helpful context when no data is available.
- */
-
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 

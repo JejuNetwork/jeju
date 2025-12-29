@@ -1,8 +1,3 @@
-/**
- * Autonomous Agent Runner
- * Manages autonomous agent lifecycle and tick execution with trajectory recording
- */
-
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { Action, EnvironmentState, LLMCall } from '@jejunetwork/training'
 import {

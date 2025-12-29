@@ -41,7 +41,6 @@ export function SolversView() {
         </p>
       </div>
 
-      {/* Leaderboard */}
       <div
         style={{
           background: 'var(--surface)',
@@ -207,7 +206,6 @@ export function SolversView() {
         </div>
       </div>
 
-      {/* Solver Grid */}
       <div
         style={{
           display: 'grid',
@@ -256,7 +254,6 @@ function SolverCard({ solver }: { solver: Solver }) {
         backdropFilter: 'blur(8px)',
       }}
     >
-      {/* Header */}
       <div
         style={{
           display: 'flex',
@@ -304,7 +301,6 @@ function SolverCard({ solver }: { solver: Solver }) {
         <ReputationBadge score={solver.reputation} />
       </div>
 
-      {/* Stats */}
       <div
         style={{
           display: 'grid',
@@ -334,7 +330,6 @@ function SolverCard({ solver }: { solver: Solver }) {
         />
       </div>
 
-      {/* Chains */}
       <div
         style={{
           display: 'flex',

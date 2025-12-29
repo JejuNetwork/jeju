@@ -1,8 +1,3 @@
-/**
- * Ban Check Middleware for Crucible
- * Uses @jejunetwork/shared for ban checking
- */
-
 import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import { type BanCheckConfig, BanChecker } from '@jejunetwork/shared'
 import type { Address } from 'viem'

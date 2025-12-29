@@ -135,7 +135,6 @@ export type ContractCategory =
   | 'sequencer'
   | 'staking'
   | 'training'
-  | 'vpn'
   | 'work'
 
 const NetworkContractsSchema = z.object({
@@ -173,7 +172,6 @@ const NetworkContractsSchema = z.object({
   sequencer: ContractCategorySchema.optional(),
   staking: ContractCategorySchema.optional(),
   training: ContractCategorySchema.optional(),
-  vpn: ContractCategorySchema.optional(),
   work: ContractCategorySchema.optional(),
 })
 export type NetworkContracts = z.infer<typeof NetworkContractsSchema>
@@ -243,6 +241,7 @@ export const ServicesNetworkConfigSchema = z.object({
   }),
   explorer: UrlString,
   indexer: z.object({
+    api: UrlString.optional(),
     graphql: UrlString,
     websocket: UrlString,
     rest: UrlString.optional(),
@@ -273,6 +272,7 @@ export const ServicesNetworkConfigSchema = z.object({
     ui: UrlString,
   }),
   monitoring: z.object({
+    api: UrlString.optional(),
     prometheus: UrlString,
     grafana: UrlString,
   }),
@@ -823,142 +823,3 @@ export const BridgeConfigSchema = z.object({
   security: BridgeSecurityConfigSchema.optional(),
 })
 export type BridgeConfig = z.infer<typeof BridgeConfigSchema>
-
-// Moderation Config Schemas
-
-/** Moderation categories */
-export const ModerationCategorySchema = z.enum([
-  'clean',
-  'spam',
-  'scam',
-  'malware',
-  'csam',
-  'adult',
-  'violence',
-  'hate',
-  'harassment',
-  'self_harm',
-  'illegal',
-  'copyright',
-  'pii',
-  'drugs',
-])
-export type ModerationCategoryConfig = z.infer<typeof ModerationCategorySchema>
-
-/** Moderation action types */
-export const ModerationActionSchema = z.enum([
-  'allow',
-  'warn',
-  'queue',
-  'block',
-  'ban',
-])
-export type ModerationActionConfig = z.infer<typeof ModerationActionSchema>
-
-/** Moderation provider configuration */
-export const ModerationProviderConfigSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  enabled: z.boolean(),
-  priority: z.number().int().nonnegative(),
-  endpoint: z.string().optional(),
-  model: z.string().optional(),
-  contentTypes: z.array(z.string()),
-  categories: z.array(z.string()),
-  envKey: z.string().optional(),
-  envKeys: z.record(z.string(), z.string()).optional(),
-  defaultRegion: z.string().optional(),
-  pricing: z.record(z.string(), z.number()).optional(),
-  sources: z.record(z.string(), z.object({
-    provider: z.string(),
-    envKey: z.string(),
-    refreshIntervalMs: z.number().optional(),
-  })).optional(),
-})
-export type ModerationProviderConfig = z.infer<typeof ModerationProviderConfigSchema>
-
-/** Moderation reputation configuration */
-export const ModerationReputationConfigSchema = z.object({
-  tiers: z.array(z.string()),
-  reducedScanningLevel: z.string(),
-  successesForBackoff: z.number().int().positive(),
-  neverBypass: z.array(z.string()),
-  backoffSchedule: z.record(z.string(), z.number()),
-})
-export type ModerationReputationConfig = z.infer<typeof ModerationReputationConfigSchema>
-
-/** Moderation TEE configuration */
-export const ModerationTeeConfigSchema = z.object({
-  platforms: z.array(z.string()),
-  requireAttestation: z.boolean(),
-  sensitiveCategories: z.array(z.string()),
-  auditLogRetentionDays: z.number().int().positive(),
-})
-export type ModerationTeeConfig = z.infer<typeof ModerationTeeConfigSchema>
-
-/** Moderation queue configuration */
-export const ModerationQueueConfigSchema = z.object({
-  enabled: z.boolean(),
-  maxPendingReviews: z.number().int().positive(),
-  reviewTimeoutMs: z.number().int().positive(),
-  priorityCategories: z.array(z.string()),
-})
-export type ModerationQueueConfig = z.infer<typeof ModerationQueueConfigSchema>
-
-/** Environment-specific moderation settings */
-export const ModerationEnvironmentConfigSchema = z.object({
-  providers: z.array(z.string()),
-  strictMode: z.boolean(),
-})
-export type ModerationEnvironmentConfig = z.infer<typeof ModerationEnvironmentConfigSchema>
-
-/** Full moderation configuration schema */
-export const ModerationConfigSchema = z.object({
-  version: z.string(),
-  lastUpdated: z.string(),
-  description: z.string(),
-  providers: z.record(z.string(), ModerationProviderConfigSchema),
-  thresholds: z.record(z.string(), z.number()),
-  actions: z.record(z.string(), ModerationActionSchema),
-  reputation: ModerationReputationConfigSchema,
-  tee: ModerationTeeConfigSchema,
-  queue: ModerationQueueConfigSchema,
-  environments: z.record(z.string(), ModerationEnvironmentConfigSchema),
-})
-export type ModerationConfig = z.infer<typeof ModerationConfigSchema>
-
-// ============ Proof-of-Cloud (PoC) Configuration ============
-
-/** AMD KDS (Key Distribution Service) configuration */
-export const PoCKdsConfigSchema = z.object({
-  baseUrl: z.string().url(),
-  timeoutMs: z.number().int().positive(),
-  retryCount: z.number().int().nonnegative(),
-  retryDelayMs: z.number().int().positive(),
-  defaultProduct: z.enum(['Milan', 'Genoa']),
-})
-export type PoCKdsConfig = z.infer<typeof PoCKdsConfigSchema>
-
-/** TCB (Trusted Computing Base) minimum versions */
-export const PoCTcbMinimumsSchema = z.object({
-  intelTdx: z.object({
-    cpu: z.number().int().nonnegative(),
-    tcb: z.number().int().nonnegative(),
-  }),
-  intelSgx: z.object({
-    cpu: z.number().int().nonnegative(),
-    tcb: z.number().int().nonnegative(),
-  }),
-  amdSev: z.object({
-    snp: z.number().int().nonnegative(),
-  }),
-})
-export type PoCTcbMinimums = z.infer<typeof PoCTcbMinimumsSchema>
-
-/** Full PoC verification configuration */
-export const PoCVerificationConfigSchema = z.object({
-  intelRootCaFingerprints: z.array(z.string().length(64)),
-  amdKds: PoCKdsConfigSchema,
-  tcbMinimums: PoCTcbMinimumsSchema,
-})
-export type PoCVerificationConfig = z.infer<typeof PoCVerificationConfigSchema>

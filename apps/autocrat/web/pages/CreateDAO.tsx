@@ -1,9 +1,3 @@
-/**
- * Create DAO Wizard
- *
- * Engaging multi-step wizard for creating AI-powered DAOs.
- */
-
 import {
   AlertCircle,
   ArrowLeft,

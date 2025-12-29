@@ -1,10 +1,3 @@
-/**
- * DWS-specific Type Guards
- *
- * DWS-specific type guards for agents, CDN, and API operations.
- * For base type guards, import from @jejunetwork/types.
- */
-
 import { isValidAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, type Hex, isHex } from 'viem'
 import type {

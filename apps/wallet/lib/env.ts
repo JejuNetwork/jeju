@@ -1,10 +1,3 @@
-/**
- * Environment Variable Access
- *
- * Provides a unified way to access environment variables that works in both
- * Vite (import.meta.env) and Bun (process.env) environments.
- */
-
 type EnvVars = Record<string, string | undefined>
 
 /**

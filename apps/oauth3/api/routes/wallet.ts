@@ -1,9 +1,3 @@
-/**
- * Wallet authentication routes
- *
- * SECURITY: Sessions use ephemeral keys and encrypted PII storage.
- */
-
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'

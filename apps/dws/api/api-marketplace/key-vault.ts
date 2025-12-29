@@ -1,15 +1,3 @@
-/**
- * TEE Key Vault
- *
- * Secure key storage using TEE with MPC threshold encryption.
- * Keys never leave the enclave - only injected into outbound requests.
- * All state is persisted to EQLite for serverless compatibility.
- *
- * SECURITY ENHANCEMENT: Now supports external HSM for key derivation.
- * When HSM_ENDPOINT is configured, encryption keys are derived inside
- * the HSM and never enter TEE memory, protecting against side-channel attacks.
- */
-
 import { isProductionEnv, isTestMode } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'

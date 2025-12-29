@@ -16,7 +16,6 @@ import { type ComponentType, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { ThemeToggle } from './ThemeProvider'
 
-// Fix for Lucide React 19 type compatibility
 const FactoryIcon = Factory as ComponentType<LucideProps>
 const SparklesIcon = Sparkles as ComponentType<LucideProps>
 const BookIcon = Book as ComponentType<LucideProps>

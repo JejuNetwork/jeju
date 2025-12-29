@@ -1,11 +1,7 @@
-/**
- * Home Page
- *
- * Vibrant, welcoming landing page for Bazaar marketplace
- */
-
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { fetchMarketStats } from '../../lib/data-client'
 
 const features = [
   { href: '/swap', icon: '🔄', title: 'Swap' },
@@ -16,14 +12,39 @@ const features = [
   { href: '/items', icon: '🖼️', title: 'Items' },
 ]
 
-const quickStats = [
-  { label: 'Total Volume', value: '$12.5M+', icon: '📊' },
-  { label: 'Active Traders', value: '2,400+', icon: '👥' },
-  { label: 'Tokens Listed', value: '150+', icon: '🪙' },
-]
+function formatVolume(value: number): string {
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`
+  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}K`
+  return `$${value.toFixed(0)}`
+}
 
 export default function HomePage() {
   const { isConnected } = useAccount()
+
+  const { data: stats } = useQuery({
+    queryKey: ['market-stats'],
+    queryFn: () => fetchMarketStats(),
+    staleTime: 60000,
+    refetchInterval: 60000,
+  })
+
+  const quickStats = [
+    {
+      label: 'Total Volume',
+      value: stats ? formatVolume(stats.totalVolumeUSD24h) : '—',
+      icon: '📊',
+    },
+    {
+      label: '24h Swaps',
+      value: stats?.totalSwaps24h?.toLocaleString() ?? '—',
+      icon: '🔄',
+    },
+    {
+      label: 'Tokens',
+      value: stats?.totalTokens?.toLocaleString() ?? '—',
+      icon: '🪙',
+    },
+  ]
 
   return (
     <div className="min-h-[80vh] flex flex-col">

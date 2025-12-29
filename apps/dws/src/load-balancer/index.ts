@@ -1,8 +1,3 @@
-/**
- * DWS Load Balancer
- * Scale-to-zero capable load balancer for decentralized services
- */
-
 import {
   AutoScaler,
   type InstanceFactory,

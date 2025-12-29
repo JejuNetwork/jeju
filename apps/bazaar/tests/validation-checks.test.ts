@@ -151,26 +151,4 @@ describe('Marketplace Validation - Code Analysis', () => {
     console.log('✅ NFT Marketplace ABI: All required functions PRESENT')
     console.log(`   Total functions: ${functionNames.length}`)
   })
-
-  test('All validation checks summary', () => {
-    console.log('')
-    console.log('═══════════════════════════════════════════════════════')
-    console.log('         MARKETPLACE VALIDATION CHECK SUMMARY')
-    console.log('═══════════════════════════════════════════════════════')
-    console.log('')
-    console.log('✅ Create Listing: IMPLEMENTED')
-    console.log('✅ Approval Validation: IMPLEMENTED')
-    console.log('✅ Buy Listing: IMPLEMENTED')
-    console.log('✅ Cancel Listing: IMPLEMENTED')
-    console.log('✅ Price Formatting: IMPLEMENTED')
-    console.log('✅ Expiration Checks: IMPLEMENTED')
-    console.log('✅ Access Control: IMPLEMENTED')
-    console.log('✅ ERC20 Token Approval: IMPLEMENTED')
-    console.log('✅ ABI Functions: IMPLEMENTED')
-    console.log('')
-    console.log('STATUS: ALL CRITICAL VALIDATIONS VERIFIED IN CODE')
-    console.log('═══════════════════════════════════════════════════════')
-
-    expect(true).toBe(true) // Always pass after logging
-  })
 })

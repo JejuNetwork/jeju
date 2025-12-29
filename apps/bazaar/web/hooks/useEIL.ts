@@ -1,8 +1,3 @@
-/**
- * EIL Hooks for Bazaar
- * Provides Bazaar-specific EIL configuration and hooks
- */
-
 import {
   CROSS_CHAIN_PAYMASTER_ABI,
   type CrossChainSwapParams,
@@ -23,7 +18,6 @@ import {
   useWriteContract,
 } from 'wagmi'
 
-// Chain info type based on SUPPORTED_CHAINS elements
 export type ChainInfo = (typeof SUPPORTED_CHAINS)[number]
 
 /** Check if a swap is cross-chain based on source and destination chain IDs */
@@ -60,7 +54,6 @@ type EILConfig = {
 
 const emptyChains: Record<string, EILChainConfig> = {}
 
-// EIL config - hardcoded for client-side use
 const eilConfig: EILConfig = {
   version: '1.0.0',
   lastUpdated: '2024-12-01',
@@ -98,7 +91,6 @@ const eilConfig: EILConfig = {
 
 import { NETWORK } from '../config'
 
-// Helper to get chain config based on current network
 function getNetworkConfig(): EILNetworkConfig {
   if (NETWORK === 'testnet') return eilConfig.testnet
   if (NETWORK === 'mainnet') return eilConfig.mainnet
@@ -112,7 +104,6 @@ export function useEILConfig() {
   const networkConfig = getNetworkConfig()
   const chainConfig = networkConfig.chains[chainId]
 
-  // Handle case where chain config doesn't exist
   const paymasterAddress = chainConfig?.crossChainPaymaster
   const crossChainPaymaster = parseOptionalAddress(paymasterAddress)
   const isAvailable =
@@ -128,7 +119,6 @@ export function useEILConfig() {
     }
   })
 
-  // Get appTokenPreference address from chain config if available
   const appTokenPreferenceAddr = parseOptionalAddress(
     chainConfig?.tokens?.appTokenPreference,
   )

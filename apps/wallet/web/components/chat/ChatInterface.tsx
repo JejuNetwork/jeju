@@ -1,10 +1,3 @@
-/**
- * Chat Interface - ElizaOS Agent Chat
- *
- * The Network Wallet agent is an ElizaOS agent.
- * Connects to ElizaOS server when available, falls back to inference gateway.
- */
-
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -19,7 +12,6 @@ import {
   Sparkles,
   Wallet,
   X,
-  Zap,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { elizaClient } from '../../../lib/elizaClient'
@@ -472,11 +464,6 @@ export function ChatInterface({
                 ))}
               </div>
             )}
-
-            <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
-              <Zap className="w-3 h-3" />
-              <span>Powered by Network Decentralized Compute</span>
-            </div>
           </div>
         )}
 

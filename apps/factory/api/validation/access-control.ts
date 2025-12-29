@@ -1,5 +1,3 @@
-/** Access Control */
-
 import { isHexString, isValidAddress } from '@jejunetwork/types'
 import { type Address, verifyMessage } from 'viem'
 import { extractRawAuthHeaders, type RawAuthHeaders } from '../lib/type-guards'

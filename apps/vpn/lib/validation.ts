@@ -1,5 +1,3 @@
-/** Shared validation utilities */
-
 import type { z } from 'zod'
 
 export function expectValid<T>(

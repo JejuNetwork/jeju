@@ -1,9 +1,3 @@
-/**
- * Message Thread Component
- *
- * Displays messages in a conversation with input for sending new messages
- */
-
 import {
   ArrowLeft,
   AtSign,

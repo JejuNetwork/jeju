@@ -1,10 +1,3 @@
-/**
- * Autocrat Messaging Hooks
- *
- * React hooks for Farcaster feed in the Autocrat governance app
- * Uses the messaging package directly to fetch from Farcaster Hub
- */
-
 import { useQuery } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
 import { type AutocratFeedCast, autocratMessaging } from '../../api/messaging'

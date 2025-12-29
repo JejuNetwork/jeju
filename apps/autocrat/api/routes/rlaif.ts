@@ -1,10 +1,3 @@
-/**
- * RLAIF Routes
- *
- * Endpoints for Reinforcement Learning from AI Feedback training integration.
- * Used by external environments to submit trajectories and training runs.
- */
-
 import { Elysia, t } from 'elysia'
 import {
   type CreateRunRequest,

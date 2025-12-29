@@ -1,10 +1,3 @@
-/**
- * Security Validation Agent
- *
- * AI-powered security vulnerability validation agent
- * Runs exploit code in sandbox, analyzes impact, suggests fixes
- */
-
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { z } from 'zod'

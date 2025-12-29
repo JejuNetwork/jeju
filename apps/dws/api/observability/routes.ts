@@ -1,9 +1,3 @@
-/**
- * Observability API Routes
- *
- * REST API for logs, metrics, traces, and alerts
- */
-
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import {
