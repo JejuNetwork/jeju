@@ -54,6 +54,7 @@ export {
   DETERRENCE_MESSAGES,
   registerTrustedFlagger,
   getTrustedFlagger,
+  getAllTrustedFlaggers,
   type CSAMReport,
   type NCMECConfig,
   type IWFConfig,
@@ -61,6 +62,28 @@ export {
   type UserReport,
   type TrustedFlagger,
 } from './reporting'
+
+// Persistence
+export {
+  initializePersistence,
+  saveCSAMReport,
+  updateCSAMReportStatus,
+  getCSAMReports,
+  getCSAMReportStats,
+  saveMetric,
+  getMetrics,
+  getMetricsSummary,
+  saveUserReport,
+  getUserReports,
+  updateUserReportStatus,
+  getUserReportStats,
+  saveTrustedFlagger,
+  getTrustedFlaggerByApiKey,
+  listTrustedFlaggers,
+  isPersistenceInitialized,
+  getPersistenceMode,
+  type PersistedMetricEntry,
+} from './persistence'
 
 // Transparency
 export {

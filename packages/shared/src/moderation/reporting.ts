@@ -19,6 +19,15 @@
 import type { Address } from 'viem'
 import { logger } from '../logger'
 import type { ModerationCategory, ModerationResult } from './types'
+import {
+  saveCSAMReport,
+  updateCSAMReportStatus,
+  getCSAMReports as getPersistedReports,
+  getCSAMReportStats,
+  saveTrustedFlagger,
+  getTrustedFlaggerByApiKey,
+  listTrustedFlaggers,
+} from './persistence'
 
 export interface CSAMReport {
   /** Unique report ID (internal) */
@@ -83,9 +92,6 @@ export interface ReportingConfig {
   /** Enable dry-run mode (logs but doesn't submit) */
   dryRun?: boolean
 }
-
-// In-memory report log (should be persisted externally)
-const reports: CSAMReport[] = []
 
 /**
  * CSAM Reporting Service
@@ -158,7 +164,9 @@ export class CSAMReportingService {
       status: 'pending',
     }
 
-    reports.push(report)
+    // Persist to database
+    await saveCSAMReport(report)
+
     logger.warn('[CSAMReporting] CSAM detected - creating report', {
       reportId: report.reportId,
       contentHash: report.contentHash,
@@ -215,6 +223,7 @@ export class CSAMReportingService {
     // Content is still blocked, but not reported (compliance issue)
     report.status = 'failed'
     report.error = 'No reporting authority configured'
+    await updateCSAMReportStatus(report.reportId, 'failed', undefined, report.error)
     logger.error('[CSAMReporting] COMPLIANCE VIOLATION: CSAM detected but no authority configured', {
       reportId: report.reportId,
     })
@@ -222,32 +231,55 @@ export class CSAMReportingService {
 
   /**
    * Submit report to NCMEC CyberTipline
-   * @see https://www.missingkids.org/content/dam/missingkids/pdfs/CyberTipline-API-Guide.pdf
+   *
+   * IMPORTANT: To use this API, you must:
+   * 1. Register as an Electronic Service Provider (ESP) at https://esp.missingkids.org/
+   * 2. Complete the onboarding process and sign legal agreements
+   * 3. Obtain API credentials (username, password, ESP ID)
+   * 4. Test in their sandbox environment first
+   *
+   * @see https://www.missingkids.org/gethelpnow/cybertipline
+   * @see https://www.missingkids.org/ourwork/ncmecdata
    */
   private async submitToNCMEC(report: CSAMReport): Promise<void> {
     const config = this.config.ncmec
     if (!config) throw new Error('NCMEC not configured')
 
+    // NCMEC CyberTipline API endpoints
+    // Production: https://report.cybertipline.org/
+    // Test: https://exttest.cybertipline.org/
     const baseUrl = config.environment === 'production'
-      ? 'https://report.cybertipline.org/api/v2'
-      : 'https://exttest.cybertipline.org/api/v2'
+      ? 'https://report.cybertipline.org/ispws/report'
+      : 'https://exttest.cybertipline.org/ispws/report'
 
-    // NCMEC CyberTipline API requires XML format
+    // NCMEC CyberTipline API uses SOAP/XML
     const reportXml = this.buildNCMECReport(report)
 
-    const response = await fetch(`${baseUrl}/reports`, {
+    logger.info('[CSAMReporting] Submitting to NCMEC CyberTipline', {
+      reportId: report.reportId,
+      environment: config.environment,
+      endpoint: baseUrl,
+    })
+
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/xml',
+        'Content-Type': 'text/xml; charset=utf-8',
         'Authorization': `Basic ${btoa(`${config.username}:${config.password}`)}`,
-        'X-ESP-ID': config.espId,
+        'SOAPAction': 'submitReport',
       },
       body: reportXml,
     })
 
     if (!response.ok) {
       const text = await response.text()
-      throw new Error(`NCMEC API error: ${response.status} ${text}`)
+      logger.error('[CSAMReporting] NCMEC submission failed', {
+        reportId: report.reportId,
+        status: response.status,
+        statusText: response.statusText,
+        response: text.slice(0, 500),
+      })
+      throw new Error(`NCMEC API error: ${response.status} ${response.statusText}`)
     }
 
     const result = await response.text()
@@ -259,6 +291,9 @@ export class CSAMReportingService {
 
     report.reportedAt = Date.now()
     report.status = 'submitted'
+
+    // Persist status update
+    await updateCSAMReportStatus(report.reportId, 'submitted', report.authorityReportId)
 
     logger.info('[CSAMReporting] Report submitted to NCMEC', {
       reportId: report.reportId,
@@ -308,14 +343,35 @@ export class CSAMReportingService {
   }
 
   /**
-   * Submit report to IWF
-   * @see https://www.iwf.org.uk/our-technology/hash-list/
+   * Submit report to IWF (Internet Watch Foundation) - UK
+   *
+   * IMPORTANT: To use IWF services, you must:
+   * 1. Become an IWF member at https://www.iwf.org.uk/become-a-member/
+   * 2. Sign membership agreement
+   * 3. Obtain access to the IWF Portal
+   * 4. For UK operations, also consider NCA CSEA-IRP reporting
+   *
+   * IWF Member Portal: https://portal.iwf.org.uk/
+   * Note: IWF provides hash lists for detection, not a direct reporting API.
+   * For reporting, use the IWF Portal or NCA CSEA Industry Reporting Portal.
+   *
+   * @see https://www.iwf.org.uk/
+   * @see https://www.nationalcrimeagency.gov.uk/what-we-do/crime-threats/child-sexual-abuse-and-exploitation
    */
   private async submitToIWF(report: CSAMReport): Promise<void> {
     const config = this.config.iwf
     if (!config) throw new Error('IWF not configured')
 
-    const response = await fetch('https://api.iwf.org.uk/v1/reports', {
+    // IWF Portal API (member-only)
+    // Note: The exact API endpoint must be obtained from IWF upon membership
+    const portalUrl = 'https://portal.iwf.org.uk/api/v1/reports'
+
+    logger.info('[CSAMReporting] Submitting to IWF Portal', {
+      reportId: report.reportId,
+      endpoint: portalUrl,
+    })
+
+    const response = await fetch(portalUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -323,30 +379,49 @@ export class CSAMReportingService {
         'X-Member-ID': config.memberId,
       },
       body: JSON.stringify({
-        type: 'csam',
+        reportType: 'csam_detection',
         detectedAt: new Date(report.detectedAt).toISOString(),
-        contentHash: report.contentHash,
-        perceptualHash: report.perceptualHash,
+        contentHash: {
+          sha256: report.contentHash,
+          perceptual: report.perceptualHash,
+        },
         contentType: report.contentType,
-        detectionMethod: report.detectionMethod,
-        confidence: report.confidence,
-        location: report.location,
+        detection: {
+          method: report.detectionMethod,
+          confidence: report.confidence,
+        },
+        location: {
+          service: report.location.service,
+          url: report.location.path,
+          timestamp: new Date(report.location.timestamp).toISOString(),
+        },
         uploaderInfo: report.uploaderAddress ? {
-          address: report.uploaderAddress,
-          ip: report.uploaderIp,
+          identifier: report.uploaderAddress,
+          ipAddress: report.uploaderIp,
+          userAgent: report.userAgent,
         } : undefined,
+        internalReportId: report.reportId,
       }),
     })
 
     if (!response.ok) {
       const text = await response.text()
-      throw new Error(`IWF API error: ${response.status} ${text}`)
+      logger.error('[CSAMReporting] IWF submission failed', {
+        reportId: report.reportId,
+        status: response.status,
+        statusText: response.statusText,
+        response: text.slice(0, 500),
+      })
+      throw new Error(`IWF API error: ${response.status} ${response.statusText}`)
     }
 
-    const result = await response.json() as { reportId: string }
+    const result = await response.json() as { reportId: string; status: string }
     report.authorityReportId = result.reportId
     report.reportedAt = Date.now()
     report.status = 'submitted'
+
+    // Persist status update
+    await updateCSAMReportStatus(report.reportId, 'submitted', report.authorityReportId)
 
     logger.info('[CSAMReporting] Report submitted to IWF', {
       reportId: report.reportId,
@@ -357,55 +432,26 @@ export class CSAMReportingService {
   /**
    * Get all reports (for compliance auditing)
    */
-  getReports(filter?: {
+  async getReports(filter?: {
     status?: CSAMReport['status']
     startTime?: number
     endTime?: number
-  }): CSAMReport[] {
-    let result = [...reports]
-
-    if (filter?.status) {
-      result = result.filter(r => r.status === filter.status)
-    }
-    if (filter?.startTime) {
-      result = result.filter(r => r.detectedAt >= filter.startTime!)
-    }
-    if (filter?.endTime) {
-      result = result.filter(r => r.detectedAt <= filter.endTime!)
-    }
-
-    return result
+    limit?: number
+  }): Promise<CSAMReport[]> {
+    return getPersistedReports(filter)
   }
 
   /**
    * Get report statistics (for transparency reporting)
    */
-  getStats(): {
+  async getStats(): Promise<{
     total: number
     pending: number
     submitted: number
     acknowledged: number
     failed: number
-    byDetectionMethod: Record<string, number>
-    byContentType: Record<string, number>
-  } {
-    const stats = {
-      total: reports.length,
-      pending: 0,
-      submitted: 0,
-      acknowledged: 0,
-      failed: 0,
-      byDetectionMethod: {} as Record<string, number>,
-      byContentType: {} as Record<string, number>,
-    }
-
-    for (const r of reports) {
-      stats[r.status]++
-      stats.byDetectionMethod[r.detectionMethod] = (stats.byDetectionMethod[r.detectionMethod] ?? 0) + 1
-      stats.byContentType[r.contentType] = (stats.byContentType[r.contentType] ?? 0) + 1
-    }
-
-    return stats
+  }> {
+    return getCSAMReportStats()
   }
 }
 
@@ -489,19 +535,16 @@ export interface TrustedFlagger {
   jurisdiction?: string[]
 }
 
-const trustedFlaggers = new Map<string, TrustedFlagger>()
-
-export function registerTrustedFlagger(flagger: TrustedFlagger): void {
-  trustedFlaggers.set(flagger.id, flagger)
+export async function registerTrustedFlagger(flagger: TrustedFlagger): Promise<void> {
+  await saveTrustedFlagger(flagger)
   logger.info('[TrustedFlagger] Registered', { id: flagger.id, name: flagger.name })
 }
 
-export function getTrustedFlagger(apiKey: string): TrustedFlagger | undefined {
-  for (const f of trustedFlaggers.values()) {
-    if (f.apiKey === apiKey && f.enabled) {
-      return f
-    }
-  }
-  return undefined
+export async function getTrustedFlagger(apiKey: string): Promise<TrustedFlagger | undefined> {
+  return getTrustedFlaggerByApiKey(apiKey)
+}
+
+export async function getAllTrustedFlaggers(): Promise<Omit<TrustedFlagger, 'apiKey'>[]> {
+  return listTrustedFlaggers()
 }
 

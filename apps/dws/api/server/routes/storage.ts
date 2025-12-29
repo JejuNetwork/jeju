@@ -136,6 +136,43 @@ async function moderateUpload(
   })
 }
 
+// Deterrence messages for CSAM blocks per UK Government guidance
+const DETERRENCE_MESSAGES = {
+  csam: {
+    warning: `⚠️ WARNING: Child sexual abuse material (CSAM) is illegal.
+
+Viewing, possessing, or distributing CSAM is a serious criminal offense
+that carries severe penalties including imprisonment.
+
+If you or someone you know needs help, please contact:
+• Stop It Now: 0808 1000 900 (UK) / 1-888-773-8368 (US)
+• NCMEC CyberTipline: 1-800-843-5678
+• Childhelp: 1-800-422-4453
+
+This activity has been logged and may be reported to authorities.`,
+    blocked: `🚫 ACCESS BLOCKED
+
+This content has been identified as illegal child sexual abuse material.
+
+This incident has been logged and will be reported to:
+• National Center for Missing & Exploited Children (NCMEC)
+• Internet Watch Foundation (IWF)
+• Relevant law enforcement authorities
+
+Attempting to access illegal content is a criminal offense.`,
+  },
+  support: {
+    uk: [
+      { name: 'Stop It Now UK', phone: '0808 1000 900', url: 'https://www.stopitnow.org.uk/' },
+      { name: 'Childline', phone: '0800 1111', url: 'https://www.childline.org.uk/' },
+    ],
+    us: [
+      { name: 'Stop It Now USA', phone: '1-888-773-8368', url: 'https://www.stopitnow.org/' },
+      { name: 'NCMEC CyberTipline', phone: '1-800-843-5678', url: 'https://www.missingkids.org/' },
+    ],
+  },
+}
+
 /**
  * Build error response for moderation failure
  */
@@ -145,10 +182,17 @@ function buildModerationErrorResponse(result: ModerationResult): {
   category?: string
   severity: string
   reviewRequired: boolean
+  deterrence?: {
+    message: string
+    support: typeof DETERRENCE_MESSAGES.support
+  }
 } {
+  const isCSAM = result.primaryCategory === 'csam'
+
   return {
-    error:
-      result.action === 'ban'
+    error: isCSAM
+      ? DETERRENCE_MESSAGES.csam.blocked
+      : result.action === 'ban'
         ? 'Content violates platform policies and has been reported'
         : result.action === 'block'
           ? 'Content blocked due to policy violation'
@@ -162,6 +206,10 @@ function buildModerationErrorResponse(result: ModerationResult): {
     category: result.primaryCategory,
     severity: result.severity,
     reviewRequired: result.reviewRequired,
+    deterrence: isCSAM ? {
+      message: DETERRENCE_MESSAGES.csam.blocked,
+      support: DETERRENCE_MESSAGES.support,
+    } : undefined,
   }
 }
 
