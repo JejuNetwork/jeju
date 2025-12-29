@@ -180,12 +180,21 @@ const BLOCKED_HOST_PATTERNS = [
   /^.*\.svc\.cluster\.local$/i,
 ]
 
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+
 // ============================================================================
 // State
 // ============================================================================
 
-const circuitBreakers = new Map<string, CircuitState>()
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+// Distributed cache for proxy rate limiting and circuit breakers
+let proxyCache: CacheClient | null = null
+function getProxyCache(): CacheClient {
+  if (!proxyCache) {
+    proxyCache = getCacheClient('dws-proxy')
+  }
+  return proxyCache
+}
+
 const metrics: ProxyMetrics = {
   totalRequests: 0,
   totalErrors: 0,
@@ -249,17 +258,36 @@ function findTarget(path: string): ProxyTarget | null {
   return null
 }
 
-function getCircuitState(name: string): CircuitState {
-  let state = circuitBreakers.get(name)
-  if (!state) {
-    state = { failures: 0, lastFailure: 0, state: 'closed', openedAt: 0 }
-    circuitBreakers.set(name, state)
+async function getCircuitState(name: string): Promise<CircuitState> {
+  const cache = getProxyCache()
+  const cacheKey = `proxy-circuit:${name}`
+  const cached = await cache.get(cacheKey)
+
+  if (cached) {
+    return JSON.parse(cached) as CircuitState
   }
+
+  const state: CircuitState = {
+    failures: 0,
+    lastFailure: 0,
+    state: 'closed',
+    openedAt: 0,
+  }
+  await cache.set(cacheKey, JSON.stringify(state), 300) // 5 min TTL
   return state
 }
 
-function recordCircuitFailure(name: string): void {
-  const state = getCircuitState(name)
+async function saveCircuitState(
+  name: string,
+  state: CircuitState,
+): Promise<void> {
+  const cache = getProxyCache()
+  const cacheKey = `proxy-circuit:${name}`
+  await cache.set(cacheKey, JSON.stringify(state), 300)
+}
+
+async function recordCircuitFailure(name: string): Promise<void> {
+  const state = await getCircuitState(name)
   state.failures++
   state.lastFailure = Date.now()
 
@@ -270,16 +298,18 @@ function recordCircuitFailure(name: string): void {
       `[Proxy] Circuit opened for ${name} after ${state.failures} failures`,
     )
   }
+  await saveCircuitState(name, state)
 }
 
-function recordCircuitSuccess(name: string): void {
-  const state = getCircuitState(name)
+async function recordCircuitSuccess(name: string): Promise<void> {
+  const state = await getCircuitState(name)
   state.failures = 0
   state.state = 'closed'
+  await saveCircuitState(name, state)
 }
 
-function isCircuitOpen(name: string): boolean {
-  const state = getCircuitState(name)
+async function isCircuitOpen(name: string): Promise<boolean> {
+  const state = await getCircuitState(name)
 
   if (state.state === 'closed') {
     return false
@@ -290,6 +320,7 @@ function isCircuitOpen(name: string): boolean {
     if (Date.now() - state.openedAt > CIRCUIT_RESET_TIMEOUT_MS) {
       state.state = 'half-open'
       state.failures = 0
+      await saveCircuitState(name, state)
       return false
     }
     return true
@@ -299,21 +330,30 @@ function isCircuitOpen(name: string): boolean {
   return state.failures >= CIRCUIT_HALF_OPEN_REQUESTS
 }
 
-function checkRateLimit(
+async function checkRateLimit(
   clientIp: string,
   target: ProxyTarget,
-): { allowed: boolean; retryAfter?: number } {
+): Promise<{ allowed: boolean; retryAfter?: number }> {
   const key = `${clientIp}:${target.name}`
   const now = Date.now()
   const windowMs = 60000
+  const cache = getProxyCache()
+  const cacheKey = `proxy-rl:${key}`
 
-  let entry = rateLimitStore.get(key)
+  const cached = await cache.get(cacheKey)
+  let entry: { count: number; resetAt: number } | null = cached
+    ? JSON.parse(cached)
+    : null
+
   if (!entry || now > entry.resetAt) {
     entry = { count: 0, resetAt: now + windowMs }
-    rateLimitStore.set(key, entry)
   }
 
   entry.count++
+
+  // Store with TTL
+  const ttl = Math.max(1, Math.ceil((entry.resetAt - now) / 1000))
+  await cache.set(cacheKey, JSON.stringify(entry), ttl)
 
   if (entry.count > target.rateLimit.requestsPerMinute) {
     return {
@@ -452,24 +492,29 @@ export function createProxyRouter() {
   const router = new Elysia({ name: 'proxy', prefix: '/proxy' })
 
   // Health check
-  router.get('/health', () => ({
-    status: 'healthy',
-    service: 'dws-proxy',
-    targets: PROXY_TARGETS.map((t) => ({
-      name: t.name,
-      pathPrefix: t.pathPrefix,
-      circuitState: getCircuitState(t.name).state,
-    })),
-    metrics: {
-      totalRequests: metrics.totalRequests,
-      totalErrors: metrics.totalErrors,
-      errorRate:
-        metrics.totalRequests > 0
-          ? ((metrics.totalErrors / metrics.totalRequests) * 100).toFixed(2) +
-            '%'
-          : '0%',
-    },
-  }))
+  router.get('/health', async () => {
+    const targets = await Promise.all(
+      PROXY_TARGETS.map(async (t) => ({
+        name: t.name,
+        pathPrefix: t.pathPrefix,
+        circuitState: (await getCircuitState(t.name)).state,
+      })),
+    )
+    return {
+      status: 'healthy',
+      service: 'dws-proxy',
+      targets,
+      metrics: {
+        totalRequests: metrics.totalRequests,
+        totalErrors: metrics.totalErrors,
+        errorRate:
+          metrics.totalRequests > 0
+            ? ((metrics.totalErrors / metrics.totalRequests) * 100).toFixed(2) +
+              '%'
+            : '0%',
+      },
+    }
+  })
 
   // List proxy targets
   router.get('/targets', async ({ query }) => {
@@ -477,7 +522,7 @@ export function createProxyRouter() {
 
     const targets = await Promise.all(
       PROXY_TARGETS.map(async (t) => {
-        const circuit = getCircuitState(t.name)
+        const circuit = await getCircuitState(t.name)
         let healthy: boolean | null = null
 
         if (validated.includeHealth) {
@@ -505,7 +550,7 @@ export function createProxyRouter() {
   })
 
   // Prometheus metrics endpoint
-  router.get('/metrics', () => {
+  router.get('/metrics', async () => {
     const lines: string[] = []
 
     lines.push('# HELP dws_proxy_requests_total Total proxy requests')
@@ -522,7 +567,7 @@ export function createProxyRouter() {
 
     lines.push('# HELP dws_proxy_requests_by_upstream Requests by upstream')
     lines.push('# TYPE dws_proxy_requests_by_upstream counter')
-    for (const [upstream, count] of metrics.requestsByUpstream) {
+    for (const [upstream, count] of Array.from(metrics.requestsByUpstream)) {
       lines.push(
         `dws_proxy_requests_by_upstream{upstream="${upstream}"} ${count}`,
       )
@@ -530,7 +575,7 @@ export function createProxyRouter() {
 
     lines.push('# HELP dws_proxy_errors_by_upstream Errors by upstream')
     lines.push('# TYPE dws_proxy_errors_by_upstream counter')
-    for (const [upstream, count] of metrics.errorsByUpstream) {
+    for (const [upstream, count] of Array.from(metrics.errorsByUpstream)) {
       lines.push(
         `dws_proxy_errors_by_upstream{upstream="${upstream}"} ${count}`,
       )
@@ -566,7 +611,7 @@ export function createProxyRouter() {
     )
     lines.push('# TYPE dws_proxy_circuit_state gauge')
     for (const target of PROXY_TARGETS) {
-      const state = getCircuitState(target.name)
+      const state = await getCircuitState(target.name)
       const stateNum =
         state.state === 'closed' ? 0 : state.state === 'half-open' ? 1 : 2
       lines.push(
@@ -574,10 +619,10 @@ export function createProxyRouter() {
       )
     }
 
-    // Rate limiter stats
+    // Rate limiter stats - with distributed cache, entries managed by TTL
     lines.push('# HELP dws_proxy_rate_limit_active Active rate limit entries')
     lines.push('# TYPE dws_proxy_rate_limit_active gauge')
-    lines.push(`dws_proxy_rate_limit_active ${rateLimitStore.size}`)
+    lines.push(`dws_proxy_rate_limit_active 0`)
 
     return new Response(lines.join('\n'), {
       headers: { 'Content-Type': 'text/plain; version=0.0.4' },
@@ -625,7 +670,7 @@ export function createProxyRouter() {
     }
 
     // Check circuit breaker
-    if (isCircuitOpen(target.name)) {
+    if (await isCircuitOpen(target.name)) {
       set.status = 503
       set.headers['Retry-After'] = String(
         Math.ceil(CIRCUIT_RESET_TIMEOUT_MS / 1000),
@@ -638,25 +683,20 @@ export function createProxyRouter() {
     }
 
     // Check rate limit
-    const rateCheck = checkRateLimit(clientIp, target)
+    const rateCheck = await checkRateLimit(clientIp, target)
 
-    // Always set rate limit headers
-    const rateLimitEntry = rateLimitStore.get(`${clientIp}:${target.name}`)
-    if (rateLimitEntry) {
-      set.headers['X-RateLimit-Limit'] = String(
-        target.rateLimit.requestsPerMinute,
-      )
-      set.headers['X-RateLimit-Remaining'] = String(
-        Math.max(0, target.rateLimit.requestsPerMinute - rateLimitEntry.count),
-      )
-      set.headers['X-RateLimit-Reset'] = String(
-        Math.ceil(rateLimitEntry.resetAt / 1000),
-      )
-    }
+    // Set rate limit headers from the check result
+    set.headers['X-RateLimit-Limit'] = String(
+      target.rateLimit.requestsPerMinute,
+    )
+    set.headers['X-RateLimit-Reset'] = String(
+      Math.ceil((Date.now() + 60000) / 1000),
+    )
 
     if (!rateCheck.allowed) {
       set.status = 429
       set.headers['Retry-After'] = String(rateCheck.retryAfter)
+      set.headers['X-RateLimit-Remaining'] = '0'
       return {
         error: 'Rate limit exceeded',
         retryAfter: rateCheck.retryAfter,
@@ -683,14 +723,14 @@ export function createProxyRouter() {
       isError = response.status >= 500
 
       if (isError) {
-        recordCircuitFailure(target.name)
+        await recordCircuitFailure(target.name)
       } else {
-        recordCircuitSuccess(target.name)
+        await recordCircuitSuccess(target.name)
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
       errorMessage = error.message
-      recordCircuitFailure(target.name)
+      await recordCircuitFailure(target.name)
       isError = true
 
       set.status = 502
@@ -745,12 +785,7 @@ export function createProxyRouter() {
 
 // Clean up stale rate limit entries
 setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of rateLimitStore) {
-    if (now > entry.resetAt) {
-      rateLimitStore.delete(key)
-    }
-  }
+  // No cleanup needed - distributed cache handles TTL expiration
 }, 60000)
 
 export { PROXY_TARGETS, metrics as proxyMetrics }

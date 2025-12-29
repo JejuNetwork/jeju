@@ -1,4 +1,5 @@
 import { cors } from '@elysiajs/cors'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { type Context, Elysia } from 'elysia'
 import { z } from 'zod'
 import { RegisteredAgent } from '../src/model'
@@ -159,7 +160,7 @@ const app = new Elysia()
       oracleDisputes: '/api/oracle/disputes',
       oracleStats: '/api/oracle/stats',
     },
-    graphql: 'http://localhost:4350/graphql',
+    graphql: `http://${getLocalhostHost()}:4350/graphql`,
     rateLimits: RATE_LIMITS,
   }))
   .get('/api/search', async (ctx: Context) => {
@@ -721,8 +722,9 @@ export async function startRestServer(): Promise<void> {
 
   app.listen(REST_PORT, () => {
     const status = isPostgresAvailable() ? 'full' : 'degraded'
+    const host = getLocalhostHost()
     console.log(
-      `📡 REST API running on http://localhost:${REST_PORT} (${status})`,
+      `📡 REST API running on http://${host}:${REST_PORT} (${status})`,
     )
   })
 }

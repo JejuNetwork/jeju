@@ -16,6 +16,11 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  getEQLiteBlockProducerUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import { $ } from 'bun'
 
 interface TestResult {
@@ -36,12 +41,23 @@ interface AppConfig {
 }
 
 // Test configuration
-const RPC_URL = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
-const CHAIN_ID = process.env.CHAIN_ID || '31337'
+const host = getLocalhostHost()
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ||
+  getL2RpcUrl() ||
+  `http://${host}:6546`
+const CHAIN_ID =
+  (typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined) || '31337'
 const DATABASE_URL =
-  process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
-const EQLITE_URL = process.env.EQLITE_URL || 'http://127.0.0.1:4661'
+  (typeof process !== 'undefined' ? process.env.DATABASE_URL : undefined) ||
+  `postgresql://test:test@${host}:5432/test`
+const REDIS_URL =
+  (typeof process !== 'undefined' ? process.env.REDIS_URL : undefined) ||
+  `redis://${host}:6379`
+const EQLITE_URL =
+  (typeof process !== 'undefined' ? process.env.EQLITE_URL : undefined) ||
+  getEQLiteBlockProducerUrl() ||
+  `http://${host}:4661`
 
 // Standard test accounts (Anvil defaults)
 const DEPLOYER_KEY =

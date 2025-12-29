@@ -320,7 +320,6 @@ export function createClientRouter(_config: AuthConfig) {
 
         // Store hash only
         client.clientSecretHash = newSecretHash
-        client.clientSecret = undefined // Clear any legacy plaintext
         await clientState.save(client)
 
         // Return plaintext ONLY at rotation

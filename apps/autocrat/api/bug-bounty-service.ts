@@ -54,8 +54,9 @@ import { createKMSWalletClient, getOperatorConfig } from './kms-signer'
 const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
 // KMS wallet client instance (initialized lazily)
-let kmsWalletClient: Awaited<ReturnType<typeof createKMSWalletClient>> | null =
-  null
+let kmsWalletClient:
+  | Awaited<ReturnType<typeof createKMSWalletClient>>['client']
+  | null = null
 
 // Config handles env overrides
 function getDWSEndpoint(): string {
@@ -247,11 +248,8 @@ async function getKMSWalletClientInstance() {
         'OPERATOR_KEY or OPERATOR_PRIVATE_KEY required for contract operations',
       )
     }
-    kmsWalletClient = await createKMSWalletClient(
-      config,
-      getChain(),
-      getRpcUrl(),
-    )
+    const result = await createKMSWalletClient(config, getChain(), getRpcUrl())
+    kmsWalletClient = result.client
   }
   return kmsWalletClient
 }

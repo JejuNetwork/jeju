@@ -136,7 +136,9 @@ export class AWSCloudHSMProvider implements HSMProvider {
 
       log.info('AWS CloudHSM connected', { slotId })
     } catch (error) {
-      log.error('AWS CloudHSM connection failed', { error })
+      log.error('AWS CloudHSM connection failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       throw new Error(
         `CloudHSM connection failed: ${error instanceof Error ? error.message : String(error)}`,
       )
@@ -159,7 +161,9 @@ export class AWSCloudHSMProvider implements HSMProvider {
 
       log.info('AWS CloudHSM disconnected')
     } catch (error) {
-      log.error('AWS CloudHSM disconnect error', { error })
+      log.error('AWS CloudHSM disconnect error', {
+        error: error instanceof Error ? error.message : String(error),
+      })
     }
   }
 
@@ -194,11 +198,12 @@ export class AWSCloudHSMProvider implements HSMProvider {
           [CKA_VALUE_LEN, 32], // 256 bits
         ]
 
-        _keyHandle = await this.pkcs11Module.generateKey(
-          this.session.handle,
+        const aesKeyHandle = await this.getModule().generateKey(
+          this.getSessionHandle(),
           { mechanism: CKM_AES_KEY_GEN },
           template,
         )
+        _keyHandle = aesKeyHandle
         break
       }
 
@@ -221,6 +226,9 @@ export class AWSCloudHSMProvider implements HSMProvider {
           [CKA_EXTRACTABLE, extractable],
         ]
 
+        if (!this.pkcs11Module || !this.session) {
+          throw new Error('PKCS11 module not initialized')
+        }
         const [, privKeyHandle] = await this.pkcs11Module.generateKeyPair(
           this.session.handle,
           { mechanism: CKM_EC_KEY_PAIR_GEN },
@@ -249,13 +257,17 @@ export class AWSCloudHSMProvider implements HSMProvider {
           [CKA_EXTRACTABLE, extractable],
         ]
 
-        const [, privKeyHandle2] = await this.pkcs11Module.generateKeyPair(
-          this.session.handle,
-          { mechanism: CKM_EC_KEY_PAIR_GEN },
-          pubTemplate,
-          privTemplate,
-        )
-        _keyHandle = privKeyHandle2
+        if (!this.pkcs11Module || !this.session) {
+          throw new Error('PKCS11 module not initialized')
+        }
+        const [, ed25519PrivKeyHandle] =
+          await this.pkcs11Module.generateKeyPair(
+            this.session.handle,
+            { mechanism: CKM_EC_KEY_PAIR_GEN },
+            pubTemplate,
+            privTemplate,
+          )
+        _keyHandle = ed25519PrivKeyHandle
         break
       }
 
@@ -299,8 +311,8 @@ export class AWSCloudHSMProvider implements HSMProvider {
     const idBytes = new TextEncoder().encode(keyId)
     const template: Array<[bigint, Uint8Array | boolean]> = [[CKA_ID, idBytes]]
 
-    const objects = await this.pkcs11Module.findObjects(
-      this.session.handle,
+    const objects = await this.getModule().findObjects(
+      this.getSessionHandle(),
       template,
     )
     if (objects.length === 0) {
@@ -308,8 +320,8 @@ export class AWSCloudHSMProvider implements HSMProvider {
     }
 
     // Get key attributes
-    const attrs = await this.pkcs11Module.getAttributeValue(
-      this.session.handle,
+    const attrs = await this.getModule().getAttributeValue(
+      this.getSessionHandle(),
       objects[0],
       [CKA_LABEL, CKA_EXTRACTABLE],
     )
@@ -318,14 +330,16 @@ export class AWSCloudHSMProvider implements HSMProvider {
     const extractable = attrs.get(CKA_EXTRACTABLE)?.[0] === 1
 
     // Determine key type from class
-    const classAttr = await this.pkcs11Module.getAttributeValue(
-      this.session.handle,
+    const classAttr = await this.getModule().getAttributeValue(
+      this.getSessionHandle(),
       objects[0],
       [0x00000000n], // CKA_CLASS
     )
-    const classValue = new DataView(
-      classAttr.get(0x00000000n)?.buffer,
-    ).getBigUint64(0, true)
+    const classAttrValue = classAttr.get(0x00000000n)
+    if (!classAttrValue) {
+      throw new Error('Failed to get key class attribute')
+    }
+    const classValue = new DataView(classAttrValue.buffer).getBigUint64(0, true)
 
     let keyType: HSMKeyRef['type']
     if (classValue === CKO_SECRET_KEY) {
@@ -358,15 +372,15 @@ export class AWSCloudHSMProvider implements HSMProvider {
     // Find all token objects
     const template: Array<[bigint, boolean]> = [[CKA_TOKEN, true]]
 
-    const objects = await this.pkcs11Module.findObjects(
-      this.session.handle,
+    const objects = await this.getModule().findObjects(
+      this.getSessionHandle(),
       template,
     )
     const keys: HSMKeyRef[] = []
 
     for (const objHandle of objects) {
-      const attrs = await this.pkcs11Module.getAttributeValue(
-        this.session.handle,
+      const attrs = await this.getModule().getAttributeValue(
+        this.getSessionHandle(),
         objHandle,
         [CKA_ID, CKA_LABEL, CKA_EXTRACTABLE],
       )
@@ -396,12 +410,12 @@ export class AWSCloudHSMProvider implements HSMProvider {
     const idBytes = new TextEncoder().encode(keyId)
     const template: Array<[bigint, Uint8Array]> = [[CKA_ID, idBytes]]
 
-    const objects = await this.pkcs11Module.findObjects(
-      this.session.handle,
+    const objects = await this.getModule().findObjects(
+      this.getSessionHandle(),
       template,
     )
     for (const objHandle of objects) {
-      await this.pkcs11Module.destroyObject(this.session.handle, objHandle)
+      await this.getModule().destroyObject(this.getSessionHandle(), objHandle)
     }
 
     this.keyCache.delete(keyId)
@@ -432,8 +446,8 @@ export class AWSCloudHSMProvider implements HSMProvider {
       },
     }
 
-    const ciphertext = await this.pkcs11Module.encrypt(
-      this.session.handle,
+    const ciphertext = await this.getModule().encrypt(
+      this.getSessionHandle(),
       mechanism,
       keyHandle,
       plaintext,
@@ -467,8 +481,8 @@ export class AWSCloudHSMProvider implements HSMProvider {
       },
     }
 
-    return this.pkcs11Module.decrypt(
-      this.session.handle,
+    return this.getModule().decrypt(
+      this.getSessionHandle(),
       mechanism,
       keyHandle,
       ciphertext,
@@ -484,13 +498,16 @@ export class AWSCloudHSMProvider implements HSMProvider {
     }
 
     // Hash the data first (secp256k1 typically signs the hash)
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      data.buffer as ArrayBuffer,
+    )
     const hashBytes = new Uint8Array(hash)
 
     const mechanism = { mechanism: CKM_ECDSA }
 
-    const signature = await this.pkcs11Module.sign(
-      this.session.handle,
+    const signature = await this.getModule().sign(
+      this.getSessionHandle(),
       mechanism,
       keyHandle,
       hashBytes,
@@ -516,22 +533,25 @@ export class AWSCloudHSMProvider implements HSMProvider {
       [0x00000000n, CKO_PUBLIC_KEY], // CKA_CLASS
     ]
 
-    const objects = await this.pkcs11Module.findObjects(
-      this.session.handle,
+    const objects = await this.getModule().findObjects(
+      this.getSessionHandle(),
       template,
     )
     if (objects.length === 0) {
       throw new Error(`Public key not found: ${keyId}`)
     }
 
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      data.buffer as ArrayBuffer,
+    )
     const hashBytes = new Uint8Array(hash)
 
     const signatureBytes = this.hexToBytes(signature)
     const mechanism = { mechanism: CKM_ECDSA }
 
-    return this.pkcs11Module.verify(
-      this.session.handle,
+    return this.getModule().verify(
+      this.getSessionHandle(),
       mechanism,
       objects[0],
       hashBytes,
@@ -561,8 +581,8 @@ export class AWSCloudHSMProvider implements HSMProvider {
     // CloudHSM CKM_SP800_108_COUNTER_KDF
     const CKM_SP800_108_COUNTER_KDF = 0x80000001n // Vendor-defined
 
-    const derivedKey = await this.pkcs11Module.deriveKey(
-      this.session.handle,
+    const derivedKey = await this.getModule().deriveKey(
+      this.getSessionHandle(),
       {
         mechanism: CKM_SP800_108_COUNTER_KDF,
         params: {
@@ -582,6 +602,9 @@ export class AWSCloudHSMProvider implements HSMProvider {
     )
 
     // Extract the derived key value
+    if (!this.pkcs11Module || !this.session) {
+      throw new Error('PKCS11 module not initialized')
+    }
     const value = await this.pkcs11Module.getAttributeValue(
       this.session.handle,
       derivedKey,
@@ -593,20 +616,31 @@ export class AWSCloudHSMProvider implements HSMProvider {
 
     const derivedValue = value.get(0x00000011n)
     if (!derivedValue) {
-      throw new Error('Failed to extract derived key value from HSM')
+      throw new Error('Failed to derive key value')
     }
     return derivedValue
   }
 
   // ============ Private Methods ============
 
-  private ensureConnected(): asserts this is this & {
-    session: PKCS11Session
-    pkcs11Module: PKCS11Module
-  } {
+  private ensureConnected(): void {
     if (!this.session || !this.pkcs11Module) {
       throw new Error('AWS CloudHSM not connected')
     }
+  }
+
+  private getModule(): PKCS11Module {
+    if (!this.pkcs11Module) {
+      throw new Error('PKCS11 module not initialized')
+    }
+    return this.pkcs11Module
+  }
+
+  private getSessionHandle(): bigint {
+    if (!this.session) {
+      throw new Error('Session not initialized')
+    }
+    return this.session.handle
   }
 
   private async findKeyHandle(
@@ -619,8 +653,8 @@ export class AWSCloudHSMProvider implements HSMProvider {
       [0x00000000n, keyClass], // CKA_CLASS
     ]
 
-    const objects = await this.pkcs11Module.findObjects(
-      this.session.handle,
+    const objects = await this.getModule().findObjects(
+      this.getSessionHandle(),
       template,
     )
     return objects.length > 0 ? objects[0] : null

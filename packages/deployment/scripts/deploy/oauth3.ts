@@ -11,6 +11,7 @@
  * Vendor apps should register their own OAuth3 apps.
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -64,7 +65,7 @@ const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
 }
 
 async function deployOAuth3(): Promise<OAuth3Deployment> {
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:6546'
+  const rpcUrl = getRpcUrl()
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY
 
   if (!privateKey) {

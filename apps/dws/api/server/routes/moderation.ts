@@ -8,7 +8,12 @@
  * - Appeal handling
  */
 
-import { getChainId, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import {
   type Address,
@@ -28,14 +33,27 @@ interface ModerationConfig {
   operatorPrivateKey?: Hex
 }
 
-const getConfig = (): ModerationConfig => ({
-  rpcUrl: getRpcUrl(),
-  chainId: getChainId(),
-  moderationMarketplaceAddress: (process.env.MODERATION_MARKETPLACE_ADDRESS ??
-    '0x0') as Address,
-  banManagerAddress: (process.env.BAN_MANAGER_ADDRESS ?? '0x0') as Address,
-  operatorPrivateKey: process.env.OPERATOR_PRIVATE_KEY as Hex | undefined,
-})
+const getConfig = (): ModerationConfig => {
+  const network = getCurrentNetwork()
+  return {
+    rpcUrl: getRpcUrl(network),
+    chainId: getChainId(network),
+    moderationMarketplaceAddress: ((typeof process !== 'undefined'
+      ? process.env.MODERATION_MARKETPLACE_ADDRESS
+      : undefined) ??
+      tryGetContract('moderation', 'marketplace', network) ??
+      '0x0') as Address,
+    banManagerAddress: ((typeof process !== 'undefined'
+      ? process.env.BAN_MANAGER_ADDRESS
+      : undefined) ??
+      tryGetContract('moderation', 'banManager', network) ??
+      '0x0') as Address,
+    operatorPrivateKey:
+      typeof process !== 'undefined'
+        ? (process.env.OPERATOR_PRIVATE_KEY as Hex | undefined)
+        : undefined,
+  }
+}
 const BAN_MANAGER_ABI = [
   parseAbiItem('function isAddressBanned(address target) view returns (bool)'),
   parseAbiItem(

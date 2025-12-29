@@ -1,4 +1,5 @@
 import { cors } from '@elysiajs/cors'
+import { isProductionEnv } from '@jejunetwork/config'
 import { constantTimeEqual } from '@jejunetwork/shared'
 import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -42,7 +43,7 @@ import {
 } from './reputation'
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-const isProduction = process.env.NODE_ENV === 'production'
+const isProduction = isProductionEnv()
 const MAX_BODY_SIZE = 1024 * 1024
 
 /** Jeju-git contribution request body schema */
@@ -103,8 +104,7 @@ function timingSafeCompare(a: string | undefined | null, b: string): boolean {
  * Requires SERVICE_AUTH_SECRET env var to be set in production
  */
 const SERVICE_AUTH_SECRET = process.env.SERVICE_AUTH_SECRET
-const SERVICE_AUTH_ENABLED =
-  process.env.NODE_ENV === 'production' || Boolean(SERVICE_AUTH_SECRET)
+const SERVICE_AUTH_ENABLED = isProductionEnv() || Boolean(SERVICE_AUTH_SECRET)
 
 async function validateServiceAuth(
   request: Request,

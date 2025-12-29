@@ -7,11 +7,11 @@
  * - On-chain registry interaction
  */
 
+import { getDWSUrl, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { getEnv, getEnvOrDefault } from '@jejunetwork/shared'
 import type { JsonValue } from '@jejunetwork/types'
 import type { Address, Hex, WalletClient } from 'viem'
-import { createWalletClient, http } from 'viem'
-import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
+import type { LocalAccount } from 'viem/accounts'
 import {
   HealthCheckResponseSchema,
   LoginResponseSchema,
@@ -372,14 +372,14 @@ export class JejuPkgSDK {
 
   constructor(config: PackageSDKConfig) {
     this.config = config
+  }
 
-    if (config.privateKey) {
-      this.account = privateKeyToAccount(config.privateKey)
-      this.walletClient = createWalletClient({
-        account: this.account,
-        transport: http(config.rpcUrl),
-      })
-    }
+  /**
+   * Set wallet client for on-chain operations
+   */
+  setWalletClient(client: WalletClient, account: LocalAccount): void {
+    this.walletClient = client
+    this.account = account
   }
 
   // Package Operations
@@ -825,8 +825,11 @@ export function createJejuPkgSDK(config: PackageSDKConfig): JejuPkgSDK {
 // Convenience function for default config
 export function createDefaultPkgSDK(): JejuPkgSDK {
   return new JejuPkgSDK({
-    rpcUrl: getEnvOrDefault('JEJU_RPC_URL', 'http://127.0.0.1:6546'),
-    registryUrl: getEnvOrDefault('JEJUPKG_URL', 'http://localhost:4030/pkg'),
+    rpcUrl: getEnvOrDefault('JEJU_RPC_URL', getL2RpcUrl()),
+    registryUrl: getEnvOrDefault(
+      'JEJUPKG_URL',
+      `${getDWSUrl() ?? `http://${getLocalhostHost()}:4030`}/pkg`,
+    ),
     registryAddress: getEnv('PACKAGE_REGISTRY_ADDRESS') as Address | undefined,
   })
 }

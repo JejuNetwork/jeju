@@ -253,7 +253,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server,
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
   }
@@ -264,7 +264,8 @@ class ServicesOrchestrator {
     if (await isPortInUse(port)) {
       // Check if EQLite is responding
       try {
-        const response = await fetch(`http://localhost:${port}/v1/status`, {
+        const host = getLocalhostHost()
+        const response = await fetch(`http://${host}:${port}/v1/status`, {
           signal: AbortSignal.timeout(2000),
         })
         if (response.ok) {
@@ -315,7 +316,8 @@ class ServicesOrchestrator {
     while (Date.now() - startTime < timeout) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
       try {
-        const response = await fetch(`http://localhost:${port}/v1/status`, {
+        const host = getLocalhostHost()
+        const response = await fetch(`http://${host}:${port}/v1/status`, {
           signal: AbortSignal.timeout(2000),
         })
         if (response.ok) {
@@ -368,7 +370,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server,
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -456,7 +458,7 @@ class ServicesOrchestrator {
           const pair = `${base}/${quote}`
 
           const response = await fetch(
-            `http://localhost:${port}/api/v1/prices?pair=${encodeURIComponent(pair)}`,
+            `http://${getLocalhostHost()}:${port}/api/v1/prices?pair=${encodeURIComponent(pair)}`,
           )
           return response
         }
@@ -464,7 +466,7 @@ class ServicesOrchestrator {
         if (url.pathname === '/api/v1/latestRoundData') {
           const pair = url.searchParams.get('pair') || 'ETH/USD'
           const response = await fetch(
-            `http://localhost:${port}/api/v1/prices?pair=${encodeURIComponent(pair)}`,
+            `http://${getLocalhostHost()}:${port}/api/v1/prices?pair=${encodeURIComponent(pair)}`,
           )
           const rawData = await response.json()
           const data = validate(
@@ -634,7 +636,7 @@ class ServicesOrchestrator {
       type: 'process',
       port: SERVICE_PORTS.indexer,
       process: proc,
-      url: `http://localhost:${SERVICE_PORTS.indexer}`,
+      url: `http://${getLocalhostHost()}:${SERVICE_PORTS.indexer}`,
       healthCheck: '/graphql',
     })
 
@@ -652,7 +654,7 @@ class ServicesOrchestrator {
   }
 
   private async waitForIndexerHealth(): Promise<boolean> {
-    const healthUrl = `http://localhost:${SERVICE_PORTS.indexer}/graphql`
+    const healthUrl = `http://${getLocalhostHost()}:${SERVICE_PORTS.indexer}/graphql`
     const maxAttempts = 30 // 30 seconds timeout
 
     for (let i = 0; i < maxAttempts; i++) {
@@ -936,7 +938,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server: { stop: async () => server.stop() },
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1387,7 +1389,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server,
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
     logger.success(
@@ -1679,7 +1681,7 @@ class ServicesOrchestrator {
       type: 'process',
       port,
       process: proc,
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1712,7 +1714,7 @@ class ServicesOrchestrator {
           name: 'Cron (via DWS CI)',
           type: 'server',
           port: dwsPort,
-          url: `http://localhost:${dwsPort}/ci`,
+          url: `http://${getLocalhostHost()}:${dwsPort}/ci`,
           // No health check - DWS sub-route
         })
         logger.success(
@@ -1764,7 +1766,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server: { stop: async () => server.stop() },
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1875,7 +1877,7 @@ class ServicesOrchestrator {
           name: 'DWS Compute (via DWS)',
           type: 'server',
           port: dwsPort,
-          url: `http://localhost:${dwsPort}/compute`,
+          url: `http://${getLocalhostHost()}:${dwsPort}/compute`,
           // No health check - DWS sub-route
         })
         logger.success(
@@ -1916,7 +1918,7 @@ class ServicesOrchestrator {
         ) {
           const inferencePort = SERVICE_PORTS.inference
           const response = await fetch(
-            `http://localhost:${inferencePort}/v1/chat/completions`,
+            `http://${getLocalhostHost()}:${inferencePort}/v1/chat/completions`,
             {
               method: req.method,
               headers: req.headers,
@@ -1938,7 +1940,7 @@ class ServicesOrchestrator {
       type: 'server',
       port,
       server: { stop: async () => server.stop() },
-      url: `http://localhost:${port}`,
+      url: `http://${getLocalhostHost()}:${port}`,
       healthCheck: '/health',
     })
 
@@ -1957,7 +1959,7 @@ class ServicesOrchestrator {
       name: 'JejuGit',
       type: 'server',
       port: dwsPort,
-      url: `http://localhost:${dwsPort}/git`,
+      url: `http://${getLocalhostHost()}:${dwsPort}/git`,
       // No health check - DWS sub-route
     })
   }
@@ -1974,7 +1976,7 @@ class ServicesOrchestrator {
       name: 'JejuPkg',
       type: 'server',
       port: dwsPort,
-      url: `http://localhost:${dwsPort}/pkg`,
+      url: `http://${getLocalhostHost()}:${dwsPort}/pkg`,
       // No health check - DWS sub-route
     })
   }

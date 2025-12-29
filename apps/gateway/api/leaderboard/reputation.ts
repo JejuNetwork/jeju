@@ -6,6 +6,7 @@
  * operations are delegated to the KMS service (MPC or TEE).
  */
 
+import { getKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import {
   type Address,
   encodePacked,
@@ -13,7 +14,6 @@ import {
   type Hex,
   keccak256,
 } from 'viem'
-import { getKMSSigner, type KMSSigner } from '../../lib/kms-signer'
 import { LEADERBOARD_CONFIG } from './config'
 import { exec, query } from './db'
 

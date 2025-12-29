@@ -8,6 +8,7 @@
  * use this instead of RainbowKit's getDefaultConfig.
  */
 
+import { getL2RpcUrl } from '@jejunetwork/config'
 import { createConfig, http } from 'wagmi'
 import { injected } from 'wagmi/connectors'
 
@@ -90,7 +91,7 @@ export const JEJU_CHAINS = {
   localnet: {
     id: 31337,
     name: 'Jeju Localnet',
-    rpcUrl: 'http://127.0.0.1:6546',
+    rpcUrl: getL2RpcUrl(),
     testnet: true,
   },
   testnet: {

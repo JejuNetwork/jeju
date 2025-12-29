@@ -3,6 +3,7 @@ import {
   getCurrentNetwork,
   getEnvNumber,
   getEnvVar,
+  getLocalhostHost,
   getServicesConfig,
 } from '@jejunetwork/config'
 
@@ -64,9 +65,13 @@ const { config, configure: setCrucibleConfig } =
       getEnvVar('REQUIRE_AUTH') === 'true' ||
       (getEnvVar('REQUIRE_AUTH') !== 'false' && network !== 'localnet'),
     rateLimitMaxRequests: getEnvNumber('RATE_LIMIT_MAX_REQUESTS') ?? 100,
-    corsAllowedOrigins:
-      getEnvVar('CORS_ALLOWED_ORIGINS') ??
-      'http://localhost:4020,http://localhost:4021',
+    corsAllowedOrigins: (() => {
+      const host = getLocalhostHost()
+      return (
+        getEnvVar('CORS_ALLOWED_ORIGINS') ??
+        `http://${host}:4020,http://${host}:4021`
+      )
+    })(),
     privateKey: getEnvVar('PRIVATE_KEY'),
     autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
     computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),

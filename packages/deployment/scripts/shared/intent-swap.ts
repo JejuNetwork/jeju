@@ -8,6 +8,7 @@
  * - No locked pools, better prices via competition
  */
 
+import { getChainId } from '@jejunetwork/config'
 // Import IntentStatus from @jejunetwork/types (OIF standard)
 import type { IntentStatus } from '@jejunetwork/types'
 import {
@@ -401,7 +402,7 @@ export function createIntentSwapRouter(
     crossChainPaymasterAddress: (config.crossChainPaymasterAddress ||
       process.env.CROSS_CHAIN_PAYMASTER_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as Address,
-    chainId: config.chainId ?? Number(process.env.CHAIN_ID) ?? 31337,
+    chainId: config.chainId ?? getChainId(),
     supportedChains: config.supportedChains ?? [1, 10, 42161, 420691],
   }
 

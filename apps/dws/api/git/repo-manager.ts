@@ -1,4 +1,9 @@
-import { getDWSUrl } from '@jejunetwork/config'
+/**
+ * Git Repository Manager
+ * Manages git repositories with on-chain registry integration
+ */
+
+import { getCurrentNetwork, getDWSUrl } from '@jejunetwork/config'
 import type { TransactionLog } from '@jejunetwork/types'
 import {
   type Abi,

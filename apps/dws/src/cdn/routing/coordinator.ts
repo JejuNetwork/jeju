@@ -3,7 +3,12 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { getRpcUrl, isProductionEnv } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  isProductionEnv,
+  tryGetContract,
+} from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -404,13 +409,20 @@ export class CDNCoordinator {
 }
 
 export async function startCoordinator(): Promise<CDNCoordinator> {
+  const network = getCurrentNetwork()
   const config: CoordinatorConfig = {
     port: parseInt(process.env.CDN_COORDINATOR_PORT ?? '4021', 10),
-    registryAddress: (process.env.CDN_REGISTRY_ADDRESS ??
+    registryAddress: ((typeof process !== 'undefined'
+      ? process.env.CDN_REGISTRY_ADDRESS
+      : undefined) ??
+      tryGetContract('cdn', 'registry', network) ??
       '0x0000000000000000000000000000000000000000') as Address,
-    billingAddress: (process.env.CDN_BILLING_ADDRESS ??
+    billingAddress: ((typeof process !== 'undefined'
+      ? process.env.CDN_BILLING_ADDRESS
+      : undefined) ??
+      tryGetContract('cdn', 'billing', network) ??
       '0x0000000000000000000000000000000000000000') as Address,
-    rpcUrl: getRpcUrl(),
+    rpcUrl: getRpcUrl(network),
     healthCheckInterval: parseInt(
       process.env.CDN_HEALTH_CHECK_INTERVAL ?? '60000',
       10,

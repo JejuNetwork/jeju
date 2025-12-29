@@ -18,6 +18,7 @@ import {
 import {
   getChainId,
   getCurrentNetwork,
+  getLocalhostHost,
   getOAuth3Url,
   getRpcUrl,
 } from '@jejunetwork/config'
@@ -159,7 +160,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
     const redirectUri =
       typeof window !== 'undefined'
         ? `${window.location.origin}/auth/callback`
-        : 'http://localhost:4015/auth/callback'
+        : `http://${getLocalhostHost()}:4015/auth/callback`
 
     return createOAuth3Client({
       appId,

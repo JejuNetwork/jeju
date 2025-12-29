@@ -7,10 +7,9 @@
  * @module @jejunetwork/shared/type-guards
  */
 
-// Import JSON types directly from @jejunetwork/types and re-export
+// Import JSON types directly from @jejunetwork/types:
+// import type { JsonValue } from '@jejunetwork/types'
 import type { JsonValue } from '@jejunetwork/types'
-
-// Re-export JsonValue type for convenience
 export type { JsonValue }
 
 // =============================================================================

@@ -1,18 +1,19 @@
 /** Factory API Client */
 
 import { treaty } from '@elysiajs/eden'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { isPlainObject } from '@jejunetwork/types'
 import type { App } from '../../api/server'
 
 function getApiBase(): string {
   if (typeof window === 'undefined') {
-    return 'http://localhost:4009'
+    return `http://${getLocalhostHost()}:4009`
   }
 
   const { hostname, port } = window.location
 
   if (hostname === 'localhost' && port !== '4009') {
-    return 'http://localhost:4009'
+    return `http://${getLocalhostHost()}:4009`
   }
 
   if (hostname.includes('local.jejunetwork.org')) {

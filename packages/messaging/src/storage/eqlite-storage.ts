@@ -8,7 +8,7 @@
 import {
   getEQLiteUrl,
   getEqliteDatabaseId,
-  getEqlitePrivateKey,
+  getEqliteKeyId,
 } from '@jejunetwork/config'
 import {
   type EQLiteClient,
@@ -128,14 +128,14 @@ export class EQLiteMessageStorage {
   async initialize(config?: EQLiteConfig): Promise<void> {
     if (this.initialized) return
 
-    const privateKey = config?.privateKey ?? getEqlitePrivateKey()
-    const validPrivateKey = privateKey?.startsWith('0x')
-      ? (privateKey as `0x${string}`)
-      : undefined
+    const keyId = config?.keyId ?? getEqliteKeyId()
+    if (!keyId) {
+      throw new Error('EQLite keyId is required for MessageStorage')
+    }
     this.client = getEQLite({
       blockProducerEndpoint: config?.blockProducerEndpoint ?? getEQLiteUrl(),
       databaseId: config?.databaseId ?? getEqliteDatabaseId() ?? 'messaging',
-      privateKey: validPrivateKey,
+      keyId,
     })
 
     const healthy = await this.client.isHealthy()

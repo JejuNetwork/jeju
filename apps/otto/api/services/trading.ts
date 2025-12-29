@@ -2,7 +2,7 @@
  * Otto Trading Service
  */
 
-import { getCoreAppUrl } from '@jejunetwork/config'
+import { getCoreAppUrl, isDevelopmentEnv } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, formatUnits, type Hex, parseUnits } from 'viem'
 import {
@@ -44,14 +44,17 @@ import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS, getChainName } from '../config'
 import { getRequiredEnv } from '../utils/validation'
 import { gatewayApi } from './clients'
 
-const DEV_MODE = process.env.NODE_ENV === 'development'
+const DEV_MODE = isDevelopmentEnv()
 
 function getBazaarApi(): string {
   return getRequiredEnv('BAZAAR_API_URL', getCoreAppUrl('BAZAAR'))
 }
 
 function getIndexerApi(): string | null {
-  const url = process.env.INDEXER_API_URL ?? getCoreAppUrl('INDEXER_GRAPHQL')
+  const url =
+    (typeof process !== 'undefined'
+      ? process.env.INDEXER_API_URL
+      : undefined) ?? getCoreAppUrl('INDEXER_GRAPHQL')
   if (url) return url
   if (DEV_MODE) return null
   throw new Error('Missing required environment variable: INDEXER_API_URL')

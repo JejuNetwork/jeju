@@ -1,5 +1,6 @@
 import { getCurrentNetwork } from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { type Address, isAddress, verifyMessage } from 'viem'
 import { z } from 'zod'
@@ -11,8 +12,18 @@ const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 let auditEqliteClient: EQLiteClient | null = null
 let auditTableInitialized = false
 
+// Cache client for distributed rate limiting
+let rateLimitCache: CacheClient | null = null
+
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('autocrat-security')
+  }
+  return rateLimitCache
+}
+
 // Rate limiting configuration
-const RATE_LIMIT_WINDOW_MS = 60_000 // 1 minute
+const RATE_LIMIT_WINDOW_SECONDS = 60 // 1 minute
 const RATE_LIMITS = {
   default: 60, // 60 requests per minute
   proposal: 10, // 10 proposal operations per minute
@@ -33,13 +44,6 @@ interface AuditEntry {
   details: Record<string, string | number | boolean>
 }
 
-// In-memory rate limit store (use Redis in production for multi-instance)
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
-
-// Audit log buffer (flushes to EQLite periodically)
-const auditBuffer: AuditEntry[] = []
-const MAX_AUDIT_BUFFER = 100
-
 /**
  * Get client IP from request headers
  */
@@ -52,23 +56,30 @@ function getClientIP(headers: Headers): string {
 }
 
 /**
- * Check rate limit for a key
+ * Check rate limit for a key using distributed cache
  */
-function checkRateLimit(key: string, tier: RateLimitTier): boolean {
-  const now = Date.now()
+async function checkRateLimit(
+  key: string,
+  tier: RateLimitTier,
+): Promise<boolean> {
+  const cache = getRateLimitCache()
+  const cacheKey = `ratelimit:${key}`
   const limit = RATE_LIMITS[tier]
-  const entry = rateLimitStore.get(key)
 
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+  const current = await cache.get(cacheKey)
+  if (!current) {
+    // First request - set count to 1 with TTL
+    await cache.set(cacheKey, '1', RATE_LIMIT_WINDOW_SECONDS)
     return true
   }
 
-  if (entry.count >= limit) {
+  const count = parseInt(current, 10)
+  if (count >= limit) {
     return false
   }
 
-  entry.count++
+  // Increment count (maintains original TTL via cache behavior)
+  await cache.set(cacheKey, String(count + 1), RATE_LIMIT_WINDOW_SECONDS)
   return true
 }
 
@@ -174,72 +185,48 @@ async function ensureAuditTable(): Promise<EQLiteClient> {
 }
 
 /**
- * Add entry to audit log
+ * Persist a single audit entry directly to EQLite
+ * No in-memory buffering - writes immediately for distributed compatibility
  */
-function addAuditEntry(entry: AuditEntry): void {
-  auditBuffer.push(entry)
-
-  // Flush when buffer is full
-  if (auditBuffer.length >= MAX_AUDIT_BUFFER) {
-    flushAuditLog()
-  }
-}
-
-/**
- * Flush audit log to persistent storage (EQLite)
- */
-async function flushAuditLog(): Promise<void> {
-  if (auditBuffer.length === 0) return
-
-  const entries = auditBuffer.splice(0, auditBuffer.length)
-
+async function persistAuditEntry(entry: AuditEntry): Promise<void> {
   // Always log to console for immediate visibility
-  for (const entry of entries) {
-    console.log(
-      `[Audit] ${entry.action} by ${entry.actor} from ${entry.ip}: ${entry.success ? 'SUCCESS' : 'FAILED'}`,
-    )
-  }
+  console.log(
+    `[Audit] ${entry.action} by ${entry.actor} from ${entry.ip}: ${entry.success ? 'SUCCESS' : 'FAILED'}`,
+  )
 
   // Persist to EQLite for long-term audit trail
   try {
     const client = await ensureAuditTable()
     const healthy = await client.isHealthy()
     if (!healthy) {
-      console.warn('[Audit] EQLite not available, audit entries not persisted')
+      console.warn('[Audit] EQLite not available, audit entry not persisted')
       return
     }
 
-    for (const entry of entries) {
-      const id = `audit-${entry.timestamp}-${Math.random().toString(36).slice(2, 10)}`
-      await client.exec(
-        `INSERT INTO audit_log (id, timestamp, action, actor, ip, user_agent, success, details)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          entry.timestamp,
-          entry.action,
-          entry.actor,
-          entry.ip,
-          entry.userAgent,
-          entry.success ? 1 : 0,
-          JSON.stringify(entry.details),
-        ],
-        EQLITE_DATABASE_ID,
-      )
-    }
+    const id = `audit-${entry.timestamp}-${Math.random().toString(36).slice(2, 10)}`
+    await client.exec(
+      `INSERT INTO audit_log (id, timestamp, action, actor, ip, user_agent, success, details)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        entry.timestamp,
+        entry.action,
+        entry.actor,
+        entry.ip,
+        entry.userAgent,
+        entry.success ? 1 : 0,
+        JSON.stringify(entry.details),
+      ],
+      EQLITE_DATABASE_ID,
+    )
   } catch (err) {
     // Log error but don't fail - audit persistence should not break the app
     console.error(
-      '[Audit] Failed to persist audit entries:',
+      '[Audit] Failed to persist audit entry:',
       err instanceof Error ? err.message : String(err),
     )
   }
 }
-
-// Flush audit log periodically
-setInterval(() => {
-  flushAuditLog()
-}, 30_000)
 
 /**
  * Schema for signed request body
@@ -296,8 +283,8 @@ export const securityMiddleware = new Elysia({ name: 'security' })
     }
   })
 
-  // Rate limiting
-  .onBeforeHandle(({ request, set }) => {
+  // Rate limiting (distributed via cache)
+  .onBeforeHandle(async ({ request, set }) => {
     const ip = getClientIP(request.headers)
     const path = new URL(request.url).pathname
 
@@ -312,11 +299,12 @@ export const securityMiddleware = new Elysia({ name: 'security' })
     }
 
     const key = `${ip}:${tier}`
-    if (!checkRateLimit(key, tier)) {
+    const allowed = await checkRateLimit(key, tier)
+    if (!allowed) {
       set.status = 429
       return {
         error: 'Rate limit exceeded',
-        retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
+        retryAfter: RATE_LIMIT_WINDOW_SECONDS,
       }
     }
     return
@@ -338,7 +326,8 @@ export const securityMiddleware = new Elysia({ name: 'security' })
     const apiKey = request.headers.get('x-api-key')
     if (!apiKey) {
       set.status = 401
-      addAuditEntry({
+      // Fire-and-forget audit persistence (don't await in hot path)
+      persistAuditEntry({
         timestamp: Date.now(),
         action: `${method} ${path}`,
         actor: 'unknown',
@@ -352,7 +341,8 @@ export const securityMiddleware = new Elysia({ name: 'security' })
 
     if (!validateApiKey(apiKey)) {
       set.status = 403
-      addAuditEntry({
+      // Fire-and-forget audit persistence (don't await in hot path)
+      persistAuditEntry({
         timestamp: Date.now(),
         action: `${method} ${path}`,
         actor: 'unknown',
@@ -403,6 +393,7 @@ export async function verifySignedRequest(
 
 /**
  * Log a sensitive operation for audit trail
+ * Fire-and-forget - does not block the caller
  */
 export function auditLog(
   action: string,
@@ -411,7 +402,8 @@ export function auditLog(
   success: boolean,
   details: Record<string, string | number | boolean> = {},
 ): void {
-  addAuditEntry({
+  // Fire-and-forget audit persistence (don't await to avoid blocking)
+  persistAuditEntry({
     timestamp: Date.now(),
     action,
     actor,
@@ -456,4 +448,4 @@ export function validateSafeString(input: string): boolean {
   return true
 }
 
-export { getClientIP, checkRateLimit, flushAuditLog }
+export { getClientIP, checkRateLimit }

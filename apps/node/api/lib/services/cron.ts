@@ -1,7 +1,7 @@
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { TRIGGER_REGISTRY_ABI } from '../abis'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 const AddressSchema = z.custom<Address>(
   (val): val is Address =>
@@ -126,11 +126,11 @@ export function validateCronServiceState(data: unknown): CronServiceState {
 }
 
 export class CronService {
-  private client: NodeClient
+  private client: SecureNodeClient
   private executionsCompleted = 0
   private earningsWei = 0n
 
-  constructor(client: NodeClient) {
+  constructor(client: SecureNodeClient) {
     this.client = client
   }
 
@@ -218,6 +218,6 @@ export class CronService {
   }
 }
 
-export function createCronService(client: NodeClient): CronService {
+export function createCronService(client: SecureNodeClient): CronService {
   return new CronService(client)
 }

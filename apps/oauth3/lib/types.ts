@@ -1,3 +1,7 @@
+/**
+ * Auth app types
+ */
+
 import type { Address, Hex } from 'viem'
 
 // Local definition of AuthProvider to avoid importing React components from @jejunetwork/auth
@@ -14,18 +18,40 @@ export const AuthProvider = {
 } as const
 export type AuthProvider = (typeof AuthProvider)[keyof typeof AuthProvider]
 
+// ============ Session Types ============
+
+/** Encrypted PII data stored separately from session */
+export interface EncryptedSessionPII {
+  /** Encrypted ciphertext containing address, email, fid */
+  ciphertext: string
+  /** Initialization vector */
+  iv: string
+  /** KMS key ID used for encryption */
+  keyId: string
+  /** When data was encrypted */
+  encryptedAt: number
+}
+
 export interface AuthSession {
   sessionId: string
   userId: string
-  provider: AuthProvider | string
-  address?: Address
+  provider: AuthProvider
+  /** User wallet address (if wallet auth) */
+  address?: `0x${string}`
+  /** Farcaster ID (if farcaster auth) */
   fid?: number
+  /** User email (if social auth with email scope) */
   email?: string
+  /** Encrypted PII (address, email, fid) - for enhanced security mode */
+  encryptedPII?: EncryptedSessionPII
   createdAt: number
   expiresAt: number
   metadata: Record<string, string>
+  /** Ephemeral key ID for this session */
   ephemeralKeyId?: string
 }
+
+// ============ OAuth Flow Types ============
 
 export interface AuthRequest {
   clientId: string
@@ -52,6 +78,8 @@ export interface AuthToken {
   idToken?: string
 }
 
+// ============ Wallet Auth Types ============
+
 export interface WalletAuthChallenge {
   challengeId: string
   message: string
@@ -63,6 +91,8 @@ export interface WalletAuthVerify {
   address: Address
   signature: Hex
 }
+
+// ============ Farcaster Auth Types ============
 
 export interface FarcasterAuthRequest {
   fid?: number
@@ -79,6 +109,9 @@ export interface FarcasterAuthVerify {
   custody: Address
 }
 
+// ============ Client Registration ============
+
+/** Moderation status for registered clients */
 export const ClientModerationStatus = {
   ACTIVE: 'active',
   FLAGGED: 'flagged',
@@ -88,6 +121,7 @@ export const ClientModerationStatus = {
 export type ClientModerationStatus =
   (typeof ClientModerationStatus)[keyof typeof ClientModerationStatus]
 
+/** Report category for client violations */
 export const ReportCategory = {
   SPAM: 'spam',
   PHISHING: 'phishing',
@@ -100,6 +134,7 @@ export const ReportCategory = {
 export type ReportCategory =
   (typeof ReportCategory)[keyof typeof ReportCategory]
 
+/** Staking tier for client registration */
 export const ClientTier = {
   FREE: 0,
   BASIC: 1,
@@ -109,95 +144,134 @@ export const ClientTier = {
 export type ClientTier = (typeof ClientTier)[keyof typeof ClientTier]
 
 export interface ClientStakeInfo {
+  /** Amount staked in wei */
   amount: bigint
+  /** Tier based on stake amount */
   tier: ClientTier
+  /** When stake was verified */
   verifiedAt: number
+  /** Transaction hash of stake */
   stakeTxHash?: Hex
 }
 
 export interface ClientReputationInfo {
+  /** Reputation score 0-10000 (basis points) */
   score: number
+  /** Number of successful authentications */
   successfulAuths: number
+  /** Number of reported issues */
   reportCount: number
+  /** Last updated timestamp */
   lastUpdated: number
 }
 
 export interface ClientModerationInfo {
+  /** Current moderation status */
   status: ClientModerationStatus
+  /** Number of active reports */
   activeReports: number
+  /** Last report timestamp */
   lastReportedAt?: number
+  /** Suspension reason if suspended */
   suspensionReason?: string
+  /** Suspension end time if temporarily suspended */
   suspensionEndsAt?: number
+  /** Ban transaction hash if banned on-chain */
   banTxHash?: Hex
 }
 
+/** Hashed client secret for secure storage */
 export interface HashedClientSecret {
+  /** Argon2id/PBKDF2 hash of the secret */
   hash: string
+  /** Per-client random salt */
   salt: string
+  /** Hash algorithm used */
   algorithm: 'argon2id' | 'pbkdf2'
+  /** Schema version for migrations */
   version: number
 }
 
 export interface RegisteredClient {
   clientId: string
-  clientSecret?: Hex
-  clientSecretHash?: HashedClientSecret
+  /** Hashed client secret (secure storage) */
+  clientSecretHash: HashedClientSecret
   name: string
   redirectUris: string[]
   allowedProviders: AuthProvider[]
   owner: Address
   createdAt: number
   active: boolean
-  requireSecret?: boolean
-  id?: string
-  allowedScopes?: string[]
+  /** Staking information */
   stake?: ClientStakeInfo
+  /** Reputation information */
   reputation?: ClientReputationInfo
+  /** Moderation information */
   moderation?: ClientModerationInfo
 }
 
+/** Minimum stake amounts per tier (in wei) */
 export const CLIENT_TIER_THRESHOLDS: Record<ClientTier, bigint> = {
   [ClientTier.FREE]: 0n,
-  [ClientTier.BASIC]: 10n * 10n ** 18n,
-  [ClientTier.PRO]: 100n * 10n ** 18n,
-  [ClientTier.ENTERPRISE]: 1000n * 10n ** 18n,
+  [ClientTier.BASIC]: 10n * 10n ** 18n, // 10 JEJU
+  [ClientTier.PRO]: 100n * 10n ** 18n, // 100 JEJU
+  [ClientTier.ENTERPRISE]: 1000n * 10n ** 18n, // 1000 JEJU
 }
 
+/** Rate limits per tier */
 export const CLIENT_TIER_RATE_LIMITS: Record<ClientTier, number> = {
-  [ClientTier.FREE]: 100,
-  [ClientTier.BASIC]: 1000,
-  [ClientTier.PRO]: 10000,
-  [ClientTier.ENTERPRISE]: 100000,
+  [ClientTier.FREE]: 100, // 100 requests/min
+  [ClientTier.BASIC]: 1000, // 1000 requests/min
+  [ClientTier.PRO]: 10000, // 10000 requests/min
+  [ClientTier.ENTERPRISE]: 100000, // 100000 requests/min
 }
 
-export const MIN_REPUTATION_SCORE = 3000
+/** Minimum reputation score to register a client */
+export const MIN_REPUTATION_SCORE = 3000 // 30%
 
-export const REPORT_STAKE_AMOUNT = 1n * 10n ** 18n
+/** Report stake required to file a report (in wei) */
+export const REPORT_STAKE_AMOUNT = 1n * 10n ** 18n // 1 JEJU
 
+// ============ Sealed OAuth Secrets ============
+
+/** Sealed secret that can only be decrypted inside verified TEE */
 export interface SealedSecret {
+  /** AES-GCM encrypted ciphertext */
   ciphertext: string
+  /** Initialization vector */
   iv: string
+  /** Authentication tag */
   tag: string
+  /** When secret was sealed */
   sealedAt: number
 }
 
+/** OAuth provider configuration with sealed secrets */
 export interface SealedOAuthProvider {
   clientId: string
+  /** Sealed client secret - requires TEE attestation to decrypt */
   sealedSecret: SealedSecret
   redirectUri: string
   scopes: string[]
 }
+
+// ============ Config ============
 
 export interface AuthConfig {
   rpcUrl: string
   mpcRegistryAddress: Address
   identityRegistryAddress: Address
   serviceAgentId: string
-  jwtSecret?: string
-  jwtSigningKeyId?: string
-  jwtSignerAddress?: Address
+  /** MPC key ID for JWT signing */
+  jwtSigningKeyId: string
+  /** MPC signer address for JWT verification */
+  jwtSignerAddress: Address
   sessionDuration: number
   allowedOrigins: string[]
+  /** Chain ID for KMS access policies */
   chainId?: string
+  /** JWT secret for token signing (dev mode fallback) */
+  jwtSecret?: string
+  /** Enable development mode (disables MPC, uses local signing) */
   devMode?: boolean
 }

@@ -1,5 +1,5 @@
 import { cors } from '@elysiajs/cors'
-import { getNetworkName } from '@jejunetwork/config'
+import { getLocalhostHost, getNetworkName } from '@jejunetwork/config'
 import { isRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
@@ -90,7 +90,7 @@ const app = new Elysia()
     }),
   )
   .get('/.well-known/agent-card.json', ({ request }) => {
-    const host = request.headers.get('host') ?? 'localhost:9091'
+    const host = request.headers.get('host') ?? `${getLocalhostHost()}:9091`
     const protocol = request.headers.get('x-forwarded-proto') ?? 'http'
     return {
       protocolVersion: '0.3.0',

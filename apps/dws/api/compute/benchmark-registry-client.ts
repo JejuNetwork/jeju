@@ -300,6 +300,46 @@ const BENCHMARK_REGISTRY_ABI = [
     outputs: [{ name: '', type: 'uint64' }],
     stateMutability: 'view',
   },
+  {
+    name: 'disputeBenchmark',
+    type: 'function',
+    inputs: [
+      { name: 'provider', type: 'address' },
+      { name: 'reason', type: 'string' },
+    ],
+    outputs: [{ name: 'disputeIndex', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'resolveDispute',
+    type: 'function',
+    inputs: [
+      { name: 'provider', type: 'address' },
+      { name: 'disputeIndex', type: 'uint256' },
+      { name: 'upheld', type: 'bool' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'getDisputes',
+    type: 'function',
+    inputs: [{ name: 'provider', type: 'address' }],
+    outputs: [
+      {
+        name: 'disputes',
+        type: 'tuple[]',
+        components: [
+          { name: 'disputer', type: 'address' },
+          { name: 'timestamp', type: 'uint64' },
+          { name: 'reason', type: 'string' },
+          { name: 'resolved', type: 'bool' },
+          { name: 'upheld', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
 ] as const
 
 // ============ Types ============
@@ -643,8 +683,8 @@ export class BenchmarkRegistryClient {
       bandwidthMbps: BigInt(results.networkBandwidthMbps),
       latencyMs: Math.floor(results.networkLatencyMs),
       uploadMbps: BigInt(uploadBandwidth),
-      region: 'auto-detected', // Would be detected from IP geolocation
-      ipv6Supported: true, // Conservative default, would test in benchmark
+      region: results.region ?? 'unknown', // From BenchmarkResults if available
+      ipv6Supported: results.ipv6Supported ?? false,
     }
 
     // For GPU, use actual values where available
@@ -750,6 +790,66 @@ export class BenchmarkRegistryClient {
     })
 
     return hash
+  }
+
+  /**
+   * Dispute a provider's benchmark as potentially fraudulent
+   * @param provider Provider address
+   * @param reason Reason for the dispute
+   * @returns Transaction hash
+   */
+  async disputeBenchmark(provider: Address, reason: string): Promise<Hex> {
+    if (!this.walletClient || !this.account) {
+      throw new Error('Wallet not initialized')
+    }
+
+    console.log(
+      `[BenchmarkRegistry] Disputing benchmark for ${provider}: ${reason}`,
+    )
+
+    const data = encodeFunctionData({
+      abi: BENCHMARK_REGISTRY_ABI,
+      functionName: 'disputeBenchmark',
+      args: [provider, reason],
+    })
+
+    const hash = await this.walletClient.sendTransaction({
+      account: this.account,
+      to: this.contractAddress,
+      data,
+      chain: this.getChain(),
+    })
+
+    console.log(`[BenchmarkRegistry] Dispute submitted: ${hash}`)
+    return hash
+  }
+
+  /**
+   * Get disputes for a provider
+   */
+  async getDisputes(provider: Address): Promise<
+    Array<{
+      disputer: Address
+      timestamp: bigint
+      reason: string
+      resolved: boolean
+      upheld: boolean
+    }>
+  > {
+    const result = await this.publicClient.readContract({
+      address: this.contractAddress,
+      abi: BENCHMARK_REGISTRY_ABI,
+      functionName: 'getDisputes',
+      args: [provider],
+    })
+
+    return result as Array<{
+      disputer: Address
+      timestamp: bigint
+      reason: string
+      resolved: boolean
+      upheld: boolean
+    }>
   }
 
   // ============ Helpers ============
@@ -929,6 +1029,8 @@ export class BenchmarkRegistryClient {
       randomWriteIops: onChain.disk.randWriteIops,
       networkBandwidthMbps: Number(onChain.network.bandwidthMbps),
       networkLatencyMs: onChain.network.latencyMs,
+      region: onChain.network.region,
+      ipv6Supported: onChain.network.ipv6Supported,
       gpuDetected: hasGpu,
       gpuModel: hasGpu ? onChain.gpu.model : null,
       gpuMemoryMb: hasGpu ? gpuMemory : null,

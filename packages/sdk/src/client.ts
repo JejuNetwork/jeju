@@ -195,16 +195,13 @@ export async function createJejuClient(
     config.kmsEndpoint !== undefined &&
     config.kmsKeyId !== undefined &&
     config.kmsAddress !== undefined
-  const hasLocalKeyConfig =
-    config.privateKey !== undefined ||
-    config.mnemonic !== undefined ||
-    config.account !== undefined
+  const hasAccountConfig = config.account !== undefined
 
-  if (!hasKMSConfig && !hasLocalKeyConfig) {
+  if (!hasKMSConfig && !hasAccountConfig) {
     throw new Error(
       `${getNetworkName()}Client requires either:\n` +
         '  - KMS configuration (kmsEndpoint, kmsKeyId, kmsAddress) for secure signing, or\n' +
-        '  - Local key (privateKey, mnemonic, or account) for development',
+        '  - Pre-configured account for development',
     )
   }
 
@@ -236,15 +233,15 @@ export async function createJejuClient(
       smartAccount: config.smartAccount,
       authToken: config.kmsAuthToken,
     })
-  } else {
-    // Use local key wallet (development only)
+  } else if (config.account) {
+    // Use local account wallet (development only)
     wallet = await createWallet({
-      privateKey: config.privateKey,
-      mnemonic: config.mnemonic,
       account: config.account,
       smartAccount: config.smartAccount,
       network,
     })
+  } else {
+    throw new Error('No valid wallet configuration provided')
   }
 
   // Get contract addresses for modules that need them

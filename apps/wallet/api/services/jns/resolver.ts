@@ -1,3 +1,11 @@
+/**
+ * JNS Gateway Resolver
+ *
+ * Resolves .jeju domains via HTTP gateways (local DWS node or public gateway).
+ * This complements the on-chain JNS resolution with off-chain content lookups.
+ */
+
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { z } from 'zod'
 import { storage } from '../../../web/platform/storage'
 
@@ -41,7 +49,7 @@ const JNSResolverSettingsSchema = z.object({
 const DEFAULT_SETTINGS: JNSResolverSettings = {
   enabled: true,
   gatewayUrl: 'https://gateway.jejunetwork.org',
-  localDwsUrl: 'http://localhost:4030',
+  localDwsUrl: getDWSUrl() ?? `http://${getLocalhostHost()}:4030`,
   preferLocal: true,
   ipfsGateway: 'https://ipfs.jejunetwork.org',
 }

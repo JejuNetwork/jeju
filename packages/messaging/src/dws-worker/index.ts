@@ -17,6 +17,7 @@
  * - E2E encryption means relays never see plaintext
  */
 
+import { getIpfsApiUrl } from '@jejunetwork/config'
 import { createMPCClient } from '@jejunetwork/kms'
 import { createLogger } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
@@ -99,7 +100,7 @@ export function createMessagingWorker(config: MessagingWorkerConfig) {
   )
 
   const maxMessageSize = config.maxMessageSize ?? 1024 * 1024 // 1MB
-  const ipfsUrl = config.ipfsUrl ?? 'http://localhost:5001'
+  const ipfsUrl = config.ipfsUrl ?? getIpfsApiUrl()
 
   // Message storage
   const messages = new Map<string, StoredMessage>()

@@ -4,6 +4,7 @@
  * Manages providers, listings, and user accounts with persistent state
  */
 
+import { isProductionEnv, isTestMode } from '@jejunetwork/config'
 import { expectJson, expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { isAddress } from 'viem'
@@ -36,9 +37,9 @@ const SYSTEM_SELLER: Address = '0x0000000000000000000000000000000000000001'
 const ListingIdsSchema = z.array(z.string())
 
 // Initialize state on module load (skip in test to avoid connection errors)
-if (process.env.NODE_ENV !== 'test') {
+if (!isTestMode()) {
   initializeDWSState().catch((err) => {
-    if (process.env.NODE_ENV !== 'production') {
+    if (!isProductionEnv()) {
       console.warn('[API Marketplace] Running without EQLite:', err.message)
     } else {
       console.error('[API Marketplace] EQLite required in production:', err)

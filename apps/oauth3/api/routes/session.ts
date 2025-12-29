@@ -1,5 +1,15 @@
+/**
+ * Session management routes
+ *
+ * SECURITY: Sessions use ephemeral keys that are:
+ * - Short-lived (15 minute rotation)
+ * - Invalidated on logout
+ * - Unique per session
+ */
+
+import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
-import type { AuthConfig, AuthSession } from '../../lib/types'
+import type { AuthConfig, AuthProvider, AuthSession } from '../../lib/types'
 import { getEphemeralKey, invalidateEphemeralKey } from '../services/kms'
 import { refreshTokenState, sessionState } from '../services/state'
 
@@ -149,7 +159,7 @@ export function createSessionRouter(config: AuthConfig) {
             maxAge: config.sessionDuration / 1000,
             path: '/',
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isProductionEnv(),
             sameSite: 'lax',
           })
         }
@@ -269,7 +279,7 @@ export function createSessionRouter(config: AuthConfig) {
 
       // Test session creation (only in development)
       .post('/create', async ({ body, set }) => {
-        if (process.env.NODE_ENV === 'production') {
+        if (isProductionEnv()) {
           set.status = 403
           return { error: 'not_available_in_production' }
         }
@@ -278,7 +288,7 @@ export function createSessionRouter(config: AuthConfig) {
           provider: string
           userId: string
           address?: string
-          fid?: number
+          fid?: string
           email?: string
         }
 
@@ -293,9 +303,9 @@ export function createSessionRouter(config: AuthConfig) {
         const session: AuthSession = {
           sessionId,
           userId,
-          provider,
+          provider: provider as AuthProvider,
           address: address as `0x${string}` | undefined,
-          fid,
+          fid: fid ? parseInt(fid, 10) : undefined,
           email,
           createdAt: Date.now(),
           expiresAt: Date.now() + config.sessionDuration,

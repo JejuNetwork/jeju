@@ -17,6 +17,7 @@
 
 import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
+import { type CacheClient, getCacheClient } from './cache'
 
 export interface SecurityConfig {
   /**
@@ -246,26 +247,30 @@ const DEFAULT_RATE_LIMIT: RateLimitConfig = {
   skipPaths: ['/health', '/health/live', '/health/ready'],
 }
 
+// Rate limit record for distributed cache
+interface RateLimitRecord {
+  count: number
+  resetAt: number
+}
+
+// Cache client for distributed rate limiting
+let rateLimitCache: CacheClient | null = null
+
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('security-ratelimit')
+  }
+  return rateLimitCache
+}
+
 /**
- * Simple in-memory rate limiter
+ * Distributed rate limiter using shared cache
  *
- * For production with multiple instances, use Redis-based rate limiting.
+ * Supports horizontal scaling across multiple instances
  */
 export function rateLimitMiddleware(
   config: RateLimitConfig = DEFAULT_RATE_LIMIT,
 ) {
-  const requests = new Map<string, { count: number; resetAt: number }>()
-
-  // Cleanup old entries periodically
-  setInterval(() => {
-    const now = Date.now()
-    for (const [key, value] of requests) {
-      if (value.resetAt < now) {
-        requests.delete(key)
-      }
-    }
-  }, config.windowMs * 2)
-
   const getKey =
     config.keyGenerator ??
     ((request: Request) => {
@@ -284,13 +289,14 @@ export function rateLimitMiddleware(
     })
 
   return new Elysia({ name: 'rate-limit-middleware' }).onBeforeHandle(
-    ({
+    async ({
       request,
       set,
-    }):
+    }): Promise<
       | undefined
       | Response
-      | { error: string; message: string; retryAfter: number } => {
+      | { error: string; message: string; retryAfter: number }
+    > => {
       const url = new URL(request.url)
 
       // Skip rate limiting for health checks etc
@@ -300,12 +306,18 @@ export function rateLimitMiddleware(
 
       const key = getKey(request)
       const now = Date.now()
+      const cache = getRateLimitCache()
+      const cacheKey = `rl:${key}`
 
-      const record = requests.get(key)
+      // Get current rate limit record
+      const cached = await cache.get(cacheKey)
+      let record: RateLimitRecord | null = cached ? JSON.parse(cached) : null
 
       if (!record || record.resetAt < now) {
         // New window
-        requests.set(key, { count: 1, resetAt: now + config.windowMs })
+        record = { count: 1, resetAt: now + config.windowMs }
+        const ttl = Math.ceil(config.windowMs / 1000)
+        await cache.set(cacheKey, JSON.stringify(record), ttl)
         set.headers['X-RateLimit-Limit'] = String(config.max)
         set.headers['X-RateLimit-Remaining'] = String(config.max - 1)
         set.headers['X-RateLimit-Reset'] = String(
@@ -315,6 +327,8 @@ export function rateLimitMiddleware(
       }
 
       record.count++
+      const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+      await cache.set(cacheKey, JSON.stringify(record), ttl)
 
       set.headers['X-RateLimit-Limit'] = String(config.max)
       set.headers['X-RateLimit-Remaining'] = String(

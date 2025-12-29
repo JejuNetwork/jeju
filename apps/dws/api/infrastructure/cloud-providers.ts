@@ -77,6 +77,7 @@ export interface ProvisionRequest {
   sshKeyId?: string
   userData?: string
   tags?: Record<string, string>
+  image?: string // OS image name (e.g., "Ubuntu 22.04")
 }
 
 // Provider Interface
@@ -1166,6 +1167,7 @@ export class OVHProvider implements CloudProvider {
   private projectId: string | null = null
   private initialized = false
   private instanceTypesCache: InstanceType[] | null = null
+  private imageCache: Map<string, string> = new Map() // region -> imageId mapping
 
   async initialize(credentials: CloudCredentials): Promise<void> {
     if (credentials.provider !== 'ovh') {
@@ -1249,8 +1251,32 @@ export class OVHProvider implements CloudProvider {
         continue
       }
 
-      // Estimate pricing based on specs (would need catalog API for accurate pricing)
-      const pricePerHour = this.estimatePrice(flavor)
+      // Get pricing - try catalog first, fall back to estimation
+      const pricePerHour = this.estimatePrice({
+        vcpus: flavor.vcpus,
+        ram: flavor.ram,
+        disk: flavor.disk,
+        planCodes: flavor.planCodes,
+      })
+
+      // Try to get actual price from catalog (async, but we'll update cache later)
+      if (flavor.planCodes?.hourly) {
+        this.getPriceFromCatalog(flavor.planCodes.hourly)
+          .then((catalogPrice) => {
+            if (catalogPrice && this.instanceTypesCache) {
+              const cached = this.instanceTypesCache.find(
+                (t) => t.id === flavor.name,
+              )
+              if (cached) {
+                cached.pricePerHourUsd = catalogPrice
+                cached.pricePerMonthUsd = catalogPrice * 720
+              }
+            }
+          })
+          .catch(() => {
+            // Catalog lookup failed, stick with estimate
+          })
+      }
 
       const instanceType: InstanceType = {
         id: flavor.name,
@@ -1303,14 +1329,103 @@ export class OVHProvider implements CloudProvider {
     }))
   }
 
+  /**
+   * Resolve Ubuntu image ID for a region
+   * OVH uses unique IDs per region, so we need to look them up
+   */
+  private async resolveImageId(
+    region: string,
+    osName = 'Ubuntu 22.04',
+  ): Promise<string> {
+    const cacheKey = `${region}:${osName}`
+    if (this.imageCache.has(cacheKey)) {
+      return this.imageCache.get(cacheKey) as string
+    }
+
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/image?region=${region}`,
+    )
+    if (!response.ok) {
+      throw new Error(`Failed to list OVH images: ${response.status}`)
+    }
+
+    interface OVHImage {
+      id: string
+      name: string
+      region: string
+      visibility: string
+      status: string
+      type: string
+      minDisk: number
+      minRam: number
+      size: number
+      user: string
+    }
+
+    const images = (await response.json()) as OVHImage[]
+
+    // Find matching image - prefer exact match, then partial match
+    let imageId: string | null = null
+
+    // First try exact match
+    const exactMatch = images.find(
+      (img) =>
+        img.name.toLowerCase() === osName.toLowerCase() &&
+        img.status === 'active',
+    )
+    if (exactMatch) {
+      imageId = exactMatch.id
+    } else {
+      // Try partial match (e.g., "Ubuntu 22.04" matches "Ubuntu 22.04 LTS")
+      const partialMatch = images.find(
+        (img) =>
+          img.name.toLowerCase().includes(osName.toLowerCase()) &&
+          img.status === 'active',
+      )
+      if (partialMatch) {
+        imageId = partialMatch.id
+      }
+    }
+
+    if (!imageId) {
+      // Fallback to any Ubuntu image
+      const ubuntuImage = images.find(
+        (img) =>
+          img.name.toLowerCase().includes('ubuntu') && img.status === 'active',
+      )
+      if (ubuntuImage) {
+        imageId = ubuntuImage.id
+        console.warn(
+          `[OVHProvider] Using fallback image ${ubuntuImage.name} for region ${region}`,
+        )
+      }
+    }
+
+    if (!imageId) {
+      throw new Error(
+        `No suitable image found for ${osName} in region ${region}`,
+      )
+    }
+
+    // Cache for future use
+    this.imageCache.set(cacheKey, imageId)
+    return imageId
+  }
+
   async createInstance(
     request: ProvisionRequest,
   ): Promise<ProvisionedInstance> {
+    // Resolve image ID from OS name
+    const imageId = await this.resolveImageId(
+      request.region,
+      request.image ?? 'Ubuntu 22.04',
+    )
+
     const body = {
       name: request.name,
       flavorId: request.instanceType,
       region: request.region,
-      imageId: 'ubuntu-22.04', // Would need to resolve image ID
+      imageId,
       sshKeyId: request.sshKeyId,
       userData: request.userData
         ? Buffer.from(request.userData).toString('base64')
@@ -1500,16 +1615,85 @@ export class OVHProvider implements CloudProvider {
     return type ? type.pricePerMonthUsd * count : 0
   }
 
+  /**
+   * Get price from OVH catalog or estimate if not available
+   * Uses the planCodes from flavors to look up actual prices
+   */
+  private async getPriceFromCatalog(planCode: string): Promise<number | null> {
+    const response = await this.fetch(
+      `/cloud/project/${this.projectId}/catalog`,
+    )
+    if (!response.ok) {
+      return null
+    }
+
+    interface OVHCatalogPrice {
+      planCode: string
+      prices: Array<{
+        capacities: string[]
+        price: { value: number; currencyCode: string }
+        duration: string
+      }>
+    }
+
+    interface OVHCatalog {
+      addons: OVHCatalogPrice[]
+    }
+
+    const catalog = (await response.json()) as OVHCatalog
+
+    // Find the plan in catalog
+    const plan = catalog.addons.find((p) => p.planCode === planCode)
+    if (!plan) return null
+
+    // Find hourly price
+    const hourlyPrice = plan.prices.find((p) => p.duration === 'P1H')
+    if (!hourlyPrice) return null
+
+    // Convert to USD (OVH catalog is in EUR)
+    // Use a rough EUR to USD conversion rate
+    const eurToUsd = 1.1
+    return (hourlyPrice.price.value / 100000000) * eurToUsd // OVH prices are in micro-cents
+  }
+
   private estimatePrice(flavor: {
     vcpus: number
     ram: number
     disk: number
+    planCodes?: { hourly: string }
   }): number {
-    // Estimate based on OVH public cloud pricing
-    // CPU: ~$0.01/core/hour, RAM: ~$0.005/GB/hour, Storage: ~$0.0001/GB/hour
-    const cpuPrice = flavor.vcpus * 0.01
-    const ramPrice = (flavor.ram / 1024) * 0.005
-    const diskPrice = flavor.disk * 0.0001
+    // OVH pricing tiers based on flavor type (2024 prices)
+    // These are closer to actual OVH public cloud pricing
+
+    // Detect flavor tier from specs
+    let cpuPriceMultiplier = 0.008 // base price per vCPU/hour
+    let ramPriceMultiplier = 0.004 // base price per GB RAM/hour
+    const diskPriceMultiplier = 0.0001 // base price per GB disk/hour
+
+    // Adjust for high-performance flavors (detected by high RAM/CPU ratio)
+    const ramPerCpu = flavor.ram / (flavor.vcpus * 1024) // GB per vCPU
+    if (ramPerCpu > 8) {
+      // Memory-optimized (like r2 series)
+      cpuPriceMultiplier = 0.012
+      ramPriceMultiplier = 0.008
+    } else if (ramPerCpu < 2) {
+      // Compute-optimized
+      cpuPriceMultiplier = 0.015
+      ramPriceMultiplier = 0.003
+    }
+
+    // GPU instances (detected by name convention or very high price expectation)
+    // This is an estimate - real GPU pricing should come from catalog
+    if (flavor.vcpus >= 16 && flavor.ram / 1024 >= 60) {
+      // Likely GPU instance
+      cpuPriceMultiplier = 0.05
+      ramPriceMultiplier = 0.01
+    }
+
+    const cpuPrice = flavor.vcpus * cpuPriceMultiplier
+    const ramPrice = (flavor.ram / 1024) * ramPriceMultiplier
+    const diskPrice = flavor.disk * diskPriceMultiplier
+
     return Math.round((cpuPrice + ramPrice + diskPrice) * 10000) / 10000
   }
 

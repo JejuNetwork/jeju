@@ -1,3 +1,4 @@
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   type Address,
   encodePacked,
@@ -314,7 +315,7 @@ export class AttestationVerifierService {
       }
     } else {
       // SECURITY: Without dstack, we cannot verify the attestation
-      const isProduction = process.env.NODE_ENV === 'production'
+      const isProduction = isProductionEnv()
       if (isProduction) {
         console.error(
           '[AttestationVerifier] CRITICAL: dstack client required in production for attestation verification',

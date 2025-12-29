@@ -9,7 +9,7 @@ import {
   getEQLiteMinerUrl,
   getEQLiteUrl,
   getEqliteDatabaseId,
-  getEqlitePrivateKey,
+  getEqliteKeyId,
   getEqliteTimeout,
   getLogLevel,
   isEqliteDebug,
@@ -17,7 +17,7 @@ import {
 import { createPool, type Pool } from 'generic-pool'
 import pino from 'pino'
 import type { Address, Hex } from 'viem'
-import { isAddress, isHex, toHex } from 'viem'
+import { isAddress, toHex } from 'viem'
 import { z } from 'zod'
 import type {
   ACLRule,
@@ -54,11 +54,6 @@ import {
   serializeVector,
   validateVectorValues,
 } from './vector.js'
-
-const HexSchema = z.custom<Hex>(
-  (val): val is Hex => typeof val === 'string' && isHex(val),
-  { message: 'Invalid hex string' },
-)
 
 const AddressSchema = z.custom<Address>(
   (val): val is Address => typeof val === 'string' && isAddress(val),
@@ -210,7 +205,11 @@ const EQLiteConfigSchema = z
   .object({
     blockProducerEndpoint: z.string().url(),
     minerEndpoint: z.string().url().optional(),
-    privateKey: HexSchema.optional(),
+    keyId: z.string().min(1).optional(),
+    privateKey: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]+$/)
+      .optional(),
     databaseId: z.string().min(1).optional(),
     timeout: z.number().int().positive().max(600000).optional(),
     debug: z.boolean().optional(),
@@ -1026,11 +1025,23 @@ export function getEQLite(config?: Partial<EQLiteConfig>): EQLiteClient {
       )
     }
 
-    const resolvedConfig = {
+    // Support either KMS keyId (production) or privateKey (local development)
+    const keyId = config?.keyId ?? getEqliteKeyId()
+    const privateKey =
+      config?.privateKey ??
+      (process.env.EQLITE_PRIVATE_KEY as `0x${string}` | undefined)
+
+    if (!keyId && !privateKey) {
+      throw new Error(
+        'EQLite requires either keyId (for KMS) or privateKey (for local dev). Set via config, EQLITE_KEY_ID, or EQLITE_PRIVATE_KEY env var.',
+      )
+    }
+
+    const resolvedConfig: EQLiteConfig = {
       blockProducerEndpoint,
       minerEndpoint,
-      privateKey:
-        config?.privateKey ?? (getEqlitePrivateKey() as Hex | undefined),
+      keyId,
+      privateKey,
       databaseId: config?.databaseId ?? getEqliteDatabaseId(),
       timeout:
         config?.timeout ?? parseTimeout(getEqliteTimeout(), DEFAULT_TIMEOUT),

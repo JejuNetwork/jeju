@@ -2,7 +2,11 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { NetworkType } from '@jejunetwork/config'
+import {
+  getIndexerRestUrl,
+  getLocalhostHost,
+  type NetworkType,
+} from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { execa } from 'execa'
@@ -135,7 +139,8 @@ const CHALLENGE_REASONS: Record<string, number> = {
 }
 
 const DEFAULT_HUB_RPC = 'https://eth.llamarpc.com'
-const DEFAULT_INDEXER_URL = 'http://localhost:4352'
+const DEFAULT_INDEXER_URL =
+  getIndexerRestUrl() ?? `http://${getLocalhostHost()}:4352`
 
 interface FederationDeployment {
   NetworkRegistry?: string

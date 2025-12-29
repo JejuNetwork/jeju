@@ -4,7 +4,18 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { getLocalhostHost } from '@jejunetwork/config'
+// Import config utilities at the top of the file
+import {
+  getChainId as getConfigChainId,
+  getRpcUrl as getConfigRpcUrl,
+  getIndexerGraphqlUrl,
+  getL1RpcUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
+  getOracleUrl,
+  getServiceUrl,
+  getSolanaRpcUrl,
+} from '@jejunetwork/config'
 import {
   parseBlockNumberResponse,
   parseChainIdResponse,
@@ -20,7 +31,15 @@ export const TEST_WALLET_ADDRESS =
   '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const
 
 export const JEJU_CHAIN_ID = 31337
-export const JEJU_RPC_URL = `http://${getLocalhostHost()}:6546`
+// Use config helper for RPC URL, fallback to localhost default
+const getDefaultRpcUrl = () => {
+  try {
+    return getL2RpcUrl() || getConfigRpcUrl()
+  } catch {
+    return `http://${getLocalhostHost()}:6546`
+  }
+}
+export const JEJU_RPC_URL = getDefaultRpcUrl()
 
 export const TEST_ACCOUNTS = {
   deployer: {
@@ -345,13 +364,6 @@ export async function waitForService(
 
 // Environment Utilities
 
-import {
-  getChainId as getConfigChainId,
-  getRpcUrl as getConfigRpcUrl,
-  getL1RpcUrl,
-  getServiceUrl,
-} from '@jejunetwork/config'
-
 /**
  * Get the effective RPC URL from environment
  * Uses config package with fallback to test defaults
@@ -360,7 +372,8 @@ export function getRpcUrl(): string {
   try {
     return getConfigRpcUrl()
   } catch {
-    return process.env.L2_RPC_URL ?? process.env.JEJU_RPC_URL ?? JEJU_RPC_URL
+    // Fallback to default if config fails
+    return JEJU_RPC_URL
   }
 }
 
@@ -372,7 +385,8 @@ export function getChainId(): number {
   try {
     return getConfigChainId()
   } catch {
-    const envChainId = process.env.CHAIN_ID
+    const envChainId =
+      typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined
     return envChainId ? parseInt(envChainId, 10) : JEJU_CHAIN_ID
   }
 }
@@ -389,19 +403,49 @@ export function getTestEnv(): Record<string, string> {
       JEJU_RPC_URL: getConfigRpcUrl(),
       CHAIN_ID: String(getConfigChainId()),
       INDEXER_GRAPHQL_URL: getServiceUrl('indexer', 'graphql'),
-      ORACLE_URL: getServiceUrl('oracle'),
-      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899',
+      ORACLE_URL: getOracleUrl(),
+      SOLANA_RPC_URL:
+        (typeof process !== 'undefined'
+          ? process.env.SOLANA_RPC_URL
+          : undefined) ??
+        getSolanaRpcUrl() ??
+        `http://${getLocalhostHost()}:8899`,
     }
   } catch {
+    const host = getLocalhostHost()
     return {
-      L1_RPC_URL: process.env.L1_RPC_URL ?? 'http://127.0.0.1:6545',
-      L2_RPC_URL: process.env.L2_RPC_URL ?? 'http://127.0.0.1:6546',
-      JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
-      CHAIN_ID: process.env.CHAIN_ID ?? '31337',
+      L1_RPC_URL:
+        (typeof process !== 'undefined' ? process.env.L1_RPC_URL : undefined) ??
+        getL1RpcUrl() ??
+        `http://${host}:6545`,
+      L2_RPC_URL:
+        (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ??
+        getL2RpcUrl() ??
+        `http://${host}:6546`,
+      JEJU_RPC_URL:
+        (typeof process !== 'undefined'
+          ? process.env.JEJU_RPC_URL
+          : undefined) ??
+        getConfigRpcUrl() ??
+        `http://${host}:6546`,
+      CHAIN_ID:
+        (typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined) ??
+        String(getConfigChainId()) ??
+        '31337',
       INDEXER_GRAPHQL_URL:
-        process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
-      ORACLE_URL: process.env.ORACLE_URL ?? 'http://127.0.0.1:4301',
-      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899',
+        (typeof process !== 'undefined'
+          ? process.env.INDEXER_GRAPHQL_URL
+          : undefined) ??
+        getIndexerGraphqlUrl() ??
+        `http://${host}:4350/graphql`,
+      ORACLE_URL:
+        (typeof process !== 'undefined' ? process.env.ORACLE_URL : undefined) ??
+        getOracleUrl() ??
+        `http://${host}:4301`,
+      SOLANA_RPC_URL:
+        (typeof process !== 'undefined'
+          ? process.env.SOLANA_RPC_URL
+          : undefined) ?? `http://${host}:8899`,
     }
   }
 }

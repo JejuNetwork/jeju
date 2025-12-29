@@ -6,6 +6,7 @@
  */
 
 // Workerd-compatible: Uses DWS exec API for file operations, Fetch API for port checking
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { BackendManager } from '../../storage/backends'
 import { generateWorkerConfig, wrapHandlerAsWorker } from './config-generator'
 import type {
@@ -60,7 +61,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
       stderr: string
     }
 
-    const execUrl = this.config.execUrl ?? 'http://localhost:4020/exec'
+    const execUrl =
+      this.config.execUrl ?? `http://${getLocalhostHost()}:4020/exec`
 
     async function fileExists(path: string): Promise<boolean> {
       const result = await fetch(execUrl, {
@@ -132,7 +134,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     if (this.initialized) return
 
     // Create work directory via DWS exec API (workerd-compatible)
-    const execUrl = this.config.execUrl ?? 'http://localhost:4020/exec'
+    const execUrl =
+      this.config.execUrl ?? `http://${getLocalhostHost()}:4020/exec`
     const mkdirResult = await fetch(execUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -178,7 +181,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
 
     // Download code from IPFS
     const codeDir = `${this.config.workDir}/${worker.id}`
-    const execUrl = this.config.execUrl ?? 'http://localhost:4020/exec'
+    const execUrl =
+      this.config.execUrl ?? `http://${getLocalhostHost()}:4020/exec`
 
     // Create directory via DWS exec API
     const mkdirResult = await fetch(execUrl, {
@@ -249,7 +253,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
 
     // Generate workerd config
     const configContent = generateWorkerConfig(worker, port)
-    const execUrl = this.config.execUrl ?? 'http://localhost:4020/exec'
+    const execUrl =
+      this.config.execUrl ?? `http://${getLocalhostHost()}:4020/exec`
 
     // Write config file via DWS exec API
     const writeConfigResult = await fetch(execUrl, {
@@ -419,7 +424,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
-      const url = `http://localhost:${instance.port}${request.url}`
+      const host = getLocalhostHost()
+      const url = `http://${host}:${instance.port}${request.url}`
 
       const bodyToSend = request.body
         ? typeof request.body === 'string'
@@ -512,7 +518,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 100)
-      await fetch(`http://127.0.0.1:${port}`, {
+      const host = getLocalhostHost()
+      await fetch(`http://${host}:${port}`, {
         method: 'GET',
         signal: controller.signal,
       })
@@ -551,7 +558,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     const deadline = Date.now() + timeoutMs
 
     while (Date.now() < deadline) {
-      const response = await fetch(`http://localhost:${port}/health`)
+      const host = getLocalhostHost()
+      const response = await fetch(`http://${host}:${port}/health`)
       const healthy = response.ok || response.status === 404 // 404 is ok, means server is up
 
       if (healthy) return true
@@ -593,7 +601,8 @@ export class WorkerdExecutor implements IWorkerdExecutor {
 
   private async extractTarball(data: Buffer, destDir: string): Promise<void> {
     const tarPath = `${destDir}/code.tar.gz`
-    const execUrl = this.config.execUrl ?? 'http://localhost:4020/exec'
+    const execUrl =
+      this.config.execUrl ?? `http://${getLocalhostHost()}:4020/exec`
 
     // Write tarball via DWS exec API
     const writeResult = await fetch(execUrl, {
@@ -688,7 +697,7 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     return {
       status: instance.status,
       port: instance.port,
-      endpoint: `http://localhost:${instance.port}`,
+      endpoint: `http://${getLocalhostHost()}:${instance.port}`,
     }
   }
 

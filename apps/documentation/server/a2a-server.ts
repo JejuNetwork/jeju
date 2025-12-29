@@ -1,5 +1,10 @@
 import { cors } from '@elysiajs/cors'
-import { CORE_PORTS, getNetworkName } from '@jejunetwork/config'
+import {
+  CORE_PORTS,
+  getLocalhostHost,
+  getNetworkName,
+} from '@jejunetwork/config'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
@@ -14,17 +19,32 @@ const PORT = CORE_PORTS.DOCUMENTATION_A2A.get()
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 100
 
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+// Distributed cache for rate limiting
+let rateLimitCache: CacheClient | null = null
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('docs-a2a-ratelimit')
+  }
+  return rateLimitCache
+}
 
-function checkRateLimit(clientIp: string): boolean {
+async function checkRateLimit(clientIp: string): Promise<boolean> {
   const now = Date.now()
-  const entry = rateLimitMap.get(clientIp)
+  const cache = getRateLimitCache()
+  const cacheKey = `docs-rl:${clientIp}`
+
+  const cached = await cache.get(cacheKey)
+  let entry: { count: number; resetTime: number } | null = cached
+    ? JSON.parse(cached)
+    : null
 
   if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(clientIp, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW_MS,
-    })
+    entry = { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS }
+    await cache.set(
+      cacheKey,
+      JSON.stringify(entry),
+      Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
+    )
     return true
   }
 
@@ -33,24 +53,22 @@ function checkRateLimit(clientIp: string): boolean {
   }
 
   entry.count++
+  const ttl = Math.max(1, Math.ceil((entry.resetTime - now) / 1000))
+  await cache.set(cacheKey, JSON.stringify(entry), ttl)
   return true
 }
 
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of rateLimitMap.entries()) {
-    if (now > entry.resetTime) {
-      rateLimitMap.delete(key)
-    }
-  }
-}, RATE_LIMIT_WINDOW_MS)
-
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') || [
-  `http://localhost:${CORE_PORTS.DOCUMENTATION.DEFAULT}`,
-  'http://localhost:3000',
-  'https://docs.jejunetwork.org',
-  'https://jejunetwork.org',
-]
+const ALLOWED_ORIGINS = (() => {
+  const host = getLocalhostHost()
+  return (
+    process.env.ALLOWED_ORIGINS?.split(',') || [
+      `http://${host}:${CORE_PORTS.DOCUMENTATION.DEFAULT}`,
+      `http://${host}:3000`,
+      'https://docs.jejunetwork.org',
+      'https://jejunetwork.org',
+    ]
+  )
+})()
 
 const SkillParamsSchema = z.record(z.string(), z.string())
 
@@ -90,7 +108,7 @@ const AGENT_CARD = {
   protocolVersion: '0.3.0',
   name: `${getNetworkName()} Documentation`,
   description: 'Search and query the network documentation programmatically',
-  url: `http://localhost:${PORT}/api/a2a`,
+  url: `http://${getLocalhostHost()}:${PORT}/api/a2a`,
   preferredTransport: 'http',
   provider: { organization: 'the network', url: 'https://jejunetwork.org' },
   version: '1.0.0',
@@ -202,8 +220,8 @@ export const app = new Elysia()
       forwarded || server?.requestIP(request)?.address || 'unknown'
     return { clientIp }
   })
-  .onBeforeHandle(({ clientIp, set }) => {
-    if (!checkRateLimit(clientIp)) {
+  .onBeforeHandle(async ({ clientIp, set }) => {
+    if (!(await checkRateLimit(clientIp))) {
       set.status = 429
       return { error: 'Too many requests' }
     }

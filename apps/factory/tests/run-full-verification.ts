@@ -7,7 +7,11 @@ import { exec, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 
 const execAsync = promisify(exec)
 
@@ -51,7 +55,10 @@ interface ValidationReport {
 }
 
 const REPORTS_DIR = join(process.cwd(), 'test-reports')
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  getL2RpcUrl() ??
+  `http://${getLocalhostHost()}:6546`
 const NETWORK = getCurrentNetwork()
 
 async function ensureReportsDir(): Promise<void> {

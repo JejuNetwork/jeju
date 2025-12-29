@@ -519,18 +519,20 @@ async function executeSkill(
   }
 }
 
-const MAX_BODY_SIZE = 1024 * 1024
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 
-const a2aRateLimitStore = new Map<string, { count: number; resetAt: number }>()
+const MAX_BODY_SIZE = 1024 * 1024
 const A2A_RATE_LIMIT = 100
 const A2A_RATE_WINDOW = 60_000
 
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, { resetAt }] of a2aRateLimitStore) {
-    if (now > resetAt) a2aRateLimitStore.delete(key)
+// Distributed cache for rate limiting
+let a2aRateLimitCache: CacheClient | null = null
+function getA2ARateLimitCache(): CacheClient {
+  if (!a2aRateLimitCache) {
+    a2aRateLimitCache = getCacheClient('indexer-a2a-ratelimit')
   }
-}, 60_000).unref()
+  return a2aRateLimitCache
+}
 
 export function createIndexerA2AServer() {
   const CORS_ORIGINS = config.corsOrigins
@@ -579,7 +581,7 @@ export function createIndexerA2AServer() {
         error: { code: -32603, message: 'Internal error' },
       }
     })
-    .onBeforeHandle(({ request, set, path }) => {
+    .onBeforeHandle(async ({ request, set, path }) => {
       const contentLength = request.headers.get('content-length')
       if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
         set.status = 413
@@ -602,12 +604,22 @@ export function createIndexerA2AServer() {
         : `ip:${forwarded ?? 'unknown'}`
 
       const now = Date.now()
-      let record = a2aRateLimitStore.get(clientKey)
+      const cache = getA2ARateLimitCache()
+      const cacheKey = `a2a-rl:${clientKey}`
+
+      const cached = await cache.get(cacheKey)
+      let record: { count: number; resetAt: number } | null = cached
+        ? JSON.parse(cached)
+        : null
+
       if (!record || now > record.resetAt) {
         record = { count: 0, resetAt: now + A2A_RATE_WINDOW }
-        a2aRateLimitStore.set(clientKey, record)
       }
       record.count++
+
+      // Store updated record with TTL
+      const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+      await cache.set(cacheKey, JSON.stringify(record), ttl)
 
       set.headers['X-RateLimit-Limit'] = String(A2A_RATE_LIMIT)
       set.headers['X-RateLimit-Remaining'] = String(

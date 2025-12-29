@@ -45,7 +45,12 @@ export interface BridgeServiceConfig {
   // Operator settings
   operatorAddress: Address
   /** KMS key ID for EVM signing */
-  evmKeyId: string
+  evmKeyId?: string
+  /**
+   * @deprecated Use evmKeyId for KMS-backed signing. This field exists only
+   * for legacy compatibility and will be removed in a future version.
+   */
+  privateKey?: Hex
 
   // Service options
   enableRelayer: boolean

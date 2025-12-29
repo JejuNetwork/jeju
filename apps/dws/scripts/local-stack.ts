@@ -326,7 +326,7 @@ async function main(): Promise<void> {
     apps: args.apps ?? DEFAULT_APPS,
     verbose: args.verbose ?? false,
     dataDir: join(process.cwd(), '.local-stack'),
-    rpcUrl: args.rpcUrl ?? process.env.RPC_URL ?? getRpcUrl('localnet'),
+    rpcUrl: args.rpcUrl ?? getRpcUrl('localnet'),
     // Contract addresses - zero means feature disabled until deployed
     contracts: {
       identityRegistry:

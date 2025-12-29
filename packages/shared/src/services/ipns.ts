@@ -15,7 +15,7 @@
  * - {appName}-staging: Staging environment
  */
 
-import { getIpfsApiUrlEnv } from '@jejunetwork/config'
+import { getIpfsApiUrlEnv, getLocalhostHost } from '@jejunetwork/config'
 import { z } from 'zod'
 import { bytesToHex, hash256 } from '../crypto/universal'
 
@@ -70,7 +70,10 @@ export interface IPNSResolution {
 export class IPNSClient {
   private apiUrl: string
 
-  constructor(ipfsApiUrl: string = 'http://localhost:5001') {
+  constructor(
+    ipfsApiUrl: string = getIpfsApiUrlEnv() ??
+      `http://${getLocalhostHost()}:5001`,
+  ) {
     this.apiUrl = ipfsApiUrl
   }
 

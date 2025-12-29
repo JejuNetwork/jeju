@@ -9,6 +9,7 @@
 import {
   getJejuMainnetHyperlaneIgp,
   getJejuMainnetHyperlaneMailbox,
+  getL2RpcUrl,
   getRpcUrl,
 } from '@jejunetwork/config'
 import type { ChainConfig } from '../types'
@@ -68,7 +69,7 @@ export const JEJU_LOCALNET_CONFIG = {
     chainId: 31337,
     chainType: 'evm' as const,
     name: 'Anvil Localnet',
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: getL2RpcUrl(),
     blockExplorerUrl: '',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     hyperlaneMailbox: '',

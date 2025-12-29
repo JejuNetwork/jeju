@@ -19,6 +19,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { getIpfsApiUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   createPublicClient,
   createWalletClient,
@@ -429,10 +430,15 @@ async function main() {
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY as
     | `0x${string}`
     | undefined
-  const serviceProvisioningAddress = process.env.SERVICE_PROVISIONING_ADDRESS as
-    | `0x${string}`
-    | undefined
-  const ipfsUrl = process.env.IPFS_URL ?? 'http://localhost:5001'
+
+  const serviceProvisioningAddress =
+    typeof process !== 'undefined'
+      ? (process.env.SERVICE_PROVISIONING_ADDRESS as `0x${string}` | undefined)
+      : undefined
+  const ipfsUrl =
+    (typeof process !== 'undefined' ? process.env.IPFS_URL : undefined) ??
+    getIpfsApiUrl() ??
+    `http://${getLocalhostHost()}:5001`
 
   if (!dryRun) {
     if (!privateKey) {

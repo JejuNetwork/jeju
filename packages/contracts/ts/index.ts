@@ -40,17 +40,8 @@ export {
   ERC20WriteAbi,
 } from './abis'
 
-// PascalCase aliases - import from generated and re-export
-import {
-  banManagerAbi,
-  identityRegistryAbi,
-  moderationMarketplaceAbi,
-  reputationRegistryAbi,
-} from './generated'
-export const BanManagerAbi = banManagerAbi
-export const IdentityRegistryAbi = identityRegistryAbi
-export const ModerationMarketplaceAbi = moderationMarketplaceAbi
-export const ReputationRegistryAbi = reputationRegistryAbi
+// Import directly from './generated':
+// import { banManagerAbi as BanManagerAbi, identityRegistryAbi as IdentityRegistryAbi, moderationMarketplaceAbi as ModerationMarketplaceAbi, reputationRegistryAbi as ReputationRegistryAbi } from './generated'
 export {
   type AccountId,
   type AssetInfo,

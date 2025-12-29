@@ -1,7 +1,7 @@
 import { type Address, keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 import { ORACLE_STAKING_MANAGER_ABI } from '../abis'
-import { getChain, type NodeClient } from '../contracts'
+import { getChain, type SecureNodeClient } from '../contracts'
 
 const OracleServiceConfigSchema = z.object({
   agentId: z.bigint(),
@@ -58,10 +58,10 @@ export function validatePriceSubmission(data: unknown): PriceSubmission {
 }
 
 export class OracleService {
-  private client: NodeClient
+  private client: SecureNodeClient
   private submissionHistory: PriceSubmission[] = []
 
-  constructor(client: NodeClient) {
+  constructor(client: SecureNodeClient) {
     this.client = client
   }
 
@@ -138,6 +138,6 @@ export class OracleService {
   }
 }
 
-export function createOracleService(client: NodeClient): OracleService {
+export function createOracleService(client: SecureNodeClient): OracleService {
   return new OracleService(client)
 }

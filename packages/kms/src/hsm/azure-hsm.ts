@@ -109,7 +109,9 @@ export class AzureHSMProvider implements HSMProvider {
       this.connected = true
       log.info('Azure Managed HSM connected', { vaultUrl: this.vaultUrl })
     } catch (error) {
-      log.error('Azure HSM connection failed', { error })
+      log.error('Azure HSM connection failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       throw new Error(
         `Azure HSM connection failed: ${error instanceof Error ? error.message : String(error)}`,
       )
@@ -270,7 +272,10 @@ export class AzureHSMProvider implements HSMProvider {
       this.keyCache.set(keyId, ref)
       return ref
     } catch (error) {
-      log.error('Failed to get Azure HSM key', { keyId, error })
+      log.error('Failed to get Azure HSM key', {
+        keyId,
+        error: error instanceof Error ? error.message : String(error),
+      })
       return null
     }
   }
@@ -420,7 +425,10 @@ export class AzureHSMProvider implements HSMProvider {
     await this.ensureValidToken()
 
     // Hash the data first
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      data.buffer as ArrayBuffer,
+    )
     const hashBytes = new Uint8Array(hash)
 
     const response = await fetch(
@@ -459,7 +467,10 @@ export class AzureHSMProvider implements HSMProvider {
     this.ensureConnected()
     await this.ensureValidToken()
 
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      data.buffer as ArrayBuffer,
+    )
     const hashBytes = new Uint8Array(hash)
     const signatureBytes = this.hexToBytes(signature)
 
@@ -507,9 +518,10 @@ export class AzureHSMProvider implements HSMProvider {
     const signResult = await this.sign(masterKeyId, input)
 
     // Hash the signature to get desired output length
+    const signatureBytes = this.hexToBytes(signResult.signature)
     const hash = await crypto.subtle.digest(
       'SHA-256',
-      this.hexToBytes(signResult.signature),
+      signatureBytes.buffer as ArrayBuffer,
     )
 
     // If we need more bytes, chain hashes
@@ -525,9 +537,13 @@ export class AzureHSMProvider implements HSMProvider {
       const counterBytes = new Uint8Array(4)
       new DataView(counterBytes.buffer).setUint32(0, counter, false)
 
+      const combined = new Uint8Array([
+        ...new Uint8Array(hash),
+        ...counterBytes,
+      ])
       const block = await crypto.subtle.digest(
         'SHA-256',
-        new Uint8Array([...new Uint8Array(hash), ...counterBytes]),
+        combined.buffer as ArrayBuffer,
       )
 
       const blockArray = new Uint8Array(block)

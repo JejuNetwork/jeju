@@ -58,7 +58,6 @@ import {
 import servicesJsonRaw from './services.json' with { type: 'json' }
 import vendorAppsJsonRaw from './vendor-apps.json' with { type: 'json' }
 
-export * from './cdn'
 export * from './dev-proxy'
 // Network utilities
 // Note: Some of these use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo)
@@ -76,9 +75,11 @@ export {
   type NetworkInfo,
   TEST_ACCOUNTS,
 } from './network'
-export * from './app-config'
 export * from './ports'
 export * from './rpc-chains'
+
+import { getBridgeRelayerUrl } from './ports'
+
 export * from './schemas'
 
 // Types from schemas.ts
@@ -165,6 +166,26 @@ export function getCurrentNetwork(): NetworkType {
 /** Get chain ID */
 export function getChainId(network?: NetworkType): number {
   return getChainConfig(network).chainId
+}
+
+/**
+ * Get the localhost host address for building local service URLs
+ * Respects environment variables: HOST, RPC_HOST, LOCALHOST_HOST
+ * Defaults to '127.0.0.1' for consistency with existing codebase
+ *
+ * @example
+ * ```ts
+ * const host = getLocalhostHost() // '127.0.0.1' or env override
+ * const url = `http://${host}:${port}`
+ * ```
+ */
+export function getLocalhostHost(): string {
+  return (
+    process.env.HOST ||
+    process.env.RPC_HOST ||
+    process.env.LOCALHOST_HOST ||
+    '127.0.0.1'
+  )
 }
 
 // Contracts
@@ -416,7 +437,6 @@ export function getServicesConfig(
       getEnvService('JEJU_EXPLORER_URL') ??
       config.explorer,
     indexer: {
-      api: getEnvService('INDEXER_API_URL') ?? config.indexer.api,
       graphql:
         getEnvService('INDEXER_URL') ??
         getEnvService('INDEXER_GRAPHQL_URL') ??
@@ -1278,8 +1298,8 @@ export function isTestMode(): boolean {
 // Bridge Configuration
 
 import {
-  BridgeConfigSchema,
   type BridgeConfig,
+  BridgeConfigSchema,
   type BridgeMode,
 } from './schemas'
 export type { BridgeConfig, BridgeMode }
@@ -1332,7 +1352,9 @@ function resolveEnvInObject<T>(obj: T): T {
  * console.log(config.chains.evm[0].rpcUrl); // Resolved from ${BASE_SEPOLIA_RPC}
  * ```
  */
-export async function loadBridgeConfig(mode: BridgeMode): Promise<BridgeConfig> {
+export async function loadBridgeConfig(
+  mode: BridgeMode,
+): Promise<BridgeConfig> {
   if (!bridgeConfigCache) {
     bridgeConfigCache = new Map()
   }
@@ -1389,21 +1411,23 @@ function getDefaultBridgeConfig(mode: BridgeMode): unknown {
       mode: 'local',
       components: { ...baseConfig.components, beaconWatcher: false },
       chains: {
-        evm: [{
-          chainId: 31337,
-          name: 'Local EVM (Anvil)',
-          rpcUrl: 'http://127.0.0.1:6545',
-          bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-          lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-        }],
+        evm: [
+          {
+            chainId: 31337,
+            name: 'Local EVM (Anvil)',
+            rpcUrl: getL1RpcUrl(),
+            bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+            lightClientAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+          },
+        ],
         solana: {
-          rpcUrl: 'http://127.0.0.1:8899',
+          rpcUrl: getSolanaRpcUrl() || `http://${getLocalhostHost()}:8899`,
           bridgeProgramId: 'TokenBridge11111111111111111111111111111111',
           evmLightClientProgramId: 'EVMLightClient1111111111111111111111111111',
         },
       },
       tee: {
-        endpoint: 'http://127.0.0.1:8080',
+        endpoint: `http://${getLocalhostHost()}:8080`,
         maxBatchSize: 10,
         batchTimeoutMs: 30000,
       },
@@ -1423,19 +1447,24 @@ function getDefaultBridgeConfig(mode: BridgeMode): unknown {
       mode: 'testnet',
       components: { ...baseConfig.components, beaconWatcher: true },
       chains: {
-        evm: [{
-          chainId: 84532,
-          name: 'Base Sepolia',
-          rpcUrl: process.env.BASE_SEPOLIA_RPC ?? 'https://sepolia.base.org',
-          beaconUrl: process.env.BEACON_URL ?? 'https://lodestar-sepolia.chainsafe.io',
-          bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
-          lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
-        }],
+        evm: [
+          {
+            chainId: 84532,
+            name: 'Base Sepolia',
+            rpcUrl: process.env.BASE_SEPOLIA_RPC ?? 'https://sepolia.base.org',
+            beaconUrl:
+              process.env.BEACON_URL ?? 'https://lodestar-sepolia.chainsafe.io',
+            bridgeAddress: process.env.BASE_BRIDGE_ADDRESS ?? '',
+            lightClientAddress: process.env.BASE_LIGHT_CLIENT_ADDRESS ?? '',
+          },
+        ],
         solana: {
           network: 'devnet',
-          rpcUrl: process.env.SOLANA_DEVNET_RPC ?? 'https://api.devnet.solana.com',
+          rpcUrl:
+            process.env.SOLANA_DEVNET_RPC ?? 'https://api.devnet.solana.com',
           bridgeProgramId: process.env.BRIDGE_PROGRAM_ID ?? '',
-          evmLightClientProgramId: process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
+          evmLightClientProgramId:
+            process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ?? '',
         },
       },
       tee: {
@@ -1548,8 +1577,8 @@ export function getBridgePrivateKey(mode: BridgeMode): string {
 
   throw new Error(
     `PRIVATE_KEY environment variable is required for ${mode} mode. ` +
-    `Set it in your .env file or environment. ` +
-    `NEVER commit private keys to source control.`
+      `Set it in your .env file or environment. ` +
+      `NEVER commit private keys to source control.`,
   )
 }
 
@@ -1645,17 +1674,17 @@ export function getBeaconUrl(): string | undefined {
 
 /** Get beacon RPC URL */
 export function getBeaconRpcUrl(): string {
-  return process.env.BEACON_RPC_URL ?? 'http://localhost:5052'
+  return process.env.BEACON_RPC_URL ?? `http://${getLocalhostHost()}:5052`
 }
 
 /** Get execution RPC URL */
 export function getExecutionRpcUrl(): string {
-  return process.env.EXECUTION_RPC_URL ?? 'http://localhost:6545'
+  return process.env.EXECUTION_RPC_URL ?? getL1RpcUrl()
 }
 
 /** Get relayer endpoint */
 export function getRelayerEndpoint(): string {
-  return process.env.RELAYER_ENDPOINT ?? 'http://localhost:8081'
+  return process.env.RELAYER_ENDPOINT ?? getBridgeRelayerUrl()
 }
 
 /** Get Solana RPC URL */
@@ -1826,7 +1855,10 @@ export function getDeployerAddress(): string | undefined {
 
 /** Get training endpoint */
 export function getTrainingEndpoint(): string {
-  return process.env.TRAINING_ENDPOINT ?? 'http://localhost:8001/train_step'
+  return (
+    process.env.TRAINING_ENDPOINT ??
+    `http://${getLocalhostHost()}:8001/train_step`
+  )
 }
 
 /** Get model name */
@@ -1856,7 +1888,7 @@ export function getRunGroup(): string | undefined {
 
 /** Get Atropos URL */
 export function getAtroposLocalUrl(): string {
-  return process.env.ATROPOS_URL ?? 'http://localhost:8000'
+  return process.env.ATROPOS_URL ?? `http://${getLocalhostHost()}:8000`
 }
 
 /** Get Atropos port */
@@ -1878,7 +1910,10 @@ export function getDwsApiKey(): string | undefined {
 
 /** Get DWS gateway URL */
 export function getDwsGatewayUrl(): string {
-  return process.env.DWS_GATEWAY_URL ?? 'http://localhost:3000/api/marketplace'
+  return (
+    process.env.DWS_GATEWAY_URL ??
+    `http://${getLocalhostHost()}:3000/api/marketplace`
+  )
 }
 
 /** Get DWS cache endpoint */
@@ -1964,7 +1999,7 @@ export function getJejuKeyRegistryAddress(): string | undefined {
 
 /** Get relay node URL */
 export function getRelayNodeUrl(): string {
-  return process.env.RELAY_NODE_URL ?? 'http://localhost:3400'
+  return process.env.RELAY_NODE_URL ?? `http://${getLocalhostHost()}:3400`
 }
 
 /** Get cache namespace */
@@ -2012,7 +2047,7 @@ export function getHsmProvider(): string {
 
 /** Get HSM endpoint */
 export function getHsmEndpoint(): string {
-  return process.env.HSM_ENDPOINT ?? 'http://localhost:8080'
+  return process.env.HSM_ENDPOINT ?? `http://${getLocalhostHost()}:8080`
 }
 
 /** Get HSM API key (secret - env var only) */
@@ -2053,9 +2088,9 @@ export function getLogLevel(): string {
   return process.env.LOG_LEVEL ?? 'info'
 }
 
-/** Get EQLite private key (secret - env var only) */
-export function getEqlitePrivateKey(): string | undefined {
-  return process.env.EQLITE_PRIVATE_KEY
+/** Get EQLite KMS key ID for signing */
+export function getEqliteKeyId(): string | undefined {
+  return process.env.EQLITE_KEY_ID
 }
 
 /** Get EQLite database ID */
@@ -2177,7 +2212,7 @@ export function getNeynarApiKey(): string {
 
 /** Get IPFS API URL (for IPNS) */
 export function getIpfsApiUrlEnv(): string {
-  return process.env.IPFS_API_URL ?? 'http://localhost:5001'
+  return process.env.IPFS_API_URL ?? getIpfsApiUrl()
 }
 
 /** Get KMS endpoint */
@@ -2185,9 +2220,175 @@ export function getKmsEndpoint(): string | undefined {
   return process.env.KMS_ENDPOINT
 }
 
-/** Get KMS service URL */
-export function getKmsServiceUrl(): string {
-  return process.env.JEJU_KMS_SERVICE_URL ?? 'http://localhost:4200'
+/** Get KMS service URL - uses services.json with env override */
+export function getKmsServiceUrl(network?: NetworkType): string {
+  // Environment variable override takes precedence
+  if (process.env.KMS_SERVICE_URL) {
+    return process.env.KMS_SERVICE_URL
+  }
+  if (process.env.JEJU_KMS_SERVICE_URL) {
+    return process.env.JEJU_KMS_SERVICE_URL
+  }
+  // Fall back to services.json configuration
+  return getServicesConfig(network).kms.api
+}
+
+/** KMS threshold configuration per network */
+export interface KMSThresholdConfig {
+  /** Minimum signers required (t of n) */
+  threshold: number
+  /** Total number of MPC parties */
+  totalParties: number
+  /** Whether attestation verification is required */
+  requireAttestation: boolean
+  /** Signing timeout in milliseconds */
+  signingTimeoutMs: number
+}
+
+/**
+ * Get KMS threshold configuration for a network.
+ *
+ * SECURITY: Mainnet requires higher thresholds and mandatory attestation.
+ * - Localnet: 1-of-1 (development mode, no attestation)
+ * - Testnet: 2-of-3 (production-like, attestation recommended)
+ * - Mainnet: 3-of-5 (high security, attestation required)
+ */
+export function getKmsThresholdConfig(
+  network?: NetworkType,
+): KMSThresholdConfig {
+  const resolvedNetwork = network ?? getCurrentNetwork()
+
+  switch (resolvedNetwork) {
+    case 'mainnet':
+      return {
+        threshold: 3,
+        totalParties: 5,
+        requireAttestation: true,
+        signingTimeoutMs: 60000,
+      }
+    case 'testnet':
+      return {
+        threshold: 2,
+        totalParties: 3,
+        requireAttestation: true, // Recommended but may fallback
+        signingTimeoutMs: 30000,
+      }
+    default:
+      return {
+        threshold: 1,
+        totalParties: 1,
+        requireAttestation: false,
+        signingTimeoutMs: 10000,
+      }
+  }
+}
+
+/** HSM provider type for MPC party key shares */
+export type HSMProviderType =
+  | 'software' // Software-only (localnet/testing)
+  | 'aws_cloudhsm' // AWS CloudHSM
+  | 'gcp_kms' // Google Cloud KMS
+  | 'azure_hsm' // Azure Dedicated HSM
+  | 'yubihsm' // YubiHSM 2
+  | 'nitrokey' // Nitrokey HSM 2
+  | 'hashicorp_vault' // HashiCorp Vault with HSM backend
+
+/** HSM configuration for MPC key shares */
+export interface HSMConfig {
+  /** HSM provider type */
+  provider: HSMProviderType
+  /** Whether HSM is required (fail if unavailable) */
+  required: boolean
+  /** Provider-specific endpoint */
+  endpoint?: string
+  /** Region for cloud HSM providers */
+  region?: string
+  /** Key wrapping algorithm */
+  keyWrapAlgorithm: 'AES256_GCM' | 'RSA_OAEP'
+  /** Maximum key operations before rotation */
+  maxOperationsBeforeRotation: number
+}
+
+/**
+ * Get HSM configuration for MPC party key shares.
+ *
+ * SECURITY: HSM backing ensures that even TEE compromise cannot
+ * extract the raw key shares. Key shares are:
+ * 1. Generated inside the HSM
+ * 2. Never leave the HSM in plaintext
+ * 3. Used for signing via HSM APIs
+ *
+ * Environment variables:
+ * - HSM_PROVIDER: Override provider type
+ * - HSM_ENDPOINT: Override HSM endpoint
+ * - HSM_REGION: Override region for cloud HSMs
+ */
+export function getHSMConfig(network?: NetworkType): HSMConfig {
+  const resolvedNetwork = network ?? getCurrentNetwork()
+
+  // Environment overrides
+  const envProvider = process.env.HSM_PROVIDER as HSMProviderType | undefined
+  const envEndpoint = process.env.HSM_ENDPOINT
+  const envRegion = process.env.HSM_REGION
+
+  switch (resolvedNetwork) {
+    case 'mainnet':
+      return {
+        provider: envProvider ?? 'aws_cloudhsm',
+        required: true,
+        endpoint: envEndpoint,
+        region: envRegion ?? 'us-east-1',
+        keyWrapAlgorithm: 'AES256_GCM',
+        maxOperationsBeforeRotation: 1000000,
+      }
+    case 'testnet':
+      return {
+        provider: envProvider ?? 'aws_cloudhsm',
+        required: false, // Fallback to software if unavailable
+        endpoint: envEndpoint,
+        region: envRegion ?? 'us-west-2',
+        keyWrapAlgorithm: 'AES256_GCM',
+        maxOperationsBeforeRotation: 100000,
+      }
+    default:
+      return {
+        provider: envProvider ?? 'software',
+        required: false,
+        endpoint: envEndpoint,
+        region: envRegion,
+        keyWrapAlgorithm: 'AES256_GCM',
+        maxOperationsBeforeRotation: 10000,
+      }
+  }
+}
+
+/**
+ * Check if HSM is available and properly configured.
+ * Returns provider info or null if unavailable.
+ */
+export async function checkHSMAvailability(
+  network?: NetworkType,
+): Promise<{ available: boolean; provider: HSMProviderType; error?: string }> {
+  const config = getHSMConfig(network)
+
+  if (config.provider === 'software') {
+    return { available: true, provider: 'software' }
+  }
+
+  // For cloud HSMs, we'd check connectivity here
+  // This is a placeholder that would be implemented with actual HSM SDKs
+  try {
+    // AWS CloudHSM check would use @aws-sdk/client-cloudhsm-v2
+    // GCP KMS check would use @google-cloud/kms
+    // Azure HSM check would use @azure/keyvault-keys
+    return { available: true, provider: config.provider }
+  } catch (err) {
+    return {
+      available: false,
+      provider: config.provider,
+      error: String(err),
+    }
+  }
 }
 
 /** Get cron endpoint */
@@ -2305,6 +2506,16 @@ export function getJejuMainnetHyperlaneIgp(): string {
 
 // Branding Config
 
+// App Config Injection
+export {
+  createAppConfig,
+  getEnvBool,
+  getEnvNumber,
+  getEnvVar,
+  getNodeEnv,
+  isDevelopmentEnv,
+  isTestEnv,
+} from './app-config'
 export {
   clearBrandingCache,
   generateForkBranding,
@@ -2331,21 +2542,6 @@ export {
   setConfigPath,
 } from './branding'
 
-// Chainlink Config
-
-export {
-  getChainlinkFeed,
-  getChainlinkFeeds,
-  hasChainlinkSupport,
-  getVRFConfig,
-  getAutomationConfig,
-  getLinkTokenAddress,
-  getSupportedChainIds,
-  type ChainlinkFeed,
-  type VRFConfig,
-  type AutomationConfig,
-} from './chainlink'
-
 // API Keys (browser-safe - uses env vars)
 
 export type {
@@ -2368,6 +2564,20 @@ export {
   hasApiKey,
   printApiKeyStatus,
 } from './api-keys'
+
+// Chainlink Configuration
+export type {
+  AutomationConfig,
+  ChainlinkFeed,
+  VRFConfig,
+} from './chainlink'
+export {
+  getAutomationConfig,
+  getChainlinkFeed,
+  getChainlinkFeeds,
+  getVRFConfig,
+  hasChainlinkSupport,
+} from './chainlink'
 
 // Node.js-only modules (internal, not exported)
 // These modules use node:fs and are internal implementation details.

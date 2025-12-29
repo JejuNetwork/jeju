@@ -1,4 +1,10 @@
-import { getChainId, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { RATE_LIMITS, type RateTier } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { type Address, type Chain, createPublicClient, http } from 'viem'
@@ -10,14 +16,58 @@ interface RateLimitRecord {
   resetAt: number
   tier: RateTier
 }
-const rateLimitStore = new Map<string, RateLimitRecord>()
-const apiKeyCache = new Map<string, { address: Address; tier: RateTier }>()
 
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, record] of rateLimitStore)
-    if (now > record.resetAt) rateLimitStore.delete(key)
-}, 60_000)
+// Distributed cache for rate limiting
+let rateCache: CacheClient | null = null
+
+function getRateCache(): CacheClient {
+  if (!rateCache) {
+    rateCache = getCacheClient('dws-rpc-ratelimit')
+  }
+  return rateCache
+}
+
+// Helper functions for distributed rate limiting
+async function getRateLimitRecord(
+  key: string,
+): Promise<RateLimitRecord | null> {
+  const cache = getRateCache()
+  const cached = await cache.get(`rpc-rl:${key}`)
+  if (cached) {
+    return JSON.parse(cached) as RateLimitRecord
+  }
+  return null
+}
+
+async function setRateLimitRecord(
+  key: string,
+  record: RateLimitRecord,
+): Promise<void> {
+  const cache = getRateCache()
+  const ttl = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000))
+  await cache.set(`rpc-rl:${key}`, JSON.stringify(record), ttl)
+}
+
+// API key cache functions
+async function getApiKeyData(
+  apiKey: string,
+): Promise<{ address: Address; tier: RateTier } | null> {
+  const cache = getRateCache()
+  const cached = await cache.get(`rpc-apikey:${apiKey}`)
+  if (cached) {
+    return JSON.parse(cached) as { address: Address; tier: RateTier }
+  }
+  return null
+}
+
+async function setApiKeyData(
+  apiKey: string,
+  data: { address: Address; tier: RateTier },
+): Promise<void> {
+  const cache = getRateCache()
+  // API keys cached for 1 hour
+  await cache.set(`rpc-apikey:${apiKey}`, JSON.stringify(data), 3600)
+}
 
 const RPC_STAKING_ABI = [
   {
@@ -36,9 +86,14 @@ const RPC_STAKING_ABI = [
   },
 ] as const
 
-const STAKING_ADDR = process.env.RPC_STAKING_ADDRESS as Address | undefined
-const RPC_URL = getRpcUrl()
-const CHAIN_ID = getChainId()
+const network = getCurrentNetwork()
+const STAKING_ADDR = ((typeof process !== 'undefined'
+  ? (process.env.RPC_STAKING_ADDRESS as Address | undefined)
+  : undefined) ?? tryGetContract('rpc', 'staking', network)) as
+  | Address
+  | undefined
+const RPC_URL = getRpcUrl(network)
+const CHAIN_ID = getChainId(network)
 
 const chain: Chain = {
   id: CHAIN_ID,
@@ -76,15 +131,19 @@ const checkAccess = async (addr: Address): Promise<boolean> => {
   })
 }
 
-const getUserKey = (
+const getUserKey = async (
   request: Request,
-): { key: string; address: Address | null } => {
+): Promise<{ key: string; address: Address | null }> => {
   const apiKey = request.headers.get('X-Api-Key')
-  if (apiKey && apiKeyCache.has(apiKey))
-    return {
-      key: `key:${apiKey}`,
-      address: apiKeyCache.get(apiKey)?.address ?? null,
+  if (apiKey) {
+    const apiKeyData = await getApiKeyData(apiKey)
+    if (apiKeyData) {
+      return {
+        key: `key:${apiKey}`,
+        address: apiKeyData.address,
+      }
     }
+  }
   const walletHeader = request.headers.get('X-Wallet-Address')
   if (walletHeader) {
     const wallet = walletHeader as Address
@@ -136,7 +195,7 @@ export function rateLimiter() {
         const url = new URL(request.url)
         if (url.pathname === '/health' || url.pathname === '/') return
 
-        const { key, address } = getUserKey(request)
+        const { key, address } = await getUserKey(request)
         const now = Date.now()
 
         if (address && WHITELIST.has(address.toLowerCase())) {
@@ -153,12 +212,12 @@ export function rateLimiter() {
         }
 
         const tier = rateLimitToTier(rateLimit)
-        let record = rateLimitStore.get(key)
+        let record = await getRateLimitRecord(key)
         if (!record || now > record.resetAt) {
           record = { count: 0, resetAt: now + 60_000, tier }
-          rateLimitStore.set(key, record)
         }
         record.count++
+        await setRateLimitRecord(key, record)
 
         const limit = RATE_LIMITS[tier]
         const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count)
@@ -187,16 +246,27 @@ export function rateLimiter() {
     )
 }
 
-export const registerApiKey = (key: string, addr: Address, tier: RateTier) =>
-  apiKeyCache.set(key, { address: addr, tier })
-export const revokeApiKey = (key: string) => apiKeyCache.delete(key)
-export const getRateLimitStats = () => {
-  const byTier: Record<RateTier, number> = {
-    FREE: 0,
-    BASIC: 0,
-    PRO: 0,
-    UNLIMITED: 0,
+export const registerApiKey = async (
+  key: string,
+  addr: Address,
+  tier: RateTier,
+): Promise<void> => {
+  await setApiKeyData(key, { address: addr, tier })
+}
+
+export const revokeApiKey = async (key: string): Promise<void> => {
+  const cache = getRateCache()
+  await cache.delete(`rpc-apikey:${key}`)
+}
+
+export const getRateLimitStats = async (): Promise<{
+  totalTracked: number
+  byTier: Record<RateTier, number>
+}> => {
+  // With distributed cache, per-tier stats would need separate tracking
+  // For now, return placeholder values
+  return {
+    totalTracked: 0,
+    byTier: { FREE: 0, BASIC: 0, PRO: 0, UNLIMITED: 0 },
   }
-  for (const r of rateLimitStore.values()) byTier[r.tier]++
-  return { totalTracked: rateLimitStore.size, byTier }
 }

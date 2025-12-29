@@ -1,28 +1,16 @@
-import {
-  createKMSSigner,
-  getKMSSigner,
-  type KMSKeyInfo,
-  KMSSigner,
-  type KMSSignerConfig,
-  type SigningMode,
-  type SignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-} from '@jejunetwork/kms'
-import type { Address, Hex } from 'viem'
+/**
+ * Secure Signer - Routes all signing through KMS with threshold cryptography
+ *
+ * This module provides backward-compatible wrapper around @jejunetwork/kms.
+ * For new code, import directly from '@jejunetwork/kms' instead:
+ *
+ * ```typescript
+ * import { createKMSSigner, KMSSigner } from '@jejunetwork/kms'
+ * ```
+ */
 
-// Re-export canonical types
-export {
-  createKMSSigner,
-  getKMSSigner,
-  type KMSKeyInfo,
-  KMSSigner,
-  type KMSSignerConfig,
-  type SigningMode,
-  type SignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-}
+import { createKMSSigner } from '@jejunetwork/kms'
+import type { Address, Hex } from 'viem'
 
 /**
  * SecureSigner interface for backward compatibility with DWS code

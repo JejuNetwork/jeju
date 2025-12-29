@@ -1,6 +1,7 @@
 import {
   createAppConfig,
   getEnvVar,
+  getLocalhostHost,
   getRpcUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
@@ -43,7 +44,8 @@ const { config, configure: setNodeConfig } = createAppConfig<NodeConfig>({
   evmPrivateKey: getEnvVar('EVM_PRIVATE_KEY'),
   solanaPrivateKey: getEnvVar('SOLANA_PRIVATE_KEY'),
   proxyRegion: getEnvVar('PROXY_REGION') ?? 'GLOBAL',
-  dwsExecUrl: getEnvVar('DWS_EXEC_URL') ?? 'http://localhost:4020/exec',
+  dwsExecUrl:
+    getEnvVar('DWS_EXEC_URL') ?? `http://${getLocalhostHost()}:4020/exec`,
   seedingOracleUrl: getEnvVar('SEEDING_ORACLE_URL'),
   externalIp: getEnvVar('EXTERNAL_IP'),
   rpcUrl1: getEnvVar('RPC_URL_1'),

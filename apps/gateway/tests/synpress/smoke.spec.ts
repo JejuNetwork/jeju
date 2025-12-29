@@ -19,7 +19,7 @@ import { basicSetup } from '../../synpress.config'
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('GATEWAY')
+const GATEWAY_URL = getCoreAppUrl('GATEWAY')
 
 test.describe('Gateway Smoke Tests', () => {
   test('homepage loads without errors', async ({ page }) => {

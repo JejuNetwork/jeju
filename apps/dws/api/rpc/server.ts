@@ -2,9 +2,11 @@ import { cors } from '@elysiajs/cors'
 import {
   RPC_CHAINS as CHAINS,
   getRpcChain as getChain,
+  getCurrentNetwork,
   getRpcMainnetChains as getMainnetChains,
   getRpcTestnetChains as getTestnetChains,
   isRpcChainSupported as isChainSupported,
+  tryGetContract,
 } from '@jejunetwork/config'
 import { AddressSchema, JsonValueSchema } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -235,9 +237,9 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     },
   }))
 
-  .get('/health', () => {
+  .get('/health', async () => {
     const chainStats = getChainStats()
-    const rateLimitStats = getRateLimitStats()
+    const rateLimitStats = await getRateLimitStats()
     const apiKeyStats = getApiKeyStats()
     const endpointHealth = getEndpointHealth()
     const unhealthyEndpoints = Object.entries(endpointHealth)
@@ -532,28 +534,41 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
     }
   })
 
-  .get('/v1/stake', () => ({
-    contract: process.env.RPC_STAKING_ADDRESS || 'Not deployed',
-    pricing: 'USD-denominated (dynamic based on JEJU price)',
-    tiers: {
-      FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
-      BASIC: { minUsd: 10, rateLimit: 100, description: '100 requests/minute' },
-      PRO: {
-        minUsd: 100,
-        rateLimit: 1000,
-        description: '1,000 requests/minute',
+  .get('/v1/stake', () => {
+    const network = getCurrentNetwork()
+    const stakingAddress = tryGetContract('rpc', 'staking', network)
+    return {
+      contract:
+        (typeof process !== 'undefined'
+          ? process.env.RPC_STAKING_ADDRESS
+          : undefined) ??
+        stakingAddress ??
+        'Not deployed',
+      pricing: 'USD-denominated (dynamic based on JEJU price)',
+      tiers: {
+        FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
+        BASIC: {
+          minUsd: 10,
+          rateLimit: 100,
+          description: '100 requests/minute',
+        },
+        PRO: {
+          minUsd: 100,
+          rateLimit: 1000,
+          description: '1,000 requests/minute',
+        },
+        UNLIMITED: {
+          minUsd: 1000,
+          rateLimit: 'unlimited',
+          description: 'Unlimited requests',
+        },
       },
-      UNLIMITED: {
-        minUsd: 1000,
-        rateLimit: 'unlimited',
-        description: 'Unlimited requests',
-      },
-    },
-    unbondingPeriod: '7 days',
-    reputationDiscount:
-      'Up to 50% effective stake multiplier for high-reputation users',
-    priceOracle: 'Chainlink-compatible, with $0.10 fallback',
-  }))
+      unbondingPeriod: '7 days',
+      reputationDiscount:
+        'Up to 50% effective stake multiplier for high-reputation users',
+      priceOracle: 'Chainlink-compatible, with $0.10 fallback',
+    }
+  })
 
   // X402 Payment Endpoints
   .get('/v1/payments', () => {

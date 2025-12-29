@@ -98,7 +98,9 @@ export class GCloudHSMProvider implements HSMProvider {
         keyRing: this.keyRing,
       })
     } catch (error) {
-      log.error('GCloud HSM connection failed', { error })
+      log.error('GCloud HSM connection failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       throw new Error(
         `GCloud HSM connection failed: ${error instanceof Error ? error.message : String(error)}`,
       )
@@ -243,7 +245,10 @@ export class GCloudHSMProvider implements HSMProvider {
       this.keyCache.set(keyId, ref)
       return ref
     } catch (error) {
-      log.error('Failed to get GCloud HSM key', { keyId, error })
+      log.error('Failed to get GCloud HSM key', {
+        keyId,
+        error: error instanceof Error ? error.message : String(error),
+      })
       return null
     }
   }
@@ -422,7 +427,10 @@ export class GCloudHSMProvider implements HSMProvider {
     await this.ensureValidToken()
 
     // GCloud KMS expects the digest, not raw data
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      data.buffer as ArrayBuffer,
+    )
     const hashBytes = new Uint8Array(hash)
 
     // Get the primary version
@@ -463,7 +471,10 @@ export class GCloudHSMProvider implements HSMProvider {
     this.ensureConnected()
     await this.ensureValidToken()
 
-    const hash = await crypto.subtle.digest('SHA-256', data)
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      data.buffer as ArrayBuffer,
+    )
     const hashBytes = new Uint8Array(hash)
     const signatureBytes = this.hexToBytes(signature)
 
@@ -511,7 +522,14 @@ export class GCloudHSMProvider implements HSMProvider {
     const encrypted = await this.encrypt(masterKeyId, input)
 
     // Hash the ciphertext to get desired output length
-    const hash = await crypto.subtle.digest('SHA-256', encrypted.ciphertext)
+    const ciphertextBytes =
+      typeof encrypted.ciphertext === 'string'
+        ? new TextEncoder().encode(encrypted.ciphertext)
+        : encrypted.ciphertext
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      ciphertextBytes.buffer as ArrayBuffer,
+    )
 
     if (outputLength <= 32) {
       return new Uint8Array(hash).slice(0, outputLength)
@@ -526,9 +544,13 @@ export class GCloudHSMProvider implements HSMProvider {
       const counterBytes = new Uint8Array(4)
       new DataView(counterBytes.buffer).setUint32(0, counter, false)
 
+      const combined = new Uint8Array([
+        ...new Uint8Array(hash),
+        ...counterBytes,
+      ])
       const block = await crypto.subtle.digest(
         'SHA-256',
-        new Uint8Array([...new Uint8Array(hash), ...counterBytes]),
+        combined.buffer as ArrayBuffer,
       )
 
       const blockArray = new Uint8Array(block)
@@ -633,9 +655,10 @@ export class GCloudHSMProvider implements HSMProvider {
       .replace('-----END PRIVATE KEY-----', '')
       .replace(/\n/g, '')
 
+    const keyBytes = this.base64ToArray(keyData)
     const key = await crypto.subtle.importKey(
       'pkcs8',
-      this.base64ToArray(keyData),
+      keyBytes.buffer as ArrayBuffer,
       { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       false,
       ['sign'],

@@ -24,14 +24,13 @@ const API_PORT = parseInt(process.env.API_PORT || '8010', 10)
 const DWS_PORT = parseInt(process.env.DWS_PORT || '4030', 10)
 
 // Service URLs - use config functions for consistency
-const RPC_URL =
-  process.env.RPC_URL ||
-  process.env.L2_RPC_URL ||
-  process.env.JEJU_RPC_URL ||
-  getL2RpcUrl()
+const RPC_URL = getL2RpcUrl()
 const API_URL =
-  process.env.API_URL || `http://${getLocalhostHost()}:${API_PORT}`
-const DWS_URL = process.env.DWS_URL || getDWSUrl()
+  (typeof process !== 'undefined' ? process.env.API_URL : undefined) ||
+  `http://${getLocalhostHost()}:${API_PORT}`
+const DWS_URL =
+  (typeof process !== 'undefined' ? process.env.DWS_URL : undefined) ||
+  getDWSUrl()
 
 // Track managed processes for cleanup
 const managedProcesses: ChildProcess[] = []

@@ -42,8 +42,11 @@ const authConfig: AuthConfig = {
   ),
   serviceAgentId: oauth3Config.serviceAgentId,
   jwtSecret: oauth3Config.jwtSecret,
+  jwtSigningKeyId: oauth3Config.jwtSigningKeyId,
+  jwtSignerAddress: parseAddress(oauth3Config.jwtSignerAddress, ZERO_ADDRESS),
   sessionDuration: oauth3Config.sessionDuration,
   allowedOrigins: oauth3Config.allowedOrigins,
+  devMode: oauth3Config.devMode,
 }
 
 async function createApp() {
@@ -53,9 +56,6 @@ async function createApp() {
     `http://${host}:3000`,
     `http://${host}:3001`,
     `http://${host}:4200`,
-    `http://127.0.0.1:3000`,
-    `http://127.0.0.1:3001`,
-    `http://127.0.0.1:4200`,
     'https://cloud.elizaos.com',
     'https://eliza.cloud',
     'https://elizaos.ai',

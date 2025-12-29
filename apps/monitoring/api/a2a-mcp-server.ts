@@ -1,5 +1,13 @@
 import { cors } from '@elysiajs/cors'
-import { getNetworkName, getRpcUrl, getWebsiteUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getNetworkName,
+  getRpcUrl,
+  getServiceUrl,
+  getWebsiteUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { isRecord } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
@@ -17,27 +25,33 @@ import {
   type SkillResult,
 } from '../lib/types'
 
-const isDevelopment = process.env.NODE_ENV !== 'production'
+const network = getCurrentNetwork()
+const isDevelopment = !isProductionEnv()
+const host = getLocalhostHost()
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') ?? [
-  'http://localhost:3000',
-  'http://localhost:4020',
+  `http://${host}:3000`,
+  `http://${host}:4020`,
 ]
 
-const PROMETHEUS_URL = process.env.PROMETHEUS_URL ?? 'http://localhost:9090'
-const RPC_URL = process.env.RPC_URL ?? getRpcUrl()
+const PROMETHEUS_URL =
+  (typeof process !== 'undefined' ? process.env.PROMETHEUS_URL : undefined) ??
+  getServiceUrl('monitoring', 'prometheus', network)
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  getRpcUrl(network)
 
-if (!isDevelopment && !process.env.PROMETHEUS_URL) {
+if (!isDevelopment && !PROMETHEUS_URL) {
   throw new Error('PROMETHEUS_URL is required in production')
 }
-if (!isDevelopment && !process.env.RPC_URL) {
+if (!isDevelopment && !RPC_URL) {
   throw new Error('RPC_URL is required in production')
 }
 
 const corsConfig = {
   origin: (request: Request) => {
     const origin = request.headers.get('origin') ?? ''
-    if (!origin && process.env.NODE_ENV !== 'production') return true
+    if (!origin && !isProductionEnv()) return true
     return CORS_ORIGINS.includes(origin)
   },
   credentials: true,

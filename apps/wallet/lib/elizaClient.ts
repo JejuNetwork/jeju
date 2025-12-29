@@ -1,8 +1,21 @@
+/**
+ * ElizaOS API Client
+ * Handles communication with the ElizaOS agent server
+ *
+ * The Network Wallet agent is an ElizaOS agent that can be run locally
+ * or connected to a remote ElizaOS server.
+ *
+ * This client is compatible with the @elizaos/api-client pattern used in otaku.
+ */
+
+import { getLocalhostHost } from '@jejunetwork/config'
 import { getEnvOrDefault, isDev } from './env'
 
 const API_BASE_URL = getEnvOrDefault(
   'PUBLIC_ELIZA_API_URL',
-  isDev() ? 'http://localhost:3000' : 'https://agent.jejunetwork.org',
+  isDev()
+    ? `http://${getLocalhostHost()}:3000`
+    : 'https://agent.jejunetwork.org',
 )
 const AGENT_ID = getEnvOrDefault('PUBLIC_ELIZA_AGENT_ID', 'jeju-wallet')
 

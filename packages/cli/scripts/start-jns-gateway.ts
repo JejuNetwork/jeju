@@ -4,7 +4,7 @@
  * This allows routing via *.local.jejunetwork.org subdomains
  */
 
-import { getPortEnv, getRpcUrl } from '@jejunetwork/config'
+import { getIpfsGatewayUrl, getPortEnv, getRpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { startLocalJNSGateway } from '../src/lib/jns-gateway-local'
 import { findMonorepoRoot } from '../src/lib/system'
@@ -16,7 +16,19 @@ const rootDir = findMonorepoRoot()
 const dummyRegistry: Address = '0x0000000000000000000000000000000000000000'
 const rpcUrl = getRpcUrl()
 const port = getPortEnv() ?? 4303
-const ipfsPort = Number(process.env.IPFS_GATEWAY_PORT ?? '4180')
+const ipfsPort =
+  Number(
+    typeof process !== 'undefined' ? process.env.IPFS_GATEWAY_PORT : undefined,
+  ) ||
+  (() => {
+    try {
+      const url = getIpfsGatewayUrl()
+      const match = url.match(/:(\d+)/)
+      return match ? Number(match[1]) : 4180
+    } catch {
+      return 4180
+    }
+  })()
 
 console.log('Starting JNS Gateway...')
 console.log(`  Root directory: ${rootDir}`)

@@ -15,9 +15,15 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  getChainId as getConfigChainId,
+  getL2RpcUrl as getConfigL2RpcUrl,
+  getRpcUrl as getConfigRpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import type { FullConfig } from '@playwright/test'
 
-const DEFAULT_RPC = 'http://127.0.0.1:6546'
+const DEFAULT_RPC = `http://${getLocalhostHost()}:6546`
 const DEFAULT_CHAIN_ID = 31337
 
 /** JSON-RPC response with result */
@@ -44,8 +50,18 @@ export async function setupTestEnvironment(
   options: SetupOptions = {},
 ): Promise<() => void> {
   const {
-    rpcUrl = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || DEFAULT_RPC,
-    chainId = parseInt(process.env.CHAIN_ID || String(DEFAULT_CHAIN_ID), 10),
+    rpcUrl = (typeof process !== 'undefined'
+      ? process.env.L2_RPC_URL
+      : undefined) ??
+      (typeof process !== 'undefined' ? process.env.JEJU_RPC_URL : undefined) ??
+      getConfigL2RpcUrl() ??
+      getConfigRpcUrl() ??
+      DEFAULT_RPC,
+    chainId = parseInt(
+      (typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined) ??
+        String(getConfigChainId() ?? DEFAULT_CHAIN_ID),
+      10,
+    ),
     skipLock = false,
     skipPreflight = false,
     skipWarmup: _skipWarmup = false,
@@ -106,8 +122,16 @@ export async function setupTestEnvironment(
 }
 
 const JEJU_RPC =
-  process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || DEFAULT_RPC
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || String(DEFAULT_CHAIN_ID), 10)
+  (typeof process !== 'undefined' ? process.env.JEJU_RPC_URL : undefined) ??
+  (typeof process !== 'undefined' ? process.env.L2_RPC_URL : undefined) ??
+  getConfigL2RpcUrl() ??
+  getConfigRpcUrl() ??
+  DEFAULT_RPC
+const CHAIN_ID = parseInt(
+  (typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined) ??
+    String(getConfigChainId() ?? DEFAULT_CHAIN_ID),
+  10,
+)
 
 async function globalSetup(_config: FullConfig) {
   console.log('\n🔧 Global Setup Starting...\n')

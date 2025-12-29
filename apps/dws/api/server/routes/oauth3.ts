@@ -5,7 +5,12 @@
  * This allows DWS to serve as a unified API gateway.
  */
 
-import { createAppConfig } from '@jejunetwork/config'
+import {
+  createAppConfig,
+  getCurrentNetwork,
+  getLocalhostHost,
+  getOAuth3Url,
+} from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 
 interface OAuth3RouterConfig {
@@ -13,9 +18,16 @@ interface OAuth3RouterConfig {
   [key: string]: string | undefined
 }
 
+const getDefaultOAuth3Url = () => {
+  const network = getCurrentNetwork()
+  return network === 'localnet'
+    ? `http://${getLocalhostHost()}:4200`
+    : getOAuth3Url(network)
+}
+
 const { config: oauth3Config, configure: configureOAuth3Router } =
   createAppConfig<OAuth3RouterConfig>({
-    agentUrl: 'http://localhost:4200',
+    agentUrl: getDefaultOAuth3Url(),
   })
 
 export function configureOAuth3RouterConfig(
@@ -24,7 +36,7 @@ export function configureOAuth3RouterConfig(
   configureOAuth3Router(config)
 }
 
-const OAUTH3_AGENT_URL = oauth3Config.agentUrl ?? 'http://localhost:4200'
+const OAUTH3_AGENT_URL = oauth3Config.agentUrl ?? getDefaultOAuth3Url()
 
 export function createOAuth3Router() {
   return (

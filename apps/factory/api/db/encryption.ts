@@ -6,6 +6,7 @@ import {
   scryptSync,
 } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { isProductionEnv } from '@jejunetwork/config'
 
 // Configuration
 const DB_ENCRYPTION_KEY_ENV = 'FACTORY_DB_ENCRYPTION_KEY'
@@ -25,7 +26,7 @@ function getEncryptionKey(): Buffer {
 
   const masterKey = process.env[DB_ENCRYPTION_KEY_ENV]
   if (!masterKey) {
-    if (process.env.NODE_ENV === 'production') {
+    if (isProductionEnv()) {
       throw new Error(`${DB_ENCRYPTION_KEY_ENV} must be set in production`)
     }
     return Buffer.alloc(0)

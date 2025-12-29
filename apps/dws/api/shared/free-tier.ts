@@ -1,5 +1,18 @@
+/**
+ * Free Tier Management System
+ *
+ * Implements Vercel-like free tier with:
+ * - Resource limits per user/project
+ * - Usage tracking and enforcement
+ * - Graduated upgrade prompts
+ * - Sponsored gas via ERC-4337 paymaster
+ * - Abuse prevention via rate limiting
+ */
+
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import type { Address } from 'viem'
+
+// ============ Types ============
 
 export type TierType = 'free' | 'hobby' | 'pro' | 'enterprise'
 

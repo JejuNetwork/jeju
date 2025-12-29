@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { getLocalhostHost } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
 // Config injection for workerd compatibility
@@ -8,7 +9,7 @@ interface TusEnvConfig {
 }
 
 let envConfig: TusEnvConfig = {
-  execUrl: 'http://localhost:4020/exec',
+  execUrl: `http://${getLocalhostHost()}:4020/exec`,
   uploadDir: '/tmp/dws-tus-uploads',
 }
 
@@ -159,7 +160,7 @@ export interface TusConfig {
 // ============ Default Configuration ============
 
 const DEFAULT_CONFIG: TusConfig = {
-  baseUrl: 'http://localhost:3100',
+  baseUrl: `http://${getLocalhostHost()}:3100`,
   uploadDir: envConfig.uploadDir,
   maxFileSize: 10 * 1024 * 1024 * 1024, // 10GB
   defaultExpiryHours: 24,

@@ -18,6 +18,12 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import {
+  getDwsApiUrl,
+  getIpfsGatewayUrl,
+  getLocalhostHost,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import { createPublicClient, type Hex, http } from 'viem'
 import type { DeploymentManifest, VerificationResult } from './types'
 
@@ -56,9 +62,9 @@ class DeploymentVerifier {
     // Network-specific configuration
     const configs = {
       localnet: {
-        rpcUrl: process.env.RPC_URL || 'http://127.0.0.1:6546',
-        dwsEndpoint: process.env.DWS_ENDPOINT || 'http://localhost:4030',
-        ipfsGateway: 'http://localhost:8080',
+        rpcUrl: getRpcUrl(),
+        dwsEndpoint: getDwsApiUrl(),
+        ipfsGateway: getIpfsGatewayUrl() || `http://${getLocalhostHost()}:8080`,
       },
       testnet: {
         rpcUrl: process.env.TESTNET_RPC_URL || 'https://sepolia.base.org',

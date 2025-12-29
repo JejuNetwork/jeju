@@ -12,7 +12,9 @@ import {
   http,
   isAddress,
   type PublicClient,
+  type WalletClient,
 } from 'viem'
+import type { PrivateKeyAccount } from 'viem/accounts'
 import { createSecureSigner, type SecureSigner } from './secure-signer'
 
 /** Safely get contract address from config, with env var override */
@@ -287,35 +289,24 @@ export interface SecureNodeClient {
   keyId: string
   /** Wallet address derived from KMS key */
   walletAddress: Address | null
+  /**
+   * @deprecated Use signer for KMS-backed signing. This field exists only
+   * for legacy compatibility and will be removed in a future version.
+   * Wallet client with account for direct transaction signing (INSECURE).
+   */
+  walletClient?: WalletClient & { account?: PrivateKeyAccount }
   // Optional stake tracking for sequencer eligibility
   stake?: bigint
 }
 
-export interface NodeClient {
-  publicClient: PublicClient
-  walletClient: null
-  addresses: ContractAddresses
-  chainId: number
-  chain: Chain
-}
-
-export function createNodeClient(rpcUrl: string, chainId: number): NodeClient {
-  const chain = getChain(chainId)
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(rpcUrl),
-  })
-  const addresses = getContractAddresses(chainId)
-
-  return {
-    publicClient,
-    walletClient: null,
-    addresses,
-    chainId,
-    chain,
-  }
-}
-
+/**
+ * Create a secure node client with KMS-backed signing
+ *
+ * SECURITY PROPERTIES:
+ * - No private keys in memory
+ * - All signing via KMS MPC (threshold signatures)
+ * - TEE attestation required for signing operations
+ */
 export function createSecureNodeClient(
   rpcUrl: string,
   chainId: number,

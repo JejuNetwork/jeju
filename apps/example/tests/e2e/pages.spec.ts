@@ -1,7 +1,12 @@
+import { getLocalhostHost } from '@jejunetwork/config'
 import { expect, test } from '@playwright/test'
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4501'
-const API_URL = process.env.API_URL || 'http://localhost:4500'
+const FRONTEND_URL =
+  (typeof process !== 'undefined' ? process.env.FRONTEND_URL : undefined) ||
+  `http://${getLocalhostHost()}:4501`
+const API_URL =
+  (typeof process !== 'undefined' ? process.env.API_URL : undefined) ||
+  `http://${getLocalhostHost()}:4500`
 
 test.describe('Frontend Page Load', () => {
   test('loads the homepage', async ({ page }) => {

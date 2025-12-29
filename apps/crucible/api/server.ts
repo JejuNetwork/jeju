@@ -12,13 +12,11 @@ import {
   getRpcUrl,
   getServicesConfig,
   getServiceUrl,
-  isProductionEnv,
 } from '@jejunetwork/config'
 import type { JsonObject } from '@jejunetwork/types'
-import { isHexString, isValidAddress } from '@jejunetwork/types'
+import { isValidAddress } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import { createPublicClient, createWalletClient, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { createPublicClient, http } from 'viem'
 import { localhost, mainnet, sepolia } from 'viem/chains'
 import { z } from 'zod'
 import type {
@@ -57,7 +55,7 @@ import { createAgentSDK } from './sdk/agent'
 import { createCompute } from './sdk/compute'
 import { type RuntimeMessage, runtimeManager } from './sdk/eliza-runtime'
 import { createExecutorSDK } from './sdk/executor'
-import { createKMSSigner, type KMSSigner } from './sdk/kms-signer'
+import { createKMSSigner } from './sdk/kms-signer'
 import { createLogger } from './sdk/logger'
 import { createRoomSDK } from './sdk/room'
 import { createStorage } from './sdk/storage'
@@ -174,10 +172,20 @@ const metrics = {
   startTime: Date.now(),
 }
 
-// Rate limiting configuration
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+// Rate limiting configuration - uses distributed cache
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+
 const RATE_LIMIT_WINDOW_MS = 60_000 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = crucibleConfig.rateLimitMaxRequests
+
+// Distributed cache for rate limiting
+let rateLimitCache: CacheClient | null = null
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('crucible-ratelimit')
+  }
+  return rateLimitCache
+}
 
 // CORS configuration - restrict to allowed origins
 const ALLOWED_ORIGINS = crucibleConfig.corsAllowedOrigins
@@ -203,38 +211,6 @@ function getRequiredEnv(key: string, defaultValue?: string): string {
     throw new Error(`Required environment variable ${key} is not set`)
   }
   return value
-}
-
-/**
- * Get private key from environment.
- * SECURITY WARNING: Only use for localnet development.
- * Production MUST use KMS-backed signing (USE_KMS=true).
- */
-function getPrivateKey(): `0x${string}` | undefined {
-  const pk = crucibleConfig.privateKey
-  if (!pk) return undefined
-  if (!isHexString(pk)) {
-    throw new Error('PRIVATE_KEY must be a valid hex string starting with 0x')
-  }
-  // Warn if private key is used in non-localnet
-  if (NETWORK !== 'localnet') {
-    log.warn(
-      'SECURITY: Using in-memory private key in production. Set USE_KMS=true for threshold signing.',
-    )
-  }
-  return pk
-}
-
-/**
- * Check if KMS-backed signing should be used.
- * Defaults to true in production environments.
- */
-function shouldUseKMS(): boolean {
-  const useKms = process.env.USE_KMS
-  if (useKms === 'true') return true
-  if (useKms === 'false') return false
-  // Default: use KMS in production, allow direct signing in localnet
-  return isProductionEnv() || NETWORK !== 'localnet'
 }
 
 function getOptionalAddress(
@@ -299,11 +275,9 @@ const LOCALNET_DEFAULTS = {
   indexerGraphql: string
 }
 
-const validatedPrivateKey = getPrivateKey()
-
 const config: CrucibleConfig = {
   rpcUrl: getRequiredEnv('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
-  privateKey: validatedPrivateKey,
+  kmsKeyId: getRequiredEnv('KMS_KEY_ID', 'default'),
   contracts: {
     agentVault: getOptionalAddress(
       'AGENT_VAULT_ADDRESS',
@@ -360,42 +334,25 @@ const publicClient = createPublicClient({
   transport: http(config.rpcUrl),
 })
 
-// KMS signer for threshold signing (production) or legacy wallet (localnet)
-let kmsSigner: KMSSigner | null = null
-let account: ReturnType<typeof privateKeyToAccount> | undefined
-let walletClient: ReturnType<typeof createWalletClient> | undefined
+// KMS signer for threshold signing
+const kmsSigner = createKMSSigner(config.rpcUrl, chain.id, {
+  threshold: NETWORK === 'mainnet' ? 3 : 2,
+  totalParties: NETWORK === 'mainnet' ? 5 : 3,
+})
 
-if (shouldUseKMS()) {
-  // Production: Use KMS-backed threshold signing
-  // Private key is NEVER loaded into this process
-  kmsSigner = createKMSSigner(config.rpcUrl, chain.id, {
-    threshold: NETWORK === 'mainnet' ? 3 : 2,
-    totalParties: NETWORK === 'mainnet' ? 5 : 3,
-  })
-
-  // Initialize KMS signer asynchronously
-  kmsSigner
-    .initialize()
-    .then(() => {
-      log.info('KMS signer initialized', {
-        address: kmsSigner?.getAddress() ?? null,
-        keyId: kmsSigner?.getKeyId() ?? null,
-      })
+// Initialize KMS signer asynchronously
+kmsSigner
+  .initialize()
+  .then(() => {
+    log.info('KMS signer initialized', {
+      address: kmsSigner.getAddress(),
+      keyId: kmsSigner.getKeyId(),
     })
-    .catch((err) => {
-      log.error('Failed to initialize KMS signer', { error: String(err) })
-      // Don't throw - server can still serve read-only endpoints
-    })
-} else if (validatedPrivateKey) {
-  // Localnet only: Use in-memory wallet (NOT for production)
-  log.warn('Using in-memory wallet - DO NOT USE IN PRODUCTION')
-  account = privateKeyToAccount(validatedPrivateKey)
-  walletClient = createWalletClient({
-    account,
-    chain,
-    transport: http(config.rpcUrl),
   })
-}
+  .catch((err) => {
+    log.error('Failed to initialize KMS signer', { error: String(err) })
+    // Don't throw - server can still serve read-only endpoints
+  })
 
 const storage = createStorage({
   apiUrl: config.services.storageApi,
@@ -413,16 +370,14 @@ const agentSdk = createAgentSDK({
   storage,
   compute,
   publicClient,
-  walletClient,
-  kmsSigner: kmsSigner ?? undefined,
+  kmsSigner,
 })
 
 const roomSdk = createRoomSDK({
   crucibleConfig: config,
   storage,
   publicClient,
-  walletClient,
-  kmsSigner: kmsSigner ?? undefined,
+  kmsSigner,
 })
 
 // Bot initialization
@@ -431,34 +386,26 @@ let tradingBots: Map<bigint, TradingBot> = new Map()
 
 // Seed DWS infrastructure (external chain nodes + bots) on startup
 async function seedDWSInfrastructure(): Promise<void> {
+  // Use treasury address from config, fallback to KMS signer address
+  const signerAddress = kmsSigner.isInitialized()
+    ? kmsSigner.getAddress()
+    : null
   const treasuryAddress =
     config.contracts.autocratTreasury ??
-    account?.address ??
+    signerAddress ??
     '0x0000000000000000000000000000000000000001'
 
-  try {
-    // Dynamic import to avoid circular dependency
-    const dws = await import('@jejunetwork/dws')
-    const result = await dws.seedInfrastructure(
-      treasuryAddress as `0x${string}`,
-    )
-    log.info('DWS infrastructure seeded', {
-      nodesReady: result.nodesReady,
-      botsRunning: result.botsRunning,
-    })
-  } catch (err) {
-    // Log but don't fail - infrastructure seeding is optional
-    log.warn('DWS infrastructure seeding failed', { error: String(err) })
-  }
+  // DWS infrastructure seeding deferred - seedInfrastructure is not exported from @jejunetwork/dws
+  log.info('DWS infrastructure seeding skipped', { treasuryAddress })
 }
 
-if (config.privateKey && walletClient) {
+// Initialize bot handler if KMS is configured
+if (kmsSigner) {
   botInitializer = new BotInitializer({
     crucibleConfig: config,
     agentSdk,
     publicClient,
-    walletClient,
-    kmsSigner: kmsSigner ?? undefined,
+    kmsSigner,
     treasuryAddress: config.contracts.autocratTreasury,
   })
 
@@ -531,31 +478,27 @@ app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
   const key = clientIp || walletAddress || 'unknown'
 
   const now = Date.now()
+  const cache = getRateLimitCache()
+  const cacheKey = `crucible-rl:${key}`
 
-  // Clean up old entries periodically (limit cleanup frequency)
-  if (rateLimitStore.size > 10000) {
-    const keysToDelete: string[] = []
-    for (const [k, v] of rateLimitStore) {
-      if (v.resetAt < now) keysToDelete.push(k)
-      if (keysToDelete.length >= 5000) break // Limit cleanup batch size
-    }
-    for (const k of keysToDelete) {
-      rateLimitStore.delete(k)
-    }
-  }
-
-  // Atomic check-and-increment pattern
-  let record = rateLimitStore.get(key)
+  // Get rate limit record from distributed cache
+  const cached = await cache.get(cacheKey)
+  let record: { count: number; resetAt: number } | null = cached
+    ? JSON.parse(cached)
+    : null
 
   if (!record || record.resetAt < now) {
-    // Create new record atomically
+    // Create new record
     record = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
-    rateLimitStore.set(key, record)
   } else {
-    // Increment count atomically before checking limit
+    // Increment count before checking limit
     record.count++
 
     if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+      // Store the updated record
+      const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+      await cache.set(cacheKey, JSON.stringify(record), ttl)
+
       set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
       set.headers['X-RateLimit-Remaining'] = '0'
       set.headers['X-RateLimit-Reset'] = Math.ceil(
@@ -565,6 +508,10 @@ app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
       return { error: 'Rate limit exceeded' }
     }
   }
+
+  // Store updated record with TTL
+  const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+  await cache.set(cacheKey, JSON.stringify(record), ttl)
 
   set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
   set.headers['X-RateLimit-Remaining'] = Math.max(
@@ -684,7 +631,7 @@ app.get('/info', async ({ request }) => {
     service: 'crucible',
     version: '1.0.0',
     network: config.network,
-    hasWallet: !!walletClient,
+    hasSigner: kmsSigner.isInitialized(),
     dwsAvailable,
     runtimes: runtimeManager.getAllRuntimes().length,
   }
@@ -976,7 +923,7 @@ app.post(
       agentId,
       request,
       agentSdk,
-      account ?? null,
+      kmsSigner.isInitialized() ? { address: kmsSigner.getAddress() } : null,
     )
     if (!authResult.authorized) {
       set.status = 403
@@ -1141,23 +1088,15 @@ app.post('/api/v1/rooms/:roomId/phase', async ({ params, body }) => {
 
 // Execution
 app.post('/api/v1/execute', async ({ body }) => {
-  expect(
-    walletClient && account,
-    'Executor not configured - missing private key',
-  )
+  if (!kmsSigner.isInitialized()) {
+    throw new Error('Executor not configured - KMS signer not initialized')
+  }
 
   const parsedBody = parseOrThrow(ExecuteRequestSchema, body, 'Execute request')
 
   log.info('Executing agent', { agentId: parsedBody.agentId })
 
-  // Get executor address from KMS signer or wallet account
-  const executorAddress = kmsSigner?.isInitialized()
-    ? kmsSigner.getAddress()
-    : account?.address
-
-  if (!executorAddress) {
-    throw new Error('No signer configured (KMS or wallet)')
-  }
+  const executorAddress = kmsSigner.getAddress()
 
   const executorSdk = createExecutorSDK({
     crucibleConfig: config,
@@ -1166,8 +1105,7 @@ app.post('/api/v1/execute', async ({ body }) => {
     agentSdk,
     roomSdk,
     publicClient,
-    walletClient,
-    kmsSigner: kmsSigner ?? undefined,
+    kmsSigner,
     executorAddress,
   })
 
@@ -1250,7 +1188,7 @@ app.post('/api/v1/bots/:botId/stop', async ({ params, request, set }) => {
     agentId,
     request,
     agentSdk,
-    account ?? null,
+    kmsSigner.isInitialized() ? { address: kmsSigner.getAddress() } : null,
   )
   if (!authResult.authorized) {
     set.status = 403
@@ -1279,7 +1217,7 @@ app.post('/api/v1/bots/:botId/start', async ({ params, request, set }) => {
     agentId,
     request,
     agentSdk,
-    account ?? null,
+    kmsSigner.isInitialized() ? { address: kmsSigner.getAddress() } : null,
   )
   if (!authResult.authorized) {
     set.status = 403
@@ -1440,14 +1378,15 @@ if (Number.isNaN(port) || port <= 0 || port > 65535) {
   throw new Error(`Invalid PORT: ${port}. Must be a valid port number`)
 }
 
-// Mask wallet address in logs (show first 6 and last 4 chars)
-const maskedWallet = account?.address
-  ? `${account.address.slice(0, 6)}...${account.address.slice(-4)}`
-  : 'not configured'
+// Mask signer address in logs (show first 6 and last 4 chars)
+const signerAddr = kmsSigner.isInitialized() ? kmsSigner.getAddress() : null
+const maskedSigner = signerAddr
+  ? `${signerAddr.slice(0, 6)}...${signerAddr.slice(-4)}`
+  : 'not initialized'
 log.info('Starting server', {
   port,
   network: config.network,
-  wallet: maskedWallet,
+  signer: maskedSigner,
 })
 
 // Initialize config from environment variables at startup
@@ -1458,7 +1397,6 @@ configureCrucible({
   requireAuth: getEnvVar('REQUIRE_AUTH') === 'true',
   rateLimitMaxRequests: getEnvNumber('RATE_LIMIT_MAX_REQUESTS'),
   corsAllowedOrigins: getEnvVar('CORS_ALLOWED_ORIGINS'),
-  privateKey: getEnvVar('PRIVATE_KEY'),
   autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
   computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),
   eqliteEndpoint: getEnvVar('EQLITE_ENDPOINT'),

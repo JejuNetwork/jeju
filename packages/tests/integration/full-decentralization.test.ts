@@ -10,7 +10,12 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import {
+  getEQLiteBlockProducerUrl,
+  getLocalhostHost,
+  getServiceUrl,
+  getTeeEndpoint,
+} from '@jejunetwork/config'
 import { createEQLiteClient, MigrationManager } from '@jejunetwork/db'
 import {
   getHSMClient,
@@ -20,12 +25,12 @@ import {
 } from '@jejunetwork/shared'
 
 // Test Configuration
-
+const host = getLocalhostHost()
 const TEST_CONFIG = {
-  storageUrl: process.env.STORAGE_URL ?? 'http://localhost:3100',
-  bazaarUrl: process.env.BAZAAR_URL ?? 'http://localhost:3000',
-  indexerUrl: process.env.INDEXER_URL ?? 'http://localhost:4000',
-  councilUrl: process.env.COUNCIL_URL ?? 'http://localhost:3200',
+  storageUrl: getServiceUrl('storage') ?? `http://${host}:3100`,
+  bazaarUrl: getServiceUrl('bazaar') ?? `http://${host}:3000`,
+  indexerUrl: getServiceUrl('indexer', 'graphql') ?? `http://${host}:4000`,
+  councilUrl: getServiceUrl('council') ?? `http://${host}:3200`,
 }
 
 // EQLite Tests
@@ -217,7 +222,7 @@ describe('HSM Integration', () => {
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-sim',
-      endpoint: 'http://localhost:8080',
+      endpoint: getTeeEndpoint() || `http://${host}:8080`,
       credentials: {},
     })
 
@@ -229,7 +234,7 @@ describe('HSM Integration', () => {
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-sim',
-      endpoint: 'http://localhost:8080',
+      endpoint: getTeeEndpoint() || `http://${host}:8080`,
       credentials: {},
       auditLogging: false,
     })
@@ -247,7 +252,7 @@ describe('HSM Integration', () => {
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-sim',
-      endpoint: 'http://localhost:8080',
+      endpoint: getTeeEndpoint() || `http://${host}:8080`,
       credentials: {},
       auditLogging: false,
     })

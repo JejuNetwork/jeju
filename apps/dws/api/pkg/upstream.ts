@@ -4,7 +4,11 @@
  * Uses EQLite for persistent package and tarball records
  */
 
-import { getEQLiteMinerUrl, getEQLiteUrl } from '@jejunetwork/config'
+import {
+  getEQLiteMinerUrl,
+  getEQLiteUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { getEQLite, resetEQLite } from '@jejunetwork/db'
 import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
@@ -35,7 +39,7 @@ async function getEQLiteClient() {
       minerEndpoint,
       databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !isProductionEnv(),
     })
 
     await ensureTablesExist()

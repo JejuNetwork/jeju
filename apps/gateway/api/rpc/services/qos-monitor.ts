@@ -1,17 +1,3 @@
-/**
- * QoS Monitoring Service
- *
- * Continuously monitors RPC node health and reports metrics to the blockchain.
- * This service validates node claims and provides the data for reputation calculation.
- *
- * Monitoring approach:
- * - Periodic health checks to all registered nodes
- * - Block height verification across nodes
- * - Latency measurement
- * - Error rate tracking
- * - Aggregate and report to MultiChainRPCRegistry
- */
-
 import {
   type Account,
   type Address,
@@ -24,8 +10,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { jejuMainnet, jejuTestnet } from '../../../lib/chains'
 import { JEJU_CHAIN_ID, RPC_URLS } from '../../../lib/config/networks'
 
-// Contract ABI fragments for MultiChainRPCRegistry
-const MULTI_CHAIN_RPC_REGISTRY_ABI = [
+const REGISTRY_ABI = [
   {
     type: 'function',
     name: 'getSupportedChains',
@@ -78,11 +63,9 @@ const MULTI_CHAIN_RPC_REGISTRY_ABI = [
   },
 ] as const
 
-// Get Jeju RPC URL
 const JEJU_RPC_URL = RPC_URLS[JEJU_CHAIN_ID as keyof typeof RPC_URLS]
 const CHAIN = JEJU_CHAIN_ID === 420691 ? jejuMainnet : jejuTestnet
 
-// Types for QoS monitoring
 interface QoSCheckResult {
   node: Address
   timestamp: number
@@ -93,29 +76,12 @@ interface QoSCheckResult {
   chainId?: number
 }
 
-interface AggregatedQoS {
-  node: Address
-  periodStart: number
-  periodEnd: number
-  checksPerformed: number
-  checksSuccessful: number
-  avgLatencyMs: number
-  minLatencyMs: number
-  maxLatencyMs: number
-  uptimePercentage: number
-}
-
 interface ChainEndpoint {
-  chainId: bigint
   endpoint: string
   isActive: boolean
-  isArchive: boolean
-  isWebSocket: boolean
-  blockHeight: bigint
-  lastUpdated: bigint
 }
 
-interface NodeCheckStats {
+interface NodeStats {
   checks: QoSCheckResult[]
   totalChecks: number
   successfulChecks: number
@@ -129,20 +95,77 @@ interface MonitorConfig {
   reportIntervalMs: number
   checkTimeoutMs: number
   minChecksForReport: number
+  metricsPort?: number
+}
+
+interface Metrics {
+  checksTotal: number
+  checksFailed: number
+  reportsSubmitted: number
+  reportsFailed: number
+  latencySamples: number[]
+  nodeUptimeScores: Map<string, number>
+  startTime: number
+}
+
+async function callRegistry<T>(
+  registryAddress: Address,
+  functionName:
+    | 'getSupportedChains'
+    | 'getProvidersForChain'
+    | 'getChainEndpoint',
+  args: readonly unknown[] = [],
+): Promise<T | null> {
+  const callData = encodeFunctionData({
+    abi: REGISTRY_ABI,
+    functionName,
+    args: args as never,
+  })
+
+  const response = await fetch(JEJU_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_call',
+      params: [{ to: registryAddress, data: callData }, 'latest'],
+      id: 1,
+    }),
+  })
+
+  const result = (await response.json()) as {
+    result?: string
+    error?: { message: string }
+  }
+  if (result.error || !result.result || result.result === '0x') return null
+
+  return decodeFunctionResult({
+    abi: REGISTRY_ABI,
+    functionName,
+    data: result.result as `0x${string}`,
+  }) as T
 }
 
 export class QoSMonitorService {
   private registryAddress: Address
-  private walletClient: ReturnType<typeof createWalletClient> | null
-  private walletAccount: Account | null
-  private walletAddress: Address | null
+  private walletClient: ReturnType<typeof createWalletClient> | null = null
+  private walletAccount: Account | null = null
+  private walletAddress: Address | null = null
   private config: MonitorConfig
   private running = false
   private checkInterval: ReturnType<typeof setInterval> | null = null
   private reportInterval: ReturnType<typeof setInterval> | null = null
-
-  // Stats per node per chain
-  private nodeStats = new Map<string, NodeCheckStats>()
+  private nodeStats = new Map<string, NodeStats>()
+  private metricsServer: ReturnType<typeof Bun.serve> | null = null
+  private metrics: Metrics = {
+    checksTotal: 0,
+    checksFailed: 0,
+    reportsSubmitted: 0,
+    reportsFailed: 0,
+    latencySamples: [],
+    nodeUptimeScores: new Map(),
+    startTime: Date.now(),
+  }
 
   constructor(
     registryAddress: Address,
@@ -151,7 +174,6 @@ export class QoSMonitorService {
   ) {
     this.registryAddress = registryAddress
 
-    // Initialize wallet client for reporting if private key provided
     if (privateKey) {
       const account = privateKeyToAccount(privateKey as `0x${string}`)
       this.walletAccount = account
@@ -161,178 +183,182 @@ export class QoSMonitorService {
         chain: CHAIN,
         transport: http(JEJU_RPC_URL),
       })
-    } else {
-      this.walletClient = null
-      this.walletAccount = null
-      this.walletAddress = null
     }
 
     this.config = {
-      checkIntervalMs: config?.checkIntervalMs ?? 60_000, // Check every minute
-      reportIntervalMs: config?.reportIntervalMs ?? 300_000, // Report every 5 minutes
-      checkTimeoutMs: config?.checkTimeoutMs ?? 10_000, // 10 second timeout
+      checkIntervalMs: config?.checkIntervalMs ?? 60_000,
+      reportIntervalMs: config?.reportIntervalMs ?? 300_000,
+      checkTimeoutMs: config?.checkTimeoutMs ?? 10_000,
       minChecksForReport: config?.minChecksForReport ?? 3,
+      metricsPort: config?.metricsPort,
     }
   }
 
-  /**
-   * Start the monitoring service
-   */
   async start(): Promise<void> {
-    if (this.running) {
-      console.warn('[QoS] Already running')
-      return
-    }
+    if (this.running) return
 
     this.running = true
-    console.log('[QoS] Starting monitoring service')
-    console.log(`[QoS] Registry: ${this.registryAddress}`)
-    console.log(`[QoS] Reporter: ${this.walletAddress ?? 'read-only mode'}`)
+    this.metrics.startTime = Date.now()
+    console.log(
+      `[QoS] Starting (registry: ${this.registryAddress}, reporter: ${this.walletAddress ?? 'read-only'})`,
+    )
 
-    // Initial check
+    if (this.config.metricsPort) {
+      this.startMetricsServer(this.config.metricsPort)
+    }
+
     await this.runChecks()
-
-    // Schedule periodic checks
     this.checkInterval = setInterval(
       () => this.runChecks(),
       this.config.checkIntervalMs,
     )
-
-    // Schedule periodic reports
     this.reportInterval = setInterval(
       () => this.reportAll(),
       this.config.reportIntervalMs,
     )
   }
 
-  /**
-   * Stop the monitoring service
-   */
   stop(): void {
     this.running = false
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval)
-      this.checkInterval = null
-    }
-    if (this.reportInterval) {
-      clearInterval(this.reportInterval)
-      this.reportInterval = null
-    }
-    console.log('[QoS] Stopped monitoring service')
+    if (this.checkInterval) clearInterval(this.checkInterval)
+    if (this.reportInterval) clearInterval(this.reportInterval)
+    this.checkInterval = null
+    this.reportInterval = null
+    this.metricsServer?.stop()
+    console.log('[QoS] Stopped')
   }
 
-  /**
-   * Run health checks on all nodes
-   */
+  private startMetricsServer(port: number): void {
+    this.metricsServer = Bun.serve({
+      port,
+      fetch: (req) => {
+        const { pathname } = new URL(req.url)
+        if (pathname === '/metrics') {
+          return new Response(this.formatPrometheusMetrics(), {
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          })
+        }
+        if (pathname === '/health') {
+          return new Response(
+            JSON.stringify({
+              status: 'healthy',
+              uptime: Date.now() - this.metrics.startTime,
+            }),
+            {
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
+        }
+        return new Response('Not Found', { status: 404 })
+      },
+    })
+    console.log(`[QoS] Metrics server on port ${port}`)
+  }
+
+  formatPrometheusMetrics(): string {
+    const lines: string[] = []
+    const nodesTracked = this.nodeStats.size
+
+    lines.push('# HELP rpc_qos_checks_total Total QoS checks performed')
+    lines.push('# TYPE rpc_qos_checks_total counter')
+    lines.push(`rpc_qos_checks_total ${this.metrics.checksTotal}`)
+
+    lines.push(
+      '# HELP rpc_qos_checks_failed_total Total QoS checks that failed',
+    )
+    lines.push('# TYPE rpc_qos_checks_failed_total counter')
+    lines.push(`rpc_qos_checks_failed_total ${this.metrics.checksFailed}`)
+
+    lines.push(
+      '# HELP rpc_reports_submitted_total Total performance reports submitted on-chain',
+    )
+    lines.push('# TYPE rpc_reports_submitted_total counter')
+    lines.push(`rpc_reports_submitted_total ${this.metrics.reportsSubmitted}`)
+
+    lines.push(
+      '# HELP rpc_reports_failed_total Total performance reports that failed',
+    )
+    lines.push('# TYPE rpc_reports_failed_total counter')
+    lines.push(`rpc_reports_failed_total ${this.metrics.reportsFailed}`)
+
+    lines.push('# HELP rpc_registered_nodes Number of RPC nodes being tracked')
+    lines.push('# TYPE rpc_registered_nodes gauge')
+    lines.push(`rpc_registered_nodes ${nodesTracked}`)
+
+    lines.push('# HELP rpc_monitor_uptime_seconds QoS monitor uptime')
+    lines.push('# TYPE rpc_monitor_uptime_seconds gauge')
+    lines.push(
+      `rpc_monitor_uptime_seconds ${(Date.now() - this.metrics.startTime) / 1000}`,
+    )
+
+    // Per-node uptime scores
+    lines.push('# HELP rpc_node_uptime_score Node uptime score (basis points)')
+    lines.push('# TYPE rpc_node_uptime_score gauge')
+    for (const [nodeKey, score] of this.metrics.nodeUptimeScores.entries()) {
+      const [node, chainId] = nodeKey.split('-')
+      lines.push(
+        `rpc_node_uptime_score{node="${node}",chain_id="${chainId}"} ${score}`,
+      )
+    }
+
+    // Latency histogram buckets
+    const buckets = [10, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
+    const samples = this.metrics.latencySamples
+    lines.push('# HELP rpc_node_latency_seconds RPC node response latency')
+    lines.push('# TYPE rpc_node_latency_seconds histogram')
+    let cumulative = 0
+    for (const bucket of buckets) {
+      cumulative +=
+        samples.filter((s) => s <= bucket).length -
+        (cumulative > 0 ? cumulative : 0)
+      lines.push(
+        `rpc_node_latency_seconds_bucket{le="${bucket / 1000}"} ${samples.filter((s) => s <= bucket).length}`,
+      )
+    }
+    lines.push(`rpc_node_latency_seconds_bucket{le="+Inf"} ${samples.length}`)
+    lines.push(
+      `rpc_node_latency_seconds_sum ${samples.reduce((a, b) => a + b, 0) / 1000}`,
+    )
+    lines.push(`rpc_node_latency_seconds_count ${samples.length}`)
+
+    return `${lines.join('\n')}\n`
+  }
+
   async runChecks(): Promise<void> {
     if (!this.running) return
 
-    console.log('[QoS] Running health checks...')
-
-    // Get all supported chains
     const chains = await this.getSupportedChains()
-
-    // Check nodes for each chain in parallel
     await Promise.all(
       chains.map((chainId) => this.checkChainNodes(Number(chainId))),
     )
-
-    console.log(`[QoS] Completed checks for ${chains.length} chains`)
+    console.log(`[QoS] Checked ${chains.length} chains`)
   }
 
-  /**
-   * Get supported chains from contract with proper decoding
-   */
   private async getSupportedChains(): Promise<bigint[]> {
-    const callData = encodeFunctionData({
-      abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-      functionName: 'getSupportedChains',
-    })
-
-    const response = await fetch(JEJU_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_call',
-        params: [{ to: this.registryAddress, data: callData }, 'latest'],
-        id: 1,
-      }),
-    })
-
-    const result = (await response.json()) as {
-      result?: string
-      error?: { message: string }
-    }
-
-    if (result.error || !result.result || result.result === '0x') {
-      console.warn('[QoS] Failed to get supported chains, using defaults')
-      // Return default chains if contract call fails
-      return [BigInt(1), BigInt(10), BigInt(137), BigInt(42161), BigInt(8453)]
-    }
-
-    const decoded = decodeFunctionResult({
-      abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-      functionName: 'getSupportedChains',
-      data: result.result as `0x${string}`,
-    }) as bigint[]
-
-    return decoded.length > 0
-      ? decoded
-      : [BigInt(1), BigInt(10), BigInt(137), BigInt(42161), BigInt(8453)]
-  }
-
-  /**
-   * Check all nodes for a specific chain
-   */
-  private async checkChainNodes(chainId: number): Promise<void> {
-    const providers = await this.getProvidersForChain(chainId)
-    await Promise.all(providers.map((node) => this.checkNode(node, chainId)))
-  }
-
-  /**
-   * Get providers for a chain with proper decoding
-   */
-  private async getProvidersForChain(chainId: number): Promise<Address[]> {
-    const callData = encodeFunctionData({
-      abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-      functionName: 'getProvidersForChain',
-      args: [BigInt(chainId)],
-    })
-
-    const response = await fetch(JEJU_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_call',
-        params: [{ to: this.registryAddress, data: callData }, 'latest'],
-        id: 1,
-      }),
-    })
-
-    const result = (await response.json()) as {
-      result?: string
-      error?: { message: string }
-    }
-
-    if (result.error || !result.result || result.result === '0x') {
+    const result = await callRegistry<bigint[]>(
+      this.registryAddress,
+      'getSupportedChains',
+    )
+    if (!result?.length) {
+      console.warn('[QoS] No supported chains found')
       return []
     }
-
-    const decoded = decodeFunctionResult({
-      abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-      functionName: 'getProvidersForChain',
-      data: result.result as `0x${string}`,
-    }) as Address[]
-
-    return decoded
+    return result
   }
 
-  /**
-   * Check a single node's health
-   */
+  private async checkChainNodes(chainId: number): Promise<void> {
+    const providers = await callRegistry<Address[]>(
+      this.registryAddress,
+      'getProvidersForChain',
+      [BigInt(chainId)],
+    )
+    if (providers?.length) {
+      await Promise.all(providers.map((node) => this.checkNode(node, chainId)))
+    }
+  }
+
   async checkNode(node: Address, chainId: number): Promise<QoSCheckResult> {
+    this.metrics.checksTotal++
     const result: QoSCheckResult = {
       node,
       timestamp: Date.now(),
@@ -340,18 +366,20 @@ export class QoSMonitorService {
       chainId,
     }
 
-    // Get endpoint from contract
-    const endpoint = await this.getChainEndpoint(node, chainId)
+    const endpoint = await callRegistry<ChainEndpoint>(
+      this.registryAddress,
+      'getChainEndpoint',
+      [node, BigInt(chainId)],
+    )
 
-    if (!endpoint || !endpoint.isActive || !endpoint.endpoint) {
+    if (!endpoint?.isActive || !endpoint.endpoint) {
       result.errorMessage = 'Endpoint not active'
+      this.metrics.checksFailed++
       this.recordCheck(node, chainId, result)
       return result
     }
 
-    // Health check: call eth_blockNumber
     const startTime = Date.now()
-
     const controller = new AbortController()
     const timeoutId = setTimeout(
       () => controller.abort(),
@@ -375,6 +403,7 @@ export class QoSMonitorService {
 
       if (!response.ok) {
         result.errorMessage = `HTTP ${response.status}`
+        this.metrics.checksFailed++
         this.recordCheck(node, chainId, result)
         return result
       }
@@ -383,9 +412,9 @@ export class QoSMonitorService {
         result?: string
         error?: { message: string }
       }
-
       if (data.error) {
         result.errorMessage = data.error.message
+        this.metrics.checksFailed++
         this.recordCheck(node, chainId, result)
         return result
       }
@@ -393,61 +422,23 @@ export class QoSMonitorService {
       result.isReachable = true
       result.latencyMs = Date.now() - startTime
       result.blockHeight = data.result ? parseInt(data.result, 16) : undefined
+
+      // Record latency sample for histogram (keep last 1000)
+      this.metrics.latencySamples.push(result.latencyMs)
+      if (this.metrics.latencySamples.length > 1000) {
+        this.metrics.latencySamples.shift()
+      }
     } catch (error) {
       clearTimeout(timeoutId)
       result.errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
+      this.metrics.checksFailed++
     }
 
     this.recordCheck(node, chainId, result)
     return result
   }
 
-  /**
-   * Get chain endpoint for a node with proper decoding
-   */
-  private async getChainEndpoint(
-    node: Address,
-    chainId: number,
-  ): Promise<ChainEndpoint | null> {
-    const callData = encodeFunctionData({
-      abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-      functionName: 'getChainEndpoint',
-      args: [node, BigInt(chainId)],
-    })
-
-    const response = await fetch(JEJU_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_call',
-        params: [{ to: this.registryAddress, data: callData }, 'latest'],
-        id: 1,
-      }),
-    })
-
-    const result = (await response.json()) as {
-      result?: string
-      error?: { message: string }
-    }
-
-    if (result.error || !result.result || result.result === '0x') {
-      return null
-    }
-
-    const decoded = decodeFunctionResult({
-      abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
-      functionName: 'getChainEndpoint',
-      data: result.result as `0x${string}`,
-    }) as ChainEndpoint
-
-    return decoded
-  }
-
-  /**
-   * Record a check result
-   */
   private recordCheck(
     node: Address,
     chainId: number,
@@ -471,46 +462,40 @@ export class QoSMonitorService {
     stats.checks.push(result)
     stats.totalChecks++
 
-    if (result.isReachable) {
+    if (result.isReachable && result.latencyMs !== undefined) {
       stats.successfulChecks++
-      if (result.latencyMs !== undefined) {
-        stats.totalLatency += result.latencyMs
-        stats.minLatency = Math.min(stats.minLatency, result.latencyMs)
-        stats.maxLatency = Math.max(stats.maxLatency, result.latencyMs)
-      }
+      stats.totalLatency += result.latencyMs
+      stats.minLatency = Math.min(stats.minLatency, result.latencyMs)
+      stats.maxLatency = Math.max(stats.maxLatency, result.latencyMs)
     }
 
-    // Keep only last 100 checks
+    // Update uptime score metric
+    const uptimeScore =
+      stats.totalChecks > 0
+        ? Math.round((stats.successfulChecks / stats.totalChecks) * 10000)
+        : 0
+    this.metrics.nodeUptimeScores.set(key, uptimeScore)
+
     if (stats.checks.length > 100) {
       const removed = stats.checks.shift()
       if (removed) {
         stats.totalChecks--
-        if (removed.isReachable) {
+        if (removed.isReachable && removed.latencyMs !== undefined) {
           stats.successfulChecks--
-          if (removed.latencyMs !== undefined) {
-            stats.totalLatency -= removed.latencyMs
-          }
+          stats.totalLatency -= removed.latencyMs
         }
       }
     }
   }
 
-  /**
-   * Get aggregated QoS for a node
-   */
-  getAggregatedQoS(node: Address, chainId: number): AggregatedQoS | null {
-    const key = `${node.toLowerCase()}-${chainId}`
-    const stats = this.nodeStats.get(key)
-
+  getAggregatedQoS(node: Address, chainId: number) {
+    const stats = this.nodeStats.get(`${node.toLowerCase()}-${chainId}`)
     if (!stats || stats.totalChecks === 0) return null
-
-    const firstCheck = stats.checks[0]
-    const lastCheck = stats.checks[stats.checks.length - 1]
 
     return {
       node,
-      periodStart: firstCheck?.timestamp ?? 0,
-      periodEnd: lastCheck?.timestamp ?? 0,
+      periodStart: stats.checks[0]?.timestamp ?? 0,
+      periodEnd: stats.checks[stats.checks.length - 1]?.timestamp ?? 0,
       checksPerformed: stats.totalChecks,
       checksSuccessful: stats.successfulChecks,
       avgLatencyMs:
@@ -523,114 +508,69 @@ export class QoSMonitorService {
     }
   }
 
-  /**
-   * Report all aggregated metrics to the contract
-   */
   async reportAll(): Promise<void> {
-    if (!this.walletClient || !this.walletAddress || !this.walletAccount) {
+    if (!this.walletClient || !this.walletAccount) {
       console.warn('[QoS] No wallet configured, skipping report')
       return
     }
-    const walletAccount = this.walletAccount
 
-    console.log('[QoS] Reporting metrics to contract...')
+    const nodeReports = new Map<Address, { uptime: number; latency: number }>()
 
-    const reports: Array<{
-      node: Address
-      chainId: number
-      uptime: number
-      successRate: number
-      latency: number
-    }> = []
-
-    // Collect all reports
     for (const [key, stats] of Array.from(this.nodeStats.entries())) {
       if (stats.totalChecks < this.config.minChecksForReport) continue
 
-      const [node, chainIdStr] = key.split('-')
-      const chainId = parseInt(chainIdStr, 10)
-
+      const [node] = key.split('-')
       const uptimeScore = Math.round(
         (stats.successfulChecks / stats.totalChecks) * 10000,
       )
-      const successRate = uptimeScore
       const avgLatency = Math.round(
         stats.successfulChecks > 0
           ? stats.totalLatency / stats.successfulChecks
           : 9999,
       )
 
-      reports.push({
-        node: node as Address,
-        chainId,
-        uptime: uptimeScore,
-        successRate,
-        latency: avgLatency,
-      })
-    }
-
-    // Group by node (report best performance across chains)
-    const nodeReports = new Map<
-      Address,
-      { uptime: number; successRate: number; latency: number }
-    >()
-
-    for (const report of reports) {
-      const existing = nodeReports.get(report.node)
+      const existing = nodeReports.get(node as Address)
       if (
         !existing ||
-        report.uptime > existing.uptime ||
-        (report.uptime === existing.uptime && report.latency < existing.latency)
+        uptimeScore > existing.uptime ||
+        (uptimeScore === existing.uptime && avgLatency < existing.latency)
       ) {
-        nodeReports.set(report.node, {
-          uptime: report.uptime,
-          successRate: report.successRate,
-          latency: report.latency,
+        nodeReports.set(node as Address, {
+          uptime: uptimeScore,
+          latency: avgLatency,
         })
       }
     }
 
-    // Submit reports via transactions
     for (const [node, metrics] of Array.from(nodeReports.entries())) {
       try {
-        const callData = encodeFunctionData({
-          abi: MULTI_CHAIN_RPC_REGISTRY_ABI,
+        const hash = await this.walletClient.writeContract({
+          account: this.walletAccount,
+          chain: CHAIN,
+          address: this.registryAddress,
+          abi: REGISTRY_ABI,
           functionName: 'reportPerformance',
           args: [
             node,
             BigInt(metrics.uptime),
-            BigInt(metrics.successRate),
+            BigInt(metrics.uptime),
             BigInt(metrics.latency),
           ],
         })
-
-        const hash = await this.walletClient.sendTransaction({
-          account: walletAccount,
-          chain: CHAIN,
-          to: this.registryAddress,
-          data: callData,
-        })
-
+        this.metrics.reportsSubmitted++
         console.log(
           `[QoS] Reported ${node}: uptime=${metrics.uptime}, latency=${metrics.latency}, tx=${hash}`,
         )
       } catch (error) {
+        this.metrics.reportsFailed++
         console.error(`[QoS] Failed to report ${node}:`, error)
       }
     }
 
-    // Clear old stats after reporting
     this.nodeStats.clear()
   }
 
-  /**
-   * Get current stats summary
-   */
-  getStatsSummary(): {
-    nodesTracked: number
-    totalChecks: number
-    avgUptime: number
-  } {
+  getStatsSummary() {
     let totalNodes = 0
     let totalChecks = 0
     let totalUptime = 0
@@ -638,9 +578,8 @@ export class QoSMonitorService {
     for (const stats of Array.from(this.nodeStats.values())) {
       totalNodes++
       totalChecks += stats.totalChecks
-      if (stats.totalChecks > 0) {
+      if (stats.totalChecks > 0)
         totalUptime += stats.successfulChecks / stats.totalChecks
-      }
     }
 
     return {
@@ -649,9 +588,12 @@ export class QoSMonitorService {
       avgUptime: totalNodes > 0 ? (totalUptime / totalNodes) * 100 : 0,
     }
   }
+
+  getMetrics(): Metrics {
+    return this.metrics
+  }
 }
 
-// Singleton
 let monitorInstance: QoSMonitorService | null = null
 
 export function getQoSMonitor(): QoSMonitorService | null {

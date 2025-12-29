@@ -11,6 +11,7 @@
  *   bunx playwright test packages/tests/e2e/jns-gateway.spec.ts --config packages/tests/smoke/synpress.config.ts
  */
 
+import { getLocalhostHost, getRpcUrl } from '@jejunetwork/config'
 import type { Page } from '@playwright/test'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
@@ -29,9 +30,10 @@ const basicSetup = createWalletSetup()
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546'
-const JNS_GATEWAY_PORT = parseInt(process.env.JNS_GATEWAY_PORT || '4005', 10)
-const JNS_GATEWAY_URL = `http://localhost:${JNS_GATEWAY_PORT}`
+const RPC_URL = getRpcUrl()
+const host = getLocalhostHost()
+const JNS_GATEWAY_PORT = 4005 // Default JNS gateway port
+const JNS_GATEWAY_URL = `http://${host}:${JNS_GATEWAY_PORT}`
 
 const _chain = {
   id: 31337,

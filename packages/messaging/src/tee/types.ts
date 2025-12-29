@@ -4,12 +4,8 @@
  * Type definitions for TEE-backed XMTP key management.
  */
 
-import type { Address, Hex } from 'viem'
-
-// Re-export TEEAttestation from @jejunetwork/types for backwards compatibility
-export type { TEEAttestation } from '@jejunetwork/types'
-
 import type { TEEAttestation } from '@jejunetwork/types'
+import type { Address, Hex } from 'viem'
 
 export interface TEEKeyConfig {
   /** KMS service endpoint (required for real TEE mode) */

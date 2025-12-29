@@ -10,6 +10,7 @@
 import {
   createAppConfig,
   getContract,
+  getLocalhostHost,
   getRpcUrl,
   getServiceUrl,
 } from '@jejunetwork/config'
@@ -301,7 +302,7 @@ export function createCDNRouter() {
           cid: app.cid,
           routes: {
             frontend: `/cdn/apps/${app.name}/`,
-            proxy: `http://localhost:${app.port}`,
+            proxy: `http://${getLocalhostHost()}:${app.port}`,
           },
         }))
 

@@ -18,18 +18,8 @@ import {
 } from 'viem'
 import { z } from 'zod'
 
-// Also re-export KMSSigner from @jejunetwork/kms for backward compat
-export {
-  createKMSSigner,
-  getKMSSigner,
-  type KMSKeyInfo,
-  KMSSigner,
-  type KMSSignerConfig,
-  type SigningMode,
-  type SignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-} from '@jejunetwork/kms'
+// Import directly from @jejunetwork/kms:
+// import { createKMSSigner, getKMSSigner, KMSSigner } from '@jejunetwork/kms'
 
 // Response schemas
 const SignResponseSchema = z.object({

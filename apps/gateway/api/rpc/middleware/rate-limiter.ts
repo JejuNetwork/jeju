@@ -1,4 +1,10 @@
-import { getChainId, getRpcUrl } from '@jejunetwork/config'
+import {
+  getChainId,
+  getCurrentNetwork,
+  getRpcUrl,
+  isProductionEnv,
+  tryGetContract,
+} from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/shared'
 import { RATE_LIMITS, type RateTier } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
@@ -52,8 +58,7 @@ export function isPrivateIp(ip: string): boolean {
  * In production, set TRUST_PROXY_HEADERS=true if behind a trusted reverse proxy
  */
 const TRUST_PROXY_HEADERS =
-  process.env.NODE_ENV !== 'production' ||
-  process.env.TRUST_PROXY_HEADERS === 'true'
+  !isProductionEnv() || process.env.TRUST_PROXY_HEADERS === 'true'
 
 function getClientIp(request: Request): string {
   // SECURITY: Only trust proxy headers if explicitly configured
@@ -131,11 +136,14 @@ const RPC_STAKING_ABI = [
   },
 ] as const
 
-const stakingAddrEnv = process.env.RPC_STAKING_ADDRESS
+const network = getCurrentNetwork()
+const stakingAddrEnv =
+  typeof process !== 'undefined' ? process.env.RPC_STAKING_ADDRESS : undefined
 const STAKING_ADDR: Address | undefined =
-  stakingAddrEnv?.startsWith('0x') && stakingAddrEnv.length === 42
+  (stakingAddrEnv?.startsWith('0x') && stakingAddrEnv.length === 42
     ? (stakingAddrEnv as Address)
-    : undefined
+    : undefined) ??
+  (tryGetContract('rpc', 'staking', network) as Address | undefined)
 const RPC_URL = getRpcUrl()
 const CHAIN_ID = getChainId()
 
@@ -173,10 +181,7 @@ let stakingWarningLogged = false
 const checkAccess = async (addr: Address): Promise<boolean> => {
   if (!STAKING_ADDR) {
     // SECURITY: Log warning in production if staking is expected but not configured
-    if (
-      process.env.NODE_ENV === 'production' &&
-      process.env.REQUIRE_STAKING === 'true'
-    ) {
+    if (isProductionEnv() && process.env.REQUIRE_STAKING === 'true') {
       if (!stakingWarningLogged) {
         console.warn(
           '[RPC Gateway] SECURITY WARNING: REQUIRE_STAKING=true but RPC_STAKING_ADDRESS not configured',

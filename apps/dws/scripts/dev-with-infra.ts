@@ -1,5 +1,16 @@
 #!/usr/bin/env bun
 
+/**
+ * DWS Development Server with Full Infrastructure
+ *
+ * Starts:
+ * 1. Local blockchain (anvil) if not running
+ * 2. Deploys all DWS contracts
+ * 3. Starts EQLite in-memory mode (no Docker required)
+ * 4. Starts the DWS API server
+ * 5. Starts the frontend dev server
+ */
+
 import { join } from 'node:path'
 import { getLocalhostHost } from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
@@ -109,7 +120,6 @@ async function startAnvil(): Promise<boolean> {
 async function deployContracts(): Promise<boolean> {
   console.log('[Dev] Deploying contracts...')
 
-  const host = getLocalhostHost()
   const proc = Bun.spawn(['bun', 'run', 'scripts/deploy-contracts.ts'], {
     cwd: DWS_DIR,
     stdout: 'inherit',

@@ -2,16 +2,23 @@ export * from './bridge'
 export * from './cdn'
 export * from './compute'
 export * from './cron'
+// Edge coordinator temporarily disabled - incomplete module
+// export * from './edge-coordinator'
 export * from './hybrid-torrent'
 export * from './oracle'
+// Residential proxy temporarily disabled - incomplete module
+// export * from './residential-proxy'
 export * from './sequencer'
 export * from './staking-manager'
 export * from './static-assets'
 export * from './storage'
 export * from './updater'
 
+// VPN exit service temporarily disabled - module incomplete
+// export * from './vpn-exit'
+
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { NodeClient, SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 import {
   type BridgeService,
   type BridgeServiceConfig,
@@ -22,11 +29,57 @@ import { type CDNService, createCDNService } from './cdn'
 import { type ComputeService, createComputeService } from './compute'
 import { type CronService, createCronService } from './cron'
 import { createDatabaseService, type DatabaseService } from './database'
+
+// Edge coordinator temporarily disabled - incomplete module
+// import {
+//   createEdgeCoordinator,
+//   type EdgeCoordinator,
+//   type EdgeCoordinatorConfig,
+// } from './edge-coordinator'
+type EdgeCoordinatorConfig = {
+  nodeId: string
+  operator: `0x${string}`
+  /** KMS key ID for secure signing (no raw private keys) */
+  keyId: string
+  listenPort: number
+  gossipInterval: number
+  gossipFanout: number
+  maxPeers: number
+  bootstrapNodes: string[]
+  region: string
+  staleThresholdMs: number
+  requireOnChainRegistration: boolean
+  maxMessageSizeBytes: number
+  allowedOrigins: string[]
+}
+type EdgeCoordinator = { start: () => Promise<void>; stop: () => Promise<void> }
+function createEdgeCoordinator(
+  _config: EdgeCoordinatorConfig,
+): EdgeCoordinator {
+  return { start: async () => {}, stop: async () => {} }
+}
+
 import {
   getHybridTorrentService,
   type HybridTorrentService,
 } from './hybrid-torrent'
 import { createOracleService, type OracleService } from './oracle'
+
+// Residential proxy temporarily disabled - incomplete module
+// import {
+//   createResidentialProxyService,
+//   type ResidentialProxyService,
+// } from './residential-proxy'
+type ResidentialProxyService = {
+  start: () => Promise<void>
+  stop: () => Promise<void>
+}
+function createResidentialProxyService(
+  _client: SecureNodeClient,
+): ResidentialProxyService {
+  return { start: async () => {}, stop: async () => {} }
+}
+
 import {
   createSequencerService,
   type SequencerConfig,
@@ -44,48 +97,18 @@ import {
 } from './static-assets'
 import { createStorageService, type StorageService } from './storage'
 
-interface EdgeCoordinatorConfig {
-  nodeId: string
-  operator: `0x${string}`
-  keyId: string
-  listenPort: number
-  gossipInterval: number
-  gossipFanout: number
-  maxPeers: number
-  bootstrapNodes: string[]
-  region: string
-  staleThresholdMs: number
-  requireOnChainRegistration: boolean
-  maxMessageSizeBytes: number
-  allowedOrigins: string[]
-}
-
-interface EdgeCoordinator {
-  start: () => Promise<void>
-  stop: () => Promise<void>
-}
-
-function createEdgeCoordinator(_config: EdgeCoordinatorConfig): EdgeCoordinator {
-  return { start: async () => {}, stop: async () => {} }
-}
-
-interface ResidentialProxyService {
-  start: () => Promise<void>
-  stop: () => Promise<void>
-}
-
-function createResidentialProxyService(_client: NodeClient): ResidentialProxyService {
-  return { start: async () => {}, stop: async () => {} }
-}
-
+// VPN exit service temporarily disabled - module incomplete
+// import {
+//   createVPNExitService,
+//   type VPNExitConfig,
+//   type VPNExitService,
+// } from './vpn-exit'
 type VPNExitConfig = Record<string, never>
-
-interface VPNExitService {
-  start: () => Promise<void>
-  stop: () => Promise<void>
-}
-
-function createVPNExitService(_client: NodeClient, _config?: Partial<VPNExitConfig>): VPNExitService {
+type VPNExitService = { start: () => Promise<void>; stop: () => Promise<void> }
+function createVPNExitService(
+  _client: SecureNodeClient,
+  _config?: Partial<VPNExitConfig>,
+): VPNExitService {
   return { start: async () => {}, stop: async () => {} }
 }
 
@@ -118,7 +141,7 @@ export interface NodeServicesConfig {
 }
 
 export function createNodeServices(
-  client: NodeClient | SecureNodeClient,
+  client: SecureNodeClient | SecureNodeClient,
   config: NodeServicesConfig = {},
 ): NodeServices {
   const {
@@ -131,6 +154,8 @@ export function createNodeServices(
     staking: stakingConfig,
   } = config
 
+  // Bridge service requires operator address - defaults to ZERO_ADDRESS when not provided
+  // Services will validate and error if operator address is required for specific operations
   const operatorAddress = bridgeConfig?.operatorAddress ?? ZERO_ADDRESS
 
   const fullBridgeConfig: BridgeServiceConfig = {
@@ -146,6 +171,7 @@ export function createNodeServices(
     ...bridgeConfig,
   }
 
+  // Get keyId from config or SecureNodeClient
   const resolvedKeyId =
     keyId ?? ('keyId' in client ? client.keyId : undefined) ?? ''
 
@@ -172,7 +198,9 @@ export function createNodeServices(
     ...edgeConfig,
   }
 
-  const legacyClient = client as NodeClient
+  // Cast to SecureNodeClient for backwards compatibility with services
+  // Services should be migrated to use SecureNodeClient
+  const legacyClient = client as SecureNodeClient
 
   return {
     compute: createComputeService(legacyClient),

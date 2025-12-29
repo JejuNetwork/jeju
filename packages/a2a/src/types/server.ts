@@ -265,7 +265,7 @@ export interface IBlockchainRegistry extends IRegistryReader {
 export type IRegistryClient = IRegistryReader & Partial<IBlockchainRegistry>
 
 /**
- * Payment request result - re-exported from common for interface use
+ * Payment request result - type alias for interface use
  */
 export type PaymentRequestResult = PaymentRequest
 

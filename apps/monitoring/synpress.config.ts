@@ -2,13 +2,14 @@
  * Monitoring App Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
+import { CORE_PORTS } from '@jejunetwork/config'
 import {
   createSynpressConfig,
   createWalletSetup,
   PASSWORD,
 } from '@jejunetwork/tests/playwright-only'
 
-const MONITORING_PORT = parseInt(process.env.PORT || '9091', 10)
+const MONITORING_PORT = CORE_PORTS.MONITORING.get()
 
 export default createSynpressConfig({
   appName: 'monitoring',

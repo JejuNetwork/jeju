@@ -3,10 +3,21 @@
  * Includes retry logic and error handling
  */
 
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getServiceUrl,
+} from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import type { PkgActivityType } from './types'
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000'
+const network = getCurrentNetwork()
+const GATEWAY_URL =
+  typeof process !== 'undefined' && process.env.GATEWAY_URL
+    ? process.env.GATEWAY_URL
+    : network === 'localnet'
+      ? `http://${getLocalhostHost()}:4000`
+      : getServiceUrl('gateway', 'api', network)
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 1000
 

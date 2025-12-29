@@ -1,9 +1,25 @@
+/**
+ * Leaderboard Integration for Jeju Git
+ * Syncs git contributions to the leaderboard system
+ */
+
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getServiceUrl,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import type { ContributionEvent, ContributionType } from './types'
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000'
+const network = getCurrentNetwork()
+const GATEWAY_URL =
+  typeof process !== 'undefined' && process.env.GATEWAY_URL
+    ? process.env.GATEWAY_URL
+    : network === 'localnet'
+      ? `http://${getLocalhostHost()}:4000`
+      : getServiceUrl('gateway', 'api', network)
 const SYNC_INTERVAL = 60000
 
 interface GitContribution {

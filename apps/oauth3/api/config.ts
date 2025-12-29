@@ -19,8 +19,11 @@ export interface OAuth3Config {
   // Auth
   serviceAgentId: string
   jwtSecret: string
+  jwtSigningKeyId: string
+  jwtSignerAddress: string
   sessionDuration: number
   allowedOrigins: string[]
+  devMode: boolean
 
   // EQLite
   eqliteDatabaseId: string
@@ -52,8 +55,13 @@ const { config, configure: setOAuth3Config } = createAppConfig<OAuth3Config>({
   // Auth
   serviceAgentId: getEnvVar('SERVICE_AGENT_ID') ?? 'auth.jeju',
   jwtSecret: getEnvVar('JWT_SECRET') ?? 'dev-secret-change-in-production',
+  jwtSigningKeyId: getEnvVar('JWT_SIGNING_KEY_ID') ?? 'oauth3-jwt-signing',
+  jwtSignerAddress:
+    getEnvVar('JWT_SIGNER_ADDRESS') ??
+    '0x0000000000000000000000000000000000000000',
   sessionDuration: 24 * 60 * 60 * 1000, // 24 hours
   allowedOrigins: (getEnvVar('ALLOWED_ORIGINS') ?? '*').split(','),
+  devMode: !isProductionEnv(),
 
   // EQLite
   eqliteDatabaseId: getEnvVar('EQLite_DATABASE_ID') ?? 'oauth3',

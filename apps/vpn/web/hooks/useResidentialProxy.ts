@@ -96,10 +96,13 @@ export function useResidentialProxy() {
           const errorInstance =
             err instanceof Error ? err : new Error(String(err))
 
-          if (hasInitialized) {
-            setError(errorInstance)
-          }
+          setError(errorInstance)
+          console.error(
+            '[useResidentialProxy] Failed to fetch data:',
+            errorInstance,
+          )
           setIsLoading(false)
+          setHasInitialized(true)
         }
       }
     }
@@ -111,7 +114,7 @@ export function useResidentialProxy() {
       mountedRef.current = false
       clearInterval(interval)
     }
-  }, [hasInitialized])
+  }, [])
 
   const updateSettings = useCallback(
     async (newSettings: ResidentialProxySettings) => {
@@ -135,7 +138,6 @@ export function useResidentialProxy() {
 
   const register = useCallback(async (stakeAmount: string) => {
     await invoke('register_residential_proxy', { stake_amount: stakeAmount })
-    // Refresh status after registration
     const newStatus = await invoke(
       'get_residential_proxy_status',
       {},
@@ -148,7 +150,6 @@ export function useResidentialProxy() {
 
   const claimRewards = useCallback(async () => {
     await invoke('claim_residential_proxy_rewards', {})
-    // Refresh status after claiming
     const newStatus = await invoke(
       'get_residential_proxy_status',
       {},

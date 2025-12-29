@@ -555,7 +555,7 @@ export async function startLocalJNSGateway(
     port,
     rpcUrl,
     jnsRegistryAddress,
-    ipfsGatewayUrl: `http://localhost:${ipfsGatewayPort}`,
+    ipfsGatewayUrl: `http://${getLocalhostHost()}:${ipfsGatewayPort}`,
     rootDir,
   })
 

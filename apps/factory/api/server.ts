@@ -79,7 +79,7 @@ function getMimeType(path: string): string {
 
 function createApp() {
   const baseApp = new Elysia()
-    .onRequest(({ request, set }): Response | undefined => {
+    .onRequest(async ({ request, set }): Promise<Response | undefined> => {
       const url = new URL(request.url)
       // Skip rate limiting for health and docs
       if (
@@ -94,7 +94,7 @@ function createApp() {
       })
       const clientId = getClientIdentifier(headers)
       const tier = getRateLimitTier(request.method, url.pathname)
-      const result = checkRateLimit(clientId, tier)
+      const result = await checkRateLimit(clientId, tier)
       const rateLimitHeaders = getRateLimitHeaders(result)
       for (const [k, v] of Object.entries(rateLimitHeaders)) {
         set.headers[k] = v

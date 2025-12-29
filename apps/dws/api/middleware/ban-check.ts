@@ -3,7 +3,12 @@
  * Uses @jejunetwork/shared for ban checking
  */
 
-import { getCurrentNetwork } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import { type BanCheckConfig, BanChecker } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -17,14 +22,23 @@ const AddressFieldsSchema = z.object({
   owner: z.string().optional(),
 })
 
-// Get config from environment
-const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
-  | Address
-  | undefined
-const MODERATION_MARKETPLACE_ADDRESS = process.env
-  .MODERATION_MARKETPLACE_ADDRESS as Address | undefined
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
+// Get config from environment with config fallbacks
 const NETWORK = getCurrentNetwork()
+const BAN_MANAGER_ADDRESS =
+  ((typeof process !== 'undefined'
+    ? process.env.BAN_MANAGER_ADDRESS
+    : undefined) as Address | undefined) ??
+  (tryGetContract('moderation', 'banManager', NETWORK) as Address | undefined)
+const MODERATION_MARKETPLACE_ADDRESS =
+  ((typeof process !== 'undefined'
+    ? process.env.MODERATION_MARKETPLACE_ADDRESS
+    : undefined) as Address | undefined) ??
+  (tryGetContract('moderation', 'marketplace', NETWORK) as Address | undefined)
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  (NETWORK === 'localnet'
+    ? `http://${getLocalhostHost()}:6545`
+    : getRpcUrl(NETWORK))
 
 // Skip paths that don't need ban checking (public endpoints)
 const SKIP_PATHS = [

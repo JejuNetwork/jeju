@@ -13,6 +13,7 @@
  * - Network Testnet (420690)
  */
 
+import { getRpcUrl } from '@jejunetwork/config'
 import { readContract } from '@jejunetwork/shared'
 import {
   type Address,
@@ -163,7 +164,7 @@ const DEFAULT_CHAINS: ChainConfig[] = [
   {
     chainId: 420691,
     name: 'Network',
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+    rpcUrl: getRpcUrl(),
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     tokens: [
       {

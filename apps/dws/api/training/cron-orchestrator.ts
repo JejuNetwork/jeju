@@ -8,7 +8,12 @@
  * Triggers are defined in app manifests and executed via HTTP endpoints.
  */
 
-import { getDWSUrl, getServiceUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getDWSUrl,
+  getLocalhostHost,
+  getServiceUrl,
+} from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { Cron } from 'croner'
 import { z } from 'zod'
@@ -507,8 +512,10 @@ export async function initializeTrainingOrchestrator(
   const crucibleUrl =
     process.env.CRUCIBLE_API_URL ??
     getServiceUrl('compute', 'nodeApi') ??
-    'http://localhost:4021'
-  const dwsUrl = process.env.DWS_API_URL ?? getDWSUrl()
+    `http://${getLocalhostHost()}:4021`
+  const dwsUrl =
+    (typeof process !== 'undefined' ? process.env.DWS_API_URL : undefined) ??
+    getDWSUrl(getCurrentNetwork())
 
   // Register Crucible triggers
   orchestrator.registerFromManifest(

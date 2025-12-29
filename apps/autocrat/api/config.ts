@@ -2,6 +2,7 @@ import {
   createAppConfig,
   getEnvNumber,
   getEnvVar,
+  getLocalhostHost,
   isProductionEnv,
 } from '@jejunetwork/config'
 
@@ -66,7 +67,7 @@ const { config, configure: setAutocratConfig } =
     cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     teePlatform: getEnvVar('TEE_PLATFORM'),
     teeEncryptionSecret: getEnvVar('TEE_ENCRYPTION_SECRET'),
-    ollamaUrl: getEnvVar('OLLAMA_URL') ?? 'http://localhost:11434',
+    ollamaUrl: getEnvVar('OLLAMA_URL') ?? `http://${getLocalhostHost()}:11434`,
     ollamaModel: getEnvVar('OLLAMA_MODEL') ?? 'llama3.2',
     computeModel: getEnvVar('COMPUTE_MODEL'),
     orchestratorCron: getEnvVar('ORCHESTRATOR_CRON') ?? '*/30 * * * * *',

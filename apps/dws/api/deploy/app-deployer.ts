@@ -1,3 +1,17 @@
+/**
+ * DWS App Deployer
+ *
+ * Heroku/EKS-like deployment experience for Jeju apps.
+ * Reads jeju-manifest.json and provisions all required infrastructure through DWS.
+ *
+ * Features:
+ * - Reads app manifest and provisions databases, caches, queues
+ * - Integrates with dstack for TEE (simulator or real hardware)
+ * - Manages container lifecycle (Docker locally, k8s in production)
+ * - Provides unified deployment API
+ */
+
+import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -10,6 +24,10 @@ import {
   type ServiceInstance,
   type ServiceType,
 } from '../services'
+
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface AppManifest {
   name: string
@@ -164,11 +182,7 @@ async function initializeTEE(config: DWSConfig['tee']): Promise<{
   const status = await checkDStackStatus()
 
   // In production, if TEE is required but not available, fail
-  if (
-    config.required &&
-    !status.available &&
-    process.env.NODE_ENV === 'production'
-  ) {
+  if (config.required && !status.available && isProductionEnv()) {
     throw new Error('TEE required but not available')
   }
 
@@ -317,8 +331,8 @@ export class AppDeployer {
       return {
         type: 'postgres',
         name: dbName,
-        connectionString: `postgres://postgres:postgres@localhost:${port}/${appName.replace(/-/g, '_')}`,
-        host: 'localhost',
+        connectionString: `postgres://postgres:postgres@${getLocalhostHost()}:${port}/${appName.replace(/-/g, '_')}`,
+        host: getLocalhostHost(),
         port,
       }
     }
@@ -505,9 +519,8 @@ export function createAppDeployerRouter() {
       const status = await checkDStackStatus()
       return {
         ...status,
-        mode:
-          process.env.NODE_ENV === 'production' ? 'production' : 'development',
-        simulatorAllowed: process.env.NODE_ENV !== 'production',
+        mode: isProductionEnv() ? 'production' : 'development',
+        simulatorAllowed: !isProductionEnv(),
       }
     })
 }

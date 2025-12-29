@@ -1,4 +1,14 @@
-import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+/**
+ * Reputation verification service for OAuth3 client registration.
+ * Verifies on-chain reputation scores.
+ * REQUIRES contracts - no fallback.
+ */
+
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { createPublicClient, http, parseAbi } from 'viem'
 import { foundry, mainnet, sepolia } from 'viem/chains'
@@ -19,16 +29,27 @@ const MODERATION_ABI = parseAbi([
 // Get RPC URL from config with env override
 function getRpcUrlFromConfig(): string {
   const network = getCurrentNetwork()
-  return process.env.RPC_URL ?? getRpcUrl(network)
+  return (
+    (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+    getRpcUrl(network)
+  )
 }
 
+// Get reputation registry contract address (optional - can use only moderation)
 function getReputationRegistryAddress(): Address | null {
-  const address = process.env.REPUTATION_REGISTRY_ADDRESS
+  const address =
+    (typeof process !== 'undefined'
+      ? process.env.REPUTATION_REGISTRY_ADDRESS
+      : undefined) ?? tryGetContract('registry', 'reputation')
   return address ? (address as Address) : null
 }
 
+// Get moderation contract address (optional - can use only reputation registry)
 function getModerationAddress(): Address | null {
-  const address = process.env.MODERATION_CONTRACT_ADDRESS
+  const address =
+    (typeof process !== 'undefined'
+      ? process.env.MODERATION_CONTRACT_ADDRESS
+      : undefined) ?? tryGetContract('moderation', 'marketplace')
   return address ? (address as Address) : null
 }
 
@@ -36,8 +57,18 @@ function getPublicClient() {
   const rpcUrl = getRpcUrlFromConfig()
   const network = getCurrentNetwork()
 
-  const chain =
-    network === 'mainnet' ? mainnet : network === 'testnet' ? sepolia : foundry
+  let chain: typeof mainnet | typeof sepolia | typeof foundry
+  switch (network) {
+    case 'mainnet':
+      chain = mainnet
+      break
+    case 'testnet':
+      chain = sepolia
+      break
+    default:
+      chain = foundry
+      break
+  }
 
   return createPublicClient({
     chain,

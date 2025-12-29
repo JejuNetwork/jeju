@@ -10,6 +10,7 @@
  * All operations via DWS storage/exec APIs - no Node.js fs required.
  */
 
+import { getLocalhostHost } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
 import { z } from 'zod'
@@ -21,11 +22,15 @@ export interface K3sProviderConfig {
   execUrl: string
 }
 
-let config: K3sProviderConfig = {
-  k3sDir: '/tmp/dws-k3s',
-  storageUrl: 'http://localhost:4020/storage',
-  execUrl: 'http://localhost:4020/exec',
+const getDefaultConfig = (): K3sProviderConfig => {
+  const host = getLocalhostHost()
+  return {
+    k3sDir: '/tmp/dws-k3s',
+    storageUrl: `http://${host}:4020/storage`,
+    execUrl: `http://${host}:4020/exec`,
+  }
 }
+let config: K3sProviderConfig = getDefaultConfig()
 
 export function configureK3sProvider(c: Partial<K3sProviderConfig>): void {
   config = { ...config, ...c }
@@ -242,7 +247,8 @@ async function createK3dCluster(
   const apiMatch = kubeconfigResult.stdout.match(
     /server:\s*(https?:\/\/[^\s]+)/,
   )
-  cluster.apiEndpoint = apiMatch?.[1] ?? 'https://localhost:6443'
+  const host = getLocalhostHost()
+  cluster.apiEndpoint = apiMatch?.[1] ?? `https://${host}:6443`
 
   cluster.nodes = await getK3dNodes(binary, clusterConfig.name)
 }
@@ -308,7 +314,8 @@ async function createK3sCluster(
 
   const kubeconfig = await readFile(cluster.kubeconfig)
   const apiMatch = kubeconfig.match(/server:\s*(https?:\/\/[^\s]+)/)
-  cluster.apiEndpoint = apiMatch?.[1] ?? 'https://127.0.0.1:6443'
+  const host = getLocalhostHost()
+  cluster.apiEndpoint = apiMatch?.[1] ?? `https://${host}:6443`
 
   await waitForKubeApi(cluster.kubeconfig)
 

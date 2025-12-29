@@ -298,6 +298,43 @@ type HandlerResult =
       earnings_wei: number
     }
   | { address: string; session_id: string; expires_at: number }
+  // Residential Proxy types
+  | {
+      is_registered: boolean
+      is_active: boolean
+      stake_amount: string
+      total_bytes_shared: string
+      total_sessions: number
+      total_earnings: string
+      pending_rewards: string
+      current_connections: number
+      uptime_score: number
+      success_rate: number
+      coordinator_connected: boolean
+    }
+  | {
+      enabled: boolean
+      node_type: 'residential' | 'datacenter' | 'mobile'
+      max_bandwidth_mbps: number
+      max_concurrent_connections: number
+      allowed_ports: number[]
+      blocked_domains: string[]
+      schedule_enabled: boolean
+    }
+  | {
+      bytes_shared_today: string
+      bytes_shared_week: string
+      bytes_shared_month: string
+      sessions_today: number
+      sessions_week: number
+      avg_session_duration_ms: number
+      peak_bandwidth_mbps: number
+      earnings_today: string
+      earnings_week: string
+      earnings_month: string
+    }
+  | { success: boolean; node_address: string; stake_amount: string }
+  | { success: boolean; claimed_amount: string }
 
 type MockHandler = (args: Record<string, unknown>) => Promise<HandlerResult>
 

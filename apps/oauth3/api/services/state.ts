@@ -1,109 +1,23 @@
+/**
+ * OAuth3 State Service - Database-backed storage for sessions, clients, and auth codes
+ * Set USE_MEMORY_STATE=true to use in-memory storage for development/testing
+ */
+
 import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import type { EQLiteClient } from '@jejunetwork/db'
-import type { Address, Hex } from 'viem'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import type { Address } from 'viem'
 import type {
   AuthProvider,
   AuthSession,
-  ClientStakeInfo,
-  ClientTier,
+  HashedClientSecret,
   RegisteredClient,
 } from '../../lib/types'
 
 const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
 
-interface SerializedStakeInfo {
-  amount: string
-  tier: number
-  verifiedAt: number
-  stakeTxHash?: string
-}
-
-function serializeStake(stake: ClientStakeInfo): string {
-  const serialized: SerializedStakeInfo = {
-    amount: stake.amount.toString(),
-    tier: stake.tier,
-    verifiedAt: stake.verifiedAt,
-    stakeTxHash: stake.stakeTxHash,
-  }
-  return JSON.stringify(serialized)
-}
-
-function deserializeStake(json: string): ClientStakeInfo {
-  const parsed = JSON.parse(json) as SerializedStakeInfo
-  return {
-    amount: BigInt(parsed.amount),
-    tier: parsed.tier as ClientTier,
-    verifiedAt: parsed.verifiedAt,
-    stakeTxHash: parsed.stakeTxHash as Hex | undefined,
-  }
-}
-
-interface SerializedClient extends Omit<RegisteredClient, 'stake'> {
-  stake?: SerializedStakeInfo
-}
-
-function serializeClient(client: RegisteredClient): string {
-  const serialized: SerializedClient = {
-    ...client,
-    stake: client.stake
-      ? {
-          amount: client.stake.amount.toString(),
-          tier: client.stake.tier,
-          verifiedAt: client.stake.verifiedAt,
-          stakeTxHash: client.stake.stakeTxHash,
-        }
-      : undefined,
-  }
-  return JSON.stringify(serialized)
-}
-
-function deserializeClient(json: string): RegisteredClient {
-  const parsed = JSON.parse(json) as SerializedClient
-  return {
-    ...parsed,
-    stake: parsed.stake
-      ? {
-          amount: BigInt(parsed.stake.amount),
-          tier: parsed.stake.tier as ClientTier,
-          verifiedAt: parsed.stake.verifiedAt,
-          stakeTxHash: parsed.stake.stakeTxHash as Hex | undefined,
-        }
-      : undefined,
-  }
-}
-
-// Simple in-memory cache for performance (not for persistence)
-interface SimpleCacheClient {
-  get(key: string): Promise<string | null>
-  set(key: string, value: string, ttlSeconds?: number): Promise<void>
-  delete(key: string): Promise<void>
-}
-
-const memoryCache = new Map<string, { value: string; expiresAt: number }>()
-
-function createSimpleCacheClient(): SimpleCacheClient {
-  return {
-    async get(key: string): Promise<string | null> {
-      const entry = memoryCache.get(key)
-      if (!entry) return null
-      if (entry.expiresAt > 0 && Date.now() > entry.expiresAt) {
-        memoryCache.delete(key)
-        return null
-      }
-      return entry.value
-    },
-    async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-      const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : 0
-      memoryCache.set(key, { value, expiresAt })
-    },
-    async delete(key: string): Promise<void> {
-      memoryCache.delete(key)
-    },
-  }
-}
-
 let eqliteClient: EQLiteClient | null = null
-let cacheClient: SimpleCacheClient | null = null
+let cacheClient: CacheClient | null = null
 let initialized = false
 
 async function getEQLiteClient(): Promise<EQLiteClient> {
@@ -130,9 +44,9 @@ async function getEQLiteClient(): Promise<EQLiteClient> {
   return eqliteClient
 }
 
-function getCache(): SimpleCacheClient {
+function getCache(): CacheClient {
   if (!cacheClient) {
-    cacheClient = createSimpleCacheClient()
+    cacheClient = getCacheClient('oauth3')
   }
   return cacheClient
 }
@@ -170,7 +84,6 @@ async function ensureTablesExist(): Promise<void> {
       owner TEXT NOT NULL,
       created_at INTEGER NOT NULL,
       active INTEGER NOT NULL DEFAULT 1,
-      require_secret INTEGER NOT NULL DEFAULT 0,
       stake TEXT,
       reputation TEXT,
       moderation TEXT
@@ -340,42 +253,37 @@ export const clientState = {
     const cache = getCache()
 
     await db.exec(
-      `INSERT INTO clients (client_id, client_secret, client_secret_hash, name, redirect_uris, allowed_providers, owner, created_at, active, require_secret, stake, reputation, moderation)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO clients (client_id, client_secret_hash, name, redirect_uris, allowed_providers, owner, created_at, active, stake, reputation, moderation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(client_id) DO UPDATE SET
-        client_secret = excluded.client_secret, client_secret_hash = excluded.client_secret_hash,
+        client_secret_hash = excluded.client_secret_hash,
         name = excluded.name, redirect_uris = excluded.redirect_uris,
         allowed_providers = excluded.allowed_providers, active = excluded.active,
-        require_secret = excluded.require_secret, stake = excluded.stake,
-        reputation = excluded.reputation, moderation = excluded.moderation`,
+        stake = excluded.stake, reputation = excluded.reputation, moderation = excluded.moderation`,
       [
         client.clientId,
-        client.clientSecret ?? null,
-        client.clientSecretHash
-          ? JSON.stringify(client.clientSecretHash)
-          : null,
+        JSON.stringify(client.clientSecretHash),
         client.name,
         JSON.stringify(client.redirectUris),
         JSON.stringify(client.allowedProviders),
         client.owner,
         client.createdAt,
         client.active ? 1 : 0,
-        client.requireSecret ? 1 : 0,
-        client.stake ? serializeStake(client.stake) : null,
+        client.stake ? JSON.stringify(client.stake) : null,
         client.reputation ? JSON.stringify(client.reputation) : null,
         client.moderation ? JSON.stringify(client.moderation) : null,
       ],
       EQLITE_DATABASE_ID,
     )
 
-    await cache.set(`client:${client.clientId}`, serializeClient(client), 3600)
+    await cache.set(`client:${client.clientId}`, JSON.stringify(client), 3600)
   },
 
   async get(clientId: string): Promise<RegisteredClient | null> {
     const cache = getCache()
     const cached = await cache.get(`client:${clientId}`)
     if (cached) {
-      return deserializeClient(cached)
+      return JSON.parse(cached) as RegisteredClient
     }
 
     const db = await getEQLiteClient()
@@ -389,7 +297,7 @@ export const clientState = {
     if (!result.rows[0]) return null
 
     const client = rowToClient(result.rows[0])
-    await cache.set(`client:${clientId}`, serializeClient(client), 3600)
+    await cache.set(`client:${clientId}`, JSON.stringify(client), 3600)
 
     return client
   },
@@ -629,16 +537,25 @@ export const oauthStateStore = {
 export async function initializeState(): Promise<void> {
   await ensureTablesExist()
 
+  // Empty hash for public clients (no secret required, supports PKCE flows)
+  const publicClientSecretHash: HashedClientSecret = {
+    hash: '',
+    salt: '',
+    algorithm: 'pbkdf2',
+    version: 1,
+  }
+
   // Ensure default client exists
   const defaultClient = await clientState.get('jeju-default')
   if (!defaultClient) {
     await clientState.save({
       clientId: 'jeju-default',
+      clientSecretHash: publicClientSecretHash,
       name: 'Jeju Network Apps',
       redirectUris: [
         'https://*.jejunetwork.org/*',
-        'http://localhost:*/*',
-        'http://127.0.0.1:*/*',
+        `http://localhost:*/*`,
+        `http://${getLocalhostHost()}:*/*`,
       ],
       allowedProviders: [
         'wallet',
@@ -660,6 +577,7 @@ export async function initializeState(): Promise<void> {
   if (!elizaCloudClient) {
     await clientState.save({
       clientId: 'eliza-cloud',
+      clientSecretHash: publicClientSecretHash,
       name: 'Eliza Cloud',
       redirectUris: [
         'https://cloud.elizaos.com/*',
@@ -667,8 +585,6 @@ export async function initializeState(): Promise<void> {
         'https://*.elizaos.ai/*',
         `http://${getLocalhostHost()}:3000/*`,
         `http://${getLocalhostHost()}:3001/*`,
-        'http://127.0.0.1:3000/*',
-        'http://127.0.0.1:3001/*',
       ],
       allowedProviders: [
         'wallet',
@@ -701,7 +617,6 @@ interface SessionRow {
 
 interface ClientRow {
   client_id: string
-  client_secret: string | null
   client_secret_hash: string | null
   name: string
   redirect_uris: string
@@ -709,7 +624,6 @@ interface ClientRow {
   owner: string
   created_at: number
   active: number
-  require_secret: number
   stake: string | null
   reputation: string | null
   moderation: string | null
@@ -763,22 +677,22 @@ function rowToSession(row: SessionRow): AuthSession {
 }
 
 function rowToClient(row: ClientRow): RegisteredClient {
+  const clientSecretHash = row.client_secret_hash
+    ? (JSON.parse(row.client_secret_hash) as HashedClientSecret)
+    : { hash: '', salt: '', algorithm: 'pbkdf2' as const, version: 1 }
+
   return {
     clientId: row.client_id,
-    clientSecret: row.client_secret as Hex | undefined,
-    clientSecretHash: row.client_secret_hash
-      ? (JSON.parse(
-          row.client_secret_hash,
-        ) as RegisteredClient['clientSecretHash'])
-      : undefined,
+    clientSecretHash,
     name: row.name,
     redirectUris: JSON.parse(row.redirect_uris) as string[],
     allowedProviders: JSON.parse(row.allowed_providers) as AuthProvider[],
     owner: row.owner as Address,
     createdAt: row.created_at,
     active: row.active === 1,
-    requireSecret: row.require_secret === 1,
-    stake: row.stake ? deserializeStake(row.stake) : undefined,
+    stake: row.stake
+      ? (JSON.parse(row.stake) as RegisteredClient['stake'])
+      : undefined,
     reputation: row.reputation
       ? (JSON.parse(row.reputation) as RegisteredClient['reputation'])
       : undefined,
@@ -910,6 +824,10 @@ export const clientReportState = {
   },
 }
 
+/**
+ * Verify client secret using PBKDF2 hash comparison to prevent timing attacks.
+ * Returns true if the client exists, is active, and the secret matches.
+ */
 export async function verifyClientSecret(
   clientId: string,
   clientSecret: string | undefined,
@@ -924,12 +842,8 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_disabled' }
   }
 
-  // Public clients (no secret required) - allow for PKCE flows
-  if (
-    !client.clientSecret &&
-    !client.clientSecretHash &&
-    !client.requireSecret
-  ) {
+  // Public clients (empty hash) - allow for PKCE flows
+  if (!client.clientSecretHash.hash) {
     return { valid: true }
   }
 
@@ -938,38 +852,18 @@ export async function verifyClientSecret(
     return { valid: false, error: 'client_secret_required' }
   }
 
-  // If we have a hashed secret, use the KMS verifier
-  if (client.clientSecretHash) {
-    const { verifyClientSecretHash } = await import('./kms')
-    const hashValid = await verifyClientSecretHash(
-      clientSecret,
-      client.clientSecretHash,
-    )
-    return hashValid
-      ? { valid: true }
-      : { valid: false, error: 'invalid_client_secret' }
+  // Verify using PBKDF2 hash comparison (constant-time via the hash algorithm)
+  const { verifyClientSecretHash } = await import('./kms')
+  const isValid = await verifyClientSecretHash(
+    clientSecret,
+    client.clientSecretHash,
+  )
+
+  if (!isValid) {
+    return { valid: false, error: 'invalid_client_secret' }
   }
 
-  // Legacy plaintext comparison (constant-time)
-  if (client.clientSecret) {
-    const storedSecret = client.clientSecret
-    if (storedSecret.length !== clientSecret.length) {
-      return { valid: false, error: 'invalid_client_secret' }
-    }
-
-    let result = 0
-    for (let i = 0; i < storedSecret.length; i++) {
-      result |= storedSecret.charCodeAt(i) ^ clientSecret.charCodeAt(i)
-    }
-
-    if (result !== 0) {
-      return { valid: false, error: 'invalid_client_secret' }
-    }
-
-    return { valid: true }
-  }
-
-  return { valid: false, error: 'client_secret_required' }
+  return { valid: true }
 }
 
 export { getEQLiteClient, getCache }

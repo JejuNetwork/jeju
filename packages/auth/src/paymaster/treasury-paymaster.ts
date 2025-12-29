@@ -12,6 +12,7 @@ import {
   getSecureSigningService,
   type SecureSigningService,
 } from '@jejunetwork/kms'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import {
   type Address,
   type Chain,
@@ -125,7 +126,7 @@ export class TreasuryPaymaster {
   private readonly rpcUrl: string
   private readonly chainId: number
   private readonly policy: SponsorshipPolicy
-  private readonly userStates: Map<DID, UserSponsorshipState>
+  private readonly cache: CacheClient
   private readonly signingService: SecureSigningService
 
   constructor(config: PaymasterConfig) {
@@ -135,7 +136,7 @@ export class TreasuryPaymaster {
     this.rpcUrl = config.rpcUrl
     this.chainId = config.chainId
     this.policy = { ...DEFAULT_POLICY, ...config.policy }
-    this.userStates = new Map()
+    this.cache = getCacheClient('treasury-paymaster')
     this.signingService = getSecureSigningService()
   }
 
@@ -169,7 +170,7 @@ export class TreasuryPaymaster {
     userOp: UserOperation,
   ): Promise<PaymasterDecision> {
     // Check policy first
-    const policyCheck = this.checkPolicy(userId, userOp)
+    const policyCheck = await this.checkPolicy(userId, userOp)
     if (!policyCheck.sponsor) {
       return policyCheck
     }
@@ -229,7 +230,7 @@ export class TreasuryPaymaster {
     }
 
     // Update user state
-    this.updateUserState(userId, decision.maxGas ?? 0n)
+    await this.updateUserState(userId, decision.maxGas ?? 0n)
 
     return {
       sponsored: true,
@@ -313,7 +314,10 @@ export class TreasuryPaymaster {
   /**
    * Check if operation passes policy requirements
    */
-  private checkPolicy(userId: DID, userOp: UserOperation): PaymasterDecision {
+  private async checkPolicy(
+    userId: DID,
+    userOp: UserOperation,
+  ): Promise<PaymasterDecision> {
     const targetContract = userOp.sender
 
     // Check blacklist
@@ -336,7 +340,7 @@ export class TreasuryPaymaster {
     }
 
     // Check daily limit
-    const userState = this.getUserState(userId)
+    const userState = await this.getUserState(userId)
     if (userState.gasUsedToday >= this.policy.maxGasPerUserPerDay) {
       return { sponsor: false, reason: 'Daily gas limit exceeded' }
     }
@@ -390,40 +394,80 @@ export class TreasuryPaymaster {
   }
 
   /**
-   * Get or create user state
+   * Get or create user state from distributed cache
    */
-  private getUserState(userId: DID): UserSponsorshipState {
-    let state = this.userStates.get(userId)
+  private async getUserState(userId: DID): Promise<UserSponsorshipState> {
+    const cacheKey = `paymaster:user:${userId}`
+    const cached = await this.cache.get(cacheKey)
 
-    if (!state) {
-      state = {
-        userId,
-        gasUsedToday: 0n,
-        lastReset: Date.now(),
-        totalGasSponsored: 0n,
-        transactionCount: 0,
+    if (cached) {
+      const parsed = JSON.parse(cached) as {
+        userId: DID
+        gasUsedToday: string
+        lastReset: number
+        totalGasSponsored: string
+        transactionCount: number
       }
-      this.userStates.set(userId, state)
+
+      const state: UserSponsorshipState = {
+        userId: parsed.userId,
+        gasUsedToday: BigInt(parsed.gasUsedToday),
+        lastReset: parsed.lastReset,
+        totalGasSponsored: BigInt(parsed.totalGasSponsored),
+        transactionCount: parsed.transactionCount,
+      }
+
+      // Reset daily counter if needed
+      const oneDayMs = 24 * 60 * 60 * 1000
+      if (Date.now() - state.lastReset > oneDayMs) {
+        state.gasUsedToday = 0n
+        state.lastReset = Date.now()
+        await this.saveUserState(userId, state)
+      }
+
+      return state
     }
 
-    // Reset daily counter if needed
-    const oneDayMs = 24 * 60 * 60 * 1000
-    if (Date.now() - state.lastReset > oneDayMs) {
-      state.gasUsedToday = 0n
-      state.lastReset = Date.now()
+    // Create new state
+    const state: UserSponsorshipState = {
+      userId,
+      gasUsedToday: 0n,
+      lastReset: Date.now(),
+      totalGasSponsored: 0n,
+      transactionCount: 0,
     }
-
+    await this.saveUserState(userId, state)
     return state
+  }
+
+  /**
+   * Save user state to distributed cache
+   */
+  private async saveUserState(
+    userId: DID,
+    state: UserSponsorshipState,
+  ): Promise<void> {
+    const cacheKey = `paymaster:user:${userId}`
+    const serializable = {
+      userId: state.userId,
+      gasUsedToday: state.gasUsedToday.toString(),
+      lastReset: state.lastReset,
+      totalGasSponsored: state.totalGasSponsored.toString(),
+      transactionCount: state.transactionCount,
+    }
+    // TTL of 7 days for user state
+    await this.cache.set(cacheKey, JSON.stringify(serializable), 604800)
   }
 
   /**
    * Update user state after sponsorship
    */
-  private updateUserState(userId: DID, gasUsed: bigint): void {
-    const state = this.getUserState(userId)
+  private async updateUserState(userId: DID, gasUsed: bigint): Promise<void> {
+    const state = await this.getUserState(userId)
     state.gasUsedToday += gasUsed
     state.totalGasSponsored += gasUsed
     state.transactionCount += 1
+    await this.saveUserState(userId, state)
   }
 
   /**
@@ -524,24 +568,34 @@ export class TreasuryPaymaster {
 
   /**
    * Get sponsorship statistics
+   * Note: With distributed cache, aggregate stats require separate tracking
    */
-  getStats(): {
+  async getStats(): Promise<{
     totalUsers: number
     totalTransactions: number
     totalGasSponsored: bigint
-  } {
-    let totalTransactions = 0
-    let totalGasSponsored = 0n
+  }> {
+    // Get aggregate stats from cache
+    const statsKey = 'paymaster:stats:aggregate'
+    const cached = await this.cache.get(statsKey)
 
-    for (const state of this.userStates.values()) {
-      totalTransactions += state.transactionCount
-      totalGasSponsored += state.totalGasSponsored
+    if (cached) {
+      const parsed = JSON.parse(cached) as {
+        totalUsers: number
+        totalTransactions: number
+        totalGasSponsored: string
+      }
+      return {
+        totalUsers: parsed.totalUsers,
+        totalTransactions: parsed.totalTransactions,
+        totalGasSponsored: BigInt(parsed.totalGasSponsored),
+      }
     }
 
     return {
-      totalUsers: this.userStates.size,
-      totalTransactions,
-      totalGasSponsored,
+      totalUsers: 0,
+      totalTransactions: 0,
+      totalGasSponsored: 0n,
     }
   }
 
@@ -575,9 +629,10 @@ export class TreasuryPaymaster {
 
   /**
    * Shutdown the paymaster - called when cleaning up
+   * Note: With distributed cache, no local cleanup needed
    */
   shutdown(): void {
-    this.userStates.clear()
+    // No local cleanup needed - cache handles TTL expiration
   }
 }
 

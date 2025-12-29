@@ -5,6 +5,8 @@
  * across providers and eliminate code duplication.
  */
 
+import { pbkdf2 } from '@noble/hashes/pbkdf2'
+import { sha256 } from '@noble/hashes/sha256'
 import type { Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { ciphertextPayloadSchema } from './schemas.js'
@@ -249,19 +251,6 @@ export function constantTimeCompare(a: Hex, b: Hex): boolean {
 }
 
 /**
- * Derive a key from a secret string using keccak256.
- * 
- * NOTE: For stronger key derivation, use deriveKeyFromSecretAsync which uses PBKDF2.
- * This synchronous version is useful when async/await is not available.
- *
- * @param secret - The secret string to derive from
- * @returns 32-byte derived key
- */
-export function deriveKeyFromSecret(secret: string): Uint8Array {
-  return toBytes(keccak256(toBytes(secret)))
-}
-
-/**
  * Derive a master key from a secret string using PBKDF2.
  *
  * SECURITY: Uses 100,000 iterations of PBKDF2-SHA256 to provide resistance
@@ -300,6 +289,29 @@ export async function deriveKeyFromSecretAsync(
   )
 
   return new Uint8Array(derivedBits)
+}
+
+/**
+ * Derive a 256-bit master key from a secret string (SYNCHRONOUS)
+ *
+ * Uses @noble/hashes PBKDF2-SHA256 for synchronous key derivation.
+ *
+ * @param secret - The secret string to derive from
+ * @param salt - Optional salt for domain separation (defaults to 'jeju:kms:master:v1')
+ * @returns 32-byte derived key
+ */
+export function deriveKeyFromSecret(
+  secret: string,
+  salt: string = 'jeju:kms:master:v1',
+): Uint8Array {
+  const encoder = new TextEncoder()
+  const secretBytes = encoder.encode(secret)
+  const saltBytes = encoder.encode(salt)
+
+  return pbkdf2(sha256, secretBytes, saltBytes, {
+    c: 100000,
+    dkLen: 32,
+  })
 }
 
 /** Derive a key for a specific keyId and policy */

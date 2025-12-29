@@ -862,10 +862,14 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
 
   const host = getLocalhostHost()
   const dwsEndpoint =
-    process.env.DWS_ENDPOINT ||
-    process.env.DWS_BASE_URL ||
-    getDWSUrl() ||
-    `http://${host}:${process.env.DWS_PORT || process.env.PORT || '4030'}`
+    (typeof process !== 'undefined' ? process.env.DWS_ENDPOINT : undefined) ||
+    (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ||
+    getDWSUrl(getCurrentNetwork()) ||
+    `http://${host}:${
+      (typeof process !== 'undefined'
+        ? process.env.DWS_PORT || process.env.PORT
+        : undefined) || '4030'
+    }`
 
   console.log(`[Workerd] Network: ${network}`)
   console.log(`[Workerd] RPC URL: ${rpcUrl}`)
@@ -884,7 +888,9 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
     },
     routerConfig: {
       localEndpoint: dwsEndpoint,
-      region: process.env.DWS_REGION || 'global',
+      region:
+        (typeof process !== 'undefined' ? process.env.DWS_REGION : undefined) ||
+        'global',
       geoRouting: process.env.WORKERD_GEO_ROUTING !== 'false',
     },
     registryConfig: enableDecentralized

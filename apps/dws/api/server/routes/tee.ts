@@ -24,28 +24,43 @@ import { createKMSWalletClient, isKMSAvailable } from '../../shared/kms-wallet'
 
 // Get contract address from config
 const network = getCurrentNetwork()
-const TDX_VERIFIER_ADDRESS = (process.env.TDX_ATTESTATION_VERIFIER_ADDRESS ||
-  tryGetContract('tee', 'attestationVerifier', network) ||
+const TDX_VERIFIER_ADDRESS = ((typeof process !== 'undefined'
+  ? process.env.TDX_ATTESTATION_VERIFIER_ADDRESS
+  : undefined) ||
+  tryGetContract('compute', 'attestationVerifier', network) ||
   '0x0000000000000000000000000000000000000000') as Address
-const RPC_URL = process.env.RPC_URL || getRpcUrl(network)
-const VERIFIER_PRIVATE_KEY = process.env.TEE_VERIFIER_PRIVATE_KEY as
-  | `0x${string}`
-  | undefined
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+  getRpcUrl(network)
+// Private key is a secret - keep as env var
+const VERIFIER_PRIVATE_KEY =
+  typeof process !== 'undefined'
+    ? (process.env.TEE_VERIFIER_PRIVATE_KEY as `0x${string}` | undefined)
+    : undefined
 const host = getLocalhostHost()
 const DSTACK_ENDPOINT =
-  process.env.DSTACK_ATTESTATION_ENDPOINT || `http://${host}:8090`
+  (typeof process !== 'undefined'
+    ? process.env.DSTACK_ATTESTATION_ENDPOINT
+    : undefined) || `http://${host}:8090`
 
-// KMS configuration for TEE verifier key
-const TEE_VERIFIER_KMS_KEY_ID = process.env.TEE_VERIFIER_KMS_KEY_ID
-const TEE_VERIFIER_OWNER_ADDRESS = process.env.TEE_VERIFIER_OWNER_ADDRESS as
-  | Address
-  | undefined
+// KMS configuration for TEE verifier key (secrets - keep as env vars)
+const TEE_VERIFIER_KMS_KEY_ID =
+  typeof process !== 'undefined'
+    ? process.env.TEE_VERIFIER_KMS_KEY_ID
+    : undefined
+const TEE_VERIFIER_OWNER_ADDRESS =
+  typeof process !== 'undefined'
+    ? (process.env.TEE_VERIFIER_OWNER_ADDRESS as Address | undefined)
+    : undefined
 
 // DStack client adapter - uses DStack integration from vendor/babylon
 // In production, this connects to the dstack attestation service
 function createDstackClientAdapter() {
+  const host = getLocalhostHost()
   const endpoint =
-    process.env.DSTACK_ATTESTATION_ENDPOINT || 'http://localhost:8090'
+    (typeof process !== 'undefined'
+      ? process.env.DSTACK_ATTESTATION_ENDPOINT
+      : undefined) || `http://${host}:8090`
 
   return {
     async verifyAttestation(params: {
@@ -54,7 +69,10 @@ function createDstackClientAdapter() {
     }): Promise<{ valid: boolean; tcbValid?: boolean; reason?: string }> {
       // SECURITY: Only skip verification in non-production with explicit flag
       const isProduction = isProductionEnv()
-      if (process.env.DSTACK_SKIP_VERIFICATION === 'true') {
+      if (
+        typeof process !== 'undefined' &&
+        process.env.DSTACK_SKIP_VERIFICATION === 'true'
+      ) {
         if (isProduction) {
           console.error(
             '[TEE] CRITICAL: DSTACK_SKIP_VERIFICATION cannot be used in production',

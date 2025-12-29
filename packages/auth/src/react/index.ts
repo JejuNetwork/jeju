@@ -26,7 +26,11 @@ export {
   type UseJejuAuthReturn,
   useJejuAuth,
 } from './hooks/useJejuAuth'
-export { type UseJejuWalletReturn, useJejuWallet } from './hooks/useJejuWallet'
+export {
+  type TypedDataParams,
+  type UseJejuWalletReturn,
+  useJejuWallet,
+} from './hooks/useJejuWallet'
 export {
   type UseLoginOptions,
   type UseLoginReturn,

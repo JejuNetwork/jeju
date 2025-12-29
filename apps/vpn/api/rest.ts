@@ -1,4 +1,6 @@
 import { Elysia } from 'elysia'
+import type { Address } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { verifyAuth } from './auth'
 import {
   ConnectRequestSchema,
@@ -10,7 +12,12 @@ import {
   ProxyRequestSchema,
   type VPNNodeState,
 } from './schemas'
+import { createBandwidthContractService } from './services/bandwidth-contract'
 import type { VPNServiceContext } from './types'
+
+// Initialize contract service (null if not configured)
+const bandwidthContract = createBandwidthContractService()
+
 import {
   calculateContributionRatio,
   getOrCreateContribution,
@@ -413,6 +420,15 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         throw new Error('Authentication address missing')
       }
 
+      // If contract is configured, fetch real data from blockchain
+      if (bandwidthContract) {
+        const status = await bandwidthContract.getNodeStatus(
+          auth.address as Address,
+        )
+        return status
+      }
+
+      // Fallback to in-memory storage (for dev/testing)
       const status = ctx.bandwidthStatus?.get(auth.address)
 
       if (!status) {
@@ -544,8 +560,37 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         throw new Error('Authentication address missing')
       }
 
-      const { stake_amount } = body as { stake_amount: string }
+      const { stake_amount, node_type, region, private_key } = body as {
+        stake_amount: string
+        node_type?: string
+        region?: string
+        private_key?: string
+      }
 
+      // If contract is configured and we have a private key, register on-chain
+      if (bandwidthContract && private_key) {
+        const account = privateKeyToAccount(private_key as `0x${string}`)
+
+        if (account.address.toLowerCase() !== auth.address.toLowerCase()) {
+          throw new Error('Private key does not match authenticated address')
+        }
+
+        const hash = await bandwidthContract.registerNode(
+          account,
+          node_type ?? 'residential',
+          region ?? 'unknown',
+          stake_amount,
+        )
+
+        return {
+          success: true,
+          node_address: auth.address,
+          stake_amount,
+          transaction_hash: hash,
+        }
+      }
+
+      // Fallback to in-memory storage (for dev/testing without contract)
       if (!ctx.bandwidthStatus) {
         ctx.bandwidthStatus = new Map()
       }
@@ -572,13 +617,32 @@ export function createRESTRouter(ctx: VPNServiceContext) {
       }
     })
 
-    .post('/residential-proxy/claim', async ({ request }) => {
+    .post('/residential-proxy/claim', async ({ request, body }) => {
       const auth = await verifyAuth(request)
       expect(auth.valid, auth.error ?? 'Authentication required')
       if (!auth.address) {
         throw new Error('Authentication address missing')
       }
 
+      const { private_key } = (body ?? {}) as { private_key?: string }
+
+      // If contract is configured and we have a private key, claim on-chain
+      if (bandwidthContract && private_key) {
+        const account = privateKeyToAccount(private_key as `0x${string}`)
+
+        if (account.address.toLowerCase() !== auth.address.toLowerCase()) {
+          throw new Error('Private key does not match authenticated address')
+        }
+
+        const hash = await bandwidthContract.claimRewards(account)
+
+        return {
+          success: true,
+          transaction_hash: hash,
+        }
+      }
+
+      // Fallback to in-memory storage (for dev/testing)
       const status = ctx.bandwidthStatus?.get(auth.address)
       expect(status?.is_registered === true, 'Node not registered')
 

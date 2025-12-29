@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { getDwsApiUrl } from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { privateKeyToAccount, signMessage } from 'viem/accounts'
 
@@ -14,7 +15,7 @@ const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 const OTHER_PRIVATE_KEY =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex
-const DWS_ENDPOINT = process.env.DWS_ENDPOINT ?? 'http://localhost:4030'
+const DWS_ENDPOINT = getDwsApiUrl()
 const APP_NAME = `test-app-${Date.now()}`
 
 // Skip unless explicitly running E2E tests

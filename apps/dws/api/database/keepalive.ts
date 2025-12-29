@@ -15,7 +15,7 @@
  * registerDatabase({
  *   appName: 'gateway',
  *   databaseId: 'gateway-db',
- *   endpoint: 'http://localhost:4041',
+ *   endpoint: `http://${getLocalhostHost()}:4041`,
  * })
  *
  * // Start the service

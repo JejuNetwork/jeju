@@ -1,4 +1,13 @@
-import { getDWSUrl } from '@jejunetwork/config'
+/**
+ * Workflow Engine for Jeju CI/CD
+ * Executes workflows triggered by git events
+ */
+
+import {
+  getCurrentNetwork,
+  getDWSUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -128,7 +137,7 @@ export class WorkflowEngine {
     if (this.initialized) return
 
     const { kmsKeyId, ownerAddress, rpcUrl } = this.config
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     if (kmsKeyId && ownerAddress) {
       const kmsAvailable = await isKMSAvailable()
@@ -904,7 +913,9 @@ export class WorkflowEngine {
    * Create workflow context
    */
   private createContext(run: WorkflowRun, workflow: Workflow): WorkflowContext {
-    const baseUrl = process.env.DWS_BASE_URL || getDWSUrl()
+    const baseUrl =
+      (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ||
+      getDWSUrl(getCurrentNetwork())
 
     return {
       github: {

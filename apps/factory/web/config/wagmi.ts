@@ -1,13 +1,22 @@
+/**
+ * Decentralized wagmi configuration
+ *
+ * Uses only injected wallets (MetaMask, etc.) without WalletConnect or other
+ * centralized dependencies. No project IDs or external services required.
+ */
+
+import { getL2RpcUrl } from '@jejunetwork/config'
 import {
   type ChainConfig,
   createDecentralizedWagmiConfig,
 } from '@jejunetwork/ui/wallet'
 
+// Network configurations
 const NETWORK_CONFIGS: Record<string, ChainConfig> = {
   localnet: {
     id: 31337,
     name: 'Jeju Localnet',
-    rpcUrl: 'http://127.0.0.1:6546',
+    rpcUrl: getL2RpcUrl(),
     testnet: true,
   },
   testnet: {
@@ -51,6 +60,7 @@ function detectNetwork(): NetworkType {
 const network = detectNetwork()
 const chainConfig = NETWORK_CONFIGS[network]
 
+// Create decentralized config - no WalletConnect, no external dependencies
 export const wagmiConfig = createDecentralizedWagmiConfig({
   chains: [chainConfig],
   appName: 'Factory',

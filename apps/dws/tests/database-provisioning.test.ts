@@ -22,10 +22,19 @@ const TEST_ADDRESS = privateKeyToAccount(TEST_PRIVATE_KEY).address
 const TEST_PAYMENT_TOKEN =
   '0x0000000000000000000000000000000000000000' as Address
 
+import {
+  getEQLiteBlockProducerUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
+
 // Check if EQLite is available for integration tests
 async function checkEQLiteHealth(): Promise<boolean> {
   const endpoint =
-    process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
+    (typeof process !== 'undefined'
+      ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+      : undefined) ||
+    getEQLiteBlockProducerUrl() ||
+    `http://${getLocalhostHost()}:4661`
   const response = await fetch(`${endpoint}/health`, {
     signal: AbortSignal.timeout(3000),
   }).catch(() => null)
@@ -140,7 +149,8 @@ class MockEQLiteClient {
   }> {
     return {
       address: TEST_ADDRESS,
-      endpoint: 'http://localhost:4661',
+      endpoint:
+        getEQLiteBlockProducerUrl() || `http://${getLocalhostHost()}:4661`,
       blockHeight: this.blockHeight++,
       databases: this.databases.size,
       stake: 1000000000000000000n,
@@ -914,7 +924,11 @@ describe.skipIf(!EQLITE_AVAILABLE)(
   () => {
     test('should connect to EQLite block producer', async () => {
       const endpoint =
-        process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
+        (typeof process !== 'undefined'
+          ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+          : undefined) ||
+        getEQLiteBlockProducerUrl() ||
+        `http://${getLocalhostHost()}:4661`
       const response = await fetch(`${endpoint}/health`)
 
       expect(response.ok).toBe(true)
@@ -922,7 +936,11 @@ describe.skipIf(!EQLITE_AVAILABLE)(
 
     test('should get block producer status', async () => {
       const endpoint =
-        process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4661'
+        (typeof process !== 'undefined'
+          ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+          : undefined) ||
+        getEQLiteBlockProducerUrl() ||
+        `http://${getLocalhostHost()}:4661`
       const response = await fetch(`${endpoint}/api/v1/status`)
 
       if (response.ok) {

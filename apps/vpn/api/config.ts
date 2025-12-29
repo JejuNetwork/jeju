@@ -2,6 +2,7 @@ import {
   createAppConfig,
   getEnvNumber,
   getEnvVar,
+  getLocalhostHost,
   isProductionEnv,
 } from '@jejunetwork/config'
 
@@ -39,7 +40,7 @@ const { config, configure: setVPNConfig } = createAppConfig<VPNConfig>({
   // URLs
   publicUrl:
     getEnvVar('PUBLIC_URL') ??
-    `http://localhost:${getEnvNumber('PORT') ?? 4050}`,
+    `http://${getLocalhostHost()}:${getEnvNumber('PORT') ?? 4050}`,
   coordinatorUrl:
     getEnvVar('COORDINATOR_URL') ?? 'https://vpn-coordinator.jejunetwork.org',
   rpcUrl: getEnvVar('RPC_URL') ?? 'https://mainnet.base.org',

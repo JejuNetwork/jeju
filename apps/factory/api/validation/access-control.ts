@@ -93,7 +93,7 @@ export async function requireAuth(
 
   // Check for replay attacks (skip for read-only operations if desired)
   if (!options.skipNonceCheck) {
-    const nonceResult = validateNonce(auth.address, nonce, auth.timestamp)
+    const nonceResult = await validateNonce(auth.address, nonce, auth.timestamp)
     if (!nonceResult.valid) {
       return {
         success: false,

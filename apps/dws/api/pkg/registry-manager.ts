@@ -1,4 +1,13 @@
-import { getDWSUrl } from '@jejunetwork/config'
+/**
+ * Package Registry Manager (JejuPkg)
+ * Manages packages with on-chain registry integration
+ */
+
+import {
+  getCurrentNetwork,
+  getDWSUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { bytesToHex, hash512 } from '@jejunetwork/shared'
 import { expectJson } from '@jejunetwork/types'
 import {
@@ -349,7 +358,7 @@ export class PkgRegistryManager {
     if (this.initialized) return
 
     const { kmsKeyId, ownerAddress, rpcUrl } = this.config
-    const isProduction = process.env.NODE_ENV === 'production'
+    const isProduction = isProductionEnv()
 
     if (kmsKeyId && ownerAddress) {
       const kmsAvailable = await isKMSAvailable()
@@ -807,7 +816,9 @@ export class PkgRegistryManager {
     if (!cidString) {
       throw new Error(`CID not found for bytes32: ${tarballCid}`)
     }
-    const baseUrl = process.env.DWS_BASE_URL || getDWSUrl()
+    const baseUrl =
+      (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ||
+      getDWSUrl(getCurrentNetwork())
     return `${baseUrl}/storage/download/${cidString}`
   }
 

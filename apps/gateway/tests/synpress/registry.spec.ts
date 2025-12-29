@@ -18,7 +18,7 @@ import { basicSetup } from '../../synpress.config'
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('GATEWAY')
+const GATEWAY_URL = getCoreAppUrl('GATEWAY')
 
 async function connectAndNavigateToRegistry(
   page: ReturnType<typeof test.extend>['page'] extends Promise<infer P>

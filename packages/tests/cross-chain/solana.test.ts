@@ -37,7 +37,9 @@ interface SolanaSlotResponse {
   result: number
 }
 
-const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899'
+import { getLocalhostHost, getSolanaRpcUrl } from '@jejunetwork/config'
+
+const SOLANA_RPC = getSolanaRpcUrl() ?? `http://${getLocalhostHost()}:8899`
 
 async function isSolanaRunning(): Promise<boolean> {
   try {

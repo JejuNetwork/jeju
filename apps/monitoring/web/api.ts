@@ -1,3 +1,6 @@
+/** Typed client for A2A monitoring server using JSON-RPC. */
+
+import { getLocalhostHost } from '@jejunetwork/config'
 import { z } from 'zod'
 import {
   A2AResponseSchema,
@@ -9,7 +12,8 @@ import {
   SolverSchema,
 } from '../lib/types'
 
-const API_BASE = typeof window !== 'undefined' ? '' : 'http://localhost:9091'
+const API_BASE =
+  typeof window !== 'undefined' ? '' : `http://${getLocalhostHost()}:9091`
 
 export const queryKeys = {
   metrics: (query: string) => ['metrics', query] as const,

@@ -93,5 +93,4 @@ export const MARGIN_MANAGER_ADDRESS: Address =
   CONTRACTS.marginManager ||
   ZERO_ADDRESS
 
-// Re-export RPC URL getter for data clients
 export const getL2RpcUrl = () => RPC_URL

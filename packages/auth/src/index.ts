@@ -288,6 +288,7 @@ export {
   OAuth3Provider,
   OAuth3Provider as JejuAuthProvider,
   type OAuth3ProviderProps,
+  type TypedDataParams,
   type UseCredentialsReturn,
   type UseJejuAuthReturn,
   type UseJejuWalletReturn,

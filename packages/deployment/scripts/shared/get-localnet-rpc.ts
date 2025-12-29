@@ -14,6 +14,7 @@
  */
 
 import { execSync } from 'node:child_process'
+import { getL2RpcUrl } from '@jejunetwork/config'
 
 export function getLocalnetRpcUrl(): string {
   try {
@@ -36,7 +37,7 @@ export function getLocalnetRpcUrl(): string {
       '⚠️  Warning: Could not get RPC URL from Kurtosis, using default Jeju port 6546',
     )
     console.warn('Make sure localnet is running: bun run localnet:start')
-    return 'http://127.0.0.1:6546'
+    return getL2RpcUrl()
   }
 }
 

@@ -184,6 +184,33 @@ contract ComputeBenchmarkRegistry is Ownable, ReentrancyGuard {
     error BenchmarkExpired();
     error InvalidCategoryWeights();
     error AttestationVerificationFailed();
+    error DisputeAlreadyExists();
+    error InvalidDisputeReason();
+
+    /// @notice Dispute structure
+    struct Dispute {
+        address disputer;
+        uint64 timestamp;
+        string reason;
+        bool resolved;
+        bool upheld; // If true, benchmark was found to be fraudulent
+    }
+
+    /// @notice Provider disputes
+    mapping(address => Dispute[]) public providerDisputes;
+
+    /// @notice Dispute events
+    event BenchmarkDisputed(
+        address indexed provider,
+        address indexed disputer,
+        string reason,
+        uint256 disputeIndex
+    );
+    event DisputeResolved(
+        address indexed provider,
+        uint256 disputeIndex,
+        bool upheld
+    );
 
     // ============ Modifiers ============
 
@@ -291,6 +318,79 @@ contract ComputeBenchmarkRegistry is Ownable, ReentrancyGuard {
         benchmarks.result.verifier = msg.sender;
 
         emit BenchmarkVerified(provider, msg.sender, status);
+    }
+
+    /**
+     * @notice Dispute a provider's benchmark as potentially fraudulent
+     * @param provider Provider address
+     * @param reason Reason for the dispute
+     * @return disputeIndex Index of the created dispute
+     */
+    function disputeBenchmark(
+        address provider,
+        string calldata reason
+    ) external returns (uint256 disputeIndex) {
+        ProviderBenchmarks storage benchmarks = providerBenchmarks[provider];
+        if (benchmarks.result.timestamp == 0) revert BenchmarkNotFound();
+        if (bytes(reason).length == 0) revert InvalidDisputeReason();
+
+        // Create dispute
+        disputeIndex = providerDisputes[provider].length;
+        providerDisputes[provider].push(Dispute({
+            disputer: msg.sender,
+            timestamp: uint64(block.timestamp),
+            reason: reason,
+            resolved: false,
+            upheld: false
+        }));
+
+        // Mark benchmark as disputed
+        benchmarks.result.status = VerificationStatus.Disputed;
+
+        emit BenchmarkDisputed(provider, msg.sender, reason, disputeIndex);
+    }
+
+    /**
+     * @notice Resolve a dispute (owner/verifier only)
+     * @param provider Provider address
+     * @param disputeIndex Index of the dispute
+     * @param upheld Whether the dispute was upheld (benchmark is fraudulent)
+     */
+    function resolveDispute(
+        address provider,
+        uint256 disputeIndex,
+        bool upheld
+    ) external onlyVerifier {
+        if (disputeIndex >= providerDisputes[provider].length) {
+            revert BenchmarkNotFound();
+        }
+
+        Dispute storage dispute = providerDisputes[provider][disputeIndex];
+        dispute.resolved = true;
+        dispute.upheld = upheld;
+
+        ProviderBenchmarks storage benchmarks = providerBenchmarks[provider];
+        
+        if (upheld) {
+            // Dispute upheld - benchmark is fraudulent
+            benchmarks.result.status = VerificationStatus.Rejected;
+        } else {
+            // Dispute not upheld - restore to self-reported or verified
+            benchmarks.result.status = benchmarks.result.verifier != address(0) 
+                ? VerificationStatus.Verified 
+                : VerificationStatus.SelfReported;
+        }
+
+        emit DisputeResolved(provider, disputeIndex, upheld);
+    }
+
+    /**
+     * @notice Get disputes for a provider
+     * @param provider Provider address
+     * @return disputes Array of disputes
+     */
+    function getDisputes(address provider) external view returns (Dispute[] memory) {
+        return providerDisputes[provider];
     }
 
     /**

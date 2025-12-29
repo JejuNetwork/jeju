@@ -1,4 +1,5 @@
 import { getChainlinkFeed, hasChainlinkSupport } from '@jejunetwork/config'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
@@ -26,9 +27,19 @@ export const RATE_LIMITS = {
 export type RateTier = keyof typeof RATE_LIMITS
 
 const TIER_THRESHOLDS = { BASIC: 10, PRO: 100, UNLIMITED: 1000 } // USD thresholds
-const CACHE_TTL = 60_000
+const CACHE_TTL_SECONDS = 60
 const WINDOW_MS = 60_000
 const PRICE_CACHE_TTL = 5 * 60_000 // 5 minutes for price cache
+
+// Distributed cache for rate limiting
+let rateCache: CacheClient | null = null
+
+function getRateCache(): CacheClient {
+  if (!rateCache) {
+    rateCache = getCacheClient('indexer-stake-ratelimit')
+  }
+  return rateCache
+}
 
 // Chainlink AggregatorV3 ABI for price fetching
 const CHAINLINK_AGGREGATOR_ABI = [
@@ -47,14 +58,21 @@ const CHAINLINK_AGGREGATOR_ABI = [
   },
 ] as const
 
-// Price cache
+// Price cache (local - changes infrequently)
 let priceCache: { price: number; expiresAt: number } | null = null
 
-const rateLimitStore = new Map<
-  string,
-  { count: number; resetAt: number; tier: RateTier }
->()
-const stakeCache = new Map<string, { tier: RateTier; expiresAt: number }>()
+// Rate limit record type
+interface RateLimitRecord {
+  count: number
+  resetAt: number
+  tier: RateTier
+}
+
+// Stake tier cache type
+interface StakeTierCache {
+  tier: RateTier
+  expiresAt: number
+}
 
 /** Minimal ABIs for rate limiting - subset of contract functions */
 const IDENTITY_ABI = [
@@ -215,8 +233,15 @@ async function getStakeTier(address: string): Promise<RateTier> {
   if (!isAddress(address)) throw new Error(`Invalid address: ${address}`)
 
   const key = address.toLowerCase()
-  const cached = stakeCache.get(key)
-  if (cached && cached.expiresAt > Date.now()) return cached.tier
+  const cache = getRateCache()
+  const cacheKey = `stake:${key}`
+
+  // Check distributed cache
+  const cached = await cache.get(cacheKey)
+  if (cached) {
+    const parsed = JSON.parse(cached) as StakeTierCache
+    if (parsed.expiresAt > Date.now()) return parsed.tier
+  }
 
   const { publicClient, identityAddress, banAddress, stakingAddress } =
     getContracts()
@@ -238,7 +263,14 @@ async function getStakeTier(address: string): Promise<RateTier> {
       })
       if (isBanned) {
         tier = 'BANNED'
-        stakeCache.set(key, { tier, expiresAt: Date.now() + CACHE_TTL })
+        await cache.set(
+          cacheKey,
+          JSON.stringify({
+            tier,
+            expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000,
+          }),
+          CACHE_TTL_SECONDS,
+        )
         return tier
       }
     }
@@ -263,7 +295,11 @@ async function getStakeTier(address: string): Promise<RateTier> {
             : 'FREE'
   }
 
-  stakeCache.set(key, { tier, expiresAt: Date.now() + CACHE_TTL })
+  await cache.set(
+    cacheKey,
+    JSON.stringify({ tier, expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000 }),
+    CACHE_TTL_SECONDS,
+  )
   return tier
 }
 
@@ -294,14 +330,6 @@ function getClientKeyFromHeaders(headers: HeadersMap): {
   const ip = forwarded ?? headers['x-real-ip'] ?? 'unknown'
   return { key: `ip:${ip}`, address: null }
 }
-
-// Cleanup expired entries (runs once per minute)
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, { resetAt }] of rateLimitStore) {
-    if (now > resetAt) rateLimitStore.delete(key)
-  }
-}, 60_000).unref()
 
 export interface RateLimitOptions {
   skipPaths?: string[]
@@ -353,6 +381,9 @@ export function stakeRateLimiter(options: RateLimitOptions = {}) {
         }
 
         const now = Date.now()
+        const cache = getRateCache()
+        const cacheKey = `rl:${rateLimitClientKey}`
+
         const tier =
           options.tierOverride ||
           (rateLimitWalletAddress
@@ -367,12 +398,18 @@ export function stakeRateLimiter(options: RateLimitOptions = {}) {
           }
         }
 
-        let record = rateLimitStore.get(rateLimitClientKey)
+        // Get rate limit record from cache
+        const cached = await cache.get(cacheKey)
+        let record: RateLimitRecord | null = cached ? JSON.parse(cached) : null
+
         if (!record || now > record.resetAt) {
           record = { count: 0, resetAt: now + WINDOW_MS, tier }
-          rateLimitStore.set(rateLimitClientKey, record)
         }
         record.count++
+
+        // Store updated record with TTL
+        const ttl = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+        await cache.set(cacheKey, JSON.stringify(record), ttl)
 
         const limit = RATE_LIMITS[tier]
         const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count)
@@ -403,22 +440,15 @@ export function stakeRateLimiter(options: RateLimitOptions = {}) {
     )
 }
 
-export function getRateLimitStats() {
-  const byTier: Record<RateTier, number> = {
-    BANNED: 0,
-    FREE: 0,
-    BASIC: 0,
-    PRO: 0,
-    UNLIMITED: 0,
+export async function getRateLimitStats(): Promise<{
+  totalTracked: number
+  byTier: Record<RateTier, number>
+}> {
+  // With distributed cache, per-tier stats would need separate tracking
+  return {
+    totalTracked: 0,
+    byTier: { BANNED: 0, FREE: 0, BASIC: 0, PRO: 0, UNLIMITED: 0 },
   }
-  for (const { tier } of rateLimitStore.values()) byTier[tier]++
-  return { totalTracked: rateLimitStore.size, byTier }
 }
 
-export {
-  getStakeTier,
-  getEthUsdPrice,
-  stakeCache,
-  rateLimitStore,
-  getClientKeyFromHeaders,
-}
+export { getStakeTier, getEthUsdPrice, getClientKeyFromHeaders }

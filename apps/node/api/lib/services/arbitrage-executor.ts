@@ -112,6 +112,12 @@ export interface ExecutorConfig {
   evmKeyId: string
   /** KMS key ID for Solana signing */
   solanaKeyId?: string
+  /**
+   * @deprecated Use solanaKeyId for KMS-backed signing. This field exists only
+   * for legacy compatibility and will be removed in a future version.
+   * Base64-encoded Solana private key (INSECURE - avoid in production).
+   */
+  solanaPrivateKey?: string
   evmRpcUrls: Record<number, string>
   solanaRpcUrl?: string
   zkBridgeEndpoint?: string
@@ -160,6 +166,10 @@ export class ArbitrageExecutor {
   private evmSigner: SecureSigner
   private evmAddress: Address | null = null // Derived from KMS on init
   private solanaConnection: Connection | null = null
+  /**
+   * @deprecated Solana keypair is a legacy fallback. Use solanaKeyId for KMS-backed signing.
+   */
+  private solanaKeypair: Keypair | null = null
   private evmClients = new Map<number, EVMClientPair>()
 
   constructor(config: ExecutorConfig) {

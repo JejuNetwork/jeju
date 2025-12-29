@@ -5,7 +5,7 @@ import { type Address, encodeFunctionData } from 'viem'
 import { z } from 'zod'
 import type { HardwareInfo } from '../../../lib/types'
 import { COMPUTE_STAKING_ABI, INFERENCE_SERVING_ABI } from '../abis'
-import type { NodeClient, SecureNodeClient } from '../contracts'
+import type { SecureNodeClient } from '../contracts'
 import {
   type ComputeCapabilities,
   type ComputeMode,
@@ -128,13 +128,13 @@ function validateComputeOffer(data: unknown): ComputeOffer {
 }
 
 export class ComputeService {
-  private client: NodeClient | SecureNodeClient
+  private client: SecureNodeClient | SecureNodeClient
   private signer: SecureSigner | null = null
   private hardware: HardwareInfo | null = null
   private capabilities: ComputeCapabilities | null = null
   private nonTeeAcknowledged = false
 
-  constructor(client: NodeClient | SecureNodeClient, keyId?: string) {
+  constructor(client: SecureNodeClient | SecureNodeClient, keyId?: string) {
     this.client = client
     // Get keyId from client or constructor
     const resolvedKeyId =
@@ -397,7 +397,7 @@ export class ComputeService {
       return null
     }
 
-    // Get address from either SecureNodeClient.walletAddress or NodeClient.walletClient
+    // Get address from either SecureNodeClient.walletAddress or SecureNodeClient.walletClient
     let address: Address | null = null
     if ('walletAddress' in this.client && this.client.walletAddress) {
       address = this.client.walletAddress
@@ -442,7 +442,7 @@ export class ComputeService {
 }
 
 export function createComputeService(
-  client: NodeClient | SecureNodeClient,
+  client: SecureNodeClient | SecureNodeClient,
   keyId?: string,
 ): ComputeService {
   return new ComputeService(client, keyId)

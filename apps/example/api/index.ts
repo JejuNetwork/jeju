@@ -475,13 +475,13 @@ const startupBanner = `
 ╔══════════════════════════════════════════════════════════════╗
 ║              DECENTRALIZED APP TEMPLATE                       ║
 ╠══════════════════════════════════════════════════════════════╣
-║  REST API:     http://localhost:${PORT}/api/v1                  ║
-║  A2A:          http://localhost:${PORT}/a2a                     ║
-║  MCP:          http://localhost:${PORT}/mcp                     ║
-║  x402:         http://localhost:${PORT}/x402                    ║
-║  Auth:         http://localhost:${PORT}/auth                    ║
-║  Health:       http://localhost:${PORT}/health                  ║
-║  Agent Card:   http://localhost:${PORT}/a2a/.well-known/agent-card.json
+║  REST API:     http://${getLocalhostHost()}:${PORT}/api/v1                  ║
+║  A2A:          http://${getLocalhostHost()}:${PORT}/a2a                     ║
+║  MCP:          http://${getLocalhostHost()}:${PORT}/mcp                     ║
+║  x402:         http://${getLocalhostHost()}:${PORT}/x402                    ║
+║  Auth:         http://${getLocalhostHost()}:${PORT}/auth                    ║
+║  Health:       http://${getLocalhostHost()}:${PORT}/health                  ║
+║  Agent Card:   http://${getLocalhostHost()}:${PORT}/a2a/.well-known/agent-card.json
 ╠══════════════════════════════════════════════════════════════╣
 ║  Network:      ${getNetworkName().padEnd(44)}║
 ║  Version:      ${VERSION.padEnd(44)}║

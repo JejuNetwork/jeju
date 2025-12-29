@@ -1,3 +1,8 @@
+/**
+ * x402 Payment Middleware
+ * Shared payment handling for Git and Pkg services
+ */
+
 import {
   getCurrentNetwork,
   getRpcUrl,

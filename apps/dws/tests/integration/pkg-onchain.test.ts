@@ -7,6 +7,7 @@
  */
 
 import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { type Address, createPublicClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
@@ -15,7 +16,10 @@ import { createBackendManager } from '../../api/storage/backends'
 
 setDefaultTimeout(30000)
 
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
+  getL2RpcUrl() ||
+  `http://${getLocalhostHost()}:6546`
 const PRIVATE_KEY = (process.env.DWS_PRIVATE_KEY ||
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex
 const SKIP = process.env.SKIP_INTEGRATION === 'true'
@@ -43,8 +47,9 @@ describe.skipIf(SKIP)('Package Registry On-Chain Integration', () => {
     })
 
     // Get package registry address from env or use a test address
-    packageRegistryAddress = (process.env.PACKAGE_REGISTRY_ADDRESS ||
-      '0x0000000000000000000000000000000000000000') as Address
+    packageRegistryAddress = ((typeof process !== 'undefined'
+      ? process.env.PACKAGE_REGISTRY_ADDRESS
+      : undefined) || '0x0000000000000000000000000000000000000000') as Address
 
     if (
       packageRegistryAddress === '0x0000000000000000000000000000000000000000'

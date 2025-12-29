@@ -10,7 +10,11 @@
  * - Signed batch attestations for ZK proofs
  */
 
-import { getPhalaApiKey, getPhalaEndpoint } from '@jejunetwork/config'
+import {
+  getLocalhostHost,
+  getPhalaApiKey,
+  getPhalaEndpoint,
+} from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { bytesToHex, keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -349,7 +353,7 @@ export function createPhalaClient(config?: Partial<PhalaConfig>): PhalaClient {
   }
 
   return new PhalaClient({
-    endpoint: endpoint ?? 'http://localhost:8000', // Default for mock mode only
+    endpoint: endpoint ?? `http://${getLocalhostHost()}:8000`, // Default for mock mode only
     apiKey: config?.apiKey ?? getPhalaApiKey(),
     useMock,
     timeoutMs: config?.timeoutMs ?? 30000,

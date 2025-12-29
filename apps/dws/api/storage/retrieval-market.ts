@@ -196,11 +196,16 @@ const DEFAULT_MARKET_CONFIG: RetrievalMarketConfig = {
   disputeWindowSeconds: 86400, // 24 hours for disputes
   paymentChannelContractAddress: '0x0000000000000000000000000000000000000000',
   marketContractAddress: '0x0000000000000000000000000000000000000000',
-  rpcUrl: process.env.RPC_URL ?? getRpcUrl(getCurrentNetwork()),
-  kmsKeyId: process.env.RETRIEVAL_MARKET_KMS_KEY_ID,
-  ownerAddress: process.env.RETRIEVAL_MARKET_OWNER_ADDRESS as
-    | Address
-    | undefined,
+  rpcUrl:
+    (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+    getRpcUrl(getCurrentNetwork()),
+  kmsKeyId:
+    typeof process !== 'undefined'
+      ? process.env.RETRIEVAL_MARKET_KMS_KEY_ID
+      : undefined,
+  ownerAddress: (typeof process !== 'undefined'
+    ? process.env.RETRIEVAL_MARKET_OWNER_ADDRESS
+    : undefined) as Address | undefined,
   privateKey: undefined, // Not set by default
 }
 
@@ -244,7 +249,7 @@ export class RetrievalMarketManager {
       console.log(
         '[RetrievalMarketManager] Using KMS-based secure signing (FROST)',
       )
-    } else if (process.env.NODE_ENV === 'production') {
+    } else if (isProductionEnv()) {
       throw new Error(
         'RETRIEVAL_MARKET_KMS_KEY_ID and RETRIEVAL_MARKET_OWNER_ADDRESS required in production',
       )
@@ -861,7 +866,7 @@ export class RetrievalMarketManager {
     }
 
     // Development fallback - only allowed in non-production
-    if (process.env.NODE_ENV === 'production') {
+    if (isProductionEnv()) {
       throw new Error(
         'KMS-based signing required in production. Call initializeSecureSigning() first.',
       )

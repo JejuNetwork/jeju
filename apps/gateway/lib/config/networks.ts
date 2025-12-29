@@ -6,6 +6,7 @@ import {
   getRpcUrl as getJejuRpcUrl,
   getL2RpcUrl,
   getExplorerUrl as getLocalnetExplorerUrl,
+  getServiceUrl,
 } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
@@ -28,7 +29,9 @@ export const RPC_URLS = {
   // Network
   420691: getJejuRpcUrl(),
   420690:
-    process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
+    (typeof process !== 'undefined'
+      ? process.env.JEJU_TESTNET_RPC_URL
+      : undefined) || 'https://testnet-rpc.jejunetwork.org',
   31337: getL2RpcUrl(),
   // Mainnets
   1: getExternalRpc('ethereum'),
@@ -39,10 +42,13 @@ export const RPC_URLS = {
   11155111: getExternalRpc('sepolia'),
   84532: getExternalRpc('base-sepolia'),
   11155420:
-    process.env.OPTIMISM_SEPOLIA_RPC_URL || 'https://sepolia.optimism.io',
+    (typeof process !== 'undefined'
+      ? process.env.OPTIMISM_SEPOLIA_RPC_URL
+      : undefined) || 'https://sepolia.optimism.io',
   421614:
-    process.env.ARBITRUM_SEPOLIA_RPC_URL ||
-    'https://sepolia-rollup.arbitrum.io/rpc',
+    (typeof process !== 'undefined'
+      ? process.env.ARBITRUM_SEPOLIA_RPC_URL
+      : undefined) || 'https://sepolia-rollup.arbitrum.io/rpc',
 } as const
 
 // Public block explorers
@@ -79,7 +85,8 @@ export const CHAINS = {
 export const SERVICES = {
   rpcGateway: getCoreAppUrl('RPC_GATEWAY'),
   indexer:
-    process.env.INDEXER_URL || `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
+    (typeof process !== 'undefined' ? process.env.INDEXER_URL : undefined) ||
+    getServiceUrl('indexer', 'graphql', getCurrentNetwork()),
   ipfsApi: getCoreAppUrl('IPFS'),
   ipfsGateway: getCoreAppUrl('IPFS'),
 } as const
@@ -87,7 +94,10 @@ export const SERVICES = {
 // Server ports (using centralized port config)
 export const PORTS = {
   a2a: CORE_PORTS.GATEWAY.get(),
-  websocket: Number(process.env.WS_PORT) || CORE_PORTS.RPC_GATEWAY.DEFAULT,
+  websocket:
+    (typeof process !== 'undefined' && process.env.WS_PORT
+      ? Number(process.env.WS_PORT)
+      : undefined) || CORE_PORTS.RPC_GATEWAY.DEFAULT,
   rpc: CORE_PORTS.RPC_GATEWAY.get(),
 } as const
 

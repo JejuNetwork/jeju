@@ -2,6 +2,7 @@ import {
   getCurrentNetwork,
   getEQLiteMinerUrl,
   getEQLiteUrl,
+  isProductionEnv,
 } from '@jejunetwork/config'
 import {
   type ExecResult,
@@ -55,7 +56,7 @@ async function getEQLiteClient(): Promise<MinimalEQLiteClient> {
       minerEndpoint,
       databaseId: EQLITE_DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !isProductionEnv(),
     })
 
     const healthy = await eqliteClient.isHealthy()
@@ -1271,7 +1272,7 @@ export async function initializeDWSState(): Promise<void> {
       console.log('[DWS State] Initialized with EQLite')
     } catch (error) {
       // For local development, allow running without EQLite
-      if (process.env.NODE_ENV !== 'production') {
+      if (!isProductionEnv()) {
         memoryOnlyMode = true
         initialized = true
         console.warn(

@@ -9,8 +9,10 @@ export interface CDNSDKConfig {
   execUrl: string
 }
 
+import { getLocalhostHost } from '@jejunetwork/config'
+
 let sdkConfig: CDNSDKConfig = {
-  execUrl: 'http://localhost:4020/exec',
+  execUrl: `http://${getLocalhostHost()}:4020/exec`,
 }
 
 export function configureCDNSDK(config: Partial<CDNSDKConfig>): void {
@@ -90,9 +92,12 @@ function relative(from: string, to: string): string {
 }
 
 import {
+  getCurrentNetwork,
   getIpfsGatewayEnv,
   getRpcUrl,
   getStorageApiEndpoint,
+  isProductionEnv,
+  tryGetContract,
 } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import type {
@@ -180,11 +185,13 @@ const CDN_BILLING_ABI = parseAbi([
 ])
 
 // Define specific chain for local development
+import { getL1RpcUrl } from '@jejunetwork/config'
+
 const localChain = {
   id: 31337,
   name: 'local',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['http://localhost:6545'] } },
+  rpcUrls: { default: { http: [getL1RpcUrl()] } },
 } as const satisfies Chain
 
 export class CDNClient {
@@ -216,17 +223,14 @@ export class CDNClient {
     }
 
     // SECURITY: Block raw private keys in production (strict mode)
-    if (
-      process.env.NODE_ENV === 'production' &&
-      process.env.CDN_STRICT_SECURITY === 'true'
-    ) {
+    if (isProductionEnv() && process.env.CDN_STRICT_SECURITY === 'true') {
       throw new Error(
         'SECURITY: Raw private keys are not allowed in production with CDN_STRICT_SECURITY=true. ' +
           'Waiting for KMS integration.',
       )
     }
 
-    if (process.env.NODE_ENV === 'production') {
+    if (isProductionEnv()) {
       console.warn(
         '[CDN SDK] ⚠️  Using local private key in production. ' +
           'This is a security risk. KMS integration coming soon.',
@@ -267,7 +271,8 @@ export class CDNClient {
       client: this.walletClient,
     })
 
-    this.coordinatorUrl = config.coordinatorUrl ?? 'http://localhost:4021'
+    this.coordinatorUrl =
+      config.coordinatorUrl ?? `http://${getLocalhostHost()}:4021`
     this.ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io'
   }
 
@@ -696,20 +701,32 @@ export function createCDNClientFromEnv(): CDNClient {
   }
 
   // Warn if using private key in production
-  if (privateKey && !kmsServiceId && process.env.NODE_ENV === 'production') {
+  if (privateKey && !kmsServiceId && isProductionEnv()) {
     console.warn(
       '[CDN SDK] ⚠️  Using PRIVATE_KEY in production. ' +
         'Set KMS_SERVICE_ID for secure threshold signing.',
     )
   }
 
+  const network = getCurrentNetwork()
   return new CDNClient({
     kmsServiceId,
     privateKey,
-    rpcUrl: getRpcUrl(),
-    registryAddress: process.env.CDN_REGISTRY_ADDRESS as Address | undefined,
-    billingAddress: process.env.CDN_BILLING_ADDRESS as Address | undefined,
-    coordinatorUrl: process.env.CDN_COORDINATOR_URL,
+    rpcUrl: getRpcUrl(network),
+    registryAddress:
+      ((typeof process !== 'undefined'
+        ? process.env.CDN_REGISTRY_ADDRESS
+        : undefined) as Address | undefined) ??
+      (tryGetContract('cdn', 'registry', network) as Address | undefined),
+    billingAddress:
+      ((typeof process !== 'undefined'
+        ? process.env.CDN_BILLING_ADDRESS
+        : undefined) as Address | undefined) ??
+      (tryGetContract('cdn', 'billing', network) as Address | undefined),
+    coordinatorUrl:
+      typeof process !== 'undefined'
+        ? process.env.CDN_COORDINATOR_URL
+        : undefined,
     ipfsGateway: getIpfsGatewayEnv(),
   })
 }

@@ -2,6 +2,11 @@
  * Otto Wallet Service
  */
 
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getOAuth3Url,
+} from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex, verifyMessage } from 'viem'
 import {
@@ -16,11 +21,17 @@ import {
   UserSettingsSchema,
 } from '../../lib'
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS } from '../config'
-import { getRequiredEnv } from '../utils/validation'
 import { getStateManager } from './state'
 
-const getOAuth3BaseUrl = () =>
-  getRequiredEnv('OAUTH3_API_URL', 'http://localhost:4025')
+const getOAuth3BaseUrl = () => {
+  const envUrl =
+    typeof process !== 'undefined' ? process.env.OAUTH3_API_URL : undefined
+  if (envUrl) return envUrl
+  const network = getCurrentNetwork()
+  return network === 'localnet'
+    ? `http://${getLocalhostHost()}:4025`
+    : getOAuth3Url(network)
+}
 
 const oauth3Api = {
   account: {

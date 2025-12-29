@@ -13,7 +13,11 @@ import {
   getNodeId,
   getPortEnv,
 } from '@jejunetwork/config'
-import { createLogger } from '@jejunetwork/shared'
+import {
+  type CacheClient,
+  createLogger,
+  getCacheClient,
+} from '@jejunetwork/shared'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex } from '@noble/hashes/utils'
 import { Elysia } from 'elysia'
@@ -250,49 +254,37 @@ async function storeOnIPFS(content: string, ipfsUrl: string): Promise<string> {
   return result.Hash
 }
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-const RATE_LIMIT_WINDOW_MS = 60000 // 1 minute
+// Distributed rate limiting via shared cache
+const RATE_LIMIT_WINDOW_SECONDS = 60 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 100 // 100 requests per minute
-const RATE_LIMIT_CLEANUP_INTERVAL_MS = 300000 // Clean up every 5 minutes
-const MAX_RATE_LIMIT_ENTRIES = 10000 // Max entries to prevent memory exhaustion
 
-// Periodic cleanup of expired rate limit entries
-let rateLimitCleanupInterval: NodeJS.Timeout | null = null
+let rateLimitCache: CacheClient | null = null
 
-function startRateLimitCleanup(): void {
-  if (rateLimitCleanupInterval) return
-
-  rateLimitCleanupInterval = setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of rateLimitMap) {
-      if (now > entry.resetAt) {
-        rateLimitMap.delete(key)
-      }
-    }
-  }, RATE_LIMIT_CLEANUP_INTERVAL_MS)
+function getRateLimitCache(): CacheClient {
+  if (!rateLimitCache) {
+    rateLimitCache = getCacheClient('messaging-ratelimit')
+  }
+  return rateLimitCache
 }
 
-function checkRateLimit(identifier: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(identifier)
+async function checkRateLimit(identifier: string): Promise<boolean> {
+  const cache = getRateLimitCache()
+  const cacheKey = `ratelimit:${identifier}`
 
-  if (!entry || now > entry.resetAt) {
-    // Prevent unbounded growth - if at max capacity, reject new entries
-    if (rateLimitMap.size >= MAX_RATE_LIMIT_ENTRIES && !entry) {
-      return false
-    }
-    rateLimitMap.set(identifier, {
-      count: 1,
-      resetAt: now + RATE_LIMIT_WINDOW_MS,
-    })
+  const current = await cache.get(cacheKey)
+  if (!current) {
+    // First request - set count to 1 with TTL
+    await cache.set(cacheKey, '1', RATE_LIMIT_WINDOW_SECONDS)
     return true
   }
 
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+  const count = parseInt(current, 10)
+  if (count >= RATE_LIMIT_MAX_REQUESTS) {
     return false
   }
 
-  entry.count++
+  // Increment count
+  await cache.set(cacheKey, String(count + 1), RATE_LIMIT_WINDOW_SECONDS)
   return true
 }
 
@@ -323,9 +315,6 @@ async function initializeEQLiteStorage(): Promise<void> {
 }
 
 export function createRelayServer(config: NodeConfig) {
-  // Start periodic rate limit cleanup
-  startRateLimitCleanup()
-
   // Initialize EQLite storage - REQUIRED for production
   // In development, if EQLite isn't available, initialization will throw
   initializeEQLiteStorage().catch((error) => {
@@ -368,7 +357,8 @@ export function createRelayServer(config: NodeConfig) {
       const headers = request.headers as RequestHeaders
       const clientIp =
         headers.get('x-forwarded-for') ?? headers.get('x-real-ip') ?? 'unknown'
-      if (!checkRateLimit(clientIp)) {
+      const allowed = await checkRateLimit(clientIp)
+      if (!allowed) {
         set.status = 429
         return { success: false, error: 'Rate limit exceeded' }
       }
@@ -470,7 +460,8 @@ export function createRelayServer(config: NodeConfig) {
       const headers = request.headers as RequestHeaders
       const clientIp =
         headers.get('x-forwarded-for') ?? headers.get('x-real-ip') ?? 'unknown'
-      if (!checkRateLimit(clientIp)) {
+      const allowed = await checkRateLimit(clientIp)
+      if (!allowed) {
         set.status = 429
         return { error: 'Rate limit exceeded' }
       }
@@ -724,10 +715,6 @@ export function createRelayServer(config: NodeConfig) {
         '# HELP relay_pending_messages Messages pending delivery',
         '# TYPE relay_pending_messages gauge',
         `relay_pending_messages{node_id="${config.nodeId}"} ${messageCache.size}`,
-        '',
-        '# HELP relay_rate_limit_entries Active rate limit entries',
-        '# TYPE relay_rate_limit_entries gauge',
-        `relay_rate_limit_entries{node_id="${config.nodeId}"} ${rateLimitMap.size}`,
         '',
         '# HELP relay_eqlite_available EQLite storage availability (1=available, 0=unavailable)',
         '# TYPE relay_eqlite_available gauge',

@@ -1,18 +1,8 @@
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
-// Re-export canonical KMS for general usage
-export {
-  createKMSSigner,
-  getKMSSigner as getCanonicalKMSSigner,
-  type KMSKeyInfo,
-  KMSSigner as CanonicalKMSSigner,
-  type KMSSignerConfig as CanonicalKMSSignerConfig,
-  type SigningMode,
-  type SignResult as CanonicalSignResult,
-  type TransactionSignResult,
-  validateSecureSigning,
-} from '@jejunetwork/kms'
+// Import directly from @jejunetwork/kms:
+// import { createKMSSigner, getKMSSigner, KMSSigner } from '@jejunetwork/kms'
 
 // ════════════════════════════════════════════════════════════════════════════
 //                     WALLET-SPECIFIC KMS SIGNER
@@ -332,12 +322,8 @@ export function resetWalletKMSSigner(): void {
   walletKmsSigner = undefined
 }
 
-// Legacy aliases for backward compatibility
-export {
-  WalletKMSSigner as KMSSigner,
-  getWalletKMSSigner as getKMSSigner,
-  resetWalletKMSSigner as resetKMSSigner,
-}
+// Legacy aliases removed - import directly:
+// import { WalletKMSSigner, getWalletKMSSigner } from './kms-signer'
 
 export type {
   WalletKMSSignerConfig as KMSSignerConfig,

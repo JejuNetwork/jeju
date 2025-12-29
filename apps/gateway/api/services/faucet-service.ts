@@ -6,6 +6,7 @@
  * operations are delegated to the KMS service (MPC or TEE).
  */
 
+import { getKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import { readContract } from '@jejunetwork/shared'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
 import { IERC20_ABI } from '@jejunetwork/ui'
@@ -27,7 +28,6 @@ import {
   getRpcUrl,
   JEJU_CHAIN_ID,
 } from '../../lib/config/networks'
-import { getKMSSigner, type KMSSigner } from '../../lib/kms-signer'
 import { faucetState, initializeState } from './state'
 
 /**

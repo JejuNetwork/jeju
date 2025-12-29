@@ -12,7 +12,11 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { readdir, readFile, rm } from 'node:fs/promises'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
+import {
+  getCoreAppUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
 import {
@@ -34,12 +38,17 @@ const WorkerServiceBodySchema = z.object({
   service: z.string(),
 })
 
+import { getDWSUrl } from '@jejunetwork/config'
+
 const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
 const WORKER_DIR = `${DIST_DIR}/worker`
 // Test-specific port to avoid conflicts with running services
 const API_PORT = 4097
-const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
+const DWS_URL =
+  (typeof process !== 'undefined' ? process.env.DWS_URL : undefined) ||
+  getCoreAppUrl('DWS_API') ||
+  getDWSUrl()
 
 let apiServer: Subprocess | null = null
 const deployedWorkerId: string | null = null
@@ -126,9 +135,10 @@ describe('Standalone API Server', () => {
     })
 
     // Wait for server to start
+    const host = getLocalhostHost()
     let ready = false
     for (let i = 0; i < 30; i++) {
-      const response = await fetch(`http://localhost:${API_PORT}/health`).catch(
+      const response = await fetch(`http://${host}:${API_PORT}/health`).catch(
         () => null,
       )
       if (response?.ok) {
@@ -150,7 +160,8 @@ describe('Standalone API Server', () => {
   })
 
   test('health endpoint responds', async () => {
-    const response = await fetch(`http://localhost:${API_PORT}/health`)
+    const host = getLocalhostHost()
+    const response = await fetch(`http://${host}:${API_PORT}/health`)
     expect(response.ok).toBe(true)
 
     const rawJson: unknown = await response.json()
@@ -165,7 +176,8 @@ describe('Standalone API Server', () => {
   })
 
   test('A2A endpoint responds', async () => {
-    const response = await fetch(`http://localhost:${API_PORT}/api/a2a`)
+    const host = getLocalhostHost()
+    const response = await fetch(`http://${host}:${API_PORT}/api/a2a`)
     expect(response.ok).toBe(true)
 
     const rawJson: unknown = await response.json()
@@ -177,13 +189,15 @@ describe('Standalone API Server', () => {
   })
 
   test('MCP endpoint responds', async () => {
-    const response = await fetch(`http://localhost:${API_PORT}/api/mcp`)
+    const host = getLocalhostHost()
+    const response = await fetch(`http://${host}:${API_PORT}/api/mcp`)
     expect(response.ok).toBe(true)
   })
 
   test('agent card endpoint responds', async () => {
+    const host = getLocalhostHost()
     const response = await fetch(
-      `http://localhost:${API_PORT}/.well-known/agent-card.json`,
+      `http://${host}:${API_PORT}/.well-known/agent-card.json`,
     )
     expect(response.ok).toBe(true)
 

@@ -1,4 +1,8 @@
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import {
+  getEQLiteBlockProducerUrl,
+  getEQLiteUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
 import { expectAddress } from '@jejunetwork/types'
 import type { Address } from 'viem'
@@ -49,11 +53,14 @@ export function getDatabase(): EQLiteClient {
   if (!dbClient) {
     dbClient = getEQLite({
       blockProducerEndpoint:
-        process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT ||
-        getEQLiteBlockProducerUrl(),
+        (typeof process !== 'undefined'
+          ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+          : undefined) ||
+        getEQLiteBlockProducerUrl() ||
+        getEQLiteUrl(),
       databaseId: DATABASE_ID,
       timeout: 30000,
-      debug: process.env.NODE_ENV !== 'production',
+      debug: !isProductionEnv(),
     })
     initializeSchema(dbClient).catch((err) => {
       console.error('[DB] Schema initialization failed:', err)

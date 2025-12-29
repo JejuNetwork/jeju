@@ -2,6 +2,7 @@ import { cors } from '@elysiajs/cors'
 import {
   CORE_PORTS,
   getCurrentNetwork,
+  getLocalhostHost,
   getNetworkName,
 } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
@@ -50,12 +51,15 @@ const ALLOWED_ORIGINS =
   network === 'mainnet'
     ? ['https://autocrat.jejunetwork.org', 'https://jeju.network']
     : network === 'testnet'
-      ? [
-          'https://testnet.autocrat.jejunetwork.org',
-          'https://testnet.jeju.network',
-          'http://localhost:3000',
-          'http://localhost:5173',
-        ]
+      ? (() => {
+          const host = getLocalhostHost()
+          return [
+            'https://testnet.autocrat.jejunetwork.org',
+            'https://testnet.jeju.network',
+            `http://${host}:3000`,
+            `http://${host}:5173`,
+          ]
+        })()
       : true // localnet allows all origins for development
 
 const app = new Elysia()

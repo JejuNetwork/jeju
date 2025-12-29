@@ -4,6 +4,7 @@ import {
   getRpcUrl,
   getServicesConfig,
   isProductionEnv,
+  isTestMode,
 } from '@jejunetwork/config'
 import {
   AddressSchema,
@@ -193,8 +194,13 @@ async function getWalletClient(): Promise<WalletClient | KMSWalletClient> {
   if (cachedWalletClient) return cachedWalletClient
 
   // Try KMS first for side-channel protection
-  const kmsKeyId = process.env.FAUCET_KMS_KEY_ID
-  const ownerAddress = process.env.FAUCET_OWNER_ADDRESS as Address | undefined
+  const kmsKeyId =
+    typeof process !== 'undefined' ? process.env.FAUCET_KMS_KEY_ID : undefined
+  const ownerAddress = (
+    typeof process !== 'undefined'
+      ? process.env.FAUCET_OWNER_ADDRESS
+      : undefined
+  ) as Address | undefined
 
   if (kmsKeyId && ownerAddress) {
     const kmsAvailable = await isKMSAvailable()
@@ -248,8 +254,7 @@ const IDENTITY_REGISTRY_ABI = [
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
   // Skip registry check in test mode
-  // Note: Test mode detection - keep as env var for test framework compatibility
-  if (process.env.NODE_ENV === 'test') {
+  if (isTestMode()) {
     return true
   }
 

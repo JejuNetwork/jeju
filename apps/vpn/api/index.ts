@@ -33,7 +33,10 @@ export function createVPNServer(serverConfig: VPNServerConfig) {
           'https://vpn.jejunetwork.org',
           'https://app.jejunetwork.org',
           ...(!vpnConfig.isProduction
-            ? ['http://localhost:1421', 'http://127.0.0.1:1421']
+            ? (() => {
+                const host = getLocalhostHost()
+                return [`http://${host}:1421`]
+              })()
             : []),
         ],
         methods: ['GET', 'POST', 'OPTIONS'],
@@ -255,7 +258,7 @@ import { CORE_PORTS, getLocalhostHost } from '@jejunetwork/config'
 const PORT = vpnConfig.port || CORE_PORTS.VPN_API.get()
 
 const devServerConfig: VPNServerConfig = {
-  publicUrl: vpnConfig.publicUrl || `http://localhost:${PORT}`,
+  publicUrl: vpnConfig.publicUrl || `http://${getLocalhostHost()}:${PORT}`,
   port: PORT,
   chainId: vpnConfig.chainId,
   rpcUrl: vpnConfig.rpcUrl,

@@ -11,6 +11,7 @@ import {
 } from '@jejunetwork/sdk'
 import type { NetworkType } from '@jejunetwork/types'
 import type { Hex } from 'viem'
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 
 const networkName = getNetworkName()
 const networkNameLower = networkName.toLowerCase()
@@ -66,10 +67,14 @@ export class JejuService extends Service {
       throw new Error('NETWORK_PRIVATE_KEY or NETWORK_MNEMONIC required')
     }
 
+    // Create account from private key or mnemonic
+    const account = privateKey
+      ? privateKeyToAccount(privateKey)
+      : mnemonicToAccount(mnemonic as string)
+
     const config: JejuClientConfig = {
       network,
-      privateKey,
-      mnemonic,
+      account,
       smartAccount,
     }
 
@@ -190,10 +195,14 @@ export class StandaloneJejuService {
 export async function initJejuService(
   config: StandaloneConfig,
 ): Promise<StandaloneJejuService> {
+  // Create account from private key or mnemonic
+  const account = config.mnemonic
+    ? mnemonicToAccount(config.mnemonic)
+    : privateKeyToAccount(config.privateKey)
+
   const sdk = await createJejuClient({
     network: config.network,
-    privateKey: config.privateKey,
-    mnemonic: config.mnemonic,
+    account,
     rpcUrl: config.rpcUrl,
     smartAccount: config.smartAccount ?? true,
   })

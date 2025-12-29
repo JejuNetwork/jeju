@@ -1,26 +1,7 @@
 /**
- * Benchmark Orchestrator
+ * Benchmark Orchestrator - Coordinates compute benchmarking with reputation-linked frequency
  *
- * Coordinates benchmarking across the DWS network:
- * - Initial benchmark on first machine activation
- * - Random re-verification (reputation-linked frequency)
- * - On-chain result storage via ComputeBenchmarkRegistry
- * - Cost-efficient scheduling to avoid wasting resources
- *
- * Architecture:
- *
- * 1. Machine activates → Initial benchmark runs
- * 2. Benchmark container deployed to machine
- * 3. Results collected and verified against claimed specs
- * 4. Results published to on-chain registry
- * 5. Deviation triggers review/slashing
- *
- * Reputation-Based Frequency:
- * - New machines: Always benchmark on first activation
- * - Low reputation (<30): Verify every 7 days
- * - Medium reputation (30-70): Verify every 30 days
- * - High reputation (>70): Verify every 90 days
- * - Random spot checks: 1% of all machines daily
+ * Frequency: New=always, Low(<30)=7d, Medium(30-70)=30d, High(>70)=90d, Random=1%/day
  */
 
 import { Cron } from 'croner'
@@ -72,6 +53,8 @@ export interface BenchmarkResults {
   // Network
   networkBandwidthMbps: number
   networkLatencyMs: number
+  region: string // Geographic region (e.g., "us-east-1", "eu-west-1")
+  ipv6Supported: boolean
 
   // GPU (optional)
   gpuDetected: boolean
@@ -112,6 +95,8 @@ export const BenchmarkResultsSchema = z.object({
   randomWriteIops: z.number().min(0),
   networkBandwidthMbps: z.number().min(0),
   networkLatencyMs: z.number().min(0),
+  region: z.string(),
+  ipv6Supported: z.boolean(),
   gpuDetected: z.boolean(),
   gpuModel: z.string().nullable(),
   gpuMemoryMb: z.number().nullable(),
@@ -416,12 +401,25 @@ export class BenchmarkOrchestrator {
     history.push(results)
     benchmarkHistory.set(machine.id, history.slice(-10)) // Keep last 10
 
-    // Check deviation thresholds
+    // Check deviation thresholds and take action
     if (deviation > this.config.slashDeviationPercent) {
-      console.warn(
+      console.error(
         `[BenchmarkOrchestrator] SLASH: Machine ${machine.id} deviation ${deviation.toFixed(1)}% exceeds threshold`,
       )
-      // Would trigger on-chain slashing here
+      // Flag for slashing via dispute mechanism
+      if (this.registryClient) {
+        await this.registryClient
+          .disputeBenchmark(
+            machine.operator,
+            `Benchmark deviation ${deviation.toFixed(1)}% exceeds ${this.config.slashDeviationPercent}% threshold`,
+          )
+          .catch((err) => {
+            console.error(
+              `[BenchmarkOrchestrator] Failed to submit dispute:`,
+              err,
+            )
+          })
+      }
     } else if (deviation > this.config.failDeviationPercent) {
       console.warn(
         `[BenchmarkOrchestrator] FAIL: Machine ${machine.id} deviation ${deviation.toFixed(1)}%`,
@@ -573,6 +571,8 @@ export class BenchmarkOrchestrator {
       randomWriteIops: parsed.randomWriteIops,
       networkBandwidthMbps: parsed.networkBandwidthMbps,
       networkLatencyMs: parsed.networkLatencyMs,
+      region: parsed.region,
+      ipv6Supported: parsed.ipv6Supported,
       gpuDetected: parsed.gpuDetected,
       gpuModel: parsed.gpuModel,
       gpuMemoryMb: parsed.gpuMemoryMb,

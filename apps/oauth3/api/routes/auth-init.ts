@@ -1,3 +1,8 @@
+/**
+ * Auth initialization routes for programmatic auth flow initiation
+ * This allows clients to initialize auth flows via API calls
+ */
+
 import {
   getCurrentNetwork,
   getLocalhostHost,
@@ -5,7 +10,6 @@ import {
   isProductionEnv,
 } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
-import type { Address } from 'viem'
 import type { AuthConfig } from '../../lib/types'
 import { clientState } from '../services/state'
 
@@ -39,7 +43,7 @@ export function createAuthInitRouter(_config: AuthConfig) {
   const network = getCurrentNetwork()
   const host = getLocalhostHost()
   const baseUrl =
-    process.env.BASE_URL ??
+    (typeof process !== 'undefined' ? process.env.BASE_URL : undefined) ??
     (network === 'localnet' ? `http://${host}:4200` : getOAuth3Url(network))
 
   return new Elysia({ name: 'auth-init', prefix: '/auth' })
@@ -65,17 +69,22 @@ export function createAuthInitRouter(_config: AuthConfig) {
             )
             await clientState.save({
               clientId: appId,
+              clientSecretHash: {
+                hash: '',
+                salt: '',
+                algorithm: 'pbkdf2',
+                version: 1,
+              },
               name: appId,
               redirectUris: [
-                'http://localhost:*',
-                'http://127.0.0.1:*',
+                `http://localhost:*`,
+                `http://${getLocalhostHost()}:*`,
                 'https://*.jejunetwork.org/*',
               ],
               allowedProviders: ['wallet', 'farcaster', 'github', 'google'],
-              allowedScopes: ['openid', 'profile', 'email'],
-              owner: '0x0000000000000000000000000000000000000000' as Address,
+              owner:
+                '0x0000000000000000000000000000000000000000' as `0x${string}`,
               active: true,
-              requireSecret: false,
               createdAt: Date.now(),
             })
             client = await clientState.get(appId)
@@ -91,7 +100,7 @@ export function createAuthInitRouter(_config: AuthConfig) {
         }
 
         // Validate redirect URI (relaxed for development)
-        const isDev = process.env.NODE_ENV !== 'production'
+        const isDev = !isProductionEnv()
         if (!isDev && !validateRedirectUri(redirectUri, client.redirectUris)) {
           set.status = 400
           return {

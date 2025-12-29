@@ -11,7 +11,12 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getConstant, getEILConfig } from '@jejunetwork/config'
+import {
+  getConstant,
+  getEILConfig,
+  getL1RpcUrl,
+  getRpcUrl,
+} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -35,8 +40,8 @@ import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/share
 import { TEST_ACCOUNTS } from '../shared/utils'
 
 // Skip if no localnet running
-const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
-const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
+const L1_RPC = getL1RpcUrl()
+const L2_RPC = getRpcUrl()
 
 // EIL contracts from config
 interface EILConfig {
