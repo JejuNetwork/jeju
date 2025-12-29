@@ -113,13 +113,13 @@ import { createModerationRouter } from './routes/moderation'
 import { createOAuth3Router } from './routes/oauth3'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
+import { createPyPkgRouter } from './routes/pypkg'
 import {
   createPricesRouter,
   getPriceService,
   type SubscribableWebSocket,
   SubscriptionMessageSchema,
 } from './routes/prices'
-import { createPyPkgRouter } from './routes/pypkg'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
@@ -1237,8 +1237,6 @@ if (import.meta.main) {
 
   server = Bun.serve({
     port: PORT,
-    // Allow 500MB uploads for deployment artifacts
-    maxRequestBodySize: 500 * 1024 * 1024,
     fetch(req, server) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
