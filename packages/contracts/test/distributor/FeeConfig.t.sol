@@ -255,6 +255,164 @@ contract FeeConfigTest is Test {
     }
 
     function test_Version() public view {
-        assertEq(feeConfig.version(), "1.1.0");
+        assertEq(feeConfig.version(), "2.0.0");
+    }
+
+    // ============ App-Specific Fee Override Tests ============
+
+    function test_SetAppFeeOverride() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        vm.prank(council);
+        feeConfig.setAppFeeOverride(daoId, feeKey, 800); // 8%
+
+        // Verify override was set
+        assertTrue(feeConfig.hasAppFeeOverride(daoId, feeKey));
+        assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 800);
+    }
+
+    function test_SetAppFeeOverride_NotAuthorized() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        address random = makeAddr("random");
+        vm.prank(random);
+        vm.expectRevert(FeeConfig.NotAuthorized.selector);
+        feeConfig.setAppFeeOverride(daoId, feeKey, 800);
+    }
+
+    function test_GetEffectiveFee_NoOverride() public view {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        // No override set, should return default
+        assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 500);
+    }
+
+    function test_GetEffectiveFee_WithOverride() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        vm.prank(council);
+        feeConfig.setAppFeeOverride(daoId, feeKey, 300); // Lower fee
+
+        assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 300);
+    }
+
+    function test_RemoveAppFeeOverride() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        // Set override
+        vm.prank(council);
+        feeConfig.setAppFeeOverride(daoId, feeKey, 800);
+        assertTrue(feeConfig.hasAppFeeOverride(daoId, feeKey));
+
+        // Remove override
+        vm.prank(council);
+        feeConfig.removeAppFeeOverride(daoId, feeKey);
+        assertFalse(feeConfig.hasAppFeeOverride(daoId, feeKey));
+
+        // Should return default now
+        assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 500);
+    }
+
+    function test_RemoveAppFeeOverride_InvalidKey() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey = keccak256("invalid.key");
+
+        // Try to remove non-existent override
+        vm.prank(council);
+        vm.expectRevert(FeeConfig.InvalidFeeKey.selector);
+        feeConfig.removeAppFeeOverride(daoId, feeKey);
+    }
+
+    function test_ClearAllAppFeeOverrides() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey1 = keccak256("compute.inference");
+        bytes32 feeKey2 = keccak256("compute.rental");
+
+        // Set multiple overrides
+        vm.startPrank(council);
+        feeConfig.setAppFeeOverride(daoId, feeKey1, 600);
+        feeConfig.setAppFeeOverride(daoId, feeKey2, 400);
+        vm.stopPrank();
+
+        assertTrue(feeConfig.hasAppFeeOverride(daoId, feeKey1));
+        assertTrue(feeConfig.hasAppFeeOverride(daoId, feeKey2));
+
+        // Clear all
+        vm.prank(council);
+        feeConfig.clearAllAppFeeOverrides(daoId);
+
+        assertFalse(feeConfig.hasAppFeeOverride(daoId, feeKey1));
+        assertFalse(feeConfig.hasAppFeeOverride(daoId, feeKey2));
+    }
+
+    function test_GetAppFeeOverrides() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey1 = keccak256("compute.inference");
+        bytes32 feeKey2 = keccak256("compute.rental");
+
+        // Set overrides
+        vm.startPrank(council);
+        feeConfig.setAppFeeOverride(daoId, feeKey1, 600);
+        feeConfig.setAppFeeOverride(daoId, feeKey2, 400);
+        vm.stopPrank();
+
+        (bytes32[] memory keys, uint256[] memory values) = feeConfig.getAppFeeOverrides(daoId);
+
+        assertEq(keys.length, 2);
+        assertEq(values.length, 2);
+    }
+
+    function test_GetDaosWithOverrides() public {
+        bytes32 daoId1 = keccak256("dao-1");
+        bytes32 daoId2 = keccak256("dao-2");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        vm.startPrank(council);
+        feeConfig.setAppFeeOverride(daoId1, feeKey, 600);
+        feeConfig.setAppFeeOverride(daoId2, feeKey, 700);
+        vm.stopPrank();
+
+        bytes32[] memory daos = feeConfig.getDaosWithOverrides();
+        assertEq(daos.length, 2);
+    }
+
+    function test_MultipleAppsIndependentOverrides() public {
+        bytes32 daoId1 = keccak256("dws");
+        bytes32 daoId2 = keccak256("bazaar");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        // Set different overrides for different apps
+        vm.startPrank(council);
+        feeConfig.setAppFeeOverride(daoId1, feeKey, 600); // DWS: 6%
+        feeConfig.setAppFeeOverride(daoId2, feeKey, 300); // Bazaar: 3%
+        vm.stopPrank();
+
+        // Verify each app has its own rate
+        assertEq(feeConfig.getEffectiveFee(daoId1, feeKey, 500), 600);
+        assertEq(feeConfig.getEffectiveFee(daoId2, feeKey, 500), 300);
+
+        // A third app with no override gets the default
+        bytes32 daoId3 = keccak256("crucible");
+        assertEq(feeConfig.getEffectiveFee(daoId3, feeKey, 500), 500);
+    }
+
+    function test_UpdateAppFeeOverride() public {
+        bytes32 daoId = keccak256("test-dao");
+        bytes32 feeKey = keccak256("compute.inference");
+
+        // Set initial override
+        vm.prank(council);
+        feeConfig.setAppFeeOverride(daoId, feeKey, 600);
+        assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 600);
+
+        // Update override
+        vm.prank(council);
+        feeConfig.setAppFeeOverride(daoId, feeKey, 800);
+        assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 800);
     }
 }

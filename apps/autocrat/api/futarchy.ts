@@ -19,7 +19,7 @@ import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { toAddress, toHex } from '../lib'
-import { createKMSWalletClient } from './kms-signer'
+import { createKMSHttpWalletClient } from './kms-signer'
 
 function inferChainFromRpcUrl(rpcUrl: string) {
   if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
@@ -175,14 +175,14 @@ export class FutarchyClient {
    * Call this in production before any write operations
    */
   async initializeKMS(operatorAddress: Address): Promise<void> {
-    const result = await createKMSWalletClient(
-      { address: operatorAddress },
-      this.chain,
-      this.rpcUrl,
-    )
-    this.walletClient = result.client
+    const walletClient = await createKMSHttpWalletClient({
+      address: operatorAddress,
+      chain: this.chain,
+      rpcUrl: this.rpcUrl,
+    })
+    this.walletClient = walletClient
     console.log(
-      `[FutarchyClient] KMS initialized for ${operatorAddress} (${result.account.type})`,
+      `[FutarchyClient] KMS initialized for ${operatorAddress} (${walletClient.account?.type || 'local'})`,
     )
   }
 

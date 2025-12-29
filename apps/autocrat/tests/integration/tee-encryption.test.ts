@@ -145,6 +145,10 @@ describe('Network KMS Encryption', () => {
   })
 
   test('encryptDecision works', async () => {
+    if (!env.contractsDeployed) {
+      console.log('⏭️  Skipping: Contracts not deployed')
+      return
+    }
     const encrypted = await encryption.encryptDecision(
       makeDecision('test-encrypt'),
     )
@@ -154,6 +158,10 @@ describe('Network KMS Encryption', () => {
   })
 
   test('decryptDecision works', async () => {
+    if (!env.contractsDeployed) {
+      console.log('⏭️  Skipping: Contracts not deployed')
+      return
+    }
     const encrypted = await encryption.encryptDecision(
       makeDecision('test-decrypt', false),
     )
@@ -165,6 +173,10 @@ describe('Network KMS Encryption', () => {
   })
 
   test('accessControlConditions reference proposal', async () => {
+    if (!env.contractsDeployed) {
+      console.log('⏭️  Skipping: Contracts not deployed')
+      return
+    }
     const encrypted = await encryption.encryptDecision(makeDecision('test-acl'))
     const hasProposalRef = encrypted.accessControlConditions.some((c) =>
       c.parameters.includes('test-acl'),
@@ -174,8 +186,8 @@ describe('Network KMS Encryption', () => {
   })
 
   test('canDecrypt returns false for recent decisions', async () => {
-    if (!env.anvilRunning) {
-      console.log('⏭️  Skipping: Chain not available')
+    if (!env.chainRunning || !env.contractsDeployed) {
+      console.log('⏭️  Skipping: Chain/contracts not available')
       return
     }
     const encrypted = await encryption.encryptDecision(

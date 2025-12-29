@@ -24,8 +24,8 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
-  type CEOPersona,
-  type CouncilMemberConfig,
+  type DirectorPersona,
+  type BoardMemberConfig,
   type DAOStatus,
   type FundingConfig,
   type FundingStatus,
@@ -38,7 +38,7 @@ import type {
   FundingAllocation,
   FundingProject,
 } from '../lib/types'
-import { createKMSWalletClient } from './kms-signer'
+import { createKMSHttpWalletClient } from './kms-signer'
 
 // Types FundingEpoch is local to this service (not in lib/types.ts)
 export interface FundingEpoch {
@@ -62,7 +62,7 @@ const DAORegistryABI = [
       { name: 'treasury', type: 'address' },
       { name: 'manifestCid', type: 'string' },
       {
-        name: 'ceoPersona',
+        name: 'directorPersona',
         type: 'tuple',
         components: [
           { name: 'name', type: 'string' },
@@ -70,6 +70,7 @@ const DAORegistryABI = [
           { name: 'description', type: 'string' },
           { name: 'personality', type: 'string' },
           { name: 'traits', type: 'string[]' },
+          { name: 'isHuman', type: 'bool' },
         ],
       },
       {
@@ -77,7 +78,7 @@ const DAORegistryABI = [
         type: 'tuple',
         components: [
           { name: 'minQualityScore', type: 'uint256' },
-          { name: 'councilVotingPeriod', type: 'uint256' },
+          { name: 'boardVotingPeriod', type: 'uint256' },
           { name: 'gracePeriod', type: 'uint256' },
           { name: 'minProposalStake', type: 'uint256' },
           { name: 'quorumBps', type: 'uint256' },
@@ -158,7 +159,7 @@ const DAORegistryABI = [
             type: 'tuple',
             components: [
               { name: 'minQualityScore', type: 'uint256' },
-              { name: 'councilVotingPeriod', type: 'uint256' },
+              { name: 'boardVotingPeriod', type: 'uint256' },
               { name: 'gracePeriod', type: 'uint256' },
               { name: 'minProposalStake', type: 'uint256' },
               { name: 'quorumBps', type: 'uint256' },
@@ -212,7 +213,7 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'getCEOPersona',
+    name: 'getDirectorPersona',
     inputs: [{ name: 'daoId', type: 'bytes32' }],
     outputs: [
       {
@@ -237,7 +238,7 @@ const DAORegistryABI = [
         type: 'tuple',
         components: [
           { name: 'minQualityScore', type: 'uint256' },
-          { name: 'councilVotingPeriod', type: 'uint256' },
+          { name: 'boardVotingPeriod', type: 'uint256' },
           { name: 'gracePeriod', type: 'uint256' },
           { name: 'minProposalStake', type: 'uint256' },
           { name: 'quorumBps', type: 'uint256' },
@@ -248,7 +249,7 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'getCouncilMembers',
+    name: 'getBoardMembers',
     inputs: [{ name: 'daoId', type: 'bytes32' }],
     outputs: [
       {
@@ -329,7 +330,7 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'setCEOPersona',
+    name: 'setDirectorPersona',
     inputs: [
       { name: 'daoId', type: 'bytes32' },
       {
@@ -349,7 +350,7 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'setCEOModel',
+    name: 'setDirectorModel',
     inputs: [
       { name: 'daoId', type: 'bytes32' },
       { name: 'modelId', type: 'bytes32' },
@@ -367,7 +368,7 @@ const DAORegistryABI = [
         type: 'tuple',
         components: [
           { name: 'minQualityScore', type: 'uint256' },
-          { name: 'councilVotingPeriod', type: 'uint256' },
+          { name: 'boardVotingPeriod', type: 'uint256' },
           { name: 'gracePeriod', type: 'uint256' },
           { name: 'minProposalStake', type: 'uint256' },
           { name: 'quorumBps', type: 'uint256' },
@@ -713,7 +714,7 @@ const DAOFundingABI = [
           { name: 'cooldownPeriod', type: 'uint256' },
           { name: 'matchingMultiplier', type: 'uint256' },
           { name: 'quadraticEnabled', type: 'bool' },
-          { name: 'ceoWeightCap', type: 'uint256' },
+          { name: 'directorWeightCap', type: 'uint256' },
         ],
       },
     ],
@@ -734,7 +735,7 @@ const DAOFundingABI = [
           { name: 'cooldownPeriod', type: 'uint256' },
           { name: 'matchingMultiplier', type: 'uint256' },
           { name: 'quadraticEnabled', type: 'bool' },
-          { name: 'ceoWeightCap', type: 'uint256' },
+          { name: 'directorWeightCap', type: 'uint256' },
         ],
       },
     ],
@@ -772,11 +773,13 @@ interface RawPersonaResult {
   description: string
   personality: string
   traits: readonly string[]
+  isHuman?: boolean
+  decisionFallbackDays?: number
 }
 
 interface RawParamsResult {
   minQualityScore: bigint
-  councilVotingPeriod: bigint
+  boardVotingPeriod: bigint
   gracePeriod: bigint
   minProposalStake: bigint
   quorumBps: bigint
@@ -789,6 +792,7 @@ interface RawMemberResult {
   weight: bigint
   addedAt: bigint
   isActive: boolean
+  isHuman?: boolean
 }
 
 interface RawDAOFullResult {
@@ -810,7 +814,7 @@ interface RawProjectResult {
   primaryRecipient: Address
   additionalRecipients: readonly Address[]
   recipientShares: readonly bigint[]
-  ceoWeight: bigint
+  directorWeight: bigint
   communityStake: bigint
   totalFunded: bigint
   status: number
@@ -837,7 +841,7 @@ interface RawFundingConfigResult {
   cooldownPeriod: bigint
   matchingMultiplier: bigint
   quadraticEnabled: boolean
-  ceoWeightCap: bigint
+  directorWeightCap: bigint
 }
 
 // Type guards for contract results
@@ -1070,14 +1074,14 @@ export class DAOService {
    * Call this in production before any write operations
    */
   async initializeKMS(operatorAddress: Address): Promise<void> {
-    const result = await createKMSWalletClient(
-      { address: operatorAddress },
-      this.chain,
-      this.config.rpcUrl,
-    )
-    this.walletClient = result.client as ViemWalletClient
+    const walletClient = await createKMSHttpWalletClient({
+      address: operatorAddress,
+      chain: this.chain,
+      rpcUrl: this.config.rpcUrl,
+    })
+    this.walletClient = walletClient as ViemWalletClient
     console.log(
-      `[DAOService] KMS initialized for ${operatorAddress} (${result.account.type})`,
+      `[DAOService] KMS initialized for ${operatorAddress} (${walletClient.account?.type || 'local'})`,
     )
   }
 
@@ -1149,7 +1153,7 @@ export class DAOService {
     return daoFull
   }
 
-  async getCEOPersona(daoId: string): Promise<CEOPersona> {
+  async getDirectorPersona(daoId: string): Promise<DirectorPersona> {
     expectDefined(daoId, 'DAO ID is required')
     expect(
       daoId.length > 0 && daoId.length <= 100,
@@ -1159,7 +1163,7 @@ export class DAOService {
       await this.publicClient.readContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
-        functionName: 'getCEOPersona',
+        functionName: 'getDirectorPersona',
         args: [toHex(daoId)],
       }),
     )
@@ -1173,6 +1177,8 @@ export class DAOService {
       voiceStyle: '',
       communicationTone: 'professional',
       specialties: [],
+      isHuman: result.isHuman ?? false,
+      decisionFallbackDays: result.decisionFallbackDays ?? 7,
     }
   }
 
@@ -1193,14 +1199,14 @@ export class DAOService {
 
     return {
       minQualityScore: Number(result.minQualityScore),
-      councilVotingPeriod: Number(result.councilVotingPeriod),
+      boardVotingPeriod: Number(result.boardVotingPeriod),
       gracePeriod: Number(result.gracePeriod),
       minProposalStake: result.minProposalStake,
       quorumBps: Number(result.quorumBps),
     }
   }
 
-  async getCouncilMembers(daoId: string): Promise<CouncilMemberConfig[]> {
+  async getBoardMembers(daoId: string): Promise<BoardMemberConfig[]> {
     expectDefined(daoId, 'DAO ID is required')
     expect(
       daoId.length > 0 && daoId.length <= 100,
@@ -1210,7 +1216,7 @@ export class DAOService {
       await this.publicClient.readContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
-        functionName: 'getCouncilMembers',
+        functionName: 'getBoardMembers',
         args: [toHex(daoId)],
       }),
     )
@@ -1222,6 +1228,7 @@ export class DAOService {
       weight: Number(m.weight),
       addedAt: Number(m.addedAt),
       isActive: m.isActive,
+      isHuman: m.isHuman ?? false,
     }))
   }
 
@@ -1324,7 +1331,7 @@ export class DAOService {
     description: string
     treasury: Address
     manifestCid: string
-    ceoPersona: CEOPersona
+    directorPersona: DirectorPersona
     governanceParams: GovernanceParams
   }): Promise<Hash> {
     if (!this.walletClient) {
@@ -1342,16 +1349,17 @@ export class DAOService {
         params.treasury,
         params.manifestCid,
         {
-          name: params.ceoPersona.name,
-          pfpCid: params.ceoPersona.pfpCid,
-          description: params.ceoPersona.description,
-          personality: params.ceoPersona.personality,
-          traits: params.ceoPersona.traits,
+          name: params.directorPersona.name,
+          pfpCid: params.directorPersona.pfpCid,
+          description: params.directorPersona.description,
+          personality: params.directorPersona.personality,
+          traits: params.directorPersona.traits,
+          isHuman: params.directorPersona.isHuman,
         },
         {
           minQualityScore: BigInt(params.governanceParams.minQualityScore),
-          councilVotingPeriod: BigInt(
-            params.governanceParams.councilVotingPeriod,
+          boardVotingPeriod: BigInt(
+            params.governanceParams.boardVotingPeriod,
           ),
           gracePeriod: BigInt(params.governanceParams.gracePeriod),
           minProposalStake: params.governanceParams.minProposalStake,
@@ -1363,7 +1371,7 @@ export class DAOService {
     return hash
   }
 
-  async setCEOPersona(daoId: string, persona: CEOPersona): Promise<Hash> {
+  async setDirectorPersona(daoId: string, persona: DirectorPersona): Promise<Hash> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')
     }
@@ -1371,7 +1379,7 @@ export class DAOService {
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
-      functionName: 'setCEOPersona',
+      functionName: 'setDirectorPersona',
       args: [
         toHex(daoId),
         {
@@ -1388,7 +1396,7 @@ export class DAOService {
     return hash
   }
 
-  async setCEOModel(daoId: string, modelId: string): Promise<Hash> {
+  async setDirectorModel(daoId: string, modelId: string): Promise<Hash> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')
     }
@@ -1396,7 +1404,7 @@ export class DAOService {
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
-      functionName: 'setCEOModel',
+      functionName: 'setDirectorModel',
       args: [toHex(daoId), toHex(modelId)],
     })
 
@@ -1420,7 +1428,7 @@ export class DAOService {
         toHex(daoId),
         {
           minQualityScore: BigInt(params.minQualityScore),
-          councilVotingPeriod: BigInt(params.councilVotingPeriod),
+          boardVotingPeriod: BigInt(params.boardVotingPeriod),
           gracePeriod: BigInt(params.gracePeriod),
           minProposalStake: params.minProposalStake,
           quorumBps: BigInt(params.quorumBps),
@@ -1716,7 +1724,7 @@ export class DAOService {
       cooldownPeriod: Number(result.cooldownPeriod),
       matchingMultiplier: Number(result.matchingMultiplier),
       quadraticEnabled: result.quadraticEnabled,
-      ceoWeightCap: Number(result.ceoWeightCap),
+      directorWeightCap: Number(result.directorWeightCap),
     }
   }
   async proposeProject(params: {
@@ -1879,7 +1887,7 @@ export class DAOService {
           cooldownPeriod: BigInt(config.cooldownPeriod),
           matchingMultiplier: BigInt(config.matchingMultiplier),
           quadraticEnabled: config.quadraticEnabled,
-          ceoWeightCap: BigInt(config.ceoWeightCap),
+          directorWeightCap: BigInt(config.directorWeightCap),
         },
       ],
     })
@@ -1906,7 +1914,7 @@ export class DAOService {
       allocations.push({
         projectId: project.projectId,
         projectName: project.name,
-        ceoWeight: project.ceoWeight,
+        directorWeight: project.directorWeight,
         communityStake: stake.totalStake,
         stakerCount: stake.numStakers,
         allocation,
@@ -1937,10 +1945,10 @@ export class DAOService {
       displayName: raw.displayName,
       description: raw.description,
       treasury: raw.treasury,
-      council: raw.council,
-      ceoAgent: raw.ceoAgent,
+      board: raw.council,
+      directorAgent: raw.ceoAgent,
       feeConfig: raw.feeConfig,
-      ceoModelId: raw.ceoModelId,
+      directorModelId: raw.ceoModelId,
       manifestCid: raw.manifestCid,
       status: toDAOStatus(raw.status),
       createdAt: Number(raw.createdAt),
@@ -1952,7 +1960,7 @@ export class DAOService {
   private parseDAOFull(raw: RawDAOFullResult): DAOFull {
     return {
       dao: this.parseDAO(raw.dao),
-      ceoPersona: {
+      directorPersona: {
         name: raw.ceoPersona.name,
         pfpCid: raw.ceoPersona.pfpCid,
         description: raw.ceoPersona.description,
@@ -1961,21 +1969,24 @@ export class DAOService {
         voiceStyle: '',
         communicationTone: 'professional',
         specialties: [],
+        isHuman: raw.ceoPersona.isHuman ?? false,
+        decisionFallbackDays: raw.ceoPersona.decisionFallbackDays ?? 7,
       },
       params: {
         minQualityScore: Number(raw.params.minQualityScore),
-        councilVotingPeriod: Number(raw.params.councilVotingPeriod),
+        boardVotingPeriod: Number(raw.params.boardVotingPeriod),
         gracePeriod: Number(raw.params.gracePeriod),
         minProposalStake: raw.params.minProposalStake,
         quorumBps: Number(raw.params.quorumBps),
       },
-      councilMembers: raw.councilMembers.map((m) => ({
+      boardMembers: raw.councilMembers.map((m) => ({
         member: m.member,
         agentId: m.agentId,
         role: m.role,
         weight: Number(m.weight),
         addedAt: Number(m.addedAt),
         isActive: m.isActive,
+        isHuman: m.isHuman ?? false,
       })),
       linkedPackages: [...raw.linkedPackages],
       linkedRepos: [...raw.linkedRepos],
@@ -1993,7 +2004,7 @@ export class DAOService {
       primaryRecipient: raw.primaryRecipient,
       additionalRecipients: [...raw.additionalRecipients],
       recipientShares: raw.recipientShares.map((s) => Number(s)),
-      ceoWeight: Number(raw.ceoWeight),
+      directorWeight: Number(raw.directorWeight),
       communityStake: raw.communityStake,
       totalFunded: raw.totalFunded,
       status: toFundingStatus(raw.status),

@@ -18,7 +18,7 @@ export interface AutocratConfig {
 
   // DAO
   defaultDao: string
-  ceoModelId: string
+  directorModelId: string
 
   // Operator/Private Keys
   operatorKey?: string
@@ -64,7 +64,7 @@ const { config, configure: setAutocratConfig } =
       | 'testnet'
       | 'localnet',
     defaultDao: getEnvVar('DEFAULT_DAO') ?? 'jeju',
-    ceoModelId: getEnvVar('CEO_MODEL_ID') ?? 'claude-opus-4-5',
+    directorModelId: getEnvVar('DIRECTOR_MODEL_ID') ?? 'claude-opus-4-5',
     operatorKey: getEnvVar('OPERATOR_KEY'),
     privateKey: getEnvVar('PRIVATE_KEY'),
     eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID') ?? 'autocrat',

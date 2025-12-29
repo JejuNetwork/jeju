@@ -597,14 +597,15 @@ export const proposalIndexState = {
   },
 }
 
-// Schema for CEO Analysis Result
-const CEOAnalysisResultSchema = z.object({
+// Schema for Director Analysis Result
+const DirectorAnalysisResultSchema = z.object({
   approved: z.boolean(),
   reasoning: z.string(),
   personaResponse: z.string(),
   confidence: z.number(),
   alignment: z.number(),
   recommendations: z.array(z.string()),
+  isHumanDecision: z.boolean().optional(),
 })
 
 // Schema for TEE Attestation
@@ -654,12 +655,12 @@ const StoredObjectSchema = z.discriminatedUnion('type', [
     timestamp: z.number(),
   }),
   z.object({
-    type: z.literal('ceo_decision'),
+    type: z.literal('director_decision'),
     proposalId: z.string(),
     approved: z.boolean(),
     confidenceScore: z.number(),
     alignmentScore: z.number(),
-    autocratVotes: z.object({
+    boardVotes: z.object({
       approve: z.number(),
       reject: z.number(),
       abstain: z.number(),
@@ -669,6 +670,7 @@ const StoredObjectSchema = z.discriminatedUnion('type', [
     timestamp: z.string(),
     model: z.string(),
     teeMode: z.string(),
+    isHumanDecision: z.boolean(),
   }),
   z.object({
     type: z.literal('autocrat_vote_detail'),
@@ -679,15 +681,17 @@ const StoredObjectSchema = z.discriminatedUnion('type', [
     vote: z.enum(['APPROVE', 'REJECT', 'ABSTAIN']),
     reasoning: z.string(),
     confidence: z.number(),
+    isHuman: z.boolean().optional(),
   }),
   z.object({
-    type: z.literal('ceo_decision_detail'),
+    type: z.literal('director_decision_detail'),
     proposalId: z.string(),
     daoId: z.string(),
-    ceoAnalysis: CEOAnalysisResultSchema,
+    directorAnalysis: DirectorAnalysisResultSchema,
     teeDecision: TEEDecisionDataSchema,
     personaResponse: z.string(),
     decidedAt: z.number(),
+    isHumanDecision: z.boolean(),
   }),
 ])
 

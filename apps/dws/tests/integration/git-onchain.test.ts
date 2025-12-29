@@ -149,3 +149,4 @@ describe.skipIf(SKIP)('Git Registry On-Chain Integration', () => {
     ).rejects.toThrow()
   })
 })
+

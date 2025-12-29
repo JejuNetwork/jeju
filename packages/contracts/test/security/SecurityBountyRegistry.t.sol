@@ -51,14 +51,14 @@ contract SecurityBountyRegistryTest is Test {
 
     address public owner;
     address public treasury;
-    address public ceoAgent;
+    address public directorAgent;
     address public computeOracle;
     address public researcher;
 
     function setUp() public {
         owner = makeAddr("owner");
         treasury = makeAddr("treasury");
-        ceoAgent = makeAddr("ceoAgent");
+        directorAgent = makeAddr("directorAgent");
         computeOracle = makeAddr("computeOracle");
         researcher = makeAddr("researcher");
 
@@ -71,7 +71,7 @@ contract SecurityBountyRegistryTest is Test {
 
         // Deploy registry
         vm.prank(owner);
-        registry = new SecurityBountyRegistry(address(identityRegistry), treasury, ceoAgent, owner);
+        registry = new SecurityBountyRegistry(address(identityRegistry), treasury, directorAgent, owner);
 
         // Configure
         vm.prank(owner);
@@ -202,13 +202,13 @@ contract SecurityBountyRegistryTest is Test {
         assertEq(registry.computeOracle(), newOracle);
     }
 
-    function test_SetCEOAgent() public {
-        address newCEO = makeAddr("newCEO");
+    function test_SetDirectorAgent() public {
+        address newDirector = makeAddr("newDirector");
 
         vm.prank(owner);
-        registry.setCEOAgent(newCEO);
+        registry.setDirectorAgent(newDirector);
 
-        assertEq(registry.ceoAgent(), newCEO);
+        assertEq(registry.directorAgent(), newDirector);
     }
 
     function test_PauseUnpause() public {

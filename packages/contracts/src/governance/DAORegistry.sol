@@ -10,19 +10,23 @@ import {IDAORegistry} from "./interfaces/IDAORegistry.sol";
  * @title DAORegistry
  * @author Jeju Network
  * @notice Multi-tenant DAO management for Jeju Network
- * @dev Manages multiple DAOs with their own governance, treasury, and CEO configurations
+ * @dev Manages multiple DAOs with their own governance, treasury, and Director configurations
+ *
+ * Terminology:
+ * - Director: The AI or human executive decision maker (formerly CEO)
+ * - Board: The advisory/oversight body (formerly Council)
  *
  * Key Features:
  * - Multi-tenant DAO support (Jeju DAO, Apps DAO, custom DAOs)
- * - CEO persona management (name, pfp, personality)
- * - Council member management with weighted voting
+ * - Director persona management (name, pfp, personality, human/AI flag)
+ * - Board member management with weighted voting and human/AI parity
  * - Package and repo linking for deep funding
  * - Configurable governance parameters per DAO
  *
  * Access Control:
  * - Owner: Global admin (can create DAOs, emergency functions)
- * - DAO Admin: Can manage their specific DAO (set via council contract)
- * - Council Members: Can vote on DAO proposals
+ * - DAO Admin: Can manage their specific DAO (set via board contract)
+ * - Board Members: Can vote on DAO proposals
  *
  * @custom:security-contact security@jejunetwork.org
  */
@@ -35,17 +39,17 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     /// @notice DAO name to ID mapping
     mapping(bytes32 => bytes32) private _nameToDAO;
 
-    /// @notice CEO personas per DAO
-    mapping(bytes32 => CEOPersona) private _ceoPersonas;
+    /// @notice Director personas per DAO
+    mapping(bytes32 => DirectorPersona) private _directorPersonas;
 
     /// @notice Governance parameters per DAO
     mapping(bytes32 => GovernanceParams) private _governanceParams;
 
-    /// @notice Council members per DAO
-    mapping(bytes32 => mapping(address => CouncilMember)) private _councilMembers;
+    /// @notice Board members per DAO
+    mapping(bytes32 => mapping(address => BoardMember)) private _boardMembers;
 
-    /// @notice Council member addresses per DAO (for enumeration)
-    mapping(bytes32 => address[]) private _councilMemberAddresses;
+    /// @notice Board member addresses per DAO (for enumeration)
+    mapping(bytes32 => address[]) private _boardMemberAddresses;
 
     /// @notice Linked packages per DAO
     mapping(bytes32 => bytes32[]) private _linkedPackages;
@@ -84,6 +88,7 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     error InvalidWeight();
     error InvalidParams();
     error DAONotActive();
+    error InvalidFallbackDays();
 
     // ============ Modifiers ============
 
@@ -107,7 +112,7 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     constructor(address initialOwner) Ownable(initialOwner) {
         defaultParams = GovernanceParams({
             minQualityScore: 70,
-            councilVotingPeriod: 3 days,
+            boardVotingPeriod: 3 days,
             gracePeriod: 1 days,
             minProposalStake: 0.01 ether,
             quorumBps: 5000 // 50%
@@ -123,7 +128,7 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
      * @param description DAO description
      * @param treasury Treasury contract address
      * @param manifestCid IPFS CID of jeju-manifest.json
-     * @param ceoPersona CEO persona configuration
+     * @param directorPersona Director persona configuration
      * @param params Governance parameters
      * @return daoId The created DAO ID
      */
@@ -133,12 +138,13 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         string calldata description,
         address treasury,
         string calldata manifestCid,
-        CEOPersona calldata ceoPersona,
+        DirectorPersona calldata directorPersona,
         GovernanceParams calldata params
     ) external whenNotPaused nonReentrant returns (bytes32 daoId) {
         if (bytes(name).length == 0 || bytes(name).length > 32) revert InvalidName();
         if (!_isValidName(name)) revert InvalidName();
         if (treasury == address(0)) revert InvalidAddress();
+        if (directorPersona.decisionFallbackDays > 30) revert InvalidFallbackDays();
 
         bytes32 nameHash = keccak256(bytes(name));
         if (_nameToDAO[nameHash] != bytes32(0)) revert DAOAlreadyExists();
@@ -151,10 +157,10 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
             displayName: displayName,
             description: description,
             treasury: treasury,
-            council: address(0),
-            ceoAgent: address(0),
+            board: address(0),
+            directorAgent: address(0),
             feeConfig: address(0),
-            ceoModelId: bytes32(0),
+            directorModelId: bytes32(0),
             manifestCid: manifestCid,
             status: DAOStatus.ACTIVE,
             createdAt: block.timestamp,
@@ -162,19 +168,21 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
             creator: msg.sender
         });
 
-        _ceoPersonas[daoId] = CEOPersona({
-            name: ceoPersona.name,
-            pfpCid: ceoPersona.pfpCid,
-            description: ceoPersona.description,
-            personality: ceoPersona.personality,
-            traits: ceoPersona.traits
+        _directorPersonas[daoId] = DirectorPersona({
+            name: directorPersona.name,
+            pfpCid: directorPersona.pfpCid,
+            description: directorPersona.description,
+            personality: directorPersona.personality,
+            traits: directorPersona.traits,
+            isHuman: directorPersona.isHuman,
+            humanAddress: directorPersona.humanAddress,
+            agentId: directorPersona.agentId,
+            decisionFallbackDays: directorPersona.decisionFallbackDays
         });
 
         _governanceParams[daoId] = GovernanceParams({
             minQualityScore: params.minQualityScore > 0 ? params.minQualityScore : defaultParams.minQualityScore,
-            councilVotingPeriod: params.councilVotingPeriod > 0
-                ? params.councilVotingPeriod
-                : defaultParams.councilVotingPeriod,
+            boardVotingPeriod: params.boardVotingPeriod > 0 ? params.boardVotingPeriod : defaultParams.boardVotingPeriod,
             gracePeriod: params.gracePeriod > 0 ? params.gracePeriod : defaultParams.gracePeriod,
             minProposalStake: params.minProposalStake,
             quorumBps: params.quorumBps > 0 ? params.quorumBps : defaultParams.quorumBps
@@ -185,7 +193,9 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         _daoAdmins[daoId][msg.sender] = true;
 
         emit DAOCreated(daoId, name, treasury, msg.sender);
-        emit CEOPersonaUpdated(daoId, ceoPersona.name, ceoPersona.pfpCid);
+        emit DirectorPersonaUpdated(daoId, directorPersona.name, directorPersona.pfpCid, directorPersona.isHuman);
+        // Legacy event for backwards compatibility
+        emit CEOPersonaUpdated(daoId, directorPersona.name, directorPersona.pfpCid);
     }
 
     /**
@@ -230,27 +240,47 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Set DAO council contract address
+     * @notice Set DAO board contract address
      */
-    function setDAOCouncilContract(bytes32 daoId, address council)
+    function setDAOBoardContract(bytes32 daoId, address board) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+        _daos[daoId].board = board;
+        _daos[daoId].updatedAt = block.timestamp;
+
+        emit DAOUpdated(daoId, "board", abi.encode(board));
+    }
+
+    /**
+     * @notice Set DAO board contract address (legacy alias)
+     */
+    function setDAOCouncilContract(bytes32 daoId, address council) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+        _daos[daoId].board = council;
+        _daos[daoId].updatedAt = block.timestamp;
+
+        emit DAOUpdated(daoId, "board", abi.encode(council));
+    }
+
+    /**
+     * @notice Set DAO Director agent contract address
+     */
+    function setDAODirectorAgent(bytes32 daoId, address directorAgent)
         external
         onlyExistingDAO(daoId)
         onlyDAOAdmin(daoId)
     {
-        _daos[daoId].council = council;
+        _daos[daoId].directorAgent = directorAgent;
         _daos[daoId].updatedAt = block.timestamp;
 
-        emit DAOUpdated(daoId, "council", abi.encode(council));
+        emit DAOUpdated(daoId, "directorAgent", abi.encode(directorAgent));
     }
 
     /**
-     * @notice Set DAO CEO agent contract address
+     * @notice Set DAO CEO agent contract address (legacy alias)
      */
     function setDAOCEOAgent(bytes32 daoId, address ceoAgent) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
-        _daos[daoId].ceoAgent = ceoAgent;
+        _daos[daoId].directorAgent = ceoAgent;
         _daos[daoId].updatedAt = block.timestamp;
 
-        emit DAOUpdated(daoId, "ceoAgent", abi.encode(ceoAgent));
+        emit DAOUpdated(daoId, "directorAgent", abi.encode(ceoAgent));
     }
 
     /**
@@ -263,43 +293,125 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         emit DAOUpdated(daoId, "feeConfig", abi.encode(feeConfig));
     }
 
-    // ============ CEO Management ============
+    // ============ Director Management ============
 
     /**
-     * @notice Update CEO persona
+     * @notice Update Director persona
      */
-    function setCEOPersona(bytes32 daoId, CEOPersona calldata persona)
+    function setDirectorPersona(bytes32 daoId, DirectorPersona calldata persona)
         external
         onlyExistingDAO(daoId)
         onlyDAOAdmin(daoId)
     {
-        _ceoPersonas[daoId] = CEOPersona({
+        if (persona.decisionFallbackDays > 30) revert InvalidFallbackDays();
+
+        _directorPersonas[daoId] = DirectorPersona({
             name: persona.name,
             pfpCid: persona.pfpCid,
             description: persona.description,
             personality: persona.personality,
-            traits: persona.traits
+            traits: persona.traits,
+            isHuman: persona.isHuman,
+            humanAddress: persona.humanAddress,
+            agentId: persona.agentId,
+            decisionFallbackDays: persona.decisionFallbackDays
         });
         _daos[daoId].updatedAt = block.timestamp;
 
+        emit DirectorPersonaUpdated(daoId, persona.name, persona.pfpCid, persona.isHuman);
+        // Legacy event
         emit CEOPersonaUpdated(daoId, persona.name, persona.pfpCid);
     }
 
     /**
-     * @notice Set CEO model (from ModelRegistry)
+     * @notice Update CEO persona (legacy alias)
      */
-    function setCEOModel(bytes32 daoId, bytes32 modelId) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
-        bytes32 oldModel = _daos[daoId].ceoModelId;
-        _daos[daoId].ceoModelId = modelId;
+    function setCEOPersona(bytes32 daoId, DirectorPersona calldata persona)
+        external
+        onlyExistingDAO(daoId)
+        onlyDAOAdmin(daoId)
+    {
+        if (persona.decisionFallbackDays > 30) revert InvalidFallbackDays();
+
+        _directorPersonas[daoId] = DirectorPersona({
+            name: persona.name,
+            pfpCid: persona.pfpCid,
+            description: persona.description,
+            personality: persona.personality,
+            traits: persona.traits,
+            isHuman: persona.isHuman,
+            humanAddress: persona.humanAddress,
+            agentId: persona.agentId,
+            decisionFallbackDays: persona.decisionFallbackDays
+        });
         _daos[daoId].updatedAt = block.timestamp;
 
+        emit DirectorPersonaUpdated(daoId, persona.name, persona.pfpCid, persona.isHuman);
+        emit CEOPersonaUpdated(daoId, persona.name, persona.pfpCid);
+    }
+
+    /**
+     * @notice Set Director model (from ModelRegistry)
+     */
+    function setDirectorModel(bytes32 daoId, bytes32 modelId) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+        bytes32 oldModel = _daos[daoId].directorModelId;
+        _daos[daoId].directorModelId = modelId;
+        _daos[daoId].updatedAt = block.timestamp;
+
+        emit DirectorModelChanged(daoId, oldModel, modelId);
+        // Legacy event
         emit CEOModelChanged(daoId, oldModel, modelId);
     }
 
-    // ============ Council Management ============
+    /**
+     * @notice Set CEO model (legacy alias)
+     */
+    function setCEOModel(bytes32 daoId, bytes32 modelId) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+        bytes32 oldModel = _daos[daoId].directorModelId;
+        _daos[daoId].directorModelId = modelId;
+        _daos[daoId].updatedAt = block.timestamp;
+
+        emit DirectorModelChanged(daoId, oldModel, modelId);
+        emit CEOModelChanged(daoId, oldModel, modelId);
+    }
+
+    // ============ Board Management ============
 
     /**
-     * @notice Add a council member
+     * @notice Add a board member
+     */
+    function addBoardMember(
+        bytes32 daoId,
+        address member,
+        uint256 agentId,
+        string calldata role,
+        uint256 weight,
+        bool isHuman
+    ) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+        if (member == address(0)) revert InvalidAddress();
+        if (weight == 0 || weight > 10000) revert InvalidWeight();
+        if (_boardMembers[daoId][member].addedAt != 0) revert MemberAlreadyExists();
+
+        _boardMembers[daoId][member] = BoardMember({
+            member: member,
+            agentId: agentId,
+            role: role,
+            weight: weight,
+            addedAt: block.timestamp,
+            isActive: true,
+            isHuman: isHuman
+        });
+
+        _boardMemberAddresses[daoId].push(member);
+        _daos[daoId].updatedAt = block.timestamp;
+
+        emit BoardMemberAdded(daoId, member, role, weight, isHuman);
+        // Legacy event
+        emit CouncilMemberAdded(daoId, member, role, weight);
+    }
+
+    /**
+     * @notice Add a council member (legacy alias)
      */
     function addCouncilMember(bytes32 daoId, address member, uint256 agentId, string calldata role, uint256 weight)
         external
@@ -308,49 +420,89 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     {
         if (member == address(0)) revert InvalidAddress();
         if (weight == 0 || weight > 10000) revert InvalidWeight();
-        if (_councilMembers[daoId][member].addedAt != 0) revert MemberAlreadyExists();
+        if (_boardMembers[daoId][member].addedAt != 0) revert MemberAlreadyExists();
 
-        _councilMembers[daoId][member] = CouncilMember({
+        // Default to AI (agentId > 0 implies AI)
+        bool isHuman = agentId == 0;
+
+        _boardMembers[daoId][member] = BoardMember({
             member: member,
             agentId: agentId,
             role: role,
             weight: weight,
             addedAt: block.timestamp,
-            isActive: true
+            isActive: true,
+            isHuman: isHuman
         });
 
-        _councilMemberAddresses[daoId].push(member);
+        _boardMemberAddresses[daoId].push(member);
         _daos[daoId].updatedAt = block.timestamp;
 
+        emit BoardMemberAdded(daoId, member, role, weight, isHuman);
         emit CouncilMemberAdded(daoId, member, role, weight);
     }
 
     /**
-     * @notice Remove a council member
+     * @notice Remove a board member
      */
-    function removeCouncilMember(bytes32 daoId, address member) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
-        if (_councilMembers[daoId][member].addedAt == 0) revert MemberNotFound();
+    function removeBoardMember(bytes32 daoId, address member) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+        if (_boardMembers[daoId][member].addedAt == 0) revert MemberNotFound();
 
-        _councilMembers[daoId][member].isActive = false;
+        _boardMembers[daoId][member].isActive = false;
         _daos[daoId].updatedAt = block.timestamp;
 
+        emit BoardMemberRemoved(daoId, member);
+        // Legacy event
         emit CouncilMemberRemoved(daoId, member);
     }
 
     /**
-     * @notice Update council member weight
+     * @notice Remove a council member (legacy alias)
+     */
+    function removeCouncilMember(bytes32 daoId, address member) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
+        if (_boardMembers[daoId][member].addedAt == 0) revert MemberNotFound();
+
+        _boardMembers[daoId][member].isActive = false;
+        _daos[daoId].updatedAt = block.timestamp;
+
+        emit BoardMemberRemoved(daoId, member);
+        emit CouncilMemberRemoved(daoId, member);
+    }
+
+    /**
+     * @notice Update board member weight
+     */
+    function updateBoardMemberWeight(bytes32 daoId, address member, uint256 weight)
+        external
+        onlyExistingDAO(daoId)
+        onlyDAOAdmin(daoId)
+    {
+        if (_boardMembers[daoId][member].addedAt == 0) revert MemberNotFound();
+        if (weight == 0 || weight > 10000) revert InvalidWeight();
+
+        _boardMembers[daoId][member].weight = weight;
+        _daos[daoId].updatedAt = block.timestamp;
+
+        emit BoardMemberUpdated(daoId, member, weight);
+        // Legacy event
+        emit CouncilMemberUpdated(daoId, member, weight);
+    }
+
+    /**
+     * @notice Update council member weight (legacy alias)
      */
     function updateCouncilMemberWeight(bytes32 daoId, address member, uint256 weight)
         external
         onlyExistingDAO(daoId)
         onlyDAOAdmin(daoId)
     {
-        if (_councilMembers[daoId][member].addedAt == 0) revert MemberNotFound();
+        if (_boardMembers[daoId][member].addedAt == 0) revert MemberNotFound();
         if (weight == 0 || weight > 10000) revert InvalidWeight();
 
-        _councilMembers[daoId][member].weight = weight;
+        _boardMembers[daoId][member].weight = weight;
         _daos[daoId].updatedAt = block.timestamp;
 
+        emit BoardMemberUpdated(daoId, member, weight);
         emit CouncilMemberUpdated(daoId, member, weight);
     }
 
@@ -466,15 +618,15 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
      */
     function getDAOFull(bytes32 daoId) external view returns (DAOFull memory) {
         DAO memory dao = _daos[daoId];
-        CEOPersona memory persona = _ceoPersonas[daoId];
+        DirectorPersona memory persona = _directorPersonas[daoId];
         GovernanceParams memory params = _governanceParams[daoId];
 
-        address[] memory memberAddrs = _councilMemberAddresses[daoId];
-        CouncilMember[] memory members = new CouncilMember[](memberAddrs.length);
+        address[] memory memberAddrs = _boardMemberAddresses[daoId];
+        BoardMember[] memory members = new BoardMember[](memberAddrs.length);
         uint256 activeCount = 0;
 
         for (uint256 i = 0; i < memberAddrs.length; i++) {
-            CouncilMember memory m = _councilMembers[daoId][memberAddrs[i]];
+            BoardMember memory m = _boardMembers[daoId][memberAddrs[i]];
             if (m.isActive) {
                 members[activeCount] = m;
                 activeCount++;
@@ -482,26 +634,33 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         }
 
         // Resize array to active members only
-        CouncilMember[] memory activeMembers = new CouncilMember[](activeCount);
+        BoardMember[] memory activeMembers = new BoardMember[](activeCount);
         for (uint256 i = 0; i < activeCount; i++) {
             activeMembers[i] = members[i];
         }
 
         return DAOFull({
             dao: dao,
-            ceoPersona: persona,
+            directorPersona: persona,
             params: params,
-            councilMembers: activeMembers,
+            boardMembers: activeMembers,
             linkedPackages: _linkedPackages[daoId],
             linkedRepos: _linkedRepos[daoId]
         });
     }
 
     /**
-     * @notice Get CEO persona for a DAO
+     * @notice Get Director persona for a DAO
      */
-    function getCEOPersona(bytes32 daoId) external view returns (CEOPersona memory) {
-        return _ceoPersonas[daoId];
+    function getDirectorPersona(bytes32 daoId) external view returns (DirectorPersona memory) {
+        return _directorPersonas[daoId];
+    }
+
+    /**
+     * @notice Get CEO persona for a DAO (legacy alias)
+     */
+    function getCEOPersona(bytes32 daoId) external view returns (DirectorPersona memory) {
+        return _directorPersonas[daoId];
     }
 
     /**
@@ -512,22 +671,46 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Get council members for a DAO
+     * @notice Get board members for a DAO
      */
-    function getCouncilMembers(bytes32 daoId) external view returns (CouncilMember[] memory) {
-        address[] memory addrs = _councilMemberAddresses[daoId];
-        CouncilMember[] memory members = new CouncilMember[](addrs.length);
+    function getBoardMembers(bytes32 daoId) external view returns (BoardMember[] memory) {
+        address[] memory addrs = _boardMemberAddresses[daoId];
+        BoardMember[] memory members = new BoardMember[](addrs.length);
         uint256 activeCount = 0;
 
         for (uint256 i = 0; i < addrs.length; i++) {
-            CouncilMember memory m = _councilMembers[daoId][addrs[i]];
+            BoardMember memory m = _boardMembers[daoId][addrs[i]];
             if (m.isActive) {
                 members[activeCount] = m;
                 activeCount++;
             }
         }
 
-        CouncilMember[] memory result = new CouncilMember[](activeCount);
+        BoardMember[] memory result = new BoardMember[](activeCount);
+        for (uint256 i = 0; i < activeCount; i++) {
+            result[i] = members[i];
+        }
+
+        return result;
+    }
+
+    /**
+     * @notice Get council members for a DAO (legacy alias)
+     */
+    function getCouncilMembers(bytes32 daoId) external view returns (BoardMember[] memory) {
+        address[] memory addrs = _boardMemberAddresses[daoId];
+        BoardMember[] memory members = new BoardMember[](addrs.length);
+        uint256 activeCount = 0;
+
+        for (uint256 i = 0; i < addrs.length; i++) {
+            BoardMember memory m = _boardMembers[daoId][addrs[i]];
+            if (m.isActive) {
+                members[activeCount] = m;
+                activeCount++;
+            }
+        }
+
+        BoardMember[] memory result = new BoardMember[](activeCount);
         for (uint256 i = 0; i < activeCount; i++) {
             result[i] = members[i];
         }
@@ -550,10 +733,17 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Check if address is council member
+     * @notice Check if address is board member
+     */
+    function isBoardMember(bytes32 daoId, address member) external view returns (bool) {
+        return _boardMembers[daoId][member].isActive;
+    }
+
+    /**
+     * @notice Check if address is council member (legacy alias)
      */
     function isCouncilMember(bytes32 daoId, address member) external view returns (bool) {
-        return _councilMembers[daoId][member].isActive;
+        return _boardMembers[daoId][member].isActive;
     }
 
     /**
@@ -677,7 +867,7 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
      * @notice Contract version
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 
     // ============ Internal Functions ============
@@ -690,8 +880,8 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         if (_daoAdmins[daoId][admin]) return true;
         if (_daos[daoId].creator == admin) return true;
 
-        // Council contract is also an admin
-        if (_daos[daoId].council != address(0) && _daos[daoId].council == admin) return true;
+        // Board contract is also an admin
+        if (_daos[daoId].board != address(0) && _daos[daoId].board == admin) return true;
 
         return false;
     }

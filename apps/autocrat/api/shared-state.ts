@@ -49,8 +49,8 @@ export function getConfig(): CouncilConfig {
     rpcUrl: getRpcUrl(),
     daoId: autocratConfigRaw.defaultDao,
     contracts: {
-      council: getContractAddr('governance', 'council'),
-      ceoAgent: getContractAddr('governance', 'ceoAgent'),
+      board: getContractAddr('governance', 'council'),
+      directorAgent: getContractAddr('governance', 'ceoAgent'),
       treasury: getContractAddr('governance', 'treasury'),
       feeConfig: getContractAddr('payments', 'feeConfig'),
       daoRegistry: getContractAddr('governance', 'daoRegistry'),
@@ -62,12 +62,12 @@ export function getConfig(): CouncilConfig {
       modelRegistry: getContractAddr('registry', 'model'),
     },
     agents: {
-      ceo: agent('eliza-ceo', 'Eliza', 'AI CEO of Network DAO'),
-      council: [
-        agent('council-treasury', 'Treasury', 'Financial review'),
-        agent('council-code', 'Code', 'Technical review'),
-        agent('council-community', 'Community', 'Community impact'),
-        agent('council-security', 'Security', 'Security review'),
+      director: agent('eliza-director', 'Eliza', 'AI Director of Network DAO'),
+      board: [
+        agent('board-treasury', 'Treasury', 'Financial review'),
+        agent('board-code', 'Code', 'Technical review'),
+        agent('board-community', 'Community', 'Community impact'),
+        agent('board-security', 'Security', 'Security review'),
       ],
       proposalAgent: agent(
         'proposal-agent',
@@ -83,13 +83,13 @@ export function getConfig(): CouncilConfig {
     },
     parameters: {
       minQualityScore: 70,
-      councilVotingPeriod: 259200,
+      boardVotingPeriod: 259200,
       gracePeriod: 86400,
       minProposalStake: BigInt('10000000000000000'),
       quorumBps: 5000,
     },
-    ceoPersona: {
-      name: 'CEO',
+    directorPersona: {
+      name: 'Director',
       pfpCid: '',
       description: 'AI governance leader',
       personality: 'Professional and analytical',
@@ -97,9 +97,11 @@ export function getConfig(): CouncilConfig {
       voiceStyle: 'Clear and professional',
       communicationTone: 'professional',
       specialties: ['governance', 'strategy'],
+      isHuman: false,
+      decisionFallbackDays: 7,
     },
-    // Default CEO model - can be overridden by DAO creator or governance vote
-    ceoModelId: autocratConfigRaw.ceoModelId,
+    // Default Director model - can be overridden by DAO creator or governance vote
+    directorModelId: autocratConfigRaw.directorModelId,
     fundingConfig: {
       minStake: BigInt('1000000000000000'),
       maxStake: BigInt('100000000000000000000'),
@@ -107,7 +109,7 @@ export function getConfig(): CouncilConfig {
       cooldownPeriod: 604800,
       matchingMultiplier: 10000,
       quadraticEnabled: true,
-      ceoWeightCap: 5000,
+      directorWeightCap: 5000,
     },
     cloudEndpoint: 'local',
     computeEndpoint: 'local',

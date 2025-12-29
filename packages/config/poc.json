@@ -1,0 +1,27 @@
+{
+  "$schema": "./poc.schema.json",
+  "intelRootCaFingerprints": [
+    "7b42e41ec43b91db834a065de4f98a13c44d695570e839cfa8921e584e40735d"
+  ],
+  "amdKds": {
+    "baseUrl": "https://kdsintf.amd.com/vcek/v1",
+    "timeoutMs": 10000,
+    "retryCount": 3,
+    "retryDelayMs": 1000,
+    "defaultProduct": "Milan"
+  },
+  "tcbMinimums": {
+    "intelTdx": {
+      "cpu": 2,
+      "tcb": 3
+    },
+    "intelSgx": {
+      "cpu": 2,
+      "tcb": 3
+    },
+    "amdSev": {
+      "snp": 10
+    }
+  }
+}
+

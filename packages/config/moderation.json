@@ -1,0 +1,179 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-28",
+  "description": "Content moderation provider configuration for Jeju Network",
+  
+  "providers": {
+    "hive": {
+      "name": "Hive Moderation",
+      "description": "Visual content moderation for images and video",
+      "enabled": true,
+      "priority": 1,
+      "endpoint": "https://api.thehive.ai/api/v2/task/sync",
+      "contentTypes": ["image", "video"],
+      "categories": ["csam", "adult", "violence", "hate", "drugs", "self_harm"],
+      "envKey": "HIVE_API_KEY",
+      "pricing": {
+        "perImage": 0.002,
+        "perSecondVideo": 0.001
+      }
+    },
+    "aws_rekognition": {
+      "name": "AWS Rekognition",
+      "description": "Image content moderation with DetectModerationLabels",
+      "enabled": true,
+      "priority": 2,
+      "contentTypes": ["image"],
+      "categories": ["adult", "violence", "drugs"],
+      "envKeys": {
+        "accessKeyId": "AWS_ACCESS_KEY_ID",
+        "secretAccessKey": "AWS_SECRET_ACCESS_KEY",
+        "region": "AWS_REGION"
+      },
+      "defaultRegion": "us-east-1",
+      "pricing": {
+        "perImage": 0.001
+      }
+    },
+    "cloudflare": {
+      "name": "Cloudflare Workers AI",
+      "description": "NSFW image classification via Cloudflare AI",
+      "enabled": true,
+      "priority": 3,
+      "contentTypes": ["image", "text"],
+      "categories": ["adult"],
+      "envKeys": {
+        "accountId": "CLOUDFLARE_ACCOUNT_ID",
+        "apiToken": "CLOUDFLARE_API_TOKEN"
+      },
+      "pricing": {
+        "perRequest": 0.0001
+      }
+    },
+    "openai": {
+      "name": "OpenAI Moderation",
+      "description": "Free text moderation API",
+      "enabled": true,
+      "priority": 1,
+      "endpoint": "https://api.openai.com/v1/moderations",
+      "model": "omni-moderation-latest",
+      "contentTypes": ["text"],
+      "categories": ["csam", "harassment", "hate", "self_harm", "violence", "adult", "illegal"],
+      "envKey": "OPENAI_API_KEY",
+      "pricing": {
+        "perRequest": 0
+      }
+    },
+    "hash": {
+      "name": "Hash Database",
+      "description": "Instant matching against known bad content hashes",
+      "enabled": true,
+      "priority": 0,
+      "contentTypes": ["image", "video", "file"],
+      "categories": ["csam", "malware"],
+      "sources": {
+        "csam": {
+          "provider": "NCMEC PhotoDNA",
+          "envKey": "CSAM_HASH_API_KEY",
+          "refreshIntervalMs": 3600000
+        },
+        "malware": {
+          "provider": "VirusTotal",
+          "envKey": "VIRUSTOTAL_API_KEY",
+          "refreshIntervalMs": 3600000
+        }
+      },
+      "pricing": {
+        "perRequest": 0
+      }
+    },
+    "local": {
+      "name": "Local Pattern Matching",
+      "description": "Fast regex-based content filtering",
+      "enabled": true,
+      "priority": 0,
+      "contentTypes": ["text", "name", "code"],
+      "categories": ["csam", "hate", "harassment", "scam", "spam", "adult", "malware"],
+      "pricing": {
+        "perRequest": 0
+      }
+    }
+  },
+
+  "thresholds": {
+    "csam": 0.01,
+    "adult": 0.7,
+    "violence": 0.7,
+    "hate": 0.6,
+    "harassment": 0.6,
+    "spam": 0.8,
+    "scam": 0.7,
+    "malware": 0.5,
+    "self_harm": 0.5,
+    "drugs": 0.7,
+    "copyright": 0.8,
+    "pii": 0.7,
+    "illegal": 0.5
+  },
+
+  "actions": {
+    "csam": "ban",
+    "adult": "warn",
+    "violence": "warn",
+    "hate": "block",
+    "harassment": "block",
+    "spam": "warn",
+    "scam": "block",
+    "malware": "block",
+    "self_harm": "queue",
+    "drugs": "warn",
+    "copyright": "warn",
+    "pii": "warn",
+    "illegal": "block",
+    "clean": "allow"
+  },
+
+  "reputation": {
+    "tiers": ["new", "basic", "trusted", "verified", "elite"],
+    "reducedScanningLevel": "verified",
+    "successesForBackoff": 10,
+    "neverBypass": ["csam", "malware", "illegal"],
+    "backoffSchedule": {
+      "new": 1.0,
+      "basic": 1.0,
+      "trusted": 0.8,
+      "verified": 0.5,
+      "elite": 0.3
+    }
+  },
+
+  "tee": {
+    "platforms": ["sgx", "nitro", "sev-snp"],
+    "requireAttestation": true,
+    "sensitiveCategories": ["csam", "illegal"],
+    "auditLogRetentionDays": 90
+  },
+
+  "queue": {
+    "enabled": true,
+    "maxPendingReviews": 10000,
+    "reviewTimeoutMs": 86400000,
+    "priorityCategories": ["csam", "self_harm"]
+  },
+
+  "environments": {
+    "localnet": {
+      "providers": ["local", "hash"],
+      "strictMode": false
+    },
+    "testnet": {
+      "providers": ["local", "hash", "openai", "hive"],
+      "strictMode": true
+    },
+    "mainnet": {
+      "providers": ["local", "hash", "openai", "hive", "aws_rekognition", "cloudflare"],
+      "strictMode": true
+    }
+  }
+}
+

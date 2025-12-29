@@ -5,6 +5,10 @@ pragma solidity ^0.8.33;
  * @title IDAORegistry
  * @author Jeju Network
  * @notice Interface for multi-tenant DAO management
+ *
+ * Terminology:
+ * - Director: The AI or human executive decision maker (formerly CEO)
+ * - Board: The advisory/oversight body (formerly Council)
  */
 interface IDAORegistry {
     // ============ Enums ============
@@ -25,31 +29,36 @@ interface IDAORegistry {
         REPO_FUNDING,
         PARAMETER_CHANGE,
         TREASURY_ACTION,
-        CEO_MODEL_CHANGE
+        DIRECTOR_MODEL_CHANGE
     }
 
     // ============ Structs ============
 
-    struct CEOPersona {
+    struct DirectorPersona {
         string name;
         string pfpCid;
         string description;
         string personality;
         string[] traits;
+        bool isHuman;
+        address humanAddress; // Set if isHuman=true, otherwise 0x0
+        uint256 agentId; // EIP-8004 ID if AI director, 0 if human
+        uint256 decisionFallbackDays; // 1-30 days before fallback (0 = no fallback)
     }
 
-    struct CouncilMember {
+    struct BoardMember {
         address member;
-        uint256 agentId;
+        uint256 agentId; // EIP-8004 ID for AI, 0 for human
         string role;
         uint256 weight;
         uint256 addedAt;
         bool isActive;
+        bool isHuman;
     }
 
     struct GovernanceParams {
         uint256 minQualityScore;
-        uint256 councilVotingPeriod;
+        uint256 boardVotingPeriod;
         uint256 gracePeriod;
         uint256 minProposalStake;
         uint256 quorumBps;
@@ -61,10 +70,10 @@ interface IDAORegistry {
         string displayName;
         string description;
         address treasury;
-        address council;
-        address ceoAgent;
+        address board; // Board governance contract (formerly council)
+        address directorAgent; // Director agent contract (formerly ceoAgent)
         address feeConfig;
-        bytes32 ceoModelId;
+        bytes32 directorModelId; // AI model ID (formerly ceoModelId)
         string manifestCid;
         DAOStatus status;
         uint256 createdAt;
@@ -74,9 +83,9 @@ interface IDAORegistry {
 
     struct DAOFull {
         DAO dao;
-        CEOPersona ceoPersona;
+        DirectorPersona directorPersona;
         GovernanceParams params;
-        CouncilMember[] councilMembers;
+        BoardMember[] boardMembers;
         bytes32[] linkedPackages;
         bytes32[] linkedRepos;
     }
@@ -86,16 +95,23 @@ interface IDAORegistry {
     event DAOCreated(bytes32 indexed daoId, string name, address indexed treasury, address indexed creator);
     event DAOUpdated(bytes32 indexed daoId, string field, bytes newValue);
     event DAOStatusChanged(bytes32 indexed daoId, DAOStatus oldStatus, DAOStatus newStatus);
-    event CEOPersonaUpdated(bytes32 indexed daoId, string name, string pfpCid);
-    event CEOModelChanged(bytes32 indexed daoId, bytes32 oldModel, bytes32 newModel);
-    event CouncilMemberAdded(bytes32 indexed daoId, address indexed member, string role, uint256 weight);
-    event CouncilMemberRemoved(bytes32 indexed daoId, address indexed member);
-    event CouncilMemberUpdated(bytes32 indexed daoId, address indexed member, uint256 newWeight);
+    event DirectorPersonaUpdated(bytes32 indexed daoId, string name, string pfpCid, bool isHuman);
+    event DirectorModelChanged(bytes32 indexed daoId, bytes32 oldModel, bytes32 newModel);
+    event BoardMemberAdded(bytes32 indexed daoId, address indexed member, string role, uint256 weight, bool isHuman);
+    event BoardMemberRemoved(bytes32 indexed daoId, address indexed member);
+    event BoardMemberUpdated(bytes32 indexed daoId, address indexed member, uint256 newWeight);
     event PackageLinked(bytes32 indexed daoId, bytes32 indexed packageId);
     event PackageUnlinked(bytes32 indexed daoId, bytes32 indexed packageId);
     event RepoLinked(bytes32 indexed daoId, bytes32 indexed repoId);
     event RepoUnlinked(bytes32 indexed daoId, bytes32 indexed repoId);
     event GovernanceParamsUpdated(bytes32 indexed daoId);
+
+    // ============ Legacy Events (for backwards compatibility) ============
+    event CEOPersonaUpdated(bytes32 indexed daoId, string name, string pfpCid);
+    event CEOModelChanged(bytes32 indexed daoId, bytes32 oldModel, bytes32 newModel);
+    event CouncilMemberAdded(bytes32 indexed daoId, address indexed member, string role, uint256 weight);
+    event CouncilMemberRemoved(bytes32 indexed daoId, address indexed member);
+    event CouncilMemberUpdated(bytes32 indexed daoId, address indexed member, uint256 newWeight);
 
     // ============ DAO Management ============
 
@@ -105,7 +121,7 @@ interface IDAORegistry {
         string calldata description,
         address treasury,
         string calldata manifestCid,
-        CEOPersona calldata ceoPersona,
+        DirectorPersona calldata directorPersona,
         GovernanceParams calldata params
     ) external returns (bytes32 daoId);
 
@@ -120,26 +136,32 @@ interface IDAORegistry {
 
     function setDAOTreasury(bytes32 daoId, address treasury) external;
 
-    function setDAOCouncilContract(bytes32 daoId, address council) external;
+    function setDAOBoardContract(bytes32 daoId, address board) external;
 
-    function setDAOCEOAgent(bytes32 daoId, address ceoAgent) external;
+    function setDAODirectorAgent(bytes32 daoId, address directorAgent) external;
 
     function setDAOFeeConfig(bytes32 daoId, address feeConfig) external;
 
-    // ============ CEO Management ============
+    // ============ Director Management ============
 
-    function setCEOPersona(bytes32 daoId, CEOPersona calldata persona) external;
+    function setDirectorPersona(bytes32 daoId, DirectorPersona calldata persona) external;
 
-    function setCEOModel(bytes32 daoId, bytes32 modelId) external;
+    function setDirectorModel(bytes32 daoId, bytes32 modelId) external;
 
-    // ============ Council Management ============
+    // ============ Board Management ============
 
-    function addCouncilMember(bytes32 daoId, address member, uint256 agentId, string calldata role, uint256 weight)
-        external;
+    function addBoardMember(
+        bytes32 daoId,
+        address member,
+        uint256 agentId,
+        string calldata role,
+        uint256 weight,
+        bool isHuman
+    ) external;
 
-    function removeCouncilMember(bytes32 daoId, address member) external;
+    function removeBoardMember(bytes32 daoId, address member) external;
 
-    function updateCouncilMemberWeight(bytes32 daoId, address member, uint256 weight) external;
+    function updateBoardMemberWeight(bytes32 daoId, address member, uint256 weight) external;
 
     // ============ Package/Repo Linking ============
 
@@ -161,17 +183,17 @@ interface IDAORegistry {
 
     function getDAOFull(bytes32 daoId) external view returns (DAOFull memory);
 
-    function getCEOPersona(bytes32 daoId) external view returns (CEOPersona memory);
+    function getDirectorPersona(bytes32 daoId) external view returns (DirectorPersona memory);
 
     function getGovernanceParams(bytes32 daoId) external view returns (GovernanceParams memory);
 
-    function getCouncilMembers(bytes32 daoId) external view returns (CouncilMember[] memory);
+    function getBoardMembers(bytes32 daoId) external view returns (BoardMember[] memory);
 
     function getLinkedPackages(bytes32 daoId) external view returns (bytes32[] memory);
 
     function getLinkedRepos(bytes32 daoId) external view returns (bytes32[] memory);
 
-    function isCouncilMember(bytes32 daoId, address member) external view returns (bool);
+    function isBoardMember(bytes32 daoId, address member) external view returns (bool);
 
     function getDAOByName(string calldata name) external view returns (DAO memory);
 
@@ -188,4 +210,12 @@ interface IDAORegistry {
     function getPackageDAO(bytes32 packageId) external view returns (bytes32 daoId);
 
     function getRepoDAO(bytes32 repoId) external view returns (bytes32 daoId);
+
+    // ============ Legacy View Functions (backwards compatibility) ============
+
+    function getCEOPersona(bytes32 daoId) external view returns (DirectorPersona memory);
+
+    function getCouncilMembers(bytes32 daoId) external view returns (BoardMember[] memory);
+
+    function isCouncilMember(bytes32 daoId, address member) external view returns (bool);
 }

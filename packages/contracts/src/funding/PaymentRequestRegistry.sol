@@ -17,7 +17,7 @@ import {IDAORegistry} from "../governance/interfaces/IDAORegistry.sol";
  * Key Features:
  * - Multiple payment categories for non-technical work
  * - Council review with supermajority requirement
- * - CEO can approve/modify for amounts below threshold
+ * - Director can approve/modify for amounts below threshold
  * - Dispute escalation to futarchy markets
  * - Retroactive funding support with strong evidence requirements
  * - Payments in DAO treasury tokens (own token preferred)
@@ -45,8 +45,8 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
     enum PaymentRequestStatus {
         SUBMITTED,
-        COUNCIL_REVIEW,
-        CEO_REVIEW,
+        BOARD_REVIEW,
+        DIRECTOR_REVIEW,
         APPROVED,
         REJECTED,
         PAID,
@@ -85,14 +85,14 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         bytes32 disputeCaseId; // Futarchy case if disputed
     }
 
-    struct CouncilVote {
+    struct BoardVote {
         address voter;
         VoteType vote;
         string reason;
         uint256 votedAt;
     }
 
-    struct CEODecision {
+    struct DirectorDecision {
         bool approved;
         uint256 modifiedAmount;
         string reason;
@@ -100,12 +100,12 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     struct DAOPaymentConfig {
-        bool requiresCouncilApproval;
-        uint256 minCouncilVotes;
-        uint256 councilSupermajorityBps; // e.g., 6700 = 67% supermajority
-        bool ceoCanOverride;
-        uint256 maxAutoApproveAmount; // CEO can auto-approve below this
-        uint256 reviewPeriod; // Time for council review
+        bool requiresBoardApproval;
+        uint256 minBoardVotes;
+        uint256 boardSupermajorityBps; // e.g., 6700 = 67% supermajority
+        bool directorCanOverride;
+        uint256 maxAutoApproveAmount; // Director can auto-approve below this
+        uint256 reviewPeriod; // Time for board review
         uint256 disputePeriod; // Time to file dispute after rejection
         address treasuryToken; // Preferred payment token
         bool allowRetroactive;
@@ -125,8 +125,8 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     address public futarchyContract; // For dispute escalation
 
     mapping(bytes32 => PaymentRequest) private _requests;
-    mapping(bytes32 => CouncilVote[]) private _councilVotes;
-    mapping(bytes32 => CEODecision) private _ceoDecisions;
+    mapping(bytes32 => BoardVote[]) private _boardVotes;
+    mapping(bytes32 => DirectorDecision) private _directorDecisions;
     mapping(bytes32 => mapping(address => bool)) private _hasVoted;
 
     mapping(bytes32 => bytes32[]) private _daoRequests;
@@ -151,9 +151,9 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
     event PaymentRequestUpdated(bytes32 indexed requestId, string evidenceUri);
 
-    event CouncilVoteCast(bytes32 indexed requestId, address indexed voter, VoteType vote);
+    event BoardVoteCast(bytes32 indexed requestId, address indexed voter, VoteType vote);
 
-    event CEODecisionMade(bytes32 indexed requestId, bool approved, uint256 modifiedAmount);
+    event DirectorDecisionMade(bytes32 indexed requestId, bool approved, uint256 modifiedAmount);
 
     event PaymentRequestApproved(bytes32 indexed requestId, uint256 approvedAmount);
 
@@ -174,9 +174,9 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
     error InvalidAmount();
     error InvalidEvidence();
     error DAONotActive();
-    error NotCouncilMember();
+    error NotBoardMember();
     error AlreadyVoted();
-    error NotCEO();
+    error NotDirector();
     error RequestNotInReview();
     error ReviewPeriodNotEnded();
     error DisputePeriodExpired();
@@ -273,12 +273,12 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         _allRequestIds.push(requestId);
 
         // Determine initial status
-        if (config.requiresCouncilApproval || isRetroactive) {
-            _requests[requestId].status = PaymentRequestStatus.COUNCIL_REVIEW;
+        if (config.requiresBoardApproval || isRetroactive) {
+            _requests[requestId].status = PaymentRequestStatus.BOARD_REVIEW;
         } else if (requestedAmount <= config.maxAutoApproveAmount) {
-            _requests[requestId].status = PaymentRequestStatus.CEO_REVIEW;
+            _requests[requestId].status = PaymentRequestStatus.DIRECTOR_REVIEW;
         } else {
-            _requests[requestId].status = PaymentRequestStatus.COUNCIL_REVIEW;
+            _requests[requestId].status = PaymentRequestStatus.BOARD_REVIEW;
         }
 
         emit PaymentRequestSubmitted(requestId, daoId, msg.sender, category, requestedAmount, isRetroactive);
@@ -316,45 +316,45 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         emit PaymentRequestCancelled(requestId);
     }
 
-    // ============ Council Review ============
+    // ============ Board Review ============
 
     /**
-     * @notice Cast a council vote on a payment request
+     * @notice Cast a board vote on a payment request
      */
-    function councilVote(bytes32 requestId, VoteType vote, string calldata reason) external requestExists(requestId) {
+    function boardVote(bytes32 requestId, VoteType vote, string calldata reason) external requestExists(requestId) {
         PaymentRequest storage req = _requests[requestId];
-        if (req.status != PaymentRequestStatus.COUNCIL_REVIEW) {
+        if (req.status != PaymentRequestStatus.BOARD_REVIEW) {
             revert RequestNotInReview();
         }
 
-        // Verify caller is council member
-        if (!daoRegistry.isCouncilMember(req.daoId, msg.sender)) {
-            revert NotCouncilMember();
+        // Verify caller is board member
+        if (!daoRegistry.isBoardMember(req.daoId, msg.sender)) {
+            revert NotBoardMember();
         }
 
         if (_hasVoted[requestId][msg.sender]) revert AlreadyVoted();
 
-        _councilVotes[requestId].push(
-            CouncilVote({voter: msg.sender, vote: vote, reason: reason, votedAt: block.timestamp})
+        _boardVotes[requestId].push(
+            BoardVote({voter: msg.sender, vote: vote, reason: reason, votedAt: block.timestamp})
         );
 
         _hasVoted[requestId][msg.sender] = true;
 
-        emit CouncilVoteCast(requestId, msg.sender, vote);
+        emit BoardVoteCast(requestId, msg.sender, vote);
 
         // Check if we have enough votes for decision
-        _checkCouncilQuorum(requestId);
+        _checkBoardQuorum(requestId);
     }
 
     /**
-     * @notice Check if council has reached quorum and process result
+     * @notice Check if board has reached quorum and process result
      */
-    function _checkCouncilQuorum(bytes32 requestId) internal {
+    function _checkBoardQuorum(bytes32 requestId) internal {
         PaymentRequest storage req = _requests[requestId];
         DAOPaymentConfig memory config = _getConfig(req.daoId);
-        CouncilVote[] storage votes = _councilVotes[requestId];
+        BoardVote[] storage votes = _boardVotes[requestId];
 
-        if (votes.length < config.minCouncilVotes) return;
+        if (votes.length < config.minBoardVotes) return;
 
         uint256 approveCount = 0;
         uint256 rejectCount = 0;
@@ -371,13 +371,13 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
             // Abstains don't count toward quorum
         }
 
-        uint256 supermajorityThreshold = (totalVotes * config.councilSupermajorityBps) / 10000;
+        uint256 supermajorityThreshold = (totalVotes * config.boardSupermajorityBps) / 10000;
 
         if (approveCount > supermajorityThreshold) {
             // Supermajority approved
             if (req.isRetroactive) {
-                // Retroactive needs CEO sign-off
-                req.status = PaymentRequestStatus.CEO_REVIEW;
+                // Retroactive needs Director sign-off
+                req.status = PaymentRequestStatus.DIRECTOR_REVIEW;
             } else {
                 req.status = PaymentRequestStatus.APPROVED;
                 req.approvedAmount = req.requestedAmount;
@@ -388,20 +388,20 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
             // Supermajority rejected
             req.status = PaymentRequestStatus.REJECTED;
             req.reviewedAt = block.timestamp;
-            req.rejectionReason = "Council supermajority rejected";
+            req.rejectionReason = "Board supermajority rejected";
             emit PaymentRequestRejected(requestId, req.rejectionReason);
         }
-        // Otherwise, more votes needed or escalate to CEO
+        // Otherwise, more votes needed or escalate to Director
     }
 
     /**
-     * @notice Force escalation to CEO after review period
+     * @notice Force escalation to Director after review period
      */
-    function escalateToCEO(bytes32 requestId) external requestExists(requestId) {
+    function escalateToDirector(bytes32 requestId) external requestExists(requestId) {
         PaymentRequest storage req = _requests[requestId];
         DAOPaymentConfig memory config = _getConfig(req.daoId);
 
-        if (req.status != PaymentRequestStatus.COUNCIL_REVIEW) {
+        if (req.status != PaymentRequestStatus.BOARD_REVIEW) {
             revert RequestNotInReview();
         }
 
@@ -409,32 +409,32 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
             revert ReviewPeriodNotEnded();
         }
 
-        // No supermajority reached, escalate to CEO
-        req.status = PaymentRequestStatus.CEO_REVIEW;
+        // No supermajority reached, escalate to Director
+        req.status = PaymentRequestStatus.DIRECTOR_REVIEW;
     }
 
-    // ============ CEO Review ============
+    // ============ Director Review ============
 
     /**
-     * @notice CEO makes decision on payment request
+     * @notice Director makes decision on payment request
      */
-    function ceoDecision(bytes32 requestId, bool approved, uint256 modifiedAmount, string calldata reason)
+    function directorDecision(bytes32 requestId, bool approved, uint256 modifiedAmount, string calldata reason)
         external
         requestExists(requestId)
     {
         PaymentRequest storage req = _requests[requestId];
         IDAORegistry.DAO memory dao = daoRegistry.getDAO(req.daoId);
 
-        // Verify caller is CEO agent or DAO admin
-        if (msg.sender != dao.ceoAgent && !daoRegistry.isDAOAdmin(req.daoId, msg.sender)) {
-            revert NotCEO();
+        // Verify caller is Director agent or DAO admin
+        if (msg.sender != dao.directorAgent && !daoRegistry.isDAOAdmin(req.daoId, msg.sender)) {
+            revert NotDirector();
         }
 
-        if (req.status != PaymentRequestStatus.CEO_REVIEW) {
+        if (req.status != PaymentRequestStatus.DIRECTOR_REVIEW) {
             revert RequestNotInReview();
         }
 
-        _ceoDecisions[requestId] = CEODecision({
+        _directorDecisions[requestId] = DirectorDecision({
             approved: approved,
             modifiedAmount: modifiedAmount,
             reason: reason,
@@ -453,7 +453,7 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
 
         req.reviewedAt = block.timestamp;
 
-        emit CEODecisionMade(requestId, approved, modifiedAmount);
+        emit DirectorDecisionMade(requestId, approved, modifiedAmount);
     }
 
     // ============ Dispute ============
@@ -561,8 +561,8 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         DAOPaymentConfig memory config = _daoConfigs[daoId];
 
         // Apply defaults if not configured
-        if (config.councilSupermajorityBps == 0) {
-            config.councilSupermajorityBps = DEFAULT_SUPERMAJORITY_BPS;
+        if (config.boardSupermajorityBps == 0) {
+            config.boardSupermajorityBps = DEFAULT_SUPERMAJORITY_BPS;
         }
         if (config.reviewPeriod == 0) {
             config.reviewPeriod = DEFAULT_REVIEW_PERIOD;
@@ -573,8 +573,8 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         if (config.retroactiveMaxAge == 0) {
             config.retroactiveMaxAge = DEFAULT_RETROACTIVE_MAX_AGE;
         }
-        if (config.minCouncilVotes == 0) {
-            config.minCouncilVotes = 3;
+        if (config.minBoardVotes == 0) {
+            config.minBoardVotes = 3;
         }
 
         return config;
@@ -586,12 +586,12 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         return _requests[requestId];
     }
 
-    function getCouncilVotes(bytes32 requestId) external view returns (CouncilVote[] memory) {
-        return _councilVotes[requestId];
+    function getBoardVotes(bytes32 requestId) external view returns (BoardVote[] memory) {
+        return _boardVotes[requestId];
     }
 
-    function getCEODecision(bytes32 requestId) external view returns (CEODecision memory) {
-        return _ceoDecisions[requestId];
+    function getDirectorDecision(bytes32 requestId) external view returns (DirectorDecision memory) {
+        return _directorDecisions[requestId];
     }
 
     function getDAORequests(bytes32 daoId) external view returns (bytes32[] memory) {
@@ -617,8 +617,8 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         for (uint256 i = 0; i < requestIds.length; i++) {
             PaymentRequestStatus status = _requests[requestIds[i]].status;
             if (
-                status == PaymentRequestStatus.SUBMITTED || status == PaymentRequestStatus.COUNCIL_REVIEW
-                    || status == PaymentRequestStatus.CEO_REVIEW
+                status == PaymentRequestStatus.SUBMITTED || status == PaymentRequestStatus.BOARD_REVIEW
+                    || status == PaymentRequestStatus.DIRECTOR_REVIEW
             ) {
                 pendingCount++;
             }
@@ -630,8 +630,8 @@ contract PaymentRequestRegistry is Ownable, Pausable, ReentrancyGuard {
         for (uint256 i = 0; i < requestIds.length; i++) {
             PaymentRequestStatus status = _requests[requestIds[i]].status;
             if (
-                status == PaymentRequestStatus.SUBMITTED || status == PaymentRequestStatus.COUNCIL_REVIEW
-                    || status == PaymentRequestStatus.CEO_REVIEW
+                status == PaymentRequestStatus.SUBMITTED || status == PaymentRequestStatus.BOARD_REVIEW
+                    || status == PaymentRequestStatus.DIRECTOR_REVIEW
             ) {
                 pending[index] = _requests[requestIds[i]];
                 index++;

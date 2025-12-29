@@ -34,6 +34,8 @@ import testnetChainRaw from './chain/testnet.json' with { type: 'json' }
 import contractsJsonRaw from './contracts.json' with { type: 'json' }
 import eilJsonRaw from './eil.json' with { type: 'json' }
 import federationJsonRaw from './federation.json' with { type: 'json' }
+import moderationJsonRaw from './moderation.json' with { type: 'json' }
+import pocJsonRaw from './poc.json' with { type: 'json' }
 import {
   type ChainConfig,
   ChainConfigSchema,
@@ -48,8 +50,16 @@ import {
   FederationFullConfigSchema,
   type FederationHubConfig,
   type FederationNetworkConfig,
+  type ModerationConfig,
+  ModerationConfigSchema,
+  type ModerationEnvironmentConfig,
+  type ModerationProviderConfig,
   NetworkSchema,
   type NetworkType,
+  type PoCKdsConfig,
+  type PoCTcbMinimums,
+  type PoCVerificationConfig,
+  PoCVerificationConfigSchema,
   ServicesConfigSchema,
   type ServicesNetworkConfig,
   type VendorAppConfig,
@@ -99,6 +109,7 @@ const chainConfigs: Record<NetworkType, ChainConfig> = {
 
 let contractsCache: ContractsConfig | null = null
 let servicesCache: Record<NetworkType, ServicesNetworkConfig> | null = null
+let moderationCache: ModerationConfig | null = null
 
 function loadContracts(): ContractsConfig {
   if (!contractsCache) {
@@ -112,6 +123,13 @@ function loadServices(): Record<NetworkType, ServicesNetworkConfig> {
     servicesCache = ServicesConfigSchema.parse(servicesJsonRaw)
   }
   return servicesCache
+}
+
+function loadModeration(): ModerationConfig {
+  if (!moderationCache) {
+    moderationCache = ModerationConfigSchema.parse(moderationJsonRaw)
+  }
+  return moderationCache
 }
 
 /**
@@ -355,6 +373,42 @@ export function getPoCIdentityRegistryAddress(network?: NetworkType): string {
 /** Get PoC RPC URL (Base Sepolia or Base mainnet) */
 export function getPoCRpcUrl(network?: NetworkType): string {
   return getPoCConfig(network).rpcUrl
+}
+
+// PoC Verification Configuration (attestation validation settings)
+
+let pocVerificationConfigCache: PoCVerificationConfig | null = null
+
+/** Load and validate PoC verification config */
+function loadPoCVerificationConfig(): PoCVerificationConfig {
+  if (pocVerificationConfigCache) return pocVerificationConfigCache
+  pocVerificationConfigCache = PoCVerificationConfigSchema.parse(pocJsonRaw)
+  return pocVerificationConfigCache
+}
+
+/** Get full PoC verification configuration */
+export function getPoCVerificationConfig(): PoCVerificationConfig {
+  return loadPoCVerificationConfig()
+}
+
+/** Get Intel root CA fingerprints for certificate verification */
+export function getIntelRootCaFingerprints(): string[] {
+  const config = loadPoCVerificationConfig()
+  // Allow env var override for additional fingerprints (certificate rotation)
+  const extraFingerprints = process.env.INTEL_ROOT_CA_FINGERPRINTS?.split(',')
+    .map(f => f.trim().toLowerCase().replace(/^0x/, ''))
+    .filter(f => f.length === 64 && /^[0-9a-f]+$/.test(f)) ?? []
+  return [...config.intelRootCaFingerprints, ...extraFingerprints]
+}
+
+/** Get AMD KDS configuration */
+export function getAmdKdsConfig(): PoCKdsConfig {
+  return loadPoCVerificationConfig().amdKds
+}
+
+/** Get TCB minimum thresholds */
+export function getTcbMinimums(): PoCTcbMinimums {
+  return loadPoCVerificationConfig().tcbMinimums
 }
 
 /** Get external chain RPC URL */
@@ -2556,6 +2610,64 @@ export {
   hasApiKey,
   printApiKeyStatus,
 } from './api-keys'
+
+// Moderation Configuration
+export type {
+  ModerationConfig,
+  ModerationEnvironmentConfig,
+  ModerationProviderConfig,
+} from './schemas'
+
+/**
+ * Get the full moderation configuration
+ */
+export function getModerationConfig(): ModerationConfig {
+  return loadModeration()
+}
+
+/**
+ * Get moderation thresholds for each category
+ */
+export function getModerationThresholds(): Record<string, number> {
+  return loadModeration().thresholds
+}
+
+/**
+ * Get moderation actions for each category
+ */
+export function getModerationActions(): Record<string, string> {
+  return loadModeration().actions
+}
+
+/**
+ * Get moderation provider configuration
+ */
+export function getModerationProviders(): Record<string, ModerationProviderConfig> {
+  return loadModeration().providers
+}
+
+/**
+ * Get moderation configuration for current environment
+ */
+export function getModerationEnvironment(network?: NetworkType): ModerationEnvironmentConfig {
+  const config = loadModeration()
+  const net = network ?? getCurrentNetwork()
+  return config.environments[net] ?? config.environments.localnet
+}
+
+/**
+ * Get enabled moderation providers for current environment
+ */
+export function getEnabledModerationProviders(network?: NetworkType): string[] {
+  return getModerationEnvironment(network).providers
+}
+
+/**
+ * Check if strict moderation mode is enabled
+ */
+export function isModerationStrictMode(network?: NetworkType): boolean {
+  return getModerationEnvironment(network).strictMode
+}
 
 // Chainlink Configuration
 export type {

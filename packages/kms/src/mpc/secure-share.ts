@@ -292,3 +292,4 @@ export function zeroPolynomial(coefficients: SecureShare[]): void {
     coeff.secureZero()
   }
 }
+

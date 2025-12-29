@@ -975,7 +975,7 @@ Based on the vote counts and reasoning quality, provide your decision as: APPROV
       approved,
       confidenceScore: Math.round((Math.max(approves, rejects) / total) * 100),
       alignmentScore: Math.round(((approves + rejects) / total) * 100),
-      autocratVotes: {
+      boardVotes: {
         approve: approves,
         reject: rejects,
         abstain: total - approves - rejects,
@@ -983,16 +983,17 @@ Based on the vote counts and reasoning quality, provide your decision as: APPROV
       reasoning: response.slice(0, 500),
       recommendations: approved
         ? ['Proceed with implementation']
-        : ['Address council concerns'],
+        : ['Address board concerns'],
       timestamp: new Date().toISOString(),
       model: OLLAMA_MODEL,
       teeMode: getTEEMode(),
+      isHumanDecision: false,
     }
 
-    await store({ type: 'ceo_decision', ...decision })
+    await store({ type: 'director_decision', ...decision })
 
     return {
-      message: `CEO: ${approved ? 'APPROVED' : 'REJECTED'}`,
+      message: `Director: ${approved ? 'APPROVED' : 'REJECTED'}`,
       data: decision,
     }
   }

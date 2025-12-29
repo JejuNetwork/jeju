@@ -79,6 +79,26 @@ export interface NodeConfig {
     expiresAt: number
   }
 
+  // Proof-of-Cloud Status
+  pocStatus?: {
+    /** Whether the node is verified in the cloud alliance registry */
+    verified: boolean
+    /** PoC verification level (1=human-supervised, 2=automated, 3=continuous) */
+    level: 1 | 2 | 3 | null
+    /** Salted hash of hardware ID */
+    hardwareIdHash: Hex | null
+    /** Cloud provider (e.g., "aws", "gcp", "azure") */
+    cloudProvider: string | null
+    /** Data center region */
+    region: string | null
+    /** Timestamp of last verification */
+    lastVerifiedAt: number | null
+    /** Verification expiry timestamp */
+    expiresAt: number | null
+    /** PoC reputation score (0-100) */
+    score: number
+  }
+
   // Current load
   activeWorkers: number
   activeJobs: number
@@ -480,6 +500,24 @@ export type InfraEvent =
       nodeAgentId: bigint
       reason: string
       amount: bigint
+    }
+  | {
+      type: 'node:poc_verified'
+      nodeAgentId: bigint
+      level: 1 | 2 | 3
+      cloudProvider: string
+      region: string
+      hardwareIdHash: Hex
+    }
+  | {
+      type: 'node:poc_failed'
+      nodeAgentId: bigint
+      reason: string
+    }
+  | {
+      type: 'node:poc_expired'
+      nodeAgentId: bigint
+      hardwareIdHash: Hex
     }
   | {
       type: 'worker:deployed'

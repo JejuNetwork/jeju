@@ -6,11 +6,10 @@ import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
 import {
+  getCQLMinerUrl,
+  getCQLUrl,
   getChainId,
   getCurrentNetwork,
-  getEnvVar,
-  getEQLiteMinerUrl,
-  getEQLiteUrl,
   getRpcUrl,
 } from '@jejunetwork/config'
 import { expectAddress } from '@jejunetwork/types'
@@ -18,7 +17,6 @@ import chalk from 'chalk'
 import { formatEther } from 'viem'
 import { z } from 'zod'
 import { JsonRpcResultResponseSchema } from '../../lib/validation'
-import { configureNode } from '../config'
 import { createSecureNodeClient } from '../lib/contracts'
 import type { ServiceRequirements } from '../lib/hardware'
 import {
@@ -27,7 +25,10 @@ import {
   detectHardware,
   meetsRequirements,
 } from '../lib/hardware'
-import { createSecureSigner, registerNodeWithKMS } from '../lib/secure-signer'
+import {
+  createSecureSigner,
+  registerNodeWithKMS,
+} from '../lib/secure-signer'
 import { createNodeServices } from '../lib/services'
 
 const CliAppConfigSchema = z.object({
@@ -346,9 +347,14 @@ async function cmdSetup(): Promise<void> {
         '    Your keys are managed by the network KMS using threshold signatures.',
       ),
     )
-    console.log(chalk.dim('    No private keys are stored on this machine.\n'))
+    console.log(
+      chalk.dim('    No private keys are stored on this machine.\n'),
+    )
 
-    const registerNew = await promptYesNo('  Register new node with KMS?', true)
+    const registerNew = await promptYesNo(
+      '  Register new node with KMS?',
+      true,
+    )
 
     if (registerNew) {
       const hardwareCamel = convertHardwareToCamelCase(hardware)
@@ -381,7 +387,9 @@ async function cmdSetup(): Promise<void> {
           ),
         )
         console.log(
-          chalk.dim('    You can retry setup later or check KMS connectivity.'),
+          chalk.dim(
+            '    You can retry setup later or check KMS connectivity.',
+          ),
         )
       }
     } else {
@@ -412,7 +420,7 @@ async function cmdSetup(): Promise<void> {
   config.services.proxy = await promptYesNo('    Proxy (share bandwidth)', true)
   config.services.storage = await promptYesNo('    Storage (share disk)', false)
   config.services.database = await promptYesNo(
-    '    Database (EQLite miner/storage)',
+    '    Database (CQL miner/storage)',
     false,
   )
 
@@ -649,9 +657,9 @@ async function startDatabaseService(
   databaseService: ReturnType<typeof createNodeServices>['database'],
   config: CliAppConfig,
 ) {
-  // Get EQLite endpoints from config (respects env var overrides)
-  const blockProducerEndpoint = getEQLiteUrl(config.network)
-  const minerEndpoint = getEQLiteMinerUrl(config.network)
+  // Get CQL endpoints from config (respects env var overrides)
+  const blockProducerEndpoint = getCQLUrl(config.network)
+  const minerEndpoint = getCQLMinerUrl(config.network)
 
   if (!config.keyId) {
     log('warn', 'Database service requires KMS key - skipping')
@@ -676,7 +684,7 @@ async function startDatabaseService(
     await databaseService.start()
     log(
       'success',
-      `Database (EQLite) service started - BP: ${blockProducerEndpoint}`,
+      `Database (CQL) service started - BP: ${blockProducerEndpoint}`,
     )
 
     // Periodically log stats
@@ -685,7 +693,7 @@ async function startDatabaseService(
       if (stats.queriesPerSecond > 0) {
         log(
           'debug',
-          `EQLite: ${stats.queriesPerSecond.toFixed(2)} qps, ${stats.avgQueryLatencyMs.toFixed(0)}ms avg latency`,
+          `CQL: ${stats.queriesPerSecond.toFixed(2)} qps, ${stats.avgQueryLatencyMs.toFixed(0)}ms avg latency`,
         )
       }
     }, 60000)
@@ -921,31 +929,6 @@ ${chalk.bold('Quick Start:')}
 }
 
 if (import.meta.main) {
-  // Initialize config from environment variables
-  configureNode({
-    jejuPrivateKey: getEnvVar('JEJU_PRIVATE_KEY'),
-    privateKey: getEnvVar('PRIVATE_KEY'),
-    evmPrivateKey: getEnvVar('EVM_PRIVATE_KEY'),
-    solanaPrivateKey: getEnvVar('SOLANA_PRIVATE_KEY'),
-    rpcUrl: getEnvVar('RPC_URL'),
-    network: (getEnvVar('JEJU_NETWORK') ?? 'testnet') as
-      | 'mainnet'
-      | 'testnet'
-      | 'localnet',
-    proxyRegion: getEnvVar('PROXY_REGION'),
-    dwsExecUrl: getEnvVar('DWS_EXEC_URL'),
-    seedingOracleUrl: getEnvVar('SEEDING_ORACLE_URL'),
-    externalIp: getEnvVar('EXTERNAL_IP'),
-    rpcUrl1: getEnvVar('RPC_URL_1'),
-    rpcUrl42161: getEnvVar('RPC_URL_42161'),
-    rpcUrl10: getEnvVar('RPC_URL_10'),
-    rpcUrl8453: getEnvVar('RPC_URL_8453'),
-    solanaRpcUrl: getEnvVar('SOLANA_RPC_URL'),
-    zkBridgeEndpoint: getEnvVar('ZK_BRIDGE_ENDPOINT'),
-    zkProverEndpoint: getEnvVar('ZK_PROVER_ENDPOINT'),
-    oneInchApiKey: getEnvVar('ONEINCH_API_KEY'),
-  })
-
   main().catch((err) => {
     console.error(chalk.red('Error:'), err.message)
     process.exit(1)

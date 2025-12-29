@@ -65,19 +65,21 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
         description: body.description,
         treasury: body.treasury as Address,
         manifestCid: body.manifestCid ?? '',
-        ceoPersona: {
-          name: body.ceo.name,
-          pfpCid: body.ceo.pfpCid ?? '',
-          description: body.ceo.description,
-          personality: body.ceo.personality,
-          traits: body.ceo.traits ?? [],
+        directorPersona: {
+          name: body.director.name,
+          pfpCid: body.director.pfpCid ?? '',
+          description: body.director.description,
+          personality: body.director.personality,
+          traits: body.director.traits ?? [],
           voiceStyle: 'professional',
           communicationTone: 'professional' as const,
           specialties: [],
+          isHuman: body.director.isHuman ?? false,
+          decisionFallbackDays: body.director.decisionFallbackDays ?? 7,
         },
         governanceParams: {
           minQualityScore: body.governance.minQualityScore,
-          councilVotingPeriod: body.governance.councilVotingPeriod,
+          boardVotingPeriod: body.governance.boardVotingPeriod,
           gracePeriod: body.governance.gracePeriod,
           minProposalStake: BigInt(body.governance.minProposalStake),
           quorumBps: body.governance.quorumBps,
@@ -94,16 +96,18 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
         description: t.String(),
         treasury: t.String(),
         manifestCid: t.Optional(t.String()),
-        ceo: t.Object({
+        director: t.Object({
           name: t.String(),
           pfpCid: t.Optional(t.String()),
           description: t.String(),
           personality: t.String(),
           traits: t.Optional(t.Array(t.String())),
+          isHuman: t.Optional(t.Boolean()),
+          decisionFallbackDays: t.Optional(t.Number()),
         }),
         governance: t.Object({
           minQualityScore: t.Number(),
-          councilVotingPeriod: t.Number(),
+          boardVotingPeriod: t.Number(),
           gracePeriod: t.Number(),
           minProposalStake: t.String(),
           quorumBps: t.Number(),
@@ -115,6 +119,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
               agentId: t.String(),
               role: t.String(),
               weight: t.Number(),
+              isHuman: t.Optional(t.Boolean()),
             }),
           ),
         ),
@@ -138,7 +143,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
     },
   )
 
-  // Update DAO (CEO persona/model)
+  // Update DAO (Director persona/model)
   .patch(
     '/:daoId',
     async ({ params, body }) => {
@@ -146,36 +151,40 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
       const exists = await service.daoExists(params.daoId)
       if (!exists) throw new Error('DAO not found')
 
-      if (body.ceoPersona) {
-        await service.setCEOPersona(params.daoId, {
-          name: body.ceoPersona.name,
-          pfpCid: body.ceoPersona.pfpCid ?? '',
-          description: body.ceoPersona.description,
-          personality: body.ceoPersona.personality,
-          traits: body.ceoPersona.traits ?? [],
+      if (body.directorPersona) {
+        await service.setDirectorPersona(params.daoId, {
+          name: body.directorPersona.name,
+          pfpCid: body.directorPersona.pfpCid ?? '',
+          description: body.directorPersona.description,
+          personality: body.directorPersona.personality,
+          traits: body.directorPersona.traits ?? [],
           voiceStyle: 'professional',
           communicationTone: 'professional' as const,
           specialties: [],
+          isHuman: body.directorPersona.isHuman ?? false,
+          decisionFallbackDays: body.directorPersona.decisionFallbackDays ?? 7,
         })
       }
-      if (body.ceoModel) {
-        await service.setCEOModel(params.daoId, body.ceoModel)
+      if (body.directorModel) {
+        await service.setDirectorModel(params.daoId, body.directorModel)
       }
       return service.getDAOFull(params.daoId)
     },
     {
       params: t.Object({ daoId: t.String() }),
       body: t.Object({
-        ceoPersona: t.Optional(
+        directorPersona: t.Optional(
           t.Object({
             name: t.String(),
             pfpCid: t.Optional(t.String()),
             description: t.String(),
             personality: t.String(),
             traits: t.Optional(t.Array(t.String())),
+            isHuman: t.Optional(t.Boolean()),
+            decisionFallbackDays: t.Optional(t.Number()),
           }),
         ),
-        ceoModel: t.Optional(t.String()),
+        directorModel: t.Optional(t.String()),
       }),
       detail: { tags: ['dao'], summary: 'Update DAO' },
     },
@@ -191,7 +200,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
 
       await service.setGovernanceParams(params.daoId, {
         minQualityScore: body.minQualityScore,
-        councilVotingPeriod: body.councilVotingPeriod,
+        boardVotingPeriod: body.boardVotingPeriod,
         gracePeriod: body.gracePeriod,
         minProposalStake: BigInt(body.minProposalStake),
         quorumBps: body.quorumBps,
@@ -202,7 +211,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
       params: t.Object({ daoId: t.String() }),
       body: t.Object({
         minQualityScore: t.Number(),
-        councilVotingPeriod: t.Number(),
+        boardVotingPeriod: t.Number(),
         gracePeriod: t.Number(),
         minProposalStake: t.String(),
         quorumBps: t.Number(),
@@ -211,25 +220,25 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
     },
   )
 
-  // Get CEO persona
+  // Get Director persona
   .get(
     '/:daoId/persona',
     async ({ params }) => {
       const service = getService()
-      return service.getCEOPersona(params.daoId)
+      return service.getDirectorPersona(params.daoId)
     },
     {
       params: t.Object({ daoId: t.String() }),
-      detail: { tags: ['dao'], summary: 'Get CEO persona' },
+      detail: { tags: ['dao'], summary: 'Get Director persona' },
     },
   )
 
-  // Get council/board members
+  // Get board members
   .get(
-    '/:daoId/council',
+    '/:daoId/board',
     async ({ params }) => {
       const service = getService()
-      const members = await service.getCouncilMembers(params.daoId)
+      const members = await service.getBoardMembers(params.daoId)
       return { members }
     },
     {
@@ -253,7 +262,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
         body.role,
         body.weight,
       )
-      const members = await service.getCouncilMembers(params.daoId)
+      const members = await service.getBoardMembers(params.daoId)
       const newMember = members.find(
         (m) => m.member.toLowerCase() === body.address.toLowerCase(),
       )
@@ -276,7 +285,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
     '/:daoId/agents/:agentId',
     async ({ params }) => {
       const service = getService()
-      const members = await service.getCouncilMembers(params.daoId)
+      const members = await service.getBoardMembers(params.daoId)
       const member = members.find(
         (m) => m.agentId.toString() === params.agentId,
       )
@@ -289,7 +298,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
     },
   )
 
-  // Update agent (for CEO, use setCEOPersona; for council, limited update)
+  // Update agent (for CEO, use setDirectorPersona; for council, limited update)
   .patch(
     '/:daoId/agents/:agentId',
     async ({ params, body }) => {
@@ -297,10 +306,10 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
       const exists = await service.daoExists(params.daoId)
       if (!exists) throw new Error('DAO not found')
 
-      // If updating CEO (agentId = 0 or role = CEO), update persona
-      if (params.agentId === '0' || body.role === 'CEO') {
+      // If updating Director (agentId = 0 or role = Director), update persona
+      if (params.agentId === '0' || body.role === 'Director') {
         if (body.persona) {
-          await service.setCEOPersona(params.daoId, {
+          await service.setDirectorPersona(params.daoId, {
             name: body.persona.name,
             pfpCid: body.persona.pfpCid ?? '',
             description: body.persona.description,
@@ -309,18 +318,20 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
             voiceStyle: 'professional',
             communicationTone: 'professional' as const,
             specialties: [],
+            isHuman: body.persona.isHuman ?? false,
+            decisionFallbackDays: body.persona.decisionFallbackDays ?? 7,
           })
         }
         if (body.model) {
-          await service.setCEOModel(params.daoId, body.model)
+          await service.setDirectorModel(params.daoId, body.model)
         }
-        const persona = await service.getCEOPersona(params.daoId)
+        const persona = await service.getDirectorPersona(params.daoId)
         return { agentId: '0', role: 'CEO', persona }
       }
 
       // For council members, would need contract support for weight updates
       // For now, return current state
-      const members = await service.getCouncilMembers(params.daoId)
+      const members = await service.getBoardMembers(params.daoId)
       const member = members.find(
         (m) => m.agentId.toString() === params.agentId,
       )
@@ -338,6 +349,8 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
             description: t.String(),
             personality: t.String(),
             traits: t.Optional(t.Array(t.String())),
+            isHuman: t.Optional(t.Boolean()),
+            decisionFallbackDays: t.Optional(t.Number()),
           }),
         ),
         model: t.Optional(t.String()),
@@ -355,7 +368,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
       if (!exists) throw new Error('DAO not found')
 
       // Get member address from agentId
-      const members = await service.getCouncilMembers(params.daoId)
+      const members = await service.getBoardMembers(params.daoId)
       const member = members.find(
         (m) => m.agentId.toString() === params.agentId,
       )

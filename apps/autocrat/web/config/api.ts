@@ -763,10 +763,13 @@ export async function fetchDAOPersona(daoId: string) {
   return extractData(response)
 }
 
-export async function fetchDAOCouncil(daoId: string) {
-  const response = await api.api.v1.dao({ daoId }).council.get()
+export async function fetchDAOBoard(daoId: string) {
+  const response = await api.api.v1.dao({ daoId }).board.get()
   return extractData(response)
 }
+
+// Legacy alias
+export const fetchDAOCouncil = fetchDAOBoard
 
 export async function submitModerationFlag(params: {
   proposalId: string

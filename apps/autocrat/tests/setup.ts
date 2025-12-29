@@ -336,7 +336,6 @@ export async function startDws(port: number = DWS_PORT): Promise<boolean> {
   })
   managedProcesses.push(dws)
 
-  const host = getLocalhostHost()
   for (let i = 0; i < 60; i++) {
     await Bun.sleep(500)
     const check = await checkDws(`http://${host}:${port}`)

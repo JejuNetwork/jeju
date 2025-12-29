@@ -18,6 +18,7 @@ import {
 import { type EQLiteClient, getEQLite, type QueryParam } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { expectDefined, expectValid } from '@jejunetwork/types'
+import { writeContract } from '@jejunetwork/contracts'
 import {
   type Address,
   createPublicClient,
@@ -59,13 +60,15 @@ import {
   VulnerabilityTypeSchema,
 } from '../lib'
 import { config } from './config'
-import { createKMSWalletClient, getOperatorConfig } from './kms-signer'
+import { createKMSHttpWalletClient, getOperatorConfig } from './kms-signer'
 
 const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
 // KMS wallet client instance (initialized lazily)
-let kmsWalletClient: Awaited<ReturnType<typeof createKMSWalletClient>> | null =
-  null
+let kmsWalletClient: {
+  client: Awaited<ReturnType<typeof createKMSHttpWalletClient>>
+  account: Awaited<ReturnType<typeof createKMSHttpWalletClient>>['account']
+} | null = null
 
 // Config handles env overrides
 function getDWSEndpoint(): string {
@@ -251,17 +254,18 @@ function getPublicClient() {
 
 async function getKMSWalletClientInstance() {
   if (!kmsWalletClient) {
-    const config = getOperatorConfig()
-    if (!config) {
+    const operatorConfig = getOperatorConfig()
+    if (!operatorConfig) {
       throw new Error(
         'OPERATOR_KEY or OPERATOR_PRIVATE_KEY required for contract operations',
       )
     }
-    kmsWalletClient = await createKMSWalletClient(
-      config,
-      getChain(),
-      getRpcUrl(),
-    )
+    const client = await createKMSHttpWalletClient({
+      ...operatorConfig,
+      chain: getChain(),
+      rpcUrl: getRpcUrl(),
+    })
+    kmsWalletClient = { client, account: client.account }
   }
   return kmsWalletClient
 }
@@ -879,7 +883,7 @@ export async function submitGuardianVote(
     if (submission.guardianApprovals >= requiredApprovals) {
       await client.exec(
         'UPDATE bounty_submissions SET status = ? WHERE submission_id = ?',
-        [BountySubmissionStatus.CEO_REVIEW, submissionId],
+        [BountySubmissionStatus.DIRECTOR_REVIEW, submissionId],
         EQLITE_DATABASE_ID,
       )
       await getCache().delete(`submission:${submissionId}`)

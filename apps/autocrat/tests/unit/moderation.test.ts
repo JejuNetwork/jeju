@@ -85,7 +85,17 @@ function calculateVisibilityScore(
   flags: ProposalFlag[],
   getStats: (address: string) => ModeratorStats,
 ): ModerationScore {
-  const proposalId = flags[0].proposalId ?? 'unknown'
+  if (flags.length === 0) {
+    return {
+      proposalId: 'unknown',
+      visibilityScore: 100,
+      flags: [],
+      trustWeightedFlags: 0,
+      recommendation: 'VISIBLE',
+    }
+  }
+
+  const proposalId = flags[0].proposalId
   const activeFlags = flags.filter((f) => !f.resolved)
 
   const weighted = activeFlags.reduce((sum, f) => {

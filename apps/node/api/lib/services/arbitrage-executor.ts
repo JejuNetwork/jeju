@@ -15,7 +15,6 @@ import {
 } from 'viem'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 import { z } from 'zod'
-import { config as nodeConfig } from '../../config'
 import { createSecureSigner, type SecureSigner } from '../secure-signer'
 
 /**
@@ -110,8 +109,12 @@ const HYPERLIQUID_API = 'https://api.hyperliquid.xyz'
 export interface ExecutorConfig {
   /** KMS key ID for EVM signing (secure, no local private keys) */
   evmKeyId: string
-  /** KMS key ID for Solana signing */
-  solanaKeyId?: string
+  /**
+   * @deprecated Solana private key - SECURITY RISK
+   * TODO: Replace with Solana KMS integration (Fireblocks/AWS KMS)
+   * Should be disabled in production TEE environments
+   */
+  solanaPrivateKey?: string
   evmRpcUrls: Record<number, string>
   solanaRpcUrl?: string
   zkBridgeEndpoint?: string
@@ -159,6 +162,11 @@ export class ArbitrageExecutor {
   private config: ExecutorConfig
   private evmSigner: SecureSigner
   private evmAddress: Address | null = null // Derived from KMS on init
+  /**
+   * @deprecated Solana keypair in memory - SECURITY RISK
+   * TODO: Replace with Solana KMS integration
+   */
+  private solanaKeypair: Keypair | null = null
   private solanaConnection: Connection | null = null
   private evmClients = new Map<number, EVMClientPair>()
 
@@ -213,9 +221,7 @@ export class ArbitrageExecutor {
    */
   async initialize(): Promise<void> {
     this.evmAddress = await this.evmSigner.getAddress()
-    console.log(
-      `[ArbitrageExecutor] Initialized with address: ${this.evmAddress}`,
-    )
+    console.log(`[ArbitrageExecutor] Initialized with address: ${this.evmAddress}`)
   }
 
   /**
@@ -951,6 +957,7 @@ export class ArbitrageExecutor {
 
     if (quote.txData) {
       // Use 1inch tx data - sign via KMS and broadcast
+      const chainId = chainConfig?.chain.id ?? 1
       const { signedTransaction, hash } = await this.evmSigner.signTransaction({
         to: ONEINCH_ROUTER,
         data: quote.txData,
@@ -1004,7 +1011,7 @@ export class ArbitrageExecutor {
       await this.evmSigner.signTransaction({
         to: quote.inputToken,
         data: approveData,
-        chainId,
+        chainId: chainConfig?.chain.id ?? 1,
       })
     await clients.public.sendRawTransaction({
       serializedTransaction: signedApprove,
@@ -1035,7 +1042,7 @@ export class ArbitrageExecutor {
     const { signedTransaction, hash } = await this.evmSigner.signTransaction({
       to: routerAddress,
       data: swapData,
-      chainId,
+      chainId: chainConfig?.chain.id ?? 1,
     })
     await clients.public.sendRawTransaction({
       serializedTransaction: signedTransaction,
@@ -1551,33 +1558,34 @@ export class ArbitrageExecutor {
 }
 
 /** Validates that a string is a valid EVM private key format */
-function validateEvmKeyId(keyId: string | undefined, source: string): string {
-  if (!keyId) {
+function validateEvmPrivateKey(key: string | undefined, source: string): Hex {
+  if (!key) {
     throw new Error(
-      `EVM KMS key ID required. Set ${source} environment variable or provide in config.`,
+      `EVM private key required. Set ${source} environment variable or provide in config.`,
     )
   }
-  if (keyId.length < 8) {
+  if (!/^0x[a-fA-F0-9]{64}$/.test(key)) {
     throw new Error(
-      `Invalid EVM key ID format from ${source}. Key ID must be at least 8 characters.`,
+      `Invalid EVM private key format from ${source}. Must be 0x followed by 64 hex characters.`,
     )
   }
-  return keyId
+  return expectHex(key, source)
 }
 
 export function createArbitrageExecutor(
   config: Partial<ExecutorConfig>,
 ): ArbitrageExecutor {
-  const cfg = nodeConfig
-
-  // Validate EVM KMS key ID - required for operation
-  const evmKeyId = validateEvmKeyId(
-    config.evmKeyId,
-    'EVM_KEY_ID or configure via KMS',
+  // Validate EVM private key - required for operation
+  const evmPrivateKey = validateEvmPrivateKey(
+    config.evmPrivateKey ||
+      process.env.EVM_PRIVATE_KEY ||
+      process.env.JEJU_PRIVATE_KEY,
+    'EVM_PRIVATE_KEY or JEJU_PRIVATE_KEY',
   )
 
   // Solana private key is optional but validated if provided
-  const solanaPrivateKey = config.solanaPrivateKey ?? cfg.solanaPrivateKey
+  const solanaPrivateKey =
+    config.solanaPrivateKey || process.env.SOLANA_PRIVATE_KEY
   if (solanaPrivateKey) {
     // Validate base64 format (Solana keys are 64 bytes base64 encoded)
     const decoded = Buffer.from(solanaPrivateKey, 'base64')
@@ -1589,17 +1597,17 @@ export function createArbitrageExecutor(
   }
 
   const fullConfig: ExecutorConfig = {
-    evmKeyId,
+    evmPrivateKey,
     solanaPrivateKey,
-    evmRpcUrls: config.evmRpcUrls ?? {
-      1: cfg.rpcUrl1 ?? getExternalRpc('ethereum'),
-      42161: cfg.rpcUrl42161 ?? getExternalRpc('arbitrum'),
-      10: cfg.rpcUrl10 ?? getExternalRpc('optimism'),
-      8453: cfg.rpcUrl8453 ?? getExternalRpc('base'),
+    evmRpcUrls: config.evmRpcUrls || {
+      1: process.env.RPC_URL_1 || getExternalRpc('ethereum'),
+      42161: process.env.RPC_URL_42161 || getExternalRpc('arbitrum'),
+      10: process.env.RPC_URL_10 || getExternalRpc('optimism'),
+      8453: process.env.RPC_URL_8453 || getExternalRpc('base'),
     },
-    solanaRpcUrl: config.solanaRpcUrl ?? cfg.solanaRpcUrl,
-    zkBridgeEndpoint: config.zkBridgeEndpoint ?? cfg.zkBridgeEndpoint,
-    oneInchApiKey: config.oneInchApiKey ?? cfg.oneInchApiKey,
+    solanaRpcUrl: config.solanaRpcUrl ?? process.env.SOLANA_RPC_URL,
+    zkBridgeEndpoint: config.zkBridgeEndpoint ?? process.env.ZK_BRIDGE_ENDPOINT,
+    oneInchApiKey: config.oneInchApiKey ?? process.env.ONEINCH_API_KEY,
     maxSlippageBps: config.maxSlippageBps ?? 50,
     jitoTipLamports: config.jitoTipLamports ?? BigInt(10000),
   }

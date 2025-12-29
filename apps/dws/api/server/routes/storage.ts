@@ -8,10 +8,17 @@
  * - Popularity tracking
  * - Regional prefetching
  * - IPFS-compatible API
+ * - Content moderation before upload (CSAM, malware, illegal content)
  */
 
+import {
+  ContentModerationPipeline,
+  type ModerationResult,
+} from '@jejunetwork/shared'
+import { getDWSReputationAdapter } from '../../moderation/reputation-adapter'
 import { getFormString, getFormStringOr } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
+import type { Address } from 'viem'
 import { z } from 'zod'
 
 // Generic JSON value schema for user-uploaded content
@@ -34,6 +41,129 @@ import type {
   ContentTier,
   StorageBackendType,
 } from '../../storage/types'
+
+// ============ Content Moderation ============
+
+/**
+ * Determine content type from filename/mime type
+ */
+function getContentType(
+  filename: string,
+  mimeType?: string
+): 'image' | 'video' | 'text' | 'file' {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  const mime = mimeType?.toLowerCase() ?? ''
+
+  if (
+    ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext) ||
+    mime.startsWith('image/')
+  ) {
+    return 'image'
+  }
+
+  if (
+    ['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(ext) ||
+    mime.startsWith('video/')
+  ) {
+    return 'video'
+  }
+
+  if (
+    ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts'].includes(ext) ||
+    mime.startsWith('text/')
+  ) {
+    return 'text'
+  }
+
+  return 'file'
+}
+
+// Singleton pipeline with reputation provider
+let moderationPipeline: ContentModerationPipeline | null = null
+
+function getModerationPipeline(): ContentModerationPipeline {
+  if (!moderationPipeline) {
+    moderationPipeline = new ContentModerationPipeline({
+      reputationProvider: getDWSReputationAdapter(),
+      openai: process.env.OPENAI_API_KEY
+        ? { apiKey: process.env.OPENAI_API_KEY }
+        : undefined,
+      hive: process.env.HIVE_API_KEY
+        ? { apiKey: process.env.HIVE_API_KEY }
+        : undefined,
+      awsRekognition:
+        process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+          ? {
+              accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+              region: process.env.AWS_REGION ?? 'us-east-1',
+            }
+          : undefined,
+      cloudflare:
+        process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN
+          ? {
+              accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+              apiToken: process.env.CLOUDFLARE_API_TOKEN,
+            }
+          : undefined,
+    })
+  }
+  return moderationPipeline
+}
+
+/**
+ * Moderate content before upload
+ * Returns moderation result - caller should handle blocking/warning
+ */
+async function moderateUpload(
+  content: Buffer,
+  filename: string,
+  senderAddress?: string
+): Promise<ModerationResult> {
+  const pipeline = getModerationPipeline()
+  const contentType = getContentType(filename)
+
+  return pipeline.moderate({
+    content,
+    contentType,
+    metadata: {
+      filename,
+      size: content.length,
+      senderAddress: senderAddress as Address | undefined,
+      context: 'storage',
+    },
+    senderAddress: senderAddress as Address | undefined,
+  })
+}
+
+/**
+ * Build error response for moderation failure
+ */
+function buildModerationErrorResponse(result: ModerationResult): {
+  error: string
+  code: string
+  category?: string
+  severity: string
+  reviewRequired: boolean
+} {
+  return {
+    error:
+      result.action === 'ban'
+        ? 'Content violates platform policies and has been reported'
+        : result.action === 'block'
+          ? 'Content blocked due to policy violation'
+          : 'Content flagged for review',
+    code:
+      result.action === 'ban'
+        ? 'CONTENT_BANNED'
+        : result.action === 'block'
+          ? 'CONTENT_BLOCKED'
+          : 'CONTENT_FLAGGED',
+    category: result.primaryCategory,
+    severity: result.severity,
+    reviewRequired: result.reviewRequired,
+  }
+}
 
 // Type-safe query param accessor
 function getQueryInt(
@@ -91,8 +221,34 @@ export function createStorageRouter(backend?: BackendManager) {
         const permanent = formData.get('permanent') === 'true'
         const backendsStr = getFormString(formData, 'backends')
         const accessPolicy = getFormString(formData, 'accessPolicy')
+        const senderAddress = request.headers.get('x-sender-address')
 
         const content = Buffer.from(await file.arrayBuffer())
+
+        // ========== CONTENT MODERATION ==========
+        const moderation = await moderateUpload(
+          content,
+          file.name,
+          senderAddress ?? undefined
+        )
+
+        // Block banned/blocked content
+        if (moderation.action === 'ban' || moderation.action === 'block') {
+          set.status = moderation.action === 'ban' ? 451 : 403
+          return buildModerationErrorResponse(moderation)
+        }
+
+        // Add warning header for flagged content
+        if (moderation.action === 'warn') {
+          set.headers['X-Moderation-Warning'] = `${moderation.primaryCategory}: ${moderation.blockedReason}`
+        }
+
+        // Queue content that needs review but allow upload
+        if (moderation.action === 'queue') {
+          set.headers['X-Moderation-Status'] = 'pending_review'
+        }
+        // ========================================
+
         const preferredBackends = backendsStr?.split(',').filter(Boolean) as
           | StorageBackendType[]
           | undefined
@@ -122,12 +278,30 @@ export function createStorageRouter(backend?: BackendManager) {
       })
 
       // Raw upload (simple body as content)
-      .post('/upload/raw', async ({ request, query }) => {
+      .post('/upload/raw', async ({ request, query, set }) => {
         const filename = request.headers.get('x-filename') || 'upload'
         const tier = (query.tier as ContentTier) || 'popular'
         const category = (query.category as ContentCategory) || 'data'
+        const senderAddress = request.headers.get('x-sender-address')
 
         const content = Buffer.from(await request.arrayBuffer())
+
+        // ========== CONTENT MODERATION ==========
+        const moderation = await moderateUpload(
+          content,
+          filename,
+          senderAddress ?? undefined
+        )
+
+        if (moderation.action === 'ban' || moderation.action === 'block') {
+          set.status = moderation.action === 'ban' ? 451 : 403
+          return buildModerationErrorResponse(moderation)
+        }
+
+        if (moderation.action === 'warn') {
+          set.headers['X-Moderation-Warning'] = `${moderation.primaryCategory}: ${moderation.blockedReason}`
+        }
+        // ========================================
 
         // Use the simple backend if provided, otherwise use multi-backend
         if (backend) {
@@ -147,12 +321,31 @@ export function createStorageRouter(backend?: BackendManager) {
       // JSON upload
       .post(
         '/upload/json',
-        async ({ body }) => {
+        async ({ body, request, set }) => {
           const { data, name, tier, category, encrypt } = body
           const content = Buffer.from(JSON.stringify(data))
+          const filename = name ?? 'data.json'
+          const senderAddress = request.headers.get('x-sender-address')
+
+          // ========== CONTENT MODERATION ==========
+          const moderation = await moderateUpload(
+            content,
+            filename,
+            senderAddress ?? undefined
+          )
+
+          if (moderation.action === 'ban' || moderation.action === 'block') {
+            set.status = moderation.action === 'ban' ? 451 : 403
+            return buildModerationErrorResponse(moderation)
+          }
+
+          if (moderation.action === 'warn') {
+            set.headers['X-Moderation-Warning'] = `${moderation.primaryCategory}: ${moderation.blockedReason}`
+          }
+          // ========================================
 
           const result = await storageManager.upload(content, {
-            filename: name ?? 'data.json',
+            filename,
             tier: (tier as ContentTier | undefined) ?? 'popular',
             category: (category as ContentCategory | undefined) ?? 'data',
             encrypt,
@@ -172,7 +365,7 @@ export function createStorageRouter(backend?: BackendManager) {
       )
 
       // Permanent upload
-      .post('/upload/permanent', async ({ body, set }) => {
+      .post('/upload/permanent', async ({ body, request, set }) => {
         const formData = body as FormData
         const file = formData.get('file') as File | null
 
@@ -184,6 +377,27 @@ export function createStorageRouter(backend?: BackendManager) {
         const tier = getFormStringOr(formData, 'tier', 'popular')
         const category = getFormStringOr(formData, 'category', 'data')
         const content = Buffer.from(await file.arrayBuffer())
+        const senderAddress = request.headers.get('x-sender-address')
+
+        // ========== CONTENT MODERATION ==========
+        // Permanent uploads require EXTRA strict moderation
+        const moderation = await moderateUpload(
+          content,
+          file.name,
+          senderAddress ?? undefined
+        )
+
+        // Block anything that isn't clean for permanent storage
+        if (moderation.action !== 'allow') {
+          set.status =
+            moderation.action === 'ban'
+              ? 451
+              : moderation.action === 'block'
+                ? 403
+                : 400
+          return buildModerationErrorResponse(moderation)
+        }
+        // ========================================
 
         const result = await storageManager.uploadPermanent(content, {
           filename: file.name,
@@ -386,7 +600,7 @@ export function createStorageRouter(backend?: BackendManager) {
       })
 
       // IPFS Compatibility - Add
-      .post('/api/v0/add', async ({ body, set }) => {
+      .post('/api/v0/add', async ({ body, request, set }) => {
         const formData = body as FormData
         const file = formData.get('file') as File | null
 
@@ -396,6 +610,21 @@ export function createStorageRouter(backend?: BackendManager) {
         }
 
         const content = Buffer.from(await file.arrayBuffer())
+        const senderAddress = request.headers.get('x-sender-address')
+
+        // ========== CONTENT MODERATION ==========
+        const moderation = await moderateUpload(
+          content,
+          file.name,
+          senderAddress ?? undefined
+        )
+
+        if (moderation.action === 'ban' || moderation.action === 'block') {
+          set.status = moderation.action === 'ban' ? 451 : 403
+          return buildModerationErrorResponse(moderation)
+        }
+        // ========================================
+
         const result = await storageManager.upload(content, {
           filename: file.name,
           tier: 'popular',

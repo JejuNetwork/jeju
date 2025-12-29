@@ -15,7 +15,7 @@ import {IDAORegistry} from "./interfaces/IDAORegistry.sol";
  *
  * Key Features:
  * - Epoch-based funding rounds with configurable durations
- * - CEO-controlled funding weights per project
+ * - Director-controlled funding weights per project
  * - Quadratic funding matching from DAO treasury
  * - Stake-weighted contributions from community
  * - Automatic fund distribution at epoch end
@@ -23,7 +23,7 @@ import {IDAORegistry} from "./interfaces/IDAORegistry.sol";
  * Flow:
  * 1. Package/repo gets linked to DAO via DAORegistry
  * 2. Community stakes tokens to signal support
- * 3. CEO sets funding weights based on AI analysis
+ * 3. Director sets funding weights based on AI analysis
  * 4. At epoch end, funds distributed proportionally
  *
  * @custom:security-contact security@jejunetwork.org
@@ -55,7 +55,7 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         address primaryRecipient;
         address[] additionalRecipients;
         uint256[] recipientShares; // Basis points, must sum to 10000
-        uint256 ceoWeight; // 0-10000 basis points
+        uint256 directorWeight; // 0-10000 basis points
         uint256 communityStake;
         uint256 totalFunded;
         FundingStatus status;
@@ -89,15 +89,15 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         uint256 cooldownPeriod;
         uint256 matchingMultiplier; // Basis points (e.g., 20000 = 2x matching)
         bool quadraticEnabled;
-        uint256 ceoWeightCap; // Max CEO weight per project (basis points)
+        uint256 directorWeightCap; // Max Director weight per project (basis points)
         uint256 minStakePerParticipant; // Anti-sybil: minimum stake per unique participant
     }
 
-    // ============ CEO Weight Timelock (Security Fix) ============
-    uint256 public constant CEO_WEIGHT_TIMELOCK = 48 hours;
-    uint256 public constant CEO_WEIGHT_LARGE_CHANGE_THRESHOLD = 2500; // 25% BPS - large changes need extra approval
+    // ============ Director Weight Timelock (Security Fix) ============
+    uint256 public constant DIRECTOR_WEIGHT_TIMELOCK = 48 hours;
+    uint256 public constant DIRECTOR_WEIGHT_LARGE_CHANGE_THRESHOLD = 2500; // 25% BPS - large changes need extra approval
 
-    struct CEOWeightProposal {
+    struct DirectorWeightProposal {
         bytes32 projectId;
         uint256 newWeight;
         uint256 proposedAt;
@@ -106,12 +106,12 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         bool cancelled;
     }
 
-    mapping(bytes32 => CEOWeightProposal) public ceoWeightProposals;
+    mapping(bytes32 => DirectorWeightProposal) public directorWeightProposals;
     bytes32[] public pendingWeightProposals;
 
-    event CEOWeightProposed(bytes32 indexed projectId, uint256 oldWeight, uint256 newWeight, uint256 executesAt);
-    event CEOWeightProposalExecuted(bytes32 indexed projectId, uint256 newWeight);
-    event CEOWeightProposalCancelled(bytes32 indexed projectId);
+    event DirectorWeightProposed(bytes32 indexed projectId, uint256 oldWeight, uint256 newWeight, uint256 executesAt);
+    event DirectorWeightProposalExecuted(bytes32 indexed projectId, uint256 newWeight);
+    event DirectorWeightProposalCancelled(bytes32 indexed projectId);
 
     error WeightProposalNotReady();
     error WeightProposalNotFound();
@@ -136,7 +136,7 @@ contract DAOFunding is ReentrancyGuard, Pausable {
     event ProjectAccepted(bytes32 indexed projectId, bytes32 indexed daoId);
     event ProjectRejected(bytes32 indexed projectId, bytes32 indexed daoId, string reason);
     event ProjectStatusChanged(bytes32 indexed projectId, FundingStatus oldStatus, FundingStatus newStatus);
-    event CEOWeightSet(bytes32 indexed projectId, uint256 oldWeight, uint256 newWeight);
+    event DirectorWeightSet(bytes32 indexed projectId, uint256 oldWeight, uint256 newWeight);
     event UserStaked(bytes32 indexed projectId, uint256 indexed epochId, address indexed user, uint256 amount);
     event UserUnstaked(bytes32 indexed projectId, uint256 indexed epochId, address indexed user, uint256 amount);
     event EpochCreated(bytes32 indexed daoId, uint256 indexed epochId, uint256 budget, uint256 matchingPool);
@@ -169,9 +169,9 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         _;
     }
 
-    modifier onlyCEO(bytes32 daoId) {
+    modifier onlyDirector(bytes32 daoId) {
         IDAORegistry.DAO memory dao = daoRegistry.getDAO(daoId);
-        if (msg.sender != dao.ceoAgent && !daoRegistry.isDAOAdmin(daoId, msg.sender)) revert NotAuthorized();
+        if (msg.sender != dao.directorAgent && !daoRegistry.isDAOAdmin(daoId, msg.sender)) revert NotAuthorized();
         _;
     }
 
@@ -192,7 +192,7 @@ contract DAOFunding is ReentrancyGuard, Pausable {
             cooldownPeriod: 7 days,
             matchingMultiplier: 10000, // 1x matching
             quadraticEnabled: true,
-            ceoWeightCap: 5000, // Max 50% weight from CEO
+            directorWeightCap: 5000, // Max 50% weight from Director
             minStakePerParticipant: 0.1 ether // SECURITY: Anti-sybil minimum per unique staker
         });
     }
@@ -232,7 +232,7 @@ contract DAOFunding is ReentrancyGuard, Pausable {
             primaryRecipient: primaryRecipient,
             additionalRecipients: additionalRecipients,
             recipientShares: recipientShares,
-            ceoWeight: 0,
+            directorWeight: 0,
             communityStake: 0,
             totalFunded: 0,
             status: FundingStatus.PROPOSED,
@@ -278,33 +278,33 @@ contract DAOFunding is ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Propose a CEO weight change (subject to timelock)
+     * @notice Propose a Director weight change (subject to timelock)
      * @dev Large changes (>25% of cap) require 48hr timelock for security
      * @param projectId Project to update weight for
      * @param weight New weight in basis points
      */
-    function proposeCEOWeight(bytes32 projectId, uint256 weight)
+    function proposeDirectorWeight(bytes32 projectId, uint256 weight)
         external
         projectExists(projectId)
-        onlyCEO(_projects[projectId].daoId)
+        onlyDirector(_projects[projectId].daoId)
     {
         FundingProject storage project = _projects[projectId];
         if (project.status != FundingStatus.ACTIVE) revert ProjectNotActive();
 
         DAOFundingConfig memory config = _getConfig(project.daoId);
-        if (weight > config.ceoWeightCap) {
-            weight = config.ceoWeightCap;
+        if (weight > config.directorWeightCap) {
+            weight = config.directorWeightCap;
         }
 
-        uint256 oldWeight = project.ceoWeight;
+        uint256 oldWeight = project.directorWeight;
         uint256 weightDelta = weight > oldWeight ? weight - oldWeight : oldWeight - weight;
 
         // Small changes (<25% of cap) can be applied with shorter delay
-        uint256 delay = weightDelta >= CEO_WEIGHT_LARGE_CHANGE_THRESHOLD ? CEO_WEIGHT_TIMELOCK : CEO_WEIGHT_TIMELOCK / 4; // 12 hours for small changes
+        uint256 delay = weightDelta >= DIRECTOR_WEIGHT_LARGE_CHANGE_THRESHOLD ? DIRECTOR_WEIGHT_TIMELOCK : DIRECTOR_WEIGHT_TIMELOCK / 4; // 12 hours for small changes
 
         bytes32 proposalId = keccak256(abi.encodePacked(projectId, weight, block.timestamp));
 
-        ceoWeightProposals[proposalId] = CEOWeightProposal({
+        directorWeightProposals[proposalId] = DirectorWeightProposal({
             projectId: projectId,
             newWeight: weight,
             proposedAt: block.timestamp,
@@ -315,15 +315,15 @@ contract DAOFunding is ReentrancyGuard, Pausable {
 
         pendingWeightProposals.push(proposalId);
 
-        emit CEOWeightProposed(projectId, oldWeight, weight, block.timestamp + delay);
+        emit DirectorWeightProposed(projectId, oldWeight, weight, block.timestamp + delay);
     }
 
     /**
-     * @notice Execute a pending CEO weight change after timelock
+     * @notice Execute a pending Director weight change after timelock
      * @param proposalId The proposal to execute
      */
-    function executeCEOWeightProposal(bytes32 proposalId) external nonReentrant {
-        CEOWeightProposal storage proposal = ceoWeightProposals[proposalId];
+    function executeDirectorWeightProposal(bytes32 proposalId) external nonReentrant {
+        DirectorWeightProposal storage proposal = directorWeightProposals[proposalId];
         if (proposal.proposedAt == 0) revert WeightProposalNotFound();
         if (proposal.executed) revert WeightProposalAlreadyExecuted();
         if (proposal.cancelled) revert WeightProposalNotFound();
@@ -334,47 +334,47 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         proposal.executed = true;
 
         FundingProject storage project = _projects[proposal.projectId];
-        uint256 oldWeight = project.ceoWeight;
-        project.ceoWeight = proposal.newWeight;
+        uint256 oldWeight = project.directorWeight;
+        project.directorWeight = proposal.newWeight;
 
-        emit CEOWeightProposalExecuted(proposal.projectId, proposal.newWeight);
-        emit CEOWeightSet(proposal.projectId, oldWeight, proposal.newWeight);
+        emit DirectorWeightProposalExecuted(proposal.projectId, proposal.newWeight);
+        emit DirectorWeightSet(proposal.projectId, oldWeight, proposal.newWeight);
     }
 
     /**
-     * @notice Cancel a pending CEO weight proposal
+     * @notice Cancel a pending Director weight proposal
      * @param proposalId The proposal to cancel
      */
-    function cancelCEOWeightProposal(bytes32 proposalId) external {
-        CEOWeightProposal storage proposal = ceoWeightProposals[proposalId];
+    function cancelDirectorWeightProposal(bytes32 proposalId) external {
+        DirectorWeightProposal storage proposal = directorWeightProposals[proposalId];
         if (proposal.proposedAt == 0) revert WeightProposalNotFound();
         if (proposal.executed) revert WeightProposalAlreadyExecuted();
 
-        // Only DAO admin or the original CEO can cancel
+        // Only DAO admin or the original Director can cancel
         bytes32 daoId = _projects[proposal.projectId].daoId;
         if (!daoRegistry.isDAOAdmin(daoId, msg.sender)) revert NotAuthorized();
 
         proposal.cancelled = true;
-        emit CEOWeightProposalCancelled(proposal.projectId);
+        emit DirectorWeightProposalCancelled(proposal.projectId);
     }
 
     /**
      * @notice Get pending weight proposals for a project
      * @param projectId Project to check
      */
-    function getPendingWeightProposals(bytes32 projectId) external view returns (CEOWeightProposal[] memory) {
+    function getPendingWeightProposals(bytes32 projectId) external view returns (DirectorWeightProposal[] memory) {
         uint256 count = 0;
         for (uint256 i = 0; i < pendingWeightProposals.length; i++) {
-            CEOWeightProposal storage p = ceoWeightProposals[pendingWeightProposals[i]];
+            DirectorWeightProposal storage p = directorWeightProposals[pendingWeightProposals[i]];
             if (p.projectId == projectId && !p.executed && !p.cancelled) {
                 count++;
             }
         }
 
-        CEOWeightProposal[] memory result = new CEOWeightProposal[](count);
+        DirectorWeightProposal[] memory result = new DirectorWeightProposal[](count);
         uint256 idx = 0;
         for (uint256 i = 0; i < pendingWeightProposals.length; i++) {
-            CEOWeightProposal storage p = ceoWeightProposals[pendingWeightProposals[i]];
+            DirectorWeightProposal storage p = directorWeightProposals[pendingWeightProposals[i]];
             if (p.projectId == projectId && !p.executed && !p.cancelled) {
                 result[idx++] = p;
             }
@@ -744,8 +744,8 @@ contract DAOFunding is ReentrancyGuard, Pausable {
             communityWeight = projectStake;
         }
 
-        uint256 ceoMultiplier = 10000 + project.ceoWeight;
-        uint256 totalWeight = (communityWeight * ceoMultiplier) / 10000;
+        uint256 directorMultiplier = 10000 + project.directorWeight;
+        uint256 totalWeight = (communityWeight * directorMultiplier) / 10000;
 
         return totalWeight;
     }

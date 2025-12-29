@@ -483,6 +483,7 @@ export class AutocratOrchestrator {
             vote: vote.vote,
             reasoning: vote.reasoning,
             confidence: vote.confidence,
+            isHuman: false, // AI agent vote
           })
 
           const voteValue =
@@ -607,8 +608,8 @@ export class AutocratOrchestrator {
       timestamp: Date.now(),
     }))
 
-    // Get CEO analysis with persona context
-    const ceoDecision = await autocratAgentRuntime.ceoDecision({
+    // Get Director analysis with persona context
+    const directorDecision = await autocratAgentRuntime.directorDecision({
       proposalId,
       daoId: state.daoId,
       persona,
@@ -638,10 +639,18 @@ export class AutocratOrchestrator {
     )
 
     const decisionHash = await store({
-      type: 'ceo_decision_detail',
+      type: 'director_decision_detail',
       proposalId,
       daoId: state.daoId,
-      ceoAnalysis: ceoDecision,
+      directorAnalysis: {
+        approved: directorDecision.approved,
+        reasoning: directorDecision.reasoning,
+        personaResponse: directorDecision.personaResponse,
+        confidence: directorDecision.confidence,
+        alignment: directorDecision.alignment,
+        recommendations: directorDecision.recommendations,
+        isHumanDecision: false,
+      },
       teeDecision: {
         approved: teeDecision.approved,
         publicReasoning: teeDecision.publicReasoning,
@@ -653,6 +662,7 @@ export class AutocratOrchestrator {
       },
       personaResponse,
       decidedAt: Date.now(),
+      isHumanDecision: false,
     })
 
     if (
@@ -728,7 +738,7 @@ export class AutocratOrchestrator {
         const projects = await this.daoService.getActiveProjects(daoId)
         for (const project of projects) {
           if (
-            project.ceoWeight === 0 &&
+            project.directorWeight === 0 &&
             project.createdAt < Date.now() / 1000 - 86400
           ) {
             // Calculate weight based on project quality and community stake
@@ -874,7 +884,7 @@ export class AutocratOrchestrator {
         isActive: state.isActive,
         lastProcessed: state.lastProcessed,
         processedCount: state.processedCount,
-        ceoName: state.daoFull.ceoPersona.name,
+        ceoName: state.daoFull.directorPersona.name,
         errors: state.errors.slice(-5),
       }
     }
@@ -902,7 +912,7 @@ export class AutocratOrchestrator {
       isActive: state.isActive,
       lastProcessed: state.lastProcessed,
       processedCount: state.processedCount,
-      ceoName: state.daoFull.ceoPersona.name,
+      ceoName: state.daoFull.directorPersona.name,
       errors: state.errors.slice(-5),
     }
   }

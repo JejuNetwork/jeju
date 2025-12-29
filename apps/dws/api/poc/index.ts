@@ -93,16 +93,40 @@ export async function getAgentPoCStatus(
   return verifierInstance.getAgentStatus(agentId)
 }
 
+/**
+ * Check if an agent's TEE attestation is verified.
+ * 
+ * @throws Error if PoC system is not initialized (POC_SIGNER_KEY not set)
+ * @returns true if agent has valid PoC verification, false if verification failed/expired
+ */
 export async function isAgentPoCVerified(agentId: bigint): Promise<boolean> {
-  if (!verifierInstance) return false
+  if (!verifierInstance) {
+    throw new Error('PoC system not initialized - check POC_SIGNER_KEY is set')
+  }
   return verifierInstance.isAgentVerified(agentId)
 }
 
+/**
+ * Check if an agent needs re-verification (expired or never verified).
+ * 
+ * @throws Error if PoC system is not initialized
+ * @returns true if agent needs verification, false if current verification is valid
+ */
 export async function agentNeedsReverification(
   agentId: bigint,
 ): Promise<boolean> {
-  if (!verifierInstance) return true
+  if (!verifierInstance) {
+    throw new Error('PoC system not initialized - check POC_SIGNER_KEY is set')
+  }
   return verifierInstance.needsReverification(agentId)
+}
+
+/**
+ * Check if the PoC system is enabled and initialized.
+ * Use this before calling other PoC functions to handle the disabled case gracefully.
+ */
+export function isPoCSystemEnabled(): boolean {
+  return verifierInstance !== null
 }
 
 export function subscribeToPoCEvents(listener: PoCEventListener): () => void {

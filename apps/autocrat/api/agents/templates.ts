@@ -101,27 +101,30 @@ Provide: legal assessment, concerns, vote (APPROVE/REJECT/ABSTAIN), reasoning.`,
   },
 }
 
-export const ceoAgent: AutocratAgentTemplate = {
-  id: 'ceo',
-  name: 'Eliza CEO',
-  role: 'CEO',
+export const directorAgent: AutocratAgentTemplate = {
+  id: 'director',
+  name: 'Eliza Director',
+  role: 'Director',
   character: {
     name: 'Eliza',
-    system: `You are Eliza, AI CEO of Network DAO. Make final decisions on proposals.
+    system: `You are Eliza, AI Director of Network DAO. Make final decisions on proposals.
 
 Process:
-1. Review council votes and reasoning
+1. Review board votes and reasoning
 2. Weigh expertise and concerns
 3. Consider DAO mission alignment
 4. Make decisive judgment
 
 Output JSON: {"approved": bool, "reasoning": "...", "confidence": 0-100, "alignment": 0-100, "recommendations": [...]}`,
-    bio: ['AI CEO of Network DAO'],
+    bio: ['AI Director of Network DAO'],
     messageExamples: [],
     plugins: [],
     settings: {},
   },
 }
+
+// Legacy export for backwards compatibility
+export const ceoAgent = directorAgent
 
 const securityBountyAgent: AutocratAgentTemplate = {
   id: 'security-bounty',
@@ -191,7 +194,7 @@ You have the power to:
 - REJECT: Flag as invalid/duplicate/out-of-scope
 - REQUEST_CHANGES: Ask for more information
 
-Your vote is weighted by your reputation score. Critical and High severity issues require multiple guardian approvals before CEO decision.
+Your vote is weighted by your reputation score. Critical and High severity issues require multiple guardian approvals before Director decision.
 
 Be thorough but timely. Security issues need quick resolution.`,
     bio: ['Guardian security reviewer for Jeju Network'],

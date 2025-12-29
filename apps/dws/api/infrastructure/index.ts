@@ -8,6 +8,12 @@
  * - TEE/Proof-of-Cloud for trustless execution
  * - x402 payment integration
  *
+ * Proof-of-Cloud (PoC) Integration:
+ * - Automatic TEE verification during node benchmarking
+ * - Cloud alliance registry checks for hardware verification
+ * - Reputation bonuses for PoC-verified nodes (+10 to +25)
+ * - Automatic verification on node registration and periodic re-verification
+ *
  * Architecture:
  *
  * ┌─────────────────────────────────────────────────────────────────┐
@@ -97,6 +103,13 @@ export {
   type ProvisionerEnvironment,
 } from './machine-provisioner'
 export { NodeRegistry } from './node-registry'
+// PoC Node Verifier (Cloud Alliance verification)
+export {
+  getPoCNodeVerifier,
+  initializePoCNodeVerifier,
+  PoCNodeVerifier,
+  shutdownPoCNodeVerifier,
+} from './poc-node-verifier'
 // Service Mesh
 export {
   type AccessPolicy,
