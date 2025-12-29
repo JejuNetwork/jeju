@@ -7,14 +7,20 @@
  * @see https://github.com/infinitered/nsfwjs
  */
 
-import type { ModerationProvider, ModerationResult, CategoryScore } from '../types'
+import type {
+  CategoryScore,
+  ModerationProvider,
+  ModerationResult,
+} from '../types'
 
 // Lazy-loaded nsfwjs to avoid TensorFlow initialization at import time
 let nsfwModel: NSFWJS | null = null
 let modelLoading: Promise<NSFWJS | null> | null = null
 
 interface NSFWJS {
-  classify(image: ImageData | HTMLImageElement | HTMLCanvasElement | unknown): Promise<NSFWPrediction[]>
+  classify(
+    image: ImageData | HTMLImageElement | HTMLCanvasElement | unknown,
+  ): Promise<NSFWPrediction[]>
 }
 
 interface NSFWPrediction {
@@ -50,7 +56,10 @@ async function loadModel(): Promise<NSFWJS | null> {
       console.log('[NSFWProvider] Model loaded successfully')
       return nsfwModel
     } catch (err) {
-      console.warn('[NSFWProvider] ML model unavailable, using format validation only:', err)
+      console.warn(
+        '[NSFWProvider] ML model unavailable, using format validation only:',
+        err,
+      )
       return null
     }
   })()
@@ -76,7 +85,15 @@ export class NSFWDetectionProvider {
     }
   }
 
-  async moderateImage(buf: Buffer): Promise<ModerationResult & { metadata?: { needsCsamCheck: boolean; nsfwScore?: number; predictions?: NSFWPrediction[] } }> {
+  async moderateImage(buf: Buffer): Promise<
+    ModerationResult & {
+      metadata?: {
+        needsCsamCheck: boolean
+        nsfwScore?: number
+        predictions?: NSFWPrediction[]
+      }
+    }
+  > {
     const start = Date.now()
 
     if (!buf || buf.length < 12) {
@@ -84,7 +101,10 @@ export class NSFWDetectionProvider {
     }
 
     if (!this.isValidImage(buf)) {
-      return this.error('Invalid image format (must be JPEG, PNG, GIF, or WebP)', start)
+      return this.error(
+        'Invalid image format (must be JPEG, PNG, GIF, or WebP)',
+        start,
+      )
     }
 
     // Try ML classification if enabled
@@ -113,7 +133,10 @@ export class NSFWDetectionProvider {
     }
   }
 
-  private async classifyImage(model: NSFWJS, buf: Buffer): Promise<NSFWPrediction[]> {
+  private async classifyImage(
+    model: NSFWJS,
+    buf: Buffer,
+  ): Promise<NSFWPrediction[]> {
     const tf = await import('@tensorflow/tfjs')
 
     // Create a simple tensor from image bytes for classification
@@ -126,7 +149,10 @@ export class NSFWDetectionProvider {
     return model.classify(tensor)
   }
 
-  private async decodeImageManually(buf: Buffer, tf: typeof import('@tensorflow/tfjs')): Promise<unknown> {
+  private async decodeImageManually(
+    buf: Buffer,
+    tf: typeof import('@tensorflow/tfjs'),
+  ): Promise<unknown> {
     // Create a 224x224x3 tensor from image bytes for basic classification
     // This is a simplified approach - real implementation would decode properly
     const size = 224
@@ -141,26 +167,56 @@ export class NSFWDetectionProvider {
     return tf.tensor3d(data, [size, size, channels])
   }
 
-  private processMLResults(predictions: NSFWPrediction[], start: number): ModerationResult & { metadata?: { needsCsamCheck: boolean; nsfwScore?: number; predictions?: NSFWPrediction[] } } {
+  private processMLResults(
+    predictions: NSFWPrediction[],
+    start: number,
+  ): ModerationResult & {
+    metadata?: {
+      needsCsamCheck: boolean
+      nsfwScore?: number
+      predictions?: NSFWPrediction[]
+    }
+  } {
     const categories: CategoryScore[] = []
 
     // Find NSFW scores
-    const porn = predictions.find(p => p.className === 'Porn')?.probability ?? 0
-    const hentai = predictions.find(p => p.className === 'Hentai')?.probability ?? 0
-    const sexy = predictions.find(p => p.className === 'Sexy')?.probability ?? 0
+    const porn =
+      predictions.find((p) => p.className === 'Porn')?.probability ?? 0
+    const hentai =
+      predictions.find((p) => p.className === 'Hentai')?.probability ?? 0
+    const sexy =
+      predictions.find((p) => p.className === 'Sexy')?.probability ?? 0
 
     const nsfwScore = Math.max(porn, hentai)
     const sexyScore = sexy
 
     // Add categories based on scores
     if (porn > 0.1) {
-      categories.push({ category: 'adult', score: porn, confidence: 0.85, provider: 'nsfw_local', details: 'Pornographic content' })
+      categories.push({
+        category: 'adult',
+        score: porn,
+        confidence: 0.85,
+        provider: 'nsfw_local',
+        details: 'Pornographic content',
+      })
     }
     if (hentai > 0.1) {
-      categories.push({ category: 'adult', score: hentai, confidence: 0.85, provider: 'nsfw_local', details: 'Hentai content' })
+      categories.push({
+        category: 'adult',
+        score: hentai,
+        confidence: 0.85,
+        provider: 'nsfw_local',
+        details: 'Hentai content',
+      })
     }
     if (sexy > 0.3) {
-      categories.push({ category: 'adult', score: sexy * 0.5, confidence: 0.7, provider: 'nsfw_local', details: 'Suggestive content' })
+      categories.push({
+        category: 'adult',
+        score: sexy * 0.5,
+        confidence: 0.7,
+        provider: 'nsfw_local',
+        details: 'Suggestive content',
+      })
     }
 
     // Determine action based on NSFW score
@@ -187,7 +243,9 @@ export class NSFWDetectionProvider {
       severity,
       categories,
       primaryCategory: categories[0]?.category,
-      blockedReason: isNSFW ? 'NSFW content detected - flagged for review' : undefined,
+      blockedReason: isNSFW
+        ? 'NSFW content detected - flagged for review'
+        : undefined,
       reviewRequired,
       processingTimeMs: Date.now() - start,
       providers: ['nsfw_local'],
@@ -200,8 +258,14 @@ export class NSFWDetectionProvider {
   }
 
   private isValidImage(buf: Buffer): boolean {
-    const match = (sig: number[], offset = 0) => sig.every((b, i) => buf[offset + i] === b)
-    return match(JPEG) || match(PNG) || match(GIF) || (match(WEBP_RIFF) && match(WEBP_MAGIC, 8))
+    const match = (sig: number[], offset = 0) =>
+      sig.every((b, i) => buf[offset + i] === b)
+    return (
+      match(JPEG) ||
+      match(PNG) ||
+      match(GIF) ||
+      (match(WEBP_RIFF) && match(WEBP_MAGIC, 8))
+    )
   }
 
   private error(reason: string, start: number): ModerationResult {
@@ -219,11 +283,15 @@ export class NSFWDetectionProvider {
 }
 
 export function needsCsamVerification(result: ModerationResult): boolean {
-  const meta = (result as ModerationResult & { metadata?: { needsCsamCheck?: boolean } }).metadata
+  const meta = (
+    result as ModerationResult & { metadata?: { needsCsamCheck?: boolean } }
+  ).metadata
   return meta?.needsCsamCheck === true
 }
 
 export function getNsfwScore(result: ModerationResult): number | undefined {
-  const meta = (result as ModerationResult & { metadata?: { nsfwScore?: number } }).metadata
+  const meta = (
+    result as ModerationResult & { metadata?: { nsfwScore?: number } }
+  ).metadata
   return meta?.nsfwScore
 }

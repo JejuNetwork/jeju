@@ -15,11 +15,11 @@ import {
   ContentModerationPipeline,
   type ModerationResult,
 } from '@jejunetwork/shared'
-import { getDWSReputationAdapter } from '../../moderation/reputation-adapter'
 import { getFormString, getFormStringOr } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
+import { getDWSReputationAdapter } from '../../moderation/reputation-adapter'
 
 // Generic JSON value schema for user-uploaded content
 const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
@@ -49,7 +49,7 @@ import type {
  */
 function getContentType(
   filename: string,
-  mimeType?: string
+  mimeType?: string,
 ): 'image' | 'video' | 'text' | 'file' {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
   const mime = mimeType?.toLowerCase() ?? ''
@@ -118,7 +118,7 @@ function getModerationPipeline(): ContentModerationPipeline {
 async function moderateUpload(
   content: Buffer,
   filename: string,
-  senderAddress?: string
+  senderAddress?: string,
 ): Promise<ModerationResult> {
   const pipeline = getModerationPipeline()
   const contentType = getContentType(filename)
@@ -163,12 +163,28 @@ Attempting to access illegal content is a criminal offense.`,
   },
   support: {
     uk: [
-      { name: 'Stop It Now UK', phone: '0808 1000 900', url: 'https://www.stopitnow.org.uk/' },
-      { name: 'Childline', phone: '0800 1111', url: 'https://www.childline.org.uk/' },
+      {
+        name: 'Stop It Now UK',
+        phone: '0808 1000 900',
+        url: 'https://www.stopitnow.org.uk/',
+      },
+      {
+        name: 'Childline',
+        phone: '0800 1111',
+        url: 'https://www.childline.org.uk/',
+      },
     ],
     us: [
-      { name: 'Stop It Now USA', phone: '1-888-773-8368', url: 'https://www.stopitnow.org/' },
-      { name: 'NCMEC CyberTipline', phone: '1-800-843-5678', url: 'https://www.missingkids.org/' },
+      {
+        name: 'Stop It Now USA',
+        phone: '1-888-773-8368',
+        url: 'https://www.stopitnow.org/',
+      },
+      {
+        name: 'NCMEC CyberTipline',
+        phone: '1-800-843-5678',
+        url: 'https://www.missingkids.org/',
+      },
     ],
   },
 }
@@ -206,10 +222,12 @@ function buildModerationErrorResponse(result: ModerationResult): {
     category: result.primaryCategory,
     severity: result.severity,
     reviewRequired: result.reviewRequired,
-    deterrence: isCSAM ? {
-      message: DETERRENCE_MESSAGES.csam.blocked,
-      support: DETERRENCE_MESSAGES.support,
-    } : undefined,
+    deterrence: isCSAM
+      ? {
+          message: DETERRENCE_MESSAGES.csam.blocked,
+          support: DETERRENCE_MESSAGES.support,
+        }
+      : undefined,
   }
 }
 
@@ -277,7 +295,7 @@ export function createStorageRouter(backend?: BackendManager) {
         const moderation = await moderateUpload(
           content,
           file.name,
-          senderAddress ?? undefined
+          senderAddress ?? undefined,
         )
 
         // Block banned/blocked content
@@ -288,7 +306,8 @@ export function createStorageRouter(backend?: BackendManager) {
 
         // Add warning header for flagged content
         if (moderation.action === 'warn') {
-          set.headers['X-Moderation-Warning'] = `${moderation.primaryCategory}: ${moderation.blockedReason}`
+          set.headers['X-Moderation-Warning'] =
+            `${moderation.primaryCategory}: ${moderation.blockedReason}`
         }
 
         // Queue content that needs review but allow upload
@@ -338,7 +357,7 @@ export function createStorageRouter(backend?: BackendManager) {
         const moderation = await moderateUpload(
           content,
           filename,
-          senderAddress ?? undefined
+          senderAddress ?? undefined,
         )
 
         if (moderation.action === 'ban' || moderation.action === 'block') {
@@ -347,7 +366,8 @@ export function createStorageRouter(backend?: BackendManager) {
         }
 
         if (moderation.action === 'warn') {
-          set.headers['X-Moderation-Warning'] = `${moderation.primaryCategory}: ${moderation.blockedReason}`
+          set.headers['X-Moderation-Warning'] =
+            `${moderation.primaryCategory}: ${moderation.blockedReason}`
         }
         // ========================================
 
@@ -379,7 +399,7 @@ export function createStorageRouter(backend?: BackendManager) {
           const moderation = await moderateUpload(
             content,
             filename,
-            senderAddress ?? undefined
+            senderAddress ?? undefined,
           )
 
           if (moderation.action === 'ban' || moderation.action === 'block') {
@@ -388,7 +408,8 @@ export function createStorageRouter(backend?: BackendManager) {
           }
 
           if (moderation.action === 'warn') {
-            set.headers['X-Moderation-Warning'] = `${moderation.primaryCategory}: ${moderation.blockedReason}`
+            set.headers['X-Moderation-Warning'] =
+              `${moderation.primaryCategory}: ${moderation.blockedReason}`
           }
           // ========================================
 
@@ -432,7 +453,7 @@ export function createStorageRouter(backend?: BackendManager) {
         const moderation = await moderateUpload(
           content,
           file.name,
-          senderAddress ?? undefined
+          senderAddress ?? undefined,
         )
 
         // Block anything that isn't clean for permanent storage
@@ -664,7 +685,7 @@ export function createStorageRouter(backend?: BackendManager) {
         const moderation = await moderateUpload(
           content,
           file.name,
-          senderAddress ?? undefined
+          senderAddress ?? undefined,
         )
 
         if (moderation.action === 'ban' || moderation.action === 'block') {

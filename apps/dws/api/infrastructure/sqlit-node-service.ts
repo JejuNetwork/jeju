@@ -286,9 +286,7 @@ export class SQLitNodeService {
 
     // 5. Register in DWS node registry
     const capability: NodeCapability =
-      params.role === SQLitNodeRole.BLOCK_PRODUCER
-        ? 'sqlit-bp'
-        : 'sqlit-miner'
+      params.role === SQLitNodeRole.BLOCK_PRODUCER ? 'sqlit-bp' : 'sqlit-miner'
 
     const dwsResult = await this.nodeRegistry.registerNode({
       endpoint,

@@ -38,32 +38,21 @@ export {
   type StorageBackend,
 } from './backup.js'
 export {
-  SQLitClient,
   getSQLit,
   getSQLit as getSQLitClient,
   getSQLit as createSQLitClient,
   resetSQLit,
   resetSQLit as resetSQLitClient,
+  SQLitClient,
 } from './client.js'
 // Encrypted SQLit Client (KMS integration)
 export {
   createEncryptedSQLitClient,
-  EncryptedSQLitClient,
-  type EncryptedSQLitConfig,
   type EncryptedExecResult,
   type EncryptedQueryResult,
+  EncryptedSQLitClient,
+  type EncryptedSQLitConfig,
 } from './encrypted-client.js'
-// SQLit Node Management (for TEE deployment)
-export {
-  createSQLitNode,
-  type SQLitNodeConfig,
-  SQLitNodeManager,
-  SQLitNodeRole,
-  type SQLitNodeState,
-  SQLitNodeStatus,
-  isSQLitAvailable,
-  type TEEAttestation,
-} from './sqlit-node.js'
 // Database manager for robust connection handling
 export {
   createDatabaseManager,
@@ -101,6 +90,17 @@ export {
   SecureSQLitClient,
   type SecureSQLitConfig,
 } from './secure-client.js'
+// SQLit Node Management (for TEE deployment)
+export {
+  createSQLitNode,
+  isSQLitAvailable,
+  type SQLitNodeConfig,
+  SQLitNodeManager,
+  SQLitNodeRole,
+  type SQLitNodeState,
+  SQLitNodeStatus,
+  type TEEAttestation,
+} from './sqlit-node.js'
 export type {
   ACLEventDetails,
   ACLPermission,
@@ -112,14 +112,6 @@ export type {
   DatabaseConfig,
   DatabaseInfo,
   DatabaseStatus,
-  SQLitConfig,
-  SQLitConnection,
-  SQLitConnectionPool,
-  SQLitDataType,
-  SQLitEvent,
-  SQLitEventDetails,
-  SQLitQueryable,
-  SQLitTransaction,
   ExecEventDetails,
   ExecResult,
   GrantRequest,
@@ -134,6 +126,14 @@ export type {
   RentalInfo,
   RentalPlan,
   RevokeRequest,
+  SQLitConfig,
+  SQLitConnection,
+  SQLitConnectionPool,
+  SQLitDataType,
+  SQLitEvent,
+  SQLitEventDetails,
+  SQLitQueryable,
+  SQLitTransaction,
   VectorBatchInsertRequest,
   VectorDistanceMetric,
   VectorIndexConfig,

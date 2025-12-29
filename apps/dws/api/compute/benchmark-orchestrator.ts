@@ -4,7 +4,7 @@
  * Frequency: New=always, Low(<30)=7d, Medium(30-70)=30d, High(>70)=90d, Random=1%/day
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { Cron } from 'croner'
 import type { Hex } from 'viem'
 import { z } from 'zod'
@@ -15,7 +15,10 @@ import type {
   MachineSpecs,
 } from '../infrastructure/machine-provisioner'
 import { getMachineProvisioner } from '../infrastructure/machine-provisioner'
-import { getPoCNodeVerifier, type PoCNodeVerifier } from '../infrastructure/poc-node-verifier'
+import {
+  getPoCNodeVerifier,
+  type PoCNodeVerifier,
+} from '../infrastructure/poc-node-verifier'
 import type { BenchmarkRegistryClient } from './benchmark-registry-client'
 
 // ============ Types ============
@@ -121,10 +124,18 @@ export const BenchmarkResultsSchema = z.object({
   teeAttestationValid: z.boolean(),
   // PoC fields (may not be present in older benchmark responses)
   pocVerified: z.boolean().optional().default(false),
-  pocLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.null()]).optional().default(null),
+  pocLevel: z
+    .union([z.literal(1), z.literal(2), z.literal(3), z.null()])
+    .optional()
+    .default(null),
   pocCloudProvider: z.string().nullable().optional().default(null),
   pocRegion: z.string().nullable().optional().default(null),
-  pocHardwareIdHash: z.string().regex(HEX_REGEX, 'Must be a valid hex string').nullable().optional().default(null),
+  pocHardwareIdHash: z
+    .string()
+    .regex(HEX_REGEX, 'Must be a valid hex string')
+    .nullable()
+    .optional()
+    .default(null),
   pocReputationDelta: z.number().optional().default(0),
   overallScore: z.number().min(0).max(10000),
   attestationHash: z.string().regex(HEX_REGEX, 'Must be a valid hex string'),
@@ -462,7 +473,9 @@ export class BenchmarkOrchestrator {
     // Initialize PoC verifier for cloud alliance checks
     try {
       this.pocVerifier = getPoCNodeVerifier()
-      console.log('[BenchmarkOrchestrator] PoC verifier initialized for cloud alliance checks')
+      console.log(
+        '[BenchmarkOrchestrator] PoC verifier initialized for cloud alliance checks',
+      )
     } catch (err) {
       console.warn('[BenchmarkOrchestrator] PoC verifier not available:', err)
     }
@@ -525,7 +538,13 @@ export class BenchmarkOrchestrator {
       `[BenchmarkOrchestrator] Initial benchmark for machine ${machineId}`,
     )
 
-    return this.runBenchmark(machineId, 'initial', allocation, claimedSpecs, agentId)
+    return this.runBenchmark(
+      machineId,
+      'initial',
+      allocation,
+      claimedSpecs,
+      agentId,
+    )
   }
 
   /**
@@ -677,11 +696,17 @@ export class BenchmarkOrchestrator {
     // Run PoC verification if TEE is detected and we have an attestation
     if (results.teeDetected && results.teeAttestationHash) {
       if (!this.pocVerifier) {
-        console.warn(`[BenchmarkOrchestrator] PoC skipped for ${machine.id}: verifier not initialized`)
+        console.warn(
+          `[BenchmarkOrchestrator] PoC skipped for ${machine.id}: verifier not initialized`,
+        )
       } else if (!machine.agentId) {
-        console.warn(`[BenchmarkOrchestrator] PoC skipped for ${machine.id}: missing agentId`)
+        console.warn(
+          `[BenchmarkOrchestrator] PoC skipped for ${machine.id}: missing agentId`,
+        )
       } else {
-        console.log(`[BenchmarkOrchestrator] Running PoC verification for machine ${machine.id} (agent ${machine.agentId})`)
+        console.log(
+          `[BenchmarkOrchestrator] Running PoC verification for machine ${machine.id} (agent ${machine.agentId})`,
+        )
         results = await this.runPoCVerification(machine.agentId, results)
       }
     }
@@ -744,14 +769,22 @@ export class BenchmarkOrchestrator {
   /**
    * Run Proof-of-Cloud verification against the cloud alliance registry.
    */
-  private async runPoCVerification(agentId: bigint, results: BenchmarkResults): Promise<BenchmarkResults> {
+  private async runPoCVerification(
+    agentId: bigint,
+    results: BenchmarkResults,
+  ): Promise<BenchmarkResults> {
     if (!this.pocVerifier || !results.teeAttestationHash) {
       return results
     }
 
-    const pocResult = await this.pocVerifier.verifyNode(agentId, results.teeAttestationHash)
+    const pocResult = await this.pocVerifier.verifyNode(
+      agentId,
+      results.teeAttestationHash,
+    )
 
-    console.log(`[BenchmarkOrchestrator] PoC: agent=${agentId} verified=${pocResult.verified} level=${pocResult.level} delta=${pocResult.reputationDelta}`)
+    console.log(
+      `[BenchmarkOrchestrator] PoC: agent=${agentId} verified=${pocResult.verified} level=${pocResult.level} delta=${pocResult.reputationDelta}`,
+    )
 
     return {
       ...results,
@@ -828,7 +861,11 @@ export class BenchmarkOrchestrator {
     const response = await fetch(`${allocation.endpoint}/v1/benchmark`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId: job.id, image: this.config.benchmarkImage, timeout: this.config.benchmarkTimeout }),
+      body: JSON.stringify({
+        jobId: job.id,
+        image: this.config.benchmarkImage,
+        timeout: this.config.benchmarkTimeout,
+      }),
       signal: AbortSignal.timeout(this.config.benchmarkTimeout),
     })
 
@@ -846,7 +883,12 @@ export class BenchmarkOrchestrator {
     let results = this.transformParsedResults(parsedResults)
 
     // Run PoC verification if TEE detected with attestation and we have an agentId
-    if (results.teeDetected && results.teeAttestationHash && this.pocVerifier && agentId) {
+    if (
+      results.teeDetected &&
+      results.teeAttestationHash &&
+      this.pocVerifier &&
+      agentId
+    ) {
       results = await this.runPoCVerification(agentId, results)
     }
 
@@ -1027,15 +1069,20 @@ export class BenchmarkOrchestrator {
 
     // Apply PoC reputation delta (cloud alliance bonus/penalty)
     if (results.pocReputationDelta !== 0) {
-      reputation.score = Math.max(0, Math.min(100, reputation.score + results.pocReputationDelta))
+      reputation.score = Math.max(
+        0,
+        Math.min(100, reputation.score + results.pocReputationDelta),
+      )
       if (results.pocVerified) {
-        reputation.flags.push(`poc_verified_level${results.pocLevel}_at_${Date.now()}`)
+        reputation.flags.push(
+          `poc_verified_level${results.pocLevel}_at_${Date.now()}`,
+        )
       } else if (results.pocReputationDelta < 0) {
         reputation.flags.push(`poc_failed_at_${Date.now()}`)
       }
       console.log(
         `[BenchmarkOrchestrator] Applied PoC reputation delta ${results.pocReputationDelta} to ${machineId}, ` +
-        `new score: ${reputation.score}`,
+          `new score: ${reputation.score}`,
       )
     }
 

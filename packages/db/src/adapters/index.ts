@@ -2,9 +2,9 @@
  * SQLit ORM Adapters
  */
 export {
+  type DrizzleLogger,
   type DrizzleSQLit,
   type DrizzleSQLitConfig,
-  type DrizzleLogger,
   type DrizzleTable,
   drizzle,
   type SQLQuery,

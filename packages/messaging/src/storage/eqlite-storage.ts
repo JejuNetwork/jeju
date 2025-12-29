@@ -6,15 +6,15 @@
  */
 
 import {
-  getSQLitUrl,
   getSQLitDatabaseId,
   getSQLitKeyId,
+  getSQLitUrl,
 } from '@jejunetwork/config'
 import {
-  type SQLitClient,
-  type SQLitConfig,
   getSQLit,
   type QueryParam,
+  type SQLitClient,
+  type SQLitConfig,
 } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -448,9 +448,7 @@ export class SQLitMessageStorage {
 
 let storage: SQLitMessageStorage | null = null
 
-export function createSQLitStorage(
-  _config?: SQLitConfig,
-): SQLitMessageStorage {
+export function createSQLitStorage(_config?: SQLitConfig): SQLitMessageStorage {
   // Config parameter reserved for future SQLit connection customization
   return new SQLitMessageStorage()
 }

@@ -4,9 +4,19 @@
 
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ensureDir, navigateToDAO, navigateToGovernance, screenshotPath, setupErrorCapture } from './helpers'
+import {
+  ensureDir,
+  navigateToGovernance,
+  screenshotPath,
+  setupErrorCapture,
+} from './helpers'
 
-const SCREENSHOT_DIR = join(process.cwd(), 'test-results', 'screenshots', 'edge-cases')
+const SCREENSHOT_DIR = join(
+  process.cwd(),
+  'test-results',
+  'screenshots',
+  'edge-cases',
+)
 
 test.beforeAll(() => ensureDir(SCREENSHOT_DIR))
 
@@ -17,7 +27,14 @@ test.describe('Form Validation', () => {
 
     const slugInput = page.locator('input#dao-slug')
 
-    for (const slug of ['UPPERCASE', 'with spaces', 'special!@#$', '-start', 'end-', 'a']) {
+    for (const slug of [
+      'UPPERCASE',
+      'with spaces',
+      'special!@#$',
+      '-start',
+      'end-',
+      'a',
+    ]) {
       await slugInput.fill(slug)
       await page.waitForTimeout(200)
     }
@@ -57,8 +74,11 @@ test.describe('Empty States', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(1500)
 
-    const hasDaos = await page.locator('a[href*="/dao/"]').count() > 0
-    const hasEmpty = await page.locator('text=No DAOs found').isVisible().catch(() => false)
+    const hasDaos = (await page.locator('a[href*="/dao/"]').count()) > 0
+    const hasEmpty = await page
+      .locator('text=No DAOs found')
+      .isVisible()
+      .catch(() => false)
     const hasCreate = await page.locator('text=Create DAO').first().isVisible()
 
     expect(hasDaos || hasEmpty || hasCreate).toBe(true)
@@ -68,8 +88,12 @@ test.describe('Empty States', () => {
     await page.goto('/director', { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(1500)
 
-    const hasProposals = await page.locator('button[class*="w-full p-4"]').count() > 0
-    const hasEmpty = await page.locator('text=No pending proposals').isVisible().catch(() => false)
+    const hasProposals =
+      (await page.locator('button[class*="w-full p-4"]').count()) > 0
+    const hasEmpty = await page
+      .locator('text=No pending proposals')
+      .isVisible()
+      .catch(() => false)
 
     expect(hasProposals || hasEmpty).toBe(true)
   })
@@ -77,9 +101,14 @@ test.describe('Empty States', () => {
 
 test.describe('Error States', () => {
   test('404 page', async ({ page }) => {
-    await page.goto('/dao/non-existent-dao-12345', { waitUntil: 'domcontentloaded' })
+    await page.goto('/dao/non-existent-dao-12345', {
+      waitUntil: 'domcontentloaded',
+    })
     await page.waitForTimeout(2000)
-    await page.screenshot({ path: screenshotPath(SCREENSHOT_DIR, 'DAO-Not-Found'), fullPage: true })
+    await page.screenshot({
+      path: screenshotPath(SCREENSHOT_DIR, 'DAO-Not-Found'),
+      fullPage: true,
+    })
   })
 })
 
@@ -181,7 +210,9 @@ test.describe('Data Persistence', () => {
     await page.waitForTimeout(500)
 
     expect(await page.inputValue('input#dao-slug')).toBe('persistence-test')
-    expect(await page.inputValue('input#dao-display-name')).toBe('Persistence Test DAO')
+    expect(await page.inputValue('input#dao-display-name')).toBe(
+      'Persistence Test DAO',
+    )
   })
 })
 
@@ -218,15 +249,27 @@ test.describe('Mocked API Errors', () => {
     const { errors } = setupErrorCapture(page)
 
     await page.route('**/api/v1/dao/list', (route) => {
-      route.fulfill({ status: 500, body: JSON.stringify({ error: 'Internal Server Error' }) })
+      route.fulfill({
+        status: 500,
+        body: JSON.stringify({ error: 'Internal Server Error' }),
+      })
     })
 
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(2000)
 
-    const hasErrorState = await page.locator('text=error').isVisible().catch(() => false)
-    const hasEmptyState = await page.locator('text=No DAOs').isVisible().catch(() => false)
-    const hasCreateBtn = await page.locator('text=Create DAO').isVisible().catch(() => false)
+    const hasErrorState = await page
+      .locator('text=error')
+      .isVisible()
+      .catch(() => false)
+    const hasEmptyState = await page
+      .locator('text=No DAOs')
+      .isVisible()
+      .catch(() => false)
+    const hasCreateBtn = await page
+      .locator('text=Create DAO')
+      .isVisible()
+      .catch(() => false)
 
     expect(hasErrorState || hasEmptyState || hasCreateBtn).toBe(true)
 
@@ -251,15 +294,17 @@ test.describe('Security', () => {
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(500)
 
-    const xssErrors = errors.filter((e) => e.includes('alert') || e.includes('xss'))
+    const xssErrors = errors.filter(
+      (e) => e.includes('alert') || e.includes('xss'),
+    )
     expect(xssErrors.length).toBe(0)
   })
 
   test('SQL injection', async ({ page }) => {
-    if (!await navigateToGovernance(page)) return
+    if (!(await navigateToGovernance(page))) return
 
     const searchInput = page.locator('input[placeholder*="Search"]')
-    if (!await searchInput.isVisible()) return
+    if (!(await searchInput.isVisible())) return
 
     await searchInput.fill("'; DROP TABLE proposals; --")
     await page.waitForTimeout(500)

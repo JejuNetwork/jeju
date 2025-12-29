@@ -15,7 +15,10 @@ function setupErrorCapture(page: import('@playwright/test').Page): string[] {
     if (msg.type() === 'error') {
       const text = msg.text()
       // Filter only truly ignorable errors
-      if (text.includes('favicon') || text.includes('net::ERR_BLOCKED_BY_CLIENT'))
+      if (
+        text.includes('favicon') ||
+        text.includes('net::ERR_BLOCKED_BY_CLIENT')
+      )
         return
       errors.push(text)
     }
@@ -32,7 +35,9 @@ test.describe('DWS - Page Load Tests', () => {
   test.beforeEach(async ({ page }) => {
     const response = await page.goto('/', { timeout: 30000 })
     if (!response || response.status() >= 400) {
-      throw new Error(`DWS is not running or returned error: ${response?.status()}`)
+      throw new Error(
+        `DWS is not running or returned error: ${response?.status()}`,
+      )
     }
   })
 
@@ -43,8 +48,14 @@ test.describe('DWS - Page Load Tests', () => {
 
     // Check for DWS branding
     const hasDWS =
-      (await page.locator('text=DWS').isVisible().catch(() => false)) ||
-      (await page.locator('text=Console').isVisible().catch(() => false))
+      (await page
+        .locator('text=DWS')
+        .isVisible()
+        .catch(() => false)) ||
+      (await page
+        .locator('text=Console')
+        .isVisible()
+        .catch(() => false))
 
     expect(hasDWS).toBe(true)
 
@@ -77,7 +88,9 @@ test.describe('DWS - Compute Section', () => {
     await page.goto('/compute/containers')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.locator('text=/container/i')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/container/i')).toBeVisible({
+      timeout: 10000,
+    })
 
     if (errors.length > 0) {
       throw new Error(`Page has errors: ${errors.join(', ')}`)
@@ -172,7 +185,9 @@ test.describe('DWS - Developer Section', () => {
     await page.goto('/developer/repositories')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.locator('text=/repositor/i')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/repositor/i')).toBeVisible({
+      timeout: 10000,
+    })
 
     if (errors.length > 0) {
       throw new Error(`Page has errors: ${errors.join(', ')}`)
@@ -185,7 +200,9 @@ test.describe('DWS - Developer Section', () => {
     await page.goto('/developer/packages')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.locator('text=/package/i')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/package/i')).toBeVisible({
+      timeout: 10000,
+    })
 
     if (errors.length > 0) {
       throw new Error(`Page has errors: ${errors.join(', ')}`)
@@ -198,7 +215,9 @@ test.describe('DWS - Developer Section', () => {
     await page.goto('/developer/pipelines')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.locator('text=/pipeline/i')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/pipeline/i')).toBeVisible({
+      timeout: 10000,
+    })
 
     if (errors.length > 0) {
       throw new Error(`Page has errors: ${errors.join(', ')}`)
@@ -213,7 +232,9 @@ test.describe('DWS - AI Section', () => {
     await page.goto('/ai/inference')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.locator('text=/inference/i')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/inference/i')).toBeVisible({
+      timeout: 10000,
+    })
 
     if (errors.length > 0) {
       throw new Error(`Page has errors: ${errors.join(', ')}`)
@@ -226,7 +247,9 @@ test.describe('DWS - AI Section', () => {
     await page.goto('/ai/embeddings')
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.locator('text=/embedding/i')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/embedding/i')).toBeVisible({
+      timeout: 10000,
+    })
 
     if (errors.length > 0) {
       throw new Error(`Page has errors: ${errors.join(', ')}`)
@@ -246,13 +269,19 @@ test.describe('DWS - Mobile Responsiveness', () => {
     await expect(page.locator('body')).toBeVisible()
 
     // Check no horizontal overflow
-    const hasOverflow = await page.evaluate(() => {
-      return document.documentElement.scrollWidth > document.documentElement.clientWidth
+    const _hasOverflow = await page.evaluate(() => {
+      return (
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+      )
     })
 
     // Allow small overflow (10px tolerance for scrollbars)
     const overflowAmount = await page.evaluate(() => {
-      return document.documentElement.scrollWidth - document.documentElement.clientWidth
+      return (
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth
+      )
     })
 
     expect(overflowAmount).toBeLessThan(20)

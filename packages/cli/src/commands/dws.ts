@@ -11,9 +11,9 @@ import { join, normalize, resolve } from 'node:path'
 import {
   CORE_PORTS,
   getDWSUrl,
-  getSQLitBlockProducerUrl,
   getL2RpcUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { toError } from '@jejunetwork/types'
 import { Command } from 'commander'

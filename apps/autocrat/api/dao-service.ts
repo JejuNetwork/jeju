@@ -19,9 +19,9 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
-  type DirectorPersona,
   type BoardMemberConfig,
   type DAOStatus,
+  type DirectorPersona,
   type FundingConfig,
   type FundingStatus,
   type GovernanceParams,
@@ -1353,9 +1353,7 @@ export class DAOService {
         },
         {
           minQualityScore: BigInt(params.governanceParams.minQualityScore),
-          boardVotingPeriod: BigInt(
-            params.governanceParams.boardVotingPeriod,
-          ),
+          boardVotingPeriod: BigInt(params.governanceParams.boardVotingPeriod),
           gracePeriod: BigInt(params.governanceParams.gracePeriod),
           minProposalStake: params.governanceParams.minProposalStake,
           quorumBps: BigInt(params.governanceParams.quorumBps),
@@ -1366,7 +1364,10 @@ export class DAOService {
     return hash
   }
 
-  async setDirectorPersona(daoId: string, persona: DirectorPersona): Promise<Hash> {
+  async setDirectorPersona(
+    daoId: string,
+    persona: DirectorPersona,
+  ): Promise<Hash> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')
     }

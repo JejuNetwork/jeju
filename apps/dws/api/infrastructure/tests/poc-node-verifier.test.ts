@@ -3,25 +3,34 @@
  */
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
-import { keccak256, toBytes, type Hex } from 'viem'
+import { type Hex, keccak256, toBytes } from 'viem'
 import * as quoteParser from '../../poc/quote-parser'
 import { MockPoCRegistryClient } from '../../poc/registry-client'
-import type { PoCRegistryEntry, PoCVerificationLevel, TEEQuote, QuoteParseResult, QuoteVerificationResult } from '../../poc/types'
+import type {
+  PoCRegistryEntry,
+  PoCVerificationLevel,
+  QuoteParseResult,
+  QuoteVerificationResult,
+  TEEQuote,
+} from '../../poc/types'
 import {
   getPoCNodeVerifier,
-  initializePoCNodeVerifier,
   PoCNodeVerifier,
   shutdownPoCNodeVerifier,
 } from '../poc-node-verifier'
 
-const TEST_SALT = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex
+const TEST_SALT =
+  '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex
 const TEST_AGENT_ID = 12345n
-const TEST_HARDWARE_ID = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as Hex
+const TEST_HARDWARE_ID =
+  '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as Hex
 
 function createTestQuote(seed = 1): Hex {
   const bytes = new Uint8Array(200)
   for (let i = 0; i < bytes.length; i++) bytes[i] = (i * seed) % 256
-  return ('0x' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')) as Hex
+  return `0x${Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')}` as Hex
 }
 
 /**
@@ -34,16 +43,16 @@ function createValidTDXQuote(): Hex {
   // - Report Body: 584 bytes (offset 48 to 632)
   // - Signature Data Length: 4 bytes (offset 632)
   // - Signature Data: variable (offset 636)
-  const sigDataLen = 68  // ECDSA signature (64) + cert data type (4)
+  const sigDataLen = 68 // ECDSA signature (64) + cert data type (4)
   const totalLen = 636 + sigDataLen
   const bytes = new Uint8Array(totalLen)
-  
+
   // DCAP Header (48 bytes)
-  bytes[0] = 0x04  // Version 4 (little-endian)
+  bytes[0] = 0x04 // Version 4 (little-endian)
   bytes[1] = 0x00
-  bytes[2] = 0x02  // Attestation key type = ECDSA-256-with-P-256 curve
+  bytes[2] = 0x02 // Attestation key type = ECDSA-256-with-P-256 curve
   bytes[3] = 0x00
-  bytes[4] = 0x81  // TEE type = TDX (little-endian)
+  bytes[4] = 0x81 // TEE type = TDX (little-endian)
   bytes[5] = 0x00
   bytes[6] = 0x00
   bytes[7] = 0x00
@@ -54,36 +63,38 @@ function createValidTDXQuote(): Hex {
     bytes[12 + i] = parseInt(vendorId.slice(i * 2, i * 2 + 2), 16)
   }
   // User Data (20 bytes at offset 28)
-  
+
   // TDX Report Body (584 bytes starting at offset 48)
   // TEE_TCB_SVN at offset 48 (16 bytes) - set to valid TCB
-  bytes[48] = 0x03  // CPU SVN
-  bytes[49] = 0x04  // TCB SVN
-  
+  bytes[48] = 0x03 // CPU SVN
+  bytes[49] = 0x04 // TCB SVN
+
   // Fill report body with deterministic data (not random, for reproducibility)
   for (let i = 64; i < 632; i++) {
     bytes[i] = (i * 7 + 13) % 256
   }
-  
+
   // Signature data length at offset 632 (4 bytes, little-endian)
   bytes[632] = sigDataLen & 0xff
   bytes[633] = (sigDataLen >> 8) & 0xff
   bytes[634] = 0
   bytes[635] = 0
-  
+
   // ECDSA signature (64 bytes: r || s)
   // Set non-zero values with high entropy to pass signature format check
   for (let i = 0; i < 64; i++) {
-    bytes[636 + i] = ((i * 17 + 31) % 256)
+    bytes[636 + i] = (i * 17 + 31) % 256
   }
-  
+
   // Cert data type (4 bytes) - type 5 = no certs
   bytes[700] = 5
   bytes[701] = 0
   bytes[702] = 0
   bytes[703] = 0
-  
-  return ('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')) as Hex
+
+  return `0x${Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')}` as Hex
 }
 
 function createMockParsedQuote(overrides: Partial<TEEQuote> = {}): TEEQuote {
@@ -101,7 +112,9 @@ function createMockParsedQuote(overrides: Partial<TEEQuote> = {}): TEEQuote {
   }
 }
 
-function createMockEntry(overrides: Partial<PoCRegistryEntry> = {}): PoCRegistryEntry {
+function createMockEntry(
+  overrides: Partial<PoCRegistryEntry> = {},
+): PoCRegistryEntry {
   return {
     hardwareIdHash: `0x${'ab'.repeat(32)}` as Hex,
     level: 2 as PoCVerificationLevel,
@@ -127,7 +140,10 @@ interface TestSetup {
 
 function createTestVerifier(cacheTtlMs = 100): TestSetup {
   const mockRegistry = new MockPoCRegistryClient()
-  const verifier = new PoCNodeVerifier({ hardwareIdSalt: TEST_SALT, cacheTtlMs })
+  const verifier = new PoCNodeVerifier({
+    hardwareIdSalt: TEST_SALT,
+    cacheTtlMs,
+  })
 
   // @ts-expect-error - accessing private for testing
   verifier.registryClient = mockRegistry
@@ -141,11 +157,18 @@ function createTestVerifier(cacheTtlMs = 100): TestSetup {
   }
 }
 
-function setupSuccessfulQuote(setup: TestSetup, hardwareId: Hex = TEST_HARDWARE_ID): Hex {
+function setupSuccessfulQuote(
+  setup: TestSetup,
+  hardwareId: Hex = TEST_HARDWARE_ID,
+): Hex {
   const parsedQuote = createMockParsedQuote({ hardwareId })
   const hash = `0x${keccak256(toBytes(hardwareId + TEST_SALT)).slice(2)}` as Hex
 
-  setup.mockParseQuote.mockReturnValue({ success: true, quote: parsedQuote, error: null } as QuoteParseResult)
+  setup.mockParseQuote.mockReturnValue({
+    success: true,
+    quote: parsedQuote,
+    error: null,
+  } as QuoteParseResult)
   setup.mockVerifyQuote.mockResolvedValue({
     valid: true,
     quote: parsedQuote,
@@ -161,12 +184,23 @@ function setupSuccessfulQuote(setup: TestSetup, hardwareId: Hex = TEST_HARDWARE_
 }
 
 function setupFailedParsing(setup: TestSetup, error = 'Quote too short'): void {
-  setup.mockParseQuote.mockReturnValue({ success: false, quote: null, error } as QuoteParseResult)
+  setup.mockParseQuote.mockReturnValue({
+    success: false,
+    quote: null,
+    error,
+  } as QuoteParseResult)
 }
 
-function setupFailedVerification(setup: TestSetup, error = 'Invalid signature'): void {
+function setupFailedVerification(
+  setup: TestSetup,
+  error = 'Invalid signature',
+): void {
   const parsedQuote = createMockParsedQuote()
-  setup.mockParseQuote.mockReturnValue({ success: true, quote: parsedQuote, error: null } as QuoteParseResult)
+  setup.mockParseQuote.mockReturnValue({
+    success: true,
+    quote: parsedQuote,
+    error: null,
+  } as QuoteParseResult)
   setup.mockVerifyQuote.mockResolvedValue({
     valid: false,
     quote: parsedQuote,
@@ -199,7 +233,7 @@ describe('PoCNodeVerifier', () => {
     test('real TDX quote parsing flows through verifier', async () => {
       // Create a valid-structure TDX quote (DCAP v4)
       const tdxQuote = createValidTDXQuote()
-      
+
       // Don't mock parseQuote - use real implementation
       setup.mockParseQuote.mockRestore()
       setup.mockVerifyQuote.mockRestore()
@@ -236,8 +270,12 @@ describe('PoCNodeVerifier', () => {
       setup.mockHashHardwareId.mockRestore()
 
       // Pass expected measurement that won't match
-      const wrongMeasurement = '0x' + 'ff'.repeat(48) as Hex
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, tdxQuote, wrongMeasurement)
+      const wrongMeasurement = `0x${'ff'.repeat(48)}` as Hex
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        tdxQuote,
+        wrongMeasurement,
+      )
 
       expect(result.verified).toBe(false)
       // Should fail on measurement or cert chain
@@ -248,9 +286,14 @@ describe('PoCNodeVerifier', () => {
   describe('verification', () => {
     test('level 1 gives +10 rep', async () => {
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, level: 1 }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({ hardwareIdHash: hash, level: 1 }),
+      )
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(true)
       expect(result.level).toBe(1)
@@ -259,9 +302,14 @@ describe('PoCNodeVerifier', () => {
 
     test('level 2 gives +15 rep', async () => {
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, level: 2 }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({ hardwareIdHash: hash, level: 2 }),
+      )
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(true)
       expect(result.level).toBe(2)
@@ -270,9 +318,14 @@ describe('PoCNodeVerifier', () => {
 
     test('level 3 gives +25 rep', async () => {
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, level: 3 }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({ hardwareIdHash: hash, level: 3 }),
+      )
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(true)
       expect(result.level).toBe(3)
@@ -281,9 +334,18 @@ describe('PoCNodeVerifier', () => {
 
     test('includes provider and region', async () => {
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, cloudProvider: 'gcp', region: 'us-central1' }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({
+          hardwareIdHash: hash,
+          cloudProvider: 'gcp',
+          region: 'us-central1',
+        }),
+      )
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.cloudProvider).toBe('gcp')
       expect(result.region).toBe('us-central1')
@@ -294,7 +356,10 @@ describe('PoCNodeVerifier', () => {
     test('parse failure gives -10 rep', async () => {
       setupFailedParsing(setup, 'Quote too short: 5 bytes')
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(false)
       expect(result.error).toContain('Failed to parse')
@@ -304,7 +369,10 @@ describe('PoCNodeVerifier', () => {
     test('verification failure gives -10 rep', async () => {
       setupFailedVerification(setup, 'Invalid certificate chain')
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(false)
       expect(result.error).toContain('verification failed')
@@ -314,7 +382,10 @@ describe('PoCNodeVerifier', () => {
     test('unregistered hardware gives 0 rep delta', async () => {
       const hash = setupSuccessfulQuote(setup)
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(false)
       expect(result.error).toBe('Hardware not registered in cloud alliance')
@@ -324,7 +395,9 @@ describe('PoCNodeVerifier', () => {
 
     test('revoked hardware gives -50 rep', async () => {
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, active: true }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({ hardwareIdHash: hash, active: true }),
+      )
       setup.mockRegistry.addMockRevocation({
         hardwareIdHash: hash,
         reason: 'Compromised',
@@ -333,7 +406,10 @@ describe('PoCNodeVerifier', () => {
         approvers: ['admin'],
       })
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(false)
       expect(result.error).toContain('revoked')
@@ -345,7 +421,9 @@ describe('PoCNodeVerifier', () => {
     test('returns cached result', async () => {
       setup = createTestVerifier(60000)
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, level: 2 }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({ hardwareIdHash: hash, level: 2 }),
+      )
 
       const quote = createTestQuote()
       const result1 = await setup.verifier.verifyNode(TEST_AGENT_ID, quote)
@@ -362,7 +440,9 @@ describe('PoCNodeVerifier', () => {
     test('cache expires', async () => {
       setup = createTestVerifier(50)
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, level: 2 }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({ hardwareIdHash: hash, level: 2 }),
+      )
 
       const quote = createTestQuote()
       await setup.verifier.verifyNode(TEST_AGENT_ID, quote)
@@ -396,7 +476,9 @@ describe('PoCNodeVerifier', () => {
   describe('events', () => {
     test('emits poc_verified on success', async () => {
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, level: 2 }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({ hardwareIdHash: hash, level: 2 }),
+      )
 
       const events: unknown[] = []
       setup.verifier.onEvent((e) => events.push(e))
@@ -435,10 +517,17 @@ describe('PoCNodeVerifier', () => {
       setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash }))
 
       let goodCalled = false
-      setup.verifier.onEvent(() => { throw new Error('boom') })
-      setup.verifier.onEvent(() => { goodCalled = true })
+      setup.verifier.onEvent(() => {
+        throw new Error('boom')
+      })
+      setup.verifier.onEvent(() => {
+        goodCalled = true
+      })
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
       await new Promise((r) => setTimeout(r, 10))
 
       expect(result.verified).toBe(true)
@@ -516,12 +605,16 @@ describe('PoCNodeVerifier', () => {
   describe('on-chain methods', () => {
     test('getNodePoCStatus throws when PoC not initialized', async () => {
       // POC_SIGNER_KEY not set means getAgentPoCStatus will throw
-      await expect(setup.verifier.getNodePoCStatus(TEST_AGENT_ID)).rejects.toThrow('not initialized')
+      await expect(
+        setup.verifier.getNodePoCStatus(TEST_AGENT_ID),
+      ).rejects.toThrow('not initialized')
     })
 
     test('isNodeVerified throws when PoC not initialized', async () => {
       // isAgentPoCVerified now throws when verifier not initialized
-      await expect(setup.verifier.isNodeVerified(TEST_AGENT_ID)).rejects.toThrow('not initialized')
+      await expect(
+        setup.verifier.isNodeVerified(TEST_AGENT_ID),
+      ).rejects.toThrow('not initialized')
     })
 
     test('needsReverification delegates to registry', async () => {
@@ -535,7 +628,9 @@ describe('PoCNodeVerifier', () => {
     test('concurrent requests share single verification', async () => {
       const hash = setupSuccessfulQuote(setup)
       let checkCalls = 0
-      const originalCheckHardware = setup.mockRegistry.checkHardware.bind(setup.mockRegistry)
+      const originalCheckHardware = setup.mockRegistry.checkHardware.bind(
+        setup.mockRegistry,
+      )
       setup.mockRegistry.checkHardware = async (h: Hex) => {
         checkCalls++
         await new Promise((r) => setTimeout(r, 50)) // Slow response
@@ -545,11 +640,11 @@ describe('PoCNodeVerifier', () => {
 
       const quote = createTestQuote()
       // Start 5 concurrent verifications
-      const promises = Array.from({ length: 5 }, () => 
-        setup.verifier.verifyNode(TEST_AGENT_ID, quote)
+      const promises = Array.from({ length: 5 }, () =>
+        setup.verifier.verifyNode(TEST_AGENT_ID, quote),
       )
       const results = await Promise.all(promises)
-      
+
       // Only one actual verification should have happened
       expect(checkCalls).toBe(1)
       // All results should be identical
@@ -561,7 +656,9 @@ describe('PoCNodeVerifier', () => {
     test('retries on registry failure and succeeds', async () => {
       const hash = setupSuccessfulQuote(setup)
       let calls = 0
-      const originalCheckHardware = setup.mockRegistry.checkHardware.bind(setup.mockRegistry)
+      const originalCheckHardware = setup.mockRegistry.checkHardware.bind(
+        setup.mockRegistry,
+      )
       setup.mockRegistry.checkHardware = async (h: Hex) => {
         calls++
         if (calls < 2) throw new Error('Transient failure')
@@ -569,8 +666,11 @@ describe('PoCNodeVerifier', () => {
       }
       setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash }))
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
-      
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
+
       expect(calls).toBe(2) // Failed once, succeeded on retry
       expect(result.verified).toBe(true)
     })
@@ -581,8 +681,11 @@ describe('PoCNodeVerifier', () => {
         throw new Error('Persistent failure')
       }
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
-      
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
+
       expect(result.verified).toBe(false)
       expect(result.error).toContain('Registry unavailable')
       expect(result.hardwareIdHash).toBe(hash)
@@ -594,15 +697,26 @@ describe('PoCNodeVerifier', () => {
       const hash = setupSuccessfulQuote(setup)
       setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash }))
 
-      const result = await setup.verifier.verifyNode(BigInt('18446744073709551615'), createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        BigInt('18446744073709551615'),
+        createTestQuote(),
+      )
       expect(result.verified).toBe(true)
     })
 
     test('unknown level gives 0 rep delta', async () => {
       const hash = setupSuccessfulQuote(setup)
-      setup.mockRegistry.addMockEntry(createMockEntry({ hardwareIdHash: hash, level: 99 as PoCVerificationLevel }))
+      setup.mockRegistry.addMockEntry(
+        createMockEntry({
+          hardwareIdHash: hash,
+          level: 99 as PoCVerificationLevel,
+        }),
+      )
 
-      const result = await setup.verifier.verifyNode(TEST_AGENT_ID, createTestQuote())
+      const result = await setup.verifier.verifyNode(
+        TEST_AGENT_ID,
+        createTestQuote(),
+      )
 
       expect(result.verified).toBe(true)
       expect(result.level).toBe(99)

@@ -1,9 +1,7 @@
-<<<<<<< HEAD
-=======
 /** x402 Payment Integration for VPN */
 
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
+
 import { Elysia } from 'elysia'
 import { type Address, getAddress, type Hex, recoverMessageAddress } from 'viem'
 import {

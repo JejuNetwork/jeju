@@ -19,15 +19,20 @@
  * 6. Return intake context for pipeline
  */
 
-import { logger } from '../logger'
 import type { Address } from 'viem'
-import { getSanctionsScreener, type SanctionsScreener } from './sanctions'
-import { getWalletEnforcementManager, type WalletEnforcementManager } from './wallet-enforcement'
+import { logger } from '../logger'
 import type { IntakeContext } from './ingestion-pipeline'
+import { getSanctionsScreener, type SanctionsScreener } from './sanctions'
+import {
+  getWalletEnforcementManager,
+  type WalletEnforcementManager,
+} from './wallet-enforcement'
 
 async function sha256(data: Uint8Array): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 async function sha256Buffer(buffer: Buffer): Promise<string> {
@@ -140,30 +145,46 @@ export class UploadGateway {
   /**
    * Issue PoW challenge for a wallet
    */
-  async issueChallenge(walletAddress: Address): Promise<PoWChallenge | { blocked: true; reason: string }> {
+  async issueChallenge(
+    walletAddress: Address,
+  ): Promise<PoWChallenge | { blocked: true; reason: string }> {
     // Check sanctions
     if (this.config.enableSanctionsCheck) {
-      const sanctionsResult = await this.sanctionsScreener.checkAddress(walletAddress)
+      const sanctionsResult =
+        await this.sanctionsScreener.checkAddress(walletAddress)
       if (sanctionsResult.isSanctioned) {
-        logger.warn('[UploadGateway] Sanctioned wallet blocked', { address: walletAddress })
-        return { blocked: true, reason: `Sanctioned wallet: ${sanctionsResult.source}` }
+        logger.warn('[UploadGateway] Sanctioned wallet blocked', {
+          address: walletAddress,
+        })
+        return {
+          blocked: true,
+          reason: `Sanctioned wallet: ${sanctionsResult.source}`,
+        }
       }
     }
 
     // Check wallet enforcement status
-    const canUpload = await this.walletEnforcement.canPerformAction(walletAddress, 'upload')
+    const canUpload = await this.walletEnforcement.canPerformAction(
+      walletAddress,
+      'upload',
+    )
     if (!canUpload) {
-      logger.warn('[UploadGateway] Wallet upload blocked', { address: walletAddress })
+      logger.warn('[UploadGateway] Wallet upload blocked', {
+        address: walletAddress,
+      })
       return { blocked: true, reason: 'Wallet is restricted from uploading' }
     }
 
     // Determine difficulty based on wallet status
-    const difficulty = await this.walletEnforcement.getPoWDifficulty(walletAddress)
+    const difficulty =
+      await this.walletEnforcement.getPoWDifficulty(walletAddress)
     const scaledDifficulty = this.config.baseDifficulty * difficulty
 
     // Generate challenge
     const challengeId = crypto.randomUUID()
-    const prefix = await sha256(new TextEncoder().encode(`${challengeId}-${walletAddress}-${Date.now()}`))
+    const prefix = await sha256(
+      new TextEncoder().encode(`${challengeId}-${walletAddress}-${Date.now()}`),
+    )
 
     const challenge: PoWChallenge = {
       challengeId,
@@ -190,13 +211,17 @@ export class UploadGateway {
   verifySolution(solution: PoWSolution): boolean {
     const challenge = challengeStore.get(solution.challengeId)
     if (!challenge) {
-      logger.warn('[UploadGateway] Challenge not found', { challengeId: solution.challengeId })
+      logger.warn('[UploadGateway] Challenge not found', {
+        challengeId: solution.challengeId,
+      })
       return false
     }
 
     if (challenge.expiresAt < Date.now()) {
       challengeStore.delete(solution.challengeId)
-      logger.warn('[UploadGateway] Challenge expired', { challengeId: solution.challengeId })
+      logger.warn('[UploadGateway] Challenge expired', {
+        challengeId: solution.challengeId,
+      })
       return false
     }
 
@@ -216,7 +241,9 @@ export class UploadGateway {
     // Remove used challenge
     challengeStore.delete(solution.challengeId)
 
-    logger.info('[UploadGateway] PoW solution verified', { challengeId: solution.challengeId })
+    logger.info('[UploadGateway] PoW solution verified', {
+      challengeId: solution.challengeId,
+    })
     return true
   }
 
@@ -234,7 +261,9 @@ export class UploadGateway {
 
     // Check sanctions
     if (this.config.enableSanctionsCheck) {
-      const sanctionsResult = await this.sanctionsScreener.checkAddress(request.walletAddress)
+      const sanctionsResult = await this.sanctionsScreener.checkAddress(
+        request.walletAddress,
+      )
       if (sanctionsResult.isSanctioned) {
         return {
           success: false,
@@ -244,7 +273,10 @@ export class UploadGateway {
     }
 
     // Check wallet enforcement status
-    const canUpload = await this.walletEnforcement.canPerformAction(request.walletAddress, 'upload')
+    const canUpload = await this.walletEnforcement.canPerformAction(
+      request.walletAddress,
+      'upload',
+    )
     if (!canUpload) {
       return {
         success: false,
@@ -254,17 +286,22 @@ export class UploadGateway {
 
     // Check if PoW is required
     if (this.config.enablePoW) {
-      const walletState = await this.walletEnforcement.getState(request.walletAddress)
+      const walletState = await this.walletEnforcement.getState(
+        request.walletAddress,
+      )
 
       // Skip PoW for trusted wallets with clean status
-      const skipPoW = this.config.skipPoWForTrustedWallets &&
+      const skipPoW =
+        this.config.skipPoWForTrustedWallets &&
         walletState.status === 'clean' &&
         walletState.transactionCount > 100
 
       if (!skipPoW) {
         if (!request.powSolution) {
           // Issue challenge
-          const challengeResult = await this.issueChallenge(request.walletAddress)
+          const challengeResult = await this.issueChallenge(
+            request.walletAddress,
+          )
           if ('blocked' in challengeResult) {
             return { success: false, error: challengeResult.reason }
           }
@@ -365,4 +402,3 @@ export function resetUploadGateway(): void {
   instance = null
   challengeStore.clear()
 }
-

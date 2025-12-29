@@ -12,12 +12,16 @@
  * the Treasury contract with proper access control.
  */
 
-import { createPublicClient, createWalletClient, http, formatEther } from 'viem'
-import type { Address, Hash, Chain } from 'viem'
+import {
+  getChainConfig,
+  getContractAddress,
+  getCurrentNetwork,
+} from '@jejunetwork/config'
+import type { Address, Chain, Hash } from 'viem'
+import { createPublicClient, createWalletClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { localhost, mainnet, sepolia } from 'viem/chains'
 import { z } from 'zod'
-import { getContractAddress, getChainConfig, getCurrentNetwork } from '@jejunetwork/config'
-import { mainnet, sepolia, localhost } from 'viem/chains'
 
 function getViemChain(): Chain {
   const network = getCurrentNetwork()
@@ -175,7 +179,9 @@ export class DirectorTreasuryActions {
   /**
    * Execute a token transfer from treasury
    */
-  async executeTransfer(request: TransferRequest): Promise<TreasuryActionResult> {
+  async executeTransfer(
+    request: TransferRequest,
+  ): Promise<TreasuryActionResult> {
     const parsed = TransferRequestSchema.parse(request)
 
     if (!this.walletClient) {
@@ -214,7 +220,9 @@ export class DirectorTreasuryActions {
   /**
    * Create a recurring payment
    */
-  async createRecurringPayment(payment: RecurringPayment): Promise<TreasuryActionResult> {
+  async createRecurringPayment(
+    payment: RecurringPayment,
+  ): Promise<TreasuryActionResult> {
     const parsed = RecurringPaymentSchema.parse(payment)
 
     if (!this.walletClient) {
@@ -237,7 +245,9 @@ export class DirectorTreasuryActions {
   /**
    * Cancel a recurring payment
    */
-  async cancelRecurringPayment(paymentId: string): Promise<TreasuryActionResult> {
+  async cancelRecurringPayment(
+    paymentId: string,
+  ): Promise<TreasuryActionResult> {
     if (!this.walletClient) {
       return { success: false, error: 'Director wallet not configured' }
     }
@@ -305,7 +315,9 @@ export class DirectorTreasuryActions {
   /**
    * Top up a service account
    */
-  async topUpServiceAccount(request: TopUpRequest): Promise<TreasuryActionResult> {
+  async topUpServiceAccount(
+    request: TopUpRequest,
+  ): Promise<TreasuryActionResult> {
     const parsed = TopUpRequestSchema.parse(request)
 
     if (!this.walletClient) {
@@ -383,7 +395,9 @@ export class DirectorTreasuryActions {
   /**
    * Get treasury token balance
    */
-  async getTreasuryBalance(token: Address): Promise<{ balance: string; symbol: string }> {
+  async getTreasuryBalance(
+    token: Address,
+  ): Promise<{ balance: string; symbol: string }> {
     const [balance, symbol] = await Promise.all([
       this.publicClient.readContract({
         address: token,
@@ -418,7 +432,9 @@ export async function handleDirectorTreasuryAction(
       return treasury.executeTransfer(params as unknown as TransferRequest)
 
     case 'create-recurring':
-      return treasury.createRecurringPayment(params as unknown as RecurringPayment)
+      return treasury.createRecurringPayment(
+        params as unknown as RecurringPayment,
+      )
 
     case 'cancel-recurring':
       return treasury.cancelRecurringPayment(params.paymentId as string)
@@ -429,9 +445,10 @@ export async function handleDirectorTreasuryAction(
     case 'top-up':
       return treasury.topUpServiceAccount(params as unknown as TopUpRequest)
 
-    case 'get-whitelist':
+    case 'get-whitelist': {
       const destinations = await treasury.getWhitelistedDestinations()
       return { success: true, data: { destinations: destinations.join(',') } }
+    }
 
     case 'add-whitelist':
       return treasury.addSwapDestination(params.token as Address)
@@ -439,12 +456,15 @@ export async function handleDirectorTreasuryAction(
     case 'remove-whitelist':
       return treasury.removeSwapDestination(params.token as Address)
 
-    case 'balance':
-      const balanceInfo = await treasury.getTreasuryBalance(params.token as Address)
+    case 'balance': {
+      const balanceInfo = await treasury.getTreasuryBalance(
+        params.token as Address,
+      )
       return {
         success: true,
         data: { balance: balanceInfo.balance, symbol: balanceInfo.symbol },
       }
+    }
 
     default:
       return { success: false, error: `Unknown action: ${action}` }
@@ -452,4 +472,3 @@ export async function handleDirectorTreasuryAction(
 }
 
 export default DirectorTreasuryActions
-

@@ -384,7 +384,6 @@ export class JNSService {
 }
 
 export const jnsService = new JNSService()
-<<<<<<< HEAD
 
 // Re-export from resolver
 export {
@@ -393,5 +392,3 @@ export {
   type JNSResolverSettings,
   jnsResolver,
 } from './resolver'
-=======
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf

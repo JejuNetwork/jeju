@@ -6,9 +6,9 @@ import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
 import {
+  getChainId,
   getCQLMinerUrl,
   getCQLUrl,
-  getChainId,
   getCurrentNetwork,
   getRpcUrl,
 } from '@jejunetwork/config'
@@ -25,10 +25,7 @@ import {
   detectHardware,
   meetsRequirements,
 } from '../lib/hardware'
-import {
-  createSecureSigner,
-  registerNodeWithKMS,
-} from '../lib/secure-signer'
+import { createSecureSigner, registerNodeWithKMS } from '../lib/secure-signer'
 import { createNodeServices } from '../lib/services'
 
 const CliAppConfigSchema = z.object({
@@ -347,14 +344,9 @@ async function cmdSetup(): Promise<void> {
         '    Your keys are managed by the network KMS using threshold signatures.',
       ),
     )
-    console.log(
-      chalk.dim('    No private keys are stored on this machine.\n'),
-    )
+    console.log(chalk.dim('    No private keys are stored on this machine.\n'))
 
-    const registerNew = await promptYesNo(
-      '  Register new node with KMS?',
-      true,
-    )
+    const registerNew = await promptYesNo('  Register new node with KMS?', true)
 
     if (registerNew) {
       const hardwareCamel = convertHardwareToCamelCase(hardware)
@@ -387,9 +379,7 @@ async function cmdSetup(): Promise<void> {
           ),
         )
         console.log(
-          chalk.dim(
-            '    You can retry setup later or check KMS connectivity.',
-          ),
+          chalk.dim('    You can retry setup later or check KMS connectivity.'),
         )
       }
     } else {

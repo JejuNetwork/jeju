@@ -6,12 +6,12 @@
  */
 
 import {
-  getSQLitMinerUrl,
-  getSQLitUrl,
+  getLogLevel,
   getSQLitDatabaseId,
   getSQLitKeyId,
+  getSQLitMinerUrl,
   getSQLitTimeout,
-  getLogLevel,
+  getSQLitUrl,
   isSQLitDebug,
 } from '@jejunetwork/config'
 import { createPool, type Pool } from 'generic-pool'
@@ -25,10 +25,6 @@ import type {
   CreateRentalRequest,
   DatabaseConfig,
   DatabaseInfo,
-  SQLitConfig,
-  SQLitConnection,
-  SQLitConnectionPool,
-  SQLitTransaction,
   ExecResult,
   GrantRequest,
   QueryParam,
@@ -36,6 +32,10 @@ import type {
   RentalInfo,
   RentalPlan,
   RevokeRequest,
+  SQLitConfig,
+  SQLitConnection,
+  SQLitConnectionPool,
+  SQLitTransaction,
   VectorBatchInsertRequest,
   VectorIndexConfig,
   VectorInsertRequest,
@@ -1015,8 +1015,7 @@ const DEFAULT_TIMEOUT = 30000
  */
 export function getSQLit(config?: Partial<SQLitConfig>): SQLitClient {
   if (!sqlitClient) {
-    const blockProducerEndpoint =
-      config?.blockProducerEndpoint ?? getSQLitUrl()
+    const blockProducerEndpoint = config?.blockProducerEndpoint ?? getSQLitUrl()
     const minerEndpoint = config?.minerEndpoint ?? getSQLitMinerUrl()
 
     if (!blockProducerEndpoint) {

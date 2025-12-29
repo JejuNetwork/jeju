@@ -11,9 +11,9 @@
 
 import { describe, expect, it } from 'bun:test'
 import {
-  getSQLitBlockProducerUrl,
   getLocalhostHost,
   getServiceUrl,
+  getSQLitBlockProducerUrl,
   getTeeEndpoint,
 } from '@jejunetwork/config'
 import { createSQLitClient, MigrationManager } from '@jejunetwork/db'

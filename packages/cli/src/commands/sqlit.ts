@@ -5,8 +5,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getRpcUrl as getConfigRpcUrl,
-  getSQLitBlockProducerUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
   type NetworkType,
 } from '@jejunetwork/config'
 import { Command } from 'commander'
@@ -198,9 +198,7 @@ sqlitCommand
       process.exit(1)
     }
 
-    logger.info(
-      'Note: SQLIT operators register in the unified ComputeRegistry',
-    )
+    logger.info('Note: SQLIT operators register in the unified ComputeRegistry')
     logger.info('      with serviceType = keccak256("database")')
     logger.newline()
 

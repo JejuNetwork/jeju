@@ -20,7 +20,6 @@ import {
   getCurrentNetwork,
   getDWSComputeUrl,
   getDWSUrl,
-  getSQLitBlockProducerUrl,
   getIpfsGatewayUrl,
   getKMSUrl,
   getL1RpcUrl,
@@ -28,6 +27,7 @@ import {
   getOAuth3Url,
   getRpcUrl,
   getServiceUrl,
+  getSQLitBlockProducerUrl,
   isLocalnet,
   isProductionEnv,
   tryGetContract,
@@ -113,13 +113,13 @@ import { createModerationRouter } from './routes/moderation'
 import { createOAuth3Router } from './routes/oauth3'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
-import { createPyPkgRouter } from './routes/pypkg'
 import {
   createPricesRouter,
   getPriceService,
   type SubscribableWebSocket,
   SubscriptionMessageSchema,
 } from './routes/prices'
+import { createPyPkgRouter } from './routes/pypkg'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
@@ -975,14 +975,12 @@ const AGENTS_DB_ID =
     ? process.env.AGENTS_DATABASE_ID
     : undefined) ??
   'dws-agents'
-initRegistry({ sqlitUrl: SQLIT_URL, databaseId: AGENTS_DB_ID }).catch(
-  (err) => {
-    console.warn(
-      '[DWS] Agent registry init failed (SQLit may not be running):',
-      err.message,
-    )
-  },
-)
+initRegistry({ sqlitUrl: SQLIT_URL, databaseId: AGENTS_DB_ID }).catch((err) => {
+  console.warn(
+    '[DWS] Agent registry init failed (SQLit may not be running):',
+    err.message,
+  )
+})
 
 // Agent executor - initialized after server starts (see below)
 const workerdExecutor = new WorkerdExecutor(backendManager)
@@ -1237,6 +1235,7 @@ if (import.meta.main) {
 
   server = Bun.serve({
     port: PORT,
+    maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     fetch(req, server) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)

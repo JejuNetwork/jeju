@@ -252,9 +252,9 @@ export default jejuPlugin
 // SQLit Database Plugin - decentralized database for ElizaOS agents
 export {
   checkMigrationStatus,
+  runSQLitMigrations,
   SQLIT_SCHEMA,
   SQLitDatabaseAdapter,
   sqlitDatabasePlugin,
-  runSQLitMigrations,
 } from './db'
 export { JejuService } from './service'

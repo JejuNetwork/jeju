@@ -283,7 +283,10 @@ export class AutocratAgentRuntimeManager {
     this.initialized = true
   }
 
-  async registerDAOAgents(daoId: string, persona: DirectorPersona): Promise<void> {
+  async registerDAOAgents(
+    daoId: string,
+    persona: DirectorPersona,
+  ): Promise<void> {
     // Create DAO-specific Director persona config
     const systemPrompt = buildDirectorSystemPrompt(persona)
     this.directorPersonas.set(daoId, {
@@ -438,7 +441,9 @@ Include a confidence score (0-100) for your assessment.`
     return votes
   }
 
-  async directorDecision(request: DirectorDecisionRequest): Promise<DirectorDecision> {
+  async directorDecision(
+    request: DirectorDecisionRequest,
+  ): Promise<DirectorDecision> {
     if (this.dwsAvailable === null) {
       this.dwsAvailable = await checkDWSCompute()
     }
@@ -560,7 +565,9 @@ Keep it concise (2-4 sentences) but impactful.`
   }
 
   // Legacy method alias
-  async ceoDecision(request: DirectorDecisionRequest): Promise<DirectorDecision> {
+  async ceoDecision(
+    request: DirectorDecisionRequest,
+  ): Promise<DirectorDecision> {
     return this.directorDecision(request)
   }
 

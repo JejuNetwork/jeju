@@ -17,9 +17,9 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getSQLitBlockProducerUrl,
   getL2RpcUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { $ } from 'bun'
 

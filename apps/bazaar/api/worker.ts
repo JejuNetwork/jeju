@@ -13,12 +13,12 @@ import {
   getCoreAppUrl,
   getCurrentNetwork,
   getEnvVar,
-  getSQLitBlockProducerUrl,
   getIndexerGraphqlUrl,
   getL2RpcUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
-import { createTable, type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { createTable, getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { expect as expectExists, expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {

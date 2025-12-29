@@ -8,7 +8,7 @@
  * - ACL enforcement for multi-tenant access
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'

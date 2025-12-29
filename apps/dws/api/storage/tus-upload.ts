@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 /**
  * TUS Resumable Upload Protocol Implementation
  *
@@ -17,10 +15,9 @@
  * State persistence: Uses SQLit for distributed upload state tracking.
  */
 
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 import { createHash, randomBytes } from 'node:crypto'
 import { getLocalhostHost } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { Address } from 'viem'
 
 // Config injection for workerd compatibility

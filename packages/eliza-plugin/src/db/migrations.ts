@@ -7,7 +7,7 @@
 
 import { logger } from '@elizaos/core'
 import { getSQLitDatabaseId } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 
 /**
  * Core ElizaOS tables in SQLit-compatible SQL

@@ -29,7 +29,7 @@ function mapTrustLevel(level: TrustLevel): ReputationTier {
  * Map shared ModerationCategory to DWS violation type
  */
 function mapCategoryToViolationType(
-  category: ModerationCategory
+  category: ModerationCategory,
 ): 'content' | 'tos' | 'abuse' | 'spam' | 'fraud' {
   switch (category) {
     case 'csam':
@@ -59,7 +59,7 @@ function mapCategoryToViolationType(
  * Map shared ModerationCategory to DWS violation severity
  */
 function mapCategoryToSeverity(
-  category: ModerationCategory
+  category: ModerationCategory,
 ): 'low' | 'medium' | 'high' | 'critical' {
   switch (category) {
     case 'csam':
@@ -117,7 +117,7 @@ export class DWSReputationAdapter implements ReputationProvider {
       address,
       operationId,
       'success',
-      await this.getCurrentLevel(address)
+      await this.getCurrentLevel(address),
     )
   }
 
@@ -126,7 +126,7 @@ export class DWSReputationAdapter implements ReputationProvider {
    */
   async recordViolation(
     address: Address,
-    category: ModerationCategory
+    category: ModerationCategory,
   ): Promise<void> {
     const violationType = mapCategoryToViolationType(category)
     const severity = mapCategoryToSeverity(category)
@@ -136,7 +136,7 @@ export class DWSReputationAdapter implements ReputationProvider {
       violationType,
       severity,
       `Content moderation violation: ${category}`,
-      `Automated detection by content moderation pipeline`
+      `Automated detection by content moderation pipeline`,
     )
   }
 
@@ -160,7 +160,7 @@ export class DWSReputationAdapter implements ReputationProvider {
   }
 
   private async getLastViolationTimestamp(
-    address: Address
+    address: Address,
   ): Promise<number | undefined> {
     const violations = await this.service.getViolations(address)
     if (violations.length === 0) return undefined
@@ -181,4 +181,3 @@ export function getDWSReputationAdapter(): DWSReputationAdapter {
 export function resetDWSReputationAdapter(): void {
   adapter = null
 }
-

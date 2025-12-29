@@ -5,7 +5,11 @@
  * Uses obscenity library + explicit patterns for slurs/Nazi references.
  */
 
-import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from 'obscenity'
+import {
+  englishDataset,
+  englishRecommendedTransformers,
+  RegExpMatcher,
+} from 'obscenity'
 import type { ModerationResult } from './types'
 
 const matcher = new RegExpMatcher({
@@ -30,8 +34,22 @@ const SLUR_PATTERNS = [
 
 // Reserved protocol names
 const RESERVED = new Set([
-  'admin', 'administrator', 'support', 'help', 'official', 'jeju', 'jejunetwork',
-  'system', 'root', 'moderator', 'mod', 'staff', 'security', 'treasury', 'governance', 'protocol',
+  'admin',
+  'administrator',
+  'support',
+  'help',
+  'official',
+  'jeju',
+  'jejunetwork',
+  'system',
+  'root',
+  'moderator',
+  'mod',
+  'staff',
+  'security',
+  'treasury',
+  'governance',
+  'protocol',
 ])
 
 export interface NameModerationResult extends ModerationResult {
@@ -71,12 +89,18 @@ export function moderateName(name: string): NameModerationResult {
   }
 }
 
-function blocked(reason: string, start: number, category?: 'hate'): NameModerationResult {
+function blocked(
+  reason: string,
+  start: number,
+  category?: 'hate',
+): NameModerationResult {
   return {
     safe: false,
     action: 'block',
     severity: category ? 'medium' : 'low',
-    categories: category ? [{ category, score: 0.95, confidence: 0.95, provider: 'local' }] : [],
+    categories: category
+      ? [{ category, score: 0.95, confidence: 0.95, provider: 'local' }]
+      : [],
     primaryCategory: category,
     blockedReason: reason,
     reviewRequired: false,

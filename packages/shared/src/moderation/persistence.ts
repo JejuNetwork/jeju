@@ -8,12 +8,16 @@
  * - Trusted flagger registrations
  */
 
-import { logger } from '../logger'
 import type { Address } from 'viem'
-import type { CSAMReport, TrustedFlagger, UserReport } from './reporting'
-import type { QuarantineItem, EvidenceBundle } from './quarantine'
-import type { WalletEnforcementState, Violation, WalletStatus } from './wallet-enforcement'
+import { logger } from '../logger'
 import type { ContentStatus, ContentStatusType } from './content-cache'
+import type { EvidenceBundle, QuarantineItem } from './quarantine'
+import type { CSAMReport, TrustedFlagger, UserReport } from './reporting'
+import type {
+  Violation,
+  WalletEnforcementState,
+  WalletStatus,
+} from './wallet-enforcement'
 
 // Metric entry for transparency reporting
 export interface PersistedMetricEntry {
@@ -48,13 +52,17 @@ let db: {
  * Initialize persistence layer
  * Attempts to use SQLit, falls back to in-memory if unavailable
  */
-export async function initializePersistence(sqlitDb?: typeof db): Promise<void> {
+export async function initializePersistence(
+  sqlitDb?: typeof db,
+): Promise<void> {
   if (sqlitDb) {
     db = sqlitDb
     await createTables()
     logger.info('[ModerationPersistence] Using SQLit database')
   } else {
-    logger.warn('[ModerationPersistence] No database provided, using in-memory storage (data lost on restart)')
+    logger.warn(
+      '[ModerationPersistence] No database provided, using in-memory storage (data lost on restart)',
+    )
   }
 }
 
@@ -220,14 +228,30 @@ async function createTables(): Promise<void> {
   `)
 
   // Create indexes
-  await db.run('CREATE INDEX IF NOT EXISTS idx_csam_reports_status ON csam_reports(status)')
-  await db.run('CREATE INDEX IF NOT EXISTS idx_csam_reports_detected ON csam_reports(detected_at)')
-  await db.run('CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON moderation_metrics(timestamp)')
-  await db.run('CREATE INDEX IF NOT EXISTS idx_user_reports_status ON user_reports(status)')
-  await db.run('CREATE INDEX IF NOT EXISTS idx_quarantine_status ON quarantine_items(status)')
-  await db.run('CREATE INDEX IF NOT EXISTS idx_wallet_status ON wallet_enforcement(status)')
-  await db.run('CREATE INDEX IF NOT EXISTS idx_content_status ON content_cache(status)')
-  await db.run('CREATE INDEX IF NOT EXISTS idx_content_phash ON content_cache(perceptual_hash)')
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_csam_reports_status ON csam_reports(status)',
+  )
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_csam_reports_detected ON csam_reports(detected_at)',
+  )
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON moderation_metrics(timestamp)',
+  )
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_user_reports_status ON user_reports(status)',
+  )
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_quarantine_status ON quarantine_items(status)',
+  )
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_wallet_status ON wallet_enforcement(status)',
+  )
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_content_status ON content_cache(status)',
+  )
+  await db.run(
+    'CREATE INDEX IF NOT EXISTS idx_content_phash ON content_cache(perceptual_hash)',
+  )
 
   logger.info('[ModerationPersistence] Database tables created')
 }
@@ -240,42 +264,45 @@ export async function saveCSAMReport(report: CSAMReport): Promise<void> {
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT INTO csam_reports (
       report_id, detected_at, reported_at, authority_report_id,
       content_hash, perceptual_hash, content_type, detection_method,
       confidence, uploader_address, uploader_ip, user_agent,
       location_service, location_path, location_timestamp, status, error
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    report.reportId,
-    report.detectedAt,
-    report.reportedAt ?? null,
-    report.authorityReportId ?? null,
-    report.contentHash,
-    report.perceptualHash ?? null,
-    report.contentType,
-    report.detectionMethod,
-    report.confidence,
-    report.uploaderAddress ?? null,
-    report.uploaderIp ?? null,
-    report.userAgent ?? null,
-    report.location.service,
-    report.location.path ?? null,
-    report.location.timestamp,
-    report.status,
-    report.error ?? null,
-  ])
+  `,
+    [
+      report.reportId,
+      report.detectedAt,
+      report.reportedAt ?? null,
+      report.authorityReportId ?? null,
+      report.contentHash,
+      report.perceptualHash ?? null,
+      report.contentType,
+      report.detectionMethod,
+      report.confidence,
+      report.uploaderAddress ?? null,
+      report.uploaderIp ?? null,
+      report.userAgent ?? null,
+      report.location.service,
+      report.location.path ?? null,
+      report.location.timestamp,
+      report.status,
+      report.error ?? null,
+    ],
+  )
 }
 
 export async function updateCSAMReportStatus(
   reportId: string,
   status: CSAMReport['status'],
   authorityReportId?: string,
-  error?: string
+  error?: string,
 ): Promise<void> {
   if (!db) {
-    const report = inMemoryReports.find(r => r.reportId === reportId)
+    const report = inMemoryReports.find((r) => r.reportId === reportId)
     if (report) {
       report.status = status
       report.reportedAt = Date.now()
@@ -285,14 +312,17 @@ export async function updateCSAMReportStatus(
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     UPDATE csam_reports SET
       status = ?,
       reported_at = ?,
       authority_report_id = COALESCE(?, authority_report_id),
       error = COALESCE(?, error)
     WHERE report_id = ?
-  `, [status, Date.now(), authorityReportId ?? null, error ?? null, reportId])
+  `,
+    [status, Date.now(), authorityReportId ?? null, error ?? null, reportId],
+  )
 }
 
 export async function getCSAMReports(filter?: {
@@ -303,9 +333,12 @@ export async function getCSAMReports(filter?: {
 }): Promise<CSAMReport[]> {
   if (!db) {
     let result = [...inMemoryReports]
-    if (filter?.status) result = result.filter(r => r.status === filter.status)
-    if (filter?.startTime) result = result.filter(r => r.detectedAt >= filter.startTime!)
-    if (filter?.endTime) result = result.filter(r => r.detectedAt <= filter.endTime!)
+    if (filter?.status)
+      result = result.filter((r) => r.status === filter.status)
+    if (filter?.startTime)
+      result = result.filter((r) => r.detectedAt >= filter.startTime!)
+    if (filter?.endTime)
+      result = result.filter((r) => r.detectedAt <= filter.endTime!)
     if (filter?.limit) result = result.slice(0, filter.limit)
     return result
   }
@@ -353,7 +386,7 @@ export async function getCSAMReports(filter?: {
     error: string | null
   }>(sql, params)
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     reportId: row.report_id,
     detectedAt: row.detected_at,
     reportedAt: row.reported_at ?? undefined,
@@ -384,7 +417,13 @@ export async function getCSAMReportStats(): Promise<{
   failed: number
 }> {
   if (!db) {
-    const stats = { total: 0, pending: 0, submitted: 0, acknowledged: 0, failed: 0 }
+    const stats = {
+      total: 0,
+      pending: 0,
+      submitted: 0,
+      acknowledged: 0,
+      failed: 0,
+    }
     for (const r of inMemoryReports) {
       stats.total++
       stats[r.status]++
@@ -396,7 +435,13 @@ export async function getCSAMReportStats(): Promise<{
     SELECT status, COUNT(*) as count FROM csam_reports GROUP BY status
   `)
 
-  const stats = { total: 0, pending: 0, submitted: 0, acknowledged: 0, failed: 0 }
+  const stats = {
+    total: 0,
+    pending: 0,
+    submitted: 0,
+    acknowledged: 0,
+    failed: 0,
+  }
   for (const row of result) {
     const count = row.count
     stats.total += count
@@ -409,7 +454,9 @@ export async function getCSAMReportStats(): Promise<{
 
 // ============ Transparency Metrics ============
 
-export async function saveMetric(entry: Omit<PersistedMetricEntry, 'id'>): Promise<void> {
+export async function saveMetric(
+  entry: Omit<PersistedMetricEntry, 'id'>,
+): Promise<void> {
   const id = crypto.randomUUID()
 
   if (!db) {
@@ -421,22 +468,25 @@ export async function saveMetric(entry: Omit<PersistedMetricEntry, 'id'>): Promi
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT INTO moderation_metrics (
       id, timestamp, content_type, action, detection_method,
       processing_time_ms, csam_reported, csam_report_target, sender_address
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    id,
-    entry.timestamp,
-    entry.contentType,
-    entry.action,
-    entry.detectionMethod,
-    entry.processingTimeMs,
-    entry.csamReported ? 1 : 0,
-    entry.csamReportTarget ?? null,
-    entry.senderAddress ?? null,
-  ])
+  `,
+    [
+      id,
+      entry.timestamp,
+      entry.contentType,
+      entry.action,
+      entry.detectionMethod,
+      entry.processingTimeMs,
+      entry.csamReported ? 1 : 0,
+      entry.csamReportTarget ?? null,
+      entry.senderAddress ?? null,
+    ],
+  )
 }
 
 export async function getMetrics(filter: {
@@ -444,8 +494,8 @@ export async function getMetrics(filter: {
   endTime: number
 }): Promise<PersistedMetricEntry[]> {
   if (!db) {
-    return inMemoryMetrics.filter(m =>
-      m.timestamp >= filter.startTime && m.timestamp <= filter.endTime
+    return inMemoryMetrics.filter(
+      (m) => m.timestamp >= filter.startTime && m.timestamp <= filter.endTime,
     )
   }
 
@@ -459,21 +509,26 @@ export async function getMetrics(filter: {
     csam_reported: number
     csam_report_target: string | null
     sender_address: string | null
-  }>(`
+  }>(
+    `
     SELECT * FROM moderation_metrics
     WHERE timestamp >= ? AND timestamp <= ?
     ORDER BY timestamp DESC
-  `, [filter.startTime, filter.endTime])
+  `,
+    [filter.startTime, filter.endTime],
+  )
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     id: row.id,
     timestamp: row.timestamp,
     contentType: row.content_type as PersistedMetricEntry['contentType'],
     action: row.action as PersistedMetricEntry['action'],
-    detectionMethod: row.detection_method as PersistedMetricEntry['detectionMethod'],
+    detectionMethod:
+      row.detection_method as PersistedMetricEntry['detectionMethod'],
     processingTimeMs: row.processing_time_ms,
     csamReported: row.csam_reported === 1,
-    csamReportTarget: row.csam_report_target as PersistedMetricEntry['csamReportTarget'],
+    csamReportTarget:
+      row.csam_report_target as PersistedMetricEntry['csamReportTarget'],
     senderAddress: row.sender_address ?? undefined,
   }))
 }
@@ -489,23 +544,48 @@ export async function getMetricsSummary(sinceTimestamp: number): Promise<{
   avgProcessingTimeMs: number
 }> {
   if (!db) {
-    const filtered = inMemoryMetrics.filter(m => m.timestamp >= sinceTimestamp)
-    const summary = { totalProcessed: 0, allowed: 0, warned: 0, queued: 0, blocked: 0, banned: 0, reported: 0, avgProcessingTimeMs: 0 }
+    const filtered = inMemoryMetrics.filter(
+      (m) => m.timestamp >= sinceTimestamp,
+    )
+    const summary = {
+      totalProcessed: 0,
+      allowed: 0,
+      warned: 0,
+      queued: 0,
+      blocked: 0,
+      banned: 0,
+      reported: 0,
+      avgProcessingTimeMs: 0,
+    }
     let totalTime = 0
     for (const m of filtered) {
       summary.totalProcessed++
       switch (m.action) {
-        case 'allow': summary.allowed++; break
-        case 'warn': summary.warned++; break
-        case 'queue': summary.queued++; break
-        case 'block': summary.blocked++; break
-        case 'ban': summary.banned++; break
-        case 'report': summary.reported++; break
+        case 'allow':
+          summary.allowed++
+          break
+        case 'warn':
+          summary.warned++
+          break
+        case 'queue':
+          summary.queued++
+          break
+        case 'block':
+          summary.blocked++
+          break
+        case 'ban':
+          summary.banned++
+          break
+        case 'report':
+          summary.reported++
+          break
       }
       totalTime += m.processingTimeMs
     }
     if (summary.totalProcessed > 0) {
-      summary.avgProcessingTimeMs = Math.round(totalTime / summary.totalProcessed)
+      summary.avgProcessingTimeMs = Math.round(
+        totalTime / summary.totalProcessed,
+      )
     }
     return summary
   }
@@ -519,7 +599,8 @@ export async function getMetricsSummary(sinceTimestamp: number): Promise<{
     banned: number
     reported: number
     avg_time: number
-  }>(`
+  }>(
+    `
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN action = 'allow' THEN 1 ELSE 0 END) as allowed,
@@ -531,7 +612,9 @@ export async function getMetricsSummary(sinceTimestamp: number): Promise<{
       AVG(processing_time_ms) as avg_time
     FROM moderation_metrics
     WHERE timestamp >= ?
-  `, [sinceTimestamp])
+  `,
+    [sinceTimestamp],
+  )
 
   return {
     totalProcessed: result?.total ?? 0,
@@ -553,26 +636,29 @@ export async function saveUserReport(report: UserReport): Promise<void> {
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT INTO user_reports (
       report_id, reporter_address, reporter_ip, target_type, target_id,
       category, description, evidence, timestamp, status, reviewed_by, reviewed_at, action
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    report.reportId,
-    report.reporterAddress ?? null,
-    report.reporterIp ?? null,
-    report.targetType,
-    report.targetId,
-    report.category,
-    report.description,
-    report.evidence ? JSON.stringify(report.evidence) : null,
-    report.timestamp,
-    report.status,
-    report.reviewedBy ?? null,
-    report.reviewedAt ?? null,
-    report.action ?? null,
-  ])
+  `,
+    [
+      report.reportId,
+      report.reporterAddress ?? null,
+      report.reporterIp ?? null,
+      report.targetType,
+      report.targetId,
+      report.category,
+      report.description,
+      report.evidence ? JSON.stringify(report.evidence) : null,
+      report.timestamp,
+      report.status,
+      report.reviewedBy ?? null,
+      report.reviewedAt ?? null,
+      report.action ?? null,
+    ],
+  )
 }
 
 export async function getUserReports(filter?: {
@@ -581,7 +667,8 @@ export async function getUserReports(filter?: {
 }): Promise<UserReport[]> {
   if (!db) {
     let result = [...inMemoryUserReports]
-    if (filter?.status) result = result.filter(r => r.status === filter.status)
+    if (filter?.status)
+      result = result.filter((r) => r.status === filter.status)
     if (filter?.limit) result = result.slice(0, filter.limit)
     return result
   }
@@ -617,7 +704,7 @@ export async function getUserReports(filter?: {
     action: string | null
   }>(sql, params)
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     reportId: row.report_id,
     reporterAddress: row.reporter_address as Address | undefined,
     reporterIp: row.reporter_ip ?? undefined,
@@ -638,10 +725,10 @@ export async function updateUserReportStatus(
   reportId: string,
   status: UserReport['status'],
   reviewedBy?: Address,
-  action?: UserReport['action']
+  action?: UserReport['action'],
 ): Promise<void> {
   if (!db) {
-    const report = inMemoryUserReports.find(r => r.reportId === reportId)
+    const report = inMemoryUserReports.find((r) => r.reportId === reportId)
     if (report) {
       report.status = status
       report.reviewedAt = Date.now()
@@ -651,14 +738,17 @@ export async function updateUserReportStatus(
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     UPDATE user_reports SET
       status = ?,
       reviewed_at = ?,
       reviewed_by = COALESCE(?, reviewed_by),
       action = COALESCE(?, action)
     WHERE report_id = ?
-  `, [status, Date.now(), reviewedBy ?? null, action ?? null, reportId])
+  `,
+    [status, Date.now(), reviewedBy ?? null, action ?? null, reportId],
+  )
 }
 
 export async function getUserReportStats(): Promise<{
@@ -669,7 +759,13 @@ export async function getUserReportStats(): Promise<{
   dismissed: number
 }> {
   if (!db) {
-    const stats = { total: 0, pending: 0, reviewed: 0, actioned: 0, dismissed: 0 }
+    const stats = {
+      total: 0,
+      pending: 0,
+      reviewed: 0,
+      actioned: 0,
+      dismissed: 0,
+    }
     for (const r of inMemoryUserReports) {
       stats.total++
       stats[r.status]++
@@ -697,10 +793,14 @@ async function hashApiKey(apiKey: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(apiKey)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
-export async function saveTrustedFlagger(flagger: TrustedFlagger): Promise<void> {
+export async function saveTrustedFlagger(
+  flagger: TrustedFlagger,
+): Promise<void> {
   const apiKeyHash = await hashApiKey(flagger.apiKey)
 
   if (!db) {
@@ -708,23 +808,28 @@ export async function saveTrustedFlagger(flagger: TrustedFlagger): Promise<void>
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT OR REPLACE INTO trusted_flaggers (
       id, name, type, api_key_hash, enabled, priority, contact_email, jurisdiction
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    flagger.id,
-    flagger.name,
-    flagger.type,
-    apiKeyHash,
-    flagger.enabled ? 1 : 0,
-    flagger.priority,
-    flagger.contactEmail,
-    flagger.jurisdiction ? JSON.stringify(flagger.jurisdiction) : null,
-  ])
+  `,
+    [
+      flagger.id,
+      flagger.name,
+      flagger.type,
+      apiKeyHash,
+      flagger.enabled ? 1 : 0,
+      flagger.priority,
+      flagger.contactEmail,
+      flagger.jurisdiction ? JSON.stringify(flagger.jurisdiction) : null,
+    ],
+  )
 }
 
-export async function getTrustedFlaggerByApiKey(apiKey: string): Promise<TrustedFlagger | undefined> {
+export async function getTrustedFlaggerByApiKey(
+  apiKey: string,
+): Promise<TrustedFlagger | undefined> {
   const apiKeyHash = await hashApiKey(apiKey)
 
   if (!db) {
@@ -744,9 +849,12 @@ export async function getTrustedFlaggerByApiKey(apiKey: string): Promise<Trusted
     priority: string
     contact_email: string
     jurisdiction: string | null
-  }>(`
+  }>(
+    `
     SELECT * FROM trusted_flaggers WHERE api_key_hash = ? AND enabled = 1
-  `, [apiKeyHash])
+  `,
+    [apiKeyHash],
+  )
 
   if (!row) return undefined
 
@@ -762,9 +870,11 @@ export async function getTrustedFlaggerByApiKey(apiKey: string): Promise<Trusted
   }
 }
 
-export async function listTrustedFlaggers(): Promise<Omit<TrustedFlagger, 'apiKey'>[]> {
+export async function listTrustedFlaggers(): Promise<
+  Omit<TrustedFlagger, 'apiKey'>[]
+> {
   if (!db) {
-    return Array.from(inMemoryTrustedFlaggers.values()).map(f => ({
+    return Array.from(inMemoryTrustedFlaggers.values()).map((f) => ({
       ...f,
       apiKey: undefined as unknown as string,
     }))
@@ -778,9 +888,11 @@ export async function listTrustedFlaggers(): Promise<Omit<TrustedFlagger, 'apiKe
     priority: string
     contact_email: string
     jurisdiction: string | null
-  }>('SELECT id, name, type, enabled, priority, contact_email, jurisdiction FROM trusted_flaggers')
+  }>(
+    'SELECT id, name, type, enabled, priority, contact_email, jurisdiction FROM trusted_flaggers',
+  )
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     id: row.id,
     name: row.name,
     type: row.type as TrustedFlagger['type'],
@@ -800,7 +912,8 @@ export async function saveQuarantineItem(item: QuarantineItem): Promise<void> {
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT OR REPLACE INTO quarantine_items (
       id, sha256, encrypted_ref, encryption_key_id, detected_at,
       detection_reason, detection_source, confidence, uploader_address,
@@ -808,32 +921,36 @@ export async function saveQuarantineItem(item: QuarantineItem): Promise<void> {
       assigned_reviewer_id, review_started_at, decision_outcome, decision_action,
       decision_reason, decided_at, decided_by
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    item.id,
-    item.sha256,
-    item.encryptedRef,
-    item.encryptionKeyId,
-    item.detectedAt,
-    item.detectionReason,
-    item.detectionSource,
-    item.confidence,
-    item.uploaderAddress ?? null,
-    item.uploaderIp ?? null,
-    item.providerAddress ?? null,
-    item.status,
-    item.ttlExpiresAt ?? null,
-    item.legalHoldUntil ?? null,
-    item.assignedReviewerId ?? null,
-    item.reviewStartedAt ?? null,
-    item.decision?.outcome ?? null,
-    item.decision?.action ?? null,
-    (item.decision as { reason?: string })?.reason ?? null,
-    item.decidedAt ?? null,
-    item.decidedBy ?? null,
-  ])
+  `,
+    [
+      item.id,
+      item.sha256,
+      item.encryptedRef,
+      item.encryptionKeyId,
+      item.detectedAt,
+      item.detectionReason,
+      item.detectionSource,
+      item.confidence,
+      item.uploaderAddress ?? null,
+      item.uploaderIp ?? null,
+      item.providerAddress ?? null,
+      item.status,
+      item.ttlExpiresAt ?? null,
+      item.legalHoldUntil ?? null,
+      item.assignedReviewerId ?? null,
+      item.reviewStartedAt ?? null,
+      item.decision?.outcome ?? null,
+      item.decision?.action ?? null,
+      (item.decision as { reason?: string })?.reason ?? null,
+      item.decidedAt ?? null,
+      item.decidedBy ?? null,
+    ],
+  )
 }
 
-export async function getQuarantineItem(id: string): Promise<QuarantineItem | undefined> {
+export async function getQuarantineItem(
+  id: string,
+): Promise<QuarantineItem | undefined> {
   if (!db) {
     return inMemoryQuarantineItems.get(id)
   }
@@ -873,7 +990,7 @@ export async function getQuarantineItems(filter?: {
 }): Promise<QuarantineItem[]> {
   if (!db) {
     let items = Array.from(inMemoryQuarantineItems.values())
-    if (filter?.status) items = items.filter(i => i.status === filter.status)
+    if (filter?.status) items = items.filter((i) => i.status === filter.status)
     if (filter?.limit) items = items.slice(0, filter.limit)
     return items
   }
@@ -943,7 +1060,7 @@ function mapQuarantineRow(row: {
   decided_at: number | null
   decided_by: string | null
 }): QuarantineItem {
-  let decision: QuarantineItem['decision'] = undefined
+  let decision: QuarantineItem['decision']
   if (row.decision_outcome && row.decision_action) {
     decision = {
       outcome: row.decision_outcome,
@@ -977,43 +1094,50 @@ function mapQuarantineRow(row: {
 
 // ============ Evidence Bundles ============
 
-export async function saveEvidenceBundle(bundle: EvidenceBundle): Promise<void> {
+export async function saveEvidenceBundle(
+  bundle: EvidenceBundle,
+): Promise<void> {
   if (!db) {
     inMemoryEvidenceBundles.set(bundle.id, bundle)
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT OR REPLACE INTO evidence_bundles (
       id, quarantine_item_id, created_at, sha256, md5,
       match_source, match_id, match_confidence, wallets, providers,
       ips, tx_hashes, uploaded_at, detected_at, quarantined_at,
       reported_at, ncmec_report_id, legal_hold_until, access_log
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    bundle.id,
-    bundle.quarantineItemId,
-    bundle.createdAt,
-    bundle.contentHash.sha256,
-    bundle.contentHash.md5,
-    bundle.matchSource ?? null,
-    bundle.matchId ?? null,
-    bundle.matchConfidence ?? null,
-    JSON.stringify(bundle.wallets),
-    JSON.stringify(bundle.providers),
-    JSON.stringify(bundle.ips),
-    JSON.stringify(bundle.txHashes),
-    bundle.uploadedAt,
-    bundle.detectedAt,
-    bundle.quarantinedAt,
-    bundle.reportedAt ?? null,
-    bundle.ncmecReportId ?? null,
-    bundle.legalHoldUntil ?? null,
-    JSON.stringify(bundle.accessLog),
-  ])
+  `,
+    [
+      bundle.id,
+      bundle.quarantineItemId,
+      bundle.createdAt,
+      bundle.contentHash.sha256,
+      bundle.contentHash.md5,
+      bundle.matchSource ?? null,
+      bundle.matchId ?? null,
+      bundle.matchConfidence ?? null,
+      JSON.stringify(bundle.wallets),
+      JSON.stringify(bundle.providers),
+      JSON.stringify(bundle.ips),
+      JSON.stringify(bundle.txHashes),
+      bundle.uploadedAt,
+      bundle.detectedAt,
+      bundle.quarantinedAt,
+      bundle.reportedAt ?? null,
+      bundle.ncmecReportId ?? null,
+      bundle.legalHoldUntil ?? null,
+      JSON.stringify(bundle.accessLog),
+    ],
+  )
 }
 
-export async function getEvidenceBundle(id: string): Promise<EvidenceBundle | undefined> {
+export async function getEvidenceBundle(
+  id: string,
+): Promise<EvidenceBundle | undefined> {
   if (!db) {
     return inMemoryEvidenceBundles.get(id)
   }
@@ -1066,35 +1190,42 @@ export async function getEvidenceBundle(id: string): Promise<EvidenceBundle | un
 
 // ============ Wallet Enforcement ============
 
-export async function saveWalletState(state: WalletEnforcementState): Promise<void> {
+export async function saveWalletState(
+  state: WalletEnforcementState,
+): Promise<void> {
   if (!db) {
     inMemoryWalletStates.set(state.address, state)
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT OR REPLACE INTO wallet_enforcement (
       address, status, status_changed_at, violations, warnings_issued,
       wallet_age, stake_amount, transaction_count, ofac_match, taint_score,
       pow_difficulty, rate_limit
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    state.address,
-    state.status,
-    state.statusChangedAt,
-    JSON.stringify(state.violations),
-    state.warningsIssued,
-    state.walletAge,
-    state.stakeAmount.toString(),
-    state.transactionCount,
-    state.ofacMatch ? 1 : 0,
-    state.taintScore,
-    state.powDifficulty,
-    state.rateLimit,
-  ])
+  `,
+    [
+      state.address,
+      state.status,
+      state.statusChangedAt,
+      JSON.stringify(state.violations),
+      state.warningsIssued,
+      state.walletAge,
+      state.stakeAmount.toString(),
+      state.transactionCount,
+      state.ofacMatch ? 1 : 0,
+      state.taintScore,
+      state.powDifficulty,
+      state.rateLimit,
+    ],
+  )
 }
 
-export async function getWalletState(address: Address): Promise<WalletEnforcementState | undefined> {
+export async function getWalletState(
+  address: Address,
+): Promise<WalletEnforcementState | undefined> {
   if (!db) {
     return inMemoryWalletStates.get(address)
   }
@@ -1132,9 +1263,13 @@ export async function getWalletState(address: Address): Promise<WalletEnforcemen
   }
 }
 
-export async function getWalletsByStatus(status: WalletStatus): Promise<WalletEnforcementState[]> {
+export async function getWalletsByStatus(
+  status: WalletStatus,
+): Promise<WalletEnforcementState[]> {
   if (!db) {
-    return Array.from(inMemoryWalletStates.values()).filter(w => w.status === status)
+    return Array.from(inMemoryWalletStates.values()).filter(
+      (w) => w.status === status,
+    )
   }
 
   const rows = await db.all<{
@@ -1152,7 +1287,7 @@ export async function getWalletsByStatus(status: WalletStatus): Promise<WalletEn
     rate_limit: number
   }>('SELECT * FROM wallet_enforcement WHERE status = ?', [status])
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     address: row.address as Address,
     status: row.status as WalletStatus,
     statusChangedAt: row.status_changed_at,
@@ -1176,27 +1311,32 @@ export async function saveContentStatus(status: ContentStatus): Promise<void> {
     return
   }
 
-  await db.run(`
+  await db.run(
+    `
     INSERT OR REPLACE INTO content_cache (
       sha256, status, policy_class, first_seen, last_seen, seen_count,
       wallets, providers, perceptual_hash, ban_reason, banned_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    status.sha256,
-    status.status,
-    status.policyClass ?? null,
-    status.firstSeen,
-    status.lastSeen,
-    status.seenCount,
-    JSON.stringify(status.wallets),
-    JSON.stringify(status.providers),
-    status.perceptualHash ?? null,
-    status.banReason ?? null,
-    status.bannedAt ?? null,
-  ])
+  `,
+    [
+      status.sha256,
+      status.status,
+      status.policyClass ?? null,
+      status.firstSeen,
+      status.lastSeen,
+      status.seenCount,
+      JSON.stringify(status.wallets),
+      JSON.stringify(status.providers),
+      status.perceptualHash ?? null,
+      status.banReason ?? null,
+      status.bannedAt ?? null,
+    ],
+  )
 }
 
-export async function getContentStatus(sha256: string): Promise<ContentStatus | undefined> {
+export async function getContentStatus(
+  sha256: string,
+): Promise<ContentStatus | undefined> {
   if (!db) {
     return inMemoryContentCache.get(sha256)
   }
@@ -1232,9 +1372,13 @@ export async function getContentStatus(sha256: string): Promise<ContentStatus | 
   }
 }
 
-export async function getContentByPerceptualHash(pHash: string): Promise<ContentStatus[]> {
+export async function getContentByPerceptualHash(
+  pHash: string,
+): Promise<ContentStatus[]> {
   if (!db) {
-    return Array.from(inMemoryContentCache.values()).filter(c => c.perceptualHash === pHash)
+    return Array.from(inMemoryContentCache.values()).filter(
+      (c) => c.perceptualHash === pHash,
+    )
   }
 
   const rows = await db.all<{
@@ -1251,7 +1395,7 @@ export async function getContentByPerceptualHash(pHash: string): Promise<Content
     banned_at: number | null
   }>('SELECT * FROM content_cache WHERE perceptual_hash = ?', [pHash])
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     sha256: row.sha256,
     status: row.status as ContentStatusType,
     policyClass: row.policy_class ?? undefined,
@@ -1273,4 +1417,3 @@ export function isPersistenceInitialized(): boolean {
 export function getPersistenceMode(): 'database' | 'memory' {
   return db ? 'database' : 'memory'
 }
-

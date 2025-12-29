@@ -4,28 +4,41 @@
  */
 
 import { z } from 'zod'
-import type { CategoryScore, ModerationCategory, ModerationProvider, ModerationResult } from '../types'
+import type {
+  CategoryScore,
+  ModerationCategory,
+  ModerationProvider,
+  ModerationResult,
+} from '../types'
 
 const ImageResponseSchema = z.object({
-  result: z.array(z.object({ label: z.string(), score: z.number() })).optional(),
+  result: z
+    .array(z.object({ label: z.string(), score: z.number() }))
+    .optional(),
   success: z.boolean(),
   errors: z.array(z.string()).optional(),
 })
 
 const TextResponseSchema = z.object({
-  result: z.object({
-    toxic: z.number().optional(),
-    severe_toxic: z.number().optional(),
-    obscene: z.number().optional(),
-    threat: z.number().optional(),
-    insult: z.number().optional(),
-    identity_hate: z.number().optional(),
-  }).optional(),
+  result: z
+    .object({
+      toxic: z.number().optional(),
+      severe_toxic: z.number().optional(),
+      obscene: z.number().optional(),
+      threat: z.number().optional(),
+      insult: z.number().optional(),
+      identity_hate: z.number().optional(),
+    })
+    .optional(),
   success: z.boolean(),
 })
 
 const CF_IMAGE_TO_CATEGORY: Record<string, ModerationCategory> = {
-  nsfw: 'adult', sexual: 'adult', porn: 'adult', hentai: 'adult', sexy: 'adult',
+  nsfw: 'adult',
+  sexual: 'adult',
+  porn: 'adult',
+  hentai: 'adult',
+  sexy: 'adult',
 }
 
 export interface CloudflareProviderConfig {
@@ -53,14 +66,18 @@ export class CloudflareModerationProvider {
 
     const res = await fetch(`${this.endpoint}/@cf/nsfw-image-classification`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${this.apiToken}`, 'Content-Type': 'application/octet-stream' },
+      headers: {
+        Authorization: `Bearer ${this.apiToken}`,
+        'Content-Type': 'application/octet-stream',
+      },
       body: arr,
       signal: AbortSignal.timeout(this.timeout),
     })
 
     if (!res.ok) throw new Error(`Cloudflare API error: ${res.status}`)
     const data = ImageResponseSchema.parse(await res.json())
-    if (!data.success) throw new Error(`Cloudflare AI failed: ${data.errors?.join(', ')}`)
+    if (!data.success)
+      throw new Error(`Cloudflare AI failed: ${data.errors?.join(', ')}`)
 
     return this.processImage(data, start)
   }
@@ -69,7 +86,10 @@ export class CloudflareModerationProvider {
     const start = Date.now()
     const res = await fetch(`${this.endpoint}/@cf/toxicity-classification`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${this.apiToken}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${this.apiToken}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ text }),
       signal: AbortSignal.timeout(this.timeout),
     })
@@ -84,21 +104,32 @@ export class CloudflareModerationProvider {
     return this.processText(parsed.data.result, start)
   }
 
-  private processImage(data: z.infer<typeof ImageResponseSchema>, start: number): ModerationResult {
+  private processImage(
+    data: z.infer<typeof ImageResponseSchema>,
+    start: number,
+  ): ModerationResult {
     const categories: CategoryScore[] = []
     let adultScore = 0
 
     for (const r of data.result ?? []) {
       const cat = CF_IMAGE_TO_CATEGORY[r.label.toLowerCase()]
       if (cat) {
-        categories.push({ category: cat, score: r.score, confidence: 0.85, provider: 'cloudflare' })
+        categories.push({
+          category: cat,
+          score: r.score,
+          confidence: 0.85,
+          provider: 'cloudflare',
+        })
         if (cat === 'adult') adultScore = Math.max(adultScore, r.score)
       }
     }
 
     let action: ModerationResult['action'] = 'allow'
     let severity: ModerationResult['severity'] = 'none'
-    if (adultScore > 0.7) { action = 'warn'; severity = 'low' }
+    if (adultScore > 0.7) {
+      action = 'warn'
+      severity = 'low'
+    }
 
     return {
       safe: action === 'allow',
@@ -113,11 +144,32 @@ export class CloudflareModerationProvider {
     }
   }
 
-  private processText(result: NonNullable<z.infer<typeof TextResponseSchema>['result']>, start: number): ModerationResult {
+  private processText(
+    result: NonNullable<z.infer<typeof TextResponseSchema>['result']>,
+    start: number,
+  ): ModerationResult {
     const categories: CategoryScore[] = []
-    if (result.obscene && result.obscene > 0.5) categories.push({ category: 'adult', score: result.obscene, confidence: 0.8, provider: 'cloudflare' })
-    if (result.threat && result.threat > 0.5) categories.push({ category: 'violence', score: result.threat, confidence: 0.8, provider: 'cloudflare' })
-    if (result.identity_hate && result.identity_hate > 0.5) categories.push({ category: 'hate', score: result.identity_hate, confidence: 0.8, provider: 'cloudflare' })
+    if (result.obscene && result.obscene > 0.5)
+      categories.push({
+        category: 'adult',
+        score: result.obscene,
+        confidence: 0.8,
+        provider: 'cloudflare',
+      })
+    if (result.threat && result.threat > 0.5)
+      categories.push({
+        category: 'violence',
+        score: result.threat,
+        confidence: 0.8,
+        provider: 'cloudflare',
+      })
+    if (result.identity_hate && result.identity_hate > 0.5)
+      categories.push({
+        category: 'hate',
+        score: result.identity_hate,
+        confidence: 0.8,
+        provider: 'cloudflare',
+      })
 
     return {
       safe: true,
@@ -131,6 +183,14 @@ export class CloudflareModerationProvider {
   }
 
   private empty(start: number): ModerationResult {
-    return { safe: true, action: 'allow', severity: 'none', categories: [], reviewRequired: false, processingTimeMs: Date.now() - start, providers: ['cloudflare'] }
+    return {
+      safe: true,
+      action: 'allow',
+      severity: 'none',
+      categories: [],
+      reviewRequired: false,
+      processingTimeMs: Date.now() - start,
+      providers: ['cloudflare'],
+    }
   }
 }

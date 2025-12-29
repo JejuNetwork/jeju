@@ -170,16 +170,16 @@ const DEVELOPMENT_ROLE_MODELS: RoleModelMapping[] = [
 
 export function getRoleModels(): RoleModelMapping[] {
   const network = getCurrentNetwork()
-  
+
   if (network === 'mainnet' || network === 'testnet') {
     return PRODUCTION_ROLE_MODELS
   }
-  
+
   // Check if we have API keys for production models
   const hasOpenAI = !!process.env.OPENAI_API_KEY
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
   const hasGoogle = !!process.env.GOOGLE_API_KEY
-  
+
   // If we have multiple keys, use diverse models even in dev
   if (hasOpenAI && hasAnthropic) {
     return [
@@ -210,28 +210,30 @@ export function getRoleModels(): RoleModelMapping[] {
       },
     ]
   }
-  
+
   return DEVELOPMENT_ROLE_MODELS
 }
 
 export function getModelForRole(role: string): ModelConfig {
   const mappings = getRoleModels()
-  const mapping = mappings.find(m => m.role === role)
-  
+  const mapping = mappings.find((m) => m.role === role)
+
   if (!mapping) {
     console.warn(`No model mapping for role ${role}, using local`)
     return LOCAL_CONFIG
   }
-  
+
   // Check if primary is available
   if (mapping.primary.apiKeyEnv) {
     const hasKey = !!process.env[mapping.primary.apiKeyEnv]
     if (!hasKey) {
-      console.warn(`${mapping.primary.provider} API key not found for ${role}, using fallback`)
+      console.warn(
+        `${mapping.primary.provider} API key not found for ${role}, using fallback`,
+      )
       return mapping.fallback
     }
   }
-  
+
   return mapping.primary
 }
 
@@ -247,19 +249,19 @@ interface GenerateOptions {
 }
 
 async function generateOpenAI(options: GenerateOptions): Promise<string> {
-  const apiKey = options.model.apiKeyEnv 
+  const apiKey = options.model.apiKeyEnv
     ? process.env[options.model.apiKeyEnv]
     : null
-  
+
   if (!apiKey) {
     throw new Error('OpenAI API key not configured')
   }
-  
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: options.model.model,
@@ -271,12 +273,14 @@ async function generateOpenAI(options: GenerateOptions): Promise<string> {
       max_tokens: options.maxTokens ?? options.model.maxTokens,
     }),
   })
-  
+
   if (!response.ok) {
     throw new Error(`OpenAI API error: ${response.status}`)
   }
-  
-  const data = await response.json() as { choices: Array<{ message: { content: string } }> }
+
+  const data = (await response.json()) as {
+    choices: Array<{ message: { content: string } }>
+  }
   return data.choices[0]?.message?.content ?? ''
 }
 
@@ -284,11 +288,11 @@ async function generateAnthropic(options: GenerateOptions): Promise<string> {
   const apiKey = options.model.apiKeyEnv
     ? process.env[options.model.apiKeyEnv]
     : null
-  
+
   if (!apiKey) {
     throw new Error('Anthropic API key not configured')
   }
-  
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -299,19 +303,17 @@ async function generateAnthropic(options: GenerateOptions): Promise<string> {
     body: JSON.stringify({
       model: options.model.model,
       system: options.systemPrompt,
-      messages: [
-        { role: 'user', content: options.prompt },
-      ],
+      messages: [{ role: 'user', content: options.prompt }],
       temperature: options.model.temperature,
       max_tokens: options.maxTokens ?? options.model.maxTokens,
     }),
   })
-  
+
   if (!response.ok) {
     throw new Error(`Anthropic API error: ${response.status}`)
   }
-  
-  const data = await response.json() as { content: Array<{ text: string }> }
+
+  const data = (await response.json()) as { content: Array<{ text: string }> }
   return data.content[0]?.text ?? ''
 }
 
@@ -319,11 +321,11 @@ async function generateGoogle(options: GenerateOptions): Promise<string> {
   const apiKey = options.model.apiKeyEnv
     ? process.env[options.model.apiKeyEnv]
     : null
-  
+
   if (!apiKey) {
     throw new Error('Google API key not configured')
   }
-  
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1/models/${options.model.model}:generateContent?key=${apiKey}`,
     {
@@ -339,20 +341,23 @@ async function generateGoogle(options: GenerateOptions): Promise<string> {
           maxOutputTokens: options.maxTokens ?? options.model.maxTokens,
         },
       }),
-    }
+    },
   )
-  
+
   if (!response.ok) {
     throw new Error(`Google API error: ${response.status}`)
   }
-  
-  const data = await response.json() as { 
-    candidates: Array<{ content: { parts: Array<{ text: string }> } }> 
+
+  const data = (await response.json()) as {
+    candidates: Array<{ content: { parts: Array<{ text: string }> } }>
   }
   return data.candidates[0]?.content?.parts[0]?.text ?? ''
 }
 
-async function generateLocal(options: GenerateOptions, endpoint: string): Promise<string> {
+async function generateLocal(
+  options: GenerateOptions,
+  endpoint: string,
+): Promise<string> {
   const response = await fetch(`${endpoint}/compute/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -366,12 +371,12 @@ async function generateLocal(options: GenerateOptions, endpoint: string): Promis
       max_tokens: options.maxTokens ?? options.model.maxTokens,
     }),
   })
-  
+
   if (!response.ok) {
     throw new Error(`Local model error: ${response.status}`)
   }
-  
-  const data = await response.json() as { 
+
+  const data = (await response.json()) as {
     choices?: Array<{ message: { content: string } }>
     content?: string
   }
@@ -386,7 +391,7 @@ export async function generateWithModel(
   localEndpoint?: string,
 ): Promise<string> {
   const { model } = options
-  
+
   switch (model.provider) {
     case 'openai':
       return generateOpenAI(options)
@@ -426,8 +431,8 @@ export interface DiversityReport {
 
 export function assessModelDiversity(): DiversityReport {
   const mappings = getRoleModels()
-  const providers = new Set(mappings.map(m => m.primary.provider))
-  
+  const providers = new Set(mappings.map((m) => m.primary.provider))
+
   const report: DiversityReport = {
     totalAgents: mappings.length,
     uniqueProviders: providers.size,
@@ -435,15 +440,16 @@ export function assessModelDiversity(): DiversityReport {
     isGenuinelyDiverse: providers.size >= 3,
     recommendation: '',
   }
-  
+
   if (providers.size === 1 && providers.has('local')) {
-    report.recommendation = 'All agents using local models. Add API keys for production diversity.'
+    report.recommendation =
+      'All agents using local models. Add API keys for production diversity.'
   } else if (providers.size < 3) {
-    report.recommendation = 'Limited model diversity. Consider adding more API providers.'
+    report.recommendation =
+      'Limited model diversity. Consider adding more API providers.'
   } else {
     report.recommendation = 'Good model diversity across board agents.'
   }
-  
+
   return report
 }
-

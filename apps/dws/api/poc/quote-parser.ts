@@ -2,9 +2,9 @@
  * TEE Quote Parser - Parses and validates attestation quotes from Intel TDX/SGX and AMD SEV-SNP
  */
 
-import { 
-  getAmdKdsConfig, 
-  getIntelRootCaFingerprints, 
+import {
+  getAmdKdsConfig,
+  getIntelRootCaFingerprints,
   getTcbMinimums,
 } from '@jejunetwork/config'
 import { type Hex, keccak256, toBytes } from 'viem'
@@ -34,8 +34,14 @@ function getMinTcbSvn() {
     tcbMinimumsCache = getTcbMinimums()
   }
   return {
-    intel_tdx: { cpu: tcbMinimumsCache.intelTdx.cpu, tcb: tcbMinimumsCache.intelTdx.tcb },
-    intel_sgx: { cpu: tcbMinimumsCache.intelSgx.cpu, tcb: tcbMinimumsCache.intelSgx.tcb },
+    intel_tdx: {
+      cpu: tcbMinimumsCache.intelTdx.cpu,
+      tcb: tcbMinimumsCache.intelTdx.tcb,
+    },
+    intel_sgx: {
+      cpu: tcbMinimumsCache.intelSgx.cpu,
+      tcb: tcbMinimumsCache.intelSgx.tcb,
+    },
     amd_sev: { snp: tcbMinimumsCache.amdSev.snp },
   }
 }
@@ -373,7 +379,9 @@ async function verifyCertificateChain(quote: TEEQuote): Promise<boolean> {
   const rootFingerprint = await computeCertFingerprint(rootDer)
   if (!getIntelFingerprints().has(rootFingerprint)) {
     const rootSubject = extractSubjectCN(rootDer)
-    console.error(`[PoC] Unknown root CA fingerprint: ${rootFingerprint}, CN="${rootSubject}"`)
+    console.error(
+      `[PoC] Unknown root CA fingerprint: ${rootFingerprint}, CN="${rootSubject}"`,
+    )
     return false
   }
 
@@ -392,7 +400,9 @@ function getIntelFingerprints(): Set<string> {
 async function computeCertFingerprint(certDer: Uint8Array): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', certDer)
   const hashArray = new Uint8Array(hashBuffer)
-  return Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(hashArray)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 // AMD KDS config loaded from config package (cached)
@@ -408,7 +418,7 @@ async function verifySEVCertificate(quote: TEEQuote): Promise<boolean> {
   const sigBytes = hexToBytes(quote.signature)
   const isECDSA = sigBytes.length === 96 || sigBytes.length === 144
   const isRSA = sigBytes.length === 512
-  
+
   if (!isECDSA && !isRSA) {
     console.error(`[PoC] SEV: Invalid signature length: ${sigBytes.length}`)
     return false
@@ -429,7 +439,7 @@ async function verifySEVCertificate(quote: TEEQuote): Promise<boolean> {
 
   // Extract chip ID (64 bytes at offset 0x1a0)
   const chipId = quote.hardwareId.slice(2) // Remove 0x prefix
-  
+
   // Fetch VCEK from AMD KDS
   const vcekPem = await fetchAMDVCEK(chipId, blSpl, teeSpl, snpSpl, ucodeSpl)
   if (!vcekPem) {
@@ -466,20 +476,20 @@ async function verifySEVCertificate(quote: TEEQuote): Promise<boolean> {
 
   // The signed data is the attestation report (0x2a0 bytes before signature)
   const signedData = rawBytes.slice(0, 0x2a0)
-  
+
   if (isECDSA) {
     // ECDSA P-384 signature (r || s, each 48 bytes)
     const r = sigBytes.slice(0, 48)
     const s = sigBytes.slice(48, 96)
     const derSig = ecdsaP384ToDer(r, s)
-    
+
     const isValid = await crypto.subtle.verify(
       { name: 'ECDSA', hash: 'SHA-384' },
       vcekPubKey,
       derSig,
       signedData,
     )
-    
+
     if (!isValid) {
       console.error('[PoC] SEV: ECDSA signature verification failed')
       return false
@@ -489,53 +499,66 @@ async function verifySEVCertificate(quote: TEEQuote): Promise<boolean> {
 
   // RSA signatures are not used in SEV-SNP attestation
   // VCEK always uses ECDSA P-384 per AMD SEV-SNP ABI Specification
-  console.error(`[PoC] SEV: Unexpected signature length ${sigBytes.length}, expected 96 (ECDSA P-384)`)
+  console.error(
+    `[PoC] SEV: Unexpected signature length ${sigBytes.length}, expected 96 (ECDSA P-384)`,
+  )
   return false
 }
 
 async function fetchAMDVCEK(
   chipId: string,
   blSpl: number,
-  teeSpl: number, 
+  teeSpl: number,
   snpSpl: number,
   ucodeSpl: number,
 ): Promise<string | null> {
   const kds = getAmdKds()
   const url = `${kds.baseUrl}/${kds.defaultProduct}/${chipId}?blSPL=${blSpl}&teeSPL=${teeSpl}&snpSPL=${snpSpl}&ucodeSPL=${ucodeSpl}`
-  
+
   for (let attempt = 0; attempt < kds.retryCount; attempt++) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), kds.timeoutMs)
-    
+
     try {
       const response = await fetch(url, {
         method: 'GET',
         headers: { Accept: 'application/x-pem-file' },
         signal: controller.signal,
       })
-      
+
       if (!response.ok) {
         const body = await response.text()
         // 404 = chip not found, don't retry
         if (response.status === 404) {
-          console.error(`[PoC] AMD KDS: chip ${chipId.slice(0, 16)}... not found`)
+          console.error(
+            `[PoC] AMD KDS: chip ${chipId.slice(0, 16)}... not found`,
+          )
           return null
         }
         // 5xx = server error, retry
         if (response.status >= 500 && attempt < kds.retryCount - 1) {
-          console.warn(`[PoC] AMD KDS ${response.status}, retry ${attempt + 1}/${kds.retryCount}`)
-          await new Promise(r => setTimeout(r, kds.retryDelayMs * (attempt + 1)))
+          console.warn(
+            `[PoC] AMD KDS ${response.status}, retry ${attempt + 1}/${kds.retryCount}`,
+          )
+          await new Promise((r) =>
+            setTimeout(r, kds.retryDelayMs * (attempt + 1)),
+          )
           continue
         }
-        console.error(`[PoC] AMD KDS returned ${response.status}: ${body.slice(0, 100)}`)
+        console.error(
+          `[PoC] AMD KDS returned ${response.status}: ${body.slice(0, 100)}`,
+        )
         return null
       }
-      
+
       const contentType = response.headers.get('content-type')
-      if (contentType?.includes('application/x-x509-ca-cert') || contentType?.includes('application/x-pem-file')) {
+      if (
+        contentType?.includes('application/x-x509-ca-cert') ||
+        contentType?.includes('application/x-pem-file')
+      ) {
         return await response.text()
       }
-      
+
       // KDS returns DER by default, convert to PEM
       const derBytes = new Uint8Array(await response.arrayBuffer())
       const base64 = btoa(String.fromCharCode(...derBytes))
@@ -544,7 +567,9 @@ async function fetchAMDVCEK(
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         if (attempt < kds.retryCount - 1) {
-          console.warn(`[PoC] AMD KDS timeout, retry ${attempt + 1}/${kds.retryCount}`)
+          console.warn(
+            `[PoC] AMD KDS timeout, retry ${attempt + 1}/${kds.retryCount}`,
+          )
           continue
         }
         console.error('[PoC] AMD KDS request timed out after retries')
@@ -563,18 +588,18 @@ function ecdsaP384ToDer(r: Uint8Array, s: Uint8Array): Uint8Array {
   // Convert raw (r || s) P-384 signature to DER format
   const rPadded = r[0] >= 0x80 ? new Uint8Array([0, ...r]) : r
   const sPadded = s[0] >= 0x80 ? new Uint8Array([0, ...s]) : s
-  
+
   // Strip leading zeros but keep one if high bit set
   const rTrimmed = trimLeadingZeros(rPadded)
   const sTrimmed = trimLeadingZeros(sPadded)
-  
+
   const rLen = rTrimmed.length
   const sLen = sTrimmed.length
   const totalLen = 2 + rLen + 2 + sLen
-  
+
   const der = new Uint8Array(2 + totalLen)
   let offset = 0
-  
+
   // SEQUENCE
   der[offset++] = 0x30
   der[offset++] = totalLen
@@ -587,7 +612,7 @@ function ecdsaP384ToDer(r: Uint8Array, s: Uint8Array): Uint8Array {
   der[offset++] = 0x02
   der[offset++] = sLen
   der.set(sTrimmed, offset)
-  
+
   return der
 }
 

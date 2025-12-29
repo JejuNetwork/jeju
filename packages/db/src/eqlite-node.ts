@@ -22,10 +22,10 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getSQLitBlockProducerUrl,
-  getSQLitUrl,
   getLocalhostHost,
   getNetworkName,
+  getSQLitBlockProducerUrl,
+  getSQLitUrl,
   INFRA_PORTS,
   isProductionEnv,
 } from '@jejunetwork/config'
@@ -38,8 +38,7 @@ export const SQLitNodeRole = {
   FULLNODE: 'fullnode',
 } as const
 
-export type SQLitNodeRole =
-  (typeof SQLitNodeRole)[keyof typeof SQLitNodeRole]
+export type SQLitNodeRole = (typeof SQLitNodeRole)[keyof typeof SQLitNodeRole]
 
 /** Node operational status */
 export const SQLitNodeStatus = {

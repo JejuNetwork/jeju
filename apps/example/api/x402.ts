@@ -57,7 +57,7 @@ const DEV_PAYMENT_ADDRESS = expectAddress(
 const getPaymentAddress = (): Address => {
   const network = getCurrentNetwork()
   // Try config first, then env override
-  const configAddress = tryGetContract('payments', 'x402Facilitator', network)
+  const _configAddress = tryGetContract('payments', 'x402Facilitator', network)
   const configuredAddress =
     (typeof process !== 'undefined'
       ? process.env.X402_PAYMENT_ADDRESS
@@ -68,14 +68,11 @@ const getPaymentAddress = (): Address => {
     }
     console.warn('[x402] Invalid X402_PAYMENT_ADDRESS format')
   }
-<<<<<<< HEAD
   // Try config fallback
   const configAddress = tryGetContract('payments', 'x402', network)
   if (configAddress) {
     return configAddress as Address
   }
-=======
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
   if (IS_LOCALNET) {
     return DEV_PAYMENT_ADDRESS
   }

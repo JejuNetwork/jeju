@@ -22,10 +22,10 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getSQLitBlockProducerUrl,
-  getSQLitUrl,
   getLocalhostHost,
   getNetworkName,
+  getSQLitBlockProducerUrl,
+  getSQLitUrl,
   INFRA_PORTS,
   isProductionEnv,
 } from '@jejunetwork/config'
@@ -38,8 +38,7 @@ export const SQLitNodeRole = {
   FULLNODE: 'fullnode',
 } as const
 
-export type SQLitNodeRole =
-  (typeof SQLitNodeRole)[keyof typeof SQLitNodeRole]
+export type SQLitNodeRole = (typeof SQLitNodeRole)[keyof typeof SQLitNodeRole]
 
 /** Node operational status */
 export const SQLitNodeStatus = {
@@ -252,7 +251,7 @@ export class SQLitNodeManager {
     const host = getLocalhostHost()
     const endpoint =
       getSQLitUrl() ??
-      `http://${host}:${this.config.httpAddr?.split(':')[1] ?? String(INFRA_PORTS.SQLIT.get())}`
+      `http://${host}:${this.config.httpAddr?.split(':')[1] ?? String(INFRA_PORTS.SQLit.get())}`
 
     try {
       const response = await fetch(`${endpoint}/v1/status`, {

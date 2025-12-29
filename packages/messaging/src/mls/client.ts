@@ -54,6 +54,7 @@ const KEY_REGISTRY_ABI = [
     stateMutability: 'view',
   },
 ] as const
+
 import type {
   DeviceInfo,
   GroupConfig,

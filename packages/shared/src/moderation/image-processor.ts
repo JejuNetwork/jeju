@@ -17,12 +17,12 @@ export interface StandardImage {
   width: number
   height: number
   format: 'jpeg' | 'png' | 'gif' | 'webp'
-  
+
   // Computed hashes
   sha256: string
   md5: string
   dHash: string
-  
+
   // Original metadata
   originalSize: number
   wasResized: boolean
@@ -34,8 +34,8 @@ export interface ImageProcessorConfig {
 }
 
 // Image format signatures
-const JPEG = [0xFF, 0xD8, 0xFF]
-const PNG = [0x89, 0x50, 0x4E, 0x47]
+const JPEG = [0xff, 0xd8, 0xff]
+const PNG = [0x89, 0x50, 0x4e, 0x47]
 const GIF = [0x47, 0x49, 0x46, 0x38]
 const WEBP_RIFF = [0x52, 0x49, 0x46, 0x46]
 const WEBP_MAGIC = [0x57, 0x45, 0x42, 0x50]
@@ -43,7 +43,7 @@ const WEBP_MAGIC = [0x57, 0x45, 0x42, 0x50]
 async function sha256(buffer: Buffer): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(buffer))
   return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 }
 
@@ -61,18 +61,14 @@ type ImageFormat = 'jpeg' | 'png' | 'gif' | 'webp'
  * Validates and hashes images for moderation pipeline.
  */
 export class ImageProcessor {
-  // Config is validated but not stored - all methods are stateless
-  constructor(_config: ImageProcessorConfig = {}) {
-    // Config validation would go here
-  }
-
   /**
    * Detect image format from buffer
    */
   detectFormat(buffer: Buffer): ImageFormat | null {
     if (!buffer || buffer.length < 12) return null
-    
-    const match = (sig: number[], offset = 0) => sig.every((b, i) => buffer[offset + i] === b)
+
+    const match = (sig: number[], offset = 0) =>
+      sig.every((b, i) => buffer[offset + i] === b)
 
     if (match(JPEG)) return 'jpeg'
     if (match(PNG)) return 'png'
@@ -104,7 +100,7 @@ export class ImageProcessor {
     }
 
     const dimensions = this.extractDimensions(buffer, format)
-    
+
     const [sha, m5, dHash] = await Promise.all([
       sha256(buffer),
       md5(buffer),
@@ -127,7 +123,10 @@ export class ImageProcessor {
   /**
    * Extract dimensions from image header
    */
-  private extractDimensions(buffer: Buffer, format: ImageFormat): { width: number; height: number } {
+  private extractDimensions(
+    buffer: Buffer,
+    format: ImageFormat,
+  ): { width: number; height: number } {
     switch (format) {
       case 'png':
         if (buffer.length >= 24) {
@@ -137,7 +136,7 @@ export class ImageProcessor {
           }
         }
         break
-        
+
       case 'gif':
         if (buffer.length >= 10) {
           return {
@@ -146,71 +145,87 @@ export class ImageProcessor {
           }
         }
         break
-        
+
       case 'jpeg':
         return this.extractJpegDimensions(buffer)
-        
+
       case 'webp':
         return this.extractWebpDimensions(buffer)
     }
-    
+
     return { width: 0, height: 0 }
   }
 
   /**
    * Extract JPEG dimensions from SOF marker
    */
-  private extractJpegDimensions(buffer: Buffer): { width: number; height: number } {
+  private extractJpegDimensions(buffer: Buffer): {
+    width: number
+    height: number
+  } {
     let offset = 2 // Skip SOI marker
-    
+
     while (offset < buffer.length - 8) {
-      if (buffer[offset] !== 0xFF) {
+      if (buffer[offset] !== 0xff) {
         offset++
         continue
       }
-      
+
       const marker = buffer[offset + 1]
-      
+
       // SOF0, SOF1, SOF2 markers contain dimensions
-      if (marker !== undefined && marker >= 0xC0 && marker <= 0xC2) {
+      if (marker !== undefined && marker >= 0xc0 && marker <= 0xc2) {
         const height = buffer.readUInt16BE(offset + 5)
         const width = buffer.readUInt16BE(offset + 7)
         return { width, height }
       }
-      
+
       // Skip to next marker
-      if (marker === 0xD8 || marker === 0xD9) {
+      if (marker === 0xd8 || marker === 0xd9) {
         offset += 2
       } else {
         const length = buffer.readUInt16BE(offset + 2)
         offset += 2 + length
       }
     }
-    
+
     return { width: 0, height: 0 }
   }
 
   /**
    * Extract WebP dimensions from VP8/VP8L header
    */
-  private extractWebpDimensions(buffer: Buffer): { width: number; height: number } {
+  private extractWebpDimensions(buffer: Buffer): {
+    width: number
+    height: number
+  } {
     if (buffer.length < 30) return { width: 0, height: 0 }
-    
+
     // Check for VP8 (lossy)
-    if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x20) {
-      const width = (buffer.readUInt16LE(26) & 0x3FFF)
-      const height = (buffer.readUInt16LE(28) & 0x3FFF)
+    if (
+      buffer[12] === 0x56 &&
+      buffer[13] === 0x50 &&
+      buffer[14] === 0x38 &&
+      buffer[15] === 0x20
+    ) {
+      const width = buffer.readUInt16LE(26) & 0x3fff
+      const height = buffer.readUInt16LE(28) & 0x3fff
       return { width, height }
     }
-    
+
     // Check for VP8L (lossless)
-    if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x4C) {
+    if (
+      buffer[12] === 0x56 &&
+      buffer[13] === 0x50 &&
+      buffer[14] === 0x38 &&
+      buffer[15] === 0x4c
+    ) {
       const bits = buffer.readUInt32LE(21)
-      const width = (bits & 0x3FFF) + 1
-      const height = ((bits >> 14) & 0x3FFF) + 1
+      const width = (bits & 0x3fff) + 1
+      const height = ((bits >> 14) & 0x3fff) + 1
       return { width, height }
     }
-    
+
     return { width: 0, height: 0 }
   }
 
@@ -230,14 +245,14 @@ export class ImageProcessor {
     const gridWidth = 9
     const gridHeight = 8
     const samples: number[] = []
-    
+
     // Skip header (first 100 bytes typically)
     const dataStart = Math.min(100, Math.floor(buffer.length * 0.1))
     const dataLength = buffer.length - dataStart
     const step = Math.floor(dataLength / (gridWidth * gridHeight))
-    
+
     for (let i = 0; i < gridWidth * gridHeight; i++) {
-      const offset = dataStart + (i * step)
+      const offset = dataStart + i * step
       // Average 3 bytes as rough grayscale
       const r = buffer[offset] ?? 128
       const g = buffer[offset + 1] ?? 128
@@ -270,9 +285,9 @@ export class ImageProcessor {
     if (hash1.length !== 16 || hash2.length !== 16) {
       return 64 // Maximum distance for invalid hashes
     }
-    
-    const n1 = BigInt('0x' + hash1)
-    const n2 = BigInt('0x' + hash2)
+
+    const n1 = BigInt(`0x${hash1}`)
+    const n2 = BigInt(`0x${hash2}`)
     let xor = n1 ^ n2
     let distance = 0
 
@@ -301,10 +316,11 @@ export class ImageProcessor {
 // Singleton
 let instance: ImageProcessor | null = null
 
-export function getImageProcessor(config?: ImageProcessorConfig): ImageProcessor {
+export function getImageProcessor(
+  config?: ImageProcessorConfig,
+): ImageProcessor {
   if (!instance) {
     instance = new ImageProcessor(config)
   }
   return instance
 }
-

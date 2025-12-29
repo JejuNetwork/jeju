@@ -12,7 +12,7 @@ import {
   isProductionEnv,
   isTestMode,
 } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'

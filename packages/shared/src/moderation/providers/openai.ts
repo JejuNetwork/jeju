@@ -4,7 +4,12 @@
  */
 
 import { z } from 'zod'
-import type { CategoryScore, ModerationCategory, ModerationProvider, ModerationResult } from '../types'
+import type {
+  CategoryScore,
+  ModerationCategory,
+  ModerationProvider,
+  ModerationResult,
+} from '../types'
 
 const CategoryScoresSchema = z.object({
   harassment: z.number(),
@@ -94,13 +99,18 @@ export class OpenAIModerationProvider {
 
     const response = await fetch(this.endpoint, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ model: this.model, input: text }),
       signal: AbortSignal.timeout(this.timeout),
     })
 
     if (!response.ok) {
-      throw new Error(`OpenAI Moderation error: ${response.status} ${await response.text()}`)
+      throw new Error(
+        `OpenAI Moderation error: ${response.status} ${await response.text()}`,
+      )
     }
 
     const data = OpenAIResponseSchema.parse(await response.json())
@@ -110,7 +120,10 @@ export class OpenAIModerationProvider {
     return this.process(result, start)
   }
 
-  private process(result: z.infer<typeof ModerationResultSchema>, start: number): ModerationResult {
+  private process(
+    result: z.infer<typeof ModerationResultSchema>,
+    start: number,
+  ): ModerationResult {
     const categories: CategoryScore[] = []
     const maxScores = new Map<ModerationCategory, number>()
 
@@ -123,7 +136,12 @@ export class OpenAIModerationProvider {
     }
 
     for (const [cat, score] of maxScores) {
-      categories.push({ category: cat, score, confidence: 0.95, provider: 'openai' })
+      categories.push({
+        category: cat,
+        score,
+        confidence: 0.95,
+        provider: 'openai',
+      })
     }
 
     const csam = maxScores.get('csam') ?? 0
@@ -133,10 +151,18 @@ export class OpenAIModerationProvider {
     let severity: ModerationResult['severity'] = 'none'
     let review = false
 
-    if (csam > 0.1) { action = 'ban'; severity = 'critical'; review = true }
-    else if (adult > 0.7) { action = 'warn'; severity = 'low' }
+    if (csam > 0.1) {
+      action = 'ban'
+      severity = 'critical'
+      review = true
+    } else if (adult > 0.7) {
+      action = 'warn'
+      severity = 'low'
+    }
 
-    const primary = categories.length ? categories.reduce((a, b) => a.score > b.score ? a : b).category : undefined
+    const primary = categories.length
+      ? categories.reduce((a, b) => (a.score > b.score ? a : b)).category
+      : undefined
 
     return {
       safe: action === 'allow',

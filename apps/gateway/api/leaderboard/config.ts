@@ -5,7 +5,7 @@
  * Oracle signing is delegated to the KMS service (MPC or TEE).
  */
 
-import { getDWSUrl, getSQLitUrl, getLocalhostHost } from '@jejunetwork/config'
+import { getDWSUrl, getLocalhostHost, getSQLitUrl } from '@jejunetwork/config'
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../../lib/config'
 import { CHAIN_IDS } from '../../lib/config/networks'
 import { config } from '../config'

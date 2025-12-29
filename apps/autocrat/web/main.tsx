@@ -9,11 +9,8 @@ import AgentEditPage from './pages/AgentEdit'
 import CreateDAOPage from './pages/CreateDAO'
 import DAODetailPage from './pages/DAODetail'
 import DAOListPage from './pages/DAOList'
-<<<<<<< HEAD
-import MyDAOsPage from './pages/MyDAOs'
-=======
 import DirectorDashboardPage from './pages/DirectorDashboard'
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
+import MyDAOsPage from './pages/MyDAOs'
 import ProposalPage from './pages/Proposal'
 import './app/globals.css'
 

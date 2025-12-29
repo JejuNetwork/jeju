@@ -25,12 +25,12 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
 import { z } from 'zod'
 import { parseQuote, verifyQuote } from '../poc/quote-parser'
-import { getPoCNodeVerifier, type PoCNodeVerifier } from './poc-node-verifier'
 import {
   createKMSWalletClient,
   isKMSAvailable,
   type KMSWalletClient,
 } from '../shared/kms-wallet'
+import { getPoCNodeVerifier, type PoCNodeVerifier } from './poc-node-verifier'
 import type {
   InfraEvent,
   InfraEventHandler,
@@ -466,7 +466,9 @@ export class NodeRegistry {
         cloudProvider: pocResult.cloudProvider,
         region: pocResult.region,
         lastVerifiedAt: pocResult.verified ? Date.now() : null,
-        expiresAt: pocResult.verified ? Date.now() + 7 * 24 * 60 * 60 * 1000 : null,
+        expiresAt: pocResult.verified
+          ? Date.now() + 7 * 24 * 60 * 60 * 1000
+          : null,
         score: pocResult.score,
       }
 
@@ -476,14 +478,17 @@ export class NodeRegistry {
       if (cachedNode) {
         cachedNode.pocStatus = pocStatus
         // Apply reputation delta
-        cachedNode.reputation = Math.max(0, Math.min(100, cachedNode.reputation + pocResult.reputationDelta))
+        cachedNode.reputation = Math.max(
+          0,
+          Math.min(100, cachedNode.reputation + pocResult.reputationDelta),
+        )
         this.nodeCache.set(cacheKey, cachedNode)
       }
 
       console.log(
         `[NodeRegistry] PoC verification for node ${agentId}: ` +
-        `verified=${pocResult.verified}, level=${pocResult.level}, ` +
-        `reputation delta=${pocResult.reputationDelta}`,
+          `verified=${pocResult.verified}, level=${pocResult.level}, ` +
+          `reputation delta=${pocResult.reputationDelta}`,
       )
     }
 
@@ -495,12 +500,14 @@ export class NodeRegistry {
       verifiedAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
       // Include PoC status if available
-      poc: pocStatus ? {
-        verified: pocStatus.verified,
-        level: pocStatus.level,
-        cloudProvider: pocStatus.cloudProvider,
-        region: pocStatus.region,
-      } : undefined,
+      poc: pocStatus
+        ? {
+            verified: pocStatus.verified,
+            level: pocStatus.level,
+            cloudProvider: pocStatus.cloudProvider,
+            region: pocStatus.region,
+          }
+        : undefined,
     })
 
     return this.setMetadata(
@@ -514,7 +521,10 @@ export class NodeRegistry {
    * Verify a node against the cloud alliance registry
    * Can be called separately from attestation submission
    */
-  async verifyNodePoC(agentId: bigint, quote: Hex): Promise<NodeConfig['pocStatus'] | null> {
+  async verifyNodePoC(
+    agentId: bigint,
+    quote: Hex,
+  ): Promise<NodeConfig['pocStatus'] | null> {
     if (!this.pocVerifier) {
       try {
         this.pocVerifier = getPoCNodeVerifier()
@@ -533,7 +543,9 @@ export class NodeRegistry {
       cloudProvider: pocResult.cloudProvider,
       region: pocResult.region,
       lastVerifiedAt: pocResult.verified ? Date.now() : null,
-      expiresAt: pocResult.verified ? Date.now() + 7 * 24 * 60 * 60 * 1000 : null,
+      expiresAt: pocResult.verified
+        ? Date.now() + 7 * 24 * 60 * 60 * 1000
+        : null,
       score: pocResult.score,
     }
 
@@ -542,11 +554,19 @@ export class NodeRegistry {
     const cachedNode = this.nodeCache.get(cacheKey)
     if (cachedNode) {
       cachedNode.pocStatus = pocStatus
-      cachedNode.reputation = Math.max(0, Math.min(100, cachedNode.reputation + pocResult.reputationDelta))
+      cachedNode.reputation = Math.max(
+        0,
+        Math.min(100, cachedNode.reputation + pocResult.reputationDelta),
+      )
       this.nodeCache.set(cacheKey, cachedNode)
 
       // Emit event
-      if (pocResult.verified && pocResult.cloudProvider && pocResult.region && pocResult.hardwareIdHash) {
+      if (
+        pocResult.verified &&
+        pocResult.cloudProvider &&
+        pocResult.region &&
+        pocResult.hardwareIdHash
+      ) {
         this.emit({
           type: 'node:poc_verified',
           nodeAgentId: agentId,

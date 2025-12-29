@@ -926,12 +926,12 @@ export class AutocratOrchestrator {
     const daoFull = await this.daoService.getDAOFull(daoId)
     const councilAddr = daoFull.dao.council
     const ceoAgentAddr = daoFull.dao.ceoAgent
-    
+
     if (!councilAddr || !ceoAgentAddr) {
       console.log(`[Orchestrator] DAO ${daoId} missing required addresses`)
       return
     }
-    
+
     const existing = this.daoStates.get(daoId)
 
     if (existing) {

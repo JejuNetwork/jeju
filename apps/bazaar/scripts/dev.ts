@@ -15,9 +15,9 @@ import { resolve } from 'node:path'
 import {
   CORE_PORTS,
   getCoreAppUrl,
-  getSQLitBlockProducerUrl,
   getIndexerGraphqlUrl,
   getRpcUrl,
+  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { createBazaarApp } from '../api/worker'
 

@@ -11,7 +11,7 @@
  * - AI providers (for inference tests)
  */
 
-import { getSQLitBlockProducerUrl, getJejuRpcUrl } from '@jejunetwork/config'
+import { getJejuRpcUrl, getSQLitBlockProducerUrl } from '@jejunetwork/config'
 
 export interface TestEnvironment {
   docker: boolean

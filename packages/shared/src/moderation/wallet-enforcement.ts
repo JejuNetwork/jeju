@@ -13,15 +13,19 @@
  * - Network participation (denied = blocked)
  */
 
-import { logger } from '../logger'
 import type { Address } from 'viem'
+import { logger } from '../logger'
 import {
-  saveWalletState,
   getWalletState as getPersistedWalletState,
-  getPersistenceMode,
+  saveWalletState,
 } from './persistence'
 
-export type WalletStatus = 'clean' | 'warned' | 'restricted' | 'quarantine_only' | 'denied'
+export type WalletStatus =
+  | 'clean'
+  | 'warned'
+  | 'restricted'
+  | 'quarantine_only'
+  | 'denied'
 
 export type ViolationType =
   | 'csam_upload'
@@ -46,20 +50,20 @@ export interface WalletEnforcementState {
   address: Address
   status: WalletStatus
   statusChangedAt: number
-  
+
   // History
   violations: Violation[]
   warningsIssued: number
-  
+
   // Reputation factors
   walletAge: number
   stakeAmount: bigint
   transactionCount: number
-  
+
   // Sanctions screening
   ofacMatch: boolean
   taintScore: number
-  
+
   // Processing limits
   powDifficulty: number
   rateLimit: number
@@ -81,7 +85,13 @@ const DEFAULT_CONFIG = {
 const walletStates = new Map<Address, WalletEnforcementState>()
 
 // Status severity order for transitions
-const STATUS_ORDER: WalletStatus[] = ['clean', 'warned', 'restricted', 'quarantine_only', 'denied']
+const STATUS_ORDER: WalletStatus[] = [
+  'clean',
+  'warned',
+  'restricted',
+  'quarantine_only',
+  'denied',
+]
 
 /**
  * Wallet Enforcement Manager
@@ -94,8 +104,11 @@ export class WalletEnforcementManager {
 
   constructor(config: WalletEnforcementConfig = {}) {
     this.config = {
-      warningsBeforeRestriction: config.warningsBeforeRestriction ?? DEFAULT_CONFIG.warningsBeforeRestriction,
-      warningClearDays: config.warningClearDays ?? DEFAULT_CONFIG.warningClearDays,
+      warningsBeforeRestriction:
+        config.warningsBeforeRestriction ??
+        DEFAULT_CONFIG.warningsBeforeRestriction,
+      warningClearDays:
+        config.warningClearDays ?? DEFAULT_CONFIG.warningClearDays,
     }
   }
 
@@ -151,7 +164,10 @@ export class WalletEnforcementManager {
    * CSAM violations = immediate DENIED
    * Other violations = graduated response
    */
-  async recordViolation(address: Address, violation: Omit<Violation, 'id' | 'timestamp'>): Promise<WalletEnforcementState> {
+  async recordViolation(
+    address: Address,
+    violation: Omit<Violation, 'id' | 'timestamp'>,
+  ): Promise<WalletEnforcementState> {
     const state = await this.getState(address)
     const now = Date.now()
 
@@ -185,8 +201,11 @@ export class WalletEnforcementManager {
     walletStates.set(address, state)
 
     // Persist to database
-    await saveWalletState(state).catch(err => {
-      logger.error('[WalletEnforcement] Failed to persist wallet state', { address, error: String(err) })
+    await saveWalletState(state).catch((err) => {
+      logger.error('[WalletEnforcement] Failed to persist wallet state', {
+        address,
+        error: String(err),
+      })
     })
     return state
   }
@@ -194,9 +213,16 @@ export class WalletEnforcementManager {
   /**
    * Determine new status based on violation
    */
-  private determineStatus(state: WalletEnforcementState, violation: Violation): WalletStatus {
+  private determineStatus(
+    state: WalletEnforcementState,
+    violation: Violation,
+  ): WalletStatus {
     // Critical violations = immediate DENIED
-    if (violation.severity === 'critical' || violation.type === 'csam_upload' || violation.type === 'csam_distribution') {
+    if (
+      violation.severity === 'critical' ||
+      violation.type === 'csam_upload' ||
+      violation.type === 'csam_distribution'
+    ) {
       return 'denied'
     }
 
@@ -206,8 +232,8 @@ export class WalletEnforcementManager {
     }
 
     // Count recent violations
-    const recentViolations = state.violations.filter(v => 
-      Date.now() - v.timestamp < 30 * 24 * 60 * 60 * 1000 // Last 30 days
+    const recentViolations = state.violations.filter(
+      (v) => Date.now() - v.timestamp < 30 * 24 * 60 * 60 * 1000, // Last 30 days
     )
 
     // High severity = escalate one level
@@ -266,15 +292,21 @@ export class WalletEnforcementManager {
     const state = await this.getState(address)
     state.warningsIssued++
 
-    if (state.warningsIssued >= this.config.warningsBeforeRestriction && state.status === 'clean') {
+    if (
+      state.warningsIssued >= this.config.warningsBeforeRestriction &&
+      state.status === 'clean'
+    ) {
       state.status = 'warned'
       state.statusChangedAt = Date.now()
     }
 
     walletStates.set(address, state)
 
-    await saveWalletState(state).catch(err => {
-      logger.error('[WalletEnforcement] Failed to persist warning', { address, error: String(err) })
+    await saveWalletState(state).catch((err) => {
+      logger.error('[WalletEnforcement] Failed to persist warning', {
+        address,
+        error: String(err),
+      })
     })
 
     logger.info('[WalletEnforcement] Warning issued', {
@@ -287,7 +319,10 @@ export class WalletEnforcementManager {
   /**
    * Check if wallet can perform action
    */
-  async canPerformAction(address: Address, action: 'upload' | 'access' | 'participate'): Promise<boolean> {
+  async canPerformAction(
+    address: Address,
+    action: 'upload' | 'access' | 'participate',
+  ): Promise<boolean> {
     const state = await this.getState(address)
 
     switch (state.status) {
@@ -322,13 +357,17 @@ export class WalletEnforcementManager {
   /**
    * Retroactive enforcement: apply ban to all wallets that uploaded matching content
    */
-  async retroactiveEnforcement(contentHash: string, affectedWallets: Address[]): Promise<void> {
+  async retroactiveEnforcement(
+    contentHash: string,
+    affectedWallets: Address[],
+  ): Promise<void> {
     for (const address of affectedWallets) {
       await this.recordViolation(address, {
         type: 'csam_distribution',
         severity: 'critical',
         contentHash,
-        description: 'Retroactive enforcement: content matched CSAM hash database',
+        description:
+          'Retroactive enforcement: content matched CSAM hash database',
       })
     }
 
@@ -358,8 +397,11 @@ export class WalletEnforcementManager {
     state.statusChangedAt = Date.now()
     walletStates.set(address, state)
 
-    await saveWalletState(state).catch(err => {
-      logger.error('[WalletEnforcement] Failed to persist sanction', { address, error: String(err) })
+    await saveWalletState(state).catch((err) => {
+      logger.error('[WalletEnforcement] Failed to persist sanction', {
+        address,
+        error: String(err),
+      })
     })
 
     logger.warn('[WalletEnforcement] Wallet marked as sanctioned', { address })
@@ -398,10 +440,11 @@ export class WalletEnforcementManager {
 // Singleton
 let instance: WalletEnforcementManager | null = null
 
-export function getWalletEnforcementManager(config?: WalletEnforcementConfig): WalletEnforcementManager {
+export function getWalletEnforcementManager(
+  config?: WalletEnforcementConfig,
+): WalletEnforcementManager {
   if (!instance) {
     instance = new WalletEnforcementManager(config)
   }
   return instance
 }
-

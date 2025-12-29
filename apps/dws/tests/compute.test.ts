@@ -22,7 +22,6 @@ import {
   unregisterNode,
 } from '../api/compute/inference-node'
 import { dwsRequest } from './setup'
-import { requireDependency, SETUP_INSTRUCTIONS, detectEnvironment } from './test-environment'
 
 setDefaultTimeout(10000)
 
@@ -32,8 +31,8 @@ const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 if (process.env.SKIP_INTEGRATION === 'true') {
   throw new Error(
     'SKIP_INTEGRATION=true is not allowed. Tests must always run.\n' +
-    'Start the DWS server: bun run dev\n' +
-    'Then run tests: bun test tests/compute.test.ts'
+      'Start the DWS server: bun run dev\n' +
+      'Then run tests: bun test tests/compute.test.ts',
   )
 }
 

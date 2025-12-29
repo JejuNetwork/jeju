@@ -22,10 +22,7 @@ const TEST_ADDRESS = privateKeyToAccount(TEST_PRIVATE_KEY).address
 const TEST_PAYMENT_TOKEN =
   '0x0000000000000000000000000000000000000000' as Address
 
-import {
-  getSQLitBlockProducerUrl,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getLocalhostHost, getSQLitBlockProducerUrl } from '@jejunetwork/config'
 
 // Check if SQLit is available for integration tests
 async function checkSQLitHealth(): Promise<boolean> {

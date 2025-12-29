@@ -223,20 +223,19 @@ export {
 
 export {
   checkChainAvailable,
-  // Individual service checks
-  checkSQLitAvailable,
   checkIpfsAvailable,
   checkSolanaAvailable,
+  // Individual service checks
+  checkSQLitAvailable,
   describeWithInfra,
-  SQLitTestClient,
   getChainConfig,
   getInfraConfig,
   // Infrastructure status
   getInfraStatus,
-  getLiveSQLitClient,
   // Live clients for tests
   getLiveInfra,
   getLiveRedisClient,
+  getLiveSQLitClient,
   hasInfra,
   type InfraRequirement,
   type InfraStatus,
@@ -245,6 +244,7 @@ export {
   RedisTestClient,
   // Infrastructure requirements
   requireInfra,
+  SQLitTestClient,
   // Test helpers
   skipWithoutInfra,
 } from './live-infrastructure'

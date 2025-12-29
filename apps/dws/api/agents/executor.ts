@@ -6,8 +6,8 @@
 import {
   getCurrentNetwork,
   getDWSUrl,
-  getSQLitBlockProducerUrl,
   getKMSEndpoint,
+  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/types'
 import { z } from 'zod'

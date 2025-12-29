@@ -28,10 +28,6 @@
  * const router = createPaymentRouter({ chainId: 420691 });
  * const options = await router.getAllPaymentOptions(request, userTokens);
  * ```
-<<<<<<< HEAD
-
-=======
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
  */
 
 import { getRpcUrl } from '@jejunetwork/config'

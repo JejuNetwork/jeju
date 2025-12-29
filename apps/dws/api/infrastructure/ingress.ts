@@ -12,7 +12,7 @@
  */
 
 import { SQLitRateLimitStore } from '@jejunetwork/api'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 

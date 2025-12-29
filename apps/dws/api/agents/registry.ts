@@ -408,10 +408,11 @@ export async function updateAgentStatus(
   status: AgentStatus,
 ): Promise<void> {
   const now = Date.now()
-  await sqlitExec(
-    'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
-    [status, now, id],
-  )
+  await sqlitExec('UPDATE agents SET status = ?, updated_at = ? WHERE id = ?', [
+    status,
+    now,
+    id,
+  ])
 }
 
 export async function terminateAgent(
@@ -426,10 +427,11 @@ export async function terminateAgent(
 
   const now = Date.now()
 
-  await sqlitExec(
-    'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
-    ['terminated', now, id],
-  )
+  await sqlitExec('UPDATE agents SET status = ?, updated_at = ? WHERE id = ?', [
+    'terminated',
+    now,
+    id,
+  ])
 
   // Disable cron triggers
   await sqlitExec(

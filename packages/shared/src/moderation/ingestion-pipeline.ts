@@ -19,25 +19,60 @@
  * 7. Action (allow/quarantine/block)
  */
 
-import { logger } from '../logger'
 import type { Address } from 'viem'
-import { CSAMHashProvider, getCSAMHashProvider, type HashMatchResult } from './providers/csam-hash'
-import { FaceAgeProvider, getFaceAgeProvider, type FaceAgeResult } from './providers/face-age'
-import { NSFWDetectionProvider, getNsfwScore } from './providers/nsfw'
-import { PolicyEngine, getPolicyEngine, type RoutingDecision, type NudityResult } from './policy-engine'
-import { QuarantineManager, getQuarantineManager } from './quarantine'
-import { WalletEnforcementManager, getWalletEnforcementManager } from './wallet-enforcement'
+import { logger } from '../logger'
+import {
+  getOnChainSignalsService,
+  type OnChainSignalsConfig,
+  type OnChainSignalsService,
+} from './on-chain-signals'
+import {
+  getPolicyEngine,
+  type NudityResult,
+  type PolicyEngine,
+  type RoutingDecision,
+} from './policy-engine'
+import {
+  type AWSRekognitionConfig,
+  AWSRekognitionProvider,
+} from './providers/aws-rekognition'
+import {
+  type CSAMHashProvider,
+  getCSAMHashProvider,
+  type HashMatchResult,
+} from './providers/csam-hash'
+import {
+  type FaceAgeProvider,
+  type FaceAgeResult,
+  getFaceAgeProvider,
+} from './providers/face-age'
+import {
+  HiveModerationProvider,
+  type HiveProviderConfig,
+} from './providers/hive'
+import { getNsfwScore, NSFWDetectionProvider } from './providers/nsfw'
+import {
+  type OpenAIModerationConfig,
+  OpenAIModerationProvider,
+} from './providers/openai'
+import { getQuarantineManager, type QuarantineManager } from './quarantine'
 import { CSAMReportingService, type ReportingConfig } from './reporting'
+import {
+  getSanctionsScreener,
+  type SanctionsScreener,
+  type SanctionsScreenerConfig,
+} from './sanctions'
 import { recordMetric } from './transparency'
-import { HiveModerationProvider, type HiveProviderConfig } from './providers/hive'
-import { AWSRekognitionProvider, type AWSRekognitionConfig } from './providers/aws-rekognition'
-import { OpenAIModerationProvider, type OpenAIModerationConfig } from './providers/openai'
-import { SanctionsScreener, getSanctionsScreener, type SanctionsScreenerConfig } from './sanctions'
-import { OnChainSignalsService, getOnChainSignalsService, type OnChainSignalsConfig } from './on-chain-signals'
+import {
+  getWalletEnforcementManager,
+  type WalletEnforcementManager,
+} from './wallet-enforcement'
 
 async function sha256(buffer: Buffer): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(buffer))
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 export interface IntakeContext {
@@ -45,11 +80,11 @@ export interface IntakeContext {
   encryptedRef: string
   receivedAt: number
   ttlMs: number
-  
+
   uploaderAddress?: Address
   uploaderIp?: string
   userAgent?: string
-  
+
   // PoW challenge (for rate limiting)
   powDifficulty?: number
   powSolution?: string
@@ -60,22 +95,22 @@ export type IngestionAction = 'allow' | 'block' | 'quarantine' | 'tag_adult'
 export interface IngestionResult {
   action: IngestionAction
   contentHash: string
-  
+
   // Detection details
   hashMatch?: HashMatchResult
   faceAge?: FaceAgeResult
   nudity?: NudityResult
   routing?: RoutingDecision
-  
+
   // Action details
   quarantineId?: string
   evidenceBundleId?: string
   ncmecReportId?: string
   blockedReason?: string
-  
+
   // Perceptual hash (only for allowed non-youth content)
   perceptualHash?: string
-  
+
   // Processing
   processingTimeMs: number
 }
@@ -144,7 +179,9 @@ export class IngestionPipeline {
     this.policyEngine = getPolicyEngine()
     this.quarantineManager = getQuarantineManager()
     this.walletEnforcement = getWalletEnforcementManager()
-    this.reportingService = new CSAMReportingService(this.config.reporting ?? {})
+    this.reportingService = new CSAMReportingService(
+      this.config.reporting ?? {},
+    )
     this.sanctionsScreener = getSanctionsScreener(this.config.sanctions)
     this.onChainSignals = getOnChainSignalsService(this.config.onChainSignals)
 
@@ -193,7 +230,10 @@ export class IngestionPipeline {
    * - No pHash for suspected CSAM
    * - All decisions logged
    */
-  async processImage(buffer: Buffer, context: Partial<IntakeContext> = {}): Promise<IngestionResult> {
+  async processImage(
+    buffer: Buffer,
+    context: Partial<IntakeContext> = {},
+  ): Promise<IngestionResult> {
     const start = Date.now()
     const contentHash = await sha256(buffer)
 
@@ -208,7 +248,9 @@ export class IngestionPipeline {
 
     // STEP 0: Sanctions check (if wallet provided)
     if (this.config.enableSanctionsCheck && intake.uploaderAddress) {
-      const sanctionsResult = await this.sanctionsScreener.checkAddress(intake.uploaderAddress)
+      const sanctionsResult = await this.sanctionsScreener.checkAddress(
+        intake.uploaderAddress,
+      )
       if (sanctionsResult.isSanctioned) {
         logger.warn('[IngestionPipeline] Sanctioned wallet blocked', {
           address: intake.uploaderAddress,
@@ -239,10 +281,16 @@ export class IngestionPipeline {
     const nudityResult: NudityResult = {
       nudityScore: getNsfwScore(nsfwResult) ?? 0,
       explicitScore: getNsfwScore(nsfwResult) ?? 0,
-      isNSFW: nsfwResult.categories.some(c => c.category === 'adult' && c.score > 0.5),
-      isPorn: nsfwResult.categories.some(c => c.details?.includes('Porn')),
-      isHentai: nsfwResult.categories.some(c => c.details?.includes('Hentai')),
-      isSexy: nsfwResult.categories.some(c => c.details?.includes('Suggestive')),
+      isNSFW: nsfwResult.categories.some(
+        (c) => c.category === 'adult' && c.score > 0.5,
+      ),
+      isPorn: nsfwResult.categories.some((c) => c.details?.includes('Porn')),
+      isHentai: nsfwResult.categories.some((c) =>
+        c.details?.includes('Hentai'),
+      ),
+      isSexy: nsfwResult.categories.some((c) =>
+        c.details?.includes('Suggestive'),
+      ),
     }
 
     // STEP 4: Policy routing
@@ -297,7 +345,7 @@ export class IngestionPipeline {
     _buffer: Buffer, // Not used - content is quarantined by reference
     intake: IntakeContext,
     hashResult: HashMatchResult,
-    start: number
+    start: number,
   ): Promise<IngestionResult> {
     logger.warn('[IngestionPipeline] CSAM hash match detected', {
       hash: intake.sha256.slice(0, 16),
@@ -342,7 +390,10 @@ export class IngestionPipeline {
 
     // 4. Record NCMEC report ID on evidence
     if (report.authorityReportId) {
-      await this.quarantineManager.recordNCMECReport(evidenceBundle.id, report.authorityReportId)
+      await this.quarantineManager.recordNCMECReport(
+        evidenceBundle.id,
+        report.authorityReportId,
+      )
     }
 
     // 5. Block wallet (off-chain enforcement)
@@ -398,7 +449,7 @@ export class IngestionPipeline {
       faceAge?: FaceAgeResult
       nudity?: NudityResult
       routing: RoutingDecision
-    }
+    },
   ): Promise<IngestionResult> {
     logger.info('[IngestionPipeline] Content quarantined for review', {
       hash: intake.sha256.slice(0, 16),
@@ -450,7 +501,7 @@ export class IngestionPipeline {
       faceAge?: FaceAgeResult
       nudity?: NudityResult
       routing: RoutingDecision
-    }
+    },
   ): Promise<IngestionResult> {
     logger.info('[IngestionPipeline] Running external AI verification', {
       hash: intake.sha256.slice(0, 16),
@@ -530,12 +581,14 @@ export class IngestionPipeline {
    * Returns array of results from each configured provider.
    * Used for adult content verification only.
    */
-  private async runExternalAIChecks(buffer: Buffer): Promise<Array<{
-    provider: string
-    csamDetected: boolean
-    confidence: number
-    categories: string[]
-  }>> {
+  private async runExternalAIChecks(buffer: Buffer): Promise<
+    Array<{
+      provider: string
+      csamDetected: boolean
+      confidence: number
+      categories: string[]
+    }>
+  > {
     const results: Array<{
       provider: string
       csamDetected: boolean
@@ -547,15 +600,19 @@ export class IngestionPipeline {
     if (this.hiveProvider) {
       try {
         const hiveResult = await this.hiveProvider.moderateImage(buffer)
-        const csamCategory = hiveResult.categories.find(c => c.category === 'csam')
+        const csamCategory = hiveResult.categories.find(
+          (c) => c.category === 'csam',
+        )
         results.push({
           provider: 'hive',
           csamDetected: csamCategory !== undefined && csamCategory.score > 0.3,
           confidence: csamCategory?.score ?? 0,
-          categories: hiveResult.categories.map(c => c.category),
+          categories: hiveResult.categories.map((c) => c.category),
         })
       } catch (err) {
-        logger.warn('[IngestionPipeline] Hive AI check failed', { error: String(err) })
+        logger.warn('[IngestionPipeline] Hive AI check failed', {
+          error: String(err),
+        })
       }
     }
 
@@ -563,15 +620,19 @@ export class IngestionPipeline {
     if (this.awsProvider) {
       try {
         const awsResult = await this.awsProvider.moderateImage(buffer)
-        const csamCategory = awsResult.categories.find(c => c.category === 'csam')
+        const csamCategory = awsResult.categories.find(
+          (c) => c.category === 'csam',
+        )
         results.push({
           provider: 'aws-rekognition',
           csamDetected: csamCategory !== undefined && csamCategory.score > 0.3,
           confidence: csamCategory?.score ?? 0,
-          categories: awsResult.categories.map(c => c.category),
+          categories: awsResult.categories.map((c) => c.category),
         })
       } catch (err) {
-        logger.warn('[IngestionPipeline] AWS Rekognition check failed', { error: String(err) })
+        logger.warn('[IngestionPipeline] AWS Rekognition check failed', {
+          error: String(err),
+        })
       }
     }
 
@@ -590,7 +651,7 @@ export class IngestionPipeline {
       faceAge?: FaceAgeResult
       nudity?: NudityResult
       routing: RoutingDecision
-    }
+    },
   ): Promise<IngestionResult> {
     // Compute perceptual hash for clean content (for retroactive enforcement)
     let perceptualHash: string | undefined
@@ -627,7 +688,9 @@ export class IngestionPipeline {
     action: IngestionAction,
     contentHash: string,
     start: number,
-    details: Partial<Omit<IngestionResult, 'action' | 'contentHash' | 'processingTimeMs'>>
+    details: Partial<
+      Omit<IngestionResult, 'action' | 'contentHash' | 'processingTimeMs'>
+    >,
   ): IngestionResult {
     return {
       action,
@@ -666,20 +729,32 @@ export class IngestionPipeline {
 // Singleton
 let instance: IngestionPipeline | null = null
 
-export function getIngestionPipeline(config?: IngestionPipelineConfig): IngestionPipeline {
+export function getIngestionPipeline(
+  config?: IngestionPipelineConfig,
+): IngestionPipeline {
   if (!instance) {
     // Use environment variables for external providers if not explicitly configured
     const finalConfig: IngestionPipelineConfig = {
       ...config,
-      hive: config?.hive ?? (process.env.HIVE_API_KEY ? { apiKey: process.env.HIVE_API_KEY } : undefined),
-      awsRekognition: config?.awsRekognition ?? (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-        ? {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            region: process.env.AWS_REGION ?? 'us-east-1',
-          }
-        : undefined),
-      openai: config?.openai ?? (process.env.OPENAI_API_KEY ? { apiKey: process.env.OPENAI_API_KEY } : undefined),
+      hive:
+        config?.hive ??
+        (process.env.HIVE_API_KEY
+          ? { apiKey: process.env.HIVE_API_KEY }
+          : undefined),
+      awsRekognition:
+        config?.awsRekognition ??
+        (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+          ? {
+              accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+              region: process.env.AWS_REGION ?? 'us-east-1',
+            }
+          : undefined),
+      openai:
+        config?.openai ??
+        (process.env.OPENAI_API_KEY
+          ? { apiKey: process.env.OPENAI_API_KEY }
+          : undefined),
     }
     instance = new IngestionPipeline(finalConfig)
   }
@@ -689,4 +764,3 @@ export function getIngestionPipeline(config?: IngestionPipelineConfig): Ingestio
 export function resetIngestionPipeline(): void {
   instance = null
 }
-

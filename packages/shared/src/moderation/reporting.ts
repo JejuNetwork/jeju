@@ -18,16 +18,16 @@
 
 import type { Address } from 'viem'
 import { logger } from '../logger'
-import type { ModerationCategory, ModerationResult } from './types'
 import {
-  saveCSAMReport,
-  updateCSAMReportStatus,
-  getCSAMReports as getPersistedReports,
   getCSAMReportStats,
-  saveTrustedFlagger,
+  getCSAMReports as getPersistedReports,
   getTrustedFlaggerByApiKey,
   listTrustedFlaggers,
+  saveCSAMReport,
+  saveTrustedFlagger,
+  updateCSAMReportStatus,
 } from './persistence'
+import type { ModerationCategory, ModerationResult } from './types'
 
 export interface CSAMReport {
   /** Unique report ID (internal) */
@@ -110,12 +110,18 @@ export class CSAMReportingService {
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    const hasNcmec = !!(this.config.ncmec?.username && this.config.ncmec?.password)
+    const hasNcmec = !!(
+      this.config.ncmec?.username && this.config.ncmec?.password
+    )
     const hasIwf = !!this.config.iwf?.apiKey
 
     if (!hasNcmec && !hasIwf && !this.config.dryRun) {
-      logger.error('[CSAMReporting] NO REPORTING CONFIGURED - CSAM detection will be logged but NOT reported')
-      logger.error('[CSAMReporting] Set NCMEC_USERNAME/NCMEC_PASSWORD or IWF_API_KEY for mandatory reporting')
+      logger.error(
+        '[CSAMReporting] NO REPORTING CONFIGURED - CSAM detection will be logged but NOT reported',
+      )
+      logger.error(
+        '[CSAMReporting] Set NCMEC_USERNAME/NCMEC_PASSWORD or IWF_API_KEY for mandatory reporting',
+      )
     }
 
     this.initialized = true
@@ -176,8 +182,10 @@ export class CSAMReportingService {
 
     // Notify callback
     if (this.config.onReport) {
-      await this.config.onReport(report).catch(err => {
-        logger.error('[CSAMReporting] onReport callback failed', { error: String(err) })
+      await this.config.onReport(report).catch((err) => {
+        logger.error('[CSAMReporting] onReport callback failed', {
+          error: String(err),
+        })
       })
     }
 
@@ -185,7 +193,9 @@ export class CSAMReportingService {
     if (!this.config.dryRun) {
       await this.submitToAuthorities(report)
     } else {
-      logger.info('[CSAMReporting] Dry run - report NOT submitted', { reportId: report.reportId })
+      logger.info('[CSAMReporting] Dry run - report NOT submitted', {
+        reportId: report.reportId,
+      })
       report.status = 'acknowledged'
     }
 
@@ -223,10 +233,18 @@ export class CSAMReportingService {
     // Content is still blocked, but not reported (compliance issue)
     report.status = 'failed'
     report.error = 'No reporting authority configured'
-    await updateCSAMReportStatus(report.reportId, 'failed', undefined, report.error)
-    logger.error('[CSAMReporting] COMPLIANCE VIOLATION: CSAM detected but no authority configured', {
-      reportId: report.reportId,
-    })
+    await updateCSAMReportStatus(
+      report.reportId,
+      'failed',
+      undefined,
+      report.error,
+    )
+    logger.error(
+      '[CSAMReporting] COMPLIANCE VIOLATION: CSAM detected but no authority configured',
+      {
+        reportId: report.reportId,
+      },
+    )
   }
 
   /**
@@ -248,9 +266,10 @@ export class CSAMReportingService {
     // NCMEC CyberTipline API endpoints
     // Production: https://report.cybertipline.org/
     // Test: https://exttest.cybertipline.org/
-    const baseUrl = config.environment === 'production'
-      ? 'https://report.cybertipline.org/ispws/report'
-      : 'https://exttest.cybertipline.org/ispws/report'
+    const baseUrl =
+      config.environment === 'production'
+        ? 'https://report.cybertipline.org/ispws/report'
+        : 'https://exttest.cybertipline.org/ispws/report'
 
     // NCMEC CyberTipline API uses SOAP/XML
     const reportXml = this.buildNCMECReport(report)
@@ -265,8 +284,8 @@ export class CSAMReportingService {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
-        'Authorization': `Basic ${btoa(`${config.username}:${config.password}`)}`,
-        'SOAPAction': 'submitReport',
+        Authorization: `Basic ${btoa(`${config.username}:${config.password}`)}`,
+        SOAPAction: 'submitReport',
       },
       body: reportXml,
     })
@@ -279,7 +298,9 @@ export class CSAMReportingService {
         statusText: response.statusText,
         response: text.slice(0, 500),
       })
-      throw new Error(`NCMEC API error: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `NCMEC API error: ${response.status} ${response.statusText}`,
+      )
     }
 
     const result = await response.text()
@@ -293,7 +314,11 @@ export class CSAMReportingService {
     report.status = 'submitted'
 
     // Persist status update
-    await updateCSAMReportStatus(report.reportId, 'submitted', report.authorityReportId)
+    await updateCSAMReportStatus(
+      report.reportId,
+      'submitted',
+      report.authorityReportId,
+    )
 
     logger.info('[CSAMReporting] Report submitted to NCMEC', {
       reportId: report.reportId,
@@ -317,11 +342,15 @@ export class CSAMReportingService {
     </reportingEsp>
   </reporter>
   <reportedPerson>
-    ${report.uploaderAddress ? `<ipCaptureEvent>
+    ${
+      report.uploaderAddress
+        ? `<ipCaptureEvent>
       <ipAddress>${report.uploaderIp ?? 'unknown'}</ipAddress>
       <eventName>Upload</eventName>
       <dateTime>${new Date(report.location.timestamp).toISOString()}</dateTime>
-    </ipCaptureEvent>` : ''}
+    </ipCaptureEvent>`
+        : ''
+    }
     ${report.uploaderAddress ? `<additionalInfo>Blockchain address: ${report.uploaderAddress}</additionalInfo>` : ''}
   </reportedPerson>
   <uploadedFiles>
@@ -375,7 +404,7 @@ export class CSAMReportingService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
         'X-Member-ID': config.memberId,
       },
       body: JSON.stringify({
@@ -395,11 +424,13 @@ export class CSAMReportingService {
           url: report.location.path,
           timestamp: new Date(report.location.timestamp).toISOString(),
         },
-        uploaderInfo: report.uploaderAddress ? {
-          identifier: report.uploaderAddress,
-          ipAddress: report.uploaderIp,
-          userAgent: report.userAgent,
-        } : undefined,
+        uploaderInfo: report.uploaderAddress
+          ? {
+              identifier: report.uploaderAddress,
+              ipAddress: report.uploaderIp,
+              userAgent: report.userAgent,
+            }
+          : undefined,
         internalReportId: report.reportId,
       }),
     })
@@ -412,16 +443,25 @@ export class CSAMReportingService {
         statusText: response.statusText,
         response: text.slice(0, 500),
       })
-      throw new Error(`IWF API error: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `IWF API error: ${response.status} ${response.statusText}`,
+      )
     }
 
-    const result = await response.json() as { reportId: string; status: string }
+    const result = (await response.json()) as {
+      reportId: string
+      status: string
+    }
     report.authorityReportId = result.reportId
     report.reportedAt = Date.now()
     report.status = 'submitted'
 
     // Persist status update
-    await updateCSAMReportStatus(report.reportId, 'submitted', report.authorityReportId)
+    await updateCSAMReportStatus(
+      report.reportId,
+      'submitted',
+      report.authorityReportId,
+    )
 
     logger.info('[CSAMReporting] Report submitted to IWF', {
       reportId: report.reportId,
@@ -490,14 +530,38 @@ Attempting to access illegal content is a criminal offense.
 
   support: {
     uk: [
-      { name: 'Stop It Now UK', phone: '0808 1000 900', url: 'https://www.stopitnow.org.uk/' },
-      { name: 'Childline', phone: '0800 1111', url: 'https://www.childline.org.uk/' },
-      { name: 'NSPCC', phone: '0808 800 5000', url: 'https://www.nspcc.org.uk/' },
+      {
+        name: 'Stop It Now UK',
+        phone: '0808 1000 900',
+        url: 'https://www.stopitnow.org.uk/',
+      },
+      {
+        name: 'Childline',
+        phone: '0800 1111',
+        url: 'https://www.childline.org.uk/',
+      },
+      {
+        name: 'NSPCC',
+        phone: '0808 800 5000',
+        url: 'https://www.nspcc.org.uk/',
+      },
     ],
     us: [
-      { name: 'Stop It Now USA', phone: '1-888-773-8368', url: 'https://www.stopitnow.org/' },
-      { name: 'NCMEC CyberTipline', phone: '1-800-843-5678', url: 'https://www.missingkids.org/' },
-      { name: 'Childhelp', phone: '1-800-422-4453', url: 'https://www.childhelp.org/' },
+      {
+        name: 'Stop It Now USA',
+        phone: '1-888-773-8368',
+        url: 'https://www.stopitnow.org/',
+      },
+      {
+        name: 'NCMEC CyberTipline',
+        phone: '1-800-843-5678',
+        url: 'https://www.missingkids.org/',
+      },
+      {
+        name: 'Childhelp',
+        phone: '1-800-422-4453',
+        url: 'https://www.childhelp.org/',
+      },
     ],
   },
 }
@@ -535,16 +599,24 @@ export interface TrustedFlagger {
   jurisdiction?: string[]
 }
 
-export async function registerTrustedFlagger(flagger: TrustedFlagger): Promise<void> {
+export async function registerTrustedFlagger(
+  flagger: TrustedFlagger,
+): Promise<void> {
   await saveTrustedFlagger(flagger)
-  logger.info('[TrustedFlagger] Registered', { id: flagger.id, name: flagger.name })
+  logger.info('[TrustedFlagger] Registered', {
+    id: flagger.id,
+    name: flagger.name,
+  })
 }
 
-export async function getTrustedFlagger(apiKey: string): Promise<TrustedFlagger | undefined> {
+export async function getTrustedFlagger(
+  apiKey: string,
+): Promise<TrustedFlagger | undefined> {
   return getTrustedFlaggerByApiKey(apiKey)
 }
 
-export async function getAllTrustedFlaggers(): Promise<Omit<TrustedFlagger, 'apiKey'>[]> {
+export async function getAllTrustedFlaggers(): Promise<
+  Omit<TrustedFlagger, 'apiKey'>[]
+> {
   return listTrustedFlaggers()
 }
-

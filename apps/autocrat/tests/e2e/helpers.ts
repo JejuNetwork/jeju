@@ -21,9 +21,18 @@ interface CacheEntry {
   route: string
 }
 
-const IGNORED_ERRORS = ['favicon', 'Failed to load', 'net::ERR', 'status of 4', 'ResizeObserver']
+const IGNORED_ERRORS = [
+  'favicon',
+  'Failed to load',
+  'net::ERR',
+  'status of 4',
+  'ResizeObserver',
+]
 
-export function setupErrorCapture(page: Page): { errors: string[]; hasKnownBug: boolean } {
+export function setupErrorCapture(page: Page): {
+  errors: string[]
+  hasKnownBug: boolean
+} {
   const errors: string[] = []
   let hasKnownBug = false
 
@@ -42,11 +51,19 @@ export function setupErrorCapture(page: Page): { errors: string[]; hasKnownBug: 
     errors.push(`PageError: ${error.message}`)
   })
 
-  return { errors, get hasKnownBug() { return hasKnownBug } }
+  return {
+    errors,
+    get hasKnownBug() {
+      return hasKnownBug
+    },
+  }
 }
 
 let verificationCache: Record<string, CacheEntry> = {}
-let aiVerifier: { verifyImage: (path: string, desc: string) => Promise<AIVerificationResult>; isLLMConfigured: () => boolean } | null = null
+let aiVerifier: {
+  verifyImage: (path: string, desc: string) => Promise<AIVerificationResult>
+  isLLMConfigured: () => boolean
+} | null = null
 
 export function initAIVerifier(cacheFile: string): void {
   try {
@@ -59,7 +76,10 @@ export function initAIVerifier(cacheFile: string): void {
 
   import('@jejunetwork/tests/ai')
     .then((ai) => {
-      aiVerifier = { verifyImage: ai.verifyImage, isLLMConfigured: ai.isLLMConfigured }
+      aiVerifier = {
+        verifyImage: ai.verifyImage,
+        isLLMConfigured: ai.isLLMConfigured,
+      }
     })
     .catch(() => {})
 }
@@ -70,15 +90,26 @@ export function saveVerificationCache(cacheFile: string): void {
   } catch {}
 }
 
-export async function verifyScreenshot(path: string, desc: string, route: string): Promise<void> {
+export async function verifyScreenshot(
+  path: string,
+  desc: string,
+  route: string,
+): Promise<void> {
   if (!aiVerifier?.isLLMConfigured()) return
 
-  const hash = createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 16)
+  const hash = createHash('sha256')
+    .update(readFileSync(path))
+    .digest('hex')
+    .slice(0, 16)
   const cached = verificationCache[hash]
-  const result = cached?.result ?? await aiVerifier.verifyImage(path, desc)
+  const result = cached?.result ?? (await aiVerifier.verifyImage(path, desc))
 
   if (!cached) {
-    verificationCache[hash] = { result, timestamp: new Date().toISOString(), route }
+    verificationCache[hash] = {
+      result,
+      timestamp: new Date().toISOString(),
+      route,
+    }
   }
 
   if (result.quality === 'broken') throw new Error('Page BROKEN')
@@ -89,7 +120,7 @@ export async function navigateToDAO(page: Page): Promise<boolean> {
   await page.waitForTimeout(1000)
 
   const daoCards = page.locator('a[href*="/dao/"]')
-  if (await daoCards.count() === 0) return false
+  if ((await daoCards.count()) === 0) return false
 
   await daoCards.first().click()
   await page.waitForURL('**/dao/**')
@@ -98,17 +129,17 @@ export async function navigateToDAO(page: Page): Promise<boolean> {
 }
 
 export async function navigateToGovernance(page: Page): Promise<boolean> {
-  if (!await navigateToDAO(page)) return false
+  if (!(await navigateToDAO(page))) return false
   await page.click('button:has-text("Governance")')
   await page.waitForTimeout(500)
   return true
 }
 
 export async function navigateToProposal(page: Page): Promise<boolean> {
-  if (!await navigateToGovernance(page)) return false
+  if (!(await navigateToGovernance(page))) return false
 
   const proposalCards = page.locator('a[href*="/proposal/"]')
-  if (await proposalCards.count() === 0) return false
+  if ((await proposalCards.count()) === 0) return false
 
   await proposalCards.first().click()
   await page.waitForURL('**/proposal/**')

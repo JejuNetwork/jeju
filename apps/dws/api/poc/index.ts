@@ -95,7 +95,7 @@ export async function getAgentPoCStatus(
 
 /**
  * Check if an agent's TEE attestation is verified.
- * 
+ *
  * @throws Error if PoC system is not initialized (POC_SIGNER_KEY not set)
  * @returns true if agent has valid PoC verification, false if verification failed/expired
  */
@@ -108,7 +108,7 @@ export async function isAgentPoCVerified(agentId: bigint): Promise<boolean> {
 
 /**
  * Check if an agent needs re-verification (expired or never verified).
- * 
+ *
  * @throws Error if PoC system is not initialized
  * @returns true if agent needs verification, false if current verification is valid
  */

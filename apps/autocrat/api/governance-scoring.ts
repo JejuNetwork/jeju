@@ -52,7 +52,7 @@ export interface ProposalFactors {
 export interface DecisionScore {
   // Final decision
   approved: boolean
-  
+
   // Component scores (all objective, trackable)
   boardScore: number // 0-100: Weighted board recommendation
   qualityScore: number // 0-100: Proposal quality
@@ -60,11 +60,11 @@ export interface DecisionScore {
   riskAdjustedScore: number // 0-100: Reward minus risk
   alignmentScore: number // 0-100: Charter alignment (measured)
   confidenceScore: number // 0-100: Calibrated confidence
-  
+
   // Weighted final score
   finalScore: number // 0-100: The actual decision basis
   threshold: number // Dynamic threshold for this DAO/type
-  
+
   // Audit trail
   factors: ProposalFactors
   weights: DecisionWeights
@@ -87,7 +87,12 @@ export interface OutcomeRecord {
   daoId: string
   approved: boolean
   predictedScore: number
-  executionStatus: 'pending' | 'executing' | 'completed' | 'failed' | 'cancelled'
+  executionStatus:
+    | 'pending'
+    | 'executing'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
   actualOutcome?: 'success' | 'partial' | 'failure'
   outcomeScore?: number // 0-100: How well did it achieve stated goals?
   recordedAt: number
@@ -111,11 +116,11 @@ export interface CalibrationData {
 const DEFAULT_WEIGHTS: DecisionWeights = {
   board: 0.25, // Board votes are advisory, not deterministic
   quality: 0.15, // Proposal structure and clarity
-  feasibility: 0.20, // Can it actually be done?
+  feasibility: 0.2, // Can it actually be done?
   risk: 0.15, // Risk-adjusted (negative factor)
-  alignment: 0.10, // Charter alignment
+  alignment: 0.1, // Charter alignment
   stake: 0.05, // Skin in the game signals
-  trackRecord: 0.10, // Proposer history
+  trackRecord: 0.1, // Proposer history
 }
 
 const BASE_THRESHOLD = 60 // Default approval threshold
@@ -189,13 +194,14 @@ export function analyzeBoardVotes(votes: AgentVote[]): {
 
   // Board score: Not just majority, but strength-weighted
   // A 3-2 split with low confidence is different from 5-0 with high confidence
-  const baseScore = totalWeight > 0
-    ? ((weightedApprove - weightedReject) / totalWeight + 1) * 50
-    : 50
+  const baseScore =
+    totalWeight > 0
+      ? ((weightedApprove - weightedReject) / totalWeight + 1) * 50
+      : 50
 
   // Adjust for consensus strength
   const score = Math.round(
-    baseScore * (0.5 + 0.5 * consensusStrength) // Weak consensus = closer to 50
+    baseScore * (0.5 + 0.5 * consensusStrength), // Weak consensus = closer to 50
   )
 
   return {
@@ -240,9 +246,10 @@ export function scoreAlignment(
       matches.push(`Mission: "${keyword}"`)
     }
   }
-  const missionScore = criteria.missionKeywords.length > 0
-    ? (missionMatches / criteria.missionKeywords.length) * 100
-    : 50
+  const missionScore =
+    criteria.missionKeywords.length > 0
+      ? (missionMatches / criteria.missionKeywords.length) * 100
+      : 50
 
   // Check for prohibited actions (negative)
   let prohibitedViolations = 0
@@ -262,12 +269,13 @@ export function scoreAlignment(
       matches.push(`Process: "${process}"`)
     }
   }
-  const processScore = criteria.requiredProcesses.length > 0
-    ? (processMatches / criteria.requiredProcesses.length) * 100
-    : 50
+  const processScore =
+    criteria.requiredProcesses.length > 0
+      ? (processMatches / criteria.requiredProcesses.length) * 100
+      : 50
 
   // Final alignment score
-  const baseScore = (missionScore * 0.5 + processScore * 0.5)
+  const baseScore = missionScore * 0.5 + processScore * 0.5
   const score = Math.max(0, Math.min(100, baseScore - prohibitedPenalty))
 
   return { score: Math.round(score), matches, violations }
@@ -290,10 +298,11 @@ export function calculateCalibratedConfidence(
     riskLevel: number // 0-100: Higher = more uncertain
   },
 ): number {
-  const { dataCompleteness, consensusStrength, precedentAvailable, riskLevel } = currentFactors
+  const { dataCompleteness, consensusStrength, precedentAvailable, riskLevel } =
+    currentFactors
 
   // Base confidence from data quality
-  let confidence = 50 + (dataCompleteness * 30)
+  let confidence = 50 + dataCompleteness * 30
 
   // Adjust for consensus (high agreement = more confident)
   confidence += consensusStrength * 15
@@ -309,7 +318,8 @@ export function calculateCalibratedConfidence(
   // Historical calibration adjustment
   if (calibration && calibration.totalDecisions >= 10) {
     // If we've been overconfident, reduce; if underconfident, increase
-    const calibrationAdjust = (calibration.avgActualOutcome - calibration.avgPredictedScore) / 2
+    const calibrationAdjust =
+      (calibration.avgActualOutcome - calibration.avgPredictedScore) / 2
     confidence += calibrationAdjust
   }
 
@@ -334,20 +344,21 @@ export function calculateAdaptiveThreshold(
 ): number {
   // Base threshold by proposal type
   const typeThresholds: Record<string, number> = {
-    'TREASURY': 70, // Money movements need higher bar
-    'CODE_CHANGE': 75, // Code changes are risky
-    'PARAMETER_CHANGE': 65,
-    'MEMBER_APPLICATION': 55,
-    'FUNDING': 65,
-    'OPINION': 45, // Opinions are low-risk
-    'SUGGESTION': 50,
+    TREASURY: 70, // Money movements need higher bar
+    CODE_CHANGE: 75, // Code changes are risky
+    PARAMETER_CHANGE: 65,
+    MEMBER_APPLICATION: 55,
+    FUNDING: 65,
+    OPINION: 45, // Opinions are low-risk
+    SUGGESTION: 50,
   }
 
   let threshold = typeThresholds[proposalType] ?? BASE_THRESHOLD
 
   // Adjust based on calibration (if we've been approving bad proposals, raise the bar)
   if (calibration && calibration.totalDecisions >= 20) {
-    const successRate = calibration.accurateDecisions / calibration.totalDecisions
+    const successRate =
+      calibration.accurateDecisions / calibration.totalDecisions
     if (successRate < 0.6) {
       threshold += 10 // Too many failures, be more cautious
     } else if (successRate > 0.85) {
@@ -383,7 +394,10 @@ export function makeObjectiveDecision(
 
   // 3. Calibrated confidence
   const confidence = calculateCalibratedConfidence(calibration, {
-    dataCompleteness: Math.min(1, factors.claimsVerified / Math.max(1, factors.claimsVerified + 5)),
+    dataCompleteness: Math.min(
+      1,
+      factors.claimsVerified / Math.max(1, factors.claimsVerified + 5),
+    ),
     consensusStrength: boardAnalysis.consensusStrength,
     precedentAvailable: factors.similarProposalOutcomes > 0,
     riskLevel: factors.riskScore,
@@ -393,19 +407,24 @@ export function makeObjectiveDecision(
   const qualityScore = (factors.structureScore + factors.specificityScore) / 2
 
   // 6. Stake signal (logarithmic - diminishing returns)
-  const stakeSignal = Math.min(100, Math.log10(Number(factors.totalStaked) / 1e18 + 1) * 20 + factors.uniqueBackers * 2)
+  const stakeSignal = Math.min(
+    100,
+    Math.log10(Number(factors.totalStaked) / 1e18 + 1) * 20 +
+      factors.uniqueBackers * 2,
+  )
 
   // 7. Calculate weighted final score
-  const riskAdjustedFeasibility = factors.feasibilityScore * (1 - factors.riskScore / 200)
+  const riskAdjustedFeasibility =
+    factors.feasibilityScore * (1 - factors.riskScore / 200)
 
   const finalScore = Math.round(
     boardAnalysis.score * weights.board +
-    qualityScore * weights.quality +
-    riskAdjustedFeasibility * weights.feasibility +
-    (100 - factors.riskScore) * weights.risk + // Invert risk (lower risk = higher score)
-    alignment.score * weights.alignment +
-    stakeSignal * weights.stake +
-    factors.proposerTrackRecord * weights.trackRecord
+      qualityScore * weights.quality +
+      riskAdjustedFeasibility * weights.feasibility +
+      (100 - factors.riskScore) * weights.risk + // Invert risk (lower risk = higher score)
+      alignment.score * weights.alignment +
+      stakeSignal * weights.stake +
+      factors.proposerTrackRecord * weights.trackRecord,
   )
 
   // 8. Dynamic threshold
@@ -456,13 +475,17 @@ function generateObjectiveReasoning(
 ): string {
   const lines: string[] = []
 
-  lines.push(`Decision: ${approved ? 'APPROVED' : 'REJECTED'} (${score}/${threshold})`)
+  lines.push(
+    `Decision: ${approved ? 'APPROVED' : 'REJECTED'} (${score}/${threshold})`,
+  )
   lines.push('')
 
   // Board summary
   const voteCount = factors.boardVotes.length
-  const approves = factors.boardVotes.filter(v => v.vote === 'APPROVE').length
-  lines.push(`Board: ${approves}/${voteCount} approve (strength: ${Math.round(board.consensusStrength * 100)}%)`)
+  const approves = factors.boardVotes.filter((v) => v.vote === 'APPROVE').length
+  lines.push(
+    `Board: ${approves}/${voteCount} approve (strength: ${Math.round(board.consensusStrength * 100)}%)`,
+  )
 
   if (board.concerns.length > 0) {
     lines.push(`Concerns: ${board.concerns.slice(0, 2).join('; ')}`)
@@ -481,8 +504,12 @@ function generateObjectiveReasoning(
   }
 
   if (factors.claimsVerified > 0) {
-    const verifyRate = Math.round((factors.claimsValid / factors.claimsVerified) * 100)
-    lines.push(`• Claims verified: ${factors.claimsValid}/${factors.claimsVerified} (${verifyRate}%)`)
+    const verifyRate = Math.round(
+      (factors.claimsValid / factors.claimsVerified) * 100,
+    )
+    lines.push(
+      `• Claims verified: ${factors.claimsValid}/${factors.claimsVerified} (${verifyRate}%)`,
+    )
   }
 
   return lines.join('\n')
@@ -527,8 +554,12 @@ export function updateCalibration(
   }
 
   const newTotal = base.totalDecisions + 1
-  const newAvgPredicted = (base.avgPredictedScore * base.totalDecisions + outcome.predictedScore) / newTotal
-  const newAvgActual = (base.avgActualOutcome * base.totalDecisions + outcome.outcomeScore) / newTotal
+  const newAvgPredicted =
+    (base.avgPredictedScore * base.totalDecisions + outcome.predictedScore) /
+    newTotal
+  const newAvgActual =
+    (base.avgActualOutcome * base.totalDecisions + outcome.outcomeScore) /
+    newTotal
 
   // Was our prediction accurate? (within 20 points of actual)
   const accurate = Math.abs(outcome.predictedScore - outcome.outcomeScore) <= 20
@@ -551,14 +582,16 @@ export function updateCalibration(
 export const ProposalFactorsSchema = z.object({
   proposalId: z.string(),
   daoId: z.string(),
-  boardVotes: z.array(z.object({
-    role: z.string(),
-    agentId: z.string(),
-    vote: z.enum(['APPROVE', 'REJECT', 'ABSTAIN']),
-    reasoning: z.string(),
-    confidence: z.number(),
-    timestamp: z.number(),
-  })),
+  boardVotes: z.array(
+    z.object({
+      role: z.string(),
+      agentId: z.string(),
+      vote: z.enum(['APPROVE', 'REJECT', 'ABSTAIN']),
+      reasoning: z.string(),
+      confidence: z.number(),
+      timestamp: z.number(),
+    }),
+  ),
   boardConsensusStrength: z.number(),
   boardDissent: z.array(z.string()),
   structureScore: z.number(),
@@ -606,7 +639,13 @@ export const OutcomeRecordSchema = z.object({
   daoId: z.string(),
   approved: z.boolean(),
   predictedScore: z.number(),
-  executionStatus: z.enum(['pending', 'executing', 'completed', 'failed', 'cancelled']),
+  executionStatus: z.enum([
+    'pending',
+    'executing',
+    'completed',
+    'failed',
+    'cancelled',
+  ]),
   actualOutcome: z.enum(['success', 'partial', 'failure']).optional(),
   outcomeScore: z.number().optional(),
   recordedAt: z.number(),
@@ -622,4 +661,3 @@ export const CalibrationDataSchema = z.object({
   calibrationError: z.number(),
   lastUpdated: z.number(),
 })
-

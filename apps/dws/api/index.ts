@@ -27,11 +27,11 @@ export {
   type DatabaseEngine,
   type DatabaseInstance,
   type DatabasePlan,
-  type SQLitConnection,
   getManagedDatabaseService,
   ManagedDatabaseService,
   type PostgresConnection,
   type Replica,
+  type SQLitConnection,
   UpdateDatabaseSchema,
   type UsageMetrics,
 } from './database/managed-service'

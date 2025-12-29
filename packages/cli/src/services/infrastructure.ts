@@ -6,11 +6,11 @@ import { join } from 'node:path'
 import {
   CORE_PORTS,
   getDWSUrl,
-  getSQLitBlockProducerUrl,
   getFarcasterHubUrl,
   getIpfsApiUrl,
   getL2RpcUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
   INFRA_PORTS,
 } from '@jejunetwork/config'
 import { execa, type ResultPromise } from 'execa'

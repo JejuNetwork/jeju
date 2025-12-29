@@ -1,5 +1,5 @@
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit, type QueryParam } from '@jejunetwork/db'
+import { getSQLit, type QueryParam, type SQLitClient } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'

@@ -11,7 +11,7 @@ import { Database } from 'bun:sqlite'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { cors } from '@elysiajs/cors'
-import { getSQLitPort, getLocalhostHost } from '@jejunetwork/config'
+import { getLocalhostHost, getSQLitPort } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 
 const PORT = getSQLitPort()

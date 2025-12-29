@@ -3,7 +3,7 @@
  */
 
 import type { QueryParam } from '@jejunetwork/db'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { DataSource, EntityMetadata } from 'typeorm'
 import { config } from '../config'
 

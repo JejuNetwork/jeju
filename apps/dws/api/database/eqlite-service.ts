@@ -1,6 +1,6 @@
 import {
-  getSQLitBlockProducerUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
   INFRA_PORTS,
 } from '@jejunetwork/config'
 import type { Address } from 'viem'

@@ -2,12 +2,12 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getDWSUrl,
-  getSQLitBlockProducerUrl,
   getFarcasterHubUrl,
   getIpfsGatewayUrl,
   getL1RpcUrl,
   getL2RpcUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { Command } from 'commander'
 import { execa } from 'execa'

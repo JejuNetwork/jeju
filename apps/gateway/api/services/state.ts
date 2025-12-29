@@ -1,5 +1,5 @@
 import { getCurrentNetwork, isProductionEnv } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type {
   Intent,

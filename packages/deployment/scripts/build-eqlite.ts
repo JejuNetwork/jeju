@@ -46,9 +46,7 @@ async function checkGoInstalled(): Promise<void> {
   if (result.exitCode !== 0) {
     throw new Error('Go is not installed or not in PATH')
   }
-  console.log(
-    `[SQLit Build] ${new TextDecoder().decode(result.stdout).trim()}`,
-  )
+  console.log(`[SQLit Build] ${new TextDecoder().decode(result.stdout).trim()}`)
 }
 
 async function ensureModulesDownloaded(): Promise<void> {

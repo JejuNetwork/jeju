@@ -8,12 +8,12 @@
 import { randomBytes } from 'node:crypto'
 import {
   getCurrentNetwork,
-  getSQLitUrl,
   getLocalhostHost,
+  getSQLitUrl,
   isProductionEnv,
   isTestMode,
 } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { ServerWebSocket } from 'bun'
 import { type Subprocess, spawn } from 'bun'

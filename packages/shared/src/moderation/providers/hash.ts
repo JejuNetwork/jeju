@@ -14,7 +14,13 @@
  * Set CSAM_HASH_LIST_PATH or MALWARE_HASH_LIST_PATH env vars
  */
 
-import type { CategoryScore, HashMatch, ModerationCategory, ModerationProvider, ModerationResult } from '../types'
+import type {
+  CategoryScore,
+  HashMatch,
+  ModerationCategory,
+  ModerationProvider,
+  ModerationResult,
+} from '../types'
 
 export interface HashEntry {
   hash: string
@@ -31,7 +37,11 @@ export interface HashDatabaseConfig {
 }
 
 export interface HashProviderConfig extends HashDatabaseConfig {
-  preloadedHashes?: Array<{ hash: string; category: ModerationCategory; description?: string }>
+  preloadedHashes?: Array<{
+    hash: string
+    category: ModerationCategory
+    description?: string
+  }>
   /** Enable perceptual hashing for similar image detection (default: true) */
   enablePHash?: boolean
   /** Hamming distance threshold for pHash matches (default: 10) */
@@ -50,7 +60,9 @@ const perceptualHashes = new Map<string, HashEntry>()
 
 async function sha256(buffer: Buffer): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(buffer))
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 /**
@@ -94,11 +106,22 @@ function isImage(buf: Buffer): boolean {
   // JPEG
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true
   // PNG
-  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47)
+    return true
   // GIF
   if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return true
   // WebP
-  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return true
+  if (
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  )
+    return true
   return false
 }
 
@@ -106,7 +129,11 @@ function isImage(buf: Buffer): boolean {
  * Extract grayscale samples from image buffer
  * Simple downsampling based on buffer position (fast but approximate)
  */
-function extractGrayscaleSamples(buffer: Buffer, width: number, height: number): number[] | null {
+function extractGrayscaleSamples(
+  buffer: Buffer,
+  width: number,
+  height: number,
+): number[] | null {
   const samples: number[] = []
   const targetSize = width * height
   const step = Math.max(1, Math.floor(buffer.length / targetSize))
@@ -164,7 +191,11 @@ export class HashModerationProvider {
       await this.loadHashFile(this.config.csamHashListPath, 'csam', csamHashes)
     }
     if (this.config.malwareHashListPath) {
-      await this.loadHashFile(this.config.malwareHashListPath, 'malware', malwareHashes)
+      await this.loadHashFile(
+        this.config.malwareHashListPath,
+        'malware',
+        malwareHashes,
+      )
     }
     if (this.config.preloadedHashes) {
       for (const e of this.config.preloadedHashes) {
@@ -173,12 +204,18 @@ export class HashModerationProvider {
     }
 
     this.initialized = true
-    console.log(`[HashProvider] Loaded ${csamHashes.size} CSAM, ${malwareHashes.size} malware, ${internalHashes.size} internal, ${perceptualHashes.size} pHash`)
+    console.log(
+      `[HashProvider] Loaded ${csamHashes.size} CSAM, ${malwareHashes.size} malware, ${internalHashes.size} internal, ${perceptualHashes.size} pHash`,
+    )
   }
 
-  private async loadHashFile(path: string, category: ModerationCategory, target: Map<string, HashEntry>): Promise<void> {
+  private async loadHashFile(
+    path: string,
+    category: ModerationCategory,
+    target: Map<string, HashEntry>,
+  ): Promise<void> {
     try {
-      const fs = await import('fs/promises')
+      const fs = await import('node:fs/promises')
       const content = await fs.readFile(path, 'utf-8')
       for (const line of content.split('\n')) {
         const hash = line.trim().toLowerCase()
@@ -197,7 +234,11 @@ export class HashModerationProvider {
     }
   }
 
-  addHash(hash: string, category: ModerationCategory, description?: string): void {
+  addHash(
+    hash: string,
+    category: ModerationCategory,
+    description?: string,
+  ): void {
     const h = hash.toLowerCase()
     const entry: HashEntry = {
       hash: h,
@@ -221,7 +262,11 @@ export class HashModerationProvider {
    * Add a detected banned image to the perceptual hash database
    * Call this when external moderation (Hive/AWS) confirms CSAM
    */
-  async addBannedImage(buffer: Buffer, category: ModerationCategory, description?: string): Promise<string | null> {
+  async addBannedImage(
+    buffer: Buffer,
+    category: ModerationCategory,
+    description?: string,
+  ): Promise<string | null> {
     const pHash = await calculatePHash(buffer)
     if (pHash) {
       this.addHash(pHash, category, description)
@@ -253,8 +298,19 @@ export class HashModerationProvider {
     ]) {
       const entry = map.get(hash)
       if (entry) {
-        matches.push({ hashType: 'sha256', database: name, matchConfidence: 1, category: entry.category })
-        categories.push({ category: entry.category, score: 1, confidence: 1, provider: 'hash', details: `Exact match in ${name}` })
+        matches.push({
+          hashType: 'sha256',
+          database: name,
+          matchConfidence: 1,
+          category: entry.category,
+        })
+        categories.push({
+          category: entry.category,
+          score: 1,
+          confidence: 1,
+          provider: 'hash',
+          details: `Exact match in ${name}`,
+        })
       }
     }
 
@@ -281,16 +337,30 @@ export class HashModerationProvider {
       }
     }
 
-    const hasCsam = categories.some(c => c.category === 'csam')
-    const hasMalware = categories.some(c => c.category === 'malware')
+    const hasCsam = categories.some((c) => c.category === 'csam')
+    const hasMalware = categories.some((c) => c.category === 'malware')
 
     return {
       safe: categories.length === 0,
-      action: hasCsam ? 'ban' : hasMalware ? 'block' : categories.length ? 'block' : 'allow',
-      severity: hasCsam ? 'critical' : hasMalware ? 'high' : categories.length ? 'medium' : 'none',
+      action: hasCsam
+        ? 'ban'
+        : hasMalware
+          ? 'block'
+          : categories.length
+            ? 'block'
+            : 'allow',
+      severity: hasCsam
+        ? 'critical'
+        : hasMalware
+          ? 'high'
+          : categories.length
+            ? 'medium'
+            : 'none',
       categories,
       primaryCategory: categories[0]?.category,
-      blockedReason: matches[0] ? `Hash match: ${matches[0].category} (${matches[0].hashType})` : undefined,
+      blockedReason: matches[0]
+        ? `Hash match: ${matches[0].category} (${matches[0].hashType})`
+        : undefined,
       reviewRequired: hasCsam,
       processingTimeMs: Date.now() - start,
       providers: ['hash'],
@@ -298,13 +368,19 @@ export class HashModerationProvider {
     }
   }
 
-  private findPHashMatch(pHash: string): { entry: HashEntry; distance: number; confidence: number } | null {
-    let bestMatch: { entry: HashEntry; distance: number; confidence: number } | null = null
+  private findPHashMatch(
+    pHash: string,
+  ): { entry: HashEntry; distance: number; confidence: number } | null {
+    let bestMatch: {
+      entry: HashEntry
+      distance: number
+      confidence: number
+    } | null = null
 
     for (const entry of perceptualHashes.values()) {
       const distance = hammingDistance(pHash, entry.hash)
       if (distance <= (this.config.phashThreshold ?? 10)) {
-        const confidence = 1 - (distance / 64) // 64 bits max
+        const confidence = 1 - distance / 64 // 64 bits max
         if (!bestMatch || distance < bestMatch.distance) {
           bestMatch = { entry, distance, confidence }
         }
@@ -316,7 +392,12 @@ export class HashModerationProvider {
 
   hasHash(hash: string): boolean {
     const h = hash.toLowerCase()
-    return csamHashes.has(h) || malwareHashes.has(h) || internalHashes.has(h) || perceptualHashes.has(h)
+    return (
+      csamHashes.has(h) ||
+      malwareHashes.has(h) ||
+      internalHashes.has(h) ||
+      perceptualHashes.has(h)
+    )
   }
 
   getStats() {
@@ -332,7 +413,11 @@ export class HashModerationProvider {
   /** Export current hash database for persistence */
   exportHashes(): { sha256: HashEntry[]; phash: HashEntry[] } {
     return {
-      sha256: [...csamHashes.values(), ...malwareHashes.values(), ...internalHashes.values()],
+      sha256: [
+        ...csamHashes.values(),
+        ...malwareHashes.values(),
+        ...internalHashes.values(),
+      ],
       phash: [...perceptualHashes.values()],
     }
   }

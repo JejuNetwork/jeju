@@ -7,7 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { type SQLitClient, getSQLit, resetSQLit } from './client.js'
+import { getSQLit, resetSQLit, type SQLitClient } from './client.js'
 import {
   createMigrationManager,
   createTable,

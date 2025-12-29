@@ -286,11 +286,11 @@ async function decrypt(
 }
 
 import {
+  type AlignmentCriteria,
   analyzeBoardVotes,
+  type CalibrationData,
   makeObjectiveDecision,
   type ProposalFactors,
-  type AlignmentCriteria,
-  type CalibrationData,
 } from './governance-scoring'
 
 /**
@@ -305,7 +305,7 @@ function makeWeightedDecision(context: TEEDecisionContext): {
   recommendations: string[]
 } {
   // Convert TEE context to ProposalFactors
-  const votes = context.autocratVotes.map(v => ({
+  const votes = context.autocratVotes.map((v) => ({
     role: v.role,
     agentId: v.role.toLowerCase(),
     vote: v.vote as 'APPROVE' | 'REJECT' | 'ABSTAIN',
@@ -347,7 +347,12 @@ function makeWeightedDecision(context: TEEDecisionContext): {
 
   // Default charter criteria (would come from DAO config)
   const charter: AlignmentCriteria = {
-    missionKeywords: ['governance', 'community', 'decentralized', 'transparent'],
+    missionKeywords: [
+      'governance',
+      'community',
+      'decentralized',
+      'transparent',
+    ],
     prohibitedActions: ['centralize', 'restrict', 'censor'],
     requiredProcesses: ['review', 'vote', 'audit'],
     valueStatements: ['open', 'fair', 'secure'],
@@ -371,7 +376,9 @@ function makeWeightedDecision(context: TEEDecisionContext): {
     alignment: decision.alignmentScore,
     recommendations: decision.approved
       ? ['Proceed with implementation', 'Monitor execution metrics']
-      : decision.factors.boardDissent.slice(0, 3).concat(['Address concerns and resubmit']),
+      : decision.factors.boardDissent
+          .slice(0, 3)
+          .concat(['Address concerns and resubmit']),
   }
 }
 
@@ -522,7 +529,7 @@ export async function decryptReasoning(
 
 /**
  * Human Director Decision with TEE Attestation
- * 
+ *
  * Ensures human decisions have the same security guarantees as AI decisions:
  * - Decision is attested in TEE
  * - Encrypted reasoning stored
@@ -542,7 +549,8 @@ export async function makeHumanDirectorDecision(
   const mode = getTEEMode()
 
   // Calculate objective metrics even for human decision
-  const { confidence, alignment, recommendations } = makeWeightedDecision(context)
+  const { confidence, alignment, recommendations } =
+    makeWeightedDecision(context)
 
   // Human provides approval and reasoning, system calculates confidence/alignment
   const approved = context.humanDecision.approved
@@ -571,7 +579,11 @@ export async function makeHumanDirectorDecision(
       : recommendations,
     attestation: {
       provider: mode === 'dstack' ? 'remote' : 'local',
-      quote: keccak256(stringToHex(`human:${context.humanDecision.directorAddress}:${Date.now()}`)),
+      quote: keccak256(
+        stringToHex(
+          `human:${context.humanDecision.directorAddress}:${Date.now()}`,
+        ),
+      ),
       timestamp: Date.now(),
       verified: true, // Human signature verified
     },

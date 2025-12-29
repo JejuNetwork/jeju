@@ -13,18 +13,17 @@
  * - Automatic routing based on recipient type
  */
 
-import type { Address } from 'viem'
-import { toBytes } from 'viem'
-import { createHash } from 'crypto'
-import type { DCClientConfig, DirectCast, DirectCastClient } from './farcaster'
+import { createHash } from 'node:crypto'
+import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import {
-  Client as XMTPClient,
-  type Signer as XMTPSigner,
-  type ClientOptions as XMTPClientOptions,
   type Identifier,
   type IdentifierKind,
+  Client as XMTPClient,
+  type Signer as XMTPSigner,
 } from '@xmtp/node-sdk'
-import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
+import type { Address } from 'viem'
+import { toBytes } from 'viem'
+import type { DCClientConfig, DirectCast, DirectCastClient } from './farcaster'
 import {
   createSQLitStorage,
   type SQLitConfig,
@@ -83,7 +82,10 @@ async function getDirectCastClient(
 /**
  * Create XMTP signer from KMS
  */
-function createXMTPKMSSigner(kmsSigner: KMSSigner, address: Address): XMTPSigner {
+function createXMTPKMSSigner(
+  kmsSigner: KMSSigner,
+  address: Address,
+): XMTPSigner {
   return {
     type: 'EOA',
     getIdentifier: (): Identifier => ({
@@ -151,7 +153,8 @@ export class UnifiedMessagingService {
 
     this.xmtpClient = await XMTPClient.create(xmtpSigner, {
       env: this.xmtpEnv,
-      dbPath: this.xmtpDbPath ?? `./data/xmtp/${this.address.toLowerCase()}.db3`,
+      dbPath:
+        this.xmtpDbPath ?? `./data/xmtp/${this.address.toLowerCase()}.db3`,
       dbEncryptionKey,
     })
 
@@ -273,7 +276,7 @@ export class UnifiedMessagingService {
   /**
    * Get conversations (merges wallet and Farcaster conversations)
    */
-  async getConversations(options?: {
+  async getConversations(_options?: {
     limit?: number
   }): Promise<UnifiedConversation[]> {
     this.ensureInitialized()
@@ -352,11 +355,14 @@ export class UnifiedMessagingService {
     // XMTP conversation (format: "xmtp-<id>")
     if (conversationId.startsWith('xmtp-') && this.xmtpClient) {
       const xmtpConvId = conversationId.slice(5)
-      const conversation = await this.xmtpClient.conversations.getConversationById(xmtpConvId)
+      const conversation =
+        await this.xmtpClient.conversations.getConversationById(xmtpConvId)
       if (!conversation) return []
 
       await conversation.sync()
-      const messages = await conversation.messages({ limit: options?.limit ?? 50 })
+      const messages = await conversation.messages({
+        limit: options?.limit ?? 50,
+      })
 
       return messages.map((msg) => ({
         id: msg.id,

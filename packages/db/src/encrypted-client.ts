@@ -22,7 +22,7 @@
  * ```
  */
 
-import { getSQLitBlockProducerUrl, getKMSEndpoint } from '@jejunetwork/config'
+import { getKMSEndpoint, getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { z } from 'zod'
 

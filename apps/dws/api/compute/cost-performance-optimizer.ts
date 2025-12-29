@@ -9,7 +9,7 @@
  * - Budget constraints
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 
 // ============ Types ============
 

@@ -1,4 +1,6 @@
-import { getFarcasterHubUrl, getRpcUrl, getXMTPConfig } from '@jejunetwork/config'
+import { createHash } from 'node:crypto'
+import { getFarcasterHubUrl, getXMTPConfig } from '@jejunetwork/config'
+import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import {
   createDirectCastClient,
   type DCClientConfig,
@@ -7,16 +9,14 @@ import {
   FarcasterClient,
   type FarcasterProfile,
   FarcasterSignerService,
+  type IdentifierKind,
   lookupFidByAddress,
   XMTPClient,
   type XMTPSigner,
-  type IdentifierKind,
 } from '@jejunetwork/messaging'
-import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import { createLogger } from '@jejunetwork/shared'
 import { type Address, type Hex, hexToBytes, toBytes } from 'viem'
 import { z } from 'zod'
-import { createHash } from 'crypto'
 import { storage } from '../../../web/platform/storage'
 import { config } from '../../config'
 
@@ -158,7 +158,10 @@ function extractEmbeds(
 /**
  * Create XMTP signer from KMS
  */
-function createXMTPKMSSigner(kmsSigner: KMSSigner, address: Address): XMTPSigner {
+function createXMTPKMSSigner(
+  kmsSigner: KMSSigner,
+  address: Address,
+): XMTPSigner {
   return {
     type: 'EOA',
     getIdentifier: () => ({
@@ -418,9 +421,11 @@ class WalletMessagingService {
         conversations.set(`xmtp-${dm.id}`, {
           id: `xmtp-${dm.id}`,
           type: 'xmtp',
-          recipientName: dm.peerInboxId.slice(0, 10) + '...',
+          recipientName: `${dm.peerInboxId.slice(0, 10)}...`,
           unreadCount: 0, // TODO: Track unread
-          isMuted: this.preferences.mutedConversations.includes(`xmtp-${dm.id}`),
+          isMuted: this.preferences.mutedConversations.includes(
+            `xmtp-${dm.id}`,
+          ),
           updatedAt: dm.createdAt.getTime(),
         })
       }
@@ -477,7 +482,8 @@ class WalletMessagingService {
     }
 
     if (protocol === 'xmtp' && this.xmtpClient) {
-      const conversation = await this.xmtpClient.conversations.getConversationById(id)
+      const conversation =
+        await this.xmtpClient.conversations.getConversationById(id)
       if (!conversation) {
         throw new MessagingError(
           'Conversation not found',
@@ -487,7 +493,9 @@ class WalletMessagingService {
       }
 
       await conversation.sync()
-      const xmtpMessages = await conversation.messages({ limit: options?.limit ?? 50 })
+      const xmtpMessages = await conversation.messages({
+        limit: options?.limit ?? 50,
+      })
 
       return xmtpMessages.map((m) => ({
         id: m.id,

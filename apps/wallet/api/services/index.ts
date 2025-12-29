@@ -30,7 +30,7 @@ export type { LedgerAccount, LedgerKeyring } from './hardware/ledger'
 export type { TrezorAccount, TrezorKeyring } from './hardware/trezor'
 export * from './history'
 export * as jeju from './jeju'
-<<<<<<< HEAD
+
 export type {
   JNSName,
   JNSPricing,
@@ -39,14 +39,7 @@ export type {
   JNSResolverSettings,
 } from './jns'
 export { JNSResolver, JNSService, jnsResolver, jnsService } from './jns'
-=======
-export type { JNSName, JNSPricing, JNSRegistrationParams } from './jns'
-// JNS Name Service
-export { JNSService, jnsService } from './jns'
-// JNS Gateway Resolver
-export type { JNSResolution, JNSResolverSettings } from './jns/resolver'
-export { JNSResolver, jnsResolver } from './jns/resolver'
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
+
 export type {
   Account,
   HardwareAccount,

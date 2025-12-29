@@ -81,7 +81,8 @@ export class FaceAgeProvider {
 
   constructor(config: FaceAgeProviderConfig = {}) {
     this.config = {
-      adultAgeThreshold: config.adultAgeThreshold ?? DEFAULT_CONFIG.adultAgeThreshold,
+      adultAgeThreshold:
+        config.adultAgeThreshold ?? DEFAULT_CONFIG.adultAgeThreshold,
       ageBuffer: config.ageBuffer ?? DEFAULT_CONFIG.ageBuffer,
       minConfidence: config.minConfidence ?? DEFAULT_CONFIG.minConfidence,
       skinThreshold: config.skinThreshold ?? DEFAULT_CONFIG.skinThreshold,
@@ -118,7 +119,7 @@ export class FaceAgeProvider {
     }
 
     const skinAnalysis = this.analyzeSkinTones(buffer)
-    
+
     if (!skinAnalysis.hasSkin) {
       return this.noSkinResult(start)
     }
@@ -142,11 +143,14 @@ export class FaceAgeProvider {
    * Samples pixels throughout the image and checks against
    * multiple skin-tone color ranges to be inclusive of all skin types.
    */
-  private analyzeSkinTones(buffer: Buffer): { hasSkin: boolean; ratio: number } {
+  private analyzeSkinTones(buffer: Buffer): {
+    hasSkin: boolean
+    ratio: number
+  } {
     // Skip file headers - sample from image data
     const headerSize = Math.min(100, Math.floor(buffer.length * 0.05))
     const dataBuffer = buffer.subarray(headerSize)
-    
+
     if (dataBuffer.length < 300) {
       return { hasSkin: false, ratio: 0 }
     }
@@ -158,7 +162,7 @@ export class FaceAgeProvider {
     for (let i = 0; i < sampleCount; i++) {
       const offset = i * step * 3
       if (offset + 2 >= dataBuffer.length) break
-      
+
       const r = dataBuffer[offset]!
       const g = dataBuffer[offset + 1]!
       const b = dataBuffer[offset + 2]!
@@ -185,38 +189,36 @@ export class FaceAgeProvider {
    */
   private isSkinTone(r: number, g: number, b: number): boolean {
     // Rule 1: Basic RGB ratios (light to medium skin)
-    const rgbRule = (
-      r > 95 && g > 40 && b > 20 &&
-      r > g && r > b &&
+    const rgbRule =
+      r > 95 &&
+      g > 40 &&
+      b > 20 &&
+      r > g &&
+      r > b &&
       Math.abs(r - g) > 15 &&
       r - b > 15
-    )
-    
+
     if (rgbRule) return true
 
     // Rule 2: YCbCr color space (good for diverse skin tones)
     const y = 0.299 * r + 0.587 * g + 0.114 * b
-    const cb = 128 - 0.169 * r - 0.331 * g + 0.500 * b
-    const cr = 128 + 0.500 * r - 0.419 * g - 0.081 * b
-    
-    const ycbcrRule = (
-      y > 80 &&
-      cb > 77 && cb < 127 &&
-      cr > 133 && cr < 173
-    )
-    
+    const cb = 128 - 0.169 * r - 0.331 * g + 0.5 * b
+    const cr = 128 + 0.5 * r - 0.419 * g - 0.081 * b
+
+    const ycbcrRule = y > 80 && cb > 77 && cb < 127 && cr > 133 && cr < 173
+
     if (ycbcrRule) return true
 
     // Rule 3: HSV for darker skin tones
     const max = Math.max(r, g, b)
     const min = Math.min(r, g, b)
     const delta = max - min
-    
+
     if (max === 0 || delta === 0) return false
-    
+
     const s = delta / max
     const v = max / 255
-    
+
     let h = 0
     if (max === r) {
       h = 60 * (((g - b) / delta) % 6)
@@ -227,12 +229,8 @@ export class FaceAgeProvider {
     }
     if (h < 0) h += 360
 
-    const hsvRule = (
-      h >= 0 && h <= 50 &&
-      s >= 0.1 && s <= 0.7 &&
-      v >= 0.2
-    )
-    
+    const hsvRule = h >= 0 && h <= 50 && s >= 0.1 && s <= 0.7 && v >= 0.2
+
     return hsvRule
   }
 
@@ -267,18 +265,19 @@ export class FaceAgeProvider {
    */
   shouldQuarantine(result: FaceAgeResult, hasNudity: boolean): boolean {
     if (!hasNudity) return false
-    
+
     // Skin detected + nudity = quarantine (we can't verify age)
     if (result.hasSkinTones) return true
-    
+
     // Youth ambiguity flag set = quarantine
     if (result.hasYouthAmbiguity) return true
-    
+
     // Low confidence on age = quarantine
     if (result.minAgeConfidence < this.config.minConfidence) return true
-    
+
     // Age below threshold = quarantine
-    const effectiveThreshold = this.config.adultAgeThreshold + this.config.ageBuffer
+    const effectiveThreshold =
+      this.config.adultAgeThreshold + this.config.ageBuffer
     if (result.minAgeEstimate < effectiveThreshold) return true
 
     return false
@@ -288,7 +287,9 @@ export class FaceAgeProvider {
 // Singleton
 let instance: FaceAgeProvider | null = null
 
-export function getFaceAgeProvider(config?: FaceAgeProviderConfig): FaceAgeProvider {
+export function getFaceAgeProvider(
+  config?: FaceAgeProviderConfig,
+): FaceAgeProvider {
   if (!instance) {
     instance = new FaceAgeProvider(config)
   }
@@ -298,4 +299,3 @@ export function getFaceAgeProvider(config?: FaceAgeProviderConfig): FaceAgeProvi
 export function resetFaceAgeProvider(): void {
   instance = null
 }
-

@@ -28,7 +28,11 @@ const ctx = {
   testsSkipped: 0,
 }
 
-async function api<T>(method: string, path: string, body?: Record<string, unknown>): Promise<{
+async function api<T>(
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<{
   data: T
   status: number
   ms: number
@@ -47,7 +51,7 @@ async function api<T>(method: string, path: string, body?: Record<string, unknow
   }
 }
 
-function skip(name: string): boolean {
+function skip(_name: string): boolean {
   if (!ctx.apiAvailable) {
     ctx.testsSkipped++
     return true
@@ -58,30 +62,42 @@ function skip(name: string): boolean {
 
 beforeAll(async () => {
   try {
-    const res = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(5000) })
+    const res = await fetch(`${API_URL}/api/health`, {
+      signal: AbortSignal.timeout(5000),
+    })
     ctx.apiAvailable = res.ok
   } catch {
     ctx.apiAvailable = false
   }
 
   if (ctx.apiAvailable) {
-    const { data, status } = await api<{ daos: Array<{ daoId: string }> }>('GET', '/api/v1/dao/list')
+    const { data, status } = await api<{ daos: Array<{ daoId: string }> }>(
+      'GET',
+      '/api/v1/dao/list',
+    )
     if (status === 200 && data.daos?.length) {
       ctx.existingDaoId = data.daos[0].daoId
     }
   }
 
-  console.log(`API: ${ctx.apiAvailable ? '✅' : '❌'} ${ctx.existingDaoId ? `(DAO: ${ctx.existingDaoId})` : ''}`)
+  console.log(
+    `API: ${ctx.apiAvailable ? '✅' : '❌'} ${ctx.existingDaoId ? `(DAO: ${ctx.existingDaoId})` : ''}`,
+  )
 })
 
-afterAll(() => console.log(`Run: ${ctx.testsRun} | Skipped: ${ctx.testsSkipped}`))
+afterAll(() =>
+  console.log(`Run: ${ctx.testsRun} | Skipped: ${ctx.testsSkipped}`),
+)
 
 // DAO Endpoints
 
 describe('GET /api/v1/dao/list', () => {
   test('returns validated DAO array', async () => {
     if (skip('dao-list')) return
-    const { data, status } = await api<{ daos: unknown[] }>('GET', '/api/v1/dao/list')
+    const { data, status } = await api<{ daos: unknown[] }>(
+      'GET',
+      '/api/v1/dao/list',
+    )
     expect(status).toBe(200)
     expect(Array.isArray(data.daos)).toBe(true)
     for (const dao of data.daos) {
@@ -100,7 +116,10 @@ describe('GET /api/v1/dao/:id', () => {
   test('special characters in ID', async () => {
     if (skip('dao-special')) return
     for (const id of ['test%20space', 'test<script>', '../etc/passwd']) {
-      const { status } = await api('GET', `/api/v1/dao/${encodeURIComponent(id)}`)
+      const { status } = await api(
+        'GET',
+        `/api/v1/dao/${encodeURIComponent(id)}`,
+      )
       expect(status).not.toBe(500)
     }
   })
@@ -109,20 +128,38 @@ describe('GET /api/v1/dao/:id', () => {
 // Proposal Scoring
 
 describe('POST /api/v1/proposals/quick-score', () => {
-  const validProposal = { daoId: 'test', title: 'Test', summary: 'Test', description: 'Test', proposalType: 0 }
+  const validProposal = {
+    daoId: 'test',
+    title: 'Test',
+    summary: 'Test',
+    description: 'Test',
+    proposalType: 0,
+  }
 
   test('returns valid score', async () => {
     if (skip('score')) return
-    const { data, status } = await api<z.infer<typeof QuickScoreSchema>>('POST', '/api/v1/proposals/quick-score', validProposal)
+    const { data, status } = await api<z.infer<typeof QuickScoreSchema>>(
+      'POST',
+      '/api/v1/proposals/quick-score',
+      validProposal,
+    )
     expect(status).toBe(200)
     expect(QuickScoreSchema.safeParse(data).success).toBe(true)
   })
 
   test('minimal proposal', async () => {
     if (skip('score-min')) return
-    const { data, status } = await api<{ score: number }>('POST', '/api/v1/proposals/quick-score', {
-      daoId: 'x', title: 'A', summary: 'B', description: 'C', proposalType: 0,
-    })
+    const { data, status } = await api<{ score: number }>(
+      'POST',
+      '/api/v1/proposals/quick-score',
+      {
+        daoId: 'x',
+        title: 'A',
+        summary: 'B',
+        description: 'C',
+        proposalType: 0,
+      },
+    )
     expect(status).toBe(200)
     expect(data.score).toBeGreaterThanOrEqual(0)
     expect(data.score).toBeLessThanOrEqual(100)
@@ -131,7 +168,11 @@ describe('POST /api/v1/proposals/quick-score', () => {
   test('unicode content', async () => {
     if (skip('score-unicode')) return
     const { status } = await api('POST', '/api/v1/proposals/quick-score', {
-      daoId: 'test-日本語', title: '提案 🎉', summary: 'Résumé 👍', description: '中文', proposalType: 0,
+      daoId: 'test-日本語',
+      title: '提案 🎉',
+      summary: 'Résumé 👍',
+      description: '中文',
+      proposalType: 0,
     })
     expect(status).toBe(200)
   })
@@ -139,21 +180,31 @@ describe('POST /api/v1/proposals/quick-score', () => {
   test('rejects empty strings', async () => {
     if (skip('score-empty')) return
     const { status } = await api('POST', '/api/v1/proposals/quick-score', {
-      daoId: '', title: '', summary: '', description: '', proposalType: 0,
+      daoId: '',
+      title: '',
+      summary: '',
+      description: '',
+      proposalType: 0,
     })
     expect(status).toBe(400)
   })
 
   test('rejects missing fields', async () => {
     if (skip('score-missing')) return
-    const { status } = await api('POST', '/api/v1/proposals/quick-score', { title: 'Only title' })
+    const { status } = await api('POST', '/api/v1/proposals/quick-score', {
+      title: 'Only title',
+    })
     expect(status).toBe(400)
   })
 
   test('rejects wrong types', async () => {
     if (skip('score-types')) return
     const { status } = await api('POST', '/api/v1/proposals/quick-score', {
-      daoId: 123, title: 'test', summary: 'test', description: 'test', proposalType: 0,
+      daoId: 123,
+      title: 'test',
+      summary: 'test',
+      description: 'test',
+      proposalType: 0,
     } as Record<string, unknown>)
     expect(status).toBe(400)
   })
@@ -161,8 +212,16 @@ describe('POST /api/v1/proposals/quick-score', () => {
   test('deterministic hash', async () => {
     if (skip('score-hash')) return
     const [r1, r2] = await Promise.all([
-      api<{ contentHash: string }>('POST', '/api/v1/proposals/quick-score', validProposal),
-      api<{ contentHash: string }>('POST', '/api/v1/proposals/quick-score', validProposal),
+      api<{ contentHash: string }>(
+        'POST',
+        '/api/v1/proposals/quick-score',
+        validProposal,
+      ),
+      api<{ contentHash: string }>(
+        'POST',
+        '/api/v1/proposals/quick-score',
+        validProposal,
+      ),
     ])
     expect(r1.data.contentHash).toBe(r2.data.contentHash)
   })
@@ -173,7 +232,11 @@ describe('POST /api/v1/proposals/quick-score', () => {
 describe('Concurrent requests', () => {
   test('10 parallel list requests', async () => {
     if (skip('concurrent-list')) return
-    const results = await Promise.all(Array(10).fill(null).map(() => api<{ daos: unknown[] }>('GET', '/api/v1/dao/list')))
+    const results = await Promise.all(
+      Array(10)
+        .fill(null)
+        .map(() => api<{ daos: unknown[] }>('GET', '/api/v1/dao/list')),
+    )
     for (const r of results) {
       expect(r.status).toBe(200)
     }
@@ -181,10 +244,20 @@ describe('Concurrent requests', () => {
 
   test('5 parallel score requests', async () => {
     if (skip('concurrent-score')) return
-    const proposals = Array(5).fill(null).map((_, i) => ({
-      daoId: `test-${i}`, title: `P${i}`, summary: `S${i}`, description: `D${i}`, proposalType: 0,
-    }))
-    const results = await Promise.all(proposals.map((p) => api<{ score: number }>('POST', '/api/v1/proposals/quick-score', p)))
+    const proposals = Array(5)
+      .fill(null)
+      .map((_, i) => ({
+        daoId: `test-${i}`,
+        title: `P${i}`,
+        summary: `S${i}`,
+        description: `D${i}`,
+        proposalType: 0,
+      }))
+    const results = await Promise.all(
+      proposals.map((p) =>
+        api<{ score: number }>('POST', '/api/v1/proposals/quick-score', p),
+      ),
+    )
     for (const r of results) {
       expect(r.status).toBe(200)
     }

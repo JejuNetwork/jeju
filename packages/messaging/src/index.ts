@@ -43,6 +43,24 @@ export {
 // FARCASTER - Public/Social Messaging
 // ============================================================================
 
+// ============================================================================
+// XMTP - Real SDK Re-exports
+// ============================================================================
+// Use the official @xmtp/node-sdk directly for XMTP functionality.
+// The server's xmtp-messaging.ts service wraps it with KMS signing.
+export {
+  ApiUrls as XMTPApiUrls,
+  Client as XMTPClient,
+  type ClientOptions as XMTPClientOptions,
+  type Conversation as XMTPConversation,
+  type Conversations as XMTPConversations,
+  type DecodedMessage as XMTPDecodedMessage,
+  type Dm as XMTPDm,
+  type Group as XMTPGroup,
+  type Identifier as XMTPIdentifier,
+  type IdentifierKind,
+  type Signer as XMTPSigner,
+} from '@xmtp/node-sdk'
 // Cross-chain messaging bridge
 export {
   CrossChainBridgeClient,
@@ -233,7 +251,6 @@ export type {
   UserData,
   UserDataTypeName,
 } from './farcaster/hub/types'
-
 // Farcaster Identity
 export {
   generateLinkProofMessage,
@@ -340,7 +357,6 @@ export {
   validateImage,
   validateTransaction,
 } from './mls'
-
 // Security utilities
 export {
   auditSecurityOperation,
@@ -362,32 +378,13 @@ export {
 export {
   type ConsistencyLevel,
   createSQLitStorage,
-  type SQLitConfig,
-  SQLitMessageStorage,
   getSQLitStorage,
   resetSQLitStorage,
+  type SQLitConfig,
+  SQLitMessageStorage,
   type StoredConversation,
   type StoredKeyBundle,
   type StoredMessage,
 } from './storage/sqlit-storage'
 // TEE-backed key management
 export * from './tee'
-
-// ============================================================================
-// XMTP - Real SDK Re-exports
-// ============================================================================
-// Use the official @xmtp/node-sdk directly for XMTP functionality.
-// The server's xmtp-messaging.ts service wraps it with KMS signing.
-export {
-  Client as XMTPClient,
-  type ClientOptions as XMTPClientOptions,
-  type Signer as XMTPSigner,
-  type Dm as XMTPDm,
-  type Group as XMTPGroup,
-  type DecodedMessage as XMTPDecodedMessage,
-  type Conversation as XMTPConversation,
-  type Conversations as XMTPConversations,
-  type Identifier as XMTPIdentifier,
-  type IdentifierKind,
-  ApiUrls as XMTPApiUrls,
-} from '@xmtp/node-sdk'

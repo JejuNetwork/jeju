@@ -13,41 +13,41 @@
  * 3. Restricted review queue access controls
  */
 
-import { logger } from '../logger'
 import type { Address } from 'viem'
+import { logger } from '../logger'
 import {
-  saveQuarantineItem,
+  getEvidenceBundle as getPersistedEvidenceBundle,
   getQuarantineItem as getPersistedQuarantineItem,
   getQuarantineItems as getPersistedQuarantineItems,
-  saveEvidenceBundle,
-  getEvidenceBundle as getPersistedEvidenceBundle,
   getPersistenceMode,
+  saveEvidenceBundle,
+  saveQuarantineItem,
 } from './persistence'
 
 export interface QuarantineItem {
   id: string
   sha256: string
-  
+
   // Encrypted content reference (NEVER raw content)
   encryptedRef: string
   encryptionKeyId: string
-  
+
   // Detection context
   detectedAt: number
   detectionReason: QuarantineReason
   detectionSource: string
   confidence: number
-  
+
   // Attribution
   uploaderAddress?: Address
   uploaderIp?: string
   providerAddress?: Address
-  
+
   // Status
   status: QuarantineStatus
   ttlExpiresAt?: number
   legalHoldUntil?: number
-  
+
   // Review
   assignedReviewerId?: string
   reviewStartedAt?: number
@@ -83,35 +83,35 @@ export interface EvidenceBundle {
   id: string
   quarantineItemId: string
   createdAt: number
-  
+
   // Content hashes ONLY (never actual content for CSAM)
   contentHash: {
     sha256: string
     md5: string
     // NO perceptual hashes for suspected CSAM
   }
-  
+
   // Match metadata
   matchSource?: string
   matchId?: string
   matchConfidence?: number
-  
+
   // Attribution chain
   wallets: Address[]
   providers: string[]
   ips: string[]
   txHashes: string[]
-  
+
   // Timeline
   uploadedAt: number
   detectedAt: number
   quarantinedAt: number
   reportedAt?: number
   ncmecReportId?: string
-  
+
   // Legal hold
   legalHoldUntil?: number
-  
+
   // Access log
   accessLog: AccessLogEntry[]
 }
@@ -150,16 +150,21 @@ export class QuarantineManager {
   constructor(config: QuarantineManagerConfig = {}) {
     this.config = {
       defaultTtlMs: config.defaultTtlMs ?? DEFAULT_TTL_MS,
-      encryptionKey: config.encryptionKey ?? process.env.QUARANTINE_ENCRYPTION_KEY ?? '',
+      encryptionKey:
+        config.encryptionKey ?? process.env.QUARANTINE_ENCRYPTION_KEY ?? '',
       maxQueuePerReviewer: config.maxQueuePerReviewer ?? 10,
     }
   }
 
   async initialize(): Promise<void> {
     if (!this.config.encryptionKey) {
-      logger.warn('[QuarantineManager] No encryption key configured - quarantine storage not secure!')
+      logger.warn(
+        '[QuarantineManager] No encryption key configured - quarantine storage not secure!',
+      )
     }
-    logger.info('[QuarantineManager] Initialized', { ttlDays: this.config.defaultTtlMs / (24 * 60 * 60 * 1000) })
+    logger.info('[QuarantineManager] Initialized', {
+      ttlDays: this.config.defaultTtlMs / (24 * 60 * 60 * 1000),
+    })
   }
 
   /**
@@ -200,8 +205,11 @@ export class QuarantineManager {
     quarantineStore.set(id, item)
 
     // Persist to database
-    await saveQuarantineItem(item).catch(err => {
-      logger.error('[QuarantineManager] Failed to persist quarantine item', { id, error: String(err) })
+    await saveQuarantineItem(item).catch((err) => {
+      logger.error('[QuarantineManager] Failed to persist quarantine item', {
+        id,
+        error: String(err),
+      })
     })
 
     logger.info('[QuarantineManager] Content quarantined', {
@@ -259,13 +267,15 @@ export class QuarantineManager {
       uploadedAt: item.detectedAt,
       detectedAt: item.detectedAt,
       quarantinedAt: item.detectedAt,
-      legalHoldUntil: now + (legalHoldDays * 24 * 60 * 60 * 1000),
-      accessLog: [{
-        timestamp: now,
-        accessor: 'system',
-        action: 'view',
-        details: 'Evidence bundle created',
-      }],
+      legalHoldUntil: now + legalHoldDays * 24 * 60 * 60 * 1000,
+      accessLog: [
+        {
+          timestamp: now,
+          accessor: 'system',
+          action: 'view',
+          details: 'Evidence bundle created',
+        },
+      ],
     }
 
     // Set legal hold on quarantine item
@@ -280,8 +290,11 @@ export class QuarantineManager {
     await Promise.all([
       saveEvidenceBundle(bundle),
       saveQuarantineItem(item),
-    ]).catch(err => {
-      logger.error('[QuarantineManager] Failed to persist evidence bundle', { id, error: String(err) })
+    ]).catch((err) => {
+      logger.error('[QuarantineManager] Failed to persist evidence bundle', {
+        id,
+        error: String(err),
+      })
     })
 
     logger.info('[QuarantineManager] Evidence bundle created', {
@@ -297,7 +310,10 @@ export class QuarantineManager {
   /**
    * Record NCMEC report ID on evidence bundle
    */
-  async recordNCMECReport(bundleId: string, ncmecReportId: string): Promise<void> {
+  async recordNCMECReport(
+    bundleId: string,
+    ncmecReportId: string,
+  ): Promise<void> {
     const bundle = evidenceStore.get(bundleId)
     if (!bundle) {
       throw new Error(`Evidence bundle not found: ${bundleId}`)
@@ -314,7 +330,10 @@ export class QuarantineManager {
 
     evidenceStore.set(bundleId, bundle)
 
-    logger.info('[QuarantineManager] NCMEC report recorded', { bundleId, ncmecReportId })
+    logger.info('[QuarantineManager] NCMEC report recorded', {
+      bundleId,
+      ncmecReportId,
+    })
   }
 
   /**
@@ -338,7 +357,10 @@ export class QuarantineManager {
 
     // If not enough in memory, try persistence
     if (pending.length < limit) {
-      const persisted = await getPersistedQuarantineItems({ status: 'pending_review', limit })
+      const persisted = await getPersistedQuarantineItems({
+        status: 'pending_review',
+        limit,
+      })
       for (const item of persisted) {
         if (!quarantineStore.has(item.id)) {
           quarantineStore.set(item.id, item) // Cache in memory
@@ -355,7 +377,8 @@ export class QuarantineManager {
    * Assign item to reviewer
    */
   async assignReviewer(itemId: string, reviewerId: string): Promise<void> {
-    let item = quarantineStore.get(itemId) ?? await getPersistedQuarantineItem(itemId)
+    const item =
+      quarantineStore.get(itemId) ?? (await getPersistedQuarantineItem(itemId))
     if (!item) {
       throw new Error(`Quarantine item not found: ${itemId}`)
     }
@@ -365,8 +388,11 @@ export class QuarantineManager {
     item.status = 'under_review'
     quarantineStore.set(itemId, item)
 
-    await saveQuarantineItem(item).catch(err => {
-      logger.error('[QuarantineManager] Failed to persist reviewer assignment', { itemId, error: String(err) })
+    await saveQuarantineItem(item).catch((err) => {
+      logger.error(
+        '[QuarantineManager] Failed to persist reviewer assignment',
+        { itemId, error: String(err) },
+      )
     })
 
     logger.info('[QuarantineManager] Reviewer assigned', { itemId, reviewerId })
@@ -375,8 +401,13 @@ export class QuarantineManager {
   /**
    * Record decision on quarantine item
    */
-  async recordDecision(itemId: string, decision: QuarantineDecision, decidedBy: string): Promise<void> {
-    let item = quarantineStore.get(itemId) ?? await getPersistedQuarantineItem(itemId)
+  async recordDecision(
+    itemId: string,
+    decision: QuarantineDecision,
+    decidedBy: string,
+  ): Promise<void> {
+    const item =
+      quarantineStore.get(itemId) ?? (await getPersistedQuarantineItem(itemId))
     if (!item) {
       throw new Error(`Quarantine item not found: ${itemId}`)
     }
@@ -402,8 +433,11 @@ export class QuarantineManager {
 
     quarantineStore.set(itemId, item)
 
-    await saveQuarantineItem(item).catch(err => {
-      logger.error('[QuarantineManager] Failed to persist decision', { itemId, error: String(err) })
+    await saveQuarantineItem(item).catch((err) => {
+      logger.error('[QuarantineManager] Failed to persist decision', {
+        itemId,
+        error: String(err),
+      })
     })
 
     logger.info('[QuarantineManager] Decision recorded', {
@@ -490,10 +524,11 @@ export class QuarantineManager {
 // Singleton
 let instance: QuarantineManager | null = null
 
-export function getQuarantineManager(config?: QuarantineManagerConfig): QuarantineManager {
+export function getQuarantineManager(
+  config?: QuarantineManagerConfig,
+): QuarantineManager {
   if (!instance) {
     instance = new QuarantineManager(config)
   }
   return instance
 }
-

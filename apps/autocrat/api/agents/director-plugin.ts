@@ -1,5 +1,3 @@
-<<<<<<< HEAD:apps/autocrat/api/agents/ceo-plugin.ts
-=======
 /**
  * Director Agent Plugin
  *
@@ -10,7 +8,6 @@
  * - A2A/MCP access
  */
 
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf:apps/autocrat/api/agents/director-plugin.ts
 import type {
   Action,
   HandlerCallback,

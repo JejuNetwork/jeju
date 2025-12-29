@@ -3,8 +3,8 @@ import { join } from 'node:path'
 import {
   getCurrentNetwork,
   getDWSComputeUrl,
-  getSQLitBlockProducerUrl,
   getLocalhostHost,
+  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { expectHex } from '@jejunetwork/types'
 import type { Hex } from 'viem'
@@ -21,8 +21,7 @@ import type { DeployResult } from './lib/types'
 
 const NETWORK = getCurrentNetwork()
 const COMPUTE_API = process.env.COMPUTE_API || getDWSComputeUrl(NETWORK)
-const SQLIT_ENDPOINT =
-  process.env.SQLIT_ENDPOINT || getSQLitBlockProducerUrl()
+const SQLIT_ENDPOINT = process.env.SQLIT_ENDPOINT || getSQLitBlockProducerUrl()
 
 interface ComputeClient {
   registerService(config: ServiceConfig): Promise<{ success: boolean }>

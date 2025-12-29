@@ -21,7 +21,6 @@ import { type Address, createPublicClient, type Hex, http, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { resetConfig } from '../../api/x402/config'
 import { createServer, type X402App } from '../../api/x402/server'
-import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
 // Helper to make requests to the app (wraps Elysia .handle method)
 async function request(
@@ -33,12 +32,9 @@ async function request(
   return server.handle(new Request(url, options))
 }
 
-<<<<<<< HEAD
-=======
 import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import { clearNonceCache } from '../../api/x402/services/nonce-manager'
 
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 // Use environment variables for test configuration
 const host = getLocalhostHost()
 const ANVIL_RPC =

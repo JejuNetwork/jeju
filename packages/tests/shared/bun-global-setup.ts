@@ -24,10 +24,10 @@ import {
   CORE_PORTS,
   getDWSComputeUrl,
   getDwsApiUrl,
-  getSQLitBlockProducerUrl,
   getIpfsApiUrl,
   getLocalhostHost,
   getServiceUrl,
+  getSQLitBlockProducerUrl,
   getStorageApiEndpoint,
   INFRA_PORTS,
 } from '@jejunetwork/config'

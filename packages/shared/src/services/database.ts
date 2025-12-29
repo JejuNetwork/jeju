@@ -4,7 +4,7 @@
  * Provides decentralized SQL database access via SQLit.
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { Hex } from 'viem'
 import { z } from 'zod'
 

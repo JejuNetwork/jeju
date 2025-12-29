@@ -5,10 +5,10 @@ import {
   getRpcUrl,
   getSecurityBountyRegistryAddress,
 } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit, type QueryParam } from '@jejunetwork/db'
+import { writeContract } from '@jejunetwork/contracts'
+import { getSQLit, type QueryParam, type SQLitClient } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { expectDefined, expectValid } from '@jejunetwork/types'
-import { writeContract } from '@jejunetwork/contracts'
 import {
   type Address,
   createPublicClient,
@@ -50,12 +50,14 @@ import {
   VulnerabilityTypeSchema,
 } from '../lib'
 import { config } from './config'
-import { createKMSWalletClient, getOperatorConfig } from './kms-signer'
+import { getOperatorConfig } from './kms-signer'
 
 const SQLIT_DATABASE_ID = config.sqlitDatabaseId
 
 // KMS wallet client (initialized lazily)
-let kmsWalletClient: Awaited<ReturnType<typeof createKMSHttpWalletClient>> | null = null
+let kmsWalletClient: Awaited<
+  ReturnType<typeof createKMSHttpWalletClient>
+> | null = null
 
 // Config handles env overrides
 function getDWSEndpoint(): string {

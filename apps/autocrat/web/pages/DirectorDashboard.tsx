@@ -9,10 +9,10 @@
  * - EIP-712 signature-based decision submission
  */
 
-import { useQuery } from '@tanstack/react-query'
-import type { Address } from 'viem'
-import { useState } from 'react'
 import { getAutocratUrl } from '@jejunetwork/config'
+import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import type { Address } from 'viem'
 
 interface BoardVote {
   role: string
@@ -84,7 +84,11 @@ function VoteIndicator({ vote }: { vote: 'APPROVE' | 'REJECT' | 'ABSTAIN' }) {
   )
 }
 
-function RiskBadge({ level }: { level: 'low' | 'medium' | 'high' | 'critical' }) {
+function RiskBadge({
+  level,
+}: {
+  level: 'low' | 'medium' | 'high' | 'critical'
+}) {
   const colors = {
     low: 'bg-emerald-500/20 text-emerald-400',
     medium: 'bg-amber-500/20 text-amber-400',
@@ -92,7 +96,9 @@ function RiskBadge({ level }: { level: 'low' | 'medium' | 'high' | 'critical' })
     critical: 'bg-red-500/20 text-red-400',
   }
   return (
-    <span className={`px-3 py-1 rounded-full text-sm font-medium ${colors[level]}`}>
+    <span
+      className={`px-3 py-1 rounded-full text-sm font-medium ${colors[level]}`}
+    >
       {level.toUpperCase()} RISK
     </span>
   )
@@ -174,7 +180,11 @@ function ProposalContextSection({ context }: { context: DirectorContext }) {
         </div>
         <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-center">
           <div className={`text-2xl font-bold ${consensusColor}`}>
-            {approves > rejects ? 'FAVORABLE' : rejects > approves ? 'UNFAVORABLE' : 'SPLIT'}
+            {approves > rejects
+              ? 'FAVORABLE'
+              : rejects > approves
+                ? 'UNFAVORABLE'
+                : 'SPLIT'}
           </div>
           <div className="text-xs text-zinc-500">CONSENSUS</div>
         </div>
@@ -183,7 +193,9 @@ function ProposalContextSection({ context }: { context: DirectorContext }) {
       {/* Risk Assessment */}
       <div className="p-6 bg-zinc-900/50 rounded-xl border border-zinc-800">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-zinc-100">Risk Assessment</h3>
+          <h3 className="text-lg font-semibold text-zinc-100">
+            Risk Assessment
+          </h3>
           <RiskBadge level={riskAssessment.overallRisk} />
         </div>
         <div className="grid grid-cols-3 gap-4 mb-4">
@@ -232,7 +244,9 @@ function ProposalContextSection({ context }: { context: DirectorContext }) {
 
       {/* Board Votes */}
       <div>
-        <h3 className="text-lg font-semibold text-zinc-100 mb-4">Board Member Votes</h3>
+        <h3 className="text-lg font-semibold text-zinc-100 mb-4">
+          Board Member Votes
+        </h3>
         <div className="grid gap-4">
           {boardVotes.map((vote, i) => (
             <BoardVoteCard key={i} vote={vote} />
@@ -261,7 +275,9 @@ function DecisionForm({
 
   return (
     <div className="p-6 bg-zinc-900/50 rounded-xl border border-zinc-800">
-      <h3 className="text-lg font-semibold text-zinc-100 mb-4">Your Decision</h3>
+      <h3 className="text-lg font-semibold text-zinc-100 mb-4">
+        Your Decision
+      </h3>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         <button
@@ -313,20 +329,25 @@ function DecisionForm({
       </button>
 
       <p className="text-xs text-zinc-500 mt-3 text-center">
-        Decision will be submitted with EIP-712 signature for on-chain verification
+        Decision will be submitted with EIP-712 signature for on-chain
+        verification
       </p>
     </div>
   )
 }
 
 export function DirectorDashboard() {
-  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null)
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(
+    null,
+  )
 
   // Fetch pending proposals
   const { data: pendingProposals } = useQuery({
     queryKey: ['director-pending-proposals'],
     queryFn: async () => {
-      const res = await fetch(`${getAutocratUrl()}/api/v1/proposals?status=DIRECTOR_QUEUE`)
+      const res = await fetch(
+        `${getAutocratUrl()}/api/v1/proposals?status=DIRECTOR_QUEUE`,
+      )
       if (!res.ok) throw new Error('Failed to fetch proposals')
       return res.json() as Promise<Proposal[]>
     },
@@ -347,7 +368,10 @@ export function DirectorDashboard() {
     enabled: !!selectedProposalId,
   })
 
-  const handleDecisionSubmit = async (decision: { approved: boolean; reasoning: string }) => {
+  const handleDecisionSubmit = async (decision: {
+    approved: boolean
+    reasoning: string
+  }) => {
     // This would trigger wallet signature and submit to chain
     console.log('Submitting decision:', {
       proposalId: selectedProposalId,
@@ -395,7 +419,7 @@ export function DirectorDashboard() {
                   }`}
                 >
                   <div className="font-medium text-zinc-200 truncate">
-                    {p.title || p.id.slice(0, 16) + '...'}
+                    {p.title || `${p.id.slice(0, 16)}...`}
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-zinc-500">
                     <span>{p.proposalType}</span>
@@ -444,4 +468,3 @@ export function DirectorDashboard() {
 }
 
 export default DirectorDashboard
-

@@ -3,7 +3,7 @@ import {
   getSQLitUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { expectAddress } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import {

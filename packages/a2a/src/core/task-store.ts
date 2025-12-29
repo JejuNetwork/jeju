@@ -8,7 +8,7 @@
  * @public
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { JsonValue } from '@jejunetwork/types'
 import { z } from 'zod'
 import type { Message, Task, TaskArtifact, TaskStore } from '../types/server'

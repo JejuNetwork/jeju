@@ -854,21 +854,30 @@ export const ModerationProviderConfigSchema = z.object({
   envKey: z.string().optional(),
   envKeys: z.record(z.string(), z.string()).optional(),
   defaultRegion: z.string().optional(),
-  sources: z.record(z.string(), z.object({
-    provider: z.string(),
-    envKey: z.string(),
-    refreshIntervalMs: z.number().int().positive(),
-  })).optional(),
+  sources: z
+    .record(
+      z.string(),
+      z.object({
+        provider: z.string(),
+        envKey: z.string(),
+        refreshIntervalMs: z.number().int().positive(),
+      }),
+    )
+    .optional(),
   pricing: ModerationPricingSchema,
 })
-export type ModerationProviderConfig = z.infer<typeof ModerationProviderConfigSchema>
+export type ModerationProviderConfig = z.infer<
+  typeof ModerationProviderConfigSchema
+>
 
 /** Moderation environment configuration */
 export const ModerationEnvironmentConfigSchema = z.object({
   providers: z.array(z.string()),
   strictMode: z.boolean(),
 })
-export type ModerationEnvironmentConfig = z.infer<typeof ModerationEnvironmentConfigSchema>
+export type ModerationEnvironmentConfig = z.infer<
+  typeof ModerationEnvironmentConfigSchema
+>
 
 /** Moderation reputation configuration */
 const ModerationReputationSchema = z.object({

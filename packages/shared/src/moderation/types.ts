@@ -5,9 +5,20 @@
 import type { Address } from 'viem'
 
 export type ModerationCategory =
-  | 'clean' | 'spam' | 'scam' | 'malware' | 'csam' | 'adult'
-  | 'violence' | 'hate' | 'harassment' | 'self_harm' | 'illegal'
-  | 'copyright' | 'pii' | 'drugs'
+  | 'clean'
+  | 'spam'
+  | 'scam'
+  | 'malware'
+  | 'csam'
+  | 'adult'
+  | 'violence'
+  | 'hate'
+  | 'harassment'
+  | 'self_harm'
+  | 'illegal'
+  | 'copyright'
+  | 'pii'
+  | 'drugs'
 
 export type ModerationSeverity = 'none' | 'low' | 'medium' | 'high' | 'critical'
 
@@ -21,11 +32,27 @@ export type ModerationSeverity = 'none' | 'low' | 'medium' | 'high' | 'critical'
  */
 export type ModerationAction = 'allow' | 'warn' | 'queue' | 'block' | 'ban'
 
-export type ContentType = 'text' | 'image' | 'video' | 'audio' | 'file' | 'code' | 'name'
+export type ContentType =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'file'
+  | 'code'
+  | 'name'
 
 export type ModerationProvider =
-  | 'local' | 'openai' | 'hive' | 'aws_rekognition' | 'aws-rekognition'
-  | 'cloudflare' | 'llm' | 'hash' | 'nsfwjs' | 'nsfw_local' | 'obscenity'
+  | 'local'
+  | 'openai'
+  | 'hive'
+  | 'aws_rekognition'
+  | 'aws-rekognition'
+  | 'cloudflare'
+  | 'llm'
+  | 'hash'
+  | 'nsfwjs'
+  | 'nsfw_local'
+  | 'obscenity'
 
 export interface CategoryScore {
   category: ModerationCategory

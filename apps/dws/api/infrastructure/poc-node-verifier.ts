@@ -1,20 +1,27 @@
 /**
  * Proof-of-Cloud Node Verifier
- * 
+ *
  * Verifies DWS nodes against the cloud alliance registry during benchmarking.
- * Called by BenchmarkOrchestrator after TEE detection to check if hardware is 
+ * Called by BenchmarkOrchestrator after TEE detection to check if hardware is
  * registered in the cloud alliance and assign reputation deltas accordingly.
- * 
+ *
  * Verification levels: 1 (basic), 2 (enhanced), 3 (full attestation)
  * Reputation deltas: +10/+15/+25 for levels 1/2/3, -10 for failures, -50 for revoked
- * 
+ *
  * Requires HARDWARE_ID_SALT on mainnet; uses zero salt on localnet/testnet for testing.
  */
 
 import type { Hex } from 'viem'
-import { getAgentPoCStatus, initializePoCSystem, isAgentPoCVerified } from '../poc'
+import {
+  getAgentPoCStatus,
+  initializePoCSystem,
+  isAgentPoCVerified,
+} from '../poc'
 import { hashHardwareId, parseQuote, verifyQuote } from '../poc/quote-parser'
-import { createRegistryClient, type PoCRegistryClient } from '../poc/registry-client'
+import {
+  createRegistryClient,
+  type PoCRegistryClient,
+} from '../poc/registry-client'
 import type { AgentPoCStatus, PoCVerificationLevel } from '../poc/types'
 import type { InfraEvent, InfraEventHandler } from './types'
 
@@ -32,7 +39,10 @@ const BATCH_CONCURRENCY = 5
 const RETRY_COUNT = 3
 const RETRY_BASE_DELAY_MS = 100
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = RETRY_COUNT): Promise<T> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = RETRY_COUNT,
+): Promise<T> {
   let lastError: Error | null = null
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -40,8 +50,10 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = RETRY_COUNT): Pro
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
       if (attempt < maxRetries - 1) {
-        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
-        console.warn(`[PoCNodeVerifier] Retry ${attempt + 1}/${maxRetries} after ${delay}ms: ${lastError.message}`)
+        const delay = RETRY_BASE_DELAY_MS * 2 ** attempt
+        console.warn(
+          `[PoCNodeVerifier] Retry ${attempt + 1}/${maxRetries} after ${delay}ms: ${lastError.message}`,
+        )
         await new Promise((r) => setTimeout(r, delay))
       }
     }
@@ -68,7 +80,10 @@ interface PoCNodeVerifierConfig {
 export class PoCNodeVerifier {
   private readonly config: PoCNodeVerifierConfig
   private readonly registryClient: PoCRegistryClient
-  private readonly cache = new Map<string, { result: VerificationResult; expiresAt: number }>()
+  private readonly cache = new Map<
+    string,
+    { result: VerificationResult; expiresAt: number }
+  >()
   private readonly pending = new Map<string, Promise<VerificationResult>>()
   private readonly eventHandlers: InfraEventHandler[] = []
 
@@ -77,9 +92,13 @@ export class PoCNodeVerifier {
     this.registryClient = createRegistryClient()
   }
 
-  async verifyNode(agentId: bigint, quote: Hex, expectedMeasurement?: Hex): Promise<VerificationResult> {
+  async verifyNode(
+    agentId: bigint,
+    quote: Hex,
+    expectedMeasurement?: Hex,
+  ): Promise<VerificationResult> {
     const cacheKey = `${agentId}:${quote.slice(0, 66)}`
-    
+
     // Check cache first
     const cached = this.cache.get(cacheKey)
     if (cached && Date.now() < cached.expiresAt) {
@@ -94,7 +113,7 @@ export class PoCNodeVerifier {
 
     const promise = this.doVerify(agentId, quote, cacheKey, expectedMeasurement)
     this.pending.set(cacheKey, promise)
-    
+
     try {
       return await promise
     } finally {
@@ -102,41 +121,104 @@ export class PoCNodeVerifier {
     }
   }
 
-  private async doVerify(agentId: bigint, quote: Hex, cacheKey: string, expectedMeasurement?: Hex): Promise<VerificationResult> {
+  private async doVerify(
+    agentId: bigint,
+    quote: Hex,
+    cacheKey: string,
+    expectedMeasurement?: Hex,
+  ): Promise<VerificationResult> {
     const parseResult = parseQuote(quote)
     if (!parseResult.success || !parseResult.quote) {
-      return this.fail(agentId, 'failed', `Failed to parse TEE quote: ${parseResult.error}`)
+      return this.fail(
+        agentId,
+        'failed',
+        `Failed to parse TEE quote: ${parseResult.error}`,
+      )
     }
 
-    const quoteResult = await verifyQuote(parseResult.quote, expectedMeasurement)
+    const quoteResult = await verifyQuote(
+      parseResult.quote,
+      expectedMeasurement,
+    )
     if (!quoteResult.valid) {
-      return this.fail(agentId, 'failed', `Quote verification failed: ${quoteResult.error}`)
+      return this.fail(
+        agentId,
+        'failed',
+        `Quote verification failed: ${quoteResult.error}`,
+      )
     }
 
-    const hardwareIdHash = hashHardwareId(parseResult.quote.hardwareId, this.config.hardwareIdSalt)
-    
+    const hardwareIdHash = hashHardwareId(
+      parseResult.quote.hardwareId,
+      this.config.hardwareIdSalt,
+    )
+
     let entry
     try {
-      entry = await withRetry(() => this.registryClient.checkHardware(hardwareIdHash))
+      entry = await withRetry(() =>
+        this.registryClient.checkHardware(hardwareIdHash),
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`[PoCNodeVerifier] Registry check failed after retries: ${msg}`)
-      return this.fail(agentId, 'failed', `Registry unavailable: ${msg}`, hardwareIdHash)
+      console.error(
+        `[PoCNodeVerifier] Registry check failed after retries: ${msg}`,
+      )
+      return this.fail(
+        agentId,
+        'failed',
+        `Registry unavailable: ${msg}`,
+        hardwareIdHash,
+      )
     }
 
     if (!entry) {
-      return this.makeResult(false, null, hardwareIdHash, null, null, 'not_registered', 'Hardware not registered in cloud alliance')
+      return this.makeResult(
+        false,
+        null,
+        hardwareIdHash,
+        null,
+        null,
+        'not_registered',
+        'Hardware not registered in cloud alliance',
+      )
     }
 
     if (!entry.active) {
-      return this.fail(agentId, 'revoked', 'Hardware revoked', hardwareIdHash, entry.cloudProvider, entry.region)
+      return this.fail(
+        agentId,
+        'revoked',
+        'Hardware revoked',
+        hardwareIdHash,
+        entry.cloudProvider,
+        entry.region,
+      )
     }
 
-    const result = this.makeResult(true, entry.level, hardwareIdHash, entry.cloudProvider, entry.region, `level_${entry.level}`, null)
-    this.cache.set(cacheKey, { result, expiresAt: Date.now() + this.config.cacheTtlMs })
-    this.emit({ type: 'node:poc_verified', nodeAgentId: agentId, level: entry.level, cloudProvider: entry.cloudProvider, region: entry.region, hardwareIdHash })
+    const result = this.makeResult(
+      true,
+      entry.level,
+      hardwareIdHash,
+      entry.cloudProvider,
+      entry.region,
+      `level_${entry.level}`,
+      null,
+    )
+    this.cache.set(cacheKey, {
+      result,
+      expiresAt: Date.now() + this.config.cacheTtlMs,
+    })
+    this.emit({
+      type: 'node:poc_verified',
+      nodeAgentId: agentId,
+      level: entry.level,
+      cloudProvider: entry.cloudProvider,
+      region: entry.region,
+      hardwareIdHash,
+    })
 
-    console.log(`[PoCNodeVerifier] Agent ${agentId}: Level ${entry.level}, ${entry.cloudProvider}/${entry.region}, +${result.reputationDelta} rep`)
+    console.log(
+      `[PoCNodeVerifier] Agent ${agentId}: Level ${entry.level}, ${entry.cloudProvider}/${entry.region}, +${result.reputationDelta} rep`,
+    )
     return result
   }
 
@@ -146,26 +228,36 @@ export class PoCNodeVerifier {
 
   getNodePoCStatus(agentId: bigint): Promise<AgentPoCStatus | null> {
     return getAgentPoCStatus(agentId).catch((err) => {
-      console.warn(`[PoCNodeVerifier] getNodePoCStatus failed for ${agentId}:`, err)
+      console.warn(
+        `[PoCNodeVerifier] getNodePoCStatus failed for ${agentId}:`,
+        err,
+      )
       throw err
     })
   }
 
   isNodeVerified(agentId: bigint): Promise<boolean> {
     return isAgentPoCVerified(agentId).catch((err) => {
-      console.warn(`[PoCNodeVerifier] isNodeVerified failed for ${agentId}:`, err)
+      console.warn(
+        `[PoCNodeVerifier] isNodeVerified failed for ${agentId}:`,
+        err,
+      )
       throw err
     })
   }
 
-  async verifyNodes(nodes: Array<{ agentId: bigint; quote: Hex }>): Promise<Map<string, VerificationResult>> {
+  async verifyNodes(
+    nodes: Array<{ agentId: bigint; quote: Hex }>,
+  ): Promise<Map<string, VerificationResult>> {
     const results = new Map<string, VerificationResult>()
     for (let i = 0; i < nodes.length; i += BATCH_CONCURRENCY) {
       const batch = await Promise.all(
-        nodes.slice(i, i + BATCH_CONCURRENCY).map(async ({ agentId, quote }) => ({
-          id: agentId.toString(),
-          result: await this.verifyNode(agentId, quote),
-        })),
+        nodes
+          .slice(i, i + BATCH_CONCURRENCY)
+          .map(async ({ agentId, quote }) => ({
+            id: agentId.toString(),
+            result: await this.verifyNode(agentId, quote),
+          })),
       )
       batch.forEach(({ id, result }) => results.set(id, result))
     }
@@ -221,13 +313,23 @@ export class PoCNodeVerifier {
     region: string | null = null,
   ): VerificationResult {
     this.emit({ type: 'node:poc_failed', nodeAgentId: agentId, reason: error })
-    return this.makeResult(false, null, hardwareIdHash, cloudProvider, region, deltaKey, error)
+    return this.makeResult(
+      false,
+      null,
+      hardwareIdHash,
+      cloudProvider,
+      region,
+      deltaKey,
+      error,
+    )
   }
 
   private emit(event: InfraEvent): void {
     for (const handler of this.eventHandlers) {
       try {
-        Promise.resolve(handler(event)).catch((err) => console.error('[PoCNodeVerifier] Event handler error:', err))
+        Promise.resolve(handler(event)).catch((err) =>
+          console.error('[PoCNodeVerifier] Event handler error:', err),
+        )
       } catch (err) {
         console.error('[PoCNodeVerifier] Event handler error:', err)
       }
@@ -245,7 +347,7 @@ export class PoCNodeVerifier {
     initializePoCSystem()
 
     return new PoCNodeVerifier({
-      hardwareIdSalt: (hardwareIdSalt ?? '0x' + '00'.repeat(32)) as Hex,
+      hardwareIdSalt: (hardwareIdSalt ?? `0x${'00'.repeat(32)}`) as Hex,
       cacheTtlMs: DEFAULT_CACHE_TTL_MS,
     })
   }
@@ -257,7 +359,9 @@ export function getPoCNodeVerifier(): PoCNodeVerifier {
   return (instance ??= PoCNodeVerifier.fromEnv())
 }
 
-export function initializePoCNodeVerifier(config: PoCNodeVerifierConfig): PoCNodeVerifier {
+export function initializePoCNodeVerifier(
+  config: PoCNodeVerifierConfig,
+): PoCNodeVerifier {
   return (instance = new PoCNodeVerifier(config))
 }
 

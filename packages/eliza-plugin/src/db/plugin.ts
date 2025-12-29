@@ -96,10 +96,7 @@ export const sqlitDatabasePlugin: Plugin = {
     const databaseId = getSQLitDatabaseId() ?? 'eliza'
     const migrated = await checkMigrationStatus(sqlit, databaseId)
     if (!migrated) {
-      logger.info(
-        { src: 'plugin:sqlit' },
-        'Running SQLit schema migrations...',
-      )
+      logger.info({ src: 'plugin:sqlit' }, 'Running SQLit schema migrations...')
       await runSQLitMigrations(sqlit, databaseId)
     }
 

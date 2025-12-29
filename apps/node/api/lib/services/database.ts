@@ -10,12 +10,12 @@
 
 import {
   type DatabaseInfo,
-  type SQLitClient,
-  type SQLitConfig,
   type ExecResult,
   getSQLit,
   type QueryParam,
   type QueryResult,
+  type SQLitClient,
+  type SQLitConfig,
 } from '@jejunetwork/db'
 import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import type { Address } from 'viem'

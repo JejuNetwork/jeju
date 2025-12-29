@@ -11,30 +11,34 @@
  * - Retroactive enforcement support
  */
 
-import { logger } from '../logger'
 import type { Address } from 'viem'
+import { logger } from '../logger'
 
-export type ContentStatusType = 'clean' | 'nsfw_adult' | 'quarantined' | 'banned'
+export type ContentStatusType =
+  | 'clean'
+  | 'nsfw_adult'
+  | 'quarantined'
+  | 'banned'
 
 export interface ContentStatus {
   sha256: string
-  
+
   // Status
   status: ContentStatusType
   policyClass?: string
-  
+
   // Detection history
   firstSeen: number
   lastSeen: number
   seenCount: number
-  
+
   // Attribution (for retroactive enforcement)
   wallets: Address[]
   providers: string[]
-  
+
   // Perceptual hash (only for non-CSAM, non-youth content)
   perceptualHash?: string
-  
+
   // Ban reason (if banned)
   banReason?: string
   bannedAt?: number
@@ -71,7 +75,8 @@ export class ContentCache {
     this.config = {
       maxEntries: config.maxEntries ?? DEFAULT_CONFIG.maxEntries,
       cleanTtlMs: config.cleanTtlMs ?? DEFAULT_CONFIG.cleanTtlMs,
-      similarityThreshold: config.similarityThreshold ?? DEFAULT_CONFIG.similarityThreshold,
+      similarityThreshold:
+        config.similarityThreshold ?? DEFAULT_CONFIG.similarityThreshold,
     }
   }
 
@@ -104,9 +109,12 @@ export class ContentCache {
    */
   async update(status: ContentStatus): Promise<void> {
     const normalized = status.sha256.toLowerCase()
-    
+
     // Check cache size limit
-    if (!contentByHash.has(normalized) && contentByHash.size >= this.config.maxEntries) {
+    if (
+      !contentByHash.has(normalized) &&
+      contentByHash.size >= this.config.maxEntries
+    ) {
       this.evictOldest()
     }
 
@@ -141,7 +149,10 @@ export class ContentCache {
    *
    * IMPORTANT: Only use for non-CSAM, non-youth-ambiguous content!
    */
-  async findSimilar(perceptualHash: string, threshold?: number): Promise<ContentStatus[]> {
+  async findSimilar(
+    perceptualHash: string,
+    threshold?: number,
+  ): Promise<ContentStatus[]> {
     const maxDistance = threshold ?? this.config.similarityThreshold
     const results: ContentStatus[] = []
 
@@ -206,7 +217,10 @@ export class ContentCache {
    *
    * Used for retroactive enforcement when a similar image is detected as CSAM.
    */
-  async banSimilar(perceptualHash: string, reason: string): Promise<{
+  async banSimilar(
+    perceptualHash: string,
+    reason: string,
+  ): Promise<{
     contentBanned: number
     walletsAffected: Address[]
   }> {
@@ -217,7 +231,7 @@ export class ContentCache {
     for (const content of similar) {
       if (content.status !== 'banned') {
         const wallets = await this.ban(content.sha256, reason)
-        wallets.forEach(w => walletsAffected.add(w))
+        wallets.forEach((w) => walletsAffected.add(w))
         contentBanned++
       }
     }
@@ -264,8 +278,8 @@ export class ContentCache {
    * Compute Hamming distance between two hex strings
    */
   private hammingDistance(hash1: string, hash2: string): number {
-    const n1 = BigInt('0x' + hash1)
-    const n2 = BigInt('0x' + hash2)
+    const n1 = BigInt(`0x${hash1}`)
+    const n2 = BigInt(`0x${hash2}`)
     let xor = n1 ^ n2
     let distance = 0
 
@@ -319,4 +333,3 @@ export function getContentCache(config?: ContentCacheConfig): ContentCache {
   }
   return instance
 }
-

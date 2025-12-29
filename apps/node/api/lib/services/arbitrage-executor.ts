@@ -222,7 +222,9 @@ export class ArbitrageExecutor {
    */
   async initialize(): Promise<void> {
     this.evmAddress = await this.evmSigner.getAddress()
-    console.log(`[ArbitrageExecutor] Initialized with address: ${this.evmAddress}`)
+    console.log(
+      `[ArbitrageExecutor] Initialized with address: ${this.evmAddress}`,
+    )
   }
 
   /**

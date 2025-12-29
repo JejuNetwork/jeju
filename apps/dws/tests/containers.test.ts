@@ -9,26 +9,37 @@
  * Tests NEVER skip - they fail with clear instructions if dependencies missing.
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from 'bun:test'
 import type { Address } from 'viem'
-import { requireDependency, SETUP_INSTRUCTIONS, detectEnvironment } from './test-environment'
+import {
+  detectEnvironment,
+  requireDependency,
+  SETUP_INSTRUCTIONS,
+} from './test-environment'
 
 // Require Docker - fail with instructions if not available
 beforeAll(async () => {
   const env = await detectEnvironment()
   requireDependency('Docker', env.docker, SETUP_INSTRUCTIONS.docker)
-  
+
   if (!process.env.CONTAINER_REGISTRY_ADDRESS) {
     requireDependency(
       'CONTAINER_REGISTRY_ADDRESS',
       false,
       'Set CONTAINER_REGISTRY_ADDRESS environment variable to deployed registry contract address.\n' +
-      'Deploy contracts: bun run jeju deploy contracts'
+        'Deploy contracts: bun run jeju deploy contracts',
     )
   }
 })
 
-const SKIP_DOCKER_TESTS = false // Never skip - fail instead
+const _SKIP_DOCKER_TESTS = false // Never skip - fail instead
 
 import {
   acquireWarmInstance,

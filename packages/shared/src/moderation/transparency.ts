@@ -118,11 +118,15 @@ export function recordMetric(entry: Omit<MetricEntry, 'timestamp'>): void {
 /**
  * Generate transparency report for a given period
  */
-export function generateTransparencyReport(period: TransparencyPeriod): TransparencyReport {
+export function generateTransparencyReport(
+  period: TransparencyPeriod,
+): TransparencyReport {
   const startTs = period.startDate.getTime()
   const endTs = period.endDate.getTime()
 
-  const periodMetrics = metrics.filter(m => m.timestamp >= startTs && m.timestamp <= endTs)
+  const periodMetrics = metrics.filter(
+    (m) => m.timestamp >= startTs && m.timestamp <= endTs,
+  )
 
   const emptyStats = (): ContentActionStats => ({
     totalProcessed: 0,
@@ -234,9 +238,12 @@ export function generateTransparencyReport(period: TransparencyPeriod): Transpar
   // Calculate response time percentiles
   processingTimes.sort((a, b) => a - b)
   const responseTimeStats: ResponseTimeStats = {
-    averageMs: processingTimes.length > 0
-      ? Math.round(processingTimes.reduce((a, b) => a + b, 0) / processingTimes.length)
-      : 0,
+    averageMs:
+      processingTimes.length > 0
+        ? Math.round(
+            processingTimes.reduce((a, b) => a + b, 0) / processingTimes.length,
+          )
+        : 0,
     p50Ms: processingTimes[Math.floor(processingTimes.length * 0.5)] ?? 0,
     p95Ms: processingTimes[Math.floor(processingTimes.length * 0.95)] ?? 0,
     p99Ms: processingTimes[Math.floor(processingTimes.length * 0.99)] ?? 0,
@@ -273,7 +280,9 @@ export function generateTransparencyReport(period: TransparencyPeriod): Transpar
 /**
  * Format transparency report for public disclosure
  */
-export function formatTransparencyReportMarkdown(report: TransparencyReport): string {
+export function formatTransparencyReportMarkdown(
+  report: TransparencyReport,
+): string {
   return `# Transparency Report
 
 **Report ID:** ${report.reportId}
@@ -367,12 +376,24 @@ export function getCurrentMetricsSummary(): {
       if (m.timestamp < since) continue
       stats.totalProcessed++
       switch (m.action) {
-        case 'allow': stats.allowed++; break
-        case 'warn': stats.warned++; break
-        case 'queue': stats.queued++; break
-        case 'block': stats.blocked++; break
-        case 'ban': stats.banned++; break
-        case 'report': stats.reported++; break
+        case 'allow':
+          stats.allowed++
+          break
+        case 'warn':
+          stats.warned++
+          break
+        case 'queue':
+          stats.queued++
+          break
+        case 'block':
+          stats.blocked++
+          break
+        case 'ban':
+          stats.banned++
+          break
+        case 'report':
+          stats.reported++
+          break
       }
     }
 
@@ -385,4 +406,3 @@ export function getCurrentMetricsSummary(): {
     last30Days: summarize(now - 30 * day),
   }
 }
-

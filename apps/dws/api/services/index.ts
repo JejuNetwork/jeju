@@ -12,7 +12,7 @@
  */
 
 import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -312,8 +312,7 @@ const SERVICE_IMAGES: Record<ServiceType, string> = {
   redis: 'redis:7-alpine',
   rabbitmq: 'rabbitmq:3-management-alpine',
   minio: 'minio/minio:latest',
-  sqlit:
-    process.env.SQLIT_DOCKER_IMAGE || 'ghcr.io/jejunetwork/sqlit:latest',
+  sqlit: process.env.SQLIT_DOCKER_IMAGE || 'ghcr.io/jejunetwork/sqlit:latest',
 }
 
 // Container naming convention: dws-{type}-{name}

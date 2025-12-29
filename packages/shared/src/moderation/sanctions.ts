@@ -14,8 +14,8 @@
  * https://www.treasury.gov/ofac/downloads/sanctions/1.0/sdn_advanced.xml
  */
 
-import { logger } from '../logger'
 import type { Address } from 'viem'
+import { logger } from '../logger'
 
 // Known sanctioned crypto addresses from OFAC
 // Source: https://sanctionslist.ofac.treas.gov/Home/SdnList
@@ -68,17 +68,17 @@ const OFAC_SANCTIONED_ADDRESSES: Set<string> = new Set([
   '0x242654336ca2205714071898f67e254eb49acdce',
   '0x1e34a77868e19a6647b1f2f47b51ed72dede95dd',
   '0x707940c8c80d36a0f05d3a4d72eed43e4698b2ae',
-  
+
   // Lazarus Group / DPRK addresses
   '0x098b716b8aaf21512996dc57eb0615e2383e2f96',
   '0xa0e1c89ef1a489c9c7de96311ed5ce5d32c20e4b',
   '0x3cffd56b47b7b41c56258d9c7731abadc360e073',
   '0x53b6936513e738f44fb50d2b9476730c0ab3bfc1',
   '0x35fb6f6db4fb05e6a4ce86f2c93691425626d4b1',
-  
+
   // Blender.io addresses (May 2022)
   '0x8f74f27a1e8c9ff0dbde7a8d2bf77dbdb5a3bfce',
-  
+
   // Sinbad.io addresses (November 2023)
   '0x72a5843cc08275c8171e582972aa4fda8c397b2a',
   '0x723b78e67497e85279cb204544566f4dc5d2aca0',
@@ -86,7 +86,7 @@ const OFAC_SANCTIONED_ADDRESSES: Set<string> = new Set([
 ])
 
 // DPRK-associated wallet patterns (for taint analysis)
-const DPRK_ASSOCIATION_PATTERNS: RegExp[] = [
+const _DPRK_ASSOCIATION_PATTERNS: RegExp[] = [
   // No specific patterns, relies on direct address matching and external APIs
 ]
 
@@ -108,7 +108,10 @@ export interface SanctionsScreenerConfig {
 }
 
 // In-memory cache for sanctions results (TTL: 1 hour)
-const sanctionsCache = new Map<string, { result: SanctionsCheckResult; expiresAt: number }>()
+const sanctionsCache = new Map<
+  string,
+  { result: SanctionsCheckResult; expiresAt: number }
+>()
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 
 /**
@@ -123,7 +126,7 @@ export class SanctionsScreener {
   constructor(config: SanctionsScreenerConfig = {}) {
     this.config = config
     this.internalBlocklist = new Set(
-      (config.internalBlocklist ?? []).map(addr => addr.toLowerCase())
+      (config.internalBlocklist ?? []).map((addr) => addr.toLowerCase()),
     )
   }
 
@@ -161,7 +164,9 @@ export class SanctionsScreener {
         details: 'Direct match on OFAC Specially Designated Nationals list',
       }
       this.cacheResult(normalizedAddress, result)
-      logger.warn('[SanctionsScreener] OFAC match found', { address: normalizedAddress })
+      logger.warn('[SanctionsScreener] OFAC match found', {
+        address: normalizedAddress,
+      })
       return result
     }
 
@@ -177,7 +182,9 @@ export class SanctionsScreener {
         details: 'Direct match on internal blocklist',
       }
       this.cacheResult(normalizedAddress, result)
-      logger.warn('[SanctionsScreener] Internal blocklist match found', { address: normalizedAddress })
+      logger.warn('[SanctionsScreener] Internal blocklist match found', {
+        address: normalizedAddress,
+      })
       return result
     }
 
@@ -212,14 +219,16 @@ export class SanctionsScreener {
   /**
    * Batch check multiple addresses
    */
-  async checkAddresses(addresses: Address[]): Promise<Map<Address, SanctionsCheckResult>> {
+  async checkAddresses(
+    addresses: Address[],
+  ): Promise<Map<Address, SanctionsCheckResult>> {
     const results = new Map<Address, SanctionsCheckResult>()
 
     await Promise.all(
       addresses.map(async (address) => {
         const result = await this.checkAddress(address)
         results.set(address, result)
-      })
+      }),
     )
 
     return results
@@ -251,9 +260,12 @@ export class SanctionsScreener {
     if (removed) {
       // Clear from cache to force re-check
       sanctionsCache.delete(normalizedAddress)
-      logger.info('[SanctionsScreener] Address removed from internal blocklist', {
-        address: normalizedAddress,
-      })
+      logger.info(
+        '[SanctionsScreener] Address removed from internal blocklist',
+        {
+          address: normalizedAddress,
+        },
+      )
     }
 
     return removed
@@ -288,11 +300,18 @@ export class SanctionsScreener {
   /**
    * Check Chainalysis API
    */
-  private async checkChainalysis(address: string): Promise<SanctionsCheckResult> {
+  private async checkChainalysis(
+    address: string,
+  ): Promise<SanctionsCheckResult> {
     const now = Date.now()
 
     if (!this.config.chainalysisApiKey) {
-      return { isSanctioned: false, source: 'chainalysis', confidence: 0, checkTimestamp: now }
+      return {
+        isSanctioned: false,
+        source: 'chainalysis',
+        confidence: 0,
+        checkTimestamp: now,
+      }
     }
 
     try {
@@ -300,18 +319,25 @@ export class SanctionsScreener {
         `https://api.chainalysis.com/api/risk/v2/entities/${address}`,
         {
           headers: {
-            'Token': this.config.chainalysisApiKey,
-            'Accept': 'application/json',
+            Token: this.config.chainalysisApiKey,
+            Accept: 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
-        logger.error('[SanctionsScreener] Chainalysis API error', { status: response.status })
-        return { isSanctioned: false, source: 'chainalysis', confidence: 0, checkTimestamp: now }
+        logger.error('[SanctionsScreener] Chainalysis API error', {
+          status: response.status,
+        })
+        return {
+          isSanctioned: false,
+          source: 'chainalysis',
+          confidence: 0,
+          checkTimestamp: now,
+        }
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         risk: string
         riskReason?: string
         cluster?: { name?: string }
@@ -329,10 +355,22 @@ export class SanctionsScreener {
         }
       }
 
-      return { isSanctioned: false, source: 'chainalysis', confidence: 1.0, checkTimestamp: now }
+      return {
+        isSanctioned: false,
+        source: 'chainalysis',
+        confidence: 1.0,
+        checkTimestamp: now,
+      }
     } catch (error) {
-      logger.error('[SanctionsScreener] Chainalysis check failed', { error: String(error) })
-      return { isSanctioned: false, source: 'chainalysis', confidence: 0, checkTimestamp: now }
+      logger.error('[SanctionsScreener] Chainalysis check failed', {
+        error: String(error),
+      })
+      return {
+        isSanctioned: false,
+        source: 'chainalysis',
+        confidence: 0,
+        checkTimestamp: now,
+      }
     }
   }
 
@@ -343,7 +381,12 @@ export class SanctionsScreener {
     const now = Date.now()
 
     if (!this.config.ellipticApiKey) {
-      return { isSanctioned: false, source: 'elliptic', confidence: 0, checkTimestamp: now }
+      return {
+        isSanctioned: false,
+        source: 'elliptic',
+        confidence: 0,
+        checkTimestamp: now,
+      }
     }
 
     try {
@@ -364,15 +407,22 @@ export class SanctionsScreener {
             },
             type: 'wallet_exposure',
           }),
-        }
+        },
       )
 
       if (!response.ok) {
-        logger.error('[SanctionsScreener] Elliptic API error', { status: response.status })
-        return { isSanctioned: false, source: 'elliptic', confidence: 0, checkTimestamp: now }
+        logger.error('[SanctionsScreener] Elliptic API error', {
+          status: response.status,
+        })
+        return {
+          isSanctioned: false,
+          source: 'elliptic',
+          confidence: 0,
+          checkTimestamp: now,
+        }
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         risk_score?: number
         risk_score_detail?: {
           source?: string
@@ -392,10 +442,22 @@ export class SanctionsScreener {
         }
       }
 
-      return { isSanctioned: false, source: 'elliptic', confidence: 1.0, checkTimestamp: now }
+      return {
+        isSanctioned: false,
+        source: 'elliptic',
+        confidence: 1.0,
+        checkTimestamp: now,
+      }
     } catch (error) {
-      logger.error('[SanctionsScreener] Elliptic check failed', { error: String(error) })
-      return { isSanctioned: false, source: 'elliptic', confidence: 0, checkTimestamp: now }
+      logger.error('[SanctionsScreener] Elliptic check failed', {
+        error: String(error),
+      })
+      return {
+        isSanctioned: false,
+        source: 'elliptic',
+        confidence: 0,
+        checkTimestamp: now,
+      }
     }
   }
 
@@ -410,12 +472,16 @@ export class SanctionsScreener {
 // Singleton instance
 let sanctionsScreener: SanctionsScreener | null = null
 
-export function getSanctionsScreener(config?: SanctionsScreenerConfig): SanctionsScreener {
+export function getSanctionsScreener(
+  config?: SanctionsScreenerConfig,
+): SanctionsScreener {
   if (!sanctionsScreener) {
-    sanctionsScreener = new SanctionsScreener(config ?? {
-      chainalysisApiKey: process.env.CHAINALYSIS_API_KEY,
-      ellipticApiKey: process.env.ELLIPTIC_API_KEY,
-    })
+    sanctionsScreener = new SanctionsScreener(
+      config ?? {
+        chainalysisApiKey: process.env.CHAINALYSIS_API_KEY,
+        ellipticApiKey: process.env.ELLIPTIC_API_KEY,
+      },
+    )
   }
   return sanctionsScreener
 }
@@ -424,4 +490,3 @@ export function resetSanctionsScreener(): void {
   sanctionsScreener = null
   sanctionsCache.clear()
 }
-

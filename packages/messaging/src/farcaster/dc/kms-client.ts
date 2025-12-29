@@ -645,4 +645,3 @@ export async function createKMSDirectCastClient(
   await client.initialize()
   return client
 }
-

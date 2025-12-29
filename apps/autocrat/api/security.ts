@@ -1,5 +1,5 @@
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { type Address, isAddress, verifyMessage } from 'viem'

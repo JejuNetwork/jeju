@@ -219,4 +219,3 @@ export function getKMSConfig(): {
     mpcEndpoint: process.env.MPC_COORDINATOR_ENDPOINT,
   }
 }
-

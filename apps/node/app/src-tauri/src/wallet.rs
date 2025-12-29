@@ -160,34 +160,14 @@ impl WalletManager {
     }
 
     /// Get balances
-<<<<<<< HEAD
-    pub async fn get_balance(&self) -> Result<BalanceInfo, String> {
-        let signer = self.signer.as_ref().ok_or("Wallet not initialized")?;
-        let address = signer.address();
-
-        let provider = ProviderBuilder::new()
-            .on_http(
-                self.rpc_url
-                    .parse()
-                    .map_err(|e| format!("Invalid RPC URL: {}", e))?,
-            )
-            .map_err(|e| format!("Failed to create provider: {}", e))?;
-
-        let eth_balance = provider
-            .get_balance(address)
-            .await
-            .map_err(|e| format!("Failed to fetch balance: {}", e))?;
-
-=======
     /// Note: Balance fetching is now done through ContractClient in commands/wallet.rs
     /// This method is kept for compatibility but delegates to a simpler implementation
     #[allow(dead_code)]
     pub async fn get_balance(&self) -> Result<BalanceInfo, String> {
         // Balance fetching is now done through ContractClient
         // This returns empty balances - use ContractClient for actual balances
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
         Ok(BalanceInfo {
-            eth: eth_balance.to_string(),
+            eth: "0".to_string(),
             jeju: "0".to_string(),
             staked: "0".to_string(),
             pending_rewards: "0".to_string(),

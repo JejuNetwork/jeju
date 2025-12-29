@@ -1,13 +1,5 @@
 // SQLit service management
-export {
-  ensureSQLitService,
-  getDatabaseConnectionInfo,
-  getSQLitClientPort,
-  getSQLitEndpoint,
-  getSQLitStatus,
-  isSQLitHealthy,
-  provisionAppDatabase,
-} from './sqlit-service'
+
 // Keepalive service for database health monitoring
 export {
   createKeepaliveRouter,
@@ -37,3 +29,12 @@ export {
   internalExec,
   internalQuery,
 } from './secure-proxy'
+export {
+  ensureSQLitService,
+  getDatabaseConnectionInfo,
+  getSQLitClientPort,
+  getSQLitEndpoint,
+  getSQLitStatus,
+  isSQLitHealthy,
+  provisionAppDatabase,
+} from './sqlit-service'

@@ -23,7 +23,7 @@
  * ```
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import pino from 'pino'
 
 const log = pino({

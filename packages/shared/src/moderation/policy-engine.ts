@@ -16,8 +16,8 @@
  */
 
 import { logger } from '../logger'
-import type { FaceAgeResult } from './providers/face-age'
 import type { HashMatchResult } from './providers/csam-hash'
+import type { FaceAgeResult } from './providers/face-age'
 
 export interface NudityResult {
   nudityScore: number
@@ -28,24 +28,28 @@ export interface NudityResult {
   isSexy: boolean
 }
 
-export type RoutingCase = 'csam_match' | 'youth_risk' | 'adult_nsfw' | 'non_nsfw'
+export type RoutingCase =
+  | 'csam_match'
+  | 'youth_risk'
+  | 'adult_nsfw'
+  | 'non_nsfw'
 
 export interface RoutingDecision {
   case: RoutingCase
   action: 'block' | 'quarantine' | 'external_check' | 'allow'
-  
+
   // Processing flags
   runExternalAI: boolean
   computePerceptualHash: boolean
   storeEvidence: boolean
   reportNCMEC: boolean
-  
+
   // Queue assignment
   queue?: 'restricted_review' | 'standard_review'
-  
+
   // Reason for audit trail
   reason: string
-  
+
   // Confidence in decision
   confidence: number
 }
@@ -77,8 +81,10 @@ export class PolicyEngine {
   constructor(config: PolicyEngineConfig = {}) {
     this.config = {
       nsfwThreshold: config.nsfwThreshold ?? DEFAULT_CONFIG.nsfwThreshold,
-      ageConfidenceThreshold: config.ageConfidenceThreshold ?? DEFAULT_CONFIG.ageConfidenceThreshold,
-      effectiveAdultAge: config.effectiveAdultAge ?? DEFAULT_CONFIG.effectiveAdultAge,
+      ageConfidenceThreshold:
+        config.ageConfidenceThreshold ?? DEFAULT_CONFIG.ageConfidenceThreshold,
+      effectiveAdultAge:
+        config.effectiveAdultAge ?? DEFAULT_CONFIG.effectiveAdultAge,
     }
   }
 
@@ -132,7 +138,10 @@ export class PolicyEngine {
         reportNCMEC: false, // Only after manual confirmation
         queue: 'restricted_review',
         reason: 'NSFW content with youth ambiguity detected',
-        confidence: Math.min(nudityScore, 1 - (faceAgeResult?.minAgeConfidence ?? 0)),
+        confidence: Math.min(
+          nudityScore,
+          1 - (faceAgeResult?.minAgeConfidence ?? 0),
+        ),
       }
       this.logDecision(decision)
       return decision
@@ -182,10 +191,12 @@ export class PolicyEngine {
     if (faceAgeResult.hasYouthAmbiguity) return true
 
     // Low confidence on age estimation
-    if (faceAgeResult.minAgeConfidence < this.config.ageConfidenceThreshold) return true
+    if (faceAgeResult.minAgeConfidence < this.config.ageConfidenceThreshold)
+      return true
 
     // Age estimate below threshold
-    if (faceAgeResult.minAgeEstimate < this.config.effectiveAdultAge) return true
+    if (faceAgeResult.minAgeEstimate < this.config.effectiveAdultAge)
+      return true
 
     return false
   }
@@ -249,4 +260,3 @@ export function getPolicyEngine(config?: PolicyEngineConfig): PolicyEngine {
   }
   return instance
 }
-

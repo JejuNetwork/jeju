@@ -4,20 +4,41 @@
  */
 
 import { z } from 'zod'
-import type { CategoryScore, ModerationCategory, ModerationProvider, ModerationResult } from '../types'
+import type {
+  CategoryScore,
+  ModerationCategory,
+  ModerationProvider,
+  ModerationResult,
+} from '../types'
 
 const HiveResponseSchema = z.object({
   status: z.array(z.object({ code: z.number(), description: z.string() })),
-  output: z.array(z.object({ classes: z.array(z.object({ class: z.string(), score: z.number() })) })).optional(),
+  output: z
+    .array(
+      z.object({
+        classes: z.array(z.object({ class: z.string(), score: z.number() })),
+      }),
+    )
+    .optional(),
 })
 
 const HIVE_TO_CATEGORY: Record<string, ModerationCategory> = {
-  sexual_display: 'adult', sexual_activity: 'adult', sex_toy: 'adult', suggestive: 'adult',
-  yes_minor: 'csam', yes_sexual_minor: 'csam',
-  very_bloody: 'violence', human_corpse: 'violence', hanging: 'violence',
-  nazi: 'hate', confederate: 'hate', supremacist: 'hate',
+  sexual_display: 'adult',
+  sexual_activity: 'adult',
+  sex_toy: 'adult',
+  suggestive: 'adult',
+  yes_minor: 'csam',
+  yes_sexual_minor: 'csam',
+  very_bloody: 'violence',
+  human_corpse: 'violence',
+  hanging: 'violence',
+  nazi: 'hate',
+  confederate: 'hate',
+  supremacist: 'hate',
   self_harm: 'self_harm',
-  pills: 'drugs', drug_use: 'drugs', smoking: 'drugs',
+  pills: 'drugs',
+  drug_use: 'drugs',
+  smoking: 'drugs',
   spam: 'spam',
 }
 
@@ -48,7 +69,10 @@ export class HiveModerationProvider {
 
     const res = await fetch(this.endpoint, {
       method: 'POST',
-      headers: { Authorization: `Token ${this.apiKey}`, Accept: 'application/json' },
+      headers: {
+        Authorization: `Token ${this.apiKey}`,
+        Accept: 'application/json',
+      },
       body: form,
       signal: AbortSignal.timeout(this.timeout),
     })
@@ -61,7 +85,11 @@ export class HiveModerationProvider {
     const start = Date.now()
     const res = await fetch(this.endpoint, {
       method: 'POST',
-      headers: { Authorization: `Token ${this.apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        Authorization: `Token ${this.apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
       body: JSON.stringify({ text_data: text }),
       signal: AbortSignal.timeout(this.timeout),
     })
@@ -70,7 +98,10 @@ export class HiveModerationProvider {
     return this.process(HiveResponseSchema.parse(await res.json()), start)
   }
 
-  private process(data: z.infer<typeof HiveResponseSchema>, start: number): ModerationResult {
+  private process(
+    data: z.infer<typeof HiveResponseSchema>,
+    start: number,
+  ): ModerationResult {
     const categories: CategoryScore[] = []
     const maxScores = new Map<ModerationCategory, number>()
 
@@ -85,7 +116,12 @@ export class HiveModerationProvider {
     }
 
     for (const [cat, score] of maxScores) {
-      categories.push({ category: cat, score, confidence: 0.95, provider: 'hive' })
+      categories.push({
+        category: cat,
+        score,
+        confidence: 0.95,
+        provider: 'hive',
+      })
     }
 
     const csam = maxScores.get('csam') ?? 0
@@ -95,10 +131,18 @@ export class HiveModerationProvider {
     let severity: ModerationResult['severity'] = 'none'
     let review = false
 
-    if (csam > 0.3) { action = 'ban'; severity = 'critical'; review = true }
-    else if (adult > 0.7) { action = 'warn'; severity = 'low' }
+    if (csam > 0.3) {
+      action = 'ban'
+      severity = 'critical'
+      review = true
+    } else if (adult > 0.7) {
+      action = 'warn'
+      severity = 'low'
+    }
 
-    const primary = categories.length ? categories.reduce((a, b) => a.score > b.score ? a : b).category : undefined
+    const primary = categories.length
+      ? categories.reduce((a, b) => (a.score > b.score ? a : b)).category
+      : undefined
 
     return {
       safe: action === 'allow',

@@ -18,11 +18,18 @@
  * - AddressBanRemoved(target)
  */
 
-import { logger } from '../logger'
-import type { Address, Hash, PublicClient, WalletClient, Chain, Transport } from 'viem'
-import { createPublicClient, createWalletClient, http, encodeFunctionData } from 'viem'
-import { base, baseSepolia } from 'viem/chains'
+import type {
+  Address,
+  Chain,
+  Hash,
+  PublicClient,
+  Transport,
+  WalletClient,
+} from 'viem'
+import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia } from 'viem/chains'
+import { logger } from '../logger'
 
 // BanManager ABI (partial - only methods we need)
 const BAN_MANAGER_ABI = [
@@ -145,7 +152,8 @@ const signalQueue: ModerationSignal[] = []
  * On-Chain Moderation Signals Service
  */
 export class OnChainSignalsService {
-  private config: Required<Pick<OnChainSignalsConfig, 'network' | 'dryRun'>> & OnChainSignalsConfig
+  private config: Required<Pick<OnChainSignalsConfig, 'network' | 'dryRun'>> &
+    OnChainSignalsConfig
   private publicClient: PublicClient<Transport, Chain>
   private walletClient?: WalletClient<Transport, Chain>
   private moderatorAddress?: Address
@@ -161,8 +169,11 @@ export class OnChainSignalsService {
     }
 
     const chain = this.config.network === 'mainnet' ? base : baseSepolia
-    const rpcUrl = this.config.rpcUrl ??
-      (this.config.network === 'mainnet' ? 'https://mainnet.base.org' : 'https://sepolia.base.org')
+    const rpcUrl =
+      this.config.rpcUrl ??
+      (this.config.network === 'mainnet'
+        ? 'https://mainnet.base.org'
+        : 'https://sepolia.base.org')
 
     this.publicClient = createPublicClient({
       chain,
@@ -192,7 +203,9 @@ export class OnChainSignalsService {
     }
 
     if (!this.config.banManagerAddress) {
-      logger.warn('[OnChainSignals] No BanManager address configured - running in read-only mode')
+      logger.warn(
+        '[OnChainSignals] No BanManager address configured - running in read-only mode',
+      )
     }
 
     logger.info('[OnChainSignals] Initialized', {
@@ -230,7 +243,9 @@ export class OnChainSignalsService {
     }
 
     if (!this.walletClient || !this.config.banManagerAddress) {
-      logger.warn('[OnChainSignals] Cannot execute on-chain action - missing config')
+      logger.warn(
+        '[OnChainSignals] Cannot execute on-chain action - missing config',
+      )
       signalQueue.push(signal)
       return null
     }
@@ -298,7 +313,9 @@ export class OnChainSignalsService {
     }
 
     if (!this.walletClient || !this.config.banManagerAddress) {
-      logger.warn('[OnChainSignals] Cannot execute on-chain action - missing config')
+      logger.warn(
+        '[OnChainSignals] Cannot execute on-chain action - missing config',
+      )
       signalQueue.push(signal)
       return null
     }
@@ -312,11 +329,7 @@ export class OnChainSignalsService {
         address: this.config.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'applyAddressBan',
-        args: [
-          params.target,
-          caseIdBytes,
-          params.reason,
-        ],
+        args: [params.target, caseIdBytes, params.reason],
       })
 
       logger.info('[OnChainSignals] applyBan executed', {
@@ -359,7 +372,9 @@ export class OnChainSignalsService {
     }
 
     if (!this.walletClient || !this.config.banManagerAddress) {
-      logger.warn('[OnChainSignals] Cannot execute on-chain action - missing config')
+      logger.warn(
+        '[OnChainSignals] Cannot execute on-chain action - missing config',
+      )
       signalQueue.push(signal)
       return null
     }
@@ -405,7 +420,9 @@ export class OnChainSignalsService {
       })
       return result
     } catch (error) {
-      logger.error('[OnChainSignals] isAddressBanned check failed', { error: String(error) })
+      logger.error('[OnChainSignals] isAddressBanned check failed', {
+        error: String(error),
+      })
       return false
     }
   }
@@ -427,7 +444,9 @@ export class OnChainSignalsService {
       })
       return result
     } catch (error) {
-      logger.error('[OnChainSignals] isOnNotice check failed', { error: String(error) })
+      logger.error('[OnChainSignals] isOnNotice check failed', {
+        error: String(error),
+      })
       return false
     }
   }
@@ -458,7 +477,9 @@ export class OnChainSignalsService {
         reporter: result.reporter,
       }
     } catch (error) {
-      logger.error('[OnChainSignals] getBanRecord failed', { error: String(error) })
+      logger.error('[OnChainSignals] getBanRecord failed', {
+        error: String(error),
+      })
       return null
     }
   }
@@ -511,7 +532,10 @@ export class OnChainSignalsService {
     }
 
     if (processed > 0) {
-      logger.info('[OnChainSignals] Processed queue', { processed, remaining: signalQueue.length })
+      logger.info('[OnChainSignals] Processed queue', {
+        processed,
+        remaining: signalQueue.length,
+      })
     }
 
     return processed
@@ -547,14 +571,22 @@ export class OnChainSignalsService {
 // Singleton
 let instance: OnChainSignalsService | null = null
 
-export function getOnChainSignalsService(config?: OnChainSignalsConfig): OnChainSignalsService {
+export function getOnChainSignalsService(
+  config?: OnChainSignalsConfig,
+): OnChainSignalsService {
   if (!instance) {
-    instance = new OnChainSignalsService(config ?? {
-      network: process.env.NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
-      banManagerAddress: process.env.BAN_MANAGER_ADDRESS as Address | undefined,
-      moderatorPrivateKey: process.env.MODERATOR_PRIVATE_KEY as `0x${string}` | undefined,
-      dryRun: process.env.MODERATION_DRY_RUN === 'true',
-    })
+    instance = new OnChainSignalsService(
+      config ?? {
+        network: process.env.NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
+        banManagerAddress: process.env.BAN_MANAGER_ADDRESS as
+          | Address
+          | undefined,
+        moderatorPrivateKey: process.env.MODERATOR_PRIVATE_KEY as
+          | `0x${string}`
+          | undefined,
+        dryRun: process.env.MODERATION_DRY_RUN === 'true',
+      },
+    )
   }
   return instance
 }
@@ -563,4 +595,3 @@ export function resetOnChainSignalsService(): void {
   instance = null
   signalQueue.length = 0
 }
-

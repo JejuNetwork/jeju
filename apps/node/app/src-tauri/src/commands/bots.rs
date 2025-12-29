@@ -242,38 +242,21 @@ pub async fn start_bot(
 
     inner.config.save().map_err(|e| e.to_string())?;
 
-<<<<<<< HEAD
+    // Store bot status in state
     let bot_id = request.bot_id.clone();
     inner.bot_status.insert(
         bot_id.clone(),
         crate::state::BotStatus {
             id: bot_id.clone(),
-            name: bot_id.clone(),
-            running: true,
-            strategy: bot_id.clone(),
-=======
-    // Store bot status in state
-    let bot_id_clone = request.bot_id.clone();
-    inner.bot_status.insert(
-        bot_id_clone.clone(),
-        crate::state::BotStatus {
-            id: bot_id_clone.clone(),
             name: format!("{} Bot", request.bot_id),
             running: true,
             strategy: request.bot_id.clone(),
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
             opportunities_found: 0,
             opportunities_executed: 0,
             total_profit_wei: "0".to_string(),
             treasury_share_wei: "0".to_string(),
         },
     );
-<<<<<<< HEAD
-=======
-
-    // Bot integration with Crucible engine happens via the service manager
-    // The bot runs as a background task and updates the bot_status in state
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 
     Ok(BotStatus {
         id: bot_id,
@@ -299,32 +282,6 @@ pub async fn stop_bot(state: State<'_, AppState>, bot_id: String) -> Result<BotS
     }
     inner.config.save().map_err(|e| e.to_string())?;
 
-<<<<<<< HEAD
-    if let Some(status) = inner.bot_status.get_mut(&bot_id) {
-        status.running = false;
-    }
-
-    let status = inner
-        .bot_status
-        .get(&bot_id)
-        .cloned()
-        .map(BotStatus::from)
-        .unwrap_or(BotStatus {
-            id: bot_id,
-            running: false,
-            uptime_seconds: 0,
-            opportunities_detected: 0,
-            opportunities_executed: 0,
-            opportunities_failed: 0,
-            gross_profit_wei: "0".to_string(),
-            treasury_share_wei: "0".to_string(),
-            net_profit_wei: "0".to_string(),
-            last_opportunity: None,
-            health: "stopped".to_string(),
-        });
-
-    Ok(status)
-=======
     // Update bot status in state
     if let Some(status) = inner.bot_status.get_mut(&bot_id) {
         status.running = false;
@@ -352,7 +309,6 @@ pub async fn stop_bot(state: State<'_, AppState>, bot_id: String) -> Result<BotS
         last_opportunity: None,
         health: "stopped".to_string(),
     })
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 }
 
 #[tauri::command]
@@ -391,30 +347,6 @@ pub async fn get_bot_earnings(
 ) -> Result<Vec<OpportunityInfo>, String> {
     let inner = state.inner.read().await;
 
-<<<<<<< HEAD
-    let start_time = days.map(|d| chrono::Utc::now().timestamp() - (d as i64 * 24 * 60 * 60));
-
-    let entries = inner.earnings_tracker.get_entries(
-        Some(&format!("bot_{}", bot_id)),
-        start_time,
-        None,
-        Some(100),
-    );
-
-    let opportunities: Vec<OpportunityInfo> = entries
-        .into_iter()
-        .map(|e| OpportunityInfo {
-            timestamp: e.timestamp,
-            opportunity_type: format!("{:?}", e.event_type),
-            estimated_profit_wei: e.amount_wei.clone(),
-            actual_profit_wei: Some(e.amount_wei.clone()),
-            tx_hash: e.tx_hash.clone(),
-            status: "executed".to_string(),
-        })
-        .collect();
-
-    Ok(opportunities)
-=======
     // Get earnings history from earnings tracker
     let earnings = inner
         .earnings_tracker
@@ -431,7 +363,6 @@ pub async fn get_bot_earnings(
             status: "executed".to_string(),
         })
         .collect())
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 }
 
 impl From<crate::state::BotStatus> for BotStatus {

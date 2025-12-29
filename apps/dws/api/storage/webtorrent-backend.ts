@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 /**
  * WebTorrent Backend - P2P Content Distribution
  *
@@ -12,8 +10,8 @@
  * State persistence: Uses SQLit for distributed torrent metadata tracking.
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
+
 import { WorkerdEventEmitter } from '../utils/event-emitter'
 import type { BackendManager } from './backends'
 import { S3Backend } from './s3-backend'

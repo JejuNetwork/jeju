@@ -117,9 +117,6 @@ pub async fn get_balance(state: State<'_, AppState>) -> Result<BalanceInfo, Stri
         .as_ref()
         .ok_or("Wallet not initialized")?;
 
-<<<<<<< HEAD
-    manager.get_balance().await
-=======
     let wallet_info = manager.get_info().ok_or("Failed to get wallet info")?;
     let address =
         Address::from_str(&wallet_info.address).map_err(|e| format!("Invalid address: {}", e))?;
@@ -161,7 +158,6 @@ pub async fn get_balance(state: State<'_, AppState>) -> Result<BalanceInfo, Stri
         staked: total_staked.to_string(),
         pending_rewards: total_pending.to_string(),
     })
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 }
 
 #[tauri::command]
@@ -176,10 +172,6 @@ pub async fn sign_message(
         .as_ref()
         .ok_or("Wallet not initialized")?;
 
-<<<<<<< HEAD
-=======
-    // Use the wallet manager's sign_message function
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
     manager.sign_message(&request.message).await
 }
 
@@ -195,10 +187,6 @@ pub async fn send_transaction(
         .as_ref()
         .ok_or("Wallet not initialized")?;
 
-<<<<<<< HEAD
-=======
-    // Use the wallet manager's send_transaction function
->>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
     manager
         .send_transaction(&request.to, &request.value, request.data.as_deref())
         .await

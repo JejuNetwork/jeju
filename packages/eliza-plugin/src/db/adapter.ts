@@ -33,9 +33,9 @@ import {
 } from '@elizaos/core'
 import { getSQLitDatabaseId } from '@jejunetwork/config'
 import {
-  type SQLitClient,
   getSQLit,
   type QueryParam,
+  type SQLitClient,
   serializeFloat32Vector,
 } from '@jejunetwork/db'
 import type { JsonRecord, JsonValue } from '@jejunetwork/types'

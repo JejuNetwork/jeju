@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import { z } from 'zod'
 

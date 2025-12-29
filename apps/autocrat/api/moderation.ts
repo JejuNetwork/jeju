@@ -1,6 +1,6 @@
 /** Web-of-Trust Moderation - SQLit-backed for workerd compatibility */
 
-import { type SQLitClient, getSQLit } from '@jejunetwork/db'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'

@@ -14,10 +14,10 @@ import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import {
   createSQLitClient,
   createTableMigration,
-  SQLitClient,
   getSQLitClient,
   MigrationManager,
   resetSQLitClient,
+  SQLitClient,
 } from '@jejunetwork/db'
 import {
   getMPCConfig,

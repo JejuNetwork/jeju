@@ -28,13 +28,13 @@
 
 import { getLogLevel } from '@jejunetwork/config'
 import pino from 'pino'
-import { type SQLitClient, getSQLit, resetSQLit } from './client.js'
+import { getSQLit, resetSQLit, type SQLitClient } from './client.js'
 import type {
-  SQLitConfig,
-  SQLitQueryable,
   ExecResult,
   QueryParam,
   QueryResult,
+  SQLitConfig,
+  SQLitQueryable,
 } from './types.js'
 
 const log = pino({

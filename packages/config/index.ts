@@ -402,9 +402,10 @@ export function getPoCVerificationConfig(): PoCVerificationConfig {
 export function getIntelRootCaFingerprints(): string[] {
   const config = loadPoCVerificationConfig()
   // Allow env var override for additional fingerprints (certificate rotation)
-  const extraFingerprints = process.env.INTEL_ROOT_CA_FINGERPRINTS?.split(',')
-    .map(f => f.trim().toLowerCase().replace(/^0x/, ''))
-    .filter(f => f.length === 64 && /^[0-9a-f]+$/.test(f)) ?? []
+  const extraFingerprints =
+    process.env.INTEL_ROOT_CA_FINGERPRINTS?.split(',')
+      .map((f) => f.trim().toLowerCase().replace(/^0x/, ''))
+      .filter((f) => f.length === 64 && /^[0-9a-f]+$/.test(f)) ?? []
   return [...config.intelRootCaFingerprints, ...extraFingerprints]
 }
 
@@ -2687,14 +2688,19 @@ export function getModerationActions(): Record<string, string> {
 /**
  * Get moderation provider configuration
  */
-export function getModerationProviders(): Record<string, ModerationProviderConfig> {
+export function getModerationProviders(): Record<
+  string,
+  ModerationProviderConfig
+> {
   return loadModeration().providers
 }
 
 /**
  * Get moderation configuration for current environment
  */
-export function getModerationEnvironment(network?: NetworkType): ModerationEnvironmentConfig {
+export function getModerationEnvironment(
+  network?: NetworkType,
+): ModerationEnvironmentConfig {
   const config = loadModeration()
   const net = network ?? getCurrentNetwork()
   return config.environments[net] ?? config.environments.localnet
