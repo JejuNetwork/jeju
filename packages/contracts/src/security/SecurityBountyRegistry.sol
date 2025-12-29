@@ -17,7 +17,7 @@ import {EvidenceRegistry} from "../moderation/EvidenceRegistry.sol";
  *
  * Key Features:
  * - Encrypted vulnerability submissions (MPC-encrypted via off-chain KMS)
- * - Multi-stage validation: Automated sandbox → Guardian review → CEO decision
+ * - Multi-stage validation: Automated sandbox → Guardian review → Director decision
  * - Severity-based reward tiers: Critical ($25k-$50k), High ($10k-$25k), Medium ($2.5k-$10k), Low ($500-$2.5k)
  * - Stake-weighted priority (larger stakes get faster review)
  * - Guardian network (staked agents with reputation) for validation
@@ -54,7 +54,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         PENDING, // Awaiting automated validation
         VALIDATING, // Sandbox validation in progress
         GUARDIAN_REVIEW, // Awaiting guardian votes
-        CEO_REVIEW, // Awaiting CEO decision
+        DIRECTOR_REVIEW, // Awaiting Director decision
         APPROVED, // Accepted and pending payout
         PAID, // Reward paid
         REJECTED, // Not valid or not severe enough
@@ -141,7 +141,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     EvidenceRegistry public evidenceRegistry;
     address public treasury;
     address public guardianPool;
-    address public ceoAgent;
+    address public directorAgent;
     address public computeOracle; // DWS compute for sandbox execution
 
     mapping(bytes32 => VulnerabilitySubmission) public submissions;
@@ -201,7 +201,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     error InsufficientStake();
     error NotResearcher();
     error NotGuardian();
-    error NotCEO();
+    error NotDirector();
     error NotComputeOracle();
     error AlreadyVoted();
     error SubmissionNotInReview();
@@ -229,8 +229,8 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         _;
     }
 
-    modifier onlyCEO() {
-        if (msg.sender != ceoAgent) revert NotCEO();
+    modifier onlyDirector() {
+        if (msg.sender != directorAgent) revert NotDirector();
         _;
     }
 
@@ -246,13 +246,13 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
     // ============ Constructor ============
 
-    constructor(address _identityRegistry, address _treasury, address _ceoAgent, address initialOwner)
+    constructor(address _identityRegistry, address _treasury, address _directorAgent, address initialOwner)
         Ownable(initialOwner)
     {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         treasury = _treasury;
         guardianPool = _treasury;
-        ceoAgent = _ceoAgent;
+        directorAgent = _directorAgent;
 
         // Initialize severity configs (values in wei, will be set via admin)
         _initializeSeverityConfigs();
@@ -480,9 +480,9 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
         uint256 totalVotes = sub.guardianApprovals + sub.guardianRejections;
 
-        // For critical severity, always escalate to CEO
+        // For critical severity, always escalate to Director
         if (sub.severity == Severity.CRITICAL && sub.guardianApprovals >= config.minGuardianApprovals) {
-            sub.status = SubmissionStatus.CEO_REVIEW;
+            sub.status = SubmissionStatus.DIRECTOR_REVIEW;
             return;
         }
 
@@ -501,9 +501,9 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
             sub.rewardAmount = approvalCount > 0 ? totalSuggested / approvalCount : config.minReward;
 
-            // High severity also goes to CEO for final approval
+            // High severity also goes to Director for final approval
             if (sub.severity == Severity.HIGH) {
-                sub.status = SubmissionStatus.CEO_REVIEW;
+                sub.status = SubmissionStatus.DIRECTOR_REVIEW;
             } else {
                 _approveSubmission(submissionId);
             }
@@ -518,22 +518,22 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         }
     }
 
-    // ============ CEO Decision ============
+    // ============ Director Decision ============
 
     /**
-     * @notice CEO makes final decision on high/critical severity submissions
+     * @notice Director makes final decision on high/critical severity submissions
      * @param submissionId Submission to decide on
      * @param approved Whether to approve
      * @param rewardAmount Final reward amount
      * @param notes Decision notes
      */
-    function ceoDecision(bytes32 submissionId, bool approved, uint256 rewardAmount, string calldata notes)
+    function directorDecision(bytes32 submissionId, bool approved, uint256 rewardAmount, string calldata notes)
         external
-        onlyCEO
+        onlyDirector
         submissionExists(submissionId)
     {
         VulnerabilitySubmission storage sub = submissions[submissionId];
-        if (sub.status != SubmissionStatus.CEO_REVIEW) revert SubmissionNotInReview();
+        if (sub.status != SubmissionStatus.DIRECTOR_REVIEW) revert SubmissionNotInReview();
 
         SeverityConfig memory config = severityConfigs[sub.severity];
 
@@ -744,7 +744,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
                 submissions[_allSubmissionIds[i]].status == SubmissionStatus.PENDING
                     || submissions[_allSubmissionIds[i]].status == SubmissionStatus.VALIDATING
                     || submissions[_allSubmissionIds[i]].status == SubmissionStatus.GUARDIAN_REVIEW
-                    || submissions[_allSubmissionIds[i]].status == SubmissionStatus.CEO_REVIEW
+                    || submissions[_allSubmissionIds[i]].status == SubmissionStatus.DIRECTOR_REVIEW
             ) {
                 pendingCount++;
             }
@@ -757,7 +757,7 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
             SubmissionStatus status = submissions[_allSubmissionIds[i]].status;
             if (
                 status == SubmissionStatus.PENDING || status == SubmissionStatus.VALIDATING
-                    || status == SubmissionStatus.GUARDIAN_REVIEW || status == SubmissionStatus.CEO_REVIEW
+                    || status == SubmissionStatus.GUARDIAN_REVIEW || status == SubmissionStatus.DIRECTOR_REVIEW
             ) {
                 result[resultIdx++] = _allSubmissionIds[i];
             }
@@ -802,8 +802,8 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
         guardianPool = _guardianPool;
     }
 
-    function setCEOAgent(address _ceoAgent) external onlyOwner {
-        ceoAgent = _ceoAgent;
+    function setDirectorAgent(address _directorAgent) external onlyOwner {
+        directorAgent = _directorAgent;
     }
 
     function setComputeOracle(address _computeOracle) external onlyOwner {

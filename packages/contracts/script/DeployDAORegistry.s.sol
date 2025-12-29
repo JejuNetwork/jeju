@@ -30,8 +30,8 @@ contract DeployDAORegistry is Script {
 
         vm.startBroadcast(deployerKey);
 
-        // 1. Deploy FeeConfig (council, ceo, treasury, owner)
-        // Initially set deployer as council/ceo, can be updated after DAORegistry is deployed
+        // 1. Deploy FeeConfig (board, director, treasury, owner)
+        // Initially set deployer as board/director, can be updated after DAORegistry is deployed
         feeConfig = new FeeConfig(deployer, deployer, deployer, deployer);
         console.log("FeeConfig deployed at:", address(feeConfig));
 
@@ -48,21 +48,27 @@ contract DeployDAORegistry is Script {
         console.log("DAOFunding deployed at:", address(daoFunding));
 
         // 4. Create Jeju DAO
-        IDAORegistry.CEOPersona memory jejuCEO = IDAORegistry.CEOPersona({
-            name: "Jeju CEO",
+        string[] memory jejuTraits = new string[](4);
+        jejuTraits[0] = "strategic";
+        jejuTraits[1] = "analytical";
+        jejuTraits[2] = "decisive";
+        jejuTraits[3] = "transparent";
+
+        IDAORegistry.DirectorPersona memory jejuDirector = IDAORegistry.DirectorPersona({
+            name: "Jeju Director",
             pfpCid: "",
             description: "The governance leader of Jeju Network, responsible for chain-level decisions, treasury management, and network evolution.",
             personality: "Strategic, analytical, and forward-thinking. Balances innovation with stability.",
-            traits: new string[](4)
+            traits: jejuTraits,
+            isHuman: false,
+            humanAddress: address(0),
+            agentId: 0,
+            decisionFallbackDays: 7
         });
-        jejuCEO.traits[0] = "strategic";
-        jejuCEO.traits[1] = "analytical";
-        jejuCEO.traits[2] = "decisive";
-        jejuCEO.traits[3] = "transparent";
 
         IDAORegistry.GovernanceParams memory jejuParams = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
-            councilVotingPeriod: 3 days,
+            boardVotingPeriod: 3 days,
             gracePeriod: 1 days,
             minProposalStake: 0.01 ether,
             quorumBps: 5000 // 50%
@@ -74,28 +80,34 @@ contract DeployDAORegistry is Script {
             "Governance for Jeju Network - controls chain-level fees, treasury, and protocol evolution",
             deployer, // Treasury (should be multisig in production)
             "",
-            jejuCEO,
+            jejuDirector,
             jejuParams
         );
         console.log("Jeju DAO created:");
         console.logBytes32(jejuId);
 
         // 5. Create Apps DAO
-        IDAORegistry.CEOPersona memory appsCEO = IDAORegistry.CEOPersona({
-            name: "Apps Lead",
+        string[] memory appsTraits = new string[](4);
+        appsTraits[0] = "innovative";
+        appsTraits[1] = "pragmatic";
+        appsTraits[2] = "user-focused";
+        appsTraits[3] = "growth-oriented";
+
+        IDAORegistry.DirectorPersona memory appsDirector = IDAORegistry.DirectorPersona({
+            name: "Apps Director",
             pfpCid: "",
             description: "The governance leader for Jeju applications, overseeing app-specific economics and incentives.",
             personality: "Innovative, user-focused, and pragmatic. Balances app growth with sustainable economics.",
-            traits: new string[](4)
+            traits: appsTraits,
+            isHuman: false,
+            humanAddress: address(0),
+            agentId: 0,
+            decisionFallbackDays: 3
         });
-        appsCEO.traits[0] = "innovative";
-        appsCEO.traits[1] = "pragmatic";
-        appsCEO.traits[2] = "user-focused";
-        appsCEO.traits[3] = "growth-oriented";
 
         IDAORegistry.GovernanceParams memory appsParams = IDAORegistry.GovernanceParams({
             minQualityScore: 60, // Lower threshold for app-related proposals
-            councilVotingPeriod: 2 days, // Faster for apps
+            boardVotingPeriod: 2 days, // Faster for apps
             gracePeriod: 12 hours,
             minProposalStake: 0.005 ether,
             quorumBps: 4000 // 40%
@@ -107,15 +119,15 @@ contract DeployDAORegistry is Script {
             "Governance for Jeju applications - controls app fees, points, bonuses, airdrops, and app-specific economics",
             deployer, // Treasury (should be multisig in production)
             "",
-            appsCEO,
+            appsDirector,
             appsParams
         );
         console.log("Apps DAO created:");
         console.logBytes32(appsId);
 
-        // 6. Set FeeConfig council and CEO
-        feeConfig.setCouncil(address(daoRegistry));
-        console.log("FeeConfig council set to DAORegistry");
+        // 6. Set FeeConfig board
+        feeConfig.setBoard(address(daoRegistry));
+        console.log("FeeConfig board set to DAORegistry");
 
         vm.stopBroadcast();
 

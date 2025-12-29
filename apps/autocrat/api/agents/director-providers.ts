@@ -1,9 +1,9 @@
 /**
- * CEO Agent Data Providers
+ * Director Agent Data Providers
  *
- * ElizaOS providers that give the AI CEO access to:
+ * ElizaOS providers that give the AI Director access to:
  * - On-chain governance data (proposals, votes, treasury)
- * - Council deliberation results
+ * - Board deliberation results
  * - Research reports
  * - Historical decisions
  * - Network state (via A2A/MCP)
@@ -24,7 +24,7 @@ import {
   A2AJsonRpcResponseSchema,
   AutocratStatusDataSchema,
   AutocratVotesDataSchema,
-  CEOStatusDataSchema,
+  DirectorStatusDataSchema,
   extractA2AData,
   GovernanceStatsDataSchema,
   MCPToolsResponseSchema,
@@ -45,8 +45,8 @@ const FeeConfigResponseSchema = z.object({
     token: z.record(z.string(), z.string()),
     governance: z.object({
       treasury: z.string(),
-      council: z.string(),
-      ceo: z.string(),
+      board: z.string(),
+      director: z.string(),
     }),
   }),
 })
@@ -71,7 +71,7 @@ async function callAutocratA2ATyped<T>(
       method: 'message/send',
       params: {
         message: {
-          messageId: `ceo-${Date.now()}`,
+          messageId: `director-${Date.now()}`,
           parts: [{ kind: 'data', data: { skillId, params } }],
         },
       },
@@ -96,10 +96,10 @@ async function callAutocratA2ATyped<T>(
 
 /**
  * Provider: Governance Dashboard
- * Comprehensive view of DAO state for CEO decision-making
+ * Comprehensive view of DAO state for Director decision-making
  */
 const governanceDashboardProvider: Provider = {
-  name: 'CEO_GOVERNANCE_DASHBOARD',
+  name: 'DIRECTOR_GOVERNANCE_DASHBOARD',
   description:
     'Get comprehensive governance dashboard with proposals, treasury, and autocrat status',
 
@@ -108,15 +108,15 @@ const governanceDashboardProvider: Provider = {
     _message: Memory,
     _state: State,
   ): Promise<ProviderResult> => {
-    const [stats, ceo, proposals] = await Promise.all([
+    const [stats, director, proposals] = await Promise.all([
       callAutocratA2ATyped('get-governance-stats', GovernanceStatsDataSchema),
-      callAutocratA2ATyped('get-ceo-status', CEOStatusDataSchema),
+      callAutocratA2ATyped('get-director-status', DirectorStatusDataSchema),
       callAutocratA2ATyped('list-proposals', ProposalListDataSchema, {
         activeOnly: false,
       }),
     ])
 
-    const result = `📊 CEO GOVERNANCE DASHBOARD
+    const result = `📊 DIRECTOR GOVERNANCE DASHBOARD
 
 🏛️ DAO STATE
 Total Proposals: ${stats.totalProposals}
@@ -125,9 +125,9 @@ Rejected: ${stats.rejectedCount}
 Pending: ${stats.pendingCount}
 Avg Quality Score: ${stats.avgQualityScore}/100
 
-👤 CEO STATUS
-Current Model: ${ceo.currentModel.name}
-Decisions This Period: ${ceo.decisionsThisPeriod}
+👤 DIRECTOR STATUS
+Current Model: ${director.currentModel.name}
+Decisions This Period: ${director.decisionsThisPeriod}
 
 📋 RECENT PROPOSALS (${proposals.total} total)
 ${
@@ -141,8 +141,8 @@ ${
 }
 
 💡 NEXT ACTIONS
-- Review pending proposals in CEO_QUEUE
-- Analyze council voting patterns
+- Review pending proposals in DIRECTOR_QUEUE
+- Analyze board voting patterns
 - Check treasury health for budget proposals`
 
     return { text: result }
@@ -151,12 +151,12 @@ ${
 
 /**
  * Provider: Active Proposals
- * List of proposals requiring CEO attention
+ * List of proposals requiring Director attention
  */
 const activeProposalsProvider: Provider = {
-  name: 'CEO_ACTIVE_PROPOSALS',
+  name: 'DIRECTOR_ACTIVE_PROPOSALS',
   description:
-    'Get active proposals awaiting CEO decision or in autocrat review',
+    'Get active proposals awaiting Director decision or in autocrat review',
 
   get: async (
     _runtime: IAgentRuntime,
@@ -175,7 +175,7 @@ const activeProposalsProvider: Provider = {
     }
 
     const statusGroups = {
-      CEO_QUEUE: proposals.filter((p) => p.status === 'CEO_QUEUE'),
+      DIRECTOR_QUEUE: proposals.filter((p) => p.status === 'DIRECTOR_QUEUE'),
       AUTOCRAT_REVIEW: proposals.filter((p) => p.status === 'AUTOCRAT_REVIEW'),
       AUTOCRAT_FINAL: proposals.filter((p) => p.status === 'AUTOCRAT_FINAL'),
       RESEARCH_PENDING: proposals.filter(
@@ -185,16 +185,16 @@ const activeProposalsProvider: Provider = {
 
     let result = `📋 ACTIVE PROPOSALS (${proposals.length} total)\n\n`
 
-    if (statusGroups.CEO_QUEUE.length > 0) {
-      result += `⚡ AWAITING CEO DECISION (${statusGroups.CEO_QUEUE.length}):\n`
-      result += `${statusGroups.CEO_QUEUE.map(
+    if (statusGroups.DIRECTOR_QUEUE.length > 0) {
+      result += `⚡ AWAITING DIRECTOR DECISION (${statusGroups.DIRECTOR_QUEUE.length}):\n`
+      result += `${statusGroups.DIRECTOR_QUEUE.map(
         (p) =>
           `  • [${p.id.slice(0, 10)}] Quality: ${p.qualityScore}/100, Research: ${p.hasResearch ? 'Yes' : 'No'}`,
       ).join('\n')}\n\n`
     }
 
     if (statusGroups.AUTOCRAT_REVIEW.length > 0) {
-      result += `🗳️ IN COUNCIL REVIEW (${statusGroups.AUTOCRAT_REVIEW.length}):\n`
+      result += `🗳️ IN BOARD REVIEW (${statusGroups.AUTOCRAT_REVIEW.length}):\n`
       result += `${statusGroups.AUTOCRAT_REVIEW.map((p) => {
         const timeLeft = Math.max(
           0,
@@ -220,7 +220,7 @@ const activeProposalsProvider: Provider = {
  * Full details of a specific proposal including autocrat votes
  */
 const proposalDetailProvider: Provider = {
-  name: 'CEO_PROPOSAL_DETAIL',
+  name: 'DIRECTOR_PROPOSAL_DETAIL',
   description:
     'Get full proposal details including autocrat votes and research',
 
@@ -286,7 +286,7 @@ Type: ${proposal.proposalType}
  * Current state of all autocrat agents
  */
 const autocratStatusProvider: Provider = {
-  name: 'CEO_AUTOCRAT_STATUS',
+  name: 'DIRECTOR_AUTOCRAT_STATUS',
   description:
     'Get status of all autocrat agents and their recent voting patterns',
 
@@ -302,8 +302,8 @@ const autocratStatusProvider: Provider = {
 
     const result = `🏛️ AUTOCRAT STATUS
 
-👥 AUTOCRAT MEMBERS (${autocrat.totalMembers}):
-${autocrat.roles.map((r) => `• ${r.name} (${r.role})`).join('\n') || 'No autocrat members'}
+👥 BOARD MEMBERS (${autocrat.totalMembers}):
+${autocrat.roles.map((r) => `• ${r.name} (${r.role})`).join('\n') || 'No board members'}
 
 📊 VOTING PATTERNS
 - Treasury: Conservative, budget-focused
@@ -313,7 +313,7 @@ ${autocrat.roles.map((r) => `• ${r.name} (${r.role})`).join('\n') || 'No autoc
 - Legal: Compliance-centered
 
 💡 CONSENSUS DYNAMICS
-The autocrat typically achieves consensus when:
+The board typically achieves consensus when:
 - Quality score > 90
 - Clear technical specification
 - Community benefit demonstrated
@@ -337,7 +337,7 @@ const TreasuryStateResponseSchema = z.object({
  * Current treasury balance and allocations
  */
 const treasuryProvider: Provider = {
-  name: 'CEO_TREASURY',
+  name: 'DIRECTOR_TREASURY',
   description: 'Get treasury balance, allocations, and budget capacity',
 
   get: async (
@@ -377,7 +377,7 @@ Pending Proposals: ${pendingProposals}
 
 📈 BUDGET GUIDELINES
 - Small grants: < 0.5 ETH (streamlined approval)
-- Medium projects: 0.5 - 5 ETH (full council review)
+- Medium projects: 0.5 - 5 ETH (full board review)
 - Large initiatives: > 5 ETH (extended deliberation + research)
 
 ⚠️ CONSIDERATIONS
@@ -390,11 +390,11 @@ Pending Proposals: ${pendingProposals}
 
 /**
  * Provider: Historical Decisions
- * Past CEO decisions for consistency and precedent
+ * Past Director decisions for consistency and precedent
  */
 const historicalDecisionsProvider: Provider = {
-  name: 'CEO_HISTORICAL_DECISIONS',
-  description: 'Get historical CEO decisions for precedent and consistency',
+  name: 'DIRECTOR_HISTORICAL_DECISIONS',
+  description: 'Get historical Director decisions for precedent and consistency',
 
   get: async (
     _runtime: IAgentRuntime,
@@ -422,7 +422,7 @@ Rejected: ${stats.rejectedCount}
 Approval Rate: ${approvalRate}%
 
 🎯 DECISION PRINCIPLES
-1. Autocrat consensus is weighted heavily
+1. Board consensus is weighted heavily
 2. Quality score > 90 is baseline expectation
 3. Research reports inform complex decisions
 4. Security concerns are blocking issues
@@ -439,10 +439,10 @@ Approval Rate: ${approvalRate}%
 
 /**
  * Provider: MCP Resources
- * Available MCP tools and resources the CEO can use
+ * Available MCP tools and resources the Director can use
  */
 const mcpResourcesProvider: Provider = {
-  name: 'CEO_MCP_RESOURCES',
+  name: 'DIRECTOR_MCP_RESOURCES',
   description: 'List available MCP tools and resources for governance actions',
 
   get: async (
@@ -468,7 +468,7 @@ ${
 • prepare_proposal_submission: Prepare on-chain transaction
 • get_proposal_status: Check proposal state
 • request_deep_research: Request comprehensive research
-• get_council_deliberation: Get council agent votes`
+• get_board_deliberation: Get board agent votes`
 }
 
 🔗 ENDPOINTS
@@ -486,10 +486,10 @@ All decisions are recorded with TEE attestation.`,
 
 /**
  * Provider: Fee Configuration
- * Current network-wide fee settings that the CEO can modify
+ * Current network-wide fee settings that the Director can modify
  */
 const feeConfigProvider: Provider = {
-  name: 'CEO_FEE_CONFIG',
+  name: 'DIRECTOR_FEE_CONFIG',
   description:
     'Get current fee configuration across all network services - compute, storage, DeFi, marketplace, etc.',
 
@@ -554,11 +554,11 @@ const feeConfigProvider: Provider = {
 
 🏛️ GOVERNANCE
 • Treasury: ${s.governance.treasury.slice(0, 10)}...
-• Council: ${s.governance.council.slice(0, 10)}...
-• CEO: ${s.governance.ceo.slice(0, 10)}...
+• Board: ${s.governance.board.slice(0, 10)}...
+• Director: ${s.governance.director.slice(0, 10)}...
 
 💡 ACTIONS
-As CEO, you can modify any of these fees using the fee management skills:
+As Director, you can modify any of these fees using the fee management skills:
 - set-distribution-fees: Change app/LP/contributor splits
 - set-compute-fees: Adjust inference and rental platform fees
 - set-defi-fees: Modify swap and bridge fees
@@ -570,7 +570,7 @@ As CEO, you can modify any of these fees using the fee management skills:
 
 // Export All Providers
 
-export const ceoProviders: Provider[] = [
+export const directorProviders: Provider[] = [
   governanceDashboardProvider,
   activeProposalsProvider,
   proposalDetailProvider,
@@ -580,3 +580,6 @@ export const ceoProviders: Provider[] = [
   mcpResourcesProvider,
   feeConfigProvider,
 ]
+
+// Legacy export for backwards compatibility
+export const ceoProviders = directorProviders

@@ -59,23 +59,28 @@ contract DAOFundingTest is Test {
         funding = new DAOFunding(address(registry), address(token), owner);
 
         // Create a test DAO
-        IDAORegistry.CEOPersona memory ceoPersona = IDAORegistry.CEOPersona({
-            name: "Test CEO",
+        string[] memory traits = new string[](0);
+        IDAORegistry.DirectorPersona memory directorPersona = IDAORegistry.DirectorPersona({
+            name: "Test Director",
             pfpCid: "",
             description: "Test",
             personality: "Test",
-            traits: new string[](0)
+            traits: traits,
+            isHuman: false,
+            humanAddress: address(0),
+            agentId: 0,
+            decisionFallbackDays: 7
         });
 
         IDAORegistry.GovernanceParams memory params = IDAORegistry.GovernanceParams({
             minQualityScore: 70,
-            councilVotingPeriod: 3 days,
+            boardVotingPeriod: 3 days,
             gracePeriod: 1 days,
             minProposalStake: 0.01 ether,
             quorumBps: 5000
         });
 
-        daoId = registry.createDAO("test-dao", "Test DAO", "A test DAO", treasury, "", ceoPersona, params);
+        daoId = registry.createDAO("test-dao", "Test DAO", "A test DAO", treasury, "", directorPersona, params);
 
         vm.stopPrank();
 
@@ -186,11 +191,11 @@ contract DAOFundingTest is Test {
         assertFalse(epoch.finalized);
     }
 
-    // ============ CEO Weight Tests ============
+    // ============ Director Weight Tests ============
 
-    function testSetCEOWeight() public {
+    function testSetDirectorWeight() public {
         // Create and accept project
-        bytes32 registryId = keccak256("ceo-weight-test");
+        bytes32 registryId = keccak256("director-weight-test");
         address[] memory additionalRecipients = new address[](0);
         uint256[] memory shares = new uint256[](0);
 
@@ -199,7 +204,7 @@ contract DAOFundingTest is Test {
             daoId,
             DAOFunding.ProjectType.REPO,
             registryId,
-            "CEO Weight Test",
+            "Director Weight Test",
             "Test",
             projectOwner,
             additionalRecipients,
@@ -209,26 +214,31 @@ contract DAOFundingTest is Test {
         vm.prank(owner);
         funding.acceptProject(projectId);
 
-        // CEO weight starts at 0, would need proposal to change
+        // Director weight starts at 0, would need proposal to change
         DAOFunding.FundingProject memory project = funding.getProject(projectId);
-        assertEq(project.ceoWeight, 0);
+        assertEq(project.directorWeight, 0);
     }
 
     // ============ Multi-DAO Tests ============
 
     function testMultiDAOFunding() public {
         // Create second DAO
-        IDAORegistry.CEOPersona memory ceoPersona2 = IDAORegistry.CEOPersona({
-            name: "Second CEO",
+        string[] memory traits = new string[](0);
+        IDAORegistry.DirectorPersona memory directorPersona2 = IDAORegistry.DirectorPersona({
+            name: "Second Director",
             pfpCid: "",
             description: "Test",
             personality: "Test",
-            traits: new string[](0)
+            traits: traits,
+            isHuman: false,
+            humanAddress: address(0),
+            agentId: 0,
+            decisionFallbackDays: 7
         });
 
         IDAORegistry.GovernanceParams memory params2 = IDAORegistry.GovernanceParams({
             minQualityScore: 80,
-            councilVotingPeriod: 5 days,
+            boardVotingPeriod: 5 days,
             gracePeriod: 2 days,
             minProposalStake: 0.05 ether,
             quorumBps: 6000
@@ -236,7 +246,7 @@ contract DAOFundingTest is Test {
 
         vm.prank(user2);
         bytes32 daoId2 =
-            registry.createDAO("second-dao", "Second DAO", "Another DAO", address(6), "", ceoPersona2, params2);
+            registry.createDAO("second-dao", "Second DAO", "Another DAO", address(6), "", directorPersona2, params2);
 
         // Create projects for both DAOs
         address[] memory additionalRecipients = new address[](0);

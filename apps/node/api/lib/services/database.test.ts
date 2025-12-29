@@ -9,7 +9,7 @@ describe('DatabaseService', () => {
   describe('validateDatabaseServiceConfig', () => {
     test('validates valid config', () => {
       const config = {
-        blockProducerEndpoint: 'https://eqlite.example.com',
+        blockProducerEndpoint: 'https://cql.example.com',
         minerEndpoint: 'http://localhost:4661',
         keyId: 'test-kms-key-id-12345', // KMS key ID, not raw private key
         capacityGB: 100,
@@ -23,7 +23,7 @@ describe('DatabaseService', () => {
       }
 
       const result = validateDatabaseServiceConfig(config)
-      expect(result.blockProducerEndpoint).toBe('https://eqlite.example.com')
+      expect(result.blockProducerEndpoint).toBe('https://cql.example.com')
       expect(result.capacityGB).toBe(100)
       expect(result.enableBackups).toBe(true)
     })
@@ -43,7 +43,7 @@ describe('DatabaseService', () => {
 
     test('rejects empty keyId', () => {
       const config = {
-        blockProducerEndpoint: 'https://eqlite.example.com',
+        blockProducerEndpoint: 'https://cql.example.com',
         minerEndpoint: 'http://localhost:4661',
         keyId: '', // Empty keyId should fail
         capacityGB: 100,
@@ -56,7 +56,7 @@ describe('DatabaseService', () => {
 
     test('rejects negative capacity', () => {
       const config = {
-        blockProducerEndpoint: 'https://eqlite.example.com',
+        blockProducerEndpoint: 'https://cql.example.com',
         minerEndpoint: 'http://localhost:4661',
         keyId: 'test-kms-key-id',
         capacityGB: -100,

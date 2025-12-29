@@ -2,10 +2,8 @@
 //!
 //! Uses alloy for type-safe contract interactions.
 
-use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
-use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
 use alloy::transports::http::{Client, Http};
 use std::str::FromStr;
@@ -86,31 +84,20 @@ sol! {
             bool canAppeal
         );
     }
-
-    #[sol(rpc)]
-    interface IRegistryGovernance {
-        function submitAppeal(uint256 agentId, string calldata reason, string calldata evidence) external returns (bytes32 appealId);
-        function getAppealStatus(bytes32 appealId) external view returns (uint8 status, string memory resolution);
-    }
 }
 
 /// Client for interacting with Jeju Network contracts
-#[allow(dead_code)]
 pub struct ContractClient {
     provider: Arc<RootProvider<Http<Client>>>,
-    wallet: Option<EthereumWallet>,
-    chain_id: u64,
     addresses: ContractAddresses,
 }
 
 /// Contract addresses for a specific network
 #[derive(Clone)]
-#[allow(dead_code)]
 pub struct ContractAddresses {
     pub node_staking_manager: Address,
     pub identity_registry: Address,
     pub ban_manager: Address,
-    pub registry_governance: Address,
     pub jeju_token: Address,
 }
 
@@ -126,8 +113,6 @@ impl ContractAddresses {
                 .expect("valid address"),
             ban_manager: Address::from_str("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0")
                 .expect("valid address"),
-            registry_governance: Address::from_str("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9")
-                .expect("valid address"),
             jeju_token: Address::from_str("0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9")
                 .expect("valid address"),
         }
@@ -141,8 +126,6 @@ impl ContractAddresses {
             identity_registry: Address::from_str("0x0000000000000000000000000000000000000000")
                 .expect("valid address"),
             ban_manager: Address::from_str("0x0000000000000000000000000000000000000000")
-                .expect("valid address"),
-            registry_governance: Address::from_str("0x0000000000000000000000000000000000000000")
                 .expect("valid address"),
             jeju_token: Address::from_str("0x0000000000000000000000000000000000000000")
                 .expect("valid address"),
@@ -159,7 +142,6 @@ impl ContractAddresses {
     }
 }
 
-#[allow(dead_code)]
 impl ContractClient {
     /// Create a new contract client
     pub async fn new(rpc_url: &str, chain_id: u64) -> Result<Self, String> {
@@ -171,15 +153,8 @@ impl ContractClient {
 
         Ok(Self {
             provider: Arc::new(provider),
-            wallet: None,
-            chain_id,
             addresses: ContractAddresses::for_chain(chain_id),
         })
-    }
-
-    /// Set the wallet signer for transactions
-    pub fn set_signer(&mut self, signer: PrivateKeySigner) {
-        self.wallet = Some(EthereumWallet::from(signer));
     }
 
     /// Get ETH balance for an address
@@ -229,25 +204,10 @@ impl ContractClient {
                 staked_value_usd: stake.stakedValueUSD.to_string(),
                 pending_rewards: stake.pendingRewards.to_string(),
                 staking_token: format!("{:?}", stake.stakingToken),
-                reward_token: format!("{:?}", stake.rewardToken),
-                rpc_url: stake.rpcUrl,
-                is_active: stake.isActive,
             });
         }
 
         Ok(stakes)
-    }
-
-    /// Get pending rewards for a node
-    pub async fn get_pending_rewards(&self, node_id: [u8; 32]) -> Result<U256, String> {
-        let staking =
-            INodeStakingManager::new(self.addresses.node_staking_manager, &*self.provider);
-        staking
-            .getPendingRewards(node_id.into())
-            .call()
-            .await
-            .map(|r| r._0)
-            .map_err(|e| format!("Failed to get pending rewards: {}", e))
     }
 
     /// Get agent info by ID
@@ -262,11 +222,9 @@ impl ContractClient {
 
         Ok(AgentInfoResult {
             owner: format!("{:?}", info.owner),
-            agent_id: info.agentId.to_string(),
             token_uri: info.tokenURI,
             reputation: info.reputation.to_string(),
             is_banned: info.isBanned,
-            ban_expiry: info.banExpiry.to::<u64>(),
             ban_reason: info.banReason,
         })
     }
@@ -321,47 +279,25 @@ impl ContractClient {
             can_appeal,
         })
     }
-
-    /// Get the provider reference
-    pub fn provider(&self) -> &Arc<RootProvider<Http<Client>>> {
-        &self.provider
-    }
-
-    /// Get chain ID
-    pub fn chain_id(&self) -> u64 {
-        self.chain_id
-    }
-
-    /// Get contract addresses
-    pub fn addresses(&self) -> &ContractAddresses {
-        &self.addresses
-    }
 }
 
 /// Result structure for node stake info
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct NodeStakeInfo {
     pub node_id: String,
     pub staked_amount: String,
     pub staked_value_usd: String,
     pub pending_rewards: String,
     pub staking_token: String,
-    pub reward_token: String,
-    pub rpc_url: String,
-    pub is_active: bool,
 }
 
 /// Result structure for agent info
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct AgentInfoResult {
     pub owner: String,
-    pub agent_id: String,
     pub token_uri: String,
     pub reputation: String,
     pub is_banned: bool,
-    pub ban_expiry: u64,
     pub ban_reason: String,
 }
 

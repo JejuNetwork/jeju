@@ -64,7 +64,7 @@ export interface ModelDelegationStats {
 
 export interface FundingKnobs {
   minQualityForFunding: number
-  maxCEOWeight: number
+  maxDirectorWeight: number
   quadraticMultiplier: number
   matchingCapPerProject: number
   stakeCooldown: number
@@ -169,7 +169,7 @@ export class FundingOracle {
       return this.getHeuristicAnalysis(project, daoFull, knobs)
     }
 
-    const persona = daoFull.ceoPersona
+    const persona = daoFull.directorPersona
     const linkedPackages = daoFull.linkedPackages
     const linkedRepos = daoFull.linkedRepos
 
@@ -177,7 +177,7 @@ export class FundingOracle {
       linkedPackages.includes(project.registryId) ||
       linkedRepos.includes(project.registryId)
 
-    const prompt = `As ${persona.name}, analyze this funding project and recommend a CEO weight (0-${knobs.maxCEOWeight / 100}%).
+    const prompt = `As ${persona.name}, analyze this funding project and recommend a CEO weight (0-${knobs.maxDirectorWeight / 100}%).
 
 PROJECT:
 Name: ${project.name}
@@ -198,7 +198,7 @@ Evaluate:
 
 Return JSON:
 {
-  "recommendedWeight": 0-${knobs.maxCEOWeight},
+  "recommendedWeight": 0-${knobs.maxDirectorWeight},
   "reasoning": "explanation",
   "alignmentScore": 0-100,
   "impactScore": 0-100,
@@ -215,7 +215,7 @@ Return JSON:
       projectName: project.name,
       recommendedWeight: Math.min(
         parsed.recommendedWeight ?? 1000,
-        knobs.maxCEOWeight,
+        knobs.maxDirectorWeight,
       ),
       reasoning: parsed.reasoning ?? 'AI analysis',
       alignmentScore: parsed.alignmentScore ?? 50,
@@ -248,7 +248,7 @@ Return JSON:
       weight += 500
     }
 
-    weight = Math.min(weight, knobs.maxCEOWeight)
+    weight = Math.min(weight, knobs.maxDirectorWeight)
 
     return {
       projectId: project.projectId,
@@ -277,7 +277,7 @@ Return JSON:
     }
 
     const topProjects = recommendations.slice(0, 5)
-    const prompt = `As ${daoFull.ceoPersona.name}, summarize the funding strategy for epoch ${epoch.epochId}.
+    const prompt = `As ${daoFull.directorPersona.name}, summarize the funding strategy for epoch ${epoch.epochId}.
 
 Top Projects:
 ${topProjects.map((r) => `- ${r.projectName}: ${r.recommendedWeight / 100}% weight, ${r.reasoning}`).join('\n')}
@@ -293,7 +293,7 @@ Return JSON:
 
     const response = await dwsGenerate(
       prompt,
-      this.buildPersonaSystemPrompt(daoFull.ceoPersona),
+      this.buildPersonaSystemPrompt(daoFull.directorPersona),
       400,
     )
     const parsed = parseJson<{ strategy: string; priorities: string[] }>(
@@ -361,7 +361,7 @@ Return JSON:
 
     const knobs: FundingKnobs = {
       minQualityForFunding: params.minQualityScore,
-      maxCEOWeight: config.ceoWeightCap,
+      maxDirectorWeight: config.directorWeightCap,
       quadraticMultiplier: config.matchingMultiplier,
       matchingCapPerProject: 2000, // 20% max per project
       stakeCooldown: config.cooldownPeriod,
@@ -389,7 +389,7 @@ Return JSON:
       cooldownPeriod: updated.stakeCooldown,
       matchingMultiplier: updated.quadraticMultiplier,
       quadraticEnabled: true,
-      ceoWeightCap: updated.maxCEOWeight,
+      directorWeightCap: updated.maxDirectorWeight,
     })
   }
   async shouldAutoApprove(
@@ -416,7 +416,7 @@ Return JSON:
     }
 
     // Check if proposer is council member
-    const councilMembers = await this.daoService.getCouncilMembers(daoId)
+    const councilMembers = await this.daoService.getBoardMembers(daoId)
     const isCouncilProposal = councilMembers.some(
       (m) => m.member === project.proposer,
     )

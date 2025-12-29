@@ -93,7 +93,14 @@ const ROUTES = [
     name: 'Create DAO Wizard',
     expectedContent: 'Create',
     description:
-      'Multi-step wizard with progress indicator showing steps: Basics, CEO, Board, Governance, Review. Has Cancel button, Back/Continue navigation, form inputs.',
+      'Multi-step wizard with progress indicator showing steps: Basics, Director, Board, Governance, Review. Has Cancel button, Back/Continue navigation, form inputs.',
+  },
+  {
+    path: '/director',
+    name: 'Director Dashboard',
+    expectedContent: 'Director',
+    description:
+      'Human Director decision interface with pending proposals list, proposal context panel showing board votes and risk assessment, and decision form with APPROVE/REJECT buttons.',
   },
   {
     path: '/my-daos',

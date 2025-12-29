@@ -31,7 +31,10 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     // Constants & Roles
     // =========================================================================
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-    bytes32 public constant COUNCIL_ROLE = keccak256("COUNCIL_ROLE");
+    bytes32 public constant BOARD_ROLE = keccak256("BOARD_ROLE");
+    bytes32 public constant DIRECTOR_ROLE = keccak256("DIRECTOR_ROLE");
+    // Legacy alias for backwards compatibility
+    bytes32 public constant COUNCIL_ROLE = BOARD_ROLE;
     uint16 public constant BPS_DENOMINATOR = 10000;
 
     // =========================================================================
@@ -66,6 +69,15 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     // =========================================================================
     bool public teeEnabled;
     bool public profitDistributionEnabled;
+    bool public swapEnabled;
+
+    // =========================================================================
+    // Token Swap State (destination whitelist for security)
+    // =========================================================================
+    address public swapRouter; // Uniswap V3 compatible router
+    mapping(address => bool) public whitelistedSwapDestinations; // Tokens we can swap INTO
+    address[] public swapDestinationList;
+    uint256 public maxSwapSlippageBps = 500; // 5% default max slippage
 
     // =========================================================================
     // TEE Operator State (enabled via enableTEEMode)
@@ -127,6 +139,9 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     event DailyLimitUpdated(uint256 oldLimit, uint256 newLimit);
     event OperatorAdded(address indexed operator);
     event OperatorRemoved(address indexed operator);
+    event BoardMemberAdded(address indexed member);
+    event BoardMemberRemoved(address indexed member);
+    // Legacy events for backwards compatibility
     event CouncilMemberAdded(address indexed member);
     event CouncilMemberRemoved(address indexed member);
     event EmergencyWithdrawal(address indexed token, address indexed to, uint256 amount);
@@ -157,6 +172,15 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     event DistributionConfigUpdated(uint16 protocolBps, uint16 stakersBps, uint16 insuranceBps, uint16 operatorBps);
     event RecipientUpdated(string recipientType, address newAddress);
 
+    // Events - Token Swap
+    event SwapEnabled(address indexed swapRouter);
+    event SwapDestinationWhitelisted(address indexed token);
+    event SwapDestinationRemoved(address indexed token);
+    event TokenSwapped(
+        address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, address indexed executor
+    );
+    event MaxSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
+
     // =========================================================================
     // Errors
     // =========================================================================
@@ -180,6 +204,10 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     error NothingToDistribute();
     error AlreadyEnabled();
     error NotTEEOperator();
+    error SwapNotEnabled();
+    error DestinationNotWhitelisted();
+    error SlippageTooHigh();
+    error SwapFailed();
 
     // =========================================================================
     // Modifiers
@@ -200,6 +228,11 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         _;
     }
 
+    modifier requireSwap() {
+        if (!swapEnabled) revert SwapNotEnabled();
+        _;
+    }
+
     // =========================================================================
     // Constructor
     // =========================================================================
@@ -208,7 +241,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
 
         name = _name;
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(COUNCIL_ROLE, _admin);
+        _grantRole(BOARD_ROLE, _admin);
         _grantRole(OPERATOR_ROLE, _admin);
 
         dailyWithdrawalLimit = _dailyLimit;
@@ -404,7 +437,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
 
     function registerTEEOperator(address _operator, bytes calldata _attestation)
         external
-        onlyRole(COUNCIL_ROLE)
+        onlyRole(BOARD_ROLE)
         requireTEE
     {
         if (_operator == address(0)) revert ZeroAddress();
@@ -496,7 +529,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         emit TrainingRecorded(trainingEpoch, _datasetCID, _modelHash);
     }
 
-    function requestKeyRotation() external onlyRole(COUNCIL_ROLE) requireTEE returns (uint256) {
+    function requestKeyRotation() external onlyRole(BOARD_ROLE) requireTEE returns (uint256) {
         uint256 requestId = nextRotationRequestId++;
 
         keyRotationRequests[requestId] =
@@ -512,7 +545,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         return requestId;
     }
 
-    function approveKeyRotation(uint256 _requestId) external onlyRole(COUNCIL_ROLE) requireTEE {
+    function approveKeyRotation(uint256 _requestId) external onlyRole(BOARD_ROLE) requireTEE {
         KeyRotationRequest storage request = keyRotationRequests[_requestId];
         if (request.initiator == address(0)) revert RotationRequestNotFound();
         if (request.executed) revert RotationAlreadyExecuted();
@@ -624,25 +657,43 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         emit DailyLimitUpdated(oldLimit, newLimit);
     }
 
-    function addOperator(address operator) external onlyRole(COUNCIL_ROLE) {
+    function addOperator(address operator) external onlyRole(BOARD_ROLE) {
         if (operator == address(0)) revert ZeroAddress();
         _grantRole(OPERATOR_ROLE, operator);
         emit OperatorAdded(operator);
     }
 
-    function removeOperator(address operator) external onlyRole(COUNCIL_ROLE) {
+    function removeOperator(address operator) external onlyRole(BOARD_ROLE) {
         _revokeRole(OPERATOR_ROLE, operator);
         emit OperatorRemoved(operator);
     }
 
+    function addBoardMember(address member) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (member == address(0)) revert ZeroAddress();
+        _grantRole(BOARD_ROLE, member);
+        emit BoardMemberAdded(member);
+        // Legacy event
+        emit CouncilMemberAdded(member);
+    }
+
+    function removeBoardMember(address member) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _revokeRole(BOARD_ROLE, member);
+        emit BoardMemberRemoved(member);
+        // Legacy event
+        emit CouncilMemberRemoved(member);
+    }
+
+    // Legacy aliases for backwards compatibility
     function addCouncilMember(address member) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (member == address(0)) revert ZeroAddress();
-        _grantRole(COUNCIL_ROLE, member);
+        _grantRole(BOARD_ROLE, member);
+        emit BoardMemberAdded(member);
         emit CouncilMemberAdded(member);
     }
 
     function removeCouncilMember(address member) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _revokeRole(COUNCIL_ROLE, member);
+        _revokeRole(BOARD_ROLE, member);
+        emit BoardMemberRemoved(member);
         emit CouncilMemberRemoved(member);
     }
 
@@ -734,11 +785,11 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         emit RecipientUpdated("insurance", newRecipient);
     }
 
-    function pause() external onlyRole(COUNCIL_ROLE) {
+    function pause() external onlyRole(BOARD_ROLE) {
         _pause();
     }
 
-    function unpause() external onlyRole(COUNCIL_ROLE) {
+    function unpause() external onlyRole(BOARD_ROLE) {
         _unpause();
     }
 
@@ -774,8 +825,13 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         return hasRole(OPERATOR_ROLE, account);
     }
 
+    function isBoardMember(address account) external view returns (bool) {
+        return hasRole(BOARD_ROLE, account);
+    }
+
+    // Legacy alias for backwards compatibility
     function isCouncilMember(address account) external view returns (bool) {
-        return hasRole(COUNCIL_ROLE, account);
+        return hasRole(BOARD_ROLE, account);
     }
 
     function getGameState()
@@ -817,11 +873,416 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         return operatorEarnings[operator][token];
     }
 
-    function getFeatures() external view returns (bool _teeEnabled, bool _profitDistributionEnabled) {
-        return (teeEnabled, profitDistributionEnabled);
+    function getFeatures() external view returns (bool _teeEnabled, bool _profitDistributionEnabled, bool _swapEnabled) {
+        return (teeEnabled, profitDistributionEnabled, swapEnabled);
     }
 
+    // =========================================================================
+    // Token Swap Functions (Destination Whitelist for Security)
+    // =========================================================================
+
+    /**
+     * @notice Enable token swap functionality
+     * @param _swapRouter Address of Uniswap V3 compatible router
+     */
+    function enableSwap(address _swapRouter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_swapRouter == address(0)) revert ZeroAddress();
+        if (swapEnabled) revert AlreadyEnabled();
+
+        swapEnabled = true;
+        swapRouter = _swapRouter;
+
+        emit SwapEnabled(_swapRouter);
+    }
+
+    /**
+     * @notice Add token to whitelist of allowed swap destinations
+     * @dev Only whitelisted tokens can be swapped INTO (prevents swapping into low value/liquidity tokens)
+     * @param token Token address to whitelist
+     */
+    function whitelistSwapDestination(address token) external onlyRole(BOARD_ROLE) requireSwap {
+        if (token == address(0)) revert ZeroAddress();
+        if (whitelistedSwapDestinations[token]) return; // Already whitelisted
+
+        whitelistedSwapDestinations[token] = true;
+        swapDestinationList.push(token);
+
+        emit SwapDestinationWhitelisted(token);
+    }
+
+    /**
+     * @notice Remove token from whitelist
+     * @param token Token address to remove
+     */
+    function removeSwapDestination(address token) external onlyRole(BOARD_ROLE) requireSwap {
+        if (!whitelistedSwapDestinations[token]) return;
+
+        whitelistedSwapDestinations[token] = false;
+
+        // Remove from list
+        for (uint256 i = 0; i < swapDestinationList.length; i++) {
+            if (swapDestinationList[i] == token) {
+                swapDestinationList[i] = swapDestinationList[swapDestinationList.length - 1];
+                swapDestinationList.pop();
+                break;
+            }
+        }
+
+        emit SwapDestinationRemoved(token);
+    }
+
+    /**
+     * @notice Swap tokens using Uniswap V3
+     * @dev Can swap FROM any token, but can only swap INTO whitelisted tokens
+     * @param tokenIn Token to swap from
+     * @param tokenOut Token to swap to (must be whitelisted)
+     * @param amountIn Amount to swap
+     * @param minAmountOut Minimum output (slippage protection)
+     * @param poolFee Uniswap pool fee tier (500, 3000, or 10000)
+     */
+    function swapTokens(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint24 poolFee)
+        external
+        onlyRole(OPERATOR_ROLE)
+        nonReentrant
+        whenNotPaused
+        requireSwap
+        returns (uint256 amountOut)
+    {
+        if (tokenIn == address(0) || tokenOut == address(0)) revert ZeroAddress();
+        if (amountIn == 0) revert ZeroAmount();
+
+        // SECURITY: Only allow swapping INTO whitelisted tokens
+        // Swapping OUT of any token is fine (prevents accumulating low-value/illiquid tokens)
+        if (!whitelistedSwapDestinations[tokenOut]) revert DestinationNotWhitelisted();
+
+        // Check we have sufficient balance
+        uint256 balance = IERC20(tokenIn).balanceOf(address(this));
+        if (balance < amountIn) revert InsufficientBalance(balance, amountIn);
+
+        // Approve router
+        IERC20(tokenIn).approve(swapRouter, amountIn);
+
+        // Build swap params (Uniswap V3 exactInputSingle)
+        bytes memory data = abi.encodeWithSignature(
+            "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))",
+            tokenIn,
+            tokenOut,
+            poolFee,
+            address(this), // recipient
+            block.timestamp, // deadline
+            amountIn,
+            minAmountOut,
+            0 // sqrtPriceLimitX96
+        );
+
+        (bool success, bytes memory result) = swapRouter.call(data);
+        if (!success) revert SwapFailed();
+
+        amountOut = abi.decode(result, (uint256));
+
+        // Verify slippage
+        uint256 maxSlippage = (amountIn * maxSwapSlippageBps) / BPS_DENOMINATOR;
+        if (amountOut < minAmountOut) revert SlippageTooHigh();
+
+        emit TokenSwapped(tokenIn, tokenOut, amountIn, amountOut, msg.sender);
+    }
+
+    /**
+     * @notice Set maximum allowed slippage for swaps
+     * @param newSlippageBps New slippage in basis points (e.g., 500 = 5%)
+     */
+    function setMaxSwapSlippage(uint256 newSlippageBps) external onlyRole(DEFAULT_ADMIN_ROLE) requireSwap {
+        if (newSlippageBps > 2000) revert SlippageTooHigh(); // Max 20%
+        emit MaxSlippageUpdated(maxSwapSlippageBps, newSlippageBps);
+        maxSwapSlippageBps = newSlippageBps;
+    }
+
+    /**
+     * @notice Update swap router address
+     * @param newRouter New router address
+     */
+    function setSwapRouter(address newRouter) external onlyRole(DEFAULT_ADMIN_ROLE) requireSwap {
+        if (newRouter == address(0)) revert ZeroAddress();
+        swapRouter = newRouter;
+    }
+
+    /**
+     * @notice Get all whitelisted swap destinations
+     */
+    function getWhitelistedSwapDestinations() external view returns (address[] memory) {
+        return swapDestinationList;
+    }
+
+    /**
+     * @notice Check if a token is a valid swap destination
+     */
+    function isValidSwapDestination(address token) external view returns (bool) {
+        return whitelistedSwapDestinations[token];
+    }
+
+    // =========================================================================
+    // Director Controls - Recurring Payments & Token Management
+    // =========================================================================
+
+    struct RecurringPayment {
+        bytes32 paymentId;
+        address recipient;
+        address token; // address(0) for ETH
+        uint256 amount;
+        uint256 interval; // In seconds
+        uint256 nextPayment;
+        uint256 totalPaid;
+        uint256 maxPayments; // 0 = unlimited
+        uint256 paymentsMade;
+        bool active;
+        string description;
+    }
+
+    mapping(bytes32 => RecurringPayment) public recurringPayments;
+    bytes32[] public recurringPaymentIds;
+    uint256 public recurringPaymentCount;
+
+    event RecurringPaymentCreated(bytes32 indexed paymentId, address indexed recipient, uint256 amount, uint256 interval);
+    event RecurringPaymentExecuted(bytes32 indexed paymentId, address indexed recipient, uint256 amount);
+    event RecurringPaymentCancelled(bytes32 indexed paymentId);
+    event DirectorTokensSent(address indexed to, address indexed token, uint256 amount, string reason);
+    event AccountToppedUp(address indexed account, address indexed token, uint256 amount);
+
+    error PaymentNotFound();
+    error PaymentNotActive();
+    error PaymentNotDue();
+    error MaxPaymentsReached();
+
+    /**
+     * @notice Director sends tokens to an address (with reason for audit trail)
+     * @param to Recipient address
+     * @param token Token address (address(0) for ETH)
+     * @param amount Amount to send
+     * @param reason Description of why this payment is being made
+     */
+    function directorSendTokens(address to, address token, uint256 amount, string calldata reason)
+        external
+        onlyRole(DIRECTOR_ROLE)
+        nonReentrant
+        whenNotPaused
+    {
+        if (to == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+
+        if (token == address(0)) {
+            if (address(this).balance < amount) revert InsufficientBalance(address(this).balance, amount);
+            (bool success,) = to.call{value: amount}("");
+            if (!success) revert TransferFailed();
+        } else {
+            uint256 balance = IERC20(token).balanceOf(address(this));
+            if (balance < amount) revert InsufficientBalance(balance, amount);
+            IERC20(token).safeTransfer(to, amount);
+        }
+
+        emit DirectorTokensSent(to, token, amount, reason);
+    }
+
+    /**
+     * @notice Create a recurring payment schedule
+     * @param recipient Payment recipient
+     * @param token Token to pay (address(0) for ETH)
+     * @param amount Amount per payment
+     * @param interval Time between payments in seconds
+     * @param maxPayments Maximum number of payments (0 for unlimited)
+     * @param description Description of the recurring payment
+     */
+    function createRecurringPayment(
+        address recipient,
+        address token,
+        uint256 amount,
+        uint256 interval,
+        uint256 maxPayments,
+        string calldata description
+    ) external onlyRole(DIRECTOR_ROLE) returns (bytes32 paymentId) {
+        if (recipient == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+        if (interval < 1 hours) revert InvalidInterval();
+
+        paymentId = keccak256(abi.encodePacked(recipient, token, amount, block.timestamp, recurringPaymentCount++));
+
+        recurringPayments[paymentId] = RecurringPayment({
+            paymentId: paymentId,
+            recipient: recipient,
+            token: token,
+            amount: amount,
+            interval: interval,
+            nextPayment: block.timestamp + interval,
+            totalPaid: 0,
+            maxPayments: maxPayments,
+            paymentsMade: 0,
+            active: true,
+            description: description
+        });
+
+        recurringPaymentIds.push(paymentId);
+
+        emit RecurringPaymentCreated(paymentId, recipient, amount, interval);
+    }
+
+    /**
+     * @notice Execute a due recurring payment
+     * @param paymentId The payment to execute
+     */
+    function executeRecurringPayment(bytes32 paymentId) external nonReentrant whenNotPaused {
+        RecurringPayment storage payment = recurringPayments[paymentId];
+        if (payment.recipient == address(0)) revert PaymentNotFound();
+        if (!payment.active) revert PaymentNotActive();
+        if (block.timestamp < payment.nextPayment) revert PaymentNotDue();
+        if (payment.maxPayments > 0 && payment.paymentsMade >= payment.maxPayments) {
+            payment.active = false;
+            revert MaxPaymentsReached();
+        }
+
+        // Execute payment
+        if (payment.token == address(0)) {
+            if (address(this).balance < payment.amount) revert InsufficientBalance(address(this).balance, payment.amount);
+            (bool success,) = payment.recipient.call{value: payment.amount}("");
+            if (!success) revert TransferFailed();
+        } else {
+            uint256 balance = IERC20(payment.token).balanceOf(address(this));
+            if (balance < payment.amount) revert InsufficientBalance(balance, payment.amount);
+            IERC20(payment.token).safeTransfer(payment.recipient, payment.amount);
+        }
+
+        payment.totalPaid += payment.amount;
+        payment.paymentsMade++;
+        payment.nextPayment = block.timestamp + payment.interval;
+
+        // Auto-deactivate if max reached
+        if (payment.maxPayments > 0 && payment.paymentsMade >= payment.maxPayments) {
+            payment.active = false;
+        }
+
+        emit RecurringPaymentExecuted(paymentId, payment.recipient, payment.amount);
+    }
+
+    /**
+     * @notice Cancel a recurring payment
+     * @param paymentId The payment to cancel
+     */
+    function cancelRecurringPayment(bytes32 paymentId) external onlyRole(DIRECTOR_ROLE) {
+        RecurringPayment storage payment = recurringPayments[paymentId];
+        if (payment.recipient == address(0)) revert PaymentNotFound();
+        if (!payment.active) revert PaymentNotActive();
+
+        payment.active = false;
+
+        emit RecurringPaymentCancelled(paymentId);
+    }
+
+    /**
+     * @notice Top up an account (e.g., for gas, services)
+     * @param account Account to top up
+     * @param token Token to send (address(0) for ETH)
+     * @param amount Amount to send
+     */
+    function topUpAccount(address account, address token, uint256 amount)
+        external
+        onlyRole(DIRECTOR_ROLE)
+        nonReentrant
+        whenNotPaused
+    {
+        if (account == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+
+        if (token == address(0)) {
+            if (address(this).balance < amount) revert InsufficientBalance(address(this).balance, amount);
+            (bool success,) = account.call{value: amount}("");
+            if (!success) revert TransferFailed();
+        } else {
+            uint256 balance = IERC20(token).balanceOf(address(this));
+            if (balance < amount) revert InsufficientBalance(balance, amount);
+            IERC20(token).safeTransfer(account, amount);
+        }
+
+        emit AccountToppedUp(account, token, amount);
+    }
+
+    /**
+     * @notice Get all active recurring payments
+     */
+    function getActiveRecurringPayments() external view returns (RecurringPayment[] memory) {
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < recurringPaymentIds.length; i++) {
+            if (recurringPayments[recurringPaymentIds[i]].active) {
+                activeCount++;
+            }
+        }
+
+        RecurringPayment[] memory active = new RecurringPayment[](activeCount);
+        uint256 index = 0;
+        for (uint256 i = 0; i < recurringPaymentIds.length; i++) {
+            if (recurringPayments[recurringPaymentIds[i]].active) {
+                active[index] = recurringPayments[recurringPaymentIds[i]];
+                index++;
+            }
+        }
+
+        return active;
+    }
+
+    /**
+     * @notice Get recurring payment by ID
+     */
+    function getRecurringPayment(bytes32 paymentId) external view returns (RecurringPayment memory) {
+        return recurringPayments[paymentId];
+    }
+
+    /**
+     * @notice Get due recurring payments
+     */
+    function getDuePayments() external view returns (RecurringPayment[] memory) {
+        uint256 dueCount = 0;
+        for (uint256 i = 0; i < recurringPaymentIds.length; i++) {
+            RecurringPayment storage p = recurringPayments[recurringPaymentIds[i]];
+            if (p.active && block.timestamp >= p.nextPayment) {
+                dueCount++;
+            }
+        }
+
+        RecurringPayment[] memory due = new RecurringPayment[](dueCount);
+        uint256 index = 0;
+        for (uint256 i = 0; i < recurringPaymentIds.length; i++) {
+            RecurringPayment storage p = recurringPayments[recurringPaymentIds[i]];
+            if (p.active && block.timestamp >= p.nextPayment) {
+                due[index] = p;
+                index++;
+            }
+        }
+
+        return due;
+    }
+
+    /**
+     * @notice Add Director role to an address
+     */
+    function addDirector(address director) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (director == address(0)) revert ZeroAddress();
+        grantRole(DIRECTOR_ROLE, director);
+    }
+
+    /**
+     * @notice Remove Director role from an address
+     */
+    function removeDirector(address director) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        revokeRole(DIRECTOR_ROLE, director);
+    }
+
+    /**
+     * @notice Check if an address is a Director
+     */
+    function isDirector(address account) external view returns (bool) {
+        return hasRole(DIRECTOR_ROLE, account);
+    }
+
+    error InvalidInterval();
+
     function version() external pure returns (string memory) {
-        return "2.0.0";
+        return "2.2.0";
     }
 }

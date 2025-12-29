@@ -6,6 +6,7 @@
  * - Integration with ModerationMarketplace contract
  * - Queue management for offline/async processing
  * - Appeal handling
+ * - Content screening with multi-provider pipeline
  */
 
 import {
@@ -14,6 +15,10 @@ import {
   getRpcUrl,
   tryGetContract,
 } from '@jejunetwork/config'
+import {
+  getContentModerationPipeline,
+  moderateName,
+} from '@jejunetwork/shared'
 import { Elysia, t } from 'elysia'
 import {
   type Address,
@@ -114,6 +119,104 @@ export function createModerationRouter() {
       moderationMarketplace: config.moderationMarketplaceAddress,
       banManager: config.banManagerAddress,
     }))
+
+    // ========== CONTENT SCREENING ENDPOINTS ==========
+
+    .post(
+      '/screen/text',
+      async ({ body }) => {
+        const pipeline = getContentModerationPipeline()
+        const result = await pipeline.moderate({
+          content: body.content,
+          contentType: 'text',
+          senderAddress: body.senderAddress as Address | undefined,
+        })
+
+        return {
+          safe: result.safe,
+          action: result.action,
+          severity: result.severity,
+          category: result.primaryCategory,
+          categories: result.categories.map((c) => ({
+            name: c.category,
+            score: c.score,
+            confidence: c.confidence,
+          })),
+          processingTimeMs: result.processingTimeMs,
+        }
+      },
+      {
+        body: t.Object({
+          content: t.String({ minLength: 1, maxLength: 50000 }),
+          senderAddress: t.Optional(t.String({ pattern: '^0x[a-fA-F0-9]{40}$' })),
+        }),
+        detail: { tags: ['moderation'], summary: 'Screen text content' },
+      },
+    )
+
+    .post(
+      '/screen/image',
+      async ({ body }) => {
+        const pipeline = getContentModerationPipeline()
+        const imageBuffer = Buffer.from(body.imageBase64, 'base64')
+
+        const result = await pipeline.moderate({
+          content: imageBuffer,
+          contentType: 'image',
+          senderAddress: body.senderAddress as Address | undefined,
+        })
+
+        return {
+          safe: result.safe,
+          action: result.action,
+          severity: result.severity,
+          category: result.primaryCategory,
+          categories: result.categories.map((c) => ({
+            name: c.category,
+            score: c.score,
+            confidence: c.confidence,
+          })),
+          hashMatches: result.hashMatches,
+          processingTimeMs: result.processingTimeMs,
+        }
+      },
+      {
+        body: t.Object({
+          imageBase64: t.String({ minLength: 1 }),
+          senderAddress: t.Optional(t.String({ pattern: '^0x[a-fA-F0-9]{40}$' })),
+        }),
+        detail: { tags: ['moderation'], summary: 'Screen image content' },
+      },
+    )
+
+    .post(
+      '/screen/name',
+      async ({ body }) => {
+        const result = moderateName(body.name)
+
+        return {
+          safe: result.safe,
+          action: result.action,
+          severity: result.severity,
+          category: result.primaryCategory,
+          blockedReason: result.blockedReason,
+          canRegister: result.action === 'allow' || result.action === 'warn',
+        }
+      },
+      {
+        body: t.Object({
+          name: t.String({ minLength: 1, maxLength: 100 }),
+        }),
+        detail: { tags: ['moderation'], summary: 'Screen JNS/DNS name' },
+      },
+    )
+
+    .get('/screen/stats', () => {
+      const pipeline = getContentModerationPipeline()
+      return pipeline.getStats()
+    })
+
+    // ========== END CONTENT SCREENING ==========
     .post(
       '/ban',
       async ({ body, set }) => {

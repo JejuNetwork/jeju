@@ -2,6 +2,11 @@
  * TEE Quote Parser - Parses and validates attestation quotes from Intel TDX/SGX and AMD SEV-SNP
  */
 
+import { 
+  getAmdKdsConfig, 
+  getIntelRootCaFingerprints, 
+  getTcbMinimums,
+} from '@jejunetwork/config'
 import { type Hex, keccak256, toBytes } from 'viem'
 import type {
   DCAPQuoteHeader,
@@ -22,26 +27,18 @@ const MIN_QUOTE_SIZE = 128
 const INTEL_VENDOR_ID = '939a7233f79c4ca9940a0db3957f0607'
 const SEV_SNP_MIN_SIZE = 0x2a0
 
-/**
- * Minimum acceptable TCB Security Version Numbers (SVN).
- * These thresholds determine if TEE firmware is up-to-date.
- *
- * Sources:
- * - Intel TDX: Intel TDX Module 1.5 requires CPU SVN >= 2, TCB SVN >= 3
- *   See: Intel TDX Module Base Architecture Specification, Section 3.4
- * - Intel SGX: SGX DCAP 1.16+ requires CPU SVN >= 2, TCB SVN >= 3
- *   See: Intel SGX SDK Release Notes
- * - AMD SEV-SNP: SNP API 1.51+ requires Guest SVN >= 10 (0x0a)
- *   See: AMD SEV-SNP ABI Specification, Table 3
- *
- * NOTE: These values should be updated when new security advisories are released.
- * Check Intel/AMD security bulletins quarterly for TCB recovery updates.
- */
-const MIN_TCB_SVN = {
-  intel_tdx: { cpu: 0x02, tcb: 0x03 },
-  intel_sgx: { cpu: 0x02, tcb: 0x03 },
-  amd_sev: { snp: 0x0a },
-} as const
+// TCB minimums from config (cached for performance)
+let tcbMinimumsCache: ReturnType<typeof getTcbMinimums> | null = null
+function getMinTcbSvn() {
+  if (!tcbMinimumsCache) {
+    tcbMinimumsCache = getTcbMinimums()
+  }
+  return {
+    intel_tdx: { cpu: tcbMinimumsCache.intelTdx.cpu, tcb: tcbMinimumsCache.intelTdx.tcb },
+    intel_sgx: { cpu: tcbMinimumsCache.intelSgx.cpu, tcb: tcbMinimumsCache.intelSgx.tcb },
+    amd_sev: { snp: tcbMinimumsCache.amdSev.snp },
+  }
+}
 
 // Quote Parsing
 
@@ -372,60 +369,242 @@ async function verifyCertificateChain(quote: TEEQuote): Promise<boolean> {
   const rootDer = pemToDer(quote.certChain[quote.certChain.length - 1])
   if (!rootDer) return false
 
-  const rootSubject = extractSubjectCN(rootDer)
-  const knownRoots = [
-    'Intel SGX Root CA',
-    'Intel SGX PCK Processor CA',
-    'Intel SGX PCK Platform CA',
-    'Intel SGX TCB Signing',
-  ]
-  const isKnownRoot =
-    rootSubject !== null && knownRoots.some((ca) => rootSubject.includes(ca))
-
-  if (!isKnownRoot) {
-    console.warn(`[PoC] Unknown root CA: "${rootSubject}"`)
+  // Verify root certificate against pinned Intel root CA fingerprints (from config)
+  const rootFingerprint = await computeCertFingerprint(rootDer)
+  if (!getIntelFingerprints().has(rootFingerprint)) {
+    const rootSubject = extractSubjectCN(rootDer)
+    console.error(`[PoC] Unknown root CA fingerprint: ${rootFingerprint}, CN="${rootSubject}"`)
     return false
   }
 
   return true
 }
 
+// Intel root CA fingerprints loaded from config (cached)
+let intelFingerprintsCache: Set<string> | null = null
+function getIntelFingerprints(): Set<string> {
+  if (!intelFingerprintsCache) {
+    intelFingerprintsCache = new Set(getIntelRootCaFingerprints())
+  }
+  return intelFingerprintsCache
+}
+
+async function computeCertFingerprint(certDer: Uint8Array): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', certDer)
+  const hashArray = new Uint8Array(hashBuffer)
+  return Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// AMD KDS config loaded from config package (cached)
+let amdKdsConfigCache: ReturnType<typeof getAmdKdsConfig> | null = null
+function getAmdKds() {
+  if (!amdKdsConfigCache) {
+    amdKdsConfigCache = getAmdKdsConfig()
+  }
+  return amdKdsConfigCache
+}
+
 async function verifySEVCertificate(quote: TEEQuote): Promise<boolean> {
   const sigBytes = hexToBytes(quote.signature)
+  const isECDSA = sigBytes.length === 96 || sigBytes.length === 144
   const isRSA = sigBytes.length === 512
-  const isECDSA = sigBytes.length === 96
-
-  if (!isRSA && !isECDSA) return false
-
-  // Check entropy
-  let nonZeroCount = 0
-  const uniqueBytes = new Set<number>()
-  for (const b of sigBytes) {
-    if (b !== 0) nonZeroCount++
-    uniqueBytes.add(b)
+  
+  if (!isECDSA && !isRSA) {
+    console.error(`[PoC] SEV: Invalid signature length: ${sigBytes.length}`)
+    return false
   }
-  if (nonZeroCount < sigBytes.length / 4 || uniqueBytes.size < 16) return false
 
+  // Parse TCB values from the quote for VCEK lookup
+  const rawBytes = hexToBytes(quote.raw)
+  if (rawBytes.length < 0x2a0) {
+    console.error('[PoC] SEV: Quote too short for TCB extraction')
+    return false
+  }
+
+  const tcbVersion = readUint64LE(rawBytes, 0x38)
+  const blSpl = Number((tcbVersion >> 0n) & 0xffn)
+  const teeSpl = Number((tcbVersion >> 8n) & 0xffn)
+  const snpSpl = Number((tcbVersion >> 48n) & 0xffn)
+  const ucodeSpl = Number((tcbVersion >> 56n) & 0xffn)
+
+  // Extract chip ID (64 bytes at offset 0x1a0)
+  const chipId = quote.hardwareId.slice(2) // Remove 0x prefix
+  
+  // Fetch VCEK from AMD KDS
+  const vcekPem = await fetchAMDVCEK(chipId, blSpl, teeSpl, snpSpl, ucodeSpl)
+  if (!vcekPem) {
+    console.error('[PoC] SEV: Failed to fetch VCEK from AMD KDS')
+    return false
+  }
+
+  // Parse and verify VCEK
+  const vcekDer = pemToDer(vcekPem)
+  if (!vcekDer) {
+    console.error('[PoC] SEV: Failed to parse VCEK certificate')
+    return false
+  }
+
+  const vcekInfo = parseX509Basic(vcekDer)
+  if (!vcekInfo) {
+    console.error('[PoC] SEV: Failed to extract VCEK info')
+    return false
+  }
+
+  // Check VCEK validity period
+  const now = Date.now()
+  if (now < vcekInfo.notBefore || now > vcekInfo.notAfter) {
+    console.error('[PoC] SEV: VCEK certificate expired or not yet valid')
+    return false
+  }
+
+  // Verify signature against VCEK
+  const vcekPubKey = await extractPublicKeyFromCert(vcekDer)
+  if (!vcekPubKey) {
+    console.error('[PoC] SEV: Failed to extract VCEK public key')
+    return false
+  }
+
+  // The signed data is the attestation report (0x2a0 bytes before signature)
+  const signedData = rawBytes.slice(0, 0x2a0)
+  
   if (isECDSA) {
-    const r = bytesToBigInt(sigBytes.slice(0, 48))
-    const s = bytesToBigInt(sigBytes.slice(48, 96))
-    const n = BigInt(
-      '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973',
+    // ECDSA P-384 signature (r || s, each 48 bytes)
+    const r = sigBytes.slice(0, 48)
+    const s = sigBytes.slice(48, 96)
+    const derSig = ecdsaP384ToDer(r, s)
+    
+    const isValid = await crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-384' },
+      vcekPubKey,
+      derSig,
+      signedData,
     )
-    if (r <= 0n || r >= n || s <= 0n || s >= n) return false
+    
+    if (!isValid) {
+      console.error('[PoC] SEV: ECDSA signature verification failed')
+      return false
+    }
+    return true
   }
 
-  return true
+  // RSA signatures are not used in SEV-SNP attestation
+  // VCEK always uses ECDSA P-384 per AMD SEV-SNP ABI Specification
+  console.error(`[PoC] SEV: Unexpected signature length ${sigBytes.length}, expected 96 (ECDSA P-384)`)
+  return false
+}
+
+async function fetchAMDVCEK(
+  chipId: string,
+  blSpl: number,
+  teeSpl: number, 
+  snpSpl: number,
+  ucodeSpl: number,
+): Promise<string | null> {
+  const kds = getAmdKds()
+  const url = `${kds.baseUrl}/${kds.defaultProduct}/${chipId}?blSPL=${blSpl}&teeSPL=${teeSpl}&snpSPL=${snpSpl}&ucodeSPL=${ucodeSpl}`
+  
+  for (let attempt = 0; attempt < kds.retryCount; attempt++) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), kds.timeoutMs)
+    
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/x-pem-file' },
+        signal: controller.signal,
+      })
+      
+      if (!response.ok) {
+        const body = await response.text()
+        // 404 = chip not found, don't retry
+        if (response.status === 404) {
+          console.error(`[PoC] AMD KDS: chip ${chipId.slice(0, 16)}... not found`)
+          return null
+        }
+        // 5xx = server error, retry
+        if (response.status >= 500 && attempt < kds.retryCount - 1) {
+          console.warn(`[PoC] AMD KDS ${response.status}, retry ${attempt + 1}/${kds.retryCount}`)
+          await new Promise(r => setTimeout(r, kds.retryDelayMs * (attempt + 1)))
+          continue
+        }
+        console.error(`[PoC] AMD KDS returned ${response.status}: ${body.slice(0, 100)}`)
+        return null
+      }
+      
+      const contentType = response.headers.get('content-type')
+      if (contentType?.includes('application/x-x509-ca-cert') || contentType?.includes('application/x-pem-file')) {
+        return await response.text()
+      }
+      
+      // KDS returns DER by default, convert to PEM
+      const derBytes = new Uint8Array(await response.arrayBuffer())
+      const base64 = btoa(String.fromCharCode(...derBytes))
+      const pem = `-----BEGIN CERTIFICATE-----\n${base64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`
+      return pem
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        if (attempt < kds.retryCount - 1) {
+          console.warn(`[PoC] AMD KDS timeout, retry ${attempt + 1}/${kds.retryCount}`)
+          continue
+        }
+        console.error('[PoC] AMD KDS request timed out after retries')
+      } else {
+        console.error('[PoC] AMD KDS fetch failed:', err)
+      }
+      return null
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+  return null
+}
+
+function ecdsaP384ToDer(r: Uint8Array, s: Uint8Array): Uint8Array {
+  // Convert raw (r || s) P-384 signature to DER format
+  const rPadded = r[0] >= 0x80 ? new Uint8Array([0, ...r]) : r
+  const sPadded = s[0] >= 0x80 ? new Uint8Array([0, ...s]) : s
+  
+  // Strip leading zeros but keep one if high bit set
+  const rTrimmed = trimLeadingZeros(rPadded)
+  const sTrimmed = trimLeadingZeros(sPadded)
+  
+  const rLen = rTrimmed.length
+  const sLen = sTrimmed.length
+  const totalLen = 2 + rLen + 2 + sLen
+  
+  const der = new Uint8Array(2 + totalLen)
+  let offset = 0
+  
+  // SEQUENCE
+  der[offset++] = 0x30
+  der[offset++] = totalLen
+  // INTEGER r
+  der[offset++] = 0x02
+  der[offset++] = rLen
+  der.set(rTrimmed, offset)
+  offset += rLen
+  // INTEGER s
+  der[offset++] = 0x02
+  der[offset++] = sLen
+  der.set(sTrimmed, offset)
+  
+  return der
+}
+
+function trimLeadingZeros(arr: Uint8Array): Uint8Array {
+  let start = 0
+  while (start < arr.length - 1 && arr[start] === 0 && arr[start + 1] < 0x80) {
+    start++
+  }
+  return arr.slice(start)
 }
 
 async function verifyQuoteSignature(quote: TEEQuote): Promise<boolean> {
   const sigBytes = hexToBytes(quote.signature)
 
+  // AMD SEV-SNP signature is verified in verifySEVCertificate via VCEK
   if (quote.platform === 'amd_sev') {
-    if (sigBytes.length !== 512 && sigBytes.length !== 96) return false
-    let nonZeroCount = 0
-    for (const b of sigBytes) if (b !== 0) nonZeroCount++
-    return nonZeroCount >= sigBytes.length / 4
+    return true // Signature verified in certificate chain verification
   }
 
   if (sigBytes.length < 64) return false
@@ -484,8 +663,9 @@ async function verifyQuoteSignature(quote: TEEQuote): Promise<boolean> {
 function checkTCBStatus(
   quote: TEEQuote,
 ): 'upToDate' | 'outOfDate' | 'revoked' | 'unknown' {
+  const tcbMin = getMinTcbSvn()
   if (quote.platform === 'intel_tdx' || quote.platform === 'intel_sgx') {
-    const minTcb = MIN_TCB_SVN[quote.platform]
+    const minTcb = tcbMin[quote.platform]
     if (
       quote.securityVersion.cpu < minTcb.cpu ||
       quote.securityVersion.tcb < minTcb.tcb
@@ -495,7 +675,7 @@ function checkTCBStatus(
   }
 
   if (quote.platform === 'amd_sev') {
-    if (quote.securityVersion.cpu < MIN_TCB_SVN.amd_sev.snp) return 'outOfDate'
+    if (quote.securityVersion.cpu < tcbMin.amd_sev.snp) return 'outOfDate'
     return 'upToDate'
   }
 

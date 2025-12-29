@@ -343,9 +343,13 @@ export class AutocratOrchestrator {
       if (this.daoStates.has(daoId)) continue
 
       const daoFull = await this.daoService.getDAOFull(daoId)
+      const councilAddr = daoFull.dao.council
+      const ceoAgentAddr = daoFull.dao.ceoAgent
       if (
-        !daoFull.dao.council ||
-        daoFull.dao.council === '0x0000000000000000000000000000000000000000'
+        !councilAddr ||
+        councilAddr === '0x0000000000000000000000000000000000000000' ||
+        !ceoAgentAddr ||
+        ceoAgentAddr === '0x0000000000000000000000000000000000000000'
       ) {
         continue
       }
@@ -353,8 +357,8 @@ export class AutocratOrchestrator {
       this.daoStates.set(daoId, {
         daoId,
         daoFull,
-        councilAddress: daoFull.dao.council,
-        ceoAgentAddress: daoFull.dao.ceoAgent,
+        councilAddress: councilAddr,
+        ceoAgentAddress: ceoAgentAddr,
         lastProcessed: 0,
         processedCount: 0,
         errors: [],
@@ -483,6 +487,7 @@ export class AutocratOrchestrator {
             vote: vote.vote,
             reasoning: vote.reasoning,
             confidence: vote.confidence,
+            isHuman: false, // AI agent vote
           })
 
           const voteValue =
@@ -584,6 +589,9 @@ export class AutocratOrchestrator {
   ): Promise<void> {
     const { councilAddress, daoFull } = state
     const persona = daoFull.ceoPersona
+    if (!persona) {
+      throw new Error(`DAO ${state.daoId} has no CEO persona`)
+    }
 
     const votes = (await readContract(this.client, {
       address: councilAddress,
@@ -607,8 +615,8 @@ export class AutocratOrchestrator {
       timestamp: Date.now(),
     }))
 
-    // Get CEO analysis with persona context
-    const ceoDecision = await autocratAgentRuntime.ceoDecision({
+    // Get Director analysis with persona context
+    const directorDecision = await autocratAgentRuntime.directorDecision({
       proposalId,
       daoId: state.daoId,
       persona,
@@ -638,10 +646,18 @@ export class AutocratOrchestrator {
     )
 
     const decisionHash = await store({
-      type: 'ceo_decision_detail',
+      type: 'director_decision_detail',
       proposalId,
       daoId: state.daoId,
-      ceoAnalysis: ceoDecision,
+      directorAnalysis: {
+        approved: directorDecision.approved,
+        reasoning: directorDecision.reasoning,
+        personaResponse: directorDecision.personaResponse,
+        confidence: directorDecision.confidence,
+        alignment: directorDecision.alignment,
+        recommendations: directorDecision.recommendations,
+        isHumanDecision: false,
+      },
       teeDecision: {
         approved: teeDecision.approved,
         publicReasoning: teeDecision.publicReasoning,
@@ -653,6 +669,7 @@ export class AutocratOrchestrator {
       },
       personaResponse,
       decidedAt: Date.now(),
+      isHumanDecision: false,
     })
 
     if (
@@ -728,7 +745,7 @@ export class AutocratOrchestrator {
         const projects = await this.daoService.getActiveProjects(daoId)
         for (const project of projects) {
           if (
-            project.ceoWeight === 0 &&
+            project.directorWeight === 0 &&
             project.createdAt < Date.now() / 1000 - 86400
           ) {
             // Calculate weight based on project quality and community stake
@@ -874,7 +891,7 @@ export class AutocratOrchestrator {
         isActive: state.isActive,
         lastProcessed: state.lastProcessed,
         processedCount: state.processedCount,
-        ceoName: state.daoFull.ceoPersona.name,
+        ceoName: state.daoFull.directorPersona.name,
         errors: state.errors.slice(-5),
       }
     }
@@ -902,7 +919,7 @@ export class AutocratOrchestrator {
       isActive: state.isActive,
       lastProcessed: state.lastProcessed,
       processedCount: state.processedCount,
-      ceoName: state.daoFull.ceoPersona.name,
+      ceoName: state.daoFull.directorPersona.name,
       errors: state.errors.slice(-5),
     }
   }
@@ -911,18 +928,26 @@ export class AutocratOrchestrator {
     if (!this.daoService) return
 
     const daoFull = await this.daoService.getDAOFull(daoId)
+    const councilAddr = daoFull.dao.council
+    const ceoAgentAddr = daoFull.dao.ceoAgent
+    
+    if (!councilAddr || !ceoAgentAddr) {
+      console.log(`[Orchestrator] DAO ${daoId} missing required addresses`)
+      return
+    }
+    
     const existing = this.daoStates.get(daoId)
 
     if (existing) {
       existing.daoFull = daoFull
-      existing.councilAddress = daoFull.dao.council
-      existing.ceoAgentAddress = daoFull.dao.ceoAgent
+      existing.councilAddress = councilAddr
+      existing.ceoAgentAddress = ceoAgentAddr
     } else {
       this.daoStates.set(daoId, {
         daoId,
         daoFull,
-        councilAddress: daoFull.dao.council,
-        ceoAgentAddress: daoFull.dao.ceoAgent,
+        councilAddress: councilAddr,
+        ceoAgentAddress: ceoAgentAddr,
         lastProcessed: 0,
         processedCount: 0,
         errors: [],

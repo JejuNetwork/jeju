@@ -393,3 +393,4 @@ export async function registerNodeWithKMS(
     address: result.address as Address,
   }
 }
+

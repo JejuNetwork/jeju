@@ -3,7 +3,6 @@ import type { CDNRegion } from '@jejunetwork/types'
 import { expectAddress, expectHex, toBigInt } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
-import { config as nodeConfig } from '../../config'
 import { CDN_REGISTRY_ABI } from '../abis'
 import type { SecureNodeClient } from '../contracts'
 
@@ -341,7 +340,7 @@ export class CDNService {
         KMS_KEY_ID: this.client.keyId,
         CDN_REGISTRY_ADDRESS: this.client.addresses.cdnRegistry,
         CDN_BILLING_ADDRESS: this.client.addresses.cdnBilling,
-        RPC_URL: nodeConfig.rpcUrl ?? getRpcUrl(),
+        RPC_URL: process.env.RPC_URL ?? getRpcUrl(),
       },
       stdio: ['inherit', 'inherit', 'inherit'],
     })

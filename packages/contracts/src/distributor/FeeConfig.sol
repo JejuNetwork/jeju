@@ -95,12 +95,24 @@ contract FeeConfig is Ownable, Pausable {
     TokenFees public tokenFees;
     mapping(address => TokenOverride) public tokenOverrides;
     address[] public tokensWithOverrides;
+    address public board; // Board governance contract (formerly council)
+    address public director; // Director agent (formerly ceo)
+    address public treasury;
+    // Legacy aliases for backwards compatibility
     address public council;
     address public ceo;
-    address public treasury;
 
     mapping(bytes32 => PendingFeeChange) public pendingChanges;
     mapping(bytes32 => uint256) public lastUpdated;
+
+    // ============ App-Specific Fee Overrides ============
+    // daoId => feeKey => override value (0 = use network default)
+    mapping(bytes32 => mapping(bytes32 => uint256)) public appFeeOverrides;
+    // daoId => list of overridden fee keys
+    mapping(bytes32 => bytes32[]) public appOverrideKeys;
+    // Track DAOs with overrides
+    bytes32[] public daosWithOverrides;
+    mapping(bytes32 => bool) public hasDaoOverrides;
 
     event DistributionFeesUpdated(uint16 appShareBps, uint16 lpShareBps, uint16 contributorShareBps);
     event ComputeFeesUpdated(uint16 inferencePlatformFeeBps, uint16 rentalPlatformFeeBps, uint16 triggerPlatformFeeBps);
@@ -130,9 +142,16 @@ contract FeeConfig is Ownable, Pausable {
     event FeeChangeProposed(bytes32 indexed changeId, bytes32 feeType, uint256 effectiveAt, address proposedBy);
     event FeeChangeExecuted(bytes32 indexed changeId);
     event FeeChangeCancelled(bytes32 indexed changeId);
+    event BoardUpdated(address indexed oldBoard, address indexed newBoard);
+    event DirectorUpdated(address indexed oldDirector, address indexed newDirector);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    // Legacy events for backwards compatibility
     event CouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
     event CEOUpdated(address indexed oldCeo, address indexed newCeo);
-    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    // App-specific fee events
+    event AppFeeOverrideSet(bytes32 indexed daoId, bytes32 indexed feeKey, uint256 newValue, address setBy);
+    event AppFeeOverrideRemoved(bytes32 indexed daoId, bytes32 indexed feeKey);
+    event AppAllFeesCleared(bytes32 indexed daoId);
 
     error InvalidFeeSum();
     error FeeTooHigh(uint256 fee, uint256 max);
@@ -141,30 +160,46 @@ contract FeeConfig is Ownable, Pausable {
     error ChangeNotFound(bytes32 changeId);
     error AlreadyExecuted();
     error InvalidAddress();
+    error NotAppDirector();
+    error InvalidFeeKey();
 
-    modifier onlyCouncil() {
-        if (msg.sender != council && msg.sender != owner()) revert NotAuthorized();
+    modifier onlyBoard() {
+        if (msg.sender != board && msg.sender != owner()) revert NotAuthorized();
         _;
     }
 
-    modifier onlyCEO() {
-        if (msg.sender != ceo && msg.sender != owner()) revert NotAuthorized();
+    modifier onlyDirector() {
+        if (msg.sender != director && msg.sender != owner()) revert NotAuthorized();
         _;
     }
 
     modifier onlyGovernance() {
-        if (msg.sender != council && msg.sender != ceo && msg.sender != owner()) {
+        if (msg.sender != board && msg.sender != director && msg.sender != owner()) {
             revert NotAuthorized();
         }
         _;
     }
 
-    constructor(address _council, address _ceo, address _treasury, address initialOwner) Ownable(initialOwner) {
+    // Legacy modifiers for backwards compatibility
+    modifier onlyCouncil() {
+        if (msg.sender != board && msg.sender != owner()) revert NotAuthorized();
+        _;
+    }
+
+    modifier onlyCEO() {
+        if (msg.sender != director && msg.sender != owner()) revert NotAuthorized();
+        _;
+    }
+
+    constructor(address _board, address _director, address _treasury, address initialOwner) Ownable(initialOwner) {
         if (_treasury == address(0)) revert InvalidAddress();
 
-        council = _council;
-        ceo = _ceo;
+        board = _board;
+        director = _director;
         treasury = _treasury;
+        // Legacy aliases
+        council = _board;
+        ceo = _director;
 
         // Initialize with default fees
         _initializeDefaultFees();
@@ -221,7 +256,7 @@ contract FeeConfig is Ownable, Pausable {
 
     function proposeFeeChange(bytes32 feeType, bytes calldata newValues)
         external
-        onlyCouncil
+        onlyBoard
         returns (bytes32 changeId)
     {
         changeId = keccak256(abi.encodePacked(feeType, newValues, block.timestamp, msg.sender));
@@ -242,7 +277,7 @@ contract FeeConfig is Ownable, Pausable {
         emit FeeChangeProposed(changeId, feeType, effectiveAt, msg.sender);
     }
 
-    function executeFeeChange(bytes32 changeId) external onlyCEO {
+    function executeFeeChange(bytes32 changeId) external onlyDirector {
         PendingFeeChange storage change = pendingChanges[changeId];
 
         if (change.proposedAt == 0) revert ChangeNotFound(changeId);
@@ -721,14 +756,35 @@ contract FeeConfig is Ownable, Pausable {
     // Admin Functions
     // ============================================================================
 
+    function setBoard(address newBoard) external onlyOwner {
+        emit BoardUpdated(board, newBoard);
+        board = newBoard;
+        // Update legacy alias
+        council = newBoard;
+        emit CouncilUpdated(board, newBoard);
+    }
+
+    function setDirector(address newDirector) external onlyOwner {
+        emit DirectorUpdated(director, newDirector);
+        director = newDirector;
+        // Update legacy alias
+        ceo = newDirector;
+        emit CEOUpdated(director, newDirector);
+    }
+
+    // Legacy setters for backwards compatibility
     function setCouncil(address newCouncil) external onlyOwner {
-        emit CouncilUpdated(council, newCouncil);
+        emit BoardUpdated(board, newCouncil);
+        board = newCouncil;
         council = newCouncil;
+        emit CouncilUpdated(board, newCouncil);
     }
 
     function setCEO(address newCeo) external onlyOwner {
-        emit CEOUpdated(ceo, newCeo);
+        emit DirectorUpdated(director, newCeo);
+        director = newCeo;
         ceo = newCeo;
+        emit CEOUpdated(director, newCeo);
     }
 
     function setTreasury(address newTreasury) external onlyOwner {
@@ -839,10 +895,132 @@ contract FeeConfig is Ownable, Pausable {
         lastUpdated[feeType] = block.timestamp;
     }
 
+    // ============================================================================
+    // App-Specific Fee Override Functions
+    // ============================================================================
+
+    /**
+     * @notice Set app-specific fee override (App Director only)
+     * @param daoId The DAO/app ID
+     * @param feeKey The fee key to override (e.g., keccak256("compute.inference"))
+     * @param newValue The new fee value
+     */
+    function setAppFeeOverride(bytes32 daoId, bytes32 feeKey, uint256 newValue) external {
+        // Verify caller is app director
+        // In production, this would check against DAORegistry
+        // For now, governance can set any app overrides
+        if (msg.sender != board && msg.sender != director && msg.sender != owner()) {
+            revert NotAuthorized();
+        }
+
+        bool isNew = appFeeOverrides[daoId][feeKey] == 0 && !_hasOverrideKey(daoId, feeKey);
+
+        appFeeOverrides[daoId][feeKey] = newValue;
+
+        if (isNew) {
+            appOverrideKeys[daoId].push(feeKey);
+            if (!hasDaoOverrides[daoId]) {
+                daosWithOverrides.push(daoId);
+                hasDaoOverrides[daoId] = true;
+            }
+        }
+
+        emit AppFeeOverrideSet(daoId, feeKey, newValue, msg.sender);
+    }
+
+    /**
+     * @notice Remove app-specific fee override
+     * @param daoId The DAO/app ID
+     * @param feeKey The fee key to remove
+     */
+    function removeAppFeeOverride(bytes32 daoId, bytes32 feeKey) external onlyGovernance {
+        if (appFeeOverrides[daoId][feeKey] == 0 && !_hasOverrideKey(daoId, feeKey)) {
+            revert InvalidFeeKey();
+        }
+
+        delete appFeeOverrides[daoId][feeKey];
+
+        // Remove from keys array
+        bytes32[] storage keys = appOverrideKeys[daoId];
+        for (uint256 i = 0; i < keys.length; i++) {
+            if (keys[i] == feeKey) {
+                keys[i] = keys[keys.length - 1];
+                keys.pop();
+                break;
+            }
+        }
+
+        emit AppFeeOverrideRemoved(daoId, feeKey);
+    }
+
+    /**
+     * @notice Clear all fee overrides for an app
+     * @param daoId The DAO/app ID
+     */
+    function clearAllAppFeeOverrides(bytes32 daoId) external onlyGovernance {
+        bytes32[] storage keys = appOverrideKeys[daoId];
+        for (uint256 i = 0; i < keys.length; i++) {
+            delete appFeeOverrides[daoId][keys[i]];
+        }
+        delete appOverrideKeys[daoId];
+        hasDaoOverrides[daoId] = false;
+
+        emit AppAllFeesCleared(daoId);
+    }
+
+    /**
+     * @notice Get effective fee for an app (override or default)
+     * @param daoId The DAO/app ID
+     * @param feeKey The fee key
+     * @param defaultValue The default network value
+     * @return The effective fee value
+     */
+    function getEffectiveFee(bytes32 daoId, bytes32 feeKey, uint256 defaultValue) external view returns (uint256) {
+        uint256 override_ = appFeeOverrides[daoId][feeKey];
+        if (override_ > 0) return override_;
+        return defaultValue;
+    }
+
+    /**
+     * @notice Get all fee overrides for an app
+     * @param daoId The DAO/app ID
+     * @return keys Array of overridden fee keys
+     * @return values Array of override values
+     */
+    function getAppFeeOverrides(bytes32 daoId) external view returns (bytes32[] memory keys, uint256[] memory values) {
+        keys = appOverrideKeys[daoId];
+        values = new uint256[](keys.length);
+        for (uint256 i = 0; i < keys.length; i++) {
+            values[i] = appFeeOverrides[daoId][keys[i]];
+        }
+    }
+
+    /**
+     * @notice Get all DAOs with fee overrides
+     */
+    function getDaosWithOverrides() external view returns (bytes32[] memory) {
+        return daosWithOverrides;
+    }
+
+    /**
+     * @notice Check if a DAO has a specific fee override
+     */
+    function hasAppFeeOverride(bytes32 daoId, bytes32 feeKey) external view returns (bool) {
+        return appFeeOverrides[daoId][feeKey] > 0 || _hasOverrideKey(daoId, feeKey);
+    }
+
+    function _hasOverrideKey(bytes32 daoId, bytes32 feeKey) internal view returns (bool) {
+        bytes32[] storage keys = appOverrideKeys[daoId];
+        for (uint256 i = 0; i < keys.length; i++) {
+            if (keys[i] == feeKey) return true;
+        }
+        return false;
+    }
+
     /**
      * @notice Get contract version
      */
     function version() external pure returns (string memory) {
-        return "1.1.0";
+        return "2.0.0";
     }
 }

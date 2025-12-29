@@ -409,7 +409,7 @@ export class AutocratBlockchain {
   }> {
     if (!this.ceoDeployed) {
       // Use the DAO's configured model as the current CEO
-      const configuredModelId = this.config.ceoModelId ?? 'claude-opus-4-5'
+      const configuredModelId = this.config.directorModelId ?? 'claude-opus-4-5'
       const activeModel =
         findModelById(configuredModelId) ?? MODEL_CANDIDATES[0]
       return {
@@ -523,7 +523,7 @@ export class AutocratBlockchain {
   > {
     if (!this.ceoDeployed) {
       // Return default models with DAO's configured model marked as active
-      const configuredModelId = this.config.ceoModelId ?? 'claude-opus-4-5'
+      const configuredModelId = this.config.directorModelId ?? 'claude-opus-4-5'
       return getDefaultModelCandidates(configuredModelId)
     }
 

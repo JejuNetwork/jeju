@@ -15,6 +15,7 @@ import AgentEditPage from './pages/AgentEdit'
 import CreateDAOPage from './pages/CreateDAO'
 import DAODetailPage from './pages/DAODetail'
 import DAOListPage from './pages/DAOList'
+import DirectorDashboardPage from './pages/DirectorDashboard'
 import ProposalPage from './pages/Proposal'
 import './app/globals.css'
 
@@ -47,6 +48,9 @@ function App() {
           <Routes>
             {/* Create DAO has its own layout */}
             <Route path="/create" element={<CreateDAOPage />} />
+
+            {/* Director Dashboard has its own layout */}
+            <Route path="/director" element={<DirectorDashboardPage />} />
 
             {/* Main layout routes */}
             <Route element={<Layout />}>

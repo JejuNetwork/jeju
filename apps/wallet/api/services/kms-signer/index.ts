@@ -344,3 +344,4 @@ export type {
   SignResult,
   TypedDataRequest,
 }
+

@@ -247,3 +247,4 @@ export async function getBazaarTEEInfo(
     attestationAvailable: health.teeMode === 'real',
   }
 }
+

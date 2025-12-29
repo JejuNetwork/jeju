@@ -97,35 +97,41 @@
   },
   "agents": [
     {
-      "id": "autocrat-ceo",
+      "id": "autocrat-director",
       "name": "Eliza",
-      "role": "CEO",
-      "description": "AI CEO - Final decision maker for approved proposals",
-      "model": "claude-opus-4-5-20250514"
+      "role": "Director",
+      "description": "AI Director - Final decision maker for approved proposals",
+      "model": "claude-opus-4-5-20250514",
+      "isHuman": false,
+      "decisionFallbackDays": 7
     },
     {
       "id": "autocrat-treasury",
-      "name": "Treasury Guardian",
-      "role": "Guardian",
-      "description": "Reviews financial impact and treasury implications"
+      "name": "Treasury Board Member",
+      "role": "Board",
+      "description": "Reviews financial impact and treasury implications",
+      "isHuman": false
     },
     {
       "id": "autocrat-code",
-      "name": "Code Guardian",
-      "role": "Guardian",
-      "description": "Reviews technical proposals and code changes"
+      "name": "Code Board Member",
+      "role": "Board",
+      "description": "Reviews technical proposals and code changes",
+      "isHuman": false
     },
     {
       "id": "autocrat-community",
-      "name": "Community Guardian",
-      "role": "Guardian",
-      "description": "Reviews community impact and social implications"
+      "name": "Community Board Member",
+      "role": "Board",
+      "description": "Reviews community impact and social implications",
+      "isHuman": false
     },
     {
       "id": "autocrat-security",
-      "name": "Security Guardian",
-      "role": "Guardian",
-      "description": "Reviews security implications and risk assessment"
+      "name": "Security Board Member",
+      "role": "Board",
+      "description": "Reviews security implications and risk assessment",
+      "isHuman": false
     },
     {
       "id": "proposal-agent",
@@ -140,6 +146,29 @@
       "description": "Conducts deep research on approved proposals"
     }
   ],
+  "governance": {
+    "humanDirector": {
+      "enabled": true,
+      "decisionFallbackDays": 7,
+      "dashboardUrl": "/director",
+      "contextProviders": [
+        "board-votes",
+        "research-report",
+        "risk-assessment",
+        "historical-decisions"
+      ]
+    },
+    "humanBoardMembers": {
+      "enabled": true,
+      "dashboardUrl": "/board",
+      "votingInterface": true
+    },
+    "appealCourt": {
+      "enabled": true,
+      "stakeMinimum": "1000000000000000000000",
+      "boardReviewPeriod": 604800
+    }
+  },
   "contracts": {
     "Autocrat": "0x0000000000000000000000000000000000000000",
     "ProposalRegistry": "0x0000000000000000000000000000000000000000",

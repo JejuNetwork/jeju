@@ -1040,6 +1040,13 @@ export class BenchmarkRegistryClient {
       teePlatform: this.teeTypeToString(onChain.tee.teeType),
       teeAttestationHash: onChain.tee.attestationHash,
       teeAttestationValid: onChain.tee.lastAttestationTimestamp > 0n,
+      // PoC fields - not stored on-chain in this struct, default to null/false
+      pocVerified: false,
+      pocLevel: null,
+      pocCloudProvider: null,
+      pocRegion: null,
+      pocHardwareIdHash: null,
+      pocReputationDelta: 0,
       overallScore: Number(onChain.result.overallScore),
       attestationHash: onChain.result.benchmarkHash,
       timestamp: Number(onChain.result.timestamp) * 1000,

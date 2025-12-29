@@ -1,7 +1,7 @@
 /**
- * CEO Agent Plugin
+ * Director Agent Plugin
  *
- * ElizaOS plugin that provides the AI CEO with:
+ * ElizaOS plugin that provides the AI Director with:
  * - Governance data providers
  * - Decision-making actions
  * - On-chain integration
@@ -26,7 +26,7 @@ import {
   AutocratVoteDataSchema,
 } from '../../lib'
 import { makeTEEDecision } from '../tee'
-import { ceoProviders } from './ceo-providers'
+import { directorProviders } from './director-providers'
 
 /** Fee change request configuration */
 interface FeeChangeRequest {
@@ -74,11 +74,11 @@ function isAutocratVote(value: unknown): value is AutocratVote {
 }
 
 /**
- * Action: Make CEO Decision
+ * Action: Make Director Decision
  * Final decision on a proposal with TEE attestation
  */
 const makeDecisionAction: Action = {
-  name: 'MAKE_CEO_DECISION',
+  name: 'MAKE_DIRECTOR_DECISION',
   description:
     'Make a final decision on a proposal (APPROVE or REJECT) with reasoning',
   similes: [
@@ -94,9 +94,9 @@ const makeDecisionAction: Action = {
         content: { text: 'Please decide on proposal 0x1234...' },
       },
       {
-        name: 'ceo',
+        name: 'director',
         content: {
-          text: 'I have reviewed the proposal and council votes. Based on the strong council consensus and high quality score, I APPROVE this proposal.',
+          text: 'I have reviewed the proposal and board votes. Based on the strong board consensus and high quality score, I APPROVE this proposal.',
         },
       },
     ],
@@ -124,7 +124,7 @@ const makeDecisionAction: Action = {
       if (callback) {
         await callback({
           text: 'I need a proposal ID to make a decision. Please provide the full proposal ID (0x...).',
-          action: 'MAKE_CEO_DECISION',
+          action: 'MAKE_DIRECTOR_DECISION',
         })
       }
       return
@@ -132,7 +132,7 @@ const makeDecisionAction: Action = {
 
     const proposalId = proposalIdMatch[0]
 
-    // Get council votes from state or fetch
+    // Get board votes from state or fetch
     const autocratVotes: AutocratVote[] = Array.isArray(state?.autocratVotes)
       ? state.autocratVotes.filter(isAutocratVote)
       : []
@@ -154,7 +154,7 @@ const makeDecisionAction: Action = {
 
     if (callback) {
       await callback({
-        text: `📋 CEO DECISION: ${decisionText}
+        text: `📋 DIRECTOR DECISION: ${decisionText}
 
 Proposal: ${proposalId.slice(0, 12)}...
 
@@ -168,7 +168,7 @@ DAO Alignment: ${decision.alignmentScore}%
 ${decision.recommendations.map((r) => `• ${r}`).join('\n')}
 
 🔐 Attestation: ${decision.attestation.provider} (${decision.attestation.verified ? 'verified' : 'unverified'})`,
-        action: 'MAKE_CEO_DECISION',
+        action: 'MAKE_DIRECTOR_DECISION',
       })
     }
   },
@@ -189,7 +189,7 @@ const requestResearchAction: Action = {
         content: { text: 'I need more research on proposal 0x1234...' },
       },
       {
-        name: 'ceo',
+        name: 'director',
         content: { text: 'Initiating deep research on the proposal...' },
       },
     ],
@@ -290,7 +290,7 @@ const getDeliberationAction: Action = {
         method: 'message/send',
         params: {
           message: {
-            messageId: `ceo-${Date.now()}`,
+            messageId: `director-${Date.now()}`,
             parts: [
               {
                 kind: 'data',
@@ -356,11 +356,11 @@ ${voteText}`,
 
 /**
  * Action: Modify Fees
- * CEO can modify network-wide fee configuration
+ * Director can modify network-wide fee configuration
  */
 const modifyFeesAction: Action = {
   name: 'MODIFY_FEES',
-  description: 'Modify network-wide fee configuration as CEO',
+  description: 'Modify network-wide fee configuration as Director',
   similes: [
     'change fees',
     'update fees',
@@ -378,7 +378,7 @@ const modifyFeesAction: Action = {
         content: { text: 'Set the swap protocol fee to 0.1%' },
       },
       {
-        name: 'ceo',
+        name: 'director',
         content: {
           text: 'I will update the swap protocol fee from 0.05% to 0.1%. This change affects all DEX trades on the network.',
         },
@@ -392,7 +392,7 @@ const modifyFeesAction: Action = {
         },
       },
       {
-        name: 'ceo',
+        name: 'director',
         content: {
           text: 'Updating revenue distribution: App share 50%, LP share 40%, Contributor pool 10%. This rebalances incentives toward app developers.',
         },
@@ -590,7 +590,7 @@ Current fees can be viewed using the fee configuration provider.`,
 
     if (callback) {
       await callback({
-        text: `✅ CEO FEE UPDATE EXECUTED
+        text: `✅ DIRECTOR FEE UPDATE EXECUTED
 
 📊 Category: ${request.category.toUpperCase()}
 🔧 Changes: ${paramStr}
@@ -625,7 +625,7 @@ const viewFeesAction: Action = {
         content: { text: 'Show me the current fee configuration' },
       },
       {
-        name: 'ceo',
+        name: 'director',
         content: { text: 'Here is the current network fee configuration...' },
       },
     ],
@@ -707,25 +707,25 @@ const viewFeesAction: Action = {
 • Protocol Treasury: ${s.token.protocolShare}
 • Token Burn: ${s.token.burnShare}
 
-As CEO, you can modify any of these by saying "set [category] fee to X%"`,
+As Director, you can modify any of these by saying "set [category] fee to X%"`,
         action: 'VIEW_FEES',
       })
     }
   },
 }
 
-// CEO Plugin
+// Director Plugin
 
 /**
- * CEO Plugin for ElizaOS
- * Provides all data and actions needed for AI CEO governance
+ * Director Plugin for ElizaOS
+ * Provides all data and actions needed for AI Director governance
  */
-export const ceoPlugin: Plugin = {
-  name: 'ceo-plugin',
+export const directorPlugin: Plugin = {
+  name: 'director-plugin',
   description:
-    'AI CEO governance plugin with data providers and decision actions',
+    'AI Director governance plugin with data providers and decision actions',
 
-  providers: ceoProviders,
+  providers: directorProviders,
 
   actions: [
     makeDecisionAction,
@@ -736,4 +736,7 @@ export const ceoPlugin: Plugin = {
   ],
 }
 
-export default ceoPlugin
+// Legacy export for backwards compatibility
+export const ceoPlugin = directorPlugin
+
+export default directorPlugin

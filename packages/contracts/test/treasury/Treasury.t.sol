@@ -40,6 +40,10 @@ contract TreasuryTest is Test {
         vm.prank(admin);
         treasury = new Treasury("Test Treasury", DAILY_LIMIT, admin);
 
+        // Grant admin the DIRECTOR_ROLE for Director controls tests
+        vm.prank(admin);
+        treasury.addDirector(admin);
+
         vm.prank(user);
         token = new MockERC20();
     }
@@ -310,10 +314,287 @@ contract TreasuryTest is Test {
     }
 
     function test_Version() public view {
-        assertEq(treasury.version(), "2.0.0");
+        assertEq(treasury.version(), "2.2.0");
     }
 
     function test_Name() public view {
         assertEq(treasury.name(), "Test Treasury");
+    }
+
+    // ============ Director Controls Tests ============
+
+    function test_DirectorSendTokens() public {
+        // Deposit tokens to treasury
+        uint256 amount = 1000 * 10 ** 18;
+        vm.startPrank(user);
+        token.approve(address(treasury), amount);
+        treasury.depositToken(address(token), amount);
+        vm.stopPrank();
+
+        // Admin has DIRECTOR_ROLE
+        vm.prank(admin);
+        treasury.directorSendTokens(recipient, address(token), 500 * 10 ** 18, "Payment for services");
+
+        assertEq(token.balanceOf(recipient), 500 * 10 ** 18);
+        assertEq(treasury.getTokenBalance(address(token)), 500 * 10 ** 18);
+    }
+
+    function test_DirectorSendETH() public {
+        vm.prank(user);
+        treasury.deposit{value: 10 ether}();
+
+        uint256 recipientBefore = recipient.balance;
+
+        vm.prank(admin);
+        treasury.directorSendTokens(recipient, address(0), 3 ether, "ETH payment");
+
+        assertEq(recipient.balance, recipientBefore + 3 ether);
+    }
+
+    function test_DirectorSendTokens_NotDirector() public {
+        uint256 amount = 1000 * 10 ** 18;
+        vm.startPrank(user);
+        token.approve(address(treasury), amount);
+        treasury.depositToken(address(token), amount);
+        vm.stopPrank();
+
+        vm.prank(user);
+        vm.expectRevert();
+        treasury.directorSendTokens(recipient, address(token), 100 * 10 ** 18, "Unauthorized");
+    }
+
+    // ============ Recurring Payments Tests ============
+
+    function test_CreateRecurringPayment() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        vm.prank(admin);
+        bytes32 paymentId = treasury.createRecurringPayment(
+            recipient,
+            address(0), // ETH
+            1 ether,
+            7 days, // weekly
+            4, // 4 payments
+            "Weekly allowance"
+        );
+
+        Treasury.RecurringPayment memory payment = treasury.getRecurringPayment(paymentId);
+        assertEq(payment.recipient, recipient);
+        assertEq(payment.amount, 1 ether);
+        assertEq(payment.interval, 7 days);
+        assertEq(payment.maxPayments, 4);
+        assertTrue(payment.active);
+    }
+
+    function test_ExecuteRecurringPayment() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        vm.prank(admin);
+        bytes32 paymentId = treasury.createRecurringPayment(
+            recipient,
+            address(0),
+            1 ether,
+            1 days,
+            0, // unlimited
+            "Daily payment"
+        );
+
+        // Advance time to make payment due
+        vm.warp(block.timestamp + 1 days + 1);
+
+        uint256 recipientBefore = recipient.balance;
+
+        // Anyone can execute due payments
+        vm.prank(user);
+        treasury.executeRecurringPayment(paymentId);
+
+        assertEq(recipient.balance, recipientBefore + 1 ether);
+
+        Treasury.RecurringPayment memory payment = treasury.getRecurringPayment(paymentId);
+        assertEq(payment.paymentsMade, 1);
+    }
+
+    function test_ExecuteRecurringPayment_NotDue() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        vm.prank(admin);
+        bytes32 paymentId = treasury.createRecurringPayment(
+            recipient,
+            address(0),
+            1 ether,
+            7 days,
+            0,
+            "Weekly"
+        );
+
+        // Try to execute immediately (not due yet)
+        vm.prank(user);
+        vm.expectRevert(Treasury.PaymentNotDue.selector);
+        treasury.executeRecurringPayment(paymentId);
+    }
+
+    function test_ExecuteRecurringPayment_MaxReached() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        uint256 startTime = block.timestamp;
+
+        vm.prank(admin);
+        bytes32 paymentId = treasury.createRecurringPayment(
+            recipient,
+            address(0),
+            1 ether,
+            1 days,
+            2, // only 2 payments
+            "Limited"
+        );
+
+        // Execute first payment (after interval)
+        vm.warp(startTime + 1 days + 1);
+        treasury.executeRecurringPayment(paymentId);
+
+        // Execute second payment (another interval later)
+        vm.warp(startTime + 2 days + 2);
+        treasury.executeRecurringPayment(paymentId);
+
+        // Third should fail - max reached and payment deactivated
+        vm.warp(startTime + 3 days + 3);
+        vm.expectRevert(Treasury.PaymentNotActive.selector);
+        treasury.executeRecurringPayment(paymentId);
+    }
+
+    function test_CancelRecurringPayment() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        vm.prank(admin);
+        bytes32 paymentId = treasury.createRecurringPayment(
+            recipient,
+            address(0),
+            1 ether,
+            1 days,
+            0,
+            "To be cancelled"
+        );
+
+        vm.prank(admin);
+        treasury.cancelRecurringPayment(paymentId);
+
+        Treasury.RecurringPayment memory payment = treasury.getRecurringPayment(paymentId);
+        assertFalse(payment.active);
+
+        // Cannot execute cancelled payment
+        vm.warp(block.timestamp + 2 days);
+        vm.expectRevert(Treasury.PaymentNotActive.selector);
+        treasury.executeRecurringPayment(paymentId);
+    }
+
+    function test_CancelRecurringPayment_NotDirector() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        vm.prank(admin);
+        bytes32 paymentId = treasury.createRecurringPayment(
+            recipient,
+            address(0),
+            1 ether,
+            1 days,
+            0,
+            "Payment"
+        );
+
+        vm.prank(user);
+        vm.expectRevert();
+        treasury.cancelRecurringPayment(paymentId);
+    }
+
+    function test_GetActiveRecurringPayments() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        vm.startPrank(admin);
+        treasury.createRecurringPayment(recipient, address(0), 1 ether, 1 days, 0, "Payment 1");
+        treasury.createRecurringPayment(recipient, address(0), 2 ether, 7 days, 0, "Payment 2");
+        bytes32 payment3 = treasury.createRecurringPayment(recipient, address(0), 3 ether, 30 days, 0, "Payment 3");
+        treasury.cancelRecurringPayment(payment3);
+        vm.stopPrank();
+
+        Treasury.RecurringPayment[] memory active = treasury.getActiveRecurringPayments();
+        assertEq(active.length, 2);
+    }
+
+    function test_GetDuePayments() public {
+        vm.prank(user);
+        treasury.deposit{value: 100 ether}();
+
+        vm.startPrank(admin);
+        treasury.createRecurringPayment(recipient, address(0), 1 ether, 1 days, 0, "Daily");
+        treasury.createRecurringPayment(recipient, address(0), 2 ether, 7 days, 0, "Weekly");
+        vm.stopPrank();
+
+        // Only daily payment should be due after 2 days
+        vm.warp(block.timestamp + 2 days);
+
+        Treasury.RecurringPayment[] memory due = treasury.getDuePayments();
+        assertEq(due.length, 1);
+        assertEq(due[0].amount, 1 ether);
+    }
+
+    function test_RecurringPaymentWithTokens() public {
+        uint256 amount = 10000 * 10 ** 18;
+        vm.startPrank(user);
+        token.approve(address(treasury), amount);
+        treasury.depositToken(address(token), amount);
+        vm.stopPrank();
+
+        vm.prank(admin);
+        bytes32 paymentId = treasury.createRecurringPayment(
+            recipient,
+            address(token),
+            100 * 10 ** 18,
+            30 days, // monthly
+            12, // 12 months
+            "Monthly salary"
+        );
+
+        vm.warp(block.timestamp + 30 days + 1);
+
+        uint256 recipientBefore = token.balanceOf(recipient);
+        treasury.executeRecurringPayment(paymentId);
+
+        assertEq(token.balanceOf(recipient), recipientBefore + 100 * 10 ** 18);
+    }
+
+    // ============ Top Up Account Tests ============
+
+    function test_TopUpAccount() public {
+        uint256 amount = 1000 * 10 ** 18;
+        vm.startPrank(user);
+        token.approve(address(treasury), amount);
+        treasury.depositToken(address(token), amount);
+        vm.stopPrank();
+
+        address serviceAccount = makeAddr("service");
+
+        vm.prank(admin);
+        treasury.topUpAccount(serviceAccount, address(token), 100 * 10 ** 18);
+
+        assertEq(token.balanceOf(serviceAccount), 100 * 10 ** 18);
+    }
+
+    function test_TopUpAccount_ETH() public {
+        vm.prank(user);
+        treasury.deposit{value: 10 ether}();
+
+        address serviceAccount = makeAddr("service");
+        uint256 before = serviceAccount.balance;
+
+        vm.prank(admin);
+        treasury.topUpAccount(serviceAccount, address(0), 2 ether);
+
+        assertEq(serviceAccount.balance, before + 2 ether);
     }
 }

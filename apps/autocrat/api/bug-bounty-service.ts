@@ -18,6 +18,7 @@ import {
 import { type EQLiteClient, getEQLite, type QueryParam } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { expectDefined, expectValid } from '@jejunetwork/types'
+import { writeContract } from '@jejunetwork/contracts'
 import {
   type Address,
   createPublicClient,
@@ -59,7 +60,7 @@ import {
   VulnerabilityTypeSchema,
 } from '../lib'
 import { config } from './config'
-import { createKMSWalletClient, getOperatorConfig } from './kms-signer'
+import { createKMSHttpWalletClient, getOperatorConfig } from './kms-signer'
 
 const EQLITE_DATABASE_ID = config.eqliteDatabaseId
 
@@ -252,14 +253,14 @@ function getPublicClient() {
 
 async function getKMSWalletClientInstance() {
   if (!kmsWalletClientResult) {
-    const config = getOperatorConfig()
-    if (!config) {
+    const operatorConfig = getOperatorConfig()
+    if (!operatorConfig) {
       throw new Error(
         'OPERATOR_KEY or OPERATOR_PRIVATE_KEY required for contract operations',
       )
     }
     kmsWalletClientResult = await createKMSWalletClient(
-      config,
+      operatorConfig,
       getChain(),
       getRpcUrl(),
     )
@@ -610,13 +611,16 @@ export async function submitBounty(
     ? encrypted.keyId
     : keccak256(stringToHex(encrypted.keyId))
 
-  const hash = await walletClient.writeContract({
+  if (!account) {
+    throw new Error('Wallet account not available')
+  }
+  const hash = await writeContract(walletClient, {
     address: contractAddr,
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'submitVulnerability',
     args: [submission.severity, submission.vulnType, cidHex, keyIdHex, pocHash],
     value: stake,
-    account: account.address,
+    account,
     chain: getChain(),
   })
 
@@ -784,12 +788,15 @@ export async function completeValidation(
   const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
-  const txHash = await walletClient.writeContract({
+  if (!account) {
+    throw new Error('Wallet account not available')
+  }
+  const txHash = await writeContract(walletClient, {
     address: contractAddr,
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'completeValidation',
     args: [toHex(submissionId), result, notes],
-    account: account.address,
+    account,
     chain: getChain(),
   })
 
@@ -861,12 +868,15 @@ export async function submitGuardianVote(
   const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
-  const guardianHash = await walletClient.writeContract({
+  if (!account) {
+    throw new Error('Wallet account not available')
+  }
+  const guardianHash = await writeContract(walletClient, {
     address: contractAddr,
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'submitGuardianVote',
     args: [toHex(submissionId), approved, suggestedReward, feedback],
-    account: account.address,
+    account,
     chain: getChain(),
   })
 
@@ -883,7 +893,7 @@ export async function submitGuardianVote(
     if (submission.guardianApprovals >= requiredApprovals) {
       await client.exec(
         'UPDATE bounty_submissions SET status = ? WHERE submission_id = ?',
-        [BountySubmissionStatus.CEO_REVIEW, submissionId],
+        [BountySubmissionStatus.DIRECTOR_REVIEW, submissionId],
         EQLITE_DATABASE_ID,
       )
       await getCache().delete(`submission:${submissionId}`)
@@ -938,12 +948,15 @@ export async function ceoDecision(
   const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
-  const ceoHash = await walletClient.writeContract({
+  if (!account) {
+    throw new Error('Wallet account not available')
+  }
+  const ceoHash = await writeContract(walletClient, {
     address: contractAddr,
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'ceoDecision',
     args: [toHex(submissionId), approved, rewardAmount, reasoning],
-    account: account.address,
+    account,
     chain: getChain(),
   })
 
@@ -987,12 +1000,15 @@ export async function payReward(
   const { client: walletClient, account } = await getKMSWalletClientInstance()
   const publicClient = getPublicClient()
 
-  const payoutHash = await walletClient.writeContract({
+  if (!account) {
+    throw new Error('Wallet account not available')
+  }
+  const payoutHash = await writeContract(walletClient, {
     address: contractAddr,
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
     functionName: 'payReward',
     args: [toHex(submissionId)],
-    account: account.address,
+    account,
     chain: getChain(),
   })
 

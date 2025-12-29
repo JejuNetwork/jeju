@@ -25,6 +25,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
 import { z } from 'zod'
 import { parseQuote, verifyQuote } from '../poc/quote-parser'
+import { getPoCNodeVerifier, type PoCNodeVerifier } from './poc-node-verifier'
 import {
   createKMSWalletClient,
   isKMSAvailable,
@@ -241,6 +242,9 @@ export class NodeRegistry {
   private cacheExpiry = 60000 // 1 minute
   private lastCacheRefresh = 0
 
+  // PoC verifier for cloud alliance checks
+  private pocVerifier: PoCNodeVerifier | null = null
+
   // Event handlers
   private eventHandlers: InfraEventHandler[] = []
 
@@ -429,7 +433,7 @@ export class NodeRegistry {
   }
 
   /**
-   * Submit TEE attestation
+   * Submit TEE attestation and verify against cloud alliance
    */
   async submitAttestation(agentId: bigint, quote: Hex): Promise<Hex> {
     // Verify quote first
@@ -443,6 +447,46 @@ export class NodeRegistry {
       throw new Error(`Attestation verification failed: ${verifyResult.error}`)
     }
 
+    // Run PoC verification against cloud alliance
+    let pocStatus: NodeConfig['pocStatus'] | undefined
+    if (!this.pocVerifier) {
+      try {
+        this.pocVerifier = getPoCNodeVerifier()
+      } catch {
+        console.warn('[NodeRegistry] PoC verifier not available')
+      }
+    }
+
+    if (this.pocVerifier) {
+      const pocResult = await this.pocVerifier.verifyNode(agentId, quote)
+      pocStatus = {
+        verified: pocResult.verified,
+        level: pocResult.level,
+        hardwareIdHash: pocResult.hardwareIdHash,
+        cloudProvider: pocResult.cloudProvider,
+        region: pocResult.region,
+        lastVerifiedAt: pocResult.verified ? Date.now() : null,
+        expiresAt: pocResult.verified ? Date.now() + 7 * 24 * 60 * 60 * 1000 : null,
+        score: pocResult.score,
+      }
+
+      // Update cached node with PoC status
+      const cacheKey = agentId.toString()
+      const cachedNode = this.nodeCache.get(cacheKey)
+      if (cachedNode) {
+        cachedNode.pocStatus = pocStatus
+        // Apply reputation delta
+        cachedNode.reputation = Math.max(0, Math.min(100, cachedNode.reputation + pocResult.reputationDelta))
+        this.nodeCache.set(cacheKey, cachedNode)
+      }
+
+      console.log(
+        `[NodeRegistry] PoC verification for node ${agentId}: ` +
+        `verified=${pocResult.verified}, level=${pocResult.level}, ` +
+        `reputation delta=${pocResult.reputationDelta}`,
+      )
+    }
+
     // Store attestation on-chain
     const attestationData = JSON.stringify({
       quote,
@@ -450,6 +494,13 @@ export class NodeRegistry {
       platform: parseResult.quote.platform,
       verifiedAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      // Include PoC status if available
+      poc: pocStatus ? {
+        verified: pocStatus.verified,
+        level: pocStatus.level,
+        cloudProvider: pocStatus.cloudProvider,
+        region: pocStatus.region,
+      } : undefined,
     })
 
     return this.setMetadata(
@@ -457,6 +508,63 @@ export class NodeRegistry {
       META_KEYS.ATTESTATION,
       Buffer.from(attestationData),
     )
+  }
+
+  /**
+   * Verify a node against the cloud alliance registry
+   * Can be called separately from attestation submission
+   */
+  async verifyNodePoC(agentId: bigint, quote: Hex): Promise<NodeConfig['pocStatus'] | null> {
+    if (!this.pocVerifier) {
+      try {
+        this.pocVerifier = getPoCNodeVerifier()
+      } catch {
+        console.warn('[NodeRegistry] PoC verifier not available')
+        return null
+      }
+    }
+
+    const pocResult = await this.pocVerifier.verifyNode(agentId, quote)
+
+    const pocStatus: NodeConfig['pocStatus'] = {
+      verified: pocResult.verified,
+      level: pocResult.level,
+      hardwareIdHash: pocResult.hardwareIdHash,
+      cloudProvider: pocResult.cloudProvider,
+      region: pocResult.region,
+      lastVerifiedAt: pocResult.verified ? Date.now() : null,
+      expiresAt: pocResult.verified ? Date.now() + 7 * 24 * 60 * 60 * 1000 : null,
+      score: pocResult.score,
+    }
+
+    // Update cached node
+    const cacheKey = agentId.toString()
+    const cachedNode = this.nodeCache.get(cacheKey)
+    if (cachedNode) {
+      cachedNode.pocStatus = pocStatus
+      cachedNode.reputation = Math.max(0, Math.min(100, cachedNode.reputation + pocResult.reputationDelta))
+      this.nodeCache.set(cacheKey, cachedNode)
+
+      // Emit event
+      if (pocResult.verified && pocResult.cloudProvider && pocResult.region && pocResult.hardwareIdHash) {
+        this.emit({
+          type: 'node:poc_verified',
+          nodeAgentId: agentId,
+          level: pocResult.level as 1 | 2 | 3,
+          cloudProvider: pocResult.cloudProvider,
+          region: pocResult.region,
+          hardwareIdHash: pocResult.hardwareIdHash,
+        })
+      } else if (!pocResult.verified && pocResult.error) {
+        this.emit({
+          type: 'node:poc_failed',
+          nodeAgentId: agentId,
+          reason: pocResult.error,
+        })
+      }
+    }
+
+    return pocStatus
   }
 
   /**
