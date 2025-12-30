@@ -10,6 +10,7 @@
     "SystemConfig": "0x586b880fB2f6831F1a1AD1E6754861008264816c",
     "OptimismPortal": "0x0F80836afff3f0b18D767643c6A5f83d027b00e8",
     "L1CrossDomainMessenger": "0x563209CfA6a3d7361634e7CC80251e947E699D4c",
-    "L1StandardBridge": "0x12FA61c9d77AEd9BeDA0FF4bF2E900F31bdBdc45"
+    "L1StandardBridge": "0x12FA61c9d77AEd9BeDA0FF4bF2E900F31bdBdc45",
+    "L2OutputOracle": "0xde4900A1711445aF92B6fe59b3430485b3794c2d"
   }
 }

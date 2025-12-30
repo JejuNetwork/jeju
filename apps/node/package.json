@@ -8,14 +8,15 @@
   },
   "scripts": {
     "dev": "bun run scripts/dev.ts",
-    "dev:app": "cd app/src-tauri && tauri dev",
     "build": "bun run scripts/build.ts",
-    "build:app": "cd app/src-tauri && tauri build",
-    "start": "bun api/app/index.ts",
-    "cli": "bun api/cli.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
     "test": "bun test api/ lib/ web/ --timeout 30000",
     "test:e2e": "bunx playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:app": "cd app/src-tauri && tauri dev",
+    "build:app": "cd app/src-tauri && tauri build",
+    "cli": "bun api/cli.ts"
   },
   "dependencies": {
     "@jejunetwork/config": "workspace:*",

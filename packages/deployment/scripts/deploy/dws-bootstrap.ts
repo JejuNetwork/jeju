@@ -418,7 +418,7 @@ async function deployDWSContracts(
   const rpcUrl = NETWORK_CONFIG[network].rpcUrl
 
   // Run forge script
-  const cmd = `cd ${CONTRACTS_DIR} && DEPLOYER_PRIVATE_KEY=${privateKey} ARBISCAN_API_KEY=dummy BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/DeployDWS.s.sol:DeployDWS --rpc-url ${rpcUrl} --broadcast --legacy 2>&1`
+  const cmd = `cd ${CONTRACTS_DIR} && ARBISCAN_API_KEY=dummy BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/DeployDWS.s.sol:DeployDWS --rpc-url ${rpcUrl} --private-key ${privateKey} --broadcast --legacy 2>&1`
 
   const output = execSync(cmd, {
     encoding: 'utf-8',

@@ -6,9 +6,11 @@
   "main": "api/a2a.ts",
   "scripts": {
     "dev": "bun run scripts/dev.ts",
-    "build": "bun build index.html --outdir=dist --minify",
-    "start": "bun run api/a2a.ts",
-    "test": "bun test tests/unit tests/integration && bunx playwright test",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/unit tests/integration",
+    "test:e2e": "bunx playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

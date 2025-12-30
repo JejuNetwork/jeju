@@ -6,13 +6,13 @@
   "description": "Otto - Decentralized multi-platform AI trading agent for Discord, Telegram, Twitter, and WhatsApp",
   "main": "api/index.ts",
   "scripts": {
-    "dev": "bun run api/server.ts",
-    "build": "bun build api/server.ts --outdir dist --target bun --entry-naming server.js && bun build api/index.ts --outdir dist --target bun",
-    "start": "bun dist/server.js",
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
     "test": "bun test tests/unit/",
     "test:e2e": "bunx playwright test --config=playwright.config.ts",
     "test:synpress": "bunx synpress --config=synpress.config.ts",
-    "test:all": "bun run test && bun run test:e2e",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -19,11 +19,19 @@ import {
 import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
 
-import {
-  DWSWorkerDeployResponseSchema,
-  IPFSUploadResponseSchema,
-} from '../schemas/api'
+// Inline schemas for deploy script
+const IPFSUploadResponseSchema = z.object({
+  cid: z.string(),
+  size: z.number().optional(),
+})
+
+const DWSWorkerDeployResponseSchema = z.object({
+  workerId: z.string(),
+  status: z.enum(['deployed', 'pending', 'failed']),
+  endpoint: z.string().optional(),
+})
 
 // Configuration
 

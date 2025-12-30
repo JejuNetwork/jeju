@@ -28,11 +28,11 @@ spec:
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.externalDatabase.username }}:blockscout-password@{{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}/{{ .Values.externalDatabase.database }}?ssl=true"
             - name: POOL_SIZE
-              value: "50"
+              value: "200"
             - name: POOL_SIZE_API
-              value: "50"
+              value: "100"
             - name: ACCOUNT_POOL_SIZE
-              value: "10"
+              value: "20"
             - name: ETHEREUM_JSONRPC_VARIANT
               value: "geth"
             - name: ETHEREUM_JSONRPC_HTTP_URL
@@ -55,23 +55,28 @@ spec:
             {{- end }}
           startupProbe:
             httpGet:
-              path: /
+              path: /api/v2/stats
               port: 4000
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 30
+            timeoutSeconds: 10
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/v2/stats
               port: 4000
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/v2/stats
               port: 4000
             initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
 ---

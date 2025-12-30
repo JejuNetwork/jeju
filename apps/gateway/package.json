@@ -5,10 +5,13 @@
   "description": "Gateway - Protocol Infrastructure Hub for bridge, LP, nodes, oracles, and more",
   "main": "api/a2a-server.ts",
   "scripts": {
-    "dev": "concurrently \"bun dev-server.ts\" \"bun api/server.ts\" \"bun api/rpc-server.ts\" \"bun api/x402-server.ts\"",
-    "build": "bun build.web.ts",
-    "start": "bun api/a2a-server.ts",
-    "test": "bun test tests/ && bunx playwright test tests/synpress/",
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/",
+    "test:e2e": "bunx playwright test tests/e2e/",
+    "test:synpress": "bunx playwright test tests/synpress/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

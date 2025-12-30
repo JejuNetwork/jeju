@@ -30,10 +30,9 @@ config:
   execution:
     endpoint: "http://geth-l1.l1.svc.cluster.local:8551"
   
-  # Checkpoint sync disabled - all free endpoints have rate limits (429 errors)
-  # Syncing from genesis (slow but reliable, no rate limits)
+  # Checkpoint sync enabled - using Lodestar/ChainSafe public endpoint
   checkpoint:
-    syncUrl: ""
+    syncUrl: "https://lodestar-sepolia.chainsafe.io"
   
   # HTTP API for op-node blob retrieval
   http:

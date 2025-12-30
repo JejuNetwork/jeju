@@ -35,5 +35,8 @@
       "SystemConfig": "0x586b880fB2f6831F1a1AD1E6754861008264816c",
       "L2OutputOracle": "0x0000000000000000000000000000000000000000"
     }
+  },
+  "l1Contracts": {
+    "L2OutputOracle": "0xde4900A1711445aF92B6fe59b3430485b3794c2d"
   }
 }

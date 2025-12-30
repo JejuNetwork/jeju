@@ -6,11 +6,13 @@
   "description": "Example decentralized app template - demonstrates all Jeju network services",
   "main": "api/index.ts",
   "scripts": {
-    "dev": "concurrently \"bun --watch api/index.ts\" \"bun --watch web/dev.ts\"",
-    "build": "bun run build.ts",
-    "start": "bun run dist/index.js",
-    "test": "bun test tests/ && bunx playwright test --config=playwright.config.ts && bunx synpress --config=synpress.config.ts",
-    "deploy": "bun run deploy.ts",
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/",
+    "test:e2e": "bunx playwright test --config=playwright.config.ts",
+    "test:synpress": "bunx synpress --config=synpress.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
