@@ -1,10 +1,10 @@
 /**
- * Database Service - EQLite Integration
+ * Database Service - SQLit Integration
  *
- * Provides decentralized SQL database access via EQLite.
+ * Provides decentralized SQL database access via SQLit.
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { Hex } from 'viem'
 import { z } from 'zod'
 
@@ -45,13 +45,13 @@ export interface TransactionClient {
 }
 
 class DatabaseServiceImpl implements DatabaseService {
-  private client: EQLiteClient
+  private client: SQLitClient
   private config: DatabaseConfig
 
   constructor(config: DatabaseConfig) {
     const validated = DatabaseConfigSchema.parse(config)
     this.config = validated
-    this.client = getEQLite({
+    this.client = getSQLit({
       blockProducerEndpoint: validated.endpoint,
       databaseId: validated.databaseId,
       timeout: validated.timeout,

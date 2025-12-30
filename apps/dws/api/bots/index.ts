@@ -338,7 +338,7 @@ export class BotDeploymentService {
     // Start heartbeat
     this.startHeartbeat(bot)
 
-    // Persist to EQLite
+    // Persist to SQLit
     await this.saveBotState(bot)
 
     return bot
@@ -497,7 +497,7 @@ export class BotDeploymentService {
         bot.metrics.uptime = Date.now() - bot.deployedAt
       }
 
-      // Persist heartbeat update to EQLite
+      // Persist heartbeat update to SQLit
       await this.saveBotState(bot)
     }, 30_000) // Every 30 seconds
 
@@ -619,7 +619,7 @@ export class BotDeploymentService {
   }
 
   /**
-   * Load bot state from persistent storage (EQLite)
+   * Load bot state from persistent storage (SQLit)
    */
   private async loadBotState(): Promise<void> {
     if (getStateMode() === 'memory') {
@@ -631,7 +631,7 @@ export class BotDeploymentService {
 
     try {
       const rows = await botDeploymentState.listAll()
-      console.log(`[BotDeployment] Loading ${rows.length} bots from EQLite`)
+      console.log(`[BotDeployment] Loading ${rows.length} bots from SQLit`)
 
       for (const row of rows) {
         const bot: BotInstance = {
@@ -670,7 +670,7 @@ export class BotDeploymentService {
   }
 
   /**
-   * Save bot state to persistent storage (EQLite)
+   * Save bot state to persistent storage (SQLit)
    */
   private async saveBotState(bot: BotInstance): Promise<void> {
     if (getStateMode() === 'memory') return

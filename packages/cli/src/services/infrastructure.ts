@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import {
   CORE_PORTS,
   getDWSUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getFarcasterHubUrl,
   getIpfsApiUrl,
   getL2RpcUrl,
@@ -26,13 +26,13 @@ export interface ServiceHealth {
 
 export interface InfrastructureStatus {
   docker: boolean
-  eqlite: boolean
+  sqlit: boolean
   services: ServiceHealth[]
   localnet: boolean
   allHealthy: boolean
 }
 
-const EQLITE_PORT = INFRA_PORTS.EQLite.get()
+const SQLIT_PORT = INFRA_PORTS.SQLit.get()
 
 // DWS provides cache and DA services via /cache and /da endpoints
 const DWS_PORT = CORE_PORTS.DWS_API.get()
@@ -57,7 +57,7 @@ const DOCKER_SERVICES = {
 
 const LOCALNET_PORT = DEFAULT_PORTS.l2Rpc
 
-let eqliteProcess: ResultPromise | null = null
+let sqlitProcess: ResultPromise | null = null
 
 export class InfrastructureService {
   private rootDir: string
@@ -66,10 +66,10 @@ export class InfrastructureService {
     this.rootDir = rootDir
   }
 
-  async isEQLiteRunning(): Promise<boolean> {
+  async isSQLitRunning(): Promise<boolean> {
     try {
       const response = await fetch(
-        `http://${getLocalhostHost()}:${EQLITE_PORT}/v1/status`,
+        `http://${getLocalhostHost()}:${SQLIT_PORT}/v1/status`,
         {
           signal: AbortSignal.timeout(2000),
         },
@@ -80,21 +80,21 @@ export class InfrastructureService {
     }
   }
 
-  async startEQLite(): Promise<boolean> {
-    if (await this.isEQLiteRunning()) {
-      logger.success('EQLite already running')
+  async startSQLit(): Promise<boolean> {
+    if (await this.isSQLitRunning()) {
+      logger.success('SQLit already running')
       return true
     }
 
-    // First try Docker-based EQLite if available
+    // First try Docker-based SQLit if available
     const dockerAvailable = await this.isDockerRunning()
     const composeFile = join(
       this.rootDir,
-      'packages/deployment/docker/eqlite-internal.compose.yaml',
+      'packages/deployment/docker/sqlit-internal.compose.yaml',
     )
 
     if (dockerAvailable && existsSync(composeFile)) {
-      logger.step('Starting EQLite Docker cluster...')
+      logger.step('Starting SQLit Docker cluster...')
 
       const dockerProcess = execa(
         'docker',
@@ -110,31 +110,31 @@ export class InfrastructureService {
         // Wait for Docker startup
         for (let i = 0; i < 60; i++) {
           await this.sleep(500)
-          if (await this.isEQLiteRunning()) {
-            logger.success(`EQLite cluster running on port ${EQLITE_PORT}`)
+          if (await this.isSQLitRunning()) {
+            logger.success(`SQLit cluster running on port ${SQLIT_PORT}`)
             return true
           }
         }
       } catch (err) {
-        logger.debug(`Docker EQLite failed: ${String(err)}`)
+        logger.debug(`Docker SQLit failed: ${String(err)}`)
       }
     }
 
-    // Fall back to SQLite-based EQLite server
-    logger.step('Starting EQLite SQLite server...')
+    // Fall back to SQLit-based SQLit server
+    logger.step('Starting SQLit SQLit server...')
 
     const serverPath = join(this.rootDir, 'packages/db/src/server.ts')
     if (!existsSync(serverPath)) {
-      logger.error('EQLite server not found at packages/db/src/server.ts')
+      logger.error('SQLit server not found at packages/db/src/server.ts')
       return false
     }
 
-    eqliteProcess = execa('bun', ['run', serverPath], {
+    sqlitProcess = execa('bun', ['run', serverPath], {
       cwd: this.rootDir,
       env: {
         ...process.env,
-        PORT: String(EQLITE_PORT),
-        EQLITE_PORT: String(EQLITE_PORT),
+        PORT: String(SQLIT_PORT),
+        SQLIT_PORT: String(SQLIT_PORT),
       },
       stdio: 'pipe',
     })
@@ -142,36 +142,36 @@ export class InfrastructureService {
     // Wait for server to start
     for (let i = 0; i < 20; i++) {
       await this.sleep(250)
-      if (await this.isEQLiteRunning()) {
-        logger.success(`EQLite SQLite server running on port ${EQLITE_PORT}`)
+      if (await this.isSQLitRunning()) {
+        logger.success(`SQLit SQLit server running on port ${SQLIT_PORT}`)
         logger.keyValue(
           '  API Endpoint',
-          `http://${getLocalhostHost()}:${EQLITE_PORT}`,
+          `http://${getLocalhostHost()}:${SQLIT_PORT}`,
         )
-        logger.info('  Mode: SQLite-compatible (local development)')
+        logger.info('  Mode: SQLit-compatible (local development)')
         return true
       }
     }
 
-    logger.error('EQLite server failed to start within 5 seconds')
+    logger.error('SQLit server failed to start within 5 seconds')
     return false
   }
 
-  async stopEQLite(): Promise<void> {
-    // Stop SQLite server process if running
-    if (eqliteProcess) {
-      eqliteProcess.kill('SIGTERM')
-      eqliteProcess = null
+  async stopSQLit(): Promise<void> {
+    // Stop SQLit server process if running
+    if (sqlitProcess) {
+      sqlitProcess.kill('SIGTERM')
+      sqlitProcess = null
     }
 
     // Stop Docker cluster if running
     const composeFile = join(
       this.rootDir,
-      'packages/deployment/docker/eqlite-internal.compose.yaml',
+      'packages/deployment/docker/sqlit-internal.compose.yaml',
     )
 
     if (existsSync(composeFile) && (await this.isDockerRunning())) {
-      logger.step('Stopping EQLite cluster...')
+      logger.step('Stopping SQLit cluster...')
       await execa('docker', ['compose', '-f', composeFile, 'down'], {
         cwd: this.rootDir,
         reject: false,
@@ -321,13 +321,13 @@ export class InfrastructureService {
     return results
   }
 
-  async getEQLiteHealth(): Promise<ServiceHealth> {
-    const healthy = await this.isEQLiteRunning()
+  async getSQLitHealth(): Promise<ServiceHealth> {
+    const healthy = await this.isSQLitRunning()
     return {
-      name: 'EQLite (EQLite)',
-      port: EQLITE_PORT,
+      name: 'SQLit (SQLit)',
+      port: SQLIT_PORT,
       healthy,
-      url: `http://${getLocalhostHost()}:${EQLITE_PORT}`,
+      url: `http://${getLocalhostHost()}:${SQLIT_PORT}`,
     }
   }
 
@@ -410,8 +410,8 @@ export class InfrastructureService {
   async stopServices(): Promise<void> {
     logger.step('Stopping all services...')
 
-    await this.stopEQLite()
-    logger.success('EQLite stopped')
+    await this.stopSQLit()
+    logger.success('SQLit stopped')
 
     const composePath = join(
       this.rootDir,
@@ -493,20 +493,20 @@ export class InfrastructureService {
   }
 
   async getStatus(): Promise<InfrastructureStatus> {
-    const eqlite = await this.isEQLiteRunning()
+    const sqlit = await this.isSQLitRunning()
     const docker = await this.isDockerRunning()
     const dockerServices = docker ? await this.checkDockerServices() : []
     const localnet = await this.isLocalnetRunning()
 
-    const eqliteHealth = await this.getEQLiteHealth()
-    const services = [eqliteHealth, ...dockerServices]
+    const sqlitHealth = await this.getSQLitHealth()
+    const services = [sqlitHealth, ...dockerServices]
 
     const allHealthy =
-      eqlite && docker && dockerServices.every((s) => s.healthy) && localnet
+      sqlit && docker && dockerServices.every((s) => s.healthy) && localnet
 
     return {
       docker,
-      eqlite,
+      sqlit,
       services,
       localnet,
       allHealthy,
@@ -522,9 +522,9 @@ export class InfrastructureService {
     logger.info('Starting infrastructure in parallel...\n')
 
     // Check what's already running in parallel
-    const [eqliteRunning, dockerInstalled, dockerRunning, localnetRunning] =
+    const [sqlitRunning, dockerInstalled, dockerRunning, localnetRunning] =
       await Promise.all([
-        this.isEQLiteRunning(),
+        this.isSQLitRunning(),
         this.isDockerInstalled(),
         this.isDockerRunning(),
         this.isLocalnetRunning(),
@@ -540,16 +540,16 @@ export class InfrastructureService {
     // Start independent services in parallel
     const startTasks: Promise<{ name: string; success: boolean }>[] = []
 
-    // EQLite can start independently
-    if (!eqliteRunning) {
+    // SQLit can start independently
+    if (!sqlitRunning) {
       startTasks.push(
-        this.startEQLite().then((success) => ({ name: 'EQLite', success })),
+        this.startSQLit().then((success) => ({ name: 'SQLit', success })),
       )
     } else {
-      logger.success(`EQLite already running on port ${EQLITE_PORT}`)
+      logger.success(`SQLit already running on port ${SQLIT_PORT}`)
     }
 
-    // Docker + services need to be sequential, but can run parallel to EQLite
+    // Docker + services need to be sequential, but can run parallel to SQLit
     const dockerTask = async (): Promise<{
       name: string
       success: boolean
@@ -637,14 +637,14 @@ export class InfrastructureService {
   printStatus(status: InfrastructureStatus): void {
     logger.subheader('Infrastructure Status')
 
-    // EQLite first - it's the core database
+    // SQLit first - it's the core database
     logger.table([
       {
-        label: 'EQLite (native)',
-        value: status.eqlite
-          ? `http://${getLocalhostHost()}:${EQLITE_PORT}`
+        label: 'SQLit (native)',
+        value: status.sqlit
+          ? `http://${getLocalhostHost()}:${SQLIT_PORT}`
           : 'stopped',
-        status: status.eqlite ? 'ok' : 'error',
+        status: status.sqlit ? 'ok' : 'error',
       },
     ])
 
@@ -656,9 +656,9 @@ export class InfrastructureService {
       },
     ])
 
-    // Docker services (EQLite already shown above)
+    // Docker services (SQLit already shown above)
     for (const service of status.services) {
-      if (service.name === 'EQLite') continue // Already shown
+      if (service.name === 'SQLit') continue // Already shown
       logger.table([
         {
           label: service.name,
@@ -687,8 +687,8 @@ export class InfrastructureService {
     return {
       L2_RPC_URL: getL2RpcUrl(),
       JEJU_RPC_URL: getL2RpcUrl(),
-      EQLITE_URL: getEQLiteBlockProducerUrl(),
-      EQLITE_BLOCK_PRODUCER_ENDPOINT: getEQLiteBlockProducerUrl(),
+      SQLIT_URL: getSQLitBlockProducerUrl(),
+      SQLIT_BLOCK_PRODUCER_ENDPOINT: getSQLitBlockProducerUrl(),
       IPFS_API_URL: getIpfsApiUrl(),
       // Cache and DA are now provided by DWS
       DA_URL: `${dwsUrl}/da`,

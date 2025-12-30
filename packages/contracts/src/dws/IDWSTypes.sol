@@ -15,7 +15,7 @@ interface IDWSTypes {
         Compute, // Serverless workers (workerd)
         Storage, // IPFS/Arweave storage
         CDN, // Content delivery
-        Database, // EQLite databases
+        Database, // SQLit databases
         Inference, // AI inference
         Custom // Future services
 
@@ -46,7 +46,7 @@ interface IDWSTypes {
     }
 
     // ============================================================================
-    // Unified Subscription (replaces EQLite RentalInfo, Compute subscriptions, etc.)
+    // Unified Subscription (replaces SQLit RentalInfo, Compute subscriptions, etc.)
     // ============================================================================
 
     struct Subscription {
@@ -64,7 +64,7 @@ interface IDWSTypes {
     }
 
     // ============================================================================
-    // Unified Service Plan (replaces EQLite RentalPlan, Compute tiers, etc.)
+    // Unified Service Plan (replaces SQLit RentalPlan, Compute tiers, etc.)
     // ============================================================================
 
     struct ServicePlan {

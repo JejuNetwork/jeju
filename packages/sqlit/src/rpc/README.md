@@ -85,7 +85,7 @@ Tracker stuff can refer to the Example section below
     - Private key protected by master key
     - Annoymous connection is also supported
 - DHT persistence layer has 2 implementations:
-    - SQLite3 based simple traditional DHT
+    - SQLit3 based simple traditional DHT
     - [BftRaft](https://godoc.org/github.com/SQLIT/SQLIT/bftraft) based 2PC strong consistent DHT
 - Connection pool based on [Yamux](https://github.com/hashicorp/yamux), make thousands of connections multiplexed over **One TCP connection**.
 

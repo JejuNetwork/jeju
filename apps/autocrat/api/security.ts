@@ -1,5 +1,5 @@
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { type Address, isAddress, verifyMessage } from 'viem'
@@ -7,9 +7,9 @@ import { z } from 'zod'
 
 import { config } from './config'
 
-// EQLite configuration for audit persistence
-const EQLITE_DATABASE_ID = config.eqliteDatabaseId
-let auditEqliteClient: EQLiteClient | null = null
+// SQLit configuration for audit persistence
+const SQLIT_DATABASE_ID = config.sqlitDatabaseId
+let auditSQLitClient: SQLitClient | null = null
 let auditTableInitialized = false
 
 // Cache client for distributed rate limiting
@@ -139,21 +139,21 @@ async function verifyWalletSignature(
 }
 
 /**
- * Initialize EQLite client and audit table
+ * Initialize SQLit client and audit table
  */
-async function ensureAuditTable(): Promise<EQLiteClient> {
-  if (!auditEqliteClient) {
-    auditEqliteClient = getEQLite({
-      databaseId: EQLITE_DATABASE_ID,
+async function ensureAuditTable(): Promise<SQLitClient> {
+  if (!auditSQLitClient) {
+    auditSQLitClient = getSQLit({
+      databaseId: SQLIT_DATABASE_ID,
       timeout: 10000,
       debug: false,
     })
   }
 
   if (!auditTableInitialized) {
-    const healthy = await auditEqliteClient.isHealthy()
+    const healthy = await auditSQLitClient.isHealthy()
     if (healthy) {
-      await auditEqliteClient.exec(
+      await auditSQLitClient.exec(
         `CREATE TABLE IF NOT EXISTS audit_log (
           id TEXT PRIMARY KEY,
           timestamp INTEGER NOT NULL,
@@ -165,27 +165,27 @@ async function ensureAuditTable(): Promise<EQLiteClient> {
           details TEXT
         )`,
         [],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
-      await auditEqliteClient.exec(
+      await auditSQLitClient.exec(
         `CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)`,
         [],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
-      await auditEqliteClient.exec(
+      await auditSQLitClient.exec(
         `CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor)`,
         [],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       auditTableInitialized = true
     }
   }
 
-  return auditEqliteClient
+  return auditSQLitClient
 }
 
 /**
- * Persist a single audit entry directly to EQLite
+ * Persist a single audit entry directly to SQLit
  * No in-memory buffering - writes immediately for distributed compatibility
  */
 async function persistAuditEntry(entry: AuditEntry): Promise<void> {
@@ -194,12 +194,12 @@ async function persistAuditEntry(entry: AuditEntry): Promise<void> {
     `[Audit] ${entry.action} by ${entry.actor} from ${entry.ip}: ${entry.success ? 'SUCCESS' : 'FAILED'}`,
   )
 
-  // Persist to EQLite for long-term audit trail
+  // Persist to SQLit for long-term audit trail
   try {
     const client = await ensureAuditTable()
     const healthy = await client.isHealthy()
     if (!healthy) {
-      console.warn('[Audit] EQLite not available, audit entry not persisted')
+      console.warn('[Audit] SQLit not available, audit entry not persisted')
       return
     }
 
@@ -217,7 +217,7 @@ async function persistAuditEntry(entry: AuditEntry): Promise<void> {
         entry.success ? 1 : 0,
         JSON.stringify(entry.details),
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   } catch (err) {
     // Log error but don't fail - audit persistence should not break the app

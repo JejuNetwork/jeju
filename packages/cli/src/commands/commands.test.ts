@@ -535,21 +535,21 @@ describe('seed command', () => {
   })
 })
 
-describe('eqlite command', () => {
-  test('--help shows EQLite options', async () => {
-    const { stdout, exitCode } = await runCLI(['eqlite', '--help'])
+describe('sqlit command', () => {
+  test('--help shows SQLit options', async () => {
+    const { stdout, exitCode } = await runCLI(['sqlit', '--help'])
     expect(exitCode).toBe(0)
-    expect(stdout).toContain('EQLite')
+    expect(stdout).toContain('SQLit')
   })
 
   test('start subcommand has mode option', async () => {
-    const { stdout, exitCode } = await runCLI(['eqlite', 'start', '--help'])
+    const { stdout, exitCode } = await runCLI(['sqlit', 'start', '--help'])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('--mode')
   })
 
   test('status subcommand exists', async () => {
-    const { stdout, exitCode } = await runCLI(['eqlite', 'status', '--help'])
+    const { stdout, exitCode } = await runCLI(['sqlit', 'status', '--help'])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('status')
   })

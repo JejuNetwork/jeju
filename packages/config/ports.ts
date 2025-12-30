@@ -451,11 +451,11 @@ export const VENDOR_PORTS = {
 // Infrastructure Ports (6xxx range for Jeju chain, 9xxx for other infra)
 
 export const INFRA_PORTS = {
-  /** EQLite - Decentralized SQL database (block producer) */
-  EQLite: {
+  /** SQLit - Decentralized SQL database (block producer) */
+  SQLit: {
     DEFAULT: 4661,
-    ENV_VAR: 'EQLITE_PORT',
-    get: () => safeParsePort(process.env.EQLITE_PORT, 4661),
+    ENV_VAR: 'SQLIT_PORT',
+    get: () => safeParsePort(process.env.SQLIT_PORT, 4661),
   },
 
   /** L1 RPC - Jeju localnet L1. Port 6545 avoids conflicts with Anvil/Hardhat default (8545) */
@@ -763,15 +763,15 @@ export function isLocalnet(rpcUrl: string): boolean {
 }
 
 /**
- * Get the EQLite block producer URL
- * Respects environment variable overrides: EQLITE_BLOCK_PRODUCER_ENDPOINT, EQLITE_URL, then EQLITE_PORT
+ * Get the SQLit block producer URL
+ * Respects environment variable overrides: SQLIT_BLOCK_PRODUCER_ENDPOINT, SQLIT_URL, then SQLIT_PORT
  */
-export function getEQLiteBlockProducerUrl(): string {
-  if (process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT)
-    return process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
-  if (process.env.EQLITE_URL) return process.env.EQLITE_URL
-  const port = INFRA_PORTS.EQLite.get()
-  const host = process.env.EQLITE_HOST || getLocalhostHost()
+export function getSQLitBlockProducerUrl(): string {
+  if (process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT)
+    return process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
+  if (process.env.SQLIT_URL) return process.env.SQLIT_URL
+  const port = INFRA_PORTS.SQLit.get()
+  const host = process.env.SQLIT_HOST || getLocalhostHost()
   return `http://${host}:${port}`
 }
 

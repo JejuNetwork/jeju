@@ -9,8 +9,8 @@ data:
   domain: {{ .Values.global.domain }}
   keyRegistryAddress: {{ .Values.relay.config.keyRegistryAddress | default "" | quote }}
   nodeRegistryAddress: {{ .Values.relay.config.nodeRegistryAddress | default "" | quote }}
-  eqliteNodes: {{ .Values.relay.config.eqliteNodes | default "" | quote }}
-  eqliteDatabaseId: {{ .Values.relay.config.eqliteDatabaseId | quote }}
+  sqlitNodes: {{ .Values.relay.config.sqlitNodes | default "" | quote }}
+  sqlitDatabaseId: {{ .Values.relay.config.sqlitDatabaseId | quote }}
   jejuRpcUrl: {{ .Values.relay.config.jejuRpcUrl | quote }}
   ipfsGateway: {{ .Values.relay.config.ipfsGateway | quote }}
   farcasterHubUrl: {{ .Values.farcasterSync.config.hubUrl | quote }}

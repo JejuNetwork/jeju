@@ -6,7 +6,7 @@ Unified token launchpad, Uniswap V4 DEX, NFT marketplace, and prediction markets
 
 - **Frontend**: React SPA built with Bun, served from `dist/static/`
 - **API**: Elysia server, deployable as DWS worker from `dist/worker/`
-- **Storage**: IPFS for static assets, EQLite for state
+- **Storage**: IPFS for static assets, SQLit for state
 
 ## Setup
 

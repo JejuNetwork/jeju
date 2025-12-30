@@ -3,7 +3,7 @@
  *
  * Monitors all registered database instances and manages their health:
  * - Tracks all app database connections
- * - Monitors EQLite block producer and miner health
+ * - Monitors SQLit block producer and miner health
  * - Triggers re-provisioning when databases are unhealthy
  * - Provides centralized health reporting
  *
@@ -23,7 +23,7 @@
  * ```
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import pino from 'pino'
 
 const log = pino({
@@ -40,7 +40,7 @@ export interface RegisteredDatabase {
   id: string
   /** Application name */
   appName: string
-  /** Database ID in EQLite */
+  /** Database ID in SQLit */
   databaseId: string
   /** App health endpoint (optional) */
   healthEndpoint?: string
@@ -76,8 +76,8 @@ export interface KeepaliveStats {
   totalDatabases: number
   healthyDatabases: number
   unhealthyDatabases: number
-  eqliteHealthy: boolean
-  lastEqliteCheck: number
+  sqlitHealthy: boolean
+  lastSQLitCheck: number
   databases: RegisteredDatabase[]
 }
 
@@ -85,9 +85,9 @@ export interface KeepaliveStats {
 
 const databases = new Map<string, RegisteredDatabase>()
 let checkTimer: ReturnType<typeof setInterval> | null = null
-let eqliteClient: EQLiteClient | null = null
-let lastEqliteCheck = 0
-let eqliteHealthy = false
+let sqlitClient: SQLitClient | null = null
+let lastSQLitCheck = 0
+let sqlitHealthy = false
 let running = false
 let config: Required<KeepaliveConfig> = {
   checkInterval: 30000,
@@ -168,21 +168,21 @@ export function getAllDatabases(): RegisteredDatabase[] {
 // Health Checking
 
 /**
- * Check EQLite infrastructure health
+ * Check SQLit infrastructure health
  */
-async function checkEQLiteHealth(): Promise<boolean> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function checkSQLitHealth(): Promise<boolean> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
   }
 
-  lastEqliteCheck = Date.now()
-  eqliteHealthy = await eqliteClient.isHealthy()
+  lastSQLitCheck = Date.now()
+  sqlitHealthy = await sqlitClient.isHealthy()
 
-  if (!eqliteHealthy) {
-    log.warn('EQLite infrastructure unhealthy')
+  if (!sqlitHealthy) {
+    log.warn('SQLit infrastructure unhealthy')
   }
 
-  return eqliteHealthy
+  return sqlitHealthy
 }
 
 /**
@@ -192,8 +192,8 @@ async function checkDatabaseHealth(db: RegisteredDatabase): Promise<boolean> {
   const oldStatus = db.status
   db.lastCheck = Date.now()
 
-  // First check if EQLite is healthy
-  if (!eqliteHealthy) {
+  // First check if SQLit is healthy
+  if (!sqlitHealthy) {
     db.status = 'unhealthy'
     db.failures++
     emitStatusChange(db, oldStatus)
@@ -240,9 +240,9 @@ async function checkDatabaseHealth(db: RegisteredDatabase): Promise<boolean> {
  * Test database connection with a simple query
  */
 async function testDatabaseConnection(databaseId: string): Promise<boolean> {
-  if (!eqliteClient) return false
+  if (!sqlitClient) return false
 
-  const result = await eqliteClient
+  const result = await sqlitClient
     .query<{ result: number }>('SELECT 1 as result', [], databaseId)
     .catch(() => null)
 
@@ -296,12 +296,12 @@ async function recoverDatabase(db: RegisteredDatabase): Promise<void> {
  * Re-provision database schema
  */
 async function reprovisionDatabase(db: RegisteredDatabase): Promise<void> {
-  if (!eqliteClient || !db.schema) return
+  if (!sqlitClient || !db.schema) return
 
   log.info({ id: db.id }, 'Re-provisioning database schema')
 
   for (const ddl of db.schema) {
-    await eqliteClient.exec(ddl, [], db.databaseId).catch((err) => {
+    await sqlitClient.exec(ddl, [], db.databaseId).catch((err) => {
       log.warn(
         { id: db.id, ddl: ddl.substring(0, 50), error: err },
         'Schema DDL warning',
@@ -316,8 +316,8 @@ async function reprovisionDatabase(db: RegisteredDatabase): Promise<void> {
  * Run all health checks
  */
 async function runHealthChecks(): Promise<void> {
-  // Check EQLite first
-  await checkEQLiteHealth()
+  // Check SQLit first
+  await checkSQLitHealth()
 
   // Check all registered databases
   const checkPromises = Array.from(databases.values()).map((db) =>
@@ -352,7 +352,7 @@ export async function startKeepaliveService(
   }
 
   running = true
-  eqliteClient = getEQLite()
+  sqlitClient = getSQLit()
 
   // Run initial health checks
   await runHealthChecks()
@@ -396,8 +396,8 @@ export function getKeepaliveStats(): KeepaliveStats {
     totalDatabases: allDbs.length,
     healthyDatabases: healthyCount,
     unhealthyDatabases: unhealthyCount,
-    eqliteHealthy,
-    lastEqliteCheck,
+    sqlitHealthy,
+    lastSQLitCheck,
     databases: allDbs,
   }
 }

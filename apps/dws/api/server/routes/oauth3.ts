@@ -19,6 +19,10 @@ interface OAuth3RouterConfig {
 }
 
 const getDefaultOAuth3Url = () => {
+  // Check for explicit override first (useful for Kubernetes deployments)
+  if (process.env.OAUTH3_URL) {
+    return process.env.OAUTH3_URL
+  }
   const network = getCurrentNetwork()
   return network === 'localnet'
     ? `http://${getLocalhostHost()}:4200`

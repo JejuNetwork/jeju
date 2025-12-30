@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import { z } from 'zod'
 
@@ -56,10 +56,10 @@ type TradeResultRow = z.infer<typeof TradeResultRowSchema>
  * Agent P&L Service
  */
 export class AgentPnLService {
-  private db: EQLiteClient
+  private db: SQLitClient
 
-  constructor(db?: EQLiteClient) {
-    this.db = db ?? getEQLite()
+  constructor(db?: SQLitClient) {
+    this.db = db ?? getSQLit()
   }
 
   /**

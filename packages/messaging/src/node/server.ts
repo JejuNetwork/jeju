@@ -2,7 +2,7 @@
  * Network Messaging Relay Node Server
  *
  * Handles message routing, storage, and delivery for the decentralized
- * messaging network. Uses EQLite for persistent storage with in-memory cache
+ * messaging network. Uses SQLit for persistent storage with in-memory cache
  * for fast access.
  */
 
@@ -31,9 +31,9 @@ import {
   WebSocketSubscribeSchema,
 } from '../schemas'
 import {
-  EQLiteMessageStorage,
-  type StoredMessage as EQLiteStoredMessage,
-} from '../storage/eqlite-storage'
+  SQLitMessageStorage,
+  type StoredMessage as SQLitStoredMessage,
+} from '../storage/sqlit-storage'
 
 const log = createLogger('relay-server')
 
@@ -64,17 +64,17 @@ interface WebSocketNotification {
   details?: { message: string; path?: (string | number)[] }[]
 }
 
-// In-memory cache for fast access (backed by EQLite)
+// In-memory cache for fast access (backed by SQLit)
 const messageCache = new Map<string, StoredMessage>()
 
-// Pending messages per recipient (cached, synced with EQLite)
+// Pending messages per recipient (cached, synced with SQLit)
 const pendingByRecipient = new Map<string, string[]>()
 
 // WebSocket subscribers
 const subscribers = new Map<string, Subscriber>()
 
-// EQLite storage instance (initialized on server start)
-let eqliteStorage: EQLiteMessageStorage | null = null
+// SQLit storage instance (initialized on server start)
+let sqlitStorage: SQLitMessageStorage | null = null
 
 // Stats
 let totalMessagesRelayed = 0
@@ -86,13 +86,13 @@ function generateCID(content: string): string {
 }
 
 /**
- * Convert MessageEnvelope to EQLite StoredMessage format
+ * Convert MessageEnvelope to SQLit StoredMessage format
  * Note: Addresses are normalized to lowercase for consistent querying
  */
-function envelopeToEQLiteMessage(
+function envelopeToSQLitMessage(
   envelope: MessageEnvelope,
   cid: string,
-): EQLiteStoredMessage {
+): SQLitStoredMessage {
   const normalizedFrom = envelope.from.toLowerCase() as Address
   const normalizedTo = envelope.to.toLowerCase() as Address
   return {
@@ -113,9 +113,9 @@ function envelopeToEQLiteMessage(
 }
 
 /**
- * Convert EQLite StoredMessage to StoredMessage format
+ * Convert SQLit StoredMessage to StoredMessage format
  */
-function eqliteMessageToStored(msg: EQLiteStoredMessage): StoredMessage {
+function sqlitMessageToStored(msg: SQLitStoredMessage): StoredMessage {
   return {
     envelope: {
       id: msg.id,
@@ -157,21 +157,21 @@ async function getPendingMessages(recipient: string): Promise<StoredMessage[]> {
       .filter((m): m is StoredMessage => m !== undefined)
   }
 
-  // Fall back to EQLite storage for messages not in cache
-  if (eqliteStorage) {
-    const eqliteMessages = await eqliteStorage.getPendingMessages(
+  // Fall back to SQLit storage for messages not in cache
+  if (sqlitStorage) {
+    const sqlitMessages = await sqlitStorage.getPendingMessages(
       normalizedRecipient as Address,
     )
-    return eqliteMessages.map(eqliteMessageToStored)
+    return sqlitMessages.map(sqlitMessageToStored)
   }
 
   return []
 }
 
 async function markDelivered(messageId: string): Promise<void> {
-  // Update EQLite storage
-  if (eqliteStorage) {
-    await eqliteStorage.updateDeliveryStatus(messageId, 'delivered')
+  // Update SQLit storage
+  if (sqlitStorage) {
+    await sqlitStorage.updateDeliveryStatus(messageId, 'delivered')
   }
 
   // Update in-memory cache
@@ -182,7 +182,7 @@ async function markDelivered(messageId: string): Promise<void> {
 }
 
 /**
- * Store message in both EQLite and cache
+ * Store message in both SQLit and cache
  */
 async function storeMessage(
   envelope: MessageEnvelope,
@@ -199,25 +199,25 @@ async function storeMessage(
   messageCache.set(envelope.id, storedMessage)
   addPendingMessage(envelope.to, envelope.id)
 
-  // Persist to EQLite if available
-  if (eqliteStorage) {
-    const eqliteMessage = envelopeToEQLiteMessage(envelope, cid)
-    await eqliteStorage.storeMessage(eqliteMessage)
+  // Persist to SQLit if available
+  if (sqlitStorage) {
+    const sqlitMessage = envelopeToSQLitMessage(envelope, cid)
+    await sqlitStorage.storeMessage(sqlitMessage)
   }
 
   return storedMessage
 }
 
 /**
- * Get message by ID from cache or EQLite
+ * Get message by ID from cache or SQLit
  */
 async function getMessage(id: string): Promise<StoredMessage | null> {
   // Check cache first
   const cached = messageCache.get(id)
   if (cached) return cached
 
-  // Try EQLite storage
-  // Note: EQLite doesn't have a getMessageById method, so we'd need to add it
+  // Try SQLit storage
+  // Note: SQLit doesn't have a getMessageById method, so we'd need to add it
   // For now, return null if not in cache
   return null
 }
@@ -305,20 +305,20 @@ interface RequestHeaders {
 }
 
 /**
- * Initialize EQLite storage for persistent message storage
+ * Initialize SQLit storage for persistent message storage
  */
-async function initializeEQLiteStorage(): Promise<void> {
-  const storage = new EQLiteMessageStorage()
+async function initializeSQLitStorage(): Promise<void> {
+  const storage = new SQLitMessageStorage()
   await storage.initialize()
-  eqliteStorage = storage
-  log.info('EQLite storage initialized')
+  sqlitStorage = storage
+  log.info('SQLit storage initialized')
 }
 
 export function createRelayServer(config: NodeConfig) {
-  // Initialize EQLite storage - REQUIRED for production
-  // In development, if EQLite isn't available, initialization will throw
-  initializeEQLiteStorage().catch((error) => {
-    log.error('EQLite storage initialization failed', {
+  // Initialize SQLit storage - REQUIRED for production
+  // In development, if SQLit isn't available, initialization will throw
+  initializeSQLitStorage().catch((error) => {
+    log.error('SQLit storage initialization failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
     })
     // Don't set to null - keep it undefined to let queries fail fast
@@ -347,7 +347,7 @@ export function createRelayServer(config: NodeConfig) {
         bytesRelayed: totalBytesRelayed,
         activeSubscribers: subscribers.size,
         pendingMessages: messageCache.size,
-        eqliteAvailable: eqliteStorage !== null,
+        sqlitAvailable: sqlitStorage !== null,
       },
       timestamp: Date.now(),
     }))
@@ -409,7 +409,7 @@ export function createRelayServer(config: NodeConfig) {
       // Generate CID
       const cid = generateCID(JSON.stringify(envelope))
 
-      // Store message in EQLite and cache
+      // Store message in SQLit and cache
       const storedMessage = await storeMessage(envelope, cid)
 
       // Update stats
@@ -675,9 +675,9 @@ export function createRelayServer(config: NodeConfig) {
         }
       }
 
-      // Update status in EQLite
-      if (eqliteStorage) {
-        await eqliteStorage.updateDeliveryStatus(id, 'read')
+      // Update status in SQLit
+      if (sqlitStorage) {
+        await sqlitStorage.updateDeliveryStatus(id, 'read')
       }
 
       // Notify sender of read receipt
@@ -716,9 +716,9 @@ export function createRelayServer(config: NodeConfig) {
         '# TYPE relay_pending_messages gauge',
         `relay_pending_messages{node_id="${config.nodeId}"} ${messageCache.size}`,
         '',
-        '# HELP relay_eqlite_available EQLite storage availability (1=available, 0=unavailable)',
-        '# TYPE relay_eqlite_available gauge',
-        `relay_eqlite_available{node_id="${config.nodeId}"} ${eqliteStorage ? 1 : 0}`,
+        '# HELP relay_sqlit_available SQLit storage availability (1=available, 0=unavailable)',
+        '# TYPE relay_sqlit_available gauge',
+        `relay_sqlit_available{node_id="${config.nodeId}"} ${sqlitStorage ? 1 : 0}`,
         '',
         '# HELP relay_uptime_seconds Server uptime in seconds',
         '# TYPE relay_uptime_seconds gauge',

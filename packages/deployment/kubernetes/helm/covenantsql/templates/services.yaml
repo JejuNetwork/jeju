@@ -3,9 +3,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "eqlite.fullname" . }}-bp
+  name: {{ include "sqlit.fullname" . }}-bp
   labels:
-    {{- include "eqlite.bpLabels" . | nindent 4 }}
+    {{- include "sqlit.bpLabels" . | nindent 4 }}
 spec:
   type: ClusterIP
   clusterIP: None
@@ -26,7 +26,7 @@ spec:
       port: {{ .Values.blockProducer.service.metricsPort }}
       targetPort: metrics
   selector:
-    {{- include "eqlite.bpSelectorLabels" . | nindent 4 }}
+    {{- include "sqlit.bpSelectorLabels" . | nindent 4 }}
 {{- end }}
 ---
 # Miner Service (headless for StatefulSet)
@@ -34,9 +34,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "eqlite.fullname" . }}-miner
+  name: {{ include "sqlit.fullname" . }}-miner
   labels:
-    {{- include "eqlite.minerLabels" . | nindent 4 }}
+    {{- include "sqlit.minerLabels" . | nindent 4 }}
 spec:
   type: ClusterIP
   clusterIP: None
@@ -51,7 +51,7 @@ spec:
       port: {{ .Values.miner.service.metricsPort }}
       targetPort: metrics
   selector:
-    {{- include "eqlite.minerSelectorLabels" . | nindent 4 }}
+    {{- include "sqlit.minerSelectorLabels" . | nindent 4 }}
 {{- end }}
 ---
 # Load Balancer Service (for external clients)
@@ -59,9 +59,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "eqlite.fullname" . }}
+  name: {{ include "sqlit.fullname" . }}
   labels:
-    {{- include "eqlite.labels" . | nindent 4 }}
+    {{- include "sqlit.labels" . | nindent 4 }}
   {{- with .Values.loadBalancer.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -76,5 +76,5 @@ spec:
       port: 8546
       targetPort: http
   selector:
-    {{- include "eqlite.minerSelectorLabels" . | nindent 4 }}
+    {{- include "sqlit.minerSelectorLabels" . | nindent 4 }}
 {{- end }}

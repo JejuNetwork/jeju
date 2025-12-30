@@ -1,5 +1,5 @@
 /**
- * @jejunetwork/db - Database Integration for Jeju Network (Powered by EQLite)
+ * @jejunetwork/db - Database Integration for Jeju Network (Powered by SQLit)
  *
  * Decentralized SQL database with:
  * - BFT-Raft consensus for strong consistency
@@ -12,14 +12,14 @@
  * import { getDB, createRental } from '@jejunetwork/db';
  *
  * // Create a database rental
- * const eqlite = getEQLite();
- * const rental = await eqlite.createRental({
+ * const sqlit = getSQLit();
+ * const rental = await sqlit.createRental({
  *   planId: 'basic',
  *   schema: 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)',
  * });
  *
  * // Query the database
- * const users = await eqlite.query<{ id: number; name: string }>(
+ * const users = await sqlit.query<{ id: number; name: string }>(
  *   'SELECT * FROM users',
  *   [],
  *   rental.databaseId
@@ -38,32 +38,32 @@ export {
   type StorageBackend,
 } from './backup.js'
 export {
-  EQLiteClient,
-  getEQLite,
-  getEQLite as getEQLiteClient,
-  getEQLite as createEQLiteClient,
-  resetEQLite,
-  resetEQLite as resetEQLiteClient,
+  SQLitClient,
+  getSQLit,
+  getSQLit as getSQLitClient,
+  getSQLit as createSQLitClient,
+  resetSQLit,
+  resetSQLit as resetSQLitClient,
 } from './client.js'
-// Encrypted EQLite Client (KMS integration)
+// Encrypted SQLit Client (KMS integration)
 export {
-  createEncryptedEQLiteClient,
-  EncryptedEQLiteClient,
-  type EncryptedEQLiteConfig,
+  createEncryptedSQLitClient,
+  EncryptedSQLitClient,
+  type EncryptedSQLitConfig,
   type EncryptedExecResult,
   type EncryptedQueryResult,
 } from './encrypted-client.js'
-// EQLite Node Management (for TEE deployment)
+// SQLit Node Management (for TEE deployment)
 export {
-  createEQLiteNode,
-  type EQLiteNodeConfig,
-  EQLiteNodeManager,
-  EQLiteNodeRole,
-  type EQLiteNodeState,
-  EQLiteNodeStatus,
-  isEQLiteAvailable,
+  createSQLitNode,
+  type SQLitNodeConfig,
+  SQLitNodeManager,
+  SQLitNodeRole,
+  type SQLitNodeState,
+  SQLitNodeStatus,
+  isSQLitAvailable,
   type TEEAttestation,
-} from './eqlite-node.js'
+} from './sqlit-node.js'
 // Database manager for robust connection handling
 export {
   createDatabaseManager,
@@ -96,10 +96,10 @@ export {
 } from './query-builder.js'
 // Secure client for per-app database provisioning
 export {
-  createSecureEQLiteClient,
+  createSecureSQLitClient,
   type ProvisionedDatabase,
-  SecureEQLiteClient,
-  type SecureEQLiteConfig,
+  SecureSQLitClient,
+  type SecureSQLitConfig,
 } from './secure-client.js'
 export type {
   ACLEventDetails,
@@ -112,14 +112,14 @@ export type {
   DatabaseConfig,
   DatabaseInfo,
   DatabaseStatus,
-  EQLiteConfig,
-  EQLiteConnection,
-  EQLiteConnectionPool,
-  EQLiteDataType,
-  EQLiteEvent,
-  EQLiteEventDetails,
-  EQLiteQueryable,
-  EQLiteTransaction,
+  SQLitConfig,
+  SQLitConnection,
+  SQLitConnectionPool,
+  SQLitDataType,
+  SQLitEvent,
+  SQLitEventDetails,
+  SQLitQueryable,
+  SQLitTransaction,
   ExecEventDetails,
   ExecResult,
   GrantRequest,

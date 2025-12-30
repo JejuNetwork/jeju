@@ -1,16 +1,16 @@
 # Jeju Infrastructure Stack
 #
-# Docker services for local development (excludes EQLite which runs natively):
+# Docker services for local development (excludes SQLit which runs natively):
 # - IPFS: Decentralized storage
 # - JNS Gateway: Name resolution and frontend serving
 # - PostgreSQL: For Indexer (Subsquid requirement only)
 #
 # NOTE: Cache and DA services are now provided by DWS at /cache and /da endpoints
 #
-# EQLite (EQLite) runs NATIVELY via the CLI for faster dev:
-#   jeju dev  # Starts EQLite + these Docker services + localnet
+# SQLit (SQLit) runs NATIVELY via the CLI for faster dev:
+#   jeju dev  # Starts SQLit + these Docker services + localnet
 #
-# For production-like testing with Docker-based EQLite:
+# For production-like testing with Docker-based SQLit:
 #   docker compose --profile production up
 #
 # Usage (standalone Docker services only):
@@ -45,7 +45,7 @@ services:
 
   # ============================================================================
   # PostgreSQL - ONLY for Indexer (Subsquid requires it)
-  # All other apps should use EQLite
+  # All other apps should use SQLit
   # ============================================================================
   postgres:
     image: postgres:15-alpine
@@ -70,16 +70,16 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # EQLite - Docker-based EQLite (for production-like testing)
-  # NOTE: For normal dev, EQLite runs NATIVELY via `jeju dev` for faster startup
+  # SQLit - Docker-based SQLit (for production-like testing)
+  # NOTE: For normal dev, SQLit runs NATIVELY via `jeju dev` for faster startup
   # Use this with: docker compose --profile production up
   # ============================================================================
-  eqlite:
+  sqlit:
     build:
-      context: ./eqlite
+      context: ./sqlit
       dockerfile: Dockerfile
-    container_name: jeju-eqlite-docker
-    hostname: eqlite
+    container_name: jeju-sqlit-docker
+    hostname: sqlit
     profiles:
       - production
     ports:
@@ -87,13 +87,13 @@ services:
       - "4662:4662"   # Node-to-node
       - "8546:8546"   # HTTP API
     environment:
-      - EQLITE_ROLE=bp
-      - EQLITE_NODE_ID=00000000000000000000000000000001
-      - EQLITE_DATA_DIR=/data
-      - EQLITE_LOG_LEVEL=info
+      - SQLIT_ROLE=bp
+      - SQLIT_NODE_ID=00000000000000000000000000000001
+      - SQLIT_DATA_DIR=/data
+      - SQLIT_LOG_LEVEL=info
     volumes:
-      - eqlite-bp-data:/data
-      - ./eqlite/config/bp.yaml:/config/config.yaml:ro
+      - sqlit-bp-data:/data
+      - ./sqlit/config/bp.yaml:/config/config.yaml:ro
     networks:
       - jeju
     healthcheck:
@@ -104,26 +104,26 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  eqlite-miner:
+  sqlit-miner:
     build:
-      context: ./eqlite
+      context: ./sqlit
       dockerfile: Dockerfile
-    container_name: jeju-eqlite-miner
-    hostname: eqlite-miner
+    container_name: jeju-sqlit-miner
+    hostname: sqlit-miner
     profiles:
       - production
     environment:
-      - EQLITE_ROLE=miner
-      - EQLITE_BP_ADDR=eqlite:4661
-      - EQLITE_DATA_DIR=/data
-      - EQLITE_LOG_LEVEL=info
+      - SQLIT_ROLE=miner
+      - SQLIT_BP_ADDR=sqlit:4661
+      - SQLIT_DATA_DIR=/data
+      - SQLIT_LOG_LEVEL=info
     volumes:
-      - eqlite-miner-data:/data
-      - ./eqlite/config/miner.yaml:/config/config.yaml:ro
+      - sqlit-miner-data:/data
+      - ./sqlit/config/miner.yaml:/config/config.yaml:ro
     networks:
       - jeju
     depends_on:
-      eqlite:
+      sqlit:
         condition: service_healthy
     restart: unless-stopped
 
@@ -278,7 +278,7 @@ networks:
 volumes:
   ipfs-data:
   postgres-data:
-  eqlite-bp-data:      # Docker-based EQLite (production profile)
-  eqlite-miner-data:   # Docker-based EQLite miner (production profile)
+  sqlit-bp-data:      # Docker-based SQLit (production profile)
+  sqlit-miner-data:   # Docker-based SQLit miner (production profile)
   farcaster-hub-data:
   farcaster-hub-identity:

@@ -1,5 +1,5 @@
 /**
- * Shared utilities for EQLite package
+ * Shared utilities for SQLit package
  */
 
 import { z } from 'zod'
@@ -106,7 +106,7 @@ const SQL_DEFAULT_PATTERNS = [
   /^'([^'\\]|\\'|'')*'$/, // String literals with escaped quotes
   /^(TRUE|FALSE|NULL)$/i, // Boolean and NULL
   /^CURRENT_(TIMESTAMP|DATE|TIME)$/i, // Date/time functions
-  /^(datetime|date|time)\s*\(\s*'(now|localtime)'\s*\)$/i, // SQLite datetime functions
+  /^(datetime|date|time)\s*\(\s*'(now|localtime)'\s*\)$/i, // SQLit datetime functions
   /^\(\s*-?\d+(\.\d+)?\s*\)$/, // Parenthesized numbers
 ]
 

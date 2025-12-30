@@ -1,4 +1,4 @@
-# EQLite Block Producer 2 Configuration
+# SQLit Block Producer 2 Configuration
 WorkingRoot: /data
 PubKeyStoreFile: /data/public.keystore
 PrivateKeyFile: /data/private.key
@@ -21,7 +21,7 @@ GenesisBlockFile: /app/genesis.json
 
 # Bootstrap to bp1
 BootstrapNodes:
-  - eqlite-bp1:4661
+  - sqlit-bp1:4661
 
 # Consensus settings
 BPPeriod: 1s

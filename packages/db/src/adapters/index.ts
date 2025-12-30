@@ -1,9 +1,9 @@
 /**
- * EQLite ORM Adapters
+ * SQLit ORM Adapters
  */
 export {
-  type DrizzleEQLite,
-  type DrizzleEQLiteConfig,
+  type DrizzleSQLit,
+  type DrizzleSQLitConfig,
   type DrizzleLogger,
   type DrizzleTable,
   drizzle,

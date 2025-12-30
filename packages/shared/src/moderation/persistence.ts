@@ -1,7 +1,7 @@
 /**
  * CSAM Report & Transparency Metrics Persistence
  *
- * Uses EQLite for encrypted, GDPR-compliant storage of:
+ * Uses SQLit for encrypted, GDPR-compliant storage of:
  * - CSAM reports (mandatory retention for legal compliance)
  * - Transparency metrics
  * - User reports
@@ -25,7 +25,7 @@ export interface PersistedMetricEntry {
   senderAddress?: string
 }
 
-// In-memory fallback (used when EQLite not available)
+// In-memory fallback (used when SQLit not available)
 const inMemoryReports: CSAMReport[] = []
 const inMemoryMetrics: PersistedMetricEntry[] = []
 const inMemoryUserReports: UserReport[] = []
@@ -39,13 +39,13 @@ let db: {
 
 /**
  * Initialize persistence layer
- * Attempts to use EQLite, falls back to in-memory if unavailable
+ * Attempts to use SQLit, falls back to in-memory if unavailable
  */
-export async function initializePersistence(eqliteDb?: typeof db): Promise<void> {
-  if (eqliteDb) {
-    db = eqliteDb
+export async function initializePersistence(sqlitDb?: typeof db): Promise<void> {
+  if (sqlitDb) {
+    db = sqlitDb
     await createTables()
-    logger.info('[ModerationPersistence] Using EQLite database')
+    logger.info('[ModerationPersistence] Using SQLit database')
   } else {
     logger.warn('[ModerationPersistence] No database provided, using in-memory storage (data lost on restart)')
   }

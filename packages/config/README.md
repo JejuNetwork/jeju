@@ -177,7 +177,7 @@ packages/config/
 | `DB_USER` | Database username | PostgreSQL |
 | `DB_PASSWORD` | Database password | PostgreSQL |
 | `REDIS_PASSWORD` | Redis password | Redis |
-| `EQLITE_PRIVATE_KEY` | EQLite key | Decentralized DB |
+| `SQLIT_PRIVATE_KEY` | SQLit key | Decentralized DB |
 
 ### Encryption Secrets
 

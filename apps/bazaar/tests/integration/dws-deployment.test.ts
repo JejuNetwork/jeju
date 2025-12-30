@@ -129,8 +129,8 @@ describe('Standalone API Server', () => {
         ...process.env,
         API_PORT: API_PORT.toString(),
         NETWORK: 'localnet',
-        EQLITE_DATABASE_ID: '',
-        EQLITE_PRIVATE_KEY: '',
+        SQLIT_DATABASE_ID: '',
+        SQLIT_PRIVATE_KEY: '',
       },
     })
 
@@ -228,9 +228,9 @@ describe('Worker Module', () => {
       DWS_URL: getCoreAppUrl('DWS_API'),
       GATEWAY_URL: getCoreAppUrl('GATEWAY'),
       INDEXER_URL: getCoreAppUrl('NODE_EXPLORER_UI'),
-      EQLITE_NODES: '',
-      EQLITE_DATABASE_ID: '',
-      EQLITE_PRIVATE_KEY: '',
+      SQLIT_NODES: '',
+      SQLIT_DATABASE_ID: '',
+      SQLIT_PRIVATE_KEY: '',
     }
 
     const mockCtx = {

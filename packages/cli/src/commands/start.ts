@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getDWSUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getFarcasterHubUrl,
   getIpfsGatewayUrl,
   getL1RpcUrl,
@@ -260,7 +260,7 @@ async function deployAppsProduction(
         JEJU_RPC_URL: rpcUrl,
         JEJU_DWS_ENDPOINT: `http://${getLocalhostHost()}:4030`,
         JEJU_NETWORK: 'localnet',
-        EQLITE_BLOCK_PRODUCER_ENDPOINT: getEQLiteBlockProducerUrl(),
+        SQLIT_BLOCK_PRODUCER_ENDPOINT: getSQLitBlockProducerUrl(),
         WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
         STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
         CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
@@ -386,8 +386,8 @@ async function printReady(
     logger.subheader('Infrastructure')
     logger.table([
       {
-        label: 'EQLite',
-        value: getEQLiteBlockProducerUrl(),
+        label: 'SQLit',
+        value: getSQLitBlockProducerUrl(),
         status: 'ok' as const,
       },
       {

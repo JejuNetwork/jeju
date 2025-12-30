@@ -135,7 +135,7 @@ export const ServerlessAppConfigSchema = z.object({
   /** Database configuration */
   database: z
     .object({
-      type: z.enum(['eqlite', 'sqlite', 'postgres']).default('eqlite'),
+      type: z.enum(['sqlit', 'sqlite', 'postgres']).default('sqlit'),
       name: z.string(),
       consistency: z.enum(['eventual', 'strong']).default('strong'),
       tables: z.array(z.string()).optional(),
@@ -418,11 +418,11 @@ export function parseServerlessConfig(
     config.database = {
       type:
         typeof database.type === 'string' &&
-        (database.type === 'eqlite' ||
+        (database.type === 'sqlit' ||
           database.type === 'sqlite' ||
           database.type === 'postgres')
           ? database.type
-          : 'eqlite',
+          : 'sqlit',
       name: typeof database.name === 'string' ? database.name : `${name}-db`,
       consistency:
         typeof database.consistency === 'string' &&

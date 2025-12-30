@@ -1,4 +1,4 @@
-# EQLite Module - Decentralized Database Cluster
+# SQLit Module - Decentralized Database Cluster
 # Minimal node configuration for production
 
 variable "environment" {
@@ -17,7 +17,7 @@ variable "subnet_ids" {
 }
 
 variable "node_count" {
-  description = "Number of EQLite nodes (minimum 3 for consensus)"
+  description = "Number of SQLit nodes (minimum 3 for consensus)"
   type        = number
   default     = 3
 }
@@ -41,13 +41,13 @@ variable "arm_instance_type" {
 }
 
 variable "ecr_registry" {
-  description = "ECR registry URL for custom EQLite image"
+  description = "ECR registry URL for custom SQLit image"
   type        = string
   default     = ""
 }
 
-variable "eqlite_image_tag" {
-  description = "EQLite Docker image tag"
+variable "sqlit_image_tag" {
+  description = "SQLit Docker image tag"
   type        = string
   default     = "latest"
 }
@@ -72,25 +72,25 @@ variable "allowed_cidr_blocks" {
 variable "private_key_ssm_param" {
   description = "SSM parameter name for node private key"
   type        = string
-  default     = "/jeju/eqlite/private-key"
+  default     = "/jeju/sqlit/private-key"
 }
 
-# Security Group for EQLite nodes
-resource "aws_security_group" "eqlite" {
-  name        = "jeju-eqlite-${var.environment}"
-  description = "Security group for EQLite nodes"
+# Security Group for SQLit nodes
+resource "aws_security_group" "sqlit" {
+  name        = "jeju-sqlit-${var.environment}"
+  description = "Security group for SQLit nodes"
   vpc_id      = var.vpc_id
 
-  # EQLite client port
+  # SQLit client port
   ingress {
     from_port   = 4661
     to_port     = 4661
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-    description = "EQLite client connections"
+    description = "SQLit client connections"
   }
 
-  # EQLite node-to-node communication
+  # SQLit node-to-node communication
   ingress {
     from_port   = 4662
     to_port     = 4662
@@ -99,7 +99,7 @@ resource "aws_security_group" "eqlite" {
     description = "Node-to-node communication"
   }
 
-  # EQLite BftRaft (consensus) port
+  # SQLit BftRaft (consensus) port
   ingress {
     from_port   = 4663
     to_port     = 4663
@@ -108,7 +108,7 @@ resource "aws_security_group" "eqlite" {
     description = "BftRaft consensus"
   }
 
-  # EQLite HTTP API
+  # SQLit HTTP API
   ingress {
     from_port   = 8546
     to_port     = 8546
@@ -135,15 +135,15 @@ resource "aws_security_group" "eqlite" {
   }
 
   tags = {
-    Name        = "jeju-eqlite-${var.environment}"
+    Name        = "jeju-sqlit-${var.environment}"
     Environment = var.environment
-    Component   = "eqlite"
+    Component   = "sqlit"
   }
 }
 
-# IAM Role for EQLite nodes
-resource "aws_iam_role" "eqlite" {
-  name = "jeju-eqlite-${var.environment}"
+# IAM Role for SQLit nodes
+resource "aws_iam_role" "sqlit" {
+  name = "jeju-sqlit-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -159,15 +159,15 @@ resource "aws_iam_role" "eqlite" {
   })
 
   tags = {
-    Name        = "jeju-eqlite-${var.environment}"
+    Name        = "jeju-sqlit-${var.environment}"
     Environment = var.environment
   }
 }
 
 # IAM Policy for SSM and CloudWatch
-resource "aws_iam_role_policy" "eqlite" {
-  name = "jeju-eqlite-${var.environment}"
-  role = aws_iam_role.eqlite.id
+resource "aws_iam_role_policy" "sqlit" {
+  name = "jeju-sqlit-${var.environment}"
+  role = aws_iam_role.sqlit.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -203,13 +203,13 @@ resource "aws_iam_role_policy" "eqlite" {
 }
 
 # Instance Profile
-resource "aws_iam_instance_profile" "eqlite" {
-  name = "jeju-eqlite-${var.environment}"
-  role = aws_iam_role.eqlite.name
+resource "aws_iam_instance_profile" "sqlit" {
+  name = "jeju-sqlit-${var.environment}"
+  role = aws_iam_role.sqlit.name
 }
 
 # EBS Volume for each node
-resource "aws_ebs_volume" "eqlite_data" {
+resource "aws_ebs_volume" "sqlit_data" {
   count             = var.node_count
   availability_zone = data.aws_subnet.selected[count.index].availability_zone
   size              = var.storage_size_gb
@@ -219,9 +219,9 @@ resource "aws_ebs_volume" "eqlite_data" {
   encrypted         = true
 
   tags = {
-    Name        = "jeju-eqlite-data-${var.environment}-${count.index}"
+    Name        = "jeju-sqlit-data-${var.environment}-${count.index}"
     Environment = var.environment
-    Component   = "eqlite"
+    Component   = "sqlit"
     NodeIndex   = count.index
   }
 }
@@ -231,18 +231,18 @@ data "aws_subnet" "selected" {
   id    = var.subnet_ids[count.index % length(var.subnet_ids)]
 }
 
-# Launch Template for EQLite nodes
-resource "aws_launch_template" "eqlite" {
-  name_prefix   = "jeju-eqlite-${var.environment}-"
+# Launch Template for SQLit nodes
+resource "aws_launch_template" "sqlit" {
+  name_prefix   = "jeju-sqlit-${var.environment}-"
   image_id      = local.selected_ami
   instance_type = local.selected_instance
   key_name      = var.key_name
 
   iam_instance_profile {
-    name = aws_iam_instance_profile.eqlite.name
+    name = aws_iam_instance_profile.sqlit.name
   }
 
-  vpc_security_group_ids = [aws_security_group.eqlite.id]
+  vpc_security_group_ids = [aws_security_group.sqlit.id]
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -265,49 +265,49 @@ resource "aws_launch_template" "eqlite" {
     node_count            = var.node_count
     private_key_ssm_param = var.private_key_ssm_param
     architecture          = local.architecture
-    eqlite_image             = local.eqlite_image
+    sqlit_image             = local.sqlit_image
   }))
 
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name        = "jeju-eqlite-${var.environment}"
+      Name        = "jeju-sqlit-${var.environment}"
       Environment = var.environment
-      Component   = "eqlite"
+      Component   = "sqlit"
     }
   }
 
   tags = {
-    Name        = "jeju-eqlite-${var.environment}"
+    Name        = "jeju-sqlit-${var.environment}"
     Environment = var.environment
   }
 }
 
-# EQLite Node Instances
-resource "aws_instance" "eqlite" {
+# SQLit Node Instances
+resource "aws_instance" "sqlit" {
   count = var.node_count
 
   launch_template {
-    id      = aws_launch_template.eqlite.id
+    id      = aws_launch_template.sqlit.id
     version = "$Latest"
   }
 
   subnet_id = var.subnet_ids[count.index % length(var.subnet_ids)]
 
   tags = {
-    Name        = "jeju-eqlite-${var.environment}-${count.index}"
+    Name        = "jeju-sqlit-${var.environment}-${count.index}"
     Environment = var.environment
-    Component   = "eqlite"
+    Component   = "sqlit"
     NodeIndex   = count.index
   }
 }
 
 # Attach data volumes to instances
-resource "aws_volume_attachment" "eqlite_data" {
+resource "aws_volume_attachment" "sqlit_data" {
   count       = var.node_count
   device_name = "/dev/xvdf"
-  volume_id   = aws_ebs_volume.eqlite_data[count.index].id
-  instance_id = aws_instance.eqlite[count.index].id
+  volume_id   = aws_ebs_volume.sqlit_data[count.index].id
+  instance_id = aws_instance.sqlit[count.index].id
 }
 
 # Amazon Linux 2 AMI - x86_64
@@ -346,12 +346,12 @@ locals {
   selected_ami       = var.use_arm64 ? data.aws_ami.amazon_linux_2_arm64.id : data.aws_ami.amazon_linux_2_x86.id
   selected_instance  = var.use_arm64 ? var.arm_instance_type : var.instance_type
   architecture       = var.use_arm64 ? "arm64" : "x86_64"
-  eqlite_image          = var.ecr_registry != "" ? "${var.ecr_registry}/jeju/eqlite:${var.eqlite_image_tag}" : "eqlite/eqlite:latest"
+  sqlit_image          = var.ecr_registry != "" ? "${var.ecr_registry}/jeju/sqlit:${var.sqlit_image_tag}" : "sqlit/sqlit:latest"
 }
 
 # Internal Network Load Balancer for client connections
-resource "aws_lb" "eqlite" {
-  name               = "jeju-eqlite-${var.environment}"
+resource "aws_lb" "sqlit" {
+  name               = "jeju-sqlit-${var.environment}"
   internal           = true
   load_balancer_type = "network"
   subnets            = var.subnet_ids
@@ -359,15 +359,15 @@ resource "aws_lb" "eqlite" {
   enable_cross_zone_load_balancing = true
 
   tags = {
-    Name        = "jeju-eqlite-${var.environment}"
+    Name        = "jeju-sqlit-${var.environment}"
     Environment = var.environment
-    Component   = "eqlite"
+    Component   = "sqlit"
   }
 }
 
-# Target Group for EQLite client port
-resource "aws_lb_target_group" "eqlite_client" {
-  name     = "jeju-eqlite-client-${var.environment}"
+# Target Group for SQLit client port
+resource "aws_lb_target_group" "sqlit_client" {
+  name     = "jeju-sqlit-client-${var.environment}"
   port     = 4661
   protocol = "TCP"
   vpc_id   = var.vpc_id
@@ -383,14 +383,14 @@ resource "aws_lb_target_group" "eqlite_client" {
   }
 
   tags = {
-    Name        = "jeju-eqlite-client-${var.environment}"
+    Name        = "jeju-sqlit-client-${var.environment}"
     Environment = var.environment
   }
 }
 
 # Target Group for HTTP API
-resource "aws_lb_target_group" "eqlite_http" {
-  name     = "jeju-eqlite-http-${var.environment}"
+resource "aws_lb_target_group" "sqlit_http" {
+  name     = "jeju-sqlit-http-${var.environment}"
   port     = 8546
   protocol = "TCP"
   vpc_id   = var.vpc_id
@@ -406,97 +406,97 @@ resource "aws_lb_target_group" "eqlite_http" {
   }
 
   tags = {
-    Name        = "jeju-eqlite-http-${var.environment}"
+    Name        = "jeju-sqlit-http-${var.environment}"
     Environment = var.environment
   }
 }
 
 # Register instances with target groups
-resource "aws_lb_target_group_attachment" "eqlite_client" {
+resource "aws_lb_target_group_attachment" "sqlit_client" {
   count            = var.node_count
-  target_group_arn = aws_lb_target_group.eqlite_client.arn
-  target_id        = aws_instance.eqlite[count.index].id
+  target_group_arn = aws_lb_target_group.sqlit_client.arn
+  target_id        = aws_instance.sqlit[count.index].id
   port             = 4661
 }
 
-resource "aws_lb_target_group_attachment" "eqlite_http" {
+resource "aws_lb_target_group_attachment" "sqlit_http" {
   count            = var.node_count
-  target_group_arn = aws_lb_target_group.eqlite_http.arn
-  target_id        = aws_instance.eqlite[count.index].id
+  target_group_arn = aws_lb_target_group.sqlit_http.arn
+  target_id        = aws_instance.sqlit[count.index].id
   port             = 8546
 }
 
 # Listeners
-resource "aws_lb_listener" "eqlite_client" {
-  load_balancer_arn = aws_lb.eqlite.arn
+resource "aws_lb_listener" "sqlit_client" {
+  load_balancer_arn = aws_lb.sqlit.arn
   port              = 4661
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.eqlite_client.arn
+    target_group_arn = aws_lb_target_group.sqlit_client.arn
   }
 }
 
-resource "aws_lb_listener" "eqlite_http" {
-  load_balancer_arn = aws_lb.eqlite.arn
+resource "aws_lb_listener" "sqlit_http" {
+  load_balancer_arn = aws_lb.sqlit.arn
   port              = 8546
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.eqlite_http.arn
+    target_group_arn = aws_lb_target_group.sqlit_http.arn
   }
 }
 
 # CloudWatch Log Group
-resource "aws_cloudwatch_log_group" "eqlite" {
-  name              = "/jeju/eqlite/${var.environment}"
+resource "aws_cloudwatch_log_group" "sqlit" {
+  name              = "/jeju/sqlit/${var.environment}"
   retention_in_days = 30
 
   tags = {
-    Name        = "jeju-eqlite-${var.environment}"
+    Name        = "jeju-sqlit-${var.environment}"
     Environment = var.environment
   }
 }
 
 # Outputs
 output "lb_dns_name" {
-  description = "DNS name of the EQLite load balancer"
-  value       = aws_lb.eqlite.dns_name
+  description = "DNS name of the SQLit load balancer"
+  value       = aws_lb.sqlit.dns_name
 }
 
 output "client_endpoint" {
-  description = "EQLite client endpoint"
-  value       = "${aws_lb.eqlite.dns_name}:4661"
+  description = "SQLit client endpoint"
+  value       = "${aws_lb.sqlit.dns_name}:4661"
 }
 
 output "http_endpoint" {
-  description = "EQLite HTTP API endpoint"
-  value       = "http://${aws_lb.eqlite.dns_name}:8546"
+  description = "SQLit HTTP API endpoint"
+  value       = "http://${aws_lb.sqlit.dns_name}:8546"
 }
 
 output "node_ips" {
-  description = "Private IPs of EQLite nodes"
-  value       = aws_instance.eqlite[*].private_ip
+  description = "Private IPs of SQLit nodes"
+  value       = aws_instance.sqlit[*].private_ip
 }
 
 output "security_group_id" {
-  description = "Security group ID for EQLite nodes"
-  value       = aws_security_group.eqlite.id
+  description = "Security group ID for SQLit nodes"
+  value       = aws_security_group.sqlit.id
 }
 
 output "architecture" {
-  description = "CPU architecture of EQLite nodes"
+  description = "CPU architecture of SQLit nodes"
   value       = local.architecture
 }
 
 output "instance_type_used" {
-  description = "EC2 instance type for EQLite nodes"
+  description = "EC2 instance type for SQLit nodes"
   value       = local.selected_instance
 }
 
-output "eqlite_image" {
-  description = "EQLite Docker image being used"
-  value       = local.eqlite_image
+output "sqlit_image" {
+  description = "SQLit Docker image being used"
+  value       = local.sqlit_image
 }

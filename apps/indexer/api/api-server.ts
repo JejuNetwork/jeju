@@ -1,7 +1,7 @@
 /**
  * Unified API server entry point
  *
- * Modes: postgres (full), eqlite-only (read), degraded (minimal)
+ * Modes: postgres (full), sqlit-only (read), degraded (minimal)
  */
 
 import { getLocalhostHost } from '@jejunetwork/config'
@@ -17,7 +17,7 @@ import {
   setSchemaVerified,
   verifyDatabaseSchema,
 } from './utils/db'
-import { getEQLiteSync } from './utils/eqlite-sync'
+import { getSQLitSync } from './utils/sqlit-sync'
 
 async function main(): Promise<void> {
   console.log('🚀 Starting Indexer API servers...')
@@ -27,8 +27,8 @@ async function main(): Promise<void> {
 
   let schemaReady = false
 
-  // Initialize PostgreSQL if not in EQLite-only mode
-  if (mode !== 'eqlite-only') {
+  // Initialize PostgreSQL if not in SQLit-only mode
+  if (mode !== 'sqlit-only') {
     const dataSource = await getDataSourceWithRetry(3, 2000)
 
     if (dataSource) {
@@ -45,11 +45,11 @@ async function main(): Promise<void> {
         )
       }
 
-      if (schemaReady && config.eqliteSyncEnabled) {
-        const eqliteSync = getEQLiteSync()
-        await eqliteSync.initialize(dataSource)
-        await eqliteSync.start()
-        console.log('[Indexer] EQLite sync enabled')
+      if (schemaReady && config.sqlitSyncEnabled) {
+        const sqlitSync = getSQLitSync()
+        await sqlitSync.initialize(dataSource)
+        await sqlitSync.start()
+        console.log('[Indexer] SQLit sync enabled')
       }
     }
   }
@@ -78,9 +78,9 @@ async function main(): Promise<void> {
 async function shutdown(): Promise<void> {
   console.log('\n[Indexer] Shutting down...')
 
-  // Stop EQLite sync
-  const eqliteSync = getEQLiteSync()
-  await eqliteSync.stop()
+  // Stop SQLit sync
+  const sqlitSync = getSQLitSync()
+  await sqlitSync.stop()
 
   // Close PostgreSQL
   await closeDataSource()

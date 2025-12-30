@@ -2,7 +2,7 @@
  * API Marketplace Tests
  *
  * Comprehensive test suite for the decentralized API marketplace
- * EQLite is REQUIRED - tests will fail with instructions if not available.
+ * SQLit is REQUIRED - tests will fail with instructions if not available.
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -12,13 +12,13 @@ import {
   SETUP_INSTRUCTIONS,
 } from './test-environment'
 
-// EQLite is required - will throw error with instructions if not available
-let EQLITE_AVAILABLE = false
+// SQLit is required - will throw error with instructions if not available
+let SQLIT_AVAILABLE = false
 
 beforeAll(async () => {
   const env = await detectEnvironment()
-  EQLITE_AVAILABLE = env.eqlite
-  requireDependency('EQLite', env.eqlite, SETUP_INSTRUCTIONS.eqlite)
+  SQLIT_AVAILABLE = env.sqlit
+  requireDependency('SQLit', env.sqlit, SETUP_INSTRUCTIONS.sqlit)
 })
 
 import type { Address } from 'viem'
@@ -132,7 +132,7 @@ describe('Providers', () => {
   })
 })
 
-// Registry Tests (require EQLite)
+// Registry Tests (require SQLit)
 
 describe('Registry', () => {
   const testApiKey = 'sk-test-key-12345678901234567890'
@@ -231,7 +231,7 @@ describe('Registry', () => {
   })
 })
 
-// Account Tests (require EQLite)
+// Account Tests (require SQLit)
 
 describe('Accounts', () => {
   // Use unique addresses per test run to avoid accumulation issues
@@ -650,7 +650,7 @@ describe('Access Control', () => {
   })
 })
 
-// Payment Tests (some require EQLite)
+// Payment Tests (some require SQLit)
 
 describe('Payments', () => {
   test('should create 402 response', () => {
@@ -720,7 +720,7 @@ describe('Payments', () => {
   })
 })
 
-// Integration Tests (require EQLite)
+// Integration Tests (require SQLit)
 
 describe('Integration', () => {
   test('should perform full listing creation flow', async () => {

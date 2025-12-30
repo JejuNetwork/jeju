@@ -266,10 +266,10 @@ const app = new Elysia()
 
     const dbHealthy = dbCheck.result === true
     services.push({
-      name: 'database (EQLite)',
+      name: 'database (SQLit)',
       status: dbHealthy ? 'healthy' : 'unhealthy',
       latency: dbCheck.latency,
-      details: dbHealthy ? 'Connected' : 'Connection failed - EQLite required',
+      details: dbHealthy ? 'Connected' : 'Connection failed - SQLit required',
     })
     if (!dbHealthy) unhealthyCount++
 
@@ -377,7 +377,7 @@ const app = new Elysia()
       agentCard: '/a2a/.well-known/agent-card.json',
     },
     services: {
-      database: 'EQLite (EQLite)',
+      database: 'SQLit (SQLit)',
       cache: 'Compute-based Redis',
       storage: 'IPFS via Storage Marketplace',
       secrets: 'KMS with MPC',

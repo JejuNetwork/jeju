@@ -28,10 +28,10 @@
 
 import { getLogLevel } from '@jejunetwork/config'
 import pino from 'pino'
-import { type EQLiteClient, getEQLite, resetEQLite } from './client.js'
+import { type SQLitClient, getSQLit, resetSQLit } from './client.js'
 import type {
-  EQLiteConfig,
-  EQLiteQueryable,
+  SQLitConfig,
+  SQLitQueryable,
   ExecResult,
   QueryParam,
   QueryResult,
@@ -56,8 +56,8 @@ export interface DatabaseManagerConfig {
   appName: string
   /** Database ID */
   databaseId: string
-  /** EQLite configuration overrides */
-  eqliteConfig?: Partial<EQLiteConfig>
+  /** SQLit configuration overrides */
+  sqlitConfig?: Partial<SQLitConfig>
   /** Schema DDL statements to execute on initialization */
   schema?: string[]
   /** Index DDL statements to execute on initialization */
@@ -92,11 +92,11 @@ export interface DatabaseManagerStats {
 
 // Database Manager Implementation
 
-export class DatabaseManager implements EQLiteQueryable {
+export class DatabaseManager implements SQLitQueryable {
   private config: Required<
     Omit<
       DatabaseManagerConfig,
-      | 'eqliteConfig'
+      | 'sqlitConfig'
       | 'schema'
       | 'indexes'
       | 'onHealthChange'
@@ -105,7 +105,7 @@ export class DatabaseManager implements EQLiteQueryable {
     >
   > &
     DatabaseManagerConfig
-  private client: EQLiteClient | null = null
+  private client: SQLitClient | null = null
   private status: ManagerStatus = 'stopped'
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null
   private lastHealthCheck = 0
@@ -170,9 +170,9 @@ export class DatabaseManager implements EQLiteQueryable {
   }
 
   /**
-   * Get the EQLite client (throws if not healthy)
+   * Get the SQLit client (throws if not healthy)
    */
-  getClient(): EQLiteClient {
+  getClient(): SQLitClient {
     if (!this.client || this.status === 'unhealthy') {
       throw new Error(`Database not available (status: ${this.status})`)
     }
@@ -202,7 +202,7 @@ export class DatabaseManager implements EQLiteQueryable {
   }
 
   /**
-   * Execute a query (EQLiteQueryable interface)
+   * Execute a query (SQLitQueryable interface)
    */
   async query<T>(
     sql: string,
@@ -214,7 +214,7 @@ export class DatabaseManager implements EQLiteQueryable {
   }
 
   /**
-   * Execute a statement (EQLiteQueryable interface)
+   * Execute a statement (SQLitQueryable interface)
    */
   async exec(
     sql: string,
@@ -243,13 +243,13 @@ export class DatabaseManager implements EQLiteQueryable {
   // Private Methods
 
   private async connect(): Promise<void> {
-    resetEQLite()
+    resetSQLit()
 
-    this.client = getEQLite({
+    this.client = getSQLit({
       databaseId: this.config.databaseId,
       timeout: 30000,
       debug: this.config.debug,
-      ...this.config.eqliteConfig,
+      ...this.config.sqlitConfig,
     })
 
     // Test connection
@@ -257,7 +257,7 @@ export class DatabaseManager implements EQLiteQueryable {
     if (!healthy) {
       this.status = 'unhealthy'
       this.emitHealthChange(false)
-      throw new Error('Database connection failed - EQLite is not healthy')
+      throw new Error('Database connection failed - SQLit is not healthy')
     }
 
     // Initialize schema if not done
@@ -375,13 +375,13 @@ export class DatabaseManager implements EQLiteQueryable {
       await this.sleep(delay)
 
       // Reset the global client and try to reconnect
-      resetEQLite()
+      resetSQLit()
 
-      this.client = getEQLite({
+      this.client = getSQLit({
         databaseId: this.config.databaseId,
         timeout: 30000,
         debug: this.config.debug,
-        ...this.config.eqliteConfig,
+        ...this.config.sqlitConfig,
       })
 
       const healthy = await this.client.isHealthy()

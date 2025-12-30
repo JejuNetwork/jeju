@@ -8,29 +8,29 @@
  * - Have health checks and auto-restart
  * - Are billed based on uptime, not execution time
  *
- * Service registry is persisted to EQLite for recovery across DWS restarts.
+ * Service registry is persisted to SQLit for recovery across DWS restarts.
  */
 
 import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
-// EQLite persistence for service registry
+// SQLit persistence for service registry
 const SERVICES_DATABASE_ID = 'dws-infrastructure-services'
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureServicesTables()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureServicesTables(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const createTableSQL = `
     CREATE TABLE IF NOT EXISTS infrastructure_services (
@@ -47,11 +47,11 @@ async function ensureServicesTables(): Promise<void> {
     )
   `
 
-  await eqliteClient.exec(createTableSQL, [], SERVICES_DATABASE_ID)
+  await sqlitClient.exec(createTableSQL, [], SERVICES_DATABASE_ID)
 }
 
 async function persistService(instance: ServiceInstance): Promise<void> {
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
 
   const sql = `
     INSERT OR REPLACE INTO infrastructure_services 
@@ -79,7 +79,7 @@ async function persistService(instance: ServiceInstance): Promise<void> {
 
 async function loadPersistedServices(): Promise<void> {
   try {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     interface ServiceRow {
       service_id: string
@@ -137,33 +137,33 @@ async function loadPersistedServices(): Promise<void> {
 
     if (rows.length > 0) {
       console.log(
-        `[Services] Loaded ${rows.length} persisted services from EQLite`,
+        `[Services] Loaded ${rows.length} persisted services from SQLit`,
       )
     }
   } catch (_error) {
-    // EQLite may not be available yet, that's ok
+    // SQLit may not be available yet, that's ok
     console.log(
-      '[Services] EQLite not available for persistence, using memory only',
+      '[Services] SQLit not available for persistence, using memory only',
     )
   }
 }
 
 async function removePersistedService(serviceId: string): Promise<void> {
   try {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       'DELETE FROM infrastructure_services WHERE service_id = ?',
       [serviceId],
       SERVICES_DATABASE_ID,
     )
   } catch {
-    // Ignore EQLite errors
+    // Ignore SQLit errors
   }
 }
 
 // Service Types
 
-export type ServiceType = 'postgres' | 'redis' | 'rabbitmq' | 'minio' | 'eqlite'
+export type ServiceType = 'postgres' | 'redis' | 'rabbitmq' | 'minio' | 'sqlit'
 export type ServiceStatus =
   | 'provisioning'
   | 'running'
@@ -278,7 +278,7 @@ const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
       ),
     },
   },
-  eqlite: {
+  sqlit: {
     version: 'latest',
     resources: { cpuCores: 2, memoryMb: 1024, storageMb: 10240 },
     ports: [
@@ -292,7 +292,7 @@ const SERVICE_DEFAULTS: Record<ServiceType, Partial<ServiceConfig>> = {
       retries: 5,
     },
     env: {
-      EQLITE_ROLE: 'blockproducer',
+      SQLIT_ROLE: 'blockproducer',
     },
   },
 }
@@ -312,8 +312,8 @@ const SERVICE_IMAGES: Record<ServiceType, string> = {
   redis: 'redis:7-alpine',
   rabbitmq: 'rabbitmq:3-management-alpine',
   minio: 'minio/minio:latest',
-  eqlite:
-    process.env.EQLITE_DOCKER_IMAGE || 'ghcr.io/jejunetwork/eqlite:latest',
+  sqlit:
+    process.env.SQLIT_DOCKER_IMAGE || 'ghcr.io/jejunetwork/sqlit:latest',
 }
 
 // Container naming convention: dws-{type}-{name}
@@ -344,7 +344,7 @@ async function dockerCommand(
  * This ensures services persist across DWS restarts
  *
  * Sources:
- * 1. EQLite persistence (for services we created)
+ * 1. SQLit persistence (for services we created)
  * 2. Docker state (for containers that exist)
  */
 export async function discoverExistingServices(): Promise<void> {
@@ -352,7 +352,7 @@ export async function discoverExistingServices(): Promise<void> {
 
   console.log('[Services] Discovering existing DWS-managed containers...')
 
-  // First, load from EQLite persistence
+  // First, load from SQLit persistence
   await loadPersistedServices()
 
   // List all containers with dws- prefix (including stopped ones)
@@ -384,7 +384,7 @@ export async function discoverExistingServices(): Promise<void> {
     const type = nameParts[0] as ServiceType
     const name = nameParts.slice(1).join('-')
 
-    if (!['postgres', 'redis', 'rabbitmq', 'minio', 'eqlite'].includes(type)) {
+    if (!['postgres', 'redis', 'rabbitmq', 'minio', 'sqlit'].includes(type)) {
       continue
     }
 
@@ -425,7 +425,7 @@ export async function discoverExistingServices(): Promise<void> {
       },
     }
 
-    // Only add if not already tracked (from EQLite persistence)
+    // Only add if not already tracked (from SQLit persistence)
     const existingByName = getServiceByName(type, name)
     if (!existingByName) {
       services.set(serviceId, instance)
@@ -590,8 +590,8 @@ export async function provisionService(
       dockerArgs.push('server', '/data', '--console-address', ':9001')
     }
 
-    // Add command for eqlite (EQLite block producer)
-    if (config.type === 'eqlite') {
+    // Add command for sqlit (SQLit block producer)
+    if (config.type === 'sqlit') {
       dockerArgs.push(
         '-config',
         '/config/config.yaml',
@@ -631,9 +631,9 @@ export async function provisionService(
 
   services.set(serviceId, instance)
 
-  // Persist to EQLite for recovery
+  // Persist to SQLit for recovery
   await persistService(instance).catch((err) =>
-    console.log(`[Services] Failed to persist service to EQLite: ${err}`),
+    console.log(`[Services] Failed to persist service to SQLit: ${err}`),
   )
 
   console.log(
@@ -707,7 +707,7 @@ export async function removeService(serviceId: string): Promise<boolean> {
   await dockerCommand(['stop', instance.containerName])
   await dockerCommand(['rm', instance.containerName])
 
-  // Always remove from registry and EQLite (even if container doesn't exist)
+  // Always remove from registry and SQLit (even if container doesn't exist)
   services.delete(serviceId)
   await removePersistedService(serviceId)
 
@@ -837,7 +837,7 @@ export async function createDatabase(
 // Request schemas
 
 const provisionRequestSchema = z.object({
-  type: z.enum(['postgres', 'redis', 'rabbitmq', 'minio', 'eqlite']),
+  type: z.enum(['postgres', 'redis', 'rabbitmq', 'minio', 'sqlit']),
   name: z
     .string()
     .min(1)

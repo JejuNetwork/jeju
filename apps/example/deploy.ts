@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import {
   getCurrentNetwork,
   getDWSComputeUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getLocalhostHost,
 } from '@jejunetwork/config'
 import { expectHex } from '@jejunetwork/types'
@@ -21,8 +21,8 @@ import type { DeployResult } from './lib/types'
 
 const NETWORK = getCurrentNetwork()
 const COMPUTE_API = process.env.COMPUTE_API || getDWSComputeUrl(NETWORK)
-const EQLITE_ENDPOINT =
-  process.env.EQLITE_ENDPOINT || getEQLiteBlockProducerUrl()
+const SQLIT_ENDPOINT =
+  process.env.SQLIT_ENDPOINT || getSQLitBlockProducerUrl()
 
 interface ComputeClient {
   registerService(config: ServiceConfig): Promise<{ success: boolean }>
@@ -127,14 +127,14 @@ async function deployDatabase(): Promise<string> {
 
   // Run migration
   const proc = Bun.spawn(['bun', 'run', schemaPath], {
-    env: { ...process.env, EQLITE_BLOCK_PRODUCER_ENDPOINT: EQLITE_ENDPOINT },
+    env: { ...process.env, SQLIT_BLOCK_PRODUCER_ENDPOINT: SQLIT_ENDPOINT },
     stdout: 'inherit',
     stderr: 'inherit',
   })
 
   await proc.exited
 
-  const databaseId = process.env.EQLITE_DATABASE_ID || 'todo-experimental'
+  const databaseId = process.env.SQLIT_DATABASE_ID || 'todo-experimental'
   console.log(`   Database ID: ${databaseId}`)
 
   return databaseId

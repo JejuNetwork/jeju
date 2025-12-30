@@ -1,11 +1,11 @@
 /**
- * Deploy EQLite Infrastructure
+ * Deploy SQLit Infrastructure
  *
- * EQLite (EQLite) providers register in the unified ComputeRegistry.
+ * SQLit (SQLit) providers register in the unified ComputeRegistry.
  * This script deploys the Kubernetes infrastructure only.
  *
  * Usage:
- *   bun run scripts/deploy/deploy-eqlite.ts --network testnet
+ *   bun run scripts/deploy/deploy-sqlit.ts --network testnet
  */
 
 import { execSync } from 'node:child_process'
@@ -16,7 +16,7 @@ import { z } from 'zod'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = join(__dirname, '../../../..')
-const HELM_DIR = join(ROOT_DIR, 'packages/deployment/kubernetes/helm/eqlite')
+const HELM_DIR = join(ROOT_DIR, 'packages/deployment/kubernetes/helm/sqlit')
 
 const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
 type Network = z.infer<typeof NetworkSchema>
@@ -53,7 +53,7 @@ async function deployKubernetes(
   config: DeploymentConfig,
 ): Promise<void> {
   console.log(`\n${'='.repeat(60)}`)
-  console.log('  Deploying EQLite to Kubernetes')
+  console.log('  Deploying SQLit to Kubernetes')
   console.log('='.repeat(60))
 
   const valuesFile = join(HELM_DIR, `values-${network}.yaml`)
@@ -80,8 +80,8 @@ async function deployKubernetes(
   const tempValuesFile = join(HELM_DIR, `values-${network}-generated.yaml`)
   writeFileSync(tempValuesFile, values)
 
-  const namespace = `eqlite-${network}`
-  const releaseName = `eqlite-${network}`
+  const namespace = `sqlit-${network}`
+  const releaseName = `sqlit-${network}`
 
   console.log(`  Namespace: ${namespace}`)
   console.log(`  Release: ${releaseName}`)
@@ -117,7 +117,7 @@ async function deployKubernetes(
     },
   )
 
-  console.log('\nEQLite infrastructure deployed.')
+  console.log('\nSQLit infrastructure deployed.')
   console.log(`\nTo check status:`)
   console.log(`  kubectl -n ${namespace} get pods`)
   console.log(`  kubectl -n ${namespace} get ingress`)
@@ -135,12 +135,12 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n${'='.repeat(60)}`)
-  console.log('  EQLite Infrastructure Deployment')
+  console.log('  SQLit Infrastructure Deployment')
   console.log('='.repeat(60))
   console.log(`  Network: ${network}`)
   console.log('')
   console.log(
-    '  Note: EQLite providers register in the unified ComputeRegistry',
+    '  Note: SQLit providers register in the unified ComputeRegistry',
   )
   console.log('  with serviceType = keccak256("database")')
   console.log('='.repeat(60))
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
   console.log('  Deployment Complete')
   console.log('='.repeat(60))
   console.log(`
-  EQLite operators should register using:
+  SQLit operators should register using:
 
     ComputeRegistry.registerDatabaseProvider(
       name,

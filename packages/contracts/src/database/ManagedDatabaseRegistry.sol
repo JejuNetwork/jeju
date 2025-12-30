@@ -9,11 +9,11 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 /**
  * @title ManagedDatabaseRegistry
- * @notice On-chain registry for managed database instances (EQLite + PostgreSQL)
+ * @notice On-chain registry for managed database instances (SQLit + PostgreSQL)
  * @dev Supports multiple database engines with unified provisioning, billing, and management
  *
  * Database Engines:
- * - EQLite: Distributed SQLite with edge replication
+ * - SQLit: Distributed SQLit with edge replication
  * - PostgreSQL: Managed PostgreSQL with read replicas
  * - (Future: MySQL, Redis, etc.)
  *
@@ -34,7 +34,7 @@ contract ManagedDatabaseRegistry is Ownable, Pausable, ReentrancyGuard {
     // =========================================================================
 
     enum DatabaseEngine {
-        EQLITE,
+        SQLIT,
         POSTGRESQL,
         MYSQL,
         REDIS,
@@ -109,7 +109,7 @@ contract ManagedDatabaseRegistry is Ownable, Pausable, ReentrancyGuard {
         bool encryptionAtRest;
         bool encryptionInTransit;
         bool publicAccess;
-        // EQLite specific
+        // SQLit specific
         uint8 replicationFactor;
         uint8 consistencyMode; // 0 = strong, 1 = eventual
     }
@@ -970,10 +970,10 @@ contract ManagedDatabaseRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     function _initializeDefaultPlans() internal {
-        // EQLite Plans
+        // SQLit Plans
         _createPlan(
-            "eqlite-starter",
-            DatabaseEngine.EQLITE,
+            "sqlit-starter",
+            DatabaseEngine.SQLIT,
             0.01 ether,
             DatabaseConfig({
                 vcpus: 1,
@@ -993,8 +993,8 @@ contract ManagedDatabaseRegistry is Ownable, Pausable, ReentrancyGuard {
         );
 
         _createPlan(
-            "eqlite-pro",
-            DatabaseEngine.EQLITE,
+            "sqlit-pro",
+            DatabaseEngine.SQLIT,
             0.05 ether,
             DatabaseConfig({
                 vcpus: 2,

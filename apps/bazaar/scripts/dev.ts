@@ -15,7 +15,7 @@ import { resolve } from 'node:path'
 import {
   CORE_PORTS,
   getCoreAppUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getIndexerGraphqlUrl,
   getRpcUrl,
 } from '@jejunetwork/config'
@@ -154,9 +154,9 @@ async function startApiServer(): Promise<void> {
     DWS_URL,
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: getIndexerGraphqlUrl(),
-    EQLITE_NODES: getEQLiteBlockProducerUrl(),
-    EQLITE_DATABASE_ID: process.env.EQLITE_DATABASE_ID || 'dev-bazaar',
-    EQLITE_PRIVATE_KEY: process.env.EQLITE_PRIVATE_KEY || '',
+    SQLIT_NODES: getSQLitBlockProducerUrl(),
+    SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || 'dev-bazaar',
+    SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
   })
 
   app.listen(API_PORT, () =>

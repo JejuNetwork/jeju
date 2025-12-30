@@ -1,13 +1,13 @@
 /**
  * MigrationManager Integration Tests
  *
- * Tests the actual MigrationManager class behavior against live EQLite.
+ * Tests the actual MigrationManager class behavior against live SQLit.
  *
- * Set EQLITE_AVAILABLE=true to force running, or tests auto-detect EQLite availability.
+ * Set SQLIT_AVAILABLE=true to force running, or tests auto-detect SQLit availability.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { type EQLiteClient, getEQLite, resetEQLite } from './client.js'
+import { type SQLitClient, getSQLit, resetSQLit } from './client.js'
 import {
   createMigrationManager,
   createTable,
@@ -16,13 +16,13 @@ import {
   MigrationManager,
 } from './migration.js'
 
-// EQLite endpoint
-const EQLITE_ENDPOINT = process.env.EQLITE_ENDPOINT ?? 'http://localhost:4661'
+// SQLit endpoint
+const SQLIT_ENDPOINT = process.env.SQLIT_ENDPOINT ?? 'http://localhost:4661'
 
-// Check if EQLite is reachable
-async function isEQLiteAvailable(): Promise<boolean> {
+// Check if SQLit is reachable
+async function isSQLitAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${EQLITE_ENDPOINT}/v1/status`, {
+    const response = await fetch(`${SQLIT_ENDPOINT}/v1/status`, {
       signal: AbortSignal.timeout(2000),
     })
     return response.ok
@@ -31,21 +31,21 @@ async function isEQLiteAvailable(): Promise<boolean> {
   }
 }
 
-// Auto-detect EQLite availability at test load time
-const EQLITE_RUNNING =
-  process.env.EQLITE_AVAILABLE === 'true' ||
-  (await isEQLiteAvailable().catch(() => false))
+// Auto-detect SQLit availability at test load time
+const SQLIT_RUNNING =
+  process.env.SQLIT_AVAILABLE === 'true' ||
+  (await isSQLitAvailable().catch(() => false))
 
-describe.skipIf(!EQLITE_RUNNING)('MigrationManager (Live Integration)', () => {
-  let client: EQLiteClient
+describe.skipIf(!SQLIT_RUNNING)('MigrationManager (Live Integration)', () => {
+  let client: SQLitClient
   let manager: MigrationManager
   const testDbId = `test-migrations-${Date.now()}`
   const testMigrationsTable = `_migrations_${Date.now()}`
 
   beforeEach(async () => {
-    await resetEQLite()
-    client = getEQLite({
-      blockProducerEndpoint: EQLITE_ENDPOINT,
+    await resetSQLit()
+    client = getSQLit({
+      blockProducerEndpoint: SQLIT_ENDPOINT,
       databaseId: testDbId,
     })
     manager = new MigrationManager(client, testDbId, testMigrationsTable)
@@ -130,7 +130,7 @@ describe.skipIf(!EQLITE_RUNNING)('MigrationManager (Live Integration)', () => {
           3,
           'add_user_email',
           `ALTER TABLE users_${suffix} ADD COLUMN email TEXT`,
-          `-- Cannot remove column in SQLite`,
+          `-- Cannot remove column in SQLit`,
         ),
       ]
 
@@ -259,8 +259,8 @@ describe.skipIf(!EQLITE_RUNNING)('MigrationManager (Live Integration)', () => {
 
 describe('createMigrationManager factory', () => {
   it('should create manager with default table name', () => {
-    const client = getEQLite({
-      blockProducerEndpoint: EQLITE_ENDPOINT,
+    const client = getSQLit({
+      blockProducerEndpoint: SQLIT_ENDPOINT,
       databaseId: 'factory-test-db',
     })
     const manager = createMigrationManager(client, 'factory-test-db')
@@ -268,8 +268,8 @@ describe('createMigrationManager factory', () => {
   })
 
   it('should create manager with custom table name', () => {
-    const client = getEQLite({
-      blockProducerEndpoint: EQLITE_ENDPOINT,
+    const client = getSQLit({
+      blockProducerEndpoint: SQLIT_ENDPOINT,
       databaseId: 'factory-test-db-2',
     })
     const manager = createMigrationManager(

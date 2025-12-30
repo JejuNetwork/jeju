@@ -6,13 +6,13 @@
  * - JNS domain routing
  * - TLS termination with auto-certificates
  * - Load balancing across nodes
- * - Distributed rate limiting via EQLite
+ * - Distributed rate limiting via SQLit
  * - DDoS protection
  * - Geo-routing for low latency
  */
 
-import { EQLiteRateLimitStore } from '@jejunetwork/api'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { SQLitRateLimitStore } from '@jejunetwork/api'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 
@@ -383,42 +383,42 @@ export class IngressController {
     }
   }
 
-  // Distributed rate limiting via EQLite
+  // Distributed rate limiting via SQLit
   private rateWindowMs = 60_000 // 1 minute window
-  private distributedStore: EQLiteRateLimitStore | null = null
-  private eqliteClient: EQLiteClient | null = null
+  private distributedStore: SQLitRateLimitStore | null = null
+  private sqlitClient: SQLitClient | null = null
   private static readonly RATE_LIMIT_DB = 'dws_rate_limits'
 
-  // Fallback in-memory store for when EQLite is unavailable
+  // Fallback in-memory store for when SQLit is unavailable
   private localRateLimitRequests = new Map<
     string,
     { count: number; resetAt: number }
   >()
 
-  private async getDistributedStore(): Promise<EQLiteRateLimitStore | null> {
+  private async getDistributedStore(): Promise<SQLitRateLimitStore | null> {
     if (this.distributedStore) return this.distributedStore
 
     try {
-      if (!this.eqliteClient) {
-        this.eqliteClient = getEQLite({
+      if (!this.sqlitClient) {
+        this.sqlitClient = getSQLit({
           databaseId: IngressController.RATE_LIMIT_DB,
           timeout: 5000,
           debug: false,
         })
       }
 
-      this.distributedStore = new EQLiteRateLimitStore({
-        client: this.eqliteClient,
+      this.distributedStore = new SQLitRateLimitStore({
+        client: this.sqlitClient,
         databaseId: IngressController.RATE_LIMIT_DB,
         keyPrefix: 'ingress',
         cleanupIntervalMs: 5 * 60 * 1000, // 5 minutes
       })
 
-      console.log('[Ingress] Distributed rate limiting initialized via EQLite')
+      console.log('[Ingress] Distributed rate limiting initialized via SQLit')
       return this.distributedStore
     } catch (err) {
       console.warn(
-        '[Ingress] EQLite unavailable, using local rate limiting:',
+        '[Ingress] SQLit unavailable, using local rate limiting:',
         err instanceof Error ? err.message : String(err),
       )
       return null

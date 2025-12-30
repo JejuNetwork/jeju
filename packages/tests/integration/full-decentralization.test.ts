@@ -2,7 +2,7 @@
  * Full Decentralization Integration Tests
  *
  * Tests the complete decentralized stack:
- * - EQLite database
+ * - SQLit database
  * - Container registry
  * - MPC key management
  * - A2A/MCP interfaces
@@ -11,12 +11,12 @@
 
 import { describe, expect, it } from 'bun:test'
 import {
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getLocalhostHost,
   getServiceUrl,
   getTeeEndpoint,
 } from '@jejunetwork/config'
-import { createEQLiteClient, MigrationManager } from '@jejunetwork/db'
+import { createSQLitClient, MigrationManager } from '@jejunetwork/db'
 import {
   getHSMClient,
   getMPCCustodyManager,
@@ -33,12 +33,12 @@ const TEST_CONFIG = {
   councilUrl: getServiceUrl('council') ?? `http://${host}:3200`,
 }
 
-// EQLite Tests
+// SQLit Tests
 
-describe('EQLite Integration', () => {
-  it('should connect to EQLite cluster', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+describe('SQLit Integration', () => {
+  it('should connect to SQLit cluster', async () => {
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',
@@ -56,8 +56,8 @@ describe('EQLite Integration', () => {
 
   it('should support strong consistency queries', async () => {
     // Create client with strong consistency
-    createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',
@@ -73,8 +73,8 @@ describe('EQLite Integration', () => {
 
   it('should support eventual consistency queries', async () => {
     // Create client with eventual consistency
-    createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'eventual',
@@ -88,8 +88,8 @@ describe('EQLite Integration', () => {
   })
 
   it('should run migrations', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
       defaultConsistency: 'strong',

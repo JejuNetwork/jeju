@@ -130,15 +130,15 @@ interface ClientRow {
 }
 
 async function getAllLegacyClients(): Promise<LegacyClient[]> {
-  const { getEQLiteClient } = await import('../api/services/state')
+  const { getSQLitClient } = await import('../api/services/state')
 
-  const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
+  const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'oauth3'
 
-  const db = await getEQLiteClient()
+  const db = await getSQLitClient()
   const result = await db.query<ClientRow>(
     'SELECT * FROM clients WHERE active = 1',
     [],
-    EQLITE_DATABASE_ID,
+    SQLIT_DATABASE_ID,
   )
 
   return result.rows.map((row) => ({
@@ -160,14 +160,14 @@ async function updateClientSecret(
   clientId: string,
   hashedSecret: HashedClientSecret,
 ): Promise<void> {
-  const { getEQLiteClient } = await import('../api/services/state')
-  const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
+  const { getSQLitClient } = await import('../api/services/state')
+  const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'oauth3'
 
-  const db = await getEQLiteClient()
+  const db = await getSQLitClient()
   await db.exec(
     `UPDATE clients SET client_secret_hash = ?, client_secret = NULL WHERE client_id = ?`,
     [JSON.stringify(hashedSecret), clientId],
-    EQLITE_DATABASE_ID,
+    SQLIT_DATABASE_ID,
   )
 }
 

@@ -18,9 +18,9 @@ describe('Gateway State Module', () => {
   })
 
   test('initializes state with valid mode', () => {
-    // State can be either memory or eqlite depending on environment
+    // State can be either memory or sqlit depending on environment
     const mode = getStateMode()
-    expect(['memory', 'eqlite']).toContain(mode)
+    expect(['memory', 'sqlit']).toContain(mode)
   })
 
   describe('Intent State', () => {

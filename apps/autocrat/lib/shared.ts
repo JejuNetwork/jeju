@@ -26,7 +26,7 @@ export function toAddress(value: string): Address {
 }
 
 // ============================================================================
-// EQLite Row Accessors - Type-safe database row field extraction
+// SQLit Row Accessors - Type-safe database row field extraction
 // ============================================================================
 
 /**

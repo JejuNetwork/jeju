@@ -110,8 +110,8 @@ variable "node_registry_address" {
   default     = ""
 }
 
-variable "use_arm64_eqlite" {
-  description = "Use ARM64 (Graviton) instances for EQLite - requires custom ECR image"
+variable "use_arm64_sqlit" {
+  description = "Use ARM64 (Graviton) instances for SQLit - requires custom ECR image"
   type        = bool
   default     = false
 }
@@ -890,7 +890,7 @@ output "testnet_urls" {
     docs          = "https://docs.testnet.${var.domain_name}"
     relay         = module.messaging.relay_endpoint
     kms           = module.messaging.kms_endpoint
-    eqlite   = module.eqlite.http_endpoint
+    sqlit   = module.sqlit.http_endpoint
     solana_rpc    = var.enable_solana ? module.solana[0].rpc_endpoint : ""
     solana_ws     = var.enable_solana ? module.solana[0].ws_endpoint : ""
   }
@@ -901,21 +901,21 @@ output "messaging_config" {
   value = {
     relay_endpoint           = module.messaging.relay_endpoint
     kms_endpoint             = module.messaging.kms_endpoint
-    eqlite_endpoint     = module.eqlite.http_endpoint
-    eqlite_nodes        = module.eqlite.node_ips
-    eqlite_architecture = module.eqlite.architecture
-    eqlite_image        = module.eqlite.eqlite_image
+    sqlit_endpoint     = module.sqlit.http_endpoint
+    sqlit_nodes        = module.sqlit.node_ips
+    sqlit_architecture = module.sqlit.architecture
+    sqlit_image        = module.sqlit.sqlit_image
     messaging_role_arn       = module.messaging.messaging_role_arn
     farcaster_hub            = module.farcaster_hub.hub_grpc_url
   }
 }
 
 # ============================================================
-# Module: EQLite (Decentralized Database)
+# Module: SQLit (Decentralized Database)
 # ARM64 (Graviton) support for cost optimization
 # ============================================================
-module "eqlite" {
-  source = "../../modules/eqlite"
+module "sqlit" {
+  source = "../../modules/sqlit"
 
   environment         = local.environment
   vpc_id              = module.network.vpc_id
@@ -923,14 +923,14 @@ module "eqlite" {
   node_count          = 1
   instance_type       = "t3.medium"      # x86 instance type (fallback)
   arm_instance_type   = "t4g.medium"     # ARM instance type (Graviton)
-  use_arm64           = var.use_arm64_eqlite
+  use_arm64           = var.use_arm64_sqlit
   storage_size_gb     = 100
   key_name            = "jeju-testnet"
   allowed_cidr_blocks = ["10.1.0.0/16"]
   
   # Always use custom ECR image for consistency and ARM64 support
   ecr_registry  = module.ecr.registry_url
-  eqlite_image_tag = "${local.environment}-latest"
+  sqlit_image_tag = "${local.environment}-latest"
 
   depends_on = [module.network, module.ecr]
 }
@@ -962,7 +962,7 @@ module "messaging" {
   private_subnet_ids   = module.network.private_subnet_ids
   public_subnet_ids    = module.network.public_subnet_ids
   eks_cluster_name     = module.eks.cluster_name
-  eqlite_endpoint = module.eqlite.http_endpoint
+  sqlit_endpoint = module.sqlit.http_endpoint
   jeju_rpc_url         = "https://testnet-rpc.${var.domain_name}"
   key_registry_address = var.key_registry_address
   node_registry_address = var.node_registry_address
@@ -974,7 +974,7 @@ module "messaging" {
   acm_certificate_arn  = module.acm.certificate_arn
   tags                 = local.common_tags
 
-  depends_on = [module.eks, module.eqlite, module.kms, module.route53, module.farcaster_hub]
+  depends_on = [module.eks, module.sqlit, module.kms, module.route53, module.farcaster_hub]
 }
 
 # ============================================================

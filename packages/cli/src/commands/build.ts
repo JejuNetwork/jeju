@@ -512,8 +512,8 @@ buildCommand
   })
 
 buildCommand
-  .command('eqlite')
-  .description('Build EQLite multi-arch Docker image')
+  .command('sqlit')
+  .description('Build SQLit multi-arch Docker image')
   .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
   .option('--push', 'Push image to ECR after building')
   .option('--arm-only', 'Build ARM64 only')
@@ -528,11 +528,11 @@ buildCommand
       const rootDir = findMonorepoRoot()
       const scriptPath = join(
         rootDir,
-        'packages/deployment/scripts/build-eqlite.ts',
+        'packages/deployment/scripts/build-sqlit.ts',
       )
 
       if (!existsSync(scriptPath)) {
-        logger.error('Build EQLite script not found')
+        logger.error('Build SQLit script not found')
         return
       }
 

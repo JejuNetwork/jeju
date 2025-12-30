@@ -360,7 +360,7 @@ async function createDeploymentBundle(): Promise<void> {
     dws: {
       regions: ['global'],
       tee: { preferred: true, required: false },
-      database: { type: 'eqlite', migrations: 'migrations/' },
+      database: { type: 'sqlit', migrations: 'migrations/' },
     },
     compatibilityDate: '2025-06-01',
   }

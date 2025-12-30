@@ -7,7 +7,7 @@
  * 2. Managed: Detects existing infrastructure from `jeju test`
  *
  * REQUIRED INFRASTRUCTURE:
- * - Docker services (EQLite, IPFS, Cache, DA)
+ * - Docker services (SQLit, IPFS, Cache, DA)
  * - Localnet (Anvil)
  * - DWS server
  *
@@ -24,7 +24,7 @@ import {
   CORE_PORTS,
   getDWSComputeUrl,
   getDwsApiUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getIpfsApiUrl,
   getLocalhostHost,
   getServiceUrl,
@@ -53,10 +53,10 @@ const DWS_PORT = 4030
 
 // Docker service ports
 const DOCKER_SERVICES = {
-  eqlite: {
-    port: INFRA_PORTS.EQLite.get(),
+  sqlit: {
+    port: INFRA_PORTS.SQLit.get(),
     healthPath: '/health',
-    name: 'EQLite',
+    name: 'SQLit',
   },
   ipfs: {
     port: CORE_PORTS.IPFS_API.DEFAULT,
@@ -227,7 +227,7 @@ async function startDockerServices(rootDir: string): Promise<boolean> {
       'compose',
       'up',
       '-d',
-      'eqlite',
+      'sqlit',
       'ipfs',
       'cache-service',
       'da-server',
@@ -397,9 +397,9 @@ function setEnvVars(status: InfraStatus): void {
   process.env.CDN_URL = `${status.dwsUrl}/cdn`
 
   // Docker service URLs - use config helpers
-  const eqliteUrl = getEQLiteBlockProducerUrl()
-  process.env.EQLITE_URL = eqliteUrl
-  process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT = eqliteUrl
+  const sqlitUrl = getSQLitBlockProducerUrl()
+  process.env.SQLIT_URL = sqlitUrl
+  process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT = sqlitUrl
   const host = getLocalhostHost()
   process.env.IPFS_API_URL = getIpfsApiUrl() || `http://${host}:5001`
   process.env.DA_URL = `http://${host}:4010`

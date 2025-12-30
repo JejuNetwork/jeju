@@ -1,14 +1,14 @@
 /**
  * Secure Database Provisioning for DWS
  *
- * Each app gets its own isolated EQLite database with:
+ * Each app gets its own isolated SQLit database with:
  * - Unique database ID
  * - Owner-based access control
  * - Signed request authentication
  * - ACL enforcement for multi-tenant access
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
@@ -52,22 +52,22 @@ interface SignedRequest {
   signer: Address
 }
 
-// Storage (using EQLite meta-database)
+// Storage (using SQLit meta-database)
 
 const META_DATABASE_ID = 'dws-database-registry'
 
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureMetaTables()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureMetaTables(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS provisioned_databases (
@@ -105,7 +105,7 @@ async function ensureMetaTables(): Promise<void> {
   ]
 
   for (const sql of tables) {
-    await eqliteClient.exec(sql, [], META_DATABASE_ID)
+    await sqlitClient.exec(sql, [], META_DATABASE_ID)
   }
 }
 
@@ -114,7 +114,7 @@ async function ensureMetaTables(): Promise<void> {
 const SIGNATURE_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
 
 /**
- * Verify a signed EQLite request
+ * Verify a signed SQLit request
  */
 export async function verifySignedRequest(
   request: SignedRequest,
@@ -159,7 +159,7 @@ async function checkDatabaseAccess(
   address: Address,
   accessType: 'read' | 'write',
 ): Promise<boolean> {
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
 
   // Check if user is owner
   const ownerResult = await client.query<{ owner: string }>(
@@ -216,7 +216,7 @@ const provisionRequestSchema = z.object({
 /**
  * Provision a new database for an app
  *
- * Note: EQLite databases are created on-demand when first accessed.
+ * Note: SQLit databases are created on-demand when first accessed.
  * This function registers the database for ACL tracking.
  */
 export async function provisionDatabase(params: {
@@ -224,7 +224,7 @@ export async function provisionDatabase(params: {
   owner: Address
   schema?: string
 }): Promise<ProvisionedDatabase> {
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
 
   // Generate unique database ID
   const databaseId = `${params.appName.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`
@@ -290,7 +290,7 @@ export async function grantDatabaseAccess(params: {
   requestedBy: Address
 }): Promise<void> {
   // Verify requester is owner
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
   const ownerResult = await client.query<{ owner: string }>(
     'SELECT owner FROM provisioned_databases WHERE database_id = ?',
     [params.databaseId],
@@ -333,7 +333,7 @@ export async function revokeDatabaseAccess(params: {
   grantee: Address
   requestedBy: Address
 }): Promise<void> {
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
 
   // Verify requester is owner
   const ownerResult = await client.query<{ owner: string }>(
@@ -365,7 +365,7 @@ export async function revokeDatabaseAccess(params: {
 export async function listDatabases(
   owner: Address,
 ): Promise<ProvisionedDatabase[]> {
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
   const result = await client.query<{
     database_id: string
     owner: string

@@ -2,22 +2,22 @@
  * Database Manager Tests
  *
  * Live integration tests for DatabaseManager class.
- * Requires EQLite or mock-eqlite-server to be running.
+ * Requires SQLit or mock-sqlit-server to be running.
  *
- * Set EQLITE_AVAILABLE=true to force running, or tests auto-detect EQLite availability.
+ * Set SQLIT_AVAILABLE=true to force running, or tests auto-detect SQLit availability.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { resetEQLite } from './client.js'
+import { resetSQLit } from './client.js'
 import { DatabaseManager, type DatabaseManagerConfig } from './manager'
 
-// EQLite endpoint
-const EQLITE_ENDPOINT = process.env.EQLITE_ENDPOINT ?? 'http://localhost:4661'
+// SQLit endpoint
+const SQLIT_ENDPOINT = process.env.SQLIT_ENDPOINT ?? 'http://localhost:4661'
 
-// Check if EQLite is reachable
-async function isEQLiteAvailable(): Promise<boolean> {
+// Check if SQLit is reachable
+async function isSQLitAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${EQLITE_ENDPOINT}/v1/status`, {
+    const response = await fetch(`${SQLIT_ENDPOINT}/v1/status`, {
       signal: AbortSignal.timeout(2000),
     })
     return response.ok
@@ -26,12 +26,12 @@ async function isEQLiteAvailable(): Promise<boolean> {
   }
 }
 
-// Auto-detect EQLite availability at test load time
-const EQLITE_RUNNING =
-  process.env.EQLITE_AVAILABLE === 'true' ||
-  (await isEQLiteAvailable().catch(() => false))
+// Auto-detect SQLit availability at test load time
+const SQLIT_RUNNING =
+  process.env.SQLIT_AVAILABLE === 'true' ||
+  (await isSQLitAvailable().catch(() => false))
 
-describe.skipIf(!EQLITE_RUNNING)('DatabaseManager (Live Integration)', () => {
+describe.skipIf(!SQLIT_RUNNING)('DatabaseManager (Live Integration)', () => {
   let manager: DatabaseManager
   const testDbId = `test-manager-${Date.now()}`
 
@@ -46,7 +46,7 @@ describe.skipIf(!EQLITE_RUNNING)('DatabaseManager (Live Integration)', () => {
   }
 
   beforeEach(async () => {
-    await resetEQLite()
+    await resetSQLit()
   })
 
   afterEach(async () => {
@@ -56,7 +56,7 @@ describe.skipIf(!EQLITE_RUNNING)('DatabaseManager (Live Integration)', () => {
   })
 
   it('should start and report healthy status', async () => {
-    const available = await isEQLiteAvailable()
+    const available = await isSQLitAvailable()
     expect(available).toBe(true)
 
     manager = new DatabaseManager(defaultConfig)

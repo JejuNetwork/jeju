@@ -323,8 +323,8 @@ export const CountResponseSchema = z.object({
   count: z.number(),
 })
 
-/** EQLite query rows response schema factory */
-export function createEqliteRowsResponseSchema<T extends z.ZodTypeAny>(
+/** SQLit query rows response schema factory */
+export function createSQLitRowsResponseSchema<T extends z.ZodTypeAny>(
   rowSchema: T,
 ) {
   return z.object({
@@ -332,8 +332,8 @@ export function createEqliteRowsResponseSchema<T extends z.ZodTypeAny>(
   })
 }
 
-/** EQLite query rows response */
-export interface EqliteRowsResponse<T> {
+/** SQLit query rows response */
+export interface SQLitRowsResponse<T> {
   rows?: T[]
 }
 

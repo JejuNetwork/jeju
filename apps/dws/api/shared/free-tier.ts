@@ -9,7 +9,7 @@
  * - Abuse prevention via rate limiting
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { Address } from 'viem'
 
 // ============ Types ============
@@ -197,18 +197,18 @@ export const TIER_LIMITS: Record<TierType, TierLimits> = {
 // ============ Database ============
 
 const FREE_TIER_DATABASE_ID = 'dws-free-tier'
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureFreeTierTables()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureFreeTierTables(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS user_tiers (
@@ -258,14 +258,14 @@ async function ensureFreeTierTables(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], FREE_TIER_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], FREE_TIER_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await eqliteClient.exec(idx, [], FREE_TIER_DATABASE_ID)
+    await sqlitClient.exec(idx, [], FREE_TIER_DATABASE_ID)
   }
 
-  console.log('[FreeTier] EQLite tables ensured')
+  console.log('[FreeTier] SQLit tables ensured')
 }
 
 // ============ Main Service ============
@@ -275,7 +275,7 @@ export class FreeTierService {
    * Get user's tier status
    */
   async getUserStatus(address: Address): Promise<UserTierStatus> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     // Get tier info
     const tierResult = await client.query<{
@@ -499,7 +499,7 @@ export class FreeTierService {
     amount: number,
     metadata?: Record<string, string>,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
     const eventId = `evt-${now}-${Math.random().toString(36).slice(2)}`
 
@@ -572,7 +572,7 @@ export class FreeTierService {
       }
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
     const recordId = `gas-${now}-${Math.random().toString(36).slice(2)}`
 
@@ -648,7 +648,7 @@ export class FreeTierService {
     newTier: TierType,
     paymentTxHash?: string,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -683,7 +683,7 @@ export class FreeTierService {
     address: Address,
     identityType: 'github' | 'google' | 'email',
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -718,7 +718,7 @@ export class FreeTierService {
     limits: TierLimits
     percentUsed: Record<string, number>
   }> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const status = await this.getUserStatus(address)
 
     const startTime = Date.now() - daysBack * 24 * 60 * 60 * 1000
@@ -802,7 +802,7 @@ export class FreeTierService {
   // ============ Internal Methods ============
 
   private async createUser(address: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -821,7 +821,7 @@ export class FreeTierService {
   }
 
   private async resetMonthlyUsage(address: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     // Reset usage metrics (except storage which is cumulative)

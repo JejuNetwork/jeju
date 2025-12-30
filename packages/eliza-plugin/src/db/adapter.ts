@@ -1,7 +1,7 @@
 /**
- * EQLite Database Adapter for ElizaOS
+ * SQLit Database Adapter for ElizaOS
  *
- * Implements IDatabaseAdapter using EQLite as the backend.
+ * Implements IDatabaseAdapter using SQLit as the backend.
  * This is a complete implementation for agent operation on Jeju Network.
  *
  * Features:
@@ -31,10 +31,10 @@ import {
   type UUID,
   type World,
 } from '@elizaos/core'
-import { getEqliteDatabaseId } from '@jejunetwork/config'
+import { getSQLitDatabaseId } from '@jejunetwork/config'
 import {
-  type EQLiteClient,
-  getEQLite,
+  type SQLitClient,
+  getSQLit,
   type QueryParam,
   serializeFloat32Vector,
 } from '@jejunetwork/db'
@@ -42,7 +42,7 @@ import type { JsonRecord, JsonValue } from '@jejunetwork/types'
 import { v4 as uuidv4 } from 'uuid'
 import type { ZodType } from 'zod'
 import { z } from 'zod'
-import { checkMigrationStatus, runEQLiteMigrations } from './migrations'
+import { checkMigrationStatus, runSQLitMigrations } from './migrations'
 
 // Embedding API response schema
 const EmbeddingResponseSchema = z.object({
@@ -50,17 +50,17 @@ const EmbeddingResponseSchema = z.object({
 })
 
 /**
- * EQLite Database Adapter Configuration
+ * SQLit Database Adapter Configuration
  */
-export interface EQLiteAdapterConfig {
+export interface SQLitAdapterConfig {
   databaseId?: string
   autoMigrate?: boolean
 }
 
 /**
- * EQLite Database Adapter for ElizaOS
+ * SQLit Database Adapter for ElizaOS
  */
-export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
+export class SQLitDatabaseAdapter extends DatabaseAdapter<SQLitClient> {
   private databaseId: string
   private autoMigrate: boolean
   private initialized = false
@@ -72,28 +72,28 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     { value: string; expiresAt: number | null }
   >()
 
-  constructor(agentId: UUID, config?: EQLiteAdapterConfig) {
+  constructor(agentId: UUID, config?: SQLitAdapterConfig) {
     super()
     this.agentId = agentId
-    this.databaseId = config?.databaseId ?? getEqliteDatabaseId() ?? 'eliza'
+    this.databaseId = config?.databaseId ?? getSQLitDatabaseId() ?? 'eliza'
     this.autoMigrate = config?.autoMigrate ?? true
     // Set db directly - parent class expects this property
-    this.db = getEQLite()
+    this.db = getSQLit()
   }
 
   async init(): Promise<void> {
     if (this.initialized) return
 
     logger.info(
-      { src: 'eqlite-adapter', agentId: this.agentId },
-      'Initializing EQLite database adapter',
+      { src: 'sqlit-adapter', agentId: this.agentId },
+      'Initializing SQLit database adapter',
     )
 
-    // Check EQLite health
+    // Check SQLit health
     const healthy = await this.db.isHealthy()
     if (!healthy) {
       throw new Error(
-        'EQLite is not healthy. Ensure Jeju services are running: ' +
+        'SQLit is not healthy. Ensure Jeju services are running: ' +
           'cd /path/to/jeju && bun jeju dev',
       )
     }
@@ -102,7 +102,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     if (this.autoMigrate) {
       const migrated = await checkMigrationStatus(this.db, this.databaseId)
       if (!migrated) {
-        await runEQLiteMigrations(this.db, this.databaseId)
+        await runSQLitMigrations(this.db, this.databaseId)
       }
     }
 
@@ -112,11 +112,11 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     this.initialized = true
     logger.info(
       {
-        src: 'eqlite-adapter',
+        src: 'sqlit-adapter',
         agentId: this.agentId,
         vectorSearch: this.vectorSearchEnabled,
       },
-      'EQLite adapter initialized',
+      'SQLit adapter initialized',
     )
   }
 
@@ -132,7 +132,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     this.initialized = false
   }
 
-  async getConnection(): Promise<EQLiteClient> {
+  async getConnection(): Promise<SQLitClient> {
     return this.db
   }
 
@@ -151,13 +151,13 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     if (result?.rows[0]?.version) {
       this.vectorSearchEnabled = true
       logger.info(
-        { src: 'eqlite-adapter', version: result.rows[0].version },
+        { src: 'sqlit-adapter', version: result.rows[0].version },
         'sqlite-vec extension available for vector search',
       )
     } else {
       this.vectorSearchEnabled = false
       logger.warn(
-        { src: 'eqlite-adapter' },
+        { src: 'sqlit-adapter' },
         'sqlite-vec extension not available - vector search will use fallback',
       )
     }
@@ -686,7 +686,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     if (memory.embedding.length !== this.embeddingDimension) {
       logger.warn(
         {
-          src: 'eqlite-adapter',
+          src: 'sqlit-adapter',
           expected: this.embeddingDimension,
           got: memory.embedding.length,
         },
@@ -709,7 +709,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
       ],
     ).catch((error) => {
       logger.warn(
-        { src: 'eqlite-adapter', memoryId, error },
+        { src: 'sqlit-adapter', memoryId, error },
         'Failed to insert embedding into vector table',
       )
     })
@@ -1206,7 +1206,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
       const result = schema.safeParse(parsed)
       if (!result.success) {
         logger.warn(
-          { src: 'eqlite-adapter', key, error: result.error.message },
+          { src: 'sqlit-adapter', key, error: result.error.message },
           'Cache value failed validation',
         )
         return undefined
@@ -1440,7 +1440,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     // Store the expected embedding dimension for validation
     this.embeddingDimension = dimension
     logger.debug(
-      { src: 'eqlite-adapter', dimension },
+      { src: 'sqlit-adapter', dimension },
       'Embedding dimension configured',
     )
   }
@@ -1453,7 +1453,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     query_field_sub_name: string
     query_match_count: number
   }): Promise<{ embedding: number[]; levenshtein_score: number }[]> {
-    // Not supported in EQLite
+    // Not supported in SQLit
     return []
   }
 
@@ -1477,7 +1477,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     }[],
     _options?: { verbose?: boolean; force?: boolean; dryRun?: boolean },
   ): Promise<void> {
-    // Plugin-specific migrations not needed for EQLite
+    // Plugin-specific migrations not needed for SQLit
   }
 
   async getRoomsByWorld(worldId: UUID): Promise<Room[]> {
@@ -1643,7 +1643,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
   async cleanupAgents(): Promise<void> {
     await this.exec('DELETE FROM agents', [])
     logger.info(
-      { src: 'eqlite-adapter', agentId: this.agentId },
+      { src: 'sqlit-adapter', agentId: this.agentId },
       'All agents cleaned up',
     )
   }
@@ -1652,7 +1652,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
 
   async ensureEntityExists(entity: Entity): Promise<boolean> {
     if (!entity.id) {
-      logger.error({ src: 'eqlite-adapter' }, 'Entity ID is required')
+      logger.error({ src: 'sqlit-adapter' }, 'Entity ID is required')
       return false
     }
 
@@ -1970,7 +1970,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
   async generateEmbedding(text: string): Promise<number[]> {
     if (!this.embeddingEndpoint) {
       logger.warn(
-        { src: 'eqlite-adapter' },
+        { src: 'sqlit-adapter' },
         'No embedding endpoint configured, returning empty embedding',
       )
       return []
@@ -1983,7 +1983,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
     })
 
     if (!response.ok) {
-      logger.error({ src: 'eqlite-adapter' }, 'Failed to generate embedding')
+      logger.error({ src: 'sqlit-adapter' }, 'Failed to generate embedding')
       return []
     }
 
@@ -2000,7 +2000,7 @@ export class EQLiteDatabaseAdapter extends DatabaseAdapter<EQLiteClient> {
       threshold?: number
     } = {},
   ): Promise<Memory[]> {
-    // EQLite doesn't have native vector search, so we use a text-based approach
+    // SQLit doesn't have native vector search, so we use a text-based approach
     // For production, integrate with a dedicated vector service
 
     let sql = 'SELECT * FROM memories WHERE embedding IS NOT NULL'

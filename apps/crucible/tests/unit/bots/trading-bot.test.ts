@@ -330,7 +330,7 @@ describe('Default Bots Configuration', () => {
   })
 })
 
-describe('Org Agent EQLite Operations', () => {
+describe('Org Agent SQLit Operations', () => {
   test('should build correct SQL queries', () => {
     // Test query building logic
     const conditions: string[] = ['org_id = ?']

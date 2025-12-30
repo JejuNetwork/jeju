@@ -2,8 +2,8 @@
 FROM karalabe/xgo-latest
 
 RUN $ANDROID_NDK_ROOT/build/tools/make-standalone-toolchain.sh --ndk-dir=$ANDROID_NDK_ROOT --install-dir=/usr/$ANDROID_CHAIN_ARM64 --toolchain=$ANDROID_CHAIN_ARM64 --arch=arm64
-WORKDIR /go/src/github.com/EQLite/EQLite
+WORKDIR /go/src/github.com/SQLit/SQLit
 COPY . .
 RUN make clean
 RUN GOOS=android GOARCH=arm64 CC=aarch64-linux-android-gcc make release
-RUN tar cvfz /EQLite.tar.gz bin/eqlite*
+RUN tar cvfz /SQLit.tar.gz bin/sqlit*

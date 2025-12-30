@@ -51,7 +51,7 @@
       "executor": "http://127.0.0.1:4021",
       "bots": "http://127.0.0.1:4022"
     },
-    "eqlite": {
+    "sqlit": {
       "blockProducer": "http://127.0.0.1:4661",
       "miner": "http://127.0.0.1:4661"
     },
@@ -179,9 +179,9 @@
       "executor": "https://crucible.testnet.jejunetwork.org",
       "bots": "https://crucible.testnet.jejunetwork.org/bots"
     },
-    "eqlite": {
-      "blockProducer": "https://dws.testnet.jejunetwork.org/eqlite",
-      "miner": "https://dws.testnet.jejunetwork.org/eqlite"
+    "sqlit": {
+      "blockProducer": "https://dws.testnet.jejunetwork.org/sqlit",
+      "miner": "https://dws.testnet.jejunetwork.org/sqlit"
     },
     "dws": {
       "api": "https://dws.testnet.jejunetwork.org",
@@ -309,9 +309,9 @@
       "executor": "https://crucible-executor.jejunetwork.org",
       "bots": "https://crucible-bots.jejunetwork.org"
     },
-    "eqlite": {
-      "blockProducer": "https://dws.jejunetwork.org/eqlite",
-      "miner": "https://dws.jejunetwork.org/eqlite"
+    "sqlit": {
+      "blockProducer": "https://dws.jejunetwork.org/sqlit",
+      "miner": "https://dws.jejunetwork.org/sqlit"
     },
     "dws": {
       "api": "https://dws.jejunetwork.org",

@@ -2,7 +2,7 @@
  * Leaderboard API Tests
  *
  * These tests use a mock database implementation for unit testing.
- * For integration tests with real EQLite, run with docker-compose up.
+ * For integration tests with real SQLit, run with docker-compose up.
  */
 
 import { describe, expect, mock, test } from 'bun:test'

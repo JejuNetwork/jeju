@@ -10,7 +10,7 @@ import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
  *
  * Service Types:
  * - inference: AI model inference (LLM, vision, etc.)
- * - database: Decentralized SQL (EQLite/EQLite)
+ * - database: Decentralized SQL (SQLit/SQLit)
  * - training: Model training/fine-tuning
  * - storage: Compute-adjacent storage
  * - custom: User-defined compute services
@@ -35,7 +35,7 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
     }
 
     struct Capability {
-        string model; // Model name or database type (e.g., "gpt-4", "eqlite")
+        string model; // Model name or database type (e.g., "gpt-4", "sqlit")
         uint256 pricePerInputToken; // For inference: per token. For database: per query
         uint256 pricePerOutputToken; // For inference: per token. For database: per result row
         uint256 maxContextLength; // For inference: context. For database: max result size
@@ -95,7 +95,7 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         _registerWithService(name, endpoint, attestationHash, 0, serviceType);
     }
 
-    /// @notice Register as database provider (EQLite/EQLite)
+    /// @notice Register as database provider (SQLit/SQLit)
     function registerDatabaseProvider(string calldata name, string calldata endpoint, bytes32 attestationHash)
         external
         payable
@@ -344,7 +344,7 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         return activeProviders;
     }
 
-    /// @notice Get all database providers (EQLite operators)
+    /// @notice Get all database providers (SQLit operators)
     function getDatabaseProviders() external view returns (address[] memory) {
         return _providersByService[SERVICE_DATABASE];
     }

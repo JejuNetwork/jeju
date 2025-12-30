@@ -3,7 +3,7 @@
  * Unified Test Runner for All Apps and Packages
  *
  * Runs all tests against real localnet with:
- * - Automatic infrastructure startup (Anvil, EQLite, Redis, Postgres)
+ * - Automatic infrastructure startup (Anvil, SQLit, Redis, Postgres)
  * - Contract deployment
  * - All apps started
  * - E2E tests with real wallet interactions
@@ -17,7 +17,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getL2RpcUrl,
   getLocalhostHost,
 } from '@jejunetwork/config'
@@ -54,9 +54,9 @@ const DATABASE_URL =
 const REDIS_URL =
   (typeof process !== 'undefined' ? process.env.REDIS_URL : undefined) ||
   `redis://${host}:6379`
-const EQLITE_URL =
-  (typeof process !== 'undefined' ? process.env.EQLITE_URL : undefined) ||
-  getEQLiteBlockProducerUrl() ||
+const SQLIT_URL =
+  (typeof process !== 'undefined' ? process.env.SQLIT_URL : undefined) ||
+  getSQLitBlockProducerUrl() ||
   `http://${host}:4661`
 
 // Standard test accounts (Anvil defaults)
@@ -241,7 +241,7 @@ async function runBunTests(
         CHAIN_ID,
         DATABASE_URL,
         REDIS_URL,
-        EQLITE_URL,
+        SQLIT_URL,
       })
       .cwd(join(rootDir, 'packages/tests'))
 
@@ -344,7 +344,7 @@ async function runE2ETests(rootDir: string): Promise<TestResult> {
         CHAIN_ID,
         DATABASE_URL,
         REDIS_URL,
-        EQLITE_URL,
+        SQLIT_URL,
         CI: 'true',
       })
       .cwd(join(rootDir, 'packages/tests'))

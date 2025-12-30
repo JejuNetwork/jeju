@@ -6,7 +6,7 @@ Decentralized agent orchestration platform for autonomous AI agents.
 
 Crucible provides **fully decentralized** agent deployment:
 
-- **EQLite Database** - EQLite for decentralized memory persistence
+- **SQLit Database** - SQLit for decentralized memory persistence
 - **DWS Compute** - Decentralized AI inference network
 - **@jejunetwork/eliza-plugin** - 60+ network actions for agents
 
@@ -32,19 +32,19 @@ Crucible provides **fully decentralized** agent deployment:
 │                     Agent Runtime (ElizaOS)                      │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │ Character-based agents + @jejunetwork/eliza-plugin       │   │
-│  │ (60+ network actions + EQLite database adapter)             │   │
+│  │ (60+ network actions + SQLit database adapter)             │   │
 │  └──────────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────────┤
 │                  Decentralized Services                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ EQLite  │  │ DWS Compute  │  │ IPFS Storage         │   │
+│  │ SQLit  │  │ DWS Compute  │  │ IPFS Storage         │   │
 │  │ (Memory/DB)  │  │ (Inference)  │  │                      │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 All AI inference goes through the decentralized DWS compute network.
-All memory persistence uses EQLite - no centralized database dependencies.
+All memory persistence uses SQLit - no centralized database dependencies.
 
 ## Local Development
 

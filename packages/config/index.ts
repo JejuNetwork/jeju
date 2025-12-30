@@ -537,12 +537,12 @@ export function getServicesConfig(
     },
     monitoring: config.monitoring,
     crucible: config.crucible,
-    eqlite: {
+    sqlit: {
       blockProducer:
-        getEnvService('EQLITE_BLOCK_PRODUCER_ENDPOINT') ??
-        getEnvService('EQLITE_URL') ??
-        config.eqlite.blockProducer,
-      miner: getEnvService('EQLITE_MINER_ENDPOINT') ?? config.eqlite.miner,
+        getEnvService('SQLIT_BLOCK_PRODUCER_ENDPOINT') ??
+        getEnvService('SQLIT_URL') ??
+        config.sqlit.blockProducer,
+      miner: getEnvService('SQLIT_MINER_ENDPOINT') ?? config.sqlit.miner,
     },
     dws: {
       api:
@@ -677,16 +677,16 @@ export function getExplorerUrl(network?: NetworkType): string {
   return getServicesConfig(network).explorer
 }
 
-// Decentralized Services (EQLite, DWS, Autocrat)
+// Decentralized Services (SQLit, DWS, Autocrat)
 
-/** Get EQLite block producer URL - for decentralized database */
-export function getEQLiteUrl(network?: NetworkType): string {
-  return getServicesConfig(network).eqlite.blockProducer
+/** Get SQLit block producer URL - for decentralized database */
+export function getSQLitUrl(network?: NetworkType): string {
+  return getServicesConfig(network).sqlit.blockProducer
 }
 
-/** Get EQLite miner URL */
-export function getEQLiteMinerUrl(network?: NetworkType): string {
-  return getServicesConfig(network).eqlite.miner
+/** Get SQLit miner URL */
+export function getSQLitMinerUrl(network?: NetworkType): string {
+  return getServicesConfig(network).sqlit.miner
 }
 
 /** Get DWS (Decentralized Web Services) API URL */
@@ -2179,34 +2179,34 @@ export function getLogLevel(): string {
   return process.env.LOG_LEVEL ?? 'info'
 }
 
-/** Get EQLite KMS key ID for signing */
-export function getEqliteKeyId(): string | undefined {
-  return process.env.EQLITE_KEY_ID
+/** Get SQLit KMS key ID for signing */
+export function getSQLitKeyId(): string | undefined {
+  return process.env.SQLIT_KEY_ID
 }
 
-/** Get EQLite database ID */
-export function getEqliteDatabaseId(): string | undefined {
-  return process.env.EQLITE_DATABASE_ID
+/** Get SQLit database ID */
+export function getSQLitDatabaseId(): string | undefined {
+  return process.env.SQLIT_DATABASE_ID
 }
 
-/** Get EQLite timeout */
-export function getEqliteTimeout(): string | undefined {
-  return process.env.EQLITE_TIMEOUT
+/** Get SQLit timeout */
+export function getSQLitTimeout(): string | undefined {
+  return process.env.SQLIT_TIMEOUT
 }
 
-/** Check if EQLite debug is enabled */
-export function isEqliteDebug(): boolean {
-  return process.env.EQLITE_DEBUG === 'true'
+/** Check if SQLit debug is enabled */
+export function isSQLitDebug(): boolean {
+  return process.env.SQLIT_DEBUG === 'true'
 }
 
-/** Get EQLite port */
-export function getEqlitePort(): number {
-  return parseInt(process.env.EQLITE_PORT ?? process.env.PORT ?? '4400', 10)
+/** Get SQLit port */
+export function getSQLitPort(): number {
+  return parseInt(process.env.SQLIT_PORT ?? process.env.PORT ?? '4400', 10)
 }
 
-/** Get EQLite data directory */
-export function getEqliteDataDir(): string {
-  return process.env.EQLITE_DATA_DIR ?? './.data/eqlite'
+/** Get SQLit data directory */
+export function getSQLitDataDir(): string {
+  return process.env.SQLIT_DATA_DIR ?? './.data/sqlit'
 }
 
 // Auth Configuration

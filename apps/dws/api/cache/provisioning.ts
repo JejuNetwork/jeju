@@ -2,7 +2,7 @@
  * Cache instance provisioning and lifecycle management
  */
 
-import { getEQLite } from '@jejunetwork/db'
+import { getSQLit } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { CacheEngine } from './engine'
@@ -23,7 +23,7 @@ import {
   CacheTier,
 } from './types'
 
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws-cache'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-cache'
 
 const DEFAULT_PLANS: CacheRentalPlan[] = [
   {
@@ -142,14 +142,14 @@ export class CacheProvisioningManager {
   private plans: CacheRentalPlan[] = DEFAULT_PLANS
   private listeners: Set<CacheEventListener> = new Set()
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
-  private eqliteClient: ReturnType<typeof getEQLite> | null = null
+  private sqlitClient: ReturnType<typeof getSQLit> | null = null
   private initialized = false
 
   async initialize(): Promise<void> {
     console.log('[Cache Provisioning] Initializing...')
-    this.eqliteClient = getEQLite()
+    this.sqlitClient = getSQLit()
     await this.ensureTablesExist()
-    await this.loadFromEQLite()
+    await this.loadFromSQLit()
     this.cleanupInterval = setInterval(
       () => this.cleanupExpiredInstances(),
       60000,
@@ -242,7 +242,7 @@ export class CacheProvisioningManager {
 
       this.instances.set(instanceId, instance)
       this.teeProviders.set(instanceId, teeProvider)
-      await this.saveInstanceToEQLite(instance)
+      await this.saveInstanceToSQLit(instance)
 
       this.emit({
         type: CacheEventType.INSTANCE_CREATE,
@@ -279,13 +279,13 @@ export class CacheProvisioningManager {
 
     this.instances.set(instanceId, instance)
     this.engines.set(instanceId, engine)
-    await this.saveInstanceToEQLite(instance)
+    await this.saveInstanceToSQLit(instance)
 
     // Update node usage
     if (node) {
       node.usedMemoryMb += plan.maxMemoryMb
       node.instanceCount++
-      await this.saveNodeToEQLite(node)
+      await this.saveNodeToSQLit(node)
     }
 
     this.emit({
@@ -340,12 +340,12 @@ export class CacheProvisioningManager {
       if (node) {
         node.usedMemoryMb -= instance.maxMemoryMb
         node.instanceCount--
-        await this.saveNodeToEQLite(node)
+        await this.saveNodeToSQLit(node)
       }
     }
 
-    // Remove from EQLite
-    await this.deleteInstanceFromEQLite(instanceId)
+    // Remove from SQLit
+    await this.deleteInstanceFromSQLit(instanceId)
 
     this.instances.delete(instanceId)
 
@@ -377,7 +377,7 @@ export class CacheProvisioningManager {
     }
 
     instance.expiresAt += additionalHours * 60 * 60 * 1000
-    await this.saveInstanceToEQLite(instance)
+    await this.saveInstanceToSQLit(instance)
 
     return instance
   }
@@ -408,7 +408,7 @@ export class CacheProvisioningManager {
     }
 
     this.nodes.set(nodeId, node)
-    await this.saveNodeToEQLite(node)
+    await this.saveNodeToSQLit(node)
 
     this.emit({
       type: CacheEventType.NODE_JOIN,
@@ -439,7 +439,7 @@ export class CacheProvisioningManager {
       })
     }
 
-    await this.saveNodeToEQLite(node)
+    await this.saveNodeToSQLit(node)
     return true
   }
 
@@ -522,7 +522,7 @@ export class CacheProvisioningManager {
     if (stats) {
       instance.usedMemoryMb = stats.usedMemoryBytes / (1024 * 1024)
       instance.keyCount = stats.totalKeys
-      await this.saveInstanceToEQLite(instance)
+      await this.saveInstanceToSQLit(instance)
     }
   }
 
@@ -624,7 +624,7 @@ export class CacheProvisioningManager {
         now - node.lastHeartbeat > offlineThreshold
       ) {
         node.status = 'offline'
-        await this.saveNodeToEQLite(node)
+        await this.saveNodeToSQLit(node)
         this.emit({
           type: CacheEventType.NODE_LEAVE,
           timestamp: now,
@@ -635,10 +635,10 @@ export class CacheProvisioningManager {
   }
 
   private async ensureTablesExist(): Promise<void> {
-    if (!this.eqliteClient) {
-      // Not an error - EQLite is optional for local development
+    if (!this.sqlitClient) {
+      // Not an error - SQLit is optional for local development
       console.log(
-        '[Cache Provisioning] EQLite client not available - running in memory-only mode',
+        '[Cache Provisioning] SQLit client not available - running in memory-only mode',
       )
       return
     }
@@ -682,30 +682,30 @@ export class CacheProvisioningManager {
     ]
 
     for (const ddl of tables) {
-      await this.eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+      await this.sqlitClient.exec(ddl, [], SQLIT_DATABASE_ID)
     }
 
     for (const idx of indexes) {
-      await this.eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
+      await this.sqlitClient.exec(idx, [], SQLIT_DATABASE_ID)
     }
 
-    console.log('[Cache Provisioning] EQLite tables ensured')
+    console.log('[Cache Provisioning] SQLit tables ensured')
   }
 
-  private async loadFromEQLite(): Promise<void> {
-    if (!this.eqliteClient) {
-      // EQLite is optional - nothing to load in memory-only mode
+  private async loadFromSQLit(): Promise<void> {
+    if (!this.sqlitClient) {
+      // SQLit is optional - nothing to load in memory-only mode
       console.log(
-        '[Cache Provisioning] EQLite unavailable - starting with empty state',
+        '[Cache Provisioning] SQLit unavailable - starting with empty state',
       )
       return
     }
 
     // Load instances
-    const instancesResult = await this.eqliteClient.query<CacheInstanceRow>(
+    const instancesResult = await this.sqlitClient.query<CacheInstanceRow>(
       'SELECT * FROM cache_instances WHERE status = ?',
       ['running'],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     // Collect TEE initialization promises to await later
@@ -778,10 +778,10 @@ export class CacheProvisioningManager {
     }
 
     // Load nodes
-    const nodesResult = await this.eqliteClient.query<CacheNodeRow>(
+    const nodesResult = await this.sqlitClient.query<CacheNodeRow>(
       'SELECT * FROM cache_nodes',
       [],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     for (const row of nodesResult.rows) {
@@ -807,16 +807,16 @@ export class CacheProvisioningManager {
     )
   }
 
-  private async saveInstanceToEQLite(instance: CacheInstance): Promise<void> {
-    if (!this.eqliteClient) {
-      // EQLite is optional - log at debug level
+  private async saveInstanceToSQLit(instance: CacheInstance): Promise<void> {
+    if (!this.sqlitClient) {
+      // SQLit is optional - log at debug level
       console.log(
-        `[Cache Provisioning] EQLite unavailable, instance ${instance.id} in memory only`,
+        `[Cache Provisioning] SQLit unavailable, instance ${instance.id} in memory only`,
       )
       return
     }
 
-    await this.eqliteClient.exec(
+    await this.sqlitClient.exec(
       `INSERT INTO cache_instances (id, owner, namespace, tier, max_memory_mb, used_memory_mb, key_count, created_at, expires_at, status, tee_provider, node_id, endpoint)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
@@ -839,36 +839,36 @@ export class CacheProvisioningManager {
         instance.nodeId ?? null,
         instance.endpoint ?? null,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   }
 
-  private async deleteInstanceFromEQLite(instanceId: string): Promise<void> {
-    if (!this.eqliteClient) {
-      // EQLite is optional - log at debug level
+  private async deleteInstanceFromSQLit(instanceId: string): Promise<void> {
+    if (!this.sqlitClient) {
+      // SQLit is optional - log at debug level
       console.log(
-        `[Cache Provisioning] EQLite unavailable, instance ${instanceId} deletion in memory only`,
+        `[Cache Provisioning] SQLit unavailable, instance ${instanceId} deletion in memory only`,
       )
       return
     }
 
-    await this.eqliteClient.exec(
+    await this.sqlitClient.exec(
       'DELETE FROM cache_instances WHERE id = ?',
       [instanceId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   }
 
-  private async saveNodeToEQLite(node: CacheNode): Promise<void> {
-    if (!this.eqliteClient) {
-      // EQLite is optional - log at debug level
+  private async saveNodeToSQLit(node: CacheNode): Promise<void> {
+    if (!this.sqlitClient) {
+      // SQLit is optional - log at debug level
       console.log(
-        `[Cache Provisioning] EQLite unavailable, node ${node.nodeId} in memory only`,
+        `[Cache Provisioning] SQLit unavailable, node ${node.nodeId} in memory only`,
       )
       return
     }
 
-    await this.eqliteClient.exec(
+    await this.sqlitClient.exec(
       `INSERT INTO cache_nodes (node_id, address, endpoint, region, tier, tee_provider, max_memory_mb, used_memory_mb, instance_count, status, last_heartbeat)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(node_id) DO UPDATE SET
@@ -889,7 +889,7 @@ export class CacheProvisioningManager {
         node.status,
         node.lastHeartbeat,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   }
 }

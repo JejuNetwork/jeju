@@ -1,9 +1,9 @@
 import {
-  getEQLiteBlockProducerUrl,
-  getEQLiteUrl,
+  getSQLitBlockProducerUrl,
+  getSQLitUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { expectAddress } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import {
@@ -13,7 +13,7 @@ import {
   type UpdateTodoInput,
 } from '../../lib/schemas'
 
-const DATABASE_ID = process.env.EQLITE_DATABASE_ID || 'todo-experimental'
+const DATABASE_ID = process.env.SQLIT_DATABASE_ID || 'todo-experimental'
 
 const TODOS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS todos (
@@ -35,10 +35,10 @@ const TODOS_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_todos_created ON todos(created_at DESC)',
 ]
 
-let dbClient: EQLiteClient | null = null
+let dbClient: SQLitClient | null = null
 let schemaInitialized = false
 
-async function initializeSchema(client: EQLiteClient): Promise<void> {
+async function initializeSchema(client: SQLitClient): Promise<void> {
   if (schemaInitialized) return
 
   await client.exec(TODOS_SCHEMA, [], DATABASE_ID)
@@ -49,15 +49,15 @@ async function initializeSchema(client: EQLiteClient): Promise<void> {
   console.log('[DB] Schema initialized')
 }
 
-export function getDatabase(): EQLiteClient {
+export function getDatabase(): SQLitClient {
   if (!dbClient) {
-    dbClient = getEQLite({
+    dbClient = getSQLit({
       blockProducerEndpoint:
         (typeof process !== 'undefined'
-          ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+          ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
           : undefined) ||
-        getEQLiteBlockProducerUrl() ||
-        getEQLiteUrl(),
+        getSQLitBlockProducerUrl() ||
+        getSQLitUrl(),
       databaseId: DATABASE_ID,
       timeout: 30000,
       debug: !isProductionEnv(),
@@ -100,7 +100,7 @@ function rowToTodo(row: TodoRow): Todo {
 }
 
 export class TodoRepository {
-  private db: EQLiteClient
+  private db: SQLitClient
 
   constructor() {
     this.db = getDatabase()

@@ -30,7 +30,7 @@ variable "repositories" {
     "indexer-processor",
     "indexer-api",
     "autocrat",
-    "eqlite"
+    "sqlit"
   ]
 }
 

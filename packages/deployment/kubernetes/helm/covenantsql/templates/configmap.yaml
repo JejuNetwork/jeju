@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "eqlite.fullname" . }}-config
+  name: {{ include "sqlit.fullname" . }}-config
   labels:
-    {{- include "eqlite.labels" . | nindent 4 }}
+    {{- include "sqlit.labels" . | nindent 4 }}
 data:
   bp.yaml: |
     # Block Producer Configuration
@@ -86,7 +86,7 @@ data:
     HTTPAddr: "0.0.0.0:{{ .Values.miner.service.httpPort }}"
 
     # Block Producer connection
-    BlockProducerAddr: "{{ include "eqlite.fullname" . }}-bp:{{ .Values.blockProducer.service.clientPort }}"
+    BlockProducerAddr: "{{ include "sqlit.fullname" . }}-bp:{{ .Values.blockProducer.service.clientPort }}"
 
     # Data directories
     DataDir: "/data"
@@ -105,8 +105,8 @@ data:
       SyncWrites: true
       MaxTableSize: 104857600
 
-    # SQLite Extensions
-    SQLiteExtensions:
+    # SQLit Extensions
+    SQLitExtensions:
       VectorSearch:
         Enable: {{ .Values.miner.config.vectorSearchEnabled }}
         ChunkSize: 65536

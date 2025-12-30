@@ -1,5 +1,5 @@
 import { getCurrentNetwork, isProductionEnv } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type {
   Intent,
@@ -25,33 +25,33 @@ const IntentOutputsSchema = z.array(IntentOutputSchema)
 const SupportedChainsSchema = z.array(SupportedChainIdSchema)
 const SupportedTokensSchema = z.record(z.string(), z.array(AddressSchema))
 
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'gateway'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'gateway'
 
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 let cacheClient: CacheClient | null = null
 let initialized = false
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite({
-      databaseId: EQLITE_DATABASE_ID,
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit({
+      databaseId: SQLIT_DATABASE_ID,
       timeout: 30000,
       debug: !isProductionEnv(),
     })
 
-    const healthy = await eqliteClient.isHealthy()
+    const healthy = await sqlitClient.isHealthy()
     if (!healthy) {
       const network = getCurrentNetwork()
       throw new Error(
-        `Gateway requires EQLite for decentralized state (network: ${network}).\n` +
-          'Ensure EQLite is running: docker compose up -d eqlite',
+        `Gateway requires SQLit for decentralized state (network: ${network}).\n` +
+          'Ensure SQLit is running: docker compose up -d sqlit',
       )
     }
 
     await ensureTablesExist()
   }
 
-  return eqliteClient
+  return sqlitClient
 }
 
 function getCache(): CacheClient {
@@ -62,7 +62,7 @@ function getCache(): CacheClient {
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS intents (
@@ -164,14 +164,14 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], SQLIT_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(idx, [], SQLIT_DATABASE_ID)
   }
 
-  console.log('[Gateway State] EQLite tables ensured')
+  console.log('[Gateway State] SQLit tables ensured')
 }
 
 interface IntentRow {
@@ -350,7 +350,7 @@ export const intentState = {
   async save(intent: Intent): Promise<void> {
     const row = intentToRow(intent)
     const cache = getCache()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `INSERT INTO intents (intent_id, user_address, nonce, source_chain_id, open_deadline, fill_deadline,
@@ -376,7 +376,7 @@ export const intentState = {
         row.filled_at,
         row.cancelled_at,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`intent:${row.intent_id}`)
@@ -390,11 +390,11 @@ export const intentState = {
       if (parsed.success) return parsed.data as Intent
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<IntentRow>(
       'SELECT * FROM intents WHERE intent_id = ?',
       [intentId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     const row = result.rows[0]
     if (row) {
@@ -412,7 +412,7 @@ export const intentState = {
     sourceChain?: number
     limit?: number
   }): Promise<Intent[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const conditions: string[] = []
     const values: Array<string | number> = []
 
@@ -437,7 +437,7 @@ export const intentState = {
     const result = await client.query<IntentRow>(
       `SELECT * FROM intents ${where} ORDER BY created_at DESC LIMIT ?`,
       values,
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     return result.rows.map(rowToIntent)
@@ -454,7 +454,7 @@ export const intentState = {
     },
   ): Promise<void> {
     const cache = getCache()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const sets = ['status = ?']
     const values: Array<string | number | null> = [status]
@@ -481,21 +481,21 @@ export const intentState = {
     await client.exec(
       `UPDATE intents SET ${sets.join(', ')} WHERE intent_id = ?`,
       values,
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`intent:${intentId}`)
   },
 
   async count(params?: { status?: string }): Promise<number> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const where = params?.status ? 'WHERE status = ?' : ''
     const values = params?.status ? [params.status] : []
 
     const result = await client.query<{ count: number }>(
       `SELECT COUNT(*) as count FROM intents ${where}`,
       values,
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     return result.rows[0].count ?? 0
@@ -506,7 +506,7 @@ export const solverState = {
   async save(solver: Solver): Promise<void> {
     const row = solverToRow(solver)
     const cache = getCache()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `INSERT INTO solvers (address, name, endpoint, supported_chains, supported_tokens,
@@ -538,7 +538,7 @@ export const solverState = {
         row.registered_at,
         row.last_active_at,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`solver:${row.address}`)
@@ -553,11 +553,11 @@ export const solverState = {
       if (parsed.success) return parsed.data as Solver
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<SolverRow>(
       'SELECT * FROM solvers WHERE address = ?',
       [addr],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     const row = result.rows[0]
     if (row) {
@@ -573,7 +573,7 @@ export const solverState = {
     status?: string
     minReputation?: number
   }): Promise<Solver[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const conditions: string[] = []
     const values: Array<string | number> = []
 
@@ -592,7 +592,7 @@ export const solverState = {
     const result = await client.query<SolverRow>(
       `SELECT * FROM solvers ${where} ORDER BY reputation DESC LIMIT 100`,
       values,
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     return result.rows.map(rowToSolver)
@@ -601,7 +601,7 @@ export const solverState = {
 
 export const routeState = {
   async save(routeId: string, stats: Partial<IntentRoute>): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -632,17 +632,17 @@ export const routeState = {
         stats.isActive ? 1 : 0,
         now,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async incrementVolume(routeId: string, amount: bigint): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<{ total_volume: string }>(
       'SELECT total_volume FROM route_stats WHERE route_id = ?',
       [routeId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     const current = BigInt(result.rows[0].total_volume ?? '0')
@@ -651,7 +651,7 @@ export const routeState = {
     await client.exec(
       'UPDATE route_stats SET total_volume = ?, total_intents = total_intents + 1, last_updated = ? WHERE route_id = ?',
       [newTotal, Date.now(), routeId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 }
@@ -663,11 +663,11 @@ export const x402State = {
     const cached = await cache.get(`credits:${addr}`)
     if (cached) return BigInt(cached)
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<{ address: string; balance: string }>(
       'SELECT balance FROM x402_credits WHERE address = ?',
       [addr],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     const balance = result.rows[0].balance ?? '0'
     await cache.set(`credits:${addr}`, balance, 300)
@@ -677,7 +677,7 @@ export const x402State = {
   async addCredits(address: string, amount: bigint): Promise<void> {
     const addr = address.toLowerCase()
     const cache = getCache()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `INSERT INTO x402_credits (address, balance, updated_at)
@@ -685,7 +685,7 @@ export const x402State = {
        ON CONFLICT(address) DO UPDATE SET
        balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?`,
       [addr, amount.toString(), Date.now(), amount.toString(), Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`credits:${addr}`)
@@ -697,13 +697,13 @@ export const x402State = {
     if (current < amount) return false
 
     const cache = getCache()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `UPDATE x402_credits SET balance = CAST(CAST(balance AS INTEGER) - ? AS TEXT), updated_at = ?
        WHERE address = ?`,
       [amount.toString(), Date.now(), addr],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`credits:${addr}`)
@@ -711,21 +711,21 @@ export const x402State = {
   },
 
   async isNonceUsed(nonce: string): Promise<boolean> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<{ nonce: string }>(
       'SELECT nonce FROM x402_nonces WHERE nonce = ?',
       [nonce],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows.length > 0
   },
 
   async markNonceUsed(nonce: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       'INSERT INTO x402_nonces (nonce, used_at) VALUES (?, ?) ON CONFLICT DO NOTHING',
       [nonce, Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 }
@@ -763,7 +763,7 @@ export const apiKeyState = {
       is_active: 1,
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO api_keys (id, key_hash, address, name, tier, created_at, last_used_at, request_count, is_active)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -778,56 +778,56 @@ export const apiKeyState = {
         row.request_count,
         row.is_active,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async getByHash(keyHash: string): Promise<ApiKeyRow | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<ApiKeyRow>(
       'SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1',
       [keyHash],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async getById(id: string): Promise<ApiKeyRow | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<ApiKeyRow>(
       'SELECT * FROM api_keys WHERE id = ?',
       [id],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows[0] ?? null
   },
 
   async listByAddress(address: string): Promise<ApiKeyRow[]> {
     const addr = address.toLowerCase()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<ApiKeyRow>(
       'SELECT * FROM api_keys WHERE address = ? ORDER BY created_at DESC',
       [addr],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows
   },
 
   async recordUsage(keyHash: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       'UPDATE api_keys SET last_used_at = ?, request_count = request_count + 1 WHERE key_hash = ?',
       [Date.now(), keyHash],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async revoke(id: string): Promise<boolean> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.exec(
       'UPDATE api_keys SET is_active = 0 WHERE id = ?',
       [id],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rowsAffected > 0
   },
@@ -840,11 +840,11 @@ export const faucetState = {
     const cached = await cache.get(`faucet:${addr}`)
     if (cached) return parseInt(cached, 10)
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<{ address: string; last_claim: number }>(
       'SELECT last_claim FROM faucet_claims WHERE address = ?',
       [addr],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     if (result.rows[0]) {
       await cache.set(
@@ -862,14 +862,14 @@ export const faucetState = {
     const addr = address.toLowerCase()
     const now = Date.now()
     const cache = getCache()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `INSERT INTO faucet_claims (address, last_claim, total_claims)
        VALUES (?, ?, 1)
        ON CONFLICT(address) DO UPDATE SET last_claim = ?, total_claims = total_claims + 1`,
       [addr, now, now],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.set(`faucet:${addr}`, now.toString(), 3600)
@@ -878,11 +878,11 @@ export const faucetState = {
 
 export async function initializeState(): Promise<void> {
   if (initialized) return
-  await getEQLiteClient()
+  await getSQLitClient()
   initialized = true
-  console.log('[Gateway State] Initialized with EQLite')
+  console.log('[Gateway State] Initialized with SQLit')
 }
 
-export function getStateMode(): 'eqlite' {
-  return 'eqlite'
+export function getStateMode(): 'sqlit' {
+  return 'sqlit'
 }

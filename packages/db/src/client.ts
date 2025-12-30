@@ -1,18 +1,18 @@
 /**
- * EQLite Client with circuit breaker pattern
+ * SQLit Client with circuit breaker pattern
  *
  * Automatically uses network-aware configuration from @jejunetwork/config.
  * No env vars required - just set JEJU_NETWORK=localnet|testnet|mainnet.
  */
 
 import {
-  getEQLiteMinerUrl,
-  getEQLiteUrl,
-  getEqliteDatabaseId,
-  getEqliteKeyId,
-  getEqliteTimeout,
+  getSQLitMinerUrl,
+  getSQLitUrl,
+  getSQLitDatabaseId,
+  getSQLitKeyId,
+  getSQLitTimeout,
   getLogLevel,
-  isEqliteDebug,
+  isSQLitDebug,
 } from '@jejunetwork/config'
 import { createPool, type Pool } from 'generic-pool'
 import pino from 'pino'
@@ -25,10 +25,10 @@ import type {
   CreateRentalRequest,
   DatabaseConfig,
   DatabaseInfo,
-  EQLiteConfig,
-  EQLiteConnection,
-  EQLiteConnectionPool,
-  EQLiteTransaction,
+  SQLitConfig,
+  SQLitConnection,
+  SQLitConnectionPool,
+  SQLitTransaction,
   ExecResult,
   GrantRequest,
   QueryParam,
@@ -201,7 +201,7 @@ const BlockProducerInfoSchema = z
   })
   .passthrough()
 
-const EQLiteConfigSchema = z
+const SQLitConfigSchema = z
   .object({
     blockProducerEndpoint: z.string().url(),
     minerEndpoint: z.string().url().optional(),
@@ -217,7 +217,7 @@ const EQLiteConfigSchema = z
   .strict()
 
 const log = pino({
-  name: 'eqlite',
+  name: 'sqlit',
   level: getLogLevel(),
 })
 
@@ -329,7 +329,7 @@ async function requestVoid(url: string, options?: RequestInit): Promise<void> {
   })
 }
 
-class EQLiteConnectionImpl implements EQLiteConnection {
+class SQLitConnectionImpl implements SQLitConnection {
   id: string
   databaseId: string
   active = true
@@ -337,7 +337,7 @@ class EQLiteConnectionImpl implements EQLiteConnection {
   private timeout: number
   private debug: boolean
 
-  constructor(id: string, databaseId: string, config: EQLiteConfig) {
+  constructor(id: string, databaseId: string, config: SQLitConfig) {
     this.id = id
     this.databaseId = databaseId
     this.endpoint = config.minerEndpoint ?? config.blockProducerEndpoint
@@ -353,10 +353,10 @@ class EQLiteConnectionImpl implements EQLiteConnection {
     return this.execute('exec', sql, params) as Promise<ExecResult>
   }
 
-  async beginTransaction(): Promise<EQLiteTransaction> {
+  async beginTransaction(): Promise<SQLitTransaction> {
     const txId = `tx-${crypto.randomUUID()}`
     await this.exec('BEGIN TRANSACTION')
-    return new EQLiteTransactionImpl(txId, this)
+    return new SQLitTransactionImpl(txId, this)
   }
 
   async close(): Promise<void> {
@@ -397,19 +397,19 @@ class EQLiteConnectionImpl implements EQLiteConnection {
       const errorText = await response.text()
       if (this.debug)
         console.error(
-          `[EQLite] ${type} error: ${response.status} - ${errorText}`,
+          `[SQLit] ${type} error: ${response.status} - ${errorText}`,
         )
-      throw new Error(`EQLite ${type} failed: ${response.status}`)
+      throw new Error(`SQLit ${type} failed: ${response.status}`)
     }
 
     const rawResult: unknown = await response.json()
     const executionTime = Date.now() - startTime
     if (this.debug)
       console.log(
-        `[EQLite] ${type}: executed (${executionTime}ms, params: ${params?.length ?? 0})`,
+        `[SQLit] ${type}: executed (${executionTime}ms, params: ${params?.length ?? 0})`,
       )
 
-    // EQLite returns HTTP 200 with success: false for errors
+    // SQLit returns HTTP 200 with success: false for errors
     if (
       typeof rawResult === 'object' &&
       rawResult !== null &&
@@ -418,7 +418,7 @@ class EQLiteConnectionImpl implements EQLiteConnection {
     ) {
       const errorMsg =
         'error' in rawResult ? String(rawResult.error) : 'Unknown error'
-      throw new Error(`EQLite ${type} failed: ${errorMsg}`)
+      throw new Error(`SQLit ${type} failed: ${errorMsg}`)
     }
 
     if (type === 'query') {
@@ -434,7 +434,7 @@ class EQLiteConnectionImpl implements EQLiteConnection {
       const parseResult = QueryResponseSchema.safeParse(responseData)
       if (!parseResult.success && this.debug) {
         console.error(
-          `[EQLite] Query response validation failed:`,
+          `[SQLit] Query response validation failed:`,
           parseResult.error.issues,
           `\nRaw response:`,
           JSON.stringify(rawResult).slice(0, 500),
@@ -471,12 +471,12 @@ class EQLiteConnectionImpl implements EQLiteConnection {
   }
 }
 
-class EQLiteTransactionImpl implements EQLiteTransaction {
+class SQLitTransactionImpl implements SQLitTransaction {
   id: string
-  private conn: EQLiteConnectionImpl
+  private conn: SQLitConnectionImpl
   private done = false
 
-  constructor(id: string, conn: EQLiteConnectionImpl) {
+  constructor(id: string, conn: SQLitConnectionImpl) {
     this.id = id
     this.conn = conn
   }
@@ -504,15 +504,15 @@ class EQLiteTransactionImpl implements EQLiteTransaction {
   }
 }
 
-class EQLiteConnectionPoolImpl implements EQLiteConnectionPool {
-  private pool: Pool<EQLiteConnectionImpl>
+class SQLitConnectionPoolImpl implements SQLitConnectionPool {
+  private pool: Pool<SQLitConnectionImpl>
 
-  constructor(config: EQLiteConfig, dbId: string, maxSize = 10) {
-    this.pool = createPool<EQLiteConnectionImpl>(
+  constructor(config: SQLitConfig, dbId: string, maxSize = 10) {
+    this.pool = createPool<SQLitConnectionImpl>(
       {
         create: async () => {
           const id = `conn-${crypto.randomUUID()}`
-          return new EQLiteConnectionImpl(id, dbId, config)
+          return new SQLitConnectionImpl(id, dbId, config)
         },
         destroy: async (conn) => {
           await conn.close()
@@ -528,14 +528,14 @@ class EQLiteConnectionPoolImpl implements EQLiteConnectionPool {
     )
   }
 
-  async acquire(): Promise<EQLiteConnection> {
+  async acquire(): Promise<SQLitConnection> {
     const conn = await this.pool.acquire()
     conn.active = true
     return conn
   }
 
-  release(conn: EQLiteConnection): void {
-    const impl = conn as EQLiteConnectionImpl
+  release(conn: SQLitConnection): void {
+    const impl = conn as SQLitConnectionImpl
     impl.active = false
     this.pool.release(impl)
   }
@@ -554,27 +554,27 @@ class EQLiteConnectionPoolImpl implements EQLiteConnectionPool {
   }
 }
 
-export class EQLiteClient {
-  private config: EQLiteConfig
-  private pools = new Map<string, EQLiteConnectionPool>()
+export class SQLitClient {
+  private config: SQLitConfig
+  private pools = new Map<string, SQLitConnectionPool>()
   private get endpoint() {
     return this.config.blockProducerEndpoint
   }
 
-  constructor(config: EQLiteConfig) {
+  constructor(config: SQLitConfig) {
     this.config = config
   }
 
-  getPool(dbId: string): EQLiteConnectionPool {
+  getPool(dbId: string): SQLitConnectionPool {
     let pool = this.pools.get(dbId)
     if (!pool) {
-      pool = new EQLiteConnectionPoolImpl(this.config, dbId)
+      pool = new SQLitConnectionPoolImpl(this.config, dbId)
       this.pools.set(dbId, pool)
     }
     return pool
   }
 
-  async connect(dbId?: string): Promise<EQLiteConnection> {
+  async connect(dbId?: string): Promise<SQLitConnection> {
     const id = dbId ?? this.config.databaseId
     if (!id) throw new Error('Database ID required')
     return this.getPool(id).acquire()
@@ -746,7 +746,7 @@ export class EQLiteClient {
    *
    * @example
    * ```typescript
-   * await eqlite.createVectorIndex({
+   * await sqlit.createVectorIndex({
    *   tableName: 'embeddings',
    *   dimensions: 384,
    *   metadataColumns: [
@@ -769,7 +769,7 @@ export class EQLiteClient {
    *
    * @example
    * ```typescript
-   * await eqlite.insertVector({
+   * await sqlit.insertVector({
    *   tableName: 'embeddings',
    *   vector: [0.1, 0.2, 0.3, ...], // 384 dimensions
    *   metadata: { title: 'My Document', source: 'wiki' }
@@ -819,7 +819,7 @@ export class EQLiteClient {
    *
    * @example
    * ```typescript
-   * await eqlite.insertVectorBatch({
+   * await sqlit.insertVectorBatch({
    *   tableName: 'embeddings',
    *   vectors: [
    *     { vector: [...], metadata: { title: 'Doc 1' } },
@@ -856,7 +856,7 @@ export class EQLiteClient {
    *
    * @example
    * ```typescript
-   * const results = await eqlite.searchVectors({
+   * const results = await sqlit.searchVectors({
    *   tableName: 'embeddings',
    *   vector: queryEmbedding,
    *   k: 10,
@@ -943,7 +943,7 @@ WHERE embedding MATCH ?
    *
    * @example
    * ```typescript
-   * await eqlite.deleteVectors('embeddings', [1, 2, 3], 'db-id')
+   * await sqlit.deleteVectors('embeddings', [1, 2, 3], 'db-id')
    * ```
    */
   async deleteVectors(
@@ -1002,62 +1002,62 @@ WHERE embedding MATCH ?
   }
 }
 
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
 const DEFAULT_TIMEOUT = 30000
 
 /**
- * Get a EQLite client with automatic network-aware configuration.
+ * Get a SQLit client with automatic network-aware configuration.
  * Configuration is resolved in this order:
  * 1. Explicit config parameter
  * 2. Environment variable override
  * 3. Network-based config from services.json (based on JEJU_NETWORK)
  */
-export function getEQLite(config?: Partial<EQLiteConfig>): EQLiteClient {
-  if (!eqliteClient) {
+export function getSQLit(config?: Partial<SQLitConfig>): SQLitClient {
+  if (!sqlitClient) {
     const blockProducerEndpoint =
-      config?.blockProducerEndpoint ?? getEQLiteUrl()
-    const minerEndpoint = config?.minerEndpoint ?? getEQLiteMinerUrl()
+      config?.blockProducerEndpoint ?? getSQLitUrl()
+    const minerEndpoint = config?.minerEndpoint ?? getSQLitMinerUrl()
 
     if (!blockProducerEndpoint) {
       throw new Error(
-        'EQLite blockProducerEndpoint is required. Set via config, EQLITE_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.',
+        'SQLit blockProducerEndpoint is required. Set via config, SQLIT_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.',
       )
     }
 
     // Support either KMS keyId (production) or privateKey (local development)
-    const keyId = config?.keyId ?? getEqliteKeyId()
+    const keyId = config?.keyId ?? getSQLitKeyId()
     const privateKey =
       config?.privateKey ??
-      (process.env.EQLITE_PRIVATE_KEY as `0x${string}` | undefined)
+      (process.env.SQLIT_PRIVATE_KEY as `0x${string}` | undefined)
 
     if (!keyId && !privateKey) {
       throw new Error(
-        'EQLite requires either keyId (for KMS) or privateKey (for local dev). Set via config, EQLITE_KEY_ID, or EQLITE_PRIVATE_KEY env var.',
+        'SQLit requires either keyId (for KMS) or privateKey (for local dev). Set via config, SQLIT_KEY_ID, or SQLIT_PRIVATE_KEY env var.',
       )
     }
 
-    const resolvedConfig: EQLiteConfig = {
+    const resolvedConfig: SQLitConfig = {
       blockProducerEndpoint,
       minerEndpoint,
       keyId,
       privateKey,
-      databaseId: config?.databaseId ?? getEqliteDatabaseId(),
+      databaseId: config?.databaseId ?? getSQLitDatabaseId(),
       timeout:
-        config?.timeout ?? parseTimeout(getEqliteTimeout(), DEFAULT_TIMEOUT),
-      debug: config?.debug ?? isEqliteDebug(),
+        config?.timeout ?? parseTimeout(getSQLitTimeout(), DEFAULT_TIMEOUT),
+      debug: config?.debug ?? isSQLitDebug(),
     }
 
-    const validated = EQLiteConfigSchema.parse(resolvedConfig)
+    const validated = SQLitConfigSchema.parse(resolvedConfig)
 
-    eqliteClient = new EQLiteClient(validated as EQLiteConfig)
+    sqlitClient = new SQLitClient(validated as SQLitConfig)
   }
-  return eqliteClient
+  return sqlitClient
 }
 
-export async function resetEQLite(): Promise<void> {
-  if (eqliteClient) {
-    await eqliteClient.close()
-    eqliteClient = null
+export async function resetSQLit(): Promise<void> {
+  if (sqlitClient) {
+    await sqlitClient.close()
+    sqlitClient = null
   }
 }

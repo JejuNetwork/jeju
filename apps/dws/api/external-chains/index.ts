@@ -268,7 +268,7 @@ export class ExternalRPCNodeService {
     await this.waitForNodeReady(node)
     this.startHeartbeat(node)
 
-    // Persist to EQLite
+    // Persist to SQLit
     await this.saveNodeState(node)
 
     return node
@@ -336,7 +336,7 @@ export class ExternalRPCNodeService {
     await this.waitForDWSNodeReady(node, dwsEndpoint)
     this.startHeartbeat(node)
 
-    // Persist to EQLite
+    // Persist to SQLit
     await this.saveNodeState(node)
 
     return node
@@ -597,7 +597,7 @@ export class ExternalRPCNodeService {
         console.warn(`[ExternalRPCNodes] ${node.chain} became unhealthy`)
       }
 
-      // Persist heartbeat to EQLite
+      // Persist heartbeat to SQLit
       await this.saveNodeState(node)
     }, 30_000)
 
@@ -688,7 +688,7 @@ export class ExternalRPCNodeService {
   }
 
   /**
-   * Load node state from persistent storage (EQLite)
+   * Load node state from persistent storage (SQLit)
    */
   private async loadNodeState(): Promise<void> {
     if (getStateMode() === 'memory') {
@@ -700,7 +700,7 @@ export class ExternalRPCNodeService {
 
     try {
       const rows = await externalChainNodeState.listAll()
-      console.log(`[ExternalRPCNodes] Loading ${rows.length} nodes from EQLite`)
+      console.log(`[ExternalRPCNodes] Loading ${rows.length} nodes from SQLit`)
 
       for (const row of rows) {
         const node: ExternalChainNode = {
@@ -741,7 +741,7 @@ export class ExternalRPCNodeService {
   }
 
   /**
-   * Save node state to persistent storage (EQLite)
+   * Save node state to persistent storage (SQLit)
    */
   private async saveNodeState(node: ExternalChainNode): Promise<void> {
     if (getStateMode() === 'memory') return

@@ -27,7 +27,7 @@ export {
   type DatabaseEngine,
   type DatabaseInstance,
   type DatabasePlan,
-  type EQLiteConnection,
+  type SQLitConnection,
   getManagedDatabaseService,
   ManagedDatabaseService,
   type PostgresConnection,

@@ -690,7 +690,7 @@ export const ilike = (
   pattern: string,
 ): SQLChunk => {
   const colName = typeof column === 'string' ? column : column.name
-  // SQLite doesn't have ILIKE, use LOWER()
+  // SQLit doesn't have ILIKE, use LOWER()
   return { sql: `LOWER(${colName}) LIKE LOWER(?)`, params: [pattern] }
 }
 

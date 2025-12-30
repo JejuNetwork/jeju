@@ -1,5 +1,5 @@
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite, type QueryParam } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit, type QueryParam } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
@@ -7,7 +7,7 @@ import type { AutocratVote, StoredObject } from '../lib'
 
 import { config } from './config'
 
-const EQLITE_DATABASE_ID = config.eqliteDatabaseId
+const SQLIT_DATABASE_ID = config.sqlitDatabaseId
 
 const ProposalStatusSchema = z.enum([
   'draft',
@@ -130,32 +130,32 @@ export interface ModerationFlag {
   createdAt: number
 }
 
-// EQLite Client
-let eqliteClient: EQLiteClient | null = null
+// SQLit Client
+let sqlitClient: SQLitClient | null = null
 let cacheClient: CacheClient | null = null
 let initialized = false
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    // EQLite URL is automatically resolved from network config
-    eqliteClient = getEQLite({
-      databaseId: EQLITE_DATABASE_ID,
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    // SQLit URL is automatically resolved from network config
+    sqlitClient = getSQLit({
+      databaseId: SQLIT_DATABASE_ID,
       timeout: 30000,
       debug: !config.isProduction,
     })
 
-    const healthy = await eqliteClient.isHealthy()
+    const healthy = await sqlitClient.isHealthy()
     if (!healthy) {
       const network = getCurrentNetwork()
       throw new Error(
-        `Autocrat requires EQLite for decentralized state (network: ${network}).\n` +
-          'Ensure EQLite is running: docker compose up -d eqlite',
+        `Autocrat requires SQLit for decentralized state (network: ${network}).\n` +
+          'Ensure SQLit is running: docker compose up -d sqlit',
       )
     }
 
     await ensureTablesExist()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 function getCache(): CacheClient {
@@ -238,20 +238,20 @@ async function ensureTablesExist(): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_storage_type ON storage_objects(object_type)`,
   ]
 
-  const client = eqliteClient ?? (await getEQLiteClient())
+  const client = sqlitClient ?? (await getSQLitClient())
   for (const ddl of tables) {
-    await client.exec(ddl, [], EQLITE_DATABASE_ID)
+    await client.exec(ddl, [], SQLIT_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await client.exec(idx, [], EQLITE_DATABASE_ID)
+    await client.exec(idx, [], SQLIT_DATABASE_ID)
   }
 }
 
 // Proposal operations
 export const proposalState = {
   async create(proposal: Proposal): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO proposals (id, title, description, author, status, quality_score, council_votes, futarchy_market_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -267,7 +267,7 @@ export const proposalState = {
         proposal.createdAt,
         proposal.updatedAt,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     // Invalidate cache
     await getCache().delete(`proposal:${proposal.id}`)
@@ -282,11 +282,11 @@ export const proposalState = {
       return ProposalSchema.parse(parsed)
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<ProposalRow>(
       `SELECT * FROM proposals WHERE id = ?`,
       [id],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     const row = result.rows[0]
     if (row) {
@@ -313,7 +313,7 @@ export const proposalState = {
   },
 
   async update(id: string, updates: Partial<Proposal>): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const sets: string[] = ['updated_at = ?']
     const params: QueryParam[] = [Date.now()]
 
@@ -346,20 +346,20 @@ export const proposalState = {
     await client.exec(
       `UPDATE proposals SET ${sets.join(', ')} WHERE id = ?`,
       params,
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     // Invalidate cache
     await getCache().delete(`proposal:${id}`)
   },
 
   async list(status?: ProposalStatus, limit = 50): Promise<Proposal[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const where = status ? 'WHERE status = ?' : ''
     const params = status ? [status, limit] : [limit]
     const result = await client.query<ProposalRow>(
       `SELECT * FROM proposals ${where} ORDER BY created_at DESC LIMIT ?`,
       params,
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows.map((row) => ({
       id: row.id,
@@ -381,7 +381,7 @@ export const proposalState = {
 // Research operations
 export const researchState = {
   async save(result: ResearchResult): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO research_results (id, proposal_id, topic, summary, sources, confidence, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -394,16 +394,16 @@ export const researchState = {
         result.confidence,
         result.createdAt,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async getByProposal(proposalId: string): Promise<ResearchResult[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<ResearchResultRow>(
       `SELECT * FROM research_results WHERE proposal_id = ? ORDER BY created_at DESC`,
       [proposalId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows.map((row) => ({
       id: row.id,
@@ -420,7 +420,7 @@ export const researchState = {
 // Moderation operations
 export const moderationState = {
   async flag(flag: ModerationFlag): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO moderation_flags (id, target_id, target_type, flag_type, reason, reporter_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -433,16 +433,16 @@ export const moderationState = {
         flag.reporterId,
         flag.createdAt,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async getFlags(targetId: string): Promise<ModerationFlag[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<ModerationFlagRow>(
       `SELECT * FROM moderation_flags WHERE target_id = ?`,
       [targetId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows.map((row) => ({
       id: row.id,
@@ -459,7 +459,7 @@ export const moderationState = {
 // Autocrat vote operations (individual council member votes on proposals)
 export const autocratVoteState = {
   async save(proposalId: string, vote: AutocratVote): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const id = `${proposalId}-${vote.role}-${vote.timestamp}`
     await client.exec(
       `INSERT INTO autocrat_votes (id, proposal_id, role, vote, reasoning, confidence, created_at)
@@ -473,16 +473,16 @@ export const autocratVoteState = {
         vote.confidence,
         vote.timestamp,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async getByProposal(proposalId: string): Promise<AutocratVote[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<AutocratVoteRow>(
       `SELECT * FROM autocrat_votes WHERE proposal_id = ? ORDER BY created_at ASC`,
       [proposalId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return result.rows.map((row) => ({
       role: row.role,
@@ -510,13 +510,13 @@ export const proposalIndexState = {
     description: string,
     proposalType: number,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO proposal_content_index (content_hash, title, description, proposal_type, created_at)
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(content_hash) DO NOTHING`,
       [contentHash, title, description, proposalType, Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
@@ -526,13 +526,13 @@ export const proposalIndexState = {
   ): Promise<
     Array<{ contentHash: string; title: string; similarity: number }>
   > {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<
       Pick<ProposalContentIndexRow, 'content_hash' | 'title'>
     >(
       `SELECT content_hash, title FROM proposal_content_index`,
       [],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     const words = new Set(
@@ -570,11 +570,11 @@ export const proposalIndexState = {
   },
 
   async getAll(): Promise<Map<string, ProposalContent>> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<ProposalContentIndexRow>(
       `SELECT * FROM proposal_content_index`,
       [],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     const map = new Map<string, ProposalContent>()
     for (const row of result.rows) {
@@ -694,7 +694,7 @@ export const storageState = {
     const content = JSON.stringify(data)
     const hash = keccak256(stringToHex(content)).slice(2, 50)
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const objectType = data.type
 
     await client.exec(
@@ -702,7 +702,7 @@ export const storageState = {
        VALUES (?, ?, ?, ?)
        ON CONFLICT(hash) DO NOTHING`,
       [hash, content, objectType, Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     // Also cache for fast retrieval
@@ -719,11 +719,11 @@ export const storageState = {
       return StoredObjectSchema.parse(JSON.parse(cached))
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<Pick<StorageObjectRow, 'content'>>(
       `SELECT content FROM storage_objects WHERE hash = ?`,
       [hash],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     if (result.rows[0]) {
@@ -738,7 +738,7 @@ export const storageState = {
     objectType: string,
     proposalId?: string,
   ): Promise<StoredObject | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     let query = 'SELECT content FROM storage_objects WHERE object_type = ?'
     const params: QueryParam[] = [objectType]
 
@@ -750,10 +750,10 @@ export const storageState = {
     const result = await client.query<Pick<StorageObjectRow, 'content'>>(
       query,
       params,
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
-    // Filter by proposalId in application code since EQLite doesn't support JSON queries
+    // Filter by proposalId in application code since SQLit doesn't support JSON queries
     for (const row of result.rows) {
       const obj = StoredObjectSchema.parse(JSON.parse(row.content))
       if ('proposalId' in obj && obj.proposalId === proposalId) {
@@ -767,11 +767,11 @@ export const storageState = {
 // Initialize state system
 export async function initializeState(): Promise<void> {
   if (initialized) return
-  await getEQLiteClient()
+  await getSQLitClient()
   initialized = true
 }
 
-// Get state mode - always "eqlite" in production
-export function getStateMode(): 'eqlite' {
-  return 'eqlite'
+// Get state mode - always "sqlit" in production
+export function getStateMode(): 'sqlit' {
+  return 'sqlit'
 }

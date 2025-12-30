@@ -281,7 +281,7 @@ export const ServicesNetworkConfigSchema = z.object({
     executor: UrlString,
     bots: UrlString.optional(),
   }),
-  eqlite: z.object({
+  sqlit: z.object({
     blockProducer: UrlString,
     miner: UrlString,
   }),

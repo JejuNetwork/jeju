@@ -1,7 +1,7 @@
 /**
  * API Key Service Tests
  *
- * Requires: EQLite (EQLite) running for state storage
+ * Requires: SQLit (SQLit) running for state storage
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -13,8 +13,8 @@ import {
   validateApiKey,
 } from '../../api/rpc/services/api-keys'
 
-// Check if EQLite is available
-async function isEqliteAvailable(): Promise<boolean> {
+// Check if SQLit is available
+async function isSQLitAvailable(): Promise<boolean> {
   try {
     const response = await fetch('http://127.0.0.1:4661/api/v1/query', {
       method: 'POST',
@@ -34,17 +34,17 @@ describe('API Key Service', () => {
   const testAddress2 =
     '0x0987654321098765432109876543210987654321' as `0x${string}`
 
-  let eqliteAvailable = false
+  let sqlitAvailable = false
 
   beforeAll(async () => {
-    eqliteAvailable = await isEqliteAvailable()
-    if (!eqliteAvailable) {
-      console.log('EQLite not available, skipping API key tests')
+    sqlitAvailable = await isSQLitAvailable()
+    if (!sqlitAvailable) {
+      console.log('SQLit not available, skipping API key tests')
     }
   })
 
   test('creates API key with correct format', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     const { key, record } = await createApiKey(testAddress, 'Test Key')
 
     expect(key).toStartWith('jrpc_')
@@ -56,7 +56,7 @@ describe('API Key Service', () => {
   })
 
   test('validates correct API key', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     const { key } = await createApiKey(testAddress, 'Valid Key')
     const record = await validateApiKey(key)
 
@@ -65,13 +65,13 @@ describe('API Key Service', () => {
   })
 
   test('rejects invalid API key', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     const record = await validateApiKey('jrpc_invalid_key_12345')
     expect(record).toBeNull()
   })
 
   test('increments request count on validation', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     const { key } = await createApiKey(testAddress, 'Counter Key')
 
     await validateApiKey(key)
@@ -84,7 +84,7 @@ describe('API Key Service', () => {
   })
 
   test('gets all keys for address', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     await createApiKey(testAddress, 'Key 1')
     await createApiKey(testAddress, 'Key 2')
     await createApiKey(testAddress2, 'Other Key')
@@ -97,7 +97,7 @@ describe('API Key Service', () => {
   })
 
   test('revokes API key', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     const { key, record } = await createApiKey(testAddress, 'Revoke Test')
 
     const success = await revokeApiKeyById(record.id, testAddress)
@@ -108,7 +108,7 @@ describe('API Key Service', () => {
   })
 
   test('cannot revoke key owned by another address', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     const { record } = await createApiKey(testAddress, 'Protected Key')
 
     const success = await revokeApiKeyById(record.id, testAddress2)
@@ -116,7 +116,7 @@ describe('API Key Service', () => {
   })
 
   test('returns correct stats', async () => {
-    if (!eqliteAvailable) return
+    if (!sqlitAvailable) return
     const initialStats = getApiKeyStats()
 
     await createApiKey(testAddress, 'Stats Test')

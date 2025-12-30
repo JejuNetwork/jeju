@@ -1,15 +1,15 @@
 /**
  * Package Upstream Proxy (JejuPkg)
  * Caches and proxies packages from npmjs.org (for upstream compatibility)
- * Uses EQLite for persistent package and tarball records
+ * Uses SQLit for persistent package and tarball records
  */
 
 import {
-  getEQLiteMinerUrl,
-  getEQLiteUrl,
+  getSQLitMinerUrl,
+  getSQLitUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { getEQLite, resetEQLite } from '@jejunetwork/db'
+import { getSQLit, resetSQLit } from '@jejunetwork/db'
 import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
 import type {
@@ -23,32 +23,32 @@ import type {
   UpstreamSyncResult,
 } from './types'
 
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws'
 
-// EQLite Client singleton
-let eqliteClient: ReturnType<typeof getEQLite> | null = null
+// SQLit Client singleton
+let sqlitClient: ReturnType<typeof getSQLit> | null = null
 
-async function getEQLiteClient() {
-  if (!eqliteClient) {
-    resetEQLite()
-    const blockProducerEndpoint = getEQLiteUrl()
-    const minerEndpoint = getEQLiteMinerUrl()
+async function getSQLitClient() {
+  if (!sqlitClient) {
+    resetSQLit()
+    const blockProducerEndpoint = getSQLitUrl()
+    const minerEndpoint = getSQLitMinerUrl()
 
-    eqliteClient = getEQLite({
+    sqlitClient = getSQLit({
       blockProducerEndpoint,
       minerEndpoint,
-      databaseId: EQLITE_DATABASE_ID,
+      databaseId: SQLIT_DATABASE_ID,
       timeout: 30000,
       debug: !isProductionEnv(),
     })
 
     await ensureTablesExist()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS pkg_packages (
@@ -83,11 +83,11 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], SQLIT_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(idx, [], SQLIT_DATABASE_ID)
   }
 }
 
@@ -145,7 +145,7 @@ export class UpstreamProxy {
   private upstreamConfig: UpstreamRegistryConfig
   private cacheConfig: CacheConfig
 
-  // In-memory caches (ephemeral TTL caches only - records are persisted in EQLite)
+  // In-memory caches (ephemeral TTL caches only - records are persisted in SQLit)
   private metadataCache: Map<string, CacheEntry<PkgPackageMetadata>> = new Map()
   private tarballCache: Map<string, CacheEntry<{ cid: string; size: number }>> =
     new Map()
@@ -365,18 +365,18 @@ export class UpstreamProxy {
     packageRecordsCount: number
     tarballRecordsCount: number
   }> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const pkgCount = await client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM pkg_packages',
       [],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     const tarballCount = await client.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM pkg_tarballs',
       [],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     return {
@@ -425,14 +425,14 @@ export class UpstreamProxy {
     }
   }
 
-  // EQLite Operations
+  // SQLit Operations
 
   private async getPackageRecord(name: string): Promise<PackageRecord | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<PackageRow>(
       'SELECT * FROM pkg_packages WHERE name = ?',
       [name],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     const row = result.rows[0]
@@ -454,7 +454,7 @@ export class UpstreamProxy {
   }
 
   private async savePackageRecord(record: PackageRecord): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO pkg_packages (name, scope, manifest_cid, latest_version, versions, owner, created_at, updated_at, download_count, storage_backend, verified)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -473,7 +473,7 @@ export class UpstreamProxy {
         record.storageBackend,
         record.verified ? 1 : 0,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   }
 
@@ -481,12 +481,12 @@ export class UpstreamProxy {
     packageName: string,
     version: string,
   ): Promise<TarballRecord | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const key = `${packageName}@${version}`
     const result = await client.query<TarballRow>(
       'SELECT * FROM pkg_tarballs WHERE package_version = ?',
       [key],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     const row = result.rows[0]
@@ -505,7 +505,7 @@ export class UpstreamProxy {
   }
 
   private async saveTarballRecord(record: TarballRecord): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const key = `${record.packageName}@${record.version}`
     await client.exec(
       `INSERT INTO pkg_tarballs (package_version, package_name, version, cid, size, shasum, integrity, backend, uploaded_at)
@@ -523,7 +523,7 @@ export class UpstreamProxy {
         record.backend,
         record.uploadedAt,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   }
 
@@ -753,18 +753,18 @@ export class UpstreamProxy {
     packages: PackageRecord[]
     tarballs: TarballRecord[]
   }> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const pkgResult = await client.query<PackageRow>(
       'SELECT * FROM pkg_packages',
       [],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     const tarballResult = await client.query<TarballRow>(
       'SELECT * FROM pkg_tarballs',
       [],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     const packages: PackageRecord[] = pkgResult.rows.map((row) => ({

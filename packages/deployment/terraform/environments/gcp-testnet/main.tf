@@ -307,10 +307,10 @@ module "farcaster_hub" {
 }
 
 # ============================================================
-# Module: EQLite (GCP - Parity with AWS)
+# Module: SQLit (GCP - Parity with AWS)
 # ============================================================
-module "eqlite" {
-  source = "../../modules/eqlite-gcp"
+module "sqlit" {
+  source = "../../modules/sqlit-gcp"
 
   project_id          = var.project_id
   environment         = local.environment
@@ -494,7 +494,7 @@ output "testnet_urls" {
     git         = "https://git.testnet.${var.domain_name}"
     jns         = "https://jns.testnet.${var.domain_name}"
     indexer     = "https://indexer.testnet.${var.domain_name}"
-    eqlite = module.eqlite.http_endpoint
+    sqlit = module.sqlit.http_endpoint
   }
 }
 

@@ -25,8 +25,8 @@ export interface OAuth3Config {
   allowedOrigins: string[]
   devMode: boolean
 
-  // EQLite
-  eqliteDatabaseId: string
+  // SQLit
+  sqlitDatabaseId: string
 
   // OAuth providers
   githubClientId?: string
@@ -63,8 +63,8 @@ const { config, configure: setOAuth3Config } = createAppConfig<OAuth3Config>({
   allowedOrigins: (getEnvVar('ALLOWED_ORIGINS') ?? '*').split(','),
   devMode: !isProductionEnv(),
 
-  // EQLite
-  eqliteDatabaseId: getEnvVar('EQLite_DATABASE_ID') ?? 'oauth3',
+  // SQLit
+  sqlitDatabaseId: getEnvVar('SQLit_DATABASE_ID') ?? 'oauth3',
 
   // OAuth providers
   githubClientId: getEnvVar('GITHUB_CLIENT_ID'),

@@ -286,7 +286,7 @@ describe('Vercel AI SDK Compatibility', () => {
       const error = await registerRes.text()
       console.log('[Vercel AI SDK Test] Node registration failed:', error)
       console.log(
-        '[Vercel AI SDK Test] Inference tests will be skipped (requires EQLite)',
+        '[Vercel AI SDK Test] Inference tests will be skipped (requires SQLit)',
       )
     }
 
@@ -316,7 +316,7 @@ describe('Vercel AI SDK Compatibility', () => {
       // In local dev mode, infrastructure may not be available
       if (res.status === 404 || res.status === 503) {
         console.log(
-          '[Vercel AI SDK Test] Skipping - no inference nodes available (requires EQLite)',
+          '[Vercel AI SDK Test] Skipping - no inference nodes available (requires SQLit)',
         )
         return
       }

@@ -11,7 +11,7 @@ import { join, normalize, resolve } from 'node:path'
 import {
   CORE_PORTS,
   getDWSUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getL2RpcUrl,
   getLocalhostHost,
 } from '@jejunetwork/config'
@@ -411,7 +411,7 @@ async function startDwsDev(options: {
   logger.subheader('DWS Server')
   logger.keyValue('Port', options.port)
   logger.keyValue('RPC', rpcUrl)
-  logger.keyValue('EQLite', getEQLiteBlockProducerUrl())
+  logger.keyValue('SQLit', getSQLitBlockProducerUrl())
   logger.newline()
 
   const infraEnv = infra.getEnvVars()

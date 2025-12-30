@@ -1,17 +1,17 @@
 /**
- * EQLite Node Manager
+ * SQLit Node Manager
  *
- * Manages EQLite node lifecycle for Jeju Network deployment.
+ * Manages SQLit node lifecycle for Jeju Network deployment.
  * Integrates with TEE attestation and DWS infrastructure.
  *
  * @example
  * ```typescript
- * import { EQLiteNodeManager, createEQLiteNode } from '@jejunetwork/db'
+ * import { SQLitNodeManager, createSQLitNode } from '@jejunetwork/db'
  *
  * // Create a miner node
- * const node = await createEQLiteNode({
+ * const node = await createSQLitNode({
  *   role: 'miner',
- *   dataDir: '/data/eqlite',
+ *   dataDir: '/data/sqlit',
  *   blockProducers: ['http://bp-1:4661', 'http://bp-2:4661', 'http://bp-3:4661'],
  * })
  *
@@ -22,27 +22,27 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  getEQLiteBlockProducerUrl,
-  getEQLiteUrl,
+  getSQLitBlockProducerUrl,
+  getSQLitUrl,
   getLocalhostHost,
   getNetworkName,
   INFRA_PORTS,
   isProductionEnv,
 } from '@jejunetwork/config'
 
-/** EQLite node roles aligned with Jeju staking */
-export const EQLiteNodeRole = {
+/** SQLit node roles aligned with Jeju staking */
+export const SQLitNodeRole = {
   BLOCK_PRODUCER: 'blockproducer',
   MINER: 'miner',
   ADAPTER: 'adapter',
   FULLNODE: 'fullnode',
 } as const
 
-export type EQLiteNodeRole =
-  (typeof EQLiteNodeRole)[keyof typeof EQLiteNodeRole]
+export type SQLitNodeRole =
+  (typeof SQLitNodeRole)[keyof typeof SQLitNodeRole]
 
 /** Node operational status */
-export const EQLiteNodeStatus = {
+export const SQLitNodeStatus = {
   STOPPED: 'stopped',
   STARTING: 'starting',
   RUNNING: 'running',
@@ -50,8 +50,8 @@ export const EQLiteNodeStatus = {
   ERROR: 'error',
 } as const
 
-export type EQLiteNodeStatus =
-  (typeof EQLiteNodeStatus)[keyof typeof EQLiteNodeStatus]
+export type SQLitNodeStatus =
+  (typeof SQLitNodeStatus)[keyof typeof SQLitNodeStatus]
 
 /** TEE attestation information */
 export interface TEEAttestation {
@@ -67,10 +67,10 @@ export interface TEEAttestation {
   simulated: boolean
 }
 
-/** EQLite node configuration */
-export interface EQLiteNodeConfig {
+/** SQLit node configuration */
+export interface SQLitNodeConfig {
   /** Node role */
-  role: EQLiteNodeRole
+  role: SQLitNodeRole
   /** Data directory for node storage */
   dataDir: string
   /** Listen address (default: 0.0.0.0:4661) */
@@ -95,14 +95,14 @@ export interface EQLiteNodeConfig {
   logLevel?: 'debug' | 'info' | 'warn' | 'error'
 }
 
-/** Runtime state of a EQLite node */
-export interface EQLiteNodeState {
+/** Runtime state of a SQLit node */
+export interface SQLitNodeState {
   /** Current status */
-  status: EQLiteNodeStatus
+  status: SQLitNodeStatus
   /** Node ID */
   nodeId: string
   /** Node role */
-  role: EQLiteNodeRole
+  role: SQLitNodeRole
   /** Current block height */
   blockHeight: number
   /** Number of connected peers */
@@ -120,17 +120,17 @@ export interface EQLiteNodeState {
 }
 
 /**
- * EQLite Node Manager
+ * SQLit Node Manager
  *
- * Manages a single EQLite node instance with TEE support.
+ * Manages a single SQLit node instance with TEE support.
  */
-export class EQLiteNodeManager {
-  private config: EQLiteNodeConfig
-  private state: EQLiteNodeState
+export class SQLitNodeManager {
+  private config: SQLitNodeConfig
+  private state: SQLitNodeState
   private process: { kill(): void } | null = null
   private healthCheckInterval: ReturnType<typeof setInterval> | null = null
 
-  constructor(config: EQLiteNodeConfig) {
+  constructor(config: SQLitNodeConfig) {
     this.config = {
       ...config,
       listenAddr: config.listenAddr ?? '0.0.0.0:4661',
@@ -148,7 +148,7 @@ export class EQLiteNodeManager {
     }
 
     this.state = {
-      status: EQLiteNodeStatus.STOPPED,
+      status: SQLitNodeStatus.STOPPED,
       nodeId,
       role: this.config.role,
       blockHeight: 0,
@@ -164,25 +164,25 @@ export class EQLiteNodeManager {
   }
 
   /** Get current node state */
-  getState(): EQLiteNodeState {
+  getState(): SQLitNodeState {
     return { ...this.state }
   }
 
   /** Get node configuration */
-  getConfig(): EQLiteNodeConfig {
+  getConfig(): SQLitNodeConfig {
     return { ...this.config }
   }
 
   /** Check if node is running */
   isRunning(): boolean {
     return (
-      this.state.status === EQLiteNodeStatus.RUNNING ||
-      this.state.status === EQLiteNodeStatus.SYNCING
+      this.state.status === SQLitNodeStatus.RUNNING ||
+      this.state.status === SQLitNodeStatus.SYNCING
     )
   }
 
   /**
-   * Start the EQLite node
+   * Start the SQLit node
    *
    * In production (TEE mode), this will:
    * 1. Verify TEE environment
@@ -197,7 +197,7 @@ export class EQLiteNodeManager {
       return
     }
 
-    this.state.status = EQLiteNodeStatus.STARTING
+    this.state.status = SQLitNodeStatus.STARTING
     this.state.startTime = new Date()
 
     try {
@@ -216,16 +216,16 @@ export class EQLiteNodeManager {
       // Start health monitoring
       this.startHealthCheck()
 
-      this.state.status = EQLiteNodeStatus.RUNNING
+      this.state.status = SQLitNodeStatus.RUNNING
     } catch (err) {
-      this.state.status = EQLiteNodeStatus.ERROR
+      this.state.status = SQLitNodeStatus.ERROR
       this.state.lastError = err instanceof Error ? err.message : String(err)
       throw err
     }
   }
 
   /**
-   * Stop the EQLite node
+   * Stop the SQLit node
    */
   async stop(): Promise<void> {
     if (this.healthCheckInterval) {
@@ -238,7 +238,7 @@ export class EQLiteNodeManager {
       this.process = null
     }
 
-    this.state.status = EQLiteNodeStatus.STOPPED
+    this.state.status = SQLitNodeStatus.STOPPED
     this.state.uptime = 0
   }
 
@@ -251,8 +251,8 @@ export class EQLiteNodeManager {
   }> {
     const host = getLocalhostHost()
     const endpoint =
-      getEQLiteUrl() ??
-      `http://${host}:${this.config.httpAddr?.split(':')[1] ?? String(INFRA_PORTS.EQLite.get())}`
+      getSQLitUrl() ??
+      `http://${host}:${this.config.httpAddr?.split(':')[1] ?? String(INFRA_PORTS.SQLit.get())}`
 
     try {
       const response = await fetch(`${endpoint}/v1/status`, {
@@ -284,7 +284,7 @@ export class EQLiteNodeManager {
   // Private methods
 
   private generateNodeId(): string {
-    // Generate a node ID compatible with EQLite format
+    // Generate a node ID compatible with SQLit format
     const bytes = new Uint8Array(32)
     crypto.getRandomValues(bytes)
     return Array.from(bytes)
@@ -323,21 +323,21 @@ export class EQLiteNodeManager {
     // We just need to verify it's running
     const health = await this.getHealth()
     if (!health.healthy) {
-      throw new Error('EQLite node not responding in Docker environment')
+      throw new Error('SQLit node not responding in Docker environment')
     }
   }
 
   private async startLocalNode(): Promise<void> {
-    const eqliteBinaryPath = this.getEQLiteBinaryPath()
+    const sqlitBinaryPath = this.getSQLitBinaryPath()
 
-    if (!existsSync(eqliteBinaryPath)) {
+    if (!existsSync(sqlitBinaryPath)) {
       // Fall back to connecting to an existing node
       const health = await this.getHealth()
       if (health.healthy) {
         return // Node already running externally
       }
       throw new Error(
-        `EQLite binary not found at ${eqliteBinaryPath} and no running node detected`,
+        `SQLit binary not found at ${sqlitBinaryPath} and no running node detected`,
       )
     }
 
@@ -347,18 +347,18 @@ export class EQLiteNodeManager {
     // Note: In a real implementation, we'd spawn the process here
     // For now, we assume the node is managed externally (Docker/systemd)
     throw new Error(
-      'Local EQLite process spawning not implemented - use Docker or start manually',
+      'Local SQLit process spawning not implemented - use Docker or start manually',
     )
   }
 
-  private getEQLiteBinaryPath(): string {
+  private getSQLitBinaryPath(): string {
     const role = this.config.role
     const binary =
-      role === EQLiteNodeRole.BLOCK_PRODUCER ? 'eqlited' : 'eqlite-minerd'
+      role === SQLitNodeRole.BLOCK_PRODUCER ? 'sqlitd' : 'sqlit-minerd'
 
     // Check common locations
     const paths = [
-      join(process.cwd(), 'packages/eqlite/bin', binary),
+      join(process.cwd(), 'packages/sqlit/bin', binary),
       `/usr/local/bin/${binary}`,
       `/usr/bin/${binary}`,
     ]
@@ -372,14 +372,14 @@ export class EQLiteNodeManager {
     // Return first path even if not found (for error message)
     const firstPath = paths[0]
     if (!firstPath) {
-      throw new Error('No EQLite binary paths configured')
+      throw new Error('No SQLit binary paths configured')
     }
     return firstPath
   }
 
   /**
-   * Build command line arguments for the EQLite binary
-   * Used when spawning local EQLite processes
+   * Build command line arguments for the SQLit binary
+   * Used when spawning local SQLit processes
    */
   buildCommandArgs(): string[] {
     const args = ['-config', join(this.config.dataDir, 'config.yaml')]
@@ -413,8 +413,8 @@ export class EQLiteNodeManager {
           )
         }
       } else {
-        if (this.state.status === EQLiteNodeStatus.RUNNING) {
-          this.state.status = EQLiteNodeStatus.ERROR
+        if (this.state.status === SQLitNodeStatus.RUNNING) {
+          this.state.status = SQLitNodeStatus.ERROR
           this.state.lastError = 'Health check failed'
         }
       }
@@ -423,21 +423,21 @@ export class EQLiteNodeManager {
 }
 
 /**
- * Create and start a EQLite node
+ * Create and start a SQLit node
  */
-export async function createEQLiteNode(
-  config: EQLiteNodeConfig,
-): Promise<EQLiteNodeManager> {
-  const manager = new EQLiteNodeManager(config)
+export async function createSQLitNode(
+  config: SQLitNodeConfig,
+): Promise<SQLitNodeManager> {
+  const manager = new SQLitNodeManager(config)
   await manager.start()
   return manager
 }
 
 /**
- * Check if EQLite is available (via internal packages/eqlite or external)
+ * Check if SQLit is available (via internal packages/sqlit or external)
  */
-export async function isEQLiteAvailable(endpoint?: string): Promise<boolean> {
-  const url = endpoint ?? getEQLiteUrl() ?? getEQLiteBlockProducerUrl()
+export async function isSQLitAvailable(endpoint?: string): Promise<boolean> {
+  const url = endpoint ?? getSQLitUrl() ?? getSQLitBlockProducerUrl()
 
   // Try multiple health endpoints
   const endpoints = [`${url}/v1/status`, `${url}/status`, `${url}/health`]

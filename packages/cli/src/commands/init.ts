@@ -453,8 +453,8 @@ NETWORK=localnet
 L2_RPC_URL=http://${host}:6546
 
 # Services
-EQLITE_BLOCK_PRODUCER_ENDPOINT=http://${host}:4661
-EQLITE_DATABASE_ID=${config.databaseId}
+SQLIT_BLOCK_PRODUCER_ENDPOINT=http://${host}:4661
+SQLIT_DATABASE_ID=${config.databaseId}
 COMPUTE_CACHE_ENDPOINT=http://${host}:4200/cache
 KMS_ENDPOINT=http://${host}:4400
 DWS_URL=http://${host}:4030
@@ -488,7 +488,7 @@ ${config.description}
 
 ## Features
 
-- **Fully Decentralized**: EQLite database, IPFS storage, KMS encryption
+- **Fully Decentralized**: SQLit database, IPFS storage, KMS encryption
 - **AI Integration**: A2A and MCP protocols for agent communication
 - **Monetization**: x402 payment protocol for paid APIs
 - **OAuth3 Authentication**: TEE-backed decentralized auth with social logins

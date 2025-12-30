@@ -9,7 +9,7 @@
  * - Wallet-to-wallet messaging via real XMTP SDK
  * - FID-to-FID messaging via Farcaster Direct Casts
  * - Unified conversation view
- * - EQLite storage for persistence
+ * - SQLit storage for persistence
  * - Automatic routing based on recipient type
  */
 
@@ -26,11 +26,11 @@ import {
 } from '@xmtp/node-sdk'
 import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import {
-  createEQLiteStorage,
-  type EQLiteConfig,
-  type EQLiteMessageStorage,
+  createSQLitStorage,
+  type SQLitConfig,
+  type SQLitMessageStorage,
   type StoredMessage,
-} from './storage/eqlite-storage'
+} from './storage/sqlit-storage'
 
 export interface UnifiedMessagingConfig {
   /** User's wallet address */
@@ -41,8 +41,8 @@ export interface UnifiedMessagingConfig {
   xmtpDbPath?: string
   /** Farcaster Direct Cast client config */
   farcaster?: DCClientConfig
-  /** EQLite storage config */
-  storage?: EQLiteConfig
+  /** SQLit storage config */
+  storage?: SQLitConfig
 }
 
 export interface UnifiedMessage {
@@ -114,7 +114,7 @@ export class UnifiedMessagingService {
   private kmsSigner: KMSSigner | null = null
   private farcasterClient?: DirectCastClient
   private farcasterConfig?: DCClientConfig
-  private storage: EQLiteMessageStorage
+  private storage: SQLitMessageStorage
   private initialized = false
   private address: Address
   private xmtpEnv: 'local' | 'dev' | 'production'
@@ -132,7 +132,7 @@ export class UnifiedMessagingService {
       this.farcasterConfig = config.farcaster
       this.farcasterFid = config.farcaster.fid
     }
-    this.storage = createEQLiteStorage(config.storage)
+    this.storage = createSQLitStorage(config.storage)
   }
 
   async initialize(): Promise<void> {

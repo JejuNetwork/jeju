@@ -15,7 +15,7 @@
  */
 
 import { getDWSComputeUrl, getIpfsGatewayUrl } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -129,18 +129,18 @@ const ChatCompletionResponseSchema = z.object({
 // ============ Database ============
 
 const MODERATION_DATABASE_ID = 'dws-deployment-moderation'
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureModerationTables()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureModerationTables(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS deployment_scans (
@@ -190,14 +190,14 @@ async function ensureModerationTables(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], MODERATION_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], MODERATION_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await eqliteClient.exec(idx, [], MODERATION_DATABASE_ID)
+    await sqlitClient.exec(idx, [], MODERATION_DATABASE_ID)
   }
 
-  console.log('[DeploymentModeration] EQLite tables ensured')
+  console.log('[DeploymentModeration] SQLit tables ensured')
 }
 
 // ============ Configuration ============
@@ -377,7 +377,7 @@ export class DeploymentModerationService {
    * Get user reputation data
    */
   async getReputation(address: Address): Promise<DeploymentReputationData> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<{
       tier: string
       total_deployments: number
@@ -439,7 +439,7 @@ export class DeploymentModerationService {
       accountAge: number
     },
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -478,7 +478,7 @@ export class DeploymentModerationService {
       createdAt: number
     }>
   > {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<{
       id: string
       deployment_id: string
@@ -515,7 +515,7 @@ export class DeploymentModerationService {
     action: 'approve' | 'reject',
     reviewerAddress: Address,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `UPDATE moderation_queue 
@@ -902,7 +902,7 @@ Return JSON:
     request: DeploymentScanRequest,
     result: ModerationResult,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const scanId = `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
     await client.exec(
@@ -930,7 +930,7 @@ Return JSON:
     address: Address,
     result: ModerationResult,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     // Calculate reputation change
@@ -988,7 +988,7 @@ Return JSON:
     request: DeploymentScanRequest,
     result: ModerationResult,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const reviewId = `review-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
     const priority = result.categories.some(

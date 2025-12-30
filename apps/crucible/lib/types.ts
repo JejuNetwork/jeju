@@ -363,7 +363,7 @@ export interface CrucibleConfig {
     storageApi: string
     ipfsGateway: string
     indexerGraphql: string
-    eqliteEndpoint?: string
+    sqlitEndpoint?: string
     dexCacheUrl?: string
   }
   network: 'localnet' | 'testnet' | 'mainnet'

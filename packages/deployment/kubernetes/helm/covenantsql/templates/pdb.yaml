@@ -2,12 +2,12 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "eqlite.fullname" . }}-miner
+  name: {{ include "sqlit.fullname" . }}-miner
   labels:
-    {{- include "eqlite.minerLabels" . | nindent 4 }}
+    {{- include "sqlit.minerLabels" . | nindent 4 }}
 spec:
   minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
-      {{- include "eqlite.minerSelectorLabels" . | nindent 6 }}
+      {{- include "sqlit.minerSelectorLabels" . | nindent 6 }}
 {{- end }}

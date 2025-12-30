@@ -1,25 +1,25 @@
 /**
- * EQLite Storage Adapter for Messaging
+ * SQLit Storage Adapter for Messaging
  *
  * Provides persistent storage for encrypted messages, conversations, and key bundles
- * using EQLite (EQLite) decentralized database.
+ * using SQLit (SQLit) decentralized database.
  */
 
 import {
-  getEQLiteUrl,
-  getEqliteDatabaseId,
-  getEqliteKeyId,
+  getSQLitUrl,
+  getSQLitDatabaseId,
+  getSQLitKeyId,
 } from '@jejunetwork/config'
 import {
-  type EQLiteClient,
-  type EQLiteConfig,
-  getEQLite,
+  type SQLitClient,
+  type SQLitConfig,
+  getSQLit,
   type QueryParam,
 } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
-export type { EQLiteConfig }
+export type { SQLitConfig }
 
 // ============================================================================
 // Database Row Schemas for Type-Safe Mapping
@@ -121,26 +121,26 @@ class ServiceUnavailableError extends Error {
   }
 }
 
-export class EQLiteMessageStorage {
-  private client: EQLiteClient | null = null
+export class SQLitMessageStorage {
+  private client: SQLitClient | null = null
   private initialized = false
 
-  async initialize(config?: EQLiteConfig): Promise<void> {
+  async initialize(config?: SQLitConfig): Promise<void> {
     if (this.initialized) return
 
-    const keyId = config?.keyId ?? getEqliteKeyId()
+    const keyId = config?.keyId ?? getSQLitKeyId()
     if (!keyId) {
-      throw new Error('EQLite keyId is required for MessageStorage')
+      throw new Error('SQLit keyId is required for MessageStorage')
     }
-    this.client = getEQLite({
-      blockProducerEndpoint: config?.blockProducerEndpoint ?? getEQLiteUrl(),
-      databaseId: config?.databaseId ?? getEqliteDatabaseId() ?? 'messaging',
+    this.client = getSQLit({
+      blockProducerEndpoint: config?.blockProducerEndpoint ?? getSQLitUrl(),
+      databaseId: config?.databaseId ?? getSQLitDatabaseId() ?? 'messaging',
       keyId,
     })
 
     const healthy = await this.client.isHealthy()
     if (!healthy) {
-      throw new ServiceUnavailableError('EQLite not healthy for MessageStorage')
+      throw new ServiceUnavailableError('SQLit not healthy for MessageStorage')
     }
 
     await this.createTables()
@@ -446,20 +446,20 @@ export class EQLiteMessageStorage {
   }
 }
 
-let storage: EQLiteMessageStorage | null = null
+let storage: SQLitMessageStorage | null = null
 
-export function createEQLiteStorage(
-  _config?: EQLiteConfig,
-): EQLiteMessageStorage {
-  // Config parameter reserved for future EQLite connection customization
-  return new EQLiteMessageStorage()
+export function createSQLitStorage(
+  _config?: SQLitConfig,
+): SQLitMessageStorage {
+  // Config parameter reserved for future SQLit connection customization
+  return new SQLitMessageStorage()
 }
 
-export function getEQLiteStorage(): EQLiteMessageStorage {
-  if (!storage) storage = new EQLiteMessageStorage()
+export function getSQLitStorage(): SQLitMessageStorage {
+  if (!storage) storage = new SQLitMessageStorage()
   return storage
 }
 
-export function resetEQLiteStorage(): void {
+export function resetSQLitStorage(): void {
   storage = null
 }

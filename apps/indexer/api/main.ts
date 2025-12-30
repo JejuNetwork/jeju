@@ -46,31 +46,31 @@ import { type ProcessorContext, processor } from './processor'
 import { processRegistryEvents } from './registry-game-processor'
 import { processStorageEvents } from './storage-processor'
 import { getDataSource } from './utils/db'
-import { getEQLiteSync } from './utils/eqlite-sync'
+import { getSQLitSync } from './utils/sqlit-sync'
 
-const eqliteSync = getEQLiteSync()
-let eqliteInitialized = false
+const sqlitSync = getSQLitSync()
+let sqlitInitialized = false
 
 processor.run(
   new TypeormDatabase({ supportHotBlocks: true }),
   async (ctx: ProcessorContext<Store>) => {
     if (
       ctx.blocks.length > 0 &&
-      !eqliteInitialized &&
-      !eqliteSync.getStats().running
+      !sqlitInitialized &&
+      !sqlitSync.getStats().running
     ) {
-      eqliteInitialized = true
+      sqlitInitialized = true
       getDataSource()
         .then((dataSource) => {
           if (!dataSource) throw new Error('DataSource not available')
-          return eqliteSync.initialize(dataSource)
+          return sqlitSync.initialize(dataSource)
         })
-        .then(() => eqliteSync.start())
+        .then(() => sqlitSync.start())
         .catch((err: Error) => {
           ctx.log.error(
-            `EQLite sync initialization failed: ${err.message}. Continuing without decentralized reads.`,
+            `SQLit sync initialization failed: ${err.message}. Continuing without decentralized reads.`,
           )
-          eqliteInitialized = false
+          sqlitInitialized = false
         })
     }
     const blocks: BlockEntity[] = []

@@ -8,11 +8,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title EQLiteRegistry
- * @notice Registry for EQLite block producers and miners on Jeju Network
- * @dev Integrates EQLite node operations with Jeju staking system
+ * @title SQLitRegistry
+ * @notice Registry for SQLit block producers and miners on Jeju Network
+ * @dev Integrates SQLit node operations with Jeju staking system
  * 
- * EQLite Architecture:
+ * SQLit Architecture:
  * - Block Producers: Run the main DPoS chain, validate transactions
  * - Miners: Provide SQL storage and query execution for databases
  * 
@@ -21,7 +21,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * 2. Provide TEE attestation (production only)
  * 3. Maintain uptime requirements
  */
-contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
+contract SQLitRegistry is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ============ Types ============
@@ -39,9 +39,9 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
         EXITING       // In unbonding period
     }
 
-    struct EQLiteNode {
+    struct SQLitNode {
         address operator;
-        bytes32 nodeId;           // EQLite NodeID (64 hex chars)
+        bytes32 nodeId;           // SQLit NodeID (64 hex chars)
         NodeRole role;
         NodeStatus status;
         uint256 stakedAmount;
@@ -56,7 +56,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     struct DatabaseInfo {
-        bytes32 databaseId;       // EQLite DatabaseID
+        bytes32 databaseId;       // SQLit DatabaseID
         address owner;
         bytes32[] minerNodeIds;   // Nodes hosting this database
         uint256 createdAt;
@@ -78,7 +78,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
 
     IERC20 public immutable stakingToken;
     
-    mapping(bytes32 => EQLiteNode) public nodes;
+    mapping(bytes32 => SQLitNode) public nodes;
     mapping(address => bytes32[]) public operatorNodes;
     mapping(bytes32 => DatabaseInfo) public databases;
     
@@ -124,8 +124,8 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
     // ============ Registration ============
 
     /**
-     * @notice Register a new EQLite node
-     * @param nodeId The 32-byte EQLite NodeID
+     * @notice Register a new SQLit node
+     * @param nodeId The 32-byte SQLit NodeID
      * @param role BLOCK_PRODUCER or MINER
      * @param endpoint RPC endpoint for this node
      * @param stakeAmount Initial stake amount
@@ -144,7 +144,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
         // Transfer stake
         stakingToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
         
-        nodes[nodeId] = EQLiteNode({
+        nodes[nodeId] = SQLitNode({
             operator: msg.sender,
             nodeId: nodeId,
             role: role,
@@ -184,7 +184,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
         bytes calldata attestation,
         bytes32 mrEnclave
     ) external nonReentrant {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.operator != msg.sender) revert NotNodeOperator();
         if (node.status != NodeStatus.PENDING) revert InvalidNodeStatus();
         
@@ -219,7 +219,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param queryCount Number of queries processed since last heartbeat
      */
     function heartbeat(bytes32 nodeId, uint256 queryCount) external {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.operator != msg.sender) revert NotNodeOperator();
         if (node.status != NodeStatus.ACTIVE) revert InvalidNodeStatus();
         
@@ -235,7 +235,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount to add
      */
     function addStake(bytes32 nodeId, uint256 amount) external nonReentrant {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.operator != msg.sender) revert NotNodeOperator();
         if (node.status == NodeStatus.EXITING) revert NodeIsExiting();
         
@@ -251,7 +251,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param nodeId The node to exit
      */
     function initiateExit(bytes32 nodeId) external nonReentrant {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.operator != msg.sender) revert NotNodeOperator();
         if (node.status == NodeStatus.EXITING) revert NodeIsExiting();
         
@@ -268,7 +268,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param nodeId The node to complete exit for
      */
     function completeExit(bytes32 nodeId) external nonReentrant {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.operator != msg.sender) revert NotNodeOperator();
         if (node.status != NodeStatus.EXITING) revert InvalidNodeStatus();
         if (block.timestamp < node.registeredAt + UNBONDING_PERIOD) revert UnbondingNotComplete();
@@ -286,7 +286,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
 
     /**
      * @notice Create a new database
-     * @param databaseId The EQLite DatabaseID
+     * @param databaseId The SQLit DatabaseID
      * @param minerNodeIds Nodes that will host this database
      */
     function createDatabase(
@@ -298,7 +298,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
         
         // Verify all miners are active
         for (uint256 i = 0; i < minerNodeIds.length; i++) {
-            EQLiteNode storage node = nodes[minerNodeIds[i]];
+            SQLitNode storage node = nodes[minerNodeIds[i]];
             if (node.status != NodeStatus.ACTIVE) revert InvalidNodeStatus();
             if (node.role != NodeRole.MINER) revert NotMinerNode();
             node.databaseCount++;
@@ -359,7 +359,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 bps,
         string calldata reason
     ) external onlyOwner {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.registeredAt == 0) revert NodeNotFound();
         
         uint256 slashAmount = (node.stakedAmount * bps) / BPS;
@@ -379,7 +379,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param nodeId Node to suspend
      */
     function suspendNode(bytes32 nodeId, string calldata reason) external onlyOwner {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.registeredAt == 0) revert NodeNotFound();
         
         node.status = NodeStatus.SUSPENDED;
@@ -391,7 +391,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param nodeId Node to reactivate
      */
     function reactivateNode(bytes32 nodeId) external onlyOwner {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.status != NodeStatus.SUSPENDED && node.status != NodeStatus.SLASHED) {
             revert InvalidNodeStatus();
         }
@@ -412,7 +412,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
 
     // ============ View Functions ============
 
-    function getNode(bytes32 nodeId) external view returns (EQLiteNode memory) {
+    function getNode(bytes32 nodeId) external view returns (SQLitNode memory) {
         return nodes[nodeId];
     }
 
@@ -469,7 +469,7 @@ contract EQLiteRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     function isNodeHealthy(bytes32 nodeId) external view returns (bool) {
-        EQLiteNode storage node = nodes[nodeId];
+        SQLitNode storage node = nodes[nodeId];
         if (node.status != NodeStatus.ACTIVE) return false;
         return block.timestamp - node.lastHeartbeat <= HEARTBEAT_INTERVAL * MAX_MISSED_HEARTBEATS;
     }

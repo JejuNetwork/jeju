@@ -26,7 +26,7 @@ export interface CrucibleConfig {
   // Contracts
   autocratTreasuryAddress?: string
   computeMarketplaceUrl?: string
-  eqliteEndpoint?: string
+  sqlitEndpoint?: string
   dexCacheUrl?: string
 
   // Bots
@@ -75,8 +75,8 @@ const { config, configure: setCrucibleConfig } =
     privateKey: getEnvVar('PRIVATE_KEY'),
     autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
     computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),
-    eqliteEndpoint:
-      getEnvVar('EQLITE_ENDPOINT') ?? servicesConfig.eqlite.blockProducer,
+    sqlitEndpoint:
+      getEnvVar('SQLIT_ENDPOINT') ?? servicesConfig.sqlit.blockProducer,
     dexCacheUrl: getEnvVar('DEX_CACHE_URL'),
     botsEnabled: getEnvVar('BOTS_ENABLED') !== 'false',
     autonomousEnabled: getEnvVar('AUTONOMOUS_ENABLED') === 'true',

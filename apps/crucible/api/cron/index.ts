@@ -20,25 +20,25 @@ async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
 
   // Try to get database client from environment
   const { config } = await import('../config')
-  const dbEndpoint = config.eqliteEndpoint
+  const dbEndpoint = config.sqlitEndpoint
   if (!dbEndpoint) {
     log.warn(
-      'EQLITE_ENDPOINT not set - trajectory batches will not be persisted to database',
+      'SQLIT_ENDPOINT not set - trajectory batches will not be persisted to database',
     )
     return null
   }
 
-  const keyId = process.env.EQLITE_KEY_ID
+  const keyId = process.env.SQLIT_KEY_ID
   if (!keyId) {
     log.warn(
-      'EQLITE_KEY_ID not set - trajectory batches will not be persisted to database',
+      'SQLIT_KEY_ID not set - trajectory batches will not be persisted to database',
     )
     return null
   }
 
   // Import dynamically to avoid circular deps
-  const { EQLiteClient } = await import('@jejunetwork/db')
-  const client = new EQLiteClient({ blockProducerEndpoint: dbEndpoint, keyId })
+  const { SQLitClient } = await import('@jejunetwork/db')
+  const client = new SQLitClient({ blockProducerEndpoint: dbEndpoint, keyId })
   dbPersistence = new TrainingDbPersistence(client)
   return dbPersistence
 }

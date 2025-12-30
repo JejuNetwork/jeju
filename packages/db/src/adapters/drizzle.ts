@@ -1,22 +1,22 @@
 /**
- * Drizzle ORM Adapter for EQLite
+ * Drizzle ORM Adapter for SQLit
  *
- * Provides a Drizzle-compatible interface for EQLite databases.
- * Allows using standard Drizzle schemas and queries with EQLite.
+ * Provides a Drizzle-compatible interface for SQLit databases.
+ * Allows using standard Drizzle schemas and queries with SQLit.
  *
  * @example
  * ```typescript
  * import { drizzle } from '@jejunetwork/db/adapters';
  * import { users, posts } from './schema';
  *
- * const db = drizzle(eqliteClient, databaseId);
+ * const db = drizzle(sqlitClient, databaseId);
  *
  * // Use standard Drizzle queries
  * const allUsers = await db.select().from(users);
  * ```
  */
 
-import type { EQLiteClient } from '../client.js'
+import type { SQLitClient } from '../client.js'
 import type { ExecResult, QueryParam, QueryResult } from '../types.js'
 import { validateSQLIdentifier, validateSQLIdentifiers } from '../utils.js'
 
@@ -37,19 +37,19 @@ interface SQLQuery {
   toQuery(): { sql: string; params: QueryParam[] }
 }
 
-/** Logger interface for DrizzleEQLite */
+/** Logger interface for DrizzleSQLit */
 interface DrizzleLogger {
   logQuery(query: string, params: QueryParam[]): void
 }
 
-/** Configuration options for DrizzleEQLite */
-export interface DrizzleEQLiteConfig {
+/** Configuration options for DrizzleSQLit */
+export interface DrizzleSQLitConfig {
   /** Enable query logging (true for console, or custom logger) */
   logger?: boolean | DrizzleLogger
 }
 
-/** The main Drizzle-compatible EQLite database interface */
-export interface DrizzleEQLite {
+/** The main Drizzle-compatible SQLit database interface */
+export interface DrizzleSQLit {
   /** Start a SELECT query */
   select(): SelectBuilder
   /** Start an INSERT query */
@@ -63,7 +63,7 @@ export interface DrizzleEQLite {
   /** Execute a raw SQL statement */
   run(sql: SQLQuery): Promise<ExecResult>
   /** Execute within a transaction */
-  transaction<T>(fn: (tx: DrizzleEQLite) => Promise<T>): Promise<T>
+  transaction<T>(fn: (tx: DrizzleSQLit) => Promise<T>): Promise<T>
 }
 
 // ============================================================================
@@ -71,7 +71,7 @@ export interface DrizzleEQLite {
 // ============================================================================
 
 class SelectBuilder {
-  private client: EQLiteClient
+  private client: SQLitClient
   private databaseId: string
   private tableName: string | null = null
   private columns: string[] = ['*']
@@ -81,7 +81,7 @@ class SelectBuilder {
   private limitValue: number | null = null
   private offsetValue: number | null = null
 
-  constructor(client: EQLiteClient, databaseId: string) {
+  constructor(client: SQLitClient, databaseId: string) {
     this.client = client
     this.databaseId = databaseId
   }
@@ -159,12 +159,12 @@ class SelectBuilder {
 }
 
 class InsertBuilder<T extends DrizzleTable> {
-  private client: EQLiteClient
+  private client: SQLitClient
   private databaseId: string
   private tableName: string
   private data: Record<string, QueryParam>[] = []
 
-  constructor(client: EQLiteClient, databaseId: string, table: T) {
+  constructor(client: SQLitClient, databaseId: string, table: T) {
     this.client = client
     this.databaseId = databaseId
     // Validate table name to prevent SQL injection
@@ -200,20 +200,20 @@ class InsertBuilder<T extends DrizzleTable> {
   }
 
   returning(): this {
-    // EQLite doesn't support RETURNING, but we keep API compatibility
+    // SQLit doesn't support RETURNING, but we keep API compatibility
     return this
   }
 }
 
 class UpdateBuilder<T extends DrizzleTable> {
-  private client: EQLiteClient
+  private client: SQLitClient
   private databaseId: string
   private tableName: string
   private setData: Record<string, QueryParam> = {}
   private whereClause: string | null = null
   private whereParams: QueryParam[] = []
 
-  constructor(client: EQLiteClient, databaseId: string, table: T) {
+  constructor(client: SQLitClient, databaseId: string, table: T) {
     this.client = client
     this.databaseId = databaseId
     // Validate table name to prevent SQL injection
@@ -259,13 +259,13 @@ class UpdateBuilder<T extends DrizzleTable> {
 }
 
 class DeleteBuilder<T extends DrizzleTable> {
-  private client: EQLiteClient
+  private client: SQLitClient
   private databaseId: string
   private tableName: string
   private whereClause: string | null = null
   private whereParams: QueryParam[] = []
 
-  constructor(client: EQLiteClient, databaseId: string, table: T) {
+  constructor(client: SQLitClient, databaseId: string, table: T) {
     this.client = client
     this.databaseId = databaseId
     // Validate table name to prevent SQL injection
@@ -297,11 +297,11 @@ class DeleteBuilder<T extends DrizzleTable> {
 // Drizzle Adapter
 // ============================================================================
 
-function createDrizzleEQLite(
-  client: EQLiteClient,
+function createDrizzleSQLit(
+  client: SQLitClient,
   databaseId: string,
-  config?: DrizzleEQLiteConfig,
-): DrizzleEQLite {
+  config?: DrizzleSQLitConfig,
+): DrizzleSQLit {
   function logQuery(query: string, params: QueryParam[]): void {
     if (config?.logger === true) {
       // Log query structure without exposing potentially sensitive parameter values
@@ -309,7 +309,7 @@ function createDrizzleEQLite(
       const statementType =
         query.trim().split(/\s+/)[0].toUpperCase() ?? 'QUERY'
       console.log(
-        `[EQLite Drizzle] ${statementType} (params: ${params.length})`,
+        `[SQLit Drizzle] ${statementType} (params: ${params.length})`,
       )
     } else if (typeof config?.logger === 'object') {
       // Custom loggers receive full data - they're responsible for their own filtering
@@ -317,7 +317,7 @@ function createDrizzleEQLite(
     }
   }
 
-  const db: DrizzleEQLite = {
+  const db: DrizzleSQLit = {
     select() {
       return new SelectBuilder(client, databaseId)
     },
@@ -346,13 +346,13 @@ function createDrizzleEQLite(
       return client.exec(q.sql, q.params, databaseId)
     },
 
-    async transaction<T>(fn: (tx: DrizzleEQLite) => Promise<T>): Promise<T> {
+    async transaction<T>(fn: (tx: DrizzleSQLit) => Promise<T>): Promise<T> {
       const conn = await client.connect(databaseId)
       const tx = await conn.beginTransaction()
 
       try {
         // Create a transaction-scoped DB wrapper
-        const txDb: DrizzleEQLite = {
+        const txDb: DrizzleSQLit = {
           ...db,
           async execute<R>(sql: SQLQuery): Promise<QueryResult<R>> {
             const q = sql.toQuery()
@@ -420,5 +420,5 @@ export function sql(
 // Exports
 // ============================================================================
 
-export { createDrizzleEQLite as drizzle }
+export { createDrizzleSQLit as drizzle }
 export type { DrizzleTable, SQLQuery, DrizzleLogger }

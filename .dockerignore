@@ -1,0 +1,20 @@
+# Docker ignore for Jeju monorepo builds
+**/node_modules
+**/.git
+**/.DS_Store
+**/dist
+**/build
+**/.turbo
+**/*.log
+**/coverage
+**/.env*
+!.env.example
+**/.cache
+**/test-results
+**/playwright-report
+**/.next
+**/target
+**/*.pyc
+**/__pycache__
+**/vendor/babylon/node_modules
+**/vendor/eliza/node_modules

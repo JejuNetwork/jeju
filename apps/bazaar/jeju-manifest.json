@@ -90,7 +90,7 @@
       ]
     },
     "database": {
-      "type": "eqlite",
+      "type": "sqlit",
       "name": "bazaar-db",
       "consistency": "strong",
       "tables": ["market_cache", "user_preferences"]

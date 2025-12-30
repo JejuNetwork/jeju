@@ -1,12 +1,12 @@
 /**
- * EQLite Migration System
+ * SQLit Migration System
  *
- * Schema migration utilities for EQLite databases.
+ * Schema migration utilities for SQLit databases.
  * Supports versioned migrations with up/down capabilities.
  */
 
 import { toError } from '@jejunetwork/types'
-import type { EQLiteClient } from './client.js'
+import type { SQLitClient } from './client.js'
 import type { Migration, MigrationResult } from './types.js'
 import {
   validateColumnType,
@@ -18,12 +18,12 @@ import {
 // Migration Manager
 
 export class MigrationManager {
-  private client: EQLiteClient
+  private client: SQLitClient
   private databaseId: string
   private tableName: string
 
   constructor(
-    client: EQLiteClient,
+    client: SQLitClient,
     databaseId: string,
     tableName: string = '_migrations',
   ) {
@@ -120,7 +120,7 @@ export class MigrationManager {
         }
 
         console.log(
-          `[EQLite] Applying migration: ${migration.version} - ${migration.name}`,
+          `[SQLit] Applying migration: ${migration.version} - ${migration.name}`,
         )
 
         await tx.exec(migration.up, [])
@@ -175,7 +175,7 @@ export class MigrationManager {
     }
 
     console.log(
-      `[EQLite] Rolling back migration: ${migration.version} - ${migration.name}`,
+      `[SQLit] Rolling back migration: ${migration.version} - ${migration.name}`,
     )
 
     const conn = await this.client.connect(this.databaseId)
@@ -399,7 +399,7 @@ export function createTableMigration(
 // Factory
 
 export function createMigrationManager(
-  client: EQLiteClient,
+  client: SQLitClient,
   databaseId: string,
   tableName?: string,
 ): MigrationManager {

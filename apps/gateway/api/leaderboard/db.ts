@@ -29,7 +29,7 @@ export async function initLeaderboardDB(): Promise<void> {
   const healthy = await database.isHealthy()
   if (!healthy) {
     throw new Error(
-      'EQLite database not available. Ensure EQLite block producer is running:\n' +
+      'SQLit database not available. Ensure SQLit block producer is running:\n' +
         `  Endpoint: ${LEADERBOARD_CONFIG.db.endpoint}\n` +
         '  Run: docker compose up -d',
     )

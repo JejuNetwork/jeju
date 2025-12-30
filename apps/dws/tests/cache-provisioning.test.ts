@@ -6,7 +6,7 @@
  * - Plan management
  * - Node registration
  * - Stats aggregation
- * - EQLite persistence (when available)
+ * - SQLit persistence (when available)
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'

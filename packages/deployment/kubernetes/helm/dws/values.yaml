@@ -40,12 +40,14 @@ service:
 
 ingress:
   enabled: true
-  className: "nginx"
+  className: "alb"
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "10g"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "" # Set by deployment
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
   hosts:
     - host: dws.testnet.jejunetwork.org
       paths:
@@ -347,5 +349,8 @@ metrics:
     enabled: true
     interval: 30s
     scrapeTimeout: 10s
+  prometheusRule:
+    enabled: false
+    labels: {}
 
 

@@ -431,10 +431,10 @@ SECP256K1_API int secp256k1_ecdsa_signature_normalize(
  * If a data pointer is passed, it is assumed to be a pointer to 32 bytes of
  * extra entropy.
  */
-SECP256K1_API const secp256k1_nonce_function eqlite_secp256k1_nonce_function_rfc6979;
+SECP256K1_API const secp256k1_nonce_function sqlit_secp256k1_nonce_function_rfc6979;
 
 /** A default safe nonce generation function (currently equal to secp256k1_nonce_function_rfc6979). */
-SECP256K1_API const secp256k1_nonce_function eqlite_secp256k1_nonce_function_default;
+SECP256K1_API const secp256k1_nonce_function sqlit_secp256k1_nonce_function_default;
 
 /** Create an ECDSA signature.
  *

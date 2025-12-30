@@ -1,14 +1,14 @@
 /**
- * Encrypted EQLite Client
+ * Encrypted SQLit Client
  *
- * Provides transparent encryption at rest for EQLite databases using KMS.
- * All data is encrypted before being sent to EQLite and decrypted on read.
+ * Provides transparent encryption at rest for SQLit databases using KMS.
+ * All data is encrypted before being sent to SQLit and decrypted on read.
  *
  * @example
  * ```typescript
- * import { createEncryptedEQLiteClient } from '@jejunetwork/db'
+ * import { createEncryptedSQLitClient } from '@jejunetwork/db'
  *
- * const client = await createEncryptedEQLiteClient({
+ * const client = await createEncryptedSQLitClient({
  *   databaseId: 'my-app-db',
  *   kmsEndpoint: 'http://localhost:4040',
  *   encryptionKeyId: 'db-key-123',
@@ -22,7 +22,7 @@
  * ```
  */
 
-import { getEQLiteBlockProducerUrl, getKMSEndpoint } from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl, getKMSEndpoint } from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { z } from 'zod'
 
@@ -47,8 +47,8 @@ const GenerateKeyResponseSchema = z.object({
 
 // Types
 
-export interface EncryptedEQLiteConfig {
-  /** EQLite endpoint (defaults to config) */
+export interface EncryptedSQLitConfig {
+  /** SQLit endpoint (defaults to config) */
   endpoint?: string
   /** Database ID */
   databaseId: string
@@ -96,9 +96,9 @@ function shouldEncrypt(
   )
 }
 
-// Encrypted EQLite Client
+// Encrypted SQLit Client
 
-export class EncryptedEQLiteClient {
+export class EncryptedSQLitClient {
   private endpoint: string
   private databaseId: string
   private kmsEndpoint: string
@@ -109,8 +109,8 @@ export class EncryptedEQLiteClient {
   private kmsAuth?: { type: 'apiKey' | 'signature'; value: string }
   private initialized = false
 
-  constructor(config: EncryptedEQLiteConfig) {
-    this.endpoint = config.endpoint ?? getEQLiteBlockProducerUrl()
+  constructor(config: EncryptedSQLitConfig) {
+    this.endpoint = config.endpoint ?? getSQLitBlockProducerUrl()
     this.databaseId = config.databaseId
     this.kmsEndpoint = config.kmsEndpoint ?? getKMSEndpoint()
     this.encryptionKeyId = config.encryptionKeyId ?? null
@@ -134,7 +134,7 @@ export class EncryptedEQLiteClient {
     this.initialized = true
     if (this.debug) {
       console.log(
-        `[EncryptedEQLite] Initialized with key: ${this.encryptionKeyId}`,
+        `[EncryptedSQLit] Initialized with key: ${this.encryptionKeyId}`,
       )
     }
   }
@@ -155,7 +155,7 @@ export class EncryptedEQLiteClient {
   ): Promise<EncryptedQueryResult<T>> {
     await this.ensureInitialized()
 
-    // Execute query against EQLite
+    // Execute query against SQLit
     const response = await this.executeRequest('query', sql, params)
 
     // Decrypt any encrypted columns
@@ -182,7 +182,7 @@ export class EncryptedEQLiteClient {
     // Encrypt parameters if needed
     const encryptedParams = await this.encryptParams(sql, params ?? [])
 
-    // Execute against EQLite
+    // Execute against SQLit
     const response = await this.executeRequest('exec', sql, encryptedParams)
 
     return {
@@ -263,14 +263,14 @@ export class EncryptedEQLiteClient {
    * Health check
    */
   async isHealthy(): Promise<boolean> {
-    // Check EQLite
-    const eqliteHealthy = await fetch(`${this.endpoint}/v1/status`, {
+    // Check SQLit
+    const sqlitHealthy = await fetch(`${this.endpoint}/v1/status`, {
       signal: AbortSignal.timeout(5000),
     })
       .then((r) => r.ok)
       .catch(() => false)
 
-    if (!eqliteHealthy) return false
+    if (!sqlitHealthy) return false
 
     // Check KMS
     const kmsHealthy = await fetch(`${this.kmsEndpoint}/health`, {
@@ -354,7 +354,7 @@ export class EncryptedEQLiteClient {
     })
 
     if (!response.ok) {
-      throw new Error(`EQLite ${type} failed: ${response.statusText}`)
+      throw new Error(`SQLit ${type} failed: ${response.statusText}`)
     }
 
     const data = (await response.json()) as {
@@ -444,12 +444,12 @@ export class EncryptedEQLiteClient {
 }
 
 /**
- * Create an encrypted EQLite client
+ * Create an encrypted SQLit client
  */
-export async function createEncryptedEQLiteClient(
-  config: EncryptedEQLiteConfig,
-): Promise<EncryptedEQLiteClient> {
-  const client = new EncryptedEQLiteClient(config)
+export async function createEncryptedSQLitClient(
+  config: EncryptedSQLitConfig,
+): Promise<EncryptedSQLitClient> {
+  const client = new EncryptedSQLitClient(config)
   await client.initialize()
   return client
 }

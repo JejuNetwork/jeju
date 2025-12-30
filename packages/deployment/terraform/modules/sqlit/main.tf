@@ -1,5 +1,5 @@
-# EQLite Module - Decentralized Database Cluster
-# Deploys EQLite nodes on EC2 with optional ARM64 support
+# SQLit Module - Decentralized Database Cluster
+# Deploys SQLit nodes on EC2 with optional ARM64 support
 
 terraform {
   required_providers {
@@ -21,12 +21,12 @@ variable "vpc_id" {
 }
 
 variable "subnet_ids" {
-  description = "Subnet IDs for EQLite nodes"
+  description = "Subnet IDs for SQLit nodes"
   type        = list(string)
 }
 
 variable "node_count" {
-  description = "Number of EQLite nodes"
+  description = "Number of SQLit nodes"
   type        = number
   default     = 1
 }
@@ -62,7 +62,7 @@ variable "key_name" {
 }
 
 variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to access EQLite"
+  description = "CIDR blocks allowed to access SQLit"
   type        = list(string)
   default     = ["10.0.0.0/8"]
 }
@@ -73,33 +73,33 @@ variable "ecr_registry" {
   default     = ""
 }
 
-variable "eqlite_image_tag" {
-  description = "EQLite Docker image tag"
+variable "sqlit_image_tag" {
+  description = "SQLit Docker image tag"
   type        = string
   default     = "latest"
 }
 
 locals {
-  name_prefix   = "eqlite-${var.environment}"
+  name_prefix   = "sqlit-${var.environment}"
   instance_type = var.use_arm64 ? var.arm_instance_type : var.instance_type
   
   # AMI selection based on architecture
   ami_filter = var.use_arm64 ? "amzn2-ami-hvm-*-arm64-gp2" : "amzn2-ami-hvm-*-x86_64-gp2"
 }
 
-# Security Group for EQLite
-resource "aws_security_group" "eqlite" {
+# Security Group for SQLit
+resource "aws_security_group" "sqlit" {
   name_prefix = "${local.name_prefix}-sg"
-  description = "Security group for EQLite nodes"
+  description = "Security group for SQLit nodes"
   vpc_id      = var.vpc_id
 
-  # SQLite port (internal)
+  # SQLit port (internal)
   ingress {
     from_port   = 4001
     to_port     = 4001
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-    description = "EQLite SQLite port"
+    description = "SQLit SQLit port"
   }
 
   # HTTP API
@@ -108,7 +108,7 @@ resource "aws_security_group" "eqlite" {
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-    description = "EQLite HTTP API"
+    description = "SQLit HTTP API"
   }
 
   # Gossip protocol
@@ -117,7 +117,7 @@ resource "aws_security_group" "eqlite" {
     to_port     = 4002
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-    description = "EQLite gossip"
+    description = "SQLit gossip"
   }
 
   # Raft consensus
@@ -126,7 +126,7 @@ resource "aws_security_group" "eqlite" {
     to_port     = 4003
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-    description = "EQLite Raft"
+    description = "SQLit Raft"
   }
 
   egress {
@@ -163,8 +163,8 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
-# IAM Role for EQLite instances
-resource "aws_iam_role" "eqlite" {
+# IAM Role for SQLit instances
+resource "aws_iam_role" "sqlit" {
   name_prefix = "${local.name_prefix}-role"
 
   assume_role_policy = jsonencode({
@@ -184,30 +184,30 @@ resource "aws_iam_role" "eqlite" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "eqlite_ssm" {
-  role       = aws_iam_role.eqlite.name
+resource "aws_iam_role_policy_attachment" "sqlit_ssm" {
+  role       = aws_iam_role.sqlit.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_role_policy_attachment" "eqlite_ecr" {
-  role       = aws_iam_role.eqlite.name
+resource "aws_iam_role_policy_attachment" "sqlit_ecr" {
+  role       = aws_iam_role.sqlit.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-resource "aws_iam_instance_profile" "eqlite" {
+resource "aws_iam_instance_profile" "sqlit" {
   name_prefix = "${local.name_prefix}-profile"
-  role        = aws_iam_role.eqlite.name
+  role        = aws_iam_role.sqlit.name
 }
 
-# EQLite EC2 Instances
-resource "aws_instance" "eqlite" {
+# SQLit EC2 Instances
+resource "aws_instance" "sqlit" {
   count = var.node_count
 
   ami                    = data.aws_ami.amazon_linux_2.id
   instance_type          = local.instance_type
   subnet_id              = var.subnet_ids[count.index % length(var.subnet_ids)]
-  vpc_security_group_ids = [aws_security_group.eqlite.id]
-  iam_instance_profile   = aws_iam_instance_profile.eqlite.name
+  vpc_security_group_ids = [aws_security_group.sqlit.id]
+  iam_instance_profile   = aws_iam_instance_profile.sqlit.name
   key_name               = var.key_name != "" ? var.key_name : null
 
   root_block_device {
@@ -233,27 +233,27 @@ resource "aws_instance" "eqlite" {
     fi
     
     # Create data directory
-    mkdir -p /data/eqlite
+    mkdir -p /data/sqlit
     
-    # Run EQLite container
+    # Run SQLit container
     docker run -d \
-      --name eqlite \
+      --name sqlit \
       --restart unless-stopped \
       -p 4001:4001 \
       -p 4002:4002 \
       -p 4003:4003 \
       -p 8080:8080 \
-      -v /data/eqlite:/data \
+      -v /data/sqlit:/data \
       -e NODE_ID=${count.index} \
       -e ENVIRONMENT=${var.environment} \
-      ${var.ecr_registry != "" ? "${var.ecr_registry}/eqlite:${var.eqlite_image_tag}" : "eqlite:${var.eqlite_image_tag}"}
+      ${var.ecr_registry != "" ? "${var.ecr_registry}/sqlit:${var.sqlit_image_tag}" : "sqlit:${var.sqlit_image_tag}"}
   EOF
   )
 
   tags = {
     Name        = "${local.name_prefix}-${count.index}"
     Environment = var.environment
-    Service     = "eqlite"
+    Service     = "sqlit"
   }
 
   lifecycle {
@@ -263,41 +263,41 @@ resource "aws_instance" "eqlite" {
 
 # Outputs
 output "instance_ids" {
-  description = "EQLite instance IDs"
-  value       = aws_instance.eqlite[*].id
+  description = "SQLit instance IDs"
+  value       = aws_instance.sqlit[*].id
 }
 
 output "private_ips" {
-  description = "EQLite private IPs"
-  value       = aws_instance.eqlite[*].private_ip
+  description = "SQLit private IPs"
+  value       = aws_instance.sqlit[*].private_ip
 }
 
 output "security_group_id" {
-  description = "EQLite security group ID"
-  value       = aws_security_group.eqlite.id
+  description = "SQLit security group ID"
+  value       = aws_security_group.sqlit.id
 }
 
 output "endpoint" {
-  description = "EQLite primary endpoint"
-  value       = length(aws_instance.eqlite) > 0 ? "http://${aws_instance.eqlite[0].private_ip}:8080" : ""
+  description = "SQLit primary endpoint"
+  value       = length(aws_instance.sqlit) > 0 ? "http://${aws_instance.sqlit[0].private_ip}:8080" : ""
 }
 
 output "http_endpoint" {
-  description = "EQLite HTTP endpoint"
-  value       = length(aws_instance.eqlite) > 0 ? "http://${aws_instance.eqlite[0].private_ip}:8080" : ""
+  description = "SQLit HTTP endpoint"
+  value       = length(aws_instance.sqlit) > 0 ? "http://${aws_instance.sqlit[0].private_ip}:8080" : ""
 }
 
 output "node_ips" {
-  description = "EQLite node IP addresses"
-  value       = aws_instance.eqlite[*].private_ip
+  description = "SQLit node IP addresses"
+  value       = aws_instance.sqlit[*].private_ip
 }
 
 output "architecture" {
-  description = "EQLite instance architecture"
+  description = "SQLit instance architecture"
   value       = var.use_arm64 ? "arm64" : "x86_64"
 }
 
-output "eqlite_image" {
-  description = "EQLite Docker image"
-  value       = var.ecr_registry != "" ? "${var.ecr_registry}/eqlite:${var.eqlite_image_tag}" : "eqlite:${var.eqlite_image_tag}"
+output "sqlit_image" {
+  description = "SQLit Docker image"
+  value       = var.ecr_registry != "" ? "${var.ecr_registry}/sqlit:${var.sqlit_image_tag}" : "sqlit:${var.sqlit_image_tag}"
 }

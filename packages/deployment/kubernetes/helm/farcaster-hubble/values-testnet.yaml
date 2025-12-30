@@ -2,11 +2,15 @@
 
 ingress:
   enabled: true
-  className: nginx
+  className: alb
   annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: GRPC
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "" # Will be set by deployment
+    alb.ingress.kubernetes.io/healthcheck-path: /v1/info
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
   hosts:
     - host: hub.testnet.jejunetwork.org
       paths:

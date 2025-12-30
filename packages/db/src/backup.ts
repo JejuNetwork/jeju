@@ -1,7 +1,7 @@
 /**
- * EQLite Backup Service
+ * SQLit Backup Service
  *
- * Provides automated backup and restore for EQLite databases using DWS storage.
+ * Provides automated backup and restore for SQLit databases using DWS storage.
  * Supports multiple storage backends (IPFS, Filecoin, Arweave, S3) with encryption.
  *
  * @example
@@ -24,7 +24,7 @@
  * ```
  */
 
-import { getDWSEndpoint, getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { getDWSEndpoint, getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 
 // Schemas
@@ -59,8 +59,8 @@ export type BackupMetadata = z.infer<typeof BackupMetadataSchema>
 export type StorageBackend = 'ipfs' | 'filecoin' | 'arweave' | 's3' | 'local'
 
 export interface BackupServiceConfig {
-  /** EQLite endpoint (defaults to config) */
-  eqliteEndpoint?: string
+  /** SQLit endpoint (defaults to config) */
+  sqlitEndpoint?: string
   /** Database ID to backup */
   databaseId: string
   /** DWS endpoint for storage (defaults to config) */
@@ -110,7 +110,7 @@ export interface RestoreOptions {
 // Backup Service Implementation
 
 export class BackupService {
-  private eqliteEndpoint: string
+  private sqlitEndpoint: string
   private databaseId: string
   private dwsEndpoint: string
   private storageBackend: StorageBackend
@@ -125,7 +125,7 @@ export class BackupService {
   private scheduleInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: BackupServiceConfig) {
-    this.eqliteEndpoint = config.eqliteEndpoint ?? getEQLiteBlockProducerUrl()
+    this.sqlitEndpoint = config.sqlitEndpoint ?? getSQLitBlockProducerUrl()
     this.databaseId = config.databaseId
     this.dwsEndpoint = config.dwsEndpoint ?? getDWSEndpoint()
     this.storageBackend = config.storageBackend ?? 'ipfs'
@@ -280,7 +280,7 @@ export class BackupService {
       if (!rows) continue
 
       if (options.dropExisting) {
-        await this.execOnEQLite(`DELETE FROM ${table}`, targetDb)
+        await this.execOnSQLit(`DELETE FROM ${table}`, targetDb)
       }
 
       await this.importTable(table, rows, targetDb)
@@ -397,21 +397,21 @@ export class BackupService {
   }
 
   private async listTables(): Promise<string[]> {
-    const response = await this.queryOnEQLite(
+    const response = await this.queryOnSQLit(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
     )
     return response.map((r) => r.name as string)
   }
 
   private async exportTable(table: string): Promise<unknown[]> {
-    return this.queryOnEQLite(`SELECT * FROM "${table}"`)
+    return this.queryOnSQLit(`SELECT * FROM "${table}"`)
   }
 
   private async exportSchema(tables: string[]): Promise<string> {
     const schemas: string[] = []
 
     for (const table of tables) {
-      const result = await this.queryOnEQLite(
+      const result = await this.queryOnSQLit(
         `SELECT sql FROM sqlite_master WHERE type='table' AND name='${table}'`,
       )
       if (result[0]?.sql) {
@@ -443,7 +443,7 @@ export class BackupService {
         const placeholders = columns.map(() => '?').join(', ')
         const sql = `INSERT INTO "${table}" (${columns.join(', ')}) VALUES (${placeholders})`
 
-        await this.execOnEQLite(sql, targetDb, values)
+        await this.execOnSQLit(sql, targetDb, values)
       }
     }
   }
@@ -451,12 +451,12 @@ export class BackupService {
   private async restoreSchema(schema: string, targetDb: string): Promise<void> {
     const statements = schema.split(';').filter((s) => s.trim())
     for (const stmt of statements) {
-      await this.execOnEQLite(stmt, targetDb)
+      await this.execOnSQLit(stmt, targetDb)
     }
   }
 
-  private async queryOnEQLite(sql: string): Promise<Record<string, unknown>[]> {
-    const response = await fetch(`${this.eqliteEndpoint}/v1/query`, {
+  private async queryOnSQLit(sql: string): Promise<Record<string, unknown>[]> {
+    const response = await fetch(`${this.sqlitEndpoint}/v1/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -468,7 +468,7 @@ export class BackupService {
     })
 
     if (!response.ok) {
-      throw new Error(`EQLite query failed: ${response.statusText}`)
+      throw new Error(`SQLit query failed: ${response.statusText}`)
     }
 
     const data = (await response.json()) as {
@@ -477,12 +477,12 @@ export class BackupService {
     return data.data?.rows ?? []
   }
 
-  private async execOnEQLite(
+  private async execOnSQLit(
     sql: string,
     targetDb?: string,
     params?: unknown[],
   ): Promise<void> {
-    const response = await fetch(`${this.eqliteEndpoint}/v1/exec`, {
+    const response = await fetch(`${this.sqlitEndpoint}/v1/exec`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -494,7 +494,7 @@ export class BackupService {
     })
 
     if (!response.ok) {
-      throw new Error(`EQLite exec failed: ${response.statusText}`)
+      throw new Error(`SQLit exec failed: ${response.statusText}`)
     }
   }
 

@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# EQLite Node Setup Script
+# SQLit Node Setup Script
 # Environment: ${environment}
 # Node Count: ${node_count}
 # Architecture: ${architecture}
-# Image: ${eqlite_image}
+# Image: ${sqlit_image}
 
-echo "Starting EQLite node setup..."
+echo "Starting SQLit node setup..."
 echo "Architecture: ${architecture}"
 
 # Install dependencies
@@ -24,9 +24,9 @@ if [ -b /dev/xvdf ]; then
   if ! file -s /dev/xvdf | grep -q 'filesystem'; then
     mkfs.xfs /dev/xvdf
   fi
-  mkdir -p /data/eqlite
-  mount /dev/xvdf /data/eqlite
-  echo '/dev/xvdf /data/eqlite xfs defaults,nofail 0 2' >> /etc/fstab
+  mkdir -p /data/sqlit
+  mount /dev/xvdf /data/sqlit
+  echo '/dev/xvdf /data/sqlit xfs defaults,nofail 0 2' >> /etc/fstab
 fi
 
 # Get instance metadata (IMDSv2)
@@ -50,27 +50,27 @@ PRIVATE_KEY=$(aws ssm get-parameter --region $REGION \
 
 # Get all node IPs for cluster discovery
 ALL_NODES=$(aws ec2 describe-instances --region $REGION \
-  --filters "Name=tag:Component,Values=eqlite" "Name=tag:Environment,Values=${environment}" "Name=instance-state-name,Values=running" \
+  --filters "Name=tag:Component,Values=sqlit" "Name=tag:Environment,Values=${environment}" "Name=instance-state-name,Values=running" \
   --query 'Reservations[].Instances[].PrivateIpAddress' --output text | tr '\t' ',')
 
-# Create EQLite config directory
-mkdir -p /data/eqlite/config
-mkdir -p /data/eqlite/data
+# Create SQLit config directory
+mkdir -p /data/sqlit/config
+mkdir -p /data/sqlit/data
 
 # Generate node config
-cat > /data/eqlite/config/config.yaml << EOF
-# EQLite Node Configuration
+cat > /data/sqlit/config/config.yaml << EOF
+# SQLit Node Configuration
 # Generated for ${environment} environment
 # Architecture: ${architecture}
 
 IsTestNet: $([ "${environment}" == "testnet" ] && echo "true" || echo "false")
 
-WorkingRoot: /data/eqlite/data
+WorkingRoot: /data/sqlit/data
 
 ThisNodeID: node-$NODE_INDEX
 
-PubKeyStoreFile: /data/eqlite/config/public.keystore
-PrivateKeyFile: /data/eqlite/config/private.key
+PubKeyStoreFile: /data/sqlit/config/public.keystore
+PrivateKeyFile: /data/sqlit/config/private.key
 
 ListenAddr: "0.0.0.0:4661"
 ExternalAddr: "$PRIVATE_IP:4661"
@@ -114,7 +114,7 @@ $(echo "$ALL_NODES" | tr ',' '\n' | while read ip; do echo "    - \"$ip:4662\"";
 Logging:
   Level: info
   Format: json
-  Output: /data/eqlite/logs/node.log
+  Output: /data/sqlit/logs/node.log
 
 # Metrics
 Metrics:
@@ -123,21 +123,21 @@ Metrics:
 EOF
 
 # Write private key
-echo "$PRIVATE_KEY" > /data/eqlite/config/private.key
-chmod 600 /data/eqlite/config/private.key
+echo "$PRIVATE_KEY" > /data/sqlit/config/private.key
+chmod 600 /data/sqlit/config/private.key
 
 # Create logs directory
-mkdir -p /data/eqlite/logs
+mkdir -p /data/sqlit/logs
 
-# Pull the EQLite image (supports ARM64 and x86_64)
-EQLITE_IMAGE="${eqlite_image}"
-echo "Pulling EQLite image: $EQLITE_IMAGE"
-docker pull $EQLITE_IMAGE
+# Pull the SQLit image (supports ARM64 and x86_64)
+SQLIT_IMAGE="${sqlit_image}"
+echo "Pulling SQLit image: $SQLIT_IMAGE"
+docker pull $SQLIT_IMAGE
 
-# Create systemd service for EQLite
-cat > /etc/systemd/system/eqlite.service << EOF
+# Create systemd service for SQLit
+cat > /etc/systemd/system/sqlit.service << EOF
 [Unit]
-Description=EQLite Node
+Description=SQLit Node
 After=docker.service
 Requires=docker.service
 
@@ -145,29 +145,29 @@ Requires=docker.service
 Type=simple
 Restart=always
 RestartSec=10
-ExecStartPre=-/usr/bin/docker stop eqlite
-ExecStartPre=-/usr/bin/docker rm eqlite
-ExecStart=/usr/bin/docker run --name eqlite \
+ExecStartPre=-/usr/bin/docker stop sqlit
+ExecStartPre=-/usr/bin/docker rm sqlit
+ExecStart=/usr/bin/docker run --name sqlit \
   -p 4661:4661 \
   -p 4662:4662 \
   -p 4663:4663 \
   -p 8546:8546 \
   -p 9100:9100 \
-  -v /data/eqlite/config:/config:ro \
-  -v /data/eqlite/data:/data \
-  -v /data/eqlite/logs:/logs \
-  $EQLITE_IMAGE \
+  -v /data/sqlit/config:/config:ro \
+  -v /data/sqlit/data:/data \
+  -v /data/sqlit/logs:/logs \
+  $SQLIT_IMAGE \
   -config /config/config.yaml
-ExecStop=/usr/bin/docker stop eqlite
+ExecStop=/usr/bin/docker stop sqlit
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Start EQLite service
+# Start SQLit service
 systemctl daemon-reload
-systemctl enable eqlite
-systemctl start eqlite
+systemctl enable sqlit
+systemctl start sqlit
 
 # Install CloudWatch agent for log shipping
 yum install -y amazon-cloudwatch-agent
@@ -179,8 +179,8 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << EOF
       "files": {
         "collect_list": [
           {
-            "file_path": "/data/eqlite/logs/node.log",
-            "log_group_name": "/jeju/eqlite/${environment}",
+            "file_path": "/data/sqlit/logs/node.log",
+            "log_group_name": "/jeju/sqlit/${environment}",
             "log_stream_name": "node-$NODE_INDEX",
             "timezone": "UTC"
           }
@@ -189,14 +189,14 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << EOF
     }
   },
   "metrics": {
-    "namespace": "Jeju/EQLite",
+    "namespace": "Jeju/SQLit",
     "metrics_collected": {
       "cpu": {
         "resources": ["*"],
         "measurement": ["cpu_usage_idle", "cpu_usage_user", "cpu_usage_system"]
       },
       "disk": {
-        "resources": ["/", "/data/eqlite"],
+        "resources": ["/", "/data/sqlit"],
         "measurement": ["disk_used_percent", "disk_free"]
       },
       "mem": {
@@ -216,10 +216,10 @@ EOF
 systemctl enable amazon-cloudwatch-agent
 systemctl start amazon-cloudwatch-agent
 
-echo "EQLite node setup complete."
+echo "SQLit node setup complete."
 echo "Node: $NODE_INDEX"
 echo "IP: $PRIVATE_IP"
 echo "Architecture: ${architecture}"
-echo "Image: $EQLITE_IMAGE"
+echo "Image: $SQLIT_IMAGE"
 echo "Client Port: 4661"
 echo "HTTP API: 8546"

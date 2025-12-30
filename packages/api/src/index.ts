@@ -104,10 +104,10 @@ export {
   withRateLimit,
 } from './rate-limiting/elysia.js'
 export {
-  createEQLiteRateLimitStore,
-  EQLiteRateLimitStore,
-  type EQLiteRateLimitStoreConfig,
-} from './rate-limiting/eqlite-store.js'
+  createSQLitRateLimitStore,
+  SQLitRateLimitStore,
+  type SQLitRateLimitStoreConfig,
+} from './rate-limiting/sqlit-store.js'
 export {
   type RateLimitEntry,
   type RateLimiterConfig,

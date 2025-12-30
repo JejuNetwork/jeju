@@ -20,7 +20,7 @@ import {
   getCurrentNetwork,
   getDWSComputeUrl,
   getDWSUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getIpfsGatewayUrl,
   getKMSUrl,
   getL1RpcUrl,
@@ -52,9 +52,9 @@ import { initializeContainerSystem } from '../containers'
 import {
   createDatabaseRouter,
   createKeepaliveRouter,
-  createSecureEQLiteRouter,
-  ensureEQLiteService,
-  getEQLiteStatus,
+  createSecureSQLitRouter,
+  ensureSQLitService,
+  getSQLitStatus,
   type RegisteredDatabase,
   type ResourceStatus,
   startKeepaliveService,
@@ -535,7 +535,7 @@ app
         },
         database: {
           status: 'healthy',
-          description: 'Managed EQLite and PostgreSQL',
+          description: 'Managed SQLit and PostgreSQL',
         },
         security: {
           status: 'healthy',
@@ -674,7 +674,7 @@ app.use(createLoadBalancerRouter())
 
 // Secure database provisioning and access
 app.use(createDatabaseRouter())
-app.use(createSecureEQLiteRouter())
+app.use(createSecureSQLitRouter())
 app.use(createKeepaliveRouter())
 
 // Infrastructure services (postgres, redis, etc.)
@@ -689,7 +689,7 @@ app.use(createGitHubIntegrationRouter())
 // Indexer proxy for decentralized indexer access
 app.use(createIndexerRouter())
 
-// Managed database services (EQLite + PostgreSQL)
+// Managed database services (SQLit + PostgreSQL)
 app.use(createDatabaseRoutes(backendManager))
 
 // Security services (WAF, access control, secrets, audit)
@@ -921,7 +921,7 @@ app.get('/.well-known/agent-card.json', () => {
       {
         name: 'database',
         endpoint: `${baseUrl}/database`,
-        description: 'Managed EQLite and PostgreSQL databases',
+        description: 'Managed SQLit and PostgreSQL databases',
       },
       {
         name: 'security',
@@ -968,17 +968,17 @@ initializeCacheProvisioning().catch((err) => {
 })
 
 // Initialize agent system
-const EQLITE_URL = getEQLiteBlockProducerUrl()
+const SQLIT_URL = getSQLitBlockProducerUrl()
 const AGENTS_DB_ID =
   serverConfig.agentsDatabaseId ??
   (typeof process !== 'undefined'
     ? process.env.AGENTS_DATABASE_ID
     : undefined) ??
   'dws-agents'
-initRegistry({ eqliteUrl: EQLITE_URL, databaseId: AGENTS_DB_ID }).catch(
+initRegistry({ sqlitUrl: SQLIT_URL, databaseId: AGENTS_DB_ID }).catch(
   (err) => {
     console.warn(
-      '[DWS] Agent registry init failed (EQLite may not be running):',
+      '[DWS] Agent registry init failed (SQLit may not be running):',
       err.message,
     )
   },
@@ -1346,7 +1346,7 @@ if (import.meta.main) {
             ? process.env.DWS_KMS_URL
             : undefined) ??
           getKMSUrl(NETWORK),
-        eqliteUrl: EQLITE_URL,
+        sqlitUrl: SQLIT_URL,
       })
       console.log('[DWS] Agent executor initialized')
     })
@@ -1359,16 +1359,16 @@ if (import.meta.main) {
     .then(async () => {
       console.log('[DWS] Infrastructure services discovery complete')
 
-      // Initialize EQLite as a DWS-managed service (not a separate deployment)
+      // Initialize SQLit as a DWS-managed service (not a separate deployment)
       try {
-        await ensureEQLiteService()
-        const status = getEQLiteStatus()
-        console.log(`[DWS] EQLite running at ${status.endpoint}`)
+        await ensureSQLitService()
+        const status = getSQLitStatus()
+        console.log(`[DWS] SQLit running at ${status.endpoint}`)
       } catch (err) {
         console.warn(
-          `[DWS] EQLite auto-start failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          `[DWS] SQLit auto-start failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
         )
-        console.warn('[DWS] EQLite will be started on first database request')
+        console.warn('[DWS] SQLit will be started on first database request')
       }
     })
     .catch(console.error)

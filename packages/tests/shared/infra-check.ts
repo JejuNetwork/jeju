@@ -11,7 +11,7 @@
  *   describe.skipIf(SKIP.NO_INFRA)('My Integration Tests', () => { ... })
  *
  *   // Skip individual test if specific service missing
- *   test.skipIf(SKIP.EQLite)('should query database', async () => { ... })
+ *   test.skipIf(SKIP.SQLit)('should query database', async () => { ... })
  *
  *   // Or throw if infrastructure is required
  *   beforeAll(async () => {
@@ -38,8 +38,8 @@ async function checkEndpoint(url: string, timeout = 2000): Promise<boolean> {
 }
 
 // Check if services are actually running
-async function checkEQLite(): Promise<boolean> {
-  return checkEndpoint(`http://127.0.0.1:${INFRA_PORTS.EQLite.get()}/health`)
+async function checkSQLit(): Promise<boolean> {
+  return checkEndpoint(`http://127.0.0.1:${INFRA_PORTS.SQLit.get()}/health`)
 }
 
 async function checkAnvil(): Promise<boolean> {
@@ -86,7 +86,7 @@ async function checkDocker(): Promise<boolean> {
 
 // Cached status
 let infraStatus: {
-  eqlite: boolean
+  sqlit: boolean
   anvil: boolean
   dws: boolean
   ipfs: boolean
@@ -106,7 +106,7 @@ export async function checkInfrastructure(): Promise<typeof infraStatus> {
   const infraReady = envBool('INFRA_READY')
   if (infraReady) {
     infraStatus = {
-      eqlite: true,
+      sqlit: true,
       anvil: true,
       dws: true,
       ipfs: true,
@@ -117,15 +117,15 @@ export async function checkInfrastructure(): Promise<typeof infraStatus> {
   }
 
   // Check services in parallel
-  const [eqlite, anvil, dws, ipfs, docker] = await Promise.all([
-    envBool('EQLITE_AVAILABLE') || checkEQLite(),
+  const [sqlit, anvil, dws, ipfs, docker] = await Promise.all([
+    envBool('SQLIT_AVAILABLE') || checkSQLit(),
     envBool('ANVIL_AVAILABLE') || checkAnvil(),
     envBool('DWS_AVAILABLE') || checkDWS(),
     envBool('IPFS_AVAILABLE') || checkIPFS(),
     envBool('DOCKER_AVAILABLE') || checkDocker(),
   ])
 
-  infraStatus = { eqlite, anvil, dws, ipfs, docker, checked: true }
+  infraStatus = { sqlit, anvil, dws, ipfs, docker, checked: true }
   return infraStatus
 }
 
@@ -133,8 +133,8 @@ export async function checkInfrastructure(): Promise<typeof infraStatus> {
  * Wait for infrastructure to be ready
  */
 export async function waitForInfra(
-  services: ('eqlite' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = [
-    'eqlite',
+  services: ('sqlit' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = [
+    'sqlit',
     'anvil',
   ],
   timeout = 60000,
@@ -161,8 +161,8 @@ export async function waitForInfra(
  * Throw if required infrastructure is not available
  */
 export async function requireInfra(
-  services: ('eqlite' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = [
-    'eqlite',
+  services: ('sqlit' | 'anvil' | 'dws' | 'ipfs' | 'docker')[] = [
+    'sqlit',
     'anvil',
   ],
 ): Promise<void> {
@@ -179,7 +179,7 @@ export async function requireInfra(
 
 // Synchronous skip conditions for describe.skipIf
 // These check environment variables only (fast)
-const eqliteEnv = envBool('EQLITE_AVAILABLE') || envBool('INFRA_READY')
+const sqlitEnv = envBool('SQLIT_AVAILABLE') || envBool('INFRA_READY')
 const anvilEnv = envBool('ANVIL_AVAILABLE') || envBool('INFRA_READY')
 const dwsEnv = envBool('DWS_AVAILABLE')
 const ipfsEnv = envBool('IPFS_AVAILABLE')
@@ -192,7 +192,7 @@ const infraReadyEnv = envBool('INFRA_READY')
  */
 export const SKIP = {
   // Service unavailable conditions
-  EQLite: !eqliteEnv,
+  SQLit: !sqlitEnv,
   ANVIL: !anvilEnv,
   DWS: !dwsEnv,
   IPFS: !ipfsEnv,
@@ -200,11 +200,11 @@ export const SKIP = {
 
   // Composite conditions
   NO_CHAIN: !anvilEnv,
-  NO_INFRA: !eqliteEnv || !anvilEnv,
-  NO_STORAGE: !eqliteEnv || !ipfsEnv,
-  NO_DISTRIBUTED: !eqliteEnv || !ipfsEnv,
+  NO_INFRA: !sqlitEnv || !anvilEnv,
+  NO_STORAGE: !sqlitEnv || !ipfsEnv,
+  NO_DISTRIBUTED: !sqlitEnv || !ipfsEnv,
   NO_DWS: !dwsEnv,
-  NO_FULL: !eqliteEnv || !anvilEnv || !dwsEnv,
+  NO_FULL: !sqlitEnv || !anvilEnv || !dwsEnv,
 
   // Set by CI to skip long-running tests
   CI_ONLY: envBool('CI'),
@@ -214,7 +214,7 @@ export const SKIP = {
  * Status for logging
  */
 export const INFRA_STATUS = {
-  eqlite: eqliteEnv,
+  sqlit: sqlitEnv,
   anvil: anvilEnv,
   dws: dwsEnv,
   ipfs: ipfsEnv,
@@ -227,7 +227,7 @@ export const INFRA_STATUS = {
  */
 export function logInfraStatus(): void {
   console.log('\n=== Infrastructure Status ===')
-  console.log(`EQLite: ${INFRA_STATUS.eqlite ? '✓' : '✗'}`)
+  console.log(`SQLit: ${INFRA_STATUS.sqlit ? '✓' : '✗'}`)
   console.log(`Anvil: ${INFRA_STATUS.anvil ? '✓' : '✗'}`)
   console.log(`DWS: ${INFRA_STATUS.dws ? '✓' : '✗'}`)
   console.log(`IPFS: ${INFRA_STATUS.ipfs ? '✓' : '✗'}`)

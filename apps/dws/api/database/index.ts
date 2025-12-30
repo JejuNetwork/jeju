@@ -1,13 +1,13 @@
-// EQLite service management
+// SQLit service management
 export {
-  ensureEQLiteService,
+  ensureSQLitService,
   getDatabaseConnectionInfo,
-  getEQLiteClientPort,
-  getEQLiteEndpoint,
-  getEQLiteStatus,
-  isEQLiteHealthy,
+  getSQLitClientPort,
+  getSQLitEndpoint,
+  getSQLitStatus,
+  isSQLitHealthy,
   provisionAppDatabase,
-} from './eqlite-service'
+} from './sqlit-service'
 // Keepalive service for database health monitoring
 export {
   createKeepaliveRouter,
@@ -33,7 +33,7 @@ export {
   verifySignedRequest,
 } from './provisioning'
 export {
-  createSecureEQLiteRouter,
+  createSecureSQLitRouter,
   internalExec,
   internalQuery,
 } from './secure-proxy'

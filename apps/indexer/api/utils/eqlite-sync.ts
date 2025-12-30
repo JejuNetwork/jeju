@@ -1,16 +1,16 @@
 /**
- * EQLite sync layer
+ * SQLit sync layer
  */
 
 import type { QueryParam } from '@jejunetwork/db'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { DataSource, EntityMetadata } from 'typeorm'
 import { config } from '../config'
 
 type SqlPrimitive = string | number | boolean | null | bigint | Date
 type SqlParam = SqlPrimitive | SqlPrimitive[]
 
-/** Convert our SqlParam to QueryParam for the EQLite layer */
+/** Convert our SqlParam to QueryParam for the SQLit layer */
 function convertToQueryParam(value: SqlParam): QueryParam {
   if (Array.isArray(value)) {
     // Convert array to JSON string for storage
@@ -43,24 +43,24 @@ interface QueryResult<T = SqlRow> {
   rowCount: number
 }
 
-const EQLITE_ENABLED = config.eqliteSyncEnabled
-const EQLITE_DATABASE_ID = config.eqliteDatabaseId
+const SQLIT_ENABLED = config.sqlitSyncEnabled
+const SQLIT_DATABASE_ID = config.sqlitDatabaseId
 
 function getSyncIntervalMs(): number {
-  const interval = config.eqliteSyncInterval
+  const interval = config.sqlitSyncInterval
   if (interval <= 0) {
     throw new Error(
-      `Invalid EQLITE_SYNC_INTERVAL: ${interval}. Must be a positive integer.`,
+      `Invalid SQLIT_SYNC_INTERVAL: ${interval}. Must be a positive integer.`,
     )
   }
   return interval
 }
 
 function getBatchSize(): number {
-  const batch = config.eqliteSyncBatchSize
+  const batch = config.sqlitSyncBatchSize
   if (batch <= 0) {
     throw new Error(
-      `Invalid EQLITE_SYNC_BATCH_SIZE: ${batch}. Must be a positive integer.`,
+      `Invalid SQLIT_SYNC_BATCH_SIZE: ${batch}. Must be a positive integer.`,
     )
   }
   return batch
@@ -75,8 +75,8 @@ interface SyncState {
 
 const syncStates: Map<string, SyncState> = new Map()
 
-export class EQLiteSyncService {
-  private client: EQLiteClient
+export class SQLitSyncService {
+  private client: SQLitClient
   private dataSource: DataSource | null = null
   private syncInterval: ReturnType<typeof setInterval> | null = null
   private running = false
@@ -84,9 +84,9 @@ export class EQLiteSyncService {
   private batchSize: number
 
   constructor() {
-    this.client = getEQLite()
-    this.syncIntervalMs = EQLITE_ENABLED ? getSyncIntervalMs() : 30000
-    this.batchSize = EQLITE_ENABLED ? getBatchSize() : 1000
+    this.client = getSQLit()
+    this.syncIntervalMs = SQLIT_ENABLED ? getSyncIntervalMs() : 30000
+    this.batchSize = SQLIT_ENABLED ? getBatchSize() : 1000
   }
 
   async initialize(dataSource: DataSource): Promise<void> {
@@ -94,43 +94,43 @@ export class EQLiteSyncService {
       throw new Error('DataSource is required')
     }
 
-    if (!EQLITE_ENABLED) {
+    if (!SQLIT_ENABLED) {
       console.log(
-        '[EQLiteSync] Disabled - set EQLITE_SYNC_ENABLED=true to enable',
+        '[SQLitSync] Disabled - set SQLIT_SYNC_ENABLED=true to enable',
       )
       return
     }
 
-    // Verify EQLite is healthy with retries (EQLite might be starting up)
+    // Verify SQLit is healthy with retries (SQLit might be starting up)
     let healthy = false
     for (let attempt = 1; attempt <= 3; attempt++) {
       healthy = await this.client.isHealthy()
       if (healthy) break
-      console.log(`[EQLiteSync] Waiting for EQLite (attempt ${attempt}/3)...`)
+      console.log(`[SQLitSync] Waiting for SQLit (attempt ${attempt}/3)...`)
       await new Promise((r) => setTimeout(r, 2000))
     }
 
     if (!healthy) {
-      console.warn('[EQLiteSync] EQLite not available - sync disabled')
+      console.warn('[SQLitSync] SQLit not available - sync disabled')
       return
     }
 
     this.dataSource = dataSource
 
-    // Create tables in EQLite matching PostgreSQL schema
-    await this.createEQLiteTables()
+    // Create tables in SQLit matching PostgreSQL schema
+    await this.createSQLitTables()
 
     // Load sync states
     await this.loadSyncStates()
 
-    console.log('[EQLiteSync] Initialized')
+    console.log('[SQLitSync] Initialized')
   }
 
   async start(): Promise<void> {
-    if (!EQLITE_ENABLED || this.running) return
+    if (!SQLIT_ENABLED || this.running) return
 
     this.running = true
-    console.log(`[EQLiteSync] Starting sync every ${this.syncIntervalMs}ms`)
+    console.log(`[SQLitSync] Starting sync every ${this.syncIntervalMs}ms`)
 
     // Initial sync
     await this.sync()
@@ -138,7 +138,7 @@ export class EQLiteSyncService {
     // Periodic sync
     this.syncInterval = setInterval(() => {
       this.sync().catch((err) => {
-        console.error('[EQLiteSync] Sync error:', err)
+        console.error('[SQLitSync] Sync error:', err)
       })
     }, this.syncIntervalMs)
   }
@@ -149,7 +149,7 @@ export class EQLiteSyncService {
       this.syncInterval = null
     }
     this.running = false
-    console.log('[EQLiteSync] Stopped')
+    console.log('[SQLitSync] Stopped')
   }
 
   async sync(): Promise<void> {
@@ -170,7 +170,7 @@ export class EQLiteSyncService {
 
     if (primaryColumns.length === 0) {
       throw new Error(
-        `[EQLiteSync] Table ${tableName} has no primary key - cannot sync`,
+        `[SQLitSync] Table ${tableName} has no primary key - cannot sync`,
       )
     }
 
@@ -199,9 +199,9 @@ export class EQLiteSyncService {
 
     if (records.length === 0) return
 
-    // Sync to EQLite
+    // Sync to SQLit
     for (const record of records) {
-      await this.upsertToEQLite(tableName, meta, record)
+      await this.upsertToSQLit(tableName, meta, record)
     }
 
     // Update sync state
@@ -215,18 +215,18 @@ export class EQLiteSyncService {
     await this.saveSyncState(state)
 
     console.log(
-      `[EQLiteSync] Synced ${records.length} records from ${tableName}`,
+      `[SQLitSync] Synced ${records.length} records from ${tableName}`,
     )
   }
 
-  private async upsertToEQLite(
+  private async upsertToSQLit(
     tableName: string,
     meta: EntityMetadata,
     record: EntityRecord,
   ): Promise<void> {
     // Validate table name for SQL safety
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
-      console.warn(`[EQLiteSync] Invalid table name: ${tableName}`)
+      console.warn(`[SQLitSync] Invalid table name: ${tableName}`)
       return
     }
 
@@ -238,7 +238,7 @@ export class EQLiteSyncService {
     // Validate all column names
     for (const colName of columns) {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
-        console.warn(`[EQLiteSync] Invalid column name: ${colName}`)
+        console.warn(`[SQLitSync] Invalid column name: ${colName}`)
         return
       }
     }
@@ -272,7 +272,7 @@ export class EQLiteSyncService {
     // Validate primary column names
     for (const colName of primaryCols) {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
-        console.warn(`[EQLiteSync] Invalid primary column name: ${colName}`)
+        console.warn(`[SQLitSync] Invalid primary column name: ${colName}`)
         return
       }
     }
@@ -293,22 +293,22 @@ export class EQLiteSyncService {
     `.trim()
 
     await this.client
-      .exec(sql, params.map(convertToQueryParam), EQLITE_DATABASE_ID)
+      .exec(sql, params.map(convertToQueryParam), SQLIT_DATABASE_ID)
       .catch((err: Error) => {
         console.warn(
-          `[EQLiteSync] Upsert to ${tableName} warning: ${err.message}`,
+          `[SQLitSync] Upsert to ${tableName} warning: ${err.message}`,
         )
       })
   }
 
-  private async createEQLiteTables(): Promise<void> {
+  private async createSQLitTables(): Promise<void> {
     if (!this.dataSource) return
 
     // Create sync states table first
     await this.client
       .exec(
         `
-        CREATE TABLE IF NOT EXISTS _eqlite_sync_states (
+        CREATE TABLE IF NOT EXISTS _sqlit_sync_states (
           entity TEXT PRIMARY KEY,
           last_synced_id TEXT,
           last_synced_at INTEGER NOT NULL,
@@ -316,16 +316,16 @@ export class EQLiteSyncService {
         )
       `.trim(),
         [],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       .catch((err: Error) => {
         console.warn(
-          `[EQLiteSync] Sync states table creation warning: ${err.message}`,
+          `[SQLitSync] Sync states table creation warning: ${err.message}`,
         )
       })
 
     for (const meta of this.dataSource.entityMetadatas) {
-      await this.createEQLiteTable(meta)
+      await this.createSQLitTable(meta)
     }
   }
 
@@ -335,16 +335,16 @@ export class EQLiteSyncService {
     return `"${name.replace(/"/g, '""')}"`
   }
 
-  private async createEQLiteTable(meta: EntityMetadata): Promise<void> {
+  private async createSQLitTable(meta: EntityMetadata): Promise<void> {
     // Validate table name for SQL safety
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(meta.tableName)) {
-      throw new Error(`Invalid table name for EQLite: ${meta.tableName}`)
+      throw new Error(`Invalid table name for SQLit: ${meta.tableName}`)
     }
 
     const columns = meta.columns.map((col) => {
       // Validate column name for SQL safety
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col.databaseName)) {
-        throw new Error(`Invalid column name for EQLite: ${col.databaseName}`)
+        throw new Error(`Invalid column name for SQLit: ${col.databaseName}`)
       }
 
       let type = 'TEXT'
@@ -372,7 +372,7 @@ export class EQLiteSyncService {
           break
         case 'json':
         case 'jsonb':
-          type = 'TEXT' // EQLite stores JSON as text
+          type = 'TEXT' // SQLit stores JSON as text
           break
       }
 
@@ -392,10 +392,10 @@ export class EQLiteSyncService {
     `.trim()
 
     await this.client
-      .exec(sql, undefined, EQLITE_DATABASE_ID)
+      .exec(sql, undefined, SQLIT_DATABASE_ID)
       .catch((err: Error) => {
         console.warn(
-          `[EQLiteSync] Table creation for ${meta.tableName} warning: ${err.message}`,
+          `[SQLitSync] Table creation for ${meta.tableName} warning: ${err.message}`,
         )
       })
   }
@@ -407,10 +407,10 @@ export class EQLiteSyncService {
         last_synced_id: string | null
         last_synced_at: number
         total_synced: number
-      }>('SELECT * FROM _eqlite_sync_states', undefined, EQLITE_DATABASE_ID)
+      }>('SELECT * FROM _sqlit_sync_states', undefined, SQLIT_DATABASE_ID)
       .catch((err: Error) => {
         console.log(
-          `[EQLiteSync] Loading sync states: ${err.message} (will populate on first sync)`,
+          `[SQLitSync] Loading sync states: ${err.message} (will populate on first sync)`,
         )
         return { rows: [], rowCount: 0 }
       })
@@ -427,7 +427,7 @@ export class EQLiteSyncService {
 
   private async saveSyncState(state: SyncState): Promise<void> {
     const sql = `
-      INSERT INTO _eqlite_sync_states (entity, last_synced_id, last_synced_at, total_synced)
+      INSERT INTO _sqlit_sync_states (entity, last_synced_id, last_synced_at, total_synced)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (entity)
       DO UPDATE SET last_synced_id = $2,
@@ -443,22 +443,22 @@ export class EQLiteSyncService {
     ]
 
     await this.client
-      .exec(sql, params.map(convertToQueryParam), EQLITE_DATABASE_ID)
+      .exec(sql, params.map(convertToQueryParam), SQLIT_DATABASE_ID)
       .catch((err: Error) => {
         console.log(
-          `[EQLiteSync] Saving sync state for ${state.entity}: ${err.message}`,
+          `[SQLitSync] Saving sync state for ${state.entity}: ${err.message}`,
         )
       })
   }
 
-  async getEQLiteReadClient(): Promise<EQLiteClient> {
+  async getSQLitReadClient(): Promise<SQLitClient> {
     return this.client
   }
 
   /**
-   * Query from EQLite - for internal indexer use
+   * Query from SQLit - for internal indexer use
    */
-  async queryFromEQLite<T>(
+  async queryFromSQLit<T>(
     sql: string,
     params?: SqlParam[],
   ): Promise<QueryResult<T>> {
@@ -469,7 +469,7 @@ export class EQLiteSyncService {
     const result = await this.client.query<T>(
       sql,
       params?.map(convertToQueryParam),
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
     return { rows: result.rows, rowCount: result.rowCount }
   }
@@ -481,7 +481,7 @@ export class EQLiteSyncService {
     states: Record<string, SyncState>
   } {
     return {
-      enabled: EQLITE_ENABLED,
+      enabled: SQLIT_ENABLED,
       running: this.running,
       entities: syncStates.size,
       states: Object.fromEntries(syncStates),
@@ -489,22 +489,22 @@ export class EQLiteSyncService {
   }
 }
 
-let eqliteSyncService: EQLiteSyncService | null = null
+let sqlitSyncService: SQLitSyncService | null = null
 
-export function getEQLiteSync(): EQLiteSyncService {
-  if (!eqliteSyncService) {
-    eqliteSyncService = new EQLiteSyncService()
+export function getSQLitSync(): SQLitSyncService {
+  if (!sqlitSyncService) {
+    sqlitSyncService = new SQLitSyncService()
   }
-  return eqliteSyncService
+  return sqlitSyncService
 }
 
-export function resetEQLiteSync(): void {
-  if (eqliteSyncService) {
-    eqliteSyncService.stop().catch((err: Error) => {
-      console.warn(`[EQLiteSync] Error during shutdown: ${err.message}`)
+export function resetSQLitSync(): void {
+  if (sqlitSyncService) {
+    sqlitSyncService.stop().catch((err: Error) => {
+      console.warn(`[SQLitSync] Error during shutdown: ${err.message}`)
     })
-    eqliteSyncService = null
+    sqlitSyncService = null
   }
 }
 
-// For EQLiteClient type, import directly from @jejunetwork/db
+// For SQLitClient type, import directly from @jejunetwork/db

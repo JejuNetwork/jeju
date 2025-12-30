@@ -129,4 +129,9 @@ config:
   maxPendingTransactions: 10000
   maxNewPayloadTimeout: "4s"
 
+# JWT secret for engine API authentication (shared with op-node)
+# Set via environment variable JWT_SECRET or --set secrets.jwtSecret
+secrets:
+  jwtSecret: ""
+
 
