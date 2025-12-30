@@ -240,7 +240,7 @@ export class WalletEnforcementManager {
     if (violation.severity === 'high') {
       const currentIndex = STATUS_ORDER.indexOf(state.status)
       const nextIndex = Math.min(currentIndex + 1, STATUS_ORDER.length - 1)
-      return STATUS_ORDER[nextIndex]!
+      return STATUS_ORDER[nextIndex] ?? 'denied'
     }
 
     // Accumulated violations

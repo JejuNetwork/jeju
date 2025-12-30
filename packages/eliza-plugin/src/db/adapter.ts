@@ -35,8 +35,8 @@ import { getSQLitDatabaseId } from '@jejunetwork/config'
 import {
   getSQLit,
   type QueryParam,
-  serializeFloat32Vector,
   type SQLitClient,
+  serializeFloat32Vector,
 } from '@jejunetwork/db'
 
 import type { JsonRecord, JsonValue } from '@jejunetwork/types'

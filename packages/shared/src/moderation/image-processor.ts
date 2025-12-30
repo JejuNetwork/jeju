@@ -61,6 +61,17 @@ type ImageFormat = 'jpeg' | 'png' | 'gif' | 'webp'
  * Validates and hashes images for moderation pipeline.
  */
 export class ImageProcessor {
+  private readonly _config: ImageProcessorConfig
+
+  constructor(config?: ImageProcessorConfig) {
+    this._config = config ?? {}
+  }
+
+  /** Get the max dimension config (for future use) */
+  get maxDimension(): number {
+    return this._config.maxDimension ?? 1024
+  }
+
   /**
    * Detect image format from buffer
    */

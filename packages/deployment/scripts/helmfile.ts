@@ -53,13 +53,22 @@ function getOrGenerateJwtSecret(): string {
   }
 
   // Generate new secret
-  const newSecret = execSync('openssl rand -hex 32', { encoding: 'utf-8' }).trim()
+  const newSecret = execSync('openssl rand -hex 32', {
+    encoding: 'utf-8',
+  }).trim()
   console.log('Generated new JWT secret')
   return newSecret
 }
 
 async function ensureJwtSecretsExist(jwtSecret: string): Promise<void> {
-  const namespaces = ['l1', 'l2-base', 'l2-optimism', 'op-stack', 'execution', 'rpc']
+  const namespaces = [
+    'l1',
+    'l2-base',
+    'l2-optimism',
+    'op-stack',
+    'execution',
+    'rpc',
+  ]
 
   for (const ns of namespaces) {
     // Create namespace if it doesn't exist
@@ -87,7 +96,8 @@ async function main(): Promise<void> {
   process.env.JWT_SECRET = jwtSecret
 
   // Run helmfile without global --set (secrets are in kubernetes secrets)
-  const result = await $`cd ${helmfileDir} && JWT_SECRET=${jwtSecret} helmfile -e ${NETWORK} ${COMMAND}`.nothrow()
+  const result =
+    await $`cd ${helmfileDir} && JWT_SECRET=${jwtSecret} helmfile -e ${NETWORK} ${COMMAND}`.nothrow()
 
   if (result.exitCode !== 0) {
     console.error(`\n❌ Helmfile ${COMMAND} failed`)

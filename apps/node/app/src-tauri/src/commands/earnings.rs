@@ -399,9 +399,8 @@ pub async fn export_earnings(
                     })
                 })
                 .collect();
-            let json_content =
-                serde_json::to_string_pretty(&json_entries)
-                    .map_err(|e| format!("Failed to serialize earnings: {}", e))?;
+            let json_content = serde_json::to_string_pretty(&json_entries)
+                .map_err(|e| format!("Failed to serialize earnings: {}", e))?;
             std::fs::write(&filepath, json_content)
                 .map_err(|e| format!("Failed to write JSON file: {}", e))?;
         }

@@ -231,8 +231,8 @@ function ProposalContextSection({ context }: { context: DirectorContext }) {
           <div className="space-y-1">
             <div className="text-sm font-medium text-zinc-300">Concerns:</div>
             <ul className="text-sm text-zinc-400 space-y-1">
-              {riskAssessment.concerns.map((c, i) => (
-                <li key={i} className="flex items-start gap-2">
+              {riskAssessment.concerns.map((c) => (
+                <li key={c} className="flex items-start gap-2">
                   <span className="text-red-400">•</span>
                   {c}
                 </li>
@@ -248,8 +248,8 @@ function ProposalContextSection({ context }: { context: DirectorContext }) {
           Board Member Votes
         </h3>
         <div className="grid gap-4">
-          {boardVotes.map((vote, i) => (
-            <BoardVoteCard key={i} vote={vote} />
+          {boardVotes.map((vote) => (
+            <BoardVoteCard key={vote.voter} vote={vote} />
           ))}
         </div>
       </div>
@@ -307,10 +307,14 @@ function DecisionForm({
       </div>
 
       <div className="mb-6">
-        <label className="block text-sm font-medium text-zinc-300 mb-2">
+        <label
+          htmlFor="reasoning-textarea"
+          className="block text-sm font-medium text-zinc-300 mb-2"
+        >
           Reasoning (required)
         </label>
         <textarea
+          id="reasoning-textarea"
           value={reasoning}
           onChange={(e) => setReasoning(e.target.value)}
           rows={4}

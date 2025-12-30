@@ -18,7 +18,7 @@ let dwsComputeWorking = false
 
 beforeAll(async () => {
   // Try to start services but don't fail if DWS can't start
-  let env
+  let env: Awaited<ReturnType<typeof ensureServices>> | undefined
   try {
     env = await ensureServices({ dws: true })
   } catch (err) {

@@ -19,6 +19,7 @@
  */
 
 import type {
+  Account,
   Address,
   Chain,
   Hash,
@@ -148,14 +149,31 @@ export interface ModerationSignal {
 // Queue of pending signals (for batching/retry)
 const signalQueue: ModerationSignal[] = []
 
+/** Convert ModerationSignal to JSON-safe format for logging */
+function signalToJson(
+  signal: ModerationSignal,
+): Record<string, string | number> {
+  const result: Record<string, string | number> = {
+    type: signal.type,
+    target: signal.target,
+    reason: signal.reason,
+    timestamp: signal.timestamp,
+  }
+  if (signal.caseId) result.caseId = signal.caseId
+  if (signal.evidenceBundleId) result.evidenceBundleId = signal.evidenceBundleId
+  if (signal.contentHash) result.contentHash = signal.contentHash
+  if (signal.violationType) result.violationType = signal.violationType
+  return result
+}
+
 /**
  * On-Chain Moderation Signals Service
  */
 export class OnChainSignalsService {
   private config: Required<Pick<OnChainSignalsConfig, 'network' | 'dryRun'>> &
     OnChainSignalsConfig
-  private publicClient: PublicClient<Transport, Chain>
-  private walletClient?: WalletClient<Transport, Chain>
+  private publicClient: PublicClient
+  private walletClient?: WalletClient<Transport, Chain, Account>
   private moderatorAddress?: Address
   private initialized = false
 
@@ -178,7 +196,7 @@ export class OnChainSignalsService {
     this.publicClient = createPublicClient({
       chain,
       transport: http(rpcUrl),
-    })
+    }) as PublicClient
   }
 
   async initialize(): Promise<void> {
@@ -237,7 +255,10 @@ export class OnChainSignalsService {
     }
 
     if (this.config.dryRun) {
-      logger.info('[OnChainSignals] DRY RUN: placeOnNotice', signal)
+      logger.info(
+        '[OnChainSignals] DRY RUN: placeOnNotice',
+        signalToJson(signal),
+      )
       signalQueue.push(signal)
       return null
     }
@@ -261,7 +282,7 @@ export class OnChainSignalsService {
         functionName: 'placeOnNotice',
         args: [
           params.target,
-          this.moderatorAddress!,
+          this.moderatorAddress as Address,
           caseIdBytes,
           params.reason,
         ],
@@ -307,7 +328,7 @@ export class OnChainSignalsService {
     }
 
     if (this.config.dryRun) {
-      logger.info('[OnChainSignals] DRY RUN: applyBan', signal)
+      logger.info('[OnChainSignals] DRY RUN: applyBan', signalToJson(signal))
       signalQueue.push(signal)
       return null
     }
@@ -366,7 +387,7 @@ export class OnChainSignalsService {
     }
 
     if (this.config.dryRun) {
-      logger.info('[OnChainSignals] DRY RUN: removeBan', signal)
+      logger.info('[OnChainSignals] DRY RUN: removeBan', signalToJson(signal))
       signalQueue.push(signal)
       return null
     }

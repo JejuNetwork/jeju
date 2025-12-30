@@ -86,9 +86,8 @@ const OFAC_SANCTIONED_ADDRESSES: Set<string> = new Set([
 ])
 
 // DPRK-associated wallet patterns (for taint analysis)
-const _DPRK_ASSOCIATION_PATTERNS: RegExp[] = [
-  // No specific patterns, relies on direct address matching and external APIs
-]
+// Currently relies on direct address matching and external APIs
+// See DPRK_WALLETS set above for known addresses
 
 export interface SanctionsCheckResult {
   isSanctioned: boolean
@@ -246,7 +245,7 @@ export class SanctionsScreener {
 
     logger.info('[SanctionsScreener] Address added to internal blocklist', {
       address: normalizedAddress,
-      reason,
+      reason: reason ?? 'manually added',
     })
   }
 

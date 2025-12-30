@@ -394,7 +394,8 @@ Pending Proposals: ${pendingProposals}
  */
 const historicalDecisionsProvider: Provider = {
   name: 'DIRECTOR_HISTORICAL_DECISIONS',
-  description: 'Get historical Director decisions for precedent and consistency',
+  description:
+    'Get historical Director decisions for precedent and consistency',
 
   get: async (
     _runtime: IAgentRuntime,

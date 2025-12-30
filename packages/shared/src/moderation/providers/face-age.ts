@@ -163,9 +163,9 @@ export class FaceAgeProvider {
       const offset = i * step * 3
       if (offset + 2 >= dataBuffer.length) break
 
-      const r = dataBuffer[offset]!
-      const g = dataBuffer[offset + 1]!
-      const b = dataBuffer[offset + 2]!
+      const r = dataBuffer[offset] ?? 0
+      const g = dataBuffer[offset + 1] ?? 0
+      const b = dataBuffer[offset + 2] ?? 0
 
       if (this.isSkinTone(r, g, b)) {
         skinPixels++

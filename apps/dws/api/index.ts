@@ -29,11 +29,11 @@ export type {
   DatabasePlan,
   getManagedDatabaseService,
   ManagedDatabaseService,
-  type PostgresConnection,
-  type Replica,
-  type SQLitConnection,
+  PostgresConnection,
+  Replica,
+  SQLitConnection,
   UpdateDatabaseSchema,
-  type UsageMetrics,
+  UsageMetrics,
 } from './database/managed-service'
 
 export { createDatabaseRoutes } from './database/routes'

@@ -29,7 +29,10 @@ import {
 } from './wallet-enforcement'
 
 async function sha256(data: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', data)
+  // Create a proper ArrayBuffer copy to avoid SharedArrayBuffer type issues
+  const buffer = new ArrayBuffer(data.byteLength)
+  new Uint8Array(buffer).set(data)
+  const hash = await crypto.subtle.digest('SHA-256', buffer)
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
@@ -379,7 +382,7 @@ export class UploadGateway {
    */
   getStats(): {
     pendingChallenges: number
-    config: typeof this.config
+    config: Required<UploadGatewayConfig>
   } {
     return {
       pendingChallenges: challengeStore.size,

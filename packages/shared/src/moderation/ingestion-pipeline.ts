@@ -255,7 +255,7 @@ export class IngestionPipeline {
         logger.warn('[IngestionPipeline] Sanctioned wallet blocked', {
           address: intake.uploaderAddress,
           source: sanctionsResult.source,
-          list: sanctionsResult.matchedList,
+          list: sanctionsResult.matchedList ?? 'unknown',
         })
 
         // Block sanctioned wallet from uploading

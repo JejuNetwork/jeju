@@ -231,7 +231,9 @@ export class ContentCache {
     for (const content of similar) {
       if (content.status !== 'banned') {
         const wallets = await this.ban(content.sha256, reason)
-        wallets.forEach((w) => walletsAffected.add(w))
+        for (const w of wallets) {
+          walletsAffected.add(w)
+        }
         contentBanned++
       }
     }

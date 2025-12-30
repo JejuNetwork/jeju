@@ -57,11 +57,15 @@ const DEV_PAYMENT_ADDRESS = expectAddress(
 const getPaymentAddress = (): Address => {
   const network = getCurrentNetwork()
   // Try config first, then env override
-  const _configAddress = tryGetContract('payments', 'x402Facilitator', network)
+  const facilitatorAddress = tryGetContract(
+    'payments',
+    'x402Facilitator',
+    network,
+  )
   const configuredAddress =
     (typeof process !== 'undefined'
       ? process.env.X402_PAYMENT_ADDRESS
-      : undefined) ?? (configAddress as Address | undefined)
+      : undefined) ?? (facilitatorAddress as Address | undefined)
   if (configuredAddress) {
     if (isValidAddress(configuredAddress)) {
       return configuredAddress

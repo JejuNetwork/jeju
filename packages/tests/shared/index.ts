@@ -240,8 +240,8 @@ export {
   printInfraStatus,
   RedisTestClient,
   requireInfra,
-  skipWithoutInfra,
   SQLitTestClient,
+  skipWithoutInfra,
 } from './live-infrastructure'
 
 // ============================================================================

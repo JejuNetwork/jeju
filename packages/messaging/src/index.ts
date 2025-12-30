@@ -376,12 +376,12 @@ export {
 } from './security'
 // Storage adapters
 export {
+  type ConsistencyLevel,
   createSQLitStorage,
   getSQLitStorage,
   resetSQLitStorage,
-  SQLitMessageStorage,
-  type ConsistencyLevel,
   type SQLitConfig,
+  SQLitMessageStorage,
   type StoredConversation,
   type StoredKeyBundle,
   type StoredMessage,

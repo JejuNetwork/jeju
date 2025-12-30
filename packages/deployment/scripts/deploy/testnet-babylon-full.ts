@@ -47,7 +47,8 @@ const BABYLON_DIR = join(ROOT, 'vendor/babylon')
 
 // Jeju Testnet Chain Definition
 // Use RPC_URL env var for local/port-forward deployments, otherwise use public endpoint
-const TESTNET_RPC_URL = process.env.RPC_URL || 'https://testnet-rpc.jejunetwork.org'
+const TESTNET_RPC_URL =
+  process.env.RPC_URL || 'https://testnet-rpc.jejunetwork.org'
 const JEJU_TESTNET = {
   id: 420690,
   name: 'Jeju Testnet',

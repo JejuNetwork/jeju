@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
  * JNS Deployment to Jeju Testnet
- * 
+ *
  * Deploys JNS contracts to Jeju testnet (chain ID 420690)
- * 
+ *
  * Usage:
  *   RPC_URL=http://localhost:6547 bun run scripts/deploy/jns-jeju-testnet.ts
  */
 
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type Address,
@@ -43,7 +43,8 @@ const JEJU_TESTNET: Chain = {
 }
 
 // Deployer key from testnet-deployer.json
-const DEPLOYER_KEY = '0xe60c18754e9569e127d320f1f92bbde9722af4ed4c098087b74c8e5af91b7895'
+const DEPLOYER_KEY =
+  '0xe60c18754e9569e127d320f1f92bbde9722af4ed4c098087b74c8e5af91b7895'
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
@@ -99,12 +100,14 @@ async function deployContract(
     throw new Error(`Deployment failed: ${name} (tx: ${txHash})`)
   }
 
-  const address = receipt.contractAddress || getContractAddress({
-    from: account.address,
-    nonce: BigInt(nonce),
-  })
+  const address =
+    receipt.contractAddress ||
+    getContractAddress({
+      from: account.address,
+      nonce: BigInt(nonce),
+    })
 
-  await new Promise(resolve => setTimeout(resolve, 2000))
+  await new Promise((resolve) => setTimeout(resolve, 2000))
 
   const code = await publicClient.getCode({ address })
   if (!code || code === '0x') {
@@ -155,10 +158,34 @@ async function main() {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
   console.log('1️⃣  Deploying JNS Contracts...\n')
 
-  const jnsRegistry = await deployContract(publicClient, walletClient, account, 'JNSRegistry', [])
-  const jnsResolver = await deployContract(publicClient, walletClient, account, 'JNSResolver', [jnsRegistry])
-  const jnsRegistrar = await deployContract(publicClient, walletClient, account, 'JNSRegistrar', [jnsRegistry, jnsResolver, account.address])
-  const jnsReverseRegistrar = await deployContract(publicClient, walletClient, account, 'JNSReverseRegistrar', [jnsRegistry, jnsResolver])
+  const jnsRegistry = await deployContract(
+    publicClient,
+    walletClient,
+    account,
+    'JNSRegistry',
+    [],
+  )
+  const jnsResolver = await deployContract(
+    publicClient,
+    walletClient,
+    account,
+    'JNSResolver',
+    [jnsRegistry],
+  )
+  const jnsRegistrar = await deployContract(
+    publicClient,
+    walletClient,
+    account,
+    'JNSRegistrar',
+    [jnsRegistry, jnsResolver, account.address],
+  )
+  const jnsReverseRegistrar = await deployContract(
+    publicClient,
+    walletClient,
+    account,
+    'JNSReverseRegistrar',
+    [jnsRegistry, jnsResolver],
+  )
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
   console.log('2️⃣  Setting Up .jeju TLD...\n')
@@ -178,7 +205,11 @@ async function main() {
     args: [rootNode, jejuLabel, jnsRegistrar],
     account,
   })
-  await waitForTransactionReceipt(publicClient, { hash, timeout: 300_000, pollingInterval: 5000 })
+  await waitForTransactionReceipt(publicClient, {
+    hash,
+    timeout: 300_000,
+    pollingInterval: 5000,
+  })
   console.log('  ✅ .jeju TLD created and assigned to Registrar')
 
   // Setup reverse namespace
@@ -191,7 +222,11 @@ async function main() {
     args: [rootNode, reverseLabel, account.address],
     account,
   })
-  await waitForTransactionReceipt(publicClient, { hash, timeout: 300_000, pollingInterval: 5000 })
+  await waitForTransactionReceipt(publicClient, {
+    hash,
+    timeout: 300_000,
+    pollingInterval: 5000,
+  })
 
   const reverseNode = namehash('reverse')
   const addrLabel = labelhash('addr')
@@ -202,7 +237,11 @@ async function main() {
     args: [reverseNode, addrLabel, jnsReverseRegistrar],
     account,
   })
-  await waitForTransactionReceipt(publicClient, { hash, timeout: 300_000, pollingInterval: 5000 })
+  await waitForTransactionReceipt(publicClient, {
+    hash,
+    timeout: 300_000,
+    pollingInterval: 5000,
+  })
   console.log('  ✅ addr.reverse namespace created')
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
@@ -214,16 +253,25 @@ async function main() {
     'function available(string name) view returns (bool)',
   ])
 
-  const resolverAbi = parseAbi([
+  const _resolverAbi = parseAbi([
     'function setContenthash(bytes32 node, bytes contenthash)',
   ])
 
   const TEN_YEARS = BigInt(10 * 365 * 24 * 60 * 60)
-  const namesToRegister = ['cloud', 'dws', 'gateway', 'bazaar', 'crucible', 'factory', 'autocrat', 'babylon']
+  const namesToRegister = [
+    'cloud',
+    'dws',
+    'gateway',
+    'bazaar',
+    'crucible',
+    'factory',
+    'autocrat',
+    'babylon',
+  ]
 
   for (const name of namesToRegister) {
     console.log(`  Registering ${name}.jeju...`)
-    
+
     const available = await publicClient.readContract({
       address: jnsRegistrar,
       abi: registrarAbi,
@@ -251,7 +299,11 @@ async function main() {
       value: price,
       account,
     })
-    await waitForTransactionReceipt(publicClient, { hash, timeout: 300_000, pollingInterval: 5000 })
+    await waitForTransactionReceipt(publicClient, {
+      hash,
+      timeout: 300_000,
+      pollingInterval: 5000,
+    })
     console.log(`  ✅ ${name}.jeju registered`)
   }
 

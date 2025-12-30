@@ -153,7 +153,9 @@ export class PoCNodeVerifier {
       this.config.hardwareIdSalt,
     )
 
-    let entry
+    let entry:
+      | Awaited<ReturnType<typeof this.registryClient.checkHardware>>
+      | undefined
     try {
       entry = await withRetry(() =>
         this.registryClient.checkHardware(hardwareIdHash),
@@ -259,7 +261,9 @@ export class PoCNodeVerifier {
             result: await this.verifyNode(agentId, quote),
           })),
       )
-      batch.forEach(({ id, result }) => results.set(id, result))
+      for (const { id, result } of batch) {
+        results.set(id, result)
+      }
     }
     return results
   }
@@ -356,13 +360,17 @@ export class PoCNodeVerifier {
 let instance: PoCNodeVerifier | null = null
 
 export function getPoCNodeVerifier(): PoCNodeVerifier {
-  return (instance ??= PoCNodeVerifier.fromEnv())
+  if (!instance) {
+    instance = PoCNodeVerifier.fromEnv()
+  }
+  return instance
 }
 
 export function initializePoCNodeVerifier(
   config: PoCNodeVerifierConfig,
 ): PoCNodeVerifier {
-  return (instance = new PoCNodeVerifier(config))
+  instance = new PoCNodeVerifier(config)
+  return instance
 }
 
 export function shutdownPoCNodeVerifier(): void {

@@ -20,7 +20,7 @@ import { type IAgentRuntime, logger, type Plugin } from '@elizaos/core'
 import { getSQLitDatabaseId } from '@jejunetwork/config'
 import { getSQLit } from '@jejunetwork/db'
 import { SQLitDatabaseAdapter } from './adapter'
-import { checkMigrationStatus, } from './migrations'
+import { checkMigrationStatus } from './migrations'
 
 /**
  * Create a SQLit database adapter for the given agent
@@ -96,10 +96,7 @@ export const sqlitDatabasePlugin: Plugin = {
     const databaseId = getSQLitDatabaseId() ?? 'eliza'
     const migrated = await checkMigrationStatus(sqlit, databaseId)
     if (!migrated) {
-      logger.info(
-        { src: 'plugin:sqlit' },
-        'Running SQLit schema migrations...',
-      )
+      logger.info({ src: 'plugin:sqlit' }, 'Running SQLit schema migrations...')
       await runSQLitMigrations(sqlit, databaseId)
     }
 

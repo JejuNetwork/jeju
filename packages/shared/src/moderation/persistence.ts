@@ -52,7 +52,9 @@ let db: {
  * Initialize persistence layer
  * Attempts to use SQLit, falls back to in-memory if unavailable
  */
-export async function initializePersistence(sqlitDb?: typeof db): Promise<void> {
+export async function initializePersistence(
+  sqlitDb?: typeof db,
+): Promise<void> {
   if (sqlitDb) {
     db = sqlitDb
     await createTables()
@@ -333,10 +335,14 @@ export async function _getCSAMReports(filter?: {
     let result = [...inMemoryReports]
     if (filter?.status)
       result = result.filter((r) => r.status === filter.status)
-    if (filter?.startTime)
-      result = result.filter((r) => r.detectedAt >= filter.startTime!)
-    if (filter?.endTime)
-      result = result.filter((r) => r.detectedAt <= filter.endTime!)
+    if (filter?.startTime) {
+      const startTime = filter.startTime
+      result = result.filter((r) => r.detectedAt >= startTime)
+    }
+    if (filter?.endTime) {
+      const endTime = filter.endTime
+      result = result.filter((r) => r.detectedAt <= endTime)
+    }
     if (filter?.limit) result = result.slice(0, filter.limit)
     return result
   }
@@ -1414,4 +1420,35 @@ export function _isPersistenceInitialized(): boolean {
 
 export function _getPersistenceMode(): 'database' | 'memory' {
   return db ? 'database' : 'memory'
+}
+
+// Public aliases (without underscore prefix) for backward compatibility
+export {
+  _getContentByPerceptualHash as getContentByPerceptualHash,
+  _getContentStatus as getContentStatus,
+  _getCSAMReportStats as getCSAMReportStats,
+  _getCSAMReports as getCSAMReports,
+  _getEvidenceBundle as getEvidenceBundle,
+  _getMetrics as getMetrics,
+  _getMetricsSummary as getMetricsSummary,
+  _getPersistenceMode as getPersistenceMode,
+  _getQuarantineItem as getQuarantineItem,
+  _getQuarantineItems as getQuarantineItems,
+  _getTrustedFlaggerByApiKey as getTrustedFlaggerByApiKey,
+  _getUserReportStats as getUserReportStats,
+  _getUserReports as getUserReports,
+  _getWalletState as getWalletState,
+  _getWalletsByStatus as getWalletsByStatus,
+  _isPersistenceInitialized as isPersistenceInitialized,
+  _listTrustedFlaggers as listTrustedFlaggers,
+  _saveContentStatus as saveContentStatus,
+  _saveCSAMReport as saveCSAMReport,
+  _saveEvidenceBundle as saveEvidenceBundle,
+  _saveMetric as saveMetric,
+  _saveQuarantineItem as saveQuarantineItem,
+  _saveTrustedFlagger as saveTrustedFlagger,
+  _saveUserReport as saveUserReport,
+  _saveWalletState as saveWalletState,
+  _updateCSAMReportStatus as updateCSAMReportStatus,
+  _updateUserReportStatus as updateUserReportStatus,
 }
