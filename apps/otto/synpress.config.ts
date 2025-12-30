@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = Number.parseInt(process.env.OTTO_PORT ?? '4040', 10)
+const PORT = Number.parseInt(process.env.OTTO_PORT ?? '4050', 10)
 const BASE_URL = process.env.OTTO_BASE_URL ?? `http://localhost:${PORT}`
 
 export default defineConfig({

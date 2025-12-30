@@ -5,11 +5,13 @@
   "main": "api/server.ts",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"bun run dev:web\" \"bun run api/server.ts\"",
-    "dev:web": "PORT=4042 bun index.html",
-    "build": "bun build.web.ts && bun build api/server.ts --outdir dist/api --target bun",
-    "start": "bun dist/api/server.js",
-    "test": "bun test tests/ && bunx playwright test tests/e2e/ --config playwright.config.ts && bunx playwright test tests/synpress/ --config synpress.config.ts",
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/",
+    "test:e2e": "bunx playwright test tests/e2e/ --config playwright.config.ts",
+    "test:synpress": "bunx playwright test tests/synpress/ --config synpress.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

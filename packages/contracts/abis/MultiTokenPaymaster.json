@@ -781,22 +781,6 @@
     },
     {
       "type": "error",
-      "name": "ERC165Error",
-      "inputs": [
-        {
-          "name": "entryPoint",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "interfaceId",
-          "type": "bytes4",
-          "internalType": "bytes4"
-        }
-      ]
-    },
-    {
-      "type": "error",
       "name": "EnforcedPause",
       "inputs": []
     },
@@ -840,32 +824,6 @@
       "type": "error",
       "name": "InvalidRevenueWallet",
       "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "MustOverride",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "NotFromEntryPoint",
-      "inputs": [
-        {
-          "name": "msgSender",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "entity",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "entryPoint",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
     },
     {
       "type": "error",

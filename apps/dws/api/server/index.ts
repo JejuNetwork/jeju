@@ -75,11 +75,13 @@ import { GitRepoManager } from '../git/repo-manager'
 import {
   createHelmProviderRouter,
   createIngressRouter,
+  createInfrastructure,
   createK3sRouter,
   createServiceMeshRouter,
   createTerraformProviderRouter,
   getIngressController,
   getServiceMesh,
+  startDWSNode,
 } from '../infrastructure'
 import { createKubernetesBridgeRouter } from '../infrastructure/kubernetes-bridge'
 import { banCheckMiddleware } from '../middleware/ban-check'
@@ -128,7 +130,7 @@ import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
 import { createWorkersRouter } from './routes/workers'
-import { createAppRouter, initializeAppRouter } from './routes/app-router'
+import { createAppRouter, getDeployedApp, initializeAppRouter } from './routes/app-router'
 
 // Config injection for workerd compatibility
 export interface DWSServerConfig {
@@ -445,7 +447,18 @@ initializeEmailRelayService(emailRelayConfig)
 
 // Continue building app with routes
 app
-  .get('/health', async () => {
+  // Fast health check for Kubernetes probes - no external calls
+  .get('/health', () => {
+    const health: ServiceHealth = {
+      status: 'healthy',
+      service: 'dws',
+      version: '1.0.0',
+      uptime: process.uptime() * 1000,
+    }
+    return health
+  })
+  // Detailed health check with external service status
+  .get('/health/detailed', async () => {
     const backends = backendManager.listBackends()
     const backendHealth = await backendManager.healthCheck()
     // These may fail if contracts aren't deployed (dev mode)
@@ -1298,6 +1311,7 @@ if (import.meta.main) {
   server = Bun.serve({
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
+    idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
     fetch(req, server) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
@@ -1322,6 +1336,54 @@ if (import.meta.main) {
         if (success) return undefined
         return new Response('WebSocket upgrade failed', { status: 500 })
       }
+      
+      // App routing - check if request is for a deployed app
+      const hostname = req.headers.get('host') ?? url.hostname
+      console.log(`[Bun.serve] Request: ${hostname}${url.pathname}`)
+      
+      // Check if this is a deployed app (not dws itself)
+      if (!hostname.startsWith('dws.') && !hostname.startsWith('127.') && hostname !== 'localhost') {
+        const appName = hostname.split('.')[0]
+        const deployedApp = getDeployedApp(appName)
+        if (deployedApp && deployedApp.enabled) {
+          console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
+          // Route to backend for API paths
+          const isApiRequest = deployedApp.apiPaths.some(path => 
+            url.pathname === path || url.pathname.startsWith(`${path}/`)
+          )
+          if (isApiRequest && deployedApp.backendEndpoint) {
+            const targetUrl = `${deployedApp.backendEndpoint}${url.pathname}${url.search}`
+            console.log(`[Bun.serve] Proxying to backend: ${targetUrl}`)
+            return fetch(targetUrl, {
+              method: req.method,
+              headers: req.headers,
+              body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+            })
+          }
+          // Serve frontend from IPFS if configured
+          if (deployedApp.frontendCid) {
+            const gateway = getIpfsGatewayUrl(NETWORK)
+            let assetPath = url.pathname === '/' ? '/index.html' : url.pathname
+            // SPA: serve index.html for non-asset paths
+            if (deployedApp.spa && !assetPath.match(/\.\w+$/)) {
+              assetPath = '/index.html'
+            }
+            const ipfsUrl = `${gateway}/ipfs/${deployedApp.frontendCid}${assetPath}`
+            console.log(`[Bun.serve] Serving from IPFS: ${ipfsUrl}`)
+            return fetch(ipfsUrl)
+          }
+          // No frontend CID - proxy all requests to backend
+          if (deployedApp.backendEndpoint) {
+            const targetUrl = `${deployedApp.backendEndpoint}${url.pathname}${url.search}`
+            return fetch(targetUrl, {
+              method: req.method,
+              headers: req.headers,
+              body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+            })
+          }
+        }
+      }
+      
       return app.handle(req)
     },
     websocket: {
@@ -1388,6 +1450,43 @@ if (import.meta.main) {
         console.log(`[DWS] P2P coordination started`)
       })
       .catch(console.error)
+
+    // Auto-register node if private key is available
+    if (dwsPrivateKey) {
+      const infra = createInfrastructure(
+        {
+          network: NETWORK,
+          privateKey: dwsPrivateKey,
+          selfEndpoint: baseUrl,
+        },
+        backendManager,
+        workerdExecutor,
+      )
+
+      // Register node with default specs for testnet
+      startDWSNode(infra, {
+        endpoint: baseUrl,
+        capabilities: ['storage', 'compute', 'cdn'],
+        specs: {
+          cpuCores: 2,
+          memoryMb: 4096,
+          storageMb: 10000,
+          bandwidthMbps: 100,
+        },
+        pricing: {
+          pricePerHour: BigInt(100000000000000), // 0.0001 ETH/hour
+          pricePerGb: BigInt(10000000000000), // 0.00001 ETH/GB
+          pricePerRequest: BigInt(1000000000000), // 0.000001 ETH/request
+        },
+        region: 'us-east-1',
+      })
+        .then(({ agentId, txHash }) => {
+          console.log(`[DWS] Node registered! AgentId: ${agentId}, TxHash: ${txHash}`)
+        })
+        .catch((err) => {
+          console.error('[DWS] Node registration failed:', err)
+        })
+    }
   }
 
   // Initialize agent executor now that server is ready

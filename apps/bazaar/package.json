@@ -9,7 +9,9 @@
     "dev": "concurrently \"bun run scripts/dev.ts\" \"bun --watch api/server.ts\"",
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
-    "test": "bun test tests/ && bunx playwright test tests/e2e/ && bunx playwright test tests/synpress/ --config synpress.config.ts",
+    "test": "bun test tests/",
+    "test:e2e": "bunx playwright test tests/e2e/",
+    "test:synpress": "bunx playwright test tests/synpress/ --config synpress.config.ts",
     "deploy": "bun run scripts/deploy.ts",
     "typecheck": "tsc --noEmit"
   },

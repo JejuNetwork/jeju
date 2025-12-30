@@ -16,6 +16,7 @@ import {
   getLocalhostHost,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
+import { deployedAppState } from '../../state'
 import { getAppRegistry } from '../../../src/cdn/app-registry'
 import { getLocalCDNServer } from '../../../src/cdn/local-server'
 import { getIngressController } from '../../infrastructure'
@@ -34,8 +35,9 @@ interface DeployedApp {
   updatedAt: number
 }
 
-// Registry of deployed apps
-const deployedApps = new Map<string, DeployedApp>()
+// In-memory cache of deployed apps (loaded from database on startup)
+// The cache is synced with SQLit for persistence across pod restarts
+const deployedAppsCache = new Map<string, DeployedApp>()
 
 // Domain patterns
 const NETWORK = getCurrentNetwork()
@@ -104,23 +106,62 @@ function isAssetPath(pathname: string): boolean {
 }
 
 /**
- * Register a deployed app
+ * Register a deployed app (persists to database if available)
  */
-export function registerDeployedApp(app: Omit<DeployedApp, 'deployedAt' | 'updatedAt'>): void {
-  const existing = deployedApps.get(app.name)
-  deployedApps.set(app.name, {
+export async function registerDeployedApp(
+  app: Omit<DeployedApp, 'deployedAt' | 'updatedAt'>,
+): Promise<void> {
+  const now = Date.now()
+  const existing = deployedAppsCache.get(app.name)
+
+  const deployedApp: DeployedApp = {
     ...app,
-    deployedAt: existing?.deployedAt ?? Date.now(),
-    updatedAt: Date.now(),
-  })
-  console.log(`[AppRouter] Registered app: ${app.name} (frontend: ${app.frontendCid ?? 'local'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`)
+    deployedAt: existing?.deployedAt ?? now,
+    updatedAt: now,
+  }
+
+  // Try to save to database (gracefully handle if SQLit is not available)
+  try {
+    await deployedAppState.save({
+      name: app.name,
+      jnsName: app.jnsName,
+      frontendCid: app.frontendCid,
+      backendWorkerId: app.backendWorkerId,
+      backendEndpoint: app.backendEndpoint,
+      apiPaths: app.apiPaths,
+      spa: app.spa,
+      enabled: app.enabled,
+    })
+  } catch (error) {
+    // SQLit not available - continue with cache-only mode
+    console.log(
+      `[AppRouter] Database save failed (running in memory-only mode): ${app.name}`,
+    )
+  }
+
+  // Update cache
+  deployedAppsCache.set(app.name, deployedApp)
+
+  console.log(
+    `[AppRouter] Registered app: ${app.name} (frontend: ${app.frontendCid ?? 'local'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
+  )
 }
 
 /**
- * Unregister a deployed app
+ * Unregister a deployed app (removes from database)
  */
-export function unregisterDeployedApp(name: string): boolean {
-  const deleted = deployedApps.delete(name)
+export async function unregisterDeployedApp(name: string): Promise<boolean> {
+  // Delete from database (may fail if SQLit is unavailable)
+  let deleted = false
+  try {
+    deleted = await deployedAppState.delete(name)
+  } catch (error) {
+    console.log(`[AppRouter] Database delete failed: ${name}`)
+  }
+
+  // Remove from cache
+  deployedAppsCache.delete(name)
+
   if (deleted) {
     console.log(`[AppRouter] Unregistered app: ${name}`)
   }
@@ -128,17 +169,17 @@ export function unregisterDeployedApp(name: string): boolean {
 }
 
 /**
- * Get a deployed app by name
+ * Get a deployed app by name (from cache)
  */
 export function getDeployedApp(name: string): DeployedApp | undefined {
-  return deployedApps.get(name)
+  return deployedAppsCache.get(name)
 }
 
 /**
- * Get all deployed apps
+ * Get all deployed apps (from cache)
  */
 export function getDeployedApps(): DeployedApp[] {
-  return Array.from(deployedApps.values())
+  return Array.from(deployedAppsCache.values())
 }
 
 /**
@@ -320,19 +361,32 @@ async function proxyToBackend(
  * It should be mounted as middleware BEFORE other routes.
  */
 export function createAppRouter() {
+  console.log('[AppRouter] Creating app router middleware')
   return new Elysia({ name: 'app-router' })
+    .derive(({ request }) => {
+      // Log at derive level to ensure middleware chain is working
+      const host = request.headers.get('host')
+      console.log(`[AppRouter.derive] host=${host}`)
+      return {}
+    })
     // Middleware that checks every request for app routing
     .onBeforeHandle(async ({ request }): Promise<Response | undefined> => {
       const url = new URL(request.url)
-      const hostname = request.headers.get('host') ?? url.hostname
+      const hostHeader = request.headers.get('host')
+      const hostname = hostHeader ?? url.hostname
       const pathname = url.pathname
-      console.log(`[AppRouter] onBeforeHandle called: hostname=${hostname}, pathname=${pathname}, url=${request.url}`)
+      
+      // Log ALL requests through the app router
+      console.log(`[AppRouter] Request received: host=${hostHeader}, hostname=${hostname}, pathname=${pathname}`)
 
       // Skip if this is the DWS service itself
       if (hostname.startsWith('dws.') || hostname === 'localhost' || hostname.startsWith('127.')) {
-        console.log(`[AppRouter] Skipping DWS service itself`)
+        console.log(`[AppRouter] Skipping DWS service: ${hostname}`)
         return undefined
       }
+      
+      // Log non-DWS hostnames
+      console.log(`[AppRouter] Processing app request: ${hostname}${pathname}`)
 
       // Extract app name from hostname
       const appName = extractAppName(hostname)
@@ -341,8 +395,8 @@ export function createAppRouter() {
         return undefined
       }
 
-      // Look up deployed app
-      let app = deployedApps.get(appName)
+      // Look up deployed app (from cache)
+      let app = deployedAppsCache.get(appName)
       console.log(`[AppRouter] Found app: ${app?.name}, apiPaths: ${JSON.stringify(app?.apiPaths)}`)
 
       // If not in deployed apps, check local app registry (devnet fallback)
@@ -426,75 +480,112 @@ export function createAppRouter() {
         set.status = 400
         return { error: 'App name is required' }
       }
-      registerDeployedApp(data)
+      await registerDeployedApp(data)
       return { success: true, app: getDeployedApp(data.name) }
     })
 
-    .delete('/apps/deployed/:name', ({ params }) => {
-      const deleted = unregisterDeployedApp(params.name)
+    .delete('/apps/deployed/:name', async ({ params }) => {
+      const deleted = await unregisterDeployedApp(params.name)
       return { success: deleted }
     })
 }
 
 /**
- * Initialize app router from existing ingress rules and local apps
+ * Initialize app router from database, ingress rules, and local apps
  */
 export async function initializeAppRouter(): Promise<void> {
   console.log('[AppRouter] Initializing...')
 
-  // Load from local app registry
-  const registry = getAppRegistry()
-  await registry.initialize()
+  // Load from database (persistent registrations)
+  // Skip if SQLit is not available - apps can be registered via API
+  try {
+    const dbApps = await deployedAppState.listEnabled()
+    for (const row of dbApps) {
+      const app: DeployedApp = {
+        name: row.name,
+        jnsName: row.jns_name,
+        frontendCid: row.frontend_cid,
+        backendWorkerId: row.backend_worker_id,
+        backendEndpoint: row.backend_endpoint,
+        apiPaths: JSON.parse(row.api_paths),
+        spa: row.spa === 1,
+        enabled: row.enabled === 1,
+        deployedAt: row.deployed_at,
+        updatedAt: row.updated_at,
+      }
+      deployedAppsCache.set(app.name, app)
+      console.log(
+        `[AppRouter] Loaded from database: ${app.name} (frontend: ${app.frontendCid ?? 'none'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
+      )
+    }
+  } catch (error) {
+    // SQLit may not be available - this is fine for testnet/devnet
+    // Apps can still be registered via the /apps/deployed API
+    console.log(`[AppRouter] Failed to load from database: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    console.log('[AppRouter] Apps can be registered via POST /apps/deployed')
+  }
 
-  const localApps = registry.getEnabledApps()
-  for (const app of localApps) {
-    registerDeployedApp({
-      name: app.name,
-      jnsName: app.jnsName,
-      frontendCid: app.cid ?? null,
-      backendWorkerId: null,
-      backendEndpoint: `http://${getLocalhostHost()}:${app.port}`,
-      apiPaths: DEFAULT_API_PATHS,
-      spa: app.spa,
-      enabled: true,
-    })
+  // Load from local app registry (devnet)
+  try {
+    const registry = getAppRegistry()
+    await registry.initialize()
+
+    const localApps = registry.getEnabledApps()
+    for (const app of localApps) {
+      await registerDeployedApp({
+        name: app.name,
+        jnsName: app.jnsName,
+        frontendCid: app.cid ?? null,
+        backendWorkerId: null,
+        backendEndpoint: `http://${getLocalhostHost()}:${app.port}`,
+        apiPaths: DEFAULT_API_PATHS,
+        spa: app.spa,
+        enabled: true,
+      })
+    }
+  } catch (error) {
+    console.log('[AppRouter] Local app registry not available, skipping')
   }
 
   // Load from ingress rules (for production deployments)
-  const ingress = getIngressController()
-  const rules = ingress.listIngress()
-  for (const rule of rules) {
-    // Extract app name from host
-    const appName = extractAppName(rule.host)
-    if (!appName) continue
+  try {
+    const ingress = getIngressController()
+    const rules = ingress.listIngress()
+    for (const rule of rules) {
+      // Extract app name from host
+      const appName = extractAppName(rule.host)
+      if (!appName) continue
 
-    // Find static CID and worker ID from paths
-    let frontendCid: string | null = null
-    let backendWorkerId: string | null = null
+      // Find static CID and worker ID from paths
+      let frontendCid: string | null = null
+      let backendWorkerId: string | null = null
 
-    for (const pathRule of rule.paths) {
-      if (pathRule.backend.type === 'static' && pathRule.backend.staticCid) {
-        frontendCid = pathRule.backend.staticCid
+      for (const pathRule of rule.paths) {
+        if (pathRule.backend.type === 'static' && pathRule.backend.staticCid) {
+          frontendCid = pathRule.backend.staticCid
+        }
+        if (pathRule.backend.type === 'worker' && pathRule.backend.workerId) {
+          backendWorkerId = pathRule.backend.workerId
+        }
       }
-      if (pathRule.backend.type === 'worker' && pathRule.backend.workerId) {
-        backendWorkerId = pathRule.backend.workerId
+
+      // Only register if we have either frontend or backend
+      if (frontendCid || backendWorkerId) {
+        await registerDeployedApp({
+          name: appName,
+          jnsName: `${appName}.jeju`,
+          frontendCid,
+          backendWorkerId,
+          backendEndpoint: null,
+          apiPaths: DEFAULT_API_PATHS,
+          spa: true,
+          enabled: rule.status === 'active',
+        })
       }
     }
-
-    // Only register if we have either frontend or backend
-    if (frontendCid || backendWorkerId) {
-      registerDeployedApp({
-        name: appName,
-        jnsName: `${appName}.jeju`,
-        frontendCid,
-        backendWorkerId,
-        backendEndpoint: null,
-        apiPaths: DEFAULT_API_PATHS,
-        spa: true,
-        enabled: rule.status === 'active',
-      })
-    }
+  } catch (error) {
+    console.log('[AppRouter] Ingress controller not available, skipping')
   }
 
-  console.log(`[AppRouter] Initialized with ${deployedApps.size} apps`)
+  console.log(`[AppRouter] Initialized with ${deployedAppsCache.size} apps`)
 }

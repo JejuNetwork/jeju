@@ -429,7 +429,7 @@ export const NETWORK_CONFIGS: Record<NetworkEnvironment, NetworkConfig> = {
     chainId: 84532, // Base Sepolia
     rpcUrl: 'https://sepolia.base.org',
     contracts: {
-      identityRegistry: '0xaB3C2C6A93A88B8dC50a0C3C1DFd2d3bE0a62311',
+      identityRegistry: '0xd02283caF3C819064887B568494907FdeE228004',
       workerRegistry: '0x0000000000000000000000000000000000000000', // TBD
       paymentVault: '0x0000000000000000000000000000000000000000',
       x402Facilitator: '0x0000000000000000000000000000000000000000',

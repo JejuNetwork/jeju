@@ -21,7 +21,7 @@ frontend:
   image:
     repository: ghcr.io/blockscout/frontend
     pullPolicy: IfNotPresent
-    tag: "v1.36.0"
+    tag: "v1.38.0"
   
   resources:
     limits:

@@ -12,9 +12,9 @@
     "test": "bun run test"
   },
   "ports": {
-    "main": 4040,
-    "api": 4040,
-    "webhooks": 4041
+    "main": 4050,
+    "api": 4050,
+    "webhooks": 4051
   },
   "dependencies": [
     "contracts",
@@ -45,7 +45,7 @@
     "url": "https://otto.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4040/health",
+    "url": "http://localhost:4050/health",
     "interval": 30000
   },
   "env": {

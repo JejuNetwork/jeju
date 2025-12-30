@@ -1,221 +1,165 @@
-import { existsSync, watch } from 'node:fs'
-import { mkdir } from 'node:fs/promises'
-import {
-  DEFAULT_BROWSER_EXTERNALS,
-  MONITORING_THEME,
-} from '@jejunetwork/shared/dev-server'
+#!/usr/bin/env bun
+/**
+ * Monitoring Development Server
+ *
+ * Starts both API and frontend with hot reload.
+ */
 
-const FRONTEND_PORT = Number(process.env.PORT) || 5173
-const API_PORT = Number(process.env.API_PORT) || 9091
+import { watch } from 'node:fs'
+import { mkdir, readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { getLocalhostHost } from '@jejunetwork/config'
+import type { Subprocess } from 'bun'
 
-const EXTERNALS = [
-  ...DEFAULT_BROWSER_EXTERNALS,
-  'pg',
-  '@jejunetwork/config',
-  '@jejunetwork/shared',
-  '@jejunetwork/db',
-]
+const APP_DIR = resolve(import.meta.dir, '..')
+const API_PORT = Number(process.env.API_PORT) || 4011
+const FRONTEND_PORT = Number(process.env.PORT) || 4010
+
+interface ProcessInfo {
+  name: string
+  process: Subprocess
+}
+
+const processes: ProcessInfo[] = []
+let shuttingDown = false
+
+function cleanup() {
+  if (shuttingDown) return
+  shuttingDown = true
+
+  console.log('\n[Monitoring] Shutting down...')
+
+  for (const { name, process } of processes) {
+    console.log(`[Monitoring] Stopping ${name}...`)
+    try {
+      process.kill()
+    } catch {
+      // Process may have already exited
+    }
+  }
+
+  process.exit(0)
+}
+
+process.on('SIGINT', cleanup)
+process.on('SIGTERM', cleanup)
+
+async function waitForPort(port: number, timeout = 30000): Promise<boolean> {
+  const host = getLocalhostHost()
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    try {
+      const response = await fetch(`http://${host}:${port}/health`, {
+        signal: AbortSignal.timeout(1000),
+      })
+      if (response.ok) return true
+    } catch {
+      // Port not ready yet
+    }
+    await Bun.sleep(500)
+  }
+  return false
+}
+
+async function startAPIServer(): Promise<boolean> {
+  console.log(`[Monitoring] Starting API server on port ${API_PORT}...`)
+
+  const proc = Bun.spawn(['bun', '--watch', 'api/a2a.ts'], {
+    cwd: APP_DIR,
+    stdout: 'inherit',
+    stderr: 'inherit',
+    env: {
+      ...process.env,
+      PORT: String(API_PORT),
+    },
+  })
+
+  processes.push({ name: 'api', process: proc })
+
+  const ready = await waitForPort(API_PORT, 30000)
+  if (!ready) {
+    console.error('[Monitoring] Failed to start API server')
+    return false
+  }
+
+  console.log(`[Monitoring] API server started on port ${API_PORT}`)
+  return true
+}
 
 let buildInProgress = false
 
-async function buildFrontend(): Promise<void> {
-  if (buildInProgress) return
+async function buildFrontend(): Promise<boolean> {
+  if (buildInProgress) return false
   buildInProgress = true
 
   const startTime = Date.now()
 
   const result = await Bun.build({
-    entrypoints: ['./web/main.tsx'],
-    outdir: './dist/dev',
+    entrypoints: [resolve(APP_DIR, 'web/main.tsx')],
+    outdir: resolve(APP_DIR, 'dist/dev'),
     target: 'browser',
-    splitting: true,
     minify: false,
     sourcemap: 'inline',
-    external: EXTERNALS,
+    external: ['bun:sqlite', 'node:*', 'elysia', '@elysiajs/*'],
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
-      'process.env.PUBLIC_API_URL': JSON.stringify(
-        `http://localhost:${API_PORT}`,
-      ),
+      'process.browser': 'true',
     },
   })
 
   buildInProgress = false
 
   if (!result.success) {
-    console.error('[Monitoring] Build failed:')
-    for (const log of result.logs) console.error(log)
-    return
+    console.error('[Monitoring] Frontend build failed:')
+    for (const log of result.logs) {
+      console.error(log)
+    }
+    return false
   }
 
-  console.log(`[Monitoring] Frontend rebuilt in ${Date.now() - startTime}ms`)
+  const duration = Date.now() - startTime
+  console.log(`[Monitoring] Frontend built in ${duration}ms`)
+  return true
 }
 
-function createDevHtml(): string {
-  const theme = MONITORING_THEME
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <meta name="theme-color" content="${theme.dark.bg}" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="${theme.light.bg}" media="(prefers-color-scheme: light)">
-  <meta name="description" content="Network Monitoring - Real-time blockchain metrics, alerts, and system health">
-  <title>Network Monitoring - Dev</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="${theme.fonts.google}" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            jeju: {
-              primary: '${theme.colors.primary}',
-              'primary-dark': '${theme.colors.primaryDark}',
-              'primary-light': '${theme.colors.primaryLight}',
-              accent: '${theme.colors.accent}',
-              'accent-dark': '${theme.colors.accentDark}',
-              'accent-light': '${theme.colors.accentLight}',
-              purple: '${theme.colors.purple}',
-              'purple-dark': '${theme.colors.purpleDark}',
-              'purple-light': '${theme.colors.purpleLight}',
-              success: '#10B981',
-              error: '#EF4444',
-              warning: '#F59E0B',
-              info: '#3B82F6',
-            },
-            light: {
-              bg: '${theme.light.bg}',
-              'bg-secondary': '${theme.light.bgSecondary}',
-              'bg-tertiary': '${theme.light.bgTertiary}',
-              surface: '${theme.light.surface}',
-              'surface-elevated': '${theme.light.surfaceElevated}',
-              border: '${theme.light.border}',
-              'border-strong': '${theme.light.borderStrong}',
-              text: '${theme.light.text}',
-              'text-secondary': '${theme.light.textSecondary}',
-              'text-tertiary': '${theme.light.textTertiary}',
-            },
-            dark: {
-              bg: '${theme.dark.bg}',
-              'bg-secondary': '${theme.dark.bgSecondary}',
-              'bg-tertiary': '${theme.dark.bgTertiary}',
-              surface: '${theme.dark.surface}',
-              'surface-elevated': '${theme.dark.surfaceElevated}',
-              border: '${theme.dark.border}',
-              'border-strong': '${theme.dark.borderStrong}',
-              text: '${theme.dark.text}',
-              'text-secondary': '${theme.dark.textSecondary}',
-              'text-tertiary': '${theme.dark.textTertiary}',
-            },
-          },
-        },
-      },
-    }
-  </script>
-  <script>
-    (function() {
-      try {
-        const savedTheme = localStorage.getItem('${theme.storageKey}');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (savedTheme ? savedTheme === 'dark' : prefersDark) {
-          document.documentElement.classList.add('dark');
-        }
-      } catch (e) {}
-    })();
-  </script>
-  <style>
-    :root {
-      --color-primary: ${theme.colors.primary};
-      --color-primary-dark: ${theme.colors.primaryDark};
-      --color-accent: ${theme.colors.accent};
-      --color-success: #10B981;
-      --color-error: #EF4444;
-      --color-warning: #F59E0B;
-      --color-info: #3B82F6;
-      --bg-primary: ${theme.light.bg};
-      --bg-secondary: ${theme.light.bgSecondary};
-      --surface: ${theme.light.surface};
-      --border: ${theme.light.border};
-      --text-primary: ${theme.light.text};
-      --text-secondary: ${theme.light.textSecondary};
-      --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
-      --font-outfit: '${theme.fonts.sans}', system-ui, sans-serif;
-      --font-display: '${theme.fonts.display}', system-ui, sans-serif;
-      --font-mono: '${theme.fonts.mono}', monospace;
-    }
-    .dark {
-      --bg-primary: ${theme.dark.bg};
-      --bg-secondary: ${theme.dark.bgSecondary};
-      --surface: ${theme.dark.surface};
-      --border: ${theme.dark.border};
-      --text-primary: ${theme.dark.text};
-      --text-secondary: ${theme.dark.textSecondary};
-      --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
-    }
-    body { font-family: var(--font-outfit); background-color: var(--bg-primary); color: var(--text-primary); }
-    .card { background-color: var(--surface); border: 1px solid var(--border); border-radius: 1rem; box-shadow: var(--shadow-card); }
-    .card:hover { border-color: var(--color-primary); }
-    .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
-    .badge-success { background-color: rgba(16, 185, 129, 0.15); color: var(--color-success); }
-    .badge-error { background-color: rgba(239, 68, 68, 0.15); color: var(--color-error); }
-    .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: var(--color-warning); }
-    .status-dot { width: 0.625rem; height: 0.625rem; border-radius: 9999px; }
-    .status-online { background-color: var(--color-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
-    .status-offline { background-color: var(--color-error); box-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .shimmer { background: linear-gradient(90deg, var(--bg-secondary) 0%, var(--surface) 50%, var(--bg-secondary) 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-  </style>
-</head>
-<body class="font-sans antialiased">
-  <div id="root"></div>
-  <script type="module" src="/main.js"></script>
-</body>
-</html>`
-}
+async function startFrontendServer(): Promise<boolean> {
+  console.log(`[Monitoring] Starting frontend dev server on port ${FRONTEND_PORT}...`)
 
-function getContentType(path: string): string {
-  if (path.endsWith('.js')) return 'application/javascript'
-  if (path.endsWith('.css')) return 'text/css'
-  if (path.endsWith('.html')) return 'text/html'
-  if (path.endsWith('.json')) return 'application/json'
-  if (path.endsWith('.svg')) return 'image/svg+xml'
-  if (path.endsWith('.png')) return 'image/png'
-  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg'
-  if (path.endsWith('.woff2')) return 'font/woff2'
-  if (path.endsWith('.woff')) return 'font/woff'
-  return 'application/octet-stream'
-}
+  await mkdir(resolve(APP_DIR, 'dist/dev'), { recursive: true })
 
-async function startFrontendServer(): Promise<void> {
-  await mkdir('./dist/dev', { recursive: true })
-  await buildFrontend()
+  const buildSuccess = await buildFrontend()
+  if (!buildSuccess) {
+    console.error('[Monitoring] Initial frontend build failed')
+    return false
+  }
+
+  const indexHtml = await readFile(resolve(APP_DIR, 'index.html'), 'utf-8')
+  const devHtml = indexHtml.replace('/web/main.tsx', '/main.js')
+
+  const host = getLocalhostHost()
 
   Bun.serve({
     port: FRONTEND_PORT,
+    hostname: host,
     async fetch(req) {
       const url = new URL(req.url)
       const pathname = url.pathname
 
       // Proxy API requests
-      if (
-        pathname.startsWith('/api/') ||
-        pathname.startsWith('/health') ||
-        pathname.startsWith('/.well-known/')
-      ) {
-        const targetUrl = `http://localhost:${API_PORT}${pathname}${url.search}`
-        return fetch(targetUrl, {
-          method: req.method,
-          headers: req.headers,
-          body:
-            req.method !== 'GET' && req.method !== 'HEAD'
-              ? req.body
-              : undefined,
-        }).catch((error) => {
-          console.error('[Monitoring] Proxy error:', error.message)
+      if (pathname.startsWith('/api') || pathname === '/health') {
+        const targetUrl = `http://${host}:${API_PORT}${pathname}${url.search}`
+        try {
+          const proxyResponse = await fetch(targetUrl, {
+            method: req.method,
+            headers: req.headers,
+            body:
+              req.method !== 'GET' && req.method !== 'HEAD'
+                ? req.body
+                : undefined,
+          })
+          return proxyResponse
+        } catch (error) {
+          console.error('[Monitoring] Proxy error:', (error as Error).message)
           return new Response(
             JSON.stringify({ error: 'Backend unavailable' }),
             {
@@ -223,25 +167,18 @@ async function startFrontendServer(): Promise<void> {
               headers: { 'Content-Type': 'application/json' },
             },
           )
-        })
+        }
       }
 
       // SPA fallback
-      if (pathname !== '/' && !pathname.includes('.')) {
-        return new Response(createDevHtml(), {
+      if (pathname === '/' || !pathname.includes('.')) {
+        return new Response(devHtml, {
           headers: { 'Content-Type': 'text/html' },
         })
       }
 
-      // Index
-      if (pathname === '/' || pathname === '/index.html') {
-        return new Response(createDevHtml(), {
-          headers: { 'Content-Type': 'text/html' },
-        })
-      }
-
-      // Built files
-      const devFile = Bun.file(`./dist/dev${pathname}`)
+      // Serve from dist/dev
+      const devFile = Bun.file(resolve(APP_DIR, `dist/dev${pathname}`))
       if (await devFile.exists()) {
         return new Response(devFile, {
           headers: {
@@ -251,23 +188,10 @@ async function startFrontendServer(): Promise<void> {
         })
       }
 
-      // CSS from web
-      if (pathname.endsWith('.css')) {
-        const webCss = Bun.file(`./web${pathname}`)
-        if (await webCss.exists()) {
-          return new Response(webCss, {
-            headers: {
-              'Content-Type': 'text/css',
-              'Cache-Control': 'no-cache',
-            },
-          })
-        }
-      }
-
-      // Public files
-      const publicFile = Bun.file(`./public${pathname}`)
-      if (await publicFile.exists()) {
-        return new Response(publicFile, {
+      // Serve from web/
+      const webFile = Bun.file(resolve(APP_DIR, `web${pathname}`))
+      if (await webFile.exists()) {
+        return new Response(webFile, {
           headers: { 'Content-Type': getContentType(pathname) },
         })
       }
@@ -276,31 +200,64 @@ async function startFrontendServer(): Promise<void> {
     },
   })
 
-  console.log(`[Monitoring] Frontend: http://localhost:${FRONTEND_PORT}`)
+  console.log(`[Monitoring] Frontend dev server started on port ${FRONTEND_PORT}`)
 
   // Watch for changes
-  const watchDirs = ['./web', './lib']
-  for (const dir of watchDirs) {
-    if (existsSync(dir)) {
-      watch(dir, { recursive: true }, (_eventType, filename) => {
-        if (
-          filename &&
-          (filename.endsWith('.ts') || filename.endsWith('.tsx'))
-        ) {
-          console.log(`[Monitoring] ${filename} changed, rebuilding...`)
-          buildFrontend()
-        }
-      })
+  watch(resolve(APP_DIR, 'web'), { recursive: true }, (_eventType, filename) => {
+    if (filename && (filename.endsWith('.ts') || filename.endsWith('.tsx'))) {
+      console.log(`[Monitoring] ${filename} changed, rebuilding...`)
+      buildFrontend()
     }
+  })
+
+  return true
+}
+
+function getContentType(path: string): string {
+  if (path.endsWith('.js')) return 'application/javascript'
+  if (path.endsWith('.css')) return 'text/css'
+  if (path.endsWith('.html')) return 'text/html'
+  if (path.endsWith('.json')) return 'application/json'
+  if (path.endsWith('.svg')) return 'image/svg+xml'
+  if (path.endsWith('.png')) return 'image/png'
+  return 'application/octet-stream'
+}
+
+async function main() {
+  const host = getLocalhostHost()
+  console.log('╔════════════════════════════════════════════════════════════╗')
+  console.log('║            Monitoring Development Server                    ║')
+  console.log('╚════════════════════════════════════════════════════════════╝')
+  console.log('')
+
+  // Start API server first
+  if (!(await startAPIServer())) {
+    cleanup()
+    process.exit(1)
   }
+
+  // Start frontend dev server
+  if (!(await startFrontendServer())) {
+    cleanup()
+    process.exit(1)
+  }
+
+  console.log('')
+  console.log('╔════════════════════════════════════════════════════════════╗')
+  console.log('║                  Monitoring is ready                        ║')
+  console.log('╠════════════════════════════════════════════════════════════╣')
+  console.log(`║  API:       http://${host}:${API_PORT}                          ║`)
+  console.log(`║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`)
+  console.log('╚════════════════════════════════════════════════════════════╝')
+  console.log('')
+  console.log('Press Ctrl+C to stop all services')
+
+  // Keep running
+  await Promise.all(processes.map((p) => p.process.exited))
 }
 
-async function main(): Promise<void> {
-  console.log('[Monitoring] Starting development server...\n')
-  await startFrontendServer()
-  console.log('\n[Monitoring] Development server ready.')
-  console.log(`   Frontend: http://localhost:${FRONTEND_PORT}`)
-  console.log(`   API: http://localhost:${API_PORT}`)
-}
-
-main()
+main().catch((err) => {
+  console.error('[Monitoring] Error:', err)
+  cleanup()
+  process.exit(1)
+})

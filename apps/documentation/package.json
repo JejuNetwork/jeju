@@ -4,11 +4,13 @@
   "description": "Network documentation site powered by Vocs",
   "type": "module",
   "scripts": {
-    "dev": "vocs dev --port ${PORT:-4055}",
-    "build": "vocs build",
-    "deploy": "jeju deploy docs",
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
     "test": "bun test tests/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:vocs": "vocs dev --port ${PORT:-4055}"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",

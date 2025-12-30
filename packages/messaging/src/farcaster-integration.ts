@@ -224,12 +224,14 @@ export class UnifiedMessagingService {
       sender: this.address,
       recipient,
       encryptedContent: '', // XMTP handles encryption
+      contentCid: null,
       ephemeralPublicKey: '',
       nonce: '',
       timestamp,
       chainId: this.chainId,
       messageType: 'dm',
       deliveryStatus: 'pending',
+      signature: null,
     }
     await this.storage.storeMessage(stored)
 

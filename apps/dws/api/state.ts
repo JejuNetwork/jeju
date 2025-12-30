@@ -237,6 +237,18 @@ async function ensureTablesExist(): Promise<void> {
       last_heartbeat INTEGER NOT NULL,
       is_active INTEGER NOT NULL DEFAULT 1
     )`,
+    `CREATE TABLE IF NOT EXISTS deployed_apps (
+      name TEXT PRIMARY KEY,
+      jns_name TEXT NOT NULL,
+      frontend_cid TEXT,
+      backend_worker_id TEXT,
+      backend_endpoint TEXT,
+      api_paths TEXT NOT NULL DEFAULT '[]',
+      spa INTEGER NOT NULL DEFAULT 1,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      deployed_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`,
   ]
 
   const indexes = [
@@ -256,6 +268,7 @@ async function ensureTablesExist(): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_bot_deployments_owner ON bot_deployments(owner)',
     'CREATE INDEX IF NOT EXISTS idx_bot_deployments_status ON bot_deployments(status)',
     'CREATE INDEX IF NOT EXISTS idx_external_nodes_active ON external_chain_nodes(is_active)',
+    'CREATE INDEX IF NOT EXISTS idx_deployed_apps_enabled ON deployed_apps(enabled)',
   ]
 
   for (const ddl of tables) {
@@ -1556,6 +1569,139 @@ export const externalChainNodeState = {
   },
 }
 
+// Deployed App Row Type
+interface DeployedAppRow {
+  name: string
+  jns_name: string
+  frontend_cid: string | null
+  backend_worker_id: string | null
+  backend_endpoint: string | null
+  api_paths: string
+  spa: number
+  enabled: number
+  deployed_at: number
+  updated_at: number
+}
+
+// Deployed App State Operations
+export const deployedAppState = {
+  async save(app: {
+    name: string
+    jnsName: string
+    frontendCid: string | null
+    backendWorkerId: string | null
+    backendEndpoint: string | null
+    apiPaths: string[]
+    spa: boolean
+    enabled: boolean
+  }): Promise<void> {
+    const client = await getSQLitClient()
+    const now = Date.now()
+
+    // Check if app exists to preserve deployedAt
+    const existing = await this.get(app.name)
+
+    const row: DeployedAppRow = {
+      name: app.name,
+      jns_name: app.jnsName,
+      frontend_cid: app.frontendCid,
+      backend_worker_id: app.backendWorkerId,
+      backend_endpoint: app.backendEndpoint,
+      api_paths: JSON.stringify(app.apiPaths),
+      spa: app.spa ? 1 : 0,
+      enabled: app.enabled ? 1 : 0,
+      deployed_at: existing?.deployed_at ?? now,
+      updated_at: now,
+    }
+
+    await client.exec(
+      `INSERT INTO deployed_apps (name, jns_name, frontend_cid, backend_worker_id, backend_endpoint, api_paths, spa, enabled, deployed_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(name) DO UPDATE SET
+       jns_name = excluded.jns_name,
+       frontend_cid = excluded.frontend_cid,
+       backend_worker_id = excluded.backend_worker_id,
+       backend_endpoint = excluded.backend_endpoint,
+       api_paths = excluded.api_paths,
+       spa = excluded.spa,
+       enabled = excluded.enabled,
+       updated_at = excluded.updated_at`,
+      [
+        row.name,
+        row.jns_name,
+        row.frontend_cid,
+        row.backend_worker_id,
+        row.backend_endpoint,
+        row.api_paths,
+        row.spa,
+        row.enabled,
+        row.deployed_at,
+        row.updated_at,
+      ],
+      SQLIT_DATABASE_ID,
+    )
+
+    console.log(
+      `[DeployedAppState] Saved app: ${app.name} (frontend: ${app.frontendCid ?? 'none'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
+    )
+  },
+
+  async get(name: string): Promise<DeployedAppRow | null> {
+    const client = await getSQLitClient()
+    const result = await client.query<DeployedAppRow>(
+      'SELECT * FROM deployed_apps WHERE name = ?',
+      [name],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rows[0] ?? null
+  },
+
+  async listAll(): Promise<DeployedAppRow[]> {
+    const client = await getSQLitClient()
+    const result = await client.query<DeployedAppRow>(
+      'SELECT * FROM deployed_apps ORDER BY updated_at DESC',
+      [],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rows
+  },
+
+  async listEnabled(): Promise<DeployedAppRow[]> {
+    const client = await getSQLitClient()
+    const result = await client.query<DeployedAppRow>(
+      'SELECT * FROM deployed_apps WHERE enabled = 1 ORDER BY updated_at DESC',
+      [],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rows
+  },
+
+  async delete(name: string): Promise<boolean> {
+    const client = await getSQLitClient()
+    const result = await client.exec(
+      'DELETE FROM deployed_apps WHERE name = ?',
+      [name],
+      SQLIT_DATABASE_ID,
+    )
+
+    if (result.rowsAffected > 0) {
+      console.log(`[DeployedAppState] Deleted app: ${name}`)
+    }
+
+    return result.rowsAffected > 0
+  },
+
+  async setEnabled(name: string, enabled: boolean): Promise<boolean> {
+    const client = await getSQLitClient()
+    const result = await client.exec(
+      'UPDATE deployed_apps SET enabled = ?, updated_at = ? WHERE name = ?',
+      [enabled ? 1 : 0, Date.now(), name],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+}
+
 // Track if we're in memory-only mode (no SQLit)
 let memoryOnlyMode = false
 
@@ -1576,18 +1722,21 @@ export async function initializeDWSState(): Promise<void> {
       initialized = true
       console.log('[DWS State] Initialized with SQLit')
     } catch (error) {
-      // For local development, allow running without SQLit
-      if (!isProductionEnv()) {
-        memoryOnlyMode = true
-        initialized = true
+      // Allow running without SQLit in memory-only mode
+      // TODO: Once SQLit is deployed to testnet, make this stricter for production
+      memoryOnlyMode = true
+      initialized = true
+      const env = isProductionEnv() ? 'production' : 'local dev'
+      console.warn(
+        `[DWS State] SQLit unavailable - running in memory-only mode (${env})`,
+      )
+      console.warn(
+        '[DWS State] Some features will be limited. Start SQLit for full functionality.',
+      )
+      if (isProductionEnv()) {
         console.warn(
-          '[DWS State] SQLit unavailable - running in memory-only mode (local dev)',
+          '[DWS State] WARNING: Running in production without SQLit - app registrations will not persist across restarts',
         )
-        console.warn(
-          '[DWS State] Some features will be limited. Start SQLit for full functionality.',
-        )
-      } else {
-        throw error
       }
     }
   })()

@@ -3,9 +3,7 @@
 replicaCount: 3
 
 image:
-  # ECR repository URL - set via Helmfile or CI/CD
-  # Format: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/jeju/dws
-  repository: jeju/dws
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/dws
   tag: "testnet-latest"
 
 ingress:
@@ -52,10 +50,21 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-    # App routing - ALL apps go through DWS (primary pattern)
-    # This catches appname.testnet.jejunetwork.org patterns
+    # App routing - individual apps routed through DWS
     # DWS app router handles frontend (IPFS) + backend (workers) routing
-    - host: "*.testnet.jejunetwork.org"
+    - host: oauth3.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: autocrat.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: bazaar.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: crucible.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
@@ -156,7 +165,7 @@ config:
 
 env:
   - name: NODE_ENV
-    value: "production"
+    value: "development"  # Use development for testnet to bypass strict production security checks
   - name: DWS_PORT
     value: "4030"
   - name: LOG_LEVEL

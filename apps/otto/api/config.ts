@@ -123,7 +123,7 @@ export const OTTO_COMMANDS = {
 } as const
 
 export function getConfig(): OttoConfig {
-  const port = parseInt(process.env.OTTO_PORT ?? '4040', 10)
+  const port = parseInt(process.env.OTTO_PORT ?? '4050', 10)
   const webhookPort = parseInt(process.env.OTTO_WEBHOOK_PORT ?? '4041', 10)
 
   if (Number.isNaN(port) || port <= 0 || port > 65535) {
