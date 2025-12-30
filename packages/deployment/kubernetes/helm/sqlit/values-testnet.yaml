@@ -1,0 +1,189 @@
+# SQLit Testnet Configuration
+# Decentralized SQL Database for DWS
+
+replicaCount: 3
+
+image:
+  # Use the actual SQLit image - the original Go implementation
+  repository: sqlit/sqlit
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "4665"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: false  # SQLit binary may need root for some operations
+  runAsUser: 0
+
+service:
+  type: ClusterIP
+  # Client connections port (native SQLit protocol)
+  port: 4661
+  # Metric port
+  metricsPort: 4665
+  # HTTP API port (for fullnode)
+  httpPort: 8546
+  annotations: {}
+
+# Headless service for peer discovery
+headlessService:
+  enabled: true
+
+# SQLit Native Configuration (matches docker-compose.yml)
+config:
+  # Cluster configuration for consensus
+  cluster:
+    minNodes: 2
+    replicationFactor: 3
+    consensusProtocol: "dpos"  # SQLit uses DPoS consensus
+    electionTimeout: "5s"
+    heartbeatInterval: "500ms"
+
+  # Database configuration
+  database:
+    maxDatabases: 100
+    walMode: true
+    checkpointInterval: "30s"
+    pageSize: 4096
+    cacheSize: 10000
+    journalMode: "WAL"
+
+  # Network configuration (SQLit native ports)
+  network:
+    # Client RPC port (sqlchain protocol)
+    clientPort: 4661
+    # P2P port for peer coordination
+    p2pPort: 4662
+    # Metric port
+    metricsPort: 4665
+    # HTTP API port (fullnode only)
+    httpPort: 8546
+    tlsEnabled: false  # Enable later with cert-manager
+
+  # Storage configuration
+  storage:
+    dataDir: "/data/sqlit"
+    walDir: "/data/sqlit/wal"
+    snapshotDir: "/data/sqlit/snapshots"
+    snapshotInterval: "1h"
+    maxSnapshots: 5
+
+  # Backup configuration
+  backup:
+    enabled: true
+    ipfsEnabled: true
+    interval: "6h"
+    retention: "7d"
+
+  # Blockchain integration (for DWS registration)
+  blockchain:
+    rpcUrl: "https://rpc.testnet.jejunetwork.org"
+    chainId: 420690
+    registerAsProvider: false  # Manual registration for now
+
+# Environment variables (SQLit native config)
+env:
+  - name: SQLIT_LOG_LEVEL
+    value: "info"
+  - name: SQLIT_CLUSTER_NAME
+    value: "jeju-testnet"
+
+# Secrets
+secretEnv:
+  - name: SQLIT_PRIVATE_KEY
+    secretName: sqlit-secrets
+    secretKey: private-key
+
+# Persistence
+persistence:
+  enabled: true
+  # Use gp3 for testnet (AWS managed)
+  storageClass: "gp3"
+  size: 50Gi
+  accessModes:
+    - ReadWriteOnce
+
+# Resources
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Liveness probe (check if sqlitd process is running)
+livenessProbe:
+  tcpSocket:
+    port: 4661  # Client port
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  tcpSocket:
+    port: 4661
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity - spread across nodes
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - sqlit
+        topologyKey: kubernetes.io/hostname
+
+# Metrics
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Network policies
+networkPolicy:
+  enabled: true
+  allowedNamespaces:
+    - dws
+    - monitoring
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []

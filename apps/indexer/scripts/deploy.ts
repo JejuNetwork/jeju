@@ -291,7 +291,11 @@ async function deploy(): Promise<void> {
 
   // Upload static assets
   console.log('\nUploading static assets...')
-  const webAssets = await uploadDirectory(config.dwsUrl, './dist/web', 'dist/web')
+  const webAssets = await uploadDirectory(
+    config.dwsUrl,
+    './dist/web',
+    'dist/web',
+  )
   const indexResult = await uploadToIPFS(
     config.dwsUrl,
     './dist/index.html',
@@ -325,7 +329,9 @@ async function deploy(): Promise<void> {
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Frontend: https://indexer.jejunetwork.org                  ║`)
   console.log(`║  GraphQL:  https://indexer.jejunetwork.org/graphql          ║`)
-  console.log(`║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`)
+  console.log(
+    `║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`,
+  )
   console.log(`║  Worker:   ${workerId.slice(0, 36)}...  ║`)
   console.log('╚════════════════════════════════════════════════════════════╝')
 }

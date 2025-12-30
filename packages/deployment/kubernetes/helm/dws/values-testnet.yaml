@@ -166,6 +166,12 @@ config:
 env:
   - name: NODE_ENV
     value: "development"  # Use development for testnet to bypass strict production security checks
+  # Enable P2P for decentralized node discovery
+  - name: DWS_P2P_ENABLED
+    value: "true"
+  # Enable provider mode - this node participates in the provider network
+  - name: DWS_PROVIDER_ENABLED
+    value: "true"
   - name: DWS_PORT
     value: "4030"
   - name: LOG_LEVEL

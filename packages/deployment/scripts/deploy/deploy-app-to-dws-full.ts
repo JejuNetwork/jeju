@@ -15,7 +15,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { getDWSUrl } from '@jejunetwork/config'
-import type { Address, Hex } from 'viem'
+import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
 interface AppManifest {
@@ -96,10 +96,7 @@ class DWSAppDeployer {
   private appPath: string
   private manifest: AppManifest
 
-  constructor(
-    appName: string,
-    network: 'testnet' | 'mainnet' = 'testnet',
-  ) {
+  constructor(appName: string, network: 'testnet' | 'mainnet' = 'testnet') {
     this.network = network
     this.dwsEndpoint = getDWSUrl(network)
 
@@ -178,7 +175,8 @@ class DWSAppDeployer {
     // Build if needed
     if (!existsSync(buildDir)) {
       console.log('  Building frontend...')
-      const buildCommand = frontendConfig.buildCommand || 'bun run build:frontend'
+      const buildCommand =
+        frontendConfig.buildCommand || 'bun run build:frontend'
       execSync(buildCommand, { cwd: this.appPath, stdio: 'inherit' })
     }
 
@@ -195,7 +193,9 @@ class DWSAppDeployer {
 
     console.log(`  ✅ Frontend uploaded: ${cid}`)
     console.log(`  📍 URLs:`)
-    urls.forEach(url => console.log(`     - ${url}`))
+    for (const url of urls) {
+      console.log(`     - ${url}`)
+    }
 
     return { cid, jnsName, urls }
   }
@@ -239,7 +239,9 @@ class DWSAppDeployer {
     // Call JNS registration script
     // For now, log that this needs to be done
     console.log('  ⚠️  Manual JNS registration required:')
-    console.log(`     bun run packages/deployment/scripts/deploy/register-jns.ts testnet`)
+    console.log(
+      `     bun run packages/deployment/scripts/deploy/register-jns.ts testnet`,
+    )
     console.log(`     Will set contenthash for ${jnsName} to ${cid}`)
   }
 
@@ -285,7 +287,9 @@ class DWSAppDeployer {
       env: {
         NETWORK: this.network,
         NODE_ENV: 'production',
-        PORT: String(this.manifest.ports?.api || this.manifest.ports?.main || 4000),
+        PORT: String(
+          this.manifest.ports?.api || this.manifest.ports?.main || 4000,
+        ),
         ...(teePlatform === 'phala' && {
           PHALA_API_KEY: process.env.PHALA_API_KEY,
         }),
@@ -298,8 +302,8 @@ class DWSAppDeployer {
       handler: deployRequest.entrypoint,
       runtime: deployRequest.runtime,
       env: deployRequest.env,
-      memory: deployRequest.resources?.memory || 128,
-      timeout: deployRequest.resources?.timeout || 30000,
+      memory: deployRequest.memory,
+      timeout: deployRequest.timeout,
     }
 
     const response = await fetch(`${this.dwsEndpoint}/workers`, {
@@ -318,13 +322,16 @@ class DWSAppDeployer {
     const result = await response.json()
 
     const workerId = result.id || result.workerId
-    const endpoint = result.endpoint || `${this.dwsEndpoint}/workers/${workerId}/invoke`
+    const endpoint =
+      result.endpoint || `${this.dwsEndpoint}/workers/${workerId}/invoke`
 
     console.log(`  ✅ Backend deployed`)
     console.log(`     Worker ID: ${workerId}`)
     console.log(`     Endpoint: ${endpoint}`)
     if (result.tee?.attestation) {
-      console.log(`     TEE Attestation: ${result.tee.attestation.slice(0, 32)}...`)
+      console.log(
+        `     TEE Attestation: ${result.tee.attestation.slice(0, 32)}...`,
+      )
     }
 
     return {
@@ -353,7 +360,11 @@ class DWSAppDeployer {
       `${jnsName}.jns.testnet.jejunetwork.org`,
     ]
 
-    const paths: Array<{ path: string; pathType: string; backend: { type: string; staticCid?: string; workerId?: string } }> = []
+    const paths: Array<{
+      path: string
+      pathType: string
+      backend: { type: string; staticCid?: string; workerId?: string }
+    }> = []
 
     // Frontend: serve from IPFS
     if (deployment.frontend) {
@@ -410,7 +421,9 @@ class DWSAppDeployer {
 
     console.log(`  ✅ Ingress configured`)
     console.log(`     Rule ID: ${result.id}`)
-    hosts.forEach(host => console.log(`     Host: ${host}`))
+    for (const host of hosts) {
+      console.log(`     Host: ${host}`)
+    }
 
     return {
       ruleId: result.id,
@@ -429,12 +442,24 @@ class DWSAppDeployer {
     const jnsName = this.manifest.jns?.name || `${appName}.jeju`
 
     // Default API paths - use routes from decentralization config if available
-    const workerRoutes = (this.manifest as { decentralization?: { worker?: { routes?: Array<{ pattern: string }> } } }).decentralization?.worker?.routes
-    const apiPaths = workerRoutes?.map(r => r.pattern) ||
-      ['/api', '/health', '/a2a', '/mcp', '/oauth', '/callback']
+    const workerRoutes = (
+      this.manifest as {
+        decentralization?: { worker?: { routes?: Array<{ pattern: string }> } }
+      }
+    ).decentralization?.worker?.routes
+    const apiPaths = workerRoutes?.map((r) => r.pattern) || [
+      '/api',
+      '/health',
+      '/a2a',
+      '/mcp',
+      '/oauth',
+      '/callback',
+    ]
 
     // Check for spa config
-    const frontendConfig = this.manifest.decentralization?.frontend as { spa?: boolean } | undefined
+    const frontendConfig = this.manifest.decentralization?.frontend as
+      | { spa?: boolean }
+      | undefined
     const spa = frontendConfig?.spa ?? true
 
     const appRouterData = {
@@ -460,7 +485,9 @@ class DWSAppDeployer {
     })
 
     if (!response.ok) {
-      console.warn(`  ⚠️  App router registration failed: ${await response.text()}`)
+      console.warn(
+        `  ⚠️  App router registration failed: ${await response.text()}`,
+      )
       console.warn('  App may not be routable by hostname. Check DWS logs.')
     } else {
       const result = await response.json()
@@ -517,9 +544,15 @@ class DWSAppDeployer {
   }
 
   private printHeader(): void {
-    console.log('╔══════════════════════════════════════════════════════════════════════╗')
-    console.log('║          DEPLOY TO DWS (PURE DECENTRALIZED)                          ║')
-    console.log('╚══════════════════════════════════════════════════════════════════════╝')
+    console.log(
+      '╔══════════════════════════════════════════════════════════════════════╗',
+    )
+    console.log(
+      '║          DEPLOY TO DWS (PURE DECENTRALIZED)                          ║',
+    )
+    console.log(
+      '╚══════════════════════════════════════════════════════════════════════╝',
+    )
     console.log('')
     console.log(`App: ${this.manifest.displayName || this.manifest.name}`)
     console.log(`Version: ${this.manifest.version}`)
@@ -531,33 +564,51 @@ class DWSAppDeployer {
 
   private printSuccess(result: DeploymentResult): void {
     console.log('')
-    console.log('╔══════════════════════════════════════════════════════════════════════╗')
-    console.log('║                    ✅ DEPLOYMENT SUCCESSFUL                           ║')
-    console.log('╚══════════════════════════════════════════════════════════════════════╝')
+    console.log(
+      '╔══════════════════════════════════════════════════════════════════════╗',
+    )
+    console.log(
+      '║                    ✅ DEPLOYMENT SUCCESSFUL                           ║',
+    )
+    console.log(
+      '╚══════════════════════════════════════════════════════════════════════╝',
+    )
     console.log('')
 
     if (result.frontend) {
       console.log('Frontend:')
-      result.frontend.urls.forEach(url => console.log(`  ${url}`))
+      for (const url of result.frontend.urls) {
+        console.log(`  ${url}`)
+      }
       console.log('')
     }
 
     if (result.backend) {
       console.log('Backend:')
       console.log(`  Endpoint: ${result.backend.endpoint}`)
-      console.log(`  TEE: ${result.backend.tee.platform} (${result.backend.tee.enabled ? 'enabled' : 'disabled'})`)
+      console.log(
+        `  TEE: ${result.backend.tee.platform} (${result.backend.tee.enabled ? 'enabled' : 'disabled'})`,
+      )
       console.log('')
     }
 
-    console.log('🎉 Your app is now running on pure decentralized infrastructure!')
+    console.log(
+      '🎉 Your app is now running on pure decentralized infrastructure!',
+    )
     console.log('')
   }
 
   private printError(error: unknown): void {
     console.log('')
-    console.log('╔══════════════════════════════════════════════════════════════════════╗')
-    console.log('║                    ❌ DEPLOYMENT FAILED                               ║')
-    console.log('╚══════════════════════════════════════════════════════════════════════╝')
+    console.log(
+      '╔══════════════════════════════════════════════════════════════════════╗',
+    )
+    console.log(
+      '║                    ❌ DEPLOYMENT FAILED                               ║',
+    )
+    console.log(
+      '╚══════════════════════════════════════════════════════════════════════╝',
+    )
     console.log('')
     console.error(error)
     console.log('')
@@ -570,14 +621,17 @@ async function main() {
   const network = (process.argv[3] || 'testnet') as 'testnet' | 'mainnet'
 
   if (!appName) {
-    console.error('Usage: bun run deploy-app-to-dws-full.ts <app-name> [network]')
+    console.error(
+      'Usage: bun run deploy-app-to-dws-full.ts <app-name> [network]',
+    )
     console.error('Example: bun run deploy-app-to-dws-full.ts autocrat testnet')
     process.exit(1)
   }
 
   // Set Phala API key if not set
   if (!process.env.PHALA_API_KEY) {
-    process.env.PHALA_API_KEY = 'phak_ycVEhuwQsLmTzQRaFVkTeWAx9Sk5qWujbU2H4Ki4Mh4'
+    process.env.PHALA_API_KEY =
+      'phak_ycVEhuwQsLmTzQRaFVkTeWAx9Sk5qWujbU2H4Ki4Mh4'
   }
 
   const deployer = new DWSAppDeployer(appName, network)

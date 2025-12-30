@@ -89,7 +89,9 @@ async function startAPIServer(): Promise<boolean> {
 }
 
 async function startFrontendServer(): Promise<boolean> {
-  console.log(`[OAuth3] Starting frontend dev server on port ${FRONTEND_PORT}...`)
+  console.log(
+    `[OAuth3] Starting frontend dev server on port ${FRONTEND_PORT}...`,
+  )
 
   await mkdir(resolve(APP_DIR, 'dist/dev'), { recursive: true })
 
@@ -183,12 +185,19 @@ async function startFrontendServer(): Promise<boolean> {
   console.log(`[OAuth3] Frontend dev server started on port ${FRONTEND_PORT}`)
 
   // Watch for changes
-  watch(resolve(APP_DIR, 'web'), { recursive: true }, (_eventType, filename) => {
-    if (filename && (filename.endsWith('.ts') || filename.endsWith('.html'))) {
-      console.log(`[OAuth3] ${filename} changed, rebuilding...`)
-      buildFrontend()
-    }
-  })
+  watch(
+    resolve(APP_DIR, 'web'),
+    { recursive: true },
+    (_eventType, filename) => {
+      if (
+        filename &&
+        (filename.endsWith('.ts') || filename.endsWith('.html'))
+      ) {
+        console.log(`[OAuth3] ${filename} changed, rebuilding...`)
+        buildFrontend()
+      }
+    },
+  )
 
   return true
 }
@@ -258,8 +267,12 @@ async function main() {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                    OAuth3 is ready                          ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  API:       http://${host}:${API_PORT}                          ║`)
-  console.log(`║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`)
+  console.log(
+    `║  API:       http://${host}:${API_PORT}                          ║`,
+  )
+  console.log(
+    `║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
   console.log('Press Ctrl+C to stop all services')

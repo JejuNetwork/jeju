@@ -18,7 +18,6 @@ import {
   getL2RpcUrl,
 } from '@jejunetwork/config'
 import { keccak256 } from 'viem'
-import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
@@ -174,7 +173,7 @@ async function deployWorker(
 ): Promise<string> {
   const account = privateKeyToAccount(config.privateKey)
 
-  const deployRequest = {
+  const _deployRequest = {
     name: 'oauth3-api',
     owner: account.address,
     codeCid: apiBundle.cid,
@@ -359,7 +358,9 @@ async function deploy(): Promise<void> {
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Frontend: https://auth.jejunetwork.org                     ║`)
-  console.log(`║  IPFS:     ipfs://${indexCid?.slice(0, 20)}...                  ║`)
+  console.log(
+    `║  IPFS:     ipfs://${indexCid?.slice(0, 20)}...                  ║`,
+  )
   console.log(`║  Worker:   ${workerId.slice(0, 36)}...  ║`)
   console.log('╚════════════════════════════════════════════════════════════╝')
 }

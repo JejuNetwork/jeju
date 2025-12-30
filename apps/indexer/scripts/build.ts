@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
+
 /**
  * Indexer Production Build Script
  */
 
-import { $ } from 'bun'
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { $ } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const outdir = resolve(APP_DIR, 'dist')

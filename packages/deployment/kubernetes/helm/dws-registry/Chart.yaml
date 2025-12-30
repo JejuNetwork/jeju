@@ -1,0 +1,16 @@
+apiVersion: v2
+name: dws-registry
+description: DWS Container Registry - Decentralized Docker/OCI Registry
+type: application
+version: 0.1.0
+appVersion: "2.8.3"
+keywords:
+  - registry
+  - docker
+  - oci
+  - containers
+  - decentralized
+  - jeju
+maintainers:
+  - name: Jeju Network
+    url: https://jejunetwork.org

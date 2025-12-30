@@ -16,13 +16,18 @@ import {
   getLocalhostHost,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
-import { deployedAppState } from '../../state'
 import { getAppRegistry } from '../../../src/cdn/app-registry'
 import { getLocalCDNServer } from '../../../src/cdn/local-server'
 import { getIngressController } from '../../infrastructure'
+import { deployedAppState } from '../../state'
+import {
+  isConfigMapAvailable,
+  loadAppsFromConfigMap,
+  saveAppsToConfigMap,
+} from './configmap-persistence'
 
 // App deployment registry - tracks deployed apps and their configurations
-interface DeployedApp {
+export interface DeployedApp {
   name: string
   jnsName: string
   frontendCid: string | null // IPFS CID for frontend (null = use local CDN)
@@ -43,7 +48,15 @@ const deployedAppsCache = new Map<string, DeployedApp>()
 const NETWORK = getCurrentNetwork()
 
 // Default API paths to route to backend
-const DEFAULT_API_PATHS = ['/api', '/health', '/a2a', '/mcp', '/oauth', '/callback', '/webhook']
+const DEFAULT_API_PATHS = [
+  '/api',
+  '/health',
+  '/a2a',
+  '/mcp',
+  '/oauth',
+  '/callback',
+  '/webhook',
+]
 
 /**
  * Extract app name from hostname
@@ -64,7 +77,17 @@ function extractAppName(hostname: string): string | null {
   const testnetMatch = hostname.match(/^([^.]+)\.testnet\./)
   if (testnetMatch?.[1]) {
     // Skip system subdomains
-    const systemSubdomains = ['dws', 'api', 'rpc', 'ws', 'explorer', 'bridge', 'faucet', 'docs', 'gateway']
+    const systemSubdomains = [
+      'dws',
+      'api',
+      'rpc',
+      'ws',
+      'explorer',
+      'bridge',
+      'faucet',
+      'docs',
+      'gateway',
+    ]
     const name = testnetMatch[1]
     if (!systemSubdomains.includes(name)) {
       return name
@@ -74,7 +97,15 @@ function extractAppName(hostname: string): string | null {
   // Handle mainnet subdomain: appname.jejunetwork.org
   const mainnetMatch = hostname.match(/^([^.]+)\.jejunetwork\.org$/)
   if (mainnetMatch?.[1]) {
-    const systemSubdomains = ['dws', 'api', 'rpc', 'ws', 'explorer', 'www', 'docs']
+    const systemSubdomains = [
+      'dws',
+      'api',
+      'rpc',
+      'ws',
+      'explorer',
+      'www',
+      'docs',
+    ]
     const name = mainnetMatch[1]
     if (!systemSubdomains.includes(name)) {
       return name
@@ -88,8 +119,8 @@ function extractAppName(hostname: string): string | null {
  * Check if a path should be routed to the backend
  */
 function isApiPath(pathname: string, apiPaths: string[]): boolean {
-  return apiPaths.some(prefix =>
-    pathname === prefix || pathname.startsWith(`${prefix}/`)
+  return apiPaths.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
 }
 
@@ -98,15 +129,33 @@ function isApiPath(pathname: string, apiPaths: string[]): boolean {
  */
 function isAssetPath(pathname: string): boolean {
   const assetExtensions = [
-    '.js', '.css', '.json', '.png', '.jpg', '.jpeg', '.gif', '.svg',
-    '.woff', '.woff2', '.ttf', '.eot', '.ico', '.webp', '.avif',
-    '.mp4', '.webm', '.mp3', '.wav', '.pdf', '.map'
+    '.js',
+    '.css',
+    '.json',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.svg',
+    '.woff',
+    '.woff2',
+    '.ttf',
+    '.eot',
+    '.ico',
+    '.webp',
+    '.avif',
+    '.mp4',
+    '.webm',
+    '.mp3',
+    '.wav',
+    '.pdf',
+    '.map',
   ]
-  return assetExtensions.some(ext => pathname.endsWith(ext))
+  return assetExtensions.some((ext) => pathname.endsWith(ext))
 }
 
 /**
- * Register a deployed app (persists to database if available)
+ * Register a deployed app (persists to ConfigMap in K8s, SQLit otherwise)
  */
 export async function registerDeployedApp(
   app: Omit<DeployedApp, 'deployedAt' | 'updatedAt'>,
@@ -120,27 +169,34 @@ export async function registerDeployedApp(
     updatedAt: now,
   }
 
-  // Try to save to database (gracefully handle if SQLit is not available)
-  try {
-    await deployedAppState.save({
-      name: app.name,
-      jnsName: app.jnsName,
-      frontendCid: app.frontendCid,
-      backendWorkerId: app.backendWorkerId,
-      backendEndpoint: app.backendEndpoint,
-      apiPaths: app.apiPaths,
-      spa: app.spa,
-      enabled: app.enabled,
-    })
-  } catch (error) {
-    // SQLit not available - continue with cache-only mode
-    console.log(
-      `[AppRouter] Database save failed (running in memory-only mode): ${app.name}`,
-    )
-  }
-
-  // Update cache
+  // Update cache first
   deployedAppsCache.set(app.name, deployedApp)
+
+  // Persist to ConfigMap (primary for K8s) or SQLit (fallback)
+  if (isConfigMapAvailable()) {
+    // Save all apps to ConfigMap
+    const allApps = Array.from(deployedAppsCache.values())
+    await saveAppsToConfigMap(allApps)
+  } else {
+    // Try SQLit as fallback (for local development)
+    try {
+      await deployedAppState.save({
+        name: app.name,
+        jnsName: app.jnsName,
+        frontendCid: app.frontendCid,
+        backendWorkerId: app.backendWorkerId,
+        backendEndpoint: app.backendEndpoint,
+        apiPaths: app.apiPaths,
+        spa: app.spa,
+        enabled: app.enabled,
+      })
+    } catch (_error) {
+      // Neither ConfigMap nor SQLit available - cache-only mode
+      console.log(
+        `[AppRouter] Running in memory-only mode (no persistence): ${app.name}`,
+      )
+    }
+  }
 
   console.log(
     `[AppRouter] Registered app: ${app.name} (frontend: ${app.frontendCid ?? 'local'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
@@ -148,24 +204,30 @@ export async function registerDeployedApp(
 }
 
 /**
- * Unregister a deployed app (removes from database)
+ * Unregister a deployed app (removes from ConfigMap/database)
  */
 export async function unregisterDeployedApp(name: string): Promise<boolean> {
-  // Delete from database (may fail if SQLit is unavailable)
-  let deleted = false
-  try {
-    deleted = await deployedAppState.delete(name)
-  } catch (error) {
-    console.log(`[AppRouter] Database delete failed: ${name}`)
-  }
+  const existed = deployedAppsCache.has(name)
 
   // Remove from cache
   deployedAppsCache.delete(name)
 
-  if (deleted) {
+  // Persist removal to ConfigMap or SQLit
+  if (isConfigMapAvailable()) {
+    const allApps = Array.from(deployedAppsCache.values())
+    await saveAppsToConfigMap(allApps)
+  } else {
+    try {
+      await deployedAppState.delete(name)
+    } catch (_error) {
+      console.log(`[AppRouter] Database delete failed: ${name}`)
+    }
+  }
+
+  if (existed) {
     console.log(`[AppRouter] Unregistered app: ${name}`)
   }
-  return deleted
+  return existed
 }
 
 /**
@@ -198,7 +260,7 @@ async function serveFrontendFromIPFS(
   if (path === '/' || path === '') {
     path = '/index.html'
   }
-  
+
   // For SPA, non-asset routes serve index.html (client-side routing)
   if (spa && !isAssetPath(path)) {
     path = '/index.html'
@@ -212,7 +274,7 @@ async function serveFrontendFromIPFS(
 
   const response = await fetch(url, {
     headers: {
-      'Accept': '*/*',
+      Accept: '*/*',
     },
   })
 
@@ -259,29 +321,29 @@ async function serveFrontendFromIPFS(
 function getContentType(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() ?? ''
   const mimeTypes: Record<string, string> = {
-    'html': 'text/html; charset=utf-8',
-    'js': 'application/javascript',
-    'mjs': 'application/javascript',
-    'css': 'text/css',
-    'json': 'application/json',
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'gif': 'image/gif',
-    'svg': 'image/svg+xml',
-    'webp': 'image/webp',
-    'ico': 'image/x-icon',
-    'woff': 'font/woff',
-    'woff2': 'font/woff2',
-    'ttf': 'font/ttf',
-    'eot': 'application/vnd.ms-fontobject',
-    'mp4': 'video/mp4',
-    'webm': 'video/webm',
-    'mp3': 'audio/mpeg',
-    'wav': 'audio/wav',
-    'pdf': 'application/pdf',
-    'txt': 'text/plain',
-    'xml': 'application/xml',
+    html: 'text/html; charset=utf-8',
+    js: 'application/javascript',
+    mjs: 'application/javascript',
+    css: 'text/css',
+    json: 'application/json',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    webp: 'image/webp',
+    ico: 'image/x-icon',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    ttf: 'font/ttf',
+    eot: 'application/vnd.ms-fontobject',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    xml: 'application/xml',
   }
   return mimeTypes[ext] ?? 'application/octet-stream'
 }
@@ -339,14 +401,20 @@ async function proxyToBackend(
   const proxyRequest = new Request(targetUrl + url.search, {
     method: request.method,
     headers: request.headers,
-    body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+    body:
+      request.method !== 'GET' && request.method !== 'HEAD'
+        ? request.body
+        : undefined,
   })
 
   const response = await fetch(proxyRequest)
 
   // Clone response with DWS headers
   const headers = new Headers(response.headers)
-  headers.set('X-DWS-Backend', app.backendWorkerId ?? app.backendEndpoint ?? 'unknown')
+  headers.set(
+    'X-DWS-Backend',
+    app.backendWorkerId ?? app.backendEndpoint ?? 'unknown',
+  )
 
   return new Response(response.body, {
     status: response.status,
@@ -362,167 +430,203 @@ async function proxyToBackend(
  */
 export function createAppRouter() {
   console.log('[AppRouter] Creating app router middleware')
-  return new Elysia({ name: 'app-router' })
-    .derive(({ request }) => {
-      // Log at derive level to ensure middleware chain is working
-      const host = request.headers.get('host')
-      console.log(`[AppRouter.derive] host=${host}`)
-      return {}
-    })
-    // Middleware that checks every request for app routing
-    .onBeforeHandle(async ({ request }): Promise<Response | undefined> => {
-      const url = new URL(request.url)
-      const hostHeader = request.headers.get('host')
-      const hostname = hostHeader ?? url.hostname
-      const pathname = url.pathname
-      
-      // Log ALL requests through the app router
-      console.log(`[AppRouter] Request received: host=${hostHeader}, hostname=${hostname}, pathname=${pathname}`)
+  return (
+    new Elysia({ name: 'app-router' })
+      .derive(({ request }) => {
+        // Log at derive level to ensure middleware chain is working
+        const host = request.headers.get('host')
+        console.log(`[AppRouter.derive] host=${host}`)
+        return {}
+      })
+      // Middleware that checks every request for app routing
+      .onBeforeHandle(async ({ request }): Promise<Response | undefined> => {
+        const url = new URL(request.url)
+        const hostHeader = request.headers.get('host')
+        const hostname = hostHeader ?? url.hostname
+        const pathname = url.pathname
 
-      // Skip if this is the DWS service itself
-      if (hostname.startsWith('dws.') || hostname === 'localhost' || hostname.startsWith('127.')) {
-        console.log(`[AppRouter] Skipping DWS service: ${hostname}`)
-        return undefined
-      }
-      
-      // Log non-DWS hostnames
-      console.log(`[AppRouter] Processing app request: ${hostname}${pathname}`)
+        // Log ALL requests through the app router
+        console.log(
+          `[AppRouter] Request received: host=${hostHeader}, hostname=${hostname}, pathname=${pathname}`,
+        )
 
-      // Extract app name from hostname
-      const appName = extractAppName(hostname)
-      console.log(`[AppRouter] hostname=${hostname}, appName=${appName}`)
-      if (!appName) {
-        return undefined
-      }
+        // Skip if this is the DWS service itself
+        if (
+          hostname.startsWith('dws.') ||
+          hostname === 'localhost' ||
+          hostname.startsWith('127.')
+        ) {
+          console.log(`[AppRouter] Skipping DWS service: ${hostname}`)
+          return undefined
+        }
 
-      // Look up deployed app (from cache)
-      let app = deployedAppsCache.get(appName)
-      console.log(`[AppRouter] Found app: ${app?.name}, apiPaths: ${JSON.stringify(app?.apiPaths)}`)
+        // Log non-DWS hostnames
+        console.log(
+          `[AppRouter] Processing app request: ${hostname}${pathname}`,
+        )
 
-      // If not in deployed apps, check local app registry (devnet fallback)
-      if (!app) {
-        const registry = getAppRegistry()
-        const localApp = registry.getApp(appName)
+        // Extract app name from hostname
+        const appName = extractAppName(hostname)
+        console.log(`[AppRouter] hostname=${hostname}, appName=${appName}`)
+        if (!appName) {
+          return undefined
+        }
 
-        if (localApp) {
-          // Create a temporary deployment entry from local app
-          app = {
-            name: localApp.name,
-            jnsName: localApp.jnsName,
-            frontendCid: localApp.cid ?? null,
-            backendWorkerId: null,
-            backendEndpoint: `http://${getLocalhostHost()}:${localApp.port}`,
-            apiPaths: DEFAULT_API_PATHS,
-            spa: localApp.spa,
-            enabled: true,
-            deployedAt: Date.now(),
-            updatedAt: Date.now(),
+        // Look up deployed app (from cache)
+        let app = deployedAppsCache.get(appName)
+        console.log(
+          `[AppRouter] Found app: ${app?.name}, apiPaths: ${JSON.stringify(app?.apiPaths)}`,
+        )
+
+        // If not in deployed apps, check local app registry (devnet fallback)
+        if (!app) {
+          const registry = getAppRegistry()
+          const localApp = registry.getApp(appName)
+
+          if (localApp) {
+            // Create a temporary deployment entry from local app
+            app = {
+              name: localApp.name,
+              jnsName: localApp.jnsName,
+              frontendCid: localApp.cid ?? null,
+              backendWorkerId: null,
+              backendEndpoint: `http://${getLocalhostHost()}:${localApp.port}`,
+              apiPaths: DEFAULT_API_PATHS,
+              spa: localApp.spa,
+              enabled: true,
+              deployedAt: Date.now(),
+              updatedAt: Date.now(),
+            }
           }
         }
-      }
 
-      if (!app || !app.enabled) {
-        // App not found - let request fall through to 404
-        console.log(`[AppRouter] App not found or disabled: ${appName}`)
-        return undefined
-      }
+        if (!app || !app.enabled) {
+          // App not found - let request fall through to 404
+          console.log(`[AppRouter] App not found or disabled: ${appName}`)
+          return undefined
+        }
 
-      // Route to backend for API paths
-      const shouldProxyToBackend = isApiPath(pathname, app.apiPaths)
-      console.log(`[AppRouter] pathname=${pathname}, apiPaths=${JSON.stringify(app.apiPaths)}, shouldProxy=${shouldProxyToBackend}`)
-      if (shouldProxyToBackend) {
-        console.log(`[AppRouter] Proxying to backend: ${app.backendEndpoint}${pathname}`)
-        return proxyToBackend(request, app, pathname)
-      }
+        // Route to backend for API paths
+        const shouldProxyToBackend = isApiPath(pathname, app.apiPaths)
+        console.log(
+          `[AppRouter] pathname=${pathname}, apiPaths=${JSON.stringify(app.apiPaths)}, shouldProxy=${shouldProxyToBackend}`,
+        )
+        if (shouldProxyToBackend) {
+          console.log(
+            `[AppRouter] Proxying to backend: ${app.backendEndpoint}${pathname}`,
+          )
+          return proxyToBackend(request, app, pathname)
+        }
 
-      console.log(`[AppRouter] Serving frontend for ${appName}${pathname}`)
+        console.log(`[AppRouter] Serving frontend for ${appName}${pathname}`)
 
-      // Route to frontend
-      if (app.frontendCid) {
-        // Serve from IPFS
-        return serveFrontendFromIPFS(app.frontendCid, pathname, app.spa)
-      }
+        // Route to frontend
+        if (app.frontendCid) {
+          // Serve from IPFS
+          return serveFrontendFromIPFS(app.frontendCid, pathname, app.spa)
+        }
 
-      // Serve from local CDN (devnet)
-      return serveFrontendFromLocalCDN(app.name, pathname)
-    })
+        // Serve from local CDN (devnet)
+        return serveFrontendFromLocalCDN(app.name, pathname)
+      })
 
-    // Management endpoints for app deployments
-    .get('/apps/deployed', () => {
-      const apps = getDeployedApps()
-      return {
-        count: apps.length,
-        apps: apps.map(app => ({
-          name: app.name,
-          jnsName: app.jnsName,
-          frontendCid: app.frontendCid,
-          backendWorkerId: app.backendWorkerId,
-          backendEndpoint: app.backendEndpoint,
-          enabled: app.enabled,
-          deployedAt: app.deployedAt,
-          updatedAt: app.updatedAt,
-        })),
-      }
-    })
+      // Management endpoints for app deployments
+      .get('/apps/deployed', () => {
+        const apps = getDeployedApps()
+        return {
+          count: apps.length,
+          apps: apps.map((app) => ({
+            name: app.name,
+            jnsName: app.jnsName,
+            frontendCid: app.frontendCid,
+            backendWorkerId: app.backendWorkerId,
+            backendEndpoint: app.backendEndpoint,
+            enabled: app.enabled,
+            deployedAt: app.deployedAt,
+            updatedAt: app.updatedAt,
+          })),
+        }
+      })
 
-    .get('/apps/deployed/:name', ({ params, set }) => {
-      const app = getDeployedApp(params.name)
-      if (!app) {
-        set.status = 404
-        return { error: `App not found: ${params.name}` }
-      }
-      return app
-    })
+      .get('/apps/deployed/:name', ({ params, set }) => {
+        const app = getDeployedApp(params.name)
+        if (!app) {
+          set.status = 404
+          return { error: `App not found: ${params.name}` }
+        }
+        return app
+      })
 
-    .post('/apps/deployed', async ({ body, set }) => {
-      const data = body as Omit<DeployedApp, 'deployedAt' | 'updatedAt'>
-      if (!data.name) {
-        set.status = 400
-        return { error: 'App name is required' }
-      }
-      await registerDeployedApp(data)
-      return { success: true, app: getDeployedApp(data.name) }
-    })
+      .post('/apps/deployed', async ({ body, set }) => {
+        const data = body as Omit<DeployedApp, 'deployedAt' | 'updatedAt'>
+        if (!data.name) {
+          set.status = 400
+          return { error: 'App name is required' }
+        }
+        await registerDeployedApp(data)
+        return { success: true, app: getDeployedApp(data.name) }
+      })
 
-    .delete('/apps/deployed/:name', async ({ params }) => {
-      const deleted = await unregisterDeployedApp(params.name)
-      return { success: deleted }
-    })
+      .delete('/apps/deployed/:name', async ({ params }) => {
+        const deleted = await unregisterDeployedApp(params.name)
+        return { success: deleted }
+      })
+  )
 }
 
 /**
- * Initialize app router from database, ingress rules, and local apps
+ * Initialize app router from ConfigMap, database, ingress rules, and local apps
  */
 export async function initializeAppRouter(): Promise<void> {
   console.log('[AppRouter] Initializing...')
 
-  // Load from database (persistent registrations)
-  // Skip if SQLit is not available - apps can be registered via API
-  try {
-    const dbApps = await deployedAppState.listEnabled()
-    for (const row of dbApps) {
-      const app: DeployedApp = {
-        name: row.name,
-        jnsName: row.jns_name,
-        frontendCid: row.frontend_cid,
-        backendWorkerId: row.backend_worker_id,
-        backendEndpoint: row.backend_endpoint,
-        apiPaths: JSON.parse(row.api_paths),
-        spa: row.spa === 1,
-        enabled: row.enabled === 1,
-        deployedAt: row.deployed_at,
-        updatedAt: row.updated_at,
+  // Try ConfigMap first (Kubernetes environment)
+  if (isConfigMapAvailable()) {
+    console.log('[AppRouter] ConfigMap persistence available')
+    try {
+      const configMapApps = await loadAppsFromConfigMap()
+      for (const app of configMapApps) {
+        deployedAppsCache.set(app.name, app)
+        console.log(
+          `[AppRouter] Loaded from ConfigMap: ${app.name} (frontend: ${app.frontendCid ?? 'none'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
+        )
       }
-      deployedAppsCache.set(app.name, app)
+    } catch (error) {
       console.log(
-        `[AppRouter] Loaded from database: ${app.name} (frontend: ${app.frontendCid ?? 'none'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
+        `[AppRouter] Failed to load from ConfigMap: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
     }
-  } catch (error) {
-    // SQLit may not be available - this is fine for testnet/devnet
-    // Apps can still be registered via the /apps/deployed API
-    console.log(`[AppRouter] Failed to load from database: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    console.log('[AppRouter] Apps can be registered via POST /apps/deployed')
+  } else {
+    // Load from SQLit database (local development)
+    console.log('[AppRouter] ConfigMap not available, trying SQLit')
+    try {
+      const dbApps = await deployedAppState.listEnabled()
+      for (const row of dbApps) {
+        const app: DeployedApp = {
+          name: row.name,
+          jnsName: row.jns_name,
+          frontendCid: row.frontend_cid,
+          backendWorkerId: row.backend_worker_id,
+          backendEndpoint: row.backend_endpoint,
+          apiPaths: JSON.parse(row.api_paths),
+          spa: row.spa === 1,
+          enabled: row.enabled === 1,
+          deployedAt: row.deployed_at,
+          updatedAt: row.updated_at,
+        }
+        deployedAppsCache.set(app.name, app)
+        console.log(
+          `[AppRouter] Loaded from database: ${app.name} (frontend: ${app.frontendCid ?? 'none'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
+        )
+      }
+    } catch (error) {
+      // SQLit may not be available - this is fine for testnet/devnet
+      // Apps can still be registered via the /apps/deployed API
+      console.log(
+        `[AppRouter] Failed to load from database: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
+      console.log('[AppRouter] Apps can be registered via POST /apps/deployed')
+    }
   }
 
   // Load from local app registry (devnet)
@@ -543,7 +647,7 @@ export async function initializeAppRouter(): Promise<void> {
         enabled: true,
       })
     }
-  } catch (error) {
+  } catch (_error) {
     console.log('[AppRouter] Local app registry not available, skipping')
   }
 
@@ -583,7 +687,7 @@ export async function initializeAppRouter(): Promise<void> {
         })
       }
     }
-  } catch (error) {
+  } catch (_error) {
     console.log('[AppRouter] Ingress controller not available, skipping')
   }
 

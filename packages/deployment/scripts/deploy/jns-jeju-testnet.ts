@@ -253,9 +253,10 @@ async function main() {
     'function available(string name) view returns (bool)',
   ])
 
-  const _resolverAbi = parseAbi([
-    'function setContenthash(bytes32 node, bytes contenthash)',
-  ])
+  // Resolver ABI for future use in contenthash setting
+  // const resolverAbi = parseAbi([
+  //   'function setContenthash(bytes32 node, bytes contenthash)',
+  // ])
 
   const TEN_YEARS = BigInt(10 * 365 * 24 * 60 * 60)
   const namesToRegister = [

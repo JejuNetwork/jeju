@@ -184,7 +184,9 @@ async function buildFrontend(): Promise<boolean> {
 }
 
 async function startFrontendServer(): Promise<boolean> {
-  console.log(`[Autocrat] Starting frontend dev server on port ${FRONTEND_PORT}...`)
+  console.log(
+    `[Autocrat] Starting frontend dev server on port ${FRONTEND_PORT}...`,
+  )
 
   await mkdir(resolve(APP_DIR, 'dist/dev'), { recursive: true })
 
@@ -345,8 +347,12 @@ async function main() {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                    Autocrat is ready                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  API:       http://${host}:${API_PORT}                          ║`)
-  console.log(`║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`)
+  console.log(
+    `║  API:       http://${host}:${API_PORT}                          ║`,
+  )
+  console.log(
+    `║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
   console.log('Press Ctrl+C to stop all services')

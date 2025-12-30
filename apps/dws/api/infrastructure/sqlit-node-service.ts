@@ -264,7 +264,7 @@ export class SQLitNodeService {
 
     // 3. Register on SQLIT Registry (on-chain)
     const host = getLocalhostHost()
-    const endpoint = `http://${host}:${params.rpcPort ?? INFRA_PORTS.SQLIT.get()}`
+    const endpoint = `http://${host}:${params.rpcPort ?? INFRA_PORTS.SQLit.get()}`
 
     await this.registerOnChain(
       nodeId,
@@ -344,7 +344,7 @@ export class SQLitNodeService {
 
     const config = this.nodeManager.getConfig()
     const rpcPort =
-      config.rpcAddr?.split(':')[1] ?? String(INFRA_PORTS.SQLIT.get())
+      config.rpcAddr?.split(':')[1] ?? String(INFRA_PORTS.SQLit.get())
     const host = getLocalhostHost()
     const endpoint = `http://${host}:${rpcPort}`
     return {

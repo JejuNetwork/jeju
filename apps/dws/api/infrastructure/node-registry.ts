@@ -902,40 +902,6 @@ export class NodeRegistry {
     }
   }
 
-  // Private Helpers
-
-  private async setEndpoint(agentId: bigint, endpoint: string): Promise<Hex> {
-    if (!this.walletClient) throw new Error('Wallet not configured')
-
-    const data = encodeFunctionData({
-      abi: NODE_REGISTRY_ABI,
-      functionName: 'setEndpoint',
-      args: [agentId, endpoint],
-    })
-
-    return this.walletClient.sendTransaction({
-      chain: this.chain,
-      to: this.registryAddress,
-      data,
-    })
-  }
-
-  private async addTag(agentId: bigint, tag: string): Promise<Hex> {
-    if (!this.walletClient) throw new Error('Wallet not configured')
-
-    const data = encodeFunctionData({
-      abi: NODE_REGISTRY_ABI,
-      functionName: 'addTag',
-      args: [agentId, tag],
-    })
-
-    return this.walletClient.sendTransaction({
-      chain: this.chain,
-      to: this.registryAddress,
-      data,
-    })
-  }
-
   private async setMetadata(
     agentId: bigint,
     key: string,
@@ -1002,10 +968,6 @@ export class NodeRegistry {
       pricePerGb: BigInt(parsed.pricePerGb),
       pricePerRequest: BigInt(parsed.pricePerRequest),
     }
-  }
-
-  private encodeCapabilities(capabilities: NodeCapability[]): Uint8Array {
-    return Buffer.from(JSON.stringify(capabilities))
   }
 
   private decodeAttestation(data: Hex): NodeConfig['attestation'] {

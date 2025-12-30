@@ -50,7 +50,7 @@ import {
   VulnerabilityTypeSchema,
 } from '../lib'
 import { config } from './config'
-import { getOperatorConfig } from './kms-signer'
+import { createKMSHttpWalletClient, getOperatorConfig } from './kms-signer'
 
 const SQLIT_DATABASE_ID = config.sqlitDatabaseId
 

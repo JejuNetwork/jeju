@@ -74,8 +74,8 @@ import { createDNSRouter } from '../dns/routes'
 import { GitRepoManager } from '../git/repo-manager'
 import {
   createHelmProviderRouter,
-  createIngressRouter,
   createInfrastructure,
+  createIngressRouter,
   createK3sRouter,
   createServiceMeshRouter,
   createTerraformProviderRouter,
@@ -95,6 +95,11 @@ import type { ServiceHealth } from '../types'
 import { WorkerdExecutor } from '../workers/workerd/executor'
 import { createA2ARouter } from './routes/a2a'
 import { createAPIMarketplaceRouter } from './routes/api-marketplace'
+import {
+  createAppRouter,
+  getDeployedApp,
+  initializeAppRouter,
+} from './routes/app-router'
 import { createCDNRouter } from './routes/cdn'
 import { createCIRouter } from './routes/ci'
 import { createComputeRouter } from './routes/compute'
@@ -130,7 +135,6 @@ import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
 import { createWorkersRouter } from './routes/workers'
-import { createAppRouter, getDeployedApp, initializeAppRouter } from './routes/app-router'
 
 // Config injection for workerd compatibility
 export interface DWSServerConfig {
@@ -795,19 +799,28 @@ app.get('/web/*', async ({ request, set }) => {
   const url = new URL(request.url)
   const assetPath = url.pathname.replace('/web/', '')
 
-  const decentralizedResponse = await decentralized.frontend.serveAsset(`web/${assetPath}`)
+  const decentralizedResponse = await decentralized.frontend.serveAsset(
+    `web/${assetPath}`,
+  )
   if (decentralizedResponse) return decentralizedResponse
 
   const file = Bun.file(`./dist/web/${assetPath}`)
   if (await file.exists()) {
-    const contentType = assetPath.endsWith('.js') ? 'application/javascript'
-      : assetPath.endsWith('.css') ? 'text/css'
-      : assetPath.endsWith('.json') ? 'application/json'
-      : assetPath.endsWith('.png') ? 'image/png'
-      : assetPath.endsWith('.jpg') || assetPath.endsWith('.jpeg') ? 'image/jpeg'
-      : assetPath.endsWith('.svg') ? 'image/svg+xml'
-      : assetPath.endsWith('.woff') || assetPath.endsWith('.woff2') ? 'font/woff2'
-      : 'application/octet-stream'
+    const contentType = assetPath.endsWith('.js')
+      ? 'application/javascript'
+      : assetPath.endsWith('.css')
+        ? 'text/css'
+        : assetPath.endsWith('.json')
+          ? 'application/json'
+          : assetPath.endsWith('.png')
+            ? 'image/png'
+            : assetPath.endsWith('.jpg') || assetPath.endsWith('.jpeg')
+              ? 'image/jpeg'
+              : assetPath.endsWith('.svg')
+                ? 'image/svg+xml'
+                : assetPath.endsWith('.woff') || assetPath.endsWith('.woff2')
+                  ? 'font/woff2'
+                  : 'application/octet-stream'
 
     return new Response(file, {
       headers: {
@@ -1336,20 +1349,25 @@ if (import.meta.main) {
         if (success) return undefined
         return new Response('WebSocket upgrade failed', { status: 500 })
       }
-      
+
       // App routing - check if request is for a deployed app
       const hostname = req.headers.get('host') ?? url.hostname
       console.log(`[Bun.serve] Request: ${hostname}${url.pathname}`)
-      
+
       // Check if this is a deployed app (not dws itself)
-      if (!hostname.startsWith('dws.') && !hostname.startsWith('127.') && hostname !== 'localhost') {
+      if (
+        !hostname.startsWith('dws.') &&
+        !hostname.startsWith('127.') &&
+        hostname !== 'localhost'
+      ) {
         const appName = hostname.split('.')[0]
         const deployedApp = getDeployedApp(appName)
-        if (deployedApp && deployedApp.enabled) {
+        if (deployedApp?.enabled) {
           console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
           // Route to backend for API paths
-          const isApiRequest = deployedApp.apiPaths.some(path => 
-            url.pathname === path || url.pathname.startsWith(`${path}/`)
+          const isApiRequest = deployedApp.apiPaths.some(
+            (path) =>
+              url.pathname === path || url.pathname.startsWith(`${path}/`),
           )
           if (isApiRequest && deployedApp.backendEndpoint) {
             const targetUrl = `${deployedApp.backendEndpoint}${url.pathname}${url.search}`
@@ -1357,7 +1375,10 @@ if (import.meta.main) {
             return fetch(targetUrl, {
               method: req.method,
               headers: req.headers,
-              body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+              body:
+                req.method !== 'GET' && req.method !== 'HEAD'
+                  ? req.body
+                  : undefined,
             })
           }
           // Serve frontend from IPFS if configured
@@ -1378,12 +1399,15 @@ if (import.meta.main) {
             return fetch(targetUrl, {
               method: req.method,
               headers: req.headers,
-              body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+              body:
+                req.method !== 'GET' && req.method !== 'HEAD'
+                  ? req.body
+                  : undefined,
             })
           }
         }
       }
-      
+
       return app.handle(req)
     },
     websocket: {
@@ -1481,7 +1505,9 @@ if (import.meta.main) {
         region: 'us-east-1',
       })
         .then(({ agentId, txHash }) => {
-          console.log(`[DWS] Node registered! AgentId: ${agentId}, TxHash: ${txHash}`)
+          console.log(
+            `[DWS] Node registered! AgentId: ${agentId}, TxHash: ${txHash}`,
+          )
         })
         .catch((err) => {
           console.error('[DWS] Node registration failed:', err)

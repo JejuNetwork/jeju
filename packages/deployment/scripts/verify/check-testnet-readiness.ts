@@ -33,7 +33,7 @@ import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
 // Find project root by looking for package.json or going up from script location
 const SCRIPT_DIR = import.meta.dir
-const ROOT = join(SCRIPT_DIR, '../../../..')  // packages/deployment/scripts/verify -> root
+const ROOT = join(SCRIPT_DIR, '../../../..') // packages/deployment/scripts/verify -> root
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys')
 const CONFIG_DIR = join(ROOT, 'packages/contracts/deploy-config')
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments/testnet')

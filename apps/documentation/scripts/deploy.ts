@@ -222,7 +222,9 @@ async function deploy(): Promise<void> {
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Frontend: https://docs.jejunetwork.org                     ║`)
-  console.log(`║  IPFS:     ipfs://${indexCid?.slice(0, 20)}...                  ║`)
+  console.log(
+    `║  IPFS:     ipfs://${indexCid?.slice(0, 20)}...                  ║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
 }
 

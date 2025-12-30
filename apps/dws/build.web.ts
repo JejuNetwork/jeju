@@ -119,7 +119,8 @@ const result = await Bun.build({
     process: JSON.stringify({
       env: {
         NODE_ENV: process.env.NODE_ENV || 'development',
-        JEJU_NETWORK: process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet',
+        JEJU_NETWORK:
+          process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet',
       },
       browser: true,
     }),

@@ -46,15 +46,18 @@ async function main() {
 
   console.log(`[Wallet] Starting preview server on port ${PORT}...`)
 
-  process_ref = Bun.spawn(['bunx', 'vite', 'preview', '--port', String(PORT), '--host'], {
-    cwd: APP_DIR,
-    stdout: 'inherit',
-    stderr: 'inherit',
-    env: {
-      ...process.env,
-      NODE_ENV: 'production',
+  process_ref = Bun.spawn(
+    ['bunx', 'vite', 'preview', '--port', String(PORT), '--host'],
+    {
+      cwd: APP_DIR,
+      stdout: 'inherit',
+      stderr: 'inherit',
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+      },
     },
-  })
+  )
 
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')

@@ -51,11 +51,7 @@ async function build() {
     splitting: false,
     packages: 'bundle',
     naming: '[name].[hash].[ext]',
-    external: [
-      'bun:sqlite',
-      'node:*',
-      '@tauri-apps/*',
-    ],
+    external: ['bun:sqlite', 'node:*', '@tauri-apps/*'],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.browser': 'true',

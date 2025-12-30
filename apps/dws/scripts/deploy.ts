@@ -61,7 +61,9 @@ function getConfig(): DeployConfig {
 
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
   if (!privateKey) {
-    throw new Error('DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required')
+    throw new Error(
+      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
+    )
   }
 
   return {
@@ -154,7 +156,11 @@ async function uploadDirectory(
         const content = await readFile(fullPath)
         totalSize += content.length
 
-        const result = await uploadFile(dwsUrl, Buffer.from(content), relativePath)
+        const result = await uploadFile(
+          dwsUrl,
+          Buffer.from(content),
+          relativePath,
+        )
         files.set(relativePath, result.cid)
         console.log(`   📄 ${relativePath} -> ${result.cid.slice(0, 16)}...`)
       }
@@ -218,14 +224,22 @@ async function deploy(): Promise<void> {
   // Upload static assets (from dist/ which includes index.html and web/ subfolder)
   // Exclude the API bundle (index.js) since we handle it separately
   console.log('\n📦 Uploading static assets...')
-  const staticResult = await uploadDirectory(config.dwsUrl, join(DWS_DIR, 'dist'), ['index.js'])
+  const staticResult = await uploadDirectory(
+    config.dwsUrl,
+    join(DWS_DIR, 'dist'),
+    ['index.js'],
+  )
   console.log(`   Total: ${(staticResult.totalSize / 1024).toFixed(1)} KB`)
   console.log(`   Files: ${staticResult.files.size}\n`)
 
   // Upload API bundle separately
   console.log('📦 Uploading API bundle...')
   const apiContent = await readFile(join(DWS_DIR, 'dist/index.js'))
-  const apiResult = await uploadFile(config.dwsUrl, Buffer.from(apiContent), 'dws-api.js')
+  const apiResult = await uploadFile(
+    config.dwsUrl,
+    Buffer.from(apiContent),
+    'dws-api.js',
+  )
   console.log(`   API CID: ${apiResult.cid.slice(0, 16)}...\n`)
 
   // Register app

@@ -2703,7 +2703,13 @@ export function getModerationEnvironment(
 ): ModerationEnvironmentConfig {
   const config = loadModeration()
   const net = network ?? getCurrentNetwork()
-  return config.environments[net] ?? config.environments.localnet
+  const envConfig = config.environments[net] ?? config.environments.localnet
+  if (!envConfig) {
+    throw new Error(
+      `Moderation configuration missing for network: ${net} and no localnet fallback`,
+    )
+  }
+  return envConfig
 }
 
 /**

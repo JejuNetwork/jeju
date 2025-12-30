@@ -1,0 +1,379 @@
+# DWS Decentralized Values
+# This configuration runs DWS on the decentralized provider network
+# NO AWS DEPENDENCIES - uses JNS, IPFS, DWS providers instead
+
+replicaCount: 3
+
+# Use local/self-hosted container registry instead of ECR
+image:
+  repository: registry.jeju/dws
+  tag: "latest"
+  pullPolicy: Always
+
+# Disable AWS ALB - use nginx-ingress or traefik
+ingress:
+  enabled: true
+  className: "nginx"  # or "traefik"
+  annotations:
+    # Use cert-manager for TLS instead of AWS ACM
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    # Enable WebSocket support
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: dws.jeju
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: storage.jeju
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: git.jeju
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: npm.jeju
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: hub.jeju
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: registry.jeju
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: dws-tls
+      hosts:
+        - dws.jeju
+        - storage.jeju
+        - git.jeju
+        - npm.jeju
+        - hub.jeju
+        - registry.jeju
+
+# Use local storage instead of AWS gp3
+persistence:
+  enabled: true
+  storageClass: "local-path"  # or "openebs-hostpath" for decentralized storage
+  size: 500Gi
+  accessModes:
+    - ReadWriteOnce
+
+# Decentralized storage configuration
+config:
+  network: mainnet
+  chainId: 420691
+  # Connect to Jeju L2 RPC
+  rpcUrl: "http://reth-sequencer.execution.svc.cluster.local:8545"
+  wsRpcUrl: "ws://reth-sequencer.execution.svc.cluster.local:8546"
+
+  # DWS Provider Registry contracts (deployed on Jeju L2)
+  contracts:
+    dwsProviderRegistry: "${DWS_PROVIDER_REGISTRY_ADDRESS}"
+    dwsBilling: "${DWS_BILLING_ADDRESS}"
+    dwsServiceProvisioning: "${DWS_SERVICE_PROVISIONING_ADDRESS}"
+    jnsRegistry: "0x66ac1e36094e3cfa47258589be7bd3cef5884e97"
+    jnsResolver: "0xe27b540b6fd3868ad6420c466c8330da3a6417bf"
+    storageManager: "${STORAGE_MANAGER_ADDRESS}"
+    identityRegistry: "${IDENTITY_REGISTRY_ADDRESS}"
+
+  # Provider mode - this node participates in the provider network
+  provider:
+    enabled: true
+    # Services this node provides
+    services:
+      - compute
+      - storage
+      - cdn
+      - database
+    # Staking (required to be a provider)
+    stakeAmount: "1000"  # ETH equivalent in native token
+    # TEE configuration
+    tee:
+      enabled: false  # Enable for production
+      platform: "intel_tdx"  # or "amd_sev", "phala"
+    # Heartbeat configuration
+    heartbeatInterval: 60  # seconds
+
+  # Storage backends - NO AWS S3
+  storage:
+    primary: ipfs
+    permanent: true
+    backends:
+      - type: ipfs
+        enabled: true
+        # Run local IPFS node instead of using external gateway
+        gateway: "http://ipfs.dws.svc.cluster.local:8080"
+        apiEndpoint: "http://ipfs.dws.svc.cluster.local:5001"
+        pinningService: "internal"
+      - type: arweave
+        enabled: true
+        gateway: "https://arweave.net"
+        # Arweave wallet for permanent storage
+        walletPath: "/secrets/arweave-wallet.json"
+      - type: webtorrent
+        enabled: true
+        trackers:
+          - "wss://tracker.btorrent.xyz"
+          - "wss://tracker.openwebtorrent.com"
+      - type: filecoin
+        enabled: true
+        gateway: "https://api.node.glif.io"
+        walletAddress: "${FILECOIN_WALLET_ADDRESS}"
+
+  # JNS Gateway - serves decentralized apps via .jeju domains
+  jnsGateway:
+    enabled: true
+    domain: "jeju"
+    wildcardDomain: "*.jeju"
+    defaultTtl: 300
+    cacheEnabled: true
+    fallbackToIpfs: true
+    # DNS-over-HTTPS for JNS resolution
+    dohEnabled: true
+
+  # App Router - handles *.jeju routing
+  appRouter:
+    enabled: true
+    domain: "jeju"
+    wildcardDomain: "*.jeju"
+    systemSubdomains:
+      - dws
+      - api
+      - rpc
+      - ws
+      - explorer
+      - bridge
+      - faucet
+      - docs
+      - gateway
+      - storage
+      - git
+      - npm
+      - hub
+      - registry
+      - jns
+    defaultApiPaths:
+      - /api
+      - /health
+      - /a2a
+      - /mcp
+      - /oauth
+      - /callback
+      - /webhook
+
+  # CDN configuration - use DWS provider network instead of CloudFront
+  cdn:
+    enabled: true
+    # Edge nodes are DWS providers with CDN service enabled
+    useProviderNetwork: true
+    minProviders: 3
+    cacheSize: "50Gi"
+    regions:
+      - name: "north-america"
+        minProviders: 1
+      - name: "europe"
+        minProviders: 1
+      - name: "asia-pacific"
+        minProviders: 1
+
+  # P2P coordination between DWS nodes
+  p2p:
+    enabled: true
+    port: 4031
+    bootstrapPeers: []  # Populated dynamically from provider registry
+    dht:
+      enabled: true
+      mode: "server"  # Provider nodes run as DHT servers
+
+  # Database - use SQLit (decentralized SQLite) instead of RDS
+  database:
+    type: "sqlit"
+    replication: true
+    nodes: 3
+    # SQLit coordinator
+    coordinatorUrl: "http://sqlit.dws.svc.cluster.local:5000"
+
+  # KMS - use threshold cryptography instead of AWS KMS
+  kms:
+    type: "threshold"
+    # MPC cluster for key operations
+    mpcClusterEndpoint: "http://mpc.dws.svc.cluster.local:8000"
+    threshold: 2
+    totalShares: 3
+
+# Environment variables for decentralized mode
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: DWS_PORT
+    value: "4030"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DWS_MODE
+    value: "provider"  # Run as provider node
+  - name: DWS_CHAIN_ID
+    value: "420691"
+  - name: DWS_P2P_ENABLED
+    value: "true"
+  - name: DWS_PROVIDER_ENABLED
+    value: "true"
+  - name: DWS_STORAGE_BACKEND
+    value: "ipfs"
+  - name: DWS_DATABASE_TYPE
+    value: "sqlit"
+  - name: DWS_KMS_TYPE
+    value: "threshold"
+  # JNS Gateway
+  - name: JNS_GATEWAY_ENABLED
+    value: "true"
+  - name: JNS_GATEWAY_DOMAIN
+    value: "jeju"
+
+# Secrets - use Kubernetes secrets instead of AWS Secrets Manager
+secretEnv:
+  - name: DWS_PRIVATE_KEY
+    secretName: dws-provider-secrets
+    secretKey: private-key
+  - name: IPFS_CLUSTER_SECRET
+    secretName: dws-provider-secrets
+    secretKey: ipfs-cluster-secret
+  - name: ARWEAVE_WALLET
+    secretName: dws-provider-secrets
+    secretKey: arweave-wallet
+  - name: MPC_SHARE
+    secretName: dws-provider-secrets
+    secretKey: mpc-share
+
+# Run IPFS sidecar for local storage
+ipfs:
+  enabled: true
+  image:
+    repository: ipfs/kubo
+    tag: "v0.27.0"
+  persistence:
+    size: 500Gi
+    storageClass: "local-path"
+  config:
+    # IPFS cluster for replication
+    clusterEnabled: true
+    clusterPeers: []  # Populated from provider network
+
+# SQLit sidecar for decentralized database
+sqlit:
+  enabled: true
+  image:
+    repository: registry.jeju/sqlit
+    tag: "latest"
+  persistence:
+    size: 100Gi
+    storageClass: "local-path"
+  config:
+    replicationFactor: 3
+    consensusProtocol: "raft"
+
+# Metrics - use self-hosted Prometheus instead of CloudWatch
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+  prometheusRule:
+    enabled: true
+    rules:
+      - alert: DWSProviderDown
+        expr: up{job="dws"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DWS provider {{ $labels.instance }} is down"
+      - alert: DWSHighLatency
+        expr: histogram_quantile(0.99, rate(dws_request_duration_seconds_bucket[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DWS high latency detected"
+      - alert: DWSStorageLow
+        expr: dws_storage_available_bytes / dws_storage_total_bytes < 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DWS storage running low"
+
+# Resource limits for provider nodes
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+# Autoscaling disabled for decentralized mode - providers self-manage
+autoscaling:
+  enabled: false
+
+# KEDA for scale-to-zero on worker deployments
+keda:
+  enabled: true
+  minReplicaCount: 0
+  maxReplicaCount: 100
+  cooldownPeriod: 300
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.monitoring.svc.cluster.local:9090
+        metricName: dws_active_requests
+        query: sum(rate(dws_http_requests_total{job="dws"}[2m]))
+        threshold: "100"
+
+# Workerd configuration for serverless workers
+workers:
+  enabled: true
+  defaultScaling:
+    minInstances: 0
+    maxInstances: 100
+    targetConcurrency: 10
+    scaleToZero: true
+    idleTimeoutMs: 600000
+    cooldownMs: 60000
+  defaultResources:
+    memoryMb: 256
+    cpuMillis: 100
+    timeoutMs: 30000
+  warmPool:
+    enabled: true
+    size: 10
+    maxIdleTimeMs: 300000
+
+# Pod anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - dws
+        topologyKey: kubernetes.io/hostname
+
+# Node selector for DWS provider nodes
+nodeSelector:
+  dws-provider: "true"
+
+tolerations:
+  - key: "dws-provider"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

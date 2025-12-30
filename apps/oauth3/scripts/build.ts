@@ -7,7 +7,7 @@
  * - Frontend: Minified browser bundle
  */
 
-import { mkdir, copyFile, rm } from 'node:fs/promises'
+import { copyFile, mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const APP_DIR = resolve(import.meta.dir, '..')

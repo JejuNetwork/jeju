@@ -7,10 +7,10 @@ import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
 import {
   getChainId,
-  getCQLMinerUrl,
-  getCQLUrl,
   getCurrentNetwork,
   getRpcUrl,
+  getSQLitMinerUrl,
+  getSQLitUrl,
 } from '@jejunetwork/config'
 import { expectAddress } from '@jejunetwork/types'
 import chalk from 'chalk'
@@ -648,8 +648,8 @@ async function startDatabaseService(
   config: CliAppConfig,
 ) {
   // Get CQL endpoints from config (respects env var overrides)
-  const blockProducerEndpoint = getCQLUrl(config.network)
-  const minerEndpoint = getCQLMinerUrl(config.network)
+  const blockProducerEndpoint = getSQLitUrl(config.network)
+  const minerEndpoint = getSQLitMinerUrl(config.network)
 
   if (!config.keyId) {
     log('warn', 'Database service requires KMS key - skipping')

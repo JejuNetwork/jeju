@@ -9,7 +9,6 @@ import type {
   ModerationCategory,
   ReputationProvider,
   ReputationTier,
-  UserReputation,
 } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import {
@@ -93,16 +92,14 @@ export class DWSReputationAdapter implements ReputationProvider {
   /**
    * Get user reputation in the format expected by the moderation pipeline
    */
-  async getReputation(address: Address): Promise<UserReputation> {
+  async getReputation(
+    address: Address,
+  ): Promise<{ tier: ReputationTier; violations: number }> {
     const score = await this.service.getReputation(address)
 
     return {
-      address,
       tier: mapTrustLevel(score.level),
-      score: score.totalScore,
-      successfulUploads: score.components.successfulDeployments,
       violations: score.components.violations,
-      lastViolationAt: await this.getLastViolationTimestamp(address),
     }
   }
 
@@ -157,14 +154,6 @@ export class DWSReputationAdapter implements ReputationProvider {
   private async getCurrentLevel(address: Address): Promise<TrustLevel> {
     const score = await this.service.getReputation(address)
     return score.level
-  }
-
-  private async getLastViolationTimestamp(
-    address: Address,
-  ): Promise<number | undefined> {
-    const violations = await this.service.getViolations(address)
-    if (violations.length === 0) return undefined
-    return violations[0].createdAt
   }
 }
 

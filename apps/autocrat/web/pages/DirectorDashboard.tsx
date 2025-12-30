@@ -249,7 +249,7 @@ function ProposalContextSection({ context }: { context: DirectorContext }) {
         </h3>
         <div className="grid gap-4">
           {boardVotes.map((vote) => (
-            <BoardVoteCard key={vote.voter} vote={vote} />
+            <BoardVoteCard key={vote.role} vote={vote} />
           ))}
         </div>
       </div>

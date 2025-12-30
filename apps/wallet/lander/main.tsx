@@ -17,7 +17,7 @@ function App() {
             Seamless cross-chain wallet with no bridging, no chain switching.
             One balance across all chains.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href="https://chrome.google.com/webstore"
@@ -42,7 +42,9 @@ function App() {
       {/* Features */}
       <section className="px-6 py-20 bg-surface-elevated/50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Network Wallet?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">
+            Why Network Wallet?
+          </h2>
           <div className="grid md:grid-cols-3 gap-8">
             <FeatureCard
               icon="🌐"
@@ -68,7 +70,16 @@ function App() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-8">Supported Chains</h2>
           <div className="flex flex-wrap justify-center gap-4">
-            {['Ethereum', 'Base', 'Arbitrum', 'Optimism', 'BNB Chain', 'Polygon', 'Avalanche', 'Solana'].map((chain) => (
+            {[
+              'Ethereum',
+              'Base',
+              'Arbitrum',
+              'Optimism',
+              'BNB Chain',
+              'Polygon',
+              'Avalanche',
+              'Solana',
+            ].map((chain) => (
               <span
                 key={chain}
                 className="px-4 py-2 bg-surface-elevated border border-surface-border rounded-lg text-sm"
@@ -83,11 +94,28 @@ function App() {
       {/* Footer */}
       <footer className="px-6 py-8 border-t border-surface-border">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-gray-500 text-sm">© 2025 Jeju Network. Open source.</p>
+          <p className="text-gray-500 text-sm">
+            © 2025 Jeju Network. Open source.
+          </p>
           <div className="flex gap-6 text-sm text-gray-400">
-            <a href="https://docs.jejunetwork.io" className="hover:text-white transition-colors">Docs</a>
-            <a href="https://discord.gg/jeju" className="hover:text-white transition-colors">Discord</a>
-            <a href="https://twitter.com/jejunetwork" className="hover:text-white transition-colors">Twitter</a>
+            <a
+              href="https://docs.jejunetwork.io"
+              className="hover:text-white transition-colors"
+            >
+              Docs
+            </a>
+            <a
+              href="https://discord.gg/jeju"
+              className="hover:text-white transition-colors"
+            >
+              Discord
+            </a>
+            <a
+              href="https://twitter.com/jejunetwork"
+              className="hover:text-white transition-colors"
+            >
+              Twitter
+            </a>
           </div>
         </div>
       </footer>
@@ -95,7 +123,15 @@ function App() {
   )
 }
 
-function FeatureCard({ icon, title, description }: { icon: string; title: string; description: string }) {
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: string
+  title: string
+  description: string
+}) {
   return (
     <div className="p-6 bg-surface-elevated border border-surface-border rounded-2xl">
       <div className="text-4xl mb-4">{icon}</div>

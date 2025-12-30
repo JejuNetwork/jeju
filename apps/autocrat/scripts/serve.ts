@@ -105,8 +105,12 @@ async function main() {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║           Autocrat Production Server Ready                  ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Server:    http://${host}:${API_PORT}                          ║`)
-  console.log(`║  Health:    http://${host}:${API_PORT}/health                   ║`)
+  console.log(
+    `║  Server:    http://${host}:${API_PORT}                          ║`,
+  )
+  console.log(
+    `║  Health:    http://${host}:${API_PORT}/health                   ║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
   console.log('Press Ctrl+C to stop')

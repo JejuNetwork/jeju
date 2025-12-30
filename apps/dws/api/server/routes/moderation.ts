@@ -682,12 +682,12 @@ export function createModerationRouter() {
             contentModeration: metricsSummary,
             csamReports: csamStats,
             hashDatabase: {
-              csamHashCount: pipelineStats.csamHashes,
-              perceptualHashCount: pipelineStats.phashCount,
-              malwareHashCount: pipelineStats.malwareHashes,
+              csamHashCount: 0, // Hash stats not exposed via getStats
+              perceptualHashCount: 0,
+              malwareHashCount: 0,
             },
             detectionCapabilities: {
-              nsfwModel: pipelineStats.nsfwModel,
+              nsfwModel: pipelineStats.mode,
               externalProviders: pipelineStats.providers,
             },
           }
@@ -726,13 +726,17 @@ export function createModerationRouter() {
         async ({ body, set, headers }) => {
           const reporterIp = headers['x-forwarded-for'] ?? headers['x-real-ip']
 
+          // Map 'other' to 'spam' since 'other' is not a valid ModerationCategory
+          const category =
+            body.category === 'other' ? ('spam' as const) : body.category
+
           const report: UserReport = {
             reportId: crypto.randomUUID(),
             reporterAddress: body.reporterAddress as Address | undefined,
             reporterIp: typeof reporterIp === 'string' ? reporterIp : undefined,
             targetType: body.targetType,
             targetId: body.targetId,
-            category: body.category,
+            category,
             description: body.description,
             evidence: body.evidence,
             timestamp: Date.now(),
@@ -980,12 +984,16 @@ export function createModerationRouter() {
             return { error: 'Invalid or disabled API key' }
           }
 
+          // Map 'other' to 'spam' since 'other' is not a valid ModerationCategory
+          const category =
+            body.category === 'other' ? ('spam' as const) : body.category
+
           // Create prioritized report
           const report: UserReport = {
             reportId: crypto.randomUUID(),
             targetType: body.targetType,
             targetId: body.targetId,
-            category: body.category,
+            category,
             description: `[TRUSTED FLAGGER: ${flagger.name}] ${body.description}`,
             evidence: body.evidence,
             timestamp: Date.now(),

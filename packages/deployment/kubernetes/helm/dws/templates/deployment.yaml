@@ -43,6 +43,11 @@ spec:
               protocol: TCP
             {{- end }}
           env:
+            # Pod namespace for ConfigMap persistence
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             {{- range .Values.env }}
             - name: {{ .name }}
               value: {{ .value | quote }}

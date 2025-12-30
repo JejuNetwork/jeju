@@ -162,7 +162,12 @@ async function build() {
 
   // Build API servers
   console.log('[Gateway] Building API servers...')
-  const apiFiles = ['server.ts', 'rpc-server.ts', 'x402-server.ts', 'a2a-server.ts']
+  const apiFiles = [
+    'server.ts',
+    'rpc-server.ts',
+    'x402-server.ts',
+    'a2a-server.ts',
+  ]
   for (const apiFile of apiFiles) {
     const result = await Bun.build({
       entrypoints: [resolve(APP_DIR, `api/${apiFile}`)],

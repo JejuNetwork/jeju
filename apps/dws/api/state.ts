@@ -1721,7 +1721,7 @@ export async function initializeDWSState(): Promise<void> {
       await getSQLitClient()
       initialized = true
       console.log('[DWS State] Initialized with SQLit')
-    } catch (error) {
+    } catch (_error) {
       // Allow running without SQLit in memory-only mode
       // TODO: Once SQLit is deployed to testnet, make this stricter for production
       memoryOnlyMode = true

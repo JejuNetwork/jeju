@@ -165,17 +165,25 @@ export function createPkgRouter(ctx: PkgContext) {
           let onChainPackages: Array<{
             name: string
             scope: string
-            version: string
+            latestVersion: string
             description: string
             owner: string
             updatedAt: bigint
           }> = []
           try {
-            onChainPackages = await registryManager.searchPackages(
+            const results = await registryManager.searchPackages(
               text,
               from,
               size,
             )
+            onChainPackages = results.map((p) => ({
+              name: p.name,
+              scope: p.scope,
+              latestVersion: p.latestVersion as string,
+              description: p.description,
+              owner: p.owner,
+              updatedAt: p.updatedAt,
+            }))
           } catch {
             // Contract not deployed, use in-memory only
           }
@@ -193,7 +201,7 @@ export function createPkgRouter(ctx: PkgContext) {
             ...onChainPackages.map((pkg) => ({
               name: registryManager.getFullName(pkg.name, pkg.scope),
               scope: pkg.scope || undefined,
-              version: pkg.version,
+              version: pkg.latestVersion,
               description: pkg.description,
               date: new Date(Number(pkg.updatedAt) * 1000).toISOString(),
               publisher: { username: pkg.owner },

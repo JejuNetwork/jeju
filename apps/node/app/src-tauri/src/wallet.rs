@@ -1,4 +1,4 @@
-use alloy::network::EthereumWallet;
+use alloy::network::{EthereumWallet, TransactionBuilder};
 use alloy::primitives::{Address, Bytes, U256};
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
@@ -209,15 +209,15 @@ impl WalletManager {
             None
         };
 
+        let rpc_url: alloy::transports::http::reqwest::Url = self
+            .rpc_url
+            .parse()
+            .map_err(|e| format!("Invalid RPC URL: {}", e))?;
+
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(
-                self.rpc_url
-                    .parse()
-                    .map_err(|e| format!("Invalid RPC URL: {}", e))?,
-            )
-            .map_err(|e| format!("Failed to create provider: {}", e))?;
+            .on_http(rpc_url);
 
         let mut tx = TransactionRequest::default()
             .with_to(to_address)

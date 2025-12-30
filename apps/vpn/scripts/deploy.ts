@@ -316,7 +316,9 @@ async function deploy(): Promise<void> {
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Frontend: https://vpn.jejunetwork.org                      ║`)
-  console.log(`║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`)
+  console.log(
+    `║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`,
+  )
   console.log(`║  Worker:   ${workerId.slice(0, 36)}...  ║`)
   console.log('╚════════════════════════════════════════════════════════════╝')
 }

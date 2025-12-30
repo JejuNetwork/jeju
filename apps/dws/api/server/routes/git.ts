@@ -1130,7 +1130,7 @@ export function createGitRouter(ctx: GitContext) {
           ),
         ]
         const responseData = createReceivePackResponse(responseLines)
-        return new Response(responseData, {
+        return new Response(new Uint8Array(responseData), {
           headers: {
             'Content-Type': 'application/x-git-receive-pack-result',
             'Cache-Control': 'no-cache',

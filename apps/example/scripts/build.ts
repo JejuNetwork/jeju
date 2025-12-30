@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
+
 /**
  * Example Production Build Script
  */
 
-import { cp, mkdir, rm, writeFile, readFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 const APP_DIR = resolve(import.meta.dir, '..')

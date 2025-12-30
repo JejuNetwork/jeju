@@ -7,15 +7,14 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  type Chain,
+  concat,
   createPublicClient,
   createWalletClient,
   http,
-  type Chain,
-  parseAbi,
-  concat,
   keccak256,
+  parseAbi,
   stringToHex,
-  toHex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -33,7 +32,8 @@ const JEJU_TESTNET: Chain = {
 }
 
 // Deployer key (same as JNS deployment - owns the names)
-const DEPLOYER_KEY = '0xe60c18754e9569e127d320f1f92bbde9722af4ed4c098087b74c8e5af91b7895'
+const DEPLOYER_KEY =
+  '0xe60c18754e9569e127d320f1f92bbde9722af4ed4c098087b74c8e5af91b7895'
 
 // Compute ENS namehash
 function namehash(name: string): `0x${string}` {
@@ -48,16 +48,16 @@ function namehash(name: string): `0x${string}` {
 }
 
 // Encode IPFS CID as contenthash (using ipfs-ns codec)
-function encodeContenthash(cid: string): `0x${string}` {
-  // For IPFS CIDv0 (starts with Qm), we encode as:
-  // 0xe3 (ipfs-ns) + 0x01 (cidv1) + 0x70 (dag-pb) + 0x12 (sha2-256) + 0x20 (32 bytes) + hash
-  // For CIDv1 we'd need different handling
-  
-  // For now, use a simple placeholder encoding that DWS gateway will understand
-  // The gateway typically accepts IPFS CIDs directly
-  const cidBytes = Buffer.from(cid, 'utf-8')
-  return toHex(cidBytes)
-}
+// TODO: Use when contenthash setting is implemented
+// function encodeContenthash(cid: string): `0x${string}` {
+//   // For IPFS CIDv0 (starts with Qm), we encode as:
+//   // 0xe3 (ipfs-ns) + 0x01 (cidv1) + 0x70 (dag-pb) + 0x12 (sha2-256) + 0x20 (32 bytes) + hash
+//   // For CIDv1 we'd need different handling
+//   // For now, use a simple placeholder encoding that DWS gateway will understand
+//   // The gateway typically accepts IPFS CIDs directly
+//   const cidBytes = Buffer.from(cid, 'utf-8')
+//   return toHex(cidBytes)
+// }
 
 async function main() {
   console.log(`
@@ -69,11 +69,11 @@ async function main() {
 
   // Load JNS deployment
   const jnsDeployment = JSON.parse(
-    readFileSync(join(DEPLOYMENTS_DIR, 'jeju-testnet-jns.json'), 'utf-8')
+    readFileSync(join(DEPLOYMENTS_DIR, 'jeju-testnet-jns.json'), 'utf-8'),
   )
-  
+
   const { jnsRegistry, jnsResolver, jnsRegistrar } = jnsDeployment.contracts
-  
+
   console.log('JNS Contracts:')
   console.log(`  Registry: ${jnsRegistry}`)
   console.log(`  Resolver: ${jnsResolver}`)
@@ -113,9 +113,11 @@ async function main() {
   console.log(`Current owner of cloud.jeju: ${currentOwner}`)
 
   if (currentOwner === '0x0000000000000000000000000000000000000000') {
-    console.log('\n⚠️  cloud.jeju has no owner. The name may not be registered properly.')
+    console.log(
+      '\n⚠️  cloud.jeju has no owner. The name may not be registered properly.',
+    )
     console.log('Checking if it needs to be registered...')
-    
+
     // Try to register it
     const registrarAbi = parseAbi([
       'function register(string name, address owner, uint256 duration) payable returns (bytes32)',
@@ -152,7 +154,9 @@ async function main() {
       await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
       console.log('✅ cloud.jeju registered')
     } else {
-      console.log('cloud.jeju is not available but has no owner - checking registry again...')
+      console.log(
+        'cloud.jeju is not available but has no owner - checking registry again...',
+      )
     }
   }
 
@@ -168,7 +172,7 @@ async function main() {
 
   if (currentResolver.toLowerCase() !== jnsResolver.toLowerCase()) {
     console.log(`Setting resolver to ${jnsResolver}...`)
-    
+
     const hash = await walletClient.writeContract({
       address: jnsRegistry as `0x${string}`,
       abi: registryAbi,
@@ -185,8 +189,8 @@ async function main() {
 
   // Set contenthash (IPFS CID)
   // Using the CID from the DWS deployment - this would be the actual IPFS hash of the static assets
-  const IPFS_CID = 'QmYourActualCIDHere' // Placeholder - will be replaced with actual CID
-  
+  // const IPFS_CID = 'QmYourActualCIDHere' // Placeholder - will be replaced with actual CID
+
   const resolverAbi = parseAbi([
     'function setContenthash(bytes32 node, bytes contenthash)',
     'function contenthash(bytes32 node) view returns (bytes)',
@@ -196,7 +200,7 @@ async function main() {
 
   // For now, set a text record with the DWS deployment info
   console.log('\nSetting DWS deployment text records...')
-  
+
   const hash = await walletClient.writeContract({
     address: jnsResolver as `0x${string}`,
     abi: resolverAbi,
@@ -217,7 +221,10 @@ async function main() {
     account,
   })
 
-  await publicClient.waitForTransactionReceipt({ hash: urlHash, timeout: 60_000 })
+  await publicClient.waitForTransactionReceipt({
+    hash: urlHash,
+    timeout: 60_000,
+  })
   console.log('✅ URL record set')
 
   console.log(`

@@ -44,9 +44,10 @@ export function useMessagingInit() {
   const initializeXMTP = useCallback(async () => {
     if (!address) return
 
+    // Sign message to confirm ownership (XMTP uses KMS for actual signing)
     const message = `Sign to enable encrypted messaging\n\nAddress: ${address}\nTimestamp: ${Date.now()}`
-    const signature = await signMessage(message)
-    await messagingService.initialize(address as Address, signature)
+    await signMessage(message)
+    await messagingService.initialize(address as Address)
   }, [address, signMessage])
 
   return {

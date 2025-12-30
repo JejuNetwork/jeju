@@ -297,7 +297,7 @@ async function deploy(): Promise<void> {
   // Upload static assets (index.html + web/)
   console.log('\nUploading static assets...')
   const webAssets = await uploadDirectory(config.dwsUrl, './dist/web', 'web')
-  
+
   // Upload index.html separately
   const indexResult = await uploadToIPFS(
     config.dwsUrl,
@@ -331,7 +331,9 @@ async function deploy(): Promise<void> {
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Frontend: https://autocrat.jejunetwork.org                 ║`)
-  console.log(`║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`)
+  console.log(
+    `║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`,
+  )
   console.log(`║  Worker:   ${workerId.slice(0, 36)}...  ║`)
   console.log('╚════════════════════════════════════════════════════════════╝')
 }

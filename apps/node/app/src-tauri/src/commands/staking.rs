@@ -1,5 +1,6 @@
 use crate::state::AppState;
 use alloy::primitives::Address;
+use alloy::sol;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use tauri::State;
@@ -13,7 +14,9 @@ sol! {
         function pendingRewards(address staker) external view returns (uint256);
         function claimRewards() external returns (uint256);
     }
+}
 
+sol! {
     #[sol(rpc)]
     interface INodeStakingManager {
         function getNodeInfo(address operator) external view returns (
@@ -26,8 +29,8 @@ sol! {
             uint256 uptime,
             uint256 requestsServed
         );
-        function pendingRewards(address operator) external view returns (uint256);
-        function claimRewards() external returns (uint256);
+        function nodePendingRewards(address operator) external view returns (uint256);
+        function nodeClaimRewards() external returns (uint256);
     }
 }
 

@@ -59,7 +59,7 @@ function cleanup() {
 process.on('SIGINT', cleanup)
 process.on('SIGTERM', cleanup)
 
-async function waitForPort(port: number, timeout = 30000): Promise<boolean> {
+async function _waitForPort(port: number, timeout = 30000): Promise<boolean> {
   const host = getLocalhostHost()
   const start = Date.now()
   while (Date.now() - start < timeout) {
@@ -206,9 +206,15 @@ async function buildFrontend(): Promise<boolean> {
       'import.meta.env.PUBLIC_RPC_URL': JSON.stringify(getRpcUrl('localnet')),
       'import.meta.env.PUBLIC_WS_URL': JSON.stringify(getWsUrl('localnet')),
       'import.meta.env.PUBLIC_IPFS_API': JSON.stringify(getIpfsApiUrl()),
-      'import.meta.env.PUBLIC_IPFS_GATEWAY': JSON.stringify(getIpfsGatewayUrl()),
-      'import.meta.env.PUBLIC_INDEXER_URL': JSON.stringify(getIndexerGraphqlUrl()),
-      'import.meta.env.PUBLIC_RPC_GATEWAY_URL': JSON.stringify(getRpcGatewayUrl()),
+      'import.meta.env.PUBLIC_IPFS_GATEWAY': JSON.stringify(
+        getIpfsGatewayUrl(),
+      ),
+      'import.meta.env.PUBLIC_INDEXER_URL': JSON.stringify(
+        getIndexerGraphqlUrl(),
+      ),
+      'import.meta.env.PUBLIC_RPC_GATEWAY_URL': JSON.stringify(
+        getRpcGatewayUrl(),
+      ),
       'import.meta.env.PUBLIC_OAUTH3_AGENT_URL': JSON.stringify(getOAuth3Url()),
       'import.meta.env.MODE': JSON.stringify('development'),
       'import.meta.env.DEV': JSON.stringify(true),
@@ -233,7 +239,9 @@ async function buildFrontend(): Promise<boolean> {
 }
 
 async function startFrontendServer(): Promise<boolean> {
-  console.log(`[Gateway] Starting frontend dev server on port ${FRONTEND_PORT}...`)
+  console.log(
+    `[Gateway] Starting frontend dev server on port ${FRONTEND_PORT}...`,
+  )
 
   const buildSuccess = await buildFrontend()
   if (!buildSuccess) {
@@ -242,7 +250,10 @@ async function startFrontendServer(): Promise<boolean> {
   }
 
   const indexHtml = await Bun.file(resolve(APP_DIR, 'index.html')).text()
-  const transformedHtml = indexHtml.replace('/web/main.tsx', '/dist/web/main.js')
+  const transformedHtml = indexHtml.replace(
+    '/web/main.tsx',
+    '/dist/web/main.js',
+  )
 
   const host = getLocalhostHost()
 
@@ -340,10 +351,18 @@ async function main() {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                    Gateway is ready                         ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Frontend:  http://${host}:${FRONTEND_PORT}                         ║`)
-  console.log(`║  API:       http://${host}:${API_PORT}                          ║`)
-  console.log(`║  RPC:       http://${host}:${RPC_PORT}                          ║`)
-  console.log(`║  x402:      http://${host}:${X402_PORT}                          ║`)
+  console.log(
+    `║  Frontend:  http://${host}:${FRONTEND_PORT}                         ║`,
+  )
+  console.log(
+    `║  API:       http://${host}:${API_PORT}                          ║`,
+  )
+  console.log(
+    `║  RPC:       http://${host}:${RPC_PORT}                          ║`,
+  )
+  console.log(
+    `║  x402:      http://${host}:${X402_PORT}                          ║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
   console.log('Press Ctrl+C to stop all services')

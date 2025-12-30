@@ -1,0 +1,294 @@
+# Decentralized Multi-Sequencer Configuration
+# Replaces single centralized sequencer with multiple sequencers
+# using leader election and threshold signatures
+
+# Global settings
+global:
+  network: mainnet
+  chainId: 420691
+  l1ChainId: 1
+
+# Number of sequencer nodes
+replicaCount: 3
+
+# Sequencer image
+image:
+  repository: registry.jeju/op-node
+  pullPolicy: IfNotPresent
+  tag: "v1.7.0"
+
+# Reth execution client
+reth:
+  image:
+    repository: registry.jeju/reth
+    tag: "v1.1.0"
+  persistence:
+    size: 500Gi
+    storageClass: "local-path"
+
+# Op-node consensus client
+opNode:
+  image:
+    repository: registry.jeju/op-node
+    tag: "v1.7.0"
+  persistence:
+    size: 50Gi
+    storageClass: "local-path"
+
+# Multi-sequencer configuration
+multiSequencer:
+  enabled: true
+
+  # Leader election using op-conductor
+  conductor:
+    enabled: true
+    image:
+      repository: registry.jeju/op-conductor
+      tag: "v1.7.0"
+    # Raft consensus settings
+    raft:
+      electionTimeout: "5s"
+      heartbeatTimeout: "1s"
+      snapshotInterval: 10000
+      snapshotThreshold: 5000
+    # Health check settings
+    healthCheck:
+      interval: "1s"
+      safetyMargin: "5s"
+      minPeerCount: 2
+
+  # Sequencer set configuration
+  sequencerSet:
+    # Minimum sequencers for consensus
+    minSequencers: 2
+    # Maximum sequencers
+    maxSequencers: 10
+    # Rotation interval (0 for no automatic rotation)
+    rotationInterval: "0"
+    # Sequencer selection mode: "leader_election" or "round_robin"
+    selectionMode: "leader_election"
+
+  # P2P configuration for sequencer coordination
+  p2p:
+    enabled: true
+    port: 9222
+    # Discovery using DHT
+    discoveryEnabled: true
+    # Static peers (bootstrap nodes)
+    staticPeers: []
+
+# Threshold batcher configuration
+thresholdBatcher:
+  enabled: true
+
+  image:
+    repository: registry.jeju/op-batcher-mpc
+    tag: "latest"
+
+  # Threshold signature settings
+  threshold:
+    # Number of signatures required (t)
+    required: 2
+    # Total signers (n)
+    total: 3
+    # Signature scheme: "frost" or "gfrost"
+    scheme: "frost"
+    # Key generation protocol
+    dkg:
+      enabled: true
+      # DKG timeout
+      timeout: "5m"
+
+  # MPC cluster for threshold signing
+  mpc:
+    # MPC cluster endpoint
+    clusterEndpoint: "http://mpc.dws.svc.cluster.local:8000"
+    # MPC cluster ID (registered on-chain)
+    clusterId: ""
+    # Signing timeout
+    signingTimeout: "10s"
+
+  # Batching configuration
+  batching:
+    # Maximum channel duration (L1 blocks)
+    maxChannelDuration: 100
+    # Sub-safety margin
+    subSafetyMargin: 10
+    # Poll interval
+    pollInterval: "2s"
+    # Max pending transactions
+    maxPendingTx: 10
+    # Target L1 TX size
+    targetL1TxSizeBytes: 100000
+
+# Threshold proposer configuration
+thresholdProposer:
+  enabled: true
+
+  image:
+    repository: registry.jeju/op-proposer-mpc
+    tag: "latest"
+
+  # Same threshold settings as batcher
+  threshold:
+    required: 2
+    total: 3
+    scheme: "frost"
+
+  # MPC cluster (can be same as batcher or different)
+  mpc:
+    clusterEndpoint: "http://mpc.dws.svc.cluster.local:8000"
+    clusterId: ""
+    signingTimeout: "10s"
+
+  # Proposal configuration
+  proposal:
+    # Proposal interval
+    pollInterval: "6s"
+    # Allow non-finalized L2 blocks
+    allowNonFinalized: false
+
+# Challenger configuration (for fault proofs)
+challenger:
+  enabled: true
+
+  image:
+    repository: registry.jeju/op-challenger
+    tag: "v1.7.0"
+
+  # Game configuration
+  game:
+    # Game type: "cannon" or "alphabet"
+    type: "cannon"
+    # Game duration
+    maxDuration: "168h"  # 7 days
+
+  # Threshold signing for challenges
+  threshold:
+    enabled: true
+    required: 2
+    total: 3
+
+# Contracts configuration
+contracts:
+  # L2OutputOracle (or DisputeGameFactory for fault proofs)
+  l2OutputOracle: ""
+  # SystemConfig
+  systemConfig: ""
+  # OptimismPortal
+  optimismPortal: ""
+  # L1StandardBridge
+  l1StandardBridge: ""
+  # Sequencer set contract (for on-chain sequencer registration)
+  sequencerSet: ""
+  # Batcher/Proposer multisig or threshold wallet
+  batcherWallet: ""
+  proposerWallet: ""
+
+# On-chain sequencer registration
+onChainRegistration:
+  enabled: true
+  # SequencerSet contract address
+  contractAddress: ""
+  # Minimum stake to become sequencer
+  minStake: "100"  # ETH
+  # Slash conditions
+  slashing:
+    enabled: true
+    # Slash for double signing
+    doubleSignSlash: "10"
+    # Slash for downtime
+    downtimeSlash: "1"
+    # Downtime threshold
+    downtimeThreshold: "1h"
+
+# Metrics and monitoring
+metrics:
+  enabled: true
+  port: 7300
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+
+# Resources
+resources:
+  sequencer:
+    limits:
+      cpu: 4000m
+      memory: 16Gi
+    requests:
+      cpu: 2000m
+      memory: 8Gi
+  conductor:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  batcher:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  proposer:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: "local-path"
+  sequencer:
+    size: 500Gi
+  conductor:
+    size: 10Gi
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    rpc: 8545
+    ws: 8546
+    p2p: 9222
+    metrics: 7300
+
+# Ingress for RPC access
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: rpc.jeju
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: rpc-tls
+      hosts:
+        - rpc.jeju
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity - spread sequencers across nodes
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - sequencer
+        topologyKey: kubernetes.io/hostname

@@ -1,5 +1,6 @@
 use crate::state::AppState;
 use alloy::primitives::Address;
+use alloy::sol;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use tauri::State;

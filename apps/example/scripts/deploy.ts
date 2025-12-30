@@ -14,7 +14,6 @@ import {
   type NetworkType,
 } from '@jejunetwork/config'
 import { $ } from 'bun'
-import { type Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
@@ -92,7 +91,10 @@ interface UploadResult {
   files: Map<string, string>
 }
 
-async function uploadDirectory(dwsUrl: string, dirPath: string): Promise<UploadResult> {
+async function uploadDirectory(
+  dwsUrl: string,
+  dirPath: string,
+): Promise<UploadResult> {
   const files = new Map<string, string>()
   let totalSize = 0
 
@@ -120,7 +122,9 @@ async function uploadDirectory(dwsUrl: string, dirPath: string): Promise<UploadR
         })
 
         if (!response.ok) {
-          throw new Error(`Failed to upload ${relativePath}: ${response.statusText}`)
+          throw new Error(
+            `Failed to upload ${relativePath}: ${response.statusText}`,
+          )
         }
 
         const result = IPFSUploadResponseSchema.parse(await response.json())
@@ -138,7 +142,10 @@ async function uploadDirectory(dwsUrl: string, dirPath: string): Promise<UploadR
 }
 
 // Configure CDN
-async function setupCDN(config: DeployConfig, staticAssets: UploadResult): Promise<void> {
+async function setupCDN(
+  config: DeployConfig,
+  staticAssets: UploadResult,
+): Promise<void> {
   const account = privateKeyToAccount(config.privateKey)
 
   const timestamp = Date.now()
@@ -180,7 +187,10 @@ async function deploy(): Promise<void> {
   await checkBuild()
 
   console.log('\n📦 Uploading static assets...')
-  const staticAssets = await uploadDirectory(config.dwsUrl, join(APP_DIR, 'dist'))
+  const staticAssets = await uploadDirectory(
+    config.dwsUrl,
+    join(APP_DIR, 'dist'),
+  )
   console.log(`   Total: ${staticAssets.size} bytes`)
   console.log(`   Root CID: ${staticAssets.cid}\n`)
 

@@ -1,0 +1,174 @@
+# cert-manager DWS Configuration
+# Decentralized SSL/TLS certificate management
+# Replaces AWS ACM with cert-manager + Let's Encrypt
+
+# cert-manager installation settings
+certManager:
+  installCRDs: true
+  # Use self-hosted cert-manager instead of managed service
+  namespace: cert-manager
+  # Webhook configuration
+  webhook:
+    enabled: true
+    timeoutSeconds: 10
+
+# ClusterIssuer for Let's Encrypt
+clusterIssuers:
+  # Production Let's Encrypt
+  - name: letsencrypt-prod
+    spec:
+      acme:
+        server: https://acme-v02.api.letsencrypt.org/directory
+        email: "${ACME_EMAIL}"
+        privateKeySecretRef:
+          name: letsencrypt-prod-account-key
+        solvers:
+          # HTTP-01 challenge for standard domains
+          - http01:
+              ingress:
+                class: nginx
+          # DNS-01 challenge for wildcard domains (using JNS DNS)
+          - dns01:
+              webhook:
+                groupName: acme.jeju.network
+                solverName: jns-dns
+                config:
+                  jnsRegistryAddress: "0x66ac1e36094e3cfa47258589be7bd3cef5884e97"
+                  rpcUrl: "http://reth-sequencer.execution.svc.cluster.local:8545"
+
+  # Staging Let's Encrypt (for testing)
+  - name: letsencrypt-staging
+    spec:
+      acme:
+        server: https://acme-staging-v02.api.letsencrypt.org/directory
+        email: "${ACME_EMAIL}"
+        privateKeySecretRef:
+          name: letsencrypt-staging-account-key
+        solvers:
+          - http01:
+              ingress:
+                class: nginx
+
+  # Self-signed issuer for internal services
+  - name: selfsigned
+    spec:
+      selfSigned: {}
+
+  # CA issuer for internal PKI
+  - name: internal-ca
+    spec:
+      ca:
+        secretName: internal-ca-keypair
+
+# JNS DNS Webhook for ACME DNS-01 challenges
+jnsDnsWebhook:
+  enabled: true
+  image:
+    repository: registry.jeju/cert-manager-jns-webhook
+    tag: "latest"
+  config:
+    # JNS contract addresses
+    jnsRegistryAddress: "0x66ac1e36094e3cfa47258589be7bd3cef5884e97"
+    jnsResolverAddress: "0xe27b540b6fd3868ad6420c466c8330da3a6417bf"
+    # RPC for on-chain DNS updates
+    rpcUrl: "http://reth-sequencer.execution.svc.cluster.local:8545"
+    chainId: 420691
+
+# Default certificates to create
+certificates:
+  # Wildcard certificate for *.jeju
+  - name: wildcard-jeju
+    namespace: default
+    secretName: wildcard-jeju-tls
+    issuerRef:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+    dnsNames:
+      - "*.jeju"
+      - "jeju"
+    duration: 2160h  # 90 days
+    renewBefore: 360h  # 15 days
+
+  # DWS services certificate
+  - name: dws-cert
+    namespace: dws
+    secretName: dws-tls
+    issuerRef:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+    dnsNames:
+      - "dws.jeju"
+      - "storage.jeju"
+      - "git.jeju"
+      - "npm.jeju"
+      - "registry.jeju"
+    duration: 2160h
+    renewBefore: 360h
+
+# Certificate policies
+policies:
+  # Default duration
+  defaultDuration: 2160h  # 90 days
+  # Default renew before
+  defaultRenewBefore: 360h  # 15 days
+  # Allowed key usages
+  allowedKeyUsages:
+    - digital signature
+    - key encipherment
+    - server auth
+    - client auth
+  # Allowed key algorithms
+  allowedKeyAlgorithms:
+    - RSA
+    - ECDSA
+  # Minimum key size for RSA
+  minRsaKeySize: 2048
+  # Allowed EC curves
+  allowedEcCurves:
+    - P-256
+    - P-384
+
+# Integration with DWS
+dwsIntegration:
+  enabled: true
+  # Register certificate renewals on-chain
+  onChainRegistry: true
+  # Contract address for certificate registry
+  certRegistryAddress: ""
+  # Notify DWS of certificate updates
+  notifyDws: true
+  dwsWebhookUrl: "http://dws.dws.svc.cluster.local:4030/certs/webhook"
+
+# Monitoring
+monitoring:
+  enabled: true
+  # Alert on certificate expiry
+  certExpiryThreshold: 7d
+  # ServiceMonitor for Prometheus
+  serviceMonitor:
+    enabled: true
+    interval: 60s
+
+# Resources for cert-manager pods
+resources:
+  controller:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  webhook:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  cainjector:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

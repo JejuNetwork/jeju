@@ -398,7 +398,9 @@ function getIntelFingerprints(): Set<string> {
 }
 
 async function computeCertFingerprint(certDer: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', certDer)
+  // Create a new ArrayBuffer to ensure it's not a SharedArrayBuffer
+  const buffer = new Uint8Array(certDer).buffer as ArrayBuffer
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
   const hashArray = new Uint8Array(hashBuffer)
   return Array.from(hashArray)
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -483,11 +485,14 @@ async function verifySEVCertificate(quote: TEEQuote): Promise<boolean> {
     const s = sigBytes.slice(48, 96)
     const derSig = ecdsaP384ToDer(r, s)
 
+    // Create proper ArrayBuffers to avoid SharedArrayBuffer issues
+    const signedDataBuffer = new Uint8Array(signedData).buffer as ArrayBuffer
+    const derSigBuffer = new Uint8Array(derSig).buffer as ArrayBuffer
     const isValid = await crypto.subtle.verify(
       { name: 'ECDSA', hash: 'SHA-384' },
       vcekPubKey,
-      derSig,
-      signedData,
+      derSigBuffer,
+      signedDataBuffer,
     )
 
     if (!isValid) {

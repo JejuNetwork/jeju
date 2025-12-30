@@ -74,6 +74,7 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
     event ReputationOracleUpdated(address oldOracle, address newOracle);
     event StakeTokenAdded(address indexed token);
     event StakeTokenRemoved(address indexed token);
+    event Heartbeat(uint256 indexed agentId, uint256 timestamp);
 
     error MetadataTooLarge();
     error KeyTooLong();
@@ -898,5 +899,17 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
 
         tier = agents[agentId].tier;
         banned = agents[agentId].isBanned;
+    }
+
+    /**
+     * @notice Send heartbeat to prove agent is online
+     * @param agentId The agent ID to send heartbeat for
+     */
+    function heartbeat(uint256 agentId) external notBanned(agentId) {
+        require(_ownerOf(agentId) != address(0), "Agent does not exist");
+        require(msg.sender == agents[agentId].owner, "Only agent owner can send heartbeat");
+
+        agents[agentId].lastActivityAt = block.timestamp;
+        emit Heartbeat(agentId, block.timestamp);
     }
 }

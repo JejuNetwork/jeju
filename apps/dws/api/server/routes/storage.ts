@@ -99,13 +99,7 @@ function getModerationPipeline(): ContentModerationPipeline {
               region: process.env.AWS_REGION ?? 'us-east-1',
             }
           : undefined,
-      cloudflare:
-        process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN
-          ? {
-              accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
-              apiToken: process.env.CLOUDFLARE_API_TOKEN,
-            }
-          : undefined,
+      // Cloudflare moderation provider is not yet supported in PipelineConfig
     })
   }
   return moderationPipeline
@@ -126,12 +120,6 @@ async function moderateUpload(
   return pipeline.moderate({
     content,
     contentType,
-    metadata: {
-      filename,
-      size: content.length,
-      senderAddress: senderAddress as Address | undefined,
-      context: 'storage',
-    },
     senderAddress: senderAddress as Address | undefined,
   })
 }

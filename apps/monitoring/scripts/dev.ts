@@ -123,7 +123,9 @@ async function buildFrontend(): Promise<boolean> {
 }
 
 async function startFrontendServer(): Promise<boolean> {
-  console.log(`[Monitoring] Starting frontend dev server on port ${FRONTEND_PORT}...`)
+  console.log(
+    `[Monitoring] Starting frontend dev server on port ${FRONTEND_PORT}...`,
+  )
 
   await mkdir(resolve(APP_DIR, 'dist/dev'), { recursive: true })
 
@@ -200,15 +202,21 @@ async function startFrontendServer(): Promise<boolean> {
     },
   })
 
-  console.log(`[Monitoring] Frontend dev server started on port ${FRONTEND_PORT}`)
+  console.log(
+    `[Monitoring] Frontend dev server started on port ${FRONTEND_PORT}`,
+  )
 
   // Watch for changes
-  watch(resolve(APP_DIR, 'web'), { recursive: true }, (_eventType, filename) => {
-    if (filename && (filename.endsWith('.ts') || filename.endsWith('.tsx'))) {
-      console.log(`[Monitoring] ${filename} changed, rebuilding...`)
-      buildFrontend()
-    }
-  })
+  watch(
+    resolve(APP_DIR, 'web'),
+    { recursive: true },
+    (_eventType, filename) => {
+      if (filename && (filename.endsWith('.ts') || filename.endsWith('.tsx'))) {
+        console.log(`[Monitoring] ${filename} changed, rebuilding...`)
+        buildFrontend()
+      }
+    },
+  )
 
   return true
 }
@@ -246,8 +254,12 @@ async function main() {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Monitoring is ready                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  API:       http://${host}:${API_PORT}                          ║`)
-  console.log(`║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`)
+  console.log(
+    `║  API:       http://${host}:${API_PORT}                          ║`,
+  )
+  console.log(
+    `║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
   console.log('Press Ctrl+C to stop all services')
