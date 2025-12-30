@@ -1,14 +1,14 @@
 /**
- * Secure EQLite Proxy
+ * Secure SQLit Proxy
  *
- * All EQLite queries must go through this proxy which:
+ * All SQLit queries must go through this proxy which:
  * 1. Verifies request signatures
  * 2. Checks database ownership/ACL
- * 3. Forwards authenticated requests to EQLite
+ * 3. Forwards authenticated requests to SQLit
  * 4. Logs access for audit
  */
 
-import { getEQLite } from '@jejunetwork/db'
+import { getSQLit } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
@@ -70,7 +70,7 @@ async function executeSecureQuery(params: {
   params: (string | number | boolean | null)[]
   signer: Address
 }): Promise<SecureQueryResult> {
-  const client = getEQLite()
+  const client = getSQLit()
 
   if (params.type === 'query') {
     const result = await client.query<
@@ -112,7 +112,7 @@ export async function internalQuery<T>(
   sql: string,
   params: (string | number | boolean | null)[] = [],
 ): Promise<T[]> {
-  const client = getEQLite()
+  const client = getSQLit()
   const result = await client.query<T>(sql, params, database)
   return result.rows
 }
@@ -122,7 +122,7 @@ export async function internalExec(
   sql: string,
   params: (string | number | boolean | null)[] = [],
 ): Promise<{ rowsAffected: number; txHash: string }> {
-  const client = getEQLite()
+  const client = getSQLit()
   const result = await client.exec(sql, params, database)
   return {
     rowsAffected: result.rowsAffected,
@@ -132,9 +132,9 @@ export async function internalExec(
 
 // Router
 
-export function createSecureEQLiteRouter() {
+export function createSecureSQLitRouter() {
   return (
-    new Elysia({ prefix: '/eqlite' })
+    new Elysia({ prefix: '/sqlit' })
       /**
        * Secure query endpoint - requires signature
        */
@@ -203,7 +203,7 @@ export function createSecureEQLiteRouter() {
       })
 
       .get('/health', () => ({
-        service: 'dws-secure-eqlite',
+        service: 'dws-secure-sqlit',
         status: 'healthy',
       }))
   )

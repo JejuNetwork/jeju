@@ -1,19 +1,19 @@
 /**
- * EQLite-backed Distributed Rate Limit Store
+ * SQLit-backed Distributed Rate Limit Store
  *
- * Uses EQLite for distributed rate limiting across multiple nodes.
+ * Uses SQLit for distributed rate limiting across multiple nodes.
  * Provides eventual consistency with atomic increment operations.
  */
 
-import type { EQLiteClient } from '@jejunetwork/db'
+import type { SQLitClient } from '@jejunetwork/db'
 import type { RateLimitEntry, RateLimitStore } from './types.js'
 
 const RATE_LIMIT_TABLE = 'rate_limits'
 const SCHEMA_VERSION = 1
 
-export interface EQLiteRateLimitStoreConfig {
-  /** EQLite client instance */
-  client: EQLiteClient
+export interface SQLitRateLimitStoreConfig {
+  /** SQLit client instance */
+  client: SQLitClient
   /** Database ID for rate limit data */
   databaseId: string
   /** Key prefix for namespacing */
@@ -22,14 +22,14 @@ export interface EQLiteRateLimitStoreConfig {
   cleanupIntervalMs?: number
 }
 
-export class EQLiteRateLimitStore implements RateLimitStore {
-  private client: EQLiteClient
+export class SQLitRateLimitStore implements RateLimitStore {
+  private client: SQLitClient
   private databaseId: string
   private keyPrefix: string
   private initialized = false
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
 
-  constructor(config: EQLiteRateLimitStoreConfig) {
+  constructor(config: SQLitRateLimitStoreConfig) {
     this.client = config.client
     this.databaseId = config.databaseId
     this.keyPrefix = config.keyPrefix ?? 'rl'
@@ -38,7 +38,7 @@ export class EQLiteRateLimitStore implements RateLimitStore {
     const cleanupMs = config.cleanupIntervalMs ?? 5 * 60 * 1000
     this.cleanupInterval = setInterval(() => {
       this.cleanup().catch((err: Error) => {
-        console.error('[EQLiteRateLimitStore] Cleanup failed:', err.message)
+        console.error('[SQLitRateLimitStore] Cleanup failed:', err.message)
       })
     }, cleanupMs)
   }
@@ -269,10 +269,10 @@ export class EQLiteRateLimitStore implements RateLimitStore {
 }
 
 /**
- * Create a EQLite-backed rate limit store
+ * Create a SQLit-backed rate limit store
  */
-export function createEQLiteRateLimitStore(
-  config: EQLiteRateLimitStoreConfig,
-): EQLiteRateLimitStore {
-  return new EQLiteRateLimitStore(config)
+export function createSQLitRateLimitStore(
+  config: SQLitRateLimitStoreConfig,
+): SQLitRateLimitStore {
+  return new SQLitRateLimitStore(config)
 }

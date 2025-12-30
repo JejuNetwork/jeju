@@ -5,14 +5,14 @@
  * Oracle signing is delegated to the KMS service (MPC or TEE).
  */
 
-import { getDWSUrl, getEQLiteUrl, getLocalhostHost } from '@jejunetwork/config'
+import { getDWSUrl, getSQLitUrl, getLocalhostHost } from '@jejunetwork/config'
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../../lib/config'
 import { CHAIN_IDS } from '../../lib/config/networks'
 import { config } from '../config'
 
 export const LEADERBOARD_DB = {
-  databaseId: config.leaderboardEqliteDatabaseId,
-  endpoint: getEQLiteUrl(),
+  databaseId: config.leaderboardSQLitDatabaseId,
+  endpoint: getSQLitUrl(),
   timeout: 30000,
   debug: config.leaderboardDebug,
 } as const

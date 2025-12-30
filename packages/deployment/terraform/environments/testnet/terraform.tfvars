@@ -8,8 +8,8 @@ enable_dns_records   = true
 wait_for_acm_validation = false  # Don't wait - cert may not be ready
 enable_https         = false  # Enable after ACM validates
 
-# EQLite ARM64 Configuration
+# SQLit ARM64 Configuration
 # ARM64 (Graviton) instances provide ~40% cost savings
-# Requires: EQLite image must be built and pushed to ECR first
-# Run: NETWORK=testnet bun run images:eqlite:push
-use_arm64_eqlite        = true
+# Requires: SQLit image must be built and pushed to ECR first
+# Run: NETWORK=testnet bun run images:sqlit:push
+use_arm64_sqlit        = true

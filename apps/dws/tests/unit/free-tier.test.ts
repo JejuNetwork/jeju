@@ -5,12 +5,12 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { Address } from 'viem'
 
-// Mock EQLite before importing
+// Mock SQLit before importing
 const mockQuery = mock(() => Promise.resolve({ rows: [] }))
 const mockExec = mock(() => Promise.resolve())
 
 mock.module('@jejunetwork/db', () => ({
-  getEQLite: () => ({
+  getSQLit: () => ({
     query: mockQuery,
     exec: mockExec,
   }),

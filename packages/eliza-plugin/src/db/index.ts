@@ -1,14 +1,14 @@
 /**
- * EQLite Database Plugin for ElizaOS
+ * SQLit Database Plugin for ElizaOS
  *
- * Provides a decentralized database adapter using EQLite.
+ * Provides a decentralized database adapter using SQLit.
  * This replaces @elizaos/plugin-sql for Jeju-based agents.
  */
 
-export { EQLiteDatabaseAdapter } from './adapter'
+export { SQLitDatabaseAdapter } from './adapter'
 export {
   checkMigrationStatus,
-  EQLITE_SCHEMA,
-  runEQLiteMigrations,
+  SQLIT_SCHEMA,
+  runSQLitMigrations,
 } from './migrations'
-export { eqliteDatabasePlugin } from './plugin'
+export { sqlitDatabasePlugin } from './plugin'

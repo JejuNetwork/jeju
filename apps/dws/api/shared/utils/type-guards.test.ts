@@ -19,7 +19,7 @@ import {
   isAgentStatus,
   isCDNRegion,
   isCronAction,
-  isEqliteQueryResponse,
+  isSQLitQueryResponse,
   isInstanceStatus,
   isInvocationStatus,
   isMemoryType,
@@ -633,35 +633,35 @@ describe('isRiskLevel', () => {
 })
 
 // =============================================================================
-// EQLite Query Response Type Guards
+// SQLit Query Response Type Guards
 // =============================================================================
 
-describe('isEqliteQueryResponse', () => {
-  test('returns true for valid EQLite response with rows', () => {
-    expect(isEqliteQueryResponse({ rows: [] })).toBe(true)
-    expect(isEqliteQueryResponse({ rows: [{ id: 1 }, { id: 2 }] })).toBe(true)
+describe('isSQLitQueryResponse', () => {
+  test('returns true for valid SQLit response with rows', () => {
+    expect(isSQLitQueryResponse({ rows: [] })).toBe(true)
+    expect(isSQLitQueryResponse({ rows: [{ id: 1 }, { id: 2 }] })).toBe(true)
   })
 
   test('returns true for response without rows property', () => {
-    expect(isEqliteQueryResponse({})).toBe(true)
-    expect(isEqliteQueryResponse({ other: 'data' })).toBe(true)
+    expect(isSQLitQueryResponse({})).toBe(true)
+    expect(isSQLitQueryResponse({ other: 'data' })).toBe(true)
   })
 
   test('returns false when rows is not an array', () => {
-    expect(isEqliteQueryResponse({ rows: 'not array' })).toBe(false)
-    expect(isEqliteQueryResponse({ rows: 123 })).toBe(false)
-    expect(isEqliteQueryResponse({ rows: {} })).toBe(false)
+    expect(isSQLitQueryResponse({ rows: 'not array' })).toBe(false)
+    expect(isSQLitQueryResponse({ rows: 123 })).toBe(false)
+    expect(isSQLitQueryResponse({ rows: {} })).toBe(false)
   })
 
   test('returns false for null and undefined', () => {
-    expect(isEqliteQueryResponse(null)).toBe(false)
-    expect(isEqliteQueryResponse(undefined)).toBe(false)
+    expect(isSQLitQueryResponse(null)).toBe(false)
+    expect(isSQLitQueryResponse(undefined)).toBe(false)
   })
 
   test('returns false for non-objects', () => {
-    expect(isEqliteQueryResponse('string')).toBe(false)
-    expect(isEqliteQueryResponse(123)).toBe(false)
-    expect(isEqliteQueryResponse([])).toBe(false)
+    expect(isSQLitQueryResponse('string')).toBe(false)
+    expect(isSQLitQueryResponse(123)).toBe(false)
+    expect(isSQLitQueryResponse([])).toBe(false)
   })
 })
 

@@ -1,18 +1,18 @@
 /**
- * EQLite Database Schema and Migrations for ElizaOS
+ * SQLit Database Schema and Migrations for ElizaOS
  *
  * Minimal schema required for ElizaOS agents to function.
- * This is EQLite-compatible SQL (standard SQL with some limitations).
+ * This is SQLit-compatible SQL (standard SQL with some limitations).
  */
 
 import { logger } from '@elizaos/core'
-import { getEqliteDatabaseId } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { getSQLitDatabaseId } from '@jejunetwork/config'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 
 /**
- * Core ElizaOS tables in EQLite-compatible SQL
+ * Core ElizaOS tables in SQLit-compatible SQL
  */
-export const EQLITE_SCHEMA = {
+export const SQLIT_SCHEMA = {
   // Agents table - stores agent configurations
   agents: `
     CREATE TABLE IF NOT EXISTS agents (
@@ -204,16 +204,16 @@ export const EQLITE_SCHEMA = {
 /**
  * Run all migrations to create the ElizaOS schema
  */
-export async function runEQLiteMigrations(
-  client?: EQLiteClient,
+export async function runSQLitMigrations(
+  client?: SQLitClient,
   databaseId?: string,
 ): Promise<void> {
-  const eqlite = client ?? getEQLite()
-  const dbId = databaseId ?? getEqliteDatabaseId() ?? 'eliza'
+  const sqlit = client ?? getSQLit()
+  const dbId = databaseId ?? getSQLitDatabaseId() ?? 'eliza'
 
   logger.info(
-    { src: 'eqlite-migrations', databaseId: dbId },
-    'Running EQLite migrations',
+    { src: 'sqlit-migrations', databaseId: dbId },
+    'Running SQLit migrations',
   )
 
   // Create tables in order (respecting foreign keys)
@@ -232,37 +232,37 @@ export async function runEQLiteMigrations(
   ] as const
 
   for (const tableName of tableOrder) {
-    const sql = EQLITE_SCHEMA[tableName]
+    const sql = SQLIT_SCHEMA[tableName]
     logger.debug(
-      { src: 'eqlite-migrations', table: tableName },
+      { src: 'sqlit-migrations', table: tableName },
       'Creating table',
     )
-    await eqlite.exec(sql, [], dbId)
+    await sqlit.exec(sql, [], dbId)
   }
 
   // Create indexes
-  for (const indexSql of EQLITE_SCHEMA.indexes) {
-    await eqlite.exec(indexSql, [], dbId)
+  for (const indexSql of SQLIT_SCHEMA.indexes) {
+    await sqlit.exec(indexSql, [], dbId)
   }
 
   // Create vector search table (sqlite-vec)
   // This may fail if sqlite-vec is not loaded, which is OK for non-production
   try {
-    await eqlite.exec(EQLITE_SCHEMA.memory_embeddings, [], dbId)
+    await sqlit.exec(SQLIT_SCHEMA.memory_embeddings, [], dbId)
     logger.info(
-      { src: 'eqlite-migrations', databaseId: dbId },
+      { src: 'sqlit-migrations', databaseId: dbId },
       'Vector search table created (sqlite-vec)',
     )
   } catch (error) {
     logger.warn(
-      { src: 'eqlite-migrations', databaseId: dbId, error },
+      { src: 'sqlit-migrations', databaseId: dbId, error },
       'Vector search table creation failed - sqlite-vec may not be loaded',
     )
   }
 
   logger.info(
-    { src: 'eqlite-migrations', databaseId: dbId },
-    'EQLite migrations completed',
+    { src: 'sqlit-migrations', databaseId: dbId },
+    'SQLit migrations completed',
   )
 }
 
@@ -270,13 +270,13 @@ export async function runEQLiteMigrations(
  * Check if migrations have been run
  */
 export async function checkMigrationStatus(
-  client?: EQLiteClient,
+  client?: SQLitClient,
   databaseId?: string,
 ): Promise<boolean> {
-  const eqlite = client ?? getEQLite()
-  const dbId = databaseId ?? getEqliteDatabaseId() ?? 'eliza'
+  const sqlit = client ?? getSQLit()
+  const dbId = databaseId ?? getSQLitDatabaseId() ?? 'eliza'
 
-  const result = await eqlite.query<{ name: string }>(
+  const result = await sqlit.query<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='agents'",
     [],
     dbId,

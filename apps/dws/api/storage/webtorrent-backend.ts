@@ -9,10 +9,10 @@
  * - Private content: Encrypted, access-controlled seeding
  *
  * Workerd compatible: Uses S3-compatible DWS storage backend.
- * State persistence: Uses EQLite for distributed torrent metadata tracking.
+ * State persistence: Uses SQLit for distributed torrent metadata tracking.
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 >>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 import { WorkerdEventEmitter } from '../utils/event-emitter'
 import type { BackendManager } from './backends'
@@ -164,28 +164,28 @@ const DEFAULT_CONFIG: WebTorrentConfig = {
   minPopularityScore: 100,
 }
 
-// ============ EQLite State Storage ============
+// ============ SQLit State Storage ============
 
-const TORRENT_DB_ID = process.env.EQLITE_DATABASE_ID ?? 'dws-webtorrent'
+const TORRENT_DB_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-webtorrent'
 
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 let tablesInitialized = false
 
-async function getTorrentEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite({
+async function getTorrentSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit({
       databaseId: TORRENT_DB_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureTorrentTables(): Promise<void> {
   if (tablesInitialized) return
 
-  const client = await getTorrentEQLiteClient()
+  const client = await getTorrentSQLitClient()
 
   await client.exec(
     `CREATE TABLE IF NOT EXISTS torrent_metadata (
@@ -246,7 +246,7 @@ function rowToTorrentInfo(row: TorrentMetadataRow): TorrentInfo {
 const torrentState = {
   async saveTorrent(info: TorrentInfo): Promise<void> {
     await ensureTorrentTables()
-    const client = await getTorrentEQLiteClient()
+    const client = await getTorrentSQLitClient()
     await client.exec(
       `INSERT INTO torrent_metadata (info_hash, magnet_uri, name, size, files, cid, tier, category, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -275,7 +275,7 @@ const torrentState = {
 
   async getTorrent(infoHash: string): Promise<TorrentInfo | null> {
     await ensureTorrentTables()
-    const client = await getTorrentEQLiteClient()
+    const client = await getTorrentSQLitClient()
     const result = await client.query<TorrentMetadataRow>(
       `SELECT * FROM torrent_metadata WHERE info_hash = ?`,
       [infoHash],
@@ -287,7 +287,7 @@ const torrentState = {
 
   async getTorrentByCid(cid: string): Promise<TorrentInfo | null> {
     await ensureTorrentTables()
-    const client = await getTorrentEQLiteClient()
+    const client = await getTorrentSQLitClient()
     const result = await client.query<TorrentMetadataRow>(
       `SELECT * FROM torrent_metadata WHERE cid = ?`,
       [cid],
@@ -299,7 +299,7 @@ const torrentState = {
 
   async deleteTorrent(infoHash: string): Promise<void> {
     await ensureTorrentTables()
-    const client = await getTorrentEQLiteClient()
+    const client = await getTorrentSQLitClient()
     await client.exec(
       `DELETE FROM torrent_metadata WHERE info_hash = ?`,
       [infoHash],
@@ -309,7 +309,7 @@ const torrentState = {
 
   async getTorrentsByTier(tier: ContentTier): Promise<TorrentInfo[]> {
     await ensureTorrentTables()
-    const client = await getTorrentEQLiteClient()
+    const client = await getTorrentSQLitClient()
     const result = await client.query<TorrentMetadataRow>(
       `SELECT * FROM torrent_metadata WHERE tier = ?`,
       [tier],
@@ -320,7 +320,7 @@ const torrentState = {
 
   async getAllTorrents(): Promise<TorrentInfo[]> {
     await ensureTorrentTables()
-    const client = await getTorrentEQLiteClient()
+    const client = await getTorrentSQLitClient()
     const result = await client.query<TorrentMetadataRow>(
       `SELECT * FROM torrent_metadata`,
       [],
@@ -494,7 +494,7 @@ export class WebTorrentBackend extends WorkerdEventEmitter {
             createdAt: Date.now(),
           }
 
-          // Save to EQLite
+          // Save to SQLit
           await torrentState.saveTorrent(torrentInfo)
 
           // Set up event listeners
@@ -578,7 +578,7 @@ export class WebTorrentBackend extends WorkerdEventEmitter {
             createdAt: Date.now(),
           }
 
-          // Save to EQLite
+          // Save to SQLit
           await torrentState.saveTorrent(torrentInfo)
 
           // Set up event listeners

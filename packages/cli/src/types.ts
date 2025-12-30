@@ -387,7 +387,7 @@ export const DEFAULT_PORTS = {
   storage: 4101,
   cron: 4102,
   cvm: 4103,
-  eqlite: CONFIG_INFRA_PORTS.EQLite.DEFAULT,
+  sqlit: CONFIG_INFRA_PORTS.SQLit.DEFAULT,
   oracle: 4301,
   jns: 4302,
   ipfs: CONFIG_CORE_PORTS.IPFS_API.DEFAULT,

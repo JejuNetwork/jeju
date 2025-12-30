@@ -14,13 +14,13 @@
  * - Metadata support
  *
  * Workerd compatible: Uses exec API for file operations.
- * State persistence: Uses EQLite for distributed upload state tracking.
+ * State persistence: Uses SQLit for distributed upload state tracking.
  */
 
 >>>>>>> db0e2406eef4fd899ba4a5aa090db201bcbe36bf
 import { createHash, randomBytes } from 'node:crypto'
 import { getLocalhostHost } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { Address } from 'viem'
 
 // Config injection for workerd compatibility
@@ -204,28 +204,28 @@ const TUS_EXTENSIONS = [
   'expiration',
 ]
 
-// ============ EQLite State Storage ============
+// ============ SQLit State Storage ============
 
-const TUS_DB_ID = process.env.EQLITE_DATABASE_ID ?? 'dws-tus-uploads'
+const TUS_DB_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-tus-uploads'
 
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 let tablesInitialized = false
 
-async function getTusEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite({
+async function getTusSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit({
       databaseId: TUS_DB_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureTusTables(): Promise<void> {
   if (tablesInitialized) return
 
-  const client = await getTusEQLiteClient()
+  const client = await getTusSQLitClient()
 
   await client.exec(
     `CREATE TABLE IF NOT EXISTS tus_uploads (
@@ -301,7 +301,7 @@ function rowToUpload(row: TusUploadRow): TusUpload {
 const tusState = {
   async saveUpload(upload: TusUpload): Promise<void> {
     await ensureTusTables()
-    const client = await getTusEQLiteClient()
+    const client = await getTusSQLitClient()
     await client.exec(
       `INSERT INTO tus_uploads (upload_id, upload_url, file_size, upload_offset, metadata, status, created_at, updated_at, expires_at, chunks, owner, final_cid, final_url, error_message)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -337,7 +337,7 @@ const tusState = {
 
   async getUpload(uploadId: string): Promise<TusUpload | null> {
     await ensureTusTables()
-    const client = await getTusEQLiteClient()
+    const client = await getTusSQLitClient()
     const result = await client.query<TusUploadRow>(
       `SELECT * FROM tus_uploads WHERE upload_id = ?`,
       [uploadId],
@@ -349,7 +349,7 @@ const tusState = {
 
   async deleteUpload(uploadId: string): Promise<void> {
     await ensureTusTables()
-    const client = await getTusEQLiteClient()
+    const client = await getTusSQLitClient()
     await client.exec(
       `DELETE FROM tus_uploads WHERE upload_id = ?`,
       [uploadId],
@@ -359,7 +359,7 @@ const tusState = {
 
   async getAllUploads(): Promise<TusUpload[]> {
     await ensureTusTables()
-    const client = await getTusEQLiteClient()
+    const client = await getTusSQLitClient()
     const result = await client.query<TusUploadRow>(
       `SELECT * FROM tus_uploads`,
       [],
@@ -370,7 +370,7 @@ const tusState = {
 
   async getActiveUploads(): Promise<TusUpload[]> {
     await ensureTusTables()
-    const client = await getTusEQLiteClient()
+    const client = await getTusSQLitClient()
     const result = await client.query<TusUploadRow>(
       `SELECT * FROM tus_uploads WHERE status IN ('created', 'uploading', 'paused', 'finalizing')`,
       [],
@@ -381,7 +381,7 @@ const tusState = {
 
   async getExpiredUploads(now: number): Promise<TusUpload[]> {
     await ensureTusTables()
-    const client = await getTusEQLiteClient()
+    const client = await getTusSQLitClient()
     const result = await client.query<TusUploadRow>(
       `SELECT * FROM tus_uploads WHERE expires_at < ? AND status NOT IN ('completed', 'expired')`,
       [now],
@@ -677,7 +677,7 @@ export class TusUploadManager {
       return this.testUploads.get(uploadId)
     }
 
-    // Get from EQLite
+    // Get from SQLit
     const upload = await tusState.getUpload(uploadId)
     if (!upload) return undefined
 

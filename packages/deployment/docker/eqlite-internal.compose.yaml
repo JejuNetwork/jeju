@@ -1,53 +1,53 @@
-# Internal EQLite (EQLite) Cluster for Jeju Local Development
+# Internal SQLit (SQLit) Cluster for Jeju Local Development
 #
-# This starts a EQLite cluster using the internal packages/eqlite implementation:
+# This starts a SQLit cluster using the internal packages/sqlit implementation:
 # - 3 Block Producers (BFT-Raft consensus)
 # - 3 Miners (data storage)
 # - 1 Adapter (HTTP API)
 #
 # Usage:
-#   docker compose -f eqlite-internal.compose.yaml up -d
+#   docker compose -f sqlit-internal.compose.yaml up -d
 #
 # Connect via:
 #   http://localhost:4661 (adapter API)
 #
 # Build from source:
-#   docker compose -f eqlite-internal.compose.yaml build
+#   docker compose -f sqlit-internal.compose.yaml build
 
 services:
   # ============================================================================
-  # EQLite Builder - Builds binaries from packages/eqlite
+  # SQLit Builder - Builds binaries from packages/sqlit
   # ============================================================================
-  eqlite-builder:
+  sqlit-builder:
     build:
-      context: ../../eqlite
-      dockerfile: ../deployment/docker/eqlite-internal.Dockerfile
+      context: ../../sqlit
+      dockerfile: ../deployment/docker/sqlit-internal.Dockerfile
       target: builder
-    image: jeju-eqlite-builder:latest
+    image: jeju-sqlit-builder:latest
 
   # ============================================================================
   # Block Producer 0 (Bootstrap)
   # ============================================================================
-  eqlite-bp-0:
+  sqlit-bp-0:
     build:
-      context: ../../eqlite
-      dockerfile: ../deployment/docker/eqlite-internal.Dockerfile
-    image: jeju-eqlite:latest
-    container_name: eqlite-bp-0
-    hostname: eqlite-bp-0
+      context: ../../sqlit
+      dockerfile: ../deployment/docker/sqlit-internal.Dockerfile
+    image: jeju-sqlit:latest
+    container_name: sqlit-bp-0
+    hostname: sqlit-bp-0
     environment:
-      EQLITE_ROLE: blockproducer
-      EQLITE_CONF: /config/bp-0.yaml
-      EQLITE_NODE_ID: bp-0
-      EQLITE_BOOTSTRAP: "true"
+      SQLIT_ROLE: blockproducer
+      SQLIT_CONF: /config/bp-0.yaml
+      SQLIT_NODE_ID: bp-0
+      SQLIT_BOOTSTRAP: "true"
     ports:
       - "4660:4661"  # Different port to avoid conflict
       - "8546:8546"  # HTTP API
     volumes:
-      - ./eqlite-config:/config
-      - eqlite-bp-0-data:/data
+      - ./sqlit-config:/config
+      - sqlit-bp-0-data:/data
     networks:
-      eqlite-internal:
+      sqlit-internal:
         ipv4_address: 172.29.0.2
     healthcheck:
       test: ["CMD", "sh", "-c", "echo -n | nc -w1 localhost 4661"]
@@ -60,22 +60,22 @@ services:
   # ============================================================================
   # Block Producer 1
   # ============================================================================
-  eqlite-bp-1:
-    image: jeju-eqlite:latest
-    container_name: eqlite-bp-1
-    hostname: eqlite-bp-1
+  sqlit-bp-1:
+    image: jeju-sqlit:latest
+    container_name: sqlit-bp-1
+    hostname: sqlit-bp-1
     depends_on:
-      eqlite-bp-0:
+      sqlit-bp-0:
         condition: service_healthy
     environment:
-      EQLITE_ROLE: blockproducer
-      EQLITE_CONF: /config/bp-1.yaml
-      EQLITE_NODE_ID: bp-1
+      SQLIT_ROLE: blockproducer
+      SQLIT_CONF: /config/bp-1.yaml
+      SQLIT_NODE_ID: bp-1
     volumes:
-      - ./eqlite-config:/config
-      - eqlite-bp-1-data:/data
+      - ./sqlit-config:/config
+      - sqlit-bp-1-data:/data
     networks:
-      eqlite-internal:
+      sqlit-internal:
         ipv4_address: 172.29.0.3
     healthcheck:
       test: ["CMD", "sh", "-c", "echo -n | nc -w1 localhost 4661"]
@@ -88,22 +88,22 @@ services:
   # ============================================================================
   # Block Producer 2
   # ============================================================================
-  eqlite-bp-2:
-    image: jeju-eqlite:latest
-    container_name: eqlite-bp-2
-    hostname: eqlite-bp-2
+  sqlit-bp-2:
+    image: jeju-sqlit:latest
+    container_name: sqlit-bp-2
+    hostname: sqlit-bp-2
     depends_on:
-      eqlite-bp-0:
+      sqlit-bp-0:
         condition: service_healthy
     environment:
-      EQLITE_ROLE: blockproducer
-      EQLITE_CONF: /config/bp-2.yaml
-      EQLITE_NODE_ID: bp-2
+      SQLIT_ROLE: blockproducer
+      SQLIT_CONF: /config/bp-2.yaml
+      SQLIT_NODE_ID: bp-2
     volumes:
-      - ./eqlite-config:/config
-      - eqlite-bp-2-data:/data
+      - ./sqlit-config:/config
+      - sqlit-bp-2-data:/data
     networks:
-      eqlite-internal:
+      sqlit-internal:
         ipv4_address: 172.29.0.4
     healthcheck:
       test: ["CMD", "sh", "-c", "echo -n | nc -w1 localhost 4661"]
@@ -116,26 +116,26 @@ services:
   # ============================================================================
   # Miner 0
   # ============================================================================
-  eqlite-miner-0:
-    image: jeju-eqlite:latest
-    container_name: eqlite-miner-0
-    hostname: eqlite-miner-0
+  sqlit-miner-0:
+    image: jeju-sqlit:latest
+    container_name: sqlit-miner-0
+    hostname: sqlit-miner-0
     depends_on:
-      eqlite-bp-0:
+      sqlit-bp-0:
         condition: service_healthy
-      eqlite-bp-1:
+      sqlit-bp-1:
         condition: service_healthy
-      eqlite-bp-2:
+      sqlit-bp-2:
         condition: service_healthy
     environment:
-      EQLITE_ROLE: miner
-      EQLITE_CONF: /config/miner-0.yaml
-      EQLITE_NODE_ID: miner-0
+      SQLIT_ROLE: miner
+      SQLIT_CONF: /config/miner-0.yaml
+      SQLIT_NODE_ID: miner-0
     volumes:
-      - ./eqlite-config:/config
-      - eqlite-miner-0-data:/data
+      - ./sqlit-config:/config
+      - sqlit-miner-0-data:/data
     networks:
-      eqlite-internal:
+      sqlit-internal:
         ipv4_address: 172.29.0.5
     healthcheck:
       test: ["CMD", "sh", "-c", "echo -n | nc -w1 localhost 4661"]
@@ -148,22 +148,22 @@ services:
   # ============================================================================
   # Miner 1
   # ============================================================================
-  eqlite-miner-1:
-    image: jeju-eqlite:latest
-    container_name: eqlite-miner-1
-    hostname: eqlite-miner-1
+  sqlit-miner-1:
+    image: jeju-sqlit:latest
+    container_name: sqlit-miner-1
+    hostname: sqlit-miner-1
     depends_on:
-      eqlite-bp-0:
+      sqlit-bp-0:
         condition: service_healthy
     environment:
-      EQLITE_ROLE: miner
-      EQLITE_CONF: /config/miner-1.yaml
-      EQLITE_NODE_ID: miner-1
+      SQLIT_ROLE: miner
+      SQLIT_CONF: /config/miner-1.yaml
+      SQLIT_NODE_ID: miner-1
     volumes:
-      - ./eqlite-config:/config
-      - eqlite-miner-1-data:/data
+      - ./sqlit-config:/config
+      - sqlit-miner-1-data:/data
     networks:
-      eqlite-internal:
+      sqlit-internal:
         ipv4_address: 172.29.0.6
     healthcheck:
       test: ["CMD", "sh", "-c", "echo -n | nc -w1 localhost 4661"]
@@ -176,22 +176,22 @@ services:
   # ============================================================================
   # Miner 2
   # ============================================================================
-  eqlite-miner-2:
-    image: jeju-eqlite:latest
-    container_name: eqlite-miner-2
-    hostname: eqlite-miner-2
+  sqlit-miner-2:
+    image: jeju-sqlit:latest
+    container_name: sqlit-miner-2
+    hostname: sqlit-miner-2
     depends_on:
-      eqlite-bp-0:
+      sqlit-bp-0:
         condition: service_healthy
     environment:
-      EQLITE_ROLE: miner
-      EQLITE_CONF: /config/miner-2.yaml
-      EQLITE_NODE_ID: miner-2
+      SQLIT_ROLE: miner
+      SQLIT_CONF: /config/miner-2.yaml
+      SQLIT_NODE_ID: miner-2
     volumes:
-      - ./eqlite-config:/config
-      - eqlite-miner-2-data:/data
+      - ./sqlit-config:/config
+      - sqlit-miner-2-data:/data
     networks:
-      eqlite-internal:
+      sqlit-internal:
         ipv4_address: 172.29.0.7
     healthcheck:
       test: ["CMD", "sh", "-c", "echo -n | nc -w1 localhost 4661"]
@@ -204,28 +204,28 @@ services:
   # ============================================================================
   # HTTP Adapter (Client API)
   # ============================================================================
-  eqlite-adapter:
-    image: jeju-eqlite:latest
-    container_name: eqlite-adapter
-    hostname: eqlite-adapter
+  sqlit-adapter:
+    image: jeju-sqlit:latest
+    container_name: sqlit-adapter
+    hostname: sqlit-adapter
     depends_on:
-      eqlite-miner-0:
+      sqlit-miner-0:
         condition: service_healthy
-      eqlite-miner-1:
+      sqlit-miner-1:
         condition: service_healthy
-      eqlite-miner-2:
+      sqlit-miner-2:
         condition: service_healthy
     environment:
-      EQLITE_ROLE: adapter
-      EQLITE_CONF: /config/adapter.yaml
-      EQLITE_ADAPTER_ADDR: "0.0.0.0:4661"
+      SQLIT_ROLE: adapter
+      SQLIT_CONF: /config/adapter.yaml
+      SQLIT_ADAPTER_ADDR: "0.0.0.0:4661"
     ports:
       - "4661:4661"  # HTTP API
     volumes:
-      - ./eqlite-config:/config
-      - eqlite-adapter-data:/data
+      - ./sqlit-config:/config
+      - sqlit-adapter-data:/data
     networks:
-      eqlite-internal:
+      sqlit-internal:
         ipv4_address: 172.29.0.10
     healthcheck:
       test: ["CMD", "sh", "-c", "echo -n | nc -w1 localhost 4661"]
@@ -239,9 +239,9 @@ services:
 # Networks
 # ============================================================================
 networks:
-  eqlite-internal:
+  sqlit-internal:
     driver: bridge
-    name: eqlite-internal
+    name: sqlit-internal
     ipam:
       config:
         - subnet: 172.29.0.0/24
@@ -250,13 +250,13 @@ networks:
 # Volumes
 # ============================================================================
 volumes:
-  eqlite-bp-0-data:
-  eqlite-bp-1-data:
-  eqlite-bp-2-data:
-  eqlite-miner-0-data:
-  eqlite-miner-1-data:
-  eqlite-miner-2-data:
-  eqlite-adapter-data:
+  sqlit-bp-0-data:
+  sqlit-bp-1-data:
+  sqlit-bp-2-data:
+  sqlit-miner-0-data:
+  sqlit-miner-1-data:
+  sqlit-miner-2-data:
+  sqlit-adapter-data:
 
 
 

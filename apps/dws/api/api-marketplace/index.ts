@@ -89,7 +89,7 @@ import * as registry from './registry.js'
  * Must be called before using any marketplace functions
  */
 export async function initializeMarketplace(): Promise<void> {
-  // Initialize state first (ensures EQLite is ready)
+  // Initialize state first (ensures SQLit is ready)
   await initializeDWSState()
 
   // Load system keys from environment

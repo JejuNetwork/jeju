@@ -3,18 +3,18 @@
  *
  * Tests against real API providers when keys are available.
  * These tests are skipped if the required API keys are not set.
- * Note: These tests also require EQLite for state management.
+ * Note: These tests also require SQLit for state management.
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
-// Check if EQLite is available for state operations
-const EQLITE_AVAILABLE =
+// Check if SQLit is available for state operations
+const SQLIT_AVAILABLE =
   !!(typeof process !== 'undefined'
-    ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
-    : undefined) || !!getEQLiteBlockProducerUrl()
+    ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
+    : undefined) || !!getSQLitBlockProducerUrl()
 
 import {
   ALL_PROVIDERS,
@@ -521,9 +521,9 @@ describe('Tavily Live', () => {
   })
 })
 
-// Access Control Live Tests (require EQLite)
+// Access Control Live Tests (require SQLit)
 
-describe.skipIf(!EQLITE_AVAILABLE)('Access Control Enforcement', () => {
+describe.skipIf(!SQLIT_AVAILABLE)('Access Control Enforcement', () => {
   test('should block requests to unauthorized endpoints', async () => {
     // Create a listing with restricted endpoints
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test')
@@ -603,9 +603,9 @@ describe.skipIf(!EQLITE_AVAILABLE)('Access Control Enforcement', () => {
   })
 })
 
-// Payment Enforcement Tests (require EQLite)
+// Payment Enforcement Tests (require SQLit)
 
-describe.skipIf(!EQLITE_AVAILABLE)('Payment Enforcement', () => {
+describe.skipIf(!SQLIT_AVAILABLE)('Payment Enforcement', () => {
   test('should reject requests with insufficient balance', async () => {
     const testId = Date.now().toString(16).slice(-8)
     const poorUser: Address =

@@ -33,7 +33,7 @@ interface PythonPackage {
   publishedAt: Date
 }
 
-// In-memory store for Python packages (should be backed by EQLite in production)
+// In-memory store for Python packages (should be backed by SQLit in production)
 const pythonPackages = new Map<string, Map<string, PythonPackage>>()
 
 function normalizePackageName(name: string): string {

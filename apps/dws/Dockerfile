@@ -1,7 +1,7 @@
-FROM oven/bun:1.3-alpine AS builder
+FROM --platform=linux/amd64 oven/bun:1.3 AS builder
 
 # Install Python and setuptools for native deps
-RUN apk add --no-cache python3 py3-setuptools
+RUN apt-get update && apt-get install -y python3 python3-setuptools && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -10,40 +10,54 @@ COPY package.json bun.lockb ./
 COPY patches/ ./patches/
 
 # Copy all workspace package.json files for dependency resolution
-COPY packages/types/package.json ./packages/types/
+COPY packages/api/package.json ./packages/api/
+COPY packages/auth/package.json ./packages/auth/
 COPY packages/config/package.json ./packages/config/
-COPY packages/shared/package.json ./packages/shared/
+COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/db/package.json ./packages/db/
 COPY packages/kms/package.json ./packages/kms/
 COPY packages/sdk/package.json ./packages/sdk/
-COPY packages/auth/package.json ./packages/auth/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/tests/package.json ./packages/tests/
+COPY packages/training/package.json ./packages/training/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/token/package.json ./packages/token/
+COPY packages/sqlit/package.json ./packages/sqlit/
 COPY apps/dws/package.json ./apps/dws/
 
 # Install all dependencies (not using --frozen-lockfile because we're copying a subset of the monorepo)
-RUN bun install
+RUN bun install --ignore-scripts
 
 # Copy source files
-COPY packages/types/ ./packages/types/
+COPY packages/api/ ./packages/api/
+COPY packages/auth/ ./packages/auth/
 COPY packages/config/ ./packages/config/
-COPY packages/shared/ ./packages/shared/
+COPY packages/contracts/ ./packages/contracts/
 COPY packages/db/ ./packages/db/
 COPY packages/kms/ ./packages/kms/
 COPY packages/sdk/ ./packages/sdk/
-COPY packages/auth/ ./packages/auth/
+COPY packages/shared/ ./packages/shared/
+COPY packages/tests/ ./packages/tests/
+COPY packages/training/ ./packages/training/
+COPY packages/types/ ./packages/types/
+COPY packages/ui/ ./packages/ui/
+COPY packages/token/ ./packages/token/
+COPY packages/sqlit/ ./packages/sqlit/
 COPY apps/dws/ ./apps/dws/
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.base.json ./
 
 # Build packages that export dist
-# Delete any pre-existing dist folders to ensure fresh builds
-RUN rm -rf packages/types/dist packages/config/dist packages/shared/dist packages/db/dist packages/kms/dist
 RUN cd packages/types && bun x tsc || true
 RUN cd packages/config && bun x tsc || true
+RUN cd packages/api && bun x tsc || true
 RUN cd packages/shared && bun x tsc || true
 RUN cd packages/db && bun x tsc || true
 RUN cd packages/kms && bun x tsc || true
+RUN cd packages/sdk && bun x tsc || true
 
 # Production stage
-FROM oven/bun:1.3-alpine
+FROM --platform=linux/amd64 oven/bun:1.3
 
 WORKDIR /app
 

@@ -1145,7 +1145,7 @@ async function start() {
     directorModelId: getEnvVar('DIRECTOR_MODEL_ID'),
     operatorKey: getEnvVar('OPERATOR_KEY'),
     privateKey: getEnvVar('PRIVATE_KEY'),
-    eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID'),
+    sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID'),
     autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
     cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     teePlatform: getEnvVar('TEE_PLATFORM'),

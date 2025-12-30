@@ -10,14 +10,14 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import {
-  createEQLiteClient,
+  createSQLitClient,
   createTableMigration,
-  EQLiteClient,
-  getEQLiteClient,
+  SQLitClient,
+  getSQLitClient,
   MigrationManager,
-  resetEQLiteClient,
+  resetSQLitClient,
 } from '@jejunetwork/db'
 import {
   getMPCConfig,
@@ -28,15 +28,15 @@ import {
 import { getHSMClient, HSMClient, resetHSMClient } from '@jejunetwork/shared'
 import { keccak256, toBytes, verifyMessage } from 'viem'
 
-// EQLite Client Tests
+// SQLit Client Tests
 
-describe('EQLite Client - Boundary Conditions', () => {
+describe('SQLit Client - Boundary Conditions', () => {
   beforeEach(() => {
-    resetEQLiteClient()
+    resetSQLitClient()
   })
 
   it('should reject empty nodes array', async () => {
-    const client = createEQLiteClient({
+    const client = createSQLitClient({
       nodes: [],
       databaseId: 'test',
       privateKey: 'key',
@@ -48,8 +48,8 @@ describe('EQLite Client - Boundary Conditions', () => {
   })
 
   it('should handle single node configuration', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       poolSize: 1,
@@ -60,8 +60,8 @@ describe('EQLite Client - Boundary Conditions', () => {
   })
 
   it('should handle maximum pool size', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       poolSize: 100,
@@ -71,8 +71,8 @@ describe('EQLite Client - Boundary Conditions', () => {
   })
 
   it('should handle zero query timeout', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       queryTimeout: 0,
@@ -82,8 +82,8 @@ describe('EQLite Client - Boundary Conditions', () => {
   })
 
   it('should handle zero retry attempts', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
       retryAttempts: 0,
@@ -93,8 +93,8 @@ describe('EQLite Client - Boundary Conditions', () => {
   })
 
   it('should use default consistency when not specified', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -103,30 +103,30 @@ describe('EQLite Client - Boundary Conditions', () => {
   })
 })
 
-describe('EQLite Client - Error Handling', () => {
+describe('SQLit Client - Error Handling', () => {
   beforeEach(() => {
-    resetEQLiteClient()
+    resetSQLitClient()
   })
 
   it('should throw on missing databaseId from env', async () => {
-    resetEQLiteClient()
-    const originalDbId = process.env.EQLITE_DATABASE_ID
-    const originalKey = process.env.EQLITE_PRIVATE_KEY
+    resetSQLitClient()
+    const originalDbId = process.env.SQLIT_DATABASE_ID
+    const originalKey = process.env.SQLIT_PRIVATE_KEY
 
-    delete process.env.EQLITE_DATABASE_ID
-    delete process.env.EQLITE_PRIVATE_KEY
+    delete process.env.SQLIT_DATABASE_ID
+    delete process.env.SQLIT_PRIVATE_KEY
 
-    expect(() => getEQLiteClient()).toThrow(
-      'EQLITE_DATABASE_ID and EQLITE_PRIVATE_KEY',
+    expect(() => getSQLitClient()).toThrow(
+      'SQLIT_DATABASE_ID and SQLIT_PRIVATE_KEY',
     )
 
     // Restore
-    if (originalDbId) process.env.EQLITE_DATABASE_ID = originalDbId
-    if (originalKey) process.env.EQLITE_PRIVATE_KEY = originalKey
+    if (originalDbId) process.env.SQLIT_DATABASE_ID = originalDbId
+    if (originalKey) process.env.SQLIT_PRIVATE_KEY = originalKey
   })
 
   it('should handle malformed node URLs gracefully', async () => {
-    const client = createEQLiteClient({
+    const client = createSQLitClient({
       nodes: ['not-a-valid-url', ':::invalid:::'],
       databaseId: 'test',
       privateKey: 'key',
@@ -137,8 +137,8 @@ describe('EQLite Client - Error Handling', () => {
   })
 
   it('should close connections cleanly', async () => {
-    const client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -149,14 +149,14 @@ describe('EQLite Client - Error Handling', () => {
   })
 })
 
-describe('EQLite Client - SQL Operations', () => {
+describe('SQLit Client - SQL Operations', () => {
   beforeEach(() => {
-    resetEQLiteClient()
+    resetSQLitClient()
   })
 
   it('should build correct INSERT SQL for single row', async () => {
-    const _client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const _client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -167,8 +167,8 @@ describe('EQLite Client - SQL Operations', () => {
   })
 
   it('should build correct INSERT SQL for multiple rows', async () => {
-    const _client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const _client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -191,8 +191,8 @@ describe('EQLite Client - SQL Operations', () => {
   })
 
   it('should handle empty insert data', async () => {
-    const _client = createEQLiteClient({
-      nodes: [getEQLiteBlockProducerUrl()],
+    const _client = createSQLitClient({
+      nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test',
       privateKey: 'key',
     })
@@ -1280,11 +1280,11 @@ describe('Concurrent Operations', () => {
 // Integration Verification Tests
 
 describe('Module Export Verification', () => {
-  it('should export all EQLite components', async () => {
-    expect(typeof EQLiteClient).toBe('function')
-    expect(typeof createEQLiteClient).toBe('function')
-    expect(typeof getEQLiteClient).toBe('function')
-    expect(typeof resetEQLiteClient).toBe('function')
+  it('should export all SQLit components', async () => {
+    expect(typeof SQLitClient).toBe('function')
+    expect(typeof createSQLitClient).toBe('function')
+    expect(typeof getSQLitClient).toBe('function')
+    expect(typeof resetSQLitClient).toBe('function')
     expect(typeof MigrationManager).toBe('function')
     expect(typeof createTableMigration).toBe('function')
   })

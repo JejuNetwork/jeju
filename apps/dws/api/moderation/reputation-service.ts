@@ -20,7 +20,7 @@
  * 5. Elite (5000+): Bypass most AI checks
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { Address } from 'viem'
 
 // ============ Types ============
@@ -187,18 +187,18 @@ const SCORE_WEIGHTS = {
 // ============ Database ============
 
 const REPUTATION_DATABASE_ID = 'dws-reputation'
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureReputationTables()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureReputationTables(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS reputation_scores (
@@ -255,14 +255,14 @@ async function ensureReputationTables(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], REPUTATION_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], REPUTATION_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await eqliteClient.exec(idx, [], REPUTATION_DATABASE_ID)
+    await sqlitClient.exec(idx, [], REPUTATION_DATABASE_ID)
   }
 
-  console.log('[Reputation] EQLite tables ensured')
+  console.log('[Reputation] SQLit tables ensured')
 }
 
 // ============ Main Service ============
@@ -272,7 +272,7 @@ export class ReputationService {
    * Get reputation score for an address
    */
   async getReputation(address: Address): Promise<ReputationScore> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<{
       total_score: number
@@ -403,7 +403,7 @@ export class ReputationService {
     moderationLevel: TrustLevel,
     aiScanResult?: string,
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
     const id = `dep-${now}-${Math.random().toString(36).slice(2)}`
 
@@ -447,7 +447,7 @@ export class ReputationService {
     description: string,
     evidence: string,
   ): Promise<Violation> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
     const id = `vio-${now}-${Math.random().toString(36).slice(2)}`
 
@@ -513,7 +513,7 @@ export class ReputationService {
       throw new Error('Cannot vouch for yourself')
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
     const id = `vouch-${now}-${Math.random().toString(36).slice(2)}`
 
@@ -565,7 +565,7 @@ export class ReputationService {
    * Revoke a vouch
    */
   async revokeVouch(voucher: Address, vouchee: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -593,7 +593,7 @@ export class ReputationService {
    * Update staked tokens
    */
   async updateStakedTokens(address: Address, amount: bigint): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -612,7 +612,7 @@ export class ReputationService {
    * Mark identity as verified
    */
   async verifyIdentity(address: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -631,7 +631,7 @@ export class ReputationService {
    * Get violations for an address
    */
   async getViolations(address: Address): Promise<Violation[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<{
       id: string
@@ -668,7 +668,7 @@ export class ReputationService {
    * Appeal a violation
    */
   async appealViolation(address: Address, violationId: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     // Verify violation belongs to address
     const result = await client.query(
@@ -692,7 +692,7 @@ export class ReputationService {
    * Resolve appeal
    */
   async resolveAppeal(violationId: string, approved: boolean): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     const result = await client.query<{
@@ -739,7 +739,7 @@ export class ReputationService {
    * Update account age (called daily by cron)
    */
   async updateAccountAges(): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -754,7 +754,7 @@ export class ReputationService {
   // ============ Internal Methods ============
 
   private async initializeUser(address: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -767,7 +767,7 @@ export class ReputationService {
   }
 
   private async recalculateScore(address: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     const result = await client.query<{

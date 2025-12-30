@@ -205,9 +205,9 @@ async function deployWorker(
       RPC_URL: config.rpcUrl,
       DWS_URL: config.dwsUrl,
     },
-    secrets: ['PRIVATE_KEY', 'EQLITE_PRIVATE_KEY'],
+    secrets: ['PRIVATE_KEY', 'SQLIT_PRIVATE_KEY'],
     database: {
-      type: 'eqlite',
+      type: 'sqlit',
       name: 'bazaar-db',
     },
   }

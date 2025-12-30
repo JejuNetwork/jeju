@@ -1,5 +1,5 @@
 /**
- * API Marketplace Registry - Decentralized via EQLite
+ * API Marketplace Registry - Decentralized via SQLit
  *
  * Manages providers, listings, and user accounts with persistent state
  */
@@ -40,9 +40,9 @@ const ListingIdsSchema = z.array(z.string())
 if (!isTestMode()) {
   initializeDWSState().catch((err) => {
     if (!isProductionEnv()) {
-      console.warn('[API Marketplace] Running without EQLite:', err.message)
+      console.warn('[API Marketplace] Running without SQLit:', err.message)
     } else {
-      console.error('[API Marketplace] EQLite required in production:', err)
+      console.error('[API Marketplace] SQLit required in production:', err)
       throw err
     }
   })
@@ -315,7 +315,7 @@ export async function findCheapestListing(
  * Get marketplace statistics
  */
 export async function getMarketplaceStats(): Promise<MarketplaceStats> {
-  // Query EQLite for aggregated stats
+  // Query SQLit for aggregated stats
   const { apiListingState, apiUserAccountState } = await import('../state')
 
   // Get all listings

@@ -224,16 +224,16 @@ export {
 export {
   checkChainAvailable,
   // Individual service checks
-  checkEqliteAvailable,
+  checkSQLitAvailable,
   checkIpfsAvailable,
   checkSolanaAvailable,
   describeWithInfra,
-  EqliteTestClient,
+  SQLitTestClient,
   getChainConfig,
   getInfraConfig,
   // Infrastructure status
   getInfraStatus,
-  getLiveEqliteClient,
+  getLiveSQLitClient,
   // Live clients for tests
   getLiveInfra,
   getLiveRedisClient,

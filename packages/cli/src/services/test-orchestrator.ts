@@ -8,7 +8,7 @@
  * - Smoke tests run before E2E tests to verify testing system works
  */
 
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import { logger } from '../lib/logger'
 import { runSmokeTests } from '../testing/smoke-test-runner'
 import type { TestMode } from '../types'
@@ -95,12 +95,12 @@ export class TestOrchestrator {
 
     logger.header(`TEST SETUP - ${this.options.mode.toUpperCase()}`)
 
-    // Step 1: Start EQLite (required for all tests)
-    logger.step('Starting EQLite (core database)...')
-    const eqliteStarted = await this.infrastructureService.startEQLite()
-    if (!eqliteStarted) {
+    // Step 1: Start SQLit (required for all tests)
+    logger.step('Starting SQLit (core database)...')
+    const sqlitStarted = await this.infrastructureService.startSQLit()
+    if (!sqlitStarted) {
       throw new Error(
-        'FATAL: Failed to start EQLite. EQLite is required for all tests. ' +
+        'FATAL: Failed to start SQLit. SQLit is required for all tests. ' +
           'Check packages/db for errors.',
       )
     }
@@ -277,7 +277,7 @@ export class TestOrchestrator {
     }
 
     if (!this.options.keepServices) {
-      await this.infrastructureService.stopEQLite()
+      await this.infrastructureService.stopSQLit()
     }
 
     if (this.lockManager) {
@@ -294,11 +294,11 @@ export class TestOrchestrator {
     const env: Record<string, string> = {
       NODE_ENV: 'test',
       CI: process.env.CI || '',
-      EQLITE_URL: getEQLiteBlockProducerUrl(),
+      SQLIT_URL: getSQLitBlockProducerUrl(),
       // Infrastructure is ALWAYS available when using the test orchestrator
       // Tests should NOT check these - if setup passed, everything is ready
       INFRA_READY: 'true',
-      EQLITE_AVAILABLE: 'true',
+      SQLIT_AVAILABLE: 'true',
       ANVIL_AVAILABLE: this.localnetOrchestrator ? 'true' : 'false',
       DOCKER_AVAILABLE: this.dockerOrchestrator ? 'true' : 'false',
       IPFS_AVAILABLE: this.dockerOrchestrator ? 'true' : 'false',

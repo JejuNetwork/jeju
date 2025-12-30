@@ -37,15 +37,15 @@ interface OrchestratorConfig {
 describe('ServiceDefinition', () => {
   it('validates complete service', () => {
     const service: ServiceDefinition = {
-      name: 'eqlite',
-      command: 'bunx eqlite-server',
+      name: 'sqlit',
+      command: 'bunx sqlit-server',
       port: 4020,
       healthCheck: 'http://localhost:4020/health',
       dependencies: [],
-      env: { DATABASE_PATH: '/data/eqlite' },
+      env: { DATABASE_PATH: '/data/sqlit' },
     }
 
-    expect(service.name).toBe('eqlite')
+    expect(service.name).toBe('sqlit')
     expect(service.port).toBe(4020)
     expect(service.healthCheck).toContain('health')
   })
@@ -65,10 +65,10 @@ describe('ServiceDefinition', () => {
       name: 'api',
       command: 'bun run api.ts',
       port: 3000,
-      dependencies: ['eqlite', 'redis'],
+      dependencies: ['sqlit', 'redis'],
     }
 
-    expect(service.dependencies).toContain('eqlite')
+    expect(service.dependencies).toContain('sqlit')
     expect(service.dependencies).toContain('redis')
   })
 })
@@ -90,7 +90,7 @@ describe('ServiceStatus', () => {
 
   it('validates starting service', () => {
     const status: ServiceStatus = {
-      name: 'eqlite',
+      name: 'sqlit',
       status: 'starting',
     }
 
@@ -126,17 +126,17 @@ describe('OrchestratorConfig', () => {
   it('validates complete config', () => {
     const config: OrchestratorConfig = {
       services: [
-        { name: 'eqlite', command: 'eqlite-server', port: 4020 },
+        { name: 'sqlit', command: 'sqlit-server', port: 4020 },
         { name: 'redis', command: 'redis-server', port: 6379 },
         { name: 'api', command: 'bun api.ts', port: 3000 },
       ],
-      startupOrder: ['eqlite', 'redis', 'api'],
+      startupOrder: ['sqlit', 'redis', 'api'],
       healthCheckInterval: 5000,
       shutdownTimeout: 30000,
     }
 
     expect(config.services).toHaveLength(3)
-    expect(config.startupOrder).toEqual(['eqlite', 'redis', 'api'])
+    expect(config.startupOrder).toEqual(['sqlit', 'redis', 'api'])
     expect(config.healthCheckInterval).toBe(5000)
   })
 
@@ -153,8 +153,8 @@ describe('OrchestratorConfig', () => {
 describe('Dependency resolution', () => {
   it('calculates startup order from dependencies', () => {
     const services: ServiceDefinition[] = [
-      { name: 'api', command: 'api', dependencies: ['eqlite', 'redis'] },
-      { name: 'eqlite', command: 'eqlite', dependencies: [] },
+      { name: 'api', command: 'api', dependencies: ['sqlit', 'redis'] },
+      { name: 'sqlit', command: 'sqlit', dependencies: [] },
       { name: 'redis', command: 'redis', dependencies: [] },
       { name: 'worker', command: 'worker', dependencies: ['api'] },
     ]
@@ -177,8 +177,8 @@ describe('Dependency resolution', () => {
       visit(service.name)
     }
 
-    // eqlite and redis should come before api
-    expect(order.indexOf('eqlite')).toBeLessThan(order.indexOf('api'))
+    // sqlit and redis should come before api
+    expect(order.indexOf('sqlit')).toBeLessThan(order.indexOf('api'))
     expect(order.indexOf('redis')).toBeLessThan(order.indexOf('api'))
     // api should come before worker
     expect(order.indexOf('api')).toBeLessThan(order.indexOf('worker'))
@@ -235,10 +235,10 @@ describe('Health checks', () => {
 
 describe('Graceful shutdown', () => {
   it('calculates shutdown order (reverse of startup)', () => {
-    const startupOrder = ['eqlite', 'redis', 'api', 'worker']
+    const startupOrder = ['sqlit', 'redis', 'api', 'worker']
     const shutdownOrder = [...startupOrder].reverse()
 
-    expect(shutdownOrder).toEqual(['worker', 'api', 'redis', 'eqlite'])
+    expect(shutdownOrder).toEqual(['worker', 'api', 'redis', 'sqlit'])
   })
 
   it('validates shutdown timeout', () => {

@@ -1,8 +1,8 @@
 /**
- * @jejunetwork/db - Database Types (EQLite)
+ * @jejunetwork/db - Database Types (SQLit)
  *
  * Types for decentralized SQL database integration.
- * EQLite provides:
+ * SQLit provides:
  * - BFT-Raft consensus for strong consistency
  * - Column-level ACL for privacy
  * - Multi-tenant database rental
@@ -13,17 +13,17 @@ import type { Address, Hex } from 'viem'
 
 // Consistency Types
 
-/** Query consistency level for EQLite */
+/** Query consistency level for SQLit */
 export type ConsistencyLevel = 'strong' | 'eventual'
 
 // Connection Types
 
 /**
  * Minimal interface for code that only needs query and exec methods.
- * Use this instead of EQLiteClient when you don't need the full client API.
- * EQLiteClient, EQLiteConnection, and EQLiteTransaction all implement this interface.
+ * Use this instead of SQLitClient when you don't need the full client API.
+ * SQLitClient, SQLitConnection, and SQLitTransaction all implement this interface.
  */
-export interface EQLiteQueryable {
+export interface SQLitQueryable {
   /** Execute a read query */
   query<T>(
     sql: string,
@@ -34,7 +34,7 @@ export interface EQLiteQueryable {
   exec(sql: string, params?: QueryParam[], dbId?: string): Promise<ExecResult>
 }
 
-export interface EQLiteConfig {
+export interface SQLitConfig {
   /** Block producer endpoint */
   blockProducerEndpoint: string
   /** Miner node endpoint (for direct queries) */
@@ -51,18 +51,18 @@ export interface EQLiteConfig {
   debug?: boolean
 }
 
-export interface EQLiteConnectionPool {
+export interface SQLitConnectionPool {
   /** Get a connection from the pool */
-  acquire(): Promise<EQLiteConnection>
+  acquire(): Promise<SQLitConnection>
   /** Release a connection back to the pool */
-  release(connection: EQLiteConnection): void
+  release(connection: SQLitConnection): void
   /** Close all connections */
   close(): Promise<void>
   /** Pool statistics */
   stats(): { active: number; idle: number; total: number }
 }
 
-export interface EQLiteConnection {
+export interface SQLitConnection {
   /** Connection ID */
   id: string
   /** Database ID */
@@ -74,12 +74,12 @@ export interface EQLiteConnection {
   /** Execute a write query */
   exec(sql: string, params?: QueryParam[]): Promise<ExecResult>
   /** Start a transaction */
-  beginTransaction(): Promise<EQLiteTransaction>
+  beginTransaction(): Promise<SQLitTransaction>
   /** Close the connection */
   close(): Promise<void>
 }
 
-export interface EQLiteTransaction {
+export interface SQLitTransaction {
   /** Transaction ID */
   id: string
   /** Execute query within transaction */
@@ -114,7 +114,7 @@ export interface ExecResult {
   rowsAffected: number
   /** Last insert ID (if applicable) */
   lastInsertId?: bigint
-  /** Transaction hash on EQLite chain */
+  /** Transaction hash on SQLit chain */
   txHash: Hex
   /** Block height of transaction */
   blockHeight: number
@@ -124,13 +124,13 @@ export interface ExecResult {
 
 export interface ColumnMeta {
   name: string
-  type: EQLiteDataType
+  type: SQLitDataType
   nullable: boolean
   primaryKey: boolean
   autoIncrement: boolean
 }
 
-export type EQLiteDataType =
+export type SQLitDataType =
   | 'INTEGER'
   | 'BIGINT'
   | 'REAL'
@@ -337,19 +337,19 @@ export interface RentalEventDetails {
   months?: number
 }
 
-export type EQLiteEventDetails =
+export type SQLitEventDetails =
   | { type: 'query'; data: QueryEventDetails }
   | { type: 'exec'; data: ExecEventDetails }
   | { type: 'migration'; data: MigrationEventDetails }
   | { type: 'acl'; data: ACLEventDetails }
   | { type: 'rental'; data: RentalEventDetails }
 
-export interface EQLiteEvent {
+export interface SQLitEvent {
   type: 'query' | 'exec' | 'migration' | 'acl' | 'rental'
   databaseId: string
   timestamp: number
   actor?: Address
-  details: EQLiteEventDetails
+  details: SQLitEventDetails
   txHash?: Hex
 }
 
@@ -431,7 +431,7 @@ export interface VectorIndexConfig {
 export interface VectorMetadataColumn {
   /** Column name */
   name: string
-  /** SQLite data type */
+  /** SQLit data type */
   type: 'TEXT' | 'INTEGER' | 'REAL' | 'BLOB'
   /** Is this column nullable */
   nullable?: boolean

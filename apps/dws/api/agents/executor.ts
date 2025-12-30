@@ -6,7 +6,7 @@
 import {
   getCurrentNetwork,
   getDWSUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getKMSEndpoint,
 } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/types'
@@ -63,7 +63,7 @@ export interface ExecutorConfig {
   /** DWS internal URLs */
   inferenceUrl: string
   kmsUrl: string
-  eqliteUrl: string
+  sqlitUrl: string
 
   /** Warm pool settings */
   warmPool: WarmPoolConfig
@@ -104,12 +104,12 @@ export class AgentExecutor {
           ? process.env.DWS_KMS_URL
           : undefined) ??
         `${kmsBaseUrl}/kms`,
-      eqliteUrl:
-        config.eqliteUrl ??
+      sqlitUrl:
+        config.sqlitUrl ??
         (typeof process !== 'undefined'
-          ? process.env.DWS_EQLITE_URL
+          ? process.env.DWS_SQLIT_URL
           : undefined) ??
-        getEQLiteBlockProducerUrl(),
+        getSQLitBlockProducerUrl(),
       warmPool: config.warmPool ?? DEFAULT_WARM_POOL_CONFIG,
       elizaWorkerCid: config.elizaWorkerCid ?? DEFAULT_ELIZA_WORKER_CID,
     }
@@ -175,7 +175,7 @@ export class AgentExecutor {
         value: this.config.inferenceUrl,
       },
       { name: 'DWS_KMS_URL', type: 'text', value: this.config.kmsUrl },
-      { name: 'DWS_EQLITE_URL', type: 'text', value: this.config.eqliteUrl },
+      { name: 'DWS_SQLIT_URL', type: 'text', value: this.config.sqlitUrl },
 
       // Agent-specific
       { name: 'AGENT_ID', type: 'text', value: agent.id },

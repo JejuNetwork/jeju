@@ -11,12 +11,12 @@ describe('Indexer Mode Detection', () => {
     process.env = originalEnv
   })
 
-  it('returns eqlite-only when configured', () => {
-    const getMode = (eqliteOnly: boolean, pgAvail: boolean) =>
-      eqliteOnly ? 'eqlite-only' : pgAvail ? 'postgres' : 'unavailable'
+  it('returns sqlit-only when configured', () => {
+    const getMode = (sqlitOnly: boolean, pgAvail: boolean) =>
+      sqlitOnly ? 'sqlit-only' : pgAvail ? 'postgres' : 'unavailable'
 
-    expect(getMode(true, false)).toBe('eqlite-only')
-    expect(getMode(true, true)).toBe('eqlite-only')
+    expect(getMode(true, false)).toBe('sqlit-only')
+    expect(getMode(true, true)).toBe('sqlit-only')
     expect(getMode(false, true)).toBe('postgres')
     expect(getMode(false, false)).toBe('unavailable')
   })

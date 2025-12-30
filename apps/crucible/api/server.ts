@@ -314,8 +314,8 @@ const config: CrucibleConfig = {
       storageApi: servicesConfig.storage.api,
       ipfsGateway: servicesConfig.storage.ipfsGateway,
       indexerGraphql: servicesConfig.indexer.graphql,
-      eqliteEndpoint:
-        crucibleConfig.eqliteEndpoint ?? servicesConfig.eqlite.blockProducer,
+      sqlitEndpoint:
+        crucibleConfig.sqlitEndpoint ?? servicesConfig.sqlit.blockProducer,
       dexCacheUrl: crucibleConfig.dexCacheUrl,
     }
   })(),
@@ -1403,7 +1403,7 @@ configureCrucible({
   corsAllowedOrigins: getEnvVar('CORS_ALLOWED_ORIGINS'),
   autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
   computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),
-  eqliteEndpoint: getEnvVar('EQLITE_ENDPOINT'),
+  sqlitEndpoint: getEnvVar('SQLIT_ENDPOINT'),
   dexCacheUrl: getEnvVar('DEX_CACHE_URL'),
   botsEnabled: getEnvVar('BOTS_ENABLED') !== 'false',
   autonomousEnabled: getEnvVar('AUTONOMOUS_ENABLED') === 'true',

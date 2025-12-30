@@ -81,7 +81,7 @@ describe('LocalInferenceServer', () => {
 })
 
 // ServicesOrchestrator tests - starts Oracle and JNS mock services
-// EQLite is tested separately since it requires a process spawn
+// SQLit is tested separately since it requires a process spawn
 describe('ServicesOrchestrator', () => {
   let orchestrator: ServicesOrchestrator
   let servicesStarted = false
@@ -90,10 +90,10 @@ describe('ServicesOrchestrator', () => {
 
   beforeAll(async () => {
     orchestrator = createOrchestrator(process.cwd())
-    // Start only the Elysia-based mock services (not EQLite which spawns a process)
+    // Start only the Elysia-based mock services (not SQLit which spawns a process)
     await orchestrator.startAll({
       inference: false, // Tested above in LocalInferenceServer
-      eqlite: false, // Skip - tested separately, requires bun subprocess
+      sqlit: false, // Skip - tested separately, requires bun subprocess
       oracle: true, // Mock Oracle Elysia server
       indexer: false, // Requires Docker
       jns: true, // Mock JNS Elysia server
@@ -147,7 +147,7 @@ describe('ServicesOrchestrator', () => {
     }
   })
 
-  // Note: EQLite service (packages/db) is tested separately in integration tests
+  // Note: SQLit service (packages/db) is tested separately in integration tests
   // as it requires spawning a bun subprocess which can be slow
 
   describe('Oracle Service', () => {

@@ -7,7 +7,7 @@
  * that works across multiple worker instances.
  *
  * In production, this is replaced by:
- * - DWS EQLite-backed cache
+ * - DWS SQLit-backed cache
  * - Redis cluster in TEE
  */
 

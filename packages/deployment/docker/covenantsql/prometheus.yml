@@ -1,34 +1,34 @@
-# Prometheus Configuration for EQLite Cluster Monitoring
+# Prometheus Configuration for SQLit Cluster Monitoring
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'eqlite-localnet'
+    cluster: 'sqlit-localnet'
 
 scrape_configs:
   # Block Producer metrics
-  - job_name: 'eqlite-block-producer'
+  - job_name: 'sqlit-block-producer'
     static_configs:
-      - targets: ['eqlite-bp:9100']
+      - targets: ['sqlit-bp:9100']
         labels:
           role: 'block-producer'
           node_id: 'bp-001'
 
   # Miner nodes metrics
-  - job_name: 'eqlite-miners'
+  - job_name: 'sqlit-miners'
     static_configs:
       - targets:
-          - 'eqlite-miner-1:9100'
-          - 'eqlite-miner-2:9100'
-          - 'eqlite-miner-3:9100'
+          - 'sqlit-miner-1:9100'
+          - 'sqlit-miner-2:9100'
+          - 'sqlit-miner-3:9100'
         labels:
           role: 'miner'
 
   # HAProxy metrics
-  - job_name: 'eqlite-haproxy'
+  - job_name: 'sqlit-haproxy'
     static_configs:
-      - targets: ['eqlite-lb:8080']
+      - targets: ['sqlit-lb:8080']
         labels:
           role: 'load-balancer'
     metrics_path: /stats

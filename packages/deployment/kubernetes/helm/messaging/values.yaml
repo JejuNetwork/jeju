@@ -57,9 +57,9 @@ relay:
     # Jeju L2 RPC
     jejuRpcUrl: "https://testnet-rpc.jejunetwork.org"
     
-    # EQLite
-    eqliteNodes: ""
-    eqliteDatabaseId: "jeju-messaging"
+    # SQLit
+    sqlitNodes: ""
+    sqlitDatabaseId: "jeju-messaging"
     
     # IPFS for large payloads
     ipfsGateway: "https://gateway.testnet.jejunetwork.org"
@@ -198,8 +198,8 @@ secrets:
     secretName: messaging-operator-keys
     key: private-keys
   
-  eqliteCredentials:
-    secretName: eqlite-credentials
+  sqlitCredentials:
+    secretName: sqlit-credentials
     key: credentials
   
   kmsMasterKey:

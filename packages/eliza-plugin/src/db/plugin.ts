@@ -1,33 +1,33 @@
 /**
- * EQLite Database Plugin for ElizaOS
+ * SQLit Database Plugin for ElizaOS
  *
- * Provides a decentralized database adapter using EQLite.
+ * Provides a decentralized database adapter using SQLit.
  * Automatically initializes and runs migrations on startup.
  *
  * @example
  * ```typescript
- * import { eqliteDatabasePlugin } from '@jejunetwork/eliza-plugin';
+ * import { sqlitDatabasePlugin } from '@jejunetwork/eliza-plugin';
  *
  * const character: Character = {
  *   name: 'MyAgent',
- *   plugins: [eqliteDatabasePlugin],
+ *   plugins: [sqlitDatabasePlugin],
  *   // ...
  * };
  * ```
  */
 
 import { type IAgentRuntime, logger, type Plugin } from '@elizaos/core'
-import { getEqliteDatabaseId } from '@jejunetwork/config'
-import { getEQLite } from '@jejunetwork/db'
-import { EQLiteDatabaseAdapter } from './adapter'
-import { checkMigrationStatus, runEQLiteMigrations } from './migrations'
+import { getSQLitDatabaseId } from '@jejunetwork/config'
+import { getSQLit } from '@jejunetwork/db'
+import { SQLitDatabaseAdapter } from './adapter'
+import { checkMigrationStatus, runSQLitMigrations } from './migrations'
 
 /**
- * Create a EQLite database adapter for the given agent
+ * Create a SQLit database adapter for the given agent
  */
-function createEQLiteAdapter(agentId: string): EQLiteDatabaseAdapter {
-  const databaseId = getEqliteDatabaseId() ?? 'eliza'
-  return new EQLiteDatabaseAdapter(
+function createSQLitAdapter(agentId: string): SQLitDatabaseAdapter {
+  const databaseId = getSQLitDatabaseId() ?? 'eliza'
+  return new SQLitDatabaseAdapter(
     agentId as `${string}-${string}-${string}-${string}-${string}`,
     {
       databaseId,
@@ -37,21 +37,21 @@ function createEQLiteAdapter(agentId: string): EQLiteDatabaseAdapter {
 }
 
 /**
- * EQLite Database Plugin for ElizaOS
+ * SQLit Database Plugin for ElizaOS
  *
  * This plugin provides:
- * - EQLite-based database adapter
+ * - SQLit-based database adapter
  * - Automatic schema migration on startup
  */
-export const eqliteDatabasePlugin: Plugin = {
-  name: '@jejunetwork/plugin-eqlite',
-  description: 'Decentralized database adapter using EQLite',
+export const sqlitDatabasePlugin: Plugin = {
+  name: '@jejunetwork/plugin-sqlit',
+  description: 'Decentralized database adapter using SQLit',
   priority: 0, // Load first to ensure database is available
 
   init: async (_config: Record<string, string>, runtime: IAgentRuntime) => {
     logger.info(
-      { src: 'plugin:eqlite', agentId: runtime.agentId },
-      'Initializing EQLite database plugin',
+      { src: 'plugin:sqlit', agentId: runtime.agentId },
+      'Initializing SQLit database plugin',
     )
 
     // Check if a database adapter is already registered
@@ -75,43 +75,43 @@ export const eqliteDatabasePlugin: Plugin = {
 
     if (adapterRegistered) {
       logger.info(
-        { src: 'plugin:eqlite', agentId: runtime.agentId },
-        'Database adapter already registered, skipping EQLite initialization',
+        { src: 'plugin:sqlit', agentId: runtime.agentId },
+        'Database adapter already registered, skipping SQLit initialization',
       )
       return
     }
 
-    // Check EQLite health
-    const eqlite = getEQLite()
-    const healthy = await eqlite.isHealthy()
+    // Check SQLit health
+    const sqlit = getSQLit()
+    const healthy = await sqlit.isHealthy()
     if (!healthy) {
       throw new Error(
-        '[EQLite] EQLite is not healthy. ' +
+        '[SQLit] SQLit is not healthy. ' +
           'Ensure Jeju services are running: cd /path/to/jeju && bun jeju dev\n' +
-          'Or start EQLite manually: bun run eqlite',
+          'Or start SQLit manually: bun run sqlit',
       )
     }
 
     // Check and run migrations
-    const databaseId = getEqliteDatabaseId() ?? 'eliza'
-    const migrated = await checkMigrationStatus(eqlite, databaseId)
+    const databaseId = getSQLitDatabaseId() ?? 'eliza'
+    const migrated = await checkMigrationStatus(sqlit, databaseId)
     if (!migrated) {
       logger.info(
-        { src: 'plugin:eqlite' },
-        'Running EQLite schema migrations...',
+        { src: 'plugin:sqlit' },
+        'Running SQLit schema migrations...',
       )
-      await runEQLiteMigrations(eqlite, databaseId)
+      await runSQLitMigrations(sqlit, databaseId)
     }
 
     // Create and register the adapter
-    const adapter = createEQLiteAdapter(runtime.agentId)
+    const adapter = createSQLitAdapter(runtime.agentId)
     runtime.registerDatabaseAdapter(adapter)
 
     logger.info(
-      { src: 'plugin:eqlite', agentId: runtime.agentId, databaseId },
-      'EQLite database adapter registered',
+      { src: 'plugin:sqlit', agentId: runtime.agentId, databaseId },
+      'SQLit database adapter registered',
     )
   },
 }
 
-export default eqliteDatabasePlugin
+export default sqlitDatabasePlugin

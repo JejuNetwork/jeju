@@ -2,7 +2,7 @@
  * E2E Tests for Managed Database Service
  *
  * Tests the full lifecycle of database operations:
- * - EQLite instance creation, scaling, and management
+ * - SQLit instance creation, scaling, and management
  * - PostgreSQL instance creation, replicas, and failover
  * - Connection pooling
  * - Backup and restore
@@ -17,7 +17,7 @@ const TEST_WALLET = '0x1234567890123456789012345678901234567890'
 interface DatabaseInstance {
   instanceId: string
   name: string
-  engine: 'eqlite' | 'postgresql'
+  engine: 'sqlit' | 'postgresql'
   status: string
   owner: string
 }
@@ -28,16 +28,16 @@ interface Backup {
 }
 
 describe('Managed Database Service E2E', () => {
-  let eqliteInstanceId: string
+  let sqlitInstanceId: string
   let postgresInstanceId: string
   let backupId: string
 
   // =========================================================================
-  // EQLite Tests
+  // SQLit Tests
   // =========================================================================
 
-  describe('EQLite Database', () => {
-    test('should create EQLite database instance', async () => {
+  describe('SQLit Database', () => {
+    test('should create SQLit database instance', async () => {
       const response = await fetch(`${BASE_URL}/database/`, {
         method: 'POST',
         headers: {
@@ -45,8 +45,8 @@ describe('Managed Database Service E2E', () => {
           'x-wallet-address': TEST_WALLET,
         },
         body: JSON.stringify({
-          name: 'test-eqlite-e2e',
-          engine: 'eqlite',
+          name: 'test-sqlit-e2e',
+          engine: 'sqlit',
           planId: 'starter',
           region: 'us-east-1',
           config: {
@@ -62,13 +62,13 @@ describe('Managed Database Service E2E', () => {
       expect(response.status).toBe(200)
       const data = (await response.json()) as { instance: DatabaseInstance }
       expect(data.instance).toBeDefined()
-      expect(data.instance.name).toBe('test-eqlite-e2e')
-      expect(data.instance.engine).toBe('eqlite')
-      eqliteInstanceId = data.instance.instanceId
+      expect(data.instance.name).toBe('test-sqlit-e2e')
+      expect(data.instance.engine).toBe('sqlit')
+      sqlitInstanceId = data.instance.instanceId
     })
 
-    test('should get EQLite instance details', async () => {
-      const response = await fetch(`${BASE_URL}/database/${eqliteInstanceId}`, {
+    test('should get SQLit instance details', async () => {
+      const response = await fetch(`${BASE_URL}/database/${sqlitInstanceId}`, {
         headers: {
           'x-wallet-address': TEST_WALLET,
         },
@@ -76,13 +76,13 @@ describe('Managed Database Service E2E', () => {
 
       expect(response.status).toBe(200)
       const data = (await response.json()) as { instance: DatabaseInstance }
-      expect(data.instance.instanceId).toBe(eqliteInstanceId)
-      expect(data.instance.engine).toBe('eqlite')
+      expect(data.instance.instanceId).toBe(sqlitInstanceId)
+      expect(data.instance.engine).toBe('sqlit')
     })
 
     test('should get connection credentials', async () => {
       const response = await fetch(
-        `${BASE_URL}/database/${eqliteInstanceId}/connection`,
+        `${BASE_URL}/database/${sqlitInstanceId}/connection`,
         {
           headers: {
             'x-wallet-address': TEST_WALLET,
@@ -112,8 +112,8 @@ describe('Managed Database Service E2E', () => {
       expect(data.instances.length).toBeGreaterThan(0)
     })
 
-    test('should update EQLite instance', async () => {
-      const response = await fetch(`${BASE_URL}/database/${eqliteInstanceId}`, {
+    test('should update SQLit instance', async () => {
+      const response = await fetch(`${BASE_URL}/database/${sqlitInstanceId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -131,7 +131,7 @@ describe('Managed Database Service E2E', () => {
 
     test('should create backup', async () => {
       const response = await fetch(
-        `${BASE_URL}/database/${eqliteInstanceId}/backups`,
+        `${BASE_URL}/database/${sqlitInstanceId}/backups`,
         {
           method: 'POST',
           headers: {
@@ -149,7 +149,7 @@ describe('Managed Database Service E2E', () => {
 
     test('should stop database', async () => {
       const response = await fetch(
-        `${BASE_URL}/database/${eqliteInstanceId}/stop`,
+        `${BASE_URL}/database/${sqlitInstanceId}/stop`,
         {
           method: 'POST',
           headers: {
@@ -165,7 +165,7 @@ describe('Managed Database Service E2E', () => {
 
     test('should start database', async () => {
       const response = await fetch(
-        `${BASE_URL}/database/${eqliteInstanceId}/start`,
+        `${BASE_URL}/database/${sqlitInstanceId}/start`,
         {
           method: 'POST',
           headers: {
@@ -323,14 +323,14 @@ describe('Managed Database Service E2E', () => {
 
     test('should restore from backup', async () => {
       // Skip if no backup was created or instance doesn't exist
-      if (!backupId || !eqliteInstanceId) {
+      if (!backupId || !sqlitInstanceId) {
         console.log('Skipping restore test - no backup ID or instance')
         return
       }
 
       // Check if instance still exists first
       const checkResponse = await fetch(
-        `${BASE_URL}/database/${eqliteInstanceId}`,
+        `${BASE_URL}/database/${sqlitInstanceId}`,
         {
           headers: {
             'x-wallet-address': TEST_WALLET,
@@ -344,7 +344,7 @@ describe('Managed Database Service E2E', () => {
       }
 
       const response = await fetch(
-        `${BASE_URL}/database/${eqliteInstanceId}/restore`,
+        `${BASE_URL}/database/${sqlitInstanceId}/restore`,
         {
           method: 'POST',
           headers: {
@@ -388,7 +388,7 @@ describe('Managed Database Service E2E', () => {
     })
 
     test('should reject unauthorized access', async () => {
-      const response = await fetch(`${BASE_URL}/database/${eqliteInstanceId}`, {
+      const response = await fetch(`${BASE_URL}/database/${sqlitInstanceId}`, {
         headers: {
           'x-wallet-address': '0x0000000000000000000000000000000000000001',
         },
@@ -448,10 +448,10 @@ describe('Managed Database Service E2E', () => {
   // =========================================================================
 
   describe('Cleanup', () => {
-    test('should delete EQLite instance', async () => {
-      if (!eqliteInstanceId) return
+    test('should delete SQLit instance', async () => {
+      if (!sqlitInstanceId) return
 
-      const response = await fetch(`${BASE_URL}/database/${eqliteInstanceId}`, {
+      const response = await fetch(`${BASE_URL}/database/${sqlitInstanceId}`, {
         method: 'DELETE',
         headers: {
           'x-wallet-address': TEST_WALLET,
@@ -511,7 +511,7 @@ describe('Database API Validation', () => {
       },
       body: JSON.stringify({
         name: 'empty-plan-test',
-        engine: 'eqlite',
+        engine: 'sqlit',
         planId: '', // Empty plan ID - may be accepted with defaults
       }),
     })
@@ -530,7 +530,7 @@ describe('Database API Validation', () => {
       },
       body: JSON.stringify({
         name: 'a'.repeat(256), // Too long
-        engine: 'eqlite',
+        engine: 'sqlit',
         planId: 'starter',
       }),
     })

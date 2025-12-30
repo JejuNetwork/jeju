@@ -1,0 +1,52 @@
+{
+  "network": "testnet",
+  "startedAt": "2025-12-29T08:02:34.150Z",
+  "completedPhases": [
+    "infrastructure",
+    "chain",
+    "tokens",
+    "core-registry",
+    "tokens",
+    "core-registry",
+    "jns",
+    "dws",
+    "payments",
+    "node-staking",
+    "oif",
+    "compute",
+    "babylon-contracts",
+    "apps-deployment",
+    "babylon-app",
+    "verification"
+  ],
+  "currentPhase": "verification",
+  "coreContracts": {},
+  "babylonContracts": {},
+  "deployedApps": [
+    "gateway",
+    "bazaar",
+    "crucible",
+    "dws",
+    "factory",
+    "autocrat",
+    "documentation",
+    "babylon"
+  ],
+  "errors": [
+    {
+      "phase": "infrastructure",
+      "error": "Verification failed after execution",
+      "timestamp": "2025-12-29T08:02:35.399Z"
+    },
+    {
+      "phase": "tokens",
+      "error": "Verification failed after execution",
+      "timestamp": "2025-12-29T08:03:25.688Z"
+    },
+    {
+      "phase": "jns",
+      "error": "Verification failed after execution",
+      "timestamp": "2025-12-29T08:04:39.679Z"
+    }
+  ]
+}

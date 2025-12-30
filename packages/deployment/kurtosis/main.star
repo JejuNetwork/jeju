@@ -1,4 +1,4 @@
-# Jeju Localnet - Full Stack with EQLite + Solana
+# Jeju Localnet - Full Stack with SQLit + Solana
 # Pure TCP ports only - no UDP/QUIC issues on macOS!
 
 # Pinned versions for reproducibility (December 2025)
@@ -8,8 +8,8 @@ OP_GETH_VERSION = "v1.101603.5"  # Latest stable op-geth version
 OP_RETH_VERSION = "v1.1.2"
 SOLANA_VERSION = "v2.1.0"  # Solana validator version
 
-# EQLite - use the upstream image
-EQLITE_IMAGE = "eqlite/eqlite:latest"
+# SQLit - use the upstream image
+SQLIT_IMAGE = "sqlit/sqlit:latest"
 
 # Solana test validator - disabled by default as no official Docker image available
 # Build custom or use community image if needed
@@ -20,20 +20,20 @@ def run(plan, args={}):
     Full Jeju stack for local development:
     - L1: Geth --dev (auto-mines, no consensus needed)
     - L2: op-geth + op-node with P2P disabled (no UDP)
-    - EQLite: EQLite block producer for decentralized storage
+    - SQLit: SQLit block producer for decentralized storage
     - Solana: Test validator for cross-chain MEV/LP operations
     - Only TCP ports = works on macOS Docker Desktop
     """
     
     # Allow custom image overrides via args
-    eqlite_image = args.get("eqlite_image", EQLITE_IMAGE)
+    sqlit_image = args.get("sqlit_image", SQLIT_IMAGE)
     solana_image = args.get("solana_image", SOLANA_IMAGE)
-    enable_eqlite = args.get("enable_eqlite", False)  # Disabled by default - official image has incompatible entrypoint
+    enable_sqlit = args.get("enable_sqlit", False)  # Disabled by default - official image has incompatible entrypoint
     enable_solana = args.get("enable_solana", False)  # Disabled by default - no reliable Docker image
     
     plan.print("Starting Jeju Localnet...")
     plan.print("OP Stack: " + OP_STACK_VERSION)
-    plan.print("EQLite: " + eqlite_image)
+    plan.print("SQLit: " + sqlit_image)
     if enable_solana:
         plan.print("Solana: " + solana_image)
     plan.print("")
@@ -100,12 +100,12 @@ def run(plan, args={}):
     
     services = ["geth-l1", "op-geth"]
     
-    # EQLite: Decentralized database for messaging and storage (optional)
-    if enable_eqlite:
-        eqlite_config = plan.render_templates(
+    # SQLit: Decentralized database for messaging and storage (optional)
+    if enable_sqlit:
+        sqlit_config = plan.render_templates(
             config={
                 "config.yaml": struct(
-                    template="""# EQLite single-node config for local development
+                    template="""# SQLit single-node config for local development
 WorkingRoot: "/data"
 ThisNodeID: "00000000000000000000000000000000"
 ListenAddr: "0.0.0.0:4661"
@@ -118,13 +118,13 @@ Genesis:
                     data={},
                 ),
             },
-            name="eqlite-config",
+            name="sqlit-config",
         )
         
-        eqlite = plan.add_service(
-            name="eqlite",
+        sqlit = plan.add_service(
+            name="sqlit",
             config=ServiceConfig(
-                image=eqlite_image,
+                image=sqlit_image,
                 ports={
                     "api": PortSpec(number=4661, transport_protocol="TCP", application_protocol="http"),
                     "rpc": PortSpec(number=4661, transport_protocol="TCP"),
@@ -134,16 +134,16 @@ Genesis:
                     "-single-node",
                 ],
                 env_vars={
-                    "EQLITE_LOG_LEVEL": "info",
+                    "SQLIT_LOG_LEVEL": "info",
                 },
                 files={
-                    "/app": eqlite_config,
+                    "/app": sqlit_config,
                 },
             )
         )
         
-        plan.print("EQLite started")
-        services.append("eqlite")
+        plan.print("SQLit started")
+        services.append("sqlit")
     
     if enable_solana:
         solana = plan.add_service(
@@ -182,8 +182,8 @@ Genesis:
     plan.print("Endpoints:")
     plan.print("  L1 RPC:     http://127.0.0.1:6545")
     plan.print("  L2 RPC:     http://127.0.0.1:6546  (use port forwarding)")
-    if enable_eqlite:
-        plan.print("  EQLite API:    http://127.0.0.1:4661  (use port forwarding)")
+    if enable_sqlit:
+        plan.print("  SQLit API:    http://127.0.0.1:4661  (use port forwarding)")
     if enable_solana:
         plan.print("  Solana RPC: http://127.0.0.1:8899  (use port forwarding)")
         plan.print("  Solana WS:  ws://127.0.0.1:8900   (use port forwarding)")
@@ -193,8 +193,8 @@ Genesis:
     plan.print("")
     plan.print("Port forwarding commands:")
     plan.print("  kurtosis port print jeju-localnet op-geth rpc")
-    if enable_eqlite:
-        plan.print("  kurtosis port print jeju-localnet eqlite api")
+    if enable_sqlit:
+        plan.print("  kurtosis port print jeju-localnet sqlit api")
     if enable_solana:
         plan.print("  kurtosis port print jeju-localnet solana-validator rpc")
     plan.print("")

@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
 /**
- * Build EQLite from local source
+ * Build SQLit from local source
  *
- * Compiles EQLite binaries for the current platform or cross-compiles for deployment.
+ * Compiles SQLit binaries for the current platform or cross-compiles for deployment.
  * Supports building for:
  * - Local development (native platform)
  * - Docker multi-arch (linux/amd64, linux/arm64)
@@ -18,14 +18,14 @@ import { spawn, spawnSync } from 'bun'
 // Config
 // ============================================================================
 
-const EQLITE_SOURCE_DIR = path.resolve(import.meta.dir, '../../../eqlite')
-const OUTPUT_DIR = path.resolve(import.meta.dir, '../../../eqlite/bin')
+const SQLIT_SOURCE_DIR = path.resolve(import.meta.dir, '../../../sqlit')
+const OUTPUT_DIR = path.resolve(import.meta.dir, '../../../sqlit/bin')
 
 const BINARIES = [
-  { name: 'eqlite', path: './cmd/eqlite' },
-  { name: 'eqlited', path: './cmd/eqlited' },
-  { name: 'eqlite-minerd', path: './cmd/eqlite-minerd' },
-  { name: 'eqlite-proxy', path: './cmd/eqlite-proxy' },
+  { name: 'sqlit', path: './cmd/sqlit' },
+  { name: 'sqlitd', path: './cmd/sqlitd' },
+  { name: 'sqlit-minerd', path: './cmd/sqlit-minerd' },
+  { name: 'sqlit-proxy', path: './cmd/sqlit-proxy' },
 ] as const
 
 interface BuildOptions {
@@ -47,16 +47,16 @@ async function checkGoInstalled(): Promise<void> {
     throw new Error('Go is not installed or not in PATH')
   }
   console.log(
-    `[EQLite Build] ${new TextDecoder().decode(result.stdout).trim()}`,
+    `[SQLit Build] ${new TextDecoder().decode(result.stdout).trim()}`,
   )
 }
 
 async function ensureModulesDownloaded(): Promise<void> {
-  console.log('[EQLite Build] Downloading Go modules...')
+  console.log('[SQLit Build] Downloading Go modules...')
 
   const proc = spawn({
     cmd: ['go', 'mod', 'download'],
-    cwd: EQLITE_SOURCE_DIR,
+    cwd: SQLIT_SOURCE_DIR,
     stdout: 'inherit',
     stderr: 'inherit',
     env: {
@@ -80,7 +80,7 @@ async function buildBinary(
 
   const outputPath = path.join(OUTPUT_DIR, outputName)
 
-  console.log(`[EQLite Build] Building ${binary.name}...`)
+  console.log(`[SQLit Build] Building ${binary.name}...`)
 
   const ldflags = ['-s', '-w']
 
@@ -117,7 +117,7 @@ async function buildBinary(
 
   const proc = spawn({
     cmd: ['go', ...buildArgs],
-    cwd: EQLITE_SOURCE_DIR,
+    cwd: SQLIT_SOURCE_DIR,
     stdout: 'inherit',
     stderr: 'inherit',
     env,
@@ -131,7 +131,7 @@ async function buildBinary(
   // Make executable
   chmodSync(outputPath, 0o755)
 
-  console.log(`[EQLite Build] Built ${binary.name} -> ${outputPath}`)
+  console.log(`[SQLit Build] Built ${binary.name} -> ${outputPath}`)
 }
 
 async function buildAll(options: BuildOptions): Promise<void> {
@@ -151,7 +151,7 @@ async function buildAll(options: BuildOptions): Promise<void> {
     await buildBinary(binary, options)
   }
 
-  console.log('[EQLite Build] All binaries built successfully')
+  console.log('[SQLit Build] All binaries built successfully')
 }
 
 // ============================================================================
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
         break
       case '--help':
         console.log(`
-Usage: bun run build-eqlite.ts [options]
+Usage: bun run build-sqlit.ts [options]
 
 Options:
   --linux     Build for Linux
@@ -205,24 +205,24 @@ Options:
   --help      Show this help
 
 Examples:
-  bun run build-eqlite.ts                    # Build for current platform
-  bun run build-eqlite.ts --linux --amd64    # Cross-compile for Linux x64
-  bun run build-eqlite.ts --tee --linux      # Build for TEE on Linux
+  bun run build-sqlit.ts                    # Build for current platform
+  bun run build-sqlit.ts --linux --amd64    # Cross-compile for Linux x64
+  bun run build-sqlit.ts --tee --linux      # Build for TEE on Linux
 `)
         process.exit(0)
     }
   }
 
-  console.log('[EQLite Build] Starting build...')
-  console.log(`[EQLite Build] Source: ${EQLITE_SOURCE_DIR}`)
-  console.log(`[EQLite Build] Output: ${OUTPUT_DIR}`)
-  console.log(`[EQLite Build] Options: ${JSON.stringify(options)}`)
+  console.log('[SQLit Build] Starting build...')
+  console.log(`[SQLit Build] Source: ${SQLIT_SOURCE_DIR}`)
+  console.log(`[SQLit Build] Output: ${OUTPUT_DIR}`)
+  console.log(`[SQLit Build] Options: ${JSON.stringify(options)}`)
 
   await buildAll(options)
 }
 
 main().catch((err) => {
-  console.error('[EQLite Build] Error:', err)
+  console.error('[SQLit Build] Error:', err)
   process.exit(1)
 })
 

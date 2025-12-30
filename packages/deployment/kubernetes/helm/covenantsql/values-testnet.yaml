@@ -1,4 +1,4 @@
-# EQLite Testnet Values
+# SQLit Testnet Values
 # Deployment configuration for Base Sepolia testnet
 
 global:
@@ -6,7 +6,7 @@ global:
   chainId: 84532
 
 image:
-  repository: ghcr.io/jeju-network/eqlite
+  repository: ghcr.io/jeju-network/sqlit
   tag: "v0.8.1"
 
 # Block Producer - single instance
@@ -56,14 +56,14 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: eqlite.testnet.jejunetwork.org
+    - host: sqlit.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: eqlite-testnet-tls
+    - secretName: sqlit-testnet-tls
       hosts:
-        - eqlite.testnet.jejunetwork.org
+        - sqlit.testnet.jejunetwork.org
 
 # RPC endpoints
 rpc:
@@ -71,7 +71,7 @@ rpc:
   fallback: "https://base-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 
 # Contract addresses from unified deployment
-# EQLite uses ComputeRegistry (with serviceType=database) instead of separate contracts
+# SQLit uses ComputeRegistry (with serviceType=database) instead of separate contracts
 contracts:
   computeRegistry: ""
   serviceRegistry: ""
@@ -79,7 +79,7 @@ contracts:
 
 # Operator configuration
 operator:
-  privateKeySecret: eqlite-operator-testnet
+  privateKeySecret: sqlit-operator-testnet
   privateKeyKey: private-key
   heartbeatIntervalMs: 60000
   autoRegister: true

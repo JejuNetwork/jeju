@@ -10,7 +10,7 @@ function _requireEnv(name: string): string {
 }
 
 const IS_PRODUCTION = config.isProduction
-const IS_EQLITE_ONLY_MODE = config.indexerMode === 'eqlite-only'
+const IS_SQLIT_ONLY_MODE = config.indexerMode === 'sqlit-only'
 
 function _parsePort(portStr: string, defaultPort: number): number {
   const port = parseInt(portStr, 10)
@@ -42,7 +42,7 @@ function getDBConfig(): {
   username: string
   password: string
 } {
-  if (IS_EQLITE_ONLY_MODE) {
+  if (IS_SQLIT_ONLY_MODE) {
     // Return dummy config - won't be used but needed for TypeORM initialization
     return {
       host: 'localhost',
@@ -122,8 +122,8 @@ let schemaVerified = false
 /**
  * Get the database mode the indexer is running in
  */
-export function getIndexerMode(): 'postgres' | 'eqlite-only' | 'unavailable' {
-  if (IS_EQLITE_ONLY_MODE) return 'eqlite-only'
+export function getIndexerMode(): 'postgres' | 'sqlit-only' | 'unavailable' {
+  if (IS_SQLIT_ONLY_MODE) return 'sqlit-only'
   if (postgresAvailable) return 'postgres'
   return 'unavailable'
 }
@@ -151,10 +151,10 @@ export function setSchemaVerified(verified: boolean): void {
 
 /**
  * Initialize and return the DataSource connection.
- * In EQLite-only mode, returns null without attempting PostgreSQL connection.
+ * In SQLit-only mode, returns null without attempting PostgreSQL connection.
  */
 export async function getDataSource(): Promise<DataSource | null> {
-  if (IS_EQLITE_ONLY_MODE) return null
+  if (IS_SQLIT_ONLY_MODE) return null
   if (dataSource?.isInitialized) return dataSource
 
   const entities = Object.values(models).filter(
@@ -201,8 +201,8 @@ export async function getDataSourceWithRetry(
   maxRetries = 3,
   retryDelayMs = 2000,
 ): Promise<DataSource | null> {
-  if (IS_EQLITE_ONLY_MODE) {
-    console.log('[DB] EQLite-only mode - PostgreSQL disabled')
+  if (IS_SQLIT_ONLY_MODE) {
+    console.log('[DB] SQLit-only mode - PostgreSQL disabled')
     return null
   }
 

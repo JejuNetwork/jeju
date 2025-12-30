@@ -244,8 +244,8 @@ export interface CacheConfig {
 export interface CacheServiceConfig extends CacheConfig {
   /** Listen port */
   port: number
-  /** EQLite database ID */
-  eqliteDatabaseId: string
+  /** SQLit database ID */
+  sqlitDatabaseId: string
   /** Node discovery via ERC-8004 */
   identityRegistryAddress: Address
   /** RPC URL */

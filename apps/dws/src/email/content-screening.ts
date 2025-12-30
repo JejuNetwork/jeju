@@ -1,5 +1,5 @@
 import { getDWSComputeUrl, getDWSUrl } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import {
@@ -20,21 +20,21 @@ import type {
   ViolationSummary,
 } from './types'
 
-// ============ EQLite Database Setup ============
+// ============ SQLit Database Setup ============
 
 const EMAIL_SCREENING_DATABASE_ID = 'dws-email-screening'
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureScreeningTables()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureScreeningTables(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const createAccountFlagsTable = `
     CREATE TABLE IF NOT EXISTS email_account_flags (
@@ -76,34 +76,34 @@ async function ensureScreeningTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_moderation_queue_processed ON email_moderation_queue(processed, created_at)
   `
 
-  await eqliteClient.exec(
+  await sqlitClient.exec(
     createAccountFlagsTable,
     [],
     EMAIL_SCREENING_DATABASE_ID,
   )
-  await eqliteClient.exec(
+  await sqlitClient.exec(
     createAccountFlagsIndex,
     [],
     EMAIL_SCREENING_DATABASE_ID,
   )
-  await eqliteClient.exec(
+  await sqlitClient.exec(
     createAccountStatsTable,
     [],
     EMAIL_SCREENING_DATABASE_ID,
   )
-  await eqliteClient.exec(
+  await sqlitClient.exec(
     createModerationQueueTable,
     [],
     EMAIL_SCREENING_DATABASE_ID,
   )
-  await eqliteClient.exec(
+  await sqlitClient.exec(
     createModerationQueueIndex,
     [],
     EMAIL_SCREENING_DATABASE_ID,
   )
 }
 
-// EQLite row types
+// SQLit row types
 interface AccountFlagRow {
   id: number
   address: string
@@ -327,7 +327,7 @@ export class ContentScreeningPipeline {
       })
     }
 
-    // Track flags for account (EQLite-backed)
+    // Track flags for account (SQLit-backed)
     await this.trackAccountFlag(senderAddress, flags)
     await this.incrementAccountEmailCount(senderAddress)
 
@@ -461,7 +461,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Track flags for an account (EQLite-backed)
+   * Track flags for an account (SQLit-backed)
    */
   private async trackAccountFlag(
     address: Address,
@@ -469,7 +469,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   ): Promise<void> {
     if (flags.length === 0) return
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
     const normalizedAddress = address.toLowerCase()
 
@@ -491,10 +491,10 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Increment account email count (EQLite-backed)
+   * Increment account email count (SQLit-backed)
    */
   private async incrementAccountEmailCount(address: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const normalizedAddress = address.toLowerCase()
     const now = Date.now()
 
@@ -510,10 +510,10 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Check if account review is needed (EQLite-backed)
+   * Check if account review is needed (SQLit-backed)
    */
   private async shouldTriggerAccountReview(address: Address): Promise<boolean> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const normalizedAddress = address.toLowerCase()
 
     // Get email count
@@ -555,7 +555,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Perform full account review with LLM and submit to moderation system (EQLite-backed)
+   * Perform full account review with LLM and submit to moderation system (SQLit-backed)
    */
   async performAccountReview(address: Address): Promise<AccountReview> {
     const flags = await this.getAccountFlags(address)
@@ -757,10 +757,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Queue review in EQLite when moderation endpoint is unavailable
+   * Queue review in SQLit when moderation endpoint is unavailable
    */
   private async queueModerationReview(review: AccountReview): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -779,7 +779,7 @@ Return ONLY valid JSON:
     )
 
     console.log(
-      `[ContentScreening] Review queued in EQLite for ${review.account}`,
+      `[ContentScreening] Review queued in SQLit for ${review.account}`,
     )
     console.warn(
       `[ContentScreening] Moderation review pending for ${review.account}: ${review.recommendation}`,
@@ -787,10 +787,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Get pending moderation reviews from EQLite (for retry processing)
+   * Get pending moderation reviews from SQLit (for retry processing)
    */
   async getPendingModerationReviews(): Promise<AccountReview[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<ModerationQueueRow>(
       `SELECT * FROM email_moderation_queue WHERE processed = 0 ORDER BY created_at ASC`,
@@ -814,10 +814,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Clear a review from the queue after successful submission (EQLite-backed)
+   * Clear a review from the queue after successful submission (SQLit-backed)
    */
   async clearModerationReview(account: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const normalizedAccount = account.toLowerCase()
 
     await client.exec(
@@ -828,7 +828,7 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Retry submitting pending reviews to moderation system (EQLite-backed)
+   * Retry submitting pending reviews to moderation system (SQLit-backed)
    */
   async retryPendingReviews(): Promise<{ submitted: number; failed: number }> {
     const pending = await this.getPendingModerationReviews()
@@ -849,7 +849,7 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Determine screening action based on flags and scores (EQLite-backed)
+   * Determine screening action based on flags and scores (SQLit-backed)
    */
   private async determineAction(
     flags: ContentFlag[],
@@ -881,7 +881,7 @@ Return ONLY valid JSON:
       return 'review'
     }
 
-    // Check account history (EQLite-backed)
+    // Check account history (SQLit-backed)
     const accountFlags = await this.getAccountFlags(address)
     if (accountFlags.length > 5) {
       return 'review'
@@ -1083,10 +1083,10 @@ Return ONLY valid JSON:
   // ============ Account Management ============
 
   /**
-   * Clear flags for an account (after moderation resolution) (EQLite-backed)
+   * Clear flags for an account (after moderation resolution) (SQLit-backed)
    */
   async clearAccountFlags(address: Address): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const normalizedAddress = address.toLowerCase()
 
     await client.exec(
@@ -1103,10 +1103,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Get account flags for review (EQLite-backed)
+   * Get account flags for review (SQLit-backed)
    */
   async getAccountFlags(address: Address): Promise<ContentFlag[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const normalizedAddress = address.toLowerCase()
 
     const result = await client.query<AccountFlagRow>(
@@ -1124,10 +1124,10 @@ Return ONLY valid JSON:
   }
 
   /**
-   * Get account email count (EQLite-backed)
+   * Get account email count (SQLit-backed)
    */
   async getAccountEmailCount(address: Address): Promise<number> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const normalizedAddress = address.toLowerCase()
 
     const result = await client.query<Pick<AccountStatsRow, 'email_count'>>(

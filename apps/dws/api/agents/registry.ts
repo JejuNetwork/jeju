@@ -8,8 +8,8 @@ import type { Address } from 'viem'
 import { z } from 'zod'
 import { isAgentStatus, isCronAction } from '../shared/utils/type-guards'
 
-// Generic EQLite rows response schema
-const EqliteRowsResponseSchema = z.object({
+// Generic SQLit rows response schema
+const SQLitRowsResponseSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).optional(),
 })
 
@@ -70,11 +70,11 @@ type SqlParam = string | number | boolean | null
 // Registry Configuration
 
 export interface RegistryConfig {
-  eqliteUrl: string
+  sqlitUrl: string
   databaseId: string
 }
 
-// EQLite-backed storage - no in-memory caching for serverless compatibility
+// SQLit-backed storage - no in-memory caching for serverless compatibility
 
 let registryConfig: RegistryConfig | null = null
 let initialized = false
@@ -86,16 +86,16 @@ export async function initRegistry(config: RegistryConfig): Promise<void> {
 
   registryConfig = config
 
-  // EQLite is required - no fallback to in-memory
+  // SQLit is required - no fallback to in-memory
   await createTables()
-  console.log('[AgentRegistry] Initialized with EQLite')
+  console.log('[AgentRegistry] Initialized with SQLit')
 
   initialized = true
 }
 
 async function createTables(): Promise<void> {
   if (!registryConfig) {
-    throw new Error('[AgentRegistry] EQLite config is required')
+    throw new Error('[AgentRegistry] SQLit config is required')
   }
 
   const tables = [
@@ -151,11 +151,11 @@ async function createTables(): Promise<void> {
   ]
 
   for (const sql of tables) {
-    await eqliteExec(sql)
+    await sqlitExec(sql)
   }
 }
 
-// Helper to convert EQLite row to AgentConfig
+// Helper to convert SQLit row to AgentConfig
 function rowToAgentConfig(row: {
   id: string
   owner: string
@@ -199,7 +199,7 @@ function rowToAgentConfig(row: {
   }
 }
 
-// Helper to convert EQLite row to AgentCronTrigger
+// Helper to convert SQLit row to AgentCronTrigger
 function rowToCronTrigger(row: {
   id: string
   agent_id: string
@@ -258,8 +258,8 @@ export async function registerAgent(
     metadata: request.metadata,
   }
 
-  // Store in EQLite
-  await eqliteExec(
+  // Store in SQLit
+  await sqlitExec(
     `INSERT INTO agents (id, owner, character, models, runtime, status, created_at, updated_at, metadata)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -287,7 +287,7 @@ export async function registerAgent(
 }
 
 export async function getAgent(id: string): Promise<AgentConfig | null> {
-  const rows = await eqliteQuery<{
+  const rows = await sqlitQuery<{
     id: string
     owner: string
     character: string
@@ -307,7 +307,7 @@ export async function getAgent(id: string): Promise<AgentConfig | null> {
 }
 
 export async function getAgentsByOwner(owner: Address): Promise<AgentConfig[]> {
-  const rows = await eqliteQuery<{
+  const rows = await sqlitQuery<{
     id: string
     owner: string
     character: string
@@ -343,7 +343,7 @@ export async function listAgents(filter?: {
     params.push(filter.owner.toLowerCase())
   }
 
-  const rows = await eqliteQuery<{
+  const rows = await sqlitQuery<{
     id: string
     owner: string
     character: string
@@ -387,8 +387,8 @@ export async function updateAgent(
 
   agent.updatedAt = Date.now()
 
-  // Update in EQLite
-  await eqliteExec(
+  // Update in SQLit
+  await sqlitExec(
     `UPDATE agents SET character = ?, models = ?, runtime = ?, updated_at = ?, metadata = ? WHERE id = ?`,
     [
       JSON.stringify(agent.character),
@@ -408,7 +408,7 @@ export async function updateAgentStatus(
   status: AgentStatus,
 ): Promise<void> {
   const now = Date.now()
-  await eqliteExec(
+  await sqlitExec(
     'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
     [status, now, id],
   )
@@ -426,13 +426,13 @@ export async function terminateAgent(
 
   const now = Date.now()
 
-  await eqliteExec(
+  await sqlitExec(
     'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
     ['terminated', now, id],
   )
 
   // Disable cron triggers
-  await eqliteExec(
+  await sqlitExec(
     'UPDATE agent_cron_triggers SET enabled = 0 WHERE agent_id = ?',
     [id],
   )
@@ -459,7 +459,7 @@ export async function addCronTrigger(
     runCount: 0,
   }
 
-  await eqliteExec(
+  await sqlitExec(
     `INSERT INTO agent_cron_triggers (id, agent_id, schedule, action, payload, enabled, run_count)
      VALUES (?, ?, ?, ?, ?, 1, 0)`,
     [
@@ -477,7 +477,7 @@ export async function addCronTrigger(
 export async function getCronTriggers(
   agentId: string,
 ): Promise<AgentCronTrigger[]> {
-  const rows = await eqliteQuery<{
+  const rows = await sqlitQuery<{
     id: string
     agent_id: string
     schedule: string
@@ -493,7 +493,7 @@ export async function getCronTriggers(
 }
 
 export async function getAllActiveCronTriggers(): Promise<AgentCronTrigger[]> {
-  const rows = await eqliteQuery<{
+  const rows = await sqlitQuery<{
     id: string
     agent_id: string
     schedule: string
@@ -510,7 +510,7 @@ export async function getAllActiveCronTriggers(): Promise<AgentCronTrigger[]> {
 
 export async function updateCronTriggerRun(triggerId: string): Promise<void> {
   const now = Date.now()
-  await eqliteExec(
+  await sqlitExec(
     'UPDATE agent_cron_triggers SET last_run_at = ?, run_count = run_count + 1 WHERE id = ?',
     [now, triggerId],
   )
@@ -526,7 +526,7 @@ export async function recordInvocation(
   const now = Date.now()
 
   // Use UPSERT pattern to update metrics
-  await eqliteExec(
+  await sqlitExec(
     `INSERT INTO agent_metrics (agent_id, invocation_count, error_count, total_latency_ms, latency_samples, updated_at)
      VALUES (?, 1, ?, ?, 1, ?)
      ON CONFLICT(agent_id) DO UPDATE SET
@@ -545,7 +545,7 @@ export async function getAgentStats(
   const agent = await getAgent(agentId)
   if (!agent) return null
 
-  const rows = await eqliteQuery<{
+  const rows = await sqlitQuery<{
     agent_id: string
     invocation_count: number
     error_count: number
@@ -568,13 +568,13 @@ export async function getAgentStats(
     avgLatencyMs: Math.round(avgLatency),
     errorRate,
     activeInstances: 0, // Populated by executor.getAgentInstances()
-    memoriesCount: 0, // Populated via EQLite query in routes.ts
+    memoriesCount: 0, // Populated via SQLit query in routes.ts
   }
 }
 
-// EQLite Helpers
+// SQLit Helpers
 
-async function eqliteQuery<T>(
+async function sqlitQuery<T>(
   sql: string,
   params: SqlParam[] = [],
 ): Promise<T[]> {
@@ -584,7 +584,7 @@ async function eqliteQuery<T>(
     )
   }
 
-  const response = await fetch(`${registryConfig.eqliteUrl}/api/v1/query`, {
+  const response = await fetch(`${registryConfig.sqlitUrl}/api/v1/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -600,22 +600,22 @@ async function eqliteQuery<T>(
   if (!response.ok) {
     const text = await response.text()
     throw new Error(
-      `[AgentRegistry] EQLite query failed: ${response.status} - ${text}`,
+      `[AgentRegistry] SQLit query failed: ${response.status} - ${text}`,
     )
   }
 
-  const data = validateOrNull(EqliteRowsResponseSchema, await response.json())
+  const data = validateOrNull(SQLitRowsResponseSchema, await response.json())
   return (data?.rows as T[]) ?? []
 }
 
-async function eqliteExec(sql: string, params: SqlParam[] = []): Promise<void> {
+async function sqlitExec(sql: string, params: SqlParam[] = []): Promise<void> {
   if (!registryConfig) {
     throw new Error(
       '[AgentRegistry] Registry not initialized - call initRegistry first',
     )
   }
 
-  const response = await fetch(`${registryConfig.eqliteUrl}/api/v1/query`, {
+  const response = await fetch(`${registryConfig.sqlitUrl}/api/v1/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -631,7 +631,7 @@ async function eqliteExec(sql: string, params: SqlParam[] = []): Promise<void> {
   if (!response.ok) {
     const text = await response.text()
     throw new Error(
-      `[AgentRegistry] EQLite exec failed: ${response.status} - ${text}`,
+      `[AgentRegistry] SQLit exec failed: ${response.status} - ${text}`,
     )
   }
 }
@@ -650,19 +650,19 @@ export async function getRegistryStats(): Promise<{
 }> {
   const [totalResult, activeResult, pendingResult, triggersResult] =
     await Promise.all([
-      eqliteQuery<{ count: number }>(
+      sqlitQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agents WHERE status != ?',
         ['terminated'],
       ),
-      eqliteQuery<{ count: number }>(
+      sqlitQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agents WHERE status = ?',
         ['active'],
       ),
-      eqliteQuery<{ count: number }>(
+      sqlitQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agents WHERE status = ?',
         ['pending'],
       ),
-      eqliteQuery<{ count: number }>(
+      sqlitQuery<{ count: number }>(
         'SELECT COUNT(*) as count FROM agent_cron_triggers WHERE enabled = 1',
         [],
       ),

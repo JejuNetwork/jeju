@@ -6,16 +6,16 @@
  *
  * Required for tests:
  * - Docker (for container tests)
- * - EQLite (for database tests)
+ * - SQLit (for database tests)
  * - Chain (for on-chain tests)
  * - AI providers (for inference tests)
  */
 
-import { getEQLiteBlockProducerUrl, getJejuRpcUrl } from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl, getJejuRpcUrl } from '@jejunetwork/config'
 
 export interface TestEnvironment {
   docker: boolean
-  eqlite: boolean
+  sqlit: boolean
   chain: boolean
   openai: boolean
   anthropic: boolean
@@ -38,11 +38,11 @@ async function checkDocker(): Promise<boolean> {
 }
 
 /**
- * Check if EQLite is available
+ * Check if SQLit is available
  */
-async function checkEQLite(): Promise<boolean> {
+async function checkSQLit(): Promise<boolean> {
   const url =
-    process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT ?? getEQLiteBlockProducerUrl()
+    process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT ?? getSQLitBlockProducerUrl()
   if (!url) return false
 
   try {
@@ -84,15 +84,15 @@ async function checkChain(): Promise<boolean> {
  * Detect available test environment
  */
 export async function detectEnvironment(): Promise<TestEnvironment> {
-  const [docker, eqlite, chain] = await Promise.all([
+  const [docker, sqlit, chain] = await Promise.all([
     checkDocker(),
-    checkEQLite(),
+    checkSQLit(),
     checkChain(),
   ])
 
   return {
     docker,
-    eqlite,
+    sqlit,
     chain,
     openai: !!process.env.OPENAI_API_KEY,
     anthropic: !!process.env.ANTHROPIC_API_KEY,
@@ -133,10 +133,10 @@ To enable Docker tests:
   2. Start Docker daemon: sudo systemctl start docker
   3. Verify: docker info`,
 
-  eqlite: `
-To enable EQLite tests:
-  1. Start EQLite: bun run jeju start eqlite
-  2. Or set: export EQLITE_BLOCK_PRODUCER_ENDPOINT=http://localhost:4444
+  sqlit: `
+To enable SQLit tests:
+  1. Start SQLit: bun run jeju start sqlit
+  2. Or set: export SQLIT_BLOCK_PRODUCER_ENDPOINT=http://localhost:4444
   3. Verify: curl http://localhost:4444/health`,
 
   chain: `
@@ -168,7 +168,7 @@ export async function requireFullEnvironment(): Promise<TestEnvironment> {
   const env = await detectEnvironment()
 
   requireDependency('Docker', env.docker, SETUP_INSTRUCTIONS.docker)
-  requireDependency('EQLite', env.eqlite, SETUP_INSTRUCTIONS.eqlite)
+  requireDependency('SQLit', env.sqlit, SETUP_INSTRUCTIONS.sqlit)
   requireDependency('Jeju Chain', env.chain, SETUP_INSTRUCTIONS.chain)
 
   // AI providers - at least one must be available

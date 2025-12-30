@@ -1,17 +1,19 @@
 {
   "name": "@jejunetwork/db",
   "version": "0.1.0",
-  "description": "Database Integration for Jeju Network - Powered by EQLite",
+  "description": "Database Integration for Jeju Network - Powered by SQLit",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./adapters": {
+      "bun": "./src/adapters/index.ts",
       "types": "./dist/adapters/index.d.ts",
       "import": "./dist/adapters/index.js"
     }
@@ -26,7 +28,7 @@
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/config": "workspace:*",
-    "@jejunetwork/eqlite": "workspace:*",
+    "@jejunetwork/sqlit": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "elysia": "^1.4.19",
     "generic-pool": "^3.9.0",

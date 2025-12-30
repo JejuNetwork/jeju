@@ -1,12 +1,12 @@
-# EQLite Multi-Architecture Build with sqlite-vec Vector Search
+# SQLit Multi-Architecture Build with sqlite-vec Vector Search
 # Builds for both amd64 and arm64 architectures
 #
 # Features:
-# - EQLite distributed database
+# - SQLit distributed database
 # - sqlite-vec for vector similarity search (MIT/Apache-2.0)
 #
 # Build locally (single platform):
-#   docker buildx build --platform linux/arm64 -t eqlite:latest --load .
+#   docker buildx build --platform linux/arm64 -t sqlit:latest --load .
 #
 # Build multi-arch and push:
 #   docker buildx build --platform linux/amd64,linux/arm64 -t $ECR_REPO:latest --push .
@@ -33,10 +33,10 @@ ARG SQLITE_VEC_VERSION
 RUN git clone --depth 1 --branch ${SQLITE_VEC_VERSION} https://github.com/asg017/sqlite-vec.git /sqlite-vec || \
     git clone --depth 1 https://github.com/asg017/sqlite-vec.git /sqlite-vec
 
-# Clone EQLite source
-ARG EQLITE_VERSION=v0.8.1
-RUN git clone --depth 1 --branch ${EQLITE_VERSION} https://github.com/EQLite/EQLite.git . || \
-    git clone --depth 1 https://github.com/EQLite/EQLite.git .
+# Clone SQLit source
+ARG SQLIT_VERSION=v0.8.1
+RUN git clone --depth 1 --branch ${SQLIT_VERSION} https://github.com/SQLit/SQLit.git . || \
+    git clone --depth 1 https://github.com/SQLit/SQLit.git .
 
 # Add sqlite-vec Go bindings to dependencies
 RUN go get -u github.com/asg017/sqlite-vec-go-bindings/cgo@latest
@@ -53,11 +53,11 @@ RUN mkdir -p /out
 # Build with CGO enabled (required for secp256k1, sqlite3, and sqlite-vec)
 # sqlite-vec is statically linked via the Go bindings
 # Build each binary separately for better cache utilization
-RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/eqlite ./cmd/eqlite
-RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/eqlited ./cmd/eqlited
-RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/eqlite-minerd ./cmd/eqlite-minerd || \
-    (sleep 5 && CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/eqlite-minerd ./cmd/eqlite-minerd)
-RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/eqlite-fuse ./cmd/eqlite-fuse 2>/dev/null || echo "eqlite-fuse build skipped"
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/sqlit ./cmd/sqlit
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/sqlitd ./cmd/sqlitd
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/sqlit-minerd ./cmd/sqlit-minerd || \
+    (sleep 5 && CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/sqlit-minerd ./cmd/sqlit-minerd)
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /out/sqlit-fuse ./cmd/sqlit-fuse 2>/dev/null || echo "sqlit-fuse build skipped"
 
 # Runtime stage - use slim Debian for smaller image with glibc
 FROM debian:bookworm-slim
@@ -69,16 +69,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN groupadd -r eqlite && useradd -r -g eqlite eqlite
+RUN groupadd -r sqlit && useradd -r -g sqlit sqlit
 
 # Copy binaries
-COPY --from=builder /out/eqlite /usr/local/bin/
-COPY --from=builder /out/eqlited /usr/local/bin/
-COPY --from=builder /out/eqlite-minerd /usr/local/bin/
+COPY --from=builder /out/sqlit /usr/local/bin/
+COPY --from=builder /out/sqlitd /usr/local/bin/
+COPY --from=builder /out/sqlit-minerd /usr/local/bin/
 
 # Create directories
 RUN mkdir -p /config /data /logs && \
-    chown -R eqlite:eqlite /config /data /logs
+    chown -R sqlit:sqlit /config /data /logs
 
 # Expose ports
 # 4661: Client connections
@@ -91,7 +91,7 @@ EXPOSE 4661 4662 4663 8546 9100
 # Volume mounts
 VOLUME ["/config", "/data", "/logs"]
 
-USER eqlite
+USER sqlit
 
 WORKDIR /data
 
@@ -99,5 +99,5 @@ WORKDIR /data
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -sf http://localhost:8546/v1/health || exit 1
 
-ENTRYPOINT ["eqlited"]
+ENTRYPOINT ["sqlitd"]
 CMD ["-config", "/config/config.yaml"]

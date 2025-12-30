@@ -1,14 +1,14 @@
 /**
  * Extended Task Store
  *
- * EQLite-backed task store implementation with tasks/list functionality
+ * SQLit-backed task store implementation with tasks/list functionality
  * for full A2A protocol compliance. Provides filtering, pagination,
  * and task history management with persistent storage.
  *
  * @public
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { JsonValue } from '@jejunetwork/types'
 import { z } from 'zod'
 import type { Message, Task, TaskArtifact, TaskStore } from '../types/server'
@@ -55,20 +55,20 @@ const TaskArtifactSchema = z.object({
 const HistorySchema = z.array(MessageSchema)
 const ArtifactsSchema = z.array(TaskArtifactSchema)
 
-// EQLite Database configuration
+// SQLit Database configuration
 const A2A_TASKS_DATABASE_ID = 'a2a-tasks'
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureTasksTable()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureTasksTable(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const createTableSQL = `
     CREATE TABLE IF NOT EXISTS a2a_tasks (
@@ -93,13 +93,13 @@ async function ensureTasksTable(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_tasks_updated ON a2a_tasks(updated_at DESC)
   `
 
-  await eqliteClient.exec(createTableSQL, [], A2A_TASKS_DATABASE_ID)
-  await eqliteClient.exec(createContextIndex, [], A2A_TASKS_DATABASE_ID)
-  await eqliteClient.exec(createStatusIndex, [], A2A_TASKS_DATABASE_ID)
-  await eqliteClient.exec(createUpdatedIndex, [], A2A_TASKS_DATABASE_ID)
+  await sqlitClient.exec(createTableSQL, [], A2A_TASKS_DATABASE_ID)
+  await sqlitClient.exec(createContextIndex, [], A2A_TASKS_DATABASE_ID)
+  await sqlitClient.exec(createStatusIndex, [], A2A_TASKS_DATABASE_ID)
+  await sqlitClient.exec(createUpdatedIndex, [], A2A_TASKS_DATABASE_ID)
 }
 
-// EQLite row type
+// SQLit row type
 interface TaskRow {
   id: string
   context_id: string
@@ -189,18 +189,18 @@ export interface ListTasksResult {
 }
 
 /**
- * EQLite-backed task store with list capability
+ * SQLit-backed task store with list capability
  *
  * Provides task storage and retrieval with filtering, pagination, and
  * history management for A2A protocol compliance. All data is persisted
- * to EQLite for durability across restarts.
+ * to SQLit for durability across restarts.
  */
 export class ExtendedTaskStore implements TaskStore {
   /**
-   * Save task to EQLite
+   * Save task to SQLit
    */
   async save(task: Task): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     // Check if task exists
@@ -256,10 +256,10 @@ export class ExtendedTaskStore implements TaskStore {
   }
 
   /**
-   * Load task from EQLite
+   * Load task from SQLit
    */
   async load(taskId: string): Promise<Task | undefined> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<TaskRow>(
       `SELECT * FROM a2a_tasks WHERE id = ?`,
@@ -281,7 +281,7 @@ export class ExtendedTaskStore implements TaskStore {
    * List tasks with filtering and pagination
    */
   async list(params: ListTasksParams = {}): Promise<ListTasksResult> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     // Build query with filters
     const conditions: string[] = []
@@ -359,7 +359,7 @@ export class ExtendedTaskStore implements TaskStore {
    * Get all tasks (for debugging/admin)
    */
   async getAllTasks(): Promise<Task[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<TaskRow>(
       `SELECT * FROM a2a_tasks ORDER BY updated_at DESC`,
@@ -374,7 +374,7 @@ export class ExtendedTaskStore implements TaskStore {
    * Clear all tasks (for testing)
    */
   async clear(): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(`DELETE FROM a2a_tasks`, [], A2A_TASKS_DATABASE_ID)
   }
@@ -383,7 +383,7 @@ export class ExtendedTaskStore implements TaskStore {
    * Delete a specific task
    */
   async delete(taskId: string): Promise<boolean> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.exec(
       `DELETE FROM a2a_tasks WHERE id = ?`,
@@ -398,7 +398,7 @@ export class ExtendedTaskStore implements TaskStore {
    * Get tasks by context ID
    */
   async getByContextId(contextId: string): Promise<Task[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<TaskRow>(
       `SELECT * FROM a2a_tasks WHERE context_id = ? ORDER BY updated_at DESC`,
@@ -413,7 +413,7 @@ export class ExtendedTaskStore implements TaskStore {
    * Get task count
    */
   async count(): Promise<number> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<{ count: number }>(
       `SELECT COUNT(*) as count FROM a2a_tasks`,
@@ -428,7 +428,7 @@ export class ExtendedTaskStore implements TaskStore {
    * Clean up old completed/failed tasks (for maintenance)
    */
   async cleanup(olderThanMs: number): Promise<number> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const cutoff = Date.now() - olderThanMs
 
     const result = await client.exec(

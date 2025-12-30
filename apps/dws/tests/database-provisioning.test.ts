@@ -23,17 +23,17 @@ const TEST_PAYMENT_TOKEN =
   '0x0000000000000000000000000000000000000000' as Address
 
 import {
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getLocalhostHost,
 } from '@jejunetwork/config'
 
-// Check if EQLite is available for integration tests
-async function checkEQLiteHealth(): Promise<boolean> {
+// Check if SQLit is available for integration tests
+async function checkSQLitHealth(): Promise<boolean> {
   const endpoint =
     (typeof process !== 'undefined'
-      ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+      ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
       : undefined) ||
-    getEQLiteBlockProducerUrl() ||
+    getSQLitBlockProducerUrl() ||
     `http://${getLocalhostHost()}:4661`
   const response = await fetch(`${endpoint}/health`, {
     signal: AbortSignal.timeout(3000),
@@ -41,9 +41,9 @@ async function checkEQLiteHealth(): Promise<boolean> {
   return response?.ok ?? false
 }
 
-const EQLITE_AVAILABLE = await checkEQLiteHealth()
+const SQLIT_AVAILABLE = await checkSQLitHealth()
 
-// Mock EQLite Client for Unit Testing
+// Mock SQLit Client for Unit Testing
 
 interface MockDatabase {
   id: string
@@ -94,7 +94,7 @@ interface MockRental {
   paymentStatus: 'current' | 'overdue' | 'cancelled'
 }
 
-class MockEQLiteClient {
+class MockSQLitClient {
   private databases = new Map<string, MockDatabase>()
   private rentals = new Map<string, MockRental>()
   private connectionPools = new Map<string, { active: number; idle: number }>()
@@ -150,7 +150,7 @@ class MockEQLiteClient {
     return {
       address: TEST_ADDRESS,
       endpoint:
-        getEQLiteBlockProducerUrl() || `http://${getLocalhostHost()}:4661`,
+        getSQLitBlockProducerUrl() || `http://${getLocalhostHost()}:4661`,
       blockHeight: this.blockHeight++,
       databases: this.databases.size,
       stake: 1000000000000000000n,
@@ -167,7 +167,7 @@ class MockEQLiteClient {
     paymentToken?: Address
   }): Promise<MockDatabase> {
     if (!this.healthy) {
-      throw new Error('EQLite service is not healthy')
+      throw new Error('SQLit service is not healthy')
     }
 
     if (config.nodeCount < 1) {
@@ -491,7 +491,7 @@ class MockEQLiteClient {
 // Database Provisioning Tests
 
 describe('Secure SQL Database Provisioning', () => {
-  const client = new MockEQLiteClient()
+  const client = new MockSQLitClient()
 
   beforeAll(() => {
     client.reset()
@@ -576,7 +576,7 @@ describe('Secure SQL Database Provisioning', () => {
           nodeCount: 1,
           owner: TEST_ADDRESS,
         }),
-      ).rejects.toThrow('EQLite service is not healthy')
+      ).rejects.toThrow('SQLit service is not healthy')
 
       client.setHealthy(true)
     })
@@ -917,17 +917,17 @@ describe('Secure SQL Database Provisioning', () => {
   })
 })
 
-// Integration Tests (requires EQLite to be running)
+// Integration Tests (requires SQLit to be running)
 
-describe.skipIf(!EQLITE_AVAILABLE)(
-  'EQLite Integration - Database Provisioning',
+describe.skipIf(!SQLIT_AVAILABLE)(
+  'SQLit Integration - Database Provisioning',
   () => {
-    test('should connect to EQLite block producer', async () => {
+    test('should connect to SQLit block producer', async () => {
       const endpoint =
         (typeof process !== 'undefined'
-          ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+          ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
           : undefined) ||
-        getEQLiteBlockProducerUrl() ||
+        getSQLitBlockProducerUrl() ||
         `http://${getLocalhostHost()}:4661`
       const response = await fetch(`${endpoint}/health`)
 
@@ -937,9 +937,9 @@ describe.skipIf(!EQLITE_AVAILABLE)(
     test('should get block producer status', async () => {
       const endpoint =
         (typeof process !== 'undefined'
-          ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+          ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
           : undefined) ||
-        getEQLiteBlockProducerUrl() ||
+        getSQLitBlockProducerUrl() ||
         `http://${getLocalhostHost()}:4661`
       const response = await fetch(`${endpoint}/api/v1/status`)
 

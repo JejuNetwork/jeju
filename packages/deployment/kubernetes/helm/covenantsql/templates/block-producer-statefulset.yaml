@@ -2,19 +2,19 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "eqlite.fullname" . }}-bp
+  name: {{ include "sqlit.fullname" . }}-bp
   labels:
-    {{- include "eqlite.bpLabels" . | nindent 4 }}
+    {{- include "sqlit.bpLabels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.blockProducer.replicaCount }}
-  serviceName: {{ include "eqlite.fullname" . }}-bp
+  serviceName: {{ include "sqlit.fullname" . }}-bp
   selector:
     matchLabels:
-      {{- include "eqlite.bpSelectorLabels" . | nindent 6 }}
+      {{- include "sqlit.bpSelectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "eqlite.bpSelectorLabels" . | nindent 8 }}
+        {{- include "sqlit.bpSelectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
@@ -22,7 +22,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "eqlite.serviceAccountName" . }}
+      serviceAccountName: {{ include "sqlit.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -32,7 +32,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - eqlited
+            - sqlitd
             - -config
             - /config/bp.yaml
             - -role
@@ -76,20 +76,20 @@ spec:
             - name: logs
               mountPath: /logs
           env:
-            - name: EQLITE_NODE_ID
+            - name: SQLIT_NODE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: EQLITE_ROLE
+            - name: SQLIT_ROLE
               value: "blockproducer"
-            - name: EQLITE_RPC_URL
+            - name: SQLIT_RPC_URL
               value: {{ .Values.rpc.primary | quote }}
             {{- if .Values.contracts.registry }}
-            - name: EQLITE_REGISTRY_ADDRESS
+            - name: SQLIT_REGISTRY_ADDRESS
               value: {{ .Values.contracts.registry | quote }}
             {{- end }}
             {{- if .Values.operator.privateKeySecret }}
-            - name: EQLITE_OPERATOR_KEY
+            - name: SQLIT_OPERATOR_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.operator.privateKeySecret }}
@@ -98,7 +98,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "eqlite.fullname" . }}-config
+            name: {{ include "sqlit.fullname" . }}-config
         - name: logs
           emptyDir: {}
       {{- with .Values.blockProducer.nodeSelector }}

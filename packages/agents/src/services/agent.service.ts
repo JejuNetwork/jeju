@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { logger } from '@jejunetwork/shared'
 import type {
   AgentCapabilities,
@@ -123,10 +123,10 @@ function rowToAgentLog(row: AgentLogRow): AgentLog {
  * Service for agent lifecycle management
  */
 export class AgentService {
-  private db: EQLiteClient
+  private db: SQLitClient
 
-  constructor(db?: EQLiteClient) {
-    this.db = db ?? getEQLite()
+  constructor(db?: SQLitClient) {
+    this.db = db ?? getSQLit()
   }
 
   /**

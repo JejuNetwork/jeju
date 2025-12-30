@@ -6,7 +6,7 @@
  * Starts:
  * 1. Local blockchain (anvil) if not running
  * 2. Deploys all DWS contracts
- * 3. Starts EQLite in-memory mode (no Docker required)
+ * 3. Starts SQLit in-memory mode (no Docker required)
  * 4. Starts the DWS API server
  * 5. Starts the frontend dev server
  */
@@ -159,8 +159,8 @@ async function startDWSServer(): Promise<boolean> {
       NETWORK: 'localnet',
       PORT: '4030',
       RPC_URL: `http://${host}:6546`,
-      // Use in-memory EQLite mode
-      EQLITE_MODE: 'memory',
+      // Use in-memory SQLit mode
+      SQLIT_MODE: 'memory',
       // Disable Docker for dev
       SKIP_DOCKER: 'true',
     },

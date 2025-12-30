@@ -1,4 +1,4 @@
-# EQLite Block Producer 1 Configuration
+# SQLit Block Producer 1 Configuration
 WorkingRoot: /data
 PubKeyStoreFile: /data/public.keystore
 PrivateKeyFile: /data/private.key

@@ -88,7 +88,7 @@ export interface AgentConfig {
   /** KMS vault key ID for secrets */
   secretsKeyId?: string
 
-  /** EQLite database ID for memories */
+  /** SQLit database ID for memories */
   memoriesDbId?: string
 
   /** Agent status */
@@ -186,7 +186,7 @@ export interface AgentInvocation {
   durationMs?: number
 }
 
-// Agent Memories (EQLite Schema)
+// Agent Memories (SQLit Schema)
 
 export interface AgentMemory {
   id: string

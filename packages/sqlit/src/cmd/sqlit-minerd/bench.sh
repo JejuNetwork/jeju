@@ -8,7 +8,7 @@ main() {
     make -C "$wd" use_all_cores
 
     local pkg="github.com/SQLIT/SQLIT/cmd/sqlit-minerd"
-    #go test -bench=^BenchmarkSQLite$ -benchtime=10s -run=^$ "$pkg"
+    #go test -bench=^BenchmarkSQLit$ -benchtime=10s -run=^$ "$pkg"
 
     local flags=(
         "-bench=^BenchmarkMiner$"

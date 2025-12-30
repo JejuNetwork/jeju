@@ -292,12 +292,12 @@
         },
         "database": {
           "type": "object",
-          "description": "Database configuration - supports EQLite (decentralized) or Postgres (container)",
+          "description": "Database configuration - supports SQLit (decentralized) or Postgres (container)",
           "properties": {
             "type": { 
               "type": "string", 
-              "enum": ["eqlite", "postgres", "d1", "none"],
-              "description": "Database type: eqlite (decentralized), postgres (Docker container), d1, or none"
+              "enum": ["sqlit", "postgres", "d1", "none"],
+              "description": "Database type: sqlit (decentralized), postgres (Docker container), d1, or none"
             },
             "name": { "type": "string", "description": "Database name/identifier" },
             "consistency": { "type": "string", "enum": ["strong", "eventual"] },
@@ -392,12 +392,12 @@
       "properties": {
         "database": {
           "type": "object",
-          "description": "EQLite database configuration",
+          "description": "SQLit database configuration",
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["eqlite", "eqlite-sync", "none"],
-              "description": "Database mode: eqlite (direct), eqlite-sync (replicated from Postgres), none"
+              "enum": ["sqlit", "sqlit-sync", "none"],
+              "description": "Database mode: sqlit (direct), sqlit-sync (replicated from Postgres), none"
             },
             "databaseId": {
               "type": "string",

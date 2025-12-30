@@ -1,4 +1,4 @@
-module eqlite
+module sqlit
 
 go 1.22
 

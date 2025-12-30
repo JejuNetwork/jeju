@@ -186,13 +186,13 @@ describe('CDN Endpoints', () => {
 })
 
 describe('Marketplace Endpoints', () => {
-  // Note: Marketplace requires EQLite. Tests validate endpoint exists.
+  // Note: Marketplace requires SQLit. Tests validate endpoint exists.
   test('GET /api/marketplace/listings returns response', async () => {
     const { status } = await api<{ listings: unknown[] }>(
       '/api/marketplace/listings',
     )
 
-    // 200 if EQLite available, 500 if not
+    // 200 if SQLit available, 500 if not
     expect([200, 500]).toContain(status)
   })
 

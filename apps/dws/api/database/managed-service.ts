@@ -1,7 +1,7 @@
 /**
  * Managed Database Service
  *
- * Provides unified API for managing EQLite and PostgreSQL databases:
+ * Provides unified API for managing SQLit and PostgreSQL databases:
  * - Instance lifecycle management
  * - Connection pooling (PgBouncer for PostgreSQL)
  * - Automatic backups to IPFS/Arweave
@@ -30,7 +30,7 @@ import type { BackendManager } from '../storage/backends'
 // ============================================================================
 
 export type DatabaseEngine =
-  | 'eqlite'
+  | 'sqlit'
   | 'postgresql'
   | 'mysql'
   | 'redis'
@@ -149,7 +149,7 @@ export interface PostgresConnection {
   directEndpoint: string
 }
 
-export interface EQLiteConnection {
+export interface SQLitConnection {
   endpoint: string
   authToken: string
   syncUrl: string
@@ -166,7 +166,7 @@ export const CreateDatabaseSchema = z.object({
     .min(1)
     .max(63)
     .regex(/^[a-z][a-z0-9-]*$/),
-  engine: z.enum(['eqlite', 'postgresql', 'mysql', 'redis', 'mongodb']),
+  engine: z.enum(['sqlit', 'postgresql', 'mysql', 'redis', 'mongodb']),
   planId: z.string(),
   region: z.string().default('us-east-1'),
   config: z
@@ -379,8 +379,8 @@ class DatabaseProvisioner {
       `[DatabaseProvisioner] Starting provisioning for ${instanceId} (${engine})`,
     )
 
-    if (engine === 'eqlite') {
-      return this.provisionEQLite(instanceId, config, region)
+    if (engine === 'sqlit') {
+      return this.provisionSQLit(instanceId, config, region)
     } else if (engine === 'postgresql') {
       return this.provisionPostgreSQL(instanceId, config, region)
     } else {
@@ -388,7 +388,7 @@ class DatabaseProvisioner {
     }
   }
 
-  private async provisionEQLite(
+  private async provisionSQLit(
     instanceId: string,
     config: DatabaseConfig,
     region: string,
@@ -405,20 +405,20 @@ class DatabaseProvisioner {
     const nodeCount = Math.max(3, config.replicationFactor)
 
     // In production, this would:
-    // 1. Find available EQLite nodes in the region
+    // 1. Find available SQLit nodes in the region
     // 2. Initialize database cluster with replication
     // 3. Set up WAL shipping between nodes
     // 4. Configure consistency mode
 
     const nodes = Array.from(
       { length: nodeCount },
-      (_, i) => `eqlite-${region}-${i}.dws.jejunetwork.org:4500`,
+      (_, i) => `sqlit-${region}-${i}.dws.jejunetwork.org:4500`,
     )
 
-    const endpoint = `https://eqlite-${instanceId}.dws.jejunetwork.org`
-    const syncUrl = `wss://eqlite-${instanceId}.dws.jejunetwork.org/sync`
+    const endpoint = `https://sqlit-${instanceId}.dws.jejunetwork.org`
+    const syncUrl = `wss://sqlit-${instanceId}.dws.jejunetwork.org/sync`
 
-    const connectionString = `eqlite://${endpoint}?auth=${authToken}&consistency=${config.consistencyMode}`
+    const connectionString = `sqlit://${endpoint}?auth=${authToken}&consistency=${config.consistencyMode}`
 
     const job = this.jobs.get(instanceId)
     if (job) {
@@ -427,7 +427,7 @@ class DatabaseProvisioner {
     }
 
     console.log(
-      `[DatabaseProvisioner] EQLite ${instanceId} provisioned with ${nodeCount} nodes`,
+      `[DatabaseProvisioner] SQLit ${instanceId} provisioned with ${nodeCount} nodes`,
     )
 
     return {
@@ -558,8 +558,8 @@ class BackupManager {
     try {
       let backupData: Buffer
 
-      if (engine === 'eqlite') {
-        backupData = await this.backupEQLite(connectionInfo)
+      if (engine === 'sqlit') {
+        backupData = await this.backupSQLit(connectionInfo)
       } else if (engine === 'postgresql') {
         backupData = await this.backupPostgreSQL(connectionInfo)
       } else {
@@ -587,13 +587,13 @@ class BackupManager {
     }
   }
 
-  private async backupEQLite(
+  private async backupSQLit(
     connectionInfo: Record<string, string>,
   ): Promise<Buffer> {
     const endpoint = connectionInfo.endpoint
     const authToken = connectionInfo.authToken
 
-    // Call EQLite backup API
+    // Call SQLit backup API
     const response = await fetch(`${endpoint}/backup`, {
       method: 'POST',
       headers: {
@@ -606,7 +606,7 @@ class BackupManager {
     if (!response.ok) {
       // Fallback: dump via SQL queries if backup API not available
       console.warn(
-        `[BackupManager] EQLite backup API unavailable, using SQL dump fallback`,
+        `[BackupManager] SQLit backup API unavailable, using SQL dump fallback`,
       )
       const dumpResponse = await fetch(`${endpoint}/query`, {
         method: 'POST',
@@ -620,7 +620,7 @@ class BackupManager {
       })
 
       if (!dumpResponse.ok) {
-        throw new Error(`EQLite backup failed: ${dumpResponse.status}`)
+        throw new Error(`SQLit backup failed: ${dumpResponse.status}`)
       }
 
       const dumpData = await dumpResponse.text()
@@ -702,8 +702,8 @@ class BackupManager {
     const downloadResult = await this.backend.download(storageCid)
     const backupData = downloadResult.content
 
-    if (engine === 'eqlite') {
-      await this.restoreEQLite(connectionInfo, backupData)
+    if (engine === 'sqlit') {
+      await this.restoreSQLit(connectionInfo, backupData)
     } else if (engine === 'postgresql') {
       await this.restorePostgreSQL(connectionInfo, backupData)
     } else {
@@ -713,7 +713,7 @@ class BackupManager {
     console.log(`[BackupManager] Restore completed for ${instanceId}`)
   }
 
-  private async restoreEQLite(
+  private async restoreSQLit(
     connectionInfo: Record<string, string>,
     data: Buffer,
   ): Promise<void> {
@@ -740,10 +740,10 @@ class BackupManager {
     }
 
     console.log(
-      `[BackupManager] Restoring ${bodyData.byteLength} bytes to EQLite at ${endpoint}`,
+      `[BackupManager] Restoring ${bodyData.byteLength} bytes to SQLit at ${endpoint}`,
     )
 
-    // Send restore request to EQLite
+    // Send restore request to SQLit
     const response = await fetch(`${endpoint}/restore`, {
       method: 'POST',
       headers: {
@@ -755,7 +755,7 @@ class BackupManager {
 
     if (!response.ok) {
       throw new Error(
-        `EQLite restore failed: ${response.status} ${await response.text()}`,
+        `SQLit restore failed: ${response.status} ${await response.text()}`,
       )
     }
   }
@@ -836,7 +836,7 @@ class BackupManager {
 
 export class ManagedDatabaseService {
   private instances = new Map<string, DatabaseInstance>()
-  private connections = new Map<string, PostgresConnection | EQLiteConnection>()
+  private connections = new Map<string, PostgresConnection | SQLitConnection>()
   private credentials = new Map<string, Record<string, string>>()
   private poolManager: ConnectionPoolManager
   private provisioner: DatabaseProvisioner
@@ -985,14 +985,14 @@ export class ManagedDatabaseService {
         poolerEndpoint: creds.pooledUrl,
         directEndpoint: creds.directUrl,
       } as PostgresConnection)
-    } else if (instance.engine === 'eqlite') {
+    } else if (instance.engine === 'sqlit') {
       const creds = result.credentials
       this.connections.set(instance.instanceId, {
         endpoint: creds.endpoint,
         authToken: creds.authToken,
         syncUrl: creds.syncUrl,
         nodes: creds.nodes.split(','),
-      } as EQLiteConnection)
+      } as SQLitConnection)
     }
 
     console.log(`[ManagedDatabaseService] ${instance.name} is now running`)
@@ -1091,7 +1091,7 @@ export class ManagedDatabaseService {
   async getConnection(
     instanceId: string,
     owner: Address,
-  ): Promise<PostgresConnection | EQLiteConnection> {
+  ): Promise<PostgresConnection | SQLitConnection> {
     const instance = this.instances.get(instanceId)
     if (!instance) throw new Error(`Instance not found: ${instanceId}`)
     if (instance.owner !== owner) throw new Error('Not authorized')

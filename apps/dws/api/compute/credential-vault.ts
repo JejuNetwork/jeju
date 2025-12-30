@@ -1,18 +1,18 @@
 /**
  * Credential Vault - Encrypted storage for cloud provider API keys
  *
- * Storage: Uses EQLite for persistence when available, falls back to in-memory for tests.
+ * Storage: Uses SQLit for persistence when available, falls back to in-memory for tests.
  * @environment DWS_VAULT_KEY - Required in production (32+ chars). Use `openssl rand -base64 32` to generate.
- * @environment EQLITE_URL - When set, enables persistent EQLite storage.
+ * @environment SQLIT_URL - When set, enables persistent SQLit storage.
  */
 
 import {
   getCurrentNetwork,
-  getEQLiteUrl,
+  getSQLitUrl,
   isProductionEnv,
   isTestMode,
 } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -176,10 +176,10 @@ async function decrypt(ciphertext: string, owner: Address): Promise<string> {
 
 // ============ Storage Backend ============
 
-const EQLITE_DATABASE_ID = 'dws-credentials'
-let eqliteClient: EQLiteClient | null = null
+const SQLIT_DATABASE_ID = 'dws-credentials'
+let sqlitClient: SQLitClient | null = null
 let tablesInitialized = false
-let useEQLite = false
+let useSQLit = false
 
 // In-memory fallback for tests
 const memoryCredentials = new Map<string, ProviderCredential>()
@@ -213,35 +213,35 @@ interface CredentialRow {
   last_error: string | null
 }
 
-async function initEQLite(): Promise<boolean> {
+async function initSQLit(): Promise<boolean> {
   if (isTestMode()) {
     return false // Always use in-memory for tests
   }
 
-  const eqliteUrl = getEQLiteUrl()
-  if (!eqliteUrl) {
+  const sqlitUrl = getSQLitUrl()
+  if (!sqlitUrl) {
     return false
   }
 
-  eqliteClient = getEQLite({ databaseId: EQLITE_DATABASE_ID, timeout: 30000 })
-  const healthy = await eqliteClient.isHealthy().catch(() => false)
+  sqlitClient = getSQLit({ databaseId: SQLIT_DATABASE_ID, timeout: 30000 })
+  const healthy = await sqlitClient.isHealthy().catch(() => false)
 
   if (!healthy) {
     console.warn(
-      '[CredentialVault] EQLite not available, using in-memory storage',
+      '[CredentialVault] SQLit not available, using in-memory storage',
     )
-    eqliteClient = null
+    sqlitClient = null
     return false
   }
 
   await ensureTablesExist()
-  useEQLite = true
-  console.log('[CredentialVault] Using EQLite for persistent storage')
+  useSQLit = true
+  console.log('[CredentialVault] Using SQLit for persistent storage')
   return true
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (tablesInitialized || !eqliteClient) return
+  if (tablesInitialized || !sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS credentials (
@@ -277,7 +277,7 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], SQLIT_DATABASE_ID)
   }
 
   tablesInitialized = true
@@ -304,14 +304,14 @@ function rowToCredential(row: CredentialRow): ProviderCredential {
   }
 }
 
-// Storage operations - abstracts EQLite vs in-memory
+// Storage operations - abstracts SQLit vs in-memory
 const storage = {
   async get(id: string): Promise<ProviderCredential | null> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.query<CredentialRow>(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.query<CredentialRow>(
         'SELECT * FROM credentials WHERE id = ?',
         [id],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rows[0] ? rowToCredential(result.rows[0]) : null
     }
@@ -319,8 +319,8 @@ const storage = {
   },
 
   async set(credential: ProviderCredential): Promise<void> {
-    if (useEQLite && eqliteClient) {
-      await eqliteClient.exec(
+    if (useSQLit && sqlitClient) {
+      await sqlitClient.exec(
         `INSERT OR REPLACE INTO credentials 
          (id, provider, name, owner, encrypted_api_key, encrypted_api_secret, encrypted_project_id, 
           region, scopes, expires_at, created_at, last_used_at, usage_count, status, last_error_at, last_error)
@@ -343,7 +343,7 @@ const storage = {
           credential.lastErrorAt,
           credential.lastError,
         ],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
     } else {
       memoryCredentials.set(credential.id, credential)
@@ -356,11 +356,11 @@ const storage = {
   },
 
   async delete(id: string): Promise<boolean> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.exec(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.exec(
         'DELETE FROM credentials WHERE id = ?',
         [id],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rowsAffected > 0
     }
@@ -373,11 +373,11 @@ const storage = {
   },
 
   async listByOwner(owner: Address): Promise<ProviderCredential[]> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.query<CredentialRow>(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.query<CredentialRow>(
         'SELECT * FROM credentials WHERE LOWER(owner) = LOWER(?)',
         [owner],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rows.map(rowToCredential)
     }
@@ -390,11 +390,11 @@ const storage = {
   },
 
   async count(): Promise<number> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.query<{ count: number }>(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.query<{ count: number }>(
         'SELECT COUNT(*) as count FROM credentials',
         [],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rows[0]?.count ?? 0
     }
@@ -402,11 +402,11 @@ const storage = {
   },
 
   async countActive(): Promise<number> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.query<{ count: number }>(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.query<{ count: number }>(
         "SELECT COUNT(*) as count FROM credentials WHERE status = 'active'",
         [],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rows[0]?.count ?? 0
     }
@@ -416,8 +416,8 @@ const storage = {
   },
 
   async audit(entry: AuditEntry): Promise<void> {
-    if (useEQLite && eqliteClient) {
-      await eqliteClient.exec(
+    if (useSQLit && sqlitClient) {
+      await sqlitClient.exec(
         'INSERT INTO audit_log (timestamp, action, credential_id, owner, details) VALUES (?, ?, ?, ?, ?)',
         [
           entry.timestamp,
@@ -426,7 +426,7 @@ const storage = {
           entry.owner,
           entry.details,
         ],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
     } else {
       memoryAuditLog.push(entry)
@@ -435,7 +435,7 @@ const storage = {
 }
 
 // Initialize storage on module load (non-blocking)
-initEQLite().catch(() => {})
+initSQLit().catch(() => {})
 
 // Metrics for Prometheus
 const metrics = {
@@ -450,7 +450,7 @@ export async function getCredentialVaultMetrics() {
     ...metrics,
     totalCredentials: await storage.count(),
     activeCredentials: await storage.countActive(),
-    storageBackend: useEQLite ? 'eqlite' : 'memory',
+    storageBackend: useSQLit ? 'sqlit' : 'memory',
   }
 }
 
@@ -685,7 +685,7 @@ export class CredentialVault {
   }
 
   /**
-   * Get audit log (in-memory only - EQLite audit log retrieval not implemented yet)
+   * Get audit log (in-memory only - SQLit audit log retrieval not implemented yet)
    */
   getAuditLog(owner?: Address, limit = 100): AuditEntry[] {
     let log = memoryAuditLog

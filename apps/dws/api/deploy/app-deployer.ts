@@ -60,7 +60,7 @@ export interface DWSConfig {
     regions?: string[]
   }
   database?: {
-    type: 'postgres' | 'eqlite' | 'd1' | 'none'
+    type: 'postgres' | 'sqlit' | 'd1' | 'none'
     name: string
     version?: string
     resources?: ResourceConfig
@@ -81,7 +81,7 @@ export interface DWSConfig {
 
 export interface DecentralizationConfig {
   database?: {
-    type: 'eqlite' | 'eqlite-sync' | 'none'
+    type: 'sqlit' | 'sqlit-sync' | 'none'
     databaseId?: string
   }
   cdn?: {
@@ -337,10 +337,10 @@ export class AppDeployer {
       }
     }
 
-    if (config.type === 'eqlite') {
-      // EQLite databases are created on-demand
+    if (config.type === 'sqlit') {
+      // SQLit databases are created on-demand
       return {
-        type: 'eqlite',
+        type: 'sqlit',
         name: dbName,
       }
     }
@@ -434,7 +434,7 @@ const DeployRequestSchema = z.object({
       .object({
         database: z
           .object({
-            type: z.enum(['postgres', 'eqlite', 'd1', 'none']),
+            type: z.enum(['postgres', 'sqlit', 'd1', 'none']),
             name: z.string(),
             version: z.string().optional(),
             resources: z

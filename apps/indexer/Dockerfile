@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for Kubernetes deployment
 # Supports multiple modes:
 #   - processor: Full indexer with squid processor (default)
-#   - api: API servers only (REST, A2A, MCP) for EQLite-read nodes
+#   - api: API servers only (REST, A2A, MCP) for SQLit-read nodes
 #   - graphql: GraphQL server only
 #
 # Set MODE environment variable to select mode
@@ -63,8 +63,8 @@ ENV MODE=processor \
     REST_PORT=4352 \
     A2A_PORT=4351 \
     MCP_PORT=4353 \
-    EQLITE_SYNC_ENABLED=false \
-    EQLITE_READ_ENABLED=false
+    SQLIT_SYNC_ENABLED=false \
+    SQLIT_READ_ENABLED=false
 
 # Entrypoint script to handle different modes
 COPY --from=builder /squid/scripts/docker-entrypoint.sh /docker-entrypoint.sh

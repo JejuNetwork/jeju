@@ -4,7 +4,7 @@
  */
 
 import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
-import type { EQLiteClient } from '@jejunetwork/db'
+import type { SQLitClient } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import type {
@@ -14,34 +14,34 @@ import type {
   RegisteredClient,
 } from '../../lib/types'
 
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'oauth3'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'oauth3'
 
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 let cacheClient: CacheClient | null = null
 let initialized = false
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    const { getEQLite } = await import('@jejunetwork/db')
-    eqliteClient = getEQLite({
-      databaseId: EQLITE_DATABASE_ID,
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    const { getSQLit } = await import('@jejunetwork/db')
+    sqlitClient = getSQLit({
+      databaseId: SQLIT_DATABASE_ID,
       timeout: 30000,
       debug: !isProductionEnv(),
     })
 
-    const healthy = await eqliteClient.isHealthy()
+    const healthy = await sqlitClient.isHealthy()
     if (!healthy) {
-      throw new Error('EQLite client not available')
+      throw new Error('SQLit client not available')
     }
 
     await ensureTablesExist()
   }
 
-  if (!eqliteClient) {
-    throw new Error('EQLite client not available')
+  if (!sqlitClient) {
+    throw new Error('SQLit client not available')
   }
 
-  return eqliteClient
+  return sqlitClient
 }
 
 function getCache(): CacheClient {
@@ -54,7 +54,7 @@ function getCache(): CacheClient {
 async function ensureTablesExist(): Promise<void> {
   if (initialized) return
 
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
   if (!client) {
     initialized = true
     console.log('[OAuth3] Using in-memory storage')
@@ -141,7 +141,7 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const sql of tables) {
-    await client.exec(sql, [], EQLITE_DATABASE_ID)
+    await client.exec(sql, [], SQLIT_DATABASE_ID)
   }
 
   initialized = true
@@ -151,7 +151,7 @@ async function ensureTablesExist(): Promise<void> {
 // Session State
 export const sessionState = {
   async save(session: AuthSession): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const cache = getCache()
 
     await client.exec(
@@ -170,7 +170,7 @@ export const sessionState = {
         session.expiresAt,
         JSON.stringify(session.metadata),
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.set(
@@ -187,12 +187,12 @@ export const sessionState = {
       return JSON.parse(cached) as AuthSession
     }
 
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<SessionRow>(
       'SELECT * FROM sessions WHERE session_id = ? AND expires_at > ?',
       [sessionId, Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -208,38 +208,38 @@ export const sessionState = {
   },
 
   async delete(sessionId: string): Promise<void> {
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
     const cache = getCache()
 
     await db.exec(
       'DELETE FROM sessions WHERE session_id = ?',
       [sessionId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`session:${sessionId}`)
   },
 
   async findByUserId(userId: string): Promise<AuthSession[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<SessionRow>(
       'SELECT * FROM sessions WHERE user_id = ? AND expires_at > ?',
       [userId, Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     return result.rows.map(rowToSession)
   },
 
   async updateExpiry(sessionId: string, newExpiry: number): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const cache = getCache()
 
     await client.exec(
       'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
       [newExpiry, sessionId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`session:${sessionId}`)
@@ -249,7 +249,7 @@ export const sessionState = {
 // Client State
 export const clientState = {
   async save(client: RegisteredClient): Promise<void> {
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
     const cache = getCache()
 
     await db.exec(
@@ -273,7 +273,7 @@ export const clientState = {
         client.reputation ? JSON.stringify(client.reputation) : null,
         client.moderation ? JSON.stringify(client.moderation) : null,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.set(`client:${client.clientId}`, JSON.stringify(client), 3600)
@@ -286,12 +286,12 @@ export const clientState = {
       return JSON.parse(cached) as RegisteredClient
     }
 
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
 
     const result = await db.query<ClientRow>(
       'SELECT * FROM clients WHERE client_id = ?',
       [clientId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -303,13 +303,13 @@ export const clientState = {
   },
 
   async delete(clientId: string): Promise<void> {
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
     const cache = getCache()
 
     await db.exec(
       'DELETE FROM clients WHERE client_id = ?',
       [clientId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     await cache.delete(`client:${clientId}`)
@@ -330,7 +330,7 @@ export const authCodeState = {
       codeChallengeMethod?: string
     },
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `INSERT INTO auth_codes (code, client_id, redirect_uri, user_id, scope, expires_at, code_challenge, code_challenge_method)
@@ -345,7 +345,7 @@ export const authCodeState = {
         data.codeChallenge ?? null,
         data.codeChallengeMethod ?? null,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
@@ -358,12 +358,12 @@ export const authCodeState = {
     codeChallenge?: string
     codeChallengeMethod?: string
   } | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<AuthCodeRow>(
       'SELECT * FROM auth_codes WHERE code = ? AND expires_at > ?',
       [code, Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -381,11 +381,11 @@ export const authCodeState = {
   },
 
   async delete(code: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       'DELETE FROM auth_codes WHERE code = ?',
       [code],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 }
@@ -401,7 +401,7 @@ export const refreshTokenState = {
       expiresAt: number
     },
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `INSERT INTO refresh_tokens (token, session_id, client_id, user_id, created_at, expires_at, revoked)
@@ -414,7 +414,7 @@ export const refreshTokenState = {
         Date.now(),
         data.expiresAt,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
@@ -425,12 +425,12 @@ export const refreshTokenState = {
     expiresAt: number
     revoked: boolean
   } | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<RefreshTokenRow>(
       'SELECT * FROM refresh_tokens WHERE token = ?',
       [token],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -446,20 +446,20 @@ export const refreshTokenState = {
   },
 
   async revoke(token: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       'UPDATE refresh_tokens SET revoked = 1 WHERE token = ?',
       [token],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async revokeAllForSession(sessionId: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       'UPDATE refresh_tokens SET revoked = 1 WHERE session_id = ?',
       [sessionId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 }
@@ -477,7 +477,7 @@ export const oauthStateStore = {
       expiresAt: number
     },
   ): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     await client.exec(
       `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
@@ -492,7 +492,7 @@ export const oauthStateStore = {
         Date.now(),
         data.expiresAt,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
@@ -503,12 +503,12 @@ export const oauthStateStore = {
     redirectUri: string
     codeVerifier?: string
   } | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<OAuthStateRow>(
       'SELECT * FROM oauth_states WHERE state = ? AND expires_at > ?',
       [state, Date.now()],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -524,11 +524,11 @@ export const oauthStateStore = {
   },
 
   async delete(state: string): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       'DELETE FROM oauth_states WHERE state = ?',
       [state],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 }
@@ -717,7 +717,7 @@ interface ClientReport {
 
 export const clientReportState = {
   async save(report: ClientReport): Promise<void> {
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
 
     await db.exec(
       `INSERT INTO client_reports (report_id, client_id, reporter_address, category, evidence, status, created_at, resolved_at, resolution)
@@ -735,12 +735,12 @@ export const clientReportState = {
         report.resolvedAt ?? null,
         report.resolution ?? null,
       ],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
   },
 
   async get(reportId: string): Promise<ClientReport | null> {
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
 
     const result = await db.query<{
       report_id: string
@@ -755,7 +755,7 @@ export const clientReportState = {
     }>(
       'SELECT * FROM client_reports WHERE report_id = ?',
       [reportId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     if (!result.rows[0]) return null
@@ -775,7 +775,7 @@ export const clientReportState = {
   },
 
   async getByClient(clientId: string): Promise<ClientReport[]> {
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
 
     const result = await db.query<{
       report_id: string
@@ -790,7 +790,7 @@ export const clientReportState = {
     }>(
       'SELECT * FROM client_reports WHERE client_id = ? ORDER BY created_at DESC',
       [clientId],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     return result.rows.map((row) => ({
@@ -811,13 +811,13 @@ export const clientReportState = {
     reporterAddress: string,
     withinMs: number = 24 * 60 * 60 * 1000,
   ): Promise<boolean> {
-    const db = await getEQLiteClient()
+    const db = await getSQLitClient()
     const cutoff = Date.now() - withinMs
 
     const result = await db.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM client_reports WHERE client_id = ? AND reporter_address = ? AND created_at > ?',
       [clientId, reporterAddress.toLowerCase(), cutoff],
-      EQLITE_DATABASE_ID,
+      SQLIT_DATABASE_ID,
     )
 
     return (result.rows[0]?.count ?? 0) > 0
@@ -866,4 +866,4 @@ export async function verifyClientSecret(
   return { valid: true }
 }
 
-export { getEQLiteClient, getCache }
+export { getSQLitClient, getCache }

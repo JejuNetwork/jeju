@@ -2,7 +2,7 @@
  * ExtendedTaskStore Tests
  *
  * Tests for task storage with list functionality
- * Requires EQLite to be running
+ * Requires SQLit to be running
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
@@ -10,11 +10,11 @@ import { hasInfra } from '@jejunetwork/tests/shared/live-infrastructure'
 import { ExtendedTaskStore } from '../core/task-store'
 import type { Task } from '../types/server'
 
-// Check if EQLite is available
-const EQLITE_AVAILABLE = await hasInfra(['eqlite'])
+// Check if SQLit is available
+const SQLIT_AVAILABLE = await hasInfra(['sqlit'])
 
-// Only run tests if EQLite is available
-const describeIfEqlite = EQLITE_AVAILABLE ? describe : describe.skip
+// Only run tests if SQLit is available
+const describeIfSQLit = SQLIT_AVAILABLE ? describe : describe.skip
 
 function createTask(
   id: string,
@@ -34,12 +34,12 @@ function createTask(
   }
 }
 
-describeIfEqlite('ExtendedTaskStore', () => {
+describeIfSQLit('ExtendedTaskStore', () => {
   let store: ExtendedTaskStore
 
   beforeEach(async () => {
     store = new ExtendedTaskStore()
-    // Clear any leftover data from previous tests - EQLite database is shared
+    // Clear any leftover data from previous tests - SQLit database is shared
     await store.clear()
   })
 

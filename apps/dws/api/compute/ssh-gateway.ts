@@ -1,19 +1,19 @@
 /**
  * SSH Terminal Gateway - WebSocket-based SSH proxy with wallet auth
  *
- * Storage: Credentials persisted to EQLite; sessions/tokens are in-memory (ephemeral by design).
+ * Storage: Credentials persisted to SQLit; sessions/tokens are in-memory (ephemeral by design).
  * @environment DWS_VAULT_KEY - Required in production (32+ chars)
  */
 
 import { randomBytes } from 'node:crypto'
 import {
   getCurrentNetwork,
-  getEQLiteUrl,
+  getSQLitUrl,
   getLocalhostHost,
   isProductionEnv,
   isTestMode,
 } from '@jejunetwork/config'
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { ServerWebSocket } from 'bun'
 import { type Subprocess, spawn } from 'bun'
@@ -102,11 +102,11 @@ const DEFAULT_CONFIG: SSHGatewayConfig = {
 
 // ============ State ============
 
-// EQLite persistence for credentials
-const EQLITE_DATABASE_ID = 'dws-ssh-gateway'
-let eqliteClient: EQLiteClient | null = null
+// SQLit persistence for credentials
+const SQLIT_DATABASE_ID = 'dws-ssh-gateway'
+let sqlitClient: SQLitClient | null = null
 let tablesInitialized = false
-let useEQLite = false
+let useSQLit = false
 
 // In-memory storage for credentials (fallback for tests)
 const memoryCredentials = new Map<string, SSHCredentials>()
@@ -150,33 +150,33 @@ interface CredentialRow {
   rotated_at: number
 }
 
-async function initEQLite(): Promise<boolean> {
+async function initSQLit(): Promise<boolean> {
   if (isTestMode()) {
     return false
   }
 
-  const eqliteUrl = getEQLiteUrl()
-  if (!eqliteUrl) {
+  const sqlitUrl = getSQLitUrl()
+  if (!sqlitUrl) {
     return false
   }
 
-  eqliteClient = getEQLite({ databaseId: EQLITE_DATABASE_ID, timeout: 30000 })
-  const healthy = await eqliteClient.isHealthy().catch(() => false)
+  sqlitClient = getSQLit({ databaseId: SQLIT_DATABASE_ID, timeout: 30000 })
+  const healthy = await sqlitClient.isHealthy().catch(() => false)
 
   if (!healthy) {
-    console.warn('[SSHGateway] EQLite not available, using in-memory storage')
-    eqliteClient = null
+    console.warn('[SSHGateway] SQLit not available, using in-memory storage')
+    sqlitClient = null
     return false
   }
 
   await ensureTablesExist()
-  useEQLite = true
-  console.log('[SSHGateway] Using EQLite for credential persistence')
+  useSQLit = true
+  console.log('[SSHGateway] Using SQLit for credential persistence')
   return true
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (tablesInitialized || !eqliteClient) return
+  if (tablesInitialized || !sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS ssh_credentials (
@@ -197,7 +197,7 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], SQLIT_DATABASE_ID)
   }
 
   tablesInitialized = true
@@ -222,11 +222,11 @@ function rowToCredential(row: CredentialRow): SSHCredentials {
 // Storage operations for credentials
 const credentialStorage = {
   async get(id: string): Promise<SSHCredentials | null> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.query<CredentialRow>(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.query<CredentialRow>(
         'SELECT * FROM ssh_credentials WHERE id = ?',
         [id],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rows[0] ? rowToCredential(result.rows[0]) : null
     }
@@ -234,11 +234,11 @@ const credentialStorage = {
   },
 
   async getByComputeId(computeId: string): Promise<SSHCredentials | null> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.query<CredentialRow>(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.query<CredentialRow>(
         'SELECT * FROM ssh_credentials WHERE compute_id = ?',
         [computeId],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rows[0] ? rowToCredential(result.rows[0]) : null
     }
@@ -249,8 +249,8 @@ const credentialStorage = {
   },
 
   async set(credential: SSHCredentials): Promise<void> {
-    if (useEQLite && eqliteClient) {
-      await eqliteClient.exec(
+    if (useSQLit && sqlitClient) {
+      await sqlitClient.exec(
         `INSERT OR REPLACE INTO ssh_credentials 
          (id, compute_id, owner, host, port, username, private_key, fingerprint, created_at, last_used_at, rotated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -267,7 +267,7 @@ const credentialStorage = {
           credential.lastUsedAt,
           credential.rotatedAt,
         ],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
     } else {
       memoryCredentials.set(credential.id, credential)
@@ -275,11 +275,11 @@ const credentialStorage = {
   },
 
   async delete(id: string): Promise<boolean> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.exec(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.exec(
         'DELETE FROM ssh_credentials WHERE id = ?',
         [id],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rowsAffected > 0
     }
@@ -287,11 +287,11 @@ const credentialStorage = {
   },
 
   async count(): Promise<number> {
-    if (useEQLite && eqliteClient) {
-      const result = await eqliteClient.query<{ count: number }>(
+    if (useSQLit && sqlitClient) {
+      const result = await sqlitClient.query<{ count: number }>(
         'SELECT COUNT(*) as count FROM ssh_credentials',
         [],
-        EQLITE_DATABASE_ID,
+        SQLIT_DATABASE_ID,
       )
       return result.rows[0]?.count ?? 0
     }
@@ -300,7 +300,7 @@ const credentialStorage = {
 }
 
 // Initialize storage on module load
-initEQLite().catch(() => {})
+initSQLit().catch(() => {})
 
 // Metrics for Prometheus
 const gatewayMetrics = {
@@ -320,7 +320,7 @@ export async function getSSHGatewayMetrics() {
     ).length,
     registeredCredentials: await credentialStorage.count(),
     pendingTokens: 0, // Token count not available from distributed cache
-    storageBackend: useEQLite ? 'eqlite' : 'memory',
+    storageBackend: useSQLit ? 'sqlit' : 'memory',
     tokenStorage: 'distributed',
   }
 }

@@ -13,12 +13,12 @@ import {
   getCoreAppUrl,
   getCurrentNetwork,
   getEnvVar,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getIndexerGraphqlUrl,
   getL2RpcUrl,
   getLocalhostHost,
 } from '@jejunetwork/config'
-import { createTable, type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { createTable, type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { expect as expectExists, expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
@@ -65,10 +65,10 @@ export interface BazaarEnv {
   GATEWAY_URL: string
   INDEXER_URL: string
 
-  // Database config (EQLITE_PRIVATE_KEY is DB auth, not blockchain key)
-  EQLITE_NODES: string
-  EQLITE_DATABASE_ID: string
-  EQLITE_PRIVATE_KEY: string
+  // Database config (SQLIT_PRIVATE_KEY is DB auth, not blockchain key)
+  SQLIT_NODES: string
+  SQLIT_DATABASE_ID: string
+  SQLIT_PRIVATE_KEY: string
 
   // KV bindings (optional)
   BAZAAR_CACHE?: KVNamespace
@@ -86,16 +86,16 @@ interface KVNamespace {
 
 // Database Layer
 
-let dbClient: EQLiteClient | null = null
+let dbClient: SQLitClient | null = null
 
-function getDatabase(env: BazaarEnv): EQLiteClient {
+function getDatabase(env: BazaarEnv): SQLitClient {
   if (dbClient) return dbClient
 
   const blockProducerEndpoint =
-    env.EQLITE_NODES.split(',')[0] || getEQLiteBlockProducerUrl()
-  const databaseId = env.EQLITE_DATABASE_ID
+    env.SQLIT_NODES.split(',')[0] || getSQLitBlockProducerUrl()
+  const databaseId = env.SQLIT_DATABASE_ID
 
-  dbClient = getEQLite({
+  dbClient = getSQLit({
     blockProducerEndpoint,
     databaseId,
     debug: env.NETWORK === 'localnet',
@@ -106,7 +106,7 @@ function getDatabase(env: BazaarEnv): EQLiteClient {
 
 // Database Schemas
 
-async function initializeDatabase(db: EQLiteClient): Promise<void> {
+async function initializeDatabase(db: SQLitClient): Promise<void> {
   // Market cache table
   const cacheTable = createTable('market_cache', [
     { name: 'key', type: 'TEXT', primaryKey: true, notNull: true },
@@ -501,8 +501,8 @@ if (isMainModule) {
   configureBazaar({
     bazaarApiUrl: getEnvVar('BAZAAR_API_URL'),
     farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
-    eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID'),
-    eqlitePrivateKey: getEnvVar('EQLITE_PRIVATE_KEY'),
+    sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID'),
+    sqlitPrivateKey: getEnvVar('SQLIT_PRIVATE_KEY'),
   })
 
   const PORT = CORE_PORTS.BAZAAR_API.get()
@@ -516,9 +516,9 @@ if (isMainModule) {
     DWS_URL: getCoreAppUrl('DWS_API'),
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: getIndexerGraphqlUrl(),
-    EQLITE_NODES: getEQLiteBlockProducerUrl(),
-    EQLITE_DATABASE_ID: config.eqliteDatabaseId,
-    EQLITE_PRIVATE_KEY: config.eqlitePrivateKey || '',
+    SQLIT_NODES: getSQLitBlockProducerUrl(),
+    SQLIT_DATABASE_ID: config.sqlitDatabaseId,
+    SQLIT_PRIVATE_KEY: config.sqlitPrivateKey || '',
   })
 
   const host = getLocalhostHost()

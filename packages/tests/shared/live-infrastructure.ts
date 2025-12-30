@@ -2,7 +2,7 @@
  * Live Infrastructure Test Utilities
  *
  * Provides connections to real infrastructure for integration testing:
- * - EQLite (EQLite)
+ * - SQLit (SQLit)
  * - Redis
  * - EVM Chain
  * - Solana
@@ -17,19 +17,19 @@
  *
  *   describe('My Integration Tests', () => {
  *     beforeAll(async () => {
- *       await requireInfra(['eqlite', 'chain'])
+ *       await requireInfra(['sqlit', 'chain'])
  *     })
  *
- *     test('uses real EQLite', async () => {
- *       const { eqlite } = await getLiveInfra()
- *       const result = await eqlite.query('SELECT 1')
+ *     test('uses real SQLit', async () => {
+ *       const { sqlit } = await getLiveInfra()
+ *       const result = await sqlit.query('SELECT 1')
  *       expect(result.rows.length).toBe(1)
  *     })
  *   })
  */
 
 import {
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getIndexerGraphqlUrl,
   getIpfsApiUrl,
   getL1RpcUrl,
@@ -45,7 +45,7 @@ import { z } from 'zod'
 // Infrastructure configuration from environment
 // Fields have defaults so they are always defined (not optional)
 const InfraConfigSchema = z.object({
-  eqliteEndpoint: z.string(),
+  sqlitEndpoint: z.string(),
   redisUrl: z.string(),
   l1RpcUrl: z.string(),
   l2RpcUrl: z.string(),
@@ -64,14 +64,14 @@ type InfraConfig = z.infer<typeof InfraConfigSchema>
 export function getInfraConfig(): InfraConfig {
   const host = getLocalhostHost()
   return InfraConfigSchema.parse({
-    eqliteEndpoint:
+    sqlitEndpoint:
       (typeof process !== 'undefined'
-        ? process.env.EQLITE_ENDPOINT
+        ? process.env.SQLIT_ENDPOINT
         : undefined) ??
       (typeof process !== 'undefined'
-        ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
+        ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
         : undefined) ??
-      getEQLiteBlockProducerUrl() ??
+      getSQLitBlockProducerUrl() ??
       `http://${host}:4401`,
     redisUrl:
       (typeof process !== 'undefined' ? process.env.REDIS_URL : undefined) ??
@@ -134,7 +134,7 @@ export function getInfraConfig(): InfraConfig {
 
 // Service availability status
 export interface InfraStatus {
-  eqlite: boolean
+  sqlit: boolean
   redis: boolean
   l1Chain: boolean
   l2Chain: boolean
@@ -149,18 +149,18 @@ export interface InfraStatus {
 }
 
 // Check individual service availability
-export async function checkEqliteAvailable(
+export async function checkSQLitAvailable(
   config: InfraConfig,
 ): Promise<boolean> {
   try {
-    const response = await fetch(`${config.eqliteEndpoint}/health`, {
+    const response = await fetch(`${config.sqlitEndpoint}/health`, {
       signal: AbortSignal.timeout(3000),
     })
     return response.ok
   } catch {
     // Try alternate health endpoint
     try {
-      const response = await fetch(`${config.eqliteEndpoint}/v1/health`, {
+      const response = await fetch(`${config.sqlitEndpoint}/v1/health`, {
         signal: AbortSignal.timeout(3000),
       })
       return response.ok
@@ -277,7 +277,7 @@ export async function getInfraStatus(): Promise<InfraStatus> {
   const config = getInfraConfig()
 
   const [
-    eqlite,
+    sqlit,
     l1Chain,
     l2Chain,
     solana,
@@ -289,7 +289,7 @@ export async function getInfraStatus(): Promise<InfraStatus> {
     messaging,
     teeAgent,
   ] = await Promise.all([
-    checkEqliteAvailable(config),
+    checkSQLitAvailable(config),
     checkChainAvailable(config.l1RpcUrl),
     checkChainAvailable(config.l2RpcUrl),
     checkSolanaAvailable(config),
@@ -306,7 +306,7 @@ export async function getInfraStatus(): Promise<InfraStatus> {
   const redis = await checkRedisAvailable(config)
 
   return {
-    eqlite,
+    sqlit,
     redis,
     l1Chain,
     l2Chain,
@@ -335,7 +335,7 @@ export async function printInfraStatus(): Promise<void> {
 
 // Infrastructure requirement types
 export type InfraRequirement =
-  | 'eqlite'
+  | 'sqlit'
   | 'redis'
   | 'l1Chain'
   | 'l2Chain'
@@ -406,18 +406,18 @@ export async function hasInfra(
 // Live client instances for tests
 
 /**
- * Get live EQLite client for testing
+ * Get live SQLit client for testing
  */
-export async function getLiveEqliteClient(): Promise<EqliteTestClient> {
+export async function getLiveSQLitClient(): Promise<SQLitTestClient> {
   const config = getInfraConfig()
-  await requireInfra(['eqlite'])
-  return new EqliteTestClient(config.eqliteEndpoint)
+  await requireInfra(['sqlit'])
+  return new SQLitTestClient(config.sqlitEndpoint)
 }
 
 /**
- * Simple EQLite client for tests (no mocks)
+ * Simple SQLit client for tests (no mocks)
  */
-export class EqliteTestClient {
+export class SQLitTestClient {
   constructor(private endpoint: string) {}
 
   async query<T = Record<string, unknown>>(
@@ -436,7 +436,7 @@ export class EqliteTestClient {
     })
 
     if (!response.ok) {
-      throw new Error(`EQLite query failed: ${response.status}`)
+      throw new Error(`SQLit query failed: ${response.status}`)
     }
 
     const data = await response.json()
@@ -463,7 +463,7 @@ export class EqliteTestClient {
     })
 
     if (!response.ok) {
-      throw new Error(`EQLite exec failed: ${response.status}`)
+      throw new Error(`SQLit exec failed: ${response.status}`)
     }
 
     const data = await response.json()
@@ -471,7 +471,7 @@ export class EqliteTestClient {
   }
 
   async isHealthy(): Promise<boolean> {
-    return checkEqliteAvailable(getInfraConfig())
+    return checkSQLitAvailable(getInfraConfig())
   }
 }
 
@@ -554,7 +554,7 @@ export function getChainConfig(chain: 'l1' | 'l2' = 'l2') {
 export interface LiveInfra {
   config: InfraConfig
   status: InfraStatus
-  eqlite: EqliteTestClient
+  sqlit: SQLitTestClient
   chainConfig: ReturnType<typeof getChainConfig>
 }
 
@@ -568,7 +568,7 @@ export async function getLiveInfra(): Promise<LiveInfra> {
   return {
     config,
     status,
-    eqlite: new EqliteTestClient(config.eqliteEndpoint),
+    sqlit: new SQLitTestClient(config.sqlitEndpoint),
     chainConfig: getChainConfig('l2'),
   }
 }

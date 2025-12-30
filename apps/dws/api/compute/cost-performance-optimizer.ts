@@ -9,7 +9,7 @@
  * - Budget constraints
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 
 // ============ Types ============
 
@@ -66,18 +66,18 @@ export interface Recommendation {
 // ============ Database ============
 
 const OPTIMIZER_DATABASE_ID = 'dws-optimizer'
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite()
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit()
     await ensureOptimizerTables()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureOptimizerTables(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS provider_specs (
@@ -107,10 +107,10 @@ async function ensureOptimizerTables(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], OPTIMIZER_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], OPTIMIZER_DATABASE_ID)
   }
 
-  console.log('[CostOptimizer] EQLite tables ensured')
+  console.log('[CostOptimizer] SQLit tables ensured')
 }
 
 // ============ Main Service ============
@@ -206,7 +206,7 @@ export class CostPerformanceOptimizer {
   async findOptimalProvider(
     requirements: RequirementFilter,
   ): Promise<ProviderSpec | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<{
       id: string
@@ -301,7 +301,7 @@ export class CostPerformanceOptimizer {
     expectedDurationHours: number
     budget: number
   }): Promise<Recommendation | null> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     // Define requirements based on workload type
     let requirements: RequirementFilter = {}
@@ -392,7 +392,7 @@ export class CostPerformanceOptimizer {
    * Save provider specs to database
    */
   async saveProviderSpec(spec: ProviderSpec): Promise<void> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const now = Date.now()
 
     await client.exec(
@@ -440,7 +440,7 @@ export class CostPerformanceOptimizer {
    * Get all provider specs from database
    */
   async getAllProviderSpecs(): Promise<ProviderSpec[]> {
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
 
     const result = await client.query<{
       id: string

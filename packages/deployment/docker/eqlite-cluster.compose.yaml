@@ -1,12 +1,12 @@
-# EQLite (EQLite) Multi-Node Cluster for Local Development
+# SQLit (SQLit) Multi-Node Cluster for Local Development
 #
-# This starts a EQLite cluster with:
+# This starts a SQLit cluster with:
 # - 1 Block Producer (consensus coordinator)
 # - 3 Miner nodes (data storage & replication)
 # - Load balancer for client connections
 #
 # Usage:
-#   docker compose -f eqlite-cluster.compose.yaml up -d
+#   docker compose -f sqlit-cluster.compose.yaml up -d
 #
 # Connect via:
 #   http://localhost:4661 (load balanced to miners)
@@ -16,12 +16,12 @@ services:
   # ============================================================================
   # Block Producer - Coordinates consensus and block production
   # ============================================================================
-  eqlite-bp:
+  sqlit-bp:
     build:
-      context: ./eqlite
+      context: ./sqlit
       dockerfile: Dockerfile
-    container_name: eqlite-block-producer
-    hostname: eqlite-bp
+    container_name: sqlit-block-producer
+    hostname: sqlit-bp
     command:
       - -config
       - /config/bp.yaml
@@ -30,17 +30,17 @@ services:
       - "8546:8546"  # HTTP API
       - "9100:9100"  # Metrics
     volumes:
-      - ./eqlite/config/bp.yaml:/config/bp.yaml:ro
-      - eqlite-bp-data:/data
-      - eqlite-bp-logs:/logs
+      - ./sqlit/config/bp.yaml:/config/bp.yaml:ro
+      - sqlit-bp-data:/data
+      - sqlit-bp-logs:/logs
     environment:
-      - EQLITE_NODE_ID=bp-001
-      - EQLITE_ROLE=blockproducer
-      - EQLITE_LOG_LEVEL=info
+      - SQLIT_NODE_ID=bp-001
+      - SQLIT_ROLE=blockproducer
+      - SQLIT_LOG_LEVEL=info
     networks:
-      eqlite-network:
+      sqlit-network:
         aliases:
-          - eqlite-bp
+          - sqlit-bp
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
       interval: 10s
@@ -52,30 +52,30 @@ services:
   # ============================================================================
   # Miner Node 1
   # ============================================================================
-  eqlite-miner-1:
+  sqlit-miner-1:
     build:
-      context: ./eqlite
+      context: ./sqlit
       dockerfile: Dockerfile
-    container_name: eqlite-miner-1
-    hostname: eqlite-miner-1
-    entrypoint: ["eqlite-minerd"]
+    container_name: sqlit-miner-1
+    hostname: sqlit-miner-1
+    entrypoint: ["sqlit-minerd"]
     command:
       - -config
       - /config/miner.yaml
     depends_on:
-      eqlite-bp:
+      sqlit-bp:
         condition: service_healthy
     volumes:
-      - ./eqlite/config/miner.yaml:/config/miner.yaml:ro
-      - eqlite-miner-1-data:/data
-      - eqlite-miner-1-logs:/logs
+      - ./sqlit/config/miner.yaml:/config/miner.yaml:ro
+      - sqlit-miner-1-data:/data
+      - sqlit-miner-1-logs:/logs
     environment:
-      - EQLITE_NODE_ID=miner-001
-      - EQLITE_ROLE=miner
-      - EQLITE_BP_ADDR=eqlite-bp:4661
-      - EQLITE_LOG_LEVEL=info
+      - SQLIT_NODE_ID=miner-001
+      - SQLIT_ROLE=miner
+      - SQLIT_BP_ADDR=sqlit-bp:4661
+      - SQLIT_LOG_LEVEL=info
     networks:
-      - eqlite-network
+      - sqlit-network
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
       interval: 10s
@@ -87,30 +87,30 @@ services:
   # ============================================================================
   # Miner Node 2
   # ============================================================================
-  eqlite-miner-2:
+  sqlit-miner-2:
     build:
-      context: ./eqlite
+      context: ./sqlit
       dockerfile: Dockerfile
-    container_name: eqlite-miner-2
-    hostname: eqlite-miner-2
-    entrypoint: ["eqlite-minerd"]
+    container_name: sqlit-miner-2
+    hostname: sqlit-miner-2
+    entrypoint: ["sqlit-minerd"]
     command:
       - -config
       - /config/miner.yaml
     depends_on:
-      eqlite-bp:
+      sqlit-bp:
         condition: service_healthy
     volumes:
-      - ./eqlite/config/miner.yaml:/config/miner.yaml:ro
-      - eqlite-miner-2-data:/data
-      - eqlite-miner-2-logs:/logs
+      - ./sqlit/config/miner.yaml:/config/miner.yaml:ro
+      - sqlit-miner-2-data:/data
+      - sqlit-miner-2-logs:/logs
     environment:
-      - EQLITE_NODE_ID=miner-002
-      - EQLITE_ROLE=miner
-      - EQLITE_BP_ADDR=eqlite-bp:4661
-      - EQLITE_LOG_LEVEL=info
+      - SQLIT_NODE_ID=miner-002
+      - SQLIT_ROLE=miner
+      - SQLIT_BP_ADDR=sqlit-bp:4661
+      - SQLIT_LOG_LEVEL=info
     networks:
-      - eqlite-network
+      - sqlit-network
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
       interval: 10s
@@ -122,30 +122,30 @@ services:
   # ============================================================================
   # Miner Node 3
   # ============================================================================
-  eqlite-miner-3:
+  sqlit-miner-3:
     build:
-      context: ./eqlite
+      context: ./sqlit
       dockerfile: Dockerfile
-    container_name: eqlite-miner-3
-    hostname: eqlite-miner-3
-    entrypoint: ["eqlite-minerd"]
+    container_name: sqlit-miner-3
+    hostname: sqlit-miner-3
+    entrypoint: ["sqlit-minerd"]
     command:
       - -config
       - /config/miner.yaml
     depends_on:
-      eqlite-bp:
+      sqlit-bp:
         condition: service_healthy
     volumes:
-      - ./eqlite/config/miner.yaml:/config/miner.yaml:ro
-      - eqlite-miner-3-data:/data
-      - eqlite-miner-3-logs:/logs
+      - ./sqlit/config/miner.yaml:/config/miner.yaml:ro
+      - sqlit-miner-3-data:/data
+      - sqlit-miner-3-logs:/logs
     environment:
-      - EQLITE_NODE_ID=miner-003
-      - EQLITE_ROLE=miner
-      - EQLITE_BP_ADDR=eqlite-bp:4661
-      - EQLITE_LOG_LEVEL=info
+      - SQLIT_NODE_ID=miner-003
+      - SQLIT_ROLE=miner
+      - SQLIT_BP_ADDR=sqlit-bp:4661
+      - SQLIT_LOG_LEVEL=info
     networks:
-      - eqlite-network
+      - sqlit-network
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8546/v1/health"]
       interval: 10s
@@ -157,21 +157,21 @@ services:
   # ============================================================================
   # HAProxy Load Balancer - Distributes client connections
   # ============================================================================
-  eqlite-lb:
+  sqlit-lb:
     image: haproxy:2.9-alpine
-    container_name: eqlite-load-balancer
-    hostname: eqlite-lb
+    container_name: sqlit-load-balancer
+    hostname: sqlit-lb
     ports:
       - "4661:4661"  # Client connections
       - "8547:8080"  # Stats UI
     volumes:
-      - ./eqlite/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./sqlit/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
-      - eqlite-miner-1
-      - eqlite-miner-2
-      - eqlite-miner-3
+      - sqlit-miner-1
+      - sqlit-miner-2
+      - sqlit-miner-3
     networks:
-      - eqlite-network
+      - sqlit-network
     healthcheck:
       test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
       interval: 30s
@@ -182,21 +182,21 @@ services:
   # ============================================================================
   # Prometheus - Metrics collection
   # ============================================================================
-  eqlite-prometheus:
+  sqlit-prometheus:
     image: prom/prometheus:v2.48.0
-    container_name: eqlite-prometheus
-    hostname: eqlite-prometheus
+    container_name: sqlit-prometheus
+    hostname: sqlit-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./eqlite/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - eqlite-prometheus-data:/prometheus
+      - ./sqlit/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - sqlit-prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
     networks:
-      - eqlite-network
+      - sqlit-network
     profiles:
       - monitoring
     restart: unless-stopped
@@ -205,9 +205,9 @@ services:
 # Networks
 # ============================================================================
 networks:
-  eqlite-network:
+  sqlit-network:
     driver: bridge
-    name: eqlite-network
+    name: sqlit-network
     ipam:
       config:
         - subnet: 172.28.0.0/16
@@ -216,13 +216,13 @@ networks:
 # Volumes
 # ============================================================================
 volumes:
-  eqlite-bp-data:
-  eqlite-bp-logs:
-  eqlite-miner-1-data:
-  eqlite-miner-1-logs:
-  eqlite-miner-2-data:
-  eqlite-miner-2-logs:
-  eqlite-miner-3-data:
-  eqlite-miner-3-logs:
-  eqlite-prometheus-data:
+  sqlit-bp-data:
+  sqlit-bp-logs:
+  sqlit-miner-1-data:
+  sqlit-miner-1-logs:
+  sqlit-miner-2-data:
+  sqlit-miner-2-logs:
+  sqlit-miner-3-data:
+  sqlit-miner-3-logs:
+  sqlit-prometheus-data:
 

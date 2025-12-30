@@ -29,7 +29,7 @@ test.describe('Frontend Page Load', () => {
     await page.goto(FRONTEND_URL)
     await page.waitForLoadState('domcontentloaded')
 
-    await expect(page.getByText('EQLite')).toBeVisible()
+    await expect(page.getByText('SQLit')).toBeVisible()
     await expect(page.getByText('IPFS')).toBeVisible()
     await expect(page.getByText('KMS')).toBeVisible()
   })

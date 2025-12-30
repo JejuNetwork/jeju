@@ -361,15 +361,15 @@ export {
 // Storage adapters
 export {
   type ConsistencyLevel,
-  createEQLiteStorage,
-  type EQLiteConfig,
-  EQLiteMessageStorage,
-  getEQLiteStorage,
-  resetEQLiteStorage,
+  createSQLitStorage,
+  type SQLitConfig,
+  SQLitMessageStorage,
+  getSQLitStorage,
+  resetSQLitStorage,
   type StoredConversation,
   type StoredKeyBundle,
   type StoredMessage,
-} from './storage/eqlite-storage'
+} from './storage/sqlit-storage'
 // TEE-backed key management
 export * from './tee'
 

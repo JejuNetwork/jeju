@@ -1,7 +1,7 @@
 /**
  * Database API Routes
  *
- * REST API for managed database service (EQLite + PostgreSQL)
+ * REST API for managed database service (SQLit + PostgreSQL)
  */
 
 import { Elysia, t } from 'elysia'
@@ -46,7 +46,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
         {
           body: t.Object({
             name: t.String(),
-            engine: t.Union([t.Literal('eqlite'), t.Literal('postgresql')]),
+            engine: t.Union([t.Literal('sqlit'), t.Literal('postgresql')]),
             planId: t.String(),
             region: t.Optional(t.String()),
             config: t.Optional(

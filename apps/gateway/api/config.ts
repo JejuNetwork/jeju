@@ -49,7 +49,7 @@ export interface GatewayConfig {
   vaultEncryptionSecret?: string
 
   // Leaderboard
-  leaderboardEqliteDatabaseId: string
+  leaderboardSQLitDatabaseId: string
   leaderboardDebug: boolean
   attestationOraclePrivateKey?: string
   leaderboardDomain: string
@@ -124,8 +124,8 @@ const { config, configure: setGatewayConfig } = createAppConfig<GatewayConfig>({
   vaultEncryptionSecret: getEnvVar('VAULT_ENCRYPTION_SECRET'),
 
   // Leaderboard
-  leaderboardEqliteDatabaseId:
-    getEnvVar('LEADERBOARD_EQLITE_DATABASE_ID') ?? 'leaderboard',
+  leaderboardSQLitDatabaseId:
+    getEnvVar('LEADERBOARD_SQLIT_DATABASE_ID') ?? 'leaderboard',
   leaderboardDebug: !isProductionEnv(),
   attestationOraclePrivateKey: getEnvVar('ATTESTATION_ORACLE_PRIVATE_KEY'),
   leaderboardDomain:

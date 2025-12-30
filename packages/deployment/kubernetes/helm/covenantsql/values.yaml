@@ -1,4 +1,4 @@
-# EQLite Helm Chart Values
+# SQLit Helm Chart Values
 # Default configuration for testnet deployment
 
 # Global settings
@@ -9,7 +9,7 @@ global:
 
 # Image configuration
 image:
-  repository: ghcr.io/jeju-network/eqlite
+  repository: ghcr.io/jeju-network/sqlit
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -123,14 +123,14 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: eqlite.testnet.jejunetwork.org
+    - host: sqlit.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: eqlite-tls
+    - secretName: sqlit-tls
       hosts:
-        - eqlite.testnet.jejunetwork.org
+        - sqlit.testnet.jejunetwork.org
 
 # ============================================================================
 # Service Account
@@ -143,8 +143,8 @@ serviceAccount:
 # ============================================================================
 # Contract Addresses (unified contracts from main deployment)
 # ============================================================================
-# EQLite uses ComputeRegistry with serviceType=keccak256("database")
-# instead of separate EQLite-specific contracts
+# SQLit uses ComputeRegistry with serviceType=keccak256("database")
+# instead of separate SQLit-specific contracts
 contracts:
   computeRegistry: ""   # ComputeRegistry - register as database provider
   serviceRegistry: ""   # ServiceRegistry - for pricing and usage
@@ -162,7 +162,7 @@ rpc:
 # ============================================================================
 operator:
   # Private key for operator transactions (from secret)
-  privateKeySecret: eqlite-operator-key
+  privateKeySecret: sqlit-operator-key
   privateKeyKey: private-key
 
   # Heartbeat interval

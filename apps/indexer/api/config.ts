@@ -17,11 +17,11 @@ export interface IndexerConfig {
   dbIdleTimeout: number
   dbLogging: boolean
 
-  // EQLite Sync
-  eqliteSyncEnabled: boolean
-  eqliteDatabaseId: string
-  eqliteSyncInterval: number
-  eqliteSyncBatchSize: number
+  // SQLit Sync
+  sqlitSyncEnabled: boolean
+  sqlitDatabaseId: string
+  sqlitSyncInterval: number
+  sqlitSyncBatchSize: number
 
   // Chain
   chainId: number
@@ -59,11 +59,11 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
   dbIdleTimeout: getEnvNumber('DB_IDLE_TIMEOUT') ?? 30000,
   dbLogging: getEnvVar('DB_LOGGING') === 'true',
 
-  // EQLite Sync
-  eqliteSyncEnabled: getEnvVar('EQLITE_SYNC_ENABLED') === 'true',
-  eqliteDatabaseId: getEnvVar('EQLITE_DATABASE_ID') ?? 'indexer-sync',
-  eqliteSyncInterval: getEnvNumber('EQLITE_SYNC_INTERVAL') ?? 30000,
-  eqliteSyncBatchSize: getEnvNumber('EQLITE_SYNC_BATCH_SIZE') ?? 1000,
+  // SQLit Sync
+  sqlitSyncEnabled: getEnvVar('SQLIT_SYNC_ENABLED') === 'true',
+  sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID') ?? 'indexer-sync',
+  sqlitSyncInterval: getEnvNumber('SQLIT_SYNC_INTERVAL') ?? 30000,
+  sqlitSyncBatchSize: getEnvNumber('SQLIT_SYNC_BATCH_SIZE') ?? 1000,
 
   // Chain
   chainId: getEnvNumber('CHAIN_ID') ?? 420691,

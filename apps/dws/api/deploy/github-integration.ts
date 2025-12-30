@@ -55,7 +55,7 @@ interface Project {
 }
 
 // ============================================================================
-// In-Memory Storage (replace with EQLite in production)
+// In-Memory Storage (replace with SQLit in production)
 // ============================================================================
 
 const deployments = new Map<string, Deployment>()

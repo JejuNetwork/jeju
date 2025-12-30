@@ -4,7 +4,7 @@
  * Frequency: New=always, Low(<30)=7d, Medium(30-70)=30d, High(>70)=90d, Random=1%/day
  */
 
-import { type EQLiteClient, getEQLite } from '@jejunetwork/db'
+import { type SQLitClient, getSQLit } from '@jejunetwork/db'
 import { Cron } from 'croner'
 import type { Hex } from 'viem'
 import { z } from 'zod'
@@ -183,31 +183,31 @@ const DEFAULT_CONFIG: BenchmarkOrchestratorConfig = {
   benchmarkCooldownMs: 60000, // 1 minute between benchmarks per machine
 }
 
-// ============ EQLite State Storage ============
+// ============ SQLit State Storage ============
 
-const BENCHMARK_DB_ID = process.env.EQLITE_DATABASE_ID ?? 'dws-benchmarks'
+const BENCHMARK_DB_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-benchmarks'
 
-let eqliteClient: EQLiteClient | null = null
+let sqlitClient: SQLitClient | null = null
 let tablesInitialized = false
 
 // Pending benchmarks tracked in-memory (ephemeral per-process state)
 const pendingBenchmarks = new Set<string>()
 
-async function getEQLiteClient(): Promise<EQLiteClient> {
-  if (!eqliteClient) {
-    eqliteClient = getEQLite({
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit({
       databaseId: BENCHMARK_DB_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureBenchmarkTables(): Promise<void> {
   if (tablesInitialized) return
 
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
 
   await client.exec(
     `CREATE TABLE IF NOT EXISTS benchmark_jobs (
@@ -298,7 +298,7 @@ interface BenchmarkHistoryRow {
 const benchmarkState = {
   async saveJob(job: BenchmarkJob): Promise<void> {
     await ensureBenchmarkTables()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO benchmark_jobs (id, machine_id, type, status, started_at, completed_at, results, error)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -323,7 +323,7 @@ const benchmarkState = {
 
   async getJob(id: string): Promise<BenchmarkJob | null> {
     await ensureBenchmarkTables()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<BenchmarkJobRow>(
       `SELECT * FROM benchmark_jobs WHERE id = ?`,
       [id],
@@ -345,7 +345,7 @@ const benchmarkState = {
 
   async getAllJobs(): Promise<BenchmarkJob[]> {
     await ensureBenchmarkTables()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<BenchmarkJobRow>(
       `SELECT * FROM benchmark_jobs ORDER BY started_at DESC`,
       [],
@@ -365,7 +365,7 @@ const benchmarkState = {
 
   async saveReputation(reputation: MachineReputation): Promise<void> {
     await ensureBenchmarkTables()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     await client.exec(
       `INSERT INTO machine_reputations (machine_id, score, benchmark_count, pass_count, fail_count, last_benchmark_at, last_deviation_percent, flags)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -393,7 +393,7 @@ const benchmarkState = {
 
   async getReputation(machineId: string): Promise<MachineReputation | null> {
     await ensureBenchmarkTables()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<MachineReputationRow>(
       `SELECT * FROM machine_reputations WHERE machine_id = ?`,
       [machineId],
@@ -418,7 +418,7 @@ const benchmarkState = {
     results: BenchmarkResults,
   ): Promise<void> {
     await ensureBenchmarkTables()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const id = `hist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     await client.exec(
       `INSERT INTO benchmark_history (id, machine_id, results, created_at) VALUES (?, ?, ?, ?)`,
@@ -437,7 +437,7 @@ const benchmarkState = {
 
   async getHistory(machineId: string): Promise<BenchmarkResults[]> {
     await ensureBenchmarkTables()
-    const client = await getEQLiteClient()
+    const client = await getSQLitClient()
     const result = await client.query<BenchmarkHistoryRow>(
       `SELECT * FROM benchmark_history WHERE machine_id = ? ORDER BY created_at DESC LIMIT 10`,
       [machineId],

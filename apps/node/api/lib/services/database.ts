@@ -1,8 +1,8 @@
 /**
- * EQLite Database Service
+ * SQLit Database Service
  *
  * This service allows nodes to:
- * - Run as EQLite miner nodes for data storage and replication
+ * - Run as SQLit miner nodes for data storage and replication
  * - Host database backups and serve queries
  * - Earn rewards for storage and query serving
  * - Participate in BFT-Raft consensus
@@ -10,10 +10,10 @@
 
 import {
   type DatabaseInfo,
-  type EQLiteClient,
-  type EQLiteConfig,
+  type SQLitClient,
+  type SQLitConfig,
   type ExecResult,
-  getEQLite,
+  getSQLit,
   type QueryParam,
   type QueryResult,
 } from '@jejunetwork/db'
@@ -25,9 +25,9 @@ import type { SecureNodeClient } from '../contracts'
 
 // Configuration schema
 const DatabaseServiceConfigSchema = z.object({
-  /** EQLite block producer endpoint */
+  /** SQLit block producer endpoint */
   blockProducerEndpoint: z.string().url(),
-  /** EQLite miner endpoint (this node's endpoint) */
+  /** SQLit miner endpoint (this node's endpoint) */
   minerEndpoint: z.string().url(),
   /** KMS key/service ID for secure signing (no raw private keys) */
   keyId: z.string().min(1),
@@ -110,11 +110,11 @@ export function validateDatabaseStats(data: unknown): DatabaseStats {
 }
 
 /**
- * EQLite Database Service for node operators
+ * SQLit Database Service for node operators
  */
 export class DatabaseService {
   private nodeClient: SecureNodeClient
-  private eqliteClient: EQLiteClient | null = null
+  private sqlitClient: SQLitClient | null = null
   private config: DatabaseServiceConfig | null = null
   private signer: KMSSigner | null = null
   private isRunning = false
@@ -127,7 +127,7 @@ export class DatabaseService {
   }
 
   /**
-   * Initialize the EQLite client connection with KMS-backed signing
+   * Initialize the SQLit client connection with KMS-backed signing
    *
    * SECURITY: No private keys in memory. All signing via KMS MPC.
    */
@@ -138,14 +138,14 @@ export class DatabaseService {
     this.signer = createKMSSigner({ serviceId: this.config.keyId })
     await this.signer.initialize()
 
-    const eqliteClient: EQLiteConfig = {
+    const sqlitClient: SQLitConfig = {
       blockProducerEndpoint: this.config.blockProducerEndpoint,
       minerEndpoint: this.config.minerEndpoint,
       keyId: this.config.keyId,
       timeout: this.config.queryTimeoutMs,
     }
 
-    this.eqliteClient = getEQLite(eqliteClient)
+    this.sqlitClient = getSQLit(sqlitClient)
   }
 
   /**
@@ -235,16 +235,16 @@ export class DatabaseService {
    */
   async start(): Promise<void> {
     if (this.isRunning) return
-    if (!this.eqliteClient || !this.config) {
+    if (!this.sqlitClient || !this.config) {
       throw new Error(
         'Database service not initialized. Call initialize() first.',
       )
     }
 
-    // Verify EQLite connection
-    const healthy = await this.eqliteClient.isHealthy()
+    // Verify SQLit connection
+    const healthy = await this.sqlitClient.isHealthy()
     if (!healthy) {
-      throw new Error('Cannot connect to EQLite block producer')
+      throw new Error('Cannot connect to SQLit block producer')
     }
 
     this.isRunning = true
@@ -263,9 +263,9 @@ export class DatabaseService {
     if (!this.isRunning) return
     this.isRunning = false
 
-    // Close EQLite client connections
-    if (this.eqliteClient) {
-      await this.eqliteClient.close()
+    // Close SQLit client connections
+    if (this.sqlitClient) {
+      await this.sqlitClient.close()
     }
   }
 
@@ -273,12 +273,12 @@ export class DatabaseService {
    * Host a database (participate in replication)
    */
   async hostDatabase(databaseId: string): Promise<void> {
-    if (!this.eqliteClient) {
+    if (!this.sqlitClient) {
       throw new Error('Database service not initialized')
     }
 
     // Get database info to verify it exists
-    const info = await this.eqliteClient.getDatabase(databaseId)
+    const info = await this.sqlitClient.getDatabase(databaseId)
     if (!info) {
       throw new Error(`Database ${databaseId} not found`)
     }
@@ -308,12 +308,12 @@ export class DatabaseService {
     params: QueryParam[],
     databaseId: string,
   ): Promise<QueryResult<T>> {
-    if (!this.eqliteClient) {
+    if (!this.sqlitClient) {
       throw new Error('Database service not initialized')
     }
 
     const startTime = performance.now()
-    const result = await this.eqliteClient.query<T>(sql, params, databaseId)
+    const result = await this.sqlitClient.query<T>(sql, params, databaseId)
     const latency = performance.now() - startTime
 
     this.queryCount++
@@ -334,23 +334,23 @@ export class DatabaseService {
     params: QueryParam[],
     databaseId: string,
   ): Promise<ExecResult> {
-    if (!this.eqliteClient) {
+    if (!this.sqlitClient) {
       throw new Error('Database service not initialized')
     }
 
-    return this.eqliteClient.exec(sql, params, databaseId)
+    return this.sqlitClient.exec(sql, params, databaseId)
   }
 
   /**
    * Create a backup of a database
    */
   async createBackup(databaseId: string): Promise<BackupInfo> {
-    if (!this.eqliteClient) {
+    if (!this.sqlitClient) {
       throw new Error('Database service not initialized')
     }
 
     // Get current database state
-    const info = await this.eqliteClient.getDatabase(databaseId)
+    const info = await this.sqlitClient.getDatabase(databaseId)
     if (!info) {
       throw new Error(`Database ${databaseId} not found`)
     }
@@ -371,15 +371,15 @@ export class DatabaseService {
 
   /**
    * List available backups for a database
-   * Backups are stored in EQLite with metadata
+   * Backups are stored in SQLit with metadata
    */
   async listBackups(databaseId: string): Promise<BackupInfo[]> {
-    if (!this.eqliteClient) {
+    if (!this.sqlitClient) {
       return []
     }
 
-    // Query EQLite for backups of this database
-    const result = await this.eqliteClient.query<{
+    // Query SQLit for backups of this database
+    const result = await this.sqlitClient.query<{
       backup_id: string
       database_id: string
       created_at: number
@@ -406,18 +406,18 @@ export class DatabaseService {
 
   /**
    * Restore a database from backup
-   * Uses EQLite's built-in snapshot restoration
+   * Uses SQLit's built-in snapshot restoration
    */
   async restoreBackup(
     backupId: string,
     targetDatabaseId: string,
   ): Promise<void> {
-    if (!this.eqliteClient) {
+    if (!this.sqlitClient) {
       throw new Error('Database service not initialized')
     }
 
     // Get backup metadata
-    const backups = await this.eqliteClient.query<{
+    const backups = await this.sqlitClient.query<{
       backup_id: string
       database_id: string
       snapshot_path: string
@@ -435,15 +435,15 @@ export class DatabaseService {
     const backup = backups.rows[0]
 
     // Check if target database exists
-    const targetInfo = await this.eqliteClient.getDatabase(targetDatabaseId)
+    const targetInfo = await this.sqlitClient.getDatabase(targetDatabaseId)
     if (targetInfo) {
       console.log(
         `[DatabaseService] Restoring ${targetDatabaseId} from backup ${backupId}`,
       )
     }
 
-    // Execute restore via EQLite system command
-    await this.eqliteClient.exec(
+    // Execute restore via SQLit system command
+    await this.sqlitClient.exec(
       `RESTORE DATABASE ? FROM SNAPSHOT ?`,
       [targetDatabaseId, backup.snapshot_path],
       'system',
@@ -469,15 +469,15 @@ export class DatabaseService {
       : 0
     const qps = uptimeSeconds > 0 ? this.queryCount / uptimeSeconds : 0
 
-    // Get block height and replication info from EQLite
+    // Get block height and replication info from SQLit
     let blockHeight = 0
     let replicationLag = 0
     let activeConnections = 0
 
-    if (this.eqliteClient) {
+    if (this.sqlitClient) {
       try {
-        // Query EQLite status endpoint for stats
-        const status = await this.eqliteClient.query<{
+        // Query SQLit status endpoint for stats
+        const status = await this.sqlitClient.query<{
           block_height: number
           replica_lag_ms: number
           active_connections: number
@@ -511,13 +511,13 @@ export class DatabaseService {
    * List all databases this node is hosting
    */
   async listHostedDatabases(): Promise<DatabaseInfo[]> {
-    if (!this.eqliteClient || !this.config) {
+    if (!this.sqlitClient || !this.config) {
       return []
     }
 
     const databases: DatabaseInfo[] = []
     for (const dbId of this.config.hostedDatabases) {
-      const info = await this.eqliteClient.getDatabase(dbId)
+      const info = await this.sqlitClient.getDatabase(dbId)
       if (info) {
         databases.push(info)
       }
@@ -529,10 +529,10 @@ export class DatabaseService {
    * Get available rental plans
    */
   async listRentalPlans() {
-    if (!this.eqliteClient) {
+    if (!this.sqlitClient) {
       return []
     }
-    return this.eqliteClient.listPlans()
+    return this.sqlitClient.listPlans()
   }
 
   /**
@@ -576,10 +576,10 @@ export class DatabaseService {
   }
 
   /**
-   * Get the EQLite client for direct operations
+   * Get the SQLit client for direct operations
    */
-  getEQLiteClient(): EQLiteClient | null {
-    return this.eqliteClient
+  getSQLitClient(): SQLitClient | null {
+    return this.sqlitClient
   }
 }
 

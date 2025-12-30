@@ -27,7 +27,7 @@ import {
  * @example
  * ```typescript
  * const blob = serializeFloat32Vector([0.1, 0.2, 0.3, 0.4])
- * await eqlite.exec('INSERT INTO vectors(embedding) VALUES (?)', [blob])
+ * await sqlit.exec('INSERT INTO vectors(embedding) VALUES (?)', [blob])
  * ```
  */
 export function serializeFloat32Vector(vector: number[]): Uint8Array {

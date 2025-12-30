@@ -1,37 +1,37 @@
 /**
- * EQLite Proxy Route
+ * SQLit Proxy Route
  *
- * Proxies EQLite requests to the DWS-managed EQLite service.
- * EQLite runs as a DWS service, not a separate deployment.
+ * Proxies SQLit requests to the DWS-managed SQLit service.
+ * SQLit runs as a DWS service, not a separate deployment.
  *
  * Endpoints:
- * - POST /eqlite/v1/query - Execute SELECT queries
- * - POST /eqlite/v1/exec - Execute write operations
- * - GET /eqlite/v1/status - Health check
- * - POST /eqlite/api/v1/databases - Database management
+ * - POST /sqlit/v1/query - Execute SELECT queries
+ * - POST /sqlit/v1/exec - Execute write operations
+ * - GET /sqlit/v1/status - Health check
+ * - POST /sqlit/api/v1/databases - Database management
  */
 
 import { Elysia } from 'elysia'
 import {
-  ensureEQLiteService,
-  getEQLiteEndpoint,
-  getEQLiteStatus,
-  isEQLiteHealthy,
+  ensureSQLitService,
+  getSQLitEndpoint,
+  getSQLitStatus,
+  isSQLitHealthy,
 } from '../../database'
 
 /**
- * Create EQLite proxy router
+ * Create SQLit proxy router
  */
-export function createEQLiteProxyRouter() {
+export function createSQLitProxyRouter() {
   return (
-    new Elysia({ prefix: '/eqlite' })
+    new Elysia({ prefix: '/sqlit' })
       .get('/status', async () => {
-        const status = getEQLiteStatus()
-        const healthy = await isEQLiteHealthy()
+        const status = getSQLitStatus()
+        const healthy = await isSQLitHealthy()
 
         return {
           status: healthy ? 'healthy' : 'unhealthy',
-          service: 'eqlite',
+          service: 'sqlit',
           running: status.running,
           endpoint: status.endpoint,
           healthStatus: status.healthStatus,
@@ -39,26 +39,26 @@ export function createEQLiteProxyRouter() {
       })
 
       .get('/v1/status', async ({ set }) => {
-        // Ensure EQLite is running
+        // Ensure SQLit is running
         try {
-          await ensureEQLiteService()
+          await ensureSQLitService()
         } catch (err) {
           set.status = 503
           return {
             status: 'error',
             error:
-              err instanceof Error ? err.message : 'EQLite service unavailable',
+              err instanceof Error ? err.message : 'SQLit service unavailable',
           }
         }
 
-        const endpoint = getEQLiteEndpoint()
+        const endpoint = getSQLitEndpoint()
         const response = await fetch(`${endpoint}/v1/status`, {
           signal: AbortSignal.timeout(5000),
         }).catch(() => null)
 
         if (!response?.ok) {
           set.status = 503
-          return { status: 'error', error: 'EQLite not responding' }
+          return { status: 'error', error: 'SQLit not responding' }
         }
 
         const data = await response.json()
@@ -66,18 +66,18 @@ export function createEQLiteProxyRouter() {
       })
 
       .post('/v1/query', async ({ body, set }) => {
-        // Ensure EQLite is running
+        // Ensure SQLit is running
         try {
-          await ensureEQLiteService()
+          await ensureSQLitService()
         } catch (err) {
           set.status = 503
           return {
             error:
-              err instanceof Error ? err.message : 'EQLite service unavailable',
+              err instanceof Error ? err.message : 'SQLit service unavailable',
           }
         }
 
-        const endpoint = getEQLiteEndpoint()
+        const endpoint = getSQLitEndpoint()
         const response = await fetch(`${endpoint}/v1/query`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -94,18 +94,18 @@ export function createEQLiteProxyRouter() {
       })
 
       .post('/v1/exec', async ({ body, set }) => {
-        // Ensure EQLite is running
+        // Ensure SQLit is running
         try {
-          await ensureEQLiteService()
+          await ensureSQLitService()
         } catch (err) {
           set.status = 503
           return {
             error:
-              err instanceof Error ? err.message : 'EQLite service unavailable',
+              err instanceof Error ? err.message : 'SQLit service unavailable',
           }
         }
 
-        const endpoint = getEQLiteEndpoint()
+        const endpoint = getSQLitEndpoint()
         const response = await fetch(`${endpoint}/v1/exec`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -121,20 +121,20 @@ export function createEQLiteProxyRouter() {
         return await response.json()
       })
 
-      // Proxy all other /api/v1/* requests to EQLite
+      // Proxy all other /api/v1/* requests to SQLit
       .all('/api/v1/*', async ({ request, params, set }) => {
-        // Ensure EQLite is running
+        // Ensure SQLit is running
         try {
-          await ensureEQLiteService()
+          await ensureSQLitService()
         } catch (err) {
           set.status = 503
           return {
             error:
-              err instanceof Error ? err.message : 'EQLite service unavailable',
+              err instanceof Error ? err.message : 'SQLit service unavailable',
           }
         }
 
-        const endpoint = getEQLiteEndpoint()
+        const endpoint = getSQLitEndpoint()
         const wildcardPath = (params as Record<string, string>)['*'] ?? ''
         const targetUrl = `${endpoint}/api/v1/${wildcardPath}`
 
@@ -156,7 +156,7 @@ export function createEQLiteProxyRouter() {
         }).catch((err) => {
           set.status = 502
           return new Response(
-            JSON.stringify({ error: `EQLite proxy error: ${err.message}` }),
+            JSON.stringify({ error: `SQLit proxy error: ${err.message}` }),
             { status: 502, headers: { 'Content-Type': 'application/json' } },
           )
         })

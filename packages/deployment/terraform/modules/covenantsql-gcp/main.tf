@@ -1,4 +1,4 @@
-# EQLite Module for GCP - Decentralized Database Cluster
+# SQLit Module for GCP - Decentralized Database Cluster
 # Uses ARM64 (Tau T2A / Ampere Altra) instances by default for cost savings
 
 variable "project_id" {
@@ -34,7 +34,7 @@ variable "subnet_name" {
 }
 
 variable "node_count" {
-  description = "Number of EQLite nodes (minimum 3 for consensus)"
+  description = "Number of SQLit nodes (minimum 3 for consensus)"
   type        = number
   default     = 3
 }
@@ -69,14 +69,14 @@ variable "allowed_source_ranges" {
   default     = []
 }
 
-variable "eqlite_image" {
-  description = "EQLite container image (must support ARM64 if use_arm64=true)"
+variable "sqlit_image" {
+  description = "SQLit container image (must support ARM64 if use_arm64=true)"
   type        = string
   default     = ""
 }
 
-variable "eqlite_image_tag" {
-  description = "EQLite image tag"
+variable "sqlit_image_tag" {
+  description = "SQLit image tag"
   type        = string
   default     = "latest"
 }
@@ -92,19 +92,19 @@ locals {
   architecture = var.use_arm64 ? "arm64" : "x86_64"
   
   # Use custom image if provided, otherwise use official (x86 only)
-  container_image = var.eqlite_image != "" ? "${var.eqlite_image}:${var.eqlite_image_tag}" : "eqlite/eqlite:latest"
+  container_image = var.sqlit_image != "" ? "${var.sqlit_image}:${var.sqlit_image_tag}" : "sqlit/sqlit:latest"
   
   common_labels = merge(var.labels, {
     environment = var.environment
-    component   = "eqlite"
+    component   = "sqlit"
     architecture = local.architecture
   })
 }
 
-# Service Account for EQLite nodes
-resource "google_service_account" "eqlite" {
-  account_id   = "eqlite-${var.environment}"
-  display_name = "EQLite Node Service Account"
+# Service Account for SQLit nodes
+resource "google_service_account" "sqlit" {
+  account_id   = "sqlit-${var.environment}"
+  display_name = "SQLit Node Service Account"
   project      = var.project_id
 }
 
@@ -112,19 +112,19 @@ resource "google_service_account" "eqlite" {
 resource "google_project_iam_member" "logging" {
   project = var.project_id
   role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.eqlite.email}"
+  member  = "serviceAccount:${google_service_account.sqlit.email}"
 }
 
 # IAM: Allow metrics
 resource "google_project_iam_member" "monitoring" {
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${google_service_account.eqlite.email}"
+  member  = "serviceAccount:${google_service_account.sqlit.email}"
 }
 
 # Firewall: Client connections
-resource "google_compute_firewall" "eqlite_client" {
-  name    = "eqlite-client-${var.environment}"
+resource "google_compute_firewall" "sqlit_client" {
+  name    = "sqlit-client-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -134,12 +134,12 @@ resource "google_compute_firewall" "eqlite_client" {
   }
 
   source_ranges = var.allowed_source_ranges
-  target_tags   = ["eqlite"]
+  target_tags   = ["sqlit"]
 }
 
 # Firewall: Node-to-node communication
-resource "google_compute_firewall" "eqlite_internal" {
-  name    = "eqlite-internal-${var.environment}"
+resource "google_compute_firewall" "sqlit_internal" {
+  name    = "sqlit-internal-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -148,13 +148,13 @@ resource "google_compute_firewall" "eqlite_internal" {
     ports    = ["4662", "4663"]
   }
 
-  source_tags = ["eqlite"]
-  target_tags = ["eqlite"]
+  source_tags = ["sqlit"]
+  target_tags = ["sqlit"]
 }
 
 # Firewall: HTTP API
-resource "google_compute_firewall" "eqlite_http" {
-  name    = "eqlite-http-${var.environment}"
+resource "google_compute_firewall" "sqlit_http" {
+  name    = "sqlit-http-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -164,12 +164,12 @@ resource "google_compute_firewall" "eqlite_http" {
   }
 
   source_ranges = var.allowed_source_ranges
-  target_tags   = ["eqlite"]
+  target_tags   = ["sqlit"]
 }
 
 # Firewall: Health checks from GCP load balancers
-resource "google_compute_firewall" "eqlite_health" {
-  name    = "eqlite-health-${var.environment}"
+resource "google_compute_firewall" "sqlit_health" {
+  name    = "sqlit-health-${var.environment}"
   network = var.network_name
   project = var.project_id
 
@@ -179,17 +179,17 @@ resource "google_compute_firewall" "eqlite_health" {
   }
 
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
-  target_tags   = ["eqlite"]
+  target_tags   = ["sqlit"]
 }
 
 # Instance Template
-resource "google_compute_instance_template" "eqlite" {
-  name_prefix  = "eqlite-${var.environment}-"
+resource "google_compute_instance_template" "sqlit" {
+  name_prefix  = "sqlit-${var.environment}-"
   machine_type = local.machine_type
   project      = var.project_id
   region       = var.region
 
-  tags = ["eqlite"]
+  tags = ["sqlit"]
 
   disk {
     source_image = var.use_arm64 ? "ubuntu-os-cloud/ubuntu-2204-lts-arm64" : "ubuntu-os-cloud/ubuntu-2204-lts"
@@ -205,7 +205,7 @@ resource "google_compute_instance_template" "eqlite" {
   }
 
   service_account {
-    email  = google_service_account.eqlite.email
+    email  = google_service_account.sqlit.email
     scopes = ["cloud-platform"]
   }
 
@@ -217,7 +217,7 @@ resource "google_compute_instance_template" "eqlite" {
     #!/bin/bash
     set -e
 
-    echo "Starting EQLite node setup..."
+    echo "Starting SQLit node setup..."
     echo "Architecture: ${local.architecture}"
 
     # Install dependencies
@@ -233,7 +233,7 @@ resource "google_compute_instance_template" "eqlite" {
     INSTANCE_ZONE=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/zone | cut -d'/' -f4)
     INTERNAL_IP=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
 
-    # Extract node index from instance name (e.g., eqlite-testnet-001 -> 001)
+    # Extract node index from instance name (e.g., sqlit-testnet-001 -> 001)
     NODE_INDEX=$(echo $INSTANCE_NAME | grep -oE '[0-9]+$' || echo "0")
 
     echo "Node: $INSTANCE_NAME"
@@ -242,10 +242,10 @@ resource "google_compute_instance_template" "eqlite" {
     echo "Index: $NODE_INDEX"
 
     # Create directories
-    mkdir -p /data/eqlite/{config,data,logs}
+    mkdir -p /data/sqlit/{config,data,logs}
 
     # Generate config
-    cat > /data/eqlite/config/config.yaml << CONFIGEOF
+    cat > /data/sqlit/config/config.yaml << CONFIGEOF
     IsTestNet: $([ "${var.environment}" == "testnet" ] && echo "true" || echo "false")
     WorkingRoot: /data
     ThisNodeID: node-$NODE_INDEX
@@ -258,15 +258,15 @@ resource "google_compute_instance_template" "eqlite" {
       Format: json
     CONFIGEOF
 
-    # Pull and run EQLite
-    EQLITE_IMAGE="${local.container_image}"
-    echo "Pulling image: $EQLITE_IMAGE"
-    docker pull $EQLITE_IMAGE
+    # Pull and run SQLit
+    SQLIT_IMAGE="${local.container_image}"
+    echo "Pulling image: $SQLIT_IMAGE"
+    docker pull $SQLIT_IMAGE
 
     # Create systemd service
-    cat > /etc/systemd/system/eqlite.service << SERVICEEOF
+    cat > /etc/systemd/system/sqlit.service << SERVICEEOF
     [Unit]
-    Description=EQLite Node
+    Description=SQLit Node
     After=docker.service
     Requires=docker.service
 
@@ -274,29 +274,29 @@ resource "google_compute_instance_template" "eqlite" {
     Type=simple
     Restart=always
     RestartSec=10
-    ExecStartPre=-/usr/bin/docker stop eqlite
-    ExecStartPre=-/usr/bin/docker rm eqlite
-    ExecStart=/usr/bin/docker run --name eqlite \\
+    ExecStartPre=-/usr/bin/docker stop sqlit
+    ExecStartPre=-/usr/bin/docker rm sqlit
+    ExecStart=/usr/bin/docker run --name sqlit \\
       -p 4661:4661 -p 4662:4662 -p 4663:4663 -p 8546:8546 \\
-      -v /data/eqlite/config:/config:ro \\
-      -v /data/eqlite/data:/data \\
-      -v /data/eqlite/logs:/logs \\
-      $EQLITE_IMAGE -config /config/config.yaml
-    ExecStop=/usr/bin/docker stop eqlite
+      -v /data/sqlit/config:/config:ro \\
+      -v /data/sqlit/data:/data \\
+      -v /data/sqlit/logs:/logs \\
+      $SQLIT_IMAGE -config /config/config.yaml
+    ExecStop=/usr/bin/docker stop sqlit
 
     [Install]
     WantedBy=multi-user.target
     SERVICEEOF
 
     systemctl daemon-reload
-    systemctl enable eqlite
-    systemctl start eqlite
+    systemctl enable sqlit
+    systemctl start sqlit
 
     # Install Cloud Ops agent
     curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
     bash add-google-cloud-ops-agent-repo.sh --also-install
 
-    echo "EQLite node setup complete"
+    echo "SQLit node setup complete"
   EOF
 
   labels = local.common_labels
@@ -307,14 +307,14 @@ resource "google_compute_instance_template" "eqlite" {
 }
 
 # Managed Instance Group
-resource "google_compute_region_instance_group_manager" "eqlite" {
-  name               = "eqlite-${var.environment}"
-  base_instance_name = "eqlite-${var.environment}"
+resource "google_compute_region_instance_group_manager" "sqlit" {
+  name               = "sqlit-${var.environment}"
+  base_instance_name = "sqlit-${var.environment}"
   region             = var.region
   project            = var.project_id
 
   version {
-    instance_template = google_compute_instance_template.eqlite.id
+    instance_template = google_compute_instance_template.sqlit.id
   }
 
   target_size = var.node_count
@@ -330,7 +330,7 @@ resource "google_compute_region_instance_group_manager" "eqlite" {
   }
 
   auto_healing_policies {
-    health_check      = google_compute_health_check.eqlite.id
+    health_check      = google_compute_health_check.sqlit.id
     initial_delay_sec = 300
   }
 
@@ -344,8 +344,8 @@ resource "google_compute_region_instance_group_manager" "eqlite" {
 }
 
 # Health Check
-resource "google_compute_health_check" "eqlite" {
-  name    = "eqlite-health-${var.environment}"
+resource "google_compute_health_check" "sqlit" {
+  name    = "sqlit-health-${var.environment}"
   project = var.project_id
 
   check_interval_sec  = 10
@@ -360,36 +360,36 @@ resource "google_compute_health_check" "eqlite" {
 }
 
 # Internal Load Balancer
-resource "google_compute_region_backend_service" "eqlite" {
-  name                  = "eqlite-backend-${var.environment}"
+resource "google_compute_region_backend_service" "sqlit" {
+  name                  = "sqlit-backend-${var.environment}"
   region                = var.region
   project               = var.project_id
   protocol              = "TCP"
   load_balancing_scheme = "INTERNAL"
-  health_checks         = [google_compute_health_check.eqlite.id]
+  health_checks         = [google_compute_health_check.sqlit.id]
 
   backend {
-    group = google_compute_region_instance_group_manager.eqlite.instance_group
+    group = google_compute_region_instance_group_manager.sqlit.instance_group
   }
 }
 
-resource "google_compute_forwarding_rule" "eqlite_client" {
-  name                  = "eqlite-client-${var.environment}"
+resource "google_compute_forwarding_rule" "sqlit_client" {
+  name                  = "sqlit-client-${var.environment}"
   region                = var.region
   project               = var.project_id
   load_balancing_scheme = "INTERNAL"
-  backend_service       = google_compute_region_backend_service.eqlite.id
+  backend_service       = google_compute_region_backend_service.sqlit.id
   ports                 = ["4661"]
   network               = var.network_name
   subnetwork            = var.subnet_name
 }
 
-resource "google_compute_forwarding_rule" "eqlite_http" {
-  name                  = "eqlite-http-${var.environment}"
+resource "google_compute_forwarding_rule" "sqlit_http" {
+  name                  = "sqlit-http-${var.environment}"
   region                = var.region
   project               = var.project_id
   load_balancing_scheme = "INTERNAL"
-  backend_service       = google_compute_region_backend_service.eqlite.id
+  backend_service       = google_compute_region_backend_service.sqlit.id
   ports                 = ["8546"]
   network               = var.network_name
   subnetwork            = var.subnet_name
@@ -397,23 +397,23 @@ resource "google_compute_forwarding_rule" "eqlite_http" {
 
 # Outputs
 output "client_endpoint" {
-  description = "EQLite client endpoint"
-  value       = "${google_compute_forwarding_rule.eqlite_client.ip_address}:4661"
+  description = "SQLit client endpoint"
+  value       = "${google_compute_forwarding_rule.sqlit_client.ip_address}:4661"
 }
 
 output "http_endpoint" {
-  description = "EQLite HTTP API endpoint"
-  value       = "http://${google_compute_forwarding_rule.eqlite_http.ip_address}:8546"
+  description = "SQLit HTTP API endpoint"
+  value       = "http://${google_compute_forwarding_rule.sqlit_http.ip_address}:8546"
 }
 
 output "instance_group" {
   description = "Instance group URL"
-  value       = google_compute_region_instance_group_manager.eqlite.instance_group
+  value       = google_compute_region_instance_group_manager.sqlit.instance_group
 }
 
 output "service_account_email" {
   description = "Service account email"
-  value       = google_service_account.eqlite.email
+  value       = google_service_account.sqlit.email
 }
 
 output "architecture" {
@@ -426,7 +426,7 @@ output "machine_type" {
   value       = local.machine_type
 }
 
-output "eqlite_image" {
-  description = "EQLite container image"
+output "sqlit_image" {
+  description = "SQLit container image"
   value       = local.container_image
 }

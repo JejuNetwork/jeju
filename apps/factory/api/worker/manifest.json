@@ -12,7 +12,7 @@
   "bindings": [
     {
       "type": "plain_text",
-      "name": "EQLITE_NODES",
+      "name": "SQLIT_NODES",
       "text": "http://localhost:4661"
     },
     {

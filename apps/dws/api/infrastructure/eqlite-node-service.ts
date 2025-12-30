@@ -1,21 +1,21 @@
 /**
- * EQLite Node Service
+ * SQLit Node Service
  *
- * Integrates EQLite nodes with DWS infrastructure.
+ * Integrates SQLit nodes with DWS infrastructure.
  * Handles:
- * - Node registration (on-chain EQLiteRegistry + DWS node registry)
+ * - Node registration (on-chain SQLitRegistry + DWS node registry)
  * - Node lifecycle management
- * - TEE attestation for EQLite nodes
+ * - TEE attestation for SQLit nodes
  * - Database provisioning
  */
 
 import { getLocalhostHost, INFRA_PORTS } from '@jejunetwork/config'
 import {
-  createEQLiteNode,
-  type EQLiteNodeConfig,
-  type EQLiteNodeManager,
-  EQLiteNodeRole,
-  EQLiteNodeStatus,
+  createSQLitNode,
+  type SQLitNodeConfig,
+  type SQLitNodeManager,
+  SQLitNodeRole,
+  SQLitNodeStatus,
 } from '@jejunetwork/db'
 import type {
   Address,
@@ -43,19 +43,19 @@ import type { NetworkConfig, NodeCapability } from './types'
 // Types
 // ============================================================================
 
-export interface EQLiteNodeServiceConfig {
+export interface SQLitNodeServiceConfig {
   networkConfig: NetworkConfig
   privateKey: Hex
   workingDir: string
   teeEnabled: boolean
   teeEndpoint?: string
-  eqliteRegistryAddress: Address
+  sqlitRegistryAddress: Address
 }
 
-export interface EQLiteNodeInfo {
+export interface SQLitNodeInfo {
   nodeId: string
-  role: EQLiteNodeRole
-  status: EQLiteNodeStatus
+  role: SQLitNodeRole
+  status: SQLitNodeStatus
   endpoint: string
   dwsAgentId?: bigint
   registryNodeId?: Hex
@@ -72,10 +72,10 @@ export interface CreateDatabaseParams {
 }
 
 // ============================================================================
-// EQLite Registry ABI
+// SQLit Registry ABI
 // ============================================================================
 
-const EQLITE_REGISTRY_ABI = [
+const SQLIT_REGISTRY_ABI = [
   {
     name: 'registerNode',
     type: 'function',
@@ -155,28 +155,28 @@ const EQLITE_REGISTRY_ABI = [
   },
 ] as const
 
-// Map EQLiteNodeRole string values to numeric values for on-chain
-const ROLE_TO_NUMBER: Record<EQLiteNodeRole, number> = {
-  [EQLiteNodeRole.BLOCK_PRODUCER]: 0,
-  [EQLiteNodeRole.MINER]: 1,
-  [EQLiteNodeRole.ADAPTER]: 2,
-  [EQLiteNodeRole.FULLNODE]: 3,
+// Map SQLitNodeRole string values to numeric values for on-chain
+const ROLE_TO_NUMBER: Record<SQLitNodeRole, number> = {
+  [SQLitNodeRole.BLOCK_PRODUCER]: 0,
+  [SQLitNodeRole.MINER]: 1,
+  [SQLitNodeRole.ADAPTER]: 2,
+  [SQLitNodeRole.FULLNODE]: 3,
 }
 
 // ============================================================================
-// EQLite Node Service
+// SQLit Node Service
 // ============================================================================
 
-export class EQLiteNodeService {
-  private config: EQLiteNodeServiceConfig
-  private nodeManager: EQLiteNodeManager | null = null
+export class SQLitNodeService {
+  private config: SQLitNodeServiceConfig
+  private nodeManager: SQLitNodeManager | null = null
   private nodeRegistry: NodeRegistry
   private publicClient: PublicClient
   private walletClient: WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   private chain: Chain
   private dwsAgentId: bigint | null = null
 
-  constructor(config: EQLiteNodeServiceConfig) {
+  constructor(config: SQLitNodeServiceConfig) {
     this.config = config
 
     // Initialize node registry
@@ -217,33 +217,33 @@ export class EQLiteNodeService {
   }
 
   /**
-   * Start a EQLite node (block producer or miner)
+   * Start a SQLit node (block producer or miner)
    */
   async startNode(params: {
-    role: EQLiteNodeRole
+    role: SQLitNodeRole
     listenAddr?: string
     rpcPort?: number
     stakeAmount: bigint
     region?: string
-  }): Promise<EQLiteNodeInfo> {
+  }): Promise<SQLitNodeInfo> {
     const nodeId = keccak256(
       toBytes(
-        `eqlite-${params.role}-${Date.now()}-${this.config.privateKey.slice(0, 10)}`,
+        `sqlit-${params.role}-${Date.now()}-${this.config.privateKey.slice(0, 10)}`,
       ),
     ) as Hex
 
     const roleName =
-      params.role === EQLiteNodeRole.BLOCK_PRODUCER
+      params.role === SQLitNodeRole.BLOCK_PRODUCER
         ? 'blockproducer'
-        : params.role === EQLiteNodeRole.MINER
+        : params.role === SQLitNodeRole.MINER
           ? 'miner'
-          : params.role === EQLiteNodeRole.ADAPTER
+          : params.role === SQLitNodeRole.ADAPTER
             ? 'adapter'
             : 'fullnode'
-    console.log(`[EQLite Service] Starting ${roleName} node: ${nodeId}`)
+    console.log(`[SQLit Service] Starting ${roleName} node: ${nodeId}`)
 
-    // 1. Create EQLite node manager
-    const nodeConfig: EQLiteNodeConfig = {
+    // 1. Create SQLit node manager
+    const nodeConfig: SQLitNodeConfig = {
       nodeId,
       role: params.role,
       dataDir: `${this.config.workingDir}/${nodeId.slice(2, 10)}`,
@@ -253,18 +253,18 @@ export class EQLiteNodeService {
       teePlatform: this.config.teeEnabled ? 'intel_tdx' : 'any',
     }
 
-    this.nodeManager = await createEQLiteNode(nodeConfig)
+    this.nodeManager = await createSQLitNode(nodeConfig)
 
-    // 2. Node is already started by createEQLiteNode
+    // 2. Node is already started by createSQLitNode
     if (!this.nodeManager) {
-      throw new Error('Failed to create EQLite node manager')
+      throw new Error('Failed to create SQLit node manager')
     }
 
     const state = this.nodeManager.getState()
 
-    // 3. Register on EQLite Registry (on-chain)
+    // 3. Register on SQLit Registry (on-chain)
     const host = getLocalhostHost()
-    const endpoint = `http://${host}:${params.rpcPort ?? INFRA_PORTS.EQLite.get()}`
+    const endpoint = `http://${host}:${params.rpcPort ?? INFRA_PORTS.SQLit.get()}`
 
     await this.registerOnChain(
       nodeId,
@@ -286,9 +286,9 @@ export class EQLiteNodeService {
 
     // 5. Register in DWS node registry
     const capability: NodeCapability =
-      params.role === EQLiteNodeRole.BLOCK_PRODUCER
-        ? 'eqlite-bp'
-        : 'eqlite-miner'
+      params.role === SQLitNodeRole.BLOCK_PRODUCER
+        ? 'sqlit-bp'
+        : 'sqlit-miner'
 
     const dwsResult = await this.nodeRegistry.registerNode({
       endpoint,
@@ -300,7 +300,7 @@ export class EQLiteNodeService {
         teePlatform: this.config.teeEnabled ? 'intel_tdx' : 'none',
       },
       capabilities: [capability, 'storage', 'tee'],
-      pricePerHour: 0n, // EQLite nodes earn through mining rewards
+      pricePerHour: 0n, // SQLit nodes earn through mining rewards
       pricePerGb: 0n,
       pricePerRequest: 0n,
       region: params.region,
@@ -308,8 +308,8 @@ export class EQLiteNodeService {
 
     this.dwsAgentId = dwsResult.agentId
 
-    console.log(`[EQLite Service] Node started: ${nodeId}`)
-    console.log(`[EQLite Service] DWS Agent ID: ${dwsResult.agentId}`)
+    console.log(`[SQLit Service] Node started: ${nodeId}`)
+    console.log(`[SQLit Service] DWS Agent ID: ${dwsResult.agentId}`)
 
     // 6. Start heartbeat loop
     this.startHeartbeatLoop(nodeId)
@@ -317,7 +317,7 @@ export class EQLiteNodeService {
     return {
       nodeId: state.nodeId as Hex,
       role: params.role,
-      status: EQLiteNodeStatus.RUNNING,
+      status: SQLitNodeStatus.RUNNING,
       endpoint,
       dwsAgentId: dwsResult.agentId,
       registryNodeId: nodeId,
@@ -327,7 +327,7 @@ export class EQLiteNodeService {
   }
 
   /**
-   * Stop the EQLite node
+   * Stop the SQLit node
    */
   async stopNode(): Promise<void> {
     if (this.nodeManager) {
@@ -339,14 +339,14 @@ export class EQLiteNodeService {
   /**
    * Get node status
    */
-  getNodeStatus(): EQLiteNodeInfo | null {
+  getNodeStatus(): SQLitNodeInfo | null {
     if (!this.nodeManager) return null
 
     const state = this.nodeManager.getState()
 
     const config = this.nodeManager.getConfig()
     const rpcPort =
-      config.rpcAddr?.split(':')[1] ?? String(INFRA_PORTS.EQLite.get())
+      config.rpcAddr?.split(':')[1] ?? String(INFRA_PORTS.SQLit.get())
     const host = getLocalhostHost()
     const endpoint = `http://${host}:${rpcPort}`
     return {
@@ -365,8 +365,8 @@ export class EQLiteNodeService {
    */
   async getActiveMiners(): Promise<Hex[]> {
     const result = await this.publicClient.readContract({
-      address: this.config.eqliteRegistryAddress,
-      abi: EQLITE_REGISTRY_ABI,
+      address: this.config.sqlitRegistryAddress,
+      abi: SQLIT_REGISTRY_ABI,
       functionName: 'getActiveMiners',
     })
 
@@ -378,8 +378,8 @@ export class EQLiteNodeService {
    */
   async getActiveBlockProducers(): Promise<Hex[]> {
     const result = await this.publicClient.readContract({
-      address: this.config.eqliteRegistryAddress,
-      abi: EQLITE_REGISTRY_ABI,
+      address: this.config.sqlitRegistryAddress,
+      abi: SQLIT_REGISTRY_ABI,
       functionName: 'getActiveBlockProducers',
     })
 
@@ -387,7 +387,7 @@ export class EQLiteNodeService {
   }
 
   /**
-   * Create a new EQLite database
+   * Create a new SQLit database
    */
   async createDatabase(params: CreateDatabaseParams): Promise<Hex> {
     const databaseId = keccak256(
@@ -408,7 +408,7 @@ export class EQLiteNodeService {
 
     // Register database on-chain
     const data = encodeFunctionData({
-      abi: EQLITE_REGISTRY_ABI,
+      abi: SQLIT_REGISTRY_ABI,
       functionName: 'createDatabase',
       args: [databaseId, selectedMiners],
     })
@@ -416,16 +416,16 @@ export class EQLiteNodeService {
     const account = privateKeyToAccount(this.config.privateKey)
     const txHash = await this.walletClient.sendTransaction({
       account,
-      to: this.config.eqliteRegistryAddress,
+      to: this.config.sqlitRegistryAddress,
       data,
       chain: null,
     })
 
     await this.publicClient.waitForTransactionReceipt({ hash: txHash })
 
-    console.log(`[EQLite Service] Database created: ${databaseId}`)
+    console.log(`[SQLit Service] Database created: ${databaseId}`)
     console.log(
-      `[EQLite Service] Assigned to miners: ${selectedMiners.join(', ')}`,
+      `[SQLit Service] Assigned to miners: ${selectedMiners.join(', ')}`,
     )
 
     return databaseId
@@ -437,12 +437,12 @@ export class EQLiteNodeService {
 
   private async registerOnChain(
     nodeId: Hex,
-    role: EQLiteNodeRole,
+    role: SQLitNodeRole,
     endpoint: string,
     stakeAmount: bigint,
   ): Promise<void> {
     const data = encodeFunctionData({
-      abi: EQLITE_REGISTRY_ABI,
+      abi: SQLIT_REGISTRY_ABI,
       functionName: 'registerNode',
       args: [nodeId, ROLE_TO_NUMBER[role], endpoint, stakeAmount],
     })
@@ -450,14 +450,14 @@ export class EQLiteNodeService {
     const account = privateKeyToAccount(this.config.privateKey)
     const txHash = await this.walletClient.sendTransaction({
       account,
-      to: this.config.eqliteRegistryAddress,
+      to: this.config.sqlitRegistryAddress,
       data,
       chain: null,
     })
 
     await this.publicClient.waitForTransactionReceipt({ hash: txHash })
 
-    console.log(`[EQLite Service] Registered on-chain: ${txHash}`)
+    console.log(`[SQLit Service] Registered on-chain: ${txHash}`)
   }
 
   private async submitAttestationOnChain(
@@ -466,7 +466,7 @@ export class EQLiteNodeService {
     mrEnclave: Hex,
   ): Promise<void> {
     const data = encodeFunctionData({
-      abi: EQLITE_REGISTRY_ABI,
+      abi: SQLIT_REGISTRY_ABI,
       functionName: 'submitAttestation',
       args: [nodeId, attestation, mrEnclave],
     })
@@ -474,14 +474,14 @@ export class EQLiteNodeService {
     const account = privateKeyToAccount(this.config.privateKey)
     const txHash = await this.walletClient.sendTransaction({
       account,
-      to: this.config.eqliteRegistryAddress,
+      to: this.config.sqlitRegistryAddress,
       data,
       chain: null,
     })
 
     await this.publicClient.waitForTransactionReceipt({ hash: txHash })
 
-    console.log(`[EQLite Service] Attestation submitted: ${txHash}`)
+    console.log(`[SQLit Service] Attestation submitted: ${txHash}`)
   }
 
   private startHeartbeatLoop(nodeId: Hex): void {
@@ -493,13 +493,13 @@ export class EQLiteNodeService {
 
       const state = this.nodeManager.getState()
 
-      if (state.status !== EQLiteNodeStatus.RUNNING) {
+      if (state.status !== SQLitNodeStatus.RUNNING) {
         return
       }
 
       // Send heartbeat to on-chain registry
       const data = encodeFunctionData({
-        abi: EQLITE_REGISTRY_ABI,
+        abi: SQLIT_REGISTRY_ABI,
         functionName: 'heartbeat',
         args: [nodeId, BigInt(0)],
       })
@@ -508,12 +508,12 @@ export class EQLiteNodeService {
         const account = privateKeyToAccount(this.config.privateKey)
         await this.walletClient.sendTransaction({
           account,
-          to: this.config.eqliteRegistryAddress,
+          to: this.config.sqlitRegistryAddress,
           data,
           chain: null,
         })
       } catch (err) {
-        console.error(`[EQLite Service] Heartbeat failed:`, err)
+        console.error(`[SQLit Service] Heartbeat failed:`, err)
       }
 
       // Also send heartbeat to DWS registry
@@ -521,7 +521,7 @@ export class EQLiteNodeService {
         try {
           await this.nodeRegistry.heartbeat(this.dwsAgentId)
         } catch (err) {
-          console.error(`[EQLite Service] DWS heartbeat failed:`, err)
+          console.error(`[SQLit Service] DWS heartbeat failed:`, err)
         }
       }
     }, 60000) // Every minute
@@ -532,8 +532,8 @@ export class EQLiteNodeService {
 // Factory
 // ============================================================================
 
-export function createEQLiteNodeService(
-  config: EQLiteNodeServiceConfig,
-): EQLiteNodeService {
-  return new EQLiteNodeService(config)
+export function createSQLitNodeService(
+  config: SQLitNodeServiceConfig,
+): SQLitNodeService {
+  return new SQLitNodeService(config)
 }

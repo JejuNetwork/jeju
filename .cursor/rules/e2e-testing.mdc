@@ -13,7 +13,7 @@ alwaysApply: true
 | Autocrat | 20 | ✅ DAO list, create wizard (5 steps), form validation, mobile |
 | Crucible | 23 | ✅ Agents, chat, rooms, header, footer, mobile |
 | Bazaar | - | ⏳ Needs dependencies |
-| Gateway | 15+ | ⏳ Needs EQLite (10 tabs ready) |
+| Gateway | 15+ | ⏳ Needs SQLit (10 tabs ready) |
 | Factory | - | ⏳ Needs setup |
 | Monitoring | - | ⏳ Needs setup |
 | Node | - | ⏳ Needs Tauri |

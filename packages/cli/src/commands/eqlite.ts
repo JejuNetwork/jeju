@@ -1,11 +1,11 @@
-/** Manage EQLite decentralized database */
+/** Manage SQLit decentralized database */
 
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getRpcUrl as getConfigRpcUrl,
-  getEQLiteBlockProducerUrl,
+  getSQLitBlockProducerUrl,
   getLocalhostHost,
   type NetworkType,
 } from '@jejunetwork/config'
@@ -24,10 +24,10 @@ import { logger } from '../lib/logger'
 import { validateNetwork } from '../lib/security'
 import { findMonorepoRoot } from '../lib/system'
 
-type EQLiteMode = 'cluster' | 'testnet'
+type SQLitMode = 'cluster' | 'testnet'
 
 interface ClusterStatus {
-  mode: EQLiteMode
+  mode: SQLitMode
   blockProducer: { running: boolean; endpoint?: string }
   miners: Array<{ id: string; running: boolean; endpoint?: string }>
   healthy: boolean
@@ -105,13 +105,13 @@ function getChainForNetwork(network: NetworkType) {
   }
 }
 
-export const eqliteCommand = new Command('eqlite').description(
-  'Manage EQLite decentralized database',
+export const sqlitCommand = new Command('sqlit').description(
+  'Manage SQLit decentralized database',
 )
 
-eqliteCommand
+sqlitCommand
   .command('start')
-  .description('Start EQLite database cluster')
+  .description('Start SQLit database cluster')
   .option(
     '--mode <mode>',
     'Mode: cluster (multi-node Docker), testnet (remote)',
@@ -120,8 +120,8 @@ eqliteCommand
   .option('--miners <count>', 'Number of miner nodes (cluster mode)', '3')
   .option('--detach', 'Run in background', true)
   .action(async (options) => {
-    const mode = options.mode as EQLiteMode
-    logger.header('EQLite START')
+    const mode = options.mode as SQLitMode
+    logger.header('SQLit START')
     logger.keyValue('Mode', mode)
 
     switch (mode) {
@@ -137,19 +137,19 @@ eqliteCommand
     }
   })
 
-eqliteCommand
+sqlitCommand
   .command('stop')
-  .description('Stop EQLite database cluster')
+  .description('Stop SQLit database cluster')
   .action(async () => {
-    logger.header('EQLite STOP')
+    logger.header('SQLit STOP')
     await stopClusterMode()
   })
 
-eqliteCommand
+sqlitCommand
   .command('status')
-  .description('Show EQLite cluster status')
+  .description('Show SQLit cluster status')
   .action(async () => {
-    logger.header('EQLite STATUS')
+    logger.header('SQLit STATUS')
 
     const status = await getClusterStatus()
 
@@ -172,16 +172,16 @@ eqliteCommand
     }
   })
 
-eqliteCommand
+sqlitCommand
   .command('deploy')
-  .description('Deploy EQLite infrastructure to Kubernetes')
+  .description('Deploy SQLit infrastructure to Kubernetes')
   .option(
     '--network <network>',
     'Network: localnet, testnet, mainnet',
     'testnet',
   )
   .action(async (options) => {
-    logger.header('EQLite DEPLOY')
+    logger.header('SQLit DEPLOY')
 
     // SECURITY: Validate network to prevent command injection
     const network = validateNetwork(options.network)
@@ -190,7 +190,7 @@ eqliteCommand
     const rootDir = findMonorepoRoot()
     const deployScript = join(
       rootDir,
-      'packages/deployment/scripts/deploy/deploy-eqlite.ts',
+      'packages/deployment/scripts/deploy/deploy-sqlit.ts',
     )
 
     if (!existsSync(deployScript)) {
@@ -199,23 +199,23 @@ eqliteCommand
     }
 
     logger.info(
-      'Note: EQLite operators register in the unified ComputeRegistry',
+      'Note: SQLit operators register in the unified ComputeRegistry',
     )
     logger.info('      with serviceType = keccak256("database")')
     logger.newline()
 
-    logger.step('Deploying EQLite infrastructure...')
+    logger.step('Deploying SQLit infrastructure...')
     execSync(`bun run ${deployScript} --network ${network}`, {
       cwd: rootDir,
       stdio: 'inherit',
     })
 
-    logger.success('EQLite infrastructure deployed')
+    logger.success('SQLit infrastructure deployed')
   })
 
-eqliteCommand
+sqlitCommand
   .command('register')
-  .description('Register as a EQLite database provider in ComputeRegistry')
+  .description('Register as a SQLit database provider in ComputeRegistry')
   .requiredOption('--name <name>', 'Provider name')
   .requiredOption('--endpoint <endpoint>', 'HTTP endpoint for your node')
   .requiredOption('--stake <amount>', 'Stake amount in ETH')
@@ -229,7 +229,7 @@ eqliteCommand
     'localnet',
   )
   .action(async (options) => {
-    logger.header('EQLite REGISTER')
+    logger.header('SQLit REGISTER')
     logger.keyValue('Network', options.network)
 
     const network = options.network as NetworkType
@@ -292,8 +292,8 @@ eqliteCommand
     if (receipt.status === 'success') {
       logger.success('Successfully registered as database provider.')
       logger.newline()
-      logger.info('Your EQLite node is now registered in the ComputeRegistry.')
-      logger.info('Users can discover your node via: jeju eqlite status')
+      logger.info('Your SQLit node is now registered in the ComputeRegistry.')
+      logger.info('Users can discover your node via: jeju sqlit status')
     } else {
       logger.error('Transaction failed')
       process.exit(1)
@@ -307,18 +307,18 @@ async function startClusterMode(
   const rootDir = findMonorepoRoot()
   const composeFile = join(
     rootDir,
-    'packages/deployment/docker/eqlite-cluster.compose.yaml',
+    'packages/deployment/docker/sqlit-cluster.compose.yaml',
   )
 
   if (!existsSync(composeFile)) {
-    logger.error('EQLite cluster compose file not found')
+    logger.error('SQLit cluster compose file not found')
     process.exit(1)
   }
 
-  logger.step(`Starting EQLite cluster with ${minerCount} miners...`)
+  logger.step(`Starting SQLit cluster with ${minerCount} miners...`)
 
   // Scale miners
-  const scaleArg = `--scale eqlite-miner-1=1 --scale eqlite-miner-2=1 --scale eqlite-miner-3=1`
+  const scaleArg = `--scale sqlit-miner-1=1 --scale sqlit-miner-2=1 --scale sqlit-miner-3=1`
 
   const cmd = detach
     ? `docker compose -f ${composeFile} up -d ${scaleArg}`
@@ -333,15 +333,15 @@ async function startClusterMode(
       await sleep(1000)
       const status = await getClusterStatus()
       if (status.healthy) {
-        logger.success('EQLite cluster is healthy')
+        logger.success('SQLit cluster is healthy')
         const host = getLocalhostHost()
         logger.keyValue('Block Producer', `http://${host}:8546`)
-        logger.keyValue('Client Endpoint', getEQLiteBlockProducerUrl())
+        logger.keyValue('Client Endpoint', getSQLitBlockProducerUrl())
         logger.keyValue('Stats UI', `http://${host}:8547/stats`)
         return
       }
     }
-    logger.error('EQLite cluster failed to become healthy')
+    logger.error('SQLit cluster failed to become healthy')
   }
 }
 
@@ -349,18 +349,18 @@ async function stopClusterMode(): Promise<void> {
   const rootDir = findMonorepoRoot()
   const composeFile = join(
     rootDir,
-    'packages/deployment/docker/eqlite-cluster.compose.yaml',
+    'packages/deployment/docker/sqlit-cluster.compose.yaml',
   )
 
-  logger.step('Stopping EQLite cluster...')
+  logger.step('Stopping SQLit cluster...')
   execSync(`docker compose -f ${composeFile} down`, { stdio: 'inherit' })
-  logger.success('EQLite cluster stopped')
+  logger.success('SQLit cluster stopped')
 }
 
 async function connectTestnet(): Promise<void> {
-  logger.step('Connecting to testnet EQLite...')
+  logger.step('Connecting to testnet SQLit...')
 
-  const testnetUrl = 'https://eqlite.testnet.jejunetwork.org'
+  const testnetUrl = 'https://sqlit.testnet.jejunetwork.org'
 
   // Verify connection
   const response = await fetch(`${testnetUrl}/health`, {
@@ -368,10 +368,10 @@ async function connectTestnet(): Promise<void> {
   }).catch(() => null)
 
   if (response?.ok) {
-    logger.success('Connected to testnet EQLite')
+    logger.success('Connected to testnet SQLit')
     logger.keyValue('Endpoint', testnetUrl)
   } else {
-    logger.error('Failed to connect to testnet EQLite')
+    logger.error('Failed to connect to testnet SQLit')
     logger.info('Ensure you have network access to the testnet')
     process.exit(1)
   }
@@ -379,15 +379,15 @@ async function connectTestnet(): Promise<void> {
 
 async function getClusterStatus(): Promise<ClusterStatus> {
   const host = getLocalhostHost()
-  const eqliteUrl = getEQLiteBlockProducerUrl()
+  const sqlitUrl = getSQLitBlockProducerUrl()
   // Check cluster mode
   const bpHealthy = await checkEndpoint(`http://${host}:8546/v1/health`)
-  const lbHealthy = await checkEndpoint(`${eqliteUrl}/health`)
+  const lbHealthy = await checkEndpoint(`${sqlitUrl}/health`)
 
   if (bpHealthy || lbHealthy) {
     // Check individual miners
     const miners = await Promise.all([
-      checkMiner('miner-1', eqliteUrl),
+      checkMiner('miner-1', sqlitUrl),
       checkMiner('miner-2', `http://${host}:4662`),
       checkMiner('miner-3', `http://${host}:4663`),
     ])

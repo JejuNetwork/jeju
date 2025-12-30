@@ -8,18 +8,18 @@
  * - Rate limiting enforcement
  * - Injection attacks
  *
- * Note: Some tests require EQLite for state operations.
+ * Note: Some tests require SQLit for state operations.
  */
 
 import { describe, expect, test } from 'bun:test'
-import { getEQLiteBlockProducerUrl } from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 
-// Check if EQLite is available
-const EQLITE_AVAILABLE =
+// Check if SQLit is available
+const SQLIT_AVAILABLE =
   !!(typeof process !== 'undefined'
-    ? process.env.EQLITE_BLOCK_PRODUCER_ENDPOINT
-    : undefined) || !!getEQLiteBlockProducerUrl()
+    ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
+    : undefined) || !!getSQLitBlockProducerUrl()
 
 import {
   type AccessControl,
@@ -509,9 +509,9 @@ describe('Injection Attack Prevention', () => {
   })
 })
 
-// Full Flow Security Tests (require EQLite)
+// Full Flow Security Tests (require SQLit)
 
-describe.skipIf(!EQLITE_AVAILABLE)('Full Flow Security', () => {
+describe.skipIf(!SQLIT_AVAILABLE)('Full Flow Security', () => {
   test('should prevent key exposure in complete proxy flow', () => {
     const apiKey = 'sk-flow-security-test1234567890'
     const seller = '0x4444444444444444444444444444444444444444' as Address
@@ -542,7 +542,7 @@ describe.skipIf(!EQLITE_AVAILABLE)('Full Flow Security', () => {
     expect(metadataStr).not.toContain(apiKey)
   })
 
-  test.skipIf(!EQLITE_AVAILABLE)(
+  test.skipIf(!SQLIT_AVAILABLE)(
     'should enforce payment before access',
     async () => {
       const testId = Date.now().toString(16).slice(-8)

@@ -1,5 +1,5 @@
 /**
- * API Key Management Service - Decentralized via EQLite
+ * API Key Management Service - Decentralized via SQLit
  *
  * Uses cryptographic hashing for key validation.
  * Keys are hashed with SHA-256 before storage - plaintext keys are NEVER stored.

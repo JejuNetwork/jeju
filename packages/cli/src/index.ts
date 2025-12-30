@@ -26,7 +26,7 @@ import { deployCommand } from './commands/deploy'
 import { deployMipsCommand } from './commands/deploy-mips'
 import { devCommand } from './commands/dev'
 import { dwsCommand } from './commands/dws'
-import { eqliteCommand } from './commands/eqlite'
+import { sqlitCommand } from './commands/sqlit'
 import { faucetCommand } from './commands/faucet'
 import { federationCommand } from './commands/federation'
 import { forkCommand } from './commands/fork'
@@ -122,7 +122,7 @@ program.addCommand(publishCommand)
 program.addCommand(pkgCommand)
 program.addCommand(pypkgCommand)
 program.addCommand(infraCommand)
-program.addCommand(eqliteCommand)
+program.addCommand(sqlitCommand)
 program.addCommand(tokenCommand)
 program.addCommand(dwsCommand)
 program.addCommand(validateCommand)

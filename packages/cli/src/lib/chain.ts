@@ -40,10 +40,10 @@ import {
 const PortsConfigSchema = z.object({
   l1Port: z.number().int().min(1).max(65535),
   l2Port: z.number().int().min(1).max(65535),
-  eqlitePort: z.number().int().min(0).max(65535).optional(),
+  sqlitPort: z.number().int().min(0).max(65535).optional(),
   l1Rpc: z.string().url().optional(),
   l2Rpc: z.string().url().optional(),
-  eqliteApi: z.string().url().optional(),
+  sqlitApi: z.string().url().optional(),
   chainId: z.number().int().positive().optional(),
   timestamp: z.string().optional(),
 })
@@ -198,9 +198,9 @@ export async function startLocalnet(
     'op-geth',
     'rpc',
   ])
-  const eqlitePortResult = await execa(
+  const sqlitPortResult = await execa(
     'kurtosis',
-    ['port', 'print', ENCLAVE_NAME, 'eqlite', 'api'],
+    ['port', 'print', ENCLAVE_NAME, 'sqlit', 'api'],
     { reject: false },
   )
 
@@ -219,21 +219,21 @@ export async function startLocalnet(
   ) {
     throw new Error(`Invalid port values: L1=${l1Port}, L2=${l2Port}`)
   }
-  const eqlitePortStr =
-    eqlitePortResult.exitCode === 0
-      ? eqlitePortResult.stdout.trim().split(':').pop()
+  const sqlitPortStr =
+    sqlitPortResult.exitCode === 0
+      ? sqlitPortResult.stdout.trim().split(':').pop()
       : null
-  const eqlitePort = eqlitePortStr ? parseInt(eqlitePortStr, 10) : 0
+  const sqlitPort = sqlitPortStr ? parseInt(sqlitPortStr, 10) : 0
 
   // Save ports config
   const localhost = getLocalhostHost()
   const portsConfig = {
     l1Port,
     l2Port,
-    eqlitePort,
+    sqlitPort,
     l1Rpc: `http://${localhost}:${l1Port}`,
     l2Rpc: `http://${localhost}:${l2Port}`,
-    eqliteApi: eqlitePort ? `http://${localhost}:${eqlitePort}` : undefined,
+    sqlitApi: sqlitPort ? `http://${localhost}:${sqlitPort}` : undefined,
     chainId: 31337,
     timestamp: new Date().toISOString(),
   }
@@ -246,8 +246,8 @@ export async function startLocalnet(
   logger.step('Setting up port forwarding...')
   await setupPortForwarding(l1Port, DEFAULT_PORTS.l1Rpc, 'L1 RPC')
   await setupPortForwarding(l2Port, DEFAULT_PORTS.l2Rpc, 'L2 RPC')
-  if (eqlitePort) {
-    await setupPortForwarding(eqlitePort, DEFAULT_PORTS.eqlite, 'EQLite API')
+  if (sqlitPort) {
+    await setupPortForwarding(sqlitPort, DEFAULT_PORTS.sqlit, 'SQLit API')
   }
 
   // Wait for chain to be ready

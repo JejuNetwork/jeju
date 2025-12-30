@@ -20,7 +20,7 @@ ENV GO111MODULE=on
 
 ARG BUILD_ARG=release
 
-WORKDIR /go/src/eqlite
+WORKDIR /go/src/sqlit
 COPY . .
 
 # Build dynamic binaries (static linking with ICU/C++ is problematic)

@@ -170,7 +170,7 @@
     },
     "robustness": {
       "frontendStorage": "ipfs",
-      "dataStorage": "eqlite",
+      "dataStorage": "sqlit",
       "nodeDiscovery": "on-chain",
       "coordination": "p2p",
       "execution": [

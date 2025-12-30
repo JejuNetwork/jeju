@@ -3,7 +3,7 @@
  * Decentralized email service for DWS
  *
  * Lightweight API for local development and testing.
- * Uses EQLite for persistence. Production traffic should use the full email system
+ * Uses SQLit for persistence. Production traffic should use the full email system
  * at /email/* routes which integrates with:
  * - DWS Storage (IPFS/Arweave)
  * - EmailRegistry contract
@@ -12,43 +12,43 @@
  */
 
 import {
-  getEQLiteMinerUrl,
-  getEQLiteUrl,
+  getSQLitMinerUrl,
+  getSQLitUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { getEQLite, resetEQLite } from '@jejunetwork/db'
+import { getSQLit, resetSQLit } from '@jejunetwork/db'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { z } from 'zod'
 import { getMetrics } from '../../src/email/metrics'
 
-const EQLITE_DATABASE_ID = process.env.EQLITE_DATABASE_ID ?? 'dws'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws'
 
-// EQLite Client singleton
-let eqliteClient: ReturnType<typeof getEQLite> | null = null
+// SQLit Client singleton
+let sqlitClient: ReturnType<typeof getSQLit> | null = null
 
-async function getEQLiteClient() {
-  if (!eqliteClient) {
-    resetEQLite()
-    const blockProducerEndpoint = getEQLiteUrl()
-    const minerEndpoint = getEQLiteMinerUrl()
+async function getSQLitClient() {
+  if (!sqlitClient) {
+    resetSQLit()
+    const blockProducerEndpoint = getSQLitUrl()
+    const minerEndpoint = getSQLitMinerUrl()
 
-    eqliteClient = getEQLite({
+    sqlitClient = getSQLit({
       blockProducerEndpoint,
       minerEndpoint,
-      databaseId: EQLITE_DATABASE_ID,
+      databaseId: SQLIT_DATABASE_ID,
       timeout: 30000,
       debug: !isProductionEnv(),
     })
 
     await ensureTablesExist()
   }
-  return eqliteClient
+  return sqlitClient
 }
 
 async function ensureTablesExist(): Promise<void> {
-  if (!eqliteClient) return
+  if (!sqlitClient) return
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS email_mailboxes (
@@ -90,11 +90,11 @@ async function ensureTablesExist(): Promise<void> {
   ]
 
   for (const ddl of tables) {
-    await eqliteClient.exec(ddl, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(ddl, [], SQLIT_DATABASE_ID)
   }
 
   for (const idx of indexes) {
-    await eqliteClient.exec(idx, [], EQLITE_DATABASE_ID)
+    await sqlitClient.exec(idx, [], SQLIT_DATABASE_ID)
   }
 }
 
@@ -194,12 +194,12 @@ const MoveEmailBodySchema = z.object({
 
 async function getOrCreateMailbox(address: string): Promise<MailboxRow> {
   const normalized = address.toLowerCase()
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
 
   const result = await client.query<MailboxRow>(
     'SELECT * FROM email_mailboxes WHERE address = ?',
     [normalized],
-    EQLITE_DATABASE_ID,
+    SQLIT_DATABASE_ID,
   )
 
   if (result.rows[0]) return result.rows[0]
@@ -220,7 +220,7 @@ async function getOrCreateMailbox(address: string): Promise<MailboxRow> {
       newMailbox.quota_limit_bytes,
       newMailbox.created_at,
     ],
-    EQLITE_DATABASE_ID,
+    SQLIT_DATABASE_ID,
   )
 
   return newMailbox
@@ -230,21 +230,21 @@ async function getMailboxEmails(
   address: string,
   folder: string,
 ): Promise<EmailRow[]> {
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
   const result = await client.query<EmailRow>(
     'SELECT * FROM email_messages WHERE owner_address = ? AND folder = ? ORDER BY received_at DESC',
     [address.toLowerCase(), folder],
-    EQLITE_DATABASE_ID,
+    SQLIT_DATABASE_ID,
   )
   return result.rows
 }
 
 async function getMailboxCount(address: string): Promise<number> {
-  const client = await getEQLiteClient()
+  const client = await getSQLitClient()
   const result = await client.query<{ count: number }>(
     'SELECT COUNT(*) as count FROM email_mailboxes WHERE owner = ?',
     [address.toLowerCase()],
-    EQLITE_DATABASE_ID,
+    SQLIT_DATABASE_ID,
   )
   return result.rows[0].count ?? 0
 }
@@ -412,7 +412,7 @@ export function createEmailRouter() {
             return { error: 'Mailbox quota exceeded' }
           }
 
-          const client = await getEQLiteClient()
+          const client = await getSQLitClient()
 
           // Store in sender's sent folder
           await client.exec(
@@ -437,14 +437,14 @@ export function createEmailRouter() {
               timestamp,
               timestamp,
             ],
-            EQLITE_DATABASE_ID,
+            SQLIT_DATABASE_ID,
           )
 
           // Update sender quota
           await client.exec(
             'UPDATE email_mailboxes SET quota_used_bytes = quota_used_bytes + ? WHERE address = ?',
             [emailSize, address.toLowerCase()],
-            EQLITE_DATABASE_ID,
+            SQLIT_DATABASE_ID,
           )
 
           // Deliver to recipients (if they have mailboxes on this system)
@@ -476,13 +476,13 @@ export function createEmailRouter() {
                   timestamp,
                   timestamp,
                 ],
-                EQLITE_DATABASE_ID,
+                SQLIT_DATABASE_ID,
               )
 
               await client.exec(
                 'UPDATE email_mailboxes SET quota_used_bytes = quota_used_bytes + ? WHERE address = ?',
                 [emailSize, recipientAddress.toLowerCase()],
-                EQLITE_DATABASE_ID,
+                SQLIT_DATABASE_ID,
               )
             }
           }
@@ -515,11 +515,11 @@ export function createEmailRouter() {
           return { error: 'Wallet address required' }
         }
 
-        const client = await getEQLiteClient()
+        const client = await getSQLitClient()
         const result = await client.query<EmailRow>(
           'SELECT * FROM email_messages WHERE message_id = ? AND owner_address = ?',
           [params.messageId, address.toLowerCase()],
-          EQLITE_DATABASE_ID,
+          SQLIT_DATABASE_ID,
         )
 
         if (!result.rows[0]) {
@@ -540,13 +540,13 @@ export function createEmailRouter() {
             return { error: 'Wallet address required' }
           }
 
-          const client = await getEQLiteClient()
+          const client = await getSQLitClient()
 
           // Check if message exists
           const existing = await client.query<EmailRow>(
             'SELECT message_id FROM email_messages WHERE message_id = ? AND owner_address = ?',
             [params.messageId, address.toLowerCase()],
-            EQLITE_DATABASE_ID,
+            SQLIT_DATABASE_ID,
           )
 
           if (!existing.rows[0]) {
@@ -598,7 +598,7 @@ export function createEmailRouter() {
             await client.exec(
               `UPDATE email_messages SET ${updates.join(', ')} WHERE message_id = ? AND owner_address = ?`,
               values,
-              EQLITE_DATABASE_ID,
+              SQLIT_DATABASE_ID,
             )
           }
 
@@ -631,13 +631,13 @@ export function createEmailRouter() {
             return { error: 'Wallet address required' }
           }
 
-          const client = await getEQLiteClient()
+          const client = await getSQLitClient()
 
           // Check if message exists
           const existing = await client.query<EmailRow>(
             'SELECT message_id FROM email_messages WHERE message_id = ? AND owner_address = ?',
             [params.messageId, address.toLowerCase()],
-            EQLITE_DATABASE_ID,
+            SQLIT_DATABASE_ID,
           )
 
           if (!existing.rows[0]) {
@@ -654,7 +654,7 @@ export function createEmailRouter() {
           await client.exec(
             'UPDATE email_messages SET folder = ? WHERE message_id = ? AND owner_address = ?',
             [folder, params.messageId, address.toLowerCase()],
-            EQLITE_DATABASE_ID,
+            SQLIT_DATABASE_ID,
           )
 
           return { success: true, folder }
@@ -674,13 +674,13 @@ export function createEmailRouter() {
           return { error: 'Wallet address required' }
         }
 
-        const client = await getEQLiteClient()
+        const client = await getSQLitClient()
 
         // Get email for size calculation
         const existing = await client.query<EmailRow>(
           'SELECT * FROM email_messages WHERE message_id = ? AND owner_address = ?',
           [params.messageId, address.toLowerCase()],
-          EQLITE_DATABASE_ID,
+          SQLIT_DATABASE_ID,
         )
 
         if (!existing.rows[0]) {
@@ -694,14 +694,14 @@ export function createEmailRouter() {
         await client.exec(
           'DELETE FROM email_messages WHERE message_id = ? AND owner_address = ?',
           [params.messageId, address.toLowerCase()],
-          EQLITE_DATABASE_ID,
+          SQLIT_DATABASE_ID,
         )
 
         // Update quota
         await client.exec(
           'UPDATE email_mailboxes SET quota_used_bytes = MAX(0, quota_used_bytes - ?) WHERE address = ?',
           [emailSize, address.toLowerCase()],
-          EQLITE_DATABASE_ID,
+          SQLIT_DATABASE_ID,
         )
 
         return { success: true, deleted: params.messageId }
