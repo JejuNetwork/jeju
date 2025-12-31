@@ -13,6 +13,7 @@ import (
 	"sqlit/src/client"
 	"sqlit/src/cmd/sqlit-proxy/config"
 	"sqlit/src/crypto/asymmetric"
+	"sqlit/src/crypto/kms"
 	"sqlit/src/utils"
 	"sqlit/src/utils/log"
 )
@@ -25,6 +26,7 @@ var (
 	configFile  string
 	password    string
 	showVersion bool
+	testMode    bool
 )
 
 func init() {
@@ -33,6 +35,8 @@ func init() {
 	flag.StringVar(&password, "password", "", "Master key password for sqlit")
 	flag.BoolVar(&asymmetric.BypassSignature, "bypass-signature", false,
 		"Disable signature sign and verify, for testing")
+	flag.BoolVar(&testMode, "test-mode", false,
+		"Enable test mode to bypass node ID validation, for testing")
 	flag.BoolVar(&showVersion, "version", false, "Show version information and exit")
 }
 
@@ -50,6 +54,12 @@ func main() {
 	flag.Visit(func(f *flag.Flag) {
 		log.Infof("args %#v : %s", f.Name, f.Value)
 	})
+
+	// Enable test mode if requested
+	if testMode {
+		kms.Unittest = true
+		log.Info("Test mode enabled - bypassing node ID validation")
+	}
 
 	// init client
 	var err error
