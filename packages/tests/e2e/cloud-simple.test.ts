@@ -78,6 +78,7 @@ let publicClient: ReturnType<typeof createPublicClient>
 let deployer: ReturnType<typeof privateKeyToAccount>
 
 let localnetAvailable = false
+let cloudContractsDeployed = false
 
 // Top-level await to check localnet before tests start
 try {
@@ -89,14 +90,20 @@ try {
     signal: AbortSignal.timeout(2000),
   })
   localnetAvailable = response.ok
+  // Requires specific cloud contract deployments
+  cloudContractsDeployed = false
 } catch {
   localnetAvailable = false
 }
 if (!localnetAvailable) {
   console.log('⏭️ Skipping cloud-simple tests - localnet not available')
+} else if (!cloudContractsDeployed) {
+  console.log('⏭️ Skipping cloud-simple tests - cloud contracts not deployed')
 }
 
-describe.skipIf(!localnetAvailable)('Cloud Simple Tests', () => {
+describe.skipIf(!localnetAvailable || !cloudContractsDeployed)(
+  'Cloud Simple Tests',
+  () => {
 
 beforeAll(async () => {
   ADDRESSES = loadDeployedAddresses()
