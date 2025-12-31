@@ -524,6 +524,282 @@ export function createAppDeployerRouter() {
       }
     })
 
+    // Worker deployment from CID - allows deploying large workers that were pre-uploaded
+    .post('/worker', async ({ request, set }) => {
+      const ownerHeader = request.headers.get('x-jeju-address')
+      if (!ownerHeader) {
+        set.status = 401
+        return { error: 'x-jeju-address header required' }
+      }
+      const owner = ownerHeader as Address
+
+      const contentType = request.headers.get('content-type') ?? ''
+
+      // Parse request - supports JSON (with CID) or form data (with file)
+      let name: string
+      let codeCid: string | null = null
+      let codeBuffer: Buffer | null = null
+      let runtime: 'bun' | 'node' | 'deno' = 'bun'
+      let handler = 'index.js'
+      let memory = 256
+      let timeout = 30000
+      let routes: string[] = []
+      let env: Record<string, string> = {}
+
+      if (contentType.includes('application/json')) {
+        const body = (await request.json()) as {
+          name: string
+          codeCid?: string
+          runtime?: 'bun' | 'node' | 'deno'
+          handler?: string
+          memory?: number
+          timeout?: number
+          routes?: string[]
+          env?: Record<string, string>
+        }
+
+        if (!body.name) {
+          set.status = 400
+          return { error: 'name is required' }
+        }
+
+        name = body.name
+        codeCid = body.codeCid ?? null
+        runtime = body.runtime ?? 'bun'
+        handler = body.handler ?? 'index.js'
+        memory = body.memory ?? 256
+        timeout = body.timeout ?? 30000
+        routes = body.routes ?? []
+        env = body.env ?? {}
+      } else if (contentType.includes('multipart/form-data')) {
+        const formData = await request.formData()
+        const nameField = formData.get('name')
+        if (!nameField || typeof nameField !== 'string') {
+          set.status = 400
+          return { error: 'name is required' }
+        }
+        name = nameField
+
+        const codeFile = formData.get('code')
+        if (codeFile instanceof File) {
+          codeBuffer = Buffer.from(await codeFile.arrayBuffer())
+        }
+
+        const codeCidField = formData.get('codeCid')
+        if (codeCidField && typeof codeCidField === 'string') {
+          codeCid = codeCidField
+        }
+
+        const runtimeField = formData.get('runtime')
+        if (
+          runtimeField &&
+          typeof runtimeField === 'string' &&
+          ['bun', 'node', 'deno'].includes(runtimeField)
+        ) {
+          runtime = runtimeField as 'bun' | 'node' | 'deno'
+        }
+
+        const handlerField = formData.get('handler')
+        if (handlerField && typeof handlerField === 'string') {
+          handler = handlerField
+        }
+
+        const memoryField = formData.get('memory')
+        if (memoryField && typeof memoryField === 'string') {
+          memory = parseInt(memoryField, 10) || 256
+        }
+
+        const timeoutField = formData.get('timeout')
+        if (timeoutField && typeof timeoutField === 'string') {
+          timeout = parseInt(timeoutField, 10) || 30000
+        }
+
+        const routesField = formData.get('routes')
+        if (routesField && typeof routesField === 'string') {
+          routes = JSON.parse(routesField) as string[]
+        }
+
+        const envField = formData.get('env')
+        if (envField && typeof envField === 'string') {
+          env = JSON.parse(envField) as Record<string, string>
+        }
+      } else {
+        set.status = 400
+        return { error: 'Content-Type must be application/json or multipart/form-data' }
+      }
+
+      // If codeCid provided, fetch code from storage
+      if (codeCid && !codeBuffer) {
+        const { createBackendManager } = await import('../storage/backends')
+        const backend = createBackendManager()
+        const downloadResult = await backend.download(codeCid)
+        if (!downloadResult) {
+          set.status = 400
+          return { error: `Code not found in storage: ${codeCid}` }
+        }
+        codeBuffer = downloadResult
+      }
+
+      if (!codeBuffer) {
+        set.status = 400
+        return { error: 'Either code file or codeCid is required' }
+      }
+
+      // Deploy to workers runtime
+      const { createBackendManager } = await import('../storage/backends')
+      const backend = createBackendManager()
+      const { WorkerRuntime } = await import('../workers/runtime')
+      const workerRuntime = new WorkerRuntime(backend)
+
+      // Upload code to storage if not already uploaded
+      let finalCid = codeCid
+      if (!finalCid) {
+        const uploadResult = await backend.upload(codeBuffer, {
+          filename: `${name}.js`,
+        })
+        finalCid = uploadResult.cid
+      }
+
+      const functionId = crypto.randomUUID()
+      const fn = {
+        id: functionId,
+        name,
+        owner,
+        runtime,
+        handler,
+        codeCid: finalCid,
+        memory,
+        timeout,
+        env,
+        status: 'active' as const,
+        version: 1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        invocationCount: 0,
+        avgDurationMs: 0,
+        errorCount: 0,
+      }
+
+      await workerRuntime.deployFunction(fn)
+
+      // Register with app router if routes specified
+      if (routes.length > 0) {
+        const { registerDeployedApp } = await import('../server/routes/app-router')
+        await registerDeployedApp({
+          name,
+          jnsName: `${name}.jeju`,
+          frontendCid: null,
+          staticFiles: null,
+          backendWorkerId: functionId,
+          backendEndpoint: `http://127.0.0.1:4030/workers/${functionId}/http`,
+          apiPaths: routes,
+          spa: false,
+          enabled: true,
+        })
+      }
+
+      set.status = 201
+      return {
+        functionId,
+        name,
+        codeCid: finalCid,
+        status: fn.status,
+        runtime,
+        routes,
+      }
+    })
+
+    // App deployment - full app with frontend and backend
+    .post('/apps', async ({ request, set }) => {
+      const ownerHeader = request.headers.get('x-jeju-address')
+      if (!ownerHeader) {
+        set.status = 401
+        return { error: 'x-jeju-address header required' }
+      }
+      const owner = ownerHeader as Address
+
+      const body = (await request.json()) as {
+        name: string
+        frontendCid?: string
+        backendCid?: string
+        jnsName?: string
+        apiPaths?: string[]
+        spa?: boolean
+      }
+
+      if (!body.name) {
+        set.status = 400
+        return { error: 'name is required' }
+      }
+
+      // If backend CID provided, deploy as worker
+      let backendWorkerId: string | null = null
+      let backendEndpoint: string | null = null
+
+      if (body.backendCid) {
+        const { createBackendManager } = await import('../storage/backends')
+        const backend = createBackendManager()
+        const { WorkerRuntime } = await import('../workers/runtime')
+        const workerRuntime = new WorkerRuntime(backend)
+
+        const downloadResult = await backend.download(body.backendCid)
+        if (!downloadResult) {
+          set.status = 400
+          return { error: `Backend code not found in storage: ${body.backendCid}` }
+        }
+
+        const functionId = crypto.randomUUID()
+        const fn = {
+          id: functionId,
+          name: `${body.name}-api`,
+          owner,
+          runtime: 'bun' as const,
+          handler: 'server.js',
+          codeCid: body.backendCid,
+          memory: 512,
+          timeout: 30000,
+          env: {},
+          status: 'active' as const,
+          version: 1,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          invocationCount: 0,
+          avgDurationMs: 0,
+          errorCount: 0,
+        }
+
+        await workerRuntime.deployFunction(fn)
+        backendWorkerId = functionId
+        backendEndpoint = `http://127.0.0.1:4030/workers/${functionId}/http`
+      }
+
+      // Register with app router
+      const { registerDeployedApp } = await import('../server/routes/app-router')
+      await registerDeployedApp({
+        name: body.name,
+        jnsName: body.jnsName ?? `${body.name}.jeju`,
+        frontendCid: body.frontendCid ?? null,
+        staticFiles: null,
+        backendWorkerId,
+        backendEndpoint,
+        apiPaths: body.apiPaths ?? ['/api'],
+        spa: body.spa ?? true,
+        enabled: true,
+      })
+
+      const appId = `app_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+      return {
+        appId,
+        name: body.name,
+        frontendCid: body.frontendCid,
+        backendCid: body.backendCid,
+        backendWorkerId,
+        jnsName: body.jnsName ?? `${body.name}.jeju`,
+        status: 'ready',
+      }
+    })
+
     // Next.js app deployment endpoint
     .post('/nextjs', async ({ request, set }) => {
       const ownerHeader = request.headers.get('x-jeju-address')
