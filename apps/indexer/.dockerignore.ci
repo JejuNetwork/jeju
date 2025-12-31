@@ -1,0 +1,15 @@
+# CI Docker ignore - only include built artifacts
+src
+web
+*.ts
+*.tsx
+!*.d.ts
+.git
+.turbo
+.env*
+!.env.example
+*.log
+coverage
+test-results
+playwright-report
+.DS_Store

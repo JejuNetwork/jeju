@@ -686,7 +686,10 @@ const A2A_PORT = config.a2aPort
 export async function startA2AServer(): Promise<void> {
   const app = createIndexerA2AServer()
 
-  app.listen(A2A_PORT)
+  app.listen({
+    port: A2A_PORT,
+    hostname: '0.0.0.0',
+  })
 
   const host = getLocalhostHost()
   console.log(`📡 A2A Server running on http://${host}:${A2A_PORT}`)

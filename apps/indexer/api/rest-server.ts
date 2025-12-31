@@ -720,7 +720,10 @@ export async function startRestServer(): Promise<void> {
   const mode = getIndexerMode()
   console.log(`📡 REST API starting in ${mode} mode`)
 
-  app.listen(REST_PORT, () => {
+  app.listen({
+    port: REST_PORT,
+    hostname: '0.0.0.0',
+  }, () => {
     const status = isPostgresAvailable() ? 'full' : 'degraded'
     const host = getLocalhostHost()
     console.log(
