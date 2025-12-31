@@ -1,0 +1,48 @@
+# Simplified CI Dockerfile - uses pre-built artifacts
+# Build is done by GitHub Actions with full monorepo context
+FROM oven/bun:1-slim
+
+WORKDIR /squid
+
+# Copy built artifacts (compiled with workspace dependencies resolved)
+COPY lib ./lib
+COPY api ./api
+COPY schema.graphql ./schema.graphql
+COPY db ./db
+COPY commands.json ./commands.json
+COPY package.json ./
+
+# Copy minimal runtime dependencies
+# The build process already bundled workspace deps into lib/
+COPY node_modules ./node_modules
+
+# Copy entrypoint script
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Create non-root user
+RUN groupadd -g 1001 squid && \
+    useradd -u 1001 -g squid squid && \
+    chown -R squid:squid /squid
+
+USER squid
+
+# Expose ports
+EXPOSE 4350 4351 4352 4353
+
+# Environment variables
+ENV MODE=processor \
+    DB_HOST=localhost \
+    DB_PORT=5432 \
+    DB_NAME=indexer \
+    DB_USER=postgres \
+    DB_PASS=postgres \
+    GQL_PORT=4350 \
+    REST_PORT=4352 \
+    A2A_PORT=4351 \
+    MCP_PORT=4353 \
+    SQLIT_SYNC_ENABLED=false \
+    SQLIT_READ_ENABLED=false
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["processor"]

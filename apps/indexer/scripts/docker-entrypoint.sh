@@ -6,20 +6,20 @@ MODE="${1:-${MODE:-processor}}"
 echo "Starting indexer in ${MODE} mode"
 
 case "$MODE" in
-  processor) exec bun lib/main.js ;;
+  processor) exec bun lib/api/main.js ;;
   api)
     [ "$SQLIT_READ_ENABLED" = "true" ] && export INDEXER_MODE=sqlit-only
-    exec bun api/api-server.ts
+    exec bun lib/api/api-server.js
     ;;
   graphql) exec npx sqd serve ;;
   full)
     npx sqd serve &
-    bun api/api-server.ts &
-    exec bun lib/main.js
+    bun lib/api/api-server.js &
+    exec bun lib/api/main.js
     ;;
   sqlit-reader)
     export INDEXER_MODE=sqlit-only SQLIT_READ_ENABLED=true
-    exec bun api/api-server.ts
+    exec bun lib/api/api-server.js
     ;;
   health)
     curl -sf "http://localhost:${REST_PORT:-4352}/health" || exit 1

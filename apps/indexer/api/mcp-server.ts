@@ -702,7 +702,10 @@ const MCP_PORT = config.mcpPort
 export async function startMCPServer(): Promise<void> {
   const app = createIndexerMCPServer()
 
-  app.listen(MCP_PORT)
+  app.listen({
+    port: MCP_PORT,
+    hostname: '0.0.0.0',
+  })
 
   const host = getLocalhostHost()
   console.log(`📡 MCP Server running on http://${host}:${MCP_PORT}`)
