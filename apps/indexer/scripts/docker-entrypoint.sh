@@ -5,6 +5,7 @@ set -e
 MODE="${1:-${MODE:-processor}}"
 echo "Starting indexer in ${MODE} mode"
 
+# Use compiled JavaScript with decorator metadata
 case "$MODE" in
   processor) exec bun lib/api/main.js ;;
   api)

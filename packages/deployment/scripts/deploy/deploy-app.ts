@@ -109,6 +109,7 @@ interface DeployConfig {
   name: string
   dir: string
   jnsName: string
+  network: 'localnet' | 'testnet' | 'mainnet'
   minBalance: bigint
   checkInterval: number
   autoFund: boolean
@@ -122,6 +123,7 @@ async function parseCliArgs(): Promise<DeployConfig> {
       name: { type: 'string', short: 'n' },
       dir: { type: 'string', short: 'd' },
       jns: { type: 'string', short: 'j' },
+      network: { type: 'string', default: 'localnet' },
       'min-balance': { type: 'string', default: '0.1' },
       'check-interval': { type: 'string', default: '3600' },
       'auto-fund': { type: 'boolean', default: true },
@@ -171,10 +173,13 @@ Environment:
     process.exit(1)
   }
 
+  const network = values.network as 'localnet' | 'testnet' | 'mainnet'
+
   return {
     name: values.name,
     dir: values.dir,
     jnsName: values.jns,
+    network,
     minBalance: BigInt(
       Math.floor(parseFloat(values['min-balance'] ?? '0.1') * 1e18),
     ),
@@ -190,6 +195,47 @@ Environment:
 async function uploadToIPFS(dir: string, ipfsApiUrl: string): Promise<string> {
   console.log(`📦 Uploading ${dir} to IPFS...`)
 
+  // Check for pre-uploaded CID via env var
+  const preUploadedCid = process.env.IPFS_CID
+  if (preUploadedCid) {
+    console.log(`✅ Using pre-uploaded IPFS CID: ${preUploadedCid}`)
+    return preUploadedCid
+  }
+
+  // Try DWS storage API first (for decentralized deployment)
+  const dwsStorageUrl = process.env.DWS_STORAGE_URL || 'https://dws.testnet.jejunetwork.org'
+  
+  // Create tarball of the directory
+  const { execSync } = await import('node:child_process')
+  const tarPath = `/tmp/deploy-${Date.now()}.tar`
+  
+  try {
+    execSync(`tar -cf ${tarPath} -C ${dir} .`, { stdio: 'pipe' })
+    const tarContent = readFileSync(tarPath)
+    
+    console.log(`📤 Uploading via DWS storage (${(tarContent.length / 1024 / 1024).toFixed(2)} MB)...`)
+    
+    const response = await fetch(`${dwsStorageUrl}/storage/upload/raw`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-filename': 'frontend.tar',
+      },
+      body: tarContent,
+    })
+
+    if (response.ok) {
+      const result = await response.json() as { cid: string }
+      console.log(`✅ Uploaded to IPFS via DWS: ${result.cid}`)
+      return result.cid
+    }
+    
+    console.log(`⚠️ DWS upload failed (${response.status}), falling back to IPFS API...`)
+  } catch (e) {
+    console.log(`⚠️ DWS upload error, falling back to IPFS API...`)
+  }
+
+  // Fallback to standard IPFS API
   const files: Array<{ path: string; content: Buffer }> = []
 
   function collectFiles(currentDir: string, basePath: string = '') {
@@ -454,6 +500,9 @@ async function main() {
 
   const config = await parseCliArgs()
 
+  // Set network env var for config functions to use
+  process.env.JEJU_NETWORK = config.network
+
   // Get deployer config (uses test accounts for localnet, requires env vars for testnet/mainnet)
   const deployerConfig = getDeployerConfig()
   const privateKey = deployerConfig.privateKey as Hex
@@ -478,7 +527,8 @@ async function main() {
 
   // Setup clients
   const account = privateKeyToAccount(privateKey)
-  const chain = rpcUrl.includes('sepolia') ? baseSepolia : base
+  // Use baseSepolia for testnet, base for mainnet, custom for localnet
+  const chain = config.network === 'testnet' ? baseSepolia : base
 
   const publicClient = createPublicClient({
     chain,
@@ -492,6 +542,8 @@ async function main() {
   }) as DeployWalletClient
 
   console.log(`📋 Configuration:`)
+  console.log(`   Network: ${config.network}`)
+  console.log(`   RPC URL: ${rpcUrl}`)
   console.log(`   App Name: ${config.name}`)
   console.log(`   JNS Name: ${config.jnsName}`)
   console.log(`   Source Dir: ${config.dir}`)
@@ -528,7 +580,8 @@ async function main() {
     )
   }
 
-  const gatewayUrl = `https://${config.jnsName.replace('.jeju', '')}.jejunetwork.org`
+  const networkSubdomain = config.network === 'mainnet' ? '' : `.${config.network}`
+  const gatewayUrl = `https://${config.jnsName.replace('.jeju', '')}${networkSubdomain}.jejunetwork.org`
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗

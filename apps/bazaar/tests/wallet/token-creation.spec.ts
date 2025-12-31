@@ -22,7 +22,7 @@ const { expect } = test
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
-const ERC20_FACTORY_ADDRESS = getContract('tokens', 'factory', 'localnet') as
+const ERC20_FACTORY_ADDRESS = getContract('bazaar', 'tokenFactory', 'localnet') as
   | `0x${string}`
   | undefined
 

@@ -28,7 +28,8 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.processor.image.repository }}:{{ .Values.processor.image.tag }}"
           imagePullPolicy: {{ .Values.processor.image.pullPolicy }}
-          command: ["node", "lib/processor.js"]
+          command: ["/docker-entrypoint.sh"]
+          args: ["processor"]
           env:
             {{- toYaml .Values.processor.env | nindent 12 }}
           resources:
@@ -38,7 +39,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - "ps aux | grep 'node lib/processor.js' | grep -v grep"
+                - "ps aux | grep 'bun' | grep -v grep"
             initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 10

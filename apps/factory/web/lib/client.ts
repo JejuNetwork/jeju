@@ -10,17 +10,20 @@ function getApiBase(): string {
     return `http://${getLocalhostHost()}:4009`
   }
 
-  const { hostname, port } = window.location
+  const { hostname, port, protocol } = window.location
 
+  // Localhost development
   if (hostname === 'localhost' && port !== '4009') {
     return `http://${getLocalhostHost()}:4009`
   }
 
+  // Local dev proxy
   if (hostname.includes('local.jejunetwork.org')) {
-    return '' // Same origin via proxy
+    return `${protocol}//${hostname}${port ? `:${port}` : ''}`
   }
 
-  return ''
+  // Production/testnet - use same origin (backend runs on same domain)
+  return `${protocol}//${hostname}`
 }
 
 const API_BASE = getApiBase()

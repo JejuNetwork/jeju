@@ -1,0 +1,16 @@
+apiVersion: v2
+name: example
+description: Example Decentralized App - Todo application demonstrating Jeju Network services
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - example
+  - todo
+  - decentralized
+  - jeju
+  - a2a
+  - mcp
+maintainers:
+  - name: Jeju Network
+    url: https://jejunetwork.org

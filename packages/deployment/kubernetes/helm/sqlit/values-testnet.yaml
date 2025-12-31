@@ -1,8 +1,8 @@
 # SQLit Testnet Configuration
 # Decentralized SQL Database for DWS
 
-# Start with 1 replica to verify basic functionality first
-replicaCount: 1
+# 2-node mode for debugging
+replicaCount: 2
 
 image:
   # Use the ECR SQLit image for testnet
@@ -186,6 +186,26 @@ initContainers: []
 # Sidecar containers
 sidecars: []
 
+# Cluster node identities (collected from generated keys)
+# NOTE: These must match the generated keys in each node's PVC
+clusterNodes:
+  - name: sqlit-0
+    nodeId: "000000fae77a3c4654b1912012336db891ef61bc2e69f66f6258ee28f88dd7e0"
+    publicKey: "032e8870b2a17d5ede0e3e8c20a59ab1aab21b281c08f172830a4bcada552d7f28"
+    nonceA: "6744497"
+    nonceB: "1356715723"
+    nonceC: "0"
+    nonceD: "0"
+    role: "Leader"
+  - name: sqlit-1
+    nodeId: "00000061c823e12a6bfb95e3130b798347baf58dba370086f81628e48d8bcc6d"
+    publicKey: "030bc2bd089dffa577d25e5afe587e3ce76797cc831af63d98fb77fc3217cd6030"
+    nonceA: "10803944"
+    nonceB: "0"
+    nonceC: "4260857733"
+    nonceD: "0"
+    role: "Follower"
+
 # HTTP Adapter for DWS integration
 adapter:
   enabled: true
@@ -200,10 +220,10 @@ adapter:
     requests:
       cpu: 100m
       memory: 128Mi
-  # BP info from sqlit-0 (update after regenerating keys)
-  bpNodeId: "0000008b8d19d1d8bbf67133203da5dfeba7b3869e8a7e6694fc4aefc3102a81"
-  bpPublicKey: "02c6801933571e052de2ab5db6933f2abbdd11be888deb4d194d1444a5f759eb7a"
-  bpNonceA: "7153948"
-  bpNonceB: "3094762556"
+  # BP info from sqlit-0 (updated with new identity)
+  bpNodeId: "000000fae77a3c4654b1912012336db891ef61bc2e69f66f6258ee28f88dd7e0"
+  bpPublicKey: "032e8870b2a17d5ede0e3e8c20a59ab1aab21b281c08f172830a4bcada552d7f28"
+  bpNonceA: "6744497"
+  bpNonceB: "1356715723"
   bpNonceC: "0"
   bpNonceD: "0"

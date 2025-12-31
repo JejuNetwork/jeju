@@ -104,13 +104,16 @@ async function buildFrontend(): Promise<void> {
             path: resolve(process.cwd(), './web/stubs/kms.ts'),
           }))
           build.onResolve({ filter: /^@jejunetwork\/messaging/ }, () => ({
-            path: resolve(process.cwd(), './web/stubs/messaging.ts'),
+            path: resolve(process.cwd(), './web/stubs/empty.ts'),
           }))
           build.onResolve({ filter: /^@jejunetwork\/db/ }, () => ({
             path: resolve(process.cwd(), './web/stubs/db.ts'),
           }))
           build.onResolve({ filter: /^@jejunetwork\/deployment/ }, () => ({
             path: resolve(process.cwd(), './web/stubs/empty.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/shared/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/shared.ts'),
           }))
           build.onResolve({ filter: /^@xmtp\// }, () => ({
             path: resolve(process.cwd(), './web/stubs/empty.ts'),
@@ -139,9 +142,12 @@ async function buildFrontend(): Promise<void> {
             path: require.resolve('react/jsx-dev-runtime'),
           }))
 
-          // Workspace packages
+          // Workspace packages - auth browser-only exports
           build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
-            path: resolve(process.cwd(), '../../packages/auth/src/index.ts'),
+            path: resolve(
+              process.cwd(),
+              '../../packages/auth/src/react/index.ts',
+            ),
           }))
           build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
             path: resolve(
@@ -153,11 +159,23 @@ async function buildFrontend(): Promise<void> {
             { filter: /^@jejunetwork\/auth\/(.*)$/ },
             (args: { path: string }) => {
               const subpath = args.path.replace('@jejunetwork/auth/', '')
+              // Only allow react subfolder for browser
+              if (
+                subpath.startsWith('react') ||
+                subpath.startsWith('types') ||
+                subpath.startsWith('validation') ||
+                subpath.startsWith('utils')
+              ) {
+                return {
+                  path: resolve(
+                    process.cwd(),
+                    `../../packages/auth/src/${subpath}.ts`,
+                  ),
+                }
+              }
+              // Server-only modules get empty stub
               return {
-                path: resolve(
-                  process.cwd(),
-                  `../../packages/auth/src/${subpath}.ts`,
-                ),
+                path: resolve(process.cwd(), './web/stubs/empty.ts'),
               }
             },
           )

@@ -404,6 +404,76 @@ export function createDNSRouter() {
         return { success: true, message: 'Auto-sync stopped' }
       })
 
+      // === JNS Registration endpoints ===
+
+      .post(
+        '/jns/register',
+        async ({ body, request, set }) => {
+          const ownerHeader = request.headers.get('x-jeju-address')
+          if (!ownerHeader) {
+            set.status = 401
+            return { error: 'x-jeju-address header required for JNS registration' }
+          }
+
+          const { name, target, type, contentCid, metadata } = body
+
+          // For now, we register in the app router's deployed apps
+          // In production, this would be an on-chain transaction to the JNS registry
+          const { registerDeployedApp, getDeployedApp } = await import(
+            '../server/routes/app-router'
+          )
+
+          // Check if app is already registered
+          const existing = getDeployedApp(name.split('.')[0])
+
+          if (existing) {
+            // Update existing registration with new content
+            await registerDeployedApp({
+              ...existing,
+              frontendCid: contentCid ?? existing.frontendCid,
+              jnsName: name,
+            })
+          } else {
+            // Create new registration
+            await registerDeployedApp({
+              name: name.split('.')[0],
+              jnsName: name,
+              frontendCid: contentCid ?? null,
+              staticFiles: null,
+              backendWorkerId: null,
+              backendEndpoint: target,
+              apiPaths: ['/api', '/health', '/a2a', '/mcp'],
+              spa: true,
+              enabled: true,
+            })
+          }
+
+          return {
+            success: true,
+            name,
+            target,
+            type,
+            contentCid,
+            registeredAt: new Date().toISOString(),
+          }
+        },
+        {
+          body: t.Object({
+            name: t.String(),
+            target: t.String(),
+            type: t.Union([t.Literal('A'), t.Literal('CNAME'), t.Literal('TXT')]),
+            contentCid: t.Optional(t.String()),
+            metadata: t.Optional(
+              t.Object({
+                description: t.Optional(t.String()),
+                version: t.Optional(t.String()),
+                provider: t.Optional(t.String()),
+              }),
+            ),
+          }),
+        },
+      )
+
       // === Cache management ===
 
       .post('/cache/clear', () => {

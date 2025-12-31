@@ -8,17 +8,9 @@
  * - Verifies Farcaster and XMTP/MLS integration
  *
  * Run with: bun test packages/tests/integration/localnet-messaging.test.ts
- * 
- * NOTE: This test file currently has issues with bun:test global beforeAll.
- * The tests are skipped until this is resolved.
  */
 
-// Skip this entire file - the global beforeAll/afterAll pattern causes issues with bun:test
-// TODO: Refactor to use proper describe() wrapper
-console.log('⏭️  Skipping localnet-messaging.test.ts - needs refactoring for bun:test compatibility')
-export {}
-
-// import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { getL1RpcUrl, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   type Address,

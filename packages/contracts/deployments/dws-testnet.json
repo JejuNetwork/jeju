@@ -1,0 +1,17 @@
+{
+  "network": "jeju-testnet",
+  "chainId": 420690,
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "deployedAt": "2025-12-31T20:25:24Z",
+  "contracts": {
+    "JNSRegistry": "0xc9a43158891282a2b1475592d5719c001986aaec",
+    "JNSResolver": "0x1c85638e118b37167e9298c2268758e058ddfda0",
+    "JNSRegistrar": "0x367761085bf3c12e5da2df99ac6e1a824612b8fb",
+    "JNSReverseRegistrar": "0x4c2f7092c2ae51d986befee378e50bd4db99c901",
+    "StorageManager": "0xc9a43158891282a2b1475592d5719c001986aaec",
+    "WorkerRegistry": "0xc9a43158891282a2b1475592d5719c001986aaec",
+    "CDNRegistry": "0xaa292e8611adf267e563f334ee42320ac96d0463",
+    "RepoRegistry": "0x5c74c94173f05da1720953407cbb920f3df9f887",
+    "PackageRegistry": "0x720472c8ce72c2a2d711333e064abd3e6bbeadd3"
+  }
+}

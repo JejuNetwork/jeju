@@ -296,17 +296,25 @@ async function setupCDN(
 
 async function registerWithDWSAppRouter(
   config: DeployConfig,
-  frontendCid: string,
+  staticFiles: Map<string, UploadResult>,
 ): Promise<void> {
   const account = privateKeyToAccount(config.privateKey)
+
+  // Build staticFiles map: path -> CID
+  const staticFilesMap: Record<string, string> = {}
+  for (const [path, result] of staticFiles) {
+    // Normalize paths - add leading slash if missing
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    staticFilesMap[normalizedPath] = result.cid
+  }
 
   // Register with DWS app router for hostname-based routing
   const appRouterData = {
     name: 'gateway',
     jnsName: 'gateway.jeju',
-    frontendCid,
+    frontendCid: null, // Use null since we're using staticFiles
+    staticFiles: staticFilesMap,
     backendWorkerId: null,
-    // For testnet, use a public endpoint or null if frontend-only
     backendEndpoint: null,
     apiPaths: ['/api', '/health', '/a2a', '/mcp', '/rpc', '/x402'],
     spa: true,
@@ -314,6 +322,7 @@ async function registerWithDWSAppRouter(
   }
 
   console.log('Registering with DWS app router...')
+  console.log(`   staticFiles entries: ${Object.keys(staticFilesMap).length}`)
 
   const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
     method: 'POST',
@@ -360,13 +369,9 @@ async function deploy(): Promise<void> {
   console.log(`   index.html -> ${indexResult.cid}`)
   console.log(`   Total: ${webAssets.size} files`)
 
-  // For a pure frontend deployment, the index.html CID is the main CID
-  const frontendCid = indexResult.cid
-  console.log(`\n   Frontend CID: ${frontendCid}`)
-
   // Register with DWS app router (critical for hostname routing)
   console.log('\n[Step 2/4] Registering with DWS app router...')
-  await registerWithDWSAppRouter(config, frontendCid)
+  await registerWithDWSAppRouter(config, webAssets)
 
   // Setup CDN caching rules
   console.log('\n[Step 3/4] Configuring CDN...')
@@ -382,7 +387,8 @@ async function deploy(): Promise<void> {
     )
     if (gatewayApp) {
       console.log(`   App registered: ${gatewayApp.name}`)
-      console.log(`   Frontend CID: ${gatewayApp.frontendCid}`)
+      console.log(`   Frontend CID: ${gatewayApp.frontendCid || 'null (using staticFiles)'}`)
+      console.log(`   Static Files: ${gatewayApp.staticFiles ? Object.keys(gatewayApp.staticFiles).length : 0} files`)
       console.log(`   Enabled: ${gatewayApp.enabled}`)
     }
   }
@@ -397,8 +403,8 @@ async function deploy(): Promise<void> {
   console.log('║              Decentralized Deployment Complete              ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Frontend: https://${domain}`)
-  console.log(`║  IPFS:     ipfs://${frontendCid}`)
-  console.log(`║  DWS:      ${config.dwsUrl}/storage/ipfs/${frontendCid}`)
+  console.log(`║  Static Files: ${webAssets.size} files uploaded to IPFS`)
+  console.log(`║  Index CID: ${indexResult.cid}`)
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log('║  DNS NOTE: Ensure DNS points to DWS ALB, not CloudFront    ║')
   console.log('║  DNS should resolve same as dws.testnet.jejunetwork.org    ║')

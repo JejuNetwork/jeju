@@ -5,6 +5,27 @@
  * All signing/key operations happen server-side or via wallet.
  */
 
+// SecureSigningService stub - functions throw when called
+export interface SecureSigningService {
+  signMessage: (message: string) => Promise<string>
+  signTypedData: (typedData: unknown) => Promise<string>
+  getAddress: () => Promise<string>
+}
+
+export function getSecureSigningService(): SecureSigningService {
+  return {
+    signMessage: async () => {
+      throw new Error('SecureSigningService is not available in browser')
+    },
+    signTypedData: async () => {
+      throw new Error('SecureSigningService is not available in browser')
+    },
+    getAddress: async () => {
+      throw new Error('SecureSigningService is not available in browser')
+    },
+  }
+}
+
 // FROST (threshold MPC signing) - not needed in browser
 export const FROSTCoordinator = class {
   constructor() {

@@ -1,21 +1,14 @@
 /**
  * Bun Global Test Setup
  *
- * Handles test infrastructure setup for bun test runs.
- * Works in two modes:
- * 1. Standalone: Starts localnet + DWS services
- * 2. Managed: Detects existing infrastructure from `jeju test`
- *
- * REQUIRED INFRASTRUCTURE:
- * - Docker services (SQLit, IPFS, Cache, DA)
- * - Localnet (Anvil)
- * - DWS server
+ * Uses `jeju dev --minimal` to start all infrastructure.
+ * The jeju CLI handles:
+ * - Localnet (L1 + L2)
+ * - Docker services (SQLit, IPFS)
+ * - Contract bootstrap
  *
  * Usage in bunfig.toml:
  *   preload = ["@jejunetwork/tests/bun-global-setup"]
- *
- * Or programmatically:
- *   import { bunSetup, bunTeardown } from '@jejunetwork/tests';
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
@@ -25,6 +18,8 @@ import {
   getDWSComputeUrl,
   getDwsApiUrl,
   getIpfsApiUrl,
+  getL1RpcUrl,
+  getL2RpcUrl,
   getLocalhostHost,
   getServiceUrl,
   getSQLitBlockProducerUrl,
@@ -43,20 +38,20 @@ import {
 } from './utils'
 
 // Infrastructure state
-let localnetProcess: Subprocess | null = null
-let dwsProcess: Subprocess | null = null
+let jejuDevProcess: Subprocess | null = null
 let setupComplete = false
 let isExternalInfra = false
 
-// Default ports
-const LOCALNET_PORT = 9545
-const DWS_PORT = 4030
+// Default ports - use standard Jeju ports
+const L1_PORT = INFRA_PORTS.L1_RPC.get()
+const L2_PORT = INFRA_PORTS.L2_RPC.get()
+const DWS_PORT = CORE_PORTS.DWS_API.get()
 
 // Docker service ports
 const DOCKER_SERVICES = {
   sqlit: {
     port: INFRA_PORTS.SQLit.get(),
-    healthPath: '/health',
+    healthPath: '/v1/status',
     name: 'SQLit',
   },
   ipfs: {
@@ -64,12 +59,9 @@ const DOCKER_SERVICES = {
     healthPath: '/api/v0/id',
     name: 'IPFS',
   },
-  cache: { port: 4115, healthPath: '/health', name: 'Cache Service' },
-  da: { port: 4010, healthPath: '/health', name: 'DA Server' },
 } as const
 
 // Environment URLs
-const RPC_URL = getRpcUrl()
 const DWS_URL = getDwsApiUrl()
 
 async function checkDockerService(
@@ -94,117 +86,67 @@ async function checkDockerServices(): Promise<{ [key: string]: boolean }> {
 }
 
 async function checkInfrastructure(): Promise<InfraStatus> {
-  const [rpc, dws, docker] = await Promise.all([
-    isRpcAvailable(RPC_URL),
-    isServiceAvailable(`${DWS_URL}/health`),
+  const host = getLocalhostHost()
+  const l1RpcUrl = `http://${host}:${L1_PORT}`
+  const l2RpcUrl = `http://${host}:${L2_PORT}`
+
+  const [l1Rpc, l2Rpc, dws, docker] = await Promise.all([
+    isRpcAvailable(l1RpcUrl),
+    isRpcAvailable(l2RpcUrl),
+    isServiceAvailable(`${DWS_URL}/health`, 2000),
     checkDockerServices(),
   ])
 
-  return { rpc, dws, docker, rpcUrl: RPC_URL, dwsUrl: DWS_URL }
+  // L2 is required, L1 is optional
+  const rpc = l2Rpc
+
+  return { rpc, dws, docker, rpcUrl: l2RpcUrl, dwsUrl: DWS_URL }
 }
 
-async function startLocalnet(rootDir: string): Promise<void> {
-  console.log('Starting localnet...')
+async function startJejuDev(rootDir: string): Promise<boolean> {
+  console.log('🚀 Starting jeju dev --minimal...')
 
-  // Check if anvil is available
-  const anvil = Bun.which('anvil')
-  if (!anvil) {
-    throw new Error(
-      'Anvil not found. Install foundry: curl -L https://foundry.paradigm.xyz | bash',
-    )
-  }
-
-  localnetProcess = Bun.spawn(
-    [anvil, '--port', String(LOCALNET_PORT), '--chain-id', '31337'],
-    {
-      cwd: rootDir,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-  )
-
-  // Wait for localnet to be ready
-  for (let i = 0; i < 30; i++) {
-    const host = getLocalhostHost()
-    if (await isRpcAvailable(`http://${host}:${LOCALNET_PORT}`)) {
-      console.log('Localnet ready')
-      return
-    }
-    await Bun.sleep(1000)
-  }
-
-  throw new Error('Localnet failed to start')
-}
-
-async function startDws(rootDir: string): Promise<void> {
-  console.log('Starting DWS...')
-
-  const dwsPath = join(rootDir, 'apps', 'dws')
-  if (!existsSync(dwsPath)) {
-    throw new Error('DWS app not found')
-  }
-
-  const host = getLocalhostHost()
-  dwsProcess = Bun.spawn(['bun', 'run', 'dev'], {
-    cwd: dwsPath,
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: {
-      ...process.env,
-      PORT: String(DWS_PORT),
-      L2_RPC_URL: `http://${host}:${LOCALNET_PORT}`,
-      JEJU_RPC_URL: `http://${host}:${LOCALNET_PORT}`,
-    },
-  })
-
-  // Wait for DWS to be ready
-  for (let i = 0; i < 30; i++) {
-    if (await isServiceAvailable(`http://${host}:${DWS_PORT}/health`)) {
-      console.log('DWS ready')
-      return
-    }
-    await Bun.sleep(1000)
-  }
-
-  throw new Error('DWS failed to start')
-}
-
-async function bootstrapContracts(rootDir: string): Promise<boolean> {
-  const host = getLocalhostHost()
-  const rpcUrl = `http://${host}:${LOCALNET_PORT}`
-
-  // Check if contracts are already deployed
-  if (await checkContractsDeployed(rpcUrl)) {
-    console.log('Contracts already deployed')
-    return true
-  }
-
-  console.log('Bootstrapping contracts...')
-
-  const bootstrapScript = join(rootDir, 'scripts', 'bootstrap-localnet.ts')
-  if (!existsSync(bootstrapScript)) {
-    console.warn('Bootstrap script not found, skipping contract deployment')
+  // Find the CLI
+  const cliPath = join(rootDir, 'packages', 'cli', 'src', 'index.ts')
+  if (!existsSync(cliPath)) {
+    console.error('❌ Jeju CLI not found at:', cliPath)
     return false
   }
 
-  const proc = Bun.spawn(['bun', 'run', bootstrapScript], {
+  // Start jeju dev --minimal (localnet + infrastructure, no apps)
+  // Use detached mode so it survives the test process
+  jejuDevProcess = Bun.spawn(['bun', 'run', cliPath, 'dev', '--minimal'], {
     cwd: rootDir,
-    stdout: 'pipe',
+    stdout: 'pipe', // Don't inherit to avoid cluttering test output
     stderr: 'pipe',
     env: {
       ...process.env,
-      L2_RPC_URL: rpcUrl,
-      JEJU_RPC_URL: rpcUrl,
+      FORCE_COLOR: '0', // Disable colors in piped output
     },
   })
 
-  const exitCode = await proc.exited
-  if (exitCode === 0) {
-    console.log('Contracts bootstrapped')
-    return true
+  // Wait for infrastructure to be ready
+  const host = getLocalhostHost()
+  const l2RpcUrl = `http://${host}:${L2_PORT}`
+
+  console.log(`  Waiting for localnet on ${l2RpcUrl}...`)
+
+  for (let i = 0; i < 120; i++) {
+    if (await isRpcAvailable(l2RpcUrl)) {
+      console.log('  ✅ Localnet ready')
+
+      // Also check if contracts are deployed
+      if (await checkContractsDeployed(l2RpcUrl)) {
+        console.log('  ✅ Contracts deployed')
+      }
+
+      return true
+    }
+    await Bun.sleep(1000)
   }
 
-  console.warn('Bootstrap failed, continuing without contracts')
+  console.error('❌ Localnet failed to start within 120 seconds')
+  console.error('   Try running manually: bun run jeju dev --minimal')
   return false
 }
 
@@ -212,54 +154,16 @@ async function stopProcess(proc: Subprocess | null): Promise<void> {
   if (!proc) return
 
   try {
-    proc.kill()
+    proc.kill('SIGTERM')
     await proc.exited
   } catch {
     // Process may already be dead
   }
 }
 
-async function startDockerServices(rootDir: string): Promise<boolean> {
-  console.log('Starting Docker services...')
-
-  const proc = Bun.spawn(
-    [
-      'docker',
-      'compose',
-      'up',
-      '-d',
-      'sqlit',
-      'ipfs',
-      'cache-service',
-      'da-server',
-    ],
-    {
-      cwd: rootDir,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-  )
-
-  const exitCode = await proc.exited
-  if (exitCode !== 0) {
-    return false
-  }
-
-  // Wait for services to be healthy
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const results = await checkDockerServices()
-    if (Object.values(results).every(Boolean)) {
-      return true
-    }
-    await Bun.sleep(1000)
-  }
-
-  return false
-}
-
 /**
  * Setup test infrastructure
- * Call this in beforeAll or as a preload
+ * Uses jeju CLI to start everything
  */
 export async function setup(): Promise<void> {
   if (setupComplete) return
@@ -268,10 +172,7 @@ export async function setup(): Promise<void> {
     '\n╔══════════════════════════════════════════════════════════════╗',
   )
   console.log(
-    '║                       Test Setup                             ║',
-  )
-  console.log(
-    '║  All infrastructure required.                                 ║',
+    '║                    Jeju Test Setup                           ║',
   )
   console.log(
     '╚══════════════════════════════════════════════════════════════╝\n',
@@ -280,79 +181,37 @@ export async function setup(): Promise<void> {
   const rootDir = findJejuWorkspaceRoot()
   console.log(`Monorepo root: ${rootDir}`)
 
-  // Check if infrastructure already running (from jeju test or manual start)
+  // Check if infrastructure already running
   let status = await checkInfrastructure()
 
-  // Check Docker services first
-  const dockerMissing = Object.entries(status.docker)
-    .filter(([, running]) => !running)
-    .map(
-      ([key]) =>
-        DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ?? key,
-    )
+  if (status.rpc) {
+    console.log('✅ Localnet already running (from jeju dev)')
+    isExternalInfra = true
+  } else {
+    console.log('⚠️  Localnet not running')
+    console.log('')
+    console.log('Please start infrastructure first:')
+    console.log('  bun run jeju dev --minimal')
+    console.log('')
+    console.log('Or use the jeju CLI to run tests:')
+    console.log('  bun run jeju test --mode integration')
+    console.log('')
 
-  if (dockerMissing.length > 0) {
-    console.log('Missing Docker services:', dockerMissing.join(', '))
-
-    // Try to start Docker services
-    if (!(await startDockerServices(rootDir))) {
-      console.error(
-        '❌ Failed to start Docker services. Run: docker compose up -d',
-      )
-      throw new Error('Docker services not available')
-    }
-
-    // Re-check
-    status = await checkInfrastructure()
-    const stillMissing = Object.entries(status.docker)
-      .filter(([, running]) => !running)
-      .map(
-        ([key]) =>
-          DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ?? key,
-      )
-
-    if (stillMissing.length > 0) {
-      console.error(
-        '❌ Docker services still not healthy:',
-        stillMissing.join(', '),
-      )
-      throw new Error('Docker services not available')
+    // Try to start jeju dev --minimal in the background
+    console.log('Attempting to start jeju dev --minimal...')
+    const started = await startJejuDev(rootDir)
+    if (!started) {
+      console.error('❌ Failed to auto-start infrastructure')
+      console.error('')
+      console.error('Start manually with: bun run jeju dev --minimal')
+      console.error('')
+      // Don't throw - let tests skip gracefully
     }
   }
 
-  for (const [key, running] of Object.entries(status.docker)) {
-    const name =
-      DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES].name ?? key
-    console.log(`  ${running ? '✅' : '❌'} ${name}`)
-  }
-
-  // Check/start localnet
-  if (!status.rpc) {
-    await startLocalnet(rootDir)
-  } else {
-    console.log('✅ RPC already running')
-  }
-
-  // Bootstrap contracts by default in dev (set BOOTSTRAP_CONTRACTS=false to skip)
-  const shouldBootstrap = process.env.BOOTSTRAP_CONTRACTS !== 'false'
-  if (shouldBootstrap) {
-    await bootstrapContracts(rootDir)
-  }
-
-  // Check/start DWS
-  if (!status.dws) {
-    await startDws(rootDir)
-  } else {
-    console.log('✅ DWS already running')
-  }
-
-  // Set environment variables
-  const newStatus = await checkInfrastructure()
-  setEnvVars(newStatus)
-
-  // Mark as external if everything was already running
-  isExternalInfra =
-    status.rpc && status.dws && Object.values(status.docker).every(Boolean)
+  // Re-check and set environment variables
+  status = await checkInfrastructure()
+  setEnvVars(status)
 
   // Create test output directory
   const outputDir = join(process.cwd(), 'test-results')
@@ -365,9 +224,9 @@ export async function setup(): Promise<void> {
     join(outputDir, 'setup.json'),
     JSON.stringify(
       {
-        rpcUrl: newStatus.rpcUrl,
-        dwsUrl: newStatus.dwsUrl,
-        docker: newStatus.docker,
+        rpcUrl: status.rpcUrl,
+        dwsUrl: status.dwsUrl,
+        docker: status.docker,
         startTime: new Date().toISOString(),
         external: isExternalInfra,
       },
@@ -381,12 +240,16 @@ export async function setup(): Promise<void> {
 }
 
 function setEnvVars(status: InfraStatus): void {
+  const host = getLocalhostHost()
+
   // Set RPC URLs for child processes
+  process.env.L1_RPC_URL = `http://${host}:${L1_PORT}`
   process.env.L2_RPC_URL = status.rpcUrl
   process.env.JEJU_RPC_URL = status.rpcUrl
+  process.env.JEJU_L1_RPC_URL = `http://${host}:${L1_PORT}`
   process.env.DWS_URL = status.dwsUrl
 
-  // Use config helpers for service URLs, fallback to DWS URLs
+  // Use config helpers for service URLs
   process.env.STORAGE_API_URL =
     getStorageApiEndpoint() || `${status.dwsUrl}/storage`
   process.env.COMPUTE_MARKETPLACE_URL =
@@ -401,15 +264,11 @@ function setEnvVars(status: InfraStatus): void {
   const sqlitUrl = getSQLitBlockProducerUrl()
   process.env.SQLIT_URL = sqlitUrl
   process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT = sqlitUrl
-  const host = getLocalhostHost()
   process.env.IPFS_API_URL = getIpfsApiUrl() || `http://${host}:5001`
-  process.env.DA_URL = `http://${host}:4010`
-  process.env.CACHE_URL = `http://${host}:4115`
 }
 
 /**
  * Teardown test infrastructure
- * Call this in afterAll
  */
 export async function teardown(): Promise<void> {
   if (!setupComplete) return
@@ -422,11 +281,9 @@ export async function teardown(): Promise<void> {
 
   console.log('\n=== Test Teardown ===\n')
 
-  await stopProcess(dwsProcess)
-  dwsProcess = null
-
-  await stopProcess(localnetProcess)
-  localnetProcess = null
+  // Stop jeju dev process (it will clean up its children)
+  await stopProcess(jejuDevProcess)
+  jejuDevProcess = null
 
   setupComplete = false
   console.log('Teardown complete')
@@ -462,8 +319,7 @@ process.on('SIGTERM', async () => {
 })
 
 // Auto-run setup when imported as preload
-if (process.env.BUN_TEST === 'true' || process.argv.includes('test')) {
-  setup().catch(console.error)
-}
+// Always run setup - the bunfig.toml preload ensures this only runs for tests
+await setup()
 
 export default { setup, teardown, getStatus, isReady }

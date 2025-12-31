@@ -15,12 +15,12 @@ import { getChainId, getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
   createPublicClient,
   formatEther,
-  getBalance,
   http,
   type PublicClient,
   parseEther,
   parseUnits,
 } from 'viem'
+import { getBalance } from 'viem/actions'
 import { type Account, privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
 import { buildSwapIntent } from '../../../packages/deployment/scripts/shared/intent-swap'
@@ -105,7 +105,7 @@ describe('x402 Payment Validation', () => {
   test('payment requirement creation produces valid structure', () => {
     const config = {
       network: 'sepolia' as const,
-      recipientAddress: deployer.address as `0x${string}`,
+      recipientAddress: TEST_ACCOUNTS.deployer.address as `0x${string}`,
     }
 
     const requirement = createPaymentRequirement(
@@ -130,7 +130,7 @@ describe('x402 Payment Validation', () => {
   test('payment payload creation produces valid structure', () => {
     const payload = createPaymentPayload(
       '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as `0x${string}`,
-      deployer.address as `0x${string}`,
+      TEST_ACCOUNTS.deployer.address as `0x${string}`,
       BigInt(1000000),
       '/api/test',
       'sepolia',

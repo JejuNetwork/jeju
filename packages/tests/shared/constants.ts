@@ -12,6 +12,9 @@ import {
 } from '../../config/ports'
 import { SEED_PHRASE, TEST_ACCOUNTS } from './utils'
 
+// Re-export for convenience
+export { TEST_ACCOUNTS } from './utils'
+
 export const INFRA_PORTS = {
   l1Rpc: CONFIG_INFRA_PORTS.L1_RPC.get(),
   l2Rpc: CONFIG_INFRA_PORTS.L2_RPC.get(),

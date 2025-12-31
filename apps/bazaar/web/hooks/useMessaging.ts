@@ -11,7 +11,7 @@ import {
   getItemChannel,
   getPerpChannel,
   getPredictionChannel,
-} from '../../api/messaging'
+} from '../stubs/messaging'
 
 export type { BazaarChannel, BazaarChannelType, BazaarFeedCast }
 

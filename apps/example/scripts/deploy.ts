@@ -45,6 +45,7 @@ const AppDeployResponseSchema = z.object({
     name: z.string(),
     jnsName: z.string(),
     frontendCid: z.string().nullable(),
+    staticFiles: z.record(z.string(), z.string()).nullable(),
     backendWorkerId: z.string().nullable(),
     backendEndpoint: z.string().nullable(),
     enabled: z.boolean(),
@@ -202,55 +203,73 @@ async function uploadDirectory(
   return { files, totalSize, rootCid: indexCid }
 }
 
-// Deploy worker to DWS
+// Deploy worker to DWS (returns null if workerd not available)
 async function deployWorker(
   config: DeployConfig,
   codeCid: string,
-): Promise<string> {
+): Promise<string | null> {
   const account = privateKeyToAccount(config.privateKey)
 
-  const response = await fetch(`${config.dwsUrl}/workerd/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-jeju-address': account.address,
-    },
-    body: JSON.stringify({
-      name: 'example-api',
-      codeCid,
-      memoryMb: 256,
-      timeoutMs: 30000,
-      cpuTimeMs: 1000,
-      compatibilityDate: new Date().toISOString().split('T')[0],
-      bindings: [
-        { name: 'APP_NAME', type: 'text', value: 'Example' },
-        { name: 'NETWORK', type: 'text', value: config.network },
-      ],
-    }),
-  })
+  try {
+    const response = await fetch(`${config.dwsUrl}/workerd/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': account.address,
+      },
+      body: JSON.stringify({
+        name: 'example-api',
+        codeCid,
+        memoryMb: 256,
+        timeoutMs: 30000,
+        cpuTimeMs: 1000,
+        compatibilityDate: new Date().toISOString().split('T')[0],
+        bindings: [
+          { name: 'APP_NAME', type: 'text', value: 'Example' },
+          { name: 'NETWORK', type: 'text', value: config.network },
+        ],
+      }),
+    })
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Worker deployment failed: ${error}`)
+    if (!response.ok) {
+      const error = await response.text()
+      console.warn(`[Deploy] Worker deployment not available: ${error}`)
+      console.log('[Deploy] Continuing with frontend-only deployment...')
+      return null
+    }
+
+    const result = WorkerDeployResponseSchema.parse(await response.json())
+    return result.workerId
+  } catch (err) {
+    console.warn(`[Deploy] Worker deployment failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    console.log('[Deploy] Continuing with frontend-only deployment...')
+    return null
   }
-
-  const result = WorkerDeployResponseSchema.parse(await response.json())
-  return result.workerId
 }
 
 // Register app with DWS app router
 async function registerApp(
   config: DeployConfig,
-  frontendCid: string,
-  backendWorkerId: string,
+  staticFiles: Map<string, string>,
+  backendWorkerId: string | null,
 ): Promise<void> {
+  // Convert Map to Record with leading slashes for paths
+  const staticFilesRecord: Record<string, string> = {}
+  for (const [path, cid] of staticFiles) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    staticFilesRecord[normalizedPath] = cid
+  }
+
+  const indexCid = staticFiles.get('index.html')
+
   const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name: 'example',
       jnsName: config.jnsName,
-      frontendCid,
+      frontendCid: indexCid ?? null,
+      staticFiles: staticFilesRecord,
       backendWorkerId,
       backendEndpoint: null,
       apiPaths: ['/api', '/health', '/a2a', '/mcp', '/x402', '/auth', '/webhooks'],
@@ -335,14 +354,19 @@ async function deploy(): Promise<void> {
   console.log('')
   console.log('[Deploy] Deploying API worker...')
   const workerId = await deployWorker(config, apiUpload.cid)
-  console.log(`[Deploy] Worker ID: ${workerId}`)
+  if (workerId) {
+    console.log(`[Deploy] Worker ID: ${workerId}`)
+  } else {
+    console.log('[Deploy] No worker deployed (frontend-only mode)')
+  }
 
   // Register app
   console.log('')
   console.log('[Deploy] Registering app with DWS...')
-  await registerApp(config, frontendResult.rootCid, workerId)
+  await registerApp(config, frontendResult.files, workerId)
 
   // Summary
+  const indexCid = frontendResult.files.get('index.html')
   console.log('')
   console.log('==================================================================')
   console.log('                    Deployment Complete')
@@ -350,17 +374,28 @@ async function deploy(): Promise<void> {
   console.log('')
   console.log('Endpoints:')
   console.log(`  Frontend: https://${config.domain}`)
-  console.log(`  API:      https://${config.domain}/api/v1`)
-  console.log(`  Health:   https://${config.domain}/health`)
-  console.log(`  A2A:      https://${config.domain}/a2a`)
-  console.log(`  MCP:      https://${config.domain}/mcp`)
+  if (workerId) {
+    console.log(`  API:      https://${config.domain}/api/v1`)
+    console.log(`  Health:   https://${config.domain}/health`)
+    console.log(`  A2A:      https://${config.domain}/a2a`)
+    console.log(`  MCP:      https://${config.domain}/mcp`)
+  } else {
+    console.log('')
+    console.log('  NOTE: Backend API not deployed. The frontend is a')
+    console.log('        static SPA that needs a backend service.')
+    console.log('        For full decentralized deployment, workerd')
+    console.log('        execution must be available on the network.')
+  }
   console.log('')
   console.log('IPFS:')
-  console.log(`  Frontend: ipfs://${frontendResult.rootCid}`)
-  console.log(`  API:      ipfs://${apiUpload.cid}`)
+  console.log(`  Frontend index: ipfs://${indexCid}`)
+  console.log(`  Frontend files: ${frontendResult.files.size} files uploaded`)
+  console.log(`  API:            ipfs://${apiUpload.cid}`)
   console.log('')
   console.log('DWS:')
-  console.log(`  Worker:   ${workerId}`)
+  if (workerId) {
+    console.log(`  Worker:   ${workerId}`)
+  }
   console.log(`  JNS:      ${config.jnsName}`)
   console.log('')
 }

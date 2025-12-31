@@ -523,4 +523,77 @@ export function createAppDeployerRouter() {
         simulatorAllowed: !isProductionEnv(),
       }
     })
+
+    // Next.js app deployment endpoint
+    .post('/nextjs', async ({ request, set }) => {
+      const ownerHeader = request.headers.get('x-jeju-address')
+      const owner = (ownerHeader ??
+        '0x0000000000000000000000000000000000000000') as Address
+
+      const formData = await request.formData()
+      const workerTar = formData.get('worker') as File | null
+      const configStr = formData.get('config') as string | null
+
+      if (!workerTar || !configStr) {
+        set.status = 400
+        return { error: 'worker tarball and config required' }
+      }
+
+      const config = JSON.parse(configStr) as {
+        name: string
+        owner: Address
+        framework: string
+        target: string
+        regions: string[]
+        manifest: AppManifest
+        env: Record<string, string>
+        database?: { type: string; name: string }
+        services?: ServiceDefinition[]
+        scaling?: { minInstances?: number; maxInstances?: number }
+        cron?: Array<{ schedule: string; command: string }>
+      }
+
+      const deploymentId = `dpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const now = new Date().toISOString()
+
+      // Upload worker bundle to storage
+      const workerBuffer = Buffer.from(await workerTar.arrayBuffer())
+      const workerHash = `wrk_${deploymentId}`
+
+      // In production, this would:
+      // 1. Upload worker bundle to IPFS
+      // 2. Deploy to workerd across regions
+      // 3. Register with app router
+      // For now, we simulate the deployment
+
+      const workerUrl = `https://${config.name}.${isProductionEnv() ? '' : 'testnet.'}jejunetwork.org`
+      const staticUrl = config.env.STATIC_ASSETS_CID
+        ? `https://ipfs.io/ipfs/${config.env.STATIC_ASSETS_CID}`
+        : workerUrl
+
+      // Register with app router (imported from app-router.ts)
+      const { registerDeployedApp } = await import('../server/routes/app-router')
+      await registerDeployedApp({
+        name: config.name,
+        jnsName: `${config.name}.jeju`,
+        frontendCid: config.env.STATIC_ASSETS_CID ?? null,
+        staticFiles: null,
+        backendWorkerId: workerHash,
+        backendEndpoint: null,
+        apiPaths: ['/api', '/health', '/a2a', '/mcp', '/oauth', '/callback', '/webhook'],
+        spa: true,
+        enabled: true,
+      })
+
+      return {
+        deploymentId,
+        workerUrl,
+        staticUrl,
+        status: 'ready' as const,
+        regions: config.regions,
+        createdAt: now,
+        frontendCid: config.env.STATIC_ASSETS_CID,
+        workerCid: workerHash,
+      }
+    })
 }

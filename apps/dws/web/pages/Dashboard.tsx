@@ -232,7 +232,7 @@ function ConsumerDashboard({
             >
               <div className="spinner" />
             </div>
-          ) : health ? (
+          ) : health?.services ? (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               {Object.entries(health.services).map(([name, service]) => (
                 <div
@@ -325,7 +325,7 @@ function ConsumerDashboard({
               <Server size={18} /> Network Stats
             </h3>
           </div>
-          {health ? (
+          {health?.decentralized ? (
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>
@@ -362,7 +362,7 @@ function ConsumerDashboard({
                   Storage Backends
                 </span>
                 <span style={{ fontFamily: 'var(--font-mono)' }}>
-                  {health.backends.available.length}
+                  {health.backends?.available?.length ?? 0}
                 </span>
               </div>
             </div>

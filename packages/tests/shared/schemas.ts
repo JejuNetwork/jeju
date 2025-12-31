@@ -11,7 +11,8 @@
 import { AddressSchema, HashSchema, HexSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Import schemas and types directly from @jejunetwork/types
+// Re-export schemas from @jejunetwork/types for test convenience
+export { AddressSchema, HexSchema }
 
 // Additional Address & Hash Schemas (extend shared schemas)
 

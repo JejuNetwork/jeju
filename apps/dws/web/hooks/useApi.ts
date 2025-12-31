@@ -129,7 +129,7 @@ function parseSimpleError(json: unknown, fallback: string): string {
 export function useHealth() {
   return useQuery({
     queryKey: ['health'],
-    queryFn: () => fetchApi<DWSHealth>('/health'),
+    queryFn: () => fetchApi<DWSHealth>('/health/detailed'),
     refetchInterval: 30000,
   })
 }

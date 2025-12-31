@@ -101,7 +101,12 @@ async function buildFrontend(appDir: string, manifest: AppManifest): Promise<boo
   }
 }
 
-async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: string): Promise<string | null> {
+interface UploadResult {
+  manifestCid: string
+  staticFiles: Record<string, string>
+}
+
+async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: string): Promise<UploadResult | null> {
   const buildDir = manifest.decentralization?.frontend?.buildDir || 'dist'
   const distPath = join(appDir, buildDir)
   
@@ -118,6 +123,7 @@ async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: strin
     const files = globSync('**/*', { cwd: distPath, nodir: true })
     
     const uploadedFiles: { path: string; cid: string; size: number }[] = []
+    const staticFiles: Record<string, string> = {}
     
     // Upload each file individually (DWS storage expects single 'file' field)
     for (const file of files) {
@@ -137,6 +143,7 @@ async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: strin
       if (response.ok) {
         const result = await response.json() as { cid: string }
         uploadedFiles.push({ path: file, cid: result.cid, size: fileContent.length })
+        staticFiles[file] = result.cid
       } else {
         console.warn(`[${manifest.name}] Failed to upload ${file}: ${response.status}`)
       }
@@ -173,7 +180,7 @@ async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: strin
 
     const manifestResult = await manifestResponse.json() as { cid: string }
     console.log(`[${manifest.name}] ✅ Uploaded ${uploadedFiles.length} files to IPFS: ${manifestResult.cid}`)
-    return manifestResult.cid
+    return { manifestCid: manifestResult.cid, staticFiles }
   } catch (error) {
     console.error(`[${manifest.name}] Upload error:`, error)
     return null
@@ -184,6 +191,7 @@ async function registerWithAppRouter(
   manifest: AppManifest,
   dwsUrl: string,
   frontendCid: string | null,
+  staticFiles: Record<string, string> | null,
   backendEndpoint: string | null,
 ): Promise<boolean> {
   const jnsName = manifest.jns?.name || manifest.decentralization?.frontend?.jnsName || `${manifest.name}.jeju`
@@ -196,6 +204,7 @@ async function registerWithAppRouter(
     name: manifest.name,
     jnsName,
     frontendCid,
+    staticFiles,
     backendWorkerId: null,
     backendEndpoint,
     apiPaths,
@@ -248,7 +257,7 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
 
   // Step 1: Build frontend
   const hasFrontend = manifest.decentralization?.frontend || existsSync(join(appDir, 'index.html'))
-  let frontendCid: string | null = null
+  let uploadResult: UploadResult | null = null
 
   if (hasFrontend) {
     const buildSuccess = await buildFrontend(appDir, manifest)
@@ -257,8 +266,8 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
     }
 
     // Step 2: Upload to IPFS
-    frontendCid = await uploadToIPFS(appDir, manifest, dwsUrl)
-    if (!frontendCid) {
+    uploadResult = await uploadToIPFS(appDir, manifest, dwsUrl)
+    if (!uploadResult) {
       console.log(`[${manifest.name}] ⚠️ IPFS upload failed, will use backend-only routing`)
     }
   }
@@ -274,7 +283,13 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
   }
 
   // Step 4: Register with app router
-  const registered = await registerWithAppRouter(manifest, dwsUrl, frontendCid, backendEndpoint)
+  const registered = await registerWithAppRouter(
+    manifest,
+    dwsUrl,
+    uploadResult?.manifestCid ?? null,
+    uploadResult?.staticFiles ?? null,
+    backendEndpoint,
+  )
   if (!registered) {
     return { app: appName, success: false, error: 'App router registration failed' }
   }
@@ -282,21 +297,37 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
   return {
     app: appName,
     success: true,
-    frontendCid: frontendCid || undefined,
+    frontendCid: uploadResult?.manifestCid,
   }
 }
 
 async function main() {
   const args = process.argv.slice(2)
-  const networkArg = args.find(a => a.startsWith('--network='))?.split('=')[1]
-    || args[args.indexOf('--network') + 1]
-    || process.env.NETWORK
-    || 'testnet'
+  
+  // Parse --network arg
+  let networkArg = 'testnet'
+  const networkIdx = args.indexOf('--network')
+  if (networkIdx !== -1 && args[networkIdx + 1] && !args[networkIdx + 1].startsWith('--')) {
+    networkArg = args[networkIdx + 1]
+  } else {
+    const networkEq = args.find(a => a.startsWith('--network='))
+    if (networkEq) networkArg = networkEq.split('=')[1]
+  }
+  networkArg = networkArg || process.env.JEJU_NETWORK || 'testnet'
+  
+  // Parse --app or --apps arg
+  let appArg: string | undefined
+  const appIdx = args.indexOf('--app')
+  const appsIdx = args.indexOf('--apps')
+  const idx = appIdx !== -1 ? appIdx : appsIdx
+  if (idx !== -1 && args[idx + 1] && !args[idx + 1].startsWith('--')) {
+    appArg = args[idx + 1]
+  } else {
+    const appEq = args.find(a => a.startsWith('--app=') || a.startsWith('--apps='))
+    if (appEq) appArg = appEq.split('=')[1]
+  }
 
-  const appArg = args.find(a => a.startsWith('--app='))?.split('=')[1]
-    || args[args.indexOf('--app') + 1]
-
-  process.env.NETWORK = networkArg
+  process.env.JEJU_NETWORK = networkArg
   const network = getCurrentNetwork()
   
   console.log(`\n${'#'.repeat(60)}`)

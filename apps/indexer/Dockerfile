@@ -24,68 +24,35 @@ COPY apps/indexer/package.json ./apps/indexer/
 # Install all dependencies (ignore postinstall scripts to avoid build failures)
 RUN rm -f bun.lock && bun install --ignore-scripts
 
-# Copy source files
-COPY packages/config ./packages/config
-COPY packages/types ./packages/types
-COPY packages/shared ./packages/shared
-COPY packages/db ./packages/db
-COPY packages/kms ./packages/kms
-COPY packages/contracts ./packages/contracts
-COPY packages/sqlit ./packages/sqlit
+# Copy all source files for workspace packages
+COPY packages ./packages
 COPY apps/indexer ./apps/indexer
-
-# Build packages in order
-WORKDIR /app/packages/types
-RUN bun run build || echo "types build skipped"
-
-WORKDIR /app/packages/config
-RUN bun run build || echo "config build skipped"
-
-WORKDIR /app/packages/kms
-RUN bun run build || echo "kms build skipped"
-
-WORKDIR /app/packages/contracts
-RUN bun run build || echo "contracts build skipped"
-
-WORKDIR /app/packages/sqlit
-RUN cd driver && bun run build || echo "sqlit build skipped"
-
-WORKDIR /app/packages/db
-RUN bun run build || echo "db build skipped"
-
-WORKDIR /app/packages/shared
-RUN bun run build || echo "shared build skipped"
 
 WORKDIR /app/apps/indexer
 
 # Run codegen if schema exists
 RUN bun x @subsquid/commands codegen 2>/dev/null || true
 
-# Build TypeScript
-RUN bun run build || (echo "Build failed, checking for errors..." && exit 1)
+# No TypeScript compilation needed - Bun runs TS directly
 
 # Production image
 FROM oven/bun:1-slim
 
 WORKDIR /app
 
-# Copy the entire built app including node_modules
+# Copy the entire monorepo with dependencies
 COPY --from=builder /app/package.json /app/
+COPY --from=builder /app/tsconfig.base.json /app/
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/packages /app/packages
-COPY --from=builder /app/apps/indexer/lib /app/apps/indexer/lib
-COPY --from=builder /app/apps/indexer/api /app/apps/indexer/api
-COPY --from=builder /app/apps/indexer/db /app/apps/indexer/db
-COPY --from=builder /app/apps/indexer/schema.graphql /app/apps/indexer/schema.graphql
-COPY --from=builder /app/apps/indexer/commands.json /app/apps/indexer/commands.json
-COPY --from=builder /app/apps/indexer/scripts/docker-entrypoint.sh /docker-entrypoint.sh
+COPY --from=builder /app/apps/indexer /app/apps/indexer
 
 WORKDIR /app/apps/indexer
 
 # Create symlinks for backwards compatibility with old paths
 RUN mkdir -p /squid && \
-    ln -sf /app/apps/indexer/lib /squid/lib && \
     ln -sf /app/apps/indexer/api /squid/api && \
+    ln -sf /app/apps/indexer/src /squid/src && \
     ln -sf /app/apps/indexer/schema.graphql /squid/schema.graphql && \
     ln -sf /app/apps/indexer/db /squid/db && \
     ln -sf /app/node_modules /squid/node_modules
@@ -117,6 +84,9 @@ ENV MODE=processor \
     MCP_PORT=4353 \
     SQLIT_SYNC_ENABLED=false \
     SQLIT_READ_ENABLED=false
+
+# Updated entrypoint that runs TypeScript directly
+COPY --from=builder /app/apps/indexer/scripts/docker-entrypoint.sh /docker-entrypoint.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 

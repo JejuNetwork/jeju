@@ -135,6 +135,7 @@ import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
 import { createWorkersRouter } from './routes/workers'
+import { createExecRouter } from './routes/exec'
 
 // Config injection for workerd compatibility
 export interface DWSServerConfig {
@@ -690,6 +691,9 @@ app.use(createAPIMarketplaceRouter())
 app.use(createContainerRouter())
 app.use(createA2ARouter())
 app.use(createMCPRouter())
+
+// Exec service for workerd and other components (localhost only)
+app.use(createExecRouter())
 
 // New DWS services
 app.use(createS3Router(backendManager))
@@ -1325,7 +1329,7 @@ if (import.meta.main) {
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
-    fetch(req, server) {
+    async fetch(req, server) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
       if (
@@ -1381,19 +1385,63 @@ if (import.meta.main) {
                   : undefined,
             })
           }
-          // Serve frontend from IPFS if configured
-          if (deployedApp.frontendCid) {
+          // Serve frontend from IPFS/storage if configured
+          if (deployedApp.frontendCid || deployedApp.staticFiles) {
             const gateway = getIpfsGatewayUrl(NETWORK)
             let assetPath = url.pathname === '/' ? '/index.html' : url.pathname
             // SPA: serve index.html for non-asset paths
             if (deployedApp.spa && !assetPath.match(/\.\w+$/)) {
               assetPath = '/index.html'
             }
-            const ipfsUrl = `${gateway}/ipfs/${deployedApp.frontendCid}${assetPath}`
-            console.log(`[Bun.serve] Serving from IPFS: ${ipfsUrl}`)
-            return fetch(ipfsUrl)
+            
+            // Check staticFiles map first for individual file CIDs
+            if (deployedApp.staticFiles) {
+              const filePath = assetPath.replace(/^\//, '')
+              const fileCid = deployedApp.staticFiles[filePath]
+              if (fileCid) {
+                // Fetch from DWS storage
+                const storageUrl = NETWORK === 'localnet'
+                  ? `http://127.0.0.1:4030/storage/download/${fileCid}`
+                  : `https://dws.${NETWORK === 'testnet' ? 'testnet.' : ''}jejunetwork.org/storage/download/${fileCid}`
+                console.log(`[Bun.serve] Serving from staticFiles: ${storageUrl}`)
+                const resp = await fetch(storageUrl).catch(() => null)
+                if (resp?.ok) {
+                  const contentType = filePath.endsWith('.js') ? 'application/javascript'
+                    : filePath.endsWith('.css') ? 'text/css'
+                    : filePath.endsWith('.html') ? 'text/html'
+                    : 'application/octet-stream'
+                  return new Response(resp.body, {
+                    headers: {
+                      'Content-Type': contentType,
+                      'X-DWS-Source': 'ipfs-storage',
+                      'X-DWS-CID': fileCid,
+                    },
+                  })
+                }
+              }
+            }
+            
+            // Fallback: try directory-style CID if frontendCid is set
+            if (deployedApp.frontendCid) {
+              const ipfsUrl = `${gateway}/ipfs/${deployedApp.frontendCid}${assetPath}`
+              console.log(`[Bun.serve] Serving from IPFS: ${ipfsUrl}`)
+              const resp = await fetch(ipfsUrl).catch(() => null)
+              if (resp?.ok) {
+                return resp
+              }
+              // Fallback: if path is index.html and directory lookup fails,
+              // the CID itself might be the index.html file
+              if (assetPath === '/index.html') {
+                const directUrl = `${gateway}/ipfs/${deployedApp.frontendCid}`
+                console.log(`[Bun.serve] Fallback to direct CID: ${directUrl}`)
+                return fetch(directUrl)
+              }
+            }
+            
+            // Return 404 if no CID found
+            return new Response('Not Found', { status: 404 })
           }
-          // No frontend CID - proxy all requests to backend
+          // No frontend CID or staticFiles - proxy all requests to backend
           if (deployedApp.backendEndpoint) {
             const targetUrl = `${deployedApp.backendEndpoint}${url.pathname}${url.search}`
             return fetch(targetUrl, {

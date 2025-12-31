@@ -56,17 +56,8 @@ func runNode(nodeID proto.NodeID, listenAddr string) (err error) {
 		return
 	}
 
+	// Always run in BP mode - BP nodes can serve HTTP API alongside consensus
 	mode := bp.BPMode
-	if wsapiAddr != "" {
-		mode = bp.APINodeMode
-	}
-
-	if mode == bp.APINodeMode {
-		if err = rpc.RegisterNodeToBP(30 * time.Second); err != nil {
-			log.WithError(err).Fatal("register node to BP")
-			return
-		}
-	}
 
 	var server *rpc.Server
 
@@ -151,8 +142,9 @@ func runNode(nodeID proto.NodeID, listenAddr string) (err error) {
 	log.Info(conf.StartSucceedMessage)
 
 	// start json-rpc server
-	if mode == bp.APINodeMode {
-		log.Info("wsapi: start service")
+	// Allow BP nodes to also serve HTTP API if wsapi is specified
+	if wsapiAddr != "" {
+		log.WithField("addr", wsapiAddr).Info("wsapi: start service")
 		go func() {
 			if err := api.Serve(wsapiAddr, conf.GConf.BP.ChainFileName); err != nil {
 				log.WithError(err).Error("wsapi: start service")

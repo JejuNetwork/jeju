@@ -4,7 +4,7 @@
  * Main application component with routing and providers
  */
 
-import { OAuth3Provider } from '@jejunetwork/auth'
+import { OAuth3Provider } from '@jejunetwork/auth/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'

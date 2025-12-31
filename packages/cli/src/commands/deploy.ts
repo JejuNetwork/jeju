@@ -1239,7 +1239,7 @@ deployCommand
   )
   .action(async (appName, options) => {
     const rootDir = findMonorepoRoot()
-    const apps = discoverApps(rootDir)
+    const apps = discoverApps(rootDir, true)
     const app = apps.find(
       (a) =>
         (a._folderName ?? a.slug ?? a.name) === appName || a.name === appName,
@@ -1742,5 +1742,9 @@ async function runDeployScript(
   await execa('bun', ['run', scriptPath, ...args], {
     cwd: rootDir,
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      JEJU_NETWORK: network,
+    },
   })
 }

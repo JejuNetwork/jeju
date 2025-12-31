@@ -711,9 +711,15 @@ export class SQLitClient {
   async isHealthy(): Promise<boolean> {
     const response = await circuitBreaker
       .fire(async () => {
-        const res = await fetch(`${this.endpoint}/v1/status`, {
+        // Try /v1/status first, fall back to / for adapter compatibility
+        let res = await fetch(`${this.endpoint}/v1/status`, {
           signal: AbortSignal.timeout(5000),
-        })
+        }).catch(() => null)
+        if (!res?.ok) {
+          res = await fetch(`${this.endpoint}/`, {
+            signal: AbortSignal.timeout(5000),
+          })
+        }
         return res
       })
       .catch(() => null)

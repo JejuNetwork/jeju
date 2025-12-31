@@ -8,16 +8,9 @@
  * - Tests XMTP/MLS client, groups, messages
  * - Tests messaging SDK with relay nodes
  * - Verifies end-to-end encrypted message flow
- * 
- * NOTE: This test file has issues with bun:test global beforeAll/afterAll.
- * The tests are skipped until this is resolved.
  */
 
-// Skip this entire file - the global beforeAll/afterAll pattern causes issues with bun:test
-console.log('⏭️  Skipping messaging-full.test.ts - needs refactoring for bun:test compatibility')
-export {}
-
-// import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type Subprocess, spawn } from 'bun'
 import type { Address, Hex } from 'viem'
 import {
@@ -320,6 +313,8 @@ async function startMockRelay(): Promise<void> {
 
   console.log(`[Mock Relay] Running on port ${RELAY_PORT}`)
 }
+
+describe('Full Messaging Integration', () => {
 
 beforeAll(async () => {
   console.log('\n=== Starting Full Messaging Integration Tests ===\n')
@@ -1008,3 +1003,5 @@ describe('Performance', () => {
     expect(result.count).toBe(100)
   })
 })
+
+}) // Close Full Messaging Integration describe

@@ -339,8 +339,8 @@ module "cdn" {
   zone_id             = module.route53.zone_id
   acm_certificate_arn = module.acm.certificate_arn
 
+  # Gateway removed - now served via DWS (decentralized)
   apps = [
-    { name = "gateway", subdomain = "gateway.testnet" },
     { name = "bazaar", subdomain = "bazaar.testnet" },
     { name = "documentation", subdomain = "docs.testnet" }
   ]
@@ -536,6 +536,22 @@ resource "aws_route53_record" "explorer" {
 }
 
 # DWS-hosted Apps DNS Records (routed through DWS app router)
+# These apps are served via DWS: frontend from IPFS, backend via DWS workers/proxy
+resource "aws_route53_record" "gateway" {
+  count   = var.enable_dns_records ? 1 : 0
+  zone_id = module.route53.zone_id
+  name    = "gateway.testnet"
+  type    = "A"
+
+  alias {
+    name                   = module.alb.alb_dns_name
+    zone_id                = module.alb.alb_zone_id
+    evaluate_target_health = true
+  }
+
+  depends_on = [module.route53, module.alb]
+}
+
 resource "aws_route53_record" "bazaar" {
   count   = var.enable_dns_records ? 1 : 0
   zone_id = module.route53.zone_id

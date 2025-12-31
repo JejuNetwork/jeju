@@ -99,6 +99,7 @@ describe('Content Versioning', () => {
     it('should strip .jeju suffix', () => {
       process.env.DEV_MODE = 'true'
       expect(getDevProxyUrl('bazaar.jeju')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4006$/)
+    })
 
     it('should use environment variable override', () => {
       process.env.DEV_MODE = 'true'

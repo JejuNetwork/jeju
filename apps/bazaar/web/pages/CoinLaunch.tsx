@@ -15,7 +15,7 @@ const TOKEN_FACTORY_ABI = parseAbi([
   'function createToken(string name, string symbol, uint8 decimals, uint256 initialSupply) returns (address)',
 ])
 
-const TOKEN_FACTORY_ADDRESS = getContract('tokens', 'factory', NETWORK) as
+const TOKEN_FACTORY_ADDRESS = getContract('bazaar', 'tokenFactory', NETWORK) as
   | `0x${string}`
   | undefined
 

@@ -14,15 +14,15 @@ export interface DWSHealth {
   service: string
   version: string
   uptime: number
-  decentralized: {
+  decentralized?: {
     identityRegistry: Address
     registeredNodes: number
     connectedPeers: number
     frontendCid: string
     p2pEnabled: boolean
   }
-  services: Record<string, { status: string }>
-  backends: {
+  services?: Record<string, { status: string }>
+  backends?: {
     available: string[]
     health: Record<string, boolean>
   }

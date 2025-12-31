@@ -1,0 +1,553 @@
+/**
+ * Content Versioning Tests
+ *
+ * Tests all three deployment modes:
+ * - Development: Dev proxy to local servers
+ * - Preview/Staging: IPNS mutable pointers
+ * - Production: JNS contenthash on-chain
+ */
+
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import {
+  DEV_PROXY_TARGETS,
+  getAllDevProxyMappings,
+  getDevProxyTarget,
+  getDevProxyUrl,
+  isDevMode,
+} from '@jejunetwork/config'
+import {
+  ContentVersioningService,
+  createContentVersioningService,
+  getCurrentDeploymentMode,
+  getIPNSKeyName,
+  isDevModeActive,
+} from '@jejunetwork/shared'
+
+// Helper to reset env
+function resetEnv() {
+  for (const key of Object.keys(process.env)) {
+    if (
+      key.startsWith('DEV_') ||
+      key.startsWith('DEPLOY_') ||
+      key === 'NODE_ENV' ||
+      key === 'JEJU_DEV'
+    ) {
+      delete process.env[key]
+    }
+  }
+}
+
+describe('Content Versioning', () => {
+  beforeEach(() => {
+    resetEnv()
+  })
+
+  afterEach(() => {
+    resetEnv()
+  })
+
+  describe('Mode Detection', () => {
+    it('should detect development mode from DEV_MODE', () => {
+      process.env.DEV_MODE = 'true'
+      expect(getCurrentDeploymentMode()).toBe('development')
+    })
+
+    it('should detect development mode from NODE_ENV', () => {
+      process.env.NODE_ENV = 'development'
+      expect(getCurrentDeploymentMode()).toBe('development')
+    })
+
+    it('should detect development mode from JEJU_DEV', () => {
+      process.env.JEJU_DEV = 'true'
+      expect(getCurrentDeploymentMode()).toBe('development')
+    })
+
+    it('should detect preview mode', () => {
+      process.env.DEPLOY_PREVIEW = 'true'
+      expect(getCurrentDeploymentMode()).toBe('preview')
+    })
+
+    it('should detect staging mode', () => {
+      process.env.DEPLOY_STAGING = 'true'
+      expect(getCurrentDeploymentMode()).toBe('staging')
+    })
+
+    it('should default to production mode', () => {
+      expect(getCurrentDeploymentMode()).toBe('production')
+    })
+
+    it('should prioritize development over preview', () => {
+      process.env.DEV_MODE = 'true'
+      process.env.DEPLOY_PREVIEW = 'true'
+      expect(getCurrentDeploymentMode()).toBe('development')
+    })
+  })
+
+  describe('Dev Proxy Configuration', () => {
+    it('should return null when dev mode is disabled', () => {
+      expect(isDevMode()).toBe(false)
+      expect(getDevProxyUrl('bazaar')).toBeNull()
+    })
+
+    it('should return URL when dev mode is enabled', () => {
+      process.env.DEV_MODE = 'true'
+      expect(isDevMode()).toBe(true)
+      // Host can be localhost or 127.0.0.1 based on env
+      expect(getDevProxyUrl('bazaar')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4006$/)
+    })
+
+    it('should strip .jeju suffix', () => {
+      process.env.DEV_MODE = 'true'
+      expect(getDevProxyUrl('bazaar.jeju')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4006$/)
+    })
+
+    it('should use environment variable override', () => {
+      process.env.DEV_MODE = 'true'
+      process.env.DEV_PROXY_BAZAAR_URL = 'http://localhost:9999'
+      expect(getDevProxyUrl('bazaar')).toBe('http://localhost:9999')
+    })
+
+    it('should use port override', () => {
+      process.env.DEV_MODE = 'true'
+      process.env.DEV_PROXY_BAZAAR_PORT = '8888'
+      expect(getDevProxyUrl('bazaar')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):8888$/)
+    })
+
+    it('should return null for unknown apps', () => {
+      process.env.DEV_MODE = 'true'
+      expect(getDevProxyUrl('unknown-app')).toBeNull()
+    })
+
+    it('should get all mappings', () => {
+      process.env.DEV_MODE = 'true'
+      const mappings = getAllDevProxyMappings()
+      expect(Object.keys(mappings).length).toBeGreaterThan(5)
+      expect(mappings.bazaar).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4006$/)
+      expect(mappings.gateway).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4013$/)
+    })
+
+    it('should include custom env mappings', () => {
+      process.env.DEV_MODE = 'true'
+      process.env.DEV_PROXY_CUSTOM_APP_URL = 'http://localhost:7777'
+      const mappings = getAllDevProxyMappings()
+      expect(mappings['custom-app']).toBe('http://localhost:7777')
+    })
+  })
+
+  describe('Dev Proxy Target', () => {
+    it('should return full target config', () => {
+      process.env.DEV_MODE = 'true'
+      const target = getDevProxyTarget('bazaar')
+      expect(target).not.toBeNull()
+      expect(target?.port).toBe(4006)
+      expect(target?.hasBackend).toBe(true)
+      expect(target?.backendPort).toBe(4007)
+      expect(target?.apiPrefix).toBe('/api')
+    })
+
+    it('should handle env URL override', () => {
+      process.env.DEV_MODE = 'true'
+      process.env.DEV_PROXY_BAZAAR_URL = 'http://localhost:9999'
+      const target = getDevProxyTarget('bazaar')
+      expect(target?.url).toBe('http://localhost:9999')
+      expect(target?.port).toBe(9999)
+    })
+  })
+
+  describe('Static Targets', () => {
+    it('should have all expected apps configured', () => {
+      const expectedApps = [
+        'gateway',
+        'bazaar',
+        'docs',
+        'documentation',
+        'factory',
+        'autocrat',
+        'crucible',
+        'dws',
+        'monitoring',
+        'node',
+      ]
+      for (const app of expectedApps) {
+        expect(DEV_PROXY_TARGETS[app]).toBeDefined()
+      }
+    })
+
+    it('should have valid port numbers', () => {
+      for (const [_name, target] of Object.entries(DEV_PROXY_TARGETS)) {
+        expect(target.port).toBeGreaterThan(0)
+        expect(target.port).toBeLessThan(65536)
+        expect(target.url).toContain(String(target.port))
+      }
+    })
+  })
+})
+
+describe('IPNS Key Names', () => {
+  it('should generate preview key name', () => {
+    expect(getIPNSKeyName('bazaar', 'preview')).toBe('bazaar-preview')
+  })
+
+  it('should generate staging key name', () => {
+    expect(getIPNSKeyName('bazaar', 'staging')).toBe('bazaar-staging')
+  })
+
+  it('should generate branch key name', () => {
+    expect(getIPNSKeyName('bazaar', 'branch', 'feature-xyz')).toBe(
+      'bazaar-feature-xyz',
+    )
+  })
+
+  it('should sanitize branch names', () => {
+    expect(getIPNSKeyName('bazaar', 'branch', 'Feature/XYZ-123')).toBe(
+      'bazaar-feature-xyz-123',
+    )
+  })
+
+  it('should truncate long branch names', () => {
+    const longBranch =
+      'this-is-a-very-long-branch-name-that-exceeds-32-characters'
+    const keyName = getIPNSKeyName('bazaar', 'branch', longBranch)
+    expect(keyName.length).toBeLessThanOrEqual(32 + 'bazaar-'.length)
+  })
+
+  it('should throw for branch without name', () => {
+    expect(() => getIPNSKeyName('bazaar', 'branch')).toThrow()
+  })
+})
+
+describe('Content Versioning Service', () => {
+  describe('Mode Detection via Service', () => {
+    it('should detect development mode', () => {
+      process.env.DEV_MODE = 'true'
+      const service = createContentVersioningService('bazaar')
+      expect(service.detectMode()).toBe('development')
+    })
+
+    it('should respect forceMode', () => {
+      process.env.DEV_MODE = 'true'
+      const service = new ContentVersioningService({
+        appName: 'bazaar',
+        jnsName: 'bazaar.jeju',
+        jnsResolver: '0x1234567890123456789012345678901234567890',
+        ipfsApiUrl: 'http://localhost:5001',
+        ipfsGatewayUrl: 'http://localhost:4180',
+        forceMode: 'production',
+      })
+      expect(service.detectMode()).toBe('production')
+    })
+  })
+
+  describe('Development Mode Resolution', () => {
+    it('should resolve to dev server URL', async () => {
+      process.env.DEV_MODE = 'true'
+      const service = createContentVersioningService('bazaar')
+      const resolution = await service.resolve()
+
+      expect(resolution.mode).toBe('development')
+      expect(resolution.source).toBe('dev-proxy')
+      expect(resolution.isHotReload).toBe(true)
+      expect(resolution.url).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4006$/)
+    })
+
+    it('should use custom dev server URL', async () => {
+      process.env.DEV_MODE = 'true'
+      const service = new ContentVersioningService({
+        appName: 'bazaar',
+        jnsName: 'bazaar.jeju',
+        jnsResolver: '0x1234567890123456789012345678901234567890',
+        ipfsApiUrl: 'http://localhost:5001',
+        ipfsGatewayUrl: 'http://localhost:4180',
+        devServerUrl: 'http://localhost:9999',
+      })
+      const resolution = await service.resolve()
+
+      expect(resolution.devServer).toBe('http://localhost:9999')
+    })
+  })
+
+  describe('Service Factory', () => {
+    it('should create service with defaults', () => {
+      const service = createContentVersioningService('bazaar')
+      expect(service).toBeInstanceOf(ContentVersioningService)
+    })
+
+    it('should use environment variables', () => {
+      process.env.JNS_RESOLVER_ADDRESS =
+        '0xabcdef1234567890abcdef1234567890abcdef12'
+      process.env.IPFS_API_URL = 'http://ipfs:5001'
+      process.env.IPFS_GATEWAY_URL = 'http://ipfs:8080'
+
+      const service = createContentVersioningService('bazaar')
+      // Service was created - env vars were used
+      expect(service).toBeInstanceOf(ContentVersioningService)
+    })
+  })
+
+  describe('Publishing', () => {
+    it('should no-op for development mode publish', async () => {
+      process.env.DEV_MODE = 'true'
+      const service = createContentVersioningService('bazaar')
+      const result = await service.publish('QmTestCid123')
+
+      expect(result.mode).toBe('development')
+      expect(result.destination).toBe('local-dev-server')
+      expect(result.txHash).toBeUndefined()
+    })
+  })
+
+  describe('Caching', () => {
+    it('should cache resolution results', async () => {
+      process.env.DEV_MODE = 'true'
+      const service = createContentVersioningService('bazaar')
+
+      const first = await service.resolve()
+      const second = await service.resolve()
+
+      // Should return same cached result
+      expect(first.timestamp).toBe(second.timestamp)
+    })
+  })
+})
+
+describe('isDevModeActive', () => {
+  beforeEach(() => resetEnv())
+
+  it('should return false when no env set', () => {
+    expect(isDevModeActive()).toBe(false)
+  })
+
+  it('should return true for DEV_MODE', () => {
+    process.env.DEV_MODE = 'true'
+    expect(isDevModeActive()).toBe(true)
+  })
+
+  it('should return true for NODE_ENV development', () => {
+    process.env.NODE_ENV = 'development'
+    expect(isDevModeActive()).toBe(true)
+  })
+
+  it('should return true for JEJU_DEV', () => {
+    process.env.JEJU_DEV = 'true'
+    expect(isDevModeActive()).toBe(true)
+  })
+})
+
+describe('Integration Scenarios', () => {
+  beforeEach(() => resetEnv())
+
+  describe('Local Development Workflow', () => {
+    it('should setup complete dev environment', () => {
+      // Simulate local dev startup
+      process.env.DEV_MODE = 'true'
+      process.env.JNS_DEV_PROXY = 'true'
+
+      // Check mode detection
+      expect(getCurrentDeploymentMode()).toBe('development')
+      expect(isDevModeActive()).toBe(true)
+      expect(isDevMode()).toBe(true)
+
+      // Check proxy URLs for all major apps
+      expect(getDevProxyUrl('gateway')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4013$/)
+      expect(getDevProxyUrl('bazaar')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4006$/)
+      expect(getDevProxyUrl('dws')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4030$/)
+      expect(getDevProxyUrl('autocrat')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4040$/)
+    })
+
+    it('should allow port overrides for specific apps', () => {
+      process.env.DEV_MODE = 'true'
+      process.env.DEV_PROXY_BAZAAR_PORT = '5555'
+      process.env.DEV_PROXY_GATEWAY_URL = 'http://custom-gateway:8080'
+
+      expect(getDevProxyUrl('bazaar')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):5555$/)
+      expect(getDevProxyUrl('gateway')).toBe('http://custom-gateway:8080')
+      // Others unchanged
+      expect(getDevProxyUrl('dws')).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):4030$/)
+    })
+  })
+
+  describe('Preview Deployment Workflow', () => {
+    it('should detect preview mode correctly', () => {
+      process.env.DEPLOY_PREVIEW = 'true'
+
+      expect(getCurrentDeploymentMode()).toBe('preview')
+      expect(isDevModeActive()).toBe(false)
+      expect(isDevMode()).toBe(false)
+
+      // Dev proxy should be disabled
+      expect(getDevProxyUrl('bazaar')).toBeNull()
+    })
+
+    it('should generate correct IPNS key names', () => {
+      expect(getIPNSKeyName('bazaar', 'preview')).toBe('bazaar-preview')
+      expect(getIPNSKeyName('gateway', 'preview')).toBe('gateway-preview')
+    })
+  })
+
+  describe('Production Deployment', () => {
+    it('should detect production mode as default', () => {
+      expect(getCurrentDeploymentMode()).toBe('production')
+      expect(isDevModeActive()).toBe(false)
+      expect(isDevMode()).toBe(false)
+    })
+
+    it('should not use dev proxy in production', () => {
+      expect(getDevProxyUrl('bazaar')).toBeNull()
+      expect(getAllDevProxyMappings()).toEqual({})
+    })
+  })
+
+  describe('Content Versioning Flow', () => {
+    it('should resolve development content', async () => {
+      process.env.DEV_MODE = 'true'
+
+      const service = createContentVersioningService('bazaar')
+      const resolution = await service.resolve()
+
+      expect(resolution.mode).toBe('development')
+      expect(resolution.source).toBe('dev-proxy')
+      expect(resolution.isHotReload).toBe(true)
+      expect(resolution.url).toMatch(/(localhost|127\.0\.0\.1)/)
+    })
+
+    it('should handle mode switching', async () => {
+      // Start in dev mode
+      process.env.DEV_MODE = 'true'
+      const devService = createContentVersioningService('bazaar')
+      expect(devService.detectMode()).toBe('development')
+
+      // Switch to preview
+      delete process.env.DEV_MODE
+      process.env.DEPLOY_PREVIEW = 'true'
+      const previewService = createContentVersioningService('bazaar')
+      expect(previewService.detectMode()).toBe('preview')
+
+      // Switch to production
+      delete process.env.DEPLOY_PREVIEW
+      const prodService = createContentVersioningService('bazaar')
+      expect(prodService.detectMode()).toBe('production')
+    })
+  })
+})
+
+describe('Gateway Dev Proxy', () => {
+  beforeEach(() => resetEnv())
+
+  it('should have matching port configurations', () => {
+    // Verify gateway dev proxy ports match config dev proxy targets
+    const gatewayStaticPorts: Record<string, number> = {
+      gateway: 4013,
+      bazaar: 4006,
+      docs: 4004,
+      documentation: 4004,
+      factory: 4009,
+      autocrat: 4040,
+      crucible: 4020,
+      dws: 4030,
+      monitoring: 3002,
+      node: 4080,
+    }
+
+    process.env.DEV_MODE = 'true'
+    for (const [app, port] of Object.entries(gatewayStaticPorts)) {
+      const configUrl = getDevProxyUrl(app)
+      expect(configUrl).toContain(String(port))
+    }
+  })
+
+  it('should have consistent mode detection', () => {
+    // Test all mode detection methods agree
+    process.env.DEV_MODE = 'true'
+    expect(isDevMode()).toBe(true)
+    expect(isDevModeActive()).toBe(true)
+    expect(getCurrentDeploymentMode()).toBe('development')
+  })
+})
+
+describe('End-to-End Content Flow', () => {
+  beforeEach(() => resetEnv())
+
+  describe('Development Flow', () => {
+    it('should resolve content from dev server', async () => {
+      process.env.DEV_MODE = 'true'
+
+      const service = createContentVersioningService('bazaar')
+      const resolution = await service.resolve()
+
+      expect(resolution.mode).toBe('development')
+      expect(resolution.source).toBe('dev-proxy')
+      expect(resolution.isHotReload).toBe(true)
+      expect(resolution.url).toMatch(/(localhost|127\.0\.0\.1):\d+/)
+    })
+
+    it('should provide helpful errors for missing apps', async () => {
+      process.env.DEV_MODE = 'true'
+
+      const service = createContentVersioningService('nonexistent-app')
+      const resolution = await service.resolve()
+
+      // Should still resolve, just to default port
+      expect(resolution.mode).toBe('development')
+      expect(resolution.devServer).toMatch(/(localhost|127\.0\.0\.1)/)
+    })
+  })
+
+  describe('Preview Flow', () => {
+    it('should detect preview mode correctly', () => {
+      process.env.DEPLOY_PREVIEW = 'true'
+
+      expect(getCurrentDeploymentMode()).toBe('preview')
+
+      const service = createContentVersioningService('bazaar')
+      expect(service.detectMode()).toBe('preview')
+    })
+
+    it('should generate correct IPNS keys for preview', () => {
+      const key = getIPNSKeyName('bazaar', 'preview')
+      expect(key).toBe('bazaar-preview')
+
+      const stagingKey = getIPNSKeyName('bazaar', 'staging')
+      expect(stagingKey).toBe('bazaar-staging')
+    })
+  })
+
+  describe('Production Flow', () => {
+    it('should detect production mode as default', () => {
+      expect(getCurrentDeploymentMode()).toBe('production')
+
+      const service = createContentVersioningService('bazaar')
+      expect(service.detectMode()).toBe('production')
+    })
+
+    it('should require public client for production resolution', async () => {
+      const service = createContentVersioningService('bazaar')
+
+      // Without a public client, production mode should throw
+      await expect(service.resolve()).rejects.toThrow('Public client required')
+    })
+  })
+})
+
+describe('Mode Comparison Matrix', () => {
+  beforeEach(() => resetEnv())
+
+  const modes = [
+    { env: { DEV_MODE: 'true' }, expected: 'development' },
+    { env: { NODE_ENV: 'development' }, expected: 'development' },
+    { env: { JEJU_DEV: 'true' }, expected: 'development' },
+    { env: { DEPLOY_PREVIEW: 'true' }, expected: 'preview' },
+    { env: { DEPLOY_STAGING: 'true' }, expected: 'staging' },
+    { env: {}, expected: 'production' },
+  ]
+
+  for (const { env, expected } of modes) {
+    const envStr = JSON.stringify(env) || '{}'
+    it(`should detect ${expected} mode for ${envStr}`, () => {
+      Object.assign(process.env, env)
+      expect(getCurrentDeploymentMode()).toBe(expected)
+    })
+  }
+})
+
+// Test suite summary removed - was causing parse issues with bun test
+

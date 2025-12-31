@@ -80,6 +80,10 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+    - host: example.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
 
 resources:
   limits:

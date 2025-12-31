@@ -28,4 +28,12 @@ func init() {
 	GetRouter().HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		sendResponse(http.StatusOK, true, nil, nil, rw)
 	}).Methods("GET")
+
+	// Health/status endpoint for client health checks
+	GetV1Router().HandleFunc("/status", func(rw http.ResponseWriter, r *http.Request) {
+		sendResponse(http.StatusOK, true, nil, map[string]interface{}{
+			"status":  "ok",
+			"service": "sqlit-adapter",
+		}, rw)
+	}).Methods("GET")
 }

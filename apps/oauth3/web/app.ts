@@ -48,19 +48,19 @@ function getEnvUrls(): EnvUrls {
   
   const urlsByEnv: Record<NetworkEnv, EnvUrls> = {
     localnet: {
-      docs: 'https://documentation.local.jejunetwork.org:8080/auth',
+      docs: 'http://docs.local.jejunetwork.org:8080/',
       gateway: 'https://gateway.local.jejunetwork.org:8080',
       dws: 'https://dws.local.jejunetwork.org:8080',
       dwsOauth: 'https://dws.local.jejunetwork.org:8080/oauth3',
     },
     testnet: {
-      docs: 'https://documentation.testnet.jejunetwork.org/auth',
+      docs: 'https://docs.testnet.jejunetwork.org/',
       gateway: 'https://gateway.testnet.jejunetwork.org',
       dws: 'https://dws.testnet.jejunetwork.org',
       dwsOauth: 'https://dws.testnet.jejunetwork.org/oauth3',
     },
     mainnet: {
-      docs: 'https://documentation.jejunetwork.org/auth',
+      docs: 'https://docs.jejunetwork.org/',
       gateway: 'https://gateway.jejunetwork.org',
       dws: 'https://dws.jejunetwork.org',
       dwsOauth: 'https://dws.jejunetwork.org/oauth3',

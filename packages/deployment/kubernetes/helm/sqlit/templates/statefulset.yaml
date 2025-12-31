@@ -43,27 +43,70 @@ spec:
               echo "Pod: $POD_NAME"
               mkdir -p /data/sqlit
               cd /data/sqlit
+
+              # Generate keys if not present
               if [ ! -f "private.key" ] || [ ! -s "private.key" ]; then
                 echo "Generating keys..."
-                /app/sqlit generate -password "" .
+                # Explicitly pass empty password using command substitution
+                /app/sqlit generate -password "" . 2>&1
+                echo "Key generation completed"
+              else
+                echo "Keys already exist, skipping generation"
               fi
-              echo "=== Generated config ==="
-              cat config.yaml
-              echo "=== Extracting values ==="
+
+              # Verify config.yaml exists
+              if [ ! -f "config.yaml" ]; then
+                echo "ERROR: config.yaml not generated!"
+                ls -la
+                exit 1
+              fi
+
+              # Read this node's identity from generated config
               NODE_ID=$(grep "ThisNodeID:" config.yaml | awk '{print $2}')
-              PUBLIC_KEY=$(grep "  PublicKey:" config.yaml | head -1 | awk '{print $2}')
+              PUBLIC_KEY=$(grep "PublicKey:" config.yaml | head -1 | awk '{print $2}')
               NONCE_A=$(grep "^    a:" config.yaml | awk '{print $2}')
               NONCE_B=$(grep "^    b:" config.yaml | awk '{print $2}')
               NONCE_C=$(grep "^    c:" config.yaml | awk '{print $2}')
               NONCE_D=$(grep "^    d:" config.yaml | awk '{print $2}')
-              echo "NodeID=$NODE_ID PubKey=$PUBLIC_KEY Nonce=($NONCE_A,$NONCE_B,$NONCE_C,$NONCE_D)"
-              echo "=== Creating BP config ==="
+
+              echo "This node ID: $NODE_ID"
+              echo "This node PublicKey: $PUBLIC_KEY"
+              echo "This node Nonce: $NONCE_A $NONCE_B $NONCE_C $NONCE_D"
+
+              # Determine if this is the leader (sqlit-0)
+              POD_INDEX="${POD_NAME##*-}"
+
+              if [ "$POD_INDEX" = "0" ]; then
+                # sqlit-0 is the leader - use its own generated identity
+                LEADER_NODE_ID="$NODE_ID"
+                LEADER_PUBLIC_KEY="$PUBLIC_KEY"
+                LEADER_NONCE_A="$NONCE_A"
+                LEADER_NONCE_B="$NONCE_B"
+                LEADER_NONCE_C="$NONCE_C"
+                LEADER_NONCE_D="$NONCE_D"
+                echo "This is the LEADER node - using own identity"
+              else
+                # Followers use the configured leader identity
+                LEADER_NODE_ID="{{ (index .Values.clusterNodes 0).nodeId }}"
+                LEADER_PUBLIC_KEY="{{ (index .Values.clusterNodes 0).publicKey }}"
+                LEADER_NONCE_A="{{ (index .Values.clusterNodes 0).nonceA }}"
+                LEADER_NONCE_B="{{ (index .Values.clusterNodes 0).nonceB }}"
+                LEADER_NONCE_C="{{ (index .Values.clusterNodes 0).nonceC }}"
+                LEADER_NONCE_D="{{ (index .Values.clusterNodes 0).nonceD }}"
+                echo "This is a FOLLOWER node - using configured leader identity"
+              fi
+
+              echo "=== Creating cluster BP config ==="
               echo "UseTestMasterKey: true" > /config/config.yaml
               echo "WorkingRoot: /data/sqlit" >> /config/config.yaml
               echo "PubKeyStoreFile: /data/sqlit/public.keystore" >> /config/config.yaml
               echo "PrivateKeyFile: /data/sqlit/private.key" >> /config/config.yaml
               echo "DHTFileName: /data/sqlit/dht.db" >> /config/config.yaml
               echo "ListenAddr: 0.0.0.0:4661" >> /config/config.yaml
+
+              # Use STATIC ThisNodeID from helm values based on pod index
+              # This still uses $NODE_ID extracted from the node's own generated config
+              # which MUST match the helm values for the node's own entry
               echo "ThisNodeID: $NODE_ID" >> /config/config.yaml
               echo "QPS: 1000" >> /config/config.yaml
               echo "ChainBusPeriod: 20s" >> /config/config.yaml
@@ -75,33 +118,50 @@ spec:
               echo "SQLChainTTL: 10" >> /config/config.yaml
               echo "MinProviderDeposit: 1000000" >> /config/config.yaml
               echo "MinNodeIDDifficulty: 2" >> /config/config.yaml
+
+              # Disable external DNS seed - use only local cluster
+              echo "DNSSeed:" >> /config/config.yaml
+              echo "  EnforcedDNSSEC: false" >> /config/config.yaml
+              echo "  DNSServers: []" >> /config/config.yaml
+              echo "  Domain: ''" >> /config/config.yaml
+              echo "  BPCount: 0" >> /config/config.yaml
+
+              # BlockProducer section uses Leader's identity
               echo "BlockProducer:" >> /config/config.yaml
-              echo "  PublicKey: $PUBLIC_KEY" >> /config/config.yaml
-              echo "  NodeID: $NODE_ID" >> /config/config.yaml
+              echo "  PublicKey: $LEADER_PUBLIC_KEY" >> /config/config.yaml
+              echo "  NodeID: $LEADER_NODE_ID" >> /config/config.yaml
               echo "  Nonce:" >> /config/config.yaml
-              echo "    a: $NONCE_A" >> /config/config.yaml
-              echo "    b: $NONCE_B" >> /config/config.yaml
-              echo "    c: $NONCE_C" >> /config/config.yaml
-              echo "    d: $NONCE_D" >> /config/config.yaml
+              echo "    a: $LEADER_NONCE_A" >> /config/config.yaml
+              echo "    b: $LEADER_NONCE_B" >> /config/config.yaml
+              echo "    c: $LEADER_NONCE_C" >> /config/config.yaml
+              echo "    d: $LEADER_NONCE_D" >> /config/config.yaml
               echo "  ChainFileName: chain.db" >> /config/config.yaml
               echo "  BPGenesisInfo:" >> /config/config.yaml
               echo "    Version: 1" >> /config/config.yaml
               echo "    BlockHash: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
-              echo "    Producer: $NODE_ID" >> /config/config.yaml
+              echo "    Producer: $LEADER_NODE_ID" >> /config/config.yaml
               echo "    MerkleRoot: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
               echo "    ParentHash: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
               echo "    Timestamp: '2025-01-01T00:00:00Z'" >> /config/config.yaml
               echo "    BaseAccounts: []" >> /config/config.yaml
+
+              # KnownNodes - use ALL STATIC values from helm for testing
               echo "KnownNodes:" >> /config/config.yaml
-              echo "  - ID: $NODE_ID" >> /config/config.yaml
-              echo "    Role: Leader" >> /config/config.yaml
-              echo "    Addr: 0.0.0.0:4661" >> /config/config.yaml
-              echo "    PublicKey: $PUBLIC_KEY" >> /config/config.yaml
+
+              # IMPORTANT: For testing, use ONLY static helm values
+              # The leader (sqlit-0) must have ThisNodeID matching its own entry
+              {{- range $i, $node := .Values.clusterNodes }}
+              echo "  - ID: {{ $node.nodeId }}" >> /config/config.yaml
+              echo "    Role: {{ $node.role }}" >> /config/config.yaml
+              echo "    Addr: {{ include "sqlit.fullname" $ }}-{{ $i }}.{{ include "sqlit.fullname" $ }}-headless.{{ $.Release.Namespace }}.svc.cluster.local:{{ $.Values.config.network.clientPort | default 4661 }}" >> /config/config.yaml
+              echo "    PublicKey: {{ $node.publicKey }}" >> /config/config.yaml
               echo "    Nonce:" >> /config/config.yaml
-              echo "      a: $NONCE_A" >> /config/config.yaml
-              echo "      b: $NONCE_B" >> /config/config.yaml
-              echo "      c: $NONCE_C" >> /config/config.yaml
-              echo "      d: $NONCE_D" >> /config/config.yaml
+              echo "      a: {{ $node.nonceA }}" >> /config/config.yaml
+              echo "      b: {{ $node.nonceB }}" >> /config/config.yaml
+              echo "      c: {{ $node.nonceC }}" >> /config/config.yaml
+              echo "      d: {{ $node.nonceD }}" >> /config/config.yaml
+              {{- end }}
+
               echo "=== Final config ==="
               cat /config/config.yaml
               echo "Init complete"

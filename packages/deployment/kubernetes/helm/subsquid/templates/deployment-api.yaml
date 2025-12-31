@@ -26,7 +26,8 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
-          command: ["npx", "squid-graphql-server"]
+          command: ["/docker-entrypoint.sh"]
+          args: ["api"]
           ports:
             - name: http
               containerPort: {{ .Values.api.service.targetPort }}
