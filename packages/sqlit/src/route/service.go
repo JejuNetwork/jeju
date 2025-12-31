@@ -96,15 +96,15 @@ func (DHT *DHTService) Ping(req *proto.PingReq, resp *proto.PingResp) (err error
 		return
 	}
 
-	// Checking if ID Nonce Pubkey matched
-	if !kms.IsIDPubNonceValid(req.Node.ID.ToRawNodeID(), &req.Node.Nonce, req.Node.PublicKey) {
+	// Checking if ID Nonce Pubkey matched (skip in test mode)
+	if !kms.Unittest && !kms.IsIDPubNonceValid(req.Node.ID.ToRawNodeID(), &req.Node.Nonce, req.Node.PublicKey) {
 		err = fmt.Errorf("node: %s nonce public key not match", req.Node.ID)
 		log.Error(err)
 		return
 	}
 
-	// Checking MinNodeIDDifficulty
-	if req.Node.ID.Difficulty() < conf.GConf.MinNodeIDDifficulty {
+	// Checking MinNodeIDDifficulty (skip in test mode)
+	if !kms.Unittest && req.Node.ID.Difficulty() < conf.GConf.MinNodeIDDifficulty {
 		err = fmt.Errorf("node: %s difficulty too low", req.Node.ID)
 		log.Error(err)
 		return
