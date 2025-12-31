@@ -15,6 +15,92 @@ interface SessionResponse {
   error?: string
 }
 
+type NetworkEnv = 'localnet' | 'testnet' | 'mainnet'
+
+interface EnvUrls {
+  docs: string
+  gateway: string
+  dws: string
+  dwsOauth: string
+}
+
+/**
+ * Detect the current network environment from the hostname
+ */
+function detectEnvironment(): NetworkEnv {
+  const hostname = window.location.hostname
+
+  if (hostname.includes('testnet')) {
+    return 'testnet'
+  }
+  if (hostname.includes('local') || hostname === 'localhost' || hostname.startsWith('127.')) {
+    return 'localnet'
+  }
+  // Default to mainnet for production domains
+  return 'mainnet'
+}
+
+/**
+ * Get environment-specific URLs
+ */
+function getEnvUrls(): EnvUrls {
+  const env = detectEnvironment()
+  
+  const urlsByEnv: Record<NetworkEnv, EnvUrls> = {
+    localnet: {
+      docs: 'https://documentation.local.jejunetwork.org:8080/auth',
+      gateway: 'https://gateway.local.jejunetwork.org:8080',
+      dws: 'https://dws.local.jejunetwork.org:8080',
+      dwsOauth: 'https://dws.local.jejunetwork.org:8080/oauth3',
+    },
+    testnet: {
+      docs: 'https://documentation.testnet.jejunetwork.org/auth',
+      gateway: 'https://gateway.testnet.jejunetwork.org',
+      dws: 'https://dws.testnet.jejunetwork.org',
+      dwsOauth: 'https://dws.testnet.jejunetwork.org/oauth3',
+    },
+    mainnet: {
+      docs: 'https://documentation.jejunetwork.org/auth',
+      gateway: 'https://gateway.jejunetwork.org',
+      dws: 'https://dws.jejunetwork.org',
+      dwsOauth: 'https://dws.jejunetwork.org/oauth3',
+    },
+  }
+
+  return urlsByEnv[env]
+}
+
+/**
+ * Update navigation links with environment-specific URLs
+ */
+function updateNavigationLinks(): void {
+  const urls = getEnvUrls()
+  
+  // Header navigation
+  const docsLink = document.getElementById('nav-docs')
+  if (docsLink) docsLink.setAttribute('href', urls.docs)
+  
+  const gatewayLink = document.getElementById('nav-gateway')
+  if (gatewayLink) gatewayLink.setAttribute('href', urls.gateway)
+  
+  const configureLink = document.getElementById('nav-configure')
+  if (configureLink) configureLink.setAttribute('href', urls.dwsOauth)
+  
+  // Hero section
+  const heroConfigureLink = document.getElementById('hero-configure')
+  if (heroConfigureLink) heroConfigureLink.setAttribute('href', urls.dwsOauth)
+  
+  // Config section
+  const configDwsLink = document.getElementById('config-dws')
+  if (configDwsLink) configDwsLink.setAttribute('href', urls.dwsOauth)
+  
+  // Footer
+  const footerDwsLink = document.getElementById('footer-dws')
+  if (footerDwsLink) footerDwsLink.setAttribute('href', urls.dws)
+  
+  console.log(`[OAuth3] Environment: ${detectEnvironment()}, URLs configured`)
+}
+
 const API_BASE = ''
 
 // Provider display configuration
@@ -187,6 +273,9 @@ async function handleCallback(): Promise<void> {
  * Initialize application
  */
 async function init(): Promise<void> {
+  // Set environment-specific navigation URLs
+  updateNavigationLinks()
+
   // Handle OAuth callback if on callback path
   if (window.location.pathname === '/callback') {
     await handleCallback()

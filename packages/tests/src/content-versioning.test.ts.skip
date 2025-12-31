@@ -548,19 +548,5 @@ describe('Mode Comparison Matrix', () => {
   }
 })
 
-// Summary
-console.log(`
-╔══════════════════════════════════════════════════════════════════════╗
-║               Content Versioning Test Suite                          ║
-╠══════════════════════════════════════════════════════════════════════╣
-║  Tests cover:                                                        ║
-║  • Mode Detection (dev/preview/staging/production)                   ║
-║  • Dev Proxy Configuration                                           ║
-║  • IPNS Key Name Generation                                          ║
-║  • Content Versioning Service                                        ║
-║  • Gateway Dev Proxy Integration                                     ║
-║  • End-to-End Content Flow                                           ║
-║  • Mode Comparison Matrix                                            ║
-╚══════════════════════════════════════════════════════════════════════╝
-`)
+// Test suite summary removed - was causing parse issues with bun test
 

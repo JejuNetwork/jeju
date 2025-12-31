@@ -38,6 +38,10 @@ COPY apps/autocrat/ ./apps/autocrat/
 COPY apps/dws/ ./apps/dws/
 COPY tsconfig.json tsconfig.base.json ./
 
+# Build frontend for production
+WORKDIR /app/apps/autocrat
+RUN bun run scripts/build.ts
+
 # Production stage
 FROM --platform=linux/amd64 oven/bun:1.3
 
@@ -62,5 +66,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 ENV NODE_ENV=production
 ENV PORT=4040
 
-# Run the API server directly
-CMD ["bun", "run", "api/index.ts"]
+# Run the server (serves both API and static frontend)
+CMD ["bun", "run", "api/server.ts"]

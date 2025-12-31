@@ -13,15 +13,12 @@ import {
   type Address,
   createPublicClient,
   getAddress,
-  getBlockNumber,
-  getChainId,
-  getCode,
   http,
   parseAbi,
   parseEther,
-  readContract,
   zeroAddress,
 } from 'viem'
+import { getBlockNumber, getChainId, getCode, readContract } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
 
 // Import shared chains

@@ -1,0 +1,202 @@
+{{- if .Values.adapter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sqlit.fullname" . }}-adapter
+  labels:
+    {{- include "sqlit.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+spec:
+  replicas: {{ .Values.adapter.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "sqlit.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: adapter
+  template:
+    metadata:
+      labels:
+        {{- include "sqlit.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: adapter
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "sqlit.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-config
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              echo "Initializing adapter..."
+              mkdir -p /data/sqlit
+              cd /data/sqlit
+
+              # Generate keys if not present
+              if [ ! -f "private.key" ] || [ ! -s "private.key" ]; then
+                echo "Generating client keys..."
+                /app/sqlit generate -password "" .
+              fi
+
+              # Extract node info
+              NODE_ID=$(grep "ThisNodeID:" config.yaml | awk '{print $2}')
+              PUBLIC_KEY=$(grep "PublicKey:" config.yaml | head -1 | awk '{print $2}')
+              NONCE_A=$(grep "^    a:" config.yaml | awk '{print $2}')
+              NONCE_B=$(grep "^    b:" config.yaml | awk '{print $2}')
+              NONCE_C=$(grep "^    c:" config.yaml | awk '{print $2}')
+              NONCE_D=$(grep "^    d:" config.yaml | awk '{print $2}')
+
+              echo "Adapter NodeID: $NODE_ID"
+
+              # Get BP config from sqlit-0
+              BP_SERVICE="{{ include "sqlit.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}"
+
+              # Read BP info from configmap or wait for BP to be available
+              # For now, we'll use environment variables set from the configmap
+              BP_NODE_ID="${BP_NODE_ID:-{{ .Values.adapter.bpNodeId | default "0000008b8d19d1d8bbf67133203da5dfeba7b3869e8a7e6694fc4aefc3102a81" }}}"
+              BP_PUBLIC_KEY="${BP_PUBLIC_KEY:-{{ .Values.adapter.bpPublicKey | default "02c6801933571e052de2ab5db6933f2abbdd11be888deb4d194d1444a5f759eb7a" }}}"
+              BP_NONCE_A="${BP_NONCE_A:-{{ .Values.adapter.bpNonceA | default "7153948" }}}"
+              BP_NONCE_B="${BP_NONCE_B:-{{ .Values.adapter.bpNonceB | default "3094762556" }}}"
+              BP_NONCE_C="${BP_NONCE_C:-{{ .Values.adapter.bpNonceC | default "0" }}}"
+              BP_NONCE_D="${BP_NONCE_D:-{{ .Values.adapter.bpNonceD | default "0" }}}"
+
+              # Create adapter config - connect to BP cluster
+              echo "UseTestMasterKey: true" > /config/config.yaml
+              echo "WorkingRoot: /data/sqlit" >> /config/config.yaml
+              echo "PubKeyStoreFile: /data/sqlit/public.keystore" >> /config/config.yaml
+              echo "PrivateKeyFile: /data/sqlit/private.key" >> /config/config.yaml
+              echo "DHTFileName: /data/sqlit/dht.db" >> /config/config.yaml
+              echo "ListenAddr: 0.0.0.0:4661" >> /config/config.yaml
+              echo "ThisNodeID: $NODE_ID" >> /config/config.yaml
+              echo "QPS: 1000" >> /config/config.yaml
+              echo "MinNodeIDDifficulty: 2" >> /config/config.yaml
+              echo "DNSSeed:" >> /config/config.yaml
+              echo "  EnforcedDNSSEC: false" >> /config/config.yaml
+              echo "  DNSServers:" >> /config/config.yaml
+              echo "    - 1.1.1.1" >> /config/config.yaml
+              echo "    - 8.8.8.8" >> /config/config.yaml
+              echo "BlockProducer:" >> /config/config.yaml
+              echo "  PublicKey: $BP_PUBLIC_KEY" >> /config/config.yaml
+              echo "  NodeID: $BP_NODE_ID" >> /config/config.yaml
+              echo "  Nonce:" >> /config/config.yaml
+              echo "    a: $BP_NONCE_A" >> /config/config.yaml
+              echo "    b: $BP_NONCE_B" >> /config/config.yaml
+              echo "    c: $BP_NONCE_C" >> /config/config.yaml
+              echo "    d: $BP_NONCE_D" >> /config/config.yaml
+              echo "  ChainFileName: chain.db" >> /config/config.yaml
+              echo "  BPGenesisInfo:" >> /config/config.yaml
+              echo "    Version: 1" >> /config/config.yaml
+              echo "    BlockHash: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
+              echo "    Producer: $BP_NODE_ID" >> /config/config.yaml
+              echo "    MerkleRoot: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
+              echo "    ParentHash: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
+              echo "    Timestamp: '2025-01-01T00:00:00Z'" >> /config/config.yaml
+              echo "    BaseAccounts: []" >> /config/config.yaml
+              echo "KnownNodes:" >> /config/config.yaml
+              echo "  - ID: $BP_NODE_ID" >> /config/config.yaml
+              echo "    Role: Leader" >> /config/config.yaml
+              echo "    Addr: $BP_SERVICE" >> /config/config.yaml
+              echo "    PublicKey: $BP_PUBLIC_KEY" >> /config/config.yaml
+              echo "    Nonce:" >> /config/config.yaml
+              echo "      a: $BP_NONCE_A" >> /config/config.yaml
+              echo "      b: $BP_NONCE_B" >> /config/config.yaml
+              echo "      c: $BP_NONCE_C" >> /config/config.yaml
+              echo "      d: $BP_NONCE_D" >> /config/config.yaml
+              echo "  - ID: $NODE_ID" >> /config/config.yaml
+              echo "    Role: Client" >> /config/config.yaml
+              echo "    Addr: 0.0.0.0:4661" >> /config/config.yaml
+              echo "    PublicKey: $PUBLIC_KEY" >> /config/config.yaml
+              echo "    Nonce:" >> /config/config.yaml
+              echo "      a: $NONCE_A" >> /config/config.yaml
+              echo "      b: $NONCE_B" >> /config/config.yaml
+              echo "      c: $NONCE_C" >> /config/config.yaml
+              echo "      d: $NONCE_D" >> /config/config.yaml
+
+              echo "=== Adapter config ==="
+              cat /config/config.yaml
+              echo "Init complete"
+          volumeMounts:
+            - name: data
+              mountPath: /data/sqlit
+            - name: config
+              mountPath: /config
+      containers:
+        - name: adapter
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              # Setup config symlink
+              mkdir -p /root/.sqlit
+              ln -sf /config/config.yaml /root/.sqlit/config.yaml
+
+              echo "Starting adapter on 0.0.0.0:{{ .Values.adapter.httpPort | default 8546 }}..."
+              exec /app/sqlit adapter -password "" -log-level info 0.0.0.0:{{ .Values.adapter.httpPort | default 8546 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.adapter.httpPort | default 8546 }}
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.adapter.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data/sqlit
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sqlit.fullname" . }}-adapter
+  labels:
+    {{- include "sqlit.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+spec:
+  type: {{ .Values.adapter.service.type | default "ClusterIP" }}
+  ports:
+    - name: http
+      port: {{ .Values.adapter.httpPort | default 8546 }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "sqlit.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+{{- end }}

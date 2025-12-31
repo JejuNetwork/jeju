@@ -68,6 +68,14 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+    - host: factory.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: gateway.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
 
 resources:
   limits:
@@ -131,7 +139,6 @@ config:
       - bridge
       - faucet
       - docs
-      - gateway
       - storage
       - git
       - npm

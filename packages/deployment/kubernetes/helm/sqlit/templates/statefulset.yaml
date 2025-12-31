@@ -36,44 +36,74 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-          command:
-            - /bin/sh
-            - -c
+          command: ["/bin/sh", "-c"]
+          args:
             - |
               set -e
-
-              # Extract pod ordinal from pod name (e.g., sqlit-0 -> 0)
-              ORDINAL=$(echo $POD_NAME | rev | cut -d'-' -f1 | rev)
-              echo "Pod ordinal: $ORDINAL"
-
-              # Copy the appropriate BP config based on ordinal
-              CONFIG_FILE="bp-${ORDINAL}-config.yaml"
-              echo "Using config: $CONFIG_FILE"
-
-              # Copy from ConfigMap to runtime config
-              cp /bp-configs/${CONFIG_FILE} /config/config.yaml
-
-              # Create data directories
-              mkdir -p {{ .Values.config.storage.dataDir }}
-
-              # Generate private key if it doesn't exist
-              PRIVATE_KEY_FILE="{{ .Values.config.storage.dataDir }}/private.key"
-              if [ -f "$PRIVATE_KEY_FILE" ] && [ -s "$PRIVATE_KEY_FILE" ]; then
-                echo "Using existing private key"
-                ls -la "$PRIVATE_KEY_FILE"
-              else
-                echo "Generating new private key with sqlit generate..."
-                cd {{ .Values.config.storage.dataDir }}
-                # Generate keys using sqlit with empty password (matches UseTestMasterKey: true)
-                /app/sqlit generate -password "" . || {
-                  echo "Key generation failed, trying alternative method..."
-                  # Generate using source template
-                  /app/sqlit generate -password "" -source /config/config.yaml . || true
-                }
-                echo "Key generation complete"
-                ls -la "$PRIVATE_KEY_FILE" 2>/dev/null || echo "Warning: private.key not found"
+              echo "Pod: $POD_NAME"
+              mkdir -p /data/sqlit
+              cd /data/sqlit
+              if [ ! -f "private.key" ] || [ ! -s "private.key" ]; then
+                echo "Generating keys..."
+                /app/sqlit generate -password "" .
               fi
-
+              echo "=== Generated config ==="
+              cat config.yaml
+              echo "=== Extracting values ==="
+              NODE_ID=$(grep "ThisNodeID:" config.yaml | awk '{print $2}')
+              PUBLIC_KEY=$(grep "  PublicKey:" config.yaml | head -1 | awk '{print $2}')
+              NONCE_A=$(grep "^    a:" config.yaml | awk '{print $2}')
+              NONCE_B=$(grep "^    b:" config.yaml | awk '{print $2}')
+              NONCE_C=$(grep "^    c:" config.yaml | awk '{print $2}')
+              NONCE_D=$(grep "^    d:" config.yaml | awk '{print $2}')
+              echo "NodeID=$NODE_ID PubKey=$PUBLIC_KEY Nonce=($NONCE_A,$NONCE_B,$NONCE_C,$NONCE_D)"
+              echo "=== Creating BP config ==="
+              echo "UseTestMasterKey: true" > /config/config.yaml
+              echo "WorkingRoot: /data/sqlit" >> /config/config.yaml
+              echo "PubKeyStoreFile: /data/sqlit/public.keystore" >> /config/config.yaml
+              echo "PrivateKeyFile: /data/sqlit/private.key" >> /config/config.yaml
+              echo "DHTFileName: /data/sqlit/dht.db" >> /config/config.yaml
+              echo "ListenAddr: 0.0.0.0:4661" >> /config/config.yaml
+              echo "ThisNodeID: $NODE_ID" >> /config/config.yaml
+              echo "QPS: 1000" >> /config/config.yaml
+              echo "ChainBusPeriod: 20s" >> /config/config.yaml
+              echo "BillingBlockCount: 60" >> /config/config.yaml
+              echo "BPPeriod: 3s" >> /config/config.yaml
+              echo "BPTick: 1s" >> /config/config.yaml
+              echo "SQLChainPeriod: 3s" >> /config/config.yaml
+              echo "SQLChainTick: 1s" >> /config/config.yaml
+              echo "SQLChainTTL: 10" >> /config/config.yaml
+              echo "MinProviderDeposit: 1000000" >> /config/config.yaml
+              echo "MinNodeIDDifficulty: 2" >> /config/config.yaml
+              echo "BlockProducer:" >> /config/config.yaml
+              echo "  PublicKey: $PUBLIC_KEY" >> /config/config.yaml
+              echo "  NodeID: $NODE_ID" >> /config/config.yaml
+              echo "  Nonce:" >> /config/config.yaml
+              echo "    a: $NONCE_A" >> /config/config.yaml
+              echo "    b: $NONCE_B" >> /config/config.yaml
+              echo "    c: $NONCE_C" >> /config/config.yaml
+              echo "    d: $NONCE_D" >> /config/config.yaml
+              echo "  ChainFileName: chain.db" >> /config/config.yaml
+              echo "  BPGenesisInfo:" >> /config/config.yaml
+              echo "    Version: 1" >> /config/config.yaml
+              echo "    BlockHash: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
+              echo "    Producer: $NODE_ID" >> /config/config.yaml
+              echo "    MerkleRoot: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
+              echo "    ParentHash: '0000000000000000000000000000000000000000000000000000000000000000'" >> /config/config.yaml
+              echo "    Timestamp: '2025-01-01T00:00:00Z'" >> /config/config.yaml
+              echo "    BaseAccounts: []" >> /config/config.yaml
+              echo "KnownNodes:" >> /config/config.yaml
+              echo "  - ID: $NODE_ID" >> /config/config.yaml
+              echo "    Role: Leader" >> /config/config.yaml
+              echo "    Addr: 0.0.0.0:4661" >> /config/config.yaml
+              echo "    PublicKey: $PUBLIC_KEY" >> /config/config.yaml
+              echo "    Nonce:" >> /config/config.yaml
+              echo "      a: $NONCE_A" >> /config/config.yaml
+              echo "      b: $NONCE_B" >> /config/config.yaml
+              echo "      c: $NONCE_C" >> /config/config.yaml
+              echo "      d: $NONCE_D" >> /config/config.yaml
+              echo "=== Final config ==="
+              cat /config/config.yaml
               echo "Init complete"
           volumeMounts:
             - name: data

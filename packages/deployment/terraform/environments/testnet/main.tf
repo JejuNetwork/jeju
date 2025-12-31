@@ -161,6 +161,9 @@ module "acm" {
     "testnet-ws.${var.domain_name}",
     "gateway.testnet.${var.domain_name}",
     "bazaar.testnet.${var.domain_name}",
+    "autocrat.testnet.${var.domain_name}",
+    "crucible.testnet.${var.domain_name}",
+    "oauth3.testnet.${var.domain_name}",
     "docs.testnet.${var.domain_name}",
     "api.testnet.${var.domain_name}",
     "dws.testnet.${var.domain_name}",
@@ -532,6 +535,67 @@ resource "aws_route53_record" "explorer" {
   depends_on = [module.route53, module.alb]
 }
 
+# DWS-hosted Apps DNS Records (routed through DWS app router)
+resource "aws_route53_record" "bazaar" {
+  count   = var.enable_dns_records ? 1 : 0
+  zone_id = module.route53.zone_id
+  name    = "bazaar.testnet"
+  type    = "A"
+
+  alias {
+    name                   = module.alb.alb_dns_name
+    zone_id                = module.alb.alb_zone_id
+    evaluate_target_health = true
+  }
+
+  depends_on = [module.route53, module.alb]
+}
+
+resource "aws_route53_record" "autocrat" {
+  count   = var.enable_dns_records ? 1 : 0
+  zone_id = module.route53.zone_id
+  name    = "autocrat.testnet"
+  type    = "A"
+
+  alias {
+    name                   = module.alb.alb_dns_name
+    zone_id                = module.alb.alb_zone_id
+    evaluate_target_health = true
+  }
+
+  depends_on = [module.route53, module.alb]
+}
+
+resource "aws_route53_record" "crucible" {
+  count   = var.enable_dns_records ? 1 : 0
+  zone_id = module.route53.zone_id
+  name    = "crucible.testnet"
+  type    = "A"
+
+  alias {
+    name                   = module.alb.alb_dns_name
+    zone_id                = module.alb.alb_zone_id
+    evaluate_target_health = true
+  }
+
+  depends_on = [module.route53, module.alb]
+}
+
+resource "aws_route53_record" "oauth3" {
+  count   = var.enable_dns_records ? 1 : 0
+  zone_id = module.route53.zone_id
+  name    = "oauth3.testnet"
+  type    = "A"
+
+  alias {
+    name                   = module.alb.alb_dns_name
+    zone_id                = module.alb.alb_zone_id
+    evaluate_target_health = true
+  }
+
+  depends_on = [module.route53, module.alb]
+}
+
 # ============================================================
 # Kubernetes Provider Configuration
 # Configured AFTER EKS is created
@@ -887,10 +951,13 @@ output "testnet_urls" {
     api           = "https://api.testnet.${var.domain_name}"
     gateway       = "https://gateway.testnet.${var.domain_name}"
     bazaar        = "https://bazaar.testnet.${var.domain_name}"
+    autocrat      = "https://autocrat.testnet.${var.domain_name}"
+    crucible      = "https://crucible.testnet.${var.domain_name}"
+    oauth3        = "https://oauth3.testnet.${var.domain_name}"
     docs          = "https://docs.testnet.${var.domain_name}"
     relay         = module.messaging.relay_endpoint
     kms           = module.messaging.kms_endpoint
-    sqlit   = module.sqlit.http_endpoint
+    sqlit         = module.sqlit.http_endpoint
     solana_rpc    = var.enable_solana ? module.solana[0].rpc_endpoint : ""
     solana_ws     = var.enable_solana ? module.solana[0].ws_endpoint : ""
   }

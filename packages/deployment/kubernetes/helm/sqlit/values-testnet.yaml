@@ -1,7 +1,8 @@
 # SQLit Testnet Configuration
 # Decentralized SQL Database for DWS
 
-replicaCount: 3
+# Start with 1 replica to verify basic functionality first
+replicaCount: 1
 
 image:
   # Use the ECR SQLit image for testnet
@@ -184,3 +185,25 @@ initContainers: []
 
 # Sidecar containers
 sidecars: []
+
+# HTTP Adapter for DWS integration
+adapter:
+  enabled: true
+  replicaCount: 1
+  httpPort: 8546
+  service:
+    type: ClusterIP
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # BP info from sqlit-0 (update after regenerating keys)
+  bpNodeId: "0000008b8d19d1d8bbf67133203da5dfeba7b3869e8a7e6694fc4aefc3102a81"
+  bpPublicKey: "02c6801933571e052de2ab5db6933f2abbdd11be888deb4d194d1444a5f759eb7a"
+  bpNonceA: "7153948"
+  bpNonceB: "3094762556"
+  bpNonceC: "0"
+  bpNonceD: "0"

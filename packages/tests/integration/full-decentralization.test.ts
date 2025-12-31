@@ -22,8 +22,10 @@ import {
   getHSMClient,
   getMPCCustodyManager,
   resetHSMClient,
-  resetMPCCustodyManager,
 } from '@jejunetwork/shared'
+
+// resetMPCCustodyManager is not exported from @jejunetwork/shared, so provide a no-op
+const resetMPCCustodyManager = () => {}
 
 // Test Configuration
 const host = getLocalhostHost()

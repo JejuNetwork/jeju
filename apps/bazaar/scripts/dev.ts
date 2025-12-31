@@ -46,7 +46,20 @@ const EXTERNALS = [
   'node:crypto',
   'node:events',
   'node:module',
+  'node:process',
+  'node:util/types',
   'node:worker_threads',
+  '@jejunetwork/deployment',
+  '@jejunetwork/db',
+  '@jejunetwork/kms',
+  '@jejunetwork/messaging',
+  '@xmtp/node-sdk',
+  '@xmtp/node-bindings',
+  'elysia',
+  '@elysiajs/*',
+  'ioredis',
+  'pino',
+  'pino-pretty',
 ]
 
 let buildInProgress = false
@@ -84,6 +97,32 @@ async function buildFrontend(): Promise<void> {
           // Pino stub - use real file to avoid duplicate export issues
           build.onResolve({ filter: /^pino$/ }, () => ({
             path: resolve(process.cwd(), './web/stubs/pino.ts'),
+          }))
+
+          // Server-side package stubs
+          build.onResolve({ filter: /^@jejunetwork\/kms/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/kms.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/messaging/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/messaging.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/db/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/db.ts'),
+          }))
+          build.onResolve({ filter: /^@jejunetwork\/deployment/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/empty.ts'),
+          }))
+          build.onResolve({ filter: /^@xmtp\// }, () => ({
+            path: resolve(process.cwd(), './web/stubs/empty.ts'),
+          }))
+          build.onResolve({ filter: /^ioredis/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/empty.ts'),
+          }))
+          build.onResolve({ filter: /^elysia/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/empty.ts'),
+          }))
+          build.onResolve({ filter: /^@elysiajs\// }, () => ({
+            path: resolve(process.cwd(), './web/stubs/empty.ts'),
           }))
 
           // Dedupe React

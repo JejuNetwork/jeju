@@ -1,8 +1,12 @@
 #!/usr/bin/env bun
 /**
- * Example Deployment Script
+ * Example Decentralized Deployment Script
  *
- * Deploys Example app to DWS infrastructure.
+ * Deploys Example app to DWS infrastructure:
+ * 1. Builds frontend and API
+ * 2. Uploads static assets to IPFS storage
+ * 3. Deploys API as a workerd worker
+ * 4. Registers app with DWS app router
  */
 
 import { existsSync } from 'node:fs'
@@ -14,7 +18,9 @@ import {
   type NetworkType,
 } from '@jejunetwork/config'
 import { $ } from 'bun'
+import { createPublicClient, createWalletClient, http, keccak256 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { baseSepolia, localhost } from 'viem/chains'
 import { z } from 'zod'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -25,6 +31,26 @@ const IPFSUploadResponseSchema = z.object({
   size: z.number().optional(),
 })
 
+const WorkerDeployResponseSchema = z.object({
+  workerId: z.string(),
+  name: z.string(),
+  codeCid: z.string(),
+  status: z.string(),
+  runtime: z.string(),
+})
+
+const AppDeployResponseSchema = z.object({
+  success: z.boolean(),
+  app: z.object({
+    name: z.string(),
+    jnsName: z.string(),
+    frontendCid: z.string().nullable(),
+    backendWorkerId: z.string().nullable(),
+    backendEndpoint: z.string().nullable(),
+    enabled: z.boolean(),
+  }).optional(),
+})
+
 // Configuration
 interface DeployConfig {
   network: NetworkType
@@ -32,6 +58,7 @@ interface DeployConfig {
   rpcUrl: string
   privateKey: `0x${string}`
   jnsName: string
+  domain: string
 }
 
 function getConfig(): DeployConfig {
@@ -39,19 +66,22 @@ function getConfig(): DeployConfig {
 
   const configs: Record<NetworkType, Partial<DeployConfig>> = {
     localnet: {
-      dwsUrl: `http://127.0.0.1:4030`,
+      dwsUrl: 'http://127.0.0.1:4030',
       rpcUrl: getL1RpcUrl(),
       jnsName: 'example.jeju',
+      domain: 'example.localhost',
     },
     testnet: {
       dwsUrl: 'https://dws.testnet.jejunetwork.org',
       rpcUrl: 'https://sepolia.base.org',
       jnsName: 'example.jeju',
+      domain: 'example.testnet.jejunetwork.org',
     },
     mainnet: {
       dwsUrl: 'https://dws.jejunetwork.org',
       rpcUrl: 'https://mainnet.base.org',
       jnsName: 'example.jeju',
+      domain: 'example.jejunetwork.org',
     },
   }
 
@@ -71,7 +101,7 @@ function getConfig(): DeployConfig {
 async function checkBuild(): Promise<void> {
   const requiredFiles = [
     join(APP_DIR, 'dist/index.html'),
-    join(APP_DIR, 'dist/web/main.js'),
+    join(APP_DIR, 'dist/api/index.js'),
   ]
 
   for (const file of requiredFiles) {
@@ -81,22 +111,59 @@ async function checkBuild(): Promise<void> {
       return
     }
   }
-  console.log('✅ Build found')
+  console.log('[Deploy] Build found')
 }
 
-// Upload directory to IPFS
+// Upload file to IPFS
+async function uploadFile(
+  dwsUrl: string,
+  content: Buffer,
+  filename: string,
+  retries = 3,
+): Promise<{ cid: string; size: number }> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const formData = new FormData()
+      formData.append('file', new Blob([content]), filename)
+      formData.append('tier', 'popular')
+      formData.append('category', 'app')
+
+      const response = await fetch(`${dwsUrl}/storage/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`Upload failed: ${error}`)
+      }
+
+      const result = IPFSUploadResponseSchema.parse(await response.json())
+      return { cid: result.cid, size: content.length }
+    } catch (err) {
+      if (attempt === retries) throw err
+      console.log(`   Retry ${attempt}/${retries} for ${filename}...`)
+      await new Promise((r) => setTimeout(r, 1000 * attempt))
+    }
+  }
+  throw new Error(`Failed to upload ${filename} after ${retries} attempts`)
+}
+
+// Upload directory recursively
 interface UploadResult {
-  cid: string
-  size: number
   files: Map<string, string>
+  totalSize: number
+  rootCid: string
 }
 
 async function uploadDirectory(
   dwsUrl: string,
   dirPath: string,
+  exclude: string[] = [],
 ): Promise<UploadResult> {
   const files = new Map<string, string>()
   let totalSize = 0
+  let indexCid = ''
 
   async function processDir(currentPath: string, prefix = ''): Promise<void> {
     const entries = await readdir(currentPath, { withFileTypes: true })
@@ -105,106 +172,200 @@ async function uploadDirectory(
       const fullPath = join(currentPath, entry.name)
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name
 
+      // Skip excluded paths
+      if (exclude.some((e) => relativePath.includes(e))) continue
+
       if (entry.isDirectory()) {
         await processDir(fullPath, relativePath)
       } else {
         const content = await readFile(fullPath)
         totalSize += content.length
 
-        const formData = new FormData()
-        formData.append('file', new Blob([content]), relativePath)
-        formData.append('tier', 'popular')
-        formData.append('category', 'app')
+        const result = await uploadFile(
+          dwsUrl,
+          Buffer.from(content),
+          relativePath,
+        )
+        files.set(relativePath, result.cid)
 
-        const response = await fetch(`${dwsUrl}/storage/upload`, {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to upload ${relativePath}: ${response.statusText}`,
-          )
+        // Track index.html CID as root
+        if (relativePath === 'index.html') {
+          indexCid = result.cid
         }
 
-        const result = IPFSUploadResponseSchema.parse(await response.json())
-        files.set(relativePath, result.cid)
-        console.log(`   📄 ${relativePath} -> ${result.cid}`)
+        console.log(`   ${relativePath} -> ${result.cid.slice(0, 16)}...`)
       }
     }
   }
 
   await processDir(dirPath)
-
-  // Return results (directory CID is created from first file for simplicity)
-  const firstCid = files.values().next().value
-  return { cid: firstCid, size: totalSize, files }
+  return { files, totalSize, rootCid: indexCid }
 }
 
-// Configure CDN
-async function setupCDN(
+// Deploy worker to DWS
+async function deployWorker(
   config: DeployConfig,
-  staticAssets: UploadResult,
-): Promise<void> {
+  codeCid: string,
+): Promise<string> {
   const account = privateKeyToAccount(config.privateKey)
 
-  const timestamp = Date.now()
-  const message = `cdn:example:${staticAssets.cid}:${timestamp}`
-  const signature = await account.signMessage({ message })
-
-  const response = await fetch(`${config.dwsUrl}/cdn/configure`, {
+  const response = await fetch(`${config.dwsUrl}/workerd/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': account.address,
+    },
     body: JSON.stringify({
-      domain: config.jnsName,
-      contentCid: staticAssets.cid,
-      spa: true,
-      cacheRules: [
-        { pattern: '*.js', maxAge: 31536000, immutable: true },
-        { pattern: '*.css', maxAge: 31536000, immutable: true },
-        { pattern: 'index.html', maxAge: 0, mustRevalidate: true },
+      name: 'example-api',
+      codeCid,
+      memoryMb: 256,
+      timeoutMs: 30000,
+      cpuTimeMs: 1000,
+      compatibilityDate: new Date().toISOString().split('T')[0],
+      bindings: [
+        { name: 'APP_NAME', type: 'text', value: 'Example' },
+        { name: 'NETWORK', type: 'text', value: config.network },
       ],
-      deployer: account.address,
-      signature,
-      timestamp,
     }),
   })
 
   if (!response.ok) {
     const error = await response.text()
-    console.warn(`CDN configuration warning: ${error}`)
+    throw new Error(`Worker deployment failed: ${error}`)
+  }
+
+  const result = WorkerDeployResponseSchema.parse(await response.json())
+  return result.workerId
+}
+
+// Register app with DWS app router
+async function registerApp(
+  config: DeployConfig,
+  frontendCid: string,
+  backendWorkerId: string,
+): Promise<void> {
+  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'example',
+      jnsName: config.jnsName,
+      frontendCid,
+      backendWorkerId,
+      backendEndpoint: null,
+      apiPaths: ['/api', '/health', '/a2a', '/mcp', '/x402', '/auth', '/webhooks'],
+      spa: true,
+      enabled: true,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    console.warn(`[Deploy] App registration warning: ${error}`)
+    return
+  }
+
+  const result = AppDeployResponseSchema.parse(await response.json())
+  if (result.success) {
+    console.log('[Deploy] App registered successfully')
+  }
+}
+
+// Check DWS health
+async function checkDWSHealth(dwsUrl: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${dwsUrl}/health`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    return response.ok
+  } catch {
+    return false
   }
 }
 
 // Main deploy function
 async function deploy(): Promise<void> {
-  console.log('🚀 Deploying Example to DWS...\n')
+  console.log('')
+  console.log('==================================================================')
+  console.log('           Example Decentralized Deployment to DWS')
+  console.log('==================================================================')
+  console.log('')
 
   const config = getConfig()
-  console.log(`📡 Network: ${config.network}`)
-  console.log(`🌐 DWS: ${config.dwsUrl}\n`)
+  const account = privateKeyToAccount(config.privateKey)
 
+  console.log(`[Deploy] Network: ${config.network}`)
+  console.log(`[Deploy] DWS: ${config.dwsUrl}`)
+  console.log(`[Deploy] Deployer: ${account.address}`)
+  console.log('')
+
+  // Check DWS health
+  console.log('[Deploy] Checking DWS health...')
+  const dwsHealthy = await checkDWSHealth(config.dwsUrl)
+  if (!dwsHealthy) {
+    throw new Error(`DWS not reachable at ${config.dwsUrl}`)
+  }
+  console.log('[Deploy] DWS is healthy')
+
+  // Check/run build
   await checkBuild()
 
-  console.log('\n📦 Uploading static assets...')
-  const staticAssets = await uploadDirectory(
+  // Upload static assets (frontend)
+  console.log('')
+  console.log('[Deploy] Uploading frontend assets...')
+  const frontendResult = await uploadDirectory(
     config.dwsUrl,
     join(APP_DIR, 'dist'),
+    ['api'], // Exclude API directory
   )
-  console.log(`   Total: ${staticAssets.size} bytes`)
-  console.log(`   Root CID: ${staticAssets.cid}\n`)
+  console.log(`[Deploy] Frontend: ${frontendResult.files.size} files, ${(frontendResult.totalSize / 1024).toFixed(1)} KB`)
+  console.log(`[Deploy] Frontend CID: ${frontendResult.rootCid}`)
 
-  console.log('🌐 Configuring CDN...')
-  await setupCDN(config, staticAssets)
+  // Upload and deploy API worker
+  console.log('')
+  console.log('[Deploy] Uploading API bundle...')
+  const apiContent = await readFile(join(APP_DIR, 'dist/api/index.js'))
+  const apiUpload = await uploadFile(
+    config.dwsUrl,
+    Buffer.from(apiContent),
+    'example-api.js',
+  )
+  console.log(`[Deploy] API CID: ${apiUpload.cid}`)
 
-  console.log('\n✅ Deployment complete!')
+  console.log('')
+  console.log('[Deploy] Deploying API worker...')
+  const workerId = await deployWorker(config, apiUpload.cid)
+  console.log(`[Deploy] Worker ID: ${workerId}`)
+
+  // Register app
+  console.log('')
+  console.log('[Deploy] Registering app with DWS...')
+  await registerApp(config, frontendResult.rootCid, workerId)
+
+  // Summary
+  console.log('')
+  console.log('==================================================================')
+  console.log('                    Deployment Complete')
+  console.log('==================================================================')
   console.log('')
   console.log('Endpoints:')
-  console.log(`  Frontend: https://${config.jnsName}`)
-  console.log(`  IPFS:     ipfs://${staticAssets.cid}`)
+  console.log(`  Frontend: https://${config.domain}`)
+  console.log(`  API:      https://${config.domain}/api/v1`)
+  console.log(`  Health:   https://${config.domain}/health`)
+  console.log(`  A2A:      https://${config.domain}/a2a`)
+  console.log(`  MCP:      https://${config.domain}/mcp`)
+  console.log('')
+  console.log('IPFS:')
+  console.log(`  Frontend: ipfs://${frontendResult.rootCid}`)
+  console.log(`  API:      ipfs://${apiUpload.cid}`)
+  console.log('')
+  console.log('DWS:')
+  console.log(`  Worker:   ${workerId}`)
+  console.log(`  JNS:      ${config.jnsName}`)
+  console.log('')
 }
 
 deploy().catch((error) => {
-  console.error('❌ Deployment failed:', error)
+  console.error('[Deploy] Deployment failed:', error.message)
   process.exit(1)
 })

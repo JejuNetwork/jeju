@@ -67,12 +67,12 @@ async function build() {
 
   // Find the main entry file with hash
   const mainEntry = frontendResult.outputs.find(
-    (o) => o.kind === 'entry-point' && o.path.includes('main'),
+    (o) => o.kind === 'entry-point',
   )
-  const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'main.js'
+  const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'app.js'
 
   const indexHtml = await readFile(resolve(APP_DIR, 'web/index.html'), 'utf-8')
-  const updatedHtml = indexHtml.replace('/main.ts', `/web/${mainFileName}`)
+  const updatedHtml = indexHtml.replace('./app.ts', `/web/${mainFileName}`)
 
   await writeFile(join(outdir, 'index.html'), updatedHtml)
 

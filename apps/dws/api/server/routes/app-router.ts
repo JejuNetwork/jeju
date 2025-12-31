@@ -86,7 +86,6 @@ function extractAppName(hostname: string): string | null {
       'bridge',
       'faucet',
       'docs',
-      'gateway',
     ]
     const name = testnetMatch[1]
     if (!systemSubdomains.includes(name)) {

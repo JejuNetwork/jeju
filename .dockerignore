@@ -3,6 +3,7 @@
 **/.git
 **/.DS_Store
 **/dist
+!apps/documentation/docs/dist
 **/build
 **/.turbo
 **/*.log

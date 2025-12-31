@@ -6,7 +6,7 @@
   "type": "module",
   "main": "api/index.ts",
   "scripts": {
-    "dev": "concurrently \"bun run scripts/dev.ts\" \"bun --watch api/server.ts\"",
+    "dev": "bun run scripts/dev.ts",
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
     "test": "bun test tests/",

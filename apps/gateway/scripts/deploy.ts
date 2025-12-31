@@ -28,7 +28,8 @@ const IPFSUploadResponseSchema = z.object({
   size: z.number().optional(),
 })
 
-const DWSWorkerDeployResponseSchema = z.object({
+// Worker deployment schema (kept for future use)
+const _DWSWorkerDeployResponseSchema = z.object({
   workerId: z.string(),
   status: z.string().optional(),
 })
@@ -162,7 +163,9 @@ async function uploadDirectory(
   return results
 }
 
-async function deployWorker(
+// Worker deployment function (kept for future backend deployment)
+// Currently Gateway runs as a static frontend with optional backend proxy
+async function _deployWorker(
   config: DeployConfig,
   apiBundle: UploadResult,
 ): Promise<string> {
@@ -221,7 +224,7 @@ async function deployWorker(
   }
 
   const rawJson: unknown = await response.json()
-  const parsed = DWSWorkerDeployResponseSchema.safeParse(rawJson)
+  const parsed = _DWSWorkerDeployResponseSchema.safeParse(rawJson)
   if (!parsed.success) {
     throw new Error(`Invalid deploy response: ${parsed.error.message}`)
   }
@@ -291,21 +294,62 @@ async function setupCDN(
   }
 }
 
+async function registerWithDWSAppRouter(
+  config: DeployConfig,
+  frontendCid: string,
+): Promise<void> {
+  const account = privateKeyToAccount(config.privateKey)
+
+  // Register with DWS app router for hostname-based routing
+  const appRouterData = {
+    name: 'gateway',
+    jnsName: 'gateway.jeju',
+    frontendCid,
+    backendWorkerId: null,
+    // For testnet, use a public endpoint or null if frontend-only
+    backendEndpoint: null,
+    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/rpc', '/x402'],
+    spa: true,
+    enabled: true,
+  }
+
+  console.log('Registering with DWS app router...')
+
+  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': account.address,
+    },
+    body: JSON.stringify(appRouterData),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.warn(`   Warning: App router registration failed: ${errorText}`)
+  } else {
+    const result = await response.json()
+    console.log(`   Registered: ${result.app?.name || 'gateway'}`)
+  }
+}
+
 async function deploy(): Promise<void> {
   console.log('╔════════════════════════════════════════════════════════════╗')
-  console.log('║              Gateway Deployment to DWS                      ║')
+  console.log('║         Gateway Decentralized Deployment to DWS            ║')
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
 
   const config = getConfig()
+  const account = privateKeyToAccount(config.privateKey)
   console.log(`Network:  ${config.network}`)
   console.log(`DWS:      ${config.dwsUrl}`)
+  console.log(`Deployer: ${account.address}`)
   console.log('')
 
   await ensureBuild()
 
-  // Upload static assets
-  console.log('\nUploading static assets...')
+  // Upload static assets to IPFS via DWS
+  console.log('\n[Step 1/4] Uploading static assets to IPFS...')
   const webAssets = await uploadDirectory(config.dwsUrl, './dist/web', 'web')
   const indexResult = await uploadToIPFS(
     config.dwsUrl,
@@ -314,35 +358,50 @@ async function deploy(): Promise<void> {
   )
   webAssets.set('index.html', indexResult)
   console.log(`   index.html -> ${indexResult.cid}`)
-  console.log(`   Total: ${webAssets.size} files\n`)
+  console.log(`   Total: ${webAssets.size} files`)
 
-  // Upload API bundle
-  console.log('Uploading API bundle...')
-  const apiBundle = await uploadToIPFS(
-    config.dwsUrl,
-    './dist/api/a2a-server.js',
-    'gateway-api.js',
-  )
-  console.log(`   API CID: ${apiBundle.cid}\n`)
+  // For a pure frontend deployment, the index.html CID is the main CID
+  const frontendCid = indexResult.cid
+  console.log(`\n   Frontend CID: ${frontendCid}`)
 
-  // Deploy worker
-  console.log('Deploying worker to DWS...')
-  const workerId = await deployWorker(config, apiBundle)
-  console.log(`   Worker ID: ${workerId}\n`)
+  // Register with DWS app router (critical for hostname routing)
+  console.log('\n[Step 2/4] Registering with DWS app router...')
+  await registerWithDWSAppRouter(config, frontendCid)
 
-  // Setup CDN
-  console.log('Configuring CDN...')
+  // Setup CDN caching rules
+  console.log('\n[Step 3/4] Configuring CDN...')
   await setupCDN(config, webAssets)
+
+  // Verify deployment
+  console.log('\n[Step 4/4] Verifying deployment...')
+  const verifyResponse = await fetch(`${config.dwsUrl}/apps/deployed`)
+  if (verifyResponse.ok) {
+    const apps = await verifyResponse.json()
+    const gatewayApp = apps.apps?.find(
+      (a: { name: string }) => a.name === 'gateway',
+    )
+    if (gatewayApp) {
+      console.log(`   App registered: ${gatewayApp.name}`)
+      console.log(`   Frontend CID: ${gatewayApp.frontendCid}`)
+      console.log(`   Enabled: ${gatewayApp.enabled}`)
+    }
+  }
+
+  const domain =
+    config.network === 'testnet'
+      ? 'gateway.testnet.jejunetwork.org'
+      : 'gateway.jejunetwork.org'
 
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
-  console.log('║                  Deployment Complete                        ║')
+  console.log('║              Decentralized Deployment Complete              ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Frontend: https://gateway.jejunetwork.org                  ║`)
-  console.log(
-    `║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`,
-  )
-  console.log(`║  Worker:   ${workerId.slice(0, 36)}...  ║`)
+  console.log(`║  Frontend: https://${domain}`)
+  console.log(`║  IPFS:     ipfs://${frontendCid}`)
+  console.log(`║  DWS:      ${config.dwsUrl}/storage/ipfs/${frontendCid}`)
+  console.log('╠════════════════════════════════════════════════════════════╣')
+  console.log('║  DNS NOTE: Ensure DNS points to DWS ALB, not CloudFront    ║')
+  console.log('║  DNS should resolve same as dws.testnet.jejunetwork.org    ║')
   console.log('╚════════════════════════════════════════════════════════════╝')
 }
 

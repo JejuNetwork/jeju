@@ -83,7 +83,16 @@ async function buildFrontend(appDir: string, manifest: AppManifest): Promise<boo
   
   console.log(`[${manifest.name}] Building frontend...`)
   try {
-    await $`cd ${appDir} && ${buildCommand}`.quiet()
+    const proc = Bun.spawn(['sh', '-c', buildCommand], {
+      cwd: appDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+    const exitCode = await proc.exited
+    if (exitCode !== 0) {
+      const stderr = await new Response(proc.stderr).text()
+      throw new Error(`Build failed with exit code ${exitCode}: ${stderr}`)
+    }
     console.log(`[${manifest.name}] ✅ Frontend built`)
     return true
   } catch (error) {
@@ -104,33 +113,67 @@ async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: strin
   console.log(`[${manifest.name}] Uploading to IPFS...`)
   
   try {
-    // Use DWS storage API to upload directory
-    const formData = new FormData()
-    
-    // Recursively add files
+    // Recursively find all files
     const { globSync } = await import('glob')
     const files = globSync('**/*', { cwd: distPath, nodir: true })
     
+    const uploadedFiles: { path: string; cid: string; size: number }[] = []
+    
+    // Upload each file individually (DWS storage expects single 'file' field)
     for (const file of files) {
       const filePath = join(distPath, file)
       const fileContent = readFileSync(filePath)
-      formData.append('files', new Blob([fileContent]), file)
+      
+      const formData = new FormData()
+      formData.append('file', new Blob([fileContent]), file)
+      formData.append('tier', 'popular')
+      formData.append('category', 'app')
+
+      const response = await fetch(`${dwsUrl}/storage/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        const result = await response.json() as { cid: string }
+        uploadedFiles.push({ path: file, cid: result.cid, size: fileContent.length })
+      } else {
+        console.warn(`[${manifest.name}] Failed to upload ${file}: ${response.status}`)
+      }
     }
 
-    const response = await fetch(`${dwsUrl}/storage/upload`, {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const text = await response.text()
-      console.error(`[${manifest.name}] Upload failed: ${response.status} ${text}`)
+    if (uploadedFiles.length === 0) {
+      console.error(`[${manifest.name}] No files uploaded`)
       return null
     }
 
-    const result = await response.json() as { cid: string }
-    console.log(`[${manifest.name}] ✅ Uploaded to IPFS: ${result.cid}`)
-    return result.cid
+    // Create a manifest with all file CIDs
+    const manifestData = {
+      app: manifest.name,
+      version: manifest.version,
+      files: uploadedFiles,
+      uploadedAt: Date.now(),
+    }
+
+    // Upload manifest and use its CID as the root
+    const manifestFormData = new FormData()
+    manifestFormData.append('file', new Blob([JSON.stringify(manifestData, null, 2)]), 'manifest.json')
+    manifestFormData.append('tier', 'popular')
+    manifestFormData.append('category', 'app')
+
+    const manifestResponse = await fetch(`${dwsUrl}/storage/upload`, {
+      method: 'POST',
+      body: manifestFormData,
+    })
+
+    if (!manifestResponse.ok) {
+      console.error(`[${manifest.name}] Failed to upload manifest`)
+      return null
+    }
+
+    const manifestResult = await manifestResponse.json() as { cid: string }
+    console.log(`[${manifest.name}] ✅ Uploaded ${uploadedFiles.length} files to IPFS: ${manifestResult.cid}`)
+    return manifestResult.cid
   } catch (error) {
     console.error(`[${manifest.name}] Upload error:`, error)
     return null

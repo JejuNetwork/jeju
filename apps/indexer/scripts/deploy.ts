@@ -2,278 +2,207 @@
 /**
  * Indexer Deployment Script
  *
- * Deploys Indexer to DWS infrastructure.
- * Note: The indexer uses SQLit for decentralized database storage.
+ * Deploys Indexer to DWS infrastructure (decentralized):
+ * 1. Builds frontend if needed
+ * 2. Uploads static assets to DWS storage (IPFS)
+ * 3. Registers app with DWS app router
+ *
+ * The indexer backend runs as a Kubernetes service (subsquid-api.indexer.svc.cluster.local)
+ * which DWS proxies to for /api, /graphql, /health, etc.
  */
 
 import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import {
-  getCoreAppUrl,
-  getCurrentNetwork,
-  getL2RpcUrl,
-} from '@jejunetwork/config'
-import { keccak256 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
 import { z } from 'zod'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 
-const IPFSUploadResponseSchema = z.object({
+// Schema for DWS storage upload response
+const StorageUploadResponseSchema = z.object({
   cid: z.string(),
   size: z.number().optional(),
-})
-
-const DWSWorkerDeployResponseSchema = z.object({
-  workerId: z.string(),
-  status: z.string().optional(),
+  backends: z.array(z.string()).optional(),
 })
 
 interface DeployConfig {
-  network: 'localnet' | 'testnet' | 'mainnet'
+  network: NetworkType
   dwsUrl: string
-  rpcUrl: string
-  privateKey: `0x${string}`
-  cdnEnabled: boolean
+  backendEndpoint: string
 }
 
 function getConfig(): DeployConfig {
   const network = getCurrentNetwork()
 
-  const configs: Record<DeployConfig['network'], Partial<DeployConfig>> = {
+  const configs: Record<NetworkType, Partial<DeployConfig>> = {
     localnet: {
-      dwsUrl: getCoreAppUrl('DWS_API'),
-      rpcUrl: getL2RpcUrl(),
+      dwsUrl: 'http://127.0.0.1:4030',
+      // Local development backend
+      backendEndpoint: 'http://127.0.0.1:4352',
     },
     testnet: {
       dwsUrl: 'https://dws.testnet.jejunetwork.org',
-      rpcUrl: 'https://sepolia.base.org',
+      // Kubernetes service endpoint for indexer backend
+      backendEndpoint: 'http://indexer-api.indexer.svc.cluster.local:4352',
     },
     mainnet: {
       dwsUrl: 'https://dws.jejunetwork.org',
-      rpcUrl: 'https://mainnet.base.org',
+      backendEndpoint: 'http://indexer-api.indexer.svc.cluster.local:4352',
     },
-  }
-
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
-    )
   }
 
   return {
     network,
     ...configs[network],
-    privateKey: privateKey as `0x${string}`,
-    cdnEnabled: process.env.CDN_ENABLED !== 'false',
   } as DeployConfig
 }
 
 async function ensureBuild(): Promise<void> {
-  if (!existsSync(resolve(APP_DIR, 'lib/api/api-server.js'))) {
+  const indexHtmlPath = resolve(APP_DIR, 'dist/index.html')
+  if (!existsSync(indexHtmlPath)) {
     console.log('[Indexer] Build not found, running build first...')
     const proc = Bun.spawn(['bun', 'run', 'scripts/build.ts'], {
       cwd: APP_DIR,
       stdout: 'inherit',
       stderr: 'inherit',
     })
-    await proc.exited
+    const exitCode = await proc.exited
+    if (exitCode !== 0) {
+      throw new Error('Build failed')
+    }
   }
   console.log('[Indexer] Build found')
 }
 
 interface UploadResult {
-  cid: string
-  hash: `0x${string}`
-  size: number
+  files: Map<string, string>
+  totalSize: number
+  rootCid: string
 }
 
-async function uploadToIPFS(
+async function uploadFile(
   dwsUrl: string,
-  filePath: string,
-  name: string,
-): Promise<UploadResult> {
-  const content = await readFile(resolve(APP_DIR, filePath))
-  const hash = keccak256(content) as `0x${string}`
+  content: Buffer,
+  filename: string,
+  retries = 3,
+): Promise<{ cid: string; size: number }> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const formData = new FormData()
+      formData.append('file', new Blob([content]), filename)
+      formData.append('tier', 'popular')
+      formData.append('category', 'app')
 
-  const formData = new FormData()
-  formData.append('file', new Blob([content]), name)
-  formData.append('name', name)
+      const response = await fetch(`${dwsUrl}/storage/upload`, {
+        method: 'POST',
+        body: formData,
+      })
 
-  const response = await fetch(`${dwsUrl}/storage/upload`, {
-    method: 'POST',
-    body: formData,
-  })
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`Failed to upload ${filename}: ${error}`)
+      }
 
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${await response.text()}`)
+      const result = StorageUploadResponseSchema.parse(await response.json())
+      return { cid: result.cid, size: content.length }
+    } catch (err) {
+      if (attempt === retries) throw err
+      console.log(`   Retry ${attempt}/${retries} for ${filename}...`)
+      await new Promise((r) => setTimeout(r, 1000 * attempt))
+    }
   }
-
-  const rawJson: unknown = await response.json()
-  const parsed = IPFSUploadResponseSchema.safeParse(rawJson)
-  if (!parsed.success) {
-    throw new Error(`Invalid upload response: ${parsed.error.message}`)
-  }
-
-  return {
-    cid: parsed.data.cid,
-    hash,
-    size: content.length,
-  }
+  throw new Error(`Failed to upload ${filename} after ${retries} attempts`)
 }
 
 async function uploadDirectory(
   dwsUrl: string,
   dirPath: string,
-  prefix = '',
-): Promise<Map<string, UploadResult>> {
-  const results = new Map<string, UploadResult>()
-  const entries = await readdir(resolve(APP_DIR, dirPath), {
-    withFileTypes: true,
-  })
+  exclude: string[] = [],
+): Promise<UploadResult> {
+  const files = new Map<string, string>()
+  let totalSize = 0
+  let rootCid = ''
 
-  for (const entry of entries) {
-    const fullPath = join(dirPath, entry.name)
-    const key = prefix ? `${prefix}/${entry.name}` : entry.name
+  async function processDir(currentPath: string, prefix = ''): Promise<void> {
+    const entries = await readdir(currentPath, { withFileTypes: true })
 
-    if (entry.isDirectory()) {
-      const subResults = await uploadDirectory(dwsUrl, fullPath, key)
-      for (const [k, v] of subResults) {
-        results.set(k, v)
+    for (const entry of entries) {
+      const fullPath = join(currentPath, entry.name)
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name
+
+      // Skip excluded files
+      if (exclude.some((e) => relativePath.includes(e))) continue
+      // Skip source maps in production
+      if (relativePath.endsWith('.map')) continue
+
+      if (entry.isDirectory()) {
+        await processDir(fullPath, relativePath)
+      } else {
+        const content = await readFile(fullPath)
+        totalSize += content.length
+
+        const result = await uploadFile(
+          dwsUrl,
+          Buffer.from(content),
+          relativePath,
+        )
+        files.set(relativePath, result.cid)
+
+        // Track index.html CID as root
+        if (relativePath === 'index.html') {
+          rootCid = result.cid
+        }
+
+        console.log(`   ${relativePath} -> ${result.cid.slice(0, 16)}...`)
       }
-    } else {
-      const result = await uploadToIPFS(dwsUrl, fullPath, key)
-      results.set(key, result)
-      console.log(`   ${key} -> ${result.cid}`)
     }
   }
 
-  return results
+  await processDir(dirPath)
+  return { files, totalSize, rootCid }
 }
 
-async function deployWorker(
+async function registerApp(
   config: DeployConfig,
-  apiBundle: UploadResult,
-): Promise<string> {
-  const account = privateKeyToAccount(config.privateKey)
-
-  const deployRequest = {
-    name: 'indexer-api',
-    owner: account.address,
-    codeCid: apiBundle.cid,
-    codeHash: apiBundle.hash,
-    entrypoint: 'api-server.js',
-    runtime: 'bun',
-    resources: {
-      memoryMb: 1024,
-      cpuMillis: 4000,
-      timeoutMs: 30000,
-      maxConcurrency: 100,
-    },
-    scaling: {
-      minInstances: 2,
-      maxInstances: 10,
-      targetConcurrency: 10,
-      scaleToZero: false,
-      cooldownMs: 60000,
-    },
-    requirements: {
-      teeRequired: false,
-      teePreferred: false,
-      minNodeReputation: 50,
-    },
-    routes: [
-      { pattern: '/api/*', zone: 'indexer' },
-      { pattern: '/graphql', zone: 'indexer' },
-      { pattern: '/health', zone: 'indexer' },
-    ],
-    env: {
-      NETWORK: config.network,
-      RPC_URL: config.rpcUrl,
-      DWS_URL: config.dwsUrl,
-      // SQLit will be configured via DWS database service
-      DB_TYPE: 'sqlit',
-    },
-    secrets: [],
-    database: {
-      type: 'sqlit',
-      name: 'indexer',
-    },
-  }
-
-  const response = await fetch(`${config.dwsUrl}/workers/deploy`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(deployRequest),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Worker deployment failed: ${await response.text()}`)
-  }
-
-  const rawJson: unknown = await response.json()
-  const parsed = DWSWorkerDeployResponseSchema.safeParse(rawJson)
-  if (!parsed.success) {
-    throw new Error(`Invalid deploy response: ${parsed.error.message}`)
-  }
-  return parsed.data.workerId
-}
-
-function getContentType(path: string): string {
-  if (path.endsWith('.js')) return 'application/javascript'
-  if (path.endsWith('.css')) return 'text/css'
-  if (path.endsWith('.html')) return 'text/html'
-  if (path.endsWith('.json')) return 'application/json'
-  if (path.endsWith('.svg')) return 'image/svg+xml'
-  if (path.endsWith('.png')) return 'image/png'
-  return 'application/octet-stream'
-}
-
-async function setupCDN(
-  config: DeployConfig,
-  staticAssets: Map<string, UploadResult>,
+  staticFiles: Map<string, string>,
+  rootCid: string,
 ): Promise<void> {
-  if (!config.cdnEnabled) {
-    console.log('   CDN disabled, skipping...')
-    return
+  // Find index.html CID - this is the entry point
+  const indexCid = staticFiles.get('index.html')
+  if (!indexCid) {
+    throw new Error('index.html not found in uploaded files')
   }
 
-  const assets = Array.from(staticAssets.entries()).map(([path, result]) => ({
-    path: `/${path}`,
-    cid: result.cid,
-    contentType: getContentType(path),
-    immutable:
-      path.includes('-') && (path.endsWith('.js') || path.endsWith('.css')),
-  }))
-
-  const cdnConfig = {
+  // App registration data for DWS app router
+  const appConfig = {
     name: 'indexer',
-    domain: 'indexer.jejunetwork.org',
-    spa: {
-      enabled: true,
-      fallback: '/index.html',
-      routes: ['/api/*', '/graphql', '/health'],
-    },
-    assets,
-    cacheRules: [
-      { pattern: '/dist/web/**', ttl: 31536000, immutable: true },
-      { pattern: '/index.html', ttl: 300, staleWhileRevalidate: 86400 },
-    ],
+    jnsName: 'indexer.jeju',
+    frontendCid: rootCid, // Using root CID for the whole directory
+    backendWorkerId: null, // No DWS worker - using K8s backend
+    backendEndpoint: config.backendEndpoint,
+    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/graphql'], // Include /graphql for the GraphQL API
+    spa: true, // Single-page application
+    enabled: true,
   }
 
-  const response = await fetch(`${config.dwsUrl}/cdn/configure`, {
+  console.log('[Indexer] Registering app with DWS...')
+  console.log(`   Frontend CID: ${rootCid}`)
+  console.log(`   Backend: ${config.backendEndpoint}`)
+  console.log(`   API paths: ${appConfig.apiPaths.join(', ')}`)
+
+  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(cdnConfig),
+    body: JSON.stringify(appConfig),
   })
 
   if (!response.ok) {
-    console.warn(`   CDN configuration failed: ${await response.text()}`)
-  } else {
-    console.log('   CDN configured')
+    const error = await response.text()
+    throw new Error(`App registration failed: ${error}`)
   }
+
+  console.log('[Indexer] App registered successfully')
 }
 
 async function deploy(): Promise<void> {
@@ -285,58 +214,42 @@ async function deploy(): Promise<void> {
   const config = getConfig()
   console.log(`Network:  ${config.network}`)
   console.log(`DWS:      ${config.dwsUrl}`)
+  console.log(`Backend:  ${config.backendEndpoint}`)
   console.log('')
 
+  // Ensure build exists
   await ensureBuild()
 
-  // Upload static assets
+  // Upload static assets from dist directory
   console.log('\nUploading static assets...')
-  const webAssets = await uploadDirectory(
-    config.dwsUrl,
-    './dist/web',
-    'dist/web',
-  )
-  const indexResult = await uploadToIPFS(
-    config.dwsUrl,
-    './dist/index.html',
-    'index.html',
-  )
-  webAssets.set('index.html', indexResult)
-  console.log(`   index.html -> ${indexResult.cid}`)
-  console.log(`   Total: ${webAssets.size} files\n`)
+  const staticResult = await uploadDirectory(config.dwsUrl, join(APP_DIR, 'dist'))
+  console.log(`   Total: ${(staticResult.totalSize / 1024).toFixed(1)} KB`)
+  console.log(`   Files: ${staticResult.files.size}`)
 
-  // Upload API bundle
-  console.log('Uploading API bundle...')
-  const apiBundle = await uploadToIPFS(
-    config.dwsUrl,
-    './lib/api/api-server.js',
-    'indexer-api.js',
-  )
-  console.log(`   API CID: ${apiBundle.cid}\n`)
-
-  // Deploy worker
-  console.log('Deploying worker to DWS (with SQLit database)...')
-  const workerId = await deployWorker(config, apiBundle)
-  console.log(`   Worker ID: ${workerId}\n`)
-
-  // Setup CDN
-  console.log('Configuring CDN...')
-  await setupCDN(config, webAssets)
+  // Register app with DWS
+  console.log('\nRegistering app with DWS...')
+  await registerApp(config, staticResult.files, staticResult.rootCid)
 
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Frontend: https://indexer.jejunetwork.org                  ║`)
-  console.log(`║  GraphQL:  https://indexer.jejunetwork.org/graphql          ║`)
-  console.log(
-    `║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`,
-  )
-  console.log(`║  Worker:   ${workerId.slice(0, 36)}...  ║`)
+
+  const domain =
+    config.network === 'testnet'
+      ? 'https://indexer.testnet.jejunetwork.org'
+      : config.network === 'mainnet'
+        ? 'https://indexer.jejunetwork.org'
+        : 'http://indexer.localhost:4030'
+
+  console.log(`║  Frontend: ${domain.padEnd(44)}║`)
+  console.log(`║  API:      ${domain}/api`.padEnd(61) + '║')
+  console.log(`║  GraphQL:  ${domain}/graphql`.padEnd(61) + '║')
+  console.log(`║  IPFS:     ipfs://${staticResult.rootCid.slice(0, 20)}...`.padEnd(61) + '║')
   console.log('╚════════════════════════════════════════════════════════════╝')
 }
 
-deploy().catch((error) => {
-  console.error('Deployment failed:', error)
+deploy().catch((error: Error) => {
+  console.error('Deployment failed:', error.message)
   process.exit(1)
 })
