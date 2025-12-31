@@ -48,6 +48,24 @@ import { Logger } from '../../../packages/deployment/scripts/shared/logger'
 
 const logger = new Logger('cloud-complete-workflow')
 
+// Check if localnet is available before running tests
+const RPC_URL = 'http://localhost:6546'
+let localnetAvailable = false
+try {
+  const response = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+    signal: AbortSignal.timeout(3000),
+  })
+  localnetAvailable = response.ok
+} catch {
+  localnetAvailable = false
+}
+if (!localnetAvailable) {
+  console.log('⏭️  Skipping Complete User Workflow E2E tests - localnet not available at', RPC_URL)
+}
+
 let publicClient: PublicClient
 let cloudOperator: WalletClient
 let cloudOperatorAccount: Account
@@ -57,7 +75,7 @@ let testUserAccount: Account
 let integration: CloudIntegration
 let userAgentId: bigint
 
-describe('Complete User Workflow E2E', () => {
+describe.skipIf(!localnetAvailable)('Complete User Workflow E2E', () => {
   beforeAll(async () => {
     logger.info('🚀 Setting up complete workflow test...')
 
@@ -342,7 +360,7 @@ describe('Complete User Workflow E2E', () => {
   })
 })
 
-describe('Rate Limiting Workflow E2E', () => {
+describe.skipIf(!localnetAvailable)('Rate Limiting Workflow E2E', () => {
   test('WORKFLOW: Rapid requests → Rate limit → Violation → Reputation penalty', async () => {
     logger.info('🔄 Testing rate limiting workflow...')
 
@@ -377,7 +395,7 @@ describe('Rate Limiting Workflow E2E', () => {
   })
 })
 
-describe('Auto-Ban Threshold Workflow E2E', () => {
+describe.skipIf(!localnetAvailable)('Auto-Ban Threshold Workflow E2E', () => {
   let abusiveUserAgentId: bigint
 
   test('WORKFLOW: Create new user for auto-ban test', async () => {
@@ -474,7 +492,7 @@ describe('Auto-Ban Threshold Workflow E2E', () => {
   })
 })
 
-describe('Service Discovery and Cost E2E', () => {
+describe.skipIf(!localnetAvailable)('Service Discovery and Cost E2E', () => {
   test('WORKFLOW: Discover services → Check cost → Verify credit', async () => {
     logger.info('🔍 Testing service discovery workflow...')
 
@@ -527,7 +545,7 @@ describe('Service Discovery and Cost E2E', () => {
   })
 })
 
-describe('Reputation Summary E2E', () => {
+describe.skipIf(!localnetAvailable)('Reputation Summary E2E', () => {
   test('WORKFLOW: Query reputation across categories', async () => {
     logger.info('📊 Querying reputation summary...')
 

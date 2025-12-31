@@ -103,17 +103,17 @@ const ViolationTypeNames: Record<ViolationType, string> = {
 }
 
 const REPUTATION_REGISTRY_ABI = parseAbi([
-  'function giveFeedback(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string calldata fileuri, bytes32 filehash, bytes memory feedbackAuth) external',
-  'function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)',
+  'function giveFeedback(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string fileuri, bytes32 filehash, bytes feedbackAuth) external',
+  'function getSummary(uint256 agentId, address[] clientAddresses, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)',
 ])
 
 const CLOUD_REPUTATION_PROVIDER_ABI = parseAbi([
-  'function registerCloudAgent(string calldata tokenURI, tuple(string key, bytes value)[] calldata metadata) external returns (uint256 agentId)',
-  'function setReputation(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string calldata reason, bytes calldata signedAuth) external',
-  'function recordViolation(uint256 agentId, uint8 violationType, uint8 severityScore, string calldata evidence) external',
-  'function proposeBan(uint256 agentId, uint8 reason, string calldata evidence) external returns (bytes32 proposalId)',
+  'function registerCloudAgent(string tokenURI, (string key, bytes value)[] metadata) external returns (uint256 agentId)',
+  'function setReputation(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string reason, bytes signedAuth) external',
+  'function recordViolation(uint256 agentId, uint8 violationType, uint8 severityScore, string evidence) external',
+  'function proposeBan(uint256 agentId, uint8 reason, string evidence) external returns (bytes32 proposalId)',
   'function approveBan(bytes32 proposalId) external',
-  'function getAgentViolations(uint256 agentId, uint256 offset, uint256 limit) external view returns (tuple(uint256 agentId, uint8 violationType, uint8 severityScore, string evidence, uint256 timestamp, address reporter)[])',
+  'function getAgentViolations(uint256 agentId, uint256 offset, uint256 limit) external view returns ((uint256 agentId, uint8 violationType, uint8 severityScore, string evidence, uint256 timestamp, address reporter)[])',
   'function getAgentViolationCount(uint256 agentId) external view returns (uint256)',
   'function cloudAgentId() external view returns (uint256)',
   'event CloudAgentRegistered(uint256 indexed agentId)',
@@ -121,9 +121,9 @@ const CLOUD_REPUTATION_PROVIDER_ABI = parseAbi([
 ])
 
 const SERVICE_REGISTRY_ABI = parseAbi([
-  'function registerService(string calldata serviceName, string calldata category, uint256 basePrice, uint256 minPrice, uint256 maxPrice, address provider) external',
-  'function getServiceCost(string calldata serviceName, address user) external view returns (uint256 cost)',
-  'function isServiceAvailable(string calldata serviceName) external view returns (bool available)',
+  'function registerService(string serviceName, string category, uint256 basePrice, uint256 minPrice, uint256 maxPrice, address provider) external',
+  'function getServiceCost(string serviceName, address user) external view returns (uint256 cost)',
+  'function isServiceAvailable(string serviceName) external view returns (bool available)',
 ])
 
 const CREDIT_MANAGER_ABI = parseAbi([

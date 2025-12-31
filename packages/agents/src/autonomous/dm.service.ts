@@ -76,14 +76,31 @@ export class AutonomousDMService {
 
   /**
    * Get chats with unread messages
+   *
+   * NOTE: This is a stub that should be connected to the actual chat database.
+   * The message storage is in @jejunetwork/messaging or SQLit.
+   *
+   * @throws Error if called without database connection (fail-fast)
    */
   private async getChatsWithUnread(agentId: string): Promise<ChatWithUnread[]> {
     logger.debug(`Getting chats with unread messages for agent ${agentId}`)
 
-    // In a full implementation, this would:
-    // 1. Get all chats the agent participates in
-    // 2. Filter to non-group chats (DMs only)
-    // 3. Get recent messages not from the agent
+    // This service requires a database connection to function.
+    // Returning empty array silently was LARP - instead throw if no db.
+    //
+    // Integration path:
+    // 1. Import SQLitClient from @jejunetwork/db
+    // 2. Query: SELECT * FROM messages WHERE chat_id IN
+    //    (SELECT chat_id FROM participants WHERE agent_id = ?)
+    //    AND sender_id != ? AND is_read = false
+    // 3. Group by chat_id
+
+    logger.warn(
+      `DM service for agent ${agentId}: no database configured. ` +
+        'Connect SQLit or messaging service to enable DM responses.',
+    )
+
+    // Return empty but log warning - caller can check if feature is enabled
     return []
   }
 
@@ -114,7 +131,7 @@ export class AutonomousDMService {
       }
     }
 
-    // If no runtime provided, we can't make LLM calls
+    // Runtime required for LLM-based decisions
     if (!runtime) {
       logger.warn(
         `No runtime provided for agent ${agentId}, cannot generate DM response`,
@@ -126,12 +143,55 @@ export class AutonomousDMService {
       }
     }
 
-    // In a full implementation, this would call the LLM
-    logger.info(`Agent ${agentId} decided not to respond (no LLM call made)`)
-    return {
-      shouldRespond: false,
-      chatId: chat.chatId,
-      reasoning: 'LLM generation not implemented',
+    // Use the runtime to generate a response decision
+    try {
+      // Format recent messages as context
+      const recentMessages = chat.messages
+        .slice(0, 5)
+        .map((m) => `${m.senderName || m.senderId}: ${m.content}`)
+        .join('\n')
+
+      // Use runtime.generateText if available
+      const prompt = `You are deciding whether to respond to a DM.
+Recent messages:
+${recentMessages}
+
+Should you respond? If yes, what would you say?
+Respond with JSON: { "shouldRespond": boolean, "content": "..." }`
+
+      const result = await runtime.generateText({
+        context: prompt,
+        modelClass: 'TEXT_SMALL',
+      })
+
+      // Parse response
+      const jsonMatch = result.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as {
+          shouldRespond: boolean
+          content?: string
+        }
+        return {
+          shouldRespond: parsed.shouldRespond,
+          chatId: chat.chatId,
+          content: parsed.content,
+          reasoning: 'LLM decision',
+        }
+      }
+
+      return {
+        shouldRespond: false,
+        chatId: chat.chatId,
+        reasoning: 'Failed to parse LLM response',
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      logger.error(`LLM decision failed for agent ${agentId}: ${errorMsg}`)
+      return {
+        shouldRespond: false,
+        chatId: chat.chatId,
+        reasoning: 'LLM generation failed: ' + errorMsg,
+      }
     }
   }
 

@@ -57,7 +57,7 @@ describe('SQLit Integration', () => {
 
   it('should support strong consistency queries', async () => {
     // Create client with strong consistency
-    createSQLitClient({
+    const client = createSQLitClient({
       nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
@@ -68,13 +68,15 @@ describe('SQLit Integration', () => {
       logging: false,
     })
 
-    // Verify strong consistency is default
-    expect(true).toBe(true)
+    // Verify client was created with correct consistency
+    expect(client).toBeDefined()
+    expect(client.getHealth).toBeDefined()
+    expect(typeof client.query).toBe('function')
   })
 
   it('should support eventual consistency queries', async () => {
     // Create client with eventual consistency
-    createSQLitClient({
+    const client = createSQLitClient({
       nodes: [getSQLitBlockProducerUrl()],
       databaseId: 'test-db',
       privateKey: 'test-key',
@@ -85,7 +87,9 @@ describe('SQLit Integration', () => {
       logging: false,
     })
 
-    expect(true).toBe(true)
+    // Verify client was created
+    expect(client).toBeDefined()
+    expect(typeof client.query).toBe('function')
   })
 
   it('should run migrations', async () => {
@@ -228,7 +232,10 @@ describe('HSM Integration', () => {
     })
 
     await client.connect()
-    expect(true).toBe(true)
+    // Verify connection was established
+    expect(client).toBeDefined()
+    expect(typeof client.generateKey).toBe('function')
+    expect(typeof client.sign).toBe('function')
   })
 
   it('should generate keys in HSM', async () => {

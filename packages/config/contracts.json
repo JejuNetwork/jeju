@@ -198,14 +198,17 @@
       "performanceOracle": ""
     },
     "jns": {
-      "registry": "",
-      "resolver": "",
-      "registrar": "",
-      "reverseRegistrar": ""
+      "registry": "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
+      "resolver": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD",
+      "registrar": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02",
+      "reverseRegistrar": "0x36b58F5C1969B7b6591D752ea6F5486D069010AB"
     },
     "dws": {
-      "storageManager": "",
-      "workerRegistry": "",
+      "storageManager": "0xBEc49fA140aCaA83533fB00A2BB19bDdd0290f25",
+      "workerRegistry": "0xD84379CEae14AA33C123Af12424A37803F885889",
+      "cdnRegistry": "0x2B0d36FACD61B71CC05ab8F3D2355ec3631C0dd5",
+      "repoRegistry": "0xfbC22278A96299D91d41C453234d97b4F5Eb9B2d",
+      "packageRegistry": "0x46b142DD1E924FAb83eCc3c08e4D46E82f005e0E",
       "managedDatabaseRegistry": "",
       "cacheManager": "",
       "containerRegistry": "",

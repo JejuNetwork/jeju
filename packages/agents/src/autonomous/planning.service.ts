@@ -240,10 +240,107 @@ export class AutonomousPlanningCoordinator {
       return this.generateSimplePlan(config, context)
     }
 
-    // In a full implementation, this would call the LLM
-    // For now, use simple planning
-    logger.info('LLM planning not implemented, using simple planning')
-    return this.generateSimplePlan(config, context)
+    // Use LLM to generate intelligent plan
+    try {
+      const prompt = this.buildPlanningPrompt(config, context)
+
+      const result = await runtime.generateText({
+        context: prompt,
+        modelClass: 'TEXT_SMALL',
+      })
+
+      // Parse LLM response into plan
+      const plan = this.parseLLMPlan(result, config, context)
+      if (plan) {
+        logger.info(`LLM generated plan with ${plan.totalActions} actions`)
+        return plan
+      }
+
+      // Fall back to simple planning if parse fails
+      logger.warn('Failed to parse LLM plan, using simple planning')
+      return this.generateSimplePlan(config, context)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      logger.error(`LLM planning failed: ${errorMsg}, using simple planning`)
+      return this.generateSimplePlan(config, context)
+    }
+  }
+
+  /**
+   * Build prompt for LLM planning
+   */
+  private buildPlanningPrompt(
+    config: PlanningAgentConfig,
+    context: PlanningContext,
+  ): string {
+    const goalsText = context.goals.active
+      .map((g) => `- ${g.description} (priority: ${g.priority})`)
+      .join('\n')
+
+    return `You are an AI agent planning your next actions.
+
+Goals:
+${goalsText}
+
+Current state:
+- Active periods: ${config.schedule.activePeriods.length}
+- Max daily actions: ${config.schedule.maxDailyActions}
+- Recent activity: ${context.lastActivity ? new Date(context.lastActivity).toISOString() : 'none'}
+
+Generate a plan with 1-5 actions. Each action should have:
+- type: 'trade' | 'post' | 'comment' | 'respond' | 'message'
+- priority: 1-10 (10 = highest)
+- description: what the action does
+- estimatedDuration: minutes
+
+Respond with JSON: { "actions": [...] }`
+  }
+
+  /**
+   * Parse LLM response into AgentPlan
+   */
+  private parseLLMPlan(
+    llmResponse: string,
+    config: PlanningAgentConfig,
+    context: PlanningContext,
+  ): AgentPlan | null {
+    try {
+      const jsonMatch = llmResponse.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) return null
+
+      const parsed = JSON.parse(jsonMatch[0]) as {
+        actions?: Array<{
+          type: string
+          priority?: number
+          description?: string
+          estimatedDuration?: number
+        }>
+      }
+
+      if (!parsed.actions || !Array.isArray(parsed.actions)) return null
+
+      const validTypes = ['trade', 'post', 'comment', 'respond', 'message']
+      const actions: PlanStep[] = parsed.actions
+        .filter((a) => validTypes.includes(a.type))
+        .map((a, i) => ({
+          type: a.type as PlanStep['type'],
+          priority: Math.min(10, Math.max(1, a.priority ?? 5)),
+          description: a.description ?? a.type,
+          estimatedDuration: a.estimatedDuration ?? 5,
+          goalId: context.goals.active[0]?.id,
+        }))
+
+      if (actions.length === 0) return null
+
+      return {
+        agentId: config.agentId,
+        steps: actions,
+        totalActions: actions.length,
+        estimatedCost: actions.length,
+      }
+    } catch {
+      return null
+    }
   }
 
   /**

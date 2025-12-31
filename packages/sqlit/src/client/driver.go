@@ -135,6 +135,7 @@ func Init(configFile string, masterKey []byte) (err error) {
 	}
 
 	route.InitKMS(conf.GConf.PubKeyStoreFile)
+	kms.InitBP() // Initialize BP info from config
 	if err = kms.InitLocalKeyPair(conf.GConf.PrivateKeyFile, masterKey); err != nil {
 		return
 	}

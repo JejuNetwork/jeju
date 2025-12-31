@@ -1,0 +1,30 @@
+# Simple SQLit runtime using pre-built binary
+FROM alpine:3.22
+
+ARG VERSION=dev
+
+LABEL \
+    name="sqlit" \
+    homepage="https://github.com/jejunetwork/jeju.git" \
+    maintainer="hello@jejunetwork.org" \
+    version="${VERSION}"
+
+ENV VERSION=${VERSION}
+ENV SQLIT_ROLE=miner
+ENV SQLIT_CONF=config.yaml
+
+# Include ICU libs for dynamic linking and other runtime dependencies
+RUN apk --no-cache add ca-certificates icu-libs musl libgcc libstdc++ sqlite-libs
+
+WORKDIR /app
+
+# Copy the pre-built binary and config
+COPY sqlitd /app/
+COPY config-minimal.yaml /app/config.yaml
+
+# Create data directory
+RUN mkdir -p /app/data && chmod +x /app/sqlitd
+
+# Run sqlitd directly as blockproducer
+CMD ["/app/sqlitd", "-config", "/app/config.yaml", "-metric-web", "0.0.0.0:4665"]
+EXPOSE 4661 4665

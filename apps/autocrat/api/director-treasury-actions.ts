@@ -78,6 +78,50 @@ interface TreasuryActionResult {
 
 const TREASURY_ABI = [
   {
+    name: 'directorSendTokens',
+    type: 'function',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'reason', type: 'string' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'createRecurringPayment',
+    type: 'function',
+    inputs: [
+      { name: 'recipient', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'interval', type: 'uint256' },
+      { name: 'maxPayments', type: 'uint256' },
+      { name: 'description', type: 'string' },
+    ],
+    outputs: [{ name: 'paymentId', type: 'bytes32' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'cancelRecurringPayment',
+    type: 'function',
+    inputs: [{ name: 'paymentId', type: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'topUpAccount',
+    type: 'function',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
     name: 'swapTokens',
     type: 'function',
     inputs: [
@@ -177,7 +221,7 @@ export class DirectorTreasuryActions {
   }
 
   /**
-   * Execute a token transfer from treasury
+   * Execute a token transfer from treasury via directorSendTokens
    */
   async executeTransfer(
     request: TransferRequest,
@@ -204,21 +248,33 @@ export class DirectorTreasuryActions {
       }
     }
 
-    // Execute transfer (this would need to be done via the treasury contract)
-    // For now, we'll return a placeholder
+    // Execute transfer via Treasury contract
+    const hash = await this.walletClient.writeContract({
+      address: this.treasuryAddress,
+      abi: TREASURY_ABI,
+      functionName: 'directorSendTokens',
+      args: [
+        parsed.to as Address,
+        parsed.token as Address,
+        amount,
+        parsed.reason,
+      ],
+    })
+
     return {
       success: true,
+      txHash: hash,
       data: {
         to: parsed.to,
+        token: parsed.token,
         amount: parsed.amount,
         reason: parsed.reason,
-        note: 'Transfer queued for execution',
       },
     }
   }
 
   /**
-   * Create a recurring payment
+   * Create a recurring payment via Treasury contract
    */
   async createRecurringPayment(
     payment: RecurringPayment,
@@ -229,21 +285,38 @@ export class DirectorTreasuryActions {
       return { success: false, error: 'Director wallet not configured' }
     }
 
-    // This would interact with a RecurringPayments contract
+    // Convert intervalDays to seconds
+    const intervalSeconds = BigInt(parsed.intervalDays * 24 * 60 * 60)
+
+    const hash = await this.walletClient.writeContract({
+      address: this.treasuryAddress,
+      abi: TREASURY_ABI,
+      functionName: 'createRecurringPayment',
+      args: [
+        parsed.recipient as Address,
+        parsed.token as Address,
+        BigInt(parsed.amount),
+        intervalSeconds,
+        0n, // maxPayments (0 = unlimited)
+        parsed.reason, // description
+      ],
+    })
+
     return {
       success: true,
+      txHash: hash,
       data: {
         recipient: parsed.recipient,
+        token: parsed.token,
         amount: parsed.amount,
         intervalDays: parsed.intervalDays,
         reason: parsed.reason,
-        note: 'Recurring payment created',
       },
     }
   }
 
   /**
-   * Cancel a recurring payment
+   * Cancel a recurring payment via Treasury contract
    */
   async cancelRecurringPayment(
     paymentId: string,
@@ -252,12 +325,26 @@ export class DirectorTreasuryActions {
       return { success: false, error: 'Director wallet not configured' }
     }
 
-    // This would interact with a RecurringPayments contract
+    // paymentId should be a bytes32 hex string
+    if (!paymentId.startsWith('0x') || paymentId.length !== 66) {
+      return {
+        success: false,
+        error: 'Invalid payment ID format (expected bytes32 hex)',
+      }
+    }
+
+    const hash = await this.walletClient.writeContract({
+      address: this.treasuryAddress,
+      abi: TREASURY_ABI,
+      functionName: 'cancelRecurringPayment',
+      args: [paymentId as `0x${string}`],
+    })
+
     return {
       success: true,
+      txHash: hash,
       data: {
         paymentId,
-        note: 'Recurring payment cancelled',
       },
     }
   }
@@ -313,7 +400,7 @@ export class DirectorTreasuryActions {
   }
 
   /**
-   * Top up a service account
+   * Top up a service account via Treasury contract
    */
   async topUpServiceAccount(
     request: TopUpRequest,
@@ -324,14 +411,25 @@ export class DirectorTreasuryActions {
       return { success: false, error: 'Director wallet not configured' }
     }
 
-    // This would interact with service-specific deposit contracts
+    const hash = await this.walletClient.writeContract({
+      address: this.treasuryAddress,
+      abi: TREASURY_ABI,
+      functionName: 'topUpAccount',
+      args: [
+        parsed.account as Address,
+        parsed.token as Address,
+        BigInt(parsed.amount),
+      ],
+    })
+
     return {
       success: true,
+      txHash: hash,
       data: {
         account: parsed.account,
+        token: parsed.token,
         service: parsed.service,
         amount: parsed.amount,
-        note: `Service account ${parsed.service} topped up`,
       },
     }
   }

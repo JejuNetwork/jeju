@@ -79,8 +79,8 @@ resources:
 
 config:
   network: testnet
-  chainId: 84532
-  rpcUrl: "https://sepolia.base.org"
+  chainId: 420690
+  rpcUrl: "https://testnet-rpc.jejunetwork.org"
   
   # Contract addresses - populated after deployment
   contracts:
@@ -186,9 +186,17 @@ env:
     value: "true"
   - name: JNS_GATEWAY_DOMAIN
     value: "jns.testnet.jejunetwork.org"
+  # SQLit connection for decentralized database
+  - name: SQLIT_ENABLED
+    value: "true"
+  - name: SQLIT_HTTP_URL
+    value: "http://sqlit.dws.svc.cluster.local:8546"
+  - name: SQLIT_CLUSTER_URL
+    value: "sqlit.dws.svc.cluster.local:4661"
 
 persistence:
-  enabled: true
+  # Disabled - DWS uses SQLit + ConfigMap for state (allows HA with 3 replicas)
+  enabled: false
   storageClass: "gp3"
   size: 100Gi
 

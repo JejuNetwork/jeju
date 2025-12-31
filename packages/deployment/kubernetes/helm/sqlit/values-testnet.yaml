@@ -4,10 +4,10 @@
 replicaCount: 3
 
 image:
-  # Use the actual SQLit image - the original Go implementation
-  repository: sqlit/sqlit
-  pullPolicy: IfNotPresent
-  tag: "latest"
+  # Use the ECR SQLit image for testnet
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/sqlit
+  pullPolicy: Always
+  tag: "testnet-latest"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -107,11 +107,8 @@ env:
   - name: SQLIT_CLUSTER_NAME
     value: "jeju-testnet"
 
-# Secrets
-secretEnv:
-  - name: SQLIT_PRIVATE_KEY
-    secretName: sqlit-secrets
-    secretKey: private-key
+# Secrets (not needed with UseTestMasterKey: true)
+secretEnv: []
 
 # Persistence
 persistence:
@@ -131,16 +128,16 @@ resources:
     cpu: 500m
     memory: 1Gi
 
-# Liveness probe (check if sqlitd process is running)
+# Liveness probe (TCP check on client port)
 livenessProbe:
   tcpSocket:
-    port: 4661  # Client port
+    port: 4661
   initialDelaySeconds: 30
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 3
 
-# Readiness probe
+# Readiness probe (TCP check on client port)
 readinessProbe:
   tcpSocket:
     port: 4661

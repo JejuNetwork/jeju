@@ -330,12 +330,12 @@ describe('generateTestId - ID Generation', () => {
 describe('generateTestEmail - Email Generation', () => {
   test('generates valid email format', () => {
     const email = generateTestEmail()
-    expect(email).toMatch(/^[^@]+@test\.jeju\.network$/)
+    expect(email).toMatch(/^[^@]+@test\.jejunetwork\.org$/)
   })
 
   test('uses provided prefix', () => {
     const email = generateTestEmail('user')
-    expect(email).toMatch(/^user-\d+-[a-z0-9]+@test\.jeju\.network$/)
+    expect(email).toMatch(/^user-\d+-[a-z0-9]+@test\.jejunetwork\.org$/)
   })
 
   test('generates unique emails', () => {

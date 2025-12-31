@@ -62,11 +62,13 @@ import {
   TIMEOUTS,
 } from '../shared/constants'
 
-// Quick check if L2 RPC is available before running full suite
+// Quick check if L1 and L2 RPC are available before running full suite
 const l2RpcUrl = JEJU_LOCALNET.rpcUrl
+const l1RpcUrl = L1_LOCALNET.rpcUrl
 let servicesAvailable = false
 try {
-  const res = await fetch(l2RpcUrl, {
+  // Check L2
+  const l2Res = await fetch(l2RpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -77,7 +79,19 @@ try {
     }),
     signal: AbortSignal.timeout(2000),
   })
-  servicesAvailable = res.ok
+  // Check L1
+  const l1Res = await fetch(l1RpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_blockNumber',
+      params: [],
+      id: 1,
+    }),
+    signal: AbortSignal.timeout(2000),
+  })
+  servicesAvailable = l2Res.ok && l1Res.ok
 } catch {
   servicesAvailable = false
 }

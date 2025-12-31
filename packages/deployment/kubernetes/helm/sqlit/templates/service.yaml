@@ -40,6 +40,8 @@ metadata:
 spec:
   type: ClusterIP
   clusterIP: None
+  # Important: publish addresses before pods are ready for bootstrap
+  publishNotReadyAddresses: true
   ports:
     - port: {{ .Values.config.network.clientPort | default 4661 }}
       targetPort: client
@@ -49,5 +51,9 @@ spec:
       targetPort: metrics
       protocol: TCP
       name: metrics
+    - port: {{ .Values.config.network.httpPort | default 8546 }}
+      targetPort: http
+      protocol: TCP
+      name: http
   selector:
     {{- include "sqlit.selectorLabels" . | nindent 4 }}

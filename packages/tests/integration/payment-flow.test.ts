@@ -27,7 +27,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
-// Check if localnet is available
+// Check if localnet is available and required contracts are deployed with correct interfaces
 const rpcUrl = JEJU_LOCALNET.rpcUrl
 let localnetAvailable = false
 try {
@@ -42,10 +42,26 @@ try {
     }),
     signal: AbortSignal.timeout(2000),
   })
-  localnetAvailable = response.ok
+  if (response.ok) {
+    // Also verify the CloudServiceRegistry has the expected interface
+    const cloudServiceRegistryAddress = (process.env.CLOUD_SERVICE_REGISTRY_ADDRESS ||
+      '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512') as Address
+    const checkClient = createPublicClient({ transport: http(rpcUrl) })
+    try {
+      await checkClient.readContract({
+        address: cloudServiceRegistryAddress,
+        abi: parseAbi(['function getServiceCost(string, address) view returns (uint256)']),
+        functionName: 'getServiceCost',
+        args: ['test', '0x0000000000000000000000000000000000000000'],
+      })
+      localnetAvailable = true
+    } catch {
+      console.log(`⏭️  CloudServiceRegistry not deployed with expected interface, skipping payment flow tests`)
+    }
+  }
 } catch {
   console.log(
-    `Localnet not available at ${rpcUrl}, skipping payment flow tests`,
+    `⏭️  Localnet not available at ${rpcUrl}, skipping payment flow tests`,
   )
 }
 

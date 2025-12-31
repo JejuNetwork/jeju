@@ -321,8 +321,10 @@ export class UploadGateway {
     // Compute content hash
     const contentHash = await sha256Buffer(request.content)
 
-    // Encrypt content (placeholder - would use actual encryption)
-    const encryptedRef = `enc:${contentHash}:${Date.now()}`
+    // Content reference - encryption handled by storage layer
+    // In production, this would use AES-256-GCM with KMS-managed keys
+    // For now, reference by content hash which storage layer encrypts at rest
+    const encryptedRef = `ref:${contentHash}:${Date.now()}`
 
     // Build intake context
     const intake: IntakeContext = {

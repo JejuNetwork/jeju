@@ -19,7 +19,25 @@ let server: ReturnType<typeof Bun.serve> | null = null
 const serverPort = 3333
 const _integration: { skillId: string; agentId: string } | null = null
 
-describe('Cloud A2A E2E - Server Setup', () => {
+// Check if localnet is available before running tests
+const RPC_URL = 'http://localhost:6546'
+let localnetAvailable = false
+try {
+  const response = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+    signal: AbortSignal.timeout(3000),
+  })
+  localnetAvailable = response.ok
+} catch {
+  localnetAvailable = false
+}
+if (!localnetAvailable) {
+  console.log('⏭️  Skipping Cloud A2A E2E tests - localnet not available at', RPC_URL)
+}
+
+describe.skipIf(!localnetAvailable)('Cloud A2A E2E - Server Setup', () => {
   beforeAll(async () => {
     logger.info('🚀 Starting A2A test server...')
 
@@ -62,7 +80,7 @@ describe('Cloud A2A E2E - Server Setup', () => {
   })
 })
 
-describe('Cloud A2A E2E - Agent Discovery', () => {
+describe.skipIf(!localnetAvailable)('Cloud A2A E2E - Agent Discovery', () => {
   test('should discover cloud agent in registry', async () => {
     logger.info('🔍 Discovering cloud agent...')
 
@@ -163,7 +181,7 @@ describe('Cloud A2A E2E - Agent Discovery', () => {
   })
 })
 
-describe('Cloud A2A E2E - Message Routing', () => {
+describe.skipIf(!localnetAvailable)('Cloud A2A E2E - Message Routing', () => {
   test('should send A2A message to cloud service', async () => {
     logger.info('📨 Sending A2A message...')
 
@@ -297,7 +315,7 @@ describe('Cloud A2A E2E - Message Routing', () => {
   })
 })
 
-describe('Cloud A2A E2E - Reputation Integration', () => {
+describe.skipIf(!localnetAvailable)('Cloud A2A E2E - Reputation Integration', () => {
   test('should update reputation after successful A2A request', async () => {
     logger.info('⭐ Testing reputation update...')
 

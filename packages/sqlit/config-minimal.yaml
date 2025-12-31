@@ -1,0 +1,43 @@
+# Minimal SQLIT Configuration for Testnet
+UseTestMasterKey: true
+StartupSyncHoles: false
+WorkingRoot: /app/data
+PubKeyStoreFile: /app/data/public.keystore
+PrivateKeyFile: /app/keys/private.key
+DHTFileName: /app/data/dht.db
+ListenAddr: 0.0.0.0:4661
+MinNodeIDDifficulty: 2
+ThisNodeID: "0000000000000000000000000000000000000000000000000000000000000001"
+DNSSeed:
+  EnforcedDNSSEC: false
+  DNSServers:
+    - 1.1.1.1
+    - 8.8.8.8
+BlockProducer:
+  PublicKey: "02c1db96f2ba7e1cb4e9822d12de0f63fb666feb828c7f509e81fab9bd7a34039c"
+  NodeID: "0000000000000000000000000000000000000000000000000000000000000001"
+  Nonce:
+    a: 1
+    b: 0
+    c: 0
+    d: 0
+  ChainFileName: /app/data/chain.db
+  BPPeriod: 3s
+  BPTick: 1s
+KnownNodes:
+- ID: "0000000000000000000000000000000000000000000000000000000000000001"
+  Nonce:
+    a: 1
+    b: 0
+    c: 0
+    d: 0
+  Addr: "0.0.0.0:4661"
+  PublicKey: "02c1db96f2ba7e1cb4e9822d12de0f63fb666feb828c7f509e81fab9bd7a34039c"
+  Role: Leader
+QPS: 1000
+ChainBusPeriod: 0s
+BillingBlockCount: 60
+SQLChainPeriod: 1m0s
+SQLChainTick: 10s
+SQLChainTTL: 10
+MinProviderDeposit: 0

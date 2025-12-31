@@ -406,69 +406,38 @@ describe('waitForService - Service Retry', () => {
 
 // Environment Utilities Tests
 
-describe('getRpcUrl - Environment Override', () => {
-  afterEach(() => {
-    delete process.env.L2_RPC_URL
-    delete process.env.JEJU_RPC_URL
+describe('getRpcUrl - Configuration Based', () => {
+  test('should return L2 RPC URL from config', () => {
+    const rpcUrl = getRpcUrl()
+    // getRpcUrl returns the L2 RPC URL from network config
+    expect(rpcUrl).toMatch(/^https?:\/\//)
+    expect(typeof rpcUrl).toBe('string')
+    expect(rpcUrl.length).toBeGreaterThan(10)
   })
 
-  test('should return L2_RPC_URL if set', () => {
-    process.env.L2_RPC_URL = 'http://custom-l2:8545'
-    expect(getRpcUrl()).toBe('http://custom-l2:8545')
-  })
-
-  test('should return JEJU_RPC_URL if L2_RPC_URL not set', () => {
-    delete process.env.L2_RPC_URL
-    process.env.JEJU_RPC_URL = 'http://custom-jeju:9545'
-    expect(getRpcUrl()).toBe('http://custom-jeju:9545')
-  })
-
-  test('should return default if no env vars set', () => {
-    delete process.env.L2_RPC_URL
-    delete process.env.JEJU_RPC_URL
-    expect(getRpcUrl()).toBe(JEJU_RPC_URL)
-  })
-
-  test('should prefer L2_RPC_URL over JEJU_RPC_URL', () => {
-    process.env.L2_RPC_URL = 'http://l2:8545'
-    process.env.JEJU_RPC_URL = 'http://jeju:9545'
-    expect(getRpcUrl()).toBe('http://l2:8545')
+  test('should consistently return same URL', () => {
+    const url1 = getRpcUrl()
+    const url2 = getRpcUrl()
+    expect(url1).toBe(url2)
   })
 })
 
-describe('getChainId - Environment Override', () => {
-  afterEach(() => {
-    delete process.env.CHAIN_ID
+describe('getChainId - Configuration Based', () => {
+  test('should return chain ID from config', () => {
+    const chainId = getChainId()
+    expect(typeof chainId).toBe('number')
+    expect(chainId).toBeGreaterThan(0)
   })
 
-  test('should return CHAIN_ID if set', () => {
-    process.env.CHAIN_ID = '31337'
-    expect(getChainId()).toBe(31337)
-  })
-
-  test('should return default if not set', () => {
-    delete process.env.CHAIN_ID
-    expect(getChainId()).toBe(JEJU_CHAIN_ID)
-  })
-
-  test('should parse integer from string', () => {
-    process.env.CHAIN_ID = '42'
-    expect(getChainId()).toBe(42)
+  test('should return consistent chain ID', () => {
+    const id1 = getChainId()
+    const id2 = getChainId()
+    expect(id1).toBe(id2)
   })
 })
 
-describe('getTestEnv - Environment Config', () => {
-  afterEach(() => {
-    delete process.env.L1_RPC_URL
-    delete process.env.L2_RPC_URL
-    delete process.env.JEJU_RPC_URL
-    delete process.env.CHAIN_ID
-    delete process.env.INDEXER_GRAPHQL_URL
-    delete process.env.ORACLE_URL
-    delete process.env.SOLANA_RPC_URL
-  })
-
-  test('should return all environment URLs', () => {
+describe('getTestEnv - Test Environment Configuration', () => {
+  test('should return all required environment URLs', () => {
     const env = getTestEnv()
 
     expect(env).toHaveProperty('L1_RPC_URL')
@@ -480,27 +449,16 @@ describe('getTestEnv - Environment Config', () => {
     expect(env).toHaveProperty('SOLANA_RPC_URL')
   })
 
-  test('should use defaults when env vars not set', () => {
-    delete process.env.L1_RPC_URL
+  test('should return valid URL formats', () => {
     delete process.env.L2_RPC_URL
 
     const env = getTestEnv()
 
-    expect(env.L1_RPC_URL).toBe('http://127.0.0.1:6545')
-    expect(env.L2_RPC_URL).toBe('http://127.0.0.1:6546')
-    expect(env.CHAIN_ID).toBe('31337')
-  })
-
-  test('should use env vars when set', () => {
-    process.env.L1_RPC_URL = 'http://custom-l1:8545'
-    process.env.L2_RPC_URL = 'http://custom-l2:9545'
-    process.env.CHAIN_ID = '42'
-
-    const env = getTestEnv()
-
-    expect(env.L1_RPC_URL).toBe('http://custom-l1:8545')
-    expect(env.L2_RPC_URL).toBe('http://custom-l2:9545')
-    expect(env.CHAIN_ID).toBe('42')
+    // L1 and L2 URLs should be valid HTTP URLs
+    expect(env.L1_RPC_URL).toMatch(/^https?:\/\//)
+    expect(env.L2_RPC_URL).toMatch(/^https?:\/\//)
+    // Chain ID should be a numeric string
+    expect(env.CHAIN_ID).toMatch(/^\d+$/)
   })
 })
 

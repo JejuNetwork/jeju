@@ -1,0 +1,61 @@
+# Stage 1: Build
+FROM --platform=linux/amd64 golang:1.23-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    git \
+    make \
+    gcc \
+    g++ \
+    musl-dev \
+    sqlite-dev \
+    linux-headers \
+    ca-certificates \
+    icu-dev
+
+# Set Go environment
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+ENV GO111MODULE=on
+
+WORKDIR /go/src/sqlit
+COPY . .
+
+# Build binaries
+RUN make clean && make -j$(nproc) build-release
+
+# Stage 2: Runtime
+FROM --platform=linux/amd64 alpine:3.22
+
+LABEL \
+    name="sqlit" \
+    homepage="https://github.com/jejunetwork/jeju.git" \
+    maintainer="hello@jejunetwork.org"
+
+ENV SQLIT_ROLE=blockproducer
+ENV SQLIT_CONF=/app/config.yaml
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates icu-libs musl libgcc libstdc++ sqlite-libs
+
+WORKDIR /app
+
+# Copy binaries from builder
+COPY --from=builder /go/src/sqlit/bin/sqlitd /app/
+COPY --from=builder /go/src/sqlit/bin/sqlit-minerd /app/
+COPY --from=builder /go/src/sqlit/bin/sqlit /app/
+COPY --from=builder /go/src/sqlit/bin/sqlit-mysql-adapter /app/
+COPY --from=builder /go/src/sqlit/bin/sqlit-proxy /app/
+
+# Copy configs
+COPY config-minimal.yaml /app/config.yaml
+COPY config-adapter.yaml /app/config-adapter.yaml
+
+# Create data directory
+RUN mkdir -p /app/data && chmod +x /app/sqlitd /app/sqlit-minerd /app/sqlit /app/sqlit-mysql-adapter /app/sqlit-proxy
+
+# Run sqlitd as blockproducer
+CMD ["/app/sqlitd", "-config", "/app/config.yaml", "-metric-web", "0.0.0.0:4665"]
+
+EXPOSE 4661 4665 3306

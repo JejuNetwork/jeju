@@ -120,7 +120,7 @@ export default function ContainersPage() {
           <div className="stat-content">
             <div className="stat-label">Available Nodes</div>
             <div className="stat-value">
-              {health?.decentralized.registeredNodes ?? 0}
+              {health?.decentralized?.registeredNodes ?? 0}
             </div>
           </div>
         </div>

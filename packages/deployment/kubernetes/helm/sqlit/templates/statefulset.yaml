@@ -7,7 +7,7 @@ metadata:
 spec:
   serviceName: {{ include "sqlit.fullname" . }}-headless
   replicas: {{ .Values.replicaCount }}
-  podManagementPolicy: Parallel
+  podManagementPolicy: OrderedReady
   selector:
     matchLabels:
       {{- include "sqlit.selectorLabels" . | nindent 6 }}
@@ -29,39 +29,59 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
         - name: init-config
-          image: busybox:1.36
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           command:
-            - sh
+            - /bin/sh
             - -c
             - |
-              # Generate peer list for cluster discovery
-              PEERS=""
-              for i in $(seq 0 $(({{ .Values.replicaCount }} - 1))); do
-                if [ -n "$PEERS" ]; then
-                  PEERS="$PEERS,"
-                fi
-                PEERS="${PEERS}{{ include "sqlit.fullname" . }}-${i}.{{ include "sqlit.fullname" . }}-headless:{{ .Values.config.network.clientPort | default 4661 }}"
-              done
-              echo "$PEERS" > /config/peers.txt
-              echo "Cluster peers: $PEERS"
-              # Create SQLit config.yaml
-              cat > /config/config.yaml << EOF
-              IsTestNet: true
-              WorkingRoot: /data/sqlit
-              ThisNodeID: ""
-              ValidDNSKeys:
-                koPbw9wmYZ7ggcjnQ6ayHyhHaDNMYELKTqT+qRGrZwo=: cloudflare.com
-              MinNodeIDDifficulty: 2
-              DNSSeed:
-                EnforcedDNSSEC: false
-                DNSServers:
-                  - 1.1.1.1
-                  - 8.8.8.8
-              ListenAddr: 0.0.0.0:{{ .Values.config.network.clientPort | default 4661 }}
-              EOF
+              set -e
+
+              # Extract pod ordinal from pod name (e.g., sqlit-0 -> 0)
+              ORDINAL=$(echo $POD_NAME | rev | cut -d'-' -f1 | rev)
+              echo "Pod ordinal: $ORDINAL"
+
+              # Copy the appropriate BP config based on ordinal
+              CONFIG_FILE="bp-${ORDINAL}-config.yaml"
+              echo "Using config: $CONFIG_FILE"
+
+              # Copy from ConfigMap to runtime config
+              cp /bp-configs/${CONFIG_FILE} /config/config.yaml
+
+              # Create data directories
+              mkdir -p {{ .Values.config.storage.dataDir }}
+
+              # Generate private key if it doesn't exist
+              PRIVATE_KEY_FILE="{{ .Values.config.storage.dataDir }}/private.key"
+              if [ -f "$PRIVATE_KEY_FILE" ] && [ -s "$PRIVATE_KEY_FILE" ]; then
+                echo "Using existing private key"
+                ls -la "$PRIVATE_KEY_FILE"
+              else
+                echo "Generating new private key with sqlit generate..."
+                cd {{ .Values.config.storage.dataDir }}
+                # Generate keys using sqlit with empty password (matches UseTestMasterKey: true)
+                /app/sqlit generate -password "" . || {
+                  echo "Key generation failed, trying alternative method..."
+                  # Generate using source template
+                  /app/sqlit generate -password "" -source /config/config.yaml . || true
+                }
+                echo "Key generation complete"
+                ls -la "$PRIVATE_KEY_FILE" 2>/dev/null || echo "Warning: private.key not found"
+              fi
+
+              echo "Init complete"
           volumeMounts:
+            - name: data
+              mountPath: {{ .Values.config.storage.dataDir }}
             - name: config
               mountPath: /config
+            - name: bp-configs
+              mountPath: /bp-configs
       containers:
         - name: sqlit
           securityContext:
@@ -72,12 +92,17 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              # Set config path
-              export SQLIT_CONF=/config/config.yaml
-              export SQLIT_ROLE=blockproducer
+              # Create symlink for SQLit expected config path
+              mkdir -p /root/.sqlit
+              ln -sf /config/config.yaml /root/.sqlit/config.yaml
+
+              # Set environment
               export METRIC_WEB_ADDR=0.0.0.0:{{ .Values.config.network.metricsPort | default 4665 }}
-              # Start SQLit
-              exec /app/sqlitd
+
+              # All block producers run in BPMode (no -wsapi)
+              # HTTP API is provided by a separate adapter/fullnode deployment
+              echo "Starting as Block Producer (BPMode)..."
+              exec /app/sqlitd -config /config/config.yaml
           ports:
             - name: client
               containerPort: {{ .Values.config.network.clientPort | default 4661 }}
@@ -149,9 +174,31 @@ spec:
                   key: {{ .secretKey }}
             {{- end }}
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            {{- if .Values.livenessProbe.tcpSocket }}
+            tcpSocket:
+              port: {{ .Values.livenessProbe.tcpSocket.port }}
+            {{- else if .Values.livenessProbe.httpGet }}
+            httpGet:
+              path: {{ .Values.livenessProbe.httpGet.path }}
+              port: {{ .Values.livenessProbe.httpGet.port }}
+            {{- end }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            {{- if .Values.readinessProbe.tcpSocket }}
+            tcpSocket:
+              port: {{ .Values.readinessProbe.tcpSocket.port }}
+            {{- else if .Values.readinessProbe.httpGet }}
+            httpGet:
+              path: {{ .Values.readinessProbe.httpGet.path }}
+              port: {{ .Values.readinessProbe.httpGet.port }}
+            {{- end }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
@@ -167,6 +214,9 @@ spec:
       volumes:
         - name: config
           emptyDir: {}
+        - name: bp-configs
+          configMap:
+            name: {{ include "sqlit.fullname" . }}-config
         {{- if .Values.config.network.tlsEnabled }}
         - name: tls
           secret:

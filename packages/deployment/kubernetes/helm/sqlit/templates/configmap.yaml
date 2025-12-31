@@ -1,0 +1,240 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sqlit.fullname" . }}-config
+  labels:
+    {{- include "sqlit.labels" . | nindent 4 }}
+data:
+  # BP-0 Configuration (Leader) - Generated NodeID from fresh key
+  bp-0-config.yaml: |
+    UseTestMasterKey: true
+    WorkingRoot: "/data/sqlit"
+    PubKeyStoreFile: "/data/sqlit/public.keystore"
+    PrivateKeyFile: "/data/sqlit/private.key"
+    DHTFileName: "/data/sqlit/dht.db"
+    ListenAddr: "0.0.0.0:{{ .Values.config.network.clientPort | default 4661 }}"
+    ThisNodeID: "000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270"
+    QPS: 1000
+    ChainBusPeriod: 20s
+    BillingBlockCount: 60
+    BPPeriod: 3s
+    BPTick: 1s
+    SQLChainPeriod: 3s
+    SQLChainTick: 1s
+    SQLChainTTL: 10
+    MinProviderDeposit: 1000000
+    ValidDNSKeys:
+      koPbw9wmYZ7ggcjnQ6ayHyhHaDNMYELKTqT+qRGrZpWSccr/lBcrm10Z1PuQHB3Azhii+sb0PYFkH1ruxLhe5g==: cloudflare.com
+      mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==: cloudflare.com
+      oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==: cloudflare.com
+    MinNodeIDDifficulty: 2
+    DNSSeed:
+      EnforcedDNSSEC: false
+      DNSServers:
+        - 1.1.1.1
+        - 8.8.8.8
+    BlockProducer:
+      PublicKey: "0214779f3665eec93d9c069c819a36692ec2c31391a9a0ac21dd716b125802b927"
+      NodeID: "000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270"
+      Nonce:
+        a: 2761269
+        b: 0
+        c: 3988107128
+        d: 0
+      ChainFileName: "chain.db"
+      BPGenesisInfo:
+        Version: 1
+        BlockHash: "0000000000000000000000000000000000000000000000000000000000000000"
+        Producer: "000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270"
+        MerkleRoot: "0000000000000000000000000000000000000000000000000000000000000000"
+        ParentHash: "0000000000000000000000000000000000000000000000000000000000000000"
+        Timestamp: "2025-01-01T00:00:00Z"
+        BaseAccounts:
+          - Address: 556de363f77e1371bdf949b4f606797e6d2ed8cc7e49bf7d4bb8126c3a6d3916
+            StableCoinBalance: 10000000000000000000
+            CovenantCoinBalance: 10000000000000000000
+    # Leader must know all nodes for cluster communication
+    KnownNodes:
+      - ID: 000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270
+        Role: Leader
+        Addr: {{ include "sqlit.fullname" . }}-0.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 0214779f3665eec93d9c069c819a36692ec2c31391a9a0ac21dd716b125802b927
+        Nonce:
+          a: 2761269
+          b: 0
+          c: 3988107128
+          d: 0
+      - ID: 0000004345cabdda0aeedb32e1b90ac8912805c67da1575fbe2f183ddf84d5d7
+        Role: Follower
+        Addr: {{ include "sqlit.fullname" . }}-1.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 02073e236886e670de79c202e915bdf974a083e630916a09dd34de17d15d9acc8f
+        Nonce:
+          a: 2433828091
+          b: 0
+          c: 0
+          d: 0
+      - ID: 00000019b8357e4fd8d4c65bcd5b49ca80a353af08f066b60f9b7b6441dd6cbd
+        Role: Follower
+        Addr: {{ include "sqlit.fullname" . }}-2.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 023d38ec0d89109b9b1b18a7ab137f3317e8d3a61f766336623b586fc38dbea439
+        Nonce:
+          a: 7077445
+          b: 0
+          c: 192747109
+          d: 0
+
+  # BP-1 Configuration (Follower) - Generated NodeID from fresh key
+  bp-1-config.yaml: |
+    UseTestMasterKey: true
+    WorkingRoot: "/data/sqlit"
+    PubKeyStoreFile: "/data/sqlit/public.keystore"
+    PrivateKeyFile: "/data/sqlit/private.key"
+    DHTFileName: "/data/sqlit/dht.db"
+    ListenAddr: "0.0.0.0:{{ .Values.config.network.clientPort | default 4661 }}"
+    ThisNodeID: "0000004345cabdda0aeedb32e1b90ac8912805c67da1575fbe2f183ddf84d5d7"
+    QPS: 1000
+    ChainBusPeriod: 20s
+    BillingBlockCount: 60
+    BPPeriod: 3s
+    BPTick: 1s
+    SQLChainPeriod: 3s
+    SQLChainTick: 1s
+    SQLChainTTL: 10
+    MinProviderDeposit: 1000000
+    ValidDNSKeys:
+      koPbw9wmYZ7ggcjnQ6ayHyhHaDNMYELKTqT+qRGrZpWSccr/lBcrm10Z1PuQHB3Azhii+sb0PYFkH1ruxLhe5g==: cloudflare.com
+      mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==: cloudflare.com
+      oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==: cloudflare.com
+    MinNodeIDDifficulty: 2
+    DNSSeed:
+      EnforcedDNSSEC: false
+      DNSServers:
+        - 1.1.1.1
+        - 8.8.8.8
+    BlockProducer:
+      PublicKey: "0214779f3665eec93d9c069c819a36692ec2c31391a9a0ac21dd716b125802b927"
+      NodeID: "000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270"
+      Nonce:
+        a: 2761269
+        b: 0
+        c: 3988107128
+        d: 0
+      ChainFileName: "chain.db"
+      BPGenesisInfo:
+        Version: 1
+        BlockHash: "0000000000000000000000000000000000000000000000000000000000000000"
+        Producer: "000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270"
+        MerkleRoot: "0000000000000000000000000000000000000000000000000000000000000000"
+        ParentHash: "0000000000000000000000000000000000000000000000000000000000000000"
+        Timestamp: "2025-01-01T00:00:00Z"
+        BaseAccounts:
+          - Address: 556de363f77e1371bdf949b4f606797e6d2ed8cc7e49bf7d4bb8126c3a6d3916
+            StableCoinBalance: 10000000000000000000
+            CovenantCoinBalance: 10000000000000000000
+    # All nodes must know about all other nodes for cluster communication
+    KnownNodes:
+      - ID: 000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270
+        Role: Leader
+        Addr: {{ include "sqlit.fullname" . }}-0.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 0214779f3665eec93d9c069c819a36692ec2c31391a9a0ac21dd716b125802b927
+        Nonce:
+          a: 2761269
+          b: 0
+          c: 3988107128
+          d: 0
+      - ID: 0000004345cabdda0aeedb32e1b90ac8912805c67da1575fbe2f183ddf84d5d7
+        Role: Follower
+        Addr: {{ include "sqlit.fullname" . }}-1.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 02073e236886e670de79c202e915bdf974a083e630916a09dd34de17d15d9acc8f
+        Nonce:
+          a: 2433828091
+          b: 0
+          c: 0
+          d: 0
+      - ID: 00000019b8357e4fd8d4c65bcd5b49ca80a353af08f066b60f9b7b6441dd6cbd
+        Role: Follower
+        Addr: {{ include "sqlit.fullname" . }}-2.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 023d38ec0d89109b9b1b18a7ab137f3317e8d3a61f766336623b586fc38dbea439
+        Nonce:
+          a: 7077445
+          b: 0
+          c: 192747109
+          d: 0
+
+  # BP-2 Configuration (Follower) - Generated NodeID from fresh key
+  bp-2-config.yaml: |
+    UseTestMasterKey: true
+    WorkingRoot: "/data/sqlit"
+    PubKeyStoreFile: "/data/sqlit/public.keystore"
+    PrivateKeyFile: "/data/sqlit/private.key"
+    DHTFileName: "/data/sqlit/dht.db"
+    ListenAddr: "0.0.0.0:{{ .Values.config.network.clientPort | default 4661 }}"
+    ThisNodeID: "00000019b8357e4fd8d4c65bcd5b49ca80a353af08f066b60f9b7b6441dd6cbd"
+    QPS: 1000
+    ChainBusPeriod: 20s
+    BillingBlockCount: 60
+    BPPeriod: 3s
+    BPTick: 1s
+    SQLChainPeriod: 3s
+    SQLChainTick: 1s
+    SQLChainTTL: 10
+    MinProviderDeposit: 1000000
+    ValidDNSKeys:
+      koPbw9wmYZ7ggcjnQ6ayHyhHaDNMYELKTqT+qRGrZpWSccr/lBcrm10Z1PuQHB3Azhii+sb0PYFkH1ruxLhe5g==: cloudflare.com
+      mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==: cloudflare.com
+      oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==: cloudflare.com
+    MinNodeIDDifficulty: 2
+    DNSSeed:
+      EnforcedDNSSEC: false
+      DNSServers:
+        - 1.1.1.1
+        - 8.8.8.8
+    BlockProducer:
+      PublicKey: "0214779f3665eec93d9c069c819a36692ec2c31391a9a0ac21dd716b125802b927"
+      NodeID: "000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270"
+      Nonce:
+        a: 2761269
+        b: 0
+        c: 3988107128
+        d: 0
+      ChainFileName: "chain.db"
+      BPGenesisInfo:
+        Version: 1
+        BlockHash: "0000000000000000000000000000000000000000000000000000000000000000"
+        Producer: "000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270"
+        MerkleRoot: "0000000000000000000000000000000000000000000000000000000000000000"
+        ParentHash: "0000000000000000000000000000000000000000000000000000000000000000"
+        Timestamp: "2025-01-01T00:00:00Z"
+        BaseAccounts:
+          - Address: 556de363f77e1371bdf949b4f606797e6d2ed8cc7e49bf7d4bb8126c3a6d3916
+            StableCoinBalance: 10000000000000000000
+            CovenantCoinBalance: 10000000000000000000
+    # All nodes must know about all other nodes for cluster communication
+    KnownNodes:
+      - ID: 000000dda4155a0e4eabf6eeb151fe52a91902ef78250d443034e6e974101270
+        Role: Leader
+        Addr: {{ include "sqlit.fullname" . }}-0.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 0214779f3665eec93d9c069c819a36692ec2c31391a9a0ac21dd716b125802b927
+        Nonce:
+          a: 2761269
+          b: 0
+          c: 3988107128
+          d: 0
+      - ID: 0000004345cabdda0aeedb32e1b90ac8912805c67da1575fbe2f183ddf84d5d7
+        Role: Follower
+        Addr: {{ include "sqlit.fullname" . }}-1.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 02073e236886e670de79c202e915bdf974a083e630916a09dd34de17d15d9acc8f
+        Nonce:
+          a: 2433828091
+          b: 0
+          c: 0
+          d: 0
+      - ID: 00000019b8357e4fd8d4c65bcd5b49ca80a353af08f066b60f9b7b6441dd6cbd
+        Role: Follower
+        Addr: {{ include "sqlit.fullname" . }}-2.{{ include "sqlit.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.config.network.clientPort | default 4661 }}
+        PublicKey: 023d38ec0d89109b9b1b18a7ab137f3317e8d3a61f766336623b586fc38dbea439
+        Nonce:
+          a: 7077445
+          b: 0
+          c: 192747109
+          d: 0

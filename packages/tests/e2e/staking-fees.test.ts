@@ -38,6 +38,39 @@ const STAKING_TOKEN_ADDRESS =
 const STAKING_ADDRESS =
   process.env.STAKING_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
 
+// Check if staking contracts are deployed AND functional before running tests
+let stakingAvailable = false
+try {
+  const client = createPublicClient({ transport: http(RPC_URL) })
+  const code = await client.getCode({ address: STAKING_ADDRESS as `0x${string}` })
+  if (!code || code === '0x' || code.length <= 2) {
+    console.log('⏭️  Skipping - no contract at staking address')
+    stakingAvailable = false
+  } else {
+    // Try to call a view function to verify contract interface
+    const testAbi = parseAbi(['function totalETHStaked() view returns (uint256)'])
+    try {
+      await client.readContract({
+        address: STAKING_ADDRESS as Address,
+        abi: testAbi,
+        functionName: 'totalETHStaked',
+      })
+      stakingAvailable = true
+    } catch {
+      // Contract exists but doesn't have expected interface
+      console.log('⏭️  Skipping - contract at address does not match staking interface')
+      stakingAvailable = false
+    }
+  }
+} catch (error) {
+  const msg = error instanceof Error ? error.message : String(error)
+  console.log(`⏭️  Staking check failed: ${msg.slice(0,60)}...`)
+  stakingAvailable = false
+}
+if (!stakingAvailable) {
+  console.log(`⏭️  Skipping staking E2E tests (${STAKING_ADDRESS})`)
+}
+
 // Test wallets from shared constants (Anvil defaults)
 const DEPLOYER_KEY = TEST_ACCOUNTS.deployer.privateKey
 const STAKER1_KEY = TEST_ACCOUNTS.user1.privateKey
@@ -79,7 +112,7 @@ let deployerWalletClient: ReturnType<typeof createWalletClient>
 let staker1WalletClient: ReturnType<typeof createWalletClient>
 let staker2WalletClient: ReturnType<typeof createWalletClient>
 
-describe('Staking - Setup', () => {
+describe.skipIf(!stakingAvailable)('Staking - Setup', () => {
   beforeAll(async () => {
     console.log('🚀 Setting up staking tests...\n')
 
@@ -154,7 +187,7 @@ describe('Staking - Setup', () => {
   })
 })
 
-describe('Staking - Staking Flow', () => {
+describe.skipIf(!stakingAvailable)('Staking - Staking Flow', () => {
   test('should allow staking ETH and tokens', async () => {
     console.log('\n📊 Testing staking flow...\n')
 
@@ -276,7 +309,7 @@ describe('Staking - Staking Flow', () => {
   })
 })
 
-describe('Staking - Fee Distribution', () => {
+describe.skipIf(!stakingAvailable)('Staking - Fee Distribution', () => {
   test('should distribute fees proportionally to stakers', async () => {
     console.log('\n💰 Testing fee distribution...\n')
 
@@ -424,7 +457,7 @@ describe('Staking - Fee Distribution', () => {
   })
 })
 
-describe('Staking - Multiple Fee Distributions', () => {
+describe.skipIf(!stakingAvailable)('Staking - Multiple Fee Distributions', () => {
   test('should accumulate fees correctly over multiple distributions', async () => {
     console.log('\n📈 Testing multiple fee distributions...\n')
 
@@ -478,7 +511,7 @@ describe('Staking - Multiple Fee Distributions', () => {
   })
 })
 
-describe('Staking - Unbonding Flow', () => {
+describe.skipIf(!stakingAvailable)('Staking - Unbonding Flow', () => {
   test('should allow starting unbonding', async () => {
     console.log('\n⏳ Testing unbonding flow...\n')
 
@@ -576,7 +609,7 @@ describe('Staking - Unbonding Flow', () => {
   })
 })
 
-describe('Staking - Fee Share Calculation Verification', () => {
+describe.skipIf(!stakingAvailable)('Staking - Fee Share Calculation Verification', () => {
   test('should verify fee per share calculations', async () => {
     console.log('\n🔢 Verifying fee per share calculations...\n')
 
@@ -654,7 +687,7 @@ describe('Staking - Fee Share Calculation Verification', () => {
   })
 })
 
-describe('Staking - Edge Cases', () => {
+describe.skipIf(!stakingAvailable)('Staking - Edge Cases', () => {
   test('should handle zero fee distribution gracefully', async () => {
     const stakingAbi = parseAbi(STAKING_ABI)
     let reverted = false
@@ -696,7 +729,7 @@ describe('Staking - Edge Cases', () => {
   })
 })
 
-describe('Staking - Summary', () => {
+describe.skipIf(!stakingAvailable)('Staking - Summary', () => {
   test('should print final state summary', async () => {
     console.log('\n📋 FINAL STATE SUMMARY\n')
     console.log('='.repeat(50))

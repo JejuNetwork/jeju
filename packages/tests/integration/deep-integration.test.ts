@@ -22,9 +22,13 @@ const PRIVATE_KEY = ((typeof process !== 'undefined'
   ? process.env.PRIVATE_KEY
   : undefined) || TEST_WALLETS.deployer.privateKey) as `0x${string}`
 
-// Check if RPC and private key are available
+// Check if RPC, private key, and registry are all available
+const registryFromEnv = ((typeof process !== 'undefined'
+  ? process.env.IDENTITY_REGISTRY_ADDRESS
+  : undefined) ?? '0x0000000000000000000000000000000000000000') as `0x${string}`
+
 let servicesAvailable = false
-if (PRIVATE_KEY.startsWith('0x')) {
+if (PRIVATE_KEY.startsWith('0x') && registryFromEnv !== '0x0000000000000000000000000000000000000000') {
   try {
     const res = await fetch(RPC_URL, {
       method: 'POST',
@@ -37,14 +41,20 @@ if (PRIVATE_KEY.startsWith('0x')) {
       }),
       signal: AbortSignal.timeout(2000),
     })
-    servicesAvailable = res.ok
+    if (res.ok) {
+      // Also check if Bazaar is running
+      const bazaarRes = await fetch(`${APP_URLS.bazaar}/.well-known/agent-card.json`, {
+        signal: AbortSignal.timeout(2000),
+      }).catch(() => null)
+      servicesAvailable = !!bazaarRes?.ok
+    }
   } catch {
     servicesAvailable = false
   }
 }
 if (!servicesAvailable) {
   console.log(
-    '⏭️  Skipping Deep Integration E2E - services not running or PRIVATE_KEY not set',
+    '⏭️  Skipping Deep Integration E2E - services not running, IDENTITY_REGISTRY_ADDRESS not set, or Bazaar not running',
   )
 }
 

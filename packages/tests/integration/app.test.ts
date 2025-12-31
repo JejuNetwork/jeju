@@ -408,12 +408,22 @@ describe('Health Check Standard', () => {
           signal: AbortSignal.timeout(2000),
         })
       } catch (e) {
-        if (
-          e instanceof Error &&
-          (e.name === 'AbortError' ||
-            e.name === 'TimeoutError' ||
-            e.message.includes('ECONNREFUSED'))
-        ) {
+        // Handle connection refused and timeout errors
+        if (e instanceof Error) {
+          const errorText = e.message || e.name || ''
+          if (
+            errorText.includes('ConnectionRefused') ||
+            errorText.includes('ECONNREFUSED') ||
+            errorText.includes('Unable to connect') ||
+            e.name === 'AbortError' ||
+            e.name === 'TimeoutError'
+          ) {
+            console.log(`Gateway endpoint ${endpoint} not available - skipping`)
+            continue
+          }
+        }
+        // Also catch the bun-specific error format
+        if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === 'ConnectionRefused') {
           console.log(`Gateway endpoint ${endpoint} not available - skipping`)
           continue
         }

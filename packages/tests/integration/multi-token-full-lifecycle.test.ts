@@ -23,11 +23,16 @@ import {
   TIMEOUTS,
 } from '../shared/constants'
 
-// Check if localnet is available
-const rpcUrl = JEJU_LOCALNET.rpcUrl
+// Check if localnet is available - synchronous check with hardcoded port to avoid module timing issues
+const RPC_URL_CHECK = 'http://127.0.0.1:6546'
 let localnetAvailable = false
 try {
-  const response = await fetch(rpcUrl, {
+  // Note: Top-level await in bun test can have timing issues with describe.skipIf
+  // Using a sync approach with XMLHttpRequest-like behavior isn't possible
+  // So we check using fetch but with a shorter timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 2000)
+  const response = await fetch(RPC_URL_CHECK, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -36,12 +41,16 @@ try {
       params: [],
       id: 1,
     }),
-    signal: AbortSignal.timeout(2000),
+    signal: controller.signal,
   })
+  clearTimeout(timeoutId)
   localnetAvailable = response.ok
 } catch {
+  localnetAvailable = false
+}
+if (!localnetAvailable) {
   console.log(
-    `Localnet not available at ${rpcUrl}, skipping multi-token lifecycle tests`,
+    `⏭️  Skipping multi-token lifecycle tests - localnet not available at ${RPC_URL_CHECK}`,
   )
 }
 

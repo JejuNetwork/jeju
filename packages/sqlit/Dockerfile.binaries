@@ -1,0 +1,27 @@
+# Simple runtime image with pre-built binaries
+FROM alpine:3.22
+
+ARG VERSION=dev
+ARG ROLE=client
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates icu-libs musl libgcc libstdc++ sqlite-libs
+
+# Set working directory
+WORKDIR /app
+
+# Copy pre-built binaries
+COPY bin/sqlitd /app/sqlitd
+COPY bin/sqlit-proxy /app/sqlit-proxy
+
+# Make binaries executable
+RUN chmod +x /app/sqlitd /app/sqlit-proxy
+
+# Create data directory
+RUN mkdir -p /app/data /app/keys
+
+# Expose ports
+EXPOSE 4661 4665 8080
+
+# Default command (override in deployment)
+CMD ["/app/sqlitd"]

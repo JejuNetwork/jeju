@@ -1,0 +1,3 @@
+test/
+conf/testnet*/*.keystore
+*.cover.out

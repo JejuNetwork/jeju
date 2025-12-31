@@ -5,7 +5,7 @@ import { getContractAddresses } from '@jejunetwork/contracts'
 import type { ChainConfig } from '@jejunetwork/types'
 import { createPublicClient, http } from 'viem'
 
-const CONFIG_PATH = join(process.cwd(), 'config', 'chain', 'localnet.json')
+const CONFIG_PATH = join(process.cwd(), 'packages', 'config', 'chain', 'localnet.json')
 
 describe('DeFi E2E Tests', () => {
   let publicClient: ReturnType<typeof createPublicClient>

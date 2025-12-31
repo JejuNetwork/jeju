@@ -438,7 +438,7 @@ export default function AnalyticsPage() {
                 Inference Requests
               </span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
-                {health?.services.compute?.status === 'healthy'
+                {health?.services?.compute?.status === 'healthy'
                   ? 'Active'
                   : '—'}
               </span>
@@ -466,7 +466,7 @@ export default function AnalyticsPage() {
             <BarChart3 size={18} /> Service Health
           </h3>
         </div>
-        {health ? (
+        {health?.services ? (
           <div
             style={{
               display: 'grid',
@@ -560,7 +560,7 @@ export default function AnalyticsPage() {
                   fontWeight: 600,
                 }}
               >
-                {health.decentralized.registeredNodes}
+                {health?.decentralized?.registeredNodes ?? 0}
               </div>
             </div>
             <div
@@ -586,7 +586,7 @@ export default function AnalyticsPage() {
                   fontWeight: 600,
                 }}
               >
-                {health.decentralized.connectedPeers}
+                {health?.decentralized?.connectedPeers ?? 0}
               </div>
             </div>
             <div
@@ -606,9 +606,9 @@ export default function AnalyticsPage() {
                 P2P Status
               </div>
               <span
-                className={`badge ${health.decentralized.p2pEnabled ? 'badge-success' : 'badge-neutral'}`}
+                className={`badge ${health?.decentralized?.p2pEnabled ? 'badge-success' : 'badge-neutral'}`}
               >
-                {health.decentralized.p2pEnabled ? 'Enabled' : 'Disabled'}
+                {health?.decentralized?.p2pEnabled ? 'Enabled' : 'Disabled'}
               </span>
             </div>
             <div
@@ -634,7 +634,7 @@ export default function AnalyticsPage() {
                   fontWeight: 600,
                 }}
               >
-                {health.backends.available.length}
+                {health?.backends?.available?.length ?? 0}
               </div>
             </div>
           </div>

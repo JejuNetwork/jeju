@@ -58,7 +58,7 @@ const SERVICE_REGISTRY_ADDRESS =
     ? process.env.SERVICE_REGISTRY_ADDRESS
     : undefined) || '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9'
 
-// Check if localnet is available
+// Check if localnet is available and contracts are deployed
 const host = getLocalhostHost()
 const rpcUrl =
   (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
@@ -77,9 +77,23 @@ try {
     }),
     signal: AbortSignal.timeout(2000),
   })
-  localnetAvailable = response.ok
+  if (response.ok) {
+    // Also check if credit manager is deployed with correct interface
+    const checkClient = createPublicClient({ transport: http(rpcUrl) })
+    try {
+      await checkClient.readContract({
+        address: CREDIT_MANAGER_ADDRESS as Address,
+        abi: parseAbi(['function getAllBalances(address) view returns (uint256, uint256)']),
+        functionName: 'getAllBalances',
+        args: ['0x0000000000000000000000000000000000000000'],
+      })
+      localnetAvailable = true
+    } catch {
+      console.log(`⏭️  Credit manager not deployed at ${CREDIT_MANAGER_ADDRESS}, skipping x402 tests`)
+    }
+  }
 } catch {
-  console.log(`Localnet not available at ${rpcUrl}, skipping x402 tests`)
+  console.log(`⏭️  Localnet not available at ${rpcUrl}, skipping x402 tests`)
 }
 
 // Full CreditManager ABI with deductCredit and admin functions
