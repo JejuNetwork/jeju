@@ -42,6 +42,7 @@ var (
 	noLogo      bool
 	showVersion bool
 	configFile  string
+	testMode    bool
 
 	wsapiAddr string
 
@@ -56,6 +57,8 @@ func init() {
 	flag.BoolVar(&showVersion, "version", false, "Show version information and exit")
 	flag.BoolVar(&asymmetric.BypassSignature, "bypass-signature", false,
 		"Disable signature sign and verify, for testing")
+	flag.BoolVar(&testMode, "test-mode", false,
+		"Enable test mode to bypass node ID validation, for testing")
 	flag.StringVar(&configFile, "config", "~/.sqlit/config.yaml", "Config file path")
 
 	flag.StringVar(&cpuProfile, "cpu-profile", "", "Path to file for CPU profiling information")
@@ -94,6 +97,12 @@ func main() {
 	flag.Visit(func(f *flag.Flag) {
 		log.Infof("args %#v : %s", f.Name, f.Value)
 	})
+
+	// Enable test mode if requested
+	if testMode {
+		kms.Unittest = true
+		log.Info("Test mode enabled - bypassing node ID validation")
+	}
 
 	var err error
 	conf.GConf, err = conf.LoadConfig(configFile)
