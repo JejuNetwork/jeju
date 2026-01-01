@@ -83,7 +83,7 @@
     "backend": {
       "enabled": true,
       "runtime": "bun",
-      "entrypoint": "src/a2a-server.ts",
+      "entrypoint": "api/a2a-server.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,

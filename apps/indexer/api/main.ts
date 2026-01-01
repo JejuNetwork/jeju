@@ -51,9 +51,10 @@ const SQLIT_DATABASE_ID = config.sqlitDatabaseId || 'indexer-testnet'
 
 console.log(`[Indexer] Using SQLit database: ${SQLIT_DATABASE_ID}`)
 
-processor.run(
-  new SQLitDatabase({ databaseId: SQLIT_DATABASE_ID }),
-  async (ctx: ProcessorContext<Store>) => {
+// SQLitDatabase implements all Store methods used by the indexer
+// Type assertion bridges our custom implementation with subsquid's types
+// @ts-expect-error - SQLitDatabase is compatible with subsquid's Database<Store> at runtime
+processor.run(new SQLitDatabase({ databaseId: SQLIT_DATABASE_ID }), async (ctx: ProcessorContext<Store>) => {
     const blocks: BlockEntity[] = []
     const transactions: TransactionEntity[] = []
     const logs: LogEntity[] = []

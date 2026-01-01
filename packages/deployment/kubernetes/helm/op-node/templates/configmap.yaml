@@ -36,7 +36,13 @@ data:
       "ecotone_time": 0,
       "fjord_time": 0,
       "granite_time": 0,
+      "holocene_time": {{ .Values.config.holoceneTime | default 0 | int64 }},
+      "isthmus_time": {{ .Values.config.isthmusTime | default 0 | int64 }},
       "batch_inbox_address": "{{ .Values.config.batchInboxAddr | default "0xff00000000000000000000000000000000420690" }}",
       "deposit_contract_address": "{{ .Values.config.depositContractAddr | default "0x0000000000000000000000000000000000000000" }}",
-      "l1_system_config_address": "{{ .Values.config.systemConfigAddr | default "0x0000000000000000000000000000000000000000" }}"
+      "l1_system_config_address": "{{ .Values.config.systemConfigAddr | default "0x0000000000000000000000000000000000000000" }}",
+      "use_plasma": false,
+      "da_challenge_address": "0x0000000000000000000000000000000000000000",
+      "da_challenge_window": 0,
+      "da_resolve_window": 0
     }

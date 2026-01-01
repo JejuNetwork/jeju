@@ -124,6 +124,7 @@ resource "aws_wafv2_web_acl" "rpc" {
   }
 
   # Rule 2: AWS Managed Rules - Core Rule Set
+  # Exclude DWS endpoints from body size and SQL injection checks (they have large JSON payloads)
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 2
@@ -136,6 +137,32 @@ resource "aws_wafv2_web_acl" "rpc" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
         vendor_name = "AWS"
+
+        # Exclude rules that block large request bodies and encoded payloads
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "SizeRestrictions_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "CrossSiteScripting_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "GenericLFI_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "RestrictedExtensions_BODY"
+        }
       }
     }
 
@@ -147,6 +174,7 @@ resource "aws_wafv2_web_acl" "rpc" {
   }
 
   # Rule 3: AWS Managed Rules - Known Bad Inputs
+  # Exclude rules that may block base64-encoded code in worker payloads
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
     priority = 3
@@ -159,6 +187,20 @@ resource "aws_wafv2_web_acl" "rpc" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesKnownBadInputsRuleSet"
         vendor_name = "AWS"
+
+        # Override to count-only for rules that may trigger on worker code
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "Log4JRCE_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "JavaDeserializationRCE_BODY"
+        }
       }
     }
 

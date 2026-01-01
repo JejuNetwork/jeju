@@ -245,10 +245,37 @@ export function createCDNRouter() {
           resolvedAt: Date.now(),
         }
       })
+      // Serve JNS content directly (handles all paths)
+      .get('/jns/:name', async ({ params, set }) => {
+        const gateway = getJNSGateway()
+        if (!gateway) {
+          set.status = 503
+          return { error: 'JNS not configured' }
+        }
+
+        const contentHash = await gateway.resolveJNS(params.name)
+        if (!contentHash) {
+          set.status = 404
+          return { error: 'Name not found' }
+        }
+
+        // Use IPFS gateway directly for content serving
+        const ipfsGateway = 'http://127.0.0.1:8080'
+        const gatewayResponse = await fetch(`${ipfsGateway}/ipfs/${contentHash.hash}/index.html`)
+        if (gatewayResponse.ok) {
+          return new Response(gatewayResponse.body, {
+            headers: { 'Content-Type': 'text/html', 'X-Content-Source': 'jns-gateway' }
+          })
+        }
+
+        set.status = 404
+        return { error: 'Content not found' }
+      })
       .get('/jns/:name/*', async ({ params, request, set }) => {
         const name = params.name
         const url = new URL(request.url)
-        const jnsPath = url.pathname.replace(`/cdn/jns/${name}`, '') || '/'
+        let jnsPath = url.pathname.replace(`/cdn/jns/${name}`, '') || '/index.html'
+        if (jnsPath === '/' || jnsPath === '') jnsPath = '/index.html'
 
         const gateway = getJNSGateway()
         if (!gateway) {
@@ -256,9 +283,26 @@ export function createCDNRouter() {
           return { error: 'JNS not configured' }
         }
 
-        const jnsApp = gateway.getApp()
-        const newRequest = new Request(`http://localhost/jns/${name}${jnsPath}`)
-        return jnsApp.fetch(newRequest)
+        const contentHash = await gateway.resolveJNS(name)
+        if (!contentHash) {
+          set.status = 404
+          return { error: 'Name not found' }
+        }
+
+        // Use IPFS gateway directly
+        const ipfsGateway = 'http://127.0.0.1:8080'
+        const gatewayResponse = await fetch(`${ipfsGateway}/ipfs/${contentHash.hash}${jnsPath}`)
+        if (gatewayResponse.ok) {
+          return new Response(gatewayResponse.body, {
+            headers: {
+              'Content-Type': gatewayResponse.headers.get('Content-Type') || 'application/octet-stream',
+              'X-Content-Source': 'jns-gateway'
+            }
+          })
+        }
+
+        set.status = 404
+        return { error: 'Content not found' }
       })
       .post(
         '/warmup',

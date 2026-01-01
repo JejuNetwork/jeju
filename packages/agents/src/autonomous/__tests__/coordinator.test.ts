@@ -40,10 +40,16 @@ describe('AutonomousCoordinator', () => {
   })
 
   describe('start/stop lifecycle', () => {
-    it('throws when starting without agent runtime', async () => {
+    it('starts successfully without agent runtime (runtime is optional)', async () => {
       const coordinator = new AutonomousCoordinator()
 
-      await expect(coordinator.start({ id: 'test-agent' })).rejects.toThrow()
+      // Runtime is optional - coordinator should start and run gracefully without it
+      await coordinator.start({ id: 'test-agent' })
+      expect(coordinator.isRunning()).toBe(true)
+
+      // Clean up
+      await coordinator.stop()
+      expect(coordinator.isRunning()).toBe(false)
     })
 
     it('throws when starting while already running', async () => {

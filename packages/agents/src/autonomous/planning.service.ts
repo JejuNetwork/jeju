@@ -244,13 +244,10 @@ export class AutonomousPlanningCoordinator {
     try {
       const prompt = this.buildPlanningPrompt(config, context)
 
-      const result = await runtime.generateText({
-        context: prompt,
-        modelClass: 'TEXT_SMALL',
-      })
+      const result = await runtime.generateText(prompt)
 
       // Parse LLM response into plan
-      const plan = this.parseLLMPlan(result, config, context)
+      const plan = this.parseLLMPlan(result.text, config, context)
       if (plan) {
         logger.info(`LLM generated plan with ${plan.totalActions} actions`)
         return plan
@@ -277,17 +274,26 @@ export class AutonomousPlanningCoordinator {
       .map((g) => `- ${g.description} (priority: ${g.priority})`)
       .join('\n')
 
+    const recentActivityText =
+      context.recentActions.length > 0
+        ? context.recentActions
+            .slice(0, 5)
+            .map((a) => `${a.type} at ${a.timestamp.toISOString()} (${a.success ? 'success' : 'failed'})`)
+            .join('\n')
+        : 'none'
+
     return `You are an AI agent planning your next actions.
 
 Goals:
 ${goalsText}
 
 Current state:
-- Active periods: ${config.schedule.activePeriods.length}
-- Max daily actions: ${config.schedule.maxDailyActions}
-- Recent activity: ${context.lastActivity ? new Date(context.lastActivity).toISOString() : 'none'}
+- Max actions per tick: ${config.maxActionsPerTick}
+- Risk tolerance: ${config.riskTolerance}
+- Recent activity:
+${recentActivityText}
 
-Generate a plan with 1-5 actions. Each action should have:
+Generate a plan with 1-${config.maxActionsPerTick} actions. Each action should have:
 - type: 'trade' | 'post' | 'comment' | 'respond' | 'message'
 - priority: 1-10 (10 = highest)
 - description: what the action does
@@ -301,7 +307,7 @@ Respond with JSON: { "actions": [...] }`
    */
   private parseLLMPlan(
     llmResponse: string,
-    config: PlanningAgentConfig,
+    _config: PlanningAgentConfig,
     context: PlanningContext,
   ): AgentPlan | null {
     try {
@@ -322,20 +328,26 @@ Respond with JSON: { "actions": [...] }`
       const validTypes = ['trade', 'post', 'comment', 'respond', 'message']
       const actions: PlanStep[] = parsed.actions
         .filter((a) => validTypes.includes(a.type))
-        .map((a, i) => ({
+        .map((a) => ({
           type: a.type as PlanStep['type'],
           priority: Math.min(10, Math.max(1, a.priority ?? 5)),
-          description: a.description ?? a.type,
-          estimatedDuration: a.estimatedDuration ?? 5,
+          reasoning: a.description ?? `Execute ${a.type} action`,
+          estimatedImpact: 0.5,
+          params: {},
           goalId: context.goals.active[0]?.id,
         }))
 
       if (actions.length === 0) return null
 
+      const goalsAddressed = context.goals.active[0]?.id
+        ? [context.goals.active[0].id]
+        : []
+
       return {
-        agentId: config.agentId,
-        steps: actions,
+        actions,
         totalActions: actions.length,
+        reasoning: 'LLM-generated plan based on active goals',
+        goalsAddressed,
         estimatedCost: actions.length,
       }
     } catch {

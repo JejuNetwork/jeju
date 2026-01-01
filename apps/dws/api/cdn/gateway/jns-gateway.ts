@@ -70,25 +70,23 @@ export class JNSGateway {
 
     const bytes = Buffer.from(contenthash.slice(2), 'hex')
 
-    // IPFS: starts with 0xe3 0x01 (ipfs-ns, protobuf)
-    if (bytes[0] === 0xe3 && bytes[1] === 0x01) {
-      // Skip namespace (0xe3) and codec indicator (0x01)
-      // Next byte is codec: 0x70 = dag-pb, 0x71 = dag-cbor, 0x72 = raw
-      const codec = bytes[2]
-      let hashStart = 3
-
-      // Handle different IPFS CID versions
-      if (codec === 0x70 || codec === 0x55) {
-        // dag-pb or raw codec
-        hashStart = 3
+    // IPFS: starts with 0xe3 (ipfs-ns)
+    if (bytes[0] === 0xe3) {
+      // Check for CIDv1-style encoding: 0xe3 0x01 0x70 (dag-pb) or 0xe3 0x01 0x55 (raw)
+      if (bytes[1] === 0x01 && (bytes[2] === 0x70 || bytes[2] === 0x55)) {
+        // Skip namespace (0xe3), version (0x01), and codec (0x70/0x55)
+        // Rest is the raw SHA256 hash (32 bytes)
+        const rawHash = bytes.slice(3)
+        // Prepend sha2-256 multihash prefix to get valid CIDv0
+        const cid = this.base58Encode(
+          Buffer.concat([Buffer.from([0x12, 0x20]), rawHash]),
+        )
+        return { protocol: 'ipfs', hash: cid }
       }
 
-      // Rest is the multihash
-      const multihash = bytes.slice(hashStart)
-      const cid = this.base58Encode(
-        Buffer.concat([Buffer.from([0x12, 0x20]), multihash]),
-      )
-
+      // CIDv0 style: 0xe3 followed by multihash (already has 0x12 0x20)
+      const multihash = bytes.slice(1)
+      const cid = this.base58Encode(Buffer.from(multihash))
       return { protocol: 'ipfs', hash: cid }
     }
 
@@ -302,22 +300,38 @@ export class JNSGateway {
    */
   private createApp() {
     return new Elysia()
-      .get('/jns/:name', async ({ params, set }) => {
+      .get('/jns/:name', async ({ params, request }) => {
         const { name } = params
         const contentHash = await this.resolveJNS(name)
 
         if (!contentHash) {
-          set.status = 404
-          return { error: `No content found for ${name}` }
+          return new Response(`No content found for ${name}`, { status: 404 })
         }
 
-        return { name, contentHash }
+        // Check Accept header - if browser, serve index.html
+        const accept = request.headers.get('accept') || ''
+        if (accept.includes('text/html')) {
+          // Serve index.html for browser requests
+          if (contentHash.protocol === 'ipfs') {
+            return this.fetchIPFS(contentHash.hash, '/index.html')
+          } else if (contentHash.protocol === 'arweave') {
+            return this.fetchArweave(contentHash.hash, '/index.html')
+          }
+        }
+
+        // Return JSON for API requests
+        return Response.json({ name, contentHash })
       })
       .get('/jns/:name/*', async ({ params, request }) => {
         const { name } = params
         const url = new URL(request.url)
         const pathMatch = url.pathname.match(/\/jns\/[^/]+(.*)/)
-        const path = pathMatch?.[1] ?? '/'
+        let path = pathMatch?.[1] ?? '/'
+
+        // Serve index.html for root path
+        if (path === '/' || path === '') {
+          path = '/index.html'
+        }
 
         const contentHash = await this.resolveJNS(name)
         if (!contentHash) {

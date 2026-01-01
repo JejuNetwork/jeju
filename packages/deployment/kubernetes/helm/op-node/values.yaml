@@ -3,7 +3,8 @@ replicaCount: 1
 image:
   repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node
   pullPolicy: IfNotPresent
-  tag: "v1.9.4"
+  # Updated for Fusaka (Dec 3, 2025) + Isthmus upgrade compatibility
+  tag: "v1.10.1"
 
 nameOverride: ""
 fullnameOverride: ""
@@ -128,7 +129,26 @@ config:
     # PeerDAS (EIP-7594) - data availability sampling
     peerDAS:
       enabled: true
+      # Column custody count for validators (default: 4)
+      custodyColumns: 4
     # Blob capacity settings (auto-adjust for BPO forks)
     # Dec 9: 10/15, Jan 7: 14/21 blobs per block
     blobCapacity:
       autoScale: true
+      # Current capacity post-Jan 7 BPO: 14 target / 21 max
+      target: 14
+      max: 21
+    # Gas limit increase (60M default post-Fusaka)
+    gasLimit: 60000000
+  # Isthmus upgrade (Stage 2 decentralization)
+  isthmus:
+    enabled: true
+    # Fault proof activation timestamp (0 = use network default)
+    faultProofActivation: 0
+    # Permissionless fault proofs
+    permissionlessFaultProofs: true
+  # Holocene upgrade (EOF + EVM improvements)
+  holocene:
+    enabled: true
+    # EVM Object Format (EOF)
+    eof: true

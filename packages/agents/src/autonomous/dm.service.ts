@@ -159,13 +159,10 @@ ${recentMessages}
 Should you respond? If yes, what would you say?
 Respond with JSON: { "shouldRespond": boolean, "content": "..." }`
 
-      const result = await runtime.generateText({
-        context: prompt,
-        modelClass: 'TEXT_SMALL',
-      })
+      const result = await runtime.generateText(prompt)
 
       // Parse response
-      const jsonMatch = result.match(/\{[\s\S]*\}/)
+      const jsonMatch = result.text.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]) as {
           shouldRespond: boolean

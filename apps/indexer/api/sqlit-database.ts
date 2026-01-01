@@ -1,108 +1,189 @@
 /**
  * SQLit Database adapter for Subsquid processor
- * Implements the Database interface to work with processor.run()
+ * 
+ * Implements the Database interface from @subsquid/util-internal-processor-tools
+ * to work with processor.run() while storing data in SQLit instead of PostgreSQL
  */
 
-import { getSQLit, type SQLitClient } from '@jejunetwork/db'
-import type { Database, Store } from '@subsquid/typeorm-store'
+import { getSQLit, type QueryParam, type SQLitClient } from '@jejunetwork/db'
 
-interface BatchContext {
-  log: any
-  blocks: any[]
-  isHead: boolean
+// Interface matching subsquid's FinalTxInfo
+interface FinalTxInfo {
+  prevHead: HashAndHeight
+  nextHead: HashAndHeight
+  isOnTop: boolean
 }
 
-export class SQLitDatabase implements Database<Store> {
+interface HashAndHeight {
+  height: number
+  hash: string
+}
+
+interface DatabaseState {
+  height: number
+  hash: string
+  top: HashAndHeight[]
+}
+
+// Entity class type
+type EntityClass<E> = { new (...args: unknown[]): E; name?: string }
+
+// Minimal Store interface for our use case
+export interface SQLitStoreInterface {
+  save<E>(entity: E | E[]): Promise<void>
+  insert<E>(entity: E | E[]): Promise<void>
+  upsert<E>(entity: E | E[]): Promise<void>
+  remove<E>(entity: E | E[]): Promise<void>
+  find<E>(entityClass: EntityClass<E>, options?: FindOptions): Promise<E[]>
+  get<E>(entityClass: EntityClass<E>, id: string): Promise<E | undefined>
+  count<E>(entityClass: EntityClass<E>, options?: FindOptions): Promise<number>
+  flush(): Promise<void>
+}
+
+interface FindOptions {
+  where?: Record<string, QueryParam>
+  order?: Record<string, 'ASC' | 'DESC'>
+  take?: number
+}
+
+// Status table for tracking processor progress
+const STATUS_TABLE = '_squid_processor_status'
+
+/**
+ * SQLit Database adapter for Subsquid processor
+ */
+export class SQLitDatabase {
   private client: SQLitClient
   private databaseId: string
+  readonly supportsHotBlocks = false
 
   constructor(options: { databaseId: string }) {
     this.client = getSQLit()
     this.databaseId = options.databaseId
   }
 
-  async connect(): Promise<number> {
-    // Check if database exists and is accessible
-    try {
-      const result = await this.client.query(
-        'SELECT 1 as test',
-        [],
-        this.databaseId
-      )
-      console.log('[SQLitDatabase] Connected to SQLit database:', this.databaseId)
-      return 0 // Return the last processed block height
-    } catch (error) {
-      console.error('[SQLitDatabase] Connection failed:', error)
-      throw error
-    }
+  /**
+   * Connect to SQLit and return current state
+   */
+  async connect(): Promise<DatabaseState> {
+    console.log('[SQLitDatabase] Connecting to SQLit database:', this.databaseId)
+    
+    // Ensure status table exists
+    await this.ensureStatusTable()
+    
+    // Get current height
+    const state = await this.getState()
+    
+    console.log('[SQLitDatabase] Connected, current height:', state.height)
+    
+    return state
   }
 
+  /**
+   * Process a batch of blocks in a transaction
+   */
   async transact(
-    from: number,
-    to: BatchContext,
-    cb: (store: Store) => Promise<void>
+    info: FinalTxInfo,
+    cb: (store: SQLitStoreInterface) => Promise<void>
   ): Promise<void> {
-    const store = new SQLitStoreImpl(this.client, this.databaseId)
-
+    const store = new SQLitStore(this.client, this.databaseId)
+    
     try {
       // Execute the callback with our store
       await cb(store)
-
+      
       // Flush all pending writes
       await store.flush()
-
-      if (to.blocks.length > 0) {
-        const lastBlock = to.blocks[to.blocks.length - 1]
-        to.log.info(
-          `Processed blocks ${from}-${lastBlock.header.height}, saved to SQLit`
-        )
-      }
+      
+      // Update processor status
+      await this.updateStatus(info.nextHead.height, info.nextHead.hash)
+      
+      console.log(`[SQLitDatabase] Processed to block ${info.nextHead.height}`)
     } catch (error) {
       console.error('[SQLitDatabase] Transaction failed:', error)
       throw error
     }
   }
 
-  async advance(height: number): Promise<void> {
-    // Store checkpoint/height in a metadata table
+  /**
+   * Ensure status table exists
+   */
+  private async ensureStatusTable(): Promise<void> {
     try {
       await this.client.exec(
         `
-        CREATE TABLE IF NOT EXISTS _squid_processor_status (
+        CREATE TABLE IF NOT EXISTS "${STATUS_TABLE}" (
           id INTEGER PRIMARY KEY,
           height INTEGER NOT NULL,
-          timestamp TEXT NOT NULL
+          hash TEXT NOT NULL,
+          updated_at TEXT NOT NULL
         )
-      `,
+        `,
         [],
         this.databaseId
       )
-
-      await this.client.exec(
-        `
-        INSERT INTO _squid_processor_status (id, height, timestamp)
-        VALUES (1, ?, ?)
-        ON CONFLICT (id) DO UPDATE SET
-          height = excluded.height,
-          timestamp = excluded.timestamp
-      `,
-        [height, new Date().toISOString()],
-        this.databaseId
-      )
     } catch (error) {
-      console.warn('[SQLitDatabase] Failed to save checkpoint:', error)
+      console.warn('[SQLitDatabase] Failed to create status table:', error)
     }
   }
 
-  supportsHotBlocks(): boolean {
-    return false // SQLit doesn't support hot blocks yet
+  /**
+   * Get current processor state
+   */
+  private async getState(): Promise<DatabaseState> {
+    try {
+      const result = await this.client.query<{ height: number; hash: string }>(
+        `SELECT height, hash FROM "${STATUS_TABLE}" WHERE id = 1 LIMIT 1`,
+        [],
+        this.databaseId
+      )
+      
+      if (result.rows.length > 0) {
+        const { height, hash } = result.rows[0]
+        return {
+          height,
+          hash,
+          top: [{ height, hash }]
+        }
+      }
+    } catch {
+      // Table might not exist or be empty
+    }
+    
+    // Return initial state
+    return {
+      height: -1,
+      hash: '',
+      top: []
+    }
+  }
+
+  /**
+   * Update processor status
+   */
+  private async updateStatus(height: number, hash: string): Promise<void> {
+    await this.client.exec(
+      `
+      INSERT INTO "${STATUS_TABLE}" (id, height, hash, updated_at)
+      VALUES (1, ?, ?, ?)
+      ON CONFLICT (id) DO UPDATE SET
+        height = excluded.height,
+        hash = excluded.hash,
+        updated_at = excluded.updated_at
+      `,
+      [height, hash, new Date().toISOString()],
+      this.databaseId
+    )
   }
 }
 
-class SQLitStoreImpl implements Store {
+/**
+ * SQLit Store implementation
+ */
+class SQLitStore implements SQLitStoreInterface {
   private client: SQLitClient
   private databaseId: string
-  private pendingWrites: Map<string, any[]> = new Map()
+  private pendingWrites: Map<string, Record<string, unknown>[]> = new Map()
 
   constructor(client: SQLitClient, databaseId: string) {
     this.client = client
@@ -114,11 +195,14 @@ class SQLitStoreImpl implements Store {
     if (entities.length === 0) return
 
     for (const e of entities) {
-      const tableName = this.getTableName((e as any).constructor)
+      const entityObj = e as Record<string, unknown>
+      const constructor = entityObj.constructor as EntityClass<E>
+      const tableName = this.getTableName(constructor)
+      
       if (!this.pendingWrites.has(tableName)) {
         this.pendingWrites.set(tableName, [])
       }
-      this.pendingWrites.get(tableName)!.push(e)
+      this.pendingWrites.get(tableName)!.push(entityObj)
     }
   }
 
@@ -135,8 +219,10 @@ class SQLitStoreImpl implements Store {
     if (entities.length === 0) return
 
     for (const e of entities) {
-      const tableName = this.getTableName((e as any).constructor)
-      const id = (e as any).id
+      const entityObj = e as Record<string, unknown>
+      const constructor = entityObj.constructor as EntityClass<E>
+      const tableName = this.getTableName(constructor)
+      const id = entityObj.id as QueryParam
 
       await this.client.exec(
         `DELETE FROM "${tableName}" WHERE id = ?`,
@@ -147,12 +233,12 @@ class SQLitStoreImpl implements Store {
   }
 
   async find<E>(
-    entityClass: { new (...args: any[]): E },
-    options?: any
+    entityClass: EntityClass<E>,
+    options?: FindOptions
   ): Promise<E[]> {
     const tableName = this.getTableName(entityClass)
     let sql = `SELECT * FROM "${tableName}"`
-    const params: any[] = []
+    const params: QueryParam[] = []
 
     if (options?.where) {
       const conditions: string[] = []
@@ -170,7 +256,9 @@ class SQLitStoreImpl implements Store {
       for (const [key, direction] of Object.entries(options.order)) {
         orderClauses.push(`"${key}" ${direction}`)
       }
-      sql += ` ORDER BY ${orderClauses.join(', ')}`
+      if (orderClauses.length > 0) {
+        sql += ` ORDER BY ${orderClauses.join(', ')}`
+      }
     }
 
     if (options?.take) {
@@ -182,7 +270,7 @@ class SQLitStoreImpl implements Store {
   }
 
   async get<E>(
-    entityClass: { new (...args: any[]): E },
+    entityClass: EntityClass<E>,
     id: string
   ): Promise<E | undefined> {
     const tableName = this.getTableName(entityClass)
@@ -194,10 +282,13 @@ class SQLitStoreImpl implements Store {
     return result.rows[0] as E | undefined
   }
 
-  async count<E>(entityClass: { new (...args: any[]): E }, options?: any): Promise<number> {
+  async count<E>(
+    entityClass: EntityClass<E>,
+    options?: FindOptions
+  ): Promise<number> {
     const tableName = this.getTableName(entityClass)
     let sql = `SELECT COUNT(*) as count FROM "${tableName}"`
-    const params: any[] = []
+    const params: QueryParam[] = []
 
     if (options?.where) {
       const conditions: string[] = []
@@ -205,11 +296,17 @@ class SQLitStoreImpl implements Store {
         conditions.push(`"${key}" = ?`)
         params.push(value)
       }
-      sql += ` WHERE ${conditions.join(' AND ')}`
+      if (conditions.length > 0) {
+        sql += ` WHERE ${conditions.join(' AND ')}`
+      }
     }
 
-    const result = await this.client.query(sql, params, this.databaseId)
-    return Number(result.rows[0]?.count || 0)
+    const result = await this.client.query<{ count: number }>(
+      sql,
+      params,
+      this.databaseId
+    )
+    return Number(result.rows[0]?.count ?? 0)
   }
 
   async flush(): Promise<void> {
@@ -220,7 +317,7 @@ class SQLitStoreImpl implements Store {
     this.pendingWrites.clear()
   }
 
-  private async batchUpsert(tableName: string, entities: any[]): Promise<void> {
+  private async batchUpsert(tableName: string, entities: Record<string, unknown>[]): Promise<void> {
     if (entities.length === 0) return
 
     const sample = entities[0]
@@ -228,9 +325,14 @@ class SQLitStoreImpl implements Store {
       k => k !== 'constructor' && !k.startsWith('_')
     )
 
+    if (columns.length === 0) {
+      console.warn(`[SQLitStore] No columns found for ${tableName}`)
+      return
+    }
+
     const quotedCols = columns.map(c => `"${c}"`)
     const placeholders = columns.map(() => '?').join(', ')
-    const values: any[] = []
+    const values: QueryParam[] = []
     const valuesClauses: string[] = []
 
     for (const entity of entities) {
@@ -243,16 +345,23 @@ class SQLitStoreImpl implements Store {
           values.push(val.toISOString())
         } else if (typeof val === 'bigint') {
           values.push(val.toString())
-        } else if (typeof val === 'object' && !Buffer.isBuffer(val)) {
+        } else if (typeof val === 'object' && !Buffer.isBuffer(val) && !(val instanceof Uint8Array)) {
           values.push(JSON.stringify(val))
-        } else {
+        } else if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
           values.push(val)
+        } else if (val instanceof Uint8Array) {
+          values.push(val)
+        } else {
+          // Fallback - stringify unknown types
+          values.push(String(val))
         }
       }
     }
 
     const updateCols = columns.filter(c => c !== 'id')
-    const updateSet = updateCols.map(c => `"${c}" = excluded."${c}"`).join(', ')
+    const updateSet = updateCols.length > 0 
+      ? updateCols.map(c => `"${c}" = excluded."${c}"`).join(', ')
+      : '"id" = excluded."id"' // Fallback if only id column
 
     const sql = `
       INSERT INTO "${tableName}" (${quotedCols.join(', ')})
@@ -263,14 +372,14 @@ class SQLitStoreImpl implements Store {
     try {
       await this.client.exec(sql, values, this.databaseId)
       console.log(`[SQLitStore] Saved ${entities.length} ${tableName} records`)
-    } catch (error: any) {
-      console.error(`[SQLitStore] Failed to save ${tableName}:`, error.message)
+    } catch (error) {
+      console.error(`[SQLitStore] Failed to save ${tableName}:`, error)
       // Don't throw - continue processing other tables
     }
   }
 
-  private getTableName(entityClass: any): string {
-    const name = entityClass.name || 'unknown'
+  private getTableName<E>(entityClass: EntityClass<E>): string {
+    const name = entityClass.name ?? 'unknown'
     return name
       .replace(/([a-z\d])([A-Z])/g, '$1_$2')
       .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')

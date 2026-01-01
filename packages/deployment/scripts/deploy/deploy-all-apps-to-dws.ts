@@ -161,6 +161,49 @@ interface UploadResult {
   staticFiles: Record<string, string>
 }
 
+// Retry helper with exponential backoff
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+  baseDelayMs = 1000
+): Promise<Response> {
+  let lastError: Error | null = null
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000) // 60s timeout
+      
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      })
+      
+      clearTimeout(timeoutId)
+      
+      // Retry on server errors (502, 503, 504)
+      if (response.status >= 502 && response.status <= 504 && attempt < maxRetries - 1) {
+        const delay = baseDelayMs * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        continue
+      }
+      
+      return response
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      
+      // Only retry on network errors, not aborts
+      if (attempt < maxRetries - 1 && lastError.name !== 'AbortError') {
+        const delay = baseDelayMs * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+  
+  throw lastError ?? new Error('All retry attempts failed')
+}
+
 async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: string): Promise<UploadResult | null> {
   const buildDir = manifest.decentralization?.frontend?.buildDir || 'dist'
   const distPath = join(appDir, buildDir)
@@ -180,7 +223,7 @@ async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: strin
     const uploadedFiles: { path: string; cid: string; size: number }[] = []
     const staticFiles: Record<string, string> = {}
     
-    // Upload each file individually (DWS storage expects single 'file' field)
+    // Upload each file individually with retry
     for (const file of files) {
       const filePath = join(distPath, file)
       const fileContent = readFileSync(filePath)
@@ -190,17 +233,21 @@ async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: strin
       formData.append('tier', 'popular')
       formData.append('category', 'app')
 
-      const response = await fetch(`${dwsUrl}/storage/upload`, {
-        method: 'POST',
-        body: formData,
-      })
+      try {
+        const response = await fetchWithRetry(`${dwsUrl}/storage/upload`, {
+          method: 'POST',
+          body: formData,
+        })
 
-      if (response.ok) {
-        const result = await response.json() as { cid: string }
-        uploadedFiles.push({ path: file, cid: result.cid, size: fileContent.length })
-        staticFiles[file] = result.cid
-      } else {
-        console.warn(`[${manifest.name}] Failed to upload ${file}: ${response.status}`)
+        if (response.ok) {
+          const result = await response.json() as { cid: string }
+          uploadedFiles.push({ path: file, cid: result.cid, size: fileContent.length })
+          staticFiles[file] = result.cid
+        } else {
+          console.warn(`[${manifest.name}] Failed to upload ${file}: ${response.status}`)
+        }
+      } catch (error) {
+        console.warn(`[${manifest.name}] Failed to upload ${file}: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
@@ -217,13 +264,13 @@ async function uploadToIPFS(appDir: string, manifest: AppManifest, dwsUrl: strin
       uploadedAt: Date.now(),
     }
 
-    // Upload manifest and use its CID as the root
+    // Upload manifest with retry
     const manifestFormData = new FormData()
     manifestFormData.append('file', new Blob([JSON.stringify(manifestData, null, 2)]), 'manifest.json')
     manifestFormData.append('tier', 'popular')
     manifestFormData.append('category', 'app')
 
-    const manifestResponse = await fetch(`${dwsUrl}/storage/upload`, {
+    const manifestResponse = await fetchWithRetry(`${dwsUrl}/storage/upload`, {
       method: 'POST',
       body: manifestFormData,
     })
@@ -296,7 +343,7 @@ async function deployDWSWorker(
       return null
     }
 
-    // Step 2: Upload bundle to IPFS
+    // Step 2: Upload bundle to IPFS with retry
     console.log(`   Uploading worker bundle to IPFS...`)
     const bundleContent = readFileSync(bundlePath)
     const formData = new FormData()
@@ -304,10 +351,16 @@ async function deployDWSWorker(
     formData.append('tier', 'compute')
     formData.append('category', 'worker')
 
-    const uploadResponse = await fetch(`${dwsUrl}/storage/upload`, {
-      method: 'POST',
-      body: formData,
-    })
+    let uploadResponse: Response
+    try {
+      uploadResponse = await fetchWithRetry(`${dwsUrl}/storage/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+    } catch (error) {
+      console.error(`   Failed to upload worker: ${error instanceof Error ? error.message : String(error)}`)
+      return null
+    }
 
     if (!uploadResponse.ok) {
       console.error(`   Failed to upload worker: ${uploadResponse.status}`)
@@ -343,15 +396,27 @@ async function deployDWSWorker(
     // Create authenticated headers
     const authHeaders = await createAuthHeaders()
     
-    const registerResponse = await fetch(`${dwsUrl}/workerd`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify(workerData),
-    })
+    let registerResponse: Response
+    try {
+      registerResponse = await fetchWithRetry(`${dwsUrl}/workerd`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify(workerData),
+      })
+    } catch (error) {
+      console.error(`   Failed to register worker (network error): ${error instanceof Error ? error.message : String(error)}`)
+      return null
+    }
 
     if (!registerResponse.ok) {
       const text = await registerResponse.text()
-      console.error(`   Failed to register worker: ${registerResponse.status} ${text}`)
+      // Check if it's a WAF block (HTML response)
+      if (text.includes('403 Forbidden') || text.includes('<html>')) {
+        console.error(`   Worker registration blocked by WAF - run 'terraform apply' in packages/deployment/terraform/`)
+        console.error(`   Or deploy to localnet first: NETWORK=localnet bun run deploy`)
+      } else {
+        console.error(`   Failed to register worker: ${registerResponse.status} ${text}`)
+      }
       return null
     }
 
@@ -504,8 +569,8 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
 async function main() {
   const args = process.argv.slice(2)
   
-  // Parse --network arg
-  let networkArg = 'testnet'
+  // Parse --network arg (command line takes precedence, then env vars, then default)
+  let networkArg: string | undefined
   const networkIdx = args.indexOf('--network')
   if (networkIdx !== -1 && args[networkIdx + 1] && !args[networkIdx + 1].startsWith('--')) {
     networkArg = args[networkIdx + 1]
@@ -513,7 +578,8 @@ async function main() {
     const networkEq = args.find(a => a.startsWith('--network='))
     if (networkEq) networkArg = networkEq.split('=')[1]
   }
-  networkArg = networkArg || process.env.JEJU_NETWORK || 'testnet'
+  // Check env vars if no command line arg
+  networkArg = networkArg || process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet'
   
   // Parse --app or --apps arg
   let appArg: string | undefined
